@@ -80,8 +80,8 @@ import { DynamicViewValidationMessage } from "../../data/DynamicView";
 //    CLAUDE.md); the Button designer reads `getOperationInfos(ctor)`.
 //  - `getAllTypes()` → `getRegisteredTypes()` (constructors, so names come from `cleanTypeName`).
 //  - `tr.isCollection` → `type.array`; `tr.isEmbedded` → `type.is(EmbeddedEntity)`; `tr.name` →
-//    `type.getTypeName()`; `ti.isLowPopulation` → `ti.lowPopulation`; `mi.notVisible` has no counterpart, so
-//    `appropiateComponent` skips only `id`.
+//    `type.getTypeName()`; `ti.isLowPopulation` → `ti.lowPopulation`; `mi.notVisible` is
+//    `FieldInfo.notVisible`, which `appropiateComponent` skips as Signum does.
 //  - `mi.defaultFileTypeInfo.onlyImages` (Signum ships per-field file metadata to the client) has no
 //    counterpart either, so a FilePath field always gets a `FileLine`; switch it to `FileImageLine` in the
 //    designer when the field holds images.
@@ -1681,20 +1681,21 @@ export namespace NodeConstructor {
     } = {};
 
     /**
-     * Pick the node kind that fits a field. Kept case for case; the only
-     * behavioural differences are the two facets altea does not ship to the client (`mi.notVisible` and
-     * `mi.defaultFileTypeInfo.onlyImages`), so nothing is hidden automatically and a FilePath field starts
-     * as a FileLine rather than a FileImageLine.
+     * Pick the node kind that fits a field. Kept case for case; the one behavioural difference is
+     * `mi.defaultFileTypeInfo.onlyImages`, which altea does not ship to the client — so a FilePath field
+     * starts as a FileLine rather than a FileImageLine.
      */
     export const appropiateComponent = (fi: FieldInfo, field: string): BaseNode | undefined => {
-        // Skips `id` and the bookkeeping props (`isNew` / `ticks` / `_snapshot`), which are marked
-        // `@serialize(false)` — the same set PropertyRoute's own route generation skips. Without this a
-        // generated tree renders three AutoLines over internals that have no PropertyRoute, which fails
-        // at render time.
+        // Skips `id`, the bookkeeping props (`isNew` / `ticks` / `_snapshot`, marked `@serialize(false)` —
+        // the same set PropertyRoute's own route generation skips) and anything a client start marked
+        // `notVisible`. Signum skips the first two groups too.
         //
-        // GAP: Signum ALSO skips a `notVisible` member. `FieldInfo.notVisible` exists here (it landed with
-        // @altea/altea-tree), so one is still offered as a node — see docs/port/Dynamic.md.
-        if (field === "id" || fi.noSerialize)
+        // The `@serialize(false)` half is load-bearing rather than cosmetic: those internals have no
+        // PropertyRoute, so a generated tree containing them fails at RENDER time. `notVisible` is the
+        // cosmetic half, and this is the third place to honour it after `AutoComponent` (the
+        // auto-generated view) and `EntityTable`'s default columns — a field an app declared an
+        // implementation detail should not be offered as a node either.
+        if (field === "id" || fi.noSerialize || fi.notVisible)
             return undefined;
 
         // altea's FieldInfo EXTENDS TypeReference (CLAUDE.md), so the field IS the type descriptor:

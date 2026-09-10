@@ -9,6 +9,7 @@ import * as Reflection from "@altea/altea/data/reflection";
 import { Navigator } from "@altea/altea/client/Navigator";
 import * as Components from "@altea/altea/client/Components";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
+import { TreeClient } from "@altea/altea-tree/client/TreeClient";
 import * as Services from "@altea/altea/client/Services";
 import * as AutoCompleteConfig from "@altea/altea/client/Lines/AutoCompleteConfig";
 import * as Hooks from "@altea/altea/client/Hooks";
@@ -24,11 +25,16 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 //  - `luxon` becomes `Temporal` (the date/time substrate — see CLAUDE.md). The key is renamed rather
 //    than aliased: `modules.luxon.DateTime` would resolve to something with a different API, and a silent
 //    wrong answer is worse than a missing key.
-//  - `TreeClient` is NOT offered, so a Signum view that reaches for it does not resolve. @altea/altea-tree
-//    IS ported; adding the key would make this package depend on it, which is the open question — see
-//    docs/port/Dynamic.md.
-//  - `Navigator` / `Finder` / `Operations` / `AuthClient` are NAMESPACE objects here (Signum exports
-//    some of these as modules and some as namespaces); the shape a snippet sees is the same either way.
+//  - `Navigator` / `Finder` / `Operations` / `AuthClient` / `TreeClient` are NAMESPACE objects here
+//    (Signum exports some of these as modules and some as namespaces); the shape a snippet sees is the
+//    same either way.
+//
+// The list is FIXED, as Signum's is, so each key is a static dependency of this package —
+// `@altea/altea-auth` and `@altea/altea-tree` among them, both optional modules an app may not install.
+// That is the trade the API surface asks for: the keys have to be Signum's for a pasted view to resolve,
+// and a key that appears only when its module happens to be installed is a worse contract than a key that
+// is always there. This package already reaches across for the admin surface (auth, eval, files,
+// isolation, codemirror, migrations), so tree is in company rather than exceptional.
 export const globalModules: Record<string, unknown> = {
     Temporal,
     React,
@@ -42,6 +48,7 @@ export const globalModules: Record<string, unknown> = {
     Operations,
     Constructor,
     Services,
+    TreeClient,
     AutoCompleteConfig,
     Hooks,
     SelectorModal,

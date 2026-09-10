@@ -221,14 +221,12 @@ written against Signum load here. Divergences are in what a node reaches for:
 > panel search registry, and `client/View/FieldExpression.ts` on `getExpression`. All three re-homings are
 > right; the reason is not. TypeHelp is what does not port, and this module owns the admin pages.
 >
-> And `client/View/GlobalModules.ts` said "`TreeClient` is dropped: Signum.Tree is not ported".
-> @altea/altea-tree IS ported, so a Signum dynamic view reaching for `modules.TreeClient` fails for a
-> reason that no longer exists. **The key is still not offered** — adding it would make altea-dynamic
-> depend on altea-tree, which is a dependency question rather than a comment one — but the header now says
-> that instead.
+> Two of them were parity gaps rather than only wrong sentences, and both are now CLOSED:
 >
-> One more, elsewhere and smaller: `client/View/Nodes.tsx`'s `appropiateComponent` said "altea has no
-> notVisible". `FieldInfo.notVisible` landed in `altea/data/reflection.ts` with the altea-tree port. **The
-> code is left as it is** — it skips `id` and `@serialize(false)` members, which is what it needs to do —
-> but Signum skips `notVisible` too, so offering a `@notVisible` field as a node is a real (small) parity
-> gap, and the comment now names it as one rather than denying the seam exists.
+> - `client/View/GlobalModules.ts` said "`TreeClient` is dropped: Signum.Tree is not ported". The key is
+>   offered now, and `@altea/altea-tree` is a static dependency of this package — as `@altea/altea-auth` is
+>   for `AuthClient`, and as Signum's own `GlobalModules` imports `TreeClient` directly. See
+>   [OpenQuestions.md](OpenQuestions.md) §2.2 for the registration-seam alternative and why it lost.
+> - `client/View/Nodes.tsx`'s `appropiateComponent` said "altea has no notVisible", where
+>   `FieldInfo.notVisible` had landed with the altea-tree port. It skips `notVisible` now, making the
+>   designer the third consumer after `AutoComponent` and `EntityTable`'s default columns.

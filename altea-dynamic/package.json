@@ -18,6 +18,7 @@
   "dependencies": {
     "@altea/altea": "workspace:*",
     "@altea/altea-auth": "workspace:*",
+    "@altea/altea-tree": "workspace:*",
     "@altea/altea-codemirror": "workspace:*",
     "@altea/altea-migrations": "workspace:*",
     "quote-transformer": "workspace:*",

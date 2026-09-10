@@ -66,35 +66,45 @@ like an omission.
 
 ---
 
-## 2. Parity gaps left as code, on purpose
+## 2. Parity gaps whose stated reason had expired
 
-Three places where the comment's *reason* had expired but the *code* is a judgement call I did not want to
-make blind. In each the comment now names the gap instead of denying the seam exists; the decision is open.
+Three places where the comment's *reason* had expired. Two are now CLOSED; the third is a decision that
+still needs the app running.
 
-### 2.1 A `@notVisible` member is offered as a dynamic-view node
+### 2.1 ~~A `@notVisible` member is offered as a dynamic-view node~~ — FIXED
 
-**`altea-dynamic/client/View/Nodes.tsx:1695`.** `appropiateComponent` skips `id` and `@serialize(false)`
-members. Signum skips those **and** anything `notVisible`. The comment used to say "altea has no
-notVisible"; `FieldInfo.notVisible` landed in `altea/data/reflection.ts:350` with the altea-tree port.
+`altea-dynamic`'s `appropiateComponent` skipped `id` and `@serialize(false)` members but not `notVisible`,
+where Signum skips all three. The comment said "altea has no notVisible"; `FieldInfo.notVisible` had landed
+with the altea-tree port, on the COMPILE-TIME descriptor, so the client has it.
 
-The fix is one predicate (`fi.noSerialize || fi.notVisible`). I left it because it changes what the designer
-offers, and "what the designer offers" is worth a deliberate call rather than a drive-by.
+It skips `notVisible` now, which makes the view designer the third consumer to honour it after
+`AutoComponent` (the auto-generated view) and `EntityTable`'s default columns — the two the core seam was
+added for. Two further mentions of the same expired claim, in that file's module header and in
+`appropiateComponent`'s own doc comment, went with it.
 
-**TODO:** add `notVisible` to the skip, or record why altea deliberately offers what Signum hides.
+The two halves of the predicate are not the same kind of rule, which is worth keeping straight: skipping
+`@serialize(false)` is **load-bearing** (those internals have no PropertyRoute, so a generated tree
+containing them fails at RENDER time), while `notVisible` is cosmetic — a field an app declared an
+implementation detail.
 
-### 2.2 `modules.TreeClient` is not offered to interpreted views
+### 2.2 ~~`modules.TreeClient` is not offered to interpreted views~~ — FIXED
 
-**`altea-dynamic/client/View/GlobalModules.ts:27`.** The header said "`TreeClient` is dropped: Signum.Tree
-is not ported." @altea/altea-tree **is** ported, so a Signum dynamic view reaching for `modules.TreeClient`
-fails for a reason that no longer exists.
+The header said "`TreeClient` is dropped: Signum.Tree is not ported", so a Signum dynamic view reaching for
+`modules.TreeClient` failed for a reason that had stopped being true.
 
-The key is still not offered, and that is the actual question: adding it makes altea-dynamic depend on
-altea-tree. `globalModules` is the API surface an interpreted view writes against, and keeping the KEYS
-identical to Signum's is what lets a Signum view paste in and resolve — which argues for adding it. Against:
-a dependency from the "define the app from the app" module onto an optional feature module.
+**The key is offered now, and the dependency is real and static** — `@altea/altea-tree` added to
+altea-dynamic's package.json and to its client project references. That follows Signum, which imports
+`TreeClient` into `GlobalModules` directly, and this package's own precedent: it already reaches statically
+across to `@altea/altea-auth` for `AuthClient`, plus eval, files, isolation, codemirror and migrations. The
+admin surface is what this module IS.
 
-**TODO:** decide the dependency. If yes, the key is a one-line addition; if no, the header should say the
-dependency is the reason, which it now does.
+The alternative considered and rejected was a registration seam (`registerGlobalModule`, filled by
+altea-tree's own `start`), which would have inverted the dependency. It loses the property that makes
+`globalModules` work at all: the keys are an API surface a pasted Signum view resolves against, and a key
+that exists only when its module happens to be installed is a worse contract than one that is always there.
+
+No cycle: altea-dynamic's transitive closure is 14 packages and none of them reaches back to it. Verified in
+the running client — `globalModules` has 17 keys, `TreeClient` among them with its real members.
 
 ### 2.3 altea-workflow's Finder tokens are camelCase literals
 
