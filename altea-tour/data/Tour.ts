@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, part, primaryKey, uniqueIndex, implementedBy, quoted, backReference, rowOrder,
+    entity, part, primaryKey, uniqueIndex, implementedBy, quoted, backReference, rowOrder, translatable,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, noRepeatValidator } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
@@ -66,7 +66,7 @@ export class TourStepEntity extends Entity {
 
     @rowOrder order: int;
 
-    /** NOT `@translatable`, where Signum marks it so — see the known gap in docs/port/Tour.md. */
+    @translatable
     @stringLengthValidator({ max: 200 })
     title: string;
 
@@ -74,7 +74,9 @@ export class TourStepEntity extends Entity {
     @noRepeatValidator()
     cssSteps: CssStepEntity[];
 
-    /** Markdown — the client renders it through micromark. NOT `@translatable`; see Tour.md. */
+    /** Markdown — the client renders it through micromark. `@translatable` as plain TEXT, not Html: the
+     *  stored value is markdown source, which the translation editor should show as-is. */
+    @translatable
     @stringLengthValidator({ multiLine: true })
     description: string;
 

@@ -83,15 +83,17 @@ file round-trips.
 **A `ToolbarContent` pointing at a PermissionSymbol is not supported**: altea's `CssStepEntity` declares
 `@implementedBy(QueryEntity)` only, matching what the tour editor can actually pick.
 
-## Known gap: a step's text is not translatable
+## A step's text IS translatable (fixed)
 
-Signum marks `TourStepEntity.Title` and `.Text` `[Translatable]`, so a tour can be authored once and
-translated per instance. **altea marks neither**, and nothing calls
-`PropertyRouteTranslationLogic.registerRouteFor` for them either — so a tour reads in the language it was
-written in whatever the UI culture is.
+`TourStepEntity.title` and `.description` carry `@translatable`, matching Signum's `[Translatable]` on
+both. They had been missed: neither field was marked and nothing registered the routes manually, so a tour
+read in the language it was written in whatever the UI culture was — while a comment claimed the
+translations registry handled it.
 
-Core has the machinery (`@translatable` on the compile-time FieldInfo, used by altea-user-queries'
-`displayName` / `description`), so closing this is a two-decorator change plus the routes it adds to the
-translatable registry. It is additive — a `TranslatedInstance` row is per route, so nothing existing moves
-— but it is a behaviour change rather than a documentation one, which is why it is recorded here instead
-of being made in passing.
+Both are plain **Text**, not Html — bare `[Translatable]` in Signum, and `description` holds MARKDOWN
+SOURCE, which the translation editor should show as-is rather than through a rich editor.
+
+Nothing else was needed: `PropertyRouteTranslationLogic.start` scans every included type's routes for the
+decorator on `schemaCompleted`, so the two routes register themselves once @altea/altea-translations is
+installed. The change is additive — a `TranslatedInstance` row is per route, so no existing row moves —
+and an app that does not install that module is unaffected, since the registry only activates there.
