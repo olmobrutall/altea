@@ -10,7 +10,8 @@
     }
   },
   "scripts": {
-    "build": "tspc -b"
+    "build": "tspc -b",
+    "test": "tspc -b && node --enable-source-maps --import @altea/altea/register.mjs --test \"dist/test/**/*.test.js\""
   },
   "keywords": [],
   "author": "Olmo del Corral",

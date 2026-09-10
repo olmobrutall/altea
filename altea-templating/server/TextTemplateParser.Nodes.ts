@@ -16,6 +16,24 @@ import type { TemplateSynchronizationContext } from "./TemplateSync";
 //
 // There is no "already-encoded" marker for a single value — use `@raw[…]` to opt one out of escaping.
 
+/**
+ * Signum's `using (sc.NewScope())` — run `body` with a fresh variable scope pushed.
+ *
+ * A block keyword takes TWO of these. The INNER one is the BODY's, and mirrors the `newVars` `write`
+ * builds around the same block. The OUTER one contains the KEYWORD's own provider:
+ * `@foreach[$d.Details] as $e` is a ContinueValueProvider whose `synchronize` DECLARES `$e`, and `write`
+ * has no counterpart of that declaration — so without it `$e` would stay visible past the
+ * `@endforeach`, and a later `$e.X` would be simplified against a variable not in scope where it prints.
+ */
+async function withScope(sc: TemplateSynchronizationContext, body: () => Promise<void>): Promise<void> {
+    const scope = sc.newScope();
+    try {
+        await body();
+    } finally {
+        scope.dispose();
+    }
+}
+
 /** The placeholder a control node prints in place of itself, so the whitespace/markup it sat on can be
  *  cleaned up afterwards. */
 export const emptyPlaceholder = "(∅)";
@@ -193,15 +211,14 @@ export class ForeachNode extends TextNode {
     // The provider is fixed OUTSIDE the new scope and declared INSIDE it, exactly as `write` does — the
     // `as $d` it introduces is visible to the body and to nothing after `@endforeach`.
     override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
-        await this.valueProvider!.synchronize(sc, "@foreach[]");
+        await withScope(sc, async () => {
+            await this.valueProvider!.synchronize(sc, "@foreach[]");
 
-        const scope = sc.newScope();
-        try {
-            this.valueProvider!.declare(sc.variables);
-            await this.block.synchronize(sc);
-        } finally {
-            scope.dispose();
-        }
+            await withScope(sc, async () => {
+                this.valueProvider!.declare(sc.variables);
+                await this.block.synchronize(sc);
+            });
+        });
     }
 }
 
@@ -261,20 +278,19 @@ export class AnyNode extends TextNode {
     // One scope per BLOCK, as `write` gives each one its own `newVars` — the condition's `as $x` is
     // visible in both halves, and in neither after `@endany`.
     override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
-        await this.condition.synchronize(sc, "@any[]");
+        await withScope(sc, async () => {
+            await this.condition.synchronize(sc, "@any[]");
 
-        for (const block of [this.anyBlock, this.notAnyBlock]) {
-            if (block == undefined)
-                continue;
+            for (const block of [this.anyBlock, this.notAnyBlock]) {
+                if (block == undefined)
+                    continue;
 
-            const scope = sc.newScope();
-            try {
-                this.condition.declare(sc.variables);
-                await block.synchronize(sc);
-            } finally {
-                scope.dispose();
+                await withScope(sc, async () => {
+                    this.condition.declare(sc.variables);
+                    await block.synchronize(sc);
+                });
             }
-        }
+        });
     }
 }
 
@@ -361,26 +377,25 @@ export class IfNode extends TextNode {
     // Each branch carries its OWN condition and its own scope, and `@else` re-declares the `if`'s — all
     // three exactly as `write` lays them out.
     override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
-        await this.condition.synchronize(sc, "@if[]");
-        await this.inScope(sc, this.condition, this.ifBlock);
+        await withScope(sc, async () => {
+            await this.condition.synchronize(sc, "@if[]");
+            await this.inScope(sc, this.condition, this.ifBlock);
 
-        for (const { condition, block } of this.elseIfBranches) {
-            await condition.synchronize(sc, "@elseif[]");
-            await this.inScope(sc, condition, block);
-        }
+            for (const { condition, block } of this.elseIfBranches) {
+                await condition.synchronize(sc, "@elseif[]");
+                await this.inScope(sc, condition, block);
+            }
 
-        if (this.elseBlock != undefined)
-            await this.inScope(sc, this.condition, this.elseBlock);
+            if (this.elseBlock != undefined)
+                await this.inScope(sc, this.condition, this.elseBlock);
+        });
     }
 
-    private async inScope(sc: TemplateSynchronizationContext, condition: ConditionBase, block: BlockNode): Promise<void> {
-        const scope = sc.newScope();
-        try {
+    private inScope(sc: TemplateSynchronizationContext, condition: ConditionBase, block: BlockNode): Promise<void> {
+        return withScope(sc, async () => {
             condition.declare(sc.variables);
             await block.synchronize(sc);
-        } finally {
-            scope.dispose();
-        }
+        });
     }
 }
 

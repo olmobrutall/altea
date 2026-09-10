@@ -24,6 +24,7 @@ import type { ResultRow } from "@altea/altea/server/dynamicQuery/resultTable";
 import type { ConditionBase } from "@altea/altea-templating/server/Conditions";
 import { scapeColon, ScopedDictionary } from "@altea/altea-templating/server/TemplateUtils";
 import type { KeywordMatch } from "@altea/altea-templating/server/TemplateUtils";
+import type { TemplateSynchronizationContext } from "@altea/altea-templating/server/TemplateSync";
 import { OxmlElement, OxmlText, type OxmlNode, type XmlTextWriter } from "./oxml/OxmlElement";
 import type { INodeProvider } from "./NodeProviders";
 import { SpreadsheetNodeProvider } from "./NodeProviders";
@@ -86,6 +87,31 @@ export class MatchNode extends OxmlElement {
     override toString(): string { return "Match " + this.matchText; }
 }
 
+/**
+ * Signum's `using (sc.NewScope())`: run `body` in a fresh variable scope, having first published
+ * `declarer`'s own `$name` into it when there is one.
+ *
+ * A block keyword takes TWO of these, as Signum does. The INNER one is the BODY's, and mirrors the
+ * `newVars` `renderTemplate` builds around the same block. The OUTER one contains the KEYWORD's own
+ * provider: `@foreach[$d.Details] as $e` is a ContinueValueProvider whose `synchronize` DECLARES `$e`,
+ * and `renderTemplate` has no counterpart of that declaration — so without the outer scope `$e` would
+ * stay visible past the `@endforeach`, and a later `$e.X` would be simplified against a variable that is
+ * not in scope where it prints.
+ */
+async function inScope(
+    sc: TemplateSynchronizationContext,
+    declarer: { declare(variables: ScopedDictionary<ValueProviderBase>): void } | undefined,
+    body: () => Promise<void>,
+): Promise<void> {
+    const scope = sc.newScope();
+    try {
+        declarer?.declare(sc.variables);
+        await body();
+    } finally {
+        scope.dispose();
+    }
+}
+
 // ---- BaseNode ------------------------------------------------------------------------------------------
 
 /** Everything the renderer walks and replaces. */
@@ -117,6 +143,21 @@ export abstract class BaseNode extends OxmlElement {
 
     /** Write this node back as literal template TEXT — the inverse of parsing, for the template editor. */
     abstract renderTemplate(variables: ScopedDictionary<ValueProviderBase>): void;
+
+    /**
+     * Repair every token this node names, against the recorded renames — Signum's `Synchronize`, and the
+     * DOCUMENT half of the token migration (@altea/altea-templating's `TemplateSync` is the text half).
+     *
+     * Scoping MIRRORS `renderTemplate`, for the reason it does there: `renderTemplate` is what turns these
+     * nodes back into template text, so a node synchronised under a different scope than it prints under
+     * would rewrite a `$var` into one that is not in scope there.
+     *
+     * NOTE the DRIVER's sweep reaches only the TOP-LEVEL nodes, so a container's recursion is the ONLY
+     * way its body is reached — and therefore the only scoping there is. A block container moves its body
+     * into a BlockNode that is NOT its child in the document tree (`writeTo` appends it for the duration
+     * of a write and takes it back out), so `root.descendantsOfType(BaseNode)` stops at the container.
+     */
+    abstract synchronize(sc: TemplateSynchronizationContext): Promise<void>;
 
     abstract override cloneNode(deep: boolean): BaseNode;
 
@@ -242,6 +283,14 @@ export class TokenNode extends BaseNode {
         this.replaceBy(this.nodeProvider.newRun(this.runProperties?.cloneNode(true), sb.join("")));
     }
 
+    // The DECLARE is Signum's, and only the Word half does it: a `@[Token] as $x` binds `$x` for its
+    // siblings. `renderTemplate` does not (Signum's does not either), which is safe in this direction —
+    // an unresolvable `$x` simply prints as the full token key rather than the short form.
+    override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
+        await this.valueProvider.synchronize(sc, "@");
+        this.valueProvider.declare(sc.variables);
+    }
+
     override cloneNode(_deep: boolean): TokenNode {
         const copy = new TokenNode(this.nodeProvider, this.valueProvider, this.format);
         this.copyBaseInto(copy);
@@ -332,6 +381,10 @@ export class DeclareNode extends BaseNode {
         this.valueProvider.declare(variables);
     }
 
+    override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
+        await this.valueProvider.synchronize(sc, "@declare");
+    }
+
     override cloneNode(_deep: boolean): DeclareNode {
         const copy = new DeclareNode(this.nodeProvider, this.valueProvider, () => { });
         this.copyBaseInto(copy);
@@ -373,6 +426,11 @@ export class BlockNode extends BaseNode {
     override renderTemplate(variables: ScopedDictionary<ValueProviderBase>): void {
         for (const item of this.descendantsOfType(BaseNode))
             item.renderTemplate(variables);
+    }
+
+    override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
+        for (const item of this.descendantsOfType(BaseNode))
+            await item.synchronize(sc);
     }
 
     override cloneNode(_deep: boolean): BlockNode {
@@ -583,6 +641,14 @@ export class ForeachNode extends BlockContainerNode {
         parent.insertAt(BlockContainerNode.replaceMatchNode(this.endForeachToken, "@endforeach"), index++);
     }
 
+    override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
+        await inScope(sc, undefined, async () => {
+            await this.valueProvider.synchronize(sc, "@foreach");
+
+            await inScope(sc, this.valueProvider, () => this.foreachBlock!.synchronize(sc));
+        });
+    }
+
     override cloneNode(_deep: boolean): ForeachNode {
         const copy = new ForeachNode(this.nodeProvider, this.valueProvider);
         this.copyBaseInto(copy);
@@ -695,6 +761,18 @@ export class AnyNode extends BlockContainerNode {
         }
 
         parent.insertAt(BlockContainerNode.replaceMatchNode(this.endAnyToken, "@endany"), index++);
+    }
+
+    override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
+        await inScope(sc, undefined, async () => {
+            await this.condition.synchronize(sc, "@any");
+
+            // Both branches see the condition's own `$var`, exactly as `renderTemplate` re-declares it.
+            await inScope(sc, this.condition, () => this.anyBlock!.synchronize(sc));
+
+            if (this.notAnyBlock != null)
+                await inScope(sc, this.condition, () => this.notAnyBlock!.synchronize(sc));
+        });
     }
 
     override cloneNode(_deep: boolean): AnyNode {
@@ -853,6 +931,23 @@ export class IfNode extends BlockContainerNode {
         }
 
         parent.insertAt(BlockContainerNode.replaceMatchNode(this.endIfToken, "@endif"), index++);
+    }
+
+    // Each branch carries its OWN condition and its own scope, and `@else` re-declares the `if`'s — all
+    // three exactly as `renderTemplate` lays them out.
+    override async synchronize(sc: TemplateSynchronizationContext): Promise<void> {
+        await inScope(sc, undefined, async () => {
+            await this.condition.synchronize(sc, "@if");
+            await inScope(sc, this.condition, () => this.ifBlock!.synchronize(sc));
+
+            for (const b of this.elseIfBranches) {
+                await b.condition.synchronize(sc, "@elseif");
+                await inScope(sc, b.condition, () => b.block!.synchronize(sc));
+            }
+
+            if (this.elseBlock != null)
+                await inScope(sc, this.condition, () => this.elseBlock!.synchronize(sc));
+        });
     }
 
     override cloneNode(_deep: boolean): IfNode {

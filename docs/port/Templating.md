@@ -109,9 +109,16 @@ aborts the parse and leaves a tree that is a PREFIX of the template; writing tha
 somebody's template rather than repair it. `test/templateRoundTrip.test.ts` pins that, and the parse →
 `write` round trip it rests on.
 
-**Office documents are still open**: an office template's tokens live in the .docx/.pptx/.xlsx bytes, which
-Signum walks with the same context over a different tree. See
-[OpenQuestions.md](OpenQuestions.md) §3.1.
+**Office documents go through the same context over a DIFFERENT tree** — an office template's tokens live
+in the .docx/.pptx/.xlsx bytes, so @altea/altea-office-template gives each of its own nodes a
+`synchronize` and walks them from `OfficeTemplateTokenSync`. See
+[OfficeTemplate.md](OfficeTemplate.md).
+
+One fidelity fix went back into the text nodes when the office half was written: a block keyword takes TWO
+scopes, as Signum's does, and altea's text nodes had only the inner one. The outer scope holds the
+KEYWORD's own provider — `@foreach[$d.Details] as $e` is a ContinueValueProvider whose `synchronize`
+DECLARES `$e`, and `write` has no counterpart of that declaration, so without it `$e` stayed visible past
+the `@endforeach`.
 
 ## Smaller divergences
 

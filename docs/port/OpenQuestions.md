@@ -202,7 +202,7 @@ key is legitimate there and those assertions are right.
 
 ## 3. Unfinished work whose blockers have landed
 
-### 3.1 ~~The template body-text token pass~~ — PORTED (text templates; office documents still open)
+### 3.1 ~~The template body-text token pass~~ — PORTED (text templates AND office documents)
 
 When a query token is renamed, a template's stored **query** tokens — filters, orders, the From token —
 were repaired by the subscriber in each template module, but its **body** was not: `@[Customer.Name]`,
@@ -261,15 +261,26 @@ DB-free, and the way it gets there is the point: a token that fails to resolve i
 unregistered query name yields a complete tree full of unresolved tokens — precisely the state a stale
 template is in.
 
-#### Still open: office documents
+#### Office documents — also ported
 
 An office template's `@[Customer.Name]` lives in the .docx/.pptx/.xlsx bytes, and Signum walks those with
-the same context over a DIFFERENT tree (`WordTemplateNodes.cs`'s own `Synchronize` per node). The context
-and the providers are shared and now exist, so what is missing is that module's node walk over OOXML runs.
-`altea-office-template/server/OfficeTemplateTokenSync.ts` records it.
+the same context over a DIFFERENT tree (`WordTemplateNodes.cs`'s own `Synchronize` per node). That walk is
+now `OfficeTemplateNodes`' `synchronize` on each of the six node classes, driven by
+`OfficeTemplateTokenSync.synchronizeDocument` — which also brought Signum's THIRD pass with it, the file
+name (itself a text template). The repaired bytes go back onto the SAME FileEntity row
+(`file.allowChange = true`), one of the three places Signum lifts immutability per instance.
 
-**TODO:** port the office node walk. Its prerequisites are now genuinely in place — which is worth saying
-plainly, because that sentence was written twice before about this item and was not true either time.
+Two things fell out of writing it:
+
+- **the text half was missing a scope.** A block keyword takes TWO, as Signum's does, and altea's text
+  nodes had only the inner one — so a `@foreach[$d.Details] as $e`, whose provider DECLARES `$e` while
+  synchronizing, leaked `$e` past the `@endforeach`. Fixed in both halves.
+- **a claim I wrote in the same turn was wrong and is corrected.** The first version of the node comment
+  said a nested node is visited TWICE — once by the driver's sweep, once by its container recursing — on
+  the strength of Signum's shape. It cannot be: `replaceBlock` moves a keyword's body into a BlockNode
+  that is NOT its child in the document tree, so the driver's `descendantsOfType(BaseNode)` stops at the
+  container. Probed, then asserted in the suite (each token asked exactly once) rather than reasoned about
+  a second time.
 
 ### 3.2 ~~The `TODO(port)` block in `altea/client/Finder.tsx`~~ — TRIAGED
 
@@ -350,6 +361,7 @@ evidence for §5, and a record so the same sentence is not re-derived from `old/
 | altea-toolbar | `ToolbarXml` is "a plain rebuild … rows carry no identity beyond `guid`" | it uses `syncRows`, matching BY ID |
 | altea-templating | `@[t:…]` "needs Signum's PropertyRouteTranslationLogic, which altea has no counterpart for" | `altea/server/propertyRouteTranslation.ts` exists |
 | altea-templating | the body-text sync pass is impossible (no TokenMigrations) | every prerequisite had landed — see §3.1 |
+| altea-office-template | a nested node is visited TWICE, by the driver and by its container | a container's body is detached from the tree, so the driver never reaches it — mine, corrected in the same turn |
 | altea-auth | `AuthLogic`: "lands in Phase 4" | it had landed |
 | altea-auth | `AuthLogic`: `withDisabled` "is a NO-OP until the authorization engine exists" | 20 lines above a body documenting it suppressing the row filter, the save gate and `isAllowedFor` |
 | altea-auth | `Rules.ts`: "this first slice", "land with the Type-authorization slice", "are Phase 5", "Property auth waits on a PropertyRouteEntity port" | all four are in that file |

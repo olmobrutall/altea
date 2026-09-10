@@ -133,12 +133,13 @@ The behaviour is Signum's decision for decision: which SubTokensOptions each pos
 may be REMOVED while a column's summary token is merely cleared, that a value fix RE-RUNS the value check
 (Signum's `goto retry`), and that Skip/Delete abandon the whole asset immediately.
 
-### Not ported, and it is a real limit
+### The pass over a template's BODY
 
-The pass over a template's BODY TEXT, where `@[Customer.Name]` lives — Signum's
-`TemplateSynchronizationContext` plus a `Synchronize` on every value provider, which is what the `Member` /
-`Global` buckets are for. The two template subscribers repair a template's stored QUERY tokens; a renamed
-token inside the body still surfaces as a parse error when the template renders.
+Where `@[Customer.Name]` lives — Signum's `TemplateSynchronizationContext` plus a `Synchronize` on every
+value provider — and what the `Member` and `Global` buckets are for. It is ported on both substrates:
+`altea-templating/server/TemplateSync` is the context, @altea/altea-email drives it over each message's
+Subject and Text, and @altea/altea-office-template over the .docx/.pptx/.xlsx DOCUMENT plus the file name.
+See [Templating.md](Templating.md) and [OfficeTemplate.md](OfficeTemplate.md).
 
 ## Owner scoping
 

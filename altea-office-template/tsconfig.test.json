@@ -1,0 +1,18 @@
+{
+  // TEST layer — DB-FREE. The parse → `renderTemplate` round trip over a DOCUMENT, which the token
+  // migration's document pass rests on: it rewrites the stored .docx bytes, so a `renderTemplate` that is
+  // not faithful corrupts a template rather than failing.
+  "extends": "../altea/presets/server.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.server.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-templating/tsconfig.server.json" }
+  ]
+}

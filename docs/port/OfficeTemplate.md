@@ -171,19 +171,59 @@ NEW row and the Save operation schedules the old one's delete on `Transaction.pr
 
 ## Token migrations
 
-`OfficeTemplateTokenSync` subscribes to `TokenMigrationLogic.TokenSynchronizing` and repairs a template's
-stored QUERY tokens — its filters and orders — through the shared `TokenSyncWalker`. See
-[UserAssets.md](UserAssets.md).
+`OfficeTemplateTokenSync` subscribes to `TokenMigrationLogic.TokenSynchronizing` and repairs everything a
+template names, in Signum's three passes (WordTemplateLogic.ProcessWordTemplate):
 
-**What is NOT repaired is the document BODY.** An office template's `@[Customer.Name]` lives in the
-.docx/.pptx/.xlsx bytes, which Signum walks with `TemplateSynchronizationContext` over the parsed document.
-That pass is the same follow-up [Templating.md](Templating.md) describes, and its prerequisites now exist.
+1. the stored QUERY tokens — its filters and orders — through the shared `TokenSyncWalker`
+   (see [UserAssets.md](UserAssets.md));
+2. the DOCUMENT, where `@[Customer.Name]` / `@foreach[Details]` live inside the .docx/.pptx/.xlsx bytes;
+3. the FILE NAME, which is itself a text template.
+
+(2) and (3) take a `TemplateSynchronizationContext` each, as Signum's do: the document pass may throw a
+`TemplateSyncException` that abandons the template, and the file name is asked about afterwards regardless.
+
+### The document pass
+
+The CONTEXT and the value providers are @altea/altea-templating's — see
+[Templating.md](Templating.md) — so what this module adds is the walk over its OWN tree: a `synchronize`
+on each of the six node classes (`TokenNode`, `DeclareNode`, `BlockNode`, `ForeachNode`, `AnyNode`,
+`IfNode`), Signum's `WordTemplateNodes.cs` one for one.
+
+- **It MIRRORS `renderTemplate`** — same order, same variable scoping — because `renderTemplate` is what
+  turns the nodes back into template text: a node synchronised under a different scope than it prints
+  under would rewrite a `$var` into one that is not in scope there. A block keyword takes TWO scopes, the
+  inner one the body's and the outer one holding the keyword's own provider.
+- **the driver's own sweep stops at a block container.** `replaceBlock` moves a keyword's body into a
+  BlockNode that is NOT its child in the document tree (`writeTo` appends it for the duration of a write
+  and takes it back out), so `root.descendantsOfType(BaseNode)` yields only the top-level nodes and a
+  container's recursion is the whole of the walk below it. Each token is therefore asked exactly once,
+  which is asserted rather than assumed.
+- **the bytes are written back onto the SAME FileEntity row.** A FileEntity is IMMUTABLE, and this is one
+  of the three places Signum lifts that per instance (`file.AllowChange = true`) instead of superseding
+  the file — the right call here, because the document is the same file with its tokens repaired, where a
+  new row would leave the old one behind for every template that shares it. The hash follows the bytes in
+  FileLogic's own `preSaving`.
+- **no write-back self-check is needed here**, where the text half has one. A fatal TEXT parse error
+  aborts the parse and leaves a tree that is a PREFIX of the template, so that half re-prints and compares
+  before touching anything. These nodes replace markers IN PLACE inside the real document, so there is no
+  prefix state to write — and a marker that found no partner is still a MatchNode, which `assertClean`
+  throws on.
+
+Verified by `test/documentRoundTrip.test.ts` — 21 DB-free cases over a minimal .docx built in memory (the
+package gains a `test` script and a `tsconfig.test.json`). Sixteen are parse → `renderTemplate`, one
+construct each so a failure names the node that broke; then a token SHATTERED across Word runs, two tokens
+split mid-token, an unbalanced keyword being REFUSED, and two cases over the `synchronize` walk itself —
+that every construct of a nested document is reached in document order, and that `@any` / `@elseif` each
+carry a condition of their own. DB-free the way the text suite is: a token that fails to resolve is a
+NON-FATAL parser error, so an unregistered query name yields a complete tree full of unresolved tokens,
+which is precisely the state a stale template is in.
 
 > **Stale notes corrected.** `OfficeTemplateLogic`'s header said "`TokenMigrationLogic` (the stored-token
 > migration pass) is not ported; altea has no such subsystem" — while the same file imports and registers
 > `OfficeTemplateTokenSync`. `OfficeTemplateNodes` said `Synchronize` was dropped because "altea has no
-> template-sync pass". The DOCUMENT-body half is genuinely missing, which `OfficeTemplateTokenSync`'s own
-> header says correctly; the subsystem is not.
+> template-sync pass". Both were false, and so was the note that replaced the second one for one turn: it
+> said a nested node is visited TWICE, once by the driver and once by its container, which the detached
+> BlockNode above makes impossible.
 
 ## The client half of Signum.Excel
 
