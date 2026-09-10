@@ -216,33 +216,57 @@ provider, which is what the `Member` / `Global` buckets exist for.
 
 **TODO:** port that half. It is the last known hole in the token-migration story.
 
-### 3.2 The `TODO(port)` block in `altea/client/Finder.tsx`
+### 3.2 ~~The `TODO(port)` block in `altea/client/Finder.tsx`~~ — TRIAGED
 
-50 `TODO(port)` markers survive in the workspace; **18 of them are in this one file**, hanging off a header
-whose premise expired long ago:
+The file was written AHEAD of the UI layers it talks to and said so: *"the API + parse foundation compiles
+now and the UI is un-commented as SearchControl/Lines/Operations land."* All three landed. Eighteen markers
+were hanging off that expired premise, and the header now says which of two things each one is:
 
-```
-// PORT (Signum.React/Finder.tsx, copy-and-fix): ported deps are retargeted to altea paths; deps not
-// yet ported are commented `// TODO(port): …` and the code using them is commented likewise, so the
-// API + parse foundation compiles now and the UI is un-commented as SearchControl/Lines/Operations land.
-```
+> `TODO(port)` — something Signum does that altea does not do YET.
+> `DIVERGENCE` — something altea deliberately does differently, and always will.
 
-All three landed: `altea/client/SearchControl/`, `altea/client/Lines/`, `altea/client/Operations/`. Fourteen
-commented-out imports and markers like "SearchControl not ported yet" (`:66`), "Lines not ported" (`:72`),
-"SearchPage not ported yet" (`:312`) and "typed against SearchControlLoaded once SearchControl lands"
-(`:318`) all describe a state that has not been true for a long time.
+**13 TODOs and 3 DIVERGENCEs**, down from 18 undifferentiated markers (45 in the workspace, from 50).
 
-They are not uniformly stale, and that is the work:
+**Re-filed as DIVERGENCE** — permanent differences that were wearing a TODO's clothes, which is the worst
+kind: someone eventually "fixes" them back.
 
-- **stale** — the five above, plus `:125`'s "types owned by not-yet-ported modules".
-- **mislabelled** — `:31` (QueryDescriptionDTO dropped) and `:473` (no `isDecimalType`) are permanent,
-  *recorded* divergences wearing a TODO's clothes. They should read as divergences, so nobody "fixes" them.
-- **real** — the luxon date/duration parse+format restoration (`:6`), `similarToken` (`:1126`) and
-  `numberLimits` (`:1348`). The split executor was the fourth, and §1 closed it: its two markers are gone,
-  so 18 remain in this file and 50 in the workspace.
+- there is no QueryDescription DTO; the token tree is built in the browser.
+- Signum's free entity helpers are METHODS here (`toLite`→`e.toLite()`, …), and `MListElement` is gone
+  with MList.
+- there is no `isDecimalType`, because there is no separate decimal TYPE NAME — the int/long/decimal split
+  lives in `subTypeName`.
 
-**TODO:** triage the 20 into those three buckets and re-file each. A TODO that cannot come true is worse than
-no TODO: it trains a reader to skip the ones that can.
+**Corrected, and still TODO** — the work is real but the recorded reason had expired, which in three cases
+made it look bigger than it is:
+
+- **SearchControl / Lines / SearchPage "not ported yet"** — all landed, including `EntityLink`,
+  `SearchControlLoaded` (with `SearchControlMobileOptions` / `ColumnParsed`), `clearContextualItems` and
+  `clearManualSubTokens`. The remaining work is un-commenting the code that wants them.
+- **the `any` aliases** — all three types exist. Nothing structural is in the way either: the file already
+  takes `SearchControlLoaded` itself as an `import type`, which is erased and closes no cycle. Each alias
+  has exactly ONE consumer, so it is three imports and three signatures.
+- **`qs.onFind` / `onFindMany` + the autoSelectIfOne / autoSkipIfZero fast paths** — Signum's full version
+  is commented out below the stub, and the `fetchLites` shape it was waiting on now exists.
+- **the min/max overflow guard** — recorded as "altea has a single numeric type, so the range check is
+  dropped". Wrong: the split lives in `subTypeName` and `numberLimits` in `./numberFormat` IS that map.
+  Only the check is missing.
+- **the formatter layer**, listed whole and mostly landed: `toNumberFormat` and `numberLimits` exist (the
+  first is imported). Still missing: `getEnumInfo`, `onReloadTypesActions`, `toFormatWithFixes`, and the
+  date/duration parse+format helpers — which are to be WRITTEN against `Temporal`, not restored from
+  luxon, luxon being a recorded non-goal.
+- **`similarToken`** and **`Components/ProgressBar`** — genuinely not ported, the only two of the nine
+  names that list claimed. (Each ProgressBar consumer keeps a local one; see @altea/altea-machine-learning.)
+- **the DateOnly-vs-DateTime distinction** in `tokenCanSetPropery`, which needs the format/route layer.
+
+Also removed: a commented-out `Notify` import made redundant by the live one this session's split-executor
+work added, and an "ALTEA STUB … throws until SearchControl lands" note on `findMany`, which has not thrown
+since the SearchModal landed.
+
+> Worth recording, because it happened while writing this up: three of the claims in the FIRST pass of these
+> rewrites were themselves wrong — `numberLimits` described as already imported (it is not), both message
+> containers described as one, and an import cycle blamed for the aliases when a type-only import was
+> already in place. Each was caught by grepping the file rather than trusting the sentence being replaced.
+> The failure mode this whole page is about does not spare the person fixing it.
 
 ### 3.3 Two smaller recorded holes, unchanged
 

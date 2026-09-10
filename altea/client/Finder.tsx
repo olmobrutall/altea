@@ -1,12 +1,22 @@
-// PORT (Signum.React/Finder.tsx, copy-and-fix): ported deps are retargeted to altea paths; deps not
-// yet ported are commented `// TODO(port): …` and the code using them is commented likewise, so the
-// API + parse foundation compiles now and the UI is un-commented as SearchControl/Lines/Operations land.
+// PORT (Signum.React/Finder.tsx, copy-and-fix): ported deps are retargeted to altea paths.
+//
+// This file was written AHEAD of the UI layers it talks to, and said so — "the UI is un-commented as
+// SearchControl/Lines/Operations land". All three landed. What is still commented out here is therefore
+// WORK, not waiting, and each marker below says which of two things it is:
+//
+//   TODO(port)   — something Signum does that altea does not do YET.
+//   DIVERGENCE   — something altea deliberately does differently, and always will.
+//
+// The distinction earns its keep: a TODO that cannot come true trains a reader to skip the ones that can,
+// and two of these had been sitting here as TODOs for differences that are permanent.
 import * as React from "react";
 import { type RouteObject } from 'react-router'
-// TODO(port): luxon dropped in altea (uses Date / Temporal) — restore date/duration parse+format.
-// import { DateTime, Duration } from 'luxon'
+// TODO(port): the date / duration PARSE + FORMAT helpers this file's filter-value handling wants.
+// NOT an import to restore: luxon is a recorded non-goal and `Temporal` is the substrate (CLAUDE.md), so
+// this is writing them against Temporal. `Finder.API.executeQuerySplitTimeSeries` is the shape to follow —
+// it needed the same and got `data/dynamicQuery/timeSeriesDates`.
 import * as AppContext from "./AppContext"
-import { Navigator } from "./Navigator" // TODO(port): ViewPromise not exported by altea Navigator yet.
+import { Navigator } from "./Navigator"
 import { Dic, classes, isNumber, isPromise, softCast } from '../data/globals'
 import { ajaxGet, ajaxPost } from './Services';
 
@@ -28,7 +38,9 @@ import {
   isList, isPair, type ColumnOptionsModeKeys, toPinnedFilterParsed, isActive, canSplitValue,
   getFilterOperations, isFilterGroup, isFilterCondition, isGroupList, toColumnOption,
 } from './FindOptions';
-// TODO(port): QueryDescriptionDTO / QueryTokenWithoutParent dropped in altea (client builds the token tree locally).
+// DIVERGENCE: there is no QueryDescription DTO. altea builds the token tree in the BROWSER from registered
+// entity metadata (`getQueryRoot` / `getSubTokens`), so `QueryDescriptionDTO` / `QueryTokenWithoutParent`
+// have no counterpart and never will — see the CLAUDE.md bullet.
 import { completeToken, QueryToken, SubTokensOptions, type Writable } from './QueryToken';
 import { getSubTokens as generateSubTokens, SubTokensOptionsAll, setImplementedByAllTypesProvider, stripLegacyRootPrefix, appendLegacyValueField } from '../data/dynamicQuery/tokens/queryToken';
 import { getRegisteredTypes } from '../data/registration';
@@ -46,9 +58,10 @@ import { timeSeriesDates } from '../data/dynamicQuery/timeSeriesDates';
 
 import { Entity, BaseEntity, EmbeddedEntity, ModelEntity, type Type } from '../data/entity';
 import { Lite } from '../data/lite';
-// TODO(port): Signum.Entities free helpers → altea idioms (methods): toLite→e.toLite(), liteKey→l.key(),
-// parseLite→Lite.parse, is→.is(), isLite/isEntity/isModifiableEntity→instanceof; MListElement/isMListElement
-// gone (no MList); getToString; SearchMessage/JavascriptMessage message containers not ported.
+// DIVERGENCE: Signum's free helpers are METHODS here — `toLite`→`e.toLite()`, `liteKey`→`l.key()`,
+// `parseLite`→`Lite.parse`, `is`→`.is()`, `isLite`/`isEntity`/`isModifiableEntity`→`instanceof`;
+// `MListElement`/`isMListElement` are gone with MList. `SearchMessage` / `JavascriptMessage` DO exist —
+// `data/uiMessages` — and this file imports both.
 import { TypeEntity } from '../data/typeEntity';
 import { QueryEntity } from '../data/queryEntity';
 
@@ -62,22 +75,30 @@ import { Temporal } from '../data/basics';
 import { TypeInfo, TypeReference } from '../data/reflection';
 import { PropertyRoute } from '../data/propertyRoute';
 import type { FieldInfo } from '../data/reflection';
-// TODO(port): getEnumInfo, toLuxonFormat, toNumberFormat, onReloadTypesActions, toLuxonDurationFormat,
-// toFormatWithFixes, numberLimits, isDecimalType — formatter/query-registry layer not ported.
+// TODO(port): of the formatter layer this once listed whole, four are still missing — `getEnumInfo`,
+// `onReloadTypesActions`, `toFormatWithFixes`, and the luxon format helpers (see the Temporal note above).
+// `toNumberFormat` and `numberLimits` LANDED in `./numberFormat` (the first is imported below); `isDecimalType` is
+// a divergence rather than a gap (see `getSimpleTypeNiceName`).
 
-// TODO(port): SearchControl not ported yet.
+// TODO(port): SearchControl HAS landed — `EntityLink`, `SearchControlLoaded` (with its
+// `SearchControlMobileOptions` / `ColumnParsed`), `clearContextualItems` and `clearManualSubTokens` all
+// exist. Un-commenting these four imports and the code that wants them is the remaining work; they are
+// left out only so this file does not import a UI it has no live caller for yet.
 // import EntityLink from './SearchControl/EntityLink';
 // import SearchControlLoaded, { SearchControlMobileOptions, ColumnParsed } from './SearchControl/SearchControlLoaded';
 // import { clearContextualItems } from "./SearchControl/ContextualItems";
 // import { clearManualSubTokens } from "./SearchControl/QueryTokenBuilder";
 import { ImportComponent } from './ImportComponent';
-// TODO(port): Lines not ported (TypeContext is separate).
-// import { EntityBaseController, TypeContext, EntityLine, FormGroup } from "./Lines";
+// TODO(port): Lines HAS landed (`client/Lines/`), so this is the same un-commenting as above. Note
+// `TypeContext` is imported from its own module here and always will be — it is not part of Lines in altea.
+// import { EntityBaseController, EntityLine, FormGroup } from "./Lines";
 import { TypeContext, type ButtonBarElement } from "./TypeContext";
 import { useAPI, type APIHookOptions } from "./Hooks";
 import { QueryString } from "./QueryString";
-// TODO(port): similarToken (Search), FontAwesomeIcon, Components/Typeahead+ProgressBar, FinderRules,
-// Operations, Frames/Notify, Exceptions/Exception not ported.
+// TODO(port): of this list only TWO are still missing — `similarToken` (there is no `client/Search`) and
+// `Components/ProgressBar` (each consumer keeps a local one; see @altea/altea-machine-learning). Everything
+// else landed: FontAwesomeIcon, Components/Typeahead, FinderRules, Operations, Frames/Notify,
+// Exceptions/Exception — and this file already imports FinderRules and Notify.
 // import { similarToken } from "./Search";
 // import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { type BsSize } from "./Components";
@@ -96,7 +117,6 @@ import { initFormatRules, initEntityFormatRules, initQuickFilterRules, initFilte
 import type SearchControlLoaded from "./SearchControl/SearchControlLoaded";
 // import { Operations } from "./Operations";
 // import ProgressBar from "./Components/ProgressBar";
-// import Notify, { NotifyOptions } from "./Frames/Notify";
 // import Exception from "./Exceptions/Exception";
 
 // altea: Finder's per-user client state slice. Signum kept querySettings / queryDescriptionCache as
@@ -124,9 +144,16 @@ declare module "./AppContext" {
   }
 }
 
-// TODO(port): minimal aliases for types owned by not-yet-ported modules (Navigator / SearchControl /
-// Lines). They keep Finder's QuerySettings / formatter surface compiling; swap for the real types
-// when those modules land. ModifiableEntity is altea's BaseEntity.
+// TODO(port): `ViewPromise`, `SearchControlMobileOptions` and `ColumnParsed` are aliased to `any` to keep
+// the QuerySettings / formatter surface compiling — and all three EXIST now, the first in
+// `./EntitySettings`, the other two in `./SearchControl/SearchControlLoaded`.
+//
+// Nothing structural is in the way: this file already takes `SearchControlLoaded` itself as an `import
+// type` above, and a type-only import is erased, so it closes no cycle. These are simply left over. Each
+// has exactly one consumer below — `getViewPromise`, `mobileOptions`, `CellFormatter` — so swapping them
+// is three imports and three signatures.
+//
+// DIVERGENCE, not a gap: `ModifiableEntity` is altea's `BaseEntity`, and stays an alias.
 type ModifiableEntity = BaseEntity;
 type ViewPromise<T = any> = any;
 type SearchControlMobileOptions = any;
@@ -244,17 +271,19 @@ export namespace Finder {
     const fo = (obj as FindOptions).queryName ? obj as FindOptions : { queryName: obj as Type<any> } as FindOptions;
     if (fo.groupResults)
       throw new Error("Use findRow instead");
-    // TODO(port): the qs.onFind override + autoSelectIfOne / autoSkipIfZero fast-paths (need fetchLites shape).
+    // TODO(port): the `qs.onFind` override and the autoSelectIfOne / autoSkipIfZero fast paths — Signum's
+    // full version is commented out below. UNBLOCKED: the `fetchLites` shape it was waiting on exists
+    // (`Finder.API.fetchLites`).
     return Options.getSearchModal().then(m => m.default.open(fo, modalOptions)).then(a => a?.row.entity);
   }
 
-  // ALTEA STUB (same rationale as `find`): the multi-select search modal is not ported yet. The entity
-  // list Lines (EntityListBase find button) reference it, so it must typecheck; throws until SearchControl lands.
+  // The multi-select twin of `find`, over the same ported SearchModal — it no longer throws, and no longer
+  // needs to: the entity-list Lines that call it are live.
   export function findMany<T extends Entity = Entity>(findOptions: FindOptions<T>, modalOptions?: ModalFindOptionsMany): Promise<Lite<T>[] | undefined>;
   export function findMany<T extends Entity>(type: Type<T>, modalOptions?: ModalFindOptionsMany): Promise<Lite<T>[] | undefined>;
   export function findMany(findOptions: FindOptions | Type<any>, modalOptions?: ModalFindOptionsMany): Promise<Lite<Entity>[] | undefined> {
     const fo = (findOptions as FindOptions).queryName ? findOptions as FindOptions : { queryName: findOptions as Type<any> } as FindOptions;
-    // TODO(port): the qs.onFindMany override.
+    // TODO(port): the `qs.onFindMany` override, as on `find` above.
     return Options.getSearchModal().then(m => m.default.openMany(fo, modalOptions)).then(a => a?.rows.map(r => r.entity!));
   }
 
@@ -311,13 +340,14 @@ export namespace Finder {
   //   }
 
   export const Options = {
-    // TODO(port): SearchPage not ported yet. SearchModal IS ported (lazy dynamic import to avoid a
-    // Finder↔SearchModal module-init cycle).
+    // BOTH are ported. The dynamic `import()` is not a stub: it is what avoids a Finder↔SearchModal
+    // module-init cycle, and the page is loaded the same way for the same reason.
     getSearchPage(): Promise<typeof import('./SearchControl/SearchPage')> { return import('./SearchControl/SearchPage'); },
     getSearchModal(): Promise<typeof import('./SearchControl/SearchModal')> { return import('./SearchControl/SearchModal'); },
 
     /** Extension point to override the leading content of the search page title. Used by SearchPage. */
-    // TODO(port): typed against SearchControlLoaded once SearchControl lands.
+    // TODO(port): typed as `any` rather than `SearchControlLoaded`, which now exists — see the alias note
+    // at the top of the file for why the import is not taken.
     // Both title extension points are clientState-backed for the same reason as the rule lists above
     // (Signum clears them in `cleanSearchPageTitleOptions`); they are functions, not arrays, so a reset
     // reaches them.
@@ -329,8 +359,8 @@ export namespace Finder {
 
     entityColumnHeader: (() => "") as () => React.ReactElement | string | null | undefined,
 
-    // ALTEA: qt.type is a TypeReference; isState reads the enum's name off it. TODO(port): the
-    // DateOnly-vs-DateTime distinction — revisit with the format/route layer.
+    // ALTEA: qt.type is a TypeReference; isState reads the enum's name off it.
+    // TODO(port): the DateOnly-vs-DateTime distinction Signum makes here, which needs the format/route layer.
     tokenCanSetPropery: (qt: QueryToken): boolean =>
       qt.filterType == "Lite" && qt.key != "Entity" ||
       qt.filterType == "Enum" && !Options.isState(qt.type),
@@ -472,7 +502,8 @@ export namespace Finder {
 
   export function getSimpleTypeNiceName(name: string): string {
 
-    // TODO(port): altea has no isDecimalType (no separate decimal type-name); Number covers it.
+    // DIVERGENCE: there is no `isDecimalType`, because there is no separate decimal TYPE NAME — `Number`
+    // covers it, and the int/long/decimal split lives in `subTypeName` (see `numberFormat`).
     if (isNumberType(name))
       return QueryTokenMessage.Number.niceToString();
 
@@ -1125,7 +1156,8 @@ export namespace Finder {
         var fo2 = fos.firstOrNull(fo2 =>
           fo2.pinned == null &&
           !isFilterGroup(fo2) &&
-          // TODO(port): similarToken (Search) — token-string equality until it's ported.
+          // TODO(port): `similarToken` (Signum's `client/Search`, not ported) — token-string equality until
+          // then, which misses two tokens that differ only by an `Entity.` root.
           fo.token?.toString() == fo2.token?.toString() &&
           (fo.operation ?? "EqualTo") == (fo2.operation ?? "EqualTo") &&
           (fo.pinned?.active == "Always" || fo2.value != null));
@@ -1347,8 +1379,11 @@ export namespace Finder {
 
           const numVal = parseInt(value);
 
-          // TODO(port): numberLimits (per-C#-type min/max overflow guard) — altea has a single numeric
-          // type, so the range check is dropped; a NaN still removes the value.
+          // TODO(port): the per-type min/max overflow guard. The reason recorded here — "altea has a single
+          // numeric type" — is wrong: the int/long/decimal split lives in `subTypeName`, and `numberLimits`
+          // in `./numberFormat` is exactly that map, beside the `toNumberFormat` this file already takes
+          // from it. Only the check is missing; a NaN
+          // still removes the value.
           if (isNaN(numVal)) {
             if (overridenValue)
               return undefined;
