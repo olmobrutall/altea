@@ -6,22 +6,10 @@ import { getTypeInfo } from "@altea/altea/data/reflection";
 import { ExchangeWebServiceEmailServiceEntity } from "../data/MailingExchangeWS";
 import { ExchangeWebServiceSender } from "./ExchangeWebServiceSender";
 
-// Port of Signum.Mailing.ExchangeWS's MailingExchangeWSLogic.cs (+ the parts of MailingExchangeWSServer.cs
-// that survive the port).
+// The module's start: include the service, fold the typed-in password into the stored one, and check that
+// the app widened `EmailSenderConfigurationEntity.service` to reach this implementation.
 //
-// altea divergences, documented inline:
-//  - `sb.Settings.AssertImplementedBy((EmailSenderConfigurationEntity o) => o.Service, typeof(…))` becomes a
-//    CHECK, not a mutation: `@implementedBy` lives on the field, and widening it must happen on BOTH TIERS
-//    before anything is (de)serialized — so the APP does it in its shared entity-overrides module and this
-//    fails loudly if it was forgotten. (Signum's AssertImplementedBy is likewise only an assertion; what
-//    actually widens the field there is the attribute or an app-level override.)
-//  - `DescriptionManager.ExternalEnums.Add(typeof(ExchangeVersion), …)` has no counterpart: altea declares
-//    ExchangeVersionEnum itself (see the data module), so it is an ordinary translatable enum.
-//  - MailingExchangeWSServer's JSON property converters (hide `password` on write, encrypt `newPassword` on
-//    read) become one `registerEmailServiceSave` — see EmailSenderConfigurationLogic's header.
-//  - `ReflectionServer.OverrideIsNamespaceAllowed` (making the external enum's namespace visible when the
-//    user may see a sender configuration) has no counterpart: altea ships ONE metadata blob whose per-type
-//    visibility already follows the type's own authorization.
+// Port of Signum.Mailing.ExchangeWS's MailingExchangeWSLogic.cs — see docs/port/MailingExchange.md.
 
 export namespace MailingExchangeWSLogic {
 
@@ -43,7 +31,8 @@ export namespace MailingExchangeWSLogic {
         });
     }
 
-    /** Signum's `sb.Settings.AssertImplementedBy(o => o.Service, typeof(ExchangeWebServiceEmailServiceEntity))`. */
+    /** A CHECK, not a mutation: widening `@implementedBy` must happen on BOTH TIERS before anything is
+     *  (de)serialized, so the APP does it and this fails loudly if that was forgotten. */
     function assertImplementedBy(): void {
         const impl = getTypeInfo(EmailSenderConfigurationEntity)?.fields["service"]?.implementations;
         const types = impl?.kind === "implementedBy" ? impl.types() : [];

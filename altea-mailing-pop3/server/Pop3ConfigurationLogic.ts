@@ -24,36 +24,22 @@ import { Pop3EmailReceptionServiceEntity } from "../data/MailingPop3";
 import { Pop3Client, type IPop3Client, type MessageUid } from "./Pop3Client";
 import { toEmailMessage } from "./MimeToEmailMessage";
 
-// Port of Signum.Mailing.Pop3's Pop3ConfigurationLogic.cs — one poll of one mailbox: which messages are new,
-// store each of them (de-duplicating against what is already there), and delete the SERVER copy once it is
-// old enough.
+// One poll of one mailbox: which messages are new, store each of them (de-duplicating against what is
+// already there), and delete the SERVER copy once it is old enough.
 //
-// The transaction structure is the point of this file and is kept exactly: the reception ROW is written in its
-// own transaction up front (so a crash mid-poll still leaves a record of the attempt), each message is stored
-// in its own transaction (so one bad message becomes an EmailReceptionException instead of losing the batch),
-// and the summary is written in a third. `Transaction.forceNew` everywhere, as Signum's `Transaction.ForceNew`.
+// THE TRANSACTION STRUCTURE IS THE POINT of this file: the reception ROW is written in its own transaction
+// up front (so a crash mid-poll still leaves a record of the attempt), each message is stored in its own
+// transaction (so one bad message becomes an EmailReceptionException instead of losing the batch), and the
+// summary is written in a third.
 //
-// altea divergences, documented inline:
-//  - `OperationLogic.AllowSave<EmailMessageEntity>()` has no counterpart (altea has no save GUARD an operation
-//    must lift); a message is saved directly.
-//  - Signum has TWO `SaveEmail` overloads, one of them dead code (nothing calls the 3-argument one). Only the
-//    live one — the `ref bool anomalousReception` version — is ported.
-//  - `client.GetMessage(...)` returned a parsed MimeMessage; here the client returns the RAW bytes and
-//    MimeToEmailMessage parses them, so the protocol and the MIME mapping stay separable.
-//  - `Pop3ConfigurationLogic.CancelationToken` (a module-level static) is dropped: the ScheduledTaskContext's
-//    own signal is the cancellation, and it is already threaded through.
-//  - `AreDuplicates` compares recipients by `GetHashCode()`; altea has no value hash on an entity, so it
-//    compares the ADDRESS + KIND pairs, which is what that hash was over.
-//  - The `rawContent` an exception carried in its `Data` bag has no counterpart (altea's ExceptionEntity has
-//    no data bag); the raw MIME is on the reception info of every message that WAS stored, and a message that
-//    failed to parse names its uid in the logged error instead.
+// Port of Signum.Mailing.Pop3's Pop3ConfigurationLogic.cs — see docs/port/MailingPop3.md.
 
 export namespace Pop3ConfigurationLogic {
 
-    /** Signum's `MaxReceptionPerTime` — how many messages one poll stores in LastNEmails mode. */
+    /** How many messages one poll stores in LastNEmails mode. */
     export let maxReceptionPerTime = 15;
 
-    /** Signum's `GetPop3Client` — replaceable, so a test can hand in a fake mailbox. */
+    /** Replaceable, so a test can hand in a fake mailbox. */
     export let getPop3Client: (service: Pop3EmailReceptionServiceEntity) => Promise<IPop3Client> = service =>
         Pop3Client.connect({
             host: service.host,
@@ -65,11 +51,11 @@ export namespace Pop3ConfigurationLogic {
             clientCertificationFiles: service.clientCertificationFiles.map(c => c.fullFilePath),
         });
 
-    /** Signum's `SurroundReceiveEmail` — wrap a whole poll (a tenant scope, a lock, …). */
+    /** Wrap a whole poll (a tenant scope, a lock, …). */
     export const surroundReceiveEmail: ((config: EmailReceptionConfigurationEntity) => () => void)[] = [];
 
-    /** Signum's `AssociateNewEmail` / `AssociateDuplicateEmail` — the app's chance to link a received message
-     *  to whatever it is about (an order, a ticket) before it is saved. */
+    /** The app's chance to link a received message to whatever it is about (an order, a ticket) before it
+     *  is saved. */
     export const associateNewEmail: ((email: EmailMessageEntity) => void)[] = [];
     export const associateDuplicateEmail: ((email: EmailMessageEntity, duplicate: EmailMessageEntity) => void)[] = [];
 
@@ -90,7 +76,8 @@ export namespace Pop3ConfigurationLogic {
         });
     }
 
-    /** Signum's `sb.Settings.AssertImplementedBy(e => e.Service, typeof(Pop3EmailReceptionServiceEntity))`. */
+    /** A CHECK, not a mutation: widening `@implementedBy` must happen on BOTH TIERS before anything is
+     *  (de)serialized, so the APP does it and this fails loudly if that was forgotten. */
     function assertImplementedBy(): void {
         const impl = getTypeInfo(EmailReceptionConfigurationEntity)?.fields["service"]?.implementations;
         const types = impl?.kind === "implementedBy" ? impl.types() : [];
@@ -102,7 +89,7 @@ export namespace Pop3ConfigurationLogic {
                 + " in the app's shared entity-overrides module (it must run on BOTH tiers).");
     }
 
-    /** Signum's `ReceiveEmails(service, config, ctx)` — one poll. */
+    /** One poll. */
     export async function receiveEmails(
         service: Pop3EmailReceptionServiceEntity,
         config: EmailReceptionConfigurationEntity,
@@ -176,7 +163,7 @@ export namespace Pop3ConfigurationLogic {
                     await reception.save();
                 });
 
-                // Signum's comment: "Delete messages now" — a POP3 server only applies the DELEs on QUIT.
+                // A POP3 server only applies the DELEs on QUIT.
                 await client.disconnect();
             } finally {
                 await client[Symbol.asyncDispose]();
@@ -201,7 +188,7 @@ export namespace Pop3ConfigurationLogic {
     }
 
     /**
-     * Signum's `GetMessagesToSave` — which of the mailbox's messages this poll should store.
+     * Which of the mailbox's messages this poll should store.
      *
      * `CompareInbox.Full` asks the database whether each server uid is already stored (chunked, because an
      * `IN (…)` over a whole mailbox is not a query anyone wants). `LastNEmails` instead finds the newest
@@ -263,9 +250,8 @@ export namespace Pop3ConfigurationLogic {
     }
 
     /**
-     * Signum's `SaveEmail(config, reception, client, mi, ref anomalousReception)` — store ONE message, in its
-     * own transaction. Returns when it was sent (for the server-side delete rule) and whether it looked
-     * anomalous (see EmailReceptionEntity.mailsFromDifferentAccounts).
+     * Store ONE message, in its own transaction. Returns when it was sent (for the server-side delete
+     * rule) and whether it looked anomalous (see EmailReceptionEntity.mailsFromDifferentAccounts).
      */
     async function saveEmail(
         config: EmailReceptionConfigurationEntity,
@@ -297,7 +283,7 @@ export namespace Pop3ConfigurationLogic {
                     .toArray() as { lite: ReturnType<EmailMessageEntity["toLite"]>; date: Temporal.PlainDateTime | null; uid: string }[];
 
                 // Already received, and this account is not a recipient: the mailbox is being fed from
-                // somewhere unexpected (Signum's comment). Recorded, not stored again.
+                // somewhere unexpected. Recorded, not stored again.
                 if (candidates.some(c => c.uid === mi.uid))
                     return { sent: null, anomalous: true };
 
@@ -343,9 +329,9 @@ export namespace Pop3ConfigurationLogic {
     }
 
     /**
-     * Signum's `AssignEntities` — a re-received copy of a message already in the database reuses the ORIGINAL's
-     * links: its target, its stored attachment FILES, and the email-owner each address resolved to. Without
-     * this, a duplicate would re-upload every attachment and lose whatever the app had associated.
+     * A re-received copy of a message already in the database reuses the ORIGINAL's links: its target, its
+     * stored attachment FILES, and the email-owner each address resolved to. Without this, a duplicate
+     * would re-upload every attachment and lose whatever the app had associated.
      */
     function assignEntities(email: EmailMessageEntity, duplicate: EmailMessageEntity): void {
         email.target = duplicate.target;
@@ -367,8 +353,8 @@ export namespace Pop3ConfigurationLogic {
     }
 
     /**
-     * Signum's `AreDuplicates` — same From, same non-Bcc recipients, same attachments. (The BODY is already
-     * known to match: this is only asked about a message with the same bodyHash.)
+     * Same From, same non-Bcc recipients, same attachments. (The BODY is already known to match: this is
+     * only asked about a message with the same bodyHash.)
      */
     function areDuplicates(email: EmailMessageEntity, duplicate: EmailMessageEntity): boolean {
         const key = (r: EmailMessageEntity_Recipient): string => `${r.kind}|${r.emailAddress}`;
@@ -389,7 +375,7 @@ export namespace Pop3ConfigurationLogic {
         return true;
     }
 
-    /** Signum's `DeleteServerMessageIfNecessary` — drop the SERVER copy once it is old enough. */
+    /** Drop the SERVER copy once it is old enough. */
     async function deleteServerMessageIfNecessary(
         config: EmailReceptionConfigurationEntity,
         now: Temporal.PlainDateTime,
@@ -406,11 +392,10 @@ export namespace Pop3ConfigurationLogic {
 
         await client.deleteMessage(mi);
 
-        // The stored copy records WHEN the server copy went. Signum does this as a set-based UnsafeUpdate over
-        // every message with this uid; `EmailReceptionInfoEmbedded.uniqueId` carries a UNIQUE INDEX, so there
-        // is at most one — and a single retrieve + save says the same thing through the mixin accessor, which
-        // a set-based setter object cannot reach (a mixin's fields are flattened onto the owner at runtime but
-        // deliberately absent from its TYPE).
+        // The stored copy records WHEN the server copy went. A retrieve + save rather than a set-based
+        // update: `EmailReceptionInfoEmbedded.uniqueId` carries a UNIQUE INDEX so there is at most one row,
+        // and the mixin ACCESSOR is what a set-based setter object cannot reach (a mixin's fields are
+        // flattened onto the owner at runtime but deliberately absent from its TYPE).
         const uid = mi.uid;
         const stored = await table(EmailMessageEntity)
             .filter(m => m.mixin(EmailReceptionMixin).receptionInfo!.uniqueId == uid)

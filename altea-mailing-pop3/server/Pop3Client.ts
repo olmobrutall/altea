@@ -2,32 +2,24 @@ import * as net from "node:net";
 import * as tls from "node:tls";
 import * as fs from "node:fs/promises";
 
-// The PROTOCOL half of the POP3 port — Signum's `MailKitPop3Client` minus the MIME parsing (which is
-// MimeToEmailMessage.ts).
+// The PROTOCOL half of the POP3 port, minus the MIME parsing (which is MimeToEmailMessage.ts).
 //
-// ══ WHY THIS IS HAND-WRITTEN ═══════════════════════════════════════════════════════════════════════════
-// Signum uses MailKit, which has no equivalent on Node worth taking: the POP3 packages on npm are thin,
-// unmaintained wrappers over exactly the exchange below. POP3 is a line protocol with five commands — and
-// the one thing that IS subtle (a multi-line response ends with a lone ".", and a line of body text that
-// happens to start with "." is byte-stuffed to "..") is handled once, in `readMultiline`.
+// POP3 is a line protocol with five commands, and the one thing that IS subtle is handled once, in
+// `readMultiline`: a multi-line response ends with a lone ".", and a line of body text that happens to
+// start with "." is byte-stuffed to ".." (RFC 1939 §3).
 //
-// altea divergences from MailKit, documented inline:
-//  - Only IMPLICIT TLS is offered (`enableSSL` → connect with TLS, conventionally on port 995), matching what
-//    Signum actually passes: `Connect(host, port, true)` or `SecureSocketOptions.None`. STARTTLS (`STLS`) is
-//    NOT ported, because Signum never asks for it.
-//  - `client.Capabilities.HasFlag(Pop3Capabilities.UIDL)` becomes a `CAPA` probe, with a fallback: a server
-//    that does not implement CAPA at all (it is optional in RFC 2449) is still asked for UIDL, and it is the
-//    UIDL response that decides. Signum throws on the capability flag; this throws on the same condition, one
-//    round-trip later, which is strictly more permissive and never wrong.
-//  - MailKit's message indices are 0-based; the WIRE is 1-based. `MessageUid.number` keeps Signum's 0-based
-//    index (it is what the reception log stores), and every command adds one.
-// ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+// Only IMPLICIT TLS is offered (`enableSSL` → connect with TLS, conventionally on port 995); STARTTLS
+// (`STLS`) is NOT ported. Message indices here are 0-BASED while the wire is 1-based, so every command
+// adds one. A `CAPA` probe decides whether UIDL is available, falling back to asking for UIDL outright —
+// CAPA is optional in RFC 2449.
+//
+// See docs/port/MailingPop3.md.
 
-/** Signum's `MessageUid` — the server's unique id for a message, its index, and its size. */
+/** The server's unique id for a message, its index, and its size. */
 export interface MessageUid {
     /** The UIDL value: stable across sessions, and the reception de-duplication key. */
     uid: string;
-    /** 0-based, as MailKit reports it (the wire is 1-based — see the header). */
+    /** 0-based; the wire is 1-based (see the header). */
     number: number;
     size: number;
 }
@@ -39,19 +31,19 @@ export interface Pop3ClientOptions {
     password: string;
     /** Implicit TLS (see the header). */
     enableSSL: boolean;
-    /** Milliseconds; -1 (Signum's "no timeout") disables it. */
+    /** Milliseconds; -1 disables it. */
     readTimeout: number;
-    /** Paths of client certificates to present (Signum's ClientCertificationFiles). */
+    /** Paths of client certificates to present. */
     clientCertificationFiles?: string[];
 }
 
-/** Signum's `IPop3Client` — what the reception loop needs from a mailbox. */
+/** What the reception loop needs from a mailbox. */
 export interface IPop3Client extends AsyncDisposable {
     getMessageInfos(): Promise<MessageUid[]>;
-    /** The RAW MIME of one message (Signum's `client.GetMessage(number)`, before parsing). */
+    /** The RAW MIME of one message, before parsing. */
     getMessageSource(info: MessageUid): Promise<Buffer>;
     deleteMessage(info: MessageUid): Promise<void>;
-    /** QUIT — which is what makes the server APPLY the deletes (Signum's comment: "Delete messages now"). */
+    /** QUIT — which is what makes the server APPLY the deletes. */
     disconnect(): Promise<void>;
 }
 
@@ -65,7 +57,7 @@ export class Pop3Client implements IPop3Client {
 
     private constructor(private readonly options: Pop3ClientOptions) { }
 
-    /** Connect + authenticate (Signum's constructor). */
+    /** Connect + authenticate. */
     static async connect(options: Pop3ClientOptions): Promise<Pop3Client> {
         const client = new Pop3Client(options);
         await client.open();
@@ -84,7 +76,7 @@ export class Pop3Client implements IPop3Client {
     async getMessageInfos(): Promise<MessageUid[]> {
         const uidls = await this.multiline("UIDL");
         if (uidls == null)
-            throw new Error("The POP3 server does not support UIDs!"); // Signum's exact message
+            throw new Error("The POP3 server does not support UIDs!");
 
         // "1 <uid>" per line. The index is the wire number minus one (see the header).
         const uids = new Map<number, string>();

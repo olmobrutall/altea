@@ -5,11 +5,7 @@ import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 
 // The transport half of the Exchange Web Services port: one SOAP POST, plus POX Autodiscover.
 //
-// ══ WHY THIS FILE EXISTS AT ALL ════════════════════════════════════════════════════════════════════════
-// Signum uses `Microsoft.Exchange.WebServices.Data` (the EWS Managed API), a .NET-only library with no JS
-// counterpart worth taking: the JS ports of it are unmaintained and an order of magnitude larger than the
-// three requests this module actually makes. EWS is a plain SOAP 1.1 endpoint, so — exactly as
-// altea-auth-azuread turned `Microsoft.Graph` into plain REST — this file speaks it directly:
+// EWS is a plain SOAP 1.1 endpoint and this module makes only three requests, so it speaks it directly:
 //
 //   CreateItem       — save or send a message
 //   CreateAttachment — add one file to a saved draft
@@ -25,25 +21,19 @@ import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 //
 //     ExchangeWebServices.negotiateProvider = async url => ({ Authorization: await mySspi.token(url) });
 //
-// Username + password (Basic over HTTPS, which is what `new WebCredentials(user, pass)` sends against a
-// modern Exchange) works with no provider at all.
+// Username + password (Basic over HTTPS) works with no provider at all.
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════════
 //
-// Other divergences from the Managed API, documented inline:
-//  - Autodiscover: the Managed API tries SCP lookup, the two well-known POX URLs, an unauthenticated GET
-//    redirect and a DNS SRV record, in that order. Only the two POX URLs (plus the `RedirectUrl` /
-//    `RedirectAddr` responses they may return) are ported — they are what works outside a domain-joined
-//    machine, and the SRV path needs a DNS resolver this module has no other use for. A deployment the POX
-//    URLs cannot reach should configure `url` explicitly, which is the common case anyway.
-//  - `RedirectionUrlValidationCallback` is kept verbatim in spirit: a redirect is followed ONLY to https,
-//    because the credentials ride the very next request.
+// Autodiscover tries only the two well-known POX URLs (plus the `RedirectUrl` / `RedirectAddr` responses
+// they may return). A deployment they cannot reach should configure `url` explicitly, which is the common
+// case anyway. See docs/port/MailingExchange.md.
 
 /** The credentials half of a service configuration, with the password already DECRYPTED. */
 export interface ExchangeCredentials {
     username: string | null;
     /** Decrypted (EmailSenderConfigurationLogic.decryptPassword). */
     password: string | null;
-    /** Signum's UseDefaultCredentials — needs a `negotiateProvider` (see the header). */
+    /** Windows integrated authentication — needs a `negotiateProvider` (see the header). */
     useDefaultCredentials: boolean;
 }
 
@@ -61,7 +51,7 @@ export namespace ExchangeWebServices {
     /** See the header. Null by default: this host cannot do integrated Windows authentication. */
     export let negotiateProvider: ((url: string) => Promise<Record<string, string>>) | null = null;
 
-    /** How long a request may take before it is abandoned (the Managed API's default `Timeout`, 100 s). */
+    /** How long a request may take before it is abandoned (100 s). */
     export let timeoutMilliseconds = 100_000;
 
     /**
@@ -104,9 +94,8 @@ export namespace ExchangeWebServices {
     }
 
     /**
-     * Signum's `service.AutodiscoverUrl(emailAddress, RedirectionUrlValidationCallback)` — find the EWS
-     * endpoint for an address. Tries the two well-known POX URLs (see the header), following at most a few
-     * redirects, and returns the `EXCH`/`EXPR` protocol's `EwsUrl`.
+     * Find the EWS endpoint for an address. Tries the two well-known POX URLs (see the header), following
+     * at most a few redirects, and returns the `EXCH`/`EXPR` protocol's `EwsUrl`.
      */
     export async function autodiscoverUrl(emailAddress: string, credentials: ExchangeCredentials): Promise<string> {
         using _prof = HeavyProfiler.log("ExchangeWS Autodiscover", () => emailAddress);
@@ -146,8 +135,8 @@ export namespace ExchangeWebServices {
                 }
 
                 if (result?.redirectUrl != undefined) {
-                    // Signum's RedirectionUrlValidationCallback: the credentials ride the next request, so a
-                    // redirect to plain http is refused rather than followed.
+                    // The credentials ride the next request, so a redirect to plain http is refused rather
+                    // than followed.
                     if (!result.redirectUrl.toLowerCase().startsWith("https:"))
                         throw new Error(`Autodiscover redirected to a non-https URL ('${result.redirectUrl}');`
                             + " refusing to send credentials over it.");
@@ -191,8 +180,8 @@ export namespace ExchangeWebServices {
         if (redirectAddr != undefined)
             return { redirectAddr };
 
-        // `Protocol` repeats: EXCH (internal) / EXPR (external) / WEB. The first one carrying an EwsUrl wins,
-        // which is what the Managed API settles on for a client that is going to speak EWS.
+        // `Protocol` repeats: EXCH (internal) / EXPR (external) / WEB. The first one carrying an EwsUrl
+        // wins, which is what a client that is going to speak EWS wants.
         for (const protocol of account.all("Protocol")) {
             const ewsUrl = protocol.get("EwsUrl")?.text();
             if (ewsUrl != undefined)

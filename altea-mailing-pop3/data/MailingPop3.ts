@@ -6,26 +6,19 @@ import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea
 import { type int, toInt } from "@altea/altea/data/basics";
 import { EmailReceptionServiceEntity } from "@altea/altea-email/data/EmailReception";
 
-// Port of Signum.Mailing.Pop3's Pop3EmailReceptionServiceEntity.cs — where to poll and with what credentials.
-// One implementation of altea-email's abstract EmailReceptionServiceEntity (see its header for the split).
+// Where to poll and with what credentials. One implementation of altea-email's abstract
+// EmailReceptionServiceEntity (see its header for the split).
 //
-// altea divergences, documented inline:
-//  - `MList<ClientCertificationFileEmbedded>` becomes this owner's `@part` ROW (altea has no MList; the SMTP
-//    side's SmtpNetworkDeliveryEmbedded gets the same treatment).
-//  - Signum's `EnableSSL` SETTER flips `Port` between 995 and 110. altea entities are plain field bags with no
-//    setters, so the port is a plain field with Signum's own default (110) and the CLIENT does the flip when
-//    the checkbox changes (see client/Templates/Pop3EmailReceptionService.tsx) — the same behaviour where a
-//    user can see it, without a hidden write on deserialization.
-//  - `NewPassword` is declared here (Signum declares it too, `[Ignore]`), and the Save operation folds it into
-//    the stored `password` through `EmailReceptionLogic.registerEmailReceptionServiceSave` — where Signum uses
-//    a JSON property converter.
+// The `enableSSL` / `port` flip lives in the CLIENT editor rather than in a property setter — see
+// client/Templates/Pop3EmailReceptionService.tsx.
+//
+// Port of Signum.Mailing.Pop3's Pop3EmailReceptionServiceEntity.cs — see docs/port/MailingPop3.md.
 
-// Signum's ClientCertificationFileEmbedded, as this owner's @part row.
+// A client certificate to present, as this owner's @part row.
 @part
 export class Pop3EmailReceptionServiceEntity_ClientCertificationFile extends Entity {
     @backReference service: Lite<Pop3EmailReceptionServiceEntity>;
-    // No `@rowOrder`: Signum does not mark this MList [PreserveOrder], so its table has no
-    // Order column and neither does this one (the SMTP sender's twin says the same).
+    // No `@rowOrder`: this table has no Order column (the SMTP sender's twin says the same).
 
     @stringLengthValidator({ min: 2, max: 300 })
     fullFilePath: string;
@@ -36,7 +29,6 @@ export class Pop3EmailReceptionServiceEntity_ClientCertificationFile extends Ent
     }
 }
 
-// Signum's Pop3EmailReceptionServiceEntity.
 @reflect
 @part
 export class Pop3EmailReceptionServiceEntity extends EmailReceptionServiceEntity {
@@ -60,12 +52,11 @@ export class Pop3EmailReceptionServiceEntity extends EmailReceptionServiceEntity
     @stringLengthValidator({ max: 100 })
     newPassword: string | null;
 
-    /** Implicit TLS (port 995 by convention). POP3's STARTTLS is not offered — see Pop3Client's header. */
+    /** Implicit TLS (port 995 by convention). POP3's STARTTLS is not offered — see Pop3Client. */
     enableSSL: boolean;
 
-    /** Signum's `[NumberIsValidator(GreaterThanOrEqualTo, -1)]` — -1 means "no timeout". altea has no
-     *  NumberIsValidator, so the comparison is a `@validate` (the shape altea-chart / altea-scheduler
-     *  already use for the same attribute). */
+    /** `-1` means "no timeout". A `@validate`, the shape altea-chart / altea-scheduler already use for the
+     *  same comparison. */
     @validate<Pop3EmailReceptionServiceEntity>(s => s.readTimeout >= -1 ? null
         : ValidationMessage.NumberIsTooSmall.niceToString())
     @unit("ms")
@@ -79,7 +70,4 @@ export class Pop3EmailReceptionServiceEntity extends EmailReceptionServiceEntity
     }
 }
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("mailing")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("mailing");

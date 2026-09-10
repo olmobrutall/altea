@@ -12,28 +12,18 @@ import { EmailSenderConfigurationLogic } from "@altea/altea-email/server/EmailSe
 import { ExchangeVersion, type ExchangeWebServiceEmailServiceEntity } from "../data/MailingExchangeWS";
 import { ExchangeWebServices, escapeXml, type ExchangeCredentials } from "./ExchangeWebServices";
 
-// Port of Signum.Mailing.ExchangeWS's ExchangeWebServiceSender.cs — send one EmailMessage through Exchange
-// Web Services. The transport is in ExchangeWebServices.ts; this file is the message MAPPING and the
-// send FLOW.
+// Send one EmailMessage through Exchange Web Services. The transport is in ExchangeWebServices.ts; this
+// file is the message MAPPING and the send FLOW.
 //
-// altea divergences, documented inline:
-//  - `EmailMessage message = new EmailMessage(service); … message.Send()` becomes explicit SOAP. The Managed
-//    API's `Send()` is not one request when there are attachments, and neither is this: EWS ignores an
-//    `<Attachments>` element inside `CreateItem`, so the Managed API does
-//    CreateItem(SaveOnly) -> CreateAttachment per file -> SendItem, and so does `sendWithAttachments` below.
-//    With no attachments it is the single CreateItem(SendAndSaveCopy) the Managed API also uses.
-//  - Signum hard-codes `new ExchangeService(ExchangeVersion.Exchange2007_SP1)` and then never reads the
-//    entity's own `ExchangeVersion` — the field is stored, shown in the editor, and ignored. altea SENDS it
-//    (as the `RequestServerVersion` header), because a stored setting that does nothing is a bug, not a
-//    feature: the whole point of the field is to pick the schema version.
-//  - Signum does NOT set `From` on the message (Exchange sends as the authenticated mailbox), so neither does
-//    this — setting it would need "Send As" rights the configuration says nothing about. `email.from` is
-//    still used, as in Signum, as the address AUTODISCOVER looks up.
-//  - Signum attaches only `EmailAttachmentType.Attachment` files and drops LinkedResources (inline images),
-//    even though it sets their ContentId. Kept: changing it would silently alter what recipients receive.
-//    Noted here because it looks like an oversight in the original and a reader will wonder.
-//  - `ToEmailAddress()` (the extension pair honouring OverrideEmailAddress / SendEmails) is `mailbox()` /
-//    `recipientMailbox()` below, matching altea's own SmtpSender.
+// Sending with attachments is THREE requests, not one: EWS ignores an `<Attachments>` element inside
+// `CreateItem`, so it is CreateItem(SaveOnly) → CreateAttachment per file → SendItem. With no attachments
+// it is a single CreateItem(SendAndSaveCopy).
+//
+// `From` is deliberately NOT set: Exchange sends as the authenticated mailbox, and setting it would need
+// "Send As" rights the configuration says nothing about. `email.from` is still the address AUTODISCOVER
+// looks up.
+//
+// Port of Signum.Mailing.ExchangeWS's ExchangeWebServiceSender.cs — see docs/port/MailingExchange.md.
 
 export class ExchangeWebServiceSender extends EmailSenderBase {
 
@@ -57,7 +47,7 @@ export class ExchangeWebServiceSender extends EmailSenderBase {
 
         const version = ExchangeVersion[this.exchange.exchangeVersion];
 
-        // Signum attaches only real attachments (see the header).
+        // Only real attachments: inline LinkedResources are dropped (see docs/port/MailingExchange.md).
         const attachments = email.attachments.filter(a => a.type === EmailAttachmentType.Attachment);
 
         if (attachments.length === 0)
@@ -126,9 +116,9 @@ export class ExchangeWebServiceSender extends EmailSenderBase {
     }
 
     /**
-     * Signum's `new EmailMessage(service) { Subject, Body, ToRecipients, … }`. The child ORDER is not
-     * cosmetic: `t:Message` is an xsd SEQUENCE (Subject, Body, Attachments, … ToRecipients, CcRecipients,
-     * BccRecipients, … From), and Exchange rejects a message whose elements arrive out of order.
+     * The child ORDER is not cosmetic: `t:Message` is an xsd SEQUENCE (Subject, Body, Attachments, …
+     * ToRecipients, CcRecipients, BccRecipients, … From), and Exchange rejects a message whose elements
+     * arrive out of order.
      */
     private messageXml(email: EmailMessageEntity): string {
         return `<t:Message>`
@@ -165,8 +155,7 @@ function readRootItemId(body: import("./ExchangeWebServices").ExchangeElement): 
     return id != undefined && changeKey != undefined ? { id, changeKey } : undefined;
 }
 
-/** Signum's `ToEmailAddress(EmailAddressEmbedded)` — kept for symmetry with SmtpSender even though Signum's
- *  Exchange sender never sets a From. */
+/** Kept for symmetry with SmtpSender, even though this sender never sets a From (see the header). */
 export function mailbox(address: EmailAddressEmbedded): string {
     return `<t:Mailbox>`
         + (address.displayName ? `<t:Name>${escapeXml(address.displayName)}</t:Name>` : "")
@@ -174,8 +163,8 @@ export function mailbox(address: EmailAddressEmbedded): string {
         + `</t:Mailbox>`;
 }
 
-/** Signum's `ToEmailAddress(EmailRecipientEmbedded)` — honours OverrideEmailAddress (the test catch-all) and
- *  refuses to build an address at all when sending is off. */
+/** Honours OverrideEmailAddress (the test catch-all) and refuses to build an address at all when sending
+ *  is off. */
 function recipientMailbox(recipient: EmailRecipientBaseEntity): string {
     const config = EmailLogic.configuration();
     if (!config.sendEmails)
