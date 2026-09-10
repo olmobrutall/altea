@@ -13,13 +13,14 @@ import {
 import { contains, cleanCommas, isPascalCasePattern, matches, toOmniboxPascal } from "./OmniboxUtils";
 import { allowedTypeFilter } from "./OmniboxAuth";
 
-// Port of Signum's `EntityOmniboxResultGenenerator` (Signum.Omnibox/EntityOmniboxResultGenerator.cs):
-// jump straight to ONE entity, either by id (`Order 5`, `Customer 0f8f…`) or by ToString
-// (`Customer "Maria"`). The bare type name alone yields nothing — that shape belongs to the dynamic-query
+// Port of Signum.Omnibox's EntityOmniboxResultGenerator.cs — see docs/port/Omnibox.md.
+//
+// Jump straight to ONE entity, either by id (`Order 5`, `Customer 0f8f…`) or by ToString
+// (`Customer "Maria"`). The bare type name alone yields NOTHING — that shape belongs to the dynamic-query
 // generator, which offers the SEARCH for the type instead.
 
-// `^I` + optionally a number/guid (an id) or a string (a ToString pattern). ALTEA: C#'s duplicate `id`
-// capture group (`(?<id>N)|(?<id>G)`) is illegal in JS — merged into one `[NG]` class.
+// `^I` + optionally a number/guid (an id) or a string (a ToString pattern). The two id shapes share one
+// `[NG]` class because a duplicate named capture group is illegal in JS.
 const REGEX = /^I(?:(?<id>[NG])|(?<toStr>S))?$/;
 
 export class EntityOmniboxResultGenerator implements OmniboxResultGenerator {
@@ -38,9 +39,8 @@ export class EntityOmniboxResultGenerator implements OmniboxResultGenerator {
         const ident = tokens[0].value;
         const isPascalCase = isPascalCasePattern(ident);
 
-        // Signum filtered inline with `Schema.Current.IsAllowed(type, inUserInterface: true) == null`;
-        // altea's type authorization is async, so the allowed set is resolved UP FRONT and the (sync)
-        // matcher filters against it.
+        // Type authorization is async while the matcher is sync, so the allowed set is resolved UP FRONT
+        // and the matcher filters against it.
         const isAllowed = await allowedTypeFilter([...OmniboxParser.manager.types().values()]);
 
         const typeMatches = [...matches(OmniboxParser.manager.types(), isAllowed, ident, isPascalCase)]
@@ -112,7 +112,7 @@ export class EntityOmniboxResultGenerator implements OmniboxResultGenerator {
     }
 }
 
-// Signum's `PrimaryKey.TryParse(value, type, out id)`: coerce the raw token to the type's PK form, or
+// Coerce the raw token to the type's PK form, or
 // undefined when it can't possibly be one (a guid typed at an int-keyed table, and vice versa).
 export function tryParsePrimaryKey(type: Function, value: string): PrimaryKey | undefined {
     const pk = getTypeInfo(type)?.fields["id"]?.columnOptions?.primaryKey ?? "int";
@@ -123,7 +123,7 @@ export function tryParsePrimaryKey(type: Function, value: string): PrimaryKey | 
     return /^-?\d+$/.test(value) ? Number(value) : undefined;
 }
 
-// Signum's `Type.NicePluralName().ToOmniboxPascal()` — the display form the client echoes back into the
+// The display form the client echoes back into the
 // input on [Tab] (see EntityOmniboxProvider.toString). Exported for the dynamic-query generator too.
 export function niceOmniboxPluralName(type: Function): string {
     return toOmniboxPascal(type.nicePluralName());

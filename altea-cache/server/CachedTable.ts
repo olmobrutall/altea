@@ -21,36 +21,28 @@ import type { Table } from "@altea/altea/server/schema/table";
 import type { CustomLiteClass } from "@altea/altea/data/lite";
 import { planLiteColumns, type LiteColumnsPlan } from "./LiteColumnsFinder";
 
-// Port of Signum's CachedTableBase / CachedTable<T> / CachedTableConstructor (Signum.Caching). One entity
-// type's rows held in memory as RAW COLUMN TUPLES plus a "completer" that fills a fresh entity instance
-// from one tuple. Storing tuples rather than entities is the whole design: every read hands the caller a
-// NEW instance, so mutating (or saving) what you got can never corrupt the cache.
+// Port of Signum.Caching's CachedTableBase / CachedTable<T> / CachedTableConstructor — see
+// docs/port/Cache.md.
 //
-// altea divergences from Signum, all consequences of altea's model rather than choices:
-//  - Signum COMPILES the completer as a LINQ Expression tree; altea builds the equivalent tree of
-//    CLOSURES. Same structure (one node per Field, recursing through embeddeds/mixins), no codegen.
-//  - **No CachedTableMList.** altea has no MList table: a collection is `@part` child rows in the child's
-//    own table with a back-reference FK — i.e. always Signum's *VirtualMList* shape — so a collection is
-//    served by the CHILD type's own cached table through a back-reference index (Signum's
-//    `GetBackReferenceDictionary` / `RequestByBackReference`).
-//  - **The semi-cached lite table is trimmed the same way Signum's is, by a different route.** Signum's
-//    ToStringColumnsFinderVisitor walks the lite MODEL expression for the columns it needs and
-//    LiteModelExpressionVisitor rewrites that expression to read the cached tuple. altea's equivalent of a
-//    lite model is a CUSTOM LITE, whose `fromEntity` is a `Quoted` lambda — a real JS function that also
-//    carries its expression tree — so LiteColumnsFinder walks the tree for the column set and the function
-//    itself is applied to a PARTIAL entity carrying exactly those columns. Same guarantee (only the display
-//    columns of only the referenced rows), no expression rewriting.
-//  - No SqlDependency: SQL Server query notifications (Service Broker) have no equivalent in the Node
-//    driver, so a cached table is never invalidated by the database itself. Invalidation is this process's
-//    save/DML events plus a broadcast from sibling processes — see CacheLogic and Broadcast/.
+// One entity type's rows held in memory as RAW COLUMN TUPLES plus a "completer" that fills a fresh entity
+// instance from one tuple. Storing tuples rather than entities is the whole design: every read hands the
+// caller a NEW instance, so mutating — or saving — what you got can never corrupt the cache. The completer
+// is a tree of CLOSURES, one node per Field, recursing through embeddeds and mixins.
+//
+// A COLLECTION is served by the CHILD type's own cached table through a back-reference index, because a
+// collection here is `@part` child rows in the child's own table.
+//
+// A SEMI-cached lite table is TRIMMED to the columns the lite actually needs (LiteColumnsFinder), for only
+// the rows a cached table references. Holding the whole row instead would transitively drag in most of the
+// database — that is the point of the semi role, not an optimisation.
 
 // One cached row: the raw column values, in the order of `CachedTable.columns`.
 export type CachedRow = readonly unknown[];
 
-// Signum's CachedTableBase: the statistics + sub-table bookkeeping every cached table shares.
+// The statistics + sub-table bookkeeping every cached table shares.
 export abstract class CachedTableBase {
-    // Sub-tables (Signum's SubTables): the CachedTableLites this table's semi-cached lite references need.
-    // They reset and load with their owner.
+    // The CachedTableLites this table's semi-cached lite references need. They reset and load with their
+    // owner.
     readonly subTables: CachedTableBase[] = [];
 
     invalidations = 0;
@@ -64,11 +56,11 @@ export abstract class CachedTableBase {
 
     protected abstract reset(): void;
     protected abstract loadCore(): Promise<void>;
-    /** Zero the load counters this table delegates to its ResetLazy (the hits/invalidations above are its
-     *  own). Split out because Signum keeps all four on CachedTableBase, altea two of them on the lazy. */
+    /** Zero the load counters this table delegates to its ResetLazy — the hits / invalidations above are
+     *  its own, so they are reset here rather than there. */
     protected abstract resetStats(): void;
 
-    // Signum's ResetAll: drop this table's rows and its sub-tables'. `forceReset` also zeroes the
+    // Drop this table's rows and its sub-tables'. `forceReset` also zeroes the
     // statistics (the panel's "Clear"); an ordinary invalidation counts up instead.
     resetAll(forceReset: boolean): void {
         this.reset();
@@ -83,7 +75,7 @@ export abstract class CachedTableBase {
             st.resetAll(forceReset);
     }
 
-    // Signum's LoadAll: this table and every sub-table. Sub-tables load AFTER their owner — a
+    // This table and every sub-table. Sub-tables load AFTER their owner — a
     // CachedTableLite is restricted by a JOIN back to it, so its owner must exist in the schema first.
     async loadAll(): Promise<void> {
         await this.loadCore();
@@ -115,9 +107,9 @@ function converterFor(fi: FieldInfo | undefined): (value: unknown) => unknown {
     return v => v;
 }
 
-// The custom lite a `Lite<Target>` FIELD asks for, if any (Signum's `column.CustomLiteModelType`). A field
-// may declare one per target type — a polymorphic `@implementedBy` lite has several — so it is a per-type
-// lookup, exactly as the binder's fieldCustomLiteMap does it.
+// The custom lite a `Lite<Target>` FIELD asks for, if any. A field may declare one PER TARGET TYPE — a
+// polymorphic `@implementedBy` lite has several — so it is a per-type lookup, exactly as the binder's
+// fieldCustomLiteMap does it.
 function customLiteOf(fi: FieldInfo, targetType: Type<Entity>): CustomLiteClass | undefined {
     for (const c of fi.customLite ?? [])
         if (c.forEntityType() === targetType)
@@ -125,9 +117,9 @@ function customLiteOf(fi: FieldInfo, targetType: Type<Entity>): CustomLiteClass 
     return undefined;
 }
 
-// A column that cannot (or need not) be cached. Signum's `ShouldBeCached` skips the Postgres tsvector
-// column; altea also skips every generated column and the system-versioning period columns — none of them
-// map to a field the completer would read, and a `tstzrange` has no JS materialisation here.
+// A column that cannot (or need not) be cached: every GENERATED column and the system-versioning period
+// columns. None of them maps to a field the completer would read, and a `tstzrange` has no JS
+// materialisation here.
 function shouldBeCached(column: IColumn): boolean {
     return column.computedColumn == null && column.systemVersion == null;
 }
@@ -143,7 +135,7 @@ export class CachedTable<T extends Entity> extends CachedTableBase {
     private readonly rows: ResetLazy<Map<PrimaryKey, CachedRow>>;
     private setters: FieldSetter[] = [];
     private readonly pkIndex: number;
-    // Signum's BackReferenceDictionaries: per back-reference FIELD, ownerId → the child ids pointing at it,
+    // Per back-reference FIELD, ownerId → the child ids pointing at it,
     // in `@rowOrder` order. Memoised off `rows` on first use and cleared with them (see backReferenceIds).
     private backReferences = new Map<string, Map<string, PrimaryKey[]>>();
 
@@ -165,9 +157,9 @@ export class CachedTable<T extends Entity> extends CachedTableBase {
         this.rows.name = type.name;
     }
 
-    // Second phase (Signum's CachedTableConstructor, run from CacheLogic once the WHOLE schema is
-    // complete): build the per-field setters. Cannot happen in the constructor — a setter may need
-    // another type's cached table, which may not exist yet.
+    // SECOND PHASE, run from CacheLogic once the WHOLE schema is complete: build the per-field setters.
+    // It cannot happen in the constructor — a setter may need another type's cached table, which may not
+    // exist yet.
     buildCompleter(): void {
         this.setters = [];
         for (const ef of Object.values(this.table.fields)) {
@@ -187,7 +179,7 @@ export class CachedTable<T extends Entity> extends CachedTableBase {
             }
     }
 
-    // ---- Completer construction (Signum's CachedTableConstructor.MaterializeField) ------------------
+    // ---- Completer construction --------------------------------------------------------------------
 
     private indexOf(column: IColumn): number {
         const index = this.columnIndex.get(column);
@@ -204,7 +196,7 @@ export class CachedTable<T extends Entity> extends CachedTableBase {
         return (row, _r, target) => { target[name] = conv(row[index]); };
     }
 
-    // A single-target reference (Signum's GetEntity): a full entity becomes a Retriever STUB — drained
+    // A single-target reference: a full entity becomes a Retriever STUB — drained
     // afterwards from the target's own cache when it is cached, from the database when it isn't, exactly
     // like a query's non-expanded reference. A `Lite<T>` needs a display string, which only the target
     // type can produce: from its own cache when cached, else from a trimmed CachedTableLite (the semi case).
@@ -227,7 +219,7 @@ export class CachedTable<T extends Entity> extends CachedTableBase {
     // (so the sub-table is registered before anything loads) and resolved per row.
     private liteSourceFor(targetType: Type<Entity>, column: IColumn, fi: FieldInfo): (id: PrimaryKey, retriever: CacheRetriever) => Lite<Entity> | null {
         // Resolved through CacheLogic so this module doesn't import it (CacheLogic owns the controllers and
-        // imports THIS file). The FIELD's own `@customLite` (Signum's column.CustomLiteModelType) decides
+        // imports THIS file). The FIELD's own `@customLite` decides
         // WHICH lite shape is built, and therefore which columns the semi-cached table has to hold.
         return cachedLiteResolver!(targetType, column, this, customLiteOf(fi, targetType));
     }
@@ -271,9 +263,9 @@ export class CachedTable<T extends Entity> extends CachedTableBase {
         }
 
         if (f instanceof FieldImplementedByAll) {
-            // Id + TypeEntity discriminator. As in Signum, an @implementedByAll LITE gets NO display
-            // string: its target can be any type, so there is nothing cached to read it from (the lite is
-            // still navigable — it carries type + id).
+            // Id + TypeEntity discriminator. An @implementedByAll LITE gets NO display string: its target
+            // can be any type, so there is nothing cached to read it from. The lite is still navigable —
+            // it carries type + id.
             const idIndexes = f.idColumns.map(c => this.indexOf(c));
             const typeIndex = this.indexOf(f.typeColumn);
             const isLite = f.isLite;
@@ -300,10 +292,10 @@ export class CachedTable<T extends Entity> extends CachedTableBase {
                 if (s != null)
                     inner.push(s);
             }
-            // Signum's RegisterBinding at a route INSIDE the entity (altea's `embeddedRoutePositions` —
-            // altea-files stamps each FilePathEmbedded with the owner + member it hangs off, so its
-            // download can be addressed and gated). The query path folds this into the projection; the
-            // cached path has to do it too, or a cached owner's file embedded loses its route.
+            // A route stamped INSIDE the entity (`embeddedRoutePositions` — altea-files marks each
+            // FilePathEmbedded with the owner + member it hangs off, so its download can be addressed and
+            // gated). The QUERY path folds this into the projection; the cached path has to do it too, or
+            // a cached owner's file embedded loses its route.
             const routeCallback = this.schema.embeddedRoutePositions.get(ctor);
             const rootType = this.schema.typeToName.get(this.type)!;
             return (row, retriever, target, ownerId) => {
@@ -323,9 +315,8 @@ export class CachedTable<T extends Entity> extends CachedTableBase {
 
         if (f instanceof FieldEntityArray) {
             // A `@part` collection: the child rows live in the child's own table, so they come from the
-            // CHILD type's cached table through its back-reference index (Signum's VirtualMList handling —
-            // `RequestByBackReference`). CacheLogic guarantees the child type is cached (it caches the
-            // whole dependency closure), so this is always available.
+            // CHILD type's cached table through its back-reference index. CacheLogic guarantees the child
+            // type is cached — it caches the whole dependency closure — so this is always available.
             const childType = f.childType;
             const fkProperty = f.childFkProperty;
             return (_row, retriever, target, ownerId) => {
@@ -379,7 +370,7 @@ export class CachedTable<T extends Entity> extends CachedTableBase {
         return rows;
     }
 
-    // ---- Reads (Signum's CachedTable members) ------------------------------------------------------
+    // ---- Reads -------------------------------------------------------------------------------------
 
     exists(id: PrimaryKey): boolean {
         this.hits++;
@@ -401,7 +392,7 @@ export class CachedTable<T extends Entity> extends CachedTableBase {
     }
 
     // The DISTINCT non-null values of one FK column across the loaded rows — the exact id set a
-    // semi-cached lite table has to fetch (altea's stand-in for Signum's INNER JOIN back to this table).
+    // semi-cached lite table has to fetch.
     referencedIds(column: IColumn): PrimaryKey[] {
         const index = this.indexOf(column);
         const set = new Set<PrimaryKey>();
@@ -413,7 +404,7 @@ export class CachedTable<T extends Entity> extends CachedTableBase {
         return [...set];
     }
 
-    // Signum's GetBackReferenceDictionary: ownerId → child ids, in `@rowOrder` order (the order a
+    // ownerId → child ids, in `@rowOrder` order (the order a
     // `@part` collection is retrieved in — see QueryBinder.fieldEntityArrayProjection). Keyed by
     // `String(ownerId)` so a numeric and a uuid PK behave the same.
     // NOTE it must be built SYNCHRONOUSLY, not through a ResetLazy: the caller is inside `complete()`,
@@ -458,23 +449,22 @@ export class CachedTable<T extends Entity> extends CachedTableBase {
 }
 
 
-// ---- Semi-cached lites (Signum's CachedTableLite) ----------------------------------------------------
+// ---- Semi-cached lites -------------------------------------------------------------------------------
 
-// The `Lite<T>` of a NON-cached (Transactional) type referenced by a cached one — Signum's
-// `CachedTableLite<T>`, and the reason it exists: a cached `Country` referencing `Lite<Person>` must NOT
-// pull Person's rows into memory. Person is volatile and large, and caching its rows would drag in whatever
-// Person itself references, transitively, until most of the database is in memory. So this table holds:
+// The `Lite<T>` of a NON-cached (Transactional) type referenced by a cached one, and the reason it exists:
+// a cached `Country` referencing `Lite<Person>` must NOT pull Person's rows into memory. Person is volatile
+// and large, and caching its rows would drag in whatever Person itself references, transitively, until most
+// of the database is in memory. So this table holds:
 //
 //   • only the ROWS actually referenced — an INNER JOIN back to the owner table does the restricting in
-//     SQL (Signum's `lastPartialJoin`), so no id list is shipped and the owner need not be loaded first;
+//     SQL, so no id list is shipped and the owner need not be loaded first;
 //   • only the COLUMNS the lite needs — the primary key plus whatever the display expression reads, found
-//     by walking it (see LiteColumnsFinder, the ToStringColumnsFinderVisitor analogue).
+//     by walking it (see LiteColumnsFinder).
 //
 // A lite is then built by filling a PARTIAL entity with exactly those columns and applying the type's own
 // lite builder to it (`toLite()`, or a registered custom lite's `fromEntity`) — so the result is what a
 // query would have produced, without a rewritten expression. When the display string comes from the ToStr
-// column (a hand-written `toString()`), that instance's `toString` is overridden with the cached value,
-// which is what Signum's LiteModelExpressionVisitor does by substituting the column into the expression.
+// column (a hand-written `toString()`), that instance's `toString` is overridden with the cached value.
 export class CachedTableLite extends CachedTableBase {
     readonly table: Table;
     private readonly columns: IColumn[];
@@ -517,8 +507,8 @@ export class CachedTableLite extends CachedTableBase {
 
         const isPostgres = this.table.isPostgres;
         const select = this.columns.map((c, i) => `lt.${sqlEscape(c.name, isPostgres)} AS c${i}`).join(", ");
-        // INNER JOIN the OWNER on its FK: only rows some cached row points at (Signum's partial join).
-        // Duplicates from the join collapse in the by-id map, exactly as Signum's `result[id] = obj` does.
+        // INNER JOIN the OWNER on its FK: only rows some cached row points at.
+        // Duplicates from the join collapse in the by-id map.
         this.sql = `SELECT ${select} FROM ${this.table.name.toString()} lt` +
             ` INNER JOIN ${owner.table.name.toString()} ow ON ow.${sqlEscape(column.name, isPostgres)} = lt.${sqlEscape(pk.name, isPostgres)}`;
 

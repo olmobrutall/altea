@@ -9,8 +9,10 @@ import { OmniboxMessage } from "../data/OmniboxMessages";
 import { OmniboxClient } from "./OmniboxClient";
 import "./Omnibox.css";
 
-// Port of Signum's `OmniboxAutocomplete` (Signum.Omnibox/OmniboxAutocomplete.tsx): the navbar input.
-// A Typeahead whose items come from `/api/omnibox` (one in-flight request, the previous aborted), where
+// Port of Signum.Omnibox's OmniboxAutocomplete.tsx — see docs/port/Omnibox.md.
+//
+// The navbar input: a Typeahead whose items come from `/api/omnibox` (one in-flight request, the previous
+// aborted), where
 //   Enter / click → run the result's navigateTo and push the URL,
 //   Tab           → replace the input text with the result's canonical form (disambiguation),
 //   minLength 0   → an empty box already shows the syntax guide.

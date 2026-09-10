@@ -10,21 +10,20 @@ import {
     AnyNode, BlockNode, DeclareNode, ForeachNode, IfNode, LiteralNode, ValueNode,
 } from "./TextTemplateParser.Nodes";
 
-// Port of Signum.Templating's TextTemplateParser.cs — text with `@…` markers → a BlockNode tree.
+// Port of Signum.Templating's TextTemplateParser.cs — see docs/port/Templating.md.
 //
-// altea divergences, documented inline:
-//  - `QueryDescription` → the QUERY NAME (altea resolves tokens from registered metadata).
-//  - `Synchronize` (the interactive token fix-up) is dropped; see TemplateUtils' header.
-//  - Signum's regex-driven scan becomes `scanKeywords` (JS has no balancing groups) — same grammar.
+// Text with `@…` markers → a BlockNode tree. The parser carries the QUERY NAME (tokens resolve from
+// registered metadata), and the keyword scan is `scanKeywords` rather than one regex, because a bracket
+// body needs balanced nesting.
 
 export namespace TextTemplateParser {
 
-    /** Signum's Parse — throw on ANY error (used when saving a template: the text must be valid). */
+    /** Throw on ANY error (used when saving a template: the text must be valid). */
     export function parse(text: string | null | undefined, queryName: QueryName | undefined, modelType: Function | undefined): BlockNode {
         return new TextTemplateParserImp(text, queryName, modelType).parse();
     }
 
-    /** Signum's TryParse — always returns a tree; the errors come back as one message (used by the
+    /** Always returns a tree; the errors come back as one message (used by the
      *  property validators, so a bad template shows as a validation error instead of an exception). */
     export function tryParse(text: string | null | undefined, queryName: QueryName | undefined, modelType: Function | undefined): { node: BlockNode; errorMessage: string } {
         return new TextTemplateParserImp(text, queryName, modelType).tryParse();
@@ -231,8 +230,7 @@ export namespace TextTemplateParser {
 }
 
 /** True when the @foreach's provider already ends in an `Element` token (so it yields the ELEMENT, not
- *  the collection). Signum tested `QueryToken.IsCollection(token.Type)` on the parsed token directly;
- *  altea's `isElement()` says the same thing more precisely. */
+ *  the collection). `isElement()` says exactly that. */
 function isElementToken(vp: ValueProviderBase): boolean {
     const anyVp = vp as { parsedToken?: { queryToken?: { isElement(): boolean } } };
     return anyVp.parsedToken?.queryToken?.isElement() ?? false;

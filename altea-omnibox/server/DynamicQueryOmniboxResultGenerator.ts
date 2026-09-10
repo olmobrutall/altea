@@ -26,9 +26,9 @@ import {
 import { allowedQueryFilter } from "./OmniboxAuth";
 import { tryParsePrimaryKey } from "./EntityOmniboxResultGenerator";
 
-// Port of Signum's `DynamicQueryOmniboxResultGenerator`
-// (Signum.Omnibox/DynamicQueryOmniboxResultGenerator.cs): the omnibox's richest shape — a QUERY plus any
-// number of (possibly half-typed) filters:
+// Port of Signum.Omnibox's DynamicQueryOmniboxResultGenerator.cs — see docs/port/Omnibox.md.
+//
+// The omnibox's richest shape: a QUERY plus any number of (possibly half-typed) filters —
 //
 //     Order                              → open the Order search
 //     Order Cus                          → …with the Customer column offered
@@ -39,14 +39,10 @@ import { tryParsePrimaryKey } from "./EntityOmniboxResultGenerator";
 // entities, so the generator emits the CARTESIAN PRODUCT of the alternatives and lets `distance` rank
 // them.
 //
-// altea divergences, documented inline:
-//  - Signum's `QueryDescription` is gone: sub-tokens come from the query's ROOT TOKEN
-//    (QueryLogic.getRootToken), whose children ARE the query's columns.
-//  - The syntax regex is hand-scanned (see `syntaxSequence`): the C# pattern relies on .NET's
-//    per-repetition `Group.Captures`, which JS RegExp does not retain.
-//  - `getResults`/`getFilterQueries` are async (entity autocomplete hits the database).
-//  - `ToStringValue` takes the token's FilterType rather than reflecting on the value: an altea enum
-//    value is a plain string at runtime, indistinguishable from a String value.
+// Sub-tokens come from the query's ROOT TOKEN (QueryLogic.getRootToken), whose children ARE the query's
+// columns; the syntax regex is HAND-SCANNED (see `syntaxSequence`), because reading each repetition back
+// needs captures a JS RegExp does not retain; and `toStringValue` takes the token's FilterType rather than
+// reflecting on the value, since an enum value is a plain string at runtime.
 
 export class DynamicQueryOmniboxResultGenerator implements OmniboxResultGenerator {
 
@@ -64,8 +60,7 @@ export class DynamicQueryOmniboxResultGenerator implements OmniboxResultGenerato
         const isPascalCase = isPascalCasePattern(pattern);
 
         const queries = OmniboxParser.manager.getQueries();
-        // Signum's inline `filter: qn => QueryLogic.Queries.QueryAllowed(qn, true)`; altea's query
-        // authorization is async, so the allowed set is resolved before the (sync) matcher runs.
+        // Query authorization is async while the matcher is sync, so the allowed set is resolved first.
         const isAllowed = await allowedQueryFilter([...queries.values()]);
 
         const result: DynamicQueryOmniboxResult[] = [];
@@ -120,7 +115,7 @@ export class DynamicQueryOmniboxResultGenerator implements OmniboxResultGenerato
         return result;
     }
 
-    // Signum's GetFilterQueries: every reading of ONE filter slot — its ambiguous token chains, and for a
+    // Every reading of ONE filter slot — its ambiguous token chains, and for a
     // complete filter its ambiguous values.
     protected async getFilterQueries(rawQuery: string, rootToken: QueryToken, syntax: FilterSyntax, tokens: OmniboxToken[]): Promise<OmniboxFilterResult[]> {
         const result: OmniboxFilterResult[] = [];
@@ -189,7 +184,7 @@ export class DynamicQueryOmniboxResultGenerator implements OmniboxResultGenerato
         return result;
     }
 
-    // Signum's SugestedValues: with an operator typed but no value yet, propose the type's "obvious"
+    // With an operator typed but no value yet, propose the type's "obvious"
     // values (0 / "" / today / both booleans / every enum member). undefined ⇒ nothing to propose.
     protected sugestedValues(queryToken: QueryToken): ValueTuple[] | undefined {
         const ft = tryGetFilterType(queryToken.type);
@@ -213,7 +208,7 @@ export class DynamicQueryOmniboxResultGenerator implements OmniboxResultGenerato
         }
     }
 
-    // Signum's GetValues: parse the value token against the column's type. An unparseable value becomes
+    // Parse the value token against the column's type. An unparseable value becomes
     // the UNKNOWN sentinel so the suggestion still renders (in red) instead of disappearing.
     protected async getValues(queryToken: QueryToken, omniboxToken: OmniboxToken): Promise<ValueTuple[]> {
         if (omniboxToken.isNull())
@@ -326,7 +321,6 @@ export class DynamicQueryOmniboxResultGenerator implements OmniboxResultGenerato
     }
 }
 
-// Signum passes `SubTokensOptions.CanAnyAll | SubTokensOptions.CanElement` everywhere in this generator.
 const SUB_TOKEN_OPTIONS = SubTokensOptions.CanAnyAll | SubTokensOptions.CanElement;
 
 const GUID_REGEX = /^[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}$/i;
@@ -338,11 +332,10 @@ export interface ValueTuple {
 
 // ---- The syntax scanner -------------------------------------------------------------------------
 
-// Signum matched the token pattern with
+// The grammar is
 //     ^I(?<filter>(?<token>I(\.I)*)(\.|((?<op>=)(?<val>[ENSIG])?))?)*$
-// and then read each repetition out of `Group.Captures` — a .NET-only feature (a JS RegExp keeps only
-// the LAST capture of a repeated group). The same grammar is therefore scanned by hand below; it stays
-// a faithful transcription of that pattern, one branch per regex construct.
+// and it is scanned BY HAND below, one branch per regex construct, because reading each repetition back
+// needs every capture of a repeated group — which a JS RegExp does not keep (only the last one).
 //
 // Returns undefined when the pattern does not match at all (this generator then yields nothing).
 export function syntaxSequence(tokenPattern: string): FilterSyntax[] | undefined {
@@ -382,7 +375,7 @@ export function syntaxSequence(tokenPattern: string): FilterSyntax[] | undefined
     return i === tokenPattern.length ? result : undefined;
 }
 
-// Signum's GetAmbiguousTokens: walk the dotted chain left to right, fanning out over every column whose
+// Walk the dotted chain left to right, fanning out over every column whose
 // name fuzzy-matches the segment, and yield each complete chain with the per-segment matches that built
 // it (so the client can bold exactly what the user typed).
 function* getAmbiguousTokens(
@@ -397,8 +390,7 @@ function* getAmbiguousTokens(
 
     const isPascal = isPascalCasePattern(omniboxToken.value);
 
-    // Signum: QueryUtils.SubTokens(queryToken, queryDescription, …) — a null parent meant "the query's
-    // columns". altea: the query's columns ARE the root token's sub-tokens.
+    // The query's columns ARE the root token's sub-tokens.
     const parent = queryToken ?? rootToken;
     const dic = toOmniboxPascalDictionary(parent.subTokens(SUB_TOKEN_OPTIONS), qt => qt.toString(), qt => qt);
     const ms = matches(dic, qt => qt.isAllowed() == null, omniboxToken.value, isPascal);
@@ -424,9 +416,8 @@ function filterResult(distance: number, syntax: FilterSyntax | undefined, queryT
     };
 }
 
-// Signum's `QueryToken.Follow(a => a.Parent).Reverse().ToString(a => a.ToString().ToOmniboxPascal(), ".")`.
-// ALTEA: the chain stops BEFORE the root token — altea's query root has key "" and its toString() is the
-// entity's nice name, so including it would prefix every path with "Order.".
+// The chain stops BEFORE the root token: the query root has key "" and its toString() is the entity's
+// nice name, so including it would prefix every path with "Order.".
 function queryTokenOmniboxPascal(token: QueryToken): string {
     const chain: QueryToken[] = [];
     for (let t: QueryToken | undefined = token; t != undefined && t.parent != undefined; t = t.parent)
@@ -434,9 +425,8 @@ function queryTokenOmniboxPascal(token: QueryToken): string {
     return chain.map(t => toOmniboxPascal(t.toString())).join(".");
 }
 
-// ---- Small ports of Signum helpers ---------------------------------------------------------------
+// ---- Small helpers -------------------------------------------------------------------------------
 
-// Signum's `QueryUtils.CanFilter` (DynamicQuery/QueryUtils.cs).
 function canFilter(token: QueryToken | undefined): string | null {
     if (token == undefined)
         return "No column selected";
@@ -450,8 +440,8 @@ function canFilter(token: QueryToken | undefined): string | null {
     return null;
 }
 
-// Signum's `FilterValueConverter.ParseOperation` / `ToStringOperation` (Signum.UserAssets). Inlined here:
-// altea has not ported FilterValueConverter and the omnibox is its only consumer.
+// Inlined rather than shared: FilterValueConverter's operation half is not ported, and the omnibox is its
+// only consumer.
 export function parseOperation(operationString: string): FilterOperationKeys {
     switch (operationString) {
         case "=":
@@ -493,14 +483,14 @@ export function toStringOperation(operation: FilterOperationKeys): string {
     throw new Error(`Unexpected Filter ${operation}`);
 }
 
-// Signum's `DynamicQueryOmniboxResultGenerator.ToStringValue`: render a filter value back into omnibox
+// Render a filter value back into omnibox
 // syntax, so [Tab] can rewrite the input with the disambiguated suggestion.
 //
-// ALTEA DIVERGENCE (two):
-//  - the FilterType is passed in rather than reflected off the value (an altea enum value is a plain
-//    string at runtime, so `typeof value` cannot tell it from a String column's value);
-//  - an enum renders in OMNIBOX-PASCAL form ("InTransit"), not Signum's spaced nice name ("In transit").
-//    That is what the value matcher keys on, so it is the only form that survives the [Tab] round-trip.
+// Two things worth knowing:
+//  - the FilterType is PASSED IN rather than reflected off the value — an enum value is a plain string at
+//    runtime, so `typeof value` cannot tell it from a String column's;
+//  - an enum renders in OMNIBOX-PASCAL form ("InTransit"), not the spaced nice name ("In transit"). That
+//    is what the value matcher keys on, so it is the only form that survives the [Tab] round-trip.
 export function toStringValue(filterType: FilterTypeKeys | undefined, value: unknown): string {
     if (value == null)
         return "null";
@@ -524,7 +514,7 @@ export function toStringValue(filterType: FilterTypeKeys | undefined, value: unk
     throw new Error(`Unexpected value type ${String(filterType)}`);
 }
 
-// Signum's CreateLite: a placeholder lite for "<Type> <id>" typed as a filter value — the ToString is
+// A placeholder lite for "<Type> <id>" typed as a filter value — the ToString is
 // synthesised, since the row is not fetched.
 function createLite(type: Function, value: string): Lite<Entity> | undefined {
     const id = tryParsePrimaryKey(type, value);
@@ -533,7 +523,7 @@ function createLite(type: Function, value: string): Lite<Entity> | undefined {
     return (type as Type<Entity> & typeof Entity).newLite(id as PrimaryKey, `${type.niceName()} ${String(id)}`) as Lite<Entity>;
 }
 
-// Signum's ParseBool: accepts en/es/… spellings plus the localized OmniboxMessage.Yes/No.
+// Accepts en/es/… spellings plus the localized OmniboxMessage.Yes/No.
 function parseBool(val: string): boolean | undefined {
     val = removeDiacritics(val.toLowerCase());
 
@@ -546,7 +536,7 @@ function parseBool(val: string): boolean | undefined {
     return undefined;
 }
 
-// Signum's `ReflectionTools.TryParse(str, dateOrTimeType)` — luxon/DateTime is Temporal in altea.
+// Luxon/DateTime is Temporal in altea.
 function tryParseTemporal(typeName: string | undefined, str: string): unknown {
     try {
         switch (typeName) {
@@ -579,7 +569,6 @@ function containsMatch(text: string, pattern: string): OmniboxMatch | undefined 
     return { distance, text, boldMask: mask.join("") };
 }
 
-// Signum's `IEnumerable<IEnumerable<T>>.CartesianProduct()` (Signum.Utilities).
 function cartesianProduct<T>(sequences: T[][]): T[][] {
     let result: T[][] = [[]];
     for (const seq of sequences) {

@@ -5,17 +5,13 @@ import type { OmniboxRequest, OmniboxResult } from "../data/OmniboxResults";
 import { OmniboxPermission } from "../data/OmniboxMessages";
 import { OmniboxParser } from "./OmniboxParser";
 
-// Port of Signum's `OmniboxController` + `OmniboxServer` (Signum.Omnibox). ONE route: the client posts
-// the raw query text plus the special-action keys it has registered, and gets back the ranked suggestions.
+// Port of Signum.Omnibox's OmniboxController + OmniboxServer — see docs/port/Omnibox.md.
 //
-// altea divergences:
-//  - Signum's `ReflectionServer.RegisterLike(typeof(OmniboxMessage), …)` (gate the message enum out of the
-//    reflection blob for unauthorized users) has no altea equivalent — altea's message containers are
-//    plain objects bundled with the client, not blob entries. The ROUTE is still gated below, which is
-//    what actually matters.
-//  - Signum built a fresh `SpecialOmniboxGenerator<ReactSpecialOmniboxAction>` per request and pushed it
-//    onto an AsyncThreadVariable; altea passes the keys through the explicit `OmniboxContext` instead
-//    (see OmniboxParser), so this handler just forwards them.
+// ONE route: the client posts the raw query text plus the special-action keys it has registered, and gets
+// back the ranked suggestions. The keys are forwarded through the explicit `OmniboxContext`.
+//
+// The ROUTE carries the gate. There is nothing to gate on the message container — it is a plain object
+// bundled with the client, not an entry in the reflection blob.
 export namespace OmniboxServer {
     export function start(ws: WebBuilder): void {
         ws.post("/api/omnibox",

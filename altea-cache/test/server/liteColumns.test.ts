@@ -11,8 +11,7 @@ import {
 
 // The column planner in isolation — NO DATABASE. It decides how few columns a semi-cached `Lite<T>` needs,
 // which is what keeps a cached `Country → Lite<Employee>` from dragging Employee (and Employee's own
-// references, and theirs…) into memory. Signum does this with ToStringColumnsFinderVisitor +
-// LiteModelExpressionVisitor; altea walks the custom lite's / `@quoted toString()`'s expression tree.
+// references, and theirs…) into memory.
 
 // An offline schema: `include` + `complete` need no connector, so the Tables (and therefore the columns)
 // are available without touching a database.

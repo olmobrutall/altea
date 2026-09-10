@@ -6,17 +6,14 @@ import { TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
 
 // The authorization adapters the generators use.
 //
-// Signum filtered inline with SYNCHRONOUS predicates — `Schema.Current.IsAllowed(type, inUserInterface:
-// true) == null` and `QueryLogic.Queries.QueryAllowed(qn, true)` — passed straight into
-// `OmniboxUtils.Matches(values, filter, …)`. altea's authorization reads a ResetLazy rule cache and is
-// therefore ASYNC, while the matcher must stay synchronous (it is a generator over a dictionary).
-// So each generator resolves the allowed SET up front (one pass over the candidate list) and hands the
-// matcher a plain `Set.has` predicate. Same semantics, one await earlier.
+// Authorization reads a ResetLazy rule cache and is therefore ASYNC, while the MATCHER must stay
+// synchronous (it is a generator over a dictionary). So each generator resolves the allowed SET up front,
+// in one pass over the candidate list, and hands the matcher a plain `Set.has` predicate.
 //
-// Both helpers are permissive when their auth module isn't started (altea-test / a host without
-// authorization): the omnibox then shows everything, exactly as an unsecured Signum app does.
+// Both helpers are PERMISSIVE when their auth module is not started (a host without authorization): the
+// omnibox then shows everything, as an unsecured application should.
 
-/** Signum's `Schema.Current.IsAllowed(type, inUserInterface: true) == null` — coarse UI-Read. */
+/** Coarse UI-Read. */
 export async function allowedTypeFilter(candidates: Function[]): Promise<(type: Function) => boolean> {
     if (!TypeAuthLogic.isStarted())
         return () => true;
@@ -35,7 +32,6 @@ export async function allowedTypeFilter(candidates: Function[]): Promise<(type: 
     return type => allowed.has(type);
 }
 
-/** Signum's `QueryLogic.Queries.QueryAllowed(queryName, fullScreen: true)`. */
 export async function allowedQueryFilter(candidates: QueryName[]): Promise<(queryName: QueryName) => boolean> {
     if (!QueryAuthLogic.isStarted())
         return () => true;

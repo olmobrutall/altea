@@ -13,10 +13,10 @@ import {
     GeoEmbedded, Continent,
 } from "../data/shop";
 
-// Shared bootstrap for the cache suite (the altea-cache analogue of altea-auth-test/server/setup.ts). A
-// DB-backed test `start()`s (connect + build the in-memory schema + register the cache); the schema and the
-// row fixture are generated ONCE out of band by `generateCacheEnvironment()` (the gen:* scripts).
-// DB tests are gated on ALTEA_CACHE_TEST_DB, so every file still compiles with no database.
+// Shared bootstrap for the cache suite. A DB-backed test `start()`s (connect + build the in-memory schema
+// + register the cache); the schema and the row fixture are generated ONCE out of band by
+// `generateCacheEnvironment()` (the gen:* scripts). DB tests are gated on ALTEA_CACHE_TEST_DB, so every
+// file still compiles with no database.
 
 export const hasDb = !!process.env.ALTEA_CACHE_TEST_DB;
 
@@ -39,7 +39,7 @@ export function start(): Promise<Connector> {
         const sb = new SchemaBuilder();
         const connector = await connectorFor(sb.schema, process.env.ALTEA_CACHE_TEST_DB!);
         Connector.default = connector;
-        // Signum detects the server version in its connector's CONSTRUCTOR; altea has no synchronous
+        // The server version is detected in an explicit async step, because there is no synchronous
         // database access, so it is an explicit step here — and it must run BEFORE the schema is built,
         // because that is where a generated GUID key's default generator is decided (guidKeyDefault).
         await connector.detectServerCapabilities();
@@ -158,7 +158,7 @@ async function seed(): Promise<void> {
 
 // ---- Test helpers --------------------------------------------------------------------------------
 
-/** Counts the SQL statements `fn` issues (Signum's Connector.CurrentLogger). */
+/** Counts the SQL statements `fn` issues. */
 export async function countSql<R>(fn: () => Promise<R>): Promise<{ result: R, sql: string[] }> {
     const sql: string[] = [];
     const previous = Connector.currentLogger;

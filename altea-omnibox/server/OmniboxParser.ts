@@ -16,24 +16,18 @@ import type { HelpOmniboxResult, OmniboxResult } from "../data/OmniboxResults";
 import { OmniboxMessage } from "../data/OmniboxMessages";
 import { toOmniboxPascalDictionary } from "./OmniboxUtils";
 
-// Port of Signum's `OmniboxParser` + `OmniboxManager` (Signum.Omnibox/OmniboxParser.cs): the TOKENIZER
-// and the generator pipeline behind `POST /api/omnibox`.
+// Port of Signum.Omnibox's OmniboxParser.cs (OmniboxParser + OmniboxManager) — see docs/port/Omnibox.md.
 //
-// The omnibox parses a free-text query into a flat token list, renders that list as a compact "token
-// pattern" string (one char per token: I=identifier, N=number, S=string, E=entity key, G=guid, ==comparer,
-// and any other symbol as itself), and hands both to each registered generator. A generator matches the
-// pattern with its own regex — "^I(N|G|S)?$" for `Order 5`, "^I(I(\.I)*(\.|(=[ENSIG]?))?)*$" for
-// `Order Customer.Name="Maria"` — so the grammar stays declarative.
+// A free-text query is parsed into a flat token list and rendered as a compact "token pattern" string —
+// one char per token: I=identifier, N=number, S=string, E=entity key, G=guid, ==comparer, any other symbol
+// as itself — and both are handed to each registered generator. A generator matches the pattern with its
+// own regex: "^I(N|G|S)?$" for `Order 5`, "^I(I(\.I)*(\.|(=[ENSIG]?))?)*$" for
+// `Order Customer.Name="Maria"`. That is what keeps the grammar declarative.
 //
-// altea divergences, documented inline:
-//  - Generators are ASYNC (`getResults` returns a Promise): every altea DB call is. Signum's lazy
-//    `IEnumerable` + `.Take(MaxResults)` short-circuit therefore becomes an explicit slice.
-//  - Signum threaded the client's special-action list through an AsyncThreadVariable
-//    (ReactSpecialOmniboxGenerator.OverrideClientGenerator). altea passes an explicit per-request
-//    `OmniboxContext` to every generator instead — no ambient state, no override scope.
-//  - `CancellationToken` is dropped (the express handler has no equivalent; the client aborts the fetch).
+// Generators are ASYNC, so the lazy take-N short-circuit is an explicit slice. There is NO ambient state:
+// the client's special-action list rides an explicit per-request `OmniboxContext`.
 
-// ---- Tokens (Signum's OmniboxToken / OmniboxTokenType) -----------------------------------------
+// ---- Tokens ------------------------------------------------------------------------------------
 
 export enum OmniboxTokenType {
     Identifier,
@@ -52,7 +46,7 @@ export class OmniboxToken {
         public readonly value: string,
     ) { }
 
-    // Signum's OmniboxToken.IsNull: the token spells an explicit null.
+    // The token spells an explicit null.
     isNull(): boolean {
         if (this.type === OmniboxTokenType.Identifier)
             return this.value === "null" || this.value === "none";
@@ -63,14 +57,14 @@ export class OmniboxToken {
         return false;
     }
 
-    // Signum's OmniboxToken.Next: the raw character that FOLLOWS this token (undefined at end of input).
+    // The raw character that FOLLOWS this token (undefined at end of input).
     // Used to tell "the user finished typing this name" (next is a space / a dot) from "still typing".
     next(rawQuery: string): string | undefined {
         const last = this.index + this.value.length;
         return last < rawQuery.length ? rawQuery[last] : undefined;
     }
 
-    // Signum's OmniboxToken.Char: this token's single character in the token PATTERN.
+    // This token's single character in the token PATTERN.
     char(): string {
         switch (this.type) {
             case OmniboxTokenType.Identifier: return "I";
@@ -91,12 +85,12 @@ const IDENT = String.raw`[_\p{Lu}\p{Ll}\p{Lt}\p{Lm}\p{Lo}\p{Nl}][\p{Lu}\p{Ll}\p{
 
 const GUID = String.raw`[A-F0-9]{8}(?:-[A-F0-9]{4}){3}-[A-F0-9]{12}`;
 
-// Signum's `symbol` class. `<` and `>` are deliberately absent — they only ever appear as comparers.
+// `<` and `>` are deliberately absent — they only ever appear as comparers.
 const SYMBOL = String.raw`[.,;!?@#$%&/\\()^*\[\]{}+-]`;
 
-// Signum's `FilterValueConverter.OperationRegex` (Signum.UserAssets/FilterValueConverter.cs). Inlined:
-// altea has not ported FilterValueConverter, and this is its only consumer. (The `!`s are unescaped —
-// a `\!` is an illegal identity escape under the /u flag the \p{…} classes force.)
+// Inlined rather than shared: FilterValueConverter's operation half is not ported, and this is its only
+// consumer. (The `!`s are unescaped — a `\!` is an illegal identity escape under the /u flag the \p{…}
+// classes force.)
 export const OPERATION_REGEX = String.raw`==?|<=|>=|<|>|\^=|\$=|%=|\*=|!=|!\^=|!\$=|!%=|!\*=`;
 
 // ALTEA DIVERGENCE: C# allows the same capture name twice (`(?<ident>…)` for both the bare and the
@@ -146,14 +140,13 @@ export function tokenize(omniboxQuery: string): OmniboxToken[] {
 
 // ---- Generators ---------------------------------------------------------------------------------
 
-// The per-request state Signum kept in an AsyncThreadVariable (see the divergence note above).
+// The per-request state, passed explicitly rather than kept in ambient scope (see the header).
 export interface OmniboxContext {
     /** The special-action keys the CLIENT registered and considers allowed. */
     specialActions: string[];
 }
 
-// Signum's `IOmniboxResultGenerator` (its `OmniboxResultGenerator<T>` base only re-typed GetResults, so
-// altea keeps the one interface).
+// ONE interface: Signum's `OmniboxResultGenerator<T>` base only re-typed GetResults.
 export interface OmniboxResultGenerator {
     getResults(rawQuery: string, tokens: OmniboxToken[], tokenPattern: string, ctx: OmniboxContext): Promise<OmniboxResult[]>;
     getHelp(ctx: OmniboxContext): HelpOmniboxResult[];
@@ -169,19 +162,18 @@ export function helpResult(text: string, referencedTypeName?: string, isMainTitl
     };
 }
 
-// Port of Signum's `OmniboxManager` — the CATALOGUE half of the parser: what the omnibox may offer
-// (queries, types) and how it reaches the database (autocomplete, retrieve-by-id). Signum exposed it as
-// `OmniboxParser.Manager` so an app could subclass and override; kept as a class here for the same reason.
+// The CATALOGUE half of the parser: what the omnibox may offer (queries, types) and how it reaches the
+// database (autocomplete, retrieve-by-id). A CLASS, so an app can subclass and override it.
 export class OmniboxManager {
 
-    // Signum's OmniboxManager.GetQueries — the registered queries keyed by the omnibox-pascal form of
+    // The registered queries keyed by the omnibox-pascal form of
     // their nice name, cached per culture (display names are culture-dependent).
     private readonly queriesByCulture = new Map<string, Map<string, QueryName>>();
 
     getQueries(): Map<string, QueryName> {
-        // Keyed on the UI culture — the one the nice names below actually resolve through (Signum reads
-        // CurrentCulture here; that keys the cache on something the values do not depend on, so two
-        // requests sharing a formatting culture but not a UI culture would share the wrong map).
+        // Keyed on the UI culture — the one the nice names below actually resolve through. Keying on the
+        // FORMATTING culture instead (which is what Signum does) would have two requests sharing a
+        // formatting culture but not a UI culture share the wrong map.
         const culture = CultureInfo.currentUICulture();
         let d = this.queriesByCulture.get(culture);
         if (d == undefined) {
@@ -191,7 +183,7 @@ export class OmniboxManager {
         return d;
     }
 
-    // Signum's OmniboxManager.Types — every MAPPED entity type except enum-entity/symbol tables,
+    // Every MAPPED entity type except enum-entity/symbol tables,
     // keyed by the omnibox-pascal form of its nice name. Cached per UI culture.
     private readonly typesByCulture = new Map<string, Map<string, Function>>();
 
@@ -214,18 +206,15 @@ export class OmniboxManager {
         return d;
     }
 
-    // Signum's OmniboxManager.Autocomplete → AutocompleteUtils.FindLiteLike.
-    //
-    // ALTEA DIVERGENCE: altea has no Database-level FindLiteLike; the substring search runs through
-    // the DYNAMIC QUERY (the same "ToString Contains" request the client's EntityLine autocomplete
-    // issues), so row-level security and query authorization apply for free. A type with no registered
-    // query (`sb.include(T).withQuery()`) therefore yields no suggestions.
+    // The substring search runs through the DYNAMIC QUERY — the same "ToString Contains" request the
+    // client's EntityLine autocomplete issues — so row-level security and query authorization apply for
+    // free. A type with no registered query (`sb.include(T).withQuery()`) therefore yields NO suggestions.
     async autocomplete(implementations: Implementations, subString: string, count: number): Promise<Lite<Entity>[]> {
         if (subString == null || subString.length === 0)
             return [];
 
         if (implementations.isByAll)
-            return []; // Signum's FindLiteLike needs a concrete type set too
+            return []; // a concrete type set is needed to search at all
 
         const result: Lite<Entity>[] = [];
         // Implementations.types is declared `Function[]`; every member is a reflected entity ctor,
@@ -258,7 +247,7 @@ export class OmniboxManager {
         if (toStringToken == undefined)
             return [];
 
-        // Signum's AutocompleteUtils order: shortest ToString first, then alphabetical.
+        // Shortest ToString first, then alphabetical.
         const orders = [tryToken("ToString.length"), toStringToken]
             .filter((t): t is QueryToken => t != undefined)
             .map(t => new Order(t, OrderTypeKeys.Ascending));
@@ -275,9 +264,8 @@ export class OmniboxManager {
         return rt.rows.map(r => r.entity as Lite<Entity> | undefined).filter((l): l is Lite<Entity> => l != undefined);
     }
 
-    // Signum's `Database.TryRetrieveLite(type, id)`. altea has no retrieveLite, so the entity is
-    // retrieved and lited; a missing row (or one the current role may not read) yields undefined, which
-    // the provider renders as "[Not found]" — exactly Signum's behaviour for a bad id.
+    // There is no retrieveLite, so the entity is retrieved and lited. A missing row — or one the current
+    // role may not read — yields undefined, which the provider renders as "[Not found]".
     async tryRetrieveLite(type: Function, id: PrimaryKey): Promise<Lite<Entity> | undefined> {
         try {
             const e = await retrieve(type as Type<Entity>, id);
@@ -296,7 +284,7 @@ export namespace OmniboxParser {
 
     export const manager = new OmniboxManager();
 
-    // Port of Signum's OmniboxParser.Results. An EMPTY query returns the syntax GUIDE (each generator
+    // An EMPTY query returns the syntax GUIDE (each generator
     // contributes its own example lines); otherwise the query is tokenized once and every generator is
     // offered the token list + pattern, with the union sorted by distance and capped at maxResults.
     export async function results(omniboxQuery: string, ctx: OmniboxContext): Promise<OmniboxResult[]> {
@@ -326,7 +314,7 @@ export namespace OmniboxParser {
     }
 }
 
-// Signum's `Type.IsEnumEntityOrSymbol()`: the generated tables that back an enum or a symbol container are
+// The generated tables that back an enum or a symbol container are
 // never navigable targets, so they are hidden from the omnibox's type list.
 function isEnumEntityOrSymbol(ctor: Function): boolean {
     return isEnumEntityType(ctor) || ctor === SymbolBase || ctor.prototype instanceof SymbolBase;

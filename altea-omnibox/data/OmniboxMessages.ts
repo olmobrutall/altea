@@ -2,10 +2,7 @@ import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { msg } from "@altea/altea/data/utils/localization";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 
-// Port of Signum's `OmniboxMessage` enum (Signum.Omnibox/OmniboxUtils.cs) + the generated
-// Signum.Omnibox.ts message keys. altea message containers are `{ Member: msg("Default") }` objects;
-// `.niceToString(...)` formats {0}/{1} and prefers a loaded translation. Each C# `[Description("…")]`
-// becomes the msg() argument; a bare `msg()` infers the English default from the member name.
+// Port of Signum.Omnibox's OmniboxMessage enum (OmniboxUtils.cs) — see docs/port/Omnibox.md.
 export const OmniboxMessage = {
     No: msg("no"),
     NotFound: msg("[Not found]"),
@@ -26,16 +23,14 @@ export const OmniboxMessage = {
     Search: msg("Search..."),
 };
 
-// Port of Signum's `[AutoInit] static class OmniboxPermission`. Reuses altea-auth's ONE PermissionSymbol
-// class/table — the quote-transformer rewrites `init()` into `init(PermissionSymbol,
-// "OmniboxPermission.ViewOmnibox", …)`, registering it in the declared-symbols set that
-// SymbolLogic.start(sb, PermissionSymbol) (already called by the auth module) seeds. So merely importing
-// this module — OmniboxLogic does — is enough for it to be seeded and authorizable.
+// Reuses altea-auth's ONE PermissionSymbol class / table. IMPORTING this module — OmniboxLogic does — is
+// enough for the symbol to be seeded and authorizable: the transformer rewrites `init()` into
+// `init(PermissionSymbol, "OmniboxPermission.ViewOmnibox", …)`, registering it in the declared-symbols
+// set `SymbolLogic.start(sb, PermissionSymbol)` — already called by the auth module — reads.
 export namespace OmniboxPermission {
     export const ViewOmnibox: PermissionSymbol = init();
 }
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("omnibox")]`. FOLDER-scoped, so it covers every type declared
+// The database schema this package's tables live in. FOLDER-scoped, so it covers every type declared
 // beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("omnibox");

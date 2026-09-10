@@ -14,7 +14,9 @@ import type { ResultColumn, ResultRow, ResultTable } from "@altea/altea/server/d
 import { TemplateTokenMessage } from "../data/Templating";
 import { distinctSingle, groupByColumn, scapeColon, ScopedDictionary } from "./TemplateUtils";
 
-// Port of Signum.Templating's ValueProviders.cs — everything a `@[…]` bracket can name:
+// Port of Signum.Templating's ValueProviders.cs — see docs/port/Templating.md.
+//
+// Everything a `@[…]` bracket can name:
 //
 //   `@[Customer.Name]`   the QUERY (implicit)     → TokenValueProvider
 //   `@[q:Customer.Name]` the QUERY (explicit)     → TokenValueProvider
@@ -25,34 +27,30 @@ import { distinctSingle, groupByColumn, scapeColon, ScopedDictionary } from "./T
 //   `@[$line.Product]`   a $variable's member     → ContinueValueProvider
 //   `@[42]` / `@["x"]`   a constant               → ConstantValueProvider
 //
-// altea divergences, documented inline:
-//  - `QueryDescription` is GONE (altea resolves tokens from registered entity metadata): a parser carries
-//    the QUERY NAME and `ParsedToken` resolves through `QueryLogic.getToken`. NOTE that resolution is
-//    CASE-SENSITIVE (altea walks reflected member names), so a stored token must match exactly.
-//  - `TranslateInstanceValueProvider` (`@[t:…]`) is NOT ported: it needs Signum's
-//    PropertyRouteTranslationLogic (per-instance translated fields), which altea has no counterpart for.
-//    `t:` therefore reports an error at parse time rather than silently falling back.
-//  - `CollectionNestedToken` (Signum's sub-query context inside a QueryContext) has no altea token, so
-//    QueryContext is FLAT — one ResultTable, no `SubQueryContext` map. `@foreach` over `…Element` works
-//    the same; nested sub-queries are simply not expressible.
-//  - `QueryTokenOrRowId` (Signum grouped a @foreach by the MList row's RowId so two rows with equal values
-//    stay distinct) has no altea counterpart yet (MListElementPropertyToken is a token-layer TODO); the
-//    foreach groups by the token's own value, which is what Signum does for every non-MList collection.
-//  - `Synchronize` is dropped with the sync pass (see TemplateUtils' header).
-//  - `Reflector.FormatString(type)` → the field's `@format`, read off the TypeReference when there is one.
+// A parser carries the QUERY NAME and `ParsedToken` resolves through `QueryLogic.getToken`. That
+// resolution is CASE-SENSITIVE — it walks reflected member names — so a stored token must match exactly.
+//
+// A QueryContext is FLAT (one ResultTable, no sub-query map), so `@foreach` over an `…Element` token works
+// but nested sub-queries are not expressible; and a `@foreach` groups by the token's own VALUE, so two
+// collection rows carrying equal values are ONE group.
+//
+// `@[t:…]` (translate-instance) reports an error at PARSE time rather than silently falling back. Its
+// recorded reason — "altea has no PropertyRouteTranslationLogic" — is out of date: that landed with
+// @altea/altea-translations, so this is now a follow-up rather than a blocker. See
+// docs/port/Templating.md.
 
-/** Signum's ITemplateParser — what a value provider needs from the parse in progress. */
+/** What a value provider needs from the parse in progress. */
 export interface ITemplateParser {
     /** The MODEL type (a reflected entity/model ctor) this template is written against, if any. */
     readonly modelType: Function | undefined;
-    /** The QUERY this template is written against, if any (Signum's QueryDescription). */
+    /** The QUERY this template is written against, if any. */
     readonly queryName: QueryName | undefined;
     assertQueryName(action: string): QueryName;
     readonly variables: ScopedDictionary<ValueProviderBase>;
     addError(fatal: boolean, error: string): void;
 }
 
-/** Signum's TemplateParameters — the RUNTIME side: the entity / culture / query rows a print runs over. */
+/** The RUNTIME side: the entity / culture / query rows a print runs over. */
 export abstract class TemplateParameters {
     constructor(
         public readonly entity: Entity | null,
@@ -64,7 +62,7 @@ export abstract class TemplateParameters {
 
     abstract getModel(): object;
 
-    /** Signum's `p.Scope()` — a nested runtime-variable scope for one @foreach iteration. */
+    /** A nested runtime-variable scope for one @foreach iteration. */
     scope(): Disposable {
         const old = this.runtimeVariables;
         this.runtimeVariables = new ScopedDictionary<unknown>(old);
@@ -72,7 +70,7 @@ export abstract class TemplateParameters {
     }
 }
 
-/** Signum's QueryContext — the executed query's rows, plus the "which rows am I looking at right now"
+/** The executed query's rows, plus the "which rows am I looking at right now"
  *  window that @foreach / @any narrow. altea divergence: FLAT (no CollectionNestedToken sub-queries). */
 export class QueryContext {
     readonly resultColumns = new Map<string, ResultColumn>();
@@ -96,7 +94,7 @@ export class QueryContext {
         return c;
     }
 
-    /** Signum's `OverrideRows` — narrow to one @foreach group / @any's filtered rows for the block's body. */
+    /** Narrow to one @foreach group / @any's filtered rows for the block's body. */
     overrideRows(rows: readonly ResultRow[]): Disposable {
         const old = this.rows;
         this.rows = rows;
@@ -122,10 +120,10 @@ export abstract class ValueProviderBase {
 
     abstract equalsProvider(other: ValueProviderBase): boolean;
 
-    /** Every query token this provider needs in the executed query (Signum's FillQueryTokens). */
+    /** Every query token this provider needs in the executed query. */
     abstract fillQueryTokens(list: QueryToken[], forForeach: boolean): void;
 
-    /** The bracket BODY, as it should be written back out (Signum's ToStringInternal). */
+    /** The bracket BODY, as it should be written back out. */
     abstract toStringInternal(sb: string[], variables: ScopedDictionary<ValueProviderBase>): void;
 
     toStringWithoutBrackets(variables: ScopedDictionary<ValueProviderBase>): string {
@@ -150,7 +148,7 @@ export abstract class ValueProviderBase {
         return sb.join("");
     }
 
-    /** Signum's Declare — publish this provider's `$name` into the scope. */
+    /** Publish this provider's `$name` into the scope. */
     declare(variables: ScopedDictionary<ValueProviderBase>): void {
         if (this.variable == undefined || this.variable === "")
             return;
@@ -165,7 +163,7 @@ export abstract class ValueProviderBase {
         variables.add(this.variable, this);
     }
 
-    /** Signum's Foreach — iterate this provider's collection, running `forEachElement` per item. */
+    /** Iterate this provider's collection, running `forEachElement` per item. */
     foreach(p: TemplateParameters, forEachElement: () => void): void {
         const collection = this.getValue(p) as Iterable<unknown> | null | undefined;
         if (collection == null)
@@ -179,17 +177,17 @@ export abstract class ValueProviderBase {
         }
     }
 
-    // Signum's TypeTokenRegex — the optional one-letter provider prefix.
+    // The optional one-letter provider prefix.
     private static readonly typeTokenRegex = /^(?:(?<type>[\w]):)?(?<token>[\s\S]*)$/;
 
-    /** Signum's ValueProviderBase.TryParse — the bracket body → a provider. */
+    /** The bracket body → a provider. */
     static tryParse(typeToken: string, variable: string | undefined, tp: ITemplateParser): ValueProviderBase | undefined {
         const match = ValueProviderBase.typeTokenRegex.exec(typeToken)!;
         const type = match.groups!["type"] ?? "";
         const token = match.groups!["token"];
 
         const assertNoCollectionToken = (pt: ParsedToken): void => {
-            // Signum's `QueryToken.IsCollection(token.Type)` — does this token's VALUE hold many rows?
+            // Does this token's VALUE hold many rows?
             // NOT `isCollectionToken()`, which asks the opposite-ish question ("is this a collection
             // BOUNDARY token", i.e. Element / AnyAll / Nested). Using that inverted the rule: it accepted
             // `@[details]` (a raw collection, unprintable) and rejected `@[details.Element]` (the correct
@@ -246,7 +244,7 @@ export abstract class ValueProviderBase {
         }
     }
 
-    /** Signum's ValidateConditionValue — can this comparison's right-hand text be read as my type? */
+    /** Can this comparison's right-hand text be read as my type? */
     validateConditionValue(valueString: string, operation: FilterOperationKeys | undefined, addError: (fatal: boolean, error: string) => void): void {
         const type = this.type;
         if (type == undefined)
@@ -267,7 +265,7 @@ function assign<T extends ValueProviderBase>(vp: T, variable: string | undefined
 
 // ---- ParsedToken ----------------------------------------------------------------------------------------
 
-/** Signum's ParsedToken — the token STRING plus (once it resolves) the QueryToken behind it. */
+/** The token STRING plus (once it resolves) the QueryToken behind it. */
 export class ParsedToken {
     queryToken: QueryToken | undefined;
 
@@ -311,7 +309,7 @@ export class ParsedToken {
         return result;
     }
 
-    /** Signum's SimplifyToken — write a token back using the SHORTEST `$var` prefix that covers it. */
+    /** Write a token back using the SHORTEST `$var` prefix that covers it. */
     simplifyToken(variables: ScopedDictionary<ValueProviderBase>, token: string): string {
         let best: { key: string; fullKey: string } | undefined;
 
@@ -351,7 +349,7 @@ export class TokenValueProvider extends ValueProviderBase {
 
         const value = distinctSingle(qc.currentRows, qc.column(this.parsedToken.queryToken!));
 
-        // A `…ToArray` token yields the whole collection; join it the way Signum's CollectionToArrayToken does.
+        // A `…ToArray` token yields the whole collection; join it.
         if (this.parsedToken.queryToken!.isToArray()) {
             const array = (value ?? []) as unknown[];
             const separator = this.parsedToken.queryToken!.key.includes("NewLine") ? "\n" : ", ";
@@ -393,7 +391,7 @@ export class TokenValueProvider extends ValueProviderBase {
 
 // ---- Member chains (`@[m:A.B(C)]`, `@[g:Now.Year]`, `@[$line.Product]`) ----------------------------------
 
-/** Signum's MemberWithArguments — one step of a member chain: a property/field/method NAME, with the
+/** One step of a member chain: a property/field/method NAME, with the
  *  argument providers when it is a method call. */
 export class MemberWithArguments {
     constructor(public readonly member: string, public readonly args: ValueProviderBase[] | undefined) { }
@@ -406,13 +404,12 @@ export class MemberWithArguments {
 
 const parenthesisRegex = /\([^)]*\)/g;
 
-/** Signum's ParsedModel.GetMembers — split `A.B(x, y).C` into member steps, validating each against the
+/** Split `A.B(x, y).C` into member steps, validating each against the
  *  reflected type when one is known.
  *
- *  altea divergence: C# resolved every step through reflection (and REQUIRED a method's last parameter to
- *  be TemplateParameters). TS has no runtime member table for plain classes, so validation uses altea's
- *  reflected FieldInfos when the step's owner is a reflected entity and otherwise accepts the name; a
- *  method is called with its arguments followed by the TemplateParameters, exactly as Signum does. */
+ *  There is no runtime member table for a plain class, so validation uses the reflected FieldInfos when
+ *  the step's owner is a reflected entity and otherwise accepts the name. A method is called with its
+ *  arguments followed by the TemplateParameters. */
 export function getMembers(fieldOrPropertyChain: string | undefined, tp: ITemplateParser): MemberWithArguments[] | undefined {
     const members: MemberWithArguments[] = [];
     const parens: string[] = [];
@@ -439,8 +436,8 @@ export function getMembers(fieldOrPropertyChain: string | undefined, tp: ITempla
     return members;
 }
 
-/** Signum's ModelValueProvider.Getter — read one member step off a value. A method step receives its
- *  arguments plus the TemplateParameters (Signum's convention), so a model can format with the culture. */
+/** Read one member step off a value. A method step receives its
+ *  arguments plus the TemplateParameters, so a model can format with the culture. */
 export function getter(mwa: MemberWithArguments, target: object, p: TemplateParameters): unknown {
     const value = (target as Record<string, unknown>)[mwa.member];
 
@@ -455,9 +452,9 @@ export function getter(mwa: MemberWithArguments, target: object, p: TemplatePara
     return value;
 }
 
-/** Walk a member chain over a starting value, stopping at the first null (Signum's loop). A chain that
- *  never RESOLVED (the parse reported an error for it) is not walkable — say so, instead of failing deep
- *  inside the loop the way Signum's `Members!` would. */
+/** Walk a member chain over a starting value, stopping at the first null. A chain that never RESOLVED —
+ *  the parse reported an error for it — is not walkable: SAY SO, rather than failing deep inside the
+ *  loop. */
 function walk(members: readonly MemberWithArguments[] | undefined, start: unknown, p: TemplateParameters, what?: string): unknown {
     if (members == undefined)
         throw new Error(`Cannot read '${what ?? "the member chain"}': it did not resolve when the template was parsed`);
@@ -534,12 +531,11 @@ export class ModelValueProvider extends ValueProviderBase {
 
 // ---- NiceNameValueProvider (`@[n:Order.State]`) ---------------------------------------------------------
 
-/** Signum's NiceNameValueProvider — print a TRANSLATED name rather than a value: a type's nice name, a
+/** Print a TRANSLATED name rather than a value: a type's nice name, a
  *  property's nice name, or an enum member's nice name.
  *
- *  altea divergence: Signum walked C# reflection from the model type (plus its [ExportNiceNames] aliases).
- *  altea resolves the chain against its own TypeInfo/FieldInfo registry, and accepts a leading TYPE NAME
- *  as well as a model member — so `@[n:OrderEntity.State]` works without an alias attribute. */
+ *  The chain resolves against the TypeInfo / FieldInfo registry and accepts a leading TYPE NAME as well
+ *  as a model member, so `@[n:OrderEntity.State]` works with no alias declaration. */
 export class NiceNameValueProvider extends ValueProviderBase {
     private resolved: (() => string) | undefined;
 
@@ -631,10 +627,9 @@ export interface GlobalVariable {
 }
 
 export class GlobalValueProvider extends ValueProviderBase {
-    /** Signum's `GlobalValueProvider.GlobalVariables` — the process-wide registry. */
+    /** The process-wide registry. */
     static readonly globalVariables = new Map<string, GlobalVariable>();
 
-    /** Signum's RegisterGlobalVariable. */
     static registerGlobalVariable(key: string, getValue: (p: TemplateParameters) => unknown, type: TypeReference, format?: string): void {
         GlobalValueProvider.globalVariables.set(key, { getValue, type, format });
     }
@@ -701,9 +696,8 @@ export class GlobalValueProvider extends ValueProviderBase {
 
 // ---- DateValueProvider (`@[d:2020-01-01]`) --------------------------------------------------------------
 
-/** Signum's DateValueProvider — a literal or "now" date. altea divergence: Signum parsed its
- *  SmartDateTime grammar (`yyyy/mm/-1 00:00:00`); altea has not ported that grammar, so the expression is
- *  an ISO PlainDateTime (empty ⇒ `Clock.now`). */
+/** A literal or "now" date. The expression is an ISO PlainDateTime (empty ⇒ `Clock.now`): the
+ *  SmartDateTime grammar (`yyyy/mm/-1 00:00:00`) is not ported. */
 export class DateValueProvider extends ValueProviderBase {
     private dateTimeExpression: string | undefined;
 
@@ -745,7 +739,7 @@ const notAConstant = Symbol("notAConstant");
 export class ConstantValueProvider extends ValueProviderBase {
     constructor(public readonly value: unknown) { super(); }
 
-    /** Signum's TryParseConstantValue. Returns `notAConstant` when the text is not a literal. */
+    /** Returns `notAConstant` when the text is not a literal. */
     static tryParseConstantValue(valueExpression: string): unknown {
         if (valueExpression.toLowerCase() === "null")
             return null;
@@ -843,10 +837,9 @@ export class ContinueValueProvider extends ValueProviderBase {
     }
 }
 
-// ---- constant parsing (Signum's FilterValueConverter.Parse) ---------------------------------------------
+// ---- constant parsing -----------------------------------------------------------------------------------
 
-/** Parse a template comparison's right-hand TEXT into a value of `type` (Signum's
- *  `FilterValueConverter.Parse(value, type, isList)`; `|` separates a list). */
+/** Parse a template comparison's right-hand TEXT into a value of `type`; `|` separates a list. */
 export function parseConstant(valueString: string, type: TypeReference, isList: boolean): unknown {
     if (isList)
         return valueString.split("|").map(v => parseConstant(v.trim(), type, false));
@@ -895,13 +888,13 @@ function tryResolveTypeByName(name: string): Function | undefined {
         ?? (resolveEnum(name) as Function | undefined);
 }
 
-/** Signum's `Reflector.FormatString(type)` — the explicit `@format` when the reference is a reflected
+/** The explicit `@format` when the reference is a reflected
  *  FieldInfo, else the value type's default (a decimal's "N2"). */
 export function formatOf(tr: TypeReference | undefined): string | undefined {
     return (tr as FieldInfo | undefined)?.format ?? defaultFormat(tr);
 }
 
-/** Print a value the way a template should (Signum's ValueNode.PrintList formatting rules). */
+/** Print a value the way a template should. */
 export function formatTemplateValue(value: unknown, format: string | undefined, culture: string, type: TypeReference | undefined): string {
     if (value == null)
         return "";
@@ -938,8 +931,8 @@ function formatTemporal(value: Temporal.PlainDate | Temporal.PlainDateTime | Tem
     }
 }
 
-// Signum leaned on .NET numeric format strings; altea supports the subset its own UI does: "N<digits>" /
-// "C<digits>" / "P<digits>" / a plain digit count, and falls back to the culture's default.
+// The numeric formats are the subset the UI itself supports: "N<digits>" / "C<digits>" / "P<digits>" / a
+// plain digit count, falling back to the culture's default.
 function formatDecimal(value: Decimal, format: string | undefined, culture: string): string {
     const loc = culture === "" ? CultureInfo.currentCulture() : culture;
     const num = value.toNumber();

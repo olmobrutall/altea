@@ -1,20 +1,15 @@
-// Port of Signum's `IServerBroadcast` (Signum.Caching/CacheLogic.cs). The transport that tells SIBLING
-// processes to invalidate: one method name + one string argument, deliberately tiny, because the payload is
-// only ever "this table changed" / "everything changed".
+// Port of the `IServerBroadcast` half of Signum.Caching's CacheLogic.cs — see docs/port/Cache.md.
 //
-// Two implementations, matching Signum's usable set: `PostgresBroadcast` (LISTEN/NOTIFY) and
-// `SimpleHttpBroadcast` (the peers' own HTTP endpoints) — the latter is what a SQL Server app uses, since
-// Signum's SqlDependency has no Node equivalent (the driver has no query notifications) and the HTTP
-// transport is what Signum itself offers for any database without pub/sub.
+// The transport that tells SIBLING processes to invalidate: one method name + one string argument,
+// deliberately tiny, because the payload is only ever "this table changed" / "everything changed".
 //
-// altea divergence: Signum's `event Action<string, string>? Receive` becomes a handler ARRAY (altea has no
-// C# events; every other altea hook list works this way), and `send` is async-tolerant — a Node transport
-// writes to a socket.
+// Two implementations: `PostgresBroadcast` (LISTEN/NOTIFY) and `SimpleHttpBroadcast` (the peers' own HTTP
+// endpoints), the latter being what a SQL Server app uses — there are no query notifications to lean on.
 export interface IServerBroadcast {
     /** Whether the transport is connected and listening. */
     readonly running: boolean;
 
-    /** Connect + subscribe if not already (Signum's StartIfNecessary). Idempotent. */
+    /** Connect + subscribe if not already. Idempotent. */
     startIfNecessary(): void | Promise<void>;
 
     /** Publish `(methodName, argument)` to every OTHER process. Never to this one. */
@@ -26,6 +21,6 @@ export interface IServerBroadcast {
     /** Shut the transport down (a graceful process exit). */
     stop(): void | Promise<void>;
 
-    /** Shown on the statistics panel — Signum renders `ServerBroadcast?.ToString()`. */
+    /** Shown on the statistics panel. */
     toString(): string;
 }

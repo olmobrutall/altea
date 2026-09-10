@@ -32,6 +32,7 @@ specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inv
 | Page | Module |
 | --- | --- |
 | [AuthDirectory.md](AuthDirectory.md) | `@altea/altea-auth-azuread`, `@altea/altea-auth-openid`, `@altea/altea-auth-windowsad` |
+| [Cache.md](Cache.md) | `@altea/altea-cache` |
 | [ConcurrentUser.md](ConcurrentUser.md) | `@altea/altea-concurrent-user` |
 | [DiffLog.md](DiffLog.md) | `@altea/altea-diff-log` |
 | [Eval.md](Eval.md) | `@altea/altea-eval` |
@@ -44,12 +45,14 @@ specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inv
 | [MailingPop3.md](MailingPop3.md) | `@altea/altea-mailing-pop3` |
 | [Markdown.md](Markdown.md) | `@altea/altea-markdown` |
 | [Migrations.md](Migrations.md) | `@altea/altea-migrations` |
+| [Omnibox.md](Omnibox.md) | `@altea/altea-omnibox` |
 | [Printing.md](Printing.md) | `@altea/altea-printing` |
 | [Processes.md](Processes.md) | `@altea/altea-processes` |
 | [ResetPassword.md](ResetPassword.md) | `@altea/altea-auth-reset-password` |
 | [Rest.md](Rest.md) | `@altea/altea-rest` |
 | [Scheduler.md](Scheduler.md) | `@altea/altea-scheduler` |
 | [Sms.md](Sms.md) | `@altea/altea-sms` |
+| [Templating.md](Templating.md) | `@altea/altea-templating` |
 | [TimeMachine.md](TimeMachine.md) | `@altea/altea-time-machine` |
 | [Toolbar.md](Toolbar.md) | `@altea/altea-toolbar` |
 | [Tour.md](Tour.md) | `@altea/altea-tour` |

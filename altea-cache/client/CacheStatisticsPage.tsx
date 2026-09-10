@@ -5,11 +5,12 @@ import { CacheMessage } from '../data/CacheMessage'
 import type { CacheStateTS, CacheTableTS } from '../data/CacheState'
 import { CacheClient } from './CacheClient'
 
-// Port of Signum's CacheStatisticsPage (Signum.Caching/CacheStatisticsPage.tsx): the cached tables and
-// global lazies with their hit / invalidation / load statistics, plus Enable / Disable / Clear.
-// altea divergences: plain `<table>` (altea has no AccessibleTable component yet) and no
-// "Invalidation exceptions" tab — that tab searches ExceptionEntity by `controllerName`, which altea's
-// broadcast transports do not write (a failed broadcast is swallowed by design, see SimpleHttpBroadcast).
+// Port of Signum.Caching's CacheStatisticsPage.tsx — see docs/port/Cache.md.
+//
+// The cached tables and global lazies with their hit / invalidation / load statistics, plus Enable /
+// Disable / Clear. There is no "Invalidation exceptions" tab: it would search ExceptionEntity by
+// `controllerName`, which the broadcast transports do not write — a failed broadcast is swallowed by
+// design (see SimpleHttpBroadcast).
 export default function CacheStatisticsPage(): React.JSX.Element {
 
     const [state, reloadState] = useAPIWithReload(() => CacheClient.API.view(), [], { avoidReset: true });
@@ -72,7 +73,7 @@ export default function CacheStatisticsPage(): React.JSX.Element {
         );
     }
 
-    // One row per table, its sub-tables indented and progressively faded (Signum's RenderTree).
+    // One row per table, its sub-tables indented and progressively faded.
     function renderTableRows(table: CacheTableTS, depth: number): React.JSX.Element[] {
         const opacity = depth === 0 ? 1 : depth === 1 ? .7 : depth === 2 ? .5 : depth === 3 ? .4 : .3;
         const rows = [

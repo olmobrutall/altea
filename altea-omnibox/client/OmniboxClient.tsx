@@ -18,16 +18,13 @@ import SpecialOmniboxProvider from "./SpecialOmniboxProvider";
 import { OmniboxProvider } from "./OmniboxProvider";
 import { allowedSpecialActionKeys } from "@altea/altea/client/OmniboxSpecialAction";
 
-// Port of Signum's `OmniboxClient` (Signum.Omnibox/OmniboxClient.tsx): the PROVIDER REGISTRY (result-type
-// name → renderer) plus the one API call. The omnibox itself is the <OmniboxAutocomplete/> component.
+// Port of Signum.Omnibox's OmniboxClient.tsx — see docs/port/Omnibox.md.
 //
-// altea divergences:
-//  - `start()` takes a ClientBuilder, like every other altea client module (Signum's took no argument).
-//    It registers no routes — the omnibox is a navbar widget, not a page — so `cb` is only there for
-//    symmetry and future use.
-//  - Signum's `ChangeLogClient.registerChangeLogModule` and `AppContext.clearSettingsActions.push(
-//    clearProviders)` are dropped: altea has neither (module state resets via AppContext.newClientState;
-//    see the notes in Finder/Navigator/QuickLinkClient). `clearProviders` stays exported.
+// The PROVIDER REGISTRY (result-type name → renderer) plus the one API call. The omnibox itself is the
+// <OmniboxAutocomplete/> component.
+//
+// `start()` registers no ROUTES — the omnibox is a navbar widget, not a page — so its ClientBuilder is
+// there for symmetry alone.
 export namespace OmniboxClient {
 
     export function start(_cb: ClientBuilder): void {
@@ -59,14 +56,14 @@ export namespace OmniboxClient {
         const items = result.resultTypeName == OmniboxResultTypeName.Help ?
             renderHelpItem(result as HelpOmniboxResult) :
             getProvider(result.resultTypeName).renderItem(result);
-        // The providers build bare (key-less) element arrays, exactly as in Signum; wrapping each in a
-        // keyed Fragment keeps React quiet without touching the DOM they render.
+        // The providers build bare, key-less element arrays; wrapping each in a keyed Fragment keeps
+        // React quiet without touching the DOM they render.
         return <span>{items.map((n, i) => <React.Fragment key={i}>{n}</React.Fragment>)}</span>;
     }
 
     // The syntax-guide rows returned for an empty query. `(…)` marks the characters a pattern would
-    // match, so they are rendered bold — Signum did the same with a `dangerouslySetInnerHTML` replace;
-    // altea splits the text instead, so no HTML from the server is ever injected.
+    // match, so they are rendered bold. The text is SPLIT rather than run through
+    // `dangerouslySetInnerHTML`, so no HTML from the server is ever injected.
     function renderHelpItem(help: HelpOmniboxResult): React.ReactNode[] {
 
         const result: React.ReactNode[] = [];

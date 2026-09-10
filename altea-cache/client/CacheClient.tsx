@@ -7,15 +7,14 @@ import { registerSpecialAction } from '@altea/altea/client/OmniboxSpecialAction'
 import { AuthClient } from '@altea/altea-auth/client/AuthClient'
 import { CachePermission } from '../data/CachePermission'
 
-// Port of Signum's CacheClient (Signum.Caching/CacheClient.tsx). Registers the statistics route, the
-// "!ViewCache" omnibox entry and the typed HTTP client the page calls. altea divergences: the panel's DTOs
-// live in the DATA layer (data/CacheState.ts), shared with the server builder instead of re-declared here;
-// the Signum.Map colour provider is not registered (altea-map has no cache provider).
+// Port of Signum.Caching's CacheClient.tsx — see docs/port/Cache.md.
 //
-// One deliberate fix rather than a mirror: Signum gates the "!ViewCache" entry on
-// `CachePermission.InvalidateCache`, but the page it opens needs `ViewCache` — every route it calls asserts
-// that one, and only `clear` asserts InvalidateCache. Signum's condition therefore hides the entry from
-// someone allowed to open the panel, and offers it to someone who may not. Gated on ViewCache here.
+// The statistics route, the "!ViewCache" omnibox entry and the typed HTTP client the page calls.
+//
+// That omnibox entry is gated on **ViewCache**, which is what the page it opens actually needs — every
+// route the page calls asserts ViewCache, and only `clear` asserts InvalidateCache. (Signum gates it on
+// InvalidateCache, which hides it from someone allowed to open the panel and offers it to someone who is
+// not. Do not "restore" that.)
 export namespace CacheClient {
 
     export function start(cb: ClientBuilder): void {

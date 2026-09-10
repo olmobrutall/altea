@@ -6,14 +6,11 @@ import {
 } from "./ValueProviders";
 import { compareInMemory, ScopedDictionary, toStringOperation } from "./TemplateUtils";
 
-// Port of Signum.Templating's Conditions.cs — the boolean expression inside an `@if[…]` / `@any[…]`
-// bracket: `A && B`, `A || B`, `Token op Value`, or a bare truthiness test.
+// Port of Signum.Templating's Conditions.cs — see docs/port/Templating.md.
 //
-// altea divergences, documented inline:
-//  - `GetResultFilter` returned a compiled LINQ predicate over a ResultRow; here it is a plain closure
-//    over the in-memory comparison (see TemplateUtils' compareInMemory) — same behaviour, no expression
-//    trees.
-//  - `Synchronize` is dropped with the sync pass (see TemplateUtils' header).
+// The boolean expression inside an `@if[…]` / `@any[…]` bracket: `A && B`, `A || B`, `Token op Value`, or
+// a bare truthiness test. The result filter is a plain CLOSURE over an in-memory comparison
+// (TemplateUtils.compareInMemory), not a compiled expression tree.
 
 export abstract class ConditionBase {
     abstract clone(): ConditionBase;
@@ -42,7 +39,7 @@ export abstract class ConditionBase {
         return this.stringify(new ScopedDictionary<ValueProviderBase>(undefined));
     }
 
-    /** Signum's GetFilteredRows — the rows an `@any` block should see (and whether there are any). */
+    /** The rows an `@any` block should see (and whether there are any). */
     getFilteredRows(p: TemplateParameters): unknown[] {
         const filter = this.getResultFilter(p);
         return p.queryContext!.currentRows.filter(filter);
@@ -141,9 +138,8 @@ export class ConditionCompare extends ConditionBase {
 
     /** The comparison's right-hand text as a value of the provider's type.
      *
-     *  altea divergence: Signum ALWAYS had a static type (C# reflection over the model). altea's type is
-     *  unknown for a member of a NON-reflected model (a plain-shape EmailModel) — so the text is compared as
-     *  written, which is what `@if[m:state=Shipped]` means. */
+     *  The type is UNKNOWN for a member of a non-reflected model (a plain-shape EmailModel), in which case
+     *  the text is compared as written — which is what `@if[m:state=Shipped]` means. */
     private parsedValue(isList: boolean): unknown {
         const type = this.valueProvider!.type;
         if (type == undefined)
@@ -152,7 +148,7 @@ export class ConditionCompare extends ConditionBase {
         return parseConstant(this.value!, type, isList);
     }
 
-    /** Signum's ToBool — `null`, `0`, `""` and `false` are false; everything else is true. */
+    /** `null`, `0`, `""` and `false` are false; everything else is true. */
     static toBool(obj: unknown): boolean {
         if (obj == null)
             return false;
@@ -190,9 +186,9 @@ export class ConditionCompare extends ConditionBase {
         if (value == null)
             return [];
 
-        // `@any[…]` asks "is there at least ONE?", so its provider must yield a collection. Signum let the
-        // cast to IEnumerable fail; name the provider instead, since this is an authoring mistake with an
-        // obvious fix (`@if[…]` is the scalar form).
+        // `@any[…]` asks "is there at least ONE?", so its provider must yield a collection. NAME the
+        // provider rather than letting the iteration fail: this is an authoring mistake with an obvious
+        // fix (`@if[…]` is the scalar form).
         if (typeof value !== "object" || !(Symbol.iterator in (value as object)))
             throw new Error(`@any[${this.valueProvider!.toStringWithoutBrackets(new ScopedDictionary<ValueProviderBase>(undefined))}]`
                 + ` is not a collection — use @if[…] for a single value`);

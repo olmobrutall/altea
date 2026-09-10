@@ -6,15 +6,11 @@ import { QueryToken, SubTokensOptions } from "@altea/altea/client/QueryToken";
 import { TemplateMessage, TemplateTokenMessage, type GlobalVariableTS } from "../data/Templating";
 import { TemplatingClient } from "./TemplatingClient";
 
-// Port of Signum.Templating's TemplateControls.tsx — the toolbar above a template's text: pick a QUERY
-// token (or a GLOBAL variable), then click Insert / if / foreach / any to get the snippet to paste.
+// Port of Signum.Templating's TemplateControls.tsx — see docs/port/Templating.md.
 //
-// altea divergences, documented inline:
-//  - Signum used `AutoLineModal.show({ type: {name: "string" }, initialValue, … })` to hand the snippet to
-//    the user in a selectable text box; altea has no AutoLineModal, so the snippet goes into a
-//    `MessageModal` (pre-selected, in a <code> block) — same "Ctrl+C, ESC" flow.
-//  - `hasAnyOrAll(token)` is `token.hasAnyOrAll()` in altea (the has* checks live ON the token).
-//  - `token.type.isCollection` → `token.type.array`.
+// The toolbar above a template's text: pick a QUERY token (or a GLOBAL variable), then click Insert / if /
+// foreach / any to get the snippet to paste. The snippet is handed over in a `MessageModal`
+// (pre-selected, in a <code> block) — the "Ctrl+C, ESC" flow.
 
 export interface TemplateControlsProps {
     queryKey: string | null | undefined;

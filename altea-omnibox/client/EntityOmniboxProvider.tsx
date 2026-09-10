@@ -6,8 +6,9 @@ import { OmniboxResultTypeName } from "../data/OmniboxResults";
 import { OmniboxMessage } from "../data/OmniboxMessages";
 import { OmniboxProvider } from "./OmniboxProvider";
 
-// Port of Signum's `EntityOmniboxProvider` (Signum.Omnibox/EntityOmniboxProvider.tsx): renders the
-// "jump straight to one entity" rows — `Order 5` / `Customer "Maria"` — and navigates to the entity view.
+// Port of Signum.Omnibox's EntityOmniboxProvider.tsx — see docs/port/Omnibox.md.
+//
+// The "jump straight to one entity" rows — `Order 5` / `Customer "Maria"` — navigating to the entity view.
 export default class EntityOmniboxProvider extends OmniboxProvider<EntityOmniboxResult> {
 
     getProviderName(): string {
@@ -45,17 +46,16 @@ export default class EntityOmniboxProvider extends OmniboxProvider<EntityOmnibox
                     array.push(this.coloredSpan(OmniboxMessage.NotFound.niceToString(), "gray"));
                 } else {
 
-                    // A guid id is unreadable in full — show only its head and tail (Signum does the same).
-                    // altea: `fields`, not Signum's capitalized `members["Id"]`; the PK kind lives in
-                    // columnOptions.
+                    // A guid id is unreadable in full — show only its head and tail.
+                    // The PK kind lives in the field's columnOptions.
                     const ti = tryGetTypeInfo(result.typeMatch.text);
                     const pk = ti?.fields["id"]?.columnOptions?.primaryKey;
                     if (pk === "uuid" || pk === "uuid7") {
                         const id = result.lite.id as string;
                         array.push(<span className="guid">{id.substring(0, 4) + "…" + id.substring(id.length - 4)}</span>);
                     } else {
-                        // ALTEA FIX: Signum pushed `result.id` here, which is always undefined in this
-                        // branch (it is the ToStr branch) — the id came out blank. The lite carries it.
+                        // The LITE carries the id. (`result.id` is always undefined in this branch —
+                        // it is the ToStr branch — which is why Signum's row came out blank here.)
                         array.push(result.lite.id);
                     }
 

@@ -3,9 +3,10 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { IconProp } from "@fortawesome/fontawesome-svg-core";
 import type { OmniboxMatch, OmniboxResult } from "../data/OmniboxResults";
 
-// Port of Signum's `OmniboxProvider<T>` (Signum.Omnibox/OmniboxProvider.tsx): the renderer half of one
-// omnibox result SHAPE. The server produces `{ resultTypeName, … }` rows; the client registry
-// (OmniboxClient.providers) maps each `resultTypeName` to one of these.
+// Port of Signum.Omnibox's OmniboxProvider.tsx — see docs/port/Omnibox.md.
+//
+// The renderer half of one omnibox result SHAPE. The server produces `{ resultTypeName, … }` rows and the
+// client registry (OmniboxClient.providers) maps each `resultTypeName` to one of these.
 //
 // A provider answers four questions about its results: how to draw the row, where to go on Enter, what
 // text to put back in the input on Tab, and which icon identifies it.
@@ -16,7 +17,7 @@ export abstract class OmniboxProvider<T extends OmniboxResult> {
     abstract toString(result: T): string;
     abstract icon(): React.ReactNode;
 
-    // Signum's renderMatch: walk the '#' runs of the bold mask and emit <strong> for the matched
+    // Walk the '#' runs of the bold mask and emit <strong> for the matched
     // characters, <span> for the rest — so the user sees exactly which letters their pattern hit.
     renderMatch(match: OmniboxMatch, array: React.ReactNode[]): void {
 

@@ -1,24 +1,23 @@
 import type { OmniboxMatch } from "../data/OmniboxResults";
 
-// Port of Signum's `OmniboxUtils` (Signum.Omnibox/OmniboxUtils.cs): the fuzzy MATCHER behind every
-// omnibox suggestion. Three strategies, in order of preference:
+// Port of Signum.Omnibox's OmniboxUtils.cs — see docs/port/Omnibox.md.
+//
+// The fuzzy MATCHER behind every omnibox suggestion. Three strategies, in order of preference:
 //   1. exact key hit               → distance 0
 //   2. PascalCase subsequence      → "OD" matches "OrderDate" (only when the pattern is all-uppercase)
 //   3. case-insensitive contains   → each space-separated part must occur somewhere
 // A match carries a same-length '#'/'_' mask so the client can bold the hit characters.
 //
-// altea additions (Signum got these from Signum.Utilities' string extensions, which altea does not port):
 // `toPascal`, `removeDiacritics` and `splitNoEmpty` live here, next to their only consumer.
 
-// A match plus its resolved VALUE. Signum's OmniboxMatch carried `object Value` with [JsonIgnore]; altea
-// keeps the wire shape (data/OmniboxResults.OmniboxMatch) free of it and pairs them here instead, so the
-// server-only half never has to be stripped before serialising.
+// A match plus its resolved VALUE. The WIRE shape (data/OmniboxResults.OmniboxMatch) carries no value, so
+// the server-only half never has to be stripped before serialising.
 export interface OmniboxMatchOf<T> {
     value: T;
     match: OmniboxMatch;
 }
 
-// Signum's OmniboxMatch constructor: validates the mask length and HALVES the distance when the match
+// Validates the mask length and HALVES the distance when the match
 // starts at the first character (a prefix hit outranks a mid-string one).
 export function newOmniboxMatch<T>(value: T, remaining: number, choosenString: string, boldMask: string): OmniboxMatchOf<T> {
     if (choosenString.length !== boldMask.length)
@@ -31,7 +30,7 @@ export function newOmniboxMatch<T>(value: T, remaining: number, choosenString: s
     return { value, match: { distance, text: choosenString, boldMask } };
 }
 
-// Signum's OmniboxUtils.IsPascalCasePattern: every character is uppercase, so the pattern is meant as a
+// Every character is uppercase, so the pattern is meant as a
 // PascalCase subsequence ("OD" → "OrderDate") rather than a substring.
 export function isPascalCasePattern(ident: string): boolean {
     if (ident.length === 0)
@@ -45,7 +44,7 @@ export function isPascalCasePattern(ident: string): boolean {
     return true;
 }
 
-// Signum's OmniboxUtils.SubsequencePascal: consume the pattern against the identifier's UPPERCASE
+// Consume the pattern against the identifier's UPPERCASE
 // characters only, in order. `remaining` (the distance) is how many uppercase characters were left over.
 export function subsequencePascal<T>(value: T, identifier: string, pattern: string): OmniboxMatchOf<T> | undefined {
     const mask = new Array<string>(identifier.length).fill("_");
@@ -71,7 +70,7 @@ export function subsequencePascal<T>(value: T, identifier: string, pattern: stri
     return newOmniboxMatch(value, upperCount - pattern.length, identifier, mask.join(""));
 }
 
-// Signum's OmniboxUtils.Matches: an exact key hit short-circuits with distance 0; otherwise every
+// An exact key hit short-circuits with distance 0; otherwise every
 // (allowed) entry is tried with the PascalCase subsequence (when the pattern is all-caps) and then the
 // contains matcher. Only entries whose value passes `filter` are considered.
 export function* matches<T>(
@@ -106,7 +105,7 @@ export function* matches<T>(
     }
 }
 
-// Signum's OmniboxUtils.Contains: every whitespace-separated part of the pattern must occur (case
+// Every whitespace-separated part of the pattern must occur (case
 // insensitively) somewhere in the identifier; the mask marks each occurrence.
 export function contains<T>(value: T, identifier: string, pattern: string): OmniboxMatchOf<T> | undefined {
     const parts = splitNoEmpty(pattern, " ");
@@ -126,12 +125,12 @@ export function contains<T>(value: T, identifier: string, pattern: string): Omni
     return newOmniboxMatch(value, identifier.length - pattern.length, identifier, mask.join(""));
 }
 
-// Signum's OmniboxUtils.CleanCommas: strip the quotes around a string token.
+// Strip the quotes around a string token.
 export function cleanCommas(str: string): string {
     return str.replace(/^['"]+/, "").replace(/['"]+$/, "");
 }
 
-// ---- string helpers Signum got from Signum.Utilities ------------------------------------------
+// ---- string helpers ---------------------------------------------------------------------------
 
 function isUpper(c: string): boolean {
     return c !== c.toLowerCase() && c === c.toUpperCase();
@@ -141,12 +140,12 @@ export function splitNoEmpty(text: string, separator: string): string[] {
     return text.split(separator).filter(s => s.length > 0);
 }
 
-// Signum's StringExtensions.RemoveDiacritics — NFD-normalise and drop the combining marks.
+// NFD-normalise and drop the combining marks.
 export function removeDiacritics(s: string): string {
     return s.normalize("NFD").replace(/\p{Mn}/gu, "");
 }
 
-// Signum's NaturalLanguageTools.ToPascal(firstUpper: true, keepUppercase: false): drop diacritics, then
+// True, keepUppercase: false): drop diacritics, then
 // uppercase the first letter of every run of letters/digits and delete the separators —
 // "Order Date" → "OrderDate", "Product's name" → "ProductSName".
 export function toPascal(str: string): string {
@@ -175,7 +174,7 @@ function isNumber(c: string): boolean {
     return /\p{N}/u.test(c);
 }
 
-// Signum's OmniboxParser.ToOmniboxPascal: the pascal form of a display name, keeping the `[…]` brackets
+// The pascal form of a display name, keeping the `[…]` brackets
 // that mark a special (non-property) token.
 export function toOmniboxPascal(text: string): string {
     const result = toPascal(text);
@@ -186,7 +185,7 @@ export function toOmniboxPascal(text: string): string {
     return result;
 }
 
-// Signum's OmniboxParser.ToOmniboxPascalDictionary: key a collection by the omnibox-pascal form of each
+// Key a collection by the omnibox-pascal form of each
 // item's display name, disambiguating collisions with a "(Duplicated!)" suffix so nothing is lost.
 export function toOmniboxPascalDictionary<T, V>(
     collection: Iterable<T>,

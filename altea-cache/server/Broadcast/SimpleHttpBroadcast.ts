@@ -3,26 +3,23 @@ import { PasswordEncoding } from "@altea/altea/server/passwordEncoding";
 import { CacheLogic } from "../CacheLogic";
 import type { IServerBroadcast } from "./IServerBroadcast";
 
-// Port of Signum's SimpleHttpBroadcast (Signum.Caching/Broadcast/SimpleHttpBroadcast.cs): invalidation by
-// POSTing to the sibling servers' own `/api/cache/invalidate*` endpoints. The transport of choice when the
-// database offers no pub/sub (SQL Server, where query notifications need Service Broker support the Node
-// driver does not have) — every node just needs to know the others' URLs.
+// Port of Signum.Caching's Broadcast/SimpleHttpBroadcast.cs — see docs/port/Cache.md.
 //
-// The endpoints are ANONYMOUS (the caller is a sibling process, not a user), so each request carries a hash
-// of a shared secret; a request whose hash doesn't match is refused.
+// Invalidation by POSTing to the sibling servers' own `/api/cache/invalidate*` endpoints — the transport
+// of choice when the database offers no pub/sub. Every node just needs the others' URLs.
 //
-// altea divergences:
-//  - Signum skips its own message by comparing machine name + application name; altea sends a per-PROCESS
-//    id, which is strictly more precise (two processes of the same app on one machine are told apart, so a
-//    node may safely list its own URL).
-//  - `HttpClient` → `fetch` (built into Node), fire-and-forget with a short timeout: invalidation is
-//    best-effort and must never slow down (or fail) the write that triggered it.
+// Those endpoints are ANONYMOUS (the caller is a sibling process, not a user), so each request carries a
+// hash of a shared secret and a mismatch is refused. A message is skipped by per-PROCESS id, so two
+// processes of the same app on one machine are told apart and a node may safely list its own URL.
+//
+// The send is FIRE-AND-FORGET with a short timeout: invalidation is best-effort and must never slow down,
+// or fail, the write that triggered it.
 export interface SimpleHttpBroadcastOptions {
     /** The shared secret every participating server is configured with. */
     broadcastSecret: string;
-    /** The other servers' base URLs, `;` or `,` separated (Signum's broadcastUrls). */
+    /** The other servers' base URLs, `;` or `,` separated. */
     broadcastUrls: string;
-    /** Per-request timeout in ms (altea addition — Signum blocks on `.Result`). */
+    /** Per-request timeout in ms. */
     timeoutMs?: number;
 }
 
@@ -46,7 +43,7 @@ export class SimpleHttpBroadcast implements IServerBroadcast {
         // Nothing to connect: the transport is the sibling servers' own HTTP API.
     }
 
-    // Signum's AssertHash — called by the controller before acting on a request body.
+    // Called by the controller before acting on a request body.
     assertHash(secretHash: string | undefined): void {
         if (secretHash !== this.secretHash)
             throw new Error("broadcastSecret does not match");

@@ -7,31 +7,23 @@ import { ValueProviderBase } from "./ValueProviders";
 import { ConditionAnd, ConditionCompare, ConditionOr, type ConditionBase } from "./Conditions";
 import type { ITemplateParser } from "./ValueProviders";
 
-// Port of Signum.Templating's CommonTemplate.cs — the module's shared plumbing: the syntax regexes, the
-// condition parser, the row-grouping helpers used by @foreach / @any, and the "semi-structural" equality
-// that decides whether two rows carry the SAME value for a column.
+// Port of Signum.Templating's CommonTemplate.cs — see docs/port/Templating.md.
 //
-// altea divergences, documented inline:
-//  - `TemplateSynchronizationContext` / `TemplateSyncException` (the interactive pass that rewrites the
-//    tokens inside a template's BODY TEXT when a query token is renamed) are still NOT ported — but the
-//    reason recorded here is now out of date and worth correcting rather than repeating: it said they
-//    "need Signum's TokenMigrations / QueryTokenSynchronizer, which altea has no counterpart for", and
-//    @altea/altea-user-assets now provides both (TokenMigrationLogic / QueryTokenSynchronizer / the
-//    TokenSyncContext this would take). What is left is this module's own half: walking the parsed
-//    template nodes and giving each value provider a `synchronize`, which is where the `Member` and
-//    `Global` rename buckets get used. Until it lands, a template's stored QUERY tokens (its filters,
-//    orders and From token) ARE repaired — see @altea/altea-email's EmailTemplateTokenSync — while a
-//    renamed token inside the body text still surfaces as a parse ERROR on the template.
-//  - `MemberWithArguments` / `ParsedModel.GetMembers` (the reflection walk behind `@[m:A.B(C)]`) live in
-//    ValueProviders.server.ts next to their only consumers.
-//  - `SemiStructuralEqualityComparer` walks a value's own enumerable properties instead of C# FIELDS, and
-//    treats Temporal / Decimal / Lite / Entity as "simple" (compare by their canonical string / id).
+// The module's shared plumbing: the syntax regexes, the condition parser, the row-grouping helpers
+// @foreach / @any use, and the "semi-structural" equality that decides whether two rows carry the SAME
+// value for a column. That equality walks a value's own enumerable properties and treats Temporal /
+// Decimal / Lite / Entity as SIMPLE, comparing by their canonical string or id.
+//
+// STILL MISSING, and its recorded reason is out of date: the interactive pass that rewrites the tokens
+// inside a template's BODY TEXT when a query token is renamed. @altea/altea-user-assets now provides every
+// prerequisite (TokenMigrationLogic / QueryTokenSynchronizer / TokenSyncContext); what is left is this
+// module's own half — see docs/port/Templating.md. Until it lands, a template's stored QUERY tokens are
+// repaired while a renamed token in the body text surfaces as a parse ERROR.
 
-// Signum's KeywordsRegex. `@keyword[expr] as $var` for the block keywords, plus the bare closers. The
-// `expr` group balances nested brackets in C# with a balancing-group construct; JS has no such feature,
-// so the bracket body is scanned BY HAND (see scanKeywords below) and this regex only matches the
-// keyword head. `raw`/`global`/`model`/`modelraw`/`declare`/`if`/`elseif`/`foreach`/`any` + the empty
-// keyword (a plain `@[…]` value) all open a bracket; the rest are bare.
+// `@keyword[expr] as $var` for the block keywords, plus the bare closers. This regex matches only the
+// keyword HEAD: the bracket body needs balanced nesting, which a JS RegExp cannot express, so it is
+// scanned BY HAND (see scanKeywords below). `raw`/`global`/`model`/`modelraw`/`declare`/`if`/`elseif`/
+// `foreach`/`any` + the empty keyword (a plain `@[…]` value) all open a bracket; the rest are bare.
 const keywordHeadRegex = /@(?<keyword>foreach|elseif|if|raw|global|modelraw|model|any|declare|endforeach|endif|endany|notany|else)?(?<open>\[)?/g;
 
 /** One `@…` marker found in the template text (the JS stand-in for a C# Match over KeywordsRegex). */
@@ -48,8 +40,8 @@ export interface KeywordMatch {
 const bracketKeywords = new Set(["", "raw", "global", "model", "modelraw", "declare", "if", "elseif", "foreach", "any"]);
 const bareKeywords = new Set(["endforeach", "else", "endif", "notany", "endany"]);
 
-/** Signum's `TemplateUtils.KeywordsRegex.Matches(text)`. Hand-scanned because the `expr` group needs
- *  BALANCED brackets (`@if[Customer.Address[0]]`) and JS regexes have no balancing groups. */
+/** Hand-scanned because the `expr` group needs BALANCED brackets (`@if[Customer.Address[0]]`), which a
+ *  JS regex cannot express. */
 export function scanKeywords(text: string): KeywordMatch[] {
     const result: KeywordMatch[] = [];
     keywordHeadRegex.lastIndex = 0;
@@ -65,7 +57,7 @@ export function scanKeywords(text: string): KeywordMatch[] {
             const open = m.index + m[0].length - 1; // the '[' itself
             const close = matchBracket(text, open);
             if (close < 0)
-                continue; // unbalanced — let the literal text carry it, as Signum's regex would not match
+                continue; // unbalanced — let the literal text carry it
 
             let end = close + 1;
             let dec = "";
@@ -99,14 +91,14 @@ function matchBracket(text: string, open: number): number {
     return -1;
 }
 
-// Signum's FilterValueConverter.OperationRegex — the comparison operators a condition may use, longest
+// The comparison operators a condition may use, longest
 // first so `!*=` wins over `*=` and `<=` over `<`.
 export const operationRegexSource = String.raw`!\^=|!\$=|!\*=|!%=|!=|\^=|\$=|\*=|%=|<=|>=|==|=|<|>`;
 
-// Signum's TokenOperationValueRegex — `token operation value` inside an @if / @any bracket.
+// `token operation value` inside an @if / @any bracket.
 const tokenOperationValueRegex = new RegExp(String.raw`^(?<token>((?<type>[\w]):)?.+?) *(?<operation>(${operationRegexSource})) *(?<value>[^\]]+)$`);
 
-// Signum's TokenFormatRegex — `token[:format]`, where the token itself may contain bracketed segments.
+// `token[:format]`, where the token itself may contain bracketed segments.
 const tokenFormatRegex = /^(?<token>((?<type>[\w]):)?((\[[^[\]]+\])|([^[\]:]+))+)(:(?<format>.*))?$/;
 
 export interface SplittedToken {
@@ -114,7 +106,6 @@ export interface SplittedToken {
     format: string | undefined;
 }
 
-/** Signum's TemplateUtils.SplitToken. */
 export function splitToken(formattedToken: string): SplittedToken | undefined {
     const tok = tokenFormatRegex.exec(formattedToken);
     if (tok == null)
@@ -124,12 +115,11 @@ export function splitToken(formattedToken: string): SplittedToken | undefined {
     return { token: tok.groups!["token"], format: format === "" ? undefined : format };
 }
 
-/** Signum's TemplateUtils.ScapeColon. */
 export function scapeColon(tokenOrFormat: string): string {
     return tokenOrFormat.replace(/:/g, "\\:");
 }
 
-/** Signum's FilterValueConverter.ParseOperation — the `=`/`!=`/`^=`… of an @if condition. */
+/** The `=`/`!=`/`^=`… of an @if condition. */
 export function parseOperation(operationString: string): FilterOperationKeys {
     switch (operationString) {
         case "=":
@@ -151,7 +141,7 @@ export function parseOperation(operationString: string): FilterOperationKeys {
     }
 }
 
-/** Signum's FilterValueConverter.ToStringOperation — the inverse, for round-tripping a template. */
+/** The inverse, for round-tripping a template. */
 export function toStringOperation(operation: FilterOperationKeys): string {
     switch (operation) {
         case FilterOperationKeys.EqualTo: return "=";
@@ -170,8 +160,8 @@ export function toStringOperation(operation: FilterOperationKeys): string {
     }
 }
 
-/** Signum's TemplateUtils.ParseCondition — an @if / @any bracket body: `A && B`, `A OR B`, `Token op Value`
- *  or a bare truthiness test. AND/OR bind left-to-right exactly as Signum splits them (OR outermost). */
+/** An @if / @any bracket body: `A && B`, `A OR B`, `Token op Value`
+ *  or a bare truthiness test. AND / OR bind left-to-right, OR outermost. */
 export function parseCondition(expr: string, variable: string | undefined, parser: ITemplateParser): ConditionBase {
     expr = expr.trim();
 
@@ -192,7 +182,7 @@ export function parseCondition(expr: string, variable: string | undefined, parse
         (fatal, error) => parser.addError(fatal, error));
 }
 
-/** Signum's `rows.DistinctSingle(column)` — the ONE distinct value the rows carry for that column
+/** The ONE distinct value the rows carry for that column
  *  (a token is only unambiguous inside the @foreach that groups it). */
 export function distinctSingle(rows: readonly ResultRow[], column: ResultColumn): unknown {
     const distinct: unknown[] = [];
@@ -210,7 +200,7 @@ export function distinctSingle(rows: readonly ResultRow[], column: ResultColumn)
     return distinct[0];
 }
 
-/** Signum's `rows.GroupByColumn(keyColumn)` — the row groups a @foreach iterates. A single group whose key
+/** The row groups a @foreach iterates. A single group whose key
  *  is null means "no rows" (an outer join that matched nothing), so it yields NOTHING. */
 export function groupByColumn(rows: readonly ResultRow[], keyColumn: ResultColumn): ResultRow[][] {
     const keys: unknown[] = [];
@@ -233,7 +223,7 @@ export function groupByColumn(rows: readonly ResultRow[], keyColumn: ResultColum
     return groups;
 }
 
-/** Signum's SemiStructuralEqualityComparer: primitives / dates / decimals / lites / entities compare by
+/** Primitives / dates / decimals / lites / entities compare by
  *  identity-ish value; anything else compares member-by-member. */
 export function semiStructuralEquals(x: unknown, y: unknown): boolean {
     if (x == null || y == null)
@@ -272,13 +262,13 @@ function simpleKey(value: unknown): string | undefined {
     return undefined;
 }
 
-/** One error a template parse produced (Signum's TemplateError struct). A FATAL error aborts the parse. */
+/** One error a template parse produced. A FATAL error aborts the parse. */
 export class TemplateError {
     constructor(public readonly isFatal: boolean, public readonly message: string) { }
     toString(): string { return (this.isFatal ? "FATAL: " : "ERROR: ") + this.message; }
 }
 
-/** Signum's `ScopedDictionary<K,V>` — a lexical scope chain, used for the `$var` declarations a
+/** A lexical scope chain, used for the `$var` declarations a
  *  template's blocks introduce. Kept as a tiny class since the parser leans on `previous`. */
 export class ScopedDictionary<V> {
     private readonly map = new Map<string, V>();
@@ -290,22 +280,21 @@ export class ScopedDictionary<V> {
     has(key: string): boolean {
         return this.map.has(key) || (this.previous?.has(key) ?? false);
     }
-    /** Only THIS scope (Signum's `variables.ContainsKey` on the innermost dictionary). */
+    /** Only THIS scope — the innermost dictionary, not the chain. */
     hasOwn(key: string): boolean {
         return this.map.has(key);
     }
     add(key: string, value: V): void {
         this.map.set(key, value);
     }
-    /** Every entry visible from here, innermost first (Signum's IEnumerable over the chain). */
+    /** Every entry visible from here, innermost first. */
     *entries(): Generator<[string, V]> {
         for (const e of this.map) yield e;
         if (this.previous != undefined) yield* this.previous.entries();
     }
 }
 
-/** The in-memory half of Signum's `QueryUtils.GetCompareExpression(op, left, right, inMemory: true)`:
- *  evaluate one comparison without SQL. `right` is already the parsed constant. */
+/** Evaluate one comparison WITHOUT SQL. `right` is already the parsed constant. */
 export function compareInMemory(operation: FilterOperationKeys, left: unknown, right: unknown): boolean {
     switch (operation) {
         case FilterOperationKeys.EqualTo: return semiStructuralEquals(left, right);

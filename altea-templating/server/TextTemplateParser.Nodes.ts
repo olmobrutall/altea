@@ -7,18 +7,15 @@ import {
 } from "./ValueProviders";
 import { scapeColon, ScopedDictionary } from "./TemplateUtils";
 
-// Port of Signum.Templating's TextTemplateParser.Nodes.cs — the parsed template TREE (a C# nested
-// partial class; TS has no partial classes, so the nodes live in their own module and the parser
-// imports them).
+// Port of Signum.Templating's TextTemplateParser.Nodes.cs — see docs/port/Templating.md.
 //
-// altea divergences, documented inline:
-//  - `HtmlString` (ASP.NET's "already-encoded" marker that suppressed HTML escaping for one value) has
-//    no counterpart; use `@raw[…]` to opt a value out of escaping.
-//  - `Synchronize` is dropped with the sync pass (see TemplateUtils' header).
-//  - `HttpUtility.HtmlEncode` → the small `htmlEncode` below.
+// The parsed template TREE. It is a C# nested partial class there; TypeScript has no partial classes, so
+// the nodes live in their own module and the parser imports them.
+//
+// There is no "already-encoded" marker for a single value — use `@raw[…]` to opt one out of escaping.
 
 /** The placeholder a control node prints in place of itself, so the whitespace/markup it sat on can be
- *  cleaned up afterwards (Signum's `(∅)`). */
+ *  cleaned up afterwards. */
 export const emptyPlaceholder = "(∅)";
 
 export abstract class TextNode {
@@ -102,7 +99,7 @@ export class BlockNode extends TextNode {
 
     constructor(public readonly owner: TextNode | undefined) { super(); }
 
-    /** Signum's Print — render this block and clean up the placeholders the control nodes left. */
+    /** Render this block and clean up the placeholders the control nodes left. */
     print(p: TextTemplateParameters): string {
         this.printList(p);
         const text = p.stringBuilder.join("");
@@ -124,8 +121,8 @@ export class BlockNode extends TextNode {
             n.write(sb, variables);
     }
 
-    /** Signum's UserString — the keyword a block's owner opened with, for the error messages. Takes the
-     *  node OR its constructor (Signum's overload took a `Type`). */
+    /** The keyword a block's owner opened with, for the error messages. Takes the
+     *  node OR its constructor. */
     static userString(nodeOrCtor: TextNode | Function | undefined): string {
         const ctor = typeof nodeOrCtor === "function" ? nodeOrCtor : nodeOrCtor?.constructor;
         if (ctor === ForeachNode) return "foreach";
@@ -302,7 +299,7 @@ export class IfNode extends TextNode {
     }
 }
 
-/** Signum's TextTemplateParameters — the print run's state: what to print into, whether the output is
+/** The print run's state: what to print into, whether the output is
  *  HTML (so values get escaped), and the model behind `@[m:…]`. */
 export class TextTemplateParameters extends TemplateParameters {
     stringBuilder: string[] = [];

@@ -12,37 +12,31 @@ import {
 } from "@altea/altea/server/schema/field";
 import type { Table } from "@altea/altea/server/schema/table";
 
-// Port of Signum's ToStringColumnsFinderVisitor (CachedTableLite.cs) + the role its
-// LiteModelExpressionVisitor plays: work out the MINIMUM set of columns needed to build the `Lite<T>` of a
-// SEMI-cached type, and how to build it from those columns alone.
+// Port of Signum.Caching's ToStringColumnsFinderVisitor + LiteModelExpressionVisitor (CachedTableLite.cs)
+// — see docs/port/Cache.md.
 //
-// Why it matters (this is the whole point of the semi-cached table): a cached `Country` may reference
-// `Lite<Person>`, and Person is Transactional — far too volatile and far too large to cache. Caching the
-// whole Person row instead would also drag in whatever Person references, and so on transitively, which
-// ends with most of the database in memory. So only the columns the LITE needs, for only the rows actually
-// referenced, are held.
+// The MINIMUM set of columns needed to build the `Lite<T>` of a SEMI-cached type, and how to build it from
+// those columns alone. That is the whole point of the semi role: a cached `Country` may reference
+// `Lite<Person>`, and caching the Person ROW would drag in whatever Person references, transitively.
 //
-// altea divergence: Signum walks the lite MODEL expression (`Lite.GetModelConstructorExpression`) and
-// rewrites it to read the cached tuple. altea's equivalent of a lite model is a CUSTOM LITE — a
-// `registerCustomLite(T, LiteClass, e => new LiteClass(e.id, e.toString(), e.firstName, …))` whose
-// `fromEntity` is a `Quoted` lambda, i.e. a real JS function that ALSO carries its expression tree. So the
-// tree is walked here for the column set, and at read time the function itself is applied to a PARTIAL
-// entity carrying exactly those columns — no expression rewriting, and the lite comes out of the same code
-// a query would run.
+// A CUSTOM LITE's `fromEntity` is a `Quoted` lambda — a real JS function that ALSO carries its expression
+// tree — so the tree is walked here for the column SET, and at read time the function itself is applied to
+// a PARTIAL entity carrying exactly those columns. No expression rewriting, and the lite comes out of the
+// same code a query would run.
 
 export interface LiteColumnsPlan {
     /** The columns to SELECT (the primary key is added by the caller). */
     readonly columns: IColumn[];
     /** True when the display string comes from the `ToStr` COLUMN (a hand-written, untranslatable
      *  `toString()`), in which case the partial entity's `toString` is overridden with the cached value —
-     *  Signum's LiteModelExpressionVisitor substitutes the ToStr column for the `ToString()` call. */
+     *  The cached value is substituted for the `toString()` call. */
     readonly usesToStrColumn: boolean;
     /** Builds the lite from a partial entity carrying `columns` (+ the id, + the toString override). */
     readonly build: (entity: Entity) => Lite<Entity>;
 }
 
-// Signum's `Lite.GetModelConstructorExpression(type, modelType)` — which builder produces this reference's
-// lite: the FIELD's own `@customLite` when it declares one (Signum's `column.CustomLiteModelType`), else the
+// Which builder produces this reference's
+// lite: the FIELD's own `@customLite` when it declares one, else the
 // type's default custom lite, else the plain `toLite()` (id + `toString()`).
 export function liteBuilderFor(type: Type<Entity>, fieldCustomLite: CustomLiteClass | undefined): Quoted<(e: any) => Lite<Entity>> | undefined {
     if (fieldCustomLite != null)
@@ -147,7 +141,6 @@ class LiteColumnsFinder extends ExpressionVisitor {
 
     override visitCall(node: CallExpression): Expression {
         // `e.toString()` that survived inlining is a hand-written method → the ToStr column stands in for it
-        // (Signum's VisitMethodCall does exactly this).
         if (node.func instanceof PropertyExpression && node.func.object === this.param && node.func.propertyName === "toString") {
             this.gatherToString();
             return node;
@@ -170,7 +163,7 @@ class LiteColumnsFinder extends ExpressionVisitor {
         const field = this.fieldNamed(name);
         if (field == null)
             throw new Error(this.unsupported(`'${name}' is not a mapped field`));
-        // Signum's GetColumn: only a primary key / value / ticks / reference field IS a column. A reference
+        // Only a primary key / value / ticks / reference field IS a column. A reference
         // is accepted as the raw FK column — reading the id is fine, navigating INTO it is not (above).
         if (field instanceof FieldPrimaryKey) { this.found.add(field.column); return; }
         // FieldEnum extends FieldReference, FieldTicks extends FieldValue — both are single columns.

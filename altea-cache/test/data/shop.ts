@@ -7,23 +7,9 @@ import { stringLengthValidator } from "@altea/altea/data/validators";
 import { registerEnum } from "@altea/altea/data/registration";
 import { type int, toInt, Decimal, Temporal } from "@altea/altea/data/basics";
 
-// A tiny, purpose-built domain for the CACHE test suite — the altea-cache analogue of altea-auth-test's
-// `sample`. Every entity here exists to exercise one thing the cache has to get right:
-//
-//   CountryEntity        Master, CACHED — value columns of every materialisation shape (int / Decimal /
-//                        PlainDate / enum / embedded), plus one reference of each kind below.
-//   CountryEntity_Region a `@part` collection with `@rowOrder` — served from the CHILD's own cached table
-//                        through its back-reference index (altea has no MList table).
-//   CurrencyEntity       Master, CACHED, and its `toString()` is HAND-WRITTEN — so the table has a ToStr
-//                        column, and its lite must still come out right (built from the full cached row).
-//   EmployeeEntity       Transactional ⇒ SEMI: referenced by a cached row as `Lite<EmployeeEntity>` with a
-//                        CUSTOM LITE over (name, email). The cache must hold ONLY those columns, for ONLY
-//                        the referenced rows — never the whole row (`secretNotes`, `department`).
-//   OrderEntity          Transactional ⇒ SEMI with a HAND-WRITTEN toString: the trimmed table holds the
-//                        ToStr column and nothing else.
-//   DepartmentEntity     Master, referenced ONLY by the semi-cached Employee. It must NOT be cached: that
-//                        is the transitive-containment guard — following a semi type's own references is
-//                        how caching one Master type ends up pulling in most of the database.
+// A tiny, purpose-built domain for the CACHE test suite. Every entity exercises one thing the cache has to
+// get right — the table in docs/port/Cache.md says which, and is worth reading before changing any of
+// them, because none of these shapes is incidental.
 
 export enum Continent {
     Europe = 0,
@@ -82,7 +68,7 @@ export class EmployeeEntity extends Entity {
     @quoted toString(): string { return this.name; }
 }
 
-// The custom lite of Employee — altea's equivalent of a Signum lite MODEL. `fromEntity` is a Quoted lambda:
+// The custom lite of Employee. `fromEntity` is a Quoted lambda:
 // it runs verbatim in memory AND carries its expression tree, which is what LiteColumnsFinder walks to
 // decide that only `name` (through toString) and `email` have to be cached.
 export class EmployeeLite extends LiteImp<EmployeeEntity> {

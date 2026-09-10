@@ -5,21 +5,18 @@ import {
 } from "./OmniboxParser";
 import { isPascalCasePattern, matches } from "./OmniboxUtils";
 
-// Port of Signum's `SpecialOmniboxGenerator<T>` + `ReactSpecialOmniboxGenerator`
-// (Signum.Omnibox/SpecialOmniboxResultGenerator.cs / ReactSpecialOmniboxGenerator.cs): the "!Command"
-// shape — `!` followed by an optional identifier — matched against the client's registered special
-// actions ("!SwitchUser", "!Profiler", …).
+// Port of Signum.Omnibox's SpecialOmniboxResultGenerator.cs + ReactSpecialOmniboxGenerator.cs — see
+// docs/port/Omnibox.md.
 //
-// The action CATALOGUE lives in the browser (each is a client-side onClick), so the client posts the keys
-// it has registered and considers allowed, and the server only fuzzy-matches. Signum merged its two
-// classes precisely because of that split — a generic generator over a dictionary, plus a thin
-// AsyncThreadVariable-backed wrapper that swapped in a per-request dictionary. altea passes the
-// per-request `OmniboxContext` to every generator instead, so the wrapper (and its ambient state) is
-// gone: this ONE class builds its dictionary from `ctx.specialActions`.
+// The "!Command" shape — `!` followed by an optional identifier — matched against the client's registered
+// special actions ("!SwitchUser", "!Profiler", …).
 //
-// Signum's `ReactSpecialOmniboxAction.Allowed` was hardcoded `() => true` with the comment "filtered
-// client-side to avoid duplication, at the end the action itself is server-side checked" — kept: the
-// filter below is unconditional.
+// The action CATALOGUE lives in the BROWSER (each is a client-side onClick), so the client posts the keys
+// it has registered and considers allowed, and the server only fuzzy-matches. ONE class rather than two:
+// the per-request dictionary is built from `ctx.specialActions` instead of swapped into ambient state.
+//
+// The filter below is UNCONDITIONAL by design — the actions are filtered client-side to avoid duplication,
+// and each action is server-side checked when it actually runs.
 const REGEX = /^!I?$/;
 
 export class SpecialOmniboxGenerator implements OmniboxResultGenerator {
@@ -32,8 +29,8 @@ export class SpecialOmniboxGenerator implements OmniboxResultGenerator {
 
         const isPascalCase = isPascalCasePattern(ident);
 
-        // Signum keyed the dictionary by the action key VERBATIM (not the omnibox-pascal form) — action
-        // keys are already PascalCase identifiers.
+        // Keyed by the action key VERBATIM, not the omnibox-pascal form: action keys are already
+        // PascalCase identifiers.
         const actions = new Map<string, string>(ctx.specialActions.map(a => [a, a]));
 
         const result: SpecialOmniboxResult[] = [...matches(actions, () => true, ident, isPascalCase)]

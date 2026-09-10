@@ -4,9 +4,10 @@ import type { SearchControlHandler } from "@altea/altea/client/SearchControl/Sea
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { QueryModel, QueryModelMessage } from "../../data/Templating";
 
-// Port of Signum.Templating's Templates/QueryModel.tsx — the picker behind "send this report for the
-// RESULT of a query": the user configures filters/orders/pagination in a SearchControl and the model
-// records the QueryRequest it produced.
+// Port of Signum.Templating's Templates/QueryModel.tsx — see docs/port/Templating.md.
+//
+// The picker behind "send this report for the RESULT of a query": the user configures filters / orders /
+// pagination in a SearchControl and the model records the QueryRequest it produced.
 
 export default function QueryModelComponent(p: { ctx: TypeContext<QueryModel> }): React.JSX.Element {
 

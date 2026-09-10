@@ -9,8 +9,10 @@ import { CacheLogic } from "./CacheLogic";
 import { CachedTableLite, type CachedTableBase } from "./CachedTable";
 import { SimpleHttpBroadcast } from "./Broadcast/SimpleHttpBroadcast";
 
-// Port of Signum's CacheController (Signum.Caching/CacheController.cs): the statistics panel's data plus
-// the enable / disable / clear actions, and the two ANONYMOUS endpoints a SimpleHttpBroadcast peer posts to.
+// Port of Signum.Caching's CacheController.cs — see docs/port/Cache.md.
+//
+// The statistics panel's data plus the enable / disable / clear actions, and the two ANONYMOUS endpoints a
+// SimpleHttpBroadcast peer posts to (gated by the shared-secret hash, not by a user).
 export namespace CacheServer {
     export function start(ws: WebBuilder): void {
         // GET /api/cache/view — the whole panel payload.
@@ -19,7 +21,7 @@ export namespace CacheServer {
             res.json({
                 isEnabled: !CacheLogic.globallyDisabled,
                 // Always false: SQL Server query notifications are not portable to Node (see CacheLogic).
-                // Kept so the panel reads like Signum's.
+                // Always false — kept so the panel reads like Signum's.
                 sqlDependency: false,
                 serverBroadcast: CacheLogic.serverBroadcast?.toString() ?? null,
                 tables: CacheLogic.statistics().map(toTableTS),
@@ -39,7 +41,7 @@ export namespace CacheServer {
             res.status(204).end();
         });
 
-        // Signum's Clear: drop the cached tables AND every global lazy, here and (via the broadcast) on
+        // Drop the cached tables AND every global lazy, here and (via the broadcast) on
         // every sibling process.
         ws.post("/api/cache/clear", {}, async (_req, res) => {
             await assertAuthorized(CachePermission.InvalidateCache);
@@ -47,7 +49,7 @@ export namespace CacheServer {
             res.status(204).end();
         });
 
-        // ---- The SimpleHttpBroadcast peer endpoints (Signum's [SignumAllowAnonymous] pair) ----------
+        // ---- The SimpleHttpBroadcast peer endpoints (ANONYMOUS — see the header) --------------------
         // ANONYMOUS on purpose: the caller is a sibling SERVER, not a user. Each body carries a hash of
         // the shared broadcast secret, which the transport verifies — a wrong hash throws.
 
@@ -103,7 +105,7 @@ function toLazyTS(lazy: { name?: string, hits: number, invalidations: number, lo
     };
 }
 
-// Signum renders a TimeSpan through NiceToString; altea's stats are plain milliseconds.
+// The stats are plain milliseconds.
 function niceTime(ms: number): string {
     if (ms < 1000)
         return `${Math.round(ms)}ms`;

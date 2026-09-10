@@ -23,49 +23,45 @@ import { TypeConditionLogic } from "@altea/altea-auth/server/TypeConditionLogic"
 import { CachePermission } from "../data/CachePermission";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
-// Port of Signum's CacheLogic (Signum.Caching/CacheLogic.cs): which types are cached, when their rows are
-// dropped, and how sibling processes are told. The row store itself lives in CachedTable.ts.
+// Port of Signum.Caching's CacheLogic.cs — see docs/port/Cache.md.
 //
-// The two Signum concepts to keep straight (`CacheType`):
-//   • CACHED  — an `EntityData.Master` type: the whole table is held in memory and every retrieve is
-//     served from it.
-//   • SEMI    — an `EntityData.Transactional` type REFERENCED by a cached one: the table is far too
-//     volatile to hold, but the referencing row still has to produce a `Lite<T>` display string, so just
-//     the referenced lites are cached (CachedTableLite). A semi type is never served from the cache for
-//     its own retrieves.
-// Caching a type therefore pulls its whole dependency closure into one of the two roles, which is why
-// `cacheTable` recurses (Signum's TryCacheSubTables).
+// Which types are cached, when their rows are dropped, and how sibling processes are told. The row store
+// itself is CachedTable.ts.
 //
-// altea divergences (beyond those in CachedTable.ts):
-//  - `withSqlDependency` is GONE, not optional: SQL Server query notifications need Service Broker
-//    support in the client driver, and Node's (tedious) has none. Invalidation is always
-//    "local events + optional broadcast", which is exactly Signum's non-SqlDependency configuration.
-//  - Signum's `Schema.InvalidateMetadata()` has no analogue: altea's reflection metadata blob is
-//    assembled per request, so there is nothing to invalidate.
-//  - `ExecutionMode.IsCacheDisabled` is not ported (altea's ExecutionMode has only the `global` scope);
-//    `CacheLogic.globallyDisabled` and the per-transaction disable cover every altea caller.
+// The two roles to keep straight:
+//   • CACHED — a Master type: the whole table is held in memory and every retrieve is served from it.
+//   • SEMI   — a Transactional type REFERENCED by a cached one: far too volatile to hold, but the
+//     referencing row still has to produce a `Lite<T>` display string, so only the referenced LITES are
+//     cached. A semi type is never served from the cache for its own retrieves.
+//
+// Caching a type pulls its whole dependency closure into one of the two roles, which is why `cacheTable`
+// recurses — and why the walk STOPS at a semi type: following ITS references is how caching one Master
+// type ends with most of the database in memory.
+//
+// There is no SqlDependency to configure. Invalidation is always local save / DML events plus an optional
+// broadcast, so a cached table is never invalidated by the database itself.
 
 export type CacheType = "Cached" | "Semi" | "None";
 
 export namespace CacheLogic {
-    // Signum's CacheLogic.GloballyDisabled — the panel's Disable button. Every controller reads it.
+    // The panel's Disable button. Every controller reads it.
     export let globallyDisabled = false;
 
-    // Signum's CacheLogic.ServerBroadcast — the transport that tells sibling processes to invalidate.
+    // The transport that tells sibling processes to invalidate.
     export let serverBroadcast: IServerBroadcast | undefined;
 
-    // `undefined` value = SEMI (Signum stores a null controller for a semi-cached type).
+    // An `undefined` value means SEMI.
     const controllers = new Map<Type<Entity>, CacheEntityController<Entity> | undefined>();
-    // Signum's `semiControllers`: the lite tables that hold rows OF a semi-cached type, so a save to that
+    // The lite tables that hold rows OF a semi-cached type, so a save to that
     // type can invalidate them.
     const semiControllers = new Map<Type<Entity>, CachedTableBase[]>();
 
-    // Signum's `dependencies` / `inverseDependencies`: T → the types it references, and back. LOADING a
-    // type loads everything it depends on; INVALIDATING a type invalidates everything that depends on it.
+    // T → the types it references, and back. LOADING a type loads everything it depends on; INVALIDATING
+    // one invalidates everything that depends on it.
     const dependencies = new DirectedGraph<Type<Entity>>();
     const inverseDependencies = new DirectedGraph<Type<Entity>>();
 
-    // Signum's EntityDataOverrides: force a type to be treated as Master/Transactional for caching.
+    // Force a type to be treated as Master/Transactional for caching.
     export const entityDataOverrides = new Map<Type<Entity>, "Master" | "Transactional">();
 
     export function overrideEntityData(type: Type<Entity>, data: "Master" | "Transactional"): void {
@@ -74,7 +70,6 @@ export namespace CacheLogic {
 
     let started = false;
 
-    // Signum's CacheLogic.Start(sb, withSqlDependency, serverBroadcast).
     export function start(sb: SchemaBuilder, options?: { serverBroadcast?: IServerBroadcast }): void {
         if (sb.alreadyDefined(start))
             return;
@@ -90,12 +85,11 @@ export namespace CacheLogic {
         serverBroadcast = options?.serverBroadcast;
         if (serverBroadcast != null) {
             serverBroadcast.onReceive.push((method, argument) => broadcastReceivers[method]?.(argument));
-            // Signum starts the transport on Schema.BeforeDatabaseAccess; altea's nearest hook is
-            // `initializing` (which runs after generate/synchronize, before the host serves).
+            // `initializing` runs after generate / synchronize and before the host serves, which is when
+            // the transport must be up.
             sb.schema.initializing.push(() => serverBroadcast!.startIfNecessary());
         }
 
-        // Signum's `GlobalLazy.OnResetAll += systemLog => CacheLogic.ForceReset(systemLog)`.
         GlobalLazy.onResetAll.push(() => forceReset());
 
         sb.schema.schemaCompleted.push(schemaCompleted);
@@ -106,7 +100,6 @@ export namespace CacheLogic {
                 requestByBackReference(childType, fkProperty, ownerId, retriever),
         });
 
-        // Signum's `PermissionLogic.RegisterTypes(typeof(CachePermission))`.
         PermissionLogic.registerContainer(CachePermission);
     }
 
@@ -115,9 +108,9 @@ export namespace CacheLogic {
             throw new Error("CacheLogic.start(sb) must be called before caching a table");
     }
 
-    // ---- Registration (Signum's CacheTable / TryCacheTable / TryCacheSubTables) --------------------
+    // ---- Registration ------------------------------------------------------------------------------
 
-    // Signum's `CacheLogic.CacheTable<T>(sb)`: cache T (Master) or mark it semi-cached (Transactional),
+    // Cache T (Master) or mark it semi-cached (Transactional),
     // then recurse into everything it references.
     export function cacheTable<T extends Entity>(sb: SchemaBuilder, type: Type<T>): void {
         assertStarted();
@@ -137,11 +130,9 @@ export namespace CacheLogic {
         } else {
             // Transactional (or unclassified): SEMI. Only the display columns of the ROWS a cached table
             // actually references are held (CachedTableLite), never the row itself — so the walk STOPS
-            // here. Signum recurses into a semi type's own references as well, because a semi-cached
-            // FULL-ENTITY reference there becomes a joined CachedTable that must materialise the whole
-            // row. altea needs no such table: a full-entity reference on a cached row is left as a
-            // Retriever STUB and completed from the database like any non-expanded reference. Recursing
-            // anyway is what makes caching one Master type spread: Country → Lite<Person> → Person's own
+            // here. It can, because a full-entity reference on a cached row is left as a Retriever STUB
+            // and completed from the database like any non-expanded reference. Recursing instead is what
+            // makes caching one Master type spread: Country → Lite<Person> → Person's own
             // references → … until most of the schema is registered, and every Master type met along the
             // way is loaded WHOLE.
             controllers.set(t, undefined);
@@ -155,7 +146,7 @@ export namespace CacheLogic {
             cacheTable(sb, type);
     }
 
-    // Signum's TryCacheSubTables: every table T's fields point at (its "dependent tables"), plus — this is
+    // Every table T's fields point at (its "dependent tables"), plus — this is
     // altea's VirtualMList equivalent — the child type of every `@part` collection, whose rows the cache
     // has to serve for T's collections to materialise.
     function cacheSubTables(sb: SchemaBuilder, type: Type<Entity>): void {
@@ -171,7 +162,7 @@ export namespace CacheLogic {
 
     // The types a table's fields reference: FK targets (single / polymorphic / enum) and the child type of
     // each `@part` collection. @implementedByAll is skipped — its target can be ANY entity, so there is
-    // nothing to cache (its lites carry type + id and no display string, exactly as in Signum).
+    // nothing to cache: its lites carry type + id and no display string.
     function relatedTypes(table: Table): Type<Entity>[] {
         const result = new Set<Type<Entity>>();
 
@@ -210,18 +201,17 @@ export namespace CacheLogic {
         return [...result];
     }
 
-    // ---- Schema completed (Signum's Schema_SchemaCompleted) ----------------------------------------
+    // ---- Schema completed --------------------------------------------------------------------------
 
     function schemaCompleted(schema: Schema): void {
         // Every cached type's completer, once every table (and every other cached table) exists.
         for (const controller of controllers.values())
             controller?.cachedTable.buildCompleter();
 
-        // Signum refuses to cache a type whose row-level TypeConditions are DB-only: the cache serves rows
-        // without running the query the condition lives in, so a cached read would bypass it. altea's
-        // equivalent of "no in-memory TypeCondition" is an `additionalBindings` registration (a value the
-        // binder folds into the retrieval SELECT — how a DB-eval type condition is delivered), which the
-        // cached path cannot compute. Fail loudly at startup rather than silently under-filtering.
+        // The cache serves rows without running the query a condition lives in, so a cached read would
+        // bypass it. A DB-evaluated TypeCondition arrives as an `additionalBindings` registration — a
+        // value the binder folds into the retrieval SELECT — which the cached path cannot compute. FAIL
+        // LOUDLY at startup rather than silently under-filtering.
         const withBindings = [...controllers.entries()]
             .filter(([t, c]) => c != null && schema.entityEvents(t).additionalBindings.length > 0)
             .map(([t]) => t.name);
@@ -231,11 +221,10 @@ export namespace CacheLogic {
                 `These types are cached but carry additional bindings (typically a DB-evaluated TypeCondition), which the cache cannot compute: ` +
                 `${withBindings.join(", ")}. Register the condition with an in-memory evaluator, or do not cache the type.`);
 
-        // ROW-LEVEL SECURITY. Signum guards this by requiring a cached type's TypeConditions to have an
-        // in-memory evaluator, which its `Retrieved` handler then applies per entity. altea enforces row
-        // security ONLY through `queryFilter` (a WHERE the LINQ binder splices into every query) — the
-        // cached path issues no query, so a cached read of a conditioned type would return rows the role
-        // must not see. Until a per-row retrieve gate exists, caching such a type is refused outright:
+        // ROW-LEVEL SECURITY, enforced ONLY through `queryFilter` — a WHERE the LINQ binder splices into
+        // every query. The cached path issues no query, so a cached read of a conditioned type would
+        // return rows the role must not see. Until a per-row retrieve gate exists, caching such a type is
+        // refused outright:
         // silently under-filtering is not an acceptable failure mode.
         const conditioned = [...controllers.entries()]
             .filter(([t, c]) => c != null && TypeConditionLogic.conditionsFor(t).length > 0)
@@ -247,11 +236,11 @@ export namespace CacheLogic {
                 `bypass it: ${conditioned.join(", ")}. Do not cache a type with TypeConditions.`);
     }
 
-    // ---- The per-type controller (Signum's inner CacheController<T>) ------------------------------
+    // ---- The per-type controller -------------------------------------------------------------------
 
     class CacheEntityController<T extends Entity> implements CacheController<T> {
         readonly cachedTable: CachedTable<T>;
-        // Signum's `event Invalidated` — the seam CacheGlobalLazyManager listens on. Each handler takes
+        // The seam CacheGlobalLazyManager listens on. Each handler takes
         // "invalidated" (the rows are gone) or "disabled" (a write in the current transaction means the
         // rows can no longer be trusted until it commits).
         readonly invalidated: ((kind: "invalidated" | "disabled") => void)[] = [];
@@ -260,9 +249,9 @@ export namespace CacheLogic {
             this.cachedTable = new CachedTable<T>(type as Type<T>, schema);
 
             const ee = schema.entityEvents(type);
-            // Signum hooks `Saving` (before the write) with `IsGraphModified`; altea has no graph-modified
-            // flag on the event, so it hooks `saved` — the write already happened, still inside the
-            // transaction, which is what matters: the rows are stale from here on.
+            // Hooked on `saved` rather than `saving`: there is no graph-modified flag to test before the
+            // write, and `saved` still runs INSIDE the transaction, which is what matters — the rows are
+            // stale from here on.
             ee.saved.push(() => this.disableAndInvalidate(true));
             ee.preUnsafeDelete.push(() => this.disableAndInvalidate(false));
             ee.preUnsafeUpdate.push(() => this.disableAndInvalidate(true));
@@ -270,7 +259,7 @@ export namespace CacheLogic {
             ee.preBulkInsert.push(() => this.disableAndInvalidate(true));
         }
 
-        // Signum's DisableAndInvalidate: mark the type (or, for an update, every type that depends on it)
+        // Mark the type (or, for an update, every type that depends on it)
         // untrusted for the REST OF THIS TRANSACTION, and drop the rows once it really commits.
         private disableAndInvalidate(withUpdates: boolean): void {
             if (withUpdates)
@@ -290,8 +279,8 @@ export namespace CacheLogic {
         }
 
         get enabled(): boolean {
-            // Signum also folds in ExecutionMode.IsCacheDisabled (not ported). SystemTime: a
-            // system-versioned query asks for OLD row versions, which the cache does not hold.
+            // SystemTime: a system-versioned query asks for OLD row versions, which the cache does not
+            // hold.
             return !globallyDisabled
                 && !isDisabledInTransaction(this.type)
                 && SystemTime.current() == null;
@@ -299,7 +288,7 @@ export namespace CacheLogic {
 
         get isLoaded(): boolean { return this.cachedTable.isLoaded; }
 
-        // Signum's Load(): the type AND everything it depends on (a completer stubs/lites through them).
+        // The type AND everything it depends on (a completer stubs/lites through them).
         async load(): Promise<void> {
             for (const t of dependencies.indirectlyRelatedTo(this.type, true)) {
                 const c = controllers.get(t);
@@ -359,7 +348,7 @@ export namespace CacheLogic {
         if (sub == null) {
             sub = new CachedTableLite(targetType, owner, column, fieldCustomLite, owner.schema);
             owner.subTables.push(sub);
-            // Signum's semiControllers: a save to the semi type must drop these lites.
+            // A save to the semi type must drop these lites.
             const list = semiControllers.get(targetType);
             if (list != null) list.push(sub); else semiControllers.set(targetType, [sub]);
             attachSemiInvalidation(targetType);
@@ -369,7 +358,7 @@ export namespace CacheLogic {
     }
 
     // A `@part` collection of a cached owner: the child type's own cached rows, addressed by the child's
-    // back-reference FK (Signum's RequestByBackReference).
+    // back-reference FK.
     function requestByBackReference(childType: Type<Entity>, fkProperty: string, ownerId: PrimaryKey, retriever: CacheRetriever): Entity[] {
         const controller = controllers.get(childType);
         if (controller == null)
@@ -378,10 +367,9 @@ export namespace CacheLogic {
         return controller.requestByBackReference(fkProperty, ownerId, retriever);
     }
 
-    // Signum's SemiCachedController: a save/DML on a SEMI type drops the lite tables that hold its rows.
-    // Signum first checks whether the saved id is actually among the cached ones (and has the
-    // MassiveInvalidationCheckLimit machinery for set-based DML); altea invalidates unconditionally —
-    // a lite table is small, reloading it is one query, and the check itself costs a load.
+    // A save / DML on a SEMI type drops the lite tables that hold its rows — UNCONDITIONALLY, without
+    // first checking whether the saved id is among the cached ones: a lite table is small, reloading it is
+    // one query, and the check itself costs a load.
     const semiAttached = new Set<Type<Entity>>();
     function attachSemiInvalidation(type: Type<Entity>): void {
         if (semiAttached.has(type))
@@ -421,7 +409,7 @@ export namespace CacheLogic {
         builderSchema = schema;
     }
 
-    // ---- Disabled-in-transaction (Signum's DisabledTypesDuringTransaction) ------------------------
+    // ---- Disabled-in-transaction -------------------------------------------------------------------
 
     const DISABLED_CACHES_KEY = "disabledCaches";
 
@@ -462,7 +450,7 @@ export namespace CacheLogic {
     export const Method_InvalidateTable = "InvalidateTable";
     export const Method_InvalidateAllTables = "InvalidateAllTables";
 
-    // Signum's NotifyInvalidateAllConnectedTypes: tell every type that DEPENDS on `type` (its rows embed
+    // Tell every type that DEPENDS on `type` (its rows embed
     // or reference it) that it is stale — locally, and over the broadcast so sibling processes do the same.
     function notifyInvalidateAllConnectedTypes(type: Type<Entity>): void {
         for (const t of inverseDependencies.indirectlyRelatedTo(type, true)) {
@@ -476,8 +464,8 @@ export namespace CacheLogic {
     const lazyInvalidatorsByType = new Map<Type<Entity>, (() => void)[]>();
 
     // …and the other half of that: this process must also SEND when it writes such a type, or the peers
-    // never hear. Signum gets this for free by force-caching a lazy's invalidateWith types (their
-    // invalidation always broadcasts); altea deliberately does not cache them, so the send is wired here.
+    // never hear. The types are deliberately NOT cached (see attachInvalidations), so the send is wired
+    // here rather than riding a cached type's own invalidation.
     // Without it a write from ANOTHER process — a terminal `import-assets` rewriting the toolbar rows, a
     // second api node saving an auth rule — leaves this process serving its stale lazy until a restart.
     // Sent on postRealCommit: a peer that reset on a write that then rolled back would reload the same
@@ -508,10 +496,9 @@ export namespace CacheLogic {
     }
 
     /**
-     * Signum's `CacheLogic.BroadcastReceivers` is a public dictionary any module adds to — the broadcast
-     * transport is shared infrastructure, not the cache's private business (Signum.ConcurrentUser pushes
-     * its own "ConcurrentUsersChanged" / "EntitySaved" methods through it). Registration is a function
-     * rather than the raw record so a duplicate method name is an error instead of a silent overwrite.
+     * The broadcast transport is shared infrastructure, not the cache's private business — altea-alert
+     * and altea-concurrent-user push their own methods through it. Registration is a FUNCTION rather than
+     * a public record so a duplicate method name is an error instead of a silent overwrite.
      */
     export function registerBroadcastReceiver(method: string, receiver: (argument: string) => void): void {
         if (broadcastReceivers[method] != null)
@@ -541,7 +528,7 @@ export namespace CacheLogic {
         },
     };
 
-    // Signum's ForceReset: drop every cached table AND its statistics.
+    // Drop every cached table AND its statistics.
     export function forceReset(): void {
         for (const controller of controllers.values())
             controller?.forceReset();
@@ -550,8 +537,8 @@ export namespace CacheLogic {
                 st.resetAll(true);
     }
 
-    // Signum's InvalidateAll: the cache, every global lazy, and (Signum) the metadata cache — altea has
-    // none. `broadcast: false` when the call came FROM a broadcast, so it doesn't echo back.
+    // The cache and every global lazy. `broadcast: false` when the call came FROM a broadcast, so it does
+    // not echo back.
     export function invalidateAll(broadcast = true): void {
         forceReset();
         GlobalLazy.resetAll();
@@ -559,7 +546,7 @@ export namespace CacheLogic {
             serverBroadcast?.send(Method_InvalidateAllTables, "");
     }
 
-    // ---- Introspection (Signum's GetCacheType / Statistics) ---------------------------------------
+    // ---- Introspection -----------------------------------------------------------------------------
 
     export function getCacheType(type: Type<Entity>): CacheType {
         if (!controllers.has(type))
@@ -571,7 +558,7 @@ export namespace CacheLogic {
         return [...controllers.keys()];
     }
 
-    // Signum's Statistics(): the cached tables, biggest first.
+    // The cached tables, biggest first.
     export function statistics(): CachedTableBase[] {
         return [...controllers.values()]
             .filter((c): c is CacheEntityController<Entity> => c != null)
@@ -583,7 +570,7 @@ export namespace CacheLogic {
         return builderSchema?.typeToName.get(type) ?? type.name;
     }
 
-    // ---- The global-lazy strategy (Signum's CacheGlobalLazyManager) -------------------------------
+    // ---- The global-lazy strategy ------------------------------------------------------------------
 
     export class CacheGlobalLazyManager extends GlobalLazyManager {
         override attachInvalidations(sb: SchemaBuilder, invalidateWith: InvalidateWith, invalidate: () => void): void {
@@ -595,14 +582,13 @@ export namespace CacheLogic {
             for (const t of invalidateWith.invalidateWith) {
                 const controller = controllers.get(t);
                 if (controller == null) {
-                    // NOT cached. Signum FORCE-CACHES the type here (`TryCacheTable`), so that every
-                    // global lazy is invalidated through the cache. altea deliberately does not: declaring
-                    // `sb.globalLazy(…, { invalidateWith: [X] })` should not silently start holding X's
+                    // NOT cached, and deliberately NOT force-cached: declaring
+                    // `sb.globalLazy(…, { invalidateWith: [X] })` must not silently start holding X's
                     // whole table in memory — in this very repo that would have cached UserQuery,
                     // Dashboard and the Toolbar entities, all of which carry row-level TypeConditions a
-                    // cached read cannot honour (see schemaCompleted). Instead the lazy keeps the base
-                    // (local event) wiring AND is registered for the broadcast, so an invalidation from
-                    // ANOTHER process still resets it — the one thing Signum's force-caching bought.
+                    // cached read cannot honour (see schemaCompleted). The lazy keeps the base (local
+                    // event) wiring AND is registered for the broadcast, so an invalidation from ANOTHER
+                    // process still resets it.
                     super.attachInvalidations(sb, { invalidateWith: [t] }, invalidate);
                     const list = lazyInvalidatorsByType.get(t);
                     if (list != null) list.push(invalidate); else lazyInvalidatorsByType.set(t, [invalidate]);
@@ -624,7 +610,7 @@ export namespace CacheLogic {
             }
         }
 
-        // Signum's OnLoad: a lazy over cached types must find those caches loaded before it reads them.
+        // A lazy over cached types must find those caches loaded before it reads them.
         override async onLoad(_sb: SchemaBuilder, invalidateWith: InvalidateWith): Promise<void> {
             if (globallyDisabled || invalidateWith.useBaseImplementation)
                 return;
@@ -634,11 +620,11 @@ export namespace CacheLogic {
     }
 }
 
-// Signum's `FluentInclude<T>.WithCache()` — the one-liner an app writes:
+// The one-liner an app writes:
 //   sb.include(ShipperEntity).withCache()
 declare module "@altea/altea/server/schema/fluentInclude" {
     interface FluentInclude<T extends Entity> {
-        /** Hold this type's whole table in memory, invalidated on write (Signum's WithCache). */
+        /** Hold this type's whole table in memory, invalidated on write. */
         withCache(): this;
     }
 }

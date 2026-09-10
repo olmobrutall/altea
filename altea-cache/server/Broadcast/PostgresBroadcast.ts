@@ -4,19 +4,16 @@ import { PostgresConnector } from "@altea/altea/server/connection/postgresConnec
 import { CacheLogic } from "../CacheLogic";
 import type { IServerBroadcast } from "./IServerBroadcast";
 
-// Port of Signum's PostgresBroadcast (Signum.Caching/Broadcast/PostgresBroadcast.cs): cross-process cache
-// invalidation over Postgres LISTEN/NOTIFY. The payload is `<method>/<pid>/<argument>`, and a message whose
-// pid is OUR pid is ignored — that is how a process avoids acting on its own invalidations.
+// Port of Signum.Caching's Broadcast/PostgresBroadcast.cs — see docs/port/Cache.md.
 //
-// altea divergences:
-//  - Signum dedicates a THREAD that blocks in `conn.Wait()`; node-postgres raises a `notification` event on
-//    its own socket, so there is no loop and no thread — just a dedicated `Client` (never a pooled one: a
-//    LISTENing connection is not returned to the pool) with `unref()`ed sockets so it can't hold the
-//    process open.
-//  - the NOTIFY payload is sent as a PARAMETER through `pg_notify(...)` rather than interpolated into a
-//    `NOTIFY` statement (Signum builds the SQL by hand, which would break on a clean type name containing a
-//    quote — and is a needless injection surface).
-//  - Signum's channel is misspelled `signum_brodcast`; altea uses `altea_broadcast`.
+// Cross-process cache invalidation over Postgres LISTEN/NOTIFY. The payload is `<method>/<pid>/<argument>`,
+// and a message whose pid is OUR pid is IGNORED — that is how a process avoids acting on its own
+// invalidations.
+//
+// The connection is a DEDICATED `Client`, never a pooled one: a LISTENing connection is not returned to
+// the pool. Its sockets are `unref()`ed so it cannot hold the process open. The payload goes through
+// `pg_notify(...)` as a PARAMETER rather than interpolated into a `NOTIFY` statement — a clean type name
+// may contain a quote, and hand-built SQL here is a needless injection surface.
 export const BROADCAST_CHANNEL = "altea_broadcast";
 
 export class PostgresBroadcast implements IServerBroadcast {
@@ -68,7 +65,7 @@ export class PostgresBroadcast implements IServerBroadcast {
             client.on("error", () => {
                 // The connection dropped (a restart, `pg_terminate_backend`, a network blip). Everything
                 // this process holds may have been changed by someone else while we were deaf, so treat it
-                // as "invalidate everything" — Signum does the same for SqlState 57P01.
+                // as "invalidate everything".
                 this.running = false;
                 this.client = undefined;
                 for (const h of this.onReceive)
