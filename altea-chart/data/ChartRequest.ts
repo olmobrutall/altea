@@ -94,4 +94,16 @@ export class ChartTimeSeriesEmbedded extends EmbeddedEntity {
     timeSeriesMaxRowsPerStep: int | null;
 
     splitQueries: boolean = false;
+
+    /** Signum's ChartTimeSeriesEmbedded.Clone(). */
+    clone(): ChartTimeSeriesEmbedded {
+        return ChartTimeSeriesEmbedded.create({
+            startDate: this.startDate,
+            endDate: this.endDate,
+            timeSeriesUnit: this.timeSeriesUnit,
+            timeSeriesStep: this.timeSeriesStep,
+            timeSeriesMaxRowsPerStep: this.timeSeriesMaxRowsPerStep,
+            splitQueries: this.splitQueries,
+        });
+    }
 }

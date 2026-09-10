@@ -31,6 +31,12 @@ export class QueryTokenEmbedded extends EmbeddedEntity {
     toString(): string {
         return this.tokenString;
     }
+
+    /** Signum's QueryTokenEmbedded.Clone(). The resolved `token` rides along (it is the same token,
+     *  and re-resolving it is a client round-trip); neither it nor `parseException` is persisted. */
+    clone(): QueryTokenEmbedded {
+        return QueryTokenEmbedded.create({ tokenString: this.tokenString, token: this.token });
+    }
 }
 
 @reflect
@@ -52,6 +58,18 @@ export class PinnedQueryFilterEmbedded extends EmbeddedEntity {
 
     toString(): string {
         return this.label ?? "";
+    }
+
+    /** Signum's PinnedQueryFilterEmbedded.Clone(). */
+    clone(): PinnedQueryFilterEmbedded {
+        return PinnedQueryFilterEmbedded.create({
+            label: this.label,
+            column: this.column,
+            colSpan: this.colSpan,
+            row: this.row,
+            active: this.active,
+            splitValue: this.splitValue,
+        });
     }
 }
 
@@ -80,6 +98,31 @@ export abstract class QueryFilterBaseEntity extends Entity {
     pinned: PinnedQueryFilterEmbedded | null;
     dashboardBehaviour: DashboardBehaviour | null;
     indentation: int = toInt(0);
+
+    /**
+     * Signum's QueryFilterEmbedded.Clone(). Signum has ONE filter embedded shared by every owner and so
+     * ONE Clone; altea has a filter ROW per owner (six subclasses of this base, each adding only its
+     * `@backReference`), so the copy lives here and mints the SAME row type it was called on —
+     * `entity.constructor`, altea's stand-in for Signum's `GetType()`.
+     *
+     * `@rowOrder` and the `@backReference` are deliberately left unset: the save cascade fills both from
+     * the array the clone is placed into.
+     *
+     * DIVERGENCE (a fix, not a port): Signum's Clone omits `DashboardBehaviour`, so cloning a UserQuery
+     * whose filter drives a dashboard interaction silently turns it back into an ordinary filter.
+     */
+    clone(): this {
+        const target = new (this.constructor as new () => this)();
+        target.token = this.token?.clone() ?? null;
+        target.isGroup = this.isGroup;
+        target.groupOperation = this.groupOperation;
+        target.operation = this.operation;
+        target.valueString = this.valueString;
+        target.pinned = this.pinned?.clone() ?? null;
+        target.dashboardBehaviour = this.dashboardBehaviour;
+        target.indentation = this.indentation;
+        return target;
+    }
 }
 
 // The database schema this package's tables live in. FOLDER-scoped, so it covers every type declared

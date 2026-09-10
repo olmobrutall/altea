@@ -13,7 +13,7 @@ import {
 } from "@altea/altea/data/dynamicQueries";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
-import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
+import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
@@ -71,6 +71,17 @@ export class UserQueryEntity_Column extends Entity {
     summaryToken: QueryTokenEmbedded | null;
     hiddenColumn: boolean = false;
     combineRows: CombineRows | null;
+
+    /** Signum's QueryColumnEmbedded.Clone(). `order` / the `@backReference` are left to the save cascade. */
+    clone(): UserQueryEntity_Column {
+        return UserQueryEntity_Column.create({
+            token: this.token.clone(),
+            displayName: this.displayName,
+            summaryToken: this.summaryToken?.clone() ?? null,
+            hiddenColumn: this.hiddenColumn,
+            combineRows: this.combineRows,
+        });
+    }
 }
 
 // Signum's QueryOrderEmbedded (Queries/QueryOrderEmbedded.cs). One sort: a token + Ascending/Descending.
@@ -81,6 +92,11 @@ export class UserQueryEntity_Order extends Entity {
 
     token: QueryTokenEmbedded;
     orderType: OrderType = OrderType.Ascending;
+
+    /** Signum's QueryOrderEmbedded.Clone(). */
+    clone(): UserQueryEntity_Order {
+        return UserQueryEntity_Order.create({ token: this.token.clone(), orderType: this.orderType });
+    }
 }
 
 // Signum's `MList<Lite<Entity>> CustomDrilldowns` ([ImplementedBy(UserQueryEntity)], PreserveOrder,
@@ -95,6 +111,12 @@ export class UserQueryEntity_CustomDrilldown extends Entity {
     // only the suffix — and it is also the real contract: a drilldown target is open, and the
     // implementations list is the only thing that constrains it.
     @valueField @implementedBy(() => [UserQueryEntity]) drilldown: Lite<Entity>;
+
+    /** Signum clones `CustomDrilldowns` with `ToMList()` — the LITES are shared, only the list is new.
+     *  altea's element is a ROW, so the row is what has to be new; the lite it holds is still shared. */
+    clone(): UserQueryEntity_CustomDrilldown {
+        return UserQueryEntity_CustomDrilldown.create({ drilldown: this.drilldown });
+    }
 }
 
 // ---- Embedded value types owned by UserQuery -----------------------------------------------------------
@@ -120,6 +142,20 @@ export class SystemTimeEmbedded extends EmbeddedEntity {
     timeSeriesStep: int | null;
     timeSeriesMaxRowsPerStep: int | null;
     splitQueries: boolean = false;
+
+    /** Signum's SystemTimeEmbedded.Clone(). */
+    clone(): SystemTimeEmbedded {
+        return SystemTimeEmbedded.create({
+            mode: this.mode,
+            startDate: this.startDate,
+            endDate: this.endDate,
+            joinMode: this.joinMode,
+            timeSeriesUnit: this.timeSeriesUnit,
+            timeSeriesStep: this.timeSeriesStep,
+            timeSeriesMaxRowsPerStep: this.timeSeriesMaxRowsPerStep,
+            splitQueries: this.splitQueries,
+        });
+    }
 }
 
 // Signum's HealthCheckConditionEmbedded (UserQueryEntity.cs). A "{count} {op} {value}" threshold.
@@ -127,6 +163,11 @@ export class SystemTimeEmbedded extends EmbeddedEntity {
 export class HealthCheckConditionEmbedded extends EmbeddedEntity {
     operation: FilterOperation = FilterOperation.GreaterThan;
     value: int = toInt(0);
+
+    /** Signum's HealthCheckConditionEmbedded.Clone(). */
+    clone(): HealthCheckConditionEmbedded {
+        return HealthCheckConditionEmbedded.create({ operation: this.operation, value: this.value });
+    }
 }
 
 // Signum's HealthCheckEmbedded (UserQueryEntity.cs). Optional fail / degraded thresholds on the row count.
@@ -134,6 +175,14 @@ export class HealthCheckConditionEmbedded extends EmbeddedEntity {
 export class HealthCheckEmbedded extends EmbeddedEntity {
     failWhen: HealthCheckConditionEmbedded | null;
     degradedWhen: HealthCheckConditionEmbedded | null;
+
+    /** Signum's HealthCheckEmbedded.Clone(). */
+    clone(): HealthCheckEmbedded {
+        return HealthCheckEmbedded.create({
+            failWhen: this.failWhen?.clone() ?? null,
+            degradedWhen: this.degradedWhen?.clone() ?? null,
+        });
+    }
 }
 
 // ---- The UserQuery entity ------------------------------------------------------------------------------
@@ -252,6 +301,8 @@ export namespace UserQueryPermission {
 // Signum's `[AutoInit] static class UserQueryOperation`.
 export namespace UserQueryOperation {
     export const Save: ExecuteSymbol<UserQueryEntity> = init();
+    /** Signum's `ConstructSymbol<UserQueryEntity>.From<UserQueryEntity> Clone`. */
+    export const Clone: ConstructSymbol<UserQueryEntity, From<UserQueryEntity>> = init();
     export const Delete: DeleteSymbol<UserQueryEntity> = init();
 }
 

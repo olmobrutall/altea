@@ -37,4 +37,9 @@ export class ChartParameterEmbedded extends EmbeddedEntity {
     toString(): string {
         return this.name + ": " + this.value;
     }
+
+    /** Signum's ChartParameterEmbedded.Clone(). */
+    clone(): ChartParameterEmbedded {
+        return ChartParameterEmbedded.create({ name: this.name, value: this.value });
+    }
 }

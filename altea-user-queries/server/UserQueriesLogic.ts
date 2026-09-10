@@ -62,6 +62,9 @@ export namespace UserQueriesLogic {
 
         sb.include(UserQueryEntity)
             .withSave(UserQueryOperation.Save)
+            .withConstructFrom(UserQueryEntity, UserQueryOperation.Clone, {
+                construct: uq => cloneUserQuery(uq),
+            })
             .withDelete(UserQueryOperation.Delete)
             .withQuery();
 
@@ -100,6 +103,40 @@ export namespace UserQueriesLogic {
 
         if (sb.webBuilder)
             UserQueriesServer.start(sb.webBuilder);
+    }
+
+    // ---- Clone (Signum's UserQueryEntity.Clone) --------------------------------------------------
+
+    /**
+     * Signum keeps `Clone()` on the entity; altea puts it in the logic layer, as @altea/altea-dashboard's
+     * `cloneDashboard` does — the row clones themselves are isomorphic and live on the row types.
+     *
+     * Signum's Clone re-runs `GetChartScript().SynchronizeColumns(...)` after copying; the UserQuery has
+     * no such step, and neither does altea's UserChart clone (see UserChartLogic.cloneUserChart).
+     */
+    export function cloneUserQuery(uq: UserQueryEntity): UserQueryEntity {
+        return UserQueryEntity.create({
+            query: uq.query,
+            groupResults: uq.groupResults,
+            entityType: uq.entityType,
+            hideQuickLink: uq.hideQuickLink,
+            showTitleAsBreadcrumb: uq.showTitleAsBreadcrumb,
+            includeDefaultFilters: uq.includeDefaultFilters,
+            owner: uq.owner,
+            displayName: `Clone ${uq.displayName}`,
+            createTitle: uq.createTitle,
+            appendFilters: uq.appendFilters,
+            refreshMode: uq.refreshMode,
+            filters: uq.filters.map(f => f.clone()),
+            orders: uq.orders.map(o => o.clone()),
+            columnsMode: uq.columnsMode,
+            columns: uq.columns.map(c => c.clone()),
+            paginationMode: uq.paginationMode,
+            elementsPerPage: uq.elementsPerPage,
+            systemTime: uq.systemTime?.clone() ?? null,
+            healthCheck: uq.healthCheck?.clone() ?? null,
+            customDrilldowns: uq.customDrilldowns.map(d => d.clone()),
+        });
     }
 
     /** The cached UserQuery behind a lite (Signum's `UserQueries.Value.GetOrCreate(lite)`). */

@@ -50,6 +50,9 @@ export namespace UserChartLogic {
 
         sb.include(UserChartEntity)
             .withSave(UserChartOperation.Save)
+            .withConstructFrom(UserChartEntity, UserChartOperation.Clone, {
+                construct: uc => cloneUserChart(uc),
+            })
             .withDelete(UserChartOperation.Delete)
             .withQuery();
 
@@ -93,6 +96,38 @@ export namespace UserChartLogic {
      *  user's roles. */
     export function registerRoleTypeCondition(typeCondition: TypeConditionSymbol): void {
         UserAssetOwnerAuth.registerRoleTypeCondition(UserChartEntity, typeCondition);
+    }
+
+    // ---- Clone (Signum's UserChartEntity.Clone) --------------------------------------------------
+
+    /**
+     * Signum keeps `Clone()` on the entity; altea puts it in the logic layer, as @altea/altea-dashboard's
+     * `cloneDashboard` does (the per-row clones themselves are isomorphic and live on the row types).
+     *
+     * Signum ends with `result.GetChartScript().SynchronizeColumns(result, null)` and says why in a
+     * comment: assigning `ChartScript` runs its SETTER, which PRE-CREATES a column per script slot, so the
+     * cloned columns have to replace those and be re-bound to the script. altea has no property setters —
+     * `chartScript` is a plain field and nothing pre-creates anything (the editor calls
+     * ChartClient.synchronizeColumns on change) — so the copy already IS the end state Signum reaches, and
+     * the two runtime bindings SynchronizeColumns also sets (`scriptColumn` / `parentChart`) are
+     * `@field(false)` scratch the client re-binds on load.
+     */
+    export function cloneUserChart(uc: UserChartEntity): UserChartEntity {
+        return UserChartEntity.create({
+            query: uc.query,
+            entityType: uc.entityType,
+            hideQuickLink: uc.hideQuickLink,
+            owner: uc.owner,
+            displayName: `Clone ${uc.displayName}`,
+            includeDefaultFilters: uc.includeDefaultFilters,
+            maxRows: uc.maxRows,
+            chartTimeSeries: uc.chartTimeSeries?.clone() ?? null,
+            chartScript: uc.chartScript,
+            columns: uc.columns.map(c => c.clone()),
+            parameters: uc.parameters.map(p => p.clone()),
+            filters: uc.filters.map(f => f.clone()),
+            customDrilldowns: uc.customDrilldowns.map(d => d.clone()),
+        });
     }
 
     /** The cached UserChart behind a lite (Signum's `UserCharts.Value.GetOrCreate(lite)`) — used by the

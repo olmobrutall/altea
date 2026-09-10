@@ -86,4 +86,16 @@ export class ChartColumnEmbedded extends EmbeddedEntity {
     toString(): string {
         return this.token?.toString() ?? "";
     }
+
+    /** Signum's ChartColumnEmbedded.Clone(). `scriptColumn` / `parentChart` are runtime scratch
+     *  (`@field(false)`), re-bound by synchronizeColumns, so a clone starts without them. */
+    clone(): ChartColumnEmbedded {
+        return ChartColumnEmbedded.create({
+            token: this.token?.clone() ?? null,
+            displayName: this.displayName,
+            format: this.format,
+            orderByIndex: this.orderByIndex,
+            orderByType: this.orderByType,
+        });
+    }
 }

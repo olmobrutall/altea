@@ -9,7 +9,7 @@ import { type int, toInt } from "@altea/altea/data/basics";
 import { FilterOperation, FilterGroupOperation, DashboardBehaviour } from "@altea/altea/data/dynamicQueries";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
-import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
+import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
@@ -71,6 +71,12 @@ export class UserChartEntity_Column extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
     @rowOrder order: int;
     @valueField element: ChartColumnEmbedded;
+
+    /** The row half of Signum's `Columns.Select(c => c.Clone())`: a new row around a cloned element.
+     *  `order` / the `@backReference` are left to the save cascade. */
+    clone(): UserChartEntity_Column {
+        return UserChartEntity_Column.create({ element: this.element.clone() });
+    }
 }
 
 // Signum's `[NoRepeatValidator] MList<ChartParameterEmbedded> Parameters` element (wrapped as above).
@@ -80,6 +86,11 @@ export class UserChartEntity_Parameter extends Entity {
     // No `@rowOrder`: Signum marks this MList [NoRepeatValidator] and NOT [PreserveOrder], so its table has
     // no Order column — a parameter is found by name, not by position (unlike Columns, which are).
     @valueField element: ChartParameterEmbedded;
+
+    /** The row half of Signum's `Parameters.Select(p => p.Clone())`. */
+    clone(): UserChartEntity_Parameter {
+        return UserChartEntity_Parameter.create({ element: this.element.clone() });
+    }
 }
 
 // Signum's `[NoRepeatValidator, PreserveOrder, ImplementedBy(UserQueryEntity)] MList<Lite<Entity>>
@@ -94,6 +105,12 @@ export class UserChartEntity_CustomDrilldown extends Entity {
     // only the suffix — and it is also the real contract: a drilldown target is open, and the
     // implementations list is the only thing that constrains it.
     @valueField @implementedBy(() => [UserQueryEntity]) drilldown: Lite<Entity>;
+
+    /** Signum clones `CustomDrilldowns` with `ToMList()` — the LITES are shared, only the list is new.
+     *  altea's element is a ROW, so the row is what has to be new (mirrors UserQueryEntity_CustomDrilldown). */
+    clone(): UserChartEntity_CustomDrilldown {
+        return UserChartEntity_CustomDrilldown.create({ drilldown: this.drilldown });
+    }
 }
 
 // ---- The UserChart entity ------------------------------------------------------------------------------
@@ -176,6 +193,8 @@ registerCustomLite(UserChartEntity, UserChartLite,
 // Signum's `[AutoInit] static class UserChartOperation`.
 export namespace UserChartOperation {
     export const Save: ExecuteSymbol<UserChartEntity> = init();
+    /** Signum's `ConstructSymbol<UserChartEntity>.From<UserChartEntity> Clone`. */
+    export const Clone: ConstructSymbol<UserChartEntity, From<UserChartEntity>> = init();
     export const Delete: DeleteSymbol<UserChartEntity> = init();
 }
 

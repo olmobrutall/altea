@@ -5,10 +5,8 @@ import { SubTokensOptionsAll, type QueryToken } from "@altea/altea/data/dynamicQ
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { Enum } from "@altea/altea/data/enum";
 import { OrderType } from "@altea/altea/data/dynamicQueries";
-import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { QueryFilterUtils } from "@altea/altea-user-assets/server/QueryFilterUtils";
 import { ChartColumnEmbedded } from "../data/ChartColumn";
-import { ChartParameterEmbedded } from "../data/ChartParameter";
 import { ChartRequestModel } from "../data/ChartRequest";
 import type { UserChartEntity } from "../data/UserChart";
 
@@ -120,8 +118,8 @@ export function toChartRequest(userChart: UserChartEntity): ChartExecution {
         chartScript: userChart.chartScript,
         maxRows: userChart.maxRows,
         chartTimeSeries: userChart.chartTimeSeries,
-        columns: userChart.columns.map(c => cloneColumn(c.element)),
-        parameters: userChart.parameters.map(p => cloneParameter(p.element)),
+        columns: userChart.columns.map(c => c.element.clone()),
+        parameters: userChart.parameters.map(p => p.element.clone()),
     });
 
     return { model, filters: QueryFilterUtils.toFilterList(queryName, userChart.filters) };
@@ -133,20 +131,6 @@ export function executeUserChartAsync(userChart: UserChartEntity): Promise<Resul
 }
 
 // ---- helpers -------------------------------------------------------------------------------------------
-
-function cloneColumn(c: ChartColumnEmbedded): ChartColumnEmbedded {
-    return ChartColumnEmbedded.create({
-        token: c.token == null ? null : QueryTokenEmbedded.create({ tokenString: c.token.tokenString }),
-        displayName: c.displayName,
-        format: c.format,
-        orderByIndex: c.orderByIndex,
-        orderByType: c.orderByType,
-    });
-}
-
-function cloneParameter(p: ChartParameterEmbedded): ChartParameterEmbedded {
-    return ChartParameterEmbedded.create({ name: p.name, value: p.value });
-}
 
 function queryNameOfKey(queryKey: string): QueryName {
     const queryName = QueryLogic.tryGetQueryNameByKey(queryKey);
