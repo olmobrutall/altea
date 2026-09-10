@@ -206,4 +206,69 @@ describe("OrderByTest", { skip: !hasDb }, () => {
         const j = await table(AlbumEntity).orderBy(a => a.name).includes(null!);
         assert.ok(typeof j === "boolean");
     });
+
+    // ---- OrderByColumnPromoter (Signum's OrderByComplexExpressionPromotedToColumn*) -----------
+    // Ordering by something that is not a column (a correlated sub-query here) used to be repeated
+    // verbatim in every ORDER BY the OrderByRewriter floated it onto, even when the very same
+    // sub-query was already one of the selected columns.
+
+    test("OrderByComplexExpressionPromotedToColumn", async () => {
+        const query = table(ArtistEntity)
+            .filter(a => !a.dead)
+            .orderByDescending(a => a.friends.length)
+            .thenByDescending(a => a.albums!().count())
+            .map(a => ({ name: a.name, albums: a.albums!().count() }))
+            .top(20);
+
+        const text = query.queryTextForDebug();
+        assert.equal(countRepetitions(text, "COUNT(*)"), 2, text);
+        assert.equal(countRepetitions(text, "ORDER BY"), 1, text);
+
+        const result = await query.toArray();
+        assert.deepEqual(result.map(a => a.albums), [...result].sort((a, b) => Number(b.albums) - Number(a.albums)).map(a => a.albums));
+    });
+
+    // Like a paginated SearchControl query: the orderings have to travel through the TOP select and
+    // the outer-most one, and each level used to get its own copy of the sub-query.
+    test("OrderByComplexExpressionPromotedToColumnPaginated", async () => {
+        const query = table(ArtistEntity)
+            .filter(a => !a.dead)
+            .orderByDescending(a => a.friends.length)
+            .thenByDescending(a => a.albums!().count())
+            .map(a => ({ name: a.name, albums: a.albums!().count(), id: a.id }))
+            .top(20)
+            .map(a => ({ name: a.name, albums: a.albums }));
+
+        const text = query.queryTextForDebug();
+        assert.equal(countRepetitions(text, "COUNT(*)"), 2, text);
+        assert.equal(countRepetitions(text, "ORDER BY"), 1, text);
+
+        const result = await query.toArray();
+        assert.deepEqual(result.map(a => a.albums), [...result].sort((a, b) => Number(b.albums) - Number(a.albums)).map(a => a.albums));
+    });
+
+    // Signum's ...Skip variant. There a Skip becomes a ROW_NUMBER window (so it asserts TWO ORDER
+    // BYs, the window's and the final one); altea's Skip is an OFFSET on the select's own ORDER BY,
+    // so there is still exactly one.
+    test("OrderByComplexExpressionPromotedToColumnSkip", async () => {
+        const query = table(ArtistEntity)
+            .filter(a => !a.dead)
+            .orderByDescending(a => a.friends.length)
+            .thenByDescending(a => a.albums!().count())
+            .map(a => ({ name: a.name, albums: a.albums!().count(), id: a.id }))
+            .skip(1).top(20)
+            .map(a => ({ name: a.name, albums: a.albums }));
+
+        const text = query.queryTextForDebug();
+        assert.equal(countRepetitions(text, "COUNT(*)"), 2, text);
+        assert.equal(countRepetitions(text, "ORDER BY"), 1, text);
+
+        const result = await query.toArray();
+        assert.deepEqual(result.map(a => a.albums), [...result].sort((a, b) => Number(b.albums) - Number(a.albums)).map(a => a.albums));
+    });
 });
+
+// Signum's StringExtensions.CountRepetitions.
+function countRepetitions(text: string, search: string): number {
+    return text.split(search).length - 1;
+}

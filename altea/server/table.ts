@@ -12,6 +12,7 @@ import { AggregateRewriter } from "./linq/visitors/AggregateRewriter";
 import { OrderByRewriter } from "./linq/visitors/OrderByRewriter";
 import { QueryRebinder } from "./linq/visitors/QueryRebinder";
 import { RedundantSubqueryRemover } from "./linq/visitors/RedundantSubqueryRemover";
+import { OrderByColumnPromoter } from "./linq/visitors/OrderByColumnPromoter";
 import { RedundantJoinRemover } from "./linq/visitors/RedundantJoinRemover";
 import { UnusedColumnRemover } from "./linq/visitors/UnusedColumnRemover";
 import { ConditionsRewriter } from "./linq/visitors/ConditionsRewriter";
@@ -146,6 +147,14 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
     projection = UnusedColumnRemover.remove(projection);
     log?.switch("Redundant");
     projection = RedundantSubqueryRemover.remove(projection, isPostgres);
+    // Promote a complex ordering (typically a correlated sub-query, which the OrderByRewriter has
+    // copied onto every select that needs it) to a column of the sub-select it comes from, reusing
+    // an equivalent column if one is already there — Signum runs OrderByColumnPromoter here.
+    log?.switch("OrderByColumn");
+    const orderByPromoted = OrderByColumnPromoter.promote(projection);
+    // Once the orderings are simple columns, an outer select that only re-projects a TOP / OFFSET
+    // can be merged away (its ORDER BY is now literally the same one).
+    projection = orderByPromoted === projection ? orderByPromoted : RedundantSubqueryRemover.remove(orderByPromoted, isPostgres);
     // Merge identical entity-completion joins (e.g. `label.toLite()` + `label.name` → one Label join)
     // now that subquery collapse has settled both onto the same owner FK.
     log?.switch("RedundantJoin");

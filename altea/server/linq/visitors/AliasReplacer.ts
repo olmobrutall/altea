@@ -143,13 +143,15 @@ class CanonicalAliasVisitor extends DbExpressionVisitor {
         super();
     }
 
-    static signature(select: SelectExpression): string {
-        const declared = DeclaredAliasGatherer.gather(select);
+    // Any post-binder expression, not only a Select: an ORDER BY whose expression is a
+    // correlated sub-query needs the same alpha-equivalence (see dbExpressionEquals).
+    static signature(expression: Expression): string {
+        const declared = DeclaredAliasGatherer.gather(expression);
         const aliasMap = new Map<string, Alias>();
         // Deterministic positional renaming. Aliases with a name only (no ObjectName);
         // real table ObjectName aliases are never among a select's declared set.
         declared.forEach((a, i) => aliasMap.set(a.toString(), Alias.named("_u" + i, a.isPostgres)));
-        const canonical = new CanonicalAliasVisitor(aliasMap).visit(select);
+        const canonical = new CanonicalAliasVisitor(aliasMap).visit(expression);
         return canonical.toString();
     }
 
@@ -204,6 +206,47 @@ class CanonicalAliasVisitor extends DbExpressionVisitor {
 export class UniqueRequestKey {
     static of(select: SelectExpression): string {
         return CanonicalAliasVisitor.signature(select);
+    }
+}
+
+/**
+ * Signum's `DbExpressionComparer.AreEqual` for a POST-BINDER tree: structural equality with alias
+ * ALPHA-EQUIVALENCE, so two identical correlated sub-queries that differ only in the aliases the
+ * binder happened to generate (`… FROM album AS a2` vs `AS a3`) compare equal, while a reference to
+ * an OUTER alias — which is what makes a sub-query correlated — still has to match exactly.
+ *
+ * Implemented as the canonical signature above rather than as a port of Signum's 545-line per-node
+ * comparer, for the reason CanonicalAliasVisitor's own header gives: `toString()` is already the
+ * structural signature this codebase compares post-binder subtrees by (RedundantJoinRemover's join
+ * dedupe), and the alias renaming is the one thing it cannot express. Each node's `toString()` is
+ * therefore part of that contract — see RowNumberExpression / SelectExpression, which carry their
+ * orderings and options for exactly this reason.
+ */
+export function dbExpressionEquals(a: Expression | undefined, b: Expression | undefined): boolean {
+    if (a === b)
+        return true;
+    if (a == null || b == null)
+        return false;
+    return CanonicalAliasVisitor.signature(a) === CanonicalAliasVisitor.signature(b);
+}
+
+// Port of Signum's UsedAliasGatherer.Externals: the distinct table aliases an expression reads
+// columns from. Lives beside DeclaredAliasGatherer (the aliases an expression *introduces*) — the
+// two are asked together wherever "does this expression only refer to things this source knows?"
+// is the question: the binder's GetCurrentSource, and the OrderByColumnPromoter.
+export class UsedAliasGatherer extends DbExpressionVisitor {
+    private readonly aliases: Alias[] = [];
+
+    static externals(e: Expression): Alias[] {
+        const g = new UsedAliasGatherer();
+        g.visit(e);
+        return g.aliases;
+    }
+
+    override visitColumn(c: ColumnExpression): Expression {
+        if (!this.aliases.some(a => a.equals(c.alias)))
+            this.aliases.push(c.alias);
+        return c;
     }
 }
 

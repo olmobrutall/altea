@@ -6,6 +6,7 @@ import {
     SelectOptions,
 } from "../expressions.sql";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
+import { dbExpressionEquals } from "./AliasReplacer";
 
 // Port of Signum's RedundantSubqueryRemover
 // (Engine/Linq/ExpressionVisitor/RedundantSubqueryRemover.cs), including its inner
@@ -124,8 +125,10 @@ class RedundantSubqueryGatherer extends DbExpressionVisitor {
 }
 
 // Splices out a set of selects, remapping references to their columns to the
-// expressions those columns were defined as.
-class SubqueryRemover extends DbExpressionVisitor {
+// expressions those columns were defined as. Exported for the OrderByColumnPromoter,
+// which uses it to translate an ordering down into the scope of the sub-select it is
+// promoting a column into (Signum's SubqueryRemover is likewise shared).
+export class SubqueryRemover extends DbExpressionVisitor {
     private readonly selectsToRemove: Set<SelectExpression>;
     private readonly map: Map<string, Map<string, Expression>>;
 
@@ -208,6 +211,27 @@ class SubqueryMerger extends DbExpressionVisitor {
             cd.expression instanceof ColumnExpression || cd.expression instanceof ConstantExpression);
     }
 
+    /**
+     * True when the ORDER BY of `select` is, once translated to the scope of `fromSelect`, exactly
+     * the ORDER BY that fromSelect already has. Happens when an outer select is just re-projecting
+     * the columns of a TOP / OFFSET select: the OrderByRewriter gives the same orderings to both,
+     * and keeping the two selects apart only duplicates them in the SQL.
+     */
+    static isSameOrderBy(select: SelectExpression, fromSelect: SelectExpression): boolean {
+        if (select.orderBy.length !== fromSelect.orderBy.length)
+            return false;
+
+        // Both sides are translated: fromSelect can also refer to its OWN columns
+        // (SELECT expr as c0 ... ORDER BY c0), which the OrderByColumnPromoter is what produces.
+        return select.orderBy.every((o, i) => {
+            const other = fromSelect.orderBy[i];
+            return o.orderType === other.orderType &&
+                dbExpressionEquals(
+                    SubqueryRemover.remove(o.expression, [fromSelect]),
+                    SubqueryRemover.remove(other.expression, [fromSelect]));
+        });
+    }
+
     private static canMergeWithFrom(select: SelectExpression, isTopLevel: boolean): boolean {
         const fromSelect = SubqueryMerger.getLeftMostSelect(select.from!);
         if (fromSelect == null)
@@ -220,7 +244,9 @@ class SubqueryMerger extends DbExpressionVisitor {
         const frmHasOrderBy = fromSelect.orderBy.length > 0;
         const frmHasGroupBy = fromSelect.groupBy.length > 0;
 
-        if (selHasOrderBy && frmHasOrderBy)
+        // both cannot have an ORDER BY, unless it is the very same one (an outer select that only
+        // re-projects a TOP / OFFSET)
+        if (selHasOrderBy && frmHasOrderBy && !SubqueryMerger.isSameOrderBy(select, fromSelect))
             return false;
         if (selHasGroupBy && frmHasGroupBy)
             return false;

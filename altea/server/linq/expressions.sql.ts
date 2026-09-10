@@ -1,4 +1,4 @@
-import { Expression } from "./expressions";
+import { Expression, ConstantExpression } from "./expressions";
 import { LiteralType, RuntimeType, IntervalType } from "../runtimeTypes";
 import { SystemTime } from "../systemTime";
 import type { FieldInfo } from "../../data/reflection";
@@ -189,6 +189,22 @@ export class SelectExpression extends SourceWithAliasExpression {
         return t != null && (t as any).value === 1;
     }
 
+    // Signum's SelectExpression.IsAllAggregates: a group-all select (one row). Constant
+    // columns are ignored — altea projects a trivial group key (`groupBy(s => ({}))`) as a
+    // constant column, which Signum omits, so like UnusedColumnRemover we look only at the
+    // non-constant columns being aggregates.
+    isAllAggregates(): boolean {
+        const nonConst = this.columns.filter(c =>
+            !(c.expression instanceof ConstantExpression || c.expression instanceof SqlConstantExpression));
+        return nonConst.length > 0 && nonConst.every(c => c.expression instanceof AggregateExpression);
+    }
+
+    // Signum's SelectExpression.IsForXmlPathEmpty: a string aggregation, whose single column IS
+    // the concatenation — adding a column to it would change what it returns.
+    isForXmlPathEmpty(): boolean {
+        return (this.selectOptions & SelectOptions.ForXmlPathEmpty) !== 0;
+    }
+
     toString(): string {
         const cols = this.columns.map(c => c.toString()).join(",\n");
         return `SELECT ${this.isDistinct ? "DISTINCT " : ""}${this.top != null ? `TOP ${this.top} ` : ""}${cols}\n` +
@@ -197,6 +213,10 @@ export class SelectExpression extends SourceWithAliasExpression {
             `${this.orderBy.length ? `ORDER BY ${this.orderBy.join(", ")}\n` : ""}` +
             `${this.groupBy.length ? `GROUP BY ${this.groupBy.join(", ")}\n` : ""}` +
             `${this.offset != null ? `OFFSET ${this.offset}\n` : ""}` +
+            // Part of the node's identity, for the same reason the RowNumber orderings are:
+            // a ForXmlPathEmpty (string-aggregating) select returns something else entirely
+            // than the same body without it.
+            `${this.selectOptions !== SelectOptions.None ? `OPTIONS ${this.selectOptions}\n` : ""}` +
             `AS ${this.alias}`;
     }
 
@@ -294,7 +314,11 @@ export class RowNumberExpression extends DbExpression {
     }
 
     toString(): string {
-        return "ROW_NUMBER()";
+        // The orderings are part of the node's identity — the canonical signature
+        // (AliasReplacer's CanonicalAliasVisitor, altea's stand-in for Signum's
+        // DbExpressionComparer) reads this string, so leaving them out would make two
+        // differently-ordered windows compare equal.
+        return `ROW_NUMBER() OVER (ORDER BY ${this.orderBy.join(", ")})`;
     }
 
     accept(visitor: ExpressionVisitor) {

@@ -130,7 +130,7 @@ export class QueryFormatter extends DbExpressionVisitor {
         if (s.groupBy.length)
             this.append(`\nGROUP BY ${s.groupBy.map(g => this.capture(() => this.visit(g))).join(", ")}`);
         if (s.orderBy.length)
-            this.append(`\nORDER BY ${s.orderBy.map(o => this.capture(() => this.visitOrderBy(o))).join(", ")}`);
+            this.append(`\nORDER BY ${s.orderBy.map(o => this.capture(() => this.visitOrderBy(o, s.alias))).join(", ")}`);
         else if (s.offset != null && !this.isPostgres)
             // SQL Server requires an ORDER BY for OFFSET/FETCH; a bare `skip` with no
             // order gets a no-op ordering (Postgres needs none).
@@ -268,8 +268,16 @@ export class QueryFormatter extends DbExpressionVisitor {
         return c;
     }
 
-    override visitOrderBy(o: OrderExpression): OrderExpression {
-        this.visit(o.expression);
+    // `selfAlias` is passed only from the select's OWN ORDER BY: a select can order by one of its
+    // own columns, but only by the bare alias (SELECT expr as c0 ... ORDER BY c0) — `s0.c0` would be
+    // a reference to a source that is not in this select's FROM. That is the shape the
+    // OrderByColumnPromoter produces, and the reason it can often avoid adding a column at all.
+    override visitOrderBy(o: OrderExpression, selfAlias?: Alias): OrderExpression {
+        if (selfAlias != null && o.expression instanceof ColumnExpression &&
+            o.expression.alias.equals(selfAlias) && o.expression.name != null)
+            this.append(this.quote(o.expression.name));
+        else
+            this.visit(o.expression);
         this.append(` ${o.orderType === "Ascending" ? "ASC" : "DESC"}`);
         return o;
     }

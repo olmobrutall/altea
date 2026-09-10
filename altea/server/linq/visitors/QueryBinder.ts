@@ -30,7 +30,7 @@ import { projectColumns as projectColumnsImpl, type ProjectedColumns } from "./C
 import { ColumnGenerator } from "../ColumnGenerator";
 import { fullNominate as fullNominateImpl, nominate } from "../dbExpressionNominator";
 import { QueryJoinExpander, type TableRequest, type ExpansionRequest, type UniqueRequest } from "./QueryJoinExpander";
-import { AliasReplacer, DeclaredAliasGatherer, UniqueRequestKey } from "./AliasReplacer";
+import { AliasReplacer, DeclaredAliasGatherer, UniqueRequestKey, UsedAliasGatherer } from "./AliasReplacer";
 import { EntityCompleter } from "./EntityCompleter";
 import { GroupEntityCleaner } from "./GroupEntityCleaner";
 import { SmartEqualizer } from "../smartEqualizer";
@@ -302,25 +302,6 @@ function defaultColumnName(exp: Expression): string {
 // Signum's ColumnUnionProjector: rewrite a per-implementation leaf so its nominated
 // candidate columns/expressions are projected into that implementation's union
 // columns and read back from the union alias.
-// Signum's UsedAliasGatherer.Externals: the distinct table aliases a (correlation)
-// expression reads columns from. Used by GetCurrentSource to decide which stacked
-// source a completion join must attach to.
-class AliasGatherer extends DbExpressionVisitor {
-    readonly aliases: Alias[] = [];
-
-    static gather(e: Expression): Alias[] {
-        const g = new AliasGatherer();
-        g.visit(e);
-        return g.aliases;
-    }
-
-    override visitColumn(c: ColumnExpression): Expression {
-        if (!this.aliases.some(a => a.equals(c.alias)))
-            this.aliases.push(c.alias);
-        return c;
-    }
-}
-
 // Signum's ContainsAggregateVisitor: does an expression contain a SQL aggregate anywhere
 // (including inside a correlated subquery)? Used by bindGroupBy to detect a grouping key that
 // SQL Server won't accept directly (it must be projected into an intermediate select first).
@@ -2932,11 +2913,11 @@ export class QueryBinder extends ExpressionVisitor {
     // does not itself declare (used − declared, with declared expanded transitively).
     private externalAlias(request: ExpansionRequest): Alias[] {
         if ("table" in request)
-            return AliasGatherer.gather(request.condition).filter(a => !a.equals(request.table.alias));
+            return UsedAliasGatherer.externals(request.condition).filter(a => !a.equals(request.table.alias));
         if ("select" in request) {
             const declared = DeclaredAliasGatherer.gather(request.select);
             this.expandKnownAlias(declared);
-            return AliasGatherer.gather(request.select).filter(a => !declared.some(d => d.equals(a)));
+            return UsedAliasGatherer.externals(request.select).filter(a => !declared.some(d => d.equals(a)));
         }
         // UnionRequest attaches to the top source (added directly by addUnionRequest).
         return [];

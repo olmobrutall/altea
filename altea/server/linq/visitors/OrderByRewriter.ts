@@ -81,7 +81,7 @@ export class OrderByRewriter extends DbExpressionVisitor {
         }
 
         let savedKeys: ColumnExpression[] | undefined;
-        if (this.gatheredKeys != null && (select.isDistinct || select.groupBy.length > 0 || OrderByRewriter.isAllAggregates(select)))
+        if (this.gatheredKeys != null && (select.isDistinct || select.groupBy.length > 0 || select.isAllAggregates()))
             savedKeys = [...this.gatheredKeys];
 
         select = super.visitSelect(select) as SelectExpression;
@@ -99,7 +99,7 @@ export class OrderByRewriter extends DbExpressionVisitor {
         // an empty GROUP BY, e.g. `groupBy(s => ({})).…sum(…)`) also collapses to one row, so a
         // gathered inner ORDER BY is meaningless and must be dropped — otherwise its key column
         // leaks into the select and SQL Server rejects it (not grouped nor aggregated).
-        if (OrderByRewriter.isAllAggregates(select)) {
+        if (select.isAllAggregates()) {
             this.gatheredOrderings = undefined;
             if (this.gatheredKeys != null)
                 this.gatheredKeys.push(...select.columns.map(cd => cd.getReference(select.alias)));
@@ -253,16 +253,6 @@ export class OrderByRewriter extends DbExpressionVisitor {
 
     private static idExpression(table: TableExpression): ColumnExpression {
         return new ColumnExpression(LiteralType.number, table.alias, table.table.primaryKey.column.name);
-    }
-
-    // Signum's SelectExpression.IsAllAggregates: a group-all select (one row). Constant
-    // columns are ignored — altea projects a trivial group key (`groupBy(s => ({}))`) as a
-    // constant column, which Signum omits, so like UnusedColumnRemover we look only at the
-    // non-constant columns being aggregates.
-    private static isAllAggregates(select: SelectExpression): boolean {
-        const nonConst = select.columns.filter(c =>
-            !(c.expression instanceof ConstantExpression || c.expression instanceof SqlConstantExpression));
-        return nonConst.length > 0 && nonConst.every(c => c.expression instanceof AggregateExpression);
     }
 
     // A single-column COUNT/SUM/AVG/… select returns a scalar that must NOT be
