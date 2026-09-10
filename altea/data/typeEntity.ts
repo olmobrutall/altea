@@ -1,6 +1,7 @@
 import { Entity } from './entity';
 import { reflect, setDefaultDatabaseSchema } from './reflection';
 import { entity, quoted, uniqueIndex } from './decorators';
+import { msg } from './utils/localization';
 
 // Port of Signum's TypeEntity (Signum/Basics/Type.cs): the system table that maps
 // every persistent entity type to a stable int id. That id is the discriminator
@@ -50,6 +51,27 @@ export class TypeEntity extends Entity {
     // `package` is what altea groups by, and Signum is gaining the same column.
     namespace: string | null;
 
+    // NEW here: Signum has no such column. Whether the type is a `@part` — an entity that exists only
+    // as part of the one entity that owns it (`PropertyRoute.isPartType`, the same predicate the route
+    // rules and the token layer go through, so the row and the model cannot disagree about what a part is).
+    //
+    // STORED, deliberately, and that is the whole justification for a column Signum does not have: the
+    // compile-time `TypeInfo.entityKind` already ships to the client, so a client-side predicate is
+    // possible — but what is wanted is a SERVER-side filter (`isPart == false` in the query request), and a
+    // predicate applied to the rows a page happens to have received cannot do that without lying about the
+    // total count and paging past what it hid. Its consumer is the type PICKER (`EntityBase.chooseType`
+    // opens `Finder.find(TypeEntity)` for an `@implementedByAll` reference), where a part is never a
+    // sensible answer — see the framework's TypeEntityClient.
+    //
+    // `SharedPart` is NOT included, exactly as `isPartType` excludes it: a SharedPart has several owners
+    // and stands alone, so it is a legitimate thing to pick.
+    //
+    // KEPT in legacy mode rather than hidden through `simplifyDiffTables`: hiding it would mean the column
+    // does not exist against a Signum database, and the server-side filter is precisely what would then
+    // break. So a Southwind sync scripts one ADD COLUMN — the same call `package` already makes, an
+    // altea-maintained column a Signum deployment simply ignores.
+    isPart: boolean;
+
     // Signum's TypeEntity.ToString => CleanName. altea originally left the inherited default (which renders
     // "Type <id>", e.g. "Type 8"); give it the clean name so references/lites display meaningfully (e.g. the
     // ColorPalette.type field). @quoted so it also lowers to SQL for the ToStr column / order-by.
@@ -58,6 +80,15 @@ export class TypeEntity extends Entity {
         return this.cleanName;
     }
 }
+
+// The type table's own UI vocabulary. NEW here — Signum has no counterpart, because it has no such
+// filter: `isPart` is altea's column (see above), so the label that switches it off is altea's too. A
+// container of its own rather than a member on `SearchMessage`, which is the generic search vocabulary
+// where this is about one table.
+export const TypeEntityMessage = {
+    /** The pinned filter that shows `@part` rows in a type picker — see the framework's TypeEntityClient. */
+    IncludePartEntities: msg("Include Part entities"),
+};
 
 // The framework's own entities in this data/ folder (TypeEntity, OperationSymbol, QueryEntity,
 // ExceptionEntity, OperationLogEntity — Signum's Signum.Basics) live in a "basics" DB schema, keeping the

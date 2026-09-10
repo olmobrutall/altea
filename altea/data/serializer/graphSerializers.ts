@@ -23,7 +23,7 @@ import type {
     SerializationContext, DeserializationContext, SerializeOptions, DeserializeOptions,
 } from './types';
 import { TEMPORAL_TYPE_NAMES, isTemporal } from './temporalHelpers';
-import { PropertyRoute, isPartType } from '../propertyRoute';
+import { PropertyRoute, isPartType, usingLegacyPropertyPaths } from '../propertyRoute';
 
 // ---- Property-authorization hook (Signum's AuthServer serialization filters) -------------------
 //
@@ -124,9 +124,22 @@ function fieldRouteOf(ownerRoute: PropertyRoute | undefined, name: string): Prop
  * `undefined` when there is no route in hand, which means no gate: that happens only for a part reached
  * with no owner at all, and the Navigator does not make one navigable.
  */
-function continueRoute(route: PropertyRoute | undefined): PropertyRoute | undefined {
+function continueRoute(route: PropertyRoute | undefined, ctor: Function): PropertyRoute | undefined {
     if (route == null) return undefined;
-    try { return route.type.array ? route.add("Item") : route; } catch { return undefined; }
+    try {
+        const r = route.type.array ? route.add("Item") : route;
+        // A POLYMORPHIC reference must name WHICH part this is. Without the cast every implementation's
+        // members share one path — `parts/content.title` for a TextPart and an ImagePart alike — which is
+        // ambiguous AND matches none of the routes the model generates, since those now spell the cast
+        // (`parts/content.(TextPart).title`). So a property rule written on a part content would gate
+        // nothing at all. See PropertyRoute.addCast.
+        //
+        // Suppressed in LEGACY MODE for the same reason `generateRoutes` suppresses it there: no cast
+        // route exists in the model set, so gating against one could only ever find nothing.
+        if (!usingLegacyPropertyPaths() && r.type.typeInfos().length > 1)
+            return r.addCast(ctor);
+        return r;
+    } catch { return undefined; }
 }
 
 // ---- ctor-kind checks + field iterator (serializer-local; the temporal + enum helpers live in
@@ -391,7 +404,7 @@ class EntitySerializer extends ModifiableSerializer {
             // The route is needed by the property-auth gate AND by the translated-field hook, so compute
             // it whenever either is installed.
             const ownerRoute = _serAuth == null && _translatedField == null ? undefined
-                : isPart ? continueRoute(sc.route)
+                : isPart ? continueRoute(sc.route, entity.constructor)
                     : PropertyRoute.root(entity.constructor);
             if (_serAuth != null && !isPart) sc.authMeta = _serAuth.getMetadata(entity);
             const prevOwner = sc.translationOwner;
@@ -448,7 +461,7 @@ class EntitySerializer extends ModifiableSerializer {
                 const prevMeta = dc.authMeta;
                 const isPart = isPartType(this.ctor);
                 const ownerRoute = _serAuth == null ? undefined
-                    : isPart ? continueRoute(dc.route) : PropertyRoute.root(this.ctor);
+                    : isPart ? continueRoute(dc.route, this.ctor) : PropertyRoute.root(this.ctor);
                 if (_serAuth != null && !isPart) dc.authMeta = _serAuth.getMetadata(original);
                 this.applyFields(original, j, dc, ownerRoute);   // overlay; snapshot untouched ⇒ isModifiedSelf reflects it
                 dc.authMeta = prevMeta;

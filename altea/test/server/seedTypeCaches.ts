@@ -3,6 +3,7 @@ import type { TypeCaches } from "@altea/altea/server/typeLogic";
 import type { PrimaryKey } from "@altea/altea/data/entity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { cleanTypeName } from "@altea/altea/data/registration";
+import { isPartType } from "@altea/altea/data/propertyRoute";
 
 // TEST-ONLY. Installs a DETERMINISTIC type↔id cache into a schema that has no database to load from, so
 // an OFFLINE SQL-comparison binder can emit a stable @implementedByAll discriminator constant. This is the
@@ -31,6 +32,7 @@ export function seedTypeCachesForTest(schema: Schema): void {
         te.cleanName = cleanTypeName(ctor);
         te.tableName = schema.tryTable(ctor as never)!.name.name;
         te.package = "";
+        te.isPart = isPartType(ctor);
         typeToId.set(ctor, id);
         idToType.set(id, ctor);
         idToEntity.set(id, te);

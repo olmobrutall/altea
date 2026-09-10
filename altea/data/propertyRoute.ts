@@ -16,6 +16,15 @@ export enum PropertyRouteType {
     Mixin = "Mixin",
     LiteEntity = "LiteEntity",
     MListItems = "MListItems",
+    /**
+     * NEW here — Signum's PropertyRouteType has no cast, because Signum needs none: a member of a
+     * polymorphic reference's implementation is a route ROOTED at that implementation, full stop. altea
+     * cannot say that for a `@part` implementation, whose members are routes of the entity that OWNS it
+     * and which may not be a route root at all (see the constructor). So the cast is a STEP, and only for
+     * a part: casting to anything else re-roots exactly as Signum's `AddImp` does and contributes nothing
+     * to the path. Spelled `(CleanName)`, which is `AsTypeToken.key` — one spelling across both layers.
+     */
+    Cast = "Cast",
 }
 
 // Faithful port of Signum's `PropertyRoute` (Basics/PropertyRoute.cs), scoped to what the
@@ -95,6 +104,8 @@ export class PropertyRoute {
         private readonly rootCtor: Function | undefined,
         public readonly fieldInfo: FieldInfo | undefined,
         private readonly mixinCtor: Function | undefined,
+        /** The concrete type a {@link PropertyRouteType.Cast} step narrows to. */
+        private readonly castCtor: Function | undefined = undefined,
         /** Only {@link memberPaths} passes this — see there for the one consumer a part root is right for. */
         allowPartRoot = false,
     ) {
@@ -129,6 +140,7 @@ export class PropertyRoute {
         switch (this.propertyRouteType) {
             case PropertyRouteType.Root: return new TypeReference({ type: () => this.rootCtor! });
             case PropertyRouteType.Mixin: return new TypeReference({ type: () => this.mixinCtor! });
+            case PropertyRouteType.Cast: return new TypeReference({ type: () => this.castCtor! });
             case PropertyRouteType.FieldOrProperty: return this.fieldInfo!;
             case PropertyRouteType.MListItems: return this.parent!.type.elementType ?? new TypeReference();
             case PropertyRouteType.LiteEntity: {
@@ -163,6 +175,7 @@ export class PropertyRoute {
         switch (this.propertyRouteType) {
             case PropertyRouteType.Root: return this.rootCtor!;
             case PropertyRouteType.Mixin: return this.mixinCtor!;
+            case PropertyRouteType.Cast: return this.castCtor!;
             default: return this.type.getFunction();
         }
     }
@@ -209,6 +222,16 @@ export class PropertyRoute {
     // (Signum's AddImp), so a sub-route belongs to that entity, not the owner. A polymorphic
     // (implementedBy-many / byAll) reference throws — cast first (AsTypeToken).
     add(member: string): PropertyRoute {
+        // A CAST, written `(CleanName)` — before everything else, because it is the one step that may
+        // follow a polymorphic reference, which every branch below either re-roots or refuses.
+        if (member.length > 2 && member.startsWith("(") && member.endsWith(")")) {
+            const cleanName = member.substring(1, member.length - 1);
+            const ctor = resolveCleanType(cleanName);
+            if (ctor == undefined)
+                throw new Error(`Type '${cleanName}' is not recognized (route ${this})`);
+            return this.addCast(ctor);
+        }
+
         // An entity/lite reference (NOT a collection — that navigates via "Item" below) re-roots.
         // is(Entity) also holds for a polymorphic @implementedBy interface (no single ctor), so this
         // fires for it too — and getImplementations().only() being undefined then throws "Cast first".
@@ -272,6 +295,45 @@ export class PropertyRoute {
         return new PropertyRoute(PropertyRouteType.FieldOrProperty, this, undefined, fi, undefined);
     }
 
+    /**
+     * Narrow a polymorphic reference to one concrete implementation — the route counterpart of the query
+     * layer's `AsTypeToken`, and NEW here (Signum needs no such step; see {@link PropertyRouteType.Cast}).
+     *
+     * The two outcomes are the `@part` distinction the whole route model turns on:
+     *  - a NON-part implementation RE-ROOTS at it, which is exactly what `add` already does for a
+     *    single-implementation reference (Signum's `AddImp`) — so the cast contributes nothing to the
+     *    stored path and `(Dashboard).parts/content.(Company).name` IS `(Company).name`;
+     *  - a `@part` implementation gets a real STEP, because a part may not be a route root and its
+     *    members are routes of the entity that owns it — so
+     *    `(Dashboard).parts/content.(TextPart).textContent` is a route OF the dashboard, stored under
+     *    it, and there is still exactly one spelling of that member.
+     *
+     * A part cast is REFUSED on an `@implementedByAll`, which is the same rule the token layer applies
+     * (`subTokensBase` filters parts out of the byAll cast list): "any entity" gives the step no owner to
+     * continue from, so `(OperationLog).target.(TextPart).textContent` would claim a member of a part
+     * that is not that route's part at all.
+     *
+     * The step itself is mode-independent: a path is parsed the same way whichever mode is on, so a
+     * stored one always reads back. What legacy mode suppresses is GENERATION — see {@link generateRoutes}.
+     */
+    addCast(ctor: Function): PropertyRoute {
+        if (this.type.array || !this.type.is(Entity))
+            throw new Error(`Cannot cast ${this} to ${ctor.name}: it is not an entity reference.`);
+
+        const imp = this.getImplementations();
+        if (!imp.isByAll && !imp.types.some(t => t === ctor || ctor.prototype instanceof t))
+            throw new Error(`${ctor.name} is not an implementation of ${this} (${imp}).`);
+
+        if (!isPartType(ctor))
+            return PropertyRoute.root(ctor);
+        if (imp.isByAll)
+            throw new Error(
+                `Cannot cast the @implementedByAll ${this} to the @part ${ctor.name}: a part CONTINUES the ` +
+                `route of the entity that owns it, and "any entity" is not one owner. Reach it through the ` +
+                `owner's own reference.`);
+        return new PropertyRoute(PropertyRouteType.Cast, this, undefined, undefined, undefined, ctor);
+    }
+
     // Navigate into a mixin declared on the owner (Signum's mixin route step). `mixinName` is the
     // mixin class name — from `a.mixin(SomeMixin)` in a Quoted lambda (getLambdaMembers) or the
     // subCtx(Type) overload. altea keeps mixin fields flat on the entity, but the route still models
@@ -299,7 +361,7 @@ export class PropertyRoute {
     // whole descent on it, so the property-auth pack (which passes false, as Signum's does) never saw a
     // single collection member: Southwind's `Product|AdditionalInformation/Key` rule had no counterpart
     // here and eastwind's AuthRules.xml carries it commented out.
-    static generateRoutes(rootType: Function, includeArrayElements = false): PropertyRoute[] {
+    static generateRoutes(rootType: Function, includeArrayElements = false, includeCasts = false): PropertyRoute[] {
         // A `@part` has NONE of its own: its members are routes of the entity that owns it, which this
         // walk descends into from there. Answering `[]` rather than throwing is what lets the half-dozen
         // enumerators that loop over every mapped type — property authorization, the routes table's sync,
@@ -309,7 +371,14 @@ export class PropertyRoute {
         if (isPartType(rootType))
             return [];
         const result: PropertyRoute[] = [];
-        PropertyRoute.root(rootType).generateRoutesInto(result, includeArrayElements);
+        // LEGACY MODE suppresses the cast descent outright. A cast route is an altea EXTENSION of the
+        // stored grammar — Signum's paths have no such step, so `basics.property_route` in a Signum
+        // database has no counterpart for one, and Signum's own synchronizer DELETES the rows it does not
+        // recognise. The two applications would then take turns adding and removing them, which is the
+        // same trade `typedTables` makes for an MList row. So the feature is normal-mode only, and a
+        // part CONTENT's members stay unreachable while pointed at a Signum database. Parsing is NOT
+        // suppressed (see {@link addCast}): a path already stored still reads back whichever mode is on.
+        PropertyRoute.root(rootType).generateRoutesInto(result, includeArrayElements, new Set(), includeCasts && !legacyPropertyPaths);
         return result;
     }
 
@@ -355,13 +424,13 @@ export class PropertyRoute {
         let r = PropertyRoute.partRootCache.get(rootType);
         if (r == undefined)
             PropertyRoute.partRootCache.set(rootType,
-                r = new PropertyRoute(PropertyRouteType.Root, undefined, rootType, undefined, undefined, true));
+                r = new PropertyRoute(PropertyRouteType.Root, undefined, rootType, undefined, undefined, undefined, true));
         return r;
     }
 
     private static partRootCache = new Map<Function, PropertyRoute>();
 
-    private generateRoutesInto(result: PropertyRoute[], includeArrayElements: boolean, visiting: Set<Function> = new Set()): void {
+    private generateRoutesInto(result: PropertyRoute[], includeArrayElements: boolean, visiting: Set<Function> = new Set(), includeCasts = false): void {
         // Inside a `@part` the row's BOOKKEEPING is not part of the model: the part stands in for a
         // Signum embedded / MList element, which has no `Id`, no `Ticks`, no `Parent` and no `Order`
         // property at all — Signum's `Parent`/`Order` are MList TABLE columns built with a null route.
@@ -390,14 +459,14 @@ export class PropertyRoute {
                 const infos = item.type.typeInfos();
                 const element = infos.length === 1 ? infos[0]!.ctor : undefined;
                 if (item.type.is(EmbeddedEntity)) {
-                    item.generateRoutesInto(result, includeArrayElements, visiting);
+                    item.generateRoutesInto(result, includeArrayElements, visiting, includeCasts);
                 } else if (isPartType(element) && !visiting.has(element!)) {
                     visiting.add(element!);
-                    item.generateRoutesInto(result, includeArrayElements, visiting);
+                    item.generateRoutesInto(result, includeArrayElements, visiting, includeCasts);
                     visiting.delete(element!);
                 }
             } else if (t.is(EmbeddedEntity)) {
-                pr.generateRoutesInto(result, includeArrayElements, visiting); // descend embedded
+                pr.generateRoutesInto(result, includeArrayElements, visiting, includeCasts); // descend embedded
             } else {
                 // A SINGLE `@part` reference continues the route exactly as an embedded does — it is what
                 // altea writes where Signum declares an owned EmbeddedEntity, so `ShipAddress.City` has to
@@ -407,8 +476,31 @@ export class PropertyRoute {
                 const single = infos.length === 1 ? infos[0]!.ctor : undefined;
                 if (isPartType(single) && !visiting.has(single!)) {
                     visiting.add(single!);
-                    pr.generateRoutesInto(result, includeArrayElements, visiting);
+                    pr.generateRoutesInto(result, includeArrayElements, visiting, includeCasts);
                     visiting.delete(single!);
+                } else if (includeCasts && infos.length > 1) {
+                    // A POLYMORPHIC reference to `@part` implementations — Signum's
+                    // `PanelPartEmbedded.Content`. The reference itself was pushed above and Signum stops
+                    // there; a part implementation has nowhere else to be addressed from, though, since it
+                    // may not be a route ROOT, so its members would have no route at all. One cast step
+                    // per part implementation continues the owner's route into it.
+                    //
+                    // The BARE cast route is not pushed, only what is below it — the same rule the bare
+                    // element route follows (`parts/` is gated by includeArrayElements while `parts/title`
+                    // is not): a cast is a navigation step, not a member anything writes a rule about.
+                    //
+                    // Non-part implementations are skipped because they need nothing: `addCast` re-roots
+                    // at them, and those routes are already generated from their own root. `byAll` yields
+                    // no typeInfos at all, so it never reaches here — which is right, since "every entity"
+                    // is not a set to descend.
+                    for (const ti of infos) {
+                        const impl = ti.ctor;
+                        if (impl == undefined || !isPartType(impl) || visiting.has(impl))
+                            continue;
+                        visiting.add(impl);
+                        pr.addCast(impl).generateRoutesInto(result, includeArrayElements, visiting, includeCasts);
+                        visiting.delete(impl);
+                    }
                 }
             }
             // ordinary entity / Lite reference: the route is pushed above, but we do NOT descend (re-roots).
@@ -416,7 +508,7 @@ export class PropertyRoute {
         const owner = this.ownerCtor();
         if (owner != undefined)
             for (const mixin of MixinDeclarations.getMixins(owner as Type<BaseEntity>))
-                this.addMixin(mixin.name).generateRoutesInto(result, includeArrayElements, visiting);
+                this.addMixin(mixin.name).generateRoutesInto(result, includeArrayElements, visiting, includeCasts);
     }
 
     // ---- Implementations -------------------------------------------------------------------
@@ -473,6 +565,7 @@ export class PropertyRoute {
         switch (this.propertyRouteType) {
             case PropertyRouteType.FieldOrProperty: return this;
             case PropertyRouteType.LiteEntity:
+            case PropertyRouteType.Cast:
             case PropertyRouteType.MListItems: return this.parent!.simplifyToProperty();
             default: throw new Error(`PropertyRoute of type ${this.propertyRouteType} not expected`);
         }
@@ -484,6 +577,7 @@ export class PropertyRoute {
             case PropertyRouteType.FieldOrProperty: return this;
             case PropertyRouteType.LiteEntity:
             case PropertyRouteType.MListItems:
+            case PropertyRouteType.Cast:
             case PropertyRouteType.Mixin: return this.parent!.simplifyToPropertyOrRoot();
         }
     }
@@ -533,6 +627,8 @@ export class PropertyRoute {
                 return this.parent!.toString() + (this.parent!.propertyRouteType === PropertyRouteType.MListItems ? "" : ".") + this.member;
             case PropertyRouteType.Mixin:
                 return this.parent!.toString() + `[${this.mixinCtor!.name}]`;
+            case PropertyRouteType.Cast:
+                return this.parent!.toString() + this.castSeparator() + `(${cleanTypeName(this.castCtor!)})`;
             case PropertyRouteType.MListItems:
                 return this.parent!.toString() + "/";
             case PropertyRouteType.LiteEntity:
@@ -572,17 +668,28 @@ export class PropertyRoute {
                 switch (this.parent!.propertyRouteType) {
                     case PropertyRouteType.Root: return this.storedMember();
                     case PropertyRouteType.FieldOrProperty:
+                    case PropertyRouteType.Cast:
                     case PropertyRouteType.Mixin: return this.parent!.propertyString() + "." + this.storedMember();
                     case PropertyRouteType.MListItems: return this.parent!.propertyString() + this.storedMember();
                     default: throw new Error("unexpected parent route type");
                 }
             case PropertyRouteType.Mixin:
                 return (this.parent!.propertyRouteType === PropertyRouteType.Root ? "" : this.parent!.propertyString()) + `[${this.mixinCtor!.name}]`;
+            case PropertyRouteType.Cast:
+                return this.parent!.propertyString() + this.castSeparator() + `(${cleanTypeName(this.castCtor!)})`;
             case PropertyRouteType.MListItems:
                 return this.parent!.propertyString() + "/";
             case PropertyRouteType.LiteEntity:
                 return this.parent!.toString() + ".Entity";
         }
+    }
+
+    /**
+     * A cast follows its parent with a `.`, except after a collection element — whose own step already
+     * ends in `/`, exactly as a FieldOrProperty's does.
+     */
+    private castSeparator(): string {
+        return this.parent!.propertyRouteType === PropertyRouteType.MListItems ? "" : ".";
     }
 
     // A canonical key (rootType + property path) for Map/Set usage and equality.

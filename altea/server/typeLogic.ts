@@ -14,6 +14,7 @@ import { table as table_ } from "./table";
 import { existsTable } from "./sync/syncTableRead";
 import { Administrator } from "./Administrator";
 import { StartParameters } from "../data/utils/startParameters";
+import { isPartType } from "../data/propertyRoute";
 import { Synchronizer, Replacements } from "./sync/synchronizer";
 import { ObjectName, SchemaName, defaultDatabaseName } from "./schema/objectName";
 import { ImplementedByAllTypeColumn } from "./schema/column";
@@ -353,7 +354,7 @@ function typedTables(schema: Schema): [Function, Table][] {
 // The deterministic bootstrap metadata: one entry per {@link typedTables} ctor, sorted by ctor name.
 // Generation seeds the rows in this same order so the DB-assigned identity ids match the bootstrap
 // 1..N numbering.
-type TypeMeta = { tableName: string; cleanName: string; package: string | null; className: string };
+type TypeMeta = { tableName: string; cleanName: string; package: string | null; className: string; isPart: boolean };
 function bootstrapMetas(schema: Schema): TypeMeta[] {
     const entries = typedTables(schema);
     entries.sort((a, b) => (a[0].name < b[0].name ? -1 : a[0].name > b[0].name ? 1 : 0));
@@ -369,6 +370,9 @@ function bootstrapMetas(schema: Schema): TypeMeta[] {
         cleanName: cleanTypeName(ctor),
         package: packageOf(ctor),
         className: classNameOf(ctor),
+        // Derived from the MODEL through the one predicate the route rules and the token layer also go
+        // through, so the row cannot disagree with them about what a part is — see TypeEntity.isPart.
+        isPart: isPartType(ctor),
     }));
 }
 
@@ -424,6 +428,7 @@ function typeEntityFromMeta(m: TypeMeta): TypeEntity {
     te.cleanName = m.cleanName;
     te.package = m.package;
     te.className = m.className;
+    te.isPart = m.isPart;
     return te;
 }
 
@@ -512,6 +517,12 @@ async function synchronizeTypes(replacements: Replacements): Promise<SqlPreComma
             // values a SIGNUM database has, on the first sync, which is exactly what the column is
             // kept to avoid.
             s.namespace = c.namespace;
+            // `isPart` is the opposite case and needs no line here: it IS model metadata, DERIVED, so
+            // `copyRowFields` copying it wholesale is exactly right — every existing row is rewritten to
+            // whatever the model now says, which is what a derived column has to do. (The sync's own
+            // ADD COLUMN backfills a temporary `false` first, so the UPDATEs below are what put the true
+            // ones back; and the FIRST sync that introduces the column cannot read it at all, so this
+            // whole step is commented out of that script — run the sync TWICE and apply the second.)
             copyRowFields(c as unknown as Entity, s as unknown as Entity);
             return updateSqlSync(table, c as unknown as Entity);
         },

@@ -222,7 +222,13 @@ export namespace PropertyRouteLogic {
         if (isPartType(ctor))
             return new Set();
 
-        const result = new Set(PropertyRoute.generateRoutes(ctor, forSync).map(pr => pr.propertyString()));
+        // `includeCasts` is ON here, so a `@part` reached through a POLYMORPHIC reference contributes its
+        // members as routes of the owner (`parts/content.(TextPart).textContent`). It has to be on for the
+        // SYNC as much as for the editors: `should` is what the synchronizer diffs the stored rows
+        // against, so a cast route missing from it is a row DELETED — taking every consumer with it
+        // through the cascade. It is a no-op in legacy mode, where `generateRoutes` suppresses casts
+        // outright (a Signum database has no counterpart for one — see there).
+        const result = new Set(PropertyRoute.generateRoutes(ctor, forSync, /* includeCasts */ true).map(pr => pr.propertyString()));
         for (const handler of extraSyncRoutes)
             for (const path of handler(ctor))
                 result.add(path);

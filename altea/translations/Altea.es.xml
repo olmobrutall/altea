@@ -491,8 +491,12 @@
 		<Member Name="ClassName" Description="Class Name" />
 		<Member Name="CleanName" Description="Clean Name" />
 		<Member Name="FullClassName" Description="Full Class Name" />
+		<Member Name="IsPart" Description="Es parte" />
 		<Member Name="Namespace" Description="Namespace" />
 		<Member Name="TableName" Description="Table Name" />
+	</Type>
+	<Type Name="TypeEntityMessage">
+		<Member Name="IncludePartEntities" Description="Incluir entidades parte" />
 	</Type>
 	<Type Name="ValidationMessage">
 		<Member Name="_0And1And2CanNotBeSetAtTheSameTime" Description="{0} y {1} y {2} no se pueden establecer al mismo tiempo" />

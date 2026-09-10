@@ -5,6 +5,7 @@ import { Finder } from './Finder';
 import { Operations } from './Operations';
 import { QuickLinkClient } from './QuickLinkClient';
 import { ExceptionClient } from './Exceptions/ExceptionClient';
+import { TypeEntityClient } from './TypeEntityClient';
 import { EntitySettings, type ViewModule } from './EntitySettings';
 import { QueryTokenString, createTokenFunction, type TokenFunction } from './QueryTokenString';
 
@@ -46,6 +47,11 @@ export class ClientBuilder {
     // ErrorModal links to. In the framework init (not per-app) since the framework's ErrorModal depends
     // on it. Also registers ExceptionEntity's client TypeInfo (fixes "No TypeInfo for 'exception'").
     ExceptionClient.start();
+    // The type table's query settings — chiefly the pinned filter that keeps `@part` rows out of the
+    // picker `EntityBase.chooseType` opens for an `@implementedByAll` reference. Here rather than in the
+    // app's MainAdmin (where CultureInfoClient / SystemEventLogClient live) because it is a default on a
+    // picker the FRAMEWORK opens: an app that forgot the call would get part rows in every one of them.
+    TypeEntityClient.start(this);
   }
 
   /** Begin a fluent per-entity registration rooted at `type` (Signum registered view + query settings

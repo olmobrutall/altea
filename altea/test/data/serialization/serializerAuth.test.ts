@@ -1,8 +1,13 @@
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
+import "@altea/altea/data/globals";   // String.firstUpper — the legacy path below spells a member with it
 import { Serializer, setSerializationAuth } from "@altea/altea/data/serializer";
 import { cleanModified } from "@altea/altea/data/changes";
+import { setLegacyPropertyPaths } from "@altea/altea/data/propertyRoute";
 import { ArtistEntity, Sex } from "../music";
+import {
+    CastProbeEntity, CastProbeEntity_Panel, CastProbeTextPartEntity,
+} from "../castProbe";
 
 // Property-authorization serializer gate (the `setSerializationAuth` hook consumed by PropertyAuthLogic).
 // No database — pure codec behaviour on a hand-built graph, with an inline SerializationAuth that marks
@@ -78,5 +83,46 @@ describe("SerializerAuth", () => {
         const o = JSON.parse(serialize(a)); // gate NOT installed
         assert.equal(o.dead, true, "no gate ⇒ hidden-eligible field is written");
         assert.equal(o.propsMeta, undefined, "no gate ⇒ no propsMeta");
+    });
+});
+
+// The route the gate is ASKED about for a `@part` reached through a POLYMORPHIC reference. It must name
+// WHICH part — `panels/content.(CastProbeTextPart).textContent`, the same spelling
+// `PropertyRoute.generateRoutes(…, includeCasts)` produces and therefore the one a property rule is
+// stored under. Without the cast every implementation's members share one path
+// (`panels/content.textContent`), which is ambiguous between them AND matches no generated route, so a
+// rule on a part content would gate nothing at all.
+describe("SerializerAuth — a @part behind a polymorphic reference", () => {
+
+    afterEach(() => setSerializationAuth(undefined));
+
+    function askedRoutes(): string[] {
+        const seen: string[] = [];
+        setSerializationAuth({
+            getMetadata: () => CastProbeEntity,
+            access: route => { seen.push(route.propertyString()); return "writable"; },
+        });
+        const text = CastProbeTextPartEntity.create({ textContent: "hello" });
+        const panel = CastProbeEntity_Panel.create({ title: "T", content: text });
+        serialize(CastProbeEntity.create({ panels: [panel] }));
+        return seen;
+    }
+
+    test("the gate is asked about the CAST route, not the ambiguous shared one", () => {
+        const seen = askedRoutes();
+        assert.ok(seen.includes("panels/content.(CastProbeTextPart).textContent"), seen.join(", "));
+        assert.ok(!seen.includes("panels/content.textContent"), seen.join(", "));
+    });
+
+    // LEGACY MODE generates no cast route, so gating against one could only ever find nothing — the
+    // serializer follows `generateRoutes` rather than inventing a path no rule can exist at.
+    test("LEGACY MODE keeps the pre-cast path", () => {
+        setLegacyPropertyPaths(true);
+        try {
+            const seen = askedRoutes();
+            assert.ok(!seen.some(p => p.includes("(")), seen.join(", "));
+        } finally {
+            setLegacyPropertyPaths(false);
+        }
     });
 });

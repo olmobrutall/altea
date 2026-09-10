@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
-import { PropertyRoute, PropertyRouteType } from "@altea/altea/data/propertyRoute";
+import { PropertyRoute, PropertyRouteType, setLegacyPropertyPaths } from "@altea/altea/data/propertyRoute";
 import { Implementations } from "@altea/altea/data/implementations";
 import { Entity, MixinEntity } from "@altea/altea/data/entity";
 import { mixin } from "@altea/altea/data/mixinDeclarations";
@@ -11,6 +11,9 @@ import type { Lite } from "@altea/altea/data/lite";
 import {
     AlbumEntity, AlbumEntity_Song, LabelEntity, CountryEntity, ArtistEntity, BandEntity,
 } from "../music";
+import {
+    CastProbeEntity, CastProbeTextPartEntity, CastProbeImagePartEntity,
+} from "../castProbe";
 
 // Phase-0 DynamicQuery port: PropertyRoute + Implementations. DB-free — routes are pure
 // reflection over the imported entity metadata, so no schema/connector is needed.
@@ -307,5 +310,124 @@ describe("Implementations", () => {
     test("key uses clean names", () => {
         assert.equal(Implementations.by(ArtistEntity, BandEntity).key(), "Artist, Band");
         assert.equal(Implementations.byAll.key(), "[ALL]");
+    });
+});
+
+// NEW here — Signum has no cast STEP, because it needs none: a member of a polymorphic reference's
+// implementation is a route rooted at that implementation. altea cannot say that for a `@part`
+// implementation, so the cast is a step that CONTINUES the owner (and a plain re-root for anything else).
+describe("PropertyRoute — casts", () => {
+    const contentRoute = () => PropertyRoute.root(CastProbeEntity).add("panels").add("Item").add("content");
+
+    test("a cast to a @part CONTINUES the owner's route", () => {
+        const pr = contentRoute().addCast(CastProbeTextPartEntity);
+        assert.equal(pr.propertyRouteType, PropertyRouteType.Cast);
+        assert.equal(pr.rootType, CastProbeEntity);
+        assert.equal(pr.propertyString(), "panels/content.(CastProbeTextPart)");
+
+        const member = pr.add("textContent");
+        assert.equal(member.rootType, CastProbeEntity);
+        assert.equal(member.propertyString(), "panels/content.(CastProbeTextPart).textContent");
+        assert.equal(member.toString(), "(CastProbe).panels/content.(CastProbeTextPart).textContent");
+        assert.equal(member.type.typeName, "String");
+        // Rooted at the OWNER, so it is a route a storage boundary accepts — which is the whole point.
+        member.assertNotPartRoot();
+    });
+
+    test("a cast to a NON-part re-roots, as Signum's AddImp does", () => {
+        const pr = contentRoute().addCast(LabelEntity);
+        assert.equal(pr.propertyRouteType, PropertyRouteType.Root);
+        assert.equal(pr, PropertyRoute.root(LabelEntity));
+        assert.equal(pr.add("name").propertyString(), "name");
+    });
+
+    test("the (CleanName) spelling parses back, and is AsTypeToken's key", () => {
+        const path = "panels/content.(CastProbeTextPart).textContent";
+        assert.equal(PropertyRoute.parse(CastProbeEntity, path).propertyString(), path);
+        assert.equal(PropertyRoute.parseFull("(CastProbe)." + path).propertyString(), path);
+    });
+
+    test("casting to a type the reference does not implement says so", () => {
+        assert.throws(() => contentRoute().addCast(AlbumEntity), /is not an implementation of/);
+        assert.throws(() => PropertyRoute.parse(CastProbeEntity, "panels/content.(NoSuchType)"), /is not recognized/);
+    });
+
+    test("casting something that is not an entity reference says so", () => {
+        assert.throws(() => PropertyRoute.root(CastProbeEntity).add("panels").add("Item").add("title").addCast(LabelEntity),
+            /is not an entity reference/);
+    });
+
+    test("navigating a member WITHOUT casting still refuses", () => {
+        assert.throws(() => contentRoute().add("textContent"), /Cast first/);
+    });
+
+    test("simplifyToPropertyOrRoot climbs out of a cast", () => {
+        const pr = contentRoute().addCast(CastProbeTextPartEntity);
+        assert.equal(pr.simplifyToPropertyOrRoot().propertyString(), "panels/content");
+    });
+
+    // The same rule the token layer applies (`subTokensBase` filters parts out of the byAll cast list):
+    // "any entity" gives the step no owner to continue from, so a part cast there would claim a member
+    // of a part that is not that route's part. A NON-part cast off a byAll is fine — it re-roots.
+    test("a part cast is REFUSED on an @implementedByAll, a non-part cast is not", () => {
+        const lastAward = PropertyRoute.root(ArtistEntity).add("lastAward");
+        assert.equal(lastAward.getImplementations().isByAll, true);
+        assert.throws(() => lastAward.addCast(CastProbeTextPartEntity), /is not one owner/);
+        assert.equal(lastAward.addCast(LabelEntity), PropertyRoute.root(LabelEntity));
+    });
+});
+
+
+describe("PropertyRoute — generateRoutes and casts", () => {
+    const paths = (includeCasts: boolean): string[] =>
+        PropertyRoute.generateRoutes(CastProbeEntity, true, includeCasts).map(r => r.propertyString());
+
+    test("OFF by default: the route stops at the polymorphic reference, as Signum's does", () => {
+        const off = paths(false);
+        assert.ok(off.includes("panels/content"), off.join(", "));
+        assert.ok(!off.some(p => p.includes("(")), off.join(", "));
+    });
+
+    test("ON: each @part implementation's members become routes of the OWNER", () => {
+        const on = paths(true);
+        assert.ok(on.includes("panels/content.(CastProbeTextPart).textContent"), on.join(", "));
+        assert.ok(on.includes("panels/content.(CastProbeImagePart).imageUrl"), on.join(", "));
+    });
+
+    test("ON: the BARE cast route is not emitted — a cast is a navigation step, not a member", () => {
+        const on = paths(true);
+        assert.ok(!on.includes("panels/content.(CastProbeTextPart)"), on.join(", "));
+    });
+
+    test("ON: a NON-part implementation contributes nothing — its routes are its own root's", () => {
+        const on = paths(true);
+        assert.ok(!on.some(p => p.includes("(Label)")), on.join(", "));
+    });
+
+    test("ON: the part's BOOKKEEPING is skipped, as for a part reached by continuation", () => {
+        const on = paths(true);
+        for (const bookkeeping of ["id", "ticks"])
+            assert.ok(!on.includes("panels/content.(CastProbeTextPart)." + bookkeeping), on.join(", "));
+    });
+
+    test("ON: every generated route still round-trips through parse", () => {
+        for (const p of paths(true))
+            assert.equal(PropertyRoute.parse(CastProbeEntity, p).propertyString(), p);
+    });
+
+    // LEGACY MODE: a cast route is an altea EXTENSION of the stored grammar, so a Signum database has no
+    // counterpart for one and Signum's own synchronizer would delete it. GENERATION is suppressed;
+    // parsing is not, so a path already stored still reads back whichever mode is on.
+    test("LEGACY MODE generates no cast route, but still parses one", () => {
+        setLegacyPropertyPaths(true);
+        try {
+            const legacy = PropertyRoute.generateRoutes(CastProbeEntity, true, true).map(r => r.propertyString());
+            assert.ok(!legacy.some(p => p.includes("(")), legacy.join(", "));
+            assert.equal(
+                PropertyRoute.parse(CastProbeEntity, "Panels/Content.(CastProbeTextPart).TextContent").propertyString(),
+                "Panels/Content.(CastProbeTextPart).TextContent");
+        } finally {
+            setLegacyPropertyPaths(false);
+        }
     });
 });

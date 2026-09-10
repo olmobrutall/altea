@@ -364,7 +364,13 @@ export namespace PropertyAuthLogic {
      * this is the same rule one dimension down.
      */
     function authRoutes(ctor: Function): PropertyRoute[] {
-        return PropertyRoute.generateRoutes(ctor, false);   // a `@part` answers [] — see there
+        // `includeCasts` is ON: a `@part` reached through a POLYMORPHIC reference has no route root of
+        // its own, so without the cast step its members are the one part of the model no rule can name
+        // (a dashboard's `parts/content` stopped dead at the reference). With it they are routes of the
+        // OWNER, stored under it like every other part's, so there is still one spelling per member.
+        // It costs one row set per part implementation, which is what makes it opt-in rather than the
+        // default; no-op in legacy mode, where `generateRoutes` suppresses casts.
+        return PropertyRoute.generateRoutes(ctor, false, /* includeCasts */ true);   // a `@part` answers [] — see there
     }
 
     export async function restrictedRoutesForRole(roleKey: string): Promise<Map<string, Map<string, { fallback: PropertyAllowed; min: PropertyAllowed; max: PropertyAllowed }>>> {
