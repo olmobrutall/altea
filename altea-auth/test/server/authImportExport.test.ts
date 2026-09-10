@@ -12,7 +12,7 @@ import { RuleTypeEntity, TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
 import { SampleEntity } from "../data/sample";
 import { start, hasDb, asRole, role, Roles, resetAuthCaches } from "./setup";
 
-// Import / Export of AuthRules (Signum's AuthLogic.ExportRules / ImportRulesScript), against the seeded
+// Import / Export of AuthRules, against the seeded
 // fixture. Export is a pure read; the import tests MUTATE inside Transaction.noCommit (rolled back) and
 // reset the auth caches in afterEach so the shared fixture is untouched for other suites.
 

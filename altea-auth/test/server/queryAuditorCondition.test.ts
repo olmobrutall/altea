@@ -8,8 +8,8 @@ import { TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
 import { SampleEntity, SampleLogEntity, SampleLogTypeCondition } from "../data/sample";
 import { start, hasDb, asRole, role, Roles } from "./setup";
 
-// The QUERY-AUDITOR type condition — Signum's `TypeConditionLogic.RegisterWhenAlreadyFilteringBy`, which
-// Signum.DiffLog uses for `OperationLogTypeCondition.FilteringByTarget`.
+// The QUERY-AUDITOR type condition — `registerWhenAlreadyFilteringBy`, which Signum.DiffLog uses for
+// `OperationLogTypeCondition.FilteringByTarget`.
 //
 // The rule under test: the `AuthTest_LogReader` role has SampleLog fallback None with one condition rule,
 // `[FilteringByTarget] → Read`. That condition is not a property of the log ROW — it is a property of the
@@ -106,7 +106,7 @@ describe("query-auditor type conditions (registerWhenAlreadyFilteringBy)", { ski
         assert.equal(rows.length, 2);
     });
 
-    // The per-INSTANCE half (Signum's inMemoryCondition): `isAllowedFor` has an entity and no query, so the
+    // The per-INSTANCE half: `isAllowedFor` has an entity and no query, so the
     // condition is answered from the row's own target — filled by fillTypeConditions and cached, which is
     // what keeps the synchronous `inTypeCondition` able to answer for an auditor condition at all.
     test("the per-instance path answers from the row's own target", async () => {
@@ -125,7 +125,7 @@ describe("query-auditor type conditions (registerWhenAlreadyFilteringBy)", { ski
     });
 
     // An auditor condition has no predicate of its own, so asking for one is a programming error rather
-    // than a silently wrong query (Signum throws the same way from GetCondition).
+    // than a silently wrong query.
     test("asking for the SQL predicate of an auditor condition throws", () => {
         assert.equal(TypeConditionLogic.isQueryAuditor(SampleLogEntity, SampleLogTypeCondition.FilteringByTarget), true);
         assert.throws(

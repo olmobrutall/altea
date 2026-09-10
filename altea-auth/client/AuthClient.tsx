@@ -10,19 +10,15 @@ import type { UserEntity } from "../data/User";
 import type { PermissionSymbol } from "../data/Rules";
 import { AuthMessage } from "../data/AuthMessages";
 
-// Port of Signum's AuthClient (AuthClient.tsx) — the CLIENT authentication hub: route registration
-// (startPublic), token storage, the request-interception seam (bearer header + token refresh +
-// auth-expiry redirect), auto-login, current-user access, and the /api/auth API. As in Signum this is
-// ONE file (a .tsx, since startPublic registers JSX routes).
+// Port of Signum.Authorization's AuthClient.tsx — see docs/port/Auth.md.
 //
-// altea divergences, documented inline:
-//  - Signum's `startPublic({routes, …})` → `startPublic(cb)` taking the ClientBuilder (owns cb.routes).
-//  - the interception seam is `Services.AuthTokenFilter.addAuthToken` (a bare `let`), not Signum's
-//    `.Options.addAuthToken`.
-//  - the server emits a BARE exceptionType ("AuthenticationException"), so the auth-expiry check matches
-//    the bare name, not Signum's `.AuthenticationException`.
-//  - UserTicket cookie login is deferred (`registerUserTicketAuthenticator` is a seam).
-//  - `onLogin`/`onLogout` are host hooks (set in MainPublic) — they throw until set, like Signum.
+// The CLIENT authentication hub: route registration (startPublic), token storage, the
+// request-interception seam (bearer header + token refresh + auth-expiry redirect), auto-login,
+// current-user access, and the /api/auth API. ONE file, and a .tsx because startPublic registers JSX
+// routes.
+//
+// The server emits a BARE exceptionType ("AuthenticationException"), so the auth-expiry check matches the
+// bare name. `onLogin` / `onLogout` are host hooks set in MainPublic — they THROW until set.
 
 export namespace AuthClient {
 
@@ -40,7 +36,7 @@ export namespace AuthClient {
         onLogout: (): Promise<void> => { throw new Error("AuthClient.Options.onLogout must be set (see MainPublic)"); },
         onLogin: (_back?: string): void => { throw new Error("AuthClient.Options.onLogin must be set (see MainPublic)"); },
         userTicket: false,
-        // altea addition (no Signum counterpart) — DEVELOPMENT ONLY: the login form drops its password
+        // DEVELOPMENT ONLY: the login form drops its password
         // input and sends the user name as the password. Meant for a local host seeded by
         // EastwindMigrations.ensureUser, which hashes each user's name as their password, so any seeded
         // user (System, Steven, Anne, …) is one field away. Purely a CLIENT convenience: the request is
@@ -63,8 +59,8 @@ export namespace AuthClient {
         routes.push({ path: "/auth/changePassword", element: <ImportComponent onImport={() => import("./public/ChangePasswordPage")} /> });
         routes.push({ path: "/auth/changePasswordSuccess", element: <ImportComponent onImport={() => import("./public/ChangePasswordSuccessPage")} /> });
 
-        // The cross-tab logout listener is registered AT MOST ONCE. Signum registers it unconditionally,
-        // which is a latent leak there and a real one here: a host that follows Southwind's MainPublic calls
+        // The cross-tab logout listener is registered AT MOST ONCE. Registering it unconditionally — as
+        // Signum does — is a real leak here: a host that follows Southwind's MainPublic calls
         // startPublic from `reload()`, i.e. once per login AND once per logout, so after N credential
         // changes one "log out" broadcast runs logoutInternal N times.
         if ((options?.notifyLogout ?? true) && !logoutListenerRegistered) {
@@ -80,7 +76,7 @@ export namespace AuthClient {
         }
     }
 
-    // Signum's authenticators chain (cookie / AD login attempts at boot). Empty until a provider registers.
+    // The authenticator chain: cookie / AD login attempts at boot. Empty until a provider registers.
     export const authenticators: Array<() => Promise<AuthenticatedUser | undefined>> = [];
 
     export interface AuthenticatedUser {
@@ -141,7 +137,7 @@ export namespace AuthClient {
             localStorage.setItem("requestLogout" + SessionSharing.getAppName(), user.userName + "&&" + Date.now());
     }
 
-    // The interception seam (Signum's addAuthToken): attach the bearer token, refresh on New_Token, and
+    // The interception seam: attach the bearer token, refresh on New_Token, and
     // on an auth-expiry error clear state + redirect to the login page.
     export function addAuthToken(options: AjaxOptions, makeCall: () => Promise<Response>): Promise<Response> {
         const token = getAuthToken();
@@ -198,12 +194,10 @@ export namespace AuthClient {
     /**
      * Ask the server whether THIS browser is remembered.
      *
-     * altea divergence: Signum first reads the `sfUser` cookie in JS (`Options.getCookie()`) to skip the
-     * request when there is none, and removes it client-side when the server says no. altea's cookie is
-     * HttpOnly (see server/UserTicketServer for why), so neither is possible or needed: the endpoint
-     * answers null for "no cookie" just as it does for "dead cookie", and clears it server-side in that
-     * same response. The cost is one POST per anonymous boot; the gain is that a 60-day credential is not
-     * exposed to script.
+     * There is NO client-side cookie read to skip the request with, and none to remove: the cookie is
+     * HttpOnly (see server/UserTicketServer for why). The endpoint answers null for "no cookie" just as it
+     * does for "dead cookie", and clears it server-side in that same response. The cost is one POST per
+     * anonymous boot; the gain is that a 60-day credential is not exposed to script.
      */
     export function loginFromCookie(): Promise<AuthenticatedUser | undefined> {
         return API.loginFromCookie().then(au => au ?? undefined);
@@ -258,17 +252,16 @@ export namespace AuthClient {
         });
     }
 
-    // Every `authenticationType` a login route can answer with. Beyond Signum's set: "relogin" (altea's
-    // /api/auth/relogin), "openID" (@altea/altea-auth-openid) and "adRegistry" (a Windows AD LDAP bind —
-    // Signum's WindowsADAuthorizer returns it too, it just never reached the TS union).
+    // Every `authenticationType` a login route can answer with. Three are not in Signum's TS union:
+    // "relogin" (/api/auth/relogin), "openID" (@altea/altea-auth-openid) and "adRegistry" (a Windows AD
+    // LDAP bind — its WindowsADAuthorizer returns that one too, it just never reached the union there).
     export type AuthenticationType = "database" | "resetPassword" | "changePassword" | "api-key"
         | "azureAD" | "cookie" | "windows" | "relogin" | "openID" | "adRegistry";
 
-    // Signum's AppContext.isPermissionAuthorized. It lives HERE rather than in altea's core client,
-    // because permissions are an authorization concept and the value it reads is stamped by this module
-    // (server/AuthReflection) onto the permission container's own metadata entry — see the FieldMetadata
-    // expansion in ../data/Rules. Absent means allowed, so with auth off (or before the blob lands)
-    // everything is authorized, exactly as Signum's empty permission map behaves.
+    // It lives HERE rather than in core's client, because permissions are an authorization concept and
+    // the value it reads is stamped by this module (server/AuthReflection) onto the permission
+    // container's own metadata entry — see the FieldMetadata expansion in ../data/Rules. ABSENT means
+    // allowed, so with auth off, or before the blob lands, everything is authorized.
     export function isPermissionAuthorized(permission: PermissionSymbol): boolean {
         const dot = permission.key.indexOf(".");
         if (dot < 0)
@@ -277,7 +270,7 @@ export namespace AuthClient {
         return tm?.fields[permission.key.slice(dot + 1)]?.allowed !== false;
     }
 
-    /** Throws Signum's UnauthorizedAccessException-equivalent when the current role lacks it. */
+    /** Throws when the current role lacks it. */
     export function assertPermissionAuthorized(permission: PermissionSymbol): void {
         if (!isPermissionAuthorized(permission))
             throw new Error(AuthMessage.NotAuthorizedTo01.niceToString("execute", permission.niceToString()));
@@ -318,14 +311,14 @@ export namespace AuthClient {
     }
 }
 
-// Compare two users by identity for the change-notification (Signum's `is(a, b, true)`).
+// Compare two users by IDENTITY for the change-notification.
 function sameUser(a: UserEntity | undefined, b: UserEntity | undefined): boolean {
     if (a == null && b == null) return true;
     if (a == null || b == null) return false;
     return a.id === b.id;
 }
 
-// Install the interception seam at module load (Signum's top-level `AuthTokenFilter.Options.addAuthToken = …`).
+// Install the interception seam at module load.
 AuthTokenFilter.addAuthToken = AuthClient.addAuthToken;
 
 // A WebSocket cannot carry the `Authorization` header, so a hub connection authenticates with its first
@@ -334,7 +327,7 @@ AuthTokenFilter.addAuthToken = AuthClient.addAuthToken;
 setAccessTokenFactory(() => AuthClient.getAuthToken() ?? undefined);
 
 // Attach the bearer token to the reflection-metadata fetch so the server ships the ROLE-FILTERED blob
-// (Signum ships it role-filtered inherently; altea refetches it per credential change).
+// — which is why it is refetched per credential change.
 setExtraHeaders(() => {
     const token = AuthClient.getAuthToken();
     return token ? { [AuthClient.Options.AuthHeader]: "Bearer " + token } : {};
@@ -343,8 +336,8 @@ setExtraHeaders(() => {
 // On any credential change (login / logout / switch user), refetch the (now role-appropriate) metadata
 // blob and re-render — so the visible query/type set matches the new role.
 //
-// `avoidReRender` — Signum's own parameter on setCurrentUser, until now passed by nobody and honoured
-// nowhere — means the CALLER is rebuilding the application itself. Every login path hands straight off
+// `avoidReRender` — a parameter Signum declares on setCurrentUser and neither passes nor honours —
+// means the CALLER is rebuilding the application itself. Every login path hands straight off
 // to `Options.onLogin`, whose host implementation throws the React root away and builds a new one over a
 // new route table, loading the blob on its way (eastwind's MainPublic `reload()`). Doing it here too is
 // not merely a duplicate request: the refetch resolves in a fraction of the rebuild, so its `resetUI()`

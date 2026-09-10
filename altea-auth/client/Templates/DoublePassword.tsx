@@ -9,21 +9,18 @@ import { UserEntity } from "../../data/User";
 import { LoginAuthMessage } from "../../data/AuthMessages";
 import { AuthClient } from "../AuthClient";
 
-// Port of Signum.Authorization's Templates/DoublePassword.tsx — "type the new password twice". It binds a
-// plain `string` context and writes it only once BOTH boxes agree, so a half-typed password is never
-// committed to the entity.
+// Port of Signum.Authorization's Templates/DoublePassword.tsx — see docs/port/Auth.md.
 //
-// altea divergences:
-//  - the owning USER is OPTIONAL. Signum reads `ctx.frame!.pack.entity as UserEntity` unconditionally, so
-//    the component only works inside a UserEntity frame — and Southwind's own RegisterUser page, which
-//    renders it over a `RegisterUserModel` with a hand-made frame that carries no `pack`, throws a
-//    TypeError on the first keystroke there. Here the user is found with `tryFindParentCtx(UserEntity)`
-//    (which needs no frame at all): when there is one, `passwordIsChanging` is maintained exactly as in
-//    Signum; when there is none, the component is just two password boxes over a string — which is what a
-//    registration form needs.
-//  - `frame?.revalidate()` is optional for the same reason.
-//  - altea entities are snapshot-diffed, so Signum's `user.modified = true` has no counterpart: writing
-//    `passwordIsChanging` IS the modification.
+// "Type the new password twice": it binds a plain `string` context and writes it only once BOTH boxes
+// agree, so a half-typed password never reaches the entity.
+//
+// The owning USER is OPTIONAL, and found with `tryFindParentCtx(UserEntity)`, which needs no frame at all.
+// With one, `passwordIsChanging` is maintained; without one, the component is just two password boxes over
+// a string — which is what a registration form needs. (Signum reads `ctx.frame!.pack.entity` unconditionally,
+// so Southwind's own RegisterUser page — a hand-made frame with no `pack` — throws on the first keystroke
+// there.) `frame?.revalidate()` is optional for the same reason.
+//
+// Entities are snapshot-diffed, so writing `passwordIsChanging` IS the modification; nothing sets a flag.
 export function DoublePassword(p: {
     ctx: TypeContext<string>;
     initialOpen: boolean;

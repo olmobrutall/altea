@@ -10,7 +10,7 @@ import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { LoginAuthMessage } from "../../data/AuthMessages";
 import { AuthClient } from "../AuthClient";
 
-// Port of Signum's LoginPage.tsx (Login/LoginPage.tsx). altea divergences: helper imports come from
+// Port of Signum.Authorization's Login/LoginPage.tsx. Divergences: helper imports come from
 // altea paths (classes ← data/globals, JavascriptMessage ← data/uiMessages, ValidationError/QueryString/
 // LinkButton ← altea client); the ./Login.css import is dropped (styling is plain Bootstrap classes).
 // LoginContext / LoginOptions are React-typed, so they live here (the AuthClient hub is React-free)

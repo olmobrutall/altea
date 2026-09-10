@@ -14,20 +14,17 @@ import type { FindOptionsParsed } from "@altea/altea/client/FindOptions";
 import { UserEntity } from "../../data/User";
 import { UserADMessage } from "../../data/BaseAD";
 
-// Port of Signum's `ActiveDirectoryClient` (Signum.Authorization/BaseAD/ActiveDirectoryClient.tsx) — the
-// "invite a user from the directory" UI, shared by altea-auth-azuread and altea-auth-windowsad: an
+// Port of Signum.Authorization's BaseAD/ActiveDirectoryClient.tsx — see docs/port/AuthDirectory.md.
+//
+// The "invite a user from the directory" UI, shared by altea-auth-azuread and altea-auth-windowsad: an
 // autocomplete entry on any UserEntity picker, and a button on the UserEntity search page.
 //
-// altea divergences, documented inline:
-//  - the client-side permission gate is a BOOLEAN read from /api/activeDirectory/canInviteUsers whenever
-//    the CURRENT USER changes (altea's metadata blob carries no permissions — see ActiveDirectoryServer for
-//    the full rationale). Signum reads it straight out of the blob, which is itself re-fetched per login, so
-//    following `onCurrentUserChanged` is what reproduces its per-role freshness.
-//  - Signum opens `AutoLineModal` to ask for the search text; altea has no AutoLineModal, so this module
-//    carries the one-input modal it needs (`SearchTextModal` below) — same two fields (label +
-//    initial value), same result (the typed string, or undefined on cancel).
-//  - `Finder.API.AutocompleteRequest` carried a `types` field; the route always searches users, so the
-//    API here takes `subString` / `count` directly.
+// The client-side permission gate is a BOOLEAN read from /api/activeDirectory/canInviteUsers whenever the
+// CURRENT USER changes: the metadata blob carries no permissions (see ActiveDirectoryServer for why), so
+// following `onCurrentUserChanged` is what keeps it fresh per role.
+//
+// The autocomplete API takes `subString` / `count` directly — the route always searches users, so there
+// is no `types` field to pass.
 
 export namespace ActiveDirectoryClient {
 
@@ -49,10 +46,8 @@ export namespace ActiveDirectoryClient {
         canInviteUsers = await API.canInviteUsers().catch(() => false);
     }
 
-    /**
-     * Signum's `ActiveDirectoryClient.start({routes, inviteUsers})`. Called from the ADMIN bundle: it
-     * touches Navigator / Finder settings, so it must not load for an anonymous visitor.
-     */
+    /** Called from the ADMIN bundle: it touches Navigator / Finder settings, so it must not load for an
+     *  anonymous visitor. */
     export function start(options: { inviteUsers: boolean }): void {
         if (!options.inviteUsers)
             return;
@@ -164,10 +159,9 @@ export namespace ActiveDirectoryClient {
 
 // ---- SearchTextModal ------------------------------------------------------------------------------------
 //
-// Signum asks for the search text with `AutoLineModal.show({ type: { name: "string" }, … })`. altea has no
-// AutoLineModal, and pulling one in for a single free-text prompt would be a much bigger surface than the
-// prompt itself — so the module carries it: one labelled input, Enter or OK resolves the typed string,
-// Escape or Cancel resolves undefined.
+// A one-input prompt, carried here rather than pulled in: there is no AutoLineModal, and adding one for a
+// single free-text prompt would be a much bigger surface than the prompt itself. One labelled input; Enter
+// or OK resolves the typed string, Escape or Cancel resolves undefined.
 
 interface SearchTextModalProps extends IModalProps<string | undefined> {
     title: React.ReactNode;

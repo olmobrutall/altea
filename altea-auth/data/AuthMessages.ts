@@ -1,11 +1,11 @@
 import { msg } from "@altea/altea/data/utils/localization";
 
-// Port of Signum's AuthMessages.cs + the message enums scattered across UserEntity.cs. altea message
+// Port of Signum.Authorization's AuthMessages.cs + the message enums scattered across UserEntity.cs.
 // containers are `{ Member: msg("Default text") }` objects (a bare `msg()` infers the default from the
 // member name); `.niceToString(...args)` formats {0}/{1} placeholders and prefers a loaded translation.
 // The C# `[Description("…")]` becomes the msg() argument; members with no Description pass bare msg().
 
-// Signum's LoginAuthMessage (login / change-password / profile UI text).
+// Login / change-password / profile UI text.
 export const LoginAuthMessage = {
     ThePasswordMustHaveAtLeast0Characters: msg("The password must have at least {0} characters"),
     NotUserLogged: msg(),
@@ -70,7 +70,7 @@ export const ResetPasswordB2CMessage = {
     ResetPassword: msg("Reset Password"),
 };
 
-// Signum's AuthMessage (authorization error / rule-pack overview text).
+// Authorization error / rule-pack overview text.
 export const AuthMessage = {
     NotAuthorizedTo0The1WithId2: msg("Not authorized to {0} the '{1}' with Id {2}"),
     NotAuthorizedToRetrieve0: msg("Not authorized to retrieve '{0}'"),
@@ -87,18 +87,16 @@ export const AuthMessage = {
     TheQueryDoesNotEnsureThatYouCanRead0: msg("The query does not ensure that you can read {0}"),
 };
 
-// Signum's UserMessage (UserEntity.cs).
 export const UserMessage = {
     UserIsNotActive: msg(),
 };
 
-// Signum's UserExternalIdMessage (UserEntity.cs).
 export const UserExternalIdMessage = {
     TheUser0IsConnectedToAnExternalProviderAndCanNotHaveALocalPasswordSet:
         msg("The user {0} is connected to an external provider and can not have a local password set"),
 };
 
-// Signum's AuthAdminMessage (Rules/AuthAdminMessage.cs) — only the members needed by the entity
+// Only the members needed by the entity
 // PropertyValidations so far; the rule-pack-admin members are added with the authorization phase.
 export const AuthAdminMessage = {
     TheUserStateMustBeDisabled: msg(),

@@ -5,7 +5,7 @@ import { classes } from "@altea/altea/data/globals";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { AuthAdminMessage } from "../../data/AuthMessages";
 
-// Port of Signum's ColoredRadios (Rules/ColoredRadios.tsx): the coloured circle "radio" used by the
+// Port of Signum.Authorization's Rules/ColoredRadios.tsx: the coloured circle "radio" used by the
 // rule-pack controls (green Write / orange Read / red None), plus the gray override checkbox. The
 // AuthAdmin.css classes (sf-auth-chooser / sf-auth-checkbox / sf-not-allowed) are inlined as minimal
 // styles here rather than a separate stylesheet.

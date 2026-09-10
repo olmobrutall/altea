@@ -28,23 +28,24 @@ import { RoleEntity } from "../../data/Role";
 import { ColorRadio, GrayCheckbox } from "./ColoredRadios";
 import "./AuthAdmin.css";
 
-// Port of Signum's TypeRulePackControl (Rules/TypeRulePackControl.tsx). The VIEW component for the
-// TypeRulePack ModelEntity, opened as a FrameModal via Navigator.view from the Role QuickLink. Each type
+// Port of Signum.Authorization's Rules/TypeRulePackControl.tsx — see docs/port/Auth.md.
+//
+// The VIEW component for the TypeRulePack ModelEntity, opened as a FrameModal from the Role QuickLink.
+// Each type
 // row shows the FALLBACK Write/Read/None radios (driving `rule.allowed.fallback`) + the "overridden"
 // checkbox; below it, one sub-row per CONDITION rule (an AND-ed set of TypeConditionSymbols → its own
 // Write/Read/None radios). A type with registered `availableConditions` gets a "+" to add a condition
 // (a multi-select of its symbols); each condition sub-row has a "×" to remove it. Save posts the pack,
-// refetches, and reloads the frame (Signum's IRenderButtons in-place Save).
+// refetches, and reloads the frame in place.
 //
-// Each row also carries the per-type drill-in links (Signum's property/operation/query thumbnails): small
-// icons that open the (role, type) property / query / operation rule pack for that row — the ONLY entry
-// point to those per-type dimensions (there is no Role-level QuickLink for them, matching Signum).
+// Each row also carries the per-type DRILL-IN links: small icons that open the (role, type) property /
+// query / operation rule pack for that row — the ONLY entry point to those per-type dimensions.
 //
-// Deferred vs Signum: drag-reorder of condition rules (order still comes from add order; last matches
-// win) and the namespace grouping.
+// DEFERRED: drag-reorder of condition rules (order still comes from add order, and last match wins), and
+// the namespace grouping.
 
 // The per-type dimension drill-ins, gated by which auth dimensions were started (AuthAdminClient.Options).
-// Each is its OWN column with a header (like Signum's Property / Operation / Query columns), in that order.
+// Each is its OWN column with a header, in that order.
 const SUBLINKS: { kind: "properties" | "operations" | "queries"; enabled: () => boolean; icon: IconProp; title: string; header: string; color: string }[] = [
     { kind: "properties", enabled: () => AuthAdminClient.Options.properties, icon: "pen-to-square", title: "Property rules", header: "Properties", color: "#6f42c1" },
     { kind: "operations", enabled: () => AuthAdminClient.Options.operations, icon: "bolt", title: "Operation rules", header: "Operations", color: "#0d6efd" },
@@ -104,7 +105,7 @@ const shortKey = (l: Lite<TypeConditionSymbol>): string => {
 };
 const condSetKey = (tcs: Lite<TypeConditionSymbol>[]): string => tcs.map(l => String(l.id)).sort().join("&");
 
-// Structural fallback+conditions equality (Signum's withConditionsEquals) — drives the "overridden" flag.
+// Structural fallback + conditions equality — drives the "overridden" flag.
 function withConditionsEquals(a: WithConditionsModel, b: WithConditionsModel): boolean {
     if (a.fallback !== b.fallback || a.conditionRules.length !== b.conditionRules.length)
         return false;
@@ -127,8 +128,7 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
     const forceUpdate = (): void => ctx.frame!.frameComponent.forceUpdate();
     const markDirty = (): void => { dirty.current = true; forceUpdate(); };
 
-    // Type filter box (Signum's namespace/className search). altea keeps it simple: a case-insensitive
-    // substring match on the type's nice name; empty = show all.
+    // Type filter box: a case-insensitive substring match on the type's nice name; empty = show all.
     const [filter, setFilter] = React.useState("");
     const isMatch = (rule: TypeAllowedRule): boolean =>
         filter.trim() === "" || rule.resource.toString().toLowerCase().includes(filter.trim().toLowerCase());
@@ -136,7 +136,7 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
     function renderButtons(bc: ButtonsContext): ButtonBarElement[] {
         // Track edits via the explicit `dirty` ref (set by markDirty on every change, cleared on reload),
         // NOT isGraphModified: a freshly-loaded pack ModelEntity graph reports modified, which wrongly
-        // enabled Save/Reset and DISABLED "Switch to…". Signum likewise keys these buttons off its own
+        // enabled Save / Reset and DISABLED "Switch to…". Signum likewise keys these buttons off its own
         // `modified` flag, not a graph diff.
         const hasChanges = dirty.current;
         return [
@@ -171,7 +171,7 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
     // editable table per type — owner + parts — stacked in a single modal (AuthClosureModal); otherwise
     // it opens the single pack the classic way (Navigator.view).
     // `initialTypeConditions` (from a type-CONDITION row's drill-in) preselects that condition slice in the
-    // opened property/operation pack — Signum's "each condition row has its own already-filtered link".
+    // opened property / operation pack: a condition row's link is already filtered to that condition.
     async function openSubPack(kind: "properties" | "queries" | "operations", rule: TypeAllowedRule, initialTypeConditions?: Lite<TypeConditionSymbol>[]): Promise<void> {
         const roleId = ctx.value.role.id!;
         const roleStr = ctx.value.role.toString();
@@ -210,7 +210,7 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
             return;
         const key = condSetKey(chosen);
         if (rule.allowed.conditionRules.some(cr => condSetKey(cr.typeConditions) === key))
-            return; // repeated condition set — ignore (Signum shows an error modal)
+            return; // repeated condition set — IGNORED (Signum shows an error modal)
         rule.allowed.conditionRules.push(ConditionRuleModel.create({ typeConditions: chosen, allowed: TypeAllowed.None }));
         markDirty();
     }
@@ -254,8 +254,8 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                 </thead>
                 <tbody>
                     {(() => {
-                        // Group the visible rows by owning package (Signum groups by namespace); a header row
-                        // precedes each package's rows.
+                        // Group the visible rows by owning PACKAGE; a header row precedes each package's
+                        // rows.
                         const groups = new Map<string, TypeAllowedRule[]>();
                         for (const r of ctx.value.rules.filter(isMatch)) {
                             const k = packageLabel(r);
@@ -323,8 +323,8 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                                             </td>)}
                                             <td />
                                             {/* One cell per dimension column. Property/operation drill-ins are scoped to
-                                                THIS condition (Signum: each condition row has its own already-filtered
-                                                link); the Query column stays empty (queries have no type conditions).
+                                                THIS condition; the Query column stays empty (queries have no type
+                                                conditions).
                                                 Neutral colour — no per-condition summary computed. */}
                                             {SUBLINKS.filter(s => s.enabled()).map(s =>
                                                 <td key={s.kind} className="text-center">

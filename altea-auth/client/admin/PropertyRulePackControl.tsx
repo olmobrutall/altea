@@ -16,10 +16,12 @@ import { ColorRadio, GrayCheckbox } from "./ColoredRadios";
 import { type Slice, sliceBinding } from "./AuthSlice";
 import { SliceSelector } from "./SliceSelector";
 
-// Port of Signum's PropertyRulePackControl. Each row = one property route of the type, with Write (green)
+// Port of Signum.Authorization's Rules/PropertyRulePackControl.tsx — see docs/port/Auth.md.
+//
+// Each row is one property route of the type, with Write (green)
 // / Read (amber) / None (red) radios + an "overridden" checkbox. A radio above the row's `coerced` ceiling
 // (the type's own UI allowance) is hidden — a property can't exceed its type. Type conditions are edited
-// via the top-of-pack SLICE selector (Signum's TypeConditions <select>): pick "Fallback" or a configured
+// via the top-of-pack SLICE selector: pick "Fallback" or a configured
 // condition SET, and every row binds to that slice (fallback value, or the matching condition rule which
 // is created on first edit). `initialTypeConditions` preselects a slice (from a type-condition drill-in).
 

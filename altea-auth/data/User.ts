@@ -12,7 +12,9 @@ import { TypeConditionSymbol } from "./Rules";
 import { AuthAdminMessage, UserExternalIdMessage } from "./AuthMessages";
 import { Enum } from "@altea/altea/data/enum";
 
-// Port of Signum's UserEntity (Signum.Authorization/UserEntity.cs). The application user: a login name,
+// Port of Signum.Authorization's UserEntity.cs — see docs/port/Auth.md.
+//
+// The application user: a login name,
 // a password hash, a role, and an activation state machine (New → Active ⇄ Deactivated/AutoDeactivate).
 //
 // altea divergences, documented inline:
@@ -22,15 +24,15 @@ import { Enum } from "@altea/altea/data/enum";
 //  - `UserTypeCondition` (a TypeConditionSymbol) and `UserLiteModel` land with the authorization /
 //    client phases respectively (TypeConditionSymbol is an authorization type; UserLiteModel needs the
 //    client custom-lite wiring).
-//  - `UserEntity.Current` / `CurrentExternalId` are server-only in Signum (they read UserHolder);
+//  - `UserEntity.current()` / `currentExternalId()` answer on BOTH TIERS, where Signum's read UserHolder;
 //    altea declares them here as `current()` / `currentExternalId()` and they answer on BOTH tiers, through
 //    the injected `CurrentUser` provider (data/security). Same for `RoleEntity.current()`.
 //  - `PropertyValidation` → per-field `@validate` (altea has no entity-level validation hook).
 
-// Signum's UserState (UserEntity.cs). New = -1 (the pre-Create sentinel); the rest are the live states.
+// New = -1, the pre-Create sentinel; the rest are the live states.
 // A plain numeric entity enum (like OrderState), used directly by the UserGraph state machine.
 export enum UserState {
-    /** Never stored — a user being created. Signum marks it `[Ignore]`; the `markAsNotMapped` below is
+    /** Never stored — a user being created. The `markAsNotMapped` below is
      *  altea's spelling of the same thing. */
     New = -1,
     Active,
@@ -89,7 +91,7 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
     /** A count, so an `int` column and not a double. */
     loginFailedCounter: int = toInt(0);
 
-    // Signum's `UserEntity.AllowPasswordForUserWithExternalId` static flag — when false (the default) a
+    // When false (the default) a
     // user linked to an external identity provider (Azure AD / OpenID / a Windows domain) may NOT also
     // carry a local password, so the directory is the single source of truth. A host that wants both sets
     // it to true at startup.
@@ -111,12 +113,12 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
     }
 
     /**
-     * Signum's `UserEntity.Current` (`(Lite<UserEntity>)UserHolder.Current?.User!`), and — unlike Signum's,
+     * The current login's user, and — unlike Signum's,
      * which is server-only — it answers on BOTH TIERS: the server resolves it from the request's user
      * scope, the client from the logged-in user (see `CurrentUser` in altea's data/security).
      *
-     * A LITE, as in Signum: the server has only the lite (plus the claims) once the token is decoded, so
-     * that is the shape both tiers can honour. Null when nobody is logged in — where Signum's `!` would
+     * A LITE: the server has only the lite (plus the claims) once the token is decoded, so that is the
+     * shape both tiers can honour. NULL when nobody is logged in — where Signum's `!` would
      * NullReference, because a nullable type says it better than a crash does.
      */
     static current(): Lite<UserEntity> | null {
@@ -129,14 +131,13 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
     }
 }
 
-// Signum's `[AutoInit] static class UserTypeCondition` (UserEntity.cs) — a framework-declared
+// A framework-declared
 // TypeConditionSymbol. `DeactivatedUsers` scopes a role to only the deactivated user rows; its predicate
 // (`u => u.state == "Deactivated"`) is registered in TypeAuthLogic.start.
 export namespace UserTypeCondition {
     export const DeactivatedUsers: TypeConditionSymbol = init();
 }
 
-// Signum's `[AutoInit] static class UserOperation`.
 export namespace UserOperation {
     export const Create: ConstructSymbol<UserEntity> = init();
     export const Save: ExecuteSymbol<UserEntity> = init();
@@ -148,7 +149,7 @@ export namespace UserOperation {
 
 // ---- The current user, on BOTH tiers -----------------------------------------------------------------
 
-// Signum's `UserWithClaims.FillClaims += …` (in AuthLogic.Start, i.e. server-only): stamp Role / ExternalId
+// Stamp Role / ExternalId
 // onto the claims bag whenever a UserWithClaims is built from a full user. It lives HERE, in the data
 // layer, because altea builds a UserWithClaims on both tiers — the server per request (UserHolder) and the
 // client on every login (AppContext) — and a filler declared once serves both. That is what makes

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { LoginAuthMessage } from "../../data/AuthMessages";
 
-// Port of Signum's ChangePasswordSuccessPage.tsx (Login/ChangePasswordSuccessPage.tsx).
+// Port of Signum.Authorization's Login/ChangePasswordSuccessPage.tsx.
 export default function ChangePasswordSuccessPage(): React.JSX.Element {
     return (
         <div className="container sf-change-password-success">

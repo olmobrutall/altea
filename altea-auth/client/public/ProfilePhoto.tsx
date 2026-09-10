@@ -8,21 +8,18 @@ import * as AppContext from "@altea/altea/client/AppContext";
 import UserCircle, * as UserCircles from "./UserCircle";
 import "./ProfilePhoto.css";
 
-// Port of Signum's ProfilePhoto (Signum.Authorization/Templates/ProfilePhoto.tsx) — the user avatar, and
+// Port of Signum.Authorization's Templates/ProfilePhoto.tsx — the user avatar, and
 // more importantly the REGISTRY a directory module plugs into: `urlProviders`. Each provider is asked, in
 // registration order, for a URL for this user at this size; the first non-null wins, and if none answers
 // the avatar degrades to a UserCircle (small) or a person glyph (large).
 //
 // It lives here (not in a directory module) because it is the shared host both @altea/altea-auth-azuread
-// and @altea/altea-auth-windowsad register into, exactly as in Signum.
+// and @altea/altea-auth-windowsad register into.
 //
-// altea divergences, documented inline:
-//  - Signum reads a user's external id off a `UserLiteModel` when only a Lite is in hand. altea has NO
-//    lite-model entity, so a Lite carries just its id and toString: a provider that needs the external id
-//    (Azure AD's object id) can only answer for a FULL UserEntity and returns null for a Lite, which the
-//    UserCircle fallback then covers. A provider keyed on the user NAME (Windows AD's thumbnailPhoto
-//    route) works for both, since a UserEntity's toString IS its userName.
-//  - `Dic.clear(urlCache)` → a plain `Map.clear()`.
+// There is NO lite-model entity, so a Lite carries just its id and toString: a provider that needs the
+// external id (Azure AD's object id) can only answer for a FULL UserEntity and returns null for a Lite,
+// which the UserCircle fallback then covers. A provider keyed on the user NAME (Windows AD's
+// thumbnailPhoto route) works for both, since a UserEntity's toString IS its userName.
 
 export type ProfilePhotoUrlProvider =
     (u: UserEntity | Lite<UserEntity>, size: number) => string | Promise<string | null> | null;

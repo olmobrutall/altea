@@ -7,7 +7,9 @@ import { Temporal } from "@altea/altea/data/basics";
 import type { PermissionSymbol } from "./Rules";
 import { UserEntity } from "./User";
 
-// Port of Signum.Authorization's SessionLog/SessionLog.cs — who logged in, from where, and for how long.
+// Port of Signum.Authorization's SessionLog/SessionLog.cs — see docs/port/Auth.md.
+//
+// Who logged in, from where, and for how long.
 // One row per login, opened when a user logs in and closed when they log out.
 //
 // Starting the module is the app's choice (Southwind's `SessionLogLogic.Start(sb)`), and which roles are
@@ -15,7 +17,7 @@ import { UserEntity } from "./User";
 // `SessionLogPermission.TrackSession`.
 //
 // Read that gate precisely — it is an authorization check, NOT an explicit grant. A role with no rule for
-// the permission falls back to the role's own default (Signum's `GetAllowedBase`), so an unrestricted role
+// the permission falls back to the role's own default, so an unrestricted role
 // IS tracked as soon as the module starts, and it is a RESTRICTED role that has to be granted the
 // permission to appear. Verified against eastwind's own roles in probeSessionLog. To track nobody by
 // default, deny the permission to the roles that should not be recorded — or do not start the module.
@@ -23,7 +25,7 @@ import { UserEntity } from "./User";
 // altea divergences, documented inline:
 //  - `[DateTimePrecisionValidator(DateTimePrecision.Seconds)]` has no altea counterpart (the call
 //    @altea/altea-sms already made), so the two dates are TRUNCATED where they are assigned —
-//    SessionLogLogic's `truncSeconds`, mirroring Signum's own `Clock.Now.TruncSeconds()` there.
+//    SessionLogLogic's `truncSeconds`.
 //  - `Duration` is a `@quoted` member returning a plain `number | null`, so it is a real query column
 //    (@altea/altea-rest and -view-log make the same move for theirs).
 

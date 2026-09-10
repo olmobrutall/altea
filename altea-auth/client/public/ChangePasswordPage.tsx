@@ -8,8 +8,8 @@ import { QueryString } from "@altea/altea/client/QueryString";
 import { LoginAuthMessage } from "../../data/AuthMessages";
 import { AuthClient } from "../AuthClient";
 
-// Port of Signum's ChangePasswordPage.tsx (Login/ChangePasswordPage.tsx). altea divergence: altea's
-// ModelState is ONE string per field (Signum's was string[]), so the field helpers use "" for "no
+// Port of Signum.Authorization's Login/ChangePasswordPage.tsx. The ModelState is ONE string per field,
+// so the field helpers use "" for "no
 // error" and error(field) returns the string directly.
 
 export default function ChangePasswordPage(): React.JSX.Element {

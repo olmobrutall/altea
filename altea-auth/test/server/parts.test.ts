@@ -27,7 +27,7 @@ describe("PartOwnership.partRoots (pure)", () => {
 
     test("polymorphic content: every impl owned by the panel roots to the panel's root", () => {
         const Dash = C("Dash"), Panel = C("Panel"), Chart = C("Chart"), Text = C("Text");
-        // Dash ← Panel[] → content: IPart (@implementedBy [Chart, Text]) — the Signum Dashboard shape.
+        // Dash ← Panel[] → content: IPart (@implementedBy [Chart, Text]) — the Dashboard shape.
         const edges: PartEdge[] = [{ owner: Dash, part: Panel }, { owner: Panel, part: Chart }, { owner: Panel, part: Text }];
         const roots = partRoots(edges);
         assert.equal(roots.get(Chart), Dash);

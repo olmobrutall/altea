@@ -7,10 +7,12 @@ import SearchValueLine from "@altea/altea/client/SearchControl/SearchValueLine";
 import { RoleEntity } from "../../data/Role";
 import { UserEntity } from "../../data/User";
 
-// Port of Signum's Templates/Role.tsx, trimmed for altea. The rule-pack entry points (Type / Permission
-// rules) are QuickLinks on the frame (registered in AuthAdminClient), like Signum — NOT a button here.
+// Port of Signum.Authorization's Templates/Role.tsx — see docs/port/Auth.md.
+//
+// The rule-pack entry points (Type / Permission rules) are QuickLinks on the frame, registered in
+// AuthAdminClient — NOT a button here.
 // The "Referenced by" section shows SearchValueLines: the users in this role, and the roles that inherit
-// from it (Signum's `inheritsFrom.any()` filter — altea's inheritsFrom is the RoleEntity_InheritsFrom
+// from it (`inheritsFrom` is the RoleEntity_InheritsFrom
 // junction array, so the token navigates `.any().append(x => x.inheritsFrom)` to the inherited role).
 export default function Role(p: { ctx: TypeContext<RoleEntity> }): React.JSX.Element {
     const ctx = p.ctx;

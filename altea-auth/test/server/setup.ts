@@ -111,7 +111,7 @@ export async function generateAuthEnvironment(): Promise<Connector> {
 
 const fakeUser = (): Lite<IUserEntity> => UserEntity.newLite(toInt(1), "impersonation") as unknown as Lite<IUserEntity>;
 
-/** Run `fn` as the current user of `role` (Signum's `using (UserHolder.UserSession(...))`). AuthLogic reads
+/** Run `fn` as the current user of `role`. AuthLogic reads
  *  the current role from the "Role" claim, so only that claim matters. */
 export function asRole<R>(role: RoleEntity, fn: () => Promise<R>): Promise<R> {
     return UserHolder.withUser(new UserWithClaims(fakeUser(), { Role: role.toLite() }), fn);

@@ -6,20 +6,22 @@ import { entity, part, uniqueIndex, backReference, valueField, quoted } from "@a
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 
-// Port of Signum's RoleEntity (Signum.Authorization/RoleEntity.cs). A role is the unit authorization
+// Port of Signum.Authorization's RoleEntity.cs — see docs/port/Auth.md.
+//
+// A role is the unit authorization
 // rules attach to; users point at one role, and roles form a DAG via `inheritsFrom`.
 //
 // altea divergences, documented inline:
 //  - `MList<Lite<RoleEntity>> InheritsFrom` → the altea MList replacement: a plain array of `@part` link
 //    rows (RoleEntity_InheritsFrom), each `@backReference` to the owner + a `@valueField` holding the
-//    inherited role's Lite. (Signum's [BindParent, NoRepeatValidator] become the array + a server-side
+//    inherited role's Lite. (The [BindParent, NoRepeatValidator] pair becomes the array + a server-side
 //    de-dup check when authorization lands.)
 //  - `RoleEntity.Current` / `RetrieveFromCache` are server-only (read UserHolder claims / the role
 //    cache) — they live in AuthLogic, not on the isomorphic entity.
 //  - `PreSaving` (trivial-merge name) and the trivial-merge `PropertyValidation` are authorization-admin
 //    concerns; they land with the authorization phase (the Save operation computes the name server-side).
 
-// Signum's MergeStrategy (RoleEntity.cs). A plain numeric entity enum, like OrderState (the proven
+// A plain numeric entity enum, like OrderState (the proven
 // pattern for entity enum fields that also feed the operation graph).
 export enum MergeStrategy {
     Union,
@@ -37,7 +39,6 @@ export class RoleEntity extends Entity {
 
     isTrivialMerge: boolean = false;
 
-    // Signum's MList<Lite<RoleEntity>> InheritsFrom.
     inheritsFrom: RoleEntity_InheritsFrom[];
 
     @stringLengthValidator({ multiLine: true })
@@ -54,7 +55,7 @@ export class RoleEntity extends Entity {
      * the user from the request scope, the client from the logged-in user (see `CurrentUser` in altea's
      * data/security).
      *
-     * altea divergence: Signum THROWS `AuthenticationException(NotUserLogged)` when nobody is logged in.
+     * It returns NULL when nobody is logged in, where Signum throws `AuthenticationException`.
      * altea's AuthenticationException is server-only (the data layer must stay isomorphic), and every
      * caller in the workspace null-checks anyway, so this answers null instead.
      */
@@ -63,7 +64,7 @@ export class RoleEntity extends Entity {
     }
 }
 
-// Link rows for RoleEntity.inheritsFrom (Signum's MList<Lite<RoleEntity>>).
+// Link rows for RoleEntity.inheritsFrom.
 @part
 export class RoleEntity_InheritsFrom extends Entity {
     @backReference
@@ -73,7 +74,6 @@ export class RoleEntity_InheritsFrom extends Entity {
     inheritsFrom: Lite<RoleEntity>;
 }
 
-// Signum's `[AutoInit] static class RoleOperation`.
 export namespace RoleOperation {
     export const Save: ExecuteSymbol<RoleEntity> = init();
     export const Delete: DeleteSymbol<RoleEntity> = init();

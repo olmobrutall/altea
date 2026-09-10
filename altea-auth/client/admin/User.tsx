@@ -4,7 +4,7 @@ import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { TypeContext } from "@altea/altea/client/TypeContext";
 import { UserEntity } from "../../data/User";
 
-// Port of Signum's Templates/User.tsx (Templates/User.tsx), trimmed for altea. Divergences: the
+// Port of Signum.Authorization's Templates/User.tsx, trimmed. Divergences: the
 // DoublePassword control + ProfilePhoto + CultureInfo picker are deferred (DoublePassword mutates
 // TypeContext/frame internals that differ in altea; password changes go through the ChangePassword
 // page, and initial passwords are seeded server-side for now). This is the admin edit view for a user's

@@ -20,8 +20,10 @@ import { BasicPermission } from "../../data/Rules";
 import { AuthClient } from "../AuthClient";
 import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
 
-// Port of Signum's AuthAdminClient (AuthAdminClient.tsx) — the ADMIN side of authorization: the User /
-// Role management views + query settings, and the rule-pack API. Signum's `start` also registers the
+// Port of Signum.Authorization's AuthAdminClient.tsx — see docs/port/Auth.md.
+//
+// The ADMIN side of authorization: the User / Role management views + query settings, and the rule-pack
+// API. Signum's `start` also registers the
 // rule-pack VIEW controls (Type/Property/Operation/Query/Permission RulePackControl), the
 // isViewable/isCreable/isReadonly navigator events + TypeContext member gates (driven by per-type
 // `typeAllowed` in the reflection blob), and the auth-rules quick links / omnibox / download button.
@@ -29,7 +31,7 @@ import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction"
 // This first cut wires what the engine supports today (coarse): the User + Role admin views + query
 // settings, plus the `API` surface (which targets the AuthAdminController — Phase 5). The rule-pack
 // controls + client enforcement events are DEFERRED to Phase 5 (rule-pack models/controls +
-// AuthAdminController); the `Options` flags mark where they slot in, mirroring Signum.
+// AuthAdminController); the `Options` flags mark where they slot in.
 
 export namespace AuthAdminClient {
     export const Options: { types: boolean; properties: boolean; operations: boolean; queries: boolean; permissions: boolean } =
@@ -42,7 +44,6 @@ export namespace AuthAdminClient {
         Options.queries = options?.queries ?? false;
         Options.permissions = options?.permissions ?? false;
 
-        // Signum's Navigator.addSettings(new EntitySettings(UserEntity/RoleEntity, …)) + Finder.addSettings.
         cb.configure(UserEntity)
             .withView(() => import("./User"))
             .withQuerySettings(token => ({
@@ -55,7 +56,7 @@ export namespace AuthAdminClient {
                 ],
             }));
 
-        // The five columns Signum passes to UserTicketLogic's server `WithQuery` projection: altea's
+        // The five columns UserTicketLogic's own query shows. The
         // server registration takes none (no QueryDescription), so they are CLIENT default columns. No
         // view — a ticket is engine-written, and the search page IS the "my remembered devices" list.
         cb.configure(UserTicketEntity)
@@ -69,10 +70,10 @@ export namespace AuthAdminClient {
                 ],
             }));
 
-        // Signum's server `WithQuery` projection for SessionLogEntity, as client default columns (altea's
+        // SessionLogEntity's default columns, a CLIENT setting here (the
         // server registration takes none — no QueryDescription). No view: a session row is engine-written,
         // and the search page IS the report. `sessionEnd` / `sessionTimeOut` are only ever filled here
-        // because altea wires the logout call Signum leaves out — see server/SessionLogLogic.
+        // because the logout call Signum leaves out IS wired — see server/SessionLogLogic.
         cb.configure(SessionLogEntity)
             .withQuerySettings(token => ({
                 defaultColumns: [
@@ -94,7 +95,7 @@ export namespace AuthAdminClient {
                 ],
                 // A "Download AuthRules" button on the Role
                 // search control (exports every dimension's rules to AuthRules.xml), gated on the AdminRules
-                // permission exactly as Signum gates its "!DownloadAuthRules" omnibox twin below. The endpoint
+                // permission, exactly as the "!DownloadAuthRules" omnibox twin below does. The endpoint
                 // is authorized server-side either way.
                 extraButtons: () => !AuthClient.isPermissionAuthorized(BasicPermission.AdminRules) ? [] : [{
                     order: -1,
@@ -108,7 +109,7 @@ export namespace AuthAdminClient {
         // button above runs. It resolves to `undefined` because the action handles itself (it downloads a
         // file) rather than navigating anywhere.
         //
-        // This is the registration that moved `OmniboxSpecialAction` back into altea core, where Signum keeps
+        // This is the registration that moved `OmniboxSpecialAction` back into core, where Signum keeps
         // it: the registry had lived in @altea/altea-omnibox, which depends on THIS package, so registering
         // from here would have closed a package cycle.
         registerSpecialAction({
@@ -117,13 +118,12 @@ export namespace AuthAdminClient {
             onClick: () => { API.downloadAuthRules(); return Promise.resolve(undefined); },
         });
 
-        // Rule packs (Signum's TypeRulePack / PermissionRulePack ModelEntities) open as a FrameModal via
+        // The rule packs are ModelEntities, so they open as a FrameModal through
         // Navigator.view — each needs an EntitySettings mapping the model to its view component, exactly
-        // like Signum's Navigator.addSettings(new EntitySettings(TypeRulePack, …)), plus a QuickLink on the
-        // Role frame (Signum's QuickLinkClient.registerQuickLink(RoleEntity, …)) as the entry point. The
+        // Navigator.view, plus a QuickLink on the Role frame as the entry point. The
         // pack is fetched first, then opened read-only-if-trivial-merge; the control saves in place.
         if (Options.types) {
-            // Client type-auth enforcement (Signum's navigatorIsViewable/isCreable/isReadOnly): gate
+            // Client type-auth enforcement: gate
             // viewability/creability/readonly on the role's per-type allowance. A `None` type is NOT
             // viewable → EntityLink renders it as plain text; a non-`Write` type isn't creable / is
             // read-only. Unrestricted types (not shipped → undefined) stay fully allowed.
@@ -161,7 +161,7 @@ export namespace AuthAdminClient {
                 { icon: "shield-halved", iconColor: "orange", color: "warning", group: null }));
         }
 
-        // Operation / Query / Property rules are PER-TYPE: like Signum, they are NOT reached from a Role
+        // Operation / Query / Property rules are PER-TYPE, and are NOT reached from a Role
         // QuickLink but drilled into from the TypeRules grid — each TypeAllowedRule row in TypeRulePackControl
         // links straight to the (role, type) operation/query/property pack. Here we only register the model
         // views so `Navigator.view(pack)` can open them; the grid supplies the (typeName, roleId).
@@ -172,7 +172,7 @@ export namespace AuthAdminClient {
             cb.configure(QueryRulePack).withView(() => import("./QueryRulePackControl"));
 
         if (Options.properties) {
-            // Client property-auth enforcement (Signum's taskAuthorizeProperties + PropertyRoute's
+            // Client property-auth enforcement (the line task + PropertyRoute's
             // IsAllowed callback). Until now the property dimension existed ONLY on the server, in the
             // serializer: a `None` property still rendered (blank) and a `Read` one still looked editable
             // until the save silently discarded the edit.
@@ -195,7 +195,7 @@ export namespace AuthAdminClient {
         // DEFERRED: richer navigator gates (isViewable/isReadonly from per-type typeAllowed in the blob) per the
         // Options flags; the navigatorIsViewable/isCreable/isReadonly events + TypeContext member gates
         // (need per-type `typeAllowed` in the blob); the download-auth-rules button and the richer
-        // User/Role Finder filters (profile photo, "only active", trivial-merge). See Signum's
+        // User / Role Finder filters (profile photo, "only active", trivial-merge). See
         // AuthAdminClient.start.
     }
 
@@ -261,7 +261,7 @@ function propertyAllowance(rootType: Function, path: string): PropertyAllowed {
  * rule is keyed by (RulePropertyEntity.rootType + path).
  *
  * The reconciliation this does is the whole point: the UI re-roots its PropertyRoute at every embedded /
- * model it renders (RenderEntity → `PropertyRoute.root(ti.ctor)`, faithfully ported from Signum), so a
+ * model it renders (RenderEntity → `PropertyRoute.root(ti.ctor)`), so a
  * line inside `Order.shipAddress` arrives as `(AddressEmbedded).city` — while the rules, the serializer
  * and `PropertyRoute.generateRoutes` all speak `(Order).shipAddress.city`. So climb the TypeContext chain,
  * prepending each ancestor's own path, until the root is a persisted Entity.

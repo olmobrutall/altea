@@ -15,7 +15,7 @@ import { QueryRulesTable } from "./QueryRulePackControl";
 import { type Slice } from "./AuthSlice";
 import { SliceSelector } from "./SliceSelector";
 
-// altea-only (no Signum analog — Parts are real entities). A per-type dimension drill-in
+// No Signum analog, because Parts are real entities here. A per-type dimension drill-in
 // (property/operation/query) opened from the Type-Auth grid renders ONE rule table per type in the SAME
 // modal for the owner's transitive owned-part closure {owner ∪ parts}. A Part is hidden from the grid
 // (it inherits the owner's TYPE rules) but its own property/operation/query rules stay editable here.

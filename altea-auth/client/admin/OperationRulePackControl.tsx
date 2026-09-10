@@ -16,9 +16,11 @@ import { ColorRadio, GrayCheckbox } from "./ColoredRadios";
 import { type Slice, sliceBinding } from "./AuthSlice";
 import { SliceSelector } from "./SliceSelector";
 
-// Port of Signum's OperationRulePackControl. Each row = one operation of the type: Allow (green) / DBOnly
+// Port of Signum.Authorization's Rules/OperationRulePackControl.tsx — see docs/port/Auth.md.
+//
+// Each row is one operation of the type: Allow (green) / DBOnly
 // (amber) / None (red) radios + an "overridden" checkbox. Type conditions are edited via the top-of-pack
-// SLICE selector (Signum's TypeConditions <select>): pick "Fallback" or a configured condition SET, and
+// SLICE selector: pick "Fallback" or a configured condition SET, and
 // every row binds to that slice. `initialTypeConditions` preselects a slice (from a type-condition drill-in).
 
 const LEVELS: { value: OperationAllowed; color: string; label: () => string }[] = [

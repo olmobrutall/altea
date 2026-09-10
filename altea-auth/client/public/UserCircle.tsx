@@ -4,7 +4,7 @@ import type { Lite } from "@altea/altea/data/lite";
 import type { UserEntity } from "../../data/User";
 import "./UserCircle.css";
 
-// Port of Signum's UserCircle (Signum.Authorization/Templates/UserCircle.tsx) — the initials-in-a-coloured
+// Port of Signum.Authorization's Templates/UserCircle.tsx — the initials-in-a-coloured
 // circle stand-in shown when a user has no profile photo. The colour is derived from the user's id, so it
 // is stable and needs no stored preference.
 //

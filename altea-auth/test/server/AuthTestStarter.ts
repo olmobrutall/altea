@@ -24,7 +24,7 @@ export namespace AuthTestStarter {
             const { PostgresConnector } = await import("@altea/altea/server/connection/postgresConnector");
             const connector = new PostgresConnector(schema, connStr);
             // Before the schema is built: it decides a generated GUID key's default generator
-            // (guidKeyDefault). Signum does it in the connector's constructor, which altea cannot.
+            // (guidKeyDefault) — an explicit async step, since there is no synchronous DB access.
             await connector.detectServerCapabilities();
             return connector;
         }
@@ -54,8 +54,8 @@ export namespace AuthTestStarter {
         // DB-ONLY (no in-memory predicate) → forces the fillTypeConditions SQL path for inTypeCondition.
         TypeConditionLogic.register(SampleEntity, SampleTypeCondition.HighValue, s => s.value > 0);
 
-        // The QUERY-AUDITOR condition (Signum's RegisterWhenAlreadyFilteringBy) — the exact registration
-        // Signum.DiffLog makes for OperationLogEntity, on the sample log: a log row is readable BECAUSE
+        // The QUERY-AUDITOR condition — the exact registration Signum.DiffLog makes for
+        // OperationLogEntity, here on the sample log: a log row is readable BECAUSE
         // the caller pinned its `target` to something they may read.
         sb.include(SampleLogEntity).withQuery();
         TypeConditionLogic.registerWhenAlreadyFilteringBy(

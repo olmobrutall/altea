@@ -54,7 +54,7 @@ export class SampleWidgetEntity extends Entity {
     caption: string = "";
 }
 
-// Signum's `[AutoInit] static class SampleOperation`. The namespace name matters: OperationAuthLogic
+// The namespace name matters: OperationAuthLogic
 // derives a type's operations from the `<Type>Operation.<Member>` key convention, so these become
 // "SampleOperation.Save" / "SampleOperation.Delete" — attached to the "Sample" type.
 export namespace SampleOperation {
@@ -63,7 +63,7 @@ export namespace SampleOperation {
 }
 
 /**
- * A stand-in for Signum's OperationLogEntity, for the QUERY-AUDITOR condition: ONE table holding rows
+ * A stand-in for OperationLogEntity, for the QUERY-AUDITOR condition: ONE table holding rows
  * ABOUT other entities, so "may this role read a log row" is really "may it read the row the log is
  * about" — and that can only be decided from the query the caller wrote. See
  * SampleLogTypeCondition.FilteringByTarget and TypeConditionLogic.registerWhenAlreadyFilteringBy.
@@ -84,7 +84,7 @@ export class SampleLogEntity extends Entity {
     }
 }
 
-// The condition on SampleLogEntity, registered as a QUERY AUDITOR (Signum's
+// The condition on SampleLogEntity, registered as a QUERY AUDITOR (
 // OperationLogTypeCondition.FilteringByTarget).
 export namespace SampleLogTypeCondition {
     export const FilteringByTarget: TypeConditionSymbol = init();
@@ -96,6 +96,6 @@ export namespace SampleTypeCondition {
     export const Public: TypeConditionSymbol = init();
     export const Confidential: TypeConditionSymbol = init();
     // A DB-ONLY condition (registered without an in-memory predicate) — exercises the fillTypeConditions
-    // SQL evaluation path (Signum's _typeConditions), unlike Public/Confidential which are registerCompile'd.
+    // SQL evaluation path, unlike Public / Confidential which are registerCompile'd.
     export const HighValue: TypeConditionSymbol = init();
 }

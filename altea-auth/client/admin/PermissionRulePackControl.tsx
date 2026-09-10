@@ -12,7 +12,7 @@ import { AuthAdminClient } from "./AuthAdminClient";
 import { RoleEntity } from "../../data/Role";
 import { ColorRadio, GrayCheckbox } from "./ColoredRadios";
 
-// Port of Signum's PermissionRulePackControl (Rules/PermissionRulePackControl.tsx). The VIEW component for
+// Port of Signum.Authorization's Rules/PermissionRulePackControl.tsx. The VIEW component for
 // the PermissionRulePack ModelEntity, opened as a FrameModal via Navigator.view from the Role QuickLink —
 // the same in-place-Save flow as TypeRulePackControl (renderButtons Save/Reset/Switch-to via IRenderButtons;
 // Save posts the pack, refetches, reloads the frame). The permission dimension has no DB/UI split and no
@@ -74,7 +74,7 @@ export default function PermissionRulePackControl({ ctx, ref }: { ctx: TypeConte
                     {ctx.value.rules.map(rule => (
                         <tr key={String(rule.resource.id)}>
                             <td>{rule.resource.toString()}</td>
-                            {/* Allow (green) / Deny (red) coloured radios — the boolean `allowed`, like Signum. */}
+                            {/* Allow (green) / Deny (red) coloured radios — the boolean `allowed`. */}
                             <td className="text-center">
                                 <ColorRadio readOnly={ctx.readOnly} checked={rule.allowed} color="green"
                                     onClicked={() => setAllowed(rule, true)} />

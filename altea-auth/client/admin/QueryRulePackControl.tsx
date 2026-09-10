@@ -13,7 +13,7 @@ import { AuthAdminClient } from "./AuthAdminClient";
 import { RoleEntity } from "../../data/Role";
 import { ColorRadio, GrayCheckbox } from "./ColoredRadios";
 
-// Port of Signum's QueryRulePackControl (Rules/QueryRulePackControl.tsx). The VIEW for the QueryRulePack
+// Port of Signum.Authorization's Rules/QueryRulePackControl.tsx. The VIEW for the QueryRulePack
 // ModelEntity (per role × type): each row = one query of the type, with Allow (green) / EmbeddedOnly
 // (amber) / None (red) coloured radios + the "overridden" checkbox. Same in-place Save/Reset/Switch-to
 // flow as the other rule packs.

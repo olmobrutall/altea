@@ -346,3 +346,38 @@ caps remembered LOGINS rather than devices. True single-use rotation would buy l
 stolen cookie is handed a fresh ticket either way, so the credential's real lifetime is
 `expirationInterval` regardless — and would cost robustness: a response lost in flight would leave the
 browser holding a dead cookie.
+
+## The admin UI
+
+The Type-Auth grid is the entry point: `TypeRulePackControl` renders one row per type — the FALLBACK
+Write / Read / None radios plus an "overridden" checkbox — and beneath it one sub-row per CONDITION rule,
+each an AND-ed set of TypeConditionSymbols with its own radios. Rows are grouped by owning PACKAGE, where
+Signum groups by namespace.
+
+- **The per-type dimensions are reached ONLY from that grid**, through the property / operation / query
+  drill-in icons on each row. There is no Role-level QuickLink for them, matching Signum. A drill-in from
+  a CONDITION sub-row preselects that condition's slice in the pack it opens.
+- **`AuthClosureModal` has no Signum analog**, because parts are real entities here. A drill-in on a type
+  that OWNS parts renders one rule table per type in the SAME modal — the owner plus its transitive owned-part
+  closure — since a part is hidden from the grid (it inherits the owner's TYPE rules) while its own
+  property / operation / query rules stay editable. Storage stays per type: Save posts every pack
+  independently. A part section is shown only when it HAS rules, so operation and query modals are not
+  cluttered with parts that have none.
+- **The property and operation editors show ONE SLICE at a time.** A rule's allowance is a
+  `WithConditionsModel` — a fallback plus per-condition-set overrides — and the `SliceSelector` picks
+  either the Fallback or one configured condition SET, binding every row to that slice. That replaces
+  Signum's per-row condition sub-rows, which do not scale to a table with one row per property route.
+- **Dirtiness is an explicit ref, not `isGraphModified`.** A freshly loaded pack ModelEntity graph reports
+  modified, which wrongly enabled Save / Reset and DISABLED "Switch to…". Signum likewise keys these
+  buttons off its own `modified` flag rather than a graph diff.
+- Deferred: drag-reorder of condition rules (order comes from add order, and last match wins), and the
+  namespace grouping Signum uses. A repeated condition set is IGNORED on add, where Signum shows an error
+  modal.
+
+The rule packs open as a FrameModal through `Navigator.view`, which is why they are ModelEntities. A pack's
+view renders against `PropertyRoute.root(ti.ctor)`, so nothing needs a propertyRoute threaded through it.
+
+`AuthAdminClient` also carries the client-side enforcement of two dimensions, read straight off the
+TypeMetadata the server stamped: type auth gates `Navigator.isViewable` / `isCreable` / `isReadOnly`, and
+property auth gates the Lines — None means the line is not rendered at all, Read means it renders
+read-only.

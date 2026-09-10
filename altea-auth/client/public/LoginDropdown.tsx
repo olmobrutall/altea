@@ -7,9 +7,9 @@ import { LoginAuthMessage } from "../../data/AuthMessages";
 import { UserEntity } from "../../data/User";
 import { AuthClient } from "../AuthClient";
 
-// Port of Signum's LoginDropdown.tsx (Login/LoginDropdown.tsx) — the header user menu. altea
+// Port of Signum.Authorization's Login/LoginDropdown.tsx — the header user menu.
 // divergences: `LinkContainer` (react-router-bootstrap, not a dep) → `AppContext.navigate` onClick;
-// `SmallProfilePhoto` (Signum.Files, not ported) → a plain user icon; `CultureClient` dropped.
+// `SmallProfilePhoto` becomes a plain user icon, and there is no culture picker here.
 
 function LoginDropdown(p: {
     renderName?: (u: UserEntity) => React.ReactElement | string | null;

@@ -8,12 +8,13 @@ import { msg } from "@altea/altea/data/utils/localization";
 import { RoleEntity } from "./Role";
 import { PermissionSymbol } from "./Rules";
 
-// Port of Signum's BaseAD layer (Signum.Authorization/BaseAD/BaseADConfigurationEmbedded.cs +
-// Signum.Authorization.BaseAD.ts) — the pieces EVERY directory-backed login module shares: how a
+// Port of Signum.Authorization's BaseAD layer — see docs/port/AuthDirectory.md.
+//
+// The pieces EVERY directory-backed login module shares: how a
 // directory identity is mapped onto a local UserEntity (auto-create / auto-update / role mapping) and the
 // messages + permission the "invite a user from the directory" UI speaks.
 //
-// It lives in altea-auth (not in one of the AD packages) for exactly Signum's reason: `Signum.Authorization`
+// It lives here rather than in one of the AD packages for exactly Signum's reason: the auth assembly
 // owns `ICustomAuthorizer` / `IAutoCreateUserContext`, and the three concrete modules
 // (@altea/altea-auth-azuread, -openid, -windowsad) each subclass this configuration. A module that only
 // needs the mapping semantics therefore depends on altea-auth alone.
@@ -29,15 +30,15 @@ import { PermissionSymbol } from "./Rules";
 //    same). A framework package must not name an app type, so each module's row declares
 //    `@backReference @implementedBy(() => [])` and the application widens it in its EntityOverrides —
 //    the accommodation `ChangeLogViewLogEntity.user` already uses. SchemaBuilder verifies it resolves to
-//    exactly ONE owner, and in legacy mode names that column Signum's `ParentID`.
+//    exactly ONE owner, and in legacy mode names that column `ParentID`.
 //  - the ROW TYPE is declared per module, not here: a `@part` collection is keyed by ONE back reference to
 //    its owner's table, so a shared row type would make the three directories read each other's rows —
 //    all three now hang off the SAME application row, which is exactly the case that would collide. Hence
 //    the abstract `RoleMappingEntity` below plus one concrete row per module, and `roleMappings()` — the
 //    accessor the shared ADAuthorizer reads, since the base cannot name the subclass's row type.
-//  - `[PreserveOrder]` IS modelled (`@rowOrder`), because Signum declares it and the column is part of
-//    the table a Signum database already has.
-//  - Signum's `PropertyValidation` override becomes per-field `@validate` in each SUBCLASS (altea
+//  - `[PreserveOrder]` IS modelled (`@rowOrder`), because the column is part of the table a Signum
+//    database already has.
+//  - the per-state required / forbidden rules are per-field `@validate` in each SUBCLASS (
 //    has no entity-level validation hook), so nothing to override here.
 
 /**
@@ -48,7 +49,7 @@ import { PermissionSymbol } from "./Rules";
  */
 @reflect
 export abstract class RoleMappingEntity extends Entity {
-    /** Signum's `[PreserveOrder]` on the MList — the row's index in the collection. */
+    /** The row's index in the collection — the table has an Order column. */
     @rowOrder
     order: int;
 
@@ -68,7 +69,7 @@ export abstract class RoleMappingEntity extends Entity {
  * directory user with no local row may be created, whether an existing row is refreshed on each login,
  * and which local role a directory group grants.
  *
- * Abstract on purpose (Signum's is concrete but never used directly): the three modules each add their own
+ * ABSTRACT on purpose (Signum's is concrete but never used directly): the three modules each add their own
  * connection settings on top.
  */
 @reflect

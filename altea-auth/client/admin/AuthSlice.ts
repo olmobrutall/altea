@@ -1,10 +1,13 @@
 import type { Lite } from "@altea/altea/data/lite";
 import type { TypeConditionSymbol } from "../../data/Rules";
 
-// Shared helpers for the Signum-style type-condition "slice" editor used by the property + operation rule
-// packs. A rule's allowance is a WithConditionsModel (a fallback + per-condition-set overrides); the editor
-// shows ONE slice at a time — either the Fallback or one configured type-condition SET — and binds each
-// row to that slice. Picking the slice replaces Signum's per-row condition sub-rows.
+// Shared helpers for the type-condition "slice" editor the property and operation rule packs use — see
+// docs/port/Auth.md.
+//
+// A rule's allowance is a WithConditionsModel (a fallback + per-condition-set overrides); the editor shows
+// ONE slice at a time — either the Fallback or one configured type-condition SET — and binds every row to
+// that slice. Picking a slice is what replaces Signum's per-row condition sub-rows, which do not scale to
+// a table with one row per property route.
 
 /** The selected slice: a type-condition SET, or `undefined` for the Fallback. */
 export type Slice = Lite<TypeConditionSymbol>[] | undefined;
