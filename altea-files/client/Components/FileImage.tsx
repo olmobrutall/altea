@@ -4,19 +4,12 @@ import { ajaxGetRaw, type AjaxOptions } from "@altea/altea/client/Services";
 import { FileEntity, FileEmbedded, FileMessage, FilePathEmbedded } from "../../data/Files";
 import { FilesClient } from "../FilesClient";
 
-// Port of Signum.Files' Components/FileImage.tsx — an <img> over a file, from whichever source it has:
+// Port of Signum.Files' Components/FileImage.tsx — see docs/port/Files.md.
+//
+// An <img> over a file, from whichever source it has:
 //   • bytes still in memory (just picked by the uploader, or a FileEmbedded read with its row) → a blob URL,
 //   • a stored file → its owner-addressed download URL, fetched through the app's own ajax so the session
 //     cookie / request filters apply (a bare `src=` would work for the cookie, but skips them).
-//
-// altea divergences:
-//  - Signum resolves the URL through the per-type `configurations` registry and supports a Lite (fetched by
-//    FetchAndRemember in FileImageLine); altea has only the two EMBEDDED holders. Their URL comes from
-//    `FilesClient.fileUrl`, which prefers the routing the SERVER stamped on the file and falls back to the
-//    owner + property route props below.
-//  - Signum's in-memory case is `"data:image/jpeg;base64," + file.binaryFile` (its binaryFile IS base64, and
-//    the mime is hardcoded); altea holds real bytes, so it makes a properly-typed blob URL instead.
-//  - `fullWebPath` (a file served directly by the web server) is not ported — see FileTypeAlgorithm.
 
 export interface FileImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
     file?: FilePathEmbedded | FileEmbedded | FileEntity | null;
@@ -25,7 +18,7 @@ export interface FileImageProps extends React.ImgHTMLAttributes<HTMLImageElement
     containerEntity?: Entity;
     propertyRoute?: string;
     rowId?: string | number;
-    /** Shown while there is no file at all (Signum's placeholderSrc). */
+    /** Shown while there is no file at all. */
     placeholderSrc?: string;
     ajaxOptions?: Omit<AjaxOptions, "url">;
 }

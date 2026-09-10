@@ -8,41 +8,35 @@ import {
     UserAssetPreviewModel, UserAssetPreviewLineEmbedded, EntityAction, type IUserAssetEntity,
 } from "../data/UserAssets";
 
-// Port of Signum's UserAssetsExporterImporter.cs — the XML import/export engine for user assets. Signum
-// implements ToXml/FromXml ON each entity (they carry System.Xml.Linq); altea keeps entities isomorphic,
-// so each asset type registers its (de)serializer HERE via `UserAssetsImporter.register`. XML is produced
-// / parsed with fast-xml-parser (the same library altea-auth uses for AuthRules XML), attributes prefixed
-// "@_" for the builder and read back as bare keys by the parser.
+// Port of Signum.UserAssets' UserAssetsExporterImporter.cs — see docs/port/UserAssets.md.
 //
-// Divergences vs. Signum: the two-phase Preview → Import flow is preserved (diff by Guid, override on
-// demand), but the advanced lite-conflict / custom-resolution machinery (LiteConflicts, CustomResolution)
-// is simplified to the New/Different/Identical decision (marked TODO). Referenced queries/types are
-// resolved by KEY at import (not included); dependent USER ASSETS (e.g. CustomDrilldowns) ARE included
-// recursively via ctx.include.
+// The XML import/export engine. Each asset type registers its (de)serializer HERE via
+// `UserAssetsImporter.register`, because altea entities are isomorphic and cannot carry XML code. XML is
+// produced / parsed with fast-xml-parser, attributes prefixed "@_" for the builder and read back as bare
+// keys by the parser.
+//
+// The preview is New / Different / Identical (TODO: the lite-conflict / custom-resolution machinery).
+// Referenced queries and types are resolved by KEY at import rather than included; dependent USER ASSETS
+// (a chart's CustomDrilldowns) ARE included recursively through ctx.include.
 
 const ATTR = "@_";
 
 /**
- * Signum's `SynchronizeRowIds` (UserAssets.cs), plus the `SelectWithRowId` half it pairs with — which here
- * is just reading `row.id`, since altea's collection element IS an entity with its own primary key.
+ * Match a collection's rows to the XML BY ID, never by position.
  *
- * A collection whose rows are declared `@primaryKey("uuid")` writes that id per row on export (the `Guid`
- * attribute, {@link rowGuid}) and matches on it here, instead of matching by POSITION. That is what makes a
- * row's identity survive an export/import even across databases: a matched row is REUSED, so it keeps its
- * id and its clean snapshot and an unchanged row is not rewritten; a row the database does not have yet is
- * created carrying the id from the file, so importing the same file elsewhere yields the same ids.
- *
- * Matching by position instead has three visible costs, and they are why Signum declares those uuid PKs:
- * re-importing an unchanged asset rewrites every row, REORDERING one rewrites every row after it, and
- * anything keyed to a row (a per-instance translation, whose key includes the row's own lite) is orphaned.
+ * A collection whose rows are `@primaryKey("uuid")` writes that id per row on export (the `Guid`
+ * attribute, {@link rowGuid}) and matches on it here, which is what makes a row's identity survive an
+ * export/import across databases: a matched row is REUSED, so it keeps its id and its clean snapshot and
+ * an unchanged row is not rewritten; a row the database does not have yet is created carrying the id from
+ * the file, so importing the same file elsewhere yields the same ids. Matching by POSITION instead is
+ * silently destructive three ways — see docs/port/UserAssets.md.
  *
  * XML with NO `Guid` on any element — written before the ids were, or by a consumer that does not declare
  * them — falls back to positional matching, so importing an old file is not reported as a change. A file
  * where only SOME rows carry one is an error rather than a half-applied guess.
  *
  * `sync` also receives the element's INDEX, because a row can be matched, reused or created and some state
- * depends on the position rather than on the XML (Signum notes UserChart binding each column's
- * ScriptColumn that way).
+ * depends on the position rather than on the XML (UserChart binds each column's ScriptColumn that way).
  */
 export function syncRows<T extends Entity>(
     current: T[],
@@ -86,10 +80,10 @@ export function rowGuid(row: Entity): Record<string, unknown> {
     return row.id == null ? {} : { [ATTR + "Guid"]: String(row.id) };
 }
 
-// ---- The (de)serialization context APIs (Signum's IToXmlContext / IFromXmlContext) --------------------
+// ---- The (de)serialization context APIs ---------------------------------------------------------------
 
 export interface IToXmlContext {
-    /** Add an asset to the export set (recursively) and return its guid — Signum's Include. */
+    /** Add an asset to the export set (recursively) and return its guid. */
     include(entity: IUserAssetEntity): string;
     /** Retrieve the full entity behind a lite (for reading fields into the XML). */
     retrieveLite<T extends Entity>(lite: Lite<T>): Promise<T>;
@@ -102,11 +96,11 @@ export interface IFromXmlContext {
     tryGetType(cleanName: string): Lite<TypeEntity> | undefined;
     /** The already-materialized asset for a guid referenced elsewhere in the same file. */
     getEntity(guid: string): IUserAssetEntity;
-    /** Parse a stored lite key back to a Lite (Signum's ParseLite) — best-effort. */
+    /** Parse a stored lite key back to a Lite — best-effort. */
     parseLite(liteKey: string): Lite<Entity> | undefined;
 }
 
-// ---- Per-type registration (Signum's UserAssetNames + Register) ---------------------------------------
+// ---- Per-type registration ----------------------------------------------------------------------------
 
 export interface UserAssetTypeConfig<T extends IUserAssetEntity = IUserAssetEntity> {
     /** The XML element name = the asset's clean type name ("UserQuery"). */
@@ -120,9 +114,9 @@ export interface UserAssetTypeConfig<T extends IUserAssetEntity = IUserAssetEnti
      *  row, a symbol) can need the database, and the import loop awaits — doing it fire-and-forget would
      *  race the save that follows. */
     fromXml(entity: T, xml: Record<string, unknown>, ctx: IFromXmlContext): void | Promise<void>;
-    /** Find the existing DB row for a guid (Signum's Database.Query.SingleOrDefault(a => a.Guid == guid)). */
+    /** Find the existing DB row for a guid. */
     load(guid: string): Promise<T | undefined>;
-    /** Persist the asset (Signum's saveEntity — the registered Save operation). */
+    /** Persist the asset through its registered Save operation. */
     save(entity: T): Promise<void>;
 }
 
@@ -153,7 +147,7 @@ export namespace UserAssetsImporter {
         throw new Error(`UserAssets: entity '${entity.constructor.name}' is not registered as a user asset`);
     }
 
-    // ---- Export (Signum's UserAssetsExporter.ToXml) --------------------------------------------------
+    // ---- Export --------------------------------------------------------------------------------------
 
     export async function toXml(entities: IUserAssetEntity[]): Promise<string> {
         const elements = new Map<string, { name: string; obj: Record<string, unknown> }>();
@@ -184,7 +178,7 @@ export namespace UserAssetsImporter {
             elements.set(guid, { name: cfg.elementName, obj });
         }
 
-        // Group elements by name, ordered by guid (Signum orders by Guid for a stable file).
+        // Group elements by name, ordered by guid — which is what makes the file stable.
         const byName: Record<string, Record<string, unknown>[]> = {};
         for (const { name, obj } of [...elements.values()].sort((a, b) =>
             (a.obj[ATTR + "Guid"] as string).localeCompare(b.obj[ATTR + "Guid"] as string))) {
@@ -195,7 +189,7 @@ export namespace UserAssetsImporter {
         return builder.build({ Entities: byName });
     }
 
-    // ---- Preview (Signum's UserAssetsImporter.Preview) -----------------------------------------------
+    // ---- Preview -------------------------------------------------------------------------------------
 
     export async function preview(content: string): Promise<UserAssetPreviewModel> {
         const parsed = parse(content);
@@ -226,7 +220,7 @@ export namespace UserAssetsImporter {
         return model;
     }
 
-    // ---- Import (Signum's UserAssetsImporter.Import) -------------------------------------------------
+    // ---- Import --------------------------------------------------------------------------------------
 
     export async function importAssets(content: string, model: UserAssetPreviewModel): Promise<void> {
         const parsed = parse(content);
@@ -265,7 +259,7 @@ export namespace UserAssetsImporter {
             }
             const entity = existing ?? cfg.create();
             // Set the uuid PK to the incoming identity so a re-import overwrites the same row across DBs
-            // (Signum assigned entity.Guid; altea's asset identity is its uuid primary key).
+            // (the asset's identity IS its uuid primary key).
             (entity as unknown as { id: string }).id = guid;
             materialized.set(guid, entity);
         }
@@ -309,7 +303,7 @@ function parse(content: string): { elementName: string; obj: Record<string, unkn
 
 function getQueryByKey(queryKey: string): QueryEntity {
     // Resolved from the QueryEntity cache would be ideal; a direct fetch keeps this self-contained.
-    // (Synchronous shape to match Signum's IFromXmlContext.GetQuery; callers already run in async import.)
+    // (Synchronous on purpose — callers already run inside the async import.)
     const q = queryEntityCache.get(queryKey);
     if (q == null)
         throw new Error(`UserAssets import: query '${queryKey}' is not registered in this database`);

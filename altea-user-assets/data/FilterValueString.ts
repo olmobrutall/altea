@@ -1,15 +1,15 @@
 import { Lite } from "@altea/altea/data/lite";
 import type { FilterTypeKeys } from "@altea/altea/data/dynamicQueries";
 
-// The value↔string half of Signum's FilterValueConverter (the C# server converter), as ISOMORPHIC code:
-// the SearchControl editors need it on the client and QueryFilterUtils needs it on the server, so it lives
-// in the DATA layer rather than under client/ (where it originally sat, back when only editors used it).
-// A stored filter/column keeps its value as a STRING (UserQueryEntity_Filter.valueString); the live
-// SearchControl works with the typed value. altea resolves this on the client (no server round-trip), so
-// these translate a single scalar value between the two, given the token's FilterType.
+// The value↔string half of Signum's FilterValueConverter — see docs/port/UserAssets.md.
 //
-// Deferred vs. Signum (marked): the SmartDateTime expression grammar ("Today", "Now+2Months") and the
-// [CurrentEntity] / [CurrentUser] special expressions — those pass through unchanged as raw strings.
+// It is ISOMORPHIC, not client code: the SearchControl editors need it on the client and QueryFilterUtils
+// needs it on the server. A stored filter/column keeps its value as a STRING
+// (UserQueryEntity_Filter.valueString) while the live SearchControl works with the typed value, so these
+// translate a single scalar between the two, given the token's FilterType.
+//
+// DEFERRED, and passed through unchanged as raw strings: the SmartDateTime expression grammar ("Today",
+// "Now+2Months") and the [CurrentEntity] / [CurrentUser] special expressions.
 
 // Parse a stored string into the typed filter value for the given FilterType.
 export function parseFilterValue(str: string | null | undefined, filterType: FilterTypeKeys | undefined): unknown {

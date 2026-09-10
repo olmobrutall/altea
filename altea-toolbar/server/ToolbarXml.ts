@@ -15,21 +15,19 @@ import {
     type ToolbarElementBaseEntity,
 } from "../data/Toolbar";
 
-// Port of Signum's ToolbarEntity.ToXml/FromXml + ToolbarElementEmbedded.ToXml/FromXml +
-// ToolbarMenuEntity/ToolbarMenuElementEmbedded + ToolbarSwitcherEntity/ToolbarSwitcherOptionEmbedded
-// (Toolbar.cs / ToolbarSwitcher.cs). altea keeps this OFF the isomorphic entities (System.Xml is
-// server-only) — the three roots register a (de)serializer with UserAssetsImporter, as UserQuery /
-// Dashboard do. Element and attribute names are preserved so a Signum-exported file round-trips.
+// Port of the ToXml / FromXml halves of Signum.Toolbar's Toolbar.cs + ToolbarSwitcher.cs — see
+// docs/port/Toolbar.md.
 //
-// altea divergences:
-//  - The `Guid` attribute Signum wrote for each root IS its `id` here (the uuid primary key — the asset's
-//    portable identity), so `ctx.include(x)` returns exactly that. The ELEMENT rows keep their own `guid`
-//    attribute, as in Signum.
-//  - Signum's `Elements.Synchronize(…)` (match-and-update in place) becomes a plain rebuild of the row list:
-//    an altea `@part` collection is replaced wholesale on save, and the rows carry no identity of their own
-//    beyond `guid`.
-//  - Signum's `Content` attribute is polymorphic: a QUERY key, a PERMISSION key, or the GUID of an included
-//    user asset. That three-way discrimination is preserved (guid first, then query, then permission).
+// XML stays OFF the isomorphic entities: the three roots register a (de)serializer with UserAssetsImporter,
+// as UserQuery and Dashboard do. Element and attribute names are preserved so a Signum-exported file
+// round-trips.
+//
+// The `Guid` attribute of each ROOT is its `id` — the uuid primary key, which IS the asset's portable
+// identity — so `ctx.include(x)` returns exactly that. The ELEMENT rows keep their own `guid` attribute,
+// which is likewise their primary key, and `syncRows` matches them BY IT rather than by position.
+//
+// The `Content` attribute is POLYMORPHIC: a QUERY key, a PERMISSION key, or the GUID of an included user
+// asset. That three-way discrimination is preserved — guid first, then query, then permission.
 
 const A = "@_"; // fast-xml-parser attribute prefix
 
@@ -105,7 +103,7 @@ export function registerToolbarXml(): void {
     });
 }
 
-// ---- Elements (Signum's ToolbarElementEmbedded.ToXml / FromXml) ----------------------------------------
+// ---- Elements ------------------------------------------------------------------------------------------
 
 async function elementXml(e: ToolbarElementBaseEntity, ctx: IToXmlContext): Promise<Record<string, unknown>> {
     const x: Record<string, unknown> = { ...rowGuid(e) };
@@ -121,7 +119,7 @@ async function elementXml(e: ToolbarElementBaseEntity, ctx: IToXmlContext): Prom
     return x;
 }
 
-// Signum's ToolbarMenuElementEmbedded.ToXml (base + the two extra attributes).
+// A menu element: the base attributes plus the two extra ones.
 async function menuElementXml(e: ToolbarMenuEntity_Element, ctx: IToXmlContext): Promise<Record<string, unknown>> {
     const x = await elementXml(e, ctx);
     if (e.withEntity) x[A + "WithEntity"] = true;
@@ -129,7 +127,7 @@ async function menuElementXml(e: ToolbarMenuEntity_Element, ctx: IToXmlContext):
     return x;
 }
 
-/** Signum's polymorphic `Content` attribute: a query's KEY, a permission's KEY, or the GUID of an included
+/** The polymorphic `Content` attribute: a query's KEY, a permission's KEY, or the GUID of an included
  *  user asset (the asset is exported alongside — `ctx.include`). */
 async function contentXml(content: Lite<Entity>, ctx: IToXmlContext): Promise<string> {
     if (content.entityType === QueryEntity)
@@ -161,7 +159,7 @@ function menuElementFromXml(e: ToolbarMenuEntity_Element, x: Record<string, unkn
     e.autoSelect = bool(x[A + "AutoSelect"]);
 }
 
-/** The inverse of `contentXml` (Signum's `Guid.TryParse` → `TryGetQuery` → `TryToSymbol` chain). */
+/** The inverse of `contentXml`: try a guid, then a query, then a permission. */
 function contentFromXml(content: string | undefined, ctx: IFromXmlContext): Lite<Entity> | null {
     if (!content)
         return null;
@@ -169,9 +167,9 @@ function contentFromXml(content: string | undefined, ctx: IFromXmlContext): Lite
     if (isGuid(content))
         return ctx.getEntity(content).toLite() as Lite<Entity>;
 
-    // Signum used `ctx.TryGetQuery(content)`; altea's IFromXmlContext exposes only the throwing
+    // `IFromXmlContext` exposes only the throwing
     // `getQuery`, so the "not a query key" case is recovered from the throw before falling through to the
-    // permission lookup (and finally to Signum's own "Content not found" error).
+    // permission lookup (and finally to the "Content not found" error).
     try {
         return ctx.getQuery(content).toLite() as Lite<Entity>;
     } catch {
@@ -185,11 +183,11 @@ function contentFromXml(content: string | undefined, ctx: IFromXmlContext): Lite
     throw new Error(`Content '${content}' not found`);
 }
 
-// ---- Switcher options (Signum's ToolbarSwitcherOptionEmbedded.ToXml / FromXml) --------------------------
+// ---- Switcher options ----------------------------------------------------------------------------------
 
 async function optionXml(op: ToolbarSwitcherEntity_Option, ctx: IToXmlContext): Promise<Record<string, unknown>> {
     const x: Record<string, unknown> = {};
-    // Signum's `ctx.Include(ToolbarMenu)` — the referenced menu rides along in the same file, keyed by guid
+    // The referenced menu rides along in the same file, keyed by guid
     // (== the menu's uuid id in altea). The FULL entity is needed: the exporter recurses into it.
     x[A + "ToolbarMenu"] = ctx.include(await ctx.retrieveLite(op.toolbarMenu));
     if (op.iconName) x[A + "IconName"] = op.iconName;
@@ -208,7 +206,7 @@ function optionFromXml(x: Record<string, unknown>, ctx: IFromXmlContext): Toolba
 
 // ---- small helpers -------------------------------------------------------------------------------------
 
-/** Signum's `Owner` attribute is a lite KEY ("User;3") parsed back with `ctx.ParseLite`. */
+/** The `Owner` attribute is a lite KEY ("User;3"), parsed back with `ctx.parseLite`. */
 function parseOwner(xml: Record<string, unknown>, ctx: IFromXmlContext): Lite<Entity> | null {
     const owner = str(xml[A + "Owner"]);
     return owner == null ? null : (ctx.parseLite(owner) ?? null);

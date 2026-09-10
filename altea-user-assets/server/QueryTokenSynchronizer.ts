@@ -11,34 +11,20 @@ import { QueryTokenEmbedded } from "../data/Queries";
 import type { TokenSyncContext } from "./TokenSyncContext";
 import { appendValue, filterValueSubKey, valuesOf, type StringOrArray } from "./TokenMigrationFile";
 
-// Port of Signum.UserAssets' Queries/QueryTokenSynchronizer.cs — the engine that takes a STORED token
-// string that no longer resolves and either repairs it from recorded history or asks what to do.
+// Port of Signum.UserAssets' Queries/QueryTokenSynchronizer.cs — see docs/port/UserAssets.md.
 //
-// The interesting part is `tryResolveParts`: it walks the token's segments against the LIVE schema, and
-// at each position consults the rename history for the position's own bucket — keyed by the QUERY at the
-// root and by the current TYPE further in. History is chain-composed file by file rather than flattened,
-// so `V1: A→B` + `V2: B→C` lands at C in one pass, and each file is looked up under the name its key had
-// at that file's era (TokenSyncContext.computeEraSubKeys). A multi-candidate entry is tried in order,
-// recursing so the first candidate that resolves ALL the way wins.
+// Takes a STORED token string that no longer resolves and either repairs it from recorded history or asks
+// what to do. The interesting part is `tryResolveParts`: it walks the token's segments against the LIVE
+// schema and at each position consults the rename history for that position's own bucket — keyed by the
+// QUERY at the root and by the current TYPE further in. History is chain-composed file by file rather than
+// flattened, so `V1: A→B` + `V2: B→C` lands at C in one pass, and each file is looked up under the name
+// its key had at that file's era (TokenSyncContext.computeEraSubKeys). A multi-candidate entry is tried in
+// order, recursing, so the first candidate that resolves ALL the way wins.
 //
-// altea divergences, documented inline:
-//  - **`QueryDescription` is gone**, so every entry point takes the `QueryName` instead and resolution
-//    goes through the root token: Signum's `QueryUtils.SubToken(result, qd, options, part)` becomes
-//    `(result ?? rootToken).subToken(part, options)`. `result == null` still means "at the query root",
-//    so the shape of the algorithm is unchanged.
-//  - **staleness is DISCOVERED, not read off the entity.** Signum's retrieve fills
-//    `QueryTokenEmbedded.ParseException`, and `FixToken` short-circuits when it is null. In altea `token`
-//    and `parseException` are `@column(false) @serialize(false)` and CLIENT-filled, so the server has no
-//    such flag: `fixToken` simply tries to resolve the string, and a throw IS the staleness signal. That
-//    is strictly more reliable — the flag cannot be stale — and it is why there is no `forceChange`
-//    fast path to protect.
-//  - Signum's `DelayedConsole` (buffer the entity/field headers, flush only if something is actually
-//    asked) is NOT ported: it exists to keep a quiet run quiet, and altea's callers already print one
-//    line per asset. The headers are passed as `remainingText` and printed with the decision.
-//  - every prompt is ASYNC, so this whole module is.
-//  - `FilterValueConverter.IsValidExpression` has no counterpart; see `isValidValue`.
+// STALENESS IS DISCOVERED, not read off the entity: `token` / `parseException` are client-filled and never
+// reach the server, so `fixToken` simply tries to resolve the string and a throw IS the signal. Every
+// prompt is async, so this whole module is.
 
-/** Signum's `FixTokenResult`. */
 export type FixTokenResult =
     | "Nothing"
     | "Fix"
@@ -49,7 +35,7 @@ export type FixTokenResult =
     | "FixTokenInstead"
     | "FixOperationInstead";
 
-/** Signum's `UserAssetTokenAction` — what the interactive picker came back with. */
+/** What the interactive picker came back with. */
 type UserAssetTokenAction = "Confirm" | "RemoveToken" | "SkipEntity" | "DeleteEntity" | "ReGenerateEntity";
 
 export interface FixTokenOptions {
@@ -64,13 +50,12 @@ export namespace QueryTokenSynchronizer {
     /** The root token of a query, which is where a token string starts resolving. */
     function rootTokenOf(queryName: QueryName): QueryToken {
         // `getToken(queryName, "")` is the root itself — the one call that cannot fail for a query that
-        // exists, and the counterpart of Signum handing `qd` around.
+        // exists.
         return QueryLogic.getToken(queryName, "", SubTokensOptionsAll);
     }
 
     /**
-     * Resolve one segment. Signum's `QueryUtils.SubToken(result, qd, options, part)`, where a null
-     * `result` means "at the query root".
+     * Resolve one segment. A null `result` means "at the query root".
      */
     function subToken(result: QueryToken | null, queryName: QueryName, options: SubTokensOptions, part: string): QueryToken | undefined {
         try {
@@ -82,7 +67,7 @@ export namespace QueryTokenSynchronizer {
         }
     }
 
-    /** Signum's `QueryUtils.SplitRegex.Split`, which for altea is `getToken`'s own split. */
+    /** The same split `getToken` makes. */
     function splitToken(tokenString: string): string[] {
         return tokenString.split(".").filter(p => p.length > 0);
     }
@@ -95,7 +80,7 @@ export namespace QueryTokenSynchronizer {
     // ---------- Public entry points ----------
 
     /**
-     * Signum's `FixToken(ctx, ref token, qd, …)` — repair a stored `QueryTokenEmbedded` in place.
+     * Repair a stored `QueryTokenEmbedded` in place.
      *
      * Returns `Nothing` when the token still resolves (the common case, and the reason a run over
      * thousands of assets is fast).
@@ -130,7 +115,7 @@ export namespace QueryTokenSynchronizer {
     }
 
     /**
-     * Signum's `FixToken(ctx, original, out token, qd, …)` — resolve `original` against history + the
+     * Resolve `original` against history + the
      * live schema, prompting only in Record mode.
      */
     export async function fixToken(
@@ -202,7 +187,7 @@ export namespace QueryTokenSynchronizer {
     }
 
     /**
-     * Signum's `FixValue` — repair a stored filter VALUE string whose meaning depended on something that
+     * Repair a stored filter VALUE string whose meaning depended on something that
      * moved (a Lite whose type was renamed, an enum member, a free-text value).
      */
     export async function fixValue(
@@ -304,11 +289,11 @@ export namespace QueryTokenSynchronizer {
     }
 
     /**
-     * Signum's `FilterValueConverter.IsValidExpression`. altea has no server-side filter-value converter
-     * (parsing is client-side — see data/FilterValueString), so validity is judged the way the value is
-     * actually USED: a Lite must name a type that still exists, an enum member must still exist, and
-     * anything else is accepted. Narrower than Signum's, and deliberately so — a false "invalid" here
-     * would prompt a developer about a value that is fine.
+     * Is a stored filter value still meaningful? There is no server-side filter-value converter (parsing
+     * is client-side — see data/FilterValueString), so validity is judged the way the value is actually
+     * USED: a Lite must name a type that still exists, an enum member must still exist, and anything else
+     * is accepted. DELIBERATELY narrow — a false "invalid" here would prompt a developer about a value
+     * that is fine.
      */
     function isValidValue(valueString: string | null, token: QueryToken): boolean {
         if (valueString == null || valueString === "")
@@ -332,7 +317,7 @@ export namespace QueryTokenSynchronizer {
         return true;
     }
 
-    /** Signum's `TypeLogic.NameToType.Keys` — every clean name the database knows. */
+    /** Every clean name the database knows. */
     function registeredTypeNames(): string[] {
         return TypeLogic.allTypeEntities().map(t => t.cleanName);
     }
@@ -352,7 +337,7 @@ export namespace QueryTokenSynchronizer {
     }
 
     /**
-     * Signum's `TryResolveParts` — resolve `parts[start..]` against history and the live schema, leaving
+     * Resolve `parts[start..]` against history and the live schema, leaving
      * the final token in `state.token`.
      *
      * The history check comes BEFORE trying `subToken`, and that ordering is load-bearing: for a
@@ -497,10 +482,9 @@ export namespace QueryTokenSynchronizer {
             if (state.token == null && usingLegacyPropertyPaths() && part.toLowerCase() === "entity")
                 continue;
 
-            // Signum consults the hook at the query ROOT too — `result.SubTokens(qd, options)` is an
-            // extension method that answers the query's own columns for a null `result`. altea's port
-            // had guarded on `state.token != null`, which skipped it for exactly the tokens a stored
-            // asset has most of (`State`, `Customer.CompanyName`): the ones that start at the root.
+            // The hook is consulted at the query ROOT too — NOT guarded on `state.token != null`, which
+            // would skip exactly the tokens a stored asset has most of (`State`, `Customer.CompanyName`):
+            // the ones that start at the root.
             const auto = Replacements.globalAutoReplacement;
             if (auto != null) {
                 const from = state.token ?? rootTokenOf(queryName);
@@ -525,7 +509,7 @@ export namespace QueryTokenSynchronizer {
     }
 
     /**
-     * Signum's `Remember` — persist a confirmed rename, recorded as narrowly as possible.
+     * Persist a confirmed rename, recorded as narrowly as possible.
      *
      * The common PREFIX and SUFFIX of the old and new token paths are stripped first, so what is stored
      * is the segment that actually moved, keyed by the type it moved WITHIN (or by the query when it
@@ -559,7 +543,7 @@ export namespace QueryTokenSynchronizer {
     }
 
     /**
-     * Signum's `RecordTokenRename` — APPEND a candidate rather than overwrite, so context-specific
+     * APPEND a candidate rather than overwrite, so context-specific
      * answers accumulate (the same old token can resolve one way for a filter and another for a
      * template) and `tryResolveParts` gets to try them in order.
      */
@@ -572,7 +556,7 @@ export namespace QueryTokenSynchronizer {
     }
 
     /**
-     * Signum's `AskTypeReplacement` — a Lite type rename, which lives in the same `types` bucket that
+     * A Lite type rename, which lives in the same `types` bucket that
      * query renames do (a query key IS essentially a type's clean name).
      */
     function askTypeReplacement(ctx: TokenSyncContext, oldTypeName: string): Promise<string | null> {
@@ -582,21 +566,19 @@ export namespace QueryTokenSynchronizer {
     // ---------- The interactive picker ----------
 
     /**
-     * Signum's `SelectInteractive` — walk the developer down the token tree one level at a time,
+     * Walk the developer down the token tree one level at a time,
      * showing the sub-tokens of the current position as a NUMBERED LIST, which is what makes the
      * prompt answerable at all.
      *
-     * Every verb is Signum's: a number picks a sub-token, `+` pages the list, `b` goes back up, `c`
-     * confirms where you are, `s` / `d` / `r` / `g` are the asset-level outcomes, and FREE TEXT is
-     * parsed as a WHOLE token — the fast path when a rename is mechanical, which is the normal case
-     * when the database was written by the other framework (Southwind's `State` is altea's `state`).
-     * Signum draws its list with cursor arithmetic and erases it afterwards; that half is not ported,
-     * being exactly the part of SafeConsole altea deliberately leaves out.
+     * The verbs: a number picks a sub-token, `+` pages the list, `b` goes back up, `c` confirms where you
+     * are, `s` / `d` / `r` / `g` are the asset-level outcomes, and FREE TEXT is parsed as a WHOLE token —
+     * the fast path when a rename is mechanical, which is the normal case when the database was written by
+     * the other framework (Southwind's `State` is altea's `state`).
      *
-     * Two altea additions, both because a token read out of ANOTHER framework's database arrives
-     * wholesale wrong, so the prompt has to say what it is being asked about:
-     *  - the header names the ORIGINAL token and the query it belongs to. Signum prints the CURRENT
-     *    POSITION alone, which at the query root is an empty line.
+     * Two things the prompt does that a plain rename prompt would not, both because a token read out of
+     * ANOTHER framework's database arrives wholesale wrong:
+     *  - the header names the ORIGINAL token and the query it belongs to, not the current position (which
+     *    at the query root is an empty line).
      *  - the sub-token whose key is closest to the segment that failed is offered as the `[Enter]`
      *    default, the way `Replacements.selectInteractive` offers its best match. An earlier version
      *    delegated the whole LIST to that prompt, which asked "'X' has been renamed?" — the wrong
@@ -612,16 +594,15 @@ export namespace QueryTokenSynchronizer {
         remainingText: string,
         opts: FixTokenOptions,
     ): Promise<{ action: UserAssetTokenAction; token: QueryToken | null }> {
-        // Signum's "Unable to ask for renames to synchronize query tokens without interactive Console".
-        // It matters more here: altea's `askString` answers "" on a closed / piped stdin rather than
-        // null, so without this the loop would re-print the list for ever instead of stopping.
+        // `askString` answers "" on a closed / piped stdin rather than null, so without this the loop
+        // would re-print the list for ever instead of stopping.
         if (!SafeConsole.isInteractive())
             throw new Error("Unable to fix query tokens without an interactive console. "
                 + "Run the terminal from a real terminal application, or record the decisions first.");
 
         const queryKey = getKey(queryName);
         const originalParts = splitToken(original);
-        // `null` is "at the query root", as Signum's null token is.
+        // `null` is "at the query root".
         let current = token;
         let startingIndex = 0;
 
@@ -629,16 +610,15 @@ export namespace QueryTokenSynchronizer {
             const subTokens = (current ?? rootTokenOf(queryName)).subTokens(options);
 
             // The segment being replaced: the original's part at this depth, since a rename is almost
-            // always one segment for one segment. Past the original's own length it is the LAST part —
-            // altea's tree can be a step DEEPER than Signum's for the same value (a polymorphic
-            // reference interposes an `(As Company)` token), and `CompanyName` is still what is wanted
-            // down there.
+            // always one segment for one segment. Past the original's own length it is the LAST part: the
+            // tree can be a step DEEPER than the stored token for the same value (a polymorphic reference
+            // interposes an `(As Company)` token), and `CompanyName` is still what is wanted down there.
             const depth = current == null ? 0 : splitToken(current.fullKey()).length;
             const wanted = originalParts[depth] ?? originalParts[originalParts.length - 1];
             const best = wanted == null ? undefined : bestMatch(wanted, subTokens);
 
-            // Both tokens start at column 2, as Signum's two lines do: the one that FAILED above the one
-            // being built, so the two spellings line up and the difference is visible at a glance.
+            // Both tokens start at column 2 — the one that FAILED above the one being built, so the two
+            // spellings line up and the difference is visible at a glance.
             SafeConsole.writeLine();
             SafeConsole.write("  ");
             SafeConsole.writeColor(Color.darkRed, original);
@@ -689,8 +669,8 @@ export namespace QueryTokenSynchronizer {
             if (answer === "g" && opts.allowReGenerate) return { action: "ReGenerateEntity", token: current };
             if (current != null) {
                 if (answer === "c") return { action: "Confirm", token: current };
-                // Up one level. The query root is `null`, as it is in Signum, so the root token's own
-                // parent (undefined) lands there.
+                // Up one level. The query root is `null`, so the root token's own parent (undefined) lands
+                // there.
                 if (answer === "b") { current = current.parent ?? null; startingIndex = 0; continue; }
             }
 
@@ -709,7 +689,7 @@ export namespace QueryTokenSynchronizer {
                 }
             }
 
-            // Signum's `QueryUtils.TryParse(rawAnswer, qd, options)` — a whole token, confirmed at once.
+            // A whole token, confirmed at once.
             if (raw !== "") {
                 const parsed = tryGetToken(raw, queryName, options);
                 if (parsed != null)
@@ -743,7 +723,7 @@ export namespace QueryTokenSynchronizer {
         return norm(key) === norm(label);
     }
 
-    /** `QueryLogic.getToken` as a try-parse (Signum's `QueryUtils.TryParse`). */
+    /** `QueryLogic.getToken` as a try-parse. */
     function tryGetToken(tokenString: string, queryName: QueryName, options: SubTokensOptions): QueryToken | null {
         try {
             const token = QueryLogic.getToken(queryName, tokenString, options);

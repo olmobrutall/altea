@@ -7,19 +7,14 @@ import {
 } from "./TokenMigrationFile";
 import type { IUserAssetEntity } from "../data/UserAssets";
 
-// Port of Signum.UserAssets' TokenMigrations/TokenSyncContext.cs — the context handed to every
-// `TokenSynchronizing` subscriber. It carries the ordered history of migration files to resolve against
-// and, in Record mode, the in-progress file new decisions are appended to.
+// Port of Signum.UserAssets' TokenMigrations/TokenSyncContext.cs — see docs/port/UserAssets.md.
 //
-// altea divergences, documented inline:
-//  - `AskRename` is ASYNC, because every SafeConsole prompt is (node's readline).
-//  - the interactive picker DELEGATES to `Replacements.selectInteractive`, which is the same prompt the
-//    schema synchronizer already shows for a table or column rename — same numbered list ordered by
-//    Levenshtein distance, same "n: None", same paging. Signum re-implements it here by hand, complete
-//    with its own `Console.LargestWindowHeight - 11` paging arithmetic; there is no reason for a developer
-//    to meet two different rename prompts in one session, and reusing the one they already know means the
-//    global auto-replacement hook works here for free.
-//  - an asset's id is a STRING (altea's user assets are uuid-keyed) where Signum casts it to `Guid`.
+// The context handed to every `TokenSynchronizing` subscriber: the ordered history of migration files to
+// resolve against and, in Record mode, the in-progress file new decisions are appended to.
+//
+// The interactive picker DELEGATES to `Replacements.selectInteractive` — the same prompt the schema
+// synchronizer shows for a table or column rename — so the global auto-replacement hook works here for
+// free and a developer meets one rename prompt per session, not two.
 
 export type TokenSyncMode =
     /**
@@ -34,7 +29,6 @@ export type TokenSyncMode =
      */
     | "Apply";
 
-/** Signum's `TokenSyncEntityReport`. */
 export class TokenSyncEntityReport {
     constructor(
         public readonly entity: Entity,
@@ -78,7 +72,7 @@ export class TokenSyncContext {
     }
 
     /**
-     * Signum's `IsKnownAction` — a Skip/Delete/Regenerate decision recorded for this asset in an earlier
+     * A Skip/Delete/Regenerate decision recorded for this asset in an earlier
      * session, to honour in Apply mode. Returns null when there is none.
      */
     knownAction(entity: IUserAssetEntity): UserAssetEntityActionType | null {
@@ -92,7 +86,7 @@ export class TokenSyncContext {
         return null;
     }
 
-    /** Signum's `AddUserAssetAction` — record a per-asset decision. Record mode only. */
+    /** Record a per-asset decision. Record mode only. */
     addUserAssetAction(entity: IUserAssetEntity, action: UserAssetEntityActionType): void {
         if (this.recording == null)
             throw new Error("addUserAssetAction is only valid in Record mode.");
@@ -105,7 +99,7 @@ export class TokenSyncContext {
     }
 
     /**
-     * Signum's `AskRename` — resolve `oldValue` to one of `newValues`, using (in order) the recorded
+     * Resolve `oldValue` to one of `newValues`, using (in order) the recorded
      * history, this session's own decisions, the global auto-replacement hook, and finally a prompt.
      *
      * The history walk is CHAINED file by file rather than pre-flattened: `V1: A→B` then `V2: B→C` lands
@@ -141,7 +135,7 @@ export class TokenSyncContext {
         if (current !== oldValue && newValues.includes(current))
             return current;
 
-        // This session's own earlier decisions (Signum's in-session memo).
+        // This session's own earlier decisions.
         if (this.recording != null) {
             const rd = this.recording.tryGetDictionary(bucket, subKey ?? undefined);
             const rv = rd?.[oldValue];
@@ -165,8 +159,8 @@ export class TokenSyncContext {
         if (this.recording == null)
             throw new Error(`'${oldValue}' in '${replacementsKey}' has no recorded rename and Apply mode cannot prompt.`);
 
-        // Signum hand-rolls the numbered picker here; this is the synchronizer's own, which the developer
-        // has already met for table and column renames in the same session. See the header.
+        // The synchronizer's own numbered picker, which the developer has already met for table and
+        // column renames in the same session. See the header.
         const picked = await new Replacements().selectInteractive(oldValue, [...newValues], replacementsKey, sd);
         if (picked != null)
             this.recording.getOrCreateDictionary(bucket, subKey ?? undefined)[oldValue] = picked;
@@ -174,7 +168,7 @@ export class TokenSyncContext {
     }
 
     /**
-     * Signum's `ComputeEraSubKeys` — for each history file, what `liveSubKey` was CALLED at that file's
+     * For each history file, what `liveSubKey` was CALLED at that file's
      * era. Walks newest → oldest, unwinding through each file's `types` renames, so an older file can be
      * looked up under the name it actually used.
      */
@@ -194,7 +188,7 @@ export class TokenSyncContext {
         return eras;
     }
 
-    /** Signum's `LogError` — name the entity and the problem, and carry on with the next one. */
+    /** Name the entity and the problem, and carry on with the next one. */
     logError(entity: Entity, error: unknown): void {
         SafeConsole.writeLineColor(Color.red, `${entity.constructor.name} ${entity.toString()}:`);
         SafeConsole.writeLineColor(Color.darkRed, "  " + (error instanceof Error ? error.message : String(error)));

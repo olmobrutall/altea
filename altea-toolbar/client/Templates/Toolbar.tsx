@@ -22,18 +22,13 @@ import {
 import { ToolbarClient } from "../ToolbarClient";
 import { ToolbarCount } from "../QueryToolbarConfig";
 
-// Faithful port of Signum's Templates/Toolbar.tsx (Signum.Toolbar/Templates/Toolbar.tsx): the Toolbar editor
-// plus the shared ELEMENT TABLE both it and the ToolbarMenu editor use.
+// Port of Signum.Toolbar's Templates/Toolbar.tsx — see docs/port/Toolbar.md.
 //
-// altea divergences:
-//  - The element table is generic over the row type (`ToolbarEntity_Element` for a Toolbar,
-//    `ToolbarMenuEntity_Element` for a ToolbarMenu) because altea splits Signum's one ToolbarElementEmbedded into two
-//    per-owner @part rows (see data/Toolbar.ts). Signum could type it as the base since the subclass shared
-//    its table.
-//  - `New(type, {…})` (Signum's untyped factory over a clean name) → `Constructor.construct(ctor, props)`;
-//    the row ctor comes from the collection's PropertyRoute, so the right row type is created for each owner.
-//  - `ctx.propertyRoute!.typeReference()!.name` → the route's `fieldInfo` / `memberType` (altea's ONE
-//    TypeReference), read through `ctx.memberInfo(...)`.
+// The Toolbar editor plus the shared ELEMENT TABLE both it and the ToolbarMenu editor use. That table is
+// GENERIC over the row type (`ToolbarEntity_Element` / `ToolbarMenuEntity_Element`), because a `@part` row
+// belongs to one owner and the two owners therefore have a row type each. A row is built with
+// `Constructor.construct(ctor, props)`, the ctor coming from the collection's PropertyRoute, so the right
+// row type is created for each owner.
 
 export default function Toolbar(p: { ctx: TypeContext<ToolbarEntity> }): React.JSX.Element {
     const ctx = p.ctx;
@@ -56,7 +51,7 @@ export default function Toolbar(p: { ctx: TypeContext<ToolbarEntity> }): React.J
     );
 }
 
-/** Signum's `getDefaultIcon(ti)`: the icon shown next to a content TYPE in the "what should this element point
+/** The icon shown next to a content TYPE in the "what should this element point
  *  at?" selector — the toolbar's own four are hard-coded, everything else asks the registered config. */
 function getDefaultIcon(ti: TypeInfo): IconProp | null {
 
@@ -103,8 +98,8 @@ export function ToolbarElementTable<R extends ToolbarElementBaseEntity>({ ctx, e
     return (
         <EntityTable ctx={ctx} view
             filterRows={withEntity == undefined ? undefined : ctxs => ctxs.filter(a => (a.value as unknown as ToolbarMenuEntity_Element).withEntity === withEntity)}
-            // Signum: `New(type, { type: "Item", withEntity })`. The row ctor comes from the collection's own
-            // PropertyRoute, so a Toolbar gets a ToolbarEntity_Element and a ToolbarMenu a ToolbarMenuElement.
+            // The row ctor comes from the collection's own PropertyRoute, so a Toolbar gets a
+            // ToolbarEntity_Element and a ToolbarMenu a ToolbarMenuEntity_Element.
             onCreate={pr => Constructor.construct(pr.fieldInfo!.getFunction()!.name, {
                 type: ToolbarElementType.Item,
                 withEntity,

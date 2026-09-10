@@ -30,22 +30,19 @@ import { RightCaretDropdown } from "./RightCaretDropdown";
 import "@altea/altea/client/Frames/Widgets.css";
 import "./Toolbar.css";
 
-// Faithful port of Signum's ToolbarRenderer.tsx (Signum.Toolbar/Renderers/ToolbarRenderer.tsx) — the SIDEBAR
-// renderer plus the shared element-rendering machinery the Top / Main renderers reuse (`renderNavItem`,
-// `inferActive`, `isCompatibleWithUrl`, `renderExtraIcons`, `isActive`, `ToolbarNavItem`).
+// Port of Signum.Toolbar's Renderers/ToolbarRenderer.tsx — see docs/port/Toolbar.md.
 //
-// altea divergences:
-//  - `res.content!.EntityType` (a clean-name STRING in Signum) is `res.content!.entityType` (a ctor) here, so
-//    type tests are `res.content?.entityType === ToolbarMenuEntity` and lookups go through `cleanTypeName`.
-//  - `getToString(lite)` / `liteKey(lite)` are methods: `lite.toString()` / `lite.key()`.
-//  - `EntityLine`'s explicit `type={{ name, isLite: true }}` prop is gone: altea Lines read their type from
-//    `ctx.memberType`, so the entity picker binds through a `TypeContext` built from the type's PropertyRoute
-//    (see ToolbarMenuItemsEntityType).
-//  - Signum's `typeAllowedInDomain(queryKey, entity)` filter inside `simplifyForEntity` is DEFERRED: it needs
-//    Signum's client-side "type conditions in domain" feed (the `typeInDomains` document event), which altea
-//    has not ported. The `queryKey` the server already sends is kept, so the check drops in unchanged when
-//    that lands; until then a with-entity element is shown for every entity of the menu's type.
-//  - `useDocumentEvent("typeInDomains", …)` is dropped with it.
+// The SIDEBAR renderer, plus the shared element-rendering machinery the Top / Main renderers reuse
+// (`renderNavItem`, `inferActive`, `isCompatibleWithUrl`, `renderExtraIcons`, `isActive`,
+// `ToolbarNavItem`).
+//
+// `res.content!.entityType` is a CTOR, so type tests are `res.content?.entityType === ToolbarMenuEntity`
+// and lookups go through `cleanTypeName`.
+//
+// DEFERRED: the `typeAllowedInDomain(queryKey, entity)` filter inside `simplifyForEntity`, which needs the
+// client-side "type conditions in domain" feed altea has not ported. The `queryKey` the server sends is
+// KEPT, so the check drops in unchanged when that lands; until then a with-entity element is shown for
+// every entity of the menu's type.
 
 export default function ToolbarRenderer(p: {
     onAutoClose?: () => void;
@@ -100,7 +97,7 @@ export default function ToolbarRenderer(p: {
     );
 }
 
-/** Signum's `isCompatibleWithUrl`: for a raw-url element, match the current path against the url PATTERN
+/** For a raw-url element, match the current path against the url PATTERN
  *  (recovering the `:id` / `:type` it implies); otherwise ask the content's config. */
 export function isCompatibleWithUrl(r: ToolbarResponse<any>, location: Location, query: any, entityType: string | undefined): { prio: number, inferredEntity?: Lite<Entity> } | null {
     if (r.url) {
@@ -187,7 +184,7 @@ export function isCompatibleWithUrl(r: ToolbarResponse<any>, location: Location,
     }
 }
 
-/** Signum's `inferActive`: the deepest / highest-priority element the current URL corresponds to. For an
+/** The deepest / highest-priority element the current URL corresponds to. For an
  *  entity-scoped menu the inferred entity is lifted onto `menuWithEntity` (so the menu can select it). */
 export function inferActive(r: ToolbarResponse<any>, location: Location, query: any, entityType?: string): InferActiveResponse | null {
     if (r.elements) {
@@ -229,7 +226,7 @@ export function inferActive(r: ToolbarResponse<any>, location: Location, query: 
     return null;
 }
 
-/** Signum's `renderNavItem`: one response → its rendered nav item (a divider, a menu, a switcher, a url
+/** One response → its rendered nav item (a divider, a menu, a switcher, a url
  *  link, a config-rendered item, or a bare header). */
 export function renderNavItem(res: ToolbarResponse<any>, key: string | number, ctx: ToolbarContext, selectedEntity: Lite<Entity> | null): React.JSX.Element {
 
@@ -326,7 +323,7 @@ async function linkClick(r: ToolbarResponse<ToolbarMenuEntity>, selectedEntity: 
         ctx.onAutoClose();
 }
 
-/** Signum's `ToolbarMenu`: a collapsible group whose open/closed state lives in localStorage. Alt+click opens
+/** A collapsible group whose open/closed state lives in localStorage. Alt+click opens
  *  the ToolbarMenu entity itself (the admin shortcut). */
 function ToolbarMenu(p: { response: ToolbarResponse<ToolbarMenuEntity>, ctx: ToolbarContext, selectedEntity: Lite<Entity> | null }): React.ReactElement {
 
@@ -409,7 +406,7 @@ export function ToolbarMenuItems(p: { response: ToolbarResponse<ToolbarMenuEntit
     </>;
 }
 
-/** Signum's `ToolbarMenuItemsEntityType`: an entity-scoped menu — an entity picker on top, then the elements
+/** An entity-scoped menu — an entity picker on top, then the elements
  *  that apply WITH the picked entity (or, with none picked, the ones that apply without). */
 function ToolbarMenuItemsEntityType(p: { response: ToolbarResponse<ToolbarMenuEntity>, ctx: ToolbarContext, selectedEntity: Lite<Entity> | null }): React.ReactNode {
 
@@ -473,11 +470,10 @@ function ToolbarMenuItemsEntityType(p: { response: ToolbarResponse<ToolbarMenuEn
         }
     }, [active, p.response]);
 
-    // Signum's "fill the display model of a lite we only know the id of" effect. It matters for the lite
-    // `inferActive` builds out of the URL (`newLite(type, id)`, no toStr). altea's `Navigator.useFillToString`
-    // is not ported yet (it needs the /api/liteModels route), so the lite is re-FETCHED through the query —
-    // which is what Signum's effect does in the found case too — and REPLACED (an altea Lite's `toStr` is
-    // readonly, so a not-found id gets a fresh lite carrying the message instead of Signum's `.model` write).
+    // Fill the display string of a lite we only know the id of — the lite `inferActive` builds out of the
+    // URL (`newLite(type, id)`, no toStr). `Navigator.useFillToString` is not ported yet (it needs the
+    // /api/liteModels route), so the lite is re-FETCHED through the query and REPLACED: a Lite's `toStr` is
+    // readonly, so a not-found id gets a fresh lite carrying the message.
     React.useEffect(() => {
         const current = selEntityRef.current;
         if (!current || current.toString())
@@ -503,9 +499,8 @@ function ToolbarMenuItemsEntityType(p: { response: ToolbarResponse<ToolbarMenuEn
     }
 
     const ti = getTypeInfo(entityType);
-    // altea Lines read their member type from the TypeContext (no `type=` prop), so the picker binds through
-    // a context rooted at the TYPE's own PropertyRoute — `Lite<ti>` — instead of Signum's explicit
-    // `type={{ name: entityType, isLite: true }}`.
+    // Lines read their member type from the TypeContext (there is no `type=` prop), so the picker binds
+    // through a context rooted at the TYPE's own PropertyRoute — `Lite<ti>`.
     const ctx = new TypeContext<Lite<Entity> | null>(undefined, undefined,
         new TypeReference({ type: () => ti.ctor!, lite: true, isNullable: true }),
         new RefBinding(selEntityRef, "current"));
@@ -540,7 +535,7 @@ function ToolbarMenuItemsEntityType(p: { response: ToolbarResponse<ToolbarMenuEn
     );
 }
 
-/** Signum's `simplifyForEntity`: drop the elements an entity-scoped menu should hide for THIS entity, then
+/** Drop the elements an entity-scoped menu should hide for THIS entity, then
  *  re-run the divider / pure-header cleanup the server does for the unscoped case. */
 export function simplifyForEntity(resp: ToolbarResponse<any>[], selectedEntity: Lite<Entity>, hiddenGuids?: Set<string>): ToolbarResponse<any>[] {
     const result = resp
@@ -549,9 +544,9 @@ export function simplifyForEntity(resp: ToolbarResponse<any>[], selectedEntity: 
             if (hiddenGuids && tr.guid && hiddenGuids.has(tr.guid))
                 return null;
 
-            // DEFERRED (see the file header): Signum also drops an element whose `queryKey` is not allowed in
-            // the selected entity's DOMAIN (`typeAllowedInDomain(tr.queryKey, selectedEntity)`) — altea has no
-            // client-side type-conditions-in-domain feed yet.
+            // DEFERRED (see the file header): an element whose `queryKey` is not allowed in the selected
+            // entity's DOMAIN should be dropped here, but there is no client-side
+            // type-conditions-in-domain feed to ask.
 
             if (tr.elements && tr.elements.length > 0) {
                 const inner = simplifyForEntity(tr.elements, selectedEntity, hiddenGuids);
@@ -603,7 +598,7 @@ function containsResponse(r: ToolbarResponse<any>, active: ToolbarResponse<any>)
     return r == active || (r.elements != null && r.elements.some(e => containsResponse(e, active)));
 }
 
-/** Signum's `ToolbarSwitcher`: one slot that switches between N menus (the pick lives in localStorage). */
+/** One slot that switches between N menus (the pick lives in localStorage). */
 function ToolbarSwitcher(p: { response: ToolbarResponse<ToolbarSwitcherEntity>, ctx: ToolbarContext, selectedEntity: Lite<Entity> | null }): React.ReactElement {
 
     const ts = p.response.content!;
@@ -697,7 +692,7 @@ export function ToolbarNavItem(p: { title: string | undefined, content?: Lite<En
     );
 }
 
-/** Signum's `liteKeyOrQuery`: the `data-toolbar-content` attribute the Playwright proxy addresses items by —
+/** The `data-toolbar-content` attribute the Playwright proxy addresses items by —
  *  a query element is identified by its KEY, everything else by its lite key. */
 export function liteKeyOrQuery(content: Lite<Entity> | null | undefined): string | null {
     return content == null ? null : content.entityType === QueryEntity ? content.toString() : content.key();

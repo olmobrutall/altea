@@ -6,25 +6,23 @@ import { FileEntity, FileEmbedded, FilePathEmbedded } from "../data/Files";
 import { FilePathEmbeddedLogic } from "./FilePathEmbeddedLogic";
 import { calculateMD5Hash, mimeType } from "./FileTypeAlgorithm";
 
-// Port of Signum.Files' FilesController (the download half) + FilesServer.cs. A file is downloaded by naming
-// its OWNER — the root entity type + id + the property route to the embedded — never by naming the stored path:
-// the server re-reads the embedded from the database, so the entity's own read rules (type auth, row-level
-// conditions) gate the download, and a stored suffix is never guessable from the URL.
+// Port of Signum.Files' FilesController (the download half) + FilesServer.cs — see docs/port/Files.md.
 //
-// altea divergences:
-//  - Signum also serves the standalone `FileEntity` / `FilePathEntity` rows (`downloadFile` /
-//    `downloadFilePath`); those entities are not ported, so only the EMBEDDED routes exist.
-//  - Signum parses a full PropertyRoute (with MList rowId support). altea walks the dotted path on the
-//    retrieved entity, and a `@part` COLLECTION step is addressed by the row's id via `?rowId=` — one
-//    collection level, which is what a file field needs in practice.
-//  - Signum's per-file max-age knob lives in FilePathLogic (not ported, it is the FilePathEntity module);
-//    altea keeps it here, as `FilesServer.maxAge`, next to the only code that reads it.
+// An EMBEDDED file is downloaded by naming its OWNER — the root entity type + id + the property route —
+// never by naming the stored path: the server re-reads the embedded from the database, so the entity's own
+// read rules (type auth, row-level conditions) gate the download and a stored suffix is never guessable
+// from the URL. A `@part` COLLECTION step is addressed by the row's id via `?rowId=`, one level, which is
+// what a file field needs in practice.
+//
+// A FileEntity is the exception and has to be: it IS a row and may have several owners, so it is addressed
+// by its own id and gated by FileEntity's own type authorization, which `retrieve` applies like any other
+// read. `FilesServer.maxAge` lives here, next to the only code that reads it.
 
 export namespace FilesServer {
     let started = false;
 
-    /** Signum's `FilePathLogic.MaxAge` — how long (seconds) a downloaded file may sit in the browser cache;
-     *  one month, like Signum. A month is safe because the file's HASH is both in the URL
+    /** How long (seconds) a downloaded file may sit in the browser cache; one month.
+     *  A month is safe because the file's HASH is both in the URL
      *  (`FilesClient.fileUrl`) and in the response ETag: replacing a file's bytes changes its URL, and a
      *  client revalidating a stale copy of the OLD url gets 200 + the new bytes rather than a 304. */
     export let maxAge: (file: FilePathEmbedded | FileEmbedded | FileEntity) => number = () => 30 * 24 * 60 * 60;
@@ -53,11 +51,10 @@ export namespace FilesServer {
                 sendFile(res, value.fileName, bytes);
             });
 
-        // The bytes of a FileEntity — Signum's `api/files/downloadFile/{fileId}`. Addressed by the file's
-        // OWN id, because unlike the embedded shapes it IS a row: there is no owner to route through, and
-        // it may have several. The gate is therefore FileEntity's own type authorization, which
-        // `Database.retrieve` applies like any other read — so a role that may not read FileEntity cannot
-        // pull bytes out by guessing ids.
+        // The bytes of a FileEntity, addressed by the file's OWN id — unlike the embedded shapes it IS a
+        // row: there is no owner to route through, and it may have several. The gate is therefore
+        // FileEntity's own type authorization, which `retrieve` applies like any other read, so a role
+        // that may not read FileEntity cannot pull bytes out by guessing ids.
         ws.get("/api/files/downloadFile/:fileId",
             { params: CustomType<{ fileId: string }>() },
             async (req, res) => {
@@ -81,8 +78,8 @@ export namespace FilesServer {
                 if (!(value instanceof FileEmbedded))
                     throw new Error(`Route '${route}' does not point to a FileEmbedded`);
 
-                // A FileEmbedded keeps no hash column (neither does Signum's) — its bytes are already in
-                // hand, so hash them now for the ETag.
+                // A FileEmbedded keeps no hash column — its bytes are already in hand, so hash them now
+                // for the ETag.
                 if (cache(req, res, value, calculateMD5Hash(value.binaryFile)))
                     return;
 
@@ -141,9 +138,8 @@ interface FileResponse {
     type(t: string): { send(body: unknown): void };
 }
 
-/** Signum's `FilesCacheControl` + the hash half of its download URLs: stamp `Cache-Control` and the file's
- *  `ETag`, and answer `304 Not Modified` when the client already holds those exact bytes. Returns true when
- *  it answered (the caller must not send a body). */
+/** Stamp `Cache-Control` and the file's `ETag`, and answer `304 Not Modified` when the client already
+ *  holds those exact bytes. Returns true when it answered (the caller must not send a body). */
 function cache(req: FileRequest, res: FileResponse, file: FilePathEmbedded | FileEmbedded | FileEntity, hash: string | null): boolean {
     res.setHeader("Cache-Control", `private, max-age=${FilesServer.maxAge(file)}`);
 

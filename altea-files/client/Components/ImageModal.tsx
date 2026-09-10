@@ -9,13 +9,11 @@ import { FilesClient } from "../FilesClient";
 import { FileImage } from "./FileImage";
 import "./Files.css";
 
-// Port of Signum.Files' Components/ImageModal.tsx — the full-size view of an image behind a thumbnail
-// (FileImageLine). Ctrl-click / middle-click opens it in a new tab instead of the modal, like Signum.
+// Port of Signum.Files' Components/ImageModal.tsx — see docs/port/Files.md.
 //
-// altea divergences: the file is one of the two EMBEDDED holders, and its URL comes from
-// `FilesClient.fileUrl` (Signum resolved one from its per-type `configurations` registry) — so the new-tab
-// path carries the same optional owner + route fallback the other file components take; and the modal has a
-// close button in the header only (Signum's markup, minus its `data-dismiss` leftover from Bootstrap 4).
+// The full-size view of an image behind a thumbnail (FileImageLine). Ctrl-click / middle-click opens it in
+// a new tab instead of the modal, and that path takes the same optional owner + route fallback the other
+// file components do.
 
 export interface ImageModalProps extends IModalProps<undefined> {
     file: FilePathEmbedded | FileEmbedded;

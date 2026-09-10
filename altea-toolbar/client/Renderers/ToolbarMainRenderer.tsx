@@ -15,12 +15,10 @@ import { ToolbarConfig } from "../ToolbarConfig";
 import "@altea/altea/client/Frames/Widgets.css";
 import "./Toolbar.css";
 
-// Faithful port of Signum's ToolbarMainRenderer.tsx (Signum.Toolbar/Renderers/ToolbarMainRenderer.tsx): the
-// `Main` toolbar — a PAGE of big icon cards grouped by header / divider, where a card that has children opens
-// a modal with the nested cards (a launcher / app-menu style home page).
+// Port of Signum.Toolbar's Renderers/ToolbarMainRenderer.tsx — see docs/port/Toolbar.md.
 //
-// altea divergences: import paths only (`getToString(lite)` → `lite.toString()`, and `PropTypes` — an unused
-// Signum import — is dropped).
+// The `Main` toolbar: a PAGE of big icon cards grouped by header / divider, where a card that has children
+// opens a modal with the nested cards — a launcher / app-menu style home page.
 
 export interface ToolbarMainRendererProps {
 }
@@ -159,8 +157,6 @@ function ToolbarMainModal(p: ToolbarMainModalProps): React.ReactElement {
     );
 }
 
-// Signum names this `ToolbarMainModalModal` (a typo it carries); the single `Modal` reads better and the
-// symbol is module-private.
 ToolbarMainModal.show = (tr: ToolbarResponse<any>): Promise<undefined> => {
     return openModal<undefined>(<ToolbarMainModal tr={tr} />);
 };

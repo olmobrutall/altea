@@ -5,15 +5,15 @@ import type { Entity } from "@altea/altea/data/entity";
 import { FileEntity, FileEmbedded, FilePathEmbedded, FileMessage, toComputerSize } from "../../data/Files";
 import { FilesClient } from "../FilesClient";
 
-// Port of Signum.Files' Components/FileDownloader.tsx — renders a stored file as a link that VIEWS it (when the
-// browser can) plus a save button. Two sources of bytes:
+// Port of Signum.Files' Components/FileDownloader.tsx — see docs/port/Files.md.
+//
+// Renders a stored file as a link that VIEWS it (when the browser can) plus a save button. Two sources of
+// bytes:
 //   • a file still in memory (`binaryFile`, e.g. just picked by the uploader) → a blob URL,
 //   • a saved file → the owner-addressed download URL (FilesClient.fileUrl → /api/files/download…).
 //
-// altea divergences: Signum's `FileDownloaderConfiguration` registry per file type collapses to the two
-// embedded types (see FilesClient), and `entityOrLite` is just the file value (altea has no standalone file
-// entities to fetch). The owner + property route props are a FALLBACK: a saved FilePathEmbedded carries its
-// own address (the server stamps rootType/entityId/propertyRoute on it), which `FilesClient.fileUrl` prefers.
+// The owner + property route props are a FALLBACK: a saved FilePathEmbedded carries its own address (the
+// server stamps rootType / entityId / propertyRoute on it), which `FilesClient.fileUrl` prefers.
 
 export type DownloadBehaviour = "SaveAs" | "View" | "ViewOrSave" | "None";
 
@@ -76,7 +76,7 @@ export function FileDownloader(p: FileDownloaderProps): React.JSX.Element {
     );
 }
 
-/** Signum's `downloadBase64` / `viewBase64` — a URL for bytes the client already holds. */
+/** A URL for bytes the client already holds. */
 export function blobUrl(bytes: Uint8Array, fileName: string): string {
     const info = FilesClient.infoFor(fileName);
     // The extension's content type decides whether the browser renders the blob or offers to save it; an
@@ -85,5 +85,5 @@ export function blobUrl(bytes: Uint8Array, fileName: string): string {
     return URL.createObjectURL(new Blob([bytes as unknown as BlobPart], { type: info?.mimeType }));
 }
 
-/** The file's size for a label / tooltip (Signum's toComputerSize, re-exported from the data layer). */
+/** The file's size for a label / tooltip (re-exported from the data layer). */
 export { toComputerSize };

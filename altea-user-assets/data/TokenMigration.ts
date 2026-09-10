@@ -3,8 +3,10 @@ import { Entity } from "@altea/altea/data/entity";
 import { entity, quoted, ticksColumn, uniqueIndex } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 
-// Port of Signum.UserAssets' TokenMigrations/TokenMigrationEntity.cs — one row per APPLIED token
-// migration, the same shape a SQL migration row has: the version, and the comment from its file name.
+// Port of Signum.UserAssets' TokenMigrations/TokenMigrationEntity.cs — see docs/port/UserAssets.md.
+//
+// One row per APPLIED token migration, the same shape a SQL migration row has: the version, and the
+// comment from its file name.
 //
 // The problem the whole subsystem exists for: a user asset (a UserQuery, a UserChart, an email or office
 // template) stores its query tokens as STRINGS. Rename a field or a query and every stored token that
@@ -14,7 +16,7 @@ import { stringLengthValidator } from "@altea/altea/data/validators";
 
 @reflect
 @entity("System", "Transactional")
-// Signum's `[TicksColumn(false)]`: written once by the runner, never edited by a person.
+// Written once by the runner, never edited by a person.
 @ticksColumn(false)
 export class TokenMigrationEntity extends Entity {
     @uniqueIndex
@@ -24,7 +26,6 @@ export class TokenMigrationEntity extends Entity {
     @stringLengthValidator({ min: 0, max: 400 })
     comment: string | null;
 
-    /** Signum's `[AutoExpressionField] ToString() => VersionNumber`. */
     @quoted
     override toString(): string {
         return this.versionNumber;

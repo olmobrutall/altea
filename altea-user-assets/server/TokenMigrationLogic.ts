@@ -9,21 +9,15 @@ import { TokenMigrationEntity } from "../data/TokenMigration";
 import { TokenMigrationFile } from "./TokenMigrationFile";
 import type { TokenSyncContext } from "./TokenSyncContext";
 
-// Port of Signum.UserAssets' TokenMigrations/TokenMigrationLogic.cs — the registry and the file
-// bookkeeping. The RUNNER (which drives a session) is TokenMigrationRunner; this module owns the
-// subscriber event, the file naming, and the directory listing.
+// Port of Signum.UserAssets' TokenMigrations/TokenMigrationLogic.cs — see docs/port/UserAssets.md.
 //
-// altea divergences, documented inline:
-//  - `PermissionLogic.RegisterPermissions(UserAssetPermission.UserAssetsToXML)` has no counterpart — a
-//    declared `init()` symbol is picked up by the symbol synchronizer (the call every other altea module
-//    drops). It was also a slightly odd line in Signum: this module does not use that permission.
-//  - `MigrationsDirectory` defaults to a SETTABLE slot rather than reading
-//    `SqlMigrationRunner.MigrationsDirectory` directly, because @altea/altea-user-assets must not depend
-//    on @altea/altea-migrations (a user-assets app need not have migrations at all). The app points it at
-//    the same directory — see eastwind's Starter — which is what keeps a `.tokens.json` next to the
-//    `.sql` migration that caused it.
-//  - the subscriber list is an ARRAY of async handlers, and firing awaits each; Signum's `event` +
-//    `GetInvocationListTyped()` is the same thing with reflection for the names.
+// The registry and the file bookkeeping: the subscriber event, the file naming, the directory listing.
+// The RUNNER that drives a session is TokenMigrationRunner.
+//
+// `migrationsDirectory` is a SETTABLE slot rather than a read of `SqlMigrationRunner.migrationsDirectory`,
+// because this package must not depend on @altea/altea-migrations — a user-assets app need not have
+// migrations at all. The app points both at one directory (see eastwind's Starter), which is what keeps a
+// `.tokens.json` beside the `.sql` migration that caused it.
 
 /** Whether a migration file carries token decisions or only query renames. */
 export type MigrationKind = "Tokens" | "Query";
@@ -39,7 +33,7 @@ export interface MigrationInfo {
 
 export namespace TokenMigrationLogic {
     /**
-     * Signum's `TokenSynchronizing` event. A subscriber walks ITS entities, consults the context to
+     * A subscriber walks ITS entities, consults the context to
      * resolve or record each stale token, and either captures decisions (Record, nothing saved) or
      * replays them (Apply, saved per entity).
      *
@@ -77,7 +71,6 @@ export namespace TokenMigrationLogic {
     let started = false;
     export function isStarted(): boolean { return started; }
 
-    /** Signum's `AssertStarted`. */
     export function assertStarted(): void {
         if (!started)
             throw new Error("TokenMigrationLogic is not started. Call TokenMigrationLogic.start in your application startup.");
@@ -87,7 +80,7 @@ export namespace TokenMigrationLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        // Signum's projection is (Entity, Id, VersionNumber, Comment); altea's server registration takes
+        // The server registration takes
         // none (no QueryDescription), so those are CLIENT default columns.
         sb.include(TokenMigrationEntity).withQuery();
 
@@ -95,7 +88,7 @@ export namespace TokenMigrationLogic {
     }
 
     /**
-     * Signum's `AfterMigrationCreated` — drain the QUERY renames a just-created SQL migration resolved
+     * Drain the QUERY renames a just-created SQL migration resolved
      * into a sibling `.query.json`.
      *
      * This is what makes a query rename survive: the schema sync knows `OldQuery` became `NewQuery`, and
@@ -109,9 +102,7 @@ export namespace TokenMigrationLogic {
         if (file.isEmpty)
             return;
 
-        // Signum's `Path.GetFileNameWithoutExtension(fullFileName) + QueryFileExtension` — note that
-        // drops the DIRECTORY, so Signum writes to the process's working directory. Kept alongside the
-        // migration instead, which is where the file belongs and where ReadMigrationsDirectory looks.
+        // Beside the migration, which is where the file belongs and where readMigrationsDirectory looks.
         const withoutExtension = basename(fullFileName).replace(/\.sql$/i, "");
         const fullPath = join(dirname(fullFileName), withoutExtension + queryFileExtension);
 
@@ -119,7 +110,7 @@ export namespace TokenMigrationLogic {
         file.save(fullPath);
     }
 
-    /** Signum's `FireTokenSynchronizing` — every subscriber, in registration order, named as it runs. */
+    /** Every subscriber, in registration order, named as it runs. */
     export async function fireTokenSynchronizing(ctx: TokenSyncContext): Promise<void> {
         for (const { name, handler } of tokenSynchronizing) {
             SafeConsole.writeColor(Color.white, name);
@@ -129,7 +120,7 @@ export namespace TokenMigrationLogic {
     }
 
     /**
-     * Signum's `ReadMigrationsDirectory` — every migration file, both kinds, sorted by version.
+     * Every migration file, both kinds, sorted by version.
      */
     export function readMigrationsDirectory(silent = false): MigrationInfo[] {
         const dir = migrationsDirectory();

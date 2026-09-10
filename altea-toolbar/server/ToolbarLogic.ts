@@ -32,76 +32,65 @@ import type { ToolbarResponse } from "../data/ToolbarResponse";
 import { registerToolbarXml } from "./ToolbarXml";
 import { ToolbarServer } from "./ToolbarServer";
 
-// Port of Signum's ToolbarLogic (Signum.Toolbar/ToolbarLogic.cs). Registers the three toolbar entities +
-// their Save/Delete operations + queries, their in-memory caches (Signum's ResetLazy GlobalLazys), the XML
-// (de)serializers, the CONTENT CONFIG registry other modules extend, and — when a web host is present — the
-// HTTP surface. Its heart is `toResponseList`: turning the stored elements into the authorization-filtered,
-// label-resolved ToolbarResponse tree the renderers draw.
+// Port of Signum.Toolbar's ToolbarLogic.cs — see docs/port/Toolbar.md.
 //
-// altea divergences, documented inline:
-//  - Signum runs its element checks + the recursion check from `sb.Schema.EntityEvents<T>().Saving`. altea's
-//    `saving` event is SYNCHRONOUS (no sync DB access), and the recursion check must read the referenced
-//    toolbars — so the element checks moved to owner-level `@validate`s (data/Toolbar.ts, they need no
-//    DB) and the recursion check runs in the Save operation's `execute` (below). Every save goes through the
-//    registered Save operation (the XML importer included), so the coverage is the same.
-//  - Signum's `Schema.Current.GetInMemoryFilter<T>(userInterface: false)` → UserAssetOwnerAuth.filterVisible
-//    (async — a condition may need DB-filling), applied by each lookup because the caches are filled in
-//    ExecutionMode.global, where the row-level query filter never ran. Same pattern as dashboard/user-queries.
-//  - `PropertyRouteTranslationLogic.TranslatedField` / `TranslatedMList` are dropped with the rest of
-//    instance translation (the dashboard port's deferral): the raw stored name / label is returned.
-//  - `RegisterDelete<T>`'s Signum implementation is a SQL-SYNC cascade (WithCascadeDeleteMListBy +
-//    PreDeleteSqlSync + UnsafeDeletePreCommandMList). altea has no MList tables (an element is a `@part`
-//    ROW) and no `Administrator.UnsafeDeletePreCommandMList`, so the port hangs off the `preUnsafeDelete`
-//    event and deletes the orphaned element rows itself — see `registerDelete`.
-//  - Signum's `AuthLogic.HasRuleOverridesEvent` hook (a role has toolbar overrides) has no altea analogue
-//    yet; noted where it belongs.
-//  - The response builder is ASYNC throughout (altea's authorization is async).
+// Registers the three toolbar entities + their Save / Delete operations + queries, their in-memory caches,
+// the XML (de)serializers, the CONTENT CONFIG registry other modules extend, and — when a web host is
+// present — the HTTP surface. Its heart is `toResponseList`: turning the stored elements into the
+// authorization-filtered, label-resolved ToolbarResponse tree the renderers draw.
+//
+// WHERE THE CHECKS RUN: the `saving` event is SYNCHRONOUS (no sync DB access) and the recursion check must
+// READ the referenced toolbars — so the element checks are owner-level `@validate`s (data/Toolbar.ts, they
+// need no DB) and the recursion check runs in the Save operation's `execute` below. Every save goes through
+// that operation, the XML importer included, so the coverage is the same.
+//
+// Visibility goes through `UserAssetOwnerAuth.filterVisible` — async, since a condition may need DB-filling
+// — applied by each LOOKUP, because the caches are filled in ExecutionMode.global where the row-level query
+// filter never ran. The response builder is async throughout for the same reason.
 
-// ---- The content-config registry (Signum's ToolbarContentConfig<T> + ContentConfigDictionary) -----------
+// ---- The content-config registry -----------------------------------------------------------------------
 
-/** Signum's `ToolbarContentConfig<T>` (ToolbarLogic.cs): everything the response builder needs to know about
- *  ONE kind of element content — may this role use it, what does it show when the element names no label /
- *  icon of its own, which query does it ultimately run, and (for a permission) does it expand into a whole
- *  block of synthetic responses. Every callback is async here (altea's auth is).
+/** Everything the response builder needs to know about ONE kind of element content: may this role use it,
+ *  what does it show when the element names no label / icon of its own, which query does it ultimately run,
+ *  and (for a permission) does it expand into a whole block of synthetic responses. Every callback is
+ *  async, because authorization is.
  *
- *  A module registers the config for its own asset from its own `XxxLogic.start` (Signum did it inside
- *  `sb.Schema.WhenIncluded<ToolbarEntity>`) — see altea-user-queries / altea-chart / altea-dashboard. */
+ *  A module registers the config for its own asset from its own `XxxLogic.start` — see altea-user-queries /
+ *  altea-chart / altea-dashboard. */
 export interface ToolbarContentConfig<T extends Entity = Entity> {
-    /** Signum's `Func<Lite<T>, bool> IsAuthorized` (required). */
+    /** Required. */
     isAuthorized(lite: Lite<T>): Promise<boolean>;
-    /** Signum's `Func<Lite<T>, string> DefaultLabel` (required). */
+    /** Required. */
     defaultLabel(lite: Lite<T>): Promise<string> | string;
     defaultIconName?(lite: Lite<T>): Promise<string | null> | string | null;
     defaultIconColor?(lite: Lite<T>): Promise<string | null> | string | null;
-    /** Signum's `CustomResponses`: replace this ONE element with a list of synthetic ones (used by
+    /** Replace this ONE element with a list of synthetic ones (used by
      *  `customPermissionResponse` — a permission that stands for a whole generated block). */
     customResponses?(lite: Lite<T>): Promise<ToolbarResponse[] | null> | ToolbarResponse[] | null;
-    /** Signum's `GetRelatedQuery`: the query this content runs, for the client's per-entity filtering. */
+    /** The query this content runs, for the client's per-entity filtering. */
     getRelatedQuery?(lite: Lite<T>): Promise<QueryEntity | null> | QueryEntity | null;
 }
 
-// Signum's `static Dictionary<Type, IToolbarContentConfig> ContentConfigDictionary` — keyed by the CONTENT
+// Keyed by the CONTENT
 // entity ctor (altea's Lite carries the ctor in `entityType`, so no clean-name detour is needed).
 const contentConfigs = new Map<Function, ToolbarContentConfig>();
 
 export namespace ToolbarLogic {
 
-    // Signum's three `ResetLazy<FrozenDictionary<Lite<X>, X>>` caches. Arrays here (the lookups are by id /
-    // by predicate, and a Lite is not a value key in JS) — as in DashboardLogic.dashboardsLazy.
+    // ARRAYS rather than dictionaries keyed by lite: the lookups are by id or by predicate, and a Lite is
+    // not a value key in JS — as in DashboardLogic.dashboardsLazy.
     export let toolbarsLazy: ResetLazy<ToolbarEntity[]> = null!;
     export let toolbarMenusLazy: ResetLazy<ToolbarMenuEntity[]> = null!;
     export let toolbarSwitchersLazy: ResetLazy<ToolbarSwitcherEntity[]> = null!;
 
-    /** Signum's `CustomPermissionResponse`: a permission symbol whose element expands into a generated
+    /** A permission symbol whose element expands into a generated
      *  block of responses (the app registers the generator). Keyed by the permission KEY. */
     export const customPermissionResponse = new Map<string, () => Promise<ToolbarResponse[]> | ToolbarResponse[]>();
 
-    /** Signum's `ToolbarContentConfig<T>.Register()` extension. */
     export function registerContentConfig<T extends Entity>(type: Type<T>, config: ToolbarContentConfig<T>): void {
         contentConfigs.set(type, config as unknown as ToolbarContentConfig);
     }
 
-    /** Signum's `GetContentConfig<T>()`. */
     export function getContentConfig<T extends Entity>(type: Type<T>): ToolbarContentConfig<T> {
         const c = contentConfigs.get(type);
         if (c == null)
@@ -121,8 +110,7 @@ export namespace ToolbarLogic {
         UserAssetLogic.start(sb);
 
         // `withSave(op, body)` runs `body` and then saves implicitly (Graph.Execute.avoidImplicitSave is
-        // false), so the recursion check Signum ran from the `Saving` event rides along here — see the
-        // header note. Signum's `WithSave`/`WithDelete`/`WithQuery` shapes are otherwise untouched.
+        // false), which is where the recursion check rides — see the header note.
         sb.include(ToolbarEntity)
             .withSave(ToolbarOperation.Save, { execute: tb => ToolbarLogic.assertNoRecursion(tb) })
             .withDelete(ToolbarOperation.Delete)
@@ -138,18 +126,16 @@ export namespace ToolbarLogic {
             .withDelete(ToolbarSwitcherOperation.Delete)
             .withQuery();
 
-        // Signum: `sb.Schema.Settings.AssertImplementedBy(t => t.Elements.First().Content, typeof(X))` for
-        // each of the five. altea declares that list ON the field (`@implementedBy` in data/Toolbar.ts) and
-        // the app widens it, so there is nothing to assert here.
+        // Nothing asserts the content implementations: the list is declared ON the field (`@implementedBy`
+        // in data/Toolbar.ts) and the app widens it.
         //
-        // Signum also registers `AuthLogic.HasRuleOverridesEvent` (does this role own any toolbar?) — altea's
-        // AuthLogic has no such hook yet; when it lands, add the Toolbar/ToolbarMenu owner probe here.
+        // MISSING: `AuthLogic.hasRuleOverrides` (does this role own any toolbar?) has no hook yet; when one
+        // lands, add the Toolbar / ToolbarMenu owner probe here.
 
-        // How the three roots are (de)serialized to/from XML + which Save operation the importer runs
-        // (Signum's `UserAssetsImporter.Register("Toolbar", ToolbarOperation.Save)` &c.).
+        // How the three roots are (de)serialized to / from XML + which Save operation the importer runs.
         registerToolbarXml();
 
-        // Signum's three GlobalLazys; the caches back every response lookup. A plain table read is enough:
+        // The caches behind every response lookup. A plain table read is enough:
         // EVERY query is completed by EntityCompleter (QueryBinder.bindQuery), whose visitFieldEntityArray
         // realises each @part collection as a correlated child projection — so each root arrives with its
         // element / option rows, exactly as `retrieve` would deliver them.
@@ -165,11 +151,9 @@ export namespace ToolbarLogic {
             await table(ToolbarSwitcherEntity).toArray() as ToolbarSwitcherEntity[],
             { invalidateWith: [ToolbarSwitcherEntity] });
 
-        // Signum calls `RegisterDelete<T>` once per content type — four times here, plus once from every
-        // module that adds a content type (`UserQueryLogic`, `UserChartLogic`, …, each inside its own
-        // `WhenIncluded<ToolbarEntity>`). altea reads the CONTENT field's `@implementedBy` list instead, which
-        // the app has already widened by the time any Logic.start runs (EntityOverrides.start precedes the
-        // schema build) — so every content type is covered with no per-module call and no ordering hazard.
+        // Driven off the CONTENT field's `@implementedBy` list, which the app has already widened by the
+        // time any Logic.start runs (EntityOverrides.start precedes the schema build) — so every content
+        // type is covered with no per-module call and no ordering hazard.
         for (const ti of contentTypeInfos())
             registerDelete(sb, ti.ctor as Type<Entity>);
 
@@ -210,8 +194,6 @@ export namespace ToolbarLogic {
             defaultLabel: lite => SymbolLogic.toSymbol(PermissionSymbol, symbolKeyOf(lite)).niceToString(),
             isAuthorized: async lite =>
                 await PermissionAuthLogic.isAuthorized(SymbolLogic.toSymbol(PermissionSymbol, symbolKeyOf(lite))),
-            // Signum sets this as a separate `GetContentConfig<PermissionSymbol>().CustomResponses = …`
-            // assignment; folded into the registration here (altea's config is a plain object).
             customResponses: async lite => {
                 const action = customPermissionResponse.get(symbolKeyOf(lite));
                 return action == null ? null : await action();
@@ -222,20 +204,19 @@ export namespace ToolbarLogic {
             ToolbarServer.start(sb.webBuilder);
     }
 
-    // ---- Owner scoping (Signum's RegisterUserTypeCondition / RegisterRoleTypeCondition) ---------------
+    // ---- Owner scoping --------------------------------------------------------------------------------
     //
-    // Signum's `RegisterTypeCondition(sb, tc, ownerType, isAllowed)` registers the SAME predicate on all
-    // three roots; altea's shared helper does one entity type per call, so each wrapper loops the three.
-    // Signum's `AssertImplementedBy(t => t.Owner, ownerType)` is dropped (the list is on the field).
+    // The SAME predicate on all three roots; the shared helper does one entity type per call, so each
+    // wrapper loops them.
 
-    /** Signum's `ToolbarLogic.RegisterUserTypeCondition` — the toolbar belongs to the current USER. */
+    /** The toolbar belongs to the current USER. */
     export function registerUserTypeCondition(typeCondition: TypeConditionSymbol): void {
         UserAssetOwnerAuth.registerUserTypeCondition(ToolbarEntity, typeCondition);
         UserAssetOwnerAuth.registerUserTypeCondition(ToolbarMenuEntity, typeCondition);
         UserAssetOwnerAuth.registerUserTypeCondition(ToolbarSwitcherEntity, typeCondition);
     }
 
-    /** Signum's `ToolbarLogic.RegisterRoleTypeCondition` — global (no owner), or owned by one of the current
+    /** Global (no owner), or owned by one of the current
      *  user's roles. */
     export function registerRoleTypeCondition(typeCondition: TypeConditionSymbol): void {
         UserAssetOwnerAuth.registerRoleTypeCondition(ToolbarEntity, typeCondition);
@@ -243,13 +224,13 @@ export namespace ToolbarLogic {
         UserAssetOwnerAuth.registerRoleTypeCondition(ToolbarSwitcherEntity, typeCondition);
     }
 
-    // Signum ALSO has `RegisterAllowedTypeTypeCondition` + the `AllowedTypes` dictionary (a toolbar owned by
-    // a "role" that stands for an app-defined capability). It has no consumer in Southwind and no altea
-    // analogue for `Type.ToTypeEntity()`-keyed capability sets — DEFERRED, noted here where it belongs.
+    // DEFERRED, noted where it belongs: `registerAllowedTypeTypeCondition` + an `allowedTypes` dictionary
+    // (a toolbar owned by a "role" that stands for an app-defined capability). It has no consumer in
+    // Southwind and no analogue here for capability sets keyed by type.
 
-    // ---- Lookups (Signum's GetCurrent / GetCurrentToolbarResponse / GetToolbarMenuResponse) ------------
+    // ---- Lookups ---------------------------------------------------------------------------------------
 
-    /** Signum's `GetCurrent(location)`: the highest-priority toolbar of that location the current role may
+    /** The highest-priority toolbar of that location the current role may
      *  read. `location` arrives as the enum MEMBER NAME (the wire form). */
     export async function getCurrent(location: ToolbarLocationKeys): Promise<ToolbarEntity | undefined> {
         const value = Enum.toValue(ToolbarLocation, location);
@@ -261,9 +242,9 @@ export namespace ToolbarLogic {
         return (await UserAssetOwnerAuth.filterVisible(candidates))[0];
     }
 
-    /** Signum's `GetCurrentToolbarResponse(location)`: the whole tree for the current toolbar, or null when
+    /** The whole tree for the current toolbar, or null when
      *  there is none / nothing in it survives authorization. The root is a synthetic Header carrying the
-     *  toolbar itself, exactly as in Signum. */
+     *  toolbar itself. */
     export async function getCurrentToolbarResponse(location: ToolbarLocationKeys): Promise<ToolbarResponse | null> {
         const curr = await getCurrent(location);
         if (curr == null)
@@ -281,7 +262,7 @@ export namespace ToolbarLogic {
         };
     }
 
-    /** Signum's `GetToolbarMenuResponse(lite)`: one menu's tree (the client fetches a menu on demand — a
+    /** One menu's tree (the client fetches a menu on demand — a
      *  dashboard's ToolbarMenuPart, a switcher option opened later). */
     export async function getToolbarMenuResponse(id: string): Promise<ToolbarResponse | null> {
         const all = await toolbarMenusLazy.value();
@@ -301,16 +282,14 @@ export namespace ToolbarLogic {
         };
     }
 
-    // ---- The response builder (Signum's ToResponseList / ToResponse / IsPureHeader) -------------------
+    // ---- The response builder --------------------------------------------------------------------------
 
-    /** Signum's `ToResponseList`: group each element with the ExtraIcons that trail it, map each group to
+    /** Group each element with the ExtraIcons that trail it, map each group to
      *  its response(s), then repeatedly drop the dividers and headers left dangling by whatever was filtered
      *  out for authorization. */
     export async function toResponseList(elements: ToolbarElementBaseEntity[]): Promise<ToolbarResponse[]> {
 
-        // `groupWhen(isKey, includeKeyInGroup: false, beforeFirstKey: "skip")` == Signum's
-        // `GroupWhen(a => a.Type != ExtraIcon, BeforeFirstKey.Skip)`: an ExtraIcon before any real element is
-        // dropped (the data-layer validation forbids it anyway).
+        // An ExtraIcon before any real element is DROPPED (the data-layer validation forbids one anyway).
         const groups = elements.groupWhen(e => typeOf(e) !== "ExtraIcon", false, "skip");
 
         const nested = await Promise.all(groups.map(gr => toResponse(gr.key, gr.elements)));
@@ -319,10 +298,9 @@ export namespace ToolbarLogic {
         for (;;) {
             // A divider is superfluous when it is first, follows another divider, or is LAST.
             //
-            // DIVERGENCE (bug fix): Signum's third condition reads `i == result.Count`, which can never hold
-            // for an in-range index — so a TRAILING divider survives on the server (its client twin,
-            // `simplifyForEntity`, tests `i == result.length - 1`). The intent is plainly the client's, so
-            // that is what is implemented.
+            // The third condition is `i === result.length - 1`, matching the client's `simplifyForEntity`.
+            // (Signum's server reads `i == result.Count`, which can never hold for an in-range index, so a
+            // TRAILING divider survives there. Do not "restore" it.)
             const extraDividers = result.filter((a, i) => a.type === "Divider" && (
                 i === 0 ||
                 result[i - 1].type === "Divider" ||
@@ -349,12 +327,11 @@ export namespace ToolbarLogic {
         }
     }
 
-    /** Signum's `IsPureHeader`. */
     function isPureHeader(tr: ToolbarResponse): boolean {
         return tr.type === "Header" && tr.content == null && !tr.url;
     }
 
-    /** Signum's `ToResponse(gr)`: one element (+ its trailing ExtraIcons) → zero, one or many responses.
+    /** One element (+ its trailing ExtraIcons) → zero, one or many responses.
      *  Null = the element is not authorized (or is an empty container), and is dropped. */
     async function toResponse(
         element: ToolbarElementBaseEntity,
@@ -394,8 +371,7 @@ export namespace ToolbarLogic {
             showCount: showCountOf(element),
             autoRefreshPeriod: (element.autoRefreshPeriod as number | null) ?? undefined,
             openInPopup: element.openInPopup,
-            // Only a ToolbarMenu element carries these two (Signum: `(element as ToolbarMenuElementEmbedded)?
-            // .AutoSelect == true`); on a Toolbar element they are simply absent.
+            // Only a ToolbarMenu element carries these two; on a Toolbar element they are simply absent.
             autoSelect: (element as { autoSelect?: boolean }).autoSelect === true,
             withEntity: (element as { withEntity?: boolean }).withEntity === true,
             extraIcons: extras.length === 0 ? undefined : await toExtraIcons(extras),
@@ -441,8 +417,8 @@ export namespace ToolbarLogic {
         return [result];
     }
 
-    /** The ExtraIcons trailing one element (Signum's inline `gr.Select(extra => …)` block). An extra icon
-     *  never nests, and one pointing at a nested Toolbar is dropped (Signum returns null for that case). */
+    /** The ExtraIcons trailing one element. An extra icon never nests, and one pointing at a nested Toolbar
+     *  is dropped. */
     async function toExtraIcons(extras: ToolbarElementBaseEntity[]): Promise<ToolbarResponse[]> {
         const list = await Promise.all(extras.map(async extra => {
             let config: ToolbarContentConfig | undefined;
@@ -475,7 +451,7 @@ export namespace ToolbarLogic {
         return list.notNull();
     }
 
-    /** Signum's `GetEntityType(Lite<ToolbarMenuEntity>)` — the menu's entity type as its CLEAN NAME (what
+    /** The menu's entity type as its CLEAN NAME (what
      *  the client's `tryGetTypeInfo` / `Finder` speak). */
     async function entityTypeCleanNameOf(menu: ToolbarMenuEntity): Promise<string | undefined> {
         if (menu.entityType == null)
@@ -486,7 +462,7 @@ export namespace ToolbarLogic {
         return cleanName || undefined;
     }
 
-    // ---- Cache reads (Signum's `Toolbars.Value.GetOrThrow(lite)` &c.) --------------------------------
+    // ---- Cache reads -----------------------------------------------------------------------------------
 
     export async function getToolbar(lite: Lite<ToolbarEntity>): Promise<ToolbarEntity> {
         return fromCache(await toolbarsLazy.value(), lite, "Toolbar");
@@ -507,11 +483,10 @@ export namespace ToolbarLogic {
         return found;
     }
 
-    // ---- The recursion check (Signum's IToolbar_Saving second half) ----------------------------------
+    // ---- The recursion check --------------------------------------------------------------------------
 
-    /** Signum's `DirectedGraph<IToolbarEntity>.Generate(tool, t => t.GetSubToolbars().Retrieve())` +
-     *  `FeedbackEdgeSet()`: a toolbar may not (transitively) contain itself. Only reachable-from-`tool`
-     *  roots are walked, and every referenced root comes from the caches. */
+    /** A toolbar may not (transitively) contain itself. Only roots reachable from `tool` are walked, and
+     *  every referenced root comes from the caches. */
     export async function assertNoRecursion(tool: IToolbarEntity): Promise<void> {
         if (tool.isNew)
             return;
@@ -562,14 +537,13 @@ export namespace ToolbarLogic {
         return undefined;
     }
 
-    // ---- RegisterDelete (Signum's ToolbarLogic.RegisterDelete<T>) ------------------------------------
+    // ---- registerDelete -------------------------------------------------------------------------------
 
-    /** Signum's `RegisterDelete<T>`: when a T that toolbar elements may point at is deleted, the elements
-     *  pointing at it must go too (Signum wrote SQL-sync cascades; see the header note).
+    /** When a T that toolbar elements may point at is deleted, the elements pointing at it must go too.
      *
-     *  altea: hangs off the `preUnsafeDelete` event of T — the one hook that fires before a set-based delete
-     *  — and deletes the orphaned `@part` element / option ROWS. Registered for the four content types
-     *  Signum registers; a module that adds a content type calls it too (see altea-user-queries). */
+     *  Hangs off the `preUnsafeDelete` event of T — the one hook that fires before a set-based delete — and
+     *  deletes the orphaned `@part` element / option ROWS. A module that adds a content type calls it too
+     *  (see altea-user-queries). */
     /** The concrete types a toolbar element's `content` may point at — the `@implementedBy` list on
      *  ToolbarElementBaseEntity.content, which both element tables inherit and the app widens. */
     export function contentTypeInfos(): TypeInfo[] {
@@ -614,8 +588,8 @@ export namespace ToolbarLogic {
 
     // ---- Small helpers ------------------------------------------------------------------------------
 
-    /** Signum's `IsQueryAllowed(lite)` — tolerant of a query row that no longer matches a registered query
-     *  (Signum swallowed the mismatch into StartParameters.IgnoredDatabaseMismatches). */
+    /** Tolerant of a query row that no longer matches a registered query
+     *  no longer matching a registered query. */
     async function isQueryAllowed(lite: Lite<QueryEntity>): Promise<boolean> {
         const queryName = queryNameOf(lite);
         if (queryName == null)
@@ -624,18 +598,16 @@ export namespace ToolbarLogic {
         return await QueryAuthLogic.isQueryAllowed(queryName, true);
     }
 
-    /** Signum's `InMemoryFilter<T>(entity)` — kept for the modules that call it from their own content
-     *  config (Signum's UserQueryLogic / UserChartLogic / DashboardLogic do). */
+    /** Kept for the modules that call it from their own content config. */
     export async function inMemoryFilter<T extends Entity>(entity: T): Promise<boolean> {
         return await UserAssetOwnerAuth.isVisible(entity);
     }
 }
 
-// A QueryEntity lite's toStr is its `key` (see data/queryEntity.ts); a Symbol lite's toStr is its `key`
-// (data/symbol.ts) — Signum read both the same way (`lite.ToString()!`).
+// A QueryEntity lite's toStr is its `key` (see data/queryEntity.ts), and so is a Symbol lite's
+// (data/symbol.ts) — hence one spelling for both.
 /** The registered QueryName behind a `Lite<QueryEntity>`, or undefined when this database has a query row
- *  no longer matching a registered query (Signum swallowed that mismatch into IgnoredDatabaseMismatches).
- *  Resolved through the query CONTAINER — `withQuery` registers there, not in QueryLogic's legacy
+ *  no longer matching a registered query. Resolved through the query CONTAINER — `withQuery` registers there, not in QueryLogic's legacy
  *  name-only `queryNamesByKey` (which is what `toQueryName` reads). */
 function queryNameOf(lite: Lite<QueryEntity>): QueryName | undefined {
     return QueryLogic.tryGetQueryNameByKey(queryKeyOf(lite));

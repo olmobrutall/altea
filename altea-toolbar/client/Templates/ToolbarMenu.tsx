@@ -13,16 +13,10 @@ import {
 } from "../../data/Toolbar";
 import { ToolbarElementTable } from "./Toolbar";
 
-// Faithful port of Signum's Templates/ToolbarMenu.tsx (Signum.Toolbar/Templates/ToolbarMenu.tsx): the
-// ToolbarMenu editor. When the menu is bound to an entity type, its elements are edited in three tabs — the
-// ones shown with NO entity selected, the ones shown WITH one, and both together.
+// Port of Signum.Toolbar's Templates/ToolbarMenu.tsx — see docs/port/Toolbar.md.
 //
-// altea divergences:
-//  - Signum's unused `getNiceTypeName` / `getTypeInfo` imports are dropped.
-//  - `getToString(ctx.value.entityType)` → `ctx.value.entityType.toString()` (a TypeEntity lite's toStr is its
-//    clean name).
-//  - The "Used by" search lines use altea's `Type.findOptions(token => …)` builder, which is the same shape
-//    Signum used here.
+// The ToolbarMenu editor. When the menu is bound to an entity type, its elements are edited in three tabs:
+// the ones shown with NO entity selected, the ones shown WITH one, and both together.
 
 export default function ToolbarMenu(p: { ctx: TypeContext<ToolbarMenuEntity> }): React.JSX.Element {
     const ctx = p.ctx;

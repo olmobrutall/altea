@@ -7,48 +7,36 @@ import { stringLengthValidator, validate, notNullValidator } from "@altea/altea/
 import { type long, toLong } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 
-// Port of Signum.Files' file model (FileTypeSymbol.cs, FilePathEmbedded.cs, FileEmbedded.cs, FileEntity.cs,
-// Signum.Files.ts). Signum offers four ways to hold a file, along two axes — where the BYTES live, and
-// whether the file is its own ROW:
+// Port of Signum.Files' FileTypeSymbol.cs + FilePathEmbedded.cs + FileEmbedded.cs + FileEntity.cs — see
+// docs/port/Files.md.
+//
+// Three ways to hold a file, along two axes — where the BYTES live, and whether the file is its own ROW:
 //
 //                    │ bytes in the row            │ bytes in a store
 //   ─────────────────┼─────────────────────────────┼──────────────────────────────
 //    embedded        │ FileEmbedded                │ FilePathEmbedded
-//    its own row     │ FileEntity                  │ FilePathEntity  (NOT ported)
+//    its own row     │ FileEntity                  │ (not ported)
 //
 //   • FileEmbedded     — the bytes live IN the row (a blob column). Simple, no storage config, no cleanup.
 //   • FilePathEmbedded — the bytes live in a STORE (a folder, Azure, S3) and the row keeps the metadata +
 //                        the `suffix` that locates them. Needs a FileTypeSymbol whose algorithm decides where.
 //   • FileEntity       — FileEmbedded's contents in a table of its OWN, so several owners can reference the
-//                        same file and a file can outlive any one of them (Signum's EntityKind.SharedPart).
-//                        That is the only reason to prefer it: a field holding one is an ordinary reference.
+//                        same file and a file can outlive any one of them. That is the only reason to prefer
+//                        it: a field holding one is an ordinary reference.
 //
-// `FilePathEntity` is still not ported — it is FileEntity's store-backed sibling, and nothing needs the
-// combination (a shared file whose bytes are in a store) yet. It would need FilePathEmbeddedLogic's whole
-// save/delete cascade a second time, addressed by row rather than by owner.
-//
-// altea divergences, documented inline:
-//  - Signum's `byte[] BinaryFile` → a `Uint8Array` field (altea's "Blob" → bytea / varbinary(MAX)).
-//  - Signum keeps `BinaryFile` / `EntityId` / `MListRowId` / `PropertyRoute` / `RootType` as `[Ignore]`
-//    (in-memory only) fields; altea marks them `@column(false)` — not mapped, but still SERIALIZED, which is
-//    the point: `binaryFile` carries an upload client → server, and the routing trio carries the file's
-//    ADDRESS server → client. `MListRowId` is the one that does not survive the port: altea has no MList, so
-//    a file inside a collection sits on a `@part` ROW ENTITY with an id of its own — that row IS the route
-//    root, and `entityId` is its id.
-//  - The C# property SETTERS (FileName forcing an extension; BinaryFile computing Hash + FileLength) run in
-//    `prepareForSave` here (altea entities are plain field bags) — called by the server's save hook.
-//  - `FilePathEntity` (the standalone, referencable file row) and the Azure/S3 backends are NOT ported:
-//    nothing in altea references them yet. (`BigStringMixin` — the other FilePathEmbedded consumer — IS
-//    ported: see data/BigString.ts + server/BigStringLogic.server.ts.)
+// `binaryFile` / `entityId` / `propertyRoute` / `rootType` are `@column(false)` — not mapped, but still
+// SERIALIZED, which is the point: `binaryFile` carries an upload client → server, and the routing trio
+// carries the file's ADDRESS server → client. The C# property SETTERS (fileName forcing an extension;
+// binaryFile computing hash + fileLength) run in `prepareForSave`, called by the server's save hook.
 
-// Signum's FileTypeSymbol (FileTypeSymbol.cs) — names a STORE + policy (where files go, size/type limits).
+// Names a STORE + policy (where files go, size/type limits).
 // The algorithm behind each symbol is registered server-side (FileTypeLogic.register).
 @reflect
 @entity("SystemString", "Master")
 export class FileTypeSymbol extends Symbol {
 }
 
-// Signum's FileEmbedded (FileEmbedded.cs) — a file kept inside the row.
+// A file kept inside the row.
 @reflect
 export class FileEmbedded extends EmbeddedEntity {
     @stringLengthValidator({ min: 3, max: 200 })
@@ -61,45 +49,36 @@ export class FileEmbedded extends EmbeddedEntity {
     }
 }
 
-// Signum's FileEntity (FileEntity.cs) — FileEmbedded's contents as a row of its own, so it can be SHARED.
+// FileEmbedded's contents as a row of its own, so it can be SHARED.
 //
-// altea divergences:
-//  - **`ImmutableEntity` IS the base, as in Signum** (`@altea/altea/data/immutableEntity`) — so a saved
-//    file's own row cannot be re-saved changed, `allowChange` / `allowChanges()` are the escape hatch, and
-//    `File.AllowChange` is a property ROUTE a Signum database's property-authorization rule can point at.
-//    Only Signum's SETTER half is missing there (altea entities are plain field bags, so there is nothing
-//    to intercept), which is the half that failed silently; see that module's header. The reason for the
-//    rule is the sharing: a file row may have several owners, so mutating it would change the file under
-//    every one of them. Replace the REFERENCE instead.
-//  - `hash` is filled server-side (the isomorphic layer has no crypto), like FilePathEmbedded's — see
-//    `prepareForSave`. Signum computes it in the `BinaryFile` setter.
-//  - the `FileEntity(string path)` constructor (read a file off disk) has no counterpart: it is
-//    `File.ReadAllBytes`, i.e. server-only, and this layer is isomorphic.
-//  - `ToXML` is not ported. Its one Signum caller is WordTemplate's `SyncFromXml`, and
-//    @altea/altea-office-template holds a `FileEmbedded` with XML of its own.
+// It derives from `ImmutableEntity` (@altea/altea/data/immutableEntity), so a saved file's row cannot be
+// re-saved changed and `allowChange` / `allowChanges()` are the escape hatch. The reason is the sharing: a
+// file row may have several owners, so mutating it would change the file under every one of them —
+// replace the REFERENCE instead.
+//
+// `hash` is filled server-side (`prepareForSave`), since the isomorphic layer has no crypto. There is no
+// path constructor for the same reason: reading a file off disk is server-only.
 @reflect
 @entity("SharedPart", "Transactional")
-// Signum's `[TicksColumn(false)]`: an immutable row cannot be concurrently edited, so a stamp would guard
+// An immutable row cannot be concurrently edited, so a stamp would guard
 // nothing. (A SharedPart would otherwise get one — it is reached by reference, not through one owner.)
 @ticksColumn(false)
 export class FileEntity extends ImmutableEntity {
-    // Signum's [StringLengthValidator(Min = 3, Max = 254)] — note 254, where FileEmbedded's is 200.
+    // 254, where FileEmbedded's is 200 — both are the lengths a Signum database's columns have.
     @stringLengthValidator({ min: 3, max: 254 })
     fileName: string = "";
 
-    // Signum's `[NotNullValidator(DisabledInModelBinder = true)] string Hash { get; private set; }`.
-    //
-    // Declared NON-nullable, so the column is NOT NULL as Signum's is — the value is derived from the
-    // bytes, so a row without one would be a row whose hash disagrees with its contents. But it is filled
-    // SERVER-side (FileLogic's preSaving), so an explicit `disabled: env => env !== "Saving"` replaces the
-    // implicit always-on NotNull: a client never sends it, and the check belongs at the moment the server
-    // has had its chance. Exactly the shape altea-tree's engine-maintained columns use.
+    // Declared NON-nullable, so the column is NOT NULL: the value is derived from the bytes, so a row
+    // without one would be a row whose hash disagrees with its contents. But it is filled SERVER-side
+    // (FileLogic's preSaving), so an explicit `disabled: env => env !== "Saving"` replaces the implicit
+    // always-on NotNull — a client never sends it, and the check belongs at the moment the server has had
+    // its chance. Exactly the shape altea-tree's engine-maintained columns use.
     @notNullValidator({ disabled: env => env !== "Saving" })
     hash: string;
 
     binaryFile: Uint8Array = new Uint8Array(0);
 
-    /** The server's save hook (FileLogic) calls this with the computed hash — Signum's BinaryFile setter. */
+    /** The server's save hook (FileLogic) calls this with the computed hash. */
     prepareForSave(hash: string): void {
         this.hash = hash;
     }
@@ -109,11 +88,10 @@ export class FileEntity extends ImmutableEntity {
     }
 }
 
-// Signum's FilePathEmbedded (FilePathEmbedded.cs) — a file kept in a store: the metadata that stays in the
+// A file kept in a store: the metadata that stays in the
 // row (name / hash / length / suffix / file type) plus the transient `binaryFile` an upload carries.
 @reflect
 export class FilePathEmbedded extends EmbeddedEntity {
-    // Signum's [StringLengthValidator(1, 260), FileNameValidator].
     @validate<FilePathEmbedded>(f => hasInvalidFileNameChars(f.fileName)
         ? FileMessage.TheNameOfTheFileMustNotContainPercent1.niceToString(invalidFileNameChars) : null)
     @stringLengthValidator({ min: 1, max: 260 })
@@ -121,10 +99,9 @@ export class FilePathEmbedded extends EmbeddedEntity {
 
     hash: string | null = null;
 
-    // Signum's `[Ignore]` routing trio (EntityId / RootType / PropertyRoute — see the header note on
-    // MListRowId). NOT columns: they are re-derived server-side every time the file is read (the `retrieved`
-    // hook) and after its owner is saved (the `saved` hook), by FilePathEmbeddedLogic, which knows the schema
-    // position of every FilePathEmbedded field.
+    // The routing trio. NOT columns: they are re-derived server-side every time the file is read and
+    // after its owner is saved, by FilePathEmbeddedLogic, which knows the schema position of every
+    // FilePathEmbedded field.
     //
     // They exist for the DOWNLOAD, and they are a security feature, not a convenience: a file is fetched by
     // naming its OWNER (`/api/files/downloadEmbeddedFilePath/<rootType>/<entityId>?route=<propertyRoute>`), so
@@ -146,22 +123,22 @@ export class FilePathEmbedded extends EmbeddedEntity {
     @format("N0")
     fileLength: long = toLong(0);
 
-    // Signum's [StringLengthValidator(1, 1024)] — the store-relative path the algorithm generated. Null until
-    // the file is actually saved (the save hook fills it).
+    // The store-relative path the algorithm generated. Null until the file is actually saved (the save
+    // hook fills it).
     @stringLengthValidator({ min: 1, max: 1024 })
     @notNullValidator({ disabled: env => env !== "Saving" })
     suffix: string;
 
     fileType: FileTypeSymbol;
 
-    // Signum's `[Ignore] byte[] BinaryFile`: NOT a column (the bytes live in the store), but it IS serialized
+    // NOT a column (the bytes live in the store), but it IS serialized
     // so a client upload can carry them to the server, which writes them and clears this.
     @column(false)
     binaryFile: Uint8Array | null = null;
 
-    /** Signum's `FilePathEmbedded.BinaryFile` setter + the FileName setter (altea has no property setters):
-     *  derive length + hash from the bytes and force an extension. Called by the server save hook and by any
-     *  code that fills `binaryFile` by hand. `hash` is filled server-side (no crypto in the isomorphic layer). */
+    /** Derive length + hash from the bytes and force an extension — what a C# property setter would do.
+     *  Called by the server save hook and by any code that fills `binaryFile` by hand; `hash` comes from the
+     *  server, since the isomorphic layer has no crypto. */
     prepareForSave(hash?: string): void {
         if (forceExtensionIfEmpty && this.fileName && !hasExtension(this.fileName))
             this.fileName = this.fileName + forceExtensionIfEmpty;
@@ -173,7 +150,7 @@ export class FilePathEmbedded extends EmbeddedEntity {
         }
     }
 
-    /** Signum's CleanBinaryFile — drop the transient bytes once the store has them. */
+    /** Drop the transient bytes once the store has them. */
     cleanBinaryFile(): void {
         this.binaryFile = null;
     }
@@ -195,7 +172,6 @@ export class FilePathEmbedded extends EmbeddedEntity {
     }
 }
 
-/** Signum's `FilePathEmbedded.ForceExtensionIfEmpty` (a static knob, default ".dat"). */
 export let forceExtensionIfEmpty: string | null = ".dat";
 export function setForceExtensionIfEmpty(value: string | null): void {
     forceExtensionIfEmpty = value;
@@ -212,7 +188,7 @@ function hasExtension(fileName: string): boolean {
     return dot > 0 && dot > fileName.lastIndexOf("/") && dot < fileName.length - 1;
 }
 
-/** Signum's `StringExtensions.ToComputerSize` — 1.5 MB, 900 Bytes, … (used by the file toStrings). */
+/** 1.5 MB, 900 Bytes, … (used by the file toStrings). */
 export function toComputerSize(bytes: number): string {
     const units = ["Bytes", "KB", "MB", "GB", "TB"];
     let value = bytes;
@@ -224,7 +200,6 @@ export function toComputerSize(bytes: number): string {
     return `${i === 0 ? value : value.toFixed(2)} ${units[i]}`;
 }
 
-// Signum's FileMessage (Signum.Files.ts / resx) — only the members altea's port uses.
 export const FileMessage = {
     DownloadFile: msg("Download file"),
     ErrorSavingFile: msg("Error saving file"),
@@ -247,15 +222,14 @@ export const FileMessage = {
     File0ContainsAThreatBy1: msg("File {0} contains a threat detected by {1}"),
 };
 
-// Signum's `[AutoInit] static class FilePermission` (FilesController's download gate is anonymous in Signum;
-// altea keeps the route authenticated, so no permission symbol is declared).
+// No download PERMISSION symbol: every download route is authenticated and gated by the owner's own read
+// rules, so there is nothing left for one to gate.
 export namespace FileTypeSymbols {
     /** A store for files uploaded through the app's generic file line — registered by the app (eastwind's
      *  starter) with a folder algorithm. Declared here so a shared component can reference it. */
     export const Default: FileTypeSymbol = init();
 }
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("files")]`. FOLDER-scoped, so it covers every type declared
+// The database schema this package's tables live in. FOLDER-scoped, so it covers every type declared
 // beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("files");

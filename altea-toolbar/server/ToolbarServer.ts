@@ -4,20 +4,19 @@ import type { ToolbarLocationKeys } from "../data/Toolbar";
 import type { ToolbarResponse } from "../data/ToolbarResponse";
 import { ToolbarLogic } from "./ToolbarLogic";
 
-// Port of Signum's ToolbarController (Signum.Toolbar/ToolbarController.cs) — the two GETs the renderers call.
+// Port of Signum.Toolbar's ToolbarController.cs — see docs/port/Toolbar.md.
 //
-// altea divergences:
-//  - No permission assert here, and Signum had none either: a toolbar carries NO permission of its own. What
-//    the caller may see is decided per ELEMENT, inside the response builder (every element's content config
-//    is asked `isAuthorized`), plus the row-level owner scoping on the toolbar itself. An anonymous /
-//    unauthorized caller simply gets `null` or a pruned tree.
-//  - Signum bound `ToolbarLocation location` from the route as an enum; altea passes the member NAME through
-//    (the wire form of an enum) and `ToolbarLogic.getCurrent` converts it.
-//  - `/api/toolbarMenu/:menuId` takes the menu's uuid PK (Signum's `Lite.ParsePrimaryKey<ToolbarMenuEntity>`).
+// The two GETs the renderers call. NO permission assert, deliberately: a toolbar carries none of its own.
+// What the caller may see is decided per ELEMENT inside the response builder (every element's content
+// config is asked `isAuthorized`), plus the row-level owner scoping on the toolbar itself — so an anonymous
+// or unauthorized caller simply gets `null` or a pruned tree.
+//
+// `location` arrives as the enum's member NAME (its wire form) and `ToolbarLogic.getCurrent` converts it;
+// `/api/toolbarMenu/:menuId` takes the menu's uuid PK.
 
 export namespace ToolbarServer {
     export function start(ws: WebBuilder): void {
-        // The shared user-asset export/import surface (Signum's UserAssetServer.Start). Idempotent — the
+        // The shared user-asset export / import surface. Idempotent — the
         // dashboard / user-query modules call it too.
         UserAssetServer.start(ws);
 

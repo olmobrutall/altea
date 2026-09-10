@@ -10,36 +10,29 @@ import { FilePathEmbedded } from "../data/Files";
 import { FileTypeLogic } from "./FileTypeLogic";
 import type { IFilePath } from "./FileTypeAlgorithm";
 
-// Port of Signum.Files' FilePathEmbeddedLogic.cs — the wiring that makes a FilePathEmbedded field behave like
-// a file: the bytes are written to its store when the owning entity is saved, and removed from the store when
-// the owning row is deleted.
+// Port of Signum.Files' FilePathEmbeddedLogic.cs — see docs/port/Files.md.
 //
-// How it finds the fields (Signum's Schema_SchemaCompleted): at `schema.initializing` — once every module has
-// included its tables — walk each table's fields for embeddeds of type FilePathEmbedded (recursing into nested
-// embeddeds) and register the hooks on that table's type. altea needs no MList handling here: a `@part`
-// collection row is its own TABLE with its own events, so a file inside a row is found when that row's table is
+// The wiring that makes a FilePathEmbedded field behave like a file: the bytes are written to its store
+// when the owning entity is saved, and removed from the store when the owning row is deleted.
+//
+// HOW IT FINDS THE FIELDS: at `schema.initializing` — once every module has included its tables — walk each
+// table's fields for embeddeds of type FilePathEmbedded (recursing into nested embeddeds) and register the
+// hooks on that table's TYPE, because altea's lifecycle events are per entity type. A `@part` collection
+// row is its own table with its own events, so a file inside a row is found when that row's table is
 // scanned (and `preSaving` fires for every reachable entity — see server/saver.ts).
 //
-// altea divergences, documented inline:
-//  - Signum's `FilePathEmbedded.OnPreSaving` is a static hook on the EMBEDDED type; altea's events are
-//    per-entity-type, so the scan above registers one handler per owning type.
-//  - Signum splits sync (`SyncFileSave`) and async saving. altea always: assign the suffix + hash SYNCHRONOUSLY
-//    in `preSaving` (so the row is INSERTed with its suffix) and write the BYTES on `Transaction.preRealCommit`
-//    — so a rolled-back transaction leaves no orphan file (Signum's async mode has the same shape).
-//  - Deletion: altea has no per-entity `deleting` event, so the delete signal is the set-based
-//    `preUnsafeDelete` (which `entity.delete()` also goes through). The rows about to be deleted are read
-//    first, and their files are removed on `postRealCommit` — never before the delete actually commits
-//    (Signum's TryDeleteFileOnCommit).
-//  - ROUTING (Signum's `AddBinding` + `OnSaved` updaters): each file is told its `rootType` / `entityId` /
-//    `propertyRoute` (see data/Files.ts) so the client can address the download through its owner. Like
-//    Signum this happens in the PROJECTION, not in a `retrieved` hook — a FilePathEmbedded can be projected
-//    WITHOUT its owner ever being materialised (a SearchControl column over the file field selects that
-//    embedded and nothing else), and the client still has to be able to build the download URL. altea's seam
-//    is `schema.embeddedRoutePositions`: ONE registration keyed by the embedded TYPE, with the binder
-//    supplying the position, where Signum registers four RegisterBindings per route. `MListRowId` has no
-//    counterpart — altea has no MList, so a file in a collection sits on a `@part` ROW ENTITY and that row is
-//    the route root. The `saved` half is Signum's OnSaved updaters: a just-saved entity is not re-read, so
-//    its files are stamped in memory (that path DOES need the schema scan, to know where the files are).
+// SAVING IS SPLIT: assign the suffix + hash SYNCHRONOUSLY in `preSaving`, so the row is INSERTed carrying
+// its suffix, and write the BYTES on `Transaction.preRealCommit` — so a rolled-back transaction leaves no
+// orphan file. DELETION is the mirror image: there is no per-entity `deleting` event, so the signal is the
+// set-based `preUnsafeDelete` (which `entity.delete()` also goes through); the rows are read first and
+// their files removed on `postRealCommit`, never before the delete commits.
+//
+// ROUTING happens in the PROJECTION, not in a `retrieved` hook, because a FilePathEmbedded can be projected
+// WITHOUT its owner ever being materialised (a SearchControl column over the file field selects that
+// embedded and nothing else) and the client still has to build the download URL. The seam is
+// `schema.embeddedRoutePositions` — ONE registration keyed by the embedded TYPE, with the binder supplying
+// the position. The `saved` half stamps a just-saved entity's files in memory, since it is not re-read;
+// that path DOES need the schema scan, to know where the files are.
 
 export namespace FilePathEmbeddedLogic {
 
@@ -75,12 +68,12 @@ export namespace FilePathEmbeddedLogic {
         return result;
     }
 
-    /** Signum's `fpe.SaveFile()` for code that builds a FilePathEmbedded outside the save pipeline. */
+    /** For code that builds a FilePathEmbedded outside the save pipeline. */
     export async function saveFile(fp: FilePathEmbedded): Promise<void> {
         await FileTypeLogic.getAlgorithm(fp.fileType).saveFile(fp as IFilePath);
     }
 
-    /** Signum's `fpe.OpenRead()` / ReadAllBytes — the bytes behind a stored FilePathEmbedded. */
+    /** The bytes behind a stored FilePathEmbedded. */
     export async function readAllBytes(fp: FilePathEmbedded): Promise<Uint8Array> {
         return await FileTypeLogic.getAlgorithm(fp.fileType).readAllBytes(fp as IFilePath);
     }
@@ -104,7 +97,7 @@ export namespace FilePathEmbeddedLogic {
         });
     }
 
-    /** Signum's `TryDeleteFileOnCommit` — remove the stored bytes once the current transaction commits. */
+    /** Remove the stored bytes once the current transaction commits. */
     export function deleteFileOnCommit(fp: FilePathEmbedded): void {
         if (fp.suffix == null)
             return;
@@ -131,7 +124,7 @@ function registerSaveHook(sb: SchemaBuilder, ctor: Type<Entity>, paths: string[]
     });
 }
 
-// Signum's OnSaved updaters: after the owner is saved, stamp its files in memory — the entity is NOT re-read,
+// After the owner is saved, stamp its files in memory — the entity is NOT re-read,
 // so the projection that normally supplies the route position never runs. A file created in this very save has
 // no id until now, which is exactly why this runs on `saved` and not `preSaving`. Safe to write here: the
 // saver re-baselines the entity afterwards, and the routing fields are `@column(false)` anyway, so they are

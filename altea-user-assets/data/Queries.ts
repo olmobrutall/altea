@@ -8,22 +8,14 @@ import {
 } from "@altea/altea/data/dynamicQueries";
 import { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 
-// Port of Signum's Signum.UserAssets/Queries/QueryTokenEmbedded.cs + PinnedQueryFilterEmbedded.cs (and
-// their client twin Signum.UserAssets.Queries.ts). The OWNER-AGNOSTIC value embeddeds shared by every
-// stored query definition (a UserQuery filter/column/order token; a filter's pinning). They flatten into
-// whichever owner table embeds them, so they live in the shared altea-user-assets package.
-//
-// altea divergences, documented inline:
-//  - Signum's `[Ignore] QueryToken token` (the resolved token) + `Exception? parseException` are transient
-//    (never columns). altea's client resolves tokens LOCALLY from `tokenString` (Finder.TokenCompleter /
-//    parseSingleToken — there is no server QueryTokenTS round-trip), so `token` is `@column(false)
-//    @serialize(false)` (client-only, never persisted or wired) and `parseException` is a plain string
-//    filled client-side when a stored token no longer resolves.
+// Port of Signum.UserAssets' Queries/QueryTokenEmbedded.cs + PinnedQueryFilterEmbedded.cs — see
+// docs/port/UserAssets.md. The OWNER-AGNOSTIC value embeddeds every stored query definition is built from
+// (a filter/column/order token; a filter's pinning). They flatten into whichever owner table embeds them,
+// which is why they live in this shared package.
 
 @reflect
 export class QueryTokenEmbedded extends EmbeddedEntity {
-    // Signum's `[StringLengthValidator(Min = 1, Max = 200), NotNullValidator] TokenString`. The token's
-    // rootless fullKey (altea tokens are rootless: "Customer.Name", "Id", "ToString").
+    // The token's rootless fullKey — altea tokens carry no root: "Customer.Name", "Id", "ToString".
     @stringLengthValidator({ min: 1, max: 200 })
     tokenString: string;
 
@@ -43,7 +35,6 @@ export class QueryTokenEmbedded extends EmbeddedEntity {
 
 @reflect
 export class PinnedQueryFilterEmbedded extends EmbeddedEntity {
-    // Signum's `[StringLengthValidator(Max = 100), Translatable] Label`.
     @stringLengthValidator({ max: 100 })
     label: string | null;
 
@@ -53,8 +44,8 @@ export class PinnedQueryFilterEmbedded extends EmbeddedEntity {
 
     row: int | null;
 
-    // Signum's PinnedFilterActive (default Always). A real altea enum (int FK to the enum table,
-    // translatable); the in-memory value is the numeric ordinal, the wire/XML form is the member name.
+    // A real altea enum (int FK to the enum table, translatable), so the in-memory value is the numeric
+    // ORDINAL while the wire / XML form is the member name.
     active: PinnedFilterActive = PinnedFilterActive.Always;
 
     splitValue: boolean = false;
@@ -64,16 +55,14 @@ export class PinnedQueryFilterEmbedded extends EmbeddedEntity {
     }
 }
 
-// The shared filter ROW (Signum's QueryFilterEmbedded, Queries/QueryFilterEmbedded.cs): one row of a stored
-// filter tree — either a condition (token + operation + valueString) or a group header (isGroup +
+// The shared filter ROW: one row of a stored filter tree — either a condition (token + operation + valueString) or a group header (isGroup +
 // groupOperation), positioned in the tree by `indentation`.
 //
 // ABSTRACT (`@reflect`, not `@entity`) so it has no table of its own: every stored query definition owns its
 // own filter rows, and an altea `@part` row belongs to exactly ONE owner, so each owner subclasses this and
 // adds nothing but its `@backReference` — @altea/altea-user-queries' UserQueryEntity_Filter and
 // @altea/altea-chart's UserChartEntity_Filter. That is what lets one filter editor
-// (altea-user-queries' FilterBuilderEmbedded) drive both. Signum needed no such base: there the ONE
-// QueryFilterEmbedded is an EmbeddedEntity reused by every owner's MList.
+// (altea-user-queries' FilterBuilderEmbedded) drive both.
 //
 // It lives in altea-user-assets alongside the other owner-agnostic pieces of a stored query
 // (QueryTokenEmbedded, PinnedQueryFilterEmbedded), which is what both packages already depend on.
@@ -83,8 +72,8 @@ export abstract class QueryFilterBaseEntity extends Entity {
 
     token: QueryTokenEmbedded | null;
     isGroup: boolean = false;
-    // Real altea enums (int FK to the enum table, translatable) — Signum's enum columns. The in-memory
-    // value is the numeric ordinal; the wire/XML/query form is the member name (Enum.toName). See dynamicQueries.
+    // Real altea enums (int FK to the enum table, translatable), so the in-memory value is the numeric
+    // ORDINAL while the wire / XML / query form is the member name (Enum.toName). See dynamicQueries.
     groupOperation: FilterGroupOperation | null;
     operation: FilterOperation | null;
     valueString: string | null;
@@ -93,7 +82,6 @@ export abstract class QueryFilterBaseEntity extends Entity {
     indentation: int = toInt(0);
 }
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("userAssets")]`. FOLDER-scoped, so it covers every type declared
+// The database schema this package's tables live in. FOLDER-scoped, so it covers every type declared
 // beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("userAssets");

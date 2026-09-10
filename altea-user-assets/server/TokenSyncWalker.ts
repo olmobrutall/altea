@@ -8,19 +8,15 @@ import { Enum } from "@altea/altea/data/enum";
 import { QueryTokenSynchronizer, type FixTokenResult } from "./QueryTokenSynchronizer";
 import type { TokenSyncContext } from "./TokenSyncContext";
 
-// The per-asset token walk: filters, columns (and their summary tokens), orders, and the filter VALUES.
+// The per-asset token walk: filters, columns (and their summary tokens), orders, and the filter VALUES —
+// see docs/port/UserAssets.md.
 //
-// **This is one function where Signum has four.** `UserQueryLogic.ProcessUserQuery`,
-// `UserChartLogic.ProcessUserChart`, `EmailTemplateLogic` and `WordTemplateLogic` each carry their own
-// ~200-line copy of this same walk, because in Signum the row types (QueryFilterEmbedded,
-// QueryColumnEmbedded, QueryOrderEmbedded) are EMBEDDED inside four unrelated MLists with no common
-// handle. In altea they are `@part` rows over a shared `QueryFilterBaseEntity` and matching column/order
-// shapes, so the walk can be written once and each subscriber keeps only what is genuinely its own —
-// a chart's own parameters, a template's own text nodes, a user query's paging and system time.
+// ONE walk, shared by every subscriber, because every stored row is a `@part` row over the shared
+// `QueryFilterBaseEntity` and matching column/order shapes. A subscriber keeps only what is genuinely its
+// own — a chart's parameters, a template's text nodes, a user query's paging and system time.
 //
-// The behaviour is Signum's, decision for decision: which SubTokensOptions each position gets, that a
-// filter may be REMOVED but a column's summary token is merely cleared, that a value fix RE-RUNS the
-// value check (Signum's `goto retry`), and that Skip/Delete abandon the whole asset immediately.
+// Note which asymmetries are deliberate: a filter may be REMOVED while a column's summary token is merely
+// CLEARED, a value fix RE-RUNS the value check, and Skip/Delete abandon the whole asset immediately.
 
 /** What the walk concluded about the asset. */
 export type WalkOutcome = "Nothing" | "Touched" | "Skip" | "Delete" | "Regenerate";
@@ -59,7 +55,7 @@ export interface WalkTarget {
     /** For the messages, and as the `queryKey` half of a filter-value subKey. */
     queryKey: string;
     queryName: QueryName;
-    /** Signum's `uq.GroupResults` — grouping is what makes aggregates legal in a token. */
+    /** Grouping is what makes aggregates legal in a token. */
     groupResults: boolean;
 
     filters?: RowSet<QueryFilterBaseEntity>;
@@ -75,7 +71,6 @@ export async function walkQueryTokens(ctx: TokenSyncContext, target: WalkTarget)
     const changes: string[] = [];
     let touched = false;
 
-    // Signum: `uq.GroupResults ? (CanElement | CanAggregate) : CanElement`.
     const options = target.groupResults
         ? SubTokensOptions.CanElement | SubTokensOptions.CanAggregate
         : SubTokensOptions.CanElement;
@@ -151,7 +146,7 @@ export async function walkQueryTokens(ctx: TokenSyncContext, target: WalkTarget)
                 switch (sum.result) {
                     case "Nothing": break;
                     // A summary is an EXTRA on a column, so removing it clears the field rather than
-                    // dropping the column — Signum makes the same distinction.
+                    // dropping the column.
                     case "RemoveToken":
                         col.setSummary!(null); touched = true; changes.push("summary token removed"); break;
                     case "Fix":
@@ -189,8 +184,8 @@ export async function walkQueryTokens(ctx: TokenSyncContext, target: WalkTarget)
 
     // ---- filter VALUES ---------------------------------------------------------------------------
     // A token can resolve perfectly while its value no longer means anything (a Lite whose type was
-    // renamed, an enum member that is gone). Signum loops with `goto retry` after each fix, because a
-    // repaired value must be re-validated; that is the `for(;;)` here.
+    // renamed, an enum member that is gone). A repaired value must be RE-VALIDATED, which is what the
+    // `for(;;)` and the `continue retry` below are for.
     if (target.filters != null) {
         for (const item of [...target.filters.rows]) {
             if (item.isGroup || item.token == null)
@@ -221,7 +216,7 @@ export async function walkQueryTokens(ctx: TokenSyncContext, target: WalkTarget)
                     case "Fix":
                         item.valueString = fixed.valueString; touched = true;
                         changes.push("filter value -> " + fixed.valueString);
-                        continue retry; // Signum's `goto retry`: re-check the repaired value
+                        continue retry; // re-check the repaired value
                     case "FixTokenInstead": {
                         const t = await QueryTokenSynchronizer.fixToken(ctx, item.token.tokenString,
                             target.queryName,
@@ -275,15 +270,14 @@ export async function walkQueryTokens(ctx: TokenSyncContext, target: WalkTarget)
 }
 
 /**
- * The filter operation as its member NAME — what Signum prints, since a C# enum's `ToString()` is its
- * name. A reflected enum field here holds the ORDINAL, so interpolating it directly printed `0` where
- * the prompt meant to say `EqualTo`.
+ * The filter operation as its member NAME. A reflected enum field holds the ORDINAL, so interpolating it
+ * directly prints `0` where the prompt means to say `EqualTo`.
  */
 function operationName(operation: FilterOperation | null): string {
     return operation == null ? "" : Enum.toName(FilterOperation, operation);
 }
 
-/** Signum's `FilterOperation.IsListOrPair()` — the operations whose value is a `|`-separated list. */
+/** The operations whose value is a `|`-separated list. */
 function isListOrPair(operation: unknown): boolean {
     return operation === FilterOperation.IsIn || operation === FilterOperation.IsNotIn;
 }

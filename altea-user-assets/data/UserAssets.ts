@@ -20,18 +20,9 @@ export function enumColumn(): (target: object, propertyKey: string | symbol) => 
     return column({ pgDbType: "varchar", sqlDbType: "nvarchar", size: 100 });
 }
 
-// Port of Signum's Signum.UserAssets/UserAssets.cs (the shared user-asset contracts) + the client
-// Signum.UserAssets.ts message/permission containers. A "user asset" is a user-authored, XML-portable
-// entity (a UserQuery, a UserChart, a Dashboard, …) identified by a stable Guid so it can be exported
-// from one database and imported into another.
-//
-// altea divergences, documented inline:
-//  - Signum implements `XElement ToXml(ctx)` / `void FromXml(element, ctx)` DIRECTLY on each entity. altea
-//    keeps entities isomorphic (no System.Xml on the client), so the XML (de)serialization lives in a
-//    SERVER-side per-type registry (UserAssetsExporterImporter.server.ts) instead of on the entity. The
-//    isomorphic marker `IUserAssetEntity` therefore only carries `guid`.
-//  - `Guid Guid = Guid.NewGuid()` → a `uuid` field defaulted with `newGuid()` (globalThis.crypto), so a
-//    freshly-constructed asset already has its portable identity on both tiers (as Signum's ctor did).
+// Port of Signum.UserAssets' UserAssets.cs + Signum.UserAssets.ts — see docs/port/UserAssets.md.
+// The shared user-asset contracts: a user-authored, XML-portable entity identified by a stable uuid so it
+// can be exported from one database and imported into another.
 
 /** Generate a random RFC-4122 uuid on either tier (browser or node both expose globalThis.crypto). */
 export function newGuid(): uuid {
@@ -46,25 +37,21 @@ export function newGuid(): uuid {
     }) as uuid;
 }
 
-/** Signum's IUserAssetEntity marker (Signum.UserAssets/UserAssets.cs). Any XML-portable user asset.
- *  altea divergence: Signum's `Guid Guid` identity field is replaced by a uuid PRIMARY KEY on each asset
- *  (`@primaryKey("uuid")`), so the marker carries no `guid` — the asset's `id` IS its portable identity.
- *  The ToXml/FromXml members are server-only in altea (see file header). */
+/** Any XML-portable user asset. The marker carries NOTHING: the asset is `@primaryKey("uuid")`, so its
+ *  `id` IS its portable identity, and the XML (de)serializers are registered server-side. */
 export interface IUserAssetEntity extends Entity {
 }
 
-/** Signum's IHasEntityType (Signum.UserAssets/UserAssets.cs): a user asset that can be scoped to (and
- *  offered as a quick-link of) one entity type. */
+/** A user asset that can be scoped to — and offered as a quick-link of — one entity type. */
 export interface IHasEntityType extends Entity {
     entityType: Lite<TypeEntity> | null;
 }
 
-// Signum's `[AutoInit] static class UserAssetPermission`. Reuses altea-auth's ONE PermissionSymbol table.
+// Reuses altea-auth's ONE PermissionSymbol table.
 export namespace UserAssetPermission {
     export const UserAssetsToXML: PermissionSymbol = init();
 }
 
-// Signum's UserAssetMessage (Signum.UserAssets.ts / resx). altea message container: `{ Member: msg("…") }`.
 export const UserAssetMessage = {
     ExportToXml: msg("Export to XML"),
     ImportUserAssets: msg("Import User Assets"),
@@ -83,24 +70,24 @@ export const UserAssetMessage = {
     Advanced: msg("Advanced"),
 };
 
-// Signum's UserAssetQueryMessage (Signum.UserAssets.Queries.ts) — the value/expression toggle on a filter.
+// The value/expression toggle on a filter.
 export const UserAssetQueryMessage = {
     SwitchToValue: msg("Switch to value"),
     SwitchToExpression: msg("Switch to expression"),
 };
 
-// Signum's EntityAction (UserAssets.cs) — how an incoming asset compares to what the DB already has.
+// How an incoming asset compares to what the DB already has.
 export enum EntityAction {
     Identical,
     Different,
     New,
 }
 
-// Signum's UserAssetPreviewLineEmbedded (UserAssets.cs) — one row of the import preview: what the file
+// One row of the import preview: what the file
 // contains vs. what the DB has, and whether the admin chose to override it.
 @reflect
 export class UserAssetPreviewLineEmbedded extends EmbeddedEntity {
-    // The asset's clean type name (Signum's Lite<TypeEntity> Type — here the raw clean name string).
+    // The asset's clean type name, as a raw string rather than a Lite<TypeEntity>.
     type: string;
     text: string;
     action: EntityAction = EntityAction.New;
@@ -112,7 +99,7 @@ export class UserAssetPreviewLineEmbedded extends EmbeddedEntity {
     }
 }
 
-// Signum's UserAssetPreviewModel (UserAssets.cs) — the whole preview shown before an import is applied.
+// The whole preview shown before an import is applied.
 @reflect
 export class UserAssetPreviewModel extends ModelEntity {
     lines: UserAssetPreviewLineEmbedded[];

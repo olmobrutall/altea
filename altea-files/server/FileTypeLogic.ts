@@ -6,19 +6,15 @@ import { declaredSymbolsForType } from "@altea/altea/data/reflection";
 import { FileTypeSymbol } from "../data/Files";
 import type { IFileTypeAlgorithm } from "./FileTypeAlgorithm";
 
-// Port of Signum.Files' FileTypeLogic.cs — the registry mapping each FileTypeSymbol to the ALGORITHM that
-// stores its files, plus the symbol table itself.
+// Port of Signum.Files' FileTypeLogic.cs — see docs/port/Files.md.
 //
-// The symbol table is seeded from the REGISTERED file types, as Signum does
-// (`SymbolLogic<FileTypeSymbol>.Start(sb, () => FileTypes.Keys.ToHashSet())`): a file type IS its
-// algorithm, and one with no store to write to is not a type this application has. SymbolLogic's own
-// default — every DECLARED symbol — is wrong here in a way that shows, because merely IMPORTING a
-// module's data layer declares its file types: an app that never STARTS that module still got rows for
-// them. Southwind starts neither Printing nor WhatsNew and has a row for neither, where eastwind had six
-// its database does not.
+// The registry mapping each FileTypeSymbol to the ALGORITHM that stores its files, plus the symbol table.
 //
-// Like Signum's, the thunk is evaluated LATE (when the table is seeded), so registration order does not
-// matter — which is what the declared-symbol default was reaching for.
+// The table is seeded from the REGISTERED file types, NOT from the declared ones: a file type IS its
+// algorithm, and one with no store to write to is not a type this application has. The difference shows,
+// because merely IMPORTING a module's data layer declares its file types — so an app that never STARTS
+// that module got rows for them. The thunk is evaluated LATE (when the table is seeded), so registration
+// order does not matter, which is what the declared-symbol default was reaching for.
 
 const fileTypes = new Map<string /*symbol key*/, IFileTypeAlgorithm>();
 
@@ -33,7 +29,6 @@ export namespace FileTypeLogic {
         sb.include(FileTypeSymbol).withQuery();
     }
 
-    /** Signum's `FileTypeLogic.Register(symbol, algorithm)`. */
     export function register(fileType: FileTypeSymbol, algorithm: IFileTypeAlgorithm): void {
         if (fileType == null)
             throw new Error("fileType is required (did the symbol init()?)");
@@ -43,7 +38,6 @@ export namespace FileTypeLogic {
         fileTypes.set(fileType.key, algorithm);
     }
 
-    /** Signum's `fileType.GetAlgorithm()` (GetOrThrow). */
     export function getAlgorithm(fileType: FileTypeSymbol): IFileTypeAlgorithm {
         const algorithm = fileTypes.get(fileType.key);
         if (algorithm == null)

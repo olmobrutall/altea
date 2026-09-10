@@ -16,50 +16,38 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
 
-// Port of Signum's Signum.Toolbar/Toolbar.cs + ToolbarSwitcher.cs. A Toolbar is a user-authored,
-// XML-portable NAVIGATION BAR: an ordered list of elements (headers, dividers, items, extra icons), each
-// pointing at a query / a saved user asset / a permission-gated custom block / a raw URL — or at ANOTHER
-// toolbar entity (a ToolbarMenu → a collapsible group, a ToolbarSwitcher → a pick-one-of-N dropdown, a
-// nested Toolbar → inlined). Its `location` decides where it renders: the sidebar (Side), the navbar (Top)
-// or a page of cards (Main).
+// Port of Signum.Toolbar's Toolbar.cs + ToolbarSwitcher.cs — see docs/port/Toolbar.md.
 //
-// altea divergences, documented inline:
-//  - Signum's `Guid Guid` [UniqueIndex] portable-identity field on the three ROOT entities (Toolbar /
-//    ToolbarMenu / ToolbarSwitcher) → a uuid PRIMARY KEY (`@primaryKey("uuid")`), exactly like
-//    DashboardEntity / UserQueryEntity: the `id` IS the identity XML import/export keys on. The element
-//    ROWS have one too, because Signum declares those collections `[PrimaryKey(typeof(Guid))]` so the row
-//    id identifies the element in the XML — which is also the id the client addresses an element by (see
-//    ToolbarClient.entityElementFilters).
-//  - Signum's `MList<ToolbarElementEmbedded> Elements` (an EmbeddedEntity MList) → per-owner `@part` ROWS,
-//    which are NOT EmbeddedEntities — hence the altea `<Owner>_<field>` row names below, not Signum's
-//    `…Embedded` ones. That forces ONE further divergence: Signum has `ToolbarMenuElementEmbedded :
-//    ToolbarElementEmbedded`
-//    (one embedded type reused by two owners, the subclass adding WithEntity/AutoSelect), but an altea
-//    @part row carries its OWN `@backReference` to its single owner — so the shared members move up into an
-//    ABSTRACT base (`ToolbarElementBaseEntity`, no table) and each owner gets a concrete row type. Client
-//    code that treats both uniformly types against the base (Signum's `ToolbarElementEmbedded`).
-//  - `ToXml`/`FromXml` are server-only in altea (System.Xml + the user-asset context) — see
-//    server/ToolbarXml.server.ts; the entities stay isomorphic.
-//  - Signum's `StateValidator<ToolbarElementEmbedded, ToolbarElementType>` (a declarative per-state
-//    must-be-set / must-be-null matrix) has no altea analogue; the same rules are expressed as explicit
-//    `@validate`s below, keeping Signum's message keys.
-//  - `[Translatable]` on Name / Label is dropped with the rest of instance translation (same deferral as
-//    the dashboard port): the raw stored text is shown.
-//  - `IToolbarEntity.GetSubToolbars()` IS ported (it drives the cycle check on save), as a method on each
-//    root entity.
+// A Toolbar is a user-authored, XML-portable NAVIGATION BAR: an ordered list of elements (headers,
+// dividers, items, extra icons), each pointing at a query / a saved user asset / a permission-gated custom
+// block / a raw URL — or at ANOTHER toolbar entity (a ToolbarMenu → a collapsible group, a ToolbarSwitcher
+// → a pick-one-of-N dropdown, a nested Toolbar → inlined). Its `location` decides where it renders: the
+// sidebar (Side), the navbar (Top) or a page of cards (Main).
+//
+// The three ROOTS and the element ROWS are all `@primaryKey("uuid")`: that id is the portable identity the
+// XML keys on, and for a row it is also what the client addresses an element by (see
+// ToolbarClient.entityElementFilters).
+//
+// An element row belongs to ONE owner through its `@backReference`, so the two owners cannot share a row
+// type: the common members live on the ABSTRACT `ToolbarElementBaseEntity` (no table) and each owner has a
+// concrete row. Client code that treats both uniformly types against the base.
+//
+// The per-state must-be-set / must-be-null rules are explicit `@validate`s below, keeping Signum's message
+// keys (they are what a shipped translation file is keyed by). `getSubToolbars()` drives the cycle check on save. XML lives in server/ToolbarXml.ts, so the
+// entities stay isomorphic.
 
 // ---- Enums ---------------------------------------------------------------------------------------------
 
-// Signum's ToolbarLocation (Toolbar.cs): which of the app's three navigation surfaces renders this toolbar.
+// Which of the app's three navigation surfaces renders this toolbar.
 export enum ToolbarLocation {
     Side,
     Top,
     Main,
 }
 
-// Signum's ToolbarElementType (Toolbar.cs). The explicit numeric values are Signum's (Header = 2 — the
-// enum lost two members historically); altea persists an enum as an int FK to its enum table, so keeping
-// the ordinals keeps a Signum-exported XML/database directly comparable.
+// The explicit numeric values are Signum's — Header = 2, the enum lost two members historically — and an
+// enum persists as an int FK to its enum table, so keeping the ordinals keeps a Signum-exported XML or
+// database directly comparable. Do not renumber.
 export enum ToolbarElementType {
     Header = 2,
     Divider = 3,
@@ -67,40 +55,37 @@ export enum ToolbarElementType {
     ExtraIcon = 5,
 }
 
-// Signum's ShowCount (Toolbar.cs): whether the element's result count badge is always shown, or only when
+// Whether the element's result count badge is always shown, or only when
 // it is greater than zero.
 export enum ShowCount {
     MoreThan0 = 1,
     Always = 2,
 }
 
-// The string-union twins of the three enums above. altea's enum idiom is a numeric `XEnum` object (the
-// in-memory / stored value is the ordinal) paired with a string-union alias of its member NAMES — which is
-// the form that travels on the wire, so the ToolbarResponse DTOs and the client comparisons use these
-// (`res.type == "Divider"`, exactly as in Signum's generated Signum.Toolbar.ts).
+// The string-union twins of the three enums above: the member NAMES are what travels on the wire, so the
+// ToolbarResponse DTOs and the client comparisons use these (`res.type == "Divider"`).
 export type ToolbarLocationKeys = keyof typeof ToolbarLocation;
 export type ToolbarElementTypeKeys = keyof typeof ToolbarElementType;
 export type ShowCountKeys = keyof typeof ShowCount;
 
 // ---- The element rows ----------------------------------------------------------------------------------
 
-/** Signum's IToolbarEntity (Toolbar.cs) — a toolbar-ish root whose elements may reference OTHER such roots
- *  (so the graph must stay acyclic). `getSubToolbars()` is Signum's `IEnumerable<Lite<IToolbarEntity>>
- *  GetSubToolbars()`; the cycle check on save walks it (see ToolbarLogic). */
+/** A toolbar-ish root whose elements may reference OTHER such roots
+ *  (so the graph must stay acyclic). The cycle check on save walks `getSubToolbars()` — see ToolbarLogic. */
 export interface IToolbarEntity extends Entity {
     getSubToolbars(): Lite<Entity>[];
 }
 
-// Signum's ToolbarElementEmbedded (Toolbar.cs), minus the owner FK: the members shared by a Toolbar element
-// and a ToolbarMenu element. ABSTRACT (`@reflect`, not `@entity`) — only the two concrete row types below
-// get tables (the same idiom as altea-auth's RuleEntity base).
+// The members shared by a Toolbar element and a ToolbarMenu element, minus the owner FK. ABSTRACT
+// (`@reflect`, not `@entity`) — only the two concrete row types below get tables, the same idiom as
+// altea-auth's RuleEntity base.
 @reflect
 export abstract class ToolbarElementBaseEntity extends Entity {
 
     type: ToolbarElementType = ToolbarElementType.Item;
 
-    // Signum's PropertyValidation: for an Item / a Header, a label is mandatory when there is no content
-    // to take the label FROM. A Divider carries none of the four (Signum's StateValidator row).
+    // For an Item / a Header, a label is mandatory when there is no content
+    // to take the label FROM. A Divider carries none of the four.
     @validate<ToolbarElementBaseEntity>(e => isDivider(e)
         ? mustBeNull(e.label, ToolbarMessage.ADividerHasNoLabelIconContentOrUrl)
         : !e.label && e.content == null && isLabelledType(e)
@@ -121,7 +106,7 @@ export abstract class ToolbarElementBaseEntity extends Entity {
     @stringLengthValidator({ min: 3, max: 20 })
     iconColor: string | null;
 
-    // Signum's `[ImplementedBy()] Lite<Entity>? Content` — an EMPTY list that each module widened from its
+    // An EMPTY list that each module widened from its
     // own Logic.Start (`AssertImplementedBy(…)`). altea declares the toolbar module's OWN five here and the
     // APP widens the list with the assets of every registered module (Southwind did the same from
     // Starter.cs) — see eastwind/entityOverrides.data.ts's `overrideImplementedBy`. The list decides both
@@ -135,13 +120,11 @@ export abstract class ToolbarElementBaseEntity extends Entity {
     @implementedBy(() => [QueryEntity, PermissionSymbol, ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity])
     content: Lite<Entity> | null;
 
-    // Signum's `[StringLengthValidator(Min = 1, Max = int.MaxValue), URLValidator(absolute: true,
-    // aspNetSiteRelative: true)] string? Url` — an unbounded column (an altea string field with no declared
-    // size is nvarchar(MAX) / varchar). altea's own `urlValidator` only accepts an ABSOLUTE http(s) URL, but
-    // most toolbar urls are app-relative ("/order/1", "~/order/1") — Signum's `aspNetSiteRelative: true` —
-    // so the check is written out here.
+    // Unbounded (a string field with no declared size is nvarchar(MAX) / varchar). The stock `urlValidator`
+    // accepts only an ABSOLUTE http(s) URL, but most toolbar urls are app-relative ("/order/1",
+    // "~/order/1"), so the check is written out below.
     //
-    // Signum's second PropertyValidation: an Item / ExtraIcon needs a url when it has no content to
+    // An Item / ExtraIcon needs a url when it has no content to
     // navigate to.
     @validate<ToolbarElementBaseEntity>(e => isDivider(e)
         ? mustBeNull(e.url, ToolbarMessage.ADividerHasNoLabelIconContentOrUrl)
@@ -155,7 +138,6 @@ export abstract class ToolbarElementBaseEntity extends Entity {
 
     openInPopup: boolean = false;
 
-    // Signum's `[Unit("s"), NumberIsValidator(GreaterThanOrEqualTo, 10)]`.
     @unit("s")
     @validate<ToolbarElementBaseEntity>(e => e.autoRefreshPeriod != null && (e.autoRefreshPeriod as number) < 10
         ? ToolbarMessage.AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds.niceToString() : null)
@@ -167,23 +149,20 @@ export abstract class ToolbarElementBaseEntity extends Entity {
     }
 }
 
-// Signum's ToolbarElementEmbedded as used by `ToolbarEntity.Elements` (here: the Toolbar-owned row).
+// The Toolbar-owned element row.
 @part
-// Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
-// the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
-// its identity across databases (see UserAssetsImporter.syncRows).
+// The row id IDENTIFIES the element in the XML: it is written per row on export and matched on import,
+// which is what lets a row keep its identity across databases (see UserAssetsImporter.syncRows).
 @primaryKey("uuid")
 export class ToolbarEntity_Element extends ToolbarElementBaseEntity {
     @backReference toolbar: Lite<ToolbarEntity>;
     @rowOrder order: int;
 }
 
-// Signum's ToolbarMenuElementEmbedded (Toolbar.cs) — a ToolbarMenu element, which additionally says whether
+// A ToolbarMenu element, which additionally says whether
 // it applies WITH or WITHOUT the menu's selected entity, and whether picking the menu auto-navigates to it.
 @part
-// Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
-// the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
-// its identity across databases (see UserAssetsImporter.syncRows).
+// The row id IDENTIFIES the element in the XML — see ToolbarEntity_Element above.
 @primaryKey("uuid")
 export class ToolbarMenuEntity_Element extends ToolbarElementBaseEntity {
     @backReference toolbarMenu: Lite<ToolbarMenuEntity>;
@@ -195,13 +174,12 @@ export class ToolbarMenuEntity_Element extends ToolbarElementBaseEntity {
 
 // ---- The root entities ---------------------------------------------------------------------------------
 
-// Signum's ToolbarEntity (Toolbar.cs).
 @reflect
 @primaryKey("uuid")
 @entity("Main", "Master")
 export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarEntity {
 
-    // Signum's `Lite<IEntity>? Owner` — AssertImplementedBy(User, Role) in logic. Whose toolbar this is
+    // AssertImplementedBy(User, Role) in logic. Whose toolbar this is
     // (personal → a User; shared → a Role; null → global).
     @implementedBy(() => [UserEntity, RoleEntity])
     owner: Lite<Entity> | null;
@@ -214,11 +192,9 @@ export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarE
     // Highest priority wins when several toolbars of one location are visible to the current role.
     priority: int | null;
 
-    // Signum's `[PreserveOrder, NoRepeatValidator, BindParent] MList<ToolbarElementEmbedded>`.
     @validate<ToolbarEntity>(t => validateElements(t.elements))
     elements: ToolbarEntity_Element[];
 
-    /** Signum's `GetSubToolbars() => Elements.Select(a => a.Content).OfType<Lite<IToolbarEntity>>()`. */
     getSubToolbars(): Lite<Entity>[] {
         return subToolbarsOf(this.elements);
     }
@@ -230,7 +206,7 @@ export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarE
     }
 }
 
-// Signum's ToolbarMenuEntity (Toolbar.cs) — a reusable, collapsible GROUP of elements, optionally bound to
+// A reusable, collapsible GROUP of elements, optionally bound to
 // an entity type (then the menu shows an entity picker and its elements split into with-/without-entity).
 @reflect
 @primaryKey("uuid")
@@ -259,14 +235,14 @@ export class ToolbarMenuEntity extends Entity implements IUserAssetEntity, IHasE
     }
 }
 
-// Signum's ToolbarSwitcherEntity (ToolbarSwitcher.cs) — one sidebar slot that switches between N
+// One sidebar slot that switches between N
 // ToolbarMenus (a dropdown; the picked menu's elements render below it).
 @reflect
 @primaryKey("uuid")
 @entity("Shared", "Master")
 export class ToolbarSwitcherEntity extends Entity implements IUserAssetEntity, IToolbarEntity {
 
-    // Signum has [UniqueIndex] on Name here (it does not on Toolbar / ToolbarMenu).
+    // UNIQUE here only — Toolbar and ToolbarMenu names are not, in either framework.
     @uniqueIndex
     @stringLengthValidator({ max: 100 })
     name: string;
@@ -274,10 +250,8 @@ export class ToolbarSwitcherEntity extends Entity implements IUserAssetEntity, I
     @implementedBy(() => [UserEntity, RoleEntity])
     owner: Lite<Entity> | null;
 
-    // Signum's `[PreserveOrder, NoRepeatValidator] MList<ToolbarSwitcherOptionEmbedded>`.
     options: ToolbarSwitcherEntity_Option[];
 
-    /** Signum's `GetSubToolbars() => Options.Select(a => a.ToolbarMenu)`. */
     getSubToolbars(): Lite<Entity>[] {
         return (this.options ?? []).map(o => o.toolbarMenu as Lite<Entity>).filter(l => l != null);
     }
@@ -289,7 +263,7 @@ export class ToolbarSwitcherEntity extends Entity implements IUserAssetEntity, I
     }
 }
 
-// Signum's ToolbarSwitcherOptionEmbedded (ToolbarSwitcher.cs) — one switchable menu plus its icon.
+// One switchable menu plus its icon.
 @part
 export class ToolbarSwitcherEntity_Option extends Entity {
     @backReference toolbarSwitcher: Lite<ToolbarSwitcherEntity>;
@@ -309,7 +283,7 @@ export class ToolbarSwitcherEntity_Option extends Entity {
     }
 }
 
-// ---- Operations (Signum's `[AutoInit] static class ToolbarOperation` &c.) -------------------------------
+// ---- Operations ----------------------------------------------------------------------------------------
 
 export namespace ToolbarOperation {
     export const Save: ExecuteSymbol<ToolbarEntity> = init();
@@ -326,39 +300,39 @@ export namespace ToolbarSwitcherOperation {
     export const Delete: DeleteSymbol<ToolbarSwitcherEntity> = init();
 }
 
-// ---- Validation helpers (Signum's StateValidator rows + PropertyValidation) -----------------------------
+// ---- Validation helpers --------------------------------------------------------------------------------
 
 function isDivider(e: ToolbarElementBaseEntity): boolean {
     return Enum.toName(ToolbarElementType, e.type) === "Divider";
 }
 
-/** Signum's StateValidator "false" cell: for a Divider the member must NOT be set. */
+/** For a Divider the member must NOT be set. */
 function mustBeNull(value: unknown, message: { niceToString(): string }): string | null {
     return value == null || value === "" ? null : message.niceToString();
 }
 
-/** Label is mandatory-when-no-content for an Item / a Header (Signum's PropertyValidation guard). */
+/** Label is mandatory-when-no-content for an Item / a Header. */
 function isLabelledType(e: ToolbarElementBaseEntity): boolean {
     const type = Enum.toName(ToolbarElementType, e.type);
     return type === "Item" || type === "Header";
 }
 
-/** Url is mandatory-when-no-content for an Item / an ExtraIcon (Signum's PropertyValidation guard). */
+/** Url is mandatory-when-no-content for an Item / an ExtraIcon. */
 function isNavigableType(e: ToolbarElementBaseEntity): boolean {
     const type = Enum.toName(ToolbarElementType, e.type);
     return type === "Item" || type === "ExtraIcon";
 }
 
-/** Signum's `URLValidator(absolute: true, aspNetSiteRelative: true)`: an absolute http(s) URL, or a
- *  site-relative path ("/order/1" or Signum's "~/order/1"). Toolbar urls may also carry the `:id` / `:type`
+/** An absolute http(s) URL, or a
+ *  site-relative path ("/order/1" or "~/order/1"). Toolbar urls may also carry the `:id` / `:type`
  *  / `:key` / `:toStr` entity placeholders (see client/ToolbarUrl.ts), which are legal path characters. */
 function validateUrl(url: string): string | null {
     const ok = /^https?:\/\/[^\s]+$/i.test(url) || /^~?\/[^\s]*$/.test(url);
     return ok ? null : ToolbarMessage.InvalidUrl0.niceToString(url);
 }
 
-/** Signum's `IToolbar_Saving` element checks, run as an owner-level validation (they span sibling rows):
- *  an ExtraIcon attaches to the element BEFORE it, so it may be neither first nor right after a Divider. */
+/** The element checks, run as an OWNER-level validation because they span sibling rows: an ExtraIcon
+ *  attaches to the element BEFORE it, so it may be neither first nor right after a Divider. */
 function validateElements(elements: ToolbarElementBaseEntity[] | undefined): string | null {
     if (elements == null || elements.length === 0)
         return null;
@@ -393,9 +367,9 @@ export function isToolbarEntityType(lite: Lite<Entity>): boolean {
 
 // ---- Messages ------------------------------------------------------------------------------------------
 
-// Signum's ToolbarMessage (Toolbar.cs / resx). The trailing entries are altea-only: the messages Signum
-// expressed through C# validator attributes (StateValidator / URLValidator / NumberIsValidator) and the two
-// shared ValidationMessage reuses, which altea states explicitly.
+// The trailing entries are altea-only: the messages Signum expresses through C# validator attributes
+// (StateValidator / URLValidator / NumberIsValidator) and two shared ValidationMessage reuses, which are
+// stated explicitly here.
 export const ToolbarMessage = {
     RecursionDetected: msg("Recursion detected"),
     _0CyclesHaveBeenFoundInTheToolbarDueToTheRelationships: msg("{0} cycles have been found in the Toolbar due to the relationships:"),
@@ -416,22 +390,21 @@ export const ToolbarMessage = {
     NoContentOrUrlFound: msg("No Content or Url found"),
 };
 
-// Signum's LayoutMessage (Toolbar.cs) — `[AllowUnauthenticated]` there; altea messages are shipped in the
+// `[AllowUnauthenticated]` there; altea messages are shipped in the
 // reflection blob for every user, so the marker has no analogue.
 export const LayoutMessage = {
     JumpToMainContent: msg("Jump to main content"),
     SelectA0_G: msg("Select a {0}"),
 };
 
-// Signum's SubPageMessage (Toolbar.cs). Kept with the module although the Subs/ feature it belongs to
-// (SubFramePage / SubsClient — a sub-entity frame page bundled in Signum.Toolbar) is NOT ported: it needs
-// FramePage internals altea has not exposed. The two messages cost nothing and mark the deferral.
+// Kept although the feature they belong to — SubFramePage / SubsClient, a sub-entity frame page bundled
+// in Signum.Toolbar — is NOT ported: it needs FramePage internals altea has not exposed. The two messages
+// cost nothing and mark the deferral.
 export const SubPageMessage = {
     No0FoundIn1: msg("No {0} found in {1}"),
     NotAllowedToCreate0In1: msg("Not allowed to create {0} in {1}"),
 };
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("toolbar")]`. FOLDER-scoped, so it covers every type declared
+// The database schema this package's tables live in. FOLDER-scoped, so it covers every type declared
 // beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("toolbar");

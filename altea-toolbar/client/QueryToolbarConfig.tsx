@@ -15,17 +15,14 @@ import type { ShowCountKeys } from "../data/Toolbar";
 import type { ToolbarResponse } from "../data/ToolbarResponse";
 import { ToolbarConfig } from "./ToolbarConfig";
 
-// Faithful port of Signum's QueryToolbarConfig.tsx (Signum.Toolbar/QueryToolbarConfig.tsx): the config for an
-// element whose content is a QUERY — it navigates to that query's SearchPage (or opens it in a modal when
-// `openInPopup`), and can show a live result-count badge.
+// Port of Signum.Toolbar's QueryToolbarConfig.tsx — see docs/port/Toolbar.md.
 //
-// altea divergences:
-//  - `getToString(element.content)` → `element.content!.toString()` (a QueryEntity lite's toStr IS its key,
-//    which is what `queryName` wants).
-//  - `SearchToolbarCount` watched the entity types behind the query's `Entity` column through
-//    `Finder.getQueryDescription`. altea HAS NO QueryDescription (a documented framework divergence): the
-//    equivalent facts come from the query's ROOT TOKEN (`Finder.getQueryRoot`), whose `type` is the one shared
-//    TypeReference — `typeInfos()` gives the same list Signum split out of `qd.columns["Entity"].type.name`.
+// The config for an element whose content is a QUERY: it navigates to that query's SearchPage (or opens it
+// in a modal when `openInPopup`), and can show a live result-count badge. A QueryEntity lite's toStr IS
+// its key, which is what `queryName` wants.
+//
+// `SearchToolbarCount` watches the entity types behind the query through its ROOT TOKEN
+// (`Finder.getQueryRoot`), whose `type` is the one shared TypeReference.
 
 export default class QueryToolbarConfig extends ToolbarConfig<QueryEntity> {
     constructor() {
@@ -79,7 +76,7 @@ interface CountIconProps {
     showCount: ShowCountKeys;
 }
 
-/** Signum's SearchToolbarCount: the live count badge — refreshed on a timer AND whenever an entity of one of
+/** The live count badge — refreshed on a timer AND whenever an entity of one of
  *  the query's types changes. */
 export function SearchToolbarCount(p: CountIconProps): React.JSX.Element {
 

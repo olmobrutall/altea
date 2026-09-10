@@ -3,21 +3,15 @@ import { SafeConsole, Color } from "@altea/altea/server/safeConsole";
 import type { Replacements } from "@altea/altea/server/sync/synchronizer";
 
 
-// Port of Signum.UserAssets' TokenMigrations/TokenMigrationFile.cs — the serialized form of the rename
-// decisions captured during a sync, and the per-entity Skip/Delete/Regenerate choices.
+// Port of Signum.UserAssets' TokenMigrations/TokenMigrationFile.cs — see docs/port/UserAssets.md.
 //
-// The JSON is a CONTRACT, not an implementation detail: a `.tokens.json` written by Signum must be
-// readable here and vice versa, because the whole point is that an application migrating between the two
-// keeps its recorded history. So the property names, the bucket shapes and the string-or-array encoding
-// are Signum's exactly, and `null`/absent buckets are omitted rather than written as `null`
-// (`JsonIgnoreCondition.WhenWritingNull`).
+// The serialized form of the rename decisions captured during a sync, plus the per-entity
+// Skip/Delete/Regenerate choices.
 //
-// altea divergences, documented inline:
-//  - C#'s `Dictionary<string, X>` is a plain object here, so the buckets are `Record<string, …>`. Key
-//    ORDER is therefore insertion order rather than .NET's unspecified order — harmless, and it makes a
-//    diff of two recorded files readable.
-//  - `StringOrArray` is a struct with a JsonConverter there; here it is just `string | string[]` on the
-//    wire with helpers below, because that IS the wire shape and TS needs no converter to express it.
+// **The JSON is a CONTRACT.** A `.tokens.json` written by Signum must be readable here and vice versa —
+// that is the whole point, for an application migrating between the two — so the property names, the
+// bucket shapes and the string-or-array encoding are Signum's exactly, and an absent bucket is OMITTED
+// rather than written as `null`. Do not "tidy" any of that.
 
 /**
  * Which kind of rename is being recorded. Each bucket maps to a field below, and the `subKey` a lookup
@@ -31,12 +25,11 @@ import type { Replacements } from "@altea/altea/server/sync/synchronizer";
  */
 export type RenameBucket = "FilterValue" | "Types" | "Member" | "Global";
 
-/** Signum's `UserAssetEntityActionType`. */
 export type UserAssetEntityActionType = "Skip" | "Delete" | "Regenerate";
 
 export interface UserAssetEntityAction {
     entityType: string;
-    /** The asset's id. Signum types this `Guid`; altea's user assets are uuid-keyed, so a string. */
+    /** The asset's id — a string, since user assets are uuid-keyed. */
     guid: string;
     action: UserAssetEntityActionType;
 }
@@ -44,9 +37,9 @@ export interface UserAssetEntityAction {
 /**
  * One or more candidate replacements for a renamed token, tried IN ORDER at resolution time.
  *
- * Signum serializes a single candidate as a plain string and several as an array, for backwards
- * compatibility with files written before multi-candidate support. That encoding is part of the
- * contract, so it is kept — hence the union rather than always-an-array.
+ * A single candidate is serialized as a plain string and several as an array, for compatibility with
+ * files written before multi-candidate support. That encoding is part of the file CONTRACT, which is why
+ * this is a union rather than always-an-array.
  */
 export type StringOrArray = string | string[];
 
@@ -56,7 +49,7 @@ export function valuesOf(soa: StringOrArray | undefined): string[] {
     return typeof soa === "string" ? [soa] : soa;
 }
 
-/** Signum's `StringOrArray.Append` — add a candidate unless it is already there. */
+/** Add a candidate unless it is already there. */
 export function appendValue(soa: StringOrArray | undefined, newValue: string): StringOrArray {
     const values = valuesOf(soa);
     if (values.includes(newValue))
@@ -65,12 +58,11 @@ export function appendValue(soa: StringOrArray | undefined, newValue: string): S
     return next.length === 1 ? next[0]! : next;
 }
 
-/** Signum's `TokenMigrationFile.FilterValueSubKey`. */
 export function filterValueSubKey(queryKey: string, tokenString: string): string {
     return queryKey + "|" + tokenString;
 }
 
-/** altea's query synchronizer's Replacements key (see `loadTypes`); Signum's is "Queries". */
+/** The query synchronizer's Replacements key (see `loadTypes`). */
 const QUERY_REPLACEMENTS_KEY = "QueryKey";
 
 export class TokenMigrationFile {
@@ -120,7 +112,7 @@ export class TokenMigrationFile {
         return Object.assign(new TokenMigrationFile(), parsed);
     }
 
-    /** The wire form: Signum's `WriteIndented` + omit-when-null, so the two write the same bytes. */
+    /** The wire form: indented, omitting an empty bucket — so both frameworks write the same bytes. */
     toJson(): string {
         const out: Record<string, unknown> = {};
         const put = (name: string, value: object | unknown[] | undefined): void => {
@@ -129,7 +121,7 @@ export class TokenMigrationFile {
             if (Array.isArray(value) ? value.length > 0 : Object.keys(value).length > 0)
                 out[name] = value;
         };
-        // Signum's declaration order, so a diff between the two frameworks' files is readable.
+        // Signum's declaration order, so a diff between two frameworks' files is readable.
         put("tokensByQuery", this.tokensByQuery);
         put("tokensByType", this.tokensByType);
         put("filterValues", this.filterValues);
@@ -151,7 +143,7 @@ export class TokenMigrationFile {
     }
 
     /**
-     * Signum's `TryGetDictionary` — the dict for this bucket/subKey, or undefined. Callers walking
+     * The dict for this bucket/subKey, or undefined. Callers walking
      * history use it to chain-compose a lookup across several files without flattening them first.
      */
     tryGetDictionary(bucket: RenameBucket, subKey?: string): Record<string, string> | undefined {
@@ -167,7 +159,7 @@ export class TokenMigrationFile {
         }
     }
 
-    /** Signum's `GetOrCreateDictionary` — the recording side, so a new decision has somewhere to go. */
+    /** The recording side, so a new decision has somewhere to go. */
     getOrCreateDictionary(bucket: RenameBucket, subKey?: string): Record<string, string> {
         switch (bucket) {
             case "FilterValue": {
@@ -193,14 +185,14 @@ export class TokenMigrationFile {
     }
 
     /**
-     * Signum's `LoadTypes(rep)` — drain a schema sync's QUERY renames into the `types` bucket.
+     * Drain a schema sync's QUERY renames into the `types` bucket.
      *
      * That bucket is where a query-key rename belongs precisely because a query key is a type's clean
      * name, so the same dict already serves Lite type renames in filter values.
      *
-     * The Replacements key differs — Signum's `QueryLogic.QueriesKey` is "Queries", altea's query
-     * synchronizer registers "QueryKey" — but that is an INTERNAL sync key, not part of the file: what
-     * lands in `types` is old-key → new-key either way, so a file still round-trips between the two.
+     * The Replacements key ("QueryKey") is an INTERNAL sync key, not part of the file — what lands in
+     * `types` is old-key → new-key, which is why a file still round-trips between the two frameworks
+     * although each spells that key differently.
      */
     loadTypes(rep: Replacements): void {
         const map = rep.tryGetC(QUERY_REPLACEMENTS_KEY);

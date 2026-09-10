@@ -11,28 +11,21 @@ import { TokenMigrationFile } from "./TokenMigrationFile";
 import { TokenSyncContext } from "./TokenSyncContext";
 import { TokenMigrationLogic, type MigrationInfo } from "./TokenMigrationLogic";
 
-// Port of Signum.UserAssets' TokenMigrations/TokenMigrationRunner.cs — the session: list what exists,
-// apply what is pending, or record a new migration.
+// Port of Signum.UserAssets' TokenMigrations/TokenMigrationRunner.cs — see docs/port/UserAssets.md.
 //
-// The two modes are asymmetric on purpose. RECORDING is interactive and saves nothing: it walks every
-// asset, asks about each token it cannot resolve, and writes the answers to a file. APPLYING is silent
-// and saves per entity: it replays that file's answers and must not prompt, because it runs on a machine
-// where nobody is watching (a deployment). That is why a miss in Apply mode is an ERROR rather than a
-// question — see TokenSyncContext.askRename.
+// The session: list what exists, apply what is pending, or record a new migration. The two modes are
+// asymmetric ON PURPOSE. RECORDING is interactive and saves nothing — it walks every asset, asks about
+// each token it cannot resolve, and writes the answers out. APPLYING is silent and saves per entity — it
+// replays those answers and must not prompt, because it runs where nobody is watching. That is why a miss
+// in Apply mode is an ERROR rather than a question (see TokenSyncContext.askRename).
 //
-// altea divergences, documented inline:
-//  - async throughout (SafeConsole prompts are).
-//  - `Schema.Current.Initialize()` → `Schema.current.initialize()`, and the writes run through
-//    `ExecutionMode.global` (Signum's runner is a console tool with no user, so authorization never
-//    applied there in the first place).
-//  - Signum's `AfterSynchronize` writes its `.tokens.json` to `Path.GetFileNameWithoutExtension(fileName)`,
-//    i.e. the process's working directory. Written beside the SYNC script here, which is where the
-//    migrations directory listing can find it.
+// Async throughout, since every prompt is; the writes run through `ExecutionMode.global`. A recorded file
+// is written BESIDE the sync script, which is where the migrations directory listing looks for it.
 
 export namespace TokenMigrationRunner {
 
     /**
-     * Signum's `TokenMigrations(autoRun)` — the loop the migration command lands in. Hooked onto
+     * The loop the migration command lands in. Hooked onto
      * `SqlMigrationRunner.afterMigrationsCompleted`, so token migrations run in the same session as the
      * schema ones: the developer's muscle memory is one command, not two.
      */
@@ -70,8 +63,8 @@ export namespace TokenMigrationRunner {
 
     /**
      * Mark which listed versions have run, and surface any version that is in the DATABASE with no file
-     * left — Signum prints those in RED, because it means the history on disk and the history in the
-     * database disagree.
+     * left — printed in RED, because it means the history on disk and the history in the database
+     * disagree.
      */
     async function setExecuted(infos: MigrationInfo[]): Promise<void> {
         const executed = await ExecutionMode.global(async () =>
@@ -99,7 +92,7 @@ export namespace TokenMigrationRunner {
     }
 
     /**
-     * Signum's `ApplyPending` — replay every pending file in version order, in ONE `TokenSynchronizing`
+     * Replay every pending file in version order, in ONE `TokenSynchronizing`
      * fire.
      *
      * One fire, not one per file, is what makes a chain work: with `V1: A→B` and `V2: B→C` both pending,
@@ -122,7 +115,7 @@ export namespace TokenMigrationRunner {
     }
 
     /**
-     * Signum's `AfterSynchronize` — the hook on the schema sync. The renames a sync just resolved are
+     * The hook on the schema sync. The renames a sync just resolved are
      * exactly the ones that invalidate stored tokens, so this offers to record them while they are still
      * in hand, and then to run them.
      */
@@ -155,7 +148,7 @@ export namespace TokenMigrationRunner {
             await TokenMigrationLogic.fireTokenSynchronizing(new TokenSyncContext("Apply", [recording], null));
     }
 
-    /** Signum's `RecordNewMigration` — an interactive pass that writes a new `.tokens.json`. */
+    /** An interactive pass that writes a new `.tokens.json`. */
     async function recordNewMigration(): Promise<boolean> {
         // History = every committed file, whether or not it has been applied to THIS database: the point
         // is to resolve against what has been decided, and a decision counts as soon as it is on disk.
@@ -194,7 +187,7 @@ export namespace TokenMigrationRunner {
         return dir;
     }
 
-    /** Signum's `DateTime.Now.ToString("yyyy.MM.dd-HH.mm.ss")` — and the regex that reads it back. */
+    /** And the regex that reads it back. */
     function versionStamp(): string {
         const d = new Date();
         const p = (n: number, len = 2): string => String(n).padStart(len, "0");
@@ -202,7 +195,6 @@ export namespace TokenMigrationRunner {
             + `-${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
     }
 
-    /** Signum's `FileNameValidatorAttribute.RemoveInvalidCharts`. */
     function removeInvalidFileNameChars(text: string): string {
         return text.replace(/[\\/:*?"<>|]/g, "");
     }
@@ -214,8 +206,8 @@ export namespace TokenMigrationRunner {
             SafeConsole.writeLineColor(Color.darkGray, "No token/query migrations found.");
         } else {
             for (const mi of infos) {
-                // Signum's colour coding, and the RED case is the one that matters: a version recorded in
-                // the database whose file is gone.
+                // The RED case is the one that matters: a version recorded in the database whose file is
+                // gone.
                 const color = mi.fileName != null && mi.isExecuted ? Color.darkGreen
                     : mi.fileName == null && mi.isExecuted ? Color.red
                         : mi.fileName != null && !mi.isExecuted ? Color.white

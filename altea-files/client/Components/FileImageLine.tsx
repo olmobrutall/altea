@@ -15,17 +15,13 @@ import { ImageModal } from "./ImageModal";
 import { memberPath, rootEntity } from "./FileLine";
 import "./Files.css";
 
-// Port of Signum.Files' Components/FileImageLine.tsx — FileLine for an IMAGE: the uploader while the field is
-// empty, and once it holds a file a THUMBNAIL (click → ImageModal) with the remove button floating over it.
+// Port of Signum.Files' Components/FileImageLine.tsx — see docs/port/Files.md.
 //
-// altea divergences (the same ones FileLine documents, plus):
-//  - Signum's line extends EntityBase (its file holders include real entities and Lites, hence the
-//    `FetchAndRemember` branch); altea ports the two EMBEDDED holders only, so this is a plain LineBase over
-//    `FilePathEmbedded | FileEmbedded | FileEntity | null` — structurally FileLine with an <img> instead of a downloader.
-//  - `defaultFileTypeInfo` (Signum's per-property file type / maxSize metadata) has no altea counterpart:
-//    pass `fileType` explicitly.
-//  - Signum set its defaults through `defaultProps` (removed in React 19 for function components); here
-//    `accept` / `dragAndDrop` default in `getDefaultProps`, altea's hook for exactly that.
+// FileLine for an IMAGE: the uploader while the field is empty, and once it holds a file a THUMBNAIL
+// (click → ImageModal) with the remove button floating over it. Structurally FileLine with an <img>
+// instead of a downloader.
+//
+// Pass `fileType` explicitly: there is no per-property file-type metadata to default it from.
 
 export interface FileImageLineProps<V extends FilePathEmbedded | FileEmbedded | FileEntity | null> extends LineBaseProps<V> {
     /** The store a NEW FilePathEmbedded goes to (required for FilePathEmbedded, ignored for FileEmbedded). */
@@ -47,7 +43,6 @@ export class FileImageLineController<V extends FilePathEmbedded | FileEmbedded |
 
     override getDefaultProps(p: FileImageLineProps<V>): void {
         super.getDefaultProps(p);
-        // Signum's `FileImageLine.defaultProps`.
         p.accept = "image/*";
         p.dragAndDrop = true;
     }
@@ -87,7 +82,7 @@ export function FileImageLine<V extends FilePathEmbedded | FileEmbedded | FileEn
         c.setValue(null as V);
     }
 
-    // Signum: a "Basic" form group stacks the label above, so the thumbnail becomes a block.
+    // A "Basic" form group stacks the label above, so the thumbnail becomes a block.
     const display = p.ctx.formGroupStyle === "Basic" ? "block" : undefined;
 
     const image =

@@ -11,23 +11,18 @@ import { Entity } from "@altea/altea/data/entity";
 import type { QueryFilterBaseEntity } from "../data/Queries";
 import { parseFilterValue } from "../data/FilterValueString";
 
-// Port of Signum's UserAssets `QueryFilterUtils.ToFilterList` (Signum.UserAssets/Queries/QueryFilterUtils.cs)
-// — turn the FLAT, indentation-encoded rows of a stored filter tree into the engine's nested Filter list.
+// Port of Signum.UserAssets' Queries/QueryFilterUtils.cs — see docs/port/UserAssets.md.
 //
-// altea divergences, documented inline:
-//  - The rows are the shared `QueryFilterBaseEntity` (see @altea/altea-user-assets), so this works for ANY
-//    owner's filter rows — a template's, a user query's, a chart's.
-//  - A stored enum field is an ORDINAL in memory and a member NAME on the wire; the engine's FilterOperation
-//    / FilterGroupOperation are string enums, so each is converted through `Enum.toName`.
-//  - `valueString` → a typed value with the client-side `parseFilterValue` (the same converter the
-//    SearchControl uses), keyed off the token's FilterType.
-//  - Lives in altea-user-assets, matching Signum (Signum.UserAssets/Queries/QueryFilterUtils.cs). It was
-//    parked in altea-email while that was the only server consumer; @altea/altea-office-template is the
-//    second, so it moved here — every owner of QueryFilterBaseEntity rows shares one converter.
+// Turn the FLAT, indentation-encoded rows of a stored filter tree into the engine's nested Filter list.
+// The rows are the shared `QueryFilterBaseEntity`, so this works for ANY owner's — a template's, a user
+// query's, a chart's — which is why it lives here rather than in whichever module happens to call it.
+//
+// A stored enum field is an ORDINAL in memory and a member NAME on the wire, and the engine's
+// FilterOperation / FilterGroupOperation are string enums — hence the `Enum.toName` on each.
 
 export namespace QueryFilterUtils {
 
-    /** Signum's ToFilterList — the stored rows, nested by `indentation`. */
+    /** The stored rows, nested by `indentation`. */
     export function toFilterList(queryName: QueryName, rows: readonly QueryFilterBaseEntity[]): Filter[] {
         const ordered = [...rows].sort((a, b) => (a.order as number) - (b.order as number));
         const [filters] = build(queryName, ordered, 0, 0);
@@ -71,12 +66,12 @@ export namespace QueryFilterUtils {
     }
 
     /**
-     * Signum's `ToFilterList` skip rules — which stored rows do NOT become filters.
+     * Which stored rows do NOT become filters.
      *
      * A stored filter row is not always a filter. A PINNED one is a control the user operates, so it filters
      * only in the states where the UI would have sent it, and a row marked for a DASHBOARD behaviour is
      * consumed by the dashboard (as an initial selection, or as a fallback when nothing else filters) rather
-     * than applied here. Everything below is Signum's list, in its order.
+     * than applied here.
      *
      * Without these a headless execution filters by things the UI never would — most visibly `EqualTo null`
      * for an unset pinned filter, which reads as "IS NULL" and answers with the wrong rows (usually none).
@@ -85,7 +80,7 @@ export namespace QueryFilterUtils {
      */
     function skipAsFilter(row: QueryFilterBaseEntity, parsedValue: unknown): boolean {
         const behaviour = row.dashboardBehaviour == null ? null : Enum.toName(DashboardBehaviour, row.dashboardBehaviour);
-        // Signum's TODO is kept as written: "works for CachedQueries but maybe not in other cases".
+        // TODO (Signum's, kept as written): "works for CachedQueries but maybe not in other cases".
         if (behaviour === "UseAsInitialSelection" || behaviour === "UseWhenNoFilters")
             return true;
 
@@ -103,7 +98,7 @@ export namespace QueryFilterUtils {
             return true;
 
         // "Only when it has a value" — and it has none. For a GROUP the value is never parsed, so the group
-        // itself is dropped (Signum's second TODO: "works for empty groups").
+        // itself is dropped. TODO (Signum's): "works for empty groups".
         if (active === "WhenHasValue" && (row.isGroup || parsedValue == null))
             return true;
 
@@ -122,7 +117,7 @@ export namespace QueryFilterUtils {
         return (ordinal == null ? "And" : Enum.toName(FilterGroupOperation, ordinal)) as FilterGroupOperationKeys;
     }
 
-    /** The stored `valueString` as the token's own type. A list operation splits on `|` (Signum's convention). */
+    /** The stored `valueString` as the token's own type. A list operation splits on `|`. */
     function value(t: QueryToken, op: FilterOperationKeys, valueString: string | null): unknown {
         if (valueString == null || valueString === "")
             return null;
@@ -141,8 +136,7 @@ export namespace QueryFilterUtils {
         return deserializeFilterValue(t, op, parseFilterValue(valueString, t.filterType));
     }
 
-    /** The "this row's entity" filter every single-entity render starts from (Signum's
-     *  `new FilterCondition(QueryUtils.Parse("Entity", qd, 0), EqualTo, entity.ToLite())`). */
+    /** The "this row's entity" filter every single-entity render starts from. */
     export function entityFilter(queryName: QueryName, entity: Entity): Filter {
         return new FilterCondition(token(queryName, ""), FilterOperationKeys.EqualTo, entity.toLite());
     }

@@ -20,9 +20,11 @@ import type { FileTypeSymbol } from "../data/Files";
 import { BigStringMixin } from "../data/BigString";
 import { FilePathEmbeddedLogic } from "./FilePathEmbeddedLogic";
 
-// Port of Signum.Files' BigStringLogic.cs — decides, PER PROPERTY ROUTE, whether a BigStringEmbedded's text
-// lives in its own column or in a file, and moves it across when a route is migrated. Readers and writers of
-// `bigString.text` never change: the text is written to the file on save and read back on retrieve.
+// Port of Signum.Files' BigStringLogic.cs — see docs/port/Files.md.
+//
+// Decides, PER PROPERTY ROUTE, whether a BigStringEmbedded's text lives in its own column or in a file, and
+// moves it across when a route is migrated. Readers and writers of `bigString.text` never change: the text
+// is written to the file on save and read back on retrieve.
 //
 // A route must be registered BEFORE its root type is included in the schema, because registration is what
 // removes the column the chosen mode does not use (see SchemaSettings.ignoreFieldRoute):
@@ -33,26 +35,13 @@ import { FilePathEmbeddedLogic } from "./FilePathEmbeddedLogic";
 //   BigStringLogic.start(sb);
 //   ... sb.include(ExceptionEntity) ...
 //
-// altea divergences, documented inline:
-//  - Signum keys its configuration by PropertyRoute and reaches the owning embedded through
-//    `bs.GetParentEntity()` (hence its `[BindParent]` requirement). altea keys by the MEMBER PATH from the
-//    root entity and walks DOWN from the entity the hook fires on, so no parent tracking is needed and the
-//    `[BindParent]` check has no counterpart.
-//  - Signum's mixin overrides PreSaving / PostRetrieving. altea's lifecycle events are per ENTITY TYPE, so
-//    the handlers are registered on each OWNING type (the same shape FilePathEmbeddedLogic uses).
-//  - Signum writes the file itself; here the created FilePathEmbedded is handed to
-//    `FilePathEmbeddedLogic.prepareAndWriteOnCommit`, so the bytes land through the ONE code path that also
-//    serves an ordinary file field (suffix + hash assigned now, bytes written just before the commit).
-//  - Signum's `RegisterPreUnsafeDelete` has no counterpart: FilePathEmbeddedLogic's own delete hook already
-//    finds the mixin's file (altea flattens an embedded's mixin fields into the embedded — see
-//    SchemaBuilder.generateEmbedded), so deleting the owner deletes the file.
-//  - Signum LEAVES the previous file in place when a route's text is rewritten, and leaves `mixin.File` set
-//    after migrating a file back into the database. Both leak a file / dangle a suffix, so this port deletes
-//    the superseded file on commit and clears the field.
-//  - BigStringMode is a plain string union, not an altea entity enum: it is engine configuration, never
-//    persisted (cf. the engine-only enums in server/dynamicQuery).
+// The configuration is keyed by the MEMBER PATH from the root entity and the walk goes DOWN from the entity
+// the hook fires on, so nothing has to track an embedded's parent. Writing goes through
+// `FilePathEmbeddedLogic.prepareAndWriteOnCommit` — the ONE code path that also serves an ordinary file
+// field — and a SUPERSEDED file is deleted on commit rather than left behind.
+//
+// BigStringMode is a plain string union, not an entity enum: engine configuration, never persisted.
 
-/** Signum's BigStringMode. */
 export type BigStringMode =
     /** Text column only — the mixin's file column is not even created. */
     | "Database"
@@ -63,7 +52,6 @@ export type BigStringMode =
     /** Both columns exist; every save moves the file's text back into the column. */
     | "Migrating_FromFile_ToDatabase";
 
-/** Signum's BigStringConfiguration. */
 export class BigStringConfiguration {
     constructor(
         readonly mode: BigStringMode,
@@ -83,16 +71,15 @@ interface BigStringRoute {
 
 export namespace BigStringLogic {
 
-    /** Signum's `BigStringLogic.Configurations`, keyed by "<CleanRootType>.<member path>". */
+    /** Keyed by "<CleanRootType>.<member path>". */
     export const configurations: Map<string, { type: Type<Entity>; path: string[]; config: BigStringConfiguration }> = new Map();
 
     export function start(sb: SchemaBuilder): void {
         if (sb.alreadyDefined(start))
             return;
 
-        // Signum's `MixinDeclarations.AssertDeclared(typeof(BigStringEmbedded), typeof(BigStringMixin))`. The
-        // declaration has to happen on BOTH tiers (it is what makes the serializer carry `file`), which is why
-        // it is the app's call and not ours.
+        // The declaration has to happen on BOTH tiers — it is what makes the serializer carry `file` — which
+        // is why it is the app's call and not ours.
         if (!BigStringMixin.isDeclared())
             throw new Error("BigStringLogic.start: BigStringMixin is not declared. Call BigStringMixin.declare() from a "
                 + "module BOTH the client and the server load (next to the app's other entity overrides).");
@@ -103,7 +90,7 @@ export namespace BigStringLogic {
         sb.schema.initializing.push(() => schemaCompleted(sb.schema));
     }
 
-    /** Signum's `Register(sb, (T a) => a.BigString, config)` — configure ONE route. The selector is
+    /** Configure ONE route. The selector is
      *  written INLINE (that is where the transformer stamps its AST) and may walk EMBEDDEDs
      *  (`e => e.requestContext.form`), which is what makes the route a dotted path. */
     export function register<T extends Entity>(sb: SchemaBuilder, type: Type<T>, selector: Quoted<(entity: T) => BigStringEmbedded>, config: BigStringConfiguration): void {
@@ -119,7 +106,7 @@ export namespace BigStringLogic {
         if (configurations.has(key))
             throw new Error(`BigStringLogic.register: '${key}' is already registered`);
 
-        // Signum's same guard: registration removes a COLUMN, so it is too late once the table is generated.
+        // Registration removes a COLUMN, so it is too late once the table is generated.
         if (sb.schema.tables.has(type))
             throw new Error(`BigStringLogic.register: ${cleanTypeName(type)} is already included in the Schema. `
                 + "Call BigStringLogic.register earlier in your starter, before the type is included.");
@@ -136,13 +123,13 @@ export namespace BigStringLogic {
         configurations.set(key, { type: type, path: memberPath.split("."), config });
     }
 
-    /** Signum's `RegisterAll<T>` — configure EVERY BigStringEmbedded route of `type` the same way. */
+    /** Configure EVERY BigStringEmbedded route of `type` the same way. */
     export function registerAll<T extends Entity>(sb: SchemaBuilder, type: Type<T>, config: BigStringConfiguration): void {
         for (const path of bigStringRoutesOf(type))
             registerPath(sb, type, path.join("."), config);
     }
 
-    /** Signum's `MigrateBigStrings<T>` — re-save every row so the configured mode is applied to its text.
+    /** Re-save every row so the configured mode is applied to its text.
      *  Batched, and one transaction per batch (a migration of a large table must not be one giant write). */
     export async function migrateBigStrings<T extends Entity>(type: Type<T>, batchSize = 100): Promise<void> {
         const ids = await ExecutionMode.global(async () => await table(type).map(e => e.id).toArray());
@@ -156,7 +143,7 @@ export namespace BigStringLogic {
         }
     }
 
-    /** Signum's Schema_SchemaCompleted: every BigStringEmbedded route in the schema must be configured, and
+    /** Every BigStringEmbedded route in the schema must be configured, and
      *  every configured route must exist — then hook the owning types. */
     function schemaCompleted(schema: Schema): void {
         const inSchema = bigStringFieldsByType(schema);
@@ -197,9 +184,8 @@ export namespace BigStringLogic {
     }
 }
 
-// ---- the two lifecycle handlers (Signum's PreSaving / PostRetrieving) -----------------------------------
+// ---- the two lifecycle handlers -------------------------------------------------------------------------
 
-/** Signum's `BigStringLogic.PreSaving` for one route. */
 function preSavingRoute(entity: Entity, route: BigStringRoute): void {
     const bs = readBigString(entity, route.path);
     if (bs == null)
@@ -207,10 +193,9 @@ function preSavingRoute(entity: Entity, route: BigStringRoute): void {
 
     const mixin = bs.mixin(BigStringMixin);
     const hasText = bs.text != null && bs.text !== "";
-    // Signum tests `bs.Modified == SelfModified`, and a freshly constructed ModifiableEntity IS
-    // SelfModified there. altea reads an embedded with no baseline as CLEAN (that is what an absent
-    // snapshot means for a Modifiable), so the owner being NEW is the other half of the same question —
-    // without it an INSERT wrote no file at all and the text was silently lost.
+    // An embedded with no baseline reads as CLEAN — that is what an absent snapshot means for a
+    // Modifiable — so the owner being NEW is the other half of the same question. Without it an INSERT
+    // writes no file at all and the text is silently lost.
     const modified = isModifiedSelf(bs) || entity.isNew;
 
     switch (route.config.mode) {
@@ -234,8 +219,8 @@ function preSavingRoute(entity: Entity, route: BigStringRoute): void {
                 if (!modified && mixin.file != null)
                     bs.text = decodeUtf8(FilePathEmbeddedLogic.readAllBytesSync(mixin.file));
 
-                // DIVERGENCE (Signum leaves the field set): drop the file AND the reference to it, so the row
-                // never keeps a suffix pointing at bytes that are gone.
+                // Drop the file AND the reference to it, so the row never keeps a suffix pointing at bytes
+                // that are gone.
                 const previous = mixin.file;
                 mixin.file = null;
                 if (previous != null)
@@ -245,7 +230,7 @@ function preSavingRoute(entity: Entity, route: BigStringRoute): void {
     }
 }
 
-/** Signum's `BigStringLogic.PostRetrieving` for one route — substitute the file's content for the text. */
+/** Substitute the file's content for the text, on retrieve. */
 function postRetrievingRoute(entity: Entity, route: BigStringRoute): void {
     const bs = readBigString(entity, route.path);
     if (bs == null)
@@ -275,21 +260,19 @@ function postRetrievingRoute(entity: Entity, route: BigStringRoute): void {
     }
 }
 
-/** Signum's `mixin.File = new FilePathEmbedded(fileType, <member> + ".txt", UTF8(text))`. */
 function writeTextToFile(bs: BigStringEmbedded, mixin: BigStringMixin, route: BigStringRoute): void {
-    // DIVERGENCE (Signum just overwrites the field): the file being replaced must be removed, or every save
-    // of the property leaves another orphan in the store.
+    // The file being replaced must be REMOVED, or every save of the property leaves another orphan in the
+    // store.
     const previous = mixin.file;
 
     if (bs.text == null || bs.text === "") {
         mixin.file = null;
     } else {
         const fp = new FilePathEmbedded();
-        // Signum names the file after the PROPERTY (`pr.PropertyInfo!.Name + ".txt"`), which is PascalCase
-        // there; altea's member is the TypeScript field name. The suffix this produces is STORED (and in
-        // LEGACY mode has to be the one a Signum store already holds — `InitialState.txt`, not
-        // `initialState.txt`), so it is spelled by the same `storedMemberName` a stored property route
-        // goes through rather than by a second rule that could drift from it.
+        // The suffix this produces is STORED, and in LEGACY mode has to be the one a Signum store already
+        // holds — `InitialState.txt`, not `initialState.txt` — so it is spelled by the same
+        // `storedMemberName` a stored property route goes through, never by a second rule that could drift
+        // from it.
         fp.fileName = `${storedMemberName(route.path[route.path.length - 1])}.txt`;
         fp.binaryFile = encodeUtf8(bs.text);
         fp.fileType = route.config.fileType!;
@@ -324,12 +307,11 @@ function bigStringRoutesOf<T extends Entity>(type: Type<T>): string[][] {
         if (typeInfo == null)
             return;
 
-        // A MIXIN's fields count as this type's own — altea flattens them onto the owner, so
-        // OperationLogEntity's DiffLog dumps are the routes "initialState" / "finalState" with no
-        // mixin step (which is also how bigStringFieldsByType reports them off the schema). Without
-        // this, registerAll silently skipped every mixin-contributed BigString and schemaCompleted
-        // then refused to start; Signum's RegisterAll covers them, because PropertyRoute.GenerateRoutes
-        // walks mixins.
+        // A MIXIN's fields count as this type's own — they are flattened onto the owner, so
+        // OperationLogEntity's DiffLog dumps are the routes "initialState" / "finalState" with no mixin
+        // step (which is also how bigStringFieldsByType reports them off the schema). Without this,
+        // registerAll silently skips every mixin-contributed BigString and schemaCompleted then refuses to
+        // start.
         const fields = [...Object.values(typeInfo.fields)];
         for (const mixinCtor of MixinDeclarations.getMixins(ctor as any)) {
             const mixinInfo = getTypeInfo(mixinCtor);

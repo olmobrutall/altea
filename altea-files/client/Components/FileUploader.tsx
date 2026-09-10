@@ -6,16 +6,14 @@ import { FileEntity, FileEmbedded, FileMessage, FilePathEmbedded, toComputerSize
 import type { FileTypeSymbol } from "../../data/Files";
 import "./Files.css";
 
-// Port of Signum.Files' Components/FileUploader.tsx — pick files (click or drag & drop), read their bytes and
-// hand back filled FileEmbedded / FilePathEmbedded values. The bytes ride the entity to the server, which
-// writes them to the store (FilePathEmbedded) or the row (FileEmbedded).
+// Port of Signum.Files' Components/FileUploader.tsx — see docs/port/Files.md.
 //
-// altea divergences: Signum uploads through its own `/api/files/upload…` endpoints (with a chunked variant for
-// big files) and shows per-file progress; altea carries the bytes INSIDE the entity graph (base64 — the
-// serializer's BlobSerializer), so this component only reads the files locally. Consequently Signum's
-// `typeName` (which file ENTITY to construct) is the narrower `kind`, and `asyncOptions` is gone.
-// `onFileLoaded` is Signum's `onFileCreated`, called once per picked file IN ORDER (the reads are awaited one
-// after the other, so a MultiFileLine appends the rows in the order the user picked them).
+// Pick files (click or drag & drop), read their bytes and hand back filled FileEmbedded / FilePathEmbedded
+// values. The bytes ride the entity's own save, so this component only reads the files LOCALLY — there is
+// no upload endpoint, no progress bar and no temporary-file state.
+//
+// `onFileLoaded` is called once per picked file IN ORDER: the reads are awaited one after the other, so a
+// MultiFileLine appends the rows in the order the user picked them.
 
 export interface FileUploaderProps {
     /** Fill and return the file value — a FilePathEmbedded needs the store its bytes will go to. */
@@ -28,7 +26,7 @@ export interface FileUploaderProps {
     dragAndDrop?: boolean;
     dragAndDropMessage?: string;
     buttonCss?: string;
-    /** Extra class on the drop zone — the line's mandatory highlight (Signum's fileDropCssClass). */
+    /** Extra class on the drop zone — the line's mandatory highlight. */
     fileDropCssClass?: string;
     divHtmlAttributes?: React.HTMLAttributes<HTMLDivElement>;
 }
@@ -48,8 +46,7 @@ export function FileUploader(p: FileUploaderProps): React.JSX.Element {
         if (files == null || files.length === 0)
             return;
 
-        // Signum tolerates a multi-file drop on a single-file line by uploading them all and letting the line
-        // keep the last; altea reports it instead — a FileLine can only hold one.
+        // A multi-file drop on a single-file line is REPORTED, not silently reduced to the last file.
         if (!p.multiple && files.length > 1) {
             setErrors([FileMessage.OnlyOneFileIsSupported.niceToString()]);
             return;
@@ -82,8 +79,8 @@ export function FileUploader(p: FileUploaderProps): React.JSX.Element {
         setIsOver(false);
     }
 
-    // The real <input type="file"> sits transparently over the button (see Files.css) — Signum's trick: no
-    // synthetic .click(), so the button keeps native keyboard focus and the OS picker opens normally.
+    // The real <input type="file"> sits transparently over the button (see Files.css) — no synthetic
+    // .click(), so the button keeps native keyboard focus and the OS picker opens normally.
     const selectButton =
         <div className={classes("sf-upload btn btn-tertiary", p.buttonCss)}>
             <FontAwesomeIcon aria-hidden={true} icon="upload" className="me-1" />
@@ -118,7 +115,7 @@ export function FileUploader(p: FileUploaderProps): React.JSX.Element {
     );
 }
 
-/** Signum's `toFileEntity` — read one picked file into the file holder the line is bound to. */
+/** Read one picked file into the file holder the line is bound to. */
 export async function toFile(
     file: File,
     options: { kind: "FilePathEmbedded" | "FileEmbedded" | "FileEntity"; fileType?: FileTypeSymbol; maxSizeInBytes?: number | null },
@@ -139,7 +136,7 @@ export async function toFile(
     // A FileEntity holds its bytes the same way a FileEmbedded does — the difference is that it is a ROW,
     // so it needs no store and no fileType either. Nothing more is needed here: the owner's save writes the
     // reachable graph in dependency order, so assigning this to a field persists it and fills its id, and
-    // the server computes its hash in FileLogic's preSaving (Signum's BinaryFile setter).
+    // the server computes its hash in FileLogic's preSaving.
     if (options.kind === "FileEntity") {
         const fe = new FileEntity();
         fe.fileName = file.name;

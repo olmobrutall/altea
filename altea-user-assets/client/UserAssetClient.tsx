@@ -9,10 +9,9 @@ import { UserAssetMessage, UserAssetPermission, UserAssetPreviewModel, type IUse
 import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 
-// Port of Signum's Signum.UserAssets/UserAssetClient.tsx (the export/import trigger surface). altea
-// divergences: the filter Converter + parseFilters/stringifyFilters/date endpoints are gone (altea resolves
-// tokens + values client-side — see FilterValueString); this keeps the XML export quick-link, the import
-// route, the "!ImportUserAssets" omnibox entry and the export/import HTTP API.
+// The export / import trigger surface: the XML export quick-link, the import route, the
+// "!ImportUserAssets" omnibox entry and the export/import HTTP API. Tokens and filter values are resolved
+// CLIENT-side (see FilterValueString), so there is no converter endpoint to call.
 
 export namespace UserAssetClient {
     let started = false;
@@ -30,7 +29,7 @@ export namespace UserAssetClient {
         });
     }
 
-    // Registers the "Export to XML" quick-link on a user-asset type (Signum's registerExportAssertLink).
+    // Registers the "Export to XML" quick-link on a user-asset type.
     export function registerExportAssertLink(type: Type<Entity>): void {
         QuickLinkClient.registerQuickLink(type, new QuickLinkAction(
             "ExportToXml",

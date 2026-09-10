@@ -15,15 +15,13 @@ import {
 } from "../../data/Toolbar";
 import { ToolbarCount } from "../QueryToolbarConfig";
 
-// Faithful port of Signum's Templates/ToolbarElement.tsx (Signum.Toolbar/Templates/ToolbarElement.tsx): the
-// per-element detail editor (the row's "view" popup) — what it points at, its icon / color / label, and the
-// count + popup options a query-ish content unlocks.
+// Port of Signum.Toolbar's Templates/ToolbarElement.tsx — see docs/port/Toolbar.md.
 //
-// altea divergences:
-//  - `IconTypeaheadLine` → a plain `TextBoxLine` (altea has no IconTypeahead component; the stored format is
-//    identical, see IconHelpers.parseIcon). Same substitution the dashboard editor made.
-//  - `content.EntityType == "UserQuery"` (a clean-name string) → `cleanTypeName(content.entityType)`.
-//  - `a.modified = true` (Signum's manual dirty flag) is dropped: altea tracks dirtiness by snapshot.
+// The per-element detail editor (the row's "view" popup): what it points at, its icon / color / label, and
+// the count + popup options a query-ish content unlocks.
+//
+// `IconTypeaheadLine` is a plain `TextBoxLine` here — the stored format is identical
+// (`IconHelpers.parseIcon`), the same substitution the dashboard editor made.
 
 export default function ToolbarElement(p: { ctx: TypeContext<ToolbarElementBaseEntity> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
@@ -50,9 +48,8 @@ export default function ToolbarElement(p: { ctx: TypeContext<ToolbarElementBaseE
 
     const content = ctx2.value.content;
     const type = Enum.toName(ToolbarElementType, ctx.value.type);
-    // Signum tests `content.EntityType == "UserQuery" || "Query"`: the two contents that RUN a query, and so
-    // can show a count / open in a popup. A UserQuery only exists when altea-user-queries is registered, so
-    // the check stays name-based (the toolbar module must not depend on it).
+    // The two contents that RUN a query, and so can show a count / open in a popup. A UserQuery only exists
+    // when altea-user-queries is registered, so the check is name-based: this module must not depend on it.
     const isQueryish = content != null && ["Query", "UserQuery"].includes(cleanTypeName(content.entityType));
 
     const icon = parseIcon(ctx4.value.iconName);
@@ -98,7 +95,7 @@ export default function ToolbarElement(p: { ctx: TypeContext<ToolbarElementBaseE
     );
 }
 
-/** Signum's `fixToolbarElementType`: a Divider carries nothing, so clear the four members when the type
+/** A Divider carries nothing, so clear the four members when the type
  *  changes to it (the data-layer validation enforces the same rule). */
 function fixToolbarElementType(a: ToolbarElementBaseEntity): void {
     if (Enum.toName(ToolbarElementType, a.type) == "Divider") {

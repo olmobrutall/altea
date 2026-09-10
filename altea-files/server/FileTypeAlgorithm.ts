@@ -5,34 +5,30 @@ import { createHash, randomUUID } from "node:crypto";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { FileMessage, toComputerSize, type FilePathEmbedded } from "../data/Files";
 
-// Port of Signum.Files' FileTypeAlgorithm.cs + the FileTypeAlgorithmBase validation and SuffixGenerators
-// (FileTypeLogic.cs). A file-type ALGORITHM decides where a file's bytes live and how the row's `suffix`
-// (the store-relative path) is generated, and it is the only thing that touches the storage backend.
+// Port of Signum.Files' FileTypeAlgorithm.cs + FileTypeLogic.cs's validation and SuffixGenerators — see
+// docs/port/Files.md.
 //
-// altea divergences, documented inline:
-//  - This file is the LOCAL FOLDER backend (Signum's FileTypeAlgorithm) plus the halves every backend shares:
-//    the `IFileTypeAlgorithm` seam, `FileTypeAlgorithmBase` (Signum's own base — onlyImages / maxSizeInBytes /
-//    onValidateFile) and the suffix generators. The REMOTE backends live in their own packages, exactly as in
-//    Signum: @altea/altea-files-azure (Signum.Files.AzureBlobs) and @altea/altea-files-s3 (Signum.Files.S3).
-//  - Signum's chunked-upload API (StartUpload / UploadChunk / FinishUpload / AbortUpload) is NOT ported: a
-//    file reaches the server inside the entity graph (the `binaryFile` field), so there is no chunk protocol.
-//  - Signum computes the hash in the BinaryFile setter (CryptorEngine.CalculateMD5Hash); altea has no crypto
-//    in the isomorphic layer, so `saveFile` computes it here (`calculateMD5Hash`) and stamps it via
-//    `prepareForSave`.
-//  - `WeakFileReference` (a file the app does not own) and `RenameAlgorithm` are kept — they are pure policy.
+// A file-type ALGORITHM decides where a file's bytes live and how the row's `suffix` (the store-relative
+// path) is generated, and it is the only thing that touches the storage backend.
+//
+// This file is the LOCAL FOLDER backend plus the halves every backend shares: the `IFileTypeAlgorithm`
+// seam, `FileTypeAlgorithmBase` (onlyImages / maxSizeInBytes / onValidateFile) and the suffix generators.
+// The REMOTE backends live in their own packages — @altea/altea-files-azure and @altea/altea-files-s3, see
+// docs/port/FileStores.md — and they REFUSE some of the policy below, for reasons that page gives.
+//
+// The hash is computed in `saveFile` rather than in a setter, because the isomorphic layer has no crypto.
 
-// ---- Hash (Signum's CryptorEngine.CalculateMD5Hash) ------------------------------------------------------
+// ---- Hash ------------------------------------------------------------------------------------------------
 
-/** The base64 MD5 of a file's bytes — Signum computes it in the `BinaryFile` setter, altea on the server (the
- *  isomorphic layer has no crypto). It is the file's CACHE IDENTITY, not just metadata: it rides the download
- *  URL (`FilesClient.fileUrl`) and becomes the response ETag (`FilesServer`), so replacing a file's bytes
- *  changes its URL *and* fails revalidation — which is what lets a download response be cached for a month
- *  (Signum's FilePathLogic.MaxAge) instead of an hour. */
+/** The base64 MD5 of a file's bytes. It is the file's CACHE IDENTITY, not just metadata: it rides the
+ *  download URL (`FilesClient.fileUrl`) and becomes the response ETag (`FilesServer`), so replacing a
+ *  file's bytes changes its URL *and* fails revalidation — which is what lets a download response be
+ *  cached for a month (`FilesServer.maxAge`) instead of an hour. */
 export function calculateMD5Hash(bytes: Uint8Array): string {
     return createHash("md5").update(bytes).digest("base64");
 }
 
-/** Signum's IFilePath — what an algorithm needs from the row it is storing (FilePathEmbedded implements it). */
+/** What an algorithm needs from the row it is storing (FilePathEmbedded implements it). */
 export type IFilePath = FilePathEmbedded;
 
 export interface IFileTypeAlgorithm {
@@ -42,8 +38,7 @@ export interface IFileTypeAlgorithm {
     /** Write the bytes to the store, filling `suffix` (+ hash / length) on the row. */
     saveFile(fp: IFilePath): Promise<void>;
     /** SYNC half of a save: validate + assign `suffix` / hash / length, WITHOUT touching the disk — so the
-     *  row can be INSERTed with its suffix while the bytes are written just before commit (Signum computes the
-     *  suffix synchronously inside SaveFileAsync for the same reason). */
+     *  row can be INSERTed with its suffix while the bytes are written just before commit. */
     prepareSuffix(fp: IFilePath): void;
     /** ASYNC half: write the (already prepared) bytes and clear them off the row. */
     writePrepared(fp: IFilePath): Promise<void>;
@@ -51,33 +46,32 @@ export interface IFileTypeAlgorithm {
     deleteFiles(files: readonly IFilePath[]): Promise<void>;
     deleteFilesIfExist(files: readonly IFilePath[]): Promise<void>;
     readAllBytes(fp: IFilePath): Promise<Uint8Array>;
-    /** Signum's `ReadAllBytes` is sync throughout; altea made the storage interface async (a remote backend
-     *  needs it), but a SYNC hook sometimes has no choice — `EntityEvents.retrieved` is synchronous, and
-     *  BigStringLogic has to substitute the file's text there. The local-folder backend can oblige; the remote
-     *  backends (@altea/altea-files-azure, -s3) THROW here, so a BigString column must not live in one — the
-     *  caller would have to move to an async seam first. */
+    /** The storage interface is async (a remote backend needs it), but a SYNC hook sometimes has no
+     *  choice — `EntityEvents.retrieved` is synchronous, and BigStringLogic has to substitute the file's
+     *  text there. The local-folder backend can oblige; the remote backends (@altea/altea-files-azure, -s3)
+     *  THROW here, so a BigString column must not live in one. */
     readAllBytesSync(fp: IFilePath): Uint8Array;
     moveFile(from: IFilePath, to: IFilePath, createTargetFolder: boolean): Promise<void>;
     /** The absolute path of the file in the store (undefined for a backend without one). */
     fullPhysicalPath(fp: IFilePath): string | undefined;
-    /** The public URL of the file, when the store is web-served (Signum's GetFullWebPath). */
+    /** The public URL of the file, when the store is web-served. */
     fullWebPath(fp: IFilePath): string | undefined;
 }
 
-// ---- The validation half every backend shares (Signum's FileTypeAlgorithmBase) ---------------------------
+// ---- The validation half every backend shares -----------------------------------------------------------
 
 export interface FileTypeAlgorithmBaseOptions {
-    /** Refuse anything whose extension is not an image (Signum's OnlyImages). */
+    /** Refuse anything whose extension is not an image. */
     onlyImages?: boolean;
-    /** Refuse a file bigger than this (Signum's MaxSizeInBytes). */
+    /** Refuse a file bigger than this. */
     maxSizeInBytes?: number | null;
-    /** An extra app check, run last (Signum's OnValidateFile). */
+    /** An extra app check, run last. */
     onValidateFile?: (fp: IFilePath) => void;
 }
 
-/** Port of Signum's `FileTypeAlgorithmBase` — the three policy knobs plus the `ValidateFile` that applies
- *  them. Shared by the local-folder algorithm below and by the Azure / S3 backends in their own packages, so
- *  "only images", "at most N bytes" and the app's own hook mean the same thing wherever the bytes land. */
+/** The three policy knobs plus the `validateFile` that applies them. Shared by the local-folder algorithm
+ *  below and by the Azure / S3 backends in their own packages, so "only images", "at most N bytes" and the
+ *  app's own hook mean the same thing wherever the bytes land. */
 export abstract class FileTypeAlgorithmBase {
 
     onlyImages: boolean;
@@ -104,7 +98,7 @@ export abstract class FileTypeAlgorithmBase {
     }
 }
 
-// ---- Suffix generators (Signum's SuffixGenerators) -------------------------------------------------------
+// ---- Suffix generators -----------------------------------------------------------------------------------
 
 export namespace SuffixGenerators {
     /** No GUID — the resulting path IS guessable. Use only for public/domain files (icons, …). */
@@ -126,20 +120,20 @@ export namespace SuffixGenerators {
     function month(): number { return Clock.now.month; }
 }
 
-// ---- The local-folder algorithm (Signum's FileTypeAlgorithm) ---------------------------------------------
+// ---- The local-folder algorithm ---------------------------------------------------------------------------
 
 export interface FileTypeAlgorithmOptions extends FileTypeAlgorithmBaseOptions {
-    /** Absolute (or cwd-relative) folder the files live in — Signum's GetPhisicalPrefix. */
+    /** Absolute (or cwd-relative) folder the files live in. */
     physicalPrefix: (fp: IFilePath) => string;
-    /** The public URL prefix when the folder is web-served — Signum's GetWebPrefix. */
+    /** The public URL prefix when the folder is web-served. */
     webPrefix?: (fp: IFilePath) => string;
     /** How the store-relative path is built (default: Safe.yearMonth_Guid_Filename). */
     calculateSuffix?: (fp: IFilePath) => string;
-    /** The app does not own these files: never write, never delete (Signum's WeakFileReference). */
+    /** The app does not own these files: never write, never delete. */
     weakFileReference?: boolean;
     /** Remove the containing folder when it is left empty by a delete. */
     deleteEmptyFolderOnDelete?: boolean;
-    /** Rename instead of overwriting when the target exists (Signum's RenameAlgorithm; null = overwrite). */
+    /** Rename instead of overwriting when the target exists (null = overwrite). */
     renameAlgorithm?: ((suffix: string, num: number) => string) | null;
 }
 
@@ -162,7 +156,7 @@ export class FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileTyp
         this.renameAlgorithm = options.renameAlgorithm ?? null;
     }
 
-    /** Signum's `DefaultRenameAlgorithm` — "name(2).ext" next to the original. */
+    /** "name(2).ext" next to the original. */
     static readonly defaultRenameAlgorithm = (suffix: string, num: number): string =>
         path.join(path.dirname(suffix), `${path.basename(suffix, path.extname(suffix))}(${num})${path.extname(suffix)}`);
 
@@ -184,7 +178,7 @@ export class FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileTyp
         if (bytes == null)
             throw new Error(`FilePathEmbedded '${fp.fileName}' has no binaryFile to save`);
 
-        // Signum's BinaryFile setter computed length + MD5 hash; do it here (crypto is server-only).
+        // Length + MD5 hash, here rather than in a setter: crypto is server-only.
         fp.prepareForSave(calculateMD5Hash(bytes));
         this.calculateSuffixWithRenames(fp);
     }
@@ -260,7 +254,7 @@ export class FileTypeAlgorithm extends FileTypeAlgorithmBase implements IFileTyp
         return this.webPrefix(fp).replace(/\/$/, "") + "/" + fp.suffix.split(path.sep).join("/");
     }
 
-    // Signum's CalculateSufixWithRenames: generate the suffix and, when a rename algorithm is configured,
+    // Generate the suffix and, when a rename algorithm is configured,
     // keep bumping it until the target file does not exist.
     private calculateSuffixWithRenames(fp: IFilePath): void {
         fp.suffix = this.calculateSuffix(fp).replace(/^[\\/]+/, "");
@@ -302,7 +296,7 @@ const mimeByExtension: Record<string, string> = {
     ".mp3": "audio/mpeg", ".mp4": "video/mp4", ".webm": "video/webm", ".dat": "application/octet-stream",
 };
 
-/** Signum's `MimeMapping.GetMimeType` — the content type for a file name, by extension. */
+/** The content type for a file name, by extension. */
 export function mimeType(fileName: string): string | undefined {
     return mimeByExtension[path.extname(fileName).toLowerCase()];
 }

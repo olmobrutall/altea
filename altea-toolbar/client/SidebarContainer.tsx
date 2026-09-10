@@ -7,11 +7,11 @@ import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { EntityControlMessage } from "@altea/altea/data/uiMessages";
 import "./Sidebar.css";
 
-// Faithful port of Signum's SidebarContainer.tsx (Signum.Toolbar/SidebarContainer.tsx): the app-shell layout
-// that puts the sidebar next to the routed page, plus the navbar button that cycles its three modes
-// (Wide → Narrow → Hidden). The width is a CSS variable the drag handle writes, so the sidebar is resizable.
+// Port of Signum.Toolbar's SidebarContainer.tsx — see docs/port/Toolbar.md.
 //
-// altea divergences: import paths only (`classes` / `firstLower` come from altea's globals).
+// The app-shell layout that puts the sidebar next to the routed page, plus the navbar button that cycles
+// its three modes (Wide → Narrow → Hidden). The width is a CSS variable the drag handle writes, which is
+// what makes the sidebar resizable.
 
 export type SidebarMode = "Wide" | "Narrow" | "Hidden";
 

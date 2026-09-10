@@ -4,8 +4,8 @@ import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { UserAssetClient } from "./UserAssetClient";
 import { UserAssetMessage, UserAssetPreviewModel, EntityAction } from "../data/UserAssets";
 
-// Port of Signum's Signum.UserAssets/ImportAssetsPage.tsx — upload an exported XML, preview what it would
-// create/override (New/Different per asset, matched by uuid), tick the ones to override, then import.
+// Upload an exported XML, preview what it would create / override (New / Different per asset, matched by
+// uuid), tick the ones to override, then import.
 export default function ImportAssetsPage(): React.JSX.Element {
     const [file, setFile] = useState<UserAssetClient.API.FileUpload | null>(null);
     const [model, setModel] = useState<UserAssetPreviewModel | null>(null);

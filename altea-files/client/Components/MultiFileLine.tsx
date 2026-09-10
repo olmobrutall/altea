@@ -17,29 +17,25 @@ import { FileUploader } from "./FileUploader";
 import { memberPath, rootEntity } from "./FileLine";
 import "./Files.css";
 
-// Port of Signum.Files' Components/MultiFileLine.tsx — the line for a COLLECTION of files: one downloader per
-// element (plus remove / reorder), and an uploader underneath that appends the files the user picks.
+// Port of Signum.Files' Components/MultiFileLine.tsx — see docs/port/Files.md.
 //
-// altea divergences, documented inline:
-//  - In Signum an MList element could BE the file (`MList<FileEmbedded>`), and `getFileFromElement` was the
-//    exception for a richer element. altea has no MList: a collection is a plain array of `@part` ROW
-//    entities, and a file holder is an EMBEDDED — so the row always WRAPS the file, and the only interesting
-//    question is WHICH member holds it. That member is `fileField`, and it DEFAULTS to the row's single
-//    file-typed field, so the common case still needs no configuration.
-//  - Signum passes that member as a LAMBDA (`getFileFromElement`) and recovers the property route from it with
-//    `PropertyRoute.addLambda`. Here it is a member NAME (dots allowed for a nested embedded) because altea's
-//    quote-transformer does not rewrite lambdas in JSX attributes — and a name is all the route needs, both to
-//    read the value and to build the download URL.
-//  - `defaultFileTypeInfo` (Signum ships each property's file type / onlyImages / maxSize in its reflection
-//    metadata, so the line can default `fileType` / `accept` / `maxSizeInBytes`) has no altea counterpart:
-//    pass `fileType` explicitly, exactly like FileLine.
+// The line for a COLLECTION of files: one downloader per element (plus remove / reorder), and an uploader
+// underneath that appends the files the user picks.
+//
+// A collection element always WRAPS the file — it is a `@part` ROW entity and a file holder is an EMBEDDED
+// — so the only question is WHICH member holds it. That is `fileField`, and it DEFAULTS to the row's single
+// file-typed field, so the common case needs no configuration. It is a member NAME (dots allowed for a
+// nested embedded) rather than a lambda, because the quote-transformer does not rewrite lambdas in JSX
+// attributes — and a name is all the route needs, both to read the value and to build the download URL.
+//
+// Pass `fileType` explicitly, exactly like FileLine.
 
 export interface MultiFileLineProps<R extends BaseEntity> extends EntityListBaseProps<R> {
     /** The ROW member holding the file — a name, dotted for a nested embedded ("attachment.file"). Defaults
      *  to the row type's only FilePathEmbedded / FileEmbedded field (its `@valueField` when that is one). */
     fileField?: string;
     /** How a picked file becomes a row. Defaults to `RowType.create({ <fileField>: file })` — override it
-     *  when the row needs more than the file set (Signum's createElementFromFile). */
+     *  when the row needs more than the file set. */
     createElementFromFile?: (file: FilePathEmbedded | FileEmbedded | FileEntity) => Promise<NoInfer<R> | undefined> | NoInfer<R> | undefined;
     /** The store NEW FilePathEmbedded files go to (required for FilePathEmbedded, ignored for FileEmbedded). */
     fileType?: FileTypeSymbol;
@@ -51,11 +47,11 @@ export interface MultiFileLineProps<R extends BaseEntity> extends EntityListBase
     dragAndDropMessage?: string;
     download?: DownloadBehaviour;
     showFileIcon?: boolean;
-    /** Keep the uploader visible even when the list is not empty (Signum's forceShowUploader). */
+    /** Keep the uploader visible even when the list is not empty. */
     forceShowUploader?: boolean;
-    // (Signum declared `ref?: React.Ref<MultiFileLineController<V>>`. Dropped for the same reason
-    // altea-dashboard's EntityGridRepeater drops it: a self-referential `ref` makes useController's props
-    // constraint unsatisfiable across the two @types/react resolutions in this workspace.)
+    // (No `ref?: React.Ref<MultiFileLineController<V>>`, for the same reason altea-dashboard's
+    // EntityGridRepeater has none: a self-referential `ref` makes useController's props constraint
+    // unsatisfiable across the two @types/react resolutions in this workspace.)
 }
 
 export class MultiFileLineController<R extends BaseEntity> extends EntityListBaseController<MultiFileLineProps<R>, R> {
@@ -71,7 +67,7 @@ export class MultiFileLineController<R extends BaseEntity> extends EntityListBas
     }
 
     override overrideProps(p: MultiFileLineProps<R>, overridenProps: MultiFileLineProps<R>): void {
-        // Signum's rule: a row is worth VIEWING only when the caller said it is more than a file wrapper
+        // A row is worth VIEWING only when the caller said it is more than a file wrapper
         // (i.e. it named the file member itself). A row that is just a file gets no view button.
         p.view = p.view === true && overridenProps.fileField != null;
 
@@ -115,7 +111,7 @@ export class MultiFileLineController<R extends BaseEntity> extends EntityListBas
         }
     }
 
-    /** Signum's getFileFromElement — the file held by one row. */
+    /** The file held by one row. */
     getFileFromElement(row: R): FilePathEmbedded | FileEmbedded | FileEntity | null {
         let current: unknown = row;
         for (const step of this.fileMember().path) {
@@ -126,7 +122,7 @@ export class MultiFileLineController<R extends BaseEntity> extends EntityListBas
         return (current ?? null) as FilePathEmbedded | FileEmbedded | FileEntity | null;
     }
 
-    /** Signum's createElementFromFile — wrap a picked file in a new row (cf. MultiValueLine.createRow). */
+    /** Wrap a picked file in a new row (cf. MultiValueLine.createRow). */
     async createElementFromFile(file: FilePathEmbedded | FileEmbedded | FileEntity): Promise<R | undefined> {
         if (this.props.createElementFromFile != null)
             return await this.props.createElementFromFile(file);
@@ -153,7 +149,7 @@ export class MultiFileLineController<R extends BaseEntity> extends EntityListBas
         this.setValue(list);
     }
 
-    /** Signum's renderElementViewButton — the per-row "open it" button (EntityListBase has no such
+    /** The per-row "open it" button (EntityListBase has no such
      *  renderer of its own; every list line draws its own row chrome). */
     renderElementViewButton(btn: boolean, row: R, index: number): React.JSX.Element | undefined {
         if (!this.canView(row))

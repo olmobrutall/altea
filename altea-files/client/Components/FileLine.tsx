@@ -13,19 +13,15 @@ import { FileDownloader, type DownloadBehaviour } from "./FileDownloader";
 import { FileUploader } from "./FileUploader";
 import "./Files.css";
 
-// Port of Signum.Files' Components/FileLine.tsx — the line for ONE file field: the uploader while the field is
-// empty, the downloader (+ a remove button) once it holds a file.
+// Port of Signum.Files' Components/FileLine.tsx — see docs/port/Files.md.
 //
-// altea divergences:
-//  - Signum's FileLine is generic over its four file types (FileEntity / FilePathEntity / FileEmbedded /
-//    FilePathEmbedded) and creates the entity through its EntityBase machinery. altea ports the two EMBEDDED
-//    types, so the line is a plain LineBase over `FilePathEmbedded | FileEmbedded | FileEntity | null` and the uploader
-//    builds the value directly (`kind` is read off the bound member type).
-//  - Signum uploads to the server as a separate step; here the picked bytes ride the entity's own save (see
-//    FileUploader), so there is no progress bar / temporary file state.
-//  - Signum's sibling lines live next door: MultiFileLine (a collection of files) and FileImageLine (the same
-//    single file rendered as a thumbnail). MultiFileImageLine is NOT ported — it is the mechanical
-//    combination of those two, and nothing needs it yet.
+// The line for ONE file field: the uploader while the field is empty, the downloader (+ a remove button)
+// once it holds a file. A plain LineBase over `FilePathEmbedded | FileEmbedded | FileEntity | null` — the
+// uploader builds the value directly, and `kind` is read off the BOUND MEMBER TYPE rather than defaulted,
+// so a FileEntity is never handed to the uploader as a store-backed file.
+//
+// The sibling lines live next door: MultiFileLine (a collection of files) and FileImageLine (the same
+// single file rendered as a thumbnail). MultiFileImageLine is not ported.
 
 export interface FileLineProps<V extends FilePathEmbedded | FileEmbedded | FileEntity | null> extends LineBaseProps<V> {
     /** The store a NEW FilePathEmbedded goes to (required for FilePathEmbedded, ignored for FileEmbedded). */

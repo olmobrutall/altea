@@ -22,21 +22,12 @@ import type { ToolbarResponse } from "../data/ToolbarResponse";
 import QueryToolbarConfig from "./QueryToolbarConfig";
 import type { ToolbarConfig } from "./ToolbarConfig";
 
-// Port of Signum's ToolbarClient.tsx (Signum.Toolbar/ToolbarClient.tsx): the entity views, the per-content
-// CONFIG REGISTRY the renderers dispatch through, and the two API calls.
+// Port of Signum.Toolbar's ToolbarClient.tsx — see docs/port/Toolbar.md.
 //
-// altea divergences:
-//  - `start(cb)` takes a ClientBuilder like every other altea client module (Signum's took `{ routes }`), and
-//    registers views through `cb.configure(X).withView(…)` instead of `Navigator.addSettings(new
-//    EntitySettings(…))`.
-//  - The registry is keyed by the content type's CLEAN NAME ("Query", "UserQuery", …), because that is what a
-//    Lite's `entityType` resolves to and what the ToolbarResponse carries — the same clean-name keying the
-//    dashboard part registries use. Signum keyed by `config.type.typeName`, which IS the clean name there.
-//  - Signum's `ChangeLogClient.registerChangeLogModule` and `AppContext.clearSettingsActions.push(
-//    cleanConfigs)` are dropped (altea has neither; module state resets via AppContext.newClientState).
-//    `cleanConfigs` stays exported.
-//  - `ToolbarResponse<T>` is declared ONCE in the isomorphic data layer (data/ToolbarResponse.ts), not
-//    re-declared here as Signum's TS twin of the C# DTO.
+// The entity views, the per-content CONFIG REGISTRY the renderers dispatch through, and the two API calls.
+// The registry is keyed by the content type's CLEAN NAME ("Query", "UserQuery", …), which is what a Lite's
+// `entityType` resolves to and what the ToolbarResponse carries — the same keying the dashboard part
+// registries use.
 
 export namespace ToolbarClient {
 
@@ -57,7 +48,6 @@ export namespace ToolbarClient {
 
         registerConfig(new QueryToolbarConfig());
 
-        // Signum: `Finder.addSettings({ queryName: ToolbarEntity, defaultOrders: [priority desc] })`.
         cb.configure(ToolbarEntity).withQuerySettings(token => ({
             defaultOrders: [{ token: token(a => a.priority), orderType: "Descending" }],
         }));
@@ -68,7 +58,7 @@ export namespace ToolbarClient {
     }
 
     /**
-     * Signum's `configs` — clean type name → the configs registered for it. In `AppContext.clientState`
+     * Clean type name → the configs registered for it. In `AppContext.clientState`
      * rather than a module-level dictionary (see the note on Navigator's entitySettings): the values are
      * ARRAYS that `registerConfig` pushes onto from each module's `start()`, so a host that re-runs its
      * registration bundle would otherwise leave every toolbar content type registered twice — and

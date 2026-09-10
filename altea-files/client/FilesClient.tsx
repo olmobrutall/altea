@@ -7,25 +7,21 @@ import { Lite } from "@altea/altea/data/lite";
 import { getTypeName } from "@altea/altea/client/Reflection";
 import { FileEntity, FileEmbedded, FilePathEmbedded } from "../data/Files";
 
-// Port of Signum.Files' FilesClient.tsx — the client entry point: the per-extension display info (icon +
-// whether the browser can show it inline) and the URL builders the downloader uses.
+// Port of Signum.Files' FilesClient.tsx — see docs/port/Files.md.
 //
-// altea divergences:
-//  - Signum registers a `FileDownloaderConfiguration` per file TYPE (FileEntity / FilePathEntity /
-//    FileEmbedded / FilePathEmbedded). altea ports only the two EMBEDDED types, and their URLs are built from
-//    the OWNING entity + property route (see server/FilesServer.server.ts), so the configuration collapses to
-//    the single `fileUrl` helper below.
-//  - Signum's `FilesClient.start` also registers the FileLine / MultiFileLine as AutoLine defaults; altea's
-//    file lines are used explicitly (`<FileLine ctx=… />` / `<MultiFileLine …>` / `<FileImageLine …>`), so
-//    `start` only registers the entity views.
+// The client entry point: the per-extension display info (icon + whether the browser can show it inline)
+// and the URL builders the downloader uses. An embedded file's URL is built from its OWNING entity +
+// property route (see server/FilesServer.ts), which is why one `fileUrl` helper serves every holder.
+//
+// `start` registers only the entity VIEWS: the file lines are used explicitly (`<FileLine ctx=… />` /
+// `<MultiFileLine …>` / `<FileImageLine …>`), never as AutoLine defaults.
 
 export namespace FilesClient {
 
     export function start(cb: ClientBuilder): void {
-        // The two file HOLDERS are embedded, so they have no own view or route; FileEntity is a row, and
-        // these are the two columns Signum passes to its server `WithQuery` projection (altea's takes none
-        // — no QueryDescription). No view: the search page IS the list of shared files, and a file's
-        // contents are reached by downloading it, not by opening a form over its bytes.
+        // The two file HOLDERS are embedded, so they have no own view or route. FileEntity is a row, and
+        // gets no view either: the search page IS the list of shared files, and a file's contents are
+        // reached by DOWNLOADING it, not by opening a form over its bytes.
         cb.configure(FileEntity)
             .withQuerySettings(token => ({
                 defaultColumns: [
@@ -35,7 +31,7 @@ export namespace FilesClient {
             }));
     }
 
-    /** Signum's extensionInfo — how a file of a given extension is shown: icon + colour, the content type to
+    /** How a file of a given extension is shown: icon + colour, the content type to
      *  stamp on a blob URL built from bytes the client holds, and whether the browser can render it inline. */
     export interface ExtensionInfo {
         icon?: IconProp;
@@ -74,25 +70,20 @@ export namespace FilesClient {
         return ext == null ? undefined : extensionInfo[ext];
     }
 
-    /** The download URL of any of the three file shapes — Signum's `configurations[type].fileUrl`.
-     *  `undefined` when the file has no address yet (an unsaved file: its bytes are still in hand, so the
-     *  caller shows those instead).
+    /** The download URL of any of the three file shapes. `undefined` when the file has no address yet (an
+     *  unsaved file: its bytes are still in hand, so the caller shows those instead).
      *
      *  A FileEntity is addressed by its OWN id; the two EMBEDDED shapes are addressed through their OWNER
-     *  (see FilesServer) —
-     *  Signum's `configurations[type].fileUrl`. `undefined` when the file has no address yet (an unsaved
-     *  file: its bytes are still in hand, so the caller shows those instead).
-     *
-     *  Two sources for the address, in order:
+     *  (see FilesServer), and there are two sources for that address, in order:
      *   1. the file's OWN routing fields, stamped by the server (FilePathEmbeddedLogic) — authoritative, and
      *      the only correct answer for a file the client did not load as part of a form (a collection row, a
-     *      search result). This is Signum's `file.rootType` / `file.entityId` / `file.propertyRoute`;
+     *      search result);
      *   2. an explicitly supplied owner + member path — the fallback for a FileEmbedded, which carries no
-     *      routing fields (nor does Signum's), and for anything the server has not stamped.
+     *      routing fields, and for anything the server has not stamped.
      *
-     *  The `hash` rides along like Signum's configurations do: the server IGNORES it (the bytes are found
-     *  through the owner), it is there to make the URL change when the file's bytes do, so the response can be
-     *  cached for a month (FilesServer.maxAge) without ever serving a replaced file. */
+     *  The `hash` rides along but the server IGNORES it (the bytes are found through the owner): it is there
+     *  to make the URL change when the file's bytes do, so the response can be cached for a month
+     *  (FilesServer.maxAge) without ever serving a replaced file. */
     export function fileUrl(
         file: FilePathEmbedded | FileEmbedded | FileEntity | Lite<FileEntity>,
         container?: Entity,
@@ -100,9 +91,8 @@ export namespace FilesClient {
         rowId?: string | number,
     ): string | undefined {
 
-        // A FileEntity is its OWN row, so it needs neither an owner nor a route: Signum registers exactly
-        // this pair of one-liners (`fileUrl` and `fileLiteUrl`) for it. A Lite works for the same reason,
-        // which is what lets a search-result column offer a download without retrieving the bytes.
+        // A FileEntity is its OWN row, so it needs neither an owner nor a route. A Lite works for the same
+        // reason, which is what lets a search-result column offer a download without retrieving the bytes.
         if (file instanceof FileEntity)
             return file.id == null ? undefined : toAbsoluteUrl(`/api/files/downloadFile/${file.id}`);
         if (file instanceof Lite)
@@ -121,8 +111,7 @@ export namespace FilesClient {
         const query = new URLSearchParams({ route: address.route });
         if (address.rowId != null)
             query.set("rowId", String(address.rowId));
-        // Only a FilePathEmbedded stores a hash (Signum's FileEmbedded has none either); its base64 is
-        // percent-encoded by URLSearchParams.
+        // Only a FilePathEmbedded stores a hash; its base64 is percent-encoded by URLSearchParams.
         if (file instanceof FilePathEmbedded && file.hash != null)
             query.set("hash", file.hash);
 

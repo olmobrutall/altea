@@ -7,9 +7,8 @@ import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { QueryToken, SubTokensOptions } from "@altea/altea/client/QueryToken";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 
-// Port of Signum's Signum.UserAssets/Templates/QueryTokenEmbeddedBuilder.tsx. Binds a QueryTokenEmbedded's
-// stored token to altea's QueryTokenBuilder. altea divergence: no Finder.getQueryDescription gate — altea's
-// QueryTokenBuilder resolves the query root internally (getQueryRoot), so this just wraps it.
+// Binds a QueryTokenEmbedded's stored token to QueryTokenBuilder, which resolves the query root itself
+// (getQueryRoot) — so this is mostly a wrapper.
 //
 // It also RESOLVES the stored token, which nothing else does. `QueryTokenEmbedded.token` is
 // `@serialize(false)` — the server only ever sees `tokenString` — so a definition loaded from the
@@ -55,8 +54,7 @@ export default function QueryTokenEmbeddedBuilder(p: QueryTokenEmbeddedBuilderPr
                 if (cancelled)
                     return;
                 // A token that no longer resolves is DATA, not a crash: the query was renamed or a field
-                // removed, and the author needs to see which token broke. Signum reports the same thing
-                // through `QueryTokenEmbedded.parseException`, filled on its server.
+                // removed, and the author needs to see which token broke.
                 setResolved(undefined);
                 setParseError(e instanceof Error ? e.message : String(e));
             });
@@ -69,7 +67,7 @@ export default function QueryTokenEmbeddedBuilder(p: QueryTokenEmbeddedBuilderPr
             p.ctx.value = null;
         } else {
             const embedded = new QueryTokenEmbedded();
-            embedded.tokenString = newToken.fullKey(); // altea QueryToken.fullKey() is a method (Signum: a property)
+            embedded.tokenString = newToken.fullKey();
             embedded.token = newToken;
             p.ctx.value = embedded;
         }

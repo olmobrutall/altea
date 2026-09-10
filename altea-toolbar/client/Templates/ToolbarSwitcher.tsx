@@ -7,12 +7,11 @@ import { EntityTable } from "@altea/altea/client/Lines/EntityTable";
 import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelpers";
 import type { ToolbarSwitcherEntity } from "../../data/Toolbar";
 
-// Faithful port of Signum's Templates/ToolbarSwitcher.tsx (Signum.Toolbar/Templates/ToolbarSwitcher.tsx): the
-// ToolbarSwitcher editor — a name, an owner, and the table of switchable menu options.
+// Port of Signum.Toolbar's Templates/ToolbarSwitcher.tsx — see docs/port/Toolbar.md.
 //
-// altea divergence: Signum edits `owner` with an `AutoLine` (which renders an entity picker for a Lite field
-// in its client); altea's AutoLine dispatches from `ctx.memberType` and an `@implementedBy` Lite belongs to
-// `EntityLine`, so the owner uses EntityLine here — as the Toolbar / ToolbarMenu editors already do.
+// The ToolbarSwitcher editor: a name, an owner, and the table of switchable menu options. `owner` uses
+// EntityLine rather than AutoLine — AutoLine dispatches from `ctx.memberType`, and an `@implementedBy` Lite
+// belongs to EntityLine — as the Toolbar / ToolbarMenu editors already do.
 
 export default function ToolbarSwitcher(p: { ctx: TypeContext<ToolbarSwitcherEntity> }): React.JSX.Element {
     const ctx = p.ctx;

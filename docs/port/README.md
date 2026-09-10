@@ -35,6 +35,7 @@ specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inv
 | [ConcurrentUser.md](ConcurrentUser.md) | `@altea/altea-concurrent-user` |
 | [DiffLog.md](DiffLog.md) | `@altea/altea-diff-log` |
 | [Eval.md](Eval.md) | `@altea/altea-eval` |
+| [Files.md](Files.md) | `@altea/altea-files` |
 | [FileStores.md](FileStores.md) | `@altea/altea-files-azure`, `@altea/altea-files-s3` |
 | [Isolation.md](Isolation.md) | `@altea/altea-isolation` |
 | [LegacyMode.md](LegacyMode.md) | *cross-cutting* — `SchemaSettings.legacyMode` |
@@ -50,7 +51,9 @@ specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inv
 | [Scheduler.md](Scheduler.md) | `@altea/altea-scheduler` |
 | [Sms.md](Sms.md) | `@altea/altea-sms` |
 | [TimeMachine.md](TimeMachine.md) | `@altea/altea-time-machine` |
+| [Toolbar.md](Toolbar.md) | `@altea/altea-toolbar` |
 | [Tour.md](Tour.md) | `@altea/altea-tour` |
+| [UserAssets.md](UserAssets.md) | `@altea/altea-user-assets` |
 | [ViewLog.md](ViewLog.md) | `@altea/altea-view-log` |
 | [WhatsNew.md](WhatsNew.md) | `@altea/altea-whats-new` |
 

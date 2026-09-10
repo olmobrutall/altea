@@ -269,4 +269,6 @@ export const AzureADMessage = {
     UnableToMixFilterAndSearchInAnOr: msg("Unable to convert filter (mixing $filter and $search inside an OR)"),
 };
 
+// The database schema this package's tables live in. FOLDER-scoped, so it covers every type declared
+// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("auth");

@@ -4,8 +4,9 @@ import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import * as AppContext from "@altea/altea/client/AppContext";
 
-// Faithful port of Signum's ToolbarUrl.ts (Signum.Toolbar/ToolbarUrl.ts): the placeholder substitution a
-// toolbar element's raw `url` goes through before navigation.
+// Port of Signum.Toolbar's ToolbarUrl.ts — see docs/port/Toolbar.md.
+//
+// The placeholder substitution a toolbar element's raw `url` goes through before navigation.
 //
 //   /order/:id            → the selected entity's id           (an entity-scoped ToolbarMenu)
 //   /:type/:id            → its clean type name + id
@@ -14,10 +15,7 @@ import * as AppContext from "@altea/altea/client/AppContext";
 //   …:id2 / :type2 / :key2 / :toStr2 → a SECOND, config-chosen entity (see ToolbarConfig.selectSubEntityForUrl)
 //   $variables$           → app-registered dynamic values (registerUrlVariable)
 //
-// altea divergences:
-//  - `liteKey(lite)` / `getToString(lite)` are METHODS on altea's Lite (`lite.key()` / `lite.toString()`).
-//  - `isExternalLink` compared against Signum's `window.__baseName`; altea keeps the base name in
-//    AppContext (`baseName`), so the origin+base prefix is built from there.
+// `isExternalLink` builds its origin + base prefix from `AppContext.baseName`.
 
 export namespace ToolbarUrl {
 
@@ -28,7 +26,7 @@ export namespace ToolbarUrl {
         return url;
     }
 
-    /** Signum's `urlVariables`: app-registered `$name$` → value producers. */
+    /** App-registered `$name$` → value producers. */
     export const urlVariables: { [name: string]: () => string } = {};
 
     export function registerUrlVariable(name: string, getValue: () => string): void {

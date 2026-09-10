@@ -9,16 +9,14 @@ import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelp
 import type { ToolbarResponse } from "../data/ToolbarResponse";
 import { ToolbarNavItem, renderExtraIcons, isActive } from "./Renderers/ToolbarRenderer";
 
-// Faithful port of Signum's ToolbarConfig.tsx (Signum.Toolbar/ToolbarConfig.tsx): the per-content-type
-// CLIENT strategy — how an element pointing at a T is iconified, counted, navigated to, and recognised as
-// "the current page". Each module subclasses it for its own asset (QueryToolbarConfig here;
-// UserQueryToolbarConfig / UserChartToolbarConfig / DashboardToolbarConfig in their own modules) and
+// Port of Signum.Toolbar's ToolbarConfig.tsx — see docs/port/Toolbar.md.
+//
+// The per-content-type CLIENT strategy: how an element pointing at a T is iconified, counted, navigated to,
+// and recognised as "the current page". Each module subclasses it for its own asset (QueryToolbarConfig
+// here; UserQueryToolbarConfig / UserChartToolbarConfig / DashboardToolbarConfig in their own modules) and
 // registers it with `ToolbarClient.registerConfig`.
 //
-// altea divergences:
-//  - `parseIcon` / `fallbackIcon` come from altea's IconHelpers (Signum: Components/IconTypeahead).
-//  - `Type<T>` is always a constructor in altea, so `config.type` is the ctor and the registry keys off its
-//    clean name (see ToolbarClient.registerConfig).
+// `config.type` is a CONSTRUCTOR, and the registry keys off its clean name.
 
 export abstract class ToolbarConfig<T extends Entity> {
     type: Type<T>;
@@ -36,7 +34,7 @@ export abstract class ToolbarConfig<T extends Entity> {
         );
     }
 
-    /** Signum's hook for a url carrying `:id2`/`:key2`: pick the SECOND entity the url needs. */
+    /** For a url carrying `:id2` / `:key2`: pick the SECOND entity the url needs. */
     async selectSubEntityForUrl(element: ToolbarResponse<T>, entity: Lite<Entity> | null): Promise<Lite<Entity> | undefined> {
         return undefined;
     }
@@ -50,14 +48,14 @@ export abstract class ToolbarConfig<T extends Entity> {
         return <FontAwesomeIcon aria-hidden={true} icon={fallbackIcon(icon)} className={"icon"} color={color} />;
     }
 
-    /** Signum's hook for the result-count badge (QueryToolbarConfig / UserQueryToolbarConfig fill it). */
+    /** The result-count badge (QueryToolbarConfig / UserQueryToolbarConfig fill it). */
     getCounter(element: ToolbarResponse<T>, entity: Lite<Entity> | null): React.ReactElement | undefined {
         return undefined;
     }
 
     abstract navigateTo(element: ToolbarResponse<T>, selectedEntity: Lite<Entity> | null): Promise<string | null>;
 
-    /** Signum's `isCompatibleWithUrlPrio`: does the CURRENT location correspond to this element (and with
+    /** Does the CURRENT location correspond to this element (and with
      *  what priority, so the most specific element wins the "active" highlight)? */
     abstract isCompatibleWithUrlPrio(element: ToolbarResponse<T>, location: Location, query: any, entityType?: string): { prio: number, inferredEntity?: Lite<Entity> } | null;
 
@@ -69,7 +67,7 @@ export abstract class ToolbarConfig<T extends Entity> {
         });
     }
 
-    /** Signum's `isApplicableTo`: lets two configs share one content TYPE and split by the response (the
+    /** Lets two configs share one content TYPE and split by the response (the
      *  registry picks the single applicable one). */
     isApplicableTo(element: ToolbarResponse<T>): boolean {
         return true;
@@ -93,7 +91,7 @@ export abstract class ToolbarConfig<T extends Entity> {
     }
 }
 
-/** Signum's ToolbarContext — threaded down the render tree: close the sidebar after a click, ask for a
+/** Threaded down the render tree: close the sidebar after a click, ask for a
  *  refresh, and know which response is currently active. */
 export interface ToolbarContext {
     onAutoClose?: () => void;
@@ -101,7 +99,7 @@ export interface ToolbarContext {
     active: InferActiveResponse | null;
 }
 
-/** Signum's InferActiveResponse — which element the current URL corresponds to, with what priority, and (for
+/** Which element the current URL corresponds to, with what priority, and (for
  *  an entity-scoped menu) which entity the URL implies. */
 export interface InferActiveResponse {
     prio: number;
@@ -110,7 +108,7 @@ export interface InferActiveResponse {
     menuWithEntity?: { menu: ToolbarResponse<any>, entity: Lite<Entity> };
 }
 
-/** Signum's IconColor — the icon + color pair a config may hand back. */
+/** The icon + color pair a config may hand back. */
 export interface IconColor {
     icon: IconProp;
     iconColor: string;

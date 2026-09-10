@@ -11,13 +11,12 @@ import { inferActive, isCompatibleWithUrl, renderNavItem } from "./ToolbarRender
 import "@altea/altea/client/Frames/Widgets.css";
 import "./Toolbar.css";
 
-// Faithful port of Signum's ToolbarTopRenderer.tsx (Signum.Toolbar/Renderers/ToolbarTopRenderer.tsx): the
-// `Top` toolbar, rendered inside the navbar. Same element machinery as the sidebar (renderNavItem), only the
-// container differs — plus one behavioural detail Signum has here and not in the sidebar: if the ACTIVE
-// response is still compatible with the new location, the active item is left alone (a top bar should not
-// flicker while navigating within one section).
+// Port of Signum.Toolbar's Renderers/ToolbarTopRenderer.tsx — see docs/port/Toolbar.md.
 //
-// No altea divergences beyond the import paths.
+// The `Top` toolbar, rendered inside the navbar. Same element machinery as the sidebar (renderNavItem),
+// only the container differs — plus one behaviour the sidebar does NOT have: if the ACTIVE response is
+// still compatible with the new location, the active item is left alone, so a top bar does not flicker
+// while navigating within one section.
 
 export default function ToolbarTopRenderer(): React.ReactElement | null {
     const response = useAPI(() => ToolbarClient.API.getCurrentToolbar("Top"), []);
