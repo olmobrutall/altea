@@ -24,11 +24,31 @@ import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { EntityControlMessage, JavascriptMessage, SearchMessage } from "@altea/altea/data/uiMessages";
 import {
-    InsertPlace, MoveTreeModel, TreeMessage, TreeOperation, TreeViewerMessage,
-    type TreeEntity, type TreeNode, type TreeNodeState,
+    InsertPlace, MoveTreeModel, TreeEntity, TreeMessage, TreeOperation, TreeViewerMessage,
+    type TreeNode, type TreeNodeState,
 } from "../data/Tree";
 import { TreeClient } from "./TreeClient";
 import "./TreeViewer.css";
+
+/**
+ * The three columns the tree renders ITSELF, as its first column — so a column option naming one of them
+ * is dropped rather than drawn twice.
+ *
+ * Built from the typed token builder, so they are spelled the way a resolved token's `fullKey()` is
+ * (PascalCase) and follow a field rename. They were hand-written camelCase strings, from before
+ * `EntityPropertyToken.key` became `fieldInfo.name.firstUpper()`, and had silently stopped matching.
+ *
+ * A FUNCTION, not a module-level const: `Type.token` is installed onto BaseEntity by
+ * `client/EntityTypeApi` as an import side effect, so evaluating this at module scope would depend on
+ * import order.
+ */
+function treeOwnColumns(): string[] {
+    return [
+        TreeEntity.token(a => a.id).token,
+        TreeEntity.token(a => a.name).token,
+        TreeEntity.token(a => a.fullName).token,
+    ];
+}
 
 // Port of Signum.Tree's TreeViewer.tsx — the tree itself: a filter builder, a toolbar, a table of nodes
 // with expand / collapse, a context menu of the type's contextual operations, and drag-and-drop move/copy.
@@ -544,14 +564,16 @@ export class TreeViewer extends React.Component<TreeViewerProps, TreeViewerState
 
         const qs = Finder.getSettings(this.props.treeOptions.typeName);
         const resultColumns = this.state.resultColumns;
+        const own = treeOwnColumns();
 
         return this.state.treeOptionsParsed!.columnOptions
             .map((co, i) => ({ co, i }))
-            // The three columns the tree already renders as its own first column.
+            // Dropping the three the tree draws as its OWN first column — compared against the resolved
+            // token's `fullKey()`, which is PascalCase. These were camelCase, from before
+            // `EntityPropertyToken.key` became `fieldInfo.name.firstUpper()`, so none of them matched and
+            // the tree drew all three a SECOND time beside its own column.
             .filter(({ co }) => co.hiddenColumn !== true
-                && co.token?.fullKey() !== "id"
-                && co.token?.fullKey() !== "name"
-                && co.token?.fullKey() !== "fullName"
+                && !own.includes(co.token?.fullKey() ?? "")
                 && resultColumns.some(rc => rc === co.token?.fullKey()))
             .map(({ co, i }) => ({
                 column: co,

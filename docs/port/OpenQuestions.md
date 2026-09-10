@@ -134,7 +134,7 @@ Verified by serialising every one of them through the real `tokenSequence` again
 `State`, `StartDate`, `Activity`, `MainEntity`, `Actor`, `Sender`, `Workflow`, `DoneDate.HasValue`,
 `WorkflowActivity.(WorkflowActivity)`, `WorkflowActivity.(WorkflowActivity).Lane.Pool.Workflow`, `Case`.
 
-### 2.4 A token key compared as camelCase — the same defect in three more modules
+### 2.4 A token key compared as camelCase — the same defect in three more modules (two fixed)
 
 `altea-workflow` (§2.3) was not the only place written against the OLD convention, when a token key WAS the
 camelCase field name verbatim. `EntityPropertyToken.key` is `fieldInfo.name.firstUpper()` now, so **every
@@ -151,13 +151,21 @@ were the visible tip.
   builder now; all seven are default or hidden columns, which is what that `hiddenColumns` block is for.
 - `altea-mailing-microsoft-graph/…/RemoteEmailsClient.tsx` — the `"subject"` formatter key and its four
   reads.
+- `altea-tree` — `TreeViewer`'s three `fullKey() !== "id" / "name" / "fullName"` comparisons, which had
+  stopped dropping the columns the tree draws as its own first column, so **the tree page rendered Id, Name
+  and FullName twice**. They come from the typed builder now (`Id`, `Name`, `FullName`, confirmed in the
+  running client), as does `TreeClient.overrideDefaultOrder`'s `fullName` order token — that one resolved
+  either way, being an order rather than a `fullKey()` comparison, and is canonicalised so the module has
+  one spelling to copy from.
+  - the builder call is a FUNCTION, not a module-level const: `Type.token` is installed onto `BaseEntity`
+    by `client/EntityTypeApi` as an import side effect, so evaluating it at module scope would depend on
+    import order.
 
-**Still broken, and NOT fixed here.** Three modules, and the RemoteEmails one is why its formatter still
-will not run — the query throws before a row exists:
+**Still broken, and NOT fixed here.** The two Graph modules — and this is why RemoteEmails' formatter still
+will not run: the query throws before a row exists.
 
 | Where | Site | Effect |
 | --- | --- | --- |
-| `altea-tree/client/TreeViewer.tsx:552-554` | `fullKey() !== "id" / "name" / "fullName"` | the three columns the tree renders as its OWN first column are no longer filtered out, so the tree page shows them TWICE |
 | `altea-mailing-microsoft-graph/server/RemoteEmailsLogic.ts:90` | `extractFilter(request, "user")`, compared `fullKey() === key` | never matches, so the mailbox filter is never found and every query throws `UserFilterNotFound` |
 | …`:240` | `fullKey() !== "messageId"` | the order this means to drop is kept |
 | …`:282` | `!key.startsWith("entity") && !key.startsWith("user")` | neither is excluded, so both are sent to Graph's `$select` as unknown fields |
@@ -170,10 +178,10 @@ field name, and Graph's fields are camelCase (`subject`, `receivedDateTime`, `pa
 the repair is to lower the first letter after the comparisons are corrected, which changes what goes on the
 wire.
 
-**TODO:** repair the three modules in one pass. The tree one is provable from the code and cheap. The two
-Graph ones need a tenant with a mailbox to verify, because the `$select` / `$filter` / `$orderby` strings
-they build are only checkable against the real API — which is the reason they are recorded here rather than
-patched blind.
+**TODO:** repair the two Graph modules in one pass. They need a tenant with a mailbox to verify, because
+the `$select` / `$filter` / `$orderby` strings they build are only checkable against the real API — which is
+the reason they are recorded here rather than patched blind. Note the two-direction rule above is the whole
+difficulty: a mechanical PascalCase sweep would fix the comparisons and BREAK the field names.
 
 Not part of this: `altea/test/server/dynamicQueries/expressionContainer.test.ts:109-110` asserts
 `t.key === "rootNotes"`. A registered expression's explicit `{ key }` is honoured VERBATIM, so a camelCase

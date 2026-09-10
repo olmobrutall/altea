@@ -280,7 +280,10 @@ export namespace TreeClient {
 
     export function overrideDefaultOrder(ti: TypeInfo): void {
         const qs = getQuerySettings(nameOf(ti));
-        qs.defaultOrders ??= [{ token: "fullName", orderType: "Ascending" }];
+        // The typed builder, so the token is spelled canonically (`FullName`). An ORDER token resolves
+        // case-insensitively either way, unlike the `fullKey()` comparisons in TreeViewer — but one
+        // spelling across the module is what keeps the next reader from copying the wrong one.
+        qs.defaultOrders ??= [{ token: TreeEntity.token(a => a.fullName), orderType: "Ascending" }];
     }
 
     /** Every opt-in at once — what a host calls per tree type from its client start. */

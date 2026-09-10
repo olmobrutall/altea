@@ -123,13 +123,13 @@ export namespace AlertsClient {
             // is what that `hiddenColumns` block is for.
             const read = <T,>(token: QueryTokenString<T>) => ctx.searchControl?.getRowValue(ctx.row, token);
             const alert: Partial<AlertEntity> = {
-                createdBy: read(AlertEntity.token(a => a.createdBy)) as Lite<never> | undefined ?? null,
-                creationDate: read(AlertEntity.token(a => a.creationDate)) as Temporal.PlainDateTime,
-                alertDate: read(AlertEntity.token(a => a.alertDate)) as Temporal.PlainDateTime,
-                target: read(AlertEntity.token(a => a.target)) as Lite<Entity> | null,
-                targetToString: read(AlertEntity.token(a => a.targetToString)) as string | null,
-                linkTarget: read(AlertEntity.token(a => a.linkTarget)) as Lite<Entity> | null,
-                textArguments: read(AlertEntity.token(a => a.textArguments)) as string | null,
+                createdBy: read(AlertEntity.token(a => a.createdBy)) ?? null,
+                creationDate: read(AlertEntity.token(a => a.creationDate)),
+                alertDate: read(AlertEntity.token(a => a.alertDate)) ?? null,
+                target: read(AlertEntity.token(a => a.target)) ?? null,
+                targetToString: read(AlertEntity.token(a => a.targetToString)) ?? null,
+                linkTarget: read(AlertEntity.token(a => a.linkTarget)) ?? null,
+                textArguments: read(AlertEntity.token(a => a.textArguments)) ?? null,
             };
             return format(String(cell), alert);
         }, true);
