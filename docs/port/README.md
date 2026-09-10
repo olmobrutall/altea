@@ -33,18 +33,29 @@ specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inv
 | --- | --- |
 | [ConcurrentUser.md](ConcurrentUser.md) | `@altea/altea-concurrent-user` |
 | [DiffLog.md](DiffLog.md) | `@altea/altea-diff-log` |
+| [Eval.md](Eval.md) | `@altea/altea-eval` |
 | [FileStores.md](FileStores.md) | `@altea/altea-files-azure`, `@altea/altea-files-s3` |
+| [Isolation.md](Isolation.md) | `@altea/altea-isolation` |
 | [LegacyMode.md](LegacyMode.md) | *cross-cutting* — `SchemaSettings.legacyMode` |
 | [MailingExchange.md](MailingExchange.md) | `@altea/altea-mailing-exchange` |
 | [MailingPop3.md](MailingPop3.md) | `@altea/altea-mailing-pop3` |
 | [Markdown.md](Markdown.md) | `@altea/altea-markdown` |
+| [Migrations.md](Migrations.md) | `@altea/altea-migrations` |
 | [Printing.md](Printing.md) | `@altea/altea-printing` |
 | [Rest.md](Rest.md) | `@altea/altea-rest` |
+| [Sms.md](Sms.md) | `@altea/altea-sms` |
 | [TimeMachine.md](TimeMachine.md) | `@altea/altea-time-machine` |
+| [Tour.md](Tour.md) | `@altea/altea-tour` |
 | [ViewLog.md](ViewLog.md) | `@altea/altea-view-log` |
+| [WhatsNew.md](WhatsNew.md) | `@altea/altea-whats-new` |
 
 Modules without a page here still carry their narrative in their file headers, and in the app's
 `CLAUDE.md`.
+
+**Four pages are ahead of their sources.** Eval, Isolation, Sms and Tour have complete ledgers and moved
+file headers, but ~176 member-level divergence notes are still inline in those packages — so for now those
+facts live in both places. Finishing them means deciding, note by note, whether the rule binds at the point
+of edit or belongs here; the mechanical half is already done.
 
 ## Why
 
