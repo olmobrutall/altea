@@ -66,7 +66,7 @@ in practice a handful per module, and always one of these kinds:
   must not be renamed to match its two siblings, and a Signum database may carry an `sms_model` table with
   no query row;
 - a **gap or bug marker** that stops someone "fixing" the code back: `SMSCharacters`' UCS-2 budget is 70
-  where Signum says 60, and a tour step's text is deliberately not `@translatable` yet.
+  where Signum says 60, and `OpenIDCallback`'s error branch is deliberately not Signum's inverted ternary.
 
 Everything else is either a rule that binds at the point of edit — written without needing Signum in the
 reader's head — or it lives on this page.
@@ -79,10 +79,13 @@ sits near 4%, which is ordinary for a framework.
 
 Almost none of it was copy-paste (verbatim duplication across files: 1.4%). The redundancy was *vertical* —
 the same fact told in `CLAUDE.md`, in the file header, and inline, in three different wordings — and the
-cost showed up as drift. Two claims found stale while extracting these pages:
+cost showed up as drift. Claims found stale while extracting these pages:
 
 - altea-view-log's header carried a "KNOWN GAP (core, pre-existing)" for something core had since fixed.
 - altea-diff-log's data file said `OperationLogTypeCondition.FilteringByTarget` was unregistered, its own
   server file said the opposite, and `CLAUDE.md` sided with the wrong one.
+- altea-tour's step fields claimed the translations registry handled them; nothing registered them and
+  neither field carried `@translatable`. That one was a real gap in the CODE, now fixed.
 
-One home per fact is the point.
+One home per fact is the point — and each of those took a reader through two or three files before the
+disagreement surfaced.
