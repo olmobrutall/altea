@@ -14,44 +14,55 @@ comment happened to be sitting on top of.
 
 ---
 
-## 1. Live defect: a reachable `throw` behind an expired TODO
+## 1. ~~Live defect: a reachable `throw` behind an expired TODO~~ — FIXED
 
-**`altea/client/Finder.tsx:2115`.** `executeQuerySplitTimeSeries` throws unconditionally:
+`Finder.executeQuerySplitTimeSeries` threw unconditionally behind a TODO naming three blockers that had all
+landed (luxon → `Temporal`; `Frames/Notify.tsx`; `uiMessages`' `JavascriptMessage`). It was reachable from a
+user-facing checkbox — `altea-chart/client/Templates/ChartTimeSeries.tsx:145`, with `ChartBuilder.tsx:116`
+setting it `true` — which round-trips through the chart URL, so a saved chart carried it.
 
-```ts
-// TODO(port): the time-series split executor needs luxon DateTime (dropped in altea — use
-// Temporal), Notify/NotifyOptions/JavascriptMessage (notification UI not ported) and
-// "AsOf" slicing. Restore from the Signum source once those land.
-export async function executeQuerySplitTimeSeries(request: QueryRequest, signal?: AbortSignal): Promise<ResultTable> {
-  throw new Error("TODO(port): executeQuerySplitTimeSeries — luxon DateTime + Notify not ported");
-}
-```
+**It is implemented.** A TimeSeries request now runs one `AsOf` query per date in the series, combined into
+one ResultTable with the date prepended as the `TimeSeries` column. The series arithmetic is its own module,
+`altea/data/dynamicQuery/timeSeriesDates.ts`, with a 10-case suite
+(`altea/test/client/timeSeriesDates.test.ts`) — split out for the reason `client/Basics/changeLogMerge` was:
+Finder imports the ajax layer, and this is pure arithmetic that must agree with a SQL function.
 
-**It is reachable, and not obscurely.** `Finder.executeQuery` dispatches to it (`Finder.tsx:2121`):
+Three deliberate divergences from Signum's own client, each pinned by a case:
 
-```ts
-if (request.systemTime?.mode == "TimeSeries" && request.systemTime.splitQueries)
-  return executeQuerySplitTimeSeries(request, signal);
-```
+- **the series INCLUDES `endDate`.** Signum's walk is `while (dt < endDate)`, but its own `GetDatesInRange`
+  UDF is inclusive on both dialects, and `test/server/schema/systemTime.test.ts` pins that — a 2-second
+  window stepping by 1 second is 3 rows, "0s, 1s, 2s". Signum's client and its own SQL disagree by one point
+  at the endpoint; this follows the SQL.
+- **the series is ANCHORED (`start + n·step`), not accumulated.** Accumulating re-anchors each step on the
+  previous CLAMP, so a month-end series drifts backwards: from Jan 31 by the quarter, Signum gives Apr 30 →
+  Jul 30 → Oct 30, and by the month over two years it slides to the 28th and stays there. Found by a test
+  whose expectation was written before the implementation.
+- **`Quarter` is 3 MONTHS.** `Temporal.Duration` has no quarters, where luxon does, so the unit is mapped
+  explicitly rather than lower-cased into a duration key.
 
-and `splitQueries` is a **user-facing checkbox** — `altea-chart/client/Templates/ChartTimeSeries.tsx:145`,
-plus `ChartBuilder.tsx:116` which sets it to `true`. It round-trips through the chart URL
-(`ChartClient.tsx:621` / `:722`), so a saved or shared chart carries it too. Ticking that box on a chart's
-time-series panel is a hard runtime failure.
+### Two things this turned up
 
-**Every stated blocker has landed:**
+**The unsplit TimeSeries path does not exist on the server.** `altea/server/queryServer.ts`'s
+`parseSystemTime` switches on the mode and has no `TimeSeries` case, so it throws *"SystemTime mode
+'TimeSeries' is not supported"*; its own header records the decision. The SQL substrate IS ported and tested
+(`server/queryTimeSeries.ts`'s `GetDatesInRange` UDF, exercised by `test/server/schema/systemTime.test.ts`),
+but nothing wires it into a query request, and `includeGetDatesInRange` is called only by the framework's
+own test fixture.
 
-| The TODO says | Reality |
-| --- | --- |
-| "needs luxon DateTime" | luxon is a recorded non-goal; `Temporal` is the substrate, and the TODO itself says to use it |
-| "Notify/NotifyOptions … not ported" | `altea/client/Frames/Notify.tsx` exists |
-| "JavascriptMessage … not ported" | `altea/data/uiMessages.ts:40` exports it |
+So `splitQueries` is not the optimisation it is in Signum — where it trades one `GetDatesInRange`-joined
+query for N simple ones — it is **the whole feature**. With the executor implemented, the checkbox is now
+the supported path rather than the broken one.
 
-So the remaining work is the executor's own body — the `AsOf` slicing — not its dependencies.
+**TODO:** decide whether the server-side path is wanted. It needs `parseSystemTime` to accept the mode and
+the dynamic-query layer to join `getDatesInRange`, and it would then have to answer the same series this
+client walk does — which the shared expectations above are what to hold it to. If it is not wanted, the
+checkbox should stop reading as an optimisation toggle.
 
-**TODO:** either implement the split executor, or make the failure honest. Right now `executeQuery` looks
-total and is not. If it stays unimplemented, the checkbox should not be offerable: gating it in
-`ChartTimeSeries` costs one line and converts a stack trace into a control that isn't there.
+**`decompress` is not idempotent, and Signum decompresses each step twice.** Signum writes
+`decompress(await executeQuery(...))` while its `executeQuery` already decompresses. `decompress`
+substitutes `row.columns[i]` out of `uniqueValues` without clearing them, so a second pass re-indexes with
+the real value. The port decompresses once; the comment says so, because the missing call otherwise reads
+like an omission.
 
 ---
 
@@ -120,7 +131,7 @@ provider, which is what the `Member` / `Global` buckets exist for.
 
 ### 3.2 The `TODO(port)` block in `altea/client/Finder.tsx`
 
-52 `TODO(port)` markers survive in the workspace; **20 of them are in this one file**, hanging off a header
+50 `TODO(port)` markers survive in the workspace; **18 of them are in this one file**, hanging off a header
 whose premise expired long ago:
 
 ```
@@ -139,8 +150,9 @@ They are not uniformly stale, and that is the work:
 - **stale** — the five above, plus `:125`'s "types owned by not-yet-ported modules".
 - **mislabelled** — `:31` (QueryDescriptionDTO dropped) and `:473` (no `isDecimalType`) are permanent,
   *recorded* divergences wearing a TODO's clothes. They should read as divergences, so nobody "fixes" them.
-- **real** — the luxon date/duration parse+format restoration (`:6`), `similarToken` (`:1126`),
-  `numberLimits` (`:1348`), and the split executor of §1.
+- **real** — the luxon date/duration parse+format restoration (`:6`), `similarToken` (`:1126`) and
+  `numberLimits` (`:1348`). The split executor was the fourth, and §1 closed it: its two markers are gone,
+  so 18 remain in this file and 50 in the workspace.
 
 **TODO:** triage the 20 into those three buckets and re-file each. A TODO that cannot come true is worse than
 no TODO: it trains a reader to skip the ones that can.

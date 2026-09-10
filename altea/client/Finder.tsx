@@ -36,11 +36,13 @@ import { Metadata } from '../data/metadata';
 import { getKey } from '../data/dynamicQuery/queryUtils';
 import { reflectionDefaultColumns } from '../data/dynamicQuery/defaultColumns';
 import { RootToken } from '../data/dynamicQuery/tokens/rootToken';
-import { SearchMessage } from '../data/uiMessages';
+import { JavascriptMessage, SearchMessage } from '../data/uiMessages';
+import Notify, { type NotifyOptions } from './Frames/Notify';
 import { QueryTokenString, type Anonymous } from './QueryTokenString';
 
 import { FilterOperation, PinnedFilterActive } from '../data/dynamicQueries'; // numeric companions, for wire-ordinal encode/decode
 import type { FilterOperationKeys, FilterGroupOperationKeys, PinnedFilterActiveKeys, FilterTypeKeys, PaginationModeKeys, OrderTypeKeys } from '../data/dynamicQueries';
+import { timeSeriesDates } from '../data/dynamicQuery/timeSeriesDates';
 
 import { Entity, BaseEntity, EmbeddedEntity, ModelEntity, type Type } from '../data/entity';
 import { Lite } from '../data/lite';
@@ -2109,12 +2111,79 @@ export namespace Finder {
     }
 
 
-    // TODO(port): the time-series split executor needs luxon DateTime (dropped in altea — use
-    // Temporal), Notify/NotifyOptions/JavascriptMessage (notification UI not ported) and
-    // "AsOf" slicing. Restore from the Signum source once those land.
+    /**
+     * A TimeSeries request run as ONE `AsOf` query PER DATE in the series, combined into a single
+     * ResultTable with the date prepended as the `TimeSeries` column.
+     *
+     * This is the only TimeSeries path that works: the server's `parseSystemTime` accepts `AsOf` and
+     * REJECTS `TimeSeries`, so `splitQueries` is not an optimisation here as it is in Signum (where it
+     * trades one `GetDatesInRange`-joined query for N simple ones) — it is the whole feature. The
+     * unsplit path needs the server half, which is unported (see docs/port/OpenQuestions.md).
+     *
+     * The SERIES itself is `data/dynamicQuery/timeSeriesDates` — its own module so the arithmetic can be
+     * tested headless, and where the three divergences from Signum's luxon walk are recorded (the series
+     * includes `endDate`, matching the `GetDatesInRange` SQL; it is ANCHORED rather than accumulated, so
+     * a month-end series does not drift; `Quarter` is 3 months).
+     *
+     * The per-step page size is `timeSeriesMaxRowsPerStep`, and the combined table reports
+     * `pagination: { mode: "All" }` — it is not a window onto a larger set, it IS the whole series.
+     *
+     * **Each step is decompressed ONCE.** Signum writes `decompress(await executeQuery(...))` while its
+     * `executeQuery` already decompresses, and `decompress` is not idempotent — it substitutes
+     * `row.columns[i]` from `uniqueValues` without clearing them, so a second pass re-indexes with the
+     * real value. That is a Signum bug, not a step this port dropped; do not "restore" the call.
+     */
     export async function executeQuerySplitTimeSeries(request: QueryRequest, signal?: AbortSignal): Promise<ResultTable> {
-      throw new Error("TODO(port): executeQuerySplitTimeSeries — luxon DateTime + Notify not ported");
+      const st = request.systemTime!;
+      const timeSeries = QueryTokenString.timeSeries.token;
+
+      const dates = timeSeriesDates(st);
+
+      // The TimeSeries column is what this executor SUPPLIES, so it is stripped from each per-date
+      // request: asking the server for it would be asking for a token its AsOf mode cannot resolve.
+      const perDate = (dt: string): QueryRequest => ({
+        queryKey: request.queryKey,
+        filters: request.filters,
+        columns: request.columns.filter(a => a.token != timeSeries),
+        orders: request.orders.filter(a => a.token != timeSeries),
+        systemTime: { mode: "AsOf", startDate: dt },
+        groupResults: request.groupResults,
+        pagination: { mode: "Firsts", elementsPerPage: st.timeSeriesMaxRowsPerStep },
+      });
+
+      const notifyOptions: NotifyOptions = { text: "", type: "loading", priority: 10 };
+      const resultTables: { timeSerie: string, rt: ResultTable }[] = [];
+
+      try {
+        for (let i = 0; i < dates.length; i++) {
+          // Sequential on purpose, as in Signum: N steps is unbounded (a per-millisecond series over an
+          // hour is 3.6M), so firing them together would open a request per date.
+          resultTables.push({ timeSerie: dates[i], rt: await executeQuery(perDate(dates[i]), signal) });
+
+          notifyOptions.text = JavascriptMessage.loading.niceToString() + ` [${i + 1}/${dates.length}]`;
+          Notify.getSingleton()?.notifyTimeout(notifyOptions);
+        }
+      } finally {
+        // In a `finally` so an abort or a failed step does not leave the loading toast up for good —
+        // Signum removes it only on the success path.
+        Notify.getSingleton()?.remove(notifyOptions);
+      }
+
+      // Whether the caller ASKED for the date: with no TimeSeries column the rows are concatenated as
+      // they came back, and each date's block is simply contiguous.
+      const wantsDate = request.columns.some(a => a.token == timeSeries);
+
+      return {
+        columns: wantsDate ? [timeSeries, ...resultTables.first().rt.columns] : resultTables.first().rt.columns,
+        uniqueValues: {},
+        rows: wantsDate
+          ? resultTables.flatMap(a => a.rt.rows.map(row => ({ entity: row.entity, columns: [a.timeSerie, ...row.columns] })))
+          : resultTables.flatMap(a => a.rt.rows),
+        totalElements: resultTables.sum(a => a.rt.totalElements ?? 0),
+        pagination: { mode: "All" },
+      };
     }
+
 
 
     export function executeQuery(request: QueryRequest, signal?: AbortSignal): Promise<ResultTable> {
