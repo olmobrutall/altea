@@ -33,7 +33,7 @@ interface TokenPayload {
     rt: string | null;      // role toString
     ph: string | null;      // passwordHash (base64) — to detect a password change
     c: string;              // creationDate (ISO PlainDateTime)
-    cl?: string;            // the CLAIMS bag, Serializer-encoded (Signum's AuthToken.Claims)
+    cl?: string;            // the CLAIMS bag, Serializer-encoded
 }
 
 export interface AuthTokenConfiguration {
@@ -85,7 +85,7 @@ export namespace AuthTokenServer {
 
     // Signum's CreateToken(user).
     // A base64 fingerprint of the user's stored password hash (now raw binary bytes), embedded in the
-    // token so a password change invalidates outstanding tokens (Signum's `ph` check).
+    // token so a password change invalidates outstanding tokens.
     function phFingerprint(user: UserEntity): string | null {
         return user.passwordHash == null ? null : encodeHash(Buffer.from(user.passwordHash));
     }
@@ -109,7 +109,7 @@ export namespace AuthTokenServer {
         return serializeToken(payload);
     }
 
-    // Signum's TokenAuthenticator: validate the bearer token, refresh if stale, resolve the user.
+    // Validate the bearer token, refresh if stale, resolve the user.
     export const tokenAuthenticator: Authenticator = async (req, res) => {
         const header = req.header(authHeader);
         if (header == null || header === "")
@@ -122,7 +122,7 @@ export namespace AuthTokenServer {
         const now = Temporal.Now.plainDateTimeISO();
         const creation = Temporal.PlainDateTime.from(token.c);
 
-        // A token dated in the future is invalid (Signum's InvalidTokenDate).
+        // A token dated in the future is invalid.
         if (Temporal.PlainDateTime.compare(now.add({ seconds: 2 }), creation) < 0)
             throw new AuthenticationException(LoginAuthMessage.InvalidTokenDate0.niceToString(token.c));
 
@@ -138,7 +138,7 @@ export namespace AuthTokenServer {
         return toUserWithClaims(token);
     };
 
-    // Signum's RefreshToken: re-read the user, re-check active/name/password, re-issue the token.
+    // Re-read the user, re-check active/name/password, re-issue the token.
     async function refreshToken(oldToken: TokenPayload): Promise<{ newToken: string; userWithClaims: UserWithClaims }> {
         const user = await table(UserEntity).filter(u => u.id == oldToken.u).singleOrNull() as UserEntity | null;
         if (user == null)

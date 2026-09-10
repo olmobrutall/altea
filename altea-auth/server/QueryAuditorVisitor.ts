@@ -10,12 +10,12 @@ import type { FilterQueryArgs } from "@altea/altea/server/schema/filterQueryArgs
 import { LiteType, ClassType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
 import { cleanTypeName } from "@altea/altea/data/registration";
 
-// Port of Signum's QueryAuditorVisitor (Rules/QueryAuditorVisitor.cs) — READ THE CALLER'S OWN FILTERS.
+// Port of Signum.Authorization's Rules/QueryAuditorVisitor.cs — see docs/port/Auth.md.
 //
-// It exists for one kind of type condition: `registerWhenAlreadyFilteringBy`, whose rule is "you may read
-// these rows BECAUSE you asked for them in a way that already constrains them to something you are
-// allowed to read". Answering that means looking at the query the caller wrote, which is what
-// `FilterQueryArgs` carries and what this walks.
+// READ THE CALLER'S OWN FILTERS. It exists for one kind of type condition,
+// `registerWhenAlreadyFilteringBy`, whose rule is "you may read these rows BECAUSE you asked for them in
+// a way that already constrains them to something you are allowed to read". Answering that means looking
+// at the query the caller wrote, which is what `FilterQueryArgs` carries and what this walks.
 //
 // The walk folds the operator chain from the base query outwards, tracking three things:
 //   • `param`     — a fresh parameter standing for one row of the BASE table;
@@ -26,18 +26,14 @@ import { cleanTypeName } from "@altea/altea/data/registration";
 // which no further filter is collected, because a predicate over an unknown shape says nothing about the
 // base row. Reaching a node that is not part of the chain at all yields a fully opaque result.
 //
-// altea divergences:
-//  - Signum models the intermediate state as a fake Expression node (FilterAuditorProjectorExpression) so
-//    it can flow through ExpressionVisitor's dispatch. altea folds with a plain recursive function
-//    returning a record — same algorithm, no node that is not really an expression.
-//  - Signum's operator sets are keyed on `Queryable`/`Enumerable`/`LinqHints` method names; altea's query
-//    operators are METHODS on `Query<T>`, so the switch is on the member name (`map`/`filter`/…). The
-//    pass-through set adds altea's own projector-preserving operators (`reverse`, `toArray`,
-//    `expandLite`, `expandEntity`), which Signum has no counterpart for.
-//  - `Lite.Is(a, b)` is a static in Signum and a METHOD in altea (`a.is(b)`), so the equality recogniser
-//    matches `<receiver>.is(<arg>)` with the constant on either side. (Signum's own version tests
-//    `mce.Arguments[0] is ConstantExpression` twice, so its second branch is unreachable; altea tests the
-//    two sides, which is what the code plainly means.)
+// The fold is a plain recursive function returning a record, not a fake Expression node flowing through
+// visitor dispatch. The operators are METHODS on `Query<T>`, so the switch is on the member name, and the
+// pass-through set includes altea's own projector-preserving ones (`reverse`, `toArray`, `expandLite`,
+// `expandEntity`).
+//
+// The equality recogniser matches `<receiver>.is(<arg>)` with the constant on EITHER side. (Signum's own
+// version tests `mce.Arguments[0] is ConstantExpression` twice, so its second branch is unreachable —
+// this is what the code plainly means.)
 
 /** The state the fold carries — Signum's FilterAuditorProjectorExpression. */
 export interface FilterAuditorProjector {
@@ -59,7 +55,7 @@ const PASS_THROUGH = new Set([
 ]);
 
 /**
- * Signum's `QueryAuditorVisitor.FilterAuditor(fullQuery, baseQuery)` — fold `args.fullQuery` down to what
+ * Fold `args.fullQuery` down to what
  * is known about one row of `args.baseQuery`.
  */
 export function filterAuditor(args: FilterQueryArgs): FilterAuditorProjector {
@@ -118,7 +114,7 @@ function audit(node: Expression, baseQuery: Expression): FilterAuditorProjector 
     return { param: inner.param, projector: undefined, filters: inner.filters };
 }
 
-// Signum's parameter naming: the clean type name's capitals, lowercased — OperationLogEntity → "ol".
+// The clean type name's capitals, lowercased — OperationLogEntity → "ol".
 function paramNameFor(elementType: RuntimeType): string {
     const ctor = elementType instanceof ClassType ? elementType.constructorFunction : undefined;
     const name = ctor != null ? cleanTypeName(ctor) : "e";
@@ -133,7 +129,7 @@ function elementTypeOf(node: Expression): RuntimeType {
 }
 
 /**
- * Signum's `ConditionSplitter.SplitAnds` — a conjunction flattened into its conjuncts, so each can be
+ * A conjunction flattened into its conjuncts, so each can be
  * matched against the property independently.
  */
 export function splitAnds(expression: Expression): Expression[] {
@@ -151,7 +147,7 @@ export function splitAnds(expression: Expression): Expression[] {
 }
 
 /**
- * Signum's `MemberBinderVisitor` — resolve `<object literal>.member` to the member's own expression, so a
+ * Resolve `<object literal>.member` to the member's own expression, so a
  * filter written over a PROJECTED shape is understood in terms of the base row:
  * `table(P).map(p => ({ c: p.country })).filter(x => x.c.name == "Germany")` has to read as a filter on
  * `p.country.name`. Signum also binds through anonymous types, tuples and groupings; in altea all of
@@ -174,7 +170,7 @@ class MemberBinder extends ExpressionVisitor {
 }
 
 /**
- * Signum's `IsEqualsConstant(replaced, condition, out constant)` — does this conjunct pin `replaced` to a
+ * Does this conjunct pin `replaced` to a
  * constant? Both `x == c` (either way round) and `x.is(c)` count.
  */
 export function isEqualsConstant(replaced: Expression, condition: Expression): ConstantExpression | undefined {
@@ -185,7 +181,7 @@ export function isEqualsConstant(replaced: Expression, condition: Expression): C
             return condition.right;
     }
 
-    // `<receiver>.is(<arg>)` — altea's entity/lite identity check (Signum's static `Lite.Is`).
+    // `<receiver>.is(<arg>)` — altea's entity/lite identity check.
     if (condition instanceof CallExpression
         && condition.func instanceof PropertyExpression
         && condition.func.propertyName === "is"
@@ -202,7 +198,7 @@ export function isEqualsConstant(replaced: Expression, condition: Expression): C
 }
 
 /**
- * Signum's `CleanEquals` — equal outright when the two are the same TYPE, otherwise equal once the
+ * Equal outright when the two are the same TYPE, otherwise equal once the
  * lite/entity wrapping is stripped off both, so `ol.target` and `ol.target.entity` are recognised as the
  * same thing.
  */
@@ -212,7 +208,7 @@ export function cleanEquals(a: Expression, b: Expression): boolean {
     return expressionEquals(clean(a), clean(b));
 }
 
-// Signum's `Clean`: peel a Lite's `.entity` / `.entityOrNull`, a `toLite()` / `toLiteFat()` call, and a cast.
+// Peel a Lite's `.entity` / `.entityOrNull`, a `toLite()` / `toLiteFat()` call, and a cast.
 function clean(e: Expression): Expression {
     if (e instanceof PropertyExpression
         && (e.propertyName === "entity" || e.propertyName === "entityOrNull")

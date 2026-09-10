@@ -13,7 +13,7 @@ import { PermissionAuthLogic } from "./PermissionAuthLogic";
 import { declaredSymbolsForType } from "@altea/altea/data/registration";
 import { PermissionSymbol, QueryAllowed, TypeAllowedBasic } from "../data/Rules";
 
-// Role-filtering overlay on the reflection metadata blob (Signum's AuthServer reflection extensions).
+// Role-filtering overlay on the reflection metadata blob.
 // Installed once at web-host startup; runs inside each request's user scope, so it sees the current role.
 //
 // Because the blob is now ONE TypeMetadata per type, this writes the role's answers onto the very objects

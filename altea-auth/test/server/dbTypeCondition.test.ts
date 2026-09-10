@@ -9,7 +9,7 @@ import { start, hasDb } from "./setup";
 
 // Phase 4: DB-eval type conditions. SampleTypeCondition.HighValue is registered WITHOUT an in-memory
 // predicate, so `inTypeCondition` can only answer after `fillTypeConditions` evaluates its `@quoted`
-// predicate (`s.value > 0`) in SQL and caches the boolean per entity (Signum's _typeConditions).
+// predicate (`s.value > 0`) in SQL and caches the boolean per entity.
 describe("DB-eval type conditions (fillTypeConditions)", { skip: hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable" }, () => {
 
     before(() => start());
@@ -33,7 +33,7 @@ describe("DB-eval type conditions (fillTypeConditions)", { skip: hasDb ? false :
         });
     });
 
-    // Signum's _typeConditions RegisterBinding: retrieving an entity through the ORM folds each DB-only
+    // Retrieving an entity through the ORM folds each DB-only
     // condition into the SELECT and caches the boolean per row — so `inTypeCondition` works with NO explicit
     // `fillTypeConditions` call (0 extra queries). This is the additional-binding path.
     test("a retrieved entity is filled by the additional binding (no explicit fill)", async () => {

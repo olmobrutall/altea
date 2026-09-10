@@ -44,16 +44,16 @@ import { AuthLogic } from "./AuthLogic";
 
 declare module "../data/User" {
     interface UserEntity {
-        /** Signum's `u.UserTickets()` — this user's remembered devices. */
+        /** This user's remembered devices. */
         userTickets?(): Query<UserTicketEntity>;
     }
 }
 
 export namespace UserTicketLogic {
-    /** Signum's ExpirationInterval — how long a remembered device stays remembered. */
+    /** How long a remembered device stays remembered. */
     export let expirationInterval: Temporal.DurationLike = { days: 60 };
 
-    /** Signum's MaxTicketsPerUser — how many tickets one user may keep at once (see the header note). */
+    /** How many tickets one user may keep at once (see the header note). */
     export let maxTicketsPerUser = 4;
 
     let started = false;
@@ -82,12 +82,12 @@ export namespace UserTicketLogic {
         // that both operations call, filled here.
         AuthLogic.onRemoveUserTickets = removeTickets;
 
-        // Signum's `EntityEvents<UserEntity>().Saving`: a password change revokes every remembered device.
+        // A password change revokes every remembered device.
         sb.schema.entityEvents(UserEntity).saving.push(user => onUserSaving(user));
     }
 
     /**
-     * Signum's UserTicketLogic_Saving — when a user's PASSWORD changes, every ticket dies with it.
+     * When a user's PASSWORD changes, every ticket dies with it.
      *
      * Otherwise "change my password because it leaked" would leave whoever holds the old cookie logged in
      * for the next 60 days, which is the one thing a password change must not do.
@@ -111,14 +111,14 @@ export namespace UserTicketLogic {
         });
     }
 
-    /** Signum's `EmptyIfNull().SequenceEqual(…)`: null and empty are the same thing here. */
+    /** Null and empty are the same thing here. */
     function sameHash(a: Uint8Array | null, b: Uint8Array | null): boolean {
         const x = a ?? new Uint8Array(0);
         const y = b ?? new Uint8Array(0);
         return x.length === y.length && x.every((v, i) => v === y[i]);
     }
 
-    /** Signum's NewTicket(device) — remember THIS device for the current user; returns the cookie text. */
+    /** Remember THIS device for the current user; returns the cookie text. */
     export function newTicket(device: string): Promise<string> {
         return ExecutionMode.global(() => Transaction.create(async () => {
             const current = UserHolder.current();
@@ -178,7 +178,7 @@ export namespace UserTicketLogic {
     }
 
     /**
-     * Signum's CleanExpiredTickets — drop this user's stale tickets, or ALL of them when the user is no
+     * Drop this user's stale tickets, or ALL of them when the user is no
      * longer active. Returns how many rows went.
      */
     async function cleanExpiredTickets(user: UserEntity): Promise<number> {
@@ -209,7 +209,7 @@ export namespace UserTicketLogic {
     }
 
     /**
-     * Signum's RemoveTickets(user) — every ticket of a user who is not Active, else null meaning "nothing
+     * Every ticket of a user who is not Active, else null meaning "nothing
      * to do, this user may still log in". `cleanExpiredTickets` reads that null/number distinction to
      * decide whether the finer sweeps are still worth running.
      */

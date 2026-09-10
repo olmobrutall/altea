@@ -49,7 +49,7 @@ export class RoleEntity extends Entity {
     }
 
     /**
-     * Signum's `RoleEntity.Current` — the role of the current login, off the "Role" claim (filled in
+     * The role of the current login, off the "Role" claim (filled in
      * data/User.ts). Unlike Signum's, which is server-only, it answers on BOTH TIERS: the server resolves
      * the user from the request scope, the client from the logged-in user (see `CurrentUser` in altea's
      * data/security).

@@ -30,7 +30,7 @@ export namespace AuthClient {
     export function getPendingPasswordChangeUser(): UserEntity | undefined { return pendingPasswordChangeUser; }
     export function setPendingPasswordChangeUser(v: UserEntity | undefined): void { pendingPasswordChangeUser = v; }
 
-    // Signum's AuthClient.PasswordValidationResult — a host-supplied password strength/policy check
+    // A host-supplied password strength/policy check
     // surfaced on the change-password page.
     export interface PasswordValidationResult { message: string; level: "error" | "warning"; }
 
@@ -53,7 +53,7 @@ export namespace AuthClient {
     let notifyLogout = false;
     let logoutListenerRegistered = false;
 
-    // Signum's AuthClient.startPublic: push the /auth/* routes and wire the cross-tab logout listener.
+    // Push the /auth/* routes and wire the cross-tab logout listener.
     // Called from MainPublic (NOT the admin bundle) with the app's routes array, so login / change
     // password are available even when no user is logged in and the full/admin bundle isn't loaded.
     export function startPublic(routes: RouteObject[], options?: { userTicket?: boolean; notifyLogout?: boolean }): void {
@@ -119,7 +119,7 @@ export namespace AuthClient {
             onCurrentUserChanged.forEach(f => f(user, avoidReRender));
     }
 
-    // Signum's `logout()` — server logout, then clear local state + notify other tabs.
+    // Server logout, then clear local state + notify other tabs.
     export function logout(): void {
         const user = currentUser();
         if (user == null)
@@ -196,7 +196,7 @@ export namespace AuthClient {
     }
 
     /**
-     * Signum's loginFromCookie — ask the server whether THIS browser is remembered.
+     * Ask the server whether THIS browser is remembered.
      *
      * altea divergence: Signum first reads the `sfUser` cookie in JS (`Options.getCookie()`) to skip the
      * request when there is none, and removes it client-side when the server says no. altea's cookie is
@@ -209,14 +209,14 @@ export namespace AuthClient {
         return API.loginFromCookie().then(au => au ?? undefined);
     }
 
-    // Signum's registerUserTicketAuthenticator — must run before Reflection starts, i.e. before
+    // Must run before Reflection starts, i.e. before
     // autoLogin, because the chain is consulted at boot (see MainPublic).
     export function registerUserTicketAuthenticator(): void {
         if (!authenticators.includes(loginFromCookie))
             authenticators.push(loginFromCookie);
     }
 
-    // Signum's autoLogin: resolve the current user at boot from a stored token (or the authenticators).
+    // Resolve the current user at boot from a stored token (or the authenticators).
     export function autoLogin(): Promise<UserEntity | undefined> {
         if (AppContext.currentUser)
             return Promise.resolve(AppContext.currentUser as UserEntity);

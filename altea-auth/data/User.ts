@@ -46,7 +46,7 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
     @stringLengthValidator({ min: 2, max: 100 })
     userName: string;
 
-    // Signum's `byte[]? PasswordHash [DbType(Size=128)]` — the PBKDF2 hash as raw bytes. The isomorphic
+    // The PBKDF2 hash as raw bytes. The isomorphic
     // type is `Uint8Array` (the data layer has no node types; a Node `Buffer`, which the server stores and
     // reads, IS a Uint8Array), mapped to a bytea / varbinary(128) column (the "Blob" value type).
     // @serialize(false): the hash NEVER crosses the wire — not sent to the client (Signum suppresses it via
@@ -57,8 +57,8 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
     @column({ size: 128 })
     passwordHash: Uint8Array | null = null;
 
-    // Signum's [Ignore] PasswordIsChanging — a transient flag (not a column). Its presence when saving
-    // means a password change was started but not completed (Signum's PropertyValidation).
+    // A transient flag (not a column). Its presence when saving
+    // means a password change was started but not completed.
     @column(false)
     @validate<UserEntity>((u) =>
         u.passwordIsChanging ? AuthAdminMessage.PasswordChangeIsNotCompleted.niceToString() : null)
@@ -70,7 +70,7 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
     @emailValidator()
     email: string | null = null;
 
-    // Signum's `CultureInfoEntity? CultureInfo` — the user's preferred locale. It is what an email or an
+    // The user's preferred locale. It is what an email or an
     // alert addressed to them is rendered in (see EmailLogic's `registerEmailOwner(UserEntity, …)`), and
     // null means "use the application default".
     cultureInfo: CultureInfoEntity | null = null;
@@ -79,14 +79,14 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
 
     mustChangePassword: boolean = false;
 
-    // Signum's PropertyValidation: if disabled, the state must be a disabled one.
+    // If disabled, the state must be a disabled one.
     @validate<UserEntity>((u) =>
         u.disabledOn != null && u.state !== UserState.Deactivated && u.state !== UserState.AutoDeactivate
             ? AuthAdminMessage.TheUserStateMustBeDisabled.niceToString()
             : null)
     state: UserState = UserState.New;
 
-    /** Signum's `int LoginFailedCounter` — a count, so an `int` column and not a double. */
+    /** A count, so an `int` column and not a double. */
     loginFailedCounter: int = toInt(0);
 
     // Signum's `UserEntity.AllowPasswordForUserWithExternalId` static flag — when false (the default) a
@@ -97,7 +97,7 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
 
     @uniqueIndex
     @stringLengthValidator({ max: 500 })
-    // Signum's PropertyValidation on ExternalId: refuse the combination of an external identity and a
+    // Refuse the combination of an external identity and a
     // local password hash unless the host opted in.
     @validate<UserEntity>((u) =>
         u.externalId != null && u.passwordHash != null && !UserEntity.allowPasswordForUserWithExternalId
@@ -123,7 +123,7 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
         return (CurrentUser.current()?.user as Lite<UserEntity> | undefined) ?? null;
     }
 
-    /** Signum's `UserEntity.CurrentExternalId` — the external identity claim of the current login. */
+    /** The external identity claim of the current login. */
     static currentExternalId(): string | null {
         return CurrentUser.claim<string>("ExternalId");
     }

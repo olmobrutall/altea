@@ -74,7 +74,7 @@ export namespace UserTicketServer {
             + Temporal.Duration.from(UserTicketLogic.expirationInterval).total({ unit: "millisecond" }));
     }
 
-    /** Signum's SaveCookie — issue a ticket for the CURRENT user and hand it to the browser. */
+    /** Issue a ticket for the CURRENT user and hand it to the browser. */
     export async function saveCookie(req: TicketReqLike, res: TicketResLike): Promise<void> {
         const ticketText = await UserTicketLogic.newTicket(deviceOf(req));
         res.cookie(cookieName, ticketText, { ...cookieOptions(req), expires: expiryDate() });
@@ -86,7 +86,7 @@ export namespace UserTicketServer {
     }
 
     /**
-     * Signum's LoginFromCookie — the returning-browser path. Answers the user when the cookie held a
+     * The returning-browser path. Answers the user when the cookie held a
      * valid ticket, else null, having cleared the cookie so the next boot does not retry a dead one.
      *
      * The rotated ticket is written back in the SAME response, which is what makes a ticket one-use-ish

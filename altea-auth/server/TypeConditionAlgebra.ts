@@ -8,28 +8,25 @@ import { TypeConditionSymbol, TypeAllowed, TypeAllowedBasic, typeAllowedGet } fr
 import { WithConditions } from "./WithConditions";
 import { TypeConditionLogic } from "./TypeConditionLogic";
 
-// Port of Signum's TypeConditionAlgebra (Rules/TypeConditionAlgebra.cs) — compile a role's
-// WithConditions<TypeAllowed> for a type into a boolean SQL predicate over the entity: build a node tree
-// (True/False + And/Or/Not/Symbol) from the fallback + condition rules for a requested access level,
-// simplify it (boolean algebra), then lower it to an altea `Expression`. A SymbolNode becomes the
-// registered `@quoted` predicate's body (re-based onto the shared parameter); And/Or/Not become
-// `&&`/`||`/`!`. The result filters which rows a role may read (the FilterQuery seam) — the SQL mirror of
-// the in-memory reverse-scan evaluator (TypeAuthLogic.isAllowedFor).
+// Port of Signum.Authorization's Rules/TypeConditionAlgebra.cs — see docs/port/Auth.md.
 //
-// altea divergences: Signum lowers a SymbolNode with `Expression.Invoke(lambda, entity)`; altea has no
-// Invoke node, so we SUBSTITUTE the predicate lambda's parameter with the shared entity parameter (a
-// ParameterExpression visitor) and splice its body directly — semantically identical, and it lowers to
-// SQL cleanly (no invoke to inline).
+// Compile a role's WithConditions<TypeAllowed> for a type into a boolean SQL predicate over the entity:
+// build a node tree (True / False + And / Or / Not / Symbol) from the fallback + condition rules for a
+// requested access level, simplify it, then lower it to an `Expression`. The result is what filters which
+// rows a role may read — the SQL mirror of the in-memory reverse scan in TypeAuthLogic.isAllowedFor.
 //
-// A QUERY-AUDITOR condition (Signum's RegisterWhenAlreadyFiltering*) has no predicate of its own: its
-// verdict comes from auditing the CALLER'S query, which altea resolves one phase earlier (async — see
-// TypeConditionLogic's header). Such a symbol's lambda therefore arrives pre-resolved in
-// `auditedConditions` and is spliced in exactly like a registered predicate. A SymbolNode with neither is
-// a registration bug, and is treated as NOT satisfied rather than crashing a query: a type condition can
-// only ever GRANT access, so denying is the safe reading.
+// A SymbolNode is lowered by SUBSTITUTING the predicate lambda's parameter with the shared entity
+// parameter and splicing its body directly: there is no Invoke node here, and a splice lowers to SQL with
+// nothing to inline.
+//
+// A QUERY-AUDITOR condition has no predicate of its own — its verdict comes from auditing the CALLER'S
+// query, resolved one phase earlier — so its lambda arrives pre-resolved in `auditedConditions` and is
+// spliced in exactly like a registered one. A SymbolNode with NEITHER is a registration bug, and is
+// treated as NOT satisfied rather than crashing a query: a type condition can only ever GRANT access, so
+// denying is the safe reading.
 
-// Re-base a quoted predicate's body onto a shared parameter (Signum's ExpressionReplacer.Replace for the
-// single lambda parameter) — each fromQuotedLambda call mints its own ParameterExpression instance.
+// Re-base a quoted predicate's body onto a shared parameter — each fromQuotedLambda call mints its own
+// ParameterExpression instance.
 class ParamReplacer extends ExpressionVisitor {
     constructor(private readonly from: ParameterExpression, private readonly to: ParameterExpression) { super(); }
     override visitParameter(node: ParameterExpression): Expression {
@@ -81,7 +78,7 @@ function dedup(nodes: Node[]): Node[] {
     return [...seen.values()];
 }
 
-// Signum's ToTypeConditionNode: fold the condition rules (in order) over the fallback base value. A rule
+// Fold the condition rules (in order) over the fallback base value. A rule
 // that GRANTS (allowed >= requested) OR-s its symbol-AND onto the accumulator; one that DENIES AND-s a NOT.
 function toNode(wc: WithConditions<TypeAllowed>, requested: TypeAllowedBasic, ui: boolean): Node {
     let acum: Node = typeAllowedGet(wc.fallback, ui) >= requested ? TRUE : FALSE;

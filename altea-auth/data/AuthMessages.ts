@@ -61,7 +61,7 @@ export const LoginAuthMessage = {
     NoLocalUserFound: msg(),
 };
 
-// Signum's `[AllowUnauthenticated] enum ResetPasswordB2CMessage` — the Azure B2C "forgot my password"
+// The Azure B2C "forgot my password"
 // user flow surfaces as an AADB2C90118 error on the sign-in popup, and the client offers to run the
 // reset-password flow instead (see @altea/altea-auth-azuread's AzureADAuthenticator).
 export const ResetPasswordB2CMessage = {

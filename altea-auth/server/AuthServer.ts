@@ -233,7 +233,7 @@ export namespace AuthServer {
                 const user = await Database.retrieve(UserEntity, current.user.id);
                 await SessionLogLogic.sessionEnd(user, null);
             }
-            // Signum's `UserTicketServer.RemoveCookie(ControllerContext)`: logging out must stop the
+            // Logging out must stop the
             // browser being remembered, or the next boot would log straight back in.
             if (UserTicketLogic.isStarted())
                 UserTicketServer.removeCookie(req, res);

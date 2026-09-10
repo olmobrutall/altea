@@ -11,7 +11,7 @@ import { FieldReference, FieldEnum, FieldImplementedBy, FieldEntityArray } from 
 //   • forward polymorphic ref  (Parent → IPart):    the owner's FieldImplementedBy with a Part target
 // Ownership CHAINS to the nearest non-Part ancestor (e.g. a Dashboard's polymorphic content part →
 // PanelPart → Dashboard), which is why manually mirroring a Dashboard's rules onto each IPartEntity impl
-// (Signum's pain point) is no longer needed. MULTI-OWNER IS FORBIDDEN: a Part referenced by two different
+// is no longer needed. MULTI-OWNER IS FORBIDDEN: a Part referenced by two different
 // owners throws — use `@entity("SharedPart")` (shown in the grid, rules defined manually) for real sharing.
 
 export interface PartEdge { owner: Function; part: Function; }

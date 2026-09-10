@@ -34,7 +34,7 @@ export namespace PermissionLogic {
     }
 
     /**
-     * Signum's `RegisterTypes(params Type[])` — register every permission a CONTAINER declares, for a
+     * Register every permission a CONTAINER declares, for a
      * module that owns a whole family of them. Pass the namespace object itself
      * (`registerContainer(CachePermission)`); a TypeScript namespace IS an object at runtime, so its
      * PermissionSymbol members enumerate the same way Signum's public static fields do.

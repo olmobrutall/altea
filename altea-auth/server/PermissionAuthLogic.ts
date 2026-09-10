@@ -26,7 +26,7 @@ import type { AuthExportCtx } from "./AuthLogic";
 const mergeBool = (strategy: MergeStrategy, baseValues: boolean[]): boolean =>
     strategy === MergeStrategy.Union ? baseValues.some(x => x) : baseValues.every(x => x);
 
-// Signum's AuthCache as a CLASS: the raw per-role rules + the role graph + the merged (role, permissionId)
+// The raw per-role rules + the role graph + the merged (role, permissionId)
 // memo (RoleAllowedCache), all resolved once in the factory and folded SYNCHRONOUSLY thereafter. One
 // instance lives behind the GlobalLazy, reset together when a RulePermission or Role is saved.
 export class PermissionRulesCache {
@@ -69,7 +69,7 @@ export namespace PermissionAuthLogic {
         if (started)
             return;
         started = true;
-        // Signum's `PermissionLogic.RegisterTypes(typeof(BasicPermission))` — the authorization module's
+        // The authorization module's
         // own four.
         PermissionLogic.registerContainer(BasicPermission);
 
@@ -146,12 +146,12 @@ export namespace PermissionAuthLogic {
         return (await rulesLazy.value()).getAllowed(permissionId, roleKey);
     }
 
-    // The value a role gets for a permission with NO explicit rule (Signum's AuthCache.GetAllowedBase).
+    // The value a role gets for a permission with NO explicit rule.
     async function getAllowedBase(permissionId: PrimaryKey, roleKey: string): Promise<boolean> {
         return (await rulesLazy.value()).getAllowedBase(permissionId, roleKey);
     }
 
-    // Signum's AuthCache.GetRules — the admin pack: every permission with the role's effective `allowed`
+    // The admin pack: every permission with the role's effective `allowed`
     // and its inherited `allowedBase`. The resource Lite carries the symbol key as its toStr.
     export async function getPermissionRulePack(roleId: PrimaryKey): Promise<PermissionRulePack> {
         const role = await table(RoleEntity).filter(r => r.id == roleId).singleOrNull() as RoleEntity | null;
@@ -170,7 +170,7 @@ export namespace PermissionAuthLogic {
         return PermissionRulePack.create({ role: role.toLite(), strategy: MergeStrategy[role.mergeStrategy], rules });
     }
 
-    // Signum's AuthCache.SetRules — persist the pack: a value equal to its base is redundant (delete the
+    // Persist the pack: a value equal to its base is redundant (delete the
     // explicit rule); otherwise upsert a RulePermission with that boolean. Then invalidate the cache.
     export async function setPermissionRulePack(pack: PermissionRulePack): Promise<void> {
         const role = await table(RoleEntity).filter(r => r.id == pack.role.id).singleOrNull() as RoleEntity | null;

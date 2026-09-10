@@ -92,7 +92,7 @@ export namespace AuthAdminClient {
                     token(a => a.name),
                     token(a => a.description),
                 ],
-                // Signum's AuthAdminClient RoleEntity extraButtons: a "Download AuthRules" button on the Role
+                // A "Download AuthRules" button on the Role
                 // search control (exports every dimension's rules to AuthRules.xml), gated on the AdminRules
                 // permission exactly as Signum gates its "!DownloadAuthRules" omnibox twin below. The endpoint
                 // is authorized server-side either way.
@@ -104,7 +104,7 @@ export namespace AuthAdminClient {
                 }],
             }));
 
-        // Signum's AuthAdminClient omnibox entry: "!DownloadAuthRules", the same export the Role search's
+        // "!DownloadAuthRules", the same export the Role search's
         // button above runs. It resolves to `undefined` because the action handles itself (it downloads a
         // file) rather than navigating anywhere.
         //
@@ -199,7 +199,7 @@ export namespace AuthAdminClient {
         // AuthAdminClient.start.
     }
 
-    // Signum's AuthAdminClient.API — the rule-pack endpoints (AuthAdminController). The rule-pack MODELS
+    // The rule-pack endpoints (AuthAdminController). The rule-pack MODELS
     // (TypeRulePack / PermissionRulePack / …) land in Phase 5; typed as `unknown` here until then.
     export namespace API {
         export function fetchPermissionRulePack(roleId: number | string): Promise<PermissionRulePack> {
@@ -292,7 +292,7 @@ function isPersistedEntity(ctor: Function): boolean {
     return ctor === Entity || ctor.prototype instanceof Entity;
 }
 
-// Signum's taskAuthorizeProperties: None → the line is not rendered at all; Read → it renders read-only.
+// None → the line is not rendered at all; Read → it renders read-only.
 function taskAuthorizeProperties(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
     const owner = ownerRootedRoute(state.ctx);
     if (owner == null)

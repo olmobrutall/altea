@@ -45,7 +45,7 @@ export class SessionLogEntity extends Entity {
     userAgent: string | null;
 
     /**
-     * Signum's `[AutoExpressionField] double? Duration` — the session's length in seconds, null while it
+     * The session's length in seconds, null while it
      * is still open.
      *
      * `@quoted` so it is an orderable / filterable column on the search page ("whose sessions are longest",
@@ -63,7 +63,7 @@ export class SessionLogEntity extends Entity {
     }
 }
 
-/** Signum's `[AutoInit] SessionLogPermission` — a role is tracked only if it is granted this. */
+/** A role is tracked only if it is granted this. */
 export namespace SessionLogPermission {
     export const TrackSession: PermissionSymbol = init();
 }

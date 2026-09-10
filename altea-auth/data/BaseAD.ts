@@ -41,7 +41,7 @@ import { PermissionSymbol } from "./Rules";
 //    has no entity-level validation hook), so nothing to override here.
 
 /**
- * Signum's RoleMappingEmbedded — "directory group X grants application role Y".
+ * "directory group X grants application role Y".
  *
  * ABSTRACT: each directory module declares the concrete row that back-references ITS configuration table
  * (see the header). Never included on its own — only its subclasses get tables.
@@ -64,7 +64,7 @@ export abstract class RoleMappingEntity extends Entity {
 }
 
 /**
- * Signum's BaseADConfigurationEmbedded — the mapping half of every directory login module: whether a
+ * The mapping half of every directory login module: whether a
  * directory user with no local row may be created, whether an existing row is refreshed on each login,
  * and which local role a directory group grants.
  *
@@ -100,7 +100,7 @@ export const ActiveDirectoryAuthorizerMessage = {
         msg("Active Directory user '{0}' is not associated with a user in this application."),
 };
 
-/** Signum's `[AllowUnauthenticated] enum UserADMessage` — spoken by the invite-from-directory UI. */
+/** Spoken by the invite-from-directory UI. */
 export const UserADMessage = {
     Find0InActiveDirectory: msg("Find '{0}' in Active Directory"),
     FindInActiveDirectory: msg("Find in Active Directory"),
@@ -111,7 +111,7 @@ export const UserADMessage = {
     NameOrEmail: msg("Name or e-Mail"),
 };
 
-/** Signum's `enum ActiveDirectoryMessage` — the column captions of the directory-backed queries. */
+/** The column captions of the directory-backed queries. */
 export const ActiveDirectoryMessage = {
     Id: msg(),
     DisplayName: msg("Display Name"),
@@ -133,7 +133,7 @@ export const ActiveDirectoryMessage = {
 
 // ---- Permission -----------------------------------------------------------------------------------------
 
-// Signum's `[AutoInit] static class ActiveDirectoryPermission` — as in altea-omnibox, reusing altea-auth's
+// As in altea-omnibox, reusing altea-auth's
 // ONE PermissionSymbol table: the quote-transformer rewrites `init()` into
 // `init(PermissionSymbol, "ActiveDirectoryPermission.InviteUsersFromAD", …)`, so merely importing this
 // module (the AD logics do) puts it in the declared-symbol set SymbolLogic seeds.

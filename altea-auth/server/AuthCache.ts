@@ -1,10 +1,10 @@
 import type { RoleGraph } from "./AuthLogic";
 import { MergeStrategy } from "../data/Role";
 
-// A role's computed allowed value for a resource, cached PER (role, resource) — Signum's
-// AuthCache.RoleAllowedCache (a DefaultDictionary computed once per role, reset on invalidation). The
-// value is: the role's EXPLICIT rule if any; otherwise the MERGE of its direct parents' allowed values
-// (per the role's merge strategy); a root role with no rule gets `getDefault(role)`.
+// A role's computed allowed value for a resource, cached PER (role, resource) — see docs/port/Auth.md.
+//
+// The value is: the role's EXPLICIT rule if any; else the MERGE of its direct parents' allowed values,
+// per the role's merge strategy; else `getDefault(role)` for a root role with no rule.
 export type ComputedCache<A> = Map<string, Map<string | number, A>>; // roleKey -> (resourceKey -> A)
 
 // Fold (and memoise into `cache`) a resource's allowed value across the role graph. SYNCHRONOUS: the whole

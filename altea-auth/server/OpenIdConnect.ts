@@ -26,7 +26,7 @@ import { createLocalJWKSet, jwtVerify, type JSONWebKeySet, type JWTPayload } fro
 //    through the helper above (so `avoidSSLVerify` applies to the JWKS request too) instead of by
 //    `jose.createRemoteJWKSet`, which would use `fetch` and ignore it.
 
-/** The subset of the discovery document altea reads (Signum's OpenIdConnectConfiguration). */
+/** The subset of the discovery document altea reads. */
 export interface OpenIdConnectConfiguration {
     issuer: string;
     authorization_endpoint: string;
@@ -37,7 +37,7 @@ export interface OpenIdConnectConfiguration {
 }
 
 export interface OpenIdHttpOptions {
-    /** Signum's `AvoidSSLVerify` — accept ANY server certificate. Development only. */
+    /** Accept ANY server certificate. Development only. */
     avoidSSLVerify?: boolean;
 }
 
@@ -54,12 +54,12 @@ export namespace OpenIdConnect {
 
     const cache = new Map<string, CachedDiscovery>();
 
-    /** Drop every cached discovery document / JWKS (Signum's `RequestRefresh`). */
+    /** Drop every cached discovery document / JWKS. */
     export function refreshDiscovery(): void {
         cache.clear();
     }
 
-    /** Signum's `GetDiscoveryDocument` — the provider's metadata, cached. */
+    /** The provider's metadata, cached. */
     export async function getConfiguration(discoveryEndpoint: string, options?: OpenIdHttpOptions): Promise<OpenIdConnectConfiguration> {
         const cached = cache.get(discoveryEndpoint);
         if (cached != null && Date.now() - cached.fetchedAt < refreshIntervalMs)
@@ -81,7 +81,7 @@ export namespace OpenIdConnect {
     }
 
     /**
-     * Signum's `ValidateToken(jwt, config, out jwtSecurityToken)` — verify the signature against the
+     * Verify the signature against the
      * provider's JWKS and check issuer, audience and lifetime. Returns the CLAIMS (Signum returns a
      * ClaimsPrincipal; altea's contexts read claims by name, so the payload IS the principal).
      *
@@ -211,7 +211,7 @@ export namespace OpenIdConnect {
     }
 }
 
-/** The OAuth 2.0 token-endpoint response (Signum's OpenIDTokenResponse). */
+/** The OAuth 2.0 token-endpoint response. */
 export interface OAuthTokenResponse {
     access_token?: string;
     id_token?: string;

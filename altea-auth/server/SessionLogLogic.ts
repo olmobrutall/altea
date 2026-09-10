@@ -62,7 +62,7 @@ export namespace SessionLogLogic {
     }
 
     /**
-     * Signum's RoleTracked — is this role granted `TrackSession`? A role that is not is not logged at all,
+     * Is this role granted `TrackSession`? A role that is not is not logged at all,
      * which is the module's whole privacy story: installing it tracks nobody until someone says so.
      */
     async function roleTracked(role: Lite<RoleEntity> | null): Promise<boolean> {
@@ -128,7 +128,7 @@ export namespace SessionLogLogic {
         });
     }
 
-    /** Signum's `Clock.Now.TruncSeconds()` — its `[DateTimePrecisionValidator(Seconds)]` on both dates. */
+    /** Its `[DateTimePrecisionValidator(Seconds)]` on both dates. */
     function truncSeconds(d: Temporal.PlainDateTime): Temporal.PlainDateTime {
         return d.with({ millisecond: 0, microsecond: 0, nanosecond: 0 });
     }

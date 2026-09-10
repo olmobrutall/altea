@@ -15,31 +15,24 @@ import { LiteralType, ClassType, type RuntimeType } from "@altea/altea/server/ru
 import type { FilterQueryArgs } from "@altea/altea/server/schema/filterQueryArgs";
 import { filterAuditor, isEqualsConstant } from "./QueryAuditorVisitor";
 
-// Port of Signum's TypeConditionLogic (Rules/TypeConditionLogic.cs). The registry mapping each entity
-// type + TypeConditionSymbol to the predicate that decides whether a row satisfies that condition. A
-// registered condition is used two ways: compiled to a SQL WHERE for row-level query filtering (the
-// `@quoted` lambda's `__quoted` expression, lowered by the LINQ binder — Phase D) and evaluated in-memory
-// per instance (the same lambda, called directly). In altea a `@quoted` lambda is BOTH a real callable
-// (in-memory) AND carries its captured AST (`__quoted`, for SQL), so one lambda serves both — like
-// Signum's RegisterCompile, which .Compile()s the expression for the in-memory delegate.
+// Port of Signum.Authorization's Rules/TypeConditionLogic.cs — see docs/port/Auth.md.
 //
-// altea divergences from Signum:
-//  - `Register<T>` infers T from the C# `Expression<Func<T,bool>>`; altea has no such inference, so the
-//    entity ctor is passed explicitly (the registry key).
-//  - Signum's QueryAuditor conditions (RegisterWhenAlreadyFiltering*) ARE ported — see
-//    `registerWhenAlreadyFilteringBy` below and QueryAuditorVisitor.ts. One thing about them is
-//    genuinely different: in Signum the auditor runs INSIDE the binder (its auth caches are always warm
-//    and its DB reads are synchronous), so it is a `Func<FilterQueryArgs, LambdaExpression>`; altea has no
-//    synchronous DB, so an auditor is ASYNC and runs in the row-security PROVIDER phase, which is the one
-//    place that has both the query and the ability to await. The registration and the semantics are the
-//    same; only when the work happens moved.
-//  - Signum's thread-local `ReplaceTemporally` (a testing seam) is DEFERRED.
-//  - `_TypeConditions` precompute-on-retrieve (the in-memory fallback when no compiled predicate exists)
-//    lands with the enforcement phase; until then inTypeCondition REQUIRES an in-memory condition.
+// The registry mapping each entity type + TypeConditionSymbol to the predicate that decides whether a row
+// satisfies that condition. ONE registration serves both uses, because a `@quoted` lambda is BOTH a real
+// callable and a carrier of its captured AST: the AST is compiled to a SQL WHERE for row-level filtering,
+// and the function itself is called per instance in memory.
+//
+// `register` takes the entity CTOR explicitly — it is the registry key, and there is no C# expression
+// type to infer it from.
+//
+// A QUERY-AUDITOR condition (`registerWhenAlreadyFilteringBy`) is ASYNC and runs one phase earlier than
+// Signum's, in the row-security PROVIDER phase — the one place that has both the query and the ability to
+// await. Registration and semantics are unchanged; see QueryAuditorVisitor.ts.
+//
+// Signum's thread-local `ReplaceTemporally` (a testing seam) is deferred.
 
 /**
- * One registered condition. Exactly one of `condition` / `queryAuditor` is set (Signum's two
- * TypeCondition constructors):
+ * One registered condition. Exactly ONE of `condition` / `queryAuditor` is set:
  *  • `condition`   — a `@quoted` predicate over the entity: lowered to SQL for the row filter, and
  *                     callable in memory when `inMemoryCondition` is the same lambda.
  *  • `queryAuditor` — a predicate that depends on the CALLER'S QUERY, not on the row: it is handed the
@@ -62,14 +55,14 @@ class TypeConditionInfo {
 const infos = new Map<Function, Map<TypeConditionSymbol, TypeConditionInfo>>();
 
 export namespace TypeConditionLogic {
-    // Signum's TypeConditionLogic.Types — the entity types that have at least one registered condition
+    // The entity types that have at least one registered condition
     // (the set the enforcement phase installs a FilterQuery on).
     export function types(): Function[] {
         return [...infos.keys()];
     }
 
-    // Signum's `SymbolLogic<TypeConditionSymbol>.Start(sb, () => infos.SelectMany(a => a.Value.Keys))` —
-    // the REGISTERED conditions, not every declared one. A declared-but-unregistered symbol has no
+    // Seeded from the REGISTERED conditions, not from every declared one. A declared-but-unregistered
+    // symbol has no
     // predicate, so a role rule pointing at it could never be evaluated; the table holding only the
     // registered ones is what makes a rule screen offer exactly the conditions that mean something.
     //
@@ -77,7 +70,7 @@ export namespace TypeConditionLogic {
     // run by then regardless of module order (the same lazy contract FileTypeLogic and ChartScriptLogic
     // rely on).
     export function start(sb: SchemaBuilder): void {
-        // DEDUPED (Signum's `.ToHashSet()`): the same symbol is registered on EVERY type it conditions —
+        // DEDUPED: the same symbol is registered on EVERY type it conditions —
         // `SouthwindTypeCondition.UserEntities` covers UserQuery, UserChart and Dashboard alike — so the
         // flattened registry names it once per type and the symbol table wants it once.
         SymbolLogic.start(sb, TypeConditionSymbol,
@@ -109,7 +102,7 @@ export namespace TypeConditionLogic {
         dic.set(typeCondition, info);
     }
 
-    // Signum's RegisterCompile — the common form: the same lambda is both the SQL expression and the
+    // The common form: the same lambda is both the SQL expression and the
     // in-memory evaluator (in altea, a @quoted lambda is already callable, so no separate .Compile()).
     export function registerCompile<T extends Entity>(
         ctor: Type<T>,
@@ -121,7 +114,7 @@ export namespace TypeConditionLogic {
     }
 
     /**
-     * Signum's `RegisterWhenAlreadyFiltering<T>(tc, queryAuditor, inMemoryCondition)` — the low-level
+     * The low-level
      * form: the condition's answer comes from AUDITING THE CALLER'S QUERY rather than from the row.
      *
      * The auditor is handed the {@link FilterQueryArgs} and returns a predicate for that whole query — in
@@ -131,7 +124,7 @@ export namespace TypeConditionLogic {
      * `asyncInMemoryCondition` is the per-INSTANCE answer, for the paths that have an entity and no query
      * (the save gate, `inTypeCondition`). Without it those paths cannot answer this condition at all.
      *
-     * Always REPLACES a previous registration, as Signum's does (it assigns rather than adding).
+     * Always REPLACES a previous registration — it assigns rather than adding.
      */
     export function registerWhenAlreadyFiltering<T extends Entity>(
         ctor: Type<T>,
@@ -153,11 +146,10 @@ export namespace TypeConditionLogic {
     }
 
     /**
-     * Signum's `RegisterWhenAlreadyFilteringBy<T, P>(tc, property, isConstantAuthorized,
-     * useInDBForInMemoryCondition)` — the form every real caller uses: "this row is visible BECAUSE the
-     * caller pinned `property` to a value they are allowed to see".
+     * The form every real caller uses: "this row is visible BECAUSE the caller pinned `property` to a
+     * value they are allowed to see".
      *
-     * The audit looks through the caller's conjuncts for one that pins any of THREE things, in Signum's
+     * The audit looks through the caller's conjuncts for one that pins any of THREE things, in this
      * order, and takes the first that is authorized:
      *   1. `property` itself — `filter(ol => ol.target.is(someInvoice))`. The constant IS the value.
      *   2. the row's `id` — `filter(ol => ol.id == 42)`. The value is read from the database for that id.
@@ -186,7 +178,7 @@ export namespace TypeConditionLogic {
                 return constantLambda(elementType, false);
 
             // `property` re-based onto the audited row parameter, and the same for the row's id — the two
-            // shapes a caller's own filter may name (Signum's `replaced` / `replacedID`).
+            // shapes a caller's own filter may name.
             const propertyLambda = Expression.fromQuotedLambda(property, [elementType]);
             const replaced = replaceParameter(propertyLambda.body, propertyLambda.parameters[0], audited.param);
             const replacedId = new PropertyExpression(audited.param, "id");
@@ -197,9 +189,9 @@ export namespace TypeConditionLogic {
                 if (byProperty != null && await isConstantAuthorized(convertValue<P>(byProperty.value)))
                     return constantLambda(elementType, true);
 
-                // 2. the row's id pinned: read the property of THAT row, ungated. Signum wraps this in
-                //    DisableQueryFilter; altea's ExecutionMode.global is the same thing, and it is what
-                //    stops the read from recursing into the very filter being built.
+                // 2. the row's id pinned: read the property of THAT row, UNGATED —
+                //    `ExecutionMode.global` is what stops the read from recursing into the very filter
+                //    being built.
                 const byId = isEqualsConstant(replacedId, filter);
                 if (byId != null && byId.value != null) {
                     const id = byId.value as PrimaryKey;
@@ -226,8 +218,8 @@ export namespace TypeConditionLogic {
                     });
                     if (value === MISSING)
                         continue;
-                    // Signum RETURNS from its `Any` lambda here rather than falling through: a pinned row
-                    // that is not authorized settles the question.
+                    // RETURN rather than fall through: a pinned row that is not authorized settles the
+                    // question.
                     return constantLambda(elementType, await isConstantAuthorized(convertValue<P>(value)));
                 }
             }
@@ -241,7 +233,7 @@ export namespace TypeConditionLogic {
         });
     }
 
-    /** True when this condition is a QUERY AUDITOR (Signum's `IsQueryAuditor`): it has no SQL predicate of
+    /** True when this condition is a QUERY AUDITOR: it has no SQL predicate of
      *  its own, so the row filter takes its lambda from the audit and the retrieve-time binding skips it. */
     export function isQueryAuditor(ctor: Function, typeCondition: TypeConditionSymbol): boolean {
         return infos.get(ctor)?.get(typeCondition)?.queryAuditor != null;
@@ -279,7 +271,7 @@ export namespace TypeConditionLogic {
         return infos.get(ctor)?.has(typeCondition) === true;
     }
 
-    // The SQL/expression predicate (Signum's GetCondition) — the @quoted lambda the LINQ binder lowers.
+    // The SQL / expression predicate — the @quoted lambda the LINQ binder lowers.
     // A QUERY-AUDITOR condition has none: its predicate is whatever the audit of the caller's query said,
     // which only the row-security provider can produce (see auditQueryConditions).
     export function getCondition(ctor: Function, typeCondition: TypeConditionSymbol): Quoted<(e: BaseEntity) => boolean> {
@@ -288,7 +280,7 @@ export namespace TypeConditionLogic {
             throw new Error(
                 `TypeCondition ${typeCondition.key} on ${ctor.name} is implemented as a query auditor and ` +
                 `has no predicate of its own — it can only be used where the caller's query is known ` +
-                `(Signum: "TypeCondition is implemented as a QueryAuditor and can not be used in this context").`);
+                `— see docs/port/Auth.md.`);
         return info.condition;
     }
 
@@ -300,12 +292,12 @@ export namespace TypeConditionLogic {
         return infoOrThrow(ctor, typeCondition).inMemoryCondition as ((e: T) => boolean) | undefined;
     }
 
-    // Signum's `entity.InTypeCondition(symbol)` — evaluate ONE symbol against ONE instance. A condition
+    // Evaluate ONE symbol against ONE instance. A condition
     // registered with `registerCompile` runs its compiled predicate live; a DB-ONLY condition (plain
     // `register`) can't run in memory, so its boolean must have been pre-computed and cached on the entity
-    // (Signum reads `entity._TypeConditions`). An entity read through the ORM is filled automatically by the
-    // retrieve-time additional binding (Signum's RegisterBinding — TypeAuthLogic registers one per DB-only
-    // condition; the value is folded into the retrieval SELECT, 0 extra queries). For an entity NOT read via
+    // on the entity. An entity read through the ORM is filled automatically by the retrieve-time
+    // additional binding — TypeAuthLogic registers one per DB-only condition, and the value is folded into
+    // the retrieval SELECT, so 0 extra queries. For an entity NOT read via
     // a query (e.g. a fresh instance on the save path), `fillTypeConditions` fills on demand. If neither ran,
     // we throw rather than silently returning a wrong (unfilled) answer.
     export function inTypeCondition<T extends Entity>(entity: T, typeCondition: TypeConditionSymbol): boolean {
@@ -320,16 +312,16 @@ export namespace TypeConditionLogic {
         return cached.get(typeCondition)!;
     }
 
-    // Signum's Entity._typeConditions cache — DB-eval results per entity, kept in a WeakMap so it doesn't
+    // DB-eval results per entity, kept in a WeakMap so it doesn't
     // pollute the reflected entity shape. Undefined until `fillTypeConditions` runs.
     const conditionCache = new WeakMap<Entity, Map<TypeConditionSymbol, boolean>>();
 
-    /** The cached DB-eval results for an entity (Signum's `entity._TypeConditions` getter), or undefined. */
+    /** The cached DB-eval results for an entity, or undefined. */
     export function typeConditionsOf(entity: Entity): ReadonlyMap<TypeConditionSymbol, boolean> | undefined {
         return conditionCache.get(entity);
     }
 
-    /** Cache one DB-eval boolean for an entity (Signum's `entity._TypeConditions[symbol] = value`). The
+    /** Cache one DB-eval boolean for an entity. The
      *  primary writer is the retrieve-time additional binding (QueryBinder folds each DB-only condition into
      *  the SELECT and the projector calls this per row); `fillTypeConditions` writes the same cache for the
      *  save path / entities not read through the ORM. Read back synchronously by `inTypeCondition`. */
@@ -339,7 +331,7 @@ export namespace TypeConditionLogic {
         m.set(typeCondition, value);
     }
 
-    // Signum's TypeAuthLogic.FillTypeConditions: evaluate the DB-ONLY conditions (those without an in-memory
+    // Evaluate the DB-ONLY conditions (those without an in-memory
     // predicate) of a batch of SAME-TYPE entities in SQL and cache the booleans per entity. One query per
     // DB-only condition — the ids satisfying its `@quoted` predicate (the very predicate the row filter
     // lowers to SQL) — so `inTypeCondition` can then read the result synchronously. In-memory conditions are
@@ -352,13 +344,13 @@ export namespace TypeConditionLogic {
         const dbOnly = (typeConditions ?? conditionsFor(ctor)).filter(tc => !hasInMemoryCondition(ctor, tc));
         if (dbOnly.length === 0)
             return;
-        // Idempotent (Signum's `!force`): an entity is filled for ALL its DB-only conditions at once, so a
+        // IDEMPOTENT: an entity is filled for ALL its DB-only conditions at once, so a
         // cached entity is skipped — lets the retrieve/save integration fill once and later callers reuse.
         const need = entities.filter(e => conditionCache.get(e) == null);
         if (need.length === 0)
             return;
         const ids = need.map(e => e.id!);
-        // Evaluate the raw predicate on these ids in GLOBAL mode (Signum's DisableQueryFilter): no row-level
+        // Evaluate the raw predicate on these ids in GLOBAL mode: no row-level
         // security on the fill query itself, and — since it runs ungated + projects ids only (no entity
         // materialisation) — the retrieve batch-hook can't recurse into it.
         const setCachedValue = (e: T, tc: TypeConditionSymbol, value: boolean): void => {
@@ -408,8 +400,8 @@ export namespace TypeConditionLogic {
     }
 }
 
-// A constant predicate as a LambdaExpression — what an audit answers with (Signum's `e => true` /
-// `e => false`). It is a whole-QUERY verdict, so it is constant per row by construction.
+// A constant predicate as a LambdaExpression — what an audit answers with. It is a whole-QUERY verdict,
+// so it is constant per row by construction.
 function constantLambda(elementType: RuntimeType, value: boolean): LambdaExpression {
     return new LambdaExpression(
         [new ParameterExpression("e", elementType)],
@@ -419,8 +411,8 @@ function constantLambda(elementType: RuntimeType, value: boolean): LambdaExpress
 // A sentinel for "this branch produced no value", distinct from a real `null` / `undefined` property.
 const MISSING = Symbol("missing");
 
-// Read one property of one entity from the DATABASE (Signum's `Database.InDB(entity, property)`) — for a
-// property whose in-memory value may be stale or absent.
+// Read one property of one entity from the DATABASE — for a property whose in-memory value may be stale
+// or absent.
 async function inDB<T extends Entity>(ctor: Type<T>, entity: T, property: Quoted<(e: T) => unknown>): Promise<unknown> {
     const id = entity.id;
     if (id == null)
@@ -428,11 +420,11 @@ async function inDB<T extends Entity>(ctor: Type<T>, entity: T, property: Quoted
     return await table(ctor).filter(e => e.id == id).map(property).singleOrNull();
 }
 
-// Signum's `ConvertValue<P>(object? value)`: line up what the audit found with what the caller's
+// Line up what the audit found with what the caller's
 // `isConstantAuthorized` expects. The one coercion that matters in practice is entity to lite — a caller
 // may pin a Lite-typed property with a full entity (`filter(ol => ol.target.is(theInvoice))`) — and its
-// mirror. Signum can also `ChangeType` to a primitive P because it knows P at runtime; TypeScript does
-// not, so a value that is neither is handed over as it is, for the caller to interpret.
+// mirror. A value that is NEITHER is handed over as it is, for the caller to interpret: TypeScript does
+// not know P at runtime, so there is nothing to coerce it to.
 function convertValue<P>(value: unknown): P | null {
     if (value == null)
         return null;

@@ -35,7 +35,7 @@ const mergeQuery = (strategy: MergeStrategy, baseValues: QueryAllowed[]): QueryA
         ? baseValues.reduce((a, b) => Math.max(a, b), QueryAllowed.None)
         : baseValues.reduce((a, b) => Math.min(a, b), QueryAllowed.Allow);
 
-// Signum's AuthCache as a CLASS: raw per-role query rules + role graph + the captured type-rule cache
+// Raw per-role query rules + role graph + the captured type-rule cache
 // (queries auto-upgrade to their entity type's read allowance) + the merged memo, folded synchronously.
 class QueryRulesCache {
     private readonly computed: ComputedCache<QueryAllowed> = new Map();

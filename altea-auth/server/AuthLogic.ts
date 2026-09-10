@@ -23,87 +23,71 @@ import type { AuthImportCtx } from "./AuthRulesXml";
 // start() below, guarded by sb.webBuilder.
 import { AuthServer } from "./AuthServer";
 
-// Port of Signum's AuthLogic (Signum.Authorization/AuthLogic.cs) — the AUTHENTICATION half. The
-// authorization half (role graph / merge strategies / rule caches) lands in Phase 4; the extension
-// seams Signum exposes there (`Authorizer`, `UserLogingIn`, `Disable`) are declared here now so the
-// controller and future modules wire against a stable surface.
+// Port of Signum.Authorization's AuthLogic.cs — see docs/port/Auth.md.
 //
-// altea divergences, documented inline:
-//  - `Database.Query<UserEntity>().Where(...)` → altea's `table(UserEntity).filter(...)` (a @quoted
-//    predicate; closures over locals are captured by the transformer, e.g. bulkInserter).
-//  - `IDisposable Disable()` (suppresses authorization) → `withDisabled(fn)` callback scope. It is a
-//    NO-OP until the authorization engine exists (Phase 4 makes it actually suppress rule checks).
-//  - Counter/hash writes use `user.save()` directly (altea has no RequiresSaveOperation guard yet), not
-//    Signum's `AllowSave` + `Execute(Save)`.
-//  - `CultureInfo` claim/`OnLogin_UpdateUserCulture` omitted (no CultureInfoEntity ported).
+// The AUTHENTICATION half (login, the user state machine, the system / anonymous users) plus the ROLE
+// GRAPH every authorization dimension folds its rules over.
+//
+// Counter and hash writes go through `user.save()` directly rather than a Save operation.
 
-/** Signum's ICustomAuthorizer (ICustomAuthorizer.cs) — the pluggable login seam (AD / OpenID). */
+/** The pluggable login seam (AD / OpenID). */
 export interface ICustomAuthorizer {
     login(username: string, password: string): Promise<{ user: UserEntity; authenticationType: string }>;
 }
 
-// The specific login exceptions (Signum's UserEntity.cs) — the controller maps each to a field error.
+// The specific login exceptions — the controller maps each to a field error.
 export class IncorrectUsernameException extends Error { constructor(message?: string) { super(message); this.name = "IncorrectUsernameException"; } }
 export class IncorrectPasswordException extends Error { constructor(message?: string) { super(message); this.name = "IncorrectPasswordException"; } }
 export class UserLockedException extends Error { constructor(message?: string) { super(message); this.name = "UserLockedException"; } }
 
 export namespace AuthLogic {
-    // Signum's `event Action<UserEntity, string> UserLogingIn` — modules hook post-login side effects.
+    // Modules hook post-login side effects.
     export const userLogingIn: ((user: UserEntity, loginMethod: string) => void)[] = [];
 
-    // Signum's `ICustomAuthorizer? Authorizer` — when set, the controller delegates login to it.
+    // When set, the controller delegates login to it.
     export let authorizer: ICustomAuthorizer | null = null;
 
-    // Signum's `int? MaxFailedLoginAttempts` — lock the user after this many consecutive failures.
+    // Lock the user after this many consecutive failures.
     export let maxFailedLoginAttempts: number | null = null;
 
-    // Signum's `Action<UserEntity>? OnDeactivateUser` — invoked JUST BEFORE the failed-attempt lockout
+    // Invoked JUST BEFORE the failed-attempt lockout
     // deactivates the user, so a module can react (@altea/altea-auth-reset-password mails the user a
     // reset link). Async here (altea's mail send is), and awaited by the lockout path below.
     export let onDeactivateUser: ((user: UserEntity) => Promise<void> | void) | null = null;
 
-    // Signum reaches UserTicket two different ways from its UserGraph — `UserGraph.OnDeactivated += u =>
-    // UserTicketLogic.RemoveTickets(u)` for Deactivate, and a direct `UserTicketLogic.RemoveTickets(u)`
-    // inside AutoDeactivate. Both say the same thing: a user who can no longer log in must not stay
-    // remembered on their devices. altea has ONE slot for it, filled by UserTicketLogic.start, so this
-    // module needs no knowledge of tickets and the state machine has no second code path. Null (the
-    // module not started) means there are no tickets to revoke.
+    // ONE slot, filled by UserTicketLogic.start: a user who can no longer log in must not stay
+    // remembered on their devices, and both operations that can cause that call this. So the state
+    // machine has no second code path and this module needs no knowledge of tickets. Null — the module
+    // not started — means there are no tickets to revoke.
     export let onRemoveUserTickets: ((user: UserEntity) => Promise<number | null>) | null = null;
 
-    // Signum's SystemUserName / AnonymousUserName — the two user names {@link start} takes, exactly as
-    // `AuthLogic.Start(sb, systemUserName, anonymousUserName)` does. Signum declares them
-    // `{ get; private set; }`; they stay writable here so a test starter can set one without a restart.
+    // The two user names {@link start} takes. WRITABLE, so a test starter can set one without a restart.
     //
-    // `anonymousUserName` is the app's whole unauthenticated posture in one string. With it set, a request
-    // carrying no token is authenticated AS that user (see AuthServer.authenticate's fallback, Signum's
-    // `AnonymousUserAuthenticator`), so it passes the gate on EVERY route and is limited only by that
-    // user's role rules. With it null, such a request has no user at all and the gate rejects it unless the
-    // route is `allowAnonymous`.
+    // `anonymousUserName` is the app's whole unauthenticated posture in one string. With it SET, a request
+    // carrying no token is authenticated AS that user (see AuthServer.authenticate's fallback), so it
+    // passes the gate on EVERY route and is limited only by that user's role rules. With it NULL, such a
+    // request has no user at all and the gate rejects it unless the route is `allowAnonymous`.
     export let systemUserName: string | null = null;
     export let anonymousUserName: string | null = null;
 
     /**
-     * Signum's `AuthLogic.SystemUser` — the user a trusted internal flow runs as.
+     * The user a trusted internal flow runs as.
      *
-     * The read is AUTHORIZATION-SUPPRESSED, and that is the whole point. Signum resolves this ONCE at
-     * startup into a static field, so it never passes through a permission check at all; altea resolves it
-     * per call through the ordinary gated `retrieveUserByUsername`, which meant the caller's own rights
-     * decided whether the system user could be found. Under the ANONYMOUS role (no rules → None) the read
-     * came back empty, so `asSystemUser` fell through to its no-op branch and ran the block as ANONYMOUS —
-     * silently, which is the dangerous half: the callers of `asSystemUser` are precisely the ones that must
-     * NOT be subject to the current caller's rights (the login failed-counter writes, an anonymous
-     * self-registration). `anonymousUser()` never had the bug only because its lazy runs inside
-     * `ExecutionMode.global`, where authorization is already suppressed — an asymmetry, not a design.
+     * The read is AUTHORIZATION-SUPPRESSED, and that is the whole point. It resolves per call through the
+     * ordinary gated `retrieveUserByUsername`, so without the suppression the CALLER's own rights decide
+     * whether the system user can be found: under the anonymous role (no rules → None) the read comes back
+     * empty, `asSystemUser` falls through to its no-op branch, and the block runs as ANONYMOUS — silently,
+     * which is the dangerous half, because its callers are precisely the ones that must NOT be subject to
+     * the current caller's rights (the login failed-counter writes, an anonymous self-registration).
      */
     export async function systemUser(): Promise<UserEntity | null> {
         return systemUserName == null ? null : await withDisabled(() => retrieveUserByUsername(systemUserName!));
     }
 
     /**
-     * Signum's `AnonymousUser` — the user an unauthenticated request runs as. CACHED, because with an
-     * anonymous user configured this is on the path of EVERY request that carries no token (Signum's is a
-     * `GlobalLazy.WithoutInvalidations` for the same reason); an uncached read here is one extra SELECT per
-     * anonymous page view. The lazy is registered on the schema builder rather than created here so
+     * The user an unauthenticated request runs as. CACHED, because with an anonymous user configured this
+     * is on the path of EVERY request that carries no token — an uncached read is one extra SELECT per
+     * anonymous page view. The lazy is registered on the schema builder rather than created here, so
      * `AuthLogic.resetLazies()` and the cache panel see it like every other one.
      */
     export async function anonymousUser(): Promise<UserEntity | null> {
@@ -112,37 +96,35 @@ export namespace AuthLogic {
         return await anonymousUserLazy.value();
     }
 
-    // Signum's `AuthLogic.Disable()` / `AuthLogic.IsEnabled`. `withDisabled` runs `fn` with authorization
-    // SUPPRESSED for its (async-propagated) scope — the row-read filter, the save gate, and isAllowedFor
-    // all short-circuit to "allowed" while disabled. Used by trusted internal flows (e.g. changePassword,
-    // the login failed-counter writes) that must bypass the current role's rules. Backed by an
-    // AsyncLocalStorage so it holds across the awaited work inside `fn` (like UserHolder).
+    // `withDisabled` runs `fn` with authorization SUPPRESSED for its async-propagated scope — the
+    // row-read filter, the save gate and isAllowedFor all short-circuit to "allowed". Used by trusted
+    // internal flows (changePassword, the login failed-counter writes) that must bypass the current role's
+    // rules. Backed by an AsyncLocalStorage, so it holds across awaited work inside `fn`, like UserHolder.
     const disabledStorage = new AsyncLocalStorage<boolean>();
     export function withDisabled<R>(fn: () => R): R {
         return disabledStorage.run(true, fn);
     }
     export function isEnabled(): boolean {
-        // Signum gates every auth check on `IsEnabled && !ExecutionMode.InGlobal`. altea folds the global
-        // check in here: a GlobalLazy factory runs in ExecutionMode.global (SchemaBuilder.globalLazy), so
-        // its cache-loading queries see auth suppressed — which also breaks the recursion where the row
-        // filter's own rule load would re-enter the queryFilter provider.
+        // The GLOBAL check is folded in here rather than repeated at every call: a GlobalLazy factory runs
+        // in ExecutionMode.global (SchemaBuilder.globalLazy), so its cache-loading queries see auth
+        // suppressed — which is also what breaks the recursion where the row filter's own rule load would
+        // re-enter the queryFilter provider.
         return disabledStorage.getStore() !== true && !ExecutionMode.isInGlobal();
     }
 
     /**
-     * Signum's `AuthLogic.Start(SchemaBuilder sb, string? systemUserName, string? anonymousUserName)`.
-     * Both names are OPTIONAL here where Signum makes them positional-required, so an app or a test
-     * starter that wants neither (the altea-auth suite) still reads as `AuthLogic.start(sb)`.
+     * Both names are OPTIONAL, so an app or a test starter that wants neither still reads as
+     * `AuthLogic.start(sb)`.
      */
     export function start(sb: SchemaBuilder, systemUser?: string | null, anonymousUser?: string | null): void {
         systemUserName = systemUser ?? null;
         anonymousUserName = anonymousUser ?? null;
 
-        // Signum marks `UserState.New` `[Ignore]` — the state of a user being created, never stored, so
-        // it must not become a row of the enum table.
+        // `UserState.New` is the state of a user being CREATED, never stored, so it must not become a row
+        // of the enum table.
 
-        // (Signum's `FillClaims += …` for Role / ExternalId lives in data/User.ts here: altea builds a
-        // UserWithClaims on the CLIENT too, and a filler declared in the data layer serves both tiers.)
+        // (The Role / ExternalId claim FILLERS live in data/User.ts: a UserWithClaims is built on the
+        // CLIENT too, and a filler declared in the data layer serves both tiers.)
 
         sb.include(RoleEntity)
             .withSave(RoleOperation.Save)
@@ -150,18 +132,18 @@ export namespace AuthLogic {
             .withQuery();
 
         sb.include(UserEntity)
-            // Signum's `.WithIndex(a => new { a.DisabledOn })` — the deactivation sweep filters on it.
+            // The deactivation sweep filters on it.
             .withIndex(u => u.disabledOn)
             .withStateMachine(u => u.state, registerUserOperations)
             .withQuery();
 
-        // The role graph is a GlobalLazy invalidated by RoleEntity (Signum's rolesGraph/mergeStrategies
-        // GlobalLazys). Its factory runs in ExecutionMode.global (via globalLazy), so the RoleEntity read
-        // is ungated — no explicit AuthLogic.Disable, and no re-entry into the row-filter provider.
+        // The role graph is a globalLazy invalidated by RoleEntity. Its factory runs in
+        // ExecutionMode.global, so the RoleEntity read is UNGATED — no explicit withDisabled, and no
+        // re-entry into the row-filter provider.
         roleGraphLazy = sb.globalLazy(() => loadRoleGraph(), { invalidateWith: [RoleEntity] });
 
-        // Signum's `anonymousUserLazy`. Invalidated by a UserEntity save so renaming / re-roling the
-        // anonymous user takes effect without a restart (Signum's is WithoutInvalidations, i.e. never).
+        // Invalidated by a UserEntity save, so renaming or re-roling the anonymous user takes effect
+        // without a restart. (Signum's is WithoutInvalidations, i.e. never.)
         anonymousUserLazy = sb.globalLazy(async () => {
             const user = await retrieveUserByUsername(anonymousUserName!);
             if (user == null)
@@ -169,7 +151,7 @@ export namespace AuthLogic {
             return user;
         }, { invalidateWith: [UserEntity], name: "AnonymousUser" });
 
-        // Signum's `if (sb.WebServerBuilder != null) AuthServer.Start(...)`: when the host set a web
+        // When the host set a web
         // builder on the SchemaBuilder, wire the whole auth HTTP surface (authentication middleware +
         // /api/auth, the role-filtered reflection blob, and the /api/authAdmin rule-pack routes). A
         // terminal / test build leaves webBuilder undefined, so no HTTP is mounted.
@@ -177,12 +159,12 @@ export namespace AuthLogic {
             AuthServer.start(sb.webBuilder);
     }
 
-    // Signum's RetrieveUserByUsername (a swappable Func). Exact-match on userName (Signum lowercases both
-    // sides; usernames are treated as exact here — documented divergence).
+    // A SWAPPABLE slot. Exact-match on userName: usernames are case-SENSITIVE here, where Signum
+    // lowercases both sides.
     export let retrieveUserByUsername: (username: string) => Promise<UserEntity | null> =
         (username) => table(UserEntity).filter(u => u.userName == username).singleOrNull() as Promise<UserEntity | null>;
 
-    // Signum's RetrieveUser(username): resolve, and reject a deactivated user outright.
+    // Resolve, and reject a deactivated user outright.
     export async function retrieveUser(username: string): Promise<UserEntity | null> {
         const user = await retrieveUserByUsername(username);
         if (user != null && user.state === UserState.Deactivated)
@@ -190,13 +172,12 @@ export namespace AuthLogic {
         return user;
     }
 
-    // Signum's CheckUserActive.
     export function checkUserActive(user: UserEntity): void {
         if (user.state !== UserState.Active)
             throw new UnauthorizedAccessException(UserMessage.UserIsNotActive.niceToString());
     }
 
-    // Signum's AuthLogic.Login(username, password): hash + delegate to the hash-comparing retrieve.
+    // Hash, then delegate to the hash-comparing retrieve.
     export async function login(username: string, password: string): Promise<{ user: UserEntity; authenticationType: string }> {
         const passwordHash = PasswordEncoding.hashPassword(username, password);
         const alternatives = PasswordEncoding.hashPasswordAlternatives(username, password);
@@ -210,15 +191,14 @@ export namespace AuthLogic {
             fn(user, loginMethod);
     }
 
-    // Signum's RetrieveUser(username, passwordHash, alternatives): the password-checking core, including
-    // the failed-counter / lockout handling and the on-success hash upgrade.
+    // The password-checking core: the failed-counter / lockout handling and the on-success hash upgrade.
     async function retrieveUserAndCheckPassword(username: string, passwordHash: Buffer, alternatives: Buffer[]): Promise<UserEntity> {
-        // Signum opens this method with `using (AuthLogic.Disable())`, and it is not optional: a login
-        // request is by definition not yet authenticated, so it runs as whatever the anonymous fallback
-        // gives it. With an ANONYMOUS USER configured that is a real role — one that cannot read UserEntity
-        // — so without this the lookup below finds nothing and EVERY login fails with "is not valid". (It
-        // was latent while no app configured one: with no user at all there is no role, and every gate
-        // short-circuits.) The scope covers the failed-counter writes too, exactly as Signum's does.
+        // Disabling authorization here is NOT optional: a login request is by definition not yet
+        // authenticated, so it runs as whatever the anonymous fallback gives it. With an ANONYMOUS USER
+        // configured that is a real role — one that cannot read UserEntity — so without this the lookup
+        // below finds nothing and EVERY login fails with "is not valid". (It is latent while no app
+        // configures one: with no user at all there is no role, and every gate short-circuits.) The scope
+        // covers the failed-counter writes too.
         return await withDisabled(() => checkPasswordCore(username, passwordHash, alternatives));
     }
 
@@ -232,13 +212,12 @@ export namespace AuthLogic {
         const matches = stored != null && candidates.some(c => PasswordEncoding.sequenceEqual(c, stored));
 
         if (!matches) {
-            // Signum wraps each counter write in `using (UserHolder.UserSession(SystemUser!))`, so the row
-            // is written as the system user rather than as the half-authenticated caller.
+            // Written as the SYSTEM user rather than as the half-authenticated caller.
             user.loginFailedCounter++;
             await asSystemUser(() => user.save());
 
             if (maxFailedLoginAttempts != null && user.loginFailedCounter >= maxFailedLoginAttempts && user.state === UserState.Active) {
-                // Signum's `OnDeactivateUser?.Invoke(user)` — BEFORE the state flips, so a handler still
+                // BEFORE the state flips, so a handler still
                 // sees an Active user (altea-auth-reset-password mails a reset link from here).
                 if (onDeactivateUser != null)
                     await onDeactivateUser(user);
@@ -266,9 +245,8 @@ export namespace AuthLogic {
     }
 
     /**
-     * Signum's `using (UserHolder.UserSession(SystemUser!))` — run `fn` as the configured system user.
-     * With none configured the scope is a no-op, which is what Signum's `SystemUser!` would be too (it
-     * throws there; here the write simply stays attributed to whoever is current).
+     * Run `fn` as the configured system user.
+     * With none configured the scope is a NO-OP: the write stays attributed to whoever is current.
      *
      * EXPORTED because an application needs it too: an ANONYMOUS endpoint that writes (eastwind's
      * self-service user registration, Southwind's `PublicController.RegisterUser`) has no user of its own
@@ -277,10 +255,9 @@ export namespace AuthLogic {
      * anonymous route cannot write more than that role may.
      */
     export async function asSystemUser<R>(fn: () => Promise<R>): Promise<R> {
-        // No system user CONFIGURED — the scope is a no-op, which is what Signum's `SystemUser!` would be
-        // too. Configured but MISSING is a different thing: a deployment error, and degrading silently
-        // would run a trusted block as whoever happened to be current. Say so, the way the anonymous-user
-        // lazy already does for its own name.
+        // No system user CONFIGURED — the scope is a no-op. Configured but MISSING is a different thing:
+        // a deployment error, and degrading silently would run a trusted block as whoever happened to be
+        // current. Say so, the way the anonymous-user lazy already does for its own name.
         if (systemUserName == null)
             return await fn();
 
@@ -303,10 +280,9 @@ export function decodeHash(stored: Uint8Array | null): Buffer | null {
     return stored == null ? null : Buffer.from(stored);
 }
 
-// Port of Signum's UserGraph (Signum.Authorization/UserGraph.cs): the user activation state machine.
-// Deactivate / AutoDeactivate revoke the user's remembered devices through `onRemoveUserTickets` (see the
-// slot). Signum additionally resets its `RecentlyUsersDisabled` GlobalLazy here; altea has no counterpart
-// for that cache (it is an auth-TOKEN concern — see AuthTokenServer), so there is nothing to invalidate.
+// The user activation state machine. Deactivate / AutoDeactivate revoke the user's remembered devices
+// through `onRemoveUserTickets` (see the slot). There is no "recently disabled users" cache to invalidate
+// beside it: that is an auth-TOKEN concern here — see AuthTokenServer.
 function registerUserOperations(sm: FluentStateMachine<UserEntity, UserState>): void {
     sm.withConstruct(UserOperation.Create, {
         toStates: [UserState.New],
@@ -322,8 +298,7 @@ function registerUserOperations(sm: FluentStateMachine<UserEntity, UserState>): 
             u.state = UserState.Active;
             // passwordHash is @serialize(false), so a client-originated save carries none. altea UPDATEs
             // every column, so re-load the stored hash for an existing user to avoid nulling it out
-            // (Signum keeps it via the DB-merge model binder). New users get their hash set elsewhere
-            // (seed / the future DoublePassword → newPassword flow).
+            // New users get their hash set elsewhere (the seed, or the DoublePassword flow).
             if (!u.isNew && u.passwordHash == null) {
                 const stored = await table(UserEntity).filter(x => x.id == u.id).singleOrNull() as UserEntity | null;
                 if (stored != null)
@@ -339,7 +314,7 @@ function registerUserOperations(sm: FluentStateMachine<UserEntity, UserState>): 
             u.disabledOn = Temporal.Now.plainDateTimeISO();
             u.state = UserState.Deactivated;
             // The state is set FIRST: removeTickets only acts on a user who is no longer Active, which is
-            // exactly what Signum's OnDeactivated handler sees, since it fires after its own assignment.
+            // what a handler firing after the assignment would see.
             await AuthLogic.onRemoveUserTickets?.(u);
         },
     });
@@ -369,12 +344,12 @@ function registerUserOperations(sm: FluentStateMachine<UserEntity, UserState>): 
     });
 }
 
-// ---- Role graph (Signum's AuthLogic role infrastructure) ----------------------------------------
+// ---- Role graph ---------------------------------------------------------------------------------
 //
-// The inherit/merge DAG that every authorization cache folds rules over. Signum keeps this in
-// GlobalLazy ResetLazys; altea has no GlobalLazy, so it is a single async-loaded, reset-able snapshot
-// (invalidateRoles() drops it — call when roles change). Roles are keyed by their Lite key string
-// ("Role;<id>") so the DirectedGraph uses value identity (a Lite instance is not reference-stable).
+// The inherit / merge DAG every authorization cache folds rules over: ONE async-loaded, reset-able
+// snapshot (`invalidateRoles()` drops it), where Signum keeps three separate lazies. Roles are keyed by
+// their Lite KEY STRING ("Role;<id>"), so the DirectedGraph uses value identity — a Lite instance is not
+// reference-stable.
 
 // The loaded role graph — Signum's RolesByLite/rolesGraph/mergeStrategies GlobalLazys as ONE immutable
 // snapshot with SYNCHRONOUS folding accessors (relatedTo/getMergeStrategy/getDefaultAllowed). Every
@@ -384,30 +359,30 @@ export class RoleGraph {
         readonly rolesByKey: Map<string, RoleEntity>,
         readonly graph: DirectedGraph<string>,
         // Per role: its merge strategy + the DEFAULT-allowed flag (Union → any base allowed; Intersection →
-        // all base allowed; a root role → false for Union, true for Intersection). Signum's RoleData.
+        // all base allowed; a root role → false for Union, true for Intersection).
         readonly mergeStrategies: Map<string, { strategy: MergeStrategy; defaultAllowed: boolean }>,
         readonly order: string[], // compilation order (parents before children)
     ) { }
 
-    /** Direct inherited roles of `roleKey` (Signum's AuthLogic.RelatedTo). Keys, not entities. */
+    /** Direct inherited roles of `roleKey`. Keys, not entities. */
     relatedTo(roleKey: string): Set<string> {
         return this.graph.tryRelatedTo(roleKey);
     }
     getMergeStrategy(roleKey: string): MergeStrategy {
         return this.mergeStrategies.get(roleKey)?.strategy ?? MergeStrategy.Union;
     }
-    /** Signum's AuthLogic.GetDefaultAllowed — the allowed value a role gets for a resource with no rule. */
+    /** The allowed value a role gets for a resource with no rule. */
     getDefaultAllowed(roleKey: string): boolean {
         return this.mergeStrategies.get(roleKey)?.defaultAllowed ?? false;
     }
-    /** Roles in dependency order (parents first) — Signum's RolesInOrder. */
+    /** Roles in dependency order, parents first. */
     rolesInOrder(includeTrivialMerge = true): string[] {
         return includeTrivialMerge ? this.order : this.order.filter(k => !this.rolesByKey.get(k)!.isTrivialMerge);
     }
 }
 
-// AuthRules XML import/export delegation — Signum's `AuthLogic.ExportToXml` / `ImportFromXml` multicast
-// events. Each authorization dimension registers a handler in its start(); AuthImportExport orchestrates
+// AuthRules XML import / export delegation.
+// Each authorization dimension registers a handler in its start(); AuthImportExport orchestrates
 // (writes the <Roles> block + assembles/parses the document, reconciles role + resource renames centrally).
 export interface AuthExportCtx {
     orderedRoleKeys: string[];             // roles in dependency order (parents first)
@@ -420,8 +395,8 @@ export type AuthXmlImporter = (auth: Record<string, unknown>, ctx: AuthImportCtx
 const exporterList: AuthXmlExporter[] = [];
 const importerList: AuthXmlImporter[] = [];
 
-// Signum's rolesGraph/mergeStrategies GlobalLazys: an async, reset-able snapshot created in
-// AuthLogic.start (invalidateWith RoleEntity). Its factory runs in ExecutionMode.global.
+// An async, reset-able snapshot created in AuthLogic.start (invalidateWith RoleEntity). Its factory runs
+// in ExecutionMode.global.
 let roleGraphLazy: ResetLazy<RoleGraph>;
 let anonymousUserLazy: ResetLazy<UserEntity>;
 
@@ -452,21 +427,21 @@ async function loadRoleGraph(): Promise<RoleGraph> {
 }
 
 export namespace AuthLogic {
-    /** The loaded role-graph snapshot (Signum's RolesByLite/rolesGraph/mergeStrategies GlobalLazys). The
-     *  GlobalLazy factory loads it in ExecutionMode.global, so the RoleEntity read is ungated. */
+    /** The loaded role-graph snapshot. Its factory runs in ExecutionMode.global, so the RoleEntity read
+     *  is ungated. */
     export async function roleGraph(): Promise<RoleGraph> {
         return roleGraphLazy.value();
     }
 
-    /** Drop the cached role graph (Signum's InvalidateWith(RoleEntity)); RoleEntity saves auto-invalidate
-     *  via the GlobalLazy, so this is for explicit/out-of-band callers (e.g. a set-based role delete). */
+    /** Drop the cached role graph. A RoleEntity save auto-invalidates through the lazy, so this is for
+     *  out-of-band callers — a set-based role delete. */
     export function invalidateRoles(): void {
         roleGraphLazy?.reset();
     }
 
-    // Async convenience wrappers over the loaded RoleGraph (Signum's AuthLogic.RelatedTo / GetMergeStrategy
-    // / GetDefaultAllowed / RolesInOrder) — for callers outside a cache (import/export). The authorization
-    // caches instead hold the RoleGraph and fold synchronously via its methods.
+    // Async convenience wrappers over the loaded RoleGraph, for callers outside a cache (import /
+    // export). The authorization caches instead HOLD the RoleGraph and fold synchronously via its
+    // methods.
     export async function relatedTo(roleKey: string): Promise<Set<string>> {
         return (await roleGraph()).relatedTo(roleKey);
     }
@@ -481,7 +456,7 @@ export namespace AuthLogic {
     }
 
     /**
-     * Signum's `AuthLogic.TryRetrieveUser(username, password)` — resolve a user AND check the password,
+     * Resolve a user AND check the password,
      * returning null instead of throwing and WITHOUT touching the failed-login counter. Used by a
      * directory authorizer to try the local database first (a DB round-trip beats an LDAP bind), so a
      * failed probe must not count as a failed login attempt.
@@ -505,18 +480,17 @@ export namespace AuthLogic {
     }
 
     /**
-     * Signum's `AuthLogic.GetOrCreateTrivialMergeRole` — a directory user may match SEVERAL
+     * A directory user may match SEVERAL
      * `roleMapping` entries, and a user points at exactly ONE role, so the N roles are represented by a
      * synthetic "trivial merge" role that just inherits from all of them (Union). Idempotent: the name is
      * derived from the flattened set, so the same set always resolves to the same role.
      *
      * altea divergences:
-     *  - Signum has `rolesByName` as its own GlobalLazy; altea scans the ONE loaded RoleGraph by name (the
-     *    role count is small and the graph is already in memory).
-     *  - `CalculateTrivialMergeName` lives here rather than on the isomorphic RoleEntity: it needs
-     *    `codify` (server/sync/stringHash), and altea has not ported Signum's `PreSaving` hook.
-     *  - `OperationLogic.AllowSave<RoleEntity>()` has no altea counterpart (no RequiresSaveOperation
-     *    guard); `withDisabled` + `ExecutionMode.global` is the whole trusted scope.
+     *  - there is no separate by-name lazy: the ONE loaded RoleGraph is scanned by name, since the role
+     *    count is small and the graph is already in memory.
+     *  - the trivial-merge NAME is computed here rather than on the isomorphic RoleEntity: it needs
+     *    `codify` (server/sync/stringHash), which is server-only.
+     *  - `withDisabled` + `ExecutionMode.global` is the whole trusted scope.
      */
     export async function getOrCreateTrivialMergeRole(roles: Lite<RoleEntity>[]): Promise<Lite<RoleEntity>> {
         const distinct = dedupLites(roles);
@@ -559,32 +533,32 @@ export namespace AuthLogic {
         }));
     }
 
-    /** Signum's `RoleEntity.CalculateTrivialMergeName` — a deterministic, ≤200-char name for a role set. */
+    /** A deterministic, ≤200-char name for a role set. */
     export function calculateTrivialMergeName(roles: Lite<RoleEntity>[]): string {
         const name = roles.map(a => a.toString()).sort().join(" + ");
         const full = codify(name, /* lowercase */ false) + ": " + name;
         return full.length <= 200 ? full : full.substring(0, 197) + "...";
     }
 
-    /** The current user's role key (Signum's RoleEntity.Current), or undefined. */
+    /** The current user's role key, or undefined. */
     export function currentRoleKey(): string | undefined {
         return RoleEntity.current()?.key();
     }
 
-    /** The current user's role lite (Signum's RoleEntity.Current), or null. Both read the claims bag
-     *  through `RoleEntity.current()`, which is the isomorphic accessor — one claim read, one place. */
+    /** The current user's role lite, or null. Both read the claims bag through `RoleEntity.current()`,
+     *  the isomorphic accessor — one claim read, one place. */
     export function currentRoleLite(): Lite<RoleEntity> | null {
         return RoleEntity.current();
     }
 
     /**
-     * Signum's `AuthLogic.CurrentRoles()` — the current role AND every role it (transitively) inherits
+     * The current role AND every role it (transitively) inherits
      * from, as lites. The set an owner-scoped TypeCondition compares a "shared" asset's owner against
      * (`d.owner == null || currentRoles().includes(d.owner)`).
      *
      * SYNCHRONOUS on purpose: it is called from inside a TypeCondition's `@quoted` lambda, which the LINQ
      * binder folds to a constant while BUILDING the query (no await possible) and which also runs in memory
-     * per entity. It therefore reads the ALREADY-LOADED role graph (Signum's sync GlobalLazy). Before the
+     * per entity. It therefore reads the ALREADY-LOADED role graph. Before the
      * graph is warm only the current role itself is returned — fail-CLOSED (fewer assets visible), and the
      * graph is warm from the first authorization check of a request.
      */
@@ -597,8 +571,7 @@ export namespace AuthLogic {
         if (graph == null)
             return [current];
 
-        // Transitive closure of `relatedTo` (the inherited-from edges), including the starting role —
-        // Signum's `rolesGraph.IndirectlyRelatedTo(RoleEntity.Current, includeInitialNode: true)`.
+        // Transitive closure of `relatedTo` (the inherited-from edges), INCLUDING the starting role.
         const keys = new Set<string>();
         const pending = [current.key()];
         while (pending.length > 0) {
@@ -616,7 +589,7 @@ export namespace AuthLogic {
     }
 
     /**
-     * Signum's `AuthLogic.InverseIndirectlyRelated(role)` — every role that (transitively) INHERITS `role`,
+     * Every role that (transitively) INHERITS `role`,
      * including `role` itself. The inverse direction of `currentRoles`: "who counts as this role" rather
      * than "what does this role count as".
      *
@@ -643,8 +616,8 @@ export namespace AuthLogic {
             .filter((l): l is Lite<RoleEntity> => l != null);
     }
 
-    /** Register a dimension's AuthRules XML export / import handler (Signum's ExportToXml / ImportFromXml
-     *  events). Called from each *AuthLogic.start(); AuthImportExport invokes them. */
+    /** Register a dimension's AuthRules XML export / import handler. Called from each *AuthLogic.start();
+     *  AuthImportExport invokes them. */
     export function registerXmlExporter(exporter: AuthXmlExporter): void { exporterList.push(exporter); }
     export function registerXmlImporter(importer: AuthXmlImporter): void { importerList.push(importer); }
     export function xmlExportersInOrder(): AuthXmlExporter[] { return exporterList; }
@@ -652,7 +625,7 @@ export namespace AuthLogic {
 }
 
 // Lite de-duplication by key (a Lite instance is not reference-stable, so `[...new Set(lites)]` would
-// keep duplicates). Used by getOrCreateTrivialMergeRole, where Signum relies on Lite's value equality.
+// keep duplicates). Used by getOrCreateTrivialMergeRole.
 function dedupLites<T extends { key(): string }>(lites: T[]): T[] {
     const seen = new Map<string, T>();
     for (const l of lites)

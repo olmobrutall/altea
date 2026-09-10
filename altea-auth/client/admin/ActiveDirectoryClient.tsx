@@ -108,13 +108,13 @@ export namespace ActiveDirectoryClient {
         });
     }
 
-    /** Signum's `getSearch(fo)` — the value of the pinned split-value filter, i.e. what is in the search box. */
+    /** The value of the pinned split-value filter, i.e. what is in the search box. */
     function getSearch(fo: FindOptionsParsed): string | null {
         const value = fo.filterOptions.firstOrNull(a => a.pinned?.splitValue == true)?.value;
         return !value ? null : value as string;
     }
 
-    /** Signum's `importADUser` — search, let the user pick, and create the local row. */
+    /** Search, let the user pick, and create the local row. */
     export function importADUser(text: string): Promise<Lite<UserEntity> | undefined> {
         return API.findADUsers(text, 10)
             .then(externalUsers => {

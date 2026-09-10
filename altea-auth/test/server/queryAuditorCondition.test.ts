@@ -55,7 +55,7 @@ describe("query-auditor type conditions (registerWhenAlreadyFilteringBy)", { ski
         assert.equal(rows.length, 0, "the caller pinned a target the role may not read");
     });
 
-    // Signum's second branch: the caller pinned the log's own id, so the audit reads that row's target from
+    // The caller pinned the log's own id, so the audit reads that row's target from
     // the database (ungated) and asks whether THAT is readable.
     test("pinning the row's id reads the target from the database", async () => {
         const r = await role(Roles.LogReader);
@@ -69,7 +69,7 @@ describe("query-auditor type conditions (registerWhenAlreadyFilteringBy)", { ski
         assert.equal(denied.length, 0, "the id names a log whose target is not readable");
     });
 
-    // Signum's third branch: the caller pinned the ROW itself (a lite), so the target comes from that row.
+    // The caller pinned the ROW itself (a lite), so the target comes from that row.
     test("pinning the row itself reads the target from it", async () => {
         const r = await role(Roles.LogReader);
         const pub = await table(SampleLogEntity).filter(l => l.action == "log-public").single() as SampleLogEntity;

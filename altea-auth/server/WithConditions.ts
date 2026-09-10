@@ -1,10 +1,12 @@
 import { TypeConditionSymbol, TypeAllowed, TypeAllowedBasic, typeAllowedDB, typeAllowedUI } from "../data/Rules";
 
-// Signum's instance evaluation (the reverse-scan of TypeAuthLogic.IsAllowedFor / GetAllowed(entity)):
-// the value for a concrete instance is the allowed of the LAST condition rule whose symbol set ALL holds,
-// else the fallback. `matches(tc)` is the caller's per-symbol predicate (server: inTypeCondition(entity,tc)).
-// Single-level enums (Operation/Property) resolve straight to a scalar; the TypeAllowed DB/UI split is
-// applied by the caller AFTER this. Generic over A so all three dimensions share it.
+// Evaluating a WithConditions against an INSTANCE — see docs/port/Auth.md.
+//
+// A REVERSE scan: the value is the allowed of the LAST condition rule whose symbol set all holds, else the
+// fallback. `matches(tc)` is the caller's per-symbol predicate (on the server, `inTypeCondition`).
+//
+// GENERIC over A, so all three conditioned dimensions share it: a single-level enum resolves straight to a
+// scalar, and the TypeAllowed DB/UI split is applied by the caller afterwards.
 export function evaluateConditions<A>(wc: WithConditions<A>, matches: (tc: TypeConditionSymbol) => boolean): A {
     for (let i = wc.conditionRules.length - 1; i >= 0; i--) {
         const cr = wc.conditionRules[i];

@@ -43,7 +43,7 @@ const compositeKey = (operationId: PrimaryKey, typeId: PrimaryKey): string => `$
 const mergeOp = (strategy: MergeStrategy, baseValues: WithConditions<OperationAllowed>[]): WithConditions<OperationAllowed> =>
     mergeWithConditions(strategy, baseValues, OperationAllowed.Allow);
 
-// Signum's AuthCache as a CLASS: raw per-(operation,type) rules + role graph + merged memo, folded
+// Raw per-(operation,type) rules + role graph + merged memo, folded
 // synchronously. Construct / no-entity operations evaluate the fallback (no instance to test conditions).
 class OperationRulesCache {
     private readonly computed: ComputedCache<WithConditions<OperationAllowed>> = new Map();
@@ -106,7 +106,7 @@ export namespace OperationAuthLogic {
         rulesLazy?.reset();
     }
 
-    // Signum's OperationAllowed.ToBoolean: UI shows the button only for Allow; server code may run DBOnly+.
+    // UI shows the button only for Allow; server code may run DBOnly+.
     function toBoolean(oa: OperationAllowed, inUserInterface: boolean): boolean {
         return inUserInterface ? oa === OperationAllowed.Allow : oa >= OperationAllowed.DBOnly;
     }
@@ -188,7 +188,7 @@ export namespace OperationAuthLogic {
                 cr.allowed)));
     }
 
-    // Signum's OperationAuthLogic.GetOperationRules — the admin pack for one (role, type): every operation
+    // The admin pack for one (role, type): every operation
     // applicable to the type with the role's effective `allowed` + inherited `allowedBase` (each a full
     // WithConditionsModel), plus the type's registered `availableConditions`.
     export async function getOperationRulePack(typeName: string, roleId: PrimaryKey): Promise<OperationRulePack> {
@@ -219,7 +219,7 @@ export namespace OperationAuthLogic {
         });
     }
 
-    // Signum's OperationAuthLogic.SetOperationRules — persist the pack (scoped to this type's operations):
+    // Persist the pack (scoped to this type's operations):
     // a value equal to its base is redundant (delete the explicit rule); else upsert the fallback + owned
     // condition rows. Then invalidate.
     export async function setOperationRulePack(pack: OperationRulePack): Promise<void> {

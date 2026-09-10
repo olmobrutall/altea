@@ -35,33 +35,30 @@ import { Serializer } from "@altea/altea/data/serializer";
 import { setRequestDeserializer } from "@altea/altea/server/webApi";
 import * as Database from "@altea/altea/server/Database";
 
-// Port of Signum's PropertyAuthLogic (Rules/PropertyAuthLogic.cs) — the property dimension. A role's
-// allowance per property route is PropertyAllowed (None → hidden; Read → read-only; Write). A property is
-// CAPPED by its type's UI-read allowance (a property can't be more accessible than its type — the
-// `typeCeilingWC`), and — with no explicit rule — takes the `noRuleDefaultWC` DEFAULT (Signum's
-// PropertyCache.GetDefaultValue): a default-allowed role follows its type; a role WITHOUT the
-// `BasicPermission.AutomaticUpgradeOfProperties` permission defaults to NONE (so properties are hidden
-// unless explicitly granted — secure by default); otherwise it follows its type. (altea DIVERGENCE: no
-// per-property MaxAutomaticUpgrade cap — Signum's MaxAutomaticUpgrade dictionary is not ported.)
+// Port of Signum.Authorization's Rules/PropertyAuthLogic.cs — see docs/port/Auth.md.
 //
-// altea DIVERGENCES: a rule POINTS at a `PropertyRouteEntity` row, as in Signum, but the runtime caches are
-// keyed by (rootType id, path) rather than by the row itself — altea has no ambient EntityCache, so two
-// reads of one row are different objects (see PropertyRouteLogic's header). Routes are enumerated via
-// PropertyRoute.generateRoutes; the cache is async (sb.globalLazy + computeAllowed).
+// A role's allowance per property route: None → hidden, Read → read-only, Write. A property is CAPPED by
+// its type's UI-read allowance — it cannot be more accessible than its type (`typeCeilingWC`) — and with
+// no explicit rule takes `noRuleDefaultWC`, which is the part worth stating precisely: a role WITHOUT
+// `BasicPermission.AutomaticUpgradeOfProperties` defaults to NONE, so properties are HIDDEN unless
+// explicitly granted; otherwise it follows its type. There is no per-property MaxAutomaticUpgrade cap.
 //
-// ENFORCEMENT: installed via `setSerializationAuth` (the codec's open-default hook). The serializer is
-// SYNCHRONOUS; per request the codec calls `resolveContext` ONCE (async, before the walk) to capture an
-// IMMUTABLE SerializationAuthContext — the role graph + type rules + property rules, each obtained by
-// awaiting a ResetLazy's Promise<T> — then `access` folds over THAT snapshot synchronously. Signum keeps a
-// permanently-warm GlobalLazy; altea captures a per-request snapshot, immune to a concurrent invalidate().
-// None → the value is omitted server→client + its line hidden (propsMeta); Read → read-only (kept on
-// save); Write → normal.
+// A rule POINTS at a `PropertyRouteEntity` row, as in Signum, but the runtime CACHES are keyed by
+// (rootType id, path) rather than by the row: there is no ambient EntityCache, so two reads of one row
+// are different objects.
+//
+// ENFORCEMENT is the serializer's write gate, installed via `setSerializationAuth`, and it needs a
+// per-request SNAPSHOT: the codec is SYNCHRONOUS, so it calls `resolveContext` ONCE — async, before the
+// walk — to capture an immutable SerializationAuthContext (the role graph + type rules + property rules,
+// each awaited off a ResetLazy), and `access` then folds over THAT synchronously. A snapshot is also
+// immune to a concurrent `invalidate()`, which a permanently-warm cache is not. None → the value is
+// omitted server→client and its line hidden; Read → read-only, kept on save; Write → normal.
 const compositeKey = (typeId: PrimaryKey, path: string): string => `${String(typeId)}|${path}`;
 
 const mergeProp = (strategy: MergeStrategy, baseValues: WithConditions<PropertyAllowed>[]): WithConditions<PropertyAllowed> =>
     mergeWithConditions(strategy, baseValues, PropertyAllowed.Write);
 
-// Signum's AuthCache as a CLASS — and, since it is fully synchronous once loaded, it IS the serialization
+// And, since it is fully synchronous once loaded, it IS the serialization
 // auth context (Phase 2): the codec's async boundary resolves ONE of these (`resolveContext`) and the sync
 // `access` reads it. Holds the property rules + role graph + the captured TYPE-rule cache (a property is
 // capped by, and defaults to, its type's UI-read allowance). A concurrent invalidate() can't affect an
@@ -71,14 +68,14 @@ class PropertyRulesCache {
         private readonly propRules: Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>,
         private readonly graph: RoleGraph,
         private readonly typeCache: TypeAuthLogic.TypeRulesCache,
-        // Signum's BasicPermission.AutomaticUpgradeOfProperties gate, resolved SYNCHRONOUSLY per role: a
-        // role that lacks it defaults an un-ruled property to None instead of following its type.
+        // The AutomaticUpgradeOfProperties gate, resolved SYNCHRONOUSLY per role: a role that lacks it
+        // defaults an un-ruled property to None instead of following its type.
         private readonly autoUpgradeAllowed: (roleKey: string) => boolean,
     ) { }
 
     // Per-instance property access for the current role (serializer path), evaluated against the concrete
     // root ENTITY (so type conditions resolve). No role / auth off / unknown route → Write (fail open). The
-    // per-instance value is clamped to the type's per-instance UI-read allowance (Signum's CoerceValue).
+    // per-instance value is clamped to the type's per-instance UI-read allowance.
     access(root: Entity, path: string): PropertyAllowed {
         const roleKey = AuthLogic.currentRoleKey();
         if (roleKey == null || !AuthLogic.isEnabled())
@@ -98,16 +95,16 @@ class PropertyRulesCache {
     }
 
     // The type's UI-read allowance mapped to a property WithConditions — the per-slice CEILING (a property
-    // can't exceed its type, incl. conditions: Signum's ToPropertyAllowed(type.GetUI())). NOT the no-rule
+    // can't exceed its type, conditions included). NOT the no-rule
     // default — that is `noRuleDefaultWC`, which additionally applies the auto-upgrade permission gate.
     typeCeilingWC(typeId: PrimaryKey, roleKey: string): WithConditions<PropertyAllowed> {
         return this.typeCache.getAllowed(typeId, roleKey).mapWithConditions(t => typeBasicToProperty(typeAllowedUI(t)));
     }
 
-    // Signum's PropertyCache.GetDefaultValue — the allowance a property route gets for this role when NO
+    // The allowance a property route gets for this role when NO
     // explicit rule applies. A default-allowed role follows its type (the ceiling); a role WITHOUT the
     // AutomaticUpgradeOfProperties permission is coerced to None (shape-preserving, so condition slices are
-    // still padded — Signum's CoerceSimple(typeAllowed, None)); otherwise it follows its type.
+    // still padded); otherwise it follows its type.
     noRuleDefaultWC(typeId: PrimaryKey, roleKey: string): WithConditions<PropertyAllowed> {
         const ceiling = this.typeCeilingWC(typeId, roleKey);
         if (this.graph.getDefaultAllowed(roleKey))
@@ -117,7 +114,7 @@ class PropertyRulesCache {
         return ceiling;
     }
 
-    // Signum's AutomaticUpgradeOfProperties: a property with NO explicit rule follows ITS OWN role's no-rule
+    // A property with NO explicit rule follows ITS OWN role's no-rule
     // default (varies per role), not the parents' value — so this recursion is bespoke (not computeAllowed):
     // no explicit rule up the chain → this role's no-rule default; else the explicit rule or the per-parent merge.
     private propAllowed(typeId: PrimaryKey, key: string, roleKey: string): WithConditions<PropertyAllowed> {
@@ -130,7 +127,7 @@ class PropertyRulesCache {
         return mergeProp(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.propAllowed(typeId, key, p)));
     }
 
-    // True if roleKey OR any ancestor has an explicit property rule for `key` (Signum's "is overridden").
+    // True if roleKey OR any ancestor has an explicit property rule for `key`.
     private hasExplicitInChain(roleKey: string, key: string): boolean {
         const seen = new Set<string>();
         const stack = [roleKey];
@@ -165,22 +162,20 @@ export namespace PropertyAuthLogic {
             return;
         started = true;
         TypeAuthLogic.registerDimensionSummary("properties", fallbackSummary); // grid icon colour summary
-        // Signum's own placement (PropertyAuthLogic.Start is the only caller of PropertyRouteLogic.Start):
-        // a property rule POINTS at a route row, so this module owns bringing the table along.
+        // A property rule POINTS at a route row, so this module owns bringing the table along — which is
+        // where Signum starts it from too.
         PropertyRouteLogic.start(sb);
         // No `withQuery()` — see TypeAuthLogic.
         sb.include(RulePropertyEntity);
 
-        // Signum's `EntityEvents<PropertyRouteEntity>().PreDeleteSqlSync` (PropertyAuthLogic.cs): a route
-        // the sync is REMOVING — one naming a property the type no longer has — takes the rules that
-        // point at it with it, or its DELETE fails on `rule_property.resource_id`. Four modules ported
-        // this cascade (Dynamic, Help, Tour, Translations) and this one, the module that owns the
-        // pointing table, did not: a Southwind database with a stale route and a rule on it produced a
-        // script that could not run.
+        // A route the sync is REMOVING — one naming a property the type no longer has — takes the rules
+        // that point at it with it, or its DELETE fails on `rule_property.resource_id`. Four modules ported
+        // this cascade (Dynamic, Help, Tour, Translations) and this one, the module that OWNS the pointing
+        // table, did not: a Southwind database with a stale route and a rule on it produced a script that
+        // could not run.
         //
-        // Signum writes one `UnsafeDeletePreCommandVirtualMList`, whose MList half sweeps the rule's
-        // condition rows. altea models those as `@part` rows two levels deep — a condition row, and the
-        // TypeConditionSymbols it ANDs — so the sweep is spelled out innermost-first.
+        // The sweep is spelled out INNERMOST-FIRST because the rule's condition rows are `@part` rows two
+        // levels deep — a condition row, and the TypeConditionSymbols it ANDs.
         sb.schema.entityEvents(PropertyRouteEntity).preDeleteSqlSync.push(property =>
             deleteRulesForRoute(sb, property.id));
         // invalidateWith RuleType too: the no-rule default / coerced ceiling derive from the type's UI-read
@@ -195,7 +190,7 @@ export namespace PropertyAuthLogic {
         // The serializer is SYNCHRONOUS. Per request the codec calls `resolveContext` ONCE (async, before the
         // walk) to capture the loaded PropertyRulesCache — which IS the serialization-auth context — and then
         // reads it synchronously in `access`. A concurrent invalidate() can't affect an in-flight walk: the
-        // instance the request captured is frozen (Signum keeps its RoleAllowedCache warm; altea snapshots it).
+        // instance the request captured is FROZEN.
         setSerializationAuth({
             getMetadata: root => root,   // the root ENTITY — access evaluates its type-conditions per instance
             access: (route, meta, context) => {
@@ -213,7 +208,7 @@ export namespace PropertyAuthLogic {
         AuthLogic.registerXmlImporter(importXml);
     }
 
-    // Signum's model binder onto a retrieved original (server-side). Async — this is the ONE place the DB
+    // Overlay the POSTed graph onto a retrieved original. Async — this is the ONE place the DB
     // fetch happens for a save; handlers just call req.jsonTyped(). Falls back to a plain parse for anything
     // that isn't an existing+modified root entity (or if the original can't be retrieved).
     async function deserializeRequest(body: string): Promise<unknown> {
@@ -297,7 +292,7 @@ export namespace PropertyAuthLogic {
     }
 
     // Clamp each slice of a property's WithConditions to the type's per-slice ceiling (a property can't
-    // exceed its type — Signum's Coerce). Applied when BUILDING the admin pack AND before PERSISTING, so a
+    // exceed its type). Applied when BUILDING the admin pack AND before PERSISTING, so a
     // value left stranded above a later-downgraded type never renders an empty radio nor gets stored.
     const condSetKey = (tcs: readonly TypeConditionSymbol[]): string => tcs.map(s => String(s.id)).sort().join("&");
     function coerceToCeiling(wc: WithConditions<PropertyAllowed>, ceiling: WithConditions<PropertyAllowed>): WithConditions<PropertyAllowed> {
@@ -309,7 +304,7 @@ export namespace PropertyAuthLogic {
         );
     }
 
-    // The role's effective / inherited-base property allowance (Signum's GetAllowed / GetAllowedBase) —
+    // The role's effective / inherited-base property allowance —
     // the AutomaticUpgradeOfProperties recursion lives on the cache; these just await + delegate.
     async function getAllowed(typeId: PrimaryKey, path: string, roleKey: string): Promise<WithConditions<PropertyAllowed>> {
         return (await rulesLazy.value()).getAllowed(typeId, path, roleKey);
@@ -320,7 +315,7 @@ export namespace PropertyAuthLogic {
     }
 
     /**
-     * Signum's `PropertyRoute.CanBeAllowedFor(requested)` — could the CURRENT role reach `requested` on this
+     * Could the CURRENT role reach `requested` on this
      * route under AT LEAST ONE type-condition slice? null when it could, else the reason.
      *
      * "Could" (the max over slices), not "does": the caller is validating a PLAN — the Excel importer asks
@@ -345,7 +340,7 @@ export namespace PropertyAuthLogic {
 
     /**
      * Every RESTRICTED property route of every type, for one role — the property half of the reflection
-     * metadata blob (Signum ships MemberInfo.propertyAllowed the same way). Keyed by the type's REGISTERED
+     * metadata blob. Keyed by the type's REGISTERED
      * name (matching MetadataBlob.types) → PropertyRoute.propertyString().
      *
      * Three values per route, because altea's allowance is condition-dependent while the client has no row
@@ -522,7 +517,7 @@ export namespace PropertyAuthLogic {
         invalidate();
     }
 
-    // ---- AuthRules XML (Signum's PropertyCache.ExportXml / ImportXml) --------------------------
+    // ---- AuthRules XML --------------------------------------------------------------------------
     async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
         const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
         const condKey = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s.key]));

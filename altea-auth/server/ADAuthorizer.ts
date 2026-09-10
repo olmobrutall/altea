@@ -39,13 +39,13 @@ export interface ExternalUser {
     externalId: string | null;
 }
 
-/** Signum's `IDirectoryInviter` — an authorizer that can also SEARCH the directory and import a user. */
+/** An authorizer that can also SEARCH the directory and import a user. */
 export interface IDirectoryInviter {
     findUser(subString: string, count: number, signal?: AbortSignal): Promise<ExternalUser[]>;
     createFromExternalUser(user: ExternalUser): Promise<UserEntity>;
 }
 
-/** Signum's `IAutoCreateUserContext` — everything the authorizer needs about a directory identity. */
+/** Everything the authorizer needs about a directory identity. */
 export interface IAutoCreateUserContext {
     readonly config: BaseADConfigurationEmbedded;
     readonly userName: string;
@@ -73,10 +73,10 @@ export function isDirectoryInviter(value: unknown): value is IDirectoryInviter {
  */
 export abstract class ADAuthorizer<TConfig extends BaseADConfigurationEmbedded> implements ICustomAuthorizer {
 
-    /** Signum's `Func<TConfig?> GetConfig` — a callback, so the host can re-read a changed configuration. */
+    /** A callback, so the host can re-read a changed configuration. */
     constructor(readonly getConfig: () => TConfig | null) { }
 
-    /** Signum's `Login`: by default the local database is the only credential store (an interactive
+    /** By default the local database is the only credential store (an interactive
      *  directory sign-in happens through the module's own endpoint, not through /api/auth/login). */
     async login(username: string, password: string): Promise<{ user: UserEntity; authenticationType: string }> {
         return await AuthLogic.login(username, password);
@@ -92,7 +92,7 @@ export abstract class ADAuthorizer<TConfig extends BaseADConfigurationEmbedded> 
     }
 
     /**
-     * Signum's `GetRole`: the roles reached by the matching `roleMapping` entries, several matches merged
+     * The roles reached by the matching `roleMapping` entries, several matches merged
      * into one trivial-merge role, else `defaultRole`. A `roleMapping` entry matches a group by DISPLAY
      * NAME or by ID (Signum tries `Guid.TryParse` on the mapping value and compares both).
      */
@@ -126,7 +126,7 @@ export abstract class ADAuthorizer<TConfig extends BaseADConfigurationEmbedded> 
         return null;
     }
 
-    /** Signum's `OnCreateUser` — build and persist the local user for a directory identity. */
+    /** Build and persist the local user for a directory identity. */
     async onCreateUser(ctx: IAutoCreateUserContext): Promise<UserEntity> {
         return await Transaction.create(async () => {
             const user = await this.createUserInternal(ctx);
@@ -150,7 +150,7 @@ export abstract class ADAuthorizer<TConfig extends BaseADConfigurationEmbedded> 
         return result;
     }
 
-    /** Signum's `UpdateUserInternal` — refresh the local row from the directory identity. */
+    /** Refresh the local row from the directory identity. */
     updateUserInternal(user: UserEntity, ctx: IAutoCreateUserContext): void {
         if (user.state === UserState.AutoDeactivate) {
             user.state = UserState.Active;
@@ -173,7 +173,7 @@ export abstract class ADAuthorizer<TConfig extends BaseADConfigurationEmbedded> 
             user.email = ctx.emailAddress;
     }
 
-    /** Signum's `UpdateUser` — refresh, and save only if something actually changed. */
+    /** Refresh, and save only if something actually changed. */
     async updateUser(user: UserEntity, ctx: IAutoCreateUserContext): Promise<void> {
         await Transaction.create(async () => {
             this.updateUserInternal(user, ctx);
@@ -237,7 +237,7 @@ export abstract class ADAuthorizer<TConfig extends BaseADConfigurationEmbedded> 
         return null;
     }
 
-    /** Signum's `ActiveDirectoryUser0IsNotAssociatedWithAUserInThisApplication` — the message a module
+    /** The message a module
      *  raises when auto-create is off and nothing matched. */
     protected notAssociated(localName: string): Error {
         return new Error(ActiveDirectoryAuthorizerMessage

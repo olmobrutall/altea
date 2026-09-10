@@ -24,7 +24,7 @@ import { UserEntity } from "./User";
 
 @reflect
 @entity("System", "Transactional")
-// Signum's `[TicksColumn(false)]`: engine-written rows, never edited by a person, so no concurrency stamp.
+// Engine-written rows, never edited by a person, so no concurrency stamp.
 @ticksColumn(false)
 export class UserTicketEntity extends Entity {
     user: Lite<UserEntity>;
@@ -38,7 +38,7 @@ export class UserTicketEntity extends Entity {
     @stringLengthValidator({ max: 200 })
     device: string;
 
-    /** Signum's StringTicket() — what the cookie carries: which user, and their secret. */
+    /** What the cookie carries: which user, and their secret. */
     stringTicket(): string {
         return `${this.user.id}|${this.ticket}`;
     }
