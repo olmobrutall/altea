@@ -22,7 +22,8 @@ import { AzureADLogic } from "./AzureADLogic";
 import { CachedProfilePhotoLogic } from "./CachedProfilePhotoLogic";
 import { toAzureSize } from "../data/CachedProfilePhoto";
 
-// Port of Signum.Authorization.AzureAD's AzureAuthenticationServer.cs + AzureADAuthenticationController.cs +
+// The server half of the MSAL flow, plus the profile-photo routes. Port of
+// Signum.Authorization.AzureAD's AzureAuthenticationServer.cs + AzureADAuthenticationController.cs +
 // ADGroup/ADGroupController.cs — the module's HTTP surface: sign in with an MSAL-acquired token, import an
 // AD group, and serve a user's photo.
 //
@@ -31,9 +32,10 @@ import { toAzureSize } from "../data/CachedProfilePhoto";
 //    the configuration (`getIssuer`), because a work/school tenant validates against the multi-tenant
 //    "common" discovery document whose advertised issuer is templated.
 //  - the find-or-create block is `ADAuthorizer.findOrCreateUser`.
-//  - Signum injects the browser-visible configuration into Index.cshtml (`window.__azureADConfig`); altea
+//  - The browser-visible configuration is served from an ANONYMOUS endpoint, since there is no
+//    server-rendered page to inject it into; altea
 //    serves it from the anonymous `/api/auth/azureADConfig` endpoint (no server-rendered page).
-//  - `ExtraValidAudiences` (Signum's `Func<IEnumerable<string>>`) is kept as `extraValidAudiences`.
+//  - `extraValidAudiences` lets a second app registration's tokens through.
 //  - `Response.GetTypedHeaders().CacheControl = …` → an explicit `Cache-Control` header.
 
 interface LoginWithAzureADRequest { idToken?: string; accessToken?: string }
@@ -47,10 +49,11 @@ interface ResLike {
 
 export namespace AzureADAuthenticationServer {
 
-    /** Signum's `PictureMaxAge` — 7 hours (its `new TimeSpan(7, 0, 0)` is 7 HOURS, not 7 days). */
+    /** How long a cached profile photo stays fresh: 7 HOURS. (Signum writes `new TimeSpan(7, 0, 0)`,
+     *  which is hours rather than days — worth stating, since the shape reads like a date.) */
     export let pictureMaxAgeSeconds = 7 * 60 * 60;
 
-    /** Signum's `ExtraValidAudiences` — extra `aud` values to accept (a second app registration). */
+    /** Extra `aud` values to accept (a second app registration). */
     export let extraValidAudiences: (() => string[]) | undefined;
 
     export function start(ws: WebBuilder, options: { adGroups: boolean }): void {
@@ -106,7 +109,7 @@ export namespace AzureADAuthenticationServer {
             });
 
         // GET /api/cachedAzureUserPhoto/:size/:oid → the URL of the LOCALLY stored copy (or null).
-        // Authenticated (Signum's route has no SignumAllowAnonymous): it reads the database.
+        // AUTHENTICATED: it reads the database.
         ws.get("/api/cachedAzureUserPhoto/:size/:oid",
             { params: CustomType<{ size: string; oid: string }>(), res: CustomType<string | null>() },
             async (req, res) => {
@@ -149,7 +152,7 @@ export namespace AzureADAuthenticationServer {
     }
 
     /**
-     * Signum's `LoginAzureADAuthentication(ac, request, adVariant, throwErrors)` — validate the token MSAL
+     * Validate the token MSAL
      * acquired in the browser and map its identity onto a local user.
      */
     export async function loginAzureADAuthentication(

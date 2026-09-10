@@ -24,29 +24,26 @@ import { ProcessRunner, ExecutingProcess } from "./ProcessRunner";
 import { ProcessesServer } from "./ProcessesServer";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
-// Port of Signum.Processes' ProcessLogic.cs — the module's `start(sb)`: the tables, the algorithm registry,
-// and the ProcessGraph state machine (Save / Execute / Suspend / Cancel / Plan / Retry).
+// The module's `start(sb)`: the tables, the algorithm registry, and the ProcessGraph state machine
+// (Save / Execute / Suspend / Cancel / Plan / Retry).
 //
-// altea divergences, documented inline:
-//  - `Polymorphic`-free: the registry is a Map keyed by the algorithm symbol's KEY, not the symbol OBJECT.
-//    A symbol read back from the database is a fresh instance, so an identity-keyed Map misses on every run
-//    that came from a row (the bug the scheduler port hit and fixed).
-//  - Signum's `Graph<ProcessEntity, ProcessState>` carries fromStates / toStates and validates the
-//    transition. altea's Graph.Execute supports the same via `getState` + `fromStates` / `toStates`.
-//  - `QueryLogic.Expressions.Register(...)` for Processes / LastProcess / ExceptionLines is NOT ported (they
-//    would make the isomorphic layer import the server query API — as in the scheduler port).
+// **The registry is keyed by the algorithm symbol's KEY, not the symbol OBJECT.** A symbol read back from
+// the database is a fresh instance, so an identity-keyed Map misses on every run that came from a row —
+// the bug the scheduler port hit and fixed.
+//
+// Port of Signum.Processes' ProcessLogic.cs — see docs/port/Processes.md.
 //  - `CacheLogic.ServerBroadcast`, `ExceptionLogic.DeleteLogs`, `PreDeleteSqlSync` and
 //    `PropertyAuthLogic.SetMaxAutomaticUpgrade(p => p.User, Read)` are not ported (missing infrastructure).
 
 export interface IProcessAlgorithm {
-    /** May another process of the SAME algorithm run at the same time? (Signum's AllowParallelExecution) */
+    /** May another process of the SAME algorithm run at the same time? */
     readonly allowParallelExecution: boolean;
     execute(executingProcess: ExecutingProcess): Promise<void>;
 }
 
 export namespace ProcessLogic {
 
-    /** Signum's `JustMyProcesses` — when true a process is pinned to the host that created it. */
+    /** When true a process is pinned to the host that created it. */
     export let justMyProcesses = true;
 
     const registeredProcesses = new Map<string, IProcessAlgorithm>();
@@ -56,7 +53,6 @@ export namespace ProcessLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        // Signum's `PermissionLogic.RegisterPermissions(ProcessPermission.ViewProcessPanel)`.
         PermissionLogic.registerPermissions(ProcessPermission.ViewProcessPanel);
 
         SymbolLogic.start(sb, ProcessAlgorithmSymbol, () => declared);
@@ -70,8 +66,8 @@ export namespace ProcessLogic {
         sb.include(PackageOperationEntity).withQuery();
         sb.include(PackageLineEntity).withQuery();
 
-        // Signum's three PackageQuery.*LastProcess queries. Each is the plain query PLUS the last
-        // process that ran the package and, through it, what failed. Signum reaches those with the
+        // The three *LastProcess queries. Each is the plain query PLUS the last process that ran the
+        // package and, through it, what failed — which Signum reaches through the
         // [AutoExpressionField] extension methods `LastProcess()` and `Exception(pl, p)`; altea has
         // neither — and the second takes a PARAMETER, which is not a query token here at all — so the
         // subqueries are spelled out inline. `.$v` unwraps the Promise a terminal is typed with: it is
@@ -82,7 +78,7 @@ export namespace ProcessLogic {
         // `withQuery()`, which takes none, and each is named by its row model.
         // Every subquery is written out rather than shared through a local helper: a local-function
         // call inside a query lambda has no SQL translation, so the repetition is the price of the
-        // expressions Signum has and altea does not.
+        // two expressions this module does not register.
         QueryLogic.queries.register(PackageLastProcessRowModel, () => new AutoDynamicQueryCore(() =>
             table(PackageEntity).map(pk => PackageLastProcessRowModel.create({
                 entity: pk.toLite(),
@@ -135,7 +131,7 @@ export namespace ProcessLogic {
             ProcessesServer.start(sb.webBuilder);
     }
 
-    /** Signum's `Register(processAlgorithm, algorithm)`. Call BEFORE start — the symbol table is seeded from
+    /** Register an algorithm. Call BEFORE start — the symbol table is seeded from
      *  the registered keys. */
     export function register(processAlgorithm: ProcessAlgorithmSymbol, algorithm: IProcessAlgorithm): void {
         if (processAlgorithm == null)
@@ -147,7 +143,7 @@ export namespace ProcessLogic {
         declared.push(processAlgorithm);
     }
 
-    /** Signum's `Register(processAlgorithm, Action<ExecutingProcess>)` — the common case. */
+    /** The common case. */
     export function registerAction(
         processAlgorithm: ProcessAlgorithmSymbol,
         action: (executingProcess: ExecutingProcess) => Promise<void>,
@@ -159,7 +155,7 @@ export namespace ProcessLogic {
         });
     }
 
-    /** Signum's `GetProcessAlgorithm`. */
+    /** The registered algorithm for a symbol, or throw. */
     export function getProcessAlgorithm(processAlgorithm: ProcessAlgorithmSymbol): IProcessAlgorithm {
         const algorithm = registeredProcesses.get(processAlgorithm.key);
         if (algorithm == null)
@@ -167,7 +163,7 @@ export namespace ProcessLogic {
         return algorithm;
     }
 
-    /** Signum's `ProcessAlgorithmSymbol.Create(data)` — a new process in the Created state. */
+    /** A new process in the Created state. */
     export async function create(
         processAlgorithm: ProcessAlgorithmSymbol,
         data?: Lite<Entity> | null,
@@ -189,7 +185,7 @@ export namespace ProcessLogic {
         return process;
     }
 
-    /** Signum's `ExecuteTest` — run a process SYNCHRONOUSLY, bypassing the queue (for tests / the terminal). */
+    /** Run a process SYNCHRONOUSLY, bypassing the queue (for tests / the terminal). */
     export async function executeTest(process: ProcessEntity): Promise<ProcessEntity> {
         process.queuedDate = Clock.now;
         const ep = new ExecutingProcess(getProcessAlgorithm(process.algorithm), process);
@@ -207,7 +203,7 @@ export namespace ProcessLogic {
         Transaction.postRealCommit(async () => { ProcessRunner.wakeUp(reason); });
     }
 
-    // Signum's ProcessGraph — the state machine. Every transition that queues work wakes the runner up
+    // The state machine. Every transition that queues work wakes the runner up
     // AFTER the commit, so the runner never reads a row that is not there yet.
     function registerProcessOperations(sm: FluentStateMachine<ProcessEntity, ProcessState>): void {
         sm.withExecute(ProcessOperation.Save, {
@@ -246,7 +242,7 @@ export namespace ProcessLogic {
         });
 
         sm.withExecute(ProcessOperation.Cancel, {
-        // Signum: cancelling an in-flight run would leave it running with a Canceled row, so suspend first.
+        // Cancelling an in-flight run would leave it running with a Canceled row, so suspend first.
         canExecute: (p: ProcessEntity) => ProcessRunner.isExecutingInThisMachine(p.toLite())
             ? ProcessMessage.ProcessExecutingSuspendFirst.niceToString() : null,
         fromStates: [ProcessState.Planned, ProcessState.Created, ProcessState.Suspended,

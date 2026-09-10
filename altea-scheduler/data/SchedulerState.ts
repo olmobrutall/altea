@@ -1,18 +1,16 @@
 import type { Lite } from "@altea/altea/data/lite";
 import type { ScheduledTaskEntity, ScheduledTaskLogEntity } from "./Scheduler";
 
-// The scheduler panel's wire shapes — Signum's SchedulerState / SchedulerItemState /
-// SchedulerRunningTaskState (declared in ScheduleTaskRunner.cs) and its health result. Declared ONCE here,
-// in the isomorphic layer, so the runner that fills them and the page that renders them share one
-// definition (the convention altea-omnibox established for its wire DTOs).
+// The scheduler panel's wire shapes, declared ONCE in the isomorphic layer so the runner that fills them
+// and the page that renders them share one definition (the convention altea-omnibox established).
 //
-// Dates are ISO STRINGS rather than Temporal values: this is a read-only snapshot for display, and the page
-// formats them relative to now — the same reason Signum's DTO uses `string ServerLocalTime`.
+// Dates are ISO STRINGS rather than Temporal values: this is a read-only snapshot for display, and the
+// page formats them relative to now.
 
 export interface SchedulerState {
     running: boolean;
     initialDelayMilliseconds: number | null;
-    /** Signum sends a TimeSpan; altea sends the milliseconds it actually is. */
+    /** Milliseconds. */
     schedulerMarginMilliseconds: number;
     nextExecution: string | null;
     machineName: string;
@@ -35,7 +33,7 @@ export interface SchedulerRunningTaskState {
     remarks: string;
 }
 
-/** Signum's SignumHealthResult, reduced to what the panel's status link shows. */
+/** Reduced to what the panel's status link shows. */
 export interface SchedulerHealth {
     status: "Healthy" | "Unhealthy";
     description: string;

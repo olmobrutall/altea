@@ -9,19 +9,19 @@ import { Serializer } from "@altea/altea/data/serializer";
 import { ProcessAlgorithmSymbol, ProcessEntity, type IProcessDataEntity } from "./Processes";
 import { ExceptionEntity } from "@altea/altea/data/exception";
 
-// Port of Signum.Processes' Package.cs — a PACKAGE is the most common thing a process runs over: a named
+// A PACKAGE is the most common thing a process runs over: a named
 // bag of LINES, each pointing at one entity, so "do this to these 5,000 rows" becomes one observable,
 // resumable process with a per-row failure record.
 //
 // altea divergences, documented inline:
-//  - `byte[]? OperationArguments` (Signum serialises the operation's arguments into the package) → a
+//  - the operation's ARGUMENTS are serialised into the package as a
 //    `Uint8Array | null` "Blob" column, read and written by `setOperationArgs` / `getOperationArgs` below.
-//    (The client-side "run this operation over the selected rows" flow — Signum's PackageOperation
+//    (The client-side "run this operation over the selected rows" flow — the PackageOperation
 //    contextual menu — is still not ported; a package is built in code, but it can now carry arguments.)
-//  - `PackageEntity` is `@part` in Signum (owned by the process that runs it) — but altea Parts
+//  - `PackageEntity` is `@part` in Signum, owned by the process that runs it — but Parts here
 //    have exactly ONE owner and are reached through it, while a package is referenced by `ProcessEntity.data`
 //    (an @implementedByAll Lite, not an owned collection). So it is a "System" entity here, like its lines.
-//  - `PackageOperationEntity` subclasses PackageEntity in Signum. Kept, since it is what names the operation
+//  - `PackageOperationEntity` subclasses PackageEntity. Kept, since it is what names the operation
 //    a PackageOperation process applies.
 
 @reflect
@@ -31,14 +31,14 @@ export class PackageEntity extends Entity implements IProcessDataEntity {
     @stringLengthValidator({ max: 200 })
     name: string | null = null;
 
-    /** Signum's OperationArguments — the arguments the process needs beyond its lines, written and read
+    /** The arguments the process needs beyond its lines, written and read
      *  by `setOperationArgs` / `getOperationArgs` below. */
     operationArguments: Uint8Array | null = null;
 
     @stringLengthValidator({ max: 1000, multiLine: true })
     configString: string | null;
 
-    // NO `lines` collection, exactly as in Signum: a package can hold hundreds of thousands of lines, so the
+    // NO `lines` collection: a package can hold hundreds of thousands of lines, so the
     // LINE points at the package (`PackageLineEntity.package`) and is queried from there. An owned array
     // here would make every retrieve of a package drag its whole content in.
 
@@ -47,7 +47,7 @@ export class PackageEntity extends Entity implements IProcessDataEntity {
     }
 }
 
-/** Signum's PackageOperationEntity — a package whose lines are all to be fed to ONE operation. */
+/** A package whose lines are all to be fed to ONE operation. */
 @reflect
 @entity("System", "Transactional")
 export class PackageOperationEntity extends PackageEntity {
@@ -59,16 +59,16 @@ export class PackageOperationEntity extends PackageEntity {
     }
 }
 
-/** Signum's PackageLineEntity — one element of a package, plus what came out of processing it. */
+/** One element of a package, plus what came out of processing it. */
 @reflect
 @entity("System", "Transactional")
-// Signum's [TicksColumn(false)] — the engine writes these rows, never a person editing one, so there is
+// The engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.
 @ticksColumn(false)
 export class PackageLineEntity extends Entity {
 
     // A PackageOperation is a PackageEntity SUBCLASS with a table of its own, so one FK to
-    // `processes.package` could not reference an operation package at all. Signum gives a reference to a
+    // `processes.package` could not reference an operation package at all. A reference to a
     // type with concrete subclasses one column per table, which is what these two are.
     @implementedBy(() => [PackageEntity, PackageOperationEntity])
     package: Lite<PackageEntity>;
@@ -76,13 +76,12 @@ export class PackageLineEntity extends Entity {
     @implementedByAll
     target: Lite<Entity>;
 
-    /** Only a ConstructFrom-style operation produces one (Signum's comment). */
+    /** Only a ConstructFrom-style operation produces one. */
     @implementedByAll
     result: Lite<Entity> | null = null;
 
     finishTime: Temporal.PlainDateTime | null = null;
 
-    // Signum's `[ExpressionField("ToStringExpression")]` over `pel => "PackageLine (" + pel.Id + ")"` —
     // an EXPRESSION, so the string is expanded inline in queries and this table has no ToStr column.
     @quoted
     toString(): string {
@@ -90,46 +89,46 @@ export class PackageLineEntity extends Entity {
     }
 }
 
-/** Signum's `[AutoInit] PackageOperationProcess.PackageOperation` — the algorithm that applies a
+/** The algorithm that applies a
  *  PackageOperationEntity's operation to every line. */
 export namespace PackageOperationProcess {
     export const PackageOperation: ProcessAlgorithmSymbol = init();
 }
 
-// ---- Operation arguments (Signum's PackageLogic.SetOperationArgs / GetOperationArgs) --------------------
+// ---- Operation arguments --------------------------------------------------------------------------
 
 // A process that walks a package often needs more than the lines: "send THIS template to these 500
-// customers" is one argument plus the lines. Signum stashes that argument list in the package itself, as
+// customers" is one argument plus the lines. The argument list is stashed in the package itself, as
 // JSON bytes written with the FULL entity serializer so a `Lite<EmailTemplateEntity>` survives the round
 // trip with its type; altea does the same through its own `Serializer`, which is the codec that knows how
 // to write a Lite (`JSON.stringify` drops a Lite's constructor-valued entityType, leaving a reader unable
 // to tell what it points at).
 //
-// `writeTypes: "Always"` mirrors Signum's FullJsonSerializerOptions: the array is `unknown[]`, so nothing
+// `writeTypes: "Always"` is what makes it round-trip: the array is `unknown[]`, so nothing
 // on the reading side can infer a missing discriminator from a declared field type.
 //
 // They live beside the entity rather than in a logic module because they are pure codec — no database, no
-// schema — and Signum's own placement (extension methods in PackageLogic) has no altea counterpart to
+// schema — and there are no extension methods to
 // hang them on.
 
-/** Signum's `package.SetOperationArgs(args)` — returns the package, so it chains into a `save()`. */
+/** Returns the package, so it chains into a `save()`. */
 export function setOperationArgs<T extends PackageEntity>(pack: T, args: unknown[] | null): T {
     pack.operationArguments = args == null ? null : new TextEncoder().encode(Serializer.stringify(args, { writeTypes: "Always" }));
     return pack;
 }
 
-/** Signum's `package.GetOperationArgs()` — null when the package carries none. */
+/** Null when the package carries none. */
 export function getOperationArgs(pack: PackageEntity): unknown[] | null {
     if (pack.operationArguments == null)
         return null;
     return Serializer.parse(new TextDecoder().decode(pack.operationArguments)) as unknown[];
 }
 
-// Signum reads an argument by TYPE (`args.GetArg<T>()`), which TypeScript's erasure cannot do — so the
+// An argument cannot be read by TYPE, which is what erasure costs — so the
 // type is passed as the constructor. A LITE needs its own pair: a `Lite<EmailTemplateEntity>` is a LiteImp,
 // never an `instanceof EmailTemplateEntity`, so matching it means comparing the lite's `entityType`.
 
-/** Signum's `args.GetArg<T>()` for a value / entity / symbol argument — or throw naming what was asked for. */
+/** One value / entity / symbol argument, or throw naming what was asked for. */
 export function getArg<T>(args: unknown[] | null, ctor: new (...a: any[]) => T): T {
     const found = tryGetArg(args, ctor);
     if (found == null)
@@ -137,7 +136,7 @@ export function getArg<T>(args: unknown[] | null, ctor: new (...a: any[]) => T):
     return found;
 }
 
-/** Signum's `args.TryGetArgC<T>()` — undefined when there is none. */
+/** Undefined when there is none. */
 export function tryGetArg<T>(args: unknown[] | null, ctor: new (...a: any[]) => T): T | undefined {
     return args?.find(a => a instanceof ctor) as T | undefined;
 }
@@ -155,19 +154,16 @@ export function tryGetLiteArg<T extends Entity>(args: unknown[] | null, ctor: ab
     return args?.find(a => a instanceof Lite && a.entityType === ctor) as Lite<T> | undefined;
 }
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("processes")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("processes");
 
-// ---- the three LastProcess queries (Signum's PackageQuery.*) -------------------------------------------
+// ---- the three LastProcess queries -----------------------------------------------------------------
 //
-// Signum names each by an ENUM MEMBER and projects an anonymous type; altea names a query by its ROW
+// Each is named by its ROW
 // MODEL, whose clean name IS the key (`PackageLastProcessRowModel` → `PackageLastProcess`), so the
 // anonymous projection becomes the model's members — the same columns in the same order.
 //
 // What each adds over the plain package/line query is the LAST PROCESS that ran the package and, through
-// it, whether a line failed. Signum reaches those through `LastProcess()` / `Exception(pl, p)`, two
+// it, whether a line failed — which Signum reaches through `LastProcess()` / `Exception(pl, p)`, two
 // [AutoExpressionField] extension methods; altea registers neither, and one of them takes a PARAMETER,
 // which is not a query token here at all. The subqueries are therefore spelled out INLINE in the
 // projection (see PackageLogic) — the same SQL, without a token nothing else asks for.

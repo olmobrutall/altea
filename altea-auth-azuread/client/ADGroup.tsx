@@ -5,7 +5,7 @@ import SearchValueLine from "@altea/altea/client/SearchControl/SearchValueLine";
 import { ADGroupEntity } from "../data/ADGroup";
 import { ActiveDirectoryUsersRowModel } from "../data/ActiveDirectoryQueries";
 
-// Port of Signum.Authorization.AzureAD's ADGroup/ADGroup.tsx — the group's name plus a count of the
+// The group's name plus a count of the
 // directory users in it (a live Microsoft Graph query, filtered by the `inGroup` column).
 
 export default function ADGroup(p: { ctx: TypeContext<ADGroupEntity> }): React.JSX.Element {

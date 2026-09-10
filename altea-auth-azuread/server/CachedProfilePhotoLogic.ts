@@ -17,7 +17,7 @@ import {
 } from "../data/CachedProfilePhoto";
 import { AzureADLogic } from "./AzureADLogic";
 
-// Port of Signum.Authorization.AzureAD's CachedProfilePhotoLogic.cs — keep a local copy of each user's
+// Keep a local copy of each user's
 // Microsoft Graph photo so a grid of avatars costs one Graph call per user per month, not per render.
 //
 // altea divergences, documented inline:
@@ -33,10 +33,10 @@ export namespace CachedProfilePhotoLogic {
 
     export let isStarted = false;
 
-    /** Signum's `DefaultSize` — 22 px rounded up to a size Graph serves. */
+    /** 22 px rounded up to a size Graph serves. */
     export const defaultSize = toAzureSize(22);
 
-    /** Signum's `CalculateInvalidationDate` — a user WITH a photo is re-checked monthly, one without
+    /** A user WITH a photo is re-checked monthly, one without
      *  (much more common, and cheap to be wrong about) weekly. */
     export let calculateInvalidationDate: (p: CachedProfilePhotoEntity) => Temporal.PlainDateTime =
         p => p.photo == null ? Clock.now.add({ days: 7 }) : Clock.now.add({ months: 1 });
@@ -56,10 +56,10 @@ export namespace CachedProfilePhotoLogic {
     }
 
     /**
-     * Signum's `GetOrCreateCachedPicture(oid, size)` — the cached row for this user at this size,
+     * The cached row for this user at this size,
      * refreshing it from Graph when it has gone stale.
      *
-     * The double-check inside the transaction is Signum's: two concurrent requests for the same avatar
+     * The double-check INSIDE the transaction matters: two concurrent requests for the same avatar
      * would otherwise both fetch and both insert, and the unique index on (user, size) would reject one.
      */
     export async function getOrCreateCachedPicture(oid: string, requestedSize: number): Promise<CachedProfilePhotoEntity> {
@@ -106,7 +106,7 @@ export namespace CachedProfilePhotoLogic {
         });
     }
 
-    /** Signum's `HasCachedPicture(oid, size)`. */
+    /** Is this user's photo already cached at that size? */
     export async function hasCachedPicture(oid: string, requestedSize: number): Promise<boolean> {
         const size = toAzureSize(requestedSize);
         return (await findRow(oid, size)) != null;

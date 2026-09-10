@@ -8,22 +8,22 @@ import { msg } from "@altea/altea/data/utils/localization";
 import { BaseADConfigurationEmbedded, RoleMappingEntity } from "@altea/altea-auth/data/BaseAD";
 import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 
-// Port of Signum.Authorization.AzureAD's AzureADConfigurationEmbedded.cs + AzureADQuery.cs — how to talk to
+// How to talk to
 // Microsoft Entra ID, in its three flavours.
 //
 // altea divergences, documented inline:
 //  - `Guid ApplicationID / DirectoryID` are `string` (a uuid) rather than a Guid value type: they are only
 //    ever formatted into URLs and compared to the token's `aud`, and altea's Guid support is a PK/column
 //    concern. `@validate` keeps them well-formed.
-//  - Signum's `StateValidator<AzureADConfigurationEmbedded, AzureADType>` (a per-type × per-field
+//  - the per-type × per-field required/forbidden MATRIX (a `StateValidator` in Signum,
 //    required/forbidden MATRIX) becomes explicit `@validate` rules — altea has no StateValidator, and
-//    the three rows of Signum's table are short enough to read directly. The matrix is reproduced verbatim
-//    in `stateRule` below so a future Signum change is easy to re-apply.
+//    three rows long) is short enough to read directly. It is reproduced verbatim
+//    in `stateRule` below, so a future Signum change is easy to re-apply.
 //  - `ToAzureADConfigTS(scopes)` → `toClientConfig(scopes?)`, and the DTO is served by an anonymous endpoint
 //    instead of being injected into Index.cshtml (altea has no server-rendered page — see
 //    AzureADAuthenticationServer).
 
-/** Signum's AzureADType — which Microsoft identity product this configuration targets. */
+/** Which Microsoft identity product this configuration targets. */
 export enum AzureADType {
     /** A work/school tenant (Entra ID). */
     AzureAD,
@@ -40,7 +40,7 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
 
     type: AzureADType = AzureADType.AzureAD;
 
-    // Signum declares these two `Guid` (not `Guid?`) with NO initializer, and the uninitialised-field
+    // Both are declared non-nullable with NO initializer, and the uninitialised-field
     // warning is switched off: a Guid is a struct, so C# hands it the all-zero value whether anyone
     // wanted one or not. That all-zero guid is an artefact of the type system, not a value the model
     // means — so altea leaves the field simply UNSET until the directory is configured.
@@ -63,7 +63,7 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
         const state = stateRule(c, "tenantName");
         if (state != null)
             return state;
-        // Signum: for ExternalID the tenant name must be a b2clogin/ciamlogin DOMAIN, not a bare name.
+        // For ExternalID the tenant name must be a b2clogin/ciamlogin DOMAIN, not a bare name.
         if (c.enabled && c.type === AzureADType.ExternalID && hasText(c.tenantName) && !c.tenantName!.includes("."))
             return ValidationMessage._0DoesNotHaveAValid1Format.niceToString("Tenant Name", "b2clogin domain");
         return null;
@@ -72,7 +72,7 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
 
     @stringLengthValidator({ max: 300 })
     @validate<AzureADConfigurationEmbedded>(c => {
-        // Signum's B2C row is "either SignInSignUp_UserFlow or SignIn_UserFlow".
+        // The B2C row is "either SignInSignUp_UserFlow or SignIn_UserFlow".
         if (c.enabled && c.type === AzureADType.B2C && !hasText(c.signInSignUp_UserFlow) && !hasText(c.signIn_UserFlow))
             return ValidationMessage._0IsNotSet.niceToString("Sign In Sign Up User Flow");
         const state = stateRule(c, "signInSignUp_UserFlow");
@@ -111,7 +111,7 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
      *  application's client credentials. */
     useDelegatedPermission: boolean = false;
 
-    /** Signum's DefaultScopes. */
+    /** The scopes requested when none are configured. */
     defaultScopes(): string[] {
         switch (this.type) {
             case AzureADType.AzureAD: return ["user.read"];
@@ -121,12 +121,12 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
         }
     }
 
-    /** Signum's DefaultSignIn — the sign-in-or-sign-up flow, falling back to the sign-in-only one. */
+    /** The sign-in-or-sign-up flow, falling back to the sign-in-only one. */
     defaultSignIn(): string {
         return hasText(this.signInSignUp_UserFlow) ? this.signInSignUp_UserFlow! : this.signIn_UserFlow!;
     }
 
-    /** Signum's GetDiscoveryEndpoint — where the token's signing keys and issuer are published. */
+    /** Where the token's signing keys and issuer are published. */
     getDiscoveryEndpoint(): string {
         switch (this.type) {
             case AzureADType.AzureAD:
@@ -141,7 +141,7 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     }
 
     /**
-     * Signum's issuer choice: for a work/school tenant the discovery document is the MULTI-TENANT "common"
+     * For a work/school tenant the discovery document is the MULTI-TENANT "common"
      * one, whose advertised issuer is templated — so the real tenant is substituted. B2C / External ID
      * publish their own concrete issuer.
      */
@@ -151,7 +151,7 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
             : discoveredIssuer;
     }
 
-    /** Signum's ToAzureADConfigTS — the browser-visible half (never the client secret). */
+    /** The browser-visible half (never the client secret). */
     toClientConfig(scopes?: string[]): AzureADClientConfig | null {
         return !this.enabled ? null : {
             type: AzureADType[this.type] as keyof typeof AzureADType,
@@ -166,7 +166,7 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
             scopes: scopes ?? this.defaultScopes(),
         };
     }
-    /** Signum's `MList<RoleMappingEmbedded> RoleMapping` — this configuration's own @part rows (the row type
+    /** This configuration's own @part rows (the row type
      *  is per module, see BaseAD's header). */
     @noRepeatValidator()
     roleMapping: AzureADRoleMappingEntity[];
@@ -175,7 +175,7 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
 
 }
 
-// Signum's RoleMappingEmbedded rows for this configuration (see BaseAD's RoleMappingEntity).
+// This configuration's own role-mapping rows (see BaseAD's RoleMappingEntity).
 @part
 export class AzureADRoleMappingEntity extends RoleMappingEntity {
     // The rows belong to the ENTITY holding this configuration — the application's settings row, which a
@@ -185,7 +185,7 @@ export class AzureADRoleMappingEntity extends RoleMappingEntity {
 }
 
 /**
- * Signum's `StateValidator<AzureADConfigurationEmbedded, AzureADType>` table, verbatim:
+ * The required/forbidden matrix, verbatim from Signum's StateValidator table:
  *
  * ```
  *                      tenantName  signInSignUp  signIn  signUp  editProfile  resetPassword
@@ -244,7 +244,7 @@ function isUuid(s: string | null | undefined): boolean {
     return s != null && uuidRegex.test(s);
 }
 
-/** Signum's AzureADConfigTS — what the browser needs for the MSAL flow. */
+/** What the browser needs for the MSAL flow. */
 export interface AzureADClientConfig {
     type: keyof typeof AzureADType;
     applicationId: string;
@@ -258,7 +258,7 @@ export interface AzureADClientConfig {
     scopes: string[];
 }
 
-/** Signum's `[AutoInit] static class AzureADTask` — the nightly "who left the company?" sweep. */
+/** The nightly "who left the company?" sweep. */
 export namespace AzureADTask {
     export const DeactivateUsers: SimpleTaskSymbol = init();
 }
@@ -269,7 +269,4 @@ export const AzureADMessage = {
     UnableToMixFilterAndSearchInAnOr: msg("Unable to convert filter (mixing $filter and $search inside an OR)"),
 };
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("auth")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("auth");

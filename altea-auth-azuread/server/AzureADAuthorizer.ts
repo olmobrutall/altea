@@ -7,7 +7,8 @@ import { AzureADConfigurationEmbedded, AzureADType } from "../data/AzureAD";
 import { AzureADLogic } from "./AzureADLogic";
 import type { GraphUser } from "./MicrosoftGraph";
 
-// Port of Signum.Authorization.AzureAD's Authorizer/AzureADAuthorizer.cs +
+// The Azure half of the shared ADAuthorizer: which CLAIMS identify the user, per Azure product, and how
+// the roles are read. Port of Signum.Authorization.AzureAD's Authorizer/AzureADAuthorizer.cs +
 // Authorizer/AzureClaimsAutoCreateUserContext.cs.
 //
 // As in the OpenID module, everything shared with the other directory authorizers lives in altea-auth's
@@ -16,12 +17,12 @@ import type { GraphUser } from "./MicrosoftGraph";
 //
 // altea divergences, documented inline:
 //  - `ClaimsPrincipal` → the verified JWT payload.
-//  - `Func<string? adVariant, AzureADConfigurationEmbedded?> GetConfig` — Signum's per-VARIANT lookup, so
+//  - `getConfig` is a per-VARIANT lookup, so
 //    one application can offer several Azure configurations (a work tenant and a B2C tenant side by side).
 //    altea keeps the variant: `ADAuthorizer.getConfig` takes no argument, so this class adds
 //    `getConfigFor(adVariant)` and implements `getConfig()` as `getConfigFor(null)` (the default variant).
 
-/** Signum's AzureClaimsAutoCreateUserContext — a work/school-tenant token. */
+/** A work/school-tenant token. */
 export class AzureClaimsContext implements IAutoCreateUserContext {
 
     constructor(
@@ -59,7 +60,7 @@ export class AzureClaimsContext implements IAutoCreateUserContext {
     get emailAddress(): string | null { return this.getClaim("preferred_username"); }
     get fullName(): string | null { return this.tryGetClaim("name"); }
 
-    /** Signum splits a "Last, First" or "First Last" display name; "Unknown" when there is nothing. */
+    /** Split a "Last, First" or "First Last" display name; "Unknown" when there is nothing. */
     get firstName(): string {
         const name = this.fullName;
         if (name == null)
@@ -79,10 +80,10 @@ export class AzureClaimsContext implements IAutoCreateUserContext {
     }
 }
 
-/** Signum's AzureExternalIDAutoCreateUserContext — same claims as a work tenant. */
+/** Same claims as a work tenant. */
 export class AzureExternalIDClaimsContext extends AzureClaimsContext { }
 
-/** Signum's AzureB2CClaimsAutoCreateUserContext — B2C puts the identity in different claims. */
+/** B2C puts the identity in different claims. */
 export class AzureB2CClaimsContext extends AzureClaimsContext {
     override get userName(): string { return this.getClaim("emails"); }
     override get emailAddress(): string | null { return this.getClaim("emails"); }
@@ -94,7 +95,7 @@ export class AzureB2CClaimsContext extends AzureClaimsContext {
     override get externalId(): string | null { return this.getClaim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"); }
 }
 
-/** Signum's MicrosoftGraphCreateUserContext — a directory record fetched from Graph (the invite flow). */
+/** A directory record fetched from Graph (the invite flow). */
 export class MicrosoftGraphCreateUserContext implements IAutoCreateUserContext {
     constructor(readonly user: GraphUser, readonly config: AzureADConfigurationEmbedded) { }
 
@@ -108,7 +109,7 @@ export class MicrosoftGraphCreateUserContext implements IAutoCreateUserContext {
 export class AzureADAuthorizer extends ADAuthorizer<AzureADConfigurationEmbedded> implements IDirectoryInviter {
 
     /**
-     * Signum's `Func<string?, AzureADConfigurationEmbedded?> GetConfig` — resolve the configuration for one
+     * Resolve the configuration for one
      * AD VARIANT ("default", or an application-specific name). The base class's `getConfig()` is the
      * default variant.
      */
@@ -117,7 +118,7 @@ export class AzureADAuthorizer extends ADAuthorizer<AzureADConfigurationEmbedded
     }
 
     /**
-     * Signum's group lookup: the signed-in identity's TRANSITIVE group membership, read either with the
+     * The signed-in identity's TRANSITIVE group membership, read either with the
      * application's own credentials or — when `useDelegatedPermission` — with the user's own access token
      * (`/me/transitiveMemberOf`, which needs no directory-wide application permission).
      */
@@ -144,7 +145,7 @@ export class AzureADAuthorizer extends ADAuthorizer<AzureADConfigurationEmbedded
     }
 }
 
-/** Build the right claims context for the configured Azure product (Signum's `config.Type switch`). */
+/** Build the right claims context for the configured Azure product. */
 export function claimsContextFor(config: AzureADConfigurationEmbedded, claims: JWTPayload, accessToken: string): AzureClaimsContext {
     switch (config.type) {
         case AzureADType.AzureAD: return new AzureClaimsContext(claims, accessToken, config);

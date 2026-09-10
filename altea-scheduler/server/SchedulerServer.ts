@@ -5,16 +5,13 @@ import { SchedulerPermission } from "../data/Scheduler";
 import type { SchedulerState, SchedulerHealth } from "../data/SchedulerState";
 import { ScheduleTaskRunner } from "./ScheduleTaskRunner";
 
-// Port of Signum.Scheduler's SchedulerController.cs + SchedulerServer.cs — the panel's three calls and the
-// shutdown hook.
+// The panel's three calls and the shutdown hook.
 //
-// altea divergences:
-//  - Signum's controller sleeps a second after start/stop so the panel's immediate reload sees the new
-//    state; `startScheduledTasks` is async here and already awaited, so there is nothing to sleep for.
-//  - The health check is ANONYMOUS in Signum (a load balancer polls it) and stays anonymous here; the other
-//    two assert ViewSchedulerPanel, exactly as Signum does.
-//  - Signum registers its shutdown hook on the host's ApplicationStopping token; altea's web host has no
-//    lifetime object, so it hooks the process signals (`stopAt`), which an app may also call directly.
+// The health check is ANONYMOUS — a load balancer polls it — and the other two assert ViewSchedulerPanel.
+// The shutdown hook rides the process SIGNALS (`stopAt`), since there is no host lifetime object to
+// register on; an app may also call it directly.
+//
+// See docs/port/Scheduler.md.
 
 export namespace SchedulerServer {
     let started = false;
@@ -31,7 +28,7 @@ export namespace SchedulerServer {
                 res.jsonTyped(ScheduleTaskRunner.getSchedulerState());
             });
 
-        // Anonymous on purpose (Signum's [SignumAllowAnonymous]): this is what a monitor polls.
+        // Anonymous ON PURPOSE: this is what a load balancer or monitor polls.
         ws.get("/api/scheduler/healthCheck",
             { res: CustomType<SchedulerHealth>(), allowAnonymous: true },
             async (_req, res) => {
@@ -58,7 +55,7 @@ export namespace SchedulerServer {
         installShutdownHook();
     }
 
-    // Signum's `ApplicationStopping.Register(...)`: stop the timer and cancel whatever is running, so a
+    // Stop the timer and cancel whatever is running, so a
     // restart does not leave half-finished work claiming to be in flight.
     let shutdownInstalled = false;
     export function installShutdownHook(): void {

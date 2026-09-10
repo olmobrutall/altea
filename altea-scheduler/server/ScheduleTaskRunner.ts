@@ -20,26 +20,22 @@ import type { SchedulerState, SchedulerHealth } from "../data/SchedulerState";
 import { HolidayCalendarLogic } from "./HolidayCalendarLogic";
 import { SchedulerLogic } from "./SchedulerLogic";
 
-// Port of Signum.Scheduler's ScheduleTaskRunner.cs — the IN-PROCESS scheduler: a queue of
-// (scheduled task → next date) ordered by date, and ONE timer armed for the earliest of them. When it
-// fires, every task now due is started and re-queued at its following occurrence.
+// The IN-PROCESS scheduler: a queue of (scheduled task → next date) ordered by date, and ONE timer armed
+// for the earliest of them. When it fires, every task now due is started and re-queued at its following
+// occurrence.
 //
-// altea divergences, documented inline:
-//  - `System.Threading.Timer` → `setTimeout`, and the `lock (priorityQueue)` disappears: node runs the
-//    callback on the single event loop, so the queue is only ever touched between awaits. What Signum's
-//    lock protected against (a reload racing the tick) is handled by re-reading the queue after each await.
-//  - Signum's `PriorityQueue<T>` → a plain array kept sorted by next date. The queue holds one entry per
-//    ACTIVE scheduled task (tens, not thousands), so an O(n) insert is cheaper than a heap.
-//  - `Task.Run(...)` (thread-pool fire-and-forget) → an un-awaited async call whose rejection is logged, so
-//    an exploding task can never take the process down.
-//  - `EntityCache(ForceNew)` has no altea counterpart (no identity-map scope beyond a retriever); each run
-//    already gets its own `Transaction.forceNew`, which is what mattered.
-//  - `AuthLogic.Disable()` → `ExecutionMode.global`; `UserHolder.UserSession(user)` → `UserHolder.withUser`.
-//  - `SystemEventLogLogic.Log(...)` is not ported (no system-event-log module) — the start/stop transitions
-//    are reported through the panel's state instead.
-//  - The schedule rules evaluate SYNCHRONOUSLY (they are isomorphic — the editors preview them), but a
-//    weekday rule needs its holiday calendar, which lives behind an async cache. So the planner warms that
-//    cache (HolidayCalendarLogic.warm) before it advances any rule.
+// There is NO LOCK around the queue: node runs the callback on the single event loop, so the queue is only
+// ever touched between awaits — and what a lock would protect against (a reload racing the tick) is handled
+// by re-reading the queue after each await.
+//
+// A started task is an UN-AWAITED async call whose rejection is logged, so an exploding task can never take
+// the process down.
+//
+// The planner warms the HOLIDAY CACHE before advancing any rule: the rules evaluate synchronously (they are
+// isomorphic, and the editors preview them) but a weekday rule needs its calendar, which lives behind an
+// async cache.
+//
+// Port of Signum.Scheduler's ScheduleTaskRunner.cs — see docs/port/Scheduler.md.
 
 export namespace ScheduleTaskRunner {
 
@@ -48,7 +44,7 @@ export namespace ScheduleTaskRunner {
         nextDate: Temporal.PlainDateTime;
     }
 
-    /** Signum's `SchedulerMargin` — half a second, to stabilise sub-day rules. */
+    /** Half a second, to stabilise sub-day rules. */
     const schedulerMarginMilliseconds = 500;
 
     let queue: ScheduledTaskPair[] = [];
@@ -56,11 +52,11 @@ export namespace ScheduleTaskRunner {
     let nextExecution: Temporal.PlainDateTime | undefined;
     let started = false;
 
-    /** Signum's `InitialDelayMilliseconds` — set by startScheduledTasksAfter, and what tells the health
+    /** Set by startScheduledTasksAfter, and what tells the health
      *  check whether "stopped" means "disabled" or "broken". */
     export let initialDelayMilliseconds: number | undefined = undefined;
 
-    /** Signum's `RunningTasks` — the log row of every task running right now, with its context. */
+    /** The log row of every task running right now, with its context. */
     export const runningTasks = new Map<ScheduledTaskLogEntity, ScheduledTaskContext>();
 
     export function running(): boolean {
@@ -85,7 +81,7 @@ export namespace ScheduleTaskRunner {
         await reloadPlan();
     }
 
-    /** Signum's `StartScheduledTaskAfter` — what an app calls at boot so the first tick is not during startup. */
+    /** What an app calls at boot so the first tick is not during startup. */
     export function startScheduledTasksAfter(delayMilliseconds: number): void {
         initialDelayMilliseconds = delayMilliseconds;
         setTimeout(() => { void startScheduledTasks().catch(logRunnerError("startScheduledTasksAfter")); }, delayMilliseconds)
@@ -102,7 +98,7 @@ export namespace ScheduleTaskRunner {
         nextExecution = undefined;
     }
 
-    /** Signum's `ScheduledTasksLazy_OnReset` — the task list changed, so re-plan (a beat later, so a save's
+    /** The task list changed, so re-plan (a beat later, so a save's
      *  own transaction has committed). */
     export function scheduledTasksChanged(): void {
         if (!started)
@@ -110,7 +106,7 @@ export namespace ScheduleTaskRunner {
         setTimeout(() => { void reloadPlan().catch(logRunnerError("scheduledTasksChanged")); }, 1000).unref();
     }
 
-    /** Signum's `StopRunningTasks` — cancel everything in flight (called on shutdown). */
+    /** Cancel everything in flight (called on shutdown). */
     export function stopRunningTasks(): void {
         for (const ctx of runningTasks.values())
             ctx.cancel();
@@ -118,7 +114,7 @@ export namespace ScheduleTaskRunner {
 
     // ---- planning ---------------------------------------------------------------------------------------
 
-    /** Signum's `ReloadPlan`: for every active task, when is it next due — given when it last ran. */
+    /** For every active task, when is it next due — given when it last ran. */
     async function reloadPlan(): Promise<void> {
         if (!started)
             return;
@@ -138,7 +134,7 @@ export namespace ScheduleTaskRunner {
                     ? scheduledTask.rule.next(scheduledTask.rule.startingOn)
                     : scheduledTask.rule.next(previous.add({ milliseconds: schedulerMarginMilliseconds }));
 
-                // Signum's `isMiss`: a task whose slot passed while the app was down runs immediately.
+                // A task whose slot passed while the app was down runs immediately.
                 return { scheduledTask, nextDate: Temporal.PlainDateTime.compare(next, now) < 0 ? now : next };
             });
 
@@ -157,7 +153,7 @@ export namespace ScheduleTaskRunner {
         timer = undefined;
     }
 
-    // Signum's SetTimer: arm ONE timer for the head of the queue.
+    // Arm ONE timer for the head of the queue.
     function setTimer(): void {
         clearTimer();
 
@@ -174,7 +170,7 @@ export namespace ScheduleTaskRunner {
         timer.unref(); // a pending tick must not keep a CLI process alive
     }
 
-    // Signum's TimerCallback: start everything now due, re-queue each at its following occurrence, re-arm.
+    // Start everything now due, re-queue each at its following occurrence, re-arm.
     async function onTimer(): Promise<void> {
         if (!started)
             return;
@@ -187,7 +183,7 @@ export namespace ScheduleTaskRunner {
                 while (queue.length > 0 && Temporal.PlainDateTime.compare(queue[0].nextDate, now) < 0) {
                     const pair = queue.shift()!;
 
-                    // Fire and forget, exactly like Signum's Task.Run — a long task must not delay the
+                    // Fire and forget — a long task must not delay the
                     // tick, and its own failure is logged inside executeAsync.
                     executeAsync(pair.scheduledTask.task, pair.scheduledTask, pair.scheduledTask.user);
 
@@ -205,16 +201,16 @@ export namespace ScheduleTaskRunner {
 
     // ---- execution --------------------------------------------------------------------------------------
 
-    /** Signum's `ExecuteAsync` — run a task without waiting for it, logging whatever it throws. */
+    /** Run a task without waiting for it, logging whatever it throws. */
     export function executeAsync(task: ITaskEntity, scheduledTask: ScheduledTaskEntity | null, user: Lite<IUserEntity>): void {
         void executeSync(task, scheduledTask, user).catch(logRunnerError("executeAsync"));
     }
 
-    /** Signum's `SurroundExecuteTask` — wrap every run (metrics, isolation, …). Each handler returns a
+    /** Wrap every run (metrics, isolation, …). Each handler returns a
      *  cleanup called when the run finishes, however it finishes. */
     export const surroundExecuteTask: ((task: ITaskEntity, scheduledTask: ScheduledTaskEntity | null, user: Lite<IUserEntity>) => () => void)[] = [];
 
-    /** Signum's `ExecuteSync`: log the start in its OWN transaction (so the row exists while the task runs),
+    /** Log the start in its OWN transaction (so the row exists while the task runs),
      *  run the task as its user, then close the log — with the exception if it threw. */
     export async function executeSync(
         task: ITaskEntity,
@@ -244,7 +240,7 @@ export namespace ScheduleTaskRunner {
             const userEntity = await ExecutionMode.global(() => retrieve(user.entityType as Type<Entity>, user.id!));
 
             try {
-                // Signum's `using (ExecutionMode.SetIsolation((Entity)user) ?? ExecutionMode.SetIsolation((Entity)task))`:
+                // The run adopts an isolation from the user, else the task))`:
                 // a scheduled run has no request to inherit an ambient scope from, so it takes one from the
                 // USER it runs as, falling back to the task row. No-op unless @altea/altea-isolation is
                 // installed.
@@ -306,7 +302,7 @@ export namespace ScheduleTaskRunner {
 
     // ---- the panel's view ------------------------------------------------------------------------------
 
-    /** Signum's `GetSchedulerState`. */
+    /** The snapshot the panel renders. */
     export function getSchedulerState(): SchedulerState {
         return {
             running: started,
@@ -330,7 +326,7 @@ export namespace ScheduleTaskRunner {
         };
     }
 
-    /** Signum's `GetHealthStatus`: stopped is only UNHEALTHY when the app meant to start it. */
+    /** Stopped is only UNHEALTHY when the app meant to start it. */
     export function getHealthStatus(): SchedulerHealth {
         return started ? { status: "Healthy", description: "Running" }
             : initialDelayMilliseconds == null ? { status: "Healthy", description: "Disabled" }
@@ -338,7 +334,7 @@ export namespace ScheduleTaskRunner {
     }
 }
 
-/** Port of Signum's ScheduledTaskContext — what a running task is handed: a cancellation signal, a place to
+/** What a running task is handed: a cancellation signal, a place to
  *  write progress (surfaced live on the panel), and `forEach`, which isolates each element so one failure is
  *  recorded as an exception LINE instead of losing the whole run. */
 export class ScheduledTaskContext {
@@ -348,7 +344,7 @@ export class ScheduledTaskContext {
 
     constructor(readonly log: ScheduledTaskLogEntity) { }
 
-    /** Signum's `CancellationToken` — a task that iterates must check it (forEach does). */
+    /** A task that iterates must check it (forEach does). */
     get signal(): AbortSignal {
         return this.controller.signal;
     }
@@ -357,7 +353,7 @@ export class ScheduledTaskContext {
         this.controller.abort();
     }
 
-    /** Signum's `StringBuilder` — progress the panel shows while the task runs. */
+    /** Progress the panel shows while the task runs. */
     writeLine(line: string): void {
         this.lines.push(line);
     }
@@ -366,7 +362,7 @@ export class ScheduledTaskContext {
         return this.lines.join("\n");
     }
 
-    /** Signum's `Foreach`: each element in its own transaction, and a failing element becomes a
+    /** Each element in its own transaction, and a failing element becomes a
      *  SchedulerTaskExceptionLine rather than aborting the run. Cancellation still aborts. */
     async forEach<T>(collection: Iterable<T>, elementId: (item: T) => string, action: (item: T) => Promise<void>): Promise<void> {
         for (const item of collection) {
@@ -395,7 +391,7 @@ export class ScheduledTaskContext {
         }
     }
 
-    /** Signum's `ForeachWriting` — the same, echoing each element (and its error) into the remarks. */
+    /** The same, echoing each element (and its error) into the remarks. */
     async forEachWriting<T>(collection: Iterable<T>, elementId: (item: T) => string, action: (item: T) => Promise<void>): Promise<void> {
         await this.forEach(collection, elementId, async item => {
             this.writeLine(elementId(item));

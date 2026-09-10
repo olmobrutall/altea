@@ -1,7 +1,8 @@
 import type { Lite } from "@altea/altea/data/lite";
 import type { ProcessEntity, ProcessState } from "./Processes";
 
-// The process panel's wire shapes — Signum's ProcessLogicState / ExecutionState (ProcessRunner.cs) and its
+// The process panel's wire shapes, declared ONCE in the isomorphic layer so the runner that fills them and
+// the page that renders them share one definition. Includes its
 // health result. Declared once in the isomorphic layer so the runner that fills them and the page that
 // renders them share one definition (as in the scheduler port).
 
@@ -13,7 +14,7 @@ export interface ProcessLogicState {
     justMyProcesses: boolean;
     machineName: string;
     applicationName: string;
-    /** Signum's rolling in-memory log of the runner's own decisions, when enabled. */
+    /** A rolling in-memory log of the runner's own decisions, when enabled. */
     log: string | null;
     executing: ExecutionState[];
 }
@@ -28,7 +29,7 @@ export interface ExecutionState {
     applicationName: string;
 }
 
-/** Signum's SignumHealthResult, reduced to what the panel's status link shows. */
+/** Reduced to what the panel's status link shows. */
 export interface ProcessHealth {
     status: "Healthy" | "Unhealthy";
     description: string;

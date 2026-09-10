@@ -9,7 +9,7 @@ import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { FilePathEmbedded, FileTypeSymbol } from "@altea/altea-files/data/Files";
 
-// Port of Signum.Authorization.AzureAD's CachedProfilePhoto.cs — a locally stored copy of a user's Microsoft
+// A locally stored copy of a user's Microsoft
 // Graph photo, so a page full of avatars does not become a page full of Graph calls.
 //
 // altea divergences, documented inline:
@@ -22,10 +22,10 @@ import { FilePathEmbedded, FileTypeSymbol } from "@altea/altea-files/data/Files"
 //  - `CreationDate { get; private set; } = Clock.Now` → a plain field with the same initializer (altea has
 //    no private setters).
 
-/** Graph serves photos at these square sizes only (Signum's `AzureADLogic.ToAzureSize`). */
+/** Graph serves photos at these square sizes only. */
 export const azureImageSizes = [48, 64, 96, 120, 240, 360, 432, 504, 648] as const;
 
-/** Signum's `AzureADLogic.ToAzureSize` — round a requested size UP to a size Graph actually serves. */
+/** Round a requested size UP to a size Graph actually serves. */
 export function toAzureSize(size: number): number {
     return azureImageSizes.find(s => size <= s) ?? 648;
 }
@@ -53,7 +53,7 @@ export class CachedProfilePhotoEntity extends Entity {
 
     creationDate: Temporal.PlainDateTime = Clock.now;
 
-    // Signum's `As.Expression(() => $"{User} {Size}px")`. Written as plain concatenation, NOT a template
+    // Written as plain concatenation, NOT a template
     // literal, and with no `?? ""`: `user` is non-nullable, and both of those introduce an EMPTY-STRING
     // constant into the lowered SQL. The parameter builder reuses one placeholder per distinct value, so a
     // second `""` would land both as a bare `$1 AS c0` in the select list (untypable in Postgres) and inside
@@ -65,13 +65,13 @@ export class CachedProfilePhotoEntity extends Entity {
     }
 }
 
-/** Signum's `[AutoInit] static class CachedProfilePhotoOperation`. */
+/** The cached photo's operations. */
 export namespace CachedProfilePhotoOperation {
     export const Save: ExecuteSymbol<CachedProfilePhotoEntity> = init();
     export const Delete: DeleteSymbol<CachedProfilePhotoEntity> = init();
 }
 
-/** Signum's `[AutoInit] static class AuthADFileType`. */
+/** The file store a cached photo is written to. */
 export namespace AuthADFileType {
     export const CachedProfilePhoto: FileTypeSymbol = init();
 }

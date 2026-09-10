@@ -15,13 +15,13 @@ import type { AzureADClientConfig } from "../data/AzureAD";
 // id_token in a popup (or silently, from its own cache) and posts it to the server.
 //
 // altea divergences, documented inline:
-//  - Signum reads the configuration from `window.__azureADConfig`, injected by Index.cshtml. altea has no
+//  - The configuration comes from an ANONYMOUS endpoint, because there is no
 //    server-rendered page, so `registerAzureADAuthenticator` FETCHES it (per AD variant) from the anonymous
 //    `/api/auth/azureADConfig` endpoint and caches it — which makes registration async. `Options
 //    .getAzureADConfig` remains the override seam.
-//  - `Reflection.isStarted()` (Signum's "register me before autoLogin" guard) has no altea counterpart; the
+//  - There is no "register me before autoLogin" guard to lean on; the
 //    ordering requirement is documented on `registerAzureADAuthenticator` instead.
-//  - `(newClient as any).browserStorage.setInteractionInProgress(false)` — Signum reaches into MSAL's
+//  - `(newClient as any).browserStorage.setInteractionInProgress(false)` reaches into MSAL's
 //    private storage because a CANCELLED logout leaves an "interaction in progress" flag that blocks the
 //    next login until cookies are cleared. MSAL v4 exposes no supported way to clear it either, so the
 //    same reach-in is kept, isolated in `clearInteractionInProgress` with this note.
@@ -40,7 +40,7 @@ export namespace AzureADAuthenticator {
     let currentMsalClient: msal.PublicClientApplication | null = null;
 
     /**
-     * Signum's `registerAzureADAuthenticator()`. Call from MainPublic BEFORE `AuthClient.autoLogin`, and
+     * Call from MainPublic BEFORE `AuthClient.autoLogin`, and
      * AWAIT it: the login buttons and the silent authenticator both need the configuration, which is a
      * server round trip in altea (see the header).
      */
@@ -102,7 +102,7 @@ export namespace AzureADAuthenticator {
     export type B2C_UserFlows = "signInSignUp_UserFlow" | "signIn_UserFlow" | "signUp_UserFlow"
         | "resetPassword_UserFlow" | "editProfile_UserFlow";
 
-    /** Signum's getAuthority. */
+    /** The authority URL for the configured Azure product. */
     export function getAuthority(config: AzureADClientConfig, b2cUserFlow?: B2C_UserFlows): string {
         if (config.type === "AzureAD")
             return "https://login.microsoftonline.com/" + config.tenantId;
@@ -118,7 +118,7 @@ export namespace AzureADAuthenticator {
         throw new Error("Unexpected AzureAD type");
     }
 
-    /** Signum's signIn — the interactive popup flow. */
+    /** The interactive popup flow. */
     export async function signIn(ctx: LoginContext, adVariant: string, b2cUserFlow?: B2C_UserFlows, e?: React.MouseEvent): Promise<void> {
         e?.preventDefault();
         ctx.setLoading(adVariant);
@@ -130,7 +130,7 @@ export namespace AzureADAuthenticator {
         try {
             const authResult = await newClient.loginPopup({
                 scopes: config.scopes,
-                // Shift / Alt forces the account chooser (Signum's convention).
+                // Shift / Alt forces the account chooser.
                 prompt: e?.shiftKey || e?.altKey ? "select_account" : undefined,
                 authority: getAuthority(config, b2cUserFlow),
             });
@@ -169,7 +169,7 @@ export namespace AzureADAuthenticator {
     }
 
     /**
-     * Signum's resetPasswordB2C — B2C signals "I forgot my password" as an error on the sign-in popup, and
+     * B2C signals "I forgot my password" as an error on the sign-in popup, and
      * the reset itself is another user flow. The confirmation modal is not decoration: opening a popup from
      * an async continuation gets blocked by the browser, so the click on the modal's button is what opens it.
      */
@@ -222,7 +222,7 @@ export namespace AzureADAuthenticator {
         }
     }
 
-    /** Signum's loginWithAzureADSilent — registered in `AuthClient.authenticators`, runs at every boot. */
+    /** Registered in `AuthClient.authenticators`, runs at every boot. */
     export async function loginWithAzureADSilent(): Promise<AuthClient.AuthenticatedUser | undefined> {
         if (location.search.includes("avoidAD"))
             return undefined;
@@ -284,7 +284,7 @@ export namespace AzureADAuthenticator {
         return Options.getAzureADConfig(getCurrentADVariant() ?? "default");
     }
 
-    /** Signum's getAccessToken — a Graph token for the SIGNED-IN user (delegated calls). */
+    /** A Graph token for the SIGNED-IN user (delegated calls). */
     export async function getAccessToken(): Promise<string> {
         const ai = getCurrentMsalAccount();
         if (!ai)
@@ -322,7 +322,7 @@ export namespace AzureADAuthenticator {
     }
 
     /**
-     * Signum's `(client as any).browserStorage.setInteractionInProgress(false)`. A CANCELLED logout popup
+     * A CANCELLED logout popup
      * leaves MSAL's "interaction in progress" flag set, and every later login then fails until the user
      * clears cookies and local storage. MSAL exposes no supported way to reset it, so the private reach-in
      * is kept — but isolated here, and tolerant of the internals moving.
@@ -350,7 +350,7 @@ export namespace AzureADAuthenticator {
     }
 }
 
-/** The "Sign in with Microsoft" branded button. `iconUrl` is overridable, as in Signum. */
+/** The "Sign in with Microsoft" branded button. `iconUrl` is overridable. */
 export const MicrosoftSignInOptions = {
     iconUrl: AppContext.toAbsoluteUrl("/signin_light.svg"),
 };

@@ -4,7 +4,7 @@ import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { EntityTable } from "@altea/altea/client/Lines/EntityTable";
 import { HolidayCalendarEntity } from "../../data/HolidayCalendar";
 
-// Port of Signum.Scheduler Templates/HolidayCalendar.tsx. The country / year range drive
+// The country / year range drive
 // HolidayCalendarOperation.ImportPublicHolidays, which appends the dates from date.nager.at.
 export default function HolidayCalendar(p: { ctx: TypeContext<HolidayCalendarEntity> }): React.JSX.Element {
     const ctx = p.ctx.subCtx({ labelColumns: { sm: 3 } });

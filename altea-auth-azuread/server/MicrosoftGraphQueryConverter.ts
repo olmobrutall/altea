@@ -7,14 +7,15 @@ import { Temporal } from "@altea/altea/data/basics";
 import { Lite } from "@altea/altea/data/lite";
 import { AzureADMessage } from "../data/AzureAD";
 
-// Port of Signum.Authorization.AzureAD's MicrosftGraphQuery.cs (the file name's typo is Signum's) — turn a
+// Turning a query request into Graph's OData parameters. Port of Signum.Authorization.AzureAD's
+// MicrosftGraphQuery.cs (the typo is Signum's) — turn a
 // SearchControl request into Microsoft Graph OData query parameters.
 //
-// The interesting part is Signum's split between `$filter` and `$search`: Graph cannot express "contains"
+// The interesting part is the split between `$filter` and `$search`: Graph cannot express "contains"
 // in `$filter`, so a Contains condition becomes a `$search` term instead, and the two are combined
 // SEPARATELY (`getFilters` drops the Contains conditions, `getSearch` keeps only those). Inside an OR that
 // is impossible — a group would have to be half filter and half search — so mixing them there is an error,
-// exactly as in Signum.
+// which is what makes both usable at once.
 //
 // altea divergences, documented inline:
 //  - `token.Follow(a => a.Parent).Reverse().ToString(a => a.Key.FirstLower(), "/")` loses the FirstLower:
@@ -34,7 +35,7 @@ export enum GraphFieldUsage {
 
 export class MicrosoftGraphQueryConverter {
 
-    /** Signum's GetOrderBy. */
+    /** The `$orderby` parameter. */
     getOrderBy(orders: Order[]): string[] | null {
         if (orders.length === 0)
             return null;
@@ -49,7 +50,7 @@ export class MicrosoftGraphQueryConverter {
      */
     static readonly fieldAliases: Record<string, string> = { objectId: "id" };
 
-    /** Signum's ToGraphField. */
+    /** A query token as the Graph field it names. */
     toGraphField(token: QueryToken, usage: GraphFieldUsage): string {
         const parts: string[] = [];
         for (let t: QueryToken | undefined = token; t != undefined; t = t.parent)
@@ -65,7 +66,7 @@ export class MicrosoftGraphQueryConverter {
         return field;
     }
 
-    /** Signum's ToStringValue — an OData literal. */
+    /** An OData literal. */
     toStringValue(value: unknown): string {
         if (value == null)
             return "null";
@@ -80,12 +81,12 @@ export class MicrosoftGraphQueryConverter {
         return String(value);
     }
 
-    /** Signum's GetFilters — the `$filter` half (Contains conditions are dropped; see the header). */
+    /** The `$filter` half (Contains conditions are dropped; see the header). */
     getFilters(filters: Filter[]): string | null {
         return combined(filters.map(f => this.toFilter(f)), FilterGroupOperationKeys.And);
     }
 
-    /** Signum's ToFilter. */
+    /** One filter as an OData `$filter` clause. */
     toFilter(f: Filter): string | null {
         if (f instanceof FilterCondition) {
             if (f.operation === FilterOperationKeys.Contains)
@@ -98,7 +99,7 @@ export class MicrosoftGraphQueryConverter {
                     return "(" + (f.value as unknown[]).map(a => `${field} eq ${this.toStringValue(a)}`).join(" OR ") + ")";
                 case FilterOperationKeys.IsNotIn:
                     return "not (" + (f.value as unknown[]).map(a => `${field} eq ${this.toStringValue(a)}`).join(" OR ") + ")";
-                // Signum rejects Like / NotLike here; altea has no Like operation but does have the
+                // There is no Like operation to reject, but there is the
                 // full-text ones, which Graph cannot express either — so they are what gets rejected.
                 case FilterOperationKeys.FreeText:
                 case FilterOperationKeys.ComplexCondition:
@@ -120,7 +121,7 @@ export class MicrosoftGraphQueryConverter {
         throw new Error(`Unexpected filter ${String(f)}`);
     }
 
-    /** Signum's BuildCondition. */
+    /** One field / operation / value triple as OData. */
     buildCondition(field: string, operation: FilterOperationKeys, value: string): string | null {
         switch (operation) {
             case FilterOperationKeys.EqualTo: return `${field} eq ${value}`;
@@ -139,12 +140,12 @@ export class MicrosoftGraphQueryConverter {
         }
     }
 
-    /** Signum's GetSearch — the `$search` half (only Contains conditions). */
+    /** The `$search` half (only Contains conditions). */
     getSearch(filters: Filter[]): string | null {
         return combined(filters.map(f => this.toSearch(f)), FilterGroupOperationKeys.And);
     }
 
-    /** Signum's ToSearch. */
+    /** One filter as a `$search` term. */
     toSearch(f: Filter): string | null {
         if (f instanceof FilterCondition) {
             return f.operation === FilterOperationKeys.Contains
@@ -158,7 +159,7 @@ export class MicrosoftGraphQueryConverter {
         throw new Error(`Unexpected filter ${String(f)}`);
     }
 
-    /** Signum's GetSelect. */
+    /** The `$select` parameter — only the fields the request's columns need. */
     getSelect(columns: Column[]): string[] | null {
         const fields = columns
             .map(c => this.toGraphField(c.token, GraphFieldUsage.Select))
@@ -167,7 +168,7 @@ export class MicrosoftGraphQueryConverter {
     }
 
     /**
-     * Signum's GetTop. Note it asks for `elementsPerPage * currentPage` rows and then SKIPs locally
+     * The `$top` parameter. Note it asks for `elementsPerPage * currentPage` rows and then SKIPs locally
      * (Graph's paging is cursor-based, so there is no `$skip` for directory objects).
      */
     getTop(pagination: Pagination): number | null {
@@ -182,7 +183,7 @@ export class MicrosoftGraphQueryConverter {
 }
 
 /**
- * Signum's `MicrosoftGraphConverterExtensions.Combined`. AND simply drops the nulls (a Contains condition
+ * Combine two OData clauses. AND simply drops the nulls (a Contains condition
  * lives in `$search` instead); OR cannot, because half a group in `$filter` and half in `$search` is not
  * expressible — so a null inside an OR is an error.
  */

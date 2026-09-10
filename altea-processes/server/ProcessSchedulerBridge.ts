@@ -11,13 +11,14 @@ import { SimpleTaskLogic } from "@altea/altea-scheduler/server/SimpleTaskLogic";
 
 
 
-// Port of Signum's "a scheduled task can BE a process" bridge. In Signum, ProcessLogic makes
+// The SERVER half of "a scheduled task can BE a process": what happens when the scheduler fires one. In
+// Signum, ProcessLogic makes
 // ProcessAlgorithmSymbol an ITaskEntity: a ScheduledTask can point straight at an algorithm, and when the
 // scheduler fires it, a Process is CREATED and QUEUED rather than run inline — so the work lands in the
 // process runner (progress, suspend, retry, the panel) instead of blocking a scheduler tick.
 //
 // altea divergences:
-//  - Signum registers the ITaskEntity handler through its Polymorphic ExecuteTask; altea's registry is keyed
+//  - The handler is registered per concrete type, because the registry is keyed
 //    by constructor, so this is one `SchedulerLogic.registerExecuteTask(ProcessAlgorithmSymbol, ...)`.
 //  - The APP still has to widen `ScheduledTaskEntity.task`'s implementations to include
 //    ProcessAlgorithmSymbol — `@implementedBy` lives on the field and the scheduler cannot know about
@@ -36,7 +37,7 @@ export namespace ProcessSchedulerBridge {
             return;
 
         SchedulerLogic.registerExecuteTask(ProcessAlgorithmSymbol, async task => {
-            // Signum: the scheduled task's PRODUCT is the process it queued, so the scheduler's log links to
+            // The scheduled task's PRODUCT is the process it queued, so the scheduler's log links to
             // it and the process panel takes over from there.
             const process = await ProcessLogic.create(task as ProcessAlgorithmSymbol, null);
             await queue(process);

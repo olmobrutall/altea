@@ -17,7 +17,7 @@ import { ADGroupEntity, type ADGroupRequest } from "../data/ADGroup";
 import { CachedProfilePhotoEntity } from "../data/CachedProfilePhoto";
 import { ActiveDirectoryGroupsRowModel, ActiveDirectoryUsersRowModel } from "../data/ActiveDirectoryQueries";
 
-// Port of Signum.Authorization.AzureAD's AzureADClient.tsx — the ADMIN-side registrations: the
+// The ADMIN-side registrations: the
 // configuration editor, the AD-group view, the two directory search pages' default filters, and the
 // profile-photo provider.
 //
@@ -43,7 +43,8 @@ export namespace AzureADClient {
 
         cb.configure(AzureADConfigurationEmbedded).withView(() => import("./AzureADConfiguration"));
 
-        // The cached-photo table's query settings — Signum's server-side
+        // The cached-photo table's query settings. Default columns are a CLIENT setting, where Signum has
+        // a server-side
         // `WithQuery(() => e => new { e.Id, e.CreationDate, e.InvalidationDate, e.Size, e.User, e.Photo })`.
         // Registered UNCONDITIONALLY, not under `profilePhotos`: the table is part of the schema either way
         // (the host starts CachedProfilePhotoLogic), and `cb.configure` is also what registers the entity's
@@ -86,7 +87,7 @@ export namespace AzureADClient {
                     ],
                 }));
 
-            // Signum's `new EntitySettings(ADGroupEntity, …, { isCreable: "Never" })`. Not decoration: an AD
+            // `isCreable: "Never"` is not decoration: an AD
             // group's PRIMARY KEY is its Entra object id (see data/ADGroup.ts), so a hand-created row would
             // stand for no real group. altea's fluent `configure` covers view + query settings only, so this
             // reaches for the settings directly.
@@ -111,10 +112,11 @@ export namespace AzureADClient {
                     },
                     { token: "creationType", operation: "DistinctTo", value: "Invitation" },
                 ],
-                // Signum relies on its server-declared query columns and merely HIDES two of them; altea
+                // The columns are declared HERE rather than server-side, so the two Signum hides are
+                // simply not listed —
                 // derives the default set from the row model (id + the first fields), so the visible set is
                 // stated here — otherwise `objectId` would show as an "Id" column, which is precisely what
-                // Signum's hiddenColumns exists to prevent.
+                // which is what its `hiddenColumns` exists to prevent.
                 defaultColumns: [
                     "displayName",
                     "userPrincipalName",
@@ -159,7 +161,7 @@ export namespace AzureADClient {
         }
     }
 
-    /** Signum's findActiveDirectoryGroup — pick a directory group and import it as an ADGroupEntity. */
+    /** Pick a directory group and import it as an ADGroupEntity. */
     export function findActiveDirectoryGroup(): Promise<Lite<ADGroupEntity> | undefined> {
         return Finder.findRow({
             queryName: ActiveDirectoryGroupsRowModel,
@@ -170,7 +172,7 @@ export namespace AzureADClient {
             .then(a => a && API.createADGroup(toADGroupRequest(a.row, a.searchControl)));
     }
 
-    /** Signum's findManyActiveDirectoryGroup. */
+    /** Pick SEVERAL directory groups and import them. */
     export function findManyActiveDirectoryGroup(): Promise<Lite<ADGroupEntity>[] | undefined> {
         return Finder.findManyRows({
             queryName: ActiveDirectoryGroupsRowModel,
@@ -207,7 +209,7 @@ export namespace AzureADClient {
             return ajaxPost({ url: "/api/createADGroup" }, request);
         }
 
-        /** Signum's `forceCacheInvalidationKey` — bust the browser cache after a photo refresh. */
+        /** Bust the browser cache after a photo refresh. */
         export const Options = { forceCacheInvalidationKey: undefined as string | undefined };
 
         export function cachedAzureUserPhotoUrl(size: number, oid: string): Promise<string | null> {

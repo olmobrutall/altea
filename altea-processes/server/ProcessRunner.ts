@@ -18,20 +18,20 @@ import { ProcessEntity, ProcessExceptionLineEntity, ProcessState } from "../data
 import type { ProcessLogicState, ProcessHealth } from "../data/ProcessLogicState";
 import { ProcessLogic, type IProcessAlgorithm } from "./ProcessLogic";
 
-// Port of Signum.Processes' ProcessRunner.cs — the IN-PROCESS process runner: a pump that promotes due
+// The IN-PROCESS process runner: a pump that promotes due
 // PLANNED processes to QUEUED, starts up to `maxDegreeOfParallelism` of them, and suspends the ones asked to
 // stop. Unlike the scheduler's single timer, this one is driven by three things: an explicit wake-up (an
 // operation just queued something), a periodic poll (another host may have queued something), and a timer for
 // the next planned date.
 //
 // altea divergences, documented inline:
-//  - Signum blocks a dedicated thread on an `AutoResetEvent` and loops. Node has one event loop, so `wakeUp`
+//  - There is no dedicated thread blocking on an event: node has one event loop, so `wakeUp`
 //    COALESCES into a single pending `pump()` (an extra wake-up while a pump is in flight sets a flag and the
 //    pump runs again), which gives the same "never miss a signal, never run two loops" property without a
 //    thread or a lock. `lock (executing)` is likewise unnecessary — the map is only touched between awaits.
-//  - `CacheLogic.ServerBroadcast` / SqlDependency invalidation (Signum's cross-host push) is NOT ported: the
+//  - There is no cross-host PUSH when another host queues work: the
 //    periodic poll is what notices another host's work. `poolingPeriodMilliseconds` is therefore the latency
-//    for a shared process, exactly as in a Signum deployment without SqlDependency.
+//    for a shared process.
 //  - `Task.Run` → an un-awaited async call whose rejection is logged, so a failing algorithm cannot take the
 //    process down; timers are `unref()`d so a pending poll never holds a CLI process open.
 //  - `AuthLogic.Disable()` → `ExecutionMode.global`; `UserHolder.UserSession(user)` → `UserHolder.withUser`.
@@ -39,11 +39,11 @@ import { ProcessLogic, type IProcessAlgorithm } from "./ProcessLogic";
 
 export namespace ProcessRunner {
 
-    /** Signum's `MaxDegreeOfParallelism` — how many processes may execute at once on this host. */
+    /** How many processes may execute at once on this host. */
     export let maxDegreeOfParallelism = 2;
-    /** Signum's `PoolingPeriodMilliseconds` — how often to look for work queued by another host. */
+    /** How often to look for work queued by another host. */
     export let poolingPeriodMilliseconds = 30 * 1000;
-    /** Signum's `OnFinally` — every finished process notifies these, however it ended. */
+    /** Every finished process notifies these, however it ended. */
     export const onFinally: ((executing: ExecutingProcess) => void)[] = [];
 
     const executing = new Map<string, ExecutingProcess>();
@@ -58,7 +58,7 @@ export namespace ProcessRunner {
     let pumping = false;
     let pumpAgain = false;
 
-    // Signum's LogStringBuilder — a bounded in-memory trace of the runner's decisions, shown on the panel.
+    // A bounded in-memory trace of the runner's decisions, shown on the panel.
     const logLines: string[] = [];
     let logEnabled = false;
 
@@ -97,7 +97,7 @@ export namespace ProcessRunner {
         started = true;
         log("startRunningProcesses");
 
-        // Signum's first act: anything this host claims to be running cannot be (the process just started),
+        // Anything this host claims to be running cannot be (the process just started),
         // so re-queue it. A SHARED suspended process is re-queued too — any host may pick it up.
         // The host identity is CAPTURED into consts: a call inside a query lambda has no SQL translation.
         const machine = machineName();
@@ -117,7 +117,7 @@ export namespace ProcessRunner {
         wakeUp("startRunningProcesses");
     }
 
-    /** Signum's `StartRunningProcessesAfter` — what an app calls at boot. */
+    /** What an app calls at boot. */
     export function startRunningProcessesAfter(delayMilliseconds: number): void {
         initialDelayMilliseconds = delayMilliseconds;
         setTimeout(() => { void startRunningProcesses().catch(logRunnerError("startRunningProcessesAfter")); }, delayMilliseconds)
@@ -137,13 +137,13 @@ export namespace ProcessRunner {
         plannedTimer = undefined;
         nextPlannedExecution = undefined;
 
-        // Signum cancels the token that gates NEW processes and leaves the running ones to notice; here the
+        // The token that gates NEW processes is cancelled and the running ones notice; here the
         // running ones are cancelled outright, which is what a host shutting down wants.
         for (const ep of executing.values())
             ep.cancel();
     }
 
-    /** Signum's `WakeUp` — something changed, look for work. Coalesced: at most one pump at a time. */
+    /** Something changed, look for work. Coalesced: at most one pump at a time. */
     export function wakeUp(reason: string): void {
         if (!started)
             return;
@@ -170,7 +170,7 @@ export namespace ProcessRunner {
         })();
     }
 
-    /** Signum's `IsExecutingInThisMachien` — the Cancel operation refuses while the process is in flight. */
+    /** The Cancel operation refuses while the process is in flight. */
     export function isExecutingInThisMachine(process: Lite<ProcessEntity>): boolean {
         return executing.has(process.key());
     }
@@ -240,7 +240,7 @@ export namespace ProcessRunner {
             const affordable = queued
                 .filter(p => ProcessLogic.getProcessAlgorithm(p.algorithm).allowParallelExecution
                     || !busyNonParallel.has(p.algorithm.key))
-                // Prefer the ones already pinned to this host, then oldest first (Signum's ordering).
+                // Prefer the ones already pinned to this host, then oldest first.
                 .sort((a, b) => Number(b.machineName === machine) - Number(a.machineName === machine)
                     || compareNullableDates(a.queuedDate, b.queuedDate))
                 .slice(0, remaining);
@@ -261,7 +261,7 @@ export namespace ProcessRunner {
 
         try {
             // Claims the row for this host IN THE DATABASE — the guard that stops two hosts running one
-            // process (Signum's TakeForThisMachine, which also refuses if it is already Executing).
+            // process — which also refuses if it is already Executing.
             await ep.takeForThisMachine();
         } catch (error) {
             executing.delete(process.toLite().key());
@@ -333,7 +333,7 @@ export namespace ProcessRunner {
 
     // ---- helpers ----------------------------------------------------------------------------------------
 
-    /** Signum's set-based `SetAsQueued` — reset every run-specific field in ONE statement.
+    /** Reset every run-specific field in ONE set-based statement.
      *  The parameter is typed `Query<ProcessEntity>`, not a structural shape: the quote-transformer only
      *  rewrites a lambda when it can see the receiver is a Query, and a duck-typed parameter defeats that
      *  ("The following lambda has not been quoted" at runtime). */
@@ -374,7 +374,7 @@ export namespace ProcessRunner {
     }
 }
 
-/** Port of Signum's ExecutingProcess — the handle an algorithm gets: what it runs over, how to report
+/** The handle an algorithm gets: what it runs over, how to report
  *  progress, and whether it has been asked to stop. */
 export class ExecutingProcess {
 
@@ -386,7 +386,7 @@ export class ExecutingProcess {
         return this.currentProcess.data;
     }
 
-    /** Signum's `CancellationToken` — a long algorithm must check it (forEachLine does). */
+    /** A long algorithm must check it (forEachLine does). */
     get signal(): AbortSignal {
         return this.controller.signal;
     }
@@ -395,12 +395,12 @@ export class ExecutingProcess {
         this.controller.abort();
     }
 
-    /** Signum's `ProgressChanged(position, count, status)`. */
+    /** Report progress: a fraction and a one-line status. */
     async progressChanged(position: number, count: number, status?: string): Promise<void> {
         if (position > count)
             throw new Error(`Position (${position}) should not be greater than count (${count}). Maybe the process is not making progress.`);
 
-        // Signum rounds to 3 decimals so an update is skipped unless the fraction actually moved.
+        // Rounded to 3 decimals, so an update is skipped unless the fraction actually moved.
         const progress = count === 0 ? new Decimal(0) : new Decimal(position).div(count).toDecimalPlaces(3);
         await this.progressChangedDecimal(progress, status);
     }
@@ -414,7 +414,7 @@ export class ExecutingProcess {
         this.currentProcess.progress = progress;
         this.currentProcess.status = status ?? null;
 
-        // A set-based UPDATE, like Signum: it must not go through the save pipeline (no ticks conflict with
+        // A set-based UPDATE: it must not go through the save pipeline (no ticks conflict with
         // the operation that may be suspending this very row) and must be visible to the panel immediately.
         await ExecutionMode.global(() => Transaction.forceNew(async () => {
             await table(ProcessEntity).filter(p => p.id == this.currentProcess.id)
@@ -422,7 +422,7 @@ export class ExecutingProcess {
         }));
     }
 
-    /** Signum's `WriteMessage` — status only, no progress. */
+    /** Status only, no progress. */
     async writeMessage(status: string | null): Promise<void> {
         if ((this.currentProcess.status ?? null) === status)
             return;
@@ -434,7 +434,7 @@ export class ExecutingProcess {
         }));
     }
 
-    /** Signum's `TakeForThisMachine` — claim the row, refusing if another host already runs it. */
+    /** Claim the row, refusing if another host already runs it. */
     async takeForThisMachine(): Promise<void> {
         await ExecutionMode.global(() => Transaction.forceNew(async () => {
             const alreadyExecuting = await table(ProcessEntity)
@@ -455,12 +455,12 @@ export class ExecutingProcess {
         }));
     }
 
-    /** Signum's `Execute` — run the algorithm as the process's user and record how it ended. */
+    /** Run the algorithm as the process's user and record how it ended. */
     async execute(): Promise<void> {
         const user = await ExecutionMode.global(() =>
             retrieve(this.currentProcess.user.entityType as Type<Entity>, this.currentProcess.user.id!));
 
-        // Signum's `using (ExecutionMode.SetIsolation(CurrentProcess) ?? (CurrentProcess.Data != null ?
+        // The run adopts an isolation from the process row, else (when it has data) from
         // ExecutionMode.SetIsolation(CurrentProcess.Data) : null))`: a background runner has no request to
         // inherit an ambient scope from, so it takes one from the process row — or, when the process itself
         // is not scoped, from the entity it was created for. No-op unless @altea/altea-isolation is
@@ -503,7 +503,7 @@ export class ExecutingProcess {
     }
 
     /**
-     * The entities whose ambient scope this run may adopt, in Signum's order: the process row, then — when
+     * The entities whose ambient scope this run may adopt, in order: the process row, then — when
      * the process itself carries none — the entity it was created for (`CurrentProcess.Data`, whose lite has
      * to be retrieved, since the scope is a field of the row).
      */
@@ -519,7 +519,7 @@ export class ExecutingProcess {
         }
     }
 
-    /** Signum's `ForEach` — each element in its own transaction, reporting progress, and a failing element
+    /** Each element in its own transaction, reporting progress, and a failing element
      *  becomes a ProcessExceptionLine instead of losing the whole run. Cancellation still stops it. */
     async forEach<T>(
         collection: readonly T[],

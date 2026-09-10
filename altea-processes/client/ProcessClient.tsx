@@ -10,13 +10,10 @@ import type { ProcessLogicState } from "../data/ProcessLogicState";
 import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 
-// Port of Signum.Processes' ProcessClient.tsx — the panel route, the Process editor, and the typed HTTP
-// client the panel calls.
+// The panel route, the Process editor, and the typed HTTP client the panel calls.
 //
-// altea divergences: Signum's PackageOperation CONTEXTUAL MENU (pick rows in a search, run an operation over
-// them as a process) is NOT ported — it needs its own contextual-item + operation-settings machinery; an app
-// builds its packages in code for now. The ChangeLog module and the ProcessDates bar-chart column formatter
-// go with it (the last needs Signum's D3Utils buildDateScale).
+// The PackageOperation CONTEXTUAL MENU — pick rows in a search, run an operation over them as a process —
+// is NOT ported; an app builds its packages in code. See docs/port/Processes.md.
 
 export namespace ProcessClient {
 

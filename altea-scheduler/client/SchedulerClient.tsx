@@ -12,17 +12,10 @@ import type { SchedulerState } from "../data/SchedulerState";
 import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 
-// Port of Signum.Scheduler's SchedulerClient.tsx — the panel route, the entity editors, and the typed HTTP
-// client the panel calls.
+// The panel route, the entity editors, and the typed HTTP client the panel calls. Default columns are a
+// CLIENT setting here, since `withQuery()` takes no projection.
 //
-// altea divergences:
-//  - Signum's `Navigator.addSettings(new EntitySettings(T, view))` → `cb.configure(T).withView(...)`, and
-//    its `.WithQuery(() => st => new { … })` server projection becomes `withQuerySettings({ defaultColumns })`
-//    here (altea resolves query columns client-side — there is no QueryDescription).
-//  - The ChangeLog module and the `ScheduledTaskLogDatesDTO` bar-chart column formatter are NOT ported:
-//    the first has no altea counterpart, and the second needs `buildDateScale` from Signum's D3Utils.
-//  - `Constructor.registerConstructor(ScheduleRuleWeekDaysEntity, ...)` — which pre-fills the default holiday
-//    calendar on a NEW weekday rule — is deferred with it; pick the calendar in the editor instead.
+// See docs/port/Scheduler.md.
 
 export namespace SchedulerClient {
 
@@ -98,7 +91,7 @@ export namespace SchedulerClient {
     export namespace API {
 
         export function view(): Promise<SchedulerState> {
-            // `avoidNotifyPendingRequests` like Signum: the panel polls twice a second and must not make the
+            // `avoidNotifyPendingRequests`: the panel polls twice a second and must not make the
             // global loading indicator flicker.
             return ajaxGet({ url: "/api/scheduler/view", avoidNotifyPendingRequests: true });
         }

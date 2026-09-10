@@ -10,11 +10,8 @@ import { ProcessEntity, ProcessMessage, ProcessState } from "../data/Processes";
 import type { ExecutionState } from "../data/ProcessLogicState";
 import { ProcessClient } from "./ProcessClient";
 
-// Port of Signum.Processes' ProcessPanelPage.tsx — start/stop, what is executing right now with its live
-// progress, and the latest processes.
-//
-// altea divergences: no CopyHealthCheckButton (not ported) — the health endpoint is a plain link, as in
-// Signum. The runner's in-memory log is rendered when the server has it enabled.
+// Start/stop, what is executing right now with its live progress, and the latest processes. The health
+// endpoint is a plain link, and the runner's in-memory log is rendered when the server has it enabled.
 
 export default function ProcessPanelPage(): React.JSX.Element {
 

@@ -33,7 +33,7 @@ import { MicrosoftGraph, type GraphCollection, type GraphGroup, type GraphUser }
 import { MicrosoftGraphQueryConverter } from "./MicrosoftGraphQueryConverter";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
-// Port of Signum.Authorization.AzureAD's AzureADLogic.cs — the module's start-up plus every Microsoft Graph
+// The module's start-up plus every Microsoft Graph
 // operation it offers: the nightly deactivate-users sweep, the two directory-backed search queries, the
 // group lookup the role mapping uses, the invite-a-user flow and the profile photo.
 //
@@ -44,7 +44,7 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 //    captions on the model's fields (altea has no QueryDescription — see ActiveDirectoryQueries.ts).
 //  - `.ToDEnumerable(queryDescription).Select(request.Columns).WithCount(response.OdataCount)` becomes
 //    `DEnumerable.fromEntity(...).where(...).orderBy(...).withCount(...).toResultTable(...)`. NOTE the
-//    filters/orders are ALSO applied in memory here, which Signum does not do: Graph silently ignores what
+//    filters/orders are ALSO applied IN MEMORY, which Signum does not do: Graph silently ignores what
 //    it cannot express (a `$search` term is a fuzzy match, `$orderby` is refused on some fields), so
 //    re-applying them locally makes the page agree with the filter the user typed. It costs nothing — the
 //    rows are already in hand.
@@ -59,7 +59,7 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 export namespace AzureADLogic {
 
-    /** Signum's `CacheADGroupsFor` — 30 minutes. */
+    /** 30 minutes. */
     export let cacheADGroupsForMs = 30 * 60 * 1000;
 
     interface CachedGroups { at: number; groups: SimpleGroup[] }
@@ -73,11 +73,11 @@ export namespace AzureADLogic {
     export let authorizer: AzureADAuthorizer | undefined;
 
     export interface StartOptions {
-        /** Signum's `getConfig` — per AD VARIANT ("default" or an application-specific name). */
+        /** Per AD VARIANT ("default" or an application-specific name). */
         getConfig: (adVariant: string | null) => AzureADConfigurationEmbedded | null;
-        /** Signum's `adGroupsAndQueries`: include ADGroupEntity and register the two directory queries. */
+        /** Include ADGroupEntity and register the two directory queries. */
         adGroupsAndQueries?: boolean;
-        /** Signum's `deactivateUsersTask`: register the AzureADTask.DeactivateUsers simple task. */
+        /** Register the AzureADTask.DeactivateUsers simple task. */
         deactivateUsersTask?: boolean;
     }
 
@@ -88,7 +88,7 @@ export namespace AzureADLogic {
         authorizer = new AzureADAuthorizer(options.getConfig);
         AuthLogic.authorizer = authorizer;
 
-        // Signum's `PermissionLogic.RegisterTypes(typeof(ActiveDirectoryPermission))`. The WindowsAD module
+        // The same permission container the WindowsAD module
         // registers the same container; the registry is a set, so whichever directory an app wires gets it.
         PermissionLogic.registerContainer(ActiveDirectoryPermission);
 
@@ -96,7 +96,7 @@ export namespace AzureADLogic {
             registerDeactivateUsersTask();
 
         if (options.adGroupsAndQueries) {
-            // Signum's `new Graph<ADGroupEntity>.Execute(ADGroupOperation.Save)` / `.Delete`, which are
+            // Save / Delete, which are
             // both the plain defaults. No SaveDisableIdentity: the uuid PK is assigned by the caller
             // (see data/ADGroup.ts).
             sb.include(ADGroupEntity)
@@ -121,7 +121,7 @@ export namespace AzureADLogic {
     // ---- The nightly sweep ------------------------------------------------------------------------------
 
     /**
-     * Signum's `SimpleTaskLogic.Register(AzureADTask.DeactivateUsers, …)` — ask Graph, in batches of 10,
+     * Ask Graph, in batches of 10,
      * whether each externally-linked user is still enabled, and AUTO-deactivate / reactivate accordingly.
      * `AutoDeactivate` (not `Deactivate`) so an administrator can still tell the two apart.
      */
@@ -167,7 +167,6 @@ export namespace AzureADLogic {
 
     function registerDirectoryQueries(): void {
 
-        // Signum's `AzureADQuery.ActiveDirectoryUsers`.
         QueryLogic.queries.register(ActiveDirectoryUsersRowModel, () =>
             new ManualDynamicQueryCore(ActiveDirectoryUsersRowModel, async request => {
                 const config = requireConfig();
@@ -195,7 +194,6 @@ export namespace AzureADLogic {
                 return finish(ActiveDirectoryUsersRowModel, rows, request, rest, response["@odata.count"]);
             }));
 
-        // Signum's `AzureADQuery.ActiveDirectoryGroups`.
         QueryLogic.queries.register(ActiveDirectoryGroupsRowModel, () =>
             new ManualDynamicQueryCore(ActiveDirectoryGroupsRowModel, async request => {
                 const config = requireConfig();
@@ -245,7 +243,7 @@ export namespace AzureADLogic {
     }
 
     /**
-     * Signum's `response.Value.Skip(skip).Select(request.Columns).WithCount(response.OdataCount)`.
+     * Page, project and count the Graph response.
      *
      * The local SKIP is not an optimisation to drop: Graph pages directory objects with an opaque cursor,
      * so there is no `$skip` — the converter asks for `elementsPerPage * currentPage` rows and the page the
@@ -266,7 +264,7 @@ export namespace AzureADLogic {
             .toResultTable(request.columns, request.pagination);
     }
 
-    /** Pull ONE `EqualTo` condition on `key` out of the request's filters (Signum's `Filters.Extract`). */
+    /** Pull ONE `EqualTo` condition on `key` out of the request's filters. */
     function extractFilter(request: QueryRequest, key: string): { extracted: FilterCondition | undefined; rest: Filter[] } {
         let extracted: FilterCondition | undefined;
         const rest = request.filters.filter(f => {
@@ -321,7 +319,7 @@ export namespace AzureADLogic {
 
     // ---- Directory search / import ---------------------------------------------------------------------
 
-    /** Signum's FindActiveDirectoryUsers — the autocomplete behind "invite a user from the directory". */
+    /** The autocomplete behind "invite a user from the directory". */
     export async function findActiveDirectoryUsers(subStr: string, top: number, _signal?: AbortSignal): Promise<ExternalUser[]> {
         const config = requireConfig();
         const s = subStr.replace(/'/g, "''");
@@ -342,7 +340,7 @@ export namespace AzureADLogic {
         }));
     }
 
-    /** Signum's GetActiveDirectoryUser. */
+    /** One directory user by object id. */
     export async function getActiveDirectoryUser(oid: string): Promise<ExternalUser> {
         const config = requireConfig();
         const u = await MicrosoftGraph.get<GraphUser>(config, `users/${oid}`);
@@ -357,7 +355,7 @@ export namespace AzureADLogic {
         };
     }
 
-    /** Signum's CreateUserFromAD — import a directory hit as a local user (or refresh the existing row). */
+    /** Import a directory hit as a local user (or refresh the existing row). */
     export async function createUserFromAD(adUser: ExternalUser): Promise<UserEntity> {
         const config = requireConfig();
         const ada = authorizer!;
@@ -379,12 +377,12 @@ export namespace AzureADLogic {
 
     // ---- Groups ----------------------------------------------------------------------------------------
 
-    /** Signum's SimpleGroup record. */
+    /** The minimum a group needs to be role-mapped: its id and its display name. */
     export interface SimpleGroup { id: string; displayName: string | null }
 
     /**
-     * Signum's `CurrentADGroupsInternal(Guid oid)` — the identity's transitive group membership read with
-     * the APPLICATION's credentials, cached for `cacheADGroupsForMs` (Signum's ADGroupsCache).
+     * The identity's transitive group membership read with
+     * the APPLICATION's credentials, cached for `cacheADGroupsForMs`.
      */
     export async function currentADGroups(config: AzureADConfigurationEmbedded, oid: string): Promise<SimpleGroup[]> {
         const cached = adGroupsCache.get(oid);
@@ -400,8 +398,8 @@ export namespace AzureADLogic {
         return groups;
     }
 
-    /** Signum's `CurrentADGroupsInternal(string accessToken)` — delegated permissions, `/me`. NOT cached
-     *  (the token is per request, and Signum does not cache this path either). */
+    /** Delegated permissions, `/me`. NOT cached
+     *  (the token is per request, and this path is not worth caching). */
     export async function currentADGroupsDelegated(config: AzureADConfigurationEmbedded, accessToken: string): Promise<SimpleGroup[]> {
         const response = await MicrosoftGraph.withAccessToken(accessToken, () =>
             MicrosoftGraph.get<GraphCollection<GraphGroup>>(config, "me/transitiveMemberOf/microsoft.graph.group",
@@ -412,7 +410,7 @@ export namespace AzureADLogic {
 
     // ---- Photos ----------------------------------------------------------------------------------------
 
-    /** Signum's GetUserPhoto — the square photo bytes at a Graph-supported size, or null. */
+    /** The square photo bytes at a Graph-supported size, or null. */
     export async function getUserPhoto(oid: string, size: number): Promise<Buffer | null> {
         const config = requireConfig();
         return await MicrosoftGraph.getBytes(config, `users/${oid}/photos/${size}x${size}/$value`);

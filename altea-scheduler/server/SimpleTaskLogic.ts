@@ -6,19 +6,15 @@ import { SimpleTaskSymbol } from "../data/Scheduler";
 import { SchedulerLogic } from "./SchedulerLogic";
 import type { ScheduledTaskContext } from "./ScheduleTaskRunner";
 
-// Port of Signum.Scheduler's SimpleTaskLogic.cs — the simplest kind of task: a NAMED FUNCTION. The app
-// declares a SimpleTaskSymbol and registers the function behind it; a ScheduledTask then points at the
-// symbol, so scheduling arbitrary code needs no entity of its own.
+// The simplest kind of task: a NAMED FUNCTION. The app declares a SimpleTaskSymbol and registers the
+// function behind it; a ScheduledTask then points at the symbol, so scheduling arbitrary code needs no
+// entity of its own.
 //
-// altea divergences:
-//  - `PreDeleteSqlSync` (the sync script that deletes a retired symbol's tasks and logs before dropping the
-//    row) is NOT ported: it needs Administrator.DeleteWhereScript, which altea does not have yet. A symbol
-//    removed from the code will therefore surface as a foreign-key conflict in the sync script rather than
-//    as generated cleanup SQL.
-//  - The registry is keyed by the symbol's KEY, not by the symbol OBJECT as Signum's
-//    `tasks.GetOrThrow(st)` is. A symbol read back from the database is a fresh instance, not the declared
-//    singleton, so an identity-keyed Map misses on every scheduled run (it only ever hits for a task
-//    executed straight from the declared symbol).
+// **The registry is keyed by the symbol's KEY, not by the symbol OBJECT.** A symbol read back from the
+// database is a fresh instance, not the declared singleton, so an identity-keyed Map misses on every
+// scheduled run — it only ever hits for a task executed straight from the declared symbol.
+//
+// See docs/port/Scheduler.md.
 
 export namespace SimpleTaskLogic {
 
@@ -41,7 +37,7 @@ export namespace SimpleTaskLogic {
         sb.include(SimpleTaskSymbol).withQuery();
     }
 
-    /** Signum's `Register` — bind a function to a declared SimpleTaskSymbol. Call it BEFORE
+    /** Bind a function to a declared SimpleTaskSymbol. Call it BEFORE
      *  SchedulerLogic.start, since the symbol table is seeded from these keys. */
     export function register(
         simpleTaskSymbol: SimpleTaskSymbol,

@@ -13,39 +13,29 @@ import { ExceptionEntity } from "@altea/altea/data/exception";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserEntity } from "@altea/altea-auth/data/User";
 
-// Port of Signum.Processes' Process.cs — a PROCESS is one run of a registered ALGORITHM over some DATA,
-// tracked through a state machine (Created → Queued → Executing → Finished / Error / Suspended / Canceled)
-// with a progress fraction and a status line, so a long job is observable and interruptible.
+// A PROCESS is one run of a registered ALGORITHM over some DATA, tracked through a state machine
+// (Created → Queued → Executing → Finished / Error / Suspended / Canceled) with a progress fraction and a
+// status line, so a long job is observable and interruptible.
 //
-// altea divergences, documented inline:
-//  - `DateTime` → `Temporal.PlainDateTime` (server-local wall clock, as in the scheduler port);
-//    `decimal? Progress` → `Decimal | null` (altea's decimal.js class).
-//  - `ElementInfo` is a plain nullable string, as Signum declares it. `Status`
-//    does NOT: the runner rewrites it on every progress tick with a SET-BASED update (it must not go through
-//    the save pipeline — see ExecutingProcess.progressChanged), and a set-based update of a field inside an
-//    embedded is not something altea expresses. It is a sized column here, which is what a one-line progress
-//    message needs.
-//  - `IProcessDataEntity` is a TS marker interface over the `Entity` class (altea has no IEntity), and
-//    `ProcessEntity.data` is `@implementedByAll`: what a process runs OVER is app-defined, and core cannot
-//    enumerate it. (Signum pins it per app through schema settings.)
-//  - Signum's table-driven `StateValidator` (which fields must be null in which state) is NOT ported — it
-//    needs its own little framework. The two explicit PropertyValidations ARE ported, and the runner is the
-//    only writer of these fields, so the states stay consistent in practice.
-//  - `Duration` / `DurationSpan` are in-memory helpers, not queryable columns: the quote-transformer emits a
-//    runtime type reference for a quoted member's return type, and there is no value to reference for a
-//    number (the same reason ScheduledTaskLog.duration is a plain method).
-//  - `TicksColumn(false)` has no altea counterpart yet, so ProcessEntity keeps its ticks column.
+// **`status` is a sized COLUMN, not a BigString.** The runner rewrites it on every progress tick with a
+// SET-BASED update — it must not go through the save pipeline (see `ExecutingProcess.progressChanged`) —
+// and a set-based update of a field inside an embedded is not something altea expresses.
+//
+// `duration` / `durationSpan` are IN-MEMORY helpers, not queryable columns: the quote-transformer emits a
+// runtime type reference for a quoted member's return type, and a plain number has no value to reference
+// (the same reason `ScheduledTaskLog.duration` is a plain method).
+//
+// Port of Signum.Processes' Process.cs — see docs/port/Processes.md.
 
-/** Signum's ProcessAlgorithmSymbol — names a registered algorithm (ProcessLogic.register). */
+/** Names a registered algorithm (ProcessLogic.register). */
 @reflect
 @entity("SystemString", "Master")
 export class ProcessAlgorithmSymbol extends Symbol {
 }
 
-/** Signum's IProcessDataEntity — the marker for "an entity a process can run over". */
+/** The marker for "an entity a process can run over". */
 export interface IProcessDataEntity extends Entity { }
 
-/** Signum's ProcessState. */
 export enum ProcessState {
     Created,
     Planned,
@@ -60,22 +50,22 @@ export enum ProcessState {
 
 @reflect
 @entity("Main", "Transactional")
-// Signum's [TicksColumn(false)] — the engine writes these rows, never a person editing one, so there is
+// The engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.
 @ticksColumn(false)
 export class ProcessEntity extends Entity {
 
-    /** Signum's `public const string None` — "not pinned to a machine", so any host may take it. */
+    /** "not pinned to a machine", so any host may take it. */
     static readonly None = "none";
 
     algorithm: ProcessAlgorithmSymbol;
 
-    /** What this run operates on. Signum types it `IProcessDataEntity?` and its schema builder gives an
+    /** What this run operates on. There is no runtime interface to reference, so this is an
      *  INTERFACE one column per implementor in the schema (`Data_ID_Package`, `Data_ID_EmailPackage`, …);
      *  altea has no runtime interface, so the field declares an empty @implementedBy the APPLICATION widens
      *  to the process-data types its modules install — the `ChangeLogViewLogEntity.user` accommodation.
      *  It used to be @implementedByAll, which costs FOUR columns (one per PK type plus the discriminator)
-     *  where Signum has one per implementor, and lets a process point at a row that is not process data. */
+     *  widened by the app rather than a column per implementor. */
     @implementedBy(() => [])
     data: Lite<Entity> | null = null;
 
@@ -96,7 +86,7 @@ export class ProcessEntity extends Entity {
     cancelationDate: Temporal.PlainDateTime | null = null;
     queuedDate: Temporal.PlainDateTime | null = null;
 
-    // Signum validates the pair on either property; altea attaches it to the first of them.
+    // The pair is validated on the FIRST of the two properties.
     @validate<ProcessEntity>(p => p.validateExecutionDates())
     executionStart: Temporal.PlainDateTime | null = null;
     executionEnd: Temporal.PlainDateTime | null = null;
@@ -105,7 +95,7 @@ export class ProcessEntity extends Entity {
     exceptionDate: Temporal.PlainDateTime | null = null;
     exception: Lite<ExceptionEntity> | null = null;
 
-    /** 0..1 (Signum's [NumberBetweenValidator(0,1), Format("p")]). */
+    /** 0..1, formatted as a percentage. */
     @validate<ProcessEntity>(p => p.progress == null || (p.progress.gte(0) && p.progress.lte(1))
         ? null : ProcessMessage.ProgressMustBeBetween0And1.niceToString())
     @format("p")
@@ -115,7 +105,7 @@ export class ProcessEntity extends Entity {
     @stringLengthValidator({ max: 400, multiLine: true })
     status: string | null = null;
 
-    /** Signum's PropertyValidation on ExecutionStart / ExecutionEnd. */
+    /** Execution start and end must be set together. */
     validateExecutionDates(): string | null {
         if (this.executionStart != null && this.executionEnd != null
             && Temporal.PlainDateTime.compare(this.executionEnd, this.executionStart) < 0)
@@ -127,7 +117,7 @@ export class ProcessEntity extends Entity {
         return null;
     }
 
-    /** Signum's `Duration` (an in-memory helper here — see the header note). */
+    /** An in-memory helper, not a query column — see the header. */
     durationMilliseconds(): number | null {
         return this.executionEnd == null || this.executionStart == null ? null
             : this.executionEnd.since(this.executionStart).total({ unit: "milliseconds" });
@@ -150,7 +140,7 @@ export class ProcessEntity extends Entity {
     }
 }
 
-/** Signum's ProcessExceptionLineEntity — one element a process failed on, so the run continues past it and
+/** One element a process failed on, so the run continues past it and
  *  the failures stay individually inspectable. */
 @reflect
 @entity("System", "Transactional")
@@ -158,7 +148,7 @@ export class ProcessExceptionLineEntity extends Entity {
 
     elementInfo: string | null;
 
-    /** The line (usually a PackageLine) that failed. Signum's `Lite<IEntity>?` — an interface again, so
+    /** The line (usually a PackageLine) that failed. There is no runtime interface, so
      *  one column per implementor; the app widens it (see ProcessEntity.data). */
     @implementedBy(() => [])
     line: Lite<Entity> | null = null;
@@ -167,10 +157,9 @@ export class ProcessExceptionLineEntity extends Entity {
 
     exception: Lite<ExceptionEntity>;
 
-    // Signum's `[ExpressionField("ToStringExpression")]` over `pel => "ProcessExceptionLine (" + pel.Id
     // + ")"` — an EXPRESSION, so the display string is expanded inline in queries and its table has no
-    // ToStr column. `@quoted` says the same here; without it altea materialises a `to_str` Signum does
-    // not have. (The `?? "New"` is the runtime half, as it is in Signum's method body.)
+    // `@quoted`, so the string is expanded inline by the query provider and no `to_str` column is
+    // materialised. (The `?? "New"` is the in-memory half.)
     @quoted
     toString(): string {
         return `ProcessExceptionLine (${this.id ?? "New"})`;

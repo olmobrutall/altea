@@ -17,52 +17,25 @@ import { ProcessEntity } from "../data/Processes";
 import { ProcessLogic, type IProcessAlgorithm } from "./ProcessLogic";
 import type { ExecutingProcess } from "./ProcessRunner";
 
-// Port of Signum.Processes' PackageLogic.cs — the half of the module that turns a SET OF ENTITIES into
-// work a process walks. A package is a row plus one PackageLineEntity per element; a process algorithm
-// reads the lines, does something per line, and stamps `finishTime` — so a run that dies halfway can be
-// retried and picks up where it stopped (`Lines().Where(a => a.FinishTime == null)`, kept verbatim).
+// The half of the module that turns a SET OF ENTITIES into work a process walks. A package is a row plus
+// one PackageLineEntity per element; a process algorithm reads the lines, does something per line, and
+// stamps `finishTime` — so **a run that dies halfway can be retried and picks up where it stopped**
+// (`lines().filter(a => a.finishTime == null)`).
 //
-// This used to be recorded as NOT ported, and CLAUDE.md said so: altea-workflow's timeout process walks
-// its own package lines, which was true and made the module look avoidable. It is not — Southwind's
-// Orders domain is built on it (`OrderTask.CancelOldOrdersWithProcess` → `OrderProcess.CancelOrders` →
-// `PackageExecuteAlgorithm<OrderEntity>(OrderOperation.Cancel)`, plus the `CancelWithProcess` contextual
-// operation), and without it eastwind had to invent different tasks, which a Southwind database then read
-// as four symbols removed and four added.
+// **Registration order does not matter**, despite what `ProcessLogic.register`'s own doc-comment says:
+// `SymbolLogic.start` stores `getSymbols` as a THUNK and calls it from `schema.generating` /
+// `schema.synchronizing`, so every algorithm registered before the schema is built is seeded, whichever
+// side of `ProcessLogic.start` it landed on.
 //
-// **Where the TABLES are.** Signum splits `PackageLogic.Start(sb, packages, packageOperations)` between
-// including the three tables + their queries and registering the algorithm. altea's `ProcessLogic.start`
-// already includes all three unconditionally and registers the three `*LastProcess` queries, so what is
-// left here is the ALGORITHMS and the helpers that build a package. Hence no `packages` /
-// `packageOperations` flags: there is nothing left for them to gate.
+// `createLinesFromQuery` keeps its own name because `createLines` cannot be overloaded on a Query vs an
+// array in a way TypeScript resolves well.
 //
-// **Order does not matter**, unlike what `ProcessLogic.register`'s own doc-comment says ("Call BEFORE
-// start — the symbol table is seeded from the registered keys"). `SymbolLogic.start` stores `getSymbols`
-// as a THUNK and calls it from `schema.generating` / `schema.synchronizing`, so every algorithm registered
-// before the schema is built is seeded, whichever side of `ProcessLogic.start` it landed on. Signum's own
-// `ProcessLogic.AssertStarted(sb)` guard therefore has no counterpart worth writing.
-//
-// altea divergences:
-//  - **no `ProgressProxy` argument.** Signum appends one to every operation's args so a long per-line
-//    operation can report sub-progress; altea has no such type, and the operation signatures take plain
-//    args. Cancellation is still honoured, at the LINE boundary, because `ExecutingProcess.forEach`
-//    checks the signal (Signum's `ForEachLine` does the same).
-//  - **`ExceptionLogic.DeleteLogs` is not ported** — the note every log-owning module here carries — so
-//    `ExceptionLogic_DeletePackages` has no counterpart.
-//  - **the two `PreDeleteSqlSync` cascades are not ported.** Signum sweeps a package line whose TARGET or
-//    RESULT type is being removed, and everything belonging to a removed OPERATION symbol. Both need
-//    `Administrator.unsafeDeletePreCommand` over an `@implementedByAll` discriminator, which altea's sync
-//    has no counterpart for (altea-view-log records the same gap for its own target column).
-//  - **`RegisterUserTypeCondition` is not ported**: its middle rule (`PackageOperationEntity` visible when
-//    a process the user owns points at it) is a subquery over another type's condition, which altea's
-//    TypeConditionLogic cannot express — the accommodation eastwind's user-asset scoping already
-//    documents. An app that needs it registers the three conditions itself.
-//  - `CreateLinesQuery` keeps its own name here (`createLinesFromQuery`), because `createLines` cannot be
-//    overloaded on a Query vs an array in a way TypeScript resolves well.
+// Port of Signum.Processes' PackageLogic.cs — see docs/port/Processes.md.
 
 export namespace PackageLogic {
 
     /**
-     * Signum's `[AutoExpressionField] Lines(this PackageEntity p)`. A SERVER helper rather than a
+     * A SERVER helper rather than a
      * `@quoted` member on the entity: the data layer must not import the server query API (the call
      * altea-processes / -scheduler already made for `Processes()` / `LastProcess()`).
      */
@@ -85,10 +58,10 @@ export namespace PackageLogic {
     }
 
     /**
-     * Signum's `CreateLines(package, lites)` — SAVE the package, then insert one line per element, SET-BASED
+     * SAVE the package, then insert one line per element, SET-BASED
      * and grouped by concrete type (a `Lite<Entity>` list may be polymorphic, and the insert reads from that
      * type's own table). A package can hold hundreds of thousands of elements, so a row-by-row save is not
-     * an option; Signum chunks at 100 lites per statement and so does this.
+     * an option; chunked at 100 lites per statement.
      */
     export async function createLines(pack: PackageEntity, lites: readonly Lite<Entity>[]): Promise<PackageEntity> {
         await pack.save();
@@ -113,13 +86,13 @@ export namespace PackageLogic {
         return pack;
     }
 
-    /** Signum's `CreateLines(package, entities)` overload — the same, from full entities. */
+    /** The same, from full entities rather than lites. */
     export function createLinesFromEntities(pack: PackageEntity, entities: readonly Entity[]): Promise<PackageEntity> {
         return createLines(pack, entities.map(e => e.toLite()));
     }
 
     /**
-     * Signum's `CreateLinesQuery` — one statement, no ids in memory at all. This is what a task building a
+     * One statement, no ids in memory at all. This is what a task building a
      * package from "every order older than a week" should use.
      */
     export async function createLinesFromQuery<T extends Entity>(pack: PackageEntity, query: Query<T>): Promise<PackageEntity> {
@@ -129,7 +102,7 @@ export namespace PackageLogic {
         return pack;
     }
 
-    /** Signum's `CreatePackageOperation` — the process behind a contextual "run this operation on all of
+    /** The process behind a contextual "run this operation on all of
      *  them" menu entry. */
     export async function createPackageOperation(
         lites: readonly Lite<Entity>[],
@@ -145,7 +118,7 @@ export namespace PackageLogic {
     const CHUNK = 100;
 }
 
-/** The package a running process is walking — Signum's `(PackageEntity)executingProcess.Data!`. */
+/** The package a running process is walking. */
 async function packageOf<T extends PackageEntity>(ep: ExecutingProcess, type: Type<T>): Promise<T> {
     const data = ep.data;
     if (data == null)
@@ -159,7 +132,7 @@ function targetOf(line: PackageLineEntity): Promise<Entity> {
 }
 
 /**
- * Signum's `PackageOperationAlgorithm` — apply the operation the package NAMES to each of its lines,
+ * Apply the operation the package NAMES to each of its lines,
  * dispatching on that operation's kind. The one algorithm that is registered by the module itself
  * (`PackageLogic.start`), because the operation is data rather than a compile-time choice.
  */
@@ -170,7 +143,7 @@ export class PackageOperationAlgorithm implements IProcessAlgorithm {
         const pack = await packageOf(ep, PackageOperationEntity);
         const symbol = pack.operation;
 
-        // Signum appends the package itself to the args when it carries a ConfigString, so an algorithm
+        // The package itself is appended to the args when it carries a ConfigString, so an algorithm
         // that needs the configuration can read it off the last argument.
         const args = getOperationArgs(pack) ?? [];
         const withPackage = pack.configString != null && pack.configString.length > 0 ? [...args, pack] : args;
@@ -206,7 +179,7 @@ export class PackageOperationAlgorithm implements IProcessAlgorithm {
     }
 }
 
-/** Signum's `PackageExecuteAlgorithm<T>` — run ONE known Execute operation over every line. */
+/** Run ONE known Execute operation over every line. */
 export class PackageExecuteAlgorithm<T extends Entity> implements IProcessAlgorithm {
     readonly allowParallelExecution = false;
 
@@ -228,7 +201,7 @@ export class PackageExecuteAlgorithm<T extends Entity> implements IProcessAlgori
     }
 }
 
-/** Signum's `PackageDeleteAlgorithm<T>`. */
+/** Delete every line's target, one line at a time. */
 export class PackageDeleteAlgorithm<T extends Entity> implements IProcessAlgorithm {
     readonly allowParallelExecution = false;
 
@@ -251,7 +224,7 @@ export class PackageDeleteAlgorithm<T extends Entity> implements IProcessAlgorit
 }
 
 /**
- * Signum's `PackageConstructFromAlgorithm<F, T>` — build something per line and record WHAT was built in
+ * Build something per line and record WHAT was built in
  * `line.result`, which is what makes a "create an invoice per order" process reviewable afterwards.
  */
 export class PackageConstructFromAlgorithm<F extends Entity, T extends Entity> implements IProcessAlgorithm {
@@ -270,7 +243,7 @@ export class PackageConstructFromAlgorithm<F extends Entity, T extends Entity> i
         await ep.forEach(lines, l => `PackageLine ${l.id}`, async line => {
             const result = await Operations.constructFrom(await targetOf(line) as F, this.symbol, ...args);
             if (result != null) {
-                // Signum wraps the save in `OperationLogic.AllowSave<T>()`; altea has no such scope — a
+                // There is no "allow save" scope to open — a
                 // construct-from returning an unsaved entity is saved by whoever asked for it.
                 if (result.isNew)
                     await result.save();

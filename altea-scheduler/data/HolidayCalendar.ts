@@ -7,22 +7,18 @@ import { Temporal, type int } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 
-// Port of Signum.Scheduler's HolidayCalendarEntity.cs — a named set of dates that a weekday schedule rule
-// consults, so a task can run "every weekday BUT holidays" (or only on them).
+// A named set of dates that a weekday schedule rule consults, so a task can run "every weekday BUT
+// holidays" (or only on them).
 //
-// altea divergences, documented inline:
-//  - Signum's `MList<HolidayEmbedded> Holidays` → a `@part` collection row (altea has no MList), named by
-//    the `<Owner>_<field singular>` convention.
-//  - `DateOnly` → `Temporal.PlainDate`.
-//  - The cached `Lazy<HashSet<DateOnly>>` behind `IsHoliday` is a per-instance Map built on first use; the
-//    entity is a plain field bag, so it is rebuilt whenever the instance is (which is what Signum's
-//    constructor-created Lazy effectively does too).
-//  - `IUserAssetEntity` (XML import/export) is NOT ported — see SchedulerLogic for the deferral note.
+// The cache behind `isHoliday` is a per-INSTANCE Map built on first use: the entity is a plain field bag,
+// so it is rebuilt whenever the instance is.
+//
+// Port of Signum.Scheduler's HolidayCalendarEntity.cs — see docs/port/Scheduler.md.
 
 @part
 export class HolidayCalendarEntity_Holiday extends Entity {
     @backReference calendar: Lite<HolidayCalendarEntity>;
-    // No `@rowOrder`: Signum does not mark `HolidayCalendarEntity.Holidays` [PreserveOrder], so its
+    // No `@rowOrder`: this table has no Order column, so its
     // table has no Order column. The rows come back in primary-key order, which for a list saved in
     // order is that order — a calendar of dates has no meaningful sequence to preserve anyway.
 
@@ -38,10 +34,9 @@ export class HolidayCalendarEntity_Holiday extends Entity {
 
 @reflect
 @entity("Shared", "Master")
-// Signum's `.WithUniqueIndex(hc => hc.IsDefault, hc => hc.IsDefault)` — a FILTERED unique index, so at
+// A FILTERED unique index, so at
 // most one calendar is the default while any number are not.
 @uniqueIndex<HolidayCalendarEntity>(c => c.isDefault, c => c.isDefault)
-// Signum declares this `[PrimaryKey(typeof(Guid))]`.
 @primaryKey("uuid")
 export class HolidayCalendarEntity extends Entity {
     @uniqueIndex
@@ -59,7 +54,7 @@ export class HolidayCalendarEntity extends Entity {
     @validate<HolidayCalendarEntity>(c => repeatedDates(c))
     holidays: HolidayCalendarEntity_Holiday[] = [];
 
-    /** Signum's `IsHoliday` over its `Lazy<HashSet<DateOnly>>`. */
+    /** Is this date in the calendar? Reads the per-instance cache below. */
     isHoliday(date: Temporal.PlainDate): boolean {
         return this.holidaySet().has(date.toString());
     }
@@ -81,11 +76,11 @@ export class HolidayCalendarEntity extends Entity {
 }
 
 // Per-instance memo, invalidated when the collection ARRAY itself is replaced (a row added in place is
-// picked up by the length check the editor triggers on save — Signum's Lazy has the same staleness).
+// picked up by the length check the editor triggers on save).
 const holidayCache = new WeakMap<HolidayCalendarEntity, Set<string>>();
 const cachedFor = new WeakMap<HolidayCalendarEntity, HolidayCalendarEntity_Holiday[]>();
 
-/** Signum's PropertyValidation on Holidays: the same date twice is a data-entry mistake. */
+/** The same date twice is a data-entry mistake. */
 function repeatedDates(calendar: HolidayCalendarEntity): string | null {
     const counts = new Map<string, number>();
     for (const h of calendar.holidays ?? []) {
@@ -98,7 +93,6 @@ function repeatedDates(calendar: HolidayCalendarEntity): string | null {
     return repeated.length === 0 ? null : `${HolidayCalendarMessage.SomeDatesHaveBeenRepeated.niceToString()} ${repeated.join(", ")}`;
 }
 
-// Signum's `[AutoInit] static class HolidayCalendarOperation`.
 export namespace HolidayCalendarOperation {
     export const Save: ExecuteSymbol<HolidayCalendarEntity> = init();
     export const ImportPublicHolidays: ExecuteSymbol<HolidayCalendarEntity> = init();

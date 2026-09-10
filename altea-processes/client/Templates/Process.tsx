@@ -4,7 +4,7 @@ import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { ProcessEntity } from "../../data/Processes";
 
-// Port of Signum.Processes' Templates/Process.tsx — read-only in practice: every field is written by the
+// Read-only in practice: every field is written by the
 // runner, and the state machine is driven by the operations in the button bar.
 export default function Process(p: { ctx: TypeContext<ProcessEntity> }): React.JSX.Element {
     const ctx = p.ctx.subCtx({ labelColumns: { sm: 3 }, readOnly: true });

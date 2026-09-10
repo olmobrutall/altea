@@ -3,7 +3,7 @@ import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { ScheduleRuleMinutelyEntity } from "../../data/Scheduler";
 
-// Port of Signum.Scheduler Templates/ScheduleRuleMinutely.tsx.
+// "Every N minutes", from a starting instant.
 export default function ScheduleRuleMinutely(p: { ctx: TypeContext<ScheduleRuleMinutelyEntity> }): React.JSX.Element {
     const ctx = p.ctx.subCtx({ formGroupStyle: "Basic" });
     return (

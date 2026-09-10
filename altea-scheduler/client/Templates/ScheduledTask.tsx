@@ -5,7 +5,7 @@ import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { EntityDetail } from "@altea/altea/client/Lines/EntityDetail";
 import { ScheduledTaskEntity } from "../../data/Scheduler";
 
-// Port of Signum.Scheduler Templates/ScheduledTask.tsx. The RULE is an owned part, so it is edited inline
+// The RULE is an owned part, so it is edited inline
 // (EntityDetail); the TASK and the USER it runs as are references.
 export default function ScheduledTask(p: { ctx: TypeContext<ScheduledTaskEntity> }): React.JSX.Element {
     const ctx = p.ctx.subCtx({ labelColumns: { sm: 3 } });

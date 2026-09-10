@@ -5,11 +5,11 @@ import { niceName } from "@altea/altea/data/decorators";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { ADGroupEntity } from "./ADGroup";
 
-// The ROW SHAPES of the two directory-backed queries Signum registers in AzureADLogic.Start
+// The ROW SHAPES of the two directory-backed queries registered in AzureADLogic.start
 // (`AzureADQuery.ActiveDirectoryUsers` / `.ActiveDirectoryGroups`) — a search page over Microsoft Graph
 // rather than over the database.
 //
-// altea divergence: Signum names a manual query with an enum member and describes its columns with an
+// A query's NAME is its ROW MODEL here, where Signum uses an enum member and describes its columns with an
 // anonymous `Select` projection plus `.ColumnDisplayName(…)` calls. altea has no QueryDescription: a query's
 // shape IS a reflected type, and the query NAME is that type (see eastwind's CustomerRowModel and
 // `QueryLogic.queries.register(Model, () => new ManualDynamicQueryCore(Model, …))`). So each projection
@@ -17,9 +17,9 @@ import { ADGroupEntity } from "./ADGroup";
 // which also makes the captions translatable through the ordinary reflection path.
 //
 // `entity` is always null on these rows (there is no local entity behind a directory record); it exists
-// because the SearchControl expects an entity column, exactly as in Signum's projection.
+// because the SearchControl expects an entity column.
 
-/** Signum's `OnPremisesExtensionAttributesModel`. */
+/** The on-premises extension attributes a synced directory carries. */
 @reflect
 export class OnPremisesExtensionAttributesModel extends ModelEntity {
     extensionAttribute1: string | null = null;
@@ -47,7 +47,7 @@ export class OnPremisesExtensionAttributesModel extends ModelEntity {
 /** The `ActiveDirectoryUsers` query row — one Microsoft Graph `user`. */
 @reflect
 export class ActiveDirectoryUsersRowModel extends ModelEntity {
-    /** Always null: a directory record has no local entity (Signum's `(Lite<Entity>?)null`). */
+    /** Always null: a directory record has no local entity. */
     entity: Lite<UserEntity> | null = null;
 
     /**
@@ -95,7 +95,7 @@ export class ActiveDirectoryUsersRowModel extends ModelEntity {
     accountEnabled: boolean | null = null;
 
     /**
-     * A FILTER-ONLY column (Signum's `InGroup = (Lite<ADGroupEntity>?)null`): filtering on it switches the
+     * A FILTER-ONLY column: filtering on it switches the
      * Graph call to that group's `transitiveMembers`, so it never carries a value in a result row.
      */
     @niceName("In Group")
@@ -132,7 +132,7 @@ export class ActiveDirectoryGroupsRowModel extends ModelEntity {
     @niceName("Visibility")
     visibility: string | null = null;
 
-    /** A FILTER-ONLY column (Signum's `HasUser`): filtering on it asks for that user's `transitiveMemberOf`. */
+    /** A FILTER-ONLY column: filtering on it asks for that user's `transitiveMemberOf`. */
     @niceName("Has User")
     hasUser: Lite<UserEntity> | null = null;
 

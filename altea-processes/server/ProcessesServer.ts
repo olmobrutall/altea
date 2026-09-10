@@ -5,10 +5,10 @@ import { ProcessPermission } from "../data/Processes";
 import type { ProcessLogicState, ProcessHealth } from "../data/ProcessLogicState";
 import { ProcessRunner } from "./ProcessRunner";
 
-// Port of Signum.Processes' ProcessController.cs — the panel's calls, plus the shutdown hook Signum puts on
+// The panel's calls, plus the shutdown hook Signum registers on
 // the host's ApplicationStopping token (altea's web host has no lifetime object, so it hooks the signals).
 //
-// altea divergence: Signum's start/stop sleep a second so the panel's immediate reload sees the new state;
+// The start/stop calls need no sleep before the panel's reload sees the new state:
 // `startRunningProcesses` is awaited here, so there is nothing to sleep for.
 
 export namespace ProcessesServer {
@@ -26,7 +26,7 @@ export namespace ProcessesServer {
                 res.jsonTyped(ProcessRunner.executionState());
             });
 
-        // Anonymous on purpose (Signum's [SignumAllowAnonymous]): this is what a monitor polls.
+        // Anonymous ON PURPOSE: this is what a load balancer or monitor polls.
         ws.get("/api/processes/healthCheck",
             { res: CustomType<ProcessHealth>(), allowAnonymous: true },
             async (_req, res) => {

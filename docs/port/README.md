@@ -31,7 +31,7 @@ specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inv
 
 | Page | Module |
 | --- | --- |
-| [AuthDirectory.md](AuthDirectory.md) | `@altea/altea-auth-openid`, `@altea/altea-auth-windowsad` |
+| [AuthDirectory.md](AuthDirectory.md) | `@altea/altea-auth-azuread`, `@altea/altea-auth-openid`, `@altea/altea-auth-windowsad` |
 | [ConcurrentUser.md](ConcurrentUser.md) | `@altea/altea-concurrent-user` |
 | [DiffLog.md](DiffLog.md) | `@altea/altea-diff-log` |
 | [Eval.md](Eval.md) | `@altea/altea-eval` |
@@ -44,8 +44,10 @@ specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inv
 | [Markdown.md](Markdown.md) | `@altea/altea-markdown` |
 | [Migrations.md](Migrations.md) | `@altea/altea-migrations` |
 | [Printing.md](Printing.md) | `@altea/altea-printing` |
+| [Processes.md](Processes.md) | `@altea/altea-processes` |
 | [ResetPassword.md](ResetPassword.md) | `@altea/altea-auth-reset-password` |
 | [Rest.md](Rest.md) | `@altea/altea-rest` |
+| [Scheduler.md](Scheduler.md) | `@altea/altea-scheduler` |
 | [Sms.md](Sms.md) | `@altea/altea-sms` |
 | [TimeMachine.md](TimeMachine.md) | `@altea/altea-time-machine` |
 | [Tour.md](Tour.md) | `@altea/altea-tour` |

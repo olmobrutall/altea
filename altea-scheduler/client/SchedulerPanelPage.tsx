@@ -12,19 +12,14 @@ import { ScheduledTaskEntity, ScheduledTaskLogEntity, ScheduledTaskLogOperation,
 import type { SchedulerItemState, SchedulerRunningTaskState } from "../data/SchedulerState";
 import { SchedulerClient } from "./SchedulerClient";
 
-// Port of Signum.Scheduler's SchedulerPanelPage.tsx — start/stop, what the in-memory queue holds, what is
-// running right now, and the two searches.
-//
-// altea divergences: no CopyHealthCheckButton (not ported) — the health endpoint is a plain link, as in
-// Signum; the "available tasks" section (one SearchValueLine per implementation of ScheduledTask.task) is
-// dropped, since the task implementations are an app-level @implementedBy override and the ScheduledTask
-// search below already shows what is scheduled.
+// Start/stop, what the in-memory queue holds, what is running right now, and the two searches. The health
+// endpoint is a plain link.
 
 export default function SchedulerPanelPage(): React.JSX.Element {
 
     const [state, reloadState] = useAPIWithReload(() => SchedulerClient.API.view(), [], { avoidReset: true });
 
-    // Poll twice a second while running, and let the spinning icon show it is live (Signum's rotation).
+    // Poll twice a second while running, and let the spinning icon show it is live.
     const tick = useInterval(state == null || state.running ? 500 : null, 0, n => n + 1);
     const [rotation, setRotation] = React.useState(0);
 

@@ -16,25 +16,24 @@ import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { HolidayCalendarEntity } from "./HolidayCalendar";
 
-// Port of Signum.Scheduler's ScheduleRuleEntities.cs + ScheduledTaskEntity.cs + ScheduledTaskLogEntity.cs
-// + SimpleTask.cs. A ScheduledTask pairs a TASK (what to run) with a RULE (when), and every run is logged.
+// A ScheduledTask pairs a TASK (what to run) with a RULE (when), and every run is logged.
 //
-// altea divergences, documented inline:
-//  - `DateTime` → `Temporal.PlainDateTime` throughout. Signum's rules do their arithmetic in the server's
-//    local time; a PlainDateTime is exactly that — a wall-clock instant with no zone — so the port is
-//    literal, and `Clock.now` (altea's testable clock) replaces `Clock.Now`.
-//  - `IScheduleRuleEntity` / `ITaskEntity` are Signum interfaces over IEntity; altea has no IEntity, so
-//    they are TS interfaces extending the `Entity` CLASS (the same shape data/security.ts uses for
-//    IUserEntity). `Clone()` is kept — the ScheduledTask editor clones a rule when switching type.
-//  - `IUserAssetEntity` (Guid + ToXml/FromXml) is NOT ported: the rules would round-trip through
-//    @altea/altea-user-assets, which nothing in the scheduler needs yet. The `Guid` field goes with it.
-//  - Signum's `SchedulerMessage` / `ScheduledTaskMessage` / `ITaskMessage` enums become message containers.
+// The rules do their arithmetic in the server's LOCAL time, and a `Temporal.PlainDateTime` is exactly that
+// — a wall-clock instant with no zone — so the translation is literal. `Clock.now` is the testable clock
+// every rule reads.
+//
+// `IScheduleRuleEntity` / `ITaskEntity` are TS interfaces extending the `Entity` CLASS (the shape
+// data/security.ts uses for IUserEntity). `clone()` is kept — the ScheduledTask editor clones a rule when
+// switching type.
+//
+// Port of Signum.Scheduler's ScheduleRuleEntities.cs + ScheduledTaskEntity.cs + ScheduledTaskLogEntity.cs
+// + SimpleTask.cs — see docs/port/Scheduler.md.
 
-/** Signum's ITaskEntity — what a ScheduledTask runs. Implemented by SimpleTaskSymbol here, and by any
- *  entity an app registers with `SchedulerLogic.executeTask` (Signum's Polymorphic). */
+/** What a ScheduledTask runs. Implemented by SimpleTaskSymbol here, and by any
+ *  entity an app registers with `SchedulerLogic.executeTask`. */
 export interface ITaskEntity extends Entity { }
 
-/** Signum's IScheduleRuleEntity — when a ScheduledTask runs. */
+/** When a ScheduledTask runs. */
 export interface IScheduleRuleEntity extends Entity {
     startingOn: Temporal.PlainDateTime;
     /** The first occurrence at or after `now`. */
@@ -44,7 +43,7 @@ export interface IScheduleRuleEntity extends Entity {
 
 // ---- Schedule rules -------------------------------------------------------------------------------------
 
-// Signum's ScheduleRuleMinutelyEntity — every N minutes.
+// Every N minutes.
 @reflect
 @part
 // Signum declares this `[PrimaryKey(typeof(Guid))]`.
@@ -53,13 +52,13 @@ export class ScheduleRuleMinutelyEntity extends Entity implements IScheduleRuleE
 
     startingOn: Temporal.PlainDateTime = startOfToday();
 
-    // Signum's [NumberIsValidator(ComparisonType.GreaterThan, 0)]; altea has no numeric comparison
+    // Greater than zero. There is no numeric comparison
     // validator, so the same check is a field validation.
     @validate<ScheduleRuleMinutelyEntity>(r => r.eachMinutes > 0 ? null
         : ValidationMessage.NumberIsTooSmall.niceToString())
     eachMinutes: int;
 
-    /** Signum's IsAligned: a divisor of an hour lands on the clock (:00, :15, :30…), anything else drifts. */
+    /** A divisor of an hour lands on the clock (:00, :15, :30…), anything else drifts. */
     get isAligned(): boolean {
         return this.eachMinutes > 0 && this.eachMinutes < 60 && 60 % this.eachMinutes === 0;
     }
@@ -85,7 +84,7 @@ export class ScheduleRuleMinutelyEntity extends Entity implements IScheduleRuleE
     }
 }
 
-// Signum's ScheduleRuleWeekDaysEntity — on the chosen weekdays, at StartingOn's time of day, optionally
+// On the chosen weekdays, at StartingOn's time of day, optionally
 // including or excluding a calendar's holidays.
 @reflect
 @part
@@ -95,7 +94,7 @@ export class ScheduleRuleWeekDaysEntity extends Entity implements IScheduleRuleE
 
     startingOn: Temporal.PlainDateTime = startOfToday();
 
-    // Signum validates on `Monday` that at least ONE of the seven (or Holiday) is set — altea attaches the
+    // At least ONE of the seven (or Holiday) must be set. The rule attaches to the
     // same check to the first field, so the message lands on the same line.
     @validate<ScheduleRuleWeekDaysEntity>(r => r.anyDaySelected() ? null
         : ValidationMessage._0IsNotSet.niceToString(SchedulerMessage.ScheduleRuleWeekDaysDN_Mo.niceToString()))
@@ -109,7 +108,7 @@ export class ScheduleRuleWeekDaysEntity extends Entity implements IScheduleRuleE
 
     calendar: Lite<HolidayCalendarEntity> | null = null;
 
-    /** With a calendar: true = run ONLY on its holidays, false = skip them (Signum's Holiday flag). */
+    /** With a calendar: true = run ONLY on its holidays, false = skip them. */
     holiday: boolean = false;
 
     anyDaySelected(): boolean {
@@ -126,7 +125,7 @@ export class ScheduleRuleWeekDaysEntity extends Entity implements IScheduleRuleE
         if (Temporal.PlainDateTime.compare(result, now) < 0)
             result = result.add({ days: 1 });
 
-        // Bounded like Signum's loop is in practice: a rule with nothing selected fails validation, and a
+        // Bounded: a rule with nothing selected fails validation, and a
         // calendar cannot make every day a holiday for more than a year without the user meaning it.
         for (let i = 0; i < 366 && !this.isAllowed(result); i++)
             result = result.add({ days: 1 });
@@ -180,7 +179,7 @@ export class ScheduleRuleWeekDaysEntity extends Entity implements IScheduleRuleE
     }
 }
 
-// Signum's ScheduleRuleMonthsEntity — on StartingOn's day-of-month and time, in the chosen months.
+// On StartingOn's day-of-month and time, in the chosen months.
 @reflect
 @part
 // Signum declares this `[PrimaryKey(typeof(Guid))]`.
@@ -208,7 +207,7 @@ export class ScheduleRuleMonthsEntity extends Entity implements IScheduleRuleEnt
         return this.months().some(m => m);
     }
 
-    // Index 0 = January, matching Signum's `IsAllowed(month)` 1-based switch.
+    // Index 0 = January.
     months(): boolean[] {
         return [this.january, this.february, this.march, this.april, this.may, this.june,
         this.july, this.august, this.september, this.october, this.november, this.december];
@@ -218,7 +217,7 @@ export class ScheduleRuleMonthsEntity extends Entity implements IScheduleRuleEnt
         const startingOn = this.startingOn;
         const base = max(now, startingOn);
 
-        // Signum: MonthStart().AddDays(Day - 1).Add(TimeOfDay) — the same day-of-month and time, this month.
+        // The same day-of-month and time, this month.
         // `constrain` keeps a 31st landing on the 30th of a short month rather than throwing.
         let result = base.with({
             day: 1, hour: startingOn.hour, minute: startingOn.minute, second: startingOn.second,
@@ -255,18 +254,18 @@ export class ScheduleRuleMonthsEntity extends Entity implements IScheduleRuleEnt
 
 // ---- Tasks ----------------------------------------------------------------------------------------------
 
-// Signum's SimpleTaskSymbol — a task that IS just a registered function (SimpleTaskLogic.register).
+// A task that IS just a registered function (SimpleTaskLogic.register).
 @reflect
 @entity("SystemString", "Master")
 export class SimpleTaskSymbol extends Symbol implements ITaskEntity {
 }
 
-// Signum's ScheduledTaskEntity — the pairing of a task with a rule, optionally pinned to one machine.
+// The pairing of a task with a rule, optionally pinned to one machine.
 @reflect
 @entity("Main", "Master")
 export class ScheduledTaskEntity extends Entity {
 
-    /** Signum's `public const string None` — declared first so the field initializers below can read it. */
+    /** Declared first so the field initializers below can read it. */
     static readonly None = "none";
 
     @implementedBy(() => [ScheduleRuleMinutelyEntity, ScheduleRuleWeekDaysEntity, ScheduleRuleMonthsEntity])
@@ -279,11 +278,11 @@ export class ScheduledTaskEntity extends Entity {
 
     suspended: boolean = false;
 
-    /** "none" runs on every host; anything else only on the machine of that name (Signum's MachineName). */
+    /** "none" runs on every host; anything else only on the machine of that name. */
     @stringLengthValidator({ min: 3, max: 100 })
     machineName: string = ScheduledTaskEntity.None;
 
-    // Signum declares `Lite<IUserEntity>` and pins the implementation through schema settings; altea needs
+    // The USER a run acts as. There is no runtime interface to reference, so the field needs
     // it on the field, and this package already depends on altea-auth — so name UserEntity and get a real FK
     // (core entities like ExceptionEntity use @implementedByAll instead, because CORE cannot import auth).
     @implementedBy(() => [UserEntity])
@@ -298,7 +297,7 @@ export class ScheduledTaskEntity extends Entity {
     }
 }
 
-// Signum's ScheduledTaskLogEntity — one run: when, by whom, on which host, and what came out.
+// One run: when, by whom, on which host, and what came out.
 @reflect
 @entity("System", "Transactional")
 export class ScheduledTaskLogEntity extends Entity {
@@ -323,18 +322,18 @@ export class ScheduledTaskLogEntity extends Entity {
     @stringLengthValidator({ min: 3, max: 200 })
     applicationName: string;
 
-    /** Whatever the task produced, for a "go look at it" link (Signum's ProductEntity). */
+    /** Whatever the task produced, for a "go look at it" link. */
     @implementedByAll
     productEntity: Lite<Entity> | null = null;
 
     exception: Lite<ExceptionEntity> | null = null;
 
     /** What the task wrote as it ran (ScheduledTaskContext.stringBuilder). Unbounded, so — like
-     *  Signum's `[StringLengthValidator(MultiLine = true)]` — unbounded, so no max here either. */
+     *  Unbounded, so no max here either. */
     @stringLengthValidator({ multiLine: true })
     remarks: string | null;
 
-    /** Signum's `DurationExpression` / `Duration` property. altea divergence: NOT `@quoted`, so it is an
+    /** NOT `@quoted`, so it is an
      *  in-memory helper rather than a queryable column — the quote-transformer emits a runtime type
      *  reference for a quoted member's return type, and `int` is a branded TYPE with no value to reference
      *  (every other quoted member in the workspace returns an entity, a Decimal or a string). A queryable
@@ -353,12 +352,12 @@ export class ScheduledTaskLogEntity extends Entity {
     }
 }
 
-// Signum's SchedulerTaskExceptionLineEntity — one failed element inside a task that iterates (see the
+// One failed element inside a task that iterates (see the
 // runner's ScheduledTaskContext.forEach), so one bad row does not lose the whole run.
 @reflect
 @entity("System", "Transactional")
 export class SchedulerTaskExceptionLineEntity extends Entity {
-    // Signum's [DbType(Size = int.MaxValue)] string — unbounded here too, so a plain string
+    // An unbounded text column, so a plain string
     // column behind a non-null embedded whose text is nullable.
     elementInfo: string | null;
 
@@ -379,7 +378,7 @@ export namespace ScheduledTaskLogOperation {
 }
 
 export namespace ITaskOperation {
-    /** Run a task NOW, from its own view (Signum's ConstructSymbol<ScheduledTaskLogEntity>.From<ITaskEntity>). */
+    /** Run a task NOW, from its own view. */
     export const ExecuteSync: ConstructSymbol<ScheduledTaskLogEntity, From<ITaskEntity>> = init();
 }
 
@@ -470,7 +469,4 @@ function monthName(month: number): string {
     return new Date(2000, month - 1, 1).toLocaleString(undefined, { month: "short" });
 }
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("scheduler")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("scheduler");

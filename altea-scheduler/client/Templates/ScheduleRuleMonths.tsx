@@ -3,7 +3,7 @@ import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { ScheduleRuleMonthsEntity } from "../../data/Scheduler";
 
-// Port of Signum.Scheduler Templates/ScheduleRuleMonths.tsx: the day + time come from StartingOn, the
+// The day + time come from StartingOn, the
 // twelve checkboxes say in which months it applies.
 export default function ScheduleRuleMonths(p: { ctx: TypeContext<ScheduleRuleMonthsEntity> }): React.JSX.Element {
     const ctx = p.ctx.subCtx({ formGroupStyle: "Basic" });

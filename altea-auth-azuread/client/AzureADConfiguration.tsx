@@ -8,10 +8,10 @@ import { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { AzureADConfigurationEmbedded, AzureADType } from "../data/AzureAD";
 
-// Port of Signum.Authorization.AzureAD's AzureADConfiguration.tsx — the configuration editor. Which fields
+// The configuration editor. Which fields
 // are shown depends on the Azure product, mirroring the StateValidator matrix on the entity.
 //
-// altea divergence: `ctx.value.type == "AzureAD"` (Signum compares the wire STRING of its enum) becomes a
+// `ctx.value.type == "AzureAD"` — a wire-string comparison in Signum — becomes a
 // comparison against the numeric `AzureADType` member — altea's entity enums are numeric in memory (see
 // CLAUDE.md; the string form is the reflected-enum wire value, which this field is not).
 

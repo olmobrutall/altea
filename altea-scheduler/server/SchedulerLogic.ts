@@ -26,29 +26,23 @@ import { ScheduleTaskRunner, type ScheduledTaskContext } from "./ScheduleTaskRun
 import { SchedulerServer } from "./SchedulerServer";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
-// Port of Signum.Scheduler's SchedulerLogic.cs — the module's `start(sb)`: the three tables, the operations,
-// the task-dispatch registry, and the cache of tasks this host should run.
+// The module's `start(sb)`: the three tables, the operations, the task-dispatch registry, and the cache of
+// tasks this host should run.
 //
-// altea divergences, documented inline:
-//  - Signum's `Polymorphic<Func<ITaskEntity, ScheduledTaskContext, Lite<IEntity>?>> ExecuteTask` → the
-//    `registerExecuteTask` registry below, keyed by constructor and walking the prototype chain, so a
-//    handler registered for a base task type serves its subclasses (which is what Polymorphic gives).
-//  - `QueryLogic.Expressions.Register(...)` for Executions / LastExecution / ExceptionLines is NOT ported:
-//    those are @quoted expression MEMBERS in altea, and putting them on the entities would make the
-//    isomorphic data layer import the server query API. The panel reaches the same rows through explicit
-//    filters instead.
-//  - `ExceptionLogic.DeleteLogs` (the log-cleanup hook) has no altea counterpart yet.
-//  - `UserAssetsImporter.Register(...)` goes with the XML deferral noted on the entities.
+// `registerExecuteTask` is keyed by CONSTRUCTOR and walks the prototype chain, so a handler registered for
+// a base task type serves its subclasses.
+//
+// Port of Signum.Scheduler's SchedulerLogic.cs — see docs/port/Scheduler.md.
 
 export namespace SchedulerLogic {
 
-    /** Signum's `ScheduledTasksLazy` — the ACTIVE tasks this machine/application should run. */
+    /** The ACTIVE tasks this machine/application should run. */
     export let scheduledTasks: ResetLazy<ScheduledTaskEntity[]> = null!;
 
-    /** Signum's `OnFinally` — every run notifies these, however it ended. */
+    /** Every run notifies these, however it ended. */
     export const onFinally: ((log: ScheduledTaskLogEntity) => void)[] = [];
 
-    // Signum's Polymorphic ExecuteTask, keyed by task constructor.
+    // The task-dispatch registry, keyed by task CONSTRUCTOR and walked up the prototype chain.
     type ExecuteTaskHandler = (task: ITaskEntity, ctx: ScheduledTaskContext) => Promise<Lite<Entity> | null>;
     const executeTaskHandlers = new Map<Function, ExecuteTaskHandler>();
 
@@ -58,7 +52,6 @@ export namespace SchedulerLogic {
 
         HolidayCalendarLogic.start(sb);
 
-        // Signum's `PermissionLogic.RegisterPermissions(SchedulerPermission.ViewSchedulerPanel)`.
         PermissionLogic.registerPermissions(SchedulerPermission.ViewSchedulerPanel);
 
         SimpleTaskLogic.start(sb);
@@ -74,7 +67,7 @@ export namespace SchedulerLogic {
         sb.include(SchedulerTaskExceptionLineEntity)
             .withQuery();
 
-        // Signum's Delete: the log rows OUTLIVE the task (they are the history), so they are detached
+        // The log rows OUTLIVE the task (they are the history), so they are detached
         // rather than cascaded, and the rule — a Part owned by this task — goes with it.
         new Graph.Delete(ScheduledTaskEntity, ScheduledTaskOperation.Delete, {
             delete: async (scheduledTask: ScheduledTaskEntity) => {
@@ -88,19 +81,19 @@ export namespace SchedulerLogic {
             },
         }).register();
 
-        // Signum's CancelRunningTask: only meaningful while the run is in flight.
+        // Only meaningful while the run is in flight.
         new Graph.Execute(ScheduledTaskLogEntity, ScheduledTaskLogOperation.CancelRunningTask, {
             canExecute: (log: ScheduledTaskLogEntity) =>
                 findRunning(log) != null ? null : SchedulerMessage.TaskIsNotRunning.niceToString(),
             execute: (log: ScheduledTaskLogEntity) => { findRunning(log)?.cancel(); },
         }).register();
 
-        // Signum's ITaskOperation.ExecuteSync — "run it now", from the task's own view.
-        // Signum registers this on the ITaskEntity INTERFACE and lets its polymorphic registry fan it out.
+        // "run it now", from the task's own view.
+        // Registered per concrete type: a TS interface is erased, so there is nothing to key on. What
         // A TS interface has no runtime constructor, so it cannot be an `entityType`: the operation is
         // owned by the framework's own built-in implementor here, and every OTHER task type adds itself
         // through `registerExecuteTask` below (OperationLogic.registerForType) — which is the same set
-        // Signum's polymorphic dispatch would cover, made explicit.
+        // a polymorphic registry would cover is made explicit.
         new Graph.ConstructFrom(SimpleTaskSymbol, ITaskOperation.ExecuteSync, {
             construct: async (task: ITaskEntity) => {
                 const user = UserHolder.currentUserLite();
@@ -110,7 +103,7 @@ export namespace SchedulerLogic {
             },
         }).register();
 
-        // Signum's ScheduledTasksLazy + its OnReset → re-plan whenever the task list changes. A task pinned
+        // Re-plan whenever the task list changes. A task pinned
         // to another machine (or another application on the same machine) is not ours to run.
         scheduledTasks = sb.globalLazy(
             async () => (await table(ScheduledTaskEntity).toArray()).filter(t => !t.suspended
@@ -118,7 +111,7 @@ export namespace SchedulerLogic {
                     || (t.machineName === ScheduleTaskRunner.machineName() && t.applicationName === ScheduleTaskRunner.applicationName()))),
             { invalidateWith: [ScheduledTaskEntity] });
 
-        // ResetLazy carries ONE onReset callback (Signum's event allows many); chain onto whatever is there.
+        // ResetLazy carries ONE onReset callback, so chain onto whatever is already there.
         const previousOnReset = scheduledTasks.onReset;
         scheduledTasks.onReset = () => {
             previousOnReset?.();
@@ -129,7 +122,7 @@ export namespace SchedulerLogic {
             SchedulerServer.start(sb.webBuilder);
     }
 
-    /** Signum's `ExecuteTask.Register(...)` — how to run a task of this type. */
+    /** How to run a task of this type. */
     export function registerExecuteTask<T extends ITaskEntity>(
         taskType: Type<T>,
         handler: (task: T, ctx: ScheduledTaskContext) => Promise<Lite<Entity> | null>,
@@ -139,7 +132,7 @@ export namespace SchedulerLogic {
         OperationLogic.registerForType(ITaskOperation.ExecuteSync, taskType as unknown as Function);
     }
 
-    /** Signum's `ExecuteTask.Invoke(task, ctx)` — dispatch, walking up the prototype chain so a handler
+    /** Dispatch, walking up the prototype chain so a handler
      *  registered on a base task type serves its subclasses (Polymorphic's behaviour). */
     export async function executeTask(task: ITaskEntity, ctx: ScheduledTaskContext): Promise<Lite<Entity> | null> {
         for (let ctor: Function | null = task.constructor; ctor != null; ctor = Object.getPrototypeOf(ctor) as Function | null) {

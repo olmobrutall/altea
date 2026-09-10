@@ -4,7 +4,7 @@ import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { ScheduleRuleWeekDaysEntity } from "../../data/Scheduler";
 
-// Port of Signum.Scheduler Templates/ScheduleRuleWeekDays.tsx: the seven day checkboxes in a row, then the
+// The seven day checkboxes in a row, then the
 // holiday calendar and whether its dates are the ONLY ones or the excluded ones.
 export default function ScheduleRuleWeekDays(p: { ctx: TypeContext<ScheduleRuleWeekDaysEntity> }): React.JSX.Element {
     const ctx = p.ctx.subCtx({ formGroupStyle: "Basic" });

@@ -11,22 +11,19 @@ import {
 import { setHolidayCalendarResolver } from "../data/Scheduler";
 import "@altea/altea/server/fluentOperations";
 
-// Port of Signum.Scheduler's HolidayCalendarLogic.cs — the calendar table, its cache, and the operations
-// (Save / Delete / ImportPublicHolidays).
+// The calendar table, its cache, and the operations (Save / Delete / ImportPublicHolidays).
 //
-// altea divergences, documented inline:
-//  - Signum caches `FrozenDictionary<Lite, Entity>` + the default calendar in two GlobalLazys; altea's
-//    ResetLazy is ASYNC, so the caches are read with `await`. The schedule rules, however, evaluate
-//    SYNCHRONOUSLY (`rule.next(now)` is isomorphic — the editors preview it too), so the runner warms the
-//    cache before advancing any rule and the rules read it through a sync resolver installed here.
-//  - `ImportPublicHolidays` calls the same third-party service Signum uses (date.nager.at) with the global
-//    `fetch`; `GetCountries` / `GetSubDivisions` are ported alongside it for the editor's dropdowns.
+// **The caches are ASYNC while the schedule rules are SYNC** — `rule.next(now)` is isomorphic, and the
+// editors preview it — so the runner WARMS the cache before advancing any rule, and the rules read it
+// through the sync resolver installed here.
+//
+// See docs/port/Scheduler.md.
 
 export namespace HolidayCalendarLogic {
 
-    /** Signum's `HolidayCalendarsByLite` — every calendar, by lite key. */
+    /** Every calendar, by lite key. */
     export let calendarsByLite: ResetLazy<Map<string, HolidayCalendarEntity>> = null!;
-    /** Signum's `DefaultHolidayCalendar`. */
+    /** The calendar a weekday rule uses when it names none. */
     export let defaultHolidayCalendar: ResetLazy<HolidayCalendarEntity | undefined> = null!;
 
     // The synchronous view the schedule rules read (see setHolidayCalendarResolver). Filled by `warm()`.
@@ -36,7 +33,7 @@ export namespace HolidayCalendarLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        // Signum's WithQuery projection has no altea counterpart (no QueryDescription — the auto-query is
+        // There is no server-side projection to register (the auto-query is
         // the entity itself); the columns the grid opens with are configured CLIENT-side, via
         // `cb.configure(HolidayCalendarEntity).withQuerySettings(...)`.
         sb.include(HolidayCalendarEntity)
@@ -68,7 +65,7 @@ export namespace HolidayCalendarLogic {
         warmCalendars = await calendarsByLite.value();
     }
 
-    /** Signum's `RetrieveFromCache`. */
+    /** One calendar from the cache. */
     export async function retrieveFromCache(lite: Lite<HolidayCalendarEntity>): Promise<HolidayCalendarEntity> {
         const calendar = (await calendarsByLite.value()).get(lite.key());
         if (calendar == null)
@@ -76,7 +73,7 @@ export namespace HolidayCalendarLogic {
         return calendar;
     }
 
-    // ---- date.nager.at (Signum's ImportPublicHolidays / GetCountries / GetSubDivisions) ------------------
+    // ---- date.nager.at: import public holidays, and the editor's country / subdivision lists ------------
 
     /** Add every public holiday of the configured country + year range that the calendar does not have. */
     export async function importPublicHolidays(calendar: HolidayCalendarEntity): Promise<void> {

@@ -3,11 +3,12 @@ import { OpenIdConnect } from "@altea/altea-auth/server/OpenIdConnect";
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { AzureADConfigurationEmbedded } from "../data/AzureAD";
 
+// The Graph REST helper every call in this module (and @altea/altea-mailing-microsoft-graph) goes through.
 // Port of Signum.Authorization.AzureAD's SignumTokenCredentials.cs + every `new GraphServiceClient(…)` call
 // site — the ONE place this module talks to Microsoft Graph.
 //
 // altea divergences, documented inline:
-//  - Signum uses `Azure.Identity`'s `ClientSecretCredential` + the generated `Microsoft.Graph` SDK. altea
+//  - `Azure.Identity`'s `ClientSecretCredential` + the generated `Microsoft.Graph` SDK become plain REST:
 //    calls the Graph REST API directly over the HTTP helper altea-auth already has (see
 //    @altea/altea-auth's OpenIdConnect): the module needs exactly five Graph calls (list users, list
 //    groups, transitive members, transitive memberOf, photo bytes) and each is one GET with OData query
@@ -15,10 +16,10 @@ import { AzureADConfigurationEmbedded } from "../data/AzureAD";
 //    endpoint is the same client-credentials POST `ClientSecretCredential` makes.
 //  - `AsyncThreadVariable<TokenCredential?> OverridenTokenCredential` → an AsyncLocalStorage scope
 //    (`withAccessToken`), the same override seam with altea's async propagation.
-//  - Signum caches nothing (the credential object caches internally); altea caches the app token until
+//  - The app token is CACHED here until
 //    shortly before it expires, per tenant+client.
 
-/** A bearer token to use INSTEAD of the application's own (Signum's AccessTokenCredential). */
+/** A bearer token to use INSTEAD of the application's own. */
 const overriddenToken = new AsyncLocalStorage<string>();
 
 interface CachedToken { token: string; expiresAt: number }
@@ -27,7 +28,7 @@ export namespace MicrosoftGraph {
 
     const tokenCache = new Map<string, CachedToken>();
 
-    /** Signum's `SignumTokenCredentials.OverrideAuthenticationProvider(accessToken)`. */
+    /** Run `fn` with a caller-supplied access token instead of the app's own. */
     export function withAccessToken<R>(accessToken: string, fn: () => R): R {
         return overriddenToken.run(accessToken, fn);
     }
@@ -38,7 +39,7 @@ export namespace MicrosoftGraph {
     }
 
     /**
-     * Signum's `GetAuthorizerTokenCredential()` — the token every Graph call rides on: the ambient
+     * The token every Graph call rides on: the ambient
      * override if one is in scope (a delegated call, made with the signed-in user's own token), else the
      * application's own client-credentials token.
      */
@@ -130,7 +131,7 @@ export namespace MicrosoftGraph {
         });
     }
 
-    /** The OData query parameters the two directory queries build (Signum's `req.QueryParameters`). */
+    /** The OData query parameters the two directory queries build. */
     export interface GraphQueryParameters {
         filter?: string | null;
         search?: string | null;
