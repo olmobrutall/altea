@@ -312,8 +312,11 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                                     ...rule.allowed.conditionRules.map((cr, i) => (
                                         <tr key={String(rule.resource.id) + "_c" + i} className="table-active">
                                             <td className="ps-4">
-                                                {!ctx.readOnly &&
-                                                    <LinkButton className="sf-condition-icon me-2" title="Remove condition" onClick={() => removeCondition(rule, cr)}>
+                                                {/* Read-only keeps the PLACEHOLDER (as the type row above does), so the condition
+                                                    label stays in the same column instead of shifting left. */}
+                                                {ctx.readOnly
+                                                    ? <FontAwesomeIcon aria-hidden={true} icon="circle" className="sf-placeholder-icon me-2" />
+                                                    : <LinkButton className="sf-condition-icon me-2" title="Remove condition" onClick={() => removeCondition(rule, cr)}>
                                                         <FontAwesomeIcon aria-hidden={true} icon="circle-minus" />
                                                     </LinkButton>}
                                                 <small>{cr.typeConditions.map(shortKey).join(" & ")}</small>
