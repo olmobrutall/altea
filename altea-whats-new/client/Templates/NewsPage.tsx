@@ -11,8 +11,8 @@ import { WhatsNewClient } from "../WhatsNewClient";
 import { HtmlViewer } from "../WhatsNewHtmlEditor";
 import "./NewsPage.css";
 
-// Port of Signum.WhatsNew's Templates/NewsPage.tsx — ONE news item, full length. Fetching it is also what
-// marks it read, which is why it raises `WhatsNewLogEntity` changed: that is what the navbar badge listens to.
+// ONE news item, full length. Fetching it is also what marks it read, which is why it raises
+// `WhatsNewLogEntity` changed: that is what the navbar badge listens to.
 export default function NewsPage(): React.JSX.Element {
     const params = useParams() as { newsId: string };
     const [refreshValue, setRefreshValue] = React.useState(0);

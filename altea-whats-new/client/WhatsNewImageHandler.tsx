@@ -5,21 +5,16 @@ import { toFile } from "@altea/altea-files/client/Components/FileUploader";
 import { FilePathEmbedded } from "@altea/altea-files/data/Files";
 import { WhatsNewEntity_Attachment, WhatsNewFileType } from "../data/WhatsNew";
 
-// Port of Signum.WhatsNew's `WhatsNewImageHandler` (Templates/WhatsNewHtmlEditor.tsx) — how an image pasted
-// into a news description is stored, rendered and round-tripped through the saved HTML.
+// How an image pasted into a news description is stored, rendered and round-tripped through the saved
+// HTML. Structurally @altea/altea-help's HelpImageHandler with a different owner.
 //
-// Structurally this is @altea/altea-help's HelpImageHandler with a different owner, and it makes the same two
-// accommodations:
-//  - **`binaryFile` is a `Uint8Array` in altea and a base64 STRING in Signum.** The `<img>` attribute and
-//    `ImageInfo.binaryFile` are base64 either way (they live in HTML), so the two conversions happen here.
-//  - `pr.member.defaultFileTypeInfo` has no counterpart (altea has no reflected `@defaultFileType`), so the
-//    file type is named directly and the size limit is this handler's own constant.
-// And one of its own: a stored image is addressed through the ATTACHMENT ROW that holds it —
-// `WhatsNewEntity.Attachment` is an MList of bare FilePathEmbeddeds in Signum, hence a `@part` row here, and
-// altea addresses a download by its owner + route rather than by Signum's hand-set
-// `entityId` / `rootType` / `propertyRoute` triple.
+// `binaryFile` is a `Uint8Array` on the entity and base64 in the `<img>` attribute and in `ImageInfo`
+// (both live in HTML), so the two conversions happen here. A stored image is addressed through the
+// ATTACHMENT ROW that holds it, by owner + route.
+//
+// See docs/port/WhatsNew.md.
 
-/** Signum's `maxSizeInBytes` came from the reflected DefaultFileType; altea states it (4 MB). */
+/** 4 MB — stated here, since there is no reflected default file type to read it from. */
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 export class WhatsNewImageHandler implements ImageHandlerBase {

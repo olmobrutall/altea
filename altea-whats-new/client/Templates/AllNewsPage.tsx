@@ -10,11 +10,8 @@ import { HtmlViewer } from "../WhatsNewHtmlEditor";
 import { htmlSubstring } from "../WhatsNewDropdown";
 import "./AllNewsPage.css";
 
-// Port of Signum.WhatsNew's Templates/AllNewsPage.tsx — the overview: one card per PUBLISHED news item,
-// newest first, each marked NEW until it is read.
-//
-// ALTEA: the teaser cut is the dropdown's `htmlSubstring`, shared rather than copied (Signum has the same
-// function twice, with 100 and 300 characters).
+// The overview: one card per PUBLISHED news item, newest first, each marked NEW until it is read. The
+// teaser cut is the dropdown's `htmlSubstring`, shared rather than copied.
 export default function AllNewsPage(): React.JSX.Element {
     const news = useAPI(() => WhatsNewClient.API.getAllNews(), []);
 

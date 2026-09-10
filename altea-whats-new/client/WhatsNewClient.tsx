@@ -17,18 +17,9 @@ import {
     type NumWhatsNews, type WhatsNewFull, type WhatsNewShort,
 } from "../data/WhatsNew";
 
-// Port of Signum.WhatsNew's WhatsNewClient.tsx — the two pages, the entity view, the "Preview" quick link
-// and the typed HTTP client.
+// The two pages, the entity view, the "Preview" quick link and the typed HTTP client.
 //
-// altea divergences:
-//  - `Navigator.addSettings(new EntitySettings(T, view, { modalSize: "xl" }))` → `cb.configure(T).withView(…)`.
-//    altea's EntityClientBuilder has no `modalSize`, and the news item is edited on its own page anyway.
-//  - `ChangeLogClient.registerChangeLogModule` is not ported (altea has no per-module changelog registry),
-//    so Signum's `Changelog.ts` — two lines about fixing this very dropdown — goes with it.
-//  - Signum's `replacePlaceHolders` / `getPropertyValue` helpers are declared INSIDE `start` and never
-//    called by anything, so they are not ported either.
-//  - `WhatsNewConfig` / `registerConfig` ARE ported: the entity view reads them for the icon of a `Related`
-//    type an app has taught it about.
+// Port of Signum.WhatsNew's WhatsNewClient.tsx — see docs/port/WhatsNew.md.
 export namespace WhatsNewClient {
 
     export function start(cb: ClientBuilder): void {
@@ -94,7 +85,7 @@ export namespace WhatsNewClient {
     }
 
     /**
-     * Signum's `WhatsNewConfig<T>` — how a `Related` type of an app's own shows up in the type picker. The
+     * How a `Related` type of an app's own shows up in the type picker. The
      * four framework types (Type / Query / Operation / Permission) have hard-coded icons in the view; this is
      * how an app adds its own.
      */

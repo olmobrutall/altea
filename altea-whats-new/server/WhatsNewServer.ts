@@ -14,23 +14,18 @@ import {
 } from "../data/WhatsNew";
 import { WhatsNewLogic } from "./WhatsNewLogic";
 
-// Port of Signum.WhatsNew's WhatsNewController.cs — the six routes the bullhorn, the overview and the news
-// page call.
+// The six routes the bullhorn, the overview and the news page call.
 //
-// altea divergences:
-//  - **`setNewsLog` inserts row by row instead of Signum's set-based `UnsafeInsert`.** Signum's projection
-//    (`wn => new WhatsNewLogEntity { … UserEntity.Current … }`) reads the current user inside a query
-//    lambda, and a call there has no SQL translation in altea; the set is at most a handful of lites (it is
-//    "the toasts I just closed"), so the loop is cheaper than the machinery to avoid it.
-//  - the preview-picture route stays AUTHENTICATED, where Signum marks it `[SignumAllowAnonymous]`. The
-//    picture belongs to a news item whose visibility is exactly what this module computes, so serving it to
-//    anyone would hand out the one part of an unpublished item that has no other gate. The same call
-//    @altea/altea-mailing-microsoft-graph's attachment download made.
+// The preview-picture route is AUTHENTICATED: the picture belongs to a news item whose visibility is
+// exactly what this module computes, so serving it to anyone would hand out the one part of an unpublished
+// item that has no other gate.
+//
+// Port of Signum.WhatsNew's WhatsNewController.cs — see docs/port/WhatsNew.md.
 export namespace WhatsNewServer {
 
     export function start(ws: WebBuilder): void {
 
-        // Signum's MyNewsCount — what the navbar badge shows.
+        // What the navbar badge shows.
         ws.get("/api/whatsnew/myNewsCount",
             { res: CustomType<NumWhatsNews>() },
             async (_req, res) => {
@@ -40,7 +35,7 @@ export namespace WhatsNewServer {
                 });
             });
 
-        // Signum's MyNews — the unread, published items the dropdown lists.
+        // The unread, published items the dropdown lists.
         ws.get("/api/whatsnew/myNews",
             { res: CustomType<WhatsNewShort[]>() },
             async (_req, res) => {
@@ -59,7 +54,7 @@ export namespace WhatsNewServer {
                     }));
             });
 
-        // Signum's GetAllNews — the overview page, read and unread alike.
+        // The overview page, read and unread alike.
         ws.get("/api/whatsnew/all",
             { res: CustomType<WhatsNewFull[]>() },
             async (_req, res) => {
@@ -67,8 +62,8 @@ export namespace WhatsNewServer {
                 return res.jsonTyped(news.map(t => toFull(t.wn, t.isRead)));
             });
 
-        // Signum's GetPreviewPicture. Streamed by the same helper the file module uses for its own
-        // owner-addressed downloads, so an ETag / caching behaves identically.
+        // Streamed by the same helper the file module uses for its own owner-addressed downloads, so ETag
+        // and caching behave identically.
         ws.get("/api/whatsnew/previewPicture/:id",
             { params: CustomType<{ id: string }>() },
             async (req, res) => {
@@ -82,7 +77,7 @@ export namespace WhatsNewServer {
                 res.send(Buffer.from(bytes));
             });
 
-        // Signum's SpecificNews — the news page, which is ALSO what marks the item read.
+        // The news page, which is ALSO what marks the item read.
         ws.get("/api/whatsnew/:id",
             { params: CustomType<{ id: string }>(), res: CustomType<WhatsNewFull>() },
             async (req, res) => {
@@ -96,7 +91,7 @@ export namespace WhatsNewServer {
                 return res.jsonTyped(toFull(wn, true));
             });
 
-        // Signum's setNewsLogRead — "I have seen these", from closing a toast.
+        // "I have seen these", from closing a toast.
         ws.post("/api/whatsnew/setNewsLog",
             { req: CustomType<Lite<WhatsNewEntity>[]>(), res: CustomType<void>() },
             async (req, res) => {
@@ -120,9 +115,12 @@ export namespace WhatsNewServer {
     }
 
     /**
-     * Write one log row per not-yet-read item (Signum's `UnsafeInsert` over the same set). In
-     * `ExecutionMode.global`, as Signum's `AuthLogic.Disable()` is: a user must be able to record having
-     * read something whatever their rules on the log table say.
+     * Write one log row per not-yet-read item, ROW BY ROW: a set-based insert would have to read the
+     * current user inside a query lambda, which has no SQL translation. The set is at most a handful of
+     * lites ("the toasts I just closed").
+     *
+     * In `ExecutionMode.global`: a user must be able to record having read something whatever their rules
+     * on the log table say.
      */
     async function markRead(lites: Lite<WhatsNewEntity>[]): Promise<void> {
         const user = UserHolder.currentUserLite();

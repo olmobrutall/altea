@@ -24,34 +24,24 @@ import {
     WhatsNewOperation, WhatsNewState,
 } from "../data/WhatsNew";
 
-// Port of Signum.WhatsNew's WhatsNewLogic.cs — in-app release notes: the state machine (Draft → Publish),
-// "which news may this user see", and the per-culture message pick.
+// In-app release notes: the state machine (Draft → Publish), "which news may this user see", and the
+// per-culture message pick.
 //
-// altea divergences:
-//  - **the news are NOT cached.** Signum keeps a `GlobalLazy` of every WhatsNew and then re-applies row
-//    security to the cached list with `Schema.GetInMemoryFilter<T>(userInterface: false)`. altea's
-//    `globalLazy` is async, and — more to the point — it has no in-memory twin of a TypeCondition filter
-//    (an app must register one explicitly; see eastwind's user-asset scoping). Querying the table instead
-//    gets the row filter for free, applied by the LINQ binder exactly as for any other query, and the
-//    table is tiny by nature: one row per release.
-//  - `Administrator.QueryDisableAssertAllowed<WhatsNewLogEntity>()` inside `IsRead` has no counterpart:
-//    altea's row filter is SPLICED by the binder onto every query of a type and cannot be suppressed for
-//    one subquery. The expression reads the log directly, which is equivalent unless an app puts a
-//    TypeCondition on WhatsNewLog — and one there would mean "you may not see your own read marks".
-//  - `Schema.ForceCultureInfo` has no counterpart either (the note @altea/altea-help carries), so the
-//    culture a news item MUST have a message for is {@link defaultCulture} — settable, defaulting to "en",
-//    which is what Signum falls back to when ForceCultureInfo is unset.
-//  - `WithCascadeDeleteBy` / `WithExpressionFrom` are Signum fluent-include steps altea does not have: the
-//    cascade is `withCascadeDelete` on the log's back reference and the expression is registered directly.
+// **The news are NOT cached**, and that is what makes them safe: querying the table gets the ROW FILTER
+// for free, applied by the LINQ binder exactly as for any other query, where a cached list would have to
+// re-apply row security in memory — which altea has no twin of. The table is tiny by nature: one row per
+// release.
+//
+// Port of Signum.WhatsNew's WhatsNewLogic.cs — see docs/port/WhatsNew.md.
 export namespace WhatsNewLogic {
 
     /**
-     * The culture every news item must carry a message for (Signum reads `Schema.ForceCultureInfo` and falls
-     * back to "en"). An app with a different primary language sets it in its starter.
+     * The culture every news item must carry a message for. An app with a different primary language sets
+     * it in its starter.
      */
     export let defaultCulture = "en";
 
-    // Signum's `RelatedConfigDictionary`: per `Related` type, "may the current user reach this?". A news
+    // Per `Related` type, "may the current user reach this?". A news
     // item about a query nobody may run is a news item nobody should be shown.
     const relatedConfigs = new Map<Function, (lite: Lite<Entity>) => Promise<boolean>>();
 
@@ -67,13 +57,12 @@ export namespace WhatsNewLogic {
             .withDelete(WhatsNewLogOperation.Delete)
             .withQuery();
 
-        // Signum's `WithExpressionFrom((WhatsNewEntity wn) => wn.WhatsNewLogs())` + the IsRead expression.
         QueryLogic.expressions.register(WhatsNewEntity, (wn: WhatsNewEntity) => wn.whatsNewLogs!(),
             { key: "WhatsNewLogs", niceName: () => WhatsNewLogEntity.nicePluralName() });
         QueryLogic.expressions.register(WhatsNewEntity, (wn: WhatsNewEntity) => wn.isRead!(),
             { key: "IsRead", niceName: () => WhatsNewMessage.IsRead.niceToString() });
 
-        // Signum's `Validator.PropertyValidator(wn => wn.Messages).StaticPropertyValidation`: a news item
+        // A news item
         // with no message in the default culture is unreadable for most of its audience. Pushed onto the
         // route's FieldInfo, which is altea's counterpart of a static property validation added from
         // outside the declaring class (the call @altea/altea-isolation makes for its required field).
@@ -83,7 +72,6 @@ export namespace WhatsNewLogic {
                 : WhatsNewMessage._0ContiansNoVersionForCulture1.niceToString(
                     messagesField.niceToString(), defaultCulture);
 
-        // Signum's two `RegisterRelatedConfig` calls.
         registerRelatedConfig(QueryEntity, async lite =>
             await QueryAuthLogic.isQueryAllowed(QueryLogic.toQueryName(lite.toString()), true));
         registerRelatedConfig(PermissionSymbol, async lite =>
@@ -91,12 +79,12 @@ export namespace WhatsNewLogic {
 
     }
 
-    /** Signum's `RegisterPublishedTypeCondition` — the condition an app grants ordinary users. */
+    /** The condition an app grants ordinary users. */
     export function registerPublishedTypeCondition(typeCondition: TypeConditionSymbol): void {
         TypeConditionLogic.registerCompile(WhatsNewEntity, typeCondition, wn => wn.status === WhatsNewState.Publish);
     }
 
-    /** Signum's `RegisterRelatedConfig<T>`. */
+    /** Teach the module how to reach — and how to icon — a `Related` type of an app's own. */
     export function registerRelatedConfig<T extends Entity>(
         type: Type<T>, isAuthorized: (lite: Lite<T>) => Promise<boolean>,
     ): void {
@@ -104,11 +92,11 @@ export namespace WhatsNewLogic {
     }
 
     /**
-     * Signum's `GetWhatNews()` — every news item this user may see, each with whether they have read it.
+     * Every news item this user may see, each with whether they have read it.
      *
-     * The ROW filter comes from the query itself (see the header note on not caching); the RELATED check is
-     * this module's own, and a `Related` whose type has no registered config THROWS, as Signum's
-     * `GetOrThrow` does: silently hiding or silently showing would both be wrong.
+     * The ROW filter comes from the query itself (see the header); the RELATED check is this module's own,
+     * and a `Related` whose type has no registered config THROWS — silently hiding or silently showing
+     * would both be wrong.
      */
     export async function getWhatNews(): Promise<{ wn: WhatsNewEntity, isRead: boolean }[]> {
         const all = await table(WhatsNewEntity).toArray() as WhatsNewEntity[];
@@ -123,7 +111,7 @@ export namespace WhatsNewLogic {
         return result;
     }
 
-    /** Signum's `GetWhatNew(id)` — the same visibility rules for one item; null when it is not visible. */
+    /** The same visibility rules for one item; null when it is not visible. */
     export async function getWhatNew(id: string | number): Promise<WhatsNewEntity | null> {
         const found = await table(WhatsNewEntity).filter(wn => wn.id == id).singleOrNull() as WhatsNewEntity | null;
         if (found == null || !await isRelatedAuthorized(found))
@@ -140,7 +128,7 @@ export namespace WhatsNewLogic {
         return await config(wn.related);
     }
 
-    /** The lite keys of the news items the CURRENT user has already read (Signum's `AuthLogic.Disable()` set). */
+    /** The lite keys of the news items the CURRENT user has already read, read with authorization off. */
     async function readByCurrentUser(): Promise<Set<string>> {
         const user = UserHolder.currentUserLite();
         if (user == null)
@@ -155,7 +143,7 @@ export namespace WhatsNewLogic {
     }
 
     /**
-     * Signum's `GetCurrentMessage` — the message for the request's culture, then its LANGUAGE, then the
+     * The message for the request's culture, then its LANGUAGE, then the
      * default culture, then simply the first. A news item always shows something.
      */
     export function getCurrentMessage(wn: WhatsNewEntity): WhatsNewMessageEntity {
@@ -168,16 +156,15 @@ export namespace WhatsNewLogic {
             ?? wn.messages[0];
     }
 
-    /** Signum's `wn.IsRead()` in memory — used by the route that records a read. */
+    /** In memory — used by the route that records a read. */
     export async function isReadByCurrentUser(wn: WhatsNewEntity): Promise<boolean> {
         return (await readByCurrentUser()).has(wn.toLite().key());
     }
 }
 
 /**
- * Signum's `WhatsNewGraph`, as a named function the include's `withStateMachine` calls. Save is a plain
- * Execute with an EMPTY body (Signum's too): the operation exists so the entity has one, and the save itself
- * is what it does.
+ * A named function the include's `withStateMachine` calls. Save is a plain Execute with an EMPTY body: the
+ * operation exists so the entity has one, and the save itself is what it does.
  */
 function registerWhatsNewOperations(sm: FluentStateMachine<WhatsNewEntity, WhatsNewState>): void {
     sm.parent.withSave(WhatsNewOperation.Save);
@@ -198,9 +185,9 @@ function registerWhatsNewOperations(sm: FluentStateMachine<WhatsNewEntity, Whats
     sm.parent.withDelete(WhatsNewOperation.Delete);
 }
 
-// Signum's two `[AutoExpressionField]` extension methods, as `withQuoted` PROTOTYPE members (the idiom
-// @altea/altea-view-log uses): a registered expression needs a quoted member to point at, and both bodies
-// are queries, so they are server-only.
+// The two expressions, as `withQuoted` PROTOTYPE members (the idiom @altea/altea-view-log uses): a
+// registered expression needs a quoted member to point at, and both bodies are queries, so they are
+// server-only.
 WhatsNewEntity.prototype.whatsNewLogs = withQuoted(function (this: WhatsNewEntity): IQuery<WhatsNewLogEntity> {
     return table(WhatsNewLogEntity).filter(log => log.whatsNew.is(this));
 });
@@ -208,8 +195,8 @@ WhatsNewEntity.prototype.whatsNewLogs = withQuoted(function (this: WhatsNewEntit
 // A quoted member's body must be ONE return statement (the transformer stamps that expression), so the
 // current user is read INSIDE it — the transformer captures the call as a constant, the way
 // @altea/altea-view-log's viewLogMyLast does. The declared return type is a PROMISE because `some` is a
-// query terminal, exactly as @altea/altea-workflow's `currentUserHasNotification` declares it; as a query
-// TOKEN it is a plain boolean column.
+// query terminal, as @altea/altea-workflow's `currentUserHasNotification` declares it; as a query TOKEN it
+// is a plain boolean column.
 WhatsNewEntity.prototype.isRead = withQuoted(function (this: WhatsNewEntity): Promise<boolean> {
     return table(WhatsNewLogEntity).some(log => log.whatsNew.is(this) && log.user.is(UserHolder.currentUserLite()));
 });

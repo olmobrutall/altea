@@ -14,19 +14,14 @@ import { Entity, type Type } from "@altea/altea/data/entity";
 import { SqlMigrationEntity, CSharpMigrationEntity, LoadMethodLogEntity, MigrationMessage } from "../data/Migrations";
 import { SafeConsole, Color } from "./SafeConsole";
 
-// Port of Signum.Migrations' MigrationLogic.cs — the module starter plus the two helpers both runners and
-// the app's loaders use: `ensureMigrationTable` (create the history table on the fly) and
-// `executeLoadProcess` (run one load step, logged to LoadMethodLogEntity with its exception).
+// The module starter plus the two helpers both runners and the app's loaders use: `ensureMigrationTable`
+// (create the history table on the fly) and `executeLoadProcess` (run one load step, logged to
+// LoadMethodLogEntity with its exception).
 //
-// altea divergences:
-//  - Signum hooks `ExceptionLogic.DeleteLogs` to purge old LoadMethodLog rows; altea's ExceptionLogic has no
-//    DeleteLogs machinery yet (documented as deferred there), so that hook is deferred WITH it.
-//  - Signum sets `Administrator.AvoidSimpleSynchronize` so a plain `sync` on a migration-managed database
-//    offers to create a migration instead. altea's Administrator has no such hook: the APP's terminal decides
-//    (see eastwind's `synchronize`, which asks MigrationLogic.hasSqlMigrations first) — one less global
-//    mutable seam, same behaviour.
-//  - `ExecuteLoadProcess` returns the caught error (Signum returns `Exception?`), so a caller can decide
-//    whether to keep going; the console output is the same banner + timing.
+// `executeLoadProcess` RETURNS the caught error rather than throwing, so a caller can decide whether the
+// remaining steps still run.
+//
+// Port of Signum.Migrations' MigrationLogic.cs — see docs/port/Migrations.md.
 
 export namespace MigrationLogic {
 
@@ -38,12 +33,11 @@ export namespace MigrationLogic {
         sb.include(CSharpMigrationEntity).withQuery();
         sb.include(LoadMethodLogEntity).withQuery();
 
-        // Signum: ExceptionLogic.DeleteLogs += … (deferred with altea's DeleteLogs — see the note above).
         void ExceptionLogic;
     }
 
     /**
-     * Signum's `EnsureMigrationTable<T>`: the history table has to exist BEFORE the first migration runs —
+     * The history table has to exist BEFORE the first migration runs —
      * and it cannot itself be created by a migration — so it is created on the fly, with its indexes, the
      * first time a runner needs it.
      */
@@ -57,9 +51,8 @@ export namespace MigrationLogic {
 
             const sqlBuilder = connector.sqlBuilder;
 
-            // Signum also creates the SCHEMA when the table lives outside the default one. altea's
-            // schemaSynchronizer emits `CREATE SCHEMA` the same way; `createSchema` is idempotent-guarded
-            // by the dialect builder, so it is safe to emit for a non-default schema.
+            // Also create the SCHEMA when the table lives outside the default one. `createSchema` is
+            // idempotent-guarded by the dialect builder, so it is safe to emit unconditionally.
             if (table.name.schema.name !== "")
                 await sqlBuilder.createSchema(table.name.schema).executeNonQuery();
 
@@ -73,7 +66,7 @@ export namespace MigrationLogic {
         });
     }
 
-    /** Are there applied SQL migrations in this database? (Signum's AvoidSimpleSynchronize probe.) */
+    /** Are there applied SQL migrations in this database? */
     export async function sqlMigrationCount(): Promise<number> {
         const table = Connector.current().schema.tryTable(SqlMigrationEntity);
         if (table == null || !await Administrator.existsTable(table))
@@ -82,12 +75,12 @@ export namespace MigrationLogic {
     }
 
     /**
-     * Signum's `ExecuteLoadProcess(action, description)`: run one load step inside a banner, LOG it to
+     * Run one load step inside a banner, LOG it to
      * LoadMethodLogEntity (start / end / exception), and return the error instead of throwing so the caller
      * can decide whether the remaining steps still run.
      *
-     * The log row is skipped when the table is not part of this schema (Signum's same guard), so an app that
-     * does not start MigrationLogic still gets the banner and the timing.
+     * The log row is skipped when the table is not part of this schema, so an app that does not start
+     * MigrationLogic still gets the banner and the timing.
      */
     export async function executeLoadProcess(action: () => Promise<void>, description: string, className?: string): Promise<unknown> {
         SafeConsole.banner(`Executing ${description}`);
@@ -117,7 +110,7 @@ export namespace MigrationLogic {
             SafeConsole.writeLineColor(Color.darkRed, (e as Error)?.stack ?? "(no stack trace)");
 
             if (log != null) {
-                // The exception log is written in its OWN transaction (altea's ExceptionLogic does this
+                // The exception log is written in its OWN transaction (ExceptionLogic does this
                 // internally): the failing step may have poisoned the ambient one.
                 const exception = await ExceptionLogic.logException(e);
                 log.exception = exception?.toLite() ?? null;

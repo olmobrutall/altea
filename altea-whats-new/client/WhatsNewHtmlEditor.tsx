@@ -8,11 +8,11 @@ import { ImageExtension } from "@altea/altea-html-editor/client/Extensions/Image
 import type { HtmlEditorExtension } from "@altea/altea-html-editor/client/Extensions/types";
 import { WhatsNewImageHandler } from "./WhatsNewImageHandler";
 
-// Port of Signum.WhatsNew's Templates/WhatsNewHtmlEditor.tsx — the news description's editor and its
-// read-only viewer, both over the same extension set (links + inline images).
+// The news description's editor and its read-only viewer, both over the same extension set (links +
+// inline images).
 //
-// ALTEA: the extension list is a module-level const (@altea/altea-help does the same) — `extensionsMemo`
-// takes the ARRAY, not a factory, so a fresh array per render would tear the editor down.
+// The extension list is a module-level const (@altea/altea-help does the same): `extensionsMemo` takes the
+// ARRAY, not a factory, so a fresh array per render would tear the editor down.
 const whatsNewExtensions: HtmlEditorExtension[] = [new LinkExtension(), new ImageExtension(new WhatsNewImageHandler())];
 
 export default function WhatsNewHtmlEditor(p: {
@@ -28,7 +28,7 @@ export default function WhatsNewHtmlEditor(p: {
     );
 }
 
-/** Signum's `HtmlViewer` — the same editor, read-only and small, for a teaser or a rendered article. */
+/** The same editor, read-only and small, for a teaser or a rendered article. */
 export function HtmlViewer(p: { text: string }): React.JSX.Element {
     const binding = new ReadonlyBinding(p.text, "");
 

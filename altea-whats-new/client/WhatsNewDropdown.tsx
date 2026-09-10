@@ -17,19 +17,13 @@ import { WhatsNewEntity, WhatsNewLogEntity, WhatsNewMessage, type NumWhatsNews, 
 import { WhatsNewClient } from "./WhatsNewClient";
 import "./WhatsNewDropdown.css";
 
-// Port of Signum.WhatsNew's Dropdown/WhatsNewDropdown.tsx — the navbar BULLHORN: a badge with the unread
-// count, and a panel of toasts, each closable (which marks the item read).
+// The navbar BULLHORN: a badge with the unread count, and a panel of toasts, each closable (which marks
+// the item read).
 //
-// altea divergences:
-//  - luxon's `DateTime.fromISO(x).toRelative()` becomes `Intl.RelativeTimeFormat` over a Temporal
-//    difference, the same helper @altea/altea-alert's bell uses (there is no luxon in altea, and Intl is
-//    culture-aware for free).
-//  - `react-router-dom` → `react-router`; `@framework/Globals` → `@altea/altea/data/globals`.
-//  - Signum's `WhatsNewToast.icons` registry is declared and never read by anything (its own file assigns
-//    an empty object and no code indexes it), so it is not ported.
-//  - `Type.niceCount(n)` has no counterpart, so the button's tooltip is the plural type name.
-//  - the count is decremented by the number of items actually closed, not by 1: Signum's optimistic update
-//    subtracts one even from "Close all", so the badge was wrong until the refetch landed.
+// The count is decremented by the number of items actually CLOSED, not by 1 — which is what makes "Close
+// all" leave the badge right before the refetch lands.
+//
+// Port of Signum.WhatsNew's Dropdown/WhatsNewDropdown.tsx — see docs/port/WhatsNew.md.
 const MaxNumberOfNews = 3;
 
 export default function WhatsNewDropdown(): React.JSX.Element | null {
@@ -69,7 +63,7 @@ function WhatsNewDropdownImp(): React.JSX.Element {
     }
 
     function handleOnCloseNews(toRemove: WhatsNewShort[]): void {
-        // Optimistic, then authoritative — Signum's two phases.
+        // Optimistic, then authoritative.
         let wasClosed = false;
         if (whatsNew) {
             whatsNew.extract(a => toRemove.some(r => r.whatsNew.is(a.whatsNew)));
@@ -184,9 +178,9 @@ export function WhatsNewToast(p: {
 }
 
 /**
- * Signum's `HTMLSubstring` — a teaser cut out of the stored HTML. Truncating markup is inherently lossy;
- * this keeps Signum's rule (drop a `<p>` wrapper, and cut BEFORE a half-included `<img>` rather than after)
- * because the viewer that renders the result tolerates the same shapes Signum's does.
+ * A teaser cut out of the stored HTML. Truncating markup is inherently lossy;
+ * the rule is to drop a `<p>` wrapper and cut BEFORE a half-included `<img>` rather than after, which is
+ * what keeps the result something the viewer can render.
  */
 export function htmlSubstring(text: string, length: number): string {
     let substring = text.substring(0, length).replace("<p>", "").replace("</p>", "");

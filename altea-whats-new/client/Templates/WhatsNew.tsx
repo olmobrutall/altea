@@ -25,22 +25,20 @@ import {
 import { WhatsNewClient } from "../WhatsNewClient";
 import WhatsNewHtmlEditor from "../WhatsNewHtmlEditor";
 
-// Port of Signum.WhatsNew's Templates/WhatsNew.tsx — the editor: the status (read-only, the operations move
-// it), the name, the preview picture, what the item is `related` to, and one tab per culture.
+// The editor: the status (read-only, the operations move it), the name, the preview picture, what the item
+// is `related` to, and one tab per culture.
 //
-// altea divergences:
-//  - the two FileLines NAME their file type: `[DefaultFileType]` is reflected in Signum and altea has no
-//    counterpart (the accommodation @altea/altea-help's image handler documents).
-//  - `ctx.memberInfo(wn => wn.related)` → `ctx.memberInfo("related")`: the quote-transformer does not
-//    rewrite lambdas in JSX ATTRIBUTES, and this call sits in the component body but reads the same route,
-//    so the string form is used for consistency with the rest of the repo's Line props.
+// The two FileLines NAME their file type: there is no reflected default file type (the accommodation
+// @altea/altea-help's image handler documents).
+//
+// See docs/port/WhatsNew.md.
 export default function WhatsNew(p: { ctx: TypeContext<WhatsNewEntity> }): React.JSX.Element {
     const ctx = p.ctx;
     const forceUpdate = useForceUpdate();
 
     function selectContentType(filter: (ti: TypeInfo) => boolean): Promise<TypeInfo | undefined> {
-        // ALTEA: Signum splits a ", "-joined clean-name list with `getTypeInfos(pr.type)`; altea holds the
-        // target ctors STRUCTURALLY on the TypeReference, so the implementations are read off it directly.
+        // The target ctors are held STRUCTURALLY on the TypeReference, so the implementations are read off
+        // it directly.
         const route = PropertyRoute.root(WhatsNewEntity).addMember("related");
         return SelectorModal.chooseType(route.type.typeInfos().filter(filter), {
             buttonDisplay: ti => {
@@ -89,7 +87,7 @@ export function WhatsNewMessageComponent(p: {
     );
 }
 
-/** Signum's `getDefaultIcon` — the four framework `Related` types, then whatever an app registered. */
+/** The four framework `Related` types, then whatever an app registered. */
 function getDefaultIcon(ti: TypeInfo): WhatsNewClient.IconColor | null {
     switch (ti.ctor) {
         case TypeEntity: return { icon: "object-group", iconColor: "#229954" };
