@@ -30,7 +30,7 @@ import { PredictorLogicQuery } from "./PredictorLogicQuery";
 //  - a token is a STRING in the DTO (see data/PredictRequest.ts), so the builder writes the token string
 //    and the reader resolves through `QueryLogic.getToken` — Signum ships a `QueryTokenTS` and matches on
 //    `token.fullKey`.
-//  - Signum's `ParseValues` walks every value doing `JsonElement.ToObject(token.Type)`; here the body has
+//  - a `ParseValues` pass over every value (`JsonElement.ToObject(token.Type)`) is unnecessary: the body has
 //    already been through the entity Serializer (so a Lite arrives decoded), and what is left — an enum
 //    member name, a date string, a decimal string — is exactly what `deserializeFilterValue` coerces
 //    against a token. So the coercion is that one call rather than a private converter.
@@ -44,7 +44,7 @@ export namespace PredictRequestBuilder {
     // ---- the columns of a sub-query, split by role -----------------------------------------------------
 
     /**
-     * Signum's `SplitColumns` — a sub-query's columns are (one ParentKey, then the SplitBy keys, then the
+     * A sub-query's columns are (one ParentKey, then the SplitBy keys, then the
      * values), and that order IS the row layout. The ParentKey is dropped: it identifies the entity being
      * predicted about, which the whole request is about already.
      */
@@ -90,7 +90,7 @@ export namespace PredictRequestBuilder {
     // ---- dictionary -> DTO -----------------------------------------------------------------------------
 
     /**
-     * Signum's `CreatePredictModel` — the model the page renders.
+     * The model the page renders.
      *
      * `originalOutputs` is what makes a prediction ABOUT a real row worth looking at: with it, each output
      * comes back as {predicted, original} so the page can colour agreement green and disagreement red.
@@ -169,7 +169,7 @@ export namespace PredictRequestBuilder {
     // ---- DTO -> dictionary -----------------------------------------------------------------------------
 
     /**
-     * Signum's `GetInputsFromRequest` — read the edited inputs back out of the posted model.
+     * Read the edited inputs back out of the posted model.
      *
      * Only the INPUTS are read: whatever the page happens to be showing as an output is the previous
      * prediction, and re-feeding it would make the answer depend on the answer.
@@ -223,7 +223,7 @@ export namespace PredictRequestBuilder {
     }
 
     /**
-     * Signum's `SetOutput` — write a fresh prediction into the model the page posted, leaving the inputs
+     * Write a fresh prediction into the model the page posted, leaving the inputs
      * (and each output's `original`) exactly as they were.
      */
     export function setOutput(request: PredictRequestModel, predicted: PredictDictionary): void {

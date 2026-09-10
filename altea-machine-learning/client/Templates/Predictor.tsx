@@ -52,7 +52,7 @@ import PredictorSubQuery from "./PredictorSubQuery";
 // same, in the same place.
 //
 // altea divergences, documented inline:
-//  - Signum's `ProgressBar` component lives in its framework; altea has none, so the training bar is
+//  - `ProgressBar` lives in Signum's framework; there is none here, so the training bar is
 //    local (it is nine lines of Bootstrap markup).
 //  - the loss chart is `LossChart` (inline SVG) rather than Signum's d3 `LineChart` — see that file.
 //  - `Finder.getQueryDescription` is gone: the main query's ROOT token (`Finder.getQueryRoot`) is what the
@@ -112,14 +112,14 @@ export default function Predictor(
     }), [p, p.state, queryKey]);
 
     function handleQueryChange(): void {
-        // The filters and columns name the OLD query's tokens. Signum's same clear.
+        // The filters and columns name the OLD query's tokens, so they are cleared.
         p.filters = [];
         p.columns = [];
         forceUpdate();
     }
 
     /**
-     * Signum's `handleGroupChange` — turning grouping ON invalidates every AGGREGATE token.
+     * Turning grouping ON invalidates every AGGREGATE token.
      *
      * A grouped query's columns are the group keys; an aggregate token there is not a key, so each one is
      * replaced by its parent (`Sum(TotalPrice)` becomes `TotalPrice`) rather than silently left to fail
@@ -143,7 +143,7 @@ export default function Predictor(
     }
 
     /**
-     * Signum's `handleCreate` — a NEW sub-query, pre-filled with its ParentKey column(s).
+     * A NEW sub-query, pre-filled with its ParentKey column(s).
      *
      * Guessing the parent key is the whole value of the button: without grouping it is the main query's
      * entity, and with grouping it is one column per non-aggregate main column, in order. Getting that
@@ -153,7 +153,7 @@ export default function Predictor(
         const mq = p.mainQuery;
 
         const tokens: QueryToken[] = !mq.groupResults
-            // The ROOT entity token is the EMPTY string in altea (Signum spells it "Entity").
+            // The ROOT entity token is the EMPTY string here (Signum spells it "Entity").
             ? [await Finder.parseSingleToken(mq.query.key, "", SubTokensOptions.CanElement)]
             : p.columns
                 .map(c => c.token?.token)
@@ -171,7 +171,7 @@ export default function Predictor(
         return sq;
     }
 
-    /** Signum's `handleAlgorithmChange` — the chosen algorithm seeds its own settings row. */
+    /** The chosen algorithm seeds its own settings row. */
     function handleAlgorithmChange(): void {
         if (p.algorithm == null)
             p.algorithmSettings = null!;
@@ -341,7 +341,7 @@ function validationTitle(ctx: TypeContext<PredictorEntity>): string {
 // ---- the live training panel ---------------------------------------------------------------------------
 
 /**
- * Signum's `TrainingProgressComponent` — the run in flight.
+ * The run in flight.
  *
  * It polls twice a second, which is what makes it useful: a training that has stopped improving is
  * visible in the curve long before it finishes, and the whole point of showing it is to let someone stop
@@ -375,7 +375,7 @@ export function TrainingProgressComponent(
     );
 }
 
-/** Signum's `EpochProgressComponent` — the recorded curve of a finished run. */
+/** The recorded curve of a finished run. */
 export function EpochProgressComponent(p: { ctx: TypeContext<PredictorEntity> }): React.JSX.Element {
     const rows = useAPI(() => MachineLearningClient.API.epochProgress(p.ctx.value.toLite()), [p.ctx.value]);
 
@@ -383,7 +383,7 @@ export function EpochProgressComponent(p: { ctx: TypeContext<PredictorEntity> })
 }
 
 /**
- * Signum's framework `ProgressBar`, local here (altea has none).
+ * A local `ProgressBar` — Signum's lives in its framework.
  *
  * A null value is an INDETERMINATE step — "preprocessing" has no percentage — and it is drawn striped
  * and full rather than empty, because an empty bar reads as "nothing is happening".

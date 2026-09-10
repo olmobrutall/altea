@@ -64,14 +64,14 @@ export default function PredictorSubQuery(p: PredictorSubQueryProps): React.JSX.
 
     function handleQueryChange(): void {
         // Filters and columns are written against the OLD query's tokens; keeping them would leave rows
-        // whose tokens cannot resolve. Signum's same clear.
+        // whose tokens cannot resolve.
         entity.filters = [];
         entity.columns = [];
         forceUpdate();
     }
 
     /**
-     * Signum's `handleChangeUsage` — only Input and Output columns are ENCODED, so the encoding pair is
+     * Only Input and Output columns are ENCODED, so the encoding pair is
      * filled in when a column becomes one and cleared when it stops being one (a ParentKey / SplitBy with
      * an encoding fails validation).
      */
@@ -87,7 +87,7 @@ export default function PredictorSubQuery(p: PredictorSubQueryProps): React.JSX.
     }
 
     /**
-     * Signum's `getMainFilters` — the main query's filters, REBASED onto this sub-query.
+     * The main query's filters, REBASED onto this sub-query.
      *
      * The point of the preview is to show the rows the training will actually see, and the training reads
      * a sub-query narrowed to the main query's population. When the two queries are the same, the filters
@@ -142,7 +142,7 @@ export default function PredictorSubQuery(p: PredictorSubQueryProps): React.JSX.
     }
 
     /**
-     * Signum's `getParentKeyMessage` — which type each ParentKey is expected to be.
+     * Which type each ParentKey is expected to be.
      *
      * The order matters and is easy to get wrong: with a GROUPED main query there is one ParentKey per
      * non-aggregate main column, matched positionally, so the help text names the type the Nth one must

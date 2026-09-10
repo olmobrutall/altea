@@ -56,11 +56,11 @@ import { fileModelStore, hasSavedModel } from "./FileModelStore";
 
 export namespace TensorFlowNeuralNetworkPredictor {
 
-    /** Signum's `PredictorDirectory` — where a trained model's files live. */
+    /** Where a trained model's files live. */
     export let predictorDirectory: (p: PredictorEntity) => string =
         p => join("TensorFlowModels", String(p.id));
 
-    /** Signum's `TrainingModelDirectory` — the in-progress model of one training run. */
+    /** The in-progress model of one training run. */
     export let trainingModelDirectory: (p: PredictorEntity, epoch: number) => string =
         (p, epoch) => join("TensorFlowModels", String(p.id), "Training", String(epoch));
 
@@ -81,7 +81,7 @@ export namespace TensorFlowNeuralNetworkPredictor {
         return tfc.getBackend();
     }
 
-    /** Signum's `Encodings` dictionary, keyed by symbol key. An app may add to it. */
+    /** The encoding registry, keyed by symbol key. An app may add to it. */
     export const encodings: Map<string, ITensorFlowEncoding> = defaultEncodings();
 
     export function encoding(symbol: PredictorColumnEncodingSymbol): ITensorFlowEncoding {
@@ -131,7 +131,7 @@ export namespace TensorFlowNeuralNetworkPredictor {
     // ---- training --------------------------------------------------------------------------------------
 
     /**
-     * Signum's `Train(ctx)`.
+     * Train.
      *
      * The shape: build the model from the settings, fit it on the codified training rows with the
      * validation rows held back, record a progress row every `saveProgressEvery` epochs, and stop early
@@ -171,7 +171,7 @@ export namespace TensorFlowNeuralNetworkPredictor {
                         const total = settings.numMinibatches as number;
                         ctx.reportProgress(PredictorMessage.Training.niceToString(), epochNumber / total);
 
-                        // Signum records a row every `saveProgressEvery`, and validation figures only
+                        // A row is recorded every `saveProgressEvery`, and validation figures only
                         // every `saveValidationProgressEvery` — which is why the settings require the
                         // second to be a multiple of the first (see the entity's validator): otherwise a
                         // recorded row could have no validation numbers to compare against.
@@ -245,7 +245,6 @@ export namespace TensorFlowNeuralNetworkPredictor {
         await model.save(fileModelStore(directory));
     }
 
-    /** Signum's `LoadModel(ctx)`. */
     export async function loadModel(ctx: PredictorPredictContext): Promise<void> {
         await tfc.ready();
         ctx.model = await tfl.loadLayersModel(fileModelStore(predictorDirectory(ctx.predictor)));
@@ -256,7 +255,7 @@ export namespace TensorFlowNeuralNetworkPredictor {
         return hasSavedModel(predictorDirectory(predictor));
     }
 
-    /** Drop a predictor's saved model — Signum's Untrain. */
+    /** Drop a predictor's saved model. */
     export function deleteModel(predictor: PredictorEntity): void {
         const dir = predictorDirectory(predictor);
         if (existsSync(dir))
@@ -265,14 +264,13 @@ export namespace TensorFlowNeuralNetworkPredictor {
 
     // ---- prediction ------------------------------------------------------------------------------------
 
-    /** Signum's `Predict(ctx, input)`. */
     export async function predict(ctx: PredictorPredictContext, input: PredictDictionary): Promise<PredictDictionary> {
         const results = await predictMultiple(ctx, [input]);
         return results[0]!;
     }
 
     /**
-     * Signum's `PredictMultiple(ctx, inputs)` — codify every input into one batch, run the model ONCE,
+     * Codify every input into one batch, run the model ONCE,
      * and decode each row's outputs back into the predictor's own terms.
      *
      * Batching is not an optimisation detail here: a per-row `predict` on tfjs pays the tensor setup for
@@ -306,7 +304,7 @@ export namespace TensorFlowNeuralNetworkPredictor {
 
             return inputs.map((dic, row) => {
                 const slice = data.subarray(row * outputSize, (row + 1) * outputSize);
-                // The decoding options ride on the INPUT dictionary — Signum's `PredictDictionary.Options`
+                // The decoding options ride on the INPUT dictionary (see PredictDictionary.options)
                 // — so a batch may mix rows asking for alternatives with rows asking for the winner.
                 return decodeOutputs(ctx, dic, slice, dic.options as PredictionOptions | undefined);
             });

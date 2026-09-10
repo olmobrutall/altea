@@ -17,6 +17,7 @@ import { PredictorPredictLogic } from "./PredictorPredictLogic";
 import { TensorFlowNeuralNetworkPredictor } from "./tensorflow/TensorFlowNeuralNetworkPredictor";
 
 // Port of Signum.MachineLearning's PredictorController.cs / PredictorServer.cs — the HTTP surface.
+// See docs/port/MachineLearning.md.
 //
 // Four things the client cannot get from an ordinary query:
 //   • the LIVE training progress, which exists only in the training process's memory;
@@ -89,7 +90,7 @@ export namespace PredictorServer {
             });
 
         /**
-         * Signum's `GetPredict` — OPEN an interactive prediction.
+         * OPEN an interactive prediction.
          *
          * With an entity, the predictor's own queries are run for that one row, so the page opens showing
          * the real inputs and both answers (what the model says, what actually happened). Without one it
@@ -116,7 +117,7 @@ export namespace PredictorServer {
             });
 
         /**
-         * Signum's `UpdatePredict` — RE-predict from the model the page posted back.
+         * RE-predict from the model the page posted back.
          *
          * This is what makes the page interactive: edit an input, get a new prediction, with the original
          * values (and the inputs themselves) carried through untouched.

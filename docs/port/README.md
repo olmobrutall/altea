@@ -42,6 +42,7 @@ specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inv
 | [FileStores.md](FileStores.md) | `@altea/altea-files-azure`, `@altea/altea-files-s3` |
 | [Isolation.md](Isolation.md) | `@altea/altea-isolation` |
 | [LegacyMode.md](LegacyMode.md) | *cross-cutting* — `SchemaSettings.legacyMode` |
+| [MachineLearning.md](MachineLearning.md) | `@altea/altea-machine-learning` |
 | [MailingExchange.md](MailingExchange.md) | `@altea/altea-mailing-exchange` |
 | [MailingMicrosoftGraph.md](MailingMicrosoftGraph.md) | `@altea/altea-mailing-microsoft-graph` |
 | [MailingPop3.md](MailingPop3.md) | `@altea/altea-mailing-pop3` |

@@ -48,7 +48,7 @@ import { Decimal } from "@altea/altea/data/basics";
 import { AutoconfigureNeuralNetworkEntity } from "../data/NeuralNetworkSettings";
 
 // Port of Signum.MachineLearning's PredictorLogic.cs — the module's `start`, its registries, and the
-// TRAINING orchestration.
+// TRAINING orchestration. See docs/port/MachineLearning.md.
 //
 // The state machine is the shape to hold on to: a predictor is Draft while it is being defined, Training
 // while a run is in flight, Trained when a model is on disk, and Error when a run failed. Training is
@@ -57,36 +57,29 @@ import { AutoconfigureNeuralNetworkEntity } from "../data/NeuralNetworkSettings"
 // `trainingProgress` exists as an endpoint rather than the operation simply returning a result.
 //
 // altea divergences, documented inline:
-//  - Signum runs each training on a `Task` it tracks in a static dictionary keyed by the predictor's id;
-//    here that is a Map of AbortControllers, which is the same bookkeeping plus a cancellation handle
-//    Node actually has.
-//  - `OperationLogic.AllowSave` / `PermissionLogic.RegisterPermissions` / `ExceptionLogic.DeleteLogs`
-//    have no counterparts (the notes the other ports carry).
-//  - Signum's `PredictorMainQueryEmbedded.ParseData` is gone with QueryDescription; a token is resolved
-//    where it is used (PredictorLogicQuery), so a stale one fails at TRAIN time with the predictor named.
-//  - the metrics that Signum computes in `PreSaving` (the classification miss rate) are computed by the
-//    training run, because altea has no entity-level PreSaving hook — see `finishTraining`.
+// A run is tracked by a Map of AbortControllers (Signum uses a `Task` in a static dictionary keyed by the
+// predictor's id), and the metrics Signum computes in `PreSaving` are computed by the training run instead,
+// there being no entity-level PreSaving hook — see `finishTraining`.
 
 export namespace PredictorLogic {
 
-    /** Signum's `Algorithms` — the registry of algorithms, keyed by symbol key. */
+    /** The registry of algorithms, keyed by symbol key. */
     export const algorithms = new Map<string, IPredictorAlgorithm>();
 
-    /** Signum's `ResultSavers`. */
     export const resultSavers = new Map<string, IPredictorResultSaver>();
 
     /**
-     * Signum's `PublicationSettings` — what a publication symbol carries: the QUERY a predictor must be
+     * What a publication symbol carries: the QUERY a predictor must be
      * built over to be publishable there, and optionally what to DO when one is published
      * (`AfterPublishProcess` constructs whatever `onPublicate` returns).
      */
     export interface PublicationSettings {
         readonly queryName: QueryName;
-        /** Signum's `Func<PredictorEntity, Entity>? OnPublicate` — absent ⇒ AfterPublishProcess refuses. */
+        /** Absent ⇒ AfterPublishProcess refuses. */
         readonly onPublicate?: (predictor: PredictorEntity) => Promise<Entity>;
     }
 
-    /** Signum's `Publications` — a publication symbol says "this trained model is the live one for X". */
+    /** A publication symbol says "this trained model is the live one for X". */
     export const publications = new Map<string, PublicationSettings>();
 
     export function registerAlgorithm(symbol: PredictorAlgorithmSymbol, algorithm: IPredictorAlgorithm): void {
@@ -116,8 +109,7 @@ export namespace PredictorLogic {
             return;
         started = true;
 
-        // Signum's `PredictorLogic.IgnorePinned`, which Southwind calls from OverrideAttributes and
-        // Signum then ASSERTS was called (its two `AssertIgnored` lines).
+        // Called HERE rather than by the app (Southwind calls it, and Signum then ASSERTS it was called).
         //
         // A PINNED filter is a SearchControl affordance — "show this filter in the header, let the user
         // change it" — and a predictor's filters are not a search: they define the training population,
@@ -154,7 +146,7 @@ export namespace PredictorLogic {
 
         // The derived rows. Each is written by the engine and read by the UI, never edited.
         sb.include(PredictorCodificationEntity)
-            // Signum's `.WithUniqueIndex(pc => new { pc.Predictor, pc.Index, pc.Usage })` — one
+            // One
             // codification per (predictor, vector position, input-or-output).
             .withUniqueIndex(pc => [pc.predictor, pc.index, pc.usage])
             .withQuery();
@@ -164,7 +156,7 @@ export namespace PredictorLogic {
         // The one algorithm the module ships, and the six encodings behind it.
         registerAlgorithm(TensorFlowPredictorAlgorithm.NeuralNetworkGraph, TensorFlowNeuralNetworkPredictor.algorithm);
 
-        // The two result savers (Signum registers these in its own Start too).
+        // The two result savers, registered here as Signum registers them in its own Start.
         PredictorSimpleSaver.register(registerResultSaver);
 
         // The Autoconfigure genetic search as a background PROCESS: one run trains a whole population, so
@@ -204,7 +196,7 @@ export namespace PredictorLogic {
         if (sb.webBuilder)
             PredictorServer.start(sb.webBuilder);
 
-        // The four symbol tables, seeded and synchronized — Signum's four `SymbolLogic<X>.Start` calls.
+        // The four symbol tables, seeded and synchronized.
         //
         // These are LAST on purpose: altea's default `getSymbols` is "every symbol of this type that has
         // been DECLARED", and a declaration happens when the containing namespace object is first
@@ -223,7 +215,7 @@ export namespace PredictorLogic {
         SymbolLogic.start(sb, PredictorAlgorithmSymbol);
         SymbolLogic.start(sb, PredictorColumnEncodingSymbol);
         SymbolLogic.start(sb, PredictorResultSaverSymbol);
-        // Signum's `SymbolLogic<PredictorPublicationSymbol>.Start(sb, () => Publications.Keys)` — the
+        // The
         // REGISTERED publications, not every declared one. A publication symbol is meaningless without its
         // PublicationSettings (which query the live model predicts over), so a declared-but-unregistered
         // one would be a row `PredictorPredictLogic.currentPredictor` could never answer for.
@@ -242,7 +234,7 @@ export namespace PredictorLogic {
         sb.include(PredictorPublicationSymbol).withQuery();
     }
 
-    /** Signum's `IgnorePinned(sb)` — see the call in `start` for why. */
+    /** See the call in `start` for why. */
     export function ignorePinned(sb: SchemaBuilder): void {
         sb.settings.ignoreFieldRoute(PredictorEntity_Filter, "pinned");
         sb.settings.ignoreFieldRoute(PredictorSubQueryEntity_Filter, "pinned");
@@ -257,14 +249,14 @@ export namespace PredictorLogic {
         promise: Promise<void>;
     }
 
-    /** Signum's `Trainings` static dictionary, keyed by the predictor's id. */
+    /** The runs in flight, keyed by the predictor's id. */
     const trainings = new Map<string, TrainingRun>();
 
     export function isTraining(predictor: PredictorEntity): boolean {
         return trainings.has(String(predictor.id));
     }
 
-    /** Signum's `TrainingProgress(predictor)` — what the client polls while a run is in flight. */
+    /** What the client polls while a run is in flight. */
     export function trainingProgress(predictor: PredictorEntity): TrainingProgress {
         const run = trainings.get(String(predictor.id));
         if (run == null)
@@ -279,7 +271,6 @@ export namespace PredictorLogic {
         };
     }
 
-    /** Signum's `CancelTraining` / `StopTraining`. */
     export function cancelTraining(predictor: PredictorEntity): void {
         trainings.get(String(predictor.id))?.controller.abort();
     }
@@ -293,7 +284,7 @@ export namespace PredictorLogic {
     // ---- training --------------------------------------------------------------------------------------
 
     /**
-     * Signum's `Train(predictor)` — start a run and return immediately.
+     * Start a run and return immediately.
      *
      * The run is deliberately NOT awaited by the operation: a training takes minutes, and holding the
      * operation's transaction open for it would hold locks on the predictor row the whole time (and time
@@ -317,7 +308,7 @@ export namespace PredictorLogic {
         return trainings.get(String(predictor.id))?.promise;
     }
 
-    /** Signum's training body: retrieve, codify, fit, score, save. */
+    /** The training body: retrieve, codify, fit, score, save. */
     export async function runTraining(ctx: PredictorTrainingContext): Promise<void> {
         const predictor = ctx.predictor;
         const algorithm = algorithmOf(predictor);
@@ -416,7 +407,7 @@ export namespace PredictorLogic {
 
     // ---- the state machine -----------------------------------------------------------------------------
 
-    /** Port of Signum's `PredictorGraph`. */
+    /** The predictor's state machine. */
     function registerPredictorOperations(sm: FluentStateMachine<PredictorEntity, PredictorState>): void {
         sm.withSave(PredictorOperation.Save, {
             fromStates: [PredictorState.Draft],
@@ -481,7 +472,7 @@ export namespace PredictorLogic {
                     throw new Error("The predictor has no Publication to publish to");
                 if (!publications.has(p.publication.key))
                     throw new Error(`No publication registered for '${p.publication.key}'`);
-                // Signum unpublishes every OTHER predictor of the same publication — a publication names
+                // Publishing UNPUBLISHES every other predictor of the same publication — a publication names
                 // the ONE live model for a purpose, so two would make "the current model" ambiguous.
                 Transaction.postRealCommit(() => { void unpublishOthers(p); });
             },
@@ -508,7 +499,7 @@ export namespace PredictorLogic {
             construct: p => publications.get(p.publication!.key)!.onPublicate!(p),
         });
 
-        // Signum's `new Delete(PredictorOperation.Delete)`: the derived rows go first, and the model FILES
+        // The derived rows go first, and the model FILES
         // with them — a trained predictor owns bytes on disk that no foreign key would ever sweep.
         sm.withDelete(PredictorOperation.Delete, {
             fromStates: [PredictorState.Draft, PredictorState.Trained],
@@ -543,7 +534,7 @@ export namespace PredictorLogic {
         });
     }
 
-    /** Signum's `Clone` — a deep copy in Draft, sharing nothing with the original. */
+    /** A deep copy in Draft, sharing nothing with the original. */
     export function clonePredictor(source: PredictorEntity): PredictorEntity {
         return PredictorEntity.create({
             name: (source.name ?? "") + " (clone)",
@@ -593,7 +584,7 @@ export namespace PredictorLogic {
     }
 
     /**
-     * Signum's `AssertValid` — the rules a predictor must satisfy before it can train, checked at SAVE
+     * The rules a predictor must satisfy before it can train, checked at SAVE
      * time so a broken definition is refused where the author can see why.
      */
     export function assertValid(predictor: PredictorEntity): void {
@@ -604,7 +595,7 @@ export namespace PredictorLogic {
         if (!predictor.columns.some(c => c.usage === PredictorColumnUsage.Output))
             throw new Error(PredictorMessage.NoOutputColumn.niceToString());
 
-        // Signum's output-activation rule, which its entity checks through [BindParent] — see
+        // The output-activation rule, which Signum's entity checks through [BindParent] — see
         // data/NeuralNetworkSettings' validateOutputActivation on why it is called from here.
         const nn = predictor.algorithmSettings as unknown as NeuralNetworkSettingsEntity;
         if (nn?.outputActivation != null) {

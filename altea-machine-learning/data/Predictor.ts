@@ -87,7 +87,6 @@ export enum PredictionSet {
 export type PredictionSetKeys = keyof typeof PredictionSet;
 registerEnum(PredictionSet);
 
-/** Signum's `PredictorColumnUsageExtensions.ToPredictorColumnUsage`. */
 export function toPredictorColumnUsage(usage: PredictorSubQueryColumnUsage): PredictorColumnUsage {
     if (usage === PredictorSubQueryColumnUsage.Input)
         return PredictorColumnUsage.Input;
@@ -114,13 +113,13 @@ export class PredictorPublicationSymbol extends Symbol { }
 @entity("SystemString", "Master", { lowPopulation: true })
 export class PredictorColumnEncodingSymbol extends Symbol { }
 
-/** Signum's `TensorFlowPredictorAlgorithm` — the one algorithm the module ships. */
+/** The one algorithm the module ships. */
 export namespace TensorFlowPredictorAlgorithm {
     export const NeuralNetworkGraph: PredictorAlgorithmSymbol = init();
 }
 
 /**
- * Signum's `DefaultColumnEncodings` — how a column's values become numbers.
+ * How a column's values become numbers.
  *
  * These are the six the shipped TensorFlow predictor implements (see server/tensorflow/Encodings); an app
  * may declare more and register an encoding for them.
@@ -150,13 +149,13 @@ export namespace PredictorProcessAlgorithm {
 // ---- the settings interface ----------------------------------------------------------------------------
 
 /**
- * Signum's `IPredictorAlgorithmSettings` — the per-algorithm knobs hanging off a predictor.
+ * The per-algorithm knobs hanging off a predictor.
  *
  * A TS interface, so `PredictorEntity.algorithmSettings` is `@implementedBy` over the concrete settings
  * types; the app widens that list, the accommodation altea-email's mail services already make.
  */
 export interface IPredictorAlgorithmSettings {
-    /** Signum's `Clone()` — a predictor clone must not share its settings row. */
+    /** A predictor clone must not share its settings row. */
     cloneSettings(): IPredictorAlgorithmSettings;
 }
 
@@ -185,7 +184,7 @@ export class PredictorClassificationMetricsEmbedded extends EmbeddedEntity {
     totalCount: int;
     missCount: int;
 
-    // Signum computes this in PreSaving; altea has no entity-level hook, so the SAVER fills it (see
+    // Signum computes this in PreSaving; there is no entity-level hook, so the SAVER fills it (see
     // server/PredictorLogic's preSaving handler) — it is derived, and a stored value that disagreed with
     // its two inputs would be worse than none.
     @format("p2")
@@ -205,7 +204,7 @@ export class PredictorRegressionMetricsEmbedded extends EmbeddedEntity {
 // ---- the predictor's own column rows -------------------------------------------------------------------
 
 /**
- * Signum's `PredictorColumnEmbedded` — one column of the main query: what it is FOR (input or output),
+ * One column of the main query: what it is FOR (input or output),
  * which token it reads, how it is encoded, and what to do when it is null.
  */
 @reflect
@@ -232,7 +231,7 @@ export class PredictorEntity_Column extends Entity {
         });
     }
 
-    /** Signum's `Equals` — a column IS its (token, usage) pair; the encoding is how, not which. */
+    /** A column IS its (token, usage) pair; the encoding is how, not which. */
     equalsColumn(other: PredictorEntity_Column | null): boolean {
         return other != null
             && this.token?.tokenString === other.token?.tokenString
@@ -244,7 +243,7 @@ export class PredictorEntity_Column extends Entity {
     }
 }
 
-/** Signum's `MList<QueryFilterEmbedded> Filters` on the main query — a `@part` row over the shared base. */
+/** The main query's filters — a `@part` row over the shared `QueryFilterBaseEntity`. */
 @reflect
 @part
 @legacyTableName("PredictorMainQueryFilters")
@@ -252,7 +251,7 @@ export class PredictorEntity_Filter extends QueryFilterBaseEntity {
     @backReference predictor: Lite<PredictorEntity>;
 }
 
-/** Signum's `MList<FilePathEmbedded> Files` — the trained model's files. */
+/** The trained model's files. */
 @reflect
 @part
 @legacyTableName("PredictorFiles")
@@ -264,7 +263,6 @@ export class PredictorEntity_File extends Entity {
 }
 
 /**
- * Signum's `PredictorMainQueryEmbedded`.
  *
  * altea divergence: its two MLists (filters and columns) are `@part` rows, and a `@part` row needs a real
  * owner TABLE — which a flattened embedded is not. So the filters and columns hang off the PREDICTOR
@@ -281,7 +279,7 @@ export class PredictorMainQueryEmbedded extends EmbeddedEntity {
 // ---- the sub-query rows --------------------------------------------------------------------------------
 
 /**
- * Signum's `PredictorSubQueryColumnEmbedded` — one column of a sub-query. Beyond the main query's usages
+ * One column of a sub-query. Beyond the main query's usages
  * it has two structural ones: `ParentKey` (how a sub-query row joins back to a main-query row) and
  * `SplitBy` (what turns a collection of rows into a fixed set of columns).
  */
@@ -296,7 +294,7 @@ export class PredictorSubQueryEntity_Column extends Entity {
 
     token: QueryTokenEmbedded;
 
-    // Signum's StateValidator: an encoding and a null handling are required for Input/Output and
+    // An encoding and a null handling are required for Input/Output and
     // FORBIDDEN for ParentKey/SplitBy — those two are structural, not data to feed a network.
     @validate<PredictorSubQueryEntity_Column>(c => isDataUsage(c.usage) === (c.encoding == null)
         ? PredictorMessage.EncodingIsRequiredForInputAndOutputColumnsOnly.niceToString() : null)
@@ -339,10 +337,10 @@ export class PredictorSubQueryEntity_Filter extends QueryFilterBaseEntity {
 }
 
 /**
- * Signum's `PredictorSubQueryEntity` — a SECOND query whose rows are folded into the main query's, so a
+ * A SECOND query whose rows are folded into the main query's, so a
  * predictor can learn from a one-to-many relationship (an order's lines, a customer's past orders).
  *
- * Signum declares it a virtual MList (`[Ignore, QueryableProperty]` + a back reference); in altea a
+ * Signum declares it a virtual MList (`[Ignore, QueryableProperty]` + a back reference); here a
  * `@part` row IS that shape, so it needs no such marker pair.
  */
 @reflect
@@ -367,7 +365,7 @@ export class PredictorSubQueryEntity extends Entity {
         return this.name;
     }
 
-    /** Signum's `FindColumn(part)` — the single column whose token ends in this member. */
+    /** The single column whose token ends in this member. */
     findColumn(part: string): PredictorSubQueryEntity_Column {
         const found = this.columns.filter(c => tokenContainsKey(c.token, part));
         if (found.length !== 1)
@@ -376,7 +374,7 @@ export class PredictorSubQueryEntity extends Entity {
     }
 }
 
-/** Signum's `QueryToken.ContainsKey(part)` — the token's path passes through this member. */
+/** Does the token's path pass through this member? */
 export function tokenContainsKey(token: QueryTokenEmbedded | null, part: string): boolean {
     return token?.tokenString?.split(".").includes(part) === true;
 }
@@ -404,7 +402,6 @@ export class PredictorEntity extends Entity implements IProcessDataEntity {
     @implementedBy(() => [])
     user: Lite<IUserEntity> | null;
 
-    /** Signum's `[ImplementedBy(typeof(NeuralNetworkSettingsEntity))] IPredictorAlgorithmSettings`. */
     @implementedBy(() => [])
     algorithmSettings: IPredictorAlgorithmSettings;
 
@@ -436,7 +433,6 @@ export class PredictorEntity extends Entity implements IProcessDataEntity {
         return this.name!;
     }
 
-    /** Signum's `MainQuery.FindColumn(part)`. */
     findColumn(part: string): PredictorEntity_Column {
         const found = this.columns.filter(c => tokenContainsKey(c.token, part));
         if (found.length !== 1)
@@ -466,7 +462,7 @@ export namespace PredictorOperation {
 // ---- the derived rows ----------------------------------------------------------------------------------
 
 /**
- * Signum's `PredictorCodificationEntity` — one row per NUMBER the network sees.
+ * One row per NUMBER the network sees.
  *
  * This is the join between the human definition and the tensors: a single one-hot column over five
  * distinct values becomes five codifications, and a sub-query column split three ways becomes three. The
@@ -506,7 +502,7 @@ export class PredictorCodificationEntity extends Entity {
     max: float | null;
 }
 
-/** Signum's `PredictorEpochProgressEntity` — one row per recorded training epoch, for the loss chart. */
+/** One row per recorded training epoch, for the loss chart. */
 @reflect
 @entity("System", "Transactional")
 export class PredictorEpochProgressEntity extends Entity {
@@ -528,7 +524,7 @@ export class PredictorEpochProgressEntity extends Entity {
 }
 
 /**
- * Signum's `PredictSimpleResultEntity` — one row per training example, with what the model predicted
+ * One row per training example, with what the model predicted
  * beside what actually happened. Written by the `Full` result saver, and the reason it exists is that
  * aggregate metrics hide WHICH rows a model gets wrong.
  */
@@ -584,7 +580,7 @@ export const PredictorMessage = {
     Training: msg("Training…"),
     Saving: msg("Saving…"),
     Done: msg(),
-    // altea additions: the two StateValidator rules Signum expresses as a table (see the column).
+    // The two rules Signum expresses in its StateValidator table (see the column).
     EncodingIsRequiredForInputAndOutputColumnsOnly: msg("Encoding is required for Input and Output columns, and forbidden for the rest"),
     NullHandlingIsRequiredForInputAndOutputColumnsOnly: msg("Null handling is required for Input and Output columns, and forbidden for the rest"),
     NoOutputColumn: msg("The predictor has no Output column"),
@@ -599,7 +595,7 @@ export const PredictorMessage = {
 // them: the routes answer them and the designer reads them. (The client cannot import from server/ — the
 // layers are separate projects.)
 
-/** Signum's `TrainingProgress` — what `/api/predictor/trainingProgress` answers. */
+/** What `/api/predictor/trainingProgress` answers. */
 export interface TrainingProgress {
     message: string | null;
     /** 0..1, or null when the step has no measurable progress. */
@@ -610,7 +606,7 @@ export interface TrainingProgress {
 }
 
 /**
- * One epoch's row, in the compact ARRAY form the loss chart reads — Signum's `ToObjectArray`.
+ * One epoch's row, in the compact ARRAY form the loss chart reads.
  *
  * An array rather than an object on purpose: a long training records hundreds of these and they are only
  * ever read positionally by the chart, so the field names would be most of the payload.

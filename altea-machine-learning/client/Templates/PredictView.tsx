@@ -59,7 +59,7 @@ export function PredictView(p: PredictViewProps): React.JSX.Element {
     const [predict, setPredict] = React.useState<PredictRequestModel>(p.initialPredict);
     const [hasChanged, setHasChanged] = React.useState(false);
 
-    // One in-flight update at a time, latest wins — Signum's same AbortableRequest.
+    // One in-flight update at a time, latest wins.
     const updater = React.useMemo(
         () => new AbortableRequest((signal, request: PredictRequestModel) =>
             MachineLearningClient.API.updatePredict(request, signal)), []);
@@ -155,7 +155,7 @@ async function resolveTokens(predict: PredictRequestModel): Promise<Map<string, 
 }
 
 /**
- * Signum's `AlternativesCheckBox` — ask a classification for its N most likely answers.
+ * Ask a classification for its N most likely answers.
  *
  * Worth having because a classifier's confidence is the useful part: "Shipped, 62%; Cancelled, 31%" says
  * something the single winner does not.
@@ -333,7 +333,7 @@ export function PredictTable(p: PredictTableProps): React.JSX.Element {
     );
 }
 
-/** Signum's `fullNiceName` — the whole path, for the cell's tooltip. */
+/** The whole path, for the cell's tooltip. */
 function fullNiceName(token: QueryToken): string {
     const parent = token.parent ? `${fullNiceName(token.parent)}.` : "";
     return `${parent}[${token.niceName()}]`;
@@ -348,7 +348,7 @@ interface PredictValueProps {
 }
 
 /**
- * Signum's `PredictValue` — the right editor for a token's type.
+ * The right editor for a token's type.
  *
  * The one non-obvious branch is Signum's and is kept: a Lite of a LOW-POPULATION type gets a combo (you
  * can see all the options), anything else an autocomplete line. Everything else falls to `AutoLine`,

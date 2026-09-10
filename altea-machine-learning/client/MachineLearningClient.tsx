@@ -29,6 +29,7 @@ import type { PredictRequestModel } from "../data/PredictRequest";
 
 
 // Port of Signum.MachineLearning's PredictorClient.tsx — the client registration.
+// See docs/port/MachineLearning.md.
 //
 // altea divergences, documented inline:
 //  - `Navigator.addSettings(new EntitySettings(...))` → `cb.configure(X).withView(...)`, altea's fluent
@@ -37,7 +38,7 @@ import type { PredictRequestModel } from "../data/PredictRequest";
 //    `api/predictor/csv|tsv|tsvMetadata` endpoints, which export the CODIFIED training matrix for use in
 //    an external tool. That is a genuinely separate feature (a matrix serializer plus three routes), and
 //    the projector link is a bare `window.open` of a public site. `PredictorMessage` keeps their labels.
-//  - `registerInitializer(algorithm, …)` is Signum's per-algorithm default-settings hook; kept, because
+//  - `registerInitializer(algorithm, …)` is the per-algorithm default-settings hook; kept, because
 //    it is what makes picking an algorithm fill in usable defaults rather than an empty settings row.
 //  - `registerResultRenderer(saver, …)` likewise — how a result saver contributes its own view to the
 //    predictor's Results tab (the shipped `Full` saver contributes the chart link).
@@ -46,7 +47,7 @@ import type { PredictRequestModel } from "../data/PredictRequest";
 
 export namespace MachineLearningClient {
 
-    /** Signum's `initializers` — how a chosen algorithm seeds its own settings. */
+    /** How a chosen algorithm seeds its own settings. */
     const initializers = new Map<string, (predictor: PredictorEntity) => void>();
 
     export function registerInitializer(
@@ -60,7 +61,7 @@ export namespace MachineLearningClient {
         initializers.get(predictor.algorithm?.key ?? "")?.(predictor);
     }
 
-    /** Signum's `resultRenderers` — a result saver's own view on the Results tab. */
+    /** A result saver's own view on the Results tab. */
     const resultRenderers = new Map<string, (ctx: TypeContext<PredictorEntity>) => React.ReactNode>();
 
     export function registerResultRenderer(
@@ -75,7 +76,7 @@ export namespace MachineLearningClient {
     }
 
     /**
-     * Open a prediction — Signum's `PredictorClient.predict`, as a navigation.
+     * Open a prediction, as a NAVIGATION rather than a modal.
      *
      * The entity rides as a lite KEY, which is what survives a url (see Templates/PredictPage).
      */
@@ -126,7 +127,7 @@ export namespace MachineLearningClient {
                 ],
             }));
 
-        // Signum's four numeric cell formatters. The COLOURS are the point: training and validation of the
+        // Four numeric cell formatters. The COLOURS are the point: training and validation of the
         // same metric are a light/dark pair, so a glance at the grid shows the two diverging — which is
         // what overfitting looks like.
         registerLossFormatter("lossTraining", "#1A5276");
@@ -143,7 +144,7 @@ export namespace MachineLearningClient {
             new EntityOperationSettings(PredictorOperation.Untrain, {
                 hideOnCanExecute: true,
                 // Untraining a PUBLISHED predictor takes the live model away from whatever depends on it,
-                // so it asks first — Signum's same confirmation.
+                // so it asks first.
                 confirmMessage: eoc => eoc.entity.publication != null
                     ? PredictorMessage.PredictorIsPublishedUntrainAnyway.niceToString() : undefined,
             }),
@@ -156,7 +157,7 @@ export namespace MachineLearningClient {
             element: <ImportComponent onImport={() => import("./Templates/PredictPage")} />,
         });
 
-        // Signum's `Constructor.registerConstructor` — a new predictor needs its two embedded rows, or
+        // A new predictor needs its two embedded rows, or
         // the designer opens with nothing to bind its lines to.
         Constructor.registerConstructor(PredictorEntity, props => PredictorEntity.create({
             mainQuery: PredictorMainQueryEmbedded.create({}),

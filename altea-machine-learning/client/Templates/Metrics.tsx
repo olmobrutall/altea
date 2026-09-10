@@ -13,7 +13,7 @@ import {
 // that by rendering plain ValueLines inside a disabled context; altea's TypeContext carries `readOnly`,
 // so `ctx.subCtx({ readOnly: true })` is the whole story.
 
-/** Signum's `PredictorMetrics` — the loss/accuracy pair, shown side by side. */
+/** The loss / accuracy pair, shown side by side. */
 export function MetricsPanel(p: { ctx: TypeContext<PredictorMetricsEmbedded>; title: string }): React.JSX.Element {
     const ctx = p.ctx.subCtx({ readOnly: true, formGroupStyle: "SrOnly" });
 
@@ -31,7 +31,7 @@ export function MetricsPanel(p: { ctx: TypeContext<PredictorMetricsEmbedded>; ti
 }
 
 /**
- * Signum's `PredictorClassificationMetrics` — how many the model got wrong.
+ * How many the model got wrong.
  *
  * The MISS RATE is the number to read: a count of misses means nothing without the total, which is why
  * the three are shown together rather than the rate alone.
@@ -54,7 +54,7 @@ export function ClassificationMetricsPanel(
 }
 
 /**
- * Signum's `PredictorRegressionMetrics` — six numbers, because they answer different questions.
+ * Six numbers, because they answer different questions.
  *
  * The mean error shows BIAS (is the model high or low on average, which the absolute errors hide); the
  * absolute and squared ones show magnitude, and the squared one punishes outliers; the percentage pair

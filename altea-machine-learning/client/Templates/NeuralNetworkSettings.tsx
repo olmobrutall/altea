@@ -29,7 +29,7 @@ import {
 //    fluent display-name API.
 //  - an enum FIELD holds its ORDINAL, so the prediction-type handler assigns enum MEMBERS rather than
 //    Signum's string literals.
-//  - Signum's `getHelpBlock` returns "" for both optimizers and THROWS for anything else — so it is a
+//  - a `getHelpBlock` that returns "" for both optimizers and THROWS for anything else is
 //    switch that can only ever produce an empty string or an exception. Dropped; there is no help text to
 //    show, and an unknown optimizer is a schema question, not a rendering one. Its `LabelWithHelp`
 //    component is dropped with it (nothing in Signum uses it either).
@@ -41,7 +41,7 @@ export default function NeuralNetworkSettings(p: { ctx: TypeContext<NeuralNetwor
     const predictor = ctx.findParent(PredictorEntity);
 
     /**
-     * Signum's `handlePredictionTypeChanged` — a classification and a regression need DIFFERENT losses,
+     * A classification and a regression need DIFFERENT losses,
      * and picking one by hand is the mistake this avoids: a cross-entropy loss over a continuous output
      * trains to nothing, and a squared error over one-hot slots trains to the mean.
      */
@@ -72,7 +72,7 @@ export default function NeuralNetworkSettings(p: { ctx: TypeContext<NeuralNetwor
     }
 
     /**
-     * Signum's `renderCount` — how many slots this usage has, as a link to the codifications.
+     * How many slots this usage has, as a link to the codifications.
      *
      * Before training there is no answer (the codifications are assigned BY the training), which is what
      * the "?" is: Signum's same two branches.

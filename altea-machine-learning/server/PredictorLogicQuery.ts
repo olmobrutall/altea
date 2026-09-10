@@ -42,7 +42,7 @@ export namespace PredictorLogicQuery {
     export interface MainQueryResult {
         request: QueryRequest;
         resultTable: ResultTable;
-        /** Signum's `GetParentKey` — the identity a sub-query row joins against. */
+        /** The identity a sub-query row joins against. */
         getParentKey: (row: ResultRow) => unknown[];
     }
 
@@ -60,7 +60,7 @@ export namespace PredictorLogicQuery {
     }
 
     /**
-     * Signum's `RetrieveData(ctx)` — execute everything, generate the codifications, and fill the
+     * Execute everything, generate the codifications, and fill the
      * training / validation row sets.
      */
     export async function retrieveData(ctx: PredictorTrainingContext, algorithm: IPredictorAlgorithm): Promise<void> {
@@ -128,7 +128,7 @@ export namespace PredictorLogicQuery {
             return { entity: row.entity as Lite<Entity> | null, inputs, outputs };
         });
 
-        // Signum's `TestPercentage` split, with `Seed` making it reproducible — which matters: comparing
+        // The `testPercentage` split, with `seed` making it reproducible — which matters: comparing
         // two trainings is meaningless if they held back different rows.
         const shuffled = shuffle(rows, predictor.settings.seed as number | null);
         const testCount = Math.round(shuffled.length * predictor.settings.testPercentage);
@@ -136,7 +136,7 @@ export namespace PredictorLogicQuery {
         ctx.training = shuffled.slice(testCount);
     }
 
-    /** Signum's `SetCodifications` — assign each slot its index within its own vector, then group. */
+    /** Assign each slot its index within its own vector, then group. */
     export function setCodifications(ctx: PredictorTrainingContext, codifications: PredictorCodification[]): void {
         ctx.codifications = codifications;
         ctx.inputCodifications = codifications.filter(c => c.column.usage === PredictorColumnUsage.Input);
@@ -190,7 +190,6 @@ export namespace PredictorLogicQuery {
 
     // ---- the requests ----------------------------------------------------------------------------------
 
-    /** Signum's `GetMainQueryRequest`. */
     export function mainQueryRequest(predictor: PredictorEntity): QueryRequest {
         const queryName = queryNameOf(predictor);
         const options = mainOptions(predictor);
@@ -211,7 +210,7 @@ export namespace PredictorLogicQuery {
         const request = mainQueryRequest(predictor);
         const resultTable = await QueryLogic.queries.executeQueryAsync(request);
 
-        // Signum: an ungrouped query is identified by its ENTITY; a grouped one by its non-aggregate
+        // An ungrouped query is identified by its ENTITY; a grouped one by its non-aggregate
         // columns, because there is no single entity behind a group.
         const getParentKey = !request.groupResults
             ? (row: ResultRow): unknown[] => [row.entity]
@@ -227,7 +226,7 @@ export namespace PredictorLogicQuery {
     }
 
     /**
-     * Signum's `ToMultiColumnQuery(mainQuery, sq)` — the sub-query, filtered so it only sees the rows
+     * The sub-query, filtered so it only sees the rows
      * belonging to the main query's population.
      *
      * The `prependToken` step is what makes that work when the sub-query runs over a DIFFERENT query: a
@@ -299,7 +298,6 @@ export namespace PredictorLogicQuery {
         return { subQuery: sq, request, resultTable, groupedValues, distinctSplitKeys, valueColumnIndexes };
     }
 
-    /** Signum's `PrependToken(filter, prefix)`. */
     export function prependToken(
         filter: Filter, prefix: QueryToken, queryName: QueryName, options: SubTokensOptions,
     ): Filter {
@@ -316,7 +314,7 @@ export namespace PredictorLogicQuery {
     }
 
     /**
-     * Signum's `Append(baseToken, suffix)` — walk `suffix`'s own path onto `baseToken`.
+     * Walk `suffix`'s own path onto `baseToken`.
      *
      * Signum's version special-cases the `Entity` step (skipping it when the types already match, else
      * inserting a `[CleanName]` cast). altea's rootless tokens make that unnecessary in the common case:
@@ -341,7 +339,7 @@ export namespace PredictorLogicQuery {
 
     // ---- helpers ---------------------------------------------------------------------------------------
 
-    /** Signum's `canAggregate = GroupResults ? CanAggregate : 0` on the main query. */
+    /** Aggregates are offered on the main query only when it GROUPS. */
     export function mainOptions(predictor: PredictorEntity): SubTokensOptions {
         return SubTokensOptions.CanElement
             | (predictor.mainQuery.groupResults ? SubTokensOptions.CanAggregate : 0);
@@ -372,7 +370,7 @@ export namespace PredictorLogicQuery {
     }
 
     /**
-     * A deterministic shuffle when a seed is given (Signum's `Settings.Seed`), else a plain random one.
+     * A deterministic shuffle when a seed is given, else a plain random one.
      *
      * The determinism is the point: two trainings of the same predictor must hold back the SAME rows, or
      * their metrics are not comparable — which is exactly what the Autoconfigure search compares.

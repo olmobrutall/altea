@@ -28,7 +28,7 @@ import { PredictorPredictContext } from "./PredictorAlgorithm";
 //
 // altea divergences, documented inline:
 //  - the metrics land on the predictor through the training run, and the classification MISS RATE is
-//    computed here: Signum's embedded computes its own in `PreSaving`, which altea has no counterpart for.
+//    computed here, Signum's embedded computing its own in `PreSaving` — for which there is no hook.
 //  - the per-row predictions are written in ONE `Saver.save` batch rather than row by row: a training set
 //    is thousands of rows, and Signum's own loop is a bulk insert.
 
@@ -202,9 +202,9 @@ export namespace PredictorSimpleSaver {
     }
 
     /**
-     * Signum's classification metrics: how many the model got WRONG.
+     * The classification metrics: how many the model got WRONG.
      *
-     * The miss RATE is computed here because Signum computes it in the embedded's `PreSaving`, which altea
+     * The miss RATE is computed here because Signum computes it in the embedded's `PreSaving`, for which
      * has no counterpart for — and a stored rate that disagreed with its own two inputs would be worse
      * than none.
      */
@@ -218,7 +218,7 @@ export namespace PredictorSimpleSaver {
     }
 
     /**
-     * Signum's regression metrics — six of them, because they answer different questions:
+     * The regression metrics — six of them, because they answer different questions:
      * the mean error shows BIAS (is it high or low on average), the absolute and squared ones show
      * magnitude (and the squared one punishes outliers), and the percentage pair puts both in
      * scale-free terms.

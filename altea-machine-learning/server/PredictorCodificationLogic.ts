@@ -26,7 +26,7 @@ import { parseFilterValue, stringifyFilterValue } from "@altea/altea-user-assets
 
 export namespace PredictorCodificationLogic {
 
-    /** Signum's `SaveCodifications` — replace this predictor's rows with the ones just assigned. */
+    /** Replace this predictor's rows with the ones just assigned. */
     export async function saveCodifications(
         predictor: PredictorEntity, codifications: PredictorCodification[],
     ): Promise<void> {
@@ -49,7 +49,7 @@ export namespace PredictorCodificationLogic {
                     splitKey0: keyAt(sub, isSub, 0),
                     splitKey1: keyAt(sub, isSub, 1),
                     splitKey2: keyAt(sub, isSub, 2),
-                    // Signum's `ToStringValue`: a Lite is stored by its KEY, everything else through
+                    // A Lite is stored by its KEY, everything else through
                     // the filter-value converter. It cannot be a plain `String(value)`: a Lite's
                     // toString is its DISPLAY text, while the one-hot dictionary looks a value up by
                     // `lite.key()` — so a stored "Margaret Peacock" never matched the incoming
@@ -79,7 +79,7 @@ export namespace PredictorCodificationLogic {
     }
 
     /**
-     * Signum's `RetrieveCodifications` — rebuild the runtime codifications from the stored rows, so a
+     * Rebuild the runtime codifications from the stored rows, so a
      * prediction uses exactly the slot assignment the training produced.
      *
      * The columns are rebuilt from the predictor's own definition (the stored row carries only INDEXES
@@ -143,7 +143,7 @@ export namespace PredictorCodificationLogic {
 
                 const c = new PredictorCodification(column);
                 c.index = row.index as number;
-                // Signum's `ParseValue`: back into a typed value, so the one-hot dictionary keys it the
+                // Back into a typed value, so the one-hot dictionary keys it the
                 // same way the training did AND a decoded prediction hands the caller a real Lite rather
                 // than the stored text (see the write side).
                 c.isValue = row.isValue == null ? null
@@ -175,7 +175,7 @@ export namespace PredictorCodificationLogic {
         const key = column.keys[i];
         if (key == null)
             return null;
-        // Same rule as isValue above (Signum's `GetSplitpKey` calls the same `ToStringValue`): a Lite
+        // Same rule as isValue above: a Lite
         // split key is stored by its key, so two employees with the same display name cannot collapse
         // into one slot.
         return truncate(stringifyFilterValue(key, filterTypeOfKey(column, i)) ?? String(key), 100);
@@ -215,7 +215,7 @@ export namespace PredictorCodificationLogic {
         return text.length <= max ? text : text.substring(0, max - 1) + "…";
     }
 
-    /** Signum's usage check, used by the savers: which sub-query columns carry data. */
+    /** Used by the savers: which sub-query columns carry data. */
     export function isDataColumn(usage: PredictorSubQueryColumnUsage): boolean {
         return usage === PredictorSubQueryColumnUsage.Input || usage === PredictorSubQueryColumnUsage.Output;
     }

@@ -27,7 +27,6 @@ import { PredictorCodification, keyOfValue, type PredictorColumnBase } from "../
 //  - `PredictionOptions.AlternativeCount` (return the top N with probabilities) is ported; its softmax is
 //    computed over the SLOTS, as Signum does.
 
-/** Signum's `PredictionOptions`. */
 export interface PredictionOptions {
     /** Consider only these slots — used to predict one output column of several. */
     filteredCodifications?: PredictorCodification[];
@@ -35,13 +34,11 @@ export interface PredictionOptions {
     alternativeCount?: number;
 }
 
-/** Signum's `AlternativePrediction`. */
 export interface AlternativePrediction {
     probability: number;
     value: unknown;
 }
 
-/** Signum's `ITensorFlowEncoding`. */
 export interface ITensorFlowEncoding {
     validateEncodingProperty(
         predictor: PredictorEntity,
@@ -71,12 +68,12 @@ export interface ITensorFlowEncoding {
 
 // ---- helpers -------------------------------------------------------------------------------------------
 
-/** Whether a token's value is a number at all (Signum's `ReflectionTools.IsNumber`). */
+/** Whether a token's value is a number at all. */
 function isNumberToken(token: QueryToken): boolean {
     return token.type.typeName === "Number" || token.type.typeName === "Decimal";
 }
 
-/** Whether it is specifically a NON-integer number (Signum's `IsDecimalNumber`). */
+/** Whether it is specifically a NON-integer number. */
 function isDecimalToken(token: QueryToken): boolean {
     return token.type.typeName === "Decimal"
         || (token.type.typeName === "Number" && token.type.subTypeName !== "int" && token.type.subTypeName !== "long");
@@ -90,7 +87,7 @@ function toFloat(value: unknown): number {
 }
 
 /**
- * Signum's `ReflectionTools.ChangeType(newValue, c.Column.Token.Type)` — put a decoded number back in the
+ * Put a decoded number back in the
  * shape the column's own type has. An integer token must not decode to 3.7000000001.
  */
 function coerceToToken(value: number, token: QueryToken): unknown {
@@ -107,7 +104,7 @@ function notSupported(encoding: PredictorColumnEncodingSymbol, forWhat: string):
 
 // ---- None ----------------------------------------------------------------------------------------------
 
-/** Signum's `NoneTFEncoding` — the value IS the number. One slot, no transformation. */
+/** The value IS the number. One slot, no transformation. */
 export class NoneEncoding implements ITensorFlowEncoding {
     validateEncodingProperty(
         predictor: PredictorEntity, _sq: PredictorSubQueryEntity | null,
@@ -142,7 +139,7 @@ export class NoneEncoding implements ITensorFlowEncoding {
 // ---- OneHot --------------------------------------------------------------------------------------------
 
 /**
- * Signum's `OneHotTFEncoding` — one slot per DISTINCT value, and exactly one of them is 1.
+ * One slot per DISTINCT value, and exactly one of them is 1.
  *
  * This is what makes a categorical column learnable: a state whose values are Ordered / Shipped /
  * Cancelled is not 0 / 1 / 2 on a number line, and feeding it as such teaches the model that Cancelled is
@@ -207,7 +204,7 @@ export class OneHotEncoding implements ITensorFlowEncoding {
             return best?.isValue ?? null;
         }
 
-        // Signum's softmax over the slots, so the alternatives carry comparable probabilities.
+        // A softmax over the slots, so the alternatives carry comparable probabilities.
         const sum = cods.reduce((acc, c) => acc + Math.exp(outputs[c.index]!), 0);
         return [...cods]
             .sort((a, b) => outputs[b.index]! - outputs[a.index]!)
@@ -218,7 +215,7 @@ export class OneHotEncoding implements ITensorFlowEncoding {
             }));
     }
 
-    /** Signum's `GetCodificationDictionary` — the value→slot memo on the column (see the module header). */
+    /** The value→slot memo on the column (see the module header). */
     private dictionary(column: PredictorColumnBase, codifications: PredictorCodification[]): Map<string, number> {
         if (column.columnModel != null)
             return column.columnModel as Map<string, number>;
@@ -244,7 +241,7 @@ function valueKey(value: unknown): string {
 // ---- the normalizers -----------------------------------------------------------------------------------
 
 /**
- * Signum's `BaseNormalizeTFEncoding` — one slot, and the value is RESCALED into it.
+ * One slot, and the value is RESCALED into it.
  *
  * Why it matters: a network's weights start small and its optimizer takes uniform steps, so an input
  * measured in millions and one measured in fractions cannot both be learned at a single learning rate.
@@ -265,7 +262,7 @@ abstract class BaseNormalizeEncoding implements ITensorFlowEncoding {
         const nums = values.filter(v => v != null).map(toFloat);
         const c = new PredictorCodification(column);
 
-        // Signum's empty-set defaults: a 0 average with a 1 stdDev / 0..1 range is the identity, which is
+        // The empty-set defaults: a 0 average with a 1 stdDev / 0..1 range is the identity, which is
         // the only safe thing when there is nothing to fit on.
         if (nums.length === 0) {
             c.average = 0; c.stdDev = 1; c.min = 0; c.max = 1;
@@ -298,7 +295,7 @@ abstract class BaseNormalizeEncoding implements ITensorFlowEncoding {
     }
 }
 
-/** Signum's `NormalizeZScoreTFEncoding` — (v − mean) / stdDev. */
+/** (v − mean) / stdDev. */
 export class NormalizeZScoreEncoding extends BaseNormalizeEncoding {
     encodeSingle(value: unknown, c: PredictorCodification): number {
         // A zero stdDev means every training value was identical; dividing would be NaN, and 0 is the
@@ -311,7 +308,7 @@ export class NormalizeZScoreEncoding extends BaseNormalizeEncoding {
     }
 }
 
-/** Signum's `NormalizeMinMaxTFEncoding` — into 0..1 across the observed range. */
+/** Into 0..1 across the observed range. */
 export class NormalizeMinMaxEncoding extends BaseNormalizeEncoding {
     encodeSingle(value: unknown, c: PredictorCodification): number {
         const range = c.max! - c.min!;
@@ -323,7 +320,7 @@ export class NormalizeMinMaxEncoding extends BaseNormalizeEncoding {
 }
 
 /**
- * Signum's `NormalizeLogTFEncoding` — the log, floored at `minLog`.
+ * The log, floored at `minLog`.
  *
  * For a quantity spread over orders of magnitude (an order total, a page count), the log is what makes
  * the difference between 1 and 10 comparable to the difference between 100 and 1000. The floor is what
@@ -344,7 +341,7 @@ export class NormalizeLogEncoding extends BaseNormalizeEncoding {
 // ---- SplitWords ----------------------------------------------------------------------------------------
 
 /**
- * Signum's `SplitWordsTFEncoding` — a bag of words: one slot per distinct WORD across the column, each 1
+ * A bag of words: one slot per distinct WORD across the column, each 1
  * when the value contains that word.
  *
  * Input-only, because there is no sensible way to train a model to emit a set of words through this
@@ -442,7 +439,7 @@ function single(codifications: PredictorCodification[]): PredictorCodification {
     return codifications[0]!;
 }
 
-/** Signum's `values.StdDev()` — the POPULATION standard deviation. */
+/** The POPULATION standard deviation, as Signum's `StdDev()` is. */
 function standardDeviation(values: number[], average: number): number {
     if (values.length === 0)
         return 1;

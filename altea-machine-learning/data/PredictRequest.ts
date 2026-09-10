@@ -21,10 +21,10 @@ import type { PredictorEntity, PredictorSubQueryEntity } from "./Predictor";
 //    translated, so giving it an enum table for one DTO would be the mistake `IsolationStrategy` avoids.
 //  - values are ordinary JSON scalars, and Lites/entities ride through the entity Serializer both ways.
 
-/** Signum's `PredictorHeaderType` — what one column of a sub-query table IS. */
+/** What one column of a sub-query table IS. */
 export type PredictorHeaderType = "Key" | "Input" | "Output";
 
-/** Signum's `PredictRequestTS` — one interactive prediction, in flight. */
+/** One interactive prediction, in flight. */
 export interface PredictRequestModel {
     predictor: Lite<PredictorEntity>;
 

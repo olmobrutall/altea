@@ -16,7 +16,7 @@ import {
 // The engine is tfjs-CORE + tfjs-LAYERS, not the union `@tensorflow/tfjs` bundle and not
 // `@tensorflow/tfjs-node`. See TensorFlowNeuralNetworkPredictor's header for both reasons.
 
-/** Signum's activation switch. tfjs's "no activation" is `linear`, which is identity. */
+/** The activation switch. tfjs's "no activation" is `linear`, which is identity. */
 export function toActivation(a: NeuralNetworkActivation): "linear" | "relu" | "sigmoid" | "tanh" {
     switch (a) {
         case NeuralNetworkActivation.None: return "linear";
@@ -28,7 +28,7 @@ export function toActivation(a: NeuralNetworkActivation): "linear" | "relu" | "s
 }
 
 /**
- * Signum's initializer switch.
+ * The initializer switch.
  *
  * Two of TensorFlow's eight have no tfjs counterpart as a NAMED initializer, and both are mapped to the
  * nearest one that exists rather than silently ignored:
@@ -50,7 +50,7 @@ export function toInitializer(i: NeuralNetworkInitializer): string {
     }
 }
 
-/** Signum's optimizer switch. `learningEpsilon` is Adam's epsilon; SGD has none. */
+/** The optimizer switch. `learningEpsilon` is Adam's epsilon; SGD has none. */
 export function toOptimizer(settings: NeuralNetworkSettingsEntity): tfc.Optimizer {
     switch (settings.optimizer) {
         case TensorFlowOptimizer.Adam:
@@ -62,7 +62,7 @@ export function toOptimizer(settings: NeuralNetworkSettingsEntity): tfc.Optimize
 }
 
 /**
- * Signum's loss / eval switch, and the one place the two frameworks genuinely differ in KIND.
+ * The loss / eval switch, and the one place the two frameworks genuinely differ in KIND.
  *
  * TensorFlow's `*_cross_entropy_with_logits` functions take LOGITS — raw scores — and apply the softmax /
  * sigmoid internally, which is why Signum's networks leave their output activation at None. tfjs's
@@ -101,7 +101,7 @@ export function toMetrics(predictionType: PredictionType): string[] {
 }
 
 /**
- * Signum's `NetworkBuilder.BuildGraph` — the model: one dense layer per hidden layer, then the output.
+ * The model: one dense layer per hidden layer, then the output.
  *
  * `inputSize` / `outputSize` are CODIFICATION counts, not column counts (see PredictorAlgorithm's header):
  * a one-hot column contributes one input per distinct value.

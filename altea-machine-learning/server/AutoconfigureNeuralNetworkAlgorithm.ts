@@ -33,7 +33,7 @@ import { PredictorLogic } from "./PredictorLogic";
 
 export namespace AutoconfigureNeuralNetworkAlgorithm {
 
-    /** Signum's process algorithm body. `report` is how the process's progress bar is driven. */
+    /** The process algorithm body. `report` is how the process's progress bar is driven. */
     export async function run(
         conf: AutoconfigureNeuralNetworkEntity,
         report: (message: string, progress: number) => void,
@@ -112,7 +112,7 @@ export namespace AutoconfigureNeuralNetworkAlgorithm {
     }
 
     /**
-     * Signum's `CrossOverPopulation` — roulette-wheel selection weighted by `1 / (loss + 0.01)`.
+     * Roulette-wheel selection weighted by `1 / (loss + 0.01)`.
      *
      * The inversion is what turns "lower is better" into a selection weight, and the `+ 0.01` is what
      * keeps a perfect individual (loss 0) from being an infinite weight that crowds out everything else.
@@ -147,7 +147,7 @@ export namespace AutoconfigureNeuralNetworkAlgorithm {
             .map(() => crossOver(clone(initial), selectRandomly(), selectRandomly(), rand));
     }
 
-    /** Signum's `CrossOver` — each setting comes from one parent or the other. */
+    /** Each setting comes from one parent or the other. */
     export function crossOver(
         child: PredictorEntity, father: PredictorEntity, mother: PredictorEntity, rand: () => number,
     ): PredictorEntity {
@@ -173,7 +173,7 @@ export namespace AutoconfigureNeuralNetworkAlgorithm {
     }
 
     /**
-     * Signum's `Mutate` — perturb the settings the configuration says to explore.
+     * Perturb the settings the configuration says to explore.
      *
      * TWO Signum bugs are fixed rather than mirrored, both in the layer-count line:
      *   `Math.Min(0, Math.Max(count ± 1, conf.MaxLayers))`
