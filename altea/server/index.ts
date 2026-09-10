@@ -159,7 +159,7 @@ liteInDBSf.__methodExpander = expandInDB;
 // query (inDB) and run a set-based delete over that query. Exactly one row must be
 // affected — anything else means the row was already gone / concurrently changed.
 async function deleteOne(query: IQuery<Entity>, target: unknown): Promise<void> {
-    const affected = await (query as unknown as Query<Entity>).executeDelete();
+    const affected = await (query as Query<Entity>).executeDelete();
     if (affected !== 1)
         throw new Error(`Delete of '${target}' affected ${affected} rows, expected 1.`);
 }

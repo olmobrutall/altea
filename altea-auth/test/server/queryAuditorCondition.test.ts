@@ -32,7 +32,7 @@ describe("query-auditor type conditions (registerWhenAlreadyFilteringBy)", { ski
 
     async function logId(action: string): Promise<number> {
         const log = await table(SampleLogEntity).filter(l => l.action == action).single() as SampleLogEntity;
-        return log.id as unknown as number;
+        return log.id as number;
     }
 
     test("an unconstrained query sees NOTHING: the condition is about the query, and this one says nothing", async () => {

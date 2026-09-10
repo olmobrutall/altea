@@ -46,7 +46,7 @@ export function registerOfficeTemplateXml(): void {
         elementName: "OfficeTemplate",
         create: () => new OfficeTemplateEntity(),
         load: async guid => (await table(OfficeTemplateEntity).filter(t => t.id == guid).toArray() as OfficeTemplateEntity[])[0],
-        save: async t => { await (t as unknown as { save(): Promise<void> }).save(); },
+        save: async t => { await t.save(); },
         toXml: templateToXml,
         fromXml: templateFromXml,
     });

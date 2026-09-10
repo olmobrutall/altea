@@ -33,7 +33,7 @@ export namespace TimeMachineServer {
         ws.get("/api/timeMachine/retrieveVersion/:type/:id",
             { params: CustomType<{ type: string; id: string }>(), res: CustomType<EntityDump>() },
             async (req, res) => {
-                const { type: typeName, id } = (req as unknown as { params: { type: string; id: string } }).params;
+                const { type: typeName, id } = req.params;
                 const asOf = (req.query["asOf"] as string | undefined) ?? "";
 
                 const type = Entity.resolveType(typeName);

@@ -179,7 +179,7 @@ export abstract class BaseEntity {
         const ctor = resolveCleanType(cleanName);
         if (ctor == null)
             throw new Error(`Type '${cleanName}' is not registered`);
-        const base = this as unknown as Function;
+        const base = this;
         if (ctor !== base && !(ctor.prototype instanceof base))
             throw new Error(`Type '${cleanName}' does not inherit from '${base.name}'`);
         // Return the resolved constructor typed as `this & Type<T>`: the RECEIVER's own static surface
@@ -187,7 +187,7 @@ export abstract class BaseEntity {
         // it works for models too) intersected with a constructible `Type<InstanceType<C>>`. `C` captures
         // the receiver constructor because `this` can't also bind the instance type for `Type<T>`. The
         // runtime check above already enforces that the result actually inherits from `this`.
-        return ctor as unknown as C & Type<InstanceType<C>>;
+        return ctor as C & Type<InstanceType<C>>;
     }
 }
 
@@ -346,7 +346,7 @@ export abstract class Entity extends BaseEntity {
      * comparison.
      */
     static isInstance<T extends Entity>(this: abstract new (...args: any[]) => T, entity: Entity | null | undefined): entity is T {
-        return entity instanceof (this as unknown as Function);
+        return entity instanceof this;
     }
 
     /**
@@ -361,8 +361,8 @@ export abstract class Entity extends BaseEntity {
     static isLite<T extends Entity>(this: abstract new (...args: any[]) => T, lite: Lite<Entity> | null | undefined): lite is Lite<T> {
         if (lite == null)
             return false;
-        const ctor = this as unknown as Function;
-        const t = lite.entityType as unknown as Function;
+        const ctor = this;
+        const t = lite.entityType;
         return t === ctor || t.prototype instanceof ctor;
     }
 
@@ -395,10 +395,10 @@ export abstract class MixinEntity extends BaseEntity { }
 // declared mixin fields with a defined default are copied (never base bookkeeping props).
 function applyMixinDefaults(instance: object, ctor: Function): void {
     for (const mixinCtor of MixinDeclarations.getMixins(ctor as Type<BaseEntity>)) {
-        const info = getTypeInfo(mixinCtor as unknown as object);
+        const info = getTypeInfo(mixinCtor);
         if (info == null)
             continue;
-        const defaults = new (mixinCtor as unknown as new () => object)() as Record<string, unknown>;
+        const defaults = new (mixinCtor as new () => object)() as Record<string, unknown>;
         for (const fieldName of Object.keys(info.fields)) {
             if (defaults[fieldName] !== undefined)
                 (instance as Record<string, unknown>)[fieldName] = defaults[fieldName];

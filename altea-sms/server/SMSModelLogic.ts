@@ -251,7 +251,7 @@ function generateSMSModels(schema: Schema): SqlPreCommand | undefined {
         return undefined;
 
     return SqlPreCommand.combine(Spacing.Simple,
-        ...should.map(e => insertSqlSyncGenerated(t, e as unknown as Entity)));
+        ...should.map(e => insertSqlSyncGenerated(t, e)));
 }
 
 /** Diff the DECLARED models against the live rows BY `fullClassName`. A new one is INSERTed, a removed one
@@ -270,11 +270,11 @@ async function synchronizeSMSModels(replacements: Replacements): Promise<SqlPreC
         Spacing.Double,
         SMSModelLogic.shouldRowsForSync(),
         current,
-        (_k, e) => insertSqlSyncGenerated(t, e as unknown as Entity),
-        (_k, c) => deleteSqlSync(t, c as unknown as Entity),
+        (_k, e) => insertSqlSyncGenerated(t, e),
+        (_k, c) => deleteSqlSync(t, c),
         (_k, e, c) => {
-            copyRowFields(c as unknown as Entity, e as unknown as Entity);
-            return updateSqlSync(t, c as unknown as Entity);
+            copyRowFields(c, e);
+            return updateSqlSync(t, c);
         },
     );
 }

@@ -419,7 +419,7 @@ export class OfficeTemplateParser implements ITemplateParser {
 
     private popBlock<T extends BlockContainerNode>(ctor: abstract new (...args: never[]) => T): T | undefined {
         if (this.stack.length === 0) {
-            this.addError(true, `No ${BlockContainerNode.userString(ctor as unknown as Function)} has been opened`);
+            this.addError(true, `No ${BlockContainerNode.userString(ctor)} has been opened`);
             return undefined;
         }
 
@@ -435,7 +435,7 @@ export class OfficeTemplateParser implements ITemplateParser {
 
     private peekBlock<T extends BlockContainerNode>(ctor: abstract new (...args: never[]) => T): T | undefined {
         if (this.stack.length === 0) {
-            this.addError(true, `No ${BlockContainerNode.userString(ctor as unknown as Function)} has been opened`);
+            this.addError(true, `No ${BlockContainerNode.userString(ctor)} has been opened`);
             return undefined;
         }
 

@@ -411,7 +411,7 @@ NodeUtils.register<RenderEntityNode>({
     order: 5,
     isContainer: true,
     hasEntity: true,
-    validate: dn => dn.node.field ? NodeUtils.validateField(dn as unknown as DesignerNode<LineBaseNode>) : undefined,
+    validate: dn => dn.node.field ? NodeUtils.validateField(dn as DesignerNode<LineBaseNode>) : undefined,
     renderTreeNode: dn => <span><small>{dn.node.kind}:</small> <strong>{dn.node.field || (typeof dn.node.viewName === "string" ? dn.node.viewName : "")}</strong></span>,
     renderCode: (node, cc) => cc.elementCode("RenderEntity", {
         ctx: cc.subCtxCode(node.field, node.styleOptions),
@@ -1295,7 +1295,7 @@ NodeUtils.register<EntityTableColumnNode>({
         headerHtmlAttributes: toHtmlAttributes(dn, ctx, dn.node.headerHtmlAttributes),
         cellHtmlAttributes: toHtmlAttributes(dn, ctx, dn.node.cellHtmlAttributes),
         template: NodeUtils.getGetComponent(dn),
-    }) as unknown as EntityTableColumn<BaseEntity, never> as never,
+    }) as never,
     renderDesigner: dn => <div>
         <FieldComponent dn={dn} binding={Binding.create(dn.node, n => n.property)} />
         <ExpressionOrValueComponent dn={dn} binding={Binding.create(dn.node, n => n.header)} type="string" defaultValue={null} />
@@ -1665,7 +1665,7 @@ export namespace NodeConstructor {
         return Object.entries(pr.subMembers())
             .filter(([field, fi]) => field !== "id" && !fi.noSerialize)
             .map(([field]) => field)
-            .map(field => ({ kind: "EntityTableColumn", property: field, children: [] }) as unknown as BaseNode);
+            .map(field => ({ kind: "EntityTableColumn", property: field, children: [] }));
     }
 
     export function createSubChildren(pr: PropertyRoute): BaseNode[] {
@@ -1716,42 +1716,42 @@ export namespace NodeConstructor {
 
         if (tr.array) {
             if (tr.isByAll())
-                return { kind: "EntityStrip", field, children: [] } as unknown as EntityStripNode;
+                return { kind: "EntityStrip", field, children: [] } as EntityStripNode;
             if (!ti && !isEmbedded)
-                return { kind: "MultiValueLine", field, children: [] } as unknown as MultiValueLineNode;
+                return { kind: "MultiValueLine", field, children: [] } as MultiValueLineNode;
             if (isEmbedded || ti!.entityKind === "Part" || ti!.entityKind === "SharedPart")
-                return { kind: "EntityTable", field, children: [] } as unknown as EntityTableNode;
+                return { kind: "EntityTable", field, children: [] } as EntityTableNode;
             if (ti!.lowPopulation)
-                return { kind: "EntityCheckboxList", field, children: [] } as unknown as EntityCheckboxListNode;
-            return { kind: "EntityStrip", field, children: [] } as unknown as EntityStripNode;
+                return { kind: "EntityCheckboxList", field, children: [] } as EntityCheckboxListNode;
+            return { kind: "EntityStrip", field, children: [] } as EntityStripNode;
         }
 
         if (tr.isByAll())
-            return { kind: "EntityLine", field, children: [] } as unknown as EntityLineNode;
+            return { kind: "EntityLine", field, children: [] } as EntityLineNode;
 
         if (ti) {
             // `TypeInfo.kind` is "Entity" | "Model" and an enum is
             // a facet of the TYPE REFERENCE (`isEnum`), so the question is asked of the field.
             if (tr.isEnum)
-                return { kind: "AutoLine", field } as unknown as AutoLineNode;
+                return { kind: "AutoLine", field } as AutoLineNode;
 
             if (ti.entityKind === "Part" || ti.entityKind === "SharedPart")
-                return { kind: "EntityDetail", field, children: [] } as unknown as EntityDetailNode;
+                return { kind: "EntityDetail", field, children: [] } as EntityDetailNode;
 
             if (ti.lowPopulation)
-                return { kind: "EntityCombo", field, children: [] } as unknown as EntityComboNode;
+                return { kind: "EntityCombo", field, children: [] } as EntityComboNode;
 
-            return { kind: "EntityLine", field, children: [] } as unknown as EntityLineNode;
+            return { kind: "EntityLine", field, children: [] } as EntityLineNode;
         }
 
         if (isEmbedded) {
             const ctor = tr.getFunction();
             if (ctor === FileEmbedded || ctor === FilePathEmbedded)
-                return { kind: "FileLine", field } as unknown as FileLineNode;
+                return { kind: "FileLine", field } as FileLineNode;
 
-            return { kind: "EntityDetail", field, children: [] } as unknown as EntityDetailNode;
+            return { kind: "EntityDetail", field, children: [] } as EntityDetailNode;
         }
 
-        return { kind: "AutoLine", field } as unknown as AutoLineNode;
+        return { kind: "AutoLine", field } as AutoLineNode;
     };
 }

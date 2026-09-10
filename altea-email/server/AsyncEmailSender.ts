@@ -48,7 +48,7 @@ export namespace AsyncEmailSender {
             running,
             initialDelayMilliseconds: initialDelayMilliseconds ?? null,
             machineName: hostname(),
-            asyncSenderPeriod: EmailLogic.configuration().asyncSenderPeriod as unknown as number,
+            asyncSenderPeriod: EmailLogic.configuration().asyncSenderPeriod,
             isCancelationRequested: cancellationRequested,
             nextPlannedExecution: nextPlannedExecution?.toString() ?? null,
             lastExecutionFinishedOn: lastExecutionFinishedOn?.toString() ?? null,
@@ -146,7 +146,7 @@ export namespace AsyncEmailSender {
                 if (cancellationRequested)
                     return;
 
-                const chunkSize = config.chunkSizeSendingEmails as unknown as number;
+                const chunkSize = config.chunkSizeSendingEmails;
                 const items = await table(EmailMessageEntity)
                     .filter(m => m.processIdentifier == processIdentifier! && m.state == EmailMessageState.RecruitedForSending)
                     .top(chunkSize)
@@ -202,8 +202,8 @@ export namespace AsyncEmailSender {
 
     /** Signum's retry branch: put the message back in ReadyToSend until maxEmailSendRetries is spent. */
     async function retryLater(email: EmailMessageEntity): Promise<void> {
-        const max = EmailLogic.configuration().maxEmailSendRetries as unknown as number;
-        if ((email.sendRetries as unknown as number) >= max)
+        const max = EmailLogic.configuration().maxEmailSendRetries;
+        if (email.sendRetries >= max)
             return;
 
         await Transaction.forceNew(async () => {
@@ -211,7 +211,7 @@ export namespace AsyncEmailSender {
             const nm = fresh[0];
             if (nm == undefined)
                 return;
-            nm.sendRetries = ((nm.sendRetries as unknown as number) + 1) as EmailMessageEntity["sendRetries"];
+            nm.sendRetries = (nm.sendRetries + 1) as EmailMessageEntity["sendRetries"];
             nm.state = EmailMessageState.ReadyToSend;
             await nm.save();
         });
@@ -231,7 +231,7 @@ export namespace AsyncEmailSender {
 
     /** Signum's SetTimer — re-arm for the configured period. */
     function setTimer(): void {
-        const seconds = EmailLogic.configuration().asyncSenderPeriod as unknown as number;
+        const seconds = EmailLogic.configuration().asyncSenderPeriod;
         nextPlannedExecution = Clock.now.add({ seconds });
         clearTimer();
         timer = setTimeout(() => wakeUp("TimerNextExecution"), seconds * 1000);

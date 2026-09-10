@@ -33,7 +33,7 @@ export namespace DiffLogServer {
         ws.get("/api/diffLog/previous/:id",
             { params: CustomType<{ id: string }>(), res: CustomType<PreviousLog | null>() },
             async (req, res) => {
-                const { id } = (req as unknown as { params: { id: string } }).params;
+                const { id } = req.params;
                 const logId = OperationLogEntity.parseId(id);
 
                 const log = await tableQuery(OperationLogEntity)
@@ -67,7 +67,7 @@ export namespace DiffLogServer {
         ws.get("/api/diffLog/next/:id",
             { params: CustomType<{ id: string }>(), res: CustomType<NextLog>() },
             async (req, res) => {
-                const { id } = (req as unknown as { params: { id: string } }).params;
+                const { id } = req.params;
                 const logId = OperationLogEntity.parseId(id);
 
                 const log = await tableQuery(OperationLogEntity)

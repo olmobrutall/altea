@@ -152,7 +152,7 @@ export function FrameModal<T extends BaseEntity>(p: FrameModalProps<T>): React.J
     return ti == null ? [] : Operations.operationInfos(ti)
       .filter(oi => oi.canBeNew || !(pack.entity as unknown as Entity).isNew)
       .filter(oi => oi.operationType == "Execute" && oi.canBeModified)
-      .map(oi => EntityOperationContext.fromEntityPack<T & Entity>(frame as unknown as EntityFrame<T & Entity>, pack as EntityPack<T & Entity>, oi.key)!)
+      .map(oi => EntityOperationContext.fromEntityPack<T & Entity>(frame, pack as EntityPack<T & Entity>, oi.key)!)
       .filter(eoc => (eoc.settings?.showOnSaveChangesModal ?? Operations.Defaults.isSave(eoc.operationInfo)))
       .filter(eoc => eoc.isVisibleInButtonBar(buttonContext));
   }
@@ -431,7 +431,7 @@ export function FrameModalTitle({ pack, pr, title, subTitle, widgets, getViewPro
 
   function renderExpandLink(entity: BaseEntity) {
 
-    if (entity == undefined || (entity as unknown as Entity).isNew)
+    if (entity == undefined || (entity as Entity).isNew)
       return undefined;
 
     const ti = tryGetTypeInfo(entity);

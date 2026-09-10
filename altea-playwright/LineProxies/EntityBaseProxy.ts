@@ -70,7 +70,7 @@ export abstract class EntityBaseProxy extends BaseLineProxy {
         const changes = await getChanges(this.element);
         const modal = await captureOnClick(button);
         const { FrameModalProxy } = await import("../Frames/FrameModalProxy");
-        const proxy = await FrameModalProxy.create<T>(modal, rootType as unknown as Function);
+        const proxy = await FrameModalProxy.create<T>(modal, rootType);
         proxy.disposing = async () => { await waitChangesFrom(this.element, changes); };
         return proxy;
     }

@@ -251,7 +251,7 @@ export namespace AutoconfigureNeuralNetworkAlgorithm {
     // ---- helpers ---------------------------------------------------------------------------------------
 
     function settingsOf(predictor: PredictorEntity): NeuralNetworkSettingsEntity {
-        const nns = predictor.algorithmSettings as unknown as NeuralNetworkSettingsEntity;
+        const nns = predictor.algorithmSettings as NeuralNetworkSettingsEntity;
         if (nns?.hiddenLayers == null)
             throw new Error(`Predictor '${predictor.name}' has no NeuralNetworkSettings to autoconfigure`);
         return nns;

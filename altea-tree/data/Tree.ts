@@ -275,7 +275,7 @@ export class UserTreePartEntity extends Entity implements IPartEntity {
     }
 
     clone(): IPartEntity {
-        return UserTreePartEntity.create({ userQuery: this.userQuery }) as unknown as IPartEntity;
+        return UserTreePartEntity.create({ userQuery: this.userQuery });
     }
 
     toString(): string {

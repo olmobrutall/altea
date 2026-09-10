@@ -721,7 +721,7 @@ export namespace WorkflowClient {
     // ---- Frame helpers ---------------------------------------------------------------------------------
 
     export function getCaseActivityContext(ctx: TypeContext<any>): TypeContext<CaseActivityEntity> | undefined {
-        const fc = ctx.frame?.frameComponent as unknown as IHasCaseActivity | undefined;
+        const fc = ctx.frame?.frameComponent as IHasCaseActivity | undefined;
         const activity = fc?.getCaseActivity?.();
         return activity && TypeContext.root(activity, undefined, ctx);
     }
@@ -731,7 +731,7 @@ export namespace WorkflowClient {
     }
 
     export function inWorkflow(ctx: TypeContext<any>, workflowName: string, activityName: string): boolean {
-        const fc = ctx.frame?.frameComponent as unknown as IHasCaseActivity | undefined;
+        const fc = ctx.frame?.frameComponent as IHasCaseActivity | undefined;
         const ca = fc?.getCaseActivity?.();
 
         if (!ca)
@@ -832,7 +832,7 @@ export namespace WorkflowClient {
                 }));
         }
 
-        const wf = FunctionalAdapter.innerRef(eoc.frame.entityComponent) as unknown as WorkflowHandle;
+        const wf = FunctionalAdapter.innerRef(eoc.frame.entityComponent) as WorkflowHandle;
         return wf.getXml()
             .then(xml => {
                 const wfModel = WorkflowModel.create({

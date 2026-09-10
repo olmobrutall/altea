@@ -83,7 +83,7 @@ export function setTranslatedFieldProvider(fn: TranslatedFieldProvider | undefin
 export type AfterDeserialization<T extends Entity> = (entity: T) => void;
 const _afterDeserialization = new Map<Function, AfterDeserialization<never>>();
 export function registerAfterDeserialization<T extends Entity>(ctor: Type<T>, fn: AfterDeserialization<T>): void {
-    _afterDeserialization.set(ctor as unknown as Function, fn as AfterDeserialization<never>);
+    _afterDeserialization.set(ctor, fn as AfterDeserialization<never>);
 }
 function runAfterDeserialization(entity: Entity): void {
     _afterDeserialization.get(entity.constructor)?.(entity as never);
@@ -172,7 +172,7 @@ function resolveWireType(name: string): Function | undefined {
     if (ctor != null)
         return ctor;
     const enumObj = resolveEnum(name);
-    return enumObj != null ? (EnumEntity.typeFor(enumObj) as unknown as Function) : undefined;
+    return enumObj != null ? EnumEntity.typeFor(enumObj) : undefined;
 }
 
 // ---- Lite ------------------------------------------------------------------

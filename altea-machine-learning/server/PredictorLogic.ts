@@ -597,7 +597,7 @@ export namespace PredictorLogic {
 
         // The output-activation rule, which Signum's entity checks through [BindParent] — see
         // data/NeuralNetworkSettings' validateOutputActivation on why it is called from here.
-        const nn = predictor.algorithmSettings as unknown as NeuralNetworkSettingsEntity;
+        const nn = predictor.algorithmSettings as NeuralNetworkSettingsEntity;
         if (nn?.outputActivation != null) {
             const error = validateOutputActivation(nn, predictor, DefaultColumnEncodings.NormalizeZScore.key);
             if (error != null)

@@ -127,9 +127,9 @@ export namespace SchedulerLogic {
         taskType: Type<T>,
         handler: (task: T, ctx: ScheduledTaskContext) => Promise<Lite<Entity> | null>,
     ): void {
-        executeTaskHandlers.set(taskType as unknown as Function, handler as ExecuteTaskHandler);
+        executeTaskHandlers.set(taskType, handler as ExecuteTaskHandler);
         // A type that can be run IS a type ITaskOperation.ExecuteSync applies to (see the note there).
-        OperationLogic.registerForType(ITaskOperation.ExecuteSync, taskType as unknown as Function);
+        OperationLogic.registerForType(ITaskOperation.ExecuteSync, taskType);
     }
 
     /** Dispatch, walking up the prototype chain so a handler

@@ -267,8 +267,8 @@ export namespace UserQueryMerger {
         oldFilterOptions: FilterOption[], newFilterOptions: FilterOption[],
         indent: number, sd: StringDistance,
     ): UserQueryEntity_Filter[] {
-        const oldGroups = groupWhen(oldFilters, a => (a.indentation as unknown as number) == indent);
-        const newGroups = groupWhen(newFilters, a => (a.indentation as unknown as number) == indent);
+        const oldGroups = groupWhen(oldFilters, a => a.indentation == indent);
+        const newGroups = groupWhen(newFilters, a => a.indentation == indent);
 
         if (oldGroups.length != oldFilterOptions.length || newGroups.length != newFilterOptions.length)
             throw new Error("Unexpected filter lengths");

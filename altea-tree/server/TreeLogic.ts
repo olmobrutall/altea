@@ -399,7 +399,7 @@ export namespace TreeLogic {
                         return clone;
                     });
 
-                    await Saver.save(copies as unknown as Entity[]);
+                    await Saver.save(copies);
 
                     for (const c of copies) {
                         await calculateFullName(type, c);

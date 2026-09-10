@@ -34,7 +34,7 @@ export class RetrieveSkill extends SkillCode {
                 if (ctor == undefined)
                     throw new Error(`Type '${typeName}' not found.${typeNameHint(typeName)}`);
 
-                const type = ctor as unknown as typeof Entity;
+                const type = ctor as typeof Entity;
                 try {
                     const entity = await Database.retrieve(type as never, type.parseId(String(args["id"])));
                     return await getEntityPack(entity as Entity);

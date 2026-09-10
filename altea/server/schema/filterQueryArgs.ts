@@ -45,7 +45,7 @@ export class FilterQueryArgs {
 
     /** Signum's `FromLite(lite)` — `table(T).filter(e => e.is(lite))`. */
     static fromLite<T extends Entity>(lite: Lite<T>): FilterQueryArgs {
-        const ctor = lite.entityType as unknown as Type<T>;
+        const ctor = lite.entityType;
         return FilterQueryArgs.fromFilter(ctor, isFilterLambda(ctor, lite));
     }
 

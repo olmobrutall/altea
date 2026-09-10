@@ -70,7 +70,7 @@ export namespace WindowsADServer {
         ws.post("/api/auth/loginWindowsAuthentication",
             { res: CustomType<LoginResponse | null>(), allowAnonymous: true },
             async (req, res) => {
-                const query = (req as unknown as { query: Record<string, unknown> }).query;
+                const query = req.query;
                 const throwErrors = (query["throwError"] ?? "false") === "true";
 
                 const user = await loginWindowsAuthentication(req, throwErrors);
@@ -90,8 +90,8 @@ export namespace WindowsADServer {
         ws.get("/api/adThumbnailphoto/:username",
             { params: CustomType<{ username: string }>(), allowAnonymous: true },
             async (req, res) => {
-                const { username } = (req as unknown as { params: { username: string } }).params;
-                const response = res as unknown as ResLike;
+                const { username } = req.params;
+                const response = res;
                 response.setHeader("Cache-Control", `private, max-age=${pictureMaxAgeSeconds}`);
 
                 const bytes = await WindowsADLogic.getProfilePicture(username).catch(() => null);

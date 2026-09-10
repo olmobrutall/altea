@@ -76,4 +76,4 @@ const impls = {
   },
 };
 
-Object.assign(BaseEntity as unknown as Record<string, unknown>, impls);
+Object.assign(BaseEntity, impls);

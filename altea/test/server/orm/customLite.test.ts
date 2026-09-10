@@ -104,7 +104,7 @@ describe("CustomLite (JSON)", () => {
 
         const back = deserialize(serialize(nom)) as AwardNominationEntity;
         assert.ok(back.author instanceof BandLite);
-        assert.equal((back.author as unknown as BandLite).memberCount, 0);
+        assert.equal(back.author.memberCount, 0);
 
         const nom2 = AwardNominationEntity.create({
             author: makeArtist(21, "Alanis", Sex.Female).toLite(),   // default ArtistLite

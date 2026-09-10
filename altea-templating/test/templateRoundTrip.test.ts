@@ -18,7 +18,7 @@ import type { TemplateSynchronizationContext } from "@altea/altea-templating/ser
 
 /** Any entity stands in for a query name here: nothing resolves against it, which is what we want. */
 class FakeQuery extends Entity { }
-const query = FakeQuery as unknown as QueryName;
+const query = FakeQuery;
 
 /** The re-print path `TextTemplateParser.synchronize` uses. */
 function reprint(text: string): string {

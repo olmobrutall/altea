@@ -275,7 +275,7 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
         throw new Error(`Impossible to convert '${entityType}' to '${typeName}'`);
 
       if (!!(entityOrLite instanceof Lite) == !!type.lite)
-        return entityOrLite as unknown as R;
+        return entityOrLite as R;
 
       if (entityOrLite instanceof Lite)
         return (await Navigator.API.fetch(entityOrLite as Lite<Entity>)) as unknown as R;

@@ -74,7 +74,7 @@ export class PostgresBroadcast implements IServerBroadcast {
 
             await client.query(`LISTEN ${BROADCAST_CHANNEL}`);
             // Don't keep the event loop alive just to listen (a CLI/terminal host must still exit).
-            (client as unknown as { connection?: { stream?: { unref?: () => void } } }).connection?.stream?.unref?.();
+            (client as { connection?: { stream?: { unref?: () => void } } }).connection?.stream?.unref?.();
 
             this.client = client;
             this.running = true;

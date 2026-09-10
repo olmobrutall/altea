@@ -88,7 +88,7 @@ export class SearchControlProxy {
     async createModal<T extends Entity>(rootType: Type<T>): Promise<FrameModalProxy<T>> {
         const modal = await captureOnClick(this.createButton);
         const { FrameModalProxy } = await import("../Frames/FrameModalProxy");
-        return await FrameModalProxy.create<T>(modal, rootType as unknown as Function);
+        return await FrameModalProxy.create<T>(modal, rootType);
     }
 
     /** Signum's `SimpleFilterBuilder<T>` — the app-supplied filter form, as a line container. */

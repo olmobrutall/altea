@@ -208,8 +208,8 @@ const fluentOperations = {
         // `(entity: R) => S` here. R and T coincide for every Construct in the workspace; the two casts
         // are the price of allowing the rare cross-type one at all, as Signum's Graph<T> does.
         new Graph.Construct<R, S>(this.type as never, symbol, {
-            construct: () => createBlank(this.type) as unknown as R,
-            getState: this.getState as unknown as Quoted<(entity: R) => S> | undefined,
+            construct: () => createBlank(this.type),
+            getState: this.getState,
             stateEnum: this.stateEnum,
             ...options,
         } as ConstructOptions<R>).register();
@@ -218,7 +218,7 @@ const fluentOperations = {
 
     withConstructFrom<T extends Entity, S, R extends Entity, F extends Entity>(this: OperationsThis<T, S>, fromType: Type<F>, symbol: ConstructSymbol<R, From<F>>, options: Partial<ConstructFromOptionsWithState<R, F, S>>) {
         new Graph.ConstructFrom<R, F, S>(fromType, symbol, {
-            getState: this.getState as unknown as Quoted<(entity: R) => S> | undefined,
+            getState: this.getState,
             stateEnum: this.stateEnum,
             ...options,
         } as ConstructFromOptions<R, F>).register();
@@ -227,7 +227,7 @@ const fluentOperations = {
 
     withConstructFromMany<T extends Entity, S, R extends Entity, F extends Entity>(this: OperationsThis<T, S>, fromType: Type<F>, symbol: ConstructSymbol<R, FromMany<F>>, options: Partial<ConstructFromManyOptionsWithState<R, F, S>>) {
         new Graph.ConstructFromMany<R, F, S>(fromType, symbol, {
-            getState: this.getState as unknown as Quoted<(entity: R) => S> | undefined,
+            getState: this.getState,
             stateEnum: this.stateEnum,
             ...options,
         } as ConstructFromManyOptions<R, F>).register();

@@ -84,7 +84,7 @@ export namespace PredictorSimpleSaver {
      */
     async function computeMetrics(ctx: PredictorTrainingContext): Promise<Evaluated[]> {
         const predictor = ctx.predictor;
-        const nn = predictor.algorithmSettings as unknown as NeuralNetworkSettingsEntity;
+        const nn = predictor.algorithmSettings as NeuralNetworkSettingsEntity;
         const classification = nn?.predictionType != null && isClassificationType(nn.predictionType);
 
         const evaluated = [

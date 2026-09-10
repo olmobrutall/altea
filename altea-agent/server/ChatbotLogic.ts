@@ -320,7 +320,7 @@ export namespace ChatbotLogic {
         const totalCachedInputTokens = add(current.totalCachedInputTokens, answer.cachedInputTokens);
         const totalOutputTokens = add(current.totalOutputTokens, answer.outputTokens);
         const totalReasoningOutputTokens = add(current.totalReasoningOutputTokens, answer.reasoningOutputTokens);
-        const totalToolCalls = ((current.totalToolCalls ?? 0) + answer.toolCalls.length) as unknown as int;
+        const totalToolCalls = ((current.totalToolCalls ?? 0) + answer.toolCalls.length) as int;
 
         await tableQuery(ChatSessionEntity).filter(a => a.id == session.id).executeUpdate(() => ({
             totalInputTokens,

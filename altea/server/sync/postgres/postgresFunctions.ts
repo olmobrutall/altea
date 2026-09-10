@@ -70,7 +70,7 @@ export class PostgresFunctions {
 
 interface Srf { __sqlMethod?: string }
 
-(generateSubscripts as unknown as Srf).__sqlMethod = "generate_subscripts";
+(generateSubscripts as Srf).__sqlMethod = "generate_subscripts";
 
 // fromQuoted types each free-function call via __resultType (the AST never carries a Promise).
 quotedFunction(generateSubscripts).__resultType = () => new ArrayType(LiteralType.number);

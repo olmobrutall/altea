@@ -150,7 +150,7 @@ function evaluatorFromXml(entity: { name: string; mainEntityType: TypeEntity },
     // `ctx.getType` answers a Lite; the field is the full row, so it is retrieved through the lite's own
     // entity (the importer fills it fat for exactly this).
     const lite = ctx.getType(str(xml["MainEntityType"])!);
-    entity.mainEntityType = lite.entityOrNull ?? (lite as unknown as { entity: TypeEntity }).entity;
+    entity.mainEntityType = lite.entityOrNull ?? (lite as { entity: TypeEntity }).entity;
     assertNoScript(xml, elementName);
 }
 
@@ -346,7 +346,7 @@ async function workflowFromXml(workflow: WorkflowEntity, xml: Record<string, unk
     workflow.name = str(xml["Name"])!;
     const mainEntityTypeLite = ctx.getType(str(xml["MainEntityType"])!);
     workflow.mainEntityType = mainEntityTypeLite.entityOrNull
-        ?? (mainEntityTypeLite as unknown as { entity: TypeEntity }).entity;
+        ?? (mainEntityTypeLite as { entity: TypeEntity }).entity;
 
     const strategies = (str(xml["MainEntityStrategies"]) ?? "").split(",").map(s => s.trim()).filter(s => s !== "");
     workflow.mainEntityStrategies = strategies.map(s => WorkflowEntity_MainEntityStrategy.create({
@@ -563,7 +563,7 @@ async function setActivity(a: WorkflowActivityEntity, x: Record<string, unknown>
     a.subWorkflow = sub == null ? null : SubWorkflowEmbedded.create({
         workflow: String(workflow.id) === str(sub["Workflow"])
             ? workflow
-            : ctx.getEntity(str(sub["Workflow"])!) as unknown as WorkflowEntity,
+            : ctx.getEntity(str(sub["Workflow"])!) as WorkflowEntity,
         subEntitiesEval: SubEntitiesEval.create({ script: str(sub["SubEntitiesEval"]) ?? "" }),
     });
 
@@ -571,7 +571,7 @@ async function setActivity(a: WorkflowActivityEntity, x: Record<string, unknown>
     a.script = script == null ? null : WorkflowScriptPartEmbedded.create({
         script: (ctx.getEntity(str(script["Script"])!) as unknown as WorkflowScriptEntity).toLite(),
         retryStrategy: script["RetryStrategy"] == null ? null
-            : ctx.getEntity(str(script["RetryStrategy"])!) as unknown as WorkflowScriptRetryStrategyEntity,
+            : ctx.getEntity(str(script["RetryStrategy"])!) as WorkflowScriptRetryStrategyEntity,
     });
 
     setDiagramXml(a, x);
@@ -589,7 +589,7 @@ function setEvent(e: WorkflowEventEntity, x: Record<string, unknown>, lanes: Map
         duration: timer["Duration"] == null ? null
             : timeSpanFromXml(timer["Duration"] as Record<string, unknown>),
         condition: timer["Condition"] == null ? null
-            : (ctx.getEntity(str(timer["Condition"])!) as unknown as WorkflowTimerConditionEntity).toLite(),
+            : (ctx.getEntity(str(timer["Condition"])!) as WorkflowTimerConditionEntity).toLite(),
         avoidExecuteConditionByTimer: bool(timer["AvoidExecuteConditionByTimer"]) ?? false,
     });
 
@@ -615,9 +615,9 @@ function setConnection(c: WorkflowConnectionEntity, x: Record<string, unknown>,
     c.from = nodeOf(str(x["From"])!);
     c.to = nodeOf(str(x["To"])!);
     c.condition = x["Condition"] == null ? null
-        : (ctx.getEntity(str(x["Condition"])!) as unknown as WorkflowConditionEntity).toLite();
+        : (ctx.getEntity(str(x["Condition"])!) as WorkflowConditionEntity).toLite();
     c.action = x["Action"] == null ? null
-        : (ctx.getEntity(str(x["Action"])!) as unknown as WorkflowActionEntity).toLite();
+        : (ctx.getEntity(str(x["Action"])!) as WorkflowActionEntity).toLite();
     const order = num(x["Order"]);
     c.order = order == null ? null : toInt(order);
     setDiagramXml(c, x);

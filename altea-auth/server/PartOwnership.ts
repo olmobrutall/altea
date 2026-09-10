@@ -33,14 +33,14 @@ export function partEdges(schema: Schema): PartEdge[] {
         if (ef.fieldInfo?.isBackReference)
             return;
         const field = ef.field;
-        if (field instanceof FieldEntityArray) add(owner, field.childType as unknown as Function);
+        if (field instanceof FieldEntityArray) add(owner, field.childType);
         else if (field instanceof FieldEnum) { /* enum side-table, never a Part */ }
-        else if (field instanceof FieldReference) add(owner, field.column.referenceTable?.type as unknown as Function | undefined);
-        else if (field instanceof FieldImplementedBy) for (const c of field.implementationColumns) add(owner, c.referenceTable?.type as unknown as Function | undefined);
+        else if (field instanceof FieldReference) add(owner, field.column.referenceTable?.type);
+        else if (field instanceof FieldImplementedBy) for (const c of field.implementationColumns) add(owner, c.referenceTable?.type);
     };
     for (const table of schema.tables.values()) {
-        for (const ef of Object.values(table.fields)) scan(table.type as unknown as Function, ef);
-        for (const mixin of Object.values(table.mixins)) for (const ef of Object.values(mixin.fields)) scan(table.type as unknown as Function, ef);
+        for (const ef of Object.values(table.fields)) scan(table.type, ef);
+        for (const mixin of Object.values(table.mixins)) for (const ef of Object.values(mixin.fields)) scan(table.type, ef);
     }
     return edges;
 }
@@ -93,11 +93,11 @@ export function partParentChains(schema: Schema): Map<Function, string[]> {
     // Each Part's immediate back-reference: { field name, owner ctor }.
     const backref = new Map<Function, { field: string; owner: Function }>();
     for (const table of schema.tables.values()) {
-        const owner = table.type as unknown as Function;
+        const owner = table.type;
         if (!isPart(owner)) continue;
         for (const [name, ef] of Object.entries(table.fields) as [string, { fieldInfo?: { isBackReference?: boolean }; field: unknown }][]) {
             if (ef.fieldInfo?.isBackReference && ef.field instanceof FieldReference) {
-                backref.set(owner, { field: name, owner: ef.field.column.referenceTable?.type as unknown as Function });
+                backref.set(owner, { field: name, owner: ef.field.column.referenceTable?.type as Function });
                 break; // an owned Part has a single back-reference to its owner
             }
         }

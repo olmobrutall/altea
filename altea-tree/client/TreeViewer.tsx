@@ -381,7 +381,7 @@ export class TreeViewer extends React.Component<TreeViewerProps, TreeViewerState
             queryToken: this.state.queryToken!,
             markRows: () => this.search(false),
             container: this,
-        } as unknown as ContextualItemsContext<Entity>;
+        };
 
         renderContextualItems(options).then(menuPack => this.setState({
             currentMenuItems: menuPack.items,
@@ -793,7 +793,7 @@ class TreeNodeControl extends React.Component<TreeNodeControlProps> {
             columns: this.props.columns.map(x => x.column.token!.fullKey()),
             row: { entity: node.lite as Lite<Entity>, columns: node.values },
             rowIndex: -1,
-        } as unknown as Finder.CellFormatterContext;
+        };
 
         const value = node.values[c.resultIndex as number];
 

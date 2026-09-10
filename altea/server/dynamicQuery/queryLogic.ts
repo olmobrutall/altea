@@ -91,7 +91,7 @@ export namespace QueryLogic {
         }
         const out: Function[] = [];
         for (const t of schema.tables.keys()) {
-            const ctor = t as unknown as Function;
+            const ctor = t;
             if (typeof ctor === "function" && (ctor === cleanTypeCtor || ctor.prototype instanceof cleanTypeCtor))
                 out.push(ctor);
         }
@@ -192,7 +192,7 @@ function generateQueryEntities(schema: Schema): SqlPreCommand | undefined {
     if (table == null)
         return undefined;
     const keys = QueryLogic.queries.getQueryNames().map(getKey).sort();
-    return SqlPreCommand.combine(Spacing.Simple, ...keys.map(k => insertSqlSyncGenerated(table, queryEntityFromKey(k) as unknown as Entity)));
+    return SqlPreCommand.combine(Spacing.Simple, ...keys.map(k => insertSqlSyncGenerated(table, queryEntityFromKey(k))));
 }
 
 // Synchronization (Signum's QueryLogic.SynchronizeQueries): a new query key is INSERTed (DB assigns the
@@ -221,15 +221,15 @@ async function synchronizeQueries(replacements: Replacements): Promise<SqlPreCom
         Spacing.Double,
         should,
         currentByKey,
-        (_k, s) => insertSqlSyncGenerated(table, s as unknown as Entity),
-        (_k, c) => deleteSqlSync(table, c as unknown as Entity),
+        (_k, s) => insertSqlSyncGenerated(table, s),
+        (_k, c) => deleteSqlSync(table, c),
         (_k, s, c) => {
             // Matched (possibly through a RENAME): write the registered key onto the RETRIEVED row, which
             // keeps its persisted id — every stored Lite<QueryEntity> (a UserQuery's `query`, a toolbar
             // element's content) points at it. updateSqlSync returns undefined unless the key drifted, so an
             // unchanged query contributes nothing and a RENAMED one gets its key column written.
-            copyRowFields(c as unknown as Entity, s as unknown as Entity);
-            return updateSqlSync(table, c as unknown as Entity);
+            copyRowFields(c, s);
+            return updateSqlSync(table, c);
         },
     );
 }

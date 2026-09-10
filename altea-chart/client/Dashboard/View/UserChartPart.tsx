@@ -229,7 +229,7 @@ function toDashboardFilterRow(row: ChartRow, chartRequest: ChartRequestModel): D
     const filters = chartRequest.columns
         .map((c, i) => ({
             token: c.token?.token,
-            value: (row as unknown as Record<string, unknown>)["c" + i],
+            value: (row as Record<string, unknown>)["c" + i],
         }))
         .filter(a => a.token != null && !a.token.isAggregate() && a.value !== undefined);
 

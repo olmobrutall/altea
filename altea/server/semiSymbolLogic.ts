@@ -59,7 +59,7 @@ export namespace SemiSymbolLogic {
                 ctor,
                 getSemiSymbols,
                 lazy: new ResetLazy<Map<string, T>>(() => buildCache(ctor)),
-            } as unknown as SemiSymbolTypeLogic<SemiSymbol>);
+            } as SemiSymbolTypeLogic<SemiSymbol>);
 
         sb.schema.generating.push(schema => generateSemiSymbols(schema, ctor));
 
@@ -187,7 +187,7 @@ function generateSemiSymbols<T extends SemiSymbol>(schema: Schema, ctor: Type<T>
     if (sorted.length === 0)
         return undefined;
 
-    return SqlPreCommand.combine(Spacing.Simple, ...sorted.map(s => insertSqlSyncGenerated(semiTable, s as unknown as Entity)));
+    return SqlPreCommand.combine(Spacing.Simple, ...sorted.map(s => insertSqlSyncGenerated(semiTable, s as Entity)));
 }
 
 // Synchronization (Signum's Schema_Synchronizing). The ONE thing that makes this not SymbolLogic: `current`
@@ -202,7 +202,7 @@ async function synchronizeSemiSymbols<T extends SemiSymbol>(
     if (stl == null || semiTable == null)
         return undefined;
 
-    const all = await Administrator.tryRetrieveAll(ctor as never, replacements) as unknown as SemiSymbol[];
+    const all = await Administrator.tryRetrieveAll(ctor as never, replacements) as SemiSymbol[];
     const current = all.filter(c => c.key != null && c.key !== "").toMap(c => c.key!);
     const should = createSemiSymbols(stl.getSemiSymbols()).toMap(s => s.key!);
 
@@ -212,13 +212,13 @@ async function synchronizeSemiSymbols<T extends SemiSymbol>(
         Spacing.Double,
         should,
         current,
-        (_k, s) => insertSqlSyncGenerated(semiTable, s as unknown as Entity),
-        (_k, c) => deleteSqlSync(semiTable, c as unknown as Entity),
+        (_k, s) => insertSqlSyncGenerated(semiTable, s as Entity),
+        (_k, c) => deleteSqlSync(semiTable, c as Entity),
         (_k, s, c) => {
             // Matched by key: the persisted row KEEPS its id (an FK target across the database) and takes
             // the declared key + name.
-            copyRowFields(c as unknown as Entity, s as unknown as Entity);
-            return updateSqlSync(semiTable, c as unknown as Entity);
+            copyRowFields(c as Entity, s as Entity);
+            return updateSqlSync(semiTable, c as Entity);
         },
     );
 }

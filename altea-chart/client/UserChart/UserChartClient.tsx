@@ -299,7 +299,7 @@ function buildFilterTree(
     filters: UserChartEntity_Filter[], indent: number, completer: Finder.TokenCompleter,
     subTokenOptions: SubTokensOptions, entity: Lite<Entity> | undefined,
 ): FilterOptionParsed[] {
-    return groupWhen(filters, f => (f.indentation as unknown as number) === indent).map(run => {
+    return groupWhen(filters, f => f.indentation === indent).map(run => {
         const head = run[0];
         const children = run.slice(1);
         const token = head.token ? completer.get(head.token.tokenString, subTokenOptions) : undefined;

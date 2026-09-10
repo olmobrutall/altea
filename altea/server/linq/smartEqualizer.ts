@@ -394,7 +394,7 @@ function constRef(e: Expression): ConstRef | null {
     if (v == null)
         return { ctor: undefined, id: null, isNull: true };
     if (v instanceof Lite)
-        return { ctor: v.entityType as unknown as Function, id: v.id, isNull: false };
+        return { ctor: v.entityType, id: v.id, isNull: false };
     if (v instanceof Entity)
         return { ctor: v.constructor, id: v.id, isNull: false };
     return null;

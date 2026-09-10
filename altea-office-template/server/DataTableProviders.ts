@@ -48,7 +48,7 @@ export class ModelDataTableProvider implements IOfficeDataTableProvider {
     }
 
     async getDataTable(suffix: string, ctx: OfficeContext): Promise<DataTableResult> {
-        const model = ctx.model as unknown as Record<string, unknown> | undefined;
+        const model = ctx.model as Record<string, unknown> | undefined;
         const name = suffix.trim();
         const method = model?.[name];
 

@@ -77,7 +77,7 @@ export class TokenSyncContext {
      */
     knownAction(entity: IUserAssetEntity): UserAssetEntityActionType | null {
         const typeName = entity.constructor.name;
-        const id = String((entity as unknown as Entity).id);
+        const id = String(entity.id);
         for (const file of this.history) {
             const match = file.userAssetActions?.find(a => a.entityType === typeName && a.guid === id);
             if (match != null)
@@ -93,7 +93,7 @@ export class TokenSyncContext {
 
         (this.recording.userAssetActions ??= []).push({
             entityType: entity.constructor.name,
-            guid: String((entity as unknown as Entity).id),
+            guid: String(entity.id),
             action,
         });
     }

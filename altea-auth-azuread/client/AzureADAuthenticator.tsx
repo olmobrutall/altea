@@ -329,7 +329,7 @@ export namespace AzureADAuthenticator {
      */
     function clearInteractionInProgress(client: msal.PublicClientApplication): void {
         try {
-            (client as unknown as { browserStorage?: { setInteractionInProgress(v: boolean): void } })
+            (client as { browserStorage?: { setInteractionInProgress(v: boolean): void } })
                 .browserStorage?.setInteractionInProgress(false);
         } catch {
             // A newer MSAL that renamed or removed it: nothing to clear, and nothing worth failing over.

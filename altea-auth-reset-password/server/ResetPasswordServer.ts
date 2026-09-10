@@ -81,7 +81,7 @@ export namespace ResetPasswordServer {
                     throw new Error(ResetPasswordMessage.TheCodeOfYourLinkIsIncorrect.niceToString());
 
                 await ResetPasswordRequestLogic.requestNewLink(code);
-                (res as unknown as { status(c: number): { end(): void } }).status(200).end();
+                res.status(200).end();
             });
     }
 }

@@ -140,7 +140,7 @@ export namespace EmailReceptionLogic {
         serviceType: Type<T>,
         receive: (service: T, config: EmailReceptionConfigurationEntity, ctx: ScheduledTaskContext) => Promise<EmailReceptionEntity>,
     ): void {
-        receptionServices.set(serviceType as unknown as Function, receive as unknown as ReceiveHandler);
+        receptionServices.set(serviceType as Function, receive as ReceiveHandler);
     }
 
     /** altea-only (see the header): what the Save operation should do to this service type before it is
@@ -149,8 +149,8 @@ export namespace EmailReceptionLogic {
         serviceType: Type<T>,
         prepareForSave: (service: T) => void,
     ): void {
-        receptionServiceSaves.set(serviceType as unknown as Function,
-            prepareForSave as unknown as (service: EmailReceptionServiceEntity) => void);
+        receptionServiceSaves.set(serviceType,
+            prepareForSave as (service: EmailReceptionServiceEntity) => void);
     }
 
     /** Run the registered pre-save step for this service instance's type, or for a base of it — the same

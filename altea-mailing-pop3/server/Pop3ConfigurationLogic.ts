@@ -43,11 +43,11 @@ export namespace Pop3ConfigurationLogic {
     export let getPop3Client: (service: Pop3EmailReceptionServiceEntity) => Promise<IPop3Client> = service =>
         Pop3Client.connect({
             host: service.host,
-            port: service.port as unknown as number,
+            port: service.port,
             username: service.username ?? "",
             password: service.password == null ? "" : EmailSenderConfigurationLogic.decryptPassword(service.password),
             enableSSL: service.enableSSL,
-            readTimeout: service.readTimeout as unknown as number,
+            readTimeout: service.readTimeout,
             clientCertificationFiles: service.clientCertificationFiles.map(c => c.fullFilePath),
         });
 
@@ -386,7 +386,7 @@ export namespace Pop3ConfigurationLogic {
         if (config.deleteMessagesAfter == null || sent == null)
             return;
 
-        const cutoff = sent.toPlainDate().add({ days: config.deleteMessagesAfter as unknown as number });
+        const cutoff = sent.toPlainDate().add({ days: config.deleteMessagesAfter });
         if (Temporal.PlainDate.compare(cutoff, Clock.now.toPlainDate()) >= 0)
             return;
 

@@ -22,7 +22,7 @@ import { sqlEscape } from "../linq/sqlEscape";
 // unary NOT, and/or, and arithmetic. The `is` type-check and SystemPeriod cases Signum also
 // handles, and nested member paths, are not modelled.
 export function getIndexWhere(where: Quoted<(element: any) => boolean>, table: Table, isPostgres: boolean): string {
-    const lambda = LambdaExpression.fromQuotedLambda(where, [new ClassType(table.type as unknown as new () => object)]);
+    const lambda = LambdaExpression.fromQuotedLambda(where, [new ClassType(table.type)]);
     return new IndexWhereVisitor(table, isPostgres).visit(lambda.body);
 }
 

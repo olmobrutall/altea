@@ -60,7 +60,7 @@ export async function findLiteLike(typeName: string, subString: string, count: n
             + (similar.length > 0 ? ` Similar type names: ${similar.join(", ")}` : ""));
     }
 
-    const queryName = ctor as unknown as Parameters<typeof QueryLogic.getToken>[0];
+    const queryName = ctor as Parameters<typeof QueryLogic.getToken>[0];
     const token = (s: string): ReturnType<typeof QueryLogic.getToken> => QueryLogic.getToken(queryName, s, SubTokensOptionsAll);
 
     const toString = token("ToString");

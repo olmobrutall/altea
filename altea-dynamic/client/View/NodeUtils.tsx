@@ -316,7 +316,7 @@ export class DesignerNode<N extends BaseNode> {
 
     createChild<T extends BaseNode>(node: T): DesignerNode<T> {
         let route = this.fixRoute();
-        const lbn = node as unknown as { field?: string };
+        const lbn = node as { field?: string };
         if (lbn.field && route)
             route = tryAdd(route, lbn.field);
 
@@ -892,7 +892,7 @@ export function getEntityListBaseProps(
         avoidGetComponent?: boolean; isEntityLine?: boolean; filterRows?: boolean;
     },
 ): EntityListBaseProps<never> {
-    return getEntityBaseProps(dn, parentCtx, options) as unknown as EntityListBaseProps<never>;
+    return getEntityBaseProps(dn, parentCtx, options) as EntityListBaseProps<never>;
 }
 
 export function getEntityBaseProps(
@@ -929,7 +929,7 @@ export function getEntityBaseProps(
         viewOnCreate: evaluateAndValidate(dn, parentCtx, dn.node, n => n.viewOnCreate, isBooleanOrNull),
         onChange: evaluateAndValidate(dn, parentCtx, dn.node, n => n.onChange, isFunctionOrNull),
         findOptions: dn.node.findOptions && toFindOptions(dn, parentCtx, dn.node.findOptions),
-        getComponent: options.avoidGetComponent === true ? undefined : getGetComponent(dn as unknown as DesignerNode<ContainerNode>),
+        getComponent: options.avoidGetComponent === true ? undefined : getGetComponent(dn as DesignerNode<ContainerNode>),
         getViewPromise: toFunction(evaluateAndValidate(dn, parentCtx, dn.node, n => n.viewName, isFunctionOrStringOrNull) as never),
     };
 

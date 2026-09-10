@@ -41,7 +41,7 @@ export namespace MapServer {
             { params: CustomType<{ typeName: string }>(), res: CustomType<OperationMapInfo>() },
             async (req, res) => {
                 await assertAuthorized();
-                const { typeName } = (req as unknown as { params: { typeName: string } }).params;
+                const { typeName } = req.params;
                 return res.jsonTyped(await OperationMap.getOperationMapInfo(Entity.resolveType(typeName)));
             });
     }

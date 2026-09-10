@@ -44,7 +44,7 @@ function memberName(e: QuotedEx): string {
     if (e[0] === "as")
         return memberName((e as ExAs)[1]);
     if (e[0] === "!")
-        return memberName((e as unknown as [string, QuotedEx])[1]);
+        return memberName(e[1]);
 
     if (e[0] === "." || e[0] === "?.") {
         const prop = e as ExProperty;

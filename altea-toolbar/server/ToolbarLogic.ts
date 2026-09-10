@@ -88,14 +88,14 @@ export namespace ToolbarLogic {
     export const customPermissionResponse = new Map<string, () => Promise<ToolbarResponse[]> | ToolbarResponse[]>();
 
     export function registerContentConfig<T extends Entity>(type: Type<T>, config: ToolbarContentConfig<T>): void {
-        contentConfigs.set(type, config as unknown as ToolbarContentConfig);
+        contentConfigs.set(type, config);
     }
 
     export function getContentConfig<T extends Entity>(type: Type<T>): ToolbarContentConfig<T> {
         const c = contentConfigs.get(type);
         if (c == null)
             throw new Error(`Toolbar: no content config registered for '${type.name}'`);
-        return c as unknown as ToolbarContentConfig<T>;
+        return c;
     }
 
     function tryGetContentConfig(lite: Lite<Entity>): ToolbarContentConfig | undefined {

@@ -93,8 +93,8 @@ export namespace EmailSenderConfigurationLogic {
         serviceType: Type<T>,
         prepareForSave: (service: T) => void,
     ): void {
-        serviceSaves.set(serviceType as unknown as Function,
-            prepareForSave as unknown as (service: EmailServiceEntity) => void);
+        serviceSaves.set(serviceType,
+            prepareForSave as (service: EmailServiceEntity) => void);
     }
 
     /** Run the registered pre-save step for this service instance's type, or for a base of it (the

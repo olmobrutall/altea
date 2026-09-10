@@ -31,7 +31,7 @@ import { MODEL_FILE_NAME } from "../server/tensorflow/FileModelStore";
 
 /** A fake resolved token, which is all the encodings read off a column. */
 function token(typeName: string, subTypeName?: string): QueryToken {
-    return { fullKey: () => "probe", type: { typeName, subTypeName } } as unknown as QueryToken;
+    return { fullKey: () => "probe", type: { typeName, subTypeName } } as QueryToken;
 }
 
 function column(usage: PredictorColumnUsage, encoding: typeof DefaultColumnEncodings.None, tk: QueryToken, index: number): PredictorColumnMain {

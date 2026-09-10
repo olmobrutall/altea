@@ -151,7 +151,7 @@ export namespace AuthTokenServer {
     }
 
     function toUserWithClaims(token: TokenPayload): UserWithClaims {
-        const userLite = UserEntity.newLite(token.u, token.ut) as unknown as Lite<IUserEntity>;
+        const userLite = UserEntity.newLite(token.u, token.ut);
 
         // The Role fallback covers a token minted before the bag
         // was carried (an open session across a deploy): rebuilding it from the id/toString the payload has

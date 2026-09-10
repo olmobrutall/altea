@@ -152,7 +152,7 @@ export namespace SkillCodeLogic {
             return undefined;
 
         return SqlPreCommand.combine(Spacing.Simple,
-            ...should.map(e => insertSqlSyncGenerated(table, e as unknown as Entity)));
+            ...should.map(e => insertSqlSyncGenerated(table, e)));
     }
 
     const skillCodeReplacementKey = "SkillCode";
@@ -170,13 +170,13 @@ export namespace SkillCodeLogic {
             Spacing.Double,
             shouldRowsForSync(),
             current,
-            (_k, e) => insertSqlSyncGenerated(table, e as unknown as Entity),
-            (_k, c) => deleteSqlSync(table, c as unknown as Entity),
+            (_k, e) => insertSqlSyncGenerated(table, e),
+            (_k, c) => deleteSqlSync(table, c),
             (_k, e, c) => {
                 // Matched (possibly through a RENAME): keep the persisted id, since every
                 // SkillCustomization.skillCode FK points at it.
-                copyRowFields(c as unknown as Entity, e as unknown as Entity);
-                return updateSqlSync(table, c as unknown as Entity);
+                copyRowFields(c, e);
+                return updateSqlSync(table, c);
             },
         );
     }

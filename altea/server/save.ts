@@ -223,7 +223,7 @@ export function deleteSqlSync(table: Table, entity: Entity): SqlPreCommand | und
 // is what gets written.
 export function copyRowFields<T extends BaseEntity>(current: T, should: T): void {
     forEachField(should, (fi, value) => {
-        (current as unknown as Record<string, unknown>)[fi.name] = value;
+        (current as Record<string, unknown>)[fi.name] = value;
     });
 }
 

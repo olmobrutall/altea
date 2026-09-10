@@ -173,7 +173,7 @@ export namespace EmailLogic {
     /** altea-only: how to read an EmailOwnerData off one owner ENTITY type (see the header). Register the
      *  types a From / Recipient token can yield — e.g. `registerEmailOwner(CustomerEntity, c => ({ … }))`. */
     export function registerEmailOwner<T extends Entity>(ownerType: Type<T>, read: (entity: T) => EmailOwnerData): void {
-        emailOwners.set(ownerType as unknown as Function, read as unknown as (entity: Entity) => EmailOwnerData);
+        emailOwners.set(ownerType as Function, read as (entity: Entity) => EmailOwnerData);
     }
 
     /** Turn whatever a From / Recipient token yielded into an EmailOwnerData: a Lite / Entity of a registered

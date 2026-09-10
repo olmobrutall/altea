@@ -76,5 +76,5 @@ export function FileImage(p: FileImageProps): React.JSX.Element {
 function blobUrlFor(bytes: Uint8Array, fileName: string): string {
     const info = FilesClient.infoFor(fileName);
     // `new Blob([...])` wants a real ArrayBuffer view; a Uint8Array is one.
-    return URL.createObjectURL(new Blob([bytes as unknown as BlobPart], { type: info?.mimeType }));
+    return URL.createObjectURL(new Blob([bytes as BlobPart], { type: info?.mimeType }));
 }

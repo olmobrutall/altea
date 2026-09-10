@@ -138,7 +138,7 @@ export namespace IsolationLogic {
         // A user may itself be isolated, and then it can never leave
         // that isolation — the picker is not even offered (see IsolationServer).
         UserWithClaims.fillClaims.push((uwc, user) => {
-            uwc.claims[isolationClaim] = Isolation.tryIsolation(user as unknown as Entity);
+            uwc.claims[isolationClaim] = Isolation.tryIsolation(user);
         });
 
         // The SCOPING half of the operation seam — see OperationLogic.aroundOperation.
@@ -222,7 +222,7 @@ export namespace IsolationLogic {
     // Enum tables, symbol tables and IsolationEntity itself are exempt from the assertion. An enum
     // or symbol table is DECLARED, not application data: its rows are identical in every isolation.
     function isExempt(ctor: Function): boolean {
-        return ctor === (IsolationEntity as unknown as Function)
+        return ctor === IsolationEntity
             || isSubclassOf(ctor, EnumEntity) || isSubclassOf(ctor, EntitySymbol);
     }
 

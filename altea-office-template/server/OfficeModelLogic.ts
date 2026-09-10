@@ -252,7 +252,7 @@ function schemaGenerating(schema: Schema): SqlPreCommand | undefined {
         return undefined;
 
     return SqlPreCommand.combine(Spacing.Simple,
-        ...should.map(e => insertSqlSyncGenerated(table, e as unknown as Entity)));
+        ...should.map(e => insertSqlSyncGenerated(table, e)));
 }
 
 const officeModelReplacementKey = "OfficeModel";
@@ -277,14 +277,14 @@ async function synchronizeOfficeModels(replacements: Replacements): Promise<SqlP
         Spacing.Double,
         OfficeModelLogic.shouldRowsForSync(),
         current,
-        (_k, e) => insertSqlSyncGenerated(table, e as unknown as Entity), // new model: DB assigns the id
-        (_k, c) => deleteSqlSync(table, c as unknown as Entity),
+        (_k, e) => insertSqlSyncGenerated(table, e), // new model: DB assigns the id
+        (_k, c) => deleteSqlSync(table, c),
         (_k, e, c) => {
             // Matched (possibly through a RENAME): write the declared name onto the RETRIEVED row, which
             // keeps its persisted id — every OfficeTemplate.model FK points at it. updateSqlSync returns
             // undefined unless the row actually drifted.
-            copyRowFields(c as unknown as Entity, e as unknown as Entity);
-            return updateSqlSync(table, c as unknown as Entity);
+            copyRowFields(c, e);
+            return updateSqlSync(table, c);
         },
     );
 }

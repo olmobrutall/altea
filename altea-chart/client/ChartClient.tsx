@@ -272,7 +272,7 @@ export namespace ChartClient {
         const colName = tokenToColumn[f.token.fullKey()];
         if (colName == null)
           return false;
-        const rowVal = (row as unknown as Record<string, unknown>)[colName];
+        const rowVal = (row as Record<string, unknown>)[colName];
         return f.value == rowVal || (f.value instanceof Lite && f.value.is(rowVal as Lite<Entity>));
       }));
   }
@@ -476,7 +476,7 @@ export namespace ChartClient {
 
       // A non-aggregate key column that the clicked row carries a value for → an EqualTo filter.
       if (!(token instanceof AggregateToken) && Object.prototype.hasOwnProperty.call(r, "c" + i))
-        filters.push({ token, operation: "EqualTo", value: (r as any)["c" + i], frozen: false } as unknown as FilterOptionParsed);
+        filters.push({ token, operation: "EqualTo", value: (r as any)["c" + i], frozen: false });
     });
 
     return {

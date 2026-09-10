@@ -62,7 +62,7 @@ const controllers = new Map<Type<Entity>, CacheController>();
 // Register (or replace) the cache controller for an entity type. The one hook a cache module needs;
 // everything else consults the controller through `getCacheController` / `tryGetController`.
 export function registerCacheController<T extends Entity>(ctor: Type<T>, controller: CacheController<T>): void {
-    controllers.set(ctor, controller as unknown as CacheController);
+    controllers.set(ctor, controller);
 }
 
 export function unregisterCacheController(ctor: Type<Entity>): void {

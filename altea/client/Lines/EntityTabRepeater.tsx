@@ -180,7 +180,7 @@ export function EntityTabRepeater<R extends BaseEntity>(props: EntityTabRepeater
                   {move?.renderMoveUp()}
                   {move?.renderMoveDown()}
                 </div>
-              ) as unknown as string /* react-bootstrap types `title` as a string; Signum passes a node too */}>
+              ) /* react-bootstrap types `title` as a string; Signum passes a node too */}>
               {/* getComponent/getViewPromise are R-typed; RenderEntity types them over AsEntity<R>, which
                   equals R for an entity row but TS won't reduce the deferred conditional for a generic R. */}
               <RenderEntity ctx={mlec} getComponent={p.getComponent as any} getViewPromise={p.getViewPromise as any}
@@ -196,7 +196,7 @@ export function EntityTabRepeater<R extends BaseEntity>(props: EntityTabRepeater
                 title={ctx.titleLabels ? EntityControlMessage.Create.niceToString() : undefined}>
                 {EntityBaseController.getCreateIcon()}&nbsp;{p.createMessage ?? EntityControlMessage.Create.niceToString()}
               </span>
-            ) as unknown as string} />)}
+            )} />)}
 
         {p.extraTabs && p.extraTabs(c)}
       </Tabs>

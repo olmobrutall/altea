@@ -215,7 +215,7 @@ export namespace SMSProcessLogic {
 
     /** The package's default name: `<nice type name>: <now>`. */
     function packageName(type: Type<Entity>): string {
-        return `${(type as unknown as { niceName(): string }).niceName()}: ${Clock.now.toString()}`;
+        return `${type.niceName()}: ${Clock.now.toString()}`;
     }
 
     void SMSLogic; // the two algorithms above run through the operations SMSLogic registers

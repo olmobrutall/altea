@@ -170,7 +170,7 @@ export namespace TypeConditionLogic {
     ): void {
         const { property, isConstantAuthorized, useInDBForInMemoryCondition } = options;
         const elementType = new ClassType(ctor);
-        const readProperty = property as unknown as Quoted<(e: T) => unknown>;
+        const readProperty = property;
 
         registerWhenAlreadyFiltering<T>(ctor, typeCondition, async args => {
             const audited = filterAuditor(args);
@@ -213,7 +213,7 @@ export namespace TypeConditionLogic {
                         if (liteOrEntity instanceof EntityClass && liteOrEntity.constructor === ctor)
                             return useInDBForInMemoryCondition
                                 ? await inDB(ctor, liteOrEntity as T, readProperty)
-                                : (property as unknown as (e: T) => P)(liteOrEntity as T);
+                                : property(liteOrEntity as T);
                         return MISSING;
                     });
                     if (value === MISSING)
@@ -228,7 +228,7 @@ export namespace TypeConditionLogic {
         }, async (entity: T) => {
             const value = useInDBForInMemoryCondition
                 ? await ExecutionMode.global(() => inDB(ctor, entity, readProperty))
-                : (property as unknown as (e: T) => P)(entity);
+                : property(entity);
             return await isConstantAuthorized(convertValue<P>(value));
         });
     }
@@ -376,7 +376,7 @@ export namespace TypeConditionLogic {
             for (const e of need)
                 // No async predicate either: the condition cannot be evaluated per instance, and "not
                 // satisfied" is the safe answer (a type condition can only ever GRANT access).
-                setCachedValue(e, tc, asyncCondition == null ? false : await asyncCondition(e as unknown as BaseEntity));
+                setCachedValue(e, tc, asyncCondition == null ? false : await asyncCondition(e));
         }
 
         await ExecutionMode.global(async () => {
@@ -384,7 +384,7 @@ export namespace TypeConditionLogic {
                 const info = infoOrThrow(ctor, tc);
                 if (info.condition == null)
                     continue; // handled above
-                const predicate = info.condition as unknown as Quoted<(e: T) => boolean>;
+                const predicate = info.condition;
                 const yesIds = await table(ctor).filter(predicate).filter(e => ids.includes(e.id)).map(e => e.id).toArray() as PrimaryKey[];
                 const yes = new Set(yesIds.map(String));
                 for (const e of need)
@@ -429,7 +429,7 @@ function convertValue<P>(value: unknown): P | null {
     if (value == null)
         return null;
     if (value instanceof EntityClass)
-        return value.toLite() as unknown as P;
+        return value.toLite() as P;
     return value as P;
 }
 

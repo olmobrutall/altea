@@ -25,7 +25,7 @@ export function registerUserQueryXml(): void {
         elementName: "UserQuery",
         create: () => new UserQueryEntity(),
         load: async guid => (await table(UserQueryEntity).filter(u => u.id == guid).toArray() as UserQueryEntity[])[0],
-        save: async uq => { await (uq as unknown as { save(): Promise<void> }).save(); },
+        save: async uq => { await uq.save(); },
         toXml,
         fromXml,
     });

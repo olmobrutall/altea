@@ -41,7 +41,7 @@ export namespace OpenIDAuthenticationServer {
             { req: CustomType<LoginWithOpenIDRequest>(), res: CustomType<LoginResponse | null>(), allowAnonymous: true },
             async (req, res) => {
                 const request = (await req.jsonTyped()) as LoginWithOpenIDRequest | undefined;
-                const throwErrors = ((req as unknown as { query: Record<string, unknown> }).query["throwErrors"] ?? "true") !== "false";
+                const throwErrors = (req.query["throwErrors"] ?? "true") !== "false";
 
                 const user = await loginOpenIDAuthentication(request?.code ?? "", request?.redirectUri ?? "", throwErrors);
                 if (user == null) {

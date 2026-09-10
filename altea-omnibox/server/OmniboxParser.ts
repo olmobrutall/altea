@@ -193,7 +193,7 @@ export class OmniboxManager {
         if (d == undefined) {
             let ctors: Function[];
             try {
-                ctors = [...Connector.current().schema.tables.keys()] as unknown as Function[];
+                ctors = [...Connector.current().schema.tables.keys()];
             } catch {
                 ctors = []; // no connector bound (terminal / tests) — nothing to offer
             }

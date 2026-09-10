@@ -163,9 +163,9 @@ export namespace ExcelImporter {
                 try {
                     const entity = await applyGroup(pq, model, plan, group, res);
                     if (entity != null) {
-                        const ticksBefore = (entity as unknown as { ticks?: unknown }).ticks;
+                        const ticksBefore = entity.ticks;
                         await Operations.execute(entity, saveOperation as ExecuteSymbol<Entity>);
-                        if (res.action === "Updated" && ticksBefore === (entity as unknown as { ticks?: unknown }).ticks)
+                        if (res.action === "Updated" && ticksBefore === entity.ticks)
                             res.action = "NoChanges";
                         res.entity = entity.toLite();
                     }
@@ -198,9 +198,9 @@ export namespace ExcelImporter {
                 try {
                     const entity = await applyGroup(pq, model, plan, group, res);
                     if (entity != null) {
-                        const ticksBefore = (entity as unknown as { ticks?: unknown }).ticks;
+                        const ticksBefore = entity.ticks;
                         await Operations.execute(entity, saveOperation as ExecuteSymbol<Entity>);
-                        if (res.action === "Updated" && ticksBefore === (entity as unknown as { ticks?: unknown }).ticks)
+                        if (res.action === "Updated" && ticksBefore === entity.ticks)
                             res.action = "NoChanges";
                         res.entity = entity.toLite();
                     }
@@ -409,7 +409,7 @@ async function applyGroup(
                 niceNameOf(pq.mainType), plan.matchBy.toString(), String(group.key));
             return null;
         }
-        entity = new (pq.mainType as unknown as new () => Entity)();
+        entity = new (pq.mainType as new () => Entity)();
         res.action = "Inserted";
     } else if (model.mode === ImportExcelMode.Insert) {
         throw new Error(`${niceNameOf(pq.mainType)} already exists (mode is Insert)`);
@@ -502,7 +502,7 @@ async function buildElement(
     row: ExcelRow,
     existing: Entity | null,
 ): Promise<Entity> {
-    const element = existing ?? new (collection.rowType as unknown as new () => Entity)();
+    const element = existing ?? new (collection.rowType as new () => Entity)();
 
     // A row whose only content is a `@valueField` (altea's non-embedded MList row): the ELEMENT token
     // itself carries the value, so it is written into that field.
@@ -589,7 +589,7 @@ function getPath(owner: object, segments: string[], createMissing: boolean): unk
 function embeddedCtorOf(owner: object, fieldName: string): (new () => object) | undefined {
     const ti = tryGetTypeInfo(owner.constructor);
     const fi = ti?.fields?.[fieldName];
-    return fi?.array === true ? (Array as unknown as new () => object) : (fi?.getFunction() as (new () => object) | undefined);
+    return fi?.array === true ? Array : (fi?.getFunction() as (new () => object) | undefined);
 }
 
 /** The `@valueField` of a row entity, if it has one (altea's non-embedded MList row). */
@@ -894,5 +894,5 @@ function cleanNameOf(type: Type<Entity>): string {
 }
 
 function niceNameOf(type: Type<Entity>): string {
-    return (type as unknown as { niceName?: () => string }).niceName?.() ?? cleanNameOf(type);
+    return type.niceName?.() ?? cleanNameOf(type);
 }

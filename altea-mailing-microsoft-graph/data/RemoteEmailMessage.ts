@@ -63,7 +63,7 @@ export class RemoteAttachmentEmbedded extends EmbeddedEntity {
     contentId: string | null = null;
 
     override toString(): string {
-        return `${this.name} ${toComputerSize(this.size as unknown as number)}`;
+        return `${this.name} ${toComputerSize(this.size)}`;
     }
 }
 

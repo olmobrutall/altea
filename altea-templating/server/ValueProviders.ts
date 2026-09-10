@@ -597,7 +597,7 @@ export class NiceNameValueProvider extends ValueProviderBase {
         for (let i = 1; i < parts.length; i++) {
             const ti: TypeInfo | undefined = ctor == undefined ? undefined : tryGetTypeInfo(ctor);
             const fi: FieldInfo | undefined = ti?.members?.[parts[i]];
-            const enumObj = ctor == undefined ? undefined : (ctor as unknown as object);
+            const enumObj = ctor == undefined ? undefined : (ctor as object);
 
             if (fi != undefined) {
                 if (i === parts.length - 1) {

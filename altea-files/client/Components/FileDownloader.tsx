@@ -82,7 +82,7 @@ export function blobUrl(bytes: Uint8Array, fileName: string): string {
     // The extension's content type decides whether the browser renders the blob or offers to save it; an
     // unknown extension gets none, which the browser treats as a download.
     // `new Blob([...])` wants a real ArrayBuffer view; a Uint8Array is one.
-    return URL.createObjectURL(new Blob([bytes as unknown as BlobPart], { type: info?.mimeType }));
+    return URL.createObjectURL(new Blob([bytes as BlobPart], { type: info?.mimeType }));
 }
 
 /** The file's size for a label / tooltip (re-exported from the data layer). */

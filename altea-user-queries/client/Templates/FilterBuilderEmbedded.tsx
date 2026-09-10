@@ -157,7 +157,7 @@ export async function toFilterOptionParsed(
     await completer.finished();
 
     function build(filters: QueryFilterBaseEntity[], indent: number): FilterOptionParsed[] {
-        return groupWhen(filters, f => (f.indentation as unknown as number) === indent).map(run => {
+        return groupWhen(filters, f => f.indentation === indent).map(run => {
             const head = run[0];
             const children = run.slice(1);
             if (!head.isGroup) {

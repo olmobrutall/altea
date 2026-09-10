@@ -252,7 +252,7 @@ export namespace ReflectionServer {
                 if (ctor == null) {
                     const enumObj = resolveEnum(req.params.typeName);
                     if (enumObj != null)
-                        ctor = EnumEntity.typeFor(enumObj as object) as unknown as Function;
+                        ctor = EnumEntity.typeFor(enumObj as object) as Function;
                 }
                 let te: TypeEntity | undefined;
                 if (ctor != null) {
@@ -285,7 +285,7 @@ function buildOperation(
     op: { operationType: OperationMetadata["operationType"] },
     declaredMember: (typeName: string, member: string) => string | undefined,
 ): OperationMetadata {
-    const anyOp = op as unknown as Record<string, unknown>;
+    const anyOp = op as Record<string, unknown>;
     const dot = key.indexOf(".");
     const container = dot >= 0 ? key.slice(0, dot) : key;
     const member = dot >= 0 ? key.slice(dot + 1) : key;

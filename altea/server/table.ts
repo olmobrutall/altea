@@ -95,13 +95,13 @@ quotedFunction(view).__resultType = (_, viewTypeType) => new ArrayType(new Class
 
 // Marks `table` as a query source so the QueryBinder recognises the
 // `ConstantExpression(table)` at the root of a query CallExpression chain.
-(table as unknown as { __isQuerySource?: boolean }).__isQuerySource = true;
+(table as { __isQuerySource?: boolean }).__isQuerySource = true;
 
 // `view` is also a query source; the extra `__isViewSource` flag tells the binder to
 // resolve the ctor through `schema.view()` (a ViewBuilder-built view table) instead of
 // `schema.table()`.
-(view as unknown as { __isQuerySource?: boolean; __isViewSource?: boolean }).__isQuerySource = true;
-(view as unknown as { __isViewSource?: boolean }).__isViewSource = true;
+(view as { __isQuerySource?: boolean; __isViewSource?: boolean }).__isQuerySource = true;
+(view as { __isViewSource?: boolean }).__isViewSource = true;
 
 // Bind a source expression to a fully-optimised ProjectionExpression: the exact pipeline
 // the runtime uses, factored out so tests (binder.test.ts) can observe the same

@@ -59,7 +59,7 @@ function HealthCheckElement(p: { element: HealthCheckPartEntity_Item }): React.J
         .catch((e: unknown) => {
             // A health endpoint answers 503 WITH the health payload — surface it as the result, not an error.
             if (e instanceof ServiceError && "status" in e.httpError && "description" in e.httpError)
-                return ({ result: e.httpError as unknown as HealthCheckResult }) as StatusInfo;
+                return ({ result: e.httpError }) as StatusInfo;
 
             return ({ error: e }) as StatusInfo;
         }), [p.element.checkURL]);

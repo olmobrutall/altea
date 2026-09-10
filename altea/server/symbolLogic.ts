@@ -67,7 +67,7 @@ export namespace SymbolLogic {
     export function start<T extends Symbol>(
         sb: SchemaBuilder,
         ctor: Type<T>,
-        getSymbols: () => T[] = () => declaredSymbolsForType(ctor) as unknown as T[],
+        getSymbols: () => T[] = () => declaredSymbolsForType(ctor) as T[],
     ): void {
         let started = startedBySchema.get(sb.schema);
         if (started == null)
@@ -234,7 +234,7 @@ function generateSymbols(schema: Schema, ctor: Type<Symbol>): SqlPreCommand | un
     const sorted = [...stl.getSymbols()].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
     if (sorted.length === 0)
         return undefined;
-    const cmds = sorted.map(sym => insertSqlSyncGenerated(table, sym as unknown as Entity));
+    const cmds = sorted.map(sym => insertSqlSyncGenerated(table, sym));
     return SqlPreCommand.combine(Spacing.Simple, ...cmds);
 }
 

@@ -37,7 +37,7 @@ export class CachedProfilePhotoEntity extends Entity {
 
     @unit("px")
     @validate<CachedProfilePhotoEntity>(p => {
-        const size = p.size as unknown as number;
+        const size = p.size;
         if (!(size > 0))
             return ValidationMessage.NumberIsTooSmall.niceToString();
         return size !== toAzureSize(size)

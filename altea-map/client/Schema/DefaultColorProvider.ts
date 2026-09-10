@@ -50,21 +50,21 @@ export default function getDefaultProviders(info: SchemaMapInfo): ClientColorPro
     const columnsColor = colorScaleLog(maxOf(info, a => a.columns));
     const columns: ClientColorProvider = {
         name: "columns",
-        getFill: t => columnsColor(t.columns) as unknown as string,
+        getFill: t => columnsColor(t.columns),
         getTooltip: t => t.columns + " " + MapMessage.Columns.niceToString(),
     };
 
     const rowsColor = colorScaleLog(maxOf(info, a => a.rows));
     const rows: ClientColorProvider = {
         name: "rows",
-        getFill: t => t.rows == null ? "gray" : rowsColor(t.rows) as unknown as string,
+        getFill: t => t.rows == null ? "gray" : rowsColor(t.rows),
         getTooltip: t => (t.rows == null ? "" : roundValue(t.rows, scientificUnits)) + " " + MapMessage.Rows.niceToString(),
     };
 
     const tableSizeColor = colorScaleLog(maxOf(info, a => a.total_size_kb));
     const tableSize: ClientColorProvider = {
         name: "tableSize",
-        getFill: t => t.total_size_kb == null ? "gray" : tableSizeColor(t.total_size_kb) as unknown as string,
+        getFill: t => t.total_size_kb == null ? "gray" : tableSizeColor(t.total_size_kb),
         getTooltip: t => bytesToSize((t.total_size_kb ?? 0) * 1024),
     };
 
@@ -74,7 +74,7 @@ export default function getDefaultProviders(info: SchemaMapInfo): ClientColorPro
         const rowsHistoryColor = colorScaleLog(maxOf(info, a => a.rows_history));
         result.push({
             name: "rows_history",
-            getFill: t => t.rows_history == null ? "gray" : rowsHistoryColor(t.rows_history) as unknown as string,
+            getFill: t => t.rows_history == null ? "gray" : rowsHistoryColor(t.rows_history),
             getTooltip: t => t.rows_history == null ? MapMessage.NoHistoryTable.niceToString()
                 : roundValue(t.rows_history, scientificUnits) + " " + MapMessage.Rows.niceToString(),
         });
@@ -84,7 +84,7 @@ export default function getDefaultProviders(info: SchemaMapInfo): ClientColorPro
         const tableSizeHistoryColor = colorScaleLog(maxOf(info, a => a.total_size_kb_history));
         result.push({
             name: "tableSize_history",
-            getFill: t => t.total_size_kb_history == null ? "gray" : tableSizeHistoryColor(t.total_size_kb_history) as unknown as string,
+            getFill: t => t.total_size_kb_history == null ? "gray" : tableSizeHistoryColor(t.total_size_kb_history),
             // NOTE: Signum tests `rows_history` here (not `total_size_kb_history`) — the same table has
             // either both or neither, so the two are equivalent; kept as the field this scale is about.
             getTooltip: t => t.total_size_kb_history == null ? MapMessage.NoHistoryTable.niceToString()

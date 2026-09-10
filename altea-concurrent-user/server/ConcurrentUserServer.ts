@@ -53,7 +53,7 @@ export namespace ConcurrentUserServer {
         wsb.get("/api/concurrentUser/getUsers/:liteKey",
             { params: CustomType<{ liteKey: string }>(), res: CustomType<ConcurrentUserResponse[]>() },
             async (req, res) => {
-                const { liteKey } = (req as unknown as { params: { liteKey: string } }).params;
+                const { liteKey } = req.params;
                 const lite = Lite.parse(decodeURIComponent(liteKey));
                 // Authorization off: presence is not the entity, and a user who can see the page must be
                 // able to see who else is on it.

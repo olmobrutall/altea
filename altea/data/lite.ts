@@ -87,7 +87,7 @@ export abstract class Lite<out T extends Entity> {
             throw new Error(`Lite.parse: type '${type}' is not registered`);
         // Coerce the id to the target type's PK JS form (int vs uuid) via Entity.parseId, so a
         // numeric-PK lite compares equal to a retrieved entity (id: number), not a stray string.
-        return new LiteImp((ctor as unknown as typeof Entity).parseId(id), ctor, "");
+        return new LiteImp((ctor as typeof Entity).parseId(id), ctor, "");
     }
 
     /**
@@ -133,7 +133,7 @@ export class LiteImp<T extends Entity> extends Lite<T> {
         // may not read its type. `NiceName id` is what Signum's client shows for a lite it cannot name, and
         // it beats rendering an empty cell.
         if (this.toStr === "" || this.toStr == null)
-            return `${(this.entityType as unknown as { niceName?(): string }).niceName?.() ?? this.entityType.name} ${String(this.id)}`;
+            return `${this.entityType.niceName?.() ?? this.entityType.name} ${String(this.id)}`;
         return this.toStr;
     }
 }
@@ -238,7 +238,7 @@ export function getCustomLiteConstructor<T extends Entity>(
     entityType: Type<T>,
 ): Quoted<(entity: T) => Lite<T>> | undefined {
     const arr = customLiteRegistry.get(entityType);
-    return arr?.find(r => r.isDefault)?.fromEntity as unknown as Quoted<(entity: T) => Lite<T>> | undefined;
+    return arr?.find(r => r.isDefault)?.fromEntity as Quoted<(entity: T) => Lite<T>> | undefined;
 }
 
 /** The custom lite classes registered for a ctor, in registration (isCompatible match) order. */
@@ -256,5 +256,5 @@ export function getCustomLiteConstructorFor<T extends Entity>(
     liteClass: CustomLiteClass,
 ): Quoted<(entity: T) => Lite<T>> | undefined {
     const arr = customLiteRegistry.get(entityType);
-    return arr?.find(r => r.liteClass === liteClass)?.fromEntity as unknown as Quoted<(entity: T) => Lite<T>> | undefined;
+    return arr?.find(r => r.liteClass === liteClass)?.fromEntity as Quoted<(entity: T) => Lite<T>> | undefined;
 }

@@ -61,9 +61,9 @@ export namespace PredictorServer {
                         .toArray() as PredictorEpochProgressEntity[]);
 
                 res.jsonTyped(rows.map((e): EpochProgressRow => [
-                    e.ellapsed as unknown as number,
-                    e.trainingExamples as unknown as number,
-                    e.epoch as unknown as number,
+                    e.ellapsed,
+                    e.trainingExamples,
+                    e.epoch,
                     e.lossTraining, e.accuracyTraining, e.lossValidation, e.accuracyValidation,
                 ]));
             });

@@ -69,7 +69,7 @@ export function syncRows<T extends Entity>(
             return existing; // keeps its id and snapshot, so an unchanged row is not updated
         }
         const row = create();
-        (row as unknown as { id: unknown }).id = guid;
+        row.id = guid;
         sync(row, x, i);
         return row;
     });
@@ -124,7 +124,7 @@ const registry = new Map<string, UserAssetTypeConfig>();
 
 export namespace UserAssetsImporter {
     export function register<T extends IUserAssetEntity>(config: UserAssetTypeConfig<T>): void {
-        registry.set(config.elementName, config as unknown as UserAssetTypeConfig);
+        registry.set(config.elementName, config);
     }
 
     export function configFor(elementName: string): UserAssetTypeConfig {
@@ -260,7 +260,7 @@ export namespace UserAssetsImporter {
             const entity = existing ?? cfg.create();
             // Set the uuid PK to the incoming identity so a re-import overwrites the same row across DBs
             // (the asset's identity IS its uuid primary key).
-            (entity as unknown as { id: string }).id = guid;
+            entity.id = guid;
             materialized.set(guid, entity);
         }
 

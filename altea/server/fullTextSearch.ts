@@ -24,5 +24,5 @@ export const SqlFullTextSearch = {
 // Result-type metadata so fromQuoted can type the call node (both predicates return a boolean); the
 // QueryBinder then lowers them to CONTAINS / FREETEXT. (The methods live on a captured object, so
 // they carry the metadata imperatively rather than via the @resultType decorator.)
-quotedFunction(SqlFullTextSearch.contains as unknown as Function).__resultType = () => LiteralType.boolean;
-quotedFunction(SqlFullTextSearch.freeText as unknown as Function).__resultType = () => LiteralType.boolean;
+quotedFunction(SqlFullTextSearch.contains).__resultType = () => LiteralType.boolean;
+quotedFunction(SqlFullTextSearch.freeText).__resultType = () => LiteralType.boolean;

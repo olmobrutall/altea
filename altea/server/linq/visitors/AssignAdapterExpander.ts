@@ -207,7 +207,7 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
         if (col instanceof LiteReferenceExpression) {
             const lite = c.value as Lite<Entity> | null | undefined;
             return this.withCol(col.reference, () => {
-                const entity = this.entityConstant(lite?.id ?? null, lite?.entityType as unknown as Function | undefined);
+                const entity = this.entityConstant(lite?.id ?? null, lite?.entityType);
                 return new LiteReferenceExpression(col.type, entity as any, undefined);
             });
         }

@@ -43,24 +43,24 @@ type Ref<T> = TypeRef<T> | Ctor<T>;
 type RefType<R> = R extends TypeRef<infer T> ? T : R extends Ctor<infer T> ? T : never;
 
 function entityRef<T extends BaseEntity>(ctor: Ctor<T>): TypeRef<T> {
-    return { runtimeType: new ClassType(ctor as unknown as Function) };
+    return { runtimeType: new ClassType(ctor) };
 }
 
 // A JSON graph is an ENTITY payload if described by a bare class; otherwise it's the given TypeRef.
 function resolveRef<T>(ref: Ref<T>): TypeRef<T> {
     return typeof ref === "function"
-        ? (entityRef(ref as unknown as Ctor<BaseEntity>) as unknown as TypeRef<T>)
+        ? (entityRef(ref as Ctor<BaseEntity>) as TypeRef<T>)
         : ref;
 }
 
 // ---- Type-ref constructors -------------------------------------------------------------------
 
 export function ArrayOf<T extends BaseEntity>(ctor: Ctor<T>): TypeRef<T[]> {
-    return { runtimeType: new ArrayType(new ClassType(ctor as unknown as Function)) };
+    return { runtimeType: new ArrayType(new ClassType(ctor)) };
 }
 
 export function LiteOf<T extends Entity>(ctor: Ctor<T>): TypeRef<Lite<T>> {
-    return { runtimeType: new LiteType(new ClassType(ctor as unknown as Function)) };
+    return { runtimeType: new LiteType(new ClassType(ctor)) };
 }
 
 type PrimitiveName = "bool" | "number" | "string";

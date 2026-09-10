@@ -63,7 +63,7 @@ export namespace AzureADAuthenticationServer {
             { req: CustomType<LoginWithAzureADRequest>(), res: CustomType<LoginResponse | null>(), allowAnonymous: true },
             async (req, res) => {
                 const request = (await req.jsonTyped()) as LoginWithAzureADRequest | undefined;
-                const query = (req as unknown as { query: Record<string, unknown> }).query;
+                const query = req.query;
                 const adVariant = (query["adVariant"] as string | undefined) ?? null;
                 const throwErrors = (query["throwErrors"] ?? "true") !== "false";
 
@@ -86,7 +86,7 @@ export namespace AzureADAuthenticationServer {
         ws.get("/api/auth/azureADConfig",
             { res: CustomType<AzureADClientConfig | null>(), allowAnonymous: true },
             async (req, res) => {
-                const query = (req as unknown as { query: Record<string, unknown> }).query;
+                const query = req.query;
                 const adVariant = (query["adVariant"] as string | undefined) ?? null;
                 const config = AzureADLogic.authorizer?.getConfigFor(adVariant) ?? null;
                 res.jsonTyped(config?.toClientConfig() ?? null);
@@ -96,16 +96,16 @@ export namespace AzureADAuthenticationServer {
         ws.get("/api/azureUserPhoto/:size/:oid",
             { params: CustomType<{ size: string; oid: string }>(), allowAnonymous: true },
             async (req, res) => {
-                const { size, oid } = (req as unknown as { params: { size: string; oid: string } }).params;
-                cacheControl(res as unknown as ResLike);
+                const { size, oid } = req.params;
+                cacheControl(res);
 
                 const bytes = await AzureADLogic.getUserPhoto(oid, toAzureSize(Number(size))).catch(() => null);
                 if (bytes == null) {
-                    (res as unknown as ResLike).status(404).end();
+                    res.status(404).end();
                     return;
                 }
 
-                sendJpeg(res as unknown as ResLike, bytes);
+                sendJpeg(res, bytes);
             });
 
         // GET /api/cachedAzureUserPhoto/:size/:oid → the URL of the LOCALLY stored copy (or null).
@@ -113,8 +113,8 @@ export namespace AzureADAuthenticationServer {
         ws.get("/api/cachedAzureUserPhoto/:size/:oid",
             { params: CustomType<{ size: string; oid: string }>(), res: CustomType<string | null>() },
             async (req, res) => {
-                const { size, oid } = (req as unknown as { params: { size: string; oid: string } }).params;
-                cacheControl(res as unknown as ResLike);
+                const { size, oid } = req.params;
+                cacheControl(res);
 
                 if (!CachedProfilePhotoLogic.isStarted)
                     throw new Error("CachedProfilePhotoLogic is not started");

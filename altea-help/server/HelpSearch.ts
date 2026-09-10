@@ -140,7 +140,7 @@ export namespace HelpSearch {
     function niceQueryName(q: HelpLogic.QueryHelp): string {
         const name = q.queryName;
         return typeof name === "function"
-            ? (name as unknown as { nicePluralName(): string }).nicePluralName()
+            ? name.nicePluralName()
             : getQueryKey(name);
     }
 

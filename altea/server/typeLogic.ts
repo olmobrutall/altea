@@ -441,7 +441,7 @@ function generateTypeEntities(schema: Schema): SqlPreCommand | undefined {
     const table = schema.tryTable(TypeEntity as never);
     if (table == null)
         return undefined;
-    const cmds = bootstrapMetas(schema).map(m => insertSqlSyncGenerated(table, typeEntityFromMeta(m) as unknown as Entity));
+    const cmds = bootstrapMetas(schema).map(m => insertSqlSyncGenerated(table, typeEntityFromMeta(m)));
     return SqlPreCommand.combine(Spacing.Simple, ...cmds);
 }
 
@@ -505,8 +505,8 @@ async function synchronizeTypes(replacements: Replacements): Promise<SqlPreComma
         Spacing.Double,
         should,
         currentByTable,
-        (_k, s) => insertSqlSyncGenerated(table, s as unknown as Entity),
-        (_k, c) => deleteSqlSync(table, c as unknown as Entity),
+        (_k, s) => insertSqlSyncGenerated(table, s),
+        (_k, c) => deleteSqlSync(table, c),
         (_k, s, c) => {
             // Matched (possibly through a RENAME): write the model metadata onto the RETRIEVED row, which
             // KEEPS its persisted id — that id is the @implementedByAll discriminator stored across the
@@ -523,8 +523,8 @@ async function synchronizeTypes(replacements: Replacements): Promise<SqlPreComma
             // ADD COLUMN backfills a temporary `false` first, so the UPDATEs below are what put the true
             // ones back; and the FIRST sync that introduces the column cannot read it at all, so this
             // whole step is commented out of that script — run the sync TWICE and apply the second.)
-            copyRowFields(c as unknown as Entity, s as unknown as Entity);
-            return updateSqlSync(table, c as unknown as Entity);
+            copyRowFields(c, s);
+            return updateSqlSync(table, c);
         },
     );
 }

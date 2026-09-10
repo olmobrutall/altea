@@ -113,7 +113,7 @@ export async function applyPerType(
     for (const rb of roleBlocks ?? []) {
         const role = ctx.noteRole(rb.Name);
         if (role == null) continue;
-        const rows = (rb as unknown as Record<string, XmlRow[]>)[elem] ?? [];
+        const rows = rb[elem] ?? [];
         const byType = new Map<string, Map<string, XmlRow>>();
         for (const r of rows) {
             const tn = ctx.applyType(r.OnType ?? r.Resource);

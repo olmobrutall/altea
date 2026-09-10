@@ -138,7 +138,7 @@ quotedFunction(inSql).__resultType = (_ot, argType) => argType ?? SimpleType.nul
 // Number(x) (Signum's Convert to double): a query-side numeric cast. fromQuoted needs a result
 // type to type the call node; the binder leaves it residual and the nominator lowers it to a SQL
 // CAST to a floating type.
-quotedFunction(Number as unknown as Function).__resultType = () => SimpleType.number;
+quotedFunction(Number).__resultType = () => SimpleType.number;
 
 export class Query<T> implements IQuery<T> {
 
@@ -659,7 +659,7 @@ export class Query<T> implements IQuery<T> {
         // Fire on the TARGET type's events (the entity being inserted), passing the source query AND the
         // constructor — a handler may hand back a rewritten one (Signum's PreUnsafeInsert returns the
         // constructor), which is how a module folds a value into every set-based insert of the target.
-        const rewritten = await this.firePreUnsafeInsert(target as unknown as Function, lambda);
+        const rewritten = await this.firePreUnsafeInsert(target, lambda);
         var call = new CallExpression(
             new PropertyExpression(this.expression, "executeInsert"),
             [new ConstantExpression(target, new ClassType(target)), rewritten],
@@ -848,8 +848,8 @@ function rejectReduceInQuery(): never {
 }
 (OrderedQuery.prototype as unknown as { reduce: QuotedFunction }).reduce =
     Object.assign(function (): never { return rejectReduceInQuery(); }, {
-        __lambdaType: [rejectReduceInQuery as unknown as LambdaTypeResolver],
-        __resultType: rejectReduceInQuery as unknown as ResultTypeResolver,
+        __lambdaType: [rejectReduceInQuery],
+        __resultType: rejectReduceInQuery,
     });
 
 type PartialRec<T> = {

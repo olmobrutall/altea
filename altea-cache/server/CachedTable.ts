@@ -541,7 +541,7 @@ export class CachedTableLite extends CachedTableBase {
 
         // A partial instance carrying ONLY the cached columns — enough for the lite builder, and never
         // handed out itself.
-        const entity = new (this.type as unknown as new () => Entity)();
+        const entity = new (this.type as new () => Entity)();
         (entity as { id: PrimaryKey }).id = id;
         entity.isNew = false;
         for (let i = 0; i < this.columns.length; i++) {
@@ -551,7 +551,7 @@ export class CachedTableLite extends CachedTableBase {
         }
         if (this.plan.usesToStrColumn) {
             const toStr = String(row[this.columns.indexOf(this.table.toStrColumn!)] ?? "");
-            (entity as unknown as { toString: () => string }).toString = () => toStr;
+            entity.toString = () => toStr;
         }
         return this.plan.build(entity);
     }

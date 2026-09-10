@@ -81,7 +81,7 @@ describe("assertIsolationStrategies", () => {
         for (const tab of sb.schema.tables.values()) {
             const ctor = tab.type as Function;
             // IsolationEntity is EXEMPT, so declaring it would be the "Remove something like" half.
-            if (!caseOwned.includes(ctor) && ctor !== (IsolationEntity as unknown as Function))
+            if (!caseOwned.includes(ctor) && ctor !== IsolationEntity)
                 Isolation.register(ctor as never, "None");
         }
 

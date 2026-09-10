@@ -51,7 +51,7 @@ export namespace TreeServer {
         ws.get("/api/tree/findLiteLikeByName/:typeName",
             { params: CustomType<{ typeName: string }>(), res: CustomType<Lite<TreeEntity>[]>() },
             async (req, res) => {
-                const { typeName } = (req as unknown as { params: { typeName: string } }).params;
+                const { typeName } = req.params;
                 const type = treeType(typeName);
 
                 const subString = (req.query["q"] as string | undefined) ?? "";
@@ -63,14 +63,14 @@ export namespace TreeServer {
         ws.post("/api/tree/findNodes/:typeName",
             { params: CustomType<{ typeName: string }>(), req: CustomType<FindNodesRequest>(), res: CustomType<FindNodesResponse>() },
             async (req, res) => {
-                const { typeName } = (req as unknown as { params: { typeName: string } }).params;
+                const { typeName } = req.params;
                 return res.jsonTyped(await findNodes(treeType(typeName), typeName, await req.jsonTyped()));
             });
 
         ws.post("/api/tree/getNode/:typeName",
             { params: CustomType<{ typeName: string }>(), req: CustomType<GetNodeRequest>(), res: CustomType<TreeNode>() },
             async (req, res) => {
-                const { typeName } = (req as unknown as { params: { typeName: string } }).params;
+                const { typeName } = req.params;
                 const request = await req.jsonTyped();
                 return res.jsonTyped(await getNode(treeType(typeName), typeName, request));
             });
@@ -198,7 +198,7 @@ export namespace TreeServer {
             all.push({
                 groupOperation: "Or",
                 filters: narrow.descendantOf.map(r => ({ token: "route", operation: "StartsWith", value: r })),
-            } as unknown as FilterRequest);
+            });
 
         const wire: WireQueryRequest = {
             queryKey: typeName,

@@ -117,7 +117,7 @@ export class ResultTableProxy {
     async entityClickModal<T extends Entity>(rowIndex: number, rootType: Type<T>): Promise<FrameModalProxy<T>> {
         const modal = await captureOnClick(this.entityLink(rowIndex));
         const { FrameModalProxy } = await import("../Frames/FrameModalProxy");
-        return await FrameModalProxy.create<T>(modal, rootType as unknown as Function);
+        return await FrameModalProxy.create<T>(modal, rootType);
     }
 
     /** Signum's `EntityClickInPlaceAsync<T>` — navigate to the row's entity PAGE. */

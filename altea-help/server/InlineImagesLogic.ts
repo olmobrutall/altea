@@ -85,7 +85,7 @@ export namespace InlineImagesLogic {
 
         if (newImages.length > 0) {
             // The owner first, so every image's `target` lite has an id to point at.
-            await Saver.save([entity as unknown as Entity]);
+            await Saver.save([entity]);
             await Saver.save(newImages);
 
             const idByHash = new Map(newImages.map(i => [hashKeyOf(i.file), String(i.id)]));

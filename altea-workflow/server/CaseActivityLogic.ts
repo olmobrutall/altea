@@ -308,7 +308,7 @@ export namespace CaseActivityLogic {
         fi.schemaBuilder.schema.entityEvents(type).saved.push(entity => {
             if (avoidNotifyInProgress)
                 return;
-            void notifyInProgress(entity as unknown as ICaseMainEntity);
+            void notifyInProgress(entity as ICaseMainEntity);
         });
 
         options.set(cleanName, opts as unknown as WorkflowOptions);
@@ -568,7 +568,7 @@ export namespace CaseActivityLogic {
         if (opts.constructor == null)
             throw new Error(`The WorkflowOptions for ${typeCleanName} doesn't have a constructor. `
                 + `Consider adding one in sb.include(${typeCleanName}).withWorkflow(…)`);
-        return await opts.constructor() as unknown as ICaseMainEntity;
+        return await opts.constructor() as ICaseMainEntity;
     }
 
     /** The app-facing "start a case" helper. */
@@ -1876,7 +1876,7 @@ FluentInclude.prototype.withCaseActivityMixin = function <T extends Entity>(this
     // only run in `create()`, and the ambient activity is a server concept, so the stamping is a preSaving
     // hook on the owner: whatever an activity produces gets tagged with it.
     this.schemaBuilder.schema.entityEvents(this.type).preSaving.push(entity => {
-            const mixin = (entity as Entity).mixin(CaseActivityMixin as never) as unknown as CaseActivityMixin;
+            const mixin = (entity as Entity).mixin(CaseActivityMixin as never) as CaseActivityMixin;
             if (mixin.caseActivity == null)
                 mixin.caseActivity = WorkflowActivityInfo.current().caseActivity?.toLite() ?? null;
         });

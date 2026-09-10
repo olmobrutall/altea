@@ -123,7 +123,7 @@ export namespace TimeMachineLogic {
     // Force the row to be written even though nothing on it differs from its snapshot. Changes are
     // tracked against a snapshot taken at retrieval, so dropping it is what makes the entity dirty.
     function setSelfModified(entity: Entity): void {
-        (entity as unknown as { _snapshot?: unknown })._snapshot = true;
+        entity._snapshot = true;
     }
 
     function toPlainDateTime(bound: Temporal.PlainDateTime | Temporal.Instant): Temporal.PlainDateTime {

@@ -99,7 +99,7 @@ export namespace DashboardLogic {
     /** Signum's `DashboardLogic.PartNames.AddRange(…)` + the part's ToXml/FromXml/Clone, in one call.
      *  A module registers its parts from its own `XxxLogic.start` (see altea-user-queries / altea-chart). */
     export function registerPart<T extends IPartEntity>(config: DashboardPartConfig<T>): void {
-        partRegistry.set(config.elementName, config as unknown as DashboardPartConfig);
+        partRegistry.set(config.elementName, config);
     }
 
     /** Signum's `DashboardLogic.GetPart` lookup half: the config for an XML element name. */
@@ -113,7 +113,7 @@ export namespace DashboardLogic {
     /** The config for a live part entity (used by ToXml + the Clone operation). */
     export function partConfigForEntity(part: IPartEntity): DashboardPartConfig {
         for (const c of partRegistry.values())
-            if (part instanceof (c.type as unknown as Function))
+            if (part instanceof c.type)
                 return c;
         throw new Error(`Dashboard: part type '${part.constructor.name}' is not registered (DashboardLogic.registerPart)`);
     }

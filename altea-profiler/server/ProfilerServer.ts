@@ -91,7 +91,7 @@ export namespace ProfilerServer {
             { req: CustomType<{ fileName: string; content: string }>() },
             async (req, res) => {
                 await assertAuthorized(ProfilerPermission.ViewHeavyProfiler);
-                const file = JSON.parse((req as Request).body as unknown as string) as { fileName: string; content: string };
+                const file = JSON.parse((req as Request).body) as { fileName: string; content: string };
                 // The client sends the file's base64 data-URL tail; decode to the raw XML text.
                 const xml = Buffer.from(file.content, "base64").toString("utf8");
                 HeavyProfiler.importXml(xml, /*rebaseTime*/ true);

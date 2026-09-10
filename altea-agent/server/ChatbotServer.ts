@@ -45,14 +45,14 @@ export namespace ChatbotServer {
         ws.get("/api/agentSkill/skillCodeInfo/:skillCodeName",
             { params: CustomType<{ skillCodeName: string }>(), res: CustomType<SkillCodeInfo>() },
             async (req, res) => {
-                const { skillCodeName } = (req as unknown as { params: { skillCodeName: string } }).params;
+                const { skillCodeName } = req.params;
                 res.jsonTyped(SkillCodeLogic.getDefaultSkillCodeInfo(decodeURIComponent(skillCodeName)));
             });
 
         ws.get("/api/agentSkill/defaultAgentSkillCodeInfo/:agentName",
             { params: CustomType<{ agentName: string }>(), res: CustomType<SkillCodeInfo>() },
             async (req, res) => {
-                const { agentName } = (req as unknown as { params: { agentName: string } }).params;
+                const { agentName } = req.params;
                 const factory = AgentLogic.factoryFor(decodeURIComponent(agentName));
                 if (factory == undefined)
                     throw new Error(`Agent '${agentName}' is not registered.`);
@@ -64,7 +64,7 @@ export namespace ChatbotServer {
         ws.get("/api/chatbot/provider/:providerKey/models",
             { params: CustomType<{ providerKey: string }>(), res: CustomType<string[]>() },
             async (req, res) => {
-                const { providerKey } = (req as unknown as { params: { providerKey: string } }).params;
+                const { providerKey } = req.params;
                 const names = await LanguageModelLogic.getModelNames(decodeURIComponent(providerKey));
                 res.jsonTyped(names.sort());
             });
@@ -72,7 +72,7 @@ export namespace ChatbotServer {
         ws.get("/api/chatbot/provider/:providerKey/embeddingModels",
             { params: CustomType<{ providerKey: string }>(), res: CustomType<string[]>() },
             async (req, res) => {
-                const { providerKey } = (req as unknown as { params: { providerKey: string } }).params;
+                const { providerKey } = req.params;
                 const names = await LanguageModelLogic.getEmbeddingModelNames(decodeURIComponent(providerKey));
                 res.jsonTyped(names.sort());
             });
@@ -82,7 +82,7 @@ export namespace ChatbotServer {
         ws.get("/api/chatbot/messages/:sessionID",
             { params: CustomType<{ sessionID: string }>(), res: CustomType<ChatMessageEntity[]>() },
             async (req, res) => {
-                const { sessionID } = (req as unknown as { params: { sessionID: string } }).params;
+                const { sessionID } = req.params;
                 const id = ChatSessionEntity.parseId(sessionID);
                 const messages = await tableQuery(ChatMessageEntity)
                     .filter(m => m.chatSession.id == id)
@@ -94,7 +94,7 @@ export namespace ChatbotServer {
         ws.post("/api/chatbot/feedback/:messageId",
             { params: CustomType<{ messageId: string }>(), req: CustomType<SetFeedbackRequest>() },
             async (req, res) => {
-                const { messageId } = (req as unknown as { params: { messageId: string } }).params;
+                const { messageId } = req.params;
                 const request = await req.jsonTyped() as SetFeedbackRequest;
 
                 const message = await Database.retrieve(ChatMessageEntity, ChatMessageEntity.parseId(messageId));
@@ -110,12 +110,7 @@ export namespace ChatbotServer {
         // ---- the streaming turn (Signum's AskQuestionAsync) ----------------------------------
 
         ws.post("/api/chatbot/ask", { req: CustomType<string>() }, async (req, res) => {
-            const raw = req as unknown as {
-                headers: Record<string, string | string[] | undefined>;
-                body?: string;
-                on(event: "close", listener: () => void): void;
-            };
-            const response = res as unknown as Response;
+            const response = res;
 
             response.setHeader("Content-Type", "text/plain; charset=utf-8");
             response.setHeader("Cache-Control", "no-store");
@@ -125,13 +120,13 @@ export namespace ChatbotServer {
 
             // The client aborts the fetch on Stop; propagate that into the provider call and the loop.
             const abort = new AbortController();
-            raw.on("close", () => abort.abort());
+            req.on("close", () => abort.abort());
 
             const output = new HttpAgentOutput(response);
 
             try {
-                const sessionID = header(raw.headers, "x-chatbot-session-id");
-                const question = raw.body ?? "";
+                const sessionID = header(req.headers, "x-chatbot-session-id");
+                const question = req.body ?? "";
 
                 const isNewSession = sessionID == undefined || sessionID === "" || sessionID === "undefined";
                 const session = await getOrCreateSession(isNewSession ? undefined : sessionID);
@@ -146,9 +141,9 @@ export namespace ChatbotServer {
                     history = await resumeConversationHistory(session);
                 }
 
-                const uiReplyCallId = header(raw.headers, "x-chatbot-uireply-callid");
-                const uiReplyToolId = header(raw.headers, "x-chatbot-uireply-toolid");
-                const isRecover = header(raw.headers, "x-chatbot-recover") === "true";
+                const uiReplyCallId = header(req.headers, "x-chatbot-uireply-callid");
+                const uiReplyToolId = header(req.headers, "x-chatbot-uireply-toolid");
+                const isRecover = header(req.headers, "x-chatbot-recover") === "true";
 
                 if (uiReplyCallId != undefined && uiReplyToolId != undefined) {
                     // The browser answered a UI tool: persist its reply as the Tool message and echo it back
@@ -221,7 +216,7 @@ export namespace ChatbotServer {
             title: null,
             // Explicit, not a field initializer: a non-nullable field must be SET by whoever creates the row
             // (altea's implicit NotNull rejects undefined), and C#'s int gives Signum this 0 for free.
-            totalToolCalls: 0 as unknown as int,
+            totalToolCalls: 0 as int,
         });
         await session.save();
         return session;

@@ -178,7 +178,7 @@ class LiteColumnsFinder extends ExpressionVisitor {
     private findMixinField(name: string): { field: unknown } | undefined {
         for (const mixin of Object.values(this.table.mixins))
             if (mixin.fields[name] != null)
-                return mixin.fields[name] as unknown as { field: unknown };
+                return mixin.fields[name];
         return undefined;
     }
 

@@ -14,7 +14,7 @@ const TEMPORAL_CTORS = [
 ];
 
 export function isTemporal(v: unknown): boolean {
-    return TEMPORAL_CTORS.some(c => v instanceof (c as unknown as Function));
+    return TEMPORAL_CTORS.some(c => v instanceof c);
 }
 
 export function temporalFrom(name: string, s: string): unknown {

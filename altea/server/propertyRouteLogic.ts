@@ -291,7 +291,7 @@ async function warmUp(): Promise<void> {
 
 function resolveCtor(rootType: TypeEntity): Function {
     const ctor = [...Connector.current().schema.tables.keys()]
-        .find(t => cleanTypeName(t as unknown as Function) === rootType.cleanName) as unknown as Function | undefined;
+        .find(t => cleanTypeName(t) === rootType.cleanName);
     if (ctor == undefined)
         throw new Error(`Type '${rootType.cleanName}' is not a mapped entity type`);
     return ctor;
@@ -307,7 +307,7 @@ function deleteRoutesOfType(schema: Schema, type: TypeEntity): SqlPreCommand | u
     if (rows == undefined || rows.length === 0)
         return undefined;
 
-    return SqlPreCommand.combine(Spacing.Simple, ...rows.map(r => deleteSqlSync(prTable, r as unknown as Entity)));
+    return SqlPreCommand.combine(Spacing.Simple, ...rows.map(r => deleteSqlSync(prTable, r)));
 }
 
 // The rows read by the LAST synchronizeProperties run, grouped by root clean name. The PreDeleteSqlSync
@@ -343,7 +343,7 @@ async function synchronizeProperties(replacements: Replacements): Promise<SqlPre
     // since nothing is inserted — which is also why an extra entry can only ever preserve a row.
     const should = new Map<string, Map<string, string>>();
     for (const t of schema.tables.keys()) {
-        const ctor = t as unknown as Function;
+        const ctor = t;
         if (typeof ctor !== "function")
             continue;
         should.set(cleanTypeName(ctor),
@@ -364,13 +364,13 @@ async function synchronizeProperties(replacements: Replacements): Promise<SqlPre
                 shouldPaths,
                 currentPaths,
                 undefined,
-                (_path, c) => deleteSqlSync(prTable, c as unknown as Entity),
+                (_path, c) => deleteSqlSync(prTable, c),
                 (path, _s, c) => {
                     // Matched, possibly through a RENAME: write the model's path onto the RETRIEVED row,
                     // which keeps its persisted id — every stored FK points at it. updateSqlSync returns
                     // undefined unless the path actually drifted.
                     c.path = path;
-                    return updateSqlSync(prTable, c as unknown as Entity);
+                    return updateSqlSync(prTable, c);
                 },
             ),
     );

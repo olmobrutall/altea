@@ -363,7 +363,7 @@ export function PredictValue(p: PredictValueProps): React.JSX.Element {
         case "Lite": {
             const typeInfos = token.type.typeInfos();
             const useLine = typeInfos.length === 0 || typeInfos.some(ti => !ti.lowPopulation);
-            const entityCtx = ctx as unknown as TypeContext<BaseEntity | Lite<Entity> | null>;
+            const entityCtx = ctx as TypeContext<BaseEntity | Lite<Entity> | null>;
             return useLine
                 ? <EntityLine ctx={entityCtx} create={false} label={p.label}
                     labelHtmlAttributes={p.labelHtmlAttributes} onChange={handleChange} />

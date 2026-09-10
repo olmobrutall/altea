@@ -245,7 +245,7 @@ export namespace ScheduleTaskRunner {
                 // USER it runs as, falling back to the task row. No-op unless @altea/altea-isolation is
                 // installed.
                 await UserHolder.withUser(new UserWithClaims(userEntity as IUserEntity), () =>
-                    ExecutionMode.withIsolationOf([userEntity as Entity, task as unknown as Entity], async () => {
+                    ExecutionMode.withIsolationOf([userEntity as Entity, task], async () => {
                         await Transaction.forceNew(async () => {
                             log.productEntity = await SchedulerLogic.executeTask(task, ctx);
                         });

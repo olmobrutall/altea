@@ -97,7 +97,7 @@ export namespace S3Storage {
         if (result != undefined)
             return result;
 
-        result = toS3Client(config) ?? undefined as unknown as S3Client;
+        result = toS3Client(config) ?? undefined;
         if (result == undefined)
             throw new Error("S3Storage: the configuration needs accessKey + secretKey"
                 + " (and an endpoint for a non-AWS server such as MinIO).");

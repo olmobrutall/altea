@@ -124,5 +124,5 @@ export interface QuotedFunction<T extends Function = Function> {
 // Cast a function to its query metadata carrier (Signum's attribute access). A no-op
 // at runtime; only the static type changes.
 export function quotedFunction<T extends Function>(func: T): QuotedFunction<T> {
-    return func as unknown as QuotedFunction<T>;
+    return func as QuotedFunction<T>;
 }

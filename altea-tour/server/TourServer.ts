@@ -50,7 +50,7 @@ export namespace TourServer {
         ws.get("/api/tour/byEntity/:typeName",
             { params: CustomType<{ typeName: string }>(), res: CustomType<TourDTO | null>() },
             async (req, res) => {
-                const { typeName } = (req as unknown as { params: { typeName: string } }).params;
+                const { typeName } = req.params;
                 const typeLite = TourLogic.tryTypeLite(typeName);
                 const tour = typeLite == null ? undefined : await TourLogic.tryGetTour(typeLite);
                 return res.jsonTyped(tour == null ? null : await toDTO(tour));
@@ -59,7 +59,7 @@ export namespace TourServer {
         ws.get("/api/tour/bySymbol/:symbolKey",
             { params: CustomType<{ symbolKey: string }>(), res: CustomType<TourDTO | null>() },
             async (req, res) => {
-                const { symbolKey } = (req as unknown as { params: { symbolKey: string } }).params;
+                const { symbolKey } = req.params;
                 const symbol = SymbolLogic.tryToSymbol(TourTriggerSymbol, symbolKey);
                 const tour = symbol == null ? undefined : await TourLogic.tryGetTour(symbol.toLite());
                 return res.jsonTyped(tour == null ? null : await toDTO(tour));

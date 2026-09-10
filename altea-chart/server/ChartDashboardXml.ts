@@ -108,7 +108,7 @@ export function registerUserChartDashboardParts(): void {
             p.minHeight = x[A + "MinHeight"] == null ? null : (Number(x[A + "MinHeight"]) as int);
             p.userCharts = list(x["UserChart"]).map((e, i) => {
                 const row = new CombinedUserChartPartEntity_UserChart();
-                row.order = i as unknown as int;
+                row.order = i as int;
                 row.userChart = ctx.getEntity(String(e[A + "Guid"])) as UserChartEntity;
                 return row;
             });

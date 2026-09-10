@@ -157,7 +157,7 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
       if (entityType != typeName || entityOrLite instanceof Lite)
         throw new Error(`Impossible to convert '${entityType}' to '${typeName}'`);
 
-      return entityOrLite as unknown as V;
+      return entityOrLite as V;
     }
     else {
       // ALTEA: verify the selected entity/lite is one of the reference's target types by REAL ctor
@@ -174,7 +174,7 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
       }
 
       if (!!(entityOrLite instanceof Lite) == !!type.lite)
-        return entityOrLite as unknown as V;
+        return entityOrLite as V;
 
       if (entityOrLite instanceof Lite) {
         const lite = entityOrLite as Lite<Entity>;
@@ -186,7 +186,7 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
       const fatLite = this.props.fatLite || this.props.fatLite == null && (ti.entityKind == "Part" || ti.entityKind == "SharedPart" || entity.isNew);
       // TODO(port): Signum's toLite(entity, fat, toStr) also set a custom toString from `liteToString`;
       // altea's toLite takes EITHER fat OR a model string, so the custom toString is not applied here.
-      return entity.toLite(fatLite) as unknown as V;
+      return entity.toLite(fatLite) as V;
     }
   }
 

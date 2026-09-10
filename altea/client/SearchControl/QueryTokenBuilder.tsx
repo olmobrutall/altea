@@ -359,5 +359,5 @@ function getManualSubTokens(token?: QueryToken): Promise<QueryToken[]> | undefin
       niceName: m.niceName,
       typeColor: m.typeColor,
       niceTypeName: m.niceTypeName,
-    }) as unknown as QueryToken));
+    })));
 }

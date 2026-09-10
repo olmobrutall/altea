@@ -32,7 +32,7 @@ export function registerDashboardXml(): void {
         elementName: "Dashboard",
         create: () => new DashboardEntity(),
         load: async guid => (await table(DashboardEntity).filter(d => d.id == guid).toArray() as DashboardEntity[])[0],
-        save: async db => { await (db as unknown as { save(): Promise<void> }).save(); },
+        save: async db => { await db.save(); },
         toXml,
         fromXml,
     });
@@ -148,7 +148,7 @@ function fillPart(p: DashboardEntity_Part, x: Record<string, unknown>, ctx: IFro
         throw new Error(`Dashboard import: part '${String(p.id)}' has no content element`);
 
     const config = DashboardLogic.partConfigForElement(contentEntry[0]);
-    const content = new (config.type as unknown as new () => IPartEntity)();
+    const content = new (config.type as new () => IPartEntity)();
     config.fromXml(content, firstElem(contentEntry[1]), ctx);
     p.content = content;
 }
@@ -159,7 +159,7 @@ function tokenEquivalenceGroupFromXml(x: Record<string, unknown>, ctx: IFromXmlC
     gr.interactionGroup = interactionGroup == null ? null : toEnum(InteractionGroup, interactionGroup);
     gr.tokenEquivalences = list(x["TokenEquivalence"]).map((te, i) => {
         const row = new DashboardEntity_TokenEquivalenceGroup_Query();
-        row.order = i as unknown as int;
+        row.order = i as int;
         row.query = ctx.getQuery(str(te[A + "Query"])!);
         row.token = token(str(te[A + "Token"])!);
         return row;
@@ -250,7 +250,7 @@ export function registerBasePartsXml(): void {
         fromXml: (p, x) => {
             p.items = list(x["HealthCheckElement"]).map((i, index) => {
                 const item = new HealthCheckPartEntity_Item();
-                item.order = index as unknown as int;
+                item.order = index as int;
                 item.title = str(i[A + "Title"]) ?? "";
                 item.checkURL = str(i[A + "CheckURL"]) ?? "";
                 item.navigateURL = str(i[A + "NavigateURL"]) ?? "";

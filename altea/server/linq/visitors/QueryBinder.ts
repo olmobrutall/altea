@@ -816,7 +816,7 @@ export class QueryBinder extends ExpressionVisitor {
         // (schema.view — Signum's UnsafeInsertView). An entity not in `tables` resolves
         // through the ViewBuilder, so `INSERT INTO #MyTempView (...) SELECT ...` targets the
         // temp table with its FK columns.
-        const table = this.schema.tryTable(targetCtor as Type<Entity>) ?? this.schema.view(targetCtor as unknown as ViewType);
+        const table = this.schema.tryTable(targetCtor as Type<Entity>) ?? this.schema.view(targetCtor);
         const toInsert = this.createEntityExpression(table, this.aliasGenerator.table(table.name));
 
         const assignments = this.buildAssignments(toInsert, selector, pr.select, pr.projector);
@@ -986,7 +986,7 @@ export class QueryBinder extends ExpressionVisitor {
         if (func instanceof ConstantExpression && (func.value as { __isQuerySource?: boolean })?.__isQuerySource) {
             const ctor = (call.args[0] as ConstantExpression).value as new () => object;
             if ((func.value as { __isViewSource?: boolean }).__isViewSource)
-                return this.getTableProjectionForTable(this.schema.view(ctor as unknown as ViewType), new ClassType(ctor));
+                return this.getTableProjectionForTable(this.schema.view(ctor), new ClassType(ctor));
             // Row-level query security (Signum's FilterQuery): splice the entity's queryFilter WHERE(s)
             // around this table source and bind THAT. The guard stops the synthesized `.filter(...)` from
             // re-wrapping the same source when it re-visits it.
@@ -2998,7 +2998,7 @@ export class QueryBinder extends ExpressionVisitor {
                         for (const a of r.select.knownAliases())
                             if (add(a)) changed = true;
                     } else if ("union" in r) {
-                        const ua = (r.union as unknown as { unionAlias?: Alias }).unionAlias;
+                        const ua = (r.union as { unionAlias?: Alias }).unionAlias;
                         if (ua != null && add(ua)) changed = true;
                     }
                 }
@@ -3721,7 +3721,7 @@ export class QueryBinder extends ExpressionVisitor {
             const implementations = new Map<Function, EntityExpression>();
             for (const col of f.implementationColumns) {
                 const implTable = col.referenceTable!;
-                const implCtor = implTable.type as unknown as Function;
+                const implCtor = implTable.type;
                 const externalId = new PrimaryKeyExpression(new ColumnExpression(LiteralType.number, alias, col.name));
                 implementations.set(implCtor, new EntityExpression(new ClassType(implCtor), implTable, externalId, undefined, undefined, undefined, f.avoidExpandOnRetrieving));
             }

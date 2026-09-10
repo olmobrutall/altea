@@ -131,7 +131,7 @@ export namespace HelpServer {
             async (req, res) => {
                 await assertView();
 
-                const { cleanName } = (req as unknown as { params: { cleanName: string } }).params;
+                const { cleanName } = req.params;
                 const type = Entity.resolveType(cleanName);
 
                 const th = await HelpLogic.getTypeHelp(type);

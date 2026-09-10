@@ -48,7 +48,7 @@ export class ConditionRule<A> {
         this.typeConditions = [...byKey.values()].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
         let h = 17;
         for (const c of this.typeConditions) h = hashCombine(h, hashString(c.key));
-        this.hash = hashCombine(h, allowed as unknown as number);
+        this.hash = hashCombine(h, allowed as number);
     }
 
     setEquals(other: ConditionRule<A>): boolean {
@@ -70,7 +70,7 @@ export class WithConditions<A> {
     constructor(readonly fallback: A, readonly conditionRules: readonly ConditionRule<A>[]) {
         let h = 17;
         for (const r of conditionRules) h = hashCombine(h, r.hash);
-        this.hash = hashCombine(h, fallback as unknown as number);
+        this.hash = hashCombine(h, fallback as number);
     }
 
     static simple<A>(value: A): WithConditions<A> {

@@ -30,7 +30,7 @@ export function registerUserChartXml(): void {
         elementName: "UserChart",
         create: () => new UserChartEntity(),
         load: async guid => (await table(UserChartEntity).filter(u => u.id == guid).toArray() as UserChartEntity[])[0],
-        save: async uc => { await (uc as unknown as { save(): Promise<void> }).save(); },
+        save: async uc => { await uc.save(); },
         toXml,
         fromXml,
     });

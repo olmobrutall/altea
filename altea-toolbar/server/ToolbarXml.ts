@@ -37,7 +37,7 @@ export function registerToolbarXml(): void {
         elementName: "Toolbar",
         create: () => new ToolbarEntity(),
         load: async guid => (await table(ToolbarEntity).filter(t => t.id == guid).toArray() as ToolbarEntity[])[0],
-        save: async tb => { await (tb as unknown as { save(): Promise<void> }).save(); },
+        save: async tb => { await tb.save(); },
         toXml: async (tb, ctx) => {
             const o: Record<string, unknown> = {};
             o[A + "Guid"] = String(tb.id);
@@ -62,7 +62,7 @@ export function registerToolbarXml(): void {
         elementName: "ToolbarMenu",
         create: () => new ToolbarMenuEntity(),
         load: async guid => (await table(ToolbarMenuEntity).filter(t => t.id == guid).toArray() as ToolbarMenuEntity[])[0],
-        save: async tm => { await (tm as unknown as { save(): Promise<void> }).save(); },
+        save: async tm => { await tm.save(); },
         toXml: async (tm, ctx) => {
             const o: Record<string, unknown> = {};
             o[A + "Guid"] = String(tm.id);
@@ -86,7 +86,7 @@ export function registerToolbarXml(): void {
         elementName: "ToolbarSwitcher",
         create: () => new ToolbarSwitcherEntity(),
         load: async guid => (await table(ToolbarSwitcherEntity).filter(t => t.id == guid).toArray() as ToolbarSwitcherEntity[])[0],
-        save: async ts => { await (ts as unknown as { save(): Promise<void> }).save(); },
+        save: async ts => { await ts.save(); },
         toXml: async (ts, ctx) => {
             const o: Record<string, unknown> = {};
             o[A + "Guid"] = String(ts.id);

@@ -115,7 +115,7 @@ export class CaseFlowRenderer extends CustomRenderer {
         const ggParent = gParent.parentNode as SVGGElement;
 
         const pathGroups = (Array.from(ggParent.childNodes) as SVGPathElement[])
-            .filter(a => a.nodeName === "g" && (a as unknown as { className: string }).className === "jump-group");
+            .filter(a => a.nodeName === "g" && a.className === "jump-group");
         const jumps = this.caseFlow.jumps.filter(j => j.fromBpmnElementId === element.id);
 
         const toCenteredRectangle = (bounds: BPMN.BoundsElement): Rectangle => ({
@@ -181,7 +181,7 @@ export class CaseFlowRenderer extends CustomRenderer {
             path.style.setProperty("stroke-dasharray", "5 5");
             path.style.setProperty("marker-end", "url(#sequenceflow-end-white-black)");
 
-            const title = titleOf(pathGroup as unknown as SVGGElement);
+            const title = titleOf(pathGroup);
             title.textContent = `${Enum.niceName(DoneType, jump.doneType!)} `
                 + `(${jump.doneBy?.toString()} ${jump.doneDate})`;
         });

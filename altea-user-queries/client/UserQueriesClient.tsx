@@ -211,7 +211,7 @@ export namespace UserQueriesClient {
 // Reconstruct the nested filter tree from the flat, indentation-tagged stored rows (Signum's groupWhen on
 // `indentation`): each run starts at an element whose indentation === `indent`; deeper rows are its children.
 function buildFilterTree(filters: UserQueryEntity_Filter[], indent: number, entity: Lite<Entity> | undefined): FilterOption[] {
-    const runs = groupWhen(filters, f => (f.indentation as unknown as number) === indent);
+    const runs = groupWhen(filters, f => f.indentation === indent);
     return runs.map(run => {
         const head = run[0];
         const children = run.slice(1);

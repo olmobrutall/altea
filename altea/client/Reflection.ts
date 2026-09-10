@@ -308,7 +308,7 @@ export function entityInfo(entity: BaseEntity): string {
 // uuid/string PK stays a string; an int/long PK parses a numeric-looking id to a number), so client and
 // server agree — including for an all-digit uuid id, which the old numeric-only heuristic mis-coerced.
 export function parseId(ti: TypeInfo, id: string): number | string {
-  return (ti.ctor as unknown as typeof Entity).parseId(id);
+  return (ti.ctor as typeof Entity).parseId(id);
 }
 
 // QueryTokenString<T> lives in ./QueryTokenString (extracted from this file).

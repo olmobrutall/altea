@@ -109,7 +109,7 @@ export async function generateAuthEnvironment(): Promise<Connector> {
 
 // ---- Impersonation -------------------------------------------------------------------------------
 
-const fakeUser = (): Lite<IUserEntity> => UserEntity.newLite(toInt(1), "impersonation") as unknown as Lite<IUserEntity>;
+const fakeUser = (): Lite<IUserEntity> => UserEntity.newLite(toInt(1), "impersonation");
 
 /** Run `fn` as the current user of `role`. AuthLogic reads
  *  the current role from the "Role" claim, so only that claim matters. */

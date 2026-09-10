@@ -138,7 +138,7 @@ export namespace TensorFlowNeuralNetworkPredictor {
      * when asked. The metrics on the predictor are then computed from a final pass over both sets.
      */
     export async function train(ctx: PredictorTrainingContext): Promise<void> {
-        const settings = ctx.predictor.algorithmSettings as unknown as NeuralNetworkSettingsEntity;
+        const settings = ctx.predictor.algorithmSettings as NeuralNetworkSettingsEntity;
         const { buildModel } = await import("./NetworkBuilder");
 
         const inputSize = ctx.inputCodifications.length;

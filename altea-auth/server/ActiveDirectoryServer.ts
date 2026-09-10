@@ -47,7 +47,7 @@ export namespace ActiveDirectoryServer {
             async (req, res) => {
                 await assertInviteUsers();
 
-                const query = (req as unknown as { query: Record<string, unknown> }).query;
+                const query = req.query;
                 const subString = (query["subString"] as string | undefined) ?? "";
                 const count = Number(query["count"] ?? 5);
 

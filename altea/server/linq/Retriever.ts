@@ -219,7 +219,7 @@ export class Retriever {
         // finish having cancelled nothing. This is the one place the concrete type is known, so it is the
         // one place that can say what shape the id should be; `parseId` is the same reader a route param
         // goes through.
-        const parsed = (ctor as unknown as typeof Entity).parseId(String(id));
+        const parsed = (ctor as typeof Entity).parseId(String(id));
         const lite = new LiteImp(parsed, ctor as Type<Entity>, toStr ?? "");
         if (toStr == null || toStr === "")
             this.requestLiteToStr(lite);

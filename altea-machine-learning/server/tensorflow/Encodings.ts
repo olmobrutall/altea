@@ -95,7 +95,7 @@ function coerceToToken(value: number, token: QueryToken): unknown {
 }
 
 function neuralSettings(predictor: PredictorEntity): NeuralNetworkSettingsEntity {
-    return predictor.algorithmSettings as unknown as NeuralNetworkSettingsEntity;
+    return predictor.algorithmSettings as NeuralNetworkSettingsEntity;
 }
 
 function notSupported(encoding: PredictorColumnEncodingSymbol, forWhat: string): string {

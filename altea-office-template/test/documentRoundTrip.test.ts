@@ -28,7 +28,7 @@ import type { OfficeTemplateEntity } from "@altea/altea-office-template/data/Off
 
 /** Any entity stands in for a query name: nothing resolves against it, which is what we want. */
 class FakeQuery extends Entity { }
-const query = FakeQuery as unknown as QueryName;
+const query = FakeQuery;
 
 const WORD_MAIN = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml";
 const OFFICE_DOCUMENT = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument";

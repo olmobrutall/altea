@@ -23,7 +23,7 @@ export interface IOwnedAssetEntity extends Entity {
 // widened to compare against it. The widening happens HERE, outside the `@quoted` predicate below: a cast
 // inside a quoted lambda has no expression form (the transformer cannot quote it).
 function currentRoleOwners(): Lite<Entity>[] {
-    return AuthLogic.currentRoles() as unknown as Lite<Entity>[];
+    return AuthLogic.currentRoles();
 }
 
 export namespace UserAssetOwnerAuth {

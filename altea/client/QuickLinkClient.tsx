@@ -109,7 +109,7 @@ export namespace QuickLinkClient {
     const typeName = getTypeName(type);
     const byType = state().byType;
     const qls = byType[typeName] ?? {};
-    Dic.addOrThrow(qls, quickLink.key, quickLink as unknown as QuickLink<Entity>);
+    Dic.addOrThrow(qls, quickLink.key, quickLink);
     byType[typeName] = qls;
   }
 

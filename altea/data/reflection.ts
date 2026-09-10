@@ -883,7 +883,7 @@ export function eachFieldInfo(ctor: Function, callback: (fi: FieldInfo) => void)
 
     visit(ctor);
     for (const mixinClass of MixinDeclarations.getMixins(ctor as Type<Entity>))
-        visit(mixinClass as unknown as Function);
+        visit(mixinClass);
 }
 
 // The default display format for a value type when no explicit @format is given (Signum's

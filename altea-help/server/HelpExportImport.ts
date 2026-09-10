@@ -434,7 +434,7 @@ export namespace HelpExportImport {
             // "Would applying this change anything?" — read the XML into a FRESH copy of the row and
             // compare the produced XML. Signum asks the same question through its `modified()` callback.
             const before = toXml(content.kind, existing);
-            const probe = await Database.retrieve(content.kind.type, existing.id!) as unknown as IHelpEntity;
+            const probe = await Database.retrieve(content.kind.type, existing.id!) as IHelpEntity;
             const ok = await content.kind.read(probe, rootOf(content));
             const after = ok ? toXml(content.kind, probe) : before;
 
@@ -459,7 +459,7 @@ export namespace HelpExportImport {
                 const culture = cultureRow(content.cultureName);
 
                 const entity = content.existing != undefined
-                    ? await Database.retrieve(content.kind.type, content.existing.id!) as unknown as IHelpEntity
+                    ? await Database.retrieve(content.kind.type, content.existing.id!) as IHelpEntity
                     : content.kind.create(content.key, culture);
 
                 if (entity == undefined)
@@ -468,7 +468,7 @@ export namespace HelpExportImport {
                 if (!await content.kind.read(entity, rootOf(content)))
                     throw new Error(`'${content.key}' does not exist in this application`);
 
-                await Saver.save([entity as unknown as Entity]);
+                await Saver.save([entity as Entity]);
 
                 await importImages(content, entity);
             }));

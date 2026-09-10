@@ -54,7 +54,7 @@ describe("Mixin (in memory)", () => {
     // to the mixin's (flattened) fields go straight through to the owner.
     test("mixin() is a cast to the same instance and exposes mixin fields", () => {
         const note = makeNote();
-        assert.equal(note.mixin(CorruptMixin), note as unknown as CorruptMixin);
+        assert.equal(note.mixin(CorruptMixin), note);
 
         note.mixin(CorruptMixin).corrupt = true;
         assert.equal((note as unknown as CorruptMixin).corrupt, true);

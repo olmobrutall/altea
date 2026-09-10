@@ -87,7 +87,7 @@ export namespace IsolationServer {
 
         // ---- record the isolation on a logged exception ----------------------------------------------
         applyMixins.push((e, req) => {
-            const iso = IsolationLogic.current() ?? (req as unknown as RequestLike).isolation ?? null;
+            const iso = IsolationLogic.current() ?? (req as RequestLike).isolation ?? null;
             Isolation.setIsolation(e, iso);
         });
     }

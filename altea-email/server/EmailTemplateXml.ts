@@ -43,7 +43,7 @@ export function registerEmailTemplateXml(): void {
         elementName: "EmailTemplate",
         create: () => new EmailTemplateEntity(),
         load: async guid => (await table(EmailTemplateEntity).filter(t => t.id == guid).toArray() as EmailTemplateEntity[])[0],
-        save: async t => { await (t as unknown as { save(): Promise<void> }).save(); },
+        save: async t => { await t.save(); },
         toXml: templateToXml,
         fromXml: templateFromXml,
     });
@@ -54,7 +54,7 @@ export function registerEmailMasterTemplateXml(): void {
         elementName: "EmailMasterTemplate",
         create: () => new EmailMasterTemplateEntity(),
         load: async guid => (await table(EmailMasterTemplateEntity).filter(t => t.id == guid).toArray() as EmailMasterTemplateEntity[])[0],
-        save: async t => { await (t as unknown as { save(): Promise<void> }).save(); },
+        save: async t => { await t.save(); },
         toXml: masterToXml,
         fromXml: masterFromXml,
     });

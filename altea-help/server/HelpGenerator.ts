@@ -242,7 +242,7 @@ export namespace HelpGenerator {
             return "";
 
         const gender = type.gender();
-        const canBeModified = (operation as unknown as { canBeModified?: boolean }).canBeModified === true;
+        const canBeModified = (operation as { canBeModified?: boolean }).canBeModified === true;
         const version = canBeModified ? HelpMessage.YourVersion.niceToString() : HelpMessage.TheDatabaseVersion.niceToString();
 
         switch (operation.operationType) {

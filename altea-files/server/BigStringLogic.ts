@@ -333,7 +333,7 @@ function bigStringRoutesOf<T extends Entity>(type: Type<T>): string[][] {
         }
     };
 
-    walk(type as unknown as Function, [], new Set());
+    walk(type, [], new Set());
     return result;
 }
 

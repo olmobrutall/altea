@@ -35,15 +35,15 @@ export const PgVectorSearch = {
     normalize(vector: Vector): Vector { return onlyPg("normalize"); },
 };
 
-quotedFunction(PgVectorSearch.distance as unknown as Function).__resultType = () => LiteralType.number;
-quotedFunction(PgVectorSearch.l2Norm as unknown as Function).__resultType = () => LiteralType.number;
+quotedFunction(PgVectorSearch.distance as Function).__resultType = () => LiteralType.number;
+quotedFunction(PgVectorSearch.l2Norm as Function).__resultType = () => LiteralType.number;
 // normalize returns a Vector — typed null (an opaque value); the DB returns the `[…]` literal.
-quotedFunction(PgVectorSearch.normalize as unknown as Function).__resultType = () => LiteralType.null;
+quotedFunction(PgVectorSearch.normalize as Function).__resultType = () => LiteralType.null;
 
 // [AvoidEagerEvaluation]: a call over two constant vectors is parameter-independent, so the
 // partial-evaluator would otherwise FOLD it by executing the throwing body — mark them so it stays a
 // quoted expression the QueryBinder lowers to SQL (Signum uses .InSql(); __avoidEager is altea's).
-for (const f of [PgVectorSearch.distance, PgVectorSearch.l2Norm, PgVectorSearch.normalize] as unknown as { __avoidEager?: boolean }[])
+for (const f of [PgVectorSearch.distance, PgVectorSearch.l2Norm, PgVectorSearch.normalize] as { __avoidEager?: boolean }[])
     f.__avoidEager = true;
 
 // ---- SQL Server (native VECTOR) -------------------------------------------------------------
@@ -82,9 +82,9 @@ export const SqlVectorSearch = {
     vectorNormalize(vector: Vector, normType: SqlVectorNormType): Vector { return onlySs("vectorNormalize"); },
 };
 
-quotedFunction(SqlVectorSearch.vectorDistance as unknown as Function).__resultType = () => LiteralType.number;
-quotedFunction(SqlVectorSearch.vectorNorm as unknown as Function).__resultType = () => LiteralType.number;
-quotedFunction(SqlVectorSearch.vectorNormalize as unknown as Function).__resultType = () => LiteralType.null;
+quotedFunction(SqlVectorSearch.vectorDistance as Function).__resultType = () => LiteralType.number;
+quotedFunction(SqlVectorSearch.vectorNorm as Function).__resultType = () => LiteralType.number;
+quotedFunction(SqlVectorSearch.vectorNormalize as Function).__resultType = () => LiteralType.null;
 
-for (const f of [SqlVectorSearch.vectorDistance, SqlVectorSearch.vectorNorm, SqlVectorSearch.vectorNormalize] as unknown as { __avoidEager?: boolean }[])
+for (const f of [SqlVectorSearch.vectorDistance, SqlVectorSearch.vectorNorm, SqlVectorSearch.vectorNormalize] as { __avoidEager?: boolean }[])
     f.__avoidEager = true;

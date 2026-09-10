@@ -37,7 +37,7 @@ export namespace TourXml {
             elementName: "Tour",
             create: () => new TourEntity(),
             load: async guid => (await table(TourEntity).filter(t => t.id == guid).toArray())[0],
-            save: async t => { await (t as unknown as { save(): Promise<void> }).save(); },
+            save: async t => { await t.save(); },
             toXml,
             fromXml,
         });

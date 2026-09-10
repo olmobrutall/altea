@@ -215,7 +215,7 @@ export namespace EmailTemplateLogic {
         attachmentType: Function,
         handler: (attachment: T, ctx: FillAttachmentTokenContext) => void,
     ): void {
-        fillAttachmentTokensHandlers.set(attachmentType, handler as unknown as FillTokens);
+        fillAttachmentTokensHandlers.set(attachmentType, handler as FillTokens);
     }
 
     /** Signum's `GenerateAttachment.Register(...)`. */
@@ -223,7 +223,7 @@ export namespace EmailTemplateLogic {
         attachmentType: Function,
         handler: (attachment: T, ctx: GenerateAttachmentContext) => Promise<GeneratedAttachment[]>,
     ): void {
-        generateAttachmentHandlers.set(attachmentType, handler as unknown as Generate);
+        generateAttachmentHandlers.set(attachmentType, handler as Generate);
     }
 
     export function fillAttachmentTokens(attachment: IAttachmentGeneratorEntity, ctx: FillAttachmentTokenContext): void {

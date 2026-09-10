@@ -37,4 +37,4 @@ String.prototype.toTsQuery_WebSearch = function (this: string): TsQuery { return
 // it survives as a quoted expression the nominator lowers to the matching *_tsquery SQL. (Not
 // __sqlMethod — that names a static SQL function and would drop the string receiver.)
 for (const m of ["toTsVector", "toTsQuery", "toTsQuery_Plain", "toTsQuery_Phrase", "toTsQuery_WebSearch"] as const)
-    (String.prototype[m] as unknown as { __avoidEager?: boolean }).__avoidEager = true;
+    (String.prototype[m] as { __avoidEager?: boolean }).__avoidEager = true;

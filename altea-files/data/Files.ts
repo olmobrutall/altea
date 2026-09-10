@@ -168,7 +168,7 @@ export class FilePathEmbedded extends EmbeddedEntity {
     }
 
     toString(): string {
-        return `${this.fileName} - ${toComputerSize(this.fileLength as unknown as number)}`;
+        return `${this.fileName} - ${toComputerSize(this.fileLength)}`;
     }
 }
 

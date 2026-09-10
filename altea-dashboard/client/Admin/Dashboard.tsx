@@ -83,7 +83,7 @@ export default function Dashboard(p: { ctx: TypeContext<DashboardEntity> }): Rea
                 return undefined;
 
             const part = new DashboardEntity_Part();
-            part.content = new (ti.ctor as unknown as new () => IPartEntity)();
+            part.content = new (ti.ctor as new () => IPartEntity)();
             return part;
         });
     }

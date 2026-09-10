@@ -92,7 +92,7 @@ export namespace TranslatedInstanceServer {
         ws.get("/api/translatedInstance/view/:type",
             { params: CustomType<{ type: string }>(), res: CustomType<TranslatedInstanceViewTypeTS>() },
             async (req, res) => {
-                const { type: typeName } = (req as unknown as { params: { type: string } }).params;
+                const { type: typeName } = req.params;
                 const culture = optional(req.query["culture"]);
                 const filter = String(req.query["filter"] ?? "");
                 const applyFilter = req.query["applyFilter"] !== "false";
@@ -102,7 +102,7 @@ export namespace TranslatedInstanceServer {
         ws.get("/api/translatedInstance/sync/:type",
             { params: CustomType<{ type: string }>(), res: CustomType<TypeInstancesChangesTS>() },
             async (req, res) => {
-                const { type: typeName } = (req as unknown as { params: { type: string } }).params;
+                const { type: typeName } = req.params;
                 const culture = String(req.query["culture"] ?? "");
                 const applyFilter = req.query["applyFilter"] !== "false";
                 res.jsonTyped(await sync(typeName, culture, applyFilter));
@@ -111,7 +111,7 @@ export namespace TranslatedInstanceServer {
         ws.post("/api/translatedInstance/save/:type",
             { params: CustomType<{ type: string }>(), req: CustomType<TranslationRecordTS[]>() },
             async (req, res) => {
-                const { type: typeName } = (req as unknown as { params: { type: string } }).params;
+                const { type: typeName } = req.params;
                 const isSync = req.query["isSync"] === "true";
                 const culture = optional(req.query["culture"]);
                 const records = await req.jsonTyped();
@@ -129,7 +129,7 @@ export namespace TranslatedInstanceServer {
         ws.get("/api/translatedInstance/autoTranslate/:type",
             { params: CustomType<{ type: string }>() },
             async (req, res) => {
-                const { type: typeName } = (req as unknown as { params: { type: string } }).params;
+                const { type: typeName } = req.params;
                 await autoTranslate(typeName, String(req.query["culture"] ?? ""));
                 res.json({ ok: true });
             });
@@ -149,7 +149,7 @@ export namespace TranslatedInstanceServer {
         ws.get("/api/translatedInstance/viewFile/:type",
             { params: CustomType<{ type: string }>() },
             async (req, res) => {
-                const { type: typeName } = (req as unknown as { params: { type: string } }).params;
+                const { type: typeName } = req.params;
                 const file = await TranslatedInstanceLogic.exportExcelFile(
                     Entity.resolveType(typeName), String(req.query["culture"] ?? ""), req.query["applyFilter"] !== "false");
                 sendExcel(res, file);
@@ -158,7 +158,7 @@ export namespace TranslatedInstanceServer {
         ws.get("/api/translatedInstance/syncFile/:type",
             { params: CustomType<{ type: string }>() },
             async (req, res) => {
-                const { type: typeName } = (req as unknown as { params: { type: string } }).params;
+                const { type: typeName } = req.params;
                 const file = await TranslatedInstanceLogic.exportExcelFileSync(
                     Entity.resolveType(typeName), String(req.query["culture"] ?? ""), req.query["applyFilter"] !== "false");
                 sendExcel(res, file);
