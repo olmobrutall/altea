@@ -50,7 +50,7 @@ export namespace SMSClient {
         cb.configure(SMSUpdatePackageEntity).withView(() => import("./Templates/SMSUpdatePackage"));
         cb.configure(MultipleSMSModel).withView(() => import("./Templates/MultipleSMS"));
 
-        // Signum's global quick link, gated on the type being a registered SMS owner. The type list is
+        // A global quick link, gated on the type being a registered SMS owner. The type list is
         // fetched ONCE and shared by every evaluation.
         let cachedAllTypes: Promise<string[]> | undefined;
         QuickLinkClient.registerGlobalQuickLink(entityType =>

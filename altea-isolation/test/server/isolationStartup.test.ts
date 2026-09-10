@@ -58,8 +58,8 @@ class NotIncludedEntity extends Entity {
 describe("assertIsolationStrategies", () => {
 
     // The types each case decides about itself; everything else the schema contains is framework
-    // bookkeeping (TypeEntity, the operation log, …), which a real app also has to declare — Signum exempts
-    // only enum and symbol tables. Declaring them "None" here is exactly what an app would do, and it keeps
+    // bookkeeping (TypeEntity, the operation log, …), which a real app also has to declare — only enum and
+    // symbol tables are exempt. Declaring them "None" here is exactly what an app would do, and it keeps
     // each case's message about ITS types.
     const caseOwned: Function[] = [ProjectEntity, TagEntity, CatalogEntity,
         UndeclaredEntity, ReferencedEntity, ReferrerEntity, NotIncludedEntity];
@@ -67,7 +67,7 @@ describe("assertIsolationStrategies", () => {
     // Returns the COMPLETION step, because that is where the assertion runs: `sb.complete()` fires
     // `schemaCompleted`, exactly as a real host's startup does.
     function completionOf(include: (sb: SchemaBuilder) => void): () => void {
-        // The operation registry is process-global (Signum's is too), so a second `IsolationLogic.start`
+        // The operation registry is process-global, so a second `IsolationLogic.start`
         // would fail on `withSave`. Each case builds a fresh schema on purpose, so drop the registration.
         OperationLogic.unregister(IsolationOperation.Save);
 

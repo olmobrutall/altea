@@ -4,7 +4,7 @@ import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { SMSMessageState, type SMSMessageEntity } from "../../data/SMS";
 
-// Port of Signum.SMS's Templates/SMSMessage.tsx. Once a message has left `Created` almost everything is
+// Once a message has left `Created` almost everything is
 // read-only — it is a record of what was sent, not a draft.
 export default function SMSMessage(p: { ctx: TypeContext<SMSMessageEntity> }): React.JSX.Element {
 

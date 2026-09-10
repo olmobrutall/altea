@@ -15,7 +15,7 @@ export namespace EvalClient {
         // Nothing to register yet — see the header.
     }
 
-    /** Signum's EvalEntityError, plus which registered source the row came from (see EvalServer). */
+    /** One failing script: the entity, the error, and which registered source it came from. */
     export interface EvalEntityError {
         source: string;
         lite: Lite<Entity>;
@@ -24,9 +24,8 @@ export namespace EvalClient {
 
     export namespace API {
         /**
-         * Compiles every stored script the server knows about and answers the ones that fail. Signum takes a
-         * QueryEntitiesRequest per registered FindOptions; altea's registry lives on the server, so this is
-         * one parameterless call.
+         * Compiles every stored script the server knows about and answers the ones that fail. The registry
+         * lives on the SERVER, so this is one parameterless call.
          */
         export function getEvalErrors(): Promise<EvalEntityError[]> {
             return ajaxPost({ url: "/api/eval/evalErrors" }, undefined);

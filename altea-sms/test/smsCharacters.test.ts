@@ -71,9 +71,9 @@ describe("SMSCharacters — removeNoSMSCharacters", () => {
         // ż → z, ó → o, ć → c: each is base + a combining mark, so stripping the mark rescues it.
         // ł is NOT — U+0142 is a single letter with a stroke, with no canonical decomposition — so it is
         // dropped rather than turned into "l". .NET's `RemoveDiacritics` (which strips NonSpacingMark) does
-        // exactly the same, so Signum's output is identical.
+        // exactly the same either way.
         assert.equal(SMSCharacters.removeNoSMSCharacters("Zażółć"), "Zazoc");
-        // é IS in the alphabet, but NFD + strip normalises it anyway — Signum's same behaviour.
+        // é IS in the alphabet, but NFD + strip normalises it anyway.
         assert.equal(SMSCharacters.removeNoSMSCharacters("café"), "cafe");
     });
 

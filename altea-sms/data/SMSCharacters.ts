@@ -1,29 +1,24 @@
 import { msg } from "@altea/altea/data/utils/localization";
 
-// Port of Signum.SMS's SMSCharacters.cs — how many characters of an SMS are left.
+// How many characters of an SMS are left.
 //
 // The rules are the GSM 03.38 alphabet's, and they are not intuitive: a message written entirely in the
 // basic alphabet fits 160 characters; seven of those characters ({ } [ ] ~ ^ \ and €) are ESCAPED on the
-// wire and so cost two; and a single character outside the alphabet altogether forces the whole message
-// into UCS-2, where only 70 fit. Signum's table is built from four `LoadNormalRange` calls plus a handful of
-// individual code points, and this is that table verbatim.
+// wire and so cost two; and **a single character outside the alphabet forces the WHOLE message into
+// UCS-2**, where only 70 fit.
 //
-// altea divergences:
-//  - the two dictionaries become SETS of code points. Signum maps each character to its own code point,
-//    which is only ever used as a presence check.
-//  - Signum's UCS-2 branch sets `maxLength = 60`; that is a Signum BUG — the UCS-2 payload of a single SMS
-//    is 70 characters (140 octets / 2), and 60 is neither the single-part nor the concatenated figure. It is
-//    kept as `SMS_UCS2_MAX_TEXT_LENGTH = 70` here, with Signum's value recorded in this note.
-//  - `RemoveDiacritics` is `String.normalize("NFD")` + stripping the combining marks, which is what the
-//    .NET helper does.
+// Getting this wrong is silent: `messageLengthExceeded: TextPruning` truncates to whatever these functions
+// return. Hence the 13-case suite in test/smsCharacters.test.ts.
+//
+// Port of Signum.SMS's SMSCharacters.cs — see docs/port/Sms.md.
 
 /** The GSM-7 payload of one SMS. */
 export const SMS_MAX_TEXT_LENGTH = 160;
 
-/** Signum's `TripleSMSMaxTextLength`. */
+/** The GSM-7 payload of three concatenated parts. */
 export const TRIPLE_SMS_MAX_TEXT_LENGTH = SMS_MAX_TEXT_LENGTH * 3;
 
-/** The UCS-2 payload of one SMS — 140 octets / 2. Signum uses 60 here; see the header. */
+/** The UCS-2 payload of one SMS — 140 octets / 2. (Signum says 60, which is neither figure.) */
 export const SMS_UCS2_MAX_TEXT_LENGTH = 70;
 
 function range(from: number, to: number): number[] {
@@ -33,7 +28,7 @@ function range(from: number, to: number): number[] {
     return out;
 }
 
-/** The basic GSM alphabet — one character, one septet. Signum's `NormalCharacters`. */
+/** The basic GSM alphabet — one character, one septet. */
 const NORMAL_CHARACTERS: ReadonlySet<number> = new Set<number>([
     " ".codePointAt(0)!,
     ...range(33, 90),   // ! .. Z
@@ -47,7 +42,7 @@ const NORMAL_CHARACTERS: ReadonlySet<number> = new Set<number>([
     248, 249,           // ø ù
 ]);
 
-/** The GSM extension table — one character, TWO septets. Signum's `DoubleCharacters`. */
+/** The GSM extension table — one character, TWO septets. */
 const DOUBLE_CHARACTERS: ReadonlySet<number> = new Set<number>([
     ...range(91, 94),   // [ \ ] ^
     ...range(123, 126), // { | } ~
@@ -68,7 +63,7 @@ export namespace SMSCharacters {
      * How many characters may still be added. Negative when the
      * text is already too long.
      *
-     * ONE character outside the GSM alphabet re-prices the WHOLE message as UCS-2 (Signum's `break` out of
+     * ONE character outside the GSM alphabet re-prices the WHOLE message as UCS-2 (an early exit from
      * the loop), which is why this cannot be a per-character sum.
      */
     export function remainingLength(text: string, maxLength: number = SMS_MAX_TEXT_LENGTH): number {

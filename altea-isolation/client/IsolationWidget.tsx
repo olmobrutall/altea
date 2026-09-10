@@ -6,7 +6,7 @@ import type { WidgetContext } from "@altea/altea/client/Frames/Widgets";
 import { IsolationMessage, IsolationMixin, Isolation } from "../data/Isolation";
 import { IsolationClient } from "./IsolationClient";
 
-// Port of Signum.Isolation's IsolationWidget.tsx — the badge on an open entity saying which isolation it
+// The badge on an open entity saying which isolation it
 // belongs to. A NEW entity shows the isolation it is about to be saved into (the picked one); a saved one
 // shows its own. Nothing at all for a type that is not isolated.
 export interface IsolationWidgetProps {

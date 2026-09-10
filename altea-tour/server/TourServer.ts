@@ -74,8 +74,7 @@ export namespace TourServer {
                 return res.jsonTyped(type == null ? null : type.name.replace(/Entity$/, ""));
             });
 
-        // Signum restricts this route to the two asset triggers, so a caller cannot probe an arbitrary
-        // lite through it; kept.
+        // Restricted to the two ASSET triggers, so a caller cannot probe an arbitrary lite through it.
         ws.get("/api/tour/byLite",
             { res: CustomType<TourDTO | null>() },
             async (req, res) => {

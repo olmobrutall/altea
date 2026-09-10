@@ -44,7 +44,7 @@ import {
 // Port of Signum.Isolation's IsolationLogic.cs — see docs/port/Isolation.md.
 export namespace IsolationLogic {
 
-    /** Signum's `IsolationLogic.IsStarted`. */
+    /** Has the module been started? */
     export let isStarted = false;
 
     /** Every isolation, cached (invalidated when one is saved). */
@@ -54,12 +54,12 @@ export namespace IsolationLogic {
     //
     // A MUTABLE BOX in an AsyncLocalStorage, the pattern UserHolder uses: `withScope` opens one per request
     // (or per unit of background work) and the override helpers replace it for their inner scope. Outside
-    // any scope the current isolation is null, which is Signum's "no override" — global mode.
+    // any scope the current isolation is null, i.e. "no override" — global mode.
     interface IsolationBox { value: Lite<IsolationEntity> | null; }
 
     const storage = new AsyncLocalStorage<IsolationBox>();
 
-    /** Signum's `IsolationEntity.Current`. Null means GLOBAL mode: no isolation filter applies. */
+    /** The isolation in scope. Null means GLOBAL mode: no isolation filter applies. */
     export function current(): Lite<IsolationEntity> | null {
         return storage.getStore()?.value ?? null;
     }
@@ -141,7 +141,7 @@ export namespace IsolationLogic {
             uwc.claims[isolationClaim] = Isolation.tryIsolation(user as unknown as Entity);
         });
 
-        // Signum's `OperationLogic.SurroundOperation`, whose scoping half altea keeps separate.
+        // The SCOPING half of the operation seam — see OperationLogic.aroundOperation.
         OperationLogic.aroundOperation.push((ctx, fn) => {
             const fromEntity = ctx.entity == null ? null : Isolation.tryIsolation(ctx.entity);
             // A Construct has no entity, so the
@@ -155,7 +155,7 @@ export namespace IsolationLogic {
             async () => await table(IsolationEntity).map(i => i.toLite()).toArray(),
             { invalidateWith: [IsolationEntity] });
 
-        // Signum's `Schema.SchemaCompleted += AssertIsolationStrategies`, which is also where every
+        // On `schemaCompleted`, which is also where every
         // per-type hook is installed: the set of tables is only final once every module has run its
         // includes, and so is the set of registered strategies.
         sb.schema.schemaCompleted.push(assertIsolationStrategies);
@@ -175,7 +175,7 @@ export namespace IsolationLogic {
      * nothing may declare one that is not a table. It is a hard startup failure with a copy-pasteable list,
      * because the alternative — a type silently falling through as un-isolated — leaks rows across tenants.
      *
-     * The "referenced by" hints Signum computes for the message are kept: they are what makes the list
+     * The "referenced by" hints in the message are what makes the list
      * actionable, since a type's strategy is usually decided by what points at it. Enum and symbol tables
      * are exempt on both sides, as is IsolationEntity itself.
      */
@@ -219,7 +219,7 @@ export namespace IsolationLogic {
         });
     }
 
-    // Signum's `!a.IsEnumEntityOrSymbol() && !typeof(SemiSymbol)… && a != typeof(IsolationEntity)`. An enum
+    // Enum tables, symbol tables and IsolationEntity itself are exempt from the assertion. An enum
     // or symbol table is DECLARED, not application data: its rows are identical in every isolation.
     function isExempt(ctor: Function): boolean {
         return ctor === (IsolationEntity as unknown as Function)
@@ -252,9 +252,8 @@ export namespace IsolationLogic {
     }
 
     // A field's referenced entity types: one for a plain reference, several for an @implementedBy. Read off
-    // the BUILT field, so it sees exactly what the schema has (Signum reads FieldReference.FieldType /
-    // FieldImplementedBy.ImplementationColumns). An @implementedByAll names no type and contributes none —
-    // Signum's walk has no branch for it either.
+    // the BUILT field, so it sees exactly what the schema has rather than what was declared. An
+    // @implementedByAll names no type and so contributes none.
     function referencedTypesOf(field: unknown): Function[] {
         if (field instanceof FieldReference)
             return [field.column.referenceTable!.type as Function];
@@ -278,7 +277,7 @@ export namespace IsolationLogic {
         // A set-based INSERT builds its rows from a projection, so it never
         // goes through the save pipeline and would leave the column null. The constructor lambda is
         // rewritten to carry the current isolation — altea flattens mixin fields onto the owner, so this is
-        // one more member on the projected object rather than Signum's `SetMixin` call wrapper.
+        // one more member on the projected object, since a mixin's fields are flattened onto the owner.
         schema.entityEvents(ctor).preUnsafeInsert.push((_query: Query<Entity>, constructor: LambdaExpression) => {
             const curr = current();
             if (curr == null || ExecutionMode.isInGlobal())
@@ -323,7 +322,7 @@ export namespace IsolationLogic {
      *
      * ALTEA: per type rather than global (altea has no `EntityEventsGlobal`), so it is attached only to the
      * types that are actually isolated instead of testing the strategy on every save of every type.
-     * Signum's `ctx.InvalidateGraph()` has no counterpart — altea's saver walks the graph it already built,
+     * There is no graph-invalidation call to make — the saver walks the graph it already built,
      * and the field written here is on an entity already in it.
      */
     function registerPreSaving(schema: Schema, ctor: Type<Entity>): void {
@@ -347,7 +346,7 @@ export namespace IsolationLogic {
     }
 
     /**
-     * Signum's `Validator.OverridePropertyValidator((IsolationMixin m) => m.Isolation).StaticPropertyValidation`,
+     * A validator pushed onto the ROUTE's FieldInfo from outside the declaring class,
      * plus its `ForceNotNullable` removal for `Optional`: an `Isolated` type REQUIRES the field, an
      * `Optional` one allows a global row. altea has no per-route validator override, but
      * `FieldInfo.validators` is a plain array — so the validator is pushed onto the OWNER's own route (the
@@ -364,7 +363,7 @@ export namespace IsolationLogic {
         if (fi == null)
             throw new Error(`Isolation: '${ctor.name}' is registered Isolated but has no '${isolationField}' member — was Isolation.register called on both tiers?`);
 
-        // `NotNullValidator` IS Signum's check here — its message is the same `_0IsNotSet`.
+        // The implicit `NotNullValidator` IS the check — its message is `_0IsNotSet`.
         fi.validators.push(new NotNullValidator());
     }
 
@@ -372,10 +371,10 @@ export namespace IsolationLogic {
 
     /**
      * A unique index on an isolated table is unique PER ISOLATION — two
-     * tenants may each have their own "Default" row. Applied at `schemaCompleted`, which is where Signum
+     * tenants may each have their own "Default" row. Applied at `schemaCompleted`, which is where the
      * applies it too (GenerateAllIndexes).
      *
-     * Signum's `AvoidAttachToUniqueIndexes` opt-out is not ported: altea's TableIndex has no such option
+     * There is no per-index opt-out: altea's TableIndex has no such option
      * and nothing in the workspace would set it.
      */
     function attachIsolationToUniqueIndexes(schema: Schema, ctor: Type<Entity>): void {
@@ -397,7 +396,7 @@ export namespace IsolationLogic {
 
     // ---- the helpers a caller uses -------------------------------------------------------------------
 
-    /** Signum's `WhereCurrentIsolationInMemory`. */
+    /** The in-memory twin of the spliced query filter. */
     export function whereCurrentIsolationInMemory<T extends Entity>(collection: T[]): T[] {
         const curr = current();
         if (curr == null)
@@ -432,7 +431,7 @@ export namespace IsolationLogic {
 
     async function onlyIsolationOf(ctor: Type<Entity>, lites: Lite<Entity>[]): Promise<Lite<IsolationEntity> | null> {
         const found: Lite<IsolationEntity>[] = [];
-        // Signum chunks by 100, so the generated `IN (…)` list stays reasonable.
+        // Chunked by 100, so the generated `IN (…)` list stays reasonable.
         for (let i = 0; i < lites.length; i += 100) {
             const ids = lites.slice(i, i + 100).map(l => l.id!);
             const rows = await table(ctor).filter(e => ids.includes(e.id)).toArray() as Entity[];
@@ -445,7 +444,7 @@ export namespace IsolationLogic {
         return only(found);
     }
 
-    /** Signum's `.Only()` over lites: the single distinct one, else null. */
+    /** The single distinct lite, else null. */
     function only(lites: Lite<IsolationEntity>[]): Lite<IsolationEntity> | null {
         const distinct = [...new Map(lites.map(l => [l.key(), l])).values()];
         return distinct.length === 1 ? distinct[0] : null;

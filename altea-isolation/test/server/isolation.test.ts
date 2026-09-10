@@ -182,7 +182,7 @@ describe("row isolation", { skip: hasDb ? false : "set ALTEA_ISOLATION_TEST_DB t
         assert.equal(seen?.key(), globex.key());
     });
 
-    test("withIsolationOf takes the FIRST candidate that has one (Signum's `?? `)", async () => {
+    test("withIsolationOf takes the FIRST candidate that has one", async () => {
         const unIsolated = await table(CatalogEntity).filter(c => c.name == "Spring").single() as CatalogEntity;
         const isolated = await ExecutionMode.global(() => IsolationLogic.unsafeOverride(acme, () =>
             table(ProjectEntity).filter(p => p.name == Fixture.acmeOnlyProject).single())) as ProjectEntity;

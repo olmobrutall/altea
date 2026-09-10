@@ -25,10 +25,10 @@ import { SMS_MAX_TEXT_LENGTH, SMSCharactersMessage } from "./SMSCharacters";
 // **`SMSOwnerData` is an INTERFACE, not an entity**: a `@quoted` member returning a hand-built object IS a
 // real query token, so it needs no reflected type — which is what a template's `to` points at.
 //
+// `SMSConfigurationEmbedded` is read through the app's `() => GlobalsLogic.configuration().sms` lambda,
+// as every other module's configuration is.
+//
 // Port of Signum.SMS's SMSMessage.cs + SMSTemplate.cs + SMSPackages.cs — see docs/port/Sms.md.
-//  - **`SMSConfigurationEmbedded` keeps Signum's shape** (just the default culture, as a LOCALE STRING —
-//    see its own note) and is read through the
-//    app's `() => GlobalsLogic.configuration().sms` lambda, exactly as Signum's `Configuration.Value.Sms`.
 
 // ---- the configuration -------------------------------------------------------------------------------
 
@@ -37,7 +37,7 @@ import { SMS_MAX_TEXT_LENGTH, SMSCharactersMessage } from "./SMSCharacters";
  * every `SMSLogic` call through the `() => GlobalsLogic.configuration().sms` lambda the app passes to
  * `start` (see CLAUDE.md).
  *
- * `defaultCulture` references a `CultureInfoEntity` row, as Signum's does — the same call
+ * `defaultCulture` references a `CultureInfoEntity` row — the same call
  * @altea/altea-email's `EmailConfigurationEmbedded` makes, so the two modules' configurations read alike.
  */
 @reflect
@@ -75,14 +75,15 @@ export class SMSMessageEntity extends Entity {
     @stringLengthValidator({ max: 200 })
     from: string | null = null;
 
-    /** Truncated to seconds where it is assigned — Signum's `DateTimePrecisionValidator`. */
+    /** Truncated to seconds where it is ASSIGNED, since there is no precision validator here. */
     sendDate: Temporal.PlainDateTime | null = null;
 
     state: SMSMessageState = SMSMessageState.Created;
 
     /**
      * One number, or several comma-separated (`SMSLogic.sendSMS` fans those out into one message each).
-     * Signum's `MultipleTelephoneValidator`, which altea has no decorator for.
+     * A comma-separated list of numbers: core's `telephoneValidator` is single-number only, so the rule is
+     * spelled out here.
      */
     @validate<SMSMessageEntity>(m => isMultipleTelephone(m.destinationNumber)
         ? null
@@ -99,8 +100,8 @@ export class SMSMessageEntity extends Entity {
     sendPackage: Lite<SMSSendPackageEntity> | null = null;
 
     /**
-     * Signum resets `UpdatePackageProcessed` in this property's SETTER. altea entities are plain fields, so
-     * the reset lives with the only writer — `SMSProcessLogic.updateMessages` / `updateAllSentSMS`.
+     * Setting this must also clear `updatePackageProcessed`. Entities are plain fields here, so that reset
+     * lives with the only writer — `SMSProcessLogic.updateMessages` / `updateAllSentSMS`.
      */
     updatePackage: Lite<SMSUpdatePackageEntity> | null = null;
 
@@ -167,9 +168,8 @@ export const SMSMessage = {
 // ---- the packages ------------------------------------------------------------------------------------
 
 /**
- * Signum's abstract `SMSPackageEntity`. Its `Name` default is `GetType().NiceName() + ": " + Clock.Now`,
- * which a constructor sets in Signum; here each concrete subclass's `create` fills it (an altea field
- * initializer cannot see the runtime type).
+ * The `name` default is `<nice type name>: <now>`, filled by each concrete subclass's `create` — a field
+ * initializer cannot see the runtime type.
  */
 @reflect
 export abstract class SMSPackageEntity extends Entity {
@@ -217,9 +217,8 @@ export class SMSTemplateEntity extends Entity {
     model: SMSModelEntity | null = null;
 
     /**
-     * One per culture. Signum validates on the collection: at least one message, at most one per culture,
-     * and one for the configured default culture (that last one is a STATIC validator in SMSLogic.start,
-     * because it depends on the configuration — see server/SMSLogic).
+     * One per culture: at least one message, at most one per culture, and one for the configured default
+     * culture — that last one a STATIC validator in SMSLogic.start, since it depends on the configuration.
      */
     @validate<SMSTemplateEntity>(t => t.messages == null || t.messages.length === 0
         ? SMSTemplateMessage.ThereAreNoMessagesForTheTemplate.niceToString()
@@ -267,12 +266,10 @@ export class SMSTemplateEntity_Message extends Entity {
 
     @backReference template: Lite<SMSTemplateEntity>;
 
-    // No `@rowOrder`: Signum marks the MList `[BindParent]` and NOT `[PreserveOrder]`, so its table has
-    // no Order column — a message is found by its culture.
+    // No `@rowOrder`: this table has no Order column — a message is found by its CULTURE, not by position.
 
-    /** A real FK, as in @altea/altea-email's template
-     *  messages (altea HAS a CultureInfoEntity table). Named as Signum names it: the member IS the
-     *  column (`CultureInfo_ID`). */
+    /** A real FK, as in @altea/altea-email's template messages. The member IS the column
+     *  (`CultureInfo_ID`), which is why it is not shortened to `culture`. */
     cultureInfo: Lite<CultureInfoEntity>;
 
     @stringLengthValidator({ multiLine: true })
@@ -301,18 +298,12 @@ export const SMSTemplateMessage = {
 // ---- the model registry ------------------------------------------------------------------------------
 
 /**
- * One row per code-declared SMS model, so a template can point at one by FK.
- * Signum marks it `[TicksColumn(false)]`; altea has no such option (and the row is never concurrently
- * edited — it is written only by the synchronizer), so the concurrency column simply stays.
- * `fullClassName` holds altea's CLEAN TYPE NAME (the stable wire identity), the same call
- * @altea/altea-email's EmailModelEntity makes; the column name is Signum's.
+ * One row per code-declared SMS model, so a template can point at one by FK. `fullClassName` holds the
+ * CLEAN TYPE NAME (the stable wire identity), the same call @altea/altea-email's EmailModelEntity makes.
  *
- * **The name is deliberately NOT `className`, unlike its two siblings.** Signum renamed
- * `EmailModelEntity.FullClassName` / `WordModelEntity.FullClassName` to `ClassName` (and made them store
- * `type.Name` rather than `Type.FullName`, converging on what altea already wrote), and altea followed —
- * but Signum's SMSModelEntity still says `FullClassName`, so this one stays put. A Southwind database has
- * `sms.sms_model.full_class_name`; renaming here to match the siblings would break exactly the parity the
- * other two just gained. Follow Signum when it moves this one too.
+ * **DO NOT rename this member to `className`**, even though its two siblings now use that: the column is
+ * `sms.sms_model.full_class_name` in a Signum database, and renaming it would break exactly the parity the
+ * other two just gained. See docs/port/Sms.md for when that changes.
  */
 @reflect
 @entity("SystemString", "Master")
@@ -331,11 +322,9 @@ export class SMSModelEntity extends Entity {
  * The marker an entity implements to say "an SMS can be about me", which is
  * what earns it the `SMSMessages` sub-token and the "SMS messages" quick link.
  *
- * ALTEA: a bare marker interface, and the SET of implementors is a REGISTRY
- * (`SMSLogic.registerSMSOwner`) rather than a reflection scan. Signum enumerates
- * `TypeLogic.TypeToEntity.Where(t => typeof(ISMSOwnerEntity).IsAssignableFrom(t))`; TypeScript interfaces
- * are erased, so there is nothing to scan — and the registry is what the expression registration needs
- * anyway (it is per concrete type here, as altea-alert's is).
+ * A bare marker interface, and the SET of implementors is a REGISTRY (`SMSLogic.registerSMSOwner`) rather
+ * than a reflection scan: TypeScript interfaces are erased, so there is nothing to scan — and the registry
+ * is what the expression registration needs anyway (per concrete type, as altea-alert's is).
  */
 export interface ISMSOwnerEntity extends Entity {
     /** Every SMS whose `referred` is this entity — stamped by `SMSLogic.registerSMSOwner`. */
@@ -353,7 +342,4 @@ export interface SMSOwnerData {
     culture: Lite<CultureInfoEntity> | null;
 }
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("sms")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("sms");

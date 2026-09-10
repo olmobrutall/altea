@@ -5,10 +5,8 @@ import { SMSLogic, type ISMSProvider } from "./SMSLogic";
 import { SMSProcessLogic } from "./SMSProcessLogic";
 import { SMSServer } from "./SMSServer";
 
-// The module's single entry point. Southwind calls `SMSLogic.Start(sb, provider, () => Configuration.Value.Sms)`
-// and — in an app that uses the batch half — `SMSProcessLogic.Start(sb)`; altea packages expose one `start`
-// per module (the shape TreeModuleLogic / RestModuleLogic use), so an app writes one line and cannot
-// half-install it.
+// The module's single entry point (the shape TreeModuleLogic / RestModuleLogic use), so an app writes one
+// line and cannot half-install the module.
 //
 // The BATCH half is opt-out (`processes: false`): it pulls in @altea/altea-processes and
 // @altea/altea-scheduler, and an app that only ever sends one message at a time needs neither.
@@ -18,11 +16,9 @@ export namespace SMSModuleLogic {
         sb: SchemaBuilder,
         options: {
             getConfiguration: () => SMSConfigurationEmbedded;
-            /** Signum's `provider` argument. Southwind passes null — see SMSLogic's ISMSProvider note. */
+            /** The gateway. Null is legitimate: a queue with no provider still records messages. */
             provider?: ISMSProvider;
-            /** The send / update-status processes and the scheduled status refresh. Default: on.
-             *  Southwind starts none of them: its `SMSLogic.Start(sb, null, …)` reaches neither
-             *  SMSMessageProcessLogic nor the status task. */
+            /** The send / update-status processes and the scheduled status refresh. Default: on. */
             processes?: boolean;
             /** The SMSModel registry — see SMSLogic.start. Default: on. */
             models?: boolean;

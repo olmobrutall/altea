@@ -40,7 +40,7 @@ export namespace IsolationServer {
 
     export function start(ws: WebBuilder): void {
 
-        // ---- the per-request scope (Signum's IsolationFilter.GetResource) ----------------------------
+        // ---- the per-request scope ------------------------------------------------------------------
         //
         // Mount BEFORE any route that reads data and AFTER AuthLogic.start, which installs the user scope
         // this reads. Express runs middleware in registration order.
@@ -53,11 +53,11 @@ export namespace IsolationServer {
             IsolationLogic.unsafeOverride(isolation, next);
         });
 
-        // ---- Signum's IsolationController.Isolations -------------------------------------------------
+        // ---- the list the navbar picker shows --------------------------------------------------------
         ws.get("/api/isolations",
             { res: CustomType<Lite<IsolationEntity>[]>() },
             async (_req, res) => {
-                // Signum's check: a user PINNED to an isolation may not enumerate the others. (Signum's own
+                // A user PINNED to an isolation may not enumerate the others. (The
                 // message interpolates an `IsolationMixin`, which is a bug in its error text; the isolation
                 // itself is what is worth naming.)
                 const pinned = IsolationLogic.currentUserIsolation();
@@ -66,7 +66,7 @@ export namespace IsolationServer {
                 return res.jsonTyped(await IsolationLogic.isolations.value());
             });
 
-        // ---- Signum's MapColorProvider.GetColorProviders += GetMapColors -----------------------------
+        // ---- the schema map's per-table strategy colours ---------------------------------------------
         MapColorProvider.getColorProviders.push(() => {
             const strategies = Isolation.allStrategies();
             const byCleanName = new Map<string, string>();
@@ -85,7 +85,7 @@ export namespace IsolationServer {
             }];
         });
 
-        // ---- Signum's SignumExceptionFilterAttribute.ApplyMixins -------------------------------------
+        // ---- record the isolation on a logged exception ----------------------------------------------
         applyMixins.push((e, req) => {
             const iso = IsolationLogic.current() ?? (req as unknown as RequestLike).isolation ?? null;
             Isolation.setIsolation(e, iso);
@@ -93,7 +93,7 @@ export namespace IsolationServer {
     }
 
     /**
-     * Signum's `IsolationFilter.GetResource`, in order: the user's OWN isolation wins (a pinned user can
+     * Resolving the request's isolation, in order: the user's OWN isolation wins (a pinned user can
      * never leave it), else the header the client sent — but only for a real, non-anonymous user — else the
      * host's hook, else global mode.
      */
@@ -117,7 +117,7 @@ export namespace IsolationServer {
      * each isolation's files in their own folder, so one tenant's uploads are never mixed into another's
      * directory. Pass it as a FileTypeAlgorithm's `calculateSuffix`.
      *
-     * Signum keys the folder on the isolation's `IdOrNull` (or "None"); kept, since the id is stable and
+     * The folder is keyed on the isolation's id (or "None"), since the id is stable and
      * short where the name is neither.
      */
     export const isolated_YearMonth_Guid_Filename = (fp: IFilePath): string => {

@@ -77,8 +77,8 @@ export namespace TourLogic {
 
         TourXml.start();
 
-        // Signum's two `PreUnsafeDelete` cascades: a tour whose dashboard or user query is deleted has
-        // nothing left to explain, so it goes with it. (A `@part` collection cascades from the tour.)
+        // A tour whose dashboard or user query is deleted has nothing left to explain, so it goes with it.
+        // (A `@part` collection cascades from the tour.)
         sb.schema.entityEvents(DashboardEntity).preUnsafeDelete.push(async query => {
             const lites = (await query.map(d => d.toLite()).toArray()) as Lite<Entity>[];
             await deleteToursFor(lites);
@@ -110,10 +110,10 @@ export namespace TourLogic {
      * The TypeEntity lite for a type name (clean or with the `Entity` suffix), or undefined when the
      * name does not resolve to a persistent type.
      *
-     * Reads TypeLogic's warm type↔id caches (Signum's `TypeToId` / `IdToEntity`) rather than querying
-     * the TypeEntity table: this runs from the entity-pack extension, i.e. on EVERY entity open, and a
-     * `table(TypeEntity)` round-trip there showed up as an extra query per open in the heavy profiler.
-     * The rows it resolves against are the very ones that query would read.
+     * Reads TypeLogic's warm type↔id caches rather than querying the TypeEntity table: this runs from the
+     * entity-pack extension, i.e. on EVERY entity open, and a `table(TypeEntity)` round-trip there showed
+     * up as an extra query per open in the heavy profiler. The rows it resolves against are the very ones
+     * that query would read.
      */
     export function tryTypeLite(typeName: string): Lite<TypeEntity> | undefined {
         const id = TypeLogic.tryTypeToIdByName(typeName);
@@ -128,10 +128,10 @@ export namespace TourLogic {
         }
     }
 
-    // Signum expresses this as ONE `UnsafeDeleteMList` with the whole tour → step → dashboard chain in its
-    // WHERE. altea cannot: an EXISTS sub-query inside a quoted predicate would have to be a `.some(…)`
-    // call, which returns a Promise and so cannot be ANDed into a boolean filter. Since the tour for a
-    // dashboard is already a lazy lookup, the chain is walked in two cheap steps instead.
+    // TWO steps rather than one delete with the whole tour → step → dashboard chain in its WHERE: an
+    // EXISTS sub-query inside a quoted predicate would have to be a `.some(…)` call, which returns a
+    // Promise and so cannot be ANDed into a boolean filter. The tour for a dashboard is already a lazy
+    // lookup, so both steps are cheap.
     async function dropStaleDashboardPartSteps(dashboard: DashboardEntity): Promise<void> {
         await ExecutionMode.global(async () => {
             const tour = await tryGetTour(dashboard.toLite());

@@ -52,10 +52,21 @@ specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inv
 Modules without a page here still carry their narrative in their file headers, and in the app's
 `CLAUDE.md`.
 
-**Four pages are ahead of their sources.** Eval, Isolation, Sms and Tour have complete ledgers and moved
-file headers, but ~176 member-level divergence notes are still inline in those packages — so for now those
-facts live in both places. Finishing them means deciding, note by note, whether the rule binds at the point
-of edit or belongs here; the mechanical half is already done.
+## What a finished module looks like
+
+A module is done when the only Signum references left in its source are ones that pass the test above —
+in practice a handful per module, and always one of these kinds:
+
+- the one-line **pointer** at the top of each file naming its C# original and its page here;
+- a **wire contract** that is literally Signum's string (`"Signum_Isolation"`);
+- a fact about a **database that exists in the world** — `sms.sms_model.full_class_name` is why that member
+  must not be renamed to match its two siblings, and a Signum database may carry an `sms_model` table with
+  no query row;
+- a **gap or bug marker** that stops someone "fixing" the code back: `SMSCharacters`' UCS-2 budget is 70
+  where Signum says 60, and a tour step's text is deliberately not `@translatable` yet.
+
+Everything else is either a rule that binds at the point of edit — written without needing Signum in the
+reader's head — or it lives on this page.
 
 ## Why
 

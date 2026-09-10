@@ -19,21 +19,19 @@ import {
 } from "../data/SMS";
 import { SMSLogic } from "./SMSLogic";
 
-// Port of Signum.SMS's SMSProcessLogic.cs + SMSProcessAlgortihms.cs — the BATCH half: the two process
+// The BATCH half: the two process
 // algorithms that walk a package, the scheduled task that refreshes every sent message's status, and the
 // "send this text to all of these" contextual operation a host registers per owner type.
 //
 // altea divergences:
 //  - **the two algorithms are `registerAction` closures**, not `IProcessAlgorithm` classes: altea's
-//    `ProcessLogic.registerAction` is exactly Signum's `Register(symbol, Action<ExecutingProcess>)` overload,
+//    `ProcessLogic.registerAction` takes the algorithm as a closure,
 //    and neither algorithm has state.
 //  - **`ExecutingProcess.ForEachLine` → `ep.forEach(items, label, action, lineOf)`**, altea's counterpart
 //    (progress + per-line exception rows), the same call altea-workflow's Timeout algorithm makes.
-//  - **the two package QUERIES are plain `withQuery()`**. Signum registers a hand-written projection with
-//    `NumLines` / `LastProcess` / `NumErrors` columns computed from `e.LastProcess()` and
-//    `p.ExceptionLines()`; altea's process module exposes neither expression, so those three columns are the
-//    part not ported — the package VIEW shows its messages in a SearchControl instead, which is where a user
-//    looks anyway.
+//  - **the two package QUERIES are plain `withQuery()`**: the `NumLines` / `LastProcess` / `NumErrors`
+//    columns Signum projects need two expressions altea's process module does not expose, so the package
+//    VIEW shows its messages in a SearchControl instead — which is where a user looks anyway.
 //  - **`UnsafeUpdate().Set(...)` → `executeUpdate`**, altea's set-based update.
 export namespace SMSProcessLogic {
 
@@ -41,7 +39,7 @@ export namespace SMSProcessLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        // Signum includes the two packages explicitly. Their only fields come from the abstract base, so
+        // The two packages are included explicitly. Their only fields come from the abstract base, so
         // neither has a reference that would pull the other in.
         sb.include(SMSSendPackageEntity).withQuery();
         sb.include(SMSUpdatePackageEntity).withQuery();
@@ -77,20 +75,18 @@ export namespace SMSProcessLogic {
                 m => m.toLite());
         });
 
-        // Signum's `SimpleTaskLogic.Register(SMSMessageTask.UpdateSMSStatus, …)`.
         SimpleTaskLogic.register(SMSMessageTask.UpdateSMSStatus, async () => {
             const process = await updateAllSentSMS();
             return process?.toLite() ?? null;
         });
 
-        // Signum's `Graph<ProcessEntity>.ConstructFromMany<SMSMessageEntity>(CreateUpdateStatusPackage)`.
         new Graph.ConstructFromMany(SMSMessageEntity, SMSMessageOperation.CreateUpdateStatusPackage, {
             construct: async (lites: Lite<SMSMessageEntity>[]) => {
                 // ONE chunked `WHERE id IN (…)` per type, not a query
                 // per lite. Same "missing row throws" semantics the per-lite `.single()` had.
                 const messages = await retrieveFromListOfLite(lites);
 
-                // ALTEA: Signum returns `null` when there is nothing to package, and the client silently
+                // THROWS when there is nothing to package, rather than returning null and having the client
                 // gets nothing back; altea's ConstructFromMany must return an entity, so the empty case
                 // THROWS with what actually happened. Better feedback either way.
                 const process = await updateMessages(messages);
@@ -105,17 +101,17 @@ export namespace SMSProcessLogic {
      * The "send this text to every selected one of
      * these" contextual operation, per owner type.
      *
-     * ALTEA: the `Expression<Func<T, SMSOwnerData>>` becomes a plain async projector. Signum evaluates its
-     * expression IN SQL (`.Select(pr => phoneExpression.Evaluate(pr))`); a `@quoted` member returning a
-     * hand-built object is not something altea's provider lowers, and the selected set is a bounded list
-     * anyway — so the owner data is produced in memory, from the retrieved rows.
+     * The owner-data projector is a plain async function rather than an expression evaluated IN SQL: a
+     * `@quoted` member returning a hand-built object is not something the provider lowers here, and the
+     * selected set is a bounded list anyway — so the owner data is produced in memory, from the retrieved
+     * rows.
      */
     export function registerSMSOwnerData<T extends Entity>(
         type: Type<T>,
         ownerData: (entity: T) => SMSOwnerData | Promise<SMSOwnerData>,
     ): void {
-        // The symbol is declared `FromMany<Entity>` (Signum's too) and registered once per owner TYPE, so the
-        // cast is what Signum's `Graph<ProcessEntity>.ConstructFromMany<T>` expresses in its generics.
+        // The symbol is declared `FromMany<Entity>` and registered once per owner TYPE, so the cast is what
+        // the erased generic would otherwise say.
         new Graph.ConstructFromMany(type, SMSMessageOperation.SendMultipleSMSMessages as never, {
             construct: async (lites: Lite<T>[], args: unknown[]) => {
                 const model = args.find(a => a instanceof MultipleSMSModel) as MultipleSMSModel | undefined;
@@ -124,7 +120,7 @@ export namespace SMSProcessLogic {
                 if (model.message == null || model.message.trim() === "")
                     throw new Error(SMSMessage.TheTextForTheSMSMessageHasNotBeenSet.niceToString());
 
-                // Signum de-duplicates the owner data (SMSOwnerData.Equals compares the OWNER), then splits
+                // De-duplicate the owner data by owner KEY (there is no value equality on an entity), then split
                 // each comma-separated number into its own message.
                 const seenOwners = new Set<string>();
                 const targets: { telephoneNumber: string; owner: Lite<Entity> | null }[] = [];
@@ -148,7 +144,7 @@ export namespace SMSProcessLogic {
                         targets.push({ telephoneNumber: n, owner: od.owner });
                 }
 
-                // Signum returns null here; see the note on CreateUpdateStatusPackage above.
+                // Throws rather than returning null; see the note on CreateUpdateStatusPackage above.
                 if (targets.length === 0)
                     throw new Error("None of the selected rows has a telephone number to send to");
 
@@ -188,7 +184,7 @@ export namespace SMSProcessLogic {
 
         for (const m of messages) {
             m.updatePackage = packLite;
-            // Signum resets this in the property's SETTER; altea entities are plain fields, so the two
+            // Entities are plain fields, so this reset lives with the two
             // writers of `updatePackage` do it (see data/SMS.ts).
             m.updatePackageProcessed = false;
             await m.save();
@@ -207,7 +203,7 @@ export namespace SMSProcessLogic {
         await pack.save();
         const packLite = pack.toLite();
 
-        // A set-based UPDATE, as Signum's UnsafeUpdate is: the sent set can be large and none of it needs
+        // A set-based UPDATE: the sent set can be large and none of it needs
         // the save pipeline.
         await table(SMSMessageEntity)
             .filter(m => m.state == SMSMessageState.Sent)
@@ -217,7 +213,7 @@ export namespace SMSProcessLogic {
         return await Operations.execute(process, ProcessOperation.Execute);
     }
 
-    /** Signum's `SMSPackageEntity()` constructor: `GetType().NiceName() + ": " + Clock.Now`. */
+    /** The package's default name: `<nice type name>: <now>`. */
     function packageName(type: Type<Entity>): string {
         return `${(type as unknown as { niceName(): string }).niceName()}: ${Clock.now.toString()}`;
     }

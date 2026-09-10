@@ -62,11 +62,11 @@ export namespace IsolationClient {
         AppContext.resetUI();
     }
 
-    /** Signum's `'Curr_Isolation'` sessionStorage key. */
+    /** The sessionStorage key — a WIRE CONTRACT, kept verbatim. */
     const sessionKey = "Curr_Isolation";
 
     /**
-     * ALTEA: Signum stores the whole Lite as JSON and parses it back. A Lite's `entityType` is a
+     * The lite is stored as its KEY, not as JSON: a Lite's `entityType` is a
      * CONSTRUCTOR here, which `JSON.stringify` silently drops — the same trap the NDJSON operation routes
      * hit — so the stored form is the lite KEY (`Isolation;3`) and `Lite.parse` rebuilds it. That is also
      * exactly what the request header carries, so there is one representation rather than two.

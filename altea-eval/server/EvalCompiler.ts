@@ -103,7 +103,7 @@ export namespace EvalCompiler {
         return options != null;
     }
 
-    /** Signum's `EvalLogic.AddFullAssembly` / `AssemblyTypes.Add`: allow a module in stored scripts. */
+    /** Allow a module in stored scripts. */
     export function registerModule(specifier: string, value: unknown,
         moduleOptions?: { typesPath?: string; typeNames?: string[] }): void {
 
@@ -116,15 +116,15 @@ export namespace EvalCompiler {
         return [...modules.keys()].sort();
     }
 
-    /** Signum's `EvalLogic.OnInvalidated` → `resultCache.Clear()`. */
+    /** Drop every cached compilation: a registered module changing can change what a script means. */
     export function invalidate(): void {
         resultCache.clear();
         program = undefined;
     }
 
     /**
-     * Which registered module exports `name`, so a generated wrapper can import a type by name alone. The
-     * altea counterpart of Signum's `using` list resolving a bare type name.
+     * Which registered module exports `name`, so a generated wrapper can import a type by NAME alone
+     * rather than having to know which module it lives in.
      */
     export function specifierExporting(name: string): string | undefined {
         for (const [specifier, m] of modules) {
@@ -199,8 +199,8 @@ export namespace EvalCompiler {
         if (diagnostics.length === 0)
             return null;
 
-        // Signum's format, with the offending source line quoted underneath — and the line number the
-        // AUTHOR sees, i.e. relative to the script rather than to the generated wrapper.
+        // The offending source line is quoted underneath, and the line number is the one the AUTHOR sees —
+        // relative to the script rather than to the generated wrapper.
         const lines = code.split("\n");
         const formatted = diagnostics.map(d => {
             const generatedLine = d.file == null || d.start == null ? 0
@@ -217,8 +217,7 @@ export namespace EvalCompiler {
         const base = ts.createCompilerHost(settings, true);
 
         // Cache the real source files across compiles: the FIRST check pays for the whole `.d.ts` graph the
-        // registered modules pull in (Signum pays the same price loading its MetadataReferences); every
-        // later one only re-parses the virtual file.
+        // registered modules pull in; every later one only re-parses the virtual file.
         const cache = sourceFileCache;
 
         return {

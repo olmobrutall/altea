@@ -32,14 +32,13 @@ export namespace IsolationOperation {
 }
 
 /**
- * How one entity type relates to isolation (Signum's `IsolationStrategy`):
+ * How one entity type relates to isolation:
  *  - `Isolated`: every row belongs to exactly one isolation, and the field is required.
  *  - `Optional`: a row may be GLOBAL (isolation null) and is then visible from every isolation.
  *  - `None`: the type is not isolated at all — it carries no mixin and no filter.
  *
- * ALTEA: a plain string union rather than a reflected enum. Signum declares it `[InTypeScript(true)]` with
- * translatable members, but nothing translates it on either side — the only display is the schema map's
- * tooltip, which shows the raw name — and it is never a stored column, so it needs no enum table.
+ * A plain string union rather than a reflected enum: nothing translates it (the only display is the schema
+ * map's tooltip, which shows the raw name) and it is never a stored column, so it needs no enum table.
  */
 export type IsolationStrategy = "Isolated" | "Optional" | "None";
 
@@ -54,13 +53,12 @@ export const IsolationMessage = {
 /**
  * The one field an isolated type gains.
  *
- * ALTEA: Signum initializes it to `IsRetrieving ? null : IsolationEntity.Current`, which the DATA layer
- * cannot do here: the ambient current-isolation is an AsyncLocalStorage and so is server-only, while this
- * file is isomorphic. Nothing is lost — Signum ALSO stamps it in its global PreSaving handler, which is
- * what `IsolationLogic` does for every new row, and the client's widget reads the picked isolation from
- * `IsolationClient` rather than from the field.
+ * The current isolation is NOT stamped by a field initializer: the ambient is an AsyncLocalStorage and so
+ * is server-only, while this file is isomorphic. `IsolationLogic` stamps it in its PreSaving handler for
+ * every new row instead, and the client's widget reads the picked isolation from `IsolationClient` rather
+ * than from the field.
  *
- * Signum's `[AttachToUniqueIndexes]` and `[ForceNotNullable]` have no altea decorators; both are applied
+ * The unique-index rewrite and the required rule have no decorators here; both are applied
  * from `IsolationLogic.start` instead, on the one type that needs them — see there.
  */
 @reflect
@@ -96,7 +94,8 @@ export namespace Isolation {
             MixinDeclarations.register(type, IsolationMixin);
     }
 
-    /** Signum's `IsolationLogic.GetStrategy(type)` — throws for an unregistered type, as Signum's does. */
+    /** THROWS for an unregistered type — a type quietly falling through as un-isolated is the worst
+     *  thing this module could get wrong. */
     export function strategy(type: Function): IsolationStrategy {
         const s = strategies.get(type);
         if (s == undefined)
@@ -104,7 +103,7 @@ export namespace Isolation {
         return s;
     }
 
-    /** Signum's `strategies.TryGet(type, IsolationStrategy.None)`. */
+    /** The strategy, or `None` for an unregistered type. */
     export function tryStrategy(type: Function): IsolationStrategy {
         return strategies.get(type) ?? "None";
     }
@@ -142,7 +141,4 @@ export function isolationOf(entity: Entity): Lite<IsolationEntity> | null {
     return (entity as unknown as IsolationMixin).isolation ?? null;
 }
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("isolation")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("isolation");

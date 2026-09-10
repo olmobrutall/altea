@@ -35,12 +35,12 @@ import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 @entity("Main", "Master")
 export class TourEntity extends Entity implements IUserAssetEntity {
 
-    /** What this tour explains. Signum's four implementations, unchanged. */
+    /** What this tour explains — a type's view, a dashboard, a user query, or a declared trigger. */
     @uniqueIndex
     @implementedBy(() => [TypeEntity, TourTriggerSymbol, DashboardEntity, UserQueryEntity])
     trigger: Lite<Entity>;
 
-    /** Signum's `[QueryableProperty, Ignore, NoRepeatValidator, PreserveOrder] MList<TourStepEntity>`. */
+    /** The steps, in order. */
     @noRepeatValidator()
     steps: TourStepEntity[];
 
@@ -66,7 +66,7 @@ export class TourStepEntity extends Entity {
 
     @rowOrder order: int;
 
-    /** Signum marks this `[Translatable]` — see @altea/altea-translations' route registry. */
+    /** NOT `@translatable`, where Signum marks it so — see the known gap in docs/port/Tour.md. */
     @stringLengthValidator({ max: 200 })
     title: string;
 
@@ -74,7 +74,7 @@ export class TourStepEntity extends Entity {
     @noRepeatValidator()
     cssSteps: CssStepEntity[];
 
-    /** Signum marks this `[Translatable]` too. Markdown — the client renders it through micromark. */
+    /** Markdown — the client renders it through micromark. NOT `@translatable`; see Tour.md. */
     @stringLengthValidator({ multiLine: true })
     description: string;
 
@@ -114,8 +114,8 @@ export enum CssStepType {
 }
 
 /**
- * One segment of a step's anchor. Signum's `CssStepEmbedded` — a discriminated record where exactly one
- * field is set, chosen by `type`. Kept as an ENTITY here because it is a collection row (see the header).
+ * One segment of a step's anchor: a discriminated record where exactly one field is set, chosen by `type`.
+ * An ENTITY rather than an embedded because it is a collection row (see the header).
  */
 @reflect
 @part
@@ -127,8 +127,7 @@ export class CssStepEntity extends Entity {
 
     type: CssStepType = CssStepType.CSSSelector;
 
-    // Signum's `PropertyValidation` with five `IsSetOnlyWhen` clauses, one per member: a field must be set
-    // exactly when `type` selects it. Written as one validator per field, altea's shape for the same rule.
+    // A field must be set exactly when `type` selects it — one validator per field.
     @validate<CssStepEntity>(a => isSetOnlyWhen(a.cssSelector, a.type == CssStepType.CSSSelector, "cssSelector"))
     @stringLengthValidator({ max: 200 })
     cssSelector: string | null;
@@ -149,7 +148,7 @@ export class CssStepEntity extends Entity {
     tableColumn: string | null;
 }
 
-// Signum's `(pi, value).IsSetOnlyWhen(condition)`.
+// Set exactly when the condition holds: missing when it does, present when it does not, are both errors.
 function isSetOnlyWhen(value: unknown, condition: boolean, member: string): string | null {
     const isSet = value != null && value !== "";
     if (condition && !isSet)
@@ -161,9 +160,8 @@ function isSetOnlyWhen(value: unknown, condition: boolean, member: string): stri
 
 /**
  * The CSS selector one step resolves to — the space-joined selectors of its `cssSteps`, i.e. a descendant
- * chain. Signum computes this twice: on the SERVER (`TourController.ResolveCssSelector`, for the DTO the
- * player consumes) and again in the editor's preview. Here it lives ONCE, in the isomorphic data layer, so
- * the preview and the served DTO can never disagree.
+ * chain. It lives HERE, in the isomorphic data layer, so the editor's live preview and the DTO the player
+ * consumes can never disagree — they call this one function.
  *
  * `toolbarContentKey` is supplied by the caller because resolving a `Lite<QueryEntity>` to its query KEY
  * needs a lookup the data layer cannot do; the server passes the retrieved key, the editor passes the
@@ -208,14 +206,11 @@ export const TourMessage = {
     StartTour: msg("Start tour"),
     CreateTour: msg("Create tour"),
     EditTour: msg("Edit tour"),
-    // altea-only: Signum spells these two inline in `IsSetOnlyWhen`'s ValidationMessage.
+    // The two halves of the isSetOnlyWhen rule, as message keys so they are translatable.
     _0HasToBeSetWhenTypeIs1: msg("{0} has to be set when the type is {1}"),
     _0HasToBeNullWhenTypeIsNot1: msg("{0} has to be null when the type is not {1}"),
     FinalCSSSelector: msg("Final CSS selector"),
     CssStep: msg("CSS step"),
 };
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("tour")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("tour");

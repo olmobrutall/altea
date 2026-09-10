@@ -41,24 +41,18 @@ import {
 import { SMSCharacters, SMSCharactersMessage } from "../data/SMSCharacters";
 import { SMSModelLogic, type ISMSModel } from "./SMSModelLogic";
 
-// Port of Signum.SMS's SMSLogic.cs — the module's core: the two tables, the PROVIDER seam (nobody sends an
-// SMS without one), the template renderer, and the message state machine.
+// The module's core: the two tables, the PROVIDER seam (nobody sends an SMS without one), the template
+// renderer, and the message state machine.
 //
-// altea divergences:
-//  - **`ISMSProvider` is a slot the app fills, and there is no built-in.** Same as Signum, which ships none
-//    either (Southwind passes `null`) — an SMS gateway is a paid third-party API, so the module defines the
-//    three calls and an app supplies them.
-//  - **`SendAsyncSMS` is dropped.** Signum's is `Task.Factory.StartNew(() => SendSMS(message))` — a detached
-//    task. In Node a floating promise is an unhandled rejection waiting to happen and races process exit; a
-//    caller who wants fire-and-forget has @altea/altea-processes (which is what the Send PROCESS is for) or
-//    can simply not await. The same call @altea/altea-view-log made for its log write.
-//  - **`OperationLogic.AllowSave<T>()` has no counterpart**: altea's Saver does not refuse a save outside an
-//    operation, so the ambient "allow" scopes disappear.
-//  - **the query is executed through `QueryLogic.queries.executeQueryAsync`** with hand-built Columns /
-//    Filters / Orders, exactly as @altea/altea-email's EmailMessageBuilder does — there is no
-//    QueryDescription to thread, so a token is resolved by `QueryLogic.getToken(queryName, …)`.
-//  - **`GetCultureMessage` matches on the CultureInfoEntity lite**, and the fallback chain is Signum's:
-//    the forced culture, else the owner's, else the configured default.
+// **`ISMSProvider` is a slot the app fills, and there is no built-in** — an SMS gateway is a paid
+// third-party API, so the module defines the three calls and an app supplies them.
+//
+// **There is no fire-and-forget send.** A floating promise in Node is an unhandled rejection waiting to
+// happen and races process exit; the Send PROCESS is what fire-and-forget means here.
+//
+// The culture fallback for a message is: the forced culture, else the owner's, else the configured default.
+//
+// Port of Signum.SMS's SMSLogic.cs — see docs/port/Sms.md.
 //  - **`ExceptionLogic.DeleteLogs`** (both handlers, messages and orphaned packages) is NOT ported — altea
 //    has no log-retention machinery, the note every other module carries.
 //  - **`SMSTemplateEntity.ParseData` / the `Retrieved` + web `AfterDeserialization` re-parse are gone**:
@@ -99,7 +93,7 @@ export namespace SMSLogic {
 
     export let smsTemplatesLazy: ResetLazy<SMSTemplateEntity[]> = null!;
 
-    /** Signum's memoised parse trees, off the entity — the shape altea-email's EmailTemplateLogic uses. */
+    /** Memoised parse trees, kept OFF the entity — the shape altea-email's EmailTemplateLogic uses. */
     const parsedNodes = new WeakMap<object, BlockNode>();
 
     /** The concrete types that declared themselves SMS owners (see data/SMS.ts's ISMSOwnerEntity note). */
@@ -111,9 +105,8 @@ export namespace SMSLogic {
             provider?: ISMSProvider;
             getConfiguration: () => SMSConfigurationEmbedded;
             /** The SMSModel registry — its search page and the CreateSMSTemplateFromModel operation.
-             *  Signum has no caller for `SMSModelLogic.Start` at all, so it is the APP that opts in (Southwind
-             *  does not, and its database has the sms_model TABLE — referenced by SMSTemplate.model —
-             *  with neither a query row nor that operation). Default: on. */
+             *  A Signum database may have the sms_model TABLE (SMSTemplate.model references it) with
+             *  neither a query row nor that operation, since Southwind never starts that half. Default: on. */
             models?: boolean;
         },
     ): void {
@@ -134,7 +127,7 @@ export namespace SMSLogic {
         sb.include(SMSTemplateEntity)
             .withUniqueIndex(t => t.model, t => t.model != null && t.isActive == true)
             .withConstruct(SMSTemplateOperation.Create, {
-                // Signum seeds ONE message, for the configured default culture.
+                // Seed ONE message, for the configured default culture.
                 construct: () => SMSTemplateEntity.create({
                     messages: [SMSTemplateEntity_Message.create({
                         cultureInfo: SMSLogic.configuration().defaultCulture.toLite(),
@@ -161,9 +154,8 @@ export namespace SMSLogic {
             }
         });
 
-        // There must be a message for the CONFIGURED default
-        // culture. It cannot live on the entity (it depends on the configuration), which is why Signum also
-        // registers it here.
+        // There must be a message for the CONFIGURED default culture. The rule cannot live on the entity,
+        // because it depends on the configuration — hence a schema event rather than a `@validate`.
         sb.schema.entityEvents(SMSTemplateEntity).preSaving.push(template => {
             const dc = configuration().defaultCulture?.name;
             if (dc != null && !template.messages.some(m => cultureNameOf(m.cultureInfo) === dc))
@@ -175,11 +167,10 @@ export namespace SMSLogic {
     // ---- the owner registry + its expression ---------------------------------------------------------
 
     /**
-     * Signum's `Schema_SchemaCompleted` loop, made explicit: every type that can be the SUBJECT of an SMS
-     * registers itself, which stamps `smsMessages()` on its prototype and registers the sub-token. Signum
-     * scans `TypeLogic.TypeToEntity` for `ISMSOwnerEntity` implementors; a TypeScript interface is erased, so
-     * there is nothing to scan — and altea keys an extension token on a CONSTRUCTOR anyway, so the
-     * registration has to be per concrete type (altea-alert's `registerExpressions` makes the same call).
+     * Every type that can be the SUBJECT of an SMS registers itself, which stamps `smsMessages()` on its
+     * prototype and registers the sub-token. EXPLICIT rather than a scan, because a TypeScript interface is
+     * erased — and an extension token is keyed on a CONSTRUCTOR anyway, so the registration has to be per
+     * concrete type (altea-alert's `registerExpressions` makes the same call).
      */
     export function registerSMSOwner<T extends Entity>(type: Type<T>): void {
         smsOwners.push(type);
@@ -201,7 +192,7 @@ export namespace SMSLogic {
         return [...smsOwners];
     }
 
-    // ---- the two package navigations (Signum's three SMSMessages expressions) --------------------------
+    // ---- the two package navigations ------------------------------------------------------------------
 
     export function messagesOfSendPackage(pack: SMSSendPackageEntity | Lite<SMSSendPackageEntity>): IQuery<SMSMessageEntity> {
         return table(SMSMessageEntity).filter(m => m.sendPackage!.is(pack));
@@ -218,7 +209,7 @@ export namespace SMSLogic {
         return template.query == null ? undefined : QueryLogic.tryGetQueryNameByKey(template.query.key);
     }
 
-    /** Signum's `GetCultureMessage(template, ci)`. */
+    /** The message for one culture, or null. */
     export function getCultureMessage(template: SMSTemplateEntity, culture: string): SMSTemplateEntity_Message | undefined {
         return template.messages.find(m => cultureNameOf(m.cultureInfo) === culture);
     }
@@ -344,7 +335,6 @@ export namespace SMSLogic {
             });
         };
 
-        // Signum's `using (template.DisableAuthorization ? ExecutionMode.Global() : null)`.
         return t.disableAuthorization ? await ExecutionMode.global(run) : await run();
     }
 
@@ -466,9 +456,8 @@ function registerSMSMessageOperations(sm: FluentStateMachine<SMSMessageEntity, S
         canConstruct: t => t.isActive ? null : SMSCharactersMessage.TheTemplateMustBeActiveToConstructSMSMessages.niceToString(),
         toStates: [SMSMessageState.Created],
         construct: async (t, args) => {
-            // Signum reads three optional args off the operation: the target (a `Lite<Entity>`, which it
-            // RetrieveAndRemembers), the model, and the culture. A caller that already holds the entity may
-            // pass it directly here — the client sends a lite, a server caller usually has the entity.
+            // Three optional args: the target, the model and the culture. A caller that already holds the
+            // entity may pass it directly — the client sends a lite, a server caller usually has the entity.
             const model = args.find(a => a != null && typeof a === "object" && "untypedEntity" in a) as ISMSModel | undefined;
             const culture = args.find(a => typeof a === "string") as string | undefined;
 
@@ -492,7 +481,7 @@ function registerSMSMessageOperations(sm: FluentStateMachine<SMSMessageEntity, S
         canExecute: m => m.state !== SMSMessageState.Created ? null
             : SMSCharactersMessage.StatusCanNotBeUpdatedForNonSentMessages.niceToString(),
         execute: async (m, args) => {
-            // Signum lets the caller pass its own status resolver; default to the provider's.
+            // The caller may pass its own status resolver; default to the provider's.
             const fn = args.find(a => typeof a === "function") as ((m: SMSMessageEntity) => Promise<SMSMessageState>) | undefined
                 ?? (msg => SMSLogic.getProvider().smsUpdateStatusAction(msg));
 

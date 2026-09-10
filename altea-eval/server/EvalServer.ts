@@ -15,7 +15,7 @@ import { EvalLogic } from "./EvalLogic";
 //
 // Port of Signum.Eval's EvalPanelController.cs — see docs/port/Eval.md.
 
-/** Signum's EvalEntityError, plus which registered source the row came from. */
+/** One failing script: the entity, the error, and which registered source it came from. */
 export interface EvalEntityError {
     source: string;
     lite: Lite<Entity>;

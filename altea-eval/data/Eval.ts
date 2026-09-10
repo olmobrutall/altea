@@ -27,7 +27,7 @@ import type { IntegrityCheckEnvironment } from "@altea/altea/data/reflection";
 //
 // Port of Signum.Eval's EvalEmbedded.cs — see docs/port/Eval.md.
 
-/** Signum's `EvalEmbedded<T>.CompilationResult`. Exactly one of the two is set. */
+/** Exactly one of the two is set. */
 export interface CompilationResult<F> {
     algorithm?: F;
     compilationErrors?: string;
@@ -46,15 +46,12 @@ export interface IEvalCompiler {
 }
 
 /**
- * The per-instance compilation, Signum's `[Ignore, NonSerialized] CompilationResult? compilationResult`.
- * A WeakMap because a declared field would be reflected — and so serialized, and schema-mapped —
- * whatever we annotate it with; keyed by the instance, it behaves exactly like that ignored field.
+ * The per-instance compilation. A WeakMap because a declared field would be reflected — and so serialized,
+ * and schema-mapped — whatever we annotate it with; keyed by the instance, it behaves like an ignored one.
  *
- * It records the SCRIPT it was compiled from, and that is what replaces Signum`s `Reset()`. Signum drops
- * the compilation from the `Script` SETTER (`if (Set(ref script, value)) Reset();`); altea has no setters,
- * so a stale entry is instead impossible by construction — the memo hits only while the script it was
- * built for is still the one on the instance. Same idea one level down, where the compiler keys its own
- * cache by code.
+ * It records the SCRIPT it was compiled from, which is what makes a stale entry impossible by
+ * construction: the memo hits only while the script it was built for is still the one on the instance.
+ * Same idea one level down, where the compiler keys its own cache by code.
  */
 const results = new WeakMap<EvalEmbedded<unknown>, { script: string; result: CompilationResult<unknown> }>();
 
@@ -63,11 +60,11 @@ export abstract class EvalEmbedded<F> extends EmbeddedEntity {
 
     /**
      * The stored source. Unbounded (no `max`) — the same shape as altea-dynamic's
-     * `DynamicCSSOverrideEntity.script`, which is Signum's `[DbType(Size = int.MaxValue)]`.
+     * `DynamicCSSOverrideEntity.script` — an unbounded text column.
      *
-     * The validator is Signum's `PropertyValidation(pi == nameof(Script))`: it COMPILES and reports the
-     * errors on this very field, so a script that does not build cannot be saved. Skipped in the "Client"
-     * phase — there is no compiler in the browser (see the header).
+     * The validator COMPILES and reports the errors on this very field, so a script that does not build
+     * cannot be saved. Skipped in the "Client" phase — there is no compiler in the browser (see the
+     * header).
      */
     @stringLengthValidator({ min: 1, multiLine: true })
     @validate<EvalEmbedded<unknown>>((e, _fi, env) => e.validateScript(env))
@@ -92,8 +89,7 @@ export abstract class EvalEmbedded<F> extends EmbeddedEntity {
 
     /**
      * Builds the module source and compiles it. A subclass writes the wrapper — the imports, the parameter
-     * types and the return type — and hands it to {@link wrap}, exactly as Signum's `Compile()` overrides
-     * build their generated class.
+     * types and the return type — and hands it to {@link wrap}.
      */
     protected abstract compile(): CompilationResult<F>;
 
@@ -131,14 +127,14 @@ export abstract class EvalEmbedded<F> extends EmbeddedEntity {
      * Wraps the author's script in a module whose default export is the algorithm, and compiles it.
      *
      * A script with no `;` is treated as an EXPRESSION (`return … ;`),
-     * and the app's global preamble (`EvalLogic.preamble`, Signum's `GetUsingNamespaces()`) is prepended so
-     * the common API is in scope without the author importing anything.
+     * and the app's global preamble (`EvalLogic.preamble`) is prepended so the common API is in scope
+     * without the author importing anything.
      */
     protected wrap(options: {
         /**
          * TYPE names the generated wrapper needs in scope, resolved to `import type { X } from "…"` through
          * {@link importFor} — i.e. through the module registry, so an eval can only name a type the app
-         * allowed. This is where Signum writes a fully-qualified C# type name and relies on its `using` list.
+         * allowed.
          */
         importTypes?: string[];
         /** Verbatim import lines, for the rare case a name is not enough. */
@@ -181,7 +177,7 @@ export abstract class EvalEmbedded<F> extends EmbeddedEntity {
     /** Filled by `server/EvalCompiler.install()`. Null on the client (and before start). */
     static compiler: IEvalCompiler | null = null;
 
-    /** The import lines every generated eval gets (Signum's `EvalLogic.GetUsingNamespaces()`). */
+    /** The import lines every generated eval gets. */
     static preamble: string[] = [];
 
     /**
@@ -197,13 +193,12 @@ export abstract class EvalEmbedded<F> extends EmbeddedEntity {
     }
 
     /**
-     * The entity this eval hangs off — Signum's `[BindParent]` + `GetParentEntity<T>()`, over altea's
-     * parent back-pointer (data/parentEntity). The nearest ancestor of the type ASKED FOR, so an eval one
-     * embedded down still answers with the entity that carries it (see the header) and a mismatch is
-     * caught here rather than by an unchecked cast — `type` is a runtime argument for that reason.
+     * The entity this eval hangs off, over the parent back-pointer (`@bindParent`, data/parentEntity). The
+     * nearest ancestor of the type ASKED FOR, so an eval one embedded down still answers with the entity
+     * that carries it (see the header) — and a mismatch is caught here rather than by an unchecked cast,
+     * which is why `type` is a runtime argument.
      *
-     * An INTERFACE has no runtime handle, so a caller wanting one passes `Entity` and casts, which is what
-     * Signum's own `TryGetParentEntity<Entity>()! as IHasEntityType` does.
+     * An INTERFACE has no runtime handle, so a caller wanting one passes `Entity` and casts.
      */
     owner<T extends Entity>(type: Type<T>): T {
         const owner = tryGetOwnerEntity(this, type);
@@ -222,8 +217,8 @@ export const EvalMessage = {
     Line0_1: msg("Line {0}: {1}"),
 };
 
-// Signum's EvalPanelMessage. `DynamicPanel` / the panel page itself is altea-dynamic's (it owns the admin
-// pages); these are the messages the CHECK-EVALS surface uses.
+// The messages the CHECK-EVALS surface uses. The panel PAGE itself is altea-dynamic's, which owns the
+// admin pages.
 export const EvalPanelMessage = {
     OpenErrors: msg(),
     CheckEvals: msg(),
@@ -232,7 +227,4 @@ export const EvalPanelMessage = {
     ExceptionChecking0: msg("Exception checking {0}"),
 };
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
-// `[assembly: AssemblySchemaName("eval")]`. FOLDER-scoped, so it covers every type declared
-// beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("eval");

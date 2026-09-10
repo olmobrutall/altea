@@ -7,7 +7,7 @@ import { IsolationLogic } from "../../server/IsolationLogic";
 import { CatalogEntity, ProjectEntity, TagEntity } from "../data/tenancy";
 
 // The ambient current-isolation and the strategy table, with NO database: they are pure in-memory logic, and
-// they are where the port diverges most from Signum (a scope-shaped ambient instead of an IDisposable), so
+// the ambient is SCOPE-shaped (a callback rather than a disposable), so
 // they are worth pinning on their own.
 
 // A lite without a database: the isolation rows do not exist, but nothing here reads them.
@@ -17,7 +17,7 @@ function isolationLite(id: number, name: string): Lite<IsolationEntity> {
 
 describe("the ambient current isolation", () => {
 
-    test("is null outside any scope — Signum's 'no override', i.e. global mode", () => {
+    test("is null outside any scope — 'no override', i.e. global mode", () => {
         assert.equal(IsolationLogic.current(), null);
     });
 

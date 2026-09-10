@@ -4,7 +4,7 @@ import SearchControl from "@altea/altea/client/SearchControl/SearchControl";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { SMSMessageEntity, type SMSSendPackageEntity } from "../../data/SMS";
 
-// Port of Signum.SMS's Templates/SMSSendPackage.tsx — the package plus the messages it holds.
+// The package plus the messages it holds.
 export default function SMSSendPackage(p: { ctx: TypeContext<SMSSendPackageEntity> }): React.JSX.Element {
     return (
         <div>

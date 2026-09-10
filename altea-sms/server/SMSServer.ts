@@ -5,20 +5,19 @@ import type { Entity, Type } from "@altea/altea/data/entity";
 import { SMSCharacters } from "../data/SMSCharacters";
 import { SMSLogic } from "./SMSLogic";
 
-// Port of Signum.SMS's SMSController.cs (+ SMSServer.cs) — the two endpoints the client needs.
+// The two endpoints the client needs.
 //
-// altea divergences:
-//  - **Signum's `SMSServer.Start` re-parses a POSTed SMSTemplate's query tokens** through an
-//    `AfterDeserialization` hook. altea resolves query tokens CLIENT-side (there is no QueryDescription to
-//    parse against — see CLAUDE.md), so there is nothing to re-parse and the hook has no counterpart; the
-//    canonical-form re-print still happens, in the template's PreSaving.
-//  - `getAllTypes` answers the clean names of the REGISTERED owner types (`SMSLogic.registerSMSOwner`),
-//    where Signum scans for `ISMSOwnerEntity` implementors — see data/SMS.ts on why a registry.
+// There is no deserialization hook re-parsing a POSTed template's query tokens: tokens are resolved
+// CLIENT-side, so there is nothing to re-parse. The canonical-form re-print still happens, in the
+// template's PreSaving.
+//
+// `getAllTypes` answers the clean names of the REGISTERED owner types (`SMSLogic.registerSMSOwner`) — see
+// data/SMS.ts on why a registry rather than a scan.
 export namespace SMSServer {
 
     export function start(ws: WebBuilder): void {
 
-        // The character budget of a message, as the template editor types (Signum's same POST: the rules
+        // The character budget of a message, as the template editor types (a POST, because the rules
         // live on the server so the two halves cannot disagree).
         ws.post("/api/sms/remainingCharacters",
             { req: CustomType<{ message: string; removeNoSMSCharacters: boolean }>(), res: CustomType<number>() },

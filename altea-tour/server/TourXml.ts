@@ -17,8 +17,8 @@ import {
 } from "../data/Tour";
 
 // XML is kept OFF the isomorphic entity — the (de)serializer registers with UserAssetsImporter, as every
-// other altea user asset does — and the element/attribute names are preserved so a Signum-exported Tour
-// file round-trips.
+// other altea user asset does — and the element/attribute names are preserved, so a Tour file exported by
+// either framework imports into the other.
 //
 // `Property` is written as the route's PATH and resolved back through
 // `PropertyRouteLogic.propertyRouteEntitySync`, the SYNC form, since `fromXml` cannot await.
@@ -60,7 +60,7 @@ async function toXml(tour: TourEntity, ctx: IToXmlContext): Promise<Record<strin
     return o;
 }
 
-// Signum's `triggerValue` ladder: a TypeEntity is its CleanName, a symbol its Key, another user asset
+// The `triggerValue` ladder: a TypeEntity is its CleanName, a symbol its Key, another user asset
 // "CleanType|guid" — so the file is readable and portable across databases.
 async function triggerToXml(trigger: Lite<Entity>, ctx: IToXmlContext): Promise<string> {
     if (trigger.entityType === TypeEntity)
@@ -109,7 +109,7 @@ async function toolbarContentToXml(lite: Lite<Entity>, ctx: IToXmlContext): Prom
 function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): void {
     tour.trigger = triggerFromXml(String(xml[A + "Trigger"]), ctx);
 
-    // Signum's same ladder inside `CssStepEmbedded.FromXml`: a "Property" step's route is rooted at the
+    // The same ladder in reverse: a "Property" step's route is rooted at the
     // trigger's type — given directly by a Lite<TypeEntity> trigger, or by the type a TourTriggerSymbol is
     // registered for. Any other trigger (a dashboard, a user query) offers no property steps, hence null.
     const rootType = triggerRootType(tour.trigger);

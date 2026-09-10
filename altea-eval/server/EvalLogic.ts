@@ -37,11 +37,10 @@ export namespace EvalLogic {
         EvalCompiler.configure(compilerOptions);
         EvalCompiler.install();
 
-        // Signum's pre-seeded AssemblyTypes / Namespaces (see EvalFrameworkModules).
+        // The framework's own surface, seeded here (see EvalFrameworkModules).
         registerModules(frameworkModules);
         addPreamble(...frameworkPreamble);
 
-        // Signum's `PermissionLogic.RegisterPermissions(EvalPanelPermission.ViewDynamicPanel)`.
         PermissionLogic.registerPermissions(EvalPanelPermission.ViewDynamicPanel);
 
         if (sb.webBuilder)
@@ -55,9 +54,9 @@ export namespace EvalLogic {
     // ---- What a stored script may reach ------------------------------------------------------------------
 
     /**
-     * Signum's `EvalLogic.AssemblyTypes.Add` / `AddFullAssembly`: allow `specifier` in stored scripts. The
-     * `value` is the already-imported module — the app imports it normally and hands it over, which is what
-     * makes the allow-list real (an unregistered import cannot be resolved at run time).
+     * Allow `specifier` in stored scripts. The `value` is the already-imported module — the app imports it
+     * normally and hands it over, which is what makes the allow-list REAL: an unregistered import cannot be
+     * resolved at run time even if it type-checks.
      *
      * `typesPath` is only needed when TypeScript cannot find the types on its own — in practice for the APP's
      * own modules, since an app is not installed as a package.
@@ -93,11 +92,8 @@ export namespace EvalLogic {
     /**
      * What "check every stored script" walks.
      *
-     * altea divergence: Signum keeps a list of client FindOptions and the panel issues one query per entry,
-     * because only the SERVER can compile and it needs the entities. altea keeps the registry on the SERVER
-     * and each entry is simply a THUNK that loads the rows to check — which is both simpler (no
-     * QueryRequest/filter plumbing) and more precise: Signum's WorkflowLane entry needs the filter
-     * `actorsEval != null`, which is one `.filter(...)` here.
+     * Each entry is a THUNK that loads the rows to check, so ONE call checks everything — and a narrowing
+     * like "only lanes with an actors eval" is one `.filter(...)` rather than a stored filter.
      */
     export const evalSources: { name: string; load: () => Promise<Entity[]> }[] = [];
 

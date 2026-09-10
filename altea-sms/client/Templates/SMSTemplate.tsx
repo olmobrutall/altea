@@ -72,7 +72,7 @@ export function SMSTemplateMessageComponent(p: SMSTemplateMessageComponentProps)
     const forceUpdate = useForceUpdate();
 
     // The count is a SERVER call (the GSM rules live there so the two halves cannot disagree), so it is
-    // throttled to one per second of typing — Signum's same shape.
+    // throttled to one per second of typing.
     const throttledText = useThrottle(p.ctx.value.message ?? "", 1000);
     const remaining = useAPI(() => SMSClient.API.getRemainingCharacters(throttledText, p.removeNoSMSCharacters),
         [throttledText, p.removeNoSMSCharacters], { avoidReset: true });

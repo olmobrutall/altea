@@ -82,3 +82,16 @@ file round-trips.
 
 **A `ToolbarContent` pointing at a PermissionSymbol is not supported**: altea's `CssStepEntity` declares
 `@implementedBy(QueryEntity)` only, matching what the tour editor can actually pick.
+
+## Known gap: a step's text is not translatable
+
+Signum marks `TourStepEntity.Title` and `.Text` `[Translatable]`, so a tour can be authored once and
+translated per instance. **altea marks neither**, and nothing calls
+`PropertyRouteTranslationLogic.registerRouteFor` for them either — so a tour reads in the language it was
+written in whatever the UI culture is.
+
+Core has the machinery (`@translatable` on the compile-time FieldInfo, used by altea-user-queries'
+`displayName` / `description`), so closing this is a two-decorator change plus the routes it adds to the
+translatable registry. It is additive — a `TranslatedInstance` row is per route, so nothing existing moves
+— but it is a behaviour change rather than a documentation one, which is why it is recorded here instead
+of being made in passing.

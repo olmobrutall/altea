@@ -23,15 +23,15 @@ import { cleanTypeName } from "@altea/altea/data/registration";
 import { joinRelaxed } from "@altea/altea/data/globals/joinRelaxed";
 import { SMSModelEntity, SMSTemplateEntity, SMSTemplateOperation } from "../data/SMS";
 
-// Port of Signum.SMS's SMSModelLogic.cs — the MODEL side: a code-declared object a template renders against
+// The MODEL side: a code-declared object a template renders against
 // (instead of / alongside a query row), its registry table, and the default template it can generate.
 //
 // This is the direct sibling of @altea/altea-email's EmailModelLogic and makes the same calls:
-//  - Signum's `SMSModel<T>` abstract base becomes a TS INTERFACE (`ISMSModel`): altea has no C#-style
+//  - the `SMSModel<T>` abstract base becomes a TS INTERFACE (`ISMSModel`): there is no C#-style
 //    protected virtual members to inherit, and a model is just an object with a known shape. `smsModel(...)`
-//    below is the factory that supplies Signum's defaults (filter by the entity, no orders, all rows).
+//    below is the factory that supplies the defaults (filter by the entity, no orders, all rows).
 //  - `Type.FullName` (the registry key) → altea's CLEAN TYPE NAME, the stable identity altea already uses
-//    for a type on the wire. `fullClassName` keeps Signum's column name.
+//    for a type on the wire. `fullClassName` keeps the column name — see data/SMS.ts on why not `className`.
 //  - `Schema_Generating` / `Schema_Synchronizing` ARE ported: the registry rows go through the schema
 //    pipeline, so a RENAMED model class keeps its row — and its id, which every SMSTemplate.model FK
 //    targets — via the "SMSModel" Replacements bucket. A blind "insert what's missing" would add a row under
@@ -41,10 +41,10 @@ import { SMSModelEntity, SMSTemplateEntity, SMSTemplateOperation } from "../data
 
 /** The object a template renders against. */
 export interface ISMSModel {
-    /** The entity this model is ABOUT (Signum's UntypedEntity) — becomes the message's `referred`. */
+    /** The entity this model is ABOUT — becomes the message's `referred`. */
     untypedEntity: Entity | null;
     /**
-     * The REGISTERED model type this object stands for (altea only — Signum's model IS a class instance, so
+     * The REGISTERED model type this object stands for. Needed because a plain object carries no type, where
      * its type is its own). Falls back to `untypedEntity.constructor`, which is correct only for a model
      * registered under the entity type itself.
      */
@@ -55,7 +55,7 @@ export interface ISMSModel {
 }
 
 /**
- * Signum's `SMSModel<T>` defaults, as a factory. Override any member on the result to get what a C# subclass
+ * The model defaults, as a factory. Override any member on the result to get what a subclass
  * would get by overriding a virtual.
  */
 export function smsModel(entity: Entity, overrides?: Partial<ISMSModel>): ISMSModel {
@@ -70,7 +70,7 @@ export function smsModel(entity: Entity, overrides?: Partial<ISMSModel>): ISMSMo
 }
 
 interface SMSModelInfo {
-    /** Signum's optional `queryName` argument; defaults to the model's own entity type. */
+    /** Optional; defaults to the model's own entity type. */
     queryName: QueryName;
     /** The template generated when none exists yet. */
     defaultTemplateConstructor: () => SMSTemplateEntity;
@@ -113,13 +113,13 @@ export namespace SMSModelLogic {
             construct: (model: SMSModelEntity) => createDefaultTemplate(model),
         }).register();
 
-        // The registry rows are code-declared, so the SCHEMA pipeline maintains them (Signum's
+        // The registry rows are code-declared, so the SCHEMA pipeline maintains them (the
         // `Schema.Generating` / `Schema.Synchronizing`) — see the header on why not an `initializing` hook.
         sb.schema.generating.push(schema => generateSMSModels(schema));
         sb.schema.synchronizing.push(synchronizeSMSModels);
     }
 
-    /** Signum's `RegisterSMSModel<T>(defaultTemplateConstructor, queryName)`. */
+    /** Declare an SMS model: what it renders against, and the template generated when none exists. */
     export function register(modelType: Function, info: Omit<SMSModelInfo, "queryName"> & { queryName?: QueryName }): void {
         const key = cleanTypeName(modelType as Type<Entity>);
         keyToType.set(key, modelType);
@@ -134,7 +134,7 @@ export namespace SMSModelLogic {
         return [...registeredModels.keys()];
     }
 
-    /** Signum's `ToSMSModelEntity(type)`. */
+    /** The registry ROW for a model type. */
     export async function toSMSModelEntity(modelType: Function): Promise<SMSModelEntity> {
         const key = cleanTypeName(modelType as Type<Entity>);
         const found = (await smsModelsLazy.value()).get(key);
@@ -161,7 +161,7 @@ export namespace SMSModelLogic {
         return registeredModels.get(await toKey(model))?.construct == null;
     }
 
-    /** Signum's `CreateModel(model, entity)`. */
+    /** Build a model instance from one entity. */
     export async function createModel(model: SMSModelEntity, entity: Entity | null): Promise<ISMSModel> {
         const info = registeredModels.get(await toKey(model));
         if (info?.construct == null)
@@ -198,7 +198,7 @@ export namespace SMSModelLogic {
         return active[0]!;
     }
 
-    /** Signum's `CreateDefaultTemplate(smsModel)`. */
+    /** The template generated when a model has none yet. */
     export async function createDefaultTemplate(model: SMSModelEntity): Promise<SMSTemplateEntity> {
         const key = await toKey(model);
         const info = registeredModels.get(key);
@@ -237,7 +237,7 @@ export namespace SMSModelLogic {
     }
 }
 
-// ---- the registry table's schema pipeline (Signum's Schema_Generating / Schema_Synchronizing) ----------
+// ---- the registry table's schema pipeline -------------------------------------------------------------
 
 /** INSERT one row per declared model on a FRESH database, in sorted-key order so the DB-assigned ids are
  *  reproducible (the shape SymbolLogic.generateSymbols and EmailModelLogic both use). */

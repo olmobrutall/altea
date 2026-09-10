@@ -18,8 +18,8 @@ import type { EvalEmbedded } from "../data/Eval";
 export interface EvalLineProps<F> {
     ctx: TypeContext<EvalEmbedded<F>>;
     /**
-     * The generated function's signature, shown above the editor exactly as Signum shows the C# one. It is a
-     * HINT: the server builds the real wrapper (see the eval's `compile()`), so keep the two in step.
+     * The generated function's signature, shown above the editor. It is a HINT: the server builds the real
+     * wrapper (see the eval's `compile()`), so keep the two in step.
      */
     signature: string;
     label?: React.ReactNode;
