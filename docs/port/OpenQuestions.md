@@ -140,19 +140,28 @@ Verified by serialising every one of them through the real `tokenSequence` again
 camelCase field name verbatim. `EntityPropertyToken.key` is `fieldInfo.name.firstUpper()` now, so every
 site that compared or built a token key as a lower-case string was wrong.
 
-**The rule, which is what makes this more than a sweep — there are TWO vocabularies:**
+**This is SIGNUM'S arrangement, and the repair is a convergence back onto it — not a new rule.** Signum has
+the same two vocabularies (a token key from a PascalCase C# property; a camelCase Graph field) and settles
+them with one crossing plus consistent literals:
 
-> A query **TOKEN** key is PascalCase. A Microsoft **GRAPH** field is camelCase.
+- `ToGraphField` is `token.Follow(a => a.Parent).Reverse().ToString(a => a.Key.FirstLower(), "/")`;
+- every token-key comparison in its RemoteEmailsLogic is PascalCase — `"User"`, `"Id"`, `"Entity"`,
+  `"Folder"`, `"Extension"`, `"WellKnownFolderName"`.
 
-So a mechanical PascalCase pass would have fixed the comparisons and BROKEN the field names. Each string
-had to be read for which side it belongs to.
+altea now does exactly that, literal for literal. **The detour is the whole story, and it was
+self-inflicted:** while altea's token keys were camelCase, the porter correctly dropped the `FirstLower`
+(a no-op then) and correctly lower-cased each of Signum's PascalCase literals. Both were right *for that
+convention*. When the keys moved back to PascalCase — the CLAUDE.md token bullet, which brought altea's
+token spelling into line with Signum's — the framework was swept and these two modules were not.
 
-**In the Graph converters the repair was to RESTORE a line the port had dropped.** Signum builds its field
-as `token.Follow(a => a.Parent).Reverse().ToString(a => a.Key.FirstLower(), "/")`; altea's header explained
-that the `FirstLower` was deliberately lost because "altea's token keys are ALREADY camelCase". That was
-true when written. `toGraphField` lowers each key again now, and `fieldAliases` (`objectId → id`) plus the
-`onPremisesExtensionAttributes` check are Graph-side, so they stay camelCase and are applied AFTER the
-lowering.
+So the honest size of it: not a subtle two-vocabulary puzzle, but ~15 sites left behind by a convention
+change, in the one module family that had adapted hardest to the old convention. The care needed was in
+reading each string for WHICH side it names, because a blind PascalCase sweep would have fixed the
+comparisons and broken the field names.
+
+One altea-specific mapping survives, and it is not arbitrary: `MessageId → id`, plus `objectId → id` in the
+base. Signum's row models call the member `Id`, so `FirstLower` yields Graph's `id` for free; altea's cannot
+— a member named `id` is excluded from a query's token tree — so the rename has to be undone explicitly.
 
 What was fixed, module by module:
 
@@ -178,11 +187,12 @@ one extends the base, and it asserts the exact Graph field strings against the d
 `onPremisesExtensionAttributes`. **Verified to CATCH the regression**: reverting `firstLower()` fails 3 of
 the 10.
 
-That suite is the answer to why this was recorded rather than patched when it was found. The `$select` /
-`$filter` / `$orderby` strings fail against the live API as an opaque 400, so a tenant seemed like the only
-check — but `toGraphField` is pure given a token, so the names can be held down headlessly. What is still
-NOT verified here is whether Graph ACCEPTS them, i.e. that the documented field list matches the tenant's
-API version; the strings themselves are now fixed in place.
+That suite also retires the reason this was first recorded rather than patched. The `$select` / `$filter` /
+`$orderby` strings fail against the live API as an opaque 400, so a tenant looked like the only possible
+check — but `toGraphField` is pure given a token, so the names can be held down headlessly, and the target
+was never in doubt anyway: it is what Signum sends. What is still NOT verified is whether Graph ACCEPTS
+them, i.e. that the documented field list matches the tenant's API version. The strings are fixed in place,
+so a tenant that disagrees points at the exact assertion to change.
 
 Not part of this: `altea/test/server/dynamicQueries/expressionContainer.test.ts:109-110` asserts
 `t.key === "rootNotes"`. A registered expression's explicit `{ key }` is honoured VERBATIM, so a camelCase

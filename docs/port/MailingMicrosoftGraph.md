@@ -86,10 +86,19 @@ Microsoft **GRAPH** field is camelCase (`subject`, `receivedDateTime`, `parentFo
 the crossing, and it lowers each key — Signum's own `a.Key.FirstLower()`, a line this port had dropped back
 when altea's token key was the camelCase field name verbatim and lowering was a no-op.
 
-Every string in the converter therefore belongs to one side or the other, and mixing them is what this
-module used to do throughout: **compare against a TOKEN key in PascalCase, and write or match a GRAPH field
-in camelCase.** The Graph-side ones (`fieldAliases`, the `onPremisesExtensionAttributes` collapse, the
-`emailAddress` regexes) are applied AFTER the lowering, so they stay camelCase.
+Every string in the converter therefore belongs to one side or the other: **compare against a TOKEN key in
+PascalCase, and write or match a GRAPH field in camelCase.** The Graph-side ones (`fieldAliases`, the
+`onPremisesExtensionAttributes` collapse, the `emailAddress` regexes) are applied AFTER the lowering, so
+they stay camelCase.
+
+**None of that is altea's invention — it is Signum's, and this module had drifted off it.** Signum's own
+comparisons are PascalCase throughout (`"User"`, `"Id"`, `"Entity"`, `"Folder"`, `"Extension"`), and this
+module now matches them literal for literal. While altea's token keys were camelCase the porter lower-cased
+each of them, correctly for that convention; the convention moved back and these sites did not.
+
+The one mapping that IS altea's: `MessageId → id` (and `objectId → id` in the base). Signum's row models
+call the member `Id`, so `FirstLower` yields Graph's `id` for free — altea's cannot, a member named `id`
+being excluded from a query's token tree, so the rename is undone explicitly.
 
 `test/graphFields.test.ts` pins the resulting field names against the documented resource fields, for this
 converter and the `altea-auth-azuread` base it extends. DB-free, because `toGraphField` is pure given a
