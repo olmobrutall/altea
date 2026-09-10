@@ -119,8 +119,11 @@ QueryDescription, so a manual query's NAME is its row type and each caption is t
 its column tokens are rooted at that model rather than at CaseNotificationEntity.
 
 Its tokens used to be camelCase literals, because the SERVER's `QueryLogic.getToken` was an exact Map lookup
-while `Type.token()` PascalCased — the mismatch the CLAUDE.md token bullet describes, now fixed at the
-source.
+while `Type.token()` PascalCased — the mismatch the CLAUDE.md token bullet describes, since fixed at the
+source. They are built with the typed token builder now, and that mattered more than spelling: a
+`hiddenColumns` / `rowAttributes` / `formatters` key is matched EXACTLY against a column name the server
+echoes as the resolved token's `fullKey()`, which is PascalCase — so the camelCase keys matched nothing, and
+the Inbox rendered with none of its five cell formatters and no per-state row colouring.
 
 ## Client divergences
 
@@ -166,9 +169,7 @@ source.
 > - `WorkflowLogic` said `EvalLogic.GetCustomErrors` / `OnInvalidated` "go with the Eval deferral". Eval is
 >   ported; those two members are declined on their own merits.
 > - `WorkflowClient` said the tokens in its two Finder settings blocks had to be camelCase LITERALS because
->   "the SERVER's `QueryLogic.getToken` is a strict Map lookup". That was true when it was written and is
->   not now: a token key is PascalCase and `QueryToken.subToken` falls back to a case-insensitive match, so
->   those literals resolve on both tiers. **The literals are left as they are** — re-spelling them to the
->   canonical `Case` / `DoneDate.HasValue` means re-checking the `formatters` and `hiddenColumns` keys
->   beside them, which are matched against a resolved token's own `fullKey()`. The comment now says that,
->   rather than a reason that has stopped being one.
+>   "the SERVER's `QueryLogic.getToken` is a strict Map lookup". True when written, not now. Correcting it
+>   turned out to uncover a live defect rather than a spelling preference — the Inbox's `formatters` and
+>   `rowAttributes` keys are matched EXACTLY and so had never fired. Both blocks use the typed builder now;
+>   see [OpenQuestions.md](OpenQuestions.md) §2.3.

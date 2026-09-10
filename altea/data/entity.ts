@@ -135,7 +135,10 @@ export abstract class BaseEntity {
     // entity constructor. A query lambda's `f.constructor.niceName()` / `getType().niceName()`
     // resolves to THIS static at runtime (via that inheritance); the global `Function` type
     // augmentation below only makes those call sites type-check (see its comment).
-    // `token()` is deferred until the client QueryToken (QueryTokenString) is ported.
+    // `token()` is NOT here: it needs QueryTokenString, which is client-only, so it is declared and
+    // installed by `client/EntityTypeApi` (a `declare module` plus an Object.assign onto BaseEntity).
+    // That makes it available only once something has imported that module — `client/Finder` does, with a
+    // side-effect import, which is why it is there for any client code that has reached a Finder.
     static get typeName(): string { return cleanTypeName(this); }
     static niceName(this: Function): string { return Localization.Internal.typeNiceName(this.name); }
     static nicePluralName(this: Function): string { return Localization.Internal.typeNicePluralName(this.name); }

@@ -215,40 +215,48 @@ export namespace WorkflowClient {
                 ctx => workflowActivityMonitorUrl(ctx.lite), { icon: "gauge", iconColor: "green" }));
 
         // ---- Finder settings ---------------------------------------------------------------------------
-        // The tokens are camelCase LITERALS, not `Type.token(a => a.case)`. That is now a spelling rather
-        // than a requirement: a token key is PascalCase and `QueryToken.subToken` falls back to a
-        // case-insensitive match, so these resolve on both tiers — but the canonical spelling is Signum's
-        // (`Case`, `DoneDate.HasValue`), and re-spelling them means re-checking the `formatters` /
-        // `hiddenColumns` keys below, which are matched against a resolved token's own `fullKey()`.
+        // Built with the TYPED token builder rather than written as literals. These used to be camelCase
+        // strings, from a time when the server's `QueryLogic.getToken` was an exact Map lookup while
+        // `Type.token()` PascalCased — so a built token could not reach the server. `QueryToken.subToken`
+        // falls back to a case-insensitive match now, which makes the builder usable here, and the builder
+        // is what keeps a token spelled canonically (Signum's `DoneDate.HasValue`) and checked against a
+        // field rename.
         cb.configure(CaseActivityEntity)
-            .withQuerySettings(() => ({
+            .withQuerySettings(token => ({
                 defaultFilters: [
                     {
-                        token: "doneDate.HasValue", value: null,
+                        token: token(a => a.doneDate).hasValue(), value: null,
                         pinned: { active: "WhenHasValue", column: 1, label: "Is Done" },
                     },
                     {
-                        token: "workflowActivity.(WorkflowActivity)",
+                        token: token(a => a.workflowActivity).cast(WorkflowActivityEntity),
                         pinned: { active: "WhenHasValue", column: 2, label: () => WorkflowActivityEntity.niceName() },
                     },
                     {
-                        token: "workflowActivity.(WorkflowActivity).lane.pool.workflow",
+                        token: token(a => a.workflowActivity).cast(WorkflowActivityEntity).append(a => a.lane.pool.workflow),
                         pinned: { active: "WhenHasValue", column: 3 },
                     },
-                    { token: "case", pinned: { active: "WhenHasValue", column: 4 } },
+                    { token: token(a => a.case), pinned: { active: "WhenHasValue", column: 4 } },
                 ],
             }));
 
         // The Inbox. Its rows are InboxRowModel, so the tokens below are rooted at that MODEL, where
         // Signum's were rooted at CaseNotificationEntity (its projection reused the notification's member
-        // names). camelCase literals, as on the CaseActivity settings above.
+        // names).
+        //
+        // These tokens were camelCase literals too, and here that was not merely a spelling: a
+        // `hiddenColumns` / `rowAttributes` / `formatters` key is matched EXACTLY, against a column name
+        // the server echoes as the resolved token's own `fullKey()` — which is PascalCase, since
+        // `EntityPropertyToken.key` is `fieldInfo.name.firstUpper()`. So `"state"` never found the `State`
+        // column and none of the five formatters below ever matched. Spelling them canonically is what
+        // makes them fire at all.
         Finder.addSettings({
             queryName: InboxRowModel,
             hiddenColumns: [
-                { token: "state" },
+                { token: InboxRowModel.token(a => a.state) },
             ],
             rowAttributes: (row, sc) => {
-                const rowState = sc.tryGetRowValue(row, "state");
+                const rowState = sc.tryGetRowValue(row, InboxRowModel.token(a => a.state));
                 switch (rowState?.value as CaseNotificationState | undefined) {
                     case CaseNotificationState.New: return { className: "new-row" };
                     case CaseNotificationState.Opened: return { className: "opened-row" };
@@ -258,14 +266,18 @@ export namespace WorkflowClient {
                     default: return {};
                 }
             },
+            // KEYED BY `fullKey()`, so these five are the only tokens here that cannot be the typed
+            // builder — an object key is a string. They are PascalCase for the reason above, and a
+            // renamed field will not break them at compile time, so they are the one thing in this block
+            // to re-check after one.
             formatters: {
-                "activity": new Finder.CellFormatter(cell => <ActivityWithRemarksComponent data={cell} />, true),
-                "mainEntity": new Finder.CellFormatter(cell => <span>{cell?.toString()}</span>, true),
-                "actor": new Finder.CellFormatter(cell => <span>{cell?.toString()}</span>, true),
-                "sender": new Finder.CellFormatter(cell => cell && <span>{cell.toString()}</span>, true),
-                "workflow": new Finder.CellFormatter(cell => <span>{cell?.toString()}</span>, true),
+                "Activity": new Finder.CellFormatter(cell => <ActivityWithRemarksComponent data={cell} />, true),
+                "MainEntity": new Finder.CellFormatter(cell => <span>{cell?.toString()}</span>, true),
+                "Actor": new Finder.CellFormatter(cell => <span>{cell?.toString()}</span>, true),
+                "Sender": new Finder.CellFormatter(cell => cell && <span>{cell.toString()}</span>, true),
+                "Workflow": new Finder.CellFormatter(cell => <span>{cell?.toString()}</span>, true),
             },
-            defaultOrders: [{ token: "startDate", orderType: "Ascending" }],
+            defaultOrders: [{ token: InboxRowModel.token(a => a.startDate), orderType: "Ascending" }],
             simpleFilterBuilder: sfbc => {
                 const model = InboxFilter.extract(sfbc.initialFilterOptions);
 

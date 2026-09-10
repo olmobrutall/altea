@@ -68,8 +68,9 @@ like an omission.
 
 ## 2. Parity gaps whose stated reason had expired
 
-Three places where the comment's *reason* had expired. Two are now CLOSED; the third is a decision that
-still needs the app running.
+Three places where the comment's *reason* had expired. **All three are now CLOSED** — and the third turned
+out to be a live defect rather than a spelling preference, which is the argument for chasing an expired
+reason rather than just rewording it: the comment was wrong about *why*, and the code was wrong too.
 
 ### 2.1 ~~A `@notVisible` member is offered as a dynamic-view node~~ — FIXED
 
@@ -106,20 +107,45 @@ that exists only when its module happens to be installed is a worse contract tha
 No cycle: altea-dynamic's transitive closure is 14 packages and none of them reaches back to it. Verified in
 the running client — `globalModules` has 17 keys, `TreeClient` among them with its real members.
 
-### 2.3 altea-workflow's Finder tokens are camelCase literals
+### 2.3 ~~altea-workflow's Finder tokens are camelCase literals~~ — FIXED, and it was a live defect
 
-**`altea-workflow/client/WorkflowClient.tsx:218`** (the CaseActivity settings) and **`:243`** (the Inbox).
-The stated reason was that the server's `QueryLogic.getToken` was an exact Map lookup, so a PascalCase token
-could not reach it. `QueryToken.subToken` now falls back to a case-insensitive match
-(`altea/data/dynamicQuery/tokens/queryToken.ts:164`), so both spellings resolve on both tiers, and the
-canonical spelling is Signum's (`Case`, `DoneDate.HasValue`).
+The stated reason had expired: the server's `QueryLogic.getToken` was an exact Map lookup when those
+literals were written, and `QueryToken.subToken` falls back to a case-insensitive match now.
 
-I left the literals because the `formatters` and `hiddenColumns` keys beside them are matched against a
-resolved token's own `fullKey()`, so re-spelling the tokens means re-checking those keys — a browser check,
-not a comment edit.
+**Correcting it uncovered a bug rather than a spelling preference.** A `hiddenColumns`, `rowAttributes` or
+`formatters` key is matched EXACTLY — `formatters[qt.fullKey()]`,
+`resultTable.columns.indexOf(tokenName)` — against a column name the server echoes as the resolved token's
+own `fullKey()` (`queryServer.ts`: `columns: rt.columns.map(c => c.token.fullKey())`). That key is
+PascalCase, because `EntityPropertyToken.key` is `fieldInfo.name.firstUpper()`. So on the Inbox:
 
-**TODO:** re-spell the tokens to the canonical PascalCase and verify the Inbox's five cell formatters and its
-hidden `state` column still bind. Low risk, but it needs the app running.
+- the five cell formatters (`"activity"`, `"mainEntity"`, `"actor"`, `"sender"`, `"workflow"`) matched
+  nothing and never fired — including `ActivityWithRemarksComponent`, which is the remarks widget, not
+  decoration;
+- `rowAttributes` asked `tryGetRowValue(row, "state")` against a `State` column, got `undefined`, and fell
+  to `default: return {}` — so the Inbox had none of its per-state row colouring.
+
+Both blocks are built with the TYPED token builder now (`token(a => a.doneDate).hasValue()`,
+`InboxRowModel.token(a => a.state)`), which spells them canonically and checks them against a field rename.
+The five `formatters` keys are the exception and stay string literals — an object key is a string — so they
+are the one thing in that block to re-check after a rename, which their comment says.
+
+Verified by serialising every one of them through the real `tokenSequence` against the built output:
+`State`, `StartDate`, `Activity`, `MainEntity`, `Actor`, `Sender`, `Workflow`, `DoneDate.HasValue`,
+`WorkflowActivity.(WorkflowActivity)`, `WorkflowActivity.(WorkflowActivity).Lane.Pool.Workflow`, `Case`.
+
+**The same bug is in two more modules, unfixed** — found while confirming how the key is matched, and left
+alone because they are outside what was asked:
+
+- **`altea-alert/client/AlertsClient.tsx:68`** — `formatters: { "textField": textCellFormatter() }`. The
+  lookup is `TextField`, so an alert's text column is rendered by the default formatter.
+- **`altea-mailing-microsoft-graph/client/RemoteEmails/RemoteEmailsClient.tsx:137`** — `"subject"`, whose
+  formatter draws the paperclip icon and the read/unread weight. Dead for the same reason. Note its body
+  also calls `getRowValue(cfc.row, "hasAttachments")` / `"isRead"`, which THROWS on a miss — harmless only
+  because the formatter it sits in never runs.
+
+**TODO:** re-spell both. They are three-line changes of a verified defect; the reason to check rather than
+assume is that each query's columns must actually resolve to the PascalCase names (a manual query's row
+model, in the RemoteEmails case).
 
 ---
 
