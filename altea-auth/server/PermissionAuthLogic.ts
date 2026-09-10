@@ -16,12 +16,11 @@ import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { section, groupByRole, attrs, parseBool, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 
-// Port of Signum's PermissionAuthLogic (Rules/PermissionAuthLogic.cs) — the simplest authorization
-// dimension and the first full vertical slice of the engine (rules → per-role merge → IsAuthorized).
-// The rule-pack get/set (admin write) + XML surface are Phase 5.
+// Port of Signum.Authorization's Rules/PermissionAuthLogic.cs — see docs/port/Auth.md.
 //
-// altea divergences: the cache load + IsAuthorized are ASYNC (altea has no preloaded GlobalLazy); rules
-// are keyed by the permission's id. Merge = Union → any base allowed / Intersection → all base allowed.
+// The simplest authorization dimension: rules → per-role merge → isAuthorized, with no conditions. The
+// cache load and the check are ASYNC, rules are keyed by the permission's id, and the merge is Union →
+// any base allowed / Intersection → all base allowed.
 
 const mergeBool = (strategy: MergeStrategy, baseValues: boolean[]): boolean =>
     strategy === MergeStrategy.Union ? baseValues.some(x => x) : baseValues.every(x => x);
@@ -40,7 +39,7 @@ export class PermissionRulesCache {
         return computeAllowed<boolean>(roleKey, permissionId, this.rules, mergeBool, rk => this.graph.getDefaultAllowed(rk), this.computed, this.graph);
     }
 
-    // The value a role gets for a permission with NO explicit rule (Signum's AuthCache.GetAllowedBase):
+    // The value a role gets for a permission with NO explicit rule:
     // the merge of its direct parents' values, or the role default if it is a root role.
     getAllowedBase(permissionId: PrimaryKey, roleKey: string): boolean {
         const parents = this.graph.relatedTo(roleKey);
@@ -74,12 +73,12 @@ export namespace PermissionAuthLogic {
         PermissionLogic.registerContainer(BasicPermission);
 
         // The PermissionSymbol table and the per-role permission rules. The table holds the REGISTERED
-        // permissions (Signum's `SymbolLogic<PermissionSymbol>.Start(sb, () => RegisteredPermission)`),
+        // permissions,
         // not every declared one: see PermissionLogic for what that distinction buys and what it costs.
         SymbolLogic.start(sb, PermissionSymbol, () => PermissionLogic.registeredPermissions());
-        // No `withQuery()` — see TypeAuthLogic: Signum gives its rule tables no search page.
+        // No `withQuery()` — see TypeAuthLogic: a rule table has no search page.
         sb.include(RulePermissionEntity);
-        // Signum's `sb.GlobalLazy(rules, InvalidateWith(RulePermission, Role))`. globalLazy runs the factory
+        // globalLazy runs the factory
         // in ExecutionMode.global, so the RulePermission read is ungated (no explicit Disable needed).
         rulesLazy = sb.globalLazy(async () => new PermissionRulesCache(await loadRules(), await AuthLogic.roleGraph()),
             { invalidateWith: [RulePermissionEntity, RoleEntity] });
@@ -87,7 +86,7 @@ export namespace PermissionAuthLogic {
         AuthLogic.registerXmlImporter(importXml);
     }
 
-    // ---- AuthRules XML (Signum's PermissionCache.ExportXml / ImportXml) ------------------------
+    // ---- AuthRules XML ------------------------------------------------------------------------
     async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
         const permKey = new Map(SymbolLogic.symbols(PermissionSymbol).map(s => [String(s.id), s.key]));
         const byRole = groupByRole(await table(RulePermissionEntity).toArray() as RulePermissionEntity[]);
@@ -129,7 +128,7 @@ export namespace PermissionAuthLogic {
         return map;
     }
 
-    /** Signum's PermissionAuthLogic.IsAuthorized. No current role (anonymous / auth off) → allowed. */
+    /** No current role (anonymous / auth off) → allowed. */
     export async function isAuthorized(permission: PermissionSymbol): Promise<boolean> {
         const roleKey = AuthLogic.currentRoleKey();
         if (roleKey == null)
@@ -141,7 +140,7 @@ export namespace PermissionAuthLogic {
         return (await rulesLazy.value()).getAllowed(permission.id, roleKey);
     }
 
-    /** The role's effective allowed for a permission id (Signum's GetAllowed). No current role → allowed. */
+    /** The role's effective allowed for a permission id. No current role → allowed. */
     async function getAllowed(permissionId: PrimaryKey, roleKey: string): Promise<boolean> {
         return (await rulesLazy.value()).getAllowed(permissionId, roleKey);
     }

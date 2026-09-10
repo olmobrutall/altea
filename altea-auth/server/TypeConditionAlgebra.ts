@@ -34,7 +34,7 @@ class ParamReplacer extends ExpressionVisitor {
     }
 }
 
-// ---- boolean node tree (Signum's TypeConditionNode hierarchy) --------------------------------------
+// ---- boolean node tree -----------------------------------------------------------------------------
 
 abstract class Node {
     abstract constantValue(): boolean | undefined; // undefined = not constant
@@ -177,7 +177,7 @@ export function authFilterLambda(filter: AuthFilter, elementType: RuntimeType): 
 }
 
 // The raw per-condition boolean predicate as a LambdaExpression `(e) => <condition body>`, for the
-// retrieve-time additional binding (Signum's _typeConditions RegisterBinding). Unlike buildAuthFilter this
+// retrieve-time additional binding. Unlike buildAuthFilter this
 // is ONE condition, un-combined and un-negated — the binder folds it straight into the retrieval SELECT
 // (QueryBinder.withAdditionalBindings binds it against the entity). fromQuotedLambda already yields a
 // single-parameter lambda over `elementType`, so it needs no re-basing.
@@ -196,7 +196,7 @@ class ExprReplacer extends ExpressionVisitor {
 
 // Rebase a ROOT's AuthFilter onto a PART for a STANDALONE `table(Part)` query: navigate the Part's
 // back-reference chain up to the root (`part.<f1>.<f2>…`) and apply the root's condition there. So a Part
-// queried alone is restricted exactly as its root is (Signum's "apply the parent's TypeCondition when the
+// queried alone is restricted exactly as its root is ("apply the parent's TypeCondition when the
 // part is queried in isolation"); via-owner access never reaches here (the collection projection bypasses
 // the queryFilter marker). "all" → no filter; "none" → no row passes.
 export function rebasePartFilter(rootFilter: AuthFilter, partElementType: RuntimeType, chain: readonly string[]): LambdaExpression | undefined {

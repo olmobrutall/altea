@@ -15,8 +15,10 @@ import { AuthLogic } from "./AuthLogic";
 import { PermissionAuthLogic } from "./PermissionAuthLogic";
 import { PermissionLogic } from "./PermissionLogic";
 
-// Port of Signum.Authorization's SessionLog/SessionLogLogic.cs — open a row when a tracked user logs in,
-// close it when they log out. Both paths run with authorization DISABLED (Signum's `AuthLogic.Disable()` →
+// Port of Signum.Authorization's SessionLog/SessionLogLogic.cs — see docs/port/Auth.md.
+//
+// Open a row when a tracked user logs in, close it when they log out. Both paths run with authorization
+// DISABLED (
 // `ExecutionMode.global`): the log is the framework's own bookkeeping, not something the logging-in user
 // needs rights to write.
 //
@@ -25,8 +27,8 @@ import { PermissionLogic } from "./PermissionLogic";
 //    the framework or in Southwind calls it — so every row it writes keeps `sessionEnd` null,
 //    `sessionTimeOut` false and its `Duration` expression null forever. Three of the entity's six fields
 //    (and its one expression, and two of its default query columns) are therefore inert there. altea has
-//    the hook Signum lacks a call from, `AuthServer.userLoggingOut`, so the port keeps the method and adds
-//    the missing call — the same decision @altea/altea-help made for Signum's unreachable `HelpSearch`.
+//    the hook Signum lacks a call from, `AuthServer.userLoggingOut`, so the port keeps the method and
+//    adds the missing call.
 //  - `PermissionLogic.RegisterPermissions` has no counterpart (a declared `init()` symbol is picked up by
 //    the symbol synchronizer), and `PermissionAuthLogic.isAuthorizedForRole` is ASYNC here, which makes
 //    `roleTracked` / `sessionStart` / `sessionEnd` async too.
@@ -35,7 +37,7 @@ import { PermissionLogic } from "./PermissionLogic";
 //    UserTicketLogic's per-user sweep makes for the same reason).
 //  - `ExceptionLogic.DeleteLogs` is not ported: altea has no log-retention machinery, the note every other
 //    log-owning module carries.
-//  - `Clock.Now.TruncSeconds()` → the local `truncSeconds` (Signum's `[DateTimePrecisionValidator]` has no
+//  - both dates are truncated where they are assigned (the `truncSeconds` below: there is no
 //    altea counterpart — see data/SessionLog.ts).
 
 export namespace SessionLogLogic {
@@ -47,10 +49,9 @@ export namespace SessionLogLogic {
             return;
         started = true;
 
-        // Signum's `PermissionLogic.RegisterPermissions(SessionLogPermission.TrackSession)`.
         PermissionLogic.registerPermissions(SessionLogPermission.TrackSession);
 
-        // Signum's projection is (Entity, Id, User, SessionStart, SessionEnd, SessionTimeOut). altea's
+        // The default columns are a CLIENT setting, so the
         // server registration takes none (no QueryDescription), so those are CLIENT default columns — see
         // client/admin/AuthAdminClient.
         sb.include(SessionLogEntity).withQuery();
@@ -71,7 +72,7 @@ export namespace SessionLogLogic {
         return await PermissionAuthLogic.isAuthorizedForRole(SessionLogPermission.TrackSession, role.key());
     }
 
-    /** Signum's SessionStart(userHostAddress, userAgent) — open a row for the user now logging in. */
+    /** Open a row for the user now logging in. */
     export async function sessionStart(userHostAddress: string | null, userAgent: string | null): Promise<void> {
         const user = UserHolder.currentUserLite() as Lite<UserEntity> | null;
         if (user == null || !await roleTracked(AuthLogic.currentRoleLite()))
@@ -88,7 +89,7 @@ export namespace SessionLogLogic {
     }
 
     /**
-     * Signum's SessionEnd(user, timeOut) — close this user's most recent OPEN row.
+     * Close this user's most recent OPEN row.
      *
      * `timeOut` non-null means the session did not end when we noticed but that long ago, so the recorded
      * end is backdated and the row is flagged as a timeout. A logout passes null.
@@ -107,7 +108,7 @@ export namespace SessionLogLogic {
             //
             // The `thenByDescending(id)` is an altea addition, and it is not cosmetic: `sessionStart` is
             // truncated to SECONDS, so two logins in the same second are indistinguishable by it and
-            // Signum's single-key ordering then picks between them arbitrarily. Observed: the second
+            // and a single-key ordering then picks between them arbitrarily. Observed: the second
             // session was left permanently open because the tie resolved to the first, already-closed
             // row. Within one second the higher id IS the later row, so this makes "the latest row" mean
             // what it says.

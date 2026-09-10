@@ -3,22 +3,24 @@ import * as http from "node:http";
 import { URL } from "node:url";
 import { createLocalJWKSet, jwtVerify, type JSONWebKeySet, type JWTPayload } from "jose";
 
-// The OpenID Connect plumbing that Signum gets from `Microsoft.IdentityModel.Protocols.OpenIdConnect`
+// The OpenID Connect plumbing — see docs/port/AuthDirectory.md.
+//
+// What Signum gets from `Microsoft.IdentityModel.Protocols.OpenIdConnect`
 // (`ConfigurationManager<OpenIdConnectConfiguration>` + `JwtSecurityTokenHandler.ValidateToken`), which
 // both `Signum.Authorization.OpenID` and `Signum.Authorization.AzureAD` use identically:
 //
 //   1. fetch and CACHE a provider's discovery document (`/.well-known/openid-configuration`) and its JWKS;
 //   2. VALIDATE an id_token against that JWKS — signature, issuer, audience, lifetime.
 //
-// It lives in altea-auth (rather than being copy-pasted into the two modules, as Signum does) because it is
+// It lives here rather than being copy-pasted into the two modules, because it is
 // pure OIDC, carries no provider-specific knowledge, and both modules would otherwise duplicate it.
 //
 // altea divergences, documented inline:
 //  - `ConfigurationManager` (auto-refreshing, 12 h by default) becomes a small in-process cache keyed by
-//    the discovery endpoint with the same intent; `refreshDiscovery()` drops it (Signum's
+//    the discovery endpoint with the same intent; `refreshDiscovery()` drops it (the
 //    `RequestRefresh`).
 //  - HTTP is done with `node:https` / `node:http` rather than `fetch`, for ONE reason: OpenID's
-//    `avoidSSLVerify` (Signum's `DangerousAcceptAnyServerCertificateValidator`, needed against a
+//    `avoidSSLVerify` (needed against a
 //    self-signed dev Keycloak) is a per-REQUEST TLS setting, and Node's global `fetch` exposes no
 //    supported way to set it without an undici dispatcher. The same helper serves the token exchange,
 //    so a module never has to reach for a second HTTP client.
@@ -49,7 +51,7 @@ interface CachedDiscovery {
 
 export namespace OpenIdConnect {
 
-    /** Signum's `ConfigurationManager.AutomaticRefreshInterval` (12 h there). */
+    /** 12 h, as Signum's `AutomaticRefreshInterval` is. */
     export let refreshIntervalMs = 12 * 60 * 60 * 1000;
 
     const cache = new Map<string, CachedDiscovery>();
@@ -73,7 +75,7 @@ export namespace OpenIdConnect {
         return config;
     }
 
-    /** The provider's signing keys (Signum's `OpenIdConnectConfiguration.SigningKeys`), cached alongside. */
+    /** The provider's signing keys, cached alongside. */
     export async function getSigningKeys(discoveryEndpoint: string, options?: OpenIdHttpOptions): Promise<JSONWebKeySet> {
         const config = await getConfiguration(discoveryEndpoint, options);
         const entry = cache.get(discoveryEndpoint)!;
@@ -111,7 +113,7 @@ export namespace OpenIdConnect {
 
     /**
      * POST an `application/x-www-form-urlencoded` body and read the JSON response — the OAuth 2.0 token
-     * endpoint (Signum's `FormUrlEncodedContent` + `PostAsync`).
+     * endpoint.
      */
     export function postForm<T>(url: string, form: Record<string, string>, options?: OpenIdHttpOptions): Promise<T> {
         const body = new URLSearchParams(form).toString();

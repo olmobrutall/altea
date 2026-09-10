@@ -20,7 +20,9 @@ import { section, groupByRole, attrs, applyPerType, parseEnum, type AuthImportCt
 import type { AuthExportCtx } from "./AuthLogic";
 import { cleanTypeName } from "@altea/altea/data/registration";
 
-// Port of Signum's QueryAuthLogic (Rules/QueryAuthLogic.cs). The query dimension: a role's allowance per
+// Port of Signum.Authorization's Rules/QueryAuthLogic.cs — see docs/port/Auth.md.
+//
+// The query dimension: a role's allowance per
 // query is a 3-valued QueryAllowed (None → hidden/non-executable; EmbeddedOnly → embedded search only,
 // hidden from the full-screen search page; Allow → everywhere). Enforcement gate (`dqm_AllowQuery`):
 // `allowed === Allow || (allowed === EmbeddedOnly && !fullScreen)`. The server executes with
@@ -45,7 +47,7 @@ class QueryRulesCache {
         private readonly typeCache: TypeAuthLogic.TypeRulesCache,
     ) { }
 
-    // The value a role gets for a query with NO explicit rule anywhere in its graph. Signum's
+    // The value a role gets for a query with NO explicit rule anywhere in its graph. The
     // AutomaticUpgradeOfQueries (simplified): default-allowed role → Allow; else AUTO-UPGRADE to Allow when
     // the underlying entity TYPE is UI-readable for the role (queries follow type visibility); else None.
     private queryDefault(rootTypeId: PrimaryKey | undefined, roleKey: string): QueryAllowed {
@@ -90,7 +92,7 @@ export namespace QueryAuthLogic {
             { invalidateWith: [RuleQueryEntity, RuleTypeEntity, RoleEntity] });
         AuthLogic.registerXmlExporter(exportXml);
         AuthLogic.registerXmlImporter(importXml);
-        // The query-access gate (Signum's DynamicQueryContainer.AllowQuery). Called by queryServer with
+        // The query-access gate. Called by queryServer with
         // fullScreen:false → blocks only None.
         QueryLogic.assertQueryAllowedHook = async (queryName, fullScreen) => {
             if (!(await isQueryAllowed(queryName, fullScreen)))
@@ -131,7 +133,6 @@ export namespace QueryAuthLogic {
         return getAllowed(QueryLogic.getQueryEntity(queryName).id, rootTypeId(queryName), roleKey);
     }
 
-    /** Signum's dqm_AllowQuery predicate. */
     export async function isQueryAllowed(queryName: QueryName, fullScreen: boolean): Promise<boolean> {
         const a = await getQueryAllowed(queryName);
         return a === QueryAllowed.Allow || (a === QueryAllowed.EmbeddedOnly && !fullScreen);
@@ -233,7 +234,7 @@ export namespace QueryAuthLogic {
         invalidate();
     }
 
-    // ---- AuthRules XML (Signum's QueryCache.ExportXml / ImportXml) -----------------------------
+    // ---- AuthRules XML -----------------------------------------------------------------------
     async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
         const queryKey = new Map((await table(QueryEntity).toArray() as QueryEntity[]).map(q => [String(q.id), q.key]));
         const onType = (qk: string): string => {

@@ -290,3 +290,59 @@ role's answers onto the objects that already carry the type's nice names instead
 side-channel map; the extra fields come from an interface expansion in `data/Rules`, so core never sees
 them. The blob `buildMetadata` hands over is a fresh deep copy per request, so mutating it here cannot
 leak a role's allowances into the shared per-culture store.
+
+## SessionLog
+
+One row per login, opened on `/api/auth/login` and closed on `/api/auth/logout`; both paths run with
+authorization DISABLED. The app starts it.
+
+**`SessionEnd` is actually WIRED here, and in Signum it is dead code** — nothing in the framework and
+nothing in Southwind calls it, so every row it writes keeps `sessionEnd` null, `sessionTimeOut` false and
+its `Duration` expression null forever: three of the entity's six fields, its one expression and two of
+its five default query columns are inert there. altea has the hook Signum lacks a call from
+(`AuthServer.userLoggingOut`), so the port keeps the method and adds the missing call — the same decision
+altea-help made for Signum's unreachable `HelpSearch`.
+
+**The "latest session" ordering gains a tie-break on `id`.** Signum narrows with
+`.OrderByDescending(SessionStart).Take(1).Where(SessionEnd == null)` — "the latest row, and only if it is
+still open", deliberately not "the latest open row", which is kept exactly. But `sessionStart` is
+truncated to SECONDS, so two logins in the same second are indistinguishable by it and a single-key
+ordering picks between them arbitrarily. Observed while probing: the second session was left permanently
+open because the tie resolved to the first, already-closed row. Within one second the higher id IS the
+later row.
+
+**Which roles are recorded defaults the way round that is worth knowing.** The gate is an authorization
+CHECK, not an explicit grant: a role with no rule for `SessionLogPermission.TrackSession` inherits the
+role's own default, so an unrestricted role IS tracked as soon as the module starts, and it is a
+RESTRICTED role that must be granted the permission to appear. To record nobody, deny the permission — or
+do not start the module.
+
+`isAuthorizedForRole` is async, so `sessionStart` / `sessionEnd` are; both dates are truncated where they
+are assigned; and the ORDER BY + TOP `UnsafeUpdate` becomes select-then-update-by-id.
+
+## UserTicket
+
+One row per remembered device holding a random secret, exchanged for a normal auth token at boot. The app
+opts in, which is what makes the "Remember me" checkbox appear at all. Every path runs with authorization
+disabled.
+
+- **The cookie is `HttpOnly` + `SameSite=Lax` (+ `Secure` over https), where Signum's is
+  script-readable.** Signum leaves it readable only so its client can call `Cookies.get("sfUser")` and
+  skip a pointless `loginFromCookie` when there is no cookie; the price is a 60-day credential exposed to
+  any XSS. altea pays the one POST per anonymous boot instead — so there is no client-side cookie
+  read or remove, the endpoint answers null for "no cookie" and "dead cookie" alike, and the SERVER
+  clears it in that same response.
+- **`device` stores the User-Agent, not an IP.** Signum records `RemoteIpAddress` on the way in but
+  `LocalIpAddress` on the way out — the SERVER's own address — so every ticket it issues on the login path
+  records the same string, which cannot be what a column called Device is for.
+- `updateTicket` RETURNS the rotated ticket beside the user, where Signum takes a `ref string`; the parse
+  regex is NON-GREEDY on the id half, so a secret containing a `|` is not mis-split.
+- the "too many tickets" sweep is an ORDER BY + OFFSET DELETE in Signum; the bulk-DML terminal has no such
+  form, so the ids are selected first and deleted by id, over a set bounded by `maxTicketsPerUser`.
+
+**One Signum behaviour is MIRRORED rather than fixed, and is verified as such:** `updateTicket` leaves the
+SPENT row in place, so a presented ticket keeps working until a sweep removes it, and `maxTicketsPerUser`
+caps remembered LOGINS rather than devices. True single-use rotation would buy little — a thief who uses a
+stolen cookie is handed a fresh ticket either way, so the credential's real lifetime is
+`expirationInterval` regardless — and would cost robustness: a response lost in flight would leave the
+browser holding a dead cookie.

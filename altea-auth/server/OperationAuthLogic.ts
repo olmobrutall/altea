@@ -26,7 +26,9 @@ import { WithConditions, ConditionRule, evaluateConditions } from "./WithConditi
 import { mergeWithConditions } from "./TypeConditionMerger";
 import { TypeConditionLogic } from "./TypeConditionLogic";
 
-// Port of Signum's OperationAuthLogic (Rules/OperationAuthLogic.cs). The operation dimension: a role's
+// Port of Signum.Authorization's Rules/OperationAuthLogic.cs — see docs/port/Auth.md.
+//
+// The operation dimension: a role's
 // allowance per (operation, type) is a WithConditions<OperationAllowed> — a `fallback` + ordered type
 // CONDITION rules (each an AND-ed set of TypeConditionSymbols → an OperationAllowed), evaluated
 // last-match-wins against the operated ENTITY. OperationAllowed is 3-valued (None → blocked; DBOnly →
@@ -34,10 +36,10 @@ import { TypeConditionLogic } from "./TypeConditionLogic";
 // hook: `assertOperationAllowed` (execute-time, inUserInterface:false) throws when denied, and
 // `getEntityPack` omits UI-denied ops (inUserInterface:true).
 //
-// altea divergences: rules keyed by a composite `${operationId}/${typeId}` (Signum's (OperationSymbol,
-// Type) resource, flattened); async cache via `sb.globalLazy` + `computeAllowed`; the cross-role merge is
-// the generic 2^n condition merger. Construct / no-entity operations evaluate the `fallback` (no instance
-// to test conditions against).
+// Rules are keyed by a composite `${operationId}/${typeId}` — the (OperationSymbol, Type) resource,
+// flattened — the cache is async, and the cross-role merge is the generic 2^n condition merger. A
+// Construct, or any operation with no entity, evaluates the `fallback`: there is no instance to test
+// conditions against.
 const compositeKey = (operationId: PrimaryKey, typeId: PrimaryKey): string => `${String(operationId)}/${String(typeId)}`;
 
 const mergeOp = (strategy: MergeStrategy, baseValues: WithConditions<OperationAllowed>[]): WithConditions<OperationAllowed> =>
@@ -84,13 +86,13 @@ export namespace OperationAuthLogic {
         TypeAuthLogic.registerDimensionSummary("operations", fallbackSummary); // grid icon colour summary
         // No `withQuery()` — see TypeAuthLogic.
         sb.include(RuleOperationEntity);
-        // Signum's `sb.GlobalLazy(rules, InvalidateWith(RuleOperation, Role))`. globalLazy runs the factory
+        // globalLazy runs the factory
         // in ExecutionMode.global, so the RuleOperation read is ungated.
         rulesLazy = sb.globalLazy(async () => new OperationRulesCache(await loadRules(), await AuthLogic.roleGraph()),
             { invalidateWith: [RuleOperationEntity, RoleEntity] });
         AuthLogic.registerXmlExporter(exportXml);
         AuthLogic.registerXmlImporter(importXml);
-        // Signum's OperationLogic.AllowOperation += … : the execute/button-state authorization gate, now
+        // The execute / button-state authorization gate, now
         // condition-aware — the allowance is evaluated against the operated entity (fallback when absent).
         OperationLogic.onAllowOperation(async (symbol, entityType, inUserInterface, entity) => {
             const wc = await getAllowed(symbol.id, TypeLogic.typeToId(entityType));
@@ -144,7 +146,7 @@ export namespace OperationAuthLogic {
         return (await rulesLazy.value()).getAllowed(operationId, typeId, roleKey);
     }
 
-    // The value with NO explicit rule (Signum's AuthCache.GetAllowedBase).
+    // The value with NO explicit rule.
     async function getAllowedBase(operationId: PrimaryKey, typeId: PrimaryKey, roleKey: string): Promise<WithConditions<OperationAllowed>> {
         return (await rulesLazy.value()).getAllowedBase(operationId, typeId, roleKey);
     }
@@ -260,7 +262,7 @@ export namespace OperationAuthLogic {
         invalidate();
     }
 
-    // ---- AuthRules XML (Signum's OperationCache.ExportXml / ImportXml) -------------------------
+    // ---- AuthRules XML -------------------------------------------------------------------------
     async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
         const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
         const opKey = new Map(SymbolLogic.symbols(OperationSymbol).map(s => [String(s.id), s.key]));

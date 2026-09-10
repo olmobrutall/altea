@@ -16,14 +16,14 @@ export function evaluateConditions<A>(wc: WithConditions<A>, matches: (tc: TypeC
     return wc.fallback;
 }
 
-// Port of Signum's immutable runtime types WithConditions<A> / ConditionRule<A> (Rules/RulePackModels.cs).
+// Port of Signum's immutable WithConditions<A> / ConditionRule<A> (Rules/RulePackModels.cs).
 // A role's access to a type is not a single value but a `WithConditions<TypeAllowed>`: a `fallback` plus
 // an ORDERED list of condition rules, each a SET of TypeConditionSymbols (AND-ed) → an allowed value.
 // Evaluation is LAST-MATCH-WINS (iterate rules in reverse). These are value types (structural equality
 // over the condition sets), used for the cross-role merge cache and the in-memory instance evaluator.
 //
-// altea divergences: Signum's Min*/Max* are C# extension methods keyed on TypeAllowed's DB/UI split — here
-// they are free functions at the bottom. Signum interns instances (ConcurrentDictionary); altea skips the
+// The Min* / Max* bounds are free functions at the bottom, keyed on TypeAllowed's DB/UI split. Signum
+// INTERNS instances; this skips the
 // intern cache (equals/hash are still defined for the merge cache). `A` is a numeric enum, compared with
 // `===` (its runtime value is the number), so no per-A equality is needed.
 
@@ -36,7 +36,7 @@ function hashString(s: string): number {
     return h;
 }
 
-// Signum's ConditionRule<A> (a readonly struct with a FrozenSet<TypeConditionSymbol>). The symbol set is
+// The symbol set is
 // stored deduped + sorted by key so two rules with the same symbols in any order compare/hash equal.
 export class ConditionRule<A> {
     readonly typeConditions: readonly TypeConditionSymbol[];
@@ -94,7 +94,7 @@ export class WithConditions<A> {
     }
 }
 
-// ---- Min/Max bounds (Signum's TypeAllowAndConditionsExtensions) --------------------------------------
+// ---- Min/Max bounds ----------------------------------------------------------------------------------
 // The cheap short-circuit bounds the instance evaluator uses: scan the fallback + ALL condition rules
 // (ignoring which conditions apply) and take the numeric min/max of the requested (DB or UI) level.
 

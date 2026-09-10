@@ -35,7 +35,7 @@ import { cleanTypeName } from "@altea/altea/data/registration";
 // version tests `mce.Arguments[0] is ConstantExpression` twice, so its second branch is unreachable —
 // this is what the code plainly means.)
 
-/** The state the fold carries — Signum's FilterAuditorProjectorExpression. */
+/** The state the fold carries. */
 export interface FilterAuditorProjector {
     /** One row of the BASE table, or undefined when the shape is opaque. */
     readonly param: ParameterExpression | undefined;
@@ -47,7 +47,7 @@ export interface FilterAuditorProjector {
 
 const OPAQUE: FilterAuditorProjector = { param: undefined, projector: undefined, filters: [] };
 
-// Operators that change neither the row shape nor the filters (Signum's Distinct / Skip / Take / Order* /
+// Operators that change neither the row shape nor the filters (Distinct / Skip / Take / Order* /
 // DisableQueryFilter / OrderAlsoByKeys, plus altea's own projector-preserving ones).
 const PASS_THROUGH = new Set([
     "distinct", "skip", "top", "orderBy", "orderByDescending", "reverse", "orderAlsoByKeys",
@@ -77,7 +77,7 @@ function audit(node: Expression, baseQuery: Expression): FilterAuditorProjector 
     const property = node.func;
     const inner = audit(property.object, baseQuery);
 
-    // Signum's two early exits, IN THIS ORDER: an opaque source stays opaque, and a source whose PROJECTOR
+    // Two early exits, IN THIS ORDER: an opaque source stays opaque, and a source whose PROJECTOR
     // is gone keeps its filters but collects no more (the ordering is load-bearing — a `filter` after the
     // projector was lost must not be read as a filter on the base row).
     if (inner.param == null)
@@ -150,7 +150,7 @@ export function splitAnds(expression: Expression): Expression[] {
  * Resolve `<object literal>.member` to the member's own expression, so a
  * filter written over a PROJECTED shape is understood in terms of the base row:
  * `table(P).map(p => ({ c: p.country })).filter(x => x.c.name == "Germany")` has to read as a filter on
- * `p.country.name`. Signum also binds through anonymous types, tuples and groupings; in altea all of
+ * `p.country.name`. Signum also binds through anonymous types, tuples and groupings; here all of
  * those are the same ObjectExpression (a grouping projector is `{ key, elements }`), so one case covers it.
  */
 export function bindMembers(body: Expression): Expression {

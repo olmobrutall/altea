@@ -2,7 +2,9 @@ import { Temporal } from "@altea/altea/data/basics";
 import { UserTicketLogic } from "./UserTicketLogic";
 import type { UserEntity } from "../data/User";
 
-// Port of Signum.Authorization's UserTicket/UserTicketServer.cs — the HTTP half: put the ticket in a
+// Port of Signum.Authorization's UserTicket/UserTicketServer.cs — see docs/port/Auth.md.
+//
+// The HTTP half: put the ticket in a
 // cookie, and turn a returning browser's cookie back into a login.
 //
 // altea divergences, documented inline:
@@ -13,16 +15,16 @@ import type { UserEntity } from "../data/User";
 //    client can call `Cookies.get("sfUser")` and skip a pointless `loginFromCookie` request when there is
 //    no cookie; the cost is that a 60-day credential is exposed to any XSS on the page. altea pays the one
 //    request instead — `AuthClient.loginFromCookie` just calls the endpoint and reads `null` as "not
-//    remembered" — which also means the client never needs to REMOVE the cookie, so Signum's
+//    remembered" — which also means the client never needs to REMOVE the cookie, so the
 //    `Options.getCookie` / `removeCookie` pair has no counterpart: the server clears it, in the very
 //    response that failed. `SameSite=Lax` (it is a navigation credential, never a cross-site one) and
 //    `Secure` whenever the request arrived over https, so a dev host on http still works.
 //  - **`device` is the User-Agent, not an IP.** Signum stores `RemoteIpAddress` on the way in and
-//    `LocalIpAddress` on the way out — the latter is the SERVER's own address, so every ticket Signum
+//    `LocalIpAddress` on the way out — the latter is the SERVER's own address, so every ticket it
 //    issues records the same string, which cannot be what a column called Device is for. A User-Agent is
 //    what actually distinguishes the devices a person remembers, and it is what the search page shows.
 //    (It is truncated to the column's 200 chars by UserTicketLogic.)
-//  - `AuthServer.OnUserPreLogin` / `AddUserSession` are Signum seams altea does not have; the route in
+//  - `onUserPreLogin` / `addUserSession` have no counterpart here; the route in
 //    AuthServer does what altea does for every other login (set UserHolder, fire `userLogged`).
 
 // Minimal Express request/response shapes, the convention AuthServer establishes in this package
@@ -47,11 +49,11 @@ interface TicketResLike {
 }
 
 export namespace UserTicketServer {
-    /** Signum's OnCookieName / CookieName — overridable, so two apps on one host can coexist. */
+    /** Overridable, so two apps on one host can coexist. */
     export let cookieName = "sfUser";
 
     /**
-     * Signum's `SaveCookie` behind `OnSaveCookie` — replaceable, so a host can decide what "remember me"
+     * Replaceable, so a host can decide what "remember me"
      * means (a different store, a shorter interval, or nothing at all).
      */
     export let onSaveCookie: (req: TicketReqLike, res: TicketResLike) => Promise<void> = (req, res) => saveCookie(req, res);
@@ -80,7 +82,6 @@ export namespace UserTicketServer {
         res.cookie(cookieName, ticketText, { ...cookieOptions(req), expires: expiryDate() });
     }
 
-    /** Signum's RemoveCookie. */
     export function removeCookie(req: TicketReqLike, res: TicketResLike): void {
         res.clearCookie(cookieName, cookieOptions(req));
     }
@@ -90,7 +91,7 @@ export namespace UserTicketServer {
      * valid ticket, else null, having cleared the cookie so the next boot does not retry a dead one.
      *
      * The rotated ticket is written back in the SAME response, which is what makes a ticket one-use-ish
-     * (see UserTicketLogic's header for what Signum does and does not guarantee there).
+     * (see UserTicketLogic's header for what is and is not guaranteed there).
      */
     export async function loginFromCookie(req: TicketReqLike, res: TicketResLike): Promise<UserEntity | null> {
         const ticketText = readCookie(req, cookieName);
@@ -102,7 +103,7 @@ export namespace UserTicketServer {
             res.cookie(cookieName, ticket, { ...cookieOptions(req), expires: expiryDate() });
             return user;
         } catch {
-            // Signum's bare catch + RemoveCookie: a tampered, expired, revoked or simply unknown ticket
+            // A tampered, expired, revoked or simply unknown ticket
             // is not an error the caller can act on — it just means "not remembered any more".
             removeCookie(req, res);
             return null;

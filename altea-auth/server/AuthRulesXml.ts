@@ -4,7 +4,7 @@ import type { Replacements } from "@altea/altea/server/sync/synchronizer";
 import { TypeConditionSymbol } from "../data/Rules";
 
 // Shared helpers for the AuthRules XML import/export, used by each dimension's `exportXml` / `importXml`
-// (Signum's AuthCache.ExportXmlInternal / ImportXmlInternal). The per-dimension logics own their section's
+// — see docs/port/Auth.md. The per-dimension logics own their section's
 // row shape + how it applies; this module owns the mechanical bits (role grouping, section assembly, the
 // per-TYPE overlay loop, enum parsing) so they aren't repeated five times.
 
@@ -20,7 +20,7 @@ export const attrs = (o: Record<string, string | undefined>): Record<string, str
     return r;
 };
 
-// Group rule rows by their role key (Signum groups a dimension's rows per role).
+// Group rule rows by their role key.
 export function groupByRole<T extends { role: { key(): string } }>(rows: T[]): Map<string, T[]> {
     const m = new Map<string, T[]>();
     for (const r of rows) {
@@ -102,7 +102,7 @@ export function condLites(c: XmlCondition, ctx: AuthImportCtx): { id: PrimaryKey
 
 // Apply a per-TYPE dimension section (Query / Operation / Property): for each role, group its rows by target
 // type (the `OnType` attr, rename-applied) and by the row's identity key, then hand each type's rows to
-// `apply` (which fetches the pack, overlays, and saves). Mirrors Signum's per-type SetRules.
+// `apply` (which fetches the pack, overlays, and saves) — the per-type set-rules shape.
 export async function applyPerType(
     roleBlocks: XmlRoleBlock[] | undefined,
     elem: "Query" | "Operation" | "Property",

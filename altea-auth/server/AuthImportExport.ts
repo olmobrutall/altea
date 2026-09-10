@@ -8,18 +8,22 @@ import { RoleEntity, MergeStrategy } from "../data/Role";
 import { TypeConditionSymbol } from "../data/Rules";
 import { ATTR, attrs, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 
-// Port of Signum's AuthLogic ImportExport (AuthLogic.cs ExportRules / ImportRulesScript). One `<Auth>`
-// document — a `<Roles>` section this file owns + one section per dimension, each dimension owning its own
-// block via the `AuthLogic.registerXmlExporter` / `registerXmlImporter` handlers (Signum's ExportToXml /
-// ImportFromXml multicast events). This orchestrator writes `<Roles>`, assembles the document with
-// fast-xml-parser's XMLBuilder, and on import reconciles the role graph + resource RENAMES centrally
-// (Replacements), then fans out to each dimension's importer.
+// Port of the ExportRules / ImportRulesScript half of Signum.Authorization's AuthLogic.cs — see
+// docs/port/Auth.md.
 //
-// altea divergences from Signum's exact wire format (documented, unchanged from the previous port):
-//  - Operation/Query/Property rows carry an `OnType` attribute (altea keys those rules by (type, …)).
-//  - Property rows use `Resource` = the PropertyString path (no PropertyRouteEntity).
-//  - Import APPLIES directly (in the caller's transaction) via each dimension's verified set*RulePack,
-//    rather than emitting a review SqlPreCommand. Roles are NOT created (matched by name, rename-aware).
+// One `<Auth>` document: a `<Roles>` section this file owns plus one section per dimension, each
+// dimension registering its own block through `AuthLogic.registerXmlExporter` / `registerXmlImporter`.
+// This orchestrator writes `<Roles>`, assembles the document, and on import reconciles the role graph and
+// resource RENAMES centrally before fanning out to each dimension's importer.
+//
+// Divergences from Signum's exact wire format:
+//  - Operation / Query / Property rows carry an `OnType` attribute, because those rules are keyed by
+//    (type, …).
+//  - Property rows key on `Resource` = the PropertyString PATH, as Signum's do — the PropertyRouteEntity
+//    row is resolved from it.
+//  - Import APPLIES directly, in the caller's transaction, through each dimension's verified
+//    set*RulePack, rather than emitting a review script. Roles are NOT created — matched by name,
+//    rename-aware.
 export namespace AuthImportExport {
 
     export interface ImportResult {
@@ -53,7 +57,7 @@ export namespace AuthImportExport {
             }));
         }
 
-        // Each dimension contributes its section (Signum's ExportToXml handlers), ordered by section name.
+        // Each dimension contributes its section, ordered by section name.
         const auth: Record<string, unknown> = { Roles: roleObjs.length ? { Role: roleObjs } : {} };
         const sections = await Promise.all(AuthLogic.xmlExportersInOrder().map(e => e({ orderedRoleKeys, roleName })));
         for (const { name, content } of sections.sort((a, b) => a.name.localeCompare(b.name)))

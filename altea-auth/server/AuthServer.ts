@@ -18,12 +18,13 @@ import { UserTicketLogic } from "./UserTicketLogic";
 import { UserTicketServer } from "./UserTicketServer";
 import { SessionLogLogic } from "./SessionLogLogic";
 
-// Port of Signum's AuthServer + AuthController (AuthServer.cs + AuthController.cs) — the HTTP surface of
-// authentication: a per-request user-context middleware plus the /api/auth/* endpoints. The large
-// authorization-integration block of Signum's AuthServer.Start (Type/Property/Query/Operation/Permission
-// reflection extensions) belongs to Phases 4-5 and is intentionally absent here.
+// Port of Signum.Authorization's AuthServer.cs + AuthController.cs — see docs/port/Auth.md.
 //
-// SECURE BY DEFAULT (Signum's SignumAuthenticationFilter). Two cooperating pieces:
+// The HTTP surface of authentication: a per-request user-context middleware plus the /api/auth/*
+// endpoints. The role-filtering overlay on the reflection blob is installed from here too — see
+// AuthReflection.
+//
+// SECURE BY DEFAULT. Two cooperating pieces:
 //  1. A per-request `app.use` middleware opens a UserHolder scope and authenticates via the token
 //     authenticator chain (setting the current user when a valid token is present).
 //  2. An authorization gate installed via `setAuthorizeRequest` runs in every route wrapper AFTER
@@ -45,7 +46,7 @@ interface ReqLike { header(name: string): string | undefined; query: Record<stri
 interface ResLike { status(code: number): ResLike; json(body: unknown): void; end(): void; setHeader(name: string, value: string): void; }
 type NextLike = (err?: unknown) => void;
 
-/** Signum logs `re.Host.ToString()` — the request's Host header, i.e. the host it was addressed to. */
+/** The request's Host header — the host it was addressed to. */
 function hostOf(req: { header(name: string): string | undefined }): string | null {
     return req.header("host") ?? null;
 }
@@ -53,7 +54,7 @@ function hostOf(req: { header(name: string): string | undefined }): string | nul
 export namespace AuthServer {
     export let avoidExplicitErrorMessages = false;
 
-    // Signum's UserLoggingOut / UserPreLogin / UserLogged events (host hooks; SessionLog wires here later).
+    // Host hooks: SessionLog wires onto these.
     export const userLoggingOut: ((user: UserWithClaims | undefined) => void)[] = [];
     export const userLogged: ((user: UserEntity) => void)[] = [];
 
@@ -64,7 +65,7 @@ export namespace AuthServer {
         // The token-encryption key comes from AUTH_TOKEN_KEY unless one is passed explicitly; a dev
         // fallback is used with a warning (NEVER a real secret — set AUTH_TOKEN_KEY for anything but local
         // dev). Read here (rather than in the host) so wiring is self-contained: AuthLogic.start calls
-        // AuthServer.start(sb.webBuilder) when a web builder is present, like Signum's AuthServer.Start.
+        // AuthServer.start(sb.webBuilder) when a web builder is present.
         let key = encryptionKey ?? process.env["AUTH_TOKEN_KEY"];
         if (key == null || key === "") {
             key = "eastwind-dev-only-token-key";
@@ -82,14 +83,14 @@ export namespace AuthServer {
         AuthReflectionServer.install();
         AuthAdminServer.start(ws);
         // The shared BaseAD routes (find / import a directory user). Signum's ActiveDirectoryController
-        // lives in Signum.Authorization and is always discovered by ASP.NET, so it is always reachable;
+        // lives in the same assembly and is always discovered by ASP.NET, so it is always reachable;
         // altea registers it here for the same reason — and because a host may install BOTH a directory
         // module and none of them may own the route. With no `IDirectoryInviter` authorizer set the routes
         // answer a clear error, and the permission gate answers false.
         ActiveDirectoryServer.start(ws);
     }
 
-    // Signum's SignumAuthenticationFilter authorization check (the AllowAnonymous / anonymous-user
+    // The authorization check (the allowAnonymous / anonymous-user
     // resolution having already run in the middleware). Runs inside the request's user scope.
     function authorizeGate(meta: HttpMeta): void {
         if (!meta.allowAnonymous && UserHolder.current() == null)
@@ -158,17 +159,16 @@ export namespace AuthServer {
                 UserHolder.setCurrent(new UserWithClaims(user));
                 for (const fn of userLogged) fn(user);
 
-                // Signum hooks SessionLog onto its own `UserLogged` event (AuthServer.cs, guarded by
+                // SessionLog hangs off the `userLogged` event (guarded by
                 // `SessionLogLogic.IsStarted`). altea calls it here for the same reason it is a call and not
                 // a subscription: the row wants the REQUEST (host + user agent), which the event does not
                 // carry. Awaited, so a login cannot outrun its own log row.
                 if (SessionLogLogic.isStarted())
                     await SessionLogLogic.sessionStart(hostOf(req), req.header("user-agent") ?? null);
 
-                // Signum's `if (data.rememberMe == true) UserTicketServer.OnSaveCookie(...)`. Silently a
-                // no-op when @altea/altea-auth's UserTicket half was never started (the app did not call
-                // UserTicketLogic.start), exactly as Signum's would be: the checkbox is a client concern,
-                // and a login must not fail because the server does not remember devices.
+                // Silently a NO-OP when the UserTicket half was never started (the app did not call
+                // UserTicketLogic.start): the checkbox is a client concern, and a login must not fail
+                // because the server does not remember devices.
                 if (data.rememberMe === true && UserTicketLogic.isStarted())
                     await UserTicketServer.onSaveCookie(req, res);
 
@@ -182,7 +182,7 @@ export namespace AuthServer {
             async (_req, res) => {
                 const current = UserHolder.current();
                 if (current == null) { res.jsonTyped(null); return; }
-                // Signum's `result.Is(AuthLogic.AnonymousUser) ? null : result.Retrieve()`. With an anonymous
+                // With an anonymous
                 // user configured, EVERY unauthenticated request has a current user — this one — and the
                 // client must not read that as "logged in": `AppContext.currentUser` is what decides whether
                 // the admin bundle loads, and `Home` sends a visitor with no user to the public catalog.
@@ -280,13 +280,13 @@ export namespace AuthServer {
     }
 }
 
-// Signum's UserEntity.OnValidatePassword (min 5 chars). Kept here for now (a UserEntity.validatePassword
+// Minimum 5 characters. Kept here for now (a UserEntity.validatePassword
 // hook can host it later).
 function validatePassword(password: string): string | null {
     return password.length >= 5 ? null : LoginAuthMessage.ThePasswordMustHaveAtLeast0Characters.niceToString(5);
 }
 
-// Signum's AuthController exception → field-error mapping (respecting AvoidExplicitErrorMessages).
+// The exception → field-error mapping (respecting avoidExplicitErrorMessages).
 function loginError(res: ResLike, e: unknown, userName: string): void {
     if (AuthServer.avoidExplicitErrorMessages)
         return modelError(res, "login", LoginAuthMessage.InvalidUsernameOrPassword.niceToString());
@@ -308,7 +308,7 @@ function isEmpty(s: string | undefined | null): boolean {
 }
 
 // Flat ModelState (field → message), the shape the client's ThrowErrorFilter turns into a
-// ValidationError. altea's ModelState is ONE string per field (not Signum's string[]), matching
+// ValidationError. The ModelState is ONE string per field, matching
 // webApi's res.modelState / the exceptionFilter's IntegrityCheck body.
 function modelError(res: ResLike, field: string, message: string): void {
     res.status(400).json({ [field]: message });

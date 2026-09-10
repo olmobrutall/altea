@@ -9,10 +9,12 @@ import { LoginAuthMessage } from "../data/AuthMessages";
 import { BaseADConfigurationEmbedded, ActiveDirectoryAuthorizerMessage } from "../data/BaseAD";
 import { AuthLogic, type ICustomAuthorizer } from "./AuthLogic";
 
-// Port of Signum's directory-authorizer BASE: the parts that `AzureADAuthorizer`, `OpenIDAuthorizer` and
-// `WindowsADAuthorizer` (Signum.Authorization.*/Authorizer/*.cs) implement IDENTICALLY — matching a
+// The directory-authorizer BASE — see docs/port/AuthDirectory.md.
+//
+// The parts that `AzureADAuthorizer`, `OpenIDAuthorizer` and `WindowsADAuthorizer` implement IDENTICALLY:
+// matching a
 // directory identity to a local user, creating one, refreshing one, and resolving its role from the
-// configured group→role mapping. Signum copy-pastes ~120 lines into each of the three; altea factors them
+// configured group→role mapping. Signum copy-pastes ~120 lines into each of the three; they are factored
 // into `ADAuthorizer` and leaves each module only what genuinely differs.
 //
 // The ONE thing that differs is HOW the directory reports a user's groups, so that is the single overridable
@@ -20,7 +22,7 @@ import { AuthLogic, type ICustomAuthorizer } from "./AuthLogic";
 // role fallback, the "external identity clears the local password" rule — is shared.
 //
 // altea divergences, documented inline:
-//  - `IAutoCreateUserContext` is an INTERFACE with plain readonly members (Signum's C# properties). Each
+//  - `IAutoCreateUserContext` is an INTERFACE with plain readonly members. Each
 //    module's context object implements it; nothing is virtual, so a subclass simply supplies its own.
 //  - `OperationLogic.AllowSave<UserEntity>()` has no counterpart (altea has no RequiresSaveOperation
 //    guard): `AuthLogic.withDisabled` + `ExecutionMode.global` IS the trusted scope.
@@ -29,7 +31,7 @@ import { AuthLogic, type ICustomAuthorizer } from "./AuthLogic";
 //    on the user (see data/User.ts), and the user's culture lives in the BROWSER (see CLAUDE.md).
 //  - `new Transaction()` becomes `Transaction.create` (join-or-open — the same semantics).
 
-/** Signum's `ExternalUser` (ICustomAuthorizer.cs) — one hit from a directory search. */
+/** One hit from a directory search. */
 export interface ExternalUser {
     displayName: string;
     /** userPrincipalName / the directory's login name. */
@@ -67,7 +69,7 @@ export function isDirectoryInviter(value: unknown): value is IDirectoryInviter {
 }
 
 /**
- * The shared half of Signum's three `*ADAuthorizer` classes. A module subclasses it, supplies its
+ * The shared half of the three `*ADAuthorizer` classes. A module subclasses it, supplies its
  * configuration and (optionally) the directory-group lookup, and overrides `login` only if it can
  * authenticate against the directory itself (WindowsAD's LDAP bind is the only one that can).
  */
@@ -84,7 +86,7 @@ export abstract class ADAuthorizer<TConfig extends BaseADConfigurationEmbedded> 
 
     /**
      * The groups the directory reports for this identity, or null when the module cannot ask (in which
-     * case only `defaultRole` applies). Signum's three implementations: Microsoft Graph
+     * case only `defaultRole` applies). The three implementations: Microsoft Graph
      * `transitiveMemberOf`, the OIDC role claim, and `UserPrincipal.GetGroups`.
      */
     protected getDirectoryGroups(_ctx: IAutoCreateUserContext): Promise<DirectoryGroup[] | null> {
@@ -94,7 +96,7 @@ export abstract class ADAuthorizer<TConfig extends BaseADConfigurationEmbedded> 
     /**
      * The roles reached by the matching `roleMapping` entries, several matches merged
      * into one trivial-merge role, else `defaultRole`. A `roleMapping` entry matches a group by DISPLAY
-     * NAME or by ID (Signum tries `Guid.TryParse` on the mapping value and compares both).
+     * NAME or by ID — a mapping value that parses as a guid is compared both ways.
      */
     async getRole(ctx: IAutoCreateUserContext, throwIfNull: boolean): Promise<Lite<RoleEntity> | null> {
         const config = ctx.config;
@@ -136,7 +138,6 @@ export abstract class ADAuthorizer<TConfig extends BaseADConfigurationEmbedded> 
         });
     }
 
-    /** Signum's `CreateUserInternal`. */
     async createUserInternal(ctx: IAutoCreateUserContext): Promise<UserEntity> {
         const result = UserEntity.create({
             userName: ctx.userName,
@@ -188,7 +189,7 @@ export abstract class ADAuthorizer<TConfig extends BaseADConfigurationEmbedded> 
      * authenticated the caller (Signum repeats it verbatim in `AzureADAuthenticationServer`,
      * `OpenIDAuthenticationServer` and `WindowsADServer`).
      *
-     * Match order (Signum's): `externalId`, then exact `userName`, then — only when
+     * Match order: `externalId`, then exact `userName`, then — only when
      * `allowMatchUsersBySimpleUserName` and the directory name looks like an address — `email` or the
      * local part before the "@".
      */

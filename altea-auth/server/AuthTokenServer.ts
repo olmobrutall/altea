@@ -11,20 +11,18 @@ import { RoleEntity } from "../data/Role";
 import { LoginAuthMessage } from "../data/AuthMessages";
 import { encodeHash } from "./AuthLogic";
 
-// Port of Signum's AuthTokenServer (AuthToken/AuthTokensServer.cs). An OPAQUE bearer token: a JSON
-// payload → AES-CBC (key = MD5(encryptionKey), random IV prepended) → base64. The client stores it and
-// echoes it as `Authorization: Bearer <token>`; the server refreshes it periodically (New_Token header).
+// Port of Signum.Authorization's AuthToken/AuthTokensServer.cs — see docs/port/Auth.md.
 //
-// altea divergences, documented inline:
-//  - No Deflate compression around the JSON (Signum compresses; correctness-neutral, dropped for
-//    simplicity). Still AES-CBC + IV-prefix + base64, byte-format otherwise as Signum.
-//  - The payload is a COMPACT hand-rolled shape (user/role id + toStr + passwordHash + creationDate),
-//    not the full entity Serializer graph — enough to rebuild a UserWithClaims and detect a password
-//    change. `Lite<IUserEntity>` is rebuilt as a plain LiteImp. It DOES carry the claims bag, as Signum's
-//    `AuthToken.Claims` does: a claim is filled from the full user, which only the login and the refresh
-//    ever hold, so a claim that did not ride along would exist for one request and vanish.
-//  - The authenticator CHAIN is exposed as a seam (`authenticators`) exactly like Signum, so the
-//    deferred UserTicket / AD authenticators can be appended later.
+// An OPAQUE bearer token: a JSON payload → AES-CBC (key = MD5 of the encryption key, random IV
+// prepended) → base64. The client stores it and echoes it as `Authorization: Bearer <token>`; the server
+// refreshes it periodically through a New_Token header.
+//
+// The payload is a COMPACT hand-rolled shape — user / role id + toStr + passwordHash + creationDate —
+// rather than a full serialized graph: enough to rebuild a UserWithClaims and detect a password change.
+// It DOES carry the claims bag, and must: a claim is filled from the FULL user, which only the login and
+// the refresh ever hold, so a claim that did not ride along would exist for one request and then vanish.
+//
+// No Deflate around the JSON (correctness-neutral); the byte format is otherwise Signum's.
 
 interface TokenPayload {
     u: PrimaryKey;          // user id
@@ -40,7 +38,7 @@ export interface AuthTokenConfiguration {
     refreshTokenEveryMinutes: number;
 }
 
-// One authenticator in the chain (Signum's SignumAuthenticationFilter.Authenticators). Returns the
+// One authenticator in the chain. Returns the
 // resolved user, `undefined` to fall through to the next, or throws to reject the request.
 export type Authenticator = (req: AuthRequestLike, res: AuthResponseLike) => Promise<UserWithClaims | undefined>;
 
@@ -65,7 +63,7 @@ export namespace AuthTokenServer {
     export let configuration: AuthTokenConfiguration = { refreshTokenEveryMinutes: 30 };
     export const authHeader = "Authorization";
 
-    // The authenticator chain (Signum's Authenticators). TokenAuthenticator is the only built-in for
+    // The authenticator chain. TokenAuthenticator is the only built-in for
     // now; anonymous / allow-anonymous handling lives in the AuthServer middleware (permissive).
     export const authenticators: Authenticator[] = [];
 
@@ -83,7 +81,6 @@ export namespace AuthTokenServer {
         return Temporal.Now.plainDateTimeISO().subtract({ minutes: configuration.refreshTokenEveryMinutes });
     }
 
-    // Signum's CreateToken(user).
     // A base64 fingerprint of the user's stored password hash (now raw binary bytes), embedded in the
     // token so a password change invalidates outstanding tokens.
     function phFingerprint(user: UserEntity): string | null {
@@ -99,7 +96,7 @@ export namespace AuthTokenServer {
             rt: role?.toString() ?? null,
             ph: phFingerprint(user),
             c: Temporal.Now.plainDateTimeISO().toString(),
-            // Signum's `AuthToken.Claims`. Every claim a module derived from the full user rides along, so
+            // Every claim a module derived from the full user rides along, so
             // a LATER request — which only ever decodes this token — sees the same bag the login did.
             // Without it a claim existed for exactly one request and `EmployeeEntity.current()` answered
             // null for the rest of the session. `Serializer.stringify`, not JSON: a claim is typically a
@@ -156,7 +153,7 @@ export namespace AuthTokenServer {
     function toUserWithClaims(token: TokenPayload): UserWithClaims {
         const userLite = UserEntity.newLite(token.u, token.ut) as unknown as Lite<IUserEntity>;
 
-        // Signum's `AuthToken.ToUserWithClaims()`. The Role fallback covers a token minted before the bag
+        // The Role fallback covers a token minted before the bag
         // was carried (an open session across a deploy): rebuilding it from the id/toString the payload has
         // always had keeps that session working until its next refresh.
         const claims = token.cl != null
@@ -204,5 +201,5 @@ export namespace AuthTokenServer {
     }
 }
 
-// re-exported for symmetry with Signum's PasswordEncoding boundary use.
+// re-exported for symmetry.
 export { encodeHash };

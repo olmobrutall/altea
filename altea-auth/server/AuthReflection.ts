@@ -31,7 +31,7 @@ export namespace AuthReflectionServer {
 
             // ---- Queries ---------------------------------------------------------------------------
             // Drop the queries the role may not see. The query dimension already COERCES a no-rule query
-            // to its root type's UI-read allowance (Signum's AutomaticUpgradeOfQueries), so honouring type
+            // to its root type's UI-read allowance, so honouring type
             // authorization falls out transitively — there is no separate TypeAuthLogic pass here.
             if (QueryAuthLogic.isStarted()) {
                 const queryNames = QueryLogic.queries.getQueryNames();
@@ -45,7 +45,7 @@ export namespace AuthReflectionServer {
             }
 
             // ---- Types -----------------------------------------------------------------------------
-            // The role's coarse MAX UI-read allowance per type (Signum's TypeInfo.maxTypeAllowed). Only
+            // The role's coarse MAX UI-read allowance per type. Only
             // RESTRICTED types (< Write) are stamped; the client treats an absent value as unrestricted.
             if (TypeAuthLogic.isStarted()) {
                 for (const [ctor] of Connector.current().schema.tables) {
@@ -55,7 +55,7 @@ export namespace AuthReflectionServer {
                     const maxUI = await TypeAuthLogic.maxTypeAllowedUI(typeId, roleKey);
                     if (maxUI < TypeAllowedBasic.Write) {
                         const tm = meta.types[ctor.name];
-                        // Coarse, like Signum's single-valued blob entry: min == max == the shipped value.
+                        // COARSE: min == max == the shipped value.
                         if (tm != null) { tm.minTypeAllowed = maxUI; tm.maxTypeAllowed = maxUI; }
                     }
                 }

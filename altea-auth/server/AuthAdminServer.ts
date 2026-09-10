@@ -8,10 +8,12 @@ import { PropertyAuthLogic } from "./PropertyAuthLogic";
 import { TypeRulePack, PermissionRulePack, OperationRulePack, QueryRulePack, PropertyRulePack } from "../data/Rules";
 import { RoleEntity } from "../data/Role";
 
-// Port of Signum's AuthAdminController (Rules/*Controller) — the rule-pack admin endpoints the
+// Port of Signum.Authorization's Rules/*Controller — see docs/port/Auth.md.
+//
+// The rule-pack admin endpoints the
 // AuthAdminClient calls. The packs are reflected entity graphs (ModelEntity subclasses), so the route
 // declares them by their CONSTRUCTOR (req/res: TypeRulePack) — the WebBuilder resolves a bare class to
-// an entity payload and (de)serializes it via the entity Serializer, exactly like Signum. No CustomType
+// an entity payload and (de)serializes it through the entity Serializer. No CustomType
 // is needed for a BaseEntity type; CustomType stays only for the plain `{ roleId }` params shape.
 // Secure-by-default (no allowAnonymous) — a logged-in user is required; a tighter BasicPermission.AdminRules
 // check can be added once permission enforcement is wired.
@@ -50,7 +52,7 @@ export namespace AuthAdminServer {
                 res.status(204).end();
             });
 
-        // GET the operation rule pack for a (type, role) — PER-TYPE, like Signum. Every operation of the
+        // GET the operation rule pack for a (type, role) — PER-TYPE. Every operation of the
         // type + the role's allowed/allowedBase.
         ws.get("/api/authAdmin/operationRules/:typeName/:roleId",
             { params: CustomType<{ typeName: string; roleId: string }>(), res: OperationRulePack },
@@ -106,7 +108,7 @@ export namespace AuthAdminServer {
                 res.json(TypeAuthLogic.ownedPartClosure(req.params.typeName));
             });
 
-        // Export ALL auth rules as a Southwind-style AuthRules.xml download (Signum's AuthAdminController
+        // Export ALL auth rules as a Southwind-style AuthRules.xml download (the AuthAdminController
         // ExportRules). Import is a terminal operation (renames need a console / an AutoReplacement), so no
         // upload endpoint — see the eastwind terminal `import-auth`.
         ws.get("/api/authAdmin/downloadAuthRules",

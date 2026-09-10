@@ -16,8 +16,10 @@ import { UserEntity, UserState } from "../data/User";
 import { UserTicketEntity, parseTicket } from "../data/UserTicket";
 import { AuthLogic } from "./AuthLogic";
 
-// Port of Signum.Authorization's UserTicket/UserTicketLogic.cs — issue, rotate and revoke the long-lived
-// "remember me" secrets. Every path runs with authorization DISABLED (Signum's `AuthLogic.Disable()` →
+// Port of Signum.Authorization's UserTicket/UserTicketLogic.cs — see docs/port/Auth.md.
+//
+// Issue, rotate and revoke the long-lived "remember me" secrets. Every path runs with authorization
+// DISABLED (
 // altea's `ExecutionMode.global`), because the caller is by definition not logged in yet.
 //
 // altea divergences, documented inline:
@@ -27,7 +29,7 @@ import { AuthLogic } from "./AuthLogic";
 //  - `ref string ticket` → `updateTicket` RETURNS the rotated ticket beside the user (TS has no ref/out).
 //  - `new Transaction()` + `tr.Commit(x)` → `Transaction.create(async () => x)`.
 //  - `UnsafeDelete()` → `executeDelete()`, except the "too many tickets" sweep, which does not translate
-//    as Signum writes it — see cleanExpiredTickets.
+//    see cleanExpiredTickets.
 //  - `UserGraph.OnDeactivated` has no counterpart: altea's user state machine lives in AuthLogic, and
 //    Signum's own AutoDeactivate branch bypasses that event and calls `RemoveTickets` directly anyway. So
 //    both operations reach `removeTickets` through one slot AuthLogic owns — filled in `start`.
@@ -64,7 +66,7 @@ export namespace UserTicketLogic {
             return;
         started = true;
 
-        // Signum passes a projection here (Id / User / Ticket / ConnectionDate / Device); altea has no
+        // The default columns are a CLIENT setting, so there is no
         // QueryDescription, so the server registration takes none and those five are CLIENT default
         // columns (see client/AuthClient's cb.configure for UserTicketEntity).
         sb.include(UserTicketEntity).withQuery();
@@ -92,9 +94,9 @@ export namespace UserTicketLogic {
      * Otherwise "change my password because it leaked" would leave whoever holds the old cookie logged in
      * for the next 60 days, which is the one thing a password change must not do.
      *
-     * altea divergence: Signum compares `user.InDB(u => u.PasswordHash)` with the in-memory hash, both
+     * The stored hash is compared with the in-memory one, both
      * `EmptyIfNull()`-ed. altea's `passwordHash` is a binary column (a `Uint8Array`), so the comparison is
-     * byte-wise. The `isNew` / dirty gate is Signum's `!user.IsNew && user.IsGraphModified`.
+     * byte-wise, behind an `isNew` / dirty gate.
      */
     async function onUserSaving(user: UserEntity): Promise<void> {
         if (user.isNew || !user.isDirty())
@@ -221,7 +223,7 @@ export namespace UserTicketLogic {
             await table(UserTicketEntity).filter(ut => ut.user.is(user)).executeDelete());
     }
 
-    // Signum stores `Device` behind a 200-char validator and passes an IP address, which always fits.
+    // A 200-char column, and a User-Agent can exceed it where the IP address Signum stores never would.
     // altea passes the User-Agent when there is nothing better (see UserTicketServer), which does NOT
     // always fit — and a validator failure here would turn "remember me" into a failed login.
     function truncateDevice(device: string): string {
