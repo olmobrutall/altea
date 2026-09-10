@@ -27,6 +27,13 @@ Each source file keeps one pointer line naming its C# original and the page here
 **A rule that is only true in legacy mode is a different case**: there, Signum's behaviour IS the
 specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inventories those.
 
+## Loose ends
+
+Writing these pages meant reading every `Signum` reference in the workspace, which surfaced claims that had
+stopped being true, gaps whose stated reason had expired, and one reachable `throw` behind a TODO whose
+blockers had all landed. **[OpenQuestions.md](OpenQuestions.md)** collects those, with the open decisions
+each one leaves. Read it before acting on a "not ported" or "not yet" note anywhere in the tree.
+
 ## Pages
 
 | Page | Module |
