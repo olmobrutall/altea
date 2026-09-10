@@ -1,0 +1,19 @@
+{
+  // TEST layer — DB-FREE. The Graph query converter is pure given a QueryToken, and it is the one part of
+  // this module that cannot be checked any other way without a tenant: the `$select` / `$filter` /
+  // `$orderby` strings it builds only fail against the live API. So the field NAMES are pinned here.
+  //
+  // It covers the base converter (altea-auth-azuread's) as well, since the message one extends it.
+  "extends": "../altea/presets/server.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.server.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" }
+  ]
+}

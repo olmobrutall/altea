@@ -63,7 +63,7 @@ export namespace RemoteEmailsClient {
             name: "EmailAddress",
             applicable: (qt: QueryToken) => qt.filterType === "Embedded" && qt.type.getTypeName() === RecipientEmbedded.typeName,
             execute: async (qt: QueryToken, value: unknown, sc: SearchControlLoaded) => {
-                const token = await sc.parseSingleFilterToken(qt.fullKey() + ".emailAddress");
+                const token = await sc.parseSingleFilterToken(qt.fullKey() + ".EmailAddress");
                 return sc.addQuickFilter(token, "EqualTo", (value as RecipientEmbedded | undefined)?.emailAddress);
             },
         });
@@ -94,7 +94,7 @@ export namespace RemoteEmailsClient {
         // The User filter is a real entity picker (no autocomplete over a directory), …
         Finder.filterValueFormatRules().push({
             name: "User",
-            applicable: (f: FilterOptionParsed) => isFilterCondition(f) && f.token?.fullKey() === "user" && f.operation === "EqualTo",
+            applicable: (f: FilterOptionParsed) => isFilterCondition(f) && f.token?.fullKey() === "User" && f.operation === "EqualTo",
             renderValue: (f: FilterOptionParsed, ffc: Finder.FilterFormatterContext) =>
                 <EntityLine ctx={ffc.ctx} create={false} label={ffc.label} mandatory={ffc.mandatory}
                     onChange={() => ffc.handleValueChange(f)} />,
@@ -116,17 +116,18 @@ export namespace RemoteEmailsClient {
         Finder.addSettings({
             queryName: RemoteEmailMessageRowModel,
             allowCreate: false,
-            markRowsColumn: "messageId",
+            // Matched against a column name EXACTLY (`resultTable.columns.indexOf`), so PascalCase.
+            markRowsColumn: RemoteEmailMessageRowModel.token(a => a.messageId).token,
             // Pinned and ALWAYS active: the query cannot run without a user (see the row model's note).
             defaultFilters: [
-                { token: "user", value: AppContext.currentUser, pinned: { active: "Always" } },
+                { token: RemoteEmailMessageRowModel.token(a => a.user), value: AppContext.currentUser, pinned: { active: "Always" } },
             ],
             // Read by the formatters / row actions, not shown.
             hiddenColumns: [
-                { token: "user" },
-                { token: "messageId" },
-                { token: "hasAttachments" },
-                { token: "isRead" },
+                { token: RemoteEmailMessageRowModel.token(a => a.user) },
+                { token: RemoteEmailMessageRowModel.token(a => a.messageId) },
+                { token: RemoteEmailMessageRowModel.token(a => a.hasAttachments) },
+                { token: RemoteEmailMessageRowModel.token(a => a.isRead) },
             ],
             onDoubleClick: (_e, row, _columns, sc) => void openMessage(row, sc!),
             entityFormatter: new Finder.EntityFormatter(ctx => (
@@ -428,7 +429,7 @@ export interface EmailResult {
  */
 function userFilterValue(filters: FilterOptionParsed[]): Lite<UserEntity> | undefined {
     for (const f of filters)
-        if (isFilterCondition(f) && f.token?.fullKey() === "user" && f.operation === "EqualTo")
+        if (isFilterCondition(f) && f.token?.fullKey() === "User" && f.operation === "EqualTo")
             return f.value as Lite<UserEntity>;
 
     return undefined;

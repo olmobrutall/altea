@@ -18,10 +18,15 @@ import { AzureADMessage } from "../data/AzureAD";
 // which is what makes both usable at once.
 //
 // altea divergences, documented inline:
-//  - `token.Follow(a => a.Parent).Reverse().ToString(a => a.Key.FirstLower(), "/")` loses the FirstLower:
-//    altea's token keys are ALREADY camelCase (see CLAUDE.md), so lowering the first letter again would
-//    turn `onPremisesExtensionAttributes` into itself but `Id` — which altea never produces — into `id`.
-//    Walking parents and joining with "/" is the whole translation.
+//  - THE TWO VOCABULARIES. A query token's key is PascalCase (`EntityPropertyToken.key` is
+//    `fieldInfo.name.firstUpper()`); a Microsoft Graph field is camelCase (`displayName`, `receivedDateTime`,
+//    `onPremisesExtensionAttributes`). So `toGraphField` lowers each key on the way across, which is
+//    Signum's own `a.Key.FirstLower()` — a line this port had DROPPED, back when altea's token key was the
+//    camelCase field name verbatim and lowering was a no-op. Every string here therefore belongs to one
+//    side or the other, and mixing them is the bug this file used to have: **compare against a TOKEN key
+//    in PascalCase, and write or match a GRAPH field in camelCase.** `fieldAliases` and the
+//    `onPremisesExtensionAttributes` check are Graph-side, so they stay camelCase and are applied AFTER
+//    the lowering.
 //  - the root token's key is "" in altea (rootless convention), so it is skipped rather than emitted.
 //  - `ToStringValue` handles Temporal (altea's date/time types) and a Lite (a filter on `inGroup` /
 //    `hasUser` carries one) instead of .NET's DateTime / Guid.
@@ -47,6 +52,8 @@ export class MicrosoftGraphQueryConverter {
      * Row-model member → Graph field, where the two names differ. Only one entry, and it is not cosmetic:
      * the row models cannot call the field `id`, because a member of that name is excluded from a query's
      * token tree (see ActiveDirectoryQueries.ts) — so `objectId` is the token and `id` is what Graph wants.
+     *
+     * Keyed in GRAPH vocabulary (camelCase), because it is applied after the key has been lowered.
      */
     static readonly fieldAliases: Record<string, string> = { objectId: "id" };
 
@@ -54,8 +61,11 @@ export class MicrosoftGraphQueryConverter {
     toGraphField(token: QueryToken, usage: GraphFieldUsage): string {
         const parts: string[] = [];
         for (let t: QueryToken | undefined = token; t != undefined; t = t.parent)
-            if (t.key !== "")
-                parts.unshift(MicrosoftGraphQueryConverter.fieldAliases[t.key] ?? t.key);
+            if (t.key !== "") {
+                // Signum's `a.Key.FirstLower()`: the token key is PascalCase, the Graph field camelCase.
+                const graph = t.key.firstLower();
+                parts.unshift(MicrosoftGraphQueryConverter.fieldAliases[graph] ?? graph);
+            }
 
         const field = parts.join("/");
 

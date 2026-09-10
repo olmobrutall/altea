@@ -78,3 +78,21 @@ altea-auth-azuread's `ActiveDirectoryUsersRowModel` gets.
 ## Not ported
 
 **TNEF (`winmail.dat`) unpacking** on reception, shared with @altea/altea-mailing-pop3.
+
+## The two vocabularies, and the suite that pins them
+
+A query **TOKEN** key is PascalCase (`EntityPropertyToken.key` is `fieldInfo.name.firstUpper()`); a
+Microsoft **GRAPH** field is camelCase (`subject`, `receivedDateTime`, `parentFolderId`). `toGraphField` is
+the crossing, and it lowers each key — Signum's own `a.Key.FirstLower()`, a line this port had dropped back
+when altea's token key was the camelCase field name verbatim and lowering was a no-op.
+
+Every string in the converter therefore belongs to one side or the other, and mixing them is what this
+module used to do throughout: **compare against a TOKEN key in PascalCase, and write or match a GRAPH field
+in camelCase.** The Graph-side ones (`fieldAliases`, the `onPremisesExtensionAttributes` collapse, the
+`emailAddress` regexes) are applied AFTER the lowering, so they stay camelCase.
+
+`test/graphFields.test.ts` pins the resulting field names against the documented resource fields, for this
+converter and the `altea-auth-azuread` base it extends. DB-free, because `toGraphField` is pure given a
+token — which is worth knowing, since the `$select` / `$filter` / `$orderby` strings otherwise fail against
+the live API as an opaque 400 and a tenant looks like the only way to check them. See
+[OpenQuestions.md](OpenQuestions.md) §2.4 for what that repair covered.

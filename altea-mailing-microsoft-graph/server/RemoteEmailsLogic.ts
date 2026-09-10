@@ -87,7 +87,7 @@ export namespace RemoteEmailsLogic {
                 // WHOSE mailbox: the `User` EqualTo condition is extracted, and the query throws without
                 // it — as does
                 // this — an unscoped "all mailboxes" read is not something Graph or this feature offers.
-                const { extracted: userFilter, rest } = extractFilter(request, "user");
+                const { extracted: userFilter, rest } = extractFilter(request, "User");
                 const user = userFilter?.value as Lite<UserEntity> | undefined;
                 if (user == null)
                     throw new Error(RemoteEmailMessageMessage.UserFilterNotFound.niceToString());
@@ -237,7 +237,7 @@ export namespace RemoteEmailsLogic {
      * has no filter of its own.
      */
     function fixFiltersAndOrders(filters: Filter[], orders: Order[]): { filters: Filter[]; orders: Order[] } {
-        const keptOrders = orders.filter(o => o.token.fullKey() !== "messageId");
+        const keptOrders = orders.filter(o => o.token.fullKey() !== "MessageId");
 
         if (filters.length === 0)
             return { filters, orders: keptOrders };
@@ -278,8 +278,9 @@ export namespace RemoteEmailsLogic {
 
     /** The two columns Graph knows nothing about, so they are filtered and ordered in memory. */
     function inMicrosoftGraph(token: QueryToken): boolean {
+        // TOKEN keys, so PascalCase — see MicrosoftGraphQueryConverter's header on the two vocabularies.
         const key = token.fullKey();
-        return !key.startsWith("entity") && !key.startsWith("user");
+        return !key.startsWith("Entity") && !key.startsWith("User");
     }
 }
 
@@ -292,8 +293,9 @@ export namespace RemoteEmailsLogic {
 export class MessageMicrosoftGraphQueryConverter extends MicrosoftGraphQueryConverter {
 
     override toGraphField(token: QueryToken, usage: GraphFieldUsage): string {
+        // A TOKEN key on the left, a GRAPH field on the right.
         const key = token.fullKey();
-        if (key.startsWith("folder"))
+        if (key.startsWith("Folder"))
             return "parentFolderId";
 
         // A `.Element` step over a collection column is not a Graph field: the collection itself is.
@@ -303,8 +305,9 @@ export class MessageMicrosoftGraphQueryConverter extends MicrosoftGraphQueryConv
         for (let t: QueryToken | undefined = target; t != undefined; t = t.parent) {
             if (t.key === "")
                 continue;
-            // The row model's `messageId` is Graph's `id` (see the model's note on why it cannot be `id`).
-            parts.unshift(t.key === "messageId" ? "id" : t.key);
+            // The row model's `MessageId` is Graph's `id` (see the model's note on why it cannot be `id`),
+            // and every other key is lowered into Graph's vocabulary as the base converter does.
+            parts.unshift(t.key === "MessageId" ? "id" : t.key.firstLower());
         }
 
         const field = parts.join("/");
@@ -322,14 +325,14 @@ export class MessageMicrosoftGraphQueryConverter extends MicrosoftGraphQueryConv
 
     override getSelect(columns: Column[]): string[] | null {
         // An Extension column is not a field: it arrives through `$expand` (see getExpand).
-        return super.getSelect(columns.filter(c => !c.token.fullKey().startsWith("extension")));
+        return super.getSelect(columns.filter(c => !c.token.fullKey().startsWith("Extension")));
     }
 
     override toFilter(f: Filter): string | null {
         if (f instanceof FilterCondition) {
             const key = f.token.fullKey();
 
-            if (key.startsWith("extension")) {
+            if (key.startsWith("Extension")) {
                 const id = this.getExpansionPropertyId(extensionIndex(key));
                 if (id == null)
                     return null;
@@ -351,7 +354,7 @@ export class MessageMicrosoftGraphQueryConverter extends MicrosoftGraphQueryConv
     getExpand(columns: Column[]): string[] | null {
         const expands = columns
             .map(c => c.token.fullKey())
-            .filter(key => key.startsWith("extension"))
+            .filter(key => key.startsWith("Extension"))
             .map(key => this.getExpansionPropertyId(extensionIndex(key)))
             .filter((id): id is string => id != null)
             .map(id => `singleValueExtendedProperties($filter=id eq '${id}')`);
@@ -383,7 +386,7 @@ export class MessageMicrosoftGraphQueryConverter extends MicrosoftGraphQueryConv
 RemoteEmailsLogic.converter = new MessageMicrosoftGraphQueryConverter();
 
 function extensionIndex(fullKey: string): number {
-    return Number.parseInt(fullKey.substring("extension".length), 10);
+    return Number.parseInt(fullKey.substring("Extension".length), 10);
 }
 
 // ---- The Graph shapes this feature reads ---------------------------------------------------------------
