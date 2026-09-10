@@ -24,12 +24,14 @@ import {
 import { ExcelClient } from "../ExcelClient";
 import { selectPagination } from "../ExcelMenu";
 
-// Port of Signum.Excel's Templates/ImportExcelModel.tsx — the modal that configures an import (which
+// Port of Signum.Excel's Templates/ImportExcelModel.tsx — see docs/port/OfficeTemplate.md.
+//
+// The modal that configures an import (which
 // operation saves each row, insert/update, which column identifies an existing row) plus the flow around it:
 // validate → edit the model → stream the file → mark the rows of the SearchControl that produced it.
 //
 // altea divergences:
-//  - **there is no QueryDescription.** Signum read the imported type off `qd.columns["Entity"].type`; here the
+//  - **there is no QueryDescription.** The imported type comes off the
 //    query's ROOT token carries it (`Finder.getQueryRoot(...).type.typeInfos()`), and the collection token the
 //    server answers with arrives as a STRING that `Finder.parseSingleToken` resolves.
 //  - `token.fullKey` / `queryTokenType == "Element"` are METHODS on altea's QueryToken class: `fullKey()` /
@@ -37,7 +39,7 @@ import { selectPagination } from "../ExcelMenu";
 //  - `getTypeInfo(t).operations` does not exist — a type's operations live on the runtime metadata blob, read
 //    through `Operations.operationInfos(ti)` (see CLAUDE.md, XxxInfo vs XxxMetadata).
 //  - an enum FIELD holds its ordinal, so `mode` is compared through the enum members (`ImportExcelMode.Insert`),
-//    not Signum's bare `"Insert"` literals — the shape @altea/altea-tree's `InsertPlace` documents.
+//    not bare `"Insert"` literals — the shape @altea/altea-tree's `InsertPlace` documents.
 //  - the per-row `label` is built OUTSIDE the JSX attribute: the quote-transformer does not rewrite a lambda
 //    in a JSX attribute, so `ctxe.niceName(a => a.matchByColumn)` has to be evaluated in a statement.
 //  - `newMListElement(X.New(...))` → a plain `CollectionElementEmbedded.create(...)` (altea has no MList).
@@ -129,7 +131,7 @@ export default function ImportExcel(p: {
     );
 }
 
-/** The Execute operations that could SAVE an imported row — Signum's same filter. */
+/** The Execute operations that could SAVE an imported row. */
 function getSaveOperations(typeName: string, mode: ImportExcelMode | null) {
     return Operations.operationInfos(getTypeInfo(typeName))
         .filter(a => a.operationType === "Execute" && a.canBeModified === true
@@ -137,7 +139,7 @@ function getSaveOperations(typeName: string, mode: ImportExcelMode | null) {
 }
 
 /**
- * Signum's `onImportFromExcel`: ask the server whether this query request can drive an import, edit the model,
+ * Ask the server whether this query request can drive an import, edit the model,
  * stream the file, then report — retrying the whole thing whenever the model turns out to be wrong.
  */
 export async function onImportFromExcel(sc: SearchControlLoaded): Promise<void> {

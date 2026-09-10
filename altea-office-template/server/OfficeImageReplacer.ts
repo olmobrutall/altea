@@ -1,37 +1,31 @@
-// Port of Signum.Word's WordImageReplacer.cs — swapping a PLACEHOLDER image in a template for a real one.
+// Port of Signum.Word's WordImageReplacer.cs — see docs/port/OfficeTemplate.md.
 //
-// The addressing works the same way TableBinder's does, and for the same reason: there is no token syntax
-// for "put a picture here". The author inserts any image, then names it in the shape's **alternative text**:
+// Swapping a PLACEHOLDER image in a template for a real one. The addressing works the same way
+// TableBinder's does, and for the same reason: there is no token syntax for "put a picture here". The
+// author inserts any image, then names it in the shape's **alternative text**:
 //
 //     Word: right-click the image -> Format Picture -> Alt Text -> Title (or Description)
 //
 // Code then calls `replaceImage(package, "Logo", bytes)`. The drawing, its size, its position and its
 // wrapping are the author's; only the image BYTES change.
 //
-// altea divergences:
-//  - `IImageConverter<TImage>` exists for the same reason as in Signum (System.Drawing is Windows-only, so
-//    the image library is pluggable), but here it is OPTIONAL. Signum always needs one because its API is
-//    generic over TImage; altea's default currency is raw bytes, so the common case — replace this
-//    placeholder with these PNG bytes — needs no image library at all. A converter is only required for
-//    `adaptSize`, which has to decode the placeholder to learn its pixel size and re-encode the result.
-//  - Signum's two concrete converters (GdiBitmapConverter / ImageSharpConverter) are NOT ported: both are
-//    .NET-only, and they are the pluggable half by design. An app that wants `adaptSize` supplies its own,
-//    backed by whatever it already depends on.
-//  - `ImagePartType` (an SDK enum) becomes the image's CONTENT TYPE, derived from the file extension.
+// `IImageConverter<TImage>` is OPTIONAL here: the default currency is raw BYTES, so the common case needs
+// no image library at all. A converter is required only for `adaptSize`, which has to decode the
+// placeholder to learn its pixel size and re-encode the result — and an app that wants it supplies its
+// own, backed by whatever it already depends on.
 
 import { OxmlElement } from "./oxml/OxmlElement";
 import { RelationshipTypes, type OxmlPackage, type OxmlPart } from "./oxml/OxmlPackage";
 
-/** Where a resized image sits inside the placeholder's box (Signum's ImageVerticalPosition). */
+/** Where a resized image sits inside the placeholder's box. */
 export type ImageVerticalPosition = "Top" | "Center" | "Bottom";
-/** Signum's ImageHorizontalPosition. */
 export type ImageHorizontalPosition = "Left" | "Center" | "Right";
 
 /**
- * Signum's `IImageConverter<TImage>` — the pluggable image library.
+ * The pluggable image library.
  *
  * Only needed for `adaptSize`. An implementation typically wraps `sharp` or an equivalent; altea ships
- * none, exactly as Signum ships its two only as optional add-ons.
+ * none: Signum's two are .NET-only and are the pluggable half by design.
  */
 export interface IImageConverter {
     getSize(image: Uint8Array): { width: number; height: number };
@@ -54,7 +48,7 @@ export interface ReplaceImageOptions {
 }
 
 /**
- * Signum's ReplaceImage — replace the single placeholder named `titleOrDescription` with `image`.
+ * Replace the single placeholder named `titleOrDescription` with `image`.
  *
  * Throws when the name matches no drawing or more than one, because either is an authoring mistake that
  * would otherwise silently produce a report with the wrong picture.
@@ -78,7 +72,7 @@ export function replaceImage(
 }
 
 /**
- * Signum's ReplaceMultipleImages — replace EVERY placeholder carrying this name, in document order, with
+ * Replace EVERY placeholder carrying this name, in document order, with
  * the matching entry of `images`.
  *
  * The counts must match exactly: a mismatch means the template and the code disagree about how many
@@ -109,7 +103,7 @@ export function replaceMultipleImages(
 }
 
 /**
- * Signum's RemoveImage — drop the placeholder.
+ * Drop the placeholder.
  *
  * `removeFullDrawing` decides how much goes: the whole `w:drawing` (the picture and the space it occupied)
  * or just the `a:blip`, which leaves an empty frame of the original size — useful when the layout depends
@@ -120,7 +114,6 @@ export function removeImage(package_: OxmlPackage, titleOrDescription: string, r
     removeBlip(package_, part, blip, removeFullDrawing);
 }
 
-/** Signum's RemoveMultipleImage. */
 export function removeMultipleImages(package_: OxmlPackage, titleOrDescription: string, removeFullDrawing: boolean): void {
     const found = findAllBlips(package_, p =>
         p.getAttribute("title") === titleOrDescription || p.getAttribute("descr") === titleOrDescription);
@@ -129,7 +122,7 @@ export function removeMultipleImages(package_: OxmlPackage, titleOrDescription: 
         removeBlip(package_, part, blip, removeFullDrawing);
 }
 
-/** Signum's HasBlip — is there a placeholder with this name? */
+/** Is there a placeholder with this name? */
 export function hasBlip(package_: OxmlPackage, titleOrDescription: string): boolean {
     return findAllBlips(package_, p =>
         p.getAttribute("title") === titleOrDescription || p.getAttribute("descr") === titleOrDescription).length > 0;
@@ -143,7 +136,7 @@ export interface BlipRef {
     readonly part: OxmlPart;
 }
 
-/** Signum's FindBlip — exactly one match, or an error naming which way it went wrong. */
+/** Exactly one match, or an error naming which way it went wrong. */
 export function findBlip(package_: OxmlPackage, titleOrDescription: string): BlipRef {
     const found = findAllBlips(package_, p =>
         p.getAttribute("title") === titleOrDescription || p.getAttribute("descr") === titleOrDescription);
@@ -158,7 +151,7 @@ export function findBlip(package_: OxmlPackage, titleOrDescription: string): Bli
     return found[0];
 }
 
-/** Signum's FindAllBlips — every drawing whose `wp:docPr` satisfies `predicate`, in document order. */
+/** Every drawing whose `wp:docPr` satisfies `predicate`, in document order. */
 export function findAllBlips(package_: OxmlPackage, predicate: (docPr: OxmlElement) => boolean): BlipRef[] {
     const out: BlipRef[] = [];
 
@@ -189,7 +182,7 @@ export function findAllBlips(package_: OxmlPackage, predicate: (docPr: OxmlEleme
 }
 
 /**
- * Signum's GetDrawings — the main document plus every header and footer.
+ * The main document plus every header and footer.
  *
  * Headers and footers matter more than they look: a logo placeholder almost always lives in one of them,
  * and each is its OWN part with its own relationships, which is why `BlipRef` carries the part.
@@ -211,7 +204,7 @@ function blipBytes(package_: OxmlPackage, part: OxmlPart, blip: OxmlElement): Ui
     return imagePart.getBytes();
 }
 
-/** Signum's ReplaceBlipContent — drop the old media part, add a new one, re-point the blip at it. */
+/** Drop the old media part, add a new one, re-point the blip at it. */
 export function replaceBlipContent(
     package_: OxmlPackage, part: OxmlPart, blip: OxmlElement, image: Uint8Array, options: ReplaceImageOptions = {},
 ): void {
@@ -289,7 +282,7 @@ function requireConverter(converter: IImageConverter | undefined): IImageConvert
     if (converter == null)
         throw new Error(
             "adaptSize requires an IImageConverter: it has to decode the placeholder to read its pixel size " +
-            "and re-encode the result. altea ships none (Signum's two are .NET-only) — supply one backed by " +
+            "and re-encode the result. None ships with the module — supply one backed by " +
             "whatever image library the app already uses.");
     return converter;
 }

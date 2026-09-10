@@ -369,7 +369,7 @@ function columnOfCell(cell: OxmlElement): number {
     return columnIndex(columnLetters(cell.getAttribute("r") ?? "A"));
 }
 
-/** The three prep passes, in the order the parser needs them (Signum's ParseDocument prologue). */
+/** The three prep passes, in the order the parser needs them. */
 export function prepareSpreadsheet(package_: OxmlPackage): void {
     deshareFormulas(package_);
     inlineTokens(package_);

@@ -13,7 +13,7 @@
 // altea divergences:
 //  - `QueryDescription` is gone (see the repo CLAUDE.md); the renderer carries a `queryName` and resolves
 //    tokens through the registered entity metadata, exactly as @altea/altea-email's message builder does.
-//  - `Signum.Engine.Basics.QueryLogic.Queries.ExecuteQuery` is async here (`executeQueryAsync`), so the
+//  - query execution is async (`executeQueryAsync`), so the
 //    whole render path is async — hence `processTables` being awaited.
 //  - `EmbeddedPackagePart` (the workbook Word embeds behind a chart) has no typed class; it is recognised
 //    by CONTENT TYPE instead.
@@ -49,7 +49,7 @@ export class OfficeTemplateRenderer {
     ) { }
 
     /**
-     * Signum's ExecuteQuery — walk every node in every part, union the tokens they need, and run one query.
+     * Walk every node in every part, union the tokens they need, and run one query.
      */
     async executeQuery(): Promise<void> {
         const queryName = this.queryName;
@@ -90,7 +90,7 @@ export class OfficeTemplateRenderer {
     }
 
     /**
-     * Signum's RenderNodes — each node replaces itself, then the chart/table binder runs, then the
+     * Each node replaces itself, then the chart/table binder runs, then the
      * leftovers Word keeps around for its own bookkeeping are stripped.
      */
     async renderNodes(): Promise<void> {
@@ -103,14 +103,14 @@ export class OfficeTemplateRenderer {
 
             const root = part.document.root;
 
-            // Eager: rendering MUTATES the tree, so the work list has to be taken first (Signum's "//eager").
+            // Eager: rendering MUTATES the tree, so the work list has to be taken first.
             for (const node of root.descendantsOfType(BaseNode))
                 node.renderNode(parameters);
 
             await processTables(part, parameters);
 
             // A chart keeps a cached copy of the worksheet range it was built from; once the series are
-            // rebound that cache is stale, so Signum drops it and lets the consumer re-read the values.
+            // rebound that cache is STALE, so it is dropped and the consumer re-reads the values.
             for (const item of [...root.descendants()].filter(d => d.qualifiedName === "c:externalData"))
                 item.remove();
         }
@@ -122,7 +122,7 @@ export class OfficeTemplateRenderer {
                 this.package_.deletePart(parent, part);
     }
 
-    /** Signum's AssertClean — a surviving node means a bug in the parse/render pair, never valid output. */
+    /** A surviving node means a bug in the parse/render pair, never valid output. */
     assertClean(): void {
         for (const part of this.package_.parts) {
             if (!part.isXml)
@@ -142,7 +142,7 @@ export class OfficeTemplateRenderer {
         }
     }
 
-    /** Signum's RenderFileName — the output name is a text template over the same rows. */
+    /** The output name is a text template over the same rows. */
     renderFileName(): string {
         if (this.fileNameBlock == null)
             return this.template.fileName;

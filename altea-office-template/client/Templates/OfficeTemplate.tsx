@@ -25,7 +25,9 @@ import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import { UserChartEntity } from "@altea/altea-chart/data/UserChart";
 import { OfficeTemplateEntity, OfficeTemplateMessage } from "../../data/OfficeTemplate";
 
-// Port of Signum.Word's Templates/WordTemplate.tsx — the template editor: the document, the query
+// Port of Signum.Word's Templates/WordTemplate.tsx — see docs/port/OfficeTemplate.md.
+//
+// The template editor: the document, the query
 // (filters / orders), applicability, and the two "embedded widget" helpers.
 //
 // altea divergences, documented inline:
@@ -36,7 +38,7 @@ import { OfficeTemplateEntity, OfficeTemplateMessage } from "../../data/OfficeTe
 //    a locale string (see the entity's header).
 //  - `QueryDescription` is gone, so the widget buttons filter UserChart / UserQuery by the template's own
 //    query key rather than by the entity implementations of the query's Entity column.
-//  - Signum keys the widget code by the asset's `Guid` column; altea's user assets use a uuid PRIMARY KEY
+//  - the widget code is keyed by the asset's uuid PRIMARY KEY, where Signum keys by a separate `Guid` column
 //    as their portable identity, so it is `.id` (which is what the server-side providers match on).
 
 export default function OfficeTemplate(p: { ctx: TypeContext<OfficeTemplateEntity> }): React.JSX.Element {
@@ -121,7 +123,7 @@ export default function OfficeTemplate(p: { ctx: TypeContext<OfficeTemplateEntit
 }
 
 /**
- * Signum's UserChartTemplateButton — hands the author the alternative-text code that binds a chart in the
+ * Hands the author the alternative-text code that binds a chart in the
  * document to a stored UserChart (see TableBinder's header for how that addressing works).
  *
  * The `Pivot(0, 1, 2)` line is appended for a multi-series / stacked script whose split column is set,
@@ -148,7 +150,7 @@ export function UserChartTemplateButton(p: { queryKey: string }): React.JSX.Elem
         });
 }
 
-/** Signum's UserQueryTemplateButton — the same, for a table bound to a stored UserQuery. */
+/** The same, for a table bound to a stored UserQuery. */
 export function UserQueryTemplateButton(p: { queryKey: string }): React.JSX.Element {
     return renderWidgetButton(
         <><FontAwesomeIcon aria-hidden={true} icon="rectangle-list" color="dodgerblue" className="icon" /> {UserQueryEntity.niceName()}</>,

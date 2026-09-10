@@ -26,14 +26,16 @@ import {
 import OfficeEntityMenu from "./OfficeEntityMenu";
 import OfficeSearchMenu from "./OfficeSearchMenu";
 
-// Port of Signum.Word's WordClient.tsx — the module's client registration: the template editor, the two
+// Port of Signum.Word's WordClient.tsx — see docs/port/OfficeTemplate.md.
+//
+// The module's client registration: the template editor, the two
 // built-in model settings, the "create report" operation, the contextual menu, and the typed HTTP client.
 //
 // altea divergences, documented inline:
 //  - `Navigator.addSettings(new EntitySettings(T, view))` → `cb.configure(T).withView(...)`, and the
 //    server's `.WithQuery(() => …)` projections become `withQuerySettings({ defaultColumns })` (altea
 //    resolves query columns client-side).
-//  - Signum read a query's / an entity pack's applicable templates off extensions the server pushed into
+//  - a query's / an entity pack's applicable templates are FETCHED, where Signum reads them off extensions the server pushes into
 //    the QueryDescription and EntityPack DTOs (`queryDescription.wordTemplates` / `pack.wordTemplates`).
 //    altea has neither DTO, so both menus ASK for them — see OfficeSearchMenu / OfficeEntityMenu.
 //  - `EvalClient` / `ChangeLogClient` have no altea counterpart on this path.
@@ -87,7 +89,7 @@ export namespace OfficeClient {
                 ],
             }));
 
-        // The two built-in models Signum registers: "one report for a SET of entities" and "one report for
+        // The two built-in models: "one report for a SET of entities" and "one report for
         // the RESULT of a query".
         register(QueryModel, {
             createFromTemplate: async ot =>
@@ -125,7 +127,7 @@ export namespace OfficeClient {
         /**
          * "Create a report from this template". What has to be gathered first depends on the template's
          * MODEL: no model (or an entity-shaped one) needs a row picked in a finder; a model with its own
-         * editor needs that editor opened. Signum's onClick, with the same three branches.
+         * editor needs that editor opened. Three branches.
          *
          * The operation itself is UI-only server-side (it throws): the bytes come back from the route, so
          * the click ends in a file download rather than a re-render.
@@ -172,7 +174,6 @@ export namespace OfficeClient {
         UserAssetClient.registerExportAssertLink(OfficeTemplateEntity);
     }
 
-    /** Signum's getEntityWordButtons. */
     export function getEntityOfficeButtons(ctx: ButtonsContext): (ButtonBarElement | undefined)[] | undefined {
         if (tryGetTypeInfo(OfficeTemplateEntity) == null)
             return undefined;
@@ -188,7 +189,7 @@ export namespace OfficeClient {
         return [{ button: <OfficeEntityMenu entityPack={ctx.pack as EntityPack<Entity>} />, order: 1000 }];
     }
 
-    /** Signum's WordModelSettings — how the client BUILDS a model before rendering a report from it. */
+    /** How the client BUILDS a model before rendering a report from it. */
     export interface OfficeModelSettings<T extends BaseEntity> {
         createFromTemplate?: (ot: OfficeTemplateEntity) => Promise<BaseEntity | undefined>;
         createFromEntities?: (ot: Lite<OfficeTemplateEntity>, lites: Lite<Entity>[]) => Promise<BaseEntity | undefined>;
@@ -201,7 +202,7 @@ export namespace OfficeClient {
         settings[(type as unknown as { typeName: string }).typeName] = setting as OfficeModelSettings<BaseEntity>;
     }
 
-    /** Signum's getWordTemplates contextual item — "render one of these templates for the selected rows". */
+    /** "render one of these templates for the selected rows". */
     export function getOfficeTemplates(ctx: ContextualItemsContext<Entity>): Promise<MenuItemBlock | undefined> | undefined {
         if (ctx.lites.length === 0)
             return undefined;

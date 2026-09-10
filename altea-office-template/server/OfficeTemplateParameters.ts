@@ -1,4 +1,4 @@
-// Signum's WordTemplateParameters (declared inside WordTemplateLogic.cs) and the IWordModel contract.
+// The template parameters and the model contract — see docs/port/OfficeTemplate.md.
 // Kept in its own module because the nodes, the parser and the renderer all need it and altea has no
 // partial classes.
 
@@ -11,7 +11,7 @@ import type { OxmlPackage } from "./oxml/OxmlPackage";
 import type { TokenNode } from "./OfficeTemplateNodes";
 
 /**
- * Signum's IWordModel — a code-declared object that supplies a template's data instead of (or alongside)
+ * A code-declared object that supplies a template's data instead of (or alongside)
  * a query row, and shapes the query the renderer runs.
  *
  * Signum's `WordModel<T>` is an abstract class whose virtual members supply the defaults; TS has no
@@ -20,7 +20,7 @@ import type { TokenNode } from "./OfficeTemplateNodes";
  * @altea/altea-email port made for IEmailModel.
  */
 export interface IOfficeModel {
-    /** The entity this model is ABOUT (Signum's UntypedEntity). */
+    /** The entity this model is ABOUT. */
     readonly untypedEntity: Entity | null;
     /** The filters the template's query should run with (default: this entity). */
     getFilters?(queryName: QueryName): Filter[];
@@ -28,10 +28,10 @@ export interface IOfficeModel {
     getPagination?(): Pagination;
 }
 
-/** Signum's WordTemplateParameters: the RUNTIME context one render runs under. */
+/** The RUNTIME context one render runs under. */
 export class OfficeTemplateParameters extends TemplateParameters {
     /**
-     * The token currently being rendered. Signum sets this around `ValueProvider.GetValue` so a global
+     * The token currently being rendered. Set around `ValueProvider.getValue` so a global
      * variable can reach back for the run properties / the node's position (the image-insertion globals
      * rely on it).
      */

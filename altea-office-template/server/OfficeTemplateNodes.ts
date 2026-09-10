@@ -1,22 +1,20 @@
-// Port of Signum.Word's WordTemplateNodes.cs (from MatchNode on) — the template TREE, expressed as
-// elements that live INSIDE the document.
+// Port of Signum.Word's WordTemplateNodes.cs, from MatchNode on — see docs/port/OfficeTemplate.md.
 //
-// This is the design that makes the module work, and it is worth stating plainly: a Word template's
-// control flow is not a separate syntax tree sitting beside the document, it is spliced INTO it. The
-// parser replaces the runs that spell `@foreach[…]` with a `ForeachNode` element in the very position
-// those runs occupied, so the node's parent chain — table row, cell, paragraph — is the thing that gets
-// repeated. Rendering then walks `descendants of BaseNode` and each node rewrites its own neighbourhood.
+// The template TREE, expressed as elements that live INSIDE the document. That is the design that makes
+// the module work, and it is worth stating plainly: a Word template's control flow is not a separate
+// syntax tree sitting beside the document, it is spliced INTO it. The parser replaces the runs that spell
+// `@foreach[…]` with a `ForeachNode` element in the very position those runs occupied, so the node's
+// parent chain — table row, cell, paragraph — is the thing that gets repeated. Rendering walks
+// `descendants of BaseNode` and each node rewrites its own neighbourhood.
 //
-// altea divergences from Signum, all forced or inherited:
-//  - `AlternateContent` (the SDK element these all derive from) does not exist here, so the nodes derive
-//    from OxmlElement with the qualified name `mc:<ClassName>`. That mirrors Signum's `LocalName` override
-//    exactly: a node that survives to serialization writes itself out visibly, which is what makes
-//    `assertClean` a meaningful check rather than silent corruption.
-//  - `Synchronize` / TemplateSynchronizationContext are dropped, exactly as @altea/altea-templating dropped
-//    them for text templates (see its TemplateUtils header) — altea has no template-sync pass.
-//  - Signum's `IFormattable` / `SafeFormat` value-formatting chain collapses into @altea/altea-templating's
-//    `formatTemplateValue`, which already handles enum / bool / Temporal / Decimal for text templates.
-//  - `ExcelExtensions.ToExcelDate` has no altea counterpart; the serial-date conversion is inlined below.
+// The nodes derive from OxmlElement with the qualified name `mc:<ClassName>`, so a node that SURVIVES to
+// serialization writes itself out visibly — which is what makes `assertClean` a meaningful check rather
+// than silent corruption.
+//
+// Value formatting goes through @altea/altea-templating's `formatTemplateValue`, which already handles
+// enum / bool / Temporal / Decimal for text templates. The serial-date conversion is inlined below.
+//
+// The DOCUMENT-BODY token-sync pass is not ported — see OfficeTemplateTokenSync for what is.
 
 import type { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { Decimal } from "decimal.js";
@@ -31,7 +29,7 @@ import type { INodeProvider } from "./NodeProviders";
 import { SpreadsheetNodeProvider } from "./NodeProviders";
 import type { OfficeTemplateParameters } from "./OfficeTemplateParameters";
 
-/** Signum's `AlternateContent` base: an unrendered node serializes under the markup-compatibility prefix. */
+/** An unrendered node serializes under the markup-compatibility prefix, so it is VISIBLE in the output. */
 function nodeName(className: string): string {
     return "mc:" + className;
 }
@@ -39,7 +37,7 @@ function nodeName(className: string): string {
 // ---- MatchNode -----------------------------------------------------------------------------------------
 
 /**
- * One `@…[…]` marker, standing in the document where its runs were (Signum's MatchNode).
+ * One `@…[…]` marker, standing in the document where its runs were.
  *
  * A MatchNode is transient: the parser creates one per keyword it finds, then a second pass folds the
  * paired markers (`@foreach` … `@endforeach`) into a single BlockContainerNode. Any MatchNode still
@@ -75,7 +73,7 @@ export class MatchNode extends OxmlElement {
         return copy;
     }
 
-    /** Signum appends a temp text child so the marker is visible in the emitted XML, then removes it. */
+    /** A temp text child makes the marker visible in the emitted XML, then is removed. */
     override writeTo(writer: XmlTextWriter): void {
         const tempText = this.nodeProvider.newText(this.matchText);
         this.appendChild(tempText);
@@ -90,7 +88,7 @@ export class MatchNode extends OxmlElement {
 
 // ---- BaseNode ------------------------------------------------------------------------------------------
 
-/** Signum's BaseNode: everything the renderer walks and replaces. */
+/** Everything the renderer walks and replaces. */
 export abstract class BaseNode extends OxmlElement {
     private runProperties_: OxmlElement | undefined;
 
@@ -105,7 +103,7 @@ export abstract class BaseNode extends OxmlElement {
         this.runProperties_ = value;
     }
 
-    /** Copy the BaseNode half of a clone (Signum's `BaseNode(BaseNode original)` copy constructor). */
+    /** Copy the BaseNode half of a clone. */
     protected copyBaseInto(copy: BaseNode): void {
         copy.runProperties_ = this.runProperties_;
         this.copyInto(copy, true);
@@ -127,7 +125,7 @@ export abstract class BaseNode extends OxmlElement {
 
 // ---- TokenNode -----------------------------------------------------------------------------------------
 
-/** `@[Entity.Customer.Name]` / `@[…:format]` — print one value (Signum's TokenNode). */
+/** `@[Entity.Customer.Name]` / `@[…:format]` — print one value. */
 export class TokenNode extends BaseNode {
     constructor(
         nodeProvider: INodeProvider,
@@ -203,13 +201,12 @@ export class TokenNode extends BaseNode {
         for (const e of elements)
             grandParent.insertAt(e, index++);
         this.remove();
-        // Signum: `if (par.GetFirstChild<W.Run>() == null) par.Remove();`
         if (![...par.elements()].some(c => this.nodeProvider.isRun(c)))
             par.remove();
     }
 
     /**
-     * Signum's TrySetSpreadsheetCellValue. Only fires when this token is the cell's SOLE content — mixed
+     * Only fires when this token is the cell's SOLE content — mixed
      * text like `@[a] @[b]` must stay a string — and keeps the cell's StyleIndex so its number/date format
      * still applies.
      */
@@ -264,7 +261,7 @@ export class TokenNode extends BaseNode {
 /** Days between the Excel serial-date epoch (1899-12-30, absorbing the 1900 leap-year bug) and a date. */
 const excelEpoch = Temporal.PlainDate.from("1899-12-30");
 
-/** Signum's `ExcelExtensions.ToExcelDate` + its numeric branch: the invariant text of a typed cell value. */
+/** The invariant text of a typed cell value, including the serial-date conversion. */
 function toSpreadsheetNumber(obj: unknown): string | undefined {
     if (obj instanceof Temporal.PlainDate)
         return String(excelEpoch.until(obj).total({ unit: "days" }));
@@ -289,7 +286,7 @@ function toSpreadsheetNumber(obj: unknown): string | undefined {
 
 // ---- DeclareNode ---------------------------------------------------------------------------------------
 
-/** `@declare[X] as $x` — bind a name, print nothing (Signum's DeclareNode). */
+/** `@declare[X] as $x` — bind a name, print nothing. */
 export class DeclareNode extends BaseNode {
     constructor(
         nodeProvider: INodeProvider,
@@ -351,7 +348,7 @@ export class DeclareNode extends BaseNode {
 
 // ---- BlockNode -----------------------------------------------------------------------------------------
 
-/** A body: the nodes between a block keyword and its closer (Signum's BlockNode). */
+/** A body: the nodes between a block keyword and its closer. */
 export class BlockNode extends BaseNode {
     constructor(nodeProvider: INodeProvider) {
         super(nodeProvider, "BlockNode");
@@ -389,7 +386,7 @@ export class BlockNode extends BaseNode {
 
 /**
  * Base of the paired keywords (`@foreach`/`@if`/`@any`): a node that owns one or more BlockNodes carved
- * out of the document between its markers (Signum's BlockContainerNode).
+ * out of the document between its markers.
  *
  * The tricky part, and the reason for `findCommonAncestor`, is that a template author writes `@foreach` in
  * one table cell and `@endforeach` in another — the two markers can sit at very different depths. The
@@ -452,7 +449,7 @@ export abstract class BlockContainerNode extends BaseNode {
 
     /**
      * Put `text` back where `token` sits, as a plain run, and return the outermost container that now
-     * holds it (Signum's ReplaceMatchNode) — used by renderTemplate to rebuild the literal template.
+     * holds it — used by renderTemplate to rebuild the literal template.
      */
     protected static replaceMatchNode(token: MatchNode, text: string): OxmlNode {
         const run = token.nodeProvider.newRun(token.runProperties?.cloneNode(true), text);
@@ -464,7 +461,7 @@ export abstract class BlockContainerNode extends BaseNode {
         return container;
     }
 
-    /** Clone a marker together with the container it sits in (Signum's CloneToken). */
+    /** Clone a marker together with the container it sits in. */
     protected static cloneToken(token: MatchNode): MatchNode {
         const chain = [token as OxmlElement, ...token.ancestors()];
         const container = chain[chain.length - 1];
@@ -507,7 +504,7 @@ export abstract class BlockContainerNode extends BaseNode {
 }
 
 /**
- * Signum's `BlockContainerNode.IsImportant`: would removing this node lose something the author wrote?
+ * Would removing this node lose something the author wrote?
  * A whitespace-only run is not important (Word litters templates with them); a paragraph, a text-bearing
  * run, or another template node is.
  */
@@ -528,7 +525,7 @@ export function isImportant(c: OxmlNode, nodeProvider: INodeProvider): boolean {
 
 // ---- ForeachNode ---------------------------------------------------------------------------------------
 
-/** `@foreach[Entity.Details] as $e` … `@endforeach` (Signum's ForeachNode). */
+/** `@foreach[Entity.Details] as $e` … `@endforeach`. */
 export class ForeachNode extends BlockContainerNode {
     foreachToken!: MatchNode;
     endForeachToken!: MatchNode;
@@ -595,7 +592,7 @@ export class ForeachNode extends BlockContainerNode {
         return copy;
     }
 
-    /** Signum appends the block for the duration of the write so the body is visible in the output. */
+    /** The block is appended for the duration of the write, so the body is visible in the output. */
     override writeTo(writer: XmlTextWriter): void {
         if (this.foreachBlock != null)
             this.appendChild(this.foreachBlock);
@@ -611,7 +608,7 @@ export class ForeachNode extends BlockContainerNode {
 
 // ---- AnyNode -------------------------------------------------------------------------------------------
 
-/** `@any[cond]` … `@notany` … `@endany` — "did any row match?" (Signum's AnyNode). */
+/** `@any[cond]` … `@notany` … `@endany` — "did any row match?". */
 export class AnyNode extends BlockContainerNode {
     anyToken!: MatchNode;
     notAnyToken: MatchNode | undefined;
@@ -738,7 +735,7 @@ export interface ElseIfBranch {
     block: BlockNode | undefined;
 }
 
-/** `@if[cond]` … `@elseif[cond]` … `@else` … `@endif` (Signum's IfNode). */
+/** `@if[cond]` … `@elseif[cond]` … `@else` … `@endif`. */
 export class IfNode extends BlockContainerNode {
     ifToken!: MatchNode;
     ifBlock: BlockNode | undefined;

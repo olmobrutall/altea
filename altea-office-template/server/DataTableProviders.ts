@@ -1,8 +1,9 @@
-// Port of the IWordDataTableProvider implementations at the tail of Signum.Word's TableBinder.cs — the
+// Port of the IWordDataTableProvider implementations at the tail of Signum.Word's TableBinder.cs — see
+// docs/port/OfficeTemplate.md. The
 // things a chart or table in a template can be bound to. Each is selected by the prefix an author writes
 // into the shape's alternative text (see TableBinder's header).
 //
-// All THREE of Signum's providers are ported: Model, UserQuery and UserChart.
+// All THREE providers are ported: Model, UserQuery and UserChart.
 //
 // The latter two were blocked for a while, because altea turns a stored user asset into a request
 // CLIENT-side (the "QueryDescription is gone" divergence in the repo's CLAUDE.md) and the server had no
@@ -26,14 +27,13 @@ import { DataColumn, DataTable, type DataColumnKind } from "./DataTable";
 import type { DataTableResult, IOfficeDataTableProvider, OfficeContext } from "./TableBinder";
 import { OfficeModelLogic } from "./OfficeModelLogic";
 
-/** The entity a provider resolves against (Signum's `WordContext.GetEntity()`). */
+/** The entity a provider resolves against. */
 export function contextEntity(ctx: OfficeContext): Entity | null {
     return (ctx.entity as Entity | null) ?? (ctx.model?.untypedEntity ?? null);
 }
 
 /**
  * `Model:MethodName` — call a method on the template's MODEL and bind the DataTable it returns
- * (Signum's ModelDataTableProvider).
  */
 export class ModelDataTableProvider implements IOfficeDataTableProvider {
     validate(suffix: string, template: OfficeTemplateEntity): string | undefined {
@@ -70,9 +70,9 @@ export class ModelDataTableProvider implements IOfficeDataTableProvider {
 }
 
 /**
- * `UserQuery:<id>` — run a stored user query and bind its result (Signum's UserQueryDataTableProvider).
+ * `UserQuery:<id>` — run a stored user query and bind its result.
  *
- * Signum matches the asset by its `Guid Guid` column; altea's user assets use a uuid PRIMARY KEY as their
+ * The asset is matched by its uuid PRIMARY KEY, which IS its
  * portable identity, so the suffix is matched against `id`.
  */
 export class UserQueryDataTableProvider implements IOfficeDataTableProvider {
@@ -100,7 +100,6 @@ export class UserQueryDataTableProvider implements IOfficeDataTableProvider {
 
 /**
  * `UserChart:<id>` — run a stored user chart and bind its result, COLOURS included
- * (Signum's UserChartDataTableProvider).
  *
  * The colours are the reason this is not just "UserQuery with a different entity": a chart drawn in a
  * template has no chart script to run, so whatever the palette would have coloured a series or a slice
@@ -128,11 +127,11 @@ export class UserChartDataTableProvider implements IOfficeDataTableProvider {
 }
 
 /**
- * Signum's ColorFor sweep: any column whose values are entity LITES may have a configured palette colour,
+ * Any column whose values are entity LITES may have a configured palette colour,
  * and those become the chart's per-series / per-point overrides. Keyed by the value's rendered text, since
  * that is what TableBinder writes into the series name / category cell and therefore what it matches on.
  *
- * A type with no palette simply contributes nothing — the same as Signum's ColorFor returning null.
+ * A type with no palette simply contributes nothing.
  */
 async function overridenColorsOf(result: ResultTable): Promise<Map<string, string> | undefined> {
     const out = new Map<string, string>();
@@ -158,7 +157,7 @@ async function overridenColorsOf(result: ResultTable): Promise<Map<string, strin
     return out.size === 0 ? undefined : out;
 }
 
-/** A ResultTable as a DataTable: one column per result column, rows in order (Signum's ToDataTable). */
+/** A ResultTable as a DataTable: one column per result column, rows in order. */
 function toDataTable(result: ResultTable): DataTable {
     const columns = result.columns.map(c => new DataColumn(columnName(c), columnKind(c), columnName(c)));
     const rows = result.rows.map(r => result.columns.map(c => r.getValue(c.token)));

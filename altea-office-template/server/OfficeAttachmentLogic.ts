@@ -16,7 +16,8 @@ import { OfficeAttachmentEntity } from "../data/OfficeTemplate";
 import { OfficeModelLogic } from "./OfficeModelLogic";
 import { OfficeTemplateLogic } from "./OfficeTemplateLogic";
 
-// Port of Signum.Word's WordAttachmentLogic.cs — attaching a rendered Office report to an email.
+// Port of Signum.Word's WordAttachmentLogic.cs — attaching a rendered Office report to an email. See
+// docs/port/OfficeTemplate.md.
 //
 // This is the seam between the two modules: an @altea/altea-email template lists attachment RULES, and each
 // rule type registers how to fill its query tokens and how to produce its bytes. An OfficeAttachment names
@@ -27,17 +28,19 @@ import { OfficeTemplateLogic } from "./OfficeTemplateLogic";
 //    `@implementedBy` (it would have to depend on this package, which already depends on IT), so the field
 //    is WIDENED here with `overrideImplementedBy` — the extension point altea-email's own comment on
 //    IAttachmentGeneratorEntity points at.
-//  - Signum stores the produced file through `FilePathEmbedded(EmailFileType.Attachment, …)`; altea's
+//  - the produced file goes through altea-email's own attachment shape, where Signum uses
+//    `FilePathEmbedded(EmailFileType.Attachment, …)`; the
 //    GeneratedAttachment carries the bytes and the mail layer decides where they land, so this just returns
 //    `{ fileName, bytes }`.
 //  - `CultureInfoUtils.ChangeBothCultures` → `CultureInfo.withCultures`, the same call altea-email's own
 //    generators make.
-//  - Signum's `StaticPropertyValidation` on FileName parsed the name template at save time. altea's
+//  - the FileName template is parsed at save time by a field `@validate`, where Signum uses a
+//    StaticPropertyValidation; the
 //    equivalent belongs on the entity (see officeTemplateValidations for the pattern); it is NOT wired here
 //    because the fileName is parsed on the generate path anyway and a bad one surfaces there with the same
 //    message. Noted rather than silently dropped.
 
-/** Memoised parse of an attachment's fileName template (Signum's `[Ignore] object? FileNameNode`). */
+/** Memoised parse of an attachment's fileName template. */
 const fileNameNodes = new WeakMap<object, BlockNode>();
 
 export namespace OfficeAttachmentLogic {
@@ -61,7 +64,7 @@ export namespace OfficeAttachmentLogic {
         });
 
         EmailTemplateLogic.registerGenerateAttachment<OfficeAttachmentEntity>(OfficeAttachmentEntity, async (a, ctx) => {
-            // Signum: `wa.OverrideModel?.RetrieveAndRemember() ?? ctx.Entity ?? ctx.Model!.UntypedEntity`.
+            // The override model, else the context's entity, else the context model's own entity.
             let entity: Entity | null = a.overrideModel != null
                 ? await retrieve(a.overrideModel.entityType as Type<Entity>, a.overrideModel.id)
                 : ctx.entity ?? (ctx.model?.untypedEntity ?? null);
@@ -72,7 +75,7 @@ export namespace OfficeAttachmentLogic {
             const template = await OfficeTemplateLogic.getFromCache(a.officeTemplate);
 
             // A template whose model can be built from the entity alone gets one; one that needs extra
-            // parameters cannot be built here, so the report runs off the query instead (Signum's check).
+            // parameters cannot be built here, so the report runs off the query instead.
             const model = template.model != null && !OfficeModelLogic.requiresExtraParameters(template.model)
                 ? OfficeModelLogic.createModel(template.model, entity)
                 : undefined;
@@ -93,7 +96,7 @@ export namespace OfficeAttachmentLogic {
     }
 }
 
-/** Signum's GetTemplateString — the attachment's own fileName template, memoised per attachment row. */
+/** The attachment's own fileName template, memoised per attachment row. */
 function templateString(attachment: object, text: string, ctx: GenerateAttachmentContext): string {
     let block = fileNameNodes.get(attachment);
     if (block == undefined) {

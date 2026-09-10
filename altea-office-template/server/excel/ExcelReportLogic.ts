@@ -22,11 +22,11 @@ import { ExcelReportGenerator } from "./ExcelReportGenerator";
 // xlsx templating.
 //
 // altea divergences:
-//  - its own starter, like PlainExcelLogic's and ExcelImportLogic's, instead of Signum's single
+//  - its own starter, like PlainExcelLogic's and ExcelImportLogic's, instead of a single
 //    `ExcelLogic.Start(sb, excelReport: bool)` flag — the same reason recorded there.
-//  - the operations hang off the include (altea's fluent operations), where Signum chains
+//  - the operations hang off the include, where Signum chains
 //    `.WithSave(...)` / `.WithDelete(...)` onto its own.
-//  - the `.xlsx` extension check is a FIELD VALIDATION as well as Signum's run-time assert, so a template
+//  - the `.xlsx` extension check is a FIELD VALIDATION as well as the run-time assert, so a template
 //    with the wrong extension is refused when it is SAVED rather than the first time someone runs it.
 
 export namespace ExcelReportLogic {
@@ -38,7 +38,7 @@ export namespace ExcelReportLogic {
         sb.include(ExcelReportEntity)
             .withSave(ExcelReportOperation.Save)
             .withDelete(ExcelReportOperation.Delete)
-            // Signum names its four query columns in the include (`WithQuery(() => s => new { … })`);
+            // The four query columns are a CLIENT setting;
             // altea's server `withQuery()` takes no projection, so the same four are the CLIENT default
             // columns — see ExcelClient.
             .withQuery();
@@ -47,7 +47,7 @@ export namespace ExcelReportLogic {
             startServer(sb.webBuilder);
     }
 
-    /** Signum's `GetExcelReports(queryName)` — the reports a query's Excel menu offers. */
+    /** The reports a query's Excel menu offers. */
     export async function getExcelReports(queryName: QueryName): Promise<Lite<ExcelReportEntity>[]> {
         const key = getKey(queryName);
 
@@ -58,7 +58,7 @@ export namespace ExcelReportLogic {
         return reports.map(er => er.toLite());
     }
 
-    /** Signum's `ExecuteExcelReportAsync` — run the query, refill the stored template with its rows. */
+    /** Run the query, refill the stored template with its rows. */
     export async function executeExcelReport(
         excelReport: Lite<ExcelReportEntity>, request: QueryRequest,
     ): Promise<{ report: ExcelReportEntity; bytes: Uint8Array }> {
@@ -71,7 +71,7 @@ export namespace ExcelReportLogic {
     }
 
     /**
-     * Signum's `AsserExtension` [sic] — the generator opens the file as an OOXML package, so anything but
+     * The generator opens the file as an OOXML package, so anything but
      * an .xlsx fails deep inside the zip reader with a message about parts and relationships. This is the
      * same check placed where it can say what is actually wrong.
      */
@@ -83,7 +83,6 @@ export namespace ExcelReportLogic {
 
     function startServer(ws: WebBuilder): void {
 
-        /** Signum's `ExcelController.GetExcelReports`. */
         ws.get("/api/excel/reportsFor/:queryKey",
             {
                 params: CustomType<{ queryKey: string }>(),
@@ -98,7 +97,6 @@ export namespace ExcelReportLogic {
                 res.jsonTyped(await getExcelReports(queryName));
             });
 
-        /** Signum's `ExcelController.GenerateExcelReport`. */
         ws.post("/api/excel/excelReport/:queryKey",
             {
                 params: CustomType<{ queryKey: string }>(),
@@ -112,7 +110,7 @@ export namespace ExcelReportLogic {
 
                 const { report, bytes } = await executeExcelReport(body.excelReport, request);
 
-                // Signum names the file `<report>-<yyyyMMdd-HHmmss>.xlsx`.
+                // The file is named `<report>-<yyyyMMdd-HHmmss>.xlsx`.
                 const fileName = `${report.displayName}-${timestamp()}.xlsx`;
                 res.setHeader("Content-Disposition", attachmentDisposition(fileName));
                 res.type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -121,13 +119,13 @@ export namespace ExcelReportLogic {
     }
 }
 
-/** Signum's `ExcelReportRequest` — the report to run, and the search that feeds it. */
+/** The report to run, and the search that feeds it. */
 export interface ExcelReportRequest {
     queryRequest: WireQueryRequest;
     excelReport: Lite<ExcelReportEntity>;
 }
 
-/** Signum's `Clock.Now.ToString("yyyyMMdd-HHmmss")` suffix. */
+/** The `yyyyMMdd-HHmmss` suffix. */
 function timestamp(): string {
     const now = new Date();
     const p = (n: number, len = 2): string => String(n).padStart(len, "0");

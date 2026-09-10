@@ -3,15 +3,16 @@ import { OxmlPackage, RelationshipTypes } from "../oxml/OxmlPackage";
 import type { OxmlElement } from "../oxml/OxmlElement";
 import { columnIndex, columnLetters, rowDigits } from "../spreadsheet/FormulaRewriter";
 
-// The READ half of Signum.Excel's ExcelExtensions.cs (GetCellValue / GetExcelColumnIndex / FromExcel*),
+// The READ half of Signum.Excel's ExcelExtensions.cs (GetCellValue / GetExcelColumnIndex / FromExcel*) —
+// see docs/port/OfficeTemplate.md.
 // which only the importer needs: walk a worksheet's rows and read each cell as text, then convert that
 // text back to a typed value.
 //
 // altea divergences:
 //  - `SpreadsheetDocument` + the SDK's typed graph → the package's own OOXML substrate (../oxml).
-//  - A shared-string cell resolves against `sharedStrings.xml` exactly as Signum does; an `inlineStr`
+//  - A shared-string cell resolves against `sharedStrings.xml`; an `inlineStr`
 //    cell (what altea's own exporter writes — see PlainExcelGenerator) reads its `<is><t>` text, which
-//    Signum's GetCellValue got for free from `InnerText`.
+//    `InnerText` gives Signum for free.
 //  - Dates come back as Temporal (PlainDate / PlainDateTime / PlainTime), decimals as decimal.js.
 
 /** One row of the sheet: its 1-based index and its cells by 0-based COLUMN index. */
@@ -23,7 +24,7 @@ export interface ExcelRow {
 /**
  * Open a workbook and read its FIRST worksheet as rows of text.
  *
- * Signum navigated to the sheet named "Sheet1" (`GetWorksheetPartBySheetName`); the first worksheet
+ * The FIRST worksheet is used, where Signum navigates to the sheet named "Sheet1";
  * relationship is the same part in every file the exporter produces, and does not break when the sheet has
  * been renamed by whoever edited the file.
  */
@@ -50,7 +51,7 @@ export function readSheet(bytes: Uint8Array): ExcelRow[] {
         let implicitColumn = 0;
         for (const cell of row.elements("c")) {
             const reference = cell.getAttribute("r");
-            // A cell may omit its reference; then it is simply the next column (Signum's fallback path).
+            // A cell may omit its reference; then it is simply the next column.
             const index = reference != undefined ? columnIndex(columnLetters(reference)) - 1 : implicitColumn;
             implicitColumn = index + 1;
             cells.set(index, cellText(cell, sharedStrings));
@@ -62,7 +63,7 @@ export function readSheet(bytes: Uint8Array): ExcelRow[] {
     return rows;
 }
 
-/** Signum's GetCellValue: the cell's text, resolving the shared-string pool and boolean cells. */
+/** The cell's text, resolving the shared-string pool and boolean cells. */
 export function cellText(cell: OxmlElement, sharedStrings: string[]): string | undefined {
     const type = cell.getAttribute("t");
 
@@ -91,16 +92,16 @@ export function readSharedStrings(pkg: OxmlPackage): string[] {
     return [...root.elements("si")].map(si => si.innerText);
 }
 
-// ---- text → value (Signum's FromExcel* half) ------------------------------------------------------------
+// ---- text → value ---------------------------------------------------------------------------------------
 
 const OA_EPOCH = Temporal.PlainDate.from("1899-12-30");
 
-/** Signum's FromExcelNumber: the invariant decimal representation (never the UI culture's). */
+/** The invariant decimal representation (never the UI culture's). */
 export function fromExcelNumber(text: string): Decimal {
     return new Decimal(text.trim());
 }
 
-/** Signum's FromExcelDate: Excel's serial number back to a date (+ time, from the fraction). */
+/** Excel's serial number back to a date (+ time, from the fraction). */
 export function fromExcelDate(text: string, withTime: boolean): Temporal.PlainDate | Temporal.PlainDateTime {
     // A cell an author typed into may hold an ISO string rather than a serial number.
     if (isNaN(Number(text)))
@@ -116,7 +117,7 @@ export function fromExcelDate(text: string, withTime: boolean): Temporal.PlainDa
     return date.toPlainDateTime(Temporal.PlainTime.from("00:00").add({ milliseconds: millis }));
 }
 
-/** Signum's FromExcelTime: the fraction of a day back to a time. */
+/** The fraction of a day back to a time. */
 export function fromExcelTime(text: string): Temporal.PlainTime {
     if (isNaN(Number(text)))
         return Temporal.PlainTime.from(text);
@@ -124,7 +125,7 @@ export function fromExcelTime(text: string): Temporal.PlainTime {
     return Temporal.PlainTime.from("00:00").add({ milliseconds: millis });
 }
 
-/** Signum's `ExcelExtensions.GetExcelColumnName` — re-exported so the importer can name a cell in an error. */
+/** Re-exported so the importer can name a cell in an error. */
 export function cellReference(row: ExcelRow, colIndex: number): string {
     return columnNameOf(colIndex + 1) + row.rowIndex;
 }

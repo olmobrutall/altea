@@ -15,7 +15,9 @@ import { ExcelMessage, ImportFromExcelMessage } from "../data/Excel";
 import { ExcelReportEntity, ExcelReportOperation } from "../data/excel/ExcelReport";
 import { ExcelClient } from "./ExcelClient";
 
-// Port of Signum.Excel's ExcelMenu.tsx — the SearchControl toolbar entry for the two Excel features.
+// Port of Signum.Excel's ExcelMenu.tsx — see docs/port/OfficeTemplate.md.
+//
+// The SearchControl toolbar entry for the two Excel features.
 //
 // The menu has up to three sections, separated by dividers: the plain export, the import, and the stored
 // ExcelReports for this query (each one an item that runs it, plus "Administer" and "Create new" for
@@ -23,7 +25,7 @@ import { ExcelClient } from "./ExcelClient";
 // `plainExcel && !excelReport && !importFromExcel` branch.
 //
 // altea divergences:
-//  - the report list is loaded LAZILY, on the first open (Signum's same `handleSelectedToggle`), so a
+//  - the report list is loaded LAZILY, on the first open, so a
 //    search page costs no extra request until someone looks.
 //  - `ExcelReportEntity.tryOperationInfo(Save)` becomes `Operations.tryOperationInfo` — altea keeps the
 //    per-role operation list in the metadata blob rather than on the Type.
@@ -98,7 +100,7 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
         </span>
     );
 
-    // Signum's single-feature shortcut: with nothing to choose between, the menu IS the export button.
+    // With nothing to choose between, the menu IS the export button.
     if (p.plainExcel && !p.importFromExcel && !p.excelReport)
         return (
             <button className="sf-query-button sf-search btn btn-tertiary" title={ExcelMessage.ExportToExcel.niceToString()}
@@ -107,7 +109,7 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
             </button>
         );
 
-    // Signum's `ExcelReportEntity.tryOperationInfo(Save)`: whoever may SAVE a report may administer
+    // Whoever may SAVE a report may administer
     // them, and a role that may only RUN one just gets the list. Read off the metadata blob, which is
     // where altea keeps the per-role operation list.
     const canAdminister = p.excelReport
@@ -153,7 +155,7 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
 }
 
 /**
- * Signum's `addDropdownDividers` — a divider BETWEEN the sections that actually rendered something.
+ * A divider BETWEEN the sections that actually rendered something.
  *
  * Written out because the naive version (a divider before each section) puts one at the top when the first
  * section is empty, and two together when a middle one is.
@@ -180,7 +182,7 @@ function withDividers(
 }
 
 /**
- * Signum's `selectPagination`: an export writes what the REQUEST says, so a paginated search has to be asked
+ * An export writes what the REQUEST says, so a paginated search has to be asked
  * whether it means this page or all of them. Answered without a question when the current page already holds
  * every row.
  */

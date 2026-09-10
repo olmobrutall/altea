@@ -19,7 +19,6 @@ import { OfficeTemplateLogic } from "./OfficeTemplateLogic";
 //  - `MimeMapping.GetFileStreamResult` → the same `Content-Disposition` + typed `send` that
 //    @altea/altea-files' download routes use.
 
-/** Signum's CreateWordReportRequest. */
 interface CreateOfficeReportRequest {
     template: Lite<OfficeTemplateEntity>;
     lite?: Lite<Entity> | null;
@@ -35,9 +34,9 @@ export namespace OfficeServer {
         started = true;
 
         /**
-         * Signum's CreateReport — render the template and stream the produced file back.
+         * Render the template and stream the produced file back.
          *
-         * The permission gate lives in `createReport` itself (Signum's
+         * The permission gate lives in `createReport` itself (the
          * `WordTemplatePermission.GenerateReport.AssertAuthorized()`), so every caller is gated, not just
          * this route.
          */
@@ -59,18 +58,18 @@ export namespace OfficeServer {
                 res.type(mimeTypeOf(file.fileName)).send(Buffer.from(file.bytes));
             });
 
-        // Signum's GetConstructorType: which TYPE the client must build before it can create a report from
+        // Which TYPE the client must build before it can create a report from
         // this template's model.
         ws.post("/api/office/constructorType",
             { req: CustomType<OfficeModelEntity>(), res: CustomType<string>() },
             async (req, res) => {
-                // Signum's `GetEntityType(wordModel.ToType())` — the type the CLIENT must build to create
+                // The type the CLIENT must build to create
                 // a report from this model (a MultiEntityModel, a QueryModel, an app model). It is not the
                 // model's QUERY, which the two framework models do not even have.
                 res.jsonTyped(cleanTypeName(OfficeModelLogic.toType(await req.jsonTyped())));
             });
 
-        // Signum's GetWordTemplates: the templates a contextual menu / a query button should offer.
+        // The templates a contextual menu / a query button should offer.
         ws.post("/api/office/officeTemplates",
             { req: CustomType<{ lite: Lite<Entity> | null }>(), res: CustomType<Lite<OfficeTemplateEntity>[]>() },
             async (req, res) => {

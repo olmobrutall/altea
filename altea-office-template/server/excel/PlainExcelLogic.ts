@@ -38,7 +38,7 @@ export namespace PlainExcelLogic {
     }
 
     /**
-     * Signum's ExcelLogic.ExecutePlainExcelAsync — run the request and write the workbook.
+     * Run the request and write the workbook.
      *
      * The permission is asserted HERE, not only in the route, so every caller is gated (Signum asserts in
      * the controller; the terminal / a scheduled task would bypass that).
@@ -56,7 +56,7 @@ export namespace PlainExcelLogic {
             throw new UnauthorizedAccessException(`Not authorized for '${ExcelPermission.PlainExcel.key}'`);
     }
 
-    /** Signum's ExcelController.ToPlainExcel: POST the same wire QueryRequest the SearchControl executes,
+    /** POST the same wire QueryRequest the SearchControl executes,
      *  get the .xlsx back as a download. `forImport` writes a file the importer can read back. */
     function startServer(ws: WebBuilder): void {
         ws.post("/api/excel/plain/:queryKey",

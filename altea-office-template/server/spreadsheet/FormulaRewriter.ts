@@ -1,4 +1,5 @@
-// Port of Signum.Word's Spreedsheet/FormulaRewriter.cs — parsing and rewriting A1 cell references inside
+// Port of Signum.Word's Spreedsheet/FormulaRewriter.cs (the typo is Signum's) — parsing and rewriting A1
+// cell references inside
 // Excel formula strings.
 //
 // Pure and template-agnostic: it only knows how to FIND references in a formula (skipping string literals
@@ -95,7 +96,7 @@ function isLetterOrDigit(c: string): boolean {
 
 // ---- column letters <-> index ---------------------------------------------------------------------------
 
-/** "A" -> 1, "Z" -> 26, "AA" -> 27 (Signum's ExcelExtensions.GetExcelColumnIndex). */
+/** "A" -> 1, "Z" -> 26, "AA" -> 27. */
 export function columnIndex(col: string): number {
     let index = 0;
     for (const ch of col.toUpperCase())
@@ -103,7 +104,7 @@ export function columnIndex(col: string): number {
     return index;
 }
 
-/** 1 -> "A", 26 -> "Z", 27 -> "AA" (Signum's ExcelExtensions.GetExcelColumnName). */
+/** 1 -> "A", 26 -> "Z", 27 -> "AA". */
 export function columnName(index: number): string {
     let n = index;
     let name = "";

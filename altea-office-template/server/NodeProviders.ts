@@ -1,4 +1,5 @@
-// Port of the `INodeProvider` trio at the head of Signum.Word's WordTemplateNodes.cs.
+// Port of the `INodeProvider` trio at the head of Signum.Word's WordTemplateNodes.cs — see
+// docs/port/OfficeTemplate.md.
 //
 // The three OOXML dialects express "a styled run of text inside a paragraph" with different element names
 // in different namespaces:
@@ -29,7 +30,7 @@ export interface INodeProvider {
     /**
      * The nodes that render `text` preceded by a line break. Wordprocessing and Spreadsheet put the break
      * INSIDE the run; DrawingML requires `a:br` to be a paragraph-level SIBLING of `a:r`, so that provider
-     * returns two nodes. Signum's comment on the Drawing implementation says exactly this.
+     * returns two nodes.
      */
     newRunWithLeadingBreak(runProps: OxmlElement | undefined, text: string | undefined, spaceMode?: SpaceProcessingMode): OxmlNode[];
 
@@ -39,7 +40,7 @@ export interface INodeProvider {
     /** The text carried by a run (or by a text element directly). "" when it carries none. */
     getText(run: OxmlNode): string;
 
-    /** Signum's `CastRun` — narrow to the run element, throwing when it is not one. */
+    /** Narrow to the run element, throwing when it is not one. */
     castRun(element: OxmlNode): OxmlElement;
 
     /** A run's properties child, or undefined when it has none. */
@@ -98,7 +99,7 @@ abstract class NodeProviderBase implements INodeProvider {
             return "";
         if (run.qualifiedName === this.textName)
             return run.innerText;
-        // Signum takes SingleOrDefault: a run carries at most one text element.
+        // A run carries AT MOST ONE text element.
         const t = run.element(this.textName);
         return t?.innerText ?? "";
     }
@@ -129,7 +130,7 @@ abstract class NodeProviderBase implements INodeProvider {
     }
 }
 
-/** `.docx` body text — WordprocessingML (Signum's WordprocessingNodeProvider). */
+/** `.docx` body text — WordprocessingML. */
 export class WordprocessingNodeProvider extends NodeProviderBase {
     protected override readonly paragraphName = "w:p";
     protected override readonly runName = "w:r";
@@ -138,7 +139,7 @@ export class WordprocessingNodeProvider extends NodeProviderBase {
     protected override readonly breakName = "w:br";
 }
 
-/** Text inside a shape / chart / slide — DrawingML (Signum's DrawingNodeProvider). Used by `.pptx`. */
+/** Text inside a shape / chart / slide — DrawingML. Used by `.pptx`. */
 export class DrawingNodeProvider extends NodeProviderBase {
     protected override readonly paragraphName = "a:p";
     protected override readonly runName = "a:r";
@@ -158,9 +159,9 @@ export class DrawingNodeProvider extends NodeProviderBase {
     }
 }
 
-/** `.xlsx` rich text inside an inline / shared string (Signum's SpreadsheetNodeProvider). */
+/** `.xlsx` rich text inside an inline / shared string. */
 export class SpreadsheetNodeProvider extends NodeProviderBase {
-    // A spreadsheet's rich text has no paragraph level at all — Signum returns false unconditionally.
+    // A spreadsheet's rich text has no paragraph level at all.
     protected override readonly paragraphName = undefined;
     protected override readonly runName = "r";
     protected override readonly textName = "t";

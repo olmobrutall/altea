@@ -17,7 +17,8 @@ import { ExcelPermission, type ImportExcelModel } from "../../data/Excel";
 import { ExcelImporter } from "./ExcelImporter";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
-// Port of the IMPORT half of Signum.Excel's ExcelLogic.cs + ExcelController (ValidateForImport /
+// Port of the IMPORT half of Signum.Excel's ExcelLogic.cs + ExcelController — see
+// docs/port/OfficeTemplate.md. (ValidateForImport /
 // ImportFromExcel) — its own starter, separate from PlainExcelLogic's (see the note there).
 //
 // altea divergences:
@@ -31,14 +32,13 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 //    before, so a failure with nothing yet written is still a plain HTTP error (see the route), and one
 //    after that travels as an ImportErrorLine.
 
-/** Signum's ImportFromExcelRequest. */
 interface ImportFromExcelRequest {
     importModel: ImportExcelModel;
     queryRequest: WireQueryRequest;
 }
 
 /**
- * NEW here, with no Signum counterpart: the last line of a stream that failed after it had already
+ * NEW here: the last line of a stream that failed after it had already
  * started. It is an `HttpError`, the same one the exception filter writes as a body, so the client can
  * raise it as the `ServiceError` every other failed call produces. Distinguishable from an ImportResult
  * by the single member — a result has none of it.
@@ -53,7 +53,7 @@ export namespace ExcelImportLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        // The whole container, as Signum's single ExcelLogic.Start does — see PlainExcelLogic's header.
+        // The whole container, as a single ExcelLogic.Start would — see PlainExcelLogic's header.
         PermissionLogic.registerContainer(ExcelPermission);
 
         if (sb.webBuilder)
@@ -66,7 +66,7 @@ export namespace ExcelImportLogic {
     }
 
     /**
-     * Signum's `ImportFromExcelRequest.GetOperationSymbol`: resolve the operation key and assert it is
+     * Resolve the operation key and assert it is
      * allowed for the entity type, so a caller cannot smuggle in an operation the role may not run.
      */
     async function resolveSaveOperation(operationKey: string, entityType: Type<Entity>): Promise<OperationSymbol> {
@@ -80,7 +80,7 @@ export namespace ExcelImportLogic {
 
     function startServer(ws: WebBuilder): void {
 
-        // Signum's ValidateForImport: can this query request drive an import? Throws with the reason if not,
+        // Can this query request drive an import? Throws with the reason if not,
         // else answers the top collection element's token (or null when there is no collection).
         ws.post("/api/excel/validateForImport/:queryKey",
             { params: CustomType<{ queryKey: string }>(), req: CustomType<WireQueryRequest>(), res: CustomType<string | null>() },
@@ -94,7 +94,7 @@ export namespace ExcelImportLogic {
                 res.jsonTyped(parsed.elementTopToken?.fullKey() ?? null);
             });
 
-        // Signum's ImportFromExcel: apply the file and stream one result per entity.
+        // Apply the file and stream one result per entity.
         ws.post("/api/excel/import/:queryKey",
             { params: CustomType<{ queryKey: string }>(), req: CustomType<ImportFromExcelRequest>() },
             async (req, res) => {

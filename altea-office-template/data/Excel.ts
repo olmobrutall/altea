@@ -5,24 +5,26 @@ import { msg } from "@altea/altea/data/utils/localization";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { FileEmbedded } from "@altea/altea-files/data/Files";
 
-// Port of Signum.Excel's ExcelImportModel.cs + the permission / message declarations of Signum.Excel.ts.
-// Signum.Excel does three things; this port covers TWO of them, per the app's scope:
+// Port of Signum.Excel's ExcelImportModel.cs + the permission / message declarations of Signum.Excel.ts —
+// see docs/port/OfficeTemplate.md.
+//
+// Signum.Excel does three things; this file covers TWO of them:
 //
 //   PLAIN EXCEL EXPORT  — any query's ResultTable straight to .xlsx (ExcelPermission.PlainExcel)
 //   IMPORT FROM EXCEL   — an .xlsx back into entities through an operation (ExcelPermission.ImportFromExcel)
 //
 // NOT ported: ExcelReportEntity (a stored .xlsx TEMPLATE whose named columns are filled from a query) and
 // ExcelAttachmentEntity (a UserQuery exported to .xlsx as an email attachment). The template-driven half of
-// Signum.Excel is what @altea/altea-office-template already does — an .xlsx template with `@[Token]` tokens
+// Signum.Excel is what this package's own template engine already does — an .xlsx template with `@[Token]` tokens
 // and a foreach block is strictly more capable than ExcelReport's column-name matching — so it is
 // deliberately not duplicated. Consequently ExcelReportOperation, ExcelGenerator and the ExcelReport-only
 // messages have no counterpart here.
 //
 // altea divergences:
 //  - The two halves have their OWN starters (PlainExcelLogic.start / ExcelImportLogic.start) instead of
-//    Signum's single `ExcelLogic.Start(sb, excelReport: bool)`: they share nothing but this file, and an app
+//    a single `ExcelLogic.Start(sb, excelReport: bool)`: they share nothing but this file, and an app
 //    that wants export without import (or the reverse) should not have to pass a flag.
-//  - `ImportExcelModel` keeps Signum's shape, but its collection rows validate from the OWNER (altea has no
+//  - `ImportExcelModel` keeps Signum's shape, but its collection rows validate from the OWNER (there is no
 //    BindParent / GetParentEntity, so a row cannot reach the model it belongs to — see the note below).
 
 // ---- permissions ---------------------------------------------------------------------------------------
@@ -34,7 +36,7 @@ export namespace ExcelPermission {
 
 // ---- messages ------------------------------------------------------------------------------------------
 
-/** Signum's ExcelMessage — verbatim (`Reports` and `FindLocationFoExcelReport` are unused there too). */
+/** Verbatim (`Reports` and `FindLocationFoExcelReport` are unused there too). */
 export const ExcelMessage = {
     Data: msg("Data"),
     Download: msg("Download"),
@@ -52,7 +54,7 @@ export const ExcelMessage = {
         msg("The Excel Template has a column {0} not present in the Find Window"),
 };
 
-/** Signum's ImportFromExcelMessage — verbatim (every key is used by the importer or its UI). */
+/** Verbatim (every key is used by the importer or its UI). */
 export const ImportFromExcelMessage = {
     ImportFromExcel: msg("Import from Excel"),
     _0Errors: msg("{0} errors"),
@@ -78,7 +80,7 @@ export const ImportFromExcelMessage = {
 
 // ---- the import model ----------------------------------------------------------------------------------
 
-/** Signum's ImportExcelMode (ExcelImportModel.cs): what an incoming row is allowed to do. */
+/** What an incoming row is allowed to do. */
 export enum ImportExcelMode {
     Insert,
     Update,
@@ -89,7 +91,7 @@ export enum ImportExcelMode {
 export type ImportExcelModeName = keyof typeof ImportExcelMode;
 
 /**
- * Signum's CollectionElementEmbedded: one collection the import fills — the `Element` token of the
+ * One collection the import fills — the `Element` token of the
  * collection, plus the column whose value identifies an existing row of it (so an Update can match rows
  * instead of rebuilding them).
  */
@@ -105,11 +107,11 @@ export class CollectionElementEmbedded extends EmbeddedEntity {
 }
 
 /**
- * Signum's ImportExcelModel: everything the import needs besides the query request — the file, the entity
+ * Everything the import needs besides the query request — the file, the entity
  * type, the operation that saves each row, and how rows map to entities.
  *
- * DIVERGENCE from Signum: the `MatchByColumn`-is-set-only-when rules of BOTH this model and its collection
- * rows are validated HERE. Signum's CollectionElementEmbedded reaches its owner through `BindParent` /
+ * The `MatchByColumn`-is-set-only-when rules of BOTH this model and its collection rows are validated
+ * HERE, because a row cannot reach its owner: Signum's CollectionElementEmbedded does it through `BindParent` /
  * `GetParentEntity<ImportExcelModel>()`; altea embeddeds carry no parent pointer, and the rule for a row
  * also depends on its POSITION in the list (the last collection of an Insert needs no key), which only the
  * owner can see anyway.
@@ -130,11 +132,11 @@ export class ImportExcelModel extends ModelEntity {
 
     mode: ImportExcelMode;
 
-    /** Signum's `(pi, MatchByColumn).IsSetOnlyWhen(…)` for the model's own key column. */
+    /** The is-set-only-when rule for the model's own key column. */
     @validate<ImportExcelModel>(m => isSetOnlyWhen(m.matchByColumn, needsMatchBy(m)))
     matchByColumn: string | null;
 
-    /** Signum also puts `[NoRepeatValidator]` here. altea's NoRepeatValidator compares a `@valueField`
+    /** Signum also puts `[NoRepeatValidator]` here. The NoRepeatValidator compares a `@valueField`
      *  (see validators.ts) and these rows have none, so it would be inert — the duplicate check is folded
      *  into `collectionsError` below, where it can compare what actually identifies a row. */
     @validate<ImportExcelModel>(m => collectionsError(m))
@@ -145,7 +147,7 @@ export class ImportExcelModel extends ModelEntity {
     }
 }
 
-/** Signum's ImportExcelModel.PropertyValidation for MatchByColumn: an Update / InsertOrUpdate always needs
+/** An Update / InsertOrUpdate always needs
  *  the key, and an Insert needs it as soon as a collection has to be grouped by something. */
 function needsMatchBy(m: ImportExcelModel): boolean {
     return m.mode === ImportExcelMode.Update
@@ -154,9 +156,9 @@ function needsMatchBy(m: ImportExcelModel): boolean {
 }
 
 /**
- * Signum's CollectionElementEmbedded.PropertyValidation, evaluated per row from the owner: every collection
+ * Evaluated per row FROM THE OWNER: every collection
  * needs a key column except the LAST one of a plain Insert (its rows are simply appended). Also carries the
- * duplicate check Signum got from `[NoRepeatValidator]`.
+ * duplicate check Signum gets from `[NoRepeatValidator]`.
  */
 function collectionsError(m: ImportExcelModel): string | null {
     const rows = m.collections ?? [];
@@ -174,7 +176,7 @@ function collectionsError(m: ImportExcelModel): string | null {
     return null;
 }
 
-/** Signum's `IsSetOnlyWhen`: mandatory when the condition holds, forbidden when it does not. */
+/** Mandatory when the condition holds, forbidden when it does not. */
 function isSetOnlyWhen(value: string | null | undefined, condition: boolean): string | null {
     const isNull = value == null || value === "";
     if (isNull && condition)

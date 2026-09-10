@@ -16,13 +16,13 @@ export class DataColumn {
     constructor(
         readonly columnName: string,
         readonly kind: DataColumnKind = "other",
-        /** The display name (Signum's `DataColumn.Caption`); falls back to `columnName`. */
+        /** The display name; falls back to `columnName`. */
         readonly caption?: string,
     ) { }
 
     get displayName(): string { return this.caption ?? this.columnName; }
 
-    /** Signum's `ReflectionTools.IsNumber(col.DataType) || IsDate(col.DataType)` chart-series test. */
+    /** The chart-series test: a numeric or date column. */
     get canBeChartSeries(): boolean { return this.kind === "number" || this.kind === "date"; }
 }
 
@@ -46,7 +46,7 @@ export class DataTable {
 }
 
 /**
- * Signum's `ToDataTablePivot` — turn a three-column (y, x, value) result into a matrix: one output row per
+ * Turn a three-column (y, x, value) result into a matrix: one output row per
  * distinct `rowColumnIndex` value, one output column per distinct `columnColumnIndex` value.
  *
  * A chart template with a single series cannot show "sales per month PER country" from a flat result; the
@@ -86,7 +86,7 @@ export function toDataTablePivot(dt: DataTable, rowColumnIndex: number, columnCo
     return new DataTable(columns, rows);
 }
 
-/** Signum's `UserChartDataTableProvider.ParsePivot` — reads `Pivot(0,1,2)` out of the alternative text. */
+/** Reads `Pivot(0,1,2)` out of the alternative text. */
 export function parsePivot(pivotStr: string): { colY: number; colX: number; colValue: number } | undefined {
     const m = /^Pivot\s*\(\s*(?<colY>\d+)\s*,\s*(?<colX>\d+)\s*,\s*(?<colValue>\d+)\s*\)\s*$/.exec(pivotStr);
     if (m == null)

@@ -20,43 +20,29 @@ import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets"
 import { ModelConverterSymbol, TemplateApplicableEval, type IContainsQuery } from "@altea/altea-templating/data/Templating";
 import type { IAttachmentGeneratorEntity } from "@altea/altea-email/data/EmailTemplate";
 
-// Port of Signum.Word's WordTemplate.cs + SystemWordTemplate.cs + WordAttachmentEntity.cs: the AUTHORED
-// side of the module — which document is the template, which query rows / model drive it, and how the
-// produced file is named and post-processed.
+// Port of Signum.Word's WordTemplate.cs + SystemWordTemplate.cs + WordAttachmentEntity.cs — see
+// docs/port/OfficeTemplate.md.
 //
-// NAMING DIVERGENCE (the whole reason this package is not called `altea-word`): Signum named the module
-// after Word, but the SAME engine templates .docx, .pptx AND .xlsx — the parser dispatches on the OOXML
-// namespace of each paragraph, not on the file type. So `Word*` becomes `Office*` throughout the public
-// surface: WordTemplateEntity → OfficeTemplateEntity, WordModelEntity → OfficeModelEntity,
-// WordTransformerSymbol → OfficeTransformerSymbol, WordConverterSymbol → OfficeConverterSymbol,
-// WordAttachmentEntity → OfficeAttachmentEntity, WordTemplateOperation.CreateWordReport →
-// OfficeTemplateOperation.CreateOfficeReport. Everything else keeps Signum's names and member order, so
-// the two remain diffable; when re-applying a Signum change, read `Word` for `Office`.
+// The AUTHORED side of the module: which document is the template, which query rows / model drive it, and
+// how the produced file is named and post-processed.
 //
-// Other altea divergences, following the sibling @altea/altea-email port exactly:
-//  - `MList<QueryFilterEmbedded> / MList<QueryOrderEmbedded>` become this owner's `@part` ROW entities;
-//    the filter row reuses @altea/altea-user-assets' shared QueryFilterBaseEntity, so the same
-//    FilterBuilderEmbedded editor drives it.
-//  - `Guid Guid [UniqueIndex]` (the portable identity) → a uuid PRIMARY KEY: the `id` IS the portable
-//    identity, so IUserAssetEntity is a bare marker.
-//  - `TemplateApplicableEval` keeps Signum's shape — a stored script — but the script is TYPESCRIPT and the
-//    code-registered predicate (see @altea/altea-templating's data/Templating.ts for the rationale).
-//  - `Lite<FileEntity> Template` is a FileEntity REFERENCE, as in Signum — the column is `Template_ID`
-//    into `files.file`. It had been a `FileEmbedded` (bytes in the row) while altea-files had only the
-//    embedded forms; FileEntity is ported now, so the row shape matches. altea keeps a FULL reference
-//    rather than Signum's LITE, the call `EmployeeEntity.photo` already makes: the column is the same
-//    either way, every reader needs the bytes (validating on save, rendering a report), and altea's file
-//    LINES cannot bind a lite (`FileLineController<FilePathEmbedded | FileEmbedded | FileEntity>`).
-//    It brings Signum's "delete the superseded file on save" dance with it (see OfficeTemplateLogic's
-//    Save) — a FileEntity is IMMUTABLE, so replacing a template's document creates a new row and the old
-//    one would otherwise leak.
-//  - `ToXml` / `FromXml` / `ParseData` / `IsApplicable` are SERVER-side in altea (System.Xml and the query
-//    token resolver are server-only): they live in OfficeTemplateXml.server.ts / OfficeTemplateLogic.server.ts.
+// **`Word*` is `Office*` throughout**, because the same engine templates .docx, .pptx AND .xlsx — the
+// parser dispatches on the OOXML namespace of each paragraph, not on the file type. Everything else keeps
+// Signum's names and member order, so the two stay diffable: when re-applying a Signum change, read
+// `Word` for `Office`.
+//
+// `template` is a FileEntity REFERENCE, so the column is `Template_ID` into `files.file`. A FULL reference
+// rather than a lite, because every reader needs the bytes and the file LINES cannot bind a lite — which
+// brings the SUPERSEDED-FILE dance with it: a FileEntity is IMMUTABLE, so replacing a template's document
+// makes a new row and the Save operation must delete the old one (see OfficeTemplateLogic).
+//
+// `toXml` / `fromXml` / `parseData` / `isApplicable` are SERVER-side: they live in OfficeTemplateXml.ts and
+// OfficeTemplateLogic.ts.
 
 // ---- enums ---------------------------------------------------------------------------------------------
 
 /**
- * Where the "create report" menu offers a template (Signum's WordTemplateVisibleOn).
+ * Where the "create report" menu offers a template.
  *
  * A BIT FLAG set, and deliberately NOT an altea reflected enum: altea's reflected enums travel as their
  * member NAME, which cannot express a combination. Signum marks it `[InTypeScript(true)]` and never stores
@@ -73,26 +59,22 @@ export enum OfficeTemplateVisibleOn {
 
 /**
  * A registered mutation applied to the OPENED package after the nodes render but before it is saved
- * (Signum's WordTransformerSymbol → `Action<WordContext, OpenXmlPackage>`). Use it to stamp a watermark,
+ * Use it to stamp a watermark,
  * swap an image, drop a section.
  */
 @reflect
 @entity("SystemString", "Master", { lowPopulation: true })
-// Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
-// pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
 @legacyTableName("WordTransformer")
 @legacyCleanName("WordTransformer")
 export class OfficeTransformerSymbol extends Symbol {
 }
 
 /**
- * A registered conversion applied to the SAVED bytes (Signum's WordConverterSymbol →
+ * A registered conversion applied to the SAVED bytes (
  * `Func<WordContext, byte[], byte[]>`). Use it to render the document to PDF through an external tool.
  */
 @reflect
 @entity("SystemString", "Master", { lowPopulation: true })
-// Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
-// pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
 @legacyTableName("WordConverter")
 @legacyCleanName("WordConverter")
 export class OfficeConverterSymbol extends Symbol {
@@ -101,14 +83,12 @@ export class OfficeConverterSymbol extends Symbol {
 // ---- OfficeModel ---------------------------------------------------------------------------------------
 
 /**
- * The registry row for a code-declared model that supplies a template's data (Signum's WordModelEntity).
+ * The registry row for a code-declared model that supplies a template's data.
  * One row per registered IOfficeModel implementation, keyed by its class name — the exact shape
  * @altea/altea-email's EmailModelEntity uses, and synchronised the same way.
  */
 @reflect
 @entity("SystemString", "Master")
-// Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
-// pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
 @legacyTableName("WordModel")
 @legacyCleanName("WordModel")
 export class OfficeModelEntity extends Entity {
@@ -124,9 +104,9 @@ export class OfficeModelEntity extends Entity {
 
 // ---- OfficeTemplate rows -------------------------------------------------------------------------------
 
-// Signum's `MList<QueryFilterEmbedded> Filters` — the shared filter row with this owner's back reference.
+// The shared filter row with this owner's back reference.
 @part
-// Signum declares this collection `[PrimaryKey(typeof(Guid))]` — "the row id identifies the element in
+// The row id IDENTIFIES the element in
 // the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
 // its identity across databases (see UserAssetsImporter.syncRows).
 @primaryKey("uuid")
@@ -134,7 +114,6 @@ export class OfficeTemplateEntity_Filter extends QueryFilterBaseEntity {
     @backReference officeTemplate: Lite<OfficeTemplateEntity>;
 }
 
-// Signum's `MList<QueryOrderEmbedded> Orders`.
 @part
 export class OfficeTemplateEntity_Order extends Entity {
     @backReference officeTemplate: Lite<OfficeTemplateEntity>;
@@ -146,12 +125,9 @@ export class OfficeTemplateEntity_Order extends Entity {
 
 // ---- OfficeTemplate ------------------------------------------------------------------------------------
 
-// Signum's WordTemplateEntity.
 @reflect
 @primaryKey("uuid")
 @entity("Main", "Master")
-// Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
-// pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
 @legacyTableName("WordTemplate")
 @legacyCleanName("WordTemplate")
 export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IContainsQuery {
@@ -163,7 +139,7 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
 
     model: OfficeModelEntity | null;
 
-    /** Signum's `CultureInfoEntity Culture` — the culture this template renders in. */
+    /** The culture this template renders in. */
     culture: Lite<CultureInfoEntity>;
 
     groupResults: boolean;
@@ -174,15 +150,15 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
         ? ValidationMessage._0IsNotSet.niceToString("{0}") : null)
     orders: OfficeTemplateEntity_Order[];
 
-    /** Signum's `TemplateApplicableEval` — a stored script, compiled by @altea/altea-eval. */
+    /** A stored script, compiled by @altea/altea-eval. */
     @bindParent
     applicable: TemplateApplicableEval | null;
 
-    /** Signum's DisableAuthorization — render this template with row-level/type auth OFF (a system report
+    /** Render this template with row-level/type auth OFF (a system report
      *  must be able to read rows the triggering user cannot). */
     disableAuthorization: boolean;
 
-    /** The template document itself: a .docx / .pptx / .xlsx (Signum's `Lite<FileEntity> Template`). */
+    /** The template document itself: a .docx / .pptx / .xlsx. */
     @validate<OfficeTemplateEntity>(t => officeTemplateValidations.template?.(t) ?? null)
     template: FileEntity;
 
@@ -209,7 +185,7 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
 }
 
 /**
- * Signum's WordAttachmentEntity — attaches a rendered Office report to an @altea/altea-email message.
+ * Attaches a rendered Office report to an @altea/altea-email message.
  *
  * Shaped exactly like altea-email's FileTokenAttachmentEntity: a plain `Part` implementing the marker
  * interface, with NO back reference — it is reached through `EmailTemplateEntity_Attachment.attachment`,
@@ -220,8 +196,6 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
  */
 @reflect
 @part
-// Signum spells this Word* — the module is Signum.Word, renamed Office* here because it also does
-// pptx and xlsx. A pure rename, so the Signum name is simply declared (see @legacyTableName).
 @legacyTableName("WordAttachment")
 @legacyCleanName("WordAttachment")
 export class OfficeAttachmentEntity extends Entity implements IAttachmentGeneratorEntity {
@@ -234,7 +208,7 @@ export class OfficeAttachmentEntity extends Entity implements IAttachmentGenerat
     @legacyColumnName("WordTemplateID")
     officeTemplate: Lite<OfficeTemplateEntity>;
 
-    /** Render the report for a DIFFERENT entity than the message's own (Signum's `[ImplementedByAll]`). */
+    /** Render the report for a DIFFERENT entity than the message's own. */
     @implementedByAll
     overrideModel: Lite<Entity> | null;
 
@@ -248,7 +222,7 @@ export class OfficeAttachmentEntity extends Entity implements IAttachmentGenerat
 }
 
 /**
- * The SERVER-side halves of Signum's two StaticPropertyValidations on this entity (`ValidateTemplate` /
+ * The SERVER-side halves of the two property validations on this entity (`validateTemplate` /
  * `ValidateFileName`), installed by OfficeTemplateLogic.start. Both need server-only machinery — opening
  * the OOXML package, resolving query tokens — that cannot live in the isomorphic data layer, and the
  * template one is ASYNC, which the core validator contract now allows.
@@ -314,7 +288,7 @@ export const OfficeTemplateMessage = {
     TheFileNameContainsInvalidCharacters: msg("The file name contains invalid characters"),
 };
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
+// The database schema this package's tables live in — the counterpart of Signum's
 // `[assembly: AssemblySchemaName("word")]`. FOLDER-scoped, so it covers every type declared
 // beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("word");

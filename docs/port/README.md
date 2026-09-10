@@ -31,6 +31,7 @@ specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inv
 
 | Page | Module |
 | --- | --- |
+| [Auth.md](Auth.md) | `@altea/altea-auth` |
 | [AuthDirectory.md](AuthDirectory.md) | `@altea/altea-auth-azuread`, `@altea/altea-auth-openid`, `@altea/altea-auth-windowsad` |
 | [Cache.md](Cache.md) | `@altea/altea-cache` |
 | [ConcurrentUser.md](ConcurrentUser.md) | `@altea/altea-concurrent-user` |
@@ -45,6 +46,7 @@ specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inv
 | [MailingPop3.md](MailingPop3.md) | `@altea/altea-mailing-pop3` |
 | [Markdown.md](Markdown.md) | `@altea/altea-markdown` |
 | [Migrations.md](Migrations.md) | `@altea/altea-migrations` |
+| [OfficeTemplate.md](OfficeTemplate.md) | `@altea/altea-office-template` |
 | [Omnibox.md](Omnibox.md) | `@altea/altea-omnibox` |
 | [Printing.md](Printing.md) | `@altea/altea-printing` |
 | [Processes.md](Processes.md) | `@altea/altea-processes` |

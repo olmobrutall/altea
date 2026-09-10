@@ -1,4 +1,6 @@
-// Port of Signum.Word's WordTemplateParser.cs — turning an authored .docx / .pptx / .xlsx into a tree the
+// Port of Signum.Word's WordTemplateParser.cs — see docs/port/OfficeTemplate.md.
+//
+// Turning an authored .docx / .pptx / .xlsx into a tree the
 // renderer can execute.
 //
 // The parse is TWO passes over the package, and the reason for the first one is the single most important
@@ -28,7 +30,7 @@
 //    by hand). The `KeywordMatch` it returns carries the same index/length/keyword/expr/dec groups.
 //  - `QueryDescription` is gone in altea (see the repo's CLAUDE.md); the parser carries a `queryName` and
 //    resolves tokens through the registered entity metadata, exactly as @altea/altea-templating does.
-//  - Signum's `Synchronize` pass is not ported (no template-sync in altea), so nothing here builds a
+//  - the DOCUMENT-BODY `Synchronize` pass is not ported (see OfficeTemplateTokenSync), so nothing here builds a
 //    TemplateSynchronizationContext.
 //  - The spreadsheet PREPARATION step (`SpreadsheetUtils.DeshareFormulas` / `InlineTokens` /
 //    `InlineNoteTokens`) is a separate module; `parseDocument` calls into it through `spreadsheetPrepare`,
@@ -52,7 +54,7 @@ import {
     AnyNode, BaseNode, BlockContainerNode, DeclareNode, ForeachNode, IfNode, MatchNode, TokenNode,
 } from "./OfficeTemplateNodes";
 
-/** A half-open text interval `[min, max)` (Signum's `Interval<int>`). */
+/** A half-open text interval `[min, max)`. */
 interface Interval { min: number; max: number }
 
 /** One child of a paragraph, with the slice of the flattened paragraph text it contributes. */
@@ -68,7 +70,7 @@ class ElementInfo {
 
 /**
  * A row-level `@foreach` found in a worksheet, captured BEFORE the block is collapsed so the spreadsheet
- * finalizer can renumber rows and fix formula ranges afterwards (Signum's SpreadsheetForeachBlock).
+ * finalizer can renumber rows and fix formula ranges afterwards.
  */
 export interface SpreadsheetForeachBlock {
     readonly worksheet: OxmlElement;
@@ -106,7 +108,7 @@ export class OfficeTemplateParser implements ITemplateParser {
 
     // ---- pass 1: markers -----------------------------------------------------------------------
 
-    /** Signum's ParseDocument: prepare the package, then turn every `@…` marker into a MatchNode. */
+    /** Prepare the package, then turn every `@…` marker into a MatchNode. */
     parseDocument(): void {
         if (this.package_.kind === "spreadsheet" && this.spreadsheetPrepare != null) {
             // Shared formulas would duplicate their shared index/range when a template row is cloned, and
@@ -138,7 +140,7 @@ export class OfficeTemplateParser implements ITemplateParser {
 
     /**
      * Rebuild one paragraph so each `@…` marker becomes a single MatchNode, splitting the runs that
-     * straddle a marker's boundaries. This is Signum's ReplaceRuns, and the stack discipline is the same:
+     * straddle a marker's boundaries. The stack discipline is Signum's exactly:
      *
      *     [Before][Start][Ignore][Ignore][End]...[Remaining]
      *                 [        Match       ]
@@ -215,7 +217,7 @@ export class OfficeTemplateParser implements ITemplateParser {
 
     /**
      * A simple spreadsheet cell holds a NAKED `<t>` with no surrounding `<r>`. Promote it into a run when
-     * it carries a marker, so the run-splitting above has something to split (Signum's FixNakedText).
+     * it carries a marker, so the run-splitting above has something to split.
      */
     private fixNakedText(par: OxmlElement, nodeProvider: INodeProvider): void {
         if (par.childElements.length !== 1)
@@ -235,7 +237,7 @@ export class OfficeTemplateParser implements ITemplateParser {
 
     // ---- pass 2: nodes -------------------------------------------------------------------------
 
-    /** Signum's CreateNodes: fold the MatchNodes into TokenNodes and block containers. */
+    /** Fold the MatchNodes into TokenNodes and block containers. */
     createNodes(): void {
         for (const part of this.package_.parts) {
             if (!part.isXml)
@@ -364,7 +366,7 @@ export class OfficeTemplateParser implements ITemplateParser {
         this.declareVariable(vp);
     }
 
-    /** `@foreach[Entity.Details]` over a collection is almost always a missing `.Element` (Signum's check). */
+    /** `@foreach[Entity.Details]` over a collection is almost always a missing `.Element`. */
     private assertForeachIsElement(vp: ValueProviderBase | undefined, expr: string): void {
         // The token's TYPE must not be a collection — see the same note in @altea/altea-templating's
         // ValueProviderBase.tryParse. `isCollectionToken()` is a BOUNDARY predicate and would invert this.
@@ -443,7 +445,7 @@ export class OfficeTemplateParser implements ITemplateParser {
             return undefined;
         }
 
-        // Signum pops the branch's scope and opens a fresh sibling one: `@else` starts a new variable scope
+        // The branch's scope is POPPED and a fresh sibling one opened: `@else` starts a new variable scope
         // at the same depth as the `@if` branch it follows.
         this.variables = new ScopedDictionary<ValueProviderBase>(this.variables.previous);
         return n as T;
@@ -467,7 +469,7 @@ export class OfficeTemplateParser implements ITemplateParser {
 
     /**
      * Every marker must have been folded into a real node. A leftover MatchNode means an unpaired or
-     * misspelled keyword, and Signum reports it with the surrounding text so the author can find it in
+     * misspelled keyword, and it is reported with the SURROUNDING TEXT so the author can find it in
      * a document that may be hundreds of paragraphs long.
      */
     assertClean(): void {
@@ -503,7 +505,7 @@ const wordprocessing = new WordprocessingNodeProvider();
 const drawing = new DrawingNodeProvider();
 const spreadsheet = new SpreadsheetNodeProvider();
 
-/** Assign each child the slice of the flattened paragraph text it contributes (Signum's GetElementInfos). */
+/** Assign each child the slice of the flattened paragraph text it contributes. */
 function getElementInfos(children: readonly OxmlNode[], nodeProvider: INodeProvider): ElementInfo[] {
     const infos = children.map(c => new ElementInfo(c, nodeProvider.isRun(c) ? nodeProvider.getText(c) : undefined));
 
@@ -526,7 +528,7 @@ function rowIndexOf(node: OxmlNode): number | undefined {
     return Number.isNaN(n) ? undefined : n;
 }
 
-/** Signum's `Before()`: the nearest preceding sibling (walking up) that carries text. */
+/** The nearest preceding sibling (walking up) that carries text. */
 function textBefore(element: OxmlNode): string | undefined {
     for (const e of [element, ...element.ancestors()]) {
         const sibling = previousSibling(e);
@@ -536,7 +538,7 @@ function textBefore(element: OxmlNode): string | undefined {
     return undefined;
 }
 
-/** Signum's `After()`: the nearest following sibling (walking up) that carries text. */
+/** The nearest following sibling (walking up) that carries text. */
 function textAfter(element: OxmlNode): string | undefined {
     for (const e of [element, ...element.ancestors()]) {
         const sibling = nextSibling(e);

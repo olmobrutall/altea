@@ -1,4 +1,6 @@
-// Port of Signum.Word's TableBinder.cs — binding tabular data into a chart or a table that the template
+// Port of Signum.Word's TableBinder.cs — see docs/port/OfficeTemplate.md.
+//
+// Binding tabular data into a chart or a table that the template
 // author drew in Word / PowerPoint.
 //
 // The addressing trick is worth spelling out, because it is not obvious from the code: there is no token
@@ -19,7 +21,7 @@
 //    names in the `c:` namespace. The chart part always binds `c:` to the chart namespace, so the names are
 //    stable; a chart authored with a different prefix would not be recognised, which is the same
 //    assumption the rest of the port makes (see OxmlElement's header).
-//  - Signum's providers are registered into a static dictionary at Start; altea keeps the identical
+//  - the providers are registered into a module-level dictionary at start, the identical
 //    registry (`toDataTableProviders`) but the UserQuery/UserChart providers are registered by
 //    OfficeTemplateLogic so this module stays free of query-engine dependencies.
 //  - `ExcelExtensions.ToExcelDate` → `toExcelString` below (shared with OfficeTemplateNodes' cell typing).
@@ -34,7 +36,7 @@ import { OxmlElement, OxmlText } from "./oxml/OxmlElement";
 import { RelationshipTypes, type OxmlPart } from "./oxml/OxmlPackage";
 import type { IOfficeModel } from "./OfficeTemplateParameters";
 
-/** Signum's WordContext — what a provider gets to resolve its data against. */
+/** What a provider gets to resolve its data against. */
 export interface OfficeContext {
     readonly template: OfficeTemplateEntity;
     readonly entity: object | null;
@@ -44,23 +46,22 @@ export interface OfficeContext {
 /** A provider's result: the table, plus any per-series/point colour overrides it wants applied. */
 export interface DataTableResult {
     readonly table: DataTable;
-    /** Series/category name → "#rrggbb" (Signum's `out Dictionary<string,string>? overridenColors`). */
+    /** Series / category name → "#rrggbb". */
     readonly overridenColors?: Map<string, string>;
 }
 
-/** Signum's IWordDataTableProvider. */
 export interface IOfficeDataTableProvider {
     /** Parse-time check; returns an error message, or undefined when the suffix is usable. */
     validate(suffix: string, template: OfficeTemplateEntity): string | undefined;
     getDataTable(suffix: string, context: OfficeContext): Promise<DataTableResult>;
 }
 
-/** Signum's `WordTemplateLogic.ToDataTableProviders`, keyed by the prefix before the colon. */
+/** Keyed by the prefix before the colon. */
 export const toDataTableProviders = new Map<string, IOfficeDataTableProvider>();
 
 // ---- validate / process --------------------------------------------------------------------------------
 
-/** Signum's ValidateTables — parse-time check of every shape's alternative text. */
+/** Parse-time check of every shape's alternative text. */
 export async function validateTables(part: OxmlPart, template: OfficeTemplateEntity, errors: TemplateError[]): Promise<void> {
     for (const title of shapeTitles(part))
         await validateTitle(template, errors, title.title);
@@ -86,7 +87,7 @@ async function validateTitle(template: OfficeTemplateEntity, errors: TemplateErr
             `Unexpected Alternative Text '${title}'\nDid you wanted to use 'Pivot(colX, colY, colValue)'?`));
 }
 
-/** Signum's ProcessTables — render-time binding of every shape whose alternative text names a provider. */
+/** Render-time binding of every shape whose alternative text names a provider. */
 export async function processTables(part: OxmlPart, parameters: OfficeTemplateParameters): Promise<void> {
     for (const { container, title } of shapeTitles(part)) {
         const result = await getDataTable(parameters, title);
@@ -151,7 +152,7 @@ function replaceChartOrTable(
 /**
  * Grow or shrink `nodes` so there is exactly one per entry of `data`, applying `apply` to each pair.
  *
- * This is Signum's SynchronizeNodes and it is the heart of "keep the author's formatting": extra entries
+ * The heart of "keep the author's formatting": extra entries
  * CLONE the last existing node (inheriting its styling) rather than building one from scratch, and surplus
  * nodes are removed. `isCloned` lets the caller strip theme-derived colours from a clone so the new series
  * does not repeat the last one's colour.
@@ -180,7 +181,7 @@ function synchronizeNodes<N extends OxmlElement, T>(
 
 // ---- DrawingML table -----------------------------------------------------------------------------------
 
-/** Signum's ReplaceTable — bind the data into an `a:tbl`'s grid, header row and body rows. */
+/** Bind the data into an `a:tbl`'s grid, header row and body rows. */
 function replaceTable(table: OxmlElement, dataTable: DataTable): void {
     const tableGrid = single(table.descendants(), d => d.qualifiedName === "a:tblGrid");
     if (tableGrid != null) {
@@ -223,7 +224,7 @@ function replaceTable(table: OxmlElement, dataTable: DataTable): void {
 // ---- chart ---------------------------------------------------------------------------------------------
 
 /**
- * Signum's ReplaceChart — bind the data into a chart's series.
+ * Bind the data into a chart's series.
  *
  * Column 0 is the CATEGORY axis; every remaining column becomes one series. A non-numeric, non-date column
  * cannot be a series, and the error says so with the `Pivot(...)` fix, because that is the mistake authors
@@ -329,7 +330,7 @@ function bindSerie(
     }
 }
 
-/** Replace a shape-properties element's fill with a solid RGB one (Signum's SolidFill insertion at 0). */
+/** Replace a shape-properties element's fill with a solid RGB one. */
 function applySolidFill(spPr: OxmlElement | undefined, color: string): void {
     if (spPr == null)
         return;
@@ -346,7 +347,7 @@ function applySolidFill(spPr: OxmlElement | undefined, color: string): void {
 
 // ---- data-table lookup ---------------------------------------------------------------------------------
 
-/** Signum's GetDataTable — resolve the shape's alternative text to a provider and run it. */
+/** Resolve the shape's alternative text to a provider and run it. */
 async function getDataTable(parameters: OfficeTemplateParameters, title: string): Promise<DataTableResult | undefined> {
     const titleFirstLine = title.split("\n")[0];
     const key = tryBefore(titleFirstLine, ":");
@@ -378,7 +379,7 @@ async function getDataTable(parameters: OfficeTemplateParameters, title: string)
 // ---- helpers -------------------------------------------------------------------------------------------
 
 /**
- * The invariant text of a value as a chart/table cell holds it (Signum's ToExcelString). Dates become
+ * The invariant text of a value as a chart / table cell holds it. Dates become
  * Excel SERIAL numbers, so a chart's date axis scales correctly instead of treating them as labels.
  */
 export function toExcelString(val: unknown): string | undefined {
@@ -425,7 +426,7 @@ function isUnder(element: OxmlElement, ancestorName: string): boolean {
     return false;
 }
 
-/** The single match, or undefined (Signum's SingleOrDefaultEx — more than one is a bug, so it throws). */
+/** The single match, or undefined — more than one is a bug, so it throws. */
 function single(source: Iterable<OxmlElement>, predicate: (e: OxmlElement) => boolean): OxmlElement | undefined {
     let found: OxmlElement | undefined;
     for (const e of source) {

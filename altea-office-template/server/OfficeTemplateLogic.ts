@@ -42,30 +42,29 @@ import { OfficeTemplateTokenSync } from "./OfficeTemplateTokenSync";
 import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
-// Port of Signum.Word's WordTemplateLogic.cs — registration, the caches, and `createReport`: the one
-// function that turns a stored template plus an entity into finished document bytes.
+// Port of Signum.Word's WordTemplateLogic.cs — see docs/port/OfficeTemplate.md.
 //
-// altea divergences, documented inline:
-//  - Signum's `ProcessOpenXmlPackage(document => …)` opens the package, runs a callback and returns the
-//    saved bytes. Here that is explicit: `OxmlPackage.load` / mutate / `save()`.
-//  - `CultureInfoUtils.ChangeBothCultures` has no counterpart — altea threads the culture through
-//    TemplateParameters rather than through an ambient thread culture, so there is nothing to swap.
-//  - The whole path is ASYNC (altea's query execution is), so `createReport` returns a Promise.
-//  - Signum's `WordTemplateVisibleOn` dictionary keyed by model TYPE stays, but keyed by clean name.
-//  - `TokenMigrationLogic` (the stored-token migration pass) is not ported; altea has no such subsystem.
-//  - Signum's two StaticPropertyValidations are DECLARED on the entity's fields and implemented here (see
-//    officeTemplateValidations); the template one is async, which the core validator contract permits.
+// Registration, the caches, and `createReport`: the one function that turns a stored template plus an
+// entity into finished document bytes.
+//
+// The package is opened explicitly (`OxmlPackage.load` / mutate / `save()`), the culture is threaded
+// through TemplateParameters rather than an ambient thread culture, and the whole path is ASYNC because
+// query execution is. The two StaticPropertyValidations are DECLARED on the entity's fields and
+// implemented here (`officeTemplateValidations`); the template one is async, which the core validator
+// contract permits.
+//
+// The stored-token migration subscription is OfficeTemplateTokenSync, registered from start() below.
 
-/** Signum's FileContent — the produced file plus the name the template computed for it. */
+/** The produced file plus the name the template computed for it. */
 export interface OfficeFileContent {
     readonly fileName: string;
     readonly bytes: Uint8Array;
 }
 
-/** Applied to the OPENED package after rendering, before saving (Signum's Transformers dictionary). */
+/** Applied to the OPENED package after rendering, before saving. */
 export type OfficeTransformer = (ctx: OfficeContext, package_: OxmlPackage) => void | Promise<void>;
 
-/** Applied to the SAVED bytes (Signum's Converters dictionary) — e.g. render to PDF. */
+/** Applied to the SAVED bytes — e.g. render to PDF. */
 export type OfficeConverter = (ctx: OfficeContext, bytes: Uint8Array) => Uint8Array | Promise<Uint8Array>;
 
 // NOT PORTED, by design: Signum ships three concrete helpers that are .NET-only and are, in its own
@@ -75,10 +74,10 @@ export type OfficeConverter = (ctx: OfficeContext, bytes: Uint8Array) => Uint8Ar
 //   ImageSharpConverter   the ImageSharp package
 //   HtmlToWordConverter   the HtmlToOpenXml package — turns an HTML fragment into WordprocessingML
 //
-// The first two implement Signum's IImageConverter, whose altea counterpart lives in
+// The first two implement its IImageConverter, whose counterpart lives in
 // OfficeImageReplacer.server.ts and is OPTIONAL there (raw bytes need no image library at all). The third
 // has no altea counterpart yet: an app that needs HTML-into-Word can register an OfficeTransformerSymbol
-// that does it, which is the extension point Signum's own converter plugs into.
+// that does it, which is the extension point a converter plugs into.
 
 export namespace OfficeTemplateLogic {
     export const transformers = new Map<string, OfficeTransformer>();
@@ -87,7 +86,7 @@ export namespace OfficeTemplateLogic {
     export let officeTemplatesLazy: ResetLazy<Map<string, OfficeTemplateEntity>> = null!;
     export let templatesByQueryKey: ResetLazy<Map<string, OfficeTemplateEntity[]>> = null!;
 
-    /** Signum's `Func<Entity?, CultureInfo>? GetCultureInfo` — the app's culture resolver. */
+    /** The app's culture resolver. */
     export let getCulture: ((entity: Entity | null) => string) | undefined;
 
     /**
@@ -104,7 +103,6 @@ export namespace OfficeTemplateLogic {
         if (TokenMigrationLogic.isStarted())
             OfficeTemplateTokenSync.register();
 
-        // Signum's `PermissionLogic.RegisterPermissions(WordTemplatePermission.GenerateReport)`.
         PermissionLogic.registerPermissions(OfficeTemplatePermission.GenerateReport);
 
         TemplatingLogic.start(sb);
@@ -113,24 +111,24 @@ export namespace OfficeTemplateLogic {
             .withOperations(registerOfficeTemplateOperations)
             .withQuery();
 
-        // Signum's two StaticPropertyValidations. They are DECLARED on the entity's fields (see
+        // The two property validations. They are DECLARED on the entity's fields (see
         // officeTemplateValidations) and implemented here, because both need server-only machinery. The
         // template one is async — the core validator contract permits that, and every server validation
-        // path awaits it, so an unparseable template is rejected on save exactly as in Signum.
+        // path awaits it, so an unparseable template is rejected on SAVE.
         officeTemplateValidations.template = async t => (await validateTemplate(t)) ?? null;
         officeTemplateValidations.fileName = t => validateFileName(t) ?? null;
 
         OfficeModelLogic.start(sb);
 
-        // The two symbol registries. altea's SymbolLogic seeds every DECLARED symbol (Signum seeds only the
+        // The two symbol registries. SymbolLogic seeds every DECLARED symbol (Signum seeds only the
         // REGISTERED keys) — the same divergence @altea/altea-files documents for FileTypeSymbol: a declared
-        // but unregistered transformer gets a row and throws on use, matching Signum's GetOrThrow.
+        // but unregistered transformer gets a row and throws on use.
         SymbolLogic.start(sb, OfficeTransformerSymbol);
         sb.include(OfficeTransformerSymbol).withQuery();
         SymbolLogic.start(sb, OfficeConverterSymbol);
         sb.include(OfficeConverterSymbol).withQuery();
 
-        // Signum's three providers (the registry is public, so an app can add more).
+        // The three built-in providers (the registry is public, so an app can add more).
         toDataTableProviders.set("Model", new ModelDataTableProvider());
         toDataTableProviders.set("UserQuery", new UserQueryDataTableProvider());
         toDataTableProviders.set("UserChart", new UserChartDataTableProvider());
@@ -167,19 +165,16 @@ export namespace OfficeTemplateLogic {
 
     // ---- registries ----------------------------------------------------------------------------
 
-    /** Signum's RegisterTransformer. */
     export function registerTransformer(symbol: OfficeTransformerSymbol, transformer: OfficeTransformer): void {
         transformers.set(symbol.key, transformer);
     }
 
-    /** Signum's RegisterConverter. */
     export function registerConverter(symbol: OfficeConverterSymbol, converter: OfficeConverter): void {
         converters.set(symbol.key, converter);
     }
 
     // ---- template lookup -----------------------------------------------------------------------
 
-    /** Signum's GetFromCache. */
     export async function getFromCache(lite: Lite<OfficeTemplateEntity>): Promise<OfficeTemplateEntity> {
         const found = (await officeTemplatesLazy.value()).get(String(lite.id));
         if (found == null)
@@ -188,7 +183,7 @@ export namespace OfficeTemplateLogic {
     }
 
     /**
-     * Signum's VisibleOnDictionary + IsVisible: where a template is offered.
+     * Where a template is offered.
      *
      * A template with no model is a single-entity report. A model-backed one is offered wherever its model
      * says: the two built-in models (a set of entities, a query result) are the ones that can be offered
@@ -213,7 +208,7 @@ export namespace OfficeTemplateLogic {
     }
 
     /**
-     * Signum's GetApplicableWordTemplates. Takes the query KEY, not the QueryName: the only caller is the
+     * Takes the query KEY, not the QueryName: the only caller is the
      * route, which has the key off the wire, and the key is all this ever used it for.
      */
     export async function getApplicableOfficeTemplates(
@@ -228,7 +223,7 @@ export namespace OfficeTemplateLogic {
         return out;
     }
 
-    /** Signum's `WordTemplateEntity.IsApplicable` — the stored script, or "always" when unset. */
+    /** The stored script, or "always" when unset. */
     export function isApplicable(t: OfficeTemplateEntity, entity: Entity | null): boolean {
         if (t.applicable == null)
             return true;
@@ -243,7 +238,7 @@ export namespace OfficeTemplateLogic {
     // ---- validation ----------------------------------------------------------------------------
 
     /**
-     * Signum's ValidateTemplate — parse the stored document and report the parser's errors. Runs on save
+     * Parse the stored document and report the parser's errors. Runs on save
      * so a broken template is rejected at authoring time rather than at report time.
      */
     export async function validateTemplate(template: OfficeTemplateEntity): Promise<string | undefined> {
@@ -268,7 +263,7 @@ export namespace OfficeTemplateLogic {
         return parser.errors.length === 0 ? undefined : parser.errors.map(e => e.message).join("\n");
     }
 
-    /** Signum's ValidateFileName — the file name is itself a text template. */
+    /** The file name is itself a text template. */
     export function validateFileName(template: OfficeTemplateEntity): string | undefined {
         if (template.fileName == null)
             return undefined;
@@ -283,14 +278,12 @@ export namespace OfficeTemplateLogic {
 
     // ---- the report ----------------------------------------------------------------------------
 
-    /** Signum's CreateReportFileContent(Lite<WordTemplateEntity>, …). */
     export async function createReportFileContentFromLite(
         lite: Lite<OfficeTemplateEntity>, entity?: Entity | null, model?: IOfficeModel, avoidConversion = false,
     ): Promise<OfficeFileContent> {
         return await createReportFileContent(await getFromCache(lite), entity, model, avoidConversion);
     }
 
-    /** Signum's CreateReportFileContent(WordTemplateEntity, …). */
     export async function createReportFileContent(
         template: OfficeTemplateEntity, entity?: Entity | null, model?: IOfficeModel, avoidConversion = false,
     ): Promise<OfficeFileContent> {
@@ -298,7 +291,7 @@ export namespace OfficeTemplateLogic {
     }
 
     /**
-     * Signum's CreateReport — the whole pipeline:
+     * The whole pipeline:
      *
      *   parse (markers → nodes) → assertClean → execute the query → render the nodes → assertClean
      *   → finalize a spreadsheet → fix the document → render the file name → transform → save → convert
@@ -392,7 +385,7 @@ export namespace OfficeTemplateLogic {
             return { fileName, bytes };
         };
 
-        // Signum: `using (template.DisableAuthorization ? ExecutionMode.Global() : null)` — a system report
+        // A system report
         // must be able to read rows the triggering user cannot.
         return template.disableAuthorization ? await ExecutionMode.global(run) : await run();
     }
@@ -400,7 +393,7 @@ export namespace OfficeTemplateLogic {
 }
 
 /**
- * Signum's FixDocument: a Word table cell MUST contain at least one paragraph. Rendering can empty a cell
+ * A Word table cell MUST contain at least one paragraph. Rendering can empty a cell
  * (a `@foreach` whose collection came back empty, an `@if` that took the other branch), and Word refuses
  * to open a document with a bare `<w:tc>`, so an empty paragraph is put back.
  */
@@ -417,13 +410,13 @@ function fixDocument(package_: OxmlPackage): void {
 
 export { multiEntityOfficeModel, queryOfficeModel };
 
-// ---- OfficeTemplateEntity's operations (Signum's WordTemplateGraph) ----------------------------
+// ---- OfficeTemplateEntity's operations --------------------------------------------------------
 
 function registerOfficeTemplateOperations(op: FluentOperations<OfficeTemplateEntity>): void {
     op.withExecute(OfficeTemplateOperation.Save, {
     canBeNew: true,
     canBeModified: true,
-    // Signum's WordTemplateGraph.Save. The saver persists the template itself; what this body is for is
+    // The saver persists the template itself; what this body is for is
     // the SUPERSEDED document. A FileEntity is IMMUTABLE (FileLogic refuses a modified saved row), so
     // replacing a template's file makes a NEW row and the old one would leak. Signum reads the persisted
     // one and schedules `Transaction.PreRealCommit += oldFile.Delete()` — deferred because the template
@@ -445,10 +438,10 @@ function registerOfficeTemplateOperations(op: FluentOperations<OfficeTemplateEnt
     delete: async (t: OfficeTemplateEntity) => { await t.delete(); },
     });
 
-    // Signum registers this as an operation so the UI can gate on CanExecute; the actual work is done
+    // Registered as an OPERATION so the UI can gate on CanExecute; the actual work is done
     // by the route (it must stream a file back), hence the "UI-only operation" throw.
     op.withExecute(OfficeTemplateOperation.CreateOfficeReport, {
-    // Signum's ForReadonlyEntity; altea's equivalent guard is avoidImplicitSave — the operation
+    // The guard is avoidImplicitSave — the operation
     // must never write the template it is executed on.
     avoidImplicitSave: true,
     canExecute: (t: OfficeTemplateEntity) => t.model != null && OfficeModelLogic.requiresExtraParameters(t.model)

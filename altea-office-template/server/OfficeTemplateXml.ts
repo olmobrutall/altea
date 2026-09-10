@@ -18,7 +18,9 @@ import {
 } from "../data/OfficeTemplate";
 import { OfficeModelLogic } from "./OfficeModelLogic";
 
-// Port of Signum.Word's `WordTemplateEntity.ToXml/FromXml`. altea keeps this OFF the isomorphic entity
+// Port of Signum.Word's `WordTemplateEntity.ToXml/FromXml` — see docs/port/OfficeTemplate.md.
+//
+// It stays OFF the isomorphic entity
 // (System.Xml is server-only) and registers a (de)serializer with UserAssetsImporter — the shape
 // @altea/altea-user-queries' UserQueriesXml established and @altea/altea-email's EmailTemplateXml followed.
 // The XML element / attribute names are preserved so a Signum-produced file round-trips, apart from the
@@ -29,12 +31,13 @@ import { OfficeModelLogic } from "./OfficeModelLogic";
 //    `OfficeTransformer` / `OfficeConverter` — the rename this package is named for.
 //  - `Guid` → the asset's uuid PRIMARY KEY (the importer keys on it).
 //  - `Culture` carries the plain locale string (altea has no CultureInfoEntity).
-//  - `Applicable` was a C# SCRIPT element in Signum; altea exports the TemplateApplicableSymbol's KEY
+//  - `Applicable` was a C# SCRIPT element in Signum; the TemplateApplicableSymbol's KEY is exported
 //    instead. A file carrying a script imports with the predicate left unset — the template then applies
 //    to everything, which is the safe reading (the same call EmailTemplateXml made).
-//  - `Template` was a `Lite<FileEntity>` Signum resolved through the export set; altea's is a FileEmbedded,
-//    so the bytes are base64 INSIDE the element — which is what Signum's FileEntity element held anyway.
-//  - An enum attribute keeps Signum's member NAME (`Enum.toName`); the in-memory value is the ordinal.
+//  - `Template` is a `Lite<FileEntity>` Signum resolves through the export SET; the bytes are written
+//    base64 INSIDE the element instead — which is what Signum's FileEntity element holds anyway, so a
+//    file round-trips.
+//  - An enum attribute keeps the member NAME (`Enum.toName`); the in-memory value is the ORDINAL.
 
 const A = "@_"; // fast-xml-parser attribute prefix
 
@@ -66,7 +69,7 @@ function templateToXml(ot: OfficeTemplateEntity, _ctx: IToXmlContext): Record<st
 
     if (ot.applicable != null) o["Applicable"] = { "#cdata": ot.applicable.script };
 
-    // The template document itself — Signum's `ctx.RetrieveLite(Template).ToXML("Template")`.
+    // The template document itself.
     if (ot.template != null) o["Template"] = {
         [A + "FileName"]: ot.template.fileName,
         "#text": base64Of(ot.template.binaryFile),
@@ -121,7 +124,7 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
         return o;
     });
 
-    // Signum's `<Applicable><![CDATA[script]]></Applicable>`, round-tripped verbatim. A file written by
+    // `<Applicable><![CDATA[script]]></Applicable>`, round-tripped VERBATIM. A file written by
     // SIGNUM carries C#, which will not compile here — but it imports, and the error lands on the script
     // field where the author can see and fix it, which beats silently dropping the rule.
     const applicableScript = str(xml["Applicable"]);

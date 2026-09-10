@@ -16,9 +16,11 @@ import { ExcelReportEntity } from "../data/excel/ExcelReport";
 import ExcelMenu from "./ExcelMenu";
 import { ImportExcelProgressModal } from "./ImportExcelProgressModal";
 
-// Port of Signum.Excel's ExcelClient.tsx — the CLIENT half of all three Excel features: "export this
+// Port of Signum.Excel's ExcelClient.tsx — see docs/port/OfficeTemplate.md.
+//
+// The CLIENT half of all three Excel features: "export this
 // query to .xlsx", "import an .xlsx back into entities", and the stored ExcelReport templates. It lives in
-// @altea/altea-office-template because its server half does; Signum keeps Signum.Excel and Signum.Word
+// this package because its server half does; Signum keeps Signum.Excel and Signum.Word
 // apart, and the two would be separate packages here too were it not that the report generator, the plain
 // exporter and the xlsx templating all sit on this package's one OOXML substrate.
 //
@@ -26,7 +28,7 @@ import { ImportExcelProgressModal } from "./ImportExcelProgressModal";
 //  - `Navigator.addSettings(new EntitySettings(...))` → `cb.configure(T).withView(...)`.
 //  - `isPermissionAuthorized` lives on @altea/altea-auth's AuthClient, not in core AppContext.
 //  - `ChangeLogClient.registerChangeLogModule` has no counterpart.
-//  - the report list is gated on the SAVE operation reaching the client (Signum's `tryOperationInfo`),
+//  - the report list is gated on the SAVE operation reaching the client,
 //    which is what hides "Administer" / "Create new" from a role that may only RUN a report.
 
 export namespace ExcelClient {
@@ -41,7 +43,7 @@ export namespace ExcelClient {
         if (options.excelReport)
             cb.configure(ExcelReportEntity)
                 .withView(() => import("./Templates/ExcelReport"))
-                // Signum's four include columns, which its server `WithQuery(() => s => new { … })` names;
+                // The four columns the report list shows;
                 // altea's server withQuery takes no projection, so they are declared here.
                 .withQuerySettings(token => ({
                     defaultColumns: [
@@ -72,7 +74,7 @@ export namespace ExcelClient {
         });
 
         // The same export, from the CHART page's toolbar: a chart request IS a query request, so the rows
-        // behind the drawing are exportable exactly as a search's are (Signum's ButtonBarChart entry).
+        // behind the drawing are exportable exactly as a search's are.
         if (options.plainExcel) {
             ChartClient.ButtonBarChart.onButtonBarElements().push(ctx => {
                 if (!AuthClient.isPermissionAuthorized(ChartPermission.ViewCharting) ||
@@ -94,25 +96,25 @@ export namespace ExcelClient {
     export namespace API {
 
         /** POST the same wire QueryRequest the SearchControl executes, save the .xlsx it answers with.
-         *  `forImport` asks for the shape the importer can read back (Signum's DownloadTemplate). */
+         *  `forImport` asks for the shape the importer can read back. */
         export function generatePlainExcel(request: QueryRequest, overrideFileName?: string, forImport?: boolean): void {
             void ajaxPostRaw({ url: "/api/excel/plain/" + request.queryKey + "?" + QueryString.stringify({ forImport }) }, request)
                 .then(response => saveFile(response, overrideFileName));
         }
 
-        /** Signum's `forQuery` — the reports registered for a query, for the menu. */
+        /** The reports registered for a query, for the menu. */
         export function forQuery(queryKey: string): Promise<Lite<ExcelReportEntity>[]> {
             return ajaxGet({ url: "/api/excel/reportsFor/" + queryKey });
         }
 
-        /** Signum's `generateExcelReport` — run one, save the .xlsx it answers with. */
+        /** Run one, save the .xlsx it answers with. */
         export function generateExcelReport(request: QueryRequest, excelReport: Lite<ExcelReportEntity>): void {
             void ajaxPostRaw({ url: "/api/excel/excelReport/" + request.queryKey },
                 { queryRequest: request, excelReport })
                 .then(response => saveFile(response));
         }
 
-        /** Signum's ValidateForImport. altea has no query-token DTO, so the route answers the top collection
+        /** There is no query-token DTO, so the route answers the top collection
          *  element's token STRING (or null) rather than a QueryTokenTS — see ExcelImportLogic. */
         export function validateForImport(queryRequest: QueryRequest): Promise<string | null> {
             return ajaxPost({ url: "/api/excel/validateForImport/" + queryRequest.queryKey }, queryRequest);
@@ -126,7 +128,7 @@ export namespace ExcelClient {
         }
     }
 
-    /** Signum's ImportFromExcelRequest / ImportResult / ImportFromExcelReport — the wire shapes of the
+    /** The wire shapes of the
      *  import route (the results arrive one per NDJSON line, see ImportExcelProgressModal). */
     export interface ImportFromExcelRequest {
         importModel: ImportExcelModel;
@@ -143,7 +145,7 @@ export namespace ExcelClient {
 
     export type ImportActionKeys = "Updated" | "Inserted" | "NoChanges";
 
-    /** NEW here, with no Signum counterpart — see ExcelImportLogic's ImportErrorLine: the last line of a
+    /** NEW here — see ExcelImportLogic's ImportErrorLine: the last line of a
      *  stream that failed after it had already started, carrying the HttpError a failure BEFORE the first
      *  line would have come back as. ImportExcelProgressModal raises it as a ServiceError. */
     export interface ImportErrorLine {

@@ -24,7 +24,6 @@ import { OfficeTemplateEntity } from "../data/OfficeTemplate";
 // A template whose `query` is null is MODEL-only, so it has no query tokens to repair.
 
 export namespace OfficeTemplateTokenSync {
-    /** Signum's `AvoidSynchronizeTokens`. */
     export let avoidSynchronizeTokens = false;
 
     /** Registered by OfficeTemplateLogic.start. */

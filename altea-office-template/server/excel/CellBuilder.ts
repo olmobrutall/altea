@@ -5,24 +5,21 @@ import type { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/index";
 import type { Column } from "@altea/altea/server/dynamicQuery/requests";
 import { OxmlElement, OxmlText } from "../oxml/OxmlElement";
 
-// Port of Signum.Excel's CellBuilder.cs — how ONE result value becomes one `<c>` cell: which of the
-// template's cell formats styles it, and how the value is written (Excel stores a date as a number, a
-// string either inline or in the shared pool, …).
+// Port of Signum.Excel's CellBuilder.cs — see docs/port/OfficeTemplate.md.
 //
-// altea divergences:
-//  - Signum keyed its style map off `TypeCode` (a .NET reflection concept). altea keys off the TOKEN's
-//    `filterType` — the same discriminator the SearchControl editors and the importer use — plus the
-//    token's `type` for the enum object. That removes the Char/SByte/DBNull rows entirely and makes
-//    `PlainDate` / `PlainDateTime` / `PlainTime` distinct without extra probing.
-//  - Values arrive as altea runtime types: Temporal.PlainDate(Time) instead of DateTime/DateOnly/TimeOnly,
-//    a decimal.js `Decimal` (or, from some numeric columns, a raw string — the projector does not always
-//    box it) instead of `decimal`, a `Lite` instead of `Lite<Entity>`.
-//  - An ENUM value in memory is its ORDINAL (altea persists an enum as an int FK), so the display name
-//    comes from `Enum.niceName(enumObject, ordinal)` and the import-round-trip name from `Enum.toName`.
-//  - The `Multiline` detection reads FieldInfo.isMultiline (altea keeps it as display metadata on the
-//    field); Signum went through Validator.TryGetPropertyValidator looking for a MultiLine StringLength.
+// How ONE result value becomes one `<c>` cell: which of the template's cell formats styles it, and how the
+// value is written (Excel stores a date as a number, a string either inline or in the shared pool, …).
+//
+// The style map is keyed off the TOKEN's `filterType` — the same discriminator the SearchControl editors
+// and the importer use — plus the token's `type` for the enum object, which is what makes `PlainDate` /
+// `PlainDateTime` / `PlainTime` distinct without extra probing.
+//
+// Values arrive as altea runtime types: a `Temporal.PlainDate(Time)`, a decimal.js `Decimal` (or, from
+// some numeric columns, a RAW STRING — the projector does not always box it), a `Lite`. An ENUM value in
+// memory is its ORDINAL, so the display name comes from `Enum.niceName(enumObject, ordinal)` and the
+// import-round-trip name from `Enum.toName`. Multiline reads `FieldInfo.isMultiline`.
 
-/** Signum's DefaultStyle: which of the template's cell formats a value is written with. */
+/** Which of the template's cell formats a value is written with. */
 export enum DefaultStyle {
     Title,
     Header,
@@ -59,7 +56,7 @@ export class CellBuilder {
     defaultStyles = new Map<DefaultStyle, number>();
     /** `<cellXfs count>` of the template — where newly appended formats start. */
     cellFormatCount = 0;
-    /** Signum's CustomDecimalStyles: number-format expression → the cell-format index minted for it. */
+    /** Number-format expression → the cell-format index minted for it. */
     customDecimalStyles = new Map<string, number>();
 
     styleIndex(style: DefaultStyle): number {
@@ -69,7 +66,7 @@ export class CellBuilder {
         return index;
     }
 
-    /** Signum's GetDefaultStyle(Type) — the style a value of this token's type gets by default. */
+    /** The style a value of this token's type gets by default. */
     getDefaultStyle(token: QueryToken): DefaultStyle {
         switch (token.filterType) {
             case "Integer": return DefaultStyle.Number;
@@ -84,7 +81,7 @@ export class CellBuilder {
     }
 
     /**
-     * Signum's GetDefaultStyleAndIndex: the style AND its cell-format index for one query column.
+     * The style AND its cell-format index for one query column.
      *
      * A number column with a unit ("Kg") or a non-default format ("C2", "P") cannot use the template's
      * generic decimal format, so a cell format carrying its own number-format expression is minted on
@@ -117,7 +114,7 @@ export class CellBuilder {
     }
 
     /**
-     * Signum's Cell(value, template, styleIndex, forImport) — the `<c>` element for one value.
+     * The `<c>` element for one value.
      *
      * `forImport` writes the value the IMPORTER can read back (an enum's member name, a lite's full key)
      * rather than the value a human reads (the localized enum name, the entity's ToString).
@@ -164,11 +161,11 @@ export class CellBuilder {
     }
 }
 
-// ---- value conversions (Signum's ExcelExtensions.ToExcel* half) -----------------------------------------
+// ---- value conversions ----------------------------------------------------------------------------------
 
 const OA_EPOCH = Temporal.PlainDate.from("1899-12-30"); // Excel's serial-date origin (an OLE Automation date)
 
-/** Signum's ToExcelDate: a date as Excel's serial number (days since 1899-12-30, time as the fraction). */
+/** A date as Excel's serial number (days since 1899-12-30, time as the fraction). */
 export function toExcelDate(value: unknown): string {
     if (value instanceof Temporal.PlainDate)
         return String(value.since(OA_EPOCH).total("days"));
@@ -188,7 +185,7 @@ export function toExcelDate(value: unknown): string {
     throw new Error(`Unable to write ${String(value)} as an Excel date`);
 }
 
-/** Signum's ToExcelTime: a time as its fraction of a day. */
+/** A time as its fraction of a day. */
 export function toExcelTime(value: unknown): string {
     if (value instanceof Temporal.PlainTime)
         return String(value.since(Temporal.PlainTime.from("00:00")).total("days"));
@@ -197,7 +194,7 @@ export function toExcelTime(value: unknown): string {
     throw new Error(`Unable to write ${String(value)} as an Excel time`);
 }
 
-/** Signum's ToExcelNumber: the invariant decimal representation (never the UI culture's). */
+/** The invariant decimal representation (never the UI culture's). */
 export function toExcelNumber(value: unknown): string {
     if (value instanceof Decimal)
         return value.toString();
@@ -236,9 +233,9 @@ export function enumText(value: unknown, token: QueryToken, forImport: boolean):
         : Enum.niceName(enumObject as Record<string, string | number>, ordinal);
 }
 
-// ---- number formats (Signum's GetCustomFormatExpression / GetExcelFormat) --------------------------------
+// ---- number formats -------------------------------------------------------------------------------------
 
-/** Signum's GetCustomFormatExpression: the unit becomes a currency prefix when Excel knows it, else a
+/** The unit becomes a currency prefix when Excel knows it, else a
  *  quoted suffix ("#,##0.00 \"Kg\""). */
 export function getCustomFormatExpression(columnUnit: string | undefined, columnFormat: string | undefined): string {
     const prefix =
@@ -251,7 +248,7 @@ export function getCustomFormatExpression(columnUnit: string | undefined, column
     return prefix + getExcelFormat(columnFormat) + suffix;
 }
 
-/** Signum's GetExcelFormat: a .NET numeric format string ("N2", "C", "P1", "D3") as an Excel format code. */
+/** A .NET numeric format string ("N2", "C", "P1", "D3") as an Excel format code. */
 export function getExcelFormat(columnFormat: string | undefined): string {
     if (columnFormat == undefined)
         return "#,##0.00";
@@ -274,7 +271,7 @@ export function getExcelFormat(columnFormat: string | undefined): string {
     }
 }
 
-/** Signum's `PlainExcelGenerator.GetColumnWidth(Type)` — the authored width of a column, by its type. */
+/** The authored width of a column, by its type. */
 export function getColumnWidth(token: QueryToken): number {
     switch (token.filterType) {
         case "DateTime": return token.type?.typeName === "PlainDate" ? 15 : 20;
@@ -291,12 +288,13 @@ function hasText(s: string | undefined | null): boolean {
 }
 
 /** The format a value of this type gets with no explicit `[Format]` — a custom cell format is only minted
- *  when the column's format DIFFERS from it (Signum's `Reflector.FormatString(c.Type)`). */
+ *  when the column's format DIFFERS from it. */
 function defaultFormatOf(token: QueryToken): string | undefined {
     return token.filterType === "Decimal" ? "N2" : undefined;
 }
 
-/** Signum read the MultiLine flag off the property's StringLengthValidator; altea's FieldInfo carries it
+/** The MultiLine flag is display metadata on the FieldInfo, where Signum reads it off the property's
+ *  StringLengthValidator — it carries it
  *  directly as display metadata (set by @stringLengthValidator({ multiLine }) / @multiline). */
 function isMultiline(token: QueryToken): boolean {
     return token.getPropertyRoute()?.fieldInfo?.isMultiline === true;

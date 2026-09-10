@@ -26,32 +26,30 @@ import { parseFilter, parseOrder, parsePagination } from "@altea/altea-email/ser
 import { OfficeModelEntity, OfficeTemplateEntity, OfficeTemplateOperation, OfficeTemplateMessage } from "../data/OfficeTemplate";
 import type { IOfficeModel } from "./OfficeTemplateParameters";
 
-// Port of Signum.Word's WordModelLogic.cs — the MODEL side: a code-declared object a template renders
-// against (instead of / alongside a query row), its registry table, and the default template it can
-// generate. Structurally identical to the already-ported @altea/altea-email EmailModelLogic, deliberately:
-// Signum's two files are near-copies of each other, so the ports should be too.
+// Port of Signum.Word's WordModelLogic.cs — see docs/port/OfficeTemplate.md.
 //
-// altea divergences, documented inline:
-//  - Signum's `WordModel<T>` abstract base becomes the `officeModel()` factory below (see IOfficeModel's
-//    header for why). `MultiEntityWord` / `QueryWord` become the two factories.
-//  - `QueryDescription` is gone; a model shapes its query from the `queryName` alone.
-//  - The FilterRequest/OrderRequest/Pagination converters are shared with altea-email rather than
-//    duplicated — they translate the same isomorphic request DTOs.
+// The MODEL side: a code-declared object a template renders against (instead of, or alongside, a query
+// row), its registry table, and the default template it can generate.
+//
+// Structurally IDENTICAL to @altea/altea-email's EmailModelLogic, deliberately: Signum's two files are
+// near-copies of each other, so the ports should be too — and the request-DTO converters are SHARED with
+// it rather than duplicated, since they translate the same isomorphic DTOs. A model shapes its query from
+// the `queryName` alone.
 
 export type { IOfficeModel };
 
-/** Signum's `WordModel<T>` defaults, as a factory: pass what differs, inherit the rest. */
+/** The model defaults, as a FACTORY: pass what differs, inherit the rest. */
 export function officeModel(init: Partial<IOfficeModel> & { untypedEntity: Entity | null }): IOfficeModel {
     return {
         untypedEntity: init.untypedEntity,
-        // Signum's default: filter the query's Entity column to THIS entity.
+        // Filter the query's Entity column to THIS entity.
         getFilters: init.getFilters ?? (queryName => [entityFilter(queryName, init.untypedEntity!)]),
         getOrders: init.getOrders ?? (() => []),
         getPagination: init.getPagination ?? (() => new Pagination.All()),
     };
 }
 
-/** Signum's MultiEntityWord — one report for a SET of entities. */
+/** One report for a SET of entities. */
 export function multiEntityOfficeModel(entity: MultiEntityModel): IOfficeModel {
     return officeModel({
         untypedEntity: null,
@@ -59,7 +57,7 @@ export function multiEntityOfficeModel(entity: MultiEntityModel): IOfficeModel {
     });
 }
 
-/** Signum's QueryWord — one report for the RESULT of a query the user configured. */
+/** One report for the RESULT of a query the user configured. */
 export function queryOfficeModel(entity: QueryModel): IOfficeModel {
     return officeModel({
         untypedEntity: null,
@@ -77,26 +75,26 @@ interface OfficeModelInfo {
     /** The query the model renders against, or undefined when the MODEL is the data (Signum passes
      *  `queryName: null` for MultiEntityWord / QueryWord, and derives it from `T` otherwise). */
     queryName: QueryName | undefined;
-    /** Build the model from a target entity (Signum's single-parameter constructor). */
+    /** Build the model from a target entity. */
     construct: ((entity: Entity | null) => IOfficeModel) | undefined;
-    /** Signum's DefaultTemplateConstructor — the template generated when none exists. */
+    /** The template generated when none exists. */
     defaultTemplateConstructor: (() => OfficeTemplateEntity) | undefined;
 }
 
 export namespace OfficeModelLogic {
     const registeredModels = new Map<string, OfficeModelInfo>();
 
-    /** Clean name → the persisted registry row (Signum's WordModelTypeToEntity / WordModelEntityToType). */
+    /** Clean name → the persisted registry row. */
     export let officeModelsLazy: ResetLazy<Map<string, OfficeModelEntity>> = null!;
 
     export function start(sb: SchemaBuilder): void {
-        // Signum's `RegisterWordModel<MultiEntityWord>(null); RegisterWordModel<QueryWord>(null);` — the
+        // The
         // framework's own two models, and the reason every Signum database has a `MultiEntityWord` and a
         // `QueryWord` row. altea had the two factories but registered neither, so the models a template
         // can be built against existed in code and not in the table: `OfficeTemplateLogic.isVisible`
         // looked up rows that were never there, and a Southwind database's two rows read as removed.
         //
-        // Both are registered with NO queryName (Signum passes none): the model IS the data — a set of
+        // Both are registered with NO queryName: the model IS the data — a set of
         // entities, or a query the user configured — so there is nothing to query it against. The
         // `modelType` is the wrapped ENTITY model, which is what `toType()` hands isVisible; the ROW
         // keeps Signum's wrapper name.
@@ -111,7 +109,7 @@ export namespace OfficeModelLogic {
 
         sb.include(OfficeModelEntity).withQuery();
 
-        // Signum's WordModelLogic registers this on the TEMPLATE's graph, from the MODEL: "give this
+        // Registered on the TEMPLATE's graph, from the MODEL: "give this
         // model the template its defaultTemplateConstructor describes". The symbol was declared and
         // never registered here, so the operation did not exist at runtime and a Southwind database's
         // row had no counterpart — both helpers it needs were already here.
@@ -127,7 +125,7 @@ export namespace OfficeModelLogic {
             return new Map(rows.map(r => [r.className, r]));
         }, { invalidateWith: [OfficeModelEntity] });
 
-        // Deleting a model must take its templates with it (Signum's PreDeleteSqlSync cascade).
+        // Deleting a model must take its templates with it.
         sb.schema.entityEvents(OfficeModelEntity).preDeleteSqlSync.push(e => deleteTemplatesOfModel(sb.schema, e));
 
         sb.schema.generating.push(schemaGenerating);
@@ -143,12 +141,12 @@ export namespace OfficeModelLogic {
     }
 
     /**
-     * Signum's RegisterWordModel. Call BEFORE start (the registry table is seeded from these keys).
+     * Call BEFORE start — the registry table is seeded from these keys.
      *
      * `className` is the name the ROW carries, defaulting to the model type's own clean name — which is
-     * what Signum's `typeof(T).Name` gives for an app model like `OrderSummaryWord`. It is separable
-     * because altea collapsed Signum's `WordModel<T>` wrapper CLASS into a factory function (see the
-     * header): for the framework's own two models Signum registers the wrapper (`MultiEntityWord`) while
+     * what `typeof(T).Name` gives for an app model like `OrderSummaryWord`. It is separable because the
+     * wrapper CLASS collapsed into a factory function (see the header): for the framework's own two
+     * models Signum registers the wrapper (`MultiEntityWord`) while
      * keying its VisibleOn dictionary on the wrapped entity (`MultiEntityModel`), and with no wrapper
      * class to name, the row's name has to be given.
      */
@@ -176,12 +174,10 @@ export namespace OfficeModelLogic {
         return found;
     }
 
-    /** Signum's `ToWordModelEntity(type)`. */
     export async function toOfficeModelEntity(modelType: Function): Promise<OfficeModelEntity> {
         return await getOfficeModelEntity(cleanTypeName(modelType));
     }
 
-    /** Signum's `GetWordModelEntity(className)`. */
     export async function getOfficeModelEntity(className: string): Promise<OfficeModelEntity> {
         const found = (await officeModelsLazy.value()).get(className);
         if (found == null)
@@ -195,17 +191,16 @@ export namespace OfficeModelLogic {
         return [...(await officeModelsLazy.value()).values()];
     }
 
-    /** Signum's `modelEntity.ToType()`. */
     export function toType(modelEntity: OfficeModelEntity): Function {
         return info(modelEntity).modelType;
     }
 
-    /** The query a model renders against (Signum reads it off the registered type). */
+    /** The query a model renders against. */
     export function getQueryName(modelEntity: OfficeModelEntity): QueryName | undefined {
         return info(modelEntity).queryName;
     }
 
-    /** Signum's RequiresExtraParameters — a model with no single-entity constructor needs the caller to
+    /** A model with no single-entity constructor needs the caller to
      *  build it (the client's "create report" dialog collects them). */
     export function requiresExtraParameters(modelEntity: OfficeModelEntity): boolean {
         return info(modelEntity).construct == undefined;
@@ -215,7 +210,6 @@ export namespace OfficeModelLogic {
         return info(modelEntity).defaultTemplateConstructor != undefined;
     }
 
-    /** Signum's CreateDefaultWordModel. */
     export function createModel(modelEntity: OfficeModelEntity, entity: Entity | null): IOfficeModel {
         const construct = info(modelEntity).construct;
         if (construct == undefined)
@@ -223,7 +217,7 @@ export namespace OfficeModelLogic {
         return construct(entity);
     }
 
-    /** Signum's CreateDefaultTemplate — the template an unconfigured model gets. */
+    /** The template an unconfigured model gets. */
     export async function createDefaultTemplateInternal(modelEntity: OfficeModelEntity): Promise<OfficeTemplateEntity> {
         const i = info(modelEntity);
         if (i.defaultTemplateConstructor == undefined)
@@ -247,7 +241,7 @@ export namespace OfficeModelLogic {
 
 // ---- schema pipeline -----------------------------------------------------------------------------------
 
-/** Signum's Schema_Generating — INSERT one row per declared model on a FRESH database, in sorted-key order. */
+/** INSERT one row per declared model on a FRESH database, in sorted-key order. */
 function schemaGenerating(schema: Schema): SqlPreCommand | undefined {
     const table = schema.tryTable(OfficeModelEntity);
     if (table == null)
@@ -263,7 +257,7 @@ function schemaGenerating(schema: Schema): SqlPreCommand | undefined {
 
 const officeModelReplacementKey = "OfficeModel";
 
-/** Signum's Schema_Synchronizing — diff the DECLARED models against the live rows BY ClassName. */
+/** Diff the DECLARED models against the live rows BY ClassName. */
 async function synchronizeOfficeModels(replacements: Replacements): Promise<SqlPreCommand | undefined> {
     const connector = Connector.current();
     const table = connector.schema.tryTable(OfficeModelEntity);
@@ -296,7 +290,7 @@ async function synchronizeOfficeModels(replacements: Replacements): Promise<SqlP
 }
 
 /**
- * Signum's `Administrator.UnsafeDeletePreCommand(Database.Query<WordTemplateEntity>().Where(a => a.Model.Is(e)))`
+ * The pre-delete cascade: a model's templates go with it
  * — a SET-BASED delete emitted ahead of the model's own DELETE.
  *
  * The hook is synchronous (it contributes to a script, it does not execute), so this renders the statement

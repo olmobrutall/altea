@@ -9,34 +9,27 @@ import { DefaultStyle, enumText } from "./CellBuilder";
 import { cellText, readSharedStrings } from "./ExcelReader";
 import { readCellBuilder } from "./PlainExcelGenerator";
 
-// Port of Signum.Excel's ExcelGenerator.cs — refill a stored .xlsx TEMPLATE's "Data" sheet from a query.
+// Port of Signum.Excel's ExcelGenerator.cs — see docs/port/OfficeTemplate.md.
 //
-// The template is a workbook someone built in Excel: a "Data" sheet holding a header row and one sample
-// data row, plus whatever else they wanted — pivot tables, charts, sheets whose formulas read the data.
-// Running the report REPLACES the Data sheet's contents with the query's rows, keeping each column's
-// formatting from the sample row, and repoints every pivot cache at the new range. Nothing else in the
-// workbook is touched; Excel recalculates it on open.
+// Refill a stored .xlsx TEMPLATE's "Data" sheet from a query. The template is a workbook someone built IN
+// EXCEL: a "Data" sheet holding a header row and one sample data row, plus whatever else they wanted —
+// pivot tables, charts, sheets whose formulas read the data. Running the report REPLACES the Data sheet's
+// contents with the query's rows, keeps each column's formatting from the sample row, and repoints every
+// pivot cache at the new range. Nothing else is touched; Excel recalculates on open.
 //
-// Two things make it work, and both are the template author's contract rather than anything stored:
+// Two things make it work, and both are the template AUTHOR's contract rather than anything stored:
 //  - a column is matched by its **display name** — the header cell's text against the query column's
 //    caption — so the template says which columns it wants and in which order;
-//  - the **sample row** below the header supplies each column's style, which is how a template can format
-//    a date column, colour a total and set a number format without any of that being described in code.
+//  - the **sample row** below the header supplies each column's style, which is how a template formats a
+//    date column, colours a total and sets a number format without any of it being described in code.
 //
-// altea divergences, documented inline:
-//  - `SpreadsheetDocument` / the OpenXML SDK's typed graph → the package's own OOXML substrate (../oxml),
-//    the same swap PlainExcelGenerator documents.
-//  - the "Data" sheet is looked up more forgivingly (see {@link dataWorksheet}).
-//  - the output column ORDER is built explicitly (template columns in template order, then any query
-//    column the template does not mention). Signum gets the same order from a `HashSet<K>` it unions the
-//    two key sets into — true of .NET's HashSet in practice, but not a documented guarantee, and the file's
-//    column order is not something to leave to one.
-//  - Signum's `GetColumnWidth` is dead code there (nothing calls it) and is not ported: an ExcelReport
-//    takes its widths from the template, which is the point of having one.
+// The "Data" sheet is looked up MORE FORGIVINGLY than Signum's localized-name-only lookup (see
+// {@link dataWorksheet}), and the output column ORDER is built EXPLICITLY — template columns in template
+// order, then any query column the template does not mention — rather than falling out of a hash set's
+// iteration order.
 
 export namespace ExcelReportGenerator {
 
-    /** Signum's `WriteDataInExcelFile(results, request, template)`. */
     export function writeDataInExcelFile(
         results: ResultTable | null, request: QueryRequest, template: Uint8Array,
     ): Uint8Array {
@@ -56,7 +49,7 @@ export namespace ExcelReportGenerator {
         const sharedStrings = readSharedStrings(pkg);
         const columns = columnEquivalences(sheetData, request, sharedStrings);
 
-        // Signum reads the header style off cell A1 — the template's own header formatting, applied to
+        // The header style is read off cell A1 — the template's own header formatting, applied to
         // whichever columns the report ends up writing.
         const headerStyleIndex = styleOfCell(sheetData, "A1") ?? 0;
 
@@ -81,7 +74,7 @@ export namespace ExcelReportGenerator {
 
         stampReferences(rows);
 
-        // Signum's `sheetData.InnerXml = ""` — the template's sample rows go, the report's rows replace
+        // The template's sample rows go, the report's rows replace
         // them. The rest of the worksheet (its <cols> widths, merges, conditional formats) stays.
         sheetData.removeAllChildren();
         for (const r of rows)
@@ -101,7 +94,7 @@ export namespace ExcelReportGenerator {
 
     // ---- the columns ---------------------------------------------------------------------------------
 
-    /** Signum's `ColumnData` — a query column, the template style its values take, and whether the
+    /** A query column, the template style its values take, and whether the
      *  template mentioned it at all. */
     interface ColumnData {
         column: Column;
@@ -112,7 +105,7 @@ export namespace ExcelReportGenerator {
     }
 
     /**
-     * Signum's `GetColumnsEquivalences` — match the template's header cells to the request's columns by
+     * Match the template's header cells to the request's columns by
      * DISPLAY NAME, and take each column's style from the sample row.
      *
      * A template column with no matching query column is an ERROR, not something to skip: the workbook's
@@ -154,7 +147,7 @@ export namespace ExcelReportGenerator {
         });
 
         // A query column the template does not mention still goes in, unstyled and after the rest —
-        // Signum's `isNew: true` branch. It is what lets someone add a column to the search and still run
+        // It is what lets someone add a column to the search and still run
         // an old report; the pivots keep their own range (see refreshPivotCaches).
         for (const [name, column] of resultColumns)
             if (!matched.has(name))
@@ -164,7 +157,7 @@ export namespace ExcelReportGenerator {
     }
 
     /**
-     * Signum's `IsValidRowDataTemplate` — the first row below the header that can serve as the style
+     * The first row below the header that can serve as the style
      * sample: it must have at least as many cells as the header, and its Nth cell must sit in the same
      * COLUMN as the header's Nth (so a row with merged or shifted cells is skipped).
      */
@@ -196,10 +189,10 @@ export namespace ExcelReportGenerator {
     // ---- the workbook --------------------------------------------------------------------------------
 
     /**
-     * The worksheet the report writes into — Signum's `GetWorksheetPartBySheetName(ExcelMessage.Data)`.
+     * The worksheet the report writes into.
      *
      * The sheet is named by the LOCALIZED "Data", which makes a template authored in one culture
-     * unreadable in another. altea looks for the localized name first (so a Signum template keeps working
+     * unreadable in another. The localized name is tried FIRST (so a Signum template keeps working
      * exactly as it did), then the invariant "Data", and finally accepts a workbook that has only ONE
      * worksheet — the case where there is nothing to disambiguate. Only a multi-sheet workbook with no
      * recognisable data sheet fails, and then the message says what was looked for.
@@ -238,14 +231,14 @@ export namespace ExcelReportGenerator {
     }
 
     /**
-     * Signum's pivot-cache pass: every pivot table whose source is the Data sheet gets its range widened
+     * The pivot-cache pass: every pivot table whose source is the Data sheet gets its range widened
      * (or narrowed) to what was just written, and is told to refresh when the file opens.
      *
      * `saveData = false` drops the cached records with it — they describe the template's sample rows, and
      * leaving them would show the old numbers until someone refreshed by hand.
      *
      * The range covers only the columns the TEMPLATE had: a column the query added is appended to the
-     * right, and a pivot built before it existed does not know what to do with it (Signum's same
+     * right, and a pivot built before it existed does not know what to do with it (the same
      * `Count(ce => !ce.IsNew)`).
      */
     function refreshPivotCaches(pkg: OxmlPackage, templateColumnCount: number, rowCount: number): void {
@@ -287,7 +280,7 @@ function rowOf(cells: OxmlElement[]): OxmlElement {
     return row;
 }
 
-/** Signum's ToSheetDataWithIndexes: stamp `r="3"` on each row and `r="B3"` on each of its cells. */
+/** Stamp `r="3"` on each row and `r="B3"` on each of its cells. */
 function stampReferences(rows: OxmlElement[]): void {
     rows.forEach((row, rowIndex) => {
         const r = String(rowIndex + 1);

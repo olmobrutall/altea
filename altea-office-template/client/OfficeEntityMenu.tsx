@@ -13,7 +13,7 @@ import { OfficeClient } from "./OfficeClient";
 // Port of Signum.Word's WordEntityMenu.tsx — the button on an entity's frame offering every report template
 // applicable to THAT entity.
 //
-// altea divergence: Signum read the templates off `entityPack.wordTemplates`, an extension the server pushed
+// The templates are FETCHED, where Signum reads them off `entityPack.wordTemplates`, an extension the server pushes
 // into the EntityPack DTO. altea's EntityPack carries no such member, so they are FETCHED here with
 // visibleOn "Single" — the same call the contextual menu makes. The button renders nothing until they
 // arrive and nothing at all when there are none, which is what Signum's `wordTemplates.length > 0` guard

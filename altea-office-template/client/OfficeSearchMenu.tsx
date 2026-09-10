@@ -12,7 +12,7 @@ import { OfficeClient } from "./OfficeClient";
 // Port of Signum.Word's WordSearchMenu.tsx — the search-control toolbar button that offers one template per
 // menu item and renders it for the CURRENT query request.
 //
-// altea divergence (the same one @altea/altea-email's MailingMenu documents): Signum read the applicable
+// The applicable templates are FETCHED (the same divergence @altea/altea-email's MailingMenu documents), where Signum reads
 // templates off `queryDescription.wordTemplates`, an extension the server pushed into the QueryDescription
 // DTO. altea has no such DTO, so they are FETCHED here with visibleOn "Query"; the button renders nothing
 // until they arrive and nothing at all when there are none — which is what Signum's `!wordReports.length`

@@ -40,7 +40,7 @@ export const RelationshipTypes = {
     footer: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer",
 } as const;
 
-/** The three document flavours the port supports (Signum's three `…Document` package classes). */
+/** The three document flavours the port supports. */
 export type OfficeDocumentKind = "word" | "presentation" | "spreadsheet";
 
 const mainPartContentTypes: { kind: OfficeDocumentKind; contentType: string }[] = [
@@ -290,7 +290,7 @@ export class OxmlPackage {
         return [...this.partsByUri.values()];
     }
 
-    /** Every XML part's root element (Signum's `AllRootElements()`). */
+    /** Every XML part's root element. */
     get allRootElements(): OxmlElement[] {
         return this.parts.filter(p => p.isXml).map(p => p.document.root);
     }
@@ -354,7 +354,7 @@ export class OxmlPackage {
         return found.kind;
     }
 
-    /** The workbook part of a .xlsx (Signum's `SpreadsheetDocument.WorkbookPart`), else undefined. */
+    /** The workbook part of a .xlsx, else undefined. */
     get workbookPart(): OxmlPart | undefined {
         return this.kind === "spreadsheet" ? this.mainPart : undefined;
     }

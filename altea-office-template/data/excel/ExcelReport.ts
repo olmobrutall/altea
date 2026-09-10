@@ -7,7 +7,9 @@ import { FileEmbedded } from "@altea/altea-files/data/Files";
 import { ExcelMessage } from "../Excel";
 import type { DeleteSymbol, ExecuteSymbol } from "@altea/altea/data/operations";
 
-// Port of Signum.Excel's ExcelReportEntity.cs — a stored .xlsx TEMPLATE attached to a query.
+// Port of Signum.Excel's ExcelReportEntity.cs — see docs/port/OfficeTemplate.md.
+//
+// A stored .xlsx TEMPLATE attached to a query.
 //
 // What it is, and why it exists beside @altea/altea-office-template's own xlsx templating: an ExcelReport
 // is a whole WORKBOOK the author built in Excel — pivot tables, charts, extra sheets whose formulas point
@@ -24,7 +26,7 @@ import type { DeleteSymbol, ExecuteSymbol } from "@altea/altea/data/operations";
 // a Signum database already has, which is what makes an application migrate rather than restart.
 //
 // altea divergences:
-//  - the table lives in the `excel` schema (Signum's), which is why this file is its own directory: the
+//  - the table lives in the `excel` schema, which is why this file is its own directory: the
 //    schema scope is per PACKAGE + DIRECTORY and `data/OfficeTemplate.ts` already claims `data/` for
 //    `word`. A `setDefaultDatabaseSchema("excel")` beside it would REPLACE that scope, not add to it.
 //  - `[AutoExpressionField] ToString() => DisplayName` is a `@quoted` override, altea's same mechanism.
@@ -37,7 +39,7 @@ export class ExcelReportEntity extends Entity {
     @stringLengthValidator({ min: 3, max: 200 })
     displayName: string;
 
-    // NEW here: Signum asserts the extension when the report RUNS (`AsserExtension`), which means a
+    // NEW here: Signum asserts the extension when the report RUNS, which means a
     // template saved with the wrong extension looks fine until someone tries to use it. The same rule as
     // a validation refuses it at save time; the run-time assert is kept too, for a row that predates this.
     @validate<ExcelReportEntity>(r => extensionError(r.file))

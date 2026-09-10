@@ -12,39 +12,33 @@ import { ExcelMessage } from "../../data/Excel";
 import { CellBuilder, DefaultStyle, enumText, getColumnWidth, getCustomFormatExpression } from "./CellBuilder";
 import { readSheet } from "./ExcelReader";
 
-// Port of Signum.Excel's PlainExcelGenerator.cs — a query's ResultTable straight to .xlsx, with no
-// template authoring: the title row, the header row, one row per result row.
+// Port of Signum.Excel's PlainExcelGenerator.cs — see docs/port/OfficeTemplate.md.
 //
-// Like Signum, the output is BUILT FROM a small .xlsx resource (`Resources/plainExcelTemplate.xlsx`, copied
-// byte-for-byte from Signum.Excel) that carries the styles: its cells A1 / A2 / B3…K3 are formatted as the
+// A query's ResultTable straight to .xlsx, with no template authoring: the title row, the header row, one
+// row per result row.
+//
+// The output is BUILT FROM a small .xlsx resource (`Resources/plainExcelTemplate.xlsx`, copied
+// byte-for-byte from Signum.Excel) that carries the STYLES: its cells A1 / A2 / B3…K3 are formatted as the
 // title / header / date / … styles, and their `s=` indexes ARE the DefaultStyle map. Only the worksheet's
 // `<cols>` + `<sheetData>` are replaced, so the theme, fonts, number formats and column widths of Signum's
 // exports are reproduced exactly.
 //
-// altea divergences:
-//  - `SpreadsheetDocument` → the package's own OOXML substrate (../oxml), so the worksheet is rebuilt as
-//    plain elements rather than through the SDK's typed graph.
-//  - Signum's WRAP-TEXT handling appended a NEW cell format per multi-line cell (`ApplyWrapTextStyle`,
-//    once per cell — thousands of formats for a large export). One wrap-text format is minted per FILE
-//    here and shared by every such cell.
-//  - Signum's `WritePlainExcel<T>(IEnumerable<T>)` overload takes an arbitrary object list and derives
-//    the columns by REFLECTION over T's members. TypeScript erases that, so the counterpart is
-//    {@link PlainExcelGenerator.writeStringTable} — the caller names the columns. Its reader is
-//    {@link PlainExcelGenerator.readStringTable} (Signum's `ReadPlainExcel`), which is what makes the
-//    two halves a round trip: @altea/altea-translations exports its per-type translation sheets with one
-//    and re-imports the edited file with the other.
-//  - the QUERY importer is elsewhere (ExcelImportLogic) — it maps cells back onto query columns, a
-//    different job from reading a fixed table of strings.
-//  - the MARKUP flatteners are reached by a plain import, the dependency edge Signum.Excel also has (its
-//    csproj references Signum.HtmlEditor and Signum.Markdown for exactly these two calls). A registry seam
-//    would have to live in altea CORE — neither module may depend on this one — and would need each of them
-//    to grow a server `start` purely to register, which Signum.Markdown does not have at all. So the edge
-//    is kept: it costs one dependency in a workspace where both packages exist anyway, and the alternative
-//    costs a core concept plus two module lifecycles.
+// ONE wrap-text format is minted per FILE and shared by every multi-line cell. (Signum appends a new cell
+// format per such cell — thousands of formats for a large export.)
+//
+// `writeStringTable` is the counterpart of Signum's reflection-driven `WritePlainExcel<T>` overload: the
+// caller names the columns, since TypeScript erases T. Its reader `readStringTable` is what makes the two
+// a ROUND TRIP — @altea/altea-translations exports its per-type translation sheets with one and re-imports
+// the edited file with the other. The QUERY importer is elsewhere (ExcelImportLogic): mapping cells back
+// onto query columns is a different job from reading a fixed table of strings.
+//
+// The MARKUP flatteners are reached by a PLAIN IMPORT, the dependency edge Signum.Excel also has. A
+// registry seam would have to live in altea CORE — neither module may depend on this one — and would need
+// each of them to grow a server `start` purely to register, which Signum.Markdown does not have at all.
 
 const SPREADSHEET_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 
-/** The .xlsx whose styles every plain export inherits (Signum's embedded `plainExcelTemplate.xlsx`). */
+/** The .xlsx whose styles every plain export inherits. */
 // (the emitted JS sits in dist/server/excel/, so three levels up is the package root — the same trick
 // ChartScriptLogic.loadIcon uses for its PNGs)
 export function templateBytes(): Uint8Array {
@@ -52,7 +46,7 @@ export function templateBytes(): Uint8Array {
 }
 
 /**
- * Signum's static PlainExcelGenerator ctor / SetTemplate: read the style indexes off the template's own
+ * Read the style indexes off the template's own
  * cells, so re-authoring the template (adding a style, reordering formats) needs no code change.
  */
 export function readCellBuilder(): CellBuilder {
@@ -89,10 +83,10 @@ export function readCellBuilder(): CellBuilder {
 export namespace PlainExcelGenerator {
 
     /**
-     * Signum's WritePlainExcel(results, request, title, forImport) — the whole workbook as bytes.
+     * The whole workbook as bytes.
      *
      * `forImport` produces a file the IMPORTER can read back: enum members and lite keys instead of their
-     * localized / display text (Signum's `forImport` flag, threaded down to every cell).
+     * localized / display text (the `forImport` flag, threaded down to every cell).
      */
     export function writePlainExcel(results: ResultTable | null, request: QueryRequest, title: string, forImport = false): Uint8Array {
         if (results == null)
@@ -111,7 +105,7 @@ export namespace PlainExcelGenerator {
         const columns = request.columns.filter(c => !c.token.isEntity());
         const styles = columns.map(c => cellBuilder.getDefaultStyleAndIndex(c));
 
-        // Signum's `columnFormats`: the format declared BY THE PROPERTY (`@format(…)`, its [Format]), not the
+        // The format declared BY THE PROPERTY (`@format(…)`, its [Format]), not the
         // column's own display format, which a user may have overridden in the column editor. A markup column
         // is flattened to text and laid out multiline — a cell wants text, not `<p>` or `**`.
         const markupFormats = columns.map(c => {
@@ -306,7 +300,7 @@ function rowOf(cells: OxmlElement[]): OxmlElement {
     return row;
 }
 
-/** Signum's ToSheetDataWithIndexes: stamp `r="3"` on each row and `r="B3"` on each of its cells. */
+/** Stamp `r="3"` on each row and `r="B3"` on each of its cells. */
 function stampReferences(rows: OxmlElement[]): void {
     rows.forEach((row, rowIndex) => {
         const r = String(rowIndex + 1);

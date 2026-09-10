@@ -27,32 +27,28 @@ import { PropertyAuthLogic } from "@altea/altea-auth/server/PropertyAuthLogic";
 import { ImportExcelMode, ImportFromExcelMessage, type ImportExcelModel } from "../../data/Excel";
 import { readSheet, cellReference, fromExcelDate, fromExcelNumber, fromExcelTime, type ExcelRow } from "./ExcelReader";
 
-// Port of Signum.Excel's ImporterFromExcel.cs — read an .xlsx back into entities: the query's COLUMNS say
-// which property each sheet column assigns, its FILTERS supply constant values, and one operation saves
-// each resulting entity.
+// Port of Signum.Excel's ImporterFromExcel.cs — see docs/port/OfficeTemplate.md.
 //
-// The port keeps Signum's whole shape (ParseQueryRequest → the per-row loop → ImportResult per row) and its
-// error messages. Four things diverge, all forced by altea's model:
+// Read an .xlsx back into entities: the query's COLUMNS say which property each sheet column assigns, its
+// FILTERS supply constant values, and one operation saves each resulting entity. Signum's whole shape is
+// kept — ParseQueryRequest → the per-row loop → ImportResult per row — and so are its error messages.
 //
-//  1. NO COMPILED SETTERS. Signum built the getter/setter of every column with
-//     `PropertyRoute.GetLambdaExpression(...).Compile()`. An altea entity is a plain object and a property
-//     route IS a member path ("shipAddress.country"), so an assignment is a walk over `segments` — no
-//     expression trees, and missing embeddeds along the path are simply constructed.
-//  2. MLISTS ARE GONE. Signum grouped `MList<embedded>` rows and synchronised them by key. An altea
-//     collection is an array of `@part` ROW entities (or of rows whose `@valueField` holds a scalar), so
-//     "create an element" is `new RowEntity()` + assign the relative segments, and matching an existing
-//     element compares the key column's value read off that row.
-//  3. `Administrator.DisableIdentity` has no counterpart: altea's save path writes an explicit PK whenever
-//     a NEW entity already carries an id (OVERRIDING SYSTEM VALUE / SET IDENTITY_INSERT are emitted by the
-//     insert builder), so `model.identityInsert` only decides whether the Id column MAY be assigned.
-//  4. The root type is unambiguous. Signum inspected the QueryDescription's Entity-column implementations
-//     and refused a query with several (ThisQueryHasMultipleImplementations0); an altea query's shape is a
-//     single reflected type, so that check survives only as the "not an entity query" case.
+// Two things about the ASSIGNMENT are worth knowing at the point of edit:
+//
+//  1. NO COMPILED SETTERS. An entity is a plain object and a property route IS a member path
+//     ("shipAddress.country"), so an assignment is a WALK over `segments`, and a missing embedded along
+//     the path is simply constructed.
+//  2. A COLLECTION is `@part` ROW entities (or rows whose `@valueField` holds a scalar), so "create an
+//     element" is `new RowEntity()` + assign the relative segments, and matching an existing element
+//     compares the key column's value read off that row.
+//
+// `model.identityInsert` only decides whether the Id column MAY be assigned: the save path already writes
+// an explicit PK whenever a NEW entity carries an id.
 
-/** Signum's ImportAction. A string union: the value goes to the client as-is (Signum sent the enum name). */
+/** A string union: the value goes to the client as-is. */
 export type ImportActionKeys = "Inserted" | "Updated" | "NoChanges";
 
-/** Signum's ImportResult — one row's outcome, streamed to the client as it happens. */
+/** One row's outcome, streamed to the client as it happens. */
 export interface ImportResult {
     totalRows: number;
     action: ImportActionKeys;
@@ -61,7 +57,6 @@ export interface ImportResult {
     error?: string | null;
 }
 
-/** Signum's ParsedQueryForImport. */
 export interface ParsedQueryForImport {
     mainType: Type<Entity>;
     columns: QueryToken[];
@@ -71,7 +66,7 @@ export interface ParsedQueryForImport {
 
 export namespace ExcelImporter {
 
-    // ---- parse / validate (Signum's ParseQueryRequest) --------------------------------------------------
+    // ---- parse / validate -------------------------------------------------------------------------------
 
     /**
      * Validate that this query request can drive an import, and return what the import needs: the entity
@@ -85,9 +80,9 @@ export namespace ExcelImporter {
         const simpleFilters = getSimpleFilters(request.filters, mainType);
         const columns = getSimpleColumns(request.columns, mainType);
 
-        // Signum: every assigned property must be writable for the current role. A ROOT route (the row
+        // Every assigned property must be writable for the current role. A ROOT route (the row
         // identity / ToString, whose token has no property of its own) is checked at the TYPE level by the
-        // save gate instead — Signum's CanBeAllowedFor takes that same branch.
+        // save gate instead.
         const authErrors: string[] = [];
         for (const token of [...simpleFilters.keys(), ...columns]) {
             const route = (token instanceof HasValueToken ? token.parent : token)?.getPropertyRoute();
@@ -106,13 +101,13 @@ export namespace ExcelImporter {
         if (elements.length === 0)
             return result;
 
-        // Signum: only the plain `Element` navigation can be imported (Element2 / Element3 are extra
+        // Only the plain `Element` navigation can be imported (Element2 / Element3 are extra
         // independent iterations of the same collection, which cannot be reconstructed from flat rows).
         const notElement = distinct(elements.map(e => e.key).filter(k => k !== "Element"));
         if (notElement.length > 0)
             throw new Error(ImportFromExcelMessage._0IsNotSupported.niceToString(notElement.join(", ")));
 
-        // The single collection every other collection hangs off (Signum's `top`).
+        // The single collection every other collection hangs off.
         const top = elements.filter(e => elements.every(e2 => e2.fullKey().startsWith(e.fullKey())));
         if (top.length !== 1)
             throw new Error(ImportFromExcelMessage.UnableToAssignMoreThanOneUnrelatedCollections0
@@ -122,13 +117,13 @@ export namespace ExcelImporter {
         return result;
     }
 
-    // ---- import (Signum's ImportExcel) -----------------------------------------------------------------
+    // ---- import ------------------------------------------------------------------------------------------
 
     /**
      * Read the model's file and apply every row, yielding one ImportResult per entity as it is saved.
      *
      * `model.transactional` wraps the WHOLE import in one transaction and holds the results back until it
-     * commits (Signum does the same: a failure anywhere must not leave half an import behind, so nothing is
+     * commits: a failure anywhere must not leave half an import behind, so nothing is
      * reported until the outcome is known).
      */
     export async function* importExcel(request: QueryRequest, model: ImportExcelModel, saveOperation: OperationSymbol): AsyncGenerator<ImportResult> {
@@ -140,7 +135,7 @@ export namespace ExcelImporter {
 
         const rows = readSheet(bytes);
 
-        // Signum's header check: the sheet's second row must name the query's columns, in order.
+        // The sheet's second row must name the query's columns, in order.
         const headerRow = rows[1];
         const excelColumns = headerRow == undefined ? [] : takeWhileText(headerRow);
         const queryColumns = request.columns.filter(c => !c.token.isEntity()).map(c => c.displayName ?? c.token.niceName());
@@ -148,7 +143,7 @@ export namespace ExcelImporter {
             throw new Error(ImportFromExcelMessage.ColumnsDoNotMatchExcelColumns0QueryColumns1
                 .niceToString(excelColumns.join(", "), queryColumns.join(", ")));
 
-        // The data rows: from the third, up to the first fully empty one (Signum's TakeWhile).
+        // The data rows: from the third, up to the first fully empty one.
         const dataRows: ExcelRow[] = [];
         for (const row of rows.slice(2)) {
             if (![...row.cells.values()].some(v => v != undefined && v !== ""))
@@ -223,21 +218,21 @@ class ImportRolledBack extends Error { }
 
 // ---- the plan -------------------------------------------------------------------------------------------
 
-/** How one query column assigns its value (altea's replacement for Signum's compiled getter/setter pair). */
+/** How one query column assigns its value — a member-path walk, not a compiled setter. */
 interface Assignment {
     token: QueryToken;
     colIndex: number;
     /** Member path from the OWNER object (the entity, or a collection element) to the field to write. */
     segments: string[];
-    /** Signum's IsId: the row carries the entity's own primary key. */
+    /** The row carries the entity's own primary key. */
     isId: boolean;
     /** A non-nullable value field: a null cell is an error rather than a null assignment. */
     required: boolean;
-    /** Signum's HasValueToken: `true` materialises the embedded, `false` clears it. */
+    /** `true` materialises the embedded, `false` clears it. */
     isHasValue: boolean;
     /** The collection element this assignment belongs to (undefined ⇒ the entity itself). */
     element?: CollectionElementToken;
-    /** Signum's EntityFinder: this column identifies ANOTHER entity, found by querying for it. */
+    /** This column identifies ANOTHER entity, found by querying for it. */
     findBy?: { queryName: unknown; token: QueryToken; wantsEntity: boolean };
 }
 
@@ -301,7 +296,7 @@ async function buildPlan(pq: ParsedQueryForImport, model: ImportExcelModel): Pro
 
 /**
  * The assignment plan for one token: which member path it writes, and — when the token navigates INTO
- * another entity (`customer.contactName`) — the query that FINDS that entity by this value (Signum's
+ * another entity (`customer.contactName`) — the query that FINDS that entity by this value (the
  * EntityFinder).
  */
 function assignmentFor(token: QueryToken, colIndex: number, mainType: Type<Entity>): Assignment {
@@ -317,14 +312,14 @@ function assignmentFor(token: QueryToken, colIndex: number, mainType: Type<Entit
     const route = token.getPropertyRoute();
 
     // The row IDENTITY. altea models `id` as a sub-token of the ROOT route (it has no field of its own),
-    // so it is recognised here rather than by comparing PropertyInfos as Signum did with `piId`.
+    // so it is recognised here rather than by comparing reflected members.
     if (route == undefined || route.propertyRouteType === PropertyRouteType.Root) {
         if (token.key === "id")
             return { token, colIndex, segments: ["id"], isId: true, required: false, isHasValue: false, element: elementOf(token) };
         throw new Error(ImportFromExcelMessage._01IsIncompatible.niceToString(token.toString(), token.constructor.name));
     }
 
-    // Signum: the first ancestor that is NOT the main type (nor a Part of it) starts a FOREIGN entity; the
+    // The first ancestor that is NOT the main type (nor a Part of it) starts a FOREIGN entity; the
     // rest of the path identifies which one, so the value is looked up rather than assigned.
     const chain = ancestors(token).reverse();
     const foreignIndex = chain.findIndex(t => !isMainTypeOrPart(t, mainType));
@@ -360,7 +355,7 @@ function assignmentFor(token: QueryToken, colIndex: number, mainType: Type<Entit
         element: elementOf(token),
         findBy: findBy ?? (fieldInfo?.getFunction() != undefined && fieldInfo.lite !== true
             // A plain reference field that wants the ENTITY (not a Lite): the cell holds a lite key, so the
-            // entity has to be retrieved (Signum's `((Lite<Entity>)v).Retrieve()` branch).
+            // entity has to be RETRIEVED.
             ? { queryName: undefined, token, wantsEntity: true }
             : undefined),
     };
@@ -380,7 +375,7 @@ function propertyStringOf(routeOrToken: PropertyRoute | QueryToken): string {
     return route.propertyString();
 }
 
-/** The innermost collection element among a token's ancestors (Signum's `Follow(a => a.Parent).OfType<…>`). */
+/** The innermost collection element among a token's ancestors. */
 function elementOf(token: QueryToken): CollectionElementToken | undefined {
     return ancestors(token).find((t): t is CollectionElementToken => t instanceof CollectionElementToken);
 }
@@ -420,7 +415,7 @@ async function applyGroup(
         throw new Error(`${niceNameOf(pq.mainType)} already exists (mode is Insert)`);
     }
 
-    // The constant values the query's FILTERS imply — only on a fresh entity (Signum's guard).
+    // The constant values the query's FILTERS imply — only on a fresh entity.
     if (res.action === "Inserted")
         for (const { assignment, value } of plan.filterAssignments)
             if (!assignment.isId)
@@ -463,7 +458,7 @@ async function applyGroup(
         const subAssignments = plan.assignments.filter(a => a.element === collection.element && a !== undefined);
 
         if (collection.key == undefined) {
-            // Signum: the last collection of an Insert — the rows simply become the elements.
+            // The last collection of an Insert — the rows simply become the elements.
             if (list.length !== 0)
                 throw new Error("The collection should be empty");
             for (const row of group.rows)
@@ -490,7 +485,7 @@ async function applyGroup(
                     list.push(await buildElement(collection, subAssignments, row, null));
             }
 
-            // Signum's Synchronizer.removeOld: elements no longer present in the file go away.
+            // Elements no longer present in the file go away.
             for (const [k, element] of byKey)
                 if (!seen.has(k))
                     list.splice(list.indexOf(element), 1);
@@ -500,7 +495,7 @@ async function applyGroup(
     return entity;
 }
 
-/** Signum's ApplyChanges: fill (or create) one collection element from one sheet row. */
+/** Fill (or create) one collection element from one sheet row. */
 async function buildElement(
     collection: ImportPlan["collections"][number],
     assignments: Assignment[],
@@ -539,7 +534,7 @@ function keyOfElement(element: Entity, collection: ImportPlan["collections"][num
     return value instanceof Lite ? value.key() : value;
 }
 
-// ---- assignment mechanics (Signum's compiled setters) ---------------------------------------------------
+// ---- assignment mechanics -------------------------------------------------------------------------------
 
 /** Walk `segments` and write the last one. Missing embeddeds along the way are constructed. */
 async function assign(owner: Entity, assignment: Assignment, value: unknown, row: ExcelRow | undefined): Promise<void> {
@@ -554,7 +549,7 @@ async function assign(owner: Entity, assignment: Assignment, value: unknown, row
     }
 
     if (assignment.isHasValue) {
-        // Signum's HasValue setter: true → keep / create the embedded, false → null it out.
+        // True → keep / create the embedded, false → null it out.
         const route = assignment.token.parent!.getPropertyRoute()!;
         const ctor = route.fieldInfo?.getFunction() as (new () => object) | undefined;
         if (ctor == undefined)
@@ -605,7 +600,7 @@ function valueFieldOf(rowType: Type<Entity>): FieldInfo | undefined {
 
 // ---- values --------------------------------------------------------------------------------------------
 
-/** Signum's ParseExcelValue: the cell's text as the token's own type. */
+/** The cell's text as the token's own type. */
 function parseExcelValue(token: QueryToken, text: string | undefined, row: ExcelRow, colIndex: number): unknown {
     if (text == undefined || text === "")
         return null;
@@ -642,7 +637,7 @@ function parseExcelValue(token: QueryToken, text: string | undefined, row: Excel
     }
 }
 
-/** Signum's ParseOrFindByText: a lite KEY parses directly, anything else is matched on ToString. */
+/** A lite KEY parses directly, anything else is matched on ToString. */
 function parseOrFindByText(text: string, token: QueryToken): unknown {
     try {
         return Lite.parse(text);
@@ -652,7 +647,7 @@ function parseOrFindByText(text: string, token: QueryToken): unknown {
     }
 }
 
-/** Signum's EntityFinder / `.Retrieve()`: turn the parsed value into what the FIELD wants. */
+/** Turn the parsed value into what the FIELD wants. */
 async function resolveValue(assignment: Assignment, value: unknown): Promise<unknown> {
     if (value == null || assignment.findBy == undefined)
         return value;
@@ -685,7 +680,7 @@ async function retrieveOf(lite: Lite<Entity>): Promise<Entity> {
     return await retrieve(lite.entityType as Type<Entity>, lite.id);
 }
 
-/** Signum's RoundToValidator: honour the property's decimal-places validator. */
+/** Honour the property's decimal-places validator. */
 function roundToValidator(value: Decimal, token: QueryToken): Decimal {
     const decimals = token.getPropertyRoute()?.fieldInfo?.columnOptions?.scale;
     return decimals == undefined ? value : new Decimal(value.toFixed(decimals));
@@ -705,10 +700,10 @@ function sameValue(a: unknown, b: unknown): boolean {
     return a === b;
 }
 
-// ---- grouping (Signum's GroupByConsecutive) ------------------------------------------------------------
+// ---- grouping -------------------------------------------------------------------------------------------
 
 /**
- * Rows sharing the same key value, CONSECUTIVELY (Signum's GroupWhenChange): a group is one entity, its
+ * Rows sharing the same key value, CONSECUTIVELY: a group is one entity, its
  * rows are that entity's collection elements. The same key reappearing later is an error — the file would
  * describe one entity twice.
  */
@@ -751,7 +746,7 @@ function sameKey(a: unknown, b: unknown): boolean {
     return a === b || String(a) === String(b);
 }
 
-// ---- query-shape validation (Signum's GetSimpleColumns / GetSimpleFilters / IsSimpleProperty) -----------
+// ---- query-shape validation -----------------------------------------------------------------------------
 
 function getEntityType(request: QueryRequest): Type<Entity> {
     const rootType = request.columns.find(c => c.token.isEntity())?.token.type?.getFunction()
@@ -801,7 +796,7 @@ function getSimpleFilters(filters: Filter[], mainType: Type<Entity>): Map<QueryT
     return result;
 }
 
-/** Signum's IsSimpleProperty: null when the token can be assigned, else why not. */
+/** Null when the token can be assigned, else why not. */
 function isSimpleProperty(token: QueryToken, mainType: Type<Entity>): string | null {
     if (token.filterType == undefined)
         return ImportFromExcelMessage._0IsNotSupported.niceToString(token.niceTypeName?.() ?? token.toString());
@@ -829,7 +824,7 @@ function isSimpleProperty(token: QueryToken, mainType: Type<Entity>): string | n
     return null;
 }
 
-/** Signum's IsMainTypeOrPart: the token's route belongs to the main type, or to a Part owned by it. */
+/** The token's route belongs to the main type, or to a Part owned by it. */
 function isMainTypeOrPart(token: QueryToken, mainType: Type<Entity>): boolean {
     const route = token.getPropertyRoute();
     if (route == undefined)
@@ -847,7 +842,7 @@ function isMainTypeOrPart(token: QueryToken, mainType: Type<Entity>): boolean {
 
 // ---- small helpers -------------------------------------------------------------------------------------
 
-/** A token and every ancestor, innermost first (Signum's `Follow(a => a.Parent)`). */
+/** A token and every ancestor, innermost first. */
 function ancestors(token: QueryToken): QueryToken[] {
     const list: QueryToken[] = [];
     for (let t: QueryToken | undefined = token; t != undefined; t = t.parent)
@@ -867,7 +862,7 @@ function distinctTokens(tokens: QueryToken[]): CollectionElementToken[] {
     return [...byKey.values()];
 }
 
-/** The rows of the header that carry text, stopping at the first blank (Signum's TakeWhile). */
+/** The rows of the header that carry text, stopping at the first blank. */
 function takeWhileText(row: ExcelRow): string[] {
     const out: string[] = [];
     for (let i = 0; ; i++) {
