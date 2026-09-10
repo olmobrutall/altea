@@ -15,22 +15,18 @@ import {
 } from "../data/Tour";
 import { TourLogic } from "./TourLogic";
 
-// Port of Signum.Tour's TourController.cs + TourDTO.cs — the four "is there a tour for this?" lookups the
-// TourButton calls, and the flattened DTO the driver.js player consumes.
+// The four "is there a tour for this?" lookups the TourButton calls, and the flattened DTO the driver.js
+// player consumes.
 //
-// altea divergences:
-//  - the routes are namespaced `/api/tour/...` — which is already Signum's shape here.
-//  - `GetTriggerType` returns the trigger's CLEAN TYPE NAME rather than a `Lite<TypeEntity>`: the editor
-//    only ever uses it to look up property routes, which are keyed by the ctor on the client, and a lite
-//    would just cost the client a second fetch to read the name back out.
-//  - `ResolveCssSelector` moved to the DATA layer (`cssSelector` in data/Tour.ts) so the editor's live
-//    preview and the served DTO cannot drift; the query KEY of a `Lite<QueryEntity>` toolbar target is
-//    resolved here (a lookup the isomorphic layer cannot do) and passed in.
-//  - the enums travel as their member NAME strings, lower-cased for `side`/`align` as Signum does (they
-//    are driver.js's own vocabulary); altea enums are int-FK in memory, hence the `Enum.toName`.
+// The enums travel as their member NAME strings, lower-cased for `side`/`align` — driver.js's own
+// vocabulary — hence the `Enum.toName`, since altea enums are int-FK in memory. The query KEY of a
+// `Lite<QueryEntity>` toolbar target is resolved HERE (a lookup the isomorphic layer cannot do) and passed
+// into `cssSelector`.
+//
+// Port of Signum.Tour's TourController.cs — see docs/port/Tour.md.
 export namespace TourServer {
 
-    /** Signum's TourDTO — what the player needs, with each step's selector already resolved. */
+    /** What the player needs, with each step's selector already resolved. */
     export interface TourDTO {
         tour: Lite<TourEntity>;
         forEntity: Lite<Entity>;

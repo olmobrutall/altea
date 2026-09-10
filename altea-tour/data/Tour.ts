@@ -16,29 +16,19 @@ import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets"
 import { DashboardEntity } from "@altea/altea-dashboard/data/Dashboard";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 
-// Port of Signum.Tour's Tour.cs — a guided walkthrough of a page: an ordered list of STEPS, each one a
-// popover anchored to a CSS selector, played by driver.js in the client.
+// A guided walkthrough of a page: an ordered list of STEPS, each one a popover anchored to a CSS selector,
+// played by driver.js in the client.
 //
 // A tour is addressed by its TRIGGER — the thing it explains: an entity TYPE (its view), a DASHBOARD, a
 // USER QUERY, or a declared `TourTriggerSymbol` (core's framework-level anchor, so any module can offer
 // one without depending on this package).
 //
-// altea divergences:
-//  - **no `Guid` field.** Like every other user asset here, the portable identity IS the uuid PRIMARY KEY
-//    (see altea-user-queries' UserQueryEntity), so Signum's `[UniqueIndex] Guid Guid` and its separate
-//    index are gone.
-//  - **`MList` → `@part` rows twice over.** `Steps` is Signum's `[Ignore] MList` + `WithVirtualMList` —
-//    which IS altea's `@part` collection — and `CssSteps` (a real MList of embeddeds) becomes `@part`
-//    rows too. Signum calls the element `CssStepEmbedded`; in altea a collection element is an ENTITY,
-//    so the name says so.
-//  - **a "Property" CSS step points at a `PropertyRouteEntity` row**, as in Signum. This used to store the
-//    route STRING, because altea had no such table; it does now (see altea/data/propertyRouteEntity.ts), so
-//    the column is Signum's `property_id` again and the `PreDeleteSqlSync` cascade that drops a step whose
-//    route was removed is back in TourLogic.
-//  - **the Property selector uses the route's LAST SEGMENT.** altea re-roots the PropertyRoute at each
-//    embedded it renders, so a Line's `data-property-path` is its OWN member ("city"), not Signum's full
-//    dotted route ("shipAddress.city") — the same divergence altea-playwright documents. `cssSelector()`
-//    below builds the selector accordingly.
+// **The Property selector uses the route's LAST SEGMENT**, because a Line's `data-property-path` is its
+// OWN member ("city") rather than the full dotted route — the divergence altea-playwright documents.
+// `cssSelector()` below builds the selector accordingly, and lives HERE so the editor's live preview and
+// the served DTO cannot drift.
+//
+// Port of Signum.Tour's Tour.cs — see docs/port/Tour.md.
 
 @reflect
 @primaryKey("uuid")

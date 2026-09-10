@@ -9,15 +9,11 @@ import { Lite } from "@altea/altea/data/lite";
 import { EvalPanelPermission } from "../data/EvalPanelPermission";
 import { EvalLogic } from "./EvalLogic";
 
-// Port of Signum.Eval's EvalPanelController.cs — "which stored scripts no longer compile?".
+// "Which stored scripts no longer compile?" ONE call checks everything, because the registry is a list of
+// server-side loaders (see EvalLogic.evalSources), and the response says which source each failure came
+// from.
 //
-// altea divergences:
-//  - Signum takes a `QueryEntitiesRequest` per registered FindOptions and the CLIENT loops; altea's registry
-//    is a list of server-side loaders (see EvalLogic.evalSources), so ONE call checks everything and the
-//    response says which source each failure came from.
-//  - Signum calls `GraphExplorer.PreSaving(…)` then `FullIntegrityCheck()`. altea does the same two steps
-//    explicitly — the save is what binds an eval to its owner (`@bindParent`), without which
-//    `compile()` could not read the owner's fields.
+// Port of Signum.Eval's EvalPanelController.cs — see docs/port/Eval.md.
 
 /** Signum's EvalEntityError, plus which registered source the row came from. */
 export interface EvalEntityError {
@@ -57,7 +53,7 @@ export namespace EvalServer {
             }
 
             for (const entity of entities) {
-                // Signum's `GraphExplorer.PreSaving(() => GraphExplorer.FromRoot(entity))` — here it is also
+                // The pre-saving pass is also
                 // what binds each eval to its owner, so the integrity check below can compile.
                 const all = exploreModifiables([entity]);
                 for (const m of all)

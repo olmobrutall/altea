@@ -22,8 +22,8 @@ import { CatalogEntity, ProjectEntity, TagEntity } from "../data/tenancy";
 // visible from every tenant — is the worst thing this module could get wrong.
 //
 // Each case builds its own SchemaBuilder, since the whole point is what a DIFFERENT set of includes does.
-// The strategy table is process-global (as Signum's is), so the cases that must see an UNDECLARED type use
-// a locally declared entity class rather than un-registering a fixture one.
+// The strategy table is process-global, so the cases that must see an UNDECLARED type use a locally
+// declared entity class rather than un-registering a fixture one.
 
 @reflect
 @entity("String", "Master")

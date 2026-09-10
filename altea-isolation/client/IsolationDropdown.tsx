@@ -5,12 +5,10 @@ import type { Lite } from "@altea/altea/data/lite";
 import { IsolationMessage, type IsolationEntity } from "../data/Isolation";
 import { IsolationClient } from "./IsolationClient";
 
-// Port of Signum.Isolation's IsolationDropdown.tsx — the navbar picker. "Global mode" is shown in danger
-// red because it is the mode in which nothing is filtered.
+// The navbar picker. "Global mode" is shown in danger red because it is the mode in which nothing is
+// filtered.
 //
-// ALTEA: Signum sets `data-isolation={name}` on every item, which is the JS global `window.name` — an empty
-// string — so the attribute is useless for addressing a specific row. Here each item carries its own lite
-// key, which is what an e2e test would select on.
+// Each item carries its own LITE KEY in `data-isolation`, which is what an e2e test selects on.
 export default function IsolationDropdown(): React.JSX.Element | null {
 
     const isolations = useAPI(() => IsolationClient.API.isolations(), []);

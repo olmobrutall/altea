@@ -7,16 +7,16 @@ import type { Lite } from "@altea/altea/data/lite";
 import type { ExecuteSymbol } from "@altea/altea/data/operations";
 import { msg } from "@altea/altea/data/utils/localization";
 
-// Port of Signum.Isolation's IsolationEntity.cs — multi-tenancy by row: every isolated table carries the
-// tenant its rows belong to, and a request that has picked one sees only those rows.
+// Multi-tenancy by row: every isolated table carries the tenant its rows belong to, and a request that has
+// picked one sees only those rows.
 //
-// One structural divergence shapes this file, and it is the reason the strategy table lives HERE rather
-// than in the logic layer as Signum's does: **altea inlines a mixin's fields onto its owner**, so the
-// client has to know a type carries the mixin in order to deserialize the `isolation` field at all —
-// where Signum's client reads a separately-serialized mixin bag. `Isolation.register(T, strategy)` is
-// therefore an ISOMORPHIC call the app makes from its shared entity-overrides module (the same place
-// @altea/altea-diff-log's `DiffLogMixin.declare()` goes), and the server's `IsolationLogic.start` reads
-// the map back. Signum's `IsolationLogic.Register<T>` is server-only and declares the mixin itself.
+// The strategy table lives HERE, not in the logic layer, and that is load-bearing: a mixin's fields are
+// INLINED onto its owner, so the client has to know a type carries the mixin in order to deserialize the
+// `isolation` field at all. `Isolation.register(T, strategy)` is therefore an ISOMORPHIC call the app makes
+// from its shared entity-overrides module (the same place @altea/altea-diff-log's `DiffLogMixin.declare()`
+// goes), and the server's `IsolationLogic.start` reads the map back.
+//
+// Port of Signum.Isolation's IsolationEntity.cs — see docs/port/Isolation.md.
 @reflect
 @entity("String", "Master", { lowPopulation: true })
 export class IsolationEntity extends Entity {
@@ -52,7 +52,7 @@ export const IsolationMessage = {
 };
 
 /**
- * Signum's `IsolationMixin` — the one field an isolated type gains.
+ * The one field an isolated type gains.
  *
  * ALTEA: Signum initializes it to `IsRetrieving ? null : IsolationEntity.Current`, which the DATA layer
  * cannot do here: the ambient current-isolation is an AsyncLocalStorage and so is server-only, while this
@@ -75,7 +75,7 @@ const strategies = new Map<Function, IsolationStrategy>();
 export namespace Isolation {
 
     /**
-     * Signum's `IsolationLogic.Register<T>(strategy)`: declare how T relates to isolation. `Isolated` and
+     * Declare how T relates to isolation. `Isolated` and
      * `Optional` also declare the mixin on T, so the field exists on both tiers.
      *
      * Call it from the module BOTH tiers load (the app's entity-overrides), before anything is
@@ -109,13 +109,13 @@ export namespace Isolation {
         return strategies.get(type) ?? "None";
     }
 
-    /** Signum's `IsolationLogic.GetIsolationStrategies()` — a copy, keyed by ctor. */
+    /** A copy, keyed by ctor. */
     export function allStrategies(): Map<Function, IsolationStrategy> {
         return new Map(strategies);
     }
 
     /**
-     * Signum's `IsolationExtensions.TryIsolation(entity)`: the entity's isolation, or null when its type
+     * The entity's isolation, or null when its type
      * does not carry the mixin. Safe on any entity.
      */
     export function tryIsolation(entity: Entity): Lite<IsolationEntity> | null {
@@ -124,7 +124,7 @@ export namespace Isolation {
         return (entity as unknown as IsolationMixin).isolation ?? null;
     }
 
-    /** Signum's `IsolationExtensions.SetIsolation(entity, isolation)` — returns the entity, for chaining. */
+    /** Returns the entity, for chaining. */
     export function setIsolation<T extends Entity>(entity: T, isolation: Lite<IsolationEntity> | null): T {
         (entity as unknown as IsolationMixin).isolation = isolation;
         return entity;
@@ -132,7 +132,7 @@ export namespace Isolation {
 }
 
 /**
- * Signum's `IsolationExtensions.Isolation(this IEntity)` — the QUERY form, `[AutoExpressionField]` over the
+ * The QUERY form, `[AutoExpressionField]` over the
  * mixin field. altea flattens a mixin onto its owner, so the member is a plain field read; declared as a
  * standalone `@quoted` helper because a mixin cannot add a method to every owner.
  *

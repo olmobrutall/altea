@@ -11,10 +11,9 @@ import { Isolation, IsolationEntity } from "../../data/Isolation";
 import { IsolationLogic } from "../../server/IsolationLogic";
 import { CatalogEntity, ProjectEntity, TagEntity } from "../data/tenancy";
 
-// Shared bootstrap for the isolation suite (the altea-isolation analogue of altea-cache's
-// test/server/setup.ts). Southwind does not START Signum.Isolation — it only references it — so this suite
-// is where the module is exercised: multi-tenancy is an all-or-nothing, app-wide commitment (EVERY table
-// must declare a strategy or startup fails), and eastwind is not multi-tenant.
+// Shared bootstrap for the isolation suite (the analogue of altea-cache's test/server/setup.ts). This
+// suite is where the module is exercised at all, because multi-tenancy is an all-or-nothing, app-wide
+// commitment — EVERY table must declare a strategy or startup fails — and eastwind is not multi-tenant.
 //
 // DB tests are gated on ALTEA_ISOLATION_TEST_DB, so every file still compiles and the DB-free cases (the
 // ambient scope, the strategy assertion) still run with no database.

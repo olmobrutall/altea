@@ -23,22 +23,14 @@ import { TourEntity, CssStepEntity, CssStepType, TourOperation } from "../data/T
 import { TourServer } from "./TourServer";
 import { TourXml } from "./TourXml";
 
-// Port of Signum.Tour's TourLogic.cs — the module starter: the Tour table + its query, the trigger symbol
-// table, the by-trigger lazy the lookup routes read, the `hasTour` entity-pack flag, XML import/export,
-// and the two cascades that keep a tour from outliving what it explains.
+// The module starter: the Tour table + its query, the trigger symbol table, the by-trigger lazy the lookup
+// routes read, the `hasTour` entity-pack flag, XML import/export, and the two cascades that keep a tour
+// from outliving what it explains.
 //
-// altea divergences:
-//  - **`WithVirtualMList(a => a.Steps, s => s.Tour)` has no counterpart, and needs none**: altea's
-//    `@part` collection IS Signum's virtual MList — `sb.include(TourEntity)` already builds the
-//    TourStepEntity child table off the `@backReference` (and CssStepEntity's off that, in turn).
-//  - the PropertyRouteEntity cascade is Signum's, and needs no MList form: it drops the CssStep rows whose
-//    route a synchronization is removing, and here those rows are an ordinary table (see the last bullet).
-//  - `EntityPackTS.AddExtension` → core's `registerEntityPackExtension` (added for this module).
-//  - Signum's dashboard cascades use `Database.MListQuery(...).UnsafeDeleteMList()`; here the CssStep rows
-//    are an ordinary table, so it is `table(CssStepEntity).filter(...).executeDelete()`.
+// Port of Signum.Tour's TourLogic.cs — see docs/port/Tour.md.
 export namespace TourLogic {
 
-    /** Signum's `ToursByTrigger` — every tour, keyed by its trigger's lite key. */
+    /** Every tour, keyed by its trigger's lite key. */
     export let toursByTrigger: ResetLazy<Map<string, TourEntity>> = null!;
 
     export function start(sb: SchemaBuilder): void {
@@ -56,7 +48,7 @@ export namespace TourLogic {
 
         SymbolLogic.start(sb, TourTriggerSymbol, () => TourTriggerLogic.registeredTourTriggers());
 
-        // Signum's `EntityEvents<PropertyRouteEntity>().PreDeleteSqlSync`: a route the sync is removing takes
+        // A route the sync is removing takes
         // the css steps that point at it with it, or the route's DELETE fails on their FK.
         sb.schema.entityEvents(PropertyRouteEntity).preDeleteSqlSync.push(property => {
             const cssTable = sb.schema.tryTable(CssStepEntity);
@@ -75,7 +67,7 @@ export namespace TourLogic {
             return new Map(tours.map(t => [t.trigger.key(), t]));
         }, { invalidateWith: [TourEntity] });
 
-        // Signum's `EntityPackTS.AddExtension`: the frame's tour widget must decide whether to render
+        // The frame's tour widget must decide whether to render
         // WITHOUT a round-trip of its own, so the pack says whether a tour exists for the entity's TYPE.
         registerEntityPackExtension(async pack => {
             const typeLite = tryTypeLite(pack.entity.constructor.name);
@@ -97,7 +89,7 @@ export namespace TourLogic {
             await deleteToursFor(lites);
         });
 
-        // Signum's `EntityEvents<DashboardEntity>.Saved`: a DashboardPart step points at a part by its
+        // A DashboardPart step points at a part by its
         // uuid, so parts removed from a saved dashboard leave dangling steps — drop them.
         sb.schema.entityEvents(DashboardEntity).saved.push((dashboard, args) => {
             if (args.wasNew)

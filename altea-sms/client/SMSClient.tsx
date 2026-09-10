@@ -9,14 +9,11 @@ import {
     MultipleSMSModel, SMSMessageEntity, SMSSendPackageEntity, SMSTemplateEntity, SMSUpdatePackageEntity,
 } from "../data/SMS";
 
-// Port of Signum.SMS's SMSClient.tsx — the five entity views, plus the "SMS messages" quick link on every
-// type that can be the subject of one.
+// The five entity views, plus the "SMS messages" quick link on every type that can be the subject of one.
+// The default columns are registered here because `withQuery()` is parameterless — the client owns the
+// column list.
 //
-// altea divergences:
-//  - `registerToString(SMSTemplateMessageEmbedded, …)` has no counterpart: the row IS an entity here (see
-//    data/SMS.ts) and carries its own `toString()`.
-//  - the query settings' default columns are registered here, which Signum gets from its server-side
-//    `WithQuery` projection; altea's `withQuery()` is parameterless and the client owns the column list.
+// See docs/port/Sms.md.
 export namespace SMSClient {
 
     export function start(cb: ClientBuilder): void {
@@ -54,7 +51,7 @@ export namespace SMSClient {
         cb.configure(MultipleSMSModel).withView(() => import("./Templates/MultipleSMS"));
 
         // Signum's global quick link, gated on the type being a registered SMS owner. The type list is
-        // fetched ONCE and shared by every evaluation (Signum's `cachedAllTypes ??=`).
+        // fetched ONCE and shared by every evaluation.
         let cachedAllTypes: Promise<string[]> | undefined;
         QuickLinkClient.registerGlobalQuickLink(entityType =>
             (cachedAllTypes ??= API.getAllTypes()).then(allTypes => [
@@ -68,7 +65,7 @@ export namespace SMSClient {
             ]));
     }
 
-    /** Signum's `getSMSMessages(referred)` — the messages about this entity, with the (constant) Referred
+    /** The messages about this entity, with the (constant) Referred
      *  column removed. */
     function openSMSMessages(referred: Lite<Entity>): Promise<unknown> {
         return Finder.find(SMSMessageEntity.findOptions(token => ({

@@ -11,26 +11,22 @@ import type { IFilePath } from "@altea/altea-files/server/FileTypeAlgorithm";
 import { Isolation, IsolationEntity } from "../data/Isolation";
 import { IsolationLogic } from "./IsolationLogic";
 
-// Port of Signum.Isolation's IsolationServer.cs + IsolationFilter.cs + IsolationController.cs — the HTTP
-// half: pick the request's isolation, expose the list the navbar picker shows, colour the schema map by
-// strategy, and record the isolation on a logged exception.
+// The HTTP half: pick the request's isolation, expose the list the navbar picker shows, colour the schema
+// map by strategy, and record the isolation on a logged exception.
 //
-// altea divergences:
-//  - **Signum's `IsolationFilter` (a `SignumDisposableResourceFilter`) is EXPRESS MIDDLEWARE**, the same
-//    translation @altea/altea-rest's RestLogFilter made: altea has no MVC filter pipeline. It is mounted
-//    on the whole app rather than per controller, because every request must resolve an isolation —
-//    Signum registers it globally too (`options.AddIsolationFilter()`), so `AddIsolationFilter`'s
-//    positional `atIndex` argument has no counterpart; the ordering requirement it expresses ("after the
-//    authentication filter") is expressed by WHERE the host calls `start`.
-//  - `HttpContext.Items[Signum_Isolation]` → a property on the Express request, read back by the
-//    exception hook for the same reason Signum stashes it: by then the ambient scope is gone.
+// The isolation filter is EXPRESS MIDDLEWARE mounted on the WHOLE app, because every request must resolve
+// an isolation. Its ordering requirement — after the authentication filter — is expressed by WHERE the
+// host calls `start`. The resolved isolation is stashed on the Express request, because by the time the
+// exception hook reads it the ambient scope is gone.
+//
+// Port of Signum.Isolation's IsolationServer.cs + IsolationFilter.cs — see docs/port/Isolation.md.
 export namespace IsolationServer {
 
-    /** Signum's `IsolationFilter.Signum_Isolation_Key` — the header a client sends its pick in. */
+    /** The header a client sends its pick in. */
     export const isolationHeader = "signum_isolation";
 
     /**
-     * Signum's `IsolationFilter.GetIsolationFromHttpContext` — a host hook for deducing the isolation from
+     * A host hook for deducing the isolation from
      * something other than the header (a sub-domain, a route prefix). Consulted only when the user is not
      * pinned to one and sent no header.
      */
@@ -117,7 +113,7 @@ export namespace IsolationServer {
     }
 
     /**
-     * Signum's `IsolationLogic.Isolated_YearMonth_Guid_Filename` — a file-store suffix generator that puts
+     * A file-store suffix generator that puts
      * each isolation's files in their own folder, so one tenant's uploads are never mixed into another's
      * directory. Pass it as a FileTypeAlgorithm's `calculateSuffix`.
      *

@@ -16,20 +16,17 @@ import {
     TourEntity, TourStepEntity, CssStepEntity, CssStepType, ClickTrigger, PopoverAlign, PopoverSide,
 } from "../data/Tour";
 
-// Port of Signum.Tour's `TourEntity.ToXml/FromXml` + `TourStepEntity` + `CssStepEmbedded` (Tour.cs).
-// altea keeps XML off the isomorphic entity — the (de)serializer registers with UserAssetsImporter, as
-// every other altea user asset does — and the element/attribute names are preserved so a Signum-exported
-// Tour file round-trips.
+// XML is kept OFF the isomorphic entity — the (de)serializer registers with UserAssetsImporter, as every
+// other altea user asset does — and the element/attribute names are preserved so a Signum-exported Tour
+// file round-trips.
 //
-// altea divergences:
-//  - **`Guid` is the row's uuid PK** (see data/Tour.ts), so the `Guid` attribute the importer keys on is
-//    written from `id` and read back into it by the shared importer, not by this file.
-//  - `Property` is written as the route's PATH and resolved back through
-//    `PropertyRouteLogic.propertyRouteEntitySync` — the sync form of Signum's
-//    `ctx.GetPropertyRoute(typeEntity, path)`, since `fromXml` cannot await. Same file format either way,
-//    so a Signum file imports unchanged.
-//  - a `ToolbarContent` pointing at a PermissionSymbol is not supported: altea's `CssStepEntity`
-//    declares `@implementedBy(QueryEntity)` only, matching what the tour editor can actually pick.
+// `Property` is written as the route's PATH and resolved back through
+// `PropertyRouteLogic.propertyRouteEntitySync`, the SYNC form, since `fromXml` cannot await.
+//
+// A `ToolbarContent` pointing at a PermissionSymbol is not supported: `CssStepEntity` declares
+// `@implementedBy(QueryEntity)` only, matching what the tour editor can actually pick.
+//
+// See docs/port/Tour.md.
 
 const A = "@_"; // fast-xml-parser attribute prefix
 

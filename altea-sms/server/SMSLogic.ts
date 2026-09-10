@@ -68,9 +68,9 @@ import { SMSModelLogic, type ISMSModel } from "./SMSModelLogic";
 //  - `SMSMessages` expressions: registered PER CONCRETE TYPE from a registry (`registerSMSOwner`) rather
 //    than from a reflection scan over `ISMSOwnerEntity` implementors — TypeScript interfaces are erased.
 
-/** Signum's `ISMSProvider` — the three calls a gateway must answer. */
+/** The three calls a gateway must answer. */
 export interface ISMSProvider {
-    /** Send one message, returning the provider's own ticket id (Signum's SMSSendAndGetTicket). */
+    /** Send one message, returning the provider's own ticket id. */
     smsSendAndGetTicket(message: SMSMessageEntity): Promise<string>;
     /** Send the same text to many numbers, returning one ticket id per number, in order. */
     smsMultipleSendAction(template: MultipleSMSModel, phones: string[]): Promise<string[]>;
@@ -88,7 +88,7 @@ export namespace SMSLogic {
         return getConfiguration();
     }
 
-    /** Signum's `SMSLogic.Provider` — a settable slot, unset by default. */
+    /** A settable slot, unset by default. */
     export let provider: ISMSProvider | undefined;
 
     export function getProvider(): ISMSProvider {
@@ -129,7 +129,7 @@ export namespace SMSLogic {
             .withStateMachine(m => m.state, registerSMSMessageOperations)
             .withQuery();
 
-        // Signum's `WithUniqueIndex(t => t.Model, where: t => t.Model != null && t.IsActive)`: at most ONE
+        // At most ONE
         // active template per model, which is what `getDefaultTemplate`'s SingleEx relies on.
         sb.include(SMSTemplateEntity)
             .withUniqueIndex(t => t.model, t => t.model != null && t.isActive == true)
@@ -151,7 +151,7 @@ export namespace SMSLogic {
         if (options.models !== false)
             SMSModelLogic.start(sb);
 
-        // Signum's PreSaving: re-print each message through the parser, so a stored template is in canonical
+        // Re-print each message through the parser, so a stored template is in canonical
         // form AND a syntax error is caught at save time rather than at send time.
         sb.schema.entityEvents(SMSTemplateEntity).preSaving.push(template => {
             const queryName = tryQueryName(template);
@@ -161,7 +161,7 @@ export namespace SMSLogic {
             }
         });
 
-        // Signum's StaticPropertyValidation on Messages: there must be a message for the CONFIGURED default
+        // There must be a message for the CONFIGURED default
         // culture. It cannot live on the entity (it depends on the configuration), which is why Signum also
         // registers it here.
         sb.schema.entityEvents(SMSTemplateEntity).preSaving.push(template => {
@@ -196,7 +196,7 @@ export namespace SMSLogic {
             { key: "SMSMessages", niceName: () => SMSMessageEntity.nicePluralName() });
     }
 
-    /** Signum's `GetAllTypes` — the clean names the client's quick link checks against. */
+    /** The clean names the client's quick link checks against. */
     export function allOwnerTypes(): Type<Entity>[] {
         return [...smsOwners];
     }
@@ -234,7 +234,7 @@ export namespace SMSLogic {
     }
 
     /**
-     * Signum's `CheckLength(result, template)`: optionally strip non-GSM characters, then apply the
+     * Optionally strip non-GSM characters, then apply the
      * template's over-length policy — refuse, allow, or prune to what fits.
      */
     export function checkLength(text: string, template: SMSTemplateEntity): string {
@@ -250,14 +250,14 @@ export namespace SMSLogic {
             case MessageLengthExceeded.Allowed:
                 return result;
             case MessageLengthExceeded.TextPruning:
-                // `[...]` so a surrogate pair is never cut in half (Signum's RemoveEnd counts UTF-16 units).
+                // `[...]` so a surrogate pair is never cut in half.
                 return [...result].slice(0, [...result].length - Math.abs(remaining)).join("");
         }
         return result;
     }
 
     /**
-     * Signum's `CreateSMSMessage(template, entity, model, forceCulture)` — the renderer. With a query it runs
+     * The renderer. With a query it runs
      * one request whose columns are the `to` token plus whatever the message texts reference, reads the
      * owner data out of the first row, and prints in that owner's culture; without one it is a plain
      * per-culture text lookup.
@@ -348,12 +348,12 @@ export namespace SMSLogic {
         return t.disableAuthorization ? await ExecutionMode.global(run) : await run();
     }
 
-    /** Signum's `SMSModelLogic.CreateSMSMessage(smsModel)` — render a model through its default template. */
+    /** Render a model through its default template. */
     export async function createSMSMessageFromModel(model: ISMSModel, forceCulture?: string): Promise<SMSMessageEntity> {
         if (model.untypedEntity == null)
             throw new Error("Entity property not set on the SMSModel");
 
-        // Signum's `using (ExecutionMode.SetIsolation(smsModel.UntypedEntity))`: render in the scope of the
+        // Render in the scope of the
         // entity the message is ABOUT. No-op unless @altea/altea-isolation is installed.
         return await ExecutionMode.withIsolationOf(model.untypedEntity, async () => {
             const modelType = model.modelType ?? model.untypedEntity!.constructor;
@@ -366,7 +366,7 @@ export namespace SMSLogic {
     // ---- sending --------------------------------------------------------------------------------------
 
     /**
-     * Signum's `SendSMS(message)`: a comma-separated `destinationNumber` fans out into ONE message per
+     * A comma-separated `destinationNumber` fans out into ONE message per
      * number — the first keeps this row, the rest are clones.
      */
     export async function sendSMS(message: SMSMessageEntity): Promise<void> {
@@ -399,7 +399,7 @@ export namespace SMSLogic {
     async function sendOneMessage(message: SMSMessageEntity): Promise<void> {
         try {
             message.messageID = await getProvider().smsSendAndGetTicket(message);
-            // Signum's `Clock.Now.TruncSeconds()` — its DateTimePrecisionValidator(Seconds) on the field.
+            // Its DateTimePrecisionValidator(Seconds) on the field.
             message.sendDate = truncSeconds(Clock.now);
             message.state = SMSMessageState.Sent;
             await message.save();
@@ -415,7 +415,7 @@ export namespace SMSLogic {
         }
     }
 
-    /** Signum's `CreateAndSendMultipleSMSMessages(template, phones)` — the gateway's bulk endpoint. */
+    /** The gateway's bulk endpoint. */
     export async function createAndSendMultipleSMSMessages(model: MultipleSMSModel, phones: string[]): Promise<SMSMessageEntity[]> {
         const ids = await getProvider().smsMultipleSendAction(model, phones);
         const sendDate = truncSeconds(Clock.now);
@@ -459,7 +459,7 @@ export namespace SMSLogic {
 
 // ---- the two graphs -------------------------------------------------------------------------------------
 
-/** Signum's `SMSMessageGraph` — the message's state machine. */
+/** The message's state machine. */
 function registerSMSMessageOperations(sm: FluentStateMachine<SMSMessageEntity, SMSMessageState>): void {
 
     sm.withConstructFrom(SMSTemplateEntity, SMSMessageOperation.CreateSMSFromTemplate, {

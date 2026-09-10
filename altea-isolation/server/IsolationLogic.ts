@@ -27,40 +27,27 @@ import {
     type IsolationStrategy,
 } from "../data/Isolation";
 
-// Port of Signum.Isolation's IsolationLogic.cs — multi-tenancy by row. Every table declares a STRATEGY
-// (`Isolated` / `Optional` / `None`, registered on both tiers via `Isolation.register`), an isolated table
-// gains the isolation column, and a request that has picked one sees only its rows: the filter is a WHERE
-// the LINQ binder splices onto every query of that type, so retrieve, dynamic query and navigation are all
-// covered by one registration.
+// Multi-tenancy by row. Every table declares a STRATEGY (`Isolated` / `Optional` / `None`, registered on
+// both tiers via `Isolation.register`), an isolated table gains the isolation column, and a request that
+// has picked one sees only its rows: the filter is a WHERE the LINQ binder splices onto every query of
+// that type, so retrieve, dynamic query and navigation are all covered by one registration.
 //
-// altea divergences:
-//  - **the ambient current-isolation is SCOPE-shaped.** Signum's `IsolationEntity.Current` is an
-//    AsyncThreadVariable that `UnsafeOverride` sets and an IDisposable restores; an AsyncLocalStorage
-//    cannot be entered without a callback, so `override` / `disable` / `unsafeOverride` take the work as a
-//    function — the same shape every other altea ambient has (`ExecutionMode.global`,
-//    `UserHolder.withUser`, `CultureInfo.withCultures`). Signum's call sites are already `using` blocks, so
-//    this is the same scope written differently.
-//  - **the ambient lives HERE, not on the entity.** Signum puts `Current` on IsolationEntity, in its shared
-//    assembly; altea's data layer is isomorphic and ships no node types.
-//  - **the strategy table is in the DATA layer** (`Isolation.register`) — see data/Isolation.ts: altea
-//    inlines a mixin's fields onto its owner, so the client must know which types carry `isolation` in
-//    order to deserialize it.
-//  - **`[AttachToUniqueIndexes]` and `[ForceNotNullable]` are applied here**, not as decorators. Signum has
-//    two general field attributes with exactly one user between them (this mixin's field), so rather than
-//    add two decorators to core, `start` rewrites the unique indexes of every isolated table on
-//    `schemaCompleted` — which is where Signum applies the first one too (GenerateAllIndexes).
-//  - **the operation scope is `OperationLogic.aroundOperation`**, the scoping half of Signum's one
-//    `SurroundOperation` (see that seam's comment: altea's observing half must not break what it observes,
-//    which is the wrong contract for a security scope).
-//  - `Schema.AttachToUniqueFilter` is NOT ported. Its only Signum consumer is
-//    `Table.DeclarePrimaryKeyVariable`, which resolves an entity's id BY ITS UNIQUE KEY inside a generated
-//    migration script; altea's sync writes no such lookup, so there is nothing to scope.
+// **STARTUP FAILS if any table declared nothing** — multi-tenancy is an all-or-nothing, app-wide
+// commitment, and a type quietly falling through as un-isolated is the worst thing this module could get
+// wrong.
+//
+// The ambient current-isolation is SCOPE-shaped (`override` / `disable` / `unsafeOverride` take the work
+// as a function), because an AsyncLocalStorage cannot be entered without a callback — the shape every
+// other altea ambient has. It lives HERE rather than on the entity because the data layer is isomorphic
+// and ships no node types.
+//
+// Port of Signum.Isolation's IsolationLogic.cs — see docs/port/Isolation.md.
 export namespace IsolationLogic {
 
     /** Signum's `IsolationLogic.IsStarted`. */
     export let isStarted = false;
 
-    /** Signum's `IsolationLogic.Isolations` — every isolation, cached (invalidated when one is saved). */
+    /** Every isolation, cached (invalidated when one is saved). */
     export let isolations: ResetLazy<Lite<IsolationEntity>[]> = null!;
 
     // ---- the ambient current isolation ---------------------------------------------------------------
@@ -78,20 +65,20 @@ export namespace IsolationLogic {
     }
 
     /**
-     * Signum's `IsolationEntity.UnsafeOverride(isolation)` — run `fn` with `isolation` current, whatever was
+     * Run `fn` with `isolation` current, whatever was
      * current before. Prefer {@link override}, which refuses to CHANGE an established isolation.
      */
     export function unsafeOverride<R>(isolation: Lite<IsolationEntity> | null, fn: () => R): R {
         return storage.run({ value: isolation }, fn);
     }
 
-    /** Signum's `IsolationEntity.Disable()` — run `fn` in global mode. */
+    /** Run `fn` in global mode. */
     export function disable<R>(fn: () => R): R {
         return unsafeOverride(null, fn);
     }
 
     /**
-     * Signum's `IsolationEntity.Override(isolation)`: adopt `isolation` if none is current, keep going if it
+     * Adopt `isolation` if none is current, keep going if it
      * is already the current one, and THROW if it would change it — crossing tenants mid-unit-of-work is a
      * bug, not something to allow silently. A null isolation is "nothing to adopt" and runs `fn` unchanged.
      */
@@ -118,10 +105,10 @@ export namespace IsolationLogic {
         return storage.run({ value: null }, fn);
     }
 
-    /** The claim key the user's own isolation travels under (Signum's `"Isolation"`). */
+    /** The claim key the user's own isolation travels under. */
     export const isolationClaim = "Isolation";
 
-    /** Signum's `IsolationEntity.CurrentUserIsolation` — the isolation the CURRENT USER is pinned to. */
+    /** The isolation the CURRENT USER is pinned to. */
     export function currentUserIsolation(): Lite<IsolationEntity> | null {
         return (UserHolder.current()?.getClaim(isolationClaim) as Lite<IsolationEntity> | null | undefined) ?? null;
     }
@@ -132,10 +119,10 @@ export namespace IsolationLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        // Signum's `ExecutionMode.OnSetIsolation`: background work adopts the isolation of the row it is
+        // Background work adopts the isolation of the row it is
         // processing (the process runner, the scheduled-task runner, the two model renderers).
         ExecutionMode.onSetIsolation.push((candidates, fn) => {
-            // Signum's `SetIsolation(a) ?? SetIsolation(b)`: the FIRST candidate that actually has one.
+            // The FIRST candidate that actually has one.
             for (const c of candidates) {
                 const iso = Isolation.tryIsolation(c);
                 if (iso != null)
@@ -148,7 +135,7 @@ export namespace IsolationLogic {
             .withSave(IsolationOperation.Save)
             .withQuery();
 
-        // Signum's `UserWithClaims.FillClaims`: a user may itself be isolated, and then it can never leave
+        // A user may itself be isolated, and then it can never leave
         // that isolation — the picker is not even offered (see IsolationServer).
         UserWithClaims.fillClaims.push((uwc, user) => {
             uwc.claims[isolationClaim] = Isolation.tryIsolation(user as unknown as Entity);
@@ -157,7 +144,7 @@ export namespace IsolationLogic {
         // Signum's `OperationLogic.SurroundOperation`, whose scoping half altea keeps separate.
         OperationLogic.aroundOperation.push((ctx, fn) => {
             const fromEntity = ctx.entity == null ? null : Isolation.tryIsolation(ctx.entity);
-            // Signum's `args.TryGetArgC<Lite<IsolationEntity>>()`: a Construct has no entity, so the
+            // A Construct has no entity, so the
             // isolation to run in may be passed as an argument instead.
             const fromArgs = fromEntity != null ? null
                 : (ctx.args.find(a => isIsolationLite(a)) as Lite<IsolationEntity> | undefined) ?? null;
@@ -184,7 +171,7 @@ export namespace IsolationLogic {
     // ---- the strategy assertion, and everything it wires up ------------------------------------------
 
     /**
-     * Signum's `AssertIsolationStrategies`: EVERY table in the schema must have declared a strategy, and
+     * EVERY table in the schema must have declared a strategy, and
      * nothing may declare one that is not a table. It is a hard startup failure with a copy-pasteable list,
      * because the alternative — a type silently falling through as un-isolated — leaks rows across tenants.
      *
@@ -223,7 +210,7 @@ export namespace IsolationLogic {
             registerRequiredValidator(ctor as Type<Entity>, strategy);
         }
 
-        // Signum's filter on IsolationEntity itself: inside an isolation you see only YOUR isolation row.
+        // Inside an isolation you see only YOUR isolation row.
         schema.entityEvents(IsolationEntity).queryFilter.push(ctx => {
             const curr = current();
             if (curr == null || ExecutionMode.isInGlobal())
@@ -246,7 +233,7 @@ export namespace IsolationLogic {
         return false;
     }
 
-    /** The `Type.field` sites pointing at each of `types` (Signum's `referencedBy` hint). */
+    /** The `Type.field` sites pointing at each of `types`. */
     function referencesOf(schema: Schema, types: Set<Function>): Map<Function, string[]> {
         const result = new Map<Function, string[]>();
         const add = (target: Function, info: string): void => {
@@ -278,7 +265,7 @@ export namespace IsolationLogic {
 
     // ---- the row filter ------------------------------------------------------------------------------
 
-    // Signum's `Register_FilterQuery<T>`: the WHERE the binder splices onto every query of T. Synchronous,
+    // The WHERE the binder splices onto every query of T. Synchronous,
     // like every queryFilter hook — it reads the ambient isolation, never the database.
     function registerFilterQuery(schema: Schema, ctor: Type<Entity>, strategy: IsolationStrategy): void {
         schema.entityEvents(ctor).queryFilter.push(ctx => {
@@ -288,7 +275,7 @@ export namespace IsolationLogic {
             return lambdaOf(strategy === "Isolated" ? isolatedPredicate(curr) : optionalPredicate(curr), ctx.elementType);
         });
 
-        // Signum's `PreUnsafeInsert`: a set-based INSERT builds its rows from a projection, so it never
+        // A set-based INSERT builds its rows from a projection, so it never
         // goes through the save pipeline and would leave the column null. The constructor lambda is
         // rewritten to carry the current isolation — altea flattens mixin fields onto the owner, so this is
         // one more member on the projected object rather than Signum's `SetMixin` call wrapper.
@@ -297,7 +284,7 @@ export namespace IsolationLogic {
             if (curr == null || ExecutionMode.isInGlobal())
                 return undefined;
             if (!(constructor.body instanceof ObjectExpression))
-                return undefined; // not a row projection — nothing to stamp (Signum's MList-table branch)
+                return undefined; // not a row projection — nothing to stamp
             if (isolationField in constructor.body.properties)
                 return undefined; // the caller set it explicitly; leave it alone
             const withIsolation = new ObjectExpression(
@@ -331,7 +318,7 @@ export namespace IsolationLogic {
     // ---- save-time enforcement ------------------------------------------------------------------------
 
     /**
-     * Signum's `EntityEventsGlobal_PreSaving`: stamp a new row with the current isolation, and refuse to
+     * Stamp a new row with the current isolation, and refuse to
      * save a row that belongs to a different one.
      *
      * ALTEA: per type rather than global (altea has no `EntityEventsGlobal`), so it is attached only to the
@@ -384,7 +371,7 @@ export namespace IsolationLogic {
     // ---- unique indexes -----------------------------------------------------------------------------
 
     /**
-     * Signum's `[AttachToUniqueIndexes]`: a unique index on an isolated table is unique PER ISOLATION — two
+     * A unique index on an isolated table is unique PER ISOLATION — two
      * tenants may each have their own "Default" row. Applied at `schemaCompleted`, which is where Signum
      * applies it too (GenerateAllIndexes).
      *
@@ -420,7 +407,7 @@ export namespace IsolationLogic {
     }
 
     /**
-     * Signum's `GetOnlyIsolation(selectedEntities)`: the ONE isolation every selected row shares, or null
+     * The ONE isolation every selected row shares, or null
      * when they disagree (or none of their types is isolated). What a contextual multi-operation asks
      * before deciding whether it can run at all.
      */

@@ -46,7 +46,7 @@ export namespace SMSProcessLogic {
         sb.include(SMSSendPackageEntity).withQuery();
         sb.include(SMSUpdatePackageEntity).withQuery();
 
-        // Signum's `SMSMessageSendProcessAlgortihm`: send every message of the package still Created.
+        // Send every message of the package still Created.
         ProcessLogic.registerAction(SMSMessageProcess.Send, async (ep: ExecutingProcess) => {
             const pack = ep.data as Lite<SMSSendPackageEntity> | null;
             if (pack == null)
@@ -61,7 +61,7 @@ export namespace SMSProcessLogic {
                 m => m.toLite());
         });
 
-        // Signum's `SMSMessageUpdateStatusProcessAlgorithm`: ask the gateway about every Sent message the
+        // Ask the gateway about every Sent message the
         // package has not processed yet.
         ProcessLogic.registerAction(SMSMessageProcess.UpdateStatus, async (ep: ExecutingProcess) => {
             const pack = ep.data as Lite<SMSUpdatePackageEntity> | null;
@@ -86,7 +86,7 @@ export namespace SMSProcessLogic {
         // Signum's `Graph<ProcessEntity>.ConstructFromMany<SMSMessageEntity>(CreateUpdateStatusPackage)`.
         new Graph.ConstructFromMany(SMSMessageEntity, SMSMessageOperation.CreateUpdateStatusPackage, {
             construct: async (lites: Lite<SMSMessageEntity>[]) => {
-                // Signum's `messages.RetrieveList()`: ONE chunked `WHERE id IN (…)` per type, not a query
+                // ONE chunked `WHERE id IN (…)` per type, not a query
                 // per lite. Same "missing row throws" semantics the per-lite `.single()` had.
                 const messages = await retrieveFromListOfLite(lites);
 
@@ -102,7 +102,7 @@ export namespace SMSProcessLogic {
     }
 
     /**
-     * Signum's `RegisterSMSOwnerData<T>(phoneExpression)` — the "send this text to every selected one of
+     * The "send this text to every selected one of
      * these" contextual operation, per owner type.
      *
      * ALTEA: the `Expression<Func<T, SMSOwnerData>>` becomes a plain async projector. Signum evaluates its
@@ -174,7 +174,7 @@ export namespace SMSProcessLogic {
         }).register();
     }
 
-    /** Signum's `UpdateMessages(messages)` — package them and queue the status-update process. */
+    /** Package them and queue the status-update process. */
     export async function updateMessages(messages: SMSMessageEntity[]): Promise<ProcessEntity | null> {
         if (messages.length === 0)
             return null;
@@ -198,7 +198,7 @@ export namespace SMSProcessLogic {
         return await Operations.execute(process, ProcessOperation.Execute);
     }
 
-    /** Signum's `UpdateAllSentSMS` — what the scheduled task runs. */
+    /** What the scheduled task runs. */
     export async function updateAllSentSMS(): Promise<ProcessEntity | null> {
         if (!await table(SMSMessageEntity).filter(m => m.state == SMSMessageState.Sent).some())
             return null;

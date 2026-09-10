@@ -11,14 +11,14 @@ import QueryTokenEmbeddedBuilder from "@altea/altea-user-assets/client/Templates
 import { SMSTemplateMessage, type SMSTemplateEntity, type SMSTemplateEntity_Message } from "../../data/SMS";
 import { SMSClient } from "../SMSClient";
 
-// Port of Signum.SMS's Templates/SMSTemplate.tsx — the template editor: what query / model it renders
-// against, who it goes to, and the per-culture texts with a live remaining-character count.
+// The template editor: what query / model it renders against, who it goes to, and the per-culture texts
+// with a live remaining-character count.
 //
-// altea divergences:
-//  - the messages repeater is rendered even WITHOUT a query (Signum gates it on `ctx.value.query`), because a
-//    query-less template is a legitimate shape here too — `SMSLogic.createSMSMessage` has a whole branch for
-//    it (a per-culture text with no replacements). Signum's gate leaves such a template un-editable.
-//  - `EntityTabRepeater` binds `@part` ROWS (see data/SMS.ts), so each tab's ctx is the row entity.
+// The messages repeater renders even WITHOUT a query: a query-less template is a legitimate shape —
+// `SMSLogic.createSMSMessage` has a whole branch for it — and gating on the query would leave such a
+// template un-editable.
+//
+// See docs/port/Sms.md.
 export default function SMSTemplate(p: { ctx: TypeContext<SMSTemplateEntity> }): React.JSX.Element {
 
     const forceUpdate = useForceUpdate();

@@ -11,17 +11,13 @@ import { registerColorProviders } from "@altea/altea-map/client/Schema/ClientCol
 import { IsolationEntity } from "../data/Isolation";
 import { IsolationWidget } from "./IsolationWidget";
 
-// Port of Signum.Isolation's IsolationClient.tsx — the browser half: remember which isolation the user is
-// working in, send it on every call, show it on an open entity, and colour the schema map by strategy.
+// The browser half: remember which isolation the user is working in, send it on every call, show it on an
+// open entity, and colour the schema map by strategy.
 //
-// altea divergences:
-//  - the picked isolation still lives in `sessionStorage` under Signum's own key, so a second tab can work
-//    in a different tenant — that is deliberate in Signum and kept.
-//  - the header name is Signum's `Signum_Isolation` verbatim: it is a wire contract, and a database moved
-//    from a Signum app keeps working against the same client.
-//  - `IsolationEntity.tryTypeInfo()` (the guard that hides the widget when the module is not installed
-//    server-side) becomes a check for registered metadata — altea's client learns which types exist from
-//    the reflection blob.
+// The picked isolation lives in `sessionStorage`, so a second tab can work in a different tenant. The
+// header name is a WIRE CONTRACT and is kept verbatim.
+//
+// See docs/port/Isolation.md.
 export namespace IsolationClient {
 
     export function start(): void {
@@ -43,14 +39,14 @@ export namespace IsolationClient {
 
     export const Options = {
         /**
-         * Signum's `Options.onIsolationChange` — a host hook that can take over the change (e.g. to warn
+         * A host hook that can take over the change (e.g. to warn
          * about unsaved work). Return true to say "handled, do nothing more".
          */
         onIsolationChange: null as ((e: React.MouseEvent, isolation: Lite<IsolationEntity> | undefined) => boolean) | null,
     };
 
     /**
-     * Signum's `changeOverridenIsolation` — remember the pick and RELOAD the UI. `resetUI` is what makes
+     * Remember the pick and RELOAD the UI. `resetUI` is what makes
      * every open search page and every cached entity re-fetch under the new isolation; nothing is valid
      * across the switch.
      */

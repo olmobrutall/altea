@@ -17,7 +17,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 //  - `RemoveDiacritics` is `String.normalize("NFD")` + stripping the combining marks, which is what the
 //    .NET helper does.
 
-/** Signum's `SMSMaxTextLength` — the GSM-7 payload of one SMS. */
+/** The GSM-7 payload of one SMS. */
 export const SMS_MAX_TEXT_LENGTH = 160;
 
 /** Signum's `TripleSMSMaxTextLength`. */
@@ -65,7 +65,7 @@ export namespace SMSCharacters {
     }
 
     /**
-     * Signum's `RemainingLength(text, maxLength)`: how many characters may still be added. Negative when the
+     * How many characters may still be added. Negative when the
      * text is already too long.
      *
      * ONE character outside the GSM alphabet re-prices the WHOLE message as UCS-2 (Signum's `break` out of
@@ -93,7 +93,7 @@ export namespace SMSCharacters {
         return maxLength - count;
     }
 
-    /** Signum's `RemoveNoSMSCharacters`: de-accent, then drop whatever the alphabet still cannot carry. */
+    /** De-accent, then drop whatever the alphabet still cannot carry. */
     export function removeNoSMSCharacters(text: string): string {
         const withoutDiacritics = text.normalize("NFD").replace(/\p{Diacritic}/gu, "");
         return [...withoutDiacritics].filter(c => isNormal(c) || isDouble(c)).join("");

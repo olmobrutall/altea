@@ -16,16 +16,13 @@ import {
 } from "../../data/Tour";
 import PropertyRouteCombo from "@altea/altea/client/Components/PropertyRouteCombo";
 
-// Port of Signum.Tour's Templates/TourStep.tsx — one step: its title, the CSS steps that AND into its
-// anchor selector, where the popover sits, and its markdown body.
+// One step: its title, the CSS steps that AND into its anchor selector, where the popover sits, and its
+// markdown body.
 //
-// altea divergences:
-//  - the "Property" step binds a `PropertyRouteEntity` through the framework's `PropertyRouteCombo`, which
-//    is where Signum keeps it too (it moved out of this package once the validation designer wanted it).
-//  - the live selector preview calls the SAME `cssStepSelector` the server uses to build the DTO (it lives
-//    in the data layer for exactly this reason), so the preview cannot drift from what the player gets.
-//  - `Finder.getQueryDescription` is gone (altea has no QueryDescription): the user query's own stored
-//    columns are the choices, which is what a tour step can actually point at anyway.
+// The live selector preview calls the SAME `cssStepSelector` the server uses to build the DTO — it lives
+// in the data layer for exactly this reason — so the preview cannot drift from what the player gets.
+//
+// See docs/port/Tour.md.
 
 export default function TourStep(p: {
     ctx: TypeContext<TourStepEntity>;
@@ -39,7 +36,7 @@ export default function TourStep(p: {
     const sc4 = ctx.subCtx({ labelColumns: 4 });
     const forceUpdate = useForceUpdate();
 
-    // Signum's handleSideChange: a top/bottom popover centres, a left/right one starts.
+    // A top/bottom popover centres, a left/right one starts.
     function handleSideChange(): void {
         const side = ctx.value.side;
         if (side === PopoverSide.Top || side === PopoverSide.Bottom)

@@ -5,44 +5,27 @@ import { stringLengthValidator, validate } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { IntegrityCheckEnvironment } from "@altea/altea/data/reflection";
 
-// Port of Signum.Eval's EvalEmbedded.cs — a SCRIPT stored in the database, compiled to a callable on
-// first use, cached by its generated source, and re-validated whenever it is saved.
+// A SCRIPT stored in the database, compiled to a callable on first use, cached by its generated source,
+// and re-validated whenever it is saved.
 //
-// Signum stores C# and compiles it with Roslyn; altea stores TYPESCRIPT and compiles it with the
-// TypeScript compiler (`typescript` is already a build dependency, so the "compiler service" Signum needs
-// Roslyn for is simply there). What that changes:
+// `T` is a FUNCTION TYPE: a subclass declares `EvalEmbedded<(e: OrderEntity, ctx: X) => boolean>` and the
+// generated module's DEFAULT EXPORT is that function.
 //
-//  - **`T` is a FUNCTION TYPE, not an interface.** Signum generates a class implementing `IXEvaluator` and
-//    instantiates it; a TS module's natural unit is a function, so a subclass declares
-//    `EvalEmbedded<(e: OrderEntity, ctx: X) => boolean>` and the generated source's DEFAULT EXPORT is that
-//    function. The `EvaluateUntyped` shim Signum's generated class needs (to widen the typed parameter back
-//    to the interface's) disappears with it — the wrapper's parameter is simply typed, and the CALLER is the
-//    one holding the untyped value.
-//  - **What a script may reach is a MODULE REGISTRY, not a namespace list.** Signum's `EvalLogic.Namespaces`
-//    + `AssemblyTypes` become `EvalLogic.registerModule(specifier, value)`: the same specifier is what the
-//    generated code imports (so the TYPE side resolves) and what the runtime `require` answers (so the VALUE
-//    side is exactly what the app allowed). An unregistered import fails to run even if it type-checks.
+// Three things to know before editing:
 //  - **The compiler is an INJECTED SEAM.** This module is isomorphic — the client renders the editor and
-//    must not carry a compiler — so `EvalEmbedded.compiler` is a slot that `server/EvalCompiler` fills.
-//    Unset (i.e. in the browser) every compile answers "not compiled", and the script validator stands down,
+//    must not carry a compiler — so `EvalEmbedded.compiler` is a slot `server/EvalCompiler` fills. Unset
+//    (i.e. in the browser) every compile answers "not compiled" and the script validator stands down,
 //    which is why the validator only runs in the SERVER phases.
-//  - **The owner comes from `@bindParent`**, as in Signum: the field that holds an eval is marked, and
-//    `owner()` reads the back-pointer — which is how a WorkflowConditionEval learns its
-//    WorkflowCondition's `mainEntityType`. This module used to keep a private WeakMap of owners, bound by
-//    a `sb.include(X)` schema-event pair, because altea had no parent infrastructure; it has
-//    one now (data/parentEntity), and that generalised copy is what this uses.
-//  - **There is no `Reset()` and no `withEvals()`.** Signum needs `Reset()` because it drops the cached
-//    compilation from the `Script` setter, and altea has no setters — which is what `withEvals()` used to
-//    stand in for, resetting on the `retrieved` schema event. Both are gone: the memo records the script
-//    it compiled, so a hit only counts while that is still the script on the instance. That also covers
-//    the case the retrieve hook never did — a script REPLACED on an instance that had already compiled,
-//    which is what the codec does when it overlays a POST onto a retrieved original.
 //  - **`owner()` climbs to the nearest ENTITY**, not to the immediate parent, because an eval may sit one
 //    embedded down (`SubWorkflowEmbedded.subEntitiesEval`) and what it wants is still the entity carrying
-//    it — Signum reaches the same place with a two-level `GetParentEntity` climb. It also keeps an eval
-//    carried by a MODEL unbound, since a ModelEntity is not an Entity, which is the documented behaviour.
-//  - the compilation result lives in a module-level WeakMap rather than an `[Ignore]` field: a declared
-//    field would be reflected (and so serialized, and schema-mapped) whatever we annotate it.
+//    it. An eval carried by a MODEL is left unbound, since a ModelEntity is not an Entity.
+//  - **The compilation memo records the script it compiled**, so a hit only counts while that is still the
+//    script on the instance — which is what covers a script REPLACED on an instance that had already
+//    compiled, as the codec does when it overlays a POST onto a retrieved original. It lives in a
+//    module-level WeakMap rather than a field, because a declared field would be reflected (and so
+//    serialized, and schema-mapped) whatever we annotate it.
+//
+// Port of Signum.Eval's EvalEmbedded.cs — see docs/port/Eval.md.
 
 /** Signum's `EvalEmbedded<T>.CompilationResult`. Exactly one of the two is set. */
 export interface CompilationResult<F> {
@@ -54,7 +37,7 @@ export interface CompilationResult<F> {
 export interface IEvalCompiler {
     /**
      * Compiles a whole TypeScript module whose default export is the algorithm. Cached by `code`, so the
-     * same script text compiles once per process (Signum's static `resultCache`).
+     * same script text compiles once per process.
      *
      * `scriptStartLine` is how many lines of generated preamble sit above the author's script, so a
      * diagnostic can be reported at the line the author sees.
@@ -71,7 +54,7 @@ export interface IEvalCompiler {
  * the compilation from the `Script` SETTER (`if (Set(ref script, value)) Reset();`); altea has no setters,
  * so a stale entry is instead impossible by construction — the memo hits only while the script it was
  * built for is still the one on the instance. Same idea one level down, where the compiler keys its own
- * cache by code (Signum's static `resultCache`).
+ * cache by code.
  */
 const results = new WeakMap<EvalEmbedded<unknown>, { script: string; result: CompilationResult<unknown> }>();
 
@@ -92,7 +75,7 @@ export abstract class EvalEmbedded<F> extends EmbeddedEntity {
 
     // ---- The compiled algorithm ------------------------------------------------------------------------
 
-    /** Signum's `Algorithm` — compiles if necessary and THROWS when the script does not build. */
+    /** Compiles if necessary and THROWS when the script does not build. */
     get algorithm(): F {
         const result = this.compileIfNecessary();
         if (result?.compilationErrors != null)
@@ -102,7 +85,7 @@ export abstract class EvalEmbedded<F> extends EmbeddedEntity {
         return result.algorithm;
     }
 
-    /** Signum's `Compiled` — has the script this instance CURRENTLY holds been compiled yet? */
+    /** Has the script this instance CURRENTLY holds been compiled yet? */
     get compiled(): boolean {
         return results.get(this as EvalEmbedded<unknown>)?.script === this.script;
     }
@@ -147,7 +130,7 @@ export abstract class EvalEmbedded<F> extends EmbeddedEntity {
     /**
      * Wraps the author's script in a module whose default export is the algorithm, and compiles it.
      *
-     * Signum's two conveniences are kept: a script with no `;` is treated as an EXPRESSION (`return … ;`),
+     * A script with no `;` is treated as an EXPRESSION (`return … ;`),
      * and the app's global preamble (`EvalLogic.preamble`, Signum's `GetUsingNamespaces()`) is prepended so
      * the common API is in scope without the author importing anything.
      */

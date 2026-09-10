@@ -14,23 +14,19 @@ import "@altea/altea-user-queries/client/UserQueriesClient"; // augments SearchC
 import { TourEntity, TourStepEntity } from "../data/Tour";
 import { TourButton } from "./TourComponent";
 
-// Port of Signum.Tour's TourClient.tsx — the module's client registration.
-//
-// Where the tour button appears, all four from Signum:
+// The module's client registration. Where the tour button appears:
 //   • on any ENTITY frame, as a widget (the tour of that entity's TYPE);
 //   • on a DASHBOARD page, in its action bar;
 //   • in a SearchControl's toolbar, when a USER QUERY is applied;
 //   • …except on a full-PAGE search control, where it goes in the title instead.
 //
-// altea divergences:
-//  - `Navigator.addSettings(new EntitySettings(…))` → `cb.configure(…).withView(…)`.
-//  - the widget's fast path reads `frame.pack.extension?.hasTour`, core's new entity-pack extension bag
-//    (Signum's `EntityPackTS.AddExtension`, added for this module — see server/TourLogic).
-//  - `getCurrentUserQuery` is altea-user-queries' own augmentation of SearchControlLoaded, derived from
-//    `extraUrlParams.userQuery` (Signum keeps a dedicated field).
+// The widget's fast path reads `frame.pack.extension?.hasTour`, core's entity-pack extension bag (added
+// for this module — see server/TourLogic), so it needs no round-trip to know whether a tour exists.
+//
+// See docs/port/Tour.md.
 export namespace TourClient {
 
-    // Signum keys the two title-rendering search pages by tag. Same tags in altea.
+    // The two title-rendering search pages are keyed by tag.
     const titlePageTags = ["SearchPage", "UserQueryPage"];
 
     export function start(cb: ClientBuilder): void {
@@ -98,7 +94,7 @@ export namespace TourClient {
 
         /**
          * The entity type a `TourTriggerSymbol` trigger stands for, as a CLEAN NAME — so the editor can
-         * offer that type's property routes as "Property" CSS steps. Signum returns a `Lite<TypeEntity>`;
+         * offer that type's property routes as "Property" CSS steps. Answers a clean NAME rather than a
          * the client only ever needs the name (see server/TourServer).
          */
         export function getTriggerType(lite: Lite<Entity>): Promise<string | null> {
@@ -117,7 +113,7 @@ export namespace TourClient {
     }
 }
 
-/** Signum's TourDTO, client side — the flattened, selector-resolved tour the player consumes. */
+/** The flattened, selector-resolved tour the player consumes. */
 export interface TourDTO {
     tour: Lite<TourEntity>;
     forEntity: Lite<Entity>;

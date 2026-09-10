@@ -3,32 +3,26 @@ import ts from "typescript";
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { EvalEmbedded, EvalMessage, type CompilationResult, type IEvalCompiler } from "../data/Eval";
 
-// Port of the Roslyn half of Signum.Eval's EvalEmbedded.Compile + EvalLogic's assembly/namespace lists.
-//
-// Signum parses the generated C#, compiles it against a list of `MetadataReference`s (one per allowed
-// assembly), emits to a MemoryStream, loads the assembly and instantiates the single type implementing the
-// evaluator interface. altea does the analogous thing with the TypeScript compiler:
+// Compiling a stored script is TWO passes:
 //
 //   1. TYPE-CHECK the generated module with `ts.createProgram` over the app's own compilerOptions, so an
-//      author gets real diagnostics ("Property 'foo' does not exist on type 'OrderEntity'") against the real
-//      `.d.ts` of every package the app allowed — the direct counterpart of Roslyn + MetadataReferences.
+//      author gets real diagnostics ("Property 'foo' does not exist on type 'OrderEntity'") against the
+//      real `.d.ts` of every package the app allowed.
 //   2. TRANSPILE it to CommonJS (`ts.transpileModule`, which does no resolution) and run it with
 //      `new Function(exports, require, module, …)`, where `require` answers ONLY from the module registry.
 //
-// The registry is Signum's `AssemblyTypes` / `Namespaces` made explicit and single-sided: the same specifier
-// is what generated code imports (so the TYPE resolves) and what `require` hands back (so the VALUE is
-// exactly what the app allowed). An import the app did not register fails at run time even if it type-checks
-// against node_modules — which is the point.
+// The registry is SINGLE-SIDED: the same specifier is what generated code imports (so the TYPE resolves)
+// and what `require` hands back (so the VALUE is exactly what the app allowed). **An import the app did not
+// register fails at run time even if it type-checks against node_modules** — which is the point.
 //
-// Divergences worth knowing:
-//  - Signum loads each compiled script into a fresh `AssemblyLoadContext`; there is no JS equivalent and no
-//    need for one (a module here is a closure, not a loaded assembly), so nothing is ever unloaded — the
-//    per-code cache below is what keeps that bounded.
-//  - Signum's `GetCustomErrors` hook (Signum.Dynamic used it to forbid certain API in generated code) has no
-//    caller in altea yet, so it is not ported; the natural altea equivalent would be a diagnostic pass here.
-//  - a compiled script runs IN PROCESS with the same rights as the rest of the server, exactly as Signum's
-//    Roslyn-compiled C# does. Authoring one is gated by the owning entity's Save operation and by
-//    `EvalPanelPermission`; there is no sandbox, and pretending otherwise would be worse than saying so.
+// Nothing is ever unloaded (a module here is a closure, not a loaded assembly), so the per-code cache below
+// is what keeps that bounded.
+//
+// A compiled script runs IN PROCESS with the same rights as the rest of the server. Authoring one is gated
+// by the owning entity's Save operation and by `EvalPanelPermission`; there is no sandbox, and pretending
+// otherwise would be worse than saying so.
+//
+// Port of the Roslyn half of Signum.Eval's EvalEmbedded.Compile — see docs/port/Eval.md.
 
 /** One module a stored script may import. */
 interface RegisteredModule {

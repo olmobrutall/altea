@@ -15,8 +15,8 @@ import { stringLengthValidator } from "@altea/altea/data/validators";
 //   CatalogEntity   None — not isolated at all: no column, no filter, and a tenant sees every row. It is
 //                   also what proves the strategy assertion accepts a type that opts out.
 //
-// A fourth type is deliberately absent: `assertIsolationStrategies` is exercised by REGISTERING nothing for
-// one of these (see isolationStartup.test.ts), which needs no extra entity.
+// A fourth type is deliberately absent: `assertIsolationStrategies` is exercised by REGISTERING nothing
+// for one of these (see isolationStartup.test.ts), which needs no extra entity.
 
 @reflect
 @entity("String", "Transactional")

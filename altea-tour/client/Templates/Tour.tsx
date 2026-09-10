@@ -14,17 +14,13 @@ import { TourEntity, TourStepEntity, PopoverSide } from "../../data/Tour";
 import { TourClient } from "../TourClient";
 import TourStep from "./TourStep";
 
-// Port of Signum.Tour's Templates/Tour.tsx — the tour editor: pick the trigger, then author the steps.
+// The tour editor: pick the trigger, then author the steps.
 //
 // The trigger decides what a step can point at, so this view resolves it once and hands the answer down:
 // an entity TYPE (directly, or through a TourTriggerSymbol registered for one) offers PROPERTY steps, a
 // DASHBOARD offers its parts, a USER QUERY its columns.
 //
-// altea divergences:
-//  - `EntityAccordion` is not ported (as altea-email's EmailTemplate notes), so the steps use
-//    `EntityTabRepeater` — the closest thing with a per-item title.
-//  - the symbol's type comes back as a clean NAME, not a `Lite<TypeEntity>` (see TourClient.API), so it
-//    takes one more call to reach the TypeEntity row a route step needs.
+// See docs/port/Tour.md.
 export default function Tour(p: { ctx: TypeContext<TourEntity> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
     const ctx = p.ctx.subCtx({ labelColumns: { sm: 2 } });

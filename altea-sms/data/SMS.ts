@@ -18,25 +18,14 @@ import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import type { IQuery } from "@altea/altea/data/iquery";
 import { SMS_MAX_TEXT_LENGTH, SMSCharactersMessage } from "./SMSCharacters";
 
-// Port of Signum.SMS's SMSMessage.cs + SMSTemplate.cs + SMSPackages.cs + SMSConfigurationEntity.cs — the
-// module's whole data model: a MESSAGE (one row per SMS sent), a TEMPLATE (per-culture text authored against
-// a query and/or a code-declared model), and the two PACKAGES a batch send / status-update process walks.
+// The module's whole data model: a MESSAGE (one row per SMS sent), a TEMPLATE (per-culture text authored
+// against a query and/or a code-declared model), and the two PACKAGES a batch send / status-update process
+// walks. Structurally a small sibling of @altea/altea-email, and most of its shape is inherited from there.
 //
-// altea divergences (mostly inherited from @altea/altea-email, the module this one is structurally a small
-// sibling of — the same template + model-registry + message shape):
-//  - **`MList<SMSTemplateMessageEmbedded>` → `@part` rows.** A collection is child rows here, so the type is
-//    an Entity with a `@backReference` and a `@rowOrder`, keeping Signum's name.
-//  - **a message's culture is a `Lite<CultureInfoEntity>`**, matching altea-email's template messages —
-//    altea DOES have a CultureInfoEntity table (see CLAUDE.md), so the reference is a real FK rather than
-//    Signum's owned CultureInfoEntity reference.
-//  - **`MultipleTelephoneValidator` has no altea counterpart** (core has `telephoneValidator`, single-number
-//    only), so the comma-separated form is checked by a `@validate` here — the same rule, spelled out.
-//  - **`DateTimePrecisionValidator(Seconds)` has no counterpart either**; `sendDate` is truncated to seconds
-//    where it is ASSIGNED (`SMSLogic.sendOneMessage`), which is what Signum's validator enforces after the
-//    fact.
-//  - **`SMSOwnerData` is an INTERFACE, not an entity**: Signum makes it a `DescriptionOptions` POCO that a
-//    query column can project. altea projects a plain object out of a `@quoted` expression, so it needs no
-//    reflected type — and no `Equals`/`GetHashCode`, since the de-duplication is `distinctBy(owner key)`.
+// **`SMSOwnerData` is an INTERFACE, not an entity**: a `@quoted` member returning a hand-built object IS a
+// real query token, so it needs no reflected type — which is what a template's `to` points at.
+//
+// Port of Signum.SMS's SMSMessage.cs + SMSTemplate.cs + SMSPackages.cs — see docs/port/Sms.md.
 //  - **`SMSConfigurationEmbedded` keeps Signum's shape** (just the default culture, as a LOCALE STRING —
 //    see its own note) and is read through the
 //    app's `() => GlobalsLogic.configuration().sms` lambda, exactly as Signum's `Configuration.Value.Sms`.
@@ -44,7 +33,7 @@ import { SMS_MAX_TEXT_LENGTH, SMSCharactersMessage } from "./SMSCharacters";
 // ---- the configuration -------------------------------------------------------------------------------
 
 /**
- * Signum's `SMSConfigurationEmbedded` — embedded on the app's ApplicationConfiguration row, and read by
+ * Embedded on the app's ApplicationConfiguration row, and read by
  * every `SMSLogic` call through the `() => GlobalsLogic.configuration().sms` lambda the app passes to
  * `start` (see CLAUDE.md).
  *
@@ -117,7 +106,7 @@ export class SMSMessageEntity extends Entity {
 
     updatePackageProcessed: boolean = false;
 
-    /** Whom this SMS is ABOUT (Signum's `Lite<ISMSOwnerEntity>` — see ISMSOwnerEntity below). */
+    /** Whom this SMS is ABOUT. */
     @implementedByAll
     referred: Lite<Entity> | null = null;
 
@@ -128,7 +117,7 @@ export class SMSMessageEntity extends Entity {
     }
 }
 
-/** A number, or a comma-separated list of them (Signum's MultipleTelephoneValidator). */
+/** A number, or a comma-separated list of them. */
 export function isMultipleTelephone(value: string | null | undefined): boolean {
     if (value == null || value === "")
         return true; // "is it set" is the NotNull validator's business, not this one's.
@@ -152,7 +141,7 @@ export namespace SMSMessageTask {
     export const UpdateSMSStatus: SimpleTaskSymbol = init();
 }
 
-/** Signum's `MultipleSMSModel` — the text a "send to all of these" contextual operation asks for. */
+/** The text a "send to all of these" contextual operation asks for. */
 @reflect
 export class MultipleSMSModel extends ModelEntity {
 
@@ -220,7 +209,7 @@ export class SMSTemplateEntity extends Entity {
 
     editableMessage: boolean = true;
 
-    /** Signum's `DisableAuthorization` — parse and run this template's query in global mode. */
+    /** Parse and run this template's query in global mode. */
     disableAuthorization: boolean = false;
 
     query: QueryEntity | null = null;
@@ -244,7 +233,7 @@ export class SMSTemplateEntity extends Entity {
 
     /**
      * The query token that projects an {@link SMSOwnerData} — who to send to, and in which culture. Required
-     * once the template has a query or a model (Signum's PropertyValidation).
+     * once the template has a query or a model.
      */
     @validate<SMSTemplateEntity>(t => t.to == null && (t.query != null || t.model != null)
         ? SMSTemplateMessage.ToMustBeSetInTheTemplate.niceToString()
@@ -271,7 +260,7 @@ function hasDuplicateCulture(messages: readonly SMSTemplateEntity_Message[]): bo
     return false;
 }
 
-/** Signum's `SMSTemplateMessageEmbedded` — the text for ONE culture. A collection row, hence an entity. */
+/** The text for ONE culture. A collection row, hence an entity. */
 @reflect
 @part
 export class SMSTemplateEntity_Message extends Entity {
@@ -281,7 +270,7 @@ export class SMSTemplateEntity_Message extends Entity {
     // No `@rowOrder`: Signum marks the MList `[BindParent]` and NOT `[PreserveOrder]`, so its table has
     // no Order column — a message is found by its culture.
 
-    /** Signum's `CultureInfoEntity CultureInfo` — a real FK, as in @altea/altea-email's template
+    /** A real FK, as in @altea/altea-email's template
      *  messages (altea HAS a CultureInfoEntity table). Named as Signum names it: the member IS the
      *  column (`CultureInfo_ID`). */
     cultureInfo: Lite<CultureInfoEntity>;
@@ -312,7 +301,7 @@ export const SMSTemplateMessage = {
 // ---- the model registry ------------------------------------------------------------------------------
 
 /**
- * Signum's `SMSModelEntity` — one row per code-declared SMS model, so a template can point at one by FK.
+ * One row per code-declared SMS model, so a template can point at one by FK.
  * Signum marks it `[TicksColumn(false)]`; altea has no such option (and the row is never concurrently
  * edited — it is written only by the synchronizer), so the concurrency column simply stays.
  * `fullClassName` holds altea's CLEAN TYPE NAME (the stable wire identity), the same call
@@ -339,7 +328,7 @@ export class SMSModelEntity extends Entity {
 // ---- the owner ---------------------------------------------------------------------------------------
 
 /**
- * Signum's `ISMSOwnerEntity` — the marker an entity implements to say "an SMS can be about me", which is
+ * The marker an entity implements to say "an SMS can be about me", which is
  * what earns it the `SMSMessages` sub-token and the "SMS messages" quick link.
  *
  * ALTEA: a bare marker interface, and the SET of implementors is a REGISTRY
@@ -354,7 +343,7 @@ export interface ISMSOwnerEntity extends Entity {
 }
 
 /**
- * Signum's `SMSOwnerData` — what a template's `to` token must project: whom to send to, at which number,
+ * What a template's `to` token must project: whom to send to, at which number,
  * in which culture. A plain shape here (see the header): a `@quoted` expression can build it, and nothing
  * persists it.
  */

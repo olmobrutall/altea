@@ -18,20 +18,13 @@ import { TourEntity, TourMessage } from "../data/Tour";
 import { TourClient } from "./TourClient";
 import type { TourDTO } from "./TourClient";
 
-// Port of Signum.Tour's TourComponent.tsx — the button that offers / replays a tour, and the driver.js
-// wrapper that plays it. driver.js is pinned to Signum's own range (^1.3.1 → 1.3.6) so the popover
-// behaviour is the one the steps were authored against.
+// The button that offers / replays a tour, and the driver.js wrapper that plays it. driver.js is pinned to
+// ^1.3.1 → 1.3.6 so the popover behaviour is the one the steps were authored against.
 //
-// altea divergences:
-//  - `isLite(x)` / `TourTriggerSymbol.isInstance(x)` → `x instanceof Lite` / `instanceof TourTriggerSymbol`
-//    (altea's Lite and Symbol are real classes).
-//  - `Navigator.API.getType(name)` → the byEntity route already takes the clean NAME, and the "create a
-//    tour for this type" path resolves the TypeEntity through `TourClient.API.typeLite` rather than a
-//    generic getType (altea's Navigator has no such call).
-//  - `ChangeLogClient` is not ported (altea has no change-log module), so no changelog registration.
+// See docs/port/Tour.md.
 
 /**
- * Signum's TourButton — the "?"-ish bike icon beside a page. Three states:
+ * The "?"-ish bike icon beside a page. Three states:
  *   • a tour exists → play it (and Ctrl/Alt-click to edit it);
  *   • no tour, and the user may create one → offer to author it;
  *   • no tour, and the user may not → render nothing.
@@ -124,7 +117,7 @@ async function resolveTriggerLite(trigger: PseudoType | Symbol | Lite<Entity>): 
 }
 
 /**
- * Signum's `waitForElement`: a step may CLICK its own target (a tab, a dropdown) to reveal what the next
+ * A step may CLICK its own target (a tab, a dropdown) to reveal what the next
  * step points at, so the player has to wait for the DOM to catch up before moving on.
  */
 function waitForElement(selector: string, timeout: number = 5000): Promise<Element> {
@@ -160,7 +153,7 @@ export function TourComponent({ tour, autoStart = true }: { tour: TourDTO; autoS
             element: step.cssSelector ?? undefined,
             popover: step.cssSelector ? {
                 title: step.title ?? undefined,
-                // The step's description is authored as MARKDOWN (Signum edits it with a MarkdownLine).
+                // The step's description is authored as MARKDOWN.
                 description: step.description ? micromark(step.description) : undefined,
                 side: (step.side ?? undefined) as Side | undefined,
                 align: (step.align ?? undefined) as Alignment | undefined,

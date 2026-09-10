@@ -39,7 +39,7 @@ import { SMSModelEntity, SMSTemplateEntity, SMSTemplateOperation } from "../data
 //  - `RequiresExtraParameters` / `GetEntityConstructor` (C# reflection over the model's constructors) become
 //    the registration's own `construct` callback: present ⇒ the model can be built from one entity.
 
-/** Signum's `ISMSModel` — the object a template renders against. */
+/** The object a template renders against. */
 export interface ISMSModel {
     /** The entity this model is ABOUT (Signum's UntypedEntity) — becomes the message's `referred`. */
     untypedEntity: Entity | null;
@@ -72,9 +72,9 @@ export function smsModel(entity: Entity, overrides?: Partial<ISMSModel>): ISMSMo
 interface SMSModelInfo {
     /** Signum's optional `queryName` argument; defaults to the model's own entity type. */
     queryName: QueryName;
-    /** Signum's `DefaultTemplateConstructor` — the template generated when none exists yet. */
+    /** The template generated when none exists yet. */
     defaultTemplateConstructor: () => SMSTemplateEntity;
-    /** Signum's `GetEntityConstructor`: present ⇒ this model can be built from one entity. */
+    /** Present ⇒ this model can be built from one entity. */
     construct?: (entity: Entity | null) => ISMSModel;
 }
 
@@ -143,7 +143,7 @@ export namespace SMSModelLogic {
         return found;
     }
 
-    /** Signum's `ToType(smsModelEntity)` — here the registry KEY, which is what everything else needs. */
+    /** Here the registry KEY, which is what everything else needs. */
     export async function toKey(model: SMSModelEntity): Promise<string> {
         for (const [key, row] of await smsModelsLazy.value())
             if (String(row.id) === String(model.id))
@@ -156,7 +156,7 @@ export namespace SMSModelLogic {
         return keyToType.get(await toKey(model));
     }
 
-    /** Signum's `RequiresExtraParameters` — a model with no `construct` needs the caller to build it. */
+    /** A model with no `construct` needs the caller to build it. */
     export async function requiresExtraParameters(model: SMSModelEntity): Promise<boolean> {
         return registeredModels.get(await toKey(model))?.construct == null;
     }
@@ -169,7 +169,7 @@ export namespace SMSModelLogic {
         return info.construct(entity);
     }
 
-    /** The query a model's template renders against (Signum's `SMSModelInfo.QueryName`). */
+    /** The query a model's template renders against. */
     export async function queryName(model: SMSModelEntity): Promise<QueryName> {
         const info = registeredModels.get(await toKey(model));
         if (info == null)
@@ -178,7 +178,7 @@ export namespace SMSModelLogic {
     }
 
     /**
-     * Signum's `GetDefaultTemplate(smsModelEntity)`: the model's single ACTIVE template, generating and
+     * The model's single ACTIVE template, generating and
      * saving a default one the first time it is asked for.
      */
     export async function getDefaultTemplate(model: SMSModelEntity): Promise<SMSTemplateEntity> {
@@ -212,7 +212,7 @@ export namespace SMSModelLogic {
         return template;
     }
 
-    /** Signum's `GenerateAllTemplates` — what a terminal command calls to seed a fresh database. */
+    /** What a terminal command calls to seed a fresh database. */
     export async function generateAllTemplates(): Promise<void> {
         for (const [key, _info] of registeredModels) {
             const model = (await smsModelsLazy.value()).get(key);

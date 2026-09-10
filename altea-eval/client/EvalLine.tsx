@@ -5,21 +5,15 @@ import { useForceUpdate } from "@altea/altea/client/Hooks";
 import TypeScriptCodeMirror from "@altea/altea-codemirror/client/TypeScriptCodeMirror";
 import type { EvalEmbedded } from "../data/Eval";
 
-// The editor Signum spells out inline in each of its eval views (WorkflowCondition.tsx and friends): the
-// generated SIGNATURE above, the code editor, the closing brace below — so the author sees the whole method
-// even though only the body is stored.
+// One line for the whole editor sandwich: the generated SIGNATURE above, the code editor, the closing
+// brace below — so the author sees the whole function even though only the body is stored. ONE line,
+// because there are eight of them in altea-workflow alone and they differ only in the signature.
 //
-// altea factors it into one line, because there are eight of them in altea-workflow alone and they differ
-// only in the signature. Two other differences from Signum's inline version:
+// The COMPILE ERRORS come back as an ordinary field error on `script` — `EvalEmbedded`'s validator is what
+// produces them — so they render through the FormGroup like any other validation message, and the
+// offending line is highlighted in the editor.
 //
-//  - the editor is TypeScript (`@altea/altea-codemirror`'s TypeScriptCodeMirror) rather than C#;
-//  - the COMPILE ERRORS come back as an ordinary field error on `script` — `EvalEmbedded`'s validator is what
-//    produces them (Signum's `PropertyValidation`) — so they render through the FormGroup like any other
-//    validation message, and the offending line is highlighted in the editor.
-//
-// Signum also shows a TypeHelpComponent tree beside the editor (a browser over the entity's members). That
-// is not ported: it is the client half of Signum.Eval's TypeHelp, and the honest altea equivalent is real
-// editor IntelliSense over the same `.d.ts` the server type-checks against — a project, not a port.
+// See docs/port/Eval.md.
 
 export interface EvalLineProps<F> {
     ctx: TypeContext<EvalEmbedded<F>>;
