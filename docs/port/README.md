@@ -33,7 +33,10 @@ specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inv
 | --- | --- |
 | [ConcurrentUser.md](ConcurrentUser.md) | `@altea/altea-concurrent-user` |
 | [DiffLog.md](DiffLog.md) | `@altea/altea-diff-log` |
+| [FileStores.md](FileStores.md) | `@altea/altea-files-azure`, `@altea/altea-files-s3` |
 | [LegacyMode.md](LegacyMode.md) | *cross-cutting* — `SchemaSettings.legacyMode` |
+| [MailingExchange.md](MailingExchange.md) | `@altea/altea-mailing-exchange` |
+| [MailingPop3.md](MailingPop3.md) | `@altea/altea-mailing-pop3` |
 | [Markdown.md](Markdown.md) | `@altea/altea-markdown` |
 | [Printing.md](Printing.md) | `@altea/altea-printing` |
 | [Rest.md](Rest.md) | `@altea/altea-rest` |
