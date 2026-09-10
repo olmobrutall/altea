@@ -34,7 +34,7 @@ import "./Bpmn.css";
 //
 // altea divergences:
 //  - `componentWillReceiveProps` (removed from React) → `componentDidUpdate`.
-//  - the enum comparisons are ORDINALS (`WorkflowActivityType.Decision`), not Signum's strings.
+//  - the enum comparisons are ORDINALS (`WorkflowActivityType.Decision`), not strings.
 //  - the boundary-timer list on the activity MODEL is a plain array, not an MList, so `newMListElement` and
 //    `.element` are gone.
 //  - `parseLite(key)` → `Lite.parse(key)`.
@@ -159,7 +159,7 @@ export default class BpmnModelerComponent extends React.Component<BpmnModelerCom
         return this.saveSvgAsync({});
     }
 
-    /** A model for a shape the user just created — the defaults Signum's newModel supplies. */
+    /** A model for a shape the user just created, with its defaults. */
     newModel(element: BPMN.DiElement): ModelEntity {
         const mainEntityType = this.props.workflow.mainEntityType;
         const elementType = element.type;
@@ -329,7 +329,7 @@ export default class BpmnModelerComponent extends React.Component<BpmnModelerCom
         if (BpmnUtils.isTaskAnyKind(e.element.type)) {
             const act = this.props.entities[e.element.id] as WorkflowActivityModel | undefined;
             if (act != null) {
-                // No explicit "modified = true" (Signum's next line): altea's dirty tracking is
+                // No explicit "modified = true": dirty tracking is
                 // snapshot-based, so the assignment below already makes the model self-modified.
                 act.name = e.element.businessObject.name;
             }

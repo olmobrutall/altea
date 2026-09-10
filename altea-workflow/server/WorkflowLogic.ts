@@ -54,27 +54,24 @@ import { WorkflowBuilder } from "./WorkflowBuilder";
 import { registerWorkflowXml } from "./WorkflowXml";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
-// Port of Signum.Workflow's WorkflowLogic.cs — the module's registration: the workflow-definition tables and
-// their operations, the in-memory WorkflowNodeGraph cache, and the EIGHT evaluator registries that replace
-// Signum's Roslyn evals (see data/WorkflowEval.ts).
+// Port of Signum.Workflow's WorkflowLogic.cs — see docs/port/Workflow.md.
 //
-// altea divergences beyond the module-wide ones:
-//  - Signum's `[AutoExpressionField]` extension methods become `withQuoted` prototype members declared here
-//    (the logic layer), the shape altea's MusicLogic established: the bodies need `table(...)`, which the
-//    isomorphic layer must not import.
-//  - `PropertyRouteTranslationLogic.RegisterRoute` (instance translation of a workflow / activity name) has
-//    no altea counterpart yet, as in the toolbar and dashboard ports.
-//  - `EvalLogic.GetCustomErrors` / `EvalLogic.OnInvalidated` go with the Eval deferral.
-//  - `AuthLogic.HasRuleOverridesEvent` (does this role appear as a lane actor?) has no altea hook yet.
-//  - Signum's `.WithQuery(() => e => new { … })` becomes a parameterless `withQuery()`: altea derives the
-//    columns from the entity and the CLIENT chooses the default ones (`withQuerySettings`).
-//  - the CACHES are arrays / Maps keyed by the lite's key string — a Lite is not a value key in JS.
+// The module's registration: the workflow-definition tables and their operations, the in-memory
+// WorkflowNodeGraph cache, and the EIGHT evaluator registries behind data/WorkflowEval.ts.
+//
+// The extension expressions are `withQuoted` prototype members declared HERE, in the logic layer, because
+// their bodies need `table(...)` — which the isomorphic layer must not import. Each has a plain query TWIN
+// in CaseQueries.ts, because a `withQuoted` member is QUERY-ONLY and the engine needs both.
+//
+// The CACHES are arrays / Maps keyed by the lite's KEY STRING: a Lite is not a value key in JS.
+//
+// NOT wired: `AuthLogic.hasRuleOverrides` ("does this role appear as a lane actor?") has no hook yet, and
+// this module does not opt its routes into instance translation — see docs/port/Workflow.md.
 
-// ---- Extension expressions (Signum's [AutoExpressionField] statics) -------------------------------------
+// ---- Extension expressions ------------------------------------------------------------------------------
 
 declare module "../data/Workflow" {
     interface WorkflowEntity {
-        /** Signum's `HasExpired()`. */
         hasExpired(): boolean;
         workflowPools(): IQuery<WorkflowPoolEntity>;
         workflowActivities(): IQuery<WorkflowActivityEntity>;
@@ -82,7 +79,7 @@ declare module "../data/Workflow" {
         workflowGateways(): IQuery<WorkflowGatewayEntity>;
         workflowStartEvent(): Promise<WorkflowEventEntity | null>;
         workflowConnections(): IQuery<WorkflowConnectionEntity>;
-        /** The connections that CROSS two pools (Signum's WorkflowMessageConnections). */
+        /** The connections that CROSS two pools. */
         workflowMessageConnections(): IQuery<WorkflowConnectionEntity>;
     }
 }
@@ -190,14 +187,13 @@ WorkflowGatewayEntity.prototype.previousConnections = withQuoted(function (this:
 
 export namespace WorkflowLogic {
 
-    /** Signum's `Action<ICaseMainEntity, WorkflowTransitionContext>? OnTransition` — an app-wide hook run on
+    /** An app-wide hook run on
      *  every connection taken, before the connection's own action. */
     export const onTransition: ((mainEntity: ICaseMainEntity, ctx: WorkflowTransitionContext) => void | Promise<void>)[] = [];
 
-    /** Signum's `ResetLazy<FrozenDictionary<Lite<WorkflowEntity>, WorkflowEntity>> Workflows`. */
     export let workflows: ResetLazy<WorkflowEntity[]> = null!;
 
-    /** Signum's `WorkflowGraphLazy` — one WorkflowNodeGraph per workflow, keyed by the lite's key. */
+    /** One WorkflowNodeGraph per workflow, keyed by the lite's key. */
     export let workflowGraphLazy: ResetLazy<Map<string, WorkflowNodeGraph>> = null!;
 
     export let conditions: ResetLazy<Map<string, WorkflowConditionEntity>> = null!;
@@ -211,7 +207,7 @@ export namespace WorkflowLogic {
         return getConfiguration();
     }
 
-    // ---- Evaluating the eight evals (Signum's `wc.Evaluate(...)` / `wa.Execute(...)` extensions) -----
+    // ---- Evaluating the eight evals ------------------------------------------------------------------
     //
     // A NAMED eval (condition / action / timer condition / script) is reached through its cached entity, so
     // the compiled algorithm is shared by every case that uses it; an INLINE one (lane actors, sub-entities,
@@ -219,7 +215,6 @@ export namespace WorkflowLogic {
     // `algorithm` getter compiles on first use and throws with the diagnostics if the script does not build
     // (see @altea/altea-eval's data/Eval.ts).
 
-    /** Signum's `Lite<WorkflowConditionEntity>.Evaluate(mainEntity, ctx)`. */
     export async function evaluateCondition(wc: Lite<WorkflowConditionEntity>, mainEntity: ICaseMainEntity,
         ctx: WorkflowTransitionContext): Promise<boolean> {
         const entity = mapGet(await conditions.value(), wc.key(), "WorkflowCondition");
@@ -227,7 +222,6 @@ export namespace WorkflowLogic {
         return await entity.eval.algorithm(mainEntity, ctx);
     }
 
-    /** Signum's `Lite<WorkflowActionEntity>.Execute(mainEntity, ctx)`. */
     export async function executeAction(wa: Lite<WorkflowActionEntity>, mainEntity: ICaseMainEntity,
         ctx: WorkflowTransitionContext): Promise<void> {
         const entity = mapGet(await actions.value(), wa.key(), "WorkflowAction");
@@ -235,16 +229,14 @@ export namespace WorkflowLogic {
         await entity.eval.algorithm(mainEntity, ctx);
     }
 
-    /** Signum's `Lite<WorkflowTimerConditionEntity>.Evaluate(ca, now)`. */
     export async function evaluateTimerCondition(wc: Lite<WorkflowTimerConditionEntity>, ca: CaseActivityEntity,
         now: Temporal.PlainDateTime): Promise<boolean> {
         const entity = mapGet(await timerConditions.value(), wc.key(), "WorkflowTimerCondition");
         using _prof = HeavyProfiler.log("WorkflowTimerCondition", () => entity.name);
-        // Signum's generated wrapper takes (ca, e, now) — the main entity is handed over already cast.
+        // The generated wrapper takes (ca, e, now) — the main entity is handed over already cast.
         return await entity.eval.algorithm(ca, ca.case.mainEntity, now);
     }
 
-    /** Signum's `script.Eval.Algorithm.ExecuteUntyped(mainEntity, ctx)`. */
     export async function executeScript(ws: Lite<WorkflowScriptEntity>, mainEntity: ICaseMainEntity,
         ctx: WorkflowScriptContext): Promise<void> {
         const entity = mapGet(await scripts.value(), ws.key(), "WorkflowScript");
@@ -273,7 +265,7 @@ export namespace WorkflowLogic {
     // ---- The graph cache ---------------------------------------------------------------------------
 
     /**
-     * Signum's GetWorkflowNodeGraph — the cached graph, VALIDATED on first use. A workflow with errors is
+     * The cached graph, VALIDATED on first use. A workflow with errors is
      * unusable, so this throws rather than handing back a half-analysed graph (the track ids the engine
      * needs are only filled by a clean validation).
      */
@@ -303,14 +295,14 @@ export namespace WorkflowLogic {
         Promise<{ hasSchedule: boolean; hasTask: boolean; conditionMissing: boolean }> =
         async () => ({ hasSchedule: true, hasTask: true, conditionMissing: false });
 
-    /** Signum's AutocompleteNodes — the jump targets the client offers. */
+    /** The jump targets the client offers. */
     export async function autocompleteNodes(workflow: Lite<WorkflowEntity>, subString: string, count: number,
         excludes: Lite<IWorkflowNodeEntity>[]): Promise<Lite<IWorkflowNodeEntity>[]> {
         const graphs = await workflowGraphLazy.value();
         return mapGet(graphs, workflow.key(), "Workflow").autocomplete(subString, count, excludes);
     }
 
-    /** Signum's `NextConnectionsFromCache(type)` — the cached counterpart of the DB expression. */
+    /** The cached counterpart of the DB expression. */
     export async function nextConnectionsFromCache(node: IWorkflowNodeEntity, type: ConnectionType | null): Promise<WorkflowConnectionEntity[]> {
         const g = await getWorkflowNodeGraph(node.lane.pool.workflow.toLite());
         const result = g.nextConnections(node);
@@ -325,8 +317,8 @@ export namespace WorkflowLogic {
     // ---- Actors -----------------------------------------------------------------------------------
 
     /**
-     * Signum's `IsCurrentUserActor` — is this actor (a user or a role) the current user? Async because
-     * altea's role expansion is; overridable, as in Signum (a deputy scenario replaces it).
+     * Is this actor (a user or a role) the current user? Async because
+     * role expansion is. OVERRIDABLE — a deputy scenario replaces it.
      */
     export let isCurrentUserActor: (actor: Lite<Entity>) => Promise<boolean> = async actor => {
         const current = UserHolder.currentUserLite();
@@ -339,7 +331,7 @@ export namespace WorkflowLogic {
         return false;
     };
 
-    /** Signum's `GetAllowedStarts` — the workflows the current user may open a case of. */
+    /** The workflows the current user may open a case of. */
     export async function getAllowedStarts(getActors: (lane: WorkflowLaneEntity) => Promise<Lite<Entity>[]>): Promise<WorkflowEntity[]> {
         const graphs = await workflowGraphLazy.value();
         const result: WorkflowEntity[] = [];
@@ -349,7 +341,7 @@ export namespace WorkflowLogic {
         return result;
     }
 
-    /** Signum's `CurrentUserInLaneOf<T>()` — does the current user appear in any lane of a workflow over T? */
+    /** Does the current user appear in any lane of a workflow over T? */
     export async function currentUserInLaneOf(mainEntityTypeName: string): Promise<boolean> {
         const graphs = await workflowGraphLazy.value();
         const current = UserHolder.currentUserLite();
@@ -374,7 +366,6 @@ export namespace WorkflowLogic {
 
         getConfiguration = getConfig;
 
-        // Signum's three `PermissionLogic.RegisterPermissions(…)` calls.
         PermissionLogic.registerPermissions(
             WorkflowPermission.ViewWorkflowPanel,
             WorkflowPermission.ViewCaseFlow,
@@ -396,7 +387,7 @@ export namespace WorkflowLogic {
             .withExpressionFrom(CaseActivityEntity, ca => ca.workflow())
             .withQuery();
 
-        // Signum's `WorkflowEventEntity.PreSaving` override — clear the two fields that only make sense for
+        // Clear the two fields that only make sense for
         // one event type. altea's hook is a schema EVENT, not an entity method (an entity `preSaving()` would
         // never run), so it is registered here beside the type's other server-side wiring.
         sb.schema.entityEvents(WorkflowEventEntity).preSaving.push(e => {
@@ -434,7 +425,7 @@ export namespace WorkflowLogic {
             .withExpressionFrom(WorkflowLaneEntity, p => p.workflowActivities())
             .withQuery();
 
-        // Signum's WorkflowEventOperation.Save/Delete are hand-written (they check the timer/boundary
+        // The Save / Delete operations are hand-written (they check the timer / boundary
         // invariants and clean up a scheduled task), so they are a graph rather than withSave/withDelete.
         sb.include(WorkflowEventEntity)
             .withOperations(registerWorkflowEventOperations)
@@ -459,7 +450,7 @@ export namespace WorkflowLogic {
             .withExpressionFrom(WorkflowGatewayEntity, p => p.nextConnections())
             .withQuery();
 
-        // Signum's WorkflowGraphLazy: EVERY node of EVERY workflow in one pass, grouped per workflow.
+        // EVERY node of EVERY workflow in one pass, grouped per workflow.
         workflowGraphLazy = sb.globalLazy(async () => {
             const [allWorkflows, events, gateways, activities, connections, lanes] = await Promise.all([
                 table(WorkflowEntity).toArray(),
@@ -470,7 +461,7 @@ export namespace WorkflowLogic {
                 table(WorkflowLaneEntity).toArray(),
             ]);
 
-            // Signum's virtual MList fills `activity.BoundaryTimers` on retrieve; altea's list is not
+            // Signum's virtual MList fills `activity.BoundaryTimers` on retrieve; this list is not
             // persisted (see data/WorkflowNodes.ts), so the graph loader is what fills it.
             const activityByKey = new Map(activities.map(a => [a.toLite().key(), a]));
             for (const a of activities)
@@ -567,7 +558,7 @@ export namespace WorkflowLogic {
 
     /**
      * What a stored workflow script may IMPORT of THIS module — registered here, by the module that owns the
-     * types, rather than by every application (Signum's EvalLogic seeds its own assemblies the same way; see
+     * types, rather than by every application (EvalLogic seeds the framework's own modules the same way; see
      * altea-eval's EvalFrameworkModules). The three are what a condition / action / timer body is handed:
      * the evaluator function types, the case, and the case activity.
      */
@@ -578,7 +569,7 @@ export namespace WorkflowLogic {
     }
 
     /**
-     * Signum's `EvalClient.Options.checkEvalFindOptions.Add(...)` calls in WorkflowClient.tsx — what the
+     * The server-side counterpart of Signum's `EvalClient.Options.checkEvalFindOptions.Add(...)` calls — what the
      * "check every stored script" pass walks. altea keeps the registry on the server (see
      * EvalLogic.evalSources), so the two entries Signum has to express as a client FindOption with a filter
      * (`Lane.ActorsEval != null`, `Activity.SubWorkflow != null`) are a plain `.filter(...)` here.
@@ -599,7 +590,6 @@ export namespace WorkflowLogic {
         return new Map(rows.map(r => [r.toLite().key(), r]));
     }
 
-    /** Signum's ThrowConnectionError(IQueryable<WorkflowConnectionEntity>, …). */
     async function throwConnectionErrorForConnections(query: IQuery<WorkflowConnectionEntity>,
         entity: Entity, operationName: string): Promise<void> {
         const errors = await query
@@ -616,7 +606,7 @@ export namespace WorkflowLogic {
         throw new Error(`Impossible to ${operationName} '${entity}' because is used in some connections: \n` + formatted);
     }
 
-    /** Signum's generic `ThrowConnectionError<T>(IQueryable<T>, …)` over nodes. */
+    /** The same, over nodes. */
     async function throwConnectionErrorForNodes<T extends WorkflowActivityEntity | WorkflowEventEntity>(
         query: IQuery<T>, entity: Entity, operationName: string,
         nodeType: typeof WorkflowActivityEntity | typeof WorkflowEventEntity): Promise<void> {
@@ -670,7 +660,7 @@ export namespace WorkflowLogic {
         return await wb.previewChanges(document, model);
     }
 
-    /** Signum's ApplyDocument — the body of WorkflowOperation.Save. */
+    /** The body of WorkflowOperation.Save. */
     export async function applyDocument(workflow: WorkflowEntity, model: WorkflowModel | null,
         replacements: WorkflowReplacementModel | null, issuesContainer: WorkflowIssue[]): Promise<void> {
 
@@ -943,7 +933,7 @@ function isBoundary(type: WorkflowEventType): boolean {
     return type === WorkflowEventType.BoundaryForkTimer || type === WorkflowEventType.BoundaryInterruptingTimer;
 }
 
-/** A Map lookup that FAILS LOUDLY (Signum's Dictionary.GetOrThrow). altea has no such extension. */
+/** A Map lookup that FAILS LOUDLY. */
 function mapGet<V>(map: Map<string, V>, key: string, what: string): V {
     const value = map.get(key);
     if (value == null)

@@ -27,16 +27,17 @@ import { WorkflowActionEntity } from "./WorkflowAction";
 import { WorkflowTimerConditionEntity } from "./WorkflowTimerCondition";
 import { WorkflowScriptEntity, WorkflowScriptRetryStrategyEntity } from "./WorkflowScript";
 // A value import, and a real ESM cycle: WorkflowEventTask.ts needs `WorkflowEventEntity` from here, and
-// `WorkflowEventModel.task` needs its model. It is safe for the same reason Workflow.ts's cycle is — nothing
+// `WorkflowEventModel.task` needs its model. Safe for the same reason Workflow.ts's cycle is — nothing
 // dereferences the other module at evaluation time (the transformer emits a `() => WorkflowEventTaskModel`
-// thunk for the field type) — but `import type` is NOT an option: the transformer needs the runtime binding.
+// thunk for the field type) — but `import type` is NOT an option: the transformer needs the runtime
+// binding.
 import { WorkflowEventTaskModel } from "./WorkflowEventTask";
 
 // Port of Signum.Workflow's WorkflowPool.cs + WorkflowLane.cs + WorkflowActivity.cs + WorkflowEvent.cs +
 // WorkflowGateway.cs + WorkflowConnection.cs — the BPMN graph itself, plus the MODEL each node round-trips
 // through when the designer edits it.
 //
-// altea divergence — ONE file where Signum has six: the six node kinds are mutually recursive (a lane knows
+// ONE file where Signum has six: the six node kinds are mutually recursive (a lane knows
 // its pool, an activity knows its lane, an event knows the activity it is a boundary of, an activity knows
 // its boundary events, a connection knows both endpoints), so splitting them per Signum file would mean an
 // ESM import cycle that DOES bite: `extends` and the `@entity` decorators run at module-evaluation time.
@@ -45,12 +46,12 @@ import { WorkflowEventTaskModel } from "./WorkflowEventTask";
 // Two more divergences, both explained where they appear:
 //  - `WorkflowLaneActorsEval` / `SubEntitiesEval` keep Signum's shape (a stored script), but the script is
 //    TypeScript and its OWNER is bound explicitly — see each class and @altea/altea-eval's data/Eval.ts.
-//  - `WorkflowActivityEntity.BoundaryTimers` was a Signum VIRTUAL MList; altea has none, so it becomes a
+//  - `WorkflowActivityEntity.boundaryTimers` is Signum's VIRTUAL MList; here it is a
 //    non-persisted list the module maintains itself.
 
 // ---- Pool -----------------------------------------------------------------------------------------------
 
-// Signum's `.WithUniqueIndex(wp => new { wp.Workflow, wp.Name })` — altea declares a COMPOSITE index on
+// altea declares a COMPOSITE index on
 // the entity itself rather than on the include.
 @reflect
 @uniqueIndex<WorkflowPoolEntity>(p => [p.workflow, p.name])
@@ -99,7 +100,7 @@ export class WorkflowPoolModel extends ModelEntity {
 
 // ---- Lane -----------------------------------------------------------------------------------------------
 
-/** Signum's `MList<Lite<Entity>> Actors` [ImplementedBy(User, Role)] as this owner's `@part` row — a
+/** The actors collection as this owner's `@part` row — a
  *  POLYMORPHIC collection cannot be a bare array in altea, it needs the row's `@valueField`. */
 @reflect
 @part
@@ -136,7 +137,7 @@ export class WorkflowLaneEntity extends Entity implements IWorkflowObjectEntity,
     @noRepeatValidator()
     actors: WorkflowLaneEntity_Actor[];
 
-    /** Signum's `WorkflowLaneActorsEval` — the actors computed per case, as a stored script. */
+    /** The actors computed per case, as a stored script. */
     @bindParent
     actorsEval: WorkflowLaneActorsEval | null;
 
@@ -162,7 +163,7 @@ export class WorkflowLaneEntity extends Entity implements IWorkflowObjectEntity,
             mainEntityType: this.pool.workflow.mainEntityType,
             name: this.name,
             actors: this.actors.map(a => a.actor),
-            // Signum's `WorkflowLaneActorsEval.Clone()` — a part has ONE owner, and this MODEL is a
+            // A part has ONE owner, and this MODEL is a
             // separate graph the designer edits, so it gets its own copy of the script.
             actorsEval: this.actorsEval == null ? null
                 : WorkflowLaneActorsEval.create({ script: this.actorsEval.script }),
@@ -193,9 +194,9 @@ export class WorkflowLaneEntity extends Entity implements IWorkflowObjectEntity,
 }
 
 /**
- * Signum's WorkflowLaneActorsEval — who is notified for an activity in this lane, computed per case.
+ * Who is notified for an activity in this lane, computed per case.
  *
- * The parameter's type comes from the lane's POOL's workflow (`Pool.Workflow.MainEntityType` in Signum), so
+ * The parameter's type comes from the lane's POOL's workflow, so
  * the owner it needs bound is the lane. Where the lane is being edited through its MODEL — which carries the
  * main entity type directly — the model's own copy is what the designer type-checks against.
  */
@@ -263,7 +264,7 @@ export enum WorkflowActivityType {
 registerEnum(WorkflowActivityType);
 
 /**
- * Signum's BootstrapStyle (Signum.Basics) — the bootstrap contextual colors, here the color of a decision
+ * The bootstrap contextual colors, here the color of a decision
  * button. altea declares it in THIS module because nothing else needs it yet; the client's `BsColor` is the
  * same set in lowercase. It needs no `Enum` suffix: nothing reads it as a string union, so the registered
  * name is "BootstrapStyle".
@@ -285,7 +286,7 @@ registerEnum(BootstrapStyle);
 // setDatabaseSchema.
 setDatabaseSchema("basics", BootstrapStyle);
 
-/** Signum's ButtonOptionEmbedded — one button of a Decision activity, or the custom "Next" of a Task. */
+/** One button of a Decision activity, or the custom "Next" of a Task. */
 @reflect
 export class ButtonOptionEmbedded extends EmbeddedEntity {
     @stringLengthValidator({ min: 3, max: 100 })
@@ -304,7 +305,7 @@ export class ButtonOptionEmbedded extends EmbeddedEntity {
     }
 }
 
-/** Signum's ViewNamePropEmbedded — an extra prop passed to the activity's custom view. `expression` is a
+/** An extra prop passed to the activity's custom view. `expression` is a
  *  JavaScript snippet the CLIENT evaluates when it builds the view promise (Signum does the same, and it
  *  runs in the browser there too — so this one is not an Eval divergence). */
 @reflect
@@ -316,7 +317,7 @@ export class ViewNamePropEmbedded extends EmbeddedEntity {
     expression: string | null;
 }
 
-/** Signum's WorkflowScriptPartEmbedded — which script a Script activity runs, and how to back off. */
+/** Which script a Script activity runs, and how to back off. */
 @reflect
 export class WorkflowScriptPartEmbedded extends EmbeddedEntity {
     script: Lite<WorkflowScriptEntity>;
@@ -329,9 +330,9 @@ export class WorkflowScriptPartEmbedded extends EmbeddedEntity {
 }
 
 /**
- * Signum's SubEntitiesEval — which entities a Decomposition / CallWorkflow activity spawns a subcase for.
+ * Which entities a Decomposition / CallWorkflow activity spawns a subcase for.
  *
- * Signum's generated signature is the only two-type one: the parameter is the OWNING workflow's main entity
+ * The generated signature is the only two-type one: the parameter is the OWNING workflow's main entity
  * and the return is the SUB-workflow's, which it reaches through two `[BindParent]` hops
  * (`SubWorkflowEmbedded` → `WorkflowActivityEntity`). altea binds an eval to the owning ENTITY directly, so
  * the activity is the owner and both types come off it.
@@ -352,26 +353,26 @@ export class SubEntitiesEval extends EvalEmbedded<ISubEntitiesEvaluator> {
     }
 }
 
-/** Signum's SubWorkflowEmbedded — the workflow a Decomposition / CallWorkflow activity spawns, and the
+/** The workflow a Decomposition / CallWorkflow activity spawns, and the
  *  registered function that says which entities to spawn it for. */
 @reflect
 export class SubWorkflowEmbedded extends EmbeddedEntity {
     workflow: WorkflowEntity;
 
-    /** Signum's `SubEntitiesEval` — which entities to spawn the sub-workflow for, as a stored script. */
+    /** Which entities to spawn the sub-workflow for, as a stored script. */
     @bindParent
     subEntitiesEval: SubEntitiesEval;
 
     clone(): SubWorkflowEmbedded {
         return SubWorkflowEmbedded.create({
             workflow: this.workflow,
-            // Signum's `SubEntitiesEval.Clone()` — a part belongs to ONE owner, so the copy needs its own.
+            // A part belongs to ONE owner, so the copy needs its own.
             subEntitiesEval: SubEntitiesEval.create({ script: this.subEntitiesEval.script }),
         });
     }
 }
 
-/** Signum's `MList<ButtonOptionEmbedded> DecisionOptions` — an embedded collection, so a `@part` row. */
+/** An embedded collection, so a `@part` row. */
 @reflect
 @part
 export class WorkflowActivityEntity_DecisionOption extends Entity {
@@ -385,7 +386,6 @@ export class WorkflowActivityEntity_DecisionOption extends Entity {
     }
 }
 
-/** Signum's `MList<ViewNamePropEmbedded> ViewNameProps`. */
 @reflect
 @part
 export class WorkflowActivityEntity_ViewNameProp extends Entity {
@@ -431,13 +431,13 @@ export class WorkflowActivityEntity extends Entity implements IWorkflowNodeEntit
     /**
      * The boundary timer events attached to this activity.
      *
-     * altea divergence: Signum declares `[Ignore, QueryableProperty] MList<WorkflowEventEntity>` and wires it
-     * with `.WithVirtualMList(wa => wa.BoundaryTimers, e => e.BoundaryOf, …)` — a Signum VirtualMList, i.e. a
+     * Signum declares `[Ignore, QueryableProperty] MList<WorkflowEventEntity>` and wires it with
+     * `.WithVirtualMList(wa => wa.BoundaryTimers, e => e.BoundaryOf, …)` — a VirtualMList, i.e. a
      * collection of FULL entities that live in their own table and point back. altea has no VirtualMList (its
      * `@part` collections ARE that shape, but a part has exactly one owner and a boundary event is a
      * first-class node owned by a LANE), so this stays a NON-PERSISTED list: `@column(false)`, filled by the
      * WorkflowNodeGraph loader and by the designer's ApplyXml, which saves the events themselves with
-     * `boundaryOf` set. Signum's `QueryableProperty` (a query token over the virtual list) goes with it —
+     * `boundaryOf` set. Its `QueryableProperty` (a query token over the virtual list) goes with it —
      * the two server queries that used it join WorkflowEventEntity on `boundaryOf` instead.
      */
     @column(false)
@@ -502,7 +502,7 @@ export class WorkflowActivityEntity extends Entity implements IWorkflowNodeEntit
         this.decisionOptions = (m.type === WorkflowActivityType.Decision ? m.decisionOptions : [])
             .map(o => WorkflowActivityEntity_DecisionOption.create({ option: o }));
         this.customNextButton = m.customNextButton;
-        // Signum: "We can not set boundary timers in model" — they are synchronized by ApplyXml instead.
+        // "We can not set boundary timers in model" — they are synchronized by applyXml instead.
         this.estimatedDuration = m.estimatedDuration;
         this.script = m.script;
         this.viewName = m.viewName;
@@ -602,7 +602,7 @@ export enum WorkflowEventType {
 }
 registerEnum(WorkflowEventType);
 
-// Signum's WorkflowEventTypeExtension, as plain functions over the string union.
+// Plain functions over the string union.
 export function isStart(type: WorkflowEventType): boolean {
     return type === WorkflowEventType.Start || type === WorkflowEventType.ScheduledStart;
 }
@@ -621,7 +621,7 @@ export function isBoundaryTimer(type: WorkflowEventType): boolean {
 }
 
 /**
- * Signum's TimeSpanEmbedded — a duration as four int columns.
+ * A duration as four int columns.
  *
  * altea has a real `Duration` field type, and using it here would be tempting; it is NOT used, for the same
  * reason Signum spells the parts out: `Duration` maps to SQL Server `time`, which tops out at 24 hours, and a
@@ -870,7 +870,7 @@ registerEnum(ConnectionType);
 @entity("Main", "Master")
 export class WorkflowConnectionEntity extends Entity implements IWorkflowObjectEntity, IWithModel {
 
-    /** Signum's `[ForceNullable]`: the column must be nullable because a connection is saved before its
+    /** The column must be nullable because a connection is saved before its
      *  endpoints exist in a fresh diagram, even though a saved connection always has both. */
     @forceNullable
     @implementedBy(() => [WorkflowActivityEntity, WorkflowEventEntity, WorkflowGatewayEntity])
@@ -907,7 +907,7 @@ export class WorkflowConnectionEntity extends Entity implements IWorkflowObjectE
         return this.name;
     }
 
-    /** Signum's internal DoneDecision() — the decision this connection is the answer to, if any. */
+    /** The decision this connection is the answer to, if any. */
     doneDecision(): string | null {
         return this.type === ConnectionType.Decision ? this.decisionOptionName : null;
     }
@@ -979,7 +979,7 @@ export class WorkflowConnectionModel extends ModelEntity {
 
 // ---- Validation helpers ---------------------------------------------------------------------------------
 
-/** Signum's `(pi, value).IsSetOnlyWhen(condition)` extension. */
+/** The is-set-only-when rule. */
 function isSetOnlyWhen(niceName: string, isSet: boolean, condition: boolean): string | null {
     if (condition)
         return isSet ? null : ValidationMessage._0IsNotSet.niceToString(niceName);
@@ -996,7 +996,7 @@ function subWorkflowValidation(isSet: boolean, type: WorkflowActivityType): stri
     return isSetOnlyWhen(niceName, isSet, type === WorkflowActivityType.CallWorkflow || type === WorkflowActivityType.DecompositionWorkflow);
 }
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
+// The database schema this package's tables live in — the counterpart of Signum's
 // `[assembly: AssemblySchemaName("workflow")]`. FOLDER-scoped, so it covers every type declared
 // beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("workflow");

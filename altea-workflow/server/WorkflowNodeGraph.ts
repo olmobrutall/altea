@@ -15,21 +15,19 @@ import {
 } from "../data/WorkflowNodes";
 import type { WorkflowIssue } from "../data/WorkflowDtos";
 
-// Port of Signum.Workflow's WorkflowNodeGraph.cs + WorkflowIssue — the in-memory form of ONE workflow: every
-// node and connection, the graph both ways, the VALIDATION, and the "parallel track" analysis that lets the
-// engine decide when a join is satisfied.
+// Port of Signum.Workflow's WorkflowNodeGraph.cs + WorkflowIssue — see docs/port/Workflow.md.
 //
-// altea divergences:
-//  - Signum's `DirectedEdgedGraph<IWorkflowNodeEntity, HashSet<WorkflowConnectionEntity>>` needed a core
-//    addition: altea had `DirectedGraph<T>` but no edge-valued variant, so one was added beside it
-//    (@altea/altea/server/directedGraph). Two nodes CAN be joined by more than one connection, which is why
-//    the edge value is a Set.
-//  - the dictionaries are keyed by the lite's KEY string, not by the Lite OBJECT: a Lite is not a value key
-//    in JavaScript (the same reason altea-toolbar's caches are arrays).
-//  - `Validate`'s `changeDirection` callback is ASYNC here — the builder's implementation saves the gateway.
-//  - `IsStartCurrentUser` is async (altea's role expansion is).
+// The in-memory form of ONE workflow: every node and connection, the graph both ways, the VALIDATION, and
+// the "parallel track" analysis that lets the engine decide when a join is satisfied.
+//
+// The graph is `DirectedEdgedGraph<IWorkflowNodeEntity, Set<WorkflowConnectionEntity>>` — the edge value is
+// a SET because two nodes CAN be joined by more than one connection — and its dictionaries are keyed by the
+// lite's KEY STRING, never by the Lite object: a Lite is not a value key in JavaScript.
+//
+// `validate`'s `changeDirection` callback is ASYNC (the builder's implementation SAVES the gateway), and so
+// is `isStartCurrentUser`, because role expansion is.
 
-/** Signum's WorkflowIssue + its AddError/AddWarning extensions. */
+/** One validation issue, plus the two helpers that add them. */
 export function addWarning(issues: WorkflowIssue[], node: IWorkflowObjectEntity | null, message: string): void {
     issues.push({ type: WorkflowIssueType.Warning, bpmnElementId: node?.bpmnElementId ?? null, message });
 }
@@ -43,7 +41,7 @@ export function issueToString(issue: WorkflowIssue): string {
 }
 
 /** How the graph asks "who may act in this lane", so the graph itself needs no CaseActivityLogic import
- *  (Signum reaches `lane.GetActors(null)`, an extension method in the logic assembly). */
+ *  (the actors of a lane are read through the logic layer). */
 export type LaneActorsResolver = (lane: WorkflowLaneEntity) => Promise<Lite<never>[]>;
 
 export class WorkflowNodeGraph {
@@ -62,7 +60,7 @@ export class WorkflowNodeGraph {
      * Filled by `validate`: which parallel TRACK each node belongs to, and which node opened that track.
      * Null until a successful validation — `WorkflowLogic.getWorkflowNodeGraph` validates on first use.
      *
-     * altea divergence: keyed by the node's LITE KEY, where Signum keys by the ENTITY. Same reason as
+     * Keyed by the node's LITE KEY, not by the entity. Same reason as
      * fillGraphs — without an ambient EntityCache a connection's `from` is a different object than the graph's
      * node for the same row, so an entity-keyed map would miss every lookup.
      */
@@ -106,7 +104,7 @@ export class WorkflowNodeGraph {
         return [...this.events.values(), ...this.activities.values(), ...this.gateways.values()];
     }
 
-    /** Signum's IsStartCurrentUser — may the current user open a case of this workflow? */
+    /** May the current user open a case of this workflow? */
     async isStartCurrentUser(isCurrentUserActor: (actor: Lite<never>) => Promise<boolean>,
         getActors: LaneActorsResolver): Promise<boolean> {
 
@@ -127,7 +125,7 @@ export class WorkflowNodeGraph {
         return false;
     }
 
-    /** Signum's Autocomplete — the jump targets a client may pick: finish events, activities and gateways. */
+    /** The jump targets a client may pick: finish events, activities and gateways. */
     autocomplete(subString: string, count: number, excludes: Lite<IWorkflowNodeEntity>[]): Lite<IWorkflowNodeEntity>[] {
         const excluded = new Set((excludes ?? []).map(e => e.key()));
         const matches = (lite: Lite<IWorkflowNodeEntity>): boolean =>
@@ -148,10 +146,9 @@ export class WorkflowNodeGraph {
     // ---- The graphs -------------------------------------------------------------------------------------
 
     fillGraphs(): void {
-        // Keyed by the node's LITE KEY, not by object identity. Signum wraps its graph build in
-        // `using (new EntityCache())`, so `c.From` IS the very instance the events/activities/gateways lists
-        // hold; altea has no ambient identity map (each query gets its own Retriever), so those are different
-        // objects for the same row — and an identity-keyed graph would join nothing. See DirectedEdgedGraph.
+        // Keyed by the node's LITE KEY, not by object identity: each query gets its own Retriever, so `c.from`
+        // is a DIFFERENT object than the events/activities/gateways lists hold for the same row, and an
+        // identity-keyed graph would join nothing. See DirectedEdgedGraph, and docs/port/Workflow.md.
         const graph = new DirectedEdgedGraph<IWorkflowNodeEntity, Set<WorkflowConnectionEntity>>(
             () => new Set<WorkflowConnectionEntity>(), n => n.toLite().key());
 
@@ -172,7 +169,7 @@ export class WorkflowNodeGraph {
         return [...this.previousGraph.tryRelatedTo(node).values()].flatMap(s => [...s]);
     }
 
-    /** Signum's GetSplit — the node that opened the track each of this join's inputs is on. */
+    /** The node that opened the track each of this join's inputs is on. */
     getSplit(gateway: WorkflowGatewayEntity): IWorkflowNodeEntity {
         const trackId = this.trackId!;
         const trackCreatedBy = this.trackCreatedBy!;
@@ -185,16 +182,15 @@ export class WorkflowNodeGraph {
     }
 
     /**
-     * Signum's GetAllConnections — every connection on any path from `from` to `to` that `isValidPath`
+     * Every connection on any path from `from` to `to` that `isValidPath`
      * accepts. Used by the case-flow view to draw which route a case actually took, and by the engine to
      * decide whether a transition context belongs to a newly created activity.
      */
     getAllConnections(from: IWorkflowNodeEntity, to: IWorkflowNodeEntity,
         isValidPath: (path: WorkflowConnectionEntity[]) => boolean): Set<WorkflowConnectionEntity> {
 
-        // Node comparison is by KEY, not `===`: Signum can use reference equality because its graph is built
-        // inside `using (new EntityCache())`, so `to` / `from` (which the caller took from a case activity or
-        // a connection) ARE the graph's own instances. altea has no such scope — see fillGraphs.
+        // Node comparison is by KEY, not `===`: `to` / `from` (which the caller took from a case activity or
+        // a connection) are NOT the graph's own instances — see fillGraphs.
         const key = WorkflowNodeGraph.nodeKey;
         const toKey = key(to);
         const fromKey = key(from);
@@ -245,7 +241,7 @@ export class WorkflowNodeGraph {
     // ---- Validation -------------------------------------------------------------------------------------
 
     /**
-     * Signum's Validate — every structural rule of a BPMN workflow, plus the TRACK assignment. Faithful
+     * Every structural rule of a BPMN workflow, plus the TRACK assignment. Faithful
      * port, in the same order, so a rule added upstream is easy to re-apply.
      *
      * `changeDirection` is called when a gateway's stored Split/Join disagrees with its fan-in/fan-out: the
@@ -306,7 +302,7 @@ export class WorkflowNodeGraph {
             }
 
             if (isScheduledStart(e.type) && scheduledStartInfo != null) {
-                // Signum reads `e.ScheduledTask()` / `e.WorkflowEventTask()` inline (both are DB queries).
+                // The scheduled task and the event task are two DB queries.
                 // altea passes the three answers in, so this method needs no scheduler import.
                 const info = await scheduledStartInfo(e);
 
@@ -412,7 +408,7 @@ export class WorkflowNodeGraph {
             }
         }
 
-        // ---- Track assignment (Signum's queue walk, verbatim in structure) ------------------------------
+        // ---- Track assignment (the queue walk, structure for structure) ---------------------------------
 
         const starts = events.filter(a => isStart(a.type));
         const trackId = new Map<string, number>(starts.map(a => [WorkflowNodeGraph.nodeKey(a), 0]));
@@ -616,7 +612,7 @@ export class WorkflowNodeGraph {
     }
 }
 
-/** Signum's `WorkflowEntity.HasExpired()` extension, in memory (its `@quoted` twin lives in WorkflowLogic). */
+/** `hasExpired` in memory — its `@quoted` twin lives in WorkflowLogic (see docs/port/Workflow.md). */
 export function hasExpired(w: WorkflowEntity): boolean {
     return w.expirationDate != null && Temporal.PlainDateTime.compare(w.expirationDate, Clock.now) < 0;
 }

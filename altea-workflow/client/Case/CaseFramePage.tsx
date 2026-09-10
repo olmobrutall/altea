@@ -40,7 +40,7 @@ import "./CaseAct.css";
 // how "Save the order" and "send the activity to the next step" can sit on one page without fighting.
 //
 // altea divergences: `entity.Type` → `getTypeName(entity)`, `toLite(x)` → `x.toLite()`, and the permission
-// gate is `AuthClient.isPermissionAuthorized` — altea's core client has no isPermissionAuthorized (Signum
+// gate is `AuthClient.isPermissionAuthorized` — core's client has none (Signum
 // puts it on AppContext); it is an authorization concept, so it lives in altea-auth.
 
 interface CaseFramePageState {
@@ -83,7 +83,7 @@ function CaseFramePage(): React.JSX.Element {
             if (pack)
                 void WorkflowClient.getViewPromiseComponent(pack.activity).then(c => setPack(pack, c));
             else
-                // Signum navigates back one history entry (`navigate(-1)`); altea's navigate takes a URL,
+                // Signum navigates back one history entry (`navigate(-1)`); this navigate takes a URL,
                 // so a cancelled "create a case" lands on the inbox, which is where it was started from.
                 AppContext.navigate(WorkflowClient.getDefaultInboxUrl());
         });

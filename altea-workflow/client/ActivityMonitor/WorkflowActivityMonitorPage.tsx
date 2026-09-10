@@ -25,8 +25,8 @@ import type { WorkflowActivityMonitorConfig } from "./WorkflowActivityMonitorCon
 // altea divergences:
 //  - `Finder.getQueryDescription` is gone with the QueryDescription DTO. Both builders take the query's ROOT
 //    TOKEN, which `Finder.getQueryRoot` resolves client-side from the registered metadata.
-//  - altea has no `ColumnBuilder` component (Signum's is part of its SearchControl surface), so the column
-//    list is a small local one over `QueryTokenBuilder` — the same control Signum's ColumnBuilder rows use.
+//  - there is no `ColumnBuilder` component (Signum's is part of its SearchControl surface), so the column
+//    list is a small local one over `QueryTokenBuilder` — the same control its rows use.
 //  - the config interface lives in its own module so the renderer and the stats modal can import it without
 //    pulling in bpmn-js through this page.
 
@@ -125,7 +125,7 @@ export function WorkflowActivityMonitorConfigComponent(
     );
 }
 
-/** The stand-in for Signum's ColumnBuilder: one QueryTokenBuilder per column, plus add / remove. */
+/** The stand-in for a ColumnBuilder: one QueryTokenBuilder per column, plus add / remove. */
 function ColumnsBuilder(p: {
     title: React.ReactNode;
     queryToken: QueryToken;

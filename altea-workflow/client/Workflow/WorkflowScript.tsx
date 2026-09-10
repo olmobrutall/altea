@@ -11,10 +11,10 @@ import { WorkflowClient } from "../WorkflowClient";
 // Port of Signum.Workflow's Workflow/WorkflowScript.tsx — the name, the main entity type, and the SCRIPT.
 //
 // altea divergences:
-//  - the editor is TypeScript rather than C# (@altea/altea-eval's EvalLine, which draws Signum's
+//  - the editor is TypeScript rather than C# (@altea/altea-eval's EvalLine, which draws the
 //    signature / editor / closing-brace sandwich; the C# one read `void Execute(OrderEntity e, WorkflowScriptContext ctx)`).
-//  - Signum's TypeHelp tree beside the editor is not ported (see EvalLine's header), and neither is its
-//    "ctx" button — Signum's showWorkflowTransitionContextCodeHelp printed a C# snippet.
+//  - the TypeHelp tree beside the editor is not ported (see EvalLine's header), and neither is the "ctx"
+//    button that printed a C# snippet beside it.
 //  - changing the main entity type CLEARS the script, exactly as Signum does: a script written against the
 //    old type could not compile against the new one.
 

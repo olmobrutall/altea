@@ -33,7 +33,7 @@ export class WorkflowTimerConditionEntity extends Entity implements IUserAssetEn
 }
 
 /**
- * Signum's WorkflowTimerConditionEval. Its generated signature is the one place Signum passes THREE
+ * Its generated signature is the one place Signum passes THREE
  * parameters: the pending case activity, its main entity (cast from `ca.Case.MainEntity`) and the clock.
  * altea keeps all three, so a script reads the same.
  */

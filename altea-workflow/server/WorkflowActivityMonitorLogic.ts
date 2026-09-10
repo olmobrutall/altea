@@ -19,7 +19,7 @@ import type { WorkflowActivityMonitor } from "../data/WorkflowDtos";
 //    is no QueryDescription DTO), and the request's filters / columns arrive ALREADY PARSED — the route does
 //    the wire → engine translation with the shared `parseQueryRequest` machinery.
 
-/** The parsed request (Signum's WorkflowActivityMonitorRequest). */
+/** The parsed request. */
 export interface ParsedWorkflowActivityMonitorRequest {
     workflow: Lite<WorkflowEntity>;
     /** Filters over the CASE ACTIVITY query (the client builds them rootless, over `case.…`). */
@@ -33,7 +33,7 @@ export namespace WorkflowActivityMonitorLogic {
     export async function getWorkflowActivityMonitor(
         request: ParsedWorkflowActivityMonitorRequest): Promise<WorkflowActivityMonitor> {
 
-        // Signum: `if (request.Columns.Any(c => !(c.Token is AggregateToken))) throw`.
+        // Every column must be an AGGREGATE.
         if (request.columns.some(c => !(c.token instanceof AggregateToken)))
             throw new Error("Invalid columns: the activity monitor only accepts aggregates");
 

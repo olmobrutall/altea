@@ -8,7 +8,7 @@ import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 // customComponent: TextAreaLine, … })`. altea has no AutoLineModal, so this is that dialog written directly —
 // the same shape as ../Workflow/ExpirationDateModal, and as altea-dynamic's CopyTextModal.
 //
-// It answers `undefined` on cancel and the (possibly empty) text on OK, which is the three-way Signum relies
+// It answers `undefined` on cancel and the (possibly empty) text on OK, which is the three-way the caller relies
 // on: clearing the remarks is a real answer, not a cancel.
 
 interface RemarksModalProps extends IModalProps<string | null | undefined> {

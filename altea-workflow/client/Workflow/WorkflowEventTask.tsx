@@ -12,7 +12,7 @@ import { EventTaskActionLine, EventTaskConditionLine } from "./WorkflowEventTask
 // task (the same thing the event dialog edits inline, reachable from the ScheduledTask search).
 //
 // altea divergences: the two script editors are @altea/altea-eval EvalLines (see WorkflowEventTaskEvals),
-// so Signum's `fetchAndRemember` hop is gone — an EntityDetail creates the eval on demand; and the
+// so the `fetchAndRemember` hop is gone — an EntityDetail creates the eval on demand; and the
 // event-type filter is an ORDINAL.
 
 export default function WorkflowEventTaskComponent(

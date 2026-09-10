@@ -128,7 +128,7 @@ export default class InboxFilter extends React.Component<{ ctx: TypeContext<Inbo
         const toDate = extractFilterValue(filters, startDateToken, "LessThanOrEqual") as Temporal.PlainDateTime | null;
 
         const result = InboxFilterModel.create({
-            // Signum reads a "Range" column back out of the filters; altea's Inbox has no such column (the
+            // Signum reads a "Range" column back out of the filters; this Inbox has no such column (the
             // range is only ever WRITTEN, as a startDate bound), so a round-tripped filter set always shows
             // "All" plus the explicit dates it actually carries.
             range: DateFilterRange.All,
@@ -145,11 +145,11 @@ export default class InboxFilter extends React.Component<{ ctx: TypeContext<Inbo
 }
 
 /**
- * Signum's `extractFilterValue` (Signum/React/Search.tsx): take the first ACTIVE condition on `token` with
+ * Take the first ACTIVE condition on `token` with
  * `operation` OUT of the list and answer its value — so what is left over tells the caller whether the whole
  * filter set was expressible by this simple builder.
  *
- * altea's Finder does not export it (nor Signum's `similarToken`, which normalises an "Entity."-rooted token
+ * The Finder does not export it (nor `similarToken`, which normalises an "Entity."-rooted token
  * against a bare one), so this is the two-line local version: the Inbox's tokens are all rooted at the row
  * model, so plain fullKey equality is the right comparison here.
  */

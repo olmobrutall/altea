@@ -37,9 +37,9 @@ import { EvalLine } from "@altea/altea-eval/client/EvalLine";
 //  - the collections are plain arrays and the type comparisons are ordinals.
 
 export const WorkflowActivityModelOptions = {
-    /** Signum's injected "which props does this dynamic view take?" (from Signum.WorkflowDynamic). */
+    /** The injected "which props does this dynamic view take?". */
     getViewProps: undefined as undefined | ((typeName: string, viewName: string) => Promise<{ name: string; type: string }[]>),
-    /** Signum's injected "open this dynamic view with these props" (from Signum.WorkflowDynamic). */
+    /** The injected "open this dynamic view with these props". */
     navigateToView: undefined as undefined | ((typeName: string, viewName: string, props: { [name: string]: unknown }) => Promise<void>),
     /** altea seam: render `userHelp` with a rich editor (an app may point this at
      *  @altea/altea-html-editor's HtmlEditorLine). Defaults to a plain text area. */
@@ -102,7 +102,7 @@ export default function WorkflowActivityModelComponent(
         fillViewProps();
     }
 
-    /** Signum's handleTypeChange — keep the type-dependent members consistent with the chosen type. */
+    /** Keep the type-dependent members consistent with the chosen type. */
     function handleTypeChange(): void {
         const wa = ctx.value;
 
@@ -311,7 +311,7 @@ function DecompositionComponent(p: { ctx: TypeContext<SubWorkflowEmbedded>; main
 
 /**
  * A view prop's `expression` is a JavaScript snippet the DESIGNER wrote, evaluated in the browser to build
- * the prop value — exactly as in Signum (whose `eval(a.element.expression)` runs client-side too). It is not
+ * the prop value — as in Signum, whose `eval(a.element.expression)` runs client-side too. It is not
  * an altea Eval divergence: nothing is compiled or stored server-side.
  */
 function evalExpression(expression: string): unknown {

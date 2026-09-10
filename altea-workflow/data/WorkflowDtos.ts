@@ -13,15 +13,15 @@ import type { CaseEntity, ICaseMainEntity } from "./Case";
 // The module's WIRE DTOs — the shapes that cross /api/workflow/* but are not entities: workflow issues, the
 // case-flow diagram, the activity monitor and the script runner's state.
 //
-// altea keeps them in data/ (declared ONCE, used by both the routes and the client) rather than in Signum's
+// They are declared ONCE in data/, used by both the routes and the client, rather than in Signum's
 // two places — the C# class in the logic layer and a hand-written `interface` in WorkflowClient.tsx — which is
 // the convention @altea/altea-omnibox established. Two consequences:
 //
-//  - the enum members are the ORDINAL, not Signum's string name: both tiers import the same enum object, so
+//  - the enum members are the ORDINAL, not a string name: both tiers import the same enum object, so
 //    a name↔ordinal conversion in every DTO builder would buy nothing. Compare with `DoneType.Jump`.
 //  - `DateTime` fields are `Temporal.PlainDateTime`, serialized as their ISO string by the route.
 
-/** Signum's WorkflowIssue — one problem found while validating a diagram, anchored to a bpmn element. */
+/** One problem found while validating a diagram, anchored to a bpmn element. */
 export interface WorkflowIssue {
     type: WorkflowIssueType;
     bpmnElementId: string | null;
@@ -147,7 +147,7 @@ export interface EntityPackWithIssues {
     issues: WorkflowIssue[];
 }
 
-/** Unused by the engine but part of the module's vocabulary — Signum's `DecisionResultValues`. */
+/** Unused by the engine but part of the module's vocabulary. */
 export const DecisionResultValues: string[] = ["Approve", "Decline"];
 
 /** A Temporal.PlainDateTime as it crosses the wire (an ISO string), for the DTOs above. */

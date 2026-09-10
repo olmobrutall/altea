@@ -13,10 +13,10 @@ import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { type IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
-// A real (value) import of the node module, which imports THIS one back. The cycle is safe because every
+// A real (value) import of the node module, which imports THIS one back. The cycle is SAFE because every
 // use below is inside an `@implementedBy` THUNK, evaluated at schema-build / deserialize time — long after
-// both modules have finished evaluating. Signum has no such problem: its whole entity model is one
-// assembly, and the generated client twin is one file.
+// both modules have finished evaluating. `import type` would not work: the transformer needs the runtime
+// binding. See docs/port/Workflow.md.
 import {
     WorkflowActivityEntity, WorkflowActivityModel, WorkflowConnectionModel, WorkflowEventEntity,
     WorkflowEventModel, WorkflowGatewayModel, WorkflowLaneModel, WorkflowPoolModel, type WorkflowLaneEntity,
@@ -31,15 +31,12 @@ import {
 //
 // altea divergences that apply to the WHOLE module, documented once here:
 //
-//  - **Evals become SYMBOLS.** Signum lets an administrator TYPE C# into a workflow condition / action /
-//    script / lane-actors / sub-entities / event-task box and compiles it with Roslyn (Signum.Eval). altea's
-//    counterpart is @altea/altea-eval, which stores TYPESCRIPT and compiles it with the TypeScript compiler,
-//    so all eight `EvalEmbedded<T>` subclasses port as such — each one lives beside the entity that owns it,
-//    and the eight FUNCTION types they are parameterized by live together in WorkflowEval.ts (Signum's eight
-//    `IXEvaluator` interfaces).
-//    Two consequences of altea-eval's design show up here: an eval's OWNER is bound by
-//    `sb.include(Owner)` rather than by Signum's `[BindParent]`, and a generated wrapper's
-//    signature is written by the eval's own `compile()` (which is where each one reads the main entity type).
+//  - **An eval is a stored TYPESCRIPT script**, compiled by @altea/altea-eval where Signum compiles C# with
+//    Roslyn — so all eight `EvalEmbedded<T>` subclasses port AS SUCH, each beside the entity that owns it,
+//    with the eight FUNCTION types they are parameterized by together in WorkflowEval.ts. Two consequences
+//    of altea-eval's design show up here: an eval's OWNER is bound by `sb.include(Owner)` rather than by
+//    `[BindParent]`, and a generated wrapper's signature is written by the eval's own `compile()`, which is
+//    where each one reads the main entity type.
 //
 //  - **`Guid Guid` → a uuid PRIMARY KEY.** Every IUserAssetEntity here follows the convention
 //    @altea/altea-user-queries set: `@primaryKey("uuid")`, no separate `guid` field, and the `id` IS the
@@ -51,11 +48,11 @@ import {
 //    `WorkflowEntity_MainEntityStrategy[]` carrying the enum on its `@valueField`, and `MList<Lite<Entity>>
 //    Actors` likewise. A MODEL keeps plain arrays: it is never persisted, so it needs no row entity.
 //
-//  - Signum's message / validation enums become `msg()` containers.
+//  - the message / validation enums become `msg()` containers.
 
 // ---- Configuration --------------------------------------------------------------------------------------
 
-// Signum's WorkflowConfigurationEmbedded — the app hands it to WorkflowLogic.start (eastwind keeps it on its
+// The app hands it to WorkflowLogic.start (eastwind keeps it on its
 // ApplicationConfigurationEntity, as Southwind does).
 @reflect
 export class WorkflowConfigurationEmbedded extends EmbeddedEntity {
@@ -73,7 +70,7 @@ export class WorkflowConfigurationEmbedded extends EmbeddedEntity {
 
 // altea enum convention: a numeric TS enum, no string-union alias. The in-memory value is the ORDINAL
 // (the wire value is the member name — EnumSerializer converts), so comparisons read
-// `WorkflowMainEntityStrategy.CreateNew`, exactly as Signum's C# does.
+// `WorkflowMainEntityStrategy.CreateNew`.
 export enum WorkflowMainEntityStrategy {
     CreateNew,
     SelectByUser,
@@ -87,7 +84,7 @@ export enum WorkflowIssueType {
 }
 registerEnum(WorkflowIssueType);
 
-/** Signum's `MList<WorkflowMainEntityStrategy>` as this owner's `@part` row (altea has no MList; a
+/** The strategies collection as this owner's `@part` row (a
  *  collection of scalars is a row carrying the value on its `@valueField`). */
 @reflect
 @part
@@ -120,7 +117,7 @@ export class WorkflowEntity extends Entity implements IUserAssetEntity {
     expirationDate: Temporal.PlainDateTime | null;
 
     /**
-     * REDUNDANT — only for diff logging. Signum marks it `[InTypeScript(false), AvoidDump]`; altea's
+     * REDUNDANT — only for diff logging. Signum marks it `[InTypeScript(false), AvoidDump]`; the
      * counterparts are `@serialize(false)` (the designer round-trips the diagram through WorkflowModel, so
      * the client never needs this second copy) and `ObjectDumper.avoidDump`, registered in WorkflowLogic.
      */
@@ -153,7 +150,7 @@ export class WorkflowXmlEmbedded extends EmbeddedEntity {
     diagramXml: string;
 }
 
-/** Signum's IWorkflowObjectEntity — anything in a workflow that has a bpmn element id and its own diagram
+/** Anything in a workflow that has a bpmn element id and its own diagram
  *  XML (a pool, a lane, a node, a connection). */
 export interface IWorkflowObjectEntity extends Entity {
     xml: WorkflowXmlEmbedded;
@@ -161,12 +158,12 @@ export interface IWorkflowObjectEntity extends Entity {
     getName(): string | null;
 }
 
-/** Signum's IWorkflowNodeEntity — a workflow object that sits in a LANE (activity, event, gateway). */
+/** A workflow object that sits in a LANE (activity, event, gateway). */
 export interface IWorkflowNodeEntity extends IWorkflowObjectEntity {
     lane: WorkflowLaneEntity;
 }
 
-/** Signum's IWithModel — an entity the BPMN designer edits through a ModelEntity round-trip. */
+/** An entity the BPMN designer edits through a ModelEntity round-trip. */
 export interface IWithModel {
     getModel(): ModelEntity;
     setModel(model: ModelEntity): void;
@@ -174,7 +171,7 @@ export interface IWithModel {
 
 // ---- The designer round-trip ----------------------------------------------------------------------------
 
-/** Signum's WorkflowModel — what the designer POSTs back: the whole diagram XML plus, for every bpmn
+/** What the designer POSTs back: the whole diagram XML plus, for every bpmn
  *  element that has non-diagram properties, the model carrying them. */
 @reflect
 export class WorkflowModel extends ModelEntity {
@@ -202,7 +199,7 @@ export class BpmnEntityPairEmbedded extends EmbeddedEntity {
     }
 }
 
-/** Signum's WorkflowReplacementModel — when a save DELETES an activity that still has case activities, the
+/** When a save DELETES an activity that still has case activities, the
  *  user must say which surviving node each one moves to. */
 @reflect
 export class WorkflowReplacementModel extends ModelEntity {

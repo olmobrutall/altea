@@ -14,7 +14,7 @@ import * as BpmnUtils from "./BpmnUtils";
 // or its estimate), and a JUMP — which has no stored connection to draw — is drawn here as a dashed curve.
 //
 // altea divergences:
-//  - `calculatePoint` and the `Rectangle` shape came from Signum.Map (not ported), so they are inlined at the
+//  - `calculatePoint` and the `Rectangle` shape come from Signum.Map, so they are inlined at the
 //    bottom of this file — ~30 lines of geometry with no other consumer.
 //  - `Color` / `Gradient` are altea core's (promoted from @altea/altea-chart for this port).
 //  - the enum members are ORDINALS, and the dates are the DTO's ISO strings shown as-is (no luxon relative
@@ -226,7 +226,7 @@ function formatMinutes(minutes: number | null): string {
     return minutes == null ? "" : minutes.toFixed(2) + " min";
 }
 
-// ---- Geometry (inlined from Signum.Map's Utils.ts + ClientColorProvider's Rectangle) --------------------
+// ---- Geometry (inlined — see the header) -----------------------------------------------------------
 
 interface Point { x: number; y: number }
 interface Rectangle extends Point { width: number; height: number }

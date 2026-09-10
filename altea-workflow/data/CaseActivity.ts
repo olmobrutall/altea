@@ -18,22 +18,24 @@ import { WorkflowActivityEntity, WorkflowEventEntity } from "./WorkflowNodes";
 import { CaseEntity, CaseTagTypeEntity, type ICaseMainEntity } from "./Case";
 // A value import, and a real ESM cycle (CaseNotification.ts needs CaseActivityEntity back): the transformer
 // needs the runtime binding to emit `() => CaseNotificationEntity` for the field type, so `import type` is
-// not an option. Safe because nothing dereferences it at module-evaluation time.
+// NOT an option. Safe because nothing dereferences it at module-evaluation time.
 import { CaseNotificationEntity, CaseNotificationState } from "./CaseNotification";
 import type { WorkflowEventTaskEntity } from "./WorkflowEventTask";
 import { Enum } from "@altea/altea/data/enum";
 
-// Port of Signum.Workflow's CaseActivity.cs + CaseActivityMixin.cs — a CASE ACTIVITY is one STEP of a case:
+// Port of Signum.Workflow's CaseActivity.cs + CaseActivityMixin.cs — see docs/port/Workflow.md.
+//
+// A CASE ACTIVITY is one STEP of a case:
 // which workflow node it is at, when it started, and (once done) who finished it, how and with what decision.
 // The chain of `previous` links is the case's history and what the case-flow diagram draws.
 //
 // altea divergences:
-//  - Signum's `State` is a C# PROPERTY with an `[ExpressionField]` twin so it can be both queried and read
+//  - `State` is a C# PROPERTY with an `[ExpressionField]` twin there, so it can be both queried and read
 //    in memory (and it answers `New` for an unsaved entity, which no SQL expression could). altea splits the
 //    two explicitly: `state()` is the `@quoted` DB-translatable expression, and `getState()` adds the `New`
 //    case for the operation state machine. See the members.
-//  - `Duration` stays a `double?` of MINUTES, as in Signum (it is an average-able number, not a Duration).
-//  - Signum computes it in the entity's `protected override void PreSaving(…)`. altea has no entity-level
+//  - `Duration` stays a `double?` of MINUTES (an average-able number, not a Duration).
+//  - it is computed in a schema `preSaving` event, since there is no entity-level
 //    PreSaving OVERRIDE — the hook is a schema event list (`entityEvents(T).preSaving`) — so the same body is
 //    registered in CaseActivityLogic.start. An entity `preSaving()` method here would simply never run.
 
@@ -41,7 +43,7 @@ import { Enum } from "@altea/altea/data/enum";
 export class ScriptExecutionEmbedded extends EmbeddedEntity {
     nextExecution: Temporal.PlainDateTime;
     retryCount: int;
-    /** Which script-runner pass claimed this activity (Signum's Guid stamp, so two runners cannot both take
+    /** Which script-runner pass claimed this activity (a stamp, so two runners cannot both take
      *  the same row). */
     processIdentifier: uuid | null;
 }
@@ -57,7 +59,7 @@ export enum DoneType {
 registerEnum(DoneType);
 
 export enum CaseActivityState {
-    /** Never stored — an unsaved activity. Signum marks it `[Ignore]`; the `markAsNotMapped` below is
+    /** Never stored — an unsaved activity. The `markAsNotMapped` below is
      *  altea's spelling of the same thing. */
     New,
     Pending,
@@ -66,7 +68,7 @@ export enum CaseActivityState {
 registerEnum(CaseActivityState);
 Enum.markAsNotMapped(CaseActivityState, CaseActivityState.New);
 
-// Signum's two filtered indexes on the include (`.WithIndex(a => new { a.ScriptExecution!.ProcessIdentifier },
+// The two filtered indexes on the include (`.withIndex(a => new { a.scriptExecution!.processIdentifier },
 // a => a.DoneDate == null)` and the same for NextExecution) — the two lookups the script runner does on
 // every pass, over the tiny slice of rows that are still pending.
 @reflect
@@ -104,7 +106,7 @@ export class CaseActivityEntity extends Entity {
 
     scriptExecution: ScriptExecutionEmbedded | null;
 
-    /** Signum's `DurationRealTime` — the duration so far for an activity that is still pending. */
+    /** The duration so far for an activity that is still pending. */
     @legacyPropertyRoute
     @quoted
     durationRealTime(): number | null {
@@ -126,7 +128,7 @@ export class CaseActivityEntity extends Entity {
     }
 
     /**
-     * Signum's `StateExpression` — the state as the DATABASE sees it. `@quoted`, so it is both a query token
+     * The state as the DATABASE sees it. `@quoted`, so it is both a query token
      * (registered in CaseActivityLogic) and the in-memory answer for a saved activity.
      */
     @legacyPropertyRoute
@@ -136,7 +138,7 @@ export class CaseActivityEntity extends Entity {
     }
 
     /**
-     * Signum's `State` PROPERTY: the same, plus `New` for an unsaved activity. Not `@quoted` — "is this row
+     * The stored states plus `New` for an unsaved activity. Not `@quoted` — "is this row
      * saved" has no SQL translation. This is what the operation state machine reads (`g.GetState`).
      */
     getState(): CaseActivityState {
@@ -167,7 +169,7 @@ export namespace CaseActivityOperation {
 }
 
 export namespace CaseActivityTask {
-    /** The scheduled sweep that fires whatever timer is due (Signum's SimpleTaskSymbol). */
+    /** The scheduled sweep that fires whatever timer is due. */
     export const Timeout: SimpleTaskSymbol = init();
 }
 
@@ -176,7 +178,7 @@ export namespace CaseActivityProcessAlgorithm {
     export const Timeout: ProcessAlgorithmSymbol = init();
 }
 
-/** Signum's CaseActivityExecutedTimerEntity — one row per firing of a BoundaryForkTimer, which is how
+/** One row per firing of a BoundaryForkTimer, which is how
  *  `runRepeatedly` knows when it last fired. */
 @reflect
 @entity("System", "Transactional")
@@ -190,11 +192,11 @@ export class CaseActivityExecutedTimerEntity extends Entity {
 }
 
 /**
- * Signum's ActivityWithRemarks — the composite the Inbox's "Activity" column renders: the activity, its
+ * The composite the Inbox's "Activity" column renders: the activity, its
  * notification's personal remarks and the case's tags, in one cell.
  *
- * altea divergence: Signum's `int Alerts` (the count of the current user's active alerts on the activity) is
- * dropped — there is no altea counterpart of Signum.Alerts.
+ * `int Alerts` (the count of the current user's active alerts on the activity) is DROPPED: this module
+ * does not depend on @altea/altea-alert.
  */
 @reflect
 export class ActivityWithRemarks extends ModelEntity {
@@ -209,14 +211,14 @@ export class ActivityWithRemarks extends ModelEntity {
 // ---- The mixin ------------------------------------------------------------------------------------------
 
 /**
- * Signum's CaseActivityMixin — stamps whatever an activity produces (an email, an SMS) with the activity it
+ * Stamps whatever an activity produces (an email, an SMS) with the activity it
  * was produced in, so a message can be traced back to its step.
  *
  * altea divergences:
  *  - a mixin's fields are INLINED onto the owner (see @altea/altea-diff-log's DiffLogMixin), so the column is
  *    the owner's own `case_activity_id`; reading it through `entity.mixin(CaseActivityMixin)` still works and
  *    is what the port does.
- *  - Signum sets the field in the mixin's CONSTRUCTOR from `WorkflowActivityInfo.Current`; altea's mixin
+ *  - Signum sets the field in the mixin's CONSTRUCTOR from `WorkflowActivityInfo.Current`; the mixin
  *    field initializers only run in the `create()` FACTORY (a `new Owner()` leaves them undefined), and the
  *    ambient activity lives in the SERVER's WorkflowActivityInfo, which the data layer cannot see. So the
  *    stamping is done by CaseActivityLogic, which hooks the owner type's save.
@@ -230,7 +232,7 @@ export namespace CaseActivityMixin {
     const declaredOn = new Set<string>();
 
     /**
-     * Declare the mixin on an owner type (Signum's `MixinDeclarations.Register<EmailMessageEntity,
+     * Declare the mixin on an owner type (`MixinDeclarations.register<EmailMessageEntity,
      * CaseActivityMixin>()`, which Southwind calls in its Starter). Idempotent, and it must run on BOTH TIERS
      * before anything is (de)serialized or the schema is built — put the call in the module the client and
      * the server both load, next to the app's other entity overrides.
@@ -258,17 +260,17 @@ export namespace CaseActivityMixin {
  * The Inbox's row shape. Signum projects an ANONYMOUS type (`DynamicQueryCore.Auto(from cn in … select new
  * { … })`); altea's projected queries need a declared ModelEntity, the shape the RemoteEmails port
  * established. Its `entity` member is the row identity — the CASE ACTIVITY, not the notification, so opening
- * a row opens the activity (as in Signum).
+ * a row opens the activity.
  *
  * It lives in data/ rather than beside the query registration (server/CaseActivityLogic), because the CLIENT
  * needs its property routes: the Inbox's Finder settings name columns by token, and a token is resolved from
  * the row model's own reflection metadata.
  *
- * It is ALSO the query's NAME. Signum names the Inbox with an enum member (`CaseActivityQuery.Inbox`) and
+ * It is ALSO the query's NAME, where Signum uses an enum member (`CaseActivityQuery.Inbox`) and
  * describes its columns through an anonymous `Select` + `ColumnDisplayName` calls; altea has no
  * QueryDescription, so a manual query's name IS its row type and each caption is the field's own
  * `@niceName` — the shape altea-auth-azuread's two directory searches established. The URL is therefore
- * `/find/InboxRowModel` rather than Signum's `/find/Inbox`.
+ * `/find/InboxRowModel` rather than `/find/Inbox`.
  */
 @reflect
 export class InboxRowModel extends ModelEntity {

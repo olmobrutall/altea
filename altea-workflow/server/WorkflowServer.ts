@@ -37,7 +37,7 @@ import { WorkflowActivityMonitorLogic, type ParsedWorkflowActivityMonitorRequest
 import { WorkflowScriptRunner } from "./WorkflowScriptRunner";
 import { WorkflowActivityInfo } from "./WorkflowActivityInfo";
 
-// Port of Signum.Workflow's WorkflowController.cs.
+// Port of Signum.Workflow's WorkflowController.cs — see docs/port/Workflow.md.
 //
 // altea divergences:
 //  - `/api/workflow/save` returns the issues in the SUCCESS body, and on a structural error answers 400 with
@@ -47,7 +47,7 @@ import { WorkflowActivityInfo } from "./WorkflowActivityInfo";
 //    registered symbol needs no such thing (see data/WorkflowEval.ts).
 //  - `healthCheck` is not ported (altea has no health-check surface yet); `scriptRunner/view` reports the
 //    same facts to the panel.
-//  - Signum's start/stop `Thread.Sleep(1000)` is unnecessary — the runner's state is updated synchronously.
+//  - no start/stop sleep is needed — the runner's state is updated synchronously.
 
 export namespace WorkflowServer {
     let started = false;
@@ -66,7 +66,7 @@ export namespace WorkflowServer {
                 const activity = await CaseActivityLogic.retrieveForViewing(
                     liteOf(CaseActivityEntity, caseActivityId));
 
-                // Signum opens a WorkflowActivityInfo scope around the pack build so a view that asks
+                // A WorkflowActivityInfo scope is opened around the pack build so a view that asks
                 // `WorkflowActivityInfo.Current` while rendering sees the activity.
                 const pack = await WorkflowActivityInfo.withScope({ caseActivity: activity },
                     () => getEntityPack(activity.case.mainEntity as Entity));
@@ -143,7 +143,7 @@ export namespace WorkflowServer {
                 const args = [...(body.args ?? []), issues];
 
                 try {
-                    // Signum's model-binder validation pass, as altea's operationServer does it: the
+                    // The validation pass, as operationServer does it: the
                     // just-deserialized graph is checked before the operation runs.
                     await assertGraphIntegrityAsync([body.entity], "ServerDeserialization");
                     const entity = await Operations.execute(body.entity, WorkflowOperation.Save, ...args);
@@ -153,7 +153,7 @@ export namespace WorkflowServer {
                     });
                 } catch (error) {
                     if (error instanceof WorkflowIssuesException) {
-                        // Signum serializes the issues into a ModelState entry; altea sends them as JSON on
+                        // Signum serializes the issues into a ModelState entry; they are sent as JSON on
                         // the same key, which is what the client reads back.
                         res.status(400).jsonTyped({
                             modelState: { workflowIssues: error.issues },
@@ -287,7 +287,7 @@ export namespace WorkflowServer {
     }
 
     /**
-     * Signum's WorkflowActivityMonitorRequestTS.ToRequest — parse the wire filters / columns into tokens.
+     * Parse the wire filters / columns into tokens.
      * altea reuses the shared wire → engine translation (queryServer.parseQueryRequest) by building a
      * throwaway request over the CaseActivity query, which is what those tokens are rooted at anyway.
      */
@@ -338,7 +338,7 @@ function query<T>(req: unknown): T {
 }
 
 function liteOf<T extends Entity>(type: new () => T, id: string): Lite<T> {
-    // altea's static is `newLite` (Signum's `Type<T>.LiteFromId`).
+    // The static is `newLite`.
     return (type as unknown as { newLite(id: unknown): Lite<T> }).newLite(idOf(type, id));
 }
 

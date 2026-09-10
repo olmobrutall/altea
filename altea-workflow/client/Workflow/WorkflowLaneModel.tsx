@@ -13,7 +13,7 @@ import { EvalLine } from "@altea/altea-eval/client/EvalLine";
 // Port of Signum.Workflow's Workflow/WorkflowLaneModel.tsx — WHO acts in this lane: a fixed list of users /
 // roles, and/or a per-case evaluator.
 //
-// altea divergence: the `actorsEval` editor is TypeScript rather than C# (Signum's signature read
+// The `actorsEval` editor is TypeScript rather than C# (Signum's signature read
 // `IEnumerable<Lite<Entity>> GetActors(OrderEntity e, WorkflowTransitionContext ctx)`), and the TypeHelp
 // browser beside it is not ported — see @altea/altea-eval's EvalLine. Everything else, including the two
 // dependent checkboxes and the "fix the booleans when the eval or the actor list empties" behaviour, is

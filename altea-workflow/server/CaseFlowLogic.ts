@@ -24,18 +24,18 @@ import type { WorkflowNodeGraph } from "./WorkflowNodeGraph";
 //  - async throughout (the durations and the notification counts are queries).
 //  - `GetStartEvent`'s OperationLog probes are kept: they are how the view knows whether a case was opened by
 //    a scheduled start (which start event) or by a user (`Register`).
-//  - the DTO enum members are ORDINALS, not Signum's strings (see data/WorkflowDtos.ts).
+//  - the DTO enum members are ORDINALS, not strings (see data/WorkflowDtos.ts).
 
 export namespace CaseFlowLogic {
 
     export async function getCaseFlow(caseEntity: CaseEntity): Promise<CaseFlow> {
         const gr = await WorkflowLogic.getWorkflowNodeGraph(caseEntity.workflow.toLite());
 
-        // Signum builds the averages with two queries over the workflow's nodes.
+        // The averages are two queries over the workflow's nodes.
         // NOTE the two loops query directly rather than through the `withQuoted` members
         // (`workflow.workflowActivities()`, `a.averageDuration()`): those are QUERY-ONLY in altea — the
         // transformer emits the quoted AST beside the body and leaves the body's inner lambdas unstamped, so
-        // calling one in memory throws. Signum's [AutoExpressionField] members work both ways.
+        // calling one in memory THROWS — see docs/port/Workflow.md.
         const workflow = caseEntity.workflow;
         const averages = new Map<string, number | null>();
 
@@ -101,7 +101,7 @@ export namespace CaseFlowLogic {
             doneDecision: from.doneDecision,
         });
 
-        /** Signum's local GetSyncPaths — which stored connections a step could have travelled. */
+        /** Which stored connections a step could have travelled. */
         const getSyncPaths = (prev: CaseActivityStats, from: IWorkflowNodeEntity, to: IWorkflowNodeEntity)
             : CaseConnectionStats[] | null => {
 
@@ -287,7 +287,7 @@ export namespace CaseFlowLogic {
     }
 
     /**
-     * Signum's GetStartEvent — which start event opened this case. A case opened by a SCHEDULED START has an
+     * Which start event opened this case. A case opened by a SCHEDULED START has an
      * OperationLog row for CreateCaseFromWorkflowEventTask whose Origin is the task (and the task names its
      * event); a case opened by a user has one for `Register`.
      */

@@ -78,29 +78,23 @@ import WorkflowToolbarMenuConfig from "./WorkflowToolbarMenuConfig";
 import type { WorkflowHandle } from "./Workflow/Workflow";
 import "./Case/Inbox.css";
 
-// Port of Signum.Workflow's WorkflowClient.tsx — the module's CLIENT registration hub: routes, every entity's
-// view, the Inbox's Finder settings, all the case/workflow operation settings, the quick links, and the typed
-// HTTP client for /api/workflow/*.
+// Port of Signum.Workflow's WorkflowClient.tsx — see docs/port/Workflow.md.
 //
-// altea divergences (the module-wide ones are in ../data/Workflow.ts; these are client-side):
-//  - `Navigator.addSettings(new EntitySettings(T, view))` → `cb.configure(T).withView(…)`, reaching for
-//    `Navigator.getOrAddSettings` only for the options `configure` does not cover (modalSize, avoidPopup,
-//    isViewable, onView, onNavigateRoute).
-//  - `EvalClient.Options.checkEvalFindOptions` (the dynamic panel's "do these evals still compile?" pass) is
-//    a SERVER-side registry in altea — @altea/altea-eval's `EvalLogic.registerEvalSource`, filled by
-//    WorkflowLogic — because only the server can compile and it needs the rows anyway.
-//    `registerDynamicPanelSearch` survives, re-homed on @altea/altea-dynamic's DynamicClient.
-//  - `TypeHelpButtonBarComponent` / `WorkflowHelpComponent` (a C#-snippet cheat sheet for writing Evals) and
-//    `showWorkflowTransitionContextCodeHelp` are dropped: they teach C# against a TypeHelp tree altea does not
-//    have (see @altea/altea-eval's EvalLine). The activity designer's user-help slot is an injected seam
-//    instead (`WorkflowActivityModelOptions.userHelpComponent`).
-//  - altea has no `AutoLineModal`, so "pick an expiration date" is a small local modal (ExpirationDateModal).
-//  - the Inbox is named by its ROW MODEL (`InboxRowModel`), not by Signum's `CaseActivityQuery.Inbox` enum
-//    member, so its column tokens are rooted at that model rather than at CaseNotificationEntity — see the
-//    model's own header. The URL is `/find/InboxRowModel`.
-//  - Signum's `start({ overrideCaseActivityMixin })` flag becomes a per-type call the app makes
-//    (`overrideCaseActivityMixinView(EmailMessageEntity, a => a.target)`) — see that function.
-//  - `ContextualItemsContext` carries `queryToken`, not Signum's `queryDescription` (which altea has no DTO for).
+// The module's CLIENT registration hub: routes, every entity's view, the Inbox's Finder settings, all the
+// case / workflow operation settings, the quick links, and the typed HTTP client for /api/workflow/*.
+//
+// The "do these evals still compile?" pass is a SERVER-side registry (`EvalLogic.registerEvalSource`,
+// filled by WorkflowLogic), because only the server can compile and it needs the rows anyway;
+// `registerDynamicPanelSearch` is re-homed on @altea/altea-dynamic's DynamicClient. The activity designer's
+// user-help slot is an INJECTED SEAM (`WorkflowActivityModelOptions.userHelpComponent`) rather than the
+// C#-snippet cheat sheets, which teach a language and a TypeHelp tree that are not here.
+//
+// The Inbox is named by its ROW MODEL (`InboxRowModel`), so its column tokens are rooted at that model
+// rather than at CaseNotificationEntity — see the model's own header — and the URL is
+// `/find/InboxRowModel`.
+//
+// `overrideCaseActivityMixinView(EmailMessageEntity, a => a.target)` is a PER-TYPE call the app makes:
+// which types carry the mixin is the app's decision, and each needs its own anchor line.
 
 declare module "@altea/altea/client/Operations" {
     interface ContextualOperationContext<T extends Entity> {
@@ -116,7 +110,7 @@ declare module "@altea/altea/client/SearchControl/ContextualItems" {
 
 export namespace WorkflowClient {
 
-    /** Signum's WorkflowCustomClick — an app-supplied handler for ONE named button of ONE activity. */
+    /** An app-supplied handler for ONE named button of ONE activity. */
     export interface WorkflowCustomClick<T extends Entity> {
         onClick: (eoc: EntityOperationContext<T>) => Promise<void>;
         onContextualClick?: (coc: ContextualOperationContext<T>) => Promise<void>;
@@ -133,8 +127,8 @@ export namespace WorkflowClient {
 
     export function start(cb: ClientBuilder): void {
 
-        // Signum threads the selected case activities through the contextual context so a MAIN ENTITY's
-        // operation, offered from the Inbox, can still find the activity it came from.
+        // The selected case activities ride on the contextual context so a MAIN ENTITY's operation, offered
+        // from the Inbox, can still find the activity it came from.
         Object.defineProperty(ContextualOperationContext.prototype, "caseActivityLites", {
             configurable: true,
             get: function (this: ContextualOperationContext<any>) {
@@ -162,7 +156,7 @@ export namespace WorkflowClient {
             { path: "/workflow/activityMonitor/:workflowId", element: <ImportComponent onImport={() => import("./ActivityMonitor/WorkflowActivityMonitorPage")} /> },
         );
 
-        // ---- The dynamic panel's search box (Signum: EvalClient.Options.registerDynamicPanelSearch) -----
+        // ---- The dynamic panel's search box ------------------------------------------------------------
         DynamicClient.registerDynamicPanelSearch(WorkflowEntity.typeName, [
             { token: "name", type: "Text" },
             { token: "mainEntityType.cleanName", type: "Text" },
@@ -221,13 +215,11 @@ export namespace WorkflowClient {
                 ctx => workflowActivityMonitorUrl(ctx.lite), { icon: "gauge", iconColor: "green" }));
 
         // ---- Finder settings ---------------------------------------------------------------------------
-        // The tokens are CAMEL-CASE literals, not `Type.token(a => a.case)`. altea's entity-property token
-        // key IS the field name (`EntityPropertyToken.key`), and the SERVER's `QueryLogic.getToken` is a
-        // strict Map lookup — so any token string that reaches it must already be camelCase. `Type.token()`
-        // still PascalCases (Signum's `tokenSequence`), which survives wherever the CLIENT resolves the
-        // string first and re-serialises the canonical key, but not here. The system hops keep their
-        // PascalCase (`HasValue`) and a cast is `.(WorkflowActivity)`, as the token tree spells them. Same
-        // shape as altea-auth-azuread's directory-search settings.
+        // The tokens are camelCase LITERALS, not `Type.token(a => a.case)`. That is now a spelling rather
+        // than a requirement: a token key is PascalCase and `QueryToken.subToken` falls back to a
+        // case-insensitive match, so these resolve on both tiers — but the canonical spelling is Signum's
+        // (`Case`, `DoneDate.HasValue`), and re-spelling them means re-checking the `formatters` /
+        // `hiddenColumns` keys below, which are matched against a resolved token's own `fullKey()`.
         cb.configure(CaseActivityEntity)
             .withQuerySettings(() => ({
                 defaultFilters: [
@@ -247,9 +239,9 @@ export namespace WorkflowClient {
                 ],
             }));
 
-        // The Inbox. Its rows are InboxRowModel, so the tokens below are rooted at that model, where
+        // The Inbox. Its rows are InboxRowModel, so the tokens below are rooted at that MODEL, where
         // Signum's were rooted at CaseNotificationEntity (its projection reused the notification's member
-        // names). Camel-case literals, for the reason spelled out on the CaseActivity settings above.
+        // names). camelCase literals, as on the CaseActivity settings above.
         Finder.addSettings({
             queryName: InboxRowModel,
             hiddenColumns: [
@@ -342,7 +334,7 @@ export namespace WorkflowClient {
         registerWorkflowOperations();
     }
 
-    /** Builds the @part row a workflow's `mainEntityStrategies` collection holds (Signum: newMListElement). */
+    /** Builds the @part row a workflow's `mainEntityStrategies` collection holds. */
     function mainEntityStrategyRow(strategy: WorkflowMainEntityStrategy): WorkflowEntity_MainEntityStrategy {
         return WorkflowEntity_MainEntityStrategy.create({ strategy });
     }
@@ -615,14 +607,12 @@ export namespace WorkflowClient {
     }
 
     /**
-     * Signum's `start({ overrideCaseActivityMixin: true })` — show the owning case activity, read-only, on a
+     * Show the owning case activity, read-only, on a
      * type that carries the CaseActivityMixin.
      *
-     * altea divergence: Signum hard-codes the two types it knows (SMSMessageEntity after `referred`,
-     * EmailMessageEntity after `target`), each with the ANCHOR its line goes after. Which types carry the
-     * mixin is the APP's decision here (`sb.include(X).withCaseActivityMixin()`) and there is no generic
-     * anchor, so this is a per-type call the app makes rather than one boolean flag. Signum's SMS module is
-     * not ported, so EmailMessageEntity is the only in-repo caller.
+     * Which types carry the mixin is the APP's decision (`sb.include(X).withCaseActivityMixin()`) and each
+     * needs the ANCHOR its line goes after, so this is a per-type call rather than one boolean flag.
+     * EmailMessageEntity is the only in-repo caller (Signum's other one is its SMS module, not ported).
      */
     export function overrideCaseActivityMixinView<T extends Entity>(type: Type<T>,
         afterLine: Quoted<(entity: T) => unknown>): void {
@@ -741,11 +731,11 @@ export namespace WorkflowClient {
     }
 
     /**
-     * The view an activity asks for (Signum's getViewPromiseCompoment — the typo is Signum's).
+     * The view an activity asks for.
      *
-     * altea divergence: a `viewNameProps` expression is stored TEXT and Signum `eval`s it. That is kept, but
-     * the eval is scoped to a function so it cannot see this module's locals — an expression is meant to be a
-     * literal or a simple global lookup, not a closure over the framework.
+     * A `viewNameProps` expression is stored TEXT and is `eval`ed, as in Signum — but the eval is scoped to a
+     * function so it cannot see this module's locals: an expression is meant to be a literal or a simple
+     * global lookup, not a closure over the framework.
      */
     export function getViewPromiseComponent(ca: CaseActivityEntity):
         Promise<(ctx: TypeContext<ICaseMainEntity>) => React.ReactElement> {
@@ -955,9 +945,8 @@ export namespace WorkflowClient {
     const intFormatter = toNumberFormat("D");
 
     /**
-     * Signum formats a luxon Duration ("2d 3h 15m"). altea's durations on the wire are MINUTES (a plain
-     * number, as in Signum's own `CaseActivityEntity.Duration`), so this takes minutes and walks the same
-     * unit ladder — down to minutes, which is the resolution the engine stores.
+     * Durations on the wire are MINUTES (a plain number, as `CaseActivityEntity.duration` is), so this takes
+     * minutes and walks the unit ladder down to them — the resolution the engine stores. "2d 3h 15m".
      */
     export function formatDurationMinutes(totalMinutes: number): string {
         const units: [string, number][] = [
@@ -1100,8 +1089,7 @@ export namespace WorkflowClient {
     }
 }
 
-/** A BootstrapStyle ordinal → the bootstrap color name an OperationButton takes (Signum stored the member
- *  NAME, so it could just `.toLowerCase()`). */
+/** A BootstrapStyle ORDINAL → the bootstrap color name an OperationButton takes. */
 function buttonColor(style: BootstrapStyle): BsColor {
     return Enum.toName(BootstrapStyle, style).toLowerCase() as BsColor;
 }

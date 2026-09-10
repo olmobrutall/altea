@@ -42,11 +42,11 @@ export class WorkflowScriptEntity extends Entity implements IUserAssetEntity {
     }
 }
 
-/** Signum's WorkflowScriptEval — the body of a SCRIPT activity, run unattended by the script runner. */
+/** The body of a SCRIPT activity, run unattended by the script runner. */
 @reflect
 export class WorkflowScriptEval extends EvalEmbedded<IWorkflowScriptExecutor> {
     /**
-     * Signum's `[StringLengthValidator(MultiLine = true)] string? CustomTypes` — extra helper classes it
+     * Extra helper classes it
      * emits into the same generated C# namespace as the script. CARRIED, NOT COMPILED (see the header): a
      * TypeScript module declares its local types inline, so `compile` below ignores this. It is declared
      * anyway because the column exists in every Signum-generated database and dropping it would take a

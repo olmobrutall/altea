@@ -24,8 +24,8 @@ import BpmnModelerComponent from "../Bpmn/BpmnModelerComponent";
 // issue list the last validation produced (each clickable, focusing the offending shape), and the modeler.
 //
 // altea divergences: the issue type is an ORDINAL, `WorkflowModel.entities` is a plain array, and the initial
-// diagram is imported with Vite's `?raw` (as in Signum). The main-entity strategies are a collection of @part
-// ROWS carrying the enum (Signum: `MList<WorkflowMainEntityStrategy>`), which core's EnumCheckboxList cannot
+// diagram is imported with Vite's `?raw`. The main-entity strategies are a collection of @part
+// ROWS carrying the enum, which core's EnumCheckboxList cannot
 // bind — it edits an array OF the enum — so this file has the four checkboxes over the rows.
 
 interface WorkflowState {

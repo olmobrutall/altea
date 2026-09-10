@@ -61,6 +61,7 @@ specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inv
 | [UserAssets.md](UserAssets.md) | `@altea/altea-user-assets` |
 | [ViewLog.md](ViewLog.md) | `@altea/altea-view-log` |
 | [WhatsNew.md](WhatsNew.md) | `@altea/altea-whats-new` |
+| [Workflow.md](Workflow.md) | `@altea/altea-workflow` |
 
 Modules without a page here still carry their narrative in their file headers, and in the app's
 `CLAUDE.md`.

@@ -57,31 +57,30 @@ import { WorkflowActivityInfo } from "./WorkflowActivityInfo";
 import { setCaseActivityMover } from "./WorkflowBuilder";
 import { WorkflowScriptRunner } from "./WorkflowScriptRunner";
 
-// Port of Signum.Workflow's CaseActivityLogic.cs — the ENGINE. A case walks its workflow one CASE ACTIVITY at
-// a time; this file owns the state machine that decides what comes next (conditions, decisions, gateways,
-// parallel joins, timers, decompositions and recompositions) and the notifications that tell people about it.
+// Port of Signum.Workflow's CaseActivityLogic.cs — see docs/port/Workflow.md.
 //
-// altea divergences:
-//  - EVERYTHING here is async (altea's engine is), so Signum's `using (WorkflowActivityInfo.Scope(...))`
-//    becomes `WorkflowActivityInfo.withScope(info, async () => …)` and every evaluator call is awaited.
-//  - `Alerts` (the Inbox's per-notification alert count) is dropped: no altea counterpart of Signum.Alerts.
-//  - `OverrideCaseActivityMixin` — Signum re-registers the SMS / EmailMessage queries to add the mixin's
-//    column — is not done here. altea has no SMS module, and re-registering altea-email's query from this
-//    module would invert the dependency; the APP declares the mixin and re-registers the query (eastwind
-//    does). The mixin's STAMPING does live here: `withCaseActivityMixin` hooks the owner's save.
-//  - `ActivityWithRemarks.Tags` IS projected, as in Signum, through a nested collection subquery that
-//    altea's provider fills as a lazy child. (The client's InlineCaseTags keeps its fetch-on-mount path,
-//    `/api/workflow/tags/{id}`, for the case VIEW, where there is no row to carry them.)
-//  - Signum's `PackageExecuteAlgorithm<CaseActivityEntity>(CaseActivityOperation.Timer)` has no altea
-//    counterpart (altea-processes ports the Package TABLES but not the generic package-execute algorithm), so
-//    the timeout algorithm walks the package's lines itself — see `registerTimeoutProcess`.
-//  - Signum's `[Ignore] CaseActivityState.New` is excluded from the enum table with `Enum.markAsNotMapped`.
+// The ENGINE. A case walks its workflow one CASE ACTIVITY at a time; this file owns the state machine that
+// decides what comes next — conditions, decisions, gateways, parallel joins, timers, decompositions and
+// recompositions — and the notifications that tell people about it.
+//
+// EVERYTHING here is async, so an ambient scope is a callback (`WorkflowActivityInfo.withScope(info,
+// async () => …)`) and every evaluator call is awaited.
+//
+// `ActivityWithRemarks.Tags` IS projected, through a nested collection subquery the provider fills as a
+// lazy child. (The client's InlineCaseTags keeps its fetch-on-mount path for the case VIEW, where there is
+// no row to carry them.)
+//
+// The timeout algorithm walks its package's lines ITSELF — see `registerTimeoutProcess` — rather than
+// going through @altea/altea-processes' PackageExecuteAlgorithm: this module already has the walk.
+//
+// The mixin's STAMPING lives here (`withCaseActivityMixin` hooks the owner's save); the QUERY
+// re-registration it needs is the app's, since doing it here would invert the dependency.
 
 // ---- Extension expressions ------------------------------------------------------------------------------
 
 declare module "../data/CaseNotification" {
     interface CaseNotificationEntity {
-        /** Signum's `IsForMe` expression — is this notification the CURRENT user's? A `@quoted` member, not
+        /** Is this notification the CURRENT user's? A `@quoted` member, not
          *  a local predicate: the binder expands a quoted method inside a query lambda but cannot translate a
          *  call to an ordinary local function (the gotcha the processes port documented). */
         isForMe(): boolean;
@@ -94,7 +93,6 @@ declare module "../data/CaseActivity" {
         executedTimers(): IQuery<CaseActivityExecutedTimerEntity>;
         lastExecutedTimer(we: Lite<WorkflowEventEntity>): Promise<CaseActivityExecutedTimerEntity | null>;
         nextActivities(): IQuery<CaseActivityEntity>;
-        /** Signum's `ca.Workflow()`. */
         workflow(): WorkflowEntity;
     }
 }
@@ -104,7 +102,7 @@ declare module "../data/Case" {
         caseActivities(): IQuery<CaseActivityEntity>;
         tags(): IQuery<CaseTagEntity>;
         subCases(): IQuery<CaseEntity>;
-        /** The activity of the PARENT case that spawned this one (Signum's DecompositionSurrogateActivity). */
+        /** The activity of the PARENT case that spawned this one. */
         decompositionSurrogateActivity(): Promise<CaseActivityEntity>;
     }
 }
@@ -188,9 +186,9 @@ WorkflowEventEntity.prototype.averageDuration = withQuoted(function (this: Workf
 
 // ---- Options per main-entity type -----------------------------------------------------------------------
 
-/** Signum's CaseActivityLogic.WorkflowOptions — what the engine needs to know about ONE main-entity type. */
+/** What the engine needs to know about ONE main-entity type. */
 export interface WorkflowOptions<T extends Entity = Entity> {
-    /** Signum's Constructor — required by the `CreateNew` main-entity strategy. */
+    /** Required by the `CreateNew` main-entity strategy. */
     constructor?: () => T | Promise<T>;
     /** How to save the main entity at each step (usually its own Save operation). */
     saveEntity: (entity: T) => Promise<void>;
@@ -200,9 +198,9 @@ export interface WorkflowOptions<T extends Entity = Entity> {
 
 declare module "@altea/altea/server/schema/fluentInclude" {
     interface FluentInclude<T extends Entity> {
-        /** Signum's `WithWorkflow(constructor, save, cancel, reactivate)` — make T a case main entity. */
+        /** Make T a case main entity. */
         withWorkflow(options: WorkflowOptions<T>): this;
-        /** altea-only: declare the CaseActivityMixin on T and stamp it from the ambient activity (Signum does
+        /** Declare the CaseActivityMixin on T and stamp it from the ambient activity (Signum does
          *  the stamping in the mixin's constructor, which altea's mixin defaults cannot do — see
          *  data/CaseActivity.ts). */
         withCaseActivityMixin(): this;
@@ -211,7 +209,7 @@ declare module "@altea/altea/server/schema/fluentInclude" {
 
 export namespace CaseActivityLogic {
 
-    /** Signum's `static Dictionary<Type, WorkflowOptions> Options`, keyed by the clean type name. */
+    /** Keyed by the clean type name. */
     export const options = new Map<string, WorkflowOptions>();
 
     // ---- start -------------------------------------------------------------------------------------
@@ -220,7 +218,7 @@ export namespace CaseActivityLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        // Signum marks `CaseActivityState.New` `[Ignore]` — it is a client-only state (an unsaved activity),
+        // `CaseActivityState.New` is a CLIENT-only state (an unsaved activity),
         // so it must not become a row of the enum table.
 
         sb.include(CaseEntity)
@@ -265,7 +263,7 @@ export namespace CaseActivityLogic {
                 WorkflowScriptRunner.wakeUpOnCommit();
         });
 
-        // Signum's `CaseActivityEntity.PreSaving` override — altea's hook is a schema event, not an entity
+        // The hook is a schema EVENT, not an entity
         // method (see data/CaseActivity.ts). Keeps `duration` (minutes) in step with startDate/doneDate.
         sb.schema.entityEvents(CaseActivityEntity).preSaving.push(ca => {
             ca.duration = ca.doneDate == null ? null
@@ -300,13 +298,13 @@ export namespace CaseActivityLogic {
 
     // ---- withWorkflow / withCaseActivityMixin -------------------------------------------------------
 
-    /** Signum's `WithWorkflow<T>` — plus the per-type expressions Signum registers on ICaseMainEntity (altea
+    /** Plus the per-type expressions Signum registers on ICaseMainEntity (
      *  cannot key an extension token on an interface, so they are registered per concrete type here). */
     export function registerMainEntity<T extends Entity & ICaseMainEntity>(fi: FluentInclude<T>, opts: WorkflowOptions<T>): void {
         const type = fi.type;
         const cleanName = (type as unknown as { cleanName: string }).cleanName ?? type.name.replace(/Entity$/, "");
 
-        // Signum notifies "in progress" from the entity's `Saved` event; same hook here.
+        // "In progress" is notified from the entity's `saved` event.
         fi.schemaBuilder.schema.entityEvents(type).saved.push(entity => {
             if (avoidNotifyInProgress)
                 return;
@@ -315,7 +313,7 @@ export namespace CaseActivityLogic {
 
         options.set(cleanName, opts as unknown as WorkflowOptions);
 
-        // The four expressions Signum registers ONCE on ICaseMainEntity. altea cannot key an extension token
+        // The four expressions Signum registers ONCE on ICaseMainEntity. An extension token cannot be keyed
         // on an interface (the token walk follows the concrete prototype chain), so both the implementation
         // and the registration are per main-entity type — the accommodation MusicLogic makes for
         // IAuthorEntity.Albums.
@@ -350,7 +348,7 @@ export namespace CaseActivityLogic {
 
     let avoidNotifyInProgress = false;
 
-    /** Signum's `AvoidNotifyInProgress()` scope — the engine's own saves must not mark a notification read. */
+    /** The engine's own saves must not mark a notification read. */
     async function withoutNotifyInProgress<R>(fn: () => Promise<R>): Promise<R> {
         const old = avoidNotifyInProgress;
         avoidNotifyInProgress = true;
@@ -361,7 +359,7 @@ export namespace CaseActivityLogic {
         }
     }
 
-    /** Signum's NotifyInProgress — opening / saving the main entity marks the current user's notification as
+    /** Opening / saving the main entity marks the current user's notification as
      *  InProgress, so colleagues see that somebody is on it. */
     export async function notifyInProgress(mainEntity: ICaseMainEntity): Promise<number> {
         return await ExecutionMode.global(() => table(CaseNotificationEntity)
@@ -372,7 +370,7 @@ export namespace CaseActivityLogic {
 
     // ---- Retrieval for viewing ---------------------------------------------------------------------
 
-    /** Signum's RetrieveForViewing — reading an activity marks its New notification as Opened. */
+    /** Reading an activity marks its New notification as Opened. */
     export async function retrieveForViewing(lite: Lite<CaseActivityEntity>): Promise<CaseActivityEntity> {
         const ca = await retrieve(CaseActivityEntity, lite.id!);
 
@@ -386,7 +384,6 @@ export namespace CaseActivityLogic {
 
     // ---- Actors ------------------------------------------------------------------------------------
 
-    /** Signum's `lane.GetActors(caseActivity)`. */
     export async function getActors(lane: WorkflowLaneEntity, caseActivity: CaseActivityEntity | null): Promise<Lite<Entity>[]> {
         if (caseActivity != null) {
             if (lane.actorsEval == null)
@@ -410,7 +407,7 @@ export namespace CaseActivityLogic {
         return lane.actors.map(a => a.actor);
     }
 
-    /** Signum's `lane.GetActorUsers(caseActivity)` — the actors expanded to real users. */
+    /** The actors expanded to real users. */
     export async function getActorUsers(lane: WorkflowLaneEntity, caseActivity: CaseActivityEntity | null): Promise<Lite<UserEntity>[]> {
         const actors = await getActors(lane, caseActivity);
         const result: Lite<UserEntity>[] = [];
@@ -421,13 +418,13 @@ export namespace CaseActivityLogic {
         return distinctLites(result) as Lite<UserEntity>[];
     }
 
-    /** Signum's `IsUserActorForNotifications` — the users an actor stands for. */
+    /** The users an actor stands for. */
     async function usersOfActor(actor: Lite<Entity>): Promise<Lite<UserEntity>[]> {
         if (actor.entityType === UserEntity)
             return [actor as Lite<UserEntity>];
 
         if (actor.entityType === RoleEntity) {
-            // Signum's `AuthLogic.InverseIndirectlyRelated(role).Contains(user.Role)` — every role that
+            // Every role that
             // (transitively) INHERITS the actor role, then every user in one of them.
             const roles = await AuthLogic.rolesInheritingFrom(actor as Lite<RoleEntity>);
             const keys = roles.map(r => r.id!);
@@ -437,7 +434,6 @@ export namespace CaseActivityLogic {
         return [];
     }
 
-    /** Signum's InsertCaseActivityNotifications. */
     export async function insertCaseActivityNotifications(caseActivity: CaseActivityEntity): Promise<void> {
         const wa = caseActivity.workflowActivity;
         if (!(wa instanceof WorkflowActivityEntity))
@@ -473,7 +469,7 @@ export namespace CaseActivityLogic {
 
     // ---- The step context --------------------------------------------------------------------------
 
-    /** Signum's WorkflowExecuteStepContext — what one step accumulates before it commits. */
+    /** What one step accumulates before it commits. */
     export class WorkflowExecuteStepContext {
         toActivities: WorkflowActivityEntity[] = [];
         toIntermediateEvents: WorkflowEventEntity[] = [];
@@ -501,7 +497,7 @@ export namespace CaseActivityLogic {
             return wtc;
         }
 
-        /** Signum's NotifyTransitionContext — tell the actions that installed a hook which activity their
+        /** Tell the actions that installed a hook which activity their
          *  transition produced. */
         async notifyTransitionContext(newCaseActivity: CaseActivityEntity): Promise<void> {
             const g = await WorkflowLogic.getWorkflowNodeGraph(this.case_.workflow.toLite());
@@ -526,7 +522,7 @@ export namespace CaseActivityLogic {
         }
     }
 
-    /** Signum's `wc.Applicable(ctx)` — does this connection's guard let the case through? */
+    /** Does this connection's guard let the case through? */
     async function applicable(wc: WorkflowConnectionEntity, ctx: WorkflowExecuteStepContext): Promise<boolean> {
         const doneDecision = wc.doneDecision();
 
@@ -575,7 +571,7 @@ export namespace CaseActivityLogic {
         return await opts.constructor() as unknown as ICaseMainEntity;
     }
 
-    /** Signum's `workflow.CreateCaseActivity(mainEntity)` — the app-facing "start a case" helper. */
+    /** The app-facing "start a case" helper. */
     export async function createCaseActivity(workflow: WorkflowEntity, mainEntity: ICaseMainEntity): Promise<CaseActivityEntity> {
         const ca = await Operations.constructFrom(workflow, CaseActivityOperation.CreateCaseActivityFromWorkflow, mainEntity);
         return await Operations.execute(ca, CaseActivityOperation.Register);
@@ -583,12 +579,11 @@ export namespace CaseActivityLogic {
 
     // ---- The Case graph ----------------------------------------------------------------------------
 
-    /** Signum's `CanceledCase.ToString()` marker written into `doneDecision`. */
+    /** The marker written into `doneDecision` for a cancelled case. */
     function canceledCaseMarker(): string {
         return "CanceledCase";
     }
 
-    /** Signum's CancelledCases(c). */
     function cancelledActivities(c: CaseEntity): IQuery<CaseActivityEntity> {
         const marker = canceledCaseMarker();
         const nice = CaseActivityMessage.CanceledCase.niceToString();
@@ -628,7 +623,7 @@ export namespace CaseActivityLogic {
                         caseActivity: cn.caseActivity,
                         notification: cn.toLite(),
                         remarks: cn.remarks,
-                        // Signum's `Tags = ca.Case.Tags().Select(a => a.TagType).ToList()` — a collection
+                        // A collection
                         // subquery inside the projection, which altea's provider fills as a lazy child.
                         // `.$v` is altea's marker for a NESTED collection projection: it unwraps the eager
                         // method's Promise type, and the provider fills it as a lazy child query.
@@ -716,7 +711,8 @@ export namespace CaseActivityLogic {
             return process.toLite();
         });
 
-        // Signum: `ProcessLogic.Register(Timeout, new PackageExecuteAlgorithm<CaseActivityEntity>(Timer))`.
+        // The algorithm walks its package's lines ITSELF rather than going through
+        // PackageExecuteAlgorithm: this module already has the walk.
         // altea-processes has no generic package-execute algorithm (see the header), so the walk is here.
         ProcessLogic.registerAction(CaseActivityProcessAlgorithm.Timeout, async (ep: ExecutingProcess) => {
             const pkg = ep.data as Lite<PackageEntity> | null;
@@ -747,7 +743,7 @@ export namespace CaseActivityLogic {
         return await caseActivitiesOf(node).some();
     }
 
-    /** Signum's LaneBuilder.DeleteCaseActivities(node, filter) with an always-true filter. */
+    /** Delete a node's case activities, unfiltered. */
     async function deleteCaseActivities(node: IWorkflowNodeEntity): Promise<void> {
         if (node instanceof WorkflowActivityEntity
             && (node.type === WorkflowActivityType.DecompositionWorkflow || node.type === WorkflowActivityType.CallWorkflow)) {
@@ -783,7 +779,7 @@ export namespace CaseActivityLogic {
         await table(CaseActivityEntity).filter(a => a.workflowActivity.is(node)).executeDelete();
     }
 
-    /** Signum's MoveCasesAndDelete's replacement half. */
+    /** The replacement half of move-cases-and-delete. */
     async function moveCaseActivities(node: IWorkflowNodeEntity, replacement: IWorkflowNodeEntity): Promise<void> {
         await table(CaseActivityEntity).filter(a => a.workflowActivity.is(node) && a.doneDate != null)
             .executeUpdate(() => ({ workflowActivity: replacement }));
@@ -947,7 +943,7 @@ export namespace CaseActivityLogic {
         await finishStep(ca.case, ctx, ca);
     }
 
-    /** Signum's ExecuteInitialStep — the first step of a case a SCHEDULED START opened (there is no
+    /** The first step of a case a SCHEDULED START opened (there is no
      *  previous activity, so the walk begins at the start event's outgoing connection). */
     export async function executeInitialStep(caseEntity: CaseEntity, event: WorkflowEventEntity,
         transition: WorkflowConnectionEntity): Promise<void> {
@@ -988,9 +984,9 @@ export namespace CaseActivityLogic {
         return ca;
     }
 
-    /** Signum's TryToRecompose — when every sibling subcase has finished, finish the surrogate. */
+    /** When every sibling subcase has finished, finish the surrogate. */
     export async function tryToRecompose(childCase: CaseEntity): Promise<void> {
-        // Type conditions may not give access to the parent case, so this runs ungated (as in Signum).
+        // Type conditions may not give access to the parent case, so this runs ungated.
         await ExecutionMode.global(async () => {
             const allFinished = await table(CaseEntity)
                 .filter(cc => cc.parentCase!.is(childCase.parentCase!) && cc.workflow.is(childCase.workflow))
@@ -1051,7 +1047,7 @@ export namespace CaseActivityLogic {
         return await findNextNode(connection.to, ctx);
     }
 
-    /** Signum's FindNext(node, ctx) — the heart of the walk. */
+    /** The heart of the walk. */
     async function findNextNode(next: IWorkflowNodeEntity, ctx: WorkflowExecuteStepContext): Promise<boolean> {
         if (next instanceof WorkflowEventEntity) {
             if (next.type === WorkflowEventType.Finish) {
@@ -1148,7 +1144,7 @@ export namespace CaseActivityLogic {
         }
     }
 
-    /** Signum's BoolBox — "is this track complete, and which activity completed it?" */
+    /** "is this track complete, and which activity completed it?" */
     class BoolBox {
         private constructor(readonly isCompleted: boolean, readonly caseActivity: CaseActivityEntity | null) {
             if (caseActivity != null && !isCompleted)
@@ -1160,7 +1156,7 @@ export namespace CaseActivityLogic {
         static get False(): BoolBox { return new BoolBox(false, null); }
         static True(ca: CaseActivityEntity | null): BoolBox { return new BoolBox(true, ca); }
 
-        /** Signum's IsCompatible — the done-type / decision / condition must match the connection taken. */
+        /** The done-type / decision / condition must match the connection taken. */
         async isCompatible(wc: WorkflowConnectionEntity): Promise<boolean> {
             if (!this.isCompleted)
                 return false;
@@ -1212,8 +1208,8 @@ export namespace CaseActivityLogic {
     }
 
     /**
-     * Signum's AllTrackCompleted — the recursive "has every branch feeding this join finished?" walk.
-     * Ported structure-for-structure; `depth` is Signum's split/join nesting counter.
+     * The recursive "has every branch feeding this join finished?" walk.
+     * Ported structure for structure; `depth` is the split / join nesting counter.
      */
     async function allTrackCompleted(depth: number, node: IWorkflowNodeEntity, ctx: WorkflowExecuteStepContext,
         visited: Set<IWorkflowNodeEntity>): Promise<BoolBox> {
@@ -1876,7 +1872,7 @@ FluentInclude.prototype.withWorkflow = function <T extends Entity>(this: FluentI
 
 FluentInclude.prototype.withCaseActivityMixin = function <T extends Entity>(this: FluentInclude<T>): FluentInclude<T> {
     CaseActivityMixin.declareOn(this.type as never);
-    // Signum stamps the mixin in its CONSTRUCTOR from the ambient activity; altea's mixin field initializers
+    // Signum stamps the mixin in its CONSTRUCTOR from the ambient activity; here the mixin field initializers
     // only run in `create()`, and the ambient activity is a server concept, so the stamping is a preSaving
     // hook on the owner: whatever an activity produces gets tagged with it.
     this.schemaBuilder.schema.entityEvents(this.type).preSaving.push(entity => {
@@ -1889,7 +1885,7 @@ FluentInclude.prototype.withCaseActivityMixin = function <T extends Entity>(this
 
 // ---- Small helpers ------------------------------------------------------------------------------------
 
-/** Signum's `string.Etc(100)` — truncate with an ellipsis. */
+/** Truncate with an ellipsis. */
 function etc(text: string, max: number): string {
     return text.length <= max ? text : text.substring(0, max - 3) + "...";
 }

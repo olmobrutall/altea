@@ -18,7 +18,7 @@ import { WorkflowTimerConditionEntity } from "../../data/WorkflowTimerCondition"
 // SCHEDULED start grows the scheduler side (suspended + rule + when to trigger + the two functions); a timer
 // event grows a duration or a timer condition.
 //
-// altea divergences: the event type is an ORDINAL, and Signum's two extra components
+// The event type is an ORDINAL, and Signum's two extra components
 // (WorkflowEventTaskConditionComponent / WorkflowEventTaskActionComponent) are one file here, shared with the
 // standalone task editor — see WorkflowEventTaskEvals.
 

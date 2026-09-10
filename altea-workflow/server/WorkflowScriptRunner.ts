@@ -22,7 +22,7 @@ import { WorkflowLogic } from "./WorkflowLogic";
 // connection) when one throws.
 //
 // altea divergences — the same three the altea-processes / altea-scheduler runners document:
-//  - Signum's `Thread` + `AutoResetEvent` + `Timer` become ONE in-process pump: `wakeUp()` sets a flag and
+//  - a `Thread` + `AutoResetEvent` + `Timer` become ONE in-process pump: `wakeUp()` sets a flag and
 //    schedules a pass, and a pass that is already running just marks "run again". No lock, no thread.
 //  - `CacheLogic.WithSqlDependency` / `SetSqlDependency` do NOT port: Node's SQL Server driver has no query
 //    notifications (the reason altea-cache broadcasts instead). The periodic timer plus `wakeUpOnCommit` (a
@@ -57,7 +57,7 @@ export namespace WorkflowScriptRunner {
         };
     }
 
-    /** Signum's StartRunningScriptsAfter — used by the host so a boot-time restart does not run scripts
+    /** Used by the host so a boot-time restart does not run scripts
      *  before the schema is ready. */
     export function startRunningScriptsAfter(delayMilliseconds: number): void {
         initialDelayMilliseconds = delayMilliseconds;
@@ -91,7 +91,7 @@ export namespace WorkflowScriptRunner {
         console.log("Stop WorkflowScriptRunner");
     }
 
-    /** Signum's WakeupOnCommit — a fresh script activity was saved, so run as soon as the transaction lands. */
+    /** A fresh script activity was saved, so run as soon as the transaction lands. */
     export function wakeUpOnCommit(): void {
         Transaction.postRealCommit(async () => { wakeUp("Save Transaction Commit"); });
     }
@@ -131,7 +131,7 @@ export namespace WorkflowScriptRunner {
         }
     }
 
-    /** Signum's inner `while (queuedItems > 0 || RecruitQueuedItems())` body. */
+    /** The inner `while (queuedItems > 0 || recruitQueuedItems())` body. */
     async function onePass(): Promise<void> {
         using _prof = HeavyProfiler.log("WorkflowScriptRunner", () => "Execute process");
 
@@ -166,7 +166,7 @@ export namespace WorkflowScriptRunner {
                         await Transaction.forceNew(async () =>
                             await Operations.execute(caseActivity, CaseActivityOperation.ScriptExecute));
                     } catch {
-                        // Signum: on failure, either schedule a retry per the strategy, or take the
+                        // On failure, either schedule a retry per the strategy, or take the
                         // ScriptException connection when the strategy is exhausted.
                         try {
                             const ca = await retrieve(CaseActivityEntity, caseActivity.id!);
@@ -198,7 +198,7 @@ export namespace WorkflowScriptRunner {
             && m.scriptExecution!.processIdentifier === identifier);
     }
 
-    /** Signum's RecruitQueuedItems — CLAIM the due rows by stamping this pass's identifier on them. */
+    /** CLAIM the due rows by stamping this pass's identifier on them. */
     async function recruitQueuedItems(): Promise<boolean> {
         const config = WorkflowLogic.configuration();
         const firstDate = config.avoidExecutingScriptsOlderThan == null ? null

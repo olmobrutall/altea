@@ -28,26 +28,22 @@ import {
 import type { WorkflowIssue } from "../data/WorkflowDtos";
 import { WorkflowNodeGraph } from "./WorkflowNodeGraph";
 
-// Port of Signum.Workflow's WorkflowBuilder.cs + PoolBuilder.cs + LaneBuilder.cs — the two-way bridge between
-// the BPMN diagram the designer edits and the ENTITIES that store it. Reading: assemble one `<bpmn:definitions>`
-// document out of the stored nodes plus each one's own diagram element. Writing: diff the posted document
-// against the stored graph and create / update / delete accordingly, moving or dropping the case activities of
-// anything that disappears.
+// Port of Signum.Workflow's WorkflowBuilder.cs + PoolBuilder.cs + LaneBuilder.cs — see
+// docs/port/Workflow.md.
 //
-// altea divergences:
-//  - `System.Xml.Linq` becomes altea's own XML element tree (@altea/altea/server/xml) — promoted to core from
-//    @altea/altea-office-template for this port. `XNamespace + local name` becomes the QUALIFIED name as
-//    written ("bpmn:process"), which is the same identity for a document that declares its prefixes on the
-//    root and never rebinds them (BPMN never does).
-//  - Signum parses an entity's stored diagram element by wrapping it in a fake `<bpmn:definitions>` envelope,
-//    because XDocument resolves namespace URIs. altea's tree matches on the prefix, so the bare element parses
-//    directly — the envelope is unnecessary.
-//  - Signum's three C# PARTIAL classes (WorkflowBuilder / PoolBuilder / LaneBuilder, nested) become three
-//    classes in this one file: TypeScript has no nested classes, and splitting them across files would be an
-//    import cycle.
-//  - the constructor's work is async (it reads the graph), so `new WorkflowBuilder(wf)` becomes the static
-//    `WorkflowBuilder.create(wf)`; every pass through `Synchronizer.synchronizeAsync` (added to core) awaits.
-//  - `GraphExplorer.HasChanges(x)` → `isGraphModified(x)` (altea's snapshot-based dirty check).
+// The two-way bridge between the BPMN diagram the designer edits and the ENTITIES that store it. READING:
+// assemble one `<bpmn:definitions>` document out of the stored nodes plus each one's own diagram element.
+// WRITING: diff the posted document against the stored graph and create / update / delete accordingly,
+// moving or dropping the case activities of anything that disappears.
+//
+// An element is matched by its QUALIFIED NAME as written ("bpmn:process"), which is the same identity for
+// a document that declares its prefixes on the root and never rebinds them — BPMN never does. That is also
+// why a stored diagram element parses directly, with no `<bpmn:definitions>` envelope to resolve URIs
+// against.
+//
+// The three builders are three classes in ONE file: TypeScript has no nested classes, and splitting them
+// would be an import cycle. `WorkflowBuilder.create(wf)` is static because the construction READS the
+// graph, and every `Synchronizer.synchronizeAsync` pass awaits.
 
 const BPMN = "bpmn";
 const BPMNDI = "bpmndi";
@@ -58,7 +54,7 @@ const DC_NS = "http://www.omg.org/spec/DD/20100524/DC";
 const DI_NS = "http://www.omg.org/spec/DD/20100524/DI";
 const TARGET_NAMESPACE = "http://bpmn.io/schema/bpmn";
 
-/** Signum's `LaneBuilder.WorkflowEventTypes` — which BPMN element each event type is drawn as. */
+/** Which BPMN element each event type is drawn as. */
 export const workflowEventTypes: Record<WorkflowEventType, string> = {
     [WorkflowEventType.Start]: "startEvent",
     [WorkflowEventType.ScheduledStart]: "startEvent",
@@ -94,7 +90,7 @@ const gatewayElementNames = new Set(Object.values(workflowGatewayTypes));
 // ---- The per-entity diagram element --------------------------------------------------------------------
 
 /**
- * Signum's `XmlEntity<T>` — an entity paired with the ONE `<bpmndi:BPMNShape>` / `<bpmndi:BPMNEdge>` element
+ * An entity paired with the ONE `<bpmndi:BPMNShape>` / `<bpmndi:BPMNEdge>` element
  * that draws it, parsed out of its stored `xml.diagramXml`.
  */
 export class XmlEntity<T extends IWorkflowObjectEntity & IWithModel> {
@@ -140,7 +136,7 @@ function textEl(qualifiedName: string, text: string): XmlElement {
 
 // ---- Locator ------------------------------------------------------------------------------------------
 
-/** Signum's Locator — what `applyXml` needs while walking the posted document. */
+/** What `applyXml` needs while walking the posted document. */
 export class Locator {
     readonly replacements = new Map<string, string>();
     private readonly entitiesFromModel = new Map<string, ModelEntity>();
@@ -194,18 +190,18 @@ export class Locator {
 
 // ---- The case-activity moves a delete implies ----------------------------------------------------------
 //
-// Signum puts these two on LaneBuilder as private statics; they need CaseActivityLogic, which needs the
-// builder, so altea injects them (WorkflowLogic wires them at start). Without a case module they are no-ops,
-// which is exactly right: a workflow with no cases has nothing to move.
+// These two need CaseActivityLogic, which needs the builder, so they are INJECTED (WorkflowLogic wires
+// them at start). Without a case module they are no-ops, which is exactly right: a workflow with no cases
+// has nothing to move.
 
 export interface CaseActivityMover {
-    /** Signum's `DeleteCaseActivities(node, filter)` — drop the case activities of a node being deleted. */
+    /** Drop the case activities of a node being deleted. */
     deleteCaseActivities(node: IWorkflowNodeEntity): Promise<void>;
-    /** Signum's `MoveCasesAndDelete` half that re-points them at a replacement node. */
+    /** Re-point them at a replacement node. */
     moveCaseActivities(node: IWorkflowNodeEntity, replacement: IWorkflowNodeEntity): Promise<void>;
     /** Does this node still have any case activity at all? */
     hasCaseActivities(node: IWorkflowNodeEntity): Promise<boolean>;
-    /** Signum's `WorkflowBuilder.Delete` — every case of a workflow being deleted. */
+    /** Every case of a workflow being deleted. */
     deleteCasesOfWorkflow(workflow: WorkflowEntity): Promise<void>;
 }
 
@@ -218,7 +214,7 @@ const noCases: CaseActivityMover = {
 
 let mover: CaseActivityMover = noCases;
 
-/** Wired by CaseActivityLogic.start (Signum reaches those statics directly). */
+/** Wired by CaseActivityLogic.start. */
 export function setCaseActivityMover(m: CaseActivityMover): void {
     mover = m;
 }
@@ -295,9 +291,9 @@ export class LaneBuilder {
     }
 
     getBpmnElementId(node: IWorkflowNodeEntity): string {
-        // `is` (row identity), not `===`: Signum compares with `.Is(node)` too, and here it matters — a node
-        // reached through a connection's `from`/`to` is a DIFFERENT object than the builder's own instance
-        // for the same row (altea has no ambient EntityCache; see WorkflowNodeGraph.fillGraphs).
+        // `is` (row identity), not `===`: a node reached through a connection's `from`/`to` is a DIFFERENT
+        // object than the builder's own instance for the same row — there is no ambient EntityCache, see
+        // docs/port/Workflow.md.
         const find = (values: Iterable<{ entity: IWorkflowNodeEntity; bpmnElementId: string }>): string | undefined =>
             [...values].firstOrNull(a => a.entity.is(node))?.bpmnElementId;
 
@@ -432,8 +428,8 @@ export class LaneBuilder {
         const activity = e.entity.boundaryOf == null ? null
             : this.getActivities().single(a => e.entity.boundaryOf!.is(a.entity)).entity;
 
-        // Signum asks the event's MODEL for its task to decide timer-vs-conditional; altea reads the
-        // scheduler side through the injected hook (getModel is pure here — see data/WorkflowNodes.ts).
+        // Timer-vs-conditional needs the scheduler side, read through the injected hook rather than off the
+        // event's MODEL: getModel is pure here — see data/WorkflowNodes.ts.
         const task = isScheduledStart(e.entity.type) ? await getWorkflowEventTaskModel(e.entity) : null;
         const isTimerDefinition = task?.triggeredOn === 0 /* TriggeredOn.Always */
             || (isTimer(e.entity.type) && e.entity.timer?.duration != null);
@@ -639,9 +635,8 @@ export class PoolBuilder {
                 const newTo = locator.findEntity(sf.getAttribute("targetRef")!);
 
                 if (!sameNode(newFrom, osf.entity.from) || !sameNode(newTo, osf.entity.to)) {
-                    // Signum does this as an UnsafeUpdate + SetCleanModified(false): the endpoints must be
-                    // re-pointed WITHOUT running the Save operation, which would validate against a graph
-                    // that is only half-applied.
+                    // A set-based UPDATE, not a save: the endpoints must be re-pointed WITHOUT running the
+                    // Save operation, which would validate against a graph that is only half-applied.
                     await table(WorkflowConnectionEntity).filter(a => a.id === osf.entity.id)
                         .executeUpdate(() => ({ from: newFrom!, to: newTo! }));
                     osf.entity.from = newFrom!;
@@ -755,10 +750,9 @@ export class PoolBuilder {
 /**
  * The clone's old→new node map, keyed by the OLD node's lite key.
  *
- * Signum keys `Dictionary<IWorkflowNodeEntity, IWorkflowNodeEntity>` by the entity, which works there because
- * its graph is built inside `using (new EntityCache())`. altea has no such scope, so the connection's
- * `from`/`to` are different objects than the builder's nodes for the same rows — hence the key, and the
- * `old` half so the scheduled-task pass can still see which node it came from.
+ * The connection's `from`/`to` are different objects than the builder's nodes for the same rows (no ambient
+ * EntityCache — see docs/port/Workflow.md), hence the KEY; the `old` half is so the scheduled-task pass can
+ * still see which node a clone came from.
  */
 type ClonedNodes = Map<string, { old: IWorkflowNodeEntity; new: IWorkflowNodeEntity }>;
 
@@ -771,7 +765,7 @@ export class WorkflowBuilder {
 
     private constructor(private readonly workflow: WorkflowEntity) { }
 
-    /** Signum's `new WorkflowBuilder(wf)` — a static factory because reading the graph is async. */
+    /** A static factory because reading the graph is async. */
     static async create(wf: WorkflowEntity): Promise<WorkflowBuilder> {
         using _prof = HeavyProfiler.log("WorkflowBuilder");
         const wb = new WorkflowBuilder(wf);
@@ -779,10 +773,8 @@ export class WorkflowBuilder {
         const [connections, events, activities, gateways, poolEntities] = wf.isNew
             ? [[], [], [], [], []] as [WorkflowConnectionEntity[], WorkflowEventEntity[], WorkflowActivityEntity[], WorkflowGatewayEntity[], WorkflowPoolEntity[]]
             // NOTE these are the same sets as `wf.workflowConnections()` & friends, spelled as plain queries.
-            // A `withQuoted` prototype member is QUERY-ONLY in altea: the transformer emits the quoted AST as
-            // a second argument and leaves the runtime body's inner lambdas unstamped, so CALLING one directly
-            // throws "The following lambda has not been quoted". Signum's [AutoExpressionField] members are
-            // real C# methods and can be called either way; here the builder has to query.
+            // A `withQuoted` prototype member is QUERY-ONLY: calling one directly throws "The following lambda
+            // has not been quoted", so the builder queries — see docs/port/Workflow.md.
             : await Promise.all([
                 table(WorkflowConnectionEntity)
                     .filter(a => a.from.lane.pool.workflow.is(wf) && a.to.lane.pool.workflow.is(wf)).toArray(),
@@ -847,8 +839,8 @@ export class WorkflowBuilder {
         for (const e of lanes.flatMap(lb => lb.getEvents())
             .filter(e => isStart(e.entity.type) || e.entity.type === WorkflowEventType.IntermediateTimer)) {
             const model = e.entity.getModel() as WorkflowEventModel;
-            // Signum fills `Task` inside GetModel through a static hook; altea does it here (see the header
-            // of data/WorkflowNodes.ts) so the entity's getModel stays pure.
+            // `task` is filled HERE rather than inside getModel (see the header of data/WorkflowNodes.ts), so
+            // the entity's getModel stays pure.
             if (isScheduledStart(e.entity.type))
                 model.task = await getWorkflowEventTaskModel(e.entity);
             dic.set(e.bpmnElementId, model);
@@ -867,12 +859,10 @@ export class WorkflowBuilder {
         });
     }
 
-    /** Signum's ParseDocument. */
     static parseDocument(diagramXml: string): XmlElement {
         return parseXmlDocument(diagramXml).root;
     }
 
-    /** Signum's GetXDocument().ToString(). */
     async getDocumentText(): Promise<string> {
         const processes: XmlElement[] = [];
         for (const pb of this.pools.values())
@@ -1003,7 +993,7 @@ export class WorkflowBuilder {
             async (_id, mf, omf) => { await applyConnectionXml(omf.entity, mf, locator); });
     }
 
-    /** Signum's PreviewChanges — which activities would lose their case activities, and what the new nodes
+    /** Which activities would lose their case activities, and what the new nodes
      *  the user can move them to are. */
     async previewChanges(document: XmlElement, model: WorkflowModel): Promise<WorkflowReplacementModel> {
         const oldTasks = [...this.pools.values()].flatMap(p => p.getAllActivities()).map(a => a.entity);
@@ -1044,7 +1034,7 @@ export class WorkflowBuilder {
         });
     }
 
-    /** Signum's Clone — a whole new workflow, nodes and connections, with a fresh "Copy of …" name. */
+    /** A whole new workflow, nodes and connections, with a fresh "Copy of …" name. */
     async clone(): Promise<WorkflowEntity> {
         const newName = await findFreeCopyName(this.workflow.name);
 
@@ -1089,7 +1079,7 @@ export class WorkflowBuilder {
         return newWorkflow;
     }
 
-    /** Signum's Delete — the whole workflow: connections, nodes, lanes, pools, cases. */
+    /** The whole workflow: connections, nodes, lanes, pools, cases. */
     async deleteAll(): Promise<void> {
         await table(WorkflowConnectionEntity).filter(a => a.from.lane.pool.workflow.is(this.workflow)).executeDelete();
         await table(WorkflowConnectionEntity).filter(a => a.to.lane.pool.workflow.is(this.workflow)).executeDelete();
@@ -1105,7 +1095,7 @@ export class WorkflowBuilder {
         return [...this.messageFlows, ...[...this.pools.values()].flatMap(p => p.getSequenceFlows())];
     }
 
-    /** Signum's ValidateGraph — build a WorkflowNodeGraph out of the IN-MEMORY builder state and validate
+    /** Build a WorkflowNodeGraph out of the IN-MEMORY builder state and validate
      *  it, FIXING any gateway whose direction disagrees with its fan-in/fan-out. */
     async validateGraph(issuesContainer: WorkflowIssue[]): Promise<void> {
         const lanes = [...this.pools.values()].flatMap(p => p.getLanes());
@@ -1137,7 +1127,7 @@ export class WorkflowBuilder {
     }
 }
 
-// ---- applyXml (Signum's NodeEntityExtensions) ----------------------------------------------------------
+// ---- applyXml: fold one diagram element back onto its node ---------------------------------------------
 
 async function applyPoolXml(wp: WorkflowPoolEntity, participant: XmlElement, locator: Locator): Promise<WorkflowPoolEntity> {
     const bpmnElementId = participant.getAttribute("id")!;
@@ -1195,8 +1185,8 @@ async function applyActivityXml(wa: WorkflowActivityEntity, activity: XmlElement
     if (model != null) {
         wa.setModel(model);
 
-        // The boundary timers Signum synchronizes through its virtual MList; altea saves them itself (they
-        // are first-class events pointing back at the activity — see data/WorkflowNodes.ts).
+        // The boundary timers are saved HERE (Signum synchronizes them through its virtual MList): they are
+        // first-class events pointing back at the activity — see data/WorkflowNodes.ts.
         const oldTimers = new Map(wa.boundaryTimers.map(a => [a.bpmnElementId, a]));
         const timers = new Map(model.boundaryTimers.map(a => [a.bpmnElementId, a]));
 
@@ -1267,7 +1257,8 @@ async function applyConnectionXml(wc: WorkflowConnectionEntity, flow: XmlElement
     if (name != null)
         name = name.tryBeforeLast(":") ?? name;
 
-    // Signum shows an Exclusive split's evaluation order INSIDE the connection's label ("name: 3").
+    // An Exclusive split's evaluation order is shown INSIDE the connection's label ("name: 3") — a diagram
+    // convention, so it is Signum's and stays.
     if (model?.order != null)
         name = name + ": " + model.order;
 
@@ -1288,7 +1279,7 @@ async function applyConnectionXml(wc: WorkflowConnectionEntity, flow: XmlElement
     return wc;
 }
 
-/** Signum's LaneBuilder.MoveCasesAndDelete — the replacement the user picked, or a plain delete. */
+/** The replacement the user picked, or a plain delete. */
 async function moveCasesAndDelete(node: IWorkflowNodeEntity, locator: Locator): Promise<void> {
     if (await mover.hasCaseActivities(node)) {
         if (locator.hasReplacement(node.toLite())) {
@@ -1346,7 +1337,7 @@ async function findFreeCopyName(name: string): Promise<string> {
     throw new Error("Impossible to find a free name for a copy of " + name);
 }
 
-/** A Map lookup that FAILS LOUDLY (Signum's Dictionary.GetOrThrow). */
+/** A Map lookup that FAILS LOUDLY. */
 function mapGet<V>(map: Map<string, V>, key: string, what: string): V {
     const value = map.get(key);
     if (value == null)

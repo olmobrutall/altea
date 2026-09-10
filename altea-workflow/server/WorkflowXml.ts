@@ -64,7 +64,7 @@ const A = "@_"; // fast-xml-parser attribute prefix
 // ---- The five simple assets ----------------------------------------------------------------------------
 //
 // Signum puts a ToXml / FromXml pair on each of these entities; the four NAMED evaluator assets share the
-// same three fields (name + mainEntityType + the symbol that replaces Signum's script), so each registration
+// same three fields (name + mainEntityType + the script), so each registration
 // is three lines over a shared pair of helpers.
 
 export function registerWorkflowXml(): void {
@@ -133,7 +133,7 @@ function evaluatorToXml(name: string, mainEntityType: TypeEntity, ev: { script: 
     return {
         [A + "Name"]: name,
         [A + "MainEntityType"]: mainEntityType.cleanName,
-        // Signum's `<Eval><Script><![CDATA[…]]></Script></Eval>`.
+        // `<Eval><Script><![CDATA[…]]></Script></Eval>`.
         Eval: { Script: { "#cdata": ev.script } },
     };
 }
@@ -362,7 +362,7 @@ async function workflowFromXml(workflow: WorkflowEntity, xml: Record<string, unk
     if (workflow.isNew)
         await workflow.save();
 
-    // The existing graph, keyed by bpmn element id (Signum's six dictionaries).
+    // The existing graph, keyed by bpmn element id.
     const pools = new Map((await CaseQueries.workflowPools(workflow).toArray()).map(a => [a.bpmnElementId, a]));
     const lanes = new Map((await Promise.all([...pools.values()].map(p => CaseQueries.poolLanes(p).toArray())))
         .flat().map(a => [a.bpmnElementId, a]));
@@ -371,7 +371,7 @@ async function workflowFromXml(workflow: WorkflowEntity, xml: Record<string, unk
     const gateways = new Map((await CaseQueries.workflowGateways(workflow).toArray()).map(a => [a.bpmnElementId, a]));
     const connections = new Map((await CaseQueries.workflowConnections(workflow).toArray()).map(a => [a.bpmnElementId, a]));
 
-    // Signum nests six `using (Sync(...))` blocks so every CREATE happens outermost-first and every DELETE
+    // Six nested `sync(...)` scopes, so every CREATE happens outermost-first and every DELETE
     // innermost-first. altea does the same with two explicit passes per level, in the same order.
     const poolXmls = byBpmnId(xml["Pool"]);
     const laneXmls = byBpmnId(xml["Lane"]);
@@ -501,7 +501,7 @@ async function workflowFromXml(workflow: WorkflowEntity, xml: Record<string, unk
         async (id, p) => { pools.delete(id); await Operations.delete(p, WorkflowPoolOperation.Delete); },
         undefined);
 
-    // Signum finishes with `workflow.Execute(WorkflowOperation.Save)` when anything changed; the importer
+    // The import finishes with the workflow's own Save operation when anything changed; the importer
     // calls the registered save for us, so this only refreshes the redundant full-diagram copy.
     await Operations.execute(workflow, WorkflowOperation.Save);
 }

@@ -7,16 +7,16 @@ import { WorkflowEventTaskActionEval, WorkflowEventTaskConditionEval } from "../
 // Port of Signum.Workflow's Workflow/WorkflowEventTaskConditionComponent.tsx and
 // WorkflowEventTaskActionComponent.tsx — the two script editors a scheduled start carries. They live in one
 // file here because they are four lines each, and both the ENTITY editor (WorkflowEventTask.tsx) and the
-// event dialog's inline MODEL editor (WorkflowEventModel.tsx) render them, exactly as in Signum.
+// event dialog's inline MODEL editor (WorkflowEventModel.tsx) render them.
 //
 // altea divergences:
-//  - the editor is TypeScript rather than C# (see @altea/altea-eval's EvalLine), and Signum's TypeHelp tree
+//  - the editor is TypeScript rather than C# (see @altea/altea-eval's EvalLine), and the TypeHelp tree
 //    and its "CreateCase" helper button go with it.
 //  - the ACTION returns the entities to create cases for, where Signum's script calls a generated
 //    `CreateCase(entity)` — a C# method body cannot be an expression, a TypeScript one can. See
 //    WorkflowEventTaskActionEval.
 
-/** Signum's WorkflowEventTaskConditionComponent — `public bool CustomCondition()`. */
+/** `public bool CustomCondition()`. */
 export function EventTaskConditionLine(p: { ctx: TypeContext<WorkflowEventTaskConditionEval | null> }): React.JSX.Element {
     return (
         <EntityDetail ctx={p.ctx} remove={false}
@@ -25,7 +25,7 @@ export function EventTaskConditionLine(p: { ctx: TypeContext<WorkflowEventTaskCo
     );
 }
 
-/** Signum's WorkflowEventTaskActionComponent — `public void CustomAction()`, which created the cases. */
+/** `public void CustomAction()`, which created the cases. */
 export function EventTaskActionLine(p: { ctx: TypeContext<WorkflowEventTaskActionEval | null> }): React.JSX.Element {
     return (
         <EntityDetail ctx={p.ctx} remove={false}

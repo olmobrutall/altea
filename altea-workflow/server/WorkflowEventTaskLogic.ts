@@ -41,7 +41,7 @@ import {
 // and the "what to open cases for" action.
 //
 // altea divergences:
-//  - Signum installs `WorkflowEventTaskModel.GetModel` / `.ApplyModel` as STATICS on the data class (the
+//  - `getModel` / `applyModel` live HERE, where Signum installs them as STATICS on the data class (the
 //    entity assembly cannot see the engine). altea keeps the same two functions but INJECTS them into the
 //    builder (setGetWorkflowEventTaskModel / setApplyWorkflowEventTaskModel), so the data layer stays free of
 //    server hooks.
@@ -101,7 +101,7 @@ export namespace WorkflowEventTaskLogic {
         EvalLogic.registerEvalSource(WorkflowEventTaskEntity.niceName(), async () =>
             (await table(WorkflowEventTaskEntity).toArray()).filter(t => t.condition != null || t.action != null));
 
-        // Signum hangs this off PreUnsafeDelete; altea's event has the same shape.
+        // Hung off preUnsafeDelete.
         sb.schema.entityEvents(WorkflowEventTaskEntity).preUnsafeDelete.push(async query => {
             // A nested query inside a quoted filter has no translation, so the ids are read first and the
             // delete filters on them (the shape ToolbarLogic.registerDelete uses).
@@ -158,7 +158,7 @@ export namespace WorkflowEventTaskLogic {
         };
     }
 
-    /** Signum's `WorkflowEventTaskEntity.GetWorkflow()` — the full workflow behind the task's lite. */
+    /** The full workflow behind the task's lite. */
     export async function getWorkflow(wet: WorkflowEventTaskEntity): Promise<WorkflowEntity> {
         if (wet.fullWorkflow != null)
             return wet.fullWorkflow;
@@ -170,7 +170,7 @@ export namespace WorkflowEventTaskLogic {
         return g.workflow;
     }
 
-    /** Signum's `WorkflowEventTaskModel.GetModel` — read the scheduler side of a Scheduled Start event. */
+    /** Read the scheduler side of a Scheduled Start event. */
     export async function getModel(event: WorkflowEventEntity): Promise<WorkflowEventTaskModel | null> {
         if (!isScheduledStart(event.type))
             return null;
@@ -188,7 +188,7 @@ export namespace WorkflowEventTaskLogic {
         });
     }
 
-    /** Signum's `WorkflowEventTaskModel.ApplyModel` — write it back, creating or dropping the ScheduledTask. */
+    /** Write it back, creating or dropping the ScheduledTask. */
     export async function applyModel(event: WorkflowEventEntity, model: WorkflowEventTaskModel | null): Promise<void> {
         const schedule = event.isNew ? null : await CaseQueries.scheduledTask(event);
 
@@ -236,7 +236,7 @@ export namespace WorkflowEventTaskLogic {
         }
     }
 
-    /** Signum's CloneScheduledTasks — cloning a workflow clones the scheduled tasks of its start events. */
+    /** Cloning a workflow clones the scheduled tasks of its start events. */
     export async function cloneScheduledTasks(oldEvent: WorkflowEventEntity, newEvent: WorkflowEventEntity): Promise<void> {
         const task = await table(WorkflowEventTaskEntity).singleOrNull(a => a.event.is(oldEvent));
         if (task == null)
@@ -273,7 +273,7 @@ export namespace WorkflowEventTaskLogic {
     }
 
     /**
-     * Signum's ExecuteTask — the scheduled sweep: check the condition, ask the action which entities to open
+     * The scheduled sweep: check the condition, ask the action which entities to open
      * cases for, and return what to show (one case activity, or a Package of many).
      */
     export async function executeTask(wet: WorkflowEventTaskEntity): Promise<Lite<Entity> | null> {
@@ -317,7 +317,7 @@ export namespace WorkflowEventTaskLogic {
         });
     }
 
-    /** Signum's EvaluateCondition — including the "changes to true" bookkeeping. */
+    /** Including the "changes to true" bookkeeping. */
     async function evaluateCondition(task: WorkflowEventTaskEntity): Promise<boolean> {
         if (task.triggeredOn === TriggeredOn.Always)
             return true;
@@ -336,7 +336,7 @@ export namespace WorkflowEventTaskLogic {
         return result && (last == null || !last.result);
     }
 
-    // Signum registers this ConstructFrom in CaseActivityLogic's graph; altea registers it HERE, because
+    // Registered HERE rather than in CaseActivityLogic's graph, because
     // its SOURCE type is WorkflowEventTaskEntity (a ConstructFrom is owned by its source — see CLAUDE.md)
     // and this is the module that knows both sides.
     function registerCaseOperations(op: FluentOperations<CaseEntity>): void {

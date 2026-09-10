@@ -33,7 +33,7 @@ import { ScheduledTaskEntity } from "@altea/altea-scheduler/data/Scheduler";
  * query tokens for the UI *and* the working data of `executeStep` / the timeout sweep / the case-flow builder.
  *
  * So each quoted member gets a plain query twin here, with the SAME body. The quoted members stay exactly as
- * Signum declares them (they are what the query tokens are built from); the engine calls these.
+ * declared (they are what the query tokens are built from); the ENGINE calls these.
  */
 export namespace CaseQueries {
 
@@ -78,7 +78,7 @@ export namespace CaseQueries {
         return table(CaseEntity).filter(sc => sc.parentCase!.is(c));
     }
 
-    /** The activity of the PARENT case that spawned this one (Signum's DecompositionSurrogateActivity). */
+    /** The activity of the PARENT case that spawned this one. */
     export function decompositionSurrogateActivity(c: CaseEntity): Promise<CaseActivityEntity> {
         return caseActivities(c).orderBy(ca => ca.startDate).map(a => a.previous!.entity).first();
     }

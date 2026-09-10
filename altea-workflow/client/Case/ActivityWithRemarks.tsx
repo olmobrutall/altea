@@ -12,9 +12,9 @@ import InlineCaseTags from "./InlineCaseTags";
 // Port of Signum.Workflow's Case/ActivityWithRemarks.tsx — the Inbox's "Activity" cell: the activity's name,
 // a personal-remarks button, and the case's tags.
 //
-// altea divergences: the remarks prompt is a local RemarksModal (altea has no AutoLineModal). Signum also
+// The remarks prompt is a local RemarksModal (there is no AutoLineModal). Signum also
 // shows an ALERT count (a bell linking to the user's alerts on this activity);
-// there is no altea counterpart of Signum.Alerts, so the DTO has no `alerts` and the bell is gone. The tags
+// this module does not depend on @altea/altea-alert, so the DTO has no `alerts` and the bell is gone. The tags
 // arrive empty from the Inbox query (see CaseActivityLogic's header), so InlineCaseTags fetches them.
 
 export default function ActivityWithRemarksComponent(p: { data: ActivityWithRemarks }): React.JSX.Element {

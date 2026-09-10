@@ -14,17 +14,19 @@ import type { IQuery } from "@altea/altea/data/iquery";
 import { WorkflowEntity } from "./Workflow";
 import type { CaseActivityEntity } from "./CaseActivity";
 
-// Port of Signum.Workflow's Case.cs — a CASE is one RUN of a workflow over one MAIN ENTITY. The main entity
+// Port of Signum.Workflow's Case.cs — see docs/port/Workflow.md.
+//
+// A CASE is one RUN of a workflow over one MAIN ENTITY. The main entity
 // is the app's own business object (an order, a request), reached through `ICaseMainEntity`; the case adds
 // the history, the tags and the parent link that decompositions need.
 
 /**
- * Signum's ICaseMainEntity — the marker an app entity implements to be workflow-able. Registered with
+ * The marker an app entity implements to be workflow-able. Registered with
  * `sb.include(X).withWorkflow(…)`, which is what supplies the constructor and the save.
  *
  * altea has no IEntity, so this extends the `Entity` CLASS (the shape data/security.ts uses for IUserEntity).
  *
- * The four members are Signum's EXTENSION METHODS on ICaseMainEntity (CaseActivityLogic.cs). altea cannot key
+ * The four members are EXTENSION METHODS on ICaseMainEntity there. An extension token cannot be keyed
  * an extension token on an interface, so `withWorkflow` attaches them to each concrete main-entity type's
  * prototype and registers them there — which is exactly why they are declared OPTIONAL here: they exist only
  * once the type has been registered, and a required member would force four stub methods onto every app entity
@@ -53,7 +55,7 @@ export class CaseEntity extends Entity {
     @stringLengthValidator({ min: 1, max: 100 })
     description: string;
 
-    /** Any app entity may be the subject of a case, so this is genuinely open (Signum's ImplementedByAll). */
+    /** Any app entity may be the subject of a case, so this is genuinely open. */
     @implementedByAll
     mainEntity: ICaseMainEntity;
 
@@ -61,7 +63,7 @@ export class CaseEntity extends Entity {
 
     finishDate: Temporal.PlainDateTime | null;
 
-    // Signum's `[AutoExpressionField] ToString() => As.Expression(() => Description)` — an EXPRESSION
+    // An EXPRESSION
     // over a column of this same row, so it is expanded inline and the table has no ToStr column.
     @quoted
     toString(): string {

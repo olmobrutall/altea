@@ -7,7 +7,7 @@ import { WorkflowActivityEntity, type WorkflowConnectionEntity } from "../data/W
 // (`WorkflowActivityInfo.current().is("Order approval", "Approve")`), and so the CaseActivityMixin can stamp
 // whatever the step produces.
 //
-// altea divergence: Signum backs it with an `AsyncThreadVariable` + an IDisposable scope; altea uses a Node
+// Backed by a Node
 // AsyncLocalStorage, exactly as `UserHolder` and `systemTime` do — concurrent requests each get their own.
 // `Scope(...)` (a `using`) becomes `withScope(info, fn)`, which is why every engine call site that used to
 // open a `using` block now wraps its body in a callback.
@@ -24,12 +24,12 @@ const storage = new AsyncLocalStorage<WorkflowActivityInfo>();
 
 export namespace WorkflowActivityInfo {
 
-    /** Signum's `WorkflowActivityInfo.Current` — never null (an empty info outside any scope). */
+    /** Never null (an empty info outside any scope). */
     export function current(): WorkflowActivityInfo {
         return storage.getStore() ?? empty;
     }
 
-    /** Signum's `WorkflowActivityInfo.Scope(wa)`, as a callback scope. */
+    /** A CALLBACK scope, since an AsyncLocalStorage cannot be entered without one. */
     export function withScope<R>(info: Partial<WorkflowActivityInfo>, fn: () => R): R {
         return storage.run({ ...empty, ...info }, fn);
     }
@@ -42,7 +42,7 @@ export namespace WorkflowActivityInfo {
     }
 
     /**
-     * Signum's `WorkflowActivityInfo.Is(workflowName, activityName)` — "am I inside THIS step of THAT
+     * "am I inside THIS step of THAT
      * workflow?", the check app code uses to branch inside a shared save.
      *
      * Signum also validates these two strings at COMPILE time (`WorkflowLogic.GetCustomErrors` scans the

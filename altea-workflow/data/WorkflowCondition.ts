@@ -37,7 +37,7 @@ export class WorkflowConditionEntity extends Entity implements IUserAssetEntity 
     }
 }
 
-/** Signum's WorkflowConditionEval — the script behind "may this connection be taken?". */
+/** The script behind "may this connection be taken?". */
 @reflect
 export class WorkflowConditionEval extends EvalEmbedded<IWorkflowConditionEvaluator> {
     protected override compile(): CompilationResult<IWorkflowConditionEvaluator> {

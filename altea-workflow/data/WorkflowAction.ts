@@ -33,7 +33,7 @@ export class WorkflowActionEntity extends Entity implements IUserAssetEntity {
     }
 }
 
-/** Signum's WorkflowActionEval — the script run while taking a connection. */
+/** The script run while taking a connection. */
 @reflect
 export class WorkflowActionEval extends EvalEmbedded<IWorkflowActionExecutor> {
     protected override compile(): CompilationResult<IWorkflowActionExecutor> {
