@@ -24,7 +24,7 @@ import { DynamicTypeEntity } from "./DynamicType";
 @reflect
 export class DynamicIsolationMixin extends MixinEntity {
 
-    /** Signum's `IsolationStrategy IsolationStrategy { get; set; } = IsolationStrategy.None`. */
+    /** Defaults to `None`, as Signum's does. */
     @stringLengthValidator({ max: 20 })
     @validate<DynamicIsolationMixin>((e, fi) =>
         isolationStrategies.includes(e.isolationStrategy as IsolationStrategy) ? null
@@ -40,8 +40,8 @@ export namespace DynamicIsolationMixin {
     let declared = false;
 
     /**
-     * Declare the mixin on DynamicTypeEntity (Signum's `MixinDeclarations.Register<DynamicTypeEntity,
-     * DynamicIsolationMixin>()`, which its APP calls — nothing in Signum.Dynamic does).
+     * Declare the mixin on DynamicTypeEntity. The APP calls this, as it calls Signum's
+     * `MixinDeclarations.Register` — nothing in Signum.Dynamic does it either.
      *
      * Idempotent, and it must run on BOTH TIERS before anything is (de)serialized or the schema is built:
      * it is what tells the serializer and the schema builder that the field exists. Put the call next to

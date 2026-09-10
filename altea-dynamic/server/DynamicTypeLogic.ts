@@ -54,7 +54,7 @@ import { DynamicCodeCompiler, type GeneratedModule } from "./DynamicCodeCompiler
 //    operations for it), but Signum's `TreeOperation.CreateRoot` branch is left out: the tree module owns
 //    those and generated code should not re-register them.
 
-/** Signum's `GetTableName` hook — where a generated type's table goes if the definition does not say. */
+/** Where a generated type's table goes if the definition does not say. */
 export let getTableName: (dt: DynamicTypeEntity, def: DynamicTypeDefinition) => string =
     (dt, _def) => "codegen." + dt.typeName;
 
@@ -77,15 +77,15 @@ export namespace DynamicTypeLogic {
 
                 op.withConstructFrom(DynamicTypeEntity, DynamicTypeOperation.Clone, {
                     construct: e => {
-                        // Signum leaves the NAME empty on a clone — two types cannot share one — and
-                        // copies the definition verbatim.
+                        // The NAME is left empty on a clone (two types cannot share one); the definition
+                        // is copied verbatim.
                         const result = DynamicTypeEntity.create({ baseType: e.baseType });
                         result.setDefinition(e.getDefinition());
                         return result;
                     },
                 });
 
-                // `canBeNew`, as in Signum: the first save of a type is the point.
+                // `canBeNew`: the first save of a type is the point.
                 op.withSave(DynamicTypeOperation.Save, { canBeNew: true });
                 op.withDelete(DynamicTypeOperation.Delete);
             });
@@ -102,7 +102,7 @@ export namespace DynamicTypeLogic {
      * Read with `ExecutionMode.global()` and TOLERATING both a missing table and a type-cache MISMATCH,
      * because this runs while the schema is being BUILT — which makes both expected rather than faults:
      *
-     *  - before the first `sync` the table does not exist (Signum's own `ExistsTable` check);
+     *  - before the first `sync` the table does not exist;
      *  - the read needs TypeLogic's type↔id caches, and building those compares the database's `type` rows
      *    against the schema's types. At this moment the schema deliberately does NOT yet contain the
      *    dynamic types — generating them is what this read is for — so every one of them looks "Extra" and
@@ -113,7 +113,7 @@ export namespace DynamicTypeLogic {
      *
      * Signum needs none of this: its type cache is built in `Schema.Initialize`, and a plain
      * `Database.Query` during `Start` does not consult it. It does globally disable the entity CACHE,
-     * which altea has no need to: caching a type nobody has generated yet cannot have happened.
+     * which is unnecessary here: caching a type nobody has generated yet cannot have happened.
      */
     /**
      * What a generator needs to know about one DynamicType row.
@@ -161,12 +161,12 @@ export namespace DynamicTypeLogic {
         return result;
     }
 
-    /** Signum's `WriteDynamicStarter` — the lines the generated starter calls, one per type. */
+    /** The lines the generated starter calls, one per type. */
     export function writeDynamicStarter(types: DynamicTypeInfo[]): string[] {
         return types.map(t => `${t.typeName}Logic.start(sb);`);
     }
 
-    /** Signum's `GetCodeFiles`: two modules per type, plus the shared before-schema module. */
+    /** Two modules per type, plus the shared before-schema module. */
     export function getCodeFiles(types: DynamicTypeInfo[]): GeneratedModule[] {
         const result: GeneratedModule[] = [];
 
@@ -195,7 +195,7 @@ export namespace DynamicTypeLogic {
         return result;
     }
 
-    /** Signum's static `GetPropertyType` — what the client's editor previews for a property. */
+    /** What the client's editor previews for a property. */
     export function propertyType(property: DynamicProperty): string {
         return new DynamicTypeCodeGenerator("", DynamicBaseType.Entity, emptyDefinition())
             .getPropertyType(property);
@@ -205,7 +205,7 @@ export namespace DynamicTypeLogic {
 // ---- imports -------------------------------------------------------------------------------------------
 
 /**
- * The import block a generated module needs, in place of Signum's `using` list.
+ * The import block a generated module needs, in place of a C# `using` list.
  *
  * The point of the class is that a caller never states a specifier for a TYPE: `type(name)` looks the type
  * up in the reflection registry and reads the module off the `__fileInfo` the transformer stamped, which
@@ -289,7 +289,6 @@ function specifierOf(packageName: string, fileName: string): string {
 
 // ---- the ENTITY module ---------------------------------------------------------------------------------
 
-/** Signum's DynamicTypeCodeGenerator. */
 export class DynamicTypeCodeGenerator {
 
     readonly imports = new Imports();
@@ -361,10 +360,8 @@ export class DynamicTypeCodeGenerator {
     }
 
     /**
-     * Signum's GetEntityOperation.
-     *
-     * The symbols are `init()`, and the transformer supplies each key — see the header. Signum's two
-     * `requiresSaveOperation` assertions are kept verbatim: a kind that requires a Save and does not
+     * The symbols are `init()`, and the transformer supplies each key — see the header. The two
+     * `requiresSaveOperation` assertions are Signum's verbatim: a kind that requires a Save and does not
      * declare one (or the reverse) is a definition error, and hearing it here beats hearing it from the
      * schema builder.
      */
@@ -421,7 +418,7 @@ export class DynamicTypeCodeGenerator {
         return name;
     }
 
-    /** Signum's GetToString — here one `@quoted` decorator instead of a static expression field. */
+    /** One `@quoted` decorator, where Signum writes a static expression field. */
     getToString(): string | null {
         if (this.def.toStringExpression == null)
             return null;
@@ -437,7 +434,7 @@ export class DynamicTypeCodeGenerator {
                     this.baseType === DynamicBaseType.ModelEntity ? "Model" : "Entity");
     }
 
-    /** Signum's GetEntityAttributes, one decorator per line. */
+    /** The CLASS-level decorators, one per line. */
     private getEntityDecorators(): string[] {
         const result: string[] = [];
         const def = this.def;
@@ -461,8 +458,8 @@ export class DynamicTypeCodeGenerator {
         }
 
         if (def.ticks != null) {
-            // Signum's [TicksColumn(bool, Name =, Type =)]; altea's takes the flag only, for the same
-            // reason as the primary key.
+            // `@ticksColumn` takes the FLAG only, for the same reason as the primary key (Signum's
+            // [TicksColumn] also takes a name and a type).
             this.imports.add("@altea/altea/data/decorators", "ticksColumn");
             result.push(`ticksColumn(${def.ticks.hasTicks === true})`);
         }
@@ -471,11 +468,10 @@ export class DynamicTypeCodeGenerator {
     }
 
     /**
-     * Signum's WriteProperty — one plain property, where Signum writes a backing field and a Get/Set pair.
+     * ONE plain property, where Signum writes a backing field and a Get/Set pair.
      *
      * A collection is a `T[]` of the generated row type; it needs NO initializer, because the transformer
-     * seeds a reflected array with `[]` (see CLAUDE.md on not restating defaults) — Signum's
-     * ` = new MList<T>()` has no counterpart.
+     * seeds a reflected array with `[]` (see CLAUDE.md on not restating defaults).
      */
     writeProperty(property: DynamicProperty): string {
         if (property.name == null || property.name === "")
@@ -488,11 +484,11 @@ export class DynamicTypeCodeGenerator {
     }
 
     /**
-     * The `@part` row type behind a collection property — altea's stand-in for Signum's MList table.
+     * The `@part` row type behind a collection property — the stand-in for Signum's MList table.
      *
      * `@backReference` points at the owner and `@rowOrder` preserves the order, which is exactly what
      * Signum's MList table stores; a collection of VALUES or LITES carries the element on a `@valueField`,
-     * the shape altea uses wherever Signum has an MList of a non-embedded (see CLAUDE.md).
+     * the shape used wherever Signum has an MList of a non-embedded (see CLAUDE.md).
      */
     writeMListRow(property: DynamicProperty): string {
         const mlist = property.isMList!;
@@ -547,16 +543,15 @@ export class DynamicTypeCodeGenerator {
         return base;
     }
 
-    /** Signum's GetPropertyAttributes — the PROPERTY-level decorators (validators, unit, format). */
+    /** The PROPERTY-level decorators (validators, unit, format). */
     private getPropertyDecorators(property: DynamicProperty): string[] {
         const result: string[] = [];
 
         for (const v of property.validators ?? [])
             result.push(this.getValidatorDecorator(v));
 
-        // Signum adds a NotNull for OnlyInMemory when the author declared none. altea adds an IMPLICIT
-        // NotNull to every non-nullable field, so this is only needed for the OnlyInMemory case — where
-        // the TypeScript type IS nullable but the column is not.
+        // Every non-nullable field gets an IMPLICIT NotNull, so an explicit one is needed only for the
+        // OnlyInMemory case — where the TypeScript type IS nullable but the column is not.
         if (property.isNullable === "OnlyInMemory"
             && !(property.validators ?? []).some(v => v.type === "NotNull"))
             result.push(this.getValidatorDecorator({ type: "NotNull" }));
@@ -571,8 +566,8 @@ export class DynamicTypeCodeGenerator {
             result.push(`format(${literal(property.format)})`);
         }
 
-        // Signum's `NotifyChanges` → `[BindParent]` has NO counterpart: altea tracks changes by comparing
-        // against a snapshot of the whole graph, so a child does not need a parent pointer to report one.
+        // `NotifyChanges` → `[BindParent]` has NO counterpart: changes are tracked by comparing against a
+        // SNAPSHOT of the whole graph, so a child needs no parent pointer to report one.
 
         if (property.customPropertyAttributes != null && property.customPropertyAttributes !== "")
             result.push(property.customPropertyAttributes);
@@ -582,8 +577,6 @@ export class DynamicTypeCodeGenerator {
     }
 
     /**
-     * Signum's GetValidatorAttribute.
-     *
      * One function where Signum has a class per validator plus an `ExtraArguments()` override, because a
      * discriminated union carries its own arguments — everything but `type` IS the option bag, which is
      * also exactly the shape altea's validator decorators take.
@@ -595,8 +588,8 @@ export class DynamicTypeCodeGenerator {
         const { type: _ignored, ...options } = v as Record<string, unknown>;
         const entries = Object.entries(options).filter(([, value]) => value != null);
 
-        // Signum's positional-argument validators. altea's take an options object, except the two whose
-        // first arguments are genuinely positional.
+        // A validator decorator takes an OPTIONS object, except the two whose first arguments are
+        // genuinely positional (Signum's are all positional).
         if (v.type === "NumberIs" || v.type === "CountIs") {
             const o = v as { comparisonType: unknown; number: unknown };
             return `${name}(${literal(o.comparisonType)}, ${literal(o.number)})`;
@@ -608,14 +601,14 @@ export class DynamicTypeCodeGenerator {
         return `${name}({ ${entries.map(([k, value]) => `${k}: ${literal(value)}`).join(", ")} })`;
     }
 
-    /** Signum's GetFieldAttributes — the COLUMN-level decorators. */
+    /** The COLUMN-level decorators. */
     private getFieldDecorators(property: DynamicProperty): string[] {
         const result: string[] = [];
         const column: string[] = [];
 
         if (property.isNullable === "OnlyInMemory") {
-            // Signum's [ForceNotNullable]. altea spells the inverse (`@forceNullable`), so a column that is
-            // NOT NULL while the member is nullable is expressed by the column option.
+            // `@forceNullable` spells the INVERSE of Signum's [ForceNotNullable], so a column that is NOT
+            // NULL while the member is nullable is expressed by the column option.
             column.push("nullable: false");
         }
 
@@ -629,7 +622,7 @@ export class DynamicTypeCodeGenerator {
             column.push(`scale: ${literal(property.scale)}`);
 
         if (property.columnType != null && property.columnType !== "") {
-            // Signum decides between SqlDbType and a user-defined type name; altea carries both dialects'
+            // Signum decides between SqlDbType and a user-defined type name; both dialects' names are carried
             // spellings, and a generated definition names one column type, so it goes to both.
             column.push(`sqlDbType: ${literal(property.columnType)}`);
             column.push(`pgDbType: ${literal(property.columnType)}`);
@@ -641,7 +634,7 @@ export class DynamicTypeCodeGenerator {
         }
 
         if (property.uniqueIndex !== "No") {
-            // Signum treats Yes and YesAllowNull the same here (both emit [UniqueIndex]); altea's
+            // Signum treats Yes and YesAllowNull the same here (both emit [UniqueIndex]); the
             // field-level `@uniqueIndex` likewise, since "allow null" is the column's own nullability.
             this.imports.add("@altea/altea/data/decorators", "uniqueIndex");
             result.push("uniqueIndex");
@@ -653,7 +646,6 @@ export class DynamicTypeCodeGenerator {
         return result;
     }
 
-    /** Signum's GetPropertyType. */
     getPropertyType(property: DynamicProperty): string {
         if (property.type == null || property.type === "")
             return "";
@@ -676,7 +668,7 @@ export class DynamicTypeCodeGenerator {
     }
 
     /**
-     * Signum's SimplifyType — there, dropping a namespace already in the `using` list. Here it maps a
+     * Signum's SimplifyType drops a namespace already in the `using` list. Here it maps a
      * declared type name onto the TypeScript one and records the import it needs.
      */
     simplifyType(type: string): string {
@@ -712,7 +704,6 @@ export class DynamicTypeCodeGenerator {
 
 // ---- the LOGIC module ----------------------------------------------------------------------------------
 
-/** Signum's DynamicTypeLogicGenerator. */
 export class DynamicTypeLogicGenerator {
 
     readonly imports = new Imports();
@@ -772,7 +763,7 @@ export class DynamicTypeLogicGenerator {
         return lines.length === 0 ? "// nothing to register" : lines.join("\n");
     }
 
-    /** Signum's GetInclude — the fluent `sb.include(X)…` chain. */
+    /** The fluent `sb.include(X)…` chain. */
     private getInclude(): string {
         const t = this.typeName;
         this.imports.addSideEffect("@altea/altea/server/fluentOperations");
@@ -785,7 +776,7 @@ export class DynamicTypeLogicGenerator {
 
         if (!this.isTreeEntity) {
             // A DEFAULT body only. An operation whose body the author wrote is registered below, in
-            // registerComplexOperations, exactly as Signum splits them.
+            // registerComplexOperations, the split Signum makes too.
             if (this.def.operationSave != null && isBlank(this.def.operationSave.execute)) {
                 this.imports.add(entityModule, `${t}Operation`);
                 lines.push(`    .withSave(${t}Operation.Save)`);
@@ -803,7 +794,7 @@ export class DynamicTypeLogicGenerator {
             lines.push(`    .withUniqueIndex(e => [${fields}]${mcui.where != null && mcui.where !== "" ? `, e => ${mcui.where}` : ""})`);
         }
 
-        // Signum's `WithQuery(() => e => new { … })` defines the query's COLUMNS on the server. altea's
+        // Signum's `WithQuery(() => e => new { … })` defines the query's COLUMNS on the server. The
         // server `withQuery()` takes none: a query's shape is the ENTITY (AutoDynamicQueryCore), and which
         // columns a search shows by default is a CLIENT setting (`withQuerySettings`). So `queryFields`
         // does not belong here — it is emitted by the generated CLIENT module, which is also the only tier
@@ -814,10 +805,10 @@ export class DynamicTypeLogicGenerator {
     }
 
     /**
-     * Signum's RegisterComplexOperations — the operations whose bodies the author wrote.
+     * The operations whose bodies the author wrote.
      *
      * They go on the SAME include (`sb.include` is idempotent, so reaching it again costs nothing), which
-     * is how altea declares operations at all. Signum's `Graph<X>.Construct…Register(replace: true)` has no
+     * is how operations are declared at all. Signum's `Graph<X>.Construct…Register(replace: true)` has no
      * counterpart here because nothing registered them first.
      */
     private registerComplexOperations(): string | null {
@@ -863,7 +854,7 @@ export class DynamicTypeLogicGenerator {
 
 // ---- the before-schema module --------------------------------------------------------------------------
 
-/** Signum's DynamicBeforeSchemaGenerator — every definition's `customBeforeSchema`, in one module. */
+/** Every definition's `customBeforeSchema`, in one module. */
 export class DynamicBeforeSchemaGenerator {
 
     constructor(readonly beforeSchema: { code: string }[]) { }
@@ -888,7 +879,7 @@ export class DynamicBeforeSchemaGenerator {
 // ---- helpers -------------------------------------------------------------------------------------------
 
 /**
- * Signum's `EntityKindAttribute.CalculateRequiresSaveOperation`: which kinds must declare a Save.
+ * Which kinds must declare a Save.
  *
  * The list is Signum's — a Main / Shared / String / SystemString entity is saved through an operation, and
  * a Part / Relational one is saved through its owner.

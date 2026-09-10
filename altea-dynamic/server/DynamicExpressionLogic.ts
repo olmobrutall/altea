@@ -77,12 +77,11 @@ export namespace DynamicExpressionLogic {
         return result;
     }
 
-    /** Signum's `WriteDynamicStarter` line. */
     export function writeDynamicStarter(expressions: DynamicExpressionEntity[]): string[] {
         return expressions.length === 0 ? [] : ["CodeGenExpressionStarter.start(sb);"];
     }
 
-    /** Signum's `GetCodeFiles` — ONE module holding every expression. */
+    /** ONE module holding every expression. */
     export function getCodeFiles(expressions: DynamicExpressionEntity[]): GeneratedModule[] {
         if (expressions.length === 0)
             return [];
@@ -94,7 +93,6 @@ export namespace DynamicExpressionLogic {
     }
 }
 
-/** Signum's DynamicExpressionCodeGenerator. */
 export class DynamicExpressionCodeGenerator {
 
     constructor(readonly expressions: DynamicExpressionEntity[]) { }

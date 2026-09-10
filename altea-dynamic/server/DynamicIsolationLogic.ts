@@ -42,13 +42,12 @@ export namespace DynamicIsolationLogic {
         // generator is registered by DynamicLogic. Signum's Start is likewise only two event hookups.
     }
 
-    /** Signum's `WriteDynamicStarter` — "Nothing", verbatim: the module runs from beforeSchema, not the starter. */
+    /** Nothing: the module runs from beforeSchema, not from the starter. */
     export function writeDynamicStarter(): string[] {
         return [];
     }
 
     /**
-     * Signum's `GetCodeFiles`.
      *
      * Only the ENTITY types: an embedded / model / mixin has no table of its own, so there is nothing to
      * isolate (Signum filters the same way, `BaseType == DynamicBaseType.Entity`).
@@ -130,7 +129,6 @@ export namespace DynamicIsolationLogic {
     }
 }
 
-/** Signum's DynamicIsolationLogicGenerator. */
 export class DynamicIsolationLogicGenerator {
 
     constructor(readonly entities: Array<{ typeName: string; strategy: string }>) { }

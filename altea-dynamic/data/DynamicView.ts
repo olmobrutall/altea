@@ -11,19 +11,19 @@ import type { ConstructSymbol, ExecuteSymbol, DeleteSymbol, From } from "@altea/
 // Port of Signum.Dynamic's Views/DynamicView.cs — a view defined in the DATABASE rather than compiled into
 // the app: a tree of nodes (`viewContent`, JSON) plus an optional `locals` hook body and declared `props`.
 // Nothing here is compiled: the client INTERPRETS the tree (see client/View/NodeUtils + Nodes), which is
-// why this half of Signum.Dynamic ports at all — see the package's DynamicLogic.server.ts header.
+// why this half needs no compiler — see docs/port/Dynamic.md.
 //
 // altea divergences, documented inline:
 //  - `MList<DynamicViewPropEmbedded>` becomes a `@part` row collection (altea has no MList).
 //  - `TryGetDynamicView`, a static Func hook on the entity that the server logic fills, is not needed: the
 //    lookup lives on the server logic itself (DynamicViewLogic.tryGetDynamicView) and the entity stays a
-//    plain field bag. Signum puts it on the entity so its client-side ToString can reach it; altea's
+//    plain field bag. Signum puts it on the entity so its client-side ToString can reach it; the
 //    toString is a `@quoted` expression, which the LINQ provider lowers into SQL instead.
 
 // ---- prop rows (Signum's MList<DynamicViewPropEmbedded>) -----------------------------------------------
 
 /**
- * Signum's `DynamicViewPropEmbedded` — one declared prop of the view, so a caller can pass values into it
+ * One declared prop of the view, so a caller can pass values into it
  * (`props` in the node expressions). `type` is a TypeScript type ANNOTATION as text: it is only ever shown
  * to whoever edits the view, never parsed.
  */
@@ -40,7 +40,7 @@ export class DynamicViewEntity_Prop extends Entity {
     type: string;
 }
 
-// Signum's `ForbiddenNames` + the two PropertyValidation rules on DynamicViewPropEmbedded.Name. These are
+// The forbidden names, plus the two rules on a prop's `name`. These are
 // the identifiers the interpreter itself binds in a node expression's scope, so a prop may not shadow them.
 const forbiddenPropNames = new Set(["ctx", "initialDynamicView", "ref", "key", "children"]);
 
@@ -51,7 +51,7 @@ function propNameError(prop: DynamicViewEntity_Prop): string | null {
 
     const niceName = DynamicViewEntity_Prop.nicePropertyName(p => p.name);
 
-    // Signum's `IdentifierValidator(IdentifierType.Ascii)` plus its "should start by lowercase" rule, as one
+    // An ASCII identifier that "should start by lowercase", as one
     // check: a prop name becomes a JavaScript identifier in the generated scope.
     if (!/^[a-z][A-Za-z0-9_]*$/.test(name)) {
         if (/^[A-Za-z][A-Za-z0-9_]*$/.test(name))
@@ -67,7 +67,7 @@ function propNameError(prop: DynamicViewEntity_Prop): string | null {
 
 // ---- the three entities -------------------------------------------------------------------------------
 
-/** Signum's `DynamicViewEntity` — one named view for one entity type. */
+/** One named view for one entity type. */
 @reflect
 @entity("Main", "Master")
 @uniqueIndex<DynamicViewEntity>(v => [v.viewName, v.entityType])
@@ -78,7 +78,7 @@ export class DynamicViewEntity extends Entity {
 
     entityType: TypeEntity;
 
-    // Signum's PropertyValidation for `Props` is `NoRepeatValidatorAttribute.ByKey(Props, a => a.Name)`.
+    // No two props may share a NAME.
     // altea's `@noRepeatValidator` cannot express it: it compares a `@part` row through the row's
     // `@valueField`, and a prop row has two members and so has none — it would compare object identity and
     // never report anything. Hence a `@validate`, which receives the whole entity.
@@ -99,7 +99,7 @@ export class DynamicViewEntity extends Entity {
     }
 }
 
-/** Signum's DynamicViewEntity.PropertyValidation for `Props` (NoRepeatValidatorAttribute.ByKey). */
+/** No two props may share a name. */
 function noRepeatedPropNames(view: DynamicViewEntity): string | null {
     const seen = new Set<string>();
     const dups: string[] = [];
@@ -130,7 +130,7 @@ export namespace DynamicViewOperation {
 }
 
 /**
- * Signum's `DynamicViewSelectorEntity` — ONE per type: a JS function body returning the view NAME to use
+ * ONE per type: a JS function body returning the view NAME to use
  * for a given entity, so which view renders can depend on the row. Two names are reserved: "STATIC" falls
  * back to the code-compiled view, "NEW" opens a fresh unsaved dynamic view.
  */
@@ -156,7 +156,7 @@ export namespace DynamicViewSelectorOperation {
 }
 
 /**
- * Signum's `DynamicViewOverrideEntity` — a JS function body that receives a ViewReplacer and rewrites an
+ * A JS function body that receives a ViewReplacer and rewrites an
  * EXISTING view (compiled or dynamic). `viewName` null means the type's default view.
  */
 @reflect
@@ -184,7 +184,6 @@ export namespace DynamicViewOverrideOperation {
 
 // ---- messages -----------------------------------------------------------------------------------------
 
-// Signum's DynamicViewMessage enum.
 export const DynamicViewMessage = {
     AddChild: msg("Add child"),
     AddSibling: msg("Add sibling"),
@@ -206,7 +205,7 @@ export const DynamicViewMessage = {
     PropsHelp: msg("props"),
 };
 
-// Signum's DynamicViewValidationMessage enum. `_0IsNotAValidIdentifier` is an altea addition: Signum gets
+// `_0IsNotAValidIdentifier` is NEW here: Signum gets
 // that message from its `IdentifierValidator`, which altea has no counterpart for, so the prop-name check
 // that replaces it needs its own text.
 export const DynamicViewValidationMessage = {
@@ -229,7 +228,7 @@ export const DynamicViewValidationMessage = {
     _0IsNotAValidIdentifier: msg("{0} is not a valid identifier"),
 };
 
-// The database schema this package's tables live in — altea's counterpart of Signum's
+// The database schema this package's tables live in — the counterpart of Signum's
 // `[assembly: AssemblySchemaName("dynamic")]`. FOLDER-scoped, so it covers every type declared
 // beside it; the name is logical and gets dialect-mapped (schemaForType), so Postgres sees it snaked.
 setDefaultDatabaseSchema("dynamic");

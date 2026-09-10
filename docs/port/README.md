@@ -36,6 +36,7 @@ specification, so it stays inline. See [LegacyMode.md](LegacyMode.md), which inv
 | [Cache.md](Cache.md) | `@altea/altea-cache` |
 | [ConcurrentUser.md](ConcurrentUser.md) | `@altea/altea-concurrent-user` |
 | [DiffLog.md](DiffLog.md) | `@altea/altea-diff-log` |
+| [Dynamic.md](Dynamic.md) | `@altea/altea-dynamic` |
 | [Eval.md](Eval.md) | `@altea/altea-eval` |
 | [Files.md](Files.md) | `@altea/altea-files` |
 | [FileStores.md](FileStores.md) | `@altea/altea-files-azure`, `@altea/altea-files-s3` |

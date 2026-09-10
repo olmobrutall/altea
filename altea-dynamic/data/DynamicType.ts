@@ -68,7 +68,7 @@ export interface DynamicTypeTicksDefinition {
 }
 
 /**
- * Signum's DynamicTypeBackMListDefinition — how a COLLECTION property is stored.
+ * How a COLLECTION property is stored — Signum's DynamicTypeBackMListDefinition, member for member.
  *
  * altea has no MList, so this describes the `@part` ROW type the generator emits: its table name, whether
  * the order is preserved (a `@rowOrder` column) and what the back reference is called. Signum's
@@ -87,7 +87,7 @@ export interface MultiColumnUniqueIndex {
     where?: string;
 }
 
-/** A block of hand-written code spliced into the generated module — Signum's DynamicTypeCustomCode. */
+/** A block of hand-written code spliced into the generated module. */
 export interface DynamicTypeCustomCode {
     code: string;
 }
@@ -114,12 +114,12 @@ export type DynamicValidator =
     | { type: "CountIs"; comparisonType: ComparisonType; number: number }
     | { type: "NumberBetween"; min: number; max: number }
     | { type: "StringCase"; textCase: "UpperCase" | "LowerCase" }
-    // Signum's DefaultDynamicValidator: a validator with no arguments of its own (URL, EMail, Telephone,
+    // A validator with no arguments of its own (URL, EMail, Telephone,
     // NoRepeat…). The name is the decorator's, minus the "Validator" suffix.
     | { type: string; [extra: string]: unknown };
 
 export interface DynamicProperty {
-    /** Stable identity across renames — Signum's UID, and what a rename is recorded against. */
+    /** Stable identity across renames, and what a rename is recorded against. */
     uid: string;
     name: string;
     columnName?: string;
@@ -137,9 +137,9 @@ export interface DynamicProperty {
     format?: string;
     notifyChanges?: boolean;
     validators?: DynamicValidator[];
-    /** Verbatim decorators to add to the field — Signum's CustomFieldAttributes. */
+    /** Verbatim decorators to add to the FIELD. */
     customFieldAttributes?: string;
-    /** Verbatim decorators to add to the property — Signum's CustomPropertyAttributes. */
+    /** Verbatim decorators to add to the PROPERTY. */
     customPropertyAttributes?: string;
 }
 
@@ -162,11 +162,11 @@ export interface DynamicTypeDefinition {
     customBeforeSchema?: DynamicTypeCustomCode;
     queryFields: string[];
     multiColumnUniqueIndex?: MultiColumnUniqueIndex;
-    /** The body of the `@quoted toString()` — Signum's ToStringExpression. */
+    /** The body of the `@quoted toString()`. */
     toStringExpression?: string;
 }
 
-/** Signum's `IdentifierValidatorAttribute.PascalAscii`, which altea has no validator for. */
+/** Signum's `IdentifierValidatorAttribute.PascalAscii`, for which there is no validator here. */
 export const PascalAscii = /^[A-Z][a-zA-Z0-9]*$/;
 
 // ---- the entity ----------------------------------------------------------------------------------------
@@ -177,7 +177,7 @@ export class DynamicTypeEntity extends Entity {
 
     baseType: DynamicBaseType = DynamicBaseType.Entity;
 
-    // Signum's [UniqueIndex] + IdentifierValidator(PascalAscii). The index is declared in the logic layer
+    // A unique index plus the PascalAscii check. The index is declared in the logic layer
     // (altea declares indexes on the include, not as a decorator).
     @stringLengthValidator({ min: 3, max: 100 })
     @validate<DynamicTypeEntity>((e, fi) => PascalAscii.test(e.typeName) ? null
@@ -185,7 +185,7 @@ export class DynamicTypeEntity extends Entity {
     typeName: string;
 
     /**
-     * The definition, as JSON. Signum's `[DbType(Size = int.MaxValue)] TypeDefinition`.
+     * The definition, as JSON, in one unbounded text column.
      *
      * `customValidation` re-checks every PROPERTY name, which is the second place Signum applies its
      * identifier rule — a definition naming a property `order line` would generate source that does not

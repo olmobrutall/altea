@@ -31,8 +31,8 @@ import {
 // `Navigator.setViewDispatcher`, so this module replaces the resolution strategy without patching anything.
 //
 // altea divergences, documented inline:
-//  - `EvalClient.Options.registerDynamicPanelSearch` / `onGetDynamicLineForType` belong to the unported
-//    Signum.Eval; the panel's search registry is re-homed on `DynamicClient` (see DynamicClient.tsx).
+//  - the panel's search registry is re-homed on `DynamicClient` (see its header);
+//    `onGetDynamicLineForType` has no consumer here.
 //  - `patchComponent` / `unPatchComponent` are NOT ported. They monkey-patch a CLASS component's `render`,
 //    and altea's views are function components — its ViewReplacer rewrites the returned element tree instead,
 //    which is what `applyViewOverrides` already does for both static and dynamic overrides.
@@ -214,7 +214,7 @@ export namespace DynamicViewClient {
             const es = Navigator.getSettings(typeName);
 
             // altea always HAS a view (AutoComponent), so "STATIC" with nothing registered is the
-            // auto-generated one rather than Signum's error.
+            // auto-generated one rather than an error.
             if (es?.getViewPromise == null)
                 return new ViewPromise<T>(import("@altea/altea/client/AutoComponent")).applyViewOverrides(typeName);
 
@@ -366,7 +366,7 @@ export namespace DynamicViewClient {
         return ctor == undefined ? undefined : tryGetTypeInfo(ctor as never);
     }
 
-    /** Signum's `isTypeEntity(typeName)`: is this a persistent ENTITY type (not an embedded / model)? */
+    /** Is this a persistent ENTITY type (not an embedded / model)? */
     function isEntityTypeName(typeName: string): boolean {
         const ctor = resolveType(typeName);
         return ctor != undefined && (ctor === Entity || ctor.prototype instanceof Entity);

@@ -56,7 +56,7 @@ export interface GeneratedModule {
 
 export interface DynamicCodeCompilerOptions {
     /**
-     * Where the generated `.ts` (and emitted `.js`) live — Signum's `CodeGen` folder.
+     * Where the generated `.ts` (and emitted `.js`) live — the `CodeGen` folder.
      *
      * Inside the APP's own directory, because two things resolve from it: `node_modules` (so generated code
      * can import `@altea/*`), and the transformer's `__fileInfo`, which walks up to the nearest
@@ -89,7 +89,7 @@ export interface CompileError {
     /** 1-based, as an author reads it. */
     line: number;
     message: string;
-    /** The offending source line, quoted — Signum prints the same thing under each diagnostic. */
+    /** The offending source line, quoted, as under each Roslyn diagnostic. */
     sourceLine: string;
 }
 
@@ -112,7 +112,7 @@ export namespace DynamicCodeCompiler {
 
     let options: DynamicCodeCompilerOptions | undefined;
 
-    /** Cached across compiles: the FIRST one pays for the whole `.d.ts` graph (Signum's MetadataReferences). */
+    /** Cached across compiles: the FIRST one pays for the whole `.d.ts` graph (Roslyn's MetadataReferences). */
     const sourceFileCache = new Map<string, ts.SourceFile>();
 
     export function configure(opts: DynamicCodeCompilerOptions): void {
@@ -167,7 +167,7 @@ export namespace DynamicCodeCompiler {
     }
 
     /**
-     * Signum's `CompileDynamicCode`: write the generated modules, compile them (transformer applied), and
+     * Write the generated modules, compile them (transformer applied), and
      * load them so their registrations run.
      *
      * Nothing is loaded unless EVERY module compiled — a half-registered schema is worse than none, and it
@@ -179,7 +179,7 @@ export namespace DynamicCodeCompiler {
         const dir = options!.codeGenDirectory;
         fs.mkdirSync(dir, { recursive: true });
 
-        // 1. WRITE. Signum's CodeGen folder, and for the same reason: the source is the thing an author
+        // 1. WRITE, for the reason Signum has a CodeGen folder: the source is the thing an author
         //    reads when a generated type misbehaves.
         const written: string[] = [];
         const contents = new Map<string, string>();

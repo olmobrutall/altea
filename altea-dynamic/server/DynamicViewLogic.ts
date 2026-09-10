@@ -65,7 +65,7 @@ export namespace DynamicViewLogic {
             () => table(DynamicViewOverrideEntity).toArray() as Promise<DynamicViewOverrideEntity[]>,
             { invalidateWith: [DynamicViewOverrideEntity] });
 
-        // Signum's three `PreDeleteSqlSync` handlers on TypeEntity: deleting a type takes its views with it.
+        // Three `preDeleteSqlSync` handlers on TypeEntity: deleting a type takes its views with it.
         // altea's set-based delete event is `preUnsafeDelete`, and it is also the delete SIGNAL (there is no
         // per-row `deleted` event) — see the globalLazy invalidation note in CLAUDE.md.
         sb.schema.entityEvents(TypeEntity).preUnsafeDelete.push(async query => {
@@ -87,7 +87,7 @@ export namespace DynamicViewLogic {
             DynamicViewServer.start(sb.webBuilder);
     }
 
-    /** Signum's Construct default for `Locals`. */
+    /** The Construct default for `Locals`. */
     export const defaultLocals: string = "{\n"
         + "  const forceUpdate = modules.Hooks.useForceUpdate();\n"
         + "  return { forceUpdate };\n"
@@ -123,8 +123,8 @@ export namespace DynamicViewLogic {
     }
 
     /**
-     * Signum's `GetSuggestedFindOptions` — "which registered queries have a column pointing AT this type",
-     * so the designer can offer a ready-made SearchControl for each of them. Signum walks
+     * "Which registered queries have a column pointing AT this type", so the designer can offer a
+     * ready-made SearchControl for each of them. Signum walks
      * `Schema.Current.Tables` looking for a column whose `ReferenceTable` is this type's table, then maps
      * the column back to a property route.
      *
@@ -169,7 +169,7 @@ export namespace DynamicViewLogic {
         op.withSave(DynamicViewOperation.Save);
         op.withDelete(DynamicViewOperation.Delete);
 
-        // Signum's Construct seeds `Locals` with a forceUpdate hook so a brand-new view already has the
+        // The Construct seeds `Locals` with a forceUpdate hook so a brand-new view already has the
         // one local every non-trivial view needs. `viewContent` is left empty: only the CLIENT can build
         // a default node tree, since the node library lives there (see createDefaultDynamicView).
         op.withConstruct(DynamicViewOperation.Create, {

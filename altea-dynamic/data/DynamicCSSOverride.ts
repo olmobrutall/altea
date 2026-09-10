@@ -10,10 +10,10 @@ import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 //
 // altea divergences:
 //  - Signum declares `[Mixin(typeof(DisabledMixin))]` and filters on `Mixin<DisabledMixin>().IsDisabled`.
-//    altea core has no DisabledMixin — in Signum it is a framework-wide concept with its own Disable /
+//    Core has no DisabledMixin — in Signum it is a framework-wide concept with its own Disable /
 //    Enable operations and query filters, none of which altea has — so this is a plain field. One column
 //    either way; what is lost is the shared operations, which nothing here used.
-//  - Signum serves the stylesheet by interpolating it into `Index.cshtml`. altea has no server-rendered
+//  - Signum serves the stylesheet by interpolating it into `Index.cshtml`. There is no server-rendered
 //    page, so DynamicCSSOverrideServer exposes it as an endpoint the client fetches at boot (the same call
 //    the AzureAD / OpenID configuration endpoints made).
 @reflect
@@ -27,7 +27,7 @@ export class DynamicCSSOverrideEntity extends Entity {
     @stringLengthValidator({ min: 3, multiLine: true })
     script: string;
 
-    /** Signum's `DisabledMixin.IsDisabled` — a disabled override stays stored but is not served. */
+    /** A disabled override stays stored but is not served. */
     isDisabled: boolean = false;
 
     @quoted

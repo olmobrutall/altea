@@ -16,12 +16,12 @@ import { DynamicIsolationMixin } from "../../data/DynamicIsolation";
 //    `IHasChanges` implementation. altea tracks changes with a SNAPSHOT of the entity graph, so the only
 //    thing that has to happen is that `typeDefinition` carries the edited JSON before a save — which
 //    `beforeSave` does, hung off the component handle the same way Signum's Save override calls it.
-//  - Signum's `entityHasChanges()` (compare the serialized definition against the stored string) is
+//  - an `entityHasChanges()` check (compare the serialized definition against the stored string) is
 //    therefore unnecessary: writing the JSON on every edit is cheap and makes the ordinary dirty check
 //    see it.
 
 export interface DynamicTypeHandle {
-    /** Signum's `beforeSave` — flush the edited definition onto the entity. */
+    /** Flush the edited definition onto the entity. */
     beforeSave: () => void;
 }
 

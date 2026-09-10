@@ -100,7 +100,7 @@ export interface ContainerNode extends BaseNode {
     children: BaseNode[];
 }
 
-/** Signum's `String.prototype.etc` — truncate with an ellipsis. */
+/** Truncate with an ellipsis. */
 function etc(text: string, max: number): string {
     return text.length <= max ? text : text.substring(0, max) + "…";
 }
@@ -235,7 +235,7 @@ NodeUtils.register<TabsNode>({
     initialize: dn => dn.id = "tabs",
     renderTreeNode: NodeUtils.treeNodeKind,
     renderCode: (node, cc) => cc.elementCodeWithChildrenSubCtx("Tabs", {
-        // Signum writes `ctx.compose(id)`; altea's equivalent is `getUniqueId`.
+        // `getUniqueId` is the equivalent of Signum's `ctx.compose(id)`.
         id: { __code__: cc.ctxName + ".getUniqueId(" + toCodeEx(node.id) + ")" } as Expression<string>,
         defaultActiveKey: node.defaultActiveKey,
         unmountOnExit: node.unmountOnExit,
@@ -444,7 +444,7 @@ NodeUtils.register<RenderEntityNode>({
     </div>,
 });
 
-/** Signum's ExtraPropsComponent: when the chosen view is a DYNAMIC one, seed the props object from its declared props. */
+/** When the chosen view is a DYNAMIC one, seed the props object from its declared props. */
 function ExtraPropsComponent({ dn }: { dn: DesignerNode<RenderEntityNode> }): React.JSX.Element {
 
     const typeName = dn.route?.type.getTypeName();
@@ -526,7 +526,7 @@ NodeUtils.register<TypeIsNode>({
     },
     render: (dn, parentCtx) => {
         const value = parentCtx.value;
-        // Signum compares `parentCtx.value.Type != typeName`; altea has no `.Type` — the runtime check is
+        // There is no `.Type` accessor — the runtime check is
         // the constructor's own clean name (see the "no compat accessors" divergence in CLAUDE.md).
         if (!(value instanceof Entity) || cleanTypeName(value.constructor) !== dn.node.typeName)
             return undefined;
@@ -638,7 +638,7 @@ NodeUtils.register<AutoLineNode>({
     },
 });
 
-/** Signum's `dn.route.member` is a MemberInfo; altea's route exposes the FieldInfo of the last step. */
+/** The route exposes the FieldInfo of the last step (Signum's `dn.route.member` is a MemberInfo). */
 function memberOf(route: PropertyRoute | undefined): FieldInfo | undefined {
     if (route == undefined)
         return undefined;
@@ -804,7 +804,7 @@ export interface FileLineNode extends EntityBaseNode {
     maxSizeInBytes?: ExpressionOrValue<number>;
 }
 
-// altea adds "ViewOrSave" to Signum's three.
+// "ViewOrSave" is NEW here, beside Signum's three.
 const downloadBehaviours: DownloadBehaviour[] = ["SaveAs", "View", "ViewOrSave", "None"];
 
 NodeUtils.register<FileLineNode>({
@@ -1239,7 +1239,7 @@ NodeUtils.register<EntityTableNode>({
         avoidFieldSet: node.avoidFieldSet,
         scrollable: node.scrollable,
         maxResultsHeight: node.maxResultsHeight,
-        // Signum emits `EntityTable.typedColumns<T>(…)`; altea's `columns` prop takes the array directly.
+        // The `columns` prop takes the array DIRECTLY (Signum emits `EntityTable.typedColumns<T>(…)`).
         columns: {
             __code__: cc.stringifyObject(node.children.map(col =>
                 ({ __code__: NodeUtils.renderCode(col, cc) }))),
@@ -1517,7 +1517,6 @@ NodeUtils.register<SearchValueLineNode>({
     </div>),
 });
 
-/** Signum's `isTypeEntity(name) ? name : route.findRootType().name`. */
 function rootQueryKeyOf(route: PropertyRoute | undefined): string | undefined {
     if (route == undefined)
         return undefined;
@@ -1615,7 +1614,7 @@ NodeUtils.register<ButtonNode>({
     },
     renderDesigner: dn => {
 
-        // Signum reads `ti.operations`; in altea operations are per-ROLE metadata (CLAUDE.md), so they come
+        // Operations are per-ROLE metadata (CLAUDE.md), so they come
         // from the metadata blob through getOperationInfos.
         const ctor = dn.route?.type.getFunction();
         const operations = ctor == undefined ? [] : getOperationInfos(ctor).map(o => o.key);
@@ -1637,7 +1636,7 @@ NodeUtils.register<ButtonNode>({
                 options={["primary", "secondary", "success", "danger", "warning", "info", "light", "dark"] as BsColor[]} />
             <ExpressionOrValueComponent dn={dn} binding={Binding.create(dn.node, n => n.size)} type="string" defaultValue={null}
                 options={["lg", "md", "sm", "xs"] as BsSize[]} />
-{/* Signum offers an IconTypeahead here; altea has no icon picker, so the icon is typed as text
+{/* Signum offers an IconTypeahead here; there is no icon picker, so the icon is typed as text
                 (e.g. "gear", "fas fa-gear") — parseIcon accepts the same strings either way. */}
             <ExpressionOrValueComponent dn={dn} binding={Binding.create(dn.node, n => n.icon)} type="string" defaultValue={null} />
             <ExpressionOrValueComponent dn={dn} binding={Binding.create(dn.node, n => n.iconColor)} type="string" defaultValue={null}
@@ -1682,16 +1681,19 @@ export namespace NodeConstructor {
     } = {};
 
     /**
-     * Signum's `appropiateComponent` — pick the node kind that fits a field. Kept case for case; the only
+     * Pick the node kind that fits a field. Kept case for case; the only
      * behavioural differences are the two facets altea does not ship to the client (`mi.notVisible` and
      * `mi.defaultFileTypeInfo.onlyImages`), so nothing is hidden automatically and a FilePath field starts
      * as a FileLine rather than a FileImageLine.
      */
     export const appropiateComponent = (fi: FieldInfo, field: string): BaseNode | undefined => {
-        // Signum skips `Id` and anything `notVisible`. altea has no notVisible, but it does mark the
-        // bookkeeping props `@serialize(false)` — `isNew` / `ticks` / `_snapshot` — and PropertyRoute's own
-        // route generation skips exactly those. Without this a generated tree renders three AutoLines over
-        // internals that have no PropertyRoute, which fails at render time.
+        // Skips `id` and the bookkeeping props (`isNew` / `ticks` / `_snapshot`), which are marked
+        // `@serialize(false)` — the same set PropertyRoute's own route generation skips. Without this a
+        // generated tree renders three AutoLines over internals that have no PropertyRoute, which fails
+        // at render time.
+        //
+        // GAP: Signum ALSO skips a `notVisible` member. `FieldInfo.notVisible` exists here (it landed with
+        // @altea/altea-tree), so one is still offered as a node — see docs/port/Dynamic.md.
         if (field === "id" || fi.noSerialize)
             return undefined;
 
@@ -1727,7 +1729,7 @@ export namespace NodeConstructor {
             return { kind: "EntityLine", field, children: [] } as unknown as EntityLineNode;
 
         if (ti) {
-            // Signum tests `ti.kind == "Enum"`; altea's TypeInfo.kind is "Entity" | "Model" and an enum is
+            // `TypeInfo.kind` is "Entity" | "Model" and an enum is
             // a facet of the TYPE REFERENCE (`isEnum`), so the question is asked of the field.
             if (tr.isEnum)
                 return { kind: "AutoLine", field } as unknown as AutoLineNode;

@@ -50,7 +50,7 @@ import { DynamicViewValidationMessage } from "../../data/DynamicView";
 //    an unknown member where Signum's `tryAddMember` returns undefined, and the designer relies on getting
 //    undefined while a field is half-typed.
 //  - `type.isCollection` → `type.array`; `type.name` → `type.getTypeName()`.
-//  - Signum's `EnumType.values()` becomes `Enum.values(SomeEnum)`: an altea enum is a numeric object whose
+//  - `EnumType.values()` becomes `Enum.values(SomeEnum)`: an enum is a numeric object whose
 //    runtime value is the member NAME (see CLAUDE.md), so the members ARE the valid strings.
 //  - `TypeHelpComponent.getExpression` is re-homed as `getFieldExpression` (see FieldExpression.ts).
 //  - a node's stored `field` is passed to `subCtx` AS A STRING, which altea supports (`subCtx(field, so)`
@@ -63,7 +63,7 @@ import { DynamicViewValidationMessage } from "../../data/DynamicView";
 
 export type ExpressionOrValue<T> = T | Expression<T>;
 
-/** A stored snippet: the source of a `ctx => …` function (Signum's `{ __code__ }`). */
+/** A stored snippet: the source of a `ctx => …` function — the stored shape is `{ __code__ }`. */
 export type Expression<T> = { __code__: string };
 
 export function isExpression(value: unknown): value is Expression<unknown> {
@@ -255,7 +255,6 @@ export class CodeContext {
     }
 }
 
-/** Signum's `String.prototype.indent`. */
 function indent(text: string, spaces: number): string {
     const pad = " ".repeat(spaces);
     return text.split("\n").map(l => pad + l).join("\n");
@@ -374,7 +373,7 @@ export function tryRoot(typeName: string): PropertyRoute | undefined {
     return ctor == undefined ? undefined : PropertyRoute.root(ctor);
 }
 
-/** Signum's `tryAddMember` — altea's `add` THROWS on an unknown member, and a half-typed field is normal. */
+/** `PropertyRoute.add` THROWS on an unknown member, and a half-typed field is normal in a designer. */
 export function tryAdd(route: PropertyRoute, member: string): PropertyRoute | undefined {
     try {
         return route.add(member);
@@ -1044,7 +1043,7 @@ export function toCodeEx(expr: ExpressionOrValue<string>): string {
 const lambdaBody = /^(?:function\s*\(\s*([^)]*)\s*\)\s*\{\s*(?:"use strict";)?\s*return\s*([^;]*?)\s*;?\s*\}|\(?\s*([^)=]*?)\s*\)?\s*=>\s*(?:\{\s*return\s*([^;]*?)\s*;?\s*\}|([^;]*?))\s*)$/;
 
 /**
- * Signum's `bindExpr` — inline a lambda's BODY, substituting each parameter with the code of the expression
+ * Inline a lambda's BODY, substituting each parameter with the code of the expression
  * passed for it, so a derived value stays an expression instead of being evaluated eagerly. Used for the
  * className combination and the autocomplete flag.
  */

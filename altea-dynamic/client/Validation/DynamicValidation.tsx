@@ -16,7 +16,7 @@ import type { DynamicValidationEntity } from "../../data/DynamicValidation";
 // altea divergences:
 //  - `SubEntity` binds a `PropertyRouteEntity` through the framework's `PropertyRouteCombo`, as in Signum,
 //    and with Signum's same `routes` restriction to mixins and non-collection embeddeds.
-//  - `isDisabled` comes from Signum's DisabledMixin, which altea does not have; the flag is a plain field
+//  - `isDisabled` comes from Signum's DisabledMixin, which has no counterpart here; the flag is a plain field
 //    and is edited here, the same call client/CSS/DynamicCSSOverride makes.
 //  - the eval is rendered by @altea/altea-eval's shared `EvalLine`, where Signum spells the
 //    signature / editor / closing-brace sandwich out inline.

@@ -33,7 +33,7 @@ import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eva
  * server-only; naming it here would break the client build. So the precise type is stated where it is
  * checked, and the carrier here is just "a void function".
  *
- * The compiled function is not what serves the endpoint, either: like Signum, the ROUTES come from
+ * The compiled function is not what serves the endpoint, either: as in Signum, the ROUTES come from
  * generated code (CodeGenController). The eval is what VALIDATES the script when the row is saved — which
  * is worth having, since a script that does not compile would otherwise break the whole dynamic compile
  * on the next restart.
@@ -44,11 +44,11 @@ export type IDynamicApiEvaluator = (...args: never[]) => void;
 @entity("Main", "Master")
 export class DynamicApiEntity extends Entity {
 
-    // Signum's [UniqueIndex]; declared on the include.
+    // A unique index, declared on the INCLUDE.
     @stringLengthValidator({ min: 3, max: 100 })
     name: string;
 
-    /** Signum's DisabledMixin.IsDisabled. */
+    /** A plain field where Signum has DisabledMixin.IsDisabled — see the header. */
     isDisabled: boolean = false;
 
     @bindParent
@@ -60,7 +60,6 @@ export class DynamicApiEntity extends Entity {
     }
 }
 
-/** Signum's DynamicApiEval. */
 @reflect
 export class DynamicApiEval extends EvalEmbedded<IDynamicApiEvaluator> {
     protected override compile(): CompilationResult<IDynamicApiEvaluator> {

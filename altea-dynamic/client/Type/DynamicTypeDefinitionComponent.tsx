@@ -24,9 +24,9 @@ import {
 //    projection. altea's server `withQuery()` takes none — a query's shape is the entity — and which
 //    columns a search shows by default is a CLIENT setting. So a query field here is simply a property
 //    name, and DynamicTypeLogic notes the same thing.
-//  - Signum's `expressionNames` fetch (offer this type's registered expressions as query fields) has no
+//  - an `expressionNames` fetch (offer this type's registered expressions as query fields) has no
 //    counterpart for the same reason: nothing on the server consumes them.
-//  - the operations tab edits BODIES ONLY. Signum's is the same, except that it renders C#; here the four
+//  - the operations tab edits BODIES ONLY, as Signum's does; here the four
 //    blocks are TypeScript and their signatures name what the generator actually emits.
 //  - `CSharpExpressionCodeMirror` becomes `ExpressionCodeMirror` over TypeScript.
 //  - `TypeHelpComponent` / the "property template" modal are not ported (TypeHelp is not — the honest
@@ -39,7 +39,7 @@ export interface DynamicTypeDefinitionComponentProps {
     showDatabaseMapping: boolean;
 }
 
-/** Signum's `requiresSaveKinds` — which entity kinds must declare a Save operation. */
+/** Which entity kinds must declare a Save operation. */
 const requiresSaveKinds = ["Main", "Shared", "String"];
 
 const entityKindValues = ["SystemString", "System", "Relational", "String", "Shared", "Main", "Part", "SharedPart"];
@@ -57,7 +57,7 @@ export function DynamicTypeDefinitionComponent(p: DynamicTypeDefinitionComponent
     }, []);
 
     /**
-     * Signum's `fixSaveOperation` — a kind that requires a Save gets one, and a kind that does not loses
+     * A kind that requires a Save gets one, and a kind that does not loses
      * one (asking first, if a body would be thrown away).
      *
      * Worth keeping honest: the GENERATOR throws when the two disagree (see
@@ -96,7 +96,7 @@ export function DynamicTypeDefinitionComponent(p: DynamicTypeDefinitionComponent
     }
 
     function handlePropertyRemoved(dp: DynamicProperty): void {
-        // Signum's handlePropertyRemoved: a removed property cannot stay a query field.
+        // A removed property cannot stay a query field.
         def.queryFields = (def.queryFields ?? []).filter(f => f !== dp.name);
         p.dc.refreshView();
     }
@@ -245,7 +245,7 @@ export function DynamicTypeDefinitionComponent(p: DynamicTypeDefinitionComponent
     );
 }
 
-/** Signum's CustomCodeTab — the six verbatim blocks spliced into the generated modules. */
+/** The six verbatim blocks spliced into the generated modules. */
 export function CustomCodeTab(p: {
     definition: DynamicTypeDefinition;
     dc: DynamicTypeDesignContext;
@@ -277,7 +277,7 @@ export function CustomCodeTab(p: {
 }
 
 /**
- * Signum's `CustomFieldsetComponent` — a fieldset whose CHECKBOX decides whether the bound value exists at
+ * A fieldset whose CHECKBOX decides whether the bound value exists at
  * all, which is how an optional part of the definition is added or removed.
  */
 export function OptionalFieldset<T>(p: {
@@ -326,7 +326,7 @@ export function ExpressionCodeMirror(p: {
     );
 }
 
-/** Signum's ComboBoxRepeaterComponent — an ordered list of strings picked from a fixed set. */
+/** An ordered list of strings picked from a fixed set. */
 export function StringListComponent(p: {
     dc: DynamicTypeDesignContext;
     list: string[];

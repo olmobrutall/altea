@@ -23,8 +23,9 @@ import { DynamicApiEntity } from "../data/DynamicApi";
 //    <style> element. The app calls it at boot (before or after login — the endpoint is anonymous precisely
 //    so the login screen is styled too, which is the timing Signum's HTML had).
 //  - `EvalClient.Options.registerDynamicPanelSearch` — the registry behind the dynamic panel's search box —
-//    is re-homed here, because Signum.Eval does not port. It is kept as a plain registry rather than dropped
-//    so the panel (and anything else that wants to search across dynamic definitions) has one place to read.
+//    is re-homed here from @altea/altea-eval, because THIS module owns the admin pages. It is kept as a
+//    plain registry so the panel, and anything else searching across dynamic definitions, has one place
+//    to read.
 export namespace DynamicClient {
 
     export function start(cb: ClientBuilder): void {
@@ -154,7 +155,7 @@ export namespace DynamicClient {
                 ],
             }));
 
-        // Signum's DynamicTypeOperation.Save override opens a modal offering the dynamic panel, because a
+        // The Save override opens a modal offering the dynamic panel, because a
         // saved type does nothing until the server restarts. The same message is kept, and the operation
         // needs no override: the view writes its JSON on every edit (see Type/DynamicType), so an ordinary
         // Save carries the definition.
@@ -199,14 +200,14 @@ export namespace DynamicClient {
             { token: "eval.script", type: "Code" },
         ]);
 
-        // The panel — Signum's /dynamic/panel, same path.
+        // The panel, on Signum's own /dynamic/panel path.
         cb.routes.push({
             path: "/dynamic/panel",
             element: <ImportComponent onImport={() => import("./DynamicPanelPage")} />,
         });
     }
 
-    // ---- the panel search registry (Signum's EvalClient.Options.registerDynamicPanelSearch) -------------
+    // ---- the panel search registry (see the header) -----------------------------------------------------
 
     export type DynamicPanelSearchType = "Text" | "Code" | "JSon";
 
@@ -221,7 +222,7 @@ export namespace DynamicClient {
         registeredPanelSearches[typeName] = columns;
     }
 
-    // ---- the CSS overrides (Signum's Index.cshtml interpolation) ----------------------------------------
+    // ---- the CSS overrides (see the header) -------------------------------------------------------------
 
     const styleElementId = "sf-dynamic-css-overrides";
 

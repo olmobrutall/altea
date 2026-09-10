@@ -38,7 +38,7 @@ import { DynamicViewMessage } from "../../data/DynamicView";
 //  - `FetchQueryDescription` becomes `FetchQueryRootType`. altea has NO QueryDescription DTO (CLAUDE.md), so
 //    "what type does this query's Entity column hold" is answered from the token TREE:
 //    `Finder.getQueryRoot(queryName)` gives the root token, whose `.type` is that TypeReference.
-//  - Signum's `EnumType.values()` → `Enum.values(SomeEnum)`.
+//  - `EnumType.values()` → `Enum.values(SomeEnum)`.
 //  - `token.type.isCollection / isLite / isEmbedded / name` → `.array` / `.lite` / `.is(EmbeddedEntity)` /
 //    `.getTypeName()`; and the value-type switch matches altea's CAPITALIZED type names (`String`, `Number`,
 //    `Boolean`, `Guid`, `PlainDate`…), which is what `@field` writes — see CLAUDE.md.
@@ -112,7 +112,7 @@ export function FindOptionsLine(p: FindOptionsLineProps): React.JSX.Element {
             });
     }
 
-    /** The parsed tokens are UI state, never stored (Signum does the same). */
+    /** The parsed tokens are UI state, never stored. */
     function clean(fo: FindOptionsExpr): FindOptionsExpr {
         fo.filterOptions?.forEach(f => delete f.parsedToken);
         fo.orderOptions?.forEach(o => delete o.parsedToken);
@@ -215,7 +215,7 @@ interface FetchQueryRootTypeProps {
 }
 
 /**
- * Signum's `FetchQueryDescription`, narrowed to the one thing its consumers asked of it: the type name of
+ * Narrowed to the one thing the consumers here ask of it: the type name of
  * the query's Entity column. altea has no QueryDescription, so it comes from the query's ROOT TOKEN.
  */
 export function FetchQueryRootType(p: FetchQueryRootTypeProps): React.JSX.Element {
@@ -240,7 +240,7 @@ export function ViewNameComponent(p: ViewNameComponentProps): React.JSX.Element 
         if (!p.typeName)
             return Promise.resolve(undefined);
 
-        // A polymorphic reference names several types; ask each and merge, as Signum does.
+        // A polymorphic reference names several types; ask each and merge.
         const names = p.typeName.split(",").map(a => a.trim()).filter(a => a !== "");
 
         return Promise.all(names.map(tn =>

@@ -14,7 +14,7 @@ import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eva
 //
 // This is an EVAL, not generated code, exactly as in Signum: the script is compiled per row on first use
 // (`EvalEmbedded`), because a validator is called with an entity in hand and needs no expression tree. So
-// the whole thing rides on @altea/altea-eval, which is Signum.Eval's counterpart.
+// the whole thing rides on @altea/altea-eval.
 //
 // altea divergences:
 //  - `SubEntity` is a `PropertyRouteEntity` reference, as in Signum. (It used to be the route STRING,
@@ -26,13 +26,13 @@ import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eva
 //    Signum's `IsDisabled` and a migrated database reads unchanged.
 //  - `[BindParent]` has no counterpart: an eval's owner is bound by `sb.include(X)` (see
 //    @altea/altea-eval), which DynamicValidationLogic calls.
-//  - Signum's `GetMainType` static hook is unnecessary — the sub-entity route is a string here, so the
+//  - a `GetMainType` static hook is unnecessary — the sub-entity route is a string here, so the
 //    type the script receives is read off `entityType` directly.
 
 /**
  * The function a DynamicValidation's script becomes.
  *
- * Signum's `IDynamicValidationEvaluator.EvaluateUntyped(ModifiableEntity, PropertyInfo)`. altea's
+ * The evaluator's signature. An eval's
  * validation environment already passes the FieldInfo, which is the same information typed.
  */
 export type IDynamicValidationEvaluator = (e: Entity, fi: FieldInfo) => string | null;
@@ -41,16 +41,16 @@ export type IDynamicValidationEvaluator = (e: Entity, fi: FieldInfo) => string |
 @entity("Shared", "Master")
 export class DynamicValidationEntity extends Entity {
 
-    // Signum's [UniqueIndex]; declared on the include, as altea declares indexes.
+    // A unique index, declared on the INCLUDE, as indexes are declared here.
     @stringLengthValidator({ min: 3, max: 100 })
     name: string;
 
     entityType: TypeEntity;
 
-    /** The route the validation applies to, or null for the entity itself (Signum's `SubEntity`). */
+    /** The route the validation applies to, or null for the entity itself. */
     subEntity: PropertyRouteEntity | null;
 
-    /** Signum's DisabledMixin.IsDisabled — see the header. */
+    /** A plain field where Signum has DisabledMixin.IsDisabled — see the header. */
     isDisabled: boolean = false;
 
     @bindParent
@@ -62,7 +62,6 @@ export class DynamicValidationEntity extends Entity {
     }
 }
 
-/** Signum's DynamicValidationEval. */
 @reflect
 export class DynamicValidationEval extends EvalEmbedded<IDynamicValidationEvaluator> {
     protected override compile(): CompilationResult<IDynamicValidationEvaluator> {

@@ -23,53 +23,38 @@ import { DynamicIsolationLogic } from "./DynamicIsolationLogic";
 import { DynamicCodeCompiler, type GeneratedModule, type DynamicCompilationResult } from "./DynamicCodeCompiler";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
-// Port of Signum.Dynamic's DynamicLogic.cs — but only its ROLE as the module's entry point. The BODY of
-// Signum's DynamicLogic does not port at all, and that is the single most important thing to know about this
-// package, so it is written out here rather than buried in a commit message.
+// Port of Signum.Dynamic's DynamicLogic.cs — the module's ENTRY POINT: which features are started, in what
+// order, and what happens when the generated code does not compile. The whole picture is in
+// docs/port/Dynamic.md.
 //
-// ---- What Signum.Dynamic is, and why it splits in two --------------------------------------------------
+// The module lets an administrator define parts of the application from the running app itself, and its
+// features fall into two groups divided by ONE question: does the feature need a COMPILER?
 //
-// Signum.Dynamic lets an administrator define parts of the application from the running app itself. Its
-// features fall into two groups, divided by ONE question: does the feature need a COMPILER?
+//   INTERPRETED — nothing is compiled, so these are pure data:
+//     DynamicView / DynamicViewOverride / DynamicViewSelector  a JSON node TREE plus small JavaScript
+//                                                              snippets the client interprets
+//                                                              (client/View/NodeUtils + Nodes)
+//     DynamicCSSOverride                                       a stylesheet, as text
+//     DynamicSqlMigration                                      a schema-diff script, as text
 //
-//   INTERPRETED — ported, and this is the whole package:
-//     DynamicView / DynamicViewOverride / DynamicViewSelector  a view is a JSON node TREE plus small
-//                                                              JavaScript snippets; the client interprets
-//                                                              it (client/View/NodeUtils + Nodes). Nothing
-//                                                              is compiled, so it ports as-is.
-//     DynamicCSSOverride                                       a stylesheet, as text.
-//     DynamicSqlMigration                                      a schema-diff script, as text.
-//
-//   COMPILED — NOT ported:
+//   COMPILED — generated into a CodeGen directory, compiled, loaded, and live after a RESTART:
 //     DynamicType, DynamicExpression, DynamicValidation, DynamicApi, DynamicTypeCondition,
 //     DynamicMixinConnection, DynamicIsolation
 //
-// Every member of the second group works the same way: it GENERATES C# source into a `CodeGen` directory,
-// compiles it with Roslyn (`Microsoft.CodeAnalysis.CSharp`, via Signum.Eval) into `CodeGenAssembly.dll`,
-// loads that assembly, and RESTARTS the application server so the new types take part in the schema. There
-// is no counterpart for that here, and the gap is not the compiler itself — TypeScript has one, and altea
-// already drives it (`tspc -b`). It is that altea's entity model is stamped onto each class at BUILD time by
-// the quote-transformer, so a type invented at runtime would need the transformer to run over generated
-// source, the process to restart, and the schema to be synchronized — a design project, not a port. If it is
-// ever wanted, it belongs in its own package on top of this one.
-//
-// Consequently Signum.Eval does not port either (it IS the Roslyn host), and two of its pieces that this
-// package would otherwise use are re-homed:
-//   - the panel gates on `EvalPanelPermission.ViewDynamicPanel` (@altea/altea-eval), where Signum keeps it.
-//   - `EvalClient.Options.registerDynamicPanelSearch`, the registry behind the panel's search box, becomes
-//     `DynamicClient.registerDynamicPanelSearch` (client/DynamicClient).
-// And `DynamicPanelPermission.RestartApplication` is dropped: there is no compilation step to restart for.
+// The compiled half rests on running the quote-transformer at RUNTIME — see DynamicCodeCompiler, which is
+// where that happens and why it is not optional.
+
 export namespace DynamicLogic {
 
-    /** Signum's `CodeGenNamespace` / `CodeGenDirectory`. There is no namespace here — a module is the unit. */
+    /** There is no namespace here — a MODULE is the unit. */
     export const codeGenStarterFile = "CodeGenStarter.ts";
 
     /**
-     * Signum's `CodeGenError`: the ONE compilation failure the whole startup carries.
+     * The ONE compilation failure the whole startup carries.
      *
-     * Kept as a field rather than thrown, because a server that cannot compile its dynamic code must still
-     * BOOT — otherwise the only way to fix a bad definition would be to edit the database by hand. Every
-     * step below checks it first, exactly as Signum's do, so one failure stops the rest without unwinding.
+     * A FIELD rather than a throw, because a server that cannot compile its dynamic code must still BOOT —
+     * otherwise the only way to fix a bad definition would be to edit the database by hand. Every step
+     * below checks it first, so one failure stops the rest without unwinding.
      */
     export let codeGenError: Error | undefined;
 
@@ -77,7 +62,7 @@ export namespace DynamicLogic {
      * WHY the dynamic code is missing, which decides what to tell the user:
      *
      *  - `"compile"`: the definitions were read and did not build. The types are real and absent from the
-     *    schema, so a synchronization WOULD script their tables as DROPs — Signum's warning applies.
+     *    schema, so a synchronization WOULD script their tables as DROPs.
      *  - `"read"`: the definitions could not be read at all, almost always because the schema TRAILS the
      *    code (pointing an altea app at a Signum database is the extreme case). Nothing was generated and
      *    nothing is known, so there is no dynamic table to drop and the answer is simply `sync` then
@@ -89,11 +74,11 @@ export namespace DynamicLogic {
     /** The generated modules the last compile wrote — what the panel lists. */
     export let lastCompilation: DynamicCompilationResult | undefined;
 
-    /** Signum's `GetCodeFiles` event: every contributor of generated modules. */
+    /** Every contributor of generated modules. */
     export const codeFileGenerators: Array<() => Promise<GeneratedModule[]>> = [];
 
     /**
-     * Signum's `OnWriteDynamicStarter`: what each contributor wants the generated starter to call.
+     * What each contributor wants the generated starter to call.
      *
      * `lines` are the calls; `imports` are the generated modules those calls name. Signum needs no
      * imports — one assembly, one namespace — while a TypeScript module has to say where a name comes
@@ -105,7 +90,6 @@ export namespace DynamicLogic {
         lines: string[];
     }>> = [];
 
-    /** Signum's `OnApplicationServerRestarted`. */
     export let onApplicationServerRestarted: (() => void) | undefined;
 
     /** The code-gen directory, or null when the app never configured the compiled half. */
@@ -137,7 +121,6 @@ export namespace DynamicLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        // Signum's `PermissionLogic.RegisterPermissions(DynamicPanelPermission.RestartApplication)`.
         // ViewDynamicPanel belongs to the EVAL module, which registers it in its own start.
         PermissionLogic.registerPermissions(DynamicPanelPermission.RestartApplication);
 
@@ -192,7 +175,7 @@ export namespace DynamicLogic {
         if (options?.mixinConnections ?? true) {
             DynamicMixinConnectionLogic.start(sb);
             // No starter line: a mixin must be DECLARED before any type carrying it is included, so
-            // `beforeSchema` runs it — Signum's separate `RegisterMixins` step.
+            // `beforeSchema` runs it (Signum's separate `RegisterMixins` step).
             codeFileGenerators.push(async () =>
                 DynamicMixinConnectionLogic.getCodeFiles(await DynamicMixinConnectionLogic.getConnections()));
         }
@@ -215,12 +198,11 @@ export namespace DynamicLogic {
     }
 
     /**
-     * Signum's `CompileDynamicCode` — generate every contributor's modules, compile them, load them.
+     * Generate every contributor's modules, compile them, load them.
      *
      * Called by the APP's Starter between `DynamicLogic.start` and `schema.initialize()`: the generated
-     * types must exist before the schema is built, because a schema is built once. That ordering is
-     * Signum's too, and it is why a new or changed type needs a RESTART to take part, and a `sync` before
-     * its table exists.
+     * types must exist before the schema is built, because a schema is built once. That is why a new or
+     * changed type needs a RESTART to take part, and a `sync` before its table exists.
      *
      * A failure is recorded, not thrown — see codeGenError.
      */
@@ -233,8 +215,8 @@ export namespace DynamicLogic {
             for (const generator of codeFileGenerators)
                 modules.push(...await generator());
 
-            // Signum generates a `CodeGenStarter` and finds it by searching the assembly's types; here it
-            // is one more generated module whose exports are handed straight back.
+            // The starter is one more generated MODULE, whose exports are handed straight back (Signum
+            // finds its CodeGenStarter by searching the assembly's types).
             const starterLines: string[] = [];
             const starterImports: Array<{ module: string; name: string }> = [];
             for (const writer of starterWriters) {
@@ -301,11 +283,8 @@ export namespace DynamicLogic {
     }
 
     /**
-     * Signum's `StartDynamicModules` — run the generated starter, so each generated type is INCLUDED in
-     * the schema being built.
-     *
-     * Signum reflects over the loaded assembly for a type named `CodeGenStarter` and invokes its `Start`;
-     * here the module's exports are already in hand.
+     * Run the generated starter, so each generated type is INCLUDED in the schema being built. The
+     * module's exports are already in hand — see compileDynamicCode.
      */
     export function startDynamicModules(sb: SchemaBuilder): void {
         if (codeGenError != null)
@@ -362,18 +341,18 @@ export namespace DynamicLogic {
     }
 
     /**
-     * Signum's `RegisterExceptionIfAny` — say loudly that the server came up WITHOUT its dynamic types,
-     * log the failure once the Exception table is reachable, and warn about what a `sync` would now do.
+     * Say loudly that the server came up WITHOUT its dynamic types, log the failure once the Exception
+     * table is reachable, and warn about what a `sync` would now do.
      *
-     * That last warning is the important one and it is Signum's: with the types missing from the schema,
-     * a synchronization would see their tables as orphans and script them as DROPs.
+     * That last warning is the important one: with the types missing from the schema, a synchronization
+     * would see their tables as orphans and script them as DROPs.
      */
     export function registerExceptionIfAny(): void {
         const e = codeGenError;
         if (e == null)
             return;
 
-        // Signum logs the failure once the Exception table is reachable. Skipped for a READ failure: the
+        // Skipped for a READ failure: the
         // whole meaning of that case is that the schema TRAILS the code, so the exception table trails too
         // and the insert cannot succeed — it only adds a confusing second error line under the accurate
         // one. The console report above is the record until the schema is up.

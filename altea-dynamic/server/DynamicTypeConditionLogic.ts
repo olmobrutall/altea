@@ -90,7 +90,6 @@ export namespace DynamicTypeConditionLogic {
     }
 }
 
-/** Signum's DynamicTypeConditionCodeGenerator. */
 export class DynamicTypeConditionCodeGenerator {
 
     constructor(readonly conditions: DynamicTypeConditionEntity[]) { }

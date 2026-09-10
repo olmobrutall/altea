@@ -86,7 +86,7 @@ export namespace DynamicValidationLogic {
                 });
             });
 
-        // Signum's `EntityEvents<TypeEntity>().PreDeleteSqlSync`, plus the PropertyRouteEntity sibling it
+        // The TypeEntity `preDeleteSqlSync`, plus the PropertyRouteEntity sibling Signum
         // lacks (see the header). Either way the validations that named the removed thing go with it.
         sb.schema.entityEvents(TypeEntity).preDeleteSqlSync.push(type =>
             deleteValidationsWhere(sb.schema, "entityType", type.id));
@@ -94,7 +94,7 @@ export namespace DynamicValidationLogic {
         sb.schema.entityEvents(PropertyRouteEntity).preDeleteSqlSync.push(property =>
             deleteValidationsWhere(sb.schema, "subEntity", property.id));
 
-        // Signum's `sb.Schema.Initializing += () => { initialized = true; }` — until the schema is up, a
+        // Until the schema is up, a
         // validation cannot be read, and reporting an error from a half-built process would be worse than
         // reporting none.
         sb.schema.initializing.push(async () => {
@@ -102,7 +102,6 @@ export namespace DynamicValidationLogic {
             initialized = true;
         });
 
-        // Signum's `InvalidateWith(typeof(DynamicValidationEntity))`.
         sb.schema.entityEvents(DynamicValidationEntity).saved.push(async () => { await refresh(); });
 
         globalValidators.push(dynamicValidation);
@@ -160,7 +159,7 @@ export namespace DynamicValidationLogic {
     }
 
     /**
-     * Signum's `DynamicValidation(ModifiableEntity mod, PropertyInfo pi)` — the global validator itself.
+     * The global validator itself.
      *
      * The first message wins, and a throw is re-thrown NAMED, as Signum does with
      * `e.Data["DynamicValidation"]`: a script that blows up should say which script.

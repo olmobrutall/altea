@@ -13,7 +13,7 @@ import { IsNullableValues, DynamicUniqueIndexValues } from "../../data/DynamicTy
 // (PropertyRepeaterComponent / PropertyComponent / TypeCombo / ValidatorRepeaterComponent, plus the type
 // predicates and `autoFix`).
 //
-// altea divergence in FILE LAYOUT: Signum keeps all of this in one 1,572-line file with the definition
+// FILE LAYOUT: Signum keeps all of this in one 1,572-line file with the definition
 // editor. The properties are the half that is edited most and read most, so they live here and the
 // definition tabs live next door — nothing else about the split is meaningful.
 //
@@ -26,7 +26,8 @@ import { IsNullableValues, DynamicUniqueIndexValues } from "../../data/DynamicTy
 //  - `IsMList` keeps Signum's NAME in the stored definition (so a definition round-trips between the two
 //    frameworks) but the editor labels it "Is collection", because that is what it produces here: a
 //    generated `@part` row type, not an MList table. Its four options mean the same things.
-//  - Signum's `TypeCombo` autocompletes against `TypeHelpClient.API.autocompleteType`. TypeHelp is not
+//  - the `TypeCombo` cannot autocomplete: Signum's reads `TypeHelpClient.API.autocompleteType`, and
+//    TypeHelp is not
 //    ported (the honest equivalent is editor IntelliSense over the same `.d.ts` — see @altea/altea-eval),
 //    so this is a plain text box with the value types offered as a datalist.
 
@@ -53,7 +54,7 @@ function allowUnit(type: string): boolean { return isInteger(type) || isReal(typ
 function allowFormat(type: string): boolean { return isInteger(type) || isReal(type) || isDateTime(type); }
 
 /**
- * Signum's `autoFix` — keep the options that cannot apply from lingering on a property whose type changed.
+ * Keep the options that cannot apply from lingering on a property whose type changed.
  *
  * Without it a `size` set while the property was a string stays in the stored definition after it becomes
  * an int, and the generator would emit a column option that means nothing.
@@ -270,7 +271,7 @@ export function PropertyComponent(p: PropertyComponentProps): React.JSX.Element 
     );
 }
 
-/** Signum's `TypeCombo` — a text box with the value types offered; see the header on autocomplete. */
+/** A text box with the value types offered; see the header on autocomplete. */
 export function TypeCombo(p: {
     dc: DynamicTypeDesignContext;
     binding: Binding<string>;
@@ -295,7 +296,7 @@ export function TypeCombo(p: {
 }
 
 /**
- * Signum's `IsMListFieldsetComponent` — present/absent decides whether the property is a COLLECTION.
+ * Present/absent decides whether the property is a COLLECTION.
  *
  * Labelled "collection", because that is what it produces in altea: a generated `@part` row type. The
  * stored key stays `isMList` so a definition round-trips with Signum.
@@ -337,7 +338,7 @@ function CollectionFieldset(p: {
 // ---- validators ----------------------------------------------------------------------------------------
 
 /**
- * Signum's validator registry (`registerValidator<T>`), flattened.
+ * The validator registry, flattened (Signum's is a `registerValidator<T>` per validator).
  *
  * There, each validator is a class plus a registration carrying its render function and an `isApplicable`
  * predicate. Here a validator IS its option bag (the discriminated union in data/DynamicType), so a

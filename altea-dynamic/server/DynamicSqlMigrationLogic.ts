@@ -60,7 +60,7 @@ export namespace DynamicSqlMigrationLogic {
             .withQuery();
     }
 
-    /** Signum's `AddDynamicRename` — record a rename so later synchronizations answer it themselves. */
+    /** Record a rename so later synchronizations answer it themselves. */
     export async function addDynamicRename(replacementKey: string, oldName: string, newName: string): Promise<void> {
         await DynamicRenameEntity.create({ replacementKey, oldName, newName }).save();
     }
@@ -136,7 +136,6 @@ export namespace DynamicSqlMigrationLogic {
 
         op.withExecute(DynamicSqlMigrationOperation.Execute, {
             canBeModified: true,
-            // Signum's `CanExecute = a => a.ExecutionDate == null ? null : …AlreadyExecuted`.
             canExecute: m => m.executionDate == null
                 ? null
                 : DynamicSqlMigrationMessage.TheMigrationIsAlreadyExecuted.niceToString(),
@@ -150,7 +149,7 @@ export namespace DynamicSqlMigrationLogic {
 }
 
 /**
- * Signum's `lastRenames`: the recorded renames no later migration has consumed, oldest first, so a chain
+ * The recorded renames no later migration has consumed, oldest first, so a chain
  * (a -> b -> c) is replayed in the order it happened.
  *
  * Signum expresses "not applied" as `IsApplied`, an EXISTS per row; here it is the same question asked
@@ -173,7 +172,7 @@ async function unappliedRenames(): Promise<DynamicRenameEntity[]> {
     return all.filter(r => Temporal.PlainDateTime.compare(r.creationDate, cutoff) > 0);
 }
 
-// ---- the rename strategies (Signum's DynamicAutoReplacements*) ----------------------------------------
+// ---- the rename strategies -----------------------------------------------------------------------------
 
 /**
  * Answer ONE of the synchronizer's rename questions from the recorded renames, or null to leave it to the
@@ -192,7 +191,7 @@ function autoReplacement(ctx: AutoReplacementContext, lastRenames: DynamicRename
     return { oldValue: ctx.oldValue, newValue: newName };
 }
 
-/** Signum's `AutoReplacementEnums`: an enum MEMBER is matched by nearest spelling. An enum row is seeded,
+/** An enum MEMBER is matched by nearest spelling. An enum row is seeded,
  *  so guessing wrong costs a re-seed, not data — which is why this one guesses at all. */
 function nearestByDistance(ctx: AutoReplacementContext): string | null {
     const candidates = ctx.newValues ?? [];
@@ -204,7 +203,7 @@ function nearestByDistance(ctx: AutoReplacementContext): string | null {
         sd.levenshteinDistance(nv, ctx.oldValue) < sd.levenshteinDistance(best, ctx.oldValue) ? nv : best);
 }
 
-/** Signum's `DynamicAutoReplacementsSimple`: replay the chain over the WHOLE name (a table). */
+/** Replay the chain over the WHOLE name (a table). */
 function chainedWhole(ctx: AutoReplacementContext, lastRenames: DynamicRenameEntity[], replacementKey: string): string | null {
     let current = ctx.oldValue;
     for (const r of lastRenames)
@@ -214,7 +213,7 @@ function chainedWhole(ctx: AutoReplacementContext, lastRenames: DynamicRenameEnt
     return ctx.newValues?.includes(current) ? current : null;
 }
 
-/** Signum's `DynamicAutoReplacementsColumns`: a column name is composed (an embedded's members are
+/** A column name is COMPOSED (an embedded's members are
  *  `owner_member`), so the chain is replayed per SEGMENT — renaming `address` fixes `address_city` too. */
 function chainedBySegment(ctx: AutoReplacementContext, lastRenames: DynamicRenameEntity[], separator: string): string | null {
     const table = ctx.replacementKey.slice(Replacements.keyColumnsForTable("").length);

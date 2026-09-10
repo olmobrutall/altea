@@ -29,7 +29,7 @@ import { DynamicSqlMigrationEntity } from "../data/DynamicSqlMigration";
 //    that killed the process without something to restart it would be a trap. The permission
 //    (`DynamicPanelPermission.RestartApplication`) is ported and the page says plainly that a restart is
 //    needed — how to perform one belongs to the deployment.
-//  - Signum's tabs for compiling / checking evals are folded into the single status block: with modules
+//  - the tabs for compiling / checking evals are folded into the single status block: with modules
 //    rather than assemblies there is one compile, and it already happened at startup.
 export default function DynamicPanelPage(): React.JSX.Element {
     useTitle("Dynamic panel");
