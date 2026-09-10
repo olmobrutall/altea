@@ -14,9 +14,9 @@ import { entity, quoted, uniqueIndex } from './decorators';
 //    real identity column, though (unlike the enum/symbol tables): generation inserts
 //    the rows without ids and `TypeLogic.load` reads the DB-assigned ids back, exactly
 //    as Signum does.
-//  - `toString()` is left as the inherited default rather than `CleanName`
-//    (no test depends on a TypeEntity display string), so there is no `ToStr`
-//    column.
+//  - there is no `ToStr` column: `toString()` is `@quoted` (see below), so the display string is
+//    COMPUTED — which is what gives a `Lite<TypeEntity>` its text, and therefore what the
+//    `[EntityType]` query token projects.
 @reflect
 @entity("SystemString", "Master")
 export class TypeEntity extends Entity {

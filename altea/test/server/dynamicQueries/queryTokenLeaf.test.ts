@@ -57,10 +57,30 @@ describe("leaf sub-tokens exist where Signum puts them", () => {
         // Enumerate without CanAggregate so the reference exposes only its AsType-per-implementation
         // tokens (not the group-aggregate Count-null / Count-distinct tokens it gets under CanAggregate).
         const noAgg = O & ~SubTokensOptions.CanAggregate;
-        // Only the casts and HasValue: a polymorphic reference offers nothing of the declared type
-        // (see the polymorphic section of tokenNaming.test.ts).
+        // Only the casts, `[EntityType]` and HasValue: a polymorphic reference offers nothing of the
+        // declared type (see the polymorphic section of tokenNaming.test.ts).
         const keys = tok("author").subTokens(noAgg).map(t => t.key);
-        assert.deepEqual(new Set(keys), new Set(["HasValue", "(Artist)", "(Band)"]));
+        assert.deepEqual(new Set(keys), new Set(["[EntityType]", "HasValue", "(Artist)", "(Band)"]));
+    });
+
+    test("[EntityType] comes FIRST, and is a Lite<TypeEntity> you can keep walking", () => {
+        const noAgg = O & ~SubTokensOptions.CanAggregate;
+        // Signum's `PreAnd(new EntityTypeToken(this))` + `AndHasValue(this)`: the type question first,
+        // HasValue last, the casts between. ORDER, not just membership — it is what the picker shows.
+        assert.deepEqual(tok("author").subTokens(noAgg).map(t => t.key),
+            ["[EntityType]", "(Artist)", "(Band)", "HasValue"]);
+
+        const et = tok("author").subToken("[EntityType]", O)!;
+        assert.equal(et.fullKey(), "Author.[EntityType]");
+        assert.equal(et.toString(), "[Entity Type]");
+        assert.equal(et.niceName(), "Entity Type of Author");
+        // Rooted at TypeEntity, as Signum's `PropertyRoute.Root(typeof(TypeEntity))` is — so it is the
+        // TYPE table's own members that follow, not the polymorphic reference's.
+        assert.equal(et.getPropertyRoute()!.toString(), "(Type)");
+
+        const keys = et.subTokens(noAgg).map(t => t.key);
+        for (const k of ["Id", "ToString", "CleanName", "TableName", "Namespace"])
+            assert.ok(keys.includes(k), `missing ${k}`);
     });
 });
 

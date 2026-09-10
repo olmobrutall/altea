@@ -4,6 +4,7 @@ import { EntityToStringToken } from "./entityToStringToken";
 import { HasValueToken } from "./hasValueToken";
 import { ObjectPropertyToken } from "./objectPropertyToken";
 import { AsTypeToken } from "./asTypeToken";
+import { EntityTypeToken } from "./entityTypeToken";
 import type { Type, Entity } from "../../entity";
 import { DateToken } from "./dateToken";
 import { DatePartStartToken, type DatePartStartName } from "./datePartStartToken";
@@ -28,6 +29,7 @@ registerTokenFactories({
     // `entityCtor` is a resolved implementation ctor (Function in the factory contract) — always a
     // concrete entity type here, so narrow it to Type<Entity> for AsTypeToken's `.niceName()`.
     asType: (parent, entityCtor) => new AsTypeToken(parent, entityCtor as Type<Entity>),
+    entityType: (parent) => new EntityTypeToken(parent),
     dateToken: (parent) => new DateToken(parent),
     datePartStart: (parent, name) => new DatePartStartToken(parent, name as DatePartStartName),
     modulo: (parent, divisor) => new ModuloToken(parent, divisor),

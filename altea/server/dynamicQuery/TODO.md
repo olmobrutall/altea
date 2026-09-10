@@ -71,8 +71,9 @@ Leaf tokens (low priority, not blocked):
 - [ ] `StepToken` chain (numeric buckets) + `RoundingExpressionGenerator`.
 - [ ] `DatePartStartToken` ("Month/Quarter/…Start", "Every N …") — needs SQL date-trunc helpers.
 - [ ] TimeSpan/duration parts (wire the `TemporalType("duration")` branch — HasValue only today).
-- [ ] `TimeOnlyProperties`; `weekNumber` (binder lacks it); `EntityTypeToken` ("[EntityType]", needs
-      TypeEntity-lite plumbing).
+- [ ] `TimeOnlyProperties`; `weekNumber` (binder lacks it).
+- [x] `EntityTypeToken` ("[EntityType]") — the TypeEntity-lite plumbing it was waiting on already
+      existed (`getEntityType` + `.toTypeEntity()`), so it is navigation only.
 
 QueryLogic registration:
 - [ ] `QueryLogic.Start(sb)` — `Include<QueryEntity>().withQuery()`, `QueryNameToEntity`/`liteToEntity`

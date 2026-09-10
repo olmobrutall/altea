@@ -13,10 +13,11 @@ import {
     BinaryExpression, ConstantExpression, LambdaExpression, UnaryExpression, ObjectExpression,
 } from "../linq/expressions";
 import { Entity } from "../../data/entity";
+import { TypeEntity } from "../../data/typeEntity";
 import { RuntimeType, ClassType, LiteType, ArrayType, LiteralType } from "../runtimeTypes";
 import {
     QueryToken, RootToken, EntityPropertyToken, EntityToStringToken, HasValueToken, ObjectPropertyToken,
-    AsTypeToken, DateToken, DatePartStartToken, ModuloToken, CountToken,
+    AsTypeToken, EntityTypeToken, DateToken, DatePartStartToken, ModuloToken, CountToken,
     CollectionElementToken, CollectionAnyAllToken, CollectionAnyAllType, CollectionToArrayToken,
     AggregateToken, AggregateFunction, ExtensionToken,
     ManualContainerToken, ManualToken,
@@ -167,6 +168,21 @@ AsTypeToken.prototype.buildExpressionInternal = function (context: BuildExpressi
     // (base.entity as EntityType), then project as a Lite.
     const cast = new CastExpression(extractEntity(base, false), new ClassType(this.entityCtor));
     return buildLite(cast);
+};
+
+// `lite.entityType.toTypeEntity()`, projected as a Lite — Signum's
+// `TypeLogic.ToTypeEntity(base.EntityType).BuildLite()`.
+//
+// Both halves already exist in the binder and neither is specific to this token: `.entityType` on a
+// lite yields a Type expression (`getEntityType` — the @implementedByAll discriminator column, or a
+// CASE over which @implementedBy column is filled), and `.toTypeEntity()` turns a Type expression
+// into an ordinary EntityExpression on the TypeEntity table keyed by that id. So the token is pure
+// navigation: it adds no SQL and it completes and materialises like any other reference.
+EntityTypeToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    const base = this.parent!.buildExpression(context);
+    const entityType = new PropertyExpression(base, "entityType");
+    const typeEntity = new CallExpression(new PropertyExpression(entityType, "toTypeEntity"), [], new ClassType(TypeEntity));
+    return buildLite(typeEntity);
 };
 
 DateToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {

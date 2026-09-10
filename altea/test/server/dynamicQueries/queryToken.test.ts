@@ -53,14 +53,15 @@ describe("QueryToken — navigation", () => {
         assert.ok(labelKeys.includes("Country"));
     });
 
-    test("a polymorphic reference offers casting and nothing else", () => {
-        // `author` is @implementedBy [Artist, Band]: one AsType token per implementation, plus HasValue.
-        // A member of the DECLARED type is reached by casting, or by registering it as an expression on
-        // that type — Signum's rule; see the polymorphic section of tokenNaming.test.ts.
+    test("a polymorphic reference offers casting, [EntityType] and nothing else", () => {
+        // `author` is @implementedBy [Artist, Band]: `[EntityType]` (which type IS it?), one AsType
+        // token per implementation, plus HasValue. A member of the DECLARED type is reached by casting,
+        // or by registering it as an expression on that type — Signum's rule; see the polymorphic
+        // section of tokenNaming.test.ts.
         // Ignore the group-aggregate tokens a reference exposes under CanAggregate.
         const author = entityToken().subToken("author", O)!;
         const asKeys = author.subTokens(O).filter(t => !t.isAggregate()).map(t => t.key);
-        assert.deepEqual(new Set(asKeys), new Set(["HasValue", "(Artist)", "(Band)"]));
+        assert.deepEqual(new Set(asKeys), new Set(["[EntityType]", "HasValue", "(Artist)", "(Band)"]));
     });
 
     test("fullKey chains the token path (rootless — the entity root is \"\")", () => {

@@ -258,9 +258,10 @@ export abstract class QueryToken {
             if (imp == undefined)
                 return [];
             if (imp.isByAll) {
-                // @implementedByAll: one AsTypeToken per mapped entity type assignable to `entityCtor`
-                // (Signum's QueryLogic.GetImplementedByAllSubTokens). The provider is wired by
-                // queryLogic.ts (needs the Schema). TODO(phase3c): PreAnd(EntityTypeToken).
+                // @implementedByAll: `[EntityType]` first (Signum's PreAnd — see EntityTypeToken), then
+                // one AsTypeToken per mapped entity type assignable to `entityCtor` (Signum's
+                // QueryLogic.GetImplementedByAllSubTokens). The provider is wired by queryLogic.ts
+                // (needs the Schema).
                 //
                 // A `@part` is NOT offered, which brings the list back to Signum's: altea's mapped types
                 // include the row types that stand in for Signum's MList tables and owned embeddeds, and
@@ -269,8 +270,9 @@ export abstract class QueryToken {
                 // that owns it and nowhere else (PropertyRoute.isPartType), and a cast reached from an
                 // arbitrary polymorphic reference has no owner to continue from.
                 const provider = implementedByAllTypesProvider;
-                return provider == undefined || entityCtor == undefined ? []
+                const asTypes = provider == undefined || entityCtor == undefined ? []
                     : provider(entityCtor).filter(t => !isPartType(t)).map(t => tokenFactories!.asType(this, t));
+                return this.andHasValue([tokenFactories!.entityType(this), ...asTypes]);
             }
 
             const only = imp.only();
@@ -301,10 +303,15 @@ export abstract class QueryToken {
             // where Signum leaves that to the app that knows — and the mechanism for saying yes already
             // exists on both sides.
             //
+            // `[EntityType]` comes FIRST here too (Signum's PreAnd), and it is the one thing that can be
+            // asked of a polymorphic reference without committing to a cast — see EntityTypeToken.
+            //
             // `andHasValue` IS a fix: Signum's branch ends in `.AndHasValue(this)` and altea's had
-            // dropped it. TODO(phase3c): PreAnd(EntityTypeToken) — the "[EntityType]" sub-token, which
-            // Signum also puts here and altea has no counterpart for yet.
-            return this.andHasValue(imp.types.map(t => tokenFactories!.asType(this, t)));
+            // dropped it.
+            return this.andHasValue([
+                tokenFactories!.entityType(this),
+                ...imp.types.map(t => tokenFactories!.asType(this, t)),
+            ]);
         }
 
         const embeddedCtor = embeddedOrModelCtorOf(type);
@@ -704,6 +711,7 @@ export interface TokenFactories {
     hasValue(parent: QueryToken): QueryToken;
     objectProperty(parent: QueryToken, memberName: string, resultType: TypeReference, displayName: string, isMethod: boolean, format?: string, unit?: string): QueryToken;
     asType(parent: QueryToken, entityCtor: Function): QueryToken;
+    entityType(parent: QueryToken): QueryToken;
     dateToken(parent: QueryToken): QueryToken;
     datePartStart(parent: QueryToken, name: string): QueryToken;
     modulo(parent: QueryToken, divisor: number): QueryToken;

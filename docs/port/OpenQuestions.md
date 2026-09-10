@@ -334,13 +334,20 @@ since the SearchModal landed.
 > already in place. Each was caught by grepping the file rather than trusting the sentence being replaced.
 > The failure mode this whole page is about does not spare the person fixing it.
 
-### 3.3 Two smaller recorded holes, unchanged
+### 3.3 ~~Two~~ smaller recorded holes
 
-Not findings of this pass — both are correctly recorded where they live — but they belong on any list of
-loose ends:
+Not findings of this pass — both were correctly recorded where they live — but they belonged on any list
+of loose ends. The first is now closed:
 
-- **`EntityTypeToken` is not ported** on a polymorphic reference (a `phase3c` TODO). altea offers casting
-  and `HasValue` where Signum also offers the type token, so this divergence runs the *other* way from most.
+- **~~`EntityTypeToken` is not ported~~ — PORTED.** `data/dynamicQuery/tokens/entityTypeToken.ts` plus the
+  `PreAnd` on both polymorphic branches. It turned out to be navigation and nothing else: the
+  discriminator is already a column on either shape, and both halves of the path (`lite.entityType` →
+  a Type expression, `.toTypeEntity()` → the TypeEntity row) were already in the binder for other
+  callers — so the token adds no SQL. Two things fell out of writing it: the `@implementedByAll` branch
+  was missing `HasValue` as well (the comment recorded that fix for the `@implementedBy` branch only),
+  and `data/typeEntity`'s header still said `toString()` was left as the inherited default when the
+  `@quoted toString() => cleanName` twelve lines below it says otherwise — which matters here, because
+  that expression is what gives the new lite its display string.
 - **The `@part` EntityData facet has no consumer.** Nothing in altea reads it yet — it is Signum-parity
   metadata, used there by the sync and the schema map. CLAUDE.md notes that is where to look first if a
   consumer appears.
@@ -386,6 +393,8 @@ evidence for §5, and a record so the same sentence is not re-derived from `old/
 | altea-dynamic | `View/Nodes.tsx`: "altea has no notVisible" | it does — see §2.1 |
 | altea-dynamic | `View/GlobalModules.ts`: "`TreeClient` is dropped: Signum.Tree is not ported" | altea-tree is ported — see §2.2 |
 | altea/client | `Finder.tsx`: "the UI is un-commented as SearchControl/Lines/Operations land" | all three landed — see §3.2 |
+| altea/data | `typeEntity.ts`: "`toString()` is left as the inherited default rather than `CleanName`" | the `@quoted toString() => cleanName` twelve lines below it — found while porting `[EntityType]`, whose lite reads that display string |
+| altea/data | `queryToken.ts`: the `@implementedByAll` branch, silent about HasValue while the sibling branch's comment claims the fix | it had neither HasValue nor the type token — see §3.3 |
 
 ---
 

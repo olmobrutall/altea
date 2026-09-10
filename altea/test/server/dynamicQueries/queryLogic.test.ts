@@ -79,7 +79,11 @@ describe("QueryLogic — @implementedByAll sub-tokens", () => {
             assert.ok(keys.includes("(Album)"));
             assert.ok(keys.includes("(Artist)"));
             assert.ok(keys.includes("(Label)"));
-            assert.ok(keys.every(k => k.startsWith("(")), "all byAll sub-tokens are AsType casts");
+            // `[EntityType]` FIRST and HasValue last (Signum's PreAnd / AndHasValue); everything between
+            // is a cast — a byAll reference offers nothing else of the model.
+            assert.equal(keys[0], "[EntityType]");
+            assert.equal(keys[keys.length - 1], "HasValue");
+            assert.ok(keys.slice(1, -1).every(k => k.startsWith("(")), "every other byAll sub-token is an AsType cast");
         });
     });
 
@@ -101,5 +105,53 @@ describe("QueryLogic — @implementedByAll sub-tokens", () => {
         });
         assert.match(sql, /album/);
         assert.match(sql, /name/);
+    });
+});
+
+// The `[EntityType]` token — "which type is this polymorphic reference actually pointing at?". It adds
+// no SQL of its own: the discriminator is ALREADY a column on either shape, so the token is navigation
+// and the join to the type table is what an ordinary reference would emit.
+describe("QueryToken — [EntityType] over a polymorphic reference", () => {
+
+    function bindTypeToken(ctor: Type<BaseEntity>, steps: string[]): string {
+        const q = table(ctor as never);
+        const param = new ParameterExpression("e", new ClassType(ctor as never));
+        const ctx = new BuildExpressionContext(param.type, param, new Map([["Entity", new ExpressionBox(param)]]));
+        return Connector.withConnector(fake, () => {
+            let token: any = entityToken(ctor);
+            for (const s of steps)
+                token = token.subToken(s, O);
+            const body = token.buildExpression(ctx);
+            const lambda = new LambdaExpression([param], body);
+            const mapCall = new CallExpression(new PropertyExpression(q.expression, "map"), [lambda], new ArrayType(body.type));
+            const proj = bindAndOptimize(mapCall, sb.schema, false, true) as ProjectionExpression;
+            assert.ok(proj instanceof ProjectionExpression);
+            return QueryFormatter.format(proj.select, false).sql.toLowerCase();
+        });
+    }
+
+    test("@implementedByAll: the STORED discriminator is the join key", () => {
+        // ArtistEntity.lastAward is `@implementedByAll Entity`, so the type id is a real column.
+        const sql = bindTypeToken(ArtistEntity, ["lastAward", "[EntityType]", "cleanName"]);
+        assert.match(sql, /basics\.type/);
+        assert.match(sql, /lastawardid_type = t\.id/);
+        assert.match(sql, /t\.cleanname/);
+    });
+
+    test("@implementedBy: a CASE over which implementation column is filled", () => {
+        // AlbumEntity.author is `@implementedBy [Artist, Band]` — no discriminator column, so the id is
+        // derived from the per-implementation FKs (Signum's `extractTypeId` over TypeImplementedBy).
+        const sql = bindTypeToken(AlbumEntity, ["author", "[EntityType]", "cleanName"]);
+        assert.match(sql, /basics\.type/);
+        assert.match(sql, /case when a\.authorid_artist is not null then \d+ when a\.authorid_band is not null then \d+/);
+        assert.match(sql, /t\.cleanname/);
+    });
+
+    test("the token itself projects the Lite<TypeEntity>", () => {
+        const sql = bindTypeToken(AlbumEntity, ["author", "[EntityType]"]);
+        // A lite needs the id AND the display string, which for TypeEntity is CleanName (its `@quoted`
+        // toString) — there is no ToStr column on that table.
+        assert.match(sql, /t\.cleanname/);
+        assert.match(sql, /basics\.type/);
     });
 });

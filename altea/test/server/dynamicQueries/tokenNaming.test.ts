@@ -103,10 +103,10 @@ describe("a polymorphic reference offers casting, and expressions on the declare
     QueryLogic.expressions.register(AwardEntity, (a: AwardEntity) => a.category,
         { key: "Category", niceName: () => "Category" });
 
-    test("one AsType token per implementation, plus HasValue — and the registered expression", () => {
+    test("one AsType token per implementation, plus [EntityType] / HasValue — and the registered expression", () => {
         const keys = award().subTokens(O).filter(t => !t.isAggregate()).map(t => t.key);
         assert.deepEqual(new Set(keys),
-            new Set(["HasValue", "Category", "(GrammyAward)", "(PersonalAward)", "(AmericanMusicAward)"]));
+            new Set(["[EntityType]", "HasValue", "Category", "(GrammyAward)", "(PersonalAward)", "(AmericanMusicAward)"]));
     });
 
     test("an UNregistered member of the declared type is not offered — casting reaches it", () => {

@@ -9,6 +9,7 @@ export * from "./entityToStringToken";
 export * from "./hasValueToken";
 export * from "./objectPropertyToken";
 export * from "./asTypeToken";
+export * from "./entityTypeToken";
 export * from "./dateToken";
 export * from "./moduloToken";
 export * from "./countToken";

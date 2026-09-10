@@ -21,6 +21,7 @@ import { registerEnum, setDatabaseSchema } from './registration';
 // to name synthetic tokens; the display text arrives via the reflection translation blob (msg()'s
 // name-inferred default is the fallback).
 export const QueryTokenMessage = {
+    _0Of1: msg("{0} of {1}"),
     AnyEntity: msg(),
     CellOperation: msg(),
     Check: msg(),
@@ -29,6 +30,7 @@ export const QueryTokenMessage = {
     DateTime: msg(),
     DateTimeOffset: msg(),
     DecimalNumber: msg(),
+    EntityType: msg("Entity Type"),
     GlobalUniqueIdentifier: msg(),
     IndexerContainer: msg(),
     ListOf0: msg("List of {0}"),
