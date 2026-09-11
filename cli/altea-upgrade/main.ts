@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Color, Console } from "./Console.js";
+import { Color, Console } from "@altea/altea-cli-utils";
 import { UpgradeContext } from "./UpgradeContext.js";
 import { UpgradeRunner } from "./UpgradeRunner.js";
 

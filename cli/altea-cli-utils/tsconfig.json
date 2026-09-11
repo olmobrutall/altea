@@ -1,5 +1,7 @@
 {
-    // See altea-cli-utils' tsconfig for why these are standalone rather than extending the base preset.
+    // STANDALONE on purpose: it does NOT extend altea's base preset, because that configures the
+    // quote-transformer ts-patch plugin — a dependency these tools must not have. Plain `tsc`, node
+    // builtins only, so a tool keeps working when the framework it edits does not compile.
     "compilerOptions": {
         "target": "ES2022",
         "lib": ["ES2022"],
@@ -17,8 +19,5 @@
         "tsBuildInfoFile": "./dist/.tsbuildinfo"
     },
     "include": ["**/*.ts"],
-    "exclude": ["dist/**", "node_modules/**"],
-    "references": [
-        { "path": "../altea-cli-utils/tsconfig.json" }
-    ]
+    "exclude": ["dist/**", "node_modules/**"]
 }

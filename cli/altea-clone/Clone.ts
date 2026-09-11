@@ -1,9 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Color, Console } from "../altea-upgrade/Console.js";
-import { Git } from "../altea-upgrade/Git.js";
-import { Prompt } from "../altea-upgrade/Prompt.js";
-import { UpgradeContext } from "../altea-upgrade/UpgradeContext.js";
+import * as url from "node:url";
+import { ApplicationContext, Color, Console, Git, Prompt } from "@altea/altea-cli-utils";
 
 /**
  * Copy this application into a NEW project, renamed.
@@ -41,13 +39,13 @@ export namespace Clone {
     }
 
     /** Workspace-level files a new project inherits. Anything not here is the PORT's bookkeeping. */
-    const ROOT_FILES = ["AGENTS.md", "CLAUDE.md", ".gitignore", "pnpm-workspace.yaml"];
+    const ROOT_FILES = ["AGENTS.md", "CLAUDE.md", ".gitignore", "pnpm-workspace.yaml", "pnpm-lock.yaml"];
     const ROOT_DIRECTORIES = [".vscode", ".claude"];
 
     /** Never copied, whatever the source holds. */
     const NEVER = new Set(["node_modules", "dist", "ts_out", ".git", "CodeGen", "TensorFlowModels"]);
 
-    export async function run(uctx: UpgradeContext, options: Options = {}): Promise<void> {
+    export async function run(uctx: ApplicationContext, options: Options = {}): Promise<void> {
         const name = await askName(options.name);
         if (name == undefined)
             return;
@@ -115,13 +113,26 @@ export namespace Clone {
         Console.writeLine();
         Console.writeLine("  Next:");
         Console.writeLine(`    cd ${target}`);
-        Console.writeLine("    altea-simplify                      # drop the modules this app does not need");
-        Console.writeLine("    pnpm install                        # simplify first: it needs no install,");
-        Console.writeLine("    pnpm --filter quote-transformer build   # and install leaves an untracked lockfile");
+        // The CLIs are workspace packages of the framework, so in a project that has not been installed
+        // yet they are neither linked nor built. The one the developer just ran IS, so name it by its own
+        // path rather than pretending `altea-simplify` is on theirs.
+        Console.writeLine(`    node "${simplifyPath()}"`);
+        Console.writeLine("    pnpm install");
+        Console.writeLine("    pnpm --filter quote-transformer build");
         Console.writeLine(`    pnpm --filter ${name} build:types`);
+        Console.writeLine();
         Console.writeLineColor(Color.darkGray,
-            `    …then edit ${name}/.env.local — the copied environment files are git-ignored, `
-            + "and still hold the source application's connection strings.");
+            `    Then edit ${name}/.env.local — the environment files came across, are git-ignored, and `
+            + "still hold the source application's connection strings.");
+    }
+
+    /**
+     * Where `altea-simplify` is, derived from where THIS tool is: the two are siblings in the framework's
+     * `cli/` folder, and a developer who could run one can run the other.
+     */
+    function simplifyPath(): string {
+        const here = path.dirname(url.fileURLToPath(import.meta.url));       // …/cli/altea-clone/dist
+        return path.resolve(here, "..", "..", "altea-simplify", "dist", "main.js");
     }
 
     // ---- prompts -----------------------------------------------------------------------------------
@@ -135,7 +146,7 @@ export namespace Clone {
             given);
     }
 
-    async function askDirectory(given: string | undefined, uctx: UpgradeContext, yes: boolean): Promise<string | undefined> {
+    async function askDirectory(given: string | undefined, uctx: ApplicationContext, yes: boolean): Promise<string | undefined> {
         const parent = path.dirname(uctx.rootFolder);
         const answer = given ?? await Console.askString(
             `Parent directory? (Enter for ${parent}) `);
@@ -151,7 +162,7 @@ export namespace Clone {
 
     // ---- the submodule -----------------------------------------------------------------------------
 
-    function addAlteaSubmodule(uctx: UpgradeContext, target: string): void {
+    function addAlteaSubmodule(uctx: ApplicationContext, target: string): void {
         const url = Git.submoduleUrl(uctx.rootFolder, "altea");
         if (url == undefined)
             throw new Error("Could not read altea's submodule url from .gitmodules.");
@@ -224,7 +235,7 @@ export namespace Clone {
                 continue;
 
             const sourcePath = path.join(source, entry.name);
-            const renamed = UpgradeContext.rename(entry.name, from, to);
+            const renamed = ApplicationContext.rename(entry.name, from, to);
             const destinationPath = path.join(destination, renamed);
 
             if (entry.isDirectory()) {
@@ -260,7 +271,7 @@ export namespace Clone {
             return;
         }
 
-        fs.writeFileSync(destination, UpgradeContext.rename(raw.toString("utf8"), from, to), "utf8");
+        fs.writeFileSync(destination, ApplicationContext.rename(raw.toString("utf8"), from, to), "utf8");
     }
 
     /** A NUL byte in the first few KB — the same heuristic git uses to decide a file is not text. */

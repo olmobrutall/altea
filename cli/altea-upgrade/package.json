@@ -4,18 +4,21 @@
   "description": "Run an altea application's pending source upgrades, and the toolkit for writing them (ported from Signum.Upgrade)",
   "type": "module",
   "bin": {
-    "altea-upgrade": "./dist/altea-upgrade/main.js"
+    "altea-upgrade": "./dist/main.js"
   },
   "exports": {
     "./*": {
-      "types": "./dist/altea-upgrade/*.d.ts",
-      "default": "./dist/altea-upgrade/*.js"
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
     }
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc -b"
   },
   "keywords": [],
   "author": "Olmo del Corral",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea-cli-utils": "workspace:*"
+  }
 }

@@ -1,10 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Color, Console } from "../altea-upgrade/Console.js";
-import { Git } from "../altea-upgrade/Git.js";
+import { type ApplicationContext, type Choice, Color, Console, Git, Prompt } from "@altea/altea-cli-utils";
 import { ModulesXml, type Directive, type Module, type ModulesFile } from "./ModulesXml.js";
-import { Prompt, type Choice } from "../altea-upgrade/Prompt.js";
-import type { UpgradeContext } from "../altea-upgrade/UpgradeContext.js";
 
 /**
  * Remove optional modules from an application, following its `Modules.xml`.
@@ -36,7 +33,7 @@ export namespace Simplify {
         yes?: boolean;
     }
 
-    export async function run(uctx: UpgradeContext, options: Options = {}): Promise<void> {
+    export async function run(uctx: ApplicationContext, options: Options = {}): Promise<void> {
         const filePath = ModulesXml.locate(uctx.rootFolder, uctx.applicationName);
         if (filePath == undefined)
             throw new Error(`No Modules.xml in ${uctx.applicationName}/ — nothing to simplify.`);

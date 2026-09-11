@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Xml, type XmlElement } from "./Xml.js";
+import { XMLParser, XMLValidator } from "fast-xml-parser";
 
 /**
  * The parsed `Modules.xml` — an application's list of optional modules and exactly how to remove each.
@@ -37,23 +37,30 @@ export interface ModulesFile {
 export namespace ModulesXml {
 
     export function read(filePath: string, rootFolder: string): ModulesFile {
-        const root = Xml.parse(fs.readFileSync(filePath, "utf8"), filePath);
+        const xml = fs.readFileSync(filePath, "utf8");
 
-        if (root.name !== "File")
-            throw new Error(`${filePath}: the root element is <${root.name}>, expected <File>.`);
+        const valid = XMLValidator.validate(xml);
+        if (valid !== true)
+            throw new Error(`${filePath} is not well-formed: ${JSON.stringify(valid)}`);
 
-        const container = root.children.find(c => c.name === "Modules");
-        const modules = (container?.children ?? []).map(e => readModule(filePath, e));
+        const parser = new XMLParser({
+            ignoreAttributes: false,
+            attributeNamePrefix: "@",
+            // Every element except the four containers is a repeatable directive.
+            isArray: (name, _jpath, _leaf, isAttribute) =>
+                !isAttribute && !["File", "Modules", "Projects", "Workspaces"].includes(name),
+        });
+
+        const doc = parser.parse(xml) as { File?: { Modules?: { Module?: RawModule[] } } };
+        const raw = doc.File?.Modules?.Module ?? [];
+
+        const modules = raw.map(readModule);
 
         const names = new Set(modules.map(m => m.name));
         for (const m of modules)
             for (const d of m.dependsOn)
                 if (!names.has(d))
                     throw new Error(`Module '${m.name}' DependsOn '${d}', which does not exist.`);
-
-        const duplicated = modules.filter((m, i) => modules.findIndex(o => o.name === m.name) !== i);
-        if (duplicated.length > 0)
-            throw new Error(`Module(s) declared more than once: ${duplicated.map(m => m.name).join(", ")}`);
 
         return { filePath, rootFolder, modules };
     }
@@ -81,26 +88,39 @@ export namespace ModulesXml {
     }
 }
 
-function readModule(filePath: string, element: XmlElement): Module {
-    if (element.name !== "Module")
-        throw new Error(`${filePath}:${element.line}: <${element.name}> inside <Modules>, expected <Module>.`);
+interface RawModule {
+    "@Name": string;
+    "@DependsOn"?: string;
+    "@optional"?: string;
+    [element: string]: unknown;
+}
 
-    const name = element.attributes["Name"];
+function readModule(raw: RawModule): Module {
+    const name = raw["@Name"];
     if (name == undefined)
-        throw new Error(`${filePath}:${element.line}: a <Module> has no Name.`);
+        throw new Error("A <Module> has no Name.");
+
+    const directives: Directive[] = [];
+    for (const [kind, value] of Object.entries(raw)) {
+        if (kind.startsWith("@") || !Array.isArray(value))
+            continue;
+
+        for (const d of value as Record<string, string>[])
+            directives.push(readDirective(name, kind, d));
+    }
 
     return {
         name,
-        dependsOn: splitList(element.attributes["DependsOn"]),
-        optional: element.attributes["optional"] === "true",
-        directives: element.children.map(c => readDirective(name, c.name, c.attributes)),
+        dependsOn: splitList(raw["@DependsOn"]),
+        optional: raw["@optional"] === "true",
+        directives,
     };
 }
 
 function readDirective(module: string, kind: string, d: Record<string, string>): Directive {
-    const dependsOn = d["DependsOn"];
+    const dependsOn = d["@DependsOn"];
     const need = (attribute: string): string => {
-        const v = d[attribute];
+        const v = d["@" + attribute];
         if (v == undefined)
             throw new Error(`[${module}] <${kind}> has no ${attribute}.`);
         return v;
@@ -111,7 +131,7 @@ function readDirective(module: string, kind: string, d: Record<string, string>):
             return { kind, path: need("Path"), dependsOn };
 
         case "RemoveLine": {
-            const line = d["Line"], from = d["From"], to = d["To"];
+            const line = d["@Line"], from = d["@From"], to = d["@To"];
             if (line == undefined && (from == undefined || to == undefined))
                 throw new Error(`[${module}] <RemoveLine> needs either Line, or both From and To.`);
             return { kind, path: need("Path"), line, from, to, dependsOn };

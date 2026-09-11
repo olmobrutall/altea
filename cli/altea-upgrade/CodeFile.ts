@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Color, Console } from "./Console.js";
+import { Color, Console } from "@altea/altea-cli-utils";
 import type { UpgradeContext } from "./UpgradeContext.js";
 
 /**

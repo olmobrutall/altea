@@ -1,8 +1,5 @@
 {
-    // See altea-upgrade's tsconfig for why this is standalone rather than extending the base preset.
-    // 
-    // It compiles altea-upgrade's shared sources INTO its own dist rather than depending on the package:
-    // one source copy, no npm dependency, and each CLI stays runnable on its own.
+    // See altea-cli-utils' tsconfig for why these are standalone rather than extending the base preset.
     "compilerOptions": {
         "target": "ES2022",
         "lib": ["ES2022"],
@@ -12,14 +9,16 @@
         "strict": true,
         "verbatimModuleSyntax": true,
         "forceConsistentCasingInFileNames": true,
+        "composite": true,
         "declaration": true,
         "sourceMap": true,
-        // rootDir is the cli/ FOLDER, not this package: altea-clone and altea-simplify compile
-        // altea-upgrade's shared sources alongside their own, so the output mirrors the source layout
-        // and a relative import ("../altea-upgrade/Git.js") resolves the same before and after emit.
-        "rootDir": "..",
-        "outDir": "./dist"
+        "rootDir": ".",
+        "outDir": "./dist",
+        "tsBuildInfoFile": "./dist/.tsbuildinfo"
     },
-    "include": ["./**/*.ts", "../altea-upgrade/**/*.ts"],
-    "exclude": ["dist/**", "node_modules/**"]
+    "include": ["**/*.ts"],
+    "exclude": ["dist/**", "node_modules/**"],
+    "references": [
+        { "path": "../altea-cli-utils/tsconfig.json" }
+    ]
 }

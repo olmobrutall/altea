@@ -1,0 +1,24 @@
+{
+  "name": "@altea/altea-cli-utils",
+  "version": "0.0.1",
+  "description": "Shared plumbing for the altea CLIs: locating the application, git, the console and argument parsing",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT"
+}

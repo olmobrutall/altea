@@ -1,9 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
-import { Color, Console } from "./Console.js";
+import { Color, Console, Git } from "@altea/altea-cli-utils";
 import { WarningLevel } from "./CodeFile.js";
-import { Git } from "./Git.js";
 import type { UpgradeContext } from "./UpgradeContext.js";
 
 /**

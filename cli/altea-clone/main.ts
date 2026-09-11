@@ -1,8 +1,6 @@
 #!/usr/bin/env node
-import { Color, Console } from "../altea-upgrade/Console.js";
-import { UpgradeContext } from "../altea-upgrade/UpgradeContext.js";
+import { ApplicationContext, Color, Console, parseArguments } from "@altea/altea-cli-utils";
 import { Clone } from "./Clone.js";
-import { parseArguments } from "../altea-upgrade/Arguments.js";
 
 /**
  * `altea-clone` — copy this altea application into a NEW project, renamed.
@@ -21,7 +19,7 @@ try {
         Console.writeLine("  ..:: altea clone ::..");
         Console.writeLine();
 
-        const uctx = UpgradeContext.createFromDirectory();
+        const uctx = ApplicationContext.createFromDirectory();
         Console.write("  root         "); Console.writeLineColor(Color.darkGray, uctx.rootFolder);
         Console.write("  application  "); Console.writeLineColor(Color.darkGray, uctx.applicationName);
 

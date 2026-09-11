@@ -1,7 +1,5 @@
 #!/usr/bin/env node
-import { Color, Console } from "../altea-upgrade/Console.js";
-import { UpgradeContext } from "../altea-upgrade/UpgradeContext.js";
-import { parseArguments } from "../altea-upgrade/Arguments.js";
+import { ApplicationContext, Color, Console, parseArguments } from "@altea/altea-cli-utils";
 import { Simplify } from "./Simplify.js";
 import { Check } from "./Check.js";
 import { ModulesXml } from "./ModulesXml.js";
@@ -23,7 +21,7 @@ try {
         Console.writeLine("  ..:: altea simplify ::..");
         Console.writeLine();
 
-        const uctx = UpgradeContext.createFromDirectory();
+        const uctx = ApplicationContext.createFromDirectory();
         Console.write("  root         "); Console.writeLineColor(Color.darkGray, uctx.rootFolder);
         Console.write("  application  "); Console.writeLineColor(Color.darkGray, uctx.applicationName);
 

@@ -161,14 +161,16 @@ see [`cli/README.md`](cli/README.md):
 
 | | |
 | --- | --- |
+| `altea-cli-utils` | not a command — the plumbing the three share (the application context, git, the console, argv) |
 | `altea-upgrade` | apply this application's pending source upgrades (Signum.Upgrade's counterpart), and the toolkit for writing one |
 | `altea-clone` | copy the application into a new project, renamed, with its own git repository |
 | `altea-simplify` | remove the optional modules it does not need, following its `Modules.xml` |
 
-They declare **no dependencies at all** — node builtins and relative imports only — because each runs
-where its dependencies could not be: `altea-clone` creates the project one would be installed into,
-`altea-simplify` runs before `pnpm install`, and `altea-upgrade` edits source that does not compile.
-They build with plain `tsc`, not `tspc`: nothing there is an entity or a query.
+None of them imports `@altea/altea`, and **no CLI depends on another CLI** — the common half is
+`altea-cli-utils`, which itself depends on nothing. Each runs where the framework could not be relied
+on: `altea-clone` creates the project a dependency would be installed into, `altea-upgrade` edits source
+that does not compile, and `altea-simplify` deletes whole modules. They build with plain `tsc`, not
+`tspc`: nothing there is an entity or a query.
 
 A framework change that an application has to mirror in ITS OWN source — a renamed export, a moved
 module, a changed option — should ship with an upgrade in `cli/altea-upgrade/upgrades/`. That is the
