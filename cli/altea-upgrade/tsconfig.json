@@ -1,0 +1,20 @@
+{
+    // ONE layer: a node CLI that edits SOURCE TEXT. It is neither data / client / server — it never
+    // touches an entity, a schema or a React component — so it extends the shared base preset directly,
+    // as altea-playwright and an app's terminal do.
+    // 
+    // It references altea's SERVER project for SafeConsole / Color only. Nothing else: the tool has to
+    // keep working while the APPLICATION it is upgrading does not compile, so it must never import one.
+    "extends": "../../altea/presets/base.json",
+    "compilerOptions": {
+        "rootDir": ".",
+        "outDir": "./dist",
+        "tsBuildInfoFile": "./dist/.tsbuildinfo",
+        "types": ["node"]
+    },
+    "include": ["**/*.ts"],
+    "exclude": ["dist/**", "node_modules/**"],
+    "references": [
+        { "path": "../../altea/tsconfig.server.json" }
+    ]
+}

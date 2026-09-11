@@ -1,0 +1,26 @@
+{
+  "name": "@altea/altea-upgrade",
+  "version": "0.0.1",
+  "description": "Run an altea application's pending source upgrades, and the toolkit for writing them (ported from Signum.Upgrade)",
+  "type": "module",
+  "bin": {
+    "altea-upgrade": "./dist/main.js"
+  },
+  "exports": {
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tspc -b",
+    "start": "tspc -b && node dist/main.js"
+  },
+  "keywords": [],
+  "author": "Olmo del Corral",
+  "license": "MIT",
+  "dependencies": {
+    "@altea/altea": "workspace:*",
+    "quote-transformer": "workspace:*"
+  }
+}
