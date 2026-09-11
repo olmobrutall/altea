@@ -1,22 +1,32 @@
 import type { Locator } from "@playwright/test";
 import { BaseLineProxy } from "./BaseLineProxy";
 import { waitVisible } from "../PlaywrightExtensions";
+import { editorText, editorValue } from "../tokens";
 
 // Port of Signum.Playwright's LineProxies/EnumLineProxy.cs (EnumLine.tsx): either a plain `<select>` or the
 // react-widgets dropdown, depending on how the line was configured — the proxy handles both, as Signum does.
 //
-// altea divergence: an enum's runtime/wire value is its MEMBER NAME (CLAUDE.md), so this proxy takes and
-// returns that string, where Signum parses it back into a C# enum value.
-export class EnumLineProxy extends BaseLineProxy {
+// altea divergence: the DOM holds the enum's NUMBER (`value={toStr(oi.value)}`, `data-value={ctx.value}` —
+// EnumLine.tsx), where Signum's holds the member name. Either way a test should speak in enum VALUES
+// (`OrderState.Shipped`), so this proxy converts both ways through the enum object on the line's own route
+// (see tokens.ts' editorText / editorValue) — Signum parses the name into a C# enum for the same reason.
+export class EnumLineProxy<S = unknown> extends BaseLineProxy {
 
+    /**
+     * The editable `<select>`, or — when the line is READ-ONLY — the input altea renders instead
+     * (`FormControlReadonly`: an `<input readonly class="form-control" data-value=…>`, or the plain-text
+     * variant). Signum's proxy names only the select, because its readonly rendering keeps the same tag.
+     */
     get select(): Locator {
-        return this.element.locator("select.form-select, select.form-control, .form-control-plaintext").first();
+        return this.element.locator("select.form-select, select.form-control,"
+            + " input.form-control[data-value], input.form-control-plaintext, .form-control-plaintext").first();
     }
 
     get widget(): Locator { return this.element.locator("div.rw-dropdown-list").first(); }
 
-    async setValue(value: string | null): Promise<void> {
-        const strValue = value ?? "";
+    /** The enum value (or its member name — both spellings reach the same option). */
+    async setValue(value: S | null): Promise<void> {
+        const strValue = value == null ? "" : editorText(value, this.route);
 
         if (await this.widget.count() > 0) {
             const popup = this.widget.locator(".rw-popup-container");
@@ -31,7 +41,8 @@ export class EnumLineProxy extends BaseLineProxy {
         await this.select.selectOption(strValue);
     }
 
-    async getValue(): Promise<string | null> {
+    /** The enum VALUE the line holds (its member name when the route names no enum — a nullable boolean). */
+    async getValue(): Promise<S | null> {
         let value: string | null;
 
         if (await this.widget.count() > 0) {
@@ -44,13 +55,16 @@ export class EnumLineProxy extends BaseLineProxy {
                 : await element.getAttribute("data-value");
         }
 
-        return value == null || value === "" ? null : value;
+        if (value == null || value === "")
+            return null;
+
+        return editorValue(value, this.route) as S;
     }
 
     override async getValueUntyped(): Promise<unknown> { return await this.getValue(); }
 
     override async setValueUntyped(value: unknown): Promise<void> {
-        await this.setValue(value == null ? null : String(value));
+        await this.setValue(value as S | null);
     }
 
     override async isReadonly(): Promise<boolean> {

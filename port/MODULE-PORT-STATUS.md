@@ -45,7 +45,7 @@ LOC = `.cs` + `.ts` + `.tsx` lines still in `old/`, as a rough size signal only.
 | Signum.Map | `altea-map` | owns no tables; forced `Graph.GetState` → `Quoted` + a transformer fix; no MList half, no `fromToStates`, one state machine per map |
 | Signum.Migrations | `altea-migrations` | |
 | Signum.Omnibox | `altea-omnibox` | |
-| Signum.Playwright | `altea-playwright` | CDP debug launcher + 5 line proxies + 4 panel proxies unported |
+| Signum.Playwright | `altea-playwright` | typed through (query = a Type, column = a lambda, operation = its symbol, row = a Lite); forced QueryTokenString + the unparsed find options down into `data/`, and Signum's snapshot/template database into core `Administrator`; CDP debug launcher + 5 line proxies + 4 panel proxies unported — see [Playwright.md](Playwright.md) |
 | Signum.Printing | `altea-printing` | print queue; StateValidator → per-field `@fieldValidation`; the print action is an app seam (default throws); found 2 core bugs (no client sub-tokens for `@implementedByAll`, `logException` in the caller's transaction) |
 | Signum.Processes | `altea-processes` | PackageOperation contextual menu unported |
 | Signum.Profiler | `altea-profiler` | |

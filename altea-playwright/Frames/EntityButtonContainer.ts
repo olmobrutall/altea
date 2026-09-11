@@ -1,14 +1,24 @@
 import type { Locator } from "@playwright/test";
-import type { Symbol as AlteaSymbol } from "@altea/altea/data/symbol";
-import { captureOnClick, isPresent, waitFor, waitVisible } from "../PlaywrightExtensions";
-import { parseEntityInfo, type EntityInfo } from "../LineProxies/EntityBaseProxy";
+import { Entity, type BaseEntity, type Type } from "@altea/altea/data/entity";
+import type { Lite } from "@altea/altea/data/lite";
+import type {
+    ConstructSymbol, DeleteSymbol, ExecuteSymbol, From, FromMany,
+} from "@altea/altea/data/operations";
+import { captureOnClick, isPresent, scope, waitFor, waitVisible, type Scope } from "../PlaywrightExtensions";
+import { tryLiteFromKey } from "../liteKeys";
+import type { FrameModalProxy } from "./FrameModalProxy"; // lazily imported below (cycle)
 
 // Port of Signum.Playwright's Frames/EntityButtonContainer.cs — the OPERATION buttons of an entity frame
 // (a page or a modal) and the handshake around executing one.
 //
 // altea renders each button with `data-operation={key}` (EntityOperations.tsx) and the frame with
 // `data-main-entity` on `.sf-main-control` — the same two attributes Signum's proxy reads.
-export abstract class EntityButtonContainer {
+//
+// The operations are the SYMBOLS themselves, typed on this frame's entity: `frame.execute(
+// OrderOperation.Save)` compiles, `frame.execute(CustomerOperation.Save)` does not. A ConstructFrom goes
+// further and types what it OPENS, so the modal a `ConstructSymbol<OrderEntity, From<CustomerEntity>>`
+// produces is a `FrameModalProxy<OrderEntity>` with no type argument in sight.
+export abstract class EntityButtonContainer<T extends BaseEntity> {
 
     /** The whole frame (page body / modal). */
     abstract get element(): Locator;
@@ -17,14 +27,19 @@ export abstract class EntityButtonContainer {
     /** The element carrying `data-main-entity` / `data-refresh-count`. */
     get mainControl(): Locator { return this.element.locator(".sf-main-control").first(); }
 
-    /** Signum's `GetEntityInfoAsync` — which entity this frame is showing. */
-    async entityInfo(): Promise<EntityInfo | null> {
-        return parseEntityInfo(await this.mainControl.getAttribute("data-main-entity"));
+    /** Signum's `GetLiteAsync` — which entity this frame is showing, or null while it is new. */
+    async lite(): Promise<Lite<T & Entity> | null> {
+        return tryLiteFromKey<T & Entity>(await this.mainControl.getAttribute("data-main-entity"));
+    }
+
+    /** Whether the frame is showing an entity that has never been saved (Signum's `EntityInfo.IsNew`). */
+    async isNew(): Promise<boolean> {
+        return await this.lite() == null;
     }
 
     /** Signum's `OperationButtonAsync(symbol, groupId?)`. A grouped operation lives behind its dropdown. */
-    async operationButton(operation: AlteaSymbol | string, groupId?: string): Promise<Locator> {
-        const key = typeof operation === "string" ? operation : operation.key;
+    async operationButton(operation: OperationOf<T>, groupId?: string): Promise<Locator> {
+        const key = operation.key;
 
         if (groupId != null) {
             const groupButton = this.container.locator(`#${groupId}`);
@@ -37,12 +52,12 @@ export abstract class EntityButtonContainer {
         return this.container.locator(`button[data-operation='${key}'], a[data-operation='${key}']`).first();
     }
 
-    async operationEnabled(operation: AlteaSymbol | string, groupId?: string): Promise<boolean> {
+    async operationEnabled(operation: OperationOf<T>, groupId?: string): Promise<boolean> {
         const button = await this.operationButton(operation, groupId);
         return await isPresent(button) && await button.isEnabled();
     }
 
-    async operationPresent(operation: AlteaSymbol | string, groupId?: string): Promise<boolean> {
+    async operationPresent(operation: OperationOf<T>, groupId?: string): Promise<boolean> {
         return await isPresent(await this.operationButton(operation, groupId));
     }
 
@@ -53,21 +68,39 @@ export abstract class EntityButtonContainer {
      * with the operation's RESULT, so this returns only once the save/execute round-trip landed. Signum
      * waits on the same attribute.
      */
-    async execute(operation: AlteaSymbol | string, options?: { groupId?: string; checkValidationErrors?: boolean }): Promise<void> {
+    async execute(operation: ExecuteSymbol<T & Entity> | DeleteSymbol<T & Entity>,
+        options?: { groupId?: string; checkValidationErrors?: boolean }): Promise<void> {
+
         const before = await this.mainControl.getAttribute("data-refresh-count");
-        const button = await this.operationButton(operation, options?.groupId);
+        const button = await this.operationButton(operation as OperationOf<T>, options?.groupId);
         await waitVisible(button);
         await button.click();
 
         await waitFor(async () => await this.mainControl.getAttribute("data-refresh-count") !== before,
-            `the frame to refresh after ${typeof operation === "string" ? operation : operation.key}`);
+            `the frame to refresh after ${operation.key}`);
 
         if (options?.checkValidationErrors !== false)
             await this.assertNoValidationErrors();
     }
 
-    /** Signum's `OperationClickCaptureAsync` — an operation that opens a MODAL (a ConstructFrom). */
-    async executeCapturingModal(operation: AlteaSymbol | string, groupId?: string): Promise<Locator> {
+    /**
+     * Signum's `ConstructFromAsync` — an operation that CONSTRUCTS something and opens it in a modal. The
+     * symbol says what it constructs, so the scope is typed on that:
+     *
+     *     await customer.constructFrom(OrderOperation.CreateOrderFromCustomer).scoped(async order => { … });
+     */
+    constructFrom<R extends Entity>(operation: ConstructSymbol<R, From<T & Entity>>, type: Type<R>,
+        options?: { groupId?: string }): Scope<FrameModalProxy<R>> {
+
+        return scope((async () => {
+            const modal = await captureOnClick(await this.operationButton(operation as OperationOf<T>, options?.groupId));
+            const { FrameModalProxy } = await import("./FrameModalProxy");
+            return await FrameModalProxy.create<R>(modal, type);
+        })());
+    }
+
+    /** Signum's `OperationClickCaptureAsync` — any operation that opens a modal, as a bare locator. */
+    async executeCapturingModal(operation: OperationOf<T>, groupId?: string): Promise<Locator> {
         return await captureOnClick(await this.operationButton(operation, groupId));
     }
 
@@ -94,3 +127,11 @@ export abstract class EntityButtonContainer {
             throw new Error(`The frame reported validation errors:\n${errors.map(e => " - " + e).join("\n")}`);
     }
 }
+
+/** Any operation of this frame's entity — what the buttons are addressed by. */
+export type OperationOf<T extends BaseEntity> =
+    | ExecuteSymbol<T & Entity>
+    | DeleteSymbol<T & Entity>
+    | ConstructSymbol<Entity, From<T & Entity>>
+    | ConstructSymbol<Entity, FromMany<T & Entity>>;
+

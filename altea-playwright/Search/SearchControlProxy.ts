@@ -1,30 +1,34 @@
 import type { Locator, Page } from "@playwright/test";
 import type { BaseEntity, Entity, Type } from "@altea/altea/data/entity";
+import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import type { FrameModalProxy } from "../Frames/FrameModalProxy"; // lazily imported below (cycle)
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { captureOnClick, waitFor, waitVisible, defaultTimeout } from "../PlaywrightExtensions";
+import { queryKeyOf, type TokenOf } from "../tokens";
 import { LineContainer } from "../Frames/LineContainer";
 import { ResultTableProxy } from "./ResultTableProxy";
 import { FiltersProxy } from "./FiltersProxy";
 import { PaginationSelectorProxy } from "./PaginationSelectorProxy";
 
 // Port of Signum.Playwright's Search/SearchControlProxy.cs — one SearchControl: search, filter, paginate,
-// read the results.
+// read the results. `T` is the row the query yields, so filters and columns are addressed by lambda.
 //
 // The load handshake is Signum's and works unchanged: altea's SearchControlLoaded renders
 // `data-search-count`, a counter it bumps when a search RESOLVES, so "wait until the search finished" is
 // "wait until that number changed" — no sleeps, no guessing at spinners.
-export class SearchControlProxy {
+export class SearchControlProxy<T extends BaseEntity> {
 
-    readonly results: ResultTableProxy;
+    readonly results: ResultTableProxy<T>;
+    readonly queryKey: string;
 
-    constructor(readonly element: Locator, readonly queryKey: string) {
-        this.results = new ResultTableProxy(element.locator(".sf-scroll-table-container"));
+    constructor(readonly element: Locator, readonly queryName: Type<T> & QueryName) {
+        this.queryKey = queryKeyOf(queryName);
+        this.results = new ResultTableProxy<T>(element.locator(".sf-scroll-table-container"), queryName);
     }
 
     get page(): Page { return this.element.page(); }
 
-    get filters(): FiltersProxy { return new FiltersProxy(this.filtersPanel, this.queryKey); }
+    get filters(): FiltersProxy<T> { return new FiltersProxy<T>(this.filtersPanel, this.queryName); }
     get pagination(): PaginationSelectorProxy { return new PaginationSelectorProxy(this.element); }
 
     get searchButton(): Locator { return this.element.locator(".sf-query-button.sf-search"); }
@@ -78,22 +82,27 @@ export class SearchControlProxy {
     }
 
     /** Signum's `AddQuickFilterAsync(rowIndex, token)` — right-click a cell, "Add filter". */
-    async addQuickFilter(rowIndex: number, token: string): Promise<void> {
+    async addQuickFilter(rowIndex: number, token: TokenOf<T>): Promise<void> {
         await (await this.results.cell(rowIndex, token)).click({ button: "right" });
         const menu = await this.waitContextMenu();
         await menu.locator(".sf-quickfilter-header a").first().click();
     }
 
-    /** Signum's `CreateAsync<T>` — the Create button, which opens a modal SCOPE (see FrameModalProxy). */
-    async createModal<T extends Entity>(rootType: Type<T>): Promise<FrameModalProxy<T>> {
+    /**
+     * Signum's `CreateAsync<T>` — the Create button, which opens a modal SCOPE (see FrameModalProxy).
+     * The type defaults to the query's own; it is passed only when the Create opens something else (a
+     * polymorphic query whose create picks an implementation).
+     */
+    async createModal<E extends Entity>(type?: Type<E>): Promise<FrameModalProxy<E>> {
         const modal = await captureOnClick(this.createButton);
         const { FrameModalProxy } = await import("../Frames/FrameModalProxy");
-        return await FrameModalProxy.create<T>(modal, rootType);
+        return await FrameModalProxy.create<E>(modal, (type ?? this.queryName) as Type<E>);
     }
 
     /** Signum's `SimpleFilterBuilder<T>` — the app-supplied filter form, as a line container. */
-    simpleFilterBuilder<T extends BaseEntity>(rootType: Function): LineContainer<T> {
-        return new LineContainer<T>(this.element.locator(".simple-filter-builder"), PropertyRoute.root(rootType));
+    simpleFilterBuilder<S extends BaseEntity = T>(type?: Type<S>): LineContainer<S> {
+        return new LineContainer<S>(this.element.locator(".simple-filter-builder"),
+            PropertyRoute.root((type ?? this.queryName) as Type<S>));
     }
 
     /**

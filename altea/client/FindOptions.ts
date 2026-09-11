@@ -11,6 +11,16 @@ import { type PseudoType } from './Reflection';
 import { TypeReference } from '../data/reflection';
 import { Entity, EmbeddedEntity, type Type } from '../data/entity';
 import { QueryTokenString } from './QueryTokenString';
+// The UNPARSED option DTOs moved to the data layer with QueryTokenString, whose builder methods
+// produce them (data/dynamicQuery/queryOptions). Re-exported here: this module is where the client,
+// the extensions and every application import a find option from.
+export type {
+  FilterOption, FilterConditionOption, FilterGroupOption, PinnedFilter, OrderOption, ColumnOption,
+  ColumnDisplayOptions, ExtraFilterConditionOptions, ExtraFilterGroupOptions,
+} from '../data/dynamicQuery/queryOptions';
+import type {
+  FilterOption, FilterConditionOption, FilterGroupOption, PinnedFilter, OrderOption, ColumnOption,
+} from '../data/dynamicQuery/queryOptions';
 import type { Lite } from '../data/lite';
 import type { BaseEntity } from '../data/entity';
 import type {
@@ -114,7 +124,6 @@ export interface FindOptionsParsed {
 }
 
 
-export type FilterOption = FilterConditionOption | FilterGroupOption;
 
 export function isFilterGroup(fo: FilterOptionParsed): fo is FilterGroupOptionParsed
 export function isFilterGroup(fo: FilterOption): fo is FilterGroupOption
@@ -131,34 +140,8 @@ export function isFilterCondition(fo: FilterOptionParsed | FilterOption | Filter
 }
 
 
-export interface FilterConditionOption {
-  token: string | QueryTokenString<any>;
-  frozen?: boolean;
-  removeElementWarning?: boolean;
-  operation?: FilterOperationKeys;
-  value?: any;
-  pinned?: PinnedFilter;
-  dashboardBehaviour?: DashboardBehaviourKeys;
-}
 
-export interface FilterGroupOption {
-  token?: string | QueryTokenString<any>;
-  groupOperation: FilterGroupOperationKeys;
-  filters: (FilterOption | null | undefined)[];
-  pinned?: PinnedFilter;
-  frozen?: boolean;
-  dashboardBehaviour?: DashboardBehaviourKeys;
-  value?: any; /*For search in multiple columns*/
-}
 
-export interface PinnedFilter {
-  label?: (() => string) | string;
-  row?: number;
-  column?: number;
-  colSpan?: number;
-  active?: PinnedFilterActiveKeys;
-  splitValue?: boolean;
-}
 
 export type FilterOptionParsed = FilterConditionOptionParsed | FilterGroupOptionParsed;
 
@@ -263,47 +246,15 @@ export interface FilterGroupOptionParsed {
   value?: any; /*For search in multiple columns*/
 }
 
-export interface OrderOption {
-  token: string | QueryTokenString<any>;
-  orderType: OrderTypeKeys;
-}
 
 export interface OrderOptionParsed {
   token: QueryToken;
   orderType: OrderTypeKeys;
 }
 
-export interface ColumnOption {
-  token: string | QueryTokenString<any>;
-  displayName?: string | (() => string);
-  summaryToken?: string | QueryTokenString<any>;
-  hiddenColumn?: boolean;
-  combineRows?: CombineRowsKeys;
-}
 
-/** Extra pinned / frozen state for the {@link QueryTokenString.filter} builder method. */
-export interface ExtraFilterConditionOptions {
-  frozen?: boolean;
-  removeElementWarning?: boolean;
-  pinned?: PinnedFilter;
-  dashboardBehaviour?: DashboardBehaviourKeys;
-}
 
-/** Extra pinned / frozen state for the `filterGroup` builder methods. */
-export interface ExtraFilterGroupOptions {
-  frozen?: boolean;
-  pinned?: PinnedFilter;
-  dashboardBehaviour?: DashboardBehaviourKeys;
-  value?: any; /*For search in multiple columns*/
-}
 
-/** Extra summary / display state for the {@link QueryTokenString.column} builder method. */
-export interface ColumnDisplayOptions {
-  displayName?: string | (() => string)
-  summaryToken?: string | QueryTokenString<any>;
-  hiddenColumn?: boolean;
-  combineRows?: CombineRowsKeys;
-}
 
 export interface ColumnOptionParsed {
   token?: QueryToken;

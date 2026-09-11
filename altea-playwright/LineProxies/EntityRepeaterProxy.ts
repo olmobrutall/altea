@@ -11,7 +11,7 @@ import { waitChanges } from "../PlaywrightExtensions";
 //
 // NOTE the class name: altea keeps Signum's `sf-repater-elements` TYPO on the container (both frameworks
 // have it), so the selector is spelled the same way here on purpose.
-export class EntityRepeaterProxy extends EntityBaseProxy {
+export class EntityRepeaterProxy<S extends BaseEntity = BaseEntity> extends EntityBaseProxy<S> {
 
     /** The route of ONE element (Signum's ItemRoute): the collection route + "Item". */
     override get itemRoute(): PropertyRoute { return this.route.add("Item"); }
@@ -24,15 +24,15 @@ export class EntityRepeaterProxy extends EntityBaseProxy {
     count(): Promise<number> { return this.elements.count(); }
 
     /** Signum's `ElementLineContainer<T>(index)` — the lines of ONE element. */
-    elementAt<T extends BaseEntity>(index: number): LineContainer<T> {
-        return new LineContainer<T>(this.elements.nth(index), this.itemRoute);
+    elementAt(index: number): LineContainer<S> {
+        return new LineContainer<S>(this.elements.nth(index), this.itemRoute);
     }
 
     /** Signum's `CreateElementAsync<T>` — add a row and return its lines. */
-    async createElement<T extends BaseEntity>(): Promise<LineContainer<T>> {
+    async createElement(): Promise<LineContainer<S>> {
         const before = await this.count();
         await waitChanges(this.element, () => this.createButton.click());
-        return this.elementAt<T>(before);
+        return this.elementAt(before);
     }
 
     /** Remove ONE element (its own remove button, not the line's). */

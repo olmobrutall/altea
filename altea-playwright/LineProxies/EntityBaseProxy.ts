@@ -2,9 +2,11 @@ import type { Locator } from "@playwright/test";
 import type { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import type { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
-import type { Type } from "@altea/altea/data/entity";
+import type { BaseEntity, Type } from "@altea/altea/data/entity";
 import { BaseLineProxy } from "./BaseLineProxy";
-import { captureOnClick, getChanges, isPresent, waitChanges, waitFor, waitVisible } from "../PlaywrightExtensions";
+import { captureOnClick, getChanges, isPresent, scope, waitChanges, waitFor, waitVisible, type Scope } from "../PlaywrightExtensions";
+import { tryLiteFromKey } from "../liteKeys";
+import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 // TYPE-only, and the classes are imported LAZILY where they are used: a modal proxy holds a LineContainer,
 // which holds every line proxy, which extends this class — a cycle that JS resolves only if nothing needs
 // the binding while the modules are still evaluating.
@@ -17,7 +19,7 @@ import type { SearchModalProxy } from "../Search/SearchModalProxy";
 // altea divergence, and it matters for `entityInfo`: altea's `data-entity` is `"CleanType;id"` (see
 // EntityBase.tsx) where Signum's is `"typeName;id;isNew"` — so `isNew` is inferred from an EMPTY id instead
 // of being a third field.
-export abstract class EntityBaseProxy extends BaseLineProxy {
+export abstract class EntityBaseProxy<S = unknown> extends BaseLineProxy {
 
     /** Where the buttons live. EntityDetail overrides this with its `<legend>`. */
     get buttonBar(): Locator { return this.element; }
@@ -45,25 +47,27 @@ export abstract class EntityBaseProxy extends BaseLineProxy {
      * closure that receives it owns the modal, and leaving the closure closes it AND waits for this line to
      * re-render (Signum wires exactly that through the modal's `Disposing`).
      *
-     *     await scoped(line.createModal(OrderEntity), async order => { … });
+     *     await line.createModal(OrderEntity).scoped(async order => { … });
      */
-    async createModal<T extends Entity>(rootType: Type<T>): Promise<FrameModalProxy<T>> {
-        return await this.openModal<T>(this.createButton, rootType);
+    createModal<E extends EntityOf<S> & Entity>(type: Type<E>): Scope<FrameModalProxy<E>> {
+        return scope(this.openModal<E>(this.createButton, type));
     }
 
     /** Signum's `ViewInternalAsync<T>` — open the current value in a modal (same scope semantics). */
-    async viewModal<T extends Entity>(rootType: Type<T>): Promise<FrameModalProxy<T>> {
-        return await this.openModal<T>(this.viewButton, rootType);
+    viewModal<E extends EntityOf<S> & Entity>(type: Type<E>): Scope<FrameModalProxy<E>> {
+        return scope(this.openModal<E>(this.viewButton, type));
     }
 
     /** Signum's `FindAsync` — open the search modal this line finds with (same scope semantics). */
-    async findModal(queryKey: string): Promise<SearchModalProxy> {
-        const changes = await getChanges(this.element);
-        const modal = await captureOnClick(this.findButton);
-        const { SearchModalProxy } = await import("../Search/SearchModalProxy");
-        const proxy = await SearchModalProxy.create(modal, queryKey);
-        this.wireDisposing(proxy, changes);
-        return proxy;
+    findModal<E extends EntityOf<S> & Entity>(queryName: Type<E> & QueryName): Scope<SearchModalProxy<E>> {
+        return scope((async () => {
+            const changes = await getChanges(this.element);
+            const modal = await captureOnClick(this.findButton);
+            const { SearchModalProxy } = await import("../Search/SearchModalProxy");
+            const proxy = await SearchModalProxy.create<E>(modal, queryName);
+            this.wireDisposing(proxy, changes);
+            return proxy;
+        })());
     }
 
     private async openModal<T extends Entity>(button: Locator, rootType: Type<T>): Promise<FrameModalProxy<T>> {
@@ -92,6 +96,11 @@ export abstract class EntityBaseProxy extends BaseLineProxy {
     /** Signum's `EntityInfoAsync` — the parsed `data-entity`, or null when the line is empty. */
     async entityInfo(index?: number): Promise<EntityInfo | null> {
         return parseEntityInfo(await this.entityInfoString(index));
+    }
+
+    /** What the line HOLDS, as a lite of the member's own type — null while it is empty or unsaved. */
+    async getLite(index?: number): Promise<Lite<EntityOf<S> & Entity> | null> {
+        return tryLiteFromKey<EntityOf<S> & Entity>(await this.entityInfoString(index));
     }
 
     // ---- The autocomplete --------------------------------------------------------------------------
@@ -131,6 +140,9 @@ export abstract class EntityBaseProxy extends BaseLineProxy {
             || !await isPresent(this.buttonBar.locator("a.sf-create, a.sf-find, a.sf-remove"));
     }
 }
+
+/** The entity behind a member: the entity itself, or the one a `Lite<E>` points at. */
+export type EntityOf<S> = S extends Lite<infer E> ? E : S extends BaseEntity ? S : Entity;
 
 /** Signum's `EntityInfoProxy` — what `data-entity` says about the value behind a line. */
 export interface EntityInfo {

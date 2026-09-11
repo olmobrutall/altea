@@ -8,7 +8,7 @@ import { waitChanges } from "../PlaywrightExtensions";
 
 // Port of Signum.Playwright's LineProxies/EntityTableProxy.cs (EntityTable.tsx) — a collection edited as a
 // grid, one ROW per element.
-export class EntityTableProxy extends EntityBaseProxy {
+export class EntityTableProxy<S extends BaseEntity = BaseEntity> extends EntityBaseProxy<S> {
 
     override get itemRoute(): PropertyRoute { return this.route.add("Item"); }
 
@@ -17,15 +17,15 @@ export class EntityTableProxy extends EntityBaseProxy {
     count(): Promise<number> { return this.rows.count(); }
 
     /** The lines of ONE row (Signum's `RowLineContainer<T>`). */
-    rowAt<T extends BaseEntity>(index: number): LineContainer<T> {
-        return new LineContainer<T>(this.rows.nth(index), this.itemRoute);
+    rowAt(index: number): LineContainer<S> {
+        return new LineContainer<S>(this.rows.nth(index), this.itemRoute);
     }
 
     /** Add a row and return its lines. */
-    async createRow<T extends BaseEntity>(): Promise<LineContainer<T>> {
+    async createRow(): Promise<LineContainer<S>> {
         const before = await this.count();
         await waitChanges(this.element, () => this.createButton.click());
-        return this.rowAt<T>(before);
+        return this.rowAt(before);
     }
 
     async removeRow(index: number): Promise<void> {

@@ -1,7 +1,9 @@
 import type { Locator, Page } from "@playwright/test";
-import type { Lite } from "@altea/altea/data/lite";
-import type { Entity } from "@altea/altea/data/entity";
-import { isPresent, waitFor, waitNotPresent, waitVisible } from "./PlaywrightExtensions";
+import { Lite } from "@altea/altea/data/lite";
+import { Entity, type BaseEntity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
+import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
+import { isPresent, scope, waitFor, waitNotPresent, waitVisible, type Scope } from "./PlaywrightExtensions";
+import { cleanNameOf, queryKeyOf } from "./tokens";
 import { SearchPageProxy } from "./Search/SearchPageProxy";
 import { FramePageProxy } from "./Frames/FramePageProxy";
 
@@ -15,6 +17,10 @@ import { FramePageProxy } from "./Frames/FramePageProxy";
 //     }
 //
 // altea divergences:
+//  - nothing is named by STRING: a search page takes the query's row TYPE, an entity page takes the entity
+//    (or its lite, or its type + id), and both give back a proxy typed on it. Signum passes
+//    `typeof(PersonEntity)` for the query and a `Lite<T>` for the page, but its `FramePageAsync<T>` still
+//    needs the type argument spelled out.
 //  - the LOGIN ROUTE is `auth/login` (altea's router), not Signum's `Auth/Login`, and the form's ids are
 //    altea's (`#userName` / `#password` / the submit button) — see `login`.
 //  - Signum's CDP "debug mode" (launch a real Chrome with a user-data-dir and connect over the debugging
@@ -35,28 +41,46 @@ export class BrowserProxy {
     // ---- Navigation --------------------------------------------------------------------------------
 
     /** Signum's `FindRoute(queryName)`. */
-    findRoute(queryKey: string): string { return "find/" + queryKey; }
+    findRoute(queryName: QueryName): string { return "find/" + queryKeyOf(queryName); }
 
     /** Signum's `NavigateRoute(type, id)`. */
-    navigateRoute(cleanName: string, id?: string | number | null): string {
-        return id == null ? `create/${cleanName}` : `view/${cleanName}/${id}`;
+    navigateRoute(type: Type<BaseEntity>, id?: PrimaryKey | null): string {
+        return id == null ? `create/${cleanNameOf(type)}` : `view/${cleanNameOf(type)}/${id}`;
     }
 
-    /** Signum's `SearchPageAsync(queryName)`. */
-    async searchPage(queryKey: string, waitInitialSearch = true): Promise<SearchPageProxy> {
-        await this.page.goto(this.url(this.findRoute(queryKey)));
-        return await SearchPageProxy.create(this.page, queryKey, waitInitialSearch);
+    /**
+     * Signum's `SearchPageAsync(queryName)` — open `/find/<Query>`. The query is named by the TYPE it
+     * yields rows of (an entity, or a manual query's row model), which is what a query name IS in altea.
+     */
+    searchPage<T extends BaseEntity>(queryName: Type<T> & QueryName, options?: { waitInitialSearch?: boolean }): Scope<SearchPageProxy<T>> {
+        return scope((async () => {
+            await this.page.goto(this.url(this.findRoute(queryName)));
+            return await SearchPageProxy.create<T>(this.page, queryName, options?.waitInitialSearch ?? true);
+        })());
     }
 
-    /** Signum's `FramePageAsync<T>(lite | id)` — open an entity's page. */
-    async framePage<T extends Entity>(rootType: Function, cleanName: string, id?: string | number | null): Promise<FramePageProxy<T>> {
-        await this.page.goto(this.url(this.navigateRoute(cleanName, id)));
-        return await FramePageProxy.create<T>(this.page, rootType);
+    /**
+     * Signum's `FramePageAsync<T>` — open an entity's page, by the entity itself, by a lite of it, or by
+     * its type and id. Which one a test has in hand depends on how it arranged its data; all three name
+     * the same page, and none of them names it by string.
+     */
+    framePage<T extends Entity>(entity: T): Scope<FramePageProxy<T>>;
+    framePage<T extends Entity>(lite: Lite<T>): Scope<FramePageProxy<T>>;
+    framePage<T extends Entity>(type: Type<T>, id: PrimaryKey): Scope<FramePageProxy<T>>;
+    framePage<T extends Entity>(target: T | Lite<T> | Type<T>, id?: PrimaryKey): Scope<FramePageProxy<T>> {
+        const { type, key } = resolveTarget<T>(target, id);
+        return scope((async () => {
+            await this.page.goto(this.url(this.navigateRoute(type, key)));
+            return await FramePageProxy.create<T>(this.page, type);
+        })());
     }
 
-    /** As above, from a lite. */
-    async framePageOf<T extends Entity>(rootType: Function, lite: Lite<T>): Promise<FramePageProxy<T>> {
-        return await this.framePage<T>(rootType, lite.entityType.name.replace(/Entity$/, ""), String(lite.id));
+    /** Signum's parameterless `FramePageAsync<T>()` — the CREATE page of a type (`/create/<CleanName>`). */
+    createPage<T extends Entity>(type: Type<T>): Scope<FramePageProxy<T>> {
+        return scope((async () => {
+            await this.page.goto(this.url(this.navigateRoute(type, null)));
+            return await FramePageProxy.create<T>(this.page, type);
+        })());
     }
 
     // ---- Authentication ----------------------------------------------------------------------------
@@ -105,4 +129,24 @@ export class BrowserProxy {
     async waitNoModals(): Promise<void> {
         await waitNotPresent(this.page.locator(".modal.fade.show"));
     }
+}
+
+/** The type + id behind the three `framePage` overloads. */
+function resolveTarget<T extends Entity>(target: T | Lite<T> | Type<T>, id?: PrimaryKey): { type: Type<T>; key: PrimaryKey } {
+    if (target instanceof Lite) {
+        if (target.id == null)
+            throw new Error("BrowserProxy.framePage: the lite has no id — it was built from an unsaved entity.");
+        return { type: target.entityType as Type<T>, key: target.id };
+    }
+
+    if (target instanceof Entity) {
+        if (target.id == null)
+            throw new Error(`BrowserProxy.framePage: this ${target.getType().name} is not saved, so it has no page.`);
+        return { type: target.getType() as Type<T>, key: target.id };
+    }
+
+    if (id == null)
+        throw new Error("BrowserProxy.framePage: an id is required when the page is named by TYPE."
+            + " Use createPage(type) for the create page.");
+    return { type: target, key: id };
 }

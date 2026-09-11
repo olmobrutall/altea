@@ -3,12 +3,13 @@ import type { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import type { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
 import { BaseLineProxy } from "./BaseLineProxy";
-import { EntityBaseProxy, parseEntityInfo, type EntityInfo } from "./EntityBaseProxy";
+import { EntityBaseProxy, type EntityOf } from "./EntityBaseProxy";
+import { tryLiteFromKey } from "../liteKeys";
 import { waitChanges } from "../PlaywrightExtensions";
 
 // Port of Signum.Playwright's LineProxies/EntityStripProxy.cs (EntityStrip.tsx) — a collection of REFERENCES
 // shown as chips, with an autocomplete to add more.
-export class EntityStripProxy extends EntityBaseProxy {
+export class EntityStripProxy<S = unknown> extends EntityBaseProxy<S> {
 
     override get itemRoute(): PropertyRoute { return this.route.add("Item"); }
 
@@ -18,10 +19,10 @@ export class EntityStripProxy extends EntityBaseProxy {
 
     count(): Promise<number> { return this.items.count(); }
 
-    /** Every chip's `data-entity`, in order. */
-    async entityInfos(): Promise<(EntityInfo | null)[]> {
+    /** Every chip's entity, in order. */
+    async getValue(): Promise<(Lite<EntityOf<S> & Entity> | null)[]> {
         const values = await this.items.evaluateAll(els => els.map(e => e.getAttribute("data-entity")));
-        return values.map(parseEntityInfo);
+        return values.map(v => tryLiteFromKey<EntityOf<S> & Entity>(v));
     }
 
     /** Signum's `AutoCompleteAsync` — add one by typing. */
@@ -30,7 +31,7 @@ export class EntityStripProxy extends EntityBaseProxy {
             () => this.autoCompleteBasic(this.autoCompleteElement, this.element, text, resultContainsText));
     }
 
-    async autoCompleteLiteValue(lite: Lite<Entity>): Promise<void> {
+    async autoCompleteLiteValue(lite: Lite<EntityOf<S> & Entity>): Promise<void> {
         await waitChanges(this.element, () => this.autoCompleteLite(this.autoCompleteElement, this.element, lite));
     }
 
@@ -39,7 +40,7 @@ export class EntityStripProxy extends EntityBaseProxy {
         await waitChanges(this.element, () => this.items.nth(index).locator("a.sf-remove").first().click());
     }
 
-    override async getValueUntyped(): Promise<unknown> { return await this.entityInfos(); }
+    override async getValueUntyped(): Promise<unknown> { return await this.getValue(); }
 
     override async setValueUntyped(): Promise<void> {
         throw new Error("EntityStripProxy: a collection is edited item by item — use autoComplete() /"

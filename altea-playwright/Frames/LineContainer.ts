@@ -1,7 +1,9 @@
 import type { Locator, Page } from "@playwright/test";
 import type { Quoted } from "quote-transformer/quoted";
 import { PropertyRoute, PropertyRouteType } from "@altea/altea/data/propertyRoute";
-import type { BaseEntity } from "@altea/altea/data/entity";
+import type { BaseEntity, Entity, Type } from "@altea/altea/data/entity";
+import type { Lite } from "@altea/altea/data/lite";
+import type { Decimal, Temporal } from "@altea/altea/data/basics";
 import { isPresent, waitVisible, waitPresent, waitNotVisible, waitNotPresent } from "../PlaywrightExtensions";
 import { BaseLineProxy } from "../LineProxies/BaseLineProxy";
 import { CheckboxLineProxy } from "../LineProxies/CheckboxLineProxy";
@@ -32,6 +34,11 @@ import { FileLineProxy } from "../LineProxies/FileLineProxy";
 // altea divergences from the C# shape:
 //  - C# extension methods on `ILineContainer<T>` become METHODS on the class (TypeScript has none), so
 //    `lineContainer.EntityLine(a => a.Customer)` reads `lc.entityLine(a => a.customer)`.
+//  - each line factory CONSTRAINS the member to what that line can edit — `textBox` takes a string member,
+//    `number` a numeric one, `entityLine` an entity reference — and the proxy it returns is typed on that
+//    member, so `entityLine(o => o.customer).setValue(x)` only accepts a customer. Signum's are untyped
+//    (`EntityLineProxy` has `SetLiteAsync(Lite<Entity>)`), because its container is an interface and its
+//    proxies are not generic.
 //  - the proxies are constructed directly instead of through Signum's `.Value()` / `…ValueAsync` overload
 //    pairs; each proxy has `getValue()` / `setValue(v)`, and `lc.value(…)` / `lc.setValue(…, v)` are the
 //    untyped shortcuts over `autoLine`.
@@ -41,6 +48,17 @@ export interface LineLocator {
     readonly locator: Locator;
     readonly route: PropertyRoute;
 }
+
+/** A member a text line edits. */
+export type TextMember = string | null;
+/** A member a number line edits (`int` / `short` are branded numbers; `Decimal` is its own class). */
+export type NumberMember = number | Decimal | null;
+/** A member a date line edits. */
+export type DateMember = Temporal.PlainDate | Temporal.PlainDateTime | null;
+/** A member a time line edits. */
+export type TimeMember = Temporal.PlainTime | Temporal.Duration | null;
+/** A member an entity-valued line edits: a reference, a lite of one, or a `@part` / embedded. */
+export type EntityMember = BaseEntity | Lite<Entity> | null;
 
 export class LineContainer<T extends BaseEntity> {
 
@@ -53,7 +71,7 @@ export class LineContainer<T extends BaseEntity> {
     // owner route to continue from — the same standalone case a part's own query is (PropertyRoute
     // .rootStandalone). Nothing is stored, and the per-step narrowing below matches the line's OWN member
     // either way (TypeContext.propertyPath).
-    as<S extends BaseEntity>(type: Function): LineContainer<S> {
+    as<S extends BaseEntity>(type: Type<S>): LineContainer<S> {
         return new LineContainer<S>(this.element, PropertyRoute.rootStandalone(type));
     }
 
@@ -110,37 +128,38 @@ export class LineContainer<T extends BaseEntity> {
 
     // ---- The lines ---------------------------------------------------------------------------------
 
-    checkbox<S>(property: Quoted<(t: T) => S>): CheckboxLineProxy {
+    checkbox(property: Quoted<(t: T) => boolean>): CheckboxLineProxy {
         const { locator, route } = this.lineLocator(property);
         return new CheckboxLineProxy(locator, route);
     }
 
-    dateTime<S>(property: Quoted<(t: T) => S>): DateTimeLineProxy {
+    dateTime<S extends DateMember>(property: Quoted<(t: T) => S>): DateTimeLineProxy<S> {
         const { locator, route } = this.lineLocator(property);
-        return new DateTimeLineProxy(locator, route);
+        return new DateTimeLineProxy<S>(locator, route);
     }
 
-    time<S>(property: Quoted<(t: T) => S>): TimeLineProxy {
+    time<S extends TimeMember>(property: Quoted<(t: T) => S>): TimeLineProxy<S> {
         const { locator, route } = this.lineLocator(property);
-        return new TimeLineProxy(locator, route);
+        return new TimeLineProxy<S>(locator, route);
     }
 
-    enumLine<S>(property: Quoted<(t: T) => S>): EnumLineProxy {
+    /** An enum member: the proxy takes and returns the ENUM VALUE, not the member name the DOM holds. */
+    enumLine<S>(property: Quoted<(t: T) => S>): EnumLineProxy<S> {
         const { locator, route } = this.lineLocator(property);
-        return new EnumLineProxy(locator, route);
+        return new EnumLineProxy<S>(locator, route);
     }
 
-    number<S>(property: Quoted<(t: T) => S>): NumberLineProxy {
+    number<S extends NumberMember>(property: Quoted<(t: T) => S>): NumberLineProxy<S> {
         const { locator, route } = this.lineLocator(property);
-        return new NumberLineProxy(locator, route);
+        return new NumberLineProxy<S>(locator, route);
     }
 
-    textBox<S>(property: Quoted<(t: T) => S>): TextBoxLineProxy {
+    textBox(property: Quoted<(t: T) => TextMember>): TextBoxLineProxy {
         const { locator, route } = this.lineLocator(property);
         return new TextBoxLineProxy(locator, route);
     }
 
-    textArea<S>(property: Quoted<(t: T) => S>): TextAreaLineProxy {
+    textArea(property: Quoted<(t: T) => TextMember>): TextAreaLineProxy {
         const { locator, route } = this.lineLocator(property);
         return new TextAreaLineProxy(locator, route);
     }
@@ -150,44 +169,44 @@ export class LineContainer<T extends BaseEntity> {
         return new FileLineProxy(locator, route);
     }
 
-    entityLine<S>(property: Quoted<(t: T) => S>): EntityLineProxy {
+    entityLine<S extends EntityMember>(property: Quoted<(t: T) => S>): EntityLineProxy<S> {
         const { locator, route } = this.lineLocator(property);
-        return new EntityLineProxy(locator, route);
+        return new EntityLineProxy<S>(locator, route);
     }
 
-    entityCombo<S>(property: Quoted<(t: T) => S>): EntityComboProxy {
+    entityCombo<S extends EntityMember>(property: Quoted<(t: T) => S>): EntityComboProxy<S> {
         const { locator, route } = this.lineLocator(property);
-        return new EntityComboProxy(locator, route);
+        return new EntityComboProxy<S>(locator, route);
     }
 
-    entityDetail<S>(property: Quoted<(t: T) => S>): EntityDetailProxy {
+    entityDetail<S extends EntityMember>(property: Quoted<(t: T) => S>): EntityDetailProxy<S> {
         const { locator, route } = this.lineLocator(property);
-        return new EntityDetailProxy(locator, route);
+        return new EntityDetailProxy<S>(locator, route);
     }
 
-    entityStrip<S>(property: Quoted<(t: T) => S>): EntityStripProxy {
+    entityStrip<S extends BaseEntity | Lite<Entity>>(property: Quoted<(t: T) => S[]>): EntityStripProxy<S> {
         const { locator, route } = this.lineLocator(property);
-        return new EntityStripProxy(locator, route);
+        return new EntityStripProxy<S>(locator, route);
     }
 
-    entityRepeater<S>(property: Quoted<(t: T) => S>): EntityRepeaterProxy {
+    entityRepeater<S extends BaseEntity>(property: Quoted<(t: T) => S[]>): EntityRepeaterProxy<S> {
         const { locator, route } = this.lineLocator(property);
-        return new EntityRepeaterProxy(locator, route);
+        return new EntityRepeaterProxy<S>(locator, route);
     }
 
-    entityTabRepeater<S>(property: Quoted<(t: T) => S>): EntityTabRepeaterProxy {
+    entityTabRepeater<S extends BaseEntity>(property: Quoted<(t: T) => S[]>): EntityTabRepeaterProxy<S> {
         const { locator, route } = this.lineLocator(property);
-        return new EntityTabRepeaterProxy(locator, route);
+        return new EntityTabRepeaterProxy<S>(locator, route);
     }
 
-    entityTable<S>(property: Quoted<(t: T) => S>): EntityTableProxy {
+    entityTable<S extends BaseEntity>(property: Quoted<(t: T) => S[]>): EntityTableProxy<S> {
         const { locator, route } = this.lineLocator(property);
-        return new EntityTableProxy(locator, route);
+        return new EntityTableProxy<S>(locator, route);
     }
 
-    entityCheckboxList<S>(property: Quoted<(t: T) => S>): EntityCheckboxListProxy {
+    entityCheckboxList<S extends BaseEntity | Lite<Entity>>(property: Quoted<(t: T) => S[]>): EntityCheckboxListProxy<S> {
         const { locator, route } = this.lineLocator(property);
-        return new EntityCheckboxListProxy(locator, route);
+        return new EntityCheckboxListProxy<S>(locator, route);
     }
 
     /** Signum's `AutoLine` — the proxy that FITS the route's type (see BaseLineProxy.autoLine). */
@@ -202,7 +221,7 @@ export class LineContainer<T extends BaseEntity> {
     }
 
     /** Write it (Signum's `AutoLineValueAsync` setter). */
-    setValue<S>(property: Quoted<(t: T) => S>, value: unknown): Promise<void> {
+    setValue<S>(property: Quoted<(t: T) => S>, value: S): Promise<void> {
         return this.autoLine(property).setValueUntyped(value);
     }
 

@@ -1,21 +1,23 @@
 import type { Locator } from "@playwright/test";
 import { BaseLineProxy } from "./BaseLineProxy";
-import { EntityBaseProxy, type EntityInfo } from "./EntityBaseProxy";
+import type { Lite } from "@altea/altea/data/lite";
+import type { Entity } from "@altea/altea/data/entity";
+import { EntityBaseProxy, type EntityOf } from "./EntityBaseProxy";
 import { waitChanges } from "../PlaywrightExtensions";
 
 // Port of Signum.Playwright's LineProxies/EntityComboProxy.cs (EntityCombo.tsx) — the `<select>` a
 // low-population type gets, or the react-widgets list when the combo was configured with one.
-export class EntityComboProxy extends EntityBaseProxy {
+export class EntityComboProxy<S = unknown> extends EntityBaseProxy<S> {
 
     get combo(): Locator { return this.element.locator("select").first(); }
     get dropdownListInput(): Locator { return this.element.locator(".rw-dropdown-list-input").first(); }
 
-    /** Signum's `GetLiteValueAsync` — the selected option's `data-entity`. */
-    async getSelected(): Promise<EntityInfo | null> {
+    /** Signum's `GetLiteValueAsync` — what the combo currently has selected. */
+    async getValue(): Promise<Lite<EntityOf<S> & Entity> | null> {
         const selected = this.combo.locator("option:checked");
         if (await selected.count() === 0)
             return null;
-        return await this.entityInfo();
+        return await this.getLite();
     }
 
     /** Signum's `SelectLabelAsync` — pick by the text the user sees. */
@@ -33,7 +35,7 @@ export class EntityComboProxy extends EntityBaseProxy {
         return await this.combo.locator("option").allTextContents();
     }
 
-    override async getValueUntyped(): Promise<unknown> { return await this.getSelected(); }
+    override async getValueUntyped(): Promise<unknown> { return await this.getValue(); }
 
     override async setValueUntyped(value: unknown): Promise<void> {
         if (value == null) {

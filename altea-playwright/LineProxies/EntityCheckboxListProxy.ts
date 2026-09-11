@@ -7,7 +7,7 @@ import { waitChanges } from "../PlaywrightExtensions";
 // Port of Signum.Playwright's LineProxies/EntityListCheckBoxProxy.cs (EntityCheckboxList.tsx) — a
 // low-population collection as a list of checkboxes. altea's element class is `sf-checkbox-element`, the
 // same as Signum's.
-export class EntityCheckboxListProxy extends EntityBaseProxy {
+export class EntityCheckboxListProxy<S = unknown> extends EntityBaseProxy<S> {
 
     override get itemRoute(): PropertyRoute { return this.route.add("Item"); }
 

@@ -1,6 +1,7 @@
 import type { Locator } from "@playwright/test";
 import type { Lite } from "@altea/altea/data/lite";
-import type { Entity } from "@altea/altea/data/entity";
+import type { BaseEntity, Entity, Type } from "@altea/altea/data/entity";
+import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { waitNotPresent, waitVisible, type AsyncScoped } from "../PlaywrightExtensions";
 import { ModalProxy } from "../ModalProxies/ModalProxy";
 import { SearchControlProxy } from "./SearchControlProxy";
@@ -9,7 +10,7 @@ import type { FiltersProxy } from "./FiltersProxy";
 
 // Port of Signum.Playwright's Search/SearchModalProxy.cs — the search a FIND button opens: filter, pick a
 // row, accept.
-export class SearchModalProxy extends ModalProxy implements AsyncScoped {
+export class SearchModalProxy<T extends BaseEntity> extends ModalProxy implements AsyncScoped {
 
     private closed = false;
 
@@ -25,28 +26,28 @@ export class SearchModalProxy extends ModalProxy implements AsyncScoped {
     }
 
 
-    private constructor(modal: Locator, readonly searchControl: SearchControlProxy) {
+    private constructor(modal: Locator, readonly searchControl: SearchControlProxy<T>) {
         super(modal);
     }
 
-    static async create(modal: Locator, queryKey: string, waitInitialSearch = true): Promise<SearchModalProxy> {
+    static async create<T extends BaseEntity>(modal: Locator, queryName: Type<T> & QueryName, waitInitialSearch = true): Promise<SearchModalProxy<T>> {
         await waitVisible(modal);
         const element = modal.locator(".sf-search-control").first();
         await waitVisible(element);
 
-        const proxy = new SearchModalProxy(modal, new SearchControlProxy(element, queryKey));
+        const proxy = new SearchModalProxy<T>(modal, new SearchControlProxy<T>(element, queryName));
         if (waitInitialSearch)
             await proxy.searchControl.waitInitialSearchCompleted();
         return proxy;
     }
 
-    get results(): ResultTableProxy { return this.searchControl.results; }
-    get filters(): FiltersProxy { return this.searchControl.filters; }
+    get results(): ResultTableProxy<T> { return this.searchControl.results; }
+    get filters(): FiltersProxy<T> { return this.searchControl.filters; }
 
     get okButton(): Locator { return this.modal.locator(".sf-entity-button.sf-ok-button, .sf-ok-button").first(); }
 
     /** Signum's `SelectLiteAsync` — check the row of THAT entity and accept. */
-    async selectLite(lite: Lite<Entity>): Promise<void> {
+    async selectLite(lite: Lite<T & Entity> | (T & Entity)): Promise<void> {
         await this.results.rowOf(lite).locator("input.sf-td-selection").check();
         await this.ok();
     }

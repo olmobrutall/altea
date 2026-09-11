@@ -197,3 +197,34 @@ export async function scoped<T extends AsyncScoped, R>(source: T | Promise<T>, b
         await value[Symbol.asyncDispose]();
     }
 }
+
+/**
+ * What every navigation returns: the proxy, awaitable as usual — and carrying {@link scoped} as a method,
+ * so a scope opens in ONE expression with no intermediate await:
+ *
+ *     await b.framePage(order).scoped(async frame => { … });   // Signum's Task<T>.Then(…)
+ *     await using frame = await b.framePage(order);            // or TS 5.2's `await using`
+ *
+ * It is the direct translation of Signum's `Task<T>.Then`, which is a method on the TASK — hence a
+ * thenable here rather than a method on the proxy, which would force `(await …).scoped(…)`.
+ */
+export class Scope<T extends AsyncScoped> implements PromiseLike<T> {
+
+    constructor(private readonly source: Promise<T>) { }
+
+    /** Enter the scope, run `body` inside it, and dispose it on the way out (Signum's `Then`). */
+    scoped<R>(body: (proxy: T) => Promise<R>): Promise<R> {
+        return scoped(this.source, body);
+    }
+
+    then<R1 = T, R2 = never>(
+        onfulfilled?: ((value: T) => R1 | PromiseLike<R1>) | null,
+        onrejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null): PromiseLike<R1 | R2> {
+        return this.source.then(onfulfilled, onrejected);
+    }
+}
+
+/** Wrap a proxy-producing promise as a {@link Scope}. */
+export function scope<T extends AsyncScoped>(source: Promise<T>): Scope<T> {
+    return new Scope<T>(source);
+}

@@ -1,6 +1,6 @@
 import type { Locator } from "@playwright/test";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
-import type { BaseEntity } from "@altea/altea/data/entity";
+import type { BaseEntity, Type } from "@altea/altea/data/entity";
 import { isPresent, waitNotPresent, waitVisible, type AsyncScoped } from "../PlaywrightExtensions";
 import { EntityButtonContainer } from "./EntityButtonContainer";
 import { LineContainer } from "./LineContainer";
@@ -14,12 +14,12 @@ import { MessageModalProxy } from "../ModalProxies/ModalProxy";
 // "discard changes?" confirmation with NO, and then runs `Disposing` so the LINE that opened the modal can
 // wait for its own re-render. Both TypeScript spellings work:
 //
-//     await scoped(line.createModal(OrderEntity), async order => { … });   // Signum's `.Then(…)`
+//     await line.createModal(OrderEntity).scoped(async order => { … });     // Signum's `.Then(…)`
 //     await using order = await line.createModal(OrderEntity);             // TS 5.2 `await using`
 //
 // `avoidClose` is Signum's flag for the case where the body already closed it (pressed OK / executed an
 // operation that navigates away).
-export class FrameModalProxy<T extends BaseEntity> extends EntityButtonContainer implements AsyncScoped {
+export class FrameModalProxy<T extends BaseEntity> extends EntityButtonContainer<T> implements AsyncScoped {
 
     readonly lines: LineContainer<T>;
 
@@ -38,7 +38,7 @@ export class FrameModalProxy<T extends BaseEntity> extends EntityButtonContainer
     }
 
     /** Signum's `FrameModalProxy<T>.NewAsync(modal, route)`. */
-    static async create<T extends BaseEntity>(modal: Locator, rootTypeOrRoute: Function | PropertyRoute): Promise<FrameModalProxy<T>> {
+    static async create<T extends BaseEntity>(modal: Locator, rootTypeOrRoute: Type<T> | PropertyRoute): Promise<FrameModalProxy<T>> {
         const route = rootTypeOrRoute instanceof PropertyRoute ? rootTypeOrRoute : PropertyRoute.root(rootTypeOrRoute);
         await waitVisible(modal);
         const proxy = new FrameModalProxy<T>(modal, route);

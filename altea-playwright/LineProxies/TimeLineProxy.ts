@@ -1,18 +1,21 @@
 import type { Locator } from "@playwright/test";
 import { BaseLineProxy } from "./BaseLineProxy";
+import type { TimeMember } from "../Frames/LineContainer";
 
 // Port of Signum.Playwright's LineProxies/TimeLineProxy.cs (TimeLine.tsx). altea's value is a
 // `Temporal.PlainTime` / `Duration` ISO string — see DateTimeLineProxy for why the proxy speaks strings.
-export class TimeLineProxy extends BaseLineProxy {
+export class TimeLineProxy<S extends TimeMember = TimeMember> extends BaseLineProxy {
 
     get input(): Locator { return this.element.locator("input[type=text]").first(); }
 
-    async setValue(value: string | null): Promise<void> {
+    /** The member's own Temporal value, or the text the input shows. */
+    async setValue(value: S | string | null): Promise<void> {
         const input = this.input;
         await input.waitFor({ state: "visible" });
         await input.fill("");
-        if (value != null && value !== "") {
-            await input.fill(value);
+        const text = value == null ? "" : String(value);
+        if (text !== "") {
+            await input.fill(text);
             await input.press("Enter");
         }
     }

@@ -1,17 +1,17 @@
 import type { Locator } from "@playwright/test";
 import type { Lite } from "@altea/altea/data/lite";
-import type { Entity } from "@altea/altea/data/entity";
+import { Entity } from "@altea/altea/data/entity";
 import { BaseLineProxy } from "./BaseLineProxy";
-import { EntityBaseProxy, type EntityInfo } from "./EntityBaseProxy";
+import { EntityBaseProxy, type EntityOf } from "./EntityBaseProxy";
 import { waitChanges } from "../PlaywrightExtensions";
 
 // Port of Signum.Playwright's LineProxies/EntityLineProxy.cs (EntityLine.tsx).
-export class EntityLineProxy extends EntityBaseProxy {
+export class EntityLineProxy<S = unknown> extends EntityBaseProxy<S> {
 
     get autoCompleteElement(): Locator { return this.element.locator(".sf-entity-autocomplete").first(); }
 
-    /** Signum's `GetLiteAsync` — what the line currently holds, as its `data-entity` info. */
-    getEntityInfo(): Promise<EntityInfo | null> { return this.entityInfo(); }
+    /** Signum's `GetLiteAsync` — what the line currently holds. */
+    getValue(): Promise<Lite<EntityOf<S> & Entity> | null> { return this.getLite(); }
 
     /** Signum's `AutoCompleteAsync(beginning)` — type and pick the first match. */
     async autoComplete(text: string, resultContainsText = true): Promise<void> {
@@ -20,7 +20,7 @@ export class EntityLineProxy extends EntityBaseProxy {
     }
 
     /** Signum's `AutoCompleteAsync(lite)` — type and pick THAT entity. */
-    async autoCompleteLiteValue(lite: Lite<Entity>): Promise<void> {
+    async autoCompleteLiteValue(lite: Lite<EntityOf<S> & Entity>): Promise<void> {
         await waitChanges(this.element, () => this.autoCompleteLite(this.autoCompleteElement, this.element, lite));
     }
 
@@ -28,7 +28,8 @@ export class EntityLineProxy extends EntityBaseProxy {
      * Signum's `SetLiteAsync`: clear what is there, then set the new value — through the autocomplete when
      * the line has one, else through the find modal.
      */
-    async setLite(lite: Lite<Entity> | null): Promise<void> {
+    async setValue(value: Lite<EntityOf<S> & Entity> | (EntityOf<S> & Entity) | null): Promise<void> {
+        const lite = value == null ? null : value instanceof Entity ? value.toLite() as Lite<EntityOf<S> & Entity> : value;
         if (await this.entityInfo() != null)
             await this.remove();
 
@@ -40,14 +41,14 @@ export class EntityLineProxy extends EntityBaseProxy {
             return;
         }
 
-        throw new Error("EntityLineProxy.setLite: the line has no autocomplete; open findModal() and pick"
+        throw new Error("EntityLineProxy.setValue: the line has no autocomplete; open findModal() and pick"
             + " the row through SearchModalProxy instead.");
     }
 
-    override async getValueUntyped(): Promise<unknown> { return await this.entityInfo(); }
+    override async getValueUntyped(): Promise<unknown> { return await this.getLite(); }
 
     override async setValueUntyped(value: unknown): Promise<void> {
-        await this.setLite(value as Lite<Entity> | null);
+        await this.setValue(value as Lite<EntityOf<S> & Entity> | null);
     }
 
     override async isReadonly(): Promise<boolean> {

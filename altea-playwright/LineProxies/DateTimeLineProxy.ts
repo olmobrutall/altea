@@ -1,12 +1,13 @@
 import type { Locator } from "@playwright/test";
 import { BaseLineProxy } from "./BaseLineProxy";
+import type { DateMember } from "../Frames/LineContainer";
 
 // Port of Signum.Playwright's LineProxies/DateTimeLineProxy.cs (DateTimeLine.tsx, a react-widgets picker).
 //
 // altea divergence: the value is a `Temporal` ISO string (`2026-08-22`, `2026-08-22T10:30`), not a .NET
 // DateTime — so this proxy takes and returns the STRING the input holds, which is also what a test asserting
 // a stored PlainDate wants.
-export class DateTimeLineProxy extends BaseLineProxy {
+export class DateTimeLineProxy<S extends DateMember = DateMember> extends BaseLineProxy {
 
     /** The editable input inside the picker; `sf-readonly-date` is the read-only rendering. */
     get input(): Locator {
@@ -15,12 +16,14 @@ export class DateTimeLineProxy extends BaseLineProxy {
             .first();
     }
 
-    async setValue(value: string | null): Promise<void> {
+    /** The member's own Temporal value, or the text the picker shows. */
+    async setValue(value: S | string | null): Promise<void> {
         const input = this.input;
         await input.waitFor({ state: "visible" });
         await input.fill("");
-        if (value != null && value !== "") {
-            await input.fill(value);
+        const text = value == null ? "" : String(value);
+        if (text !== "") {
+            await input.fill(text);
             // react-widgets parses on blur / Enter; Signum presses Enter for the same reason.
             await input.press("Enter");
         }

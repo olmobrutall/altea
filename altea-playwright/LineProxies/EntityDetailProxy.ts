@@ -2,35 +2,33 @@ import type { Locator } from "@playwright/test";
 import { PropertyRouteType } from "@altea/altea/data/propertyRoute";
 import type { BaseEntity } from "@altea/altea/data/entity";
 import { BaseLineProxy } from "./BaseLineProxy";
-import { EntityBaseProxy, type EntityInfo } from "./EntityBaseProxy";
+import { EntityBaseProxy, type EntityOf } from "./EntityBaseProxy";
 import { LineContainer } from "../Frames/LineContainer";
 
 // Port of Signum.Playwright's LineProxies/EntityDetailProxy.cs (EntityDetail.tsx) — a single value edited
 // IN PLACE, inside a fieldset whose `<legend>` carries the buttons.
-export class EntityDetailProxy extends EntityBaseProxy {
+export class EntityDetailProxy<S = unknown> extends EntityBaseProxy<S> {
 
     /** Signum: the buttons of a detail live in its legend, not in the body. */
     override get buttonBar(): Locator { return this.element.locator("> legend, legend").first(); }
 
     /** Signum's `Details<T>()` — the lines INSIDE the detail, as their own container. */
-    details<T extends BaseEntity>(): LineContainer<T> {
+    details(): LineContainer<EntityOf<S> & BaseEntity> {
         const subRoute = this.route.propertyRouteType === PropertyRouteType.LiteEntity
             ? this.route
             : this.route.add("Entity").propertyRouteType === PropertyRouteType.LiteEntity
                 ? this.route.add("Entity")
                 : this.route;
 
-        return new LineContainer<T>(this.element, subRoute);
+        return new LineContainer<EntityOf<S> & BaseEntity>(this.element, subRoute);
     }
 
     /** Signum's `GetOrCreateDetailControlAsync<T>` — create the value first when the detail is empty. */
-    async getOrCreateDetails<T extends BaseEntity>(): Promise<LineContainer<T>> {
+    async getOrCreateDetails(): Promise<LineContainer<EntityOf<S> & BaseEntity>> {
         if (await this.entityInfo() == null)
             await this.createEmbedded();
-        return this.details<T>();
+        return this.details();
     }
-
-    getEntityInfo(): Promise<EntityInfo | null> { return this.entityInfo(); }
 
     override async getValueUntyped(): Promise<unknown> { return await this.entityInfo(); }
 

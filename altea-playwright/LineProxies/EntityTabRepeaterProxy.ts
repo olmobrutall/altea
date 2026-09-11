@@ -7,7 +7,7 @@ import { waitChanges, waitVisible } from "../PlaywrightExtensions";
 // Port of Signum.Playwright's LineProxies/EntityTabRepeaterProxy.cs (EntityTabRepeater.tsx) — the same
 // collection as an EntityRepeater, one TAB per element (altea keeps the `sf-repeater-element` class on the
 // active pane, which is why this only has to add the tab click).
-export class EntityTabRepeaterProxy extends EntityRepeaterProxy {
+export class EntityTabRepeaterProxy<S extends BaseEntity = BaseEntity> extends EntityRepeaterProxy<S> {
 
     get tabs(): Locator { return this.element.locator(".nav-tabs .nav-item .nav-link"); }
 
@@ -18,13 +18,13 @@ export class EntityTabRepeaterProxy extends EntityRepeaterProxy {
     }
 
     /** The lines of the ACTIVE element (only one pane is rendered at a time). */
-    activeElement<T extends BaseEntity>(): LineContainer<T> {
-        return new LineContainer<T>(this.element.locator(".sf-repeater-element.active").first(), this.itemRoute);
+    activeElement(): LineContainer<S> {
+        return new LineContainer<S>(this.element.locator(".sf-repeater-element.active").first(), this.itemRoute);
     }
 
     /** Signum's create + switch: add a tab and return the lines of the new (active) element. */
-    override async createElement<T extends BaseEntity>(): Promise<LineContainer<T>> {
+    override async createElement(): Promise<LineContainer<S>> {
         await waitChanges(this.element, () => this.createButton.click());
-        return this.activeElement<T>();
+        return this.activeElement();
     }
 }

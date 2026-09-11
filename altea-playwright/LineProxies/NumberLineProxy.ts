@@ -1,14 +1,16 @@
 import type { Locator } from "@playwright/test";
 import { BaseLineProxy } from "./BaseLineProxy";
+import type { NumberMember } from "../Frames/LineContainer";
 
 // Port of Signum.Playwright's LineProxies/NumberLineProxy.cs (NumberLine.tsx — the `.numeric` input).
-export class NumberLineProxy extends BaseLineProxy {
+export class NumberLineProxy<S extends NumberMember = NumberMember> extends BaseLineProxy {
 
     get input(): Locator { return this.element.locator("input.numeric").first(); }
     get readonlyInput(): Locator { return this.element.locator("input.numeric[readonly], div.readonly.numeric").first(); }
     get anyInput(): Locator { return this.element.locator("input.numeric, div.readonly.numeric").first(); }
 
-    async setValue(value: number | null, loseFocus = false): Promise<void> {
+    /** The member's own value — a number, or a `Decimal` for a decimal column. */
+    async setValue(value: S | number | null, loseFocus = false): Promise<void> {
         const input = this.input;
         await input.waitFor({ state: "visible" });
         await input.fill(value == null ? "" : String(value));
