@@ -14,7 +14,7 @@ import type { ScheduledTaskContext } from "./ScheduleTaskRunner";
 // database is a fresh instance, not the declared singleton, so an identity-keyed Map misses on every
 // scheduled run — it only ever hits for a task executed straight from the declared symbol.
 //
-// See docs/port/Scheduler.md.
+// See port/Scheduler.md.
 
 export namespace SimpleTaskLogic {
 

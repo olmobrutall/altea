@@ -16,7 +16,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 // from its shared entity-overrides module (the same place @altea/altea-diff-log's `DiffLogMixin.declare()`
 // goes), and the server's `IsolationLogic.start` reads the map back.
 //
-// Port of Signum.Isolation's IsolationEntity.cs — see docs/port/Isolation.md.
+// Port of Signum.Isolation's IsolationEntity.cs — see port/Isolation.md.
 @reflect
 @entity("String", "Master", { lowPopulation: true })
 export class IsolationEntity extends Entity {

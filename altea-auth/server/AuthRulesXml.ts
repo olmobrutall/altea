@@ -4,7 +4,7 @@ import type { Replacements } from "@altea/altea/server/sync/synchronizer";
 import { TypeConditionSymbol } from "../data/Rules";
 
 // Shared helpers for the AuthRules XML import/export, used by each dimension's `exportXml` / `importXml`
-// — see docs/port/Auth.md. The per-dimension logics own their section's
+// — see port/Auth.md. The per-dimension logics own their section's
 // row shape + how it applies; this module owns the mechanical bits (role grouping, section assembly, the
 // per-TYPE overlay loop, enum parsing) so they aren't repeated five times.
 

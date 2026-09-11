@@ -28,7 +28,7 @@ import { RoleEntity } from "../../data/Role";
 import { ColorRadio, GrayCheckbox } from "./ColoredRadios";
 import "./AuthAdmin.css";
 
-// Port of Signum.Authorization's Rules/TypeRulePackControl.tsx — see docs/port/Auth.md.
+// Port of Signum.Authorization's Rules/TypeRulePackControl.tsx — see port/Auth.md.
 //
 // The VIEW component for the TypeRulePack ModelEntity, opened as a FrameModal from the Role QuickLink.
 // Each type

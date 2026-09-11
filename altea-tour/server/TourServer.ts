@@ -23,7 +23,7 @@ import { TourLogic } from "./TourLogic";
 // `Lite<QueryEntity>` toolbar target is resolved HERE (a lookup the isomorphic layer cannot do) and passed
 // into `cssSelector`.
 //
-// Port of Signum.Tour's TourController.cs — see docs/port/Tour.md.
+// Port of Signum.Tour's TourController.cs — see port/Tour.md.
 export namespace TourServer {
 
     /** What the player needs, with each step's selector already resolved. */

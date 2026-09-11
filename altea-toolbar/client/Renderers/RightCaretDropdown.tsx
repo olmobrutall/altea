@@ -5,7 +5,7 @@ import type { ToolbarResponse } from "../../data/ToolbarResponse";
 import { liteKeyOrQuery } from "./ToolbarRenderer";
 import "./RightCaretDropdown.css";
 
-// Port of Signum.Toolbar's Renderers/RightCaretDropdown.tsx — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's Renderers/RightCaretDropdown.tsx — see port/Toolbar.md.
 //
 // The ToolbarSwitcher's picker: a dropdown that opens to the RIGHT of the sidebar on desktop and downwards
 // on mobile.

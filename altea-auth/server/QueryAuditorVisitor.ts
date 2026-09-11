@@ -10,7 +10,7 @@ import type { FilterQueryArgs } from "@altea/altea/server/schema/filterQueryArgs
 import { LiteType, ClassType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
 import { cleanTypeName } from "@altea/altea/data/registration";
 
-// Port of Signum.Authorization's Rules/QueryAuditorVisitor.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's Rules/QueryAuditorVisitor.cs — see port/Auth.md.
 //
 // READ THE CALLER'S OWN FILTERS. It exists for one kind of type condition,
 // `registerWhenAlreadyFilteringBy`, whose rule is "you may read these rows BECAUSE you asked for them in

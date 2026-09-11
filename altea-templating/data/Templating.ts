@@ -10,7 +10,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import type { FilterRequest, OrderRequest, Pagination } from "@altea/altea/data/dynamicQuery/queryRequest";
 
-// Port of Signum.Templating's isomorphic surface — see docs/port/Templating.md.
+// Port of Signum.Templating's isomorphic surface — see port/Templating.md.
 //
 // The MODULE is the text-template engine every report kind shares: a template is text with `@[token]` /
 // `@if[…]` / `@foreach[…]` markers, resolved against a QUERY (the row set) and/or a MODEL (an in-memory

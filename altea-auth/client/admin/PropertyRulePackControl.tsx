@@ -16,7 +16,7 @@ import { ColorRadio, GrayCheckbox } from "./ColoredRadios";
 import { type Slice, sliceBinding } from "./AuthSlice";
 import { SliceSelector } from "./SliceSelector";
 
-// Port of Signum.Authorization's Rules/PropertyRulePackControl.tsx — see docs/port/Auth.md.
+// Port of Signum.Authorization's Rules/PropertyRulePackControl.tsx — see port/Auth.md.
 //
 // Each row is one property route of the type, with Write (green)
 // / Read (amber) / None (red) radios + an "overridden" checkbox. A radio above the row's `coerced` ceiling

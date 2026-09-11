@@ -39,7 +39,7 @@ import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { section, groupByRole, attrs, conditionsXml, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 
-// Port of Signum.Authorization's Rules/TypeAuthLogic.cs + .Conditions.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's Rules/TypeAuthLogic.cs + .Conditions.cs — see port/Auth.md.
 //
 // A role's access to an entity TYPE, with ROW-LEVEL type conditions: a `WithConditions<TypeAllowed>` — a
 // fallback plus ordered condition rules — merged across the role graph by the 2^n TypeConditionMerger,

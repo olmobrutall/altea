@@ -15,7 +15,7 @@ import { SafeConsole, Color } from "./SafeConsole";
 // unreliable (arrows, minification) — and that name is the migration's IDENTITY in the database, so
 // renaming one re-runs it.
 //
-// Port of Signum.Migrations' CSharpMigrationRunner.cs — see docs/port/Migrations.md.
+// Port of Signum.Migrations' CSharpMigrationRunner.cs — see port/Migrations.md.
 
 export interface CSharpMigrationInfo {
     uniqueName: string;
@@ -89,7 +89,7 @@ export class CSharpMigrationRunner {
 
     /**
      * Run the step, then record it. A failure is REPORTED here and rethrown as an
-     * ExecuteSqlScriptException — the marker that says "already printed" (see docs/port/Migrations.md).
+     * ExecuteSqlScriptException — the marker that says "already printed" (see port/Migrations.md).
      */
     private async execute(mi: CSharpMigrationInfo): Promise<void> {
         SafeConsole.writeLineColor(Color.darkGray, `${mi.uniqueName} executing ...`);

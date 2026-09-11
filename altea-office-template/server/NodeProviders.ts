@@ -1,5 +1,5 @@
 // Port of the `INodeProvider` trio at the head of Signum.Word's WordTemplateNodes.cs — see
-// docs/port/OfficeTemplate.md.
+// port/OfficeTemplate.md.
 //
 // The three OOXML dialects express "a styled run of text inside a paragraph" with different element names
 // in different namespaces:

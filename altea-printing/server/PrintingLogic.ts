@@ -31,7 +31,7 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 // The actual PRINTING is an app seam (`PrintingLogic.print`) whose default THROWS: what "print" means — a
 // spooler, a network printer, an SDK — is not something a framework can know.
 //
-// Port of Signum.Printing's PrintLogic.cs — see docs/port/Printing.md.
+// Port of Signum.Printing's PrintLogic.cs — see port/Printing.md.
 export namespace PrintingLogic {
 
     /** Minutes a printed line's file is kept before the cleanup task drops it. */

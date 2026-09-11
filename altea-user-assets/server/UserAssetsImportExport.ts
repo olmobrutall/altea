@@ -8,7 +8,7 @@ import {
     UserAssetPreviewModel, UserAssetPreviewLineEmbedded, EntityAction, type IUserAssetEntity,
 } from "../data/UserAssets";
 
-// Port of Signum.UserAssets' UserAssetsExporterImporter.cs — see docs/port/UserAssets.md.
+// Port of Signum.UserAssets' UserAssetsExporterImporter.cs — see port/UserAssets.md.
 //
 // The XML import/export engine. Each asset type registers its (de)serializer HERE via
 // `UserAssetsImporter.register`, because altea entities are isomorphic and cannot carry XML code. XML is
@@ -29,7 +29,7 @@ const ATTR = "@_";
  * export/import across databases: a matched row is REUSED, so it keeps its id and its clean snapshot and
  * an unchanged row is not rewritten; a row the database does not have yet is created carrying the id from
  * the file, so importing the same file elsewhere yields the same ids. Matching by POSITION instead is
- * silently destructive three ways — see docs/port/UserAssets.md.
+ * silently destructive three ways — see port/UserAssets.md.
  *
  * XML with NO `Guid` on any element — written before the ids were, or by a consumer that does not declare
  * them — falls back to positional matching, so importing an old file is not reported as a change. A file

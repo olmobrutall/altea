@@ -21,7 +21,7 @@ import type { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 // `PrintLineState[this.state]` — which is a reverse ENUM LOOKUP, i.e. a subscript no SQL dialect can
 // evaluate; PostgreSQL answered "cannot subscript type unknown" on every query of the table.
 //
-// Port of Signum.Printing's PrintLine.cs + PrintPackages.cs — see docs/port/Printing.md.
+// Port of Signum.Printing's PrintLine.cs + PrintPackages.cs — see port/Printing.md.
 @reflect
 @entity("System", "Transactional")
 export class PrintLineEntity extends Entity {

@@ -418,7 +418,7 @@ A reader who consults one home gets one answer.
 
 Two rules follow, and both are already how the ledgers are organised:
 
-- **One home per fact.** A cross-cutting narrative lives in `docs/port/<Module>.md`; a file's comment
+- **One home per fact.** A cross-cutting narrative lives in `port/<Module>.md`; a file's comment
   describes the file. Duplication is how the two get to disagree.
 - **A comment may describe the code or the world, never the schedule.** "Not ported" is a fact about the
   world and belongs in the ledger's *Not ported* section, where it is reviewed. "Phase 4" is a schedule and

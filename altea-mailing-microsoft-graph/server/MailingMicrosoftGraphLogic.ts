@@ -14,7 +14,7 @@ import { MicrosoftGraphSender } from "./MicrosoftGraphSender";
 // The REMOTE MAILBOX half is a separate `start`: an app that only SENDS through Graph has no reason to
 // expose someone's inbox.
 //
-// See docs/port/MailingMicrosoftGraph.md.
+// See port/MailingMicrosoftGraph.md.
 
 export namespace MailingMicrosoftGraphLogic {
 

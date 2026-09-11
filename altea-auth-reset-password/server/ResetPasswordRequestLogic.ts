@@ -39,7 +39,7 @@ import { ResetPasswordServer } from "./ResetPasswordServer";
 // inside `CultureInfo.withCultures`.
 //
 // Port of Signum.Authorization.ResetPassword's ResetPasswordRequestLogic.cs — see
-// docs/port/ResetPassword.md.
+// port/ResetPassword.md.
 
 // `modelType` is what altea's renderer looks the REGISTRATION up by (see EmailLogic's `modelTypeOf`): a
 // model whose shape differs from the entity it is about MUST carry it, or the lookup falls back to

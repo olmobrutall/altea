@@ -2,7 +2,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { markdownToText } from "../server/MarkdownToPlainText";
 
-// The markdown→text walk swaps one parser library for another (see docs/port/Markdown.md), so each case
+// The markdown→text walk swaps one parser library for another (see port/Markdown.md), so each case
 // pins what one node kind flattens to. Several pin the DELIBERATELY incomplete behaviour rather than the
 // obviously nicest output; where that is the point, the case says so.
 describe("markdownToText", () => {
@@ -57,7 +57,7 @@ describe("markdownToText", () => {
         assert.equal(markdownToText("first  \nsecond"), "first\nsecond");
     });
 
-    test("a code block contributes NOTHING — deliberately incomplete, see docs/port/Markdown.md", () => {
+    test("a code block contributes NOTHING — deliberately incomplete, see port/Markdown.md", () => {
         // Mirrored, not fixed, so the two implementations stay comparable.
         assert.equal(markdownToText("before\n\n```\nlet x = 1;\n```\n\nafter"), "before\nafter");
     });

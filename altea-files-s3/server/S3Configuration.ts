@@ -14,7 +14,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 // falls back to "us-east-1" (what every S3-compatible server accepts) instead of failing with the SDK's own
 // "Region is missing" at the first call.
 //
-// Port of Signum.Files.S3's S3Configuration.cs — see docs/port/FileStores.md.
+// Port of Signum.Files.S3's S3Configuration.cs — see port/FileStores.md.
 
 export interface S3Configuration {
     /** S3 endpoint URL, e.g. `http://localhost:9000` (MinIO). Empty for real AWS. */

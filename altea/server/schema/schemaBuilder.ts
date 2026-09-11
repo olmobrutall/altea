@@ -309,7 +309,7 @@ export class SchemaSettings {
     //
     // Every legacy accommodation is gated on THIS flag, never on a second one of its own. The rules it
     // covers — naming, table shape, DDL, and the stored values it makes altea READ more forgivingly —
-    // are inventoried in docs/port/LegacyMode.md, which is also where to add one.
+    // are inventoried in port/LegacyMode.md, which is also where to add one.
     legacyMode = false;
 
     // Signum's ImplementedByAllPrimaryKeyTypes: an @implementedByAll reference gets one id

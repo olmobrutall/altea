@@ -7,7 +7,7 @@ import { RestApiKeyLogic } from "./RestApiKeyLogic";
 
 // The log table, its four indexes, and the "send this request again and let me diff the answer" replay.
 //
-// Port of Signum.Rest's RestLogLogic.cs — see docs/port/Rest.md.
+// Port of Signum.Rest's RestLogLogic.cs — see port/Rest.md.
 export namespace RestLogLogic {
 
     /** What the log records as the application that served the request. */

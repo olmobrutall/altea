@@ -8,7 +8,7 @@ import { PropertyAuthLogic } from "./PropertyAuthLogic";
 import { TypeRulePack, PermissionRulePack, OperationRulePack, QueryRulePack, PropertyRulePack } from "../data/Rules";
 import { RoleEntity } from "../data/Role";
 
-// Port of Signum.Authorization's Rules/*Controller — see docs/port/Auth.md.
+// Port of Signum.Authorization's Rules/*Controller — see port/Auth.md.
 //
 // The rule-pack admin endpoints the
 // AuthAdminClient calls. The packs are reflected entity graphs (ModelEntity subclasses), so the route

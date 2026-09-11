@@ -20,7 +20,7 @@ import { DiffLogServer } from "./DiffLogServer";
 // the operation, dump the target after it, store both on the operation log. The after half still runs when
 // the operation THREW.
 //
-// Port of Signum.DiffLog's DiffLogLogic.cs — see docs/port/DiffLog.md.
+// Port of Signum.DiffLog's DiffLogLogic.cs — see port/DiffLog.md.
 export namespace DiffLogLogic {
 
     /** Per entity type, "is this worth dumping?". Keyed by ctor; a registration on a base type applies. */

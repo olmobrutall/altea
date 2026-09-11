@@ -35,7 +35,7 @@ import { SchedulerLogic } from "./SchedulerLogic";
 // isomorphic, and the editors preview them) but a weekday rule needs its calendar, which lives behind an
 // async cache.
 //
-// Port of Signum.Scheduler's ScheduleTaskRunner.cs — see docs/port/Scheduler.md.
+// Port of Signum.Scheduler's ScheduleTaskRunner.cs — see port/Scheduler.md.
 
 export namespace ScheduleTaskRunner {
 

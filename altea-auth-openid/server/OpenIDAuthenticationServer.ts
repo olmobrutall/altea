@@ -25,7 +25,7 @@ import { OpenIDAuthorizer, OpenIDClaimsContext } from "./OpenIDAuthorizer";
 // call at boot; the endpoints route is kept as well, since a client may need to re-read them after a
 // provider change.
 //
-// See docs/port/AuthDirectory.md.
+// See port/AuthDirectory.md.
 
 interface LoginWithOpenIDRequest { code?: string; redirectUri?: string }
 interface LoginResponse { authenticationType: string; token: string; userEntity: UserEntity }

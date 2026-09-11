@@ -23,7 +23,7 @@ import { TourButton } from "./TourComponent";
 // The widget's fast path reads `frame.pack.extension?.hasTour`, core's entity-pack extension bag (added
 // for this module — see server/TourLogic), so it needs no round-trip to know whether a tour exists.
 //
-// See docs/port/Tour.md.
+// See port/Tour.md.
 export namespace TourClient {
 
     // The two title-rendering search pages are keyed by tag.

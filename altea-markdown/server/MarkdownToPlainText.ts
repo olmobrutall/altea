@@ -12,7 +12,7 @@ import type { Nodes, Parents, PhrasingContent, RootContent } from "mdast";
 // Plain CommonMark, no extensions — so a GFM table is not parsed and comes through as literal pipe text.
 //
 // Port of Signum.Markdown's MarkdownToPlainText.cs (Markdig → mdast, with a node-by-node correspondence
-// table) — see docs/port/Markdown.md.
+// table) — see port/Markdown.md.
 export function markdownToText(markdown: string | null | undefined): string | null {
     if (markdown == undefined)
         return null;

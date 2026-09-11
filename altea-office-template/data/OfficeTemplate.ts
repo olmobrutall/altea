@@ -21,7 +21,7 @@ import { ModelConverterSymbol, TemplateApplicableEval, type IContainsQuery } fro
 import type { IAttachmentGeneratorEntity } from "@altea/altea-email/data/EmailTemplate";
 
 // Port of Signum.Word's WordTemplate.cs + SystemWordTemplate.cs + WordAttachmentEntity.cs — see
-// docs/port/OfficeTemplate.md.
+// port/OfficeTemplate.md.
 //
 // The AUTHORED side of the module: which document is the template, which query rows / model drive it, and
 // how the produced file is named and post-processed.

@@ -6,7 +6,7 @@ import { FileEntity, FileEmbedded, FileMessage, FilePathEmbedded, toComputerSize
 import type { FileTypeSymbol } from "../../data/Files";
 import "./Files.css";
 
-// Port of Signum.Files' Components/FileUploader.tsx — see docs/port/Files.md.
+// Port of Signum.Files' Components/FileUploader.tsx — see port/Files.md.
 //
 // Pick files (click or drag & drop), read their bytes and hand back filled FileEmbedded / FilePathEmbedded
 // values. The bytes ride the entity's own save, so this component only reads the files LOCALLY — there is

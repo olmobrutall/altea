@@ -6,7 +6,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { Temporal } from "@altea/altea/data/basics";
 import { UserEntity } from "./User";
 
-// Port of Signum.Authorization's UserTicket/UserTicket.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's UserTicket/UserTicket.cs — see port/Auth.md.
 //
 // The "remember me" credential. One row per
 // remembered DEVICE: a long-lived random secret that a returning browser presents instead of a password,

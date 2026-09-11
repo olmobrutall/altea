@@ -5,7 +5,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 // concept, exactly as `HtmlEditorMessage` is — a message in core has to be translated by every application
 // whether or not it installs the module.
 //
-// Port of Signum's MarkdownMessage — see docs/port/Markdown.md.
+// Port of Signum's MarkdownMessage — see port/Markdown.md.
 export const MarkdownMessage = {
     Edit0: msg("Edit {0}"),
     Preview0: msg("Preview {0}"),

@@ -9,7 +9,7 @@ import { RestApiKeyEntity, RestApiKeyOperation } from "../data/Rest";
 
 // The key table plus the process-wide cache the authenticator reads on every request.
 //
-// Port of Signum.Rest's RestApiKeyLogic.cs — see docs/port/Rest.md.
+// Port of Signum.Rest's RestApiKeyLogic.cs — see port/Rest.md.
 export namespace RestApiKeyLogic {
 
     /** A caller may pass the key either way. */

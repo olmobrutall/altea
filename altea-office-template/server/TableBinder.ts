@@ -1,4 +1,4 @@
-// Port of Signum.Word's TableBinder.cs — see docs/port/OfficeTemplate.md.
+// Port of Signum.Word's TableBinder.cs — see port/OfficeTemplate.md.
 //
 // Binding tabular data into a chart or a table that the template
 // author drew in Word / PowerPoint.

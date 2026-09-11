@@ -5,7 +5,7 @@ import type { Entity } from "@altea/altea/data/entity";
 import { FileEntity, FileEmbedded, FilePathEmbedded, FileMessage, toComputerSize } from "../../data/Files";
 import { FilesClient } from "../FilesClient";
 
-// Port of Signum.Files' Components/FileDownloader.tsx — see docs/port/Files.md.
+// Port of Signum.Files' Components/FileDownloader.tsx — see port/Files.md.
 //
 // Renders a stored file as a link that VIEWS it (when the browser can) plus a save button. Two sources of
 // bytes:

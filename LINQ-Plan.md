@@ -1,6 +1,6 @@
 # LINQ Provider Port Plan
 
-Canonical home for the LINQ provider (Phase **D**). The root `../PLAN.md` keeps
+Canonical home for the LINQ provider (Phase **D**). The roadmap in `port/PLAN.md` keeps
 only a one-line status row and a pointer here.
 
 ## Goal & approach

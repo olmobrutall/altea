@@ -18,7 +18,7 @@ import { UserTicketLogic } from "./UserTicketLogic";
 import { UserTicketServer } from "./UserTicketServer";
 import { SessionLogLogic } from "./SessionLogLogic";
 
-// Port of Signum.Authorization's AuthServer.cs + AuthController.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's AuthServer.cs + AuthController.cs — see port/Auth.md.
 //
 // The HTTP surface of authentication: a per-request user-context middleware plus the /api/auth/*
 // endpoints. The role-filtering overlay on the reflection blob is installed from here too — see

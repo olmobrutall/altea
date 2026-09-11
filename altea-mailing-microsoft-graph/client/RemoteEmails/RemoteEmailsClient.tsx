@@ -44,7 +44,7 @@ import { MultiMessageProgressModal } from "./MultiMessageProgressModal";
 // The mailbox is addressed by the USER's own lite id everywhere — the routes resolve the directory object
 // id server-side — and the query is named by its ROW MODEL (`RemoteEmailMessageRowModel`).
 //
-// See docs/port/MailingMicrosoftGraph.md.
+// See port/MailingMicrosoftGraph.md.
 
 export namespace RemoteEmailsClient {
 
@@ -141,7 +141,7 @@ export namespace RemoteEmailsClient {
             //
             // NOTE this formatter does not run yet, and not for a reason in this file: the query's own
             // server half compares token keys as camelCase too, so the request throws before a row exists
-            // (`UserFilterNotFound`). See docs/port/OpenQuestions.md §2.4 for that inventory.
+            // (`UserFilterNotFound`). See port/OpenQuestions.md §2.4 for that inventory.
             formatters: {
                 "Subject": new Finder.CellFormatter((val, cfc) => {
                     const read = <T,>(t: QueryTokenString<T>) => cfc.searchControl?.getRowValue(cfc.row, t);

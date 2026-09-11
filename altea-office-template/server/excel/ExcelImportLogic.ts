@@ -18,7 +18,7 @@ import { ExcelImporter } from "./ExcelImporter";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of the IMPORT half of Signum.Excel's ExcelLogic.cs + ExcelController — see
-// docs/port/OfficeTemplate.md. (ValidateForImport /
+// port/OfficeTemplate.md. (ValidateForImport /
 // ImportFromExcel) — its own starter, separate from PlainExcelLogic's (see the note there).
 //
 // altea divergences:

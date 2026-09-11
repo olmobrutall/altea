@@ -6,7 +6,7 @@ import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { FileEmbedded } from "@altea/altea-files/data/Files";
 
 // Port of Signum.Excel's ExcelImportModel.cs + the permission / message declarations of Signum.Excel.ts —
-// see docs/port/OfficeTemplate.md.
+// see port/OfficeTemplate.md.
 //
 // Signum.Excel does three things; this file covers TWO of them:
 //

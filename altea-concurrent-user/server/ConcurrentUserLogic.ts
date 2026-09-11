@@ -9,7 +9,7 @@ import { ConcurrentUserServer } from "./ConcurrentUserServer";
 
 // The module's `start(sb)`.
 //
-// Port of Signum.ConcurrentUser's ConcurrentUserLogic.cs — see docs/port/ConcurrentUser.md.
+// Port of Signum.ConcurrentUser's ConcurrentUserLogic.cs — see port/ConcurrentUser.md.
 export namespace ConcurrentUserLogic {
 
     /**

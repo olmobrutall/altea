@@ -35,7 +35,7 @@ import { Serializer } from "@altea/altea/data/serializer";
 import { setRequestDeserializer } from "@altea/altea/server/webApi";
 import * as Database from "@altea/altea/server/Database";
 
-// Port of Signum.Authorization's Rules/PropertyAuthLogic.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's Rules/PropertyAuthLogic.cs — see port/Auth.md.
 //
 // A role's allowance per property route: None → hidden, Read → read-only, Write. A property is CAPPED by
 // its type's UI-read allowance — it cannot be more accessible than its type (`typeCeilingWC`) — and with

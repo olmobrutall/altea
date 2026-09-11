@@ -54,7 +54,7 @@ import { WorkflowBuilder } from "./WorkflowBuilder";
 import { registerWorkflowXml } from "./WorkflowXml";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
-// Port of Signum.Workflow's WorkflowLogic.cs — see docs/port/Workflow.md.
+// Port of Signum.Workflow's WorkflowLogic.cs — see port/Workflow.md.
 //
 // The module's registration: the workflow-definition tables and their operations, the in-memory
 // WorkflowNodeGraph cache, and the EIGHT evaluator registries behind data/WorkflowEval.ts.
@@ -66,7 +66,7 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 // The CACHES are arrays / Maps keyed by the lite's KEY STRING: a Lite is not a value key in JS.
 //
 // NOT wired: `AuthLogic.hasRuleOverrides` ("does this role appear as a lane actor?") has no hook yet, and
-// this module does not opt its routes into instance translation — see docs/port/Workflow.md.
+// this module does not opt its routes into instance translation — see port/Workflow.md.
 
 // ---- Extension expressions ------------------------------------------------------------------------------
 

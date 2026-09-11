@@ -14,7 +14,7 @@ import type { IQuery } from "@altea/altea/data/iquery";
 import { WorkflowEntity } from "./Workflow";
 import type { CaseActivityEntity } from "./CaseActivity";
 
-// Port of Signum.Workflow's Case.cs — see docs/port/Workflow.md.
+// Port of Signum.Workflow's Case.cs — see port/Workflow.md.
 //
 // A CASE is one RUN of a workflow over one MAIN ENTITY. The main entity
 // is the app's own business object (an order, a request), reached through `ICaseMainEntity`; the case adds

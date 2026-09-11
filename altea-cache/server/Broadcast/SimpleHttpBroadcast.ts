@@ -3,7 +3,7 @@ import { PasswordEncoding } from "@altea/altea/server/passwordEncoding";
 import { CacheLogic } from "../CacheLogic";
 import type { IServerBroadcast } from "./IServerBroadcast";
 
-// Port of Signum.Caching's Broadcast/SimpleHttpBroadcast.cs — see docs/port/Cache.md.
+// Port of Signum.Caching's Broadcast/SimpleHttpBroadcast.cs — see port/Cache.md.
 //
 // Invalidation by POSTing to the sibling servers' own `/api/cache/invalidate*` endpoints — the transport
 // of choice when the database offers no pub/sub. Every node just needs the others' URLs.

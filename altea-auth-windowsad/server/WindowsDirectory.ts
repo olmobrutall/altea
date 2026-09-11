@@ -18,7 +18,7 @@ import { WindowsADConfigurationEmbedded } from "../data/WindowsAD";
 // `objectSid` arrives as RAW BYTES and must be formatted as the canonical `S-1-5-21-…` string, because
 // that string is what `UserEntity.externalId` stores.
 //
-// See docs/port/AuthDirectory.md.
+// See port/AuthDirectory.md.
 
 /** One directory user, in the fields this module reads. */
 export interface DirectoryUser {

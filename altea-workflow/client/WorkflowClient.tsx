@@ -78,7 +78,7 @@ import WorkflowToolbarMenuConfig from "./WorkflowToolbarMenuConfig";
 import type { WorkflowHandle } from "./Workflow/Workflow";
 import "./Case/Inbox.css";
 
-// Port of Signum.Workflow's WorkflowClient.tsx — see docs/port/Workflow.md.
+// Port of Signum.Workflow's WorkflowClient.tsx — see port/Workflow.md.
 //
 // The module's CLIENT registration hub: routes, every entity's view, the Inbox's Finder settings, all the
 // case / workflow operation settings, the quick links, and the typed HTTP client for /api/workflow/*.

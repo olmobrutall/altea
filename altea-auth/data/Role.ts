@@ -6,7 +6,7 @@ import { entity, part, uniqueIndex, backReference, valueField, quoted } from "@a
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 
-// Port of Signum.Authorization's RoleEntity.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's RoleEntity.cs — see port/Auth.md.
 //
 // A role is the unit authorization
 // rules attach to; users point at one role, and roles form a DAG via `inheritsFrom`.

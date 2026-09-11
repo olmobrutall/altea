@@ -8,7 +8,7 @@ import { ViewLogEntity } from "../data/ViewLog";
 // it. The default columns are registered here because `withQuery()` is parameterless — the client owns the
 // column list.
 //
-// Port of Signum.ViewLog's ViewLogClient.tsx — see docs/port/ViewLog.md.
+// Port of Signum.ViewLog's ViewLogClient.tsx — see port/ViewLog.md.
 export namespace ViewLogClient {
 
     export function start(cb: ClientBuilder, options?: { showQuickLink?: (typeName: string) => boolean }): void {

@@ -6,7 +6,7 @@ import type { CaseActivityEntity } from "./CaseActivity";
 import type { WorkflowConnectionEntity } from "./WorkflowNodes";
 
 // The shapes the EIGHT evals compile to, plus the two context objects they are handed — see
-// docs/port/Workflow.md.
+// port/Workflow.md.
 //
 // An eval compiles to a FUNCTION (a TypeScript module's natural unit — see @altea/altea-eval's
 // data/Eval.ts), so each of Signum's `IXEvaluator` interfaces becomes a function TYPE, and its

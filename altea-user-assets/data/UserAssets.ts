@@ -20,7 +20,7 @@ export function enumColumn(): (target: object, propertyKey: string | symbol) => 
     return column({ pgDbType: "varchar", sqlDbType: "nvarchar", size: 100 });
 }
 
-// Port of Signum.UserAssets' UserAssets.cs + Signum.UserAssets.ts — see docs/port/UserAssets.md.
+// Port of Signum.UserAssets' UserAssets.cs + Signum.UserAssets.ts — see port/UserAssets.md.
 // The shared user-asset contracts: a user-authored, XML-portable entity identified by a stable uuid so it
 // can be exported from one database and imported into another.
 

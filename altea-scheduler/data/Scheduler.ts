@@ -27,7 +27,7 @@ import { HolidayCalendarEntity } from "./HolidayCalendar";
 // switching type.
 //
 // Port of Signum.Scheduler's ScheduleRuleEntities.cs + ScheduledTaskEntity.cs + ScheduledTaskLogEntity.cs
-// + SimpleTask.cs — see docs/port/Scheduler.md.
+// + SimpleTask.cs — see port/Scheduler.md.
 
 /** What a ScheduledTask runs. Implemented by SimpleTaskSymbol here, and by any
  *  entity an app registers with `SchedulerLogic.executeTask`. */

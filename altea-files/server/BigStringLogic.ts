@@ -20,7 +20,7 @@ import type { FileTypeSymbol } from "../data/Files";
 import { BigStringMixin } from "../data/BigString";
 import { FilePathEmbeddedLogic } from "./FilePathEmbeddedLogic";
 
-// Port of Signum.Files' BigStringLogic.cs — see docs/port/Files.md.
+// Port of Signum.Files' BigStringLogic.cs — see port/Files.md.
 //
 // Decides, PER PROPERTY ROUTE, whether a BigStringEmbedded's text lives in its own column or in a file, and
 // moves it across when a route is migrated. Readers and writers of `bigString.text` never change: the text

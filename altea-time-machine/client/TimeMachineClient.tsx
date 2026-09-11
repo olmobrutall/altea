@@ -25,7 +25,7 @@ import { TimeMachineMessage, TimeMachinePermission } from '../data/TimeMachine';
 // The permission check is INSIDE the callbacks, not read once at start: a permission flag follows
 // `onCurrentUserChanged`, so a start-time snapshot would be wrong after a re-login.
 //
-// Port of Signum.TimeMachine's TimeMachineClient.tsx — see docs/port/TimeMachine.md.
+// Port of Signum.TimeMachine's TimeMachineClient.tsx — see port/TimeMachine.md.
 export namespace TimeMachineClient {
 
     export function start(cb: ClientBuilder): void {

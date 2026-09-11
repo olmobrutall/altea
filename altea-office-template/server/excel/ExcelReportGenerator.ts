@@ -9,7 +9,7 @@ import { DefaultStyle, enumText } from "./CellBuilder";
 import { cellText, readSharedStrings } from "./ExcelReader";
 import { readCellBuilder } from "./PlainExcelGenerator";
 
-// Port of Signum.Excel's ExcelGenerator.cs — see docs/port/OfficeTemplate.md.
+// Port of Signum.Excel's ExcelGenerator.cs — see port/OfficeTemplate.md.
 //
 // Refill a stored .xlsx TEMPLATE's "Data" sheet from a query. The template is a workbook someone built IN
 // EXCEL: a "Data" sheet holding a header row and one sample data row, plus whatever else they wanted —

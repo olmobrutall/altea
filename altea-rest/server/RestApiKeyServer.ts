@@ -13,7 +13,7 @@ import { RestApiKeyLogic } from "./RestApiKeyLogic";
 // The authenticator that turns an API key into an authenticated user, and the two endpoints the client
 // needs to show a user their key.
 //
-// Port of Signum.Rest's RestApiKeyServer.cs + RestApiKeyController.cs — see docs/port/Rest.md.
+// Port of Signum.Rest's RestApiKeyServer.cs + RestApiKeyController.cs — see port/Rest.md.
 export namespace RestApiKeyServer {
 
     let started = false;

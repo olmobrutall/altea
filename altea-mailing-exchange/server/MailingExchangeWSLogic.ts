@@ -9,7 +9,7 @@ import { ExchangeWebServiceSender } from "./ExchangeWebServiceSender";
 // The module's start: include the service, fold the typed-in password into the stored one, and check that
 // the app widened `EmailSenderConfigurationEntity.service` to reach this implementation.
 //
-// Port of Signum.Mailing.ExchangeWS's MailingExchangeWSLogic.cs — see docs/port/MailingExchange.md.
+// Port of Signum.Mailing.ExchangeWS's MailingExchangeWSLogic.cs — see port/MailingExchange.md.
 
 export namespace MailingExchangeWSLogic {
 

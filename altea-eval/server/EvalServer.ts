@@ -13,7 +13,7 @@ import { EvalLogic } from "./EvalLogic";
 // server-side loaders (see EvalLogic.evalSources), and the response says which source each failure came
 // from.
 //
-// Port of Signum.Eval's EvalPanelController.cs — see docs/port/Eval.md.
+// Port of Signum.Eval's EvalPanelController.cs — see port/Eval.md.
 
 /** One failing script: the entity, the error, and which registered source it came from. */
 export interface EvalEntityError {

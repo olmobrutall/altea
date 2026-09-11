@@ -11,7 +11,7 @@ import { inferActive, isCompatibleWithUrl, renderNavItem } from "./ToolbarRender
 import "@altea/altea/client/Frames/Widgets.css";
 import "./Toolbar.css";
 
-// Port of Signum.Toolbar's Renderers/ToolbarTopRenderer.tsx — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's Renderers/ToolbarTopRenderer.tsx — see port/Toolbar.md.
 //
 // The `Top` toolbar, rendered inside the navbar. Same element machinery as the sidebar (renderNavItem),
 // only the container differs — plus one behaviour the sidebar does NOT have: if the ACTIVE response is

@@ -12,7 +12,7 @@ import { WhatsNewEntity_Attachment, WhatsNewFileType } from "../data/WhatsNew";
 // (both live in HTML), so the two conversions happen here. A stored image is addressed through the
 // ATTACHMENT ROW that holds it, by owner + route.
 //
-// See docs/port/WhatsNew.md.
+// See port/WhatsNew.md.
 
 /** 4 MB — stated here, since there is no reflected default file type to read it from. */
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;

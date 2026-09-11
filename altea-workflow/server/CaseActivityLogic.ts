@@ -57,7 +57,7 @@ import { WorkflowActivityInfo } from "./WorkflowActivityInfo";
 import { setCaseActivityMover } from "./WorkflowBuilder";
 import { WorkflowScriptRunner } from "./WorkflowScriptRunner";
 
-// Port of Signum.Workflow's CaseActivityLogic.cs — see docs/port/Workflow.md.
+// Port of Signum.Workflow's CaseActivityLogic.cs — see port/Workflow.md.
 //
 // The ENGINE. A case walks its workflow one CASE ACTIVITY at a time; this file owns the state machine that
 // decides what comes next — conditions, decisions, gateways, parallel joins, timers, decompositions and

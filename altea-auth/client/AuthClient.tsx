@@ -10,7 +10,7 @@ import type { UserEntity } from "../data/User";
 import type { PermissionSymbol } from "../data/Rules";
 import { AuthMessage } from "../data/AuthMessages";
 
-// Port of Signum.Authorization's AuthClient.tsx — see docs/port/Auth.md.
+// Port of Signum.Authorization's AuthClient.tsx — see port/Auth.md.
 //
 // The CLIENT authentication hub: route registration (startPublic), token storage, the
 // request-interception seam (bearer header + token refresh + auth-expiry redirect), auto-login,

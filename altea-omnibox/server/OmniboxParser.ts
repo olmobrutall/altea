@@ -16,7 +16,7 @@ import type { HelpOmniboxResult, OmniboxResult } from "../data/OmniboxResults";
 import { OmniboxMessage } from "../data/OmniboxMessages";
 import { toOmniboxPascalDictionary } from "./OmniboxUtils";
 
-// Port of Signum.Omnibox's OmniboxParser.cs (OmniboxParser + OmniboxManager) — see docs/port/Omnibox.md.
+// Port of Signum.Omnibox's OmniboxParser.cs (OmniboxParser + OmniboxManager) — see port/Omnibox.md.
 //
 // A free-text query is parsed into a flat token list and rendered as a compact "token pattern" string —
 // one char per token: I=identifier, N=number, S=string, E=entity key, G=guid, ==comparer, any other symbol

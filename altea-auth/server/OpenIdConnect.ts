@@ -3,7 +3,7 @@ import * as http from "node:http";
 import { URL } from "node:url";
 import { createLocalJWKSet, jwtVerify, type JSONWebKeySet, type JWTPayload } from "jose";
 
-// The OpenID Connect plumbing — see docs/port/AuthDirectory.md.
+// The OpenID Connect plumbing — see port/AuthDirectory.md.
 //
 // What Signum gets from `Microsoft.IdentityModel.Protocols.OpenIdConnect`
 // (`ConfigurationManager<OpenIdConnectConfiguration>` + `JwtSecurityTokenHandler.ValidateToken`), which

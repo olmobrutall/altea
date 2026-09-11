@@ -8,7 +8,7 @@ import { registerEnum } from "@altea/altea/data/registration";
 import { type int, toInt, Decimal, Temporal } from "@altea/altea/data/basics";
 
 // A tiny, purpose-built domain for the CACHE test suite. Every entity exercises one thing the cache has to
-// get right — the table in docs/port/Cache.md says which, and is worth reading before changing any of
+// get right — the table in port/Cache.md says which, and is worth reading before changing any of
 // them, because none of these shapes is incidental.
 
 export enum Continent {

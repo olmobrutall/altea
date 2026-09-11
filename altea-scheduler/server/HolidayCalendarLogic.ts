@@ -17,7 +17,7 @@ import "@altea/altea/server/fluentOperations";
 // editors preview it — so the runner WARMS the cache before advancing any rule, and the rules read it
 // through the sync resolver installed here.
 //
-// See docs/port/Scheduler.md.
+// See port/Scheduler.md.
 
 export namespace HolidayCalendarLogic {
 

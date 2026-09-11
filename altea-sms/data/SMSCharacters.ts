@@ -10,7 +10,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 // Getting this wrong is silent: `messageLengthExceeded: TextPruning` truncates to whatever these functions
 // return. Hence the 13-case suite in test/smsCharacters.test.ts.
 //
-// Port of Signum.SMS's SMSCharacters.cs — see docs/port/Sms.md.
+// Port of Signum.SMS's SMSCharacters.cs — see port/Sms.md.
 
 /** The GSM-7 payload of one SMS. */
 export const SMS_MAX_TEXT_LENGTH = 160;

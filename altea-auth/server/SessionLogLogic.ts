@@ -15,7 +15,7 @@ import { AuthLogic } from "./AuthLogic";
 import { PermissionAuthLogic } from "./PermissionAuthLogic";
 import { PermissionLogic } from "./PermissionLogic";
 
-// Port of Signum.Authorization's SessionLog/SessionLogLogic.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's SessionLog/SessionLogLogic.cs — see port/Auth.md.
 //
 // Open a row when a tracked user logs in, close it when they log out. Both paths run with authorization
 // DISABLED (

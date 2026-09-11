@@ -13,7 +13,7 @@ import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 // The cache behind `isHoliday` is a per-INSTANCE Map built on first use: the entity is a plain field bag,
 // so it is rebuilt whenever the instance is.
 //
-// Port of Signum.Scheduler's HolidayCalendarEntity.cs — see docs/port/Scheduler.md.
+// Port of Signum.Scheduler's HolidayCalendarEntity.cs — see port/Scheduler.md.
 
 @part
 export class HolidayCalendarEntity_Holiday extends Entity {

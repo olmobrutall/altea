@@ -19,7 +19,7 @@ import { ObjectDumper } from "@altea/altea/data/objectDumper";
 // row may reference rows the current user cannot read today. The page itself is gated by
 // `TimeMachinePermission.ShowTimeMachine`.
 //
-// Port of Signum.TimeMachine's TimeMachineController.cs — see docs/port/TimeMachine.md.
+// Port of Signum.TimeMachine's TimeMachineController.cs — see port/TimeMachine.md.
 export namespace TimeMachineServer {
 
     /** One version of a row, plus the ObjectDumper text of it. */

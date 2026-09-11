@@ -4,7 +4,7 @@ import type { OxmlElement } from "../oxml/OxmlElement";
 import { columnIndex, columnLetters, rowDigits } from "../spreadsheet/FormulaRewriter";
 
 // The READ half of Signum.Excel's ExcelExtensions.cs (GetCellValue / GetExcelColumnIndex / FromExcel*) —
-// see docs/port/OfficeTemplate.md.
+// see port/OfficeTemplate.md.
 // which only the importer needs: walk a worksheet's rows and read each cell as text, then convert that
 // text back to a typed value.
 //

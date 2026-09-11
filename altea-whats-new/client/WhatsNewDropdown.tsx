@@ -23,7 +23,7 @@ import "./WhatsNewDropdown.css";
 // The count is decremented by the number of items actually CLOSED, not by 1 — which is what makes "Close
 // all" leave the badge right before the refetch lands.
 //
-// Port of Signum.WhatsNew's Dropdown/WhatsNewDropdown.tsx — see docs/port/WhatsNew.md.
+// Port of Signum.WhatsNew's Dropdown/WhatsNewDropdown.tsx — see port/WhatsNew.md.
 const MaxNumberOfNews = 3;
 
 export default function WhatsNewDropdown(): React.JSX.Element | null {

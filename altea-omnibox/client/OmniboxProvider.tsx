@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { IconProp } from "@fortawesome/fontawesome-svg-core";
 import type { OmniboxMatch, OmniboxResult } from "../data/OmniboxResults";
 
-// Port of Signum.Omnibox's OmniboxProvider.tsx — see docs/port/Omnibox.md.
+// Port of Signum.Omnibox's OmniboxProvider.tsx — see port/Omnibox.md.
 //
 // The renderer half of one omnibox result SHAPE. The server produces `{ resultTypeName, … }` rows and the
 // client registry (OmniboxClient.providers) maps each `resultTypeName` to one of these.

@@ -26,7 +26,7 @@ import "./DiffLog.css";
 // built straight off the owner ("initialState" on OperationLogEntity) does not resolve, which is where the
 // tab labels come from.
 //
-// Port of Signum.DiffLog's Templates/OperationLog.tsx — see docs/port/DiffLog.md.
+// Port of Signum.DiffLog's Templates/OperationLog.tsx — see port/DiffLog.md.
 export default function OperationLog(p: { ctx: TypeContext<OperationLogEntity> }): React.JSX.Element {
     const ctx = p.ctx;
     const ctx6 = ctx.subCtx({ labelColumns: { sm: 3 } });

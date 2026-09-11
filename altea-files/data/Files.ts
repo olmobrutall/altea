@@ -8,7 +8,7 @@ import { type long, toLong } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 
 // Port of Signum.Files' FileTypeSymbol.cs + FilePathEmbedded.cs + FileEmbedded.cs + FileEntity.cs — see
-// docs/port/Files.md.
+// port/Files.md.
 //
 // Three ways to hold a file, along two axes — where the BYTES live, and whether the file is its own ROW:
 //

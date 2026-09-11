@@ -15,7 +15,7 @@ import { ImageModal } from "./ImageModal";
 import { memberPath, rootEntity } from "./FileLine";
 import "./Files.css";
 
-// Port of Signum.Files' Components/FileImageLine.tsx — see docs/port/Files.md.
+// Port of Signum.Files' Components/FileImageLine.tsx — see port/Files.md.
 //
 // FileLine for an IMAGE: the uploader while the field is empty, and once it holds a file a THUMBNAIL
 // (click → ImageModal) with the remove button floating over it. Structurally FileLine with an <img>

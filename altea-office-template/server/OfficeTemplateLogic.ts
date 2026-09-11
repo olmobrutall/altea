@@ -42,7 +42,7 @@ import { OfficeTemplateTokenSync } from "./OfficeTemplateTokenSync";
 import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
-// Port of Signum.Word's WordTemplateLogic.cs — see docs/port/OfficeTemplate.md.
+// Port of Signum.Word's WordTemplateLogic.cs — see port/OfficeTemplate.md.
 //
 // Registration, the caches, and `createReport`: the one function that turns a stored template plus an
 // entity into finished document bytes.

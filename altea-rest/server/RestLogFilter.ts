@@ -19,7 +19,7 @@ import { RestApiKeyLogic } from "./RestApiKeyLogic";
 // MOUNT IT AFTER `AuthLogic.start`: that is what installs the per-request user scope, and
 // `UserHolder.current()` is read here. Express runs middleware in registration order.
 //
-// Port of Signum.Rest's RestLogFilter.cs (an MVC action filter there) — see docs/port/Rest.md.
+// Port of Signum.Rest's RestLogFilter.cs (an MVC action filter there) — see port/Rest.md.
 export namespace RestLogFilter {
 
     export interface RestLogOptions {

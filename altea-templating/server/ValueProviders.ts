@@ -17,7 +17,7 @@ import { distinctSingle, groupByColumn, scapeColon, ScopedDictionary } from "./T
 // ever name the context as a parameter type, so the `import type` is erased and nothing circles.
 import type { TemplateSynchronizationContext } from "./TemplateSync";
 
-// Port of Signum.Templating's ValueProviders.cs — see docs/port/Templating.md.
+// Port of Signum.Templating's ValueProviders.cs — see port/Templating.md.
 //
 // Everything a `@[…]` bracket can name:
 //
@@ -40,7 +40,7 @@ import type { TemplateSynchronizationContext } from "./TemplateSync";
 // `@[t:…]` (translate-instance) reports an error at PARSE time rather than silently falling back. Its
 // recorded reason — "altea has no PropertyRouteTranslationLogic" — is out of date: that landed with
 // @altea/altea-translations, so this is now a follow-up rather than a blocker. See
-// docs/port/Templating.md.
+// port/Templating.md.
 
 /** What a value provider needs from the parse in progress. */
 export interface ITemplateParser {

@@ -21,7 +21,7 @@ import type { TourDTO } from "./TourClient";
 // The button that offers / replays a tour, and the driver.js wrapper that plays it. driver.js is pinned to
 // ^1.3.1 → 1.3.6 so the popover behaviour is the one the steps were authored against.
 //
-// See docs/port/Tour.md.
+// See port/Tour.md.
 
 /**
  * The "?"-ish bike icon beside a page. Three states:

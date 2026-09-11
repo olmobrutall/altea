@@ -10,7 +10,7 @@ import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 // system-time dropdown. This module is the READER: a page that lists a row's versions, a diff between two
 // of them, and the restore helpers.
 //
-// Port of Signum.TimeMachine's TimeMachine.cs — see docs/port/TimeMachine.md.
+// Port of Signum.TimeMachine's TimeMachine.cs — see port/TimeMachine.md.
 
 export namespace TimeMachinePermission {
     /** Gates the quick link, the search control's system-time button, and the page. */

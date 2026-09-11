@@ -14,7 +14,7 @@ import { OpenIDMessage, type OpenIDClientConfig, type OpenIDEndpoints } from "..
 // to inject it into. That same payload carries the provider ENDPOINTS, so starting the redirect needs no
 // extra round trip. `Options.getOpenIDConfig` is the override seam.
 //
-// See docs/port/AuthDirectory.md.
+// See port/AuthDirectory.md.
 
 type OpenIDSettings = OpenIDClientConfig & OpenIDEndpoints;
 

@@ -32,7 +32,7 @@ import { toEmailMessage } from "./MimeToEmailMessage";
 // transaction (so one bad message becomes an EmailReceptionException instead of losing the batch), and the
 // summary is written in a third.
 //
-// Port of Signum.Mailing.Pop3's Pop3ConfigurationLogic.cs — see docs/port/MailingPop3.md.
+// Port of Signum.Mailing.Pop3's Pop3ConfigurationLogic.cs — see port/MailingPop3.md.
 
 export namespace Pop3ConfigurationLogic {
 

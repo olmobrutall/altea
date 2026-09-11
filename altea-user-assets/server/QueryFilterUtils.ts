@@ -11,7 +11,7 @@ import { Entity } from "@altea/altea/data/entity";
 import type { QueryFilterBaseEntity } from "../data/Queries";
 import { parseFilterValue } from "../data/FilterValueString";
 
-// Port of Signum.UserAssets' Queries/QueryFilterUtils.cs — see docs/port/UserAssets.md.
+// Port of Signum.UserAssets' Queries/QueryFilterUtils.cs — see port/UserAssets.md.
 //
 // Turn the FLAT, indentation-encoded rows of a stored filter tree into the engine's nested Filter list.
 // The rows are the shared `QueryFilterBaseEntity`, so this works for ANY owner's — a template's, a user

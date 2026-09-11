@@ -26,7 +26,7 @@ import {
 import { allowedQueryFilter } from "./OmniboxAuth";
 import { tryParsePrimaryKey } from "./EntityOmniboxResultGenerator";
 
-// Port of Signum.Omnibox's DynamicQueryOmniboxResultGenerator.cs — see docs/port/Omnibox.md.
+// Port of Signum.Omnibox's DynamicQueryOmniboxResultGenerator.cs — see port/Omnibox.md.
 //
 // The omnibox's richest shape: a QUERY plus any number of (possibly half-typed) filters —
 //

@@ -6,7 +6,7 @@ import { FileTypeLogic } from "./FileTypeLogic";
 import { FilePathEmbeddedLogic } from "./FilePathEmbeddedLogic";
 import { FilesServer } from "./FilesServer";
 
-// Port of Signum.Files' FileLogic.cs / FilePathEmbeddedLogic.Start pairing — see docs/port/Files.md.
+// Port of Signum.Files' FileLogic.cs / FilePathEmbeddedLogic.Start pairing — see port/Files.md.
 //
 // The ONE call an app makes to get files working:
 //   • the FileTypeSymbol table + the algorithm registry (FileTypeLogic),

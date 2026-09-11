@@ -17,7 +17,7 @@ import { RemoteEmailsClient } from "./RemoteEmailsClient";
 // bytes are fetched through the app's own ajax and turned into blob URLs, the same thing altea-files'
 // FileImage does.
 //
-// See docs/port/MailingMicrosoftGraph.md.
+// See port/MailingMicrosoftGraph.md.
 export default function RemoteEmailMessage(p: { ctx: TypeContext<RemoteEmailMessageModel> }): React.JSX.Element {
     const ctx = p.ctx.subCtx({ readOnly: true });
 

@@ -7,7 +7,7 @@ import { ValueProviderBase } from "./ValueProviders";
 import { ConditionAnd, ConditionCompare, ConditionOr, type ConditionBase } from "./Conditions";
 import type { ITemplateParser } from "./ValueProviders";
 
-// Port of Signum.Templating's CommonTemplate.cs — see docs/port/Templating.md.
+// Port of Signum.Templating's CommonTemplate.cs — see port/Templating.md.
 //
 // The module's shared plumbing: the syntax regexes, the condition parser, the row-grouping helpers
 // @foreach / @any use, and the "semi-structural" equality that decides whether two rows carry the SAME

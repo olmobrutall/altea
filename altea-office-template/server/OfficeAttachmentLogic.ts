@@ -17,7 +17,7 @@ import { OfficeModelLogic } from "./OfficeModelLogic";
 import { OfficeTemplateLogic } from "./OfficeTemplateLogic";
 
 // Port of Signum.Word's WordAttachmentLogic.cs — attaching a rendered Office report to an email. See
-// docs/port/OfficeTemplate.md.
+// port/OfficeTemplate.md.
 //
 // This is the seam between the two modules: an @altea/altea-email template lists attachment RULES, and each
 // rule type registers how to fill its query tokens and how to produce its bytes. An OfficeAttachment names

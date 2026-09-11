@@ -22,7 +22,7 @@ import PropertyRouteCombo from "@altea/altea/client/Components/PropertyRouteComb
 // The live selector preview calls the SAME `cssStepSelector` the server uses to build the DTO — it lives
 // in the data layer for exactly this reason — so the preview cannot drift from what the player gets.
 //
-// See docs/port/Tour.md.
+// See port/Tour.md.
 
 export default function TourStep(p: {
     ctx: TypeContext<TourStepEntity>;

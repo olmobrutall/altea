@@ -17,7 +17,7 @@ import { EmailServiceEntity } from "@altea/altea-email/data/EmailSenderConfigura
 // round-trip it to the browser on every read.
 //
 // Port of Signum.Mailing.MicrosoftGraph's MicrosoftGraphEmailServiceEntity.cs — see
-// docs/port/MailingMicrosoftGraph.md.
+// port/MailingMicrosoftGraph.md.
 
 @reflect
 @part

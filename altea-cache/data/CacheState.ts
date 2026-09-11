@@ -1,4 +1,4 @@
-// The wire shapes of the cache admin API — see docs/port/Cache.md.
+// The wire shapes of the cache admin API — see port/Cache.md.
 //
 // Declared ONCE in the DATA layer so the server builder and the React page share one definition instead of
 // two hand-kept copies (the convention altea-omnibox uses for its result DTOs).
@@ -29,7 +29,7 @@ export interface ResetLazyStatsTS {
 }
 
 // The whole panel payload. `sqlDependency` is ALWAYS false — there are no query notifications to lean on
-// (see docs/port/Cache.md) — and is kept only so the panel reads the same as Signum's.
+// (see port/Cache.md) — and is kept only so the panel reads the same as Signum's.
 export interface CacheStateTS {
     isEnabled: boolean;
     sqlDependency: boolean;

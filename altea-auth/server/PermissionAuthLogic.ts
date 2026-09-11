@@ -16,7 +16,7 @@ import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { section, groupByRole, attrs, parseBool, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 
-// Port of Signum.Authorization's Rules/PermissionAuthLogic.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's Rules/PermissionAuthLogic.cs — see port/Auth.md.
 //
 // The simplest authorization dimension: rules → per-role merge → isAuthorized, with no conditions. The
 // cache load and the check are ASYNC, rules are keyed by the permission's id, and the merge is Union →

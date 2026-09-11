@@ -26,7 +26,7 @@ import {
 // A `ToolbarContent` pointing at a PermissionSymbol is not supported: `CssStepEntity` declares
 // `@implementedBy(QueryEntity)` only, matching what the tour editor can actually pick.
 //
-// See docs/port/Tour.md.
+// See port/Tour.md.
 
 const A = "@_"; // fast-xml-parser attribute prefix
 

@@ -3,7 +3,7 @@ import { SafeConsole, Color } from "@altea/altea/server/safeConsole";
 import type { Replacements } from "@altea/altea/server/sync/synchronizer";
 
 
-// Port of Signum.UserAssets' TokenMigrations/TokenMigrationFile.cs — see docs/port/UserAssets.md.
+// Port of Signum.UserAssets' TokenMigrations/TokenMigrationFile.cs — see port/UserAssets.md.
 //
 // The serialized form of the rename decisions captured during a sync, plus the per-entity
 // Skip/Delete/Regenerate choices.

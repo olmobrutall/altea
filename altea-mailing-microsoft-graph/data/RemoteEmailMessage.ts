@@ -17,7 +17,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 // view keeps `id`, since it is never a query row.
 //
 // Port of Signum.Mailing.MicrosoftGraph/RemoteEmails' RemoteEmailMessage.cs — see
-// docs/port/MailingMicrosoftGraph.md.
+// port/MailingMicrosoftGraph.md.
 
 /** One mailbox on a remote message. */
 @reflect

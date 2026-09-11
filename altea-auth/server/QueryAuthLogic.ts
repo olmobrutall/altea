@@ -20,7 +20,7 @@ import { section, groupByRole, attrs, applyPerType, parseEnum, type AuthImportCt
 import type { AuthExportCtx } from "./AuthLogic";
 import { cleanTypeName } from "@altea/altea/data/registration";
 
-// Port of Signum.Authorization's Rules/QueryAuthLogic.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's Rules/QueryAuthLogic.cs — see port/Auth.md.
 //
 // The query dimension: a role's allowance per
 // query is a 3-valued QueryAllowed (None → hidden/non-executable; EmbeddedOnly → embedded search only,

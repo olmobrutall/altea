@@ -37,7 +37,7 @@ import { WorkflowActivityMonitorLogic, type ParsedWorkflowActivityMonitorRequest
 import { WorkflowScriptRunner } from "./WorkflowScriptRunner";
 import { WorkflowActivityInfo } from "./WorkflowActivityInfo";
 
-// Port of Signum.Workflow's WorkflowController.cs — see docs/port/Workflow.md.
+// Port of Signum.Workflow's WorkflowController.cs — see port/Workflow.md.
 //
 // altea divergences:
 //  - `/api/workflow/save` returns the issues in the SUCCESS body, and on a structural error answers 400 with

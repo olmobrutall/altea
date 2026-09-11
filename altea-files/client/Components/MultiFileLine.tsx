@@ -17,7 +17,7 @@ import { FileUploader } from "./FileUploader";
 import { memberPath, rootEntity } from "./FileLine";
 import "./Files.css";
 
-// Port of Signum.Files' Components/MultiFileLine.tsx — see docs/port/Files.md.
+// Port of Signum.Files' Components/MultiFileLine.tsx — see port/Files.md.
 //
 // The line for a COLLECTION of files: one downloader per element (plus remove / reorder), and an uploader
 // underneath that appends the files the user picks.

@@ -25,7 +25,7 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.Dynamic's DynamicLogic.cs — the module's ENTRY POINT: which features are started, in what
 // order, and what happens when the generated code does not compile. The whole picture is in
-// docs/port/Dynamic.md.
+// port/Dynamic.md.
 //
 // The module lets an administrator define parts of the application from the running app itself, and its
 // features fall into two groups divided by ONE question: does the feature need a COMPILER?

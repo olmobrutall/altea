@@ -15,7 +15,7 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 // The module starter plus the two RESTORE helpers. An application calls them from its own operation; the
 // module ships no button of its own.
 //
-// Port of Signum.TimeMachine's TimeMachineLogic.cs — see docs/port/TimeMachine.md.
+// Port of Signum.TimeMachine's TimeMachineLogic.cs — see port/TimeMachine.md.
 export namespace TimeMachineLogic {
 
     export function start(sb: SchemaBuilder): void {

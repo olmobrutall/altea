@@ -12,7 +12,7 @@ import { ResetPasswordRequestLogic } from "./ResetPasswordRequestLogic";
 // A code arrives as a BARE JSON string body, so the client's `ajaxPost(url, code)` needs no wrapper
 // object; an error is `res.status(400).json({ field: msg })`, altea's flat ModelState.
 //
-// See docs/port/ResetPassword.md.
+// See port/ResetPassword.md.
 
 interface ForgotPasswordRequest { email?: string }
 interface ForgotPasswordResponse { success: boolean; message: string; title?: string }

@@ -20,7 +20,7 @@ import TourStep from "./TourStep";
 // an entity TYPE (directly, or through a TourTriggerSymbol registered for one) offers PROPERTY steps, a
 // DASHBOARD offers its parts, a USER QUERY its columns.
 //
-// See docs/port/Tour.md.
+// See port/Tour.md.
 export default function Tour(p: { ctx: TypeContext<TourEntity> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
     const ctx = p.ctx.subCtx({ labelColumns: { sm: 2 } });

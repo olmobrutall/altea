@@ -12,7 +12,7 @@ import "./DiffLog.css";
 // The module's most reusable piece: @altea/altea-agent's SkillCustomization editor uses it to diff a
 // customized instruction against the skill's code default.
 //
-// Port of Signum.DiffLog's Templates/DiffDocument.tsx — see docs/port/DiffLog.md.
+// Port of Signum.DiffLog's Templates/DiffDocument.tsx — see port/DiffLog.md.
 
 export interface LineOrWordsChange {
     lineChange: Change;

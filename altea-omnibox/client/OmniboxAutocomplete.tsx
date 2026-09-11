@@ -9,7 +9,7 @@ import { OmniboxMessage } from "../data/OmniboxMessages";
 import { OmniboxClient } from "./OmniboxClient";
 import "./Omnibox.css";
 
-// Port of Signum.Omnibox's OmniboxAutocomplete.tsx — see docs/port/Omnibox.md.
+// Port of Signum.Omnibox's OmniboxAutocomplete.tsx — see port/Omnibox.md.
 //
 // The navbar input: a Typeahead whose items come from `/api/omnibox` (one in-flight request, the previous
 // aborted), where

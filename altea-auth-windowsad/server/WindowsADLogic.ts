@@ -21,7 +21,7 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 // **The sweep uses `AutoDeactivate`, not `Deactivate`** — the state that exists precisely to mean "the
 // directory did this, not an administrator", and which `ADAuthorizer.updateUserInternal` reverses
 // automatically when the user comes back. `Deactivate` would leave a re-enabled account stuck, since a
-// Deactivated user cannot be auto-reactivated on login. See docs/port/AuthDirectory.md.
+// Deactivated user cannot be auto-reactivated on login. See port/AuthDirectory.md.
 
 export namespace WindowsADLogic {
 

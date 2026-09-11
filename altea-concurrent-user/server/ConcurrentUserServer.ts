@@ -29,7 +29,7 @@ import { ConcurrentUserLogic } from "./ConcurrentUserLogic";
 // opens its own `Transaction.forceNew`, runs under `ExecutionMode.global`, and acts as the CONNECTION's
 // authenticated user — never the `userKey` the client passes, which is accepted and ignored.
 //
-// Port of Signum.ConcurrentUser's ConcurrentUserServer/Hub/Controller — see docs/port/ConcurrentUser.md.
+// Port of Signum.ConcurrentUser's ConcurrentUserServer/Hub/Controller — see port/ConcurrentUser.md.
 export namespace ConcurrentUserServer {
 
     export let hub: WebSocketHub | undefined;

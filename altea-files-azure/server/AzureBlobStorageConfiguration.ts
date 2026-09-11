@@ -4,7 +4,7 @@ import { BlobServiceClient, StorageSharedKeyCredential, type ContainerClient } f
 // supplies the CREDENTIALS (which stay in the environment) and names its containers; caching the service
 // client and the container clients is the module's business.
 //
-// See docs/port/FileStores.md.
+// See port/FileStores.md.
 export interface AzureBlobStorageConfiguration {
     /** A full connection string — takes precedence over the account/key pair. */
     connectionString?: string | null;

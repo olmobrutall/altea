@@ -7,7 +7,7 @@ import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { TypeConditionLogic } from "@altea/altea-auth/server/TypeConditionLogic";
 import { TypeAuthLogic } from "@altea/altea-auth/server/TypeAuthLogic";
 
-// The owner-scoping half every user-asset module shares — see docs/port/UserAssets.md.
+// The owner-scoping half every user-asset module shares — see port/UserAssets.md.
 //
 // `registerUserTypeCondition` / `registerRoleTypeCondition` plus the in-memory visibility filter their
 // lookups apply. They live here ONCE, and each module re-exports a thin wrapper, because every user asset

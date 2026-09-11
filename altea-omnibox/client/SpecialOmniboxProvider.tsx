@@ -4,7 +4,7 @@ import { OmniboxResultTypeName } from "../data/OmniboxResults";
 import { OmniboxProvider } from "./OmniboxProvider";
 import { specialActions } from "@altea/altea/client/OmniboxSpecialAction";
 
-// Port of Signum.Omnibox's SpecialOmniboxProvider.tsx — see docs/port/Omnibox.md.
+// Port of Signum.Omnibox's SpecialOmniboxProvider.tsx — see port/Omnibox.md.
 //
 // The "!Command" rows. Navigation runs the registered action's own onClick — the "url" it resolves to, if
 // any, is then pushed by the autocomplete.

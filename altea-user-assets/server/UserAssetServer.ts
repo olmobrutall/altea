@@ -7,7 +7,7 @@ import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogi
 import { UserAssetPermission, UserAssetPreviewModel, type IUserAssetEntity } from "../data/UserAssets";
 import { UserAssetsImporter, warmUserAssetCaches } from "./UserAssetsImportExport";
 
-// The export / import HTTP surface — see docs/port/UserAssets.md. Only the XML import/export is here,
+// The export / import HTTP surface — see port/UserAssets.md. Only the XML import/export is here,
 // because it needs DB access to resolve assets by id; query tokens and filter values are resolved
 // CLIENT-side (see UserAssetClient).
 

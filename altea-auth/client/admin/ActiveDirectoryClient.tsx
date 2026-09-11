@@ -14,7 +14,7 @@ import type { FindOptionsParsed } from "@altea/altea/client/FindOptions";
 import { UserEntity } from "../../data/User";
 import { UserADMessage } from "../../data/BaseAD";
 
-// Port of Signum.Authorization's BaseAD/ActiveDirectoryClient.tsx — see docs/port/AuthDirectory.md.
+// Port of Signum.Authorization's BaseAD/ActiveDirectoryClient.tsx — see port/AuthDirectory.md.
 //
 // The "invite a user from the directory" UI, shared by altea-auth-azuread and altea-auth-windowsad: an
 // autocomplete entry on any UserEntity picker, and a button on the UserEntity search page.

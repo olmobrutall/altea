@@ -12,7 +12,7 @@ import { TypeConditionSymbol } from "./Rules";
 import { AuthAdminMessage, UserExternalIdMessage } from "./AuthMessages";
 import { Enum } from "@altea/altea/data/enum";
 
-// Port of Signum.Authorization's UserEntity.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's UserEntity.cs — see port/Auth.md.
 //
 // The application user: a login name,
 // a password hash, a role, and an activation state machine (New → Active ⇄ Deactivated/AutoDeactivate).

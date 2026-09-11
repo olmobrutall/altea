@@ -2,6 +2,16 @@
 
 One page per module: what the Signum original does, what altea does instead, and why.
 
+## What is in here
+
+| File | What it is |
+| --- | --- |
+| [port.md](port.md) | The CROSS-CUTTING ledger: every deliberate divergence from Signum, with the reason and the migration it needs. The conventions distilled out of it are [`../AGENTS.md`](../AGENTS.md). |
+| [PLAN.md](PLAN.md) | altea's own roadmap — what is ported, what is next. |
+| [MODULE-PORT-STATUS.md](MODULE-PORT-STATUS.md) | Signum extension → altea package, one row each, with the port state. |
+| [OpenQuestions.md](OpenQuestions.md) | Decisions still unmade. |
+| everything else | One page per MODULE (Auth, Cache, Workflow, …). |
+
 ## What belongs here
 
 The port narrative — "Signum does X, altea does Y, because Z". It documents the relationship between two

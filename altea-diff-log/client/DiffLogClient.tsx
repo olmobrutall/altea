@@ -6,7 +6,7 @@ import { OperationLogEntity } from "@altea/altea/data/operationLog";
 // Registers the OperationLog view (which is what makes the diff tabs appear) and the two chain-walking
 // calls.
 //
-// Port of Signum.DiffLog's DiffLogClient.tsx — see docs/port/DiffLog.md.
+// Port of Signum.DiffLog's DiffLogClient.tsx — see port/DiffLog.md.
 export namespace DiffLogClient {
 
     export function start(cb: ClientBuilder): void {

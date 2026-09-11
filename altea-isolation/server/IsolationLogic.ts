@@ -41,7 +41,7 @@ import {
 // other altea ambient has. It lives HERE rather than on the entity because the data layer is isomorphic
 // and ships no node types.
 //
-// Port of Signum.Isolation's IsolationLogic.cs — see docs/port/Isolation.md.
+// Port of Signum.Isolation's IsolationLogic.cs — see port/Isolation.md.
 export namespace IsolationLogic {
 
     /** Has the module been started? */

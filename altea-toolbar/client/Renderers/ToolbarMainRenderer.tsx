@@ -15,7 +15,7 @@ import { ToolbarConfig } from "../ToolbarConfig";
 import "@altea/altea/client/Frames/Widgets.css";
 import "./Toolbar.css";
 
-// Port of Signum.Toolbar's Renderers/ToolbarMainRenderer.tsx — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's Renderers/ToolbarMainRenderer.tsx — see port/Toolbar.md.
 //
 // The `Main` toolbar: a PAGE of big icon cards grouped by header / divider, where a card that has children
 // opens a modal with the nested cards — a launcher / app-menu style home page.

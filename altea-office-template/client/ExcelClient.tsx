@@ -16,7 +16,7 @@ import { ExcelReportEntity } from "../data/excel/ExcelReport";
 import ExcelMenu from "./ExcelMenu";
 import { ImportExcelProgressModal } from "./ImportExcelProgressModal";
 
-// Port of Signum.Excel's ExcelClient.tsx — see docs/port/OfficeTemplate.md.
+// Port of Signum.Excel's ExcelClient.tsx — see port/OfficeTemplate.md.
 //
 // The CLIENT half of all three Excel features: "export this
 // query to .xlsx", "import an .xlsx back into entities", and the stored ExcelReport templates. It lives in

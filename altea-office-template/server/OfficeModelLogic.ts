@@ -26,7 +26,7 @@ import { parseFilter, parseOrder, parsePagination } from "@altea/altea-email/ser
 import { OfficeModelEntity, OfficeTemplateEntity, OfficeTemplateOperation, OfficeTemplateMessage } from "../data/OfficeTemplate";
 import type { IOfficeModel } from "./OfficeTemplateParameters";
 
-// Port of Signum.Word's WordModelLogic.cs — see docs/port/OfficeTemplate.md.
+// Port of Signum.Word's WordModelLogic.cs — see port/OfficeTemplate.md.
 //
 // The MODEL side: a code-declared object a template renders against (instead of, or alongside, a query
 // row), its registry table, and the default template it can generate.

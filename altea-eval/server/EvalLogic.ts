@@ -19,7 +19,7 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 // `invalidate()` clears the code-keyed compilation cache: a registered module changing can change what an
 // already-compiled script means.
 //
-// Port of Signum.Eval's EvalLogic.cs — see docs/port/Eval.md.
+// Port of Signum.Eval's EvalLogic.cs — see port/Eval.md.
 
 export namespace EvalLogic {
 

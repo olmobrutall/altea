@@ -8,7 +8,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 import { RoleEntity } from "./Role";
 import { PermissionSymbol } from "./Rules";
 
-// Port of Signum.Authorization's BaseAD layer — see docs/port/AuthDirectory.md.
+// Port of Signum.Authorization's BaseAD layer — see port/AuthDirectory.md.
 //
 // The pieces EVERY directory-backed login module shares: how a
 // directory identity is mapped onto a local UserEntity (auto-create / auto-update / role mapping) and the

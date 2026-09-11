@@ -16,7 +16,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
 
-// Port of Signum.Toolbar's Toolbar.cs + ToolbarSwitcher.cs — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's Toolbar.cs + ToolbarSwitcher.cs — see port/Toolbar.md.
 //
 // A Toolbar is a user-authored, XML-portable NAVIGATION BAR: an ordered list of elements (headers,
 // dividers, items, extra icons), each pointing at a query / a saved user asset / a permission-gated custom

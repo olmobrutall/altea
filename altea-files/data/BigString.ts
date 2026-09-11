@@ -5,7 +5,7 @@ import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import { FilePathEmbedded } from "./Files";
 
-// Port of Signum.Files' BigStringMixin.cs — see docs/port/Files.md.
+// Port of Signum.Files' BigStringMixin.cs — see port/Files.md.
 //
 // The extension point BigStringEmbedded was written for (see @altea/altea/data/bigString.ts): a mixin that
 // hangs a FilePathEmbedded off EVERY BigStringEmbedded, so a configured property can keep its (possibly

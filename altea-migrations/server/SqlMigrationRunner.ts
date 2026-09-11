@@ -27,7 +27,7 @@ import { SafeConsole, Color } from "./SafeConsole";
 //
 // Every prompt is async (node readline), so the whole loop is.
 //
-// Port of Signum.Migrations' SqlMigrationRunner.cs — see docs/port/Migrations.md.
+// Port of Signum.Migrations' SqlMigrationRunner.cs — see port/Migrations.md.
 
 export interface SqlMigrationInfo {
     /** null for a row that is in the DATABASE but has no file. */

@@ -17,7 +17,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 // that reached the app's public REST surface, replayable against a live host so a response can be diffed
 // against what it used to be.
 //
-// Port of Signum.Rest's RestApiKeyEntity.cs + RestLog.cs — see docs/port/Rest.md.
+// Port of Signum.Rest's RestApiKeyEntity.cs + RestLog.cs — see port/Rest.md.
 
 @reflect
 @entity("Main", "Master")

@@ -7,7 +7,7 @@ import {
 } from "./TokenMigrationFile";
 import type { IUserAssetEntity } from "../data/UserAssets";
 
-// Port of Signum.UserAssets' TokenMigrations/TokenSyncContext.cs — see docs/port/UserAssets.md.
+// Port of Signum.UserAssets' TokenMigrations/TokenSyncContext.cs — see port/UserAssets.md.
 //
 // The context handed to every `TokenSynchronizing` subscriber: the ordered history of migration files to
 // resolve against and, in Record mode, the in-progress file new decisions are appended to.

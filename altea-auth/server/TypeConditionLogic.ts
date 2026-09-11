@@ -15,7 +15,7 @@ import { LiteralType, ClassType, type RuntimeType } from "@altea/altea/server/ru
 import type { FilterQueryArgs } from "@altea/altea/server/schema/filterQueryArgs";
 import { filterAuditor, isEqualsConstant } from "./QueryAuditorVisitor";
 
-// Port of Signum.Authorization's Rules/TypeConditionLogic.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's Rules/TypeConditionLogic.cs — see port/Auth.md.
 //
 // The registry mapping each entity type + TypeConditionSymbol to the predicate that decides whether a row
 // satisfies that condition. ONE registration serves both uses, because a `@quoted` lambda is BOTH a real
@@ -280,7 +280,7 @@ export namespace TypeConditionLogic {
             throw new Error(
                 `TypeCondition ${typeCondition.key} on ${ctor.name} is implemented as a query auditor and ` +
                 `has no predicate of its own — it can only be used where the caller's query is known ` +
-                `— see docs/port/Auth.md.`);
+                `— see port/Auth.md.`);
         return info.condition;
     }
 

@@ -6,7 +6,7 @@ import { FileEntity, FileEmbedded, FilePathEmbedded } from "../data/Files";
 import { FilePathEmbeddedLogic } from "./FilePathEmbeddedLogic";
 import { calculateMD5Hash, mimeType } from "./FileTypeAlgorithm";
 
-// Port of Signum.Files' FilesController (the download half) + FilesServer.cs — see docs/port/Files.md.
+// Port of Signum.Files' FilesController (the download half) + FilesServer.cs — see port/Files.md.
 //
 // An EMBEDDED file is downloaded by naming its OWNER — the root entity type + id + the property route —
 // never by naming the stored path: the server re-reads the embedded from the database, so the entity's own

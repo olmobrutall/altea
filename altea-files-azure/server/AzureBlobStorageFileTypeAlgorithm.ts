@@ -30,7 +30,7 @@ import {
 //    be INSERTed with it) and `writePrepared` (ASYNC — upload on `Transaction.preRealCommit`, so a
 //    rollback leaves no orphan blob). See @altea/altea-files' FilePathEmbeddedLogic.
 //
-// Port of Signum.Files.AzureBlobs' AzureBlobStorageFileTypeAlgorithm.cs — see docs/port/FileStores.md.
+// Port of Signum.Files.AzureBlobs' AzureBlobStorageFileTypeAlgorithm.cs — see port/FileStores.md.
 
 /** Is the blob served for viewing in the browser, or as a download? */
 export enum BlobAction {

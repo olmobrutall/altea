@@ -16,7 +16,7 @@ import { ColorRadio, GrayCheckbox } from "./ColoredRadios";
 import { type Slice, sliceBinding } from "./AuthSlice";
 import { SliceSelector } from "./SliceSelector";
 
-// Port of Signum.Authorization's Rules/OperationRulePackControl.tsx — see docs/port/Auth.md.
+// Port of Signum.Authorization's Rules/OperationRulePackControl.tsx — see port/Auth.md.
 //
 // Each row is one operation of the type: Allow (green) / DBOnly
 // (amber) / None (red) radios + an "overridden" checkbox. Type conditions are edited via the top-of-pack

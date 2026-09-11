@@ -16,7 +16,7 @@ import {
 } from "../data/Toolbar";
 
 // Port of the ToXml / FromXml halves of Signum.Toolbar's Toolbar.cs + ToolbarSwitcher.cs — see
-// docs/port/Toolbar.md.
+// port/Toolbar.md.
 //
 // XML stays OFF the isomorphic entities: the three roots register a (de)serializer with UserAssetsImporter,
 // as UserQuery and Dashboard do. Element and attribute names are preserved so a Signum-exported file

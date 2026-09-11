@@ -15,7 +15,7 @@ import {
 } from "../../data/Toolbar";
 import { ToolbarCount } from "../QueryToolbarConfig";
 
-// Port of Signum.Toolbar's Templates/ToolbarElement.tsx — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's Templates/ToolbarElement.tsx — see port/Toolbar.md.
 //
 // The per-element detail editor (the row's "view" popup): what it points at, its icon / color / label, and
 // the count + popup options a query-ish content unlocks.

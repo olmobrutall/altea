@@ -6,7 +6,7 @@ import type { Entity } from "@altea/altea/data/entity";
 import { ModelConverterSymbol } from "../data/Templating";
 import { TemplatingServer } from "./TemplatingServer";
 
-// Port of Signum.Templating's TemplatingLogic.cs — see docs/port/Templating.md.
+// Port of Signum.Templating's TemplatingLogic.cs — see port/Templating.md.
 //
 // The module's `start(sb)`: the two symbol tables and the code registries behind them.
 //

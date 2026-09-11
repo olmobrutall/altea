@@ -15,7 +15,7 @@ import { DiffLogMixin } from "../data/DiffLog";
 // The current-entity dump runs under `ExecutionMode.global`: reading the target to dump it is an audit
 // read, and the user is looking at a log they were already allowed to open.
 //
-// Port of Signum.DiffLog's DiffLogController.cs — see docs/port/DiffLog.md.
+// Port of Signum.DiffLog's DiffLogController.cs — see port/DiffLog.md.
 export namespace DiffLogServer {
 
     export interface PreviousLog {

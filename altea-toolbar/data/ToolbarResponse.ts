@@ -2,7 +2,7 @@ import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { ToolbarElementTypeKeys, ShowCountKeys } from "./Toolbar";
 
-// The toolbar WIRE model — see docs/port/Toolbar.md.
+// The toolbar WIRE model — see port/Toolbar.md.
 //
 // What `GET /api/toolbar/current/:location` and `GET /api/toolbarMenu/:menuId` return: the FLATTENED,
 // authorization-filtered, label-resolved tree the renderers draw. Declared ONCE, in the isomorphic DATA

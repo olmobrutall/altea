@@ -15,7 +15,7 @@ import type { IQuery } from "@altea/altea/data/iquery";
 // One row per "the API handed this entity (or this query's results) to this user", with how long it took
 // and, for a query, the SQL it ran.
 //
-// Port of Signum.ViewLog's ViewLogEntity.cs — see docs/port/ViewLog.md.
+// Port of Signum.ViewLog's ViewLogEntity.cs — see port/ViewLog.md.
 @reflect
 @entity("System", "Transactional")
 export class ViewLogEntity extends Entity {

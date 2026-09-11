@@ -9,7 +9,7 @@ import { LoginAuthMessage } from "../data/AuthMessages";
 import { BaseADConfigurationEmbedded, ActiveDirectoryAuthorizerMessage } from "../data/BaseAD";
 import { AuthLogic, type ICustomAuthorizer } from "./AuthLogic";
 
-// The directory-authorizer BASE — see docs/port/AuthDirectory.md.
+// The directory-authorizer BASE — see port/AuthDirectory.md.
 //
 // The parts that `AzureADAuthorizer`, `OpenIDAuthorizer` and `WindowsADAuthorizer` implement IDENTICALLY:
 // matching a

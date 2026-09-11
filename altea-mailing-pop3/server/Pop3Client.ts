@@ -13,7 +13,7 @@ import * as fs from "node:fs/promises";
 // adds one. A `CAPA` probe decides whether UIDL is available, falling back to asking for UIDL outright —
 // CAPA is optional in RFC 2449.
 //
-// See docs/port/MailingPop3.md.
+// See port/MailingPop3.md.
 
 /** The server's unique id for a message, its index, and its size. */
 export interface MessageUid {

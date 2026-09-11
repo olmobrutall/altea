@@ -22,7 +22,7 @@ import type { CustomLiteClass } from "@altea/altea/data/lite";
 import { planLiteColumns, type LiteColumnsPlan } from "./LiteColumnsFinder";
 
 // Port of Signum.Caching's CachedTableBase / CachedTable<T> / CachedTableConstructor — see
-// docs/port/Cache.md.
+// port/Cache.md.
 //
 // One entity type's rows held in memory as RAW COLUMN TUPLES plus a "completer" that fills a fresh entity
 // instance from one tuple. Storing tuples rather than entities is the whole design: every read hands the

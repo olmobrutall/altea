@@ -15,7 +15,7 @@ import { BaseADConfigurationEmbedded, RoleMappingEntity } from "@altea/altea-aut
 // anonymous endpoint. `getScopes()` / `getDiscoveryEndpoint()` stay on the entity: pure string work over
 // its own fields, needed by both the server and that DTO.
 //
-// Port of Signum.Authorization.OpenID's OpenIDConfigurationEmbedded.cs — see docs/port/AuthDirectory.md.
+// Port of Signum.Authorization.OpenID's OpenIDConfigurationEmbedded.cs — see port/AuthDirectory.md.
 
 @reflect
 @reflect

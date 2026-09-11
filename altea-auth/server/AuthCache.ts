@@ -1,7 +1,7 @@
 import type { RoleGraph } from "./AuthLogic";
 import { MergeStrategy } from "../data/Role";
 
-// A role's computed allowed value for a resource, cached PER (role, resource) — see docs/port/Auth.md.
+// A role's computed allowed value for a resource, cached PER (role, resource) — see port/Auth.md.
 //
 // The value is: the role's EXPLICIT rule if any; else the MERGE of its direct parents' allowed values,
 // per the role's merge strategy; else `getDefault(role)` for a root role with no rule.

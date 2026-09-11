@@ -7,7 +7,7 @@ import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { EntityControlMessage } from "@altea/altea/data/uiMessages";
 import "./Sidebar.css";
 
-// Port of Signum.Toolbar's SidebarContainer.tsx — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's SidebarContainer.tsx — see port/Toolbar.md.
 //
 // The app-shell layout that puts the sidebar next to the routed page, plus the navbar button that cycles
 // its three modes (Wide → Narrow → Hidden). The width is a CSS variable the drag handle writes, which is

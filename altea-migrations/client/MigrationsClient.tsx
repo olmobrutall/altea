@@ -6,7 +6,7 @@ import { SqlMigrationEntity, CSharpMigrationEntity, LoadMethodLogEntity } from "
 //
 // No views: a history row is read, not edited, so the auto-generated one from the property routes does.
 //
-// See docs/port/Migrations.md.
+// See port/Migrations.md.
 export namespace MigrationsClient {
     export function start(cb: ClientBuilder): void {
 

@@ -10,7 +10,7 @@ import ConcurrentUser from "./ConcurrentUser";
 
 // Registers the frame widget and the one API call.
 //
-// Port of Signum.ConcurrentUser's ConcurrentUserClient.tsx — see docs/port/ConcurrentUser.md.
+// Port of Signum.ConcurrentUser's ConcurrentUserClient.tsx — see port/ConcurrentUser.md.
 export namespace ConcurrentUserClient {
 
     export function start(options?: { activatedFor?: (e: Entity) => boolean }): void {

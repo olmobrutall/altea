@@ -18,7 +18,7 @@ import SpecialOmniboxProvider from "./SpecialOmniboxProvider";
 import { OmniboxProvider } from "./OmniboxProvider";
 import { allowedSpecialActionKeys } from "@altea/altea/client/OmniboxSpecialAction";
 
-// Port of Signum.Omnibox's OmniboxClient.tsx — see docs/port/Omnibox.md.
+// Port of Signum.Omnibox's OmniboxClient.tsx — see port/Omnibox.md.
 //
 // The PROVIDER REGISTRY (result-type name → renderer) plus the one API call. The omnibox itself is the
 // <OmniboxAutocomplete/> component.

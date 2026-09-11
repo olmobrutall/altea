@@ -25,7 +25,7 @@ import { ViewLogEntity, ViewLogMessage } from "../data/ViewLog";
 // callback. Other modules (altea-dashboard, -user-queries, -chart) report their own "a client looked at
 // this" scopes through the first, which is what keeps this module optional.
 //
-// Port of Signum.ViewLog's ViewLogLogic.cs — see docs/port/ViewLog.md.
+// Port of Signum.ViewLog's ViewLogLogic.cs — see port/ViewLog.md.
 export namespace ViewLogLogic {
 
     /** Which entity types are worth logging. Default: all. */

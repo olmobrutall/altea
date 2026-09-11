@@ -9,7 +9,7 @@ import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelp
 import type { ToolbarResponse } from "../data/ToolbarResponse";
 import { ToolbarNavItem, renderExtraIcons, isActive } from "./Renderers/ToolbarRenderer";
 
-// Port of Signum.Toolbar's ToolbarConfig.tsx — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's ToolbarConfig.tsx — see port/Toolbar.md.
 //
 // The per-content-type CLIENT strategy: how an element pointing at a T is iconified, counted, navigated to,
 // and recognised as "the current page". Each module subclasses it for its own asset (QueryToolbarConfig

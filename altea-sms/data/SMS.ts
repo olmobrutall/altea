@@ -28,7 +28,7 @@ import { SMS_MAX_TEXT_LENGTH, SMSCharactersMessage } from "./SMSCharacters";
 // `SMSConfigurationEmbedded` is read through the app's `() => GlobalsLogic.configuration().sms` lambda,
 // as every other module's configuration is.
 //
-// Port of Signum.SMS's SMSMessage.cs + SMSTemplate.cs + SMSPackages.cs — see docs/port/Sms.md.
+// Port of Signum.SMS's SMSMessage.cs + SMSTemplate.cs + SMSPackages.cs — see port/Sms.md.
 
 // ---- the configuration -------------------------------------------------------------------------------
 
@@ -303,7 +303,7 @@ export const SMSTemplateMessage = {
  *
  * **DO NOT rename this member to `className`**, even though its two siblings now use that: the column is
  * `sms.sms_model.full_class_name` in a Signum database, and renaming it would break exactly the parity the
- * other two just gained. See docs/port/Sms.md for when that changes.
+ * other two just gained. See port/Sms.md for when that changes.
  */
 @reflect
 @entity("SystemString", "Master")

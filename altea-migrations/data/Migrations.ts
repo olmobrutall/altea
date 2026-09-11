@@ -12,7 +12,7 @@ import { ExceptionEntity } from "@altea/altea/data/exception";
 //  • CSharpMigrationEntity  — one row per executed code migration, keyed by its unique name.
 //  • LoadMethodLogEntity    — one row per `executeLoadProcess` run: what ran, how long, and what it threw.
 //
-// Port of Signum.Migrations' entity model — see docs/port/Migrations.md.
+// Port of Signum.Migrations' entity model — see port/Migrations.md.
 
 @reflect
 @entity("System", "Transactional")

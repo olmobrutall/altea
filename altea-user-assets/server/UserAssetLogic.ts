@@ -4,7 +4,7 @@ import "../data/UserAssets"; // seed UserAssetPermission.UserAssetsToXML (transf
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 import { UserAssetPermission } from "../data/UserAssets";
 
-// The UserAssets wiring — see docs/port/UserAssets.md. There is no persistent UserAssets entity
+// The UserAssets wiring — see port/UserAssets.md. There is no persistent UserAssets entity
 // (UserAssetPreviewModel is a transport ModelEntity); this registers the permission (through the
 // data-module import above) and starts the export/import HTTP surface when a web host is present.
 // Downstream asset modules register their XML (de)serializers with UserAssetsImporter in their own start.

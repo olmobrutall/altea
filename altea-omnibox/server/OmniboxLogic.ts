@@ -13,7 +13,7 @@ import { SpecialOmniboxGenerator } from "./SpecialOmniboxResultGenerator";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 import { OmniboxPermission } from "../data/OmniboxMessages";
 
-// Port of Signum.Omnibox's OmniboxLogic.cs — see docs/port/Omnibox.md.
+// Port of Signum.Omnibox's OmniboxLogic.cs — see port/Omnibox.md.
 //
 // The module declares no entities — its only persisted artefact is the ViewOmnibox permission symbol,
 // seeded through the import above — so start() registers the three built-in result generators and mounts

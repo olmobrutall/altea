@@ -25,7 +25,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 // runtime type reference for a quoted member's return type, and a plain number has no value to reference
 // (the same reason `ScheduledTaskLog.duration` is a plain method).
 //
-// Port of Signum.Processes' Process.cs — see docs/port/Processes.md.
+// Port of Signum.Processes' Process.cs — see port/Processes.md.
 
 /** Names a registered algorithm (ProcessLogic.register). */
 @reflect

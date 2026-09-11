@@ -20,7 +20,7 @@ import { WhatsNewLogic } from "./WhatsNewLogic";
 // exactly what this module computes, so serving it to anyone would hand out the one part of an unpublished
 // item that has no other gate.
 //
-// Port of Signum.WhatsNew's WhatsNewController.cs — see docs/port/WhatsNew.md.
+// Port of Signum.WhatsNew's WhatsNewController.cs — see port/WhatsNew.md.
 export namespace WhatsNewServer {
 
     export function start(ws: WebBuilder): void {

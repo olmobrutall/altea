@@ -15,7 +15,7 @@ import {
 } from "../data/WorkflowNodes";
 import type { WorkflowIssue } from "../data/WorkflowDtos";
 
-// Port of Signum.Workflow's WorkflowNodeGraph.cs + WorkflowIssue — see docs/port/Workflow.md.
+// Port of Signum.Workflow's WorkflowNodeGraph.cs + WorkflowIssue — see port/Workflow.md.
 //
 // The in-memory form of ONE workflow: every node and connection, the graph both ways, the VALIDATION, and
 // the "parallel track" analysis that lets the engine decide when a join is satisfied.
@@ -148,7 +148,7 @@ export class WorkflowNodeGraph {
     fillGraphs(): void {
         // Keyed by the node's LITE KEY, not by object identity: each query gets its own Retriever, so `c.from`
         // is a DIFFERENT object than the events/activities/gateways lists hold for the same row, and an
-        // identity-keyed graph would join nothing. See DirectedEdgedGraph, and docs/port/Workflow.md.
+        // identity-keyed graph would join nothing. See DirectedEdgedGraph, and port/Workflow.md.
         const graph = new DirectedEdgedGraph<IWorkflowNodeEntity, Set<WorkflowConnectionEntity>>(
             () => new Set<WorkflowConnectionEntity>(), n => n.toLite().key());
 
@@ -612,7 +612,7 @@ export class WorkflowNodeGraph {
     }
 }
 
-/** `hasExpired` in memory — its `@quoted` twin lives in WorkflowLogic (see docs/port/Workflow.md). */
+/** `hasExpired` in memory — its `@quoted` twin lives in WorkflowLogic (see port/Workflow.md). */
 export function hasExpired(w: WorkflowEntity): boolean {
     return w.expirationDate != null && Temporal.PlainDateTime.compare(w.expirationDate, Clock.now) < 0;
 }

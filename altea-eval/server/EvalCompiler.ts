@@ -22,7 +22,7 @@ import { EvalEmbedded, EvalMessage, type CompilationResult, type IEvalCompiler }
 // by the owning entity's Save operation and by `EvalPanelPermission`; there is no sandbox, and pretending
 // otherwise would be worse than saying so.
 //
-// Port of the Roslyn half of Signum.Eval's EvalEmbedded.Compile — see docs/port/Eval.md.
+// Port of the Roslyn half of Signum.Eval's EvalEmbedded.Compile — see port/Eval.md.
 
 /** One module a stored script may import. */
 interface RegisteredModule {

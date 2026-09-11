@@ -1,4 +1,4 @@
-// Port of the `IServerBroadcast` half of Signum.Caching's CacheLogic.cs — see docs/port/Cache.md.
+// Port of the `IServerBroadcast` half of Signum.Caching's CacheLogic.cs — see port/Cache.md.
 //
 // The transport that tells SIBLING processes to invalidate: one method name + one string argument,
 // deliberately tiny, because the payload is only ever "this table changed" / "everything changed".

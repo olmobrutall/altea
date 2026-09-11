@@ -18,7 +18,7 @@ import { SMSClient } from "../SMSClient";
 // `SMSLogic.createSMSMessage` has a whole branch for it — and gating on the query would leave such a
 // template un-editable.
 //
-// See docs/port/Sms.md.
+// See port/Sms.md.
 export default function SMSTemplate(p: { ctx: TypeContext<SMSTemplateEntity> }): React.JSX.Element {
 
     const forceUpdate = useForceUpdate();

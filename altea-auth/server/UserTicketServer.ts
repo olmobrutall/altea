@@ -2,7 +2,7 @@ import { Temporal } from "@altea/altea/data/basics";
 import { UserTicketLogic } from "./UserTicketLogic";
 import type { UserEntity } from "../data/User";
 
-// Port of Signum.Authorization's UserTicket/UserTicketServer.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's UserTicket/UserTicketServer.cs — see port/Auth.md.
 //
 // The HTTP half: put the ticket in a
 // cookie, and turn a returning browser's cookie back into a login.

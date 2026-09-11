@@ -6,7 +6,7 @@ import { OmniboxResultTypeName } from "../data/OmniboxResults";
 import { OmniboxMessage } from "../data/OmniboxMessages";
 import { OmniboxProvider } from "./OmniboxProvider";
 
-// Port of Signum.Omnibox's EntityOmniboxProvider.tsx — see docs/port/Omnibox.md.
+// Port of Signum.Omnibox's EntityOmniboxProvider.tsx — see port/Omnibox.md.
 //
 // The "jump straight to one entity" rows — `Order 5` / `Customer "Maria"` — navigating to the entity view.
 export default class EntityOmniboxProvider extends OmniboxProvider<EntityOmniboxResult> {

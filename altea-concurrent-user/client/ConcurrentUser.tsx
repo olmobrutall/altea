@@ -21,7 +21,7 @@ import "./ConcurrentUser.css";
 // The entity-frame widget: who else has this entity open, whether they are typing, and whether the copy on
 // screen is already stale.
 //
-// Port of Signum.ConcurrentUser's ConcurrentUser.tsx — see docs/port/ConcurrentUser.md.
+// Port of Signum.ConcurrentUser's ConcurrentUser.tsx — see port/ConcurrentUser.md.
 export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean; onReload: () => void }): React.JSX.Element | null {
 
     const conn = useWebSocketConnection("/api/concurrentUserHub");

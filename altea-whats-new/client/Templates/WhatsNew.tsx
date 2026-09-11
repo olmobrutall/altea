@@ -31,7 +31,7 @@ import WhatsNewHtmlEditor from "../WhatsNewHtmlEditor";
 // The two FileLines NAME their file type: there is no reflected default file type (the accommodation
 // @altea/altea-help's image handler documents).
 //
-// See docs/port/WhatsNew.md.
+// See port/WhatsNew.md.
 export default function WhatsNew(p: { ctx: TypeContext<WhatsNewEntity> }): React.JSX.Element {
     const ctx = p.ctx;
     const forceUpdate = useForceUpdate();

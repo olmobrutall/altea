@@ -9,7 +9,7 @@ import { scapeColon, ScopedDictionary } from "./TemplateUtils";
 // TYPE-only, as in ValueProviders / Conditions: TemplateSync imports those, which import this.
 import type { TemplateSynchronizationContext } from "./TemplateSync";
 
-// Port of Signum.Templating's TextTemplateParser.Nodes.cs — see docs/port/Templating.md.
+// Port of Signum.Templating's TextTemplateParser.Nodes.cs — see port/Templating.md.
 //
 // The parsed template TREE. It is a C# nested partial class there; TypeScript has no partial classes, so
 // the nodes live in their own module and the parser imports them.

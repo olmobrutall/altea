@@ -33,7 +33,7 @@ import { RemoteEmailsServer } from "./RemoteEmailsServer";
 // The query is registered by its ROW MODEL, so the column captions are the model's own `@niceName`s and
 // there is nothing to tell the client about each column's PropertyRoute.
 //
-// See docs/port/MailingMicrosoftGraph.md.
+// See port/MailingMicrosoftGraph.md.
 //  - `Implementations.By(typeof(UserEntity)) /*Lie*/` on the query's entity column is unnecessary: the row
 //    model DECLARES `entity: Lite<UserEntity> | null`, so the implementation is structural.
 //  - `FilterValueConverter.SpecificConverters.Add(new RemoteEmailFolderConverter())` — the XML/URL form of a

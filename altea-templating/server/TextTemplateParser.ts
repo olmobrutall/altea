@@ -13,7 +13,7 @@ import {
 } from "./TextTemplateParser.Nodes";
 import type { TemplateSynchronizationContext } from "./TemplateSync";
 
-// Port of Signum.Templating's TextTemplateParser.cs — see docs/port/Templating.md.
+// Port of Signum.Templating's TextTemplateParser.cs — see port/Templating.md.
 //
 // Text with `@…` markers → a BlockNode tree. The parser carries the QUERY NAME (tokens resolve from
 // registered metadata), and the keyword scan is `scanKeywords` rather than one regex, because a bracket

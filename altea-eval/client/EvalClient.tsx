@@ -7,7 +7,7 @@ import type { Lite } from "@altea/altea/data/lite";
 // @altea/altea-dynamic, which owns the admin pages, so this module only exposes the endpoint they call —
 // which is why `start` registers nothing today.
 //
-// See docs/port/Eval.md.
+// See port/Eval.md.
 
 export namespace EvalClient {
 

@@ -19,7 +19,7 @@ import {
 
 // The two pages, the entity view, the "Preview" quick link and the typed HTTP client.
 //
-// Port of Signum.WhatsNew's WhatsNewClient.tsx — see docs/port/WhatsNew.md.
+// Port of Signum.WhatsNew's WhatsNewClient.tsx — see port/WhatsNew.md.
 export namespace WhatsNewClient {
 
     export function start(cb: ClientBuilder): void {

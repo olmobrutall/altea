@@ -29,7 +29,7 @@ import type { PredictRequestModel } from "../data/PredictRequest";
 
 
 // Port of Signum.MachineLearning's PredictorClient.tsx — the client registration.
-// See docs/port/MachineLearning.md.
+// See port/MachineLearning.md.
 //
 // altea divergences, documented inline:
 //  - `Navigator.addSettings(new EntitySettings(...))` → `cb.configure(X).withView(...)`, altea's fluent

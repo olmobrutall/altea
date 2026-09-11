@@ -1,4 +1,4 @@
-// Port of Signum.Word's WordTemplateNodes.cs, from MatchNode on — see docs/port/OfficeTemplate.md.
+// Port of Signum.Word's WordTemplateNodes.cs, from MatchNode on — see port/OfficeTemplate.md.
 //
 // The template TREE, expressed as elements that live INSIDE the document. That is the design that makes
 // the module work, and it is worth stating plainly: a Word template's control flow is not a separate

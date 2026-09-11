@@ -26,7 +26,7 @@ import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 //
 // Autodiscover tries only the two well-known POX URLs (plus the `RedirectUrl` / `RedirectAddr` responses
 // they may return). A deployment they cannot reach should configure `url` explicitly, which is the common
-// case anyway. See docs/port/MailingExchange.md.
+// case anyway. See port/MailingExchange.md.
 
 /** The credentials half of a service configuration, with the password already DECRYPTED. */
 export interface ExchangeCredentials {

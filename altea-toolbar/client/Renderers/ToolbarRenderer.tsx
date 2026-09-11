@@ -30,7 +30,7 @@ import { RightCaretDropdown } from "./RightCaretDropdown";
 import "@altea/altea/client/Frames/Widgets.css";
 import "./Toolbar.css";
 
-// Port of Signum.Toolbar's Renderers/ToolbarRenderer.tsx — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's Renderers/ToolbarRenderer.tsx — see port/Toolbar.md.
 //
 // The SIDEBAR renderer, plus the shared element-rendering machinery the Top / Main renderers reuse
 // (`renderNavItem`, `inferActive`, `isCompatibleWithUrl`, `renderExtraIcons`, `isActive`,

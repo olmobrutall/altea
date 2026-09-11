@@ -9,7 +9,7 @@ import { CacheLogic } from "./CacheLogic";
 import { CachedTableLite, type CachedTableBase } from "./CachedTable";
 import { SimpleHttpBroadcast } from "./Broadcast/SimpleHttpBroadcast";
 
-// Port of Signum.Caching's CacheController.cs — see docs/port/Cache.md.
+// Port of Signum.Caching's CacheController.cs — see port/Cache.md.
 //
 // The statistics panel's data plus the enable / disable / clear actions, and the two ANONYMOUS endpoints a
 // SimpleHttpBroadcast peer posts to (gated by the shared-secret hash, not by a user).

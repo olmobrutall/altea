@@ -17,7 +17,7 @@ import { PredictorPredictLogic } from "./PredictorPredictLogic";
 import { TensorFlowNeuralNetworkPredictor } from "./tensorflow/TensorFlowNeuralNetworkPredictor";
 
 // Port of Signum.MachineLearning's PredictorController.cs / PredictorServer.cs — the HTTP surface.
-// See docs/port/MachineLearning.md.
+// See port/MachineLearning.md.
 //
 // Four things the client cannot get from an ordinary query:
 //   • the LIVE training progress, which exists only in the training process's memory;

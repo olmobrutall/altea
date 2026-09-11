@@ -13,7 +13,7 @@ import { WindowsADMessage } from "../data/WindowsAD";
 // `Negotiate …` challenge there — so the token needs a header of its own. That is only correct when
 // integrated authentication is actually in play, which is why it happens HERE and nowhere else.
 //
-// See docs/port/AuthDirectory.md.
+// See port/AuthDirectory.md.
 
 export namespace WindowsADAuthenticator {
 

@@ -32,7 +32,7 @@ import {
 // re-apply row security in memory — which altea has no twin of. The table is tiny by nature: one row per
 // release.
 //
-// Port of Signum.WhatsNew's WhatsNewLogic.cs — see docs/port/WhatsNew.md.
+// Port of Signum.WhatsNew's WhatsNewLogic.cs — see port/WhatsNew.md.
 export namespace WhatsNewLogic {
 
     /**

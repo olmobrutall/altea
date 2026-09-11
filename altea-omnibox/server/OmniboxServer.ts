@@ -5,7 +5,7 @@ import type { OmniboxRequest, OmniboxResult } from "../data/OmniboxResults";
 import { OmniboxPermission } from "../data/OmniboxMessages";
 import { OmniboxParser } from "./OmniboxParser";
 
-// Port of Signum.Omnibox's OmniboxController + OmniboxServer — see docs/port/Omnibox.md.
+// Port of Signum.Omnibox's OmniboxController + OmniboxServer — see port/Omnibox.md.
 //
 // ONE route: the client posts the raw query text plus the special-action keys it has registered, and gets
 // back the ranked suggestions. The keys are forwarded through the explicit `OmniboxContext`.

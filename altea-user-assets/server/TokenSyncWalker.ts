@@ -9,7 +9,7 @@ import { QueryTokenSynchronizer, type FixTokenResult } from "./QueryTokenSynchro
 import type { TokenSyncContext } from "./TokenSyncContext";
 
 // The per-asset token walk: filters, columns (and their summary tokens), orders, and the filter VALUES —
-// see docs/port/UserAssets.md.
+// see port/UserAssets.md.
 //
 // ONE walk, shared by every subscriber, because every stored row is a `@part` row over the shared
 // `QueryFilterBaseEntity` and matching column/order shapes. A subscriber keeps only what is genuinely its

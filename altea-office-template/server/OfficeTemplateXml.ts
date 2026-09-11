@@ -18,7 +18,7 @@ import {
 } from "../data/OfficeTemplate";
 import { OfficeModelLogic } from "./OfficeModelLogic";
 
-// Port of Signum.Word's `WordTemplateEntity.ToXml/FromXml` — see docs/port/OfficeTemplate.md.
+// Port of Signum.Word's `WordTemplateEntity.ToXml/FromXml` — see port/OfficeTemplate.md.
 //
 // It stays OFF the isomorphic entity
 // (System.Xml is server-only) and registers a (de)serializer with UserAssetsImporter — the shape

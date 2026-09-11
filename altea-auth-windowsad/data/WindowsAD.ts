@@ -14,7 +14,7 @@ import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 // about the entity changes; the capability does.
 //
 // Port of Signum.Authorization.WindowsAD's WindowsADConfigurationEmbedded.cs — see
-// docs/port/AuthDirectory.md.
+// port/AuthDirectory.md.
 
 @reflect
 @reflect

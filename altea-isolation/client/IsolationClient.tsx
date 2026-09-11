@@ -17,7 +17,7 @@ import { IsolationWidget } from "./IsolationWidget";
 // The picked isolation lives in `sessionStorage`, so a second tab can work in a different tenant. The
 // header name is a WIRE CONTRACT and is kept verbatim.
 //
-// See docs/port/Isolation.md.
+// See port/Isolation.md.
 export namespace IsolationClient {
 
     export function start(): void {

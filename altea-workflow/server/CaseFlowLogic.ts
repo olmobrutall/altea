@@ -35,7 +35,7 @@ export namespace CaseFlowLogic {
         // NOTE the two loops query directly rather than through the `withQuoted` members
         // (`workflow.workflowActivities()`, `a.averageDuration()`): those are QUERY-ONLY in altea — the
         // transformer emits the quoted AST beside the body and leaves the body's inner lambdas unstamped, so
-        // calling one in memory THROWS — see docs/port/Workflow.md.
+        // calling one in memory THROWS — see port/Workflow.md.
         const workflow = caseEntity.workflow;
         const averages = new Map<string, number | null>();
 

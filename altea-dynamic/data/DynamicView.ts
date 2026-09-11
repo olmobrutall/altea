@@ -11,7 +11,7 @@ import type { ConstructSymbol, ExecuteSymbol, DeleteSymbol, From } from "@altea/
 // Port of Signum.Dynamic's Views/DynamicView.cs — a view defined in the DATABASE rather than compiled into
 // the app: a tree of nodes (`viewContent`, JSON) plus an optional `locals` hook body and declared `props`.
 // Nothing here is compiled: the client INTERPRETS the tree (see client/View/NodeUtils + Nodes), which is
-// why this half needs no compiler — see docs/port/Dynamic.md.
+// why this half needs no compiler — see port/Dynamic.md.
 //
 // altea divergences, documented inline:
 //  - `MList<DynamicViewPropEmbedded>` becomes a `@part` row collection (altea has no MList).

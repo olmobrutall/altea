@@ -13,7 +13,7 @@ import type { EvalEmbedded } from "../data/Eval";
 // produces them — so they render through the FormGroup like any other validation message, and the
 // offending line is highlighted in the editor.
 //
-// See docs/port/Eval.md.
+// See port/Eval.md.
 
 export interface EvalLineProps<F> {
     ctx: TypeContext<EvalEmbedded<F>>;

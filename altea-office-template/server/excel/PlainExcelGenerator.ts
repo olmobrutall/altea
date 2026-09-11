@@ -12,7 +12,7 @@ import { ExcelMessage } from "../../data/Excel";
 import { CellBuilder, DefaultStyle, enumText, getColumnWidth, getCustomFormatExpression } from "./CellBuilder";
 import { readSheet } from "./ExcelReader";
 
-// Port of Signum.Excel's PlainExcelGenerator.cs — see docs/port/OfficeTemplate.md.
+// Port of Signum.Excel's PlainExcelGenerator.cs — see port/OfficeTemplate.md.
 //
 // A query's ResultTable straight to .xlsx, with no template authoring: the title row, the header row, one
 // row per result row.

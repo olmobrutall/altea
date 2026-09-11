@@ -13,7 +13,7 @@ import {
 import { contains, cleanCommas, isPascalCasePattern, matches, toOmniboxPascal } from "./OmniboxUtils";
 import { allowedTypeFilter } from "./OmniboxAuth";
 
-// Port of Signum.Omnibox's EntityOmniboxResultGenerator.cs — see docs/port/Omnibox.md.
+// Port of Signum.Omnibox's EntityOmniboxResultGenerator.cs — see port/Omnibox.md.
 //
 // Jump straight to ONE entity, either by id (`Order 5`, `Customer 0f8f…`) or by ToString
 // (`Customer "Maria"`). The bare type name alone yields NOTHING — that shape belongs to the dynamic-query

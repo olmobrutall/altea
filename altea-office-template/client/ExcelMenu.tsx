@@ -15,7 +15,7 @@ import { ExcelMessage, ImportFromExcelMessage } from "../data/Excel";
 import { ExcelReportEntity, ExcelReportOperation } from "../data/excel/ExcelReport";
 import { ExcelClient } from "./ExcelClient";
 
-// Port of Signum.Excel's ExcelMenu.tsx — see docs/port/OfficeTemplate.md.
+// Port of Signum.Excel's ExcelMenu.tsx — see port/OfficeTemplate.md.
 //
 // The SearchControl toolbar entry for the two Excel features.
 //

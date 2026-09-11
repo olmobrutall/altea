@@ -1,7 +1,7 @@
 import { setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { msg } from "@altea/altea/data/utils/localization";
 
-// Port of Signum.Caching's CacheMessage.cs — see docs/port/Cache.md.
+// Port of Signum.Caching's CacheMessage.cs — see port/Cache.md.
 export const CacheMessage = {
     Loading: msg(),
     CacheStatistics: msg("Cache statistics"),

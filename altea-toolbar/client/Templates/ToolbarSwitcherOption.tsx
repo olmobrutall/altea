@@ -6,7 +6,7 @@ import { TextBoxLine } from "@altea/altea/client/Lines/TextBoxLine";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import type { ToolbarSwitcherEntity_Option } from "../../data/Toolbar";
 
-// Port of Signum.Toolbar's Templates/ToolbarSwitcherOption.tsx — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's Templates/ToolbarSwitcherOption.tsx — see port/Toolbar.md.
 //
 // One switcher option's detail editor. `IconTypeaheadLine` is a `TextBoxLine` (identical stored format) and
 // the menu reference is an `EntityLine`, both as elsewhere in this module.

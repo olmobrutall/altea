@@ -1,7 +1,7 @@
 import { init } from "@altea/altea/data/reflection";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 
-// Port of Signum.Caching's CachePermissions.cs — see docs/port/Cache.md.
+// Port of Signum.Caching's CachePermissions.cs — see port/Cache.md.
 //
 // IMPORTING this module (CacheLogic does) is what seeds these: the transformer rewrites each `init()` into
 // `init(PermissionSymbol, "CachePermission.<Member>", …)`, registering it in the declared-symbols set

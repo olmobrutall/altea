@@ -13,7 +13,7 @@ import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
 // `initialState` / `finalState` / `cleaned` become OperationLogEntity's own fields and their columns are
 // FLATTENED (`initial_state_text`, …). Reading them through `log.mixin(DiffLogMixin)` still works.
 //
-// Port of Signum.DiffLog's DiffLogMixin.cs — see docs/port/DiffLog.md.
+// Port of Signum.DiffLog's DiffLogMixin.cs — see port/DiffLog.md.
 @reflect
 export class DiffLogMixin extends MixinEntity {
 

@@ -16,7 +16,7 @@ import { WorkflowEventEntity } from "./WorkflowNodes";
 import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
 import type { IWorkflowEventTaskActionEvaluator, IWorkflowEventTaskConditionEvaluator } from "./WorkflowEval";
 
-// Port of Signum.Workflow's WorkflowEventTask.cs — see docs/port/Workflow.md.
+// Port of Signum.Workflow's WorkflowEventTask.cs — see port/Workflow.md.
 //
 // What a SCHEDULED START event actually is: an altea-scheduler task (`ITaskEntity`) that, when its rule
 // fires, asks a registered function which entities to open cases for. The ACTION eval RETURNS those

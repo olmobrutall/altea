@@ -48,7 +48,7 @@ import { Decimal } from "@altea/altea/data/basics";
 import { AutoconfigureNeuralNetworkEntity } from "../data/NeuralNetworkSettings";
 
 // Port of Signum.MachineLearning's PredictorLogic.cs — the module's `start`, its registries, and the
-// TRAINING orchestration. See docs/port/MachineLearning.md.
+// TRAINING orchestration. See port/MachineLearning.md.
 //
 // The state machine is the shape to hold on to: a predictor is Draft while it is being defined, Training
 // while a run is in flight, Trained when a model is on disk, and Error when a run failed. Training is

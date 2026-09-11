@@ -32,7 +32,7 @@ import type { ToolbarResponse } from "../data/ToolbarResponse";
 import { registerToolbarXml } from "./ToolbarXml";
 import { ToolbarServer } from "./ToolbarServer";
 
-// Port of Signum.Toolbar's ToolbarLogic.cs — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's ToolbarLogic.cs — see port/Toolbar.md.
 //
 // Registers the three toolbar entities + their Save / Delete operations + queries, their in-memory caches,
 // the XML (de)serializers, the CONTENT CONFIG registry other modules extend, and — when a web host is

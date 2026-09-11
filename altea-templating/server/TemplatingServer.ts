@@ -2,7 +2,7 @@ import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
 import { GlobalValueProvider } from "./ValueProviders";
 import type { GlobalVariableTS } from "../data/Templating";
 
-// Port of Signum.Templating's TemplatingController.cs + TemplatingServer.cs — see docs/port/Templating.md.
+// Port of Signum.Templating's TemplatingController.cs + TemplatingServer.cs — see port/Templating.md.
 //
 // The one call the template editor makes: "which `@[g:Key]` variables may I insert?". The response carries
 // the type NAME + isCollection, which is all the editor needs to know.

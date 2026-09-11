@@ -11,7 +11,7 @@ import { ScheduleTaskRunner } from "./ScheduleTaskRunner";
 // The shutdown hook rides the process SIGNALS (`stopAt`), since there is no host lifetime object to
 // register on; an app may also call it directly.
 //
-// See docs/port/Scheduler.md.
+// See port/Scheduler.md.
 
 export namespace SchedulerServer {
     let started = false;

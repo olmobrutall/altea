@@ -1,4 +1,4 @@
-// Port of Signum.Word's WordTemplateParser.cs — see docs/port/OfficeTemplate.md.
+// Port of Signum.Word's WordTemplateParser.cs — see port/OfficeTemplate.md.
 //
 // Turning an authored .docx / .pptx / .xlsx into a tree the
 // renderer can execute.

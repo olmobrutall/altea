@@ -27,7 +27,7 @@ import { TourXml } from "./TourXml";
 // routes read, the `hasTour` entity-pack flag, XML import/export, and the two cascades that keep a tour
 // from outliving what it explains.
 //
-// Port of Signum.Tour's TourLogic.cs — see docs/port/Tour.md.
+// Port of Signum.Tour's TourLogic.cs — see port/Tour.md.
 export namespace TourLogic {
 
     /** Every tour, keyed by its trigger's lite key. */

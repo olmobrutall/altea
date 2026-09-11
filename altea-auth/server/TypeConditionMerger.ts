@@ -2,7 +2,7 @@ import { TypeConditionSymbol, TypeAllowed } from "../data/Rules";
 import { MergeStrategy } from "../data/Role";
 import { WithConditions, ConditionRule } from "./WithConditions";
 
-// Port of Signum.Authorization's Rules/TypeCache.cs (the merger half) — see docs/port/Auth.md.
+// Port of Signum.Authorization's Rules/TypeCache.cs (the merger half) — see port/Auth.md.
 //
 // The cross-role merge of WithConditions<A>. When a role inherits from several roles, their per-resource
 // condition rules are over possibly DIFFERENT symbol sets and so cannot be merged rule by rule: each

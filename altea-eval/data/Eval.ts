@@ -25,7 +25,7 @@ import type { IntegrityCheckEnvironment } from "@altea/altea/data/reflection";
 //    module-level WeakMap rather than a field, because a declared field would be reflected (and so
 //    serialized, and schema-mapped) whatever we annotate it.
 //
-// Port of Signum.Eval's EvalEmbedded.cs — see docs/port/Eval.md.
+// Port of Signum.Eval's EvalEmbedded.cs — see port/Eval.md.
 
 /** Exactly one of the two is set. */
 export interface CompilationResult<F> {

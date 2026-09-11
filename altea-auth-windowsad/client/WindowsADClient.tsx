@@ -8,7 +8,7 @@ import { WindowsADConfigurationEmbedded } from "../data/WindowsAD";
 // The photo provider works for a Lite too, unlike the Azure one: `/api/adThumbnailphoto/:username` is keyed
 // on the USER NAME, and a `Lite<UserEntity>`'s toString IS the user name (see altea-auth's ProfilePhoto).
 //
-// See docs/port/AuthDirectory.md.
+// See port/AuthDirectory.md.
 
 export namespace WindowsADClient {
 

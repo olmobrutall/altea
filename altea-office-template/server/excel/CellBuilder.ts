@@ -5,7 +5,7 @@ import type { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/index";
 import type { Column } from "@altea/altea/server/dynamicQuery/requests";
 import { OxmlElement, OxmlText } from "../oxml/OxmlElement";
 
-// Port of Signum.Excel's CellBuilder.cs — see docs/port/OfficeTemplate.md.
+// Port of Signum.Excel's CellBuilder.cs — see port/OfficeTemplate.md.
 //
 // How ONE result value becomes one `<c>` cell: which of the template's cell formats styles it, and how the
 // value is written (Excel stores a date as a number, a string either inline or in the shared pool, …).

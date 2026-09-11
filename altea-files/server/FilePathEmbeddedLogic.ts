@@ -10,7 +10,7 @@ import { FilePathEmbedded } from "../data/Files";
 import { FileTypeLogic } from "./FileTypeLogic";
 import type { IFilePath } from "./FileTypeAlgorithm";
 
-// Port of Signum.Files' FilePathEmbeddedLogic.cs — see docs/port/Files.md.
+// Port of Signum.Files' FilePathEmbeddedLogic.cs — see port/Files.md.
 //
 // The wiring that makes a FilePathEmbedded field behave like a file: the bytes are written to its store
 // when the owning entity is saved, and removed from the store when the owning row is deleted.

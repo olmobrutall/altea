@@ -5,7 +5,7 @@ import { CacheMessage } from '../data/CacheMessage'
 import type { CacheStateTS, CacheTableTS } from '../data/CacheState'
 import { CacheClient } from './CacheClient'
 
-// Port of Signum.Caching's CacheStatisticsPage.tsx — see docs/port/Cache.md.
+// Port of Signum.Caching's CacheStatisticsPage.tsx — see port/Cache.md.
 //
 // The cached tables and global lazies with their hit / invalidation / load statistics, plus Enable /
 // Disable / Clear. There is no "Invalidation exceptions" tab: it would search ExceptionEntity by

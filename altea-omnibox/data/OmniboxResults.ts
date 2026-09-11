@@ -3,7 +3,7 @@ import type { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
 import type { FilterOperationKeys } from "@altea/altea/data/dynamicQueries";
 
-// The omnibox WIRE model — see docs/port/Omnibox.md.
+// The omnibox WIRE model — see port/Omnibox.md.
 //
 // What `POST /api/omnibox` returns, one entry per suggestion. Declared ONCE, in the isomorphic DATA layer,
 // so the server generators and the client providers cannot drift; field names and casing match Signum's

@@ -32,7 +32,7 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 // `registerExecuteTask` is keyed by CONSTRUCTOR and walks the prototype chain, so a handler registered for
 // a base task type serves its subclasses.
 //
-// Port of Signum.Scheduler's SchedulerLogic.cs — see docs/port/Scheduler.md.
+// Port of Signum.Scheduler's SchedulerLogic.cs — see port/Scheduler.md.
 
 export namespace SchedulerLogic {
 

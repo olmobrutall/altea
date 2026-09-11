@@ -26,7 +26,7 @@ import {
 import OfficeEntityMenu from "./OfficeEntityMenu";
 import OfficeSearchMenu from "./OfficeSearchMenu";
 
-// Port of Signum.Word's WordClient.tsx — see docs/port/OfficeTemplate.md.
+// Port of Signum.Word's WordClient.tsx — see port/OfficeTemplate.md.
 //
 // The module's client registration: the template editor, the two
 // built-in model settings, the "create report" operation, the contextual menu, and the typed HTTP client.

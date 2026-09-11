@@ -28,7 +28,7 @@ import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 // `cssSelector()` below builds the selector accordingly, and lives HERE so the editor's live preview and
 // the served DTO cannot drift.
 //
-// Port of Signum.Tour's Tour.cs — see docs/port/Tour.md.
+// Port of Signum.Tour's Tour.cs — see port/Tour.md.
 
 @reflect
 @primaryKey("uuid")

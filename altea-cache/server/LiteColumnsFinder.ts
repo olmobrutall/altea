@@ -13,7 +13,7 @@ import {
 import type { Table } from "@altea/altea/server/schema/table";
 
 // Port of Signum.Caching's ToStringColumnsFinderVisitor + LiteModelExpressionVisitor (CachedTableLite.cs)
-// — see docs/port/Cache.md.
+// — see port/Cache.md.
 //
 // The MINIMUM set of columns needed to build the `Lite<T>` of a SEMI-cached type, and how to build it from
 // those columns alone. That is the whole point of the semi role: a cached `Country` may reference

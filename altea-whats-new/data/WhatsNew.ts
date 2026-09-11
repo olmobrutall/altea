@@ -21,7 +21,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 //
 // Not to be confused with the CHANGE LOG, which is the DEVELOPERS' list, compiled into the client.
 //
-// Port of Signum.WhatsNew's WhatsNew.cs + WhatsNewLog.cs — see docs/port/WhatsNew.md.
+// Port of Signum.WhatsNew's WhatsNew.cs + WhatsNewLog.cs — see port/WhatsNew.md.
 
 @reflect
 @entity("Main", "Master")

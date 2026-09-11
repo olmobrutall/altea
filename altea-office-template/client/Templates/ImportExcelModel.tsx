@@ -24,7 +24,7 @@ import {
 import { ExcelClient } from "../ExcelClient";
 import { selectPagination } from "../ExcelMenu";
 
-// Port of Signum.Excel's Templates/ImportExcelModel.tsx — see docs/port/OfficeTemplate.md.
+// Port of Signum.Excel's Templates/ImportExcelModel.tsx — see port/OfficeTemplate.md.
 //
 // The modal that configures an import (which
 // operation saves each row, insert/update, which column identifies an existing row) plus the flow around it:

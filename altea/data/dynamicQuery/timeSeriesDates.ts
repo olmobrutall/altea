@@ -14,7 +14,7 @@ import type { SystemTime } from "./queryRequest";
 // INCLUSIVE of `endDate` on both dialects (`WHILE @currentDate <= @endDate`, and `generate_series`) and is
 // pinned by `test/server/schema/systemTime.test.ts` — a 2-second window stepping by 1 second is 3 rows.
 // **Signum's own client walk is `while (dt < endDate)`**, so it and its own SQL disagree by one point at
-// the endpoint; this follows the SQL. See docs/port/OpenQuestions.md.
+// the endpoint; this follows the SQL. See port/OpenQuestions.md.
 
 /**
  * One step of a series, as a Temporal duration.

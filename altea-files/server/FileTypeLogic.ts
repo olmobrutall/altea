@@ -6,7 +6,7 @@ import { declaredSymbolsForType } from "@altea/altea/data/reflection";
 import { FileTypeSymbol } from "../data/Files";
 import type { IFileTypeAlgorithm } from "./FileTypeAlgorithm";
 
-// Port of Signum.Files' FileTypeLogic.cs — see docs/port/Files.md.
+// Port of Signum.Files' FileTypeLogic.cs — see port/Files.md.
 //
 // The registry mapping each FileTypeSymbol to the ALGORITHM that stores its files, plus the symbol table.
 //

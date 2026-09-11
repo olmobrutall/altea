@@ -4,7 +4,7 @@ import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import * as AppContext from "@altea/altea/client/AppContext";
 
-// Port of Signum.Toolbar's ToolbarUrl.ts — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's ToolbarUrl.ts — see port/Toolbar.md.
 //
 // The placeholder substitution a toolbar element's raw `url` goes through before navigation.
 //

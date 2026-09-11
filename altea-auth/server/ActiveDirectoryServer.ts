@@ -7,7 +7,7 @@ import { PermissionAuthLogic } from "./PermissionAuthLogic";
 import { AuthLogic } from "./AuthLogic";
 import { isDirectoryInviter, type ExternalUser, type IDirectoryInviter } from "./ADAuthorizer";
 
-// Port of Signum.Authorization's BaseAD/ActiveDirectoryController.cs — see docs/port/AuthDirectory.md.
+// Port of Signum.Authorization's BaseAD/ActiveDirectoryController.cs — see port/AuthDirectory.md.
 // the two routes behind the "invite a user from the directory" UI. Provider-agnostic: they delegate to
 // whatever `AuthLogic.authorizer` is, as long as it implements `IDirectoryInviter` (altea-auth-azuread and
 // altea-auth-windowsad do).

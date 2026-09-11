@@ -11,7 +11,7 @@ import { RoleEntity } from "../data/Role";
 import { LoginAuthMessage } from "../data/AuthMessages";
 import { encodeHash } from "./AuthLogic";
 
-// Port of Signum.Authorization's AuthToken/AuthTokensServer.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's AuthToken/AuthTokensServer.cs — see port/Auth.md.
 //
 // An OPAQUE bearer token: a JSON payload → AES-CBC (key = MD5 of the encryption key, random IV
 // prepended) → base64. The client stores it and echoes it as `Authorization: Bearer <token>`; the server

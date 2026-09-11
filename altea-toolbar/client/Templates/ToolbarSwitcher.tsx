@@ -7,7 +7,7 @@ import { EntityTable } from "@altea/altea/client/Lines/EntityTable";
 import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelpers";
 import type { ToolbarSwitcherEntity } from "../../data/Toolbar";
 
-// Port of Signum.Toolbar's Templates/ToolbarSwitcher.tsx — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's Templates/ToolbarSwitcher.tsx — see port/Toolbar.md.
 //
 // The ToolbarSwitcher editor: a name, an owner, and the table of switchable menu options. `owner` uses
 // EntityLine rather than AutoLine — AutoLine dispatches from `ctx.memberType`, and an `@implementedBy` Lite

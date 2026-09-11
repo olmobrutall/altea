@@ -2153,7 +2153,7 @@ export namespace Finder {
      * This is the only TimeSeries path that works: the server's `parseSystemTime` accepts `AsOf` and
      * REJECTS `TimeSeries`, so `splitQueries` is not an optimisation here as it is in Signum (where it
      * trades one `GetDatesInRange`-joined query for N simple ones) — it is the whole feature. The
-     * unsplit path needs the server half, which is unported (see docs/port/OpenQuestions.md).
+     * unsplit path needs the server half, which is unported (see port/OpenQuestions.md).
      *
      * The SERIES itself is `data/dynamicQuery/timeSeriesDates` — its own module so the arithmetic can be
      * tested headless, and where the three divergences from Signum's luxon walk are recorded (the series

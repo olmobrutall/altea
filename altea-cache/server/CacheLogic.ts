@@ -23,7 +23,7 @@ import { TypeConditionLogic } from "@altea/altea-auth/server/TypeConditionLogic"
 import { CachePermission } from "../data/CachePermission";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
-// Port of Signum.Caching's CacheLogic.cs — see docs/port/Cache.md.
+// Port of Signum.Caching's CacheLogic.cs — see port/Cache.md.
 //
 // Which types are cached, when their rows are dropped, and how sibling processes are told. The row store
 // itself is CachedTable.ts.

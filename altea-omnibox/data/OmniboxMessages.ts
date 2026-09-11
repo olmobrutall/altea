@@ -2,7 +2,7 @@ import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { msg } from "@altea/altea/data/utils/localization";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 
-// Port of Signum.Omnibox's OmniboxMessage enum (OmniboxUtils.cs) — see docs/port/Omnibox.md.
+// Port of Signum.Omnibox's OmniboxMessage enum (OmniboxUtils.cs) — see port/Omnibox.md.
 export const OmniboxMessage = {
     No: msg("no"),
     NotFound: msg("[Not found]"),

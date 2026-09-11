@@ -15,7 +15,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 // support, since Temporal deliberately has no `valueOf`. The in-memory answer comes from `validate()`
 // below, which does the same comparison through `Temporal.PlainDateTime.compare`.
 //
-// Port of Signum.Authorization.ResetPassword's ResetPasswordRequest.cs — see docs/port/ResetPassword.md.
+// Port of Signum.Authorization.ResetPassword's ResetPasswordRequest.cs — see port/ResetPassword.md.
 
 /** How long a mailed reset code stays usable. Two hours, as in Signum — but settable here. */
 export const RESET_PASSWORD_VALID_HOURS = 2;

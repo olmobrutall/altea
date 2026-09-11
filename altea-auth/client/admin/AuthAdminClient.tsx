@@ -20,7 +20,7 @@ import { BasicPermission } from "../../data/Rules";
 import { AuthClient } from "../AuthClient";
 import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
 
-// Port of Signum.Authorization's AuthAdminClient.tsx — see docs/port/Auth.md.
+// Port of Signum.Authorization's AuthAdminClient.tsx — see port/Auth.md.
 //
 // The ADMIN side of authorization: the User / Role management views + query settings, and the rule-pack
 // API. Signum's `start` also registers the

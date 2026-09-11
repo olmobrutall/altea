@@ -13,7 +13,7 @@ import {
 // The default columns are registered here because `withQuery()` is parameterless — the client owns the
 // column list.
 //
-// See docs/port/Sms.md.
+// See port/Sms.md.
 export namespace SMSClient {
 
     export function start(cb: ClientBuilder): void {

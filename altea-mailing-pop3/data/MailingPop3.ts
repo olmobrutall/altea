@@ -12,7 +12,7 @@ import { EmailReceptionServiceEntity } from "@altea/altea-email/data/EmailRecept
 // The `enableSSL` / `port` flip lives in the CLIENT editor rather than in a property setter — see
 // client/Templates/Pop3EmailReceptionService.tsx.
 //
-// Port of Signum.Mailing.Pop3's Pop3EmailReceptionServiceEntity.cs — see docs/port/MailingPop3.md.
+// Port of Signum.Mailing.Pop3's Pop3EmailReceptionServiceEntity.cs — see port/MailingPop3.md.
 
 // A client certificate to present, as this owner's @part row.
 @part

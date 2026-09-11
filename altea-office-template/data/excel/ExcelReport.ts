@@ -7,7 +7,7 @@ import { FileEmbedded } from "@altea/altea-files/data/Files";
 import { ExcelMessage } from "../Excel";
 import type { DeleteSymbol, ExecuteSymbol } from "@altea/altea/data/operations";
 
-// Port of Signum.Excel's ExcelReportEntity.cs — see docs/port/OfficeTemplate.md.
+// Port of Signum.Excel's ExcelReportEntity.cs — see port/OfficeTemplate.md.
 //
 // A stored .xlsx TEMPLATE attached to a query.
 //

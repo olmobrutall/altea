@@ -29,7 +29,7 @@ import type { WorkflowIssue } from "../data/WorkflowDtos";
 import { WorkflowNodeGraph } from "./WorkflowNodeGraph";
 
 // Port of Signum.Workflow's WorkflowBuilder.cs + PoolBuilder.cs + LaneBuilder.cs — see
-// docs/port/Workflow.md.
+// port/Workflow.md.
 //
 // The two-way bridge between the BPMN diagram the designer edits and the ENTITIES that store it. READING:
 // assemble one `<bpmn:definitions>` document out of the stored nodes plus each one's own diagram element.
@@ -293,7 +293,7 @@ export class LaneBuilder {
     getBpmnElementId(node: IWorkflowNodeEntity): string {
         // `is` (row identity), not `===`: a node reached through a connection's `from`/`to` is a DIFFERENT
         // object than the builder's own instance for the same row — there is no ambient EntityCache, see
-        // docs/port/Workflow.md.
+        // port/Workflow.md.
         const find = (values: Iterable<{ entity: IWorkflowNodeEntity; bpmnElementId: string }>): string | undefined =>
             [...values].firstOrNull(a => a.entity.is(node))?.bpmnElementId;
 
@@ -751,7 +751,7 @@ export class PoolBuilder {
  * The clone's old→new node map, keyed by the OLD node's lite key.
  *
  * The connection's `from`/`to` are different objects than the builder's nodes for the same rows (no ambient
- * EntityCache — see docs/port/Workflow.md), hence the KEY; the `old` half is so the scheduled-task pass can
+ * EntityCache — see port/Workflow.md), hence the KEY; the `old` half is so the scheduled-task pass can
  * still see which node a clone came from.
  */
 type ClonedNodes = Map<string, { old: IWorkflowNodeEntity; new: IWorkflowNodeEntity }>;
@@ -774,7 +774,7 @@ export class WorkflowBuilder {
             ? [[], [], [], [], []] as [WorkflowConnectionEntity[], WorkflowEventEntity[], WorkflowActivityEntity[], WorkflowGatewayEntity[], WorkflowPoolEntity[]]
             // NOTE these are the same sets as `wf.workflowConnections()` & friends, spelled as plain queries.
             // A `withQuoted` prototype member is QUERY-ONLY: calling one directly throws "The following lambda
-            // has not been quoted", so the builder queries — see docs/port/Workflow.md.
+            // has not been quoted", so the builder queries — see port/Workflow.md.
             : await Promise.all([
                 table(WorkflowConnectionEntity)
                     .filter(a => a.from.lane.pool.workflow.is(wf) && a.to.lane.pool.workflow.is(wf)).toArray(),

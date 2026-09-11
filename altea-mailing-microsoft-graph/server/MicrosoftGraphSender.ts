@@ -25,7 +25,7 @@ import type { MicrosoftGraphEmailServiceEntity } from "../data/MailingMicrosoftG
 // this service's three fields, both as the AzureADConfigurationEmbedded the REST helper takes; the helper
 // checks its own AsyncLocalStorage credential override first.
 //
-// See docs/port/MailingMicrosoftGraph.md.
+// See port/MailingMicrosoftGraph.md.
 
 /** Over this, an attachment needs an upload session. */
 export let microsoftGraphFileSizeLimit = 3 * 1024 * 1024;

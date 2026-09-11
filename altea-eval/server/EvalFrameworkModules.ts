@@ -14,7 +14,7 @@ import * as executionMode from "@altea/altea/server/executionMode";
 // script can reasonably need. A module OUTSIDE the framework registers its own from its own `Logic.start`
 // (altea-workflow does), and the APP registers only its entity domains.
 //
-// See docs/port/Eval.md.
+// See port/Eval.md.
 export const frameworkModules: Record<string, unknown> = {
     "@altea/altea/data/basics": basics,               // Decimal, Temporal, toInt, int
     "@altea/altea/data/lite": lite,

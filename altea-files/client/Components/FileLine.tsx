@@ -13,7 +13,7 @@ import { FileDownloader, type DownloadBehaviour } from "./FileDownloader";
 import { FileUploader } from "./FileUploader";
 import "./Files.css";
 
-// Port of Signum.Files' Components/FileLine.tsx — see docs/port/Files.md.
+// Port of Signum.Files' Components/FileLine.tsx — see port/Files.md.
 //
 // The line for ONE file field: the uploader while the field is empty, the downloader (+ a remove button)
 // once it holds a file. A plain LineBase over `FilePathEmbedded | FileEmbedded | FileEntity | null` — the

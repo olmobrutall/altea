@@ -38,7 +38,7 @@ import { WindowsDirectory, localNameOf } from "./WindowsDirectory";
 // This path looks the user up BY SID first — the SID is what the handshake yields — rather than going
 // straight through `ADAuthorizer.findOrCreateUser`.
 //
-// See docs/port/AuthDirectory.md.
+// See port/AuthDirectory.md.
 
 /** What a Negotiate provider must yield: the Windows account name, and its SID when it knows it. */
 export interface NegotiatedIdentity {

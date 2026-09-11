@@ -12,7 +12,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 // per (connection, user, entity); the hub inserts on enter, updates `isModified` on a heartbeat, and
 // deletes on exit or disconnect.
 //
-// Port of Signum.ConcurrentUser's ConcurrentUser.cs — see docs/port/ConcurrentUser.md.
+// Port of Signum.ConcurrentUser's ConcurrentUser.cs — see port/ConcurrentUser.md.
 @reflect
 @entity("System", "Transactional")
 export class ConcurrentUserEntity extends Entity {

@@ -15,7 +15,7 @@ import type { ShowCountKeys } from "../data/Toolbar";
 import type { ToolbarResponse } from "../data/ToolbarResponse";
 import { ToolbarConfig } from "./ToolbarConfig";
 
-// Port of Signum.Toolbar's QueryToolbarConfig.tsx — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's QueryToolbarConfig.tsx — see port/Toolbar.md.
 //
 // The config for an element whose content is a QUERY: it navigates to that query's SearchPage (or opens it
 // in a modal when `openInPopup`), and can show a live result-count badge. A QueryEntity lite's toStr IS

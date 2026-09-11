@@ -23,7 +23,7 @@ import { CaseNotificationEntity, CaseNotificationState } from "./CaseNotificatio
 import type { WorkflowEventTaskEntity } from "./WorkflowEventTask";
 import { Enum } from "@altea/altea/data/enum";
 
-// Port of Signum.Workflow's CaseActivity.cs + CaseActivityMixin.cs — see docs/port/Workflow.md.
+// Port of Signum.Workflow's CaseActivity.cs + CaseActivityMixin.cs — see port/Workflow.md.
 //
 // A CASE ACTIVITY is one STEP of a case:
 // which workflow node it is at, when it started, and (once done) who finished it, how and with what decision.

@@ -41,7 +41,7 @@ import {
 //  - **a PRESIGNED url is `presignedUrl()`, not `fullWebPath()`**, because SigV4 presigning is ASYNC in
 //    the v3 SDK; `fullWebPath` says so rather than quietly returning nothing. `DirectUrl` is unaffected.
 //
-// Port of Signum.Files.S3's S3FileTypeAlgorithm.cs — see docs/port/FileStores.md.
+// Port of Signum.Files.S3's S3FileTypeAlgorithm.cs — see port/FileStores.md.
 
 /** How (and whether) a public URL to the object is handed out. */
 export enum S3WebDownload {

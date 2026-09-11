@@ -7,7 +7,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { getTypeName } from "@altea/altea/client/Reflection";
 import { FileEntity, FileEmbedded, FilePathEmbedded } from "../data/Files";
 
-// Port of Signum.Files' FilesClient.tsx — see docs/port/Files.md.
+// Port of Signum.Files' FilesClient.tsx — see port/Files.md.
 //
 // The client entry point: the per-extension display info (icon + whether the browser can show it inline)
 // and the URL builders the downloader uses. An embedded file's URL is built from its OWNING entity +

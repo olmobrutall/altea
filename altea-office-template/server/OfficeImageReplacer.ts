@@ -1,4 +1,4 @@
-// Port of Signum.Word's WordImageReplacer.cs — see docs/port/OfficeTemplate.md.
+// Port of Signum.Word's WordImageReplacer.cs — see port/OfficeTemplate.md.
 //
 // Swapping a PLACEHOLDER image in a template for a real one. The addressing works the same way
 // TableBinder's does, and for the same reason: there is no token syntax for "put a picture here". The

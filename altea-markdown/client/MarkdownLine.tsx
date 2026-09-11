@@ -13,7 +13,7 @@ import { MarkdownMessage } from "../data/Markdown";
 // swaps the editor for the rendered result. Read-only starts in preview, and follows `ctx.readOnly` if that
 // changes underneath.
 //
-// Port of Signum.Markdown's MarkdownLine.tsx — see docs/port/Markdown.md.
+// Port of Signum.Markdown's MarkdownLine.tsx — see port/Markdown.md.
 export interface MarkdownLineProps extends TextAreaLineProps {
     markdownOption?: Options;
 }

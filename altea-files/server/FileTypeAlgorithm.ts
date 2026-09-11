@@ -6,7 +6,7 @@ import { Clock } from "@altea/altea/data/utils/clock";
 import { FileMessage, toComputerSize, type FilePathEmbedded } from "../data/Files";
 
 // Port of Signum.Files' FileTypeAlgorithm.cs + FileTypeLogic.cs's validation and SuffixGenerators — see
-// docs/port/Files.md.
+// port/Files.md.
 //
 // A file-type ALGORITHM decides where a file's bytes live and how the row's `suffix` (the store-relative
 // path) is generated, and it is the only thing that touches the storage backend.
@@ -14,7 +14,7 @@ import { FileMessage, toComputerSize, type FilePathEmbedded } from "../data/File
 // This file is the LOCAL FOLDER backend plus the halves every backend shares: the `IFileTypeAlgorithm`
 // seam, `FileTypeAlgorithmBase` (onlyImages / maxSizeInBytes / onValidateFile) and the suffix generators.
 // The REMOTE backends live in their own packages — @altea/altea-files-azure and @altea/altea-files-s3, see
-// docs/port/FileStores.md — and they REFUSE some of the policy below, for reasons that page gives.
+// port/FileStores.md — and they REFUSE some of the policy below, for reasons that page gives.
 //
 // The hash is computed in `saveFile` rather than in a setter, because the isomorphic layer has no crypto.
 

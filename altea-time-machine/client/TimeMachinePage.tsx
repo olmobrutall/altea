@@ -36,7 +36,7 @@ import { TimeMachineClient } from './TimeMachineClient';
 //   • "Data differences": the two ObjectDumper texts through altea-diff-log's DiffDocument — the same
 //     component and the same dump format the operation log uses.
 //
-// Port of Signum.TimeMachine's TimeMachinePage.tsx — see docs/port/TimeMachine.md.
+// Port of Signum.TimeMachine's TimeMachinePage.tsx — see port/TimeMachine.md.
 
 export default function TimeMachinePage(): React.JSX.Element {
     const params = useParams() as { type: string; id: string };

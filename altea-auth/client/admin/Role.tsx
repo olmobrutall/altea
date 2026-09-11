@@ -7,7 +7,7 @@ import SearchValueLine from "@altea/altea/client/SearchControl/SearchValueLine";
 import { RoleEntity } from "../../data/Role";
 import { UserEntity } from "../../data/User";
 
-// Port of Signum.Authorization's Templates/Role.tsx — see docs/port/Auth.md.
+// Port of Signum.Authorization's Templates/Role.tsx — see port/Auth.md.
 //
 // The rule-pack entry points (Type / Permission rules) are QuickLinks on the frame, registered in
 // AuthAdminClient — NOT a button here.

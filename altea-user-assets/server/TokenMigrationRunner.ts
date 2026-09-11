@@ -11,7 +11,7 @@ import { TokenMigrationFile } from "./TokenMigrationFile";
 import { TokenSyncContext } from "./TokenSyncContext";
 import { TokenMigrationLogic, type MigrationInfo } from "./TokenMigrationLogic";
 
-// Port of Signum.UserAssets' TokenMigrations/TokenMigrationRunner.cs — see docs/port/UserAssets.md.
+// Port of Signum.UserAssets' TokenMigrations/TokenMigrationRunner.cs — see port/UserAssets.md.
 //
 // The session: list what exists, apply what is pending, or record a new migration. The two modes are
 // asymmetric ON PURPOSE. RECORDING is interactive and saves nothing — it walks every asset, asks about

@@ -14,7 +14,7 @@ import { RoleEntity } from "./Role";
 // resolve it. Under project references an augmentation-only reference is not enough on its own.
 import type { } from "@altea/altea/data/metadata";
 
-// Port of Signum.Authorization's Rules/RulesEntities.cs + RulePackModels.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's Rules/RulesEntities.cs + RulePackModels.cs — see port/Auth.md.
 //
 // Two things live here: the PERSISTED rules (one row per role × resource) the authorization caches load,
 // and the rule-PACK MODELS the admin UI transports.

@@ -8,7 +8,7 @@ import { OpenIDConfigurationEmbedded } from "../data/OpenID";
 //
 // A claim that is an ARRAY (some providers repeat `email`) takes its first string.
 //
-// See docs/port/AuthDirectory.md.
+// See port/AuthDirectory.md.
 
 /** The id_token's claims, read as a directory identity. */
 export class OpenIDClaimsContext implements IAutoCreateUserContext {

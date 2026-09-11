@@ -27,7 +27,7 @@ import { PropertyAuthLogic } from "@altea/altea-auth/server/PropertyAuthLogic";
 import { ImportExcelMode, ImportFromExcelMessage, type ImportExcelModel } from "../../data/Excel";
 import { readSheet, cellReference, fromExcelDate, fromExcelNumber, fromExcelTime, type ExcelRow } from "./ExcelReader";
 
-// Port of Signum.Excel's ImporterFromExcel.cs — see docs/port/OfficeTemplate.md.
+// Port of Signum.Excel's ImporterFromExcel.cs — see port/OfficeTemplate.md.
 //
 // Read an .xlsx back into entities: the query's COLUMNS say which property each sheet column assigns, its
 // FILTERS supply constant values, and one operation saves each resulting entity. Signum's whole shape is

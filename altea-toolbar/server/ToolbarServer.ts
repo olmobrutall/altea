@@ -4,7 +4,7 @@ import type { ToolbarLocationKeys } from "../data/Toolbar";
 import type { ToolbarResponse } from "../data/ToolbarResponse";
 import { ToolbarLogic } from "./ToolbarLogic";
 
-// Port of Signum.Toolbar's ToolbarController.cs — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's ToolbarController.cs — see port/Toolbar.md.
 //
 // The two GETs the renderers call. NO permission assert, deliberately: a toolbar carries none of its own.
 // What the caller may see is decided per ELEMENT inside the response builder (every element's content

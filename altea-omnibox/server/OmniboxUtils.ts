@@ -1,6 +1,6 @@
 import type { OmniboxMatch } from "../data/OmniboxResults";
 
-// Port of Signum.Omnibox's OmniboxUtils.cs — see docs/port/Omnibox.md.
+// Port of Signum.Omnibox's OmniboxUtils.cs — see port/Omnibox.md.
 //
 // The fuzzy MATCHER behind every omnibox suggestion. Three strategies, in order of preference:
 //   1. exact key hit               → distance 0

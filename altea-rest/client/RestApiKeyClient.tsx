@@ -7,7 +7,7 @@ import { RestApiKeyEntity } from "../data/Rest";
 // The key's editor, plus the boot-time authenticator that turns a `?apiKey=` in the address bar into a
 // logged-in session (how Swagger / an MCP client lands in the app already authenticated).
 //
-// Port of Signum.Rest's RestApiKeyClient.tsx — see docs/port/Rest.md.
+// Port of Signum.Rest's RestApiKeyClient.tsx — see port/Rest.md.
 export namespace RestApiKeyClient {
 
     export function start(cb: ClientBuilder): void {

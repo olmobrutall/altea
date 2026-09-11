@@ -16,7 +16,7 @@ import { UserEntity, UserState } from "../data/User";
 import { UserTicketEntity, parseTicket } from "../data/UserTicket";
 import { AuthLogic } from "./AuthLogic";
 
-// Port of Signum.Authorization's UserTicket/UserTicketLogic.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's UserTicket/UserTicketLogic.cs — see port/Auth.md.
 //
 // Issue, rotate and revoke the long-lived "remember me" secrets. Every path runs with authorization
 // DISABLED (

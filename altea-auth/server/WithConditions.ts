@@ -1,6 +1,6 @@
 import { TypeConditionSymbol, TypeAllowed, TypeAllowedBasic, typeAllowedDB, typeAllowedUI } from "../data/Rules";
 
-// Evaluating a WithConditions against an INSTANCE — see docs/port/Auth.md.
+// Evaluating a WithConditions against an INSTANCE — see port/Auth.md.
 //
 // A REVERSE scan: the value is the allowed of the LAST condition rule whose symbol set all holds, else the
 // fallback. `matches(tc)` is the caller's per-symbol predicate (on the server, `inTypeCondition`).

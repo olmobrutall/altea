@@ -6,7 +6,7 @@ import {
 import { isPascalCasePattern, matches } from "./OmniboxUtils";
 
 // Port of Signum.Omnibox's SpecialOmniboxResultGenerator.cs + ReactSpecialOmniboxGenerator.cs — see
-// docs/port/Omnibox.md.
+// port/Omnibox.md.
 //
 // The "!Command" shape — `!` followed by an optional identifier — matched against the client's registered
 // special actions ("!SwitchUser", "!Profiler", …).

@@ -13,7 +13,7 @@ import {
 } from "../../data/Toolbar";
 import { ToolbarElementTable } from "./Toolbar";
 
-// Port of Signum.Toolbar's Templates/ToolbarMenu.tsx — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's Templates/ToolbarMenu.tsx — see port/Toolbar.md.
 //
 // The ToolbarMenu editor. When the menu is bound to an entity type, its elements are edited in three tabs:
 // the ones shown with NO entity selected, the ones shown WITH one, and both together.

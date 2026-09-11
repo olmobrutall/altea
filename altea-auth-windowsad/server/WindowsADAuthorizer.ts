@@ -15,7 +15,7 @@ import { WindowsDirectory, localNameOf, type DirectoryUser } from "./WindowsDire
 // A wrong password is a `false` from `validateCredentials`; any OTHER failure (host unreachable, TLS) must
 // NOT be reported as one. Only a connection failure falls through to the database, and the caller logs it.
 //
-// See docs/port/AuthDirectory.md.
+// See port/AuthDirectory.md.
 
 /** What a directory hit carries into "create or refresh the local user". */
 export class DirectoryServiceContext implements IAutoCreateUserContext {

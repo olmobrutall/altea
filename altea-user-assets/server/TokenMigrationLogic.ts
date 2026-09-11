@@ -9,7 +9,7 @@ import { TokenMigrationEntity } from "../data/TokenMigration";
 import { TokenMigrationFile } from "./TokenMigrationFile";
 import type { TokenSyncContext } from "./TokenSyncContext";
 
-// Port of Signum.UserAssets' TokenMigrations/TokenMigrationLogic.cs — see docs/port/UserAssets.md.
+// Port of Signum.UserAssets' TokenMigrations/TokenMigrationLogic.cs — see port/UserAssets.md.
 //
 // The registry and the file bookkeeping: the subscriber event, the file naming, the directory listing.
 // The RUNNER that drives a session is TokenMigrationRunner.

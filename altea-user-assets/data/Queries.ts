@@ -9,7 +9,7 @@ import {
 import { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 
 // Port of Signum.UserAssets' Queries/QueryTokenEmbedded.cs + PinnedQueryFilterEmbedded.cs — see
-// docs/port/UserAssets.md. The OWNER-AGNOSTIC value embeddeds every stored query definition is built from
+// port/UserAssets.md. The OWNER-AGNOSTIC value embeddeds every stored query definition is built from
 // (a filter/column/order token; a filter's pinning). They flatten into whichever owner table embeds them,
 // which is why they live in this shared package.
 

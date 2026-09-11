@@ -25,7 +25,7 @@ import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import { UserChartEntity } from "@altea/altea-chart/data/UserChart";
 import { OfficeTemplateEntity, OfficeTemplateMessage } from "../../data/OfficeTemplate";
 
-// Port of Signum.Word's Templates/WordTemplate.tsx — see docs/port/OfficeTemplate.md.
+// Port of Signum.Word's Templates/WordTemplate.tsx — see port/OfficeTemplate.md.
 //
 // The template editor: the document, the query
 // (filters / orders), applicability, and the two "embedded widget" helpers.

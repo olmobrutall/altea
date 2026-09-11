@@ -1,6 +1,6 @@
 import { PermissionSymbol } from "../data/Rules";
 
-// Port of Signum/Basics' PermissionLogic.cs — see docs/port/Auth.md.
+// Port of Signum/Basics' PermissionLogic.cs — see port/Auth.md.
 //
 // The registry of permissions that
 // are actually IN PLAY, and so the set of rows `basics.permission` holds.

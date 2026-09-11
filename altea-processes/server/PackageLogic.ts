@@ -30,7 +30,7 @@ import type { ExecutingProcess } from "./ProcessRunner";
 // `createLinesFromQuery` keeps its own name because `createLines` cannot be overloaded on a Query vs an
 // array in a way TypeScript resolves well.
 //
-// Port of Signum.Processes' PackageLogic.cs — see docs/port/Processes.md.
+// Port of Signum.Processes' PackageLogic.cs — see port/Processes.md.
 
 export namespace PackageLogic {
 

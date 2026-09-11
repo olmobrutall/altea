@@ -22,7 +22,7 @@ import type { ToolbarResponse } from "../data/ToolbarResponse";
 import QueryToolbarConfig from "./QueryToolbarConfig";
 import type { ToolbarConfig } from "./ToolbarConfig";
 
-// Port of Signum.Toolbar's ToolbarClient.tsx — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's ToolbarClient.tsx — see port/Toolbar.md.
 //
 // The entity views, the per-content CONFIG REGISTRY the renderers dispatch through, and the two API calls.
 // The registry is keyed by the content type's CLEAN NAME ("Query", "UserQuery", …), which is what a Lite's

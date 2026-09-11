@@ -26,7 +26,7 @@ import { WithConditions, ConditionRule, evaluateConditions } from "./WithConditi
 import { mergeWithConditions } from "./TypeConditionMerger";
 import { TypeConditionLogic } from "./TypeConditionLogic";
 
-// Port of Signum.Authorization's Rules/OperationAuthLogic.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's Rules/OperationAuthLogic.cs — see port/Auth.md.
 //
 // The operation dimension: a role's
 // allowance per (operation, type) is a WithConditions<OperationAllowed> — a `fallback` + ordered type

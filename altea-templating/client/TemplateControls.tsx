@@ -6,7 +6,7 @@ import { QueryToken, SubTokensOptions } from "@altea/altea/client/QueryToken";
 import { TemplateMessage, TemplateTokenMessage, type GlobalVariableTS } from "../data/Templating";
 import { TemplatingClient } from "./TemplatingClient";
 
-// Port of Signum.Templating's TemplateControls.tsx — see docs/port/Templating.md.
+// Port of Signum.Templating's TemplateControls.tsx — see port/Templating.md.
 //
 // The toolbar above a template's text: pick a QUERY token (or a GLOBAL variable), then click Insert / if /
 // foreach / any to get the snippet to paste. The snippet is handed over in a `MessageModal`

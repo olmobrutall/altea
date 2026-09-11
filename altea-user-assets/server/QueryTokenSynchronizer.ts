@@ -11,7 +11,7 @@ import { QueryTokenEmbedded } from "../data/Queries";
 import type { TokenSyncContext } from "./TokenSyncContext";
 import { appendValue, filterValueSubKey, valuesOf, type StringOrArray } from "./TokenMigrationFile";
 
-// Port of Signum.UserAssets' Queries/QueryTokenSynchronizer.cs — see docs/port/UserAssets.md.
+// Port of Signum.UserAssets' Queries/QueryTokenSynchronizer.cs — see port/UserAssets.md.
 //
 // Takes a STORED token string that no longer resolves and either repairs it from recorded history or asks
 // what to do. The interesting part is `tryResolveParts`: it walks the token's segments against the LIVE

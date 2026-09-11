@@ -6,7 +6,7 @@ import { OmniboxResultTypeName, UnknownOmniboxValue } from "../data/OmniboxResul
 import { OmniboxMessage } from "../data/OmniboxMessages";
 import { OmniboxProvider } from "./OmniboxProvider";
 
-// Port of Signum.Omnibox's DynamicQueryOmniboxProvider.tsx — see docs/port/Omnibox.md.
+// Port of Signum.Omnibox's DynamicQueryOmniboxProvider.tsx — see port/Omnibox.md.
 //
 // Renders "<Query> <Token><op><Value> …" rows and, on Enter, opens the search page with those filters
 // already applied. `f.queryToken` is the token's fullKey STRING — see data/OmniboxResults.

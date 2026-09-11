@@ -2,7 +2,7 @@ import type { Lite } from "@altea/altea/data/lite";
 import type { TypeConditionSymbol } from "../../data/Rules";
 
 // Shared helpers for the type-condition "slice" editor the property and operation rule packs use — see
-// docs/port/Auth.md.
+// port/Auth.md.
 //
 // A rule's allowance is a WithConditionsModel (a fallback + per-condition-set overrides); the editor shows
 // ONE slice at a time — either the Fallback or one configured type-condition SET — and binds every row to

@@ -9,7 +9,7 @@ import { FilesClient } from "../FilesClient";
 import { FileImage } from "./FileImage";
 import "./Files.css";
 
-// Port of Signum.Files' Components/ImageModal.tsx — see docs/port/Files.md.
+// Port of Signum.Files' Components/ImageModal.tsx — see port/Files.md.
 //
 // The full-size view of an image behind a thumbnail (FileImageLine). Ctrl-click / middle-click opens it in
 // a new tab instead of the modal, and that path takes the same optional owner + route fallback the other

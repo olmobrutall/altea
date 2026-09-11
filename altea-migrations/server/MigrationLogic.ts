@@ -21,7 +21,7 @@ import { SafeConsole, Color } from "./SafeConsole";
 // `executeLoadProcess` RETURNS the caught error rather than throwing, so a caller can decide whether the
 // remaining steps still run.
 //
-// Port of Signum.Migrations' MigrationLogic.cs — see docs/port/Migrations.md.
+// Port of Signum.Migrations' MigrationLogic.cs — see port/Migrations.md.
 
 export namespace MigrationLogic {
 

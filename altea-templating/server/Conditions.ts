@@ -8,7 +8,7 @@ import { compareInMemory, ScopedDictionary, toStringOperation } from "./Template
 // TYPE-only, for the same reason ValueProviders takes it that way: TemplateSync imports this module.
 import type { TemplateSynchronizationContext } from "./TemplateSync";
 
-// Port of Signum.Templating's Conditions.cs — see docs/port/Templating.md.
+// Port of Signum.Templating's Conditions.cs — see port/Templating.md.
 //
 // The boolean expression inside an `@if[…]` / `@any[…]` bracket: `A && B`, `A || B`, `Token op Value`, or
 // a bare truthiness test. The result filter is a plain CLOSURE over an in-memory comparison

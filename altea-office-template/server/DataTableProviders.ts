@@ -1,5 +1,5 @@
 // Port of the IWordDataTableProvider implementations at the tail of Signum.Word's TableBinder.cs — see
-// docs/port/OfficeTemplate.md. The
+// port/OfficeTemplate.md. The
 // things a chart or table in a template can be bound to. Each is selected by the prefix an author writes
 // into the shape's alternative text (see TableBinder's header).
 //

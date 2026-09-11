@@ -7,7 +7,7 @@ import { Temporal } from "@altea/altea/data/basics";
 import type { PermissionSymbol } from "./Rules";
 import { UserEntity } from "./User";
 
-// Port of Signum.Authorization's SessionLog/SessionLog.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's SessionLog/SessionLog.cs — see port/Auth.md.
 //
 // Who logged in, from where, and for how long.
 // One row per login, opened when a user logs in and closed when they log out.

@@ -8,7 +8,7 @@ import { TypeConditionSymbol, TypeAllowed, TypeAllowedBasic, typeAllowedGet } fr
 import { WithConditions } from "./WithConditions";
 import { TypeConditionLogic } from "./TypeConditionLogic";
 
-// Port of Signum.Authorization's Rules/TypeConditionAlgebra.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's Rules/TypeConditionAlgebra.cs — see port/Auth.md.
 //
 // Compile a role's WithConditions<TypeAllowed> for a type into a boolean SQL predicate over the entity:
 // build a node tree (True / False + And / Or / Not / Symbol) from the fallback + condition rules for a

@@ -9,7 +9,7 @@ import { TypeConditionSymbol } from "../data/Rules";
 import { ATTR, attrs, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 
 // Port of the ExportRules / ImportRulesScript half of Signum.Authorization's AuthLogic.cs — see
-// docs/port/Auth.md.
+// port/Auth.md.
 //
 // One `<Auth>` document: a `<Roles>` section this file owns plus one section per dimension, each
 // dimension registering its own block through `AuthLogic.registerXmlExporter` / `registerXmlImporter`.

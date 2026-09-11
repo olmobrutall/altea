@@ -1,7 +1,7 @@
 import { Lite } from "@altea/altea/data/lite";
 import type { FilterTypeKeys } from "@altea/altea/data/dynamicQueries";
 
-// The value↔string half of Signum's FilterValueConverter — see docs/port/UserAssets.md.
+// The value↔string half of Signum's FilterValueConverter — see port/UserAssets.md.
 //
 // It is ISOMORPHIC, not client code: the SearchControl editors need it on the client and QueryFilterUtils
 // needs it on the server. A stored filter/column keeps its value as a STRING

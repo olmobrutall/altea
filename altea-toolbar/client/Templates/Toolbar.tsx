@@ -22,7 +22,7 @@ import {
 import { ToolbarClient } from "../ToolbarClient";
 import { ToolbarCount } from "../QueryToolbarConfig";
 
-// Port of Signum.Toolbar's Templates/Toolbar.tsx — see docs/port/Toolbar.md.
+// Port of Signum.Toolbar's Templates/Toolbar.tsx — see port/Toolbar.md.
 //
 // The Toolbar editor plus the shared ELEMENT TABLE both it and the ToolbarMenu editor use. That table is
 // GENERIC over the row type (`ToolbarEntity_Element` / `ToolbarMenuEntity_Element`), because a `@part` row

@@ -8,7 +8,7 @@ import { OpenIDAuthenticationServer } from "./OpenIDAuthenticationServer";
 // `AuthLogic.authorizer`, because the authorizer is what every route here resolves its configuration
 // through.
 //
-// See docs/port/AuthDirectory.md.
+// See port/AuthDirectory.md.
 
 export namespace OpenIDLogic {
 

@@ -7,7 +7,7 @@ import { registerSpecialAction } from '@altea/altea/client/OmniboxSpecialAction'
 import { AuthClient } from '@altea/altea-auth/client/AuthClient'
 import { CachePermission } from '../data/CachePermission'
 
-// Port of Signum.Caching's CacheClient.tsx — see docs/port/Cache.md.
+// Port of Signum.Caching's CacheClient.tsx — see port/Cache.md.
 //
 // The statistics route, the "!ViewCache" omnibox entry and the typed HTTP client the page calls.
 //

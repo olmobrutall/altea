@@ -10,7 +10,7 @@ import { EmailServiceEntity } from "@altea/altea-email/data/EmailSenderConfigura
 // translation of it.
 //
 // Port of Signum.Mailing.ExchangeWS's ExchangeWebServiceEmailServiceEntity.cs — see
-// docs/port/MailingExchange.md.
+// port/MailingExchange.md.
 
 /** The schema version, sent in the EWS request header. */
 export enum ExchangeVersion {

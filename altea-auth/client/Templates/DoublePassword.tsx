@@ -9,7 +9,7 @@ import { UserEntity } from "../../data/User";
 import { LoginAuthMessage } from "../../data/AuthMessages";
 import { AuthClient } from "../AuthClient";
 
-// Port of Signum.Authorization's Templates/DoublePassword.tsx — see docs/port/Auth.md.
+// Port of Signum.Authorization's Templates/DoublePassword.tsx — see port/Auth.md.
 //
 // "Type the new password twice": it binds a plain `string` context and writes it only once BOTH boxes
 // agree, so a half-typed password never reaches the entity.

@@ -4,7 +4,7 @@ import { PostgresConnector } from "@altea/altea/server/connection/postgresConnec
 import { CacheLogic } from "../CacheLogic";
 import type { IServerBroadcast } from "./IServerBroadcast";
 
-// Port of Signum.Caching's Broadcast/PostgresBroadcast.cs — see docs/port/Cache.md.
+// Port of Signum.Caching's Broadcast/PostgresBroadcast.cs — see port/Cache.md.
 //
 // Cross-process cache invalidation over Postgres LISTEN/NOTIFY. The payload is `<method>/<pid>/<argument>`,
 // and a message whose pid is OUR pid is IGNORED — that is how a process avoids acting on its own

@@ -31,7 +31,7 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 // the database is a fresh instance, so an identity-keyed Map misses on every run that came from a row —
 // the bug the scheduler port hit and fixed.
 //
-// Port of Signum.Processes' ProcessLogic.cs — see docs/port/Processes.md.
+// Port of Signum.Processes' ProcessLogic.cs — see port/Processes.md.
 //  - `CacheLogic.ServerBroadcast`, `ExceptionLogic.DeleteLogs`, `PreDeleteSqlSync` and
 //    `PropertyAuthLogic.SetMaxAutomaticUpgrade(p => p.User, Read)` are not ported (missing infrastructure).
 

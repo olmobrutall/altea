@@ -16,7 +16,7 @@ import { type IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets"
 // A real (value) import of the node module, which imports THIS one back. The cycle is SAFE because every
 // use below is inside an `@implementedBy` THUNK, evaluated at schema-build / deserialize time — long after
 // both modules have finished evaluating. `import type` would not work: the transformer needs the runtime
-// binding. See docs/port/Workflow.md.
+// binding. See port/Workflow.md.
 import {
     WorkflowActivityEntity, WorkflowActivityModel, WorkflowConnectionModel, WorkflowEventEntity,
     WorkflowEventModel, WorkflowGatewayModel, WorkflowLaneModel, WorkflowPoolModel, type WorkflowLaneEntity,

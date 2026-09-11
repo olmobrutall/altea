@@ -13,7 +13,7 @@ import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 // The panel route, the Process editor, and the typed HTTP client the panel calls.
 //
 // The PackageOperation CONTEXTUAL MENU — pick rows in a search, run an operation over them as a process —
-// is NOT ported; an app builds its packages in code. See docs/port/Processes.md.
+// is NOT ported; an app builds its packages in code. See port/Processes.md.
 
 export namespace ProcessClient {
 

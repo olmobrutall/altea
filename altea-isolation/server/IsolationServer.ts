@@ -19,7 +19,7 @@ import { IsolationLogic } from "./IsolationLogic";
 // host calls `start`. The resolved isolation is stashed on the Express request, because by the time the
 // exception hook reads it the ambient scope is gone.
 //
-// Port of Signum.Isolation's IsolationServer.cs + IsolationFilter.cs — see docs/port/Isolation.md.
+// Port of Signum.Isolation's IsolationServer.cs + IsolationFilter.cs — see port/Isolation.md.
 export namespace IsolationServer {
 
     /** The header a client sends its pick in. */

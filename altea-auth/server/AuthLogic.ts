@@ -23,7 +23,7 @@ import type { AuthImportCtx } from "./AuthRulesXml";
 // start() below, guarded by sb.webBuilder.
 import { AuthServer } from "./AuthServer";
 
-// Port of Signum.Authorization's AuthLogic.cs — see docs/port/Auth.md.
+// Port of Signum.Authorization's AuthLogic.cs — see port/Auth.md.
 //
 // The AUTHENTICATION half (login, the user state machine, the system / anonymous users) plus the ROLE
 // GRAPH every authorization dimension folds its rules over.

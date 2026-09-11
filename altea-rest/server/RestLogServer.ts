@@ -6,7 +6,7 @@ import { RestLogLogic } from "./RestLogLogic";
 
 // Replay one logged request against a live host.
 //
-// Port of Signum.Rest's RestLogController.cs — see docs/port/Rest.md.
+// Port of Signum.Rest's RestLogController.cs — see port/Rest.md.
 export namespace RestLogServer {
 
     let started = false;

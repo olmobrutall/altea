@@ -23,7 +23,7 @@ import { ExchangeWebServices, escapeXml, type ExchangeCredentials } from "./Exch
 // "Send As" rights the configuration says nothing about. `email.from` is still the address AUTODISCOVER
 // looks up.
 //
-// Port of Signum.Mailing.ExchangeWS's ExchangeWebServiceSender.cs — see docs/port/MailingExchange.md.
+// Port of Signum.Mailing.ExchangeWS's ExchangeWebServiceSender.cs — see port/MailingExchange.md.
 
 export class ExchangeWebServiceSender extends EmailSenderBase {
 
@@ -47,7 +47,7 @@ export class ExchangeWebServiceSender extends EmailSenderBase {
 
         const version = ExchangeVersion[this.exchange.exchangeVersion];
 
-        // Only real attachments: inline LinkedResources are dropped (see docs/port/MailingExchange.md).
+        // Only real attachments: inline LinkedResources are dropped (see port/MailingExchange.md).
         const attachments = email.attachments.filter(a => a.type === EmailAttachmentType.Attachment);
 
         if (attachments.length === 0)

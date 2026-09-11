@@ -15,7 +15,7 @@ import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 // The panel route, the entity editors, and the typed HTTP client the panel calls. Default columns are a
 // CLIENT setting here, since `withQuery()` takes no projection.
 //
-// See docs/port/Scheduler.md.
+// See port/Scheduler.md.
 
 export namespace SchedulerClient {
 

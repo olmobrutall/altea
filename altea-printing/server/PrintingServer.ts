@@ -9,7 +9,7 @@ import { PrintingLogic } from "./PrintingLogic";
 
 // The two routes the print panel calls.
 //
-// Port of Signum.Printing's PrintController.cs — see docs/port/Printing.md.
+// Port of Signum.Printing's PrintController.cs — see port/Printing.md.
 //
 // Both are gated by `PrintPermission.ViewPrintPanel`: `createProcess` packages and QUEUES work, so leaving
 // it open to any authenticated user would be a gap rather than a decision.

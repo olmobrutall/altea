@@ -4,7 +4,7 @@ import { ajaxGetRaw, type AjaxOptions } from "@altea/altea/client/Services";
 import { FileEntity, FileEmbedded, FileMessage, FilePathEmbedded } from "../../data/Files";
 import { FilesClient } from "../FilesClient";
 
-// Port of Signum.Files' Components/FileImage.tsx — see docs/port/Files.md.
+// Port of Signum.Files' Components/FileImage.tsx — see port/Files.md.
 //
 // An <img> over a file, from whichever source it has:
 //   • bytes still in memory (just picked by the uploader, or a FileEmbedded read with its row) → a blob URL,

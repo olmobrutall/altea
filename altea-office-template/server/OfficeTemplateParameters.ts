@@ -1,4 +1,4 @@
-// The template parameters and the model contract — see docs/port/OfficeTemplate.md.
+// The template parameters and the model contract — see port/OfficeTemplate.md.
 // Kept in its own module because the nodes, the parser and the renderer all need it and altea has no
 // partial classes.
 
