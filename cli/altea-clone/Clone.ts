@@ -38,12 +38,17 @@ export namespace Clone {
         yes?: boolean;
     }
 
-    /** Workspace-level files a new project inherits. Anything not here is the PORT's bookkeeping. */
-    const ROOT_FILES = ["AGENTS.md", "CLAUDE.md", ".gitignore", "pnpm-workspace.yaml", "pnpm-lock.yaml"];
-    const ROOT_DIRECTORIES = [".vscode", ".claude"];
-
-    /** Never copied, whatever the source holds. */
-    const NEVER = new Set(["node_modules", "dist", "ts_out", ".git", "CodeGen", "TensorFlowModels"]);
+    /**
+     * What gets copied is decided by GIT, not by a list here: every file the repository tracks, plus
+     * anything new that is not ignored, plus the `.env.<environment>` files — which are ignored on
+     * purpose and wanted anyway (see the header).
+     *
+     * `.gitmodules` is the one exclusion, because the new repository writes its own when `altea` is
+     * added. A SUBMODULE is skipped for free: git lists it as a single entry, which is a directory on
+     * disk rather than a file — so neither `altea/` (added fresh) nor `old/` (the Signum sources a new
+     * application ports from nothing) comes across.
+     */
+    const NEVER_COPIED = new Set([".gitmodules"]);
 
     export async function run(uctx: ApplicationContext, options: Options = {}): Promise<void> {
         const name = await askName(options.name);
@@ -83,26 +88,10 @@ export namespace Clone {
         //    with would fail in ways that have nothing to do with the new application.
         addAlteaSubmodule(uctx, target);
 
-        // 3. The application itself, renamed.
-        const source = path.join(uctx.rootFolder, uctx.applicationName);
-        copyRenamed(source, path.join(target, name), uctx.applicationName, name, uctx.rootFolder);
-        Console.writeLineColor(Color.green, `  copied ${uctx.applicationName}/ -> ${name}/`);
-
-        // 4. The workspace-level files.
-        for (const f of ROOT_FILES) {
-            const from = path.join(uctx.rootFolder, f);
-            if (fs.existsSync(from))
-                copyFileRenamed(from, path.join(target, f), uctx.applicationName, name);
-        }
-        for (const d of ROOT_DIRECTORIES) {
-            const from = path.join(uctx.rootFolder, d);
-            if (fs.existsSync(from))
-                copyRenamed(from, path.join(target, d), uctx.applicationName, name, uctx.rootFolder);
-        }
-        Console.writeLineColor(Color.green, "  copied the workspace files");
-
-        // 5. `old/` was not copied, so its submodule entry must not survive either.
-        dropOldSubmodule(target);
+        // 3. Everything the repository holds, renamed — the application and the workspace-level files
+        //    alike. See NEVER_COPIED for what git leaves out and why.
+        const copied = copyProject(uctx, target, name);
+        Console.writeLineColor(Color.green, `  copied ${copied} files, ${uctx.applicationName} -> ${name}`);
 
         // 6. One commit, so the new project starts from a clean tree — which is what `simplify` needs.
         if (Git.commitAll(target, `Initial commit — ${name}, from ${uctx.applicationName}`))
@@ -198,26 +187,6 @@ export namespace Clone {
             `    WARNING: could not pin altea to ${commit.slice(0, 10)}; it is on its default branch.`);
     }
 
-    function dropOldSubmodule(target: string): void {
-        const file = path.join(target, ".gitmodules");
-        if (!fs.existsSync(file))
-            return;
-
-        const text = fs.readFileSync(file, "utf8");
-        // The submodule add above rewrote .gitmodules, so `old` can only be here if it was copied in.
-        if (!text.includes(`[submodule "old"]`))
-            return;
-
-        const newline = text.includes("\r\n") ? "\r\n" : "\n";
-        const lines = text.split(/\r?\n/);
-        const start = lines.findIndex(l => l.trim() === `[submodule "old"]`);
-        let end = start + 1;
-        while (end < lines.length && !lines[end].trimStart().startsWith("["))
-            end++;
-        lines.splice(start, end - start);
-        fs.writeFileSync(file, lines.join(newline), "utf8");
-    }
-
     // ---- copying -----------------------------------------------------------------------------------
 
     /**
@@ -227,39 +196,30 @@ export namespace Clone {
      * files are copied byte for byte: a rename pass over a .png would corrupt it, and no image has an
      * application name inside it that matters.
      */
-    function copyRenamed(source: string, destination: string, from: string, to: string, gitRoot: string): void {
-        fs.mkdirSync(destination, { recursive: true });
+    /** Ask git what belongs to the project, then copy each file with its path and content renamed. */
+    function copyProject(uctx: ApplicationContext, target: string, name: string): number {
+        const root = uctx.rootFolder;
 
-        for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
-            if (NEVER.has(entry.name))
+        const files = [
+            ...Git.trackedFiles(root),
+            ...Git.untrackedFiles(root),
+            // The environment files are ignored BY DESIGN and copied anyway: a new project wants the
+            // shape of its environment, and they stay ignored there, so they are never in its first
+            // commit. A pathspec keeps this from walking node_modules.
+            ...Git.ignoredFiles(root, `${uctx.applicationName}/.env*`),
+        ];
+
+        let copied = 0;
+        for (const relative of new Set(files)) {
+            if (NEVER_COPIED.has(relative) || Git.isGitlink(root, relative))
                 continue;
 
-            const sourcePath = path.join(source, entry.name);
-            const renamed = ApplicationContext.rename(entry.name, from, to);
-            const destinationPath = path.join(destination, renamed);
-
-            if (entry.isDirectory()) {
-                copyRenamed(sourcePath, destinationPath, from, to, gitRoot);
-                // A directory that ended up empty (everything in it was ignored) is not worth creating.
-                if (fs.readdirSync(destinationPath).length === 0)
-                    fs.rmdirSync(destinationPath);
-                continue;
-            }
-
-            if (!shouldCopy(sourcePath, entry.name, gitRoot))
-                continue;
-
-            copyFileRenamed(sourcePath, destinationPath, from, to);
+            copyFileRenamed(path.join(root, relative),
+                path.join(target, ApplicationContext.rename(relative, uctx.applicationName, name)),
+                uctx.applicationName, name);
+            copied++;
         }
-    }
-
-    function shouldCopy(sourcePath: string, fileName: string, gitRoot: string): boolean {
-        // `.env.*` is ignored on purpose and copied on purpose — the new project gets the shape of its
-        // environment, and the copy stays out of its first commit because it is ignored THERE too.
-        if (fileName.startsWith(".env"))
-            return true;
-
-        return !Git.isIgnored(gitRoot, path.relative(gitRoot, sourcePath).replace(/\\/g, "/"));
+        return copied;
     }
 
     function copyFileRenamed(source: string, destination: string, from: string, to: string): void {

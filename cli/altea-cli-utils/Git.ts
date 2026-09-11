@@ -1,4 +1,6 @@
 import { spawnSync } from "node:child_process";
+import { existsSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { Color, Console } from "./Console.js";
 
 /**
@@ -111,8 +113,56 @@ export namespace Git {
         }
     }
 
-    /** Whether a path is ignored — the copier uses it to decide what NOT to carry over. */
-    export function isIgnored(cwd: string, relativePath: string): boolean {
-        return run(cwd, ["check-ignore", "-q", relativePath]).ok;
+    /**
+     * The files git KNOWS about, repository-root-relative with forward slashes.
+     *
+     * This replaces every hand-written ignore list these tools used to carry. "What belongs to the
+     * project" is a question `.gitignore` already answers, in one place, for every tool — so asking git
+     * cannot drift from what a developer sees, needs no maintenance when a build directory is added, and
+     * honours nested `.gitignore` files that a flat list of directory names cannot express.
+     *
+     * It is also one subprocess for the whole tree, where the previous `check-ignore` per file was one
+     * per file.
+     *
+     * A SUBMODULE appears as a single entry (its gitlink path) and its contents do not, which is exactly
+     * right for both callers: the copier adds `altea` fresh, and an upgrade must never edit the framework
+     * it is being run by. {@link isGitlink} is how a caller drops those entries.
+     *
+     * @param pathspec  limit to a directory or glob — `"eastwind"`, `"eastwind/.env*"`. A pathspec also
+     *                  limits the WALK, which matters: enumerating ignored files without one descends into
+     *                  `node_modules` and produces megabytes.
+     */
+    export function trackedFiles(cwd: string, pathspec?: string): string[] {
+        return list(cwd, ["ls-files", "-z"], pathspec);
+    }
+
+    /** Files present but not yet committed, EXCLUDING ignored ones — new work a copy should carry over. */
+    export function untrackedFiles(cwd: string, pathspec?: string): string[] {
+        return list(cwd, ["ls-files", "-z", "--others", "--exclude-standard"], pathspec);
+    }
+
+    /**
+     * Files git IGNORES. Always pass a pathspec — see {@link trackedFiles}. The one caller wants the
+     * `.env.<environment>` files, which are ignored on purpose and wanted anyway.
+     */
+    export function ignoredFiles(cwd: string, pathspec: string): string[] {
+        return list(cwd, ["ls-files", "-z", "--others", "--ignored", "--exclude-standard"], pathspec);
+    }
+
+    /**
+     * Whether a listed path is a SUBMODULE rather than a file. `ls-files` reports a submodule as one
+     * entry; on disk that entry is a directory, which is the cheapest way to tell them apart (the
+     * alternative, `ls-files --stage` and a mode-160000 test, parses more to learn the same thing).
+     */
+    export function isGitlink(cwd: string, relativePath: string): boolean {
+        const full = join(cwd, relativePath);
+        return existsSync(full) && statSync(full).isDirectory();
+    }
+
+    function list(cwd: string, args: string[], pathspec?: string): string[] {
+        const full = pathspec == undefined ? args : [...args, "--", pathspec];
+        // -z: NUL-separated, so a path with a space, a quote or a non-ASCII character comes back intact
+        // (git QUOTES such paths in its default output, which would have to be un-quoted).
+        return must(cwd, full).split("\0").filter(p => p !== "");
     }
 }

@@ -23,16 +23,6 @@ export class ApplicationContext {
     /** The application's directory name, which is also its package name — `eastwind`, or what it became. */
     readonly applicationName: string;
 
-    /**
-     * Directories no tool ever descends into: build output, dependencies, VCS metadata, the generated
-     * CodeGen folder, and `altea/` — the framework is a submodule with its own history, and a tool that
-     * edited it would be rewriting the thing doing the editing.
-     */
-    static defaultIgnoreDirectories = [
-        "node_modules", "dist", "ts_out", "obj", "bin", "CodeGen", "TensorFlowModels",
-        ".git", ".vs", ".vscode", ".idea", "altea", "old",
-    ];
-
     constructor(rootFolder: string, applicationName: string) {
         this.rootFolder = rootFolder;
         this.applicationName = applicationName;

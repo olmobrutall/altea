@@ -44,6 +44,26 @@ and nothing here touches an entity or a query. Plain `tsc`.
 `fast-xml-parser` stays: `Modules.xml` is XML, and a hand-rolled reader for it would be a second parser to
 maintain for no gain.
 
+## What gets copied, and what gets swept
+
+Neither question is answered by a list in the source. **git already knows.**
+
+`altea-clone` copies every file the repository TRACKS, plus anything new that is not ignored, plus the
+`.env.<environment>` files — ignored on purpose and wanted anyway. `altea-upgrade` sweeps the same set
+when an upgrade asks `forEachCodeFile`.
+
+That replaces a hand-written list of directory names (`node_modules`, `dist`, `ts_out`, `obj`, `bin`,
+`CodeGen`, `TensorFlowModels`, `.git`, `.vs`, …) which had to be kept in step with reality, could not
+express a nested `.gitignore`, and cost one `git check-ignore` subprocess PER FILE. It is now one
+`git ls-files` for the whole tree.
+
+It also settles two things for free:
+
+- **Submodules.** git lists one entry for a submodule and none of its contents, so `altea/` (added fresh
+  by the clone) and `old/` (the Signum sources a new application ports from nothing) are excluded
+  without naming them — and an upgrade can never edit the framework running it.
+- **`.gitmodules`** is the single exclusion, because the new repository writes its own.
+
 ## Using them
 
 ```bash

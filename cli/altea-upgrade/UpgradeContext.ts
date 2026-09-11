@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { ApplicationContext, Color, Console } from "@altea/altea-cli-utils";
+import { ApplicationContext, Color, Console, Git } from "@altea/altea-cli-utils";
 import { CodeFile, WarningLevel } from "./CodeFile.js";
 
 /**
@@ -54,9 +54,9 @@ export class UpgradeContext extends ApplicationContext {
      * `*.ext` suffixes (Signum's own shape), matched against the file NAME.
      */
     forEachCodeFile(searchPattern: string, action: (file: CodeFile) => void,
-        options?: { directory?: string; codeWarning?: WarningLevel; directoryWarning?: WarningLevel; ignoreDirectories?: string[] }): void {
+        options?: { directory?: string; codeWarning?: WarningLevel; directoryWarning?: WarningLevel }): void {
         const files = this.getCodeFiles(options?.directory ?? ".", searchPattern,
-            options?.ignoreDirectories, options?.directoryWarning ?? WarningLevel.Error);
+            options?.directoryWarning ?? WarningLevel.Error);
 
         for (const file of files) {
             file.warningLevel = options?.codeWarning ?? WarningLevel.None;
@@ -65,31 +65,37 @@ export class UpgradeContext extends ApplicationContext {
         }
     }
 
-    getCodeFiles(directory: string, searchPattern: string, ignoreDirectories?: string[],
+    /**
+     * The files under `directory` an upgrade may edit — asked of GIT rather than walked.
+     *
+     * That is the whole ignore rule: `.gitignore` already says what belongs to the project, in one
+     * place, for every tool. A list of directory names here would drift from it, could not express a
+     * nested `.gitignore`, and was one `check-ignore` subprocess per file. It also excludes SUBMODULES
+     * for free — an upgrade must never edit the framework it is being run by.
+     *
+     * Two consequences worth knowing, both harmless in practice:
+     *  - a file an upgrade CREATED in this run is untracked, so a later sweep in the same upgrade will
+     *    not see it. Create it and edit it directly; do not create it and then sweep for it.
+     *  - uncommitted NEW files are included (`--others`), which matters only in theory: the runner
+     *    refuses to start on a dirty tree, so there are none.
+     */
+    getCodeFiles(directory: string, searchPattern: string,
         showWarnings: WarningLevel = WarningLevel.Error): CodeFile[] {
         const patterns = searchPattern.split(",").map(p => p.trim()).filter(p => p !== "");
-        const ignore = ignoreDirectories ?? UpgradeContext.defaultIgnoreDirectories;
-        const absolute = this.absolutePath(directory);
+        const relative = this.replaceApplicationName(directory);
 
-        if (!fs.existsSync(absolute)) {
-            this.missing(`directory ${directory} not found`, showWarnings);
+        if (!fs.existsSync(this.absolutePath(directory))) {
+            this.missing(`directory ${relative} not found`, showWarnings);
             return [];
         }
 
-        const result: CodeFile[] = [];
-        const walk = (dir: string): void => {
-            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-                const full = path.join(dir, entry.name);
-                if (entry.isDirectory()) {
-                    if (!ignore.includes(entry.name))
-                        walk(full);
-                } else if (patterns.some(p => matches(entry.name, p))) {
-                    result.push(new CodeFile(path.relative(this.rootFolder, full), this));
-                }
-            }
-        };
-        walk(absolute);
-        return result;
+        const pathspec = relative === "." ? undefined : relative;
+
+        return [...Git.trackedFiles(this.rootFolder, pathspec),
+            ...Git.untrackedFiles(this.rootFolder, pathspec)]
+            .filter(f => patterns.some(pattern => matches(path.basename(f), pattern)))
+            .filter(f => !Git.isGitlink(this.rootFolder, f))
+            .map(f => new CodeFile(f, this));
     }
 
     createCodeFile(fileName: string, content: string, fileWarning: WarningLevel = WarningLevel.Error): void {
