@@ -334,10 +334,29 @@ export namespace OperationLogic {
      */
     export let logOperation: (log: OperationLogEntity) => boolean = () => true;
 
-    // Signum's OperationLogic.Start: wires the OperationSymbol table through SymbolLogic,
-    // seeding only the RegisteredOperations, and includes the OperationLogEntity table + its query
-    // (Signum's sb.Include<OperationLogEntity>().WithQuery(...)). Call AFTER the graphs have registered.
+    // Signum's OperationLogic.Start: wires the OperationSymbol table through SymbolLogic, seeding only the
+    // RegisteredOperations, and includes the OperationLogEntity table + its query (Signum's
+    // `sb.Include<OperationLogEntity>().WithQuery(...)`).
+    //
+    // MAY BE CALLED AT ANY POINT, and the modules' own `sb.include(X).with*` operation registrations may
+    // come before OR after it — which is what lets an app start it with the rest of the framework instead
+    // of remembering to put it last. The symbol list is read through a THUNK
+    // (`() => registeredOperations()`), and SymbolLogic evaluates that only when the table is GENERATED /
+    // SYNCHRONIZED / LOADED — every one of which happens after the whole schema is built. Nothing else
+    // here reads the registry either: the `PreviousOperationLog` / system-valid registrations are deferred
+    // to `schemaCompleted`, when the set of @systemVersioned tables is final.
+    //
+    // It used to be documented as "call AFTER the graphs have registered", which was never true of the
+    // thunk and only ever true of the order it happened to be written in. What DOES still depend on this
+    // call is anything DECORATING the operation log — @altea/altea-diff-log, @altea/altea-time-machine —
+    // so those come after it.
+    //
+    // Idempotent (Signum's `sb.AlreadyDefined` guard), so a second call from a module that is not sure
+    // the app made one is a no-op rather than a duplicate `schemaCompleted` handler.
     export function start(sb: SchemaBuilder): void {
+        if (sb.alreadyDefined(start))
+            return;
+
         SymbolLogic.start(sb, OperationSymbol, () => registeredOperations());
         // Signum's `.WithIndex(a => a.Start)` — the operation log is browsed and swept by date.
         sb.include(OperationLogEntity).withIndex(a => a.start).withQuery();
