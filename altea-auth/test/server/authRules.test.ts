@@ -19,12 +19,14 @@ import { start, hasDb, asRole, role, Roles } from "./setup";
 describe("AuthRules", { skip: hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable" }, () => {
 
     let superR: RoleEntity, base: RoleEntity, sales: RoleEntity, manager: RoleEntity, restricted: RoleEntity;
+    let autoUpgrade: RoleEntity;
     let typeId: PrimaryKey;
 
     before(async () => {
         await start();
-        [superR, base, sales, manager, restricted] = await Promise.all([
+        [superR, base, sales, manager, restricted, autoUpgrade] = await Promise.all([
             role(Roles.Super), role(Roles.Base), role(Roles.Sales), role(Roles.Manager), role(Roles.Restricted),
+            role(Roles.AutoUpgrade),
         ]);
         typeId = TypeLogic.typeToId(SampleEntity);
     });
@@ -91,12 +93,23 @@ describe("AuthRules", { skip: hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run g
             return JSON.parse(Serializer.stringify(e, { authContext })) as Record<string, unknown>;
         };
 
-        test("Sales: `secret` (None) is hidden; `name` (no rule) follows the type's Read ⇒ read-only", async () => {
+        // The two halves of the AutomaticUpgradeOfProperties gate. A property with an explicit rule is
+        // unaffected by it either way; what the permission decides is what an UN-RULED one falls back to.
+        test("Sales (no auto-upgrade): `secret` (None) is hidden, and so is `name` (no rule at all)", async () => {
             const o = await asRole(sales, async () => ser(sample(false)));
             assert.equal(o.secret, undefined, "None property is omitted from the wire");
             assert.ok(Array.isArray(o.propsMeta));
             assert.ok((o.propsMeta as string[]).includes("!secret"), "propsMeta marks `secret` hidden");
-            assert.ok((o.propsMeta as string[]).includes("name"), "`name` (no rule) follows the type's Read ⇒ read-only");
+            // Sales lacks BasicPermission.AutomaticUpgradeOfProperties, so a property carrying no rule
+            // defaults to None rather than following the type's Read — hidden, not read-only.
+            assert.equal(o.name, undefined, "an un-ruled property is omitted too");
+            assert.ok((o.propsMeta as string[]).includes("!name"), "propsMeta marks `name` hidden");
+        });
+
+        test("AutoUpgrade (granted): `name` (no rule) follows the type's Read ⇒ read-only", async () => {
+            const o = await asRole(autoUpgrade, async () => ser(sample(false)));
+            assert.equal(o.name, "S", "a read-only property is still written");
+            assert.ok((o.propsMeta as string[]).includes("name"), "propsMeta marks `name` read-only");
         });
         test("Manager: `secret` (Read) is read-only (written + flagged); `name` (type Write) is writable", async () => {
             const o = await asRole(manager, async () => ser(sample(false)));

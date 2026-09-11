@@ -1,4 +1,4 @@
-import { describe, test, before } from "node:test";
+import { describe, test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -57,13 +57,37 @@ function regressionSettings(): NeuralNetworkSettingsEntity {
     });
 }
 
+// A network's weights are initialized RANDOMLY, and the convergence assertions below are absolute
+// ("the loss reached < 0.05"), so an unlucky init used to diverge and fail the run — observed once in
+// roughly sixteen, reporting a final loss of 48. tfjs derives its randomness from `Math.random` when an
+// initializer carries no seed of its own (`toInitializer` returns the bare string form), so seeding that
+// for the duration of the suite makes the weights — and therefore every loss below — DETERMINISTIC.
+// Verified: three separate processes produce bit-identical initial weights.
+//
+// This keeps the assertions strict rather than loosening them to accommodate a bad draw. If a future tfjs
+// stops seeding itself this way the suite becomes occasionally flaky again — it cannot become silently
+// wrong. The generator is the one AutoconfigureNeuralNetworkAlgorithm already uses for the same purpose.
+function mulberry32(seed: number): () => number {
+    let a = seed;
+    return () => {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
 describe("machine-learning engine", () => {
     let directory: string;
+    const realRandom = Math.random;
 
     before(() => {
+        Math.random = mulberry32(12345);
         directory = mkdtempSync(join(tmpdir(), "altea-ml-"));
         Engine.predictorDirectory = () => directory;
     });
+
+    after(() => { Math.random = realRandom; });
 
     test("a backend is available", async () => {
         const backend = await Engine.currentBackend();

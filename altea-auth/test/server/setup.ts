@@ -24,8 +24,8 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity, RoleEntity_InheritsFrom, MergeStrategy } from "@altea/altea-auth/data/Role";
 import {
     RuleTypeEntity, RuleTypeConditionEntity, RuleTypeConditionEntity_Condition,
-    RulePropertyEntity, RuleOperationEntity,
-    TypeAllowed, PropertyAllowed, OperationAllowed, TypeConditionSymbol,
+    RulePropertyEntity, RuleOperationEntity, RulePermissionEntity,
+    TypeAllowed, PropertyAllowed, OperationAllowed, TypeConditionSymbol, PermissionSymbol, BasicPermission,
 } from "@altea/altea-auth/data/Rules";
 import {
     SampleEntity, SamplePanelEntity, SampleWidgetEntity, SampleLogEntity,
@@ -51,6 +51,12 @@ export const Roles = {
     Sales: "AuthTest_Sales",
     /** Union, inherits Sales. Overrides Sample type Write + `secret` Read; INHERITS Save (auto-propagate). */
     Manager: "AuthTest_Manager",
+    /**
+     * Sales' rules exactly (Sample type Read), PLUS `BasicPermission.AutomaticUpgradeOfProperties`. It
+     * exists to pin the OTHER side of that gate: with the permission, a property carrying no rule of its
+     * own follows its type (Read ⇒ read-only); without it — every other role here — it is hidden.
+     */
+    AutoUpgrade: "AuthTest_AutoUpgrade",
     /** Union + no parents. Sample: fallback None + condition [Public] → Read (row-level). */
     Restricted: "AuthTest_Restricted",
     /**
@@ -152,6 +158,7 @@ async function seed(): Promise<void> {
     await mkRole(Roles.Base, MergeStrategy.Union, []);
     const sales = await mkRole(Roles.Sales, MergeStrategy.Union, [await role(Roles.Base)]);
     const manager = await mkRole(Roles.Manager, MergeStrategy.Union, [sales]);
+    const autoUpgrade = await mkRole(Roles.AutoUpgrade, MergeStrategy.Union, []);
     const restricted = await mkRole(Roles.Restricted, MergeStrategy.Union, []);
     const logReader = await mkRole(Roles.LogReader, MergeStrategy.Union, [restricted]);
 
@@ -168,6 +175,16 @@ async function seed(): Promise<void> {
     await RuleTypeEntity.create({ role: sales.toLite(), resource: typeLite, fallback: TypeAllowed.Read, conditionRules: [] }).save();
     await RulePropertyEntity.create({ role: sales.toLite(), resource: secretRoute, fallback: PropertyAllowed.None, conditionRules: [] }).save();
     await RuleOperationEntity.create({ role: sales.toLite(), operation: saveOp, type: typeLite, fallback: OperationAllowed.Allow, conditionRules: [] }).save();
+
+    // AutoUpgrade: Sales' type rule, plus the permission that turns an un-ruled property back into
+    // "follow the type" instead of None.
+    await RuleTypeEntity.create({ role: autoUpgrade.toLite(), resource: typeLite, fallback: TypeAllowed.Read, conditionRules: [] }).save();
+    await RulePermissionEntity.create({
+        role: autoUpgrade.toLite(),
+        resource: PermissionSymbol.newLite(
+            BasicPermission.AutomaticUpgradeOfProperties.id, BasicPermission.AutomaticUpgradeOfProperties.key),
+        allowed: true,
+    }).save();
 
     // Manager: overrides the type (Write) + secret (Read); NO Save rule → inherits Sales' Allow.
     await RuleTypeEntity.create({ role: manager.toLite(), resource: typeLite, fallback: TypeAllowed.Write, conditionRules: [] }).save();

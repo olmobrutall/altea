@@ -6,6 +6,7 @@ import "@altea/altea/server/fluentOperations"; // FluentInclude.withStateMachine
 import { Graph } from "@altea/altea/server/graph";
 import { Operations, OperationLogic } from "@altea/altea/server/operationLogic";
 import { CollectionMessage } from "@altea/altea/data/dynamicQueries";
+import { toInt } from "@altea/altea/data/basics";
 import "@altea/altea/data/globals"; // Array.prototype.joinComma
 import { AlbumEntity, AlbumState, ArtistEntity } from "../../data/music";
 import { AlbumOperation } from "../../data/music";
@@ -116,8 +117,14 @@ describe("OperationLogic / fluent operations", () => {
     });
 
     test("constructFrom builds a new entity from a source", async () => {
-        const source = AlbumEntity.create({ state: AlbumState.Saved, name: "Original" });
-        source.isNew = false; // constructFrom rejects a new source unless canBeNew
+        // `author` is not padding: the log's `toLite()` renders `toString()`, which reads it.
+        const source = AlbumEntity.create({
+            state: AlbumState.Saved, name: "Original", author: ArtistEntity.create({ name: "A1" }),
+        });
+        // Saved means saved: constructFrom rejects a new source unless canBeNew, and the operation LOG it
+        // writes takes the origin's `toLite()`, which refuses an entity with no id. Clearing `isNew`
+        // without giving one leaves a state no retrieved entity is ever in.
+        source.id = toInt(1); source.isNew = false;
         const clone = await offline(() => Operations.constructFrom(source, AlbumOperation.Clone));
         assert.ok(clone instanceof AlbumEntity);
         assert.notEqual(clone, source);

@@ -4,8 +4,10 @@ import { waitVisible } from "../PlaywrightExtensions";
 // Port of Signum.Playwright's Search/QueryTokenBuilderProxy.cs + QueryTokenPartProxy.cs — the chain of
 // dropdowns that builds a query token ("Customer.Name", "Entity.CreationDate", …).
 //
-// altea's tokens are ROOTLESS and camelCase (CLAUDE.md), so a test writes `setToken("customer.name")`, not
-// Signum's `"Entity.Customer.Name"` — the DOM contract (`data-full-token` per option) is identical.
+// altea's tokens are ROOTLESS but PascalCase like Signum's (CLAUDE.md), so a test writes
+// `setToken("Customer.Name")`, not Signum's rooted `"Entity.Customer.Name"` — the DOM contract
+// (`data-full-token` per option) is identical. The match below is on that attribute EXACTLY, so the
+// casing is not forgiving here the way the server's token resolution is.
 export class QueryTokenBuilderProxy {
 
     constructor(readonly element: Locator) { }

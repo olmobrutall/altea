@@ -7,7 +7,7 @@
 //     await browser.login("System", "System");
 //
 //     await scoped(browser.searchPage("Order"), async search => {
-//         await search.filters.addFilterFor("customer.name", "Contains", "Maria");
+//         await search.filters.addFilterFor("Customer.Name", "Contains", "Maria");
 //         await search.search();
 //
 //         await scoped(search.results.entityClickModal(0, OrderEntity), async order => {

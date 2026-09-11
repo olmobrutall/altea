@@ -2,6 +2,8 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import { table } from "@altea/altea/server/table";
+import { Connector } from "@altea/altea/server/connection/connector";
+import { SchemaBuilder } from "@altea/altea/server/schema";
 import { ClassType } from "@altea/altea/server/runtimeTypes";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
@@ -10,6 +12,7 @@ import { DQueryable } from "@altea/altea/server/dynamicQuery/dQueryable";
 import { DEnumerable } from "@altea/altea/server/dynamicQuery/dEnumerable";
 import { FilterGroup, FilterGroupOperationKeys, FilterCondition, FilterOperationKeys } from "@altea/altea/server/dynamicQuery/requests";
 import "@altea/altea/server/dynamicQuery/tokenExpressions";
+import { MusicLogic } from "../MusicLogic";
 import { AlbumEntity } from "../../data/music";
 
 // Phase-5: in-memory quantifier eval. The DEnumerable interpreter (evalExpr) runs a FilterGroup
@@ -17,6 +20,22 @@ import { AlbumEntity } from "../../data/music";
 // and an outer condition correlate in memory, matching the SQL EXISTS form.
 
 const O = SubTokensOptionsAll;
+
+const sb = new SchemaBuilder();
+sb.settings.isPostgres = false;
+MusicLogic.start(sb);
+sb.complete();
+// Building a STRING filter's expression asks the ACTIVE CONNECTOR for its dialect (requests.ts's
+// `toLowerStringFilter` — altea's dialect is per-connection, where Signum's is process-wide), so even a
+// DB-free case needs one in scope. Same fixture every sibling suite in this folder declares.
+class FakeConnector extends Connector {
+    constructor() { super(sb.schema, false, 128); }
+    override executeQuery(): Promise<unknown[]> { return Promise.resolve([]); }
+    openConnection(): Promise<any> { throw new Error("not used"); }
+    closeConnection(): Promise<void> { return Promise.resolve(); }
+    cleanDatabase(): Promise<void> { return Promise.resolve(); }
+}
+const fake = new FakeConnector();
 const et = () => {
     return new RootToken(AlbumEntity);
 };
@@ -37,7 +56,7 @@ describe("in-memory FilterGroup any/all", () => {
             new FilterCondition(tok("songs.Any.name"), FilterOperationKeys.EqualTo, "X"),
             new FilterCondition(tok("year"), FilterOperationKeys.EqualTo, 20),
         ]);
-        const filtered = new DEnumerable(rows(), context).where([group]);
+        const filtered = Connector.withConnector(fake, () => new DEnumerable(rows(), context).where([group]));
         assert.equal(filtered.collection.length, 1);
         assert.equal((filtered.collection[0] as any).year, 20);
     });
@@ -47,7 +66,7 @@ describe("in-memory FilterGroup any/all", () => {
             new FilterCondition(tok("songs.All.name"), FilterOperationKeys.EqualTo, "X"),
         ]);
         // Only row 3 ({songs:[X]}) has ALL songs named X.
-        const filtered = new DEnumerable(rows(), context).where([group]);
+        const filtered = Connector.withConnector(fake, () => new DEnumerable(rows(), context).where([group]));
         assert.deepEqual(filtered.collection.map((r: any) => r.year), [99]);
     });
 
@@ -56,7 +75,7 @@ describe("in-memory FilterGroup any/all", () => {
             new FilterCondition(tok("songs.NotAny.name"), FilterOperationKeys.EqualTo, "X"),
         ]);
         // Only row 2 ({songs:[Z]}) has NO song named X.
-        const filtered = new DEnumerable(rows(), context).where([group]);
+        const filtered = Connector.withConnector(fake, () => new DEnumerable(rows(), context).where([group]));
         assert.deepEqual(filtered.collection.map((r: any) => JSON.stringify(r.songs)), ['[{"name":"Z"}]']);
     });
 
@@ -65,7 +84,7 @@ describe("in-memory FilterGroup any/all", () => {
             new FilterCondition(tok("songs.Any.name"), FilterOperationKeys.EqualTo, "X"),
         ]);
         // Rows with any song named X: rows 1 and 3.
-        const filtered = new DEnumerable(rows(), context).where([group]);
+        const filtered = Connector.withConnector(fake, () => new DEnumerable(rows(), context).where([group]));
         assert.deepEqual(filtered.collection.map((r: any) => r.year), [20, 99]);
     });
 });

@@ -45,7 +45,10 @@ const base = () => { const q = table(AlbumEntity); return q.toDQueryable(); };
 const whereSql = (group: FilterGroup) =>
     Connector.withConnector(fake, () =>
         QueryFormatter.format(base().where([group]).select([tok("name")]).bindProjection().select, false).sql.replace(/\s+/g, " ").toLowerCase());
-const body = (group: FilterGroup) => group.getExpression(base().context).toString();
+// Wrapped for the same reason `whereSql` is: a STRING condition reads the dialect off the active
+// connector, and that happens while the expression is BUILT, not only when it is formatted.
+const body = (group: FilterGroup) =>
+    Connector.withConnector(fake, () => group.getExpression(base().context).toString());
 
 describe("collections expose the quantifier tokens", () => {
     test("songs → Any / All / NotAny / NotAll", () => {
@@ -88,7 +91,8 @@ describe("FilterGroup with an Any/All token → correlated subquery", () => {
         ]);
         assert.equal(body(g), "e.songs.some(_a => ((_a.name == X) && (e.year == 20)))");
         const sql = whereSql(g);
-        assert.match(sql, /where exists\(select .* from dbo\.album_songs/);
+        // The owned-row table is named after the ROW ENTITY (AlbumEntity_Song), not after the collection.
+        assert.match(sql, /where exists\(select .* from dbo\.album_song/);
         assert.match(sql, /albumid = a\.id/);   // correlated to the outer album
         assert.match(sql, /\.name = @p/);        // element condition
         assert.match(sql, /a\.year = @p/);       // outer condition, same subquery
