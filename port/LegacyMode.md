@@ -32,9 +32,10 @@ rule, unconditionally; see `cleanTypeName` in `data/registration`.
 | --- | --- | --- |
 | 1 | A `@part` row table joins to its owner with a SINGLE underscore on Postgres, not a double one — `role_inherits_from`, not `role__inherits_from`. Inert on SQL Server, which produces neither. | `physicalTableName` |
 | 2 | A COLLECTION row is named after the owner's table plus the collection PROPERTY, not after the row entity — `user_query_columns`, not `user_query_column`. Composed from the NameSequence down the property route, so a collection declared inside an embedded contributes both members (`application_configuration_azure_ad_role_mapping`). Recurses through `settings.tableName`, so a part owning a part composes, and an app's override is respected. | `legacyCollectionTableName` |
-| 3 | `@legacyTableName("WordTemplate")` — a declared Signum NAME wins over both derived rules, for a type altea simply renamed. | `SchemaSettings.tableName` |
+| 3 | `@legacyTableName("WordTemplate")` — a declared Signum NAME wins over both derived rules. An OVERRIDE: a type that declares `@legacyClassName` already derives its Signum table name from it (rule 5), so this is for the table that does not follow. | `SchemaSettings.tableName` |
 | 4 | `@legacyTableName({ wasVirtualMList: true })` says Signum has NO MList table for the collection holding this type (it modelled it as a standalone Entity behind a virtual MList), so rule 2 stands down and the ordinary derived name is right. | `mlistRowOwner` |
-| 5 | `@legacyCleanName` — the CLEAN NAME Signum gives a type altea renamed. Type-level sibling of `@legacyColumnName`. | `data/decorators` |
+| 5 | `@legacyClassName("WordTemplateEntity")` — the C# CLASS name Signum has for a type altea renamed, and the ROOT of the three names: the CLEAN name follows by stripping the kind suffix, the TABLE name follows from that. Declared because Signum STORES it (`TypeEntity.className`) and keeps synchronizing that column back to its own answer. | `legacyCleanNameOf` / `classNameOf` |
+| 5b | `@legacyCleanName` — an OVERRIDE of the clean name rule 5 derives, for the type whose two Signum names do not follow the ordinary suffix rule. | `data/decorators` |
 | 6 | An MList table follows its OWNER's schema, whatever package the element type is declared in — Signum's `GenerateTableNameCollection` takes the schema from the owner and never asks where the element came from. Only shows where the two differ (`AzureADRoleMappingEmbedded` is declared in `auth` but held by the app's own configuration, so Signum's table is `public.application_configuration_azure_ad_role_mapping`). | `schemaForType` |
 | 7 | `@legacyColumnName("ResourceOperationID")` — the LOGICAL name Signum gives a field's column, for a field altea models differently but which occupies one column. Still goes through `idiomatic`, so one declaration is right on both dialects. | `legacyColumnName` |
 | 8 | An MList row's back reference is `ParentID` — ONE column whatever the owner is, because in Signum an MList table has no polymorphic parent at all. The `_<Impl>` suffix that disambiguates an ordinary `@implementedBy` has nothing to disambiguate, and there must be exactly one implementation to name. | `generateField` |
@@ -89,5 +90,12 @@ only affects READING.
 Prefer DERIVING the answer over a new decorator. `mlistRowOwner` is the workhorse: *is this `@part` row
 altea's stand-in for a Signum MLIST TABLE, and if so whose?* Ten of the rules above are that one question
 asked in different places. A decorator is for what cannot be derived — `@legacyTableName`,
-`@legacyColumnName`, `@legacyCleanName`, `@legacyPropertyRoute`, `wasVirtualMList` — i.e. a fact about what
-Signum CALLED something, which nothing in the TypeScript records.
+`@legacyColumnName`, `@legacyClassName`, `@legacyPropertyRoute`, `wasVirtualMList` — i.e. a fact about what
+Signum CALLED something, which nothing in the TypeScript records. And prefer ONE declaration to three:
+`@legacyClassName` is the root the other two names derive from, so `@legacyCleanName` / `@legacyTableName`
+are for where that chain does not land on Signum's answer.
+
+Every one of them is read ONLY while legacy mode is on. The flag lives in the DATA layer
+(`setLegacyMode` / `isLegacyMode` in `data/registration`) because both tiers resolve a clean name and a
+client has no schema; `SchemaSettings.legacyMode` is an accessor over it, and constructing a
+SchemaSettings clears it, so a build that says nothing about legacy mode gets altea's own names.

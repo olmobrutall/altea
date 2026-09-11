@@ -149,7 +149,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
       whole `propertyString()` and read the same only because the UI re-rooted at every entity; it takes
       the last step now, so an order line's cell says `Product` as every other line does — which is the
       contract altea-playwright's per-step narrowing is built on.
-    **An existing altea database needs `eastwind/terminal/migratePartRoutes.ts` BEFORE the sync** — the
+    **An existing altea database needs `eastwind/terminal/migratePartRoutes.ts` (removed — recover it from git history, or write the .sql migration it replaces) BEFORE the sync** — the
     synchronizer sees every part-rooted row as REMOVED and the DELETE cascades to every consumer.
   - **A `@part` gets a `TypeEntity` ROW unless it IS a legacy MList table.** `typedTables` skips
     `table.legacyMode && table.isMListRow`, and that predicate (`mlistRowOwner`) is the whole of the
@@ -238,7 +238,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     older decisions: the `auth` schema every altea-auth table lives in, and `applicationID` /
     `directoryID` being `string` rather than `Guid`. **An existing altea database needs a `sync`**
     (three tables drop, ~30 columns move onto `application_configuration`); eastwind's dev database
-    held no rows in any of them. Pinned end to end by `eastwind/terminal/probeEmbeddedCollection.ts`
+    held no rows in any of them. Pinned end to end by `eastwind/terminal/probes/probeEmbeddedCollection.ts`
     (25 checks), which is where the cross-package back reference is exercised against a real database.
   - **`SmtpNetworkDeliveryEmbedded` went back too, and it needed no widening** — its owner
     (`SmtpEmailServiceEntity`) is in the same package, so the row type names it directly. Its columns are
@@ -246,7 +246,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     `smtp_email_service_network_client_certification_files`, both Signum's exactly: a Southwind sync now
     scripts NOTHING for the whole SMTP sender configuration. Signum does NOT mark that MList
     `[PreserveOrder]`, so the `@rowOrder` altea had added is gone with it. **An existing altea database
-    needs `eastwind/terminal/migrateSmtpNetwork.ts` BEFORE the sync**: the sync would add the `network_*`
+    needs `eastwind/terminal/migrateSmtpNetwork.ts` (removed — recover it from git history, or write the .sql migration it replaces) BEFORE the sync**: the sync would add the `network_*`
     columns and drop the table in one script, losing every configured host and credential.
     @altea/altea-mailing-pop3's `ClientCertificationFiles` carried the same spurious `@rowOrder` and
     lost it too — its collection hangs off an ENTITY, so it needed nothing else.
@@ -267,7 +267,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     identical either way. The row also loses a `@rowOrder` altea had invented: Signum marks that MList
     `[NoRepeatValidator, BindParent]` and NOT `[PreserveOrder]`. Both tables now script NOTHING against
     a Signum database: 373 → 347 statements.
-    **An existing altea database needs `eastwind/terminal/migrateEmailTemplateAddress.ts` BEFORE the
+    **An existing altea database needs `eastwind/terminal/migrateEmailTemplateAddress.ts` (removed — recover it from git history, or write the .sql migration it replaces) BEFORE the
     sync** — otherwise the sync adds the flattened columns, drops `from_id` and DROPS the From table in
     one script, so every template loses who it is sent FROM, leaving templates that look configured and
     cannot send. The recipients need nothing: their row keeps its column names, and only drops an `Order`
@@ -349,7 +349,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
 - **`Type<T>` is the ONE entity-type handle, and it is a constructor** (Signum's `GenericType` is gone; `EnumEntity.typeFor` → a bound ctor). It is `abstract new (...args: any[]) => T`, so an ABSTRACT base (`CustomerEntity`, `AwardEntity`) is a valid handle — an operation or a rule may be attached to one and inherited by its implementations. There used to be a second, abstract-tolerant `EntityType<T>` beside it; two handles for one concept meant every signature had to pick a side, so they are merged. The few places that INSTANTIATE narrow explicitly — `newInstance(type)` (the Retriever building a row, the serializer, the enum-table synchronizer) — and `Entity.create`'s `this` stays `new () => T`, because a factory cannot be abstract-tolerant.
 - **UI Lines read their type from `ctx.memberType`**, not an explicit `type={…}` prop. `AutoLine` dispatches to the right editor (text/number/date/enum/entity picker) from it — so many of Signum's parallel rules collapse into one.
 - **Dates: luxon → `Temporal`** (`PlainDate` / `PlainDateTime` / `PlainTime` / `Duration`).
-- **Culture: a `CultureInfoEntity` table like Signum's, but the user's pick is a request HEADER, not a cookie.** `CultureInfoEntity` (`data/cultureInfoEntity` + `server/cultureInfoLogic`) is the application's supported-culture table, and it is what every persisted culture REFERENCES rather than a free-text tag: an email / Office template's `culture` (`Lite<CultureInfoEntity>`, as in Signum) and @altea/altea-email's / @altea/altea-sms's `defaultCulture` (a full reference, as in Signum). **An existing altea database needs `eastwind/terminal/migrateDefaultCulture.ts` BEFORE the sync** — the two configuration columns were locale strings, and the sync adds the NOT NULL FK and drops the varchar in one script, so the settings row would come back pointing at no culture at all. `nativeName`/`englishName` come from `Intl.DisplayNames` where Signum uses .NET `CultureInfo`; a lookup falls back from a specific culture to its language ("en-US" → "en"). Where altea diverges:
+- **Culture: a `CultureInfoEntity` table like Signum's, but the user's pick is a request HEADER, not a cookie.** `CultureInfoEntity` (`data/cultureInfoEntity` + `server/cultureInfoLogic`) is the application's supported-culture table, and it is what every persisted culture REFERENCES rather than a free-text tag: an email / Office template's `culture` (`Lite<CultureInfoEntity>`, as in Signum) and @altea/altea-email's / @altea/altea-sms's `defaultCulture` (a full reference, as in Signum). **An existing altea database needs `eastwind/terminal/migrateDefaultCulture.ts` (removed — recover it from git history, or write the .sql migration it replaces) BEFORE the sync** — the two configuration columns were locale strings, and the sync adds the NOT NULL FK and drops the varchar in one script, so the settings row would come back pointing at no culture at all. `nativeName`/`englishName` come from `Intl.DisplayNames` where Signum uses .NET `CultureInfo`; a lookup falls back from a specific culture to its language ("en-US" → "en"). Where altea diverges:
   - the user's CHOICE lives in the BROWSER (`CultureClient`, localStorage) — Signum stores it server-side per user — and rides on every call as a bare `Accept-Language` tag, which `webApi` turns into a per-request `CultureInfo.withCultures` scope (Signum's ASP.NET request localization). Without that scope every SERVER-resolved label — a registered expression's niceName, validation and exception messages — answers in the process default no matter who asked, and a per-culture CACHE keyed on `currentCulture()` serves whichever language warmed it first to everyone.
   - switching culture RELOADS the page. Signum re-fetches its types and soft-resets, because all its labels are client-resolved; altea has server-resolved labels baked into already-fetched responses, which a soft `resetUI()` leaves stale.
   - Translation files live in EACH PACKAGE's own `translations/` directory (`altea/altea-workflow/translations/Altea.Workflow.es.xml`), not in one per-app folder as in Signum — a module's translations travel with the module, so any application that installs it gets them for free. At boot `loadAppTranslations` walks the app's dependency graph (through packages that depend on `@altea/altea`), loads each module's directory in package-name order, and loads the app's own `<appRoot>/translations` LAST so an app file wins a key collision. A Signum module renamed in altea (Word* → Office*) needs its ported XML's Type/Member NAMES remapped, or none of it lands.
@@ -444,7 +444,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     designer to mixins and non-collection embeddeds).
   - **an existing ALTEA database needs a DATA migration, not just a `sync`.** The sync would add each new FK
     column with a default of 0 and drop the old ones in the same script, losing every row's route and then
-    failing on the new foreign key. `eastwind/terminal/migratePropertyRoutes.ts` does the conversion first
+    failing on the new foreign key. `eastwind/terminal/migratePropertyRoutes.ts` (removed — recover it from git history, or write the .sql migration it replaces) does the conversion first
     (idempotent, one transaction): it creates the table, inserts a route per distinct (rootType, path) each
     consumer names — deriving the root type from the owner where the table did not store one — and points
     each row at its route; then the ordinary `sync` has only the old columns left to drop. A SIGNUM database
@@ -452,7 +452,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     16 property rules and 1 dynamic validation converted with nothing lost.
   Also aligned while in these tables: the four auth rule unique indexes now use Signum's member order
   `(resource, role)` instead of `(role, resource)` — eight lines of DDL churn a Southwind sync no longer
-  emits. Pinned by `eastwind/terminal/probePropertyRoute.ts` (42 checks: the six tables' shape, that
+  emits. Pinned by `eastwind/terminal/probes/probePropertyRoute.ts` (42 checks: the six tables' shape, that
   resolution is idempotent rather than duplicating, that the serializer hook snaps a client-built route onto
   the persisted row and leaves an unknown one new, that every consumer's delete cascade is registered, and
   each rule the expression-route seam turns on — including that normal mode adds nothing).
@@ -476,7 +476,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     element tables — altea's workaround for the row id being an int, which their own comments said so. It is
     gone, the primary key IS that guid, and Signum's tables have no such column either. **An existing altea
     database must promote the guid INTO the primary key before the sync**
-    (`eastwind/terminal/migrateRowGuids.ts`), or the ordinary int→uuid migration assigns fresh ids and then
+    (`eastwind/terminal/migrateRowGuids.ts` (removed — recover it from git history, or write the .sql migration it replaces)), or the ordinary int→uuid migration assigns fresh ids and then
     drops the column, silently breaking every reference: an exported dashboard/toolbar XML names a
     part/element by it, and a tour's "DashboardPart" css step stores it as a plain string with no FK to
     cascade. The other six had an int id and nothing to preserve, so they get fresh uuids — safe only
@@ -504,7 +504,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     is safe (an unprobed capability reads as modern). An existing PostgreSQL 18 database is upgraded by
     the next sync — one `SET DEFAULT` per uuid table, changing no stored value; one on an older server
     keeps v1 because the model asks for v1 there, so neither churns.
-  Pinned by `eastwind/terminal/probeRowGuids.ts` (55 checks: the thirteen primary keys and their generator, the three dropped
+  Pinned by `eastwind/terminal/probes/probeRowGuids.ts` (55 checks: the thirteen primary keys and their generator, the three dropped
   guid columns, each matching rule including the two refusals, and an end-to-end export + re-import of a
   real UserQuery that keeps every filter and column row id). Full ledger:
   **[altea/port/UserAssets.md](altea/port/UserAssets.md)**.
@@ -542,7 +542,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     `ChangeLogViewLogEntity.user` declares no implementations so core needn't reference altea-auth — the
     app widens it, the accommodation `VisualTipConsumedEntity.user` already makes. `basics.change_log_view_log`
     needs a `sync` and matches Signum's table column for column, bar the app-wide nullable-implementedBy
-    divergence (seven tables share it). Pinned by `eastwind/terminal/probeChangeLog.ts` (19 checks).
+    divergence (seven tables share it). Pinned by `eastwind/terminal/probes/probeChangeLog.ts` (19 checks).
 - **`SemiSymbol` EXISTS** (`data/semiSymbol` + `server/semiSymbolLogic`), as Signum's sibling of `Symbol`: a row that may be DECLARED in code (it gets a `key`, like a Symbol) or created by a USER at runtime (only a `name`). That is why its key is NULLABLE and why it derives from `Entity` rather than `Symbol` — a SemiSymbol table is user-writable (`@entity("String")`, its own Save operation), so it is not "seeded". The one rule that matters is in its synchronizer: only rows WITH a key take part in the diff (Signum's `current.Where(c => c.Key.HasText())`), so a row a user created is never deleted by a sync. `AlertTypeSymbol`, `AgentSymbol` and `NoteTypeSymbol` are SemiSymbols; everything else stays a `Symbol`. The quote-transformer recognises BOTH roots, so `init()` works on either.
   **`SymbolLogic.start` registers the type's QUERY**, as Signum's `SymbolLogic<T>.Start` does (`sb.Include<T>().WithQuery(…)`) — altea included the table and left the query to each module, so a symbol type nobody thought to add `withQuery()` for had no `basics.query` row: `Operation`, `Permission`, `TypeCondition`, `ChartScript`, `TourTrigger` and `VisualTip`, all of which a Signum database has, and whose search page is how a symbol is looked up at all. It is idempotent with the nine modules that already call it. `SemiSymbolLogic.start` deliberately does NOT, exactly as Signum's does not: a SemiSymbol table is user-writable, so its module decides whether it has a page.
 - **`@ticksColumn(true|false)`** (Signum's `[TicksColumn]`): whether the table carries a concurrency stamp. A Ticks column earns its place where a row is edited by PEOPLE, one at a time, so the DEFAULTS are: a **`@part` row has NONE** — it is reached and saved through its owner, whose own stamp guards the aggregate, and it is never edited alone — a SEEDED table has none, and everything else has one. The decorator overrides either default: `false` for logs and engine-written rows (Exception, OperationLog, Process, PackageLine, EmailPackage, the migration rows, SemiSymbol), `true` for a part that really is edited on its own. Unlike every other class-level flag it is INHERITED (a SemiSymbol subclass gets it from the base, as in Signum).
@@ -1386,7 +1386,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
   load-bearing part is that **a `@part` row INHERITS its owner's `@systemVersioned`**, the way it already
   inherits the owner's EntityData: without it a sync against a Signum database did not merely show less, it
   SCRIPTED THE EXISTING LINE HISTORY AWAY (`DROP TABLE order_details_history`, `DROP COLUMN sys_period`,
-  `DROP TRIGGER versioning_trigger`). Pinned by `eastwind/terminal/probePartVersioning.ts`. eastwind marks
+  `DROP TRIGGER versioning_trigger`). Pinned by `eastwind/terminal/probes/probePartVersioning.ts`. eastwind marks
   `OrderEntity` `@systemVersioned` as Southwind does, so **an existing database needs a `terminal sync`**
   before the Time Machine has anything to read. Full ledger:
   **[altea/port/TimeMachine.md](altea/port/TimeMachine.md)**.
@@ -1564,7 +1564,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
   handed to the uploader as a `FilePathEmbedded`, looking for a store a row-held file has no need of
   (FileLine's switch already said why). **An existing eastwind database needs a `sync`**, and the
   employee photos are re-loaded from `terminal/image_photos` rather than migrated. Pinned by
-  `eastwind/terminal/probeFileEntity.ts` (26 checks) plus a three-case HTTP round-trip; `files.file` needs
+  `eastwind/terminal/probes/probeFileEntity.ts` (26 checks) plus a three-case HTTP round-trip; `files.file` needs
   a `sync`, and matches Signum's table column for column. Full ledger:
   **[altea/port/Files.md](altea/port/Files.md)**.
 
@@ -1603,7 +1603,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     so `entity.isNew` is the other half of that question), and `registerAll` skipped every MIXIN
     route — OperationLog's DiffLog dumps, EmailMessage's reception raw content — where Signum's
     `PropertyRoute.GenerateRoutes` walks mixins.
-  Pinned by `eastwind/terminal/probeBigString.ts` (11 checks: the column set in both modes, that
+  Pinned by `eastwind/terminal/probes/probeBigString.ts` (11 checks: the column set in both modes, that
   registerAll reaches a mixin's routes, and an INSERT / retrieve / UPDATE round trip through the store).
   Full ledger: **[altea/port/Files.md](altea/port/Files.md)**.
 
@@ -1696,7 +1696,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
   the model and in normal mode, Signum's in the database. The plain index follows the column, so it
   matches too (492 → 487 statements).
   The **Word → Office** rename is the same case one layer down. altea-office-template already declared
-  `@legacyTableName("WordTemplate")` and friends, but the rename reaches the COLUMNS too —
+  `@legacyClassName("WordTemplateEntity")` and friends, but the rename reaches the COLUMNS too —
   `officeTransformer` / `officeConverter` on the template, `officeTemplate` on the attachment — and a
   database can only see those as renames. Three `@legacyColumnName`s (322 → 310 statements). And the
   last difference on that table was a real MODEL one rather than a spelling: `template` was a
@@ -1709,7 +1709,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
   operation schedules the old one's delete on `Transaction.preRealCommit` (deferred, because the template
   still points at it until the save commits); the read projects the ID alone, since selecting a full
   reference would drag the whole document back. **An existing altea database needs
-  `eastwind/terminal/migrateOfficeTemplateFile.ts` BEFORE the sync** — otherwise it adds `template_id`
+  `eastwind/terminal/migrateOfficeTemplateFile.ts` (removed — recover it from git history, or write the .sql migration it replaces) BEFORE the sync** — otherwise it adds `template_id`
   and drops `template_binary_file` in one script, and every template keeps its name, filters and tokens
   while losing the DOCUMENT. The migration computes the file's hash the way `calculateMD5Hash` does
   (base64 of the MD5, via Postgres' own `md5()` and a decode/encode pair — no pgcrypto), because that
@@ -1839,7 +1839,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
   value from the NAME to the ORDINAL — so every comparison goes through `OrderType.Ascending` and every
   crossing into a DTO (a ChartColumnOption, the url's `A`/`D`, the XML attribute, an OrderRequest)
   through `Enum.toName` / `toEnum`. **An existing altea database needs
-  `eastwind/terminal/migrateChartOrderByType.ts` BEFORE the sync**: the sync adds the FK column and
+  `eastwind/terminal/migrateChartOrderByType.ts` (removed — recover it from git history, or write the .sql migration it replaces) BEFORE the sync**: the sync adds the FK column and
   drops the varchar in one script, so every SORTED chart column silently loses its direction and the
   chart then renders in the query's own order with no error anywhere.
 
@@ -1898,7 +1898,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     `altea-office-template/test/documentRoundTrip.test.ts` (21, over a minimal .docx built in memory —
     including a token SHATTERED across Word runs, and that every construct of a nested document is
     reached in document order with each token asked exactly once).
-  Pinned by `eastwind/terminal/probeTokenMigration.ts` (23 checks: the
+  Pinned by `eastwind/terminal/probes/probeTokenMigration.ts` (23 checks: the
   file contract, a rename CHAIN across two files — and that half a chain does NOT resolve — the
   multi-candidate branch, era-subkey unwinding, that Apply refuses to guess, and an end-to-end repair of
   a stored UserQuery). `user_assets.token_migration` needs a `sync` and matches Signum's table column
@@ -1932,7 +1932,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     same column; `ExceptionLogic.DeleteLogs` is not ported (the note every log-owning module carries),
     and note Signum registers TWO limits there — plain rows and rows WITH an exception — so a port of that
     machinery must keep both.
-  Pinned by `eastwind/terminal/probeSystemEventLog.ts` (15 checks, including that a row written inside a
+  Pinned by `eastwind/terminal/probes/probeSystemEventLog.ts` (15 checks, including that a row written inside a
   DOOMED ambient transaction survives its rollback, and that an unsavable event answers false instead of
   throwing). The signal / drain paths are verified out of process instead, since they turn on exit status:
   a drained loop writes exactly one stop row and exits 0, and the SIGINT handler body writes its row and
@@ -1968,7 +1968,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     truncated where they are assigned (the call altea-sms already made); the ORDER BY + TOP `UnsafeUpdate`
     becomes select-then-update-by-id (as UserTicketLogic's per-user sweep does); `ExceptionLogic.DeleteLogs`
     is not ported, the note every log-owning module carries.
-  Pinned by `eastwind/terminal/probeSessionLog.ts` (23 checks, including that the nullable-ternary
+  Pinned by `eastwind/terminal/probes/probeSessionLog.ts` (23 checks, including that the nullable-ternary
   `durationSeconds` really lowers to SQL both as a projection and as an ORDER BY). `auth.session_log`
   needs a `sync` and matches Signum's table column for column. Full ledger:
   **[altea/port/Auth.md](altea/port/Auth.md)**. **A new declared symbol means each test
@@ -2010,7 +2010,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
   lifetime is `expirationInterval` regardless — and would cost robustness: a response lost in flight
   would leave the browser holding a dead cookie. Two gaps it filled on the way: the login form's
   **"Remember me" checkbox was never rendered** (the ref existed, so `rememberMe` was always `undefined`),
-  and `/api/auth/loginFromCookie` did not exist. Pinned by `eastwind/terminal/probeUserTicket.ts` (21
+  and `/api/auth/loginFromCookie` did not exist. Pinned by `eastwind/terminal/probes/probeUserTicket.ts` (21
   checks) plus a seven-case HTTP round-trip; `auth.user_ticket` needs a `sync`, and matches Signum's
   table column for column (a Southwind sync scripts nothing for it). Full ledger:
   **[altea/port/Auth.md](altea/port/Auth.md)**.
@@ -2061,7 +2061,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     registry was keyed by the symbol OBJECT rather than by `symbol.key` — so an operation named by DATA,
     which is exactly what a `PackageOperationEntity` names, was "not registered".
   **An existing altea database needs a `sync`** (four symbol rows move). Pinned by
-  `eastwind/terminal/probePackageLogic.ts` (20 checks), which RUNS things rather than inspecting
+  `eastwind/terminal/probes/probePackageLogic.ts` (20 checks), which RUNS things rather than inspecting
   registration. Full ledger: **[altea/port/Processes.md](altea/port/Processes.md)**.
 
 - **Signum.SMS → altea-sms: a small sibling of altea-email, plus the GSM alphabet.** The module is a

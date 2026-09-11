@@ -4,6 +4,7 @@ import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
+import { cleanTypeName, resolveCleanType } from "@altea/altea/data/registration";
 import {
     UserAssetPreviewModel, UserAssetPreviewLineEmbedded, EntityAction, type IUserAssetEntity,
 } from "../data/UserAssets";
@@ -304,20 +305,32 @@ function parse(content: string): { elementName: string; obj: Record<string, unkn
 function getQueryByKey(queryKey: string): QueryEntity {
     // Resolved from the QueryEntity cache would be ideal; a direct fetch keeps this self-contained.
     // (Synchronous on purpose — callers already run inside the async import.)
-    const q = queryEntityCache.get(queryKey);
+    const q = queryEntityCache.get(queryKey) ?? queryEntityCache.get(currentCleanName(queryKey));
     if (q == null)
         throw new Error(`UserAssets import: query '${queryKey}' is not registered in this database`);
     return q;
 }
 
 function getTypeByCleanName(cleanName: string, orThrow: boolean): Lite<TypeEntity> | undefined {
-    const t = typeEntityCache.get(cleanName);
+    const t = typeEntityCache.get(cleanName) ?? typeEntityCache.get(currentCleanName(cleanName));
     if (t == null) {
         if (orThrow)
             throw new Error(`UserAssets import: type '${cleanName}' does not exist in this database`);
         return undefined;
     }
     return t.toLite() as Lite<TypeEntity>;
+}
+
+/**
+ * What this application calls the type a STORED name refers to. A user-asset file outlives a rename: it
+ * may carry the name Signum gave a type altea renamed (`@legacyClassName`), or the one altea itself gave
+ * it before a rename — and `resolveCleanType` resolves every spelling of a type to the one class, whose
+ * clean name is what the database has. Unresolvable names pass through unchanged, so the error above
+ * still names what the file actually said.
+ */
+function currentCleanName(name: string): string {
+    const ctor = resolveCleanType(name);
+    return ctor == undefined ? name : cleanTypeName(ctor);
 }
 
 function parseLiteKey(liteKey: string): Lite<Entity> | undefined {

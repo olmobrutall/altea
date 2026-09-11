@@ -1,10 +1,7 @@
 import "../data/globals"; // Array.prototype.toMap
 import { joinRelaxed } from "../data/globals/joinRelaxed";
 import { Connector } from "./connection/connector";
-import { cleanTypeName, getLocation, enumNameOf, resolveCleanType, legacyCleanName } from "../data/registration";
-import { Entity as EntityClass, EmbeddedEntity as EmbeddedEntityClass, ModelEntity as ModelEntityClass } from "../data/entity";
-import { Symbol as SymbolClass } from "../data/symbol";
-import { SemiSymbol as SemiSymbolClass } from "../data/semiSymbol";
+import { cleanTypeName, getLocation, enumNameOf, resolveCleanType, legacyClassName } from "../data/registration";
 import { TypeEntity } from "../data/typeEntity";
 import { quotedFunction } from "./query";
 import { ClassType } from "./runtimeTypes";
@@ -380,35 +377,23 @@ function bootstrapMetas(schema: Schema): TypeMeta[] {
 // A closed EnumEntity<E> type's ctor.name is "EnumEntity<OrderState>" — use the bare ENUM name
 // ("OrderState") instead (matching cleanName + the name its FileInfo/enum registration is keyed by).
 //
-// Signum stores `type.Name`, so for a type altea RENAMED (`@legacyCleanName`) the stored name is
-// Signum's class name, not altea's. It needs nothing declared: Signum's convention is that a class name
-// is its clean name plus its KIND's suffix — WordTemplate + Entity, WordTransformer + Symbol — so the
-// declared clean name plus the kind altea already knows from the base class gives it. (Which is also why
-// there is no legacy CLASS name to declare: the clean name is the only fact.)
-function classNameOf(ctor: Function): string {
+// Signum stores `type.Name`, so for a type altea RENAMED the stored name is Signum's class name, not
+// altea's — and it is DECLARED (`@legacyClassName`), not derived. It has to be: this column is the one a
+// Signum application synchronizes back to its own answer, so guessing it from the clean name plus a kind
+// suffix would be a guess about the very value the two applications must agree on.
+export function classNameOf(ctor: Function): string {
     const boundEnum = (ctor as { boundEnum?: object }).boundEnum;
     if (boundEnum != null) {
         const enumName = enumNameOf(boundEnum);
         if (enumName != null)
             return enumName;
     }
-    const legacy = legacyCleanName(ctor);
+    const legacy = legacyClassName(ctor);
     if (legacy != null)
-        return legacy + kindSuffix(ctor);
+        return legacy;
     return ctor.name;
 }
 
-// The suffix Signum's naming convention puts on a class of this KIND (Reflector.CleanTypeName strips
-// exactly these four). Walks the prototype chain, so a subclass of any of them answers for its base.
-function kindSuffix(ctor: Function): string {
-    for (let c: Function | null = ctor; c != null; c = Object.getPrototypeOf(c) as Function | null) {
-        if (c === SymbolClass || c === SemiSymbolClass) return "Symbol";
-        if (c === EmbeddedEntityClass) return "Embedded";
-        if (c === ModelEntityClass) return "Model";
-        if (c === EntityClass) return "Entity";
-    }
-    return "";
-}
 
 // The owning npm package of an entity/enum ctor (Signum's Namespace analog), from the registration
 // FileInfo the quote-transformer stamps — keyed by classNameOf (so an enum resolves via its enum name,

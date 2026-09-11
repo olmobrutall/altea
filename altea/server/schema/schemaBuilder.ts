@@ -4,7 +4,10 @@ import type { Quoted } from 'quote-transformer/quoted';
 import { MixinDeclarations } from '../../data/mixinDeclarations';
 import type { EntityData } from '../../data/decorators';
 import { getTypeInfo, enumNameOf, FieldInfo, TypeInfo, schemaForName, type PrimaryKeyType } from '../../data/reflection';
-import { getRegisteredTypes, legacyCleanName, cleanTypeName as registryCleanTypeName } from '../../data/registration';
+import {
+    getRegisteredTypes, legacyCleanNameOf, isLegacyMode, setLegacyMode,
+    cleanTypeName as registryCleanTypeName,
+} from '../../data/registration';
 import { AbstractDbType, IsNullable, defaultDbType, primaryKeyDbType } from './dbType';
 import {
     type IColumn,
@@ -88,9 +91,10 @@ function rawTypeName(type: Type<Entity> | ViewType<View>): string {
 // — and so does data/registration's cleanTypeName, which returns the registered enum name before it
 // strips anything. This copy was the one that disagreed.
 function cleanTypeName(type: Type<Entity> | ViewType<View>): string {
-    // A DECLARED legacy clean name (`@legacyCleanName`) wins here too — the two disagreeing is how a type
-    // ends up stored under one name and addressed by another, which the note above is about.
-    const legacy = legacyCleanName(type as Type<Entity>);
+    // LEGACY MODE's name (declared with `@legacyCleanName`, or derived from `@legacyClassName`) wins here
+    // too — the two disagreeing is how a type ends up stored under one name and addressed by another,
+    // which the note above is about.
+    const legacy = legacyCleanNameOf(type as Type<Entity>);
     if (legacy != null)
         return legacy;
 
@@ -310,7 +314,17 @@ export class SchemaSettings {
     // Every legacy accommodation is gated on THIS flag, never on a second one of its own. The rules it
     // covers — naming, table shape, DDL, and the stored values it makes altea READ more forgivingly —
     // are inventoried in port/LegacyMode.md, which is also where to add one.
-    legacyMode = false;
+    //
+    // An accessor over the DATA layer's flag, so the `@legacy*` NAMES (which both tiers resolve, and
+    // which a client therefore has to be able to turn on without a schema) are the same one switch.
+    //
+    // That flag is process-global — `cleanTypeName` answers with no schema in hand — so STARTING a schema
+    // build clears it: a build that says nothing about legacy mode gets altea's own names, whatever the
+    // build before it in this process asked for.
+    constructor() { setLegacyMode(false); }
+
+    get legacyMode(): boolean { return isLegacyMode(); }
+    set legacyMode(value: boolean) { setLegacyMode(value); }
 
     // Signum's ImplementedByAllPrimaryKeyTypes: an @implementedByAll reference gets one id
     // column per entry (named `<Field>ID_<name>`), since its target can be any entity and

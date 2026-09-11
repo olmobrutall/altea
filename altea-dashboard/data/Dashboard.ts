@@ -3,7 +3,7 @@ import { Entity, EmbeddedEntity, type PrimaryKey } from "@altea/altea/data/entit
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
     entity, part, primaryKey, backReference, rowOrder, implementedBy, format, unit, quoted, legacyTableName,
-    legacyCleanName,
+    legacyClassName,
 } from "@altea/altea/data/decorators";
 import {
     stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType,
@@ -172,17 +172,14 @@ export class DashboardEntity_TokenEquivalenceGroup_Query extends Entity {
 // restricted to one InteractionGroup. In Signum this is a virtual MList (a real entity with a back-reference
 // to the dashboard); in altea that IS the @part row idiom.
 @part
-// Signum wires this as a VIRTUAL MList, so its table is named after the ENTITY (TokenEquivalenceGroupEntity)
-// and there is no owner-plus-collection table to match. BOTH facts are needed here, unlike the auth
-// rule-condition entities: altea composed this type's own name off its owner
-// (DashboardEntity_TokenEquivalenceGroup), so the derived name would be dashboard_token_equivalence_group —
-// standing the collection rule down is not enough, the Signum name has to be given.
-@legacyTableName({ name: "TokenEquivalenceGroup", wasVirtualMList: true })
-// …and the same accommodation one layer up. altea named this part after its OWNER, which is the right
-// default for a part and wrong here: Signum ships it as the standalone `TokenEquivalenceGroupEntity`, so
-// its clean name is identity under THAT name in `basics.type`, in the registered query's key and in an
-// @implementedBy column's suffix.
-@legacyCleanName("TokenEquivalenceGroup")
+// Signum ships this as the standalone `TokenEquivalenceGroupEntity` where altea named the part after its
+// OWNER — the right default for a part, and wrong here — so the Signum class name has to be given. Its
+// clean name (`basics.type`, the query key, an @implementedBy column's suffix) and its table name both
+// follow from it.
+@legacyClassName("TokenEquivalenceGroupEntity")
+// Signum wires it as a VIRTUAL MList, so there is no owner-plus-collection table to match and that rule
+// must stand down. The NAME is the one derived above; only the structural fact is left to say.
+@legacyTableName({ wasVirtualMList: true })
 export class DashboardEntity_TokenEquivalenceGroup extends Entity {
     @backReference dashboard: Lite<DashboardEntity>;
     // No `@rowOrder`: this is a VIRTUAL MList in Signum — a standalone entity behind a back

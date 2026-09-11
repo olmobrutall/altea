@@ -6,7 +6,7 @@ import type { Type, Entity } from './entity';
 import type { CustomLiteClass } from './lite';
 import type { ExLambda, Quoted } from 'quote-transformer/quoted';
 import { accessedFields, memberPath } from './accessedFields';
-import { declareLegacyCleanName } from './registration';
+import { declareLegacyCleanName, declareLegacyClassName } from './registration';
 
 export type { ColumnOptions, TranslatableRouteType } from './reflection';
 
@@ -275,6 +275,10 @@ export function ticksColumn(enabled: boolean) {
 // (SchemaSettings.legacyMode). Ignored entirely when legacyMode is off, so it never affects an altea-native
 // database — unlike @tableName, which is unconditional.
 //
+// An OVERRIDE, like `@legacyCleanName`: a type that declares `@legacyClassName` already derives its
+// Signum table name from it (WordTemplateEntity → WordTemplate → word_template), and needs this only for
+// the `wasVirtualMList` half below, or where the derived name is not what Signum calls the table.
+//
 // It exists because ONE altea shape covers TWO of Signum's. A `@part` row stands in both for an MList of
 // EmbeddedEntity — whose table Signum names `<ownerTable>_<CollectionProperty>` — and for a VIRTUAL MList,
 // whose element is a standalone Entity that Signum names after the entity. legacyMode derives the first
@@ -309,23 +313,40 @@ export type LegacyTableOptions = {
 };
 
 /**
- * LEGACY MODE: the CLEAN NAME Signum gives this type, for a type altea renamed — the type-level sibling
- * of `@legacyTableName`, and the wider of the two.
+ * LEGACY MODE: the name of the C# CLASS Signum has for a type altea renamed — the ROOT of the three
+ * `@legacy*` names, and usually the only one worth writing.
  *
- * A table name is one name. A clean name is identity in five places: `basics.type.clean_name`, the
- * registered QUERY's key, the `$type` wire discriminator, a lite's key, and an @implementedBy column's
- * suffix. A type altea renamed (@altea/altea-office-template's Word* -> Office*) diverges in all five,
- * and a Signum database has the Signum name in every one of them.
+ * Signum stores it: `TypeEntity` carries `className` beside `cleanName`, and a Signum application
+ * pointed at the same database keeps synchronizing that column back to its own answer. An altea
+ * application that renamed the type has to be able to say what Signum calls it, or the two fight over
+ * the row.
  *
- *   `@legacyTableName("WordTemplate")`  — this TABLE is called something else.
- *   `@legacyCleanName("WordTemplate")`  — this TYPE is called something else.
+ * Everything else FOLLOWS by the ordinary rules — the clean name is the class name without its kind
+ * suffix, the table name is that, dialect-mapped:
  *
- * They are usually written together, and `basics.type.class_name` follows from the clean name plus the
- * type's KIND ("WordTemplate" + Entity = `WordTemplateEntity`, "WordTransformer" + Symbol =
- * `WordTransformerSymbol`), so there is nothing to declare for it.
+ *   `@legacyClassName("WordTemplateEntity")`  → clean name `WordTemplate`, table `word_template`
  *
- * A DECORATOR rather than a call an app makes at startup: the answer has to be fixed before anything
- * asks, and it has to be the same on both tiers — see registration's declareLegacyCleanName.
+ * so `@legacyCleanName` / `@legacyTableName` are only for the type whose Signum names do NOT follow
+ * that chain. Every one of the three is read ONLY while legacy mode is on (SchemaSettings.legacyMode):
+ * an altea-native database gets altea's own names throughout.
+ *
+ * A DECORATOR rather than a call an app makes at startup, and the same on both tiers: what Signum calls
+ * a type is the MODULE's knowledge, where the database came from is the app's.
+ */
+export function legacyClassName(className: string) {
+    return function (target: Function): void {
+        declareLegacyClassName(target, className);
+    };
+}
+
+/**
+ * LEGACY MODE: the CLEAN NAME Signum gives this type — an OVERRIDE of what `@legacyClassName` implies,
+ * for the type whose two Signum names do not follow the ordinary suffix rule.
+ *
+ * A clean name is identity in five places: `basics.type.clean_name`, the registered QUERY's key, the
+ * `$type` wire discriminator, a lite's key, and an @implementedBy column's suffix — so it is worth being
+ * able to state outright. With a `@legacyClassName` present and the ordinary rule landing on the right
+ * answer, do not write this.
  */
 export function legacyCleanName(cleanName: string) {
     return function (target: Function): void {

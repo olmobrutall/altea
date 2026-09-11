@@ -88,7 +88,7 @@ route, one page, the quick link, and two restore functions an application calls 
   Signum's `SchemaBuilder.cs` `Settings.TypeAttribute<SystemVersionedAttribute>(...)`. Without it a sync
   against a Signum database did not merely show less, it SCRIPTED THE EXISTING LINE HISTORY AWAY
   (`DROP TABLE order_details_history`, `DROP COLUMN sys_period`, `DROP TRIGGER versioning_trigger`).
-  Pinned by `eastwind/terminal/probePartVersioning.ts`.
+  Pinned by `eastwind/terminal/probes/probePartVersioning.ts`.
 
 eastwind marks `OrderEntity` `@systemVersioned`, as Southwind does — so an existing database needs a
 `terminal sync` before the Time Machine has anything to read.

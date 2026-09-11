@@ -25,8 +25,10 @@ throughout the public surface:
 Everything else keeps Signum's names and member order, so the two stay diffable: **when re-applying a
 Signum change, read `Word` for `Office`.**
 
-The rename reaches the DATABASE, which is what `@legacyTableName` / `@legacyColumnName` /
-`useLegacyWordSymbolNames()` are for — see the CLAUDE.md bullet. Registering the symbol re-keying surfaced
+The rename reaches the DATABASE — in LEGACY MODE only, which is what `@legacyClassName` (one per renamed
+type: the class name Signum stores, from which its clean name and its table name follow),
+`@legacyColumnName` and `useLegacyWordNames()` (the symbol keys) are for. An altea-native database is
+`office_template` throughout. Registering the symbol re-keying surfaced
 that `OfficeTemplateOperation.CreateOfficeTemplateFromOfficeModel` was DECLARED and never registered, so
 the operation did not exist at runtime.
 

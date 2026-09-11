@@ -3,7 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
     entity, part, primaryKey, implementedByAll, uniqueIndex, backReference, rowOrder, quoted, legacyTableName,
-    legacyCleanName, legacyColumnName, bindParent,
+    legacyClassName, legacyColumnName, bindParent,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
@@ -64,8 +64,7 @@ export enum OfficeTemplateVisibleOn {
  */
 @reflect
 @entity("SystemString", "Master", { lowPopulation: true })
-@legacyTableName("WordTransformer")
-@legacyCleanName("WordTransformer")
+@legacyClassName("WordTransformerSymbol")
 export class OfficeTransformerSymbol extends Symbol {
 }
 
@@ -75,8 +74,7 @@ export class OfficeTransformerSymbol extends Symbol {
  */
 @reflect
 @entity("SystemString", "Master", { lowPopulation: true })
-@legacyTableName("WordConverter")
-@legacyCleanName("WordConverter")
+@legacyClassName("WordConverterSymbol")
 export class OfficeConverterSymbol extends Symbol {
 }
 
@@ -89,8 +87,7 @@ export class OfficeConverterSymbol extends Symbol {
  */
 @reflect
 @entity("SystemString", "Master")
-@legacyTableName("WordModel")
-@legacyCleanName("WordModel")
+@legacyClassName("WordModelEntity")
 export class OfficeModelEntity extends Entity {
     @uniqueIndex
     @stringLengthValidator({ max: 200 })
@@ -128,8 +125,7 @@ export class OfficeTemplateEntity_Order extends Entity {
 @reflect
 @primaryKey("uuid")
 @entity("Main", "Master")
-@legacyTableName("WordTemplate")
-@legacyCleanName("WordTemplate")
+@legacyClassName("WordTemplateEntity")
 export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IContainsQuery {
     @uniqueIndex
     @stringLengthValidator({ min: 3, max: 200 })
@@ -196,8 +192,7 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
  */
 @reflect
 @part
-@legacyTableName("WordAttachment")
-@legacyCleanName("WordAttachment")
+@legacyClassName("WordAttachmentEntity")
 export class OfficeAttachmentEntity extends Entity implements IAttachmentGeneratorEntity {
     /** Overrides the template's own fileName when set. A text template, like OfficeTemplateEntity.fileName. */
     @stringLengthValidator({ min: 3, max: 100 })
@@ -265,8 +260,9 @@ export namespace OfficeTemplatePermission {
  * shared entity-overrides module (see `renameSymbolContainer`).
  */
 export function useLegacyWordNames(): void {
-    // (The TYPES need nothing here: each declares its Signum name with `@legacyCleanName` beside its
-    // `@legacyTableName`, which is fixed when the class is defined rather than when an app calls this.)
+    // (The TYPES need nothing here: each declares Signum's CLASS name with `@legacyClassName`, from which
+    // its clean name and its table name follow — and all three are read only in legacy mode, so the
+    // declaration can live on the class instead of in this call.)
 
     // The SYMBOLS.
     renameSymbolContainer(OfficeTemplateOperation, "WordTemplateOperation", {

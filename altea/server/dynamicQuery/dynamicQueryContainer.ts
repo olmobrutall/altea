@@ -5,6 +5,7 @@ import { Connector } from "../connection/connector";
 import { RootToken, type QueryToken } from "../../data/dynamicQuery/tokens";
 import type { DynamicQueryCore } from "./dynamicQueryCore";
 import { getKey, type QueryName } from "../../data/dynamicQuery/queryUtils";
+import { resolveCleanType } from "../../data/registration";
 
 // Port of Signum's `DynamicQueryContainer` (DynamicQuery/DynamicQueryContainer.cs): the registry of
 // executable queries. Each is registered as a lazy `DynamicQueryBucket` (Signum's ResetLazy) so the
@@ -20,9 +21,20 @@ export class DynamicQueryContainer {
         return [...this.buckets.values()].map(b => b.queryName);
     }
 
-    /** The registered query with this key, or undefined. The buckets are already keyed by it. */
+    /**
+     * The registered query with this key, or undefined. The buckets are already keyed by it — the second
+     * lookup is for a key STORED under the type's other name: a query key is its row type's clean name,
+     * and a type this framework renamed has one in altea and one in Signum (`@legacyClassName`). Reading
+     * resolves either, writing produces the current one, so a user asset exported from the other
+     * framework — or from this one before the rename — still finds its query.
+     */
     tryGetQueryNameByKey(key: string): QueryName | undefined {
-        return this.buckets.get(key)?.queryName;
+        const direct = this.buckets.get(key)?.queryName;
+        if (direct != undefined)
+            return direct;
+
+        const ctor = resolveCleanType(key);
+        return ctor == undefined ? undefined : this.buckets.get(getKey(ctor as QueryName))?.queryName;
     }
 
     tryGetCore(queryName: QueryName): DynamicQueryCore | undefined {

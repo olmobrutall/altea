@@ -36,10 +36,25 @@ const enumRegistry = new Map<string, object>();
 // so `Customer` belonged to whichever of CustomerEntity / CustomerRowModel happened to load first.
 const cleanRegistry = new Map<string, Function>();
 
-// ctor -> SIGNUM's clean name for it, declared by `@legacyCleanName` — the attribute store for that
-// decorator, and the reason this file has a map at all rather than a hook. Written once, at CLASS
-// DEFINITION time, by the decorator; never afterwards. See declareLegacyCleanName.
+// What SIGNUM calls a type this framework renamed — the attribute stores behind the three `@legacy*`
+// name decorators, written once at CLASS DEFINITION time and read only while LEGACY MODE is on.
+//
+// `@legacyClassName` is the one that matters: a class name is what Signum's `TypeEntity.className`
+// column holds, so two applications sharing one database — a Signum one and an altea one — disagree
+// about that column unless the altea side can say "Signum calls this class WordTemplateEntity". The
+// other two are DERIVED from it by the ordinary rules (strip the kind suffix for the clean name, snake
+// it for the table), and are declared only where those rules do not land on Signum's answer.
+const legacyClassNames = new Map<Function, string>();
 const legacyCleanNames = new Map<Function, string>();
+
+// Whether the `@legacy*` NAMES apply — the data-layer half of SchemaSettings.legacyMode, which is what
+// sets it (and an application's shared entity-overrides module on the CLIENT, which has no schema).
+//
+// It has to be a runtime flag rather than a decorator-time fact: the same class must be able to say
+// "Signum calls me WordTemplateEntity" AND keep altea's own name in an altea-native database. Nothing
+// may read a name before it is set — which is why the setter RE-KEYS what is already registered, and
+// why an application sets it first thing on both tiers.
+let legacyNames = false;
 
 // Which suffix outranks which, when two types share a clean name. A row model beats an entity because
 // the only entity it can legitimately collide with is an ABSTRACT one, whose clean name is inert: never
@@ -82,9 +97,10 @@ export function registerType(ctor: Function, name?: string, fileInfo?: FileInfo)
     // typeRegistry is keyed by the COMPLETE name alone; the clean name lives in its own index, ranked
     // rather than first-come (see cleanRegistry).
     typeRegistry.set(key, ctor);
-    // Under the name `cleanTypeName` will answer with, which is `@legacyCleanName`'s when it is declared —
-    // decorators evaluate bottom-up, so the two may run in either order and neither may win by accident.
-    const clean = legacyCleanNames.get(ctor) ?? stripEntitySuffix(key);
+    // Under the name `cleanTypeName` will answer with, which in legacy mode is the declared / derived
+    // Signum one — decorators evaluate bottom-up, so the two may run in either order and neither may win
+    // by accident. A type registered BEFORE legacy mode is turned on is re-keyed by `setLegacyMode`.
+    const clean = legacyCleanNameOf(ctor) ?? stripEntitySuffix(key);
     if (clean !== key) {
         const held = cleanRegistry.get(clean);
         if (held == null || cleanPriority(key) > cleanPriority(held.name))
@@ -134,9 +150,9 @@ export function resolveType(name: string): Function | undefined {
 // suffixes STAY, because an identity must keep "SongEmbedded" distinct from a "Song"
 // beside it. Localization's niceNameFromName strips all four (and RowModel), but only for DISPLAY.
 export function cleanTypeName(ctor: Function): string {
-    // SIGNUM's own name for this type, when altea renamed it — declared with `@legacyCleanName`, so this
-    // reads like any other attribute lookup and cannot change after the class is defined.
-    const legacy = legacyCleanNames.get(ctor);
+    // LEGACY MODE: SIGNUM's own clean name for this type, when altea renamed it — declared outright with
+    // `@legacyCleanName`, or derived from `@legacyClassName` by the same suffix rule as any other name.
+    const legacy = legacyCleanNameOf(ctor);
     if (legacy != null)
         return legacy;
 
@@ -432,32 +448,99 @@ export function schemaForName(name: string): string | undefined {
 // entity file can `init()` without a runtime cycle (as with `msg()`).
 
 /**
- * The attribute store behind `@legacyCleanName` — SIGNUM's clean name for a type this framework renamed
- * (@altea/altea-office-template's Word* -> Office*). Called by the decorator only, which is what makes
- * this DECLARED rather than overridden: the answer is fixed when the class is defined, exactly as a C#
- * attribute is, so nothing can observe one name and then be given another.
+ * The attribute store behind `@legacyClassName` — the name of the C# CLASS Signum has for a type this
+ * framework renamed (@altea/altea-office-template's Word* -> Office*, @altea/altea-migrations'
+ * CSharpMigration -> TypeScriptMigration).
  *
- * A clean name is identity in more places than a table name: `basics.type.clean_name`, the registered
- * QUERY's key, the `$type` discriminator, a lite's key and an @implementedBy column's suffix. All of them
- * have to agree — a type stored under one name and addressed by another is the bug this prevents — which
- * is why the name lives here, in the layer BOTH TIERS compile, rather than in the schema builder that
- * only the server has.
+ * It is the ROOT of the three legacy names, because it is the one Signum itself stores: `TypeEntity`
+ * carries `className` beside `cleanName`, and a Signum application pointed at the same database keeps
+ * synchronizing that column back to its own answer. Declaring it makes both sides agree; the clean name
+ * and the table name are then DERIVED from it by the ordinary rules, and only need declaring where those
+ * rules do not land on Signum's answer.
+ *
+ * Read only while legacy mode is on (see {@link setLegacyMode}) — an altea-native database gets altea's
+ * own names.
  */
-export function declareLegacyCleanName(ctor: Function, cleanName: string): void {
-    legacyCleanNames.set(ctor, cleanName);
-    // `registerType` may already have indexed this ctor under its derived clean name (decorators run
-    // bottom-up, so `@reflect` may or may not have run yet) — re-key rather than leave both.
-    const derived = stripEntitySuffix(ctor.name);
-    if (derived !== cleanName && cleanRegistry.get(derived) === ctor)
-        cleanRegistry.delete(derived);
-    const held = cleanRegistry.get(cleanName);
-    if (held == null || cleanPriority(ctor.name) > cleanPriority(held.name))
-        cleanRegistry.set(cleanName, ctor);
+export function declareLegacyClassName(ctor: Function, className: string): void {
+    legacyClassNames.set(ctor, className);
+    indexLegacyAliases(ctor);
 }
 
-/** SIGNUM's clean name for this type, when `@legacyCleanName` declared one. */
-export function legacyCleanName(ctor: Function): string | undefined {
-    return legacyCleanNames.get(ctor);
+/** The attribute store behind `@legacyCleanName` — an OVERRIDE, for the rare type whose Signum clean
+ *  name does not follow from its Signum class name by the ordinary suffix rule. */
+export function declareLegacyCleanName(ctor: Function, cleanName: string): void {
+    legacyCleanNames.set(ctor, cleanName);
+    indexLegacyAliases(ctor);
+}
+
+/** SIGNUM's class name for this type, while legacy mode is on. */
+export function legacyClassName(ctor: Function): string | undefined {
+    return legacyNames ? legacyClassNames.get(ctor) : undefined;
+}
+
+/**
+ * SIGNUM's CLEAN name for this type, while legacy mode is on: the one `@legacyCleanName` declared, else
+ * the one that follows from `@legacyClassName` by the ordinary suffix rule ("WordTemplateEntity" →
+ * "WordTemplate"). Undefined outside legacy mode, and for a type that declared neither.
+ *
+ * The single resolution both copies of `cleanTypeName` use — this one and the schema builder's, which
+ * names tables and @implementedBy columns.
+ */
+export function legacyCleanNameOf(ctor: Function): string | undefined {
+    if (!legacyNames)
+        return undefined;
+    const declared = legacyCleanNames.get(ctor);
+    if (declared != null)
+        return declared;
+    const className = legacyClassNames.get(ctor);
+    return className != null ? stripEntitySuffix(className) : undefined;
+}
+
+/** Whether the `@legacy*` names apply. */
+export function isLegacyMode(): boolean {
+    return legacyNames;
+}
+
+/**
+ * Turn the `@legacy*` names on or off — `SchemaSettings.legacyMode` on the server, an application's
+ * shared entity-overrides module on the client (which has no schema to carry the flag).
+ *
+ * Types register as their modules are IMPORTED, which happens before an application can say which
+ * database it is pointed at, so flipping this re-keys the clean-name index for every type that declared
+ * a legacy name. Nothing else caches a clean name: every other consumer asks `cleanTypeName` when it
+ * needs one.
+ */
+export function setLegacyMode(enabled: boolean): void {
+    if (legacyNames === enabled)
+        return;
+    legacyNames = enabled;
+    for (const ctor of new Set([...legacyClassNames.keys(), ...legacyCleanNames.keys()]))
+        indexLegacyAliases(ctor);
+}
+
+/**
+ * Index `ctor` under EVERY clean name it can be known by — altea's own, and Signum's.
+ *
+ * Writing is one name (whatever `cleanTypeName` answers in this mode); READING is tolerant, which is the
+ * rule the rest of the model follows: a `$type` on the wire, a `basics.type` row, a stored query key or a
+ * user-asset XML exported from the other framework resolves to the same class either way, so nothing
+ * stored has to be migrated to be readable. Nothing else can own these names — they are two spellings of
+ * one type — and the priority guard below is the same one `registerType` applies.
+ */
+function indexLegacyAliases(ctor: Function): void {
+    const legacy = legacyCleanNames.get(ctor) ?? legacyClassNameStripped(ctor);
+    for (const name of [cleanTypeName(ctor), stripEntitySuffix(ctor.name), legacy]) {
+        if (name == null)
+            continue;
+        const held = cleanRegistry.get(name);
+        if (held == null || cleanPriority(ctor.name) > cleanPriority(held.name))
+            cleanRegistry.set(name, ctor);
+    }
+}
+
+function legacyClassNameStripped(ctor: Function): string | undefined {
+    const className = legacyClassNames.get(ctor);
+    return className != null ? stripEntitySuffix(className) : undefined;
 }
 
 /**
