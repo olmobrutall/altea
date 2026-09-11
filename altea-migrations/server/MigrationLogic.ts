@@ -11,7 +11,7 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { Entity, type Type } from "@altea/altea/data/entity";
-import { SqlMigrationEntity, CSharpMigrationEntity, LoadMethodLogEntity, MigrationMessage } from "../data/Migrations";
+import { SqlMigrationEntity, TypeScriptMigrationEntity, LoadMethodLogEntity, MigrationMessage } from "../data/Migrations";
 import { SafeConsole, Color } from "./SafeConsole";
 
 // The module starter plus the two helpers both runners and the app's loaders use: `ensureMigrationTable`
@@ -30,7 +30,7 @@ export namespace MigrationLogic {
             return;
 
         sb.include(SqlMigrationEntity).withQuery();
-        sb.include(CSharpMigrationEntity).withQuery();
+        sb.include(TypeScriptMigrationEntity).withQuery();
         sb.include(LoadMethodLogEntity).withQuery();
 
         void ExceptionLogic;

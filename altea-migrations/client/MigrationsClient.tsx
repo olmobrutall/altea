@@ -1,5 +1,5 @@
 import { ClientBuilder } from "@altea/altea/client/ClientBuilder";
-import { SqlMigrationEntity, CSharpMigrationEntity, LoadMethodLogEntity } from "../data/Migrations";
+import { SqlMigrationEntity, TypeScriptMigrationEntity, LoadMethodLogEntity } from "../data/Migrations";
 
 // The client half: what makes /find/SqlMigration & co. work at all, since a type is only known to the
 // client once `cb.configure` names it — and the default columns, since `withQuery()` takes no projection.
@@ -19,7 +19,7 @@ export namespace MigrationsClient {
                 ],
             }));
 
-        cb.configure(CSharpMigrationEntity)
+        cb.configure(TypeScriptMigrationEntity)
             .withQuerySettings(token => ({
                 defaultColumns: [
                     token(a => a.id),

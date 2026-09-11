@@ -112,7 +112,7 @@ export class ApplicationContext {
      * Signum does three — the exact spelling, all-lower and all-upper — and that is enough there because
      * its application name is already PascalCase (`Southwind` / `southwind` / `SOUTHWIND` covers every
      * form in its sources). altea's is a package name, so it is LOWER case, and the three collapse to two:
-     * `Eastwind` was left untouched in `EastwindMigrations`, `EastwindBrowser`, `Eastwind.es.xml` and
+     * `Eastwind` was left untouched in `EastwindBrowser`, `EastwindEnvironment`, `Eastwind.es.xml` and
      * every message key that embeds it.
      *
      * So: UPPER, Title, lower, in that order. Order matters — the first two produce text that no longer

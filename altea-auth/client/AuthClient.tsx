@@ -38,7 +38,7 @@ export namespace AuthClient {
         userTicket: false,
         // DEVELOPMENT ONLY: the login form drops its password
         // input and sends the user name as the password. Meant for a local host seeded by
-        // EastwindMigrations.ensureUser, which hashes each user's name as their password, so any seeded
+        // the app's own code migrations, which hash each user's name as their password, so any seeded
         // user (System, Steven, Anne, …) is one field away. Purely a CLIENT convenience: the request is
         // still the normal /api/auth/login, so a wrong name fails exactly as it would when typed by hand.
         // The host sets it (see eastwind's MainPublic) behind a dev-only flag; it lives here, on the

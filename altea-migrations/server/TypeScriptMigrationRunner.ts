@@ -3,11 +3,11 @@ import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { ExecuteSqlScriptException } from "@altea/altea/server/sync/sqlPreCommand";
-import { CSharpMigrationEntity, MigrationMessage } from "../data/Migrations";
+import { TypeScriptMigrationEntity, MigrationMessage } from "../data/Migrations";
 import { MigrationLogic } from "./MigrationLogic";
 import { SafeConsole, Color } from "./SafeConsole";
 
-// A list of NAMED code steps, each recorded in CSharpMigrationEntity once it has run, so a step never runs
+// A list of NAMED code steps, each recorded in TypeScriptMigrationEntity once it has run, so a step never runs
 // twice across deploys. The app builds one and the runner draws the list, runs what is pending, and marks
 // each as executed.
 //
@@ -15,16 +15,18 @@ import { SafeConsole, Color } from "./SafeConsole";
 // unreliable (arrows, minification) — and that name is the migration's IDENTITY in the database, so
 // renaming one re-runs it.
 //
-// Port of Signum.Migrations' CSharpMigrationRunner.cs — see port/Migrations.md.
+// Port of Signum.Migrations' CSharpMigrationRunner.cs — see port/Migrations.md. Renamed for the obvious
+// reason: the steps it runs are TypeScript. In LEGACY MODE the entity keeps Signum's name, so an
+// application pointed at a Signum database records its rows in the table that is already there.
 
-export interface CSharpMigrationInfo {
+export interface TypeScriptMigrationInfo {
     uniqueName: string;
     action: () => Promise<void>;
     isExecuted: boolean;
 }
 
-export class CSharpMigrationRunner {
-    readonly migrations: CSharpMigrationInfo[] = [];
+export class TypeScriptMigrationRunner {
+    readonly migrations: TypeScriptMigrationInfo[] = [];
 
     /** The name comes FIRST, and explicitly (see the header). */
     add(uniqueName: string, action: () => Promise<void>): this {
@@ -46,13 +48,13 @@ export class CSharpMigrationRunner {
         }
     }
 
-    /** Flag every step already present in CSharpMigrationEntity. */
+    /** Flag every step already present in TypeScriptMigrationEntity. */
     private async setExecuted(): Promise<void> {
-        SafeConsole.writeLineColor(Color.darkGray, MigrationMessage.ReadingCSharpMigrations.niceToString());
+        SafeConsole.writeLineColor(Color.darkGray, MigrationMessage.ReadingTypeScriptMigrations.niceToString());
 
-        await MigrationLogic.ensureMigrationTable(CSharpMigrationEntity);
+        await MigrationLogic.ensureMigrationTable(TypeScriptMigrationEntity);
 
-        const executed = new Set((await ExecutionMode.global(() => table(CSharpMigrationEntity).toArray()) as CSharpMigrationEntity[])
+        const executed = new Set((await ExecutionMode.global(() => table(TypeScriptMigrationEntity).toArray()) as TypeScriptMigrationEntity[])
             .map(m => m.uniqueName));
 
         for (const m of this.migrations)
@@ -91,7 +93,7 @@ export class CSharpMigrationRunner {
      * Run the step, then record it. A failure is REPORTED here and rethrown as an
      * ExecuteSqlScriptException — the marker that says "already printed" (see port/Migrations.md).
      */
-    private async execute(mi: CSharpMigrationInfo): Promise<void> {
+    private async execute(mi: TypeScriptMigrationInfo): Promise<void> {
         SafeConsole.writeLineColor(Color.darkGray, `${mi.uniqueName} executing ...`);
         try {
             await mi.action();
@@ -105,12 +107,12 @@ export class CSharpMigrationRunner {
         }
         SafeConsole.writeLineColor(Color.darkGray, `${mi.uniqueName} finished!`);
 
-        await CSharpMigrationEntity.create({ uniqueName: mi.uniqueName, executionDate: Clock.now }).save();
+        await TypeScriptMigrationEntity.create({ uniqueName: mi.uniqueName, executionDate: Clock.now }).save();
         mi.isExecuted = true;
     }
 
     /** The list, with `- ` for done, `->` for the one running now. */
-    private draw(current: CSharpMigrationInfo | undefined): void {
+    private draw(current: TypeScriptMigrationInfo | undefined): void {
         SafeConsole.writeLine();
         for (const mi of this.migrations) {
             const color = mi.isExecuted ? Color.darkGreen : mi === current ? Color.green : Color.white;

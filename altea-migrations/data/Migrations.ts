@@ -1,7 +1,7 @@
 import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, quoted, ticksColumn } from "@altea/altea/data/decorators";
+import { entity, uniqueIndex, quoted, ticksColumn, legacyClassName } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Temporal } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -9,7 +9,8 @@ import { ExceptionEntity } from "@altea/altea/data/exception";
 
 // Three System/Transactional tables, none with a Ticks column — history rows nobody concurrently edits:
 //  • SqlMigrationEntity     — one row per APPLIED .sql migration file, keyed by its version stamp.
-//  • CSharpMigrationEntity  — one row per executed code migration, keyed by its unique name.
+//  • TypeScriptMigrationEntity — one row per executed code migration, keyed by its unique name.
+//    (Signum calls it CSharpMigration, and so does a database it generated — see useLegacyCSharpMigrationNames.)
 //  • LoadMethodLogEntity    — one row per `executeLoadProcess` run: what ran, how long, and what it threw.
 //
 // Port of Signum.Migrations' entity model — see port/Migrations.md.
@@ -35,7 +36,12 @@ export class SqlMigrationEntity extends Entity {
 // The engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.
 @ticksColumn(false)
-export class CSharpMigrationEntity extends Entity {
+// LEGACY MODE: Signum calls this class `CSharpMigrationEntity` — the steps are C# there. Only the NAMES
+// differ; the two columns are the same, so an application pointed at a Signum database reads and writes
+// the rows it already has, and `basics.type` keeps the class name a Signum application synchronizes back.
+// The clean name (`CSharpMigration`) and the table (`c_sharp_migration`) follow from it.
+@legacyClassName("CSharpMigrationEntity")
+export class TypeScriptMigrationEntity extends Entity {
     @uniqueIndex
     @stringLengthValidator({ max: 200 })
     uniqueName: string;
@@ -80,7 +86,8 @@ export class LoadMethodLogEntity extends Entity {
 
 // Only the strings the runners actually print are declared; the console UI is otherwise plain.
 export const MigrationMessage = {
-    ReadingCSharpMigrations: msg(),
+    // Explicit text: the humaniser would make "Reading type script migrations" of the member name.
+    ReadingTypeScriptMigrations: msg("Reading TypeScript migrations"),
     AllMigrationsAreExecuted: msg(),
     RunMigrations0: msg(),
     ReadingMigrationsFrom0: msg(),

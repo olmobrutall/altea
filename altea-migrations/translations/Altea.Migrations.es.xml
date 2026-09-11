@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="CSharpMigrationEntity" Description="Migración CSharp">
+  <Type Name="TypeScriptMigrationEntity" Description="Migración TypeScript">
     <Member Name="ExecutionDate" Description="Fecha de ejecución" />
     <Member Name="UniqueName" Description="Nombre único" />
   </Type>
