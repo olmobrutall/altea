@@ -442,3 +442,33 @@ Recorded so the next pass does not re-derive them:
   mis-scaled column trains a worse model with no error anywhere, so the reference implementation IS the
   specification there — including the two places this port deliberately diverges (the z-score guards a zero
   standard deviation where Signum divides and yields NaN; an empty set's defaults are the identity).
+
+---
+
+## 7. Found by the browser suite
+
+The first end-to-end run of `@altea/altea-playwright` against a real stack (eastwind's `test/orders.spec.ts`,
+which arranges through `OperationLogic` and then drives the UI) turned up three things. Two are fixed; the
+third is a parity gap that wants a decision.
+
+- **A dropped PostgreSQL connection killed the host — FIXED.** `pg.Pool` emits `error` for an IDLE client
+  whose backend went away, and node exits the process on an unhandled `error` event. So a server restart, a
+  network blip, or the suite's own `pg_terminate_backend` (the snapshot restore) took the application server
+  down with it. `PostgresConnector.getPool` now attaches a listener that logs and lets the pool reopen —
+  verified across 35 terminations in one suite run, with the server still serving afterwards.
+
+- **The enum LINE speaks numbers, not member names — accounted for.** `EnumLine.tsx` renders
+  `value={toStr(oi.value)}` and `data-value={ctx.value}`: the NUMBER the TypeScript enum defines. Signum's
+  DOM carries the member name, so Signum's proxy takes and returns one. The port converts both ways through
+  the enum on the line's PropertyRoute, so a test says `OrderState.Ordered` either way (tokens.ts'
+  `editorText` / `editorValue`). The same is true of a readonly enum, which renders an
+  `<input readonly class="form-control" data-value=…>` rather than keeping the `<select>` tag Signum keeps.
+
+- **`BasicPermission.AutomaticUpgradeOfOperations` is not implemented — OPEN.** The operation dimension's
+  no-rule default is `roleGraph.getDefaultAllowed(role)` alone (`OperationAuthLogic.getAllowed`): an
+  Intersection/no-parent role gets Allow, every Union role gets None. Signum instead upgrades a no-rule
+  operation from the TYPE's allowance when the role holds that permission — which is why Southwind grants it
+  to "Standard user" in `AuthRules.xml`, and why Southwind's own browser test can create an order as
+  Standard. Here the same test had to run as `Super`. The PROPERTY dimension already has the equivalent gate
+  (`noRuleDefaultWC`, gated on `AutomaticUpgradeOfProperties`), so the shape to copy exists; the QUERY
+  dimension is worth checking at the same time (`AutomaticUpgradeOfQueries` is granted in the same file).

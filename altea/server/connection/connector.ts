@@ -332,6 +332,45 @@ export abstract class Connector {
     // Releases the underlying connection/pool.
     abstract closeConnection(): Promise<void>;
 
+    // ---- The database this connector is pointed at ---------------------------
+
+    /**
+     * The database named by the connection string — Signum's `Connector.DatabaseName()`. Both real
+     * connectors answer it; a connector with no connection string (the test fakes) has no database to name.
+     */
+    databaseName(): string {
+        throw new Error(`${this.constructor.name} names no database (it has no connection string).`);
+    }
+
+    /** Rewrite the configuration to name another database on the same server. */
+    protected setDatabaseName(_databaseName: string): void {
+        throw new Error(`${this.constructor.name} cannot be pointed at another database.`);
+    }
+
+    /**
+     * Re-point this connector at another database on the same server, closing the pool first so the next
+     * statement dials the new one (Signum's `ChangeConnectionStringDatabase`).
+     *
+     * This exists for the handful of statements that CANNOT run inside the database they act on —
+     * `DROP DATABASE`, `CREATE DATABASE … WITH TEMPLATE` — which have to be issued from a maintenance
+     * database (`postgres` / `master`). {@link withDatabase} is the form to use; this is its primitive.
+     */
+    async changeDatabase(databaseName: string): Promise<void> {
+        await this.closeConnection();
+        this.setDatabaseName(databaseName);
+    }
+
+    /** Run `fn` with this connector pointed at `databaseName`, then point it back. */
+    async withDatabase<R>(databaseName: string, fn: () => Promise<R>): Promise<R> {
+        const previous = this.databaseName();
+        await this.changeDatabase(databaseName);
+        try {
+            return await fn();
+        } finally {
+            await this.changeDatabase(previous);
+        }
+    }
+
     // Drops every table/view/constraint/etc. in the database, leaving it empty —
     // the equivalent of Signum's Connector.CleanDatabase. Used to make a full
     // generation re-runnable against a dirty database. Dialect-specific.

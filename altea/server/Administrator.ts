@@ -1,6 +1,7 @@
 // Schema-management operations (Signum's `Administrator`). These act on the database
 // schema rather than on data — creating temporary tables/views, resetting sequences, etc.
 
+import * as path from "node:path";
 import { Connector } from "./connection/connector";
 import { Entity, type Type, type View, type ViewType } from "../data/entity";
 import { ExecutionMode } from "./executionMode";
@@ -39,6 +40,143 @@ export async function onAfterSynchronize(fileName: string | null, replacements: 
 // Transaction.noCommit) the connection is pinned, so this CREATE, the subsequent INSERT
 // and any SELECT all share it and see the same temp table.
 export const Administrator = {
+    /**
+     * Signum's `Administrator.WithSnapshotOrTemplateDatabase` — wrap a full GENERATION so that what it
+     * produces can be restored, over and over, by {@link restoreSnapshotOrDatabase}. A test suite that
+     * drives a real database generates once through this, then rewinds to it before each test.
+     *
+     * The two dialects reach the same place from opposite directions, as in Signum:
+     *  - SQL Server generates into the real database and, on the way out, takes a SNAPSHOT of it.
+     *  - PostgreSQL has no snapshots, so generation is REDIRECTED into `<db>_Template` and the real
+     *    database is (re)created from it as a template on the way out.
+     *
+     * `await using _ = await Administrator.withSnapshotOrTemplateDatabase();` — the work happens when the
+     * scope is disposed, so everything the generation did is inside it.
+     */
+    async withSnapshotOrTemplateDatabase(templateName?: string): Promise<AsyncDisposable> {
+        const connector = Connector.current();
+        const dbName = connector.databaseName();
+        const template = templateName ?? dbName + "_Template";
+
+        if (!connector.isPostgres)
+            return { [Symbol.asyncDispose]: () => Administrator.snapshots.createSnapshot(template) };
+
+        // Point the whole generation at the template database, created empty from the maintenance one.
+        await connector.withDatabase(POSTGRES_MAINTENANCE_DB, () => Administrator.postgresTools.createDatabase(template));
+        await connector.changeDatabase(template);
+
+        return {
+            async [Symbol.asyncDispose](): Promise<void> {
+                await connector.withDatabase(POSTGRES_MAINTENANCE_DB,
+                    () => Administrator.postgresTools.createDatabase(dbName, { fromTemplate: template }));
+                await connector.changeDatabase(dbName);
+            },
+        };
+    },
+
+    /**
+     * Signum's `Administrator.RestoreSnapshotOrDatabase` — put the database back exactly as
+     * {@link withSnapshotOrTemplateDatabase} left it, discarding everything written since.
+     *
+     * It replaces the whole database, so nothing else may be USING it: on PostgreSQL every other
+     * connection is terminated first (an application server holding a pool included — it reconnects),
+     * and on SQL Server the restore takes the database SINGLE_USER for the duration. A server that
+     * caches rows in memory is not told by any of this: invalidate its caches afterwards
+     * (`POST /api/cache/invalidateAll`).
+     */
+    async restoreSnapshotOrDatabase(templateName?: string): Promise<void> {
+        const connector = Connector.current();
+        const dbName = connector.databaseName();
+        const template = templateName ?? dbName + "_Template";
+
+        if (!connector.isPostgres) {
+            await Administrator.snapshots.restoreSnapshot(template);
+            return;
+        }
+
+        await connector.withDatabase(POSTGRES_MAINTENANCE_DB,
+            () => Administrator.postgresTools.createDatabase(dbName, { fromTemplate: template }));
+        // The pool was closed to switch away; the next statement opens a fresh one on the new database.
+        await connector.closeConnection();
+    },
+
+    /** SQL Server database snapshots (Signum's `Administrator.Snapshots`). */
+    snapshots: {
+        /** `CREATE DATABASE … AS SNAPSHOT OF <db>`, replacing any snapshot of the same name. */
+        async createSnapshot(snapshotName: string, options?: { overwrite?: boolean }): Promise<void> {
+            const connector = Connector.current();
+            const dbName = connector.databaseName();
+
+            if (options?.overwrite !== false) {
+                const existing = await connector.executeQuery(
+                    "SELECT name FROM sys.databases WHERE name = @p0", [snapshotName]);
+                if (existing.length > 0)
+                    await Administrator.snapshots.dropSnapshot(snapshotName);
+            }
+
+            // A snapshot names a file per data file of the source; the ROWS file (type 0) is the one
+            // Signum uses, written beside the process's working directory.
+            const files = await connector.executeQuery(
+                "SELECT name FROM sys.database_files WHERE type = 0") as { name: string }[];
+            const logical = files[0]?.name;
+            if (logical == null)
+                throw new Error(`Cannot snapshot '${dbName}': it reports no data file.`);
+
+            const file = path.join(process.cwd(), snapshotName + ".ss").replace(/'/g, "''");
+            await connector.executeNonQuery(
+                `CREATE DATABASE ${sqlServerName(snapshotName)} ON (NAME=${sqlServerName(logical)}, FILENAME='${file}')`
+                + ` AS SNAPSHOT OF ${sqlServerName(dbName)}`);
+        },
+
+        async dropSnapshot(snapshotName: string): Promise<void> {
+            await Connector.current().executeNonQuery(`DROP DATABASE ${sqlServerName(snapshotName)}`);
+        },
+
+        /** Roll the database back to a snapshot of it. Takes the database SINGLE_USER while it runs. */
+        async restoreSnapshot(snapshotName: string): Promise<void> {
+            const connector = Connector.current();
+            const dbName = sqlServerName(connector.databaseName());
+            await connector.executeNonQuery(
+                `USE master;\n`
+                + `ALTER DATABASE ${dbName} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;\n`
+                + `RESTORE DATABASE ${dbName} FROM DATABASE_SNAPSHOT = '${snapshotName.replace(/'/g, "''")}';\n`
+                + `ALTER DATABASE ${dbName} SET MULTI_USER;`);
+            await connector.closeConnection();
+        },
+    },
+
+    /** Database-level PostgreSQL operations (Signum's `Administrator.PostgressTools`). */
+    postgresTools: {
+        /**
+         * `DROP DATABASE IF EXISTS` + `CREATE DATABASE` (optionally `WITH TEMPLATE`), terminating every
+         * other connection to both first — Postgres refuses either statement while one is open, and the
+         * application server under test is exactly such a connection.
+         *
+         * The CURRENT connector must be pointed at another database (`postgres`): a database cannot be
+         * dropped from inside itself.
+         */
+        async createDatabase(dbName: string, options?: { fromTemplate?: string; closeConnections?: boolean }): Promise<void> {
+            const connector = Connector.current();
+            if (options?.closeConnections !== false) {
+                await Administrator.postgresTools.closeConnections(dbName);
+                if (options?.fromTemplate != null)
+                    await Administrator.postgresTools.closeConnections(options.fromTemplate);
+            }
+
+            await connector.executeNonQuery(`DROP DATABASE IF EXISTS ${postgresName(dbName)};`);
+            await connector.executeNonQuery(`CREATE DATABASE ${postgresName(dbName)}`
+                + (options?.fromTemplate != null ? ` WITH TEMPLATE ${postgresName(options.fromTemplate)}` : "")
+                + ";");
+        },
+
+        /** Terminate every backend connected to `dbName` except this one. */
+        async closeConnections(dbName: string): Promise<void> {
+            await Connector.current().executeNonQuery(
+                `SELECT pg_terminate_backend(pid) FROM pg_stat_activity`
+                + ` WHERE datname = $1 AND pid <> pg_backend_pid();`, [dbName]);
+        },
+    },
+
     async createTemporaryTable<V extends View>(viewType: ViewType<V>): Promise<void> {
         const connector = Connector.current();
         const table = connector.schema.view(viewType);
@@ -83,3 +221,21 @@ export const Administrator = {
     },
 };
 
+
+/** The database a PostgreSQL statement that drops or creates ANOTHER database is issued from. */
+const POSTGRES_MAINTENANCE_DB = "postgres";
+
+/**
+ * A database / file name that is about to be interpolated into DDL. `CREATE DATABASE` and
+ * `RESTORE DATABASE` take no parameters in either dialect, so the name has to be part of the statement
+ * text — which is safe only for a plain identifier, and that is what this asserts.
+ */
+function assertPlainName(name: string): string {
+    if (!/^[A-Za-z_][A-Za-z0-9_$]{0,127}$/.test(name))
+        throw new Error(`'${name}' is not a plain database name. A snapshot / template name is written`
+            + ` into DDL, which takes no parameters, so it must be a bare identifier.`);
+    return name;
+}
+
+function sqlServerName(name: string): string { return `[${assertPlainName(name)}]`; }
+function postgresName(name: string): string { return `"${assertPlainName(name)}"`; }

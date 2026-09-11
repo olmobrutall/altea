@@ -123,7 +123,9 @@ export class PostgresConnector extends Connector {
 
     // `config` is PUBLIC (Signum: `Connector.CreateConnection()`): altea-cache's PostgresBroadcast needs its
     // OWN long-lived connection for LISTEN/NOTIFY, which must not come from the pool (it is never returned).
-    constructor(schema: Schema, readonly config: PoolConfig | string) {
+    // Not readonly: `changeDatabase` re-points it at another database on the same server (it replaces the
+    // object rather than mutating it, so a component holding the old one keeps a coherent copy).
+    constructor(schema: Schema, public config: PoolConfig | string) {
         super(schema, /* isPostgres */ true, /* maxNameLength */ 63);
     }
 
@@ -165,7 +167,22 @@ export class PostgresConnector extends Connector {
 
     private getPool(): Pool {
         const base = typeof this.config === 'string' ? { connectionString: this.config } : this.config;
-        return (this.pool ??= new Pool({ ...base, types: ALTEA_PG_TYPES as PoolConfig['types'] }));
+        if (this.pool != null)
+            return this.pool;
+
+        const pool = new Pool({ ...base, types: ALTEA_PG_TYPES as PoolConfig['types'] });
+
+        // An IDLE pooled client whose backend went away (a server restart, a `pg_terminate_backend`, a
+        // dropped network) emits `error` on the POOL, and node kills the process for an unhandled 'error'
+        // event — so without this listener a database hiccup takes the application server down with it.
+        // The pool has already discarded the client by the time this runs; the next query opens a fresh
+        // one. Logged, not thrown: nobody is awaiting it.
+        pool.on('error', err => {
+            console.warn(`[postgres] an idle connection was dropped (${(err as Error)?.message ?? err});`
+                + ` the pool will open a new one.`);
+        });
+
+        return (this.pool = pool);
     }
 
     async openConnection(): Promise<ConnectionHandle> {
@@ -186,6 +203,31 @@ export class PostgresConnector extends Connector {
     async closeConnection(): Promise<void> {
         await this.pool?.end();
         this.pool = undefined;
+    }
+
+    // ---- The database this connector is pointed at ---------------------------
+    //
+    // A connection string reaches here in either libpq form: the URI (`postgresql://user@host/dbname`)
+    // or the keyword one (`host=… dbname=…`). Both are read and rewritten, because either is a legal
+    // value of the environment variable an application boots from.
+
+    override databaseName(): string {
+        if (typeof this.config !== "string")
+            return this.config.database ?? (this.config.connectionString != null
+                ? databaseOf(this.config.connectionString)
+                : "");
+        return databaseOf(this.config);
+    }
+
+    protected override setDatabaseName(databaseName: string): void {
+        if (typeof this.config !== "string") {
+            if (this.config.connectionString != null)
+                this.config = { ...this.config, connectionString: withDatabase(this.config.connectionString, databaseName) };
+            else
+                this.config = { ...this.config, database: databaseName };
+        } else {
+            this.config = withDatabase(this.config, databaseName);
+        }
     }
 
     // Drops every view, table, sequence, extension and function in all
@@ -251,4 +293,26 @@ BEGIN
                 EXECUTE format('DROP SCHEMA %I;', r.nspname);
         END LOOP;
 END; $$;`;
+}
+
+/** The database a libpq connection string names — the URI's path, or its `dbname=` keyword. */
+function databaseOf(connectionString: string): string {
+    if (/^postgres(ql)?:\/\//i.test(connectionString))
+        return decodeURIComponent(new URL(connectionString).pathname.replace(/^\//, ""));
+
+    return /(?:^|\s)dbname\s*=\s*('[^']*'|\S*)/i.exec(connectionString)?.[1]?.replace(/^'|'$/g, "") ?? "";
+}
+
+/** The same connection string, naming `databaseName` instead. */
+function withDatabase(connectionString: string, databaseName: string): string {
+    if (/^postgres(ql)?:\/\//i.test(connectionString)) {
+        const url = new URL(connectionString);
+        url.pathname = "/" + encodeURIComponent(databaseName);
+        return url.toString();
+    }
+
+    if (/(?:^|\s)dbname\s*=/i.test(connectionString))
+        return connectionString.replace(/((?:^|\s)dbname\s*=\s*)('[^']*'|\S*)/i, `$1${databaseName}`);
+
+    return `${connectionString} dbname=${databaseName}`;
 }

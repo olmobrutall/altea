@@ -121,7 +121,8 @@ export class SqlServerConnector extends Connector {
     private pool: ConnectionPool | undefined;
     private connecting: Promise<ConnectionPool> | undefined;
 
-    constructor(schema: Schema, private readonly config: MssqlConfig | string) {
+    // Not readonly: `changeDatabase` re-points it at another database on the same server.
+    constructor(schema: Schema, private config: MssqlConfig | string) {
         super(schema, /* isPostgres */ false, /* maxNameLength */ 128);
     }
 
@@ -171,6 +172,28 @@ export class SqlServerConnector extends Connector {
         await this.pool?.close();
         this.pool = undefined;
         this.connecting = undefined;
+    }
+
+    // ---- The database this connector is pointed at ---------------------------
+    //
+    // The connection string's `Database=` (ADO.NET also spells it `Initial Catalog=`, and so may a string
+    // copied out of a Signum appsettings.json — both are read, the first is written).
+
+    override databaseName(): string {
+        if (typeof this.config !== "string")
+            return this.config.database ?? "";
+        return /(?:^|;)\s*(?:database|initial catalog)\s*=\s*([^;]*)/i.exec(this.config)?.[1]?.trim() ?? "";
+    }
+
+    protected override setDatabaseName(databaseName: string): void {
+        if (typeof this.config !== "string") {
+            this.config = { ...this.config, database: databaseName };
+            return;
+        }
+
+        this.config = /(?:^|;)\s*(?:database|initial catalog)\s*=/i.test(this.config)
+            ? this.config.replace(/((?:^|;)\s*(?:database|initial catalog)\s*=\s*)([^;]*)/i, `$1${databaseName}`)
+            : `${this.config.replace(/;\s*$/, "")};Database=${databaseName}`;
     }
 
     // Drops all procedures, views, FK constraints, tables and non-system schemas,
