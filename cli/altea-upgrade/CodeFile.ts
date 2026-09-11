@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Color, SafeConsole } from "@altea/altea/server/safeConsole";
+import { Color, Console } from "./Console.js";
 import type { UpgradeContext } from "./UpgradeContext.js";
 
 /**
@@ -105,7 +105,7 @@ export class CodeFile {
         this.uctx.reportWarning(this.warningLevel);
 
         const style = this.warningLevel === WarningLevel.Error ? Color.red : Color.yellow;
-        SafeConsole.writeLineColor(style,
+        Console.writeLineColor(style,
             `${WarningLevel[this.warningLevel].toUpperCase()} ${this.filePath}: ${message}`);
     }
 
@@ -425,9 +425,9 @@ export class CodeFile {
 
         if (this.newFilePath != undefined && this.newFilePath !== this.filePath) {
             fs.rmSync(this.uctx.absolutePath(this.filePath), { force: true });
-            SafeConsole.writeLineColor(Color.yellow, `  Moved ${this.filePath} -> ${this.newFilePath}`);
+            Console.writeLineColor(Color.yellow, `  Moved ${this.filePath} -> ${this.newFilePath}`);
         } else {
-            SafeConsole.writeLineColor(Color.darkGray, `  Modified ${this.filePath}`);
+            Console.writeLineColor(Color.darkGray, `  Modified ${this.filePath}`);
         }
 
         this.originalContent = this.currentContent;

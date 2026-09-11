@@ -1,5 +1,5 @@
 import * as readline from "node:readline";
-import { Color, SafeConsole } from "@altea/altea/server/safeConsole";
+import { Color, Console } from "./Console.js";
 
 /** One row of a {@link multiSelect} list. */
 export interface Choice<T> {
@@ -28,14 +28,14 @@ export namespace Prompt {
      * (comma or space separated, ranges with `-`), `all` / `none` to set everything, and empty to accept.
      */
     export async function multiSelect<T>(title: string, choices: Choice<T>[]): Promise<T[] | undefined> {
-        if (!SafeConsole.isInteractive()) {
-            SafeConsole.writeLineColor(Color.yellow,
+        if (!Console.isInteractive()) {
+            Console.writeLineColor(Color.yellow,
                 "Not an interactive console — using the default selection.");
             return choices.filter(c => c.selected).map(c => c.value);
         }
 
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-        SafeConsole.handleSigInt(rl);
+        Console.handleSigInt(rl);
         try {
             for (; ;) {
                 draw(title, choices);
@@ -57,21 +57,21 @@ export namespace Prompt {
     }
 
     function draw<T>(title: string, choices: Choice<T>[]): void {
-        SafeConsole.writeLine();
-        SafeConsole.banner(title);
-        SafeConsole.writeLine();
+        Console.writeLine();
+        Console.banner(title);
+        Console.writeLine();
 
         const width = String(choices.length).length;
         choices.forEach((c, i) => {
             const box = c.forced === true ? "[-]" : c.selected ? "[x]" : "[ ]";
             const style = c.forced === true ? Color.darkGray : c.selected ? Color.green : Color.darkGray;
-            SafeConsole.writeColor(style, `  ${String(i + 1).padStart(width)} ${box} ${c.key}`);
-            SafeConsole.writeLineColor(Color.darkGray, c.description === "" ? "" : `  — ${c.description}`);
+            Console.writeColor(style, `  ${String(i + 1).padStart(width)} ${box} ${c.key}`);
+            Console.writeLineColor(Color.darkGray, c.description === "" ? "" : `  — ${c.description}`);
         });
 
-        SafeConsole.writeLine();
+        Console.writeLine();
         const kept = choices.filter(c => c.selected).length;
-        SafeConsole.writeLineColor(Color.white,
+        Console.writeLineColor(Color.white,
             `  Keeping ${kept} of ${choices.length}; removing ${choices.length - kept}.`);
     }
 
@@ -94,13 +94,13 @@ export namespace Prompt {
             const byKey = choices.filter(c => c.key.toLowerCase() === token.toLowerCase());
             if (byKey.length === 1) { toggle(byKey[0], token); continue; }
 
-            SafeConsole.writeLineColor(Color.red, `  '${token}' is not one of the options`);
+            Console.writeLineColor(Color.red, `  '${token}' is not one of the options`);
         }
     }
 
     function toggleIndex<T>(choices: Choice<T>[], index: number, token: string): void {
         if (index < 0 || index >= choices.length) {
-            SafeConsole.writeLineColor(Color.red, `  '${token}' is out of range`);
+            Console.writeLineColor(Color.red, `  '${token}' is out of range`);
             return;
         }
         toggle(choices[index], token);
@@ -108,7 +108,7 @@ export namespace Prompt {
 
     function toggle<T>(choice: Choice<T>, token: string): void {
         if (choice.forced === true) {
-            SafeConsole.writeLineColor(Color.yellow,
+            Console.writeLineColor(Color.yellow,
                 `  '${token}' cannot be changed here (something selected depends on it)`);
             return;
         }
@@ -119,7 +119,7 @@ export namespace Prompt {
     export async function askValidated(question_: string, validate: (value: string) => string | undefined,
         initial?: string): Promise<string | undefined> {
         for (; ;) {
-            const answer = initial ?? await SafeConsole.askString(question_);
+            const answer = initial ?? await Console.askString(question_);
             initial = undefined;
 
             if (answer === "")
@@ -129,7 +129,7 @@ export namespace Prompt {
             if (complaint == undefined)
                 return answer;
 
-            SafeConsole.writeLineColor(Color.red, "  " + complaint);
+            Console.writeLineColor(Color.red, "  " + complaint);
         }
     }
 

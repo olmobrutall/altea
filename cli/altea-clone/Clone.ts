@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Color, SafeConsole } from "@altea/altea/server/safeConsole";
-import { Git } from "@altea/altea-upgrade/Git";
-import { Prompt } from "@altea/altea-upgrade/Prompt";
-import { UpgradeContext } from "@altea/altea-upgrade/UpgradeContext";
+import { Color, Console } from "../altea-upgrade/Console.js";
+import { Git } from "../altea-upgrade/Git.js";
+import { Prompt } from "../altea-upgrade/Prompt.js";
+import { UpgradeContext } from "../altea-upgrade/UpgradeContext.js";
 
 /**
  * Copy this application into a NEW project, renamed.
@@ -60,25 +60,25 @@ export namespace Clone {
         if (fs.existsSync(target) && fs.readdirSync(target).length > 0)
             throw new Error(`${target} already exists and is not empty.`);
 
-        SafeConsole.writeLine();
-        SafeConsole.banner("Clone");
-        SafeConsole.writeLine(`  from   ${uctx.rootFolder}  (application '${uctx.applicationName}')`);
-        SafeConsole.writeLine(`  to     ${target}  (application '${name}')`);
-        SafeConsole.writeLine();
+        Console.writeLine();
+        Console.banner("Clone");
+        Console.writeLine(`  from   ${uctx.rootFolder}  (application '${uctx.applicationName}')`);
+        Console.writeLine(`  to     ${target}  (application '${name}')`);
+        Console.writeLine();
 
         if (options.dryRun === true) {
-            SafeConsole.writeLineColor(Color.yellow, "Dry run — nothing was created.");
+            Console.writeLineColor(Color.yellow, "Dry run — nothing was created.");
             return;
         }
 
-        if (options.yes !== true && !await SafeConsole.ask("Create it?"))
+        if (options.yes !== true && !await Console.ask("Create it?"))
             return;
 
         fs.mkdirSync(target, { recursive: true });
 
         // 1. A repository first: the submodule needs one, and so does the initial commit.
         Git.init(target);
-        SafeConsole.writeLineColor(Color.green, "  git init");
+        Console.writeLineColor(Color.green, "  git init");
 
         // 2. The framework, as a submodule pinned to the SAME commit this workspace has checked out.
         //    A new project that starts against a different altea than the one the source was verified
@@ -88,7 +88,7 @@ export namespace Clone {
         // 3. The application itself, renamed.
         const source = path.join(uctx.rootFolder, uctx.applicationName);
         copyRenamed(source, path.join(target, name), uctx.applicationName, name, uctx.rootFolder);
-        SafeConsole.writeLineColor(Color.green, `  copied ${uctx.applicationName}/ -> ${name}/`);
+        Console.writeLineColor(Color.green, `  copied ${uctx.applicationName}/ -> ${name}/`);
 
         // 4. The workspace-level files.
         for (const f of ROOT_FILES) {
@@ -101,25 +101,25 @@ export namespace Clone {
             if (fs.existsSync(from))
                 copyRenamed(from, path.join(target, d), uctx.applicationName, name, uctx.rootFolder);
         }
-        SafeConsole.writeLineColor(Color.green, "  copied the workspace files");
+        Console.writeLineColor(Color.green, "  copied the workspace files");
 
         // 5. `old/` was not copied, so its submodule entry must not survive either.
         dropOldSubmodule(target);
 
         // 6. One commit, so the new project starts from a clean tree — which is what `simplify` needs.
         if (Git.commitAll(target, `Initial commit — ${name}, from ${uctx.applicationName}`))
-            SafeConsole.writeLineColor(Color.white, "  initial commit created");
+            Console.writeLineColor(Color.white, "  initial commit created");
 
-        SafeConsole.writeLine();
-        SafeConsole.writeLineColor(Color.green, `${name} is ready at ${target}`);
-        SafeConsole.writeLine();
-        SafeConsole.writeLine("  Next:");
-        SafeConsole.writeLine(`    cd ${target}`);
-        SafeConsole.writeLine("    altea-simplify                      # drop the modules this app does not need");
-        SafeConsole.writeLine("    pnpm install                        # simplify first: it needs no install,");
-        SafeConsole.writeLine("    pnpm --filter quote-transformer build   # and install leaves an untracked lockfile");
-        SafeConsole.writeLine(`    pnpm --filter ${name} build:types`);
-        SafeConsole.writeLineColor(Color.darkGray,
+        Console.writeLine();
+        Console.writeLineColor(Color.green, `${name} is ready at ${target}`);
+        Console.writeLine();
+        Console.writeLine("  Next:");
+        Console.writeLine(`    cd ${target}`);
+        Console.writeLine("    altea-simplify                      # drop the modules this app does not need");
+        Console.writeLine("    pnpm install                        # simplify first: it needs no install,");
+        Console.writeLine("    pnpm --filter quote-transformer build   # and install leaves an untracked lockfile");
+        Console.writeLine(`    pnpm --filter ${name} build:types`);
+        Console.writeLineColor(Color.darkGray,
             `    …then edit ${name}/.env.local — the copied environment files are git-ignored, `
             + "and still hold the source application's connection strings.");
     }
@@ -137,12 +137,12 @@ export namespace Clone {
 
     async function askDirectory(given: string | undefined, uctx: UpgradeContext, yes: boolean): Promise<string | undefined> {
         const parent = path.dirname(uctx.rootFolder);
-        const answer = given ?? await SafeConsole.askString(
+        const answer = given ?? await Console.askString(
             `Parent directory? (Enter for ${parent}) `);
 
         const directory = answer === "" ? parent : path.resolve(answer);
         if (!fs.existsSync(directory)) {
-            if (!yes && !await SafeConsole.ask(`${directory} does not exist. Create it?`))
+            if (!yes && !await Console.ask(`${directory} does not exist. Create it?`))
                 return undefined;
             fs.mkdirSync(directory, { recursive: true });
         }
@@ -159,14 +159,14 @@ export namespace Clone {
         const commit = Git.submoduleCommit(path.join(uctx.rootFolder, "altea"), "altea");
 
         Git.addSubmodule(target, url, "altea");
-        SafeConsole.writeLineColor(Color.green, `  git submodule add ${url} altea`);
+        Console.writeLineColor(Color.green, `  git submodule add ${url} altea`);
 
         if (commit == undefined)
             return;
 
         const submodule = path.join(target, "altea");
         if (Git.tryCheckout(submodule, commit)) {
-            SafeConsole.writeLineColor(Color.darkGray, `    pinned to ${commit.slice(0, 10)}`);
+            Console.writeLineColor(Color.darkGray, `    pinned to ${commit.slice(0, 10)}`);
             return;
         }
 
@@ -175,15 +175,15 @@ export namespace Clone {
         // so: until altea is pushed, nobody else can clone the new project either.
         if (Git.fetchFrom(submodule, path.join(uctx.rootFolder, "altea"), commit)
             && Git.tryCheckout(submodule, commit)) {
-            SafeConsole.writeLineColor(Color.darkGray, `    pinned to ${commit.slice(0, 10)}`);
-            SafeConsole.writeLineColor(Color.yellow,
+            Console.writeLineColor(Color.darkGray, `    pinned to ${commit.slice(0, 10)}`);
+            Console.writeLineColor(Color.yellow,
                 "    WARNING: that altea commit is not on the remote — it was copied from this workspace.");
-            SafeConsole.writeLineColor(Color.yellow,
+            Console.writeLineColor(Color.yellow,
                 "             Push altea before anyone else clones the new project.");
             return;
         }
 
-        SafeConsole.writeLineColor(Color.yellow,
+        Console.writeLineColor(Color.yellow,
             `    WARNING: could not pin altea to ${commit.slice(0, 10)}; it is on its default branch.`);
     }
 

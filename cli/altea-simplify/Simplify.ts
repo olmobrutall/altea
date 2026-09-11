@@ -1,10 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Color, SafeConsole } from "@altea/altea/server/safeConsole";
-import { Git } from "@altea/altea-upgrade/Git";
+import { Color, Console } from "../altea-upgrade/Console.js";
+import { Git } from "../altea-upgrade/Git.js";
 import { ModulesXml, type Directive, type Module, type ModulesFile } from "./ModulesXml.js";
-import { Prompt, type Choice } from "@altea/altea-upgrade/Prompt";
-import type { UpgradeContext } from "@altea/altea-upgrade/UpgradeContext";
+import { Prompt, type Choice } from "../altea-upgrade/Prompt.js";
+import type { UpgradeContext } from "../altea-upgrade/UpgradeContext.js";
 
 /**
  * Remove optional modules from an application, following its `Modules.xml`.
@@ -48,21 +48,21 @@ export namespace Simplify {
             : await askInteractively(file, options.yes === true);
 
         if (removing == undefined) {
-            SafeConsole.writeLineColor(Color.yellow, "Cancelled — nothing was changed.");
+            Console.writeLineColor(Color.yellow, "Cancelled — nothing was changed.");
             return;
         }
 
         const modules = file.modules.filter(m => removing.has(m.name));
         if (modules.length === 0) {
-            SafeConsole.writeLineColor(Color.green, "Nothing to remove.");
+            Console.writeLineColor(Color.green, "Nothing to remove.");
             return;
         }
 
-        SafeConsole.writeLine();
-        SafeConsole.banner(`Removing ${modules.length} module(s)`);
+        Console.writeLine();
+        Console.banner(`Removing ${modules.length} module(s)`);
         for (const m of modules)
-            SafeConsole.writeLineColor(Color.yellow, "  " + m.name);
-        SafeConsole.writeLine();
+            Console.writeLineColor(Color.yellow, "  " + m.name);
+        Console.writeLine();
 
         if (options.dryRun !== true) {
             if (!Git.isRepository(uctx.rootFolder))
@@ -71,32 +71,32 @@ export namespace Simplify {
 
             await Git.waitForCleanTree(uctx.rootFolder);
 
-            if (options.yes !== true && !await SafeConsole.ask("Apply?"))
+            if (options.yes !== true && !await Console.ask("Apply?"))
                 return;
         }
 
         for (const module of modules) {
-            SafeConsole.writeLine();
-            SafeConsole.writeLineColor(Color.cyan, `-- ${module.name}`);
+            Console.writeLine();
+            Console.writeLineColor(Color.cyan, `-- ${module.name}`);
 
             applyModule(file, module, removing, options.dryRun === true);
 
             if (options.dryRun !== true && options.singleCommit !== true) {
                 if (Git.commitAll(uctx.rootFolder, `Remove module ${module.name}`))
-                    SafeConsole.writeLineColor(Color.white, `   committed 'Remove module ${module.name}'`);
+                    Console.writeLineColor(Color.white, `   committed 'Remove module ${module.name}'`);
                 else
-                    SafeConsole.writeLineColor(Color.darkGray, "   nothing to commit");
+                    Console.writeLineColor(Color.darkGray, "   nothing to commit");
             }
         }
 
         if (options.dryRun !== true && options.singleCommit === true) {
             const message = `Remove modules: ${modules.map(m => m.name).join(", ")}`;
             if (Git.commitAll(uctx.rootFolder, message))
-                SafeConsole.writeLineColor(Color.white, `Committed '${message}'`);
+                Console.writeLineColor(Color.white, `Committed '${message}'`);
         }
 
-        SafeConsole.writeLine();
-        SafeConsole.writeLineColor(options.dryRun === true ? Color.yellow : Color.green,
+        Console.writeLine();
+        Console.writeLineColor(options.dryRun === true ? Color.yellow : Color.green,
             options.dryRun === true
                 ? "Dry run — nothing was changed."
                 : "Done. Run `pnpm install` and build before committing anything else.");
@@ -112,10 +112,10 @@ export namespace Simplify {
             selected: !m.optional,
         }));
 
-        SafeConsole.writeLine();
-        SafeConsole.writeLineColor(Color.darkGray,
+        Console.writeLine();
+        Console.writeLineColor(Color.darkGray,
             "  Tick a module to KEEP it. Unticked modules are REMOVED from the source, one commit each.");
-        SafeConsole.writeLineColor(Color.darkGray,
+        Console.writeLineColor(Color.darkGray,
             "  Removing a module also removes everything that depends on it.");
 
         const kept = await Prompt.multiSelect("Modules to keep", choices);
@@ -129,10 +129,10 @@ export namespace Simplify {
         // Show what the DependsOn closure added, so a surprise removal is never silent.
         const cascaded = [...removing].filter(n => keptNames.has(n));
         if (cascaded.length > 0) {
-            SafeConsole.writeLine();
-            SafeConsole.writeLineColor(Color.yellow,
+            Console.writeLine();
+            Console.writeLineColor(Color.yellow,
                 `  Also removing (they depend on something you removed): ${cascaded.join(", ")}`);
-            if (!yes && !await SafeConsole.ask("  Continue?"))
+            if (!yes && !await Console.ask("  Continue?"))
                 return undefined;
         }
 
@@ -181,7 +181,7 @@ export namespace Simplify {
             try {
                 applyDirective(file, d, dryRun);
             } catch (e) {
-                SafeConsole.writeLineColor(Color.red, `   ${(e as Error).message}`);
+                Console.writeLineColor(Color.red, `   ${(e as Error).message}`);
             }
         }
     }
@@ -200,12 +200,12 @@ export namespace Simplify {
     function removeFiles(file: ModulesFile, relative: string, dryRun: boolean): void {
         const full = path.join(file.rootFolder, relative);
         if (!fs.existsSync(full)) {
-            SafeConsole.writeLineColor(Color.darkGray, `   (already gone) ${relative}`);
+            Console.writeLineColor(Color.darkGray, `   (already gone) ${relative}`);
             return;
         }
 
         const isDirectory = fs.statSync(full).isDirectory();
-        SafeConsole.writeLineColor(Color.yellow, `   delete ${isDirectory ? "directory " : ""}${relative}`);
+        Console.writeLineColor(Color.yellow, `   delete ${isDirectory ? "directory " : ""}${relative}`);
         if (!dryRun)
             fs.rmSync(full, { recursive: true, force: true });
     }
@@ -300,7 +300,7 @@ export namespace Simplify {
         transform: (lines: string[]) => { changed: boolean; note: string }): void {
         const full = path.join(file.rootFolder, relative);
         if (!fs.existsSync(full)) {
-            SafeConsole.writeLineColor(Color.darkGray, `   (already gone) ${relative}`);
+            Console.writeLineColor(Color.darkGray, `   (already gone) ${relative}`);
             return;
         }
 
@@ -310,7 +310,7 @@ export namespace Simplify {
 
         const { changed, note } = transform(lines);
 
-        SafeConsole.writeLineColor(changed ? Color.yellow : Color.red, `   ${relative}: ${note}`);
+        Console.writeLineColor(changed ? Color.yellow : Color.red, `   ${relative}: ${note}`);
         if (changed && !dryRun)
             fs.writeFileSync(full, lines.join(newline), "utf8");
     }

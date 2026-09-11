@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { Color, SafeConsole } from "@altea/altea/server/safeConsole";
+import { Color, Console } from "./Console.js";
 
 /**
  * The git operations the tool needs, by shelling out.
@@ -100,14 +100,14 @@ export namespace Git {
 
             const dirty = run(cwd, ["status", "--porcelain", "--ignore-submodules=all"]).stdout;
 
-            if (!SafeConsole.isInteractive())
+            if (!Console.isInteractive())
                 throw new Error("The git repo has uncommitted changes, and there is no console to resolve "
                     + `them on:\n${dirty}`);
 
-            SafeConsole.writeLine();
-            SafeConsole.writeLineColor(Color.yellow, `There are changes in the git repo:\n${dirty}`);
-            SafeConsole.writeLineColor(Color.yellow, `${action}, then press [Enter].`);
-            await SafeConsole.askString("");
+            Console.writeLine();
+            Console.writeLineColor(Color.yellow, `There are changes in the git repo:\n${dirty}`);
+            Console.writeLineColor(Color.yellow, `${action}, then press [Enter].`);
+            await Console.askString("");
         }
     }
 

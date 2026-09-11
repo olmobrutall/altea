@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
-import { Color, SafeConsole } from "@altea/altea/server/safeConsole";
+import { Color, Console } from "./Console.js";
 import { WarningLevel } from "./CodeFile.js";
 import { Git } from "./Git.js";
 import type { UpgradeContext } from "./UpgradeContext.js";
@@ -53,7 +53,7 @@ export class UpgradeRunner {
                 { default?: new () => UpgradeBase };
 
             if (module.default == undefined) {
-                SafeConsole.writeLineColor(Color.yellow, `  ${file} has no default export; skipped`);
+                Console.writeLineColor(Color.yellow, `  ${file} has no default export; skipped`);
                 continue;
             }
 
@@ -66,7 +66,7 @@ export class UpgradeRunner {
 
     async run(uctx: UpgradeContext): Promise<void> {
         if (this.upgrades.length === 0) {
-            SafeConsole.writeLineColor(Color.yellow, "There are no upgrades to run.");
+            Console.writeLineColor(Color.yellow, "There are no upgrades to run.");
             return;
         }
 
@@ -86,34 +86,34 @@ export class UpgradeRunner {
      * what the ledger exists to prevent.
      */
     private async readLedger(ledger: string): Promise<boolean> {
-        SafeConsole.writeLine();
+        Console.writeLine();
 
         if (!fs.existsSync(ledger)) {
-            SafeConsole.writeLineColor(Color.yellow, `${LEDGER_FILE} not found — let's create one.`);
-            SafeConsole.writeLine();
+            Console.writeLineColor(Color.yellow, `${LEDGER_FILE} not found — let's create one.`);
+            Console.writeLine();
 
             this.upgrades.forEach((u, i) =>
-                SafeConsole.writeLine(`  ${String(i + 1).padStart(3)}  ${u.key}`));
-            SafeConsole.writeLine(`  ${String(this.upgrades.length + 1).padStart(3)}  `
+                Console.writeLine(`  ${String(i + 1).padStart(3)}  ${u.key}`));
+            Console.writeLine(`  ${String(this.upgrades.length + 1).padStart(3)}  `
                 + "<< mark ALL upgrades as executed >>");
-            SafeConsole.writeLine();
+            Console.writeLine();
 
-            const answer = await SafeConsole.askString(
+            const answer = await Console.askString(
                 "Which is the first upgrade you should RUN? (everything before it is marked executed): ");
             if (answer === "")
                 return false;
 
             const index = Number(answer);
             if (!Number.isInteger(index) || index < 1 || index > this.upgrades.length + 1) {
-                SafeConsole.writeLineColor(Color.red, `'${answer}' is not one of the options`);
+                Console.writeLineColor(Color.red, `'${answer}' is not one of the options`);
                 return false;
             }
 
             const executed = this.upgrades.slice(0, index - 1).map(u => u.key);
             fs.writeFileSync(ledger, executed.join("\n") + (executed.length > 0 ? "\n" : ""), "utf8");
 
-            SafeConsole.writeLineColor(Color.green, `${LEDGER_FILE} created.`);
-            SafeConsole.writeLineColor(Color.darkGray,
+            Console.writeLineColor(Color.green, `${LEDGER_FILE} created.`);
+            Console.writeLineColor(Color.darkGray,
                 "(it records which upgrades have run, and should be committed to git)");
         }
 
@@ -130,11 +130,11 @@ export class UpgradeRunner {
 
         const next = this.upgrades.find(u => !u.isExecuted);
         if (next == undefined) {
-            SafeConsole.writeLineColor(Color.green, "All upgrades are executed!");
+            Console.writeLineColor(Color.green, "All upgrades are executed!");
             return false;
         }
 
-        if (!await SafeConsole.ask(`Run the next upgrade (${next.key})?`))
+        if (!await Console.ask(`Run the next upgrade (${next.key})?`))
             return false;
 
         return await this.executeOne(next, uctx, ledger);
@@ -144,32 +144,32 @@ export class UpgradeRunner {
         // The upgrade edits source in place, so the diff IS the review. That only works from a clean tree.
         await Git.waitForCleanTree(uctx.rootFolder);
 
-        SafeConsole.writeLine();
+        Console.writeLine();
         uctx.warningLevel = WarningLevel.None;
 
         try {
             await upgrade.execute(uctx);
         } catch (e) {
-            SafeConsole.writeLineColor(Color.red, (e as Error).message);
-            SafeConsole.writeLineColor(Color.darkGray, (e as Error).stack ?? "");
+            Console.writeLineColor(Color.red, (e as Error).message);
+            Console.writeLineColor(Color.darkGray, (e as Error).stack ?? "");
 
-            if (!await SafeConsole.ask(`Skip ${upgrade.key} and mark it as executed?`))
+            if (!await Console.ask(`Skip ${upgrade.key} and mark it as executed?`))
                 return false;
         }
 
         fs.appendFileSync(ledger, upgrade.key + "\n", "utf8");
 
-        SafeConsole.writeLine();
+        Console.writeLine();
         printOutcome(uctx.warningLevel);
-        SafeConsole.writeLine(" Please review the changes.");
-        SafeConsole.writeLine();
+        Console.writeLine(" Please review the changes.");
+        Console.writeLine();
 
-        switch (await SafeConsole.askOptions("What should we do next?", "commit", "retry", "exit")) {
+        switch (await Console.askOptions("What should we do next?", "commit", "retry", "exit")) {
             case "commit":
                 if (Git.commitAll(uctx.rootFolder, upgrade.key))
-                    SafeConsole.writeLineColor(Color.white, `Committed as '${upgrade.key}'.`);
+                    Console.writeLineColor(Color.white, `Committed as '${upgrade.key}'.`);
                 else
-                    SafeConsole.writeLine("Nothing to commit.");
+                    Console.writeLine("Nothing to commit.");
                 return true;
 
             case "retry":
@@ -184,17 +184,17 @@ export class UpgradeRunner {
     }
 
     private draw(): void {
-        SafeConsole.writeLine();
-        SafeConsole.writeLineColor(Color.cyan, "Available upgrades:");
-        SafeConsole.writeLine();
+        Console.writeLine();
+        Console.writeLineColor(Color.cyan, "Available upgrades:");
+        Console.writeLine();
 
         const next = this.upgrades.find(u => !u.isExecuted);
         for (const u of this.upgrades) {
             const style = u.isExecuted ? Color.darkGreen : u === next ? Color.blue : Color.white;
-            SafeConsole.writeColor(style, (u.isExecuted ? "-  " : u === next ? "-> " : "   ") + u.key);
-            SafeConsole.writeLineColor(Color.darkGray, "  " + u.description);
+            Console.writeColor(style, (u.isExecuted ? "-  " : u === next ? "-> " : "   ") + u.key);
+            Console.writeLineColor(Color.darkGray, "  " + u.description);
         }
-        SafeConsole.writeLine();
+        Console.writeLine();
     }
 }
 
@@ -206,9 +206,9 @@ export class UpgradeRunner {
  */
 function printOutcome(level: WarningLevel): void {
     switch (level) {
-        case WarningLevel.None: SafeConsole.writeColor(Color.green, "Upgrade finished successfully!"); break;
-        case WarningLevel.Warning: SafeConsole.writeColor(Color.yellow, "Upgrade finished with warnings…"); break;
-        case WarningLevel.Error: SafeConsole.writeColor(Color.red, "Upgrade finished with errors…"); break;
+        case WarningLevel.None: Console.writeColor(Color.green, "Upgrade finished successfully!"); break;
+        case WarningLevel.Warning: Console.writeColor(Color.yellow, "Upgrade finished with warnings…"); break;
+        case WarningLevel.Error: Console.writeColor(Color.red, "Upgrade finished with errors…"); break;
     }
 }
 

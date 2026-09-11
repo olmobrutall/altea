@@ -1,10 +1,8 @@
-// The source-editing toolkit, re-exported so `altea-clone` and `altea-simplify` can use it.
+// The source-editing toolkit an UPGRADE is written with, as one import.
 //
-// It lives HERE rather than in a fourth package because it IS the upgrade-writing API — an upgrade
-// script's whole vocabulary is `UpgradeContext` + `CodeFile`. The other two CLIs need only a corner of
-// it (finding the application, the three-casing rename, git, the prompts), which is not enough to earn
-// a package of its own; the cost is that they depend on `altea-upgrade` for something that is not an
-// upgrade.
+// altea-clone and altea-simplify reach the same modules by RELATIVE path (`../altea-upgrade/Git.js`)
+// rather than through this barrel or a package dependency — see the tsconfigs. These tools declare no
+// dependencies at all, so that nothing has to be installed before they can run.
 
 export { UpgradeContext } from "./UpgradeContext.js";
 export { CodeFile, WarningLevel, type LinePredicate, type SpanOption } from "./CodeFile.js";

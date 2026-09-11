@@ -4,25 +4,18 @@
   "description": "Remove an altea application's optional modules, following its Modules.xml",
   "type": "module",
   "bin": {
-    "altea-simplify": "./dist/main.js"
+    "altea-simplify": "./dist/altea-simplify/main.js"
   },
   "exports": {
     "./*": {
-      "types": "./dist/*.d.ts",
-      "default": "./dist/*.js"
+      "types": "./dist/altea-simplify/*.d.ts",
+      "default": "./dist/altea-simplify/*.js"
     }
   },
   "scripts": {
-    "build": "tspc -b",
-    "start": "tspc -b && node dist/main.js"
+    "build": "tsc"
   },
   "keywords": [],
   "author": "Olmo del Corral",
-  "license": "MIT",
-  "dependencies": {
-    "@altea/altea": "workspace:*",
-    "@altea/altea-upgrade": "workspace:*",
-    "fast-xml-parser": "^5.0.0",
-    "quote-transformer": "workspace:*"
-  }
+  "license": "MIT"
 }

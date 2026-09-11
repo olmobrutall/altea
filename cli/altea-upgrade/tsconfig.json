@@ -1,20 +1,24 @@
 {
-    // ONE layer: a node CLI that edits SOURCE TEXT. It is neither data / client / server — it never
-    // touches an entity, a schema or a React component — so it extends the shared base preset directly,
-    // as altea-playwright and an app's terminal do.
-    // 
-    // It references altea's SERVER project for SafeConsole / Color only. Nothing else: the tool has to
-    // keep working while the APPLICATION it is upgrading does not compile, so it must never import one.
-    "extends": "../../altea/presets/base.json",
+    // STANDALONE on purpose: it does NOT extend altea's base preset, because that configures the
+    // quote-transformer ts-patch plugin — a dependency this tool must not have. Plain `tsc`, node
+    // builtins only, so it runs from a bare checkout before any `pnpm install`.
     "compilerOptions": {
-        "rootDir": ".",
-        "outDir": "./dist",
-        "tsBuildInfoFile": "./dist/.tsbuildinfo",
-        "types": ["node"]
+        "target": "ES2022",
+        "lib": ["ES2022"],
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "types": ["node"],
+        "strict": true,
+        "verbatimModuleSyntax": true,
+        "forceConsistentCasingInFileNames": true,
+        "declaration": true,
+        "sourceMap": true,
+        // rootDir is the cli/ FOLDER, not this package: altea-clone and altea-simplify compile
+        // altea-upgrade's shared sources alongside their own, so the output mirrors the source layout
+        // and a relative import ("../altea-upgrade/Git.js") resolves the same before and after emit.
+        "rootDir": "..",
+        "outDir": "./dist"
     },
-    "include": ["**/*.ts"],
-    "exclude": ["dist/**", "node_modules/**"],
-    "references": [
-        { "path": "../../altea/tsconfig.server.json" }
-    ]
+    "include": ["./**/*.ts"],
+    "exclude": ["dist/**", "node_modules/**"]
 }

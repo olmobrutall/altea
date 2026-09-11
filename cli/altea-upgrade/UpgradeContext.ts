@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Color, SafeConsole } from "@altea/altea/server/safeConsole";
+import { Color, Console } from "./Console.js";
 import { CodeFile, WarningLevel } from "./CodeFile.js";
 
 /**
@@ -219,7 +219,7 @@ export class UpgradeContext {
         }
         fs.mkdirSync(path.dirname(full), { recursive: true });
         fs.writeFileSync(full, content, "utf8");
-        SafeConsole.writeLineColor(Color.green, `  Created ${relative}`);
+        Console.writeLineColor(Color.green, `  Created ${relative}`);
     }
 
     deleteFile(fileName: string, fileWarning: WarningLevel = WarningLevel.Error): void {
@@ -230,7 +230,7 @@ export class UpgradeContext {
             return;
         }
         fs.rmSync(full);
-        SafeConsole.writeLineColor(Color.yellow, `  Deleted ${relative}`);
+        Console.writeLineColor(Color.yellow, `  Deleted ${relative}`);
     }
 
     deleteDirectory(directory: string, fileWarning: WarningLevel = WarningLevel.Error): void {
@@ -241,7 +241,7 @@ export class UpgradeContext {
             return;
         }
         fs.rmSync(full, { recursive: true, force: true });
-        SafeConsole.writeLineColor(Color.yellow, `  Deleted directory ${relative}`);
+        Console.writeLineColor(Color.yellow, `  Deleted directory ${relative}`);
     }
 
     moveFile(from: string, to: string, fileWarning: WarningLevel = WarningLevel.Error): void {
@@ -253,7 +253,7 @@ export class UpgradeContext {
         }
         fs.mkdirSync(path.dirname(toAbs), { recursive: true });
         fs.renameSync(fromAbs, toAbs);
-        SafeConsole.writeLineColor(Color.yellow, `  Moved ${from} -> ${to}`);
+        Console.writeLineColor(Color.yellow, `  Moved ${from} -> ${to}`);
     }
 
     /**
@@ -268,7 +268,7 @@ export class UpgradeContext {
         if (level === WarningLevel.None)
             return;
         this.reportWarning(level);
-        SafeConsole.writeLineColor(level === WarningLevel.Error ? Color.red : Color.yellow,
+        Console.writeLineColor(level === WarningLevel.Error ? Color.red : Color.yellow,
             `${WarningLevel[level].toUpperCase()} ${message}`);
     }
 }

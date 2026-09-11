@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { Color, SafeConsole } from "@altea/altea/server/safeConsole";
-import { UpgradeContext } from "@altea/altea-upgrade/UpgradeContext";
+import { Color, Console } from "../altea-upgrade/Console.js";
+import { UpgradeContext } from "../altea-upgrade/UpgradeContext.js";
 import { Clone } from "./Clone.js";
-import { parseArguments } from "@altea/altea-upgrade/Arguments";
+import { parseArguments } from "../altea-upgrade/Arguments.js";
 
 /**
  * `altea-clone` — copy this altea application into a NEW project, renamed.
@@ -17,13 +17,13 @@ try {
     if (args.flags.has("help") || args.flags.has("h")) {
         usage();
     } else {
-        SafeConsole.writeLine();
-        SafeConsole.writeLine("  ..:: altea clone ::..");
-        SafeConsole.writeLine();
+        Console.writeLine();
+        Console.writeLine("  ..:: altea clone ::..");
+        Console.writeLine();
 
         const uctx = UpgradeContext.createFromDirectory();
-        SafeConsole.write("  root         "); SafeConsole.writeLineColor(Color.darkGray, uctx.rootFolder);
-        SafeConsole.write("  application  "); SafeConsole.writeLineColor(Color.darkGray, uctx.applicationName);
+        Console.write("  root         "); Console.writeLineColor(Color.darkGray, uctx.rootFolder);
+        Console.write("  application  "); Console.writeLineColor(Color.darkGray, uctx.applicationName);
 
         await Clone.run(uctx, {
             name: args.values.get("name") ?? args.positional[0],
@@ -34,15 +34,15 @@ try {
     }
     process.exit(0);
 } catch (e) {
-    SafeConsole.writeLine();
-    SafeConsole.writeLineColor(Color.red, `[FAILED] ${(e as Error).message}`);
+    Console.writeLine();
+    Console.writeLineColor(Color.red, `[FAILED] ${(e as Error).message}`);
     if (process.env["ALTEA_UPGRADE_STACK"] === "1")
-        SafeConsole.writeLineColor(Color.darkGray, (e as Error).stack ?? "");
+        Console.writeLineColor(Color.darkGray, (e as Error).stack ?? "");
     process.exit(1);
 }
 
 function usage(): void {
-    SafeConsole.writeLine(`
+    Console.writeLine(`
   altea-clone [--name <name>] [--directory <path>] [options]
 
   Copies this application into <directory>/<name>: a fresh git repository, the altea submodule pinned to

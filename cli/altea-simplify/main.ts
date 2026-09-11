@@ -1,8 +1,10 @@
 #!/usr/bin/env node
-import { Color, SafeConsole } from "@altea/altea/server/safeConsole";
-import { UpgradeContext } from "@altea/altea-upgrade/UpgradeContext";
-import { parseArguments } from "@altea/altea-upgrade/Arguments";
+import { Color, Console } from "../altea-upgrade/Console.js";
+import { UpgradeContext } from "../altea-upgrade/UpgradeContext.js";
+import { parseArguments } from "../altea-upgrade/Arguments.js";
 import { Simplify } from "./Simplify.js";
+import { Check } from "./Check.js";
+import { ModulesXml } from "./ModulesXml.js";
 
 /**
  * `altea-simplify` — remove the optional modules an application does not need, following its `Modules.xml`.
@@ -17,13 +19,28 @@ try {
     if (args.flags.has("help") || args.flags.has("h")) {
         usage();
     } else {
-        SafeConsole.writeLine();
-        SafeConsole.writeLine("  ..:: altea simplify ::..");
-        SafeConsole.writeLine();
+        Console.writeLine();
+        Console.writeLine("  ..:: altea simplify ::..");
+        Console.writeLine();
 
         const uctx = UpgradeContext.createFromDirectory();
-        SafeConsole.write("  root         "); SafeConsole.writeLineColor(Color.darkGray, uctx.rootFolder);
-        SafeConsole.write("  application  "); SafeConsole.writeLineColor(Color.darkGray, uctx.applicationName);
+        Console.write("  root         "); Console.writeLineColor(Color.darkGray, uctx.rootFolder);
+        Console.write("  application  "); Console.writeLineColor(Color.darkGray, uctx.applicationName);
+
+        // --check validates the file against the sources and changes nothing. It lives here rather
+        // than in a script of the application's, so the validator and the executor share one parser and
+        // one set of rules — a checker that passed what the executor then mis-read would be worse than
+        // no checker.
+        if (args.flags.has("check")) {
+            const filePath = ModulesXml.locate(uctx.rootFolder, uctx.applicationName);
+            if (filePath == undefined)
+                throw new Error(`No Modules.xml in ${uctx.applicationName}/.`);
+
+            if (!Check.run(ModulesXml.read(filePath, uctx.rootFolder)))
+                process.exit(1);
+
+            process.exit(0);
+        }
 
         await Simplify.run(uctx, {
             keep: args.values.has("keep") ? splitList(args.values.get("keep")!) : undefined,
@@ -35,15 +52,15 @@ try {
     }
     process.exit(0);
 } catch (e) {
-    SafeConsole.writeLine();
-    SafeConsole.writeLineColor(Color.red, `[FAILED] ${(e as Error).message}`);
+    Console.writeLine();
+    Console.writeLineColor(Color.red, `[FAILED] ${(e as Error).message}`);
     if (process.env["ALTEA_UPGRADE_STACK"] === "1")
-        SafeConsole.writeLineColor(Color.darkGray, (e as Error).stack ?? "");
+        Console.writeLineColor(Color.darkGray, (e as Error).stack ?? "");
     process.exit(1);
 }
 
 function usage(): void {
-    SafeConsole.writeLine(`
+    Console.writeLine(`
   altea-simplify [options]
 
   Lists the application's modules with everything ticked except the ones marked optional="true"; UNTICK a
@@ -51,6 +68,8 @@ function usage(): void {
   committed on its own, from a clean git tree.
 
   Options:
+    --check             validate Modules.xml against the sources and change nothing; exits non-zero on
+                        a broken anchor, a missing path or an ambiguous From=
     --keep a,b,c        keep exactly these modules and remove the rest (skips the selector)
     --remove x,y        remove these, on top of the ones marked optional (skips the selector)
     --dry-run           print what would happen and change nothing

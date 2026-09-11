@@ -4,24 +4,18 @@
   "description": "Copy an altea application into a new project, renamed, with its own git repository",
   "type": "module",
   "bin": {
-    "altea-clone": "./dist/main.js"
+    "altea-clone": "./dist/altea-clone/main.js"
   },
   "exports": {
     "./*": {
-      "types": "./dist/*.d.ts",
-      "default": "./dist/*.js"
+      "types": "./dist/altea-clone/*.d.ts",
+      "default": "./dist/altea-clone/*.js"
     }
   },
   "scripts": {
-    "build": "tspc -b",
-    "start": "tspc -b && node dist/main.js"
+    "build": "tsc"
   },
   "keywords": [],
   "author": "Olmo del Corral",
-  "license": "MIT",
-  "dependencies": {
-    "@altea/altea": "workspace:*",
-    "@altea/altea-upgrade": "workspace:*",
-    "quote-transformer": "workspace:*"
-  }
+  "license": "MIT"
 }
