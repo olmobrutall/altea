@@ -51,12 +51,12 @@ export class TypeEntity extends Entity {
     // `package` is what altea groups by, and Signum is gaining the same column.
     namespace: string | null;
 
-    // NEW here: Signum has no such column. Whether the type is a `@part` — an entity that exists only
+    // Whether the type is a `@part` — an entity that exists only
     // as part of the one entity that owns it (`PropertyRoute.isPartType`, the same predicate the route
     // rules and the token layer go through, so the row and the model cannot disagree about what a part is).
     //
-    // STORED, deliberately, and that is the whole justification for a column Signum does not have: the
-    // compile-time `TypeInfo.entityKind` already ships to the client, so a client-side predicate is
+    // STORED, deliberately, and that is the whole justification for a column rather than a client-side
+    // predicate: the compile-time `TypeInfo.entityKind` already ships to the client, so a predicate is
     // possible — but what is wanted is a SERVER-side filter (`isPart == false` in the query request), and a
     // predicate applied to the rows a page happens to have received cannot do that without lying about the
     // total count and paging past what it hid. Its consumer is the type PICKER (`EntityBase.chooseType`
@@ -68,8 +68,12 @@ export class TypeEntity extends Entity {
     //
     // KEPT in legacy mode rather than hidden through `simplifyDiffTables`: hiding it would mean the column
     // does not exist against a Signum database, and the server-side filter is precisely what would then
-    // break. So a Southwind sync scripts one ADD COLUMN — the same call `package` already makes, an
-    // altea-maintained column a Signum deployment simply ignores.
+    // break. So a Southwind sync scripts one ADD COLUMN — the same call `package` already makes.
+    //
+    // Signum now DECLARES the column too (`public bool? IsPart`, Signum/Basics/Type.cs) and, exactly as
+    // for `package`, neither fills it nor copies it on a merge — so the two tables converge and altea’s
+    // values survive a Signum sync untouched. It stays NON-nullable here, because altea derives it for
+    // every row it writes; the nullable half is Signum’s "some application may know this".
     isPart: boolean;
 
     // Signum's TypeEntity.ToString => CleanName. altea originally left the inherited default (which renders
