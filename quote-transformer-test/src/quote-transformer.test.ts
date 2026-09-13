@@ -1,3 +1,5 @@
+import { describe, test } from "vitest";
+import * as assert from 'node:assert/strict';
 import { transformSource, normalize } from './transform-utils';
 
 // Header already includes ExParam so it won't be modified by the transformer,
@@ -30,13 +32,13 @@ function assertSimpleTransform(input: string, expected: string): void {
     // __fileInfo.register*(...) calls remain part of the asserted body.
     const fileInfoDecl = `const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };`;
     const resultNorm = normalize(normalize(result).replace(fileInfoDecl, ''));
-    expect(resultNorm.startsWith(headerNorm)).toBe(true);
+    assert.strictEqual(resultNorm.startsWith(headerNorm), true);
     const body = resultNorm.slice(headerNorm.length).trim();
-    expect(body).toBe(normalize(expected));
+    assert.strictEqual(body, normalize(expected));
 }
 
 function assertFullTransform(input: string, expected: string): void {
-    expect(normalize(transformSource(input))).toBe(normalize(expected));
+    assert.strictEqual(normalize(transformSource(input)), normalize(expected));
 }
 
 describe('quote-transformer', () => {

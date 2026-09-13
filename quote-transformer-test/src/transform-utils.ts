@@ -3,7 +3,13 @@ import * as path from 'path';
 import transformerFactory from 'quote-transformer';
 
 export function transformSource(source: string): string {
-    const fileName = path.join(process.cwd(), '__test__.ts');
+    // Anchored to THIS PACKAGE, never to process.cwd(): the transformer names the package by walking up
+    // to the nearest package.json, so a virtual file placed in the caller's working directory resolves to
+    // whatever package that happens to be — "quote-test" when run through `pnpm --filter`, nothing at all
+    // from the workspace root (which has no package.json since the test-tiers refactor). The expectations
+    // all assert packageName "quote-test", so the file has to live where that is true.
+    // import.meta.dirname is src/ at runtime, so one level up is the package root.
+    const fileName = path.resolve(import.meta.dirname, '..', '__test__.ts');
     const sourceFile = ts.createSourceFile(fileName, source, ts.ScriptTarget.ESNext, true);
 
     const defaultHost = ts.createCompilerHost({});

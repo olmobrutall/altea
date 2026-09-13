@@ -13,3 +13,8 @@ dist/
 # Playwright run artifacts
 test-results/
 playwright-report/
+
+# What the transformer produced on a run where it stopped matching the committed example
+# (quote-transformer-test/src/codeExamples.test.ts writes it). A failure's evidence, reviewed and then
+# renamed over codeExamples.transformed.ts to accept it — never committed under this name.
+quote-transformer-test/examples/*.new.ts

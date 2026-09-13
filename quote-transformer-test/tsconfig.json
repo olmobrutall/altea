@@ -1,4 +1,8 @@
 {
+  // TYPE-CHECK only. The suites run from SOURCE — vitest transforms this package's TypeScript itself,
+  // because these tests INVOKE the quote-transformer programmatically rather than being subject to it, so
+  // there is nothing to stamp and nothing to pre-compile. (Every other package's suites must run tspc's
+  // output; see @altea/altea/vitest.shared.mjs.) Hence noEmit, and no dist.
   "exclude": [
     "node_modules",
     "lib",
@@ -6,18 +10,16 @@
   ],
   "compilerOptions": {
     "types": [
-      "node",
-      "jest"
+      "node"
     ],
-    "incremental": true,
-    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
-    "rootDir": "./src",
-    "outDir": "./dist",
+    "noEmit": true,
     "target": "ES2022",
-    "module": "commonjs",
-    "moduleResolution": "node10",
+    // ESM so `import.meta.dirname` type-checks — the source locates `examples/` relative to itself, and
+    // __dirname does not exist in a module vite has transformed. "bundler" resolution because vite is the
+    // resolver here, and it follows extensionless relative imports the way the rest of the workspace does.
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "ignoreDeprecations": "6.0",
-    "sourceMap": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,

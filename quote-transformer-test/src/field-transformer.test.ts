@@ -1,3 +1,5 @@
+import { describe, test } from "vitest";
+import * as assert from 'node:assert/strict';
 import { transformSource, normalize } from './transform-utils';
 
 // Declares field and entity without imports — the transformer identifies decorators
@@ -27,9 +29,9 @@ function assertFieldTransform(input: string, expected: string): void {
     // calls remain part of the asserted body.
     const fileInfoDecl = `const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };`;
     const resultNorm = normalize(normalize(result).replace(fileInfoDecl, ''));
-    expect(resultNorm.startsWith(headerNorm)).toBe(true);
+    assert.strictEqual(resultNorm.startsWith(headerNorm), true);
     const body = resultNorm.slice(headerNorm.length).trim();
-    expect(body).toBe(normalize(expected));
+    assert.strictEqual(body, normalize(expected));
 }
 
 describe('field-transformer', () => {
@@ -171,13 +173,13 @@ registerType(Order, "Order", __fileInfo);`
     // brings in 'reflect' (they live in the same module as reflect), and appends
     // the registerType(...) call with the resolved package + relative file.
     test('auto-inject adds field/registerType to the import that contains reflect', () => {
-        expect(normalize(transformSource(
+        assert.strictEqual(normalize(transformSource(
             `import { reflect } from "./reflection";
 @reflect
 class Person {
     name!: string;
 }`
-        ))).toBe(normalize(
+        )), normalize(
             `import { reflect, field, registerType } from "./reflection";
 const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };
 @reflect
@@ -193,10 +195,10 @@ registerType(Person, "Person", __fileInfo);`
 describe('location registration calls', () => {
 
     test('manual registerEnum(X) gets the name + __fileInfo injected', () => {
-        expect(normalize(transformSource(
+        assert.strictEqual(normalize(transformSource(
             `enum Sex { Male, Female }
 registerEnum(Sex);`
-        ))).toBe(normalize(
+        )), normalize(
             `const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };
 enum Sex { Male, Female }
 registerEnum(Sex, "Sex", __fileInfo);`
@@ -204,23 +206,23 @@ registerEnum(Sex, "Sex", __fileInfo);`
     });
 
     test('manual registerObject(X) gets the name + __fileInfo injected', () => {
-        expect(normalize(transformSource(
+        assert.strictEqual(normalize(transformSource(
             `registerObject(SomeMessage);`
-        ))).toBe(normalize(
+        )), normalize(
             `const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };
 registerObject(SomeMessage, "SomeMessage", __fileInfo);`
         ));
     });
 
     test('same-file enum referenced by a reflected field is auto-registered', () => {
-        expect(normalize(transformSource(
+        assert.strictEqual(normalize(transformSource(
             `import { reflect } from "./reflection";
 enum Sex { Male, Female }
 @reflect
 class ArtistEntity {
     sex!: Sex;
 }`
-        ))).toBe(normalize(
+        )), normalize(
             `import { reflect, field, registerType, registerEnum } from "./reflection";
 const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };
 enum Sex { Male, Female }
@@ -234,17 +236,17 @@ registerEnum(Sex, "Sex", __fileInfo);`
     });
 
     test('already-augmented registerEnum is left untouched (idempotent)', () => {
-        expect(normalize(transformSource(
+        assert.strictEqual(normalize(transformSource(
             `registerEnum(Sex, "Sex", "pkg", "f.ts");`
-        ))).toBe(normalize(
+        )), normalize(
             `registerEnum(Sex, "Sex", "pkg", "f.ts");`
         ));
     });
 
     test('unrelated single-arg calls are not augmented', () => {
-        expect(normalize(transformSource(
+        assert.strictEqual(normalize(transformSource(
             `doSomething(Sex);`
-        ))).toBe(normalize(
+        )), normalize(
             `doSomething(Sex);`
         ));
     });
