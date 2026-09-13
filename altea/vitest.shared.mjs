@@ -127,9 +127,15 @@ export function alteaVitestConfig(packageUrl, options = {}) {
                     // "test" is vitest's own default mode, i.e. nobody named one — so the package's
                     // default applies. Any other mode names the file directly, which is what makes
                     // `vitest run --mode sqlserver` (or `--mode dev`) the dialect/environment switch.
-                    ...readEnv(path.resolve(pkgRoot, mode === "test" ? (envFile ?? ".env.postgres") : `.env.${mode}`)),
+                    //
+                    // asDefaults, and that matters: vitest MERGES `test.env` over the worker's process.env,
+                    // so without it a file named here beats an environment the caller already chose. That
+                    // is how `pnpm --filter eastwind test live` silently ran against .env.local — withEnv
+                    // loaded the right file into the process and this config overwrote it. A file read here
+                    // fills in what nobody has set; it never overrides.
+                    ...asDefaults(readEnv(path.resolve(pkgRoot, mode === "test" ? (envFile ?? ".env.postgres") : `.env.${mode}`))),
                     // Only a sequential run may destroy the database — see test/destructive.env.
-                    ...(fileParallelism ? {} : readEnv(path.resolve(pkgRoot, testDir, "destructive.env"))),
+                    ...(fileParallelism ? {} : asDefaults(readEnv(path.resolve(pkgRoot, testDir, "destructive.env")))),
                 },
                 fileParallelism,
                 testTimeout: 30_000,
@@ -138,6 +144,17 @@ export function alteaVitestConfig(packageUrl, options = {}) {
             },
         };
     });
+}
+
+/**
+ * Drop the keys the surrounding process already defines, so what is left only fills gaps.
+ *
+ * `test.env` is merged OVER process.env in the worker, which makes anything read from a file an override
+ * unless it is filtered like this — and an override is exactly wrong here: a caller who named an
+ * environment (scripts/withEnv.mjs loads it into the process) has already decided.
+ */
+function asDefaults(values) {
+    return Object.fromEntries(Object.entries(values).filter(([k]) => process.env[k] == null || process.env[k] === ""));
 }
 
 /** Optional by design: a package with no such file simply contributes nothing. */
