@@ -11,6 +11,8 @@ import { Entity } from '../data/entity';
 import { Lite } from '../data/lite';
 import type { IQuery } from '../data/iquery';
 import type { Quoted } from 'quote-transformer/quoted';
+import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from '../data/operations';
+import { Operations } from './operationLogic';
 import { Saver } from './saver';
 import { retrieve } from './Database';
 import { table } from './table';
@@ -44,6 +46,26 @@ declare module '../data/entity' {
         // one-row query (inDB) followed by a set-based delete; exactly one row must be
         // affected, otherwise the entity was already deleted / concurrently modified.
         delete(): Promise<void>;
+        // Run an operation ON this entity, the way Signum spells it — `order.execute(Save)`
+        // rather than `Operations.execute(order, Save)`. Same call underneath, including the
+        // authorization assert; the receiver just reads first, which is what an operation is
+        // about. Given a symbol, `delete` is the DELETE OPERATION (Signum's
+        // `entity.Delete(symbol)`) rather than the set-based delete above — one name, told
+        // apart by whether an operation was named, exactly as Signum tells them apart.
+        execute(symbol: ExecuteSymbol<this>, ...args: unknown[]): Promise<this>;
+        delete(symbol: DeleteSymbol<this>, ...args: unknown[]): Promise<void>;
+        // Construct a DIFFERENT entity from this one (Signum's
+        // `customer.ConstructFrom(OrderOperation.CreateOrderFromCustomer)`). The From<> in the
+        // symbol is what ties the result type to this receiver.
+        //
+        // The SOURCE is its own type parameter, inferred from the receiver AND the symbol together,
+        // rather than pinned to `this`. An operation declared on a base type — From<CustomerEntity>,
+        // invoked on a PersonEntity — has to keep working, and From<F> is covariant in F, so pinning
+        // would reject exactly that. Signum unifies the two the same way.
+        constructFrom<R extends Entity, F extends Entity>(this: F, symbol: ConstructSymbol<R, From<F>>, ...args: unknown[]): Promise<R>;
+        // The button-state check (Signum's `entity.CanExecute(symbol)`): null when the operation
+        // is available, otherwise the reason it is not.
+        canExecute(symbol: ExecuteSymbol<this> | DeleteSymbol<this>): string | null;
         // Polymorphic combine hint over an @implementedBy reference (Signum's
         // CombineUnion / CombineCase): picks how the query provider merges the
         // implementations when a member is navigated — combineUnion() a UNION ALL
@@ -163,8 +185,32 @@ async function deleteOne(query: IQuery<Entity>, target: unknown): Promise<void> 
     if (affected !== 1)
         throw new Error(`Delete of '${target}' affected ${affected} rows, expected 1.`);
 }
-Entity.prototype.delete = function (this: Entity): Promise<void> {
-    return deleteOne(this.inDB(), this);
+// One name, two jobs, told apart by whether an OPERATION was named — which is how Signum tells
+// `entity.Delete()` (the row) from `entity.Delete(symbol)` (the operation) too. Without a symbol this
+// is the set-based delete; with one it goes through the operation, and so through its authorization,
+// its state machine and the operation log.
+Entity.prototype.delete = function (this: Entity, symbol?: DeleteSymbol<Entity>, ...args: unknown[]): Promise<void> {
+    return symbol == null
+        ? deleteOne(this.inDB(), this)
+        : Operations.delete(this, symbol, ...args);
+};
+
+// The remaining operation entry points read receiver-first for the same reason: an operation is
+// something done TO an entity, so `order.execute(Save)` says what it is. Each is the Operations call
+// unchanged — no second path to authorize, log or dispatch through.
+Entity.prototype.execute = function (this: Entity, symbol: ExecuteSymbol<Entity>, ...args: unknown[]): Promise<Entity> {
+    return Operations.execute(this, symbol, ...args);
+};
+
+// The cast is the usual prototype-install one: the DECLARATION is generic in the constructed type (R
+// comes from the symbol's From<>), while the implementation can only speak in terms of Entity. Same
+// shape as the combine hints below.
+Entity.prototype.constructFrom = (function (this: Entity, symbol: ConstructSymbol<Entity, From<Entity>>, ...args: unknown[]): Promise<Entity> {
+    return Operations.constructFrom(this, symbol, ...args);
+}) as Entity["constructFrom"];
+
+Entity.prototype.canExecute = function (this: Entity, symbol: ExecuteSymbol<Entity> | DeleteSymbol<Entity>): string | null {
+    return Operations.canExecute(this, symbol);
 };
 Lite.prototype.delete = function (this: Lite<Entity>): Promise<void> {
     return deleteOne(this.inDB(), this);
