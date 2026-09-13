@@ -1,5 +1,5 @@
 import { StartParameters } from "@altea/altea/data/utils/startParameters";
-import { test, beforeEach, afterEach, after } from "node:test";
+import { test, beforeEach, afterEach, afterAll, type TestContext } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Connector, ConsoleSqlLogger, type SqlLogger } from "@altea/altea/server/connection/connector";
@@ -13,27 +13,35 @@ import { MusicStarter } from "./MusicStarter";
 // suite; they need the Music schema built and a database that already holds the
 // loaded sample graph.
 //
-// `node --test` runs each test file in its own process, so anything a suite's
-// `before` does is paid once PER FILE. The expensive part — dropping/recreating
-// the tables and loading the sample graph — is therefore split out into
-// `generateMusicEnvironment()`, run ONCE out of band (the `gen:*` scripts). Suites
-// only `start()` (connect + build the in-memory schema), so each file pays just
-// the connection cost.
+// vitest isolates each test file in its own worker, so anything a suite's `beforeAll` does is paid
+// once PER FILE. The expensive part — dropping/recreating the tables and loading the sample graph — is
+// therefore split out into `generateMusicEnvironment()`, run ONCE out of band (the `gen:*` scripts).
+// Suites only `start()` (connect + build the in-memory schema), so each file pays just the connection
+// cost.
 //
-// Live execution is gated on the ALTEA_TEST_DB env var (same var MusicStarter
-// reads): set it (e.g. via `node --env-file=.env.postgres`) to run against a
-// real database. With it unset, `withDb()`-wrapped suites are skipped, so the
-// file still *compiles* (the stable-API gate) without a database.
+// Live execution is gated on the ALTEA_TEST_DB env var (same var MusicStarter reads). The vitest
+// config loads `.env.postgres` into the workers, so it is set whenever that file exists; with it unset
+// the DB-backed suites skip, and the file still *compiles* (the stable-API gate) without a database.
 
 export const hasDb = !!process.env.ALTEA_TEST_DB;
+
+// Whether this run is allowed to DESTROY the test database — drop every table and reload the sample
+// graph. Set by test/destructive.env, which the shared vitest config loads only when the run is
+// SEQUENTIAL (fileParallelism: false, which is the default here).
+//
+// The gap between drop and reload is the whole problem: run files in parallel and it lands in the middle
+// of ~95 others reading the same tables, which then fail with "relation … does not exist". Rolling back
+// would not help — the damage is done in a `beforeAll`, outside any test body, and a reload is not a
+// transaction. Sequentially the gap falls BETWEEN files, where it is harmless.
+export const canDestroyDb = hasDb && process.env.ALTEA_TEST_DESTRUCTIVE === "1";
 
 // A test that MUTATES the shared sample database (the bulk `executeUpdate` /
 // `executeDelete` / `executeInsert` suites). Its body runs inside a
 // `Transaction.noCommit` scope: the writes happen (and the body sees them, so
 // post-mutation assertions still work), but the transaction is rolled back at the
 // end, so nothing persists. This keeps the suites from contaminating the shared
-// graph the read-only suites run against in parallel. Use exactly like `test(...)`.
-export function txTest(name: string, fn: (t: unknown) => void | Promise<void>): void {
+// graph the read-only suites run against. Use exactly like `test(...)`.
+export function txTest(name: string, fn: (t: TestContext) => void | Promise<void>): void {
     test(name, async (t) => {
         await Transaction.noCommit(async () => { await fn(t); });
     });
@@ -59,10 +67,14 @@ class FileSqlLogger implements SqlLogger {
 }
 
 if (sqlDumpEnabled) {
-    beforeEach((t) => {
-        const full = (t as { fullName?: string; name: string }).fullName ?? t.name;
-        const parts = full.split(" > ");
-        sqlDumpName = { cls: parts[0], test: parts[parts.length - 1] };
+    beforeEach((ctx) => {
+        // vitest's task carries the leaf name and its suite chain; Signum's dump is named
+        // <Class>.<Test>, so the outermost suite is the class and the task is the method.
+        const leaf = ctx.task.name;
+        let suite: { name: string; suite?: { name: string } } | undefined = ctx.task.suite;
+        while (suite?.suite != null)
+            suite = suite.suite;
+        sqlDumpName = { cls: suite?.name ?? leaf, test: leaf };
         sqlDumpBuffer = [];
     });
     afterEach(() => {
@@ -76,17 +88,16 @@ if (sqlDumpEnabled) {
     });
 }
 
-// Close the pooled connection when the file's tests finish. `node --test` runs each
-// test file in its own process; the pg Pool / mssql ConnectionPool keeps the event
-// loop alive, so without this the process idles until the pool's idle-timeout (~10s
-// on pg) before exiting — ×N files serially that dominated the whole run. Closing the
-// pool lets each process exit as soon as its tests are done.
-after(async () => { await Connector.default?.closeConnection(); });
+// Close the pooled connection when the file's tests finish. vitest gives each test file its own
+// worker; the pg Pool / mssql ConnectionPool keeps the event loop alive, so without this the worker
+// idles until the pool's idle-timeout (~10s on pg) before exiting — ×N files that dominated the whole
+// run. Closing the pool lets each worker finish as soon as its tests are done.
+afterAll(async () => { await Connector.default?.closeConnection(); });
 
 let started: Promise<Connector> | undefined;
 
 // Connects and builds the in-memory schema — and nothing else. No DDL, no data
-// load. This is all a test SUITE needs in its `before`; the sample data is
+// load. This is all a test SUITE needs in its `beforeAll`; the sample data is
 // generated separately by `generateMusicEnvironment()`. Memoised per process.
 export function start(): Promise<Connector> {
     return (started ??= (async () => {

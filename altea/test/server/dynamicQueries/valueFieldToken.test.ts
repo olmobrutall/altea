@@ -1,4 +1,4 @@
-import { test, describe, before, after } from "node:test";
+import { test, describe, beforeAll, afterAll } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
@@ -18,7 +18,7 @@ import { ArtistEntity } from "../../data/artist";
 //  - a row with no `@valueField` — a richer part, an embedded element — is left where it stopped.
 
 describe("@valueField query tokens", () => {
-    after(() => { setLegacyPropertyPaths(false); });
+    afterAll(() => { setLegacyPropertyPaths(false); });
 
     test("the element's @valueField is a sub-token of Any", () => {
         setLegacyPropertyPaths(false);

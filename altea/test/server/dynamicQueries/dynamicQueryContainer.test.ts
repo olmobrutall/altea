@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import { ModelEntity } from "@altea/altea/data/entity";
 import "@altea/altea/data/globals";

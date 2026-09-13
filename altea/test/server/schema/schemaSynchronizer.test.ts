@@ -1,6 +1,6 @@
-import { test, describe, before } from "node:test";
+import { test, describe, beforeAll, type TestContext } from "vitest";
 import assert from "node:assert/strict";
-import { generateMusicEnvironment, hasDb, txTest } from "../setup";
+import { generateMusicEnvironment, canDestroyDb, txTest } from "../setup";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { getDatabaseDescription as getSqlServerDescription } from "@altea/altea/server/sync/sqlServer/sysTablesSchema";
 import { getDatabaseDescription as getPostgresDescription } from "@altea/altea/server/sync/postgres/postgresCatalogSchema";
@@ -21,13 +21,18 @@ import { AlbumEntity, ArtistEntity_Friend, FolderEntity } from "../../data/music
 import { getBoundEnum } from "@altea/altea/data/enumEntity";
 
 // The synchronizer pipeline end to end against a REAL database (no fakes): generate the
-// schema, introspect it with the IView catalog readers, and diff. DB-gated; SKIPs without
-// ALTEA_TEST_DB. `before` generates once (clean DDL + sample load); both tests reuse it.
-describe("SchemaSynchronizer (live DB)", { skip: !hasDb }, () => {
+// schema, introspect it with the IView catalog readers, and diff. `beforeAll` generates once
+// (clean DDL + sample load); every test here reuses it.
+//
+// DESTRUCTIVE, and the only suite that is: generateMusicEnvironment() drops EVERY table before
+// rebuilding them. That is why it gates on canDestroyDb rather than hasDb — it runs under the
+// a sequential run, and skips under any parallel one, where it would pull the tables out from
+// under ~95 other files mid-read.
+describe.skipIf(!canDestroyDb)("SchemaSynchronizer (live DB)", () => {
     let connector: Connector;
     // generateMusicEnvironment sets Connector.default, so the sync helpers below resolve it
     // via Connector.current() — no withConnector wrapper needed.
-    before(async () => { connector = await generateMusicEnvironment(); });
+    beforeAll(async () => { connector = await generateMusicEnvironment(); });
 
     // The IView reader (SysTablesSchema / PostgresCatalogSchema GetDatabaseDescription) really
     // SELECTs from the system catalog and builds DiffTables — check it recovers the generated
@@ -226,14 +231,14 @@ describe("SchemaSynchronizer (live DB)", { skip: !hasDb }, () => {
     // re-emitted). `onlyPostgres` / `onlySqlServer` skip at run time (the connector is only known
     // after `before`).
 
-    const onlyPostgres = (t: unknown): boolean => {
+    const onlyPostgres = (t: TestContext): boolean => {
         if (connector.isPostgres) return true;
-        (t as { skip(m?: string): void }).skip("Postgres-only versioning drift");
+        t.skip("Postgres-only versioning drift");
         return false;
     };
-    const onlySqlServer = (t: unknown): boolean => {
+    const onlySqlServer = (t: TestContext): boolean => {
         if (!connector.isPostgres) return true;
-        (t as { skip(m?: string): void }).skip("SQL Server-only versioning drift");
+        t.skip("SQL Server-only versioning drift");
         return false;
     };
 

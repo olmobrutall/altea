@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import "@altea/altea/data/dynamicQuery/tokens/factories"; // register metadata factories → local subtoken gen
@@ -90,7 +90,7 @@ describe("token serializer", () => {
             assert.ok(keys.includes("ToString"));        // …alongside locally-generated metadata tokens
             assert.ok(keys.length > 2);
         } finally {
-            setServerTokensProvider(undefined); // shared module state under --test-isolation=none
+            setServerTokensProvider(undefined); // module state is shared by every test in this FILE
         }
     });
 

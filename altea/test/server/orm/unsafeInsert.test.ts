@@ -1,4 +1,4 @@
-import { before, describe } from "node:test";
+import { beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import "@altea/altea/data/globals"; // String methods (startsWith etc.), SQL-mappable
@@ -25,8 +25,8 @@ import { Administrator } from "@altea/altea/server/Administrator";
 // Runs inside txTest (Transaction.noCommit): the INSERT happens and the body sees it, then it is
 // rolled back. Live execution is gated on ALTEA_TEST_DB; without it the suite is skipped.
 
-describe("UnsafeInsertTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("UnsafeInsertTest", () => {
+    beforeAll(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().UnsafeInsert(a => new AlbumEntity { Author=a.Author, BonusTrack=a.BonusTrack, Label=a.Label, Name=a.Name+"copy", State=a.State, Year=a.Year }.SetReadonly(_ => _.Ticks, a.Ticks));
     txTest("InsertSimple", async () => {

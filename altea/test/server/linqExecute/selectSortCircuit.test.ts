@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import "@altea/altea/data/globals"; // collection .some on a part-entity collection
@@ -32,8 +32,8 @@ const holaOrNull: string | null = "Hola";
 // Terminals are async (the connector is async-only). Live execution is gated on
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
-describe("SelectSortCircuitTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("SelectSortCircuitTest", () => {
+    beforeAll(async () => { await start(); });
 
     // Query<AlbumEntity>().Where(a => ("Hola" ?? Throw<string>()) == null).Select(a => a.Year).ToList();
     test("SortCircuitCoalesce", async () => {

@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import { init, reflect } from "@altea/altea/data/reflection";
 import { ModelEntity } from "@altea/altea/data/entity";
@@ -20,7 +20,7 @@ class MetaQueryModel extends ModelEntity {
 // Metadata endpoint builder (Signum's ReflectionServer): ONE TypeMetadata per type, carrying the
 // per-culture nice names, `hasQuery`, and the operations registered on that type. Fully offline —
 // buildMetadata reads only the in-memory registries. Uses its OWN operation container (MetaOperation)
-// so, under --test-isolation=none, it does not collide with operationLogic.test.ts's shared
+// so it does not collide with operationLogic.test.ts's shared
 // AlbumOperation registrations.
 namespace MetaOperation {
     export const Create: ConstructSymbol<AlbumEntity> = init();

@@ -1,4 +1,4 @@
-import { before, describe } from "node:test";
+import { beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { retrieve } from "@altea/altea/server/Database";
@@ -10,8 +10,8 @@ import { CountryEntity, BandEntity, BandEntity_Member, ArtistEntity } from "../.
 // connector primitive (SqlBulkCopy on SQL Server, COPY FROM STDIN on Postgres), not the saver.
 // All bodies run in a rolled-back transaction (txTest) so nothing persists.
 
-describe("BulkInserterTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("BulkInserterTest", () => {
+    beforeAll(async () => { await start(); });
 
     // bulkInsertTable on an identity table: rows are bulk-copied and the DB assigns ids, which
     // are NOT read back (that's what bulkInsert's key query-back is for). Verify via a DB count.

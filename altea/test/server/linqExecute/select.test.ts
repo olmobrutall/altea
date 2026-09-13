@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table, view } from "@altea/altea/server/table";
 import "@altea/altea/data/globals"; // String.contains / startsWith / … (SQL-mappable)
@@ -36,8 +36,8 @@ import { inSql, toInt, Decimal } from "@altea/altea/data/basics";
 // standalone source, Database.View<T>(), InSql, cross-join over a second independent
 // table, custom-model ToLite) keep a narrow `// TODO(api): …` comment.
 
-describe("SelectTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("SelectTest", () => {
+    beforeAll(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().Select(a => a.Name).ToList();
     test("Select", async () => {

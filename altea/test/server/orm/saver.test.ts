@@ -1,4 +1,4 @@
-import { before, describe } from "node:test";
+import { beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { retrieve } from "@altea/altea/server/Database";
@@ -16,8 +16,8 @@ import { CountryEntity, LabelEntity, BandEntity, BandEntity_Member, ArtistEntity
 // txTest wraps the body in a rolled-back transaction, so the two rows never persist into
 // the shared sample database (reads inside still see them — same connection).
 
-describe("SaverTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("SaverTest", () => {
+    beforeAll(async () => { await start(); });
 
     // Two new labels, each the other's owner (a 2-cycle through the nullable owner FK).
     txTest("SaveReferenceCycle", async () => {

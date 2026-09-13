@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import { reflect, getTypeInfo } from "@altea/altea/data/reflection"; // anchor for the transformer's @field injection

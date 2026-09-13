@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import "@altea/altea/data/globals"; // String.contains / startsWith / … (SQL-mappable)
@@ -20,8 +20,8 @@ import { ArtistEntity, AlbumEntity, BandEntity, Sex } from "../../data/music";
 // altea's equivalent is `.map(sel).join(separator)` (a string_agg over the (sub)query),
 // which the binder translates to SQL — so every method runs live.
 
-describe("ToStringTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("ToStringTest", () => {
+    beforeAll(async () => { await start(); });
 
     // Assert.Equal(Query<ArtistEntity>().Select(a => a.Name).ToString(" | "), Query<ArtistEntity>().ToString(a => a.Name, " | "));
     test("ToStringMainQuery", async () => {

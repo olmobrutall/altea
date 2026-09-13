@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -34,11 +34,11 @@ enum AlbumSize { Small, Medium, Large }
 // Terminals are async (the connector is async-only). Live execution is gated on
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
-describe("SqlFunctionsTest", { skip: !hasDb }, () => {
+describe.skipIf(!hasDb)("SqlFunctionsTest", () => {
     // The MinimumTableValued UDF the TableValuedFunction test queries is now created by schema
     // generation (MinimumExtensions.includeFunction, registered on the schema's SchemaAssets in
-    // MusicLogic — mirroring Signum), not here. This before() just connects + builds the schema.
-    before(async () => { await start(); });
+    // MusicLogic — mirroring Signum), not here. This beforeAll() just connects + builds the schema.
+    beforeAll(async () => { await start(); });
 
     // StringFunctions: IndexOf/Contains/StartsWith/EndsWith/Like + Length/ToLower/ToUpper/Trim*/Substring + Start/End/Reverse/Replicate
     test("StringFunctions", async () => {
@@ -402,7 +402,7 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
     // two ways: `fast` nests the table-valued MinimumTableValued, `slow` nests the scalar
     // MinimumScalar UDF — Signum times the two; here we just assert both agree with the JS mins.
     // Bounded with top(3) so the cross join stays 3⁴ rows (Signum runs it unbounded as a perf test).
-    test("TableValuedPerformanceTest", async (t) => {
+    test("TableValuedPerformanceTest", async () => {
         const songs = table(AlbumEntity_Song).filter(s => s.seconds != null).orderBy(s => s.id).top(3);
         const secs = (await songs.map(s => s.seconds).toArray()) as number[];
 
@@ -420,8 +420,8 @@ describe("SqlFunctionsTest", { skip: !hasDb }, () => {
                 MinimumExtensions.minimumScalar(s3.seconds, s4.seconds)))))).toArray();
         const t3 = performance.now();
 
-        // Signum's Debug.WriteLine timing — informational, via node:test's diagnostic channel.
-        t.diagnostic(`MinimumTableValued: ${(t2 - t1).toFixed(1)} ms · MinimumScalar: ${(t3 - t2).toFixed(1)} ms`);
+        // Signum's Debug.WriteLine timing — informational.
+        console.log(`  MinimumTableValued: ${(t2 - t1).toFixed(1)} ms · MinimumScalar: ${(t3 - t2).toFixed(1)} ms`);
 
         const expected: number[] = [];
         for (const a of secs) for (const b of secs) for (const c of secs) for (const d of secs)

@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "../setup";
@@ -14,8 +14,8 @@ import { AlbumEntity, ArtistEntity, BandEntity, Sex } from "../../data/music";
 // Terminals are async (the connector is async-only). Live execution is gated on
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
-describe("DistinctTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("DistinctTest", () => {
+    beforeAll(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().Select(a => a.Label.Name).Distinct().ToList();
     test("DistinctString", async () => {

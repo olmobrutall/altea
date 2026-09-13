@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "../setup";
@@ -16,8 +16,8 @@ import { CountryEntity } from "../../data/music";
 // lazy-loaded, or left null. altea implements both (the ExpandLite / ExpandEntity
 // enums live in logic/query), so each test issues the real hinted query.
 
-describe("ExpandTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("ExpandTest", () => {
+    beforeAll(async () => { await start(); });
 
     // Database.Query<CountryEntity>().Select(a => a.ToLite()).ExpandLite(a => a, ExpandLite.ModelNull).ToList();
     test("ExpandToStringNull", async () => {

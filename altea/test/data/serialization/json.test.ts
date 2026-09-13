@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import { Serializer } from "@altea/altea/data/serializer";
 const { stringify: serialize, parse: deserialize } = Serializer;   // local aliases for the tests

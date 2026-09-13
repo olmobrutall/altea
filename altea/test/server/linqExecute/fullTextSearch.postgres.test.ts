@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import "@altea/altea/data/globals"; // String.toTsQuery* (SQL-mappable full-text builders)
@@ -16,8 +16,8 @@ import { NoteWithDateEntity } from "../../data/music";
 // NoteWithDateEntity (Title, Text) and the GIN index — both created by gen:postgres.
 const isPostgres = (process.env.ALTEA_TEST_DB ?? "").toLowerCase().startsWith("postgres");
 
-describe("FullTextSearchTest_Postgres", { skip: !hasDb || !isPostgres }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb || !isPostgres)("FullTextSearchTest_Postgres", () => {
+    beforeAll(async () => { await start(); });
 
     test("ToTsQuery", async () => {
         const res = await table(NoteWithDateEntity)

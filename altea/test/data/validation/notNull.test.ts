@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import { entityIntegrityCheck } from "@altea/altea/data/validation";
 import { NotNullValidator, notNullValidator } from "@altea/altea/data/validators";

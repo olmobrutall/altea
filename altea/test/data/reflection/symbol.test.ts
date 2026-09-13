@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import { OperationSymbol } from "@altea/altea/data/operations";
 import { declaredSymbolsForType } from "@altea/altea/data/reflection";

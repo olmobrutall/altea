@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table, bindAndOptimize } from "@altea/altea/server/table";
 import "@altea/altea/data/globals";

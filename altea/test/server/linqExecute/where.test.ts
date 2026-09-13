@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import "@altea/altea/data/globals"; // String.contains / startsWith / … (SQL-mappable)
@@ -16,8 +16,8 @@ import { ArtistEntity, AlbumEntity, Sex } from "../../data/music";
 // Terminals are async (the connector is async-only). Live execution is gated on
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
-describe("WhereTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("WhereTest", () => {
+    beforeAll(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().Where(a => a.Year < 1995).ToList();
     test("Where", async () => {

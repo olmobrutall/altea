@@ -1,4 +1,4 @@
-import { before, describe } from "node:test";
+import { beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table, view } from "@altea/altea/server/table";
 import "@altea/altea/data/globals"; // String methods (toUpperCase etc.), SQL-mappable
@@ -34,8 +34,8 @@ import { toInt } from "@altea/altea/data/basics";
 // Runs inside txTest (Transaction.noCommit): the UPDATE happens and the body sees it, then it is
 // rolled back. Live execution is gated on ALTEA_TEST_DB; without it the suite is skipped.
 
-describe("UnsafeUpdateTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("UnsafeUpdateTest", () => {
+    beforeAll(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().UnsafeUpdate().Set(a => a.Year, a => a.Year * 2).Execute();
     txTest("UpdateValue", async () => {

@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import "@altea/altea/data/globals"; // String.startsWith / … (SQL-mappable)
@@ -21,9 +21,9 @@ import {
 // Terminals are async (the connector is async-only). Live execution is gated on
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
-describe("SingleFirstTest", { skip: !hasDb }, () => {
+describe.skipIf(!hasDb)("SingleFirstTest", () => {
     let isPostgres = false;
-    before(async () => { isPostgres = (await start()).isPostgres; });
+    beforeAll(async () => { isPostgres = (await start()).isPostgres; });
 
     // var bandsCount = Database.Query<BandEntity>().Select(b => new { b.Name, Members = b.Members.Select(a => new { a.Name, a.Sex }).ToString(p => "{0} ({1})".FormatWith(p.Name, p.Sex), "\n") }).ToList();
     // var bands1 = Database.Query<BandEntity>().Select(b => new { b.Name, Member = b.Members.FirstOrDefault()!.Name }).ToList();

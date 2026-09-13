@@ -1,4 +1,4 @@
-import { before, describe } from "node:test";
+import { beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table, view } from "@altea/altea/server/table";
 import { hasDb, start, txTest } from "../setup";
@@ -23,8 +23,8 @@ import { toInt } from "@altea/altea/data/basics";
 // Runs inside txTest (Transaction.noCommit): the DELETE happens and the body sees it, then it is
 // rolled back. Live execution is gated on ALTEA_TEST_DB; without it the suite is skipped.
 
-describe("UnsafeDeleteTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("UnsafeDeleteTest", () => {
+    beforeAll(async () => { await start(); });
 
     // int count = Database.Query<AlbumEntity>().UnsafeDelete();
     txTest("DeleteAll", async () => {

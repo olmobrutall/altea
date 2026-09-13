@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import type { BaseEntity, Type } from "@altea/altea/data/entity";
@@ -88,7 +88,7 @@ describe("QueryLogic — @implementedByAll sub-tokens", () => {
     });
 
     // (The graceful "no connector → []" path in getImplementedByAllTypes can't be tested reliably
-    // under --test-isolation=none, since a sibling suite leaves Connector.default set.)
+    // since a sibling suite in this file leaves Connector.default set.)
 
     test("byAll cast binds to SQL: lastAward.(Album).Name", () => {
         const q = table(ArtistEntity);

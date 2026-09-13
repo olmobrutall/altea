@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "../setup";
@@ -19,8 +19,8 @@ import {
 // projected element types as a plain nested list. Terminals are async; live
 // execution is gated on ALTEA_TEST_DB.
 
-describe("SelectNestedTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("SelectNestedTest", () => {
+    beforeAll(async () => { await start(); });
 
     // from l in Query<LabelEntity>() select (from a in Query<AlbumEntity>() where a.Label.Is(l) select a.ToLite()).ToList()
     test("SelecteNested", async () => {

@@ -29,15 +29,19 @@
       "default": "./dist/client/*.js"
     },
     "./loader.mjs": "./loader.mjs",
-    "./register.mjs": "./register.mjs"
+    "./register.mjs": "./register.mjs",
+    "./vitest.shared.mjs": {
+      "types": "./vitest.shared.d.mts",
+      "default": "./vitest.shared.mjs"
+    }
   },
   "scripts": {
     "build": "tspc -b",
-    "test": "tspc -b && node --enable-source-maps --import ./register.mjs --test \"dist/test/**/*.test.js\"",
+    "test": "tspc -b && vitest run",
     "gen:postgres": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.postgres dist/test/server/generateEnvironment.js",
     "gen:sqlserver": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.sqlserver dist/test/server/generateEnvironment.js",
-    "test:postgres": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.postgres --test --test-isolation=none \"dist/test/**/*.test.js\"",
-    "test:sqlserver": "tspc -b && node --enable-source-maps --import ./register.mjs --env-file=.env.sqlserver --test --test-isolation=none \"dist/test/**/*.test.js\""
+    "test:postgres": "tspc -b && vitest run --mode postgres",
+    "test:sqlserver": "tspc -b && vitest run --mode sqlserver"
   },
   "keywords": [],
   "author": "Olmo del Corral",
@@ -66,11 +70,12 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
-    "@types/node": "^25.9.1",
     "@types/mssql": "^12.3.0",
+    "@types/node": "^25.9.1",
     "@types/pg": "^8.20.0",
     "@types/pg-copy-streams": "^1.2.5",
     "@types/react": "^19.0.0",
-    "@types/ws": "^8.18.1"
+    "@types/ws": "^8.18.1",
+    "vitest": "^5.0.0"
   }
 }

@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import "@altea/altea/data/globals"; // String.startsWith / contains / … (SQL-mappable)
@@ -31,8 +31,8 @@ import {
 // written in their most natural altea form, marked `{ skip: true }`, and flagged
 // with a `// TODO(api): …` comment. Skipped tests still compile.
 
-describe("SelectImplementationsTest1", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("SelectImplementationsTest1", () => {
+    beforeAll(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().Select(a => a.GetType()).ToList();
     test("SelectType", async () => {

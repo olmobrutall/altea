@@ -51,7 +51,7 @@ Reference file: `where.test.ts`. Match its structure exactly.
 ## File skeleton (copy from where.test.ts)
 
 ```ts
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { Connector } from "@altea/altea/logic/connection/connector";
 import { table } from "@altea/altea/logic/table";

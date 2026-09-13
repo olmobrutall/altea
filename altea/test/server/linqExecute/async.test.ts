@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "../setup";
@@ -18,8 +18,8 @@ import { BandEntity } from "../../data/music";
 // translates to a correlated COUNT subquery. Live execution is gated on
 // ALTEA_TEST_DB; without it the suite is skipped but still compiles.
 
-describe("AsyncTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("AsyncTest", () => {
+    beforeAll(async () => { await start(); });
 
     // var artistsInBands = await Database.Query<BandEntity>().ToListAsync();
     test("ToListAsync", async () => {

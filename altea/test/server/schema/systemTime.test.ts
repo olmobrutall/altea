@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import "@altea/altea/data/globals";
@@ -19,8 +19,8 @@ import { FolderEntity } from "../../data/music";
 // DateTime parameter — altea's Temporal model has no DateTimeKind), and TimeSeriesOne/ManyValue
 // (the dynamic AsOfExpression / QueryTimeSeriesLogic path, outside the core-modes scope).
 
-describe("SystemTimeTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("SystemTimeTest", () => {
+    beforeAll(async () => { await start(); });
 
     // Signum's SystemPeriodUTC: project a period bound and do date arithmetic on it in SQL.
     // (Signum additionally asserts the bound's DateTimeKind is Utc; altea's Temporal model has no

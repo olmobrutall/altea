@@ -1,4 +1,4 @@
-import { test, describe, before } from "node:test";
+import { test, describe, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { MixinEntity } from "@altea/altea/data/entity";
@@ -88,8 +88,8 @@ describe("Mixin (in memory)", () => {
 
 // Live mixin usage through the query provider — the binder resolves `entity.mixin(M).field`
 // against the mixin's columns (folded into the owner table). Gated on ALTEA_TEST_DB.
-describe("Mixin (in queries)", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("Mixin (in queries)", () => {
+    beforeAll(async () => { await start(); });
 
     // Project a mixin field: Select(a => a.Mixin<CorruptMixin>().Corrupt).
     test("projects a mixin field", async () => {

@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { SqlFullTextSearch } from "@altea/altea/server/fullTextSearch";
@@ -16,8 +16,8 @@ import { NoteWithDateEntity } from "../../data/music";
 // yet. SQL Server-only (CONTAINS/FREETEXT); skipped on Postgres, which has its own tsvector test.
 const isPostgres = (process.env.ALTEA_TEST_DB ?? "").toLowerCase().startsWith("postgres");
 
-describe("FullTextSearchTest_SqlServer", { skip: !hasDb || isPostgres }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb || isPostgres)("FullTextSearchTest_SqlServer", () => {
+    beforeAll(async () => { await start(); });
 
     test("Contains", async () => {
         const res = await table(NoteWithDateEntity)

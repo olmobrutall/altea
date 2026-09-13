@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "../setup";
@@ -29,8 +29,8 @@ import {
 // IBA type column); toTypeEntity() references the TypeEntity table by that id. `f.isNew` in a
 // query lowers to an id-is-null test.
 
-describe("GetTypeAndNewTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("GetTypeAndNewTest", () => {
+    beforeAll(async () => { await start(); });
 
     // from f in Database.Query<ArtistEntity>() where f.GetType() == typeof(ArtistEntity) select new { f.Name }
     test("TestGetType", async () => {

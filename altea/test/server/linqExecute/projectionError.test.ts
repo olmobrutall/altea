@@ -1,4 +1,4 @@
-import { test, describe, before } from "node:test";
+import { test, describe, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import { table, bindAndOptimize } from "@altea/altea/server/table";
 import { buildTranslateResult } from "@altea/altea/server/linq/translatorBuilder";
@@ -17,9 +17,9 @@ import { NoteWithDateEntity } from "../../data/music";
 // This is driven against a fake row source (no real DB round-trip) so the malformed value is
 // deterministic on any dialect: SQL Server hands temporal columns back as Date objects, so the
 // parser's throwing string path is only reachable with a value we inject here.
-describe("ProjectionErrorTest", { skip: !hasDb }, () => {
+describe.skipIf(!hasDb)("ProjectionErrorTest", () => {
     let connector!: Connector;
-    before(async () => { connector = await start(); });
+    beforeAll(async () => { connector = await start(); });
 
     test("ProjectionError carries row, projector and SQL", async () => {
         // A real query projecting a temporal column; its projector runs the temporal

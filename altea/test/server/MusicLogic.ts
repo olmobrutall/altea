@@ -72,7 +72,7 @@ export namespace MusicLogic {
 
         // Signum's MusicLogic: MinimumExtensions.IncludeFunction(sb.Schema.Assets). Registers the
         // MinimumTableValued UDF on the schema's assets so it is created by schema generation
-        // (replacing the old test-only before() hook).
+        // (replacing the old test-only beforeAll() hook).
         MinimumExtensions.includeFunction(sb.schema.assets, sb.settings.isPostgres);
 
         // Signum registers GetDatesInRange framework-side (QueryTimeSeriesLogic.Start); altea has

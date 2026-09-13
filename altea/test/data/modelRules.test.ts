@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import { Entity, EmbeddedEntity, MixinEntity } from "@altea/altea/data/entity";
 import { reflect, resolveField, getTypeInfo } from "@altea/altea/data/reflection";

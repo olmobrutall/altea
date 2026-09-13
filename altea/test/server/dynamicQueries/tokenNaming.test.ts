@@ -1,4 +1,4 @@
-import { test, describe, after } from "node:test";
+import { test, describe, afterAll } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import { SubTokensOptionsAll, stripLegacyRootPrefix } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
@@ -67,7 +67,7 @@ describe("resolution tolerates the older spelling", () => {
 });
 
 describe("legacy mode drops the Signum root prefix", () => {
-    after(() => setLegacyPropertyPaths(false));
+    afterAll(() => setLegacyPropertyPaths(false));
 
     test("normal mode keeps it (there is no `Entity` member to reach, so it simply fails)", () => {
         setLegacyPropertyPaths(false);

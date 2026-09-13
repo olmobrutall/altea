@@ -1,4 +1,4 @@
-import { test, describe, before } from "node:test";
+import { test, describe, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "../setup";
@@ -153,8 +153,8 @@ describe("CustomLite (JSON)", () => {
 // Query-side custom-lite materialisation (Signum's SelectLiteModel). The provider translates the
 // registered `fromEntity` Quoted lambda into projected columns and builds the typed lite in the
 // reader. Gated on ALTEA_TEST_DB.
-describe("CustomLite (in queries)", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("CustomLite (in queries)", () => {
+    beforeAll(async () => { await start(); });
 
     // Projecting a.toLite() over a type with a DEFAULT custom lite yields that lite, with its
     // model field populated from the projected column.

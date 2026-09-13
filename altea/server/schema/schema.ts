@@ -95,7 +95,7 @@ export class Schema {
 
     // Type-discriminator caches (Signum's TypeLogic typeCachesLazy, held per-schema instead of
     // in process-global statics so multiple schemas can coexist in one process — e.g. the
-    // offline binder tests, or a `--test-isolation=none` run). Installed by TypeLogic.start()
+    // offline binder tests, or any run sharing one process). Installed by TypeLogic.start()
     // from SchemaBuilder.complete(); read via the active connector's schema
     // (Connector.current().schema) during query translation / materialisation. The lazy's ASYNC
     // factory reads the TypeEntity rows from the DB (or, on a not-yet-generated / offline schema,

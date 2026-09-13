@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import "@altea/altea/data/globals"; // String.contains / startsWith / … (SQL-mappable)
@@ -29,8 +29,8 @@ import { Administrator } from "@altea/altea/server/Administrator";
 // LeftOuterMyView (a temp-view read-back) uses a `leftJoin` instead. The temp-view test
 // additionally needs Database.View / temporary tables / UnsafeInsertView.
 
-describe("JoinGroupTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("JoinGroupTest", () => {
+    beforeAll(async () => { await start(); });
 
     // from a in Query<AlbumEntity>() join b in Query<AlbumEntity>().SelectMany(a => a.Songs) on a.Name equals b.Name select new { a.Name, Label = a.Label.Name }
     test("Join", async () => {

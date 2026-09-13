@@ -1,5 +1,9 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
+// Binds the AsyncLocalStorage context — among other things CultureInfo.initLocalizationContext(Statics),
+// without which the webApi's withCultures() throws. The API surface this file exercises goes through it,
+// so the import belongs here rather than being inherited from whichever file booted first.
+import "@altea/altea/server/context.node";
 import "@altea/altea/data/globals";
 import "@altea/altea/server/dynamicQuery/tokenExpressions"; // register factories + install expression prototypes
 import { SchemaBuilder } from "@altea/altea/server/schema";

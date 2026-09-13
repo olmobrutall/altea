@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "../setup";
@@ -18,8 +18,8 @@ import { AwardNominationEntity, GrammyAwardEntity, AmericanMusicAwardEntity } fr
 // no custom lite, so their projected lites are plain LiteImp — hence a distinct typed
 // model (C#'s `a.Model is AwardLiteModel`) is not asserted in this particular test.
 
-describe("SelectLiteModel", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("SelectLiteModel", () => {
+    beforeAll(async () => { await start(); });
 
     // var awards = Database.Query<AwardNominationEntity>().Where(a => a.Award != null).Select(a => a.Award).ToList();
     // foreach (var a in awards) { a is Lite<AmericanMusicAwardEntity> / Lite<GrammyAwardEntity> … a.Model … }

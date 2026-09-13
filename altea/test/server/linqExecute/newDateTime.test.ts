@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { Temporal } from "@altea/altea/data/basics";
@@ -19,8 +19,8 @@ import { NoteWithDateEntity } from "../../data/music";
 // MAKE_TIMESTAMP / MAKE_TIME / MAKE_INTERVAL on Postgres, DATEFROMPARTS / DATETIMEFROMPARTS /
 // TIMEFROMPARTS on SQL Server — so the ORDER BY survives. Each test asserts the ORDER BY renders.
 
-describe("NewDateTimeTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("NewDateTimeTest", () => {
+    beforeAll(async () => { await start(); });
 
     // Database.Query<NoteWithDateEntity>().OrderBy(n => new DateTime(2020, 1, 1)).Select(n => n.Id).ToList();
     test("NewDateTime", async () => {

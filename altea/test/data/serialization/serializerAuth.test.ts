@@ -1,4 +1,4 @@
-import { test, describe, afterEach } from "node:test";
+import { test, describe, afterEach } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";   // String.firstUpper — the legacy path below spells a member with it
 import { Serializer, setSerializationAuth } from "@altea/altea/data/serializer";

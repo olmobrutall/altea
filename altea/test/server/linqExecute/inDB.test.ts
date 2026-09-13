@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import "@altea/altea/data/globals"; // String.contains / Lite.contains / … (SQL-mappable)
@@ -21,8 +21,8 @@ import { ArtistEntity, BandEntity, Sex } from "../../data/music";
 // subquery). AutoExpressionField properties (ArtistEntity.isMale()) and Lite-element
 // Contains over a part-entity collection subquery are exercised too.
 
-describe("InDbTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("InDbTest", () => {
+    beforeAll(async () => { await start(); });
 
     // private static ArtistEntity GetFemale() => Database.Query<ArtistEntity>().Where(a => a.Sex == Sex.Female).Single();
     const getFemale = () => table(ArtistEntity).filter(a => a.sex == Sex.Female).single();

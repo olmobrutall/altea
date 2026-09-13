@@ -1,4 +1,4 @@
-import { test, describe, beforeEach, after } from "node:test";
+import { test, describe, beforeEach, afterAll } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import "@altea/altea/server/dynamicQuery/tokenExpressions"; // register factories + expression prototypes
@@ -28,7 +28,7 @@ const serverJson = QueryLogic.getToken(ArtistEntity, "", O).subTokens(O).filter(
 
 describe("QueryClient (client-side server-token source)", () => {
     beforeEach(() => {
-        // re-assert the wiring (another test under --test-isolation=none may have swapped the provider)
+        // re-assert the wiring (another test in this file may have swapped the provider)
         // and route the transport at the canned server JSON instead of a real ajax call.
         initQueryClient();
         clearServerTokenCache();
@@ -56,5 +56,5 @@ describe("QueryClient (client-side server-token source)", () => {
     });
 
     // keep the shared global provider from leaking the fake transport into other suites
-    after(() => setServerTokensProvider(undefined));
+    afterAll(() => setServerTokensProvider(undefined));
 });

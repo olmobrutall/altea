@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import { timeSeriesDates, timeSeriesDuration } from "@altea/altea/data/dynamicQuery/timeSeriesDates";
 import type { SystemTime } from "@altea/altea/data/dynamicQuery/queryRequest";

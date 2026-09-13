@@ -1,4 +1,4 @@
-import { test, describe, before } from "node:test";
+import { test, describe, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/server"; // installs the Decimal.* __resultType metadata (server/decimalFunctions) + table methods
 import "@altea/altea/data/globals";
@@ -81,8 +81,8 @@ describe("Decimal arithmetic — SQL generation", () => {
     }
 });
 
-describe("Decimal arithmetic — execution", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("Decimal arithmetic — execution", () => {
+    beforeAll(async () => { await start(); });
 
     test("Decimal.div runs decimal division and materialises a Decimal (vs integer division)", async () => {
         const decimals = await table(AlbumEntity).map(a => inSql(Decimal.div(a.year, 100))).toArray();

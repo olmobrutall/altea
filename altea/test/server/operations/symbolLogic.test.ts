@@ -1,4 +1,4 @@
-import { test, describe, before } from "node:test";
+import { test, describe, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { Connector } from "@altea/altea/server/connection/connector";
@@ -64,13 +64,13 @@ function noPromptReplacements(): Replacements {
 // Canned persisted rows: one per declared symbol, ids assigned in sorted-by-key order (the
 // order generation seeds them, so a fresh DB's identity ids come out this way). Warming
 // SymbolLogic.load from these mirrors reading the ids back after generation. Computed inside
-// `before` (not at module top-level): with --test-isolation=none other test files load into the
+// `beforeAll` (not at module top-level): other suites in this file load into the
 // same process and declare more OperationSymbols, so the full declared set is only settled once
 // every file's top-level has run — i.e. by the time this hook fires, not at this module's eval.
 describe("SymbolLogic", () => {
     // Warm the read-back cache once (identity ids read back from the "DB"). The synchronous
     // readers below then hit the warm box, exactly as they do in production after schema.initialize().
-    before(() => {
+    beforeAll(() => {
         const seededRows = [...declaredSymbolsForType(OperationSymbol)]
             .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
             .map((s, i) => ({ [pkCol]: i + 1, [keyCol]: s.key }));

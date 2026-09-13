@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "../setup";
@@ -19,8 +19,8 @@ import { AlbumEntity } from "../../data/music";
 // MList row id — collection rows are ordinary part entities — so the RowId* cases behave
 // like the EntityId* ones.)
 
-describe("EntityContextTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("EntityContextTest", () => {
+    beforeAll(async () => { await start(); });
 
     // Database.Query<AlbumEntity>().Count(a => EntityContext.EntityId(a.Label) == a.Id);
     test("EntityIdMember", async () => {

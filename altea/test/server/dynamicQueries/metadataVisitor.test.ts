@@ -1,4 +1,4 @@
-import { test, describe, afterEach } from "node:test";
+import { test, describe, afterEach } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import { ParameterExpression, PropertyExpression, CallExpression, LambdaExpression, BinaryExpression } from "@altea/altea/server/linq/expressions";
@@ -18,7 +18,7 @@ const prop = (o: any, n: string) => new PropertyExpression(o, n);
 const call = (source: any, method: string, args: any[] = []) => new CallExpression(prop(source, method), args, N);
 const meta = (body: any) => MetadataVisitor.gatherMeta(body, album, AlbumEntity);
 
-// Restore the (global, process-shared under --test-isolation=none) auth callback after each test.
+// Restore the global auth callback after each test — it is shared by every test in this file.
 afterEach(() => { PropertyRoute.isAllowedCallback = undefined; });
 
 describe("CleanMeta — direct navigation", () => {

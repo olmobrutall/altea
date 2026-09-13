@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { SqlVectorSearch } from "@altea/altea/server/vectorSearch";
@@ -16,8 +16,8 @@ const pad768 = (head: number[]): Vector => new Vector([...head, ...Array(768 - h
 // cast needs an explicit dimension). SQL Server 2025-only (native VECTOR); skipped on Postgres.
 const isPostgres = (process.env.ALTEA_TEST_DB ?? "").toLowerCase().startsWith("postgres");
 
-describe("VectorSearchTest_SqlServer", { skip: !hasDb || isPostgres }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb || isPostgres)("VectorSearchTest_SqlServer", () => {
+    beforeAll(async () => { await start(); });
 
     test("Vector_Distance", async () => {
         const v1 = new Vector([1, 0, 0]);

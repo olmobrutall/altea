@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import "@altea/altea/data/globals"; // String.contains / startsWith and the Array aggregate operators on entity collections
@@ -33,8 +33,8 @@ const isDefined = withQuoted((s: Sex) => s == Sex.Male || s == Sex.Female);
 // over a grouping, empty-key whole-table aggregate, MListQuery-via-flatMap) all run
 // green in their natural altea form. C#-only constructs are noted `// Not ported:`.
 
-describe("GroupByTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("GroupByTest", () => {
+    beforeAll(async () => { await start(); });
 
     // Database.Query<ArtistEntity>().GroupBy(a => a.Sex, a => a.Name).ToList();
     test("GroupStringByEnum", async () => {

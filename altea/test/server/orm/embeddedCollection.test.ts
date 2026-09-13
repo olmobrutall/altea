@@ -1,4 +1,4 @@
-import { before, describe, test } from "node:test";
+import { beforeAll, describe, test } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { retrieve } from "@altea/altea/server/Database";
@@ -18,8 +18,8 @@ import {
 // reference and the row order, sweeping orphans, eager-loading on retrieve, and correlating in
 // SQL. The schema half is pinned DB-free in server/schema/embeddedCollection.test.ts.
 
-describe("EmbeddedCollectionTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("EmbeddedCollectionTest", () => {
+    beforeAll(async () => { await start(); });
 
     // The seeded config (MusicLoader) has one award inside its embedded.
     txTest("Retrieve eager-loads a collection declared inside an embedded", async () => {

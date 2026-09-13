@@ -1,5 +1,10 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
+// Installs the String/Array prototype extensions. Needed HERE, not incidentally: getFilterOperations
+// walks a token whose niceName calls firstUpper(). Without it this file passes only when some other
+// file in the same process happened to import globals first. vitest gives each file its own worker,
+// so nothing else can install them for this one.
+import "@altea/altea/data/globals";
 import { getTypeInfo } from "@altea/altea/data/reflection";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";

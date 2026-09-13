@@ -1,4 +1,4 @@
-import { test, before, describe } from "node:test";
+import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "../setup";
@@ -21,8 +21,8 @@ import { ArtistEntity, AlbumEntity, BandEntity, BandEntity_Member, Sex } from ".
 //   AlbumEntity.Songs (MList<SongEmbedded>) → album.songs, each an
 //     AlbumEntity_Song with the embedded fields flattened in (e.g. `.name`).
 
-describe("SelectManyTest", { skip: !hasDb }, () => {
-    before(async () => { await start(); });
+describe.skipIf(!hasDb)("SelectManyTest", () => {
+    beforeAll(async () => { await start(); });
 
     // Database.Query<BandEntity>().SelectMany(b => b.Members).Select(a => new { Artist = a.ToLite() }).ToList();
     test("SelectMany", async () => {
