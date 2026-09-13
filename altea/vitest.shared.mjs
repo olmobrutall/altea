@@ -128,14 +128,18 @@ export function alteaVitestConfig(packageUrl, options = {}) {
                     // default applies. Any other mode names the file directly, which is what makes
                     // `vitest run --mode sqlserver` (or `--mode dev`) the dialect/environment switch.
                     //
-                    // asDefaults, and that matters: vitest MERGES `test.env` over the worker's process.env,
-                    // so without it a file named here beats an environment the caller already chose. That
-                    // is how `pnpm --filter eastwind test live` silently ran against .env.local — withEnv
-                    // loaded the right file into the process and this config overwrote it. A file read here
-                    // fills in what nobody has set; it never overrides.
-                    ...asDefaults(readEnv(path.resolve(pkgRoot, mode === "test" ? (envFile ?? ".env.postgres") : `.env.${mode}`))),
+                    // Only when NOBODY has already chosen an environment — see envAlreadyChosen. A caller
+                    // that loaded one (scripts/withEnv.mjs) owns the whole environment, not just the keys
+                    // its file happens to define: layering another file underneath lets a value LEAK from
+                    // one environment into another. `gen:environment live` did exactly that, picking up
+                    // EASTWIND_DISPOSABLE_DB=true out of .env.local and defeating the guard that exists to
+                    // stop production being dropped.
+                    //
+                    // asDefaults on top of that, because vitest MERGES `test.env` over the worker's
+                    // process.env: a file read here fills gaps, it never overrides.
+                    ...(envAlreadyChosen() ? {} : asDefaults(readEnv(path.resolve(pkgRoot, mode === "test" ? (envFile ?? ".env.postgres") : `.env.${mode}`)))),
                     // Only a sequential run may destroy the database — see test/destructive.env.
-                    ...(fileParallelism ? {} : asDefaults(readEnv(path.resolve(pkgRoot, testDir, "destructive.env")))),
+                    ...(fileParallelism || envAlreadyChosen() ? {} : asDefaults(readEnv(path.resolve(pkgRoot, testDir, "destructive.env")))),
                 },
                 fileParallelism,
                 testTimeout: 30_000,
@@ -144,6 +148,15 @@ export function alteaVitestConfig(packageUrl, options = {}) {
             },
         };
     });
+}
+
+/**
+ * Whether a caller has already loaded an environment into this process (scripts/withEnv.mjs does, before
+ * spawning vitest). When one has, it owns the environment WHOLE: no file read here may contribute, or a
+ * value defined for one environment silently applies to another.
+ */
+function envAlreadyChosen() {
+    return (process.env["ALTEA_ENV_LOADED"] ?? "") !== "";
 }
 
 /**
