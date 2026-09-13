@@ -1,9 +1,12 @@
 {
-  // Solution file — builds the three layers (`tspc -b`).
+  // Solution file — builds the three shipping layers AND the test layer (`tspc -b`), as every other
+  // package's does. Without the test reference `tspc -b` reported success while leaving dist/test stale,
+  // so the suite ran against whatever was last compiled by some other means.
   "files": [],
   "references": [
     { "path": "./tsconfig.data.json" },
     { "path": "./tsconfig.server.json" },
-    { "path": "./tsconfig.client.json" }
+    { "path": "./tsconfig.client.json" },
+    { "path": "./tsconfig.test.json" }
   ]
 }
