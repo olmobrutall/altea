@@ -79,7 +79,7 @@ cd ../northbreeze
 node <altea>/cli/altea-simplify/dist/main.js     # untick what you do not need; one commit per module
 pnpm install
 pnpm --filter quote-transformer build
-pnpm --filter northbreeze build:types
+pnpm --filter northbreeze build
 ```
 
 `altea-clone` prints those lines with the real paths filled in, because in a project that has not been

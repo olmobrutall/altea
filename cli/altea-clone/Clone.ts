@@ -108,7 +108,7 @@ export namespace Clone {
         Console.writeLine(`    node "${simplifyPath()}"`);
         Console.writeLine("    pnpm install");
         Console.writeLine("    pnpm --filter quote-transformer build");
-        Console.writeLine(`    pnpm --filter ${name} build:types`);
+        Console.writeLine(`    pnpm --filter ${name} build`);
         Console.writeLine();
         Console.writeLineColor(Color.darkGray,
             `    Then edit ${name}/.env.local — the environment files came across, are git-ignored, and `
