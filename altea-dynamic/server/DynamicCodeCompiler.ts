@@ -65,7 +65,7 @@ export interface DynamicCodeCompilerOptions {
     codeGenDirectory: string;
     /**
      * Where an app's OWN modules' types live, by import specifier — e.g.
-     * `{ "eastwind/orders/Order.data": "D:/…/eastwind/orders/Order.data.ts" }`.
+     * `{ "eastwind/app/orders/Order.data": "D:/…/eastwind/app/orders/Order.data.ts" }`.
      *
      * Needed for the same reason @altea/altea-eval needs it: nothing depends on an app, so there is no
      * node_modules entry for TypeScript to follow. A `@altea/*` specifier needs no entry.
@@ -75,7 +75,7 @@ export interface DynamicCodeCompilerOptions {
      * Where a whole PACKAGE's sources live, by package name — e.g. `{ eastwind: "D:/…/eastwind" }`.
      *
      * The same accommodation as `typesPaths` and the one an APP actually needs: nothing depends on an
-     * app, so TypeScript cannot resolve `eastwind/shippers/Shipper.data` — and listing every module by
+     * app, so TypeScript cannot resolve `eastwind/app/shippers/Shipper.data` — and listing every module by
      * hand is not a thing anyone would keep in step. A root maps the whole subtree at once.
      */
     typesRoots?: { [packageName: string]: string };
@@ -354,7 +354,7 @@ export namespace DynamicCodeCompiler {
         return ts.resolveModuleName(specifier, containingFile, compilerOptions, host, undefined, redirected);
     }
 
-    /** `eastwind/shippers/Shipper.data` → `<root of "eastwind">/shippers/Shipper.data.ts`, if it exists. */
+    /** `eastwind/app/shippers/Shipper.data` → `<root of "eastwind">/app/shippers/Shipper.data.ts`, if it exists. */
     function resolveInRoots(specifier: string): string | undefined {
         const roots = options!.typesRoots;
         if (roots == null)

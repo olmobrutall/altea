@@ -22,7 +22,7 @@ import { DynamicCodeCompiler, type GeneratedModule } from "./DynamicCodeCompiler
 //
 //  - a C# `using` list becomes an IMPORT MAP, and it needs no configuration: a registered type already
 //    knows the module that declares it, because the quote-transformer stamped `__fileInfo` on it, so
-//    `getLocation("OrderEntity")` yields `@altea/altea-…/data/Order` (or `eastwind/orders/Order.data` for
+//    `getLocation("OrderEntity")` yields `@altea/altea-…/data/Order` (or `eastwind/app/orders/Order.data` for
 //    an app type). Signum's `EvalLogic.Namespaces` has no counterpart at all.
 //  - a `namespace` block becomes a MODULE. Nothing is nested, so Signum's `.Indent(4)` bookkeeping goes.
 //  - `[EntityKind(EntityKind.Main, EntityData.Master)]` → `@entity("Main", "Master")`, and each attribute

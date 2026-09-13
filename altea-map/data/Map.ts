@@ -30,7 +30,7 @@ import type { OmniboxResult, OmniboxMatch } from "@altea/altea-omnibox/data/Omni
 //    AlertTypeSymbol).
 //  - **`namespace` is the PACKAGE plus the declaring FOLDER.** altea has no C# namespace; the honest
 //    analogue at the same granularity is the owning npm package + the directory the type is declared in
-//    (`@altea/altea-auth/data`, `eastwind/orders`) — read off the transformer's `__fileInfo` through
+//    (`@altea/altea-auth/data`, `eastwind/app/orders`) — read off the transformer's `__fileInfo` through
 //    `getLocation`, which is the same source altea-translations groups by. The field keeps Signum's
 //    NAME so the ported colour provider reads unchanged.
 //  - **`partitions` is dropped** from the runtime stats: it is SQL-Server-only and nothing renders it.

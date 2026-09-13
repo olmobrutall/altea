@@ -34,7 +34,7 @@ import type { OmniboxResult, OmniboxMatch } from "@altea/altea-omnibox/data/Omni
 //    synchronizer pass that prunes renamed routes — the routes table's own sync repairs a renamed PATH in
 //    place, so the two do not overlap.
 //  - **`NamespaceHelpEntity.name` holds a PACKAGE + FOLDER**, not a C# namespace — `"@altea/altea-auth/data"`,
-//    `"eastwind/orders"`. That is the same grouping string @altea/altea-map's schema map colours by (read
+//    `"eastwind/app/orders"`. That is the same grouping string @altea/altea-map's schema map colours by (read
 //    off the transformer's `__fileInfo` through `getLocation`), so the two features agree on what a
 //    "module" is. The entity keeps Signum's NAME so the ported pages and the XML round-trip read unchanged.
 //  - **MList → `@part` rows**: `PropertyRouteHelpEmbedded` / `OperationHelpEmbedded` /

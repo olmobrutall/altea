@@ -50,7 +50,7 @@ and finding the generated starter is a plain import where Signum reflects over t
 type named `CodeGenStarter`.
 
 **An APP's own modules need `typesRoots`, pointing at its DIST.** Nothing depends on an app, so TypeScript
-cannot resolve `eastwind/orders/Order.data`; `dist` carries the `.d.ts` beside the `.js`, so one directory
+cannot resolve `eastwind/app/orders/Order.data`; `dist` carries the `.d.ts` beside the `.js`, so one directory
 serves checking and loading exactly as a published package does (a source root type-checks and then fails
 at load). The emitted specifier for such a package is RELATIVE — `DynamicCodeCompiler.specifierFor` is the
 single place that decision lives — because Node cannot resolve a bare `eastwind/…`.

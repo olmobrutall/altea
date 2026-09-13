@@ -447,7 +447,7 @@ Recorded so the next pass does not re-derive them:
 
 ## 7. Found by the browser suite
 
-The first end-to-end run of `@altea/altea-playwright` against a real stack (eastwind's `test/orders.spec.ts`,
+The first end-to-end run of `@altea/altea-playwright` against a real stack (eastwind's `test/playwright/order.test.ts`,
 which arranges through `OperationLogic` and then drives the UI) turned up three things. Two are fixed; the
 third is a parity gap that wants a decision.
 

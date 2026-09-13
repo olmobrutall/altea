@@ -78,7 +78,7 @@ LOC = `.cs` + `.ts` + `.tsx` lines still in `old/`, as a rough size signal only.
 | Signum extension | What it is | LOC | Why |
 | --- | --- | --- | --- |
 | Signum.Selenium | the pre-Playwright e2e driver | 4 597 | superseded by Signum.Playwright **inside Signum itself**; `altea-playwright` is the port |
-| Signum.MachineLearning | `PredictorEntity`, neural-net training / prediction over CNTK / TensorFlow | 5 988 | no substrate on Node, and hosting a training runtime is out of altea's scope. Southwind's SalesEstimation panel is dropped with it (noted in `eastwind/products/Product.tsx`) |
+| Signum.MachineLearning | `PredictorEntity`, neural-net training / prediction over CNTK / TensorFlow | 5 988 | no substrate on Node, and hosting a training runtime is out of altea's scope. Southwind's SalesEstimation panel is dropped with it (noted in `eastwind/app/products/Product.tsx`) |
 | Signum.Notes | `NoteEntity` — free-text notes attached to any entity, plus the frame widget | 289 | out of scope for the demo app |
 | Signum.Calendar | `CalendarDayEntity` — a densely populated date table to LEFT JOIN for a gap-free day series | 72 | nothing in Signum or Southwind references it, and eastwind has no use for one. Trivially portable if a report ever needs it |
 

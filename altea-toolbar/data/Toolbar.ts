@@ -109,7 +109,7 @@ export abstract class ToolbarElementBaseEntity extends Entity {
     // An EMPTY list that each module widened from its
     // own Logic.Start (`AssertImplementedBy(…)`). altea declares the toolbar module's OWN five here and the
     // APP widens the list with the assets of every registered module (Southwind did the same from
-    // Starter.cs) — see eastwind/entityOverrides.data.ts's `overrideImplementedBy`. The list decides both
+    // Starter.cs) — see eastwind/app/entityOverrides.data.ts's `overrideImplementedBy`. The list decides both
     // what the editor offers and which FK columns the element tables get.
     //
     // NOTE: the two concrete row types below INHERIT this one FieldInfo (altea's reflection seeds a

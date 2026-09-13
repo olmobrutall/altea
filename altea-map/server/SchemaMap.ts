@@ -138,7 +138,7 @@ export namespace SchemaMap {
      * The grouping level Signum colours by. There is no C# namespace here; the analogue at the same
      * granularity is the owning npm package plus the folder the type is declared in — the pair
      * altea-translations groups a package's translations by, read off the transformer's `__fileInfo`.
-     * `"@altea/altea-auth/data"`, `"eastwind/orders"`.
+     * `"@altea/altea-auth/data"`, `"eastwind/app/orders"`.
      */
     function namespaceOf(ctor: Function): string {
         // An enum table is a GENERATED `EnumEntity<X>` subclass, so it has no registration of its own —

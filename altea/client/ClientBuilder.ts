@@ -9,7 +9,7 @@ import { TypeEntityClient } from './TypeEntityClient';
 import { EntitySettings, type ViewModule } from './EntitySettings';
 import { QueryTokenString, createTokenFunction, type TokenFunction } from './QueryTokenString';
 
-// The client-side mirror of the server's SchemaBuilder (see eastwind/starter.server.ts). Where the
+// The client-side mirror of the server's SchemaBuilder (see eastwind/app/starter.server.ts). Where the
 // server threads a single `sb` through every module's `XLogic.start(sb)`, the client threads a single
 // `cb` through every domain's `XClient.start(cb)`. This is the ONE bootstrap object: it owns the app's
 // route table and runs the framework client init (Operations / Navigator / Finder), then each domain

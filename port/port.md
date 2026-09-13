@@ -905,7 +905,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     bucket naming); the app picks the backend and supplies credentials, which is where Signum keeps them
     (`azureStorageConnectionString` is a `Starter.Start` parameter, never a configuration member).
   - a DOMAIN's scheduled tasks, process algorithms and workflow wiring live in the domain folder
-    (`eastwind/orders/`), which is where Southwind keeps them (`Orders/OrdersLogic.cs` registers
+    (`eastwind/app/orders/`), which is where Southwind keeps them (`Orders/OrdersLogic.cs` registers
     `OrderProcess.CancelOrders` and the two `OrderTask`s, declared in `Orders/OrderEntity.cs`).
 
 - **Directory login: ONE authorizer, ONE shared base, and no server-rendered config blob.** Signum copies
@@ -1065,7 +1065,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     registries the SERVER reads. Roslyn's `MetadataReference` list therefore becomes ordinary resolution,
     with no allow-list to maintain.
   - **an APP's own modules need `typesRoots`, pointing at its DIST.** Nothing depends on an app, so
-    TypeScript cannot resolve `eastwind/orders/Order.data`; `dist` carries the `.d.ts` beside the `.js`, so
+    TypeScript cannot resolve `eastwind/app/orders/Order.data`; `dist` carries the `.d.ts` beside the `.js`, so
     one directory serves checking and loading exactly as a published package does (a source root
     type-checks and then fails at load). The emitted specifier for such a package is RELATIVE —
     `DynamicCodeCompiler.specifierFor` is the single place that decision lives — because Node cannot
@@ -1354,7 +1354,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     readable, `isVirtualMListBackReference` → **`isBackReference`** (straight off `FieldInfo.isBackReference`,
     where Signum has to look the route up in `VirtualMList.RegisteredVirtualMLists`). `SemiSymbol` goes too.
   - **`namespace` is the owning PACKAGE plus the declaring FOLDER** (`@altea/altea-auth/data`,
-    `eastwind/orders`), read off the transformer's `__fileInfo` through `getLocation` — the same grouping
+    `eastwind/app/orders`), read off the transformer's `__fileInfo` through `getLocation` — the same grouping
     altea-translations uses. An ENUM table has no registration of its own, so its location is the enum's.
   - **the state ENUM is discovered through the selector's PROPERTY ROUTE**, not a generic parameter (S is
     erased): `PropertyRoute.root(T).addLambda(getState).type.getEnum()` yields the enum object, hence every
