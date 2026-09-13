@@ -56,6 +56,12 @@ export namespace ModulesXml {
 
         const modules = raw.map(readModule);
 
+        // A name is the only handle the selector, DependsOn and --keep/--remove have on a module, so a
+        // repeated one is ambiguous everywhere rather than merely redundant.
+        const duplicate = modules.find((m, i) => modules.findIndex(o => o.name === m.name) !== i);
+        if (duplicate != undefined)
+            throw new Error(`Module '${duplicate.name}' is declared more than once.`);
+
         const names = new Set(modules.map(m => m.name));
         for (const m of modules)
             for (const d of m.dependsOn)
