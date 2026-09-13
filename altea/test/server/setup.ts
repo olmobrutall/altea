@@ -92,7 +92,14 @@ if (sqlDumpEnabled) {
 // worker; the pg Pool / mssql ConnectionPool keeps the event loop alive, so without this the worker
 // idles until the pool's idle-timeout (~10s on pg) before exiting — ×N files that dominated the whole
 // run. Closing the pool lets each worker finish as soon as its tests are done.
-afterAll(async () => { await Connector.default?.closeConnection(); });
+//
+// Only UNDER vitest, and that is not a nicety: this module is also imported by the standalone generator
+// (generateEnvironment.ts, the `gen:*` scripts and the "altea test (generate DB)" launch config), and
+// vitest's afterAll throws when it is called outside a suite. node:test's `after` tolerated it, so the
+// move to vitest turned importing this module from a plain script into a crash. The generator exits by
+// itself anyway, so there is no pool to tidy there.
+if (process.env["VITEST"])
+    afterAll(async () => { await Connector.default?.closeConnection(); });
 
 let started: Promise<Connector> | undefined;
 
