@@ -41,8 +41,13 @@ const VERSION_REGEX = /^(?<version>\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2})(_(?<
 
 export namespace SqlMigrationRunner {
 
-    /** Settable by the app's terminal before the first call. */
-    export let migrationsDirectory = path.join("..", "..", "..", "Migrations");
+    /**
+     * Settable by the app's terminal before the first call — and every app does set it, because a default
+     * relative to the CWD cannot survive being launched from anywhere else (eastwind resolves its own off
+     * `import.meta.url`). Lower-case `migrations`, like every other directory in an altea package; Signum's
+     * `Migrations` was title-case because a C# project directory is.
+     */
+    export let migrationsDirectory = path.join("..", "..", "..", "migrations");
 
     export const databaseNameReplacement = "#DatabaseName#";
     export const initialMigrationComment = "Initial Migration";
