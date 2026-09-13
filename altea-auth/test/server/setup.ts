@@ -1,5 +1,5 @@
 import { StartParameters } from "@altea/altea/data/utils/startParameters";
-import { after } from "node:test";
+import { afterAll } from "vitest";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
@@ -68,7 +68,7 @@ export const Roles = {
 } as const;
 
 // Close the pooled connection when a file's tests finish (each `node --test` file is its own process).
-after(async () => { await Connector.default?.closeConnection(); });
+afterAll(async () => { await Connector.default?.closeConnection(); });
 
 let started: Promise<Connector> | undefined;
 

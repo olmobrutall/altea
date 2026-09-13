@@ -1,4 +1,4 @@
-import { test, describe, before } from "node:test";
+import { test, describe, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
@@ -11,12 +11,12 @@ import { Fixture, hasDb, isolationsByName, start } from "./setup";
 // What the module is FOR, against a real database: an isolation scope decides which rows a query returns and
 // which rows a save may write. Skipped without ALTEA_ISOLATION_TEST_DB (see .env.example).
 
-describe("row isolation", { skip: hasDb ? false : "set ALTEA_ISOLATION_TEST_DB to run" }, () => {
+describe.skipIf(hasDb ? false : "set ALTEA_ISOLATION_TEST_DB to run")("row isolation", () => {
 
     let acme: Lite<IsolationEntity>;
     let globex: Lite<IsolationEntity>;
 
-    before(async () => {
+    beforeAll(async () => {
         await start();
         const byName = await isolationsByName();
         acme = byName.get(Fixture.acme)!;

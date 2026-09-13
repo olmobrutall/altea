@@ -1,4 +1,4 @@
-import { describe, test } from "node:test";
+import { describe, test } from "vitest";
 import assert from "node:assert/strict";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { LiteImp, registerCustomLite } from "@altea/altea/data/lite";

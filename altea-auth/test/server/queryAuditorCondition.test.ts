@@ -1,4 +1,4 @@
-import { describe, test, before } from "node:test";
+import { describe, test, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import type { Lite } from "@altea/altea/data/lite";
@@ -18,9 +18,9 @@ import { start, hasDb, asRole, role, Roles } from "./setup";
 //
 // The role's view of the TARGETS comes from the Restricted role it inherits: Sample is None with
 // `[Public] → Read`, so PublicSample is readable and ConfidentialSample is not.
-describe("query-auditor type conditions (registerWhenAlreadyFilteringBy)", { skip: hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable" }, () => {
+describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable")("query-auditor type conditions (registerWhenAlreadyFilteringBy)", () => {
 
-    before(() => start());
+    beforeAll(() => start());
 
     async function targets(): Promise<{ pub: Lite<SampleEntity>; conf: Lite<SampleEntity> }> {
         const rows = await table(SampleEntity).filter(s => s.name == "PublicSample" || s.name == "ConfidentialSample").toArray() as SampleEntity[];

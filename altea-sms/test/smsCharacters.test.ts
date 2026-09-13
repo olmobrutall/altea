@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import {
     SMSCharacters, SMS_MAX_TEXT_LENGTH, SMS_UCS2_MAX_TEXT_LENGTH,

@@ -1,4 +1,4 @@
-import { after } from "node:test";
+import { afterAll } from "vitest";
 import "@altea/altea/server/context.node"; // register server context storage first
 import "@altea/altea/server/fluentOperations"; // FluentInclude.withSave / withDelete
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
@@ -20,7 +20,7 @@ import {
 
 export const hasDb = !!process.env.ALTEA_CACHE_TEST_DB;
 
-after(async () => { await Connector.default?.closeConnection(); });
+afterAll(async () => { await Connector.default?.closeConnection(); });
 
 let started: Promise<Connector> | undefined;
 

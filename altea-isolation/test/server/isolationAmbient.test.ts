@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import type { Lite } from "@altea/altea/data/lite";
 import "@altea/altea/server/context.node";

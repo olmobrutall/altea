@@ -1,4 +1,4 @@
-import { describe, test, before } from "node:test";
+import { describe, test, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import { Serializer, resolveSerializationAuthContext } from "@altea/altea/data/serializer";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
@@ -16,13 +16,13 @@ import { start, hasDb, asRole, role, Roles } from "./setup";
 // (merge-strategy roots), the type dimension, operation + inheritance/auto-propagate, row-level type
 // conditions (per-instance), and property hide/read-only/coerce (through the real serializer gate).
 
-describe("AuthRules", { skip: hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable" }, () => {
+describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable")("AuthRules", () => {
 
     let superR: RoleEntity, base: RoleEntity, sales: RoleEntity, manager: RoleEntity, restricted: RoleEntity;
     let autoUpgrade: RoleEntity;
     let typeId: PrimaryKey;
 
-    before(async () => {
+    beforeAll(async () => {
         await start();
         [superR, base, sales, manager, restricted, autoUpgrade] = await Promise.all([
             role(Roles.Super), role(Roles.Base), role(Roles.Sales), role(Roles.Manager), role(Roles.Restricted),

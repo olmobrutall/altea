@@ -1,4 +1,4 @@
-import { describe, test, before } from "node:test";
+import { describe, test, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import type { Lite } from "@altea/altea/data/lite";
@@ -25,10 +25,10 @@ const setSlice = (wc: PropertyWithConditionsModel, set: Lite<TypeConditionSymbol
     else wc.conditionRules.push(PropertyConditionRuleModel.create({ typeConditions: [...set], allowed: v }));
 };
 
-describe("Property rule slices (type conditions)", { skip: hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable" }, () => {
+describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable")("Property rule slices (type conditions)", () => {
     let restricted: RoleEntity;
 
-    before(async () => {
+    beforeAll(async () => {
         await start();
         restricted = await role(Roles.Restricted);
     });

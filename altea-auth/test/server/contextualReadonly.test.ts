@@ -1,4 +1,4 @@
-import { describe, test, before } from "node:test";
+import { describe, test, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { table } from "@altea/altea/server/table";
@@ -21,14 +21,14 @@ import { start, hasDb, role, Roles, asRole, resetAuthCaches } from "./setup";
 // answer is a single `SELECT COUNT(*) … WHERE id IN (…) AND NOT(<condition algebra>)` (Signum's
 // `CountReadonly`), so this suite is what pins that the predicate really lowers to SQL — it is built at
 // EXPRESSION level, since the algebra only exists at runtime and `Query.count` takes a build-time `Quoted`.
-describe("Contextual read-only (OperationLogic.anyReadonly)", { skip: hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable" }, () => {
+describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable")("Contextual read-only (OperationLogic.anyReadonly)", () => {
 
     let sales: RoleEntity;
     let manager: RoleEntity;
     let pub: Lite<Entity>;
     let conf: Lite<Entity>;
 
-    before(async () => {
+    beforeAll(async () => {
         await start();
         sales = await role(Roles.Sales);
         manager = await role(Roles.Manager);

@@ -1,4 +1,4 @@
-import { describe, test, before } from "node:test";
+import { describe, test, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
@@ -40,11 +40,11 @@ describe("PartOwnership.partRoots (pure)", () => {
     });
 });
 
-describe("Part auth inheritance", { skip: hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable" }, () => {
+describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable")("Part auth inheritance", () => {
     let sales: RoleEntity, base: RoleEntity;
     let sampleId: PrimaryKey, panelId: PrimaryKey, widgetId: PrimaryKey;
 
-    before(async () => {
+    beforeAll(async () => {
         await start();
         [sales, base] = await Promise.all([role(Roles.Sales), role(Roles.Base)]);
         sampleId = TypeLogic.typeToId(SampleEntity);
@@ -78,10 +78,10 @@ describe("Part auth inheritance", { skip: hasDb ? false : "set ALTEA_AUTH_TEST_D
 // A Part queried DIRECTLY (`table(Part)`) is row-gated by its ROOT's TypeCondition, rebased onto the Part
 // via its back-reference chain (panel.sample / widget.panel.sample). Via-owner access is NOT affected (the
 // owner's collection projection bypasses the query-filter marker) — this is the isolated-part path only.
-describe("Standalone-part row filter", { skip: hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable" }, () => {
+describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable")("Standalone-part row filter", () => {
     let restricted: RoleEntity, superRole: RoleEntity;
 
-    before(async () => {
+    beforeAll(async () => {
         await start();
         [restricted, superRole] = await Promise.all([role(Roles.Restricted), role(Roles.Super)]);
     });

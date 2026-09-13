@@ -1,4 +1,4 @@
-import { describe, test, before, afterEach } from "node:test";
+import { describe, test, beforeAll, afterEach } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
@@ -16,13 +16,13 @@ import { start, hasDb, asRole, role, Roles, resetAuthCaches } from "./setup";
 // fixture. Export is a pure read; the import tests MUTATE inside Transaction.noCommit (rolled back) and
 // reset the auth caches in afterEach so the shared fixture is untouched for other suites.
 
-describe("AuthImportExport", { skip: hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable" }, () => {
+describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable")("AuthImportExport", () => {
 
     let sales: RoleEntity, restricted: RoleEntity;
     let typeId: PrimaryKey;
     let xml: string;
 
-    before(async () => {
+    beforeAll(async () => {
         await start();
         [sales, restricted] = await Promise.all([role(Roles.Sales), role(Roles.Restricted)]);
         typeId = TypeLogic.typeToId(SampleEntity);

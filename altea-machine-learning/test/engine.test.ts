@@ -1,4 +1,4 @@
-import { describe, test, before, after } from "node:test";
+import { describe, test, beforeAll, afterAll } from "vitest";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -81,13 +81,13 @@ describe("machine-learning engine", () => {
     let directory: string;
     const realRandom = Math.random;
 
-    before(() => {
+    beforeAll(() => {
         Math.random = mulberry32(12345);
         directory = mkdtempSync(join(tmpdir(), "altea-ml-"));
         Engine.predictorDirectory = () => directory;
     });
 
-    after(() => { Math.random = realRandom; });
+    afterAll(() => { Math.random = realRandom; });
 
     test("a backend is available", async () => {
         const backend = await Engine.currentBackend();

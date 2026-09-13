@@ -1,4 +1,4 @@
-import { describe, test, before } from "node:test";
+import { describe, test, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -15,9 +15,9 @@ import { Fixture, countSql, hasDb, start, statsOf } from "./setup";
 // The cache suite. Each case goes through the real engine (no HTTP): `Database.retrieve` under a cache
 // controller, the completer, the semi-cached lite tables, and the invalidation events.
 
-describe("altea-cache", { skip: hasDb ? false : "set ALTEA_CACHE_TEST_DB (and run gen) to enable" }, () => {
+describe.skipIf(hasDb ? false : "set ALTEA_CACHE_TEST_DB (and run gen) to enable")("altea-cache", () => {
 
-    before(async () => { await start(); });
+    beforeAll(async () => { await start(); });
 
     const spain = (): Promise<CountryEntity> => byIsoCode(Fixture.spain);
     const france = (): Promise<CountryEntity> => byIsoCode(Fixture.france);

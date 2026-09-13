@@ -1,4 +1,4 @@
-import { describe, test, before } from "node:test";
+import { describe, test, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { table } from "@altea/altea/server/table";
@@ -10,9 +10,9 @@ import { start, hasDb } from "./setup";
 // Phase 4: DB-eval type conditions. SampleTypeCondition.HighValue is registered WITHOUT an in-memory
 // predicate, so `inTypeCondition` can only answer after `fillTypeConditions` evaluates its `@quoted`
 // predicate (`s.value > 0`) in SQL and caches the boolean per entity.
-describe("DB-eval type conditions (fillTypeConditions)", { skip: hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable" }, () => {
+describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable")("DB-eval type conditions (fillTypeConditions)", () => {
 
-    before(() => start());
+    beforeAll(() => start());
 
     test("a DB-only condition throws until filled, then reads the SQL-evaluated boolean per entity", async () => {
         await Transaction.noCommit(async () => {
