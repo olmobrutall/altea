@@ -1,4 +1,4 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Locator, Page } from "playwright";
 
 // Port of Signum.Playwright's PlaywrightExtensions.cs — the small vocabulary every proxy is written in.
 //

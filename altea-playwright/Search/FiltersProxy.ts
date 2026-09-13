@@ -1,4 +1,4 @@
-import type { Locator } from "@playwright/test";
+import type { Locator } from "playwright";
 import type { BaseEntity, Entity, Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";

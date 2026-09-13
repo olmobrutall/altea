@@ -34,7 +34,7 @@
 //
 // NOT ported from Signum.Playwright (each is a module altea does not have, or a Playwright feature that
 // makes the C# machinery unnecessary — the closure scoping IS ported, see above):
-//  - `SignumPlaywrightTestClass`'s CDP debug mode — `@playwright/test` has `--headed` / `--debug` / UI mode.
+//  - `SignumPlaywrightTestClass`'s CDP debug mode — the suite owns the launch, so `headless: false` covers it.
 //  - `HtmlLineProxy`, `GuidBoxLineProxy`, `ColorLineProxy`'s picker, `EntityListProxy` (altea has no
 //    EntityList line — see CLAUDE.md's altea-dynamic notes), `EnumCheckBoxListProxy`, `MultiValueLineProxy`.
 //  - `Toolbar/ToolbarSidebarProxy` (altea-toolbar's sidebar) and `Search/SearchValueLineProxy` /

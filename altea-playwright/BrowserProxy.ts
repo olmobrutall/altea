@@ -1,4 +1,4 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Locator, Page } from "playwright";
 import { Lite } from "@altea/altea/data/lite";
 import { Entity, type BaseEntity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
@@ -24,8 +24,8 @@ import { FramePageProxy } from "./Frames/FramePageProxy";
 //  - the LOGIN ROUTE is `auth/login` (altea's router), not Signum's `Auth/Login`, and the form's ids are
 //    altea's (`#userName` / `#password` / the submit button) — see `login`.
 //  - Signum's CDP "debug mode" (launch a real Chrome with a user-data-dir and connect over the debugging
-//    port) is NOT ported: `@playwright/test` already has `--headed`, `--debug` and the UI mode, which is
-//    what that machinery re-created for xUnit.
+//    port) is NOT ported: the suite launches the browser itself, so watching a run is `headless: false`
+//    (and `slowMo`) on that launch — which is what that machinery re-created for xUnit.
 //  - navigation routes are altea's `find/<QueryKey>` / `view/<CleanName>/<id>` / `create/<CleanName>` —
 //    the same shapes Signum uses, so only the base URL differs.
 export class BrowserProxy {

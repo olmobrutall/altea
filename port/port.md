@@ -885,7 +885,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     reads the same. (The modal openers therefore return a typed PROXY, not a Locator — which introduces a
     module cycle proxy → modal → LineContainer → proxy, broken by importing the modal classes lazily inside
     the methods.)
-  - NOT ported: the CDP debug-mode launcher (`@playwright/test` has --headed / --debug / UI mode), and the
+  - NOT ported: the CDP debug-mode launcher (the suite owns the launch, so `headless: false` covers it), and the
     proxies for lines altea does not have (EntityList, HtmlLine, GuidBox, EnumCheckBoxList, MultiValueLine)
     plus the panel-level Toolbar / SearchValueLine / ColumnEditor / ContextMenu ones.
 

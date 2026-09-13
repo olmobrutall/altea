@@ -1,6 +1,7 @@
 # Signum.Playwright → `@altea/altea-playwright`
 
-Signum's test-support assembly for driving its React UI from xUnit, ported to `@playwright/test`. The DOM
+Signum's test-support assembly for driving its React UI from xUnit, ported to the `playwright` LIBRARY (never `@playwright/test` — the suites are vitest, like every
+other suite in the workspace, which is also the shape Signum has). The DOM
 contract is identical in both frameworks — every line renders `data-property-path` + `data-changes`, every
 frame `data-main-entity` + `data-refresh-count`, every search `data-search-count` — so the selectors and
 the waiting strategies carry over unchanged. What changed is the API.
@@ -81,8 +82,8 @@ LISTEN/NOTIFY has no such peer endpoint, so the application-side helper uses the
 ## Not ported
 
 - `SignumPlaywrightTestClass`'s CDP debug mode (launch Chrome with a user-data-dir, connect over the
-  debugging port, keep it open on failure). `@playwright/test` ships `--headed`, `--debug` and UI mode,
-  which is what that machinery re-created for xUnit.
+  debugging port, keep it open on failure). The suite owns the `chromium.launch()`, so watching a run is
+  `headless: false` / `slowMo` there — which is what that machinery re-created for xUnit.
 - `HtmlLineProxy`, `GuidBoxLineProxy`, `EntityListProxy` (altea has no EntityList line),
   `EnumCheckBoxListProxy`, `MultiValueLineProxy`.
 - The panel proxies: `ToolbarSidebarProxy`, `SearchValueLineProxy`, `ColumnEditorProxy`,

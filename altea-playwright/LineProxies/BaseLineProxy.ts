@@ -1,4 +1,4 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Locator, Page } from "playwright";
 import type { PropertyRoute } from "@altea/altea/data/propertyRoute";
 
 // Port of Signum.Playwright's LineProxies/BaseLineProxy.cs — what every line proxy has (its element, the

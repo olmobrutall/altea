@@ -1,4 +1,4 @@
-import type { Locator } from "@playwright/test";
+import type { Locator } from "playwright";
 import { waitVisible } from "../PlaywrightExtensions";
 
 // Port of Signum.Playwright's Search/PaginationSelectorProxy.cs — the search footer's two selects.

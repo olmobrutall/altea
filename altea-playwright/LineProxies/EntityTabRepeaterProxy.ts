@@ -1,4 +1,4 @@
-import type { Locator } from "@playwright/test";
+import type { Locator } from "playwright";
 import type { BaseEntity } from "@altea/altea/data/entity";
 import { LineContainer } from "../Frames/LineContainer";
 import { EntityRepeaterProxy } from "./EntityRepeaterProxy";

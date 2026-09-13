@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Page } from "playwright";
 import type { BaseEntity, Entity, Type } from "@altea/altea/data/entity";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import type { FrameModalProxy } from "../Frames/FrameModalProxy";

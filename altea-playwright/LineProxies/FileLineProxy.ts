@@ -1,4 +1,4 @@
-import type { Locator } from "@playwright/test";
+import type { Locator } from "playwright";
 import { BaseLineProxy } from "./BaseLineProxy";
 
 // Port of Signum.Playwright's LineProxies/FileLineProxy.cs (@altea/altea-files' FileLine) — set the file by

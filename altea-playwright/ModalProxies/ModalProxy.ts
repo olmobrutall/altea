@@ -1,4 +1,4 @@
-import type { Locator } from "@playwright/test";
+import type { Locator } from "playwright";
 import { isPresent, waitNotPresent, waitVisible } from "../PlaywrightExtensions";
 
 // Port of Signum.Playwright's ModalProxies/*.cs — the three modals a test bumps into that are NOT an entity

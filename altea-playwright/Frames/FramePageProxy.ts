@@ -1,4 +1,4 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Locator, Page } from "playwright";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import type { BaseEntity, Type } from "@altea/altea/data/entity";
 import { waitVisible, type AsyncScoped } from "../PlaywrightExtensions";

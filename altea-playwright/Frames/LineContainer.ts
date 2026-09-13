@@ -1,4 +1,4 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Locator, Page } from "playwright";
 import type { Quoted } from "quote-transformer/quoted";
 import { PropertyRoute, PropertyRouteType } from "@altea/altea/data/propertyRoute";
 import type { BaseEntity, Entity, Type } from "@altea/altea/data/entity";

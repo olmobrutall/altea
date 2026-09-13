@@ -1,4 +1,4 @@
-import type { Locator } from "@playwright/test";
+import type { Locator } from "playwright";
 import { BaseLineProxy } from "./BaseLineProxy";
 import type { DateMember } from "../Frames/LineContainer";
 

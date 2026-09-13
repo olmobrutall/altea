@@ -1,4 +1,4 @@
-import type { Locator } from "@playwright/test";
+import type { Locator } from "playwright";
 import type { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import type { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
