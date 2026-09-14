@@ -1,6 +1,7 @@
 import { Entity } from '../data/entity';
 import type { Type, PrimaryKey } from '../data/entity';
 import { forEachField, cleanModified } from '../data/changes';
+import { TypeLogic } from "./typeLogic";
 import { collectAssignments } from './save';
 import { wireOwnedChildren } from './saver';
 import { Connector } from './connection/connector';
@@ -193,7 +194,8 @@ async function bulkCopyOneTable(entities: Entity[]): Promise<void> {
     // identity PK is left out so the database assigns it.
     const includePk = entities[0].id != null;
 
-    const assignments = entities.map(e => collectAssignments(table, e));
+    const typeCaches = await TypeLogic.caches(connector.schema);
+    const assignments = entities.map(e => collectAssignments(table, e, undefined, typeCaches));
     const columns = assignments[0].map(a => a.column);
     const rows = assignments.map(assign => assign.map(a => a.value) as unknown[]);
     if (includePk) {

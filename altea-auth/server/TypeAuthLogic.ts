@@ -8,7 +8,7 @@ import { CallExpression, type Expression, LambdaExpression, PropertyExpression, 
 import { ClassType, LiteralType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
 import type { QueryFilterContext } from "@altea/altea/server/schema/entityEvents";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
-import { TypeLogic } from "@altea/altea/server/typeLogic";
+import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
 import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { preSaveGates } from "@altea/altea/server/saver";
 import { postRetrieveGates } from "@altea/altea/server/linq/Retriever";
@@ -63,14 +63,14 @@ export namespace TypeAuthLogic {
 
         /** The full WithConditions<TypeAllowed> for a type id and role. No current role → simple Write. A
          *  Part inherits its ROOT owner's allowance, collapsed to a condition-free scalar (no own rule). */
-        getAllowed(typeId: PrimaryKey, roleKey?: string): WithConditions<TypeAllowed> {
+        getAllowed(typeId: PrimaryKey, caches: TypeCaches, roleKey?: string): WithConditions<TypeAllowed> {
             const rk = roleKey ?? AuthLogic.currentRoleKey();
             if (rk == null)
                 return WithConditions.simple(TypeAllowed.Write);
-            const ctor = TypeLogic.tryGetType(typeId);
+            const ctor = caches.tryGetType(typeId);
             const rootCtor = ctor != null ? partRootCtor.get(ctor) : undefined;
             if (rootCtor != null)
-                return collapseToScalar(this.getAllowed(TypeLogic.typeToId(rootCtor), rk));
+                return collapseToScalar(this.getAllowed(caches.typeToId(rootCtor), caches, rk));
             const getDefaultSync = (r: string): WithConditions<TypeAllowed> =>
                 WithConditions.simple(this.graph.getDefaultAllowed(r) ? TypeAllowed.Write : TypeAllowed.None);
             return computeAllowed<WithConditions<TypeAllowed>>(rk, typeId, this.rules, mergeType, getDefaultSync, this.computed, this.graph);
@@ -78,11 +78,11 @@ export namespace TypeAuthLogic {
 
         /** The value a role gets for a type with NO explicit rule: the
          *  merge of its direct parents' values, or the role default at a root role. */
-        getAllowedBase(typeId: PrimaryKey, roleKey: string): WithConditions<TypeAllowed> {
+        getAllowedBase(typeId: PrimaryKey, caches: TypeCaches, roleKey: string): WithConditions<TypeAllowed> {
             const parents = this.graph.relatedTo(roleKey);
             if (parents.size === 0)
                 return WithConditions.simple(this.graph.getDefaultAllowed(roleKey) ? TypeAllowed.Write : TypeAllowed.None);
-            return mergeType(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.getAllowed(typeId, p)));
+            return mergeType(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.getAllowed(typeId, caches, p)));
         }
     }
     let rulesLazy: ResetLazy<TypeRulesCache>;
@@ -96,7 +96,14 @@ export namespace TypeAuthLogic {
     // reads the database (see TypeConditionLogic.registerWhenAlreadyFilteringBy) and the binder cannot
     // await. Empty for the types — nearly all of them — that have no such condition.
     type AuditedByType = Map<PrimaryKey, Map<TypeConditionSymbol, LambdaExpression>>;
-    interface RowSecurity { readonly conditions: ConditionsByType; readonly audited: AuditedByType; }
+    // `typeIds` is the type↔id slice the async provider resolved for the conditioned types — the sync hooks
+    // below need `typeToId` and cannot await, and reading an ambient cache there would tie one query's WHERE
+    // to whatever generation of ids happened to be warm.
+    interface RowSecurity {
+        readonly conditions: ConditionsByType;
+        readonly audited: AuditedByType;
+        readonly typeIds: ReadonlyMap<Function, PrimaryKey>;
+    }
     // Part ctor → its ROOT owner's ctor (see PartOwnership). A Part inherits the root's allowance, so it
     // never gets its own rule and never shows in the grid. Keyed by CTOR (not typeId) because it is built at
     // schema.initialize — which also runs BEFORE generation, when a brand-new Part type has no TypeEntity id
@@ -221,7 +228,7 @@ export namespace TypeAuthLogic {
         }
 
         for (const [ctor, group] of byType) {
-            const wc = await getAllowed(TypeLogic.typeToId(ctor));
+            const wc = await getAllowed((await TypeLogic.caches()).typeToId(ctor));
             if (minBound(wc, true) >= TypeAllowedBasic.Write)
                 continue;
             if (maxBound(wc, true) <= TypeAllowedBasic.Read)
@@ -251,8 +258,8 @@ export namespace TypeAuthLogic {
     }
 
     /** True for a Part that inherits its owner's rules (hidden from the Type-Auth grid). */
-    export function isInheritedPart(typeId: PrimaryKey): boolean {
-        const ctor = TypeLogic.tryGetType(typeId);
+    export function isInheritedPart(typeId: PrimaryKey, caches: TypeCaches): boolean {
+        const ctor = caches.tryGetType(typeId);
         return ctor != null && partRootCtor.has(ctor);
     }
 
@@ -287,7 +294,7 @@ export namespace TypeAuthLogic {
     // no condition for this type → no filter (undefined).
     function authQueryFilterHook(ctx: { ctor: Function; elementType: RuntimeType; filterContext: QueryFilterContext }): LambdaExpression | undefined {
         const rs = ctx.filterContext.get(QUERY_FILTER_KEY) as RowSecurity | undefined;
-        const typeId = rs == null ? undefined : TypeLogic.typeToId(ctx.ctor);
+        const typeId = rs?.typeIds.get(ctx.ctor);
         const wc = typeId == null ? undefined : rs!.conditions.get(typeId);
         if (wc == null || typeId == null)
             return undefined;
@@ -306,9 +313,11 @@ export namespace TypeAuthLogic {
             const rs = ctx.filterContext.get(QUERY_FILTER_KEY) as RowSecurity | undefined;
             if (rs == null)
                 return undefined;
-            const rootTypeId = TypeLogic.typeToId(rootCtor);
-            const wc = rs.conditions.get(rootTypeId);
-            if (wc == null)
+            // Absent only when the root is not a conditioned type, which is the same "no filter" answer as
+            // no conditions for it.
+            const rootTypeId = rs.typeIds.get(rootCtor);
+            const wc = rootTypeId == null ? undefined : rs.conditions.get(rootTypeId);
+            if (wc == null || rootTypeId == null)
                 return undefined;
             const rootFilter = buildAuthFilter(rootCtor, new ClassType(rootCtor), wc, TypeAllowedBasic.Read, true,
                 rs.audited.get(rootTypeId));
@@ -326,12 +335,15 @@ export namespace TypeAuthLogic {
             return undefined;
         const conditions: ConditionsByType = new Map();
         const audited: AuditedByType = new Map();
+        const typeIds = new Map<Function, PrimaryKey>();
+        const caches = await TypeLogic.caches();
         // The query's own table sources, so a query-auditor condition can be given the SAME
         // FilterQueryArgs the binder would build for that source. The async part has to happen BEFORE
         // binding starts — see TypeConditionLogic's header.
         const sources = query == null ? [] : findQuerySources(query);
         for (const ctor of TypeConditionLogic.types()) {
-            const typeId = TypeLogic.typeToId(ctor);
+            const typeId = caches.typeToId(ctor);
+            typeIds.set(ctor, typeId);
             conditions.set(typeId, await getAllowed(typeId, rk));
 
             if (query == null || !TypeConditionLogic.hasQueryAuditorConditions(ctor))
@@ -345,7 +357,7 @@ export namespace TypeAuthLogic {
                 continue;
             audited.set(typeId, await TypeConditionLogic.auditQueryConditions(ctor, new FilterQueryArgs(query, own[0])));
         }
-        return { conditions, audited };
+        return { conditions, audited, typeIds };
     }
 
     // Write gate, per instance: block saving a row that a type CONDITION
@@ -374,7 +386,7 @@ export namespace TypeAuthLogic {
             const ctor = e.constructor as Function;
             if (TypeConditionLogic.conditionsFor(ctor).length === 0)
                 continue;
-            const wc = await getAllowed(TypeLogic.typeToId(ctor), rk);
+            const wc = await getAllowed((await TypeLogic.caches()).typeToId(ctor), rk);
             if (maxBound(wc, false) < TypeAllowedBasic.Write)
                 continue;
             if (!(await isAllowedFor(e, TypeAllowedBasic.Write, false, rk)))
@@ -399,7 +411,7 @@ export namespace TypeAuthLogic {
                 continue;
             checked.add(ctor);
             let typeId: PrimaryKey;
-            try { typeId = TypeLogic.typeToId(ctor); } catch { continue; }
+            try { typeId = (await TypeLogic.caches()).typeToId(ctor); } catch { continue; }
             const wc = await getAllowed(typeId, rk);
             if (maxBound(wc, false) < TypeAllowedBasic.Read)
                 throw new UnauthorizedAccessException(`Not authorized to retrieve ${ctor.name}`);
@@ -455,7 +467,10 @@ export namespace TypeAuthLogic {
 
     /** The full WithConditions<TypeAllowed> for a type id and role. No current role → simple Write. */
     export async function getAllowed(typeId: PrimaryKey, roleKey?: string): Promise<WithConditions<TypeAllowed>> {
-        return (await rulesLazy.value()).getAllowed(typeId, roleKey);
+        // The type↔id snapshot is resolved HERE, per call, rather than captured inside the rules cache: the
+        // rules are invalidated by a RuleType/Role save, the type ids by a schema sync, and a cache holding
+        // a snapshot of the other would go stale on the wrong signal.
+        return (await rulesLazy.value()).getAllowed(typeId, await TypeLogic.caches(), roleKey);
     }
 
     /** The type's configured type-condition SETS for a role (each an AND-ed TypeConditionSymbol set), from
@@ -495,7 +510,7 @@ export namespace TypeAuthLogic {
         const rk = roleKey ?? AuthLogic.currentRoleKey();
         if (rk == null || !AuthLogic.isEnabled())
             return true;
-        const tac = await getAllowed(TypeLogic.typeToId(entity.constructor), rk);
+        const tac = await getAllowed((await TypeLogic.caches()).typeToId(entity.constructor), rk);
         const min = minBound(tac, userInterface);
         if (requested <= min)
             return true;
@@ -540,7 +555,7 @@ export namespace TypeAuthLogic {
             return true;
 
         const ctor = lite.entityType as Type<Entity>;
-        const typeId = TypeLogic.typeToId(ctor);
+        const typeId = (await TypeLogic.caches()).typeToId(ctor);
         const wc = await getAllowed(typeId, rk);
         if (minBound(wc, userInterface) >= requested)
             return true;
@@ -566,7 +581,7 @@ export namespace TypeAuthLogic {
 
     // The value a role would get for a type with NO explicit rule.
     export async function getAllowedBase(typeId: PrimaryKey, roleKey: string): Promise<WithConditions<TypeAllowed>> {
-        return (await rulesLazy.value()).getAllowedBase(typeId, roleKey);
+        return (await rulesLazy.value()).getAllowedBase(typeId, await TypeLogic.caches(), roleKey);
     }
 
     const symbolLite = (s: TypeConditionSymbol): Lite<TypeConditionSymbol> => TypeConditionSymbol.newLite(s.id, s.key);
@@ -605,13 +620,14 @@ export namespace TypeAuthLogic {
             throw new Error(`Role '${roleId}' not found`);
         const roleKey = role.toLite().key();
         // typeId -> the symbols registered for that type (only types with conditions appear).
+        const caches = await TypeLogic.caches();
         const availableByType = new Map<PrimaryKey, TypeConditionSymbol[]>(
-            TypeConditionLogic.types().map(ctor => [TypeLogic.typeToId(ctor), TypeConditionLogic.conditionsFor(ctor)]));
+            TypeConditionLogic.types().map(ctor => [caches.typeToId(ctor), TypeConditionLogic.conditionsFor(ctor)]));
         const rules: TypeAllowedRule[] = [];
         for (const t of await table(TypeEntity).toArray() as TypeEntity[]) {
             // Hide Parts (they inherit their owner — see PartOwnership) and enum side-tables. A SharedPart
             // is NOT a partRootCtor key, so it stays visible with its own manual rules.
-            const ctor = TypeLogic.tryGetType(t.id);
+            const ctor = caches.tryGetType(t.id);
             if ((ctor != null && partRootCtor.has(ctor)) || isEnumEntityType(ctor))
                 continue;
             // The owner + its associated parts (altea-only; [owner, ...parts]). The min/max coloring folds

@@ -28,7 +28,7 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
             role(Roles.Super), role(Roles.Base), role(Roles.Sales), role(Roles.Manager), role(Roles.Restricted),
             role(Roles.AutoUpgrade),
         ]);
-        typeId = TypeLogic.typeToId(SampleEntity);
+        typeId = (await TypeLogic.caches()).typeToId(SampleEntity);
     });
 
     // A concrete SampleEntity (existing id, so the read-gate treats it as a root).

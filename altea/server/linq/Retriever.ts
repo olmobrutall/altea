@@ -2,7 +2,7 @@ import { cleanModified } from "../../data/changes";
 import { Entity, type PrimaryKey, BaseEntity, newInstance, type Type, View, type ViewType } from "../../data/entity";
 import { bindParentsOwn } from '../../data/parentEntity';
 import { Lite, LiteImp } from "../../data/lite";
-import { TypeLogic } from "../typeLogic";
+import type { TypeCaches } from "../typeLogic";
 import { Connector } from "../connection/connector";
 import { getCacheController } from "../cache";
 
@@ -39,6 +39,20 @@ export class Retriever {
     // Nameless `@implementedByAll` lites awaiting their display string, grouped by type — see
     // `liteImplementedByAll` / `completeLiteToStrings`.
     private readonly liteRequests = new Map<string, { ctor: Type<Entity>, byId: Map<string, LiteImp<Entity>[]> }>();
+
+    // The type↔id snapshot the execution boundary resolved, for the @implementedByAll columns this
+    // projector materialises. Held rather than read from an ambient static: every row of one query resolves
+    // its discriminators against ONE generation of ids, and a projector cannot silently depend on somebody
+    // having warmed a cache. `undefined` only inside the caches' own load (the `table(TypeEntity)` query),
+    // which has no @implementedByAll column to resolve — `types()` says so if that ever changes.
+    constructor(private readonly typeCaches: TypeCaches | undefined) { }
+
+    private types(): TypeCaches {
+        if (this.typeCaches == null)
+            throw new Error("@implementedByAll can't be materialised: the type↔id caches were unavailable"
+                + " (a query executed while they were loading).");
+        return this.typeCaches;
+    }
 
     private getOrCreate(ctor: Type<Entity>, id: PrimaryKey): Entity {
         const key = ctor.name + ":" + id;
@@ -195,7 +209,7 @@ export class Retriever {
     // type id to its constructor, then build an id-only stub of that type.
     implementedByAll(id: PrimaryKey | null, typeId: PrimaryKey | null): Entity | null {
         if (id == null || typeId == null) return null;
-        const ctor = TypeLogic.tryGetType(typeId);
+        const ctor = this.types().tryGetType(typeId);
         if (ctor == null) return null;
         return this.stub(ctor as Type<Entity>, id);
     }
@@ -208,7 +222,7 @@ export class Retriever {
     // end of `completeAll` (Signum's `IRetriever.RequestLite`).
     liteImplementedByAll(id: PrimaryKey | null, typeId: PrimaryKey | null, toStr: string | null): Lite<Entity> | null {
         if (id == null || typeId == null) return null;
-        const ctor = TypeLogic.tryGetType(typeId);
+        const ctor = this.types().tryGetType(typeId);
         if (ctor == null) return null;
         // COERCE the id to the resolved type's PK form. An @implementedByAll reference has one id column
         // per configured pk type and the value is coalesced over them, which is only typeable as TEXT once
@@ -281,7 +295,7 @@ export class Retriever {
     // analogue of a C# `Type`. Returns null for a null/unknown discriminator.
     type(typeId: PrimaryKey | null): Function | null {
         if (typeId == null) return null;
-        return TypeLogic.tryGetType(typeId) ?? null;
+        return this.types().tryGetType(typeId) ?? null;
     }
 
     // An embedded value (no identity / no cache). The parent's snapshot inlines it.

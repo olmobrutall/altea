@@ -1,6 +1,6 @@
 import { Entity } from '../data/entity';
 import type { Type, PrimaryKey, BaseEntity } from '../data/entity';
-import { TypeLogic } from './typeLogic';
+import { TypeLogic, type TypeCaches } from './typeLogic';
 import { getTypeInfo } from '../data/reflection';
 import { referenceKey, forEachField } from '../data/changes';
 import { Lite } from '../data/lite';
@@ -69,9 +69,10 @@ export async function insertEntityRows(entities: Entity[], forbiddens?: Forbidde
     const connector = Connector.current();
     const table = connector.schema.table(entities[0].constructor as Type<Entity>);
     const generated = entities[0].id == null;
+    const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
 
     const rows = entities.map((e, i) => {
-        const a = collectAssignments(table, e, forbiddens?.[i] ?? NO_FORBIDDEN);
+        const a = collectAssignments(table, e, forbiddens?.[i] ?? NO_FORBIDDEN, typeCaches);
         return generated ? a : [{ column: table.primaryKey.column, value: e.id }, ...a];
     });
 
@@ -111,7 +112,8 @@ export async function insertEntityRows(entities: Entity[], forbiddens?: Forbidde
 export async function updateEntityRow(entity: Entity, forbidden: Forbidden = NO_FORBIDDEN): Promise<void> {
     const connector = Connector.current();
     const table = connector.schema.table(entity.constructor as Type<Entity>);
-    const assignments = collectAssignments(table, entity, forbidden);
+    const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
+    const assignments = collectAssignments(table, entity, forbidden, typeCaches);
 
     if (table.ticks == null) {
         await buildUpdate(table, assignments, entity.id).executeNonQuery();
@@ -231,18 +233,18 @@ export function copyRowFields<T extends BaseEntity>(current: T, should: T): void
 
 // Flattens every (non-PK) field's column values for this entity, including mixins. Shared by
 // the single/batched insert path and the bulk inserter (Signum's Table.BulkInsertDataRow).
-export function collectAssignments(table: Table, entity: Entity, forbidden: Forbidden = NO_FORBIDDEN): ColumnValue[] {
+export function collectAssignments(table: Table, entity: Entity, forbidden: Forbidden = NO_FORBIDDEN, typeCaches?: TypeCaches): ColumnValue[] {
     const out: ColumnValue[] = [];
 
     for (const ef of Object.values(table.fields)) {
         if (ef.field instanceof FieldPrimaryKey)
             continue; // id is handled separately (identity insert / WHERE clause)
-        pushFieldValues(ef.field, ef.getter(entity), out, forbidden);
+        pushFieldValues(ef.field, ef.getter(entity), out, forbidden, typeCaches);
     }
 
     for (const mixin of Object.values(table.mixins))
         for (const ef of Object.values(mixin.fields))
-            pushFieldValues(ef.field, ef.getter(entity), out, forbidden);
+            pushFieldValues(ef.field, ef.getter(entity), out, forbidden, typeCaches);
 
     // Pre-saving (Signum's SetToStrField): materialise the display string into the
     // ToStr column so queries can read it without running the JS toString().
@@ -252,7 +254,7 @@ export function collectAssignments(table: Table, entity: Entity, forbidden: Forb
     return out;
 }
 
-function pushFieldValues(field: Field, value: unknown, out: ColumnValue[], forbidden: Forbidden = NO_FORBIDDEN): void {
+function pushFieldValues(field: Field, value: unknown, out: ColumnValue[], forbidden: Forbidden = NO_FORBIDDEN, typeCaches?: TypeCaches): void {
     // Child arrays (@backReference) live in the child's table — no parent column.
     if (field instanceof FieldEntityArray)
         return;
@@ -295,8 +297,14 @@ function pushFieldValues(field: Field, value: unknown, out: ColumnValue[], forbi
         const valuePk = ctor == null ? undefined : (getTypeInfo(ctor)?.fields["id"]?.columnOptions?.primaryKey ?? "int");
         for (const col of field.idColumns)
             out.push({ column: col, value: (value != null && col.pkType === valuePk) ? referenceId(value as Lite<Entity> | Entity) : null });
-        // The discriminator is the target type's TypeEntity id (Signum's TypeToId).
-        out.push({ column: field.typeColumn, value: value == null ? null : TypeLogic.typeToId(entityConstructorOf(value)) });
+        // The discriminator is the target type's TypeEntity id (Signum's TypeToId) — from the snapshot the
+        // saving boundary resolved. The sync-SQL writers (symbol / type / query row synchronizers) pass
+        // none because those rows have no @implementedByAll column; one that does must say where its ids
+        // come from rather than read an ambient cache that may be cold, or a generation out of date.
+        if (value != null && typeCaches == null)
+            throw new Error(`Writing the @implementedByAll column '${field.typeColumn.name}' needs the resolved`
+                + " TypeCaches — pass them to collectAssignments (await TypeLogic.caches()).");
+        out.push({ column: field.typeColumn, value: value == null ? null : typeCaches!.typeToId(entityConstructorOf(value)) });
         return;
     }
 
@@ -305,7 +313,7 @@ function pushFieldValues(field: Field, value: unknown, out: ColumnValue[], forbi
         if (field.hasValue != null)
             out.push({ column: field.hasValue, value: present });
         for (const ef of Object.values(field.embeddedFields))
-            pushFieldValues(ef.field, present ? ef.getter(value) : null, out, forbidden);
+            pushFieldValues(ef.field, present ? ef.getter(value) : null, out, forbidden, typeCaches);
         return;
     }
 }

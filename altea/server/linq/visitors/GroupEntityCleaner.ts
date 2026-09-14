@@ -5,7 +5,7 @@ import {
     CaseExpression, When, IsNotNullExpression, SqlConstantExpression,
 } from "../expressions.sql";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
-import { TypeLogic } from "../../typeLogic";
+import { requireTypeId, type TypeCaches } from "../../typeLogic";
 import { ClassType, LiteralType } from "../../runtimeTypes";
 
 // Port of Signum's GroupEntityCleaner
@@ -27,8 +27,13 @@ import { ClassType, LiteralType } from "../../runtimeTypes";
 // discriminator column, so the base traversal handles it.
 // Not ported (no altea API yet): the entity-coalesce/conditional combine cases.
 export class GroupEntityCleaner extends DbExpressionVisitor {
-    static clean(source: Expression): Expression {
-        return new GroupEntityCleaner().visit(source);
+    // The resolved snapshot the enclosing bind holds — see AssignAdapterExpander.
+    constructor(private readonly typeCaches: TypeCaches | undefined) {
+        super();
+    }
+
+    static clean(source: Expression, typeCaches: TypeCaches | undefined): Expression {
+        return new GroupEntityCleaner(typeCaches).visit(source);
     }
 
     override visitEntity(entity: EntityExpression): Expression {
@@ -43,14 +48,14 @@ export class GroupEntityCleaner extends DbExpressionVisitor {
         const ctor = t.typeValue instanceof ClassType ? t.typeValue.constructorFunction : undefined;
         if (ctor == null) return t;
         const disc = new CaseExpression(
-            [new When(new IsNotNullExpression(t.externalId.value), new SqlConstantExpression(TypeLogic.typeToId(ctor), LiteralType.number))],
+            [new When(new IsNotNullExpression(t.externalId.value), new SqlConstantExpression(requireTypeId(this.typeCaches, ctor), LiteralType.number))],
             new SqlConstantExpression(null, LiteralType.null));
         return new TypeImplementedByAllExpression(disc);
     }
 
     override visitTypeImplementedBy(t: TypeImplementedByExpression): Expression {
         const whens = [...t.typeImplementations].map(([ctor, id]) =>
-            new When(new IsNotNullExpression(id.value), new SqlConstantExpression(TypeLogic.typeToId(ctor), LiteralType.number)));
+            new When(new IsNotNullExpression(id.value), new SqlConstantExpression(requireTypeId(this.typeCaches, ctor), LiteralType.number)));
         const disc = new CaseExpression(whens, new SqlConstantExpression(null, LiteralType.null));
         return new TypeImplementedByAllExpression(disc);
     }

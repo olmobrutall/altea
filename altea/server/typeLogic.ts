@@ -38,20 +38,84 @@ import { SqlPreCommand, SqlPreCommandSimple, Spacing } from "./sync/sqlPreComman
 // The ONE altea-specific wrinkle: altea has no synchronous DB API (Signum's factory blocks on
 // Database.RetrieveAll), so the ResetLazy factory is ASYNC — it reads the TypeEntity rows through the
 // ORM (`table(TypeEntity)`), guarded by `TypeLogic.isLoading` so the LINQ provider does not re-await the
-// lazy for that very query. Because `typeToId` is called SYNCHRONOUSLY all over the query/save hot path
-// (and during generation, before the table exists), the sync read falls back to a DETERMINISTIC bootstrap
-// (entity ctors sorted by name, 1..N) until an async boundary — server startup / a suite's initialize() —
-// has awaited `ready()`/`load()` and warmed the box with the real DB ids. Generation seeds the rows in
-// that same sorted order, so the DB-assigned identity ids coincide with the bootstrap ids for an unchanged
-// schema; a changed schema is reconciled by sync + the load() read-back. Divergences vs Signum are limited
-// to this module (and the identity-vs-seeded PK toggle in SchemaBuilder).
+// lazy for that very query.
+//
+// Which is why there is NO synchronous `TypeLogic.typeToId`: it would be a read that silently depends on
+// somebody else having loaded the caches, and on nothing having reloaded them since (a sync inserts a type
+// and `load()` re-reads, under a running process). Every reader instead awaits `caches()` and, when it has
+// synchronous work to do — a query visitor, the Retriever's per-row projector, the save path's
+// discriminator — carries the resolved {@link TypeCaches} into it. Generation needs no ids at all
+// (`bootstrapMetas` gives the insert order); `schema.initialize()` still loads the caches eagerly, which is
+// where a database that does not match the model says so. Divergences vs Signum are limited to this module
+// (and the identity-vs-seeded PK toggle in SchemaBuilder).
 
-// The bidirectional type↔id caches (Signum's TypeCaches), projected from the TypeEntity rows —
-// either the DB rows or the deterministic bootstrap. Held behind the schema's ResetLazy.
-export interface TypeCaches {
-    typeToId: Map<Function, PrimaryKey>;
-    idToType: Map<PrimaryKey, Function>;
-    idToEntity: Map<PrimaryKey, TypeEntity>;
+/**
+ * The bidirectional type↔id caches (Signum's TypeCaches), projected from the TypeEntity rows. Held behind
+ * the schema's ResetLazy, and — this is the point — RESOLVED AND PASSED to whoever needs it.
+ *
+ * The ids can change under a running process (a sync inserts a type, `load()` re-reads), so no consumer
+ * may read them from an ambient static that happens to be warm: every reader either awaits
+ * `TypeLogic.caches()` or takes this object as a parameter. A synchronous reader — a query visitor, the
+ * Retriever's per-row projector, the save path's discriminator — is handed the SAME snapshot the async
+ * boundary above it resolved, so one query or one save cannot straddle two generations of ids.
+ */
+export class TypeCaches {
+    constructor(
+        private readonly byType: Map<Function, PrimaryKey>,
+        private readonly byId: Map<PrimaryKey, Function>,
+        private readonly entityById: Map<PrimaryKey, TypeEntity>,
+    ) { }
+
+    /** The discriminator id for an entity type (Signum's TypeToId.GetOrThrow). */
+    typeToId(ctor: Function): PrimaryKey {
+        const id = this.byType.get(ctor);
+        if (id == null)
+            throw new Error(`Type '${ctor.name}' is not registered in TypeLogic. Was its table included before SchemaBuilder.complete(), and TypeLogic.load() run after generation/sync?`);
+        return id;
+    }
+
+    /** The discriminator id, or undefined when the type has no TypeEntity row (Signum's TypeToId.TryGetC)
+     *  — for a caller that resolved a type NAME which may not name a persistent type at all. */
+    tryTypeToId(ctor: Function): PrimaryKey | undefined {
+        return this.byType.get(ctor);
+    }
+
+    /** The discriminator id for a type NAME — clean ("Order") or full ("OrderEntity") — or undefined when
+     *  the name does not resolve to a persistent type. */
+    tryTypeToIdByName(typeName: string): PrimaryKey | undefined {
+        const ctor = resolveCleanType(typeName);
+        return ctor == null ? undefined : this.tryTypeToId(ctor);
+    }
+
+    /** The entity type for a discriminator id, or undefined if unknown (Signum's Schema.GetType / IdToType
+     *  — the @implementedByAll materialisation path). */
+    tryGetType(id: PrimaryKey | null): Function | undefined {
+        return id == null ? undefined : this.byId.get(id);
+    }
+
+    getType(id: PrimaryKey): Function {
+        const ctor = this.byId.get(id);
+        if (ctor == null)
+            throw new Error(`No registered entity type for TypeEntity id '${id}'.`);
+        return ctor;
+    }
+
+    /** The TypeEntity row for a discriminator id (Signum's IdToType + TypeToEntity). */
+    idToEntity(id: PrimaryKey): TypeEntity | undefined {
+        return this.entityById.get(id);
+    }
+
+    /** The TypeEntity row for an entity type, or undefined when it has none. */
+    tryTypeToEntity(ctor: Function): TypeEntity | undefined {
+        const id = this.byType.get(ctor);
+        return id == null ? undefined : this.entityById.get(id);
+    }
+
+    /** Every cached TypeEntity row (Signum's `TypeToEntity.Values`). Only rows that JOINED a model type are
+     *  here (see projectCaches), so a row left over from a type no longer in the model is absent. */
+    allTypeEntities(): TypeEntity[] {
+        return [...this.entityById.values()];
+    }
 }
 
 // The type↔id resolvers used by the LINQ pipeline read an EXPLICITLY-THREADED `TypeCaches` (resolved
@@ -62,10 +126,7 @@ export interface TypeCaches {
 export function requireTypeId(caches: TypeCaches | undefined, ctor: Function): PrimaryKey {
     if (caches == null)
         throw new Error(`@implementedByAll for '${ctor.name}' can't be resolved: type caches unavailable (a query bound while they were loading).`);
-    const id = caches.typeToId.get(ctor);
-    if (id == null)
-        throw new Error(`Type '${ctor.name}' is not registered in TypeLogic.`);
-    return id;
+    return caches.typeToId(ctor);
 }
 
 export class TypeLogic {
@@ -116,11 +177,11 @@ export class TypeLogic {
             schema.entityEvents(TypeEntity).preDeleteSqlSync.push(deleteImplementedByAllRowsOfType);
     }
 
-    // Warm the type-caches (Signum's typeCachesLazy.Load): an async boundary — the LINQ provider's
-    // execute, the saver, server startup — awaits this so the RESOLVED caches are in the box, and
-    // subsequent SYNCHRONOUS `typeToId` reads (during binding / materialisation) succeed. Returns the
-    // resolved caches. `schema` defaults to the active connection's schema.
-    static ready(schema: Schema = this.schema): Promise<TypeCaches> {
+// THE way to read the type↔id caches (Signum's typeCachesLazy.Value): await them, then pass the
+    // resolved {@link TypeCaches} to whatever synchronous code needs it. There is no synchronous static
+    // twin on purpose — one would silently depend on somebody else having loaded the caches first, and on
+    // them not having been reloaded since. `schema` defaults to the active connection's schema.
+    static caches(schema: Schema = this.schema): Promise<TypeCaches> {
         return schema.typeCaches.value();
     }
 
@@ -132,67 +193,6 @@ export class TypeLogic {
     static async load(schema: Schema = this.schema): Promise<void> {
         schema.typeCaches.reset();
         await schema.typeCaches.value();
-    }
-
-    // The resolved caches for a SYNCHRONOUS reader (the static typeToId/getType surface, used by the
-    // save discriminator write, the auth logics, etc.) — the async-loaded box, or THROW if it hasn't been
-    // loaded yet. Production always has it warm: `initialize()` → `load()` runs before any query or save.
-    // No deterministic bootstrap is invented here — an id that isn't the real DB-assigned one is never
-    // fabricated (offline SQL-comparison tests seed a cache explicitly — see the test layer's seedTypeCachesForTest).
-    private static get caches(): TypeCaches {
-        const c = this.schema.typeCaches.valueOrUndefined;
-        if (c == null)
-            throw new Error("TypeLogic caches are not loaded — type↔id resolution needs the async load (TypeLogic.load(), run by schema.initialize()) to have completed. Offline binders must seed the caches first (the test layer's seedTypeCachesForTest).");
-        return c;
-    }
-
-    // The discriminator id for an entity type (Signum's TypeToId.GetOrThrow).
-    static typeToId(ctor: Function): PrimaryKey {
-        const id = this.caches.typeToId.get(ctor);
-        if (id == null)
-            throw new Error(`Type '${ctor.name}' is not registered in TypeLogic. Was its table included before SchemaBuilder.complete(), and TypeLogic.load() run after generation/sync?`);
-        return id;
-    }
-
-    // The discriminator id for an entity type, or undefined when the type has no TypeEntity row
-    // (Signum's TypeToId.TryGetC) — the non-throwing twin of `typeToId`, for a caller that resolved a
-    // type NAME which may not name a persistent type at all.
-    static tryTypeToId(ctor: Function): PrimaryKey | undefined {
-        return this.caches.typeToId.get(ctor);
-    }
-
-    // The discriminator id for a type NAME — clean ("Order") or full ("OrderEntity") — or undefined when
-    // the name does not resolve to a persistent type. The reflection registry's name→ctor lookup composed
-    // with `tryTypeToId`: what a caller holding a name off the wire needs, and the cached answer to the
-    // `table(TypeEntity).filter(t => t.cleanName == name)` read several modules used to issue per request.
-    static tryTypeToIdByName(typeName: string): PrimaryKey | undefined {
-        const ctor = resolveCleanType(typeName);
-        return ctor == null ? undefined : this.tryTypeToId(ctor);
-    }
-
-    // Every cached TypeEntity row (Signum's `TypeToEntity.Values`) — the cached counterpart of
-    // `table(TypeEntity).toArray()`. Only rows that JOINED a model type are here (see projectCaches), so a
-    // row left over from a type no longer in the model is absent, which is what a runtime caller wants.
-    static allTypeEntities(): TypeEntity[] {
-        return [...this.caches.idToEntity.values()];
-    }
-
-    // The entity type for a discriminator id, or undefined if unknown (Signum's
-    // Schema.GetType / IdToType lookup — the IBA materialisation path).
-    static tryGetType(id: PrimaryKey | null): Function | undefined {
-        return id == null ? undefined : this.caches.idToType.get(id);
-    }
-
-    static getType(id: PrimaryKey): Function {
-        const ctor = this.caches.idToType.get(id);
-        if (ctor == null)
-            throw new Error(`No registered entity type for TypeEntity id '${id}'.`);
-        return ctor;
-    }
-
-    // The TypeEntity row for a discriminator id (Signum's IdToType + TypeToEntity).
-    static idToEntity(id: PrimaryKey): TypeEntity | undefined {
-        return this.caches.idToEntity.get(id);
     }
 
     // The clean type name (Signum's Reflector.CleanTypeName) — used to populate the
@@ -232,7 +232,7 @@ function projectCaches(schema: Schema, rows: TypeEntity[]): TypeCaches {
     const idToEntity = new Map<PrimaryKey, TypeEntity>();
 
     if (rows.length === 0)
-        return { typeToId, idToType, idToEntity };
+        return new TypeCaches(typeToId, idToType, idToEntity);
 
     for (const [ctor, te] of joinRelaxed(
         rows,
@@ -248,7 +248,7 @@ function projectCaches(schema: Schema, rows: TypeEntity[]): TypeCaches {
         idToEntity.set(id, te);
     }
 
-    return { typeToId, idToType, idToEntity };
+    return new TypeCaches(typeToId, idToType, idToEntity);
 }
 
 // Reads the persisted TypeEntity rows through the ORM (Signum's Database.RetrieveAll<TypeEntity>). Safe
@@ -527,6 +527,15 @@ declare global {
     }
 }
 Function.prototype.toTypeEntity = function (this: Function): TypeEntity {
-    return TypeLogic.idToEntity(TypeLogic.typeToId(this))!;
+    // THE one synchronous cache read left in the engine, and it is one because the method's signature is
+    // synchronous: a registered expression is written inline in a query lambda. In a query the body never
+    // runs (the QueryBinder lowers the call to the TypeEntity table); in memory it can only answer from an
+    // already-loaded cache, so it says so rather than inventing an id.
+    const caches = Connector.current().schema.typeCaches.valueOrUndefined;
+    if (caches == null)
+        throw new Error("`toTypeEntity()` ran IN MEMORY before the type↔id caches were loaded."
+            + " Inside a query it is translated and needs nothing; in memory, await TypeLogic.caches()"
+            + " first (schema.initialize() does) — or read the row through those caches directly.");
+    return caches.idToEntity(caches.typeToId(this))!;
 };
 quotedFunction(Function.prototype.toTypeEntity).__resultType = () => new ClassType(TypeEntity);

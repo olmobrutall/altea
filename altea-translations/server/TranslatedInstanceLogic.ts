@@ -7,7 +7,7 @@ import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
 import { PropertyRouteTranslationLogic } from "@altea/altea/server/propertyRouteTranslation";
-import { TypeLogic } from "@altea/altea/server/typeLogic";
+import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { Entity, type Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
@@ -260,7 +260,7 @@ export namespace TranslatedInstanceLogic {
         if (forCulture == undefined)
             return new Map();
 
-        const typeLite = typeEntityOf(type);
+        const typeLite = typeEntityOf(type, await TypeLogic.caches());
         const result = new Map<InstanceKey, TranslatedInstanceEntity>();
         for (const [key, ti] of forCulture)
             if (String(ti.propertyRoute.rootType.id) === String(typeLite.id))
@@ -458,7 +458,7 @@ export namespace TranslatedInstanceLogic {
         }
 
         await Transaction.create(async () => {
-            const typeLite = typeEntityOf(type);
+            const typeLite = typeEntityOf(type, await TypeLogic.caches());
 
             for (const [key, n] of should) {
                 const existing = current.get(key);
@@ -534,7 +534,7 @@ export namespace TranslatedInstanceLogic {
      */
     export async function cleanTranslations(type: Function): Promise<number> {
         const validRoutes = [...PropertyRouteTranslationLogic.routesOf(type).keys()];
-        const typeLite = typeEntityOf(type);
+        const typeLite = typeEntityOf(type, await TypeLogic.caches());
         const liveKeys = new Set((await masterValues(type)).map(v => instanceKey(v.lite, v.route)));
 
         const stale = (await table(TranslatedInstanceEntity).filter(a => a.propertyRoute.rootType.is(typeLite)).toArray())
@@ -625,8 +625,8 @@ export namespace TranslatedInstanceLogic {
 
 // The TypeEntity row for an entity ctor (Signum's `type.ToTypeEntity()`). TypeLogic exposes the id→row
 // direction, so this is the one hop across.
-function typeEntityOf(type: Function): TypeEntity {
-    const te = TypeLogic.idToEntity(TypeLogic.typeToId(type));
+function typeEntityOf(type: Function, caches: TypeCaches): TypeEntity {
+    const te = caches.tryTypeToEntity(type);
     if (te == undefined)
         throw new Error(`No TypeEntity row for '${type.name}'`);
     return te;

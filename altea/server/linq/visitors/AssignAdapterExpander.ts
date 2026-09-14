@@ -8,7 +8,7 @@ import {
     CaseExpression, When, IsNotNullExpression,
 } from "../expressions.sql";
 import { LiteralType, RuntimeType } from "../../runtimeTypes";
-import { TypeLogic } from "../../typeLogic";
+import { requireTypeId, type TypeCaches } from "../../typeLogic";
 import { getTypeInfo } from "../../../data/reflection";
 import { Entity } from "../../../data/entity";
 
@@ -44,12 +44,15 @@ import { DbExpressionVisitor } from "./DbExpressionVisitor";
 // `?:` / `??` distributes the column extraction into its branches; an entity value
 // assigned to an IB/IBA column fans out across the implementation/type columns.
 export class AssignAdapterExpander extends DbExpressionVisitor {
-    constructor(private colExpression: Expression) {
+    // `typeCaches` is the resolved snapshot the enclosing bind holds (undefined only inside the caches'
+    // own load, where no @implementedByAll discriminator can arise) — never an ambient static, so one
+    // query cannot straddle two generations of type ids.
+    constructor(private colExpression: Expression, private readonly typeCaches: TypeCaches | undefined) {
         super();
     }
 
-    static adapt(exp: Expression, colExpression: Expression): Expression {
-        return new AssignAdapterExpander(colExpression).visit(exp);
+    static adapt(exp: Expression, colExpression: Expression, typeCaches: TypeCaches | undefined): Expression {
+        return new AssignAdapterExpander(colExpression, typeCaches).visit(exp);
     }
 
     private withCol<T>(col: Expression, action: () => T): T {
@@ -187,7 +190,7 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
         const idVals = [...ib.implementations.values()].map(ee => ee.externalId.value);
         const id = idVals.reduce((a, b) => new BinaryExpression("??", a, b));
         const whens = [...ib.implementations].map(([ctor, ee]) =>
-            new When(new IsNotNullExpression(ee.externalId.value), new SqlConstantExpression(TypeLogic.typeToId(ctor), LiteralType.number)));
+            new When(new IsNotNullExpression(ee.externalId.value), new SqlConstantExpression(requireTypeId(this.typeCaches, ctor), LiteralType.number)));
         // The combined implementation ids share the target's id-column type (impls are
         // typed entities); key the value under that column so Assign routes it correctly.
         const pk = pkTypeOfCtor([...ib.implementations.keys()][0]);
@@ -241,7 +244,7 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
     }
 
     private entityToIba(type: RuntimeType, idExpr: Expression, ctor: Function | undefined): ImplementedByAllExpression {
-        const typeId = ctor != null ? TypeLogic.typeToId(ctor) : null;
+        const typeId = ctor != null ? requireTypeId(this.typeCaches, ctor) : null;
         // The constant's id populates only the column matching its PK type.
         return new ImplementedByAllExpression(type, new Map([[pkTypeOfCtor(ctor), idExpr]]),
             new TypeImplementedByAllExpression(new SqlConstantExpression(typeId, LiteralType.number)));

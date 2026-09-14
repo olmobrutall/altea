@@ -11,7 +11,7 @@ import { registerEntityPackExtension, setEntityPackExtension } from "@altea/alte
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { TourTriggerSymbol } from "@altea/altea/data/tourTrigger";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
-import { TypeLogic } from "@altea/altea/server/typeLogic";
+import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
 import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { SqlPreCommandSimple } from "@altea/altea/server/sync/sqlPreCommand";
@@ -70,7 +70,7 @@ export namespace TourLogic {
         // The frame's tour widget must decide whether to render
         // WITHOUT a round-trip of its own, so the pack says whether a tour exists for the entity's TYPE.
         registerEntityPackExtension(async pack => {
-            const typeLite = tryTypeLite(pack.entity.constructor.name);
+            const typeLite = tryTypeLite(pack.entity.constructor.name, await TypeLogic.caches());
             setEntityPackExtension(pack, "hasTour",
                 typeLite != null && (await toursByTrigger.value()).has(typeLite.key()));
         });
@@ -115,9 +115,9 @@ export namespace TourLogic {
      * up as an extra query per open in the heavy profiler. The rows it resolves against are the very ones
      * that query would read.
      */
-    export function tryTypeLite(typeName: string): Lite<TypeEntity> | undefined {
-        const id = TypeLogic.tryTypeToIdByName(typeName);
-        return id == null ? undefined : TypeLogic.idToEntity(id)?.toLite();
+    export function tryTypeLite(typeName: string, caches: TypeCaches): Lite<TypeEntity> | undefined {
+        const id = caches.tryTypeToIdByName(typeName);
+        return id == null ? undefined : caches.idToEntity(id)?.toLite();
     }
 
     async function deleteToursFor(triggers: Lite<Entity>[]): Promise<void> {

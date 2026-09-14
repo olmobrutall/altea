@@ -404,7 +404,7 @@ describe("ImplementedBy / ImplementedByAll (SmartEqualizer)", () => {
         const proj = bind(table(NoteWithDateEntity).filter(n => n.target instanceof AlbumEntity));
         const { sql, parameters } = QueryFormatter.format(proj.select, false);
         assert.match(sql, /TargetID_Type/i);
-        assert.ok(parameters.includes(Connector.withConnector(fakeSb, () => TypeLogic.typeToId(AlbumEntity))), "compares against the target's TypeEntity id");
+        assert.ok(parameters.includes(sb.schema.typeCaches.valueOrUndefined!.typeToId(AlbumEntity)), "compares against the target's TypeEntity id");
     });
 
     // (x as Concrete) on @implementedBy narrows to that implementation; navigating a

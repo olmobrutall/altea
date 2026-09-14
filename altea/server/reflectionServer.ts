@@ -254,14 +254,8 @@ export namespace ReflectionServer {
                     if (enumObj != null)
                         ctor = EnumEntity.typeFor(enumObj as object) as Function;
                 }
-                let te: TypeEntity | undefined;
-                if (ctor != null) {
-                    try {
-                        te = TypeLogic.idToEntity(TypeLogic.typeToId(ctor));
-                    } catch {
-                        te = undefined; // type not registered in the DB type table
-                    }
-                }
+                // undefined when the type has no row in the DB type table — a lookup, not an error.
+                const te = ctor == null ? undefined : (await TypeLogic.caches()).tryTypeToEntity(ctor);
                 res.jsonTyped(te ?? null);
             });
     }

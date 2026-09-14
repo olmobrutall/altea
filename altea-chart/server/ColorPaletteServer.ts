@@ -43,7 +43,7 @@ export namespace ColorPaletteServer {
                 // (TypeLogic.getType → isEnumEntityType) and maps the enum-entity row id → member name.
                 let nameById: Map<string, string> | null = null;
                 try {
-                    const ctor = TypeLogic.getType(palette.type.id);
+                    const ctor = (await TypeLogic.caches()).getType(palette.type.id);
                     if (isEnumEntityType(ctor)) {
                         const enumObject = getBoundEnum(ctor);
                         if (enumObject != null)

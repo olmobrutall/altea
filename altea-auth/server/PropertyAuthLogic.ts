@@ -9,7 +9,7 @@ import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import { getRegisteredTypes } from "@altea/altea/data/registration";
-import { TypeLogic } from "@altea/altea/server/typeLogic";
+import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
 import { SqlPreCommand, SqlPreCommandSimple, Spacing } from "@altea/altea/server/sync/sqlPreCommand";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
@@ -76,37 +76,39 @@ class PropertyRulesCache {
     // Per-instance property access for the current role (serializer path), evaluated against the concrete
     // root ENTITY (so type conditions resolve). No role / auth off / unknown route → Write (fail open). The
     // per-instance value is clamped to the type's per-instance UI-read allowance.
-    access(root: Entity, path: string): PropertyAllowed {
+    access(root: Entity, path: string, caches: TypeCaches): PropertyAllowed {
         const roleKey = AuthLogic.currentRoleKey();
         if (roleKey == null || !AuthLogic.isEnabled())
             return PropertyAllowed.Write;
-        let typeId: PrimaryKey;
-        try { typeId = TypeLogic.typeToId(root.constructor); } catch { return PropertyAllowed.Write; }
-        const wc = this.propAllowed(typeId, compositeKey(typeId, path), roleKey);
-        const ceilingWC = this.typeCache.getAllowed(typeId, roleKey);
+        // Absent for a type with no row in the DB type table — nothing to gate.
+        const typeId = caches.tryTypeToId(root.constructor);
+        if (typeId == null)
+            return PropertyAllowed.Write;
+        const wc = this.propAllowed(typeId, compositeKey(typeId, path), caches, roleKey);
+        const ceilingWC = this.typeCache.getAllowed(typeId, caches, roleKey);
         const matches = (tc: TypeConditionSymbol): boolean => TypeConditionLogic.inTypeCondition(root, tc);
         const prop = evaluateConditions(wc, matches);
         const ceil = typeBasicToProperty(typeAllowedUI(evaluateConditions(ceilingWC, matches)));
         return Math.min(prop, ceil) as PropertyAllowed;
     }
 
-    getAllowed(typeId: PrimaryKey, path: string, roleKey: string): WithConditions<PropertyAllowed> {
-        return this.propAllowed(typeId, compositeKey(typeId, path), roleKey);
+    getAllowed(typeId: PrimaryKey, path: string, caches: TypeCaches, roleKey: string): WithConditions<PropertyAllowed> {
+        return this.propAllowed(typeId, compositeKey(typeId, path), caches, roleKey);
     }
 
     // The type's UI-read allowance mapped to a property WithConditions — the per-slice CEILING (a property
     // can't exceed its type, conditions included). NOT the no-rule
     // default — that is `noRuleDefaultWC`, which additionally applies the auto-upgrade permission gate.
-    typeCeilingWC(typeId: PrimaryKey, roleKey: string): WithConditions<PropertyAllowed> {
-        return this.typeCache.getAllowed(typeId, roleKey).mapWithConditions(t => typeBasicToProperty(typeAllowedUI(t)));
+    typeCeilingWC(typeId: PrimaryKey, caches: TypeCaches, roleKey: string): WithConditions<PropertyAllowed> {
+        return this.typeCache.getAllowed(typeId, caches, roleKey).mapWithConditions(t => typeBasicToProperty(typeAllowedUI(t)));
     }
 
     // The allowance a property route gets for this role when NO
     // explicit rule applies. A default-allowed role follows its type (the ceiling); a role WITHOUT the
     // AutomaticUpgradeOfProperties permission is coerced to None (shape-preserving, so condition slices are
     // still padded); otherwise it follows its type.
-    noRuleDefaultWC(typeId: PrimaryKey, roleKey: string): WithConditions<PropertyAllowed> {
-        const ceiling = this.typeCeilingWC(typeId, roleKey);
+    noRuleDefaultWC(typeId: PrimaryKey, caches: TypeCaches, roleKey: string): WithConditions<PropertyAllowed> {
+        const ceiling = this.typeCeilingWC(typeId, caches, roleKey);
         if (this.graph.getDefaultAllowed(roleKey))
             return ceiling;
         if (!this.autoUpgradeAllowed(roleKey))
@@ -117,14 +119,14 @@ class PropertyRulesCache {
     // A property with NO explicit rule follows ITS OWN role's no-rule
     // default (varies per role), not the parents' value — so this recursion is bespoke (not computeAllowed):
     // no explicit rule up the chain → this role's no-rule default; else the explicit rule or the per-parent merge.
-    private propAllowed(typeId: PrimaryKey, key: string, roleKey: string): WithConditions<PropertyAllowed> {
+    private propAllowed(typeId: PrimaryKey, key: string, caches: TypeCaches, roleKey: string): WithConditions<PropertyAllowed> {
         if (!this.hasExplicitInChain(roleKey, key))
-            return this.noRuleDefaultWC(typeId, roleKey);
+            return this.noRuleDefaultWC(typeId, caches, roleKey);
         const explicit = this.propRules.get(roleKey)?.get(key);
         if (explicit !== undefined)
             return explicit;
         const parents = this.graph.relatedTo(roleKey);
-        return mergeProp(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.propAllowed(typeId, key, p)));
+        return mergeProp(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.propAllowed(typeId, key, caches, p)));
     }
 
     // True if roleKey OR any ancestor has an explicit property rule for `key`.
@@ -141,12 +143,20 @@ class PropertyRulesCache {
         return false;
     }
 
-    getAllowedBase(typeId: PrimaryKey, path: string, roleKey: string): WithConditions<PropertyAllowed> {
+    getAllowedBase(typeId: PrimaryKey, path: string, caches: TypeCaches, roleKey: string): WithConditions<PropertyAllowed> {
         const parents = this.graph.relatedTo(roleKey);
         if (parents.size === 0)
-            return this.noRuleDefaultWC(typeId, roleKey);
-        return mergeProp(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.getAllowed(typeId, path, p)));
+            return this.noRuleDefaultWC(typeId, caches, roleKey);
+        return mergeProp(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.getAllowed(typeId, path, caches, p)));
     }
+}
+
+/** The per-request serialization snapshot: the property rules AND the type↔id caches the synchronous
+ *  `access` resolves the root entity's type through. Both are resolved at the codec's async boundary, so one
+ *  walk sees one consistent world. */
+interface SerializationContext {
+    readonly cache: PropertyRulesCache;
+    readonly caches: TypeCaches;
 }
 
 export namespace PropertyAuthLogic {
@@ -194,10 +204,15 @@ export namespace PropertyAuthLogic {
         setSerializationAuth({
             getMetadata: root => root,   // the root ENTITY — access evaluates its type-conditions per instance
             access: (route, meta, context) => {
-                const cache = context as PropertyRulesCache | undefined;
-                return cache == null ? "writable" : toAccess(cache.access(meta as Entity, route.propertyString()));
+                const ctx = context as SerializationContext | undefined;
+                return ctx == null ? "writable"
+                    : toAccess(ctx.cache.access(meta as Entity, route.propertyString(), ctx.caches));
             },
-            resolveContext: () => rulesLazy.value(),
+            // BOTH halves of the snapshot: the rules AND the type↔id caches the sync `access` resolves the
+            // root's type through. Resolved once per request, so an in-flight walk sees one consistent
+            // world even if a rule save or a schema sync lands mid-serialization.
+            resolveContext: async (): Promise<SerializationContext> =>
+                ({ cache: await rulesLazy.value(), caches: await TypeLogic.caches() }),
         });
         // The WRITE gate: make the retrieve implicit in the request deserializer. When the body carries an
         // existing (id) + modified root entity, load its DB original and overlay the incoming changes onto
@@ -277,7 +292,7 @@ export namespace PropertyAuthLogic {
     // The type's allowance mapped to a property WithConditions — the per-slice CEILING (radios can't exceed
     // it, and stored values are coerced to it). NOT the no-rule default (which applies the auto-upgrade gate).
     async function typeCeilingWC(typeId: PrimaryKey, roleKey: string): Promise<WithConditions<PropertyAllowed>> {
-        return (await rulesLazy.value()).typeCeilingWC(typeId, roleKey);
+        return (await rulesLazy.value()).typeCeilingWC(typeId, await TypeLogic.caches(), roleKey);
     }
 
     // A synchronous AutomaticUpgradeOfProperties predicate for the cache — the loaded permission cache read
@@ -307,11 +322,11 @@ export namespace PropertyAuthLogic {
     // The role's effective / inherited-base property allowance —
     // the AutomaticUpgradeOfProperties recursion lives on the cache; these just await + delegate.
     async function getAllowed(typeId: PrimaryKey, path: string, roleKey: string): Promise<WithConditions<PropertyAllowed>> {
-        return (await rulesLazy.value()).getAllowed(typeId, path, roleKey);
+        return (await rulesLazy.value()).getAllowed(typeId, path, await TypeLogic.caches(), roleKey);
     }
 
     async function getAllowedBase(typeId: PrimaryKey, path: string, roleKey: string): Promise<WithConditions<PropertyAllowed>> {
-        return (await rulesLazy.value()).getAllowedBase(typeId, path, roleKey);
+        return (await rulesLazy.value()).getAllowedBase(typeId, path, await TypeLogic.caches(), roleKey);
     }
 
     /**
@@ -327,8 +342,9 @@ export namespace PropertyAuthLogic {
         if (roleKey == null || !AuthLogic.isEnabled())
             return null;
 
-        let typeId: PrimaryKey;
-        try { typeId = TypeLogic.typeToId(Entity.resolveType(typeName)); } catch { return null; }
+        const typeId = (await TypeLogic.caches()).tryTypeToId(Entity.resolveType(typeName));
+        if (typeId == null)
+            return null;
 
         const wc = await getAllowed(typeId, path, roleKey);
         const max = Math.max(wc.fallback, ...wc.conditionRules.map(cr => cr.allowed)) as PropertyAllowed;
@@ -380,15 +396,16 @@ export namespace PropertyAuthLogic {
         // ONE await for the whole sweep: the cache's own getAllowed is synchronous, so awaiting per route
         // would turn a metadata fetch into thousands of microtasks.
         const cache = await rulesLazy.value();
+        const caches = await TypeLogic.caches();
         for (const ctor of getRegisteredTypes()) {
             if (!(ctor.prototype instanceof Entity))
                 continue; // embedded / model / view — reached as a dotted route under its owner instead
-            let typeId: PrimaryKey;
-            try { typeId = TypeLogic.typeToId(ctor); } catch { continue; } // not in the DB type table
+            const typeId = caches.tryTypeToId(ctor);
+            if (typeId == null) continue; // not in the DB type table
             let byPath: Map<string, { fallback: PropertyAllowed; min: PropertyAllowed; max: PropertyAllowed }> | undefined;
             for (const route of authRoutes(ctor)) {
                 const path = route.propertyString();
-                const wc = cache.getAllowed(typeId, path, roleKey);
+                const wc = cache.getAllowed(typeId, path, caches, roleKey);
                 const all = [wc.fallback, ...wc.conditionRules.map(cr => cr.allowed)];
                 const max = Math.max(...all) as PropertyAllowed;
                 if (max >= PropertyAllowed.Write)
@@ -406,7 +423,7 @@ export namespace PropertyAuthLogic {
      *  grid's colour summary for the Properties drill-in. undefined when the type has no routes. */
     export async function fallbackSummary(typeName: string, roleKey: string): Promise<{ min: number; max: number } | undefined> {
         const ctor = Entity.resolveType(typeName);
-        const typeId = TypeLogic.typeToId(ctor);
+        const typeId = (await TypeLogic.caches()).typeToId(ctor);
         const rank = (v: PropertyAllowed): number => v === PropertyAllowed.None ? 0 : v === PropertyAllowed.Read ? 1 : 2;
         let min = 2, max = 0, any = false;
         for (const route of authRoutes(ctor)) {
@@ -448,7 +465,7 @@ export namespace PropertyAuthLogic {
             throw new Error(`Role '${roleId}' not found`);
         const roleKey = role.toLite().key();
         const ctor = Entity.resolveType(typeName);
-        const typeId = TypeLogic.typeToId(ctor);
+        const typeId = (await TypeLogic.caches()).typeToId(ctor);
         // The per-slice ceiling = the type's own allowance mapped to PropertyAllowed (a property can't
         // exceed its type for any condition, so a None slice caps that slice's properties at None). Same
         // shape for every route, but emit a fresh model per row (each is an independent transport instance).
@@ -485,7 +502,7 @@ export namespace PropertyAuthLogic {
         const roleKey = roleLite.key();
         const symbolById = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s] as const));
         const ceiling = await typeCeilingWC(pack.type.id, roleKey); // the per-slice type ceiling (coerce cap)
-        const typeEntity = TypeLogic.idToEntity(pack.type.id!)!;
+        const typeEntity = (await TypeLogic.caches()).idToEntity(pack.type.id!)!;
         const current = await table(RulePropertyEntity)
             .filter(rp => rp.role == roleLite && rp.resource.rootType.is(typeEntity)).toArray() as RulePropertyEntity[];
         const currentByPath = new Map(current.map(rp => [rp.resource.path, rp]));

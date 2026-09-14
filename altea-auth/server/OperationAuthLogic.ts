@@ -95,7 +95,7 @@ export namespace OperationAuthLogic {
         // The execute / button-state authorization gate, now
         // condition-aware — the allowance is evaluated against the operated entity (fallback when absent).
         OperationLogic.onAllowOperation(async (symbol, entityType, inUserInterface, entity) => {
-            const wc = await getAllowed(symbol.id, TypeLogic.typeToId(entityType));
+            const wc = await getAllowed(symbol.id, (await TypeLogic.caches()).typeToId(entityType));
             const oa = entity != null
                 ? evaluateConditions(wc, tc => TypeConditionLogic.inTypeCondition(entity, tc))
                 : wc.fallback;
@@ -155,7 +155,7 @@ export namespace OperationAuthLogic {
      *  allowance — the grid's colour summary for the Operations drill-in. undefined when the type has none. */
     export async function fallbackSummary(typeName: string, roleKey: string): Promise<{ min: number; max: number } | undefined> {
         const ctor = Entity.resolveType(typeName);
-        const typeId = TypeLogic.typeToId(ctor);
+        const typeId = (await TypeLogic.caches()).typeToId(ctor);
         const rank = (v: OperationAllowed): number => v === OperationAllowed.None ? 0 : v === OperationAllowed.DBOnly ? 1 : 2;
         let min = 2, max = 0, any = false;
         for (const op of OperationLogic.operationsForTypeName(typeName)) {
@@ -199,7 +199,7 @@ export namespace OperationAuthLogic {
             throw new Error(`Role '${roleId}' not found`);
         const roleKey = role.toLite().key();
         const ctor = Entity.resolveType(typeName);
-        const typeId = TypeLogic.typeToId(ctor);
+        const typeId = (await TypeLogic.caches()).typeToId(ctor);
         const rules: OperationAllowedRule[] = [];
         for (const op of OperationLogic.operationsForTypeName(typeName)) {
             rules.push(OperationAllowedRule.create({

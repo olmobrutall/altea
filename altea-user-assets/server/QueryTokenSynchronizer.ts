@@ -2,7 +2,7 @@ import { SafeConsole, Color } from "@altea/altea/server/safeConsole";
 import { Replacements } from "@altea/altea/server/sync/synchronizer";
 import { StringDistance } from "@altea/altea/server/sync/stringDistance";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
-import { TypeLogic } from "@altea/altea/server/typeLogic";
+import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
 import { SubTokensOptions, SubTokensOptionsAll, type QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { usingLegacyPropertyPaths } from "@altea/altea/data/propertyRoute";
@@ -198,7 +198,7 @@ export namespace QueryTokenSynchronizer {
         valueString: string | null,
         opts: { allowRemoveToken: boolean; isListOrPair: boolean; fixInstead: boolean },
     ): Promise<{ result: FixTokenResult; valueString: string | null }> {
-        if (isValidValue(valueString, token))
+        if (isValidValue(valueString, token, await TypeLogic.caches()))
             return { result: "Nothing", valueString };
 
         // A list value is "a|b|c": recurse per item and recompose, so one bad member does not condemn
@@ -240,7 +240,7 @@ export namespace QueryTokenSynchronizer {
         if (token.type.lite === true && valueString != null) {
             const m = /^(?<type>[^;]+);(?<id>.+)$/.exec(valueString);
             const typeString = m?.groups?.["type"];
-            if (typeString != null && !registeredTypeNames().includes(typeString)) {
+            if (typeString != null && !registeredTypeNames(await TypeLogic.caches()).includes(typeString)) {
                 const newTypeString = await askTypeReplacement(ctx, typeString);
                 if (newTypeString != null && newTypeString !== "")
                     return { result: "Fix", valueString: valueString.replace(typeString, newTypeString) };
@@ -295,7 +295,7 @@ export namespace QueryTokenSynchronizer {
      * is accepted. DELIBERATELY narrow — a false "invalid" here would prompt a developer about a value
      * that is fine.
      */
-    function isValidValue(valueString: string | null, token: QueryToken): boolean {
+    function isValidValue(valueString: string | null, token: QueryToken, caches: TypeCaches): boolean {
         if (valueString == null || valueString === "")
             return true;
 
@@ -305,7 +305,7 @@ export namespace QueryTokenSynchronizer {
             // Not in "Type;id" shape at all (a [CurrentUser] expression, say) — not ours to judge.
             if (typeString == null)
                 return true;
-            return registeredTypeNames().includes(typeString);
+            return registeredTypeNames(caches).includes(typeString);
         }
 
         const enumObject = token.type.getEnum?.();
@@ -318,8 +318,8 @@ export namespace QueryTokenSynchronizer {
     }
 
     /** Every clean name the database knows. */
-    function registeredTypeNames(): string[] {
-        return TypeLogic.allTypeEntities().map(t => t.cleanName);
+    function registeredTypeNames(caches: TypeCaches): string[] {
+        return caches.allTypeEntities().map(t => t.cleanName);
     }
 
     // ---------- Internal resolution ----------
@@ -559,8 +559,8 @@ export namespace QueryTokenSynchronizer {
      * A Lite type rename, which lives in the same `types` bucket that
      * query renames do (a query key IS essentially a type's clean name).
      */
-    function askTypeReplacement(ctx: TokenSyncContext, oldTypeName: string): Promise<string | null> {
-        return ctx.askRename("Types", null, oldTypeName, registeredTypeNames(), new StringDistance());
+    async function askTypeReplacement(ctx: TokenSyncContext, oldTypeName: string): Promise<string | null> {
+        return ctx.askRename("Types", null, oldTypeName, registeredTypeNames(await TypeLogic.caches()), new StringDistance());
     }
 
     // ---------- The interactive picker ----------

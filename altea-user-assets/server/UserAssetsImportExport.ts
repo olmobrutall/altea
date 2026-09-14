@@ -4,6 +4,7 @@ import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
+import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
 import { cleanTypeName, resolveCleanType } from "@altea/altea/data/registration";
 import {
     UserAssetPreviewModel, UserAssetPreviewLineEmbedded, EntityAction, type IUserAssetEntity,
@@ -92,6 +93,9 @@ export interface IToXmlContext {
 
 export interface IFromXmlContext {
     readonly isPreview: boolean;
+    /** The type↔id snapshot for this import, resolved once at its async boundary — a `fromXml` is
+     *  synchronous and may need to resolve a stored type id back to its row. */
+    readonly typeCaches: TypeCaches;
     getQuery(queryKey: string): QueryEntity;
     getType(cleanName: string): Lite<TypeEntity>;
     tryGetType(cleanName: string): Lite<TypeEntity> | undefined;
@@ -237,6 +241,7 @@ export namespace UserAssetsImporter {
 
         const ctx: IFromXmlContext = {
             isPreview: false,
+            typeCaches: await TypeLogic.caches(),
             getQuery: queryKey => getQueryByKey(queryKey),
             getType: cleanName => getTypeByCleanName(cleanName, true)!,
             tryGetType: cleanName => getTypeByCleanName(cleanName, false),

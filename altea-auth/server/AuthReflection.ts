@@ -48,10 +48,12 @@ export namespace AuthReflectionServer {
             // The role's coarse MAX UI-read allowance per type. Only
             // RESTRICTED types (< Write) are stamped; the client treats an absent value as unrestricted.
             if (TypeAuthLogic.isStarted()) {
+                const caches = await TypeLogic.caches();
                 for (const [ctor] of Connector.current().schema.tables) {
                     if (typeof ctor !== "function") continue;
-                    let typeId: PrimaryKey;
-                    try { typeId = TypeLogic.typeToId(ctor); } catch { continue; } // enum/view — not type-auth'd
+                    // undefined for an enum side-table / view — not type-auth'd.
+                    const typeId = caches.tryTypeToId(ctor);
+                    if (typeId == null) continue;
                     const maxUI = await TypeAuthLogic.maxTypeAllowedUI(typeId, roleKey);
                     if (maxUI < TypeAllowedBasic.Write) {
                         const tm = meta.types[ctor.name];

@@ -55,7 +55,7 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
             // Give Sales `fallback Read + [Public] → Write`, so neither bound decides: the PublicSample row
             // (confidential = false ⇒ the Public condition holds) is writable, the ConfidentialSample one is not.
             const pack = await TypeAuthLogic.getTypeRulePack(sales.id);
-            const sampleTypeId = TypeLogic.typeToId(SampleEntity);
+            const sampleTypeId = (await TypeLogic.caches()).typeToId(SampleEntity);
             const rule = pack.rules.find(r => String(r.resource.id) === String(sampleTypeId))!;
             rule.allowed.conditionRules.push(ConditionRuleModel.create({
                 typeConditions: [TypeConditionSymbol.newLite(SampleTypeCondition.Public.id, SampleTypeCondition.Public.key)],

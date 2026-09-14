@@ -159,7 +159,7 @@ export namespace UserChartLogic {
         // The TypeEntity id comes from TypeLogic's warm type↔id caches, not from a
         // `table(TypeEntity).filter(t => t.cleanName == …)` read: this runs per request, and the row that
         // query returned is the very one the cache already holds.
-        const typeId = TypeLogic.tryTypeToIdByName(typeCleanName);
+        const typeId = (await TypeLogic.caches()).tryTypeToIdByName(typeCleanName);
         if (typeId == null)
             return [];
 

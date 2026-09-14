@@ -47,9 +47,10 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
     beforeAll(async () => {
         await start();
         [sales, base] = await Promise.all([role(Roles.Sales), role(Roles.Base)]);
-        sampleId = TypeLogic.typeToId(SampleEntity);
-        panelId = TypeLogic.typeToId(SamplePanelEntity);
-        widgetId = TypeLogic.typeToId(SampleWidgetEntity);
+        const caches = await TypeLogic.caches();
+        sampleId = caches.typeToId(SampleEntity);
+        panelId = caches.typeToId(SamplePanelEntity);
+        widgetId = caches.typeToId(SampleWidgetEntity);
     });
 
     test("Parts (and enums) are excluded from the Type-Auth grid; Sample stays", async () => {

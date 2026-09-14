@@ -25,7 +25,7 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
     beforeAll(async () => {
         await start();
         [sales, restricted] = await Promise.all([role(Roles.Sales), role(Roles.Restricted)]);
-        typeId = TypeLogic.typeToId(SampleEntity);
+        typeId = (await TypeLogic.caches()).typeToId(SampleEntity);
         xml = await AuthImportExport.exportAuthRules();
     });
     afterEach(() => resetAuthCaches());

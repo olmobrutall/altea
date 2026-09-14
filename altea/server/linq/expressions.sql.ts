@@ -1021,8 +1021,8 @@ export class ImplementedByExpression extends DbExpression {
 
 // The type-discriminator half of @implementedByAll (Signum's
 // TypeImplementedByAllExpression). `typeColumn` holds the target's TypeEntity int
-// id; SmartEqualizer compares it against `TypeLogic.typeToId(ctor)` and the reader
-// resolves it back to a constructor via `TypeLogic.tryGetType(id)`.
+// id; SmartEqualizer compares it against the bind’s `TypeCaches.typeToId(ctor)` and the
+// Retriever resolves it back to a constructor via `TypeCaches.tryGetType(id)`.
 export class TypeImplementedByAllExpression extends DbExpression {
     constructor(public readonly typeColumn: Expression) {
         super("TypeImplementedByAll", LiteralType.string);

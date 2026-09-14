@@ -162,7 +162,8 @@ async function seed(): Promise<void> {
     const restricted = await mkRole(Roles.Restricted, MergeStrategy.Union, []);
     const logReader = await mkRole(Roles.LogReader, MergeStrategy.Union, [restricted]);
 
-    const typeId = TypeLogic.typeToId(SampleEntity);
+    const caches = await TypeLogic.caches();
+    const typeId = caches.typeToId(SampleEntity);
     const typeLite = TypeEntity.newLite(typeId, cleanTypeName(SampleEntity));
     // A property rule points at a route ROW, so seed the two the rules below name.
     const secretRoute = await PropertyRouteLogic.toPropertyRouteEntity(PropertyRoute.parse(SampleEntity, "secret"));
@@ -203,7 +204,7 @@ async function seed(): Promise<void> {
     }).save();
 
     // LogReader: the QUERY-AUDITOR condition on SampleLog — fallback None, [FilteringByTarget] → Read.
-    const logTypeLite = TypeEntity.newLite(TypeLogic.typeToId(SampleLogEntity), cleanTypeName(SampleLogEntity));
+    const logTypeLite = TypeEntity.newLite(caches.typeToId(SampleLogEntity), cleanTypeName(SampleLogEntity));
     const filteringSym = TypeConditionSymbol.newLite(
         SampleLogTypeCondition.FilteringByTarget.id, SampleLogTypeCondition.FilteringByTarget.key);
     await RuleTypeEntity.create({

@@ -869,7 +869,7 @@ export class QueryBinder extends ExpressionVisitor {
         // a whole must NOT be run through AssignAdapterExpander (which reshapes leaf values only).
         if (value instanceof ObjectExpression)
             return this.assign(colExpr, value);
-        return this.assign(colExpr, AssignAdapterExpander.adapt(value, colExpr));
+        return this.assign(colExpr, AssignAdapterExpander.adapt(value, colExpr, this.typeCaches));
     }
 
     // Port of Signum's Assign: pairs a target column-shape with an equally-shaped
@@ -3470,7 +3470,7 @@ export class QueryBinder extends ExpressionVisitor {
 
         // The grouping key must be nominated aggressively (its computed value forms the GROUP
         // BY columns) — a lazy projection would group on the key's raw leaf columns instead.
-        const key = GroupEntityCleaner.clean(this.mapVisitExpand(keySelector, projection));
+        const key = GroupEntityCleaner.clean(this.mapVisitExpand(keySelector, projection), this.typeCaches);
         let keyPC = this.projectColumns(key, alias, /* aggressive */ true);
 
         let select = projection.select;
@@ -3495,7 +3495,7 @@ export class QueryBinder extends ExpressionVisitor {
             ? this.mapVisitExpand(elementSelector, projection)
             : projection.projector;
 
-        const subqueryKey = GroupEntityCleaner.clean(this.mapVisitExpand(keySelector, subqueryProjection));
+        const subqueryKey = GroupEntityCleaner.clean(this.mapVisitExpand(keySelector, subqueryProjection), this.typeCaches);
         const subqueryKeyPC = this.projectColumns(subqueryKey, this.aliasGenerator.raw("basura"), /* aggressive */ true);
         const subqueryElemExpr = elementSelector != null
             ? this.mapVisitExpand(elementSelector, subqueryProjection)

@@ -1,7 +1,7 @@
 import { table } from "@altea/altea/server/table";
 import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
-import { TypeLogic } from "@altea/altea/server/typeLogic";
+import type { TypeCaches } from "@altea/altea/server/typeLogic";
 import { TourTriggerLogic } from "@altea/altea/server/tourTriggerLogic";
 import { Enum } from "@altea/altea/data/enum";
 import { toInt } from "@altea/altea/data/basics";
@@ -112,7 +112,7 @@ function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlCo
     // The same ladder in reverse: a "Property" step's route is rooted at the
     // trigger's type — given directly by a Lite<TypeEntity> trigger, or by the type a TourTriggerSymbol is
     // registered for. Any other trigger (a dashboard, a user query) offers no property steps, hence null.
-    const rootType = triggerRootType(tour.trigger);
+    const rootType = triggerRootType(tour.trigger, ctx.typeCaches);
     tour.showProgress = xml[A + "ShowProgress"] === true || xml[A + "ShowProgress"] === "true";
     tour.animate = xml[A + "Animate"] == null || xml[A + "Animate"] === true || xml[A + "Animate"] === "true";
     tour.showCloseButton = xml[A + "ShowCloseButton"] == null || xml[A + "ShowCloseButton"] === true || xml[A + "ShowCloseButton"] === "true";
@@ -130,9 +130,9 @@ function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlCo
     });
 }
 
-function triggerRootType(trigger: Lite<Entity>): TypeEntity | null {
+function triggerRootType(trigger: Lite<Entity>, caches: TypeCaches): TypeEntity | null {
     if (trigger.entityType === TypeEntity)
-        return TypeLogic.idToEntity(trigger.id!) ?? null;
+        return caches.idToEntity(trigger.id!) ?? null;
 
     if (trigger.entityType === TourTriggerSymbol) {
         const symbol = SymbolLogic.tryToSymbol(TourTriggerSymbol, trigger.toString());

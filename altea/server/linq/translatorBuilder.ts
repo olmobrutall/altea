@@ -15,6 +15,7 @@ import { QueryFormatter } from "./queryFormatter";
 import { Connector } from "../connection/connector";
 import { ClassType, LiteralType, TemporalType, VectorType, RuntimeType } from "../runtimeTypes";
 import { Retriever } from "./Retriever";
+import { TypeLogic } from "../typeLogic";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 import { denormalizeTemporal, denormalizeVector, denormalizeDecimal } from "../normalizeScalar";
 import { ProjectionError } from "./ProjectionError";
@@ -58,7 +59,11 @@ export class TranslateResult {
     ) { }
 
     async execute(): Promise<unknown> {
-        const retriever = new Retriever();
+        // The snapshot the projector resolves @implementedByAll discriminators against, taken ONCE here so
+        // every row of this query agrees. Skipped while the caches are loading — that query is
+        // `table(TypeEntity)`, which has no discriminator to resolve.
+        const connector = Connector.current();
+        const retriever = new Retriever(TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema));
         const result = await this.executeInto(retriever);
         // Batch-complete any referenced rows left as id-only stubs (IBA/cycle/AvoidExpand),
         // then the projected instances are fully loaded — Signum's Retriever.CompleteAll.

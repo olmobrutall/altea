@@ -52,13 +52,11 @@ export namespace AuthColorProvider {
             // building the response) and altea's rule lookup is async. Signum builds the same dictionary.
             const rules = new Map<string, WithConditions<TypeAllowed>>();
 
+            const caches = await TypeLogic.caches();
             for (const ctor of types) {
-                let typeId;
-                try {
-                    typeId = TypeLogic.typeToId(ctor);
-                } catch {
-                    continue; // not a persisted type / caches not loaded
-                }
+                const typeId = caches.tryTypeToId(ctor);
+                if (typeId == null)
+                    continue; // not a persisted type
                 rules.set(cleanTypeName(ctor), await TypeAuthLogic.getAllowed(typeId, roleKey));
             }
 

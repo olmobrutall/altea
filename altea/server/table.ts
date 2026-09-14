@@ -197,7 +197,7 @@ export async function bindOptimizeSecured(expression: Expression, schema: Schema
     // Resolve the type↔id caches ONCE (async) at this boundary — undefined only if we're inside the
     // caches' own load (re-entrant `table(TypeEntity)`), where no discriminator arises. `ready()` also
     // warms the box for the downstream sync readers (optimiser visitors, Retriever).
-    const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.ready(schema);
+    const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(schema);
     // The query goes to the providers: a row filter whose answer depends on the caller's own filters does
     // its async work there (see Schema.queryFilterProviders).
     const filterContext = await schema.buildQueryFilterContext(expression);
@@ -231,7 +231,7 @@ function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[], filterCo
 // so the id-only stubs it left behind get populated in place.
 Retriever.retrieveListImpl = async (ctor: Type<Entity>, ids: PrimaryKey[], retriever: Retriever): Promise<void> => {
     const connector = Connector.current();
-    const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.ready(connector.schema);
+    const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
     const filterContext = await connector.schema.buildQueryFilterContext();
     // The row filters this bind applies are the same ones a query carries, so the same on-demand cache
     // loading applies — only the (pure) bind is inside the region, never the retriever it feeds.
@@ -265,7 +265,8 @@ export async function retrieveEntitiesFromCache<T extends Entity>(
     ids: PrimaryKey[],
     controller: CacheController,
 ): Promise<T[]> {
-    const retriever = new Retriever();
+    const connector = Connector.current();
+    const retriever = new Retriever(TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema));
     const result: T[] = [];
     for (const id of ids) {
         if (!controller.exists(id))
@@ -286,7 +287,7 @@ export async function retrieveEntitiesByIds<T extends Entity>(ctor: Type<T>, ids
     if (ids.length === 0)
         return [];
     const connector = Connector.current();
-    const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.ready(connector.schema);
+    const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
     const filterContext = await connector.schema.buildQueryFilterContext();
     const projection = await withPromisesLoaded(() => retrieveByIdsProjection(ctor, ids, filterContext, typeCaches));
     return await buildTranslateResult(projection, connector.isPostgres).execute() as T[];
@@ -331,7 +332,7 @@ class MyQueryTranslator implements IQueryTranslator {
     async executeCommand(expression: Expression): Promise<number> {
         using _prof = HeavyProfiler.log("DBQuery", () => expression.toString());
         const connector = Connector.current();
-        const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.ready(connector.schema);
+        const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
         // Row-level security applies to the SELECT that feeds an unsafe UPDATE/DELETE too (you may only
         // touch rows you can see): resolve the context async, then bind the command with it.
         const filterContext = await connector.schema.buildQueryFilterContext(expression);

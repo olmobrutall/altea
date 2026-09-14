@@ -36,6 +36,9 @@ describe.skipIf(!hasDb)("ProjectionErrorTest", () => {
         ];
         const fakeConnector = {
             isPostgres: connector.isPostgres,
+            // The retriever resolves the type↔id snapshot off the connector schema, so the stub carries the
+            // real one (it stands in for a connector, not for a schema).
+            schema: connector.schema,
             executeQuery: async () => rows,
         } as unknown as Connector;
 
@@ -63,6 +66,9 @@ describe.skipIf(!hasDb)("ProjectionErrorTest", () => {
         const rows = [{ [columnName]: new Date(Date.UTC(2001, 0, 1)) }];
         const fakeConnector = {
             isPostgres: connector.isPostgres,
+            // The retriever resolves the type↔id snapshot off the connector schema, so the stub carries the
+            // real one (it stands in for a connector, not for a schema).
+            schema: connector.schema,
             executeQuery: async () => rows,
         } as unknown as Connector;
 

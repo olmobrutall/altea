@@ -318,13 +318,11 @@ export namespace SchemaMap {
             return () => true;
 
         const allowed = new Set<Function>();
+        const caches = await TypeLogic.caches();
         for (const ctor of candidates) {
-            let typeId;
-            try {
-                typeId = TypeLogic.typeToId(ctor);
-            } catch {
-                continue; // not a persisted type (or the caches aren't loaded) — hide it
-            }
+            const typeId = caches.tryTypeToId(ctor);
+            if (typeId == null)
+                continue; // not a persisted type — hide it
             if (await TypeAuthLogic.isAllowedForType(typeId, TypeAllowedBasic.Read, true))
                 allowed.add(ctor);
         }

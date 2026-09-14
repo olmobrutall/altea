@@ -251,7 +251,7 @@ export namespace DashboardLogic {
 
         // TypeLogic's warm cache rather than a full `table(TypeEntity)` read: this answers the client's
         // boot-time `/embeddedTypes` call, and the rows are the same ones.
-        return TypeLogic.allTypeEntities().filter(t => typeIds.has(String(t.id))).map(t => t.cleanName);
+        return (await TypeLogic.caches()).allTypeEntities().filter(t => typeIds.has(String(t.id))).map(t => t.cleanName);
     }
 
     /** Signum's GetDashboardsEntity(Type) — entity-type-scoped dashboards the current role may read. */
@@ -259,7 +259,7 @@ export namespace DashboardLogic {
         // The TypeEntity id comes from TypeLogic's warm type↔id caches, not from a
         // `table(TypeEntity).filter(t => t.cleanName == …)` read: this runs per request, and the row that
         // query returned is the very one the cache already holds.
-        const typeId = TypeLogic.tryTypeToIdByName(typeCleanName);
+        const typeId = (await TypeLogic.caches()).tryTypeToIdByName(typeCleanName);
         if (typeId == null)
             return [];
 

@@ -14,6 +14,7 @@ import {
     TourEntity, TourStepEntity, ClickTrigger, PopoverAlign, PopoverSide, cssSelector,
 } from "../data/Tour";
 import { TourLogic } from "./TourLogic";
+import { TypeLogic } from "@altea/altea/server/typeLogic";
 
 // The four "is there a tour for this?" lookups the TourButton calls, and the flattened DTO the driver.js
 // player consumes.
@@ -51,7 +52,7 @@ export namespace TourServer {
             { params: CustomType<{ typeName: string }>(), res: CustomType<TourDTO | null>() },
             async (req, res) => {
                 const { typeName } = req.params;
-                const typeLite = TourLogic.tryTypeLite(typeName);
+                const typeLite = TourLogic.tryTypeLite(typeName, await TypeLogic.caches());
                 const tour = typeLite == null ? undefined : await TourLogic.tryGetTour(typeLite);
                 return res.jsonTyped(tour == null ? null : await toDTO(tour));
             });

@@ -1,5 +1,5 @@
 import type { Schema } from "@altea/altea/server/schema";
-import type { TypeCaches } from "@altea/altea/server/typeLogic";
+import { TypeCaches } from "@altea/altea/server/typeLogic";
 import type { PrimaryKey } from "@altea/altea/data/entity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { cleanTypeName } from "@altea/altea/data/registration";
@@ -38,5 +38,5 @@ export function seedTypeCachesForTest(schema: Schema): void {
         idToEntity.set(id, te);
     });
 
-    schema.typeCaches.preset({ typeToId, idToType, idToEntity } satisfies TypeCaches);
+    schema.typeCaches.preset(new TypeCaches(typeToId, idToType, idToEntity));
 }
