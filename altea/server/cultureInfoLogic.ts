@@ -53,6 +53,14 @@ export namespace CultureInfoLogic {
         // through a resolver, and this is the server's answer (the client installs its own).
         setCultureNameResolver(lite => toCultureName(lite as Lite<CultureInfoEntity>));
 
+        // LOADED at startup, and again after a row changes — not because anything depends on it being warm
+        // (every reader awaits), but because the catalogue seam below is a PEEK: cold, it answers with the
+        // loaded translation files, which is a different list (a culture can ship a translation without a
+        // row, and have a row without a translation). Being warm from the first request is what makes the
+        // client boot see what the application actually supports.
+        sb.schema.initializing.push(() => cultures.load());
+        sb.schema.entityEvents(CultureInfoEntity).saved.push(async () => { await cultures.load(); });
+
         // The reflection layer's culture catalogue now has a real source of truth: what the APPLICATION
         // supports, rather than what happens to have a translation file. (Before this it could only infer
         // the list from the loaded translations — a decent guess, but it could neither offer an untranslated
