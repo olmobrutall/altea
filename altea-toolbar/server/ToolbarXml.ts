@@ -176,7 +176,7 @@ function contentFromXml(content: string | undefined, ctx: IFromXmlContext): Lite
         // not a registered query key — try a permission below
     }
 
-    const permission = SymbolLogic.tryToSymbol(PermissionSymbol, content);
+    const permission = ctx.symbols.tryToSymbol(PermissionSymbol, content);
     if (permission != null)
         return permission.toLite() as Lite<Entity>;
 

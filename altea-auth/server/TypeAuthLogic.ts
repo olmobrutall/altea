@@ -428,7 +428,7 @@ export namespace TypeAuthLogic {
     async function loadRules(): Promise<Map<string, Map<PrimaryKey, WithConditions<TypeAllowed>>>> {
         const rows = await table(RuleTypeEntity).toArray() as RuleTypeEntity[];
         // id -> the shared (interned) TypeConditionSymbol, to resolve each condition row's Lite reference.
-        const symbolById = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s]));
+        const symbolById = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s]));
         const map = new Map<string, Map<PrimaryKey, WithConditions<TypeAllowed>>>();
         for (const row of rows) {
             const roleKey = row.role.key();
@@ -671,7 +671,7 @@ export namespace TypeAuthLogic {
         if (role == null)
             throw new Error(`Role '${pack.role.id}' not found`);
         const roleLite = role.toLite();
-        const symbolById = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s]));
+        const symbolById = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s]));
         const current = await table(RuleTypeEntity).filter(rt => rt.role == roleLite).toArray() as RuleTypeEntity[];
         const currentByType = new Map(current.map(rt => [String(rt.resource.id), rt]));
 
@@ -701,7 +701,7 @@ export namespace TypeAuthLogic {
     // ---- AuthRules XML ------------------------------------------------------------------------
     async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
         const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
-        const condKey = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s.key]));
+        const condKey = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s.key]));
         const byRole = groupByRole(await table(RuleTypeEntity).toArray() as RuleTypeEntity[]);
         return {
             name: "Types",

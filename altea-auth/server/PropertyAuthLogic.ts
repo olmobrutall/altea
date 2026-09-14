@@ -265,7 +265,7 @@ export namespace PropertyAuthLogic {
 
     async function loadRules(): Promise<Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>> {
         const rows = await table(RulePropertyEntity).toArray() as RulePropertyEntity[];
-        const symbolById = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s] as const));
+        const symbolById = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s] as const));
         const map = new Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>();
         for (const row of rows) {
             const roleKey = row.role.key();
@@ -500,7 +500,7 @@ export namespace PropertyAuthLogic {
             throw new Error(`Role '${pack.role.id}' not found`);
         const roleLite = role.toLite();
         const roleKey = roleLite.key();
-        const symbolById = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s] as const));
+        const symbolById = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s] as const));
         const ceiling = await typeCeilingWC(pack.type.id, roleKey); // the per-slice type ceiling (coerce cap)
         const typeEntity = (await TypeLogic.caches()).idToEntity(pack.type.id!)!;
         const current = await table(RulePropertyEntity)
@@ -543,7 +543,7 @@ export namespace PropertyAuthLogic {
     // ---- AuthRules XML --------------------------------------------------------------------------
     async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
         const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
-        const condKey = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s.key]));
+        const condKey = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s.key]));
         const byRole = groupByRole(await table(RulePropertyEntity).toArray() as RulePropertyEntity[]);
         return {
             name: "Properties",

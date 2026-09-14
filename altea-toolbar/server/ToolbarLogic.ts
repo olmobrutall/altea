@@ -191,9 +191,10 @@ export namespace ToolbarLogic {
         });
 
         registerContentConfig(PermissionSymbol, {
-            defaultLabel: lite => SymbolLogic.toSymbol(PermissionSymbol, symbolKeyOf(lite)).niceToString(),
+            defaultLabel: async lite =>
+                (await SymbolLogic.cache(PermissionSymbol)).toSymbol(symbolKeyOf(lite)).niceToString(),
             isAuthorized: async lite =>
-                await PermissionAuthLogic.isAuthorized(SymbolLogic.toSymbol(PermissionSymbol, symbolKeyOf(lite))),
+                await PermissionAuthLogic.isAuthorized((await SymbolLogic.cache(PermissionSymbol)).toSymbol(symbolKeyOf(lite))),
             customResponses: async lite => {
                 const action = customPermissionResponse.get(symbolKeyOf(lite));
                 return action == null ? null : await action();

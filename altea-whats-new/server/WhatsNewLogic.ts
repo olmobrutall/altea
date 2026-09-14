@@ -75,7 +75,7 @@ export namespace WhatsNewLogic {
         registerRelatedConfig(QueryEntity, async lite =>
             await QueryAuthLogic.isQueryAllowed(QueryLogic.toQueryName(lite.toString()), true));
         registerRelatedConfig(PermissionSymbol, async lite =>
-            await PermissionAuthLogic.isAuthorized(SymbolLogic.toSymbol(PermissionSymbol, lite.toString())));
+            await PermissionAuthLogic.isAuthorized((await SymbolLogic.cache(PermissionSymbol)).toSymbol(lite.toString())));
 
     }
 

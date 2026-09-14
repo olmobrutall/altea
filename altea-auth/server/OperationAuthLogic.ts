@@ -115,7 +115,7 @@ export namespace OperationAuthLogic {
 
     async function loadRules(): Promise<Map<string, Map<PrimaryKey | string, WithConditions<OperationAllowed>>>> {
         const rows = await table(RuleOperationEntity).toArray() as RuleOperationEntity[];
-        const symbolById = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s]));
+        const symbolById = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s]));
         const map = new Map<string, Map<PrimaryKey | string, WithConditions<OperationAllowed>>>();
         for (const row of rows) {
             const roleKey = row.role.key();
@@ -229,7 +229,7 @@ export namespace OperationAuthLogic {
         if (role == null)
             throw new Error(`Role '${pack.role.id}' not found`);
         const roleLite = role.toLite();
-        const symbolById = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s]));
+        const symbolById = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s]));
         const current = await table(RuleOperationEntity).filter(ro => ro.role == roleLite && ro.type == pack.type).toArray() as RuleOperationEntity[];
         const currentByOp = new Map(current.map(ro => [String(ro.operation.id), ro]));
 
@@ -265,8 +265,8 @@ export namespace OperationAuthLogic {
     // ---- AuthRules XML -------------------------------------------------------------------------
     async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
         const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
-        const opKey = new Map(SymbolLogic.symbols(OperationSymbol).map(s => [String(s.id), s.key]));
-        const condKey = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [String(s.id), s.key]));
+        const opKey = new Map((await SymbolLogic.cache(OperationSymbol)).symbols().map(s => [String(s.id), s.key]));
+        const condKey = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s.key]));
         const byRole = groupByRole(await table(RuleOperationEntity).toArray() as RuleOperationEntity[]);
         return {
             name: "Operations",

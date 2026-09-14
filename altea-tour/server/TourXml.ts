@@ -112,7 +112,7 @@ function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlCo
     // The same ladder in reverse: a "Property" step's route is rooted at the
     // trigger's type — given directly by a Lite<TypeEntity> trigger, or by the type a TourTriggerSymbol is
     // registered for. Any other trigger (a dashboard, a user query) offers no property steps, hence null.
-    const rootType = triggerRootType(tour.trigger, ctx.typeCaches);
+    const rootType = triggerRootType(tour.trigger, ctx);
     tour.showProgress = xml[A + "ShowProgress"] === true || xml[A + "ShowProgress"] === "true";
     tour.animate = xml[A + "Animate"] == null || xml[A + "Animate"] === true || xml[A + "Animate"] === "true";
     tour.showCloseButton = xml[A + "ShowCloseButton"] == null || xml[A + "ShowCloseButton"] === true || xml[A + "ShowCloseButton"] === "true";
@@ -130,14 +130,14 @@ function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlCo
     });
 }
 
-function triggerRootType(trigger: Lite<Entity>, caches: TypeCaches): TypeEntity | null {
+function triggerRootType(trigger: Lite<Entity>, ctx: IFromXmlContext): TypeEntity | null {
     if (trigger.entityType === TypeEntity)
-        return caches.idToEntity(trigger.id!) ?? null;
+        return ctx.typeCaches.idToEntity(trigger.id!) ?? null;
 
     if (trigger.entityType === TourTriggerSymbol) {
-        const symbol = SymbolLogic.tryToSymbol(TourTriggerSymbol, trigger.toString());
+        const symbol = ctx.symbols.tryToSymbol(TourTriggerSymbol, trigger.toString());
         const ctor = symbol == null ? undefined : TourTriggerLogic.getTriggerType(symbol);
-        return ctor == undefined ? null : ctor.toTypeEntity();
+        return ctor == undefined ? null : ctx.typeCaches.tryTypeToEntity(ctor) ?? null;
     }
 
     return null;
@@ -172,7 +172,7 @@ function triggerFromXml(value: string, ctx: IFromXmlContext): Lite<Entity> {
     if (type != null)
         return type as Lite<Entity>;
 
-    const symbol = SymbolLogic.tryToSymbol(TourTriggerSymbol, value);
+    const symbol = ctx.symbols.tryToSymbol(TourTriggerSymbol, value);
     if (symbol != null)
         return symbol.toLite();
 

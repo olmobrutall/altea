@@ -70,7 +70,7 @@ export namespace ExcelImportLogic {
      * allowed for the entity type, so a caller cannot smuggle in an operation the role may not run.
      */
     async function resolveSaveOperation(operationKey: string, entityType: Type<Entity>): Promise<OperationSymbol> {
-        const symbol = SymbolLogic.tryToSymbol(OperationSymbol, operationKey);
+        const symbol = (await SymbolLogic.cache(OperationSymbol)).tryToSymbol(operationKey);
         if (symbol == undefined)
             throw new Error(`Operation '${operationKey}' is not registered`);
 

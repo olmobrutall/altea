@@ -61,7 +61,7 @@ export namespace TourServer {
             { params: CustomType<{ symbolKey: string }>(), res: CustomType<TourDTO | null>() },
             async (req, res) => {
                 const { symbolKey } = req.params;
-                const symbol = SymbolLogic.tryToSymbol(TourTriggerSymbol, symbolKey);
+                const symbol = (await SymbolLogic.cache(TourTriggerSymbol)).tryToSymbol(symbolKey);
                 const tour = symbol == null ? undefined : await TourLogic.tryGetTour(symbol.toLite());
                 return res.jsonTyped(tour == null ? null : await toDTO(tour));
             });
@@ -70,7 +70,7 @@ export namespace TourServer {
             { res: CustomType<string | null>() },
             async (req, res) => {
                 const lite = Lite.parse((req.query["liteKey"] as string | undefined) ?? "");
-                const symbol = SymbolLogic.tryToSymbol(TourTriggerSymbol, lite.toString());
+                const symbol = (await SymbolLogic.cache(TourTriggerSymbol)).tryToSymbol(lite.toString());
                 const type = symbol == null ? undefined : TourTriggerLogic.getTriggerType(symbol);
                 return res.jsonTyped(type == null ? null : type.name.replace(/Entity$/, ""));
             });

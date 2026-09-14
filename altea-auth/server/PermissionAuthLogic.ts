@@ -88,7 +88,7 @@ export namespace PermissionAuthLogic {
 
     // ---- AuthRules XML ------------------------------------------------------------------------
     async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
-        const permKey = new Map(SymbolLogic.symbols(PermissionSymbol).map(s => [String(s.id), s.key]));
+        const permKey = new Map((await SymbolLogic.cache(PermissionSymbol)).symbols().map(s => [String(s.id), s.key]));
         const byRole = groupByRole(await table(RulePermissionEntity).toArray() as RulePermissionEntity[]);
         return {
             name: "Permissions",
@@ -158,7 +158,7 @@ export namespace PermissionAuthLogic {
             throw new Error(`Role '${roleId}' not found`);
         const roleKey = role.toLite().key();
         const rules: PermissionAllowedRule[] = [];
-        for (const p of SymbolLogic.symbols(PermissionSymbol)) {
+        for (const p of (await SymbolLogic.cache(PermissionSymbol)).symbols()) {
             rules.push(PermissionAllowedRule.create({
                 resource: PermissionSymbol.newLite(p.id, p.key),
                 allowed: await getAllowed(p.id, roleKey),

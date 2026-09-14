@@ -5,6 +5,7 @@ import type { Lite } from "@altea/altea/data/lite";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
+import { SymbolLogic, type SymbolCaches } from "@altea/altea/server/symbolLogic";
 import { cleanTypeName, resolveCleanType } from "@altea/altea/data/registration";
 import {
     UserAssetPreviewModel, UserAssetPreviewLineEmbedded, EntityAction, type IUserAssetEntity,
@@ -96,6 +97,9 @@ export interface IFromXmlContext {
     /** The type↔id snapshot for this import, resolved once at its async boundary — a `fromXml` is
      *  synchronous and may need to resolve a stored type id back to its row. */
     readonly typeCaches: TypeCaches;
+    /** Every symbol type's cache, likewise resolved once: an XML reference can name a permission, a tour
+     *  trigger or any other symbol by key. */
+    readonly symbols: SymbolCaches;
     getQuery(queryKey: string): QueryEntity;
     getType(cleanName: string): Lite<TypeEntity>;
     tryGetType(cleanName: string): Lite<TypeEntity> | undefined;
@@ -242,6 +246,7 @@ export namespace UserAssetsImporter {
         const ctx: IFromXmlContext = {
             isPreview: false,
             typeCaches: await TypeLogic.caches(),
+            symbols: await SymbolLogic.allCaches(),
             getQuery: queryKey => getQueryByKey(queryKey),
             getType: cleanName => getTypeByCleanName(cleanName, true)!,
             tryGetType: cleanName => getTypeByCleanName(cleanName, false),

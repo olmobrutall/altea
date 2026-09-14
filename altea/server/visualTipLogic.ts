@@ -99,7 +99,7 @@ export namespace VisualTipLogic {
             return;
 
         await ExecutionMode.global(async () => {
-            const symbol = SymbolLogic.toSymbol(VisualTipSymbol, symbolKey);
+            const symbol = (await SymbolLogic.cache(VisualTipSymbol)).toSymbol(symbolKey);
 
             // `count` rather than an `any`: altea's Query has no such method, and one COUNT is the same
             // single round trip Signum's `Any()` is.

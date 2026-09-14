@@ -77,10 +77,11 @@ describe("SymbolLogic", () => {
         return withFake(seededRows, () => SymbolLogic.load(OperationSymbol));
     });
 
-    test("reads back sorted-by-key ids from the DB and caches the symbols", () => {
-        const create = SymbolLogic.toSymbol(OperationSymbol, "ArtistOperation.Create");
-        const del = SymbolLogic.toSymbol(OperationSymbol, "ArtistOperation.Delete");
-        const save = SymbolLogic.toSymbol(OperationSymbol, "ArtistOperation.Save");
+    test("reads back sorted-by-key ids from the DB and caches the symbols", async () => {
+        const cache = await SymbolLogic.cache(OperationSymbol);
+        const create = cache.toSymbol("ArtistOperation.Create");
+        const del = cache.toSymbol("ArtistOperation.Delete");
+        const save = cache.toSymbol("ArtistOperation.Save");
 
         // ids are positive and follow the alphabetical key order (Create < Delete < Save),
         // robust to any other Operation symbols another suite might declare.
@@ -89,15 +90,16 @@ describe("SymbolLogic", () => {
         assert.ok((del.id as number) < (save.id as number));
         assert.equal(save.isNew, false);
 
-        const keys = SymbolLogic.allUniqueKeys(OperationSymbol);
+        const keys = (await SymbolLogic.cache(OperationSymbol)).allUniqueKeys();
         assert.ok(keys.has("ArtistOperation.Create"));
         assert.ok(keys.has("ArtistOperation.Delete"));
         assert.ok(keys.has("ArtistOperation.Save"));
-        assert.ok(SymbolLogic.symbols(OperationSymbol).length >= 3);
+        assert.ok((await SymbolLogic.cache(OperationSymbol)).symbols().length >= 3);
     });
 
-    test("toSymbol throws for an unknown key", () => {
-        assert.throws(() => SymbolLogic.toSymbol(OperationSymbol, "ArtistOperation.Nope"), /not registered/);
+    test("toSymbol throws for an unknown key", async () => {
+        const cache2 = await SymbolLogic.cache(OperationSymbol);
+        assert.throws(() => cache2.toSymbol("ArtistOperation.Nope"), /not registered/);
     });
 
     test("generation seeds one INSERT per declared symbol", () => {
@@ -126,14 +128,14 @@ describe("SymbolLogic", () => {
     });
 
     test("sync against a matching DB is a no-op", async () => {
-        const current = SymbolLogic.symbols(OperationSymbol).map(s => ({ [pkCol]: s.id, [keyCol]: s.key }));
+        const current = (await SymbolLogic.cache(OperationSymbol)).symbols().map(s => ({ [pkCol]: s.id, [keyCol]: s.key }));
         const cmd = await withFake(current, () => symbolSync(noPromptReplacements())) as SqlPreCommand | undefined;
         assert.equal(cmd, undefined, "a DB that already matches needs no migration");
     });
 
     test("sync deletes a symbol present in the DB but no longer declared", async () => {
         const current = [
-            ...SymbolLogic.symbols(OperationSymbol).map(s => ({ [pkCol]: s.id, [keyCol]: s.key })),
+            ...(await SymbolLogic.cache(OperationSymbol)).symbols().map(s => ({ [pkCol]: s.id, [keyCol]: s.key })),
             { [pkCol]: 999, [keyCol]: "ArtistOperation.Removed" },
         ];
         const cmd = await withFake(current, () => symbolSync(noPromptReplacements())) as SqlPreCommand | undefined;

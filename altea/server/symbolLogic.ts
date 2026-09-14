@@ -123,23 +123,66 @@ export namespace SymbolLogic {
         await byCtor.get(ctor)?.lazy.value();
     }
 
-    // Signum's SymbolLogic<T>.Symbols / TryToSymbol / ToSymbol / AllUniqueKeys — SYNCHRONOUS readers of the
-    // WARMED cache (like TypeLogic's typeToId). Throw if the load hasn't run yet (production warms it in
-    // schema.initialize()); no deterministic id is ever fabricated.
-    export function symbols<T extends Symbol>(ctor: Type<T>): T[] {
-        return [...cache(ctor).values()] as T[];
+    /**
+     * THE way to read a symbol type's persisted symbols (Signum's SymbolLogic<T>.Symbols / TryToSymbol /
+     * ToSymbol / AllUniqueKeys): await the cache, then read it synchronously as often as you like. There is
+     * no synchronous static twin — the ids are stamped by a load that a sync inserting a new symbol runs
+     * again, so a reader that did not ask for the cache would be depending on somebody else's timing.
+     */
+    export async function cache<T extends Symbol>(ctor: Type<T>): Promise<SymbolCache<T>> {
+        return new SymbolCache<T>(ctor, await assertStarted(ctor).lazy.value());
     }
-    export function tryToSymbol<T extends Symbol>(ctor: Type<T>, key: string): T | undefined {
-        return cache(ctor).get(key) as T | undefined;
+
+    /**
+     * Every started symbol type's cache, resolved together — for a SYNCHRONOUS consumer that cannot know
+     * up front which symbol types it will be asked about (an XML import walking arbitrary assets, a
+     * content-config registry). Resolved once at the caller's async boundary and then read synchronously.
+     */
+    export async function allCaches(): Promise<SymbolCaches> {
+        const byCtorCache = new Map<Function, SymbolCache<Symbol>>();
+        for (const [ctor, stl] of byCtor)
+            byCtorCache.set(ctor, new SymbolCache(ctor as Type<Symbol>, await stl.lazy.value() as Map<string, Symbol>));
+        return new SymbolCaches(byCtorCache);
     }
-    export function toSymbol<T extends Symbol>(ctor: Type<T>, key: string): T {
-        const s = cache(ctor).get(key);
+}
+
+/** One symbol type's persisted symbols, resolved. The declared singletons, stamped with their ids. */
+export class SymbolCache<T extends Symbol> {
+    constructor(private readonly ctor: Type<T>, private readonly byKey: Map<string, T>) { }
+
+    symbols(): T[] {
+        return [...this.byKey.values()];
+    }
+
+    tryToSymbol(key: string): T | undefined {
+        return this.byKey.get(key);
+    }
+
+    toSymbol(key: string): T {
+        const s = this.byKey.get(key);
         if (s == null)
-            throw new Error(`Symbol '${key}' is not registered for ${ctor.name}.`);
-        return s as T;
+            throw new Error(`Symbol '${key}' is not registered for ${this.ctor.name}.`);
+        return s;
     }
-    export function allUniqueKeys<T extends Symbol>(ctor: Type<T>): Set<string> {
-        return new Set(cache(ctor).keys());
+
+    allUniqueKeys(): Set<string> {
+        return new Set(this.byKey.keys());
+    }
+}
+
+/** Every symbol type's cache in one object — see {@link SymbolLogic.allCaches}. */
+export class SymbolCaches {
+    constructor(private readonly byCtor: Map<Function, SymbolCache<Symbol>>) { }
+
+    of<T extends Symbol>(ctor: Type<T>): SymbolCache<T> {
+        const c = this.byCtor.get(ctor);
+        if (c == null)
+            throw new Error(`SymbolLogic has not been started for ${ctor.name}.`);
+        return c as SymbolCache<T>;
+    }
+
+    tryToSymbol<T extends Symbol>(ctor: Type<T>, key: string): T | undefined {
+        return (this.byCtor.get(ctor) as SymbolCache<T> | undefined)?.tryToSymbol(key);
     }
 }
 
@@ -148,16 +191,6 @@ function assertStarted<T extends Symbol>(ctor: Type<T>): SymbolTypeLogic<T> {
     if (stl == null)
         throw new Error(`SymbolLogic has not been started for ${ctor.name}. Call SymbolLogic.start(sb, ${ctor.name}) first.`);
     return stl as SymbolTypeLogic<T>;
-}
-
-// The warmed key→symbol cache, or THROW (Signum's lazy.Value; TypeLogic.caches does the same). Never
-// fabricates ids — the async load (schema.initialize()'s SymbolLogic.load) must have completed.
-function cache<T extends Symbol>(ctor: Type<T>): Map<string, T> {
-    const stl = assertStarted(ctor);
-    const c = stl.lazy.valueOrUndefined;
-    if (c == null)
-        throw new Error(`SymbolLogic cache for ${ctor.name} is not loaded — symbol id resolution needs the async load (SymbolLogic.load(${ctor.name}), run by schema.initialize()) to have completed.`);
-    return c;
 }
 
 // The ResetLazy factory (Signum's lazy factory): read the persisted rows and STAMP each id onto the shared

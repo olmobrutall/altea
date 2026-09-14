@@ -103,7 +103,7 @@ export namespace AuthImportExport {
 
         // ---- Resource rename maps (types + condition symbols), collected generically ------------
         const dbTypeNames = new Set((await table(TypeEntity).toArray() as TypeEntity[]).map(t => t.cleanName));
-        const condSymByKey = new Map(SymbolLogic.symbols(TypeConditionSymbol).map(s => [s.key, s]));
+        const condSymByKey = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [s.key, s]));
         const typeNames = new Set<string>();
         const condNames = new Set<string>();
         for (const { section, row } of eachRow()) {

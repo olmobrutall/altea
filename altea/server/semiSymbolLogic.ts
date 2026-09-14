@@ -81,31 +81,36 @@ export namespace SemiSymbolLogic {
         await byCtor.get(ctor)?.lazy.value();
     }
 
-    /** The DECLARED semi-symbols, warmed with their persisted ids (Signum's `SemiSymbols`). */
-    export function semiSymbols<T extends SemiSymbol>(ctor: Type<T>): T[] {
-        return [...cache(ctor).values()] as T[];
-    }
-
-    export function tryToSemiSymbol<T extends SemiSymbol>(ctor: Type<T>, key: string): T | undefined {
-        return cache(ctor).get(key) as T | undefined;
-    }
-
-    export function toSemiSymbol<T extends SemiSymbol>(ctor: Type<T>, key: string): T {
-        const s = cache(ctor).get(key);
-        if (s == null)
-            throw new Error(`SemiSymbol '${key}' is not registered for ${ctor.name}.`);
-        return s as T;
+    /**
+     * THE way to read a semi-symbol type's persisted rows (Signum's `SemiSymbols`): await the cache, then
+     * read it synchronously. No synchronous static twin — see SymbolLogic.cache.
+     */
+    export async function cache<T extends SemiSymbol>(ctor: Type<T>): Promise<SemiSymbolCache<T>> {
+        const stl = byCtor.get(ctor);
+        if (stl == null)
+            throw new Error(`SemiSymbolLogic has not been started for ${ctor.name}. Call SemiSymbolLogic.start(sb, ${ctor.name}) first.`);
+        return new SemiSymbolCache<T>(ctor, await stl.lazy.value() as Map<string, T>);
     }
 }
 
-function cache<T extends SemiSymbol>(ctor: Type<T>): Map<string, T> {
-    const stl = byCtor.get(ctor);
-    if (stl == null)
-        throw new Error(`SemiSymbolLogic has not been started for ${ctor.name}. Call SemiSymbolLogic.start(sb, ${ctor.name}) first.`);
-    const c = stl.lazy.valueOrUndefined;
-    if (c == null)
-        throw new Error(`SemiSymbolLogic cache for ${ctor.name} is not loaded — the async load (run by schema.initialize()) must have completed.`);
-    return c as Map<string, T>;
+/** One semi-symbol type's persisted rows, resolved — the declared instances, stamped with their ids. */
+export class SemiSymbolCache<T extends SemiSymbol> {
+    constructor(private readonly ctor: Type<T>, private readonly byKey: Map<string, T>) { }
+
+    semiSymbols(): T[] {
+        return [...this.byKey.values()];
+    }
+
+    tryToSemiSymbol(key: string): T | undefined {
+        return this.byKey.get(key);
+    }
+
+    toSemiSymbol(key: string): T {
+        const s = this.byKey.get(key);
+        if (s == null)
+            throw new Error(`SemiSymbol '${key}' is not registered for ${this.ctor.name}.`);
+        return s;
+    }
 }
 
 // The read-back (Signum's lazy factory): stamp each persisted id onto the shared DECLARED instance, matched
