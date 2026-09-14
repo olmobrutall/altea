@@ -8,6 +8,7 @@ import { Entity, View, ModelEntity } from "../../data/entity";
 import { getLambdaTypeResolvers, getResultTypeResolver, type LambdaTypeResolver, OrderedQuery, Query, type ResultTypeResolver } from "../query";
 import type { QuotedFunction } from "../runtimeTypes";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
+import { isStablePromise, refuseUnstablePromise, stableRuntimeType } from "../../server/stablePromise";
 
 // ---- constant folding (used by fromQuoted) --------------------------------------------------
 // fromQuoted folds parameter-free subtrees to constants BOTTOM-UP, in the same single pass that
@@ -129,6 +130,19 @@ export function evalBinaryOp(op: OpBinary, a: any, b: any): unknown {
 // translate it. `?.` on a null constant folds to undefined.
 function foldOrProperty(obj: Expression, name: string, optional: boolean): Expression {
     if (obj instanceof ConstantExpression) {
+        // `.$v` over a folded value. Three cases, and none of them reads `$v` off the object — that
+        // accessor always throws, which is what keeps `.$v` from ever being evaluated in memory:
+        //  • not a promise → the IDENTITY. `Promise.resolve(x)` folds to `x` (it is `.$v` dual), so the
+        //    `.$v` that follows meets a plain value and must pass it through;
+        //  • a STABLE promise → a placeholder typed by the declared runtimeType, which the BINDER resolves
+        //    to the loaded value (or asks its region to load);
+        //  • any other promise → refused: a one-off promise is a different object on every conversion, so
+        //    no amount of awaiting could ever fold it.
+        if (name === "$v" && obj.value instanceof Promise) {
+            if (!isStablePromise(obj.value))
+                refuseUnstablePromise();
+            return new PropertyExpression(obj, name, optional);
+        }
         if (obj.value == null) {
             if (optional)
                 return new ConstantExpression(undefined);
@@ -150,6 +164,11 @@ function constValueOf(exp: Expression): { value: unknown } | null {
     if (exp instanceof ConstantExpression)
         return { value: exp.value };
     if (exp instanceof PropertyExpression && !exp.isOptionalChaining) {
+        // `$v` is the one member that must never be READ: the accessor throws by design, and the value it
+        // stands for is not known until the binder folds it. A call on a `.$v` receiver therefore stays
+        // structural here and is folded, if at all, once the binder has substituted the constant.
+        if (exp.propertyName === "$v")
+            return null;
         const o = constValueOf(exp.object);
         if (o != null && o.value != null)
             return { value: (o.value as Record<string, unknown>)[exp.propertyName] };
@@ -447,7 +466,10 @@ function staticReceiverValue(obj: Expression | undefined): unknown {
     if (obj instanceof ConstantExpression)
         return obj.value;
     if (obj instanceof PropertyExpression && obj.object instanceof ConstantExpression)
-        return (obj.object.value as Record<string, unknown> | null | undefined)?.[obj.propertyName];
+        // Never read `$v` — see constValueOf. A `.$v` receiver has a declared type, so the dispatch above
+        // has already keyed off it and never falls through to a static receiver.
+        return obj.propertyName === "$v" ? undefined
+            : (obj.object.value as Record<string, unknown> | null | undefined)?.[obj.propertyName];
     return undefined;
 }
 
@@ -708,6 +730,17 @@ export abstract class Expression {
                         let prebuiltArgs: Expression[] | undefined;
                         if (!(args as QuotedEx[]).some(a => a[0] === "=>")) {
                             prebuiltArgs = (args as QuotedEx[]).map(a => fromQuoted(a));
+
+                            // `Promise.resolve(x)` is the exact DUAL of `.$v`, and carries as little SQL meaning:
+                            // `.$v` unwraps Promise<T> → T for the type checker and binds as the identity, this
+                            // wraps T → Promise<T> and does the same. It is what lets a `@quoted` twin of an ASYNC
+                            // method keep the method signature — the body has to produce a Promise<T> to type-check,
+                            // while the expression underneath is the plain translatable value. BEFORE the constant
+                            // fold below, which would otherwise run it and bury the value in a one-off promise.
+                            if (prebuiltArgs.length === 1 && fun instanceof PropertyExpression
+                                && fun.propertyName === "resolve" && staticReceiverValue(fun.object) === Promise)
+                                return prebuiltArgs[0];
+
                             if (prebuiltArgs.every(a => a instanceof ConstantExpression)) {
                                 const folded = tryFoldCall(fun, prebuiltArgs.map(a => (a as ConstantExpression).value), optional);
                                 if (folded != null)
@@ -1066,6 +1099,15 @@ export class PropertyExpression extends Expression {
     private static calculateType(object: Expression, propertyName: string): RuntimeType {
         if (object instanceof ObjectExpression)
             return object.properties[propertyName]?.type ?? LiteralType.null;
+
+        // `cache().$v` over a STABLE promise types as the cache DECLARED, never as anything read off the
+        // value: a lambda is converted wherever it is written — a fluent builder call included — with no
+        // async boundary around it to await a cold cache. That declared type is what dispatches the members
+        // and methods called on the value (an ArrayType picks OrderedQuery.includes, a ClassType the class
+        // own @quoted methods), so it has to be right BEFORE the value exists. The binder folds the value
+        // in later (QueryBinder.bindMember), inside a region that can load it.
+        if (propertyName === "$v" && object instanceof ConstantExpression && isStablePromise(object.value))
+            return stableRuntimeType(object.value);
 
         return resolveMemberType(object.type, propertyName);
     }

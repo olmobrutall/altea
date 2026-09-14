@@ -12,7 +12,7 @@ import { UserWithClaims } from "@altea/altea/data/security";
 import { PasswordEncoding } from "@altea/altea/server/passwordEncoding";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
-import { ResetLazy } from "@altea/altea/data/resetLazy";
+import { ResetLazy } from "@altea/altea/server/resetLazy";
 import { codify } from "@altea/altea/server/sync/stringHash";
 import { UserEntity, UserState, UserOperation } from "../data/User";
 import { RoleEntity, RoleEntity_InheritsFrom, RoleOperation, MergeStrategy } from "../data/Role";

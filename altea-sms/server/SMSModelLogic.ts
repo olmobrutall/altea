@@ -3,7 +3,7 @@ import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import "@altea/altea/data/globals"; // Array.prototype.groupToMap
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { Schema } from "@altea/altea/server/schema/schema";
-import type { ResetLazy } from "@altea/altea/data/resetLazy";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import { Graph } from "@altea/altea/server/graph";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";

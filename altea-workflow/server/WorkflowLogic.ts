@@ -14,7 +14,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
-import type { ResetLazy } from "@altea/altea/data/resetLazy";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { ValidationMessage } from "@altea/altea/data/validators";

@@ -1,7 +1,7 @@
 import "@altea/altea/server"; // Entity.save()/delete()
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // withQuery
 import { SchemaBuilder } from "@altea/altea/server/schema";
-import { ResetLazy } from "@altea/altea/data/resetLazy";
+import { ResetLazy } from "@altea/altea/server/resetLazy";
 import { table } from "@altea/altea/server/table";
 import { Entity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";

@@ -45,7 +45,8 @@ import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntity';
 import { ImmutableEntity, assertImmutable } from '../../data/immutableEntity';
 import { TypeEntity } from '../../data/typeEntity';
-import type { ResetLazy } from '../../data/resetLazy';
+import type { ResetLazy } from '../../server/resetLazy';
+import type { RuntimeType } from '../runtimeTypes';
 import { TypeLogic } from '../typeLogic';
 import type { WebBuilder } from '../webApi';
 import { GlobalLazy, GlobalLazyManager } from '../globalLazy';
@@ -491,11 +492,14 @@ export class SchemaBuilder {
     // it reads (the cache manager loads every dependency there), `attachInvalidations` wires the reset.
     // The factory itself runs in global execution mode + an independent transaction — see
     // GlobalLazy.withoutInvalidations, which also registers the lazy for statistics / resetAll.
-    globalLazy<T>(factory: () => Promise<T>, options: { invalidateWith: Type<Entity>[], useBaseImplementation?: boolean, name?: string }): ResetLazy<T> {
+    //
+    // `runtimeType` makes the cache readable from inside a QUERY through `.$v` — see
+    // GlobalLazy.withoutInvalidations.
+    globalLazy<T>(factory: () => Promise<T>, options: { invalidateWith: Type<Entity>[], useBaseImplementation?: boolean, name?: string, runtimeType?: () => RuntimeType }): ResetLazy<T> {
         const lazy = GlobalLazy.withoutInvalidations<T>(async () => {
             await this.globalLazyManager.onLoad(this, options);
             return await factory();
-        }, { name: options.name ?? options.invalidateWith.map(t => t.name).join(", "), schema: this.schema });
+        }, { name: options.name ?? options.invalidateWith.map(t => t.name).join(", "), schema: this.schema, runtimeType: options.runtimeType });
 
         this.globalLazyManager.attachInvalidations(this, options, () => lazy.reset());
 

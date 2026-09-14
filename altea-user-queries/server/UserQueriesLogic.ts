@@ -4,7 +4,7 @@ import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.w
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
-import type { ResetLazy } from "@altea/altea/data/resetLazy";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
 import type { Lite } from "@altea/altea/data/lite";
 import { UserQueryEntity, UserQueryOperation } from "../data/UserQuery";

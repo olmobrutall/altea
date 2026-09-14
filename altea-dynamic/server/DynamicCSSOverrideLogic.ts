@@ -4,7 +4,7 @@ import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.w
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
-import type { ResetLazy } from "@altea/altea/data/resetLazy";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import { DynamicCSSOverrideEntity, DynamicCSSOverrideOperation } from "../data/DynamicCSSOverride";
 
 // Port of Signum.Dynamic's CSS/DynamicCSSOverrideLogic.cs — the table, its two operations, and the lazy the

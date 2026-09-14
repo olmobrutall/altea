@@ -29,6 +29,7 @@ import type { Schema } from "./schema/schema";
 import type { QueryFilterContext } from "./schema/entityEvents";
 import { setQuerySourceFactory } from "./schema/filterQueryArgs";
 import { HeavyProfiler } from "./profiler/heavyProfiler";
+import { withPromisesLoaded } from "./promiseResolution";
 import type { CacheController } from "./cache";
 
 
@@ -43,8 +44,9 @@ if (!Object.prototype.hasOwnProperty.call(Promise.prototype, "$v")) {
     Object.defineProperty(Promise.prototype, "$v", {
         configurable: true,
         enumerable: false,
-        get(this: Promise<unknown>): unknown {
-            throw new Error("Promise.$v is a query-compiler marker and should not be evaluated at runtime.");
+        get(this: Promise<unknown>): never {
+            throw new Error("`.$v` is a query-only marker and cannot be evaluated in memory."
+                + " It unwraps a Promise for the query translator; outside a query lambda, await the promise instead.");
         }
     });
 }
@@ -199,7 +201,12 @@ export async function bindOptimizeSecured(expression: Expression, schema: Schema
     // The query goes to the providers: a row filter whose answer depends on the caller's own filters does
     // its async work there (see Schema.queryFilterProviders).
     const filterContext = await schema.buildQueryFilterContext(expression);
-    return bindAndOptimize(expression, schema, isPostgres, alreadySimplified, filterContext, typeCaches);
+    // Binding folds parameter-free subtrees by RUNNING them, so a `@quoted` expression or a row filter can
+    // read a cache through `.$v`. A cold one announces itself by throwing; the region loads exactly that
+    // one and binds again (binding is pure — a fresh QueryBinder per call, all of its state instance-local).
+    // Nothing has to be warmed in advance, and nothing no query asked for is ever loaded.
+    return await withPromisesLoaded(() =>
+        bindAndOptimize(expression, schema, isPostgres, alreadySimplified, filterContext, typeCaches));
 }
 
 // Binds `table(ctor).filter(e => ids.includes(e.id))` — the shared shape behind both the
@@ -226,7 +233,10 @@ Retriever.retrieveListImpl = async (ctor: Type<Entity>, ids: PrimaryKey[], retri
     const connector = Connector.current();
     const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.ready(connector.schema);
     const filterContext = await connector.schema.buildQueryFilterContext();
-    await buildTranslateResult(retrieveByIdsProjection(ctor, ids, filterContext, typeCaches), connector.isPostgres).executeInto(retriever);
+    // The row filters this bind applies are the same ones a query carries, so the same on-demand cache
+    // loading applies — only the (pure) bind is inside the region, never the retriever it feeds.
+    const projection = await withPromisesLoaded(() => retrieveByIdsProjection(ctor, ids, filterContext, typeCaches));
+    await buildTranslateResult(projection, connector.isPostgres).executeInto(retriever);
 };
 
 // The DISPLAY-STRING projection behind `Retriever.completeLiteToStrings` (Signum's RequestLite completion):
@@ -278,7 +288,8 @@ export async function retrieveEntitiesByIds<T extends Entity>(ctor: Type<T>, ids
     const connector = Connector.current();
     const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.ready(connector.schema);
     const filterContext = await connector.schema.buildQueryFilterContext();
-    return await buildTranslateResult(retrieveByIdsProjection(ctor, ids, filterContext, typeCaches), connector.isPostgres).execute() as T[];
+    const projection = await withPromisesLoaded(() => retrieveByIdsProjection(ctor, ids, filterContext, typeCaches));
+    return await buildTranslateResult(projection, connector.isPostgres).execute() as T[];
 }
 
 class MyQueryTranslator implements IQueryTranslator {
@@ -295,7 +306,9 @@ class MyQueryTranslator implements IQueryTranslator {
     // the relevant slice of Signum's DbQueryProvider.Optimize.
     bind(expression: Expression): ProjectionExpression {
         const connector = Connector.current();
-        // SYNCHRONOUS bind (debug SQL / offline comparison): can't await; bindAndOptimize's default reads
+        // SYNCHRONOUS bind (debug SQL / offline comparison): can't await, so a cache a `.$v` in this query
+        // needs and nobody loaded surfaces as the PromiseNotLoaded it is, rather than being resolved here.
+        // Every EXECUTING path goes through bindOptimizeSecured, which loads on demand. bindAndOptimize's default reads
         // the already-loaded caches box (warm in production; offline binders seed it — the test layer's seedTypeCachesForTest).
         return bindAndOptimize(expression, connector.schema, connector.isPostgres);
     }
@@ -322,9 +335,16 @@ class MyQueryTranslator implements IQueryTranslator {
         // Row-level security applies to the SELECT that feeds an unsafe UPDATE/DELETE too (you may only
         // touch rows you can see): resolve the context async, then bind the command with it.
         const filterContext = await connector.schema.buildQueryFilterContext(expression);
-        const simplified = OverloadingSimplifier.simplify(expression);
-        const binder = new QueryBinder(connector.schema, connector.isPostgres, filterContext, typeCaches);
-        const command = binder.bindCommand(simplified);
+        // Same on-demand cache loading as the query path: the source SELECT carries the same row filters
+        // and `@quoted` expressions, so it can need the same caches. Only the (pure) bind is re-runnable —
+        // the optimise/execute loop below is not, and by then every cache it needs is loaded.
+        const { command, aliases } = await withPromisesLoaded(() => {
+            const simplified = OverloadingSimplifier.simplify(expression);
+            const binder = new QueryBinder(connector.schema, connector.isPostgres, filterContext, typeCaches);
+            // The alias generator travels with the command: the sub-command simplifier below mints more
+            // aliases into the same namespace, so it must be THIS bind generator, not a fresh one.
+            return { command: binder.bindCommand(simplified), aliases: binder.aliases };
+        });
 
         // Each sub-command (owned-child deletes precede the parent) is optimised,
         // formatted, and executed as its OWN query: optimised separately so the
@@ -347,7 +367,7 @@ class MyQueryTranslator implements IQueryTranslator {
             if (!connector.isPostgres)
                 c = ConditionsRewriter.rewrite(c);
             c = ScalarSubqueryRewriter.rewrite(c, connector.isPostgres);
-            c = CommandSimplifier.simplify(c as CommandExpression, binder.aliases, connector.isPostgres);
+            c = CommandSimplifier.simplify(c as CommandExpression, aliases, connector.isPostgres);
 
             const { sql, parameters } = QueryFormatter.formatCommand(c as CommandExpression, connector.isPostgres);
             const rows = await connector.executeQuery(sql, parameters);

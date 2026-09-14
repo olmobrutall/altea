@@ -1,5 +1,5 @@
 import type { Entity, PrimaryKey, Type, View, ViewType } from '../../data/entity';
-import type { ResetLazy } from '../../data/resetLazy';
+import type { ResetLazy } from '../../server/resetLazy';
 import type { TypeCaches } from '../typeLogic';
 import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
 import { commentedError } from '../sync/syncTableRead';

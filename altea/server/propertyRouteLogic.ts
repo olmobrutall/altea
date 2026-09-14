@@ -1,7 +1,7 @@
 import "./index"; // installs Entity.save()/delete()
 import "./dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "./schema/schemaBuilder";
-import type { ResetLazy } from "../data/resetLazy";
+import type { ResetLazy } from "./resetLazy";
 import { table } from "./table";
 import { Administrator } from "./Administrator";
 import { Synchronizer, type Replacements } from "./sync/synchronizer";

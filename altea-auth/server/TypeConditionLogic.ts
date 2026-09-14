@@ -14,6 +14,7 @@ import { replaceParameter } from "@altea/altea/server/linq/expressionReplacer";
 import { LiteralType, ClassType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
 import type { FilterQueryArgs } from "@altea/altea/server/schema/filterQueryArgs";
 import { filterAuditor, isEqualsConstant } from "./QueryAuditorVisitor";
+import { quotedReadsPromiseMarker } from "@altea/altea/server/stablePromise";
 
 // Port of Signum.Authorization's Rules/TypeConditionLogic.cs — see port/Auth.md.
 //
@@ -39,17 +40,35 @@ import { filterAuditor, isEqualsConstant } from "./QueryAuditorVisitor";
  *                     FilterQueryArgs and answers with `e => true` / `e => false` for that whole query
  *                     (see registerWhenAlreadyFilteringBy). Async, per the header.
  *
- * `inMemoryCondition` is the SYNCHRONOUS per-instance predicate; `asyncInMemoryCondition` is the async
- * one an auditor condition needs. The async one is resolved by `fillTypeConditions` and cached, so
- * `inTypeCondition` stays synchronous for its callers (a property serializer among them).
+ * `inMemoryCondition` is the per-instance predicate and MAY be async — which is what a condition whose SQL
+ * half reads a cache through `.$v` needs, since `.$v` only ever means something to the translator and always
+ * throws in memory; the twin awaits the same cache instead. `asyncInMemoryCondition` is the equivalent for
+ * an auditor condition. An async predicate of either kind is pre-computed by `fillTypeConditions` and
+ * cached, which is what keeps `inTypeCondition` SYNCHRONOUS for its callers (a property serializer among
+ * them) — the split below is about that one API, not a preference for synchronous predicates.
  */
 class TypeConditionInfo {
+    // Whether `inMemoryCondition` answers with a promise, declared by being an `async` function. Such a
+    // condition cannot answer the synchronous `inTypeCondition` directly, so it is filled and cached
+    // exactly like a DB-only one.
+    readonly inMemoryIsAsync: boolean;
+
     constructor(
         readonly condition: Quoted<(e: BaseEntity) => boolean> | undefined,
-        readonly inMemoryCondition: ((e: BaseEntity) => boolean) | undefined,
+        readonly inMemoryCondition: ((e: BaseEntity) => boolean | Promise<boolean>) | undefined,
         readonly queryAuditor?: (args: FilterQueryArgs) => Promise<LambdaExpression>,
         readonly asyncInMemoryCondition?: (e: BaseEntity) => Promise<boolean>,
-    ) { }
+    ) {
+        this.inMemoryIsAsync = inMemoryCondition?.constructor?.name === "AsyncFunction";
+    }
+}
+
+// The per-INSTANCE predicate that cannot answer synchronously — an async in-memory twin, or the auditor's
+// async predicate. Both are pre-computed and cached by `fillTypeConditions`.
+function asyncPerInstance(info: TypeConditionInfo): ((e: BaseEntity) => Promise<boolean>) | undefined {
+    if (info.inMemoryIsAsync)
+        return info.inMemoryCondition as (e: BaseEntity) => Promise<boolean>;
+    return info.asyncInMemoryCondition;
 }
 
 const infos = new Map<Function, Map<TypeConditionSymbol, TypeConditionInfo>>();
@@ -81,7 +100,7 @@ export namespace TypeConditionLogic {
         ctor: Type<T>,
         typeCondition: TypeConditionSymbol,
         condition: Quoted<(e: T) => boolean>,
-        inMemoryCondition?: (e: T) => boolean,
+        inMemoryCondition?: (e: T) => boolean | Promise<boolean>,
         replace = false,
     ): void {
         if (typeCondition == null)
@@ -95,7 +114,7 @@ export namespace TypeConditionLogic {
 
         const info = new TypeConditionInfo(
             condition as Quoted<(e: BaseEntity) => boolean>,
-            inMemoryCondition as ((e: BaseEntity) => boolean) | undefined,
+            inMemoryCondition as ((e: BaseEntity) => boolean | Promise<boolean>) | undefined,
         );
         if (!replace && dic.has(typeCondition))
             throw new Error(`TypeCondition ${typeCondition.key} already registered for ${ctor.name}`);
@@ -110,6 +129,15 @@ export namespace TypeConditionLogic {
         condition: Quoted<(e: T) => boolean>,
         replace = false,
     ): void {
+        // `.$v` only means something to the query translator — evaluated in memory it always throws — so a
+        // lambda using it cannot BE the in-memory evaluator, which is exactly what this overload makes it.
+        // Rejected at registration (start-up, with the symbol named) instead of at whichever per-entity path
+        // happens to evaluate it first: the save gate and the property serializer are both far from here.
+        if (quotedReadsPromiseMarker(condition))
+            throw new Error(
+                `TypeCondition ${typeCondition.key} on ${ctor.name} reads \`.$v\`, so it cannot be registered ` +
+                `with registerCompile: that form runs the SAME lambda in memory, where \`.$v\` always throws. ` +
+                `Use register(...) and give it an in-memory twin that awaits the cache instead.`);
         register(ctor, typeCondition, condition, condition as (e: T) => boolean, replace);
     }
 
@@ -284,12 +312,19 @@ export namespace TypeConditionLogic {
         return info.condition;
     }
 
-    export function hasInMemoryCondition(ctor: Function, typeCondition: TypeConditionSymbol): boolean {
-        return infoOrThrow(ctor, typeCondition).inMemoryCondition != null;
+    /**
+     * Whether the condition can answer the SYNCHRONOUS `inTypeCondition` from the instance alone. False for
+     * a DB-only condition and for one whose in-memory twin is async — both are pre-computed and cached
+     * instead (the retrieve-time additional binding, or `fillTypeConditions`).
+     */
+    export function hasSyncInMemoryCondition(ctor: Function, typeCondition: TypeConditionSymbol): boolean {
+        const info = infoOrThrow(ctor, typeCondition);
+        return info.inMemoryCondition != null && !info.inMemoryIsAsync;
     }
 
     export function getInMemoryCondition<T extends Entity>(ctor: Type<T>, typeCondition: TypeConditionSymbol): ((e: T) => boolean) | undefined {
-        return infoOrThrow(ctor, typeCondition).inMemoryCondition as ((e: T) => boolean) | undefined;
+        const info = infoOrThrow(ctor, typeCondition);
+        return info.inMemoryIsAsync ? undefined : info.inMemoryCondition as ((e: T) => boolean) | undefined;
     }
 
     // Evaluate ONE symbol against ONE instance. A condition
@@ -302,13 +337,23 @@ export namespace TypeConditionLogic {
     // we throw rather than silently returning a wrong (unfilled) answer.
     export function inTypeCondition<T extends Entity>(entity: T, typeCondition: TypeConditionSymbol): boolean {
         const func = getInMemoryCondition(entity.constructor as Type<T>, typeCondition);
-        if (func != null)
-            return func(entity);
+        if (func != null) {
+            const answer = func(entity) as boolean | Promise<boolean>;
+            // A predicate that hands back a promise without being declared `async` would otherwise be TRUTHY
+            // here — every row silently satisfying the condition. Name it instead: a promise-returning twin
+            // must be `async`, which is what routes it through the fill + cache below.
+            if (answer instanceof Promise)
+                throw new Error(
+                    `The in-memory predicate of TypeCondition ${typeCondition.key} on ${entity.constructor.name} ` +
+                    `returned a promise but is not declared \`async\`, so it cannot be pre-computed. Declare it ` +
+                    `\`async\` — then it is filled and cached like a DB-only condition.`);
+            return answer;
+        }
         const cached = conditionCache.get(entity);
         if (cached == null || !cached.has(typeCondition))
             throw new Error(
-                `TypeCondition ${typeCondition.key} has no in-memory predicate for ${entity.constructor.name} and its DB ` +
-                `value isn't cached — call TypeConditionLogic.fillTypeConditions([...]) on the batch first.`);
+                `TypeCondition ${typeCondition.key} has no synchronous in-memory predicate for ${entity.constructor.name} ` +
+                `and its value isn't cached — call TypeConditionLogic.fillTypeConditions([...]) on the batch first.`);
         return cached.get(typeCondition)!;
     }
 
@@ -341,7 +386,9 @@ export namespace TypeConditionLogic {
         if (entities.length === 0)
             return;
         const ctor = entities[0].constructor as Type<T>;
-        const dbOnly = (typeConditions ?? conditionsFor(ctor)).filter(tc => !hasInMemoryCondition(ctor, tc));
+        // Everything that cannot answer synchronously: DB-only conditions AND those whose in-memory twin is
+        // async (the shape a condition takes when its SQL half reads a cache through `.$v`).
+        const dbOnly = (typeConditions ?? conditionsFor(ctor)).filter(tc => !hasSyncInMemoryCondition(ctor, tc));
         if (dbOnly.length === 0)
             return;
         // IDEMPOTENT: an entity is filled for ALL its DB-only conditions at once, so a
@@ -368,21 +415,28 @@ export namespace TypeConditionLogic {
         // ExecutionMode.global switches authorization OFF — inside it every such question answers "yes".
         // Global mode belongs to the SQL predicate path, where its job is to keep the fill query itself
         // from being row-filtered.
+        // An ASYNC in-memory twin is answered here too, and PREFERRED over this condition's own SQL
+        // predicate when it has one: the twin is what the registrar supplied precisely for the entities the
+        // batch below cannot reach — a fresh instance on the save path has no id to match on.
         for (const tc of dbOnly) {
             const info = infoOrThrow(ctor, tc);
-            if (info.condition != null)
+            const perInstance = asyncPerInstance(info);
+            if (perInstance == null) {
+                // Neither an async predicate nor a SQL one: the condition cannot be evaluated per instance,
+                // and "not satisfied" is the safe answer (a type condition can only ever GRANT access).
+                if (info.condition == null)
+                    for (const e of need)
+                        setCachedValue(e, tc, false);
                 continue;
-            const asyncCondition = info.asyncInMemoryCondition;
+            }
             for (const e of need)
-                // No async predicate either: the condition cannot be evaluated per instance, and "not
-                // satisfied" is the safe answer (a type condition can only ever GRANT access).
-                setCachedValue(e, tc, asyncCondition == null ? false : await asyncCondition(e));
+                setCachedValue(e, tc, await perInstance(e));
         }
 
         await ExecutionMode.global(async () => {
             for (const tc of dbOnly) {
                 const info = infoOrThrow(ctor, tc);
-                if (info.condition == null)
+                if (info.condition == null || asyncPerInstance(info) != null)
                     continue; // handled above
                 const predicate = info.condition;
                 const yesIds = await table(ctor).filter(predicate).filter(e => ids.includes(e.id)).map(e => e.id).toArray() as PrimaryKey[];
@@ -396,7 +450,7 @@ export namespace TypeConditionLogic {
     /** True if `ctor` has at least one DB-only condition (needs SQL fill) — lets the retrieve/save
      *  integration skip types whose conditions are all in-memory. */
     export function hasDbOnlyConditions(ctor: Function): boolean {
-        return conditionsFor(ctor).some(tc => !hasInMemoryCondition(ctor, tc));
+        return conditionsFor(ctor).some(tc => !hasSyncInMemoryCondition(ctor, tc));
     }
 }
 

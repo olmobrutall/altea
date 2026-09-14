@@ -9,7 +9,7 @@ import { DirectedGraph } from "@altea/altea/server/directedGraph";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { getNiceName, type QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
-import type { ResetLazy } from "@altea/altea/data/resetLazy";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import type { Entity, Type } from "@altea/altea/data/entity";
 import { getTypeInfo, type TypeInfo } from "@altea/altea/data/reflection";
 import { Lite } from "@altea/altea/data/lite";

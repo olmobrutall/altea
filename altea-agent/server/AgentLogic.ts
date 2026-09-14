@@ -2,7 +2,7 @@ import "@altea/altea/server";
 import "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import type { ResetLazy } from "@altea/altea/data/resetLazy";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import { SemiSymbolLogic } from "@altea/altea/server/semiSymbolLogic";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { table as tableQuery } from "@altea/altea/server/table";

@@ -10,7 +10,7 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
-import type { ResetLazy } from "@altea/altea/data/resetLazy";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import { Entity, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";

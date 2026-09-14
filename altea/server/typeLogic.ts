@@ -5,7 +5,7 @@ import { cleanTypeName, getLocation, enumNameOf, resolveCleanType, legacyClassNa
 import { TypeEntity } from "../data/typeEntity";
 import { quotedFunction } from "./query";
 import { ClassType } from "./runtimeTypes";
-import { ResetLazy } from "../data/resetLazy";
+import { ResetLazy } from "./resetLazy";
 import { insertSqlSyncGenerated, updateSqlSync, deleteSqlSync, copyRowFields } from "./save";
 import { table as table_ } from "./table";
 import { existsTable } from "./sync/syncTableRead";

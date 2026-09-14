@@ -5,7 +5,7 @@ import type { Entity, PrimaryKey, Type } from "../data/entity";
 import { Symbol } from "../data/symbol";
 import { declaredSymbolsForType } from "../data/registration";
 import { StartParameters } from "../data/utils/startParameters";
-import { ResetLazy } from "../data/resetLazy";
+import { ResetLazy } from "./resetLazy";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
 import type { Schema, SynchronizingHandler } from "./schema/schema";
 import { Connector } from "./connection/connector";

@@ -1,6 +1,6 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import type { ResetLazy } from "@altea/altea/data/resetLazy";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import { table } from "@altea/altea/server/table";
 import { Lite } from "@altea/altea/data/lite";
 import { Clock } from "@altea/altea/data/utils/clock";

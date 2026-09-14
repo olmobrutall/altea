@@ -3,7 +3,7 @@ import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import "@altea/altea/server/fluentOperations"; // FluentInclude.withSave / withDelete
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import type { ResetLazy } from "@altea/altea/data/resetLazy";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import { table } from "@altea/altea/server/table";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TourTriggerLogic } from "@altea/altea/server/tourTriggerLogic";

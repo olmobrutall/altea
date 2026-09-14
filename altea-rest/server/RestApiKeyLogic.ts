@@ -4,7 +4,7 @@ import "@altea/altea/server/fluentOperations"; // FluentInclude.withSave / withD
 import { randomBytes } from "node:crypto";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
-import type { ResetLazy } from "@altea/altea/data/resetLazy";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import { RestApiKeyEntity, RestApiKeyOperation } from "../data/Rest";
 
 // The key table plus the process-wide cache the authenticator reads on every request.

@@ -3,7 +3,7 @@ import { joinRelaxed } from "../data/globals/joinRelaxed";
 import type { Entity, PrimaryKey, Type } from "../data/entity";
 import { SemiSymbol } from "../data/semiSymbol";
 import { declaredSymbolsForType } from "../data/registration";
-import { ResetLazy } from "../data/resetLazy";
+import { ResetLazy } from "./resetLazy";
 import { StartParameters } from "../data/utils/startParameters";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
 import type { Schema, SynchronizingHandler } from "./schema/schema";

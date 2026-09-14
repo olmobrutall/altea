@@ -3,7 +3,7 @@ import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/data/globals";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import type { ResetLazy } from "@altea/altea/data/resetLazy";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import { table } from "@altea/altea/server/table";
 import { retrieve } from "@altea/altea/server/Database";
 import { Graph } from "@altea/altea/server/graph";

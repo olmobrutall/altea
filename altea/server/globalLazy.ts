@@ -1,8 +1,9 @@
 import type { Entity, Type } from "../data/entity";
-import { ResetLazy } from "../data/resetLazy";
+import { ResetLazy } from "./resetLazy";
 import { ExecutionMode } from "./executionMode";
 import { Transaction } from "./connection/transaction";
 import type { Schema } from "./schema/schema";
+import type { RuntimeType } from "./runtimeTypes";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
 
 // Port of Signum's `Signum.Engine/GlobalLazy.cs` (InvalidateWith + the GlobalLazy registry) and the
@@ -75,12 +76,18 @@ export namespace GlobalLazy {
     // mode (authorization suppressed — a cache load reads the whole table) and in an INDEPENDENT
     // transaction, so the value always reflects committed state. NO invalidation is attached; the caller
     // (SchemaBuilder.globalLazy) does that through the manager.
-    export function withoutInvalidations<T>(factory: () => Promise<T>, options?: { name?: string, schema?: Schema }): ResetLazy<T> {
+    //
+    // `runtimeType` — the DECLARED type of the value — is what makes the cache readable from INSIDE a query
+    // through `.$v` (`vipCustomers().$v.includes(o.customer)`): the translator types the read from it and
+    // folds the loaded value in, loading the cache on demand if nobody has yet. A lazy without it is read
+    // only by awaiting `value()`, as before.
+    export function withoutInvalidations<T>(factory: () => Promise<T>, options?: { name?: string, schema?: Schema, runtimeType?: () => RuntimeType }): ResetLazy<T> {
         const lazy = new ResetLazy<T>(() => ExecutionMode.global(() =>
             // TEST-ONLY: `globalLazyReadUncommitted` nests the reload in the ambient (rolled-back)
             // transaction so a test sees its own uncommitted writes — Signum's `Transaction.InTestTransaction
             // ? null : Transaction.ForceNew()`.
-            (options?.schema?.globalLazyReadUncommitted ? Transaction.create : Transaction.forceNew)(factory)));
+            (options?.schema?.globalLazyReadUncommitted ? Transaction.create : Transaction.forceNew)(factory)),
+            options?.runtimeType);
         lazy.name = options?.name;
         registered.add(lazy as ResetLazy<unknown>);
         return lazy;

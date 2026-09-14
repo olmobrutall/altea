@@ -83,6 +83,12 @@ three shipping presets, and the one place that gets both node types and the DOM 
   `declare module` widening the type (optional, `?`), the implementation a `withQuoted` prototype stamp.
   Stamp once on `Entity.prototype` when the body does not depend on the type; per type only when it does.
   Registering on `Entity` itself is how an expression every entity offers is written.
+- **A CACHE is read inside a query with `.$v`**, and only if it declares a `runtimeType`: `ResetLazy` /
+  `sb.globalLazy(…, { runtimeType: () => new ArrayType(…) })` is what makes `vipIds().$v.includes(o.customer)`
+  translatable — the declared type is what the fold dispatches on, and the LINQ provider loads the cache on
+  demand while binding. `.$v` is query-only: in memory the accessor throws, so such a lambda cannot double
+  as an in-memory predicate (give `TypeConditionLogic.register` an `async` twin instead of using
+  `registerCompile`).
 - **There is no QueryDescription.** Token trees are built client-side from the registered entity metadata
   (`Finder.getQueryRoot`); a manual query is named by its ROW MODEL, and each column's caption is that
   field's own `@niceName`.

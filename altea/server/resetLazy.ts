@@ -15,6 +15,8 @@
 //    `valueOrUndefined` (undefined until the first `value()` resolves, or during a reload after
 //    `reset()`). Concurrent `value()` calls share ONE in-flight promise; a rejection self-evicts
 //    so the next call retries (a transient DB error never poisons the cache permanently).
+import { markStable, type RuntimeTypeThunk, type StablePromise } from "./stablePromise";
+
 export interface IResetLazy {
     reset(): void;
     load(): Promise<void>;
@@ -28,6 +30,11 @@ export class ResetLazy<T> implements IResetLazy {
     // The in-flight load, so concurrent `value()` callers share one factory invocation. Cleared
     // when the load settles (or on `reset()`), guarded so a stale load can't populate a reset box.
     private loading: Promise<T> | undefined;
+    // The promise handed out while the value is warm, so `value()` returns the SAME object every time. That
+    // identity is what a `.$v` inside a query needs: the query folds the value off the promise, and a fresh
+    // `Promise.resolve` per call would be a different object on every translation (see data/stablePromise.ts).
+    // Only a lazy that declared a runtimeType pays for it. Dropped by `reset()`.
+    private settled: StablePromise<T> | undefined;
 
     // Lightweight stats (Signum's Loads/Hits/Invalidations/SumLoadTime), handy when profiling caches —
     // and what altea-cache's statistics panel shows per global lazy. `sumLoadTime` is milliseconds.
@@ -40,7 +47,12 @@ export class ResetLazy<T> implements IResetLazy {
     // whatever the registrar passes). Purely descriptive.
     name?: string;
 
-    constructor(private readonly valueFactory: () => Promise<T>) { }
+    // `runtimeType` — the DECLARED type of the value — is what makes this cache readable from inside a query
+    // through `.$v`; without it the promise is not stable and `.$v` over it is refused (see stablePromise.ts).
+    constructor(
+        private readonly valueFactory: () => Promise<T>,
+        private readonly runtimeType?: RuntimeTypeThunk,
+    ) { }
 
     // The cached value, resolved once and reused until `reset()`. Concurrent callers share the
     // in-flight promise; a rejection self-evicts (the next call retries) so a transient error —
@@ -50,17 +62,40 @@ export class ResetLazy<T> implements IResetLazy {
         const b = this.box;
         if (b != null) {
             this.hits++;
-            return Promise.resolve(b.value);
+            if (this.runtimeType == null)
+                return Promise.resolve(b.value);
+            return this.settled ??= markStable(Promise.resolve(b.value), this.runtimeType, { value: b.value });
         }
         if (this.loading != null)
             return this.loading;
         this.loads++;
         const start = performance.now();
-        const p: Promise<T> = this.valueFactory().then(
-            v => { if (this.loading === p) { this.box = { value: v }; this.loading = undefined; this.sumLoadTime += performance.now() - start; } return v; },
-            err => { if (this.loading === p) this.loading = undefined; throw err; },
-        );
+        // The in-flight promise is published BEFORE the factory is invoked. A factory runs synchronously up
+        // to its first `await`, and it can reach `value()` again in that window — a query it issues reads
+        // this very cache through `.$v`. Publishing afterwards would have that re-entrant call start a
+        // SECOND load, and so on until the stack blew, instead of handing back this one (which is what lets
+        // the query region report the cycle).
+        let settle!: (value: T) => void;
+        let fail!: (err: unknown) => void;
+        const p: Promise<T> = new Promise<T>((res, rej) => { settle = res; fail = rej; });
         this.loading = p;
+        // Stable while still LOADING too: a `.$v` that meets the in-flight promise types itself from the
+        // declared runtimeType and asks the region to await it — an unmarked one would be refused instead.
+        if (this.runtimeType != null) markStable(p, this.runtimeType);
+        void (async () => {
+            try {
+                const v = await this.valueFactory();
+                if (this.loading === p) { this.box = { value: v }; this.settled = p as StablePromise<T>; this.loading = undefined; this.sumLoadTime += performance.now() - start; }
+                // Stamp the value on the promise HERE rather than leaving it to markStable’s own `then`, so
+                // it is there the instant this load settles — the query region that awaited this very promise
+                // binds again immediately after, and a value one microtask late would look unloaded.
+                if (this.runtimeType != null) markStable(p, this.runtimeType, { value: v });
+                settle(v);
+            } catch (err) {
+                if (this.loading === p) this.loading = undefined;
+                fail(err);
+            }
+        })();
         return p;
     }
 
@@ -91,6 +126,7 @@ export class ResetLazy<T> implements IResetLazy {
     // a deterministic type-cache into a schema that has no database to load from.
     preset(value: T): void {
         this.box = { value };
+        this.settled = undefined;
         this.loading = undefined;
     }
 
@@ -102,6 +138,7 @@ export class ResetLazy<T> implements IResetLazy {
     // in-flight load (its resolution is guarded, so it won't repopulate the box).
     reset(): void {
         this.box = undefined;
+        this.settled = undefined;
         this.loading = undefined;
         this.invalidations++;
         this.onReset?.();

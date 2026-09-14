@@ -19,7 +19,7 @@ import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { EnumEntity } from "@altea/altea/data/enumEntity";
 import { Symbol as EntitySymbol } from "@altea/altea/data/symbol";
 import { NotNullValidator } from "@altea/altea/data/validators";
-import type { ResetLazy } from "@altea/altea/data/resetLazy";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import { TableIndex } from "@altea/altea/server/schema/tableIndex";
 import { FieldImplementedBy, FieldReference } from "@altea/altea/server/schema/field";
 import {

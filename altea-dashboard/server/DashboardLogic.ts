@@ -5,7 +5,7 @@ import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { retrieve, deleteList } from "@altea/altea/server/Database";
-import type { ResetLazy } from "@altea/altea/data/resetLazy";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import type { Entity, Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { TypeLogic } from "@altea/altea/server/typeLogic";

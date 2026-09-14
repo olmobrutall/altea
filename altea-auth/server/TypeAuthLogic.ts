@@ -1,7 +1,7 @@
 import "@altea/altea/server"; // Entity.save()/delete()
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // withQuery
 import { SchemaBuilder } from "@altea/altea/server/schema";
-import { ResetLazy } from "@altea/altea/data/resetLazy";
+import { ResetLazy } from "@altea/altea/server/resetLazy";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { CallExpression, type Expression, LambdaExpression, PropertyExpression, UnaryExpression } from "@altea/altea/server/linq/expressions";
@@ -181,7 +181,7 @@ export namespace TypeAuthLogic {
                 const elementType = new ClassType(ctor);
                 const specs = sb.schema.entityEvents(ctor as Type<Entity>).additionalBindings;
                 for (const tc of TypeConditionLogic.conditionsFor(ctor)) {
-                    if (TypeConditionLogic.hasInMemoryCondition(ctor, tc))
+                    if (TypeConditionLogic.hasSyncInMemoryCondition(ctor, tc))
                         continue;
                     // A QUERY-AUDITOR condition has no predicate to fold into the SELECT: its answer is
                     // about the caller's query, not the row. Its per-instance value comes from

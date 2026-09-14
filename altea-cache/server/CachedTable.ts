@@ -1,7 +1,7 @@
 import type { Entity, PrimaryKey, Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { FieldInfo } from "@altea/altea/data/reflection";
-import { ResetLazy } from "@altea/altea/data/resetLazy";
+import { ResetLazy } from "@altea/altea/server/resetLazy";
 import type { CacheRetriever } from "@altea/altea/server/cache";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { Transaction } from "@altea/altea/server/connection/transaction";

@@ -21,6 +21,7 @@ import {
 import { SqlFullTextSearch } from "../../fullTextSearch";
 import { PgVectorSearch, SqlVectorSearch, pgVectorDistanceFunction, sqlVectorDistanceKeyword, sqlVectorNormKeyword, type PGVectorDistanceMetric, type SqlVectorDistanceMetric, type SqlVectorNormType } from "../../vectorSearch";
 import { Vector } from "../../../data/vector";
+import { isStablePromise, refuseUnstablePromise, stableRuntimeType, stableValue } from "../../../server/stablePromise";
 import type { SystemVersionedInfo } from "../../schema/systemVersioned";
 import { SystemTime, SystemTimeAsOf } from "../../systemTime";
 import { AssignAdapterExpander } from "./AssignAdapterExpander";
@@ -2250,13 +2251,25 @@ export class QueryBinder extends ExpressionVisitor {
     // bindMemberAccess so it can be reused to navigate a member on the projector of a
     // single-result sub-query (see the uniqueFunction branch below).
     private bindMember(obj: Expression, name: string, isOptionalChaining: boolean): Expression {
-        // `.$v` (the Promise<T>→T await marker) carries no SQL meaning: binding `obj.$v` is
-        // exactly binding `obj`. Handled first — before the entity/embedded dispatch — so a
-        // navigable projector returned by a nested unique terminal (`view(T).single(…).$v`,
-        // `coll.firstOrNull().$v`) passes straight through instead of being looked up as a
-        // field. Turning a single-row sub-query into a scalar is the consuming context's job.
-        if (name === "$v")
+        // `.$v` (the Promise<T>→T await marker). Handled first — before the entity/embedded dispatch —
+        // because it is never a field, and what it unwraps decides everything:
+        //  • a CACHE (a stable promise, left as a placeholder by the constant folder): its loaded value,
+        //    folded in as a constant and typed as the cache DECLARED it. Reading the type off the value
+        //    instead would get an empty array or a null first element wrong, and the placeholder was
+        //    already typed that way when the members called on it were dispatched. Not loaded yet →
+        //    `PromiseNotLoaded`, and the region around this bind awaits exactly that promise and binds
+        //    again (see server/promiseResolution.ts);
+        //  • a sub-query terminal (`view(T).single(…).$v`, `coll.firstOrNull().$v`): no SQL meaning, so
+        //    binding `obj.$v` is exactly binding `obj` and the navigable projector passes straight
+        //    through. Turning a single-row sub-query into a scalar is the consuming context's job.
+        if (name === "$v") {
+            if (obj instanceof ConstantExpression && obj.value instanceof Promise) {
+                if (!isStablePromise(obj.value))
+                    refuseUnstablePromise();
+                return new ConstantExpression(stableValue(obj.value), stableRuntimeType(obj.value));
+            }
             return obj;
+        }
 
         // `interval.min` / `interval.max` on a systemPeriod() — the period's bounds (already
         // start/end columns on SQL Server, lower()/upper() of the tstzrange on Postgres).
