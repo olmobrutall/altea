@@ -7,7 +7,7 @@ import { Expression } from "@altea/altea/server/linq/expressions";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { ResetLazy } from "@altea/altea/server/resetLazy";
-import { isStablePromise, markStable, PromiseNotLoaded, stableValue } from "@altea/altea/server/stablePromise";
+import { isQueryReadablePromise, isStablePromise, markStable, PromiseNotLoaded, stableValue } from "@altea/altea/server/stablePromise";
 import { withPromisesLoaded } from "@altea/altea/server/promiseResolution";
 import { ArrayType, LiteralType } from "@altea/altea/server/runtimeTypes";
 import type { Quoted } from "quote-transformer/quoted";
@@ -83,16 +83,30 @@ describe("stable promises — the mechanism", () => {
         assert.notEqual(lazy.value(), first, "reset mints a new one — the old value is not handed out again");
     });
 
-    // Opt-in, and only opt-in: a cache that declared no type cannot be typed at fold time, so it is not
-    // stable and `.$v` over it is refused rather than awaited.
-    test("a cache with no runtimeType is not stable", async () => {
+    // STABLE and QUERY-READABLE are different. Every ResetLazy is stable — memoised, carrying its value —
+    // which is what lets synchronous engine code inside a region demand it. Reading it from inside a QUERY
+    // is opt-in on top of that: without a declared runtimeType there is no way to type the read.
+    test("a cache with no runtimeType is stable, but not query-readable", async () => {
         const lazy = new ResetLazy<number[]>(async () => [1, 2]);
 
         const p = lazy.value();
         await p;
 
-        assert.equal(isStablePromise(p), false);
-        assert.equal(isStablePromise(lazy.value()), false);
+        assert.equal(isStablePromise(p), true, "a region may demand it");
+        assert.equal(p, lazy.value(), "memoised, so the same instance comes back");
+        assert.deepEqual(stableValue(p as any), [1, 2]);
+        assert.equal(isQueryReadablePromise(p), false, "but a query cannot type it");
+    });
+
+    // …and a query says exactly that, rather than the one-off-promise refusal.
+    test("a query over an untyped cache asks for its runtimeType", async () => {
+        const lazy = new ResetLazy<PrimaryKey[]>(async () => [1 as unknown as PrimaryKey]);
+        const ids = () => lazy.value();
+        await lazy.value();
+
+        await assert.rejects(
+            async () => withPromisesLoaded(() => sqlOf(table(AlbumEntity).filter(a => ids().$v.includes(a.id)))),
+            (e: Error) => /needs the cache's `runtimeType`/.test(e.message));
     });
 
     // The value lives in a BOX, so a cache that legitimately resolves to `undefined` is loaded rather than

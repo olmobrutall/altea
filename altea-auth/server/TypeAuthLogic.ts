@@ -9,6 +9,7 @@ import { ClassType, LiteralType, type RuntimeType } from "@altea/altea/server/ru
 import type { QueryFilterContext } from "@altea/altea/server/schema/entityEvents";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
+import { stableValue } from "@altea/altea/server/stablePromise";
 import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { preSaveGates } from "@altea/altea/server/saver";
 import { postRetrieveGates } from "@altea/altea/server/linq/Retriever";
@@ -95,14 +96,28 @@ export namespace TypeAuthLogic {
     // in the SAME async provider phase as the WithConditions above, because auditing the caller's query
     // reads the database (see TypeConditionLogic.registerWhenAlreadyFilteringBy) and the binder cannot
     // await. Empty for the types — nearly all of them — that have no such condition.
-    type AuditedByType = Map<PrimaryKey, Map<TypeConditionSymbol, LambdaExpression>>;
-    // `typeIds` is the type↔id slice the async provider resolved for the conditioned types — the sync hooks
-    // below need `typeToId` and cannot await, and reading an ambient cache there would tie one query's WHERE
-    // to whatever generation of ids happened to be warm.
+    type AuditedByType = Map<Function, Map<TypeConditionSymbol, LambdaExpression>>;
+    /**
+     * What the async phase has to resolve for a query, which is ONLY the auditor verdicts: they are about
+     * THIS query (has the caller already constrained the type?), so no cache can hold them and the binder
+     * cannot compute them — it cannot await, and an auditor reads the database.
+     *
+     * The role's allowances are NOT here. A hook folds those itself from the rules and type caches, which it
+     * demands mid-bind (see authQueryFilterHook): that way the work is done for the types the query actually
+     * touches, instead of for every conditioned type in the schema on every query.
+     */
     interface RowSecurity {
-        readonly conditions: ConditionsByType;
         readonly audited: AuditedByType;
-        readonly typeIds: ReadonlyMap<Function, PrimaryKey>;
+    }
+
+    /** The two caches a row filter folds its answer from, demanded DURING the bind: cold, `stableValue`
+     *  throws PromiseNotLoaded, the enclosing region loads exactly that one and binds again. So a filter can
+     *  never quietly proceed without them — the alternative to awaiting is not fail-open, it is re-bind. */
+    function foldingCaches(): { rules: TypeRulesCache; caches: TypeCaches } {
+        return {
+            rules: stableValue(rulesLazy.value()) as TypeRulesCache,
+            caches: stableValue(TypeLogic.caches()) as TypeCaches,
+        };
     }
     // Part ctor → its ROOT owner's ctor (see PartOwnership). A Part inherits the root's allowance, so it
     // never gets its own rule and never shows in the grid. Keyed by CTOR (not typeId) because it is built at
@@ -287,19 +302,28 @@ export namespace TypeAuthLogic {
         return WithConditions.simple(typeAllowedCreate(maxDB(rootWC), maxUI(rootWC)));
     }
 
-    // Row-read filter, installed on each conditioned type's
-    // EntityEvents.queryFilter. SYNCHRONOUS (the binder is sync): reads THIS module's entry from the opaque
-    // QueryFilterContext the engine resolved (async, via buildCurrentRoleConditions) BEFORE translation —
-    // the current role's typeId → WithConditions map — never the DB. No entry (no role / auth disabled) or
-    // no condition for this type → no filter (undefined).
+    // Row-read filter, installed on each conditioned type's EntityEvents.queryFilter, and run by the binder
+    // when it meets THAT table source. Synchronous, like every queryFilter hook — but no longer fed: it
+    // folds the current role's allowance for this one type out of the caches it demands (foldingCaches), so
+    // a query pays for the types it reads rather than for every conditioned type in the schema.
+    //
+    // The auditor verdicts still come from the context, because they are about the query, not about a cache.
+    // No entry at all means nobody resolved one — an INSPECTION bind (a SQL dump), which is unfiltered by
+    // design; no role / auth disabled means the provider answered undefined.
     function authQueryFilterHook(ctx: { ctor: Function; elementType: RuntimeType; filterContext: QueryFilterContext }): LambdaExpression | undefined {
+        if (!ctx.filterContext.has(QUERY_FILTER_KEY))
+            return undefined;
         const rs = ctx.filterContext.get(QUERY_FILTER_KEY) as RowSecurity | undefined;
-        const typeId = rs?.typeIds.get(ctx.ctor);
-        const wc = typeId == null ? undefined : rs!.conditions.get(typeId);
-        if (wc == null || typeId == null)
+        const rk = AuthLogic.currentRoleKey();
+        if (rs == null || rk == null)
+            return undefined;
+        const { rules, caches } = foldingCaches();
+        const typeId = caches.tryTypeToId(ctx.ctor);
+        if (typeId == null)
             return undefined;
         return authFilterLambda(
-            buildAuthFilter(ctx.ctor, ctx.elementType, wc, TypeAllowedBasic.Read, true, rs!.audited.get(typeId)),
+            buildAuthFilter(ctx.ctor, ctx.elementType, rules.getAllowed(typeId, caches, rk),
+                TypeAllowedBasic.Read, true, rs.audited.get(ctx.ctor)),
             ctx.elementType);
     }
 
@@ -310,43 +334,45 @@ export namespace TypeAuthLogic {
     // or the root reduces to "all" → no filter.
     function partAuthQueryFilterHook(rootCtor: Function, chain: readonly string[]) {
         return (ctx: { ctor: Function; elementType: RuntimeType; filterContext: QueryFilterContext }): LambdaExpression | undefined => {
+            if (!ctx.filterContext.has(QUERY_FILTER_KEY))
+                return undefined;
             const rs = ctx.filterContext.get(QUERY_FILTER_KEY) as RowSecurity | undefined;
-            if (rs == null)
+            const rk = AuthLogic.currentRoleKey();
+            if (rs == null || rk == null)
                 return undefined;
-            // Absent only when the root is not a conditioned type, which is the same "no filter" answer as
-            // no conditions for it.
-            const rootTypeId = rs.typeIds.get(rootCtor);
-            const wc = rootTypeId == null ? undefined : rs.conditions.get(rootTypeId);
-            if (wc == null || rootTypeId == null)
+            // A root with no conditions is the same "no filter" answer it always was.
+            if (TypeConditionLogic.conditionsFor(rootCtor).length === 0)
                 return undefined;
-            const rootFilter = buildAuthFilter(rootCtor, new ClassType(rootCtor), wc, TypeAllowedBasic.Read, true,
-                rs.audited.get(rootTypeId));
+            const { rules, caches } = foldingCaches();
+            const rootTypeId = caches.tryTypeToId(rootCtor);
+            if (rootTypeId == null)
+                return undefined;
+            const rootFilter = buildAuthFilter(rootCtor, new ClassType(rootCtor),
+                rules.getAllowed(rootTypeId, caches, rk), TypeAllowedBasic.Read, true, rs.audited.get(rootCtor));
             return rebasePartFilter(rootFilter, ctx.elementType, chain);
         };
     }
 
-    // The async row-security provider (Schema.queryFilterProviders): build the CURRENT role's conditions
-    // map — typeId → WithConditions for every conditioned type — that the sync hook reads during binding.
-    // Returns undefined (→ no filtering) when there is no current role or auth is disabled. Runs the async
-    // getAllowed (rulesLazy + role-graph merge) once per query, so no cache is kept permanently warm.
+    // The async row-security provider (Schema.queryFilterProviders): resolve what the sync hooks cannot, and
+    // NOTHING else. That is the query-AUDITOR verdicts — "has the caller already constrained this type?" —
+    // which are about this query and are answered by reading the database, neither of which the binder can
+    // do. Everything else a filter needs is a cache, and a hook demands those mid-bind.
+    //
+    // Returns undefined (→ no filtering) when there is no current role or auth is disabled. Nearly always
+    // returns an EMPTY map: an auditor condition is a rarity, and one that isn't in the query costs nothing.
     async function buildCurrentRoleConditions(query?: Expression): Promise<RowSecurity | undefined> {
         const rk = AuthLogic.currentRoleKey();
         if (rk == null || !AuthLogic.isEnabled())
             return undefined;
-        const conditions: ConditionsByType = new Map();
         const audited: AuditedByType = new Map();
-        const typeIds = new Map<Function, PrimaryKey>();
-        const caches = await TypeLogic.caches();
+        if (query == null)
+            return { audited };
         // The query's own table sources, so a query-auditor condition can be given the SAME
         // FilterQueryArgs the binder would build for that source. The async part has to happen BEFORE
         // binding starts — see TypeConditionLogic's header.
-        const sources = query == null ? [] : findQuerySources(query);
+        const sources = findQuerySources(query);
         for (const ctor of TypeConditionLogic.types()) {
-            const typeId = caches.typeToId(ctor);
-            typeIds.set(ctor, typeId);
-            conditions.set(typeId, await getAllowed(typeId, rk));
-
-            if (query == null || !TypeConditionLogic.hasQueryAuditorConditions(ctor))
+            if (!TypeConditionLogic.hasQueryAuditorConditions(ctor))
                 continue;
             // Exactly one source for this type is the auditable case. None means the type is not in this
             // query at all (nothing to audit); several means the query reads it twice and "the caller
@@ -355,9 +381,9 @@ export namespace TypeAuthLogic {
             const own = sources.filter(s => querySourceCtor(s) === ctor);
             if (own.length !== 1)
                 continue;
-            audited.set(typeId, await TypeConditionLogic.auditQueryConditions(ctor, new FilterQueryArgs(query, own[0])));
+            audited.set(ctor, await TypeConditionLogic.auditQueryConditions(ctor, new FilterQueryArgs(query, own[0])));
         }
-        return { conditions, audited, typeIds };
+        return { audited };
     }
 
     // Write gate, per instance: block saving a row that a type CONDITION

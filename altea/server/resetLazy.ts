@@ -31,9 +31,10 @@ export class ResetLazy<T> implements IResetLazy {
     // when the load settles (or on `reset()`), guarded so a stale load can't populate a reset box.
     private loading: Promise<T> | undefined;
     // The promise handed out while the value is warm, so `value()` returns the SAME object every time. That
-    // identity is what a `.$v` inside a query needs: the query folds the value off the promise, and a fresh
-    // `Promise.resolve` per call would be a different object on every translation (see data/stablePromise.ts).
-    // Only a lazy that declared a runtimeType pays for it. Dropped by `reset()`.
+    // identity is what makes every ResetLazy a STABLE promise: synchronous code inside a re-runnable region
+    // can demand it (a row filter asking for its caches mid-bind), and a query can fold it through `.$v`
+    // when the lazy also declared a runtimeType. A fresh `Promise.resolve` per call would be a different
+    // object every time and neither would converge (see server/stablePromise.ts). Dropped by `reset()`.
     private settled: StablePromise<T> | undefined;
 
     // Lightweight stats (Signum's Loads/Hits/Invalidations/SumLoadTime), handy when profiling caches —
@@ -47,8 +48,9 @@ export class ResetLazy<T> implements IResetLazy {
     // whatever the registrar passes). Purely descriptive.
     name?: string;
 
-    // `runtimeType` — the DECLARED type of the value — is what makes this cache readable from inside a query
-    // through `.$v`; without it the promise is not stable and `.$v` over it is refused (see stablePromise.ts).
+    // `runtimeType` — the DECLARED type of the value — is what makes this cache readable from inside a QUERY
+    // through `.$v`. It is not needed to be stable: every ResetLazy is (see `settled`), which is what lets
+    // synchronous engine code demand one mid-bind. See server/stablePromise.ts.
     constructor(
         private readonly valueFactory: () => Promise<T>,
         private readonly runtimeType?: RuntimeTypeThunk,
@@ -62,8 +64,6 @@ export class ResetLazy<T> implements IResetLazy {
         const b = this.box;
         if (b != null) {
             this.hits++;
-            if (this.runtimeType == null)
-                return Promise.resolve(b.value);
             return this.settled ??= markStable(Promise.resolve(b.value), this.runtimeType, { value: b.value });
         }
         if (this.loading != null)
@@ -79,10 +79,9 @@ export class ResetLazy<T> implements IResetLazy {
         let fail!: (err: unknown) => void;
         const p: Promise<T> = new Promise<T>((res, rej) => { settle = res; fail = rej; });
         this.loading = p;
-        // Stable while still LOADING too: a `.$v` that meets the in-flight promise types itself from the
-        // declared runtimeType and asks the region to await it — an unmarked one would be refused instead.
-        if (this.runtimeType != null)
-            markStable(p, this.runtimeType);
+        // Stable while still LOADING too: a reader that meets the in-flight promise asks the region to await
+        // THIS one rather than starting a second load.
+        markStable(p, this.runtimeType);
         void (async () => {
             try {
                 const v = await this.valueFactory();
@@ -90,8 +89,7 @@ export class ResetLazy<T> implements IResetLazy {
                 // Stamp the value on the promise HERE rather than leaving it to markStable’s own `then`, so
                 // it is there the instant this load settles — the query region that awaited this very promise
                 // binds again immediately after, and a value one microtask late would look unloaded.
-                if (this.runtimeType != null)
-                    markStable(p, this.runtimeType, { value: v });
+                markStable(p, this.runtimeType, { value: v });
                 settle(v);
             } catch (err) {
                 if (this.loading === p) this.loading = undefined;

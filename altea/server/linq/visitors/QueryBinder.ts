@@ -21,7 +21,7 @@ import {
 import { SqlFullTextSearch } from "../../fullTextSearch";
 import { PgVectorSearch, SqlVectorSearch, pgVectorDistanceFunction, sqlVectorDistanceKeyword, sqlVectorNormKeyword, type PGVectorDistanceMetric, type SqlVectorDistanceMetric, type SqlVectorNormType } from "../../vectorSearch";
 import { Vector } from "../../../data/vector";
-import { isStablePromise, refuseUnstablePromise, stableRuntimeType, stableValue } from "../../../server/stablePromise";
+import { isQueryReadablePromise, isStablePromise, refuseUntypedCache, refuseUnstablePromise, stableRuntimeType, stableValue } from "../../../server/stablePromise";
 import type { SystemVersionedInfo } from "../../schema/systemVersioned";
 import { SystemTime, SystemTimeAsOf } from "../../systemTime";
 import { AssignAdapterExpander } from "./AssignAdapterExpander";
@@ -2266,6 +2266,8 @@ export class QueryBinder extends ExpressionVisitor {
             if (obj instanceof ConstantExpression && obj.value instanceof Promise) {
                 if (!isStablePromise(obj.value))
                     refuseUnstablePromise();
+                if (!isQueryReadablePromise(obj.value))
+                    refuseUntypedCache();
                 return new ConstantExpression(stableValue(obj.value), stableRuntimeType(obj.value));
             }
             return obj;

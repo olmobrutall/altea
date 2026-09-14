@@ -8,7 +8,7 @@ import { Entity, View, ModelEntity } from "../../data/entity";
 import { getLambdaTypeResolvers, getResultTypeResolver, type LambdaTypeResolver, OrderedQuery, Query, type ResultTypeResolver } from "../query";
 import type { QuotedFunction } from "../runtimeTypes";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
-import { isStablePromise, refuseUnstablePromise, stableRuntimeType } from "../../server/stablePromise";
+import { isQueryReadablePromise, isStablePromise, refuseUntypedCache, refuseUnstablePromise, stableRuntimeType } from "../stablePromise";
 
 // ---- constant folding (used by fromQuoted) --------------------------------------------------
 // fromQuoted folds parameter-free subtrees to constants BOTTOM-UP, in the same single pass that
@@ -141,6 +141,8 @@ function foldOrProperty(obj: Expression, name: string, optional: boolean): Expre
         if (name === "$v" && obj.value instanceof Promise) {
             if (!isStablePromise(obj.value))
                 refuseUnstablePromise();
+            if (!isQueryReadablePromise(obj.value))
+                refuseUntypedCache();
             return new PropertyExpression(obj, name, optional);
         }
         if (obj.value == null) {
@@ -1106,7 +1108,7 @@ export class PropertyExpression extends Expression {
         // and methods called on the value (an ArrayType picks OrderedQuery.includes, a ClassType the class
         // own @quoted methods), so it has to be right BEFORE the value exists. The binder folds the value
         // in later (QueryBinder.bindMember), inside a region that can load it.
-        if (propertyName === "$v" && object instanceof ConstantExpression && isStablePromise(object.value))
+        if (propertyName === "$v" && object instanceof ConstantExpression && isQueryReadablePromise(object.value))
             return stableRuntimeType(object.value);
 
         return resolveMemberType(object.type, propertyName);

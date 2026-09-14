@@ -13,9 +13,12 @@ import type { RuntimeType } from "./runtimeTypes";
 //    constant in the query. Missing then, the bind throws PromiseNotLoaded and the region around it awaits
 //    this promise and binds again.
 //
-// Declaring a `runtimeType` IS the declaration that this promise may be read inside a query: one without
-// it is refused rather than awaited, because a one-off promise (a fetch, an `async` call, a `.then` chain)
-// is a different object on every fold and could never converge.
+// STABLE and QUERY-READABLE are separate. A promise is STABLE when its producer memoises it and it carries
+// its settled value — that alone is enough for synchronous code inside a re-runnable region to demand it
+// (see `stableValue` + server/promiseResolution.ts), which is how a row filter asks for the caches it needs
+// mid-bind. It is additionally QUERY-READABLE when it declares a `runtimeType`, which is what `.$v` needs
+// to type itself before the value exists. A one-off promise (a fetch, an `async` call, a `.then` chain) is
+// neither: it is a different object on every attempt and could never converge, so it is refused outright.
 //
 // `ResetLazy` is the only producer today (it stamps the promise it memoises while warm), but nothing here
 // knows that: the LINQ provider reads these two fields and nothing else, so any other cache can offer the
@@ -31,8 +34,11 @@ import type { RuntimeType } from "./runtimeTypes";
 export type RuntimeTypeThunk = () => RuntimeType;
 
 export interface StablePromise<T> extends Promise<T> {
-    /** Set by {@link markStable}: the declared type of the value, and the mark that says this promise is
-     *  meant to be read by `.$v` inside a query. */
+    /** Set by {@link markStable}: this promise is memoised by its producer, so the same instance comes back
+     *  on the next attempt and the value stamped below is seen again. */
+    readonly stable?: true;
+    /** The declared type of the value — present only when the producer meant it to be read by `.$v` inside
+     *  a query, which needs a type before it has a value. */
     readonly runtimeType?: RuntimeTypeThunk;
     /** The settled value, in a BOX so a legitimately-`undefined` value still counts as loaded. */
     readonly resolvedValue?: { readonly value: T };
@@ -56,24 +62,32 @@ export class PromiseNotLoaded extends Error {
  * `resolved` may be passed when the value is already in hand, so the very next fold succeeds instead of
  * waiting a microtask for the `then` below.
  */
-export function markStable<T>(promise: Promise<T>, runtimeType: RuntimeTypeThunk, resolved?: { value: T }): StablePromise<T> {
-    const p = promise as { runtimeType?: RuntimeTypeThunk; resolvedValue?: { value: T } };
+export function markStable<T>(promise: Promise<T>, runtimeType?: RuntimeTypeThunk, resolved?: { value: T }): StablePromise<T> {
+    const p = promise as { stable?: true; runtimeType?: RuntimeTypeThunk; resolvedValue?: { value: T } };
     if (resolved != null)
         p.resolvedValue = resolved;
-    if (p.runtimeType != null)
+    if (p.stable === true)
         return promise as StablePromise<T>;
-    // Memoised: the thunk builds a RuntimeType graph, and the binder asks for it on every fold.
-    let type: { value: RuntimeType } | undefined;
-    p.runtimeType = () => (type ??= { value: runtimeType() }).value;
+    p.stable = true;
+    if (runtimeType != null) {
+        // Memoised: the thunk builds a RuntimeType graph, and the binder asks for it on every fold.
+        let type: { value: RuntimeType } | undefined;
+        p.runtimeType = () => (type ??= { value: runtimeType() }).value;
+    }
     // A rejection leaves it unresolved: the region awaits the promise itself and surfaces the real error.
     // The handler is attached only to observe the value — it must not turn a rejection into an unhandled one.
     void promise.then(value => { p.resolvedValue = { value }; }, () => { });
     return promise as StablePromise<T>;
 }
 
-/** Whether `value` is a promise declared readable inside a query. */
+/** Whether `value` is a promise its producer memoises — the contract `stableValue` needs. */
 export function isStablePromise(value: unknown): value is StablePromise<unknown> {
-    return value instanceof Promise && (value as StablePromise<unknown>).runtimeType != null;
+    return value instanceof Promise && (value as StablePromise<unknown>).stable === true;
+}
+
+/** Whether `value` may additionally be read by `.$v` INSIDE a query: stable, and typed. */
+export function isQueryReadablePromise(value: unknown): value is StablePromise<unknown> {
+    return isStablePromise(value) && value.runtimeType != null;
 }
 
 /** The declared type of a stable promise's value — what `.$v` types to before (and after) it loads. */
@@ -98,10 +112,18 @@ export function stableValue(promise: StablePromise<unknown>): unknown {
 /** The error for a `.$v` over a promise nobody declared query-readable. Its own function because both the
  *  folder and the binder can meet one, depending on where the promise was captured. */
 export function refuseUnstablePromise(): never {
-    throw new Error("`.$v` inside a query can only unwrap a STABLE promise — one whose cache declares a"
-        + " `runtimeType` (a `ResetLazy`/`globalLazy` option). This promise declares none, so the query"
-        + " could neither type it nor fold it to a constant. Declare the runtimeType, or await the value"
-        + " before building the query.");
+    throw new Error("`.$v` inside a query can only unwrap a STABLE promise — one a cache memoises, so the"
+        + " same instance comes back on the next fold. This one is a one-off (a fetch, an `async` call, a"
+        + " `.then` chain): it would be a different object every time and could never converge. Read it"
+        + " through a cache, or await it before building the query.");
+}
+
+/** The error for a `.$v` over a cache that never declared what its value IS. */
+export function refuseUntypedCache(): never {
+    throw new Error("`.$v` inside a query needs the cache's `runtimeType` — the `ResetLazy`/`globalLazy`"
+        + " option that says what the value is. Without it the query cannot type the read (the members and"
+        + " methods called on it dispatch before the value exists). Declare it, or await the value outside"
+        + " the query.");
 }
 
 /**
