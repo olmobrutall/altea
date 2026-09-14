@@ -99,7 +99,7 @@ describe("QueryLogic — @implementedByAll sub-tokens", () => {
             const body = token.buildExpression(ctx);
             const lambda = new LambdaExpression([param], body);
             const mapCall = new CallExpression(new PropertyExpression(q.expression, "map"), [lambda], new ArrayType(body.type));
-            const proj = bindAndOptimize(mapCall, sb.schema, false, true, undefined, loadedTypeCaches(sb.schema)) as ProjectionExpression;
+            const proj = bindAndOptimize(mapCall, sb.schema, false, true, loadedTypeCaches(sb.schema)) as ProjectionExpression;
             assert.ok(proj instanceof ProjectionExpression);
             return (QueryFormatter.format(proj.select, false).sql + " ~~ " + String(proj.projector)).toLowerCase();
         });
@@ -124,7 +124,7 @@ describe("QueryToken — [EntityType] over a polymorphic reference", () => {
             const body = token.buildExpression(ctx);
             const lambda = new LambdaExpression([param], body);
             const mapCall = new CallExpression(new PropertyExpression(q.expression, "map"), [lambda], new ArrayType(body.type));
-            const proj = bindAndOptimize(mapCall, sb.schema, false, true, undefined, loadedTypeCaches(sb.schema)) as ProjectionExpression;
+            const proj = bindAndOptimize(mapCall, sb.schema, false, true, loadedTypeCaches(sb.schema)) as ProjectionExpression;
             assert.ok(proj instanceof ProjectionExpression);
             return QueryFormatter.format(proj.select, false).sql.toLowerCase();
         });

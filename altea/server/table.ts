@@ -26,7 +26,6 @@ import { buildTranslateResult } from "./linq/translatorBuilder";
 import { QueryFormatter } from "./linq/queryFormatter";
 import { TypeLogic, type TypeCaches } from "./typeLogic";
 import type { Schema } from "./schema/schema";
-import type { QueryFilterContext } from "./schema/entityEvents";
 import { setQuerySourceFactory } from "./schema/filterQueryArgs";
 import { HeavyProfiler } from "./profiler/heavyProfiler";
 import { withPromisesLoaded } from "./promiseResolution";
@@ -110,12 +109,12 @@ quotedFunction(view).__resultType = (_, viewTypeType) => new ArrayType(new Class
 // the runtime uses, factored out so tests (binder.test.ts) can observe the same
 // post-optimiser shape the executor sees (not the raw pre-optimiser tree). Mirrors the
 // relevant slice of Signum's DbQueryProvider.Optimize.
-export function bindAndOptimize(expression: Expression, schema: Schema, isPostgres: boolean, alreadySimplified = false, filterContext?: QueryFilterContext, typeCaches?: TypeCaches): ProjectionExpression {
+export function bindAndOptimize(expression: Expression, schema: Schema, isPostgres: boolean, alreadySimplified = false, typeCaches?: TypeCaches, rowFilters = true): ProjectionExpression {
     // `alreadySimplified` skips the OverloadingSimplifier for a hand-built expression (the
     // batch-retrieve query): it already uses only core operators (filter/contains), so there's
     // no sugar/methodExpander to lower.
-    // `filterContext` carries row-level security (Signum's FilterQuery), resolved async by the caller
-    // BEFORE translation and read synchronously by the binder's queryFilter handlers.
+    // `rowFilters` splices the registered row filters (Signum's FilterQuery) onto every table source —
+    // off only for an inspection bind, which never executes what it binds.
     // `typeCaches` is the type↔id snapshot resolved at the LINQ boundary (undefined only while loading);
     // threaded into the binder so @implementedByAll discriminators bind against an explicit cache.
     // Profiler: the whole translate under a "LINQ" span, with each optimiser pass timed as a switched
@@ -124,7 +123,7 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
     using _linq = HeavyProfiler.log("LINQ", () => expression.toString());
     using log = HeavyProfiler.logNoStackTrace("OvrLdSmp");
     const simplified = alreadySimplified ? expression : OverloadingSimplifier.simplify(expression);
-    const binder = new QueryBinder(schema, isPostgres, filterContext, typeCaches);
+    const binder = new QueryBinder(schema, isPostgres, typeCaches, rowFilters);
     log?.switch("Bind");
     let projection: Expression = binder.bindQuery(simplified);
     // Hoist deferred group aggregates (g.elements.sum()…) into their GROUP BY select as
@@ -200,30 +199,31 @@ export function loadedTypeCaches(schema: Schema): TypeCaches | undefined {
     return schema.typeCaches.valueOrUndefined;
 }
 
-// LINQ-provider translate with row-level security resolved: await the schema's QueryFilterContext (Signum's
-// FilterQuery args) and bind+optimize with it. THE single place row-security is requested — so consumers
-// (the ORM translator, dynamic queries) call this and never touch the QueryFilterContext themselves.
+// LINQ-provider translate with row-level security applied: THE entry point every EXECUTING path goes
+// through. A row filter resolves what it needs itself, from inside the bind — see the region below.
 export async function bindOptimizeSecured(expression: Expression, schema: Schema, isPostgres: boolean, alreadySimplified = false): Promise<ProjectionExpression> {
     // Resolve the type↔id caches ONCE (async) at this boundary — undefined only if we're inside the
     // caches' own load (re-entrant `table(TypeEntity)`), where no discriminator arises. `ready()` also
     // warms the box for the downstream sync readers (optimiser visitors, Retriever).
     const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(schema);
-    // The query goes to the providers: a row filter whose answer depends on the caller's own filters does
-    // its async work there (see Schema.queryFilterProviders).
-    const filterContext = await schema.buildQueryFilterContext(expression);
+    // SIMPLIFIED ONCE, outside the region: every attempt then binds the SAME tree, so a filter that keys
+    // per-query work on a table-source node (the auditor verdicts) sees the same node each time and its
+    // promise is stable. Re-simplifying per attempt would mint new nodes and never converge.
+    const simplified = alreadySimplified ? expression : OverloadingSimplifier.simplify(expression);
     // Binding folds parameter-free subtrees by RUNNING them, so a `@quoted` expression or a row filter can
-    // read a cache through `.$v`. A cold one announces itself by throwing; the region loads exactly that
-    // one and binds again (binding is pure — a fresh QueryBinder per call, all of its state instance-local).
-    // Nothing has to be warmed in advance, and nothing no query asked for is ever loaded.
+    // read a cache — through `.$v`, or by demanding it outright (stableValue). A cold one announces itself
+    // by throwing; the region loads exactly that one and binds again (binding is pure — a fresh QueryBinder
+    // per call, all of its state instance-local). Nothing has to be warmed in advance, and nothing no query
+    // asked for is ever loaded.
     return await withPromisesLoaded(() =>
-        bindAndOptimize(expression, schema, isPostgres, alreadySimplified, filterContext, typeCaches));
+        bindAndOptimize(simplified, schema, isPostgres, /* alreadySimplified */ true, typeCaches));
 }
 
 // Binds `table(ctor).filter(e => ids.includes(e.id))` — the shared shape behind both the
 // Retriever's batch stub-completion and Database.retrieveList. The predicate is hand-built
 // (no quoted lambda needed at runtime); the captured id array is a ConstantExpression the
 // binder lowers to an `IN (…)`.
-function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[], filterContext?: QueryFilterContext, typeCaches?: TypeCaches): ProjectionExpression {
+function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[], typeCaches?: TypeCaches): ProjectionExpression {
     const connector = Connector.current();
     const q = table(ctor);
     const param = new ParameterExpression("e", q.elementType);
@@ -233,7 +233,7 @@ function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[], filterCo
     const filterExpr = new CallExpression(new PropertyExpression(q.expression, "filter"), [predicate], q.type);
     // Run the full simplifier (as the normal query path does): the OverloadingSimplifier is what
     // establishes the default entity projection — skipping it yielded an empty SELECT column list.
-    return bindAndOptimize(filterExpr, connector.schema, connector.isPostgres, false, filterContext, typeCaches);
+    return bindAndOptimize(filterExpr, connector.schema, connector.isPostgres, false, typeCaches);
 }
 
 // Signum's Database.RetrieveList, injected into the Retriever (which can't import the
@@ -242,10 +242,9 @@ function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[], filterCo
 Retriever.retrieveListImpl = async (ctor: Type<Entity>, ids: PrimaryKey[], retriever: Retriever): Promise<void> => {
     const connector = Connector.current();
     const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
-    const filterContext = await connector.schema.buildQueryFilterContext();
     // The row filters this bind applies are the same ones a query carries, so the same on-demand cache
     // loading applies — only the (pure) bind is inside the region, never the retriever it feeds.
-    const projection = await withPromisesLoaded(() => retrieveByIdsProjection(ctor, ids, filterContext, typeCaches));
+    const projection = await withPromisesLoaded(() => retrieveByIdsProjection(ctor, ids, typeCaches));
     await buildTranslateResult(projection, connector.isPostgres).executeInto(retriever);
 };
 
@@ -298,8 +297,7 @@ export async function retrieveEntitiesByIds<T extends Entity>(ctor: Type<T>, ids
         return [];
     const connector = Connector.current();
     const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
-    const filterContext = await connector.schema.buildQueryFilterContext();
-    const projection = await withPromisesLoaded(() => retrieveByIdsProjection(ctor, ids, filterContext, typeCaches));
+    const projection = await withPromisesLoaded(() => retrieveByIdsProjection(ctor, ids, typeCaches));
     return await buildTranslateResult(projection, connector.isPostgres).execute() as T[];
 }
 
@@ -320,9 +318,10 @@ class MyQueryTranslator implements IQueryTranslator {
         // SYNCHRONOUS bind (debug SQL / offline comparison): can't await, so a cache a `.$v` in this query
         // needs and nobody loaded surfaces as the PromiseNotLoaded it is, rather than being resolved here.
         // Every EXECUTING path goes through bindOptimizeSecured, which loads on demand; this one reads
-        // whatever is loaded (warm in production; offline binders seed it — seedTypeCachesForTest).
-        return bindAndOptimize(expression, connector.schema, connector.isPostgres, false, undefined,
-            loadedTypeCaches(connector.schema));
+        // whatever is loaded (warm in production; offline binders seed it — seedTypeCachesForTest) and
+        // applies NO row filters: it shows the query as written, and it never executes what it binds.
+        return bindAndOptimize(expression, connector.schema, connector.isPostgres, false,
+            loadedTypeCaches(connector.schema), /* rowFilters */ false);
     }
 
     async execute(expression: Expression): Promise<unknown> {
@@ -344,15 +343,16 @@ class MyQueryTranslator implements IQueryTranslator {
         using _prof = HeavyProfiler.log("DBQuery", () => expression.toString());
         const connector = Connector.current();
         const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
-        // Row-level security applies to the SELECT that feeds an unsafe UPDATE/DELETE too (you may only
-        // touch rows you can see): resolve the context async, then bind the command with it.
-        const filterContext = await connector.schema.buildQueryFilterContext(expression);
-        // Same on-demand cache loading as the query path: the source SELECT carries the same row filters
-        // and `@quoted` expressions, so it can need the same caches. Only the (pure) bind is re-runnable —
-        // the optimise/execute loop below is not, and by then every cache it needs is loaded.
+        // Row-level security applies to the SELECT that feeds an unsafe UPDATE/DELETE too: you may only
+        // touch rows you can see, so this binds with the filters on, exactly like a query.
+        //
+        // Simplified ONCE, outside the region, for the same reason the query path does it — see
+        // bindOptimizeSecured. Same on-demand cache loading too: the source SELECT carries the same row
+        // filters and `@quoted` expressions, so it can need the same caches. Only the (pure) bind is
+        // re-runnable — the optimise/execute loop below is not, and by then every cache it needs is loaded.
+        const simplified = OverloadingSimplifier.simplify(expression);
         const { command, aliases } = await withPromisesLoaded(() => {
-            const simplified = OverloadingSimplifier.simplify(expression);
-            const binder = new QueryBinder(connector.schema, connector.isPostgres, filterContext, typeCaches);
+            const binder = new QueryBinder(connector.schema, connector.isPostgres, typeCaches);
             // The alias generator travels with the command: the sub-command simplifier below mints more
             // aliases into the same namespace, so it must be THIS bind generator, not a fresh one.
             return { command: binder.bindCommand(simplified), aliases: binder.aliases };

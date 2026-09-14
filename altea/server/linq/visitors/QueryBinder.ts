@@ -52,7 +52,6 @@ function expandLiteHintOf(v: ExpandLite): ExpandLiteHint {
     }
 }
 import type { Schema } from "../../schema/schema";
-import type { QueryFilterContext } from "../../schema/entityEvents";
 import { FilterQueryArgs } from "../../schema/filterQueryArgs";
 import type { Table } from "../../schema/table";
 import type { EntityField } from "../../schema/field";
@@ -438,7 +437,6 @@ function isNullLiteral(e: Expression): boolean {
 }
 
 // Empty row-security context for binders constructed without one (tests / hand-built retrieve queries).
-const EMPTY_FILTER_CONTEXT: QueryFilterContext = new Map();
 
 // Rebinds one lambda parameter to another (for combining independently-built queryFilter predicates onto
 // a shared parameter). A separate copy of altea-auth's ParamReplacer — core can't import the auth module.
@@ -512,11 +510,12 @@ export class QueryBinder extends ExpressionVisitor {
     constructor(
         private readonly schema: Schema,
         private readonly isPostgres: boolean,
-        // The per-translation row-security context (Signum's FilterQuery args), resolved async by the
-        // caller BEFORE binding and read synchronously by the queryFilter handlers. Defaults to empty for
-        // callers that don't run row filters (tests, hand-built retrieve queries with no provider).
-        private readonly filterContext: QueryFilterContext = EMPTY_FILTER_CONTEXT,
+        // The type↔id snapshot the caller resolved (undefined only while the caches themselves load).
         private readonly typeCaches: TypeCaches | undefined = undefined,
+        // Whether to splice the registered row filters (Signum's FilterQuery) onto every table source.
+        // FALSE for an INSPECTION bind — a SQL dump — which shows the query as written rather than as it
+        // would run; every EXECUTING path leaves it on.
+        private readonly rowFilters: boolean = true,
     ) {
         super();
         this.aliasGenerator = new AliasGenerator(isPostgres);
@@ -3010,6 +3009,8 @@ export class QueryBinder extends ExpressionVisitor {
     // queryFilter handlers (undefined when none contribute). Multiple handlers AND together. The predicate
     // is bound by the normal filter path (re-visiting `source`, now guarded).
     private applyQueryFilters(source: CallExpression, ctor: new () => object): CallExpression | undefined {
+        if (!this.rowFilters)
+            return undefined;
         const hooks = this.schema.entityEvents(ctor as Type<Entity>).queryFilter;
         if (hooks.length === 0)
             return undefined;
@@ -3017,7 +3018,7 @@ export class QueryBinder extends ExpressionVisitor {
         // Signum's `new FilterQueryArgs(this.rootExpression, (ConstantExpression)query.Expression)`: the
         // whole query being translated, plus THIS table source — the node the WHERE is about to wrap.
         const args = this.root == null ? undefined : new FilterQueryArgs(this.root, source);
-        const lambdas = hooks.map(h => h({ ctor, elementType, filterContext: this.filterContext, args })).filter((l): l is LambdaExpression => l != null);
+        const lambdas = hooks.map(h => h({ ctor, elementType, args })).filter((l): l is LambdaExpression => l != null);
         if (lambdas.length === 0)
             return undefined;
         return new CallExpression(new PropertyExpression(source, "filter"), [combineFilterLambdas(lambdas, elementType)], source.type);

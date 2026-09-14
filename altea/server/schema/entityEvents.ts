@@ -47,23 +47,14 @@ export type PreUnsafeUpdateHandler<T extends Entity> = (query: Query<T>) => void
 export type PreUnsafeInsertHandler<T extends Entity> =
     (query: Query<T>, constructor: LambdaExpression) => LambdaExpression | void | Promise<LambdaExpression | void>;
 export type PreBulkInsertHandler = () => void;
-// An opaque, per-translation bag of row-level-security data (Signum keeps its FilterQuery caches always
-// warm; altea can't — no sync DB — so it resolves them ON DEMAND). Each async provider registered on the
-// Schema (`queryFilterProviders`) contributes ONE entry, under its own key, BEFORE a query is translated;
-// the SYNC `queryFilter` handlers then read their own entry back during binding, casting the opaque value
-// to the shape they stored. Empty when no provider is registered.
-export type QueryFilterContext = ReadonlyMap<string, unknown>;
-
-
 // Signum's FilterQuery: contribute a boolean predicate (a LambdaExpression over the entity `elementType`)
 // that the LINQ binder splices as a WHERE onto EVERY query of T — Database.retrieve, dynamic queries,
-// navigations — so row-level security applies uniformly. SYNCHRONOUS (the binder is sync): a handler reads
-// what it needs synchronously from `filterContext` (populated async before translation — see
-// Schema.buildQueryFilterContext), never the DB. Returns undefined for "no restriction".
+// navigations — so row-level security applies uniformly. SYNCHRONOUS, because the binder is — but not
+// therefore starved: a handler that needs cached data DEMANDS it (`stableValue`, server/stablePromise.ts),
+// and the region around the bind loads it and binds again. Returns undefined for "no restriction".
 export type QueryFilterHandler = (ctx: {
     ctor: Function;
     elementType: RuntimeType;
-    filterContext: QueryFilterContext;
     // Signum's `FilterQueryArgs` — the query this filter is being spliced into. A filter that only asks
     // "what may this role read" ignores it; one whose answer depends on what the CALLER already filtered by
     // needs it (see FilterQueryArgs). Undefined only where a filter is being built outside a translation.

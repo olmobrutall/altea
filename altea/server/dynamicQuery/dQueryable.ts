@@ -240,7 +240,7 @@ export class DQueryable {
     bindProjection(): ProjectionExpression {
         const connector = Connector.current();
         return bindAndOptimize(this.query, connector.schema, connector.isPostgres, /* alreadySimplified */ true,
-            undefined, loadedTypeCaches(connector.schema));
+            loadedTypeCaches(connector.schema), /* rowFilters */ false);
     }
 
     // The `<query>.count()` aggregate over the built query (Signum's Untyped.Count).
@@ -250,7 +250,7 @@ export class DQueryable {
     bindCountProjection(): ProjectionExpression {
         const connector = Connector.current();
         return bindAndOptimize(this.countCall(), connector.schema, connector.isPostgres, true,
-            undefined, loadedTypeCaches(connector.schema));
+            loadedTypeCaches(connector.schema), /* rowFilters */ false);
     }
     async countAsync(): Promise<number> {
         const connector = Connector.current();

@@ -45,7 +45,7 @@ seedTypeCachesForTest(sb.schema);
 const fakeSb = new FakeConnector(sb.schema, [], false);
 function bind(query: { expression: any }): ProjectionExpression {
     // The seeded snapshot, passed the way an inspection bind passes it (there is no async boundary here).
-    return Connector.withConnector(fakeSb, () => bindAndOptimize(query.expression, sb.schema, false, false, undefined, loadedTypeCaches(sb.schema)));
+    return Connector.withConnector(fakeSb, () => bindAndOptimize(query.expression, sb.schema, false, false, loadedTypeCaches(sb.schema)));
 }
 
 // A second schema/binder on the Postgres dialect, so function-selection that
@@ -59,7 +59,7 @@ seedTypeCachesForTest(sbPg.schema);
 
 const fakeSbPg = new FakeConnector(sbPg.schema, [], true);
 function bindPg(query: { expression: any }): ProjectionExpression {
-    return Connector.withConnector(fakeSbPg, () => bindAndOptimize(query.expression, sbPg.schema, true, false, undefined, loadedTypeCaches(sbPg.schema)));
+    return Connector.withConnector(fakeSbPg, () => bindAndOptimize(query.expression, sbPg.schema, true, false, loadedTypeCaches(sbPg.schema)));
 }
 
 describe("QueryBinder (step 2)", () => {
