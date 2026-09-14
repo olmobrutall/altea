@@ -17,6 +17,7 @@ import {
 import { EmailRecipientKind } from "@altea/altea-email/data/Email";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
+import type { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import { getTypeInfo } from "@altea/altea/data/reflection";
 import { SchedulerLogic } from "@altea/altea-scheduler/server/SchedulerLogic";
 import { ScheduledTaskEntity } from "@altea/altea-scheduler/data/Scheduler";
@@ -58,11 +59,11 @@ export namespace AlertNotificationLogic {
         EmailModelLogic.registerEmailModel({
             modelType: AlertNotificationMail,
             queryName: UserEntity,
-            defaultTemplateConstructor: () => EmailTemplateEntity.create({
+            defaultTemplateConstructor: async () => EmailTemplateEntity.create({
                 disableAuthorization: false,
                 groupResults: false,
                 messageFormat: EmailMessageFormat.HtmlComplex,
-                messages: forEachCulture(cultureInfo => EmailTemplateEntity_Message.create({
+                messages: await forEachCulture(cultureInfo => EmailTemplateEntity_Message.create({
                     cultureInfo,
                     subject: AlertMessage.NewUnreadNotifications.niceToString(),
                     text: `<p>${AlertMessage.Hi0.niceToString("@[Entity]")}</p>\n`
@@ -194,13 +195,9 @@ export namespace AlertNotificationLogic {
 }
 
 /** One EmailTemplate message per application culture, each rendered in ITS culture. */
-function forEachCulture(build: (culture: ReturnType<typeof cultureLite>) => EmailTemplateEntity_Message): EmailTemplateEntity_Message[] {
-    return CultureInfoLogic.applicationCultures()
-        .map(name => CultureInfo.withCultures(name, () => build(cultureLite(name))));
-}
-
-function cultureLite(name: string) {
-    return CultureInfoLogic.getCulture(name).toLite();
+async function forEachCulture(build: (culture: Lite<CultureInfoEntity>) => EmailTemplateEntity_Message): Promise<EmailTemplateEntity_Message[]> {
+    return (await CultureInfoLogic.lookup()).lites()
+        .map(c => CultureInfo.withCultures(c.name, () => build(c.lite)));
 }
 
 export type { Entity, AlertLogic };

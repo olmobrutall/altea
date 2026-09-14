@@ -70,7 +70,7 @@ export namespace TranslationReplacementLogic {
             throw new Error("replacementFeedback: the right translation is empty");
 
         await ExecutionMode.global(async () => {
-            const ci = CultureInfoLogic.getCulture(culture);
+            const ci = (await CultureInfoLogic.getCulture(culture));
 
             const exists = await table(TranslationReplacementEntity)
                 .some(a => a.cultureInfo.is(ci) && a.wrongTranslation == wrongTranslation);

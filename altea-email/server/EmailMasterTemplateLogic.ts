@@ -10,6 +10,8 @@ import {
 import { registerEmailMasterTemplateXml } from "./EmailTemplateXml";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
+import type { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
+import type { Lite } from "@altea/altea/data/lite";
 
 // Port of Signum.Mailing's Templates/EmailMasterTemplateLogic.cs — the shared chrome a template's body is
 // spliced into.
@@ -32,13 +34,9 @@ const defaultMasterTemplateHtml = `<html>
 </html>`;
 
 /** One message per application culture, each rendered in ITS culture (Signum's CultureInfoLogic.ForEachCulture). */
-function forEachCulture(build: (culture: ReturnType<typeof cultureLite>) => EmailMasterTemplateEntity_Message): EmailMasterTemplateEntity_Message[] {
-    return CultureInfoLogic.applicationCultures()
-        .map(name => CultureInfo.withCultures(name, () => build(cultureLite(name))));
-}
-
-function cultureLite(name: string) {
-    return CultureInfoLogic.getCulture(name).toLite();
+async function forEachCulture(build: (culture: Lite<CultureInfoEntity>) => EmailMasterTemplateEntity_Message): Promise<EmailMasterTemplateEntity_Message[]> {
+    return (await CultureInfoLogic.lookup()).lites()
+        .map(c => CultureInfo.withCultures(c.name, () => build(c.lite)));
 }
 
 export namespace EmailMasterTemplateLogic {
@@ -52,11 +50,11 @@ export namespace EmailMasterTemplateLogic {
      * template's body lands — because nothing about it is app-specific. An app that wants its own branding
      * still just assigns this.
      */
-    export let createDefaultMasterTemplate: (() => EmailMasterTemplateEntity) | undefined = () =>
+    export let createDefaultMasterTemplate: (() => Promise<EmailMasterTemplateEntity>) | undefined = async () =>
         EmailMasterTemplateEntity.create({
             name: "Default",
             isDefault: true,
-            messages: forEachCulture(cultureInfo => EmailMasterTemplateEntity_Message.create({
+            messages: await forEachCulture(cultureInfo => EmailMasterTemplateEntity_Message.create({
                 cultureInfo,
                 text: defaultMasterTemplateHtml,
             })),
@@ -97,7 +95,7 @@ export namespace EmailMasterTemplateLogic {
         if (createDefaultMasterTemplate == undefined)
             return undefined;
 
-        const newTemplate = createDefaultMasterTemplate();
+        const newTemplate = await createDefaultMasterTemplate();
         newTemplate.isDefault = true;
         await newTemplate.save();
         return newTemplate;
@@ -122,7 +120,7 @@ export namespace EmailMasterTemplateLogic {
         });
 
         op.withConstruct(EmailMasterTemplateOperation.Create, {
-        construct: () => createDefaultMasterTemplate?.() ?? new EmailMasterTemplateEntity(),
+        construct: async () => (await createDefaultMasterTemplate?.()) ?? new EmailMasterTemplateEntity(),
         });
 
         op.withExecute(EmailMasterTemplateOperation.Save, {

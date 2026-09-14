@@ -198,9 +198,7 @@ export namespace HelpLogic {
      * marked as the default (or, failing that, the first row) — a value the database actually has.
      */
     export async function getCulture(): Promise<CultureInfoEntity> {
-        const available = CultureInfoLogic.applicationCultures()
-            .map(name => CultureInfoLogic.tryGetCulture(name))
-            .filter(c => c != undefined) as CultureInfoEntity[];
+        const available = (await CultureInfoLogic.lookup()).all();
         if (available.length === 0)
             throw new Error("HelpLogic: no CultureInfoEntity rows — the help content is keyed by culture.");
 

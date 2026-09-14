@@ -47,7 +47,10 @@ import type { Schema } from "./schema/schema";
 //    PropertyRouteEntity POSTed by an editor resolves onto its persisted row instead of inserting a
 //    duplicate) and reads its GlobalLazy straight from it. altea's serializer is synchronous while a
 //    ResetLazy is asynchronous, so the lazy is mirrored into `syncSnapshot` after `schema.initialize()` and
-//    on every invalidation — the pattern `GlobalsLogic.warmUp` and `CultureInfoLogic` already use.
+//    on every invalidation. A MIRROR, not a peek at the lazy: between an invalidation and the reload that
+//    follows it the lazy has no value at all, and the hook cannot await one — so it would miss the row that
+//    already exists and insert a duplicate, which the unique index then rejects (altea-auth's slice suite
+//    reproduces exactly that). Keeping the previous map until the new one lands is what closes that window.
 //  - `PropertyRouteProductionCleanup` is not ported: it exists in Signum for databases whose migrations only
 //    fixed the routes known in dev, and altea's answer to an unparseable row is the same synchronizer that
 //    removes it (`removeOld` below), which a migration runs anyway.

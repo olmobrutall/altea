@@ -9,7 +9,7 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { OperationLogic } from "@altea/altea/server/operationLogic";
-import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
+import { CultureInfoLogic, type CultureLookup } from "@altea/altea/server/cultureInfoLogic";
 import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic";
 import { FilePathEmbedded } from "@altea/altea-files/data/Files";
 import { Entity, type Type } from "@altea/altea/data/entity";
@@ -366,10 +366,11 @@ export namespace HelpExportImport {
             await classify(content);
 
         const model = HelpImportPreviewModel.create({});
+        const cultures = await CultureInfoLogic.lookup();
         model.lines = contents.map(c => HelpImportPreviewLineEmbedded.create({
             type: c.kind.type.toTypeEntity(),
             key: c.key,
-            culture: cultureRow(c.cultureName),
+            culture: cultureRow(c.cultureName, cultures),
             text: describe(c),
             exitingEntity: c.existing ?? null,
             action: c.action ?? "NoChange",
@@ -404,10 +405,11 @@ export namespace HelpExportImport {
         HelpLogic.invalidate();
 
         const model = HelpImportReportModel.create({});
+        const cultures = await CultureInfoLogic.lookup();
         model.lines = contents.map(c => HelpImportReportLineEmbedded.create({
             type: c.kind.type.toTypeEntity(),
             key: c.key,
-            culture: cultureRow(c.cultureName),
+            culture: cultureRow(c.cultureName, cultures),
             text: describe(c),
             exitingEntity: c.existing ?? null,
             action: c.action ?? "NoChange",
@@ -421,7 +423,7 @@ export namespace HelpExportImport {
     /** Decide Create / Override / NoChange for one file, writing nothing (Signum's Preview mode). */
     async function classify(content: HelpContent): Promise<void> {
         await ExecutionMode.global(async () => {
-            const culture = cultureRow(content.cultureName);
+            const culture = cultureRow(content.cultureName, await CultureInfoLogic.lookup());
             const existing = await content.kind.find(content.key, culture);
 
             if (existing == undefined) {
@@ -456,7 +458,7 @@ export namespace HelpExportImport {
         try {
             // One transaction per line: a failing entry reports its error and leaves the others applied.
             await Transaction.forceNew(() => ExecutionMode.global(async () => {
-                const culture = cultureRow(content.cultureName);
+                const culture = cultureRow(content.cultureName, await CultureInfoLogic.lookup());
 
                 const entity = content.existing != undefined
                     ? await Database.retrieve(content.kind.type, content.existing.id!) as IHelpEntity
@@ -615,8 +617,8 @@ export namespace HelpExportImport {
         return (entity as unknown as { culture: CultureInfoEntity }).culture.name;
     }
 
-    function cultureRow(name: string): CultureInfoEntity {
-        const culture = CultureInfoLogic.tryGetCulture(name);
+    function cultureRow(name: string, cultures: CultureLookup): CultureInfoEntity {
+        const culture = cultures.tryGet(name);
         if (culture == undefined)
             throw new Error(`The zip has content for culture '${name}', which this application does not support`);
         return culture;

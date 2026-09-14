@@ -157,7 +157,7 @@ export namespace TranslatedInstanceLogic {
 
     /** Signum's `TranslationInstancesStatus` — the grid on the instance status page. */
     export async function translationInstancesStatus(applyFilter = true): Promise<TranslatedTypeSummary[]> {
-        const cultures = currentCultures();
+        const cultures = await currentCultures();
         const result: TranslatedTypeSummary[] = [];
 
         for (const type of PropertyRouteTranslationLogic.translatableTypes()) {
@@ -176,9 +176,9 @@ export namespace TranslatedInstanceLogic {
     }
 
     /** Signum's `TranslationLogic.CurrentCultureInfos` — the app's cultures, the default first. */
-    export function currentCultures(): string[] {
+    export async function currentCultures(): Promise<string[]> {
         const def = defaultCulture();
-        return CultureInfoLogic.applicationCultures()
+        return (await CultureInfoLogic.applicationCultures())
             .sort((a, b) => (a === def ? -1 : b === def ? 1 : a.localeCompare(b)));
     }
 
@@ -271,7 +271,7 @@ export namespace TranslatedInstanceLogic {
     /** Every culture's translations of one type (Signum's `TranslationsForType(type, null)`). */
     export async function allTranslationsForType(type: Function): Promise<Map<string, Map<InstanceKey, TranslatedInstanceEntity>>> {
         const result = new Map<string, Map<InstanceKey, TranslatedInstanceEntity>>();
-        for (const culture of currentCultures())
+        for (const culture of await currentCultures())
             result.set(culture, await translationsForType(type, culture));
         return result;
     }
@@ -374,7 +374,7 @@ export namespace TranslatedInstanceLogic {
         translators: ITranslator[], type: Function, targetCulture: string, applyFilter = true,
     ): Promise<{ instances: InstanceChanges[]; totalInstances: number }> {
 
-        const cultures = currentCultures().filter(c => c !== targetCulture);
+        const cultures = (await currentCultures()).filter(c => c !== targetCulture);
         let instances = await getInstanceChanges(type, targetCulture, cultures, applyFilter);
         const totalInstances = instances.length;
 
@@ -466,7 +466,7 @@ export namespace TranslatedInstanceLogic {
                     if ((n.translatedText ?? "") === "")
                         continue;
                     await TranslatedInstanceEntity.create({
-                        culture: CultureInfoLogic.getCulture(n.culture),
+                        culture: (await CultureInfoLogic.getCulture(n.culture)),
                         instance: n.instance,
                         propertyRoute: PropertyRouteLogic.propertyRouteEntitySync(typeLite, n.route),
                         originalText: n.originalText,

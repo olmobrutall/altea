@@ -112,7 +112,7 @@ interface EmailModelInfo {
     /** Build the model from a target entity (Signum's single-parameter constructor). */
     construct: ((entity: Entity | null) => IEmailModel) | undefined;
     /** Signum's DefaultTemplateConstructor — the template generated when none exists. */
-    defaultTemplateConstructor: (() => EmailTemplateEntity) | undefined;
+    defaultTemplateConstructor: (() => EmailTemplateEntity | Promise<EmailTemplateEntity>) | undefined;
 }
 
 export namespace EmailModelLogic {
@@ -178,7 +178,7 @@ export namespace EmailModelLogic {
         modelType: Function;
         queryName: QueryName;
         construct?: (entity: Entity | null) => IEmailModel;
-        defaultTemplateConstructor?: () => EmailTemplateEntity;
+        defaultTemplateConstructor?: () => EmailTemplateEntity | Promise<EmailTemplateEntity>;
     }): void {
         registeredModels.set(cleanTypeName(options.modelType), {
             modelType: options.modelType,
@@ -248,7 +248,7 @@ export namespace EmailModelLogic {
         if (i.defaultTemplateConstructor == undefined)
             throw new Error(`No EmailTemplate for '${modelEntity.className}' found and defaultTemplateConstructor is not set`);
 
-        const template = i.defaultTemplateConstructor();
+        const template = await i.defaultTemplateConstructor();
         template.masterTemplate ??= (await EmailMasterTemplateLogic.getDefaultMasterTemplate())?.toLite() ?? null;
         template.name ||= modelEntity.className;
         template.model = modelEntity;

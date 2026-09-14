@@ -162,9 +162,10 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
         return r;
     });
 
+    const cultures = await CultureInfoLogic.lookup();
     et.messages = list(asRecord(xml["Messages"])?.["Message"]).map((x, i) => {
         const m = new EmailTemplateEntity_Message();
-        m.cultureInfo = CultureInfoLogic.getCulture(str(x[A + "CultureInfo"])!).toLite();
+        m.cultureInfo = cultures.get(str(x[A + "CultureInfo"])!).toLite();
         m.subject = str(x[A + "Subject"]) ?? "";
         m.text = str(x["#text"]) ?? "";
         return m;
@@ -205,12 +206,13 @@ function masterToXml(emt: EmailMasterTemplateEntity, _ctx: IToXmlContext): Recor
     return o;
 }
 
-function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string, unknown>, _ctx: IFromXmlContext): void {
+async function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string, unknown>, _ctx: IFromXmlContext): Promise<void> {
     emt.name = str(xml[A + "Name"])!;
+    const cultures = await CultureInfoLogic.lookup();
     emt.messages = list(asRecord(xml["Messages"])?.["Message"]).map((x, i) => {
         const m = new EmailMasterTemplateEntity_Message();
         m.order = toInt(i);
-        m.cultureInfo = CultureInfoLogic.getCulture(str(x[A + "CultureInfo"])!).toLite();
+        m.cultureInfo = cultures.get(str(x[A + "CultureInfo"])!).toLite();
         m.text = str(x["#text"]) ?? "";
         return m;
     });

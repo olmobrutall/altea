@@ -84,7 +84,7 @@ export namespace TranslationServer {
         // ---- status --------------------------------------------------------------------------------
         ws.get("/api/translation/state",
             { res: CustomType<TranslationFileStatus[]>() },
-            async (_req, res) => { res.jsonTyped(getState()); });
+            async (_req, res) => { res.jsonTyped(await getState()); });
 
         // ---- download the raw file -------------------------------------------------------------------
         ws.get("/api/translation/download",
@@ -110,7 +110,7 @@ export namespace TranslationServer {
                 const culture = req.query["culture"] == undefined || req.query["culture"] === ""
                     ? undefined : String(req.query["culture"]);
                 const filter = String(req.query["filter"] ?? "");
-                res.jsonTyped(retrieve(packageName, culture, filter));
+                res.jsonTyped(await retrieve(packageName, culture, filter));
             });
 
         // ---- sync (what is missing + suggestions) ------------------------------------------------------
@@ -157,7 +157,7 @@ export namespace TranslationServer {
             {},
             async (req, res) => {
                 const culture = String(req.query["culture"] ?? "");
-                for (const s of getState())
+                for (const s of await getState())
                     if (s.culture === culture && !s.isDefault && s.status !== TranslatedSummaryState.Completed)
                         await autoTranslate(s.package, culture);
                 res.json({ ok: true });
@@ -184,8 +184,8 @@ export namespace TranslationServer {
     // ---- implementations ------------------------------------------------------------------------------
 
     /** Signum's `GetState` — one row per (package, culture). */
-    export function getState(): TranslationFileStatus[] {
-        const cultures = TranslatedInstanceLogic.currentCultures();
+    export async function getState(): Promise<TranslationFileStatus[]> {
+        const cultures = await TranslatedInstanceLogic.currentCultures();
         const result: TranslationFileStatus[] = [];
 
         for (const packageName of localizablePackages()) {
@@ -213,9 +213,9 @@ export namespace TranslationServer {
     }
 
     /** Signum's `Retrieve` — every culture side by side, for reading and hand-editing. */
-    export function retrieve(packageName: string, culture: string | undefined, filter: string): PackageResultTS {
+    export async function retrieve(packageName: string, culture: string | undefined, filter: string): Promise<PackageResultTS> {
         const defaultCulture = defaultCultureOf(packageName);
-        const cultures = TranslatedInstanceLogic.currentCultures()
+        const cultures = (await TranslatedInstanceLogic.currentCultures())
             .filter(c => c === defaultCulture || c === culture || translationFileExists(packageName, c));
 
         const packages = cultures.map(c => importXml(packageName, c));
@@ -283,7 +283,7 @@ export namespace TranslationServer {
     /** Signum's `Sync` — what is missing in one culture, with the machine suggestions attached. */
     export async function sync(packageName: string, culture: string, folder: string | undefined): Promise<PackageResultTS> {
         const defaultCulture = defaultCultureOf(packageName);
-        const cultures = TranslatedInstanceLogic.currentCultures()
+        const cultures = (await TranslatedInstanceLogic.currentCultures())
             .filter(c => c === defaultCulture || c === culture || translationFileExists(packageName, c));
 
         const byCulture = new Map(cultures.map(c => [c, importXml(packageName, c)]));

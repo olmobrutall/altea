@@ -13,6 +13,8 @@ import { UserWithClaims } from "@altea/altea/data/security";
 import { PasswordEncoding } from "@altea/altea/server/passwordEncoding";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
+import type { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
+import type { Lite } from "@altea/altea/data/lite";
 import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
@@ -35,7 +37,7 @@ import { ResetPasswordServer } from "./ResetPasswordServer";
 // The code is generated with `node:crypto` randomBytes → base64url. It is a BEARER CREDENTIAL, so
 // `Math.random()` would be a real weakness rather than a style choice.
 //
-// Each message's text is resolved in ITS culture, by mapping `CultureInfoLogic.applicationCultures()`
+// Each message's text is resolved in ITS culture, by mapping `(await CultureInfoLogic.applicationCultures())`
 // inside `CultureInfo.withCultures`.
 //
 // Port of Signum.Authorization.ResetPassword's ResetPasswordRequestLogic.cs — see
@@ -93,7 +95,7 @@ export namespace ResetPasswordRequestLogic {
         EmailModelLogic.registerEmailModel({
             modelType: ResetPasswordRequestEmail,
             queryName: ResetPasswordRequestEntity,
-            defaultTemplateConstructor: () => EmailTemplateEntity.create({
+            defaultTemplateConstructor: async () => EmailTemplateEntity.create({
                 // altea requires these three explicitly: every non-nullable field is implicitly mandatory
                 // (see CLAUDE.md), whereas Signum inherits the C# defaults. `disableAuthorization` /
                 // `groupResults` ARE those defaults; `messageFormat` is a DELIBERATE divergence —
@@ -102,7 +104,7 @@ export namespace ResetPasswordRequestLogic {
                 disableAuthorization: false,
                 groupResults: false,
                 messageFormat: EmailMessageFormat.HtmlComplex,
-                messages: forEachCulture(cultureInfo => EmailTemplateEntity_Message.create({
+                messages: await forEachCulture(cultureInfo => EmailTemplateEntity_Message.create({
                     cultureInfo,
                     subject: ResetPasswordMessage.ResetPasswordRequestSubject.niceToString(),
                     text: `<p>${ResetPasswordMessage.YouRecentlyRequestedANewPassword.niceToString()}</p>`
@@ -116,7 +118,7 @@ export namespace ResetPasswordRequestLogic {
         EmailModelLogic.registerEmailModel({
             modelType: UserLockedMail,
             queryName: UserEntity,
-            defaultTemplateConstructor: () => EmailTemplateEntity.create({
+            defaultTemplateConstructor: async () => EmailTemplateEntity.create({
                 // altea requires these three explicitly: every non-nullable field is implicitly mandatory
                 // (see CLAUDE.md), whereas Signum inherits the C# defaults. `disableAuthorization` /
                 // `groupResults` ARE those defaults; `messageFormat` is a DELIBERATE divergence —
@@ -125,7 +127,7 @@ export namespace ResetPasswordRequestLogic {
                 disableAuthorization: false,
                 groupResults: false,
                 messageFormat: EmailMessageFormat.HtmlComplex,
-                messages: forEachCulture(cultureInfo => EmailTemplateEntity_Message.create({
+                messages: await forEachCulture(cultureInfo => EmailTemplateEntity_Message.create({
                     cultureInfo,
                     subject: ResetPasswordMessage.YourAccountHasBeenLocked.niceToString(),
                     text: `<p>${ResetPasswordMessage.YourAccountHasBeenLockedDueToSeveralFailedLogins.niceToString()}</p>`
@@ -323,13 +325,9 @@ function registerResetPasswordRequestOperations(op: FluentOperations<ResetPasswo
 }
 
 /** One EmailTemplate message per application culture, each rendered in ITS culture. */
-function forEachCulture(build: (culture: ReturnType<typeof cultureLite>) => EmailTemplateEntity_Message): EmailTemplateEntity_Message[] {
-    return CultureInfoLogic.applicationCultures()
-        .map(name => CultureInfo.withCultures(name, () => build(cultureLite(name))));
-}
-
-function cultureLite(name: string) {
-    return CultureInfoLogic.getCulture(name).toLite();
+async function forEachCulture(build: (culture: Lite<CultureInfoEntity>) => EmailTemplateEntity_Message): Promise<EmailTemplateEntity_Message[]> {
+    return (await CultureInfoLogic.lookup()).lites()
+        .map(c => CultureInfo.withCultures(c.name, () => build(c.lite)));
 }
 
 /** `ex.LogException()` — in its own transaction so the log survives the rollback of what failed. */

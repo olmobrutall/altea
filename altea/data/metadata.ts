@@ -183,8 +183,10 @@ export namespace Metadata {
     // The application's supported cultures, when something authoritative knows them. CultureInfoLogic
     // installs this once its table is in play; until then the loaded translations are the best available
     // answer. Kept as a seam so the isomorphic data layer needn't know about a server table.
-    let cultureCatalogue: (() => string[]) | undefined;
-    export function setCultureCatalogue(fn: (() => string[]) | undefined): void { cultureCatalogue = fn; }
+    // May answer `undefined` — the source is a cache that can be cold, and falling back to the loaded
+    // translations is better than answering with a stale list somebody kept on the side.
+    let cultureCatalogue: (() => string[] | undefined) | undefined;
+    export function setCultureCatalogue(fn: (() => string[] | undefined) | undefined): void { cultureCatalogue = fn; }
 
     /**
      * The cultures the application offers. With a `CultureInfoEntity` table (Signum's model) that is what

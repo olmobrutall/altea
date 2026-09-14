@@ -57,18 +57,24 @@ export namespace CultureInfoLogic {
         // supports, rather than what happens to have a translation file. (Before this it could only infer
         // the list from the loaded translations — a decent guess, but it could neither offer an untranslated
         // supported culture nor withhold one the app does not actually support.)
-        Metadata.setCultureCatalogue(() => [...warm.keys()]);
+        // The ONE synchronous reader left, and it is a seam rather than a cache of its own: it peeks at the
+        // lazy's loaded value and answers `undefined` when it is cold, so `Metadata.cultures()` falls back
+        // to the loaded translations instead of to a stale list. It is synchronous because per-request
+        // culture negotiation (webApi) is, and it can never disagree with the lazy — there is nothing else
+        // to keep in step.
+        Metadata.setCultureCatalogue(() => {
+            const loaded = cultures?.valueOrUndefined;
+            return loaded == null ? undefined : [...loaded.keys()];
+        });
     }
 
-    // A SYNC snapshot of the cache, for the paths that cannot await — the reflection endpoint is called on
-    // every client boot and must answer without a DB round trip. Refreshed by `warmUp`, which the host runs
-    // after the schema is ready (mirroring HolidayCalendarLogic's `warm`).
-    let warm = new Map<string, CultureInfoEntity>();
-
-    /** Load the cache into the sync snapshot. Call once at startup, after the schema is built. */
-    export async function warmUp(): Promise<void> {
-        if (started)
-            warm = await cultures.value();
+    /**
+     * The application's cultures, RESOLVED — what a synchronous per-culture loop takes: an XML import
+     * mapping a list of per-culture messages, a template seeder building one message per culture inside
+     * `CultureInfo.withCultures`. One await, then read it as often as you like.
+     */
+    export async function lookup(): Promise<CultureLookup> {
+        return new CultureLookup(await cultures.value());
     }
 
     /**
@@ -77,32 +83,28 @@ export namespace CultureInfoLogic {
      * with English rather than nothing. This is the same exact-then-language fallback the template message
      * lookup uses, applied one level lower.
      */
-    export function tryGetCulture(name: string): CultureInfoEntity | undefined {
-        const dash = name.indexOf("-");
-        return warm.get(name) ?? (dash > 0 ? warm.get(name.slice(0, dash)) : undefined);
+    export async function tryGetCulture(name: string): Promise<CultureInfoEntity | undefined> {
+        return (await lookup()).tryGet(name);
     }
 
     /** As {@link tryGetCulture}, throwing when neither the culture nor its language is supported. */
-    export function getCulture(name: string): CultureInfoEntity {
-        const c = tryGetCulture(name);
-        if (c == null)
-            throw new Error(`Culture '${name}' is not one of the application's cultures (${[...warm.keys()].join(", ")})`);
-        return c;
+    export async function getCulture(name: string): Promise<CultureInfoEntity> {
+        return (await lookup()).get(name);
     }
 
     /** Every supported culture's tag (Signum's ApplicationCultures); `isNeutral` filters "es" from "es-AR". */
-    export function applicationCultures(isNeutral?: boolean): string[] {
-        return [...warm.values()]
-            .filter(c => isNeutral == null || c.isNeutral() === isNeutral)
-            .map(c => c.name)
-            .sort();
+    export async function applicationCultures(isNeutral?: boolean): Promise<string[]> {
+        return (await lookup()).names(isNeutral);
     }
 
     /** The locale tag behind a stored `Lite<CultureInfoEntity>` — what a renderer needs (it formats with a tag). */
     export function toCultureName(lite: Lite<CultureInfoEntity> | null | undefined): string | undefined {
         if (lite == null)
             return undefined;
-        const byId = [...warm.values()].find(c => String(c.id) === String(lite.id));
+        // SYNCHRONOUS, like the resolver seam it answers (a template resolves a stored culture while
+        // rendering). Reads the lazy's loaded value — cold or unknown both mean "no tag", which is what the
+        // caller already falls back on.
+        const byId = [...(cultures?.valueOrUndefined?.values() ?? [])].find(c => String(c.id) === String(lite.id));
         // The lite's own toStr is the ENGLISH name, not the tag, so it is no fallback — an unknown id means
         // the row was deleted, and the caller should fall back to its own default culture.
         return byId?.name;
@@ -121,6 +123,46 @@ export namespace CultureInfoLogic {
             await row.save();
         }
         cultures?.reset();
-        await warmUp();
+    }
+}
+
+/**
+ * The application's cultures as a resolved snapshot — see {@link CultureInfoLogic.lookup}. Everything here
+ * is synchronous, so a caller that has awaited once can loop, filter and fall back without another hop.
+ */
+export class CultureLookup {
+    constructor(private readonly byName: ReadonlyMap<string, CultureInfoEntity>) { }
+
+    /** The row for a locale tag, falling back to the tag's LANGUAGE ("en-US" → "en") — an app that ships
+     *  "en" answers a request for "en-US" with English rather than with nothing. */
+    tryGet(name: string): CultureInfoEntity | undefined {
+        const dash = name.indexOf("-");
+        return this.byName.get(name) ?? (dash > 0 ? this.byName.get(name.slice(0, dash)) : undefined);
+    }
+
+    /** As {@link tryGet}, throwing when neither the culture nor its language is supported. */
+    get(name: string): CultureInfoEntity {
+        const c = this.tryGet(name);
+        if (c == null)
+            throw new Error(`Culture '${name}' is not one of the application's cultures (${[...this.byName.keys()].join(", ")})`);
+        return c;
+    }
+
+    all(): CultureInfoEntity[] {
+        return [...this.byName.values()];
+    }
+
+    /** Every supported culture's tag (Signum's ApplicationCultures); `isNeutral` filters "es" from "es-AR". */
+    names(isNeutral?: boolean): string[] {
+        return this.all()
+            .filter(c => isNeutral == null || c.isNeutral() === isNeutral)
+            .map(c => c.name)
+            .sort();
+    }
+
+    /** Every culture as (tag, lite) — what a per-culture BUILDER needs, since its own loop stays
+     *  synchronous inside `CultureInfo.withCultures`. */
+    lites(isNeutral?: boolean): { name: string; lite: Lite<CultureInfoEntity> }[] {
+        return this.names(isNeutral).map(name => ({ name, lite: this.get(name).toLite() }));
     }
 }

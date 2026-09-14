@@ -82,7 +82,7 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
     ot.name = str(xml[A + "Name"])!;
     ot.disableAuthorization = bool(xml[A + "DisableAuthorization"]) ?? false;
     ot.query = xml[A + "Query"] != undefined ? ctx.getQuery(str(xml[A + "Query"])!) : null;
-    ot.culture = CultureInfoLogic.getCulture(str(xml[A + "Culture"]) ?? CultureInfo.defaultUICulture()).toLite();
+    ot.culture = (await CultureInfoLogic.getCulture(str(xml[A + "Culture"]) ?? CultureInfo.defaultUICulture())).toLite();
     ot.fileName = str(xml[A + "FileName"])!;
     ot.groupResults = bool(xml[A + "GroupResults"]) ?? false;
 
