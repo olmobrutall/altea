@@ -5,7 +5,7 @@ import {
 } from "../linq/expressions";
 import { ProjectionExpression } from "../linq/expressions.sql";
 import { Connector } from "../connection/connector";
-import { bindAndOptimize, bindOptimizeSecured } from "../table";
+import { bindAndOptimize, bindOptimizeSecured, loadedTypeCaches } from "../table";
 import { buildTranslateResult } from "../linq/translatorBuilder";
 import { Query } from "../query";
 import { BuildExpressionContext, ExpressionBox, buildLite } from "./tokenExpressions";
@@ -239,7 +239,8 @@ export class DQueryable {
     // filter here — execution goes through bindOptimizeSecured (the LINQ provider) which applies it.
     bindProjection(): ProjectionExpression {
         const connector = Connector.current();
-        return bindAndOptimize(this.query, connector.schema, connector.isPostgres, /* alreadySimplified */ true);
+        return bindAndOptimize(this.query, connector.schema, connector.isPostgres, /* alreadySimplified */ true,
+            undefined, loadedTypeCaches(connector.schema));
     }
 
     // The `<query>.count()` aggregate over the built query (Signum's Untyped.Count).
@@ -248,7 +249,8 @@ export class DQueryable {
     }
     bindCountProjection(): ProjectionExpression {
         const connector = Connector.current();
-        return bindAndOptimize(this.countCall(), connector.schema, connector.isPostgres, true);
+        return bindAndOptimize(this.countCall(), connector.schema, connector.isPostgres, true,
+            undefined, loadedTypeCaches(connector.schema));
     }
     async countAsync(): Promise<number> {
         const connector = Connector.current();

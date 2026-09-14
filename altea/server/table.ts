@@ -110,7 +110,7 @@ quotedFunction(view).__resultType = (_, viewTypeType) => new ArrayType(new Class
 // the runtime uses, factored out so tests (binder.test.ts) can observe the same
 // post-optimiser shape the executor sees (not the raw pre-optimiser tree). Mirrors the
 // relevant slice of Signum's DbQueryProvider.Optimize.
-export function bindAndOptimize(expression: Expression, schema: Schema, isPostgres: boolean, alreadySimplified = false, filterContext?: QueryFilterContext, typeCaches: TypeCaches | undefined = schema.typeCaches.valueOrUndefined): ProjectionExpression {
+export function bindAndOptimize(expression: Expression, schema: Schema, isPostgres: boolean, alreadySimplified = false, filterContext?: QueryFilterContext, typeCaches?: TypeCaches): ProjectionExpression {
     // `alreadySimplified` skips the OverloadingSimplifier for a hand-built expression (the
     // batch-retrieve query): it already uses only core operators (filter/contains), so there's
     // no sugar/methodExpander to lower.
@@ -188,6 +188,16 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
         result = DuplicateHistory.rewrite(result, binder.aliases) as ProjectionExpression;
     }
     return result;
+}
+
+/**
+ * Whatever type↔id snapshot the schema currently has loaded, for an INSPECTION bind — a SQL dump, an
+ * offline test — which never executes what it binds. A bind whose SQL will RUN takes the snapshot its async
+ * boundary resolved instead (bindOptimizeSecured does), so that one query cannot straddle two generations
+ * of ids; this peek makes the difference visible at the call site rather than hiding it in a default.
+ */
+export function loadedTypeCaches(schema: Schema): TypeCaches | undefined {
+    return schema.typeCaches.valueOrUndefined;
 }
 
 // LINQ-provider translate with row-level security resolved: await the schema's QueryFilterContext (Signum's
@@ -309,9 +319,10 @@ class MyQueryTranslator implements IQueryTranslator {
         const connector = Connector.current();
         // SYNCHRONOUS bind (debug SQL / offline comparison): can't await, so a cache a `.$v` in this query
         // needs and nobody loaded surfaces as the PromiseNotLoaded it is, rather than being resolved here.
-        // Every EXECUTING path goes through bindOptimizeSecured, which loads on demand. bindAndOptimize's default reads
-        // the already-loaded caches box (warm in production; offline binders seed it — the test layer's seedTypeCachesForTest).
-        return bindAndOptimize(expression, connector.schema, connector.isPostgres);
+        // Every EXECUTING path goes through bindOptimizeSecured, which loads on demand; this one reads
+        // whatever is loaded (warm in production; offline binders seed it — seedTypeCachesForTest).
+        return bindAndOptimize(expression, connector.schema, connector.isPostgres, false, undefined,
+            loadedTypeCaches(connector.schema));
     }
 
     async execute(expression: Expression): Promise<unknown> {

@@ -81,7 +81,8 @@ export class ResetLazy<T> implements IResetLazy {
         this.loading = p;
         // Stable while still LOADING too: a `.$v` that meets the in-flight promise types itself from the
         // declared runtimeType and asks the region to await it — an unmarked one would be refused instead.
-        if (this.runtimeType != null) markStable(p, this.runtimeType);
+        if (this.runtimeType != null)
+            markStable(p, this.runtimeType);
         void (async () => {
             try {
                 const v = await this.valueFactory();
@@ -89,7 +90,8 @@ export class ResetLazy<T> implements IResetLazy {
                 // Stamp the value on the promise HERE rather than leaving it to markStable’s own `then`, so
                 // it is there the instant this load settles — the query region that awaited this very promise
                 // binds again immediately after, and a value one microtask late would look unloaded.
-                if (this.runtimeType != null) markStable(p, this.runtimeType, { value: v });
+                if (this.runtimeType != null)
+                    markStable(p, this.runtimeType, { value: v });
                 settle(v);
             } catch (err) {
                 if (this.loading === p) this.loading = undefined;

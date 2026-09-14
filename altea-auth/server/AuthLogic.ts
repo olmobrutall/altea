@@ -141,6 +141,12 @@ export namespace AuthLogic {
         // ExecutionMode.global, so the RoleEntity read is UNGATED — no explicit withDisabled, and no
         // re-entry into the row-filter provider.
         roleGraphLazy = sb.globalLazy(() => loadRoleGraph(), { invalidateWith: [RoleEntity] });
+        // Loaded at startup, and again when a role changes. Not because a reader depends on it being warm —
+        // every reader awaits — but because `currentRoles()` is a PEEK (it runs inside a `@quoted` lambda, where
+        // there is no await) and cold it answers with the current role ALONE. That is fail-closed, so it is
+        // safe, but it hides assets a role should see; being warm is what makes it right.
+        sb.schema.initializing.push(() => roleGraphLazy.load());
+        sb.schema.entityEvents(RoleEntity).saved.push(async () => { await roleGraphLazy.load(); });
 
         // Invalidated by a UserEntity save, so renaming or re-roling the anonymous user takes effect
         // without a restart. (Signum's is WithoutInvalidations, i.e. never.)

@@ -1,6 +1,6 @@
 import { test, describe } from "vitest";
 import assert from "node:assert/strict";
-import { table, bindAndOptimize } from "@altea/altea/server/table";
+import { table, bindAndOptimize, loadedTypeCaches } from "@altea/altea/server/table";
 import "@altea/altea/data/globals";
 import {
     ProjectionExpression, SelectExpression, TableExpression, ColumnExpression,
@@ -44,7 +44,8 @@ seedTypeCachesForTest(sb.schema);
 // connector context whose schema is the one being bound.
 const fakeSb = new FakeConnector(sb.schema, [], false);
 function bind(query: { expression: any }): ProjectionExpression {
-    return Connector.withConnector(fakeSb, () => bindAndOptimize(query.expression, sb.schema, false));
+    // The seeded snapshot, passed the way an inspection bind passes it (there is no async boundary here).
+    return Connector.withConnector(fakeSb, () => bindAndOptimize(query.expression, sb.schema, false, false, undefined, loadedTypeCaches(sb.schema)));
 }
 
 // A second schema/binder on the Postgres dialect, so function-selection that
@@ -58,7 +59,7 @@ seedTypeCachesForTest(sbPg.schema);
 
 const fakeSbPg = new FakeConnector(sbPg.schema, [], true);
 function bindPg(query: { expression: any }): ProjectionExpression {
-    return Connector.withConnector(fakeSbPg, () => bindAndOptimize(query.expression, sbPg.schema, true));
+    return Connector.withConnector(fakeSbPg, () => bindAndOptimize(query.expression, sbPg.schema, true, false, undefined, loadedTypeCaches(sbPg.schema)));
 }
 
 describe("QueryBinder (step 2)", () => {
@@ -404,7 +405,7 @@ describe("ImplementedBy / ImplementedByAll (SmartEqualizer)", () => {
         const proj = bind(table(NoteWithDateEntity).filter(n => n.target instanceof AlbumEntity));
         const { sql, parameters } = QueryFormatter.format(proj.select, false);
         assert.match(sql, /TargetID_Type/i);
-        assert.ok(parameters.includes(sb.schema.typeCaches.valueOrUndefined!.typeToId(AlbumEntity)), "compares against the target's TypeEntity id");
+        assert.ok(parameters.includes(loadedTypeCaches(sb.schema)!.typeToId(AlbumEntity)), "compares against the target's TypeEntity id");
     });
 
     // (x as Concrete) on @implementedBy narrows to that implementation; navigating a

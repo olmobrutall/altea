@@ -2,7 +2,7 @@ import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import type { BaseEntity, Type } from "@altea/altea/data/entity";
-import { table, bindAndOptimize } from "@altea/altea/server/table";
+import { table, bindAndOptimize, loadedTypeCaches } from "@altea/altea/server/table";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { QueryFormatter } from "@altea/altea/server/linq/queryFormatter";
@@ -99,7 +99,7 @@ describe("QueryLogic — @implementedByAll sub-tokens", () => {
             const body = token.buildExpression(ctx);
             const lambda = new LambdaExpression([param], body);
             const mapCall = new CallExpression(new PropertyExpression(q.expression, "map"), [lambda], new ArrayType(body.type));
-            const proj = bindAndOptimize(mapCall, sb.schema, false, true) as ProjectionExpression;
+            const proj = bindAndOptimize(mapCall, sb.schema, false, true, undefined, loadedTypeCaches(sb.schema)) as ProjectionExpression;
             assert.ok(proj instanceof ProjectionExpression);
             return (QueryFormatter.format(proj.select, false).sql + " ~~ " + String(proj.projector)).toLowerCase();
         });
@@ -124,7 +124,7 @@ describe("QueryToken — [EntityType] over a polymorphic reference", () => {
             const body = token.buildExpression(ctx);
             const lambda = new LambdaExpression([param], body);
             const mapCall = new CallExpression(new PropertyExpression(q.expression, "map"), [lambda], new ArrayType(body.type));
-            const proj = bindAndOptimize(mapCall, sb.schema, false, true) as ProjectionExpression;
+            const proj = bindAndOptimize(mapCall, sb.schema, false, true, undefined, loadedTypeCaches(sb.schema)) as ProjectionExpression;
             assert.ok(proj instanceof ProjectionExpression);
             return QueryFormatter.format(proj.select, false).sql.toLowerCase();
         });
