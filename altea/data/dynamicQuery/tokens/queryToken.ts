@@ -753,39 +753,13 @@ export function setServerTokensProvider(fn: ((token: QueryToken, options: SubTok
     serverTokensProvider = fn;
 }
 
-/**
- * Whether a parent token can carry SERVER-ONLY sub-tokens at all — the one rule both halves read.
- *
- * Server-only means "registered expression" (ExtensionToken; ManualToken / OperationToken join the
- * union later), and an expression is registered against an entity TYPE. So two shapes can never have
- * one, and the server's `ExpressionContainer.getExtensionsTokens` returns `[]` for them:
- *
- *  - a token whose type is not an entity — a value, an enum, an EMBEDDED (`entityCtorOf` is
- *    `is(Entity)`, so an embedded's expressions would have to be registered on the OWNER);
- *  - a raw COLLECTION navigation, because an expression on the element type surfaces under
- *    `.Element` / `.Any`, never on the collection itself.
- *
- * The client reads it to skip the round trip entirely: asking `Details`, `Notes` or
- * `Customer.Address` for its server tokens is a request that can only ever answer `[]`, and a token
- * picker expands a whole level of those at once. On a chart over Order that was 12 of 15 requests.
- *
- * It is ONE function rather than two copies precisely because the two must agree: a client that
- * skips where the server would have answered loses tokens silently. Widen this when a new kind of
- * server-only token arrives with a different applicability rule.
- */
-export function canHaveServerOnlyTokens(parent: QueryToken): boolean {
-    if (parent.type.array && !parent.isElement() && !parent.isAnyOrAll())
-        return false;
-    return entityCtorOf(parent.type) != undefined;
-}
-
 // The public, side-agnostic way to expand a token's sub-tokens: the locally-generated metadata
 // tokens, plus (when a server-token source is wired) the fetched server-only tokens. A local member
 // wins over a server token of the same key (Signum: extensions never override normal members). The
 // merged set is re-sorted like `subTokens` (priority desc, then display name).
 export async function getSubTokens(token: QueryToken, options: SubTokensOptions): Promise<QueryToken[]> {
     const local = token.subTokens(options);
-    if (serverTokensProvider == undefined || !canHaveServerOnlyTokens(token))
+    if (serverTokensProvider == undefined)
         return local;
     const server = await serverTokensProvider(token, options);
     const seen = new Set(local.map(t => t.key));

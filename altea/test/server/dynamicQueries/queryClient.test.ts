@@ -4,7 +4,7 @@ import "@altea/altea/data/globals";
 import "@altea/altea/server/dynamicQuery/tokenExpressions"; // register factories + expression prototypes
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
-import { SubTokensOptionsAll, getSubTokens, setServerTokensProvider, canHaveServerOnlyTokens } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
+import { SubTokensOptionsAll, getSubTokens, setServerTokensProvider } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { isServerOnlyToken, serializeServerToken } from "@altea/altea/data/dynamicQuery/tokenSerializer";
 import { initQueryClient, setFetchServerTokens, clearServerTokenCache } from "@altea/altea/client/QueryClient";
@@ -53,43 +53,6 @@ describe("QueryClient (client-side server-token source)", () => {
         assert.equal(albums.parent, localRoot);          // hung off the caller's local parent
         assert.equal(albums.niceName(), "Albums");
         assert.ok(albums.subTokens(O).map(t => t.key).includes("Element")); // navigates locally
-    });
-
-    // A parent that can only ever answer `[]` must not be ASKED. A token picker expands a whole level
-    // at once, so the wasted requests came a dozen at a time; the rule the client skips on is the same
-    // `canHaveServerOnlyTokens` the server's getExtensionsTokens returns on, so the two cannot drift.
-    test("does not fetch for a parent that can carry no server-only tokens", async () => {
-        const asked: string[] = [];
-        setFetchServerTokens(async (_qk, tokenFullKey) => { asked.push(tokenFullKey); return serverJson; });
-
-        const localRoot = new RootToken(ArtistEntity);
-        const subs = await getSubTokens(localRoot, O);
-        asked.length = 0; // the root itself IS an entity token and is legitimately asked
-
-        // a raw COLLECTION nav: its element type's expressions belong on .Element / .Any, never here
-        const albums = subs.find(t => t.key === "Albums")!;
-        assert.equal((await getSubTokens(albums, O)).length > 0, true);
-
-        // a value token: no entity type, so no expression can be registered against it
-        const name = subs.find(t => t.key === "Name")!;
-        await getSubTokens(name, O);
-
-        assert.deepEqual(asked, [], "neither parent should have crossed the wire");
-
-        // the ELEMENT of that same collection is an entity token and IS asked — the skip is a rule
-        // about the parent's shape, not a blanket suppression.
-        const element = (await getSubTokens(albums, O)).find(t => t.key === "Element")!;
-        await getSubTokens(element, O);
-        assert.deepEqual(asked, [element.fullKey()]);
-    });
-
-    test("canHaveServerOnlyTokens agrees with the server for every token of a level", async () => {
-        const root = QueryLogic.getToken(ArtistEntity, "", O);
-        for (const t of root.subTokens(O)) {
-            const serverAnswer = QueryLogic.expressions.getExtensionsTokens(t).length > 0;
-            if (serverAnswer)
-                assert.ok(canHaveServerOnlyTokens(t), `${t.fullKey()} has extensions but the client would skip it`);
-        }
     });
 
     // keep the shared global provider from leaking the fake transport into other suites
