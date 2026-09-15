@@ -251,9 +251,12 @@ export namespace AuthAdminClient {
 // well be allowed to edit for THIS row would be the worse error: the server still enforces the exact
 // per-instance answer on the way in (the request deserializer) and out (the serializer).
 //
-// An unrestricted route is not shipped at all, so an absent entry means Write.
+// An unrestricted route is not shipped at all, so an absent entry means Write. `maxPropertyAllowed` in
+// turn is shipped only where it DIFFERS from the fallback — the coarse case (no type condition) is one
+// number, not the same number three times — so it falls back to `propertyAllowed` before Write.
 function propertyAllowance(rootType: Function, path: string): PropertyAllowed {
-    return tryGetTypeMetadata(rootType)?.fields[path]?.maxPropertyAllowed ?? PropertyAllowed.Write;
+    const fm = tryGetTypeMetadata(rootType)?.fields[path];
+    return fm?.maxPropertyAllowed ?? fm?.propertyAllowed ?? PropertyAllowed.Write;
 }
 
 /**

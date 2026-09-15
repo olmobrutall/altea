@@ -71,11 +71,26 @@ export namespace AuthReflectionServer {
                 for (const [typeName, byPath] of await PropertyAuthLogic.restrictedRoutesForRole(roleKey)) {
                     const tm = meta.types[typeName];
                     if (tm == null) continue;
+
+                    // A property rule on a type the role cannot READ AT ALL says nothing new: the retrieve
+                    // gate refuses the entity, so no instance ever reaches a control that could consult it.
+                    // The type pass above has already stamped that answer, so it is known here.
+                    //
+                    // This is not a micro-optimisation. For the ANONYMOUS blob — which every client fetches
+                    // at boot, before login, to render the login page — every type is None, and these were
+                    // 1951 of 1971 property entries: 170KB of a 276KB response spent restating "you cannot
+                    // read this" once per property of something you already cannot read.
+                    if (tm.maxTypeAllowed === TypeAllowedBasic.None)
+                        continue;
+
                     for (const [path, allowed] of byPath) {
                         const fm = tm.fields[path] ??= {};
                         fm.propertyAllowed = allowed.fallback;
-                        fm.minPropertyAllowed = allowed.min;
-                        fm.maxPropertyAllowed = allowed.max;
+                        // The range is shipped only where there IS a range. The coarse case — no type
+                        // condition, so min == max == fallback — is every property of most roles, and
+                        // saying one number three times is the shape the reader defaults away anyway.
+                        if (allowed.min !== allowed.fallback) fm.minPropertyAllowed = allowed.min;
+                        if (allowed.max !== allowed.fallback) fm.maxPropertyAllowed = allowed.max;
                     }
                 }
             }

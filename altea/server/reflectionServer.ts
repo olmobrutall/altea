@@ -32,7 +32,7 @@ import {
 } from "../data/registration";
 import { EnumEntity, enumEntityMembers } from "../data/enumEntity";
 import { PropertyRoute } from "../data/propertyRoute";
-import { Entity } from "../data/entity";
+import { Entity, View } from "../data/entity";
 import { TypeLogic } from "./typeLogic";
 import type { TypeEntity } from "../data/typeEntity";
 
@@ -104,6 +104,12 @@ export namespace ReflectionServer {
         // must still resolve). `fields` is route-keyed, so an embedded's members appear dotted under every
         // owner that reaches them — exactly what property authorization is keyed by.
         for (const ctor of getRegisteredTypes()) {
+            // VIEWS are not part of the client's world: a View is a query-projection DTO the ENGINE
+            // materialises (the sync SysTables / SysColumns family, temp-table shapes), with no page, no
+            // operations, no property rules and no query a user can open. They were reaching the blob only
+            // because they are registered types — 24 entries of pure noise on every boot.
+            if (isViewType(ctor))
+                continue;
             const tm = typeOf(ctor.name, ctor === Entity || ctor.prototype instanceof Entity ? "Entity" : "Model");
             for (const path of routesOf(ctor)) {
                 const niceName = declaredMember(ctor.name, path);
@@ -269,6 +275,12 @@ export namespace ReflectionServer {
                 res.jsonTyped(te ?? null);
             });
     }
+}
+
+// Whether a registered type is a query-projection VIEW rather than something the client can hold. The
+// `View` base itself counts: it is registered too, and is no more useful to a client than its subclasses.
+function isViewType(ctor: Function): boolean {
+    return ctor === View || ctor.prototype instanceof View;
 }
 
 // A type's property routes as propertyString()s. Structural (culture- and role-independent), so it is
