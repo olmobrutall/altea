@@ -1654,19 +1654,19 @@ export namespace Finder {
         // Signum's autoExpandToken: recursively pull an autoExpand token's OWN sub-tokens inline, so an
         // embedded / collection / polymorphic reference (and altea's @part collections) reach their
         // members without extra clicks. Direct children are ordered before the flattened descendants.
+        // Siblings expand CONCURRENTLY (Promise.all, then flatten — which keeps the candidate order the
+        // sequential loop gave). Each one can still cost a round trip for its server-only tokens, and a
+        // level of ten of those awaited one after another is ten latencies for work that has no order
+        // between its parts. Signum pays none of them: its subTokens response nests an autoExpand child's
+        // own sub-tokens, so its walk is synchronous over the cache.
         const expand = async (t: QueryToken): Promise<QueryToken[]> => {
           if (!t.autoExpand)
             return [t];
           const subs = await generateSubTokens(t, options);
           subs.forEach(s => this.cache.set(s.fullKey().toLowerCase(), s));
-          const out: QueryToken[] = [t];
-          for (const s of subs)
-            out.push(...await expand(s));
-          return out;
+          return [t, ...(await Promise.all(subs.map(expand))).flatMap(a => a)];
         };
-        const expanded: QueryToken[] = [];
-        for (const t of candidates)
-          expanded.push(...await expand(t));
+        const expanded = (await Promise.all(candidates.map(expand))).flatMap(a => a);
         flat = expanded.orderBy(a => a.parent == parentToken ? 0 : 1);
       }
 
