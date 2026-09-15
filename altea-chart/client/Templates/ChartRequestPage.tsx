@@ -61,7 +61,11 @@ export default function ChartRequestPage(): React.JSX.Element {
   // reflect it in the URL (replace, so the editing session is one history entry).
   function handleChange(changed: ChartRequestModel, uc: Lite<UserChartEntity> | undefined): void {
     setCr(changed);
-    setUserChart(uc);
+    // WHICH chart is shown, not which lite OBJECT: the view echoes back the lite it was handed, and when
+    // a search finishes it does so from a closure that may predate the named lite arriving above — so
+    // taking it verbatim would quietly swap "Customers" back for "User Chart <guid>". Same key ⇒ same
+    // chart ⇒ keep the one we have, which is the one that may have a name.
+    setUserChart(prev => prev != null && uc != null && prev.key() === uc.key() ? prev : uc);
     ChartClient.Encoder.chartPathPromise(changed, uc)
       .then(path => AppContext.navigate(path, { replace: true }));
   }
