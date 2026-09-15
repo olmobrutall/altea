@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { useParams, useLocation } from 'react-router'
 import { Finder } from '@altea/altea/client/Finder'
+import { Navigator } from '@altea/altea/client/Navigator'
 import * as AppContext from '@altea/altea/client/AppContext'
 import { QueryString } from '@altea/altea/client/QueryString'
 import { SubTokensOptions, getSubTokens } from '@altea/altea/data/dynamicQuery/tokens/queryToken'
@@ -38,7 +39,17 @@ export default function ChartRequestPage(): React.JSX.Element {
       if (oldPath != newPath) {
         buildRequest(queryName, location.search).then(setCr);
         const ucKey = QueryString.parse(location.search).userChart as string | undefined;
-        setUserChart(ucKey ? (Lite.parse(ucKey) as Lite<UserChartEntity>) : undefined);
+        const parsed = ucKey ? (Lite.parse(ucKey) as Lite<UserChartEntity>) : undefined;
+        setUserChart(parsed);
+
+        // A lite parsed out of the url is THIN, so everything that shows it — the UserChartMenu's toolbar
+        // label above all — would read "User Chart <guid>" until you picked something from the dropdown.
+        // Name it from the entity (altea has no /api/liteModels route; Signum names it through its
+        // `translated` endpoint). Only if the page is still showing that same chart: the fetch outlives a
+        // quick navigation, and the key is what identifies it — the url is re-encoded from it unchanged.
+        if (parsed)
+          Navigator.API.fetch(parsed).then(uc =>
+            setUserChart(prev => prev != null && prev.key() === parsed.key() ? uc.toLite() : prev));
       }
     });
     // `cr` is intentionally NOT a dep: onChange mutates the SAME instance + replaces the URL, so the effect
