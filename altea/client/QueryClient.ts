@@ -1,15 +1,26 @@
 // Client half of the query token layer (Signum's Finder.API.subTokens, narrowed): it wires the
 // ASYNC server-only sub-token source (setServerTokensProvider). The client generates the metadata
-// sub-tokens LOCALLY off the shared entities token model; only the tokens it can't compute
-// (extensions — later manual / operations) are fetched from the server (logic/queryServer's
-// `/api/query/:queryKey/serverTokens`) and rebuilt into real entities token instances.
+// sub-tokens LOCALLY off the shared entities token model; the ones it cannot compute — registered
+// EXPRESSIONS — come from the reflection metadata blob it already has, and are rebuilt into real
+// entities token instances against the caller's own parent.
 //
-// Importing this module activates client-side server-token fetching (mirrors how logic/queryLogic
-// wires the server-side hooks on import). `getSubTokens(token, options)` then returns the local
-// metadata tokens merged with the fetched ones.
+// It used to fetch them per token from `/api/query/:queryKey/serverTokens`, which cost one round trip
+// for EVERY token a picker expanded — a dozen on opening a chart, most answering `[]`. An expression is
+// registered against a TYPE, not a query, so the answer belongs in the per-type blob: see
+// `TypeMetadata.extensions` (shipped once, on the type that declares it, found by walking the chain).
+//
+// The endpoint stays for what a blob cannot enumerate: PARAMETERIZED extensions, Signum's dictionary
+// -style access with dynamic keys. Nothing in altea declares one yet, so nothing calls it on the happy
+// path — `fetchServerTokens` remains the seam for when one does.
+//
+// Importing this module activates client-side extension-token resolution (mirrors how
+// logic/queryLogic wires the server-side hooks on import).
 
+import type { Metadata } from "../data/metadata";
 import { getKey } from "../data/dynamicQuery/queryUtils";
-import { setServerTokensProvider, type QueryToken, type SubTokensOptions } from "../data/dynamicQuery/tokens";
+import {
+    setServerTokensProvider, extensionSourceTypeNames, type QueryToken, type SubTokensOptions,
+} from "../data/dynamicQuery/tokens";
 import { deserializeServerToken, type ServerTokenJson } from "../data/dynamicQuery/tokenSerializer";
 
 // query key | token fullKey | options  ->  the in-flight/settled fetch. Cached as raw JSON (not token
@@ -35,12 +46,40 @@ export let fetchServerTokens = (queryKey: string, tokenFullKey: string, options:
 export function setFetchServerTokens(fn: typeof fetchServerTokens): void { fetchServerTokens = fn; }
 export function clearServerTokenCache(): void { cache.clear(); }
 
-// Wire the client-side server-only sub-token source: fetch the serialized tokens for the parent, then
-// rebuild each off the caller's LOCAL parent instance. Run once on import; re-callable so a host (or a
+/**
+ * The registered expressions that apply to a token, read out of the metadata blob.
+ *
+ * `extensionSourceTypeNames` is the shared rule — the chain of declaring types, nearest first, and empty
+ * for a raw collection navigation — so this walks exactly what the server's `getExtensionsTokens` walks.
+ * Nearest wins on a key collision, as it does there.
+ */
+function extensionsFromMetadata(metadata: typeof Metadata, token: QueryToken): ServerTokenJson[] {
+    const out: ServerTokenJson[] = [];
+    const seen = new Set<string>();
+    for (const typeName of extensionSourceTypeNames(token))
+        for (const [key, ext] of Object.entries(metadata.tryType(typeName)?.extensions ?? {}))
+            if (!seen.has(key)) { seen.add(key); out.push({ ...ext, key }); }
+    return out;
+}
+
+// Wire the client-side server-only sub-token source. Run once on import; re-callable so a host (or a
 // test) can restore the wiring after something else swapped the global provider.
+//
+// Before a blob has been applied there is nothing to read, and "no extensions entry" would be
+// indistinguishable from "no blob" — a picker running that early would silently show no extension tokens
+// at all. So the endpoint still answers until `Metadata.apply` has run once: falling back is correct
+// where guessing would be wrong.
 export function initQueryClient(): void {
     setServerTokensProvider(async (token: QueryToken, options: SubTokensOptions) => {
-        const json = await fetchServerTokens(getKey(token.queryName), token.fullKey(), options);
+        // `data/metadata` is imported LAZILY, for the same reason `./Services` is: this module is pulled
+        // in by the token layer at the very start of client boot, and a static edge from here to the
+        // metadata store closes a cycle that leaves OTHER modules half-initialised — the symptom was
+        // ChartClient's script registry coming up empty ("No chartScriptComponent registered"), nowhere
+        // near the edge that caused it. The provider is async, so deferring costs nothing.
+        const { Metadata } = await import("../data/metadata");
+        const json = Metadata.isApplied()
+            ? extensionsFromMetadata(Metadata, token)
+            : await fetchServerTokens(getKey(token.queryName), token.fullKey(), options);
         return json.map(j => deserializeServerToken(j, token));
     });
 }

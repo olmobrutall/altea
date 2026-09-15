@@ -1,3 +1,4 @@
+import { enumNameOf } from "../../registration";
 import { Entity, EmbeddedEntity, ModelEntity } from "../../entity";
 import { PropertyRoute, isPartType, usingLegacyPropertyPaths } from "../../propertyRoute";
 import { tryGetTypeInfo, TypeReference, type FieldInfo } from "../../reflection";
@@ -54,6 +55,33 @@ function embeddedOrModelCtorOf(tr: TypeReference): Function | undefined {
  */
 export function expressionSourceKeyOf(tr: TypeReference): object | undefined {
     return entityCtorOf(tr) ?? embeddedOrModelCtorOf(tr) ?? tr.getEnum();
+}
+
+/**
+ * The metadata TYPE NAMES whose registered expressions apply to this token, nearest first.
+ *
+ * The client half of `ExpressionContainer.getExtensionsTokens`: the blob carries each expression on the
+ * type that DECLARES it (as it does for operations), so finding the ones that apply to a token means
+ * walking the same chain the server walks — `Order` then `Entity`, which is how an expression registered
+ * on `Entity` (OperationLogs, Alerts, Notes, SystemValidFrom) reaches every entity. An enum has no chain
+ * and answers from its own name alone.
+ *
+ * Empty for a raw COLLECTION navigation: an expression on the element type surfaces under `.Element` /
+ * `.Any`, never on the collection itself (Signum's rule, and the server's first guard).
+ */
+export function extensionSourceTypeNames(parent: QueryToken): string[] {
+    if (parent.type.array && !parent.isElement() && !parent.isAnyOrAll())
+        return [];
+    const key = expressionSourceKeyOf(parent.type);
+    if (key == undefined)
+        return [];
+    if (typeof key !== "function")
+        return [enumNameOf(key)].notNull();
+
+    const names: string[] = [];
+    for (let c: Function | undefined = key; c != undefined && c !== Object; c = Object.getPrototypeOf(c))
+        names.push(c.name);
+    return names;
 }
 
 // NOTE: the ExpressionTree-building half of the token model (extractEntity / buildLite /

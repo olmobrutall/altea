@@ -28,10 +28,11 @@ import { OperationLogic } from "./operationLogic";
 import { WebBuilder, CustomType } from "./webApi";
 import {
     resolveType, resolveEnum, getRegisteredTypes, getRegisteredEnums, getRegisteredObjects,
-    allDeclaredSymbols, getDefaultDescription,
+    allDeclaredSymbols, getDefaultDescription, enumNameOf,
 } from "../data/registration";
 import { EnumEntity, enumEntityMembers } from "../data/enumEntity";
 import { PropertyRoute } from "../data/propertyRoute";
+import { serializeExtensionInfo } from "../data/dynamicQuery/tokenSerializer";
 import { Entity, View } from "../data/entity";
 import { TypeLogic } from "./typeLogic";
 import type { TypeEntity } from "../data/typeEntity";
@@ -178,6 +179,23 @@ export namespace ReflectionServer {
                 if (op == null) continue;
                 (tm.operations ??= {})[symbol.key] = buildOperation(symbol.key, op, declaredMember);
             }
+        }
+
+        // ---- Registered expressions (extension tokens) -----------------------------------------------
+        // An expression is registered against a TYPE, so it belongs in the per-type blob the client
+        // already has — not in a request per TOKEN of that type, which is what it used to cost: opening
+        // one chart fired a dozen GETs to /serverTokens, most of them for a parent that had none.
+        //
+        // Same rule as operations: emitted on the DECLARING type, found by walking the chain, so the ones
+        // registered on `Entity` (Alerts, Notes, OperationLogs, SystemValidFrom …) are shipped once rather
+        // than per entity. The niceName and allowedReason thunks resolve HERE, which is where the request's
+        // culture and role are — the two reasons this could never be baked into the compile-time TypeInfo.
+        for (const [source, infos] of QueryLogic.expressions.declaredExtensions()) {
+            const name = typeof source === "function" ? source.name : enumNameOf(source);
+            if (name == undefined) continue;
+            const tm = typeOf(name, typeof source === "function" ? "Entity" : "Enum");
+            for (const info of infos)
+                (tm.extensions ??= {})[info.key] = serializeExtensionInfo(info);
         }
 
         // `hasConstructorOperation` stays PER CONCRETE TYPE, and so keeps walking the chain: it answers

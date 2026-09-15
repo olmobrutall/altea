@@ -98,20 +98,31 @@ export function isServerOnlyToken(token: QueryToken): boolean {
 // Server side: flatten a generated server-only token to its wire form (resolving the lazy
 // niceName / allowedReason thunks in the request's culture + auth context).
 export function serializeServerToken(token: QueryToken): ServerTokenJson {
-    if (token instanceof ExtensionToken) {
-        const i = token.info;
-        return {
-            tokenType: "Extension",
-            key: i.key,
-            niceName: i.niceName(),
-            resultType: serializeTypeReference(i.resultType),
-            isProjection: i.isProjection,
-            implementations: serializeImplementations(i.implementations),
-            propertyRoute: i.propertyRoute?.toString(),
-            allowedReason: i.allowedReason?.() ?? null,
-        };
-    }
+    if (token instanceof ExtensionToken)
+        return serializeExtensionInfo(token.info);
     throw new Error(`serializeServerToken: unsupported token ${token.constructor.name} (fullKey '${token.fullKey()}')`);
+}
+
+/**
+ * The wire form of a registration itself, with no token built around it — what the metadata blob ships
+ * per declaring type. Same output as `serializeServerToken` over a token carrying this info, because it
+ * is the same information: an ExtensionInfo says nothing about WHICH parent it hangs off, which is
+ * exactly why it can be shipped once per type instead of once per token.
+ *
+ * Resolves the lazy niceName / allowedReason thunks, so it must run inside the request's culture + auth
+ * context — as the metadata blob's assembly does.
+ */
+export function serializeExtensionInfo(i: ExtensionInfo): ServerTokenJson {
+    return {
+        tokenType: "Extension",
+        key: i.key,
+        niceName: i.niceName(),
+        resultType: serializeTypeReference(i.resultType),
+        isProjection: i.isProjection,
+        implementations: serializeImplementations(i.implementations),
+        propertyRoute: i.propertyRoute?.toString(),
+        allowedReason: i.allowedReason?.() ?? null,
+    };
 }
 
 // Client side: rebuild the token as a real entities instance hanging off the local `parent`. The

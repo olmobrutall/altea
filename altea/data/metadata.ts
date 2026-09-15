@@ -23,6 +23,7 @@ import type { PrimaryKey } from './entity';
 // Type-only (erased at emit): data/reflection imports utils/localization, which imports THIS module, so
 // a runtime import here would close a cycle.
 import type { OperationType } from './reflection';
+import type { ServerTokenJson } from './dynamicQuery/tokenSerializer';
 import { CultureInfo } from './utils/cultureInfo';
 
 // Signum's `KindOfType`. altea folds Signum's "Message" / "Query" / "SymbolContainer" into one
@@ -75,6 +76,19 @@ export interface OperationMetadata {
     forReadonlyEntity?: boolean;
 }
 
+/**
+ * A registered EXPRESSION of this type, in the form the client rebuilds a token from — the same shape
+ * `/api/query/:queryKey/serverTokens` ships, because it IS the same thing arriving earlier.
+ *
+ * Keyed by extension key in `TypeMetadata.extensions`, and `key` is stamped back on apply exactly as
+ * `OperationMetadata.key` is. An expression is registered against a TYPE, not a query, so it belongs in
+ * the per-type blob the client already has rather than in a request per token of that type.
+ *
+ * Parameterized extensions — Signum's dictionary-style access with dynamic keys — cannot be enumerated
+ * into a blob and keep the on-demand endpoint. Nothing in altea declares one yet.
+ */
+export type ExtensionMetadata = ServerTokenJson;
+
 export interface TypeMetadata {
     kind: KindOfType;
     // Both OMITTED when they equal the humanized type name (see FieldMetadata.niceName).
@@ -96,6 +110,8 @@ export interface TypeMetadata {
     hasConstructorOperation?: boolean;
     fields: Record<string, FieldMetadata>;
     operations?: Record<string, OperationMetadata>;
+    /** Registered expressions DECLARED on this type; a subtype's tokens inherit them by walking the chain. */
+    extensions?: Record<string, ExtensionMetadata>;
 }
 
 // The whole blob for ONE culture and ONE role — what GET /api/reflection/metadata returns.
@@ -166,11 +182,21 @@ export namespace Metadata {
                     om.key = key;
     }
 
+    // Whether a blob has ever been APPLIED here. The distinction that needs it: a type with no
+    // `extensions` entry means "this type has no registered expressions", but only once there is a blob
+    // to have read — before that it means nothing at all, and a token picker that ran that early would
+    // otherwise conclude there are none rather than asking the server. Lives on the store because that is
+    // what the question is about; asking QueryClient instead would close an import cycle through
+    // ReflectionClient.
+    let appliedAny = false;
+    export function isApplied(): boolean { return appliedAny; }
+
     export function apply(blob: MetadataBlob): void {
         stampOperationKeys(blob);
         CultureInfo.setDefaultCulture(blob.culture);
         CultureInfo.setDefaultUICulture(blob.culture);
         replace(blob.culture, blob.types);
+        appliedAny = true;
     }
 
     // Replace (not merge) a culture's types. Used on the client, where a re-login as a different role

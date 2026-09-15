@@ -76,6 +76,18 @@ export class ExpressionContainer {
         return reg;
     }
 
+    /**
+     * Every registration, grouped by the source type that DECLARES it — what the metadata blob ships, so
+     * the client can build an extension token without asking per token of that type. The key is the same
+     * one `expressionSourceKeyOf` produces: a ctor for a BaseEntity source, the enum object for an enum.
+     */
+    declaredExtensions(): Map<object, ExtensionInfo[]> {
+        const out = new Map<object, ExtensionInfo[]>();
+        for (const [source, byKey] of this.registered)
+            out.set(source, [...byKey.values()].map(reg => this.toExtensionInfo(reg)));
+        return out;
+    }
+
     // Signum's GetExtensionsTokens: the ExtensionTokens applicable to `parent` (by its clean entity
     // type, walking the base chain so a base-type registration shows on subtypes). This is the SERVER
     // implementation of the divergent extension-token source (setExtensionTokensProvider): it reads
