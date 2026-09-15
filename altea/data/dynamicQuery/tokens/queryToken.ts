@@ -43,6 +43,19 @@ function embeddedOrModelCtorOf(tr: TypeReference): Function | undefined {
     return (tr.is(EmbeddedEntity) || tr.is(ModelEntity)) ? tr.getFunction() : undefined;
 }
 
+/**
+ * The key a REGISTERED EXPRESSION is filed under for this type — what `ExpressionContainer` maps to its
+ * registrations, and what a token must resolve to for its extension sub-tokens to be found.
+ *
+ * Wider than `entityCtorOf` on purpose: an expression may be registered against any `BaseEntity`
+ * (an entity, an embedded, a model) or against an ENUM, which has no constructor at all and is keyed by
+ * the enum OBJECT itself. Value types (number, string, guid) are deliberately NOT keyed yet — nothing
+ * registers on one, and picking their key is a decision worth making when something does.
+ */
+export function expressionSourceKeyOf(tr: TypeReference): object | undefined {
+    return entityCtorOf(tr) ?? embeddedOrModelCtorOf(tr) ?? tr.getEnum();
+}
+
 // NOTE: the ExpressionTree-building half of the token model (extractEntity / buildLite /
 // ExpressionBox / BuildExpressionContext and every token's buildExpressionInternal) is EXTERNALIZED
 // to logic/dynamicQuery/tokenExpressions.ts. It can't live here: it depends on logic/linq/expressions,

@@ -19,7 +19,7 @@ import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // withExpressionTo / withExpressionFrom
 import "@altea/altea/server/dynamicQuery/tokenExpressions";
 import { MusicLogic } from "../MusicLogic";
-import { ArtistEntity, BandEntity, AlbumEntity } from "../../data/music";
+import { ArtistEntity, BandEntity, AlbumEntity, SongEmbedded } from "../../data/music";
 import { Entity } from "@altea/altea/data/entity";
 import { NoteWithDateEntity } from "../../data/note";
 
@@ -169,5 +169,34 @@ describe("extension token inlines the registered expression", () => {
         });
         assert.match(sql, /count/);
         assert.match(sql, /album/);
+    });
+});
+
+// An expression's source is any BaseEntity, not just an Entity: registering on an EMBEDDED puts the token
+// on the embedded's own tokens, reached through whatever owns it. `register` used to be typed to Entity
+// and `getExtensionsTokens` resolved the source with `entityCtorOf` (an `is(Entity)` test), so an embedded
+// source was rejected by the compiler and invisible at runtime — the restriction was incidental, not a
+// rule about what an expression can be registered on.
+describe("an expression registered on an EMBEDDED", () => {
+    test("shows up as a sub-token of the embedded, reached through its owner", () => {
+        const container = new ExpressionContainer();
+        container.register(SongEmbedded, (s: SongEmbedded) => s.name, { key: "songTitle", niceName: () => "Song Title" });
+
+        const bonusTrack = new RootToken(AlbumEntity).subToken("bonusTrack", O)!;
+        assert.ok(bonusTrack, "the embedded is reachable from its owner");
+
+        const tokens = container.getExtensionsTokens(bonusTrack);
+        assert.deepEqual(tokens.map(t => t.key), ["songTitle"]);
+        assert.ok(tokens[0] instanceof ExtensionToken);
+        assert.equal(tokens[0]!.niceName(), "Song Title");
+        assert.equal(tokens[0]!.fullKey(), "BonusTrack.songTitle");
+    });
+
+    test("an entity's own registrations are not offered on an unrelated embedded", () => {
+        const container = new ExpressionContainer();
+        container.register(ArtistEntity, (a: ArtistEntity) => a.name, { key: "artistName", niceName: () => "Artist Name" });
+
+        const bonusTrack = new RootToken(AlbumEntity).subToken("bonusTrack", O)!;
+        assert.deepEqual(container.getExtensionsTokens(bonusTrack).map(t => t.key), []);
     });
 });

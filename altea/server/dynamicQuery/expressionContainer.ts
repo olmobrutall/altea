@@ -1,11 +1,11 @@
 import type { Quoted } from "quote-transformer/quoted";
-import { Entity, type Type } from "../../data/entity";
+import { BaseEntity, Entity, type Type } from "../../data/entity";
 import { Implementations } from "../../data/implementations";
 import { ClassType, ArrayType, LiteType, EnumType, TemporalType, LiteralType, RuntimeType } from "../runtimeTypes";
 import { TypeReference } from "../../data/reflection";
 import { Expression, ParameterExpression } from "../linq/expressions";
 import { ExpressionVisitor } from "../linq/visitors/ExpressionVisitor";
-import { QueryToken, entityCtorOf } from "../../data/dynamicQuery/tokens";
+import { QueryToken, entityCtorOf, expressionSourceKeyOf } from "../../data/dynamicQuery/tokens";
 import { extractEntity } from "./tokenExpressions";
 import { ExtensionToken, type ExtensionInfo } from "../../data/dynamicQuery/tokens";
 import { Meta, CleanMeta } from "./meta";
@@ -31,10 +31,14 @@ interface RegisteredExpression {
 // (an ExtensionToken) — e.g. `Customer.Orders`. On navigation the token inlines the registered
 // lambda's body against the parent expression, which the binder then translates.
 export class ExpressionContainer {
-    // sourceType clean-key → (extension key → server registration).
-    private readonly registered = new Map<Function, Map<string, RegisteredExpression>>();
+    // source type → (extension key → server registration). Keyed by `object`, not `Function`: the source
+    // of an expression is any BaseEntity class today (an entity, an embedded, a model), and an ENUM —
+    // which has no constructor and is identified by the enum object itself — is the next key this map has
+    // to hold. `expressionSourceKeyOf` is what turns a token's type into this key; see it for what is
+    // deliberately still out (value types).
+    private readonly registered = new Map<object, Map<string, RegisteredExpression>>();
 
-    register<E extends Entity, S>(sourceType: Type<E>, lambda: Quoted<(source: E) => S>, opts?: { key?: string; niceName?: () => string; implementations?: Implementations }): RegisteredExpression {
+    register<E extends BaseEntity, S>(sourceType: Type<E>, lambda: Quoted<(source: E) => S>, opts?: { key?: string; niceName?: () => string; implementations?: Implementations }): RegisteredExpression {
         // resultType / isProjection come from the EXPANDED body (fromQuotedLambda inlines the @quoted
         // method); the key must come from the RAW quoted body's tail member, since after expansion the
         // original method name (`albumCount`) is gone (replaced by its body's tail, e.g. `count`).
@@ -88,11 +92,20 @@ export class ExpressionContainer {
         // Mirrors Signum (extensions hang off the element token, never the collection).
         if (parent.type.array && !parent.isElement() && !parent.isAnyOrAll())
             return [];
-        const ctor = entityCtorOf(parent.type);
-        if (ctor == undefined)
+        // Not `entityCtorOf`: an expression may be registered on any BaseEntity — an EMBEDDED or a model
+        // as much as an entity — and an enum is keyed by its own object. A source with no class to walk
+        // (an enum) answers from its single entry; only a class has a base chain, which is what makes a
+        // registration on `Entity` show on every subtype.
+        const key = expressionSourceKeyOf(parent.type);
+        if (key == undefined)
             return [];
         const out: QueryToken[] = [];
-        for (let c: Function | undefined = ctor; c != undefined && c !== Object; c = Object.getPrototypeOf(c)) {
+        if (typeof key !== "function") {
+            for (const reg of this.registered.get(key)?.values() ?? [])
+                out.push(new ExtensionToken(parent, this.toExtensionInfo(reg)));
+            return out;
+        }
+        for (let c: Function | undefined = key; c != undefined && c !== Object; c = Object.getPrototypeOf(c)) {
             const map = this.registered.get(c);
             if (map != undefined)
                 for (const reg of map.values())

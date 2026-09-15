@@ -1,5 +1,6 @@
 import { PropertyRoute, PropertyRouteType } from "../../data/propertyRoute";
 import { Implementations } from "../../data/implementations";
+import { Entity } from "../../data/entity";
 import {
     Expression, ParameterExpression, PropertyExpression, CallExpression, ObjectExpression,
     LambdaExpression, BinaryExpression, ConditionalExpression, UnaryExpression, CastExpression,
@@ -68,7 +69,14 @@ export class MetadataVisitor {
         // `rootStandalone`: an expression may be REGISTERED on a `@part` (eastwind does it for
         // `OrderLineEntity.subTotalPrice`), and the source parameter of one is the part with no owner in
         // the picture — the same standalone case a part's own query is. See PropertyRoute.rootStandalone.
-        v.env.set(param, new MetaValue(new CleanMeta(Implementations.ofDeclaredType(sourceType), [PropertyRoute.rootStandalone(sourceType)])));
+        // Implementations describe what a polymorphic REFERENCE can point at, so only an ENTITY source
+        // has any — an expression registered on an EMBEDDED (or a model) is reached through whatever owns
+        // it and is nothing's target. `ofDeclaredType` throws on a non-entity rather than answering
+        // "none", which is right for a reference and wrong here, so the question is asked first.
+        const implementations = sourceType === Entity || sourceType.prototype instanceof Entity
+            ? Implementations.ofDeclaredType(sourceType)
+            : undefined;
+        v.env.set(param, new MetaValue(new CleanMeta(implementations, [PropertyRoute.rootStandalone(sourceType)])));
         const node = v.visit(body);
         return node instanceof MetaValue ? node.meta : new DirtyMeta(undefined, collectMetas(node));
     }
