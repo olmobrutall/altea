@@ -2648,6 +2648,55 @@ export class QueryBinder extends ExpressionVisitor {
             return new ImplementedByExpression(returnType, kind, newImpls);
         }
 
+        // All EMBEDDED → push the combination INSIDE the embedded: one combined binding per field, so
+        // the result is a single EmbeddedEntityExpression (whose `country` is a CASE over the two
+        // implementations' columns) rather than a CASE over two whole objects. The distinction is what
+        // lets the NEXT member access bind: `order.customer.address.country` over an @implementedBy
+        // `customer` dispatches `.address` here, and a CASE of objects has no member to take.
+        // Signum's CombineImplementations does the same (its EmbeddedEntityExpression branch).
+        if (values.every(v => v instanceof EmbeddedEntityExpression)) {
+            const embeddeds = values as readonly EmbeddedEntityExpression[];
+
+            // The union of the branches' fields, in first-seen order. Identical in practice (every
+            // branch is the same embedded type), but a field a branch does not carry combines as NULL
+            // rather than throwing — the combine strategy indexes by implementation and needs an entry
+            // for each one.
+            const fields: FieldInfo[] = [];
+            const seen = new Set<string>();
+            for (const e of embeddeds)
+                for (const fb of e.bindings)
+                    if (!seen.has(fb.fieldInfo.name)) { seen.add(fb.fieldInfo.name); fields.push(fb.fieldInfo); }
+
+            const bindings = fields.map(fi => {
+                const perImpl = mapValues(expressions, v => this.embeddedBinding(v as EmbeddedEntityExpression, fi));
+                const fieldType = [...perImpl.values()].find(b => !(b instanceof SqlConstantExpression))?.type ?? LiteralType.null;
+                return new FieldBinding(fi, this.combineImplementations(strategy, perImpl, fieldType));
+            });
+
+            // Mixins live on the embedded's own type, so every branch carries the same ones; combine
+            // each mixin's bindings the same way (Signum combines them as MixinEntityExpressions).
+            const mixinTypes = new Map<string, MixinEntityExpression>();
+            for (const e of embeddeds)
+                for (const m of e.mixins ?? [])
+                    if (!mixinTypes.has(String(m.type))) mixinTypes.set(String(m.type), m);
+
+            const mixins = [...mixinTypes.values()].map(sample => {
+                const mixinBindings = sample.bindings.map(fb => {
+                    const perImpl = mapValues(expressions, v => {
+                        const m = (v as EmbeddedEntityExpression).mixins?.find(x => String(x.type) === String(sample.type));
+                        return m == null ? this.nullConstant() : m.getBinding(fb.fieldInfo);
+                    });
+                    return new FieldBinding(fb.fieldInfo, this.combineImplementations(strategy, perImpl, fb.binding.type));
+                });
+                return new MixinEntityExpression(sample.type, mixinBindings, sample.mainEntityAlias);
+            });
+
+            const hasValue = this.combineImplementations(strategy,
+                mapValues(expressions, v => (v as EmbeddedEntityExpression).hasValue), LiteralType.boolean);
+
+            return new EmbeddedEntityExpression(returnType, hasValue, bindings, mixins.length ? mixins : undefined);
+        }
+
         // All PrimaryKey wrappers → unwrap, combine the values, re-wrap.
         if (values.every(v => v instanceof PrimaryKeyExpression)) {
             const inner = mapValues(expressions, v => (v as PrimaryKeyExpression).value);
@@ -2665,6 +2714,18 @@ export class QueryBinder extends ExpressionVisitor {
         // union column). Use a value's own type (the return type may be the nominal
         // reference type when we recursed from a reference branch).
         return strategy.combineValues(expressions, values.length ? values[0].type : returnType);
+    }
+
+    // One embedded branch's binding for a field, or NULL when that branch has no such field (see
+    // combineImplementations' embedded branch — getBinding would throw).
+    private embeddedBinding(e: EmbeddedEntityExpression, fi: FieldInfo): Expression {
+        return e.bindings.some(fb => fb.fieldInfo === fi || fb.fieldInfo.name === fi.name)
+            ? e.getBinding(fi)
+            : this.nullConstant();
+    }
+
+    private nullConstant(): SqlConstantExpression {
+        return new SqlConstantExpression(null, LiteralType.null);
     }
 
     // A lazy, always-null typed EntityExpression standing in for an implementation
