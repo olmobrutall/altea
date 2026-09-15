@@ -475,7 +475,15 @@ export class PropertyRulePack extends ModelEntity {
 // Both enums are numeric and ASCENDING (None < Read < Write); undefined = unrestricted (not shipped).
 declare module "@altea/altea/data/metadata" {
     interface TypeMetadata {
+        /**
+         * Shipped only where it DIFFERS from `maxTypeAllowed` — the coarse case (no type condition) is one
+         * number, not two copies of it. A reader wanting the low end falls back min → max.
+         */
         minTypeAllowed?: TypeAllowedBasic;
+        /**
+         * The role's MAX UI-read allowance. Absent = unrestricted, which is why a type the role cannot
+         * read is reduced to a husk carrying this rather than dropped: a missing ENTRY reads as allowed.
+         */
         maxTypeAllowed?: TypeAllowedBasic;
     }
     interface FieldMetadata {

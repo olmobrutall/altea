@@ -76,4 +76,31 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
         const views = Object.keys(types).filter(n => n.startsWith("Sys") && n.endsWith("s"));
         assert.deepEqual(views.filter(n => ["SysTables", "SysColumns", "SysDatabases", "SysSchemas"].includes(n)), []);
     });
+
+    // A type the role cannot read is reduced to saying exactly that. Signum drops it from the blob
+    // outright; altea keeps the husk because its client reads a MISSING entry as unrestricted, so
+    // dropping would turn a forbidden type into an allowed one — the husk says the opposite.
+    test("a None type keeps its allowance and nothing else", async () => {
+        const tm = (await blobFor(base)).types[SampleEntity.name]!;
+
+        assert.equal(tm.maxTypeAllowed, TypeAllowedBasic.None);
+        assert.equal(tm.minTypeAllowed, undefined, "min == max, so only max is shipped");
+        assert.deepEqual(Object.keys(tm.fields), [], "no route labels");
+        assert.equal(tm.operations, undefined, "no operations it could never run");
+        assert.equal(tm.extensions, undefined, "no registered expressions");
+        assert.equal(tm.niceName, undefined, "not even a label");
+        assert.equal(tm.kind, "Entity", "the kind stays — the type does exist");
+    });
+
+    // The husk must not read as "unrestricted": Navigator's isViewable/isCreable gates treat an ABSENT
+    // entry as allowed, which is what makes dropping the entry the wrong move.
+    test("a None type is still present, so the client's gates see it", async () => {
+        assert.ok((await blobFor(base)).types[SampleEntity.name] != null);
+    });
+
+    test("a READABLE-but-not-writable type keeps everything, plus its allowance", async () => {
+        const tm = (await blobFor(manager)).types[SampleEntity.name]!;
+        assert.notEqual(tm.maxTypeAllowed, TypeAllowedBasic.None);
+        assert.ok(Object.keys(tm.fields).length > 0, "its routes are still described");
+    });
 });

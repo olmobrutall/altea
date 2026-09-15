@@ -45,8 +45,19 @@ export namespace AuthReflectionServer {
             }
 
             // ---- Types -----------------------------------------------------------------------------
-            // The role's coarse MAX UI-read allowance per type. Only
-            // RESTRICTED types (< Write) are stamped; the client treats an absent value as unrestricted.
+            // The role's coarse MAX UI-read allowance per type. Only RESTRICTED types (< Write) are
+            // stamped; the client treats an absent value as unrestricted.
+            //
+            // A type the role cannot read AT ALL is reduced to that one fact. Everything else the entry
+            // holds — the nice names, the route labels, the operations, the registered expressions — is
+            // describing a type no page can open, no query can return and no control can render. Signum
+            // drops such a type from the blob outright (its TypeExtension returns null, and for an
+            // anonymous user it does so for EVERY entity); altea keeps the husk because its client reads
+            // "no entry" as UNRESTRICTED, so dropping it would turn a forbidden type into an allowed one.
+            // The husk says the opposite, in about forty bytes.
+            //
+            // The anonymous role is where this is felt: /publicCatalog is served to a logged-out visitor,
+            // and its boot blob described all 267 entity types — 78KB of 122KB — every one of them None.
             if (TypeAuthLogic.isStarted()) {
                 const caches = await TypeLogic.caches();
                 for (const [ctor] of Connector.current().schema.tables) {
@@ -55,11 +66,16 @@ export namespace AuthReflectionServer {
                     const typeId = caches.tryTypeToId(ctor);
                     if (typeId == null) continue;
                     const maxUI = await TypeAuthLogic.maxTypeAllowedUI(typeId, roleKey);
-                    if (maxUI < TypeAllowedBasic.Write) {
-                        const tm = meta.types[ctor.name];
-                        // COARSE: min == max == the shipped value.
-                        if (tm != null) { tm.minTypeAllowed = maxUI; tm.maxTypeAllowed = maxUI; }
-                    }
+                    if (maxUI >= TypeAllowedBasic.Write) continue;
+
+                    const tm = meta.types[ctor.name];
+                    if (tm == null) continue;
+                    // COARSE: min == max == the shipped value, so only `max` is written — the same rule
+                    // the property allowances follow, and the reader falls back min → max.
+                    if (maxUI === TypeAllowedBasic.None)
+                        meta.types[ctor.name] = { kind: tm.kind, fields: {}, maxTypeAllowed: maxUI };
+                    else
+                        tm.maxTypeAllowed = maxUI;
                 }
             }
 
