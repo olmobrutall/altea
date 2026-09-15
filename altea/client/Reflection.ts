@@ -191,10 +191,36 @@ export function getKindOfType(type: AnyTypeRef): KindOfType | undefined {
   return tryGetTypeMetadata(type)?.kind ?? tryGetTypeInfo(type)?.kind;
 }
 
-/** Every operation registered on a type and visible to the current role (Signum's TypeInfo.operations). */
+/**
+ * Every operation that can run on a type and is visible to the current role (Signum's
+ * TypeInfo.operations) — the type's OWN, plus every one its bases declare.
+ *
+ * The blob ships each operation once, on the type that declares it (ReflectionServer's operations
+ * pass), so the inheritance is resolved HERE by walking the real prototype chain: altea entities are
+ * real classes on the client, so `Object.getPrototypeOf(ctor)` is the same relation the server's
+ * `operationsForType` tests with `ctor.prototype instanceof owner`, and it costs no wire bytes at all.
+ * A subtype's own entry wins over an inherited one of the same key — the walk goes down-up and only
+ * adds a key it has not seen.
+ *
+ * The walk needs a CTOR, so it runs only for a type that resolves to one. An enum or a container has
+ * no class and no base to inherit from either, so reading its own entry is the whole answer.
+ */
 export function getOperationInfos(type: AnyTypeRef): OperationMetadata[] {
-  const operations = tryGetTypeMetadata(type)?.operations;
-  return operations == null ? [] : Object.values(operations);
+  const ctor = pseudoCtor(type);
+  if (ctor == null) {
+    const operations = tryGetTypeMetadata(type)?.operations;
+    return operations == null ? [] : Object.values(operations);
+  }
+
+  const result: OperationMetadata[] = [];
+  const seen = new Set<string>();
+  for (let c: Function | undefined = ctor; c != null && c !== Object; c = Object.getPrototypeOf(c)) {
+    const operations = Metadata.tryType(c.name)?.operations;
+    if (operations == null) continue;
+    for (const [key, om] of Object.entries(operations))
+      if (!seen.has(key)) { seen.add(key); result.push(om); }
+  }
+  return result;
 }
 
 /** Whether the type has ANY operation visible to the current role (Signum's `ti.operations != null`). */
@@ -221,7 +247,18 @@ export function getOperationInfo(operation: string | { key: string }, type: Pseu
 /** As {@link getOperationInfo}, undefined instead of throwing. */
 export function tryGetOperationInfo(operation: string | { key: string }, type: AnyTypeRef): OperationMetadata | undefined {
   const operationKey = typeof operation == "string" ? operation : operation.key;
-  return tryGetTypeMetadata(type)?.operations?.[operationKey];
+  const ctor = pseudoCtor(type);
+  if (ctor == null)
+    return tryGetTypeMetadata(type)?.operations?.[operationKey];
+
+  // Same down-up walk as getOperationInfos (an inherited operation lives on the type that declares it),
+  // stopping at the first type that answers — which is what makes an override win.
+  for (let c: Function | undefined = ctor; c != null && c !== Object; c = Object.getPrototypeOf(c)) {
+    const found = Metadata.tryType(c.name)?.operations?.[operationKey];
+    if (found != null)
+      return found;
+  }
+  return undefined;
 }
 
 // Signum's GraphExplorer walked the entity graph to (a) set `modified` flags before a save and (b)

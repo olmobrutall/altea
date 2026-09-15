@@ -49,6 +49,11 @@ export interface FieldMetadata {
 // targets: `OperationLogic` knows each operation's entity type explicitly (Graph options' `entityType`),
 // so neither tier has to derive it from the symbol key by string surgery any more.
 export interface OperationMetadata {
+    // ABSENT ON THE WIRE — it is already the key of the `TypeMetadata.operations` record that holds this
+    // value, and saying it twice cost ~40 bytes an entry. The server strips it as it serialises and the
+    // client stamps it back in `applyMetadata`, so every reader still sees a complete OperationMetadata
+    // and the field stays required. The one rule: nothing may read `.key` off a blob that has not been
+    // through `stampOperationKeys`.
     key: string;
     // Resolved server-side from the operation's CONTAINER translation ("OrderOperation" + "Ship"), so the
     // client needs no second lookup.
@@ -146,7 +151,23 @@ export namespace Metadata {
     }
 
     // Client boot: adopt the blob's culture as the process default and merge its types in.
+    /**
+     * Put back what the wire form leaves out: each operation's own `key`, which is the record key that
+     * holds it (see `OperationMetadata.key`). Idempotent, and safe on a blob that still carries them —
+     * a server-built blob that never crossed the wire passes through untouched.
+     *
+     * Called from `apply`, so every path that installs a blob is covered by construction rather than by
+     * each caller remembering.
+     */
+    export function stampOperationKeys(blob: MetadataBlob): void {
+        for (const tm of Object.values(blob.types))
+            if (tm.operations != null)
+                for (const [key, om] of Object.entries(tm.operations))
+                    om.key = key;
+    }
+
     export function apply(blob: MetadataBlob): void {
+        stampOperationKeys(blob);
         CultureInfo.setDefaultCulture(blob.culture);
         CultureInfo.setDefaultUICulture(blob.culture);
         replace(blob.culture, blob.types);

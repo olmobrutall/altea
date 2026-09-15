@@ -185,6 +185,20 @@ export namespace OperationLogic {
     }
 
     /**
+     * The operations this type DECLARES — its own entry in the (type → symbols) registry, with no walk up
+     * the chain. {@link operationsForType} is the inclusive question ("what can run on one of these?");
+     * this is the exclusive one ("what is registered HERE?"), which is what a consumer that models
+     * inheritance itself needs: the metadata blob ships each operation once, on this type, and the client
+     * walks the prototype chain rather than being handed the same object once per subclass.
+     */
+    export function declaredOperationsForType(ctor: Function): OperationSymbol[] {
+        const symbols = operationsByType.get(ctor);
+        // Same rule as operationsForType: a symbol indexed before (or without) an implementation is not
+        // an operation of this type.
+        return symbols == null ? [] : [...symbols].filter(s => operations.has(s.key!));
+    }
+
+    /**
      * Signum's `OperationLogic.GetContextualCanExecute` — why each of these operations cannot run over the
      * current SELECTION, without retrieving a single entity: the distinct STATES of the selected rows are
      * read in SQL and checked against each operation's `fromStates`. This is what greys out an operation in

@@ -156,23 +156,33 @@ export namespace ReflectionServer {
             typeOf(metadataNameForQuery(queryName), "Entity").hasQuery = true;
 
         // ---- Operations ------------------------------------------------------------------------------
-        // Attached to the type each operation DECLARES as its owner, plus every concrete subclass of it
-        // (operationsForType walks the inheritance chain). altea used to derive the owner from the symbol
-        // key on BOTH tiers; the owner is explicit now (Graph options' entityType), so this is exact.
-        for (const ctor of getRegisteredTypes()) {
-            const symbols = OperationLogic.operationsForType(ctor);
-            if (symbols.length === 0) continue;
+        // Attached ONLY to the type that declares each operation as its owner (Graph options' entityType,
+        // or a type that added itself via registerForType for an interface-owned one). The client walks
+        // the prototype chain to find an inherited one.
+        //
+        // It used to be emitted for the declaring type AND every subclass of it, which is what
+        // `operationsForType` answers — and that made the blob mostly duplicate: the two ConstructFroms
+        // registered on `Entity` (CreateAlertFromEntity, CreateNoteFromEntity) were shipped 267 times
+        // each, 136KB of a 437KB response, for two objects. A subclass's own entry still wins over an
+        // inherited one of the same key, because the walk stops at the first type that has the key.
+        for (const ctor of OperationLogic.typesWithOperations()) {
             const tm = typeOf(ctor.name, "Entity");
-            for (const symbol of symbols) {
+            for (const symbol of OperationLogic.declaredOperationsForType(ctor)) {
                 const op = OperationLogic.tryFindOperation(symbol);
                 if (op == null) continue;
-                const meta = buildOperation(symbol.key, op, declaredMember);
-                (tm.operations ??= {})[symbol.key] = meta;
-                // Signum's `HasConstructorOperation`, computed here — BEFORE the per-role filter drops
-                // operations, which is the whole point (see the field's own doc).
-                if (meta.operationType === "Constructor")
-                    tm.hasConstructorOperation = true;
+                (tm.operations ??= {})[symbol.key] = buildOperation(symbol.key, op, declaredMember);
             }
+        }
+
+        // `hasConstructorOperation` stays PER CONCRETE TYPE, and so keeps walking the chain: it answers
+        // "does this type have a Constructor at all", read BEFORE the per-role filter drops operations,
+        // precisely so "has none" and "has one this role may not run" stay distinguishable (see the
+        // field's own doc). One boolean per type is not what made the blob big.
+        for (const ctor of getRegisteredTypes()) {
+            const hasCtor = OperationLogic.operationsForType(ctor)
+                .some(s => OperationLogic.tryFindOperation(s)?.operationType === "Constructor");
+            if (hasCtor)
+                typeOf(ctor.name, "Entity").hasConstructorOperation = true;
         }
 
         // ---- Anything TRANSLATED that the registries do not describe ----------------------------------
@@ -215,7 +225,7 @@ export namespace ReflectionServer {
                 let meta = buildMetadata(culture);
                 if (_metadataFilter != null)
                     meta = await _metadataFilter(meta);
-                res.json(meta);
+                res.json(toWire(meta));
             });
 
         // GET /api/reflection/cultures — the locales that have translations loaded, plus the process
@@ -274,6 +284,27 @@ function routesOf(ctor: Function): string[] {
     return routes;
 }
 
+// The blob as it goes OUT: drop each operation's `key`, which is already the record key that holds it
+// (see OperationMetadata.key — the client stamps it back in applyMetadata). Done here, at the edge,
+// rather than by never building it: `buildMetadata` is also what the server reads for its own lookups,
+// and an OperationMetadata without its key is a worse object to hold than a slightly fatter one.
+//
+// Shallow per level, and only where it has to copy — the blob the filter hands over is already a fresh
+// per-request deep copy, but `res.json` must not be the thing that mutates it.
+function toWire(meta: MetadataBlob): MetadataBlob {
+    const types: Record<string, TypeMetadata> = {};
+    for (const [name, tm] of Object.entries(meta.types)) {
+        if (tm.operations == null) { types[name] = tm; continue; }
+        const operations: Record<string, OperationMetadata> = {};
+        for (const [key, om] of Object.entries(tm.operations)) {
+            const { key: _omitted, ...rest } = om;
+            operations[key] = rest as OperationMetadata;
+        }
+        types[name] = { ...tm, operations };
+    }
+    return { ...meta, types };
+}
+
 function buildOperation(
     key: string,
     op: { operationType: OperationMetadata["operationType"] },
@@ -283,18 +314,21 @@ function buildOperation(
     const dot = key.indexOf(".");
     const container = dot >= 0 ? key.slice(0, dot) : key;
     const member = dot >= 0 ? key.slice(dot + 1) : key;
+    // Every boolean below is emitted ONLY when true, and every reader already treats absent as false —
+    // they are optional in the DTO. `"canBeNew" in op` was enough to write `canBeNew: false`, and a
+    // false is the same information as saying nothing at 15 bytes a time.
     const info: OperationMetadata = {
         key,
         // Resolved here so the client needs no second lookup: the operation's label is a member of its
         // symbol CONTAINER ("OrderOperation" + "Ship"), not of the entity it is attached to.
         niceName: declaredMember(container, member) ?? Localization.Internal.niceMemberName(member),
         operationType: op.operationType,
-        hasCanExecute: "onCanExecute" in op,
-        hasStates: anyOp["getState"] != null,
     };
-    if ("canBeNew" in op) info.canBeNew = anyOp["canBeNew"] as boolean;
-    if ("canBeModified" in op) info.canBeModified = anyOp["canBeModified"] as boolean;
-    if ("resultIsSaved" in op) info.resultIsSaved = anyOp["resultIsSaved"] as boolean;
+    if ("onCanExecute" in op) info.hasCanExecute = true;
+    if (anyOp["getState"] != null) info.hasStates = true;
+    if (anyOp["canBeNew"] === true) info.canBeNew = true;
+    if (anyOp["canBeModified"] === true) info.canBeModified = true;
+    if (anyOp["resultIsSaved"] === true) info.resultIsSaved = true;
     return info;
 }
 
