@@ -1,7 +1,9 @@
 import * as React from "react";
 import { Dropdown } from "react-bootstrap";
+import { useLocation } from "react-router";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Finder } from "@altea/altea/client/Finder";
+import { QueryString } from "@altea/altea/client/QueryString";
 import { Navigator } from "@altea/altea/client/Navigator";
 import type SearchControlLoaded from "@altea/altea/client/SearchControl/SearchControlLoaded";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
@@ -45,6 +47,40 @@ export default function UserQueryMenu(p: UserQueryMenuProps): React.JSX.Element 
     const [currentUserQuery, setCurrentUserQueryState] = React.useState<Lite<UserQueryEntity> | undefined>();
     const [userQueries, setUserQueries] = React.useState<Lite<UserQueryEntity>[] | undefined>(undefined);
     const forceUpdate = useForceUpdate();
+    const location = useLocation();
+
+    // Signum's UserQueryMenu useEffect: adopt the user query the page was OPENED with, so arriving at
+    // /find/Order?userQuery=UserQuery;<id> (what a dashboard title click, a quick link or a shared url
+    // produces) shows that saved query as the current one. Without it the menu starts empty AND
+    // SearchPage.changeUrl — which re-encodes the url from `extraUrlParams` after the first search —
+    // drops the param again, so the identity of the saved query was lost on landing.
+    // Before the `isHidden` early return: hooks may not sit behind a conditional return.
+    React.useEffect(() => {
+        const search = p.searchControl.props.tag == "SearchPage" ? QueryString.parse(location.search) : null;
+        const key = search?.["userQuery"] as string | undefined;
+
+        let uq: Lite<Entity> | undefined = undefined;
+        if (key) {
+            try {
+                uq = Lite.parse(key);
+            } catch {
+                uq = undefined; // a stale / hand-edited url param
+            }
+        } else if (search == null) {
+            uq = p.searchControl.props.extraOptions?.userQuery;
+        }
+
+        const current = UserQueryEntity.isLite(uq) ? uq as Lite<UserQueryEntity> : undefined;
+        if (!(current == null && currentUserQuery == null) && !current?.is(currentUserQuery ?? null)) {
+            setCurrentUserQuery(current);
+
+            // A lite parsed out of the url is THIN, so the menu button would read "User Query <id>".
+            // Signum names it through its `translated` endpoint; altea has no /api/liteModels route, so
+            // fetch the entity and swap in ITS lite, which carries the display name as toStr.
+            if (current != null && key)
+                Navigator.API.fetch(current).then(uq => setCurrentUserQuery(uq.toLite()));
+        }
+    }, [location.search]);
 
     if (p.isHidden)
         return null;
