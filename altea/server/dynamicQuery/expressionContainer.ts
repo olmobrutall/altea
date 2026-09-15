@@ -5,7 +5,7 @@ import { ClassType, ArrayType, LiteType, EnumType, TemporalType, LiteralType, Ru
 import { TypeReference } from "../../data/reflection";
 import { Expression, ParameterExpression } from "../linq/expressions";
 import { ExpressionVisitor } from "../linq/visitors/ExpressionVisitor";
-import { QueryToken, entityCtorOf } from "../../data/dynamicQuery/tokens";
+import { QueryToken, entityCtorOf, canHaveServerOnlyTokens } from "../../data/dynamicQuery/tokens";
 import { extractEntity } from "./tokenExpressions";
 import { ExtensionToken, type ExtensionInfo } from "../../data/dynamicQuery/tokens";
 import { Meta, CleanMeta } from "./meta";
@@ -80,17 +80,15 @@ export class ExpressionContainer {
     // and the auth reason from the expression's Meta — while stashing the registration as the token's
     // opaque `serverInfo` so buildExtension can inline the lambda.
     getExtensionsTokens(parent: QueryToken): QueryToken[] {
-        // A registered expression belongs on tokens of its source TYPE, not on the RAW COLLECTION nav of
-        // that type: "Details" (OrderLine[]) must NOT expose OrderLine's subTotalPrice — it surfaces under
-        // the collection's .Element / .Any sub-tokens (Details.Element.SubTotalPrice, Details.Any.SubTotalPrice).
-        // entityCtorOf ignores `.array` (Type.is unwraps it) and the .Element/.Any tokens also carry an array
-        // type, so the discriminator is: skip a collection token that is NOT itself an element/quantifier.
-        // Mirrors Signum (extensions hang off the element token, never the collection).
-        if (parent.type.array && !parent.isElement() && !parent.isAnyOrAll())
+        // Which parents can carry one at all lives in `canHaveServerOnlyTokens` (entities token model):
+        // a registered expression belongs on tokens of its source TYPE, not on the RAW COLLECTION nav of
+        // that type ("Details" must NOT expose OrderLine's subTotalPrice — it surfaces under
+        // Details.Element / Details.Any), and not on a non-entity type at all. The CLIENT reads the same
+        // function to skip a round trip that could only answer `[]`, which is why the rule is shared
+        // rather than restated here: the two must agree or the client silently loses tokens.
+        if (!canHaveServerOnlyTokens(parent))
             return [];
-        const ctor = entityCtorOf(parent.type);
-        if (ctor == undefined)
-            return [];
+        const ctor = entityCtorOf(parent.type)!;
         const out: QueryToken[] = [];
         for (let c: Function | undefined = ctor; c != undefined && c !== Object; c = Object.getPrototypeOf(c)) {
             const map = this.registered.get(c);
