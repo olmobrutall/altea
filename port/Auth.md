@@ -291,6 +291,37 @@ side-channel map; the extra fields come from an interface expansion in `data/Rul
 them. The blob `buildMetadata` hands over is a fresh deep copy per request, so mutating it here cannot
 leak a role's allowances into the shared per-culture store.
 
+**Presence is the permission**, as in Signum, whose `TypeExtension` returns null for a type the role
+cannot read. A type at `None` is DELETED from the blob; core guarantees an entry for every type it knows —
+an empty `{ kind }` when there is nothing else to say — so a missing entry can only mean the filter took
+it out, and the client's `isViewable` / `isCreable` / `isReadonly` gates read it that way. What survives
+is stamped only where it is not already implied:
+
+- `maxTypeAllowed` only on a RESTRICTED type (absent = Write);
+- `routes[path].propertyAllowed` only where a route is STRICTER than its type (Signum's
+  `if (!pac.Equals(tac))`) — a rule that repeats its type's answer says nothing the reader cannot get
+  from the type entry;
+- `hasQuery` is deleted rather than set false for a query the role may not see.
+
+**`routes`, not `fields`.** A `TypeMetadata` keeps two records that look alike and are not:
+
+| record | keyed by | carried by | who asks |
+| --- | --- | --- | --- |
+| `fields` | the type's OWN member name | every kind — an embedded, a `@part` and a mixin each describe their own | `FieldInfo.niceToString()`, with `(declaringType, name)` |
+| `routes` | an owner-rooted `PropertyRoute.propertyString()` | root entities only | the Lines layer, with `ownerRootedRoute(ctx)` |
+
+For `Order.shipAddress.city` the label is `AddressEmbedded.fields["city"]` and the allowance is
+`OrderEntity.routes["shipAddress.city"]`. They coincide only for a direct member of an entity, which is
+what made one shared record look workable. Both callers already hold the right pair — `ownerRootedRoute`
+climbs the TypeContext chain precisely because a re-rooted embedded has lost the path, while a label never
+needs the climb — so the split costs no plumbing.
+
+A permission SYMBOL's `allowed` stays on `fields`: a `PermissionSymbol` is a container member with no path,
+and the flag shares the entry that already carries that member's id.
+
+For eastwind's ANONYMOUS blob — which every client fetches at boot, before login, to render the login
+page — that is 66KB down to 43KB: 249 of 752 type entries gone, and 20 property allowances down to 2.
+
 ## SessionLog
 
 One row per login, opened on `/api/auth/login` and closed on `/api/auth/logout`; both paths run with

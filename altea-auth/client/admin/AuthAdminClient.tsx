@@ -4,7 +4,8 @@ import { ajaxGet, ajaxPost, ajaxGetRaw, saveFile } from "@altea/altea/client/Ser
 import { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
-import { tryGetTypeMetadata } from "@altea/altea/client/Reflection";
+import { tryGetTypeMetadata, tryGetTypeInfo } from "@altea/altea/client/Reflection";
+import { Metadata } from "@altea/altea/data/metadata";
 import { PropertyRoute, PropertyRouteType } from "@altea/altea/data/propertyRoute";
 import { Entity } from "@altea/altea/data/entity";
 import type { TypeContext, StyleContext } from "@altea/altea/client/TypeContext";
@@ -123,26 +124,37 @@ export namespace AuthAdminClient {
         // Navigator.view, plus a QuickLink on the Role frame as the entry point. The
         // pack is fetched first, then opened read-only-if-trivial-merge; the control saves in place.
         if (Options.types) {
-            // Client type-auth enforcement: gate
-            // viewability/creability/readonly on the role's per-type allowance. A `None` type is NOT
-            // viewable → EntityLink renders it as plain text; a non-`Write` type isn't creable / is
-            // read-only. Unrestricted types (not shipped → undefined) stay fully allowed.
+            // Client type-auth enforcement: gate viewability/creability/readonly on the role's per-type
+            // allowance. A type the role cannot read is NOT viewable → EntityLink renders it as plain
+            // text; a non-`Write` type isn't creable / is read-only.
             //
-            // Read straight off the TypeMetadata the server stamped. Signum's `fixTypes` projection step is
-            // gone with it: there is nothing to copy anywhere, so there is also nothing to RESET — a
-            // re-login replaces the whole per-culture entry, and a role's allowances cannot outlive it.
-            Navigator.isViewableEvent().push(typeName => {
+            // ABSENCE IS THE DENIAL. The server drops a type the role cannot read from the blob entirely
+            // (Signum's TypeExtension returning null) and keeps an entry — an empty `{ kind }` if it has
+            // nothing else to say — for every type it CAN read. So a missing entry means forbidden, not
+            // unrestricted, and a present entry with no `maxTypeAllowed` means Write.
+            //
+            // Two absences are NOT denials, and both have to be told apart from it by what the client
+            // already knows, because the blob by definition says nothing about either:
+            //
+            //  - before the first blob has been applied, nothing has an entry. Boot fetches it before
+            //    anything renders, but a gate answering "deny" from an empty store would be answering
+            //    about the fetch, not about the role;
+            //  - a type the SERVER does not have — a ModelEntity declared in client code, which never
+            //    reaches `getRegisteredTypes()` over there. Only a persisted entity has a table, and only
+            //    a type with a table can be the one the filter removed.
+            const typeAllowance = (typeName: string): TypeAllowedBasic => {
                 const tm = tryGetTypeMetadata(typeName);
-                return tm == null || tm.maxTypeAllowed !== TypeAllowedBasic.None;
-            });
-            Navigator.isCreableEvent().push(typeName => {
-                const tm = tryGetTypeMetadata(typeName);
-                return tm == null || tm.maxTypeAllowed == null || tm.maxTypeAllowed === TypeAllowedBasic.Write;
-            });
-            Navigator.isReadonlyEvent().push(typeName => {
-                const tm = tryGetTypeMetadata(typeName);
-                return tm != null && tm.maxTypeAllowed != null && tm.maxTypeAllowed < TypeAllowedBasic.Write;
-            });
+                if (tm != null)
+                    return tm.maxTypeAllowed ?? TypeAllowedBasic.Write;
+                const ctor = tryGetTypeInfo(typeName)?.ctor;
+                return Metadata.isApplied() && ctor != null && isPersistedEntity(ctor)
+                    ? TypeAllowedBasic.None
+                    : TypeAllowedBasic.Write;
+            };
+
+            Navigator.isViewableEvent().push(typeName => typeAllowance(typeName) !== TypeAllowedBasic.None);
+            Navigator.isCreableEvent().push(typeName => typeAllowance(typeName) === TypeAllowedBasic.Write);
+            Navigator.isReadonlyEvent().push(typeName => typeAllowance(typeName) < TypeAllowedBasic.Write);
 
             cb.configure(TypeRulePack).withView(() => import("./TypeRulePackControl"));
             QuickLinkClient.registerQuickLink(RoleEntity, new QuickLinkAction("types",
@@ -246,17 +258,26 @@ export namespace AuthAdminClient {
     }
 }
 
-// The role's allowance for one property route. Gates on `max` — the best case across every type-condition
-// slice — because the client has no row to evaluate conditions against, and hiding a property the user may
-// well be allowed to edit for THIS row would be the worse error: the server still enforces the exact
-// per-instance answer on the way in (the request deserializer) and out (the serializer).
+// The role's allowance for one property route. The best case across every type-condition slice, because
+// the client has no row to evaluate conditions against, and hiding a property the user may well be allowed
+// to edit for THIS row would be the worse error: the server still enforces the exact per-instance answer
+// on the way in (the request deserializer) and out (the serializer).
 //
-// An unrestricted route is not shipped at all, so an absent entry means Write. `maxPropertyAllowed` in
-// turn is shipped only where it DIFFERS from the fallback — the coarse case (no type condition) is one
-// number, not the same number three times — so it falls back to `propertyAllowed` before Write.
+// A route is shipped only where it is STRICTER THAN ITS TYPE, so an absent entry falls back to the type's
+// own allowance — which is Write when the type is unrestricted, and None when the type is not in the blob
+// at all (the role cannot read it, so neither can it read any property of it).
 function propertyAllowance(rootType: Function, path: string): PropertyAllowed {
-    const fm = tryGetTypeMetadata(rootType)?.fields[path];
-    return fm?.maxPropertyAllowed ?? fm?.propertyAllowed ?? PropertyAllowed.Write;
+    const tm = tryGetTypeMetadata(rootType);
+    if (tm == null)
+        // Absent: denied if it could have been removed, unrestricted otherwise — the same three-way read
+        // as `typeAllowance` above, and for the same reasons.
+        return Metadata.isApplied() && isPersistedEntity(rootType) ? PropertyAllowed.None : PropertyAllowed.Write;
+    // `routes`, not `fields`: the pair asked with here is (root entity, whole path), which is what
+    // `ownerRootedRoute` climbed the TypeContext chain to rebuild. A label would be asked for with
+    // (declaring type, member) instead, and never needs the climb.
+    // TypeAllowedBasic and PropertyAllowed are the same three ascending levels (None 0, Read 1, Write 2).
+    const typeAllowed: number = tm.maxTypeAllowed ?? TypeAllowedBasic.Write;
+    return tm.routes?.[path]?.propertyAllowed ?? typeAllowed as PropertyAllowed;
 }
 
 /**
@@ -306,6 +327,6 @@ function taskAuthorizeProperties(lineBase: LineBaseController<LineBaseProps, unk
     }
 }
 
-// NOTE: the min/maxTypeAllowed + *PropertyAllowed fields these gates read are declared once, by interface
+// NOTE: the maxTypeAllowed + propertyAllowed fields these gates read are declared once, by interface
 // expansion of TypeMetadata / FieldMetadata, in ../../data/Rules — the DATA layer, so client and server
 // share one declaration and the two halves cannot drift.

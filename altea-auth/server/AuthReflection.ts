@@ -39,25 +39,25 @@ export namespace AuthReflectionServer {
                 queryNames.forEach((qn, i) => {
                     if (allowed[i] === QueryAllowed.None) {
                         const tm = meta.types[ReflectionServer.metadataNameForQuery(qn)];
-                        if (tm != null) tm.hasQuery = false;
+                        // DELETE, not `= false`: absent is how the builder says "no query" already, so a
+                        // shipped `false` is eleven bytes spent restating the default.
+                        if (tm != null) delete tm.hasQuery;
                     }
                 });
             }
 
             // ---- Types -----------------------------------------------------------------------------
-            // The role's coarse MAX UI-read allowance per type. Only RESTRICTED types (< Write) are
-            // stamped; the client treats an absent value as unrestricted.
+            // A type the role cannot read AT ALL is REMOVED — Signum's TypeExtension returning null, and
+            // the reason a readable type keeps an entry even with nothing in it: presence in `types` is
+            // what says "you may read this", so the client's gates read an absent entry as forbidden.
             //
-            // A type the role cannot read AT ALL is reduced to that one fact. Everything else the entry
-            // holds — the nice names, the route labels, the operations, the registered expressions — is
-            // describing a type no page can open, no query can return and no control can render. Signum
-            // drops such a type from the blob outright (its TypeExtension returns null, and for an
-            // anonymous user it does so for EVERY entity); altea keeps the husk because its client reads
-            // "no entry" as UNRESTRICTED, so dropping it would turn a forbidden type into an allowed one.
-            // The husk says the opposite, in about forty bytes.
+            // Everything such an entry used to hold — the nice names, the route labels, the operations,
+            // the registered expressions — described a type no page can open, no query can return and no
+            // control can render. The anonymous role is where that is felt: /publicCatalog is served to a
+            // logged-out visitor, and its boot blob described all 267 entity types, every one of them None.
             //
-            // The anonymous role is where this is felt: /publicCatalog is served to a logged-out visitor,
-            // and its boot blob described all 267 entity types — 78KB of 122KB — every one of them None.
+            // Only the remaining RESTRICTED types (Read, i.e. < Write) are stamped; an unrestricted one
+            // says nothing, because the reader's default for a present entry is Write.
             if (TypeAuthLogic.isStarted()) {
                 const caches = await TypeLogic.caches();
                 for (const [ctor] of Connector.current().schema.tables) {
@@ -68,14 +68,14 @@ export namespace AuthReflectionServer {
                     const maxUI = await TypeAuthLogic.maxTypeAllowedUI(typeId, roleKey);
                     if (maxUI >= TypeAllowedBasic.Write) continue;
 
+                    if (maxUI === TypeAllowedBasic.None) {
+                        delete meta.types[ctor.name];
+                        continue;
+                    }
                     const tm = meta.types[ctor.name];
-                    if (tm == null) continue;
-                    // COARSE: min == max == the shipped value, so only `max` is written — the same rule
-                    // the property allowances follow, and the reader falls back min → max.
-                    if (maxUI === TypeAllowedBasic.None)
-                        meta.types[ctor.name] = { kind: tm.kind, fields: {}, maxTypeAllowed: maxUI };
-                    else
-                        tm.maxTypeAllowed = maxUI;
+                    // COARSE: one number, the best case across every type-condition slice — which is what
+                    // the UI gates on, having no row to evaluate a condition against.
+                    if (tm != null) tm.maxTypeAllowed = maxUI;
                 }
             }
 
@@ -83,30 +83,36 @@ export namespace AuthReflectionServer {
             // NEW vs the pre-Metadata blob, which had no property channel at all: the property dimension
             // was enforced only in the server serializer, so a hidden field still rendered (empty) and a
             // read-only one still looked editable until save. The Lines layer reads these.
+            //
+            // A property entry exists only where the property is STRICTER THAN ITS TYPE (Signum's
+            // `if (!pac.Equals(tac))`). A rule that merely repeats the type's own answer tells the client
+            // nothing: the type entry is right there, and the reader falls back to it. Two cases, both of
+            // them common, collapse to nothing at all:
+            //
+            //  - a type the role cannot READ is gone from the blob entirely (the pass above), and with it
+            //    every property of it. For the ANONYMOUS blob — fetched by every client at boot, before
+            //    login, to render the login page — that was 1951 of 1971 property entries;
+            //  - a Read-only type whose properties are Read. Every one of them used to be spelled out.
             if (PropertyAuthLogic.isStarted()) {
                 for (const [typeName, byPath] of await PropertyAuthLogic.restrictedRoutesForRole(roleKey)) {
                     const tm = meta.types[typeName];
-                    if (tm == null) continue;
+                    if (tm == null) continue; // the role cannot read the type — the absent entry says it all
 
-                    // A property rule on a type the role cannot READ AT ALL says nothing new: the retrieve
-                    // gate refuses the entity, so no instance ever reaches a control that could consult it.
-                    // The type pass above has already stamped that answer, so it is known here.
-                    //
-                    // This is not a micro-optimisation. For the ANONYMOUS blob — which every client fetches
-                    // at boot, before login, to render the login page — every type is None, and these were
-                    // 1951 of 1971 property entries: 170KB of a 276KB response spent restating "you cannot
-                    // read this" once per property of something you already cannot read.
-                    if (tm.maxTypeAllowed === TypeAllowedBasic.None)
-                        continue;
+                    // The type's own allowance, read as a property one: TypeAllowedBasic and
+                    // PropertyAllowed are the same three ascending levels (None 0, Read 1, Write 2), and
+                    // an absent `maxTypeAllowed` means unrestricted.
+                    const typeAllowed: number = tm.maxTypeAllowed ?? TypeAllowedBasic.Write;
 
                     for (const [path, allowed] of byPath) {
-                        const fm = tm.fields[path] ??= {};
-                        fm.propertyAllowed = allowed.fallback;
-                        // The range is shipped only where there IS a range. The coarse case — no type
-                        // condition, so min == max == fallback — is every property of most roles, and
-                        // saying one number three times is the shape the reader defaults away anyway.
-                        if (allowed.min !== allowed.fallback) fm.minPropertyAllowed = allowed.min;
-                        if (allowed.max !== allowed.fallback) fm.maxPropertyAllowed = allowed.max;
+                        // MAX — the best case across every type-condition slice. The client has no row to
+                        // evaluate conditions against, and hiding a property the user may well be allowed
+                        // to edit for THIS row is the worse error; the serializer still enforces the exact
+                        // per-instance answer on the way in and out. `fallback` and `min` were shipped
+                        // beside it and read by nothing.
+                        if (allowed.max as number === typeAllowed) continue;
+                        // `routes`, keyed by the owner-rooted path the rule is written against — NOT
+                        // `fields`, which is keyed by (declaring type, member) and knows nothing of paths.
+                        ((tm.routes ??= {})[path] ??= {}).propertyAllowed = allowed.max;
                     }
                 }
             }

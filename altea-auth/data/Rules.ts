@@ -472,30 +472,42 @@ export class PropertyRulePack extends ModelEntity {
 // them. Declared HERE, in the data layer, because a `declare module` only applies to programs that
 // compile the declaring file — and the client tsconfig does not compile server/.
 //
-// Both enums are numeric and ASCENDING (None < Read < Write); undefined = unrestricted (not shipped).
+// Both enums are numeric and ASCENDING (None < Read < Write), and each is shipped only where it says
+// something the reader could not already work out:
+//
+//   - a type entry that is ABSENT means the role cannot read that type at all. Presence is the
+//     permission, which is why the blob keeps an entry for every readable type even when it is empty;
+//   - a PRESENT type with no `maxTypeAllowed` is unrestricted (Write);
+//   - a route with no entry is whatever its TYPE is — the coarse case, and nearly all of them.
+//
+// Note WHICH record each one widens. An allowance about a member reached by a path goes on `routes`
+// (keyed by the root entity + the whole path); an allowance about a symbol MEMBER — a permission — goes
+// on `fields`, beside that member's own label and id, because a PermissionSymbol has no path.
 declare module "@altea/altea/data/metadata" {
     interface TypeMetadata {
         /**
-         * Shipped only where it DIFFERS from `maxTypeAllowed` — the coarse case (no type condition) is one
-         * number, not two copies of it. A reader wanting the low end falls back min → max.
-         */
-        minTypeAllowed?: TypeAllowedBasic;
-        /**
-         * The role's MAX UI-read allowance. Absent = unrestricted, which is why a type the role cannot
-         * read is reduced to a husk carrying this rather than dropped: a missing ENTRY reads as allowed.
+         * The role's MAX UI-read allowance — the best case across every type-condition slice, which is
+         * what the UI gates on, having no row to evaluate a condition against. Absent = Write; a type at
+         * None has no entry at all.
          */
         maxTypeAllowed?: TypeAllowedBasic;
     }
-    interface FieldMetadata {
-        /** The allowance when no type condition matches — what a row with no conditions on it sees. */
-        propertyAllowed?: PropertyAllowed;
+    interface RouteMetadata {
         /**
-         * The range across every type-condition slice. The UI gates on `max`: hiding a property the user
-         * might be allowed to edit for THIS row would be wrong, and the serializer still enforces the
-         * exact per-instance answer on the way in and out.
+         * The role's MAX allowance for this property ROUTE, shipped only where it DIFFERS from the type's
+         * own — a rule that merely repeats the type says nothing the reader cannot get from the type entry.
+         *
+         * MAX, for the same reason as `maxTypeAllowed`: hiding a property the user might well be allowed
+         * to edit for THIS row would be the worse error, and the serializer still enforces the exact
+         * per-instance answer on the way in and out.
+         *
+         * On `routes`, not on `fields`, because that is what it is about: `Order.shipAddress.city` and
+         * `Customer.address.city` are the same MEMBER of the same embedded and can carry different
+         * allowances, while they share one label. The route is the thing a rule is written against.
          */
-        minPropertyAllowed?: PropertyAllowed;
-        maxPropertyAllowed?: PropertyAllowed;
+        propertyAllowed?: PropertyAllowed;
+    }
+    interface FieldMetadata {
         /**
          * PERMISSION containers only (`isPermissionAuthorized`, which reads its own
          * `AuthClient.Options.isPermissionAuthorized` map). A symbol container's members already ride in
