@@ -5,6 +5,7 @@ import type { TsVector } from './tsVector';
 import { column, serialize, quoted } from './decorators';
 import { Localization } from './utils/localization';
 import { getLambdaMembers } from './lambdaMembers';
+import type { MemberType } from './lambdaMembers';
 import type { Quoted } from 'quote-transformer/quoted';
 
 // Type-only surface for the TYPE-level display names inside a query lambda: `f.constructor.niceName()`
@@ -150,9 +151,11 @@ export abstract class BaseEntity {
     /**
      * Display name of one of this type's properties (Signum's `Type.NicePropertyName(a => a.X)`):
      * `OrderEntity.nicePropertyName(a => a.orderNumber)`, `AddressEmbedded.nicePropertyName(a => a.city)`.
-     * Navigates embeddeds and mixins, so `OrderEntity.nicePropertyName(a => a.shipAddress.city)` resolves
-     * the route "shipAddress.city" against the OWNER's metadata — which is where a property translation
-     * (and a property-authorization rule) is keyed.
+     *
+     * Navigates embeddeds and mixins, and resolves the label under the type that DECLARES the last step —
+     * `OrderEntity.nicePropertyName(a => a.shipAddress.city)` answers with `AddressEmbedded`'s label for
+     * `city`, the same one the line inside the address renders. A label is keyed by (declaring type,
+     * member); only an authorization RULE is keyed by the owner-rooted route (see TypeMetadata.routes).
      *
      * Two constraints, both inherent to the quote-transformer:
      *  - the LAMBDA overload requires an INLINE lambda; the transformer only emits the `__quoted`
@@ -166,9 +169,22 @@ export abstract class BaseEntity {
     static nicePropertyName<T extends BaseEntity>(this: Type<T>, property: Quoted<(val: T) => any>): string;
     static nicePropertyName(this: Function, property: string): string;
     static nicePropertyName(this: Function, property: Quoted<(val: any) => any> | string): string {
-        const path = typeof property === "string" ? property
-            : getLambdaMembers(property).map(m => m.type === "Mixin" ? `[${m.name}]` : m.name).join(".").replace(/\.\[/g, "[");
-        return Localization.Internal.routeNiceName(this.name, path);
+        const members = typeof property === "string"
+            ? property.split(/[.\/]/).filter(s => s !== "").map(s => /^\[.*\]$/.test(s)
+                ? { name: s.slice(1, -1), type: "Mixin" as const } : { name: s, type: "Member" as const })
+            : getLambdaMembers(property);
+
+        // Walk to the type that DECLARES the last step, because that is where its label lives. A single
+        // member — every caller in the workspace — resolves on the first iteration without touching the
+        // walk at all.
+        let ctor: Function | undefined = this;
+        for (let i = 0; i < members.length - 1 && ctor != null; i++)
+            ctor = stepInto(ctor, members[i]);
+
+        const last = members[members.length - 1];
+        return ctor == null || last == null
+            ? Localization.Internal.niceMemberName(last?.name ?? "")
+            : Localization.Internal.memberNiceName(ctor.name, last.name);
     }
 
     // Resolve a clean type name (the $type / URL discriminator) to its Type, checking it inherits
@@ -388,6 +404,23 @@ export abstract class ModelEntity extends BaseEntity { }
 // the entity and its fields are folded into the owner's table by the schema
 // builder.
 export abstract class MixinEntity extends BaseEntity { }
+
+// One step of a member path, as a TYPE: the class that declares whatever comes NEXT. Used by
+// `nicePropertyName` to reach the declaring type of a dotted path's last step — a label is keyed by
+// (declaring type, member), so the intermediate steps only matter for finding that type.
+//
+// Deliberately NOT PropertyRoute.add: this module is imported BY propertyRoute, so reaching back would
+// close a cycle. Nothing here needs a route anyway — only the chain of declaring classes.
+function stepInto(ctor: Function, member: { name: string; type: MemberType }): Function | undefined {
+    if (member.type === "Mixin")
+        return MixinDeclarations.getMixins(ctor as Type<BaseEntity>).find(m => m.name === member.name);
+    if (member.type === "Indexer")
+        return ctor; // a collection index does not change the declaring type of what follows
+    const fi = getTypeInfo(ctor)?.fields[member.name];
+    // An element type for a collection, the entity/embedded type otherwise; undefined for a value member,
+    // which is fine — a value member can only ever be the LAST step.
+    return (fi?.elementType ?? fi)?.getFunction() ?? undefined;
+}
 
 // Copy each declared mixin field's default onto a freshly-created entity. altea inlines mixin
 // fields onto the entity (mixin() returns `this`) but doesn't declare them there, so their

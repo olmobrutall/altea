@@ -88,24 +88,28 @@ export namespace Localization {
 
         // --- Member-level names ------------------------------------------------------------------
 
-        // A property route's display name for the current UI culture, resolved: loaded translation →
-        // code-declared default (a @niceName field decorator) → humanised identifier. `path` is a
-        // `PropertyRoute.propertyString()`, so an embedded's member resolves under its OWNER
-        // ("shipAddress.city"); when the owner carries no entry the LAST segment is humanised, which is
-        // what a reader wants next to the field ("City", not "Ship Address City").
-        export function routeNiceName(typeName: string, path: string): string {
-            return tryRouteNiceName(typeName, path) ?? niceMemberName(lastSegment(path));
+        // One MEMBER's display name for the current UI culture, resolved: loaded translation →
+        // code-declared default (a @niceName field decorator) → humanised identifier.
+        //
+        // `typeName` is the type that DECLARES the member, and `member` is its bare name — the pair
+        // `FieldInfo.niceToString()` holds, and never a path. A member of an embedded, a `@part` or a
+        // mixin is asked for under that class, not under whatever entity a route reached it through: the
+        // answer is the same either way, which is exactly why it is keyed this way. The path-keyed
+        // question ("what may this ROLE do with the member reached like THIS") is a different lookup —
+        // `Metadata.tryRoute`.
+        export function memberNiceName(typeName: string, member: string): string {
+            return tryMemberNiceName(typeName, member) ?? niceMemberName(member);
         }
 
-        // As `routeNiceName`, but undefined when nothing is declared for the route (so a caller with its
-        // own fallback — FieldInfo.niceToString, which humanises the field's own name — can use it).
-        export function tryRouteNiceName(typeName: string, path: string): string | undefined {
-            const fromBlob = Metadata.tryField(typeName, path)?.niceName;
+        // As `memberNiceName`, but undefined when nothing is declared (so a caller with its own fallback —
+        // FieldInfo.niceToString, which humanises the field's own name — can use it).
+        export function tryMemberNiceName(typeName: string, member: string): string | undefined {
+            const fromBlob = Metadata.tryField(typeName, member)?.niceName;
             if (fromBlob != null)
                 return fromBlob;
             // Signum's XML uses the PascalCase C# name; altea's members are camelCase. Probe both.
             const def = getDefaultDescription(typeName);
-            return def?.members[path] ?? def?.members[capitalizePath(path)];
+            return def?.members[member] ?? def?.members[member.charAt(0).toUpperCase() + member.slice(1)];
         }
 
         // Default display name of a member when nothing is declared (Signum's
@@ -179,16 +183,6 @@ export namespace Localization {
     }
 }
 
-// The last segment of a property path: "shipAddress.city" → "city", "[CorruptMixin].corrupt" → "corrupt".
-function lastSegment(path: string): string {
-    const i = Math.max(path.lastIndexOf("."), path.lastIndexOf("]"));
-    return i < 0 ? path : path.slice(i + 1);
-}
-
-// Capitalize each dot/bracket-separated segment: "shipAddress.city" → "ShipAddress.City".
-function capitalizePath(path: string): string {
-    return path.replace(/(^|[.\]])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase());
-}
 
 // `msg` / LocalizableMessage stay bare top-level exports (NOT under Localization): the quote-transformer
 // recognizes hand-written `msg(...)` calls by that exact identifier, and authors write it bare. (They

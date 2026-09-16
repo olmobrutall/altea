@@ -170,7 +170,8 @@ type ColumnParsed = any;
 //
 // The registry is the reflected type list narrowed by the metadata blob's `kind`, which is "Entity" exactly
 // for a persisted type — so a model, an embedded, an enum and a symbol container are all excluded, as they
-// are from the server's table list.
+// are from the server's table list. A type the role cannot read has no entry at all, so it drops out here
+// too: the picker offers what the user could actually open.
 setImplementedByAllTypesProvider(cleanTypeCtor =>
   getRegisteredTypes().filter(ctor =>
     (ctor === cleanTypeCtor || ctor.prototype instanceof cleanTypeCtor)

@@ -375,7 +375,7 @@ export class FieldInfo extends TypeReference {
 
     niceToString(): string {
         const declared = this.declaringType?.ctor != null
-            ? Localization.Internal.tryRouteNiceName(this.declaringType.ctor.name, this.name)
+            ? Localization.Internal.tryMemberNiceName(this.declaringType.ctor.name, this.name)
             : undefined;
         return declared ?? Localization.Internal.niceMemberName(this.name);
     }
@@ -792,7 +792,7 @@ export {
     registerObject, resolveObject,
     getLocation,
     init, declaredSymbolsForType, renameSymbolContainer, legacyClassName, legacyCleanNameOf,
-    setLegacyMode, isLegacyMode,
+    setLegacyMode, isLegacyMode, declaredLegacyClassNames,
     setDefaultTypeDescription, setDefaultMemberDescription, getDefaultDescription,
     setDefaultCulture, getPackageCulture, cultureForName,
     setDefaultDatabaseSchema, setDatabaseSchema, schemaForName,
