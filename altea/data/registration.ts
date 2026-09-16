@@ -502,6 +502,20 @@ export function isLegacyMode(): boolean {
 }
 
 /**
+ * Every `@legacyClassName` DECLARED in the process, Signum's name → the altea constructor, whatever mode
+ * is on — the static fact of the declaration rather than {@link legacyClassName}'s "which name should
+ * this runtime use", which is mode-dependent because a name is what a DATABASE is keyed by.
+ *
+ * The question the two answers apart is asked off-line, by a tool converting Signum ARTEFACTS to altea
+ * ones — @altea/altea-translations' translation port is the first: which altea type is Signum's
+ * `WordTemplateEntity` is the same answer whichever database the process happens to point at, and a
+ * porting run must not have to flip a global to get it.
+ */
+export function declaredLegacyClassNames(): Map<string, Function> {
+    return new Map([...legacyClassNames].map(([ctor, className]) => [className, ctor]));
+}
+
+/**
  * Turn the `@legacy*` names on or off — `SchemaSettings.legacyMode` on the server, an application's
  * shared entity-overrides module on the client (which has no schema to carry the flag).
  *
