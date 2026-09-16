@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
-import { EmbeddedEntity, Entity, MixinEntity, ModelEntity } from "@altea/altea/data/entity";
+import { EmbeddedEntity, Entity, MixinEntity, ModelEntity, View } from "@altea/altea/data/entity";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { Localization, type LocalizableMessage } from "@altea/altea/data/utils/localization";
 import { pluralize, detectGender, determinersFor } from "@altea/altea/data/utils/naturalLanguage";
@@ -73,7 +73,7 @@ export function isTypeCompleted(lt: LocalizedType, culture: string): boolean {
 
 // ---- What is localizable, and who owns it ---------------------------------------------------------------
 
-interface LocalizableType {
+export interface LocalizableType {
     typeName: string;
     packageName: string;
     folder: string;
@@ -115,8 +115,14 @@ export function localizableTypes(): LocalizableType[] {
 
     // Entities, models, embeddeds and mixins: everything, including abstract bases (they carry their own
     // nice name). Which of the four labels each one has is `descriptionOptionsOf`.
+    //
+    // A VIEW is skipped, on core's reasoning for skipping it in the metadata blob: a View is a
+    // query-projection DTO the ENGINE materialises (the sync PgClass / SysColumns family), with no page
+    // and no user-facing name, so there is nobody to read a translation of one. Asking for the eleven
+    // `Pg*` shapes in every culture is the same noise the blob was cleaned of.
     for (const ctor of getRegisteredTypes())
-        add(ctor.name, descriptionOptionsOf(ctor), routeMemberNames(ctor));
+        if (!isViewType(ctor))
+            add(ctor.name, descriptionOptionsOf(ctor), routeMemberNames(ctor));
 
     // Enums: a name and its members (Signum: Description | Members).
     for (const [name, enumObject] of getRegisteredEnums())
@@ -196,17 +202,68 @@ function descriptionOptionsOf(ctor: Function): DescriptionOptions {
     return { hasDescription: true, hasPluralDescription: false, hasGender: false, hasMembers: true };
 }
 
+function isViewType(ctor: Function): boolean {
+    return isOrExtends(ctor, View);
+}
+
 function isOrExtends(ctor: Function, base: Function): boolean {
     return ctor === base || ctor.prototype instanceof base;
 }
 
-// A reflected class's member names, in the XML's PascalCase — every property ROUTE (so an embedded's
-// members appear dotted under their owner, which is how the metadata builder keys them too).
+/**
+ * A reflected class's member names, in the XML's PascalCase — Signum's
+ * `GetMembers(type)` under `BindingFlags.DeclaredOnly`: the type's OWN members, one level deep, and
+ * nothing it inherits.
+ *
+ * Both halves of that matter, and both were wrong here.
+ *
+ * ONE LEVEL. A translation names a member under the type that DECLARES it — that is the pair
+ * `FieldInfo.niceToString()` resolves (see Localization.Internal.memberNiceName: "`typeName` is the type
+ * that declares the member … and never a path"), and the pair core's metadata blob is keyed by (see
+ * reflectionServer's ownMembersOf, which filters to depth 1 for exactly this reason). Walking
+ * `generateRoutes` instead expanded every embedded and mixin member under every owner that reaches it —
+ * `ExceptionEntity.StackTrace[BigStringMixin].File.FileName` and 798 more like it — so the sync page
+ * asked for translations of paths no lookup will ever perform. It also handed back NOTHING for a `@part`,
+ * which may not root a route; `memberPaths` is the accessor that answers for one.
+ *
+ * DECLARED ONLY. `id` / `ticks` live on `Entity`, so without this every entity in the process repeats
+ * them (261 of them here) — and answering them is useless besides, because a base's translation is not
+ * inherited by its subtypes on the way out either: the blob is built per type with
+ * `declaredMember(ctor.name, member)`. One entry under the declaring type is the only one that can be
+ * read, which is the entry Signum writes.
+ */
 function routeMemberNames(ctor: Function): string[] {
-    return PropertyRoute.generateRoutes(ctor)
-        .map(r => r.propertyString())
-        .filter(p => p !== "")
+    const inherited = baseMembersOf(ctor);
+    return ownMembersOf(ctor)
+        .filter(p => !inherited.has(p))
         .map(capitalizePath);
+}
+
+// Depth 1 of a type's routes — core's `ownMembersOf`, same rule and same reason. `memberPaths` rather
+// than `generateRoutes` so a `@part` answers with its own members instead of an empty list.
+const ownMembersCache = new Map<Function, string[]>();
+function ownMembersOf(ctor: Function): string[] {
+    let members = ownMembersCache.get(ctor);
+    if (members == undefined)
+        ownMembersCache.set(ctor, members = PropertyRoute.memberPaths(ctor).filter(p => p !== "" && !/[.\/\[\]]/.test(p)));
+    return members;
+}
+
+// What the nearest REGISTERED base contributes, so a member is named once, under its declaring type.
+// Only a registered base is consulted: it is the one that has an entry of its own to hold the member
+// (`Entity` and `ModelEntity` are registered and do appear in the localizable set), and it is the only
+// one `memberPaths` can be asked about safely.
+function baseMembersOf(ctor: Function): Set<string> {
+    const registered = registeredTypeSet();
+    for (let base = Object.getPrototypeOf(ctor) as Function; typeof base === "function"; base = Object.getPrototypeOf(base) as Function)
+        if (registered.has(base))
+            return new Set(ownMembersOf(base));
+    return new Set();
+}
+
+let registeredSet: Set<Function> | undefined;
+function registeredTypeSet(): Set<Function> {
+    return registeredSet ??= new Set(getRegisteredTypes());
 }
 
 function enumMemberNames(enumObject: object): string[] {
@@ -244,7 +301,14 @@ function folderOf(fileName: string): string {
 
 // ---- The files -------------------------------------------------------------------------------------------
 
-const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "", isArray: n => n === "Type" || n === "Member" });
+// `trimValues: false` because a translation's OUTER SPACE IS PART OF IT: Signum writes
+// "Standardautorisierung: " and "Nicht autorisiert, um … zu {0} " with the trailing space that separates
+// the label from whatever the caller appends. The parser's default would eat it on read, and — now that
+// the port and the sync page both write files back — bake the loss into the file.
+const parser = new XMLParser({
+    ignoreAttributes: false, attributeNamePrefix: "", trimValues: false,
+    isArray: n => n === "Type" || n === "Member",
+});
 const builder = new XMLBuilder({ ignoreAttributes: false, attributeNamePrefix: "", format: true, indentBy: "  ", suppressEmptyNode: true });
 
 /** The `translations/` directory of a package, created on demand. undefined if the package is not installed. */
@@ -290,7 +354,13 @@ export function fileBaseOf(packageName: string): string {
                 return m[1];
         }
     }
-    return packageName.replace(/^@[^/]+\//, "").split("-").map(capitalize).join(".");
+    // "@altea/altea-concurrent-user" → "Altea.ConcurrentUser": the FRAMEWORK segment, a dot, then the rest
+    // run together. That is what every file already in the tree does (`Altea.AuthResetPassword`,
+    // `Altea.TimeMachine`, `Altea.WhatsNew`) and it mirrors Signum's one-dot assembly names; joining every
+    // segment with a dot instead produced `Altea.Concurrent.User` the first time a package got a file.
+    const [first, ...rest] = packageName.replace(/^@[^/]+\//, "").split("-");
+    const base = capitalize(first);
+    return rest.length === 0 ? base : `${base}.${rest.map(capitalize).join("")}`;
 }
 
 export function translationFilePath(packageName: string, culture: string, create = false): string | undefined {
@@ -311,7 +381,7 @@ export function translationFileExists(packageName: string, culture: string): boo
 export function importXml(packageName: string, culture: string): LocalizedPackage {
     const path = translationFilePath(packageName, culture);
     const stored = path != undefined && existsSync(path)
-        ? parseFile(readFileSync(path, "utf8"))
+        ? parseTranslationXml(readFileSync(path, "utf8"))
         : new Map<string, StoredType>();
 
     // Signum's `assembly.IsDefault` branch in LocalizedType.ImportXml: the package's SOURCE language has
@@ -337,22 +407,46 @@ export function importXml(packageName: string, culture: string): LocalizedPackag
             folder: t.folder,
             options: t.options,
             description,
+            // The plural and the gender are DERIVED from the description in EVERY culture, not just the
+            // package's own — Signum's ImportXml gates only the `[PluralDescription]` / `[Gender]`
+            // attribute fallbacks on `IsDefault`, and then falls through to
+            // `NaturalLanguageTools.Pluralize(description, assembly.Culture)` whatever the culture is.
+            //
+            // This is not a nicety: Signum's exporter OMITS both attributes whenever they equal the
+            // derived value, so a translated file legitimately carries `Description="Ausnahme"` alone.
+            // Gating the derivation on `isDefault` as well made every such type read back as incomplete —
+            // 113 of the 244 types the sync page was asking for were already translated right here.
             pluralDescription: !t.options.hasPluralDescription ? undefined
-                : s?.pluralDescription ?? (isDefault && description != undefined
-                    ? declared?.pluralDescription ?? pluralize(description, culture) : undefined),
+                : s?.pluralDescription ?? (description == undefined ? undefined
+                    : (isDefault ? declared?.pluralDescription : undefined) ?? pluralize(description, culture)),
             gender: !t.options.hasGender ? undefined
-                : s?.gender ?? (isDefault && description != undefined
-                    ? declared?.gender ?? detectGender(description, culture) : undefined),
+                : s?.gender ?? (description == undefined ? undefined
+                    : (isDefault ? declared?.gender : undefined) ?? detectGender(description, culture)),
             members: new Map(t.members.map(m => [
                 m,
-                s?.members.get(m) ?? (isDefault
-                    ? declared?.members[m] ?? declared?.members[lowerFirst(m)] ?? t.memberDefaults?.[m]
-                    ?? Localization.Internal.niceMemberName(lastSegment(m))
-                    : undefined),
+                s?.members.get(m) ?? (isDefault ? defaultMemberDescription(t.typeName, m, t) : undefined),
             ])),
         });
     }
     return { packageName, culture, types };
+}
+
+/**
+ * Signum's `DescriptionManager.DefaultMemberDescription` — what a member is called when the file says
+ * nothing: the text the CODE declares (`@niceName`, an enum member's own label, a `msg()` default), else
+ * the humanised identifier. Import fills the package's own culture with it; export leaves it back out of
+ * that culture's file, so the two stay each other's inverse.
+ */
+function defaultMemberDescription(typeName: string, member: string, t: LocalizableType | undefined): string {
+    const declared = getDefaultDescription(typeName);
+    return declared?.members[member] ?? declared?.members[lowerFirst(member)] ?? t?.memberDefaults?.[member]
+        ?? Localization.Internal.niceMemberName(lastSegment(member));
+}
+
+/** The localizable set keyed by type name, for the readers that hold only a name (exportXml). */
+let typeIndex: Map<string, LocalizableType> | undefined;
+function localizableTypeIndex(): Map<string, LocalizableType> {
+    return typeIndex ??= new Map(localizableTypes().map(t => [t.typeName, t]));
 }
 
 // The declared defaults are keyed by the CODE's own casing (camelCase for a route, PascalCase for an enum
@@ -375,21 +469,36 @@ export function exportXml(pkg: LocalizedPackage): void {
     if (path == undefined)
         throw new Error(`Package '${pkg.packageName}' is not installed — nowhere to write its translations`);
 
+    // Signum's ExportXml writes only what cannot be RE-DERIVED on the way back in, and `importXml` is now
+    // the same derivation on both sides: a plural or a gender that `pluralize` / `detectGender` would
+    // reproduce is left out, and in the package's own culture a member whose text is already its declared
+    // default is left out too. Without this the file grows a redundant attribute for nearly every type on
+    // the first save, and stops matching the Signum file it was ported from.
+    const isDefault = pkg.culture === defaultCultureOf(pkg.packageName);
+    const declaredOf = localizableTypeIndex();
+
     const typeNodes: Record<string, unknown>[] = [];
     for (const lt of [...pkg.types.values()].sort((a, b) => a.typeName.localeCompare(b.typeName))) {
+        const declared = declaredOf.get(lt.typeName);
         const memberNodes = [...lt.members.entries()]
-            .filter(([, d]) => d != undefined && d !== "")
+            .filter(([name, d]) => d != undefined && d !== ""
+                && !(isDefault && d === defaultMemberDescription(lt.typeName, name, declared)))
             .sort((a, b) => a[0].localeCompare(b[0]))
             .map(([name, description]) => ({ Name: name, Description: description! }));
 
-        const hasType = (lt.description ?? "") !== "" || (lt.pluralDescription ?? "") !== "" || (lt.gender ?? "") !== "";
-        if (!hasType && memberNodes.length === 0)
+        const description = lt.description ?? "";
+        const plural = (lt.pluralDescription ?? "") === "" || (description !== "" && lt.pluralDescription === pluralize(description, pkg.culture))
+            ? "" : lt.pluralDescription!;
+        const gender = (lt.gender ?? "") === "" || (description !== "" && lt.gender === detectGender(description, pkg.culture))
+            ? "" : lt.gender!;
+
+        if (description === "" && plural === "" && gender === "" && memberNodes.length === 0)
             continue;
 
         const node: Record<string, unknown> = { Name: lt.typeName };
-        if ((lt.description ?? "") !== "") node.Description = lt.description;
-        if ((lt.pluralDescription ?? "") !== "") node.PluralDescription = lt.pluralDescription;
-        if ((lt.gender ?? "") !== "") node.Gender = lt.gender;
+        if (description !== "") node.Description = description;
+        if (plural !== "") node.PluralDescription = plural;
+        if (gender !== "") node.Gender = gender;
         if (memberNodes.length > 0) node.Member = memberNodes;
         typeNodes.push(node);
     }
@@ -405,17 +514,23 @@ export function exportXml(pkg: LocalizedPackage): void {
         Translations: { Type: typeNodes },
     }) as string;
 
-    writeFileSync(path, xml, "utf8");
+    // Two cosmetic differences from what the builder emits, both so the file stays line-comparable with the
+    // Signum file it was ported from — these are read side by side for years after a port:
+    //  - `'` is escaped to `&apos;`, which is legal but which Signum does not do. An apostrophe needs no
+    //    escaping inside a double-quoted attribute and every value here is one, so put them back; the
+    //    escapes that MATTER (&, <, >, ") are untouched.
+    //  - a self-closing tag comes out as `.../>` where .NET's XmlWriter puts a space before the slash.
+    writeFileSync(path, xml.replace(/&apos;/g, "'").replace(/([^ ])\/>/g, "$1 />"), "utf8");
 }
 
-interface StoredType {
+export interface StoredType {
     description?: string;
     pluralDescription?: string;
     gender?: string;
     members: Map<string, string>;
 }
 
-function parseFile(xml: string): Map<string, StoredType> {
+export function parseTranslationXml(xml: string): Map<string, StoredType> {
     const doc = parser.parse(xml) as { Translations?: { Type?: RawType[] } };
     const result = new Map<string, StoredType>();
     for (const t of doc.Translations?.Type ?? []) {
