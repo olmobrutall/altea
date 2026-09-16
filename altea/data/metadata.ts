@@ -16,8 +16,10 @@
 // `typeAllowed` map bolted on by the authorization module).
 //
 // EXTENSIBILITY: an extension module widens these interfaces with `declare module` — altea-auth adds
-// `minTypeAllowed`/`maxTypeAllowed` to TypeMetadata and `propertyAllowed` & friends to FieldMetadata.
-// The core neither reads nor understands those fields; it only carries them.
+// `maxTypeAllowed` to TypeMetadata and `propertyAllowed` to FieldMetadata, and REMOVES the types the
+// current role may not read. The core neither reads nor understands those fields; it only carries them.
+// It does, however, guarantee the thing that removal relies on: an entry for EVERY type it knows, even an
+// empty one, so that a missing entry can only have come from the filter.
 
 import type { PrimaryKey } from './entity';
 // Type-only (erased at emit): data/reflection imports utils/localization, which imports THIS module, so
@@ -31,19 +33,47 @@ import { CultureInfo } from './utils/cultureInfo';
 // "Entity" splits into a persisted "Entity" and a non-persisted "Model" (EmbeddedEntity / ModelEntity).
 export type KindOfType = "Entity" | "Model" | "Enum" | "Container";
 
-// One property route's runtime facts. Keyed in `TypeMetadata.fields` by the route's
-// `PropertyRoute.propertyString()` — "orderDate", "shipAddress.city", "[CorruptMixin].corrupt" — so an
-// EMBEDDED type's members appear DOTTED under each owning entity, exactly as in Signum (whose
-// `ReflectionServer` builds Members from `PropertyRoute.GenerateRoutes(type)`). That is also the key
-// altea's property rules already use (`RulePropertyEntity.path`), so authorization is a direct lookup.
-// An embedded/model type ALSO gets its own TypeMetadata entry — that one is where its translations live.
+/**
+ * One MEMBER of the type that DECLARES it. Keyed in `TypeMetadata.fields` by the bare member name —
+ * "city", "orderDate", "Saved" — never by a path, because the question a member answers does not depend
+ * on how the member was reached: `AddressEmbedded.city` is "Stadt" whether the UI got there as
+ * `Order.shipAddress.city` or by rendering an AddressEmbedded on its own. That is exactly the pair
+ * `FieldInfo.niceToString()` asks with (`declaringType.name`, `name`), and it is why an embedded, a
+ * `@part` and a mixin each carry their own members here rather than being restated under every owner.
+ *
+ * The other half — what the current ROLE may do with a member REACHED BY A PARTICULAR PATH — is the
+ * opposite kind of fact and lives in `TypeMetadata.routes`. See there.
+ */
 export interface FieldMetadata {
     // OMITTED when it equals the humanized member name (the client falls back to `niceMemberName`), so a
-    // route-complete blob stays close in size to the old translations-only one.
+    // type that translates nothing carries no entry at all.
     niceName?: string;
     // The database id of an enum member / symbol, so the client can build a Lite of one without a round
     // trip (Signum's `MemberInfo.id`). Only on "Enum" and "Container" (symbol) types.
     id?: PrimaryKey;
+}
+
+/**
+ * One PROPERTY ROUTE of a root entity — a member addressed by the whole path that reaches it, keyed by
+ * `PropertyRoute.propertyString()` rooted at a persisted Entity: "orderDate", "shipAddress.city",
+ * "details/quantity", "[CorruptMixin].corrupt". The same key `RulePropertyEntity.path` stores, so an
+ * authorization lookup is a direct hit.
+ *
+ * DISTINCT FROM `fields`, and deliberately so — the two answer different questions and disagree on both
+ * the type and the key. For `Order.shipAddress.city`:
+ *
+ *      fields  on AddressEmbedded, key "city"                 — what is this member called
+ *      routes  on OrderEntity,     key "shipAddress.city"     — what may the role do with it HERE
+ *
+ * They coincide only for a direct member of an entity, which is what made one shared record look
+ * workable. Every caller already holds the right pair: the Lines layer's `ownerRootedRoute` climbs the
+ * TypeContext chain to rebuild (root entity, path) precisely because a re-rooted embedded has lost it,
+ * while `FieldInfo.niceToString` never needs to climb at all.
+ *
+ * Core declares no member of its own: an authorization module widens this with `propertyAllowed`.
+ * Present only where something has an answer, so most types carry no `routes` at all.
+ */
+export interface RouteMetadata {
 }
 
 // A registered operation, as the client needs it (Signum's OperationInfo). Lives UNDER the type it
@@ -52,9 +82,9 @@ export interface FieldMetadata {
 export interface OperationMetadata {
     // ABSENT ON THE WIRE — it is already the key of the `TypeMetadata.operations` record that holds this
     // value, and saying it twice cost ~40 bytes an entry. The server strips it as it serialises and the
-    // client stamps it back in `applyMetadata`, so every reader still sees a complete OperationMetadata
+    // client stamps it back in `fromWire`, so every reader still sees a complete OperationMetadata
     // and the field stays required. The one rule: nothing may read `.key` off a blob that has not been
-    // through `stampOperationKeys`.
+    // through `fromWire`.
     key: string;
     // Resolved server-side from the operation's CONTAINER translation ("OrderOperation" + "Ship"), so the
     // client needs no second lookup.
@@ -108,18 +138,51 @@ export interface TypeMetadata {
      * like the second case and stops being creatable in every line that offers it.
      */
     hasConstructorOperation?: boolean;
+    /** This type's OWN members, by bare member name. See {@link FieldMetadata}. */
     fields: Record<string, FieldMetadata>;
+    /**
+     * Property ROUTES rooted at this type, by `PropertyRoute.propertyString()`. Only a persisted Entity
+     * ever has them, and only where a route has something to say. See {@link RouteMetadata}.
+     */
+    routes?: Record<string, RouteMetadata>;
     operations?: Record<string, OperationMetadata>;
     /** Registered expressions DECLARED on this type; a subtype's tokens inherit them by walking the chain. */
     extensions?: Record<string, ExtensionMetadata>;
 }
 
-// The whole blob for ONE culture and ONE role — what GET /api/reflection/metadata returns.
+// The whole blob for ONE culture and ONE role — the MODEL both tiers hold in memory.
+//
+// A type is in `types` exactly when the current role may READ it. An ABSENT entry means the opposite of
+// what it once did: no access at all (or no such type). That is why a type with nothing else to say
+// still ships as a bare `{ kind }` — the entry IS the permission, so it cannot be squeezed out.
 export interface MetadataBlob {
     culture: string;
     // Keyed by the type's registered name (the same key translation XML uses): "OrderEntity",
     // "OrderState", "OrderOperation". A Record, not an array — every consumer is a by-name lookup.
     types: Record<string, TypeMetadata>;
+}
+
+// ---- The WIRE form ---------------------------------------------------------------------------------
+//
+// What GET /api/reflection/metadata actually returns: the model above with its redundancies squeezed out
+// at the edge (ReflectionServer's `toWire`) and put back on arrival (`Metadata.fromWire`), so that no
+// READER on either tier ever has to know about the compact shape.
+//
+//   - a field whose only fact is its label IS the label ("orderDate": "Fecha"), not an object wrapping
+//     one key — 13 bytes an entry, and labels are most of the blob;
+//   - `fields` is absent when it is empty, rather than `"fields":{}` on every type that declares none;
+//   - an operation's `key` is absent, because it is already the record key that holds it.
+//
+// Each is a pure encoding: `fromWire` reconstructs the model exactly.
+
+/** A field with a label and nothing else, as that label. */
+export type FieldMetadataWire = string | FieldMetadata;
+
+export type TypeMetadataWire = Omit<TypeMetadata, "fields"> & { fields?: Record<string, FieldMetadataWire> };
+
+export interface MetadataBlobWire {
+    culture: string;
+    types: Record<string, TypeMetadataWire>;
 }
 
 export namespace Metadata {
@@ -128,9 +191,10 @@ export namespace Metadata {
     // cultures loaded at boot, one dumped per request); on the CLIENT it holds the single applied blob.
     // Either way the lookup path below is identical.
     //
-    // Holds only the CULTURE-dependent half. The ROLE-dependent half (min/maxTypeAllowed,
-    // propertyAllowed) is stamped into the outgoing blob per request by ReflectionServer's
-    // MetadataFilter and MUST NOT be written back here — the server serves concurrent roles.
+    // Holds only the CULTURE-dependent half — which, now that the two are separate records, is very
+    // nearly "the `fields` of each type". The ROLE-dependent half (maxTypeAllowed, and the whole `routes`
+    // record) is stamped into the outgoing blob per request by ReflectionServer's MetadataFilter and MUST
+    // NOT be written back here — the server serves concurrent roles.
     const store = new Map<string, Map<string, TypeMetadata>>();
 
     // Merge TypeMetadata into a culture (later entries override earlier keys, per key not per type).
@@ -148,8 +212,11 @@ export namespace Metadata {
             if (tm.nicePluralName != null) existing.nicePluralName = tm.nicePluralName;
             if (tm.gender != null) existing.gender = tm.gender;
             if (tm.hasQuery != null) existing.hasQuery = tm.hasQuery;
-            for (const [path, fm] of Object.entries(tm.fields))
-                existing.fields[path] = { ...existing.fields[path], ...fm };
+            for (const [member, fm] of Object.entries(tm.fields))
+                existing.fields[member] = { ...existing.fields[member], ...fm };
+            if (tm.routes != null)
+                for (const [path, rm] of Object.entries(tm.routes))
+                    (existing.routes ??= {})[path] = { ...existing.routes?.[path], ...rm };
             if (tm.operations != null)
                 Object.assign(existing.operations ??= {}, tm.operations);
         }
@@ -166,20 +233,37 @@ export namespace Metadata {
         return result;
     }
 
-    // Client boot: adopt the blob's culture as the process default and merge its types in.
     /**
-     * Put back what the wire form leaves out: each operation's own `key`, which is the record key that
-     * holds it (see `OperationMetadata.key`). Idempotent, and safe on a blob that still carries them —
-     * a server-built blob that never crossed the wire passes through untouched.
+     * Put back everything the wire form leaves out — a `string` field expanded to a `{ niceName }`, an
+     * absent `fields` back to an empty record, each operation's own `key` (which is the record key that
+     * holds it, see `OperationMetadata.key`) — so that from here on there is only ONE shape to read.
+     *
+     * Total and non-mutating: a blob that never crossed the wire (a server-built one, a test's literal)
+     * is already in the model form and passes through as an equal copy.
      *
      * Called from `apply`, so every path that installs a blob is covered by construction rather than by
      * each caller remembering.
      */
-    export function stampOperationKeys(blob: MetadataBlob): void {
-        for (const tm of Object.values(blob.types))
-            if (tm.operations != null)
-                for (const [key, om] of Object.entries(tm.operations))
-                    om.key = key;
+    export function fromWire(blob: MetadataBlobWire): MetadataBlob {
+        const types: Record<string, TypeMetadata> = {};
+        for (const [name, tw] of Object.entries(blob.types)) {
+            const fields: Record<string, FieldMetadata> = {};
+            for (const [member, fw] of Object.entries(tw.fields ?? {}))
+                fields[member] = typeof fw === "string" ? { niceName: fw } : { ...fw };
+            const tm: TypeMetadata = { ...tw, fields };
+            if (tw.routes != null) {
+                tm.routes = {};
+                for (const [path, rm] of Object.entries(tw.routes))
+                    tm.routes[path] = { ...rm };
+            }
+            if (tw.operations != null) {
+                tm.operations = {};
+                for (const [key, om] of Object.entries(tw.operations))
+                    tm.operations[key] = { ...om, key };
+            }
+            types[name] = tm;
+        }
+        return { culture: blob.culture, types };
     }
 
     // Whether a blob has ever been APPLIED here. The distinction that needs it: a type with no
@@ -191,12 +275,19 @@ export namespace Metadata {
     let appliedAny = false;
     export function isApplied(): boolean { return appliedAny; }
 
-    export function apply(blob: MetadataBlob): void {
-        stampOperationKeys(blob);
-        CultureInfo.setDefaultCulture(blob.culture);
-        CultureInfo.setDefaultUICulture(blob.culture);
-        replace(blob.culture, blob.types);
+    /**
+     * Client boot: adopt the blob's culture as the process default and install its types, replacing
+     * whatever that culture held. Takes the WIRE form and answers the MODEL form it installed — every
+     * caller that wants to read the blob it just applied (symbol ids, the query registry, an extension's
+     * hook) should read THAT, not the compact thing that came off the socket.
+     */
+    export function apply(blob: MetadataBlobWire): MetadataBlob {
+        const model = fromWire(blob);
+        CultureInfo.setDefaultCulture(model.culture);
+        CultureInfo.setDefaultUICulture(model.culture);
+        replace(model.culture, model.types);
         appliedAny = true;
+        return model;
     }
 
     // Replace (not merge) a culture's types. Used on the client, where a re-login as a different role
@@ -212,14 +303,27 @@ export namespace Metadata {
     }
 
     /**
-     * The FieldMetadata for a property route in the current UI culture, or undefined. `path` is a
-     * `PropertyRoute.propertyString()`. Translation files written for Signum key members by the
-     * PascalCase C# name, so a camelCase altea path is probed capitalised as a fallback.
+     * The FieldMetadata for one MEMBER of the type that DECLARES it, in the current UI culture — the
+     * (declaring type, member) pair `FieldInfo.niceToString()` holds, never a path. Translation files
+     * written for Signum key members by the PascalCase C# name, so a camelCase altea member is probed
+     * capitalised as a fallback.
      */
-    export function tryField(typeName: string, path: string): FieldMetadata | undefined {
+    export function tryField(typeName: string, member: string): FieldMetadata | undefined {
         const fields = tryType(typeName)?.fields;
         if (fields == null) return undefined;
-        return fields[path] ?? fields[capitalizePath(path)];
+        return fields[member] ?? fields[member.charAt(0).toUpperCase() + member.slice(1)];
+    }
+
+    /**
+     * The RouteMetadata for one property ROUTE, in the current UI culture — `rootTypeName` is a persisted
+     * entity and `path` a `PropertyRoute.propertyString()` rooted at it. The counterpart of `tryField`,
+     * and the deliberate opposite of it: this one IS about the way the member was reached.
+     *
+     * No capitalisation fallback. A route key is not a translation-file name — it is what
+     * `RulePropertyEntity.path` stores, written by the same `propertyString()` on both tiers.
+     */
+    export function tryRoute(rootTypeName: string, path: string): RouteMetadata | undefined {
+        return tryType(rootTypeName)?.routes?.[path];
     }
 
     /** The OperationMetadata for an operation key on a type in the current UI culture, or undefined. */
@@ -251,16 +355,15 @@ export namespace Metadata {
     }
 }
 
-// Capitalize each dot/bracket-separated segment of a property path: "shipAddress.city" →
-// "ShipAddress.City". Signum's XML uses the PascalCase C# member names; altea's routes are camelCase.
-function capitalizePath(path: string): string {
-    return path.replace(/(^|[.\]])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase());
-}
-
 function cloneType(tm: TypeMetadata): TypeMetadata {
     const clone: TypeMetadata = { ...tm, fields: {} };
-    for (const [path, fm] of Object.entries(tm.fields))
-        clone.fields[path] = { ...fm };
+    for (const [member, fm] of Object.entries(tm.fields))
+        clone.fields[member] = { ...fm };
+    if (tm.routes != null) {
+        clone.routes = {};
+        for (const [path, rm] of Object.entries(tm.routes))
+            clone.routes[path] = { ...rm };
+    }
     if (tm.operations != null) {
         clone.operations = {};
         for (const [key, om] of Object.entries(tm.operations))

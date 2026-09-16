@@ -1,6 +1,6 @@
 import { setDefinedQueries } from "./Reflection";
 import { Metadata } from "../data/metadata";
-import type { MetadataBlob } from "../data/metadata";
+import type { MetadataBlob, MetadataBlobWire } from "../data/metadata";
 import { allDeclaredSymbols, cleanTypeName, resolveType } from "../data/registration";
 
 // Client consumer of the server reflection metadata (Signum's ReflectionServer/reloadTypes). altea ships
@@ -9,9 +9,10 @@ import { allDeclaredSymbols, cleanTypeName, resolveType } from "../data/registra
 // per type, carrying nice names, enum/symbol ids, `hasQuery`, operations, and whatever an authorization
 // module widened it with. Call once at client boot, before rendering.
 //
-// The wire shape is `MetadataBlob` (data/metadata), declared ONCE and shared by both tiers — it used to
-// be hand-mirrored here against the server's copy.
-export type { MetadataBlob };
+// Both shapes live in data/metadata, declared ONCE and shared by both tiers — they used to be
+// hand-mirrored here against the server's copy. What arrives is the compact `MetadataBlobWire`; what
+// everything downstream of `Metadata.apply` sees is the `MetadataBlob` it expands that into.
+export type { MetadataBlob, MetadataBlobWire };
 
 // Post-apply hooks (Signum re-runs its `fixTypes` on reflection reload): invoked at the END of every
 // applyMetadata with the freshly-applied blob. Core registers none; an extension that has to derive
@@ -36,17 +37,19 @@ export async function loadReflectionMetadata(options?: { culture?: string }): Pr
     const resp = await fetch(url, { headers: { Accept: "application/json", ...(extraHeaders?.() ?? {}) }, cache: "no-cache" });
     if (!resp.ok)
         throw new Error(`GET ${url} → ${resp.status} ${resp.statusText}`);
-    const meta = await resp.json() as MetadataBlob;
-    currentCulture = meta.culture;
-    applyMetadata(meta);
-    return meta;
+    const wire = await resp.json() as MetadataBlobWire;
+    currentCulture = wire.culture;
+    return applyMetadata(wire);
 }
 
-export function applyMetadata(meta: MetadataBlob): void {
+/** Installs the blob and answers it in its EXPANDED form — the one shape every reader speaks. */
+export function applyMetadata(wire: MetadataBlobWire): MetadataBlob {
     // Adopts the blob's culture as the process default (the client has no async-context, so the process
     // default IS the UI culture) and REPLACES that culture's types — a re-login as a different role must
-    // not leave the previous role's allowances or visible queries behind.
-    Metadata.apply(meta);
+    // not leave the previous role's allowances or visible queries behind. What comes back is the wire
+    // form expanded: a field that rode as a bare label is an object again, `fields` is always there, and
+    // each operation carries its own key. Everything below reads THAT.
+    const meta = Metadata.apply(wire);
 
     // Query-defined registry (Finder.isFindable / isQueryDefined), derived from the per-type `hasQuery`.
     setDefinedQueries(queryKeys(meta));
@@ -60,6 +63,8 @@ export function applyMetadata(meta: MetadataBlob): void {
 
     for (const hook of applyMetadataHooks)
         hook(meta);
+
+    return meta;
 }
 
 // Fills `symbol.id` (and clears `isNew`) for every declared symbol the blob names.
