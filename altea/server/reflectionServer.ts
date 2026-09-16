@@ -6,20 +6,30 @@
 // differently-keyed sections:
 //
 //   niceName / nicePluralName / gender  — for the requested UI culture
-//   fields[route].niceName              — ditto, keyed by PropertyRoute.propertyString()
+//   fields[member].niceName             — ditto, for the type's OWN members
 //   fields[member].id                   — enum-member / symbol database ids
+//   routes[path]                        — what the ROLE may do with a member reached by that path
 //   hasQuery                            — whether an executable query is registered (and visible)
 //   operations                          — an OperationMetadata per operation registered on the type
 //
-// An authorization module widens the same objects (min/maxTypeAllowed, propertyAllowed) through its
-// MetadataFilter, instead of bolting a separate map onto the envelope.
+// `fields` and `routes` are two key spaces and are kept apart on purpose — a label depends on the type
+// that DECLARES a member and nothing else, while an allowance depends on the whole path that reaches it.
+// For `Order.shipAddress.city` the label is `AddressEmbedded.fields["city"]` and the allowance is
+// `OrderEntity.routes["shipAddress.city"]`. See FieldMetadata / RouteMetadata in data/metadata.
+//
+// An authorization module widens the same objects (maxTypeAllowed, propertyAllowed) through its
+// MetadataFilter, instead of bolting a separate map onto the envelope — and REMOVES the types the role
+// may not read, which is why every readable type keeps an entry here even when it has nothing to say.
 //
 // Deliberately NOT here (they are static, identical for every user/culture, and needed BEFORE any
 // entity is deserialized, so they live in the shared entity layer / EntityDeclarations, run by both
 // tiers at startup): mixin registrations, lite-model constructors, implementedBy overrides.
 
 import { Metadata } from "../data/metadata";
-import type { MetadataBlob, TypeMetadata, FieldMetadata, OperationMetadata, KindOfType } from "../data/metadata";
+import type {
+    MetadataBlob, MetadataBlobWire, TypeMetadata, TypeMetadataWire, FieldMetadata, FieldMetadataWire,
+    OperationMetadata, KindOfType,
+} from "../data/metadata";
 import { Localization } from "../data/utils/localization";
 import { CultureInfo } from "../data/utils/cultureInfo";
 import type { QueryName } from "../data/dynamicQuery/queryUtils";
@@ -41,8 +51,10 @@ export namespace ReflectionServer {
 
     // Per-request, per-user overlay hook (Signum's ReflectionServer.TypeExtension / QueryExtension /
     // OperationExtension). An auth module installs it via setMetadataFilter; it runs inside the request's
-    // user scope so it can role-filter the blob (clear `hasQuery`, stamp allowances, drop operations the
-    // current role can't run). Undefined → the blob ships unfiltered (no auth module).
+    // user scope so it can role-filter the blob — DROP the types the role cannot read (Signum's
+    // TypeExtension returning null), clear `hasQuery`, stamp the allowances that remain. Undefined → the
+    // blob ships unfiltered (no auth module), which is also what makes "no entry" mean "not allowed"
+    // safely: with nothing installed, nothing is ever removed.
     //
     // The filter MUST treat the blob as its own to mutate and return: `buildMetadata` hands out a fresh,
     // deep-copied object per request precisely so a per-ROLE overlay can never leak into the shared
@@ -87,23 +99,31 @@ export namespace ReflectionServer {
             return tm;
         };
 
-        // The declared label for one member/route of a container, or undefined when nothing is declared
-        // or the declaration merely restates the humanised name.
-        const declaredMember = (typeName: string, path: string): string | undefined => {
+        // The declared label for one MEMBER of the type that declares it, or undefined when nothing is
+        // declared or the declaration merely restates the humanised name. Signum's XML keys members by
+        // the PascalCase C# name; altea's members are camelCase, so both spellings are probed.
+        const declaredMember = (typeName: string, member: string): string | undefined => {
             const t = translations[typeName];
             const d = getDefaultDescription(typeName);
-            const cap = capitalizePath(path);
-            const declared = t?.fields?.[path]?.niceName ?? t?.fields?.[cap]?.niceName
-                ?? d?.members[path] ?? d?.members[cap];
-            return declared != null && declared !== Localization.Internal.niceMemberName(lastSegment(path))
+            const cap = member.charAt(0).toUpperCase() + member.slice(1);
+            const declared = t?.fields?.[member]?.niceName ?? t?.fields?.[cap]?.niceName
+                ?? d?.members[member] ?? d?.members[cap];
+            return declared != null && declared !== Localization.Internal.niceMemberName(member)
                 ? declared : undefined;
         };
 
         // ---- Entities / models -----------------------------------------------------------------------
         // One entry per reflected class, ABSTRACT BASES INCLUDED (Signum skips them; altea keeps them
         // because an operation or a property rule may be declared on a base, and `CustomerEntity.niceName()`
-        // must still resolve). `fields` is route-keyed, so an embedded's members appear dotted under every
-        // owner that reaches them — exactly what property authorization is keyed by.
+        // must still resolve).
+        //
+        // `fields` holds a type's OWN members. An embedded, a `@part` and a mixin are each registered types
+        // in their own right, so their members are described ONCE, under themselves — which is the pair
+        // `FieldInfo.niceToString()` looks up, whatever route reached the member. This used to walk
+        // `PropertyRoute.memberPaths`, which expands every embedded member under every owner that reaches
+        // it, and then probe the translations for each of those dotted paths: eastwind's blob carried ZERO
+        // such entries in any culture (a translation file names a member under the type that declares it),
+        // so the whole cross-product was lookups thrown away on every metadata request.
         for (const ctor of getRegisteredTypes()) {
             // VIEWS are not part of the client's world: a View is a query-projection DTO the ENGINE
             // materialises (the sync SysTables / SysColumns family, temp-table shapes), with no page, no
@@ -112,9 +132,9 @@ export namespace ReflectionServer {
             if (isViewType(ctor))
                 continue;
             const tm = typeOf(ctor.name, ctor === Entity || ctor.prototype instanceof Entity ? "Entity" : "Model");
-            for (const path of routesOf(ctor)) {
-                const niceName = declaredMember(ctor.name, path);
-                if (niceName != null) tm.fields[path] = { niceName };
+            for (const member of ownMembersOf(ctor)) {
+                const niceName = declaredMember(ctor.name, member);
+                if (niceName != null) tm.fields[member] = { niceName };
             }
         }
 
@@ -221,19 +241,74 @@ export namespace ReflectionServer {
         // Both used to work only because the old blob shipped the translation file wholesale. So: carry over
         // every declared name/member the passes above did not already produce. A member is kept under the key
         // the translation declares (PascalCase, as Signum writes it); the lookups probe both cases, so it
-        // still resolves from a camelCase route.
+        // still resolves from a camelCase member.
+        //
+        // A DOTTED declaration — `<Member Name="BonusTrack.Name"/>` under the OWNER — is skipped, and that
+        // is the one behaviour this split removes. `fields` is keyed by (declaring type, member) now, so
+        // the label for that member belongs under BonusTrackEmbedded, which is where every translation file
+        // in the workspace already puts it. Carrying the dotted key over would put a key in this record
+        // that no reader can ever hit.
         for (const [name, t] of Object.entries(translations)) {
             const tm = typeOf(name, "Container");
             for (const [member, fm] of Object.entries(t.fields)) {
                 if (fm.niceName == null) continue;
+                if (/[.\/\[\]]/.test(member)) continue; // a path, not a member of this type
                 if (tm.fields[member] != null || tm.fields[member.charAt(0).toLowerCase() + member.slice(1)] != null)
-                    continue; // already emitted by a registry pass, under the route's own key
-                if (fm.niceName !== Localization.Internal.niceMemberName(lastSegment(member)))
+                    continue; // already emitted by a registry pass, under the member's own key
+                if (fm.niceName !== Localization.Internal.niceMemberName(member))
                     tm.fields[member] = { niceName: fm.niceName };
             }
         }
 
         return { culture, types };
+    }
+
+    // The blob as it goes OUT — the model squeezed into the wire encoding described on `MetadataBlobWire`,
+    // which `Metadata.fromWire` undoes on arrival:
+    //
+    //   - a field whose ONLY fact is its label becomes that label. A route-complete blob is mostly labels,
+    //     and `{"niceName":` + `}` is 13 bytes of wrapper around each one;
+    //   - an EMPTY `fields` is dropped rather than shipped as `"fields":{}`. Most types declare no label at
+    //     all — every member name that humanises to itself is already omitted — so this is the common case;
+    //   - each operation's `key` is dropped, because it is already the record key that holds it.
+    //
+    // Done here, at the edge, rather than by never building the full shape: `buildMetadata` is also what the
+    // server reads for its own lookups, and a half-filled object is a worse thing to hold than a fat one.
+    //
+    // Shallow per level, and it copies rather than mutating — the blob the filter hands over is already a
+    // fresh per-request deep copy, but `res.json` must not be the thing that edits it.
+    export function toWire(meta: MetadataBlob): MetadataBlobWire {
+        const types: Record<string, TypeMetadataWire> = {};
+        for (const [name, tm] of Object.entries(meta.types)) {
+            // `routes` rides along in `rest`, untouched: it exists only where a role has something to
+            // say, so there is nothing in it to squeeze out.
+            const { fields, operations, ...rest } = tm;
+            const tw: TypeMetadataWire = rest;
+
+            const members = Object.keys(fields);
+            if (members.length > 0) {
+                const wire: Record<string, FieldMetadataWire> = {};
+                for (const member of members) {
+                    const fm = fields[member];
+                    // `niceName` alone, and nothing else set — including nothing an extension widened on.
+                    const keys = Object.keys(fm);
+                    wire[member] = keys.length === 1 && keys[0] === "niceName" ? fm.niceName! : fm;
+                }
+                tw.fields = wire;
+            }
+
+            if (operations != null) {
+                const wireOps: Record<string, OperationMetadata> = {};
+                for (const [key, om] of Object.entries(operations)) {
+                    const { key: _omitted, ...restOp } = om;
+                    wireOps[key] = restOp as OperationMetadata;
+                }
+                tw.operations = wireOps;
+            }
+
+            types[name] = tw;
+        }
+        return { culture: meta.culture, types };
     }
 
     export function start(ws: WebBuilder): void {
@@ -243,7 +318,7 @@ export namespace ReflectionServer {
             // allowAnonymous: the client fetches this at boot to render (among other things) the login
             // page, before any user is authenticated. The blob is role-filtered by the MetadataFilter
             // once an authorization module is installed.
-            { res: CustomType<MetadataBlob>(), allowAnonymous: true },
+            { res: CustomType<MetadataBlobWire>(), allowAnonymous: true },
             async (req, res) => {
                 const culture = (req.query["culture"] as string | undefined) ?? CultureInfo.currentUICulture();
                 let meta = buildMetadata(culture);
@@ -301,38 +376,23 @@ function isViewType(ctor: Function): boolean {
     return ctor === View || ctor.prototype instanceof View;
 }
 
-// A type's property routes as propertyString()s. Structural (culture- and role-independent), so it is
-// computed once per type instead of per request — the blob is assembled on every metadata fetch.
-const routeCache = new Map<Function, string[]>();
-function routesOf(ctor: Function): string[] {
-    let routes = routeCache.get(ctor);
-    if (routes == null)
-        // `memberPaths`, not `generateRoutes`: this is a LABEL dictionary keyed by (declaring type,
-        // member) — what `FieldInfo.niceToString()` reads — so a `@part` needs its own entry even though
-        // a part may not be a route ROOT. See PropertyRoute.memberPaths.
-        routeCache.set(ctor, routes = PropertyRoute.memberPaths(ctor));
-    return routes;
-}
-
-// The blob as it goes OUT: drop each operation's `key`, which is already the record key that holds it
-// (see OperationMetadata.key — the client stamps it back in applyMetadata). Done here, at the edge,
-// rather than by never building it: `buildMetadata` is also what the server reads for its own lookups,
-// and an OperationMetadata without its key is a worse object to hold than a slightly fatter one.
+// A type's OWN members — the first step of each of its routes, and nothing below it. Structural (culture-
+// and role-independent), so it is computed once per type instead of per request; the blob is assembled on
+// every metadata fetch.
 //
-// Shallow per level, and only where it has to copy — the blob the filter hands over is already a fresh
-// per-request deep copy, but `res.json` must not be the thing that mutates it.
-function toWire(meta: MetadataBlob): MetadataBlob {
-    const types: Record<string, TypeMetadata> = {};
-    for (const [name, tm] of Object.entries(meta.types)) {
-        if (tm.operations == null) { types[name] = tm; continue; }
-        const operations: Record<string, OperationMetadata> = {};
-        for (const [key, om] of Object.entries(tm.operations)) {
-            const { key: _omitted, ...rest } = om;
-            operations[key] = rest as OperationMetadata;
-        }
-        types[name] = { ...tm, operations };
-    }
-    return { ...meta, types };
+// `memberPaths`, not `generateRoutes`: a `@part` may not be a route ROOT, yet its members still need their
+// own entries here, because this is a LABEL dictionary keyed by (declaring type, member) and that is what
+// `FieldInfo.niceToString()` reads whatever route reaches the member. See PropertyRoute.memberPaths.
+//
+// Filtering to depth 1 is what keeps that promise: a deeper path belongs to the type that DECLARES its
+// last step, and that type describes it under itself. A mixin step (`[SomeMixin].member`) goes the same
+// way — a mixin is a reflected type of its own, so its members ride on its own entry.
+const ownMembersCache = new Map<Function, string[]>();
+function ownMembersOf(ctor: Function): string[] {
+    let members = ownMembersCache.get(ctor);
+    if (members == null)
+        ownMembersCache.set(ctor, members = PropertyRoute.memberPaths(ctor).filter(p => !/[.\/\[\]]/.test(p)));
+    return members;
 }
 
 function buildOperation(
@@ -362,15 +422,5 @@ function buildOperation(
     return info;
 }
 
-// The last segment of a property path: "shipAddress.city" → "city".
-function lastSegment(path: string): string {
-    const i = Math.max(path.lastIndexOf("."), path.lastIndexOf("]"));
-    return i < 0 ? path : path.slice(i + 1);
-}
 
-// Capitalize each dot/bracket-separated segment: "shipAddress.city" → "ShipAddress.City". Signum's XML
-// keys members by the PascalCase C# name; altea's routes are camelCase.
-function capitalizePath(path: string): string {
-    return path.replace(/(^|[.\]])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase());
-}
 

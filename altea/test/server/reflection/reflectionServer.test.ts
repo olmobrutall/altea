@@ -5,6 +5,7 @@ import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import type { ConstructSymbol, From, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { ReflectionServer } from "@altea/altea/server/reflectionServer";
+import { Metadata } from "@altea/altea/data/metadata";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import "@altea/altea/server/fluentOperations"; // FluentInclude.withStateMachine / withExecute / …
 import { loadSignumTranslations } from "@altea/altea/server/translations";
@@ -134,10 +135,30 @@ describe("ReflectionServer.buildMetadata", () => {
         assert.equal(types["AlbumState"].fields["Saved"].id, AlbumState.Saved);
     });
 
-    test("an embedded's members appear DOTTED under each owning entity (Signum's GenerateRoutes)", () => {
-        // `bonusTrack` is an EMBEDDED, so its members are routes of AlbumEntity — which is exactly how the
-        // property rules are keyed. (`label` is an entity REFERENCE: it re-roots, so LabelEntity's members
-        // are its own routes, not the album's.)
+    // `fields` is keyed by (declaring type, member) — the pair `FieldInfo.niceToString()` holds — so an
+    // embedded describes its OWN members, once, and no owner restates them. The same label then answers
+    // whether the UI reached the member through `Album.bonusTrack.name` or by rendering the embedded on
+    // its own, which is the whole reason for keying it this way.
+    test("an embedded's members are described under the EMBEDDED, not under its owners", () => {
+        loadSignumTranslations("en", `<?xml version="1.0" encoding="utf-8"?>
+            <Translations>
+              <Type Name="SongEmbedded">
+                <Member Name="Name" Description="Bonus track title" />
+              </Type>
+            </Translations>`);
+        const types = ReflectionServer.buildMetadata("en").types;
+
+        assert.equal(types["SongEmbedded"].fields["name"]?.niceName, "Bonus track title");
+        assert.equal(types["AlbumEntity"].fields["bonusTrack.name"], undefined,
+            "no owner-rooted path in the member record — that key space is `routes`");
+        // The owner still names the member that HOLDS the embedded, which is its own.
+        assert.ok("bonusTrack" in types["AlbumEntity"].fields === false
+            || types["AlbumEntity"].fields["bonusTrack"] != null);
+    });
+
+    // The one behaviour the split drops: a label declared under the OWNER with a dotted member name. It
+    // would land in a key space no reader can reach, so it is skipped rather than shipped dead.
+    test("a DOTTED member declared under an owner is not carried into `fields`", () => {
         loadSignumTranslations("en", `<?xml version="1.0" encoding="utf-8"?>
             <Translations>
               <Type Name="AlbumEntity">
@@ -145,8 +166,8 @@ describe("ReflectionServer.buildMetadata", () => {
               </Type>
             </Translations>`);
         const album = ReflectionServer.buildMetadata("en").types["AlbumEntity"];
-        assert.equal(album.fields["bonusTrack.name"]?.niceName, "Bonus track title");
-        assert.equal(album.fields["label.name"], undefined);
+        assert.equal(album.fields["bonusTrack.name"], undefined);
+        assert.equal(album.fields["BonusTrack.Name"], undefined);
     });
 
     test("nice names reflect the translations loaded for the REQUESTED culture, not the ambient one", () => {
@@ -173,5 +194,38 @@ describe("ReflectionServer.buildMetadata", () => {
         const fr = ReflectionServer.buildMetadata("fr").types["AlbumEntity"];
         assert.equal(fr.niceName, undefined);
         assert.equal(fr.nicePluralName, undefined);
+    });
+});
+
+// The compact form the endpoint actually returns, and the guarantee that makes it safe: `Metadata.fromWire`
+// puts back exactly what `toWire` took out, so NO reader on either tier has to know the encoding exists.
+describe("ReflectionServer.toWire", () => {
+
+    test("a field whose only fact is its label rides as that label", () => {
+        loadSignumTranslations("en", `<?xml version="1.0" encoding="utf-8"?>
+            <Translations>
+              <Type Name="AlbumEntity">
+                <Member Name="Name" Description="Album title" />
+              </Type>
+            </Translations>`);
+        const wire = ReflectionServer.toWire(ReflectionServer.buildMetadata("en"));
+        assert.equal(wire.types["AlbumEntity"].fields!["name"], "Album title");
+        // An enum member carries its database id too, so it cannot collapse — it stays an object.
+        assert.deepEqual(wire.types["AlbumState"].fields!["Saved"], { id: AlbumState.Saved });
+    });
+
+    test("an empty fields record is not shipped at all", () => {
+        const wire = ReflectionServer.toWire({
+            culture: "en", types: { "Bare": { kind: "Entity", fields: {} } },
+        });
+        assert.equal("fields" in wire.types["Bare"], false);
+        // The TYPE itself stays: its presence is what says the role may read it.
+        assert.deepEqual(wire.types["Bare"], { kind: "Entity" });
+    });
+
+    test("fromWire reconstructs the model exactly", () => {
+        const model = ReflectionServer.buildMetadata("en");
+        const back = Metadata.fromWire(ReflectionServer.toWire(model));
+        assert.deepEqual(back, model);
     });
 });
