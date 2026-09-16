@@ -1,6 +1,6 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="ToolbarElementEmbedded" Description="Elemento de la barra de herramientas">
+  <Type Name="ToolbarElementBaseEntity" Description="Elemento de la barra de herramientas">
     <Member Name="AutoRefreshPeriod" Description="Período de actualización automática" />
     <Member Name="Content" Description="Contenido" />
     <Member Name="IconColor" Description="Color de icono" />
@@ -17,7 +17,6 @@
   </Type>
   <Type Name="ToolbarEntity" Description="Barra de herramientas">
     <Member Name="Elements" Description="Elementos" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="Location" Description="Ubicación" />
     <Member Name="Name" Description="Nombre" />
     <Member Name="Owner" Description="Propietario" />
@@ -30,7 +29,6 @@
   </Type>
   <Type Name="ToolbarMenuEntity" Description="Menú barra de herramientas" Gender="m">
     <Member Name="Elements" Description="Elementos" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="Name" Description="Nombre" />
     <Member Name="Owner" Description="Propietario" />
   </Type>
@@ -42,11 +40,9 @@
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
-<Type Name="ToolbarSwitcherEntity" Description="Selector de barras de herramientas" PluralDescription="Selectores de barras de herramientas" Gender="m">
+  <Type Name="ToolbarSwitcherEntity" Description="Selector de barras de herramientas">
     <Member Name="Name" Description="Nombre" />
     <Member Name="Options" Description="Opciones" />
   </Type>
-<Type Name="ToolbarSwitcherEntity_Option" Description="Opción del selector de barras de herramientas">
-    <Member Name="Toolbar" Description="Barra de herramientas" />
-  </Type>
+  <Type Name="ToolbarSwitcherEntity_Option" Description="Opción del selector de barras de herramientas" />
 </Translations>

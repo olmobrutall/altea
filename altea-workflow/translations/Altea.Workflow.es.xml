@@ -1,7 +1,6 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="ActivityWithRemarks" Description="Actividad con observaciones">
-    <Member Name="Alerts" Description="Alertas" />
     <Member Name="Case" Description="Caso" />
     <Member Name="CaseActivity" Description="Actividad de caso" />
     <Member Name="Notification" Description="Notificación" />
@@ -24,15 +23,11 @@
     <Member Name="DoneDecision" Description="Decisión hecha" />
     <Member Name="DoneType" Description="Tipo de hecho" />
     <Member Name="Duration" Description="Duración" />
-    <Member Name="DurationRatio" Description="Ratio de duración" />
-    <Member Name="DurationRealTime" Description="Duración en tiempo real" />
-    <Member Name="DurationRealTimeRatio" Description="Ratio de tiempo real de duración" />
     <Member Name="Note" Description="Nota" />
     <Member Name="OriginalWorkflowActivityName" Description="Nombre original de la actividad de flujo de trabajo" />
     <Member Name="Previous" Description="Anterior" />
     <Member Name="ScriptExecution" Description="Ejecución del script" />
     <Member Name="StartDate" Description="Fecha de inicio" />
-    <Member Name="State" Description="Estado" />
     <Member Name="WorkflowActivity" Description="Actividad de flujo de trabajo" />
   </Type>
   <Type Name="CaseActivityExecutedTimerEntity" Description="Temporizador de actividad de caso ejecutado">
@@ -77,7 +72,6 @@
     <Member Name="CreateCaseActivityFromWorkflow" Description="Crear actividad de caso desde flujo de trabajo" />
     <Member Name="CreateCaseFromWorkflowEventTask" Description="Crear caso desde evento de tarea de flujo de trabajo" />
     <Member Name="Delete" Description="Eliminar" />
-    <Member Name="FixCaseDescriptions" Description="Arreglar descripciones de caso" />
     <Member Name="Jump" Description="Salto" />
     <Member Name="MarkAsUnread" Description="Marcar como no leído" />
     <Member Name="Next" Description="Siguiente" />
@@ -90,9 +84,6 @@
   </Type>
   <Type Name="CaseActivityProcessAlgorithm">
     <Member Name="Timeout" Description="Timeout" />
-  </Type>
-  <Type Name="CaseActivityQuery">
-    <Member Name="Inbox" Description="Bandeja de entrada" />
   </Type>
   <Type Name="CaseActivityState" Description="Estado de actividad de caso">
     <Member Name="Done" Description="Hecho" />
@@ -114,11 +105,6 @@
     <Member Name="AverageDuration" Description="Duración media" />
     <Member Name="CaseMaxDuration" Description="Duración máximo caso" />
     <Member Name="EstimatedDuration" Description="Duración estimada" />
-  </Type>
-  <Type Name="CaseJunctionEntity" Description="Unión de caso">
-    <Member Name="Direction" Description="Dirección" />
-    <Member Name="From" Description="De" />
-    <Member Name="To" Description="Para" />
   </Type>
   <Type Name="CaseNotificationEntity" Description="Notificación de caso">
     <Member Name="Actor" Description="Actor" />
@@ -192,13 +178,6 @@
     <Member Name="Sender" Description="Remitente" />
     <Member Name="SenderNote" Description="Nota del remitente" />
   </Type>
-  <Type Name="IWorkflowNodeEntity">
-    <Member Name="Lane" Description="Calle" />
-  </Type>
-  <Type Name="IWorkflowObjectEntity">
-    <Member Name="BpmnElementId" Description="Id de elemento BPMN" />
-    <Member Name="Xml" Description="XML" />
-  </Type>
   <Type Name="NewTasksEmbedded" Description="Nuevas tareas">
     <Member Name="BpmnId" Description="Bpmn id" />
     <Member Name="Name" Description="Nombre" />
@@ -209,9 +188,7 @@
     <Member Name="ProcessIdentifier" Description="Identificador de proceso" />
     <Member Name="RetryCount" Description="Recuento de reintentos" />
   </Type>
-  <Type Name="SubEntitiesEval" Description="Evaluar subentidades">
-    <Member Name="Script" Description="Script" />
-  </Type>
+  <Type Name="SubEntitiesEval" Description="Evaluar subentidades" />
   <Type Name="SubWorkflowEmbedded" Description="Sub flujo de trabajo">
     <Member Name="SubEntitiesEval" Description="Evaluar subentidades" />
     <Member Name="Workflow" Description="Flujo de trabajo" />
@@ -233,13 +210,10 @@
   </Type>
   <Type Name="WorkflowActionEntity" Description="Acción de flujo de trabajo">
     <Member Name="Eval" Description="Evaluar" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="MainEntityType" Description="Tipo de entidad principal" />
     <Member Name="Name" Description="Nombre" />
   </Type>
-  <Type Name="WorkflowActionEval" Description="Evaluar acción de flujo de trabajo">
-    <Member Name="Script" Description="Script" />
-  </Type>
+  <Type Name="WorkflowActionEval" Description="Evaluar acción de flujo de trabajo" />
   <Type Name="WorkflowActionOperation">
     <Member Name="Clone" Description="Clonar" />
     <Member Name="Delete" Description="Eliminar" />
@@ -314,13 +288,10 @@
   </Type>
   <Type Name="WorkflowConditionEntity" Description="Condición de flujo de trabajo">
     <Member Name="Eval" Description="Evaluar" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="MainEntityType" Description="Tipo de entidad principal" />
     <Member Name="Name" Description="Nombre" />
   </Type>
-  <Type Name="WorkflowConditionEval" Description="Evaluar condición de flujo de trabajo">
-    <Member Name="Script" Description="Script" />
-  </Type>
+  <Type Name="WorkflowConditionEval" Description="Evaluar condición de flujo de trabajo" />
   <Type Name="WorkflowConditionOperation">
     <Member Name="Clone" Description="Clonar" />
     <Member Name="Delete" Description="Eliminar" />
@@ -361,8 +332,6 @@
   </Type>
   <Type Name="WorkflowEntity" Description="Flujo de trabajo">
     <Member Name="ExpirationDate" Description="Fecha de vencimiento" />
-    <Member Name="FullDiagramXml" Description="Diagrama completo xml" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="MainEntityStrategies" Description="Estrategias principales de entidad" />
     <Member Name="MainEntityType" Description="Tipo de entidad principal" />
     <Member Name="Name" Description="Nombre" />
@@ -388,12 +357,8 @@
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="WorkflowEventTaskActionEval" Description="Evaluar acción de tarea de evento de flujo de trabajo">
-    <Member Name="Script" Description="Script" />
-  </Type>
-  <Type Name="WorkflowEventTaskConditionEval" Description="Evaluar condición de tarea de evento de flujo de trabajo">
-    <Member Name="Script" Description="Script" />
-  </Type>
+  <Type Name="WorkflowEventTaskActionEval" Description="Evaluar acción de tarea de evento de flujo de trabajo" />
+  <Type Name="WorkflowEventTaskConditionEval" Description="Evaluar condición de tarea de evento de flujo de trabajo" />
   <Type Name="WorkflowEventTaskConditionResultEntity" Description="Resultado de condición de tarea de evento de flujo">
     <Member Name="CreationDate" Description="Fecha de creación" />
     <Member Name="Result" Description="Resultado" />
@@ -455,9 +420,7 @@
     <Member Name="Error" Description="Error" />
     <Member Name="Warning" Description="Advertencia" />
   </Type>
-  <Type Name="WorkflowLaneActorsEval" Description="Evaluar actores de carril de flujo de trabajo">
-    <Member Name="Script" Description="Script" />
-  </Type>
+  <Type Name="WorkflowLaneActorsEval" Description="Evaluar actores de carril de flujo de trabajo" />
   <Type Name="WorkflowLaneEntity" Description="Carril de flujo de trabajo">
     <Member Name="Actors" Description="Actores" />
     <Member Name="ActorsEval" Description="Evaluar actores" />
@@ -543,12 +506,11 @@
   </Type>
   <Type Name="WorkflowScriptEntity" Description="Script de flujo de trabajo" Gender="m">
     <Member Name="Eval" Description="Eval" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="MainEntityType" Description="Tipo de entidad principal" />
     <Member Name="Name" Description="Nombre" />
   </Type>
   <Type Name="WorkflowScriptEval" Description="Evaluar script de flujo de trabajo">
-    <Member Name="Script" Description="Script" />
+    <Member Name="CustomTypes" Description="Tipos personalizados" />
   </Type>
   <Type Name="WorkflowScriptOperation">
     <Member Name="Clone" Description="Clonar" />
@@ -560,7 +522,6 @@
     <Member Name="Script" Description="Script" />
   </Type>
   <Type Name="WorkflowScriptRetryStrategyEntity" Description="Estrategia de reintento de script de flujo de trabajo">
-    <Member Name="Guid" Description="Guid" />
     <Member Name="Rule" Description="Regla" />
   </Type>
   <Type Name="WorkflowScriptRetryStrategyOperation">
@@ -569,13 +530,10 @@
   </Type>
   <Type Name="WorkflowTimerConditionEntity" Description="Condición de temporizador de flujo de trabajo">
     <Member Name="Eval" Description="Evaluar" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="MainEntityType" Description="Tipo de entidad principal" />
     <Member Name="Name" Description="Nombre" />
   </Type>
-  <Type Name="WorkflowTimerConditionEval" Description="Evaluar condición de temporizador de flujo de trabajo">
-    <Member Name="Script" Description="Script" />
-  </Type>
+  <Type Name="WorkflowTimerConditionEval" Description="Evaluar condición de temporizador de flujo de trabajo" />
   <Type Name="WorkflowTimerConditionOperation">
     <Member Name="Clone" Description="Clonar" />
     <Member Name="Delete" Description="Eliminar" />

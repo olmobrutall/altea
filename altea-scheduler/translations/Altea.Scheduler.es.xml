@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="HolidayCalendarEntity" Description="Calendario de fiestas">
     <Member Name="Holidays" Description="Vacaciones" />
@@ -8,13 +8,6 @@
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="HolidayEmbedded" Description="Festivo">
-    <Member Name="Date" Description="Fecha" />
-    <Member Name="Name" Description="Nombre" />
-  </Type>
-  <Type Name="IScheduleRuleEntity">
-    <Member Name="StartingOn" Description="A partir de" />
-  </Type>
   <Type Name="ITaskMessage">
     <Member Name="ExceptionLines" Description="Lineas de excepción" />
     <Member Name="Execute" Description="Ejecutar" />
@@ -22,10 +15,9 @@
     <Member Name="LastExecution" Description="Última ejecución" />
   </Type>
   <Type Name="ITaskOperation">
-    <Member Name="ExecuteAsync" Description="Ejecutar Async" />
     <Member Name="ExecuteSync" Description="Ejecutar Sync" />
   </Type>
-  <Type Name="ScheduledTaskEntity" Description="Tarea programada" PluralDescription="Tareas programadas" Gender="f">
+  <Type Name="ScheduledTaskEntity" Description="Tarea programada" PluralDescription="Tareas programadas">
     <Member Name="ApplicationName" Description="Nombre de la aplicación" />
     <Member Name="MachineName" Description="Nombre de la máquina" />
     <Member Name="Rule" Description="Regla" />
@@ -35,7 +27,6 @@
   </Type>
   <Type Name="ScheduledTaskLogEntity" Description="Registro de tareas programadas">
     <Member Name="ApplicationName" Description="Nombre de la aplicación" />
-    <Member Name="Duration" Description="Duración" />
     <Member Name="EndTime" Description="Hora de finalización" />
     <Member Name="Exception" Description="Excepción" />
     <Member Name="MachineName" Description="Nombre de la máquina" />
@@ -78,7 +69,6 @@
   </Type>
   <Type Name="ScheduleRuleMinutelyEntity" Description="Reglas por minuto">
     <Member Name="EachMinutes" Description="cada minutos" />
-    <Member Name="IsAligned" Description="Está alineado" />
     <Member Name="StartingOn" Description="A partir de" />
   </Type>
   <Type Name="ScheduleRuleMonthsEntity" Description="Horario meses de regla">
@@ -108,5 +98,5 @@
     <Member Name="Tuesday" Description="Martes" />
     <Member Name="Wednesday" Description="Miércoles" />
   </Type>
-  <Type Name="SimpleTask" Description="Símbolo tarea simple" />
+  <Type Name="SimpleTaskSymbol" Description="Símbolo tarea simple" />
 </Translations>

@@ -1,21 +1,34 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="CollectionElementEmbedded" Description="Collection-Element">
     <Member Name="CollectionElement" Description="Collection-Element" />
     <Member Name="MatchByColumn" Description="Übereinstimmung nach Spalte" />
   </Type>
   <Type Name="ExcelMessage">
+    <Member Name="Administer" Description="Verwalten" />
     <Member Name="CreateNew" Description="Neu erstellen" />
     <Member Name="Data" Description="Daten" />
     <Member Name="Download" Description="Download" />
     <Member Name="Excel2007Spreadsheet" Description="Microsoft Office Excel 2007 Spreadsheet (*.xlsx)|*.xlsx" />
+    <Member Name="ExcelReport" Description="Excel Bericht" />
+    <Member Name="ExcelTemplateMustHaveExtensionXLSXandCurrentOneHas0" Description="Die Excel Vorlage muss eine xlsx-Erweiterung haben, und die Aktuelle hat eine {0}-Erweiterung" />
     <Member Name="ExportToExcel" Description="Nach Excel exportieren" />
+    <Member Name="TheExcelTemplateHasAColumn0NotPresentInTheFindWindow" Description="Die Excel Vorlage hat eine Spalte {0}, die nicht in der Suche vorhanden ist" />
     <Member Name="ThereAreNoResultsToWrite" Description="Es gibt keine Ergebnisse für den Bericht zu exportieren" />
     <Member Name="WhatDoYouWantToExport" Description="Was möchten Sie exportieren?" />
   </Type>
   <Type Name="ExcelPermission">
     <Member Name="ImportFromExcel" Description="Import aus Excel" />
     <Member Name="PlainExcel" Description="Einfaches Excel" />
+  </Type>
+  <Type Name="ExcelReportEntity" Description="Excel Bericht" PluralDescription="Excel Berichte" Gender="m">
+    <Member Name="DisplayName" Description="Berichtname" />
+    <Member Name="File" Description="Datei" />
+    <Member Name="Query" Description="Abfrage" />
+  </Type>
+  <Type Name="ExcelReportOperation">
+    <Member Name="Delete" Description="Löschen" />
+    <Member Name="Save" Description="Speichern" />
   </Type>
   <Type Name="ImportExcelMode" Description="Excel-Modus importieren">
     <Member Name="Insert" Description="Insert" />
@@ -57,10 +70,10 @@
   <Type Name="OfficeAttachmentEntity" Description="Office-Anhang" PluralDescription="Office-Anhänge" Gender="m">
     <Member Name="FileName" Description="Dateiname" />
     <Member Name="ModelConverter" Description="Modell-Konverter" />
-    <Member Name="OverrideModel" Description="Modell überschreiben" />
     <Member Name="OfficeTemplate" Description="Office-Vorlage" />
+    <Member Name="OverrideModel" Description="Modell überschreiben" />
   </Type>
-  <Type Name="OfficeConverter" Description="Office-Konverter" Gender="m" />
+  <Type Name="OfficeConverterSymbol" Description="Office-Konverter" Gender="m" />
   <Type Name="OfficeModelEntity" Description="Office-Modell" PluralDescription="Office-Modelle" Gender="n">
     <Member Name="ClassName" Description="Full Class Name" />
   </Type>
@@ -68,37 +81,35 @@
     <Member Name="Applicable" Description="Anwendbar" />
     <Member Name="Culture" Description="Kultur" />
     <Member Name="DisableAuthorization" Description="Autorisierung deaktivieren" />
-    <Member Name="DisableValidation" Description="Validierung deaktivieren" />
     <Member Name="FileName" Description="Dateiname" />
     <Member Name="Filters" Description="Filter" />
     <Member Name="GroupResults" Description="Ergebnisse gruppieren" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="Model" Description="modell" />
     <Member Name="Name" Description="Name" />
+    <Member Name="OfficeConverter" Description="Office-Konverter" />
+    <Member Name="OfficeTransformer" Description="Office-Transformator" />
     <Member Name="Orders" Description="Reihenfolge" />
     <Member Name="Query" Description="Abfrage" />
     <Member Name="Template" Description="Vorlage" />
-    <Member Name="OfficeConverter" Description="Office-Konverter" />
-    <Member Name="OfficeTransformer" Description="Office-Transformator" />
   </Type>
   <Type Name="OfficeTemplateMessage">
     <Member Name="_01RequiresExtraParameters" Description="{0} {1} erfordert zusätzliche Parameter" />
     <Member Name="ChooseAReportTemplate" Description="Wählen Sie eine Berichtsvorlage" />
     <Member Name="ModelShouldBeSetToUseModel0" Description="Modell sollte angegeben werden, um Modell {0} zu benutzen" />
     <Member Name="NoDefaultTemplateDefined" Description="Keine Standard-Vorlage definiert" />
+    <Member Name="OfficeReport" Description="Office-Bericht" />
     <Member Name="SelectTheSourceOfDataForYourTableOrChart" Description="Wählen Sie die Quelle der Daten für Ihre Tabelle oder Diagramm" />
     <Member Name="Type0DoesNotHaveAPropertyWithName1" Description="Typ {0} verfügt nicht über eine Eigenschaft mit dem Namen {1}" />
-    <Member Name="OfficeReport" Description="Office-Bericht" />
     <Member Name="WriteThisKeyAsTileInTheAlternativeTextOfYourTableOrChart" Description="Schreiben Sie diesen Schlüssel als Titel in den &quot;Alternativen Text&quot; Ihre Tabelle oder Diagramm" />
   </Type>
   <Type Name="OfficeTemplateOperation">
     <Member Name="CreateOfficeReport" Description="Office-Bericht erstellen" />
-    <Member Name="CreateOfficeTemplateFromOfficeModel" Description="Wortvorlage aus Wort-Modell erstellen" />
+    <Member Name="CreateOfficeTemplateFromOfficeModel" Description="Office-Vorlage aus Office-Modell erstellen" />
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
   <Type Name="OfficeTemplatePermission">
     <Member Name="GenerateReport" Description="Bericht generieren" />
   </Type>
-  <Type Name="OfficeTransformer" Description="Office-Transformator" PluralDescription="Office-Transformatoren" />
+  <Type Name="OfficeTransformerSymbol" Description="Office-Transformator" PluralDescription="Office-Transformatoren" />
 </Translations>

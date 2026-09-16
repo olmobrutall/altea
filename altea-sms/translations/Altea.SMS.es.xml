@@ -1,9 +1,4 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<!-- Ported from Signum.SMS/Translations/Signum.SMS.es.xml. Renames: `SMSTemplateMessageEmbedded` →
-     `SMSTemplateEntity_Message` (a @part ROW here, so its members gain Order / Template), its `CultureInfo`
-     → `Culture`, and `SMSConfigurationEmbedded` / `SMSOwnerData` are dropped (both are plain interfaces in
-     altea, so neither is a reflected type — see data/SMS.ts). `SMSMessage` is new (the two validation
-     messages Signum spells out inline in C#). -->
 <Translations>
   <Type Name="MessageLengthExceeded" Description="Longitud del mensaje excedida">
     <Member Name="Allowed" Description="Permitido" />
@@ -25,6 +20,9 @@
     <Member Name="StatusCanNotBeUpdatedForNonSentMessages" Description="Estado no puede ser actualizado para mensajes no enviados" />
     <Member Name="TheTemplateMustBeActiveToConstructSMSMessages" Description="La plantilla debe estar activa para construir mensajes SMS" />
     <Member Name="TheTextForTheSMSMessageExceedsTheLengthLimit" Description="El texto del mensaje de SMS supera el límite de longitud" />
+  </Type>
+  <Type Name="SMSConfigurationEmbedded" Description="Configuración de SMS">
+    <Member Name="DefaultCulture" Description="Cultura predeterminada" />
   </Type>
   <Type Name="SMSMessage">
     <Member Name="NotAValidTelephoneNumberList" Description="No es un número de teléfono válido (ni una lista de ellos separada por comas)" />
@@ -90,9 +88,7 @@
     <Member Name="To" Description="Para" />
   </Type>
   <Type Name="SMSTemplateEntity_Message" Description="Mensaje de plantilla SMS">
-    <Member Name="Culture" Description="Cultura" />
     <Member Name="Message" Description="Mensaje" />
-    <Member Name="Order" Description="Orden" />
     <Member Name="Template" Description="Plantilla" />
   </Type>
   <Type Name="SMSTemplateMessage">

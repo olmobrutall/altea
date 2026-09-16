@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<!-- Ported from Signum.SMS/Translations/Signum.SMS.de.xml — see the .es.xml header for what was renamed. -->
 <Translations>
   <Type Name="MessageLengthExceeded" Description="Nachrichtenlänge überschritten">
     <Member Name="Allowed" Description="Erlaubt" />
@@ -21,6 +20,9 @@
     <Member Name="StatusCanNotBeUpdatedForNonSentMessages" Description="Für die nicht gesendeten Nachrichten kann der Status nicht aktualisiert werden" />
     <Member Name="TheTemplateMustBeActiveToConstructSMSMessages" Description="Die Vorlage muss aktiv sein, um SMS-Nachrichten zu erstellen" />
     <Member Name="TheTextForTheSMSMessageExceedsTheLengthLimit" Description="Der Text der SMS-Nachricht überschreitet die Längenbegrenzung" />
+  </Type>
+  <Type Name="SMSConfigurationEmbedded" Description="SMS-Konfiguration">
+    <Member Name="DefaultCulture" Description="Standardkultur" />
   </Type>
   <Type Name="SMSMessage">
     <Member Name="NotAValidTelephoneNumberList" Description="Keine gültige Telefonnummer (und keine kommagetrennte Liste davon)" />
@@ -64,14 +66,14 @@
   <Type Name="SMSMessageTask">
     <Member Name="UpdateSMSStatus" Description="SMS-Status aktualisieren" />
   </Type>
-  <Type Name="SMSModelEntity" Description="SMS-Modell">
+  <Type Name="SMSModelEntity" Description="SMS-Modell" Gender="n">
     <Member Name="FullClassName" Description="Vollständiger Klassenname" />
   </Type>
-  <Type Name="SMSPackageEntity" Description="SMS-Paket">
+  <Type Name="SMSPackageEntity" Description="SMS-Paket" Gender="n">
     <Member Name="Name" Description="Name" />
   </Type>
-  <Type Name="SMSSendPackageEntity" Description="SMS-Sendepaket" />
-  <Type Name="SMSTemplateEntity" Description="SMS-Vorlage" PluralDescription="SMS-Vorlagen" Gender="f">
+  <Type Name="SMSSendPackageEntity" Description="SMS-Sendepaket" Gender="n" />
+  <Type Name="SMSTemplateEntity" Description="SMS-Vorlage">
     <Member Name="Certified" Description="Zertifiziert" />
     <Member Name="DisableAuthorization" Description="Autorisierung deaktivieren" />
     <Member Name="EditableMessage" Description="Bearbeitbare Nachricht" />
@@ -86,9 +88,7 @@
     <Member Name="To" Description="An" />
   </Type>
   <Type Name="SMSTemplateEntity_Message" Description="SMS-Vorlagennachricht">
-    <Member Name="Culture" Description="Kultur" />
     <Member Name="Message" Description="Nachricht" />
-    <Member Name="Order" Description="Reihenfolge" />
     <Member Name="Template" Description="Vorlage" />
   </Type>
   <Type Name="SMSTemplateMessage">
@@ -104,5 +104,5 @@
     <Member Name="CreateSMSTemplateFromModel" Description="SMS-Vorlage aus Modell erstellen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="SMSUpdatePackageEntity" Description="SMS-Aktualisierungspaket" />
+  <Type Name="SMSUpdatePackageEntity" Description="SMS-Aktualisierungspaket" Gender="n" />
 </Translations>

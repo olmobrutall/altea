@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="PackageEntity" Description="Paket" PluralDescription="Pakete" Gender="n">
     <Member Name="ConfigString" Description="Konfig-String" />
@@ -17,20 +17,13 @@
   <Type Name="PackageOperationProcess">
     <Member Name="PackageOperation" Description="Paket-Operation" />
   </Type>
-  <Type Name="PackageQuery">
-    <Member Name="PackageLastProcess" Description="Paket letzter Prozess" />
-    <Member Name="PackageLineLastProcess" Description="Paketzeile letzter Prozess" />
-    <Member Name="PackageOperationLastProcess" Description="Paketvorgang letzter Prozess" />
-  </Type>
-  <Type Name="ProcessAlgorithm" Description="Prozess-Algorithmus" PluralDescription="Prozess-Algorithmen" Gender="m" />
+  <Type Name="ProcessAlgorithmSymbol" Description="Prozess-Algorithmus" PluralDescription="Prozess-Algorithmen" Gender="m" />
   <Type Name="ProcessEntity" Description="Prozess" PluralDescription="Prozesse" Gender="m">
     <Member Name="Algorithm" Description="Algorithmus" />
     <Member Name="ApplicationName" Description="Anwendungsname" />
     <Member Name="CancelationDate" Description="Stornierungsdatum" />
     <Member Name="CreationDate" Description="Erstellungsdatum" />
     <Member Name="Data" Description="Daten" />
-    <Member Name="Duration" Description="Dauer" />
-    <Member Name="DurationSpan" Description="Dauer-span" />
     <Member Name="Exception" Description="Ausnahme" />
     <Member Name="ExceptionDate" Description="Ausnahmedatum" />
     <Member Name="ExecutionEnd" Description="Ausführungsende" />

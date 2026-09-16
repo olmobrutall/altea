@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="ChartColumnEmbedded" Description="Columna de gráfico">
     <Member Name="DisplayName" Description="Nombre para Mostrar" />
@@ -6,19 +6,6 @@
     <Member Name="OrderByIndex" Description="Ordenar por índice" />
     <Member Name="OrderByType" Description="Ordenar por tipo" />
     <Member Name="Token" Description="Token" />
-  </Type>
-  <Type Name="ChartColumnType">
-    <Member Name="DateTime" Description="Fecha hora" />
-    <Member Name="Enum" Description="Enum" />
-    <Member Name="Groupable" Description="Agrupable" />
-    <Member Name="Integer" Description="Entero" />
-    <Member Name="Lite" Description="Lite" />
-    <Member Name="Magnitude" Description="Magnitud" />
-    <Member Name="Positionable" Description="Posicionable" />
-    <Member Name="Real" Description="Real" />
-    <Member Name="RealGroupable" Description="Real groupable" />
-    <Member Name="String" Description="Cadena" />
-    <Member Name="Time" Description="Hora" />
   </Type>
   <Type Name="ChartMessage">
     <Member Name="_0CanOnlyBeCreatedFromTheChartWindow" Description="{0} sólo se puede crear desde la ventana del gráfico" />
@@ -64,7 +51,6 @@
   </Type>
   <Type Name="ChartParameterEmbedded" Description="Parámetro de gráfico">
     <Member Name="Name" Description="Nombre" />
-    <Member Name="ScriptParameter" Description="Parámetro de secuencia de comandos" />
     <Member Name="Value" Description="Valor" />
   </Type>
   <Type Name="ChartPermission">
@@ -73,23 +59,18 @@
   <Type Name="ChartRequestModel" Description="Solicitud de gráfico">
     <Member Name="ChartScript" Description="Script de gráfico" />
     <Member Name="Columns" Description="Columnas" />
-    <Member Name="Filters" Description="Filtros" />
     <Member Name="MaxRows" Description="Filas máximas" />
-    <Member Name="Multiplications" Description="Multiplicaciones" />
     <Member Name="Parameters" Description="Parámetros" />
-    <Member Name="QueryName" Description="Nombre de consulta" />
   </Type>
-  <Type Name="ChartScript" Description="Script de gráfico" Gender="m" />
-<Type Name="ColorPaletteEntity" Description="Paleta de colores" PluralDescription="Paletas de colores" Gender="f">
+  <Type Name="ChartScriptSymbol" Description="Script de gráfico" Gender="m" />
+  <Type Name="ColorPaletteEntity" Description="Paleta de colores">
     <Member Name="CategoryName" Description="Nombre de la categoría" />
-    <Member Name="SeedOrPaletteName" Description="Semilla o nombre de la paleta" />
     <Member Name="SpecificColors" Description="Colores específicos" />
     <Member Name="Type" Description="Tipo" />
   </Type>
   <Type Name="CombinedUserChartPartEntity" Description="Parte del gráfico de usuario combinado">
     <Member Name="AllowChangeShowData" Description="Permitir cambio de datos mostrados" />
     <Member Name="CombinePinnedFiltersWithSameLabel" Description="Combinar filtros anclados con la misma etiqueta" />
-    <Member Name="RequiresTitle" Description="Requiere título" />
     <Member Name="ShowData" Description="Mostrar datos" />
     <Member Name="UserCharts" Description="Gráficos de usuario" />
     <Member Name="UseSameScale" Description="Usar la misma escala" />
@@ -122,7 +103,6 @@
     <Member Name="DisplayName" Description="Nombre para mostrar" />
     <Member Name="EntityType" Description="Tipo de entidad" />
     <Member Name="Filters" Description="Filtros" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="HideQuickLink" Description="Ocultar quick link" />
     <Member Name="MaxRows" Description="Filas máximas" />
     <Member Name="Owner" Description="Propietario" />
@@ -138,7 +118,6 @@
     <Member Name="AllowChangeShowData" Description="Permitir cambio de datos mostrados" />
     <Member Name="AutoRefresh" Description="Actualización automática" />
     <Member Name="CreateNew" Description="Crear nuevo" />
-    <Member Name="RequiresTitle" Description="Requiere título" />
     <Member Name="ShowData" Description="Mostrar datos" />
     <Member Name="UserChart" Description="Gráfico de usuario" />
   </Type>

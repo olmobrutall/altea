@@ -1,7 +1,5 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="ActiveDirectoryGroupModel" Description="Active Directory-Gruppen" />
-  <Type Name="ActiveDirectoryUserModel" Description="Active Directory-Nutzer" />
   <Type Name="ADGroupEntity" Description="AD-Gruppe">
     <Member Name="DisplayName" Description="Anzeigename" />
   </Type>
@@ -19,6 +17,7 @@
     <Member Name="EditProfile_UserFlow" Description="EditProfile UserFlow" />
     <Member Name="Enabled" Description="Aktiviert" />
     <Member Name="ResetPassword_UserFlow" Description="ResetPassword UserFlow" />
+    <Member Name="RoleMapping" Description="Rollenzuordnung" />
     <Member Name="SignIn_UserFlow" Description="SignIn UserFlow" />
     <Member Name="SignInSignUp_UserFlow" Description="SignInSignUp UserFlow" />
     <Member Name="SignUp_UserFlow" Description="SignUp UserFlow" />
@@ -26,6 +25,7 @@
     <Member Name="Type" Description="Typ" />
     <Member Name="UseDelegatedPermission" Description="Use delegated permission" />
   </Type>
+  <Type Name="AzureADRoleMappingEntity" Description="Rollenabbildung" />
   <Type Name="AzureADTask">
     <Member Name="DeactivateUsers" Description="Benutzer deaktivieren" />
   </Type>

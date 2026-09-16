@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="CachedQueryEntity" Description="Cached-Abfrage">
     <Member Name="CreationDate" Description="Erstellungsdatum" />
@@ -20,7 +20,6 @@
   </Type>
   <Type Name="CustomPartEntity" Description="Custom Teil" Gender="m">
     <Member Name="CustomPartName" Description="Benutzerdefinierter Teilename" />
-    <Member Name="RequiresTitle" Description="Erfordert Titel" />
   </Type>
   <Type Name="DashboardEmbedededInEntity" Description="Dashboard eingebettet in">
     <Member Name="Bottom" Description="Nach unten" />
@@ -36,7 +35,6 @@
     <Member Name="DisplayName" Description="Name" />
     <Member Name="EmbeddedInEntity" Description="Eingebettet in Entität" />
     <Member Name="EntityType" Description="Entitätstyp" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="HideDisplayName" Description="Anzeigename ausblenden" />
     <Member Name="HideQuickLink" Description="Quick Link verstecken" />
     <Member Name="IconColor" Description="Symbolfarbe" />
@@ -48,9 +46,24 @@
     <Member Name="TitleColor" Description="Titel Farbe" />
     <Member Name="TokenEquivalencesGroups" Description="Tokenäquivalenzengruppen" />
   </Type>
-  <Type Name="DashboardLiteModel" Description="Dashboard lite">
-    <Member Name="DisplayName" Description="Anzeigename" />
-    <Member Name="HideQuickLink" Description="Quick Link verstecken" />
+  <Type Name="DashboardEntity_Part" Description="Dashboardteil">
+    <Member Name="Columns" Description="Spalten" />
+    <Member Name="Content" Description="Inhalt" />
+    <Member Name="CustomColor" Description="Benutzerdefinierte Farbe" />
+    <Member Name="HideTitle" Description="Titel ausblenden" />
+    <Member Name="IconColor" Description="Symbolfarbe" />
+    <Member Name="IconName" Description="Symbolname" />
+    <Member Name="InteractionGroup" Description="Interaktionsgruppe" />
+    <Member Name="Row" Description="Zeile" />
+    <Member Name="StartColumn" Description="Spalte Start" />
+    <Member Name="Title" Description="Titel" />
+    <Member Name="TitleColor" Description="Titel Farbe" />
+    <Member Name="Tooltip" Description="Tooltip" />
+  </Type>
+  <Type Name="DashboardEntity_TokenEquivalenceGroup" Description="Tokenäquivalenzgruppe">
+    <Member Name="Dashboard" Description="Dashboard" />
+    <Member Name="InteractionGroup" Description="Interaktionsgruppe" />
+    <Member Name="TokenEquivalences" Description="Token-Äquivalenzen" />
   </Type>
   <Type Name="DashboardMessage">
     <Member Name="_0CanOnlyBeUserInA1With2" Description="{0} kann nur in einem {1} mit {2} verwendet werden" />
@@ -90,20 +103,13 @@
     <Member Name="GoodMorning" Description="Guten Morgen" />
     <Member Name="GoodNight" Description="Gute Nacht" />
   </Type>
-  <Type Name="HealthCheckElementEmbedded" Description="Element der Gesundheitskontrolle">
-    <Member Name="CheckURL" Description="URL prüfen" />
-    <Member Name="NavigateURL" Description="URL navigieren" />
-    <Member Name="Title" Description="Titel" />
-  </Type>
   <Type Name="HealthCheckPartEntity" Description="Teil Gesundheitskontrolle" PluralDescription="Teile der Gesundheitskontrolle" Gender="m">
     <Member Name="Items" Description="Artikel" />
-    <Member Name="RequiresTitle" Description="Erfordert Titel" />
   </Type>
   <Type Name="ImagePartEntity" Description="Bildteil" PluralDescription="Bildteile" Gender="m">
     <Member Name="AltText" Description="Alt-Text" />
     <Member Name="ClickActionURL" Description="Aktions-URL" />
     <Member Name="ImageSrcContent" Description="Bild src Inhalt" />
-    <Member Name="RequiresTitle" Description="Erfordert Titel" />
   </Type>
   <Type Name="InteractionGroup" Description="Interaktionsgruppe">
     <Member Name="Group1" Description="Gruppe 1" />
@@ -115,34 +121,10 @@
     <Member Name="Group7" Description="Gruppe 7" />
     <Member Name="Group8" Description="Gruppe 8" />
   </Type>
-  <Type Name="IPartEntity">
-    <Member Name="RequiresTitle" Description="Erfordert Titel" />
-  </Type>
-  <Type Name="LinkElementEmbedded" Description="Linkelement">
-    <Member Name="Label" Description="Etikett" />
-    <Member Name="Link" Description="Link" />
-    <Member Name="OpensInNewTab" Description="Öffnet in neuem Tab" />
-  </Type>
-  <Type Name="PanelPartEmbedded" Description="Dashboardteil">
-    <Member Name="Columns" Description="Spalten" />
-    <Member Name="Content" Description="Inhalt" />
-    <Member Name="CustomColor" Description="Benutzerdefinierte Farbe" />
-    <Member Name="Guid" Description="Guid" />
-    <Member Name="IconColor" Description="Symbolfarbe" />
-    <Member Name="IconName" Description="Symbolname" />
-    <Member Name="InteractionGroup" Description="Interaktionsgruppe" />
-    <Member Name="Row" Description="Zeile" />
-    <Member Name="StartColumn" Description="Spalte Start" />
-    <Member Name="Title" Description="Titel" />
-    <Member Name="TitleColor" Description="Titel Farbe" />
-    <Member Name="Tooltip" Description="Tooltip" />
-  </Type>
   <Type Name="SeparatorPartEntity" Description="Trennzeichenteil" PluralDescription="Separatorteile" Gender="n">
-    <Member Name="RequiresTitle" Description="Erfordert Titel" />
     <Member Name="Title" Description="Titel" />
   </Type>
   <Type Name="TextPartEntity" Description="Textteil" PluralDescription="Textteile" Gender="m">
-    <Member Name="RequiresTitle" Description="Erfordert Titel" />
     <Member Name="TextContent" Description="Textinhalt" />
     <Member Name="TextPartType" Description="Typ des Textteils" />
   </Type>
@@ -151,17 +133,7 @@
     <Member Name="Markdown" Description="Markdown" />
     <Member Name="Text" Description="Text" />
   </Type>
-  <Type Name="TokenEquivalenceEmbedded" Description="Token-Äquivalenz">
-    <Member Name="Query" Description="Abfrage" />
-    <Member Name="Token" Description="Token" />
-  </Type>
-  <Type Name="TokenEquivalenceGroupEntity" Description="Tokenäquivalenzgruppe">
-    <Member Name="Dashboard" Description="Dashboard" />
-    <Member Name="InteractionGroup" Description="Interaktionsgruppe" />
-    <Member Name="TokenEquivalences" Description="Token-Äquivalenzen" />
-  </Type>
   <Type Name="ToolbarMenuPartEntity" Description="Menübereich Symbolleiste" PluralDescription="Menüteile der Symbolleiste" Gender="m">
-    <Member Name="RequiresTitle" Description="Erfordert Titel" />
     <Member Name="ToolbarMenu" Description="Toolbar-Menü" />
   </Type>
 </Translations>

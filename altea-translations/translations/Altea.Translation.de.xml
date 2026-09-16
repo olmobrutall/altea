@@ -1,14 +1,11 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="MatchTranslatedInstances" Description="Übersetzte Instanzen abgleichen">
-    <Member Name="ByInstanceID" Description="Nach Instanz-ID" />
-    <Member Name="ByOriginalText" Description="Nach Originaltext" />
-  </Type>
   <Type Name="TranslatedInstanceEntity" Description="Übersetzte Instanz" PluralDescription="Übersetzen Instanzen" Gender="f">
     <Member Name="Culture" Description="Kultur" />
     <Member Name="Instance" Description="Instanz" />
     <Member Name="OriginalText" Description="Originaltext" />
     <Member Name="PropertyRoute" Description="Eigenschaftsroute" />
+    <Member Name="RowId" Description="Zeilen-ID" />
     <Member Name="TranslatedText" Description="Übersetzter Text" />
   </Type>
   <Type Name="TranslatedInstanceOperation">
@@ -37,13 +34,13 @@
     <Member Name="DownloadSync" Description="Sync herunterladen" />
     <Member Name="DownloadView" Description="Ansicht herunterladen" />
     <Member Name="Edit" Description="bearbeiten" />
+    <Member Name="Folder" Description="Ordner" />
     <Member Name="From0using1_" Description="von {0} mit {1}" />
     <Member Name="Gender" Description="Geschlecht" />
     <Member Name="Instance" Description="Instanz" />
     <Member Name="InstanceRouteConflictsOverview" Description="Übersicht über Instanz-Routenkonflikte" />
     <Member Name="InstanceTranslations" Description="Instanz-Übersetzungen" />
     <Member Name="Member" Description="Mitglied" />
-    <Member Name="Folder" Description="Ordner" />
     <Member Name="NewTranslations" Description="Neue Übersetzungen" />
     <Member Name="NewTypes" Description="Neue Typen" />
     <Member Name="None" Description="keine" />
@@ -52,6 +49,7 @@
     <Member Name="NothingToTranslate" Description="Nichts zu übersetzen" />
     <Member Name="NothingToTranslateIn0" Description="Nichts zu übersetzen in {0}" />
     <Member Name="OnlyNeutralCultures" Description="Nur neutrale Sprachen" />
+    <Member Name="OnlyRecommendedInstances" Description="Nur empfohlene Exemplare" />
     <Member Name="Plural" Description="Plural" />
     <Member Name="PluralDescription" Description="Beschreibung im Plural" />
     <Member Name="PressSearchForResults" Description="Drücken Sie Suchen für Ergebnisse..." />

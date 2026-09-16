@@ -1,9 +1,6 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="IContainsQuery">
-    <Member Name="Query" Description="Abfrage" />
-  </Type>
-  <Type Name="ModelConverter" Description="Modell-Konverter" Gender="m" />
+  <Type Name="ModelConverterSymbol" Description="Modell-Konverter" Gender="m" />
   <Type Name="MultiEntityModel" Description="Multi-Entität">
     <Member Name="Entities" Description="Entitäten" />
   </Type>
@@ -11,14 +8,11 @@
     <Member Name="Filters" Description="Filter" />
     <Member Name="Orders" Description="Reihenfolge" />
     <Member Name="Pagination" Description="Paginierung" />
-    <Member Name="QueryName" Description="Abfrage-Name" />
   </Type>
   <Type Name="QueryModelMessage">
     <Member Name="ConfigureYourQueryAndPressSearchBeforeOk" Description="Konfigurieren Sie Ihre Abfrage und klicken Sie auf [suchen] vor Sie [Ok] drücken." />
   </Type>
-  <Type Name="TemplateApplicableEval" Description="Vorlage für eval">
-    <Member Name="Script" Description="Skript" />
-  </Type>
+  <Type Name="TemplateApplicableEval" Description="Vorlage für eval" />
   <Type Name="TemplateMessage">
     <Member Name="CopyToClipboard" Description="In die Zwischenablage kopieren: Strg+C, ESC" />
     <Member Name="Template" Description="Vorlage" />

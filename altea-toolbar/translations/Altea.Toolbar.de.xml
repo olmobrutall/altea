@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="LayoutMessage">
     <Member Name="JumpToMainContent" Description="Zum Hauptinhalt springen" />
@@ -12,10 +12,9 @@
     <Member Name="No0FoundIn1" Description="Kein {0} in {1} gefunden" />
     <Member Name="NotAllowedToCreate0In1" Description="Es ist nicht erlaubt, {0} in {1} zu erstellen" />
   </Type>
-  <Type Name="ToolbarElementEmbedded" Description="Toolbar-element">
+  <Type Name="ToolbarElementBaseEntity" Description="Toolbar-element">
     <Member Name="AutoRefreshPeriod" Description="Autoaktualisierungszeitraum" />
     <Member Name="Content" Description="Inhalt" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="IconColor" Description="Symbolfarbe" />
     <Member Name="IconName" Description="Symbolname" />
     <Member Name="Label" Description="Etikett" />
@@ -32,7 +31,6 @@
   </Type>
   <Type Name="ToolbarEntity" Description="Toolbar" PluralDescription="Toolbars" Gender="f">
     <Member Name="Elements" Description="Elemente" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="Location" Description="Position" />
     <Member Name="Name" Description="Name" />
     <Member Name="Owner" Description="Eigentümer" />
@@ -43,14 +41,9 @@
     <Member Name="Side" Description="Seite" />
     <Member Name="Top" Description="Top" />
   </Type>
-  <Type Name="ToolbarMenuElementEmbedded" Description="Menüelement der Symbolleiste">
-    <Member Name="AutoSelect" Description="Automatisch auswählen" />
-    <Member Name="WithEntity" Description="Mit Entität" />
-  </Type>
   <Type Name="ToolbarMenuEntity" Description="Toolbar-Menü" PluralDescription="Toolbar-Menüs" Gender="f">
     <Member Name="Elements" Description="Elemente" />
     <Member Name="EntityType" Description="Entitätstyp" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="Name" Description="Name" />
     <Member Name="Owner" Description="Eigentümer" />
   </Type>
@@ -72,7 +65,6 @@
     <Member Name="Save" Description="Speichern" />
   </Type>
   <Type Name="ToolbarSwitcherEntity" Description="Toolbar-Umschalter" Gender="m">
-    <Member Name="Guid" Description="Guid" />
     <Member Name="Name" Description="Name" />
     <Member Name="Options" Description="Optionen" />
     <Member Name="Owner" Description="Besitzer" />
@@ -80,10 +72,5 @@
   <Type Name="ToolbarSwitcherOperation">
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
-  </Type>
-  <Type Name="ToolbarSwitcherOptionEmbedded" Description="Toolbar-Umschalter-Option">
-    <Member Name="IconColor" Description="Symbolfarbe" />
-    <Member Name="IconName" Description="Symbolname" />
-    <Member Name="ToolbarMenu" Description="Toolbar-Menü" />
   </Type>
 </Translations>
