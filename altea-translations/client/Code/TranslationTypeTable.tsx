@@ -179,8 +179,12 @@ export function TranslationTypeDescription(p: {
         forceUpdate();
     }
 
+    // AccessibleTable refuses a `th` with no content (an empty rowheader is a WCAG defect), and it counts the
+    // EMPTY STRING as no content. Signum's `safeCell` only guards null/undefined/false because its cells end in
+    // `singleOrNull()`; the pronoun cells below end in `join("")`, which returns "" when no pronoun matches the
+    // gender — the common case while a type is still untranslated. So "" has to be padded here too.
     const safe = (content: React.ReactNode): React.ReactNode =>
-        content == null || content === false ? <span aria-hidden="true">&nbsp;</span> : content;
+        content == null || content === false || content === "" ? <span aria-hidden="true">&nbsp;</span> : content;
 
     return (
         <AccessibleRow>
