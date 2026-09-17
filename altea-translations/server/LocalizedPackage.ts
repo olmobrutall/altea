@@ -178,14 +178,22 @@ function descriptionOptionsOf(ctor: Function): DescriptionOptions {
     if (isOrExtends(ctor, Entity))
         return { hasDescription: true, hasPluralDescription: true, hasGender: true, hasMembers: true };
 
-    // A MODEL is Signum's `ModifiableEntity` (`Description | Members`), WIDENED here to the plural and
-    // the gender. A manual query is NAMED BY ITS ROW MODEL in altea — there is no QueryDescription to
-    // hang a caption on — and a search page's title is the query name's PLURAL (`getQueryNiceName` →
-    // `nicePluralName`). So `CustomerRowModel`'s plural is a user-visible page heading ("Customers" over
-    // /find/CustomerRowModel), and the gender is what a determiner-inflecting language needs for "los
-    // Clientes".
-    if (isOrExtends(ctor, ModelEntity))
-        return { hasDescription: true, hasPluralDescription: true, hasGender: true, hasMembers: true };
+    // A MODEL is Signum's `ModifiableEntity` (`Description | Members`) — EXCEPT a ROW MODEL, which also
+    // needs the plural and the gender.
+    //
+    // A manual query is NAMED BY ITS ROW MODEL in altea: there is no QueryDescription to hang a caption
+    // on, so a search page's title is that model's PLURAL (`getQueryNiceName` → `nicePluralName`) and the
+    // gender is what a determiner-inflecting language needs for "los Clientes". `CustomerRowModel`'s
+    // plural is the heading over /find/CustomerRowModel, so it has to be asked for.
+    //
+    // Every OTHER model is a dialog or a payload — `ClientErrorModel`, the `*RulePack`s, `MoveTreeModel` —
+    // shown once, never counted, never preceded by a determiner. Asking those for a plural and a gender
+    // added 31 types to the sync page that were already translated, each one waiting on a gender no
+    // German rule can derive from a name like "Client-Fehler", for a label nothing reads.
+    if (isOrExtends(ctor, ModelEntity)) {
+        const isRowModel = ctor.name.endsWith("RowModel");
+        return { hasDescription: true, hasPluralDescription: isRowModel, hasGender: isRowModel, hasMembers: true };
+    }
 
     // Signum's `[DescriptionOptions(Members | Description)]` on `ModifiableEntity`: an embedded is
     // named (a line's label, a tab caption) but never counted, so nothing would ever read its plural.
