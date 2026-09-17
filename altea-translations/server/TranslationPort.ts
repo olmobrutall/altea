@@ -105,15 +105,17 @@ export function portTranslations(options: TranslationPortOptions): TranslationPo
         // importXml/exportXml work on one package's file and that is the unit that gets written.
         const perPackage = new Map<string, { target: LocalizableType; from: StoredType; signumName: string }[]>();
         for (const [signumName, stored] of source) {
-            const alteaName = resolveType(signumName);
-            const target = alteaName == undefined ? undefined : declaredByName.get(alteaName);
-            if (target == undefined) {
+            // SEVERAL targets, because altea splits: one Signum embedded can be an abstract base plus the
+            // rows that extend it, and each is described under its own name.
+            const targets = resolveType(signumName).map(n => declaredByName.get(n)).filter(t => t != undefined);
+            if (targets.length === 0) {
                 unmatched.set(signumName, (unmatched.get(signumName) ?? 0) + countStrings(stored));
                 unmatchedSource.set(signumName, stored);
                 continue;
             }
-            (perPackage.get(target.packageName) ?? perPackage.set(target.packageName, []).get(target.packageName)!)
-                .push({ target, from: stored, signumName });
+            for (const target of targets)
+                (perPackage.get(target.packageName) ?? perPackage.set(target.packageName, []).get(target.packageName)!)
+                    .push({ target, from: stored, signumName });
         }
 
         for (const [packageName, entries] of perPackage) {
@@ -197,15 +199,17 @@ function fill(
  * finally the name itself. Every answer but the first is confirmed against the declared set, so a rule
  * that rewrites too eagerly cannot invent a target.
  */
-function typeResolver(options: TranslationPortOptions): (signumName: string) => string | undefined {
+function typeResolver(options: TranslationPortOptions): (signumName: string) => string[] {
     const declared = new Set(localizableTypes().map(t => t.typeName));
     const legacy = new Map([...declaredLegacyClassNames()].map(([className, ctor]) => [className, ctor.name]));
+    const parts = partConventionIndex(declared);
     const rules = options.rules ?? [];
-    const cache = new Map<string, string | undefined>();
+    const cache = new Map<string, string[]>();
 
-    return (signumName: string): string | undefined => {
-        if (cache.has(signumName))
-            return cache.get(signumName);
+    return (signumName: string): string[] => {
+        const hit = cache.get(signumName);
+        if (hit != undefined)
+            return hit;
 
         let answer = options.typeRenames?.[signumName];
         if (answer == undefined) {
@@ -221,9 +225,51 @@ function typeResolver(options: TranslationPortOptions): (signumName: string) => 
         if (answer == undefined && declared.has(signumName))
             answer = signumName;
 
-        cache.set(signumName, answer);
-        return answer;
+        // The `@part` convention LAST, and ADDITIVE rather than exclusive — see partConventionIndex.
+        const answers = answer == undefined ? [] : [answer];
+        for (const part of parts.get(signumName) ?? [])
+            if (!answers.includes(part))
+                answers.push(part);
+
+        cache.set(signumName, answers);
+        return answers;
     };
+}
+
+/**
+ * Signum class name → the altea `@part` types that follow from it BY CONVENTION.
+ *
+ * An MList of embeddeds is a `@part` row entity here, named `<Owner>_<Field>` — Signum's
+ * `MList<ToolbarSwitcherOptionEmbedded> Options` is `options: ToolbarSwitcherEntity_Option[]`. The element's
+ * CLASS name is the one thing that rename does not write down anywhere, and legacy mode cannot supply it:
+ * `@legacyTableName` derives the MList TABLE (`<ownerTable>_<Collection>`), but Signum's element embedded has
+ * no table of its own, so its class name is nowhere in that chain. Deriving it back from the part's own name
+ * is the only route, and it is sound in one direction: `<OwnerStem> + <Field> + "Embedded"`.
+ *
+ * Built as a reverse index because the port walks the SOURCE: one pass over the declared parts answers every
+ * lookup, and the guess is only ever offered for a name Signum actually has.
+ *
+ * ADDITIVE, because altea often splits one Signum embedded into several types: `ToolbarElementEmbedded` is
+ * the abstract `ToolbarElementBaseEntity` plus the two rows that extend it, and all three want the labels.
+ * Applied LAST so an explicit rename, a `@legacyClassName` or an identical name always wins.
+ *
+ * What it cannot do is the case where the element was SHARED or renamed outright — Signum's one
+ * `QueryColumnEmbedded` serves user queries, charts and dashboards, and `PanelPartEmbedded` is simply not
+ * named after its owner. Those stay in `typeRenames`, which is where a fact that is history rather than
+ * convention belongs.
+ */
+function partConventionIndex(declared: Set<string>): Map<string, string[]> {
+    const index = new Map<string, string[]>();
+    for (const typeName of declared) {
+        const sep = typeName.indexOf("_");
+        if (sep < 0)
+            continue;
+        const owner = typeName.slice(0, sep).replace(/(Entity|Embedded|Model)$/, "");
+        const field = typeName.slice(sep + 1).replace(/_/g, "");
+        for (const candidate of [`${owner}${field}Embedded`, `${owner}${field}Entity`])
+            (index.get(candidate) ?? index.set(candidate, []).get(candidate)!).push(typeName);
+    }
+    return index;
 }
 
 /** Signum member name → a member the altea type actually declares, or undefined. */
