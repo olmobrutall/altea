@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { SafeConsole } from "@altea/altea/server/safeConsole";
 
 /**
@@ -40,21 +40,12 @@ export namespace TranslationConverter {
         return result;
     }
 
-    /** One source file and the one file it becomes, plus the roots and cultures the batch runs over. */
-    export interface FileMap {
-        sourceRoot: string;
-        targetRoot: string;
-        cultures: string[];
-        /** Path bases WITHOUT the `.<culture>.xml` suffix, relative to their root. */
-        pairs: { source: string; target: string }[];
-    }
-
     /**
-     * The file map, whose paths resolve against its OWN directory so the file is self-describing:
+     * The file map: one source file, and the one file it becomes. Both are path bases WITHOUT the
+     * `.<culture>.xml` suffix, and they resolve against the roots the CALLER passes — the roots and the
+     * cultures are arguments rather than directives so this file has exactly one kind of line, the same
+     * kind the renames have.
      *
-     *     source-root ../../old
-     *     target-root ../..
-     *     cultures de es
      *     Framework/Extensions/Signum.Alerts/Translations/Signum.Alerts -> altea/altea-alert/translations/Altea.Alerts
      *
      * ONE SOURCE, ONE TARGET. A Signum assembly becomes exactly one altea package, and a type is
@@ -63,37 +54,16 @@ export namespace TranslationConverter {
      * copy in Signum.Authorization.WindowsAD. Where altea split one type in two, the RENAMES duplicate the
      * snippet inside that one target; a target is never fed from two sources.
      */
-    export function parseFileMap(text: string, mapPath: string): FileMap {
-        const dir = dirname(resolve(mapPath));
-        const against = (p: string): string => isAbsolute(p) ? p : resolve(dir, p);
-
-        let sourceRoot = dir, targetRoot = dir, cultures: string[] = [];
-        const pairs: { source: string; target: string }[] = [];
-        for (const entry of parseArrowFile(text, ["source-root", "target-root", "cultures"])) {
-            switch (entry.directive) {
-                case "source-root": sourceRoot = against(entry.value); break;
-                case "target-root": targetRoot = against(entry.value); break;
-                case "cultures": cultures = entry.value.split(/\s+/).filter(Boolean); break;
-                default: pairs.push({ source: entry.key, target: entry.value });
-            }
-        }
-        if (cultures.length === 0)
-            throw new Error(`No 'cultures' line in the file map '${mapPath}'`);
-        return { sourceRoot, targetRoot, cultures, pairs };
+    export function parseFileMap(text: string): { source: string; target: string }[] {
+        return [...parseArrowFile(text)].map(({ key, value }) => ({ source: key, target: value }));
     }
 
-    /** Shared line reader: `<directive> <value>` for the known directives, else `<key> -> <value>`. */
-    function* parseArrowFile(text: string, directives: string[] = []):
-        Generator<{ directive?: string; key: string; value: string }> {
+    /** Shared line reader for both data files: `<key> -> <value>`, `#` comments and blank lines ignored. */
+    function* parseArrowFile(text: string): Generator<{ key: string; value: string }> {
         for (const raw of text.split(/\r?\n/)) {
             const line = raw.replace(/#.*$/, "").trim();
             if (line === "")
                 continue;
-            const directive = directives.find(d => line === d || line.startsWith(d + " "));
-            if (directive != undefined) {
-                yield { directive, key: directive, value: line.slice(directive.length).trim() };
-                continue;
-            }
             const m = /^(\S+)\s*->\s*(\S+)$/.exec(line);
             if (m == undefined)
                 throw new Error(`Not a '<key> -> <value>' line: '${raw.trim()}'`);
@@ -161,25 +131,41 @@ export namespace TranslationConverter {
         yes?: boolean;
     }
 
+    /** Where the port reads from, where it writes to, and what the two data files are. */
+    export interface ConvertSettings {
+        /** The file map: `<source base> -> <target base>`, each without its `.<culture>.xml` suffix. */
+        files: string;
+        /** The renames: `<Signum type> -> <altea type>`, where a key may repeat. */
+        renames: string;
+        /** What the file map's source bases are relative to. */
+        sourceRoot: string;
+        /** What its target bases are relative to. */
+        targetRoot: string;
+        /** The cultures to convert. A pair with no source file for one of them is skipped. */
+        cultures: string[];
+    }
+
     /**
      * Convert every pair in the file map that the source side actually has.
      *
      * Each target is OVERWRITTEN and may hold strings this source does not carry, so an existing one is
      * confirmed first — and refused rather than guessed when there is no terminal to ask.
      */
-    export async function convertAll(fileMapPath: string, renamesPath: string, options: RunOptions = {}): Promise<void> {
-        const map = parseFileMap(readFileSync(fileMapPath, "utf8"), fileMapPath);
-        const renames = parseRenames(readFileSync(renamesPath, "utf8"));
+    export async function convertAll(settings: ConvertSettings, options: RunOptions = {}): Promise<void> {
+        const pairs = parseFileMap(readFileSync(settings.files, "utf8"));
+        const renames = parseRenames(readFileSync(settings.renames, "utf8"));
 
-        SafeConsole.writeLine(`[translation-convert] files:   ${resolve(fileMapPath)}`);
-        SafeConsole.writeLine(`                     renames: ${resolve(renamesPath)} (${renames.size} keys)`);
+        SafeConsole.writeLine(`[translation-convert] files:   ${resolve(settings.files)} (${pairs.length} pairs)`);
+        SafeConsole.writeLine(`                     renames: ${resolve(settings.renames)} (${renames.size} keys)`);
+        SafeConsole.writeLine(`                     ${resolve(settings.sourceRoot)} -> ${resolve(settings.targetRoot)}`
+            + `, cultures ${settings.cultures.join(" ")}`);
 
         let written = 0, skipped = 0, missing = 0;
-        for (const pair of map.pairs)
-            for (const culture of map.cultures) {
-                const source = join(map.sourceRoot, `${pair.source}.${culture}.xml`);
+        for (const pair of pairs)
+            for (const culture of settings.cultures) {
+                const source = join(settings.sourceRoot, `${pair.source}.${culture}.xml`);
                 if (!existsSync(source)) { missing++; continue; }   // the source side does not translate this one
-                const target = join(map.targetRoot, `${pair.target}.${culture}.xml`);
+                const target = join(settings.targetRoot, `${pair.target}.${culture}.xml`);
                 if (await convertOne(source, target, renames, options)) written++;
                 else skipped++;
             }
@@ -220,12 +206,12 @@ export namespace TranslationConverter {
      *   <cmd> --yes                …without asking before each overwrite
      *   <cmd> <source> <target>    convert one pair, ignoring the file map
      */
-    export async function runCommand(args: string[], fileMapPath: string, renamesPath: string): Promise<void> {
+    export async function runCommand(args: string[], settings: ConvertSettings): Promise<void> {
         const options: RunOptions = { yes: args.includes("--yes") };
         const positional = args.filter(a => !a.startsWith("--"));
 
         if (positional.length === 0) {
-            await convertAll(fileMapPath, renamesPath, options);
+            await convertAll(settings, options);
             return;
         }
         if (positional.length !== 2) {
@@ -234,7 +220,7 @@ export namespace TranslationConverter {
             return;
         }
 
-        const renames = parseRenames(readFileSync(renamesPath, "utf8"));
+        const renames = parseRenames(readFileSync(settings.renames, "utf8"));
         await convertOne(resolve(positional[0]), resolve(positional[1]), renames, options);
     }
 }
