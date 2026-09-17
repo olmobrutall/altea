@@ -1,4 +1,3 @@
-import { readFileSync, writeFileSync } from "node:fs";
 import "@altea/altea/server";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
@@ -24,10 +23,11 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 //    had no translation (`DescriptionManager.NotLocalizedMember`) so the sync page can order by "what
 //    users actually hit". altea's resolver has no such event, and adding one would put a counter on the
 //    hottest path in the framework for a sorting nicety. The sync pages order by folder instead.
-//  - **`SynchronizeTypes` takes a FILE where Signum takes a prompt.** Signum's terminal command asks,
-//    type by type, which old name became which new one, then rewrites the files in place. `convertFile`
-//    below reads the same answers from a replacement dictionary, which is what makes a port repeatable
-//    and reviewable — and lets one key answer TWICE, for the Signum embedded that altea split in two.
+//  - **`SynchronizeTypes` takes a FILE where Signum takes a prompt, and lives in TranslationConverter.**
+//    Signum's terminal command asks, type by type, which old name became which new one, then rewrites the
+//    files in place. The port reads the same answers from a dictionary, which is what makes it repeatable
+//    and reviewable. It is a sibling module rather than part of this starter because it runs with no
+//    schema and no database — a file-to-file tool, not a piece of the module.
 //  - **`CopyTranslations` has no counterpart.** It copies the files out of a build output back into the
 //    source tree; a package's `translations/` directory IS the source here, nothing is copied at build
 //    time, and a renamed type simply loses its entry — which the sync page then offers to re-fill.
@@ -91,89 +91,5 @@ export namespace TranslationLogic {
     /** Warm the instance cache's sync snapshot — call after `schema.initialize()`, like CultureInfoLogic. */
     export async function warmUp(): Promise<void> {
         await TranslatedInstanceLogic.warmUp();
-    }
-
-    // ---- Converting another framework's translation file ------------------------------------------------
-
-    /** What {@link convertFile} did, for the operator to read. */
-    export interface ConvertResult {
-        /** `<Type>` snippets read from the source. */
-        read: number;
-        /** …of those, how many had a dictionary entry. */
-        renamed: number;
-        /** Extra copies emitted because a key appears more than once. */
-        duplicated: number;
-        /** Source type names with no entry, copied through unchanged. */
-        unmapped: string[];
-    }
-
-    /**
-     * Copy one translation file to another, renaming the TYPES on the way — Signum's `SynchronizeTypes`
-     * with its interactive prompt replaced by a file, which is what makes a port repeatable.
-     *
-     * Deliberately a TEXT copy, not a parse-and-rebuild: everything the dictionary does not name comes out
-     * byte for byte as it went in, so a converted file still diffs cleanly against the one it came from.
-     *
-     * The dictionary is GLOBAL — one file for a whole port, not one per module — and a key may repeat:
-     *
-     *     QueryColumnEmbedded -> UserQueryEntity_Column
-     *     QueryColumnEmbedded -> UserChartEntity_Column
-     *
-     * A repeated key emits the snippet ONCE PER TARGET, because altea routinely splits one of Signum's
-     * shared embeddeds into a row entity per owner, and each one is described under its own name. That
-     * deliberately writes more than the receiving package declares; the first synchronization drops the
-     * rest, since `exportXml` only ever writes what the process actually has. Over-writing and letting the
-     * sync simplify is the cheap direction — the expensive one is a translation that silently never lands.
-     *
-     * A name with no entry is copied through unchanged, which is the common case: most types kept their
-     * name. The result lists them so the operator can see what the dictionary still owes.
-     *
-     * The TARGET IS OVERWRITTEN. Point it at a file the source alone should define.
-     */
-    export function convertFile(sourceFile: string, targetFile: string, dictionaryFile: string): ConvertResult {
-        const dictionary = parseDictionary(readFileSync(dictionaryFile, "utf8"));
-        const result: ConvertResult = { read: 0, renamed: 0, duplicated: 0, unmapped: [] };
-
-        // Each `<Type …/>` or `<Type …>…</Type>` on its own line, with its indentation, so a duplicate
-        // lands in the same column as the original.
-        const converted = readFileSync(sourceFile, "utf8").replace(
-            /^([ \t]*)(<Type\s[^>]*?(?:\/>|>[\s\S]*?<\/Type>))/gm,
-            (whole, indent: string, block: string) => {
-                const name = /^<Type\s[^>]*?\bName="([^"]*)"/.exec(block)?.[1];
-                if (name == undefined)
-                    return whole;
-
-                result.read++;
-                const targets = dictionary.get(name);
-                if (targets == undefined) {
-                    result.unmapped.push(name);
-                    return whole;
-                }
-
-                result.renamed++;
-                result.duplicated += targets.length - 1;
-                return targets
-                    .map(t => indent + block.replace(/^(<Type\s[^>]*?\bName=")[^"]*(")/, `$1${t}$2`))
-                    .join("\n");
-            });
-
-        writeFileSync(targetFile, converted, "utf8");
-        result.unmapped = [...new Set(result.unmapped)].sort();
-        return result;
-    }
-
-    /** `Old -> New` per line; `#` comments and blank lines ignored. A repeated key keeps every target. */
-    function parseDictionary(text: string): Map<string, string[]> {
-        const result = new Map<string, string[]>();
-        for (const raw of text.split(/\r?\n/)) {
-            const line = raw.replace(/#.*$/, "").trim();
-            if (line === "")
-                continue;
-            const m = /^(\S+)\s*->\s*(\S+)$/.exec(line);
-            if (m == undefined)
-                throw new Error(`Not a 'Old -> New' line in the replacement dictionary: '${raw.trim()}'`);
-            (result.get(m[1]) ?? result.set(m[1], []).get(m[1])!).push(m[2]);
-        }
-        return result;
     }
 }
