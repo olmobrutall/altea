@@ -316,10 +316,21 @@ export namespace TranslationServer {
 
         return {
             culture,
+            // For the TARGET culture, fall back to what it ALREADY HAS before offering a suggestion.
+            //
+            // Signum fills the target from the conflict or a machine suggestion and never from the target's
+            // own stored value, which is harmless there: a type reaches the sync page only when something
+            // is missing, and in Signum that means the description itself. altea asks a row model for a
+            // plural and a gender too, so a type can arrive here fully described and still incomplete — and
+            // then the editor showed a BLANK description box over a translated file. `saveTypes` writes the
+            // box back unconditionally, so filling in the gender and saving ERASED the description.
             typeDescription: t.typeConflict == undefined || (tc == undefined && !isTarget) ? undefined : {
-                description: tc?.original.description ?? (isTarget ? distinctOnly(allTypeSuggestions.map(a => a.singular)) : undefined),
-                pluralDescription: tc?.original.pluralDescription ?? (isTarget ? distinctOnly(allTypeSuggestions.map(a => a.plural)) : undefined),
-                gender: tc?.original.gender ?? (isTarget ? distinctOnly(allTypeSuggestions.map(a => a.gender)) : undefined),
+                description: tc?.original.description
+                    ?? (isTarget ? t.type.description ?? distinctOnly(allTypeSuggestions.map(a => a.singular)) : undefined),
+                pluralDescription: tc?.original.pluralDescription
+                    ?? (isTarget ? t.type.pluralDescription ?? distinctOnly(allTypeSuggestions.map(a => a.plural)) : undefined),
+                gender: tc?.original.gender
+                    ?? (isTarget ? t.type.gender ?? distinctOnly(allTypeSuggestions.map(a => a.gender)) : undefined),
                 automaticTranslations: tc?.automaticTranslations,
             },
             members: Object.fromEntries([...t.memberConflicts.entries()]
