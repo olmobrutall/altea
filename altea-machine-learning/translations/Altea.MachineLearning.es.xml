@@ -129,6 +129,12 @@
     <Member Name="TrainingException" Description="Excepción de entrenamiento" />
     <Member Name="User" Description="Usuario" />
   </Type>
+  <Type Name="PredictorEntity_Column" Description="Columna predictor">
+    <Member Name="Encoding" Description="Codificación" />
+    <Member Name="NullHandling" Description="Manejo de nulos" />
+    <Member Name="Token" Description="Token" />
+    <Member Name="Usage" Description="Uso" />
+  </Type>
   <Type Name="PredictorEpochProgressEntity" Description="Progreso de etapa de predictor">
     <Member Name="AccuracyTraining" Description="Entrenamiento de precisión" />
     <Member Name="AccuracyValidation" Description="Validación de precisión" />
@@ -231,6 +237,12 @@
     <Member Name="Order" Description="Orden" />
     <Member Name="Predictor" Description="Predictor" />
     <Member Name="Query" Description="Consulta" />
+  </Type>
+  <Type Name="PredictorSubQueryEntity_Column" Description="Columna de subconsulta del predictor">
+    <Member Name="Encoding" Description="Codificación" />
+    <Member Name="NullHandling" Description="Manejo de nulos" />
+    <Member Name="Token" Description="Token" />
+    <Member Name="Usage" Description="Uso" />
   </Type>
   <Type Name="PredictSimpleResultEntity" Description="Resultado simple de predictor">
     <Member Name="Key0" Description="Key0" />

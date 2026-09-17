@@ -134,6 +134,10 @@
     <Member Name="ViewContent" Description="Ver el contenido de" />
     <Member Name="ViewName" Description="Nombre de la vista" />
   </Type>
+  <Type Name="DynamicViewEntity_Prop" Description="Prop de vista dinámica">
+    <Member Name="Name" Description="Nombre" />
+    <Member Name="Type" Description="Tipo" />
+  </Type>
   <Type Name="DynamicViewMessage">
     <Member Name="AddChild" Description="Agregar hijo" />
     <Member Name="AddSibling" Description="Añadir hermano" />

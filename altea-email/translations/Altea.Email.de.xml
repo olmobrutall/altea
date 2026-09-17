@@ -201,6 +201,16 @@
     <Member Name="Query" Description="Abfrage" />
     <Member Name="Recipients" Description="Empfänger" />
   </Type>
+  <Type Name="EmailTemplateEntity_Message" Description="Nachricht E-Mail-Vorlage">
+    <Member Name="CultureInfo" Description="Kulturinfo" />
+    <Member Name="Subject" Description="Betreff" />
+    <Member Name="Text" Description="Text" />
+  </Type>
+  <Type Name="EmailTemplateEntity_Recipient" Description="E-Mail-Vorlagenempfänger">
+    <Member Name="Kind" Description="Art" />
+    <Member Name="WhenMany" Description="Wenn viele" />
+    <Member Name="WhenNone" Description="Wenn keine" />
+  </Type>
   <Type Name="EmailTemplateFromEmbedded" Description="E-Mail Vorlage Von">
     <Member Name="AzureUserId" Description="Azure-Benutzer-ID" />
     <Member Name="WhenMany" Description="Wenn viele" />

@@ -88,6 +88,7 @@
     <Member Name="To" Description="Para" />
   </Type>
   <Type Name="SMSTemplateEntity_Message" Description="Mensaje de plantilla SMS">
+    <Member Name="CultureInfo" Description="Información cultura" />
     <Member Name="Message" Description="Mensaje" />
     <Member Name="Template" Description="Plantilla" />
   </Type>

@@ -36,6 +36,7 @@
     <Member Name="Owner" Description="Eigentümer" />
     <Member Name="Priority" Description="Priorität" />
   </Type>
+  <Type Name="ToolbarEntity_Element" Description="Toolbar-element" />
   <Type Name="ToolbarLocation" Description="Toolbar-Position">
     <Member Name="Main" Description="Haupt" />
     <Member Name="Side" Description="Seite" />
@@ -46,6 +47,10 @@
     <Member Name="EntityType" Description="Entitätstyp" />
     <Member Name="Name" Description="Name" />
     <Member Name="Owner" Description="Eigentümer" />
+  </Type>
+  <Type Name="ToolbarMenuEntity_Element" Description="Menüelement der Symbolleiste">
+    <Member Name="AutoSelect" Description="Automatisch auswählen" />
+    <Member Name="WithEntity" Description="Mit Entität" />
   </Type>
   <Type Name="ToolbarMenuOperation">
     <Member Name="Delete" Description="Löschen" />
@@ -68,6 +73,11 @@
     <Member Name="Name" Description="Name" />
     <Member Name="Options" Description="Optionen" />
     <Member Name="Owner" Description="Besitzer" />
+  </Type>
+  <Type Name="ToolbarSwitcherEntity_Option" Description="Toolbar-Umschalter-Option">
+    <Member Name="IconColor" Description="Symbolfarbe" />
+    <Member Name="IconName" Description="Symbolname" />
+    <Member Name="ToolbarMenu" Description="Toolbar-Menü" />
   </Type>
   <Type Name="ToolbarSwitcherOperation">
     <Member Name="Delete" Description="Löschen" />

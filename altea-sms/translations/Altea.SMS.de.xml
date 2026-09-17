@@ -88,6 +88,7 @@
     <Member Name="To" Description="An" />
   </Type>
   <Type Name="SMSTemplateEntity_Message" Description="SMS-Vorlagennachricht">
+    <Member Name="CultureInfo" Description="Sprache" />
     <Member Name="Message" Description="Nachricht" />
     <Member Name="Template" Description="Vorlage" />
   </Type>

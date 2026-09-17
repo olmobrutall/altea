@@ -133,6 +133,16 @@
     <Member Name="Query" Description="Consulta" />
     <Member Name="Recipients" Description="Destinatarios" />
   </Type>
+  <Type Name="EmailTemplateEntity_Message" Description="Mensaje plantilla email">
+    <Member Name="CultureInfo" Description="Cultura" />
+    <Member Name="Subject" Description="Asunto" />
+    <Member Name="Text" Description="Texto" />
+  </Type>
+  <Type Name="EmailTemplateEntity_Recipient" Description="Destinatario de la plantilla de correo electrónico">
+    <Member Name="Kind" Description="Tipo" />
+    <Member Name="WhenMany" Description="Cuando varios" />
+    <Member Name="WhenNone" Description="Cuando ninguno" />
+  </Type>
   <Type Name="EmailTemplateFromEmbedded" Description="De plantilla email">
     <Member Name="AzureUserId" Description="Id usuario Azure" />
     <Member Name="WhenMany" Description="Cuando varios" />

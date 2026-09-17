@@ -22,6 +22,7 @@
     <Member Name="Owner" Description="Propietario" />
     <Member Name="Priority" Description="Prioridad" />
   </Type>
+  <Type Name="ToolbarEntity_Element" Description="Elemento de la barra de herramientas" />
   <Type Name="ToolbarLocation" Description="Ubicación de la barra de herramientas">
     <Member Name="Main" Description="Principal" />
     <Member Name="Side" Description="Lado" />
