@@ -21,6 +21,11 @@ import { CachedTableLite, CachedTable, CachedTableBase, installCachedTableHooks 
 import type { IServerBroadcast } from "./Broadcast/IServerBroadcast";
 import { TypeConditionLogic } from "@altea/altea-auth/server/TypeConditionLogic";
 import { CachePermission } from "../data/CachePermission";
+// Side effect: registers `CacheMessage`. A `msg()` container registers when its module is imported and
+// the translation sync reads the LIVE registry, so a container only the CLIENT imports (here, the cache
+// statistics page) is invisible to it — and the sync then rewrites Altea.Cache.*.xml without it,
+// deleting the 20 German strings Signum ships for the panel.
+import "../data/CacheMessage";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 
 // Port of Signum.Caching's CacheLogic.cs — see port/Cache.md.

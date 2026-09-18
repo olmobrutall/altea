@@ -5,6 +5,11 @@ import { ProfilerServer } from "./ProfilerServer";
 // called by the auth module — seeds. So they end up in the PermissionSymbol table and are authorizable
 // without any extra SymbolLogic.start here (which would double-start).
 import "../data/ProfilerPermission";
+// The same shape, for the same reason, one registry over: a `msg()` container registers when its module
+// is imported, and the translation sync reads the LIVE registry. HeavyProfilerMessage / ProfilerMessage /
+// TimeMessage are imported only by the profiler's React pages, so the sync never saw them and rewrote
+// Altea.Profiler.*.xml without them — deleting 48 German strings Signum ships.
+import "../data/ProfilerMessages";
 import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 import { ProfilerPermission } from "../data/ProfilerPermission";
 

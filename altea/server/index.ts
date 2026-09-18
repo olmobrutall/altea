@@ -22,6 +22,19 @@ import { NullableInterval } from './systemTime';
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, ParameterExpression, PropertyExpression } from './linq/expressions';
 import { ExpressionVisitor } from './linq/visitors/ExpressionVisitor';
 import './decimalFunctions'; // side effect: attaches __resultType to the Decimal.* static arithmetic methods
+// Side effect: REGISTERS the SearchControl's help-popover message containers (SearchHelpMessage,
+// FieldExpressionMessage, FilterFieldMessage, ColumnFieldMessage, QueryTokenHelpMessage).
+//
+// `msg()` containers register when their module is imported, and `localizableTypes()` reads the live
+// registry — so a container only the CLIENT imports is invisible to the translation sync, which then
+// rewrites the package's file without it and DELETES its translations. That is what happened to these
+// five: 91 lines of German help text Signum ships never reached altea (and the same shape hid
+// CacheMessage and the three Profiler containers).
+//
+// Imported HERE rather than from `data/dynamicQueries` because the point of the separate module is that a
+// page which never opens a help popover should not carry the prose (see its header) — a server import
+// costs the client bundle nothing.
+import '../data/searchHelpMessages';
 
 // Logic-layer barrel: re-exports the common server entry points alongside installing
 // the entity/lite extension-method prototypes (below).
