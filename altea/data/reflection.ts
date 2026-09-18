@@ -5,6 +5,7 @@ import type { EntityKind, EntityData } from './decorators';
 import type { Quoted } from 'quote-transformer/quoted';
 import { registerType, resolveType, resolveEnum, enumNameOf } from './registration';
 import { MixinDeclarations } from './mixinDeclarations';
+import { Decimal, Temporal } from './basics';
 // TYPE-only: the enum's runtime object lives in a module that installs the Temporal prototype
 // augmentations, and reflection.ts is imported by everything — the member NAMES are all it needs.
 import type { DateTimePrecisionKeys } from './globals/dateTimeExtensions';
@@ -118,6 +119,27 @@ export type SubTypeName = "short" | "int" | "long" | "float" | "decimal" | "uuid
 export const globalValidators: Array<
     (entity: any, fi: FieldInfo, env: IntegrityCheckEnvironment) => string | null | undefined | Promise<string | null | undefined>
 > = [];
+
+/**
+ * The CONSTRUCTOR a value `typeName` stands for, which is what `Validator.isCompatibleWith` is asked
+ * about (`type === String`, `type === Temporal.PlainDate`, …). A value field carries only the name, so
+ * without this table the compatibility check has nothing to hand it. `Guid` and `Blob` are deliberately
+ * absent: no validator declares itself compatible with either, so naming them would turn "unmapped,
+ * skip" into "incompatible, throw".
+ */
+function valueTypeConstructor(typeName: string | undefined): Function | undefined {
+    switch (typeName) {
+        case "String": return String;
+        case "Number": return Number;
+        case "Boolean": return Boolean;
+        case "Decimal": return Decimal;
+        case "PlainDate": return Temporal.PlainDate;
+        case "PlainDateTime": return Temporal.PlainDateTime;
+        case "PlainTime": return Temporal.PlainTime;
+        case "Duration": return Temporal.Duration;
+        default: return undefined;
+    }
+}
 
 export class TypeReference {
     // The value / enum / interface type name (see {@link TypeName}). For entity/embedded/enum
@@ -500,6 +522,7 @@ export class FieldInfo extends TypeReference {
 
     /** The declared validators (implicit NotNull first), shared by both entry points. */
     private validateDeclared(entity: any, env: IntegrityCheckEnvironment): string | null {
+        this.assertValidatorsCompatible();
         const value = entity[this.name];
         // Signum auto-adds a NotNullValidator to every non-nullable reference/string property; altea
         // synthesises it here (see getImplicitNotNull) so it runs BEFORE the declared validators — a
@@ -514,6 +537,46 @@ export class FieldInfo extends TypeReference {
             if (error != null) return error;
         }
         return null;
+    }
+
+    /**
+     * Signum's `PropertyValidator.AssertCompatible` — every validator declares `isCompatibleWith`, and
+     * until now NOTHING asked, so a `@decimalsValidator` on a string was silently accepted and simply
+     * never fired.
+     *
+     * LAZY and memoised, which is where Signum puts it too: it asserts while BUILDING the
+     * PropertyValidator, i.e. the first time the type is reflected, not at attribute-application time.
+     * altea cannot assert in the decorator either, and for a sharper reason — `TypeReference.type` is a
+     * THUNK, so resolving it while the class is still being declared can hit a not-yet-initialised
+     * binding. By the time a value is being validated the graph is complete.
+     *
+     * A field whose type does not resolve to a constructor (an enum, a bare value `typeName`) is skipped
+     * rather than guessed at: `isCompatibleWith` is asked about a `Function`, and there is nothing
+     * truthful to hand it.
+     */
+    private compatibilityChecked = false;
+    private assertValidatorsCompatible(): void {
+        if (this.compatibilityChecked)
+            return;
+
+        // A COLLECTION field's type is `Array`, not its element's — `getFunction()` answers the element,
+        // which is what a `CountIsValidator` (compatible with `Array`) would otherwise be measured against.
+        // Signum has this for free: `IsCompatibleWith(PropertyInfo)` reads `pi.PropertyType`, and an MList
+        // property's type IS the collection.
+        const ctor = this.array ? Array : (this.getFunction() ?? valueTypeConstructor(this.typeName));
+        if (ctor != undefined)
+            for (const validator of this.validators)
+                // A validator that declares NO compatibility answers for everything, as Signum's base does.
+                if (validator.isCompatibleWith != undefined && !validator.isCompatibleWith(ctor))
+                    throw new Error(
+                        `Validator ${validator.constructor.name} is not compatible with the field ` +
+                        `'${this.name}' of type ${ctor.name}.`);
+
+        // Only a PASSING check is remembered. Setting the flag first would make a bad declaration throw
+        // once and then validate silently for the rest of the process — fail-open, and worse than never
+        // having checked. Signum cannot hit this: it asserts while BUILDING the PropertyValidator, so a
+        // failure means the validator never exists at all.
+        this.compatibilityChecked = true;
     }
 
     // Signum's implicit NotNullValidator (PropertyValidator ctor: a non-nullable, non-value-type
