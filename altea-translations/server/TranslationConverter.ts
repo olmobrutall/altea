@@ -85,19 +85,19 @@ export namespace TranslationConverter {
     }
 
     /**
-     * Copy one translation file to another, renaming the TYPES on the way. The TARGET IS OVERWRITTEN.
+     * One source document, converted — renaming the TYPES and duplicating a snippet per extra target.
      *
-     * Deliberately a TEXT copy, not a parse-and-rebuild: everything the renames do not name comes out byte
-     * for byte, so a converted file still diffs cleanly against the one it came from. A name with no entry
-     * is copied through unchanged — the common case, since most types kept their name — and the result
-     * lists those so the operator can see what the dictionary still owes.
+     * Deliberately a TEXT transform, not a parse-and-rebuild: everything the renames do not name comes out
+     * byte for byte, so a converted file still diffs cleanly against the one it came from. A name with no
+     * entry is copied through unchanged — the common case, since most types kept their name — and the
+     * result lists those so the operator can see what the dictionary still owes.
      */
-    export function convertFile(sourceFile: string, targetFile: string, renames: Map<string, string[]>): ConvertResult {
+    export function convertText(xml: string, renames: Map<string, string[]>): { xml: string; result: ConvertResult } {
         const result: ConvertResult = { read: 0, renamed: 0, duplicated: 0, unmapped: [] };
 
         // Each `<Type …/>` or `<Type …>…</Type>` on its own line, with its indentation, so a duplicate
         // lands in the same column as the original.
-        const converted = readFileSync(sourceFile, "utf8").replace(
+        const converted = xml.replace(
             /^([ \t]*)(<Type\s[^>]*?(?:\/>|>[\s\S]*?<\/Type>))/gm,
             (whole, indent: string, block: string) => {
                 const name = /^<Type\s[^>]*?\bName="([^"]*)"/.exec(block)?.[1];
@@ -118,10 +118,53 @@ export namespace TranslationConverter {
                     .join("\n");
             });
 
-        mkdirSync(dirname(targetFile), { recursive: true });
-        writeFileSync(targetFile, converted, "utf8");
         result.unmapped = [...new Set(result.unmapped)].sort();
-        return result;
+        return { xml: converted, result };
+    }
+
+    /**
+     * Convert one or MORE sources into one target, which is OVERWRITTEN.
+     *
+     * Several sources per target is ordinary, not an edge case: altea merges assemblies. Signum keeps
+     * `CollectionMessage` in Signum.Utilities and the rest of core in Signum, while altea has one core
+     * package; Signum.Excel and Signum.Word are one @altea/altea-office-template. The first document
+     * supplies the prologue and the root element, and every later one contributes its body.
+     *
+     * A type both sources describe simply appears twice, exactly as a duplicated rename key makes it
+     * appear twice — the first synchronization keeps one.
+     */
+    export function convertFiles(sourceFiles: string[], targetFile: string, renames: Map<string, string[]>): ConvertResult {
+        const converted = sourceFiles.map(f => convertText(readFileSync(f, "utf8"), renames));
+
+        mkdirSync(dirname(targetFile), { recursive: true });
+        writeFileSync(targetFile, mergeDocuments(converted.map(c => c.xml)), "utf8");
+
+        return {
+            read: converted.reduce((a, c) => a + c.result.read, 0),
+            renamed: converted.reduce((a, c) => a + c.result.renamed, 0),
+            duplicated: converted.reduce((a, c) => a + c.result.duplicated, 0),
+            unmapped: [...new Set(converted.flatMap(c => c.result.unmapped))].sort(),
+        };
+    }
+
+    /** The first document, with every later one's body spliced in before its closing tag. */
+    function mergeDocuments(docs: string[]): string {
+        if (docs.length === 1)
+            return docs[0];
+
+        const bodyOf = (doc: string): string => {
+            const open = /<Translations\s*>/.exec(doc);
+            const close = doc.lastIndexOf("</Translations>");
+            if (open == null || close < 0)
+                throw new Error("A translation file must have a <Translations> root to be merged into another");
+            return doc.slice(open.index + open[0].length, close);
+        };
+
+        const [first, ...rest] = docs;
+        const close = first.lastIndexOf("</Translations>");
+        if (close < 0)
+            throw new Error("A translation file must have a <Translations> root to be merged into");
+        return first.slice(0, close) + rest.map(bodyOf).join("") + first.slice(close);
     }
 
     // ---- The batch, and the console ---------------------------------------------------------------------
@@ -146,9 +189,10 @@ export namespace TranslationConverter {
     }
 
     /**
-     * Convert every pair in the file map that the source side actually has.
+     * Convert everything the file map names, grouping the sources that share a TARGET so each target file
+     * is written exactly once, from all of them.
      *
-     * Each target is OVERWRITTEN and may hold strings this source does not carry, so an existing one is
+     * Each target is OVERWRITTEN and may hold strings its sources do not carry, so an existing one is
      * confirmed first — and refused rather than guessed when there is no terminal to ask.
      */
     export async function convertAll(settings: ConvertSettings, options: RunOptions = {}): Promise<void> {
@@ -161,23 +205,31 @@ export namespace TranslationConverter {
             + `, cultures ${settings.cultures.join(" ")}`);
 
         let written = 0, skipped = 0, missing = 0;
-        for (const pair of pairs)
-            for (const culture of settings.cultures) {
+        for (const culture of settings.cultures) {
+            // Group per culture, since a source may translate one culture and not another.
+            const byTarget = new Map<string, string[]>();
+            for (const pair of pairs) {
                 const source = join(settings.sourceRoot, `${pair.source}.${culture}.xml`);
                 if (!existsSync(source)) { missing++; continue; }   // the source side does not translate this one
                 const target = join(settings.targetRoot, `${pair.target}.${culture}.xml`);
-                if (await convertOne(source, target, renames, options)) written++;
-                else skipped++;
+                const list = byTarget.get(target);
+                if (list == undefined) byTarget.set(target, [source]);
+                else list.push(source);
             }
+
+            for (const [target, sources] of byTarget)
+                if (await convertOne(sources, target, renames, options)) written++;
+                else skipped++;
+        }
 
         SafeConsole.writeLine();
         SafeConsole.writeLine(`[translation-convert] ${written} written, ${skipped} skipped`
             + `, ${missing} with no source file`);
     }
 
-    /** One pair, with the overwrite confirmation. Returns whether the file was written. */
+    /** One target and everything that feeds it, with the overwrite confirmation. Returns whether it was written. */
     export async function convertOne(
-        source: string, target: string, renames: Map<string, string[]>, options: RunOptions = {},
+        sources: string[], target: string, renames: Map<string, string[]>, options: RunOptions = {},
     ): Promise<boolean> {
         if (existsSync(target) && options.yes !== true) {
             if (!SafeConsole.isInteractive()) {
@@ -190,8 +242,9 @@ export namespace TranslationConverter {
             }
         }
 
-        const r = convertFile(source, target, renames);
-        SafeConsole.writeLine(`  ${source}`);
+        const r = convertFiles(sources, target, renames);
+        for (const s of sources)
+            SafeConsole.writeLine(`  ${s}`);
         SafeConsole.writeLine(`  -> ${target}`);
         SafeConsole.writeLine(`     ${r.read} types read, ${r.renamed} renamed, ${r.duplicated} duplicated`
             + (r.unmapped.length > 0 ? `, ${r.unmapped.length} unchanged` : ""));
@@ -202,9 +255,9 @@ export namespace TranslationConverter {
      * The whole terminal command — argument parsing, both modes and the console output — so an application
      * contributes its two data files and this one call.
      *
-     *   <cmd>                      convert every pair in the file map
-     *   <cmd> --yes                …without asking before each overwrite
-     *   <cmd> <source> <target>    convert one pair, ignoring the file map
+     *   <cmd>                            convert everything the file map names
+     *   <cmd> --yes                      …without asking before each overwrite
+     *   <cmd> <source…> <target>         convert these sources into that target, ignoring the file map
      */
     export async function runCommand(args: string[], settings: ConvertSettings): Promise<void> {
         const options: RunOptions = { yes: args.includes("--yes") };
@@ -214,13 +267,14 @@ export namespace TranslationConverter {
             await convertAll(settings, options);
             return;
         }
-        if (positional.length !== 2) {
-            SafeConsole.writeLine("Usage: <cmd> [--yes]                  — every pair in the file map");
-            SafeConsole.writeLine("       <cmd> <source.xml> <target.xml> [--yes]");
+        if (positional.length < 2) {
+            SafeConsole.writeLine("Usage: <cmd> [--yes]                          — everything the file map names");
+            SafeConsole.writeLine("       <cmd> <source.xml>… <target.xml> [--yes]");
             return;
         }
 
         const renames = parseRenames(readFileSync(settings.renames, "utf8"));
-        await convertOne(resolve(positional[0]), resolve(positional[1]), renames, options);
+        const target = positional[positional.length - 1];
+        await convertOne(positional.slice(0, -1).map(s => resolve(s)), resolve(target), renames, options);
     }
 }
