@@ -128,6 +128,12 @@ writes them; the `DynamicValidator` union's member names are Signum's for the sa
 enum would have been wrong twice over — the definition would stop round-tripping, and the JSON column is
 not a reflected field anyway. Only `DynamicBaseType`, which IS a real column, is an altea enum.
 
+`StringCase` is the one member name Signum itself is inconsistent about: its C# enum is `Uppercase` /
+`Lowercase`, its editor offers `"UpperCase"` / `"LowerCase"`, and the two only meet because
+`JsonStringEnumConverter` matches case-insensitively. altea's editor writes the enum's real member names,
+and `getValidatorDecorator` resolves what it reads case-insensitively — so a definition authored in either
+framework, with either spelling, still generates.
+
 ## `DynamicMixinConnectionEntity.entityType` is a PLAIN reference
 
 As every other `Lite<TypeEntity>` in the workspace is. It carried a single-implementation

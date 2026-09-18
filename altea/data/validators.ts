@@ -6,6 +6,7 @@ import { msg } from './utils/localization';
 import { Decimal, Temporal } from './basics';
 import { DateTimePrecision, getPrecision } from './globals/dateTimeExtensions';
 import { Enum } from './enum';
+import { registerEnum } from './registration';
 
 export { Validator } from './reflection';
 // The vocabulary `@dateTimePrecisionValidator` takes, re-exported so a declaring entity imports the
@@ -41,6 +42,9 @@ export const ValidationMessage = {
     Have0Decimals: msg("have {0} decimals"),
     _0HasAPrecisionOf1InsteadOf2: msg("{0} has a precision of {1} instead of {2}"),
     HaveAPrecisionOf0: msg("have a precision of {0}"),
+    _0HasToBeUppercase: msg("{0} has to be uppercase"),
+    _0HasToBeLowercase: msg("{0} has to be lowercase"),
+    Be0: msg("be {0}"),
 };
 
 // Signum's ComparisonType (Entities/Validation/ValidationAttributes.cs) — how a count / number validator
@@ -337,6 +341,67 @@ export class DateTimePrecisionValidator extends Validator {
     }
 
     private precisionName(): string { return Enum.niceName(DateTimePrecision, this.precision); }
+}
+
+// --- StringCaseValidator ---
+//
+// Signum's [StringCaseValidator(StringCase.Uppercase)] and the enum it takes, which Signum declares in
+// the SAME file as the validator (Entities/Validation/ValidationAttributes.cs) rather than in a
+// utilities module — so both live here, unlike DateTimePrecision.
+//
+// It only REPORTS. Signum's OverrideError compares the string against its own ToUpper()/ToLower() and
+// returns a message; it never writes the corrected value back, and neither does this. A validator that
+// silently rewrote what the user typed would make `entity.isDirty()` true after a save and would hide a
+// paste of the wrong text rather than surface it.
+//
+// Divergence, deliberate: Signum's `Reflector.GetFormatString` ALSO derives a format string from this
+// validator — "U" or "L" — and nothing in Signum reads it back (no formatter, client or server, handles
+// either specifier), so altea does not produce one. Unlike DateTimePrecision there is no second reader,
+// which is why nothing is copied onto the FieldInfo either: the schema does not consult it (a string's
+// column comes from StringLengthValidator's max), and the query tokens do not.
+
+export enum StringCase {
+    Uppercase,
+    Lowercase,
+}
+export type StringCaseKeys = keyof typeof StringCase;
+
+// No entity FIELD is of this type, so nothing auto-registers it — same reason DateTimePrecision needs the
+// hand-written call. Without a registered NAME `Enum.niceName` (which the help message below reads) has
+// no translation key and falls back to the English identifier in every culture. Registering creates no
+// table; the schema builder only builds one where a FieldEnum references the type.
+registerEnum(StringCase);
+
+export interface StringCaseOptions extends ValidatorOptions { }
+
+export function stringCaseValidator(textCase: StringCase, options: StringCaseOptions = {}) {
+    return (target: object, propertyKey: string | symbol) =>
+        addValidator(target, propertyKey, new StringCaseValidator(textCase), options);
+}
+
+export class StringCaseValidator extends Validator {
+    constructor(public readonly textCase: StringCase) { super(); }
+
+    isCompatibleWith(type: Function) { return type === String; }
+
+    // Signum: ValidationMessage.Be0.NiceToString(textCase.NiceToString()) — the member's nice name, not
+    // lower-cased, because "Uppercase" / "Lowercase" is how the value reads in a sentence.
+    get helpMessage(): string {
+        return ValidationMessage.Be0.niceToString(Enum.niceName(StringCase, this.textCase));
+    }
+
+    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
+        const s = value as string | null | undefined;
+        if (s == null || s === '') return null;
+
+        if (this.textCase === StringCase.Uppercase && s !== s.toUpperCase())
+            return ValidationMessage._0HasToBeUppercase.niceToString(fi.niceToString());
+
+        if (this.textCase === StringCase.Lowercase && s !== s.toLowerCase())
+            return ValidationMessage._0HasToBeLowercase.niceToString(fi.niceToString());
+
+        return null;
+    }
 }
 
 // --- UrlValidator ---

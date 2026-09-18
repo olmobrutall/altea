@@ -167,10 +167,26 @@ this. Port both and pass them at every `<Localization>` site.
 Signum.Utilities raises these from `SingleEx` / `SingleOrDefaultEx`. altea's single-element accessors throw
 unlocalized English. Port the two messages and use them.
 
-### A5 — `StringCase` + `StringCaseValidator`
-Signum's `[StringCaseValidator(StringCase.Uppercase)]`. altea has neither the validator nor a real enum —
-only a string-literal discriminator inside altea-dynamic's `DynamicType`. Port the validator, back it with
-a registered `StringCase` enum, and let altea-dynamic use it.
+### A5 — `StringCase` + `StringCaseValidator` — **DONE**
+Signum's `[StringCaseValidator(StringCase.Uppercase)]`. Both the enum and `@stringCaseValidator` live in
+`data/validators.ts`, which is where Signum declares them too (both in ValidationAttributes.cs, unlike
+DateTimePrecision, which Signum keeps in a utilities file) — with a hand-written `registerEnum`, since no
+entity field is of that type.
+
+Unlike its sibling B4 this really is ONLY a check: it REPORTS a value in the wrong case and never rewrites
+it (Signum's `OverrideError` returns a message and nothing more), nothing is denormalised onto `FieldInfo`
+because no reader is out of reach of `fi.validators`, and it does not touch the column — a string's size
+comes from `StringLengthValidator` (B6), so no DDL changed.
+
+One DIVERGENCE: Signum's `Reflector.GetFormatString` also derives a format string from this validator,
+`"U"` or `"L"`, and nothing in Signum ever reads either specifier back (no formatter on either tier
+handles them), so altea derives no format here.
+
+altea-dynamic now uses the real thing: `DynamicValidator`'s `StringCase` member is typed `StringCaseKeys`,
+the editor offers the enum's own member names, and `DynamicTypeLogic.getValidatorDecorator` emits
+`stringCaseValidator(StringCase.Uppercase)` — resolving the stored name CASE-INSENSITIVELY, because
+Signum's own editor writes `"UpperCase"` / `"LowerCase"` against a C# enum spelled `Uppercase` /
+`Lowercase` and System.Text.Json reads that back regardless of case.
 
 ### A6 — `PermissionSymbol` lives in `altea-auth`, not core
 Signum declares it in the core assembly; altea in `altea-auth/data/Rules.ts`. Consequences: a module that

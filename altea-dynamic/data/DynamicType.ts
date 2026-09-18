@@ -1,7 +1,7 @@
 import { reflect, init, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { column, entity, quoted } from "@altea/altea/data/decorators";
-import { stringLengthValidator, ValidationMessage, validate, ComparisonType } from "@altea/altea/data/validators";
+import { stringLengthValidator, ValidationMessage, validate, ComparisonType, type StringCaseKeys } from "@altea/altea/data/validators";
 import { registerEnum } from "@altea/altea/data/registration";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ConstructSymbol, From, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
@@ -113,7 +113,12 @@ export type DynamicValidator =
     | { type: "NumberIs"; comparisonType: ComparisonType; number: number }
     | { type: "CountIs"; comparisonType: ComparisonType; number: number }
     | { type: "NumberBetween"; min: number; max: number }
-    | { type: "StringCase"; textCase: "UpperCase" | "LowerCase" }
+    // The member names of the real `StringCase` enum (Uppercase / Lowercase), which is what Signum's C#
+    // enum serializes to as well. Signum's own editor offers "UpperCase" / "LowerCase" instead and gets
+    // away with it because System.Text.Json matches an enum member case-insensitively;
+    // `DynamicTypeLogic.getValidatorDecorator` does the same, so a definition written by either editor
+    // still generates.
+    | { type: "StringCase"; textCase: StringCaseKeys }
     // A validator with no arguments of its own (URL, EMail, Telephone,
     // NoRepeat…). The name is the decorator's, minus the "Validator" suffix.
     | { type: string; [extra: string]: unknown };

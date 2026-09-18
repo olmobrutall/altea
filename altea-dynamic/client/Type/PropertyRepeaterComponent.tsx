@@ -8,6 +8,8 @@ import { EntityControlMessage } from "@altea/altea/data/uiMessages";
 import ValueComponent, { type DynamicTypeDesignContext } from "./ValueComponent";
 import type { DynamicProperty, DynamicValidator } from "../../data/DynamicType";
 import { IsNullableValues, DynamicUniqueIndexValues } from "../../data/DynamicType";
+import { StringCase } from "@altea/altea/data/validators";
+import { Enum } from "@altea/altea/data/enum";
 
 // Port of the PROPERTY half of Signum.Dynamic's Type/DynamicTypeDefinitionComponent.tsx
 // (PropertyRepeaterComponent / PropertyComponent / TypeCombo / ValidatorRepeaterComponent, plus the type
@@ -394,7 +396,10 @@ export const validators: ValidatorDescriptor[] = [
     {
         type: "StringCase",
         isApplicable: dp => isString(dp.type ?? ""),
-        options: [{ name: "textCase", type: "string", options: ["UpperCase", "LowerCase"] }],
+        // The real `StringCase` member names. Signum's editor offers "UpperCase" / "LowerCase", which its
+        // C# enum binding then matches case-insensitively; spelling the members correctly here means the
+        // value the editor writes is already the one the generated decorator needs.
+        options: [{ name: "textCase", type: "string", options: [...Enum.values(StringCase)] }],
     },
     { type: "URL", isApplicable: dp => isString(dp.type ?? "") },
     { type: "EMail", isApplicable: dp => isString(dp.type ?? "") },

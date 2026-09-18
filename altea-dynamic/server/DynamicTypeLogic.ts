@@ -7,6 +7,8 @@ import { Connector } from "@altea/altea/server/connection/connector";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { StartParameters } from "@altea/altea/data/utils/startParameters";
 import { getLocation } from "@altea/altea/data/registration";
+import { Enum } from "@altea/altea/data/enum";
+import { StringCase } from "@altea/altea/data/validators";
 import {
     DynamicTypeEntity, DynamicTypeOperation, DynamicBaseType,
     type DynamicTypeDefinition, type DynamicProperty, type DynamicValidator,
@@ -593,6 +595,19 @@ export class DynamicTypeCodeGenerator {
         if (v.type === "NumberIs" || v.type === "CountIs") {
             const o = v as { comparisonType: unknown; number: unknown };
             return `${name}(${literal(o.comparisonType)}, ${literal(o.number)})`;
+        }
+
+        // `stringCaseValidator` takes the ENUM, not a name, so the decorator has to name the member — and
+        // the stored definition holds a string. Matched case-insensitively, because Signum's own editor
+        // writes "UpperCase"/"LowerCase" against a C# enum spelled Uppercase/Lowercase, which its JSON
+        // binding accepts regardless of case; a definition written there must still generate here.
+        if (v.type === "StringCase") {
+            const stored = String((v as { textCase?: unknown }).textCase ?? "");
+            const member = Enum.values(StringCase).find(m => m.toLowerCase() === stored.toLowerCase());
+            if (member == null)
+                throw new Error(`Unknown StringCase '${stored}' (expected ${Enum.values(StringCase).join(" or ")})`);
+            this.imports.add("@altea/altea/data/validators", "StringCase");
+            return `${name}(StringCase.${member})`;
         }
 
         if (entries.length === 0)
