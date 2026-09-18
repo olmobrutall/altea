@@ -348,10 +348,15 @@ function getSqlSize(fi: FieldInfo | undefined, dbType: AbstractDbType, isPostgre
         return fi.columnOptions.size;
 
     if (fi != null && dbType.isString()) {
+        // The PRESENCE of the validator decides, not whether it names a max. Signum's `Max` is an `int`
+        // that DEFAULTS TO -1 (`int max = -1;`), and `GetSqlSize` reads `sla.Max == -1 ? int.MaxValue`,
+        // so `[StringLengthValidator(MultiLine = true)]` with no Max means an UNBOUNDED column there.
+        // Reading `options.max` and falling through when it is absent made 39 such fields — a BPMN
+        // diagram, a SQL migration script, a JSON view tree, an e-mail body — take the 200-character
+        // default instead.
         const sla = fi.validators.find(v => v instanceof StringLengthValidator) as StringLengthValidator | undefined;
-        const max = sla?.options.max;
-        if (max != null)
-            return max === -1 ? MAX_SIZE : max;
+        if (sla != null)
+            return sla.options.max == undefined || sla.options.max === MAX_SIZE ? MAX_SIZE : sla.options.max;
     }
 
     const defaults = isPostgres ? DEFAULT_SIZE_POSTGRES : DEFAULT_SIZE_SQL_SERVER;

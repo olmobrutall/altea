@@ -24,6 +24,7 @@ export const ValidationMessage = {
     _0ShouldBeNull: msg("{0} should be null"),
     _0IsSet: msg("{0} is set"),
     _0ShouldBe1: msg("{0} should be {1}"),
+    _0ShouldBeGreaterThan1: msg("{0} should be greater than {1}"),
     _0ShouldBe12: msg("{0} should be {1} {2}"),
     _0IsMandatoryWhen1IsNotSet: msg("{0} is mandatory when {1} is not set"),
     _0IsMandatoryWhen1IsSet: msg("{0} is mandatory when {1} is set"),
@@ -772,11 +773,37 @@ export class IdentifierValidator extends RegexValidator {
 // object identity — every row is a distinct object, so nothing would EVER be reported as repeated. So a row
 // with a `@valueField` is compared through THAT field, which is the element Signum saw.
 
-export function noRepeatValidator(options: ValidatorOptions = {}) {
-    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new NoRepeatValidator(), options);
+/**
+ * `@noRepeatValidator(a => a.entity)` — no two rows of the collection may share that member's value.
+ *
+ * The SELECTOR is the useful form, and on a `@part` row it is usually the only meaningful one. A part row
+ * is a distinct entity per element, so comparing the ROWS compares object identity, which can never
+ * repeat — `@noRepeatValidator()` on `specificColors: ColorPaletteEntity_SpecificColor[]` reports nothing,
+ * ever. Signum has no such problem: its MList element is an EMBEDDED compared with `Equals`, structurally.
+ *
+ * Without a selector the comparison falls back to the element's `@valueField`, which is the one case where
+ * the bare form IS meaningful — a collection of scalars or lites (`EmployeeEntity_Territory.territory`) is
+ * a row whose single value field IS the element.
+ *
+ * Whatever the form, the COMPARED value must have an identity of its own: a scalar, a `Lite`, or a saved
+ * entity. If it is an owned row or an embedded, the validator THROWS rather than passing silently — that
+ * includes a `@valueField` that holds an embedded, so `UserChartEntity_Parameter` needs
+ * `a => a.element.name` and not the bare form. A validator that cannot fail is worse than no validator: it
+ * reads like a rule and enforces nothing.
+ */
+export function noRepeatValidator<T = any>(
+    selector?: ((row: T) => unknown) | ValidatorOptions,
+    options: ValidatorOptions = {},
+) {
+    const isSelector = typeof selector === "function";
+    const opts = isSelector ? options : (selector ?? {});
+    return (target: object, propertyKey: string | symbol) =>
+        addValidator(target, propertyKey, new NoRepeatValidator(isSelector ? selector as (row: unknown) => unknown : undefined), opts);
 }
 
 export class NoRepeatValidator extends Validator {
+    constructor(private readonly selector?: (row: unknown) => unknown) { super(); }
+
     isCompatibleWith(type: Function) { return type === Array; }
     get helpMessage(): string { return ValidationMessage.HaveNoRepeatedElements.niceToString(); }
 
@@ -787,7 +814,18 @@ export class NoRepeatValidator extends Validator {
         const seen = new Map<string, unknown>();
         const repeated: unknown[] = [];
         for (const item of list) {
-            const element = valueOfElement(item);
+            const element = this.selector != undefined ? this.selector(item) : valueOfElement(item);
+
+            // The compared ELEMENT must have an identity of its own. An owned row or an embedded has none —
+            // every instance is a distinct object, so the comparison could never report and the validator
+            // would read like a rule while enforcing nothing. Refuse instead of passing silently. A
+            // `Lite<X>`, a scalar and an INDEPENDENT entity all compare by a real key (see `comparisonKey`).
+            if (isOwnedRow(element))
+                throw new Error(
+                    `@noRepeatValidator on '${fi.name}' compares ${element!.constructor.name}, which has no ` +
+                    `identity of its own, so it can never report a repeat. Point the selector at a member ` +
+                    `that does, e.g. @noRepeatValidator(a => a.someField).`);
+
             const key = comparisonKey(element);
             if (seen.has(key)) repeated.push(element);
             else seen.set(key, element);
@@ -798,6 +836,18 @@ export class NoRepeatValidator extends Validator {
                 repeated.map(r => String(r)).join(', '))
             : null;
     }
+}
+
+/** An element whose identity is its own ROW: a `@part` row (it has a `@backReference` to the owner) or an
+ *  embedded / model. Two such elements are never equal to each other no matter what they hold, so a bare
+ *  `@noRepeatValidator` over them can never report. An INDEPENDENT entity is not owned — it compares by id. */
+function isOwnedRow(item: unknown): boolean {
+    if (item == null || typeof item !== 'object')
+        return false;
+
+    const ti = tryGetTypeInfo(item.constructor);
+    return ti != undefined && ti.valueField == undefined
+        && (ti.backReferenceField != undefined || ti.kind === "Model");
 }
 
 /** The ELEMENT a collection item stands for: a `@part` row's `@valueField` when it has one, else the item. */
