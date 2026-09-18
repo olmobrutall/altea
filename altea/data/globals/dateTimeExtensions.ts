@@ -1,4 +1,5 @@
 import { Temporal } from "../basics";
+import { registerEnum } from "../registration";
 
 // Date/time helpers, ported from Signum's DateTimeExtensions. Inside a quoted query
 // lambda they are translated to SQL by the LINQ provider (date-part extraction,
@@ -53,6 +54,52 @@ export enum DayOfWeek {
     Friday = 5,
     Saturday = 6,
     Sunday = 7,
+}
+
+// Signum's DateTimePrecision (this same file, Signum.Utilities/DateTimeExtensions.cs). The ORDER is the
+// point: a member is greater when it carries more detail, so "is this value finer than the property
+// allows" is the plain `>` that `@dateTimePrecisionValidator` writes.
+export enum DateTimePrecision {
+    Days,
+    Hours,
+    Minutes,
+    Seconds,
+    Milliseconds,
+}
+export type DateTimePrecisionKeys = keyof typeof DateTimePrecision;
+
+// No entity FIELD is of this type — it is a modelling vocabulary, not a stored value — so nothing
+// auto-registers it and it needs the hand-written call. Without a registered NAME the type has no
+// translation key at all, so `Enum.niceName(DateTimePrecision, …)` (what the validator's help and error
+// messages read) would fall back to the humanised English identifier in every culture. Registering
+// creates no table: the schema builder only builds one when a FieldEnum actually references the type.
+registerEnum(DateTimePrecision);
+
+/**
+ * Signum's `DateTimeExtensions.GetPrecision` — the FINEST unit a value actually uses, which is what a
+ * precision validator compares against the maximum the property declares.
+ *
+ * Unlike everything below it this is an ordinary function, not a Temporal prototype member: there is no
+ * SQL translation for it, so a `@quoted` body calling it would fail at bind time rather than here.
+ *
+ * A `PlainDate` carries no time at all, so it is always `Days`. DIVERGENCE from Signum, which tests
+ * `Millisecond != 0` alone: Temporal counts down to the nanosecond, so a sub-millisecond remainder
+ * answers `Milliseconds` too — otherwise 12:00:00.0000004 would report itself as `Days` and pass a
+ * `Seconds` validator. (The .NET original has the same hole for its sub-millisecond ticks.)
+ */
+export function getPrecision(value: Temporal.PlainDateTime | Temporal.PlainDate): DateTimePrecision {
+    if (!(value instanceof Temporal.PlainDateTime))
+        return DateTimePrecision.Days;
+
+    if (value.millisecond !== 0 || value.microsecond !== 0 || value.nanosecond !== 0)
+        return DateTimePrecision.Milliseconds;
+    if (value.second !== 0)
+        return DateTimePrecision.Seconds;
+    if (value.minute !== 0)
+        return DateTimePrecision.Minutes;
+    if (value.hour !== 0)
+        return DateTimePrecision.Hours;
+    return DateTimePrecision.Days;
 }
 
 // Fields that a "start of …" truncation zeroes out on a PlainDateTime.

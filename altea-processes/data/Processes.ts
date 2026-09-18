@@ -3,7 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Symbol } from "@altea/altea/data/symbol";
 import { column, entity, implementedBy, implementedByAll, format, legacyPropertyRoute, quoted, ticksColumn } from "@altea/altea/data/decorators";
-import { stringLengthValidator, validate } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, dateTimePrecisionValidator, DateTimePrecision } from "@altea/altea/data/validators";
 import { Temporal, Decimal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -88,13 +88,23 @@ export class ProcessEntity extends Entity {
 
     creationDate: Temporal.PlainDateTime = Clock.now;
 
+    // Signum declares [DateTimePrecisionValidator(Milliseconds)] on these five and on no other date
+    // here, which is a statement about the SCHEDULE rather than about storage: a process is planned,
+    // queued and timed to the millisecond, so that is what the columns show and how far the date
+    // sub-tokens go. `Clock.now` reads milliseconds exactly (Temporal.Now is millisecond-resolution),
+    // so nothing has to be truncated to satisfy it.
+    @dateTimePrecisionValidator(DateTimePrecision.Milliseconds)
     plannedDate: Temporal.PlainDateTime | null = null;
+    @dateTimePrecisionValidator(DateTimePrecision.Milliseconds)
     cancelationDate: Temporal.PlainDateTime | null = null;
+    @dateTimePrecisionValidator(DateTimePrecision.Milliseconds)
     queuedDate: Temporal.PlainDateTime | null = null;
 
     // The pair is validated on the FIRST of the two properties.
     @validate<ProcessEntity>(p => p.validateExecutionDates())
+    @dateTimePrecisionValidator(DateTimePrecision.Milliseconds)
     executionStart: Temporal.PlainDateTime | null = null;
+    @dateTimePrecisionValidator(DateTimePrecision.Milliseconds)
     executionEnd: Temporal.PlainDateTime | null = null;
 
     suspendDate: Temporal.PlainDateTime | null = null;

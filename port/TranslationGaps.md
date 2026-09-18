@@ -220,10 +220,26 @@ ported. Signum's `DeleteLogParametersEmbedded` (ChunkSize / DeleteLogs / MaxChun
 `DeleteLogsTypeOverridesEmbedded` (DeleteLogsOlderThan / DeleteLogsWithExceptionsOlderThan / Type) are the
 scheduled task that keeps log tables from growing without bound. Port both plus the task.
 
-### B4 — `DateTimePrecision`
+### B4 — `DateTimePrecision` — **DONE**
 Signum's `DateTimePrecision { Days, Hours, Minutes, Seconds, Milliseconds }` and its
-`[DateTimePrecisionValidator]`. `altea-auth/data/SessionLog.ts:26` records the absence. Port the enum and
-the validator.
+`[DateTimePrecisionValidator]`. The enum and `getPrecision` live in `data/globals/dateTimeExtensions.ts`,
+where Signum keeps them too (Signum.Utilities/DateTimeExtensions.cs), with a hand-written `registerEnum`
+because no entity field is of that type; `@dateTimePrecisionValidator` is in `data/validators.ts`.
+
+It is not only a check. Signum's attribute feeds three more readers, and all three are ported, reached
+through `FieldInfo.dateTimePrecision` rather than by walking the validator list: the display FORMAT
+(`Reflector.GetFormatString` → `defaultFormat`, with two altea-only specifiers in `toDateFormatOptions`
+for the cases .NET spells as culture patterns), the date SUB-TOKENS a query offers (`DateTimeProperties`
+trimmed to the precision), and `IsGroupable` (a `Days` DateTime groups like a date).
+
+What it does NOT do, despite the shape inviting it, is size the column: Signum's
+`SchemaSettings.GetSqlPrecision` has that validator lookup commented out, and `GetSizePrecisionScale`
+renders a precision only for a decimal. So `StringLengthValidator`→size (B6) and `DecimalsValidator`→scale
+have no third sibling, and no DDL changed.
+
+Restored where the port had dropped it: `SessionLogEntity.sessionStart` / `.sessionEnd` (Seconds),
+`SMSMessageEntity.sendDate` (Seconds), and `ProcessEntity.plannedDate` / `.cancelationDate` /
+`.queuedDate` / `.executionStart` / `.executionEnd` (Milliseconds) — the five Signum declares.
 
 ### B6 — `StringLengthValidator` does not size its column
 Signum's `SchemaSettings.GetSqlSize` derives a string column's size from the property's validator:

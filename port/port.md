@@ -1964,8 +1964,8 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     To record nobody, deny the permission — or do not start the module.
   - `PermissionLogic.RegisterPermissions` has no counterpart (a declared `init()` symbol is picked up by
     the symbol synchronizer), which makes `isAuthorizedForRole` — and hence `sessionStart` /
-    `sessionEnd` — ASYNC; `[DateTimePrecisionValidator(Seconds)]` has none either, so both dates are
-    truncated where they are assigned (the call altea-sms already made); the ORDER BY + TOP `UnsafeUpdate`
+    `sessionEnd` — ASYNC; both dates carry `@dateTimePrecisionValidator(Seconds)` and are truncated where
+    they are assigned, which is what satisfies it; the ORDER BY + TOP `UnsafeUpdate`
     becomes select-then-update-by-id (as UserTicketLogic's per-user sweep does); `ExceptionLogic.DeleteLogs`
     is not ported, the note every log-owning module carries.
   Pinned by `eastwind/terminal/probes/probeSessionLog.ts` (23 checks, including that the nullable-ternary
@@ -2091,8 +2091,9 @@ Known structural divergences from Signum (this is what "fix" means — don't por
   - **`SendAsyncSMS` is dropped** (Signum's detached `Task.Factory.StartNew`): a floating promise in Node is
     an unhandled rejection waiting to happen and races process exit — the Send PROCESS is what
     fire-and-forget means here. Same call altea-view-log made for its log write.
-  - **`MultipleTelephoneValidator` / `DateTimePrecisionValidator` have no altea counterparts**: the
-    comma-separated form is a `@fieldValidation`, and `sendDate` is truncated where it is assigned.
+  - **`MultipleTelephoneValidator` has no altea counterpart**: the comma-separated form is a
+    `@fieldValidation`. (`DateTimePrecisionValidator` now does — `sendDate` carries it, and the
+    truncation where it is assigned is what satisfies it.)
   - **the two ConstructFromMany operations THROW where Signum returns null.** altea's `construct` must
     return an entity, so "nothing to package" says so instead of silently answering nothing.
   - **`registerSMSOwnerData` is registered ONCE for a hierarchy**, on the abstract base — an operation is

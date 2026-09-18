@@ -5,6 +5,9 @@ import type { EntityKind, EntityData } from './decorators';
 import type { Quoted } from 'quote-transformer/quoted';
 import { registerType, resolveType, resolveEnum, enumNameOf } from './registration';
 import { MixinDeclarations } from './mixinDeclarations';
+// TYPE-only: the enum's runtime object lives in a module that installs the Temporal prototype
+// augmentations, and reflection.ts is imported by everything — the member NAMES are all it needs.
+import type { DateTimePrecisionKeys } from './globals/dateTimeExtensions';
 
 // The runtime type of a primary key. `int`/`long` are identity-style integers;
 // `uuid`/`uuid7` are GUID columns (uuid7 is time-ordered). Maps to an
@@ -353,6 +356,13 @@ export class FieldInfo extends TypeReference {
     // readers that cannot see the validator list need it: the SCHEMA (the column's scale — Signum's
     // SchemaSettings.GetSqlScale) and the DISPLAY FORMAT below (Reflector.GetFormatString's "N" + n).
     decimalPlaces?: number;
+    // Signum's [DateTimePrecisionValidator(p)].Precision, recorded here by `@dateTimePrecisionValidator`
+    // for ONE reader: `defaultFormat`, below, which lives in this module — and this module cannot import
+    // validators.ts, which imports it. Every other reader can, and does: the query tokens find the
+    // validator in `fi.validators` the way schemaBuilder finds a StringLengthValidator there. Keep it
+    // that way — a copy is only justified where the validator is genuinely out of reach. The member
+    // NAME, which is altea's runtime value for an enum.
+    dateTimePrecision?: DateTimePrecisionKeys;
     isMultiline?: boolean;
     maxLength?: number;
     // Signum's `MemberInfo.notVisible` — this field is an implementation detail, not a user-facing
@@ -907,18 +917,38 @@ export function eachFieldInfo(ctor: Function, callback: (fi: FieldInfo) => void)
 // here: the branded `decimal` alias (typeName "Number", subTypeName "decimal") and a `Decimal` value
 // type. Used wherever a format is read — Lines (taskSetFormat), the entity-property and extension tokens.
 //
-// `@decimalsValidator(n)` comes FIRST, as it does in Signum: `Reflector.GetFormatString` checks an
-// explicit [Format] (the callers' own `fi.format ??` here), then the validators, then the type default.
-// So four decimals declared on the value show as four without a second `@format("N4")` saying so.
-export function defaultFormat(tr: (Pick<TypeReference, 'typeName' | 'subTypeName'> & { decimalPlaces?: number }) | undefined): string | undefined {
+// A VALIDATOR comes FIRST, as it does in Signum: `Reflector.GetFormatString` checks an explicit [Format]
+// (the callers' own `fi.format ??` here), then the validators, then the type default. So four decimals
+// declared on the value show as four without a second `@format("N4")` saying so, and a date declared to
+// the second shows its seconds without a second `@format("G")`.
+export function defaultFormat(tr: (Pick<TypeReference, 'typeName' | 'subTypeName'> & { decimalPlaces?: number, dateTimePrecision?: DateTimePrecisionKeys }) | undefined): string | undefined {
     if (tr == undefined)
         return undefined;
     if (tr.decimalPlaces != undefined)
         return "N" + tr.decimalPlaces;
+    if (tr.dateTimePrecision != undefined)
+        return dateTimePrecisionFormat[tr.dateTimePrecision];
     if (tr.subTypeName === "decimal" || tr.typeName === "Decimal")
         return "N2";
     return undefined;
 }
+
+// Signum's `DateTimePrecisionValidatorAttribute.FormatString` — how far along a date a display should
+// read, given how far the property is allowed to go.
+//
+// DIVERGENCE: Signum's five answers are three standard .NET specifiers ("d", "g", "G") plus two CUSTOM
+// patterns built from the current culture (`ShortDatePattern + " HH"`, and the long time pattern with
+// "ss" → "ss.fff"). altea's date layer is Intl-options-based, not pattern-based — its format vocabulary
+// is the standard specifiers alone — so the two custom cases get altea-only specifiers of their own,
+// mapped in client/Lines/ReactWidgetsLocalizer's toDateFormatOptions next to the standard ones. The
+// culture stays where Intl keeps it instead of being baked into a pattern here.
+const dateTimePrecisionFormat: Record<DateTimePrecisionKeys, string> = {
+    Days: "d",
+    Hours: "dH",
+    Minutes: "g",
+    Seconds: "G",
+    Milliseconds: "Gf",
+};
 
 // Bare @field: exists so source type-checks (tsc checks the original AST). The
 // quote-transformer rewrites it to @field({ typeName: ... }) before emit, so

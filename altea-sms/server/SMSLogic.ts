@@ -389,7 +389,7 @@ export namespace SMSLogic {
     async function sendOneMessage(message: SMSMessageEntity): Promise<void> {
         try {
             message.messageID = await getProvider().smsSendAndGetTicket(message);
-            // Its DateTimePrecisionValidator(Seconds) on the field.
+            // What the field's `@dateTimePrecisionValidator(Seconds)` asks for.
             message.sendDate = truncSeconds(Clock.now);
             message.state = SMSMessageState.Sent;
             await message.save();

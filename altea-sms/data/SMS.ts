@@ -4,7 +4,7 @@ import type { Lite } from "@altea/altea/data/lite";
 import {
     entity, part, implementedByAll, implementedBy, uniqueIndex, backReference, rowOrder, quoted,
 } from "@altea/altea/data/decorators";
-import { stringLengthValidator, validate } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, dateTimePrecisionValidator, DateTimePrecision } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -75,7 +75,8 @@ export class SMSMessageEntity extends Entity {
     @stringLengthValidator({ max: 200 })
     from: string | null = null;
 
-    /** Truncated to seconds where it is ASSIGNED, since there is no precision validator here. */
+    /** Truncated to seconds where it is ASSIGNED — SMSLogic's `truncSeconds` — which is what this passes. */
+    @dateTimePrecisionValidator(DateTimePrecision.Seconds)
     sendDate: Temporal.PlainDateTime | null = null;
 
     state: SMSMessageState = SMSMessageState.Created;

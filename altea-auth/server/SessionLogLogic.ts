@@ -129,7 +129,7 @@ export namespace SessionLogLogic {
         });
     }
 
-    /** Its `[DateTimePrecisionValidator(Seconds)]` on both dates. */
+    /** What satisfies the `@dateTimePrecisionValidator(Seconds)` both dates now carry. */
     function truncSeconds(d: Temporal.PlainDateTime): Temporal.PlainDateTime {
         return d.with({ millisecond: 0, microsecond: 0, nanosecond: 0 });
     }

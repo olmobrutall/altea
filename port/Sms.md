@@ -49,9 +49,9 @@ finds it there. Its `Equals`-based de-duplication becomes `distinctBy(owner key)
   DOES have a CultureInfoEntity table, so the reference is a real FK rather than Signum's owned
   CultureInfoEntity reference. The member is `cultureInfo`, as Signum names it.
 - **`MultipleTelephoneValidator` has no counterpart** (core has `telephoneValidator`, single-number only),
-  so the comma-separated form is a `@validate` — the same rule, spelled out. **`DateTimePrecisionValidator`
-  has none either**, so `sendDate` is truncated to seconds where it is ASSIGNED, which is what Signum's
-  validator enforces after the fact.
+  so the comma-separated form is a `@validate` — the same rule, spelled out. `DateTimePrecisionValidator`
+  DOES have one now (core's `@dateTimePrecisionValidator`, TranslationGaps B4), so `sendDate` carries it
+  again; the truncation where the value is ASSIGNED stays, as what satisfies it.
 - **`SendAsyncSMS` is dropped** (Signum's detached `Task.Factory.StartNew`): a floating promise in Node is
   an unhandled rejection waiting to happen and races process exit — the Send PROCESS is what
   fire-and-forget means here. The same call altea-view-log made for its log write.

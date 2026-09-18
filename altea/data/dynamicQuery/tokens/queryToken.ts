@@ -1,6 +1,8 @@
 import { enumNameOf } from "../../registration";
 import { Entity, EmbeddedEntity, ModelEntity } from "../../entity";
-import { PropertyRoute, isPartType, usingLegacyPropertyPaths } from "../../propertyRoute";
+import { PropertyRoute, PropertyRouteType, isPartType, usingLegacyPropertyPaths } from "../../propertyRoute";
+import { DateTimePrecision } from "../../globals/dateTimeExtensions";
+import { DateTimePrecisionValidator } from "../../validators";
 import { tryGetTypeInfo, TypeReference, type FieldInfo } from "../../reflection";
 import { Implementations } from "../../implementations";
 import { tryGetFilterType, type QueryName, type FilterTypeKeys } from "../queryUtils";
@@ -440,18 +442,45 @@ export abstract class QueryToken {
     // (quarter is a method; weekNumber is unsupported by the binder → skipped, as is TimeOfDay).
     // The `…Start` tokens are Signum's DatePartStartToken; its STEPPED variants (`Every 12 Hours`) are
     // not ported — see datePartStartToken.
+    //
+    // The list is TRIMMED to the property's declared precision, as Signum trims it (EntityPropertyToken
+    // and ColumnToken both read the [DateTimePrecisionValidator] and pass its Precision here): a date
+    // that never carries seconds should not offer a `Second` column, a filter on it or an order by it.
+    // No declaration means no trimming — Signum's DateTimeProperties is only reached with a precision,
+    // but altea's is reached for every PlainDateTime, and the honest default for an undeclared property
+    // is that it may use the whole range.
     protected dateTimeProperties(): QueryToken[] {
         const part = (name: string, method = false) =>
             tokenFactories!.objectProperty(this, name, TR_INT, capitalize(name), method);
         const start = (name: string) => tokenFactories!.datePartStart(this, name);
+        const precision = this.dateTimePrecision();
+        const upTo = (p: DateTimePrecision, ...tokens: QueryToken[]) =>
+            precision == undefined || precision >= p ? tokens : [];
         return [
             part("year"), part("quarter", true), part("month"),
             part("dayOfYear"), part("day"), part("dayOfWeek"),
-            part("hour"), part("minute"), part("second"), part("millisecond"),
+            ...upTo(DateTimePrecision.Hours, part("hour")),
+            ...upTo(DateTimePrecision.Minutes, part("minute")),
+            ...upTo(DateTimePrecision.Seconds, part("second")),
+            ...upTo(DateTimePrecision.Milliseconds, part("millisecond")),
             tokenFactories!.dateToken(this),
             start("QuarterStart"), start("MonthStart"), start("WeekStart"),
-            start("HourStart"), start("MinuteStart"), start("SecondStart"),
+            ...upTo(DateTimePrecision.Hours, start("HourStart")),
+            ...upTo(DateTimePrecision.Minutes, start("MinuteStart")),
+            ...upTo(DateTimePrecision.Seconds, start("SecondStart")),
         ];
+    }
+
+    // The precision `@dateTimePrecisionValidator` declared on the property this token reads, if any —
+    // Signum's `Validator.TryGetPropertyValidator(route).Validators.OfType<DateTimePrecisionValidator
+    // Attribute>()`, spelled the way schemaBuilder reads a StringLengthValidator off a route: the
+    // VALIDATOR is the one source of truth, and everything that can reach the list reads it there.
+    protected dateTimePrecision(): DateTimePrecision | undefined {
+        const route = this.getPropertyRoute();
+        if (route?.propertyRouteType !== PropertyRouteType.FieldOrProperty)
+            return undefined;
+        const validator = route.fieldInfo?.validators.find(v => v instanceof DateTimePrecisionValidator);
+        return (validator as DateTimePrecisionValidator | undefined)?.precision;
     }
 
     // Signum's DateOnlyProperties: the date (no time) part sub-tokens. Only the three `…Start` tokens
@@ -518,10 +547,10 @@ export abstract class QueryToken {
                 return true;
             // Signum groups by a DATE but not by a timestamp: `Type.UnNullify() == typeof(DateOnly)` is
             // true, a DateTime only when a DateTimePrecisionValidator pins it to Days. A PlainDate IS that
-            // DateOnly; altea has no precision validator (so no second case), and PlainDateTime /
-            // PlainTime stay out — grouping rows by the millisecond is never what is meant.
+            // DateOnly, and the second case is now the real one; PlainDateTime without such a declaration
+            // and PlainTime stay out — grouping rows by the millisecond is never what is meant.
             case "DateTime":
-                return this.type.typeName === "PlainDate";
+                return this.type.typeName === "PlainDate" || this.dateTimePrecision() === DateTimePrecision.Days;
             default:
                 return false;
         }

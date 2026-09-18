@@ -79,6 +79,13 @@ export function toDateFormatOptions(format: string | undefined, type: "PlainDate
     case "T": return { timeStyle: "medium" };
     case "M": case "m": return { month: "long", day: "numeric" };
     case "Y": case "y": return { year: "numeric", month: "long" };
+    // The two altea-only specifiers, for the DateTimePrecision cases .NET has no standard letter for
+    // (see reflection's dateTimePrecisionFormat): a date to the HOUR and a date to the MILLISECOND.
+    // Signum builds a culture pattern for each; here the parts are named and Intl supplies the culture.
+    // Component style, not dateStyle/timeStyle — Intl forbids mixing the two, and a lone `hour` or a
+    // `fractionalSecondDigits` is exactly what has to be said.
+    case "dH": return { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit" };
+    case "Gf": return { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 };
     default:
       return dateOnly ? { dateStyle: "medium" } : { dateStyle: "medium", timeStyle: "short" };
   }
@@ -88,7 +95,7 @@ export function toDateFormatOptions(format: string | undefined, type: "PlainDate
 // dateTimePlaceholder(luxonFormat).
 export function dateTimePlaceholder(options: Intl.DateTimeFormatOptions): string {
   const sample = new Date(2000, 11, 31, 23, 59, 59); // 31 Dec 2000 23:59:59
-  const map: { [k: string]: string } = { year: "yyyy", month: "mm", day: "dd", hour: "hh", minute: "mm", second: "ss" };
+  const map: { [k: string]: string } = { year: "yyyy", month: "mm", day: "dd", hour: "hh", minute: "mm", second: "ss", fractionalSecond: "fff" };
   return new Intl.DateTimeFormat(undefined, options).formatToParts(sample)
     .map(p => p.type == "literal" ? p.value : (map[p.type] ?? ""))
     .join("");

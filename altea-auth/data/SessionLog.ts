@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity, quoted, legacyPropertyRoute } from "@altea/altea/data/decorators";
-import { stringLengthValidator } from "@altea/altea/data/validators";
+import { stringLengthValidator, dateTimePrecisionValidator, DateTimePrecision } from "@altea/altea/data/validators";
 import { Lite } from "@altea/altea/data/lite";
 import { Temporal } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -24,9 +24,6 @@ import { UserEntity } from "./User";
 // default, deny the permission to the roles that should not be recorded — or do not start the module.
 //
 // altea divergences, documented inline:
-//  - `[DateTimePrecisionValidator(DateTimePrecision.Seconds)]` has no altea counterpart (the call
-//    @altea/altea-sms already made), so the two dates are TRUNCATED where they are assigned —
-//    SessionLogLogic's `truncSeconds`.
 //  - `Duration` is a `@quoted` member returning a plain `number | null`, so it is a real query column
 //    (@altea/altea-rest and -view-log make the same move for theirs).
 
@@ -35,8 +32,13 @@ import { UserEntity } from "./User";
 export class SessionLogEntity extends Entity {
     user: Lite<UserEntity>;
 
+    // A session is recorded to the second, as Signum records it. SessionLogLogic truncates both dates
+    // where it assigns them, so the validator is a check on the model rather than a hurdle — and it is
+    // also what makes the search page show the seconds and drops the `Millisecond` sub-token.
+    @dateTimePrecisionValidator(DateTimePrecision.Seconds)
     sessionStart: Temporal.PlainDateTime;
 
+    @dateTimePrecisionValidator(DateTimePrecision.Seconds)
     sessionEnd: Temporal.PlainDateTime | null;
 
     sessionTimeOut: boolean = false;
