@@ -11,6 +11,7 @@ import {
 import { AbstractDbType, IsNullable, defaultDbType, primaryKeyDbType } from './dbType';
 import {
     type IColumn,
+    MAX_SIZE,
     PrimaryKeyColumn,
     ValueColumn,
     ReferenceColumn,
@@ -41,6 +42,7 @@ import { FluentInclude } from './fluentInclude';
 import { SystemVersionedInfo } from './systemVersioned';
 import { TableIndex, FullTextTableIndex, VectorTableIndex, generateUniqueIndexes, multiUniqueIndexes } from './tableIndex';
 import { accessedFields } from '../../data/accessedFields';
+import { StringLengthValidator } from '../../data/validators';
 import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntity';
 import { ImmutableEntity, assertImmutable } from '../../data/immutableEntity';
@@ -292,6 +294,69 @@ export function guidKeyDefault(isPostgres: boolean, pkType: PrimaryKeyType | und
 // table in the application has this column, so getting it wrong diverges from a Signum database 69 times
 // over.
 const ENUM_NAME_SIZE = 200;
+
+// Signum's per-provider default column sizes (SchemaSettings.defaultSizeSqlServer /
+// defaultSizePostgreSql), keyed by the DIALECT TYPE NAME because that is what altea's AbstractDbType
+// stores where Signum stores a SqlDbType / NpgsqlDbType enum member. These are why an unadorned
+// `string` field is `nvarchar(200)` in a Signum database rather than `nvarchar(MAX)` — the width is a
+// DEFAULT, not an absence, and anything wider has to say so with `@stringLengthValidator` or
+// `@column({ size })`. A type absent from its provider's table takes no size at all: `text` is already
+// unbounded, and PostgreSQL has no `varbinary` (its `bytea` is short-circuited in getSqlSize).
+const DEFAULT_SIZE_SQL_SERVER: Record<string, number> = {
+    nvarchar: 200,
+    varchar: 200,
+    // Signum's `int.MaxValue` → varbinary(MAX). Without it a bare `varbinary` means varbinary(1) in
+    // SQL Server, which silently truncates every blob to one byte.
+    varbinary: MAX_SIZE,
+    binary: 8000,
+    char: 1,
+    nchar: 1,
+};
+
+const DEFAULT_SIZE_POSTGRES: Record<string, number> = {
+    varbit: 200,
+    varchar: 200,
+    char: 1,
+};
+
+/**
+ * A value column's SIZE, in Signum's own order of preference (`SchemaSettings.GetSqlSize`):
+ *
+ *  1. an explicit `@column({ size })` — its `[DbType(Size = …)]` — always wins;
+ *  2. otherwise, for a string column, `@stringLengthValidator({ max })`, because a property's maximum
+ *     length is a fact about the value, and stating it once should also size its storage. This is the
+ *     half altea was missing: the validator sized nothing, so every string rendered unbounded, and
+ *     `nvarchar(MAX)` cannot be an index key column — which made `TypeEntity.tableName` / `cleanName`
+ *     (both `@uniqueIndex`) ungenerable on SQL Server;
+ *  3. otherwise the per-provider default above.
+ *
+ * Two details carried over verbatim. `Max = -1` means "unbounded" in Signum and answers `int.MaxValue`;
+ * altea's equivalent sentinel is {@link MAX_SIZE}, which happens to be -1 as well, so the validator's own
+ * value passes straight through. And PostgreSQL `bytea` short-circuits to NO size before anything else —
+ * `bytea(128)` is a syntax error, so even an explicit `@column({ size })` must not reach the renderer.
+ *
+ * DIVERGENCE: Signum gates the validator lookup on `route.Type == typeof(string)`; altea gates it on the
+ * resolved column being a string type instead. altea's object model has no separate Guid type — a `uuid`
+ * field is a `string` with a branded kind — so the CLR question has no answer here, and the column's own
+ * type is both the closer question and the safer one.
+ */
+function getSqlSize(fi: FieldInfo | undefined, dbType: AbstractDbType, isPostgres: boolean): number | undefined {
+    if (isPostgres && dbType.postgres.toLowerCase() === 'bytea')
+        return undefined;
+
+    if (fi?.columnOptions?.size != null)
+        return fi.columnOptions.size;
+
+    if (fi != null && dbType.isString()) {
+        const sla = fi.validators.find(v => v instanceof StringLengthValidator) as StringLengthValidator | undefined;
+        const max = sla?.options.max;
+        if (max != null)
+            return max === -1 ? MAX_SIZE : max;
+    }
+
+    const defaults = isPostgres ? DEFAULT_SIZE_POSTGRES : DEFAULT_SIZE_SQL_SERVER;
+    return defaults[(isPostgres ? dbType.postgres : dbType.sqlServer).toLowerCase()];
+}
 
 // Tunables for table/column generation. Sensible defaults; override per app.
 export class SchemaSettings {
@@ -834,8 +899,13 @@ export class SchemaBuilder {
             // expanded inline by the query provider, so no column.
             const proto = (type as { prototype?: any }).prototype;
             const toStr = proto?.toString;
-            if (typeof toStr === "function" && toStr !== Object.prototype.toString && (toStr as Quoted<Function>).__quoted == null)
-                table.toStrColumn = new ValueColumn(this.idiomatic("ToStr"), defaultDbType("String", undefined)!, IsNullable.Yes);
+            if (typeof toStr === "function" && toStr !== Object.prototype.toString && (toStr as Quoted<Function>).__quoted == null) {
+                // Signum's GenerateFieldToString sizes this one through `GetSqlSize(attr, null, …)` too —
+                // with no route, so it lands on the per-provider default (200), never on a validator.
+                const toStrType = defaultDbType("String", undefined)!;
+                table.toStrColumn = new ValueColumn(this.idiomatic("ToStr"), toStrType, IsNullable.Yes,
+                    getSqlSize(undefined, toStrType, this.settings.isPostgres));
+            }
         }
 
         table.generateColumns();
@@ -1104,7 +1174,7 @@ export class SchemaBuilder {
         const legacyValueBase = this.legacyMListColumnBase(table, fi, undefined);
         const name = this.explicitColumnName(fi)
             ?? this.idiomatic(this.legacyColumnName(fi) ?? preName.add(legacyValueBase ?? this.columnName(fi)).toString());
-        const column = new ValueColumn(name, dbType, nullable, fi.columnOptions?.size, precision, scale);
+        const column = new ValueColumn(name, dbType, nullable, getSqlSize(fi, dbType, this.settings.isPostgres), precision, scale);
         return new FieldValue(column);
     }
 

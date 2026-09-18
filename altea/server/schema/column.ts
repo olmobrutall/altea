@@ -17,6 +17,11 @@ export interface ComputedColumn {
     readonly persisted: boolean;
 }
 
+// The "unbounded" sentinel for `IColumn.size` below. Declared in data/reflection.ts beside
+// ColumnOptions, because an ENTITY says it (`@column({ size: MAX_SIZE })`); re-exported here and from
+// sync/sqlBuilder so the engine side keeps its own vocabulary.
+export { MAX_SIZE } from '../../data/reflection';
+
 // A single physical column in a table. Mirrors Signum's IColumn. Every Field
 // produces zero or more of these via Field.columns(); Table flattens them into
 // its `columns` dictionary. `readonly` here documents the consumer contract —

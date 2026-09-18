@@ -1,8 +1,8 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
-    entity, part, primaryKey, implementedBy, uniqueIndex, backReference, rowOrder, valueField, quoted, bindParent,
+    entity, part, primaryKey, implementedBy, uniqueIndex, backReference, rowOrder, valueField, quoted, bindParent, column,
 } from "@altea/altea/data/decorators";
 import {
     stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType, ValidationMessage,
@@ -377,10 +377,14 @@ export class EmailTemplateEntity_Message extends Entity {
      *  Signum names it, because the member IS the column (`CultureInfo_ID`). */
     cultureInfo: Lite<CultureInfoEntity>;
 
-    /** The body, as template text. Unbounded (Signum's `[DbType(Size = int.MaxValue)]`). */
+    /** The body, as template text. Unbounded (Signum's `[DbType(Size = int.MaxValue)]`). Neither validator
+     *  states a `max`, so both sizes are said outright — a string column with no size would otherwise take
+     *  the per-provider default of 200. */
+    @column({ size: MAX_SIZE })
     @stringLengthValidator({ multiLine: true })
     text: string;
 
+    @column({ size: MAX_SIZE })
     @stringLengthValidator({ multiLine: true })
     subject: string;
 

@@ -1,5 +1,5 @@
 import type { Connector } from '../connection/connector';
-import type { IColumn } from '../schema/column';
+import { MAX_SIZE, type IColumn } from '../schema/column';
 import { AbstractDbType, isNullableToBool } from '../schema/dbType';
 import { ObjectName, SchemaName } from '../schema/objectName';
 import type { Table } from '../schema/table';
@@ -785,9 +785,11 @@ export class DefaultConstraint {
     ) { }
 }
 
-// Sentinel size meaning "max length" (nvarchar(MAX) / text). Reserved; the
-// schema builder does not emit it yet.
-export const MAX_SIZE = -1;
+// Sentinel size meaning "max length" (nvarchar(MAX) / varbinary(MAX)). Declared in data/reflection.ts,
+// because an entity field is what says it (`@column({ size: MAX_SIZE })`), and the schema builder also
+// emits it (getSqlSize, for `@stringLengthValidator({ max: -1 })` and for SQL Server's VarBinary
+// default). Re-exported here, where it has always been the renderer's own vocabulary.
+export { MAX_SIZE };
 
 // The reserved words each dialect needs an identifier QUOTED for — Signum's KeywordsSqlServer /
 // KeywordsPostgres, ported verbatim. Two lists, because the dialects genuinely disagree and a shared

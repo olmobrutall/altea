@@ -1,7 +1,7 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, part, implementedByAll, backReference, format, quoted } from "@altea/altea/data/decorators";
+import { entity, part, implementedByAll, backReference, column, format, quoted } from "@altea/altea/data/decorators";
 import {
     stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType,
 } from "@altea/altea/data/validators";
@@ -108,7 +108,10 @@ export class EmailMessageEntity extends Entity {
     @format("G")
     receptionNotified: Temporal.PlainDateTime | null;
 
-    /** Unbounded (Signum's `[DbType(Size = int.MaxValue)]`), and allowed to keep leading/trailing spaces. */
+    /** Unbounded (Signum's `[DbType(Size = int.MaxValue)]`), and allowed to keep leading/trailing spaces.
+     *  The validator states no `max`, so the size is said outright — without it the column would take the
+     *  per-provider default of 200. */
+    @column({ size: MAX_SIZE })
     @stringLengthValidator({ multiLine: true })
     subject: string | null;
 

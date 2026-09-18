@@ -1,6 +1,6 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, quoted } from "@altea/altea/data/decorators";
+import { column, entity, quoted } from "@altea/altea/data/decorators";
 import { stringLengthValidator, ValidationMessage, validate, ComparisonType } from "@altea/altea/data/validators";
 import { registerEnum } from "@altea/altea/data/registration";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -206,6 +206,9 @@ export class DynamicTypeEntity extends Entity {
 
         return bad.length === 0 ? null : bad.join("\n");
     })
+    // Signum's [DbType(Size = int.MaxValue)] — a whole type definition, as JSON. Said outright, because
+    // a string column with no size takes the per-provider default of 200 (SchemaSettings.defaultSize*).
+    @column({ size: MAX_SIZE })
     typeDefinition: string;
 
     /**

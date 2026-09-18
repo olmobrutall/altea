@@ -1,7 +1,8 @@
-import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { reflect, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { EmbeddedEntity, Entity, type Type } from "@altea/altea/data/entity";
 import { tryGetOwnerEntity } from "@altea/altea/data/parentEntity";
 import { stringLengthValidator, validate } from "@altea/altea/data/validators";
+import { column } from "@altea/altea/data/decorators";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { IntegrityCheckEnvironment } from "@altea/altea/data/reflection";
 
@@ -59,13 +60,15 @@ const results = new WeakMap<EvalEmbedded<unknown>, { script: string; result: Com
 export abstract class EvalEmbedded<F> extends EmbeddedEntity {
 
     /**
-     * The stored source. Unbounded (no `max`) — the same shape as altea-dynamic's
-     * `DynamicCSSOverrideEntity.script` — an unbounded text column.
+     * The stored source. Unbounded — the same shape as altea-dynamic's `DynamicCSSOverrideEntity.script`,
+     * and Signum's `[DbType(Size = int.MaxValue)]`. The validator states no `max`, so the size has to be
+     * said outright: a string column with no size at all takes the per-provider default of 200.
      *
      * The validator COMPILES and reports the errors on this very field, so a script that does not build
      * cannot be saved. Skipped in the "Client" phase — there is no compiler in the browser (see the
      * header).
      */
+    @column({ size: MAX_SIZE })
     @stringLengthValidator({ min: 1, multiLine: true })
     @validate<EvalEmbedded<unknown>>((e, _fi, env) => e.validateScript(env))
     script: string;

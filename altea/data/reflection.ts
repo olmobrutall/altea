@@ -11,6 +11,20 @@ import { MixinDeclarations } from './mixinDeclarations';
 // AbstractDbType in logic/schema/dbType.
 export type PrimaryKeyType = 'uuid' | 'uuid7' | 'int' | 'long';
 
+/**
+ * `size` meaning "unbounded" — `nvarchar(MAX)` / `varbinary(MAX)` on SQL Server, a bare (already
+ * unbounded) `varchar` / `bytea` on PostgreSQL. Signum's `[DbType(Size = int.MaxValue)]`, and what
+ * `[StringLengthValidator(Max = -1)]` answers; -1 rather than a huge number because that is also the
+ * value the validator carries, so the two sentinels coincide.
+ *
+ * It has to be SAID, not left out: a string column with no size takes the per-provider DEFAULT of 200
+ * (SchemaSettings.defaultSize*, ported in the schema builder's `getSqlSize`), so omitting it on a field
+ * that holds a stack trace or an e-mail body would truncate it. Declared in `data` because the fields
+ * that need it are entity declarations (`@column({ size: MAX_SIZE })`); `server/schema/column.ts` and
+ * `server/sync/sqlBuilder.ts` re-export it for the engine side.
+ */
+export const MAX_SIZE = -1;
+
 // ColumnOptions lives here (shared) so logic/schema.ts can import it without
 // the entities package depending on server-only code.
 export interface ColumnOptions {

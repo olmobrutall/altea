@@ -1,7 +1,7 @@
 import { Entity } from "./entity";
 import { Lite } from "./lite";
 import { entity, column, forceNotNullable, implementedBy, ticksColumn } from "./decorators";
-import { reflect } from "./reflection";
+import { MAX_SIZE, reflect } from "./reflection";
 import { Temporal, type int } from "./basics";
 import { BigStringEmbedded } from "./bigString";
 import type { IUserEntity } from "./security";
@@ -14,7 +14,9 @@ import type { IUserEntity } from "./security";
 //  - The big text fields (stackTrace, form, queryString, session, data) use the ported
 //    BigStringEmbedded (data/bigString.ts), like Signum's `[BindParent] BigStringEmbedded`.
 //    exceptionMessage / requestUrl / urlReferer stay plain unbounded `string | null` columns, as in
-//    Signum (they were plain `[DbType(Size=int.MaxValue)] string?`, not BigStringEmbedded).
+//    Signum (they were plain `[DbType(Size=int.MaxValue)] string?`, not BigStringEmbedded) — which
+//    since the column sizer gained Signum's per-provider default of 200 has to be SAID, hence the
+//    `@column({ size: MAX_SIZE })` on each.
 //  - `User: Lite<IUserEntity>?` — the user in scope when the error was logged. Signum sets ImplementedBy
 //    to the single UserEntity; altea uses @implementedByAll (like target/origin on OperationLogEntity)
 //    so altea (core) needn't name altea-auth's concrete UserEntity. Populated in exceptionFilter from
@@ -45,6 +47,9 @@ export class ExceptionEntity extends Entity {
 
     // Signum computes ExceptionMessageHash in the setter; altea sets both together in ExceptionLogic.
     // Non-null, as Signum declares it: an exception without a message is not one worth storing.
+    // Signum's `[DbType(Size = int.MaxValue)]` — an exception message is arbitrarily long, and a string
+    // column with no size takes the per-provider default of 200.
+    @column({ size: MAX_SIZE })
     exceptionMessage: string = "";
     exceptionMessageHash: int = 0 as int;
 
@@ -63,6 +68,8 @@ export class ExceptionEntity extends Entity {
     @column({ size: 300 })
     userAgent: string | null = null;
 
+    // Signum's `[DbType(Size = int.MaxValue)]` — a URL with a query string outruns any sensible width.
+    @column({ size: MAX_SIZE })
     requestUrl: string | null = null;
 
     @column({ size: 100 })
@@ -71,6 +78,8 @@ export class ExceptionEntity extends Entity {
     @column({ size: 100 })
     actionName: string | null = null;
 
+    // Signum's `[DbType(Size = int.MaxValue)]`, as requestUrl above.
+    @column({ size: MAX_SIZE })
     urlReferer: string | null = null;
 
     @column({ size: 100 })
