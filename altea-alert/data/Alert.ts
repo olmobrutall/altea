@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema, registerEnum } from "@altea/altea/data/reflection";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { SemiSymbol } from "@altea/altea/data/semiSymbol";
@@ -126,9 +126,9 @@ export class AlertEntity extends Entity {
         return this.attendedDate == null && Temporal.PlainDateTime.compare(this.alertDate!, Clock.now) > 0;
     }
 
-    /** Signum's `CurrentState` — IN MEMORY (see the header): a ternary returning an enum has no SQL
-     *  lowering. Filter with {@link alerted} / {@link attended} / {@link future} instead. */
-    currentState(): AlertCurrentState {
+    /** Signum's `CurrentState`. */
+    @legacyPropertyRoute
+    @quoted currentState(): AlertCurrentState {
         return this.attendedDate != null ? AlertCurrentState.Attended :
             Temporal.PlainDateTime.compare(this.alertDate!, Clock.now) <= 0 ? AlertCurrentState.Alerted :
                 AlertCurrentState.Future;
@@ -152,6 +152,11 @@ export enum AlertCurrentState {
     Alerted,
     Future,
 }
+// What `currentState()` RETURNS, so the registered expression is an enum token rather than a number one:
+// the constant fold reads the ordinal off this object, and only a REGISTERED enum can hand its type back
+// (see foldOrProperty / enumMemberType in server/linq/expressions). Registering it is also what makes its
+// members translatable; no field references it, so nothing else would.
+registerEnum(AlertCurrentState);
 
 export namespace AlertOperation {
     /** Owned by the SOURCE type — every entity can spawn an alert (see CLAUDE.md on ConstructFrom). */
@@ -173,6 +178,13 @@ export enum DelayOption {
     _1Day,
     Custom,
 }
+// SHOWN to the user — `AlertsClient` builds the Delay chooser with `Enum.niceName(DelayOption, v)`. No
+// entity field references it, so the quote-transformer emits no registration of its own, and an
+// unregistered enum has no registered NAME: `Enum.niceName` cannot look a translation up and every
+// culture falls back to the humanised member ("5 Mins"). Registering it is what makes the enum
+// translatable — it creates no table (the schema builder only does that for a field that references it),
+// exactly as `dynamicQueries.ts` registers the query-vocabulary enums.
+registerEnum(DelayOption);
 
 /**
  * Signum's AlertTypeSymbol (a SemiSymbol there — see the header): "what KIND of alert this is". A module

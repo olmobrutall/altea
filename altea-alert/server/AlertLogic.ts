@@ -19,8 +19,9 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
 import { TypeConditionLogic } from "@altea/altea-auth/server/TypeConditionLogic";
 import {
-    AlertEntity, AlertOperation, AlertState, AlertTypeSymbol, AlertTypeOperation, AlertMessage,
+    AlertEntity, AlertOperation, AlertState, AlertTypeSymbol, AlertTypeOperation, AlertMessage, AlertCurrentState,
 } from "../data/Alert";
+import { Enum } from "@altea/altea/data/enum";
 import { AlertsServer } from "./AlertsServer";
 
 // Port of Signum.Alerts' AlertLogic.cs — the module starter, the alert-type registry, and the helpers an
@@ -91,6 +92,20 @@ export namespace AlertLogic {
             .withStateMachine(a => a.state, registerAlertOperations)
             .withQuery();
 
+        // Signum's `Attended` / `NotAttended` / `Alerted` / `Future` / `CurrentState` are
+        // `[AutoExpressionField]` PROPERTIES, so they are ordinary routes there and appear in every token
+        // picker for free. altea's entity model has no property getters, so the same five are `@quoted`
+        // METHODS — and a method is not a route (see `@legacyPropertyRoute`), so nothing surfaces them
+        // until they are registered as EXPRESSIONS. Without this, "alerts that are overdue right now" is
+        // only expressible in server code; a user cannot filter or column it.
+        //
+        // The caption of an expression token is its `niceName` thunk, and the four booleans have exactly
+        // the labels Signum gives them in `AlertMessage` (its `AlertEntity.Alerted` and its
+        // `AlertMessage.WarnedAlerts` are the same word in every culture it ships). `currentState` takes
+        // the ENUM's own name, which is why AlertCurrentState is registered in data/Alert — that is also
+        // what types the token as an enum instead of a bare number, so it filters with a dropdown.
+        registerStateExpressions();
+
         // Signum's `sb.Include<AlertTypeSymbol>().WithSave(…).WithDelete(…).WithQuery(…)`. The
         // SemiSymbol base registers neither — a SemiSymbol table is USER-WRITABLE, so whether it has a
         // page and how it is edited is its module's decision (see SymbolLogic.start, which does
@@ -124,6 +139,20 @@ export namespace AlertLogic {
      * method is stamped onto the type's prototype and registered per type — the accommodation
      * altea-workflow's `registerMainEntity` already makes.
      */
+    /** The five state faces of an alert, as tokens on AlertEntity itself. Keyed as Signum names them. */
+    function registerStateExpressions(): void {
+        QueryLogic.expressions.register(AlertEntity, (a: AlertEntity) => a.attended(),
+            { key: "Attended", niceName: () => AlertMessage.Alerts_Attended.niceToString() });
+        QueryLogic.expressions.register(AlertEntity, (a: AlertEntity) => a.notAttended(),
+            { key: "NotAttended", niceName: () => AlertMessage.Alerts_NotAttended.niceToString() });
+        QueryLogic.expressions.register(AlertEntity, (a: AlertEntity) => a.alerted(),
+            { key: "Alerted", niceName: () => AlertMessage.WarnedAlerts.niceToString() });
+        QueryLogic.expressions.register(AlertEntity, (a: AlertEntity) => a.future(),
+            { key: "Future", niceName: () => AlertMessage.Alerts_Future.niceToString() });
+        QueryLogic.expressions.register(AlertEntity, (a: AlertEntity) => a.currentState(),
+            { key: "CurrentState", niceName: () => Enum.niceTypeName(AlertCurrentState)! });
+    }
+
     export function registerExpressions<T extends Entity>(type: Type<T>): void {
         QueryLogic.expressions.register(type, (e: Entity) => e.alerts!(),
             { niceName: () => AlertEntity.nicePluralName() });
