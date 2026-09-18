@@ -133,6 +133,28 @@ stored `PlainTime` column, mirroring `DATEPART`, and `largestUnit` must be honou
 It only sees statements that pass through `withLogging`; a `DEFERRABLE INITIALLY DEFERRED` constraint is
 checked at COMMIT, which goes straight to the `ConnectionHandle`. altea generates none today.
 
+### F8 — a `Decimal` COLUMN had no runtime type — **FIXED**
+`QueryBinder.valueType` (the FieldInfo → RuntimeType map the binder stamps on a value column) had cases for
+String / Number / Boolean / the three temporals and **no case for `Decimal`**, so a decimal column bound as
+`LiteralType.null`. Two consequences, both silent:
+
+- the INSTANCE decimal operators could not lower (`a.unitPrice.times(2)` → "The method 'times' cannot be
+  translated to SQL"). Only the STATIC form worked, because `Decimal.mul(…)` types ITSELF through
+  `__resultType` — which is why every `@quoted` body in the workspace is written that way and nobody hit it;
+- the column materialised RAW, so on PostgreSQL a `Decimal` field came back as the STRING the driver hands
+  over for `numeric`. `translatorBuilder.visitColumn` has a `LiteralType.decimal` branch for exactly this
+  ("Postgres hands it back as a string (exact)") and it could only ever fire for a COMPUTED decimal.
+
+`baseTypeOfFieldInfo` — the sibling mapping in `server/linq/expressions.ts` that altea-cache reads — has
+always had the case, so the two had simply drifted. Fixed by adding it; the whole framework suite is green.
+
+### F9 — the in-memory query interpreter could not call a captured FUNCTION — **FIXED**
+`evalExpr` (`server/dynamicQuery/dEnumerable.ts`) handled `CallExpression` only when the callee was a
+`PropertyExpression` (a method on a receiver). A call on a captured function — `Number(x)`, the binder's own
+float cast, plus `toInt` / `inSql` / any branded SQL helper — fell through to `throw new Error("evalExpr:
+unsupported expression CallExpression")`. In memory the captured function IS the implementation, so applying
+it is both the simplest and the right answer.
+
 ---
 
 ## A. Display names that are never localized
@@ -365,9 +387,31 @@ existing PostgreSQL database will need `ALTER COLUMN … TYPE varchar(n)` for a 
 column whose DATA is longer than its new size will fail that ALTER — which is exactly the kind of thing
 the script is meant to be read for before it runs.
 
-### B5 — `RoundingType`
-Signum's `RoundingType { Floor, Ceil, Round, RoundMiddle }`, used to bucket numbers into histogram steps.
-Port the functionality (it is what a chart's "step" parameter needs), not just the enum.
+### B5 — `RoundingType` — **DONE** (with C2's `Step0`; they are one feature)
+
+`RoundingType { Floor, Ceil, Round, RoundMiddle }` lives in `data/dynamicQuery/tokens/stepToken.ts`, where
+Signum declares it too (DecimalSpecialTokens.cs, beside the tokens that consume it) — a STRING enum with a
+hand-written `registerEnum`, like its four siblings in that folder: the member name IS the token key and is
+stored inside a user asset's token string (`UnitPrice.Step1.x2_5.RoundMiddle`), so it may never be an ordinal.
+
+The FUNCTIONALITY is `roundToStep` (`server/dynamicQuery/tokenExpressions.ts`), a port of
+`RoundingExpressionGenerator.RoundExpression` — subtract half a step for `RoundMiddle`, divide, snap, multiply
+back, add the half back. The three levels of Signum's token chain all call it and all build from the ORIGINAL
+numeric token, never from the level above.
+
+Two things worth knowing:
+
+- **`Number(x)` first is not cosmetic.** Signum's `Expression.Convert(result, typeof(double))` is what stops
+  `int / int` being INTEGER division — on BOTH providers. Without it `ceil(orderId / 1000) * 1000` silently
+  answers the FLOOR bucket on every integer column. `Number(x)` is altea's spelling (the binder lowers it to
+  `CAST(… AS float)` / `CAST(… AS double precision)`).
+- **A `Decimal` token takes the decimal.js method chain instead** (`x.dividedBy(s).ceil().times(s)`), which
+  lowers to the same SQL through `decimalCall` but stays exact, because `ceil(x / 0.1)` in binary floating
+  point does not. A `Number` token whose `subTypeName` is `decimal` (altea's branded alias) is a plain JS
+  number at runtime and takes the float path.
+
+DIVERGENCE, shared with Signum and unavoidable: JS `Math.round` and SQL `ROUND` round a half AWAY from zero,
+.NET's `Math.Round` rounds it to EVEN — so `Round` over -2.5 answers -3 here and -2 in Signum's in-memory path.
 
 ---
 
@@ -409,9 +453,92 @@ Port the functionality (it is what a chart's "step" parameter needs), not just t
 >
 > Found on the way, NOT fixed: `QueryTokenHelpMessage` (the token help text) is still stubbed.
 
-### C2 — Other tokens
-Port `MatchRank` / `MatchRankFor0` / `MatchSnippet` / `SnippetOf0` (full-text search ranking), `Nested`,
-`Step0` and `Modulo0` / `_0Mod1`.
+### C2 — Other tokens — **DONE except `Nested`**
+
+> `Step0` / `_0Steps1` (with B5's RoundingType), `Modulo0` / `_0Mod1`, `MatchRank` / `MatchRankFor0`,
+> `MatchSnippet` / `SnippetOf0` and — found in the same line of code — `Length` are in. **`Nested` is NOT,
+> and the reason is that it is not a token at all; see the bottom of this item.**
+
+**`Step0`** — the `Step → xMultiplier → Rounding` chain, `data/dynamicQuery/tokens/stepToken.ts`. Signum's
+three levels are a UI affordance, not three ideas: `Step 1000` offers `x1 … x8` so 1500 and 2500 are
+reachable without listing every size, and each multiplier offers the four roundings; every level is a
+complete groupable token on its own (`Step1000` alone means `x1`, `Ceil`). The arithmetic is B5 above.
+`subTokensBase` now splits the numeric branch the way Signum splits it: a WHOLE number gets steps from 1 up
+plus the modulo tokens, a FRACTIONAL one gets sub-unit steps down to its own decimals and no modulo
+(`x mod 100` says nothing about a fractional value). The decimals come from the token's own display format
+(Signum's `Reflector.NumDecimals`), which is where `@decimalsValidator(4)` already reaches this layer.
+
+**`Modulo0` / `_0Mod1` / `Length`** were the C1 bug one more time: `ModuloToken` built `"Modulo " + divisor`
+and `stringTokens` passed the literal `"Length"`, so both showed English in every culture and the sync had
+no member to hang Signum's German and Spanish on. All three are messages now.
+
+**`MatchRank` — PostgreSQL only, and SQL Server THROWS.** This is the one place the two providers could not
+be made to agree, so here is precisely what was left out and why.
+
+Signum has TWO rank tokens because its two providers reach a rank from different places. On Postgres
+(`PgTsRankToken`) the rank is the scalar `ts_rank(tsvector, tsquery)` and hangs off a tsvector COLUMN token.
+On SQL Server (`FullTextRankToken`) there is no scalar rank function at all: `CONTAINS` / `FREETEXT` are
+predicates and nothing else, and the score lives in the `RANK` column of the `CONTAINSTABLE` /
+`FREETEXTTABLE` table-valued function — so `DQueryable.SelectWithFullTextTable` rewrites the whole query
+into a JOIN against that function, keyed on the row id, and re-seats every existing replacement onto the
+joined tuple.
+
+altea has ONE token, on the indexed string property (which is where altea already puts the full-text FILTER
+operations — `FindOptions.getFilterOperations` keys off `fieldInfo.hasFullTextIndex`), and only the Postgres
+half is implemented: `entity.getTsVectorColumn().rank(<the tsquery the filters asked for>)`, with the
+tsquery rebuilt from the query's own `TsQuery*` filters on the same token and combined with each filter
+group's own operator (`&&` / `||`), exactly as `PgTsRankToken.GetCombinedTsQuery` does. No such filter ⇒ a
+constant 0, Signum's own fallback.
+
+On SQL Server the token is still OFFERED — sub-token generation is provider-agnostic and runs on the client,
+which has no connector — and `buildExpressionInternal` throws a message naming `CONTAINSTABLE`. The
+alternative, answering 0 or borrowing the Postgres shape, would be a silently wrong relevance ordering.
+**What a SQL Server implementation needs is the table-valued-function JOIN**, which altea's dynamic query
+does not build at all (a full-text filter lowers to an inline predicate); that is a DQueryable change of the
+same size as the nested-query machinery below, not a token.
+
+**`MatchSnippet` — both providers, and it is not a database expression on either side.** Signum selects the
+text column and calls `Highlighter.FindSnippet` FROM THE LINQ PROJECTOR, i.e. in the application process.
+altea does the same thing one stage later: the token's expression IS its parent's (so the text is what the
+SELECT fetches) and `applySnippets` (`server/dynamicQuery/snippet.ts`) rewrites the column's values in
+`AutoDynamicQueryCore.executeQueryAsync`. It has to be later because altea's projector is COMPILED TO
+JAVASCRIPT SOURCE from the expression tree and has no node for "call this closure per row"; doing it per
+ResultTable also means it can see the request's FILTERS, which is where the words come from
+(`Filter.getKeywords`, a port of Signum's two `GetKeywords` overrides — each full-text query language split
+by its own operator vocabulary).
+
+Consequences of that placement, both deliberate: a `ManualDynamicQueryCore` gets no snippet (it builds its
+own ResultTable — Signum's manual queries do not get one either, for the same reason), and ORDERING by a
+snippet orders by the raw text. Signum rewrites an order on a snippet into an order on the RANK
+(`Order.cs:28`); that rewrite is worth having once SQL Server has a rank, since on Postgres alone it would
+succeed or throw depending on the provider.
+
+Two small DIVERGENCES from Signum, both deliberate: the rank token is typed a nullable FRACTIONAL number
+(Signum types both of its rank tokens `int?`, which is simply wrong for `ts_rank` and would make the client
+render and filter a 0…1 score as a whole number); and `StringSnippetToken.niceName()` uses `SnippetOf0`
+("Snippet for {0}"), the message Signum declares for exactly this and never calls — its own `NiceName`
+passes the parent's name to `MatchSnippet`, which has no placeholder, so the argument is dropped and the
+long form reads identically to the short one.
+
+**`Nested` — NOT PORTED. It is a whole feature, not a token.** `CollectionNestedToken` throws
+"should have a replacement at this stage" in Signum too: the token is only a marker, and everything it means
+lives in the query pipeline around it —
+
+- `DQueryable.SelectWithNestedQueries` / `NestedQueryConstructor` / `GetCollectionExpression` (~200 lines):
+  the selected tokens are grouped by their deepest nested ancestor into a TREE, and each node becomes its
+  own sub-query (`collection.Where(itsOwnFilters).OrderBy(itsOwnOrders).Select(itsOwnTuple).ToList()`)
+  projected into a slot of the parent tuple, with its own `BuildExpressionContext` carried on the
+  `ExpressionBox` (`subQueryContext` — a field altea's ExpressionBox does not have).
+- `ResultTable` becomes recursive: `DQueryable.ToResultTableSubQuery` builds a nested ResultTable per cell,
+  so a `ResultColumn`'s value may be a whole table. altea's `ResultTable` is flat columns of scalars, and
+  the wire DTO and the client's `SearchControl` cell renderer both assume that.
+- `QueryRequest.ValidateNested`: a filter or an order on a nested token is refused unless the same nested
+  token is also a COLUMN, because the sub-query it belongs to only exists if something selected it.
+
+None of that is reachable from the token layer, and half of it is client work. It is its own port item —
+the natural sibling of the `CONTAINSTABLE` join above — and should be written up as one rather than left as
+a line in this list. Nothing in the workspace asks for it today: `SubTokensOptions.CanNested` exists,
+`QueryToken.hasNested()` answers false for every token, and `Finder.tsx` already greys a nested token out.
 
 **Deferred, do not port:** `RowId` and `RowOrder` (altea has no MList — a collection is a `@part` row with
 its own entity identity) and `PartitionId` (no partitioning).
@@ -479,12 +606,104 @@ OperationSymbol has a search page for the token to hang off. Declared in `data/o
 four on `Entity`, stamped in `server/operationLogic.ts`, registered in `OperationLogic.start`. Verified
 against the eastwind database: the token lowers to an EXISTS sub-query.
 
-### D3 — `SearchMessage`
-altea declares 82 of 114. Port the missing FUNCTIONALITY, not the strings alone: `SmartSearchDescription`,
-`GroupPrefix`, `FilterGroupInvalidMixedOperations`, and the pair
-`NoResultsFoundBecauseYouAreNotAllowedToExplore0WithoutFilteringBy1First` /
-`NoResultsFoundBecauseTheRule0DoesNotAllowedToExplore1WithoutFilteringFirst` (the query-auth rule that
-refuses an unfiltered search).
+### D3 — `SearchMessage` — **DONE**
+
+altea declared 82 of Signum's 114. Nine of the 32 missing members had functionality behind them and are
+ported; the other 23 are recorded below with the reason they do not apply.
+
+The striking finding is how many of them are dead **in Signum**. Only 88 of its 114 members are referenced
+anywhere in the framework or the extensions — so of the 32 altea was missing, 23 are referenced by nothing
+at all on either side, and several of those exist beside a hard-coded English literal that the member was
+evidently meant to replace. Two of those literals were in altea too, and porting the member means fixing
+the literal.
+
+#### Ported
+
+| Member | What it now does |
+| --- | --- |
+| `GroupPrefix` | The label over a filter GROUP's own token. Both frameworks rendered a hard-coded `Prefix:` two lines from the declared member; `client/SearchControl/FilterBuilder` now says it. |
+| `SelectRow0_` | The result row checkbox's `aria-label`. Same story: `` aria-label={`Select row ${i + 1}`} `` in Signum and in altea, with the member unused. |
+| `FilterGroupInvalidMixedOperations` + `Error` | A filter group holds ONE value for every condition under it, so `is in` (an array) and `equals` (a scalar) cannot share it unless `pinned.splitValue` splits it. Signum raises this from its two group multi-value rules, neither of which altea ports; altea has one group rule, so the guard is asked there, from the new `hasMixedListOperations` in `client/FindOptions` (beside `isList`, which it reads). |
+| `SmartSearchDescription` | Brought the full-text value editor over with it: `FilterTextArea` + `ComplexConditionSyntax` + the `TextArea` / `VectorSmartSearch` rules in `client/FinderRules`. The six full-text operations take a whole expression in the dialect's own syntax, and altea's server supports them (`server/fullTextSearch`) — they were being edited in a one-line box with no syntax help. `SmartSearch` is the one with no syntax to show, which is what the message says. `isFullTextSearch` / `isComplexFullTextSearch` join the predicate above in `client/FindOptions`. |
+| `_0Rows_N` | The Excel export's pagination selector (`@altea/altea-office-template`'s `ExcelMenu`), which said `_0Results_N`. An export writes ROWS, and for a grouped query that is not the result count. altea keeps its own fix to Signum's call — it passes the count being shown to `forGenderAndNumber`, where Signum always passes `totalElements`. |
+| `Query0NotAllowed` | `QueryAuthLogic`'s refusal, which was a hand-written `Query '<key>' is not authorized`. It reaches the end user through the error modal, so it is localized. |
+| `NoResultsFoundBecauseTheRule0DoesNotAllowedToExplore1WithoutFilteringFirst` + `NoResultsFoundBecauseYouAreNotAllowedToExplore0WithoutFilteringBy1First` | The query-auth rule that refuses an unfiltered search — see below. |
+
+#### The unfiltered-search rule
+
+A type whose type-auth FALLBACK is `None` is reachable only through its condition rules, and a QUERY-AUDITOR
+condition among them (`TypeConditionLogic.registerWhenAlreadyFilteringBy`, already ported) decides from the
+CALLER'S QUERY rather than from the row: *you may read these rows because you already pinned them to
+something you are allowed to read*. An unfiltered search over such a type therefore matches nothing — not
+because nothing is there, but because nothing was asked for, and "No results found" is then a lie. The
+canonical case is the operation log: one table across the whole application, so a role that may read it at
+all could otherwise read the audit trail of rows it cannot see.
+
+Three pieces, mirroring Signum:
+
+- **server** — `AuthReflection` stamps `TypeMetadata.queryAuditors` (the auditing conditions' keys) on a type
+  whose `WithConditions.fallback` is `None`. Declared by the interface expansion in `altea-auth/data/Rules`,
+  beside `maxTypeAllowed`. The type loop had to be restructured: it used to `continue` before the stamp for
+  any type at Write, and a condition rule may well grant Write over a `None` fallback;
+- **registry** — `AuthAdminClient.registerQueryAuditorToken(queryName, token, typeCondition)`, the pair that
+  lets the message name the very token to filter by. `@altea/altea-diff-log` registers `OperationLog.Target`
+  beside the condition its logic registers. It lives in `AppContext.clientState`, so the re-registration
+  every credential change triggers replaces it instead of appending to it (Signum clears it through
+  `clearSettingsActions`);
+- **client** — `queryAuditorNoResultMessage` in `AuthAdminClient`, which renders the generic message when no
+  token is registered for the query and the specific one when there is. In both cases an `EqualTo` filter
+  that already pins something means the search really did match nothing, and it says nothing.
+
+Divergences from Signum, and why:
+
+- it is a **global** `Finder.onNoResultMessage()` handler, not a per-type `QuerySettings.noResultMessage`
+  assignment. Signum can snapshot `getAllTypes()` inside `AuthAdminClient.start`; altea cannot, because
+  `loadReflectionMetadata` runs AFTER the client modules register (MainPublic's `reload()`), so at `start()`
+  nothing yet knows which types the role is restricted on. Reading the blob at render time also keeps the
+  answer right after a login or an impersonation, which Signum's snapshot does not. The per-query
+  `noResultMessage` already existed in core and still wins; the global list is consulted after it;
+- Signum's `similarToken` (which strips a leading `Entity.`) is plain string equality, because altea's
+  tokens are rootless already — the same collapse `client/FindOptions` records;
+- Signum renders the token through `QuerytokenRenderer`, which resolves it against the QueryDescription.
+  altea has none, so the token is resolved hop by hop against the query's own token tree (`QueryToken
+  .subTokens` is synchronous), falling back to the raw key when a registration has gone stale.
+
+#### Not ported
+
+**Deferred with the UI that would use them** — Signum renders these from `ColumnBuilder.tsx` and
+`ColumnEditorModal.tsx`; altea has no `ColumnBuilder`, and its `ColumnEditorModal` is a documented stub
+(`show()` resolves `false`). They land with that modal, not before it:
+`AddColumn` · `Orders` · `HiddenColumn`.
+
+**Duplicates of a member altea already has and uses**:
+
+- `NoActionsFound` — `JavascriptMessage.noActionsFound`, which the contextual menu renders;
+- `Query0IsNotAllowed` — the same `[Description]` as `Query0NotAllowed`, which is the one ported above.
+  Signum declares both and uses neither (`ChartMessage` has its own third copy).
+
+**A developer diagnostic, English by design** — the same call as `ConsoleMessage` / `SynchronizerMessage` in
+section E: `Query0NotRegistered`. altea's `QueryLogic` throw already names the API to call, which is what
+the reader of that message needs and a translation would lose.
+
+**Dead in Signum, and with no altea counterpart to attach to** — no reference anywhere in the framework or
+the extensions, and nothing in altea's search UI renders a literal for them either (checked). Each is a
+leftover from a UI Signum itself no longer has:
+
+| Member | Where it came from |
+| --- | --- |
+| `ChooseTheDisplayNameOfTheNewColumn` · `Name` · `NewColumnSName` · `Rename` | The pre-React "add / rename column" dialog. altea's `ColumnEditor` labels the field with `DisplayName` and renames in place. |
+| `Find` · `FinderOf0` | The old finder WINDOW's title. altea's `SearchModal` is titled with the type's plural nice name. |
+| `NoColumnSelected` · `NoFiltersSpecified` | Empty-state text for the same dialog. |
+| `Of` | A bare preposition, which cannot be translated outside the sentence it belonged to. |
+| `Create` · `ThereIsNo0` · `ViewSelected` | Superseded by `CreateNew0_G` / `EntityControlMessage.Create` / `OperationMessage.Create`, and by the toolbar altea does render. |
+| `PinnedFilter` | A heading for the pinned-filter editor; `EditPinnedFilters` / `PinFilter` / `UnpinFilter` are what both frameworks actually render. (Signum's `PinnedFilter` TYPE is unrelated.) |
+| `WhenPressedTheFilterWillTakeNoEffectIfTheValueIsNull` · `WhenPressedTheFilterValueWillBeSplittedAndAllTheWordsHaveToBeFound` | Superseded by `SplitsTheStringValueBySpaceAndSearchesEachPartIndependentlyInAnANDGroup` / `SplitsTheValuesAndSearchesEachOneIndependentlyInAnANDGroup`, which altea has and renders, and by the pinned `active` enum's own nice names. |
+| `_0FiltersCollapsed` | A count badge for collapsed filters. Neither framework's `FilterBuilder` has one. |
+| `Options` | A dropdown heading that no longer exists. |
+
+Still deferred, and now the only thing standing between altea and the `FilterGroup_TextArea` rule: the two
+group multi-value editors (`FilterGroup_MultiValue` / `FilterGroup_MultiEntity`). A full-text GROUP falls
+back to the single `FilterGroup` editor.
 
 ### D4 — `CultureInfoEntity.IsNeutral` — **DONE**
 
