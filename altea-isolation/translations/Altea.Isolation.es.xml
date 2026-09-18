@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="IsolationEntity" Description="Aislamiento">
     <Member Name="Name" Description="Nombre" />
@@ -15,5 +15,10 @@
   </Type>
   <Type Name="IsolationOperation">
     <Member Name="Save" Description="Guardar" />
+  </Type>
+  <Type Name="IsolationStrategy" Description="Estrategia de aislamiento">
+    <Member Name="Isolated" Description="Aislado" />
+    <Member Name="None" Description="Ninguno" />
+    <Member Name="Optional" Description="Opcional" />
   </Type>
 </Translations>

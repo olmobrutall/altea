@@ -1,9 +1,8 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<!-- Ported from Signum.ViewLog/Translations/Signum.ViewLog.de.xml — see the .es.xml header. -->
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="ViewLogEntity" Description="Anzeigeprotokoll" PluralDescription="Anzeigeprotokolle" Gender="n">
     <Member Name="Data" Description="Daten" />
-    <Member Name="DurationMilliseconds" Description="Dauer (ms)" />
+    <Member Name="Duration" Description="Dauer" />
     <Member Name="EndDate" Description="Enddatum" />
     <Member Name="StartDate" Description="Startdatum" />
     <Member Name="Target" Description="Ziel" />

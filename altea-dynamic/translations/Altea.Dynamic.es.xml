@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="DynamicApiEntity" Description="API dinámica" PluralDescription="APIs dinámicas" Gender="f">
     <Member Name="Eval" Description="Eval" />
@@ -15,6 +15,15 @@
     <Member Name="Entity" Description="Entidad" />
     <Member Name="MixinEntity" Description="Entidad mixin" />
     <Member Name="ModelEntity" Description="Entidad de modelo" />
+  </Type>
+  <Type Name="DynamicClientEntity" Description="Cliente dinámico" PluralDescription="Clientes dinámicos">
+    <Member Name="Code" Description="Código" />
+    <Member Name="Name" Description="Nombre" />
+  </Type>
+  <Type Name="DynamicClientOperation">
+    <Member Name="Clone" Description="Clonar" />
+    <Member Name="Delete" Description="Eliminar" />
+    <Member Name="Save" Description="Guardar" />
   </Type>
   <Type Name="DynamicCSSOverrideEntity" Description="Sobrescritura dinámica de CSS" PluralDescription="Sobrescrituras dinámicas de CSS">
     <Member Name="Name" Description="Nombre" />
@@ -122,6 +131,9 @@
     <Member Name="SubEntity" Description="Sub entidad" />
   </Type>
   <Type Name="DynamicValidationEval" Description="Validación dinámica eval" />
+  <Type Name="DynamicValidationMessage">
+    <Member Name="PropertyIs" Description="La propiedad es" />
+  </Type>
   <Type Name="DynamicValidationOperation">
     <Member Name="Clone" Description="Clonar" />
     <Member Name="Delete" Description="Eliminar" />
@@ -133,10 +145,6 @@
     <Member Name="Props" Description="Propiedades" />
     <Member Name="ViewContent" Description="Ver el contenido de" />
     <Member Name="ViewName" Description="Nombre de la vista" />
-  </Type>
-  <Type Name="DynamicViewEntity_Prop" Description="Prop de vista dinámica">
-    <Member Name="Name" Description="Nombre" />
-    <Member Name="Type" Description="Tipo" />
   </Type>
   <Type Name="DynamicViewMessage">
     <Member Name="AddChild" Description="Agregar hijo" />
@@ -171,6 +179,10 @@
   <Type Name="DynamicViewOverrideOperation">
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
+  </Type>
+  <Type Name="DynamicViewEntity_Prop" Description="Prop de vista dinámica">
+    <Member Name="Name" Description="Nombre" />
+    <Member Name="Type" Description="Tipo" />
   </Type>
   <Type Name="DynamicViewSelectorEntity" Description="Selector de vista dinámica">
     <Member Name="EntityType" Description="Tipo de entidad" />

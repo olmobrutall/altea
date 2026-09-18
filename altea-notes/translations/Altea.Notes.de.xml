@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="NoteEntity" Description="Notiz" PluralDescription="Notizen" Gender="f">
     <Member Name="CreatedBy" Description="Erstellt von" />

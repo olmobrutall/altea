@@ -1,23 +1,40 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
+  <Type Name="AlertCurrentState" Description="aktueller Status der Benachrichtigung">
+    <Member Name="Alerted" Description="Gewarnte" />
+    <Member Name="Attended" Description="Erledigte" />
+    <Member Name="Future" Description="Zukünftige" />
+  </Type>
+  <Type Name="AlertDropDownGroup">
+    <Member Name="ByType" Description="Nach Typ" />
+    <Member Name="ByTypeAndUser" Description="Nach Typ und Benutzer" />
+    <Member Name="ByUser" Description="Nach Benutzer" />
+  </Type>
   <Type Name="AlertEntity" Description="Benachrichtigung">
     <Member Name="AlertDate" Description="Benachrichtigungsdatum" />
+    <Member Name="Alerted" Description="Gewarnte" />
     <Member Name="AlertType" Description="Benachrichtigungstyp" />
+    <Member Name="Attended" Description="Erledigte" />
     <Member Name="AttendedBy" Description="Erledigt von" />
     <Member Name="AttendedDate" Description="Erledigungsdatum" />
     <Member Name="AvoidSendMail" Description="E-Mail-Versand vermeiden" />
     <Member Name="CreatedBy" Description="Erstellt von" />
     <Member Name="CreationDate" Description="Erstellungsdatum" />
+    <Member Name="CurrentState" Description="Aktueller Status" />
     <Member Name="EmailNotificationsSent" Description="E-Mail-Benachrichtigungen gesendet" />
+    <Member Name="Future" Description="Zukünftige" />
     <Member Name="GroupTarget" Description="Gruppe-Ziel" />
     <Member Name="LinkTarget" Description="Link-Ziel" />
+    <Member Name="NotAttended" Description="Nicht erledigte" />
     <Member Name="Recipient" Description="Empfänger" />
     <Member Name="State" Description="Status" />
     <Member Name="Target" Description="Ziel" />
     <Member Name="TargetToString" Description="Ziel zu String" />
+    <Member Name="Text" Description="Text" />
     <Member Name="TextArguments" Description="Textargumente" />
     <Member Name="TextField" Description="Textfeld" />
     <Member Name="TextFromAlertType" Description="Text aus Benachrichtigungstyp" />
+    <Member Name="Title" Description="Titel" />
     <Member Name="TitleField" Description="Titelfeld" />
   </Type>
   <Type Name="AlertMessage">
@@ -71,6 +88,15 @@
     <Member Name="Save" Description="Speichern" />
   </Type>
   <Type Name="AlertTypeSymbol" Description="Benachrichtigungstyp" />
+  <Type Name="DelayOption">
+    <Member Name="_15Mins" Description="15 Minuten" />
+    <Member Name="_1Day" Description="1 Tag" />
+    <Member Name="_1Hour" Description="1 Stunde" />
+    <Member Name="_2Hours" Description="2 Stunden" />
+    <Member Name="_30Mins" Description="30 Minuten" />
+    <Member Name="_5Mins" Description="5 Minuten" />
+    <Member Name="Custom" Description="Benutzerdefiniert" />
+  </Type>
   <Type Name="SendAlertTypeBehavior" Description="Verhalten des Alarm Typs Senden">
     <Member Name="All" Description="Alle" />
     <Member Name="Exclude" Description="Ausschließen" />

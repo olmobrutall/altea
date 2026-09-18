@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="AutoconfigureNeuralNetworkEntity" Description="Configuración automática de la red neuronal">
     <Member Name="ExploreHiddenLayers" Description="Explorar capas ocultas" />
@@ -38,6 +38,11 @@
     <Member Name="sigmoid_cross_entropy_with_logits" Description="entropía cruzada sigmoide con logits" />
     <Member Name="softmax_cross_entropy_with_logits" Description="entropía cruzada softmax con logits" />
     <Member Name="softmax_cross_entropy_with_logits_v2" Description="entropía cruzada softmax con logits v2" />
+  </Type>
+  <Type Name="NeuralNetworkHidenLayerEmbedded" Description="Capa oculta de red neuronal">
+    <Member Name="Activation" Description="Activación" />
+    <Member Name="Initializer" Description="Inicializador" />
+    <Member Name="Size" Description="Tamaño" />
   </Type>
   <Type Name="NeuralNetworkInitializer" Description="Inicializador de red neuronal">
     <Member Name="glorot_uniform_initializer" Description="inicializador de uniforme glorot" />
@@ -97,6 +102,12 @@
     <Member Name="SubQueryIndex" Description="Índice de sub consulta" />
     <Member Name="Usage" Description="Uso" />
   </Type>
+  <Type Name="PredictorEntity_Column" Description="Columna predictor">
+    <Member Name="Encoding" Description="Codificación" />
+    <Member Name="NullHandling" Description="Manejo de nulos" />
+    <Member Name="Token" Description="Token" />
+    <Member Name="Usage" Description="Uso" />
+  </Type>
   <Type Name="PredictorColumnEncodingSymbol" Description="Codificación de columnas de predictor" />
   <Type Name="PredictorColumnNullHandling" Description="Manejo de columnas nulas del predictor">
     <Member Name="Average" Description="Media" />
@@ -129,12 +140,6 @@
     <Member Name="TrainingException" Description="Excepción de entrenamiento" />
     <Member Name="User" Description="Usuario" />
   </Type>
-  <Type Name="PredictorEntity_Column" Description="Columna predictor">
-    <Member Name="Encoding" Description="Codificación" />
-    <Member Name="NullHandling" Description="Manejo de nulos" />
-    <Member Name="Token" Description="Token" />
-    <Member Name="Usage" Description="Uso" />
-  </Type>
   <Type Name="PredictorEpochProgressEntity" Description="Progreso de etapa de predictor">
     <Member Name="AccuracyTraining" Description="Entrenamiento de precisión" />
     <Member Name="AccuracyValidation" Description="Validación de precisión" />
@@ -150,6 +155,8 @@
     <Member Name="PredictorFile" Description="Archivo del predictor" />
   </Type>
   <Type Name="PredictorMainQueryEmbedded" Description="Consulta principal del predictor">
+    <Member Name="Columns" Description="Columnas" />
+    <Member Name="Filters" Description="Filtros" />
     <Member Name="GroupResults" Description="Agrupar resultados" />
     <Member Name="Query" Description="Consulta" />
   </Type>
@@ -175,6 +182,7 @@
     <Member Name="Results" Description="Resultados" />
     <Member Name="ShouldBeOfType0" Description="Debe ser del tipo {0}" />
     <Member Name="StartingTraining" Description="Iniciando entrenamiento" />
+    <Member Name="TensorflowProjector" Description="Proyector tensorflow" />
     <Member Name="ThereShouldBe0ColumnsWith12Currently3" Description="Debe haber {0} columnas con {1} {2} (actualmente {3})" />
     <Member Name="TheTypeOf01DoesNotMatch23" Description="El tipo de {0} ({1}) no coincide con {2} ({3})" />
     <Member Name="TooManyParentKeys" Description="Demasiadas claves padre" />
@@ -224,6 +232,12 @@
     <Member Name="Trained" Description="Entrenado" />
     <Member Name="Training" Description="Entrenamiento" />
   </Type>
+  <Type Name="PredictorSubQueryEntity_Column" Description="Columna de subconsulta del predictor">
+    <Member Name="Encoding" Description="Codificación" />
+    <Member Name="NullHandling" Description="Manejo de nulos" />
+    <Member Name="Token" Description="Token" />
+    <Member Name="Usage" Description="Uso" />
+  </Type>
   <Type Name="PredictorSubQueryColumnUsage" Description="Uso de columna de subconsulta de predictor">
     <Member Name="Input" Description="Entrada" />
     <Member Name="Output" Description="Salida" />
@@ -237,12 +251,6 @@
     <Member Name="Order" Description="Orden" />
     <Member Name="Predictor" Description="Predictor" />
     <Member Name="Query" Description="Consulta" />
-  </Type>
-  <Type Name="PredictorSubQueryEntity_Column" Description="Columna de subconsulta del predictor">
-    <Member Name="Encoding" Description="Codificación" />
-    <Member Name="NullHandling" Description="Manejo de nulos" />
-    <Member Name="Token" Description="Token" />
-    <Member Name="Usage" Description="Uso" />
   </Type>
   <Type Name="PredictSimpleResultEntity" Description="Resultado simple de predictor">
     <Member Name="Key0" Description="Key0" />

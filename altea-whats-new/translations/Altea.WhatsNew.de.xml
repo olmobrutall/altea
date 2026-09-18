@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="WhatsNewEntity" Description="Was ist neu" Gender="f">
-    <Member Name="Attachments" Description="Anhang" />
+    <Member Name="Attachment" Description="Anhang" />
     <Member Name="CreationDate" Description="Erstellungsdatum" />
     <Member Name="Messages" Description="Neuigkeiten" />
     <Member Name="Name" Description="Name" />
@@ -43,7 +43,7 @@
     <Member Name="YouDoNotHaveAnyUnreadNews" Description="Sie haben keine ungelesenen Neuigkeiten" />
     <Member Name="YourNews" Description="Ihre Neuigkeiten" />
   </Type>
-  <Type Name="WhatsNewMessageEntity" Description="Was ist die neue Nachricht?">
+  <Type Name="WhatsNewMessageEmbedded" Description="Was ist die neue Nachricht?">
     <Member Name="Culture" Description="Kultur" />
     <Member Name="Description" Description="Beschreibung" />
     <Member Name="Title" Description="Titel" />

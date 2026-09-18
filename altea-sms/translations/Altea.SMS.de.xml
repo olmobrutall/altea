@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="MessageLengthExceeded" Description="Nachrichtenlänge überschritten">
     <Member Name="Allowed" Description="Erlaubt" />
@@ -18,48 +18,43 @@
     <Member Name="RemoveNonValidCharacters" Description="Nicht gültige Zeichen entfernen" />
     <Member Name="Replacements" Description="Ersatz" />
     <Member Name="StatusCanNotBeUpdatedForNonSentMessages" Description="Für die nicht gesendeten Nachrichten kann der Status nicht aktualisiert werden" />
-    <Member Name="TheTemplateMustBeActiveToConstructSMSMessages" Description="Die Vorlage muss aktiv sein, um SMS-Nachrichten zu erstellen" />
-    <Member Name="TheTextForTheSMSMessageExceedsTheLengthLimit" Description="Der Text der SMS-Nachricht überschreitet die Längenbegrenzung" />
+    <Member Name="TheTemplateMustBeActiveToConstructSMSMessages" Description="Die Vorlage muss zum erstellen von SMS-Nachrichten aktiv sein" />
+    <Member Name="TheTextForTheSMSMessageExceedsTheLengthLimit" Description="Der Text für die SMS-Nachricht überschreitet die Länge" />
   </Type>
   <Type Name="SMSConfigurationEmbedded" Description="SMS-Konfiguration">
     <Member Name="DefaultCulture" Description="Standardkultur" />
   </Type>
-  <Type Name="SMSMessage">
-    <Member Name="NotAValidTelephoneNumberList" Description="Keine gültige Telefonnummer (und keine kommagetrennte Liste davon)" />
-    <Member Name="SMSMessagesMustBeSentPriorToUpdateTheStatus" Description="SMS-Nachrichten müssen gesendet werden, bevor der Status aktualisiert wird" />
-    <Member Name="TheTextForTheSMSMessageHasNotBeenSet" Description="Der Text der SMS-Nachricht wurde nicht gesetzt" />
-  </Type>
   <Type Name="SMSMessageEntity" Description="SMS-Nachricht" PluralDescription="SMS-Nachrichten" Gender="f">
     <Member Name="Certified" Description="Zertifiziert" />
-    <Member Name="DestinationNumber" Description="Zielnummer" />
+    <Member Name="DestinationNumber" Description="Zielrufnummer" />
     <Member Name="EditableMessage" Description="Bearbeitbare Nachricht" />
     <Member Name="Exception" Description="Ausnahme" />
     <Member Name="From" Description="Von" />
     <Member Name="Message" Description="Nachricht" />
     <Member Name="MessageID" Description="Nachrichten-ID" />
-    <Member Name="Referred" Description="Bezogen auf" />
+    <Member Name="Referred" Description="Verbunden" />
     <Member Name="SendDate" Description="Sendedatum" />
-    <Member Name="SendPackage" Description="Sendepaket" />
-    <Member Name="State" Description="Zustand" />
+    <Member Name="SendPackage" Description="Paket senden" />
+    <Member Name="State" Description="Status" />
     <Member Name="Template" Description="Vorlage" />
-    <Member Name="UpdatePackage" Description="Aktualisierungspaket" />
-    <Member Name="UpdatePackageProcessed" Description="Aktualisierungspaket verarbeitet" />
+    <Member Name="UpdatePackage" Description="Update-Paket" />
+    <Member Name="UpdatePackageProcessed" Description="Update-Paket verarbeitet" />
   </Type>
   <Type Name="SMSMessageOperation">
     <Member Name="CreateSMSFromTemplate" Description="SMS aus Vorlage erstellen" />
-    <Member Name="CreateUpdateStatusPackage" Description="Statusaktualisierungspaket erstellen" />
+    <Member Name="CreateUpdateStatusPackage" Description="Status-Update-Paket erstellen" />
     <Member Name="Send" Description="Senden" />
-    <Member Name="SendMultipleSMSMessages" Description="Mehrere SMS-Nachrichten senden" />
-    <Member Name="UpdateStatus" Description="Status aktualisieren" />
+    <Member Name="SendMultipleSMSMessages" Description="Senden mehrerer SMS-Nachrichten" />
+    <Member Name="UpdateStatus" Description="Update Status" />
   </Type>
   <Type Name="SMSMessageProcess">
     <Member Name="Send" Description="Senden" />
-    <Member Name="UpdateStatus" Description="Status aktualisieren" />
+    <Member Name="UpdateStatus" Description="Update Status" />
   </Type>
-  <Type Name="SMSMessageState" Description="SMS-Zustand">
+  <Type Name="SMSMessageState" Description="SMS-Nachrichtenstatus">
     <Member Name="Created" Description="Erstellt" />
     <Member Name="Delivered" Description="Zugestellt" />
-    <Member Name="DeliveryFailed" Description="Zustellung fehlgeschlagen" />
+    <Member Name="DeliveryFailed" Description="Lieferung fehlgeschlagen" />
     <Member Name="SendFailed" Description="Senden fehlgeschlagen" />
     <Member Name="Sent" Description="Gesendet" />
   </Type>
@@ -67,12 +62,17 @@
     <Member Name="UpdateSMSStatus" Description="SMS-Status aktualisieren" />
   </Type>
   <Type Name="SMSModelEntity" Description="SMS-Modell" Gender="n">
-    <Member Name="FullClassName" Description="Vollständiger Klassenname" />
+    <Member Name="FullClassName" Description="Full Class Name" />
   </Type>
-  <Type Name="SMSPackageEntity" Description="SMS-Paket" Gender="n">
+  <Type Name="SMSOwnerData" Description="SMS-Besitzerdaten">
+    <Member Name="CultureInfo" Description="Sprache" />
+    <Member Name="Owner" Description="Besitzer" />
+    <Member Name="TelephoneNumber" Description="Telefonnummer" />
+  </Type>
+  <Type Name="SMSPackageEntity" Description="SMS-Paket" PluralDescription="SMS-Pakete" Gender="n">
     <Member Name="Name" Description="Name" />
   </Type>
-  <Type Name="SMSSendPackageEntity" Description="SMS-Sendepaket" Gender="n" />
+  <Type Name="SMSSendPackageEntity" Description="SMS-Sendepaket" PluralDescription="SMS-Sendepakete" Gender="n" />
   <Type Name="SMSTemplateEntity" Description="SMS-Vorlage">
     <Member Name="Certified" Description="Zertifiziert" />
     <Member Name="DisableAuthorization" Description="Autorisierung deaktivieren" />
@@ -84,26 +84,25 @@
     <Member Name="Model" Description="Modell" />
     <Member Name="Name" Description="Name" />
     <Member Name="Query" Description="Abfrage" />
-    <Member Name="RemoveNoSMSCharacters" Description="Nicht-SMS-Zeichen entfernen" />
+    <Member Name="RemoveNoSMSCharacters" Description="Keine SMS-Zeichen entfernen" />
     <Member Name="To" Description="An" />
+  </Type>
+  <Type Name="SMSTemplateMessage">
+    <Member Name="_0CharactersRemainingBeforeReplacements" Description="{0} Zeichen übrig (vor Textersetzung)" />
+    <Member Name="NewCulture" Description="Neue Kultur" />
+    <Member Name="ThereAreNoMessagesForTheTemplate" Description="Es gibt keine Nachrichten für die Vorlage" />
+    <Member Name="ThereMustBeAMessageFor0" Description="Es muss eine Nachricht für {0} geben" />
+    <Member Name="TheresMoreThanOneMessageForTheSameLanguage" Description="Es gibt mehr als eine Nachricht für die gleiche Sprache" />
+    <Member Name="ToMustBeSetInTheTemplate" Description="'An' muss in der Vorlage gesetzt sein." />
   </Type>
   <Type Name="SMSTemplateEntity_Message" Description="SMS-Vorlagennachricht">
     <Member Name="CultureInfo" Description="Sprache" />
     <Member Name="Message" Description="Nachricht" />
-    <Member Name="Template" Description="Vorlage" />
-  </Type>
-  <Type Name="SMSTemplateMessage">
-    <Member Name="_0CharactersRemainingBeforeReplacements" Description="{0} Zeichen übrig (vor den Ersetzungen)" />
-    <Member Name="NewCulture" Description="Neue Kultur" />
-    <Member Name="ThereAreNoMessagesForTheTemplate" Description="Es gibt keine Nachrichten für die Vorlage" />
-    <Member Name="ThereMustBeAMessageFor0" Description="Es muss eine Nachricht für {0} geben" />
-    <Member Name="TheresMoreThanOneMessageForTheSameLanguage" Description="Es gibt mehr als eine Nachricht für dieselbe Sprache" />
-    <Member Name="ToMustBeSetInTheTemplate" Description="„An“ muss in der Vorlage gesetzt sein" />
   </Type>
   <Type Name="SMSTemplateOperation">
     <Member Name="Create" Description="Erstellen" />
-    <Member Name="CreateSMSTemplateFromModel" Description="SMS-Vorlage aus Modell erstellen" />
+    <Member Name="CreateSMSTemplateFromModel" Description="SMS-Vorlage aus dem Modell erstellen " />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="SMSUpdatePackageEntity" Description="SMS-Aktualisierungspaket" Gender="n" />
+  <Type Name="SMSUpdatePackageEntity" Description="SMS-Updatepaket" PluralDescription="SMS-Updatepakete" Gender="n" />
 </Translations>

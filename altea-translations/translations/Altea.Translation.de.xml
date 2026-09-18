@@ -1,5 +1,9 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
+  <Type Name="MatchTranslatedInstances" Description="Übersetzte Instanzen abgleichen">
+    <Member Name="ByInstanceID" Description="Nach Instanz-ID" />
+    <Member Name="ByOriginalText" Description="Nach Originaltext" />
+  </Type>
   <Type Name="TranslatedInstanceEntity" Description="Übersetzte Instanz" PluralDescription="Übersetzen Instanzen" Gender="f">
     <Member Name="Culture" Description="Kultur" />
     <Member Name="Instance" Description="Instanz" />
@@ -22,10 +26,10 @@
     <Member Name="All" Description="Alle" />
     <Member Name="AllLanguages" Description="Alle Sprachen" />
     <Member Name="AreYouSureToContinueAutoTranslation0For1WithoutRevision" Description="Sind Sie sicher, dass Sie die automatische Übersetzung {0} für {1} ohne Revision fortsetzen wollen?" />
-    <Member Name="AreYouSureToContinueAutoTranslationAllPackagesFor0WithoutRevision" Description="Sind Sie sicher, dass Sie die automatische Übersetzung aller Pakete für {0} ohne Überarbeitung fortsetzen können?" />
+    <Member Name="AreYouSureToContinueAutoTranslationAllAssembliesFor0WithoutRevision" Description="Sind Sie sicher, dass Sie die automatische Übersetzung aller Assemblys für {0} ohne Überarbeitung fortsetzen können?" />
     <Member Name="AreYouSureToContinueAutoTranslationAllTypesFor0WithoutRevision" Description="Sind Sie sicher, dass Sie die automatische Übersetzung aller Typen für {0} ohne Revision fortsetzen wollen?" />
     <Member Name="AutoSync" Description="auto-sync" />
-    <Member Name="BackToSyncPackage0" Description="Zurück zur Synchronisierung des Pakets {0}" />
+    <Member Name="BackToSyncAssembly0" Description="Zurück zur Synchronisierung der Assembly {0}" />
     <Member Name="BackToTranslationStatus" Description="Zurück zum Übersetzungsstatus" />
     <Member Name="CodeTranslations" Description="Code-Übersetzungen" />
     <Member Name="Culture" Description="Sprache" />
@@ -34,13 +38,13 @@
     <Member Name="DownloadSync" Description="Sync herunterladen" />
     <Member Name="DownloadView" Description="Ansicht herunterladen" />
     <Member Name="Edit" Description="bearbeiten" />
-    <Member Name="Folder" Description="Ordner" />
     <Member Name="From0using1_" Description="von {0} mit {1}" />
     <Member Name="Gender" Description="Geschlecht" />
     <Member Name="Instance" Description="Instanz" />
     <Member Name="InstanceRouteConflictsOverview" Description="Übersicht über Instanz-Routenkonflikte" />
     <Member Name="InstanceTranslations" Description="Instanz-Übersetzungen" />
     <Member Name="Member" Description="Mitglied" />
+    <Member Name="Namespace" Description="Namespace" />
     <Member Name="NewTranslations" Description="Neue Übersetzungen" />
     <Member Name="NewTypes" Description="Neue Typen" />
     <Member Name="None" Description="keine" />

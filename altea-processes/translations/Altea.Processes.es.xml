@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="PackageEntity" Description="Paquete">
     <Member Name="Name" Description="Nombre" />
     <Member Name="OperationArguments" Description="Argumentos operación" />
   </Type>
-  <Type Name="PackageLineEntity" Description="Línea de paquete">
+  <Type Name="PackageLineEntity" Description="Línea paquete">
     <Member Name="FinishTime" Description="Fin" />
     <Member Name="Package" Description="Paquete" />
     <Member Name="Result" Description="Resultado" />
@@ -16,6 +16,11 @@
   <Type Name="PackageOperationProcess">
     <Member Name="PackageOperation" Description="Paquete operación" />
   </Type>
+  <Type Name="PackageQuery">
+    <Member Name="PackageLastProcess" Description="Paquete último proceso" />
+    <Member Name="PackageLineLastProcess" Description="Paquete línea de último proceso" />
+    <Member Name="PackageOperationLastProcess" Description="Operación de paquete último proceso" />
+  </Type>
   <Type Name="ProcessAlgorithmSymbol" Description="Símbolo de algoritmo de proceso" />
   <Type Name="ProcessEntity" Description="Proceso">
     <Member Name="Algorithm" Description="Algoritmo" />
@@ -23,6 +28,8 @@
     <Member Name="CancelationDate" Description="Fecha de cancelación" />
     <Member Name="CreationDate" Description="Fecha de creación" />
     <Member Name="Data" Description="Datos" />
+    <Member Name="Duration" Description="Duración" />
+    <Member Name="DurationSpan" Description="Período de duración" />
     <Member Name="Exception" Description="Excepción" />
     <Member Name="ExceptionDate" Description="Fecha de excepción" />
     <Member Name="ExecutionEnd" Description="Final de ejecución" />

@@ -1,8 +1,9 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="HolidayCalendarEntity" Description="Ferienkalender" Gender="m">
     <Member Name="CountryCode" Description="Landescode" />
     <Member Name="FromYear" Description="Ab Jahr" />
+    <Member Name="Guid" Description="Guid" />
     <Member Name="Holidays" Description="Ferien" />
     <Member Name="IsDefault" Description="Ist Standard" />
     <Member Name="Name" Description="Name" />
@@ -16,6 +17,13 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="ImportPublicHolidays" Description="Feiertage importieren" />
     <Member Name="Save" Description="Speichern" />
+  </Type>
+  <Type Name="HolidayEmbedded" Description="Feiertag">
+    <Member Name="Date" Description="Datum" />
+    <Member Name="Name" Description="Name" />
+  </Type>
+  <Type Name="IScheduleRuleEntity">
+    <Member Name="StartingOn" Description="Beginnend am" />
   </Type>
   <Type Name="ITaskMessage">
     <Member Name="ExceptionLines" Description="Ausnahmezeilen" />
@@ -36,6 +44,7 @@
   </Type>
   <Type Name="ScheduledTaskLogEntity" Description="Geplantes Task-Protokoll" PluralDescription="Geplante Task-Protokolle" Gender="n">
     <Member Name="ApplicationName" Description="Anwendungsname" />
+    <Member Name="Duration" Description="Dauer" />
     <Member Name="EndTime" Description="Endzeit" />
     <Member Name="Exception" Description="Ausnahme" />
     <Member Name="MachineName" Description="Computername" />
@@ -110,6 +119,8 @@
   </Type>
   <Type Name="ScheduleRuleMinutelyEntity" Description="Schedule-Regel minütlich">
     <Member Name="EachMinutes" Description="Alle Minuten" />
+    <Member Name="Guid" Description="Guid" />
+    <Member Name="IsAligned" Description="Ist ausgerichtet" />
     <Member Name="StartingOn" Description="Beginnend am" />
   </Type>
   <Type Name="ScheduleRuleMonthsEntity" Description="Schedule-Regel monatlich">
@@ -117,6 +128,7 @@
     <Member Name="August" Description="August" />
     <Member Name="December" Description="Dezember" />
     <Member Name="February" Description="Februar" />
+    <Member Name="Guid" Description="Guid" />
     <Member Name="January" Description="Januar" />
     <Member Name="July" Description="Juli" />
     <Member Name="June" Description="Juni" />
@@ -130,6 +142,7 @@
   <Type Name="ScheduleRuleWeekDaysEntity" Description="Schedule-Regel Wochentage" PluralDescription="Schedule-Regeln Wochentage">
     <Member Name="Calendar" Description="Kalender" />
     <Member Name="Friday" Description="Freitag" />
+    <Member Name="Guid" Description="Guid" />
     <Member Name="Holiday" Description="Feiertag" />
     <Member Name="Monday" Description="Montag" />
     <Member Name="Saturday" Description="Samstag" />

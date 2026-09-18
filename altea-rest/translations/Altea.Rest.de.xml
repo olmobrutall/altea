@@ -1,11 +1,8 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<!-- Ported from Signum.Rest/Translations/Signum.Rest.de.xml — see the .es.xml header for what changed. -->
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="QueryStringValueEntity" Description="Abfrage-String-Wert">
+  <Type Name="QueryStringValueEmbedded" Description="Abfrage-String-Wert">
     <Member Name="Key" Description="Schlüssel" />
     <Member Name="Value" Description="Wert" />
-    <Member Name="Order" Description="Reihenfolge" />
-    <Member Name="RestLog" Description="Rest-Protokoll" />
   </Type>
   <Type Name="RestApiKeyEntity" Description="Rest-API-Schlüssel" Gender="m">
     <Member Name="ApiKey" Description="API-Schlüssel" />
@@ -25,7 +22,7 @@
     <Member Name="ChangedPercentage" Description="Geänderter Prozentsatz" />
     <Member Name="Controller" Description="Controller" />
     <Member Name="ControllerName" Description="Controllername" />
-    <Member Name="DurationMilliseconds" Description="Dauer (ms)" />
+    <Member Name="Duration" Description="Dauer" />
     <Member Name="EndDate" Description="Enddatum" />
     <Member Name="Exception" Description="Ausnahme" />
     <Member Name="HttpMethod" Description="HTTP-Methode" />
@@ -41,13 +38,6 @@
     <Member Name="User" Description="Benutzer" />
     <Member Name="UserHostAddress" Description="Benutzer Hostadresse" />
     <Member Name="UserHostName" Description="Benutzer Hostname" />
-  </Type>
-  <Type Name="RestLogMessage">
-    <Member Name="Replay" Description="Wiedergeben" />
-    <Member Name="ReplayNotAllowedForThisRestLog" Description="Für dieses Rest-Protokoll ist keine Wiedergabe erlaubt" />
-    <Member Name="Previous" Description="Vorher" />
-    <Member Name="Difference" Description="Unterschied" />
-    <Member Name="Current" Description="Aktuell" />
   </Type>
   <Type Name="RestLogReplayState" Description="Restlog Wiederholungszustand">
     <Member Name="NoChanges" Description="Keine Änderungen" />

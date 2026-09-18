@@ -208,9 +208,7 @@
     <Member Name="ProcessIdentifier" Description="Prozess Indentifikator" />
     <Member Name="RetryCount" Description="Wiederholungszähler" />
   </Type>
-  <Type Name="SubEntitiesEval" Description="Untereinheiten eval">
-    <Member Name="Script" Description="Skript" />
-  </Type>
+  <Type Name="SubEntitiesEval" Description="Untereinheiten eval" />
   <Type Name="SubWorkflowEmbedded" Description="Sub-Workflow">
     <Member Name="SubEntitiesEval" Description="Untereinheiten eval" />
     <Member Name="Workflow" Description="Workflow" />
@@ -231,9 +229,7 @@
     <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
     <Member Name="Name" Description="Name" />
   </Type>
-  <Type Name="WorkflowActionEval" Description="Workflow-Aktion eval">
-    <Member Name="Script" Description="Skript" />
-  </Type>
+  <Type Name="WorkflowActionEval" Description="Workflow-Aktion eval" />
   <Type Name="WorkflowActionOperation">
     <Member Name="Clone" Description="Klonen" />
     <Member Name="Delete" Description="Löschen" />

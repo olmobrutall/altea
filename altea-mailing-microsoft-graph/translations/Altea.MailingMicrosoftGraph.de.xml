@@ -1,9 +1,9 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="MicrosoftGraphEmailServiceEntity" Description="Microsoft Graph-E-Mail-Dienst" PluralDescription="Microsoft Graph-E-Mail-Dienste" Gender="m">
     <Member Name="Azure_ApplicationID" Description="Azure Application (client) ID" />
     <Member Name="Azure_ClientSecret" Description="Azure Client Secret Value" />
-    <Member Name="Azure_DirectoryID" Description="&amp;#x9;Azure Directory (tenant) ID" />
+    <Member Name="Azure_DirectoryID" Description="&#x9;Azure Directory (tenant) ID" />
     <Member Name="UseActiveDirectoryConfiguration" Description="Active Directory-Konfiguration verwenden" />
   </Type>
   <Type Name="RecipientEmbedded" Description="Empfänger">
@@ -62,5 +62,8 @@
     <Member Name="ToRecipients" Description="An-Empfänger" />
     <Member Name="User" Description="Benutzer" />
     <Member Name="WebLink" Description="Weblink" />
+  </Type>
+  <Type Name="RemoteEmailMessageQuery">
+    <Member Name="RemoteEmailMessages" Description="Remote-E-Mail-Nachrichten" />
   </Type>
 </Translations>

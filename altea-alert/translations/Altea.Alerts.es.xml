@@ -1,19 +1,31 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
+  <Type Name="AlertCurrentState" Description="Estado actual de la alerta">
+    <Member Name="Alerted" Description="Alertada" />
+    <Member Name="Attended" Description="Atendida" />
+    <Member Name="Future" Description="Futura" />
+  </Type>
   <Type Name="AlertEntity" Description="Alerta">
     <Member Name="AlertDate" Description="Fecha alerta" />
+    <Member Name="Alerted" Description="Alertada" />
     <Member Name="AlertType" Description="Tipo de alerta" />
+    <Member Name="Attended" Description="Atendida" />
     <Member Name="AttendedBy" Description="Atendida por" />
     <Member Name="AttendedDate" Description="Fecha revisión" />
     <Member Name="CreatedBy" Description="Creado por" />
     <Member Name="CreationDate" Description="Fecha de creación" />
+    <Member Name="CurrentState" Description="Estado actual" />
     <Member Name="EmailNotificationsSent" Description="Notificacion por correo electrónico enviada" />
+    <Member Name="Future" Description="Futura" />
+    <Member Name="NotAttended" Description="No atendida" />
     <Member Name="Recipient" Description="Destinatario" />
     <Member Name="State" Description="Estado" />
     <Member Name="Target" Description="Destino" />
+    <Member Name="Text" Description="Texto" />
     <Member Name="TextArguments" Description="Argumentos de texto" />
     <Member Name="TextField" Description="Texto" />
     <Member Name="TextFromAlertType" Description="Texto del tipo de alerta" />
+    <Member Name="Title" Description="Título" />
     <Member Name="TitleField" Description="Título" />
   </Type>
   <Type Name="AlertMessage">
@@ -61,6 +73,15 @@
     <Member Name="Save" Description="Guardar" />
   </Type>
   <Type Name="AlertTypeSymbol" Description="Tipo de alerta" />
+  <Type Name="DelayOption">
+    <Member Name="_15Mins" Description="15 minutos" />
+    <Member Name="_1Day" Description="1 día" />
+    <Member Name="_1Hour" Description="1 hora" />
+    <Member Name="_2Hours" Description="2 horas" />
+    <Member Name="_30Mins" Description="30 minutos" />
+    <Member Name="_5Mins" Description="5 minutos" />
+    <Member Name="Custom" Description="Personalizado" />
+  </Type>
   <Type Name="SendAlertTypeBehavior" Description="Comportamiento de envío de tipo de alerta">
     <Member Name="All" Description="Todos" />
     <Member Name="Exclude" Description="Excluir" />

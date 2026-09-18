@@ -1,10 +1,8 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<!-- Ported from Signum.ViewLog/Translations/Signum.ViewLog.es.xml. `Duration` becomes
-     `DurationMilliseconds` (the @quoted member's own name — see data/ViewLog.ts). -->
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="ViewLogEntity" Description="Registro de visita">
     <Member Name="Data" Description="Datos" />
-    <Member Name="DurationMilliseconds" Description="Duración (ms)" />
+    <Member Name="Duration" Description="Duración" />
     <Member Name="EndDate" Description="Fecha de fin" />
     <Member Name="StartDate" Description="Fecha de inicio" />
     <Member Name="Target" Description="Destino" />

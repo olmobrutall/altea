@@ -70,6 +70,9 @@
     <Member Name="Name" Description="Name" />
     <Member Name="NativeName" Description="Einheimischer Name" />
   </Type>
+  <Type Name="CultureInfoMessage">
+    <Member Name="_0IsNotAValidCultureName" Description="'{0}' ist kein gültiger Kulturname" />
+  </Type>
   <Type Name="CultureInfoOperation">
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
@@ -85,6 +88,7 @@
   </Type>
   <Type Name="Entity" Description="Entität">
     <Member Name="Id" Description="Id" />
+    <Member Name="Ticks" Description="Zecken" />
   </Type>
   <Type Name="EntityControlMessage">
     <Member Name="Add" Description="hinzufügen..." />
@@ -110,6 +114,9 @@
     <Member Name="Selected" Description="Ausgewählt" />
     <Member Name="ToggleSideBar" Description="Seitenleiste ein-/ausblenden" />
     <Member Name="View" Description="Ansehen" />
+  </Type>
+  <Type Name="EnumEntity" Description="Enum" PluralDescription="Enums" Gender="m">
+    <Member Name="Name" Description="Name" />
   </Type>
   <Type Name="ExceptionEntity" Description="Ausnahme">
     <Member Name="ActionName" Description="Aktionsname" />
@@ -153,7 +160,7 @@
     <Member Name="BetweenNoEnd" Description="zwischen (ohne Ende)" />
     <Member Name="ComplexCondition" Description="komplexe Bedingung" />
     <Member Name="Contains" Description="enthält" />
-    <Member Name="DistinctTo" Description="anders als" />
+    <Member Name="DistinctTo" Description="ungleich" />
     <Member Name="EndsWith" Description="endet mit" />
     <Member Name="EqualTo" Description="gleich" />
     <Member Name="FreeText" Description="Freitext" />
@@ -186,25 +193,16 @@
   </Type>
   <Type Name="JavascriptMessage">
     <Member Name="AddFilter" Description="Filter hinzufügen" />
-    <Member Name="Cancel" Description="Abbrechen" />
     <Member Name="Close" Description="Schließen" />
     <Member Name="Date" Description="Datum" />
-    <Member Name="EditColumn" Description="Spalte bearbeiten" />
     <Member Name="Error" Description="Fehler" />
-    <Member Name="Executed" Description="Ausgeführt" />
-    <Member Name="GroupByThisColumn" Description="Gruppieren nach dieser Spalte" />
     <Member Name="InsertColumn" Description="Spalte einfügen" />
-    <Member Name="Loading" Description="Lädt gerade..." />
-    <Member Name="LoseCurrentChanges" Description="Änderungen verlieren?" />
-    <Member Name="NoActionsFound" Description="Keine Aktionen gefunden" />
-    <Member Name="Ok" Description="Ok" />
-    <Member Name="RemoveColumn" Description="Spalte löschen" />
-    <Member Name="RemoveOtherColumns" Description="Andere Spalten entfernen" />
-    <Member Name="RestoreDefaultColumns" Description="Standard-Spalten wiederherstellen" />
-    <Member Name="SaveChangesBeforeOrPressCancel" Description="Speichern Sie die Änderungen vorher oder drücken Sie &quot;Abbrechen&quot;" />
-    <Member Name="SearchForResults" Description="Suchen Sie, um Ergebnisse zu erhalten" />
+    <Member Name="No" Description="Nein" />
+    <Member Name="Ok" Description="OK" />
+    <Member Name="RemoveColumn" Description="Spalte entfernen" />
     <Member Name="Selected" Description="Ausgewählt" />
     <Member Name="ShowGroup" Description="Gruppe anzeigen" />
+    <Member Name="Yes" Description="Ja" />
   </Type>
   <Type Name="NormalControlMessage">
     <Member Name="CopyEntityTypeAndIdForAutocomplete" Description="Entitätstyp und ID kopieren (für Autovervollständigung)" />
@@ -245,6 +243,7 @@
     <Member Name="PreviousOperationLog" Description="Vorheriges Operationsprotokoll" />
     <Member Name="Setters" Description="Setters" />
     <Member Name="StateShouldBe0InsteadOf1" Description="Status sollte {0} (statt {1}) sein" />
+    <Member Name="SystemValidTo" Description="System gültig bis" />
   </Type>
   <Type Name="OperationSymbol" Description="Operation" />
   <Type Name="OrderType" Description="Reihenfolgentyp">
@@ -319,7 +318,7 @@
     <Member Name="No0Found" Description="Keine(n) {0} gefunden" />
     <Member Name="Quicklinks" Description="Quick links" />
   </Type>
-  <Type Name="RefreshMode">
+  <Type Name="RefreshMode" Description="Aktualisierungsmodus">
     <Member Name="Auto" Description="Auto" />
     <Member Name="Manual" Description="Manuell" />
   </Type>
@@ -443,12 +442,12 @@
     <Member Name="MachineName" Description="Computername" />
     <Member Name="User" Description="Benutzer" />
   </Type>
-  <Type Name="SystemTimeJoinMode">
+  <Type Name="SystemTimeJoinMode" Description="Systemzeit-Join-Modus">
     <Member Name="AllCompatible" Description="Alle kompatibel" />
     <Member Name="Current" Description="Aktuell" />
     <Member Name="FirstCompatible" Description="Erste kompatibel" />
   </Type>
-  <Type Name="SystemTimeMode">
+  <Type Name="SystemTimeMode" Description="Systemzeitmodus">
     <Member Name="All" Description="Alle" />
     <Member Name="AsOf" Description="Zum" />
     <Member Name="Between" Description="Zwischen" />
@@ -466,16 +465,12 @@
     <Member Name="Week" Description="Woche" />
     <Member Name="Year" Description="Jahr" />
   </Type>
-  <Type Name="TourTriggerSymbol" Description="Tour-Auslöser" Gender="m" />
+  <Type Name="TourTriggerSymbol" Description="Tour-Trigger" Gender="n" />
   <Type Name="TypeEntity" Description="Typ" PluralDescription="Typen" Gender="m">
     <Member Name="ClassName" Description="Klassen Name" />
     <Member Name="CleanName" Description="Clean Name" />
-    <Member Name="IsPart" Description="Ist Teil" />
     <Member Name="Namespace" Description="Namespace" />
     <Member Name="TableName" Description="Tabellen Name" />
-  </Type>
-  <Type Name="TypeEntityMessage">
-    <Member Name="IncludePartEntities" Description="Teil-Entitäten einschließen" />
   </Type>
   <Type Name="ValidationMessage">
     <Member Name="_0DoesNotHaveAValid1Format" Description="{0} hat kein gültiges {1}-Format" />

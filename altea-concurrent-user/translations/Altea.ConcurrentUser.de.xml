@@ -1,7 +1,8 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="ConcurrentUserEntity" Description="gleichzeitige Benutzer" PluralDescription="Gleichzeitige Benutzer" Gender="m">
     <Member Name="IsModified" Description="Ist modifiziert" />
+    <Member Name="SignalRConnectionID" Description="SignalR Connection-ID" />
     <Member Name="StartTime" Description="Startzeit" />
     <Member Name="TargetEntity" Description="Zielentität" />
     <Member Name="User" Description="Benutzer" />

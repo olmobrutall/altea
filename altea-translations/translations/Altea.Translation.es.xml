@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="TranslatedInstanceEntity" Description="Instancia traducida" PluralDescription="Instancias traducidas">
     <Member Name="Culture" Description="Cultura" />
@@ -18,14 +18,14 @@
     <Member Name="_0OutdatedTranslationsFor1HaveBeenDeleted" Description="{0} traducciones anticuadas para {1} han sido eliminadas" />
     <Member Name="All" Description="Todos" />
     <Member Name="AllLanguages" Description="todos los idiomas" />
-    <Member Name="BackToSyncPackage0" Description="Volver a la sincronización del paquete {0}" />
+    <Member Name="BackToSyncAssembly0" Description="Volver a ensamblado de sincronización {0}" />
     <Member Name="BackToTranslationStatus" Description="Regresar al estado de la traducción" />
     <Member Name="CodeTranslations" Description="Traducciones de código" />
     <Member Name="Edit" Description="editar" />
-    <Member Name="Folder" Description="Carpeta" />
     <Member Name="Instance" Description="Instancia" />
     <Member Name="InstanceTranslations" Description="Traducciones de instancia" />
     <Member Name="Member" Description="Miembro" />
+    <Member Name="Namespace" Description="Namespace" />
     <Member Name="NewTranslations" Description="Nuevas traducciones" />
     <Member Name="NewTypes" Description="Nuevos tipos" />
     <Member Name="None" Description="nada" />

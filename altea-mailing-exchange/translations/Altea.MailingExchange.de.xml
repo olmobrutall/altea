@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="ExchangeWebServiceEmailServiceEntity" Description="Exchange-Webdienstes-E-Mail-Dienst " Gender="m">
     <Member Name="ExchangeVersion" Description="Exchange-Version" />
