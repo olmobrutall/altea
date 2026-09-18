@@ -3,6 +3,9 @@ import type { Implementations } from "../../implementations";
 import type { TypeReference } from "../../reflection";
 import { QueryToken, SubTokensOptions, TR_INT } from "./queryToken";
 import type { QueryName } from "../queryUtils";
+import { Enum } from "../../enum";
+import { registerEnum } from "../../registration";
+import { FilterOperation, QueryTokenMessage } from "../../dynamicQueries";
 
 // Signum's AggregateFunction (DynamicQuery/Tokens/AggregateToken.cs).
 export enum AggregateFunction {
@@ -12,6 +15,13 @@ export enum AggregateFunction {
     Min = "Min",
     Max = "Max",
 }
+
+// Registered so the member names become TRANSLATABLE (the sync writes them into each package's
+// translations/*.xml and the reflection blob ships them to the client). No entity FIELD references this
+// enum, so the transformer would not auto-register it and no enum TABLE is created — this is the same
+// hand-written registration dynamicQueries.ts does, for the same reason. The enum's VALUES stay the
+// member names, which is what `key` / `fullKey()` are built from; only the DISPLAY side is localized.
+registerEnum(AggregateFunction);
 
 // Signum's `" ".Combine(...)`: join the non-empty parts with a single space.
 function combineSpaced(...parts: (string | undefined)[]): string {
@@ -59,31 +69,38 @@ export class AggregateToken extends QueryToken {
     // The QueryTokenBuilder chip renders this (Signum's `toStr`), so a "Sum of Unit price" column shows
     // just "Sum" in the token dropdown. The parent-qualified label lives in niceName (the column name).
     override toString(): string {
-        return combineSpaced(this.aggregateFunction, this.niceDistinct(), this.niceOperation(), this.niceValue());
+        return combineSpaced(Enum.niceName(AggregateFunction, this.aggregateFunction), this.niceDistinct(), this.niceOperation(), this.niceValue());
     }
 
     // Signum's AggregateToken.NiceName: the parent-qualified label used as the column header
     // ("Count", "Sum of Unit price", "Count Not Null Unit price"). Divergence: Signum renders Sum as
-    // "Σ <parent>"; altea keeps the spelled-out "Sum of <parent>" (reads better as a column title).
+    // "Σ <parent>"; altea keeps the spelled-out "Sum of <parent>" (reads better as a column title) —
+    // and takes the joining word from QueryTokenMessage._0Of1 rather than Signum's hard-coded "of",
+    // which is the same member CollectionElementToken.NiceName uses there.
     niceName(): string {
         if (this.aggregateFunction === AggregateFunction.Count) {
             if (this._parent == undefined)
-                return this.aggregateFunction;
-            return combineSpaced(this.aggregateFunction, this.niceDistinct(), this.niceOperation(), this.niceValue(), this._parent.toString());
+                return Enum.niceName(AggregateFunction, this.aggregateFunction);
+            return combineSpaced(this.toString(), this._parent.toString());
         }
-        return combineSpaced(this.aggregateFunction, this.niceDistinct(), this.niceOperation(), this.niceValue(), "of", this._parent!.toString());
+        return QueryTokenMessage._0Of1.niceToString(this.toString(), this._parent!.toString());
     }
 
-    // Signum's GeNiceDistinct / GetNiceOperation / GetNiceValue — the Count-variant qualifiers.
-    // altea's enum members ARE their display strings (bare literals), so no niceToString lookup.
-    private niceDistinct(): string | undefined { return this.options.distinct ? "Distinct" : undefined; }
+    // Signum's GeNiceDistinct / GetNiceOperation / GetNiceValue — the Count-variant qualifiers, and the
+    // three QueryTokenMessage members Signum reads for them. `filterOperation` is carried as a raw string
+    // (see AggregateOptions), so it is resolved against the FilterOperation enum only once it is one of
+    // its members. Divergence: Signum renders an ENUM value through its own NiceToString; altea has no
+    // runtime enum handle for an arbitrary filter value, so a value still stringifies as-is.
+    private niceDistinct(): string | undefined { return this.options.distinct ? QueryTokenMessage.Distinct.niceToString() : undefined; }
     private niceOperation(): string | undefined {
         const op = this.options.filterOperation;
-        return op == undefined || op === "EqualTo" ? undefined : op === "DistinctTo" ? "Not" : op;
+        if (op == undefined || op === "EqualTo") return undefined;
+        if (op === "DistinctTo") return QueryTokenMessage.Not.niceToString();
+        return Enum.isDefined(FilterOperation, op) ? Enum.niceName(FilterOperation, op) : op;
     }
     private niceValue(): string | undefined {
         if (this.options.filterOperation == undefined) return undefined;
-        return this.options.value == undefined ? "Null" : String(this.options.value);
+        return this.options.value == undefined ? QueryTokenMessage.Null.niceToString() : String(this.options.value);
     }
     override isAggregate(): boolean { return true; }
     // Signum's AggregateToken.HideInAutoExpand => Parent != null (a nested aggregate is hidden from a

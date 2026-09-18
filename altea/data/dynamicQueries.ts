@@ -30,11 +30,16 @@ export const QueryTokenMessage = {
     DateTime: msg(),
     DateTimeOffset: msg(),
     DecimalNumber: msg(),
+    // The three qualifier words an aggregate's label is assembled from — Signum's
+    // AggregateToken.GeNiceDistinct / GetNiceOperation / GetNiceValue read exactly these members.
+    Distinct: msg(),
     EntityType: msg("Entity Type"),
     GlobalUniqueIdentifier: msg(),
     IndexerContainer: msg(),
     ListOf0: msg("List of {0}"),
     Embedded0: msg("Embedded {0}"),
+    Not: msg(),
+    Null: msg(),
     Number: msg(),
     Text: msg(),
 };

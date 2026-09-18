@@ -2,6 +2,9 @@ import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
 import { TypeReference, tryGetTypeInfo } from "../../reflection";
 import { QueryToken, SubTokensOptions, entityCtorOf } from "./queryToken";
+import { Enum } from "../../enum";
+import { registerEnum } from "../../registration";
+import { QueryTokenMessage } from "../../dynamicQueries";
 
 // Signum's CollectionElementType (DynamicQuery/Tokens/CollectionElementToken.cs).
 export enum CollectionElementType {
@@ -9,6 +12,10 @@ export enum CollectionElementType {
     Element2 = "Element2",
     Element3 = "Element3",
 }
+
+// Registered so the member names are TRANSLATABLE — see aggregateToken.ts for why this is hand-written
+// and why it creates no table. `key` keeps the raw member value; only the display side is localized.
+registerEnum(CollectionElementType);
 
 // Port of Signum's `CollectionElementToken`: navigates into the elements of a collection. Its own
 // BuildExpression THROWS — it is not self-contained. The query-expansion layer
@@ -49,8 +56,9 @@ export class CollectionElementToken extends QueryToken {
 
     get parent(): QueryToken | undefined { return this._parent; }
     get key(): string { return this.collectionElementType; }
-    override toString(): string { return this.collectionElementType; }
-    niceName(): string { return `${this.collectionElementType} of ${this._parent.toString()}`; }
+    override toString(): string { return Enum.niceName(CollectionElementType, this.collectionElementType); }
+    // Signum's CollectionElementToken.NiceName — QueryTokenMessage._0Of1 over the localized member.
+    niceName(): string { return QueryTokenMessage._0Of1.niceToString(this.toString(), this._parent.toString()); }
 
     // A reference element projects as a Lite (Signum's BuildLiteNullifyUnwrapPrimaryKey).
     get type(): TypeReference {

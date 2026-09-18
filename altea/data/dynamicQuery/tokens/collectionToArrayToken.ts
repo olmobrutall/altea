@@ -2,6 +2,9 @@ import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
 import { TypeReference } from "../../reflection";
 import { QueryToken, SubTokensOptions, entityCtorOf } from "./queryToken";
+import { Enum } from "../../enum";
+import { registerEnum } from "../../registration";
+import { QueryTokenMessage } from "../../dynamicQueries";
 
 // Signum's `CollectionToArrayType` (DynamicQuery/Tokens/CollectionToArrayToken.cs): aggregate a
 // collection's navigated values into a single delimited STRING (SQL STRING_AGG), optionally DISTINCT.
@@ -11,6 +14,10 @@ export enum CollectionToArrayType {
     SeparatedByNewLine = "SeparatedByNewLine",
     SeparatedByNewLineDistinct = "SeparatedByNewLineDistinct",
 }
+
+// Registered so the member names are TRANSLATABLE — see aggregateToken.ts for why this is hand-written
+// and why it creates no table. `key` keeps the raw member value; only the display side is localized.
+registerEnum(CollectionToArrayType);
 
 export function toArraySeparator(t: CollectionToArrayType): string {
     return t === CollectionToArrayType.SeparatedByNewLine || t === CollectionToArrayType.SeparatedByNewLineDistinct ? "\n" : ", ";
@@ -39,8 +46,10 @@ export class CollectionToArrayToken extends QueryToken {
 
     get parent(): QueryToken | undefined { return this._parent; }
     get key(): string { return this.toArrayType; }
-    override toString(): string { return this.toArrayType; }
-    niceName(): string { return `${this.toArrayType} of ${this._parent.toString()}`; }
+    override toString(): string { return Enum.niceName(CollectionToArrayType, this.toArrayType); }
+    // Divergence: Signum's CollectionToArrayToken.NiceName just forwards the parent's; altea names the
+    // collapse itself, built like CollectionElementToken's — QueryTokenMessage._0Of1.
+    niceName(): string { return QueryTokenMessage._0Of1.niceToString(this.toString(), this._parent.toString()); }
 
     // Navigation uses the element type; a reference element navigates as a Lite.
     get type(): TypeReference {

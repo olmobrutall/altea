@@ -2,6 +2,9 @@ import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
 import { TypeReference } from "../../reflection";
 import { QueryToken, SubTokensOptions, entityCtorOf } from "./queryToken";
+import { Enum } from "../../enum";
+import { registerEnum } from "../../registration";
+import { QueryTokenMessage } from "../../dynamicQueries";
 
 // Signum's CollectionAnyAllType (DynamicQuery/Tokens/CollectionAnyAllToken.cs).
 export enum CollectionAnyAllType {
@@ -10,6 +13,10 @@ export enum CollectionAnyAllType {
     NotAny = "NotAny",
     NotAll = "NotAll",
 }
+
+// Registered so the member names are TRANSLATABLE — see aggregateToken.ts for why this is hand-written
+// and why it creates no table. `key` keeps the raw member value; only the display side is localized.
+registerEnum(CollectionAnyAllType);
 
 // Port of Signum's `CollectionAnyAllToken`: a quantifier over a collection (`.Any`/`.All`/…). Like
 // CollectionElementToken its own BuildExpression throws — but a filter GROUP whose token passes
@@ -38,8 +45,10 @@ export class CollectionAnyAllToken extends QueryToken {
 
     get parent(): QueryToken | undefined { return this._parent; }
     get key(): string { return this.anyAllType; }
-    override toString(): string { return this.anyAllType; }
-    niceName(): string { return `${this.anyAllType} of ${this._parent.toString()}`; }
+    override toString(): string { return Enum.niceName(CollectionAnyAllType, this.anyAllType); }
+    // Signum's CollectionAnyAllToken.NiceName returns null (a quantifier is never a column); altea gives
+    // it a real label, built like CollectionElementToken's — QueryTokenMessage._0Of1.
+    niceName(): string { return QueryTokenMessage._0Of1.niceToString(this.toString(), this._parent.toString()); }
 
     get type(): TypeReference {
         return entityCtorOf(this.elementType) != undefined
