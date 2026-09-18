@@ -36,15 +36,34 @@ export function parseSignumTranslations(xml: string): Record<string, TypeMetadat
     for (const t of doc.Translations?.Type ?? []) {
         if (t.Name == null) continue;
         const tm: TypeMetadata = { kind: "Entity", fields: {} };
-        if (t.Description != null) tm.niceName = String(t.Description);
-        if (t.PluralDescription != null) tm.nicePluralName = String(t.PluralDescription);
-        if (t.Gender != null) tm.gender = String(t.Gender);
+        if (present(t.Description)) tm.niceName = String(t.Description);
+        if (present(t.PluralDescription)) tm.nicePluralName = String(t.PluralDescription);
+        if (present(t.Gender)) tm.gender = String(t.Gender);
         for (const m of t.Member ?? [])
-            if (m.Name != null && m.Description != null)
+            if (m.Name != null && present(m.Description))
                 tm.fields[String(m.Name)] = { niceName: String(m.Description) };
         result[String(t.Name)] = tm;
     }
     return result;
+}
+
+/**
+ * An EMPTY attribute is not a translation — it is the marker for one that is still owed.
+ *
+ * `TranslationStubs` writes `Description=""` for every name the sync reports as outstanding, so the file
+ * can be handed to someone with the type, its siblings and the English in front of them. It is careful to
+ * stub only the description for exactly this reason ("`Gender=""` would suppress the derivation for
+ * good"), and the sync itself reads `""` as missing on the way back in — `isTypeCompleted` and
+ * `memberConflict` both do.
+ *
+ * The RUNTIME did not. `!= null` let the empty string through, and `??` in `tryMemberNiceName` /
+ * `typeDescription` does not catch `""`, so a stubbed member resolved to the EMPTY STRING instead of
+ * degrading to the humanised identifier: with ~2800 stubs across the workspace, a Spanish user saw blank
+ * labels where an English word would have done. Skipping it here keeps the two halves agreeing about what
+ * a stub means, and puts the rule in the one place every culture file passes through.
+ */
+function present(value: string | undefined): boolean {
+    return value != null && String(value) !== "";
 }
 
 interface RawType {

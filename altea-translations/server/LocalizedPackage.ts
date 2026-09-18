@@ -434,11 +434,41 @@ export function importXml(packageName: string, culture: string): LocalizedPackag
                     : (isDefault ? declared?.gender : undefined) ?? detectGender(description, culture)),
             members: new Map(t.members.map(m => [
                 m,
-                s?.members.get(m) ?? (isDefault ? defaultMemberDescription(t.typeName, m, t) : undefined),
+                storedMember(s, m) ?? (isDefault ? defaultMemberDescription(t.typeName, m, t) : undefined),
             ])),
         });
     }
     return { packageName, culture, types };
+}
+
+/**
+ * What the FILE says about one member, tolerating the other spelling of its first letter.
+ *
+ * Signum names a message member camelCase — `JavascriptMessage.cancel`, `addFilter`, `searchForResults` —
+ * where altea names the same member PascalCase: `messageDefaults` and `routeMemberNames` both capitalize,
+ * so `Cancel` is what the declared set holds and what `exportXml` writes. A file CONVERTED from Signum
+ * arrives in Signum's spelling, and an exact lookup reads every one of those as MISSING: the sync stubs
+ * `Cancel` while `exportXml`, which writes only what the process declares, drops `cancel` — and a German
+ * translation that was sitting in the file is gone (eleven of them in `JavascriptMessage` alone).
+ *
+ * Probing both spellings is what the RUNTIME already does for the same reason (see
+ * `Localization.Internal.tryMemberNiceName`: "Signum's XML uses the PascalCase C# name; altea's members
+ * are camelCase. Probe both."). Here it also NORMALISES: the value comes back under altea's name, so the
+ * rewrite that follows puts it there and the old spelling disappears for good.
+ */
+function storedMember(s: StoredType | undefined, member: string): string | undefined {
+    if (s == undefined)
+        return undefined;
+
+    const exact = s.members.get(member);
+    if (exact != undefined)
+        return exact;
+
+    const first = member.charAt(0);
+    const flipped = first === first.toUpperCase()
+        ? first.toLowerCase() + member.slice(1)
+        : first.toUpperCase() + member.slice(1);
+    return flipped === member ? undefined : s.members.get(flipped);
 }
 
 /**
