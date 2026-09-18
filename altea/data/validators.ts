@@ -58,6 +58,11 @@ export enum ComparisonType {
     LessThanOrEqualTo,
 }
 
+// Hand-written, like StringCase below: no entity field is of this type. It matters here because the
+// member is spliced into two messages a user READS (`_0HasToBe12`, `HaveANumberOfElements01`), so
+// unregistered a German form would say "has to be greater than 0".
+registerEnum(ComparisonType);
+
 // Options common to EVERY validator (they map to fields on the base Validator, so any validator can
 // carry them). Each specific options interface extends this, and `addValidator` applies them uniformly.
 export interface ValidatorOptions {
@@ -636,13 +641,10 @@ function holds(comparison: ComparisonType, value: number, target: number): boole
     }
 }
 
-// Signum's `ComparisonType.NiceToString().FirstLower()` — "greater than", "less than or equal to", …
-// Built from the member name rather than through `Enum.niceName`, because ComparisonType is not
-// REGISTERED (no entity field is of that type and nothing calls registerEnum for it), so there is no
-// translation for niceName to find and it would humanise the same identifier by a longer route.
-// Contrast DateTimePrecision, which is registered and therefore does go through Enum.niceName.
+// Signum's `ComparisonType.NiceToString().FirstLower()` — "greater than", "less than or equal to", … in
+// the reader's own language. Signum disagrees with itself (CountIsValidator FirstLower, NumberIsValidator
+// ToLower); altea takes FirstLower for both, since ToLower would flatten a translation's own capitals.
 function comparisonName(comparison: ComparisonType): string {
-    const name = ComparisonType[comparison];
-    const spaced = name.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
-    return spaced.charAt(0).toLowerCase() + spaced.slice(1);
+    const name = Enum.niceName(ComparisonType, comparison);
+    return name.charAt(0).toLowerCase() + name.slice(1);
 }

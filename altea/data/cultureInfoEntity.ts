@@ -40,7 +40,9 @@ export class CultureInfoEntity extends Entity {
     @stringLengthValidator({ max: 200 })
     englishName: string;
 
-    /** Signum's `IsNeutral => !Name.Contains("-")` — a language with no region ("es", not "es-AR"). */
+    // Signum's `IsNeutral => !Name.Contains("-")` — a language with no region ("es", not "es-AR").
+    // @quoted so it lowers to SQL too: CultureInfoLogic registers it as the `IsNeutral` query token, which
+    // is what lets a culture search filter on it and not only `CultureLookup.names(isNeutral)` in memory.
     @legacyPropertyRoute
     @quoted
     isNeutral(): boolean {
@@ -63,6 +65,9 @@ export namespace CultureInfoOperation {
 
 export const CultureInfoMessage = {
     _0IsNotAValidCultureName: msg("'{0}' is not a valid culture name"),
+    // The caption of the `IsNeutral` query token — Signum's `<Member Name="IsNeutral">` under
+    // CultureInfoEntity, which a @quoted method has no route to land on.
+    IsNeutral: msg("Is neutral"),
 };
 
 /**

@@ -4,7 +4,8 @@ import "./dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import type { SchemaBuilder } from "./schema/schemaBuilder";
 import type { ResetLazy } from "./resetLazy";
 import { table } from "./table";
-import { CultureInfoEntity, CultureInfoOperation, cultureDisplayNames } from "../data/cultureInfoEntity";
+import { CultureInfoEntity, CultureInfoOperation, CultureInfoMessage, cultureDisplayNames } from "../data/cultureInfoEntity";
+import { QueryLogic } from "./dynamicQuery/queryLogic";
 import { Metadata } from "../data/metadata";
 import { setCultureNameResolver } from "../data/cultureInfoEntity";
 import type { Lite } from "../data/lite";
@@ -43,6 +44,10 @@ export namespace CultureInfoLogic {
             .withSave(CultureInfoOperation.Save, { execute: c => { Object.assign(c, cultureDisplayNames(c.name)); } })
             .withDelete(CultureInfoOperation.Delete)
             .withQuery();
+
+        // Signum gets this token from the PROPERTY `IsNeutral`; altea's member is a @quoted method, so the
+        // token is registered explicitly — otherwise a culture search cannot filter neutral cultures.
+        QueryLogic.expressions.register(CultureInfoEntity, c => c.isNeutral(), CultureInfoMessage.IsNeutral);
 
         cultures = sb.globalLazy(
             async () => new Map((await table(CultureInfoEntity).toArray() as CultureInfoEntity[]).map(c => [c.name, c])),

@@ -206,6 +206,13 @@ graph imports it — so it is not even a localizable package. Signum keeps these
 file, so the routing line is the unusual one: core → `altea-html-editor`. Needs a wiring decision for the
 server import as well (the package's only server module, `HtmlToPlainText.ts`, is not started).
 
+### A8 — `ComparisonType` was never registered — **DONE**
+The sibling of A5: `ComparisonType` (`data/validators.ts`) had no `registerEnum`, so `Enum.niceName` had
+no key and fell back to the English identifier — inside `ValidationMessage._0HasToBe12` and
+`HaveANumberOfElements01`, which a user reads, in every culture. Registered, `comparisonName` now goes
+through `Enum.niceName`, and Signum's German/Spanish are back in `Altea.<culture>.xml`. FirstLower for
+both callers, where Signum's own `CountIsValidator` uses `FirstLower` and `NumberIsValidator` `ToLower`.
+
 ---
 
 ## B. Missing engine behaviour
@@ -362,10 +369,26 @@ altea declares 82 of 114. Port the missing FUNCTIONALITY, not the strings alone:
 `NoResultsFoundBecauseTheRule0DoesNotAllowedToExplore1WithoutFilteringFirst` (the query-auth rule that
 refuses an unfiltered search).
 
-### D4 — `CultureInfoEntity.IsNeutral`
-Keep it: the culture dropdown filters on it. altea derives `nativeName` / `englishName` from
-`Intl.DisplayNames`; `isNeutral` is derivable the same way (a neutral culture is a language tag with no
-region subtag).
+### D4 — `CultureInfoEntity.IsNeutral` — **DONE**
+
+The member already existed as a `@quoted` method; what was missing is that nothing registered it, so it
+was reachable only from server code (`CultureLookup.names(isNeutral)` in memory) and no culture search
+could filter on it. `CultureInfoLogic` now registers the `IsNeutral` expression, captioned by the new
+`CultureInfoMessage.IsNeutral` — F1's rule, since a `@quoted` method has no `<Member>` to translate.
+`!name.includes("-")` lowers to `NOT (strpos(name, $1) >= 1)` on PostgreSQL and
+`NOT (CHARINDEX(@p0, Name) >= 1)` on SQL Server (`test/server/linq/cultureIsNeutral.test.ts`).
+
+The premise "the culture dropdown filters on it" was WRONG, and nothing was wired to the client:
+
+- Signum's endpoint does not expose the filter either. `/api/culture/cultures` returns every row and
+  `CultureClient.getCultures(isNeutral)` filters in memory, off the NAME (`isNeutral == !a.name
+  .contains("-")`) — not off the `IsNeutral` column. So there is no server-side filter to port.
+- Signum's `CultureDropdown` passes `false`, i.e. it offers only REGION-SPECIFIC cultures. Applied to
+  altea that would empty the dropdown: altea's catalogue is the set of loaded translation files
+  (`de`, `es`, plus the default `en`), all of them neutral. Signum's own Translation module passes `null`
+  (no filter), which is what altea already does everywhere.
+
+The token is therefore a SEARCH-page filter, which is what the entity keeps the member for.
 
 ---
 
