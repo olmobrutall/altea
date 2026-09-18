@@ -1,7 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { Entity } from "@altea/altea/data/entity";
+import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, implementedByAll, index } from "@altea/altea/data/decorators";
+import { entity, uniqueIndex, implementedByAll, index, format, niceName } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
@@ -191,6 +191,40 @@ export const TranslationJavascriptMessage = {
     RightTranslation: msg("Right translation"),
     RememberChange: msg("Remember change"),
 };
+
+/**
+ * The credentials the machine translators need — Signum's `TranslationConfigurationEmbedded`.
+ *
+ * Signum declares this in the APPLICATION (Southwind/Globals), because its translators are constructed in
+ * the app's Starter and nothing else needs the shape. altea declares it in the MODULE instead, which is
+ * what every other altea configuration section does — `ChatbotConfigurationEmbedded` is altea-agent's,
+ * `SMSConfigurationEmbedded` is altea-sms's — so an application gets the fields, the labels and their
+ * translations by holding one field rather than by re-declaring three.
+ *
+ * It is still the APP that wires them: `TranslationLogic.start` takes translators, and the two that need a
+ * key take a LAMBDA over this row, so rotating one is a save rather than a restart.
+ *
+ * Empty is the normal state. Both translators answer `null` for a missing key, which the chain reads as
+ * "nothing to suggest" — the sync pages work with no credentials at all.
+ */
+@reflect
+export class TranslationConfigurationEmbedded extends EmbeddedEntity {
+
+    // All three carry Signum's `[Description]`, for Signum's reason: de-camelCasing an identifier with an
+    // acronym in it does not produce the product's name. `deepLAPIKey` humanises to "Deep LAPI key".
+    @niceName("Azure Cognitive Service API Key")
+    @stringLengthValidator({ max: 300 }) @format("Password")
+    azureCognitiveServicesAPIKey: string | null = null;
+
+    /** The Azure resource's region ("westeurope"). Not a secret, and optional: a global resource has none. */
+    @niceName("Azure Cognitive Service Region")
+    @stringLengthValidator({ max: 300 })
+    azureCognitiveServicesRegion: string | null = null;
+
+    @niceName("DeepL API Key")
+    @stringLengthValidator({ max: 300 }) @format("Password")
+    deepLAPIKey: string | null = null;
+}
 
 // The database schema this package's tables live in — altea's counterpart of Signum's
 // `[assembly: AssemblySchemaName("translation")]`. FOLDER-scoped, so it covers every type declared
