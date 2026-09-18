@@ -4,20 +4,27 @@
 // `value` items are ROWS (BaseEntity) and its `data` items are option ResultRows, disambiguated by
 // `instanceof BaseEntity`; select maps each to its value lite and diffs against the current rows
 // (`addValue` for new, `removeElement` for deselected). showType keys off the @valueField's type.
+// The widget is wrapped in <Localization> so its OWN strings (tag label, remove, "no items in this
+// list") come from ReactWidgetsLocalizer rather than react-widgets' English defaults.
 import * as React from 'react'
 import type { ResultRow, ResultTable } from '../../data/dynamicQuery/queryRequest'
 import { BaseEntity, Entity } from '../../data/entity'
 import { Lite } from '../../data/lite'
 import { EntityListBaseController, type EntityListBaseProps } from './EntityListBase'
 import { Navigator } from '../Navigator'
-import { Multiselect } from 'react-widgets-up'
+import { Localization, Multiselect } from 'react-widgets-up'
 import { useController } from './LineBase'
 import type { FindOptions } from '../FindOptions'
 import { Finder } from '../Finder'
 import { normalizeEmptyArray } from './EntityCombo'
 import { useMounted } from '../Hooks'
 import { FormGroup } from './FormGroup'
+import { getDateLocalizer, getMessages, getNumberLocalizer } from './ReactWidgetsLocalizer'
 import { classes } from '../../data/globals'
+
+const dateLocalizer = getDateLocalizer();
+const numberLocalizer = getNumberLocalizer();
+const messages = getMessages();
 
 // null-safe entity/lite equality (BaseEntity has no `.is`).
 function isLiteEqual(a?: Entity | Lite<Entity>, b?: Entity | Lite<Entity>): boolean {
@@ -123,19 +130,21 @@ export function EntityMultiSelect<R extends BaseEntity>(props: EntityMultiSelect
       helpTextOnTop={helpTextOnTop}
       htmlAttributes={{ ...c.baseHtmlAttributes(), ...p.formGroupHtmlAttributes }}>
       {inputId => <div className={classes(p.ctx.rwWidgetClass, c.mandatoryClass ? c.mandatoryClass + "-widget" : undefined)}>
-        <Multiselect<any>
-          id={inputId}
-          readOnly={p.ctx.readOnly}
-          dataKey={(item: any) => item instanceof BaseEntity ? getLite(c.getElementValue(item as R)).key() : (item as ResultRow).entity!.key()}
-          textField="name"
-          value={p.ctx.value}
-          data={optionsRows as any}
-          onChange={(value: any[]) => c.handleOnSelect(value.map(e => e instanceof BaseEntity ? (c.getElementValue(e as R) as Lite<Entity> | Entity) : (e as ResultRow).entity!))}
-          renderListItem={({ item }: { item: any }) => p.onRenderItem ? p.onRenderItem(item as ResultRow) : Navigator.renderLite((item as ResultRow).entity!)}
-          renderTagValue={({ item }: { item: any }) => item instanceof BaseEntity ? Navigator.renderLite(getLite(c.getElementValue(item as R))) :
-            p.onRenderItem ? p.onRenderItem(item as ResultRow) : Navigator.renderLite((item as ResultRow).entity!)
-          }
-        />
+        <Localization date={dateLocalizer} number={numberLocalizer} messages={messages}>
+          <Multiselect<any>
+            id={inputId}
+            readOnly={p.ctx.readOnly}
+            dataKey={(item: any) => item instanceof BaseEntity ? getLite(c.getElementValue(item as R)).key() : (item as ResultRow).entity!.key()}
+            textField="name"
+            value={p.ctx.value}
+            data={optionsRows as any}
+            onChange={(value: any[]) => c.handleOnSelect(value.map(e => e instanceof BaseEntity ? (c.getElementValue(e as R) as Lite<Entity> | Entity) : (e as ResultRow).entity!))}
+            renderListItem={({ item }: { item: any }) => p.onRenderItem ? p.onRenderItem(item as ResultRow) : Navigator.renderLite((item as ResultRow).entity!)}
+            renderTagValue={({ item }: { item: any }) => item instanceof BaseEntity ? Navigator.renderLite(getLite(c.getElementValue(item as R))) :
+              p.onRenderItem ? p.onRenderItem(item as ResultRow) : Navigator.renderLite((item as ResultRow).entity!)
+            }
+          />
+        </Localization>
       </div>}
     </FormGroup>
   );

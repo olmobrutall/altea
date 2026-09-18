@@ -5,22 +5,24 @@ import { ariaLabelOf } from "./ariaLabel";
 //     object via resolveEnum(typeName). Member LABELS come from `Enum.niceName`, the resolver behind
 //     Signum's `member.niceName` (loaded translation → setNiceName → humanised PascalCase).
 //   - type is a FieldInfo: .name→.typeName, .isNotNullable→!.isNullable; boolean typeName is "Boolean".
-//   - BooleanEnum labels inlined (message container not ported); DropdownList/Combobox (react-widgets)
-//     wrapped in <Localization> (Intl localizer from ReactWidgetsLocalizer). Plain <select> needs none.
+//   - DropdownList/Combobox (react-widgets) wrapped in <Localization> (Intl localizers + the widgets'
+//     own message strings, all from ReactWidgetsLocalizer). A plain <select> needs none.
 import * as React from 'react'
 import { DropdownList, Combobox, Localization } from 'react-widgets-up'
 import { Dic, classes } from '../../data/globals'
 import { Enum } from '../../data/enum'
+import { BooleanEnum } from '../../data/uiMessages'
 import { type MemberInfo } from '../Reflection'
 import { genericMemo, LineBaseController, useController } from './LineBase'
 import { FormGroup } from './FormGroup'
 import { FormControlReadonly } from './FormControlReadonly'
 import { getTimeMachineIcon } from './TimeMachineIcon'
-import { getDateLocalizer, getNumberLocalizer } from './ReactWidgetsLocalizer'
+import { getDateLocalizer, getMessages, getNumberLocalizer } from './ReactWidgetsLocalizer'
 import { ValueBaseController, type ValueBaseProps } from './ValueBase'
 
 const dateLocalizer = getDateLocalizer();
 const numberLocalizer = getNumberLocalizer();
+const messages = getMessages();
 
 export interface EnumLineProps<V extends string | number | boolean | null> extends ValueBaseProps<V> {
   lineType?:
@@ -126,7 +128,7 @@ function internalDropDownList<V extends string | number | boolean | null>(c: Enu
     return (
       <FormGroup ctx={p.ctx} error={p.error} label={p.label} labelIcon={p.labelIcon} helpText={helpText} helpTextOnTop={helpTextOnTop} htmlAttributes={{ ...c.baseHtmlAttributes(), ...p.formGroupHtmlAttributes }} labelHtmlAttributes={p.labelHtmlAttributes} ariaAttributes={ariaAtts}>
         {inputId => c.withItemGroup(
-          <Localization date={dateLocalizer} number={numberLocalizer}>
+          <Localization date={dateLocalizer} number={numberLocalizer} messages={messages}>
             <DropdownList<OptionItem> className={classes(c.props.valueHtmlAttributes?.className, p.ctx.formControlClass, c.mandatoryClass, "p-0")} data={optionItems}
               id={inputId}
               onChange={(oe, md) => c.setValue(oe.value, md.originalEvent)}
@@ -143,7 +145,11 @@ function internalDropDownList<V extends string | number | boolean | null>(c: Enu
                 "aria-haspopup": "listbox",
                 "aria-expanded": false,
                 "aria-controls": `${inputId}_listbox`,
-                "aria-label": p.label ?? "Auswahl"
+                // `ariaLabelOf`, like the two sibling branches: a `label` prop may be a React ELEMENT, and
+                // `String(element)` reaches the DOM as "[object Object]" (see ariaLabel.ts). It also
+                // replaces a hardcoded German "Auswahl" that was the fallback here — the property's own
+                // nice name is both localized and more specific.
+                "aria-label": ariaLabelOf(p.label, p.ctx)
               }}
               listProps={{
                 role: "listbox",
@@ -234,7 +240,7 @@ function internalComboBoxText<V extends string | number | boolean | null>(c: Enu
   return (
     <FormGroup ctx={p.ctx} error={p.error} label={p.label} labelIcon={p.labelIcon} helpText={helpText} helpTextOnTop={helpTextOnTop} htmlAttributes={{ ...c.baseHtmlAttributes(), ...p.formGroupHtmlAttributes }} labelHtmlAttributes={p.labelHtmlAttributes} ariaAttributes={ariaAtts}>
       {inputId => c.withItemGroup(
-        <Localization date={dateLocalizer} number={numberLocalizer}>
+        <Localization date={dateLocalizer} number={numberLocalizer} messages={messages}>
           <Combobox<OptionItem>
             id={inputId}
             className={classes(c.props.valueHtmlAttributes?.className, p.ctx.formControlClass, c.mandatoryClass)} data={optionItems}
@@ -334,10 +340,12 @@ function getOptionsItems(el: EnumLineController<any>): OptionItem[] {
       .filter(a => !!a);
   }
 
+  // The nullable-Boolean dropdown: labelled from BooleanEnum (data/uiMessages), so it reads No/Yes —
+  // Nein/Ja, No/Sí — rather than the raw member names.
   if (typeName == "Boolean")
     return ([
-      { label: "False", value: false }, // TODO(port): BooleanEnum localized labels
-      { label: "True", value: true }
+      { label: Enum.niceName(BooleanEnum, "False"), value: false },
+      { label: Enum.niceName(BooleanEnum, "True"), value: true }
     ]);
 
   if (enumObj != null)

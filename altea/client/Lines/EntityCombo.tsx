@@ -25,12 +25,13 @@ import { classes } from '../../data/globals'
 import { genericMemo, useController } from './LineBase'
 import { useMounted } from '../Hooks'
 import { DropdownList, Localization } from 'react-widgets-up'
-import { getDateLocalizer, getNumberLocalizer } from './ReactWidgetsLocalizer'
+import { getDateLocalizer, getMessages, getNumberLocalizer } from './ReactWidgetsLocalizer'
 import { getTimeMachineIcon } from './TimeMachineIcon'
 import { TextHighlighter } from '../Components/Typeahead'
 
 const dateLocalizer = getDateLocalizer();
 const numberLocalizer = getNumberLocalizer();
+const messages = getMessages();
 
 // ALTEA: Signum's null-safe free `is(a, b)`; altea `.is()` is an instance method, so guard the receiver.
 function isLiteEqual(a?: Entity | Lite<Entity>, b?: Entity | Lite<Entity>): boolean {
@@ -287,7 +288,7 @@ export function EntityComboSelect<V extends Entity | Lite<Entity> | null>(p: Ent
 
   if (p.onRenderItem) {
     return (
-      <Localization date={dateLocalizer} number={numberLocalizer}>
+      <Localization date={dateLocalizer} number={numberLocalizer} messages={messages}>
         <DropdownList<ResultRow>
           className={classes(ctx.formControlClass, p.mandatoryClass)} data={getOptionRows()}
           onChange={(row, e) => p.onChange(e.originalEvent, (row?.entity as AsLite<V>) ?? null)}

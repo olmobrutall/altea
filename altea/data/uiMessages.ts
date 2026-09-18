@@ -4,6 +4,8 @@
 // more as further components land. Display text arrives via the reflection translation blob; the
 // msg() name-inferred / explicit default is the fallback.
 import { msg } from './utils/localization';
+import { Enum } from './enum';
+import { registerEnum } from './registration';
 
 export const EntityControlMessage = {
     Add: msg("Add"),
@@ -200,6 +202,11 @@ export const OperationMessage = {
     // when a row version was current. Signum names them Entity.SystemValidFrom / .SystemValidTo.
     SystemValidFrom: msg("System valid from"),
     SystemValidTo: msg("System valid to"),
+    // The caption of the `Duration` token over OperationLogEntity.durationMilliseconds(). Signum has it
+    // as the PROPERTY OperationLogEntity.Duration, translated under that type's <Type> block; altea's
+    // member is a `@quoted` method, which is not a PropertyRoute and therefore has no <Member> entry of
+    // its own, so the localizable name has to be a message. Same reason as the two tokens above.
+    Duration: msg(),
     Executing0: msg("Executing {0}"),
     Deleting: msg("Deleting…"),
     _0Errors: msg("{0} errors"),
@@ -222,6 +229,16 @@ export const EngineMessage = {
     // Signum's EngineMessage.EntityWithType0AndId1NotFound — shown when a stored/urled id no longer resolves
     // (e.g. @altea/altea-toolbar's entity-scoped menu restoring its last selection).
     _01NotFound: msg("{0} with Id {1} not found"),
+    // The four sentences a constraint violation is re-raised as — see server/connection/
+    // databaseExceptions (Signum's ForeignKeyException / UniqueKeyException). The first pair is a
+    // DELETE blocked by rows that still point at the row being removed, with and without a known entity
+    // type behind the table; the second is a unique index rejecting a duplicate, with and without the
+    // offending values. `_G` = the article varies with the type's grammatical gender
+    // (`forGenderAndNumber`), exactly as in Signum.
+    ThereAre0ThatReferThisEntityByProperty1: msg("There are '{0}' that refer to this entity by property '{1}'"),
+    ThereAreRecordsIn0PointingToThisTableByColumn1: msg("There are records in '{0}' referring to this table by column '{1}'"),
+    ThereIsAlreadyA0With1EqualsTo2_G: msg("There is already a {0} with {1} equals to {2}"),
+    ThereIsAlreadyA0WithTheSame1_G: msg("There is already a {0} with the same {1}"),
 };
 
 // NormalControl (Signum's NormalControlMessage) — the members the Operations layer reads.
@@ -262,4 +279,56 @@ export const CascadeDeleteMessage = {
     Delete: msg("Delete"),
     ErrorDetails: msg("Error details"),
     _0MoreNotVisibleForYou: msg("{0} more not visible for you"),
+};
+
+// Signum's BooleanEnum (Entities/EnumMessages.cs) — the Yes/No vocabulary a plain `boolean` is shown
+// with, e.g. EnumLine's nullable-Boolean dropdown. An ENUM rather than a msg() container because the
+// two member NAMES ("False"/"True") are the keys the translation files carry and `Enum.niceName`
+// resolves; Signum's [Description] on each member is why the default language reads No/Yes rather
+// than the humanised member name.
+//
+// registerEnum is hand-written: the quote-transformer only auto-registers an enum that an entity FIELD
+// references, and nothing STORES a BooleanEnum. Without it the enum has no registered name, so
+// `Enum.niceName` has nothing to look a translation up by — registration alone creates no table (the
+// schema builder makes one only when a FieldEnum points at the enum).
+export enum BooleanEnum {
+    False,
+    True,
+}
+
+registerEnum(BooleanEnum);
+
+Enum.setNiceName(BooleanEnum, "False", "No");
+Enum.setNiceName(BooleanEnum, "True", "Yes");
+
+// react-widgets (Signum's ReactWidgetsMessage) — the labels and aria strings the react-widgets-up
+// DropdownList / Combobox / Multiselect / DatePicker render on their own. They reach a widget through
+// the `messages` prop of <Localization>, assembled by `getMessages` in client/Lines/ReactWidgetsLocalizer.
+export const ReactWidgetsMessage = {
+    CreateOption: msg("Create option"),
+    CreateOption0: msg("Create option {0}"),
+    DateButton: msg("Select date"),
+    DecrementValue: msg("Decrement value"),
+    EmptyFilter: msg("The filter returned no results"),
+    EmptyList: msg("There are no items in this list"),
+    // react-widgets-up has no filter-placeholder slot in its Messages contract, so nothing passes this
+    // one on; it is declared (with Signum's own empty default) so the member keeps a home if one appears.
+    FilterPlaceholder: msg(""),
+    IncrementValue: msg("Increment value"),
+    MoveBack: msg("Navigate back"),
+    MoveForward: msg("Navigate forward"),
+    MoveToday: msg("Today"),
+    NoneSelected: msg("no selected items"),
+    OpenCombobox: msg("open combobox"),
+    RemoveLabel: msg("Remove selected item"),
+    SelectedItems0: msg("Selected items: {0}"),
+    TagsLabel: msg("Selected items"),
+};
+
+// Calendar (Signum's CalendarMessage) — the word "Today" on its own. The DatePicker's calendar renders
+// its Today button from react-widgets' `moveToday` message, which ReactWidgetsMessage.MoveToday feeds,
+// so nothing reads this container yet: it is the localized noun any other "today" affordance should
+// reach for instead of inventing a second string.
+export const CalendarMessage = {
+    Today: msg("Today"),
 };

@@ -8,6 +8,9 @@
 //   - MANUAL sub-tokens are DEFERRED (altea has no `queryTokenType` discriminator / ManualToken yet):
 //     the `manualSubTokens` registry + register/clear stay as the public API, but `getManualSubTokens`
 //     always returns undefined for now (TODO(port): manual/cell tokens).
+//   - the DropdownList is wrapped in <Localization>: react-widgets' own strings ("open combobox",
+//     "There are no items in this list") only reach it through that provider, and altea wraps each
+//     widget site because it has no app-wide one.
 import * as React from 'react'
 import { classes, Dic } from '../../data/globals'
 import { Finder } from '../Finder'
@@ -16,7 +19,8 @@ import { QueryToken, valueFieldSubToken } from '../QueryToken';
 import type { ManualToken as ManualTokenDescriptor } from '../QueryToken';
 import { ManualToken as ManualTokenClass, ManualContainerToken } from '../../data/dynamicQuery/tokens';
 import "./QueryTokenBuilder.css"
-import { DropdownList } from 'react-widgets-up'
+import { DropdownList, Localization } from 'react-widgets-up'
+import { getDateLocalizer, getMessages, getNumberLocalizer } from '../Lines/ReactWidgetsLocalizer'
 import { StyleContext } from '../TypeContext';
 import * as AppContext from '../AppContext';
 import { useAPI } from '../Hooks';
@@ -31,6 +35,10 @@ interface QueryTokenBuilderProps {
   readOnly: boolean;
   className?: string;
 }
+
+const dateLocalizer = getDateLocalizer();
+const numberLocalizer = getNumberLocalizer();
+const messages = getMessages();
 
 let copiedToken: { fullKey: string, queryKey: string } | undefined;
 
@@ -220,25 +228,27 @@ export function QueryTokenPart(p: QueryTokenPartProps): React.ReactElement | nul
   return (
     <div className="sf-query-token-part" onKeyUp={handleKeyUp} onKeyDown={handleKeyUp}>
       {p.selectedToken || p.parentToken == null || p.defaultOpen ?
-        <DropdownList
-          disabled={p.readOnly}
-          selectIcon={open && doAutoExpand ? <FontAwesomeIcon aria-hidden={true} icon="magnifying-glass" /> : undefined}
-          onToggle={isOpen => setOpen(isOpen)}
-          filter={(item, searchTerm) => item != null && searchTerm.toLowerCase().split(" ").filter(a => a != "").every(part => parentsUntil(item, p.parentToken).some(t => t.key.toLowerCase().includes(part) || t.toString().toLowerCase().includes(part)))}
-          autoComplete="off"
-          focusFirstItem={true}
-          data={subTokens?.orderBy(a => a?.parent != null) ?? []}
-          placeholder={p.selectedToken == null ? "..." : undefined}
-          value={p.selectedToken}
-          onChange={(value, metadata) => p.onTokenSelected(value ?? p.parentToken, metadata.originalEvent?.nativeEvent instanceof KeyboardEvent)}
-          dataKey={(item: unknown) => (item as QueryToken | null)?.fullKey()}
-          textField={(item: unknown) => (item as QueryToken | null)?.toString() ?? ""}
-          onBlur={() => { p.selectedToken == null && p.setLastTokenChange(undefined); }}
-          renderValue={a => <QueryTokenItem item={a.item} />}
-          renderListItem={a => <QueryTokenListItem item={a.item} ancestor={p.parentToken} />}
-          defaultOpen={p.defaultOpen}
-          busy={!p.readOnly && subTokens == undefined}
-        /> : <button type="button" className="btn btn-sm sf-query-token-plus" onClick={e => { e.preventDefault(); p.setLastTokenChange(p.parentToken!.fullKey()); }}>
+        <Localization date={dateLocalizer} number={numberLocalizer} messages={messages}>
+          <DropdownList
+            disabled={p.readOnly}
+            selectIcon={open && doAutoExpand ? <FontAwesomeIcon aria-hidden={true} icon="magnifying-glass" /> : undefined}
+            onToggle={isOpen => setOpen(isOpen)}
+            filter={(item, searchTerm) => item != null && searchTerm.toLowerCase().split(" ").filter(a => a != "").every(part => parentsUntil(item, p.parentToken).some(t => t.key.toLowerCase().includes(part) || t.toString().toLowerCase().includes(part)))}
+            autoComplete="off"
+            focusFirstItem={true}
+            data={subTokens?.orderBy(a => a?.parent != null) ?? []}
+            placeholder={p.selectedToken == null ? "..." : undefined}
+            value={p.selectedToken}
+            onChange={(value, metadata) => p.onTokenSelected(value ?? p.parentToken, metadata.originalEvent?.nativeEvent instanceof KeyboardEvent)}
+            dataKey={(item: unknown) => (item as QueryToken | null)?.fullKey()}
+            textField={(item: unknown) => (item as QueryToken | null)?.toString() ?? ""}
+            onBlur={() => { p.selectedToken == null && p.setLastTokenChange(undefined); }}
+            renderValue={a => <QueryTokenItem item={a.item} />}
+            renderListItem={a => <QueryTokenListItem item={a.item} ancestor={p.parentToken} />}
+            defaultOpen={p.defaultOpen}
+            busy={!p.readOnly && subTokens == undefined}
+          />
+        </Localization> : <button type="button" className="btn btn-sm sf-query-token-plus" onClick={e => { e.preventDefault(); p.setLastTokenChange(p.parentToken!.fullKey()); }}>
           <FontAwesomeIcon aria-hidden={true} icon="plus" />
         </button>}
     </div>
