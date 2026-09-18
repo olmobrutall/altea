@@ -68,6 +68,7 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
             return ValidationMessage._0DoesNotHaveAValid1Format.niceToString("Tenant Name", "b2clogin domain");
         return null;
     })
+    @stringLengthValidator({ max: 100 })
     tenantName: string | null = null;
 
     @stringLengthValidator({ max: 300 })
@@ -83,6 +84,7 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
             return ValidationMessage._0DoesNotHaveAValid1Format.niceToString("Sign In Sign Up User Flow", "URL");
         return null;
     })
+    @stringLengthValidator({ max: 300 })
     signInSignUp_UserFlow: string | null = null;
 
     @stringLengthValidator({ max: 300 })
@@ -168,7 +170,7 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     }
     /** This configuration's own @part rows (the row type
      *  is per module, see BaseAD's header). */
-    @noRepeatValidator()
+    @noRepeatValidator<AzureADRoleMappingEntity>(a => a.adNameOrGuid)
     roleMapping: AzureADRoleMappingEntity[];
 
     override roleMappings(): RoleMappingEntity[] { return this.roleMapping; }

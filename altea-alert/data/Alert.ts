@@ -5,9 +5,7 @@ import { SemiSymbol } from "@altea/altea/data/semiSymbol";
 import {
     entity, part, implementedByAll, quoted, column, unit, valueField, backReference, rowOrder, legacyPropertyRoute,
 } from "@altea/altea/data/decorators";
-import {
-    stringLengthValidator, validate, noRepeatValidator, notNullValidator, ValidationMessage,
-} from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, noRepeatValidator, notNullValidator, ValidationMessage, numberIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -221,10 +219,12 @@ export class SendNotificationEmailTaskEntity extends Entity {
 
     /** Only alerts whose `alertDate` is at least this old are mailed (so a burst is batched). */
     @unit("mins")
+    @numberIsValidator(ComparisonType.GreaterThanOrEqualTo, 0)
     sendNotificationsOlderThan: int = toInt(0);
 
     /** …and nothing older than this, so a long-stopped scheduler does not flood a mailbox on restart. */
     @unit("days")
+    @numberIsValidator(ComparisonType.GreaterThanOrEqualTo, 0)
     ignoreNotificationsOlderThan: int | null;
 
     sendBehavior: SendAlertTypeBehavior = SendAlertTypeBehavior.All;

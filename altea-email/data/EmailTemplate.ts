@@ -421,7 +421,6 @@ export class EmailTemplateEntity extends Entity implements IUserAssetEntity, ICo
 
     from: EmailTemplateFromEmbedded | null;
 
-    @noRepeatValidator()
     recipients: EmailTemplateEntity_Recipient[];
 
     groupResults: boolean;

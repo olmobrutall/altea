@@ -2,7 +2,7 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, unit, quoted } from "@altea/altea/data/decorators";
-import { validate, ValidationMessage } from "@altea/altea/data/validators";
+import { validate, ValidationMessage, numberIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
@@ -44,6 +44,7 @@ export class CachedProfilePhotoEntity extends Entity {
             ? ValidationMessage._0ShouldBe1.niceToString("Size", toAzureSize(size))
             : null;
     })
+    @numberIsValidator(ComparisonType.GreaterThan, 0)
     size: int;
 
     photo: FilePathEmbedded | null = null;

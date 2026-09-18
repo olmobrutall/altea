@@ -125,7 +125,6 @@ export class NeuralNetworkSettingsEntity extends Entity implements IPredictorAlg
 
     predictionType: PredictionType = PredictionType.Classification;
 
-    @noRepeatValidator()
     hiddenLayers: NeuralNetworkSettingsEntity_HiddenLayer[];
 
     outputActivation: NeuralNetworkActivation = NeuralNetworkActivation.None;
@@ -167,6 +166,7 @@ export class NeuralNetworkSettingsEntity extends Entity implements IPredictorAlg
                 NeuralNetworkSettingsEntity.nicePropertyName(a => a.saveProgressEvery),
                 String(s.saveProgressEvery))
             : null)
+    @numberIsValidator(ComparisonType.GreaterThan, 0)
     saveValidationProgressEvery: int = toInt(10);
 
     cloneSettings(): IPredictorAlgorithmSettings {

@@ -453,7 +453,7 @@ export class WorkflowActivityEntity extends Entity implements IWorkflowNodeEntit
     @validate<WorkflowActivityEntity>(a => a.viewNameProps.length === 0 || (a.viewName ?? "") !== "" ? null
         : ValidationMessage._0ShouldBeNull.niceToString(
             WorkflowActivityEntity.nicePropertyName(x => x.viewNameProps)))
-    @noRepeatValidator()
+    @noRepeatValidator<WorkflowActivityEntity_ViewNameProp>(a => a.prop.name)
     viewNameProps: WorkflowActivityEntity_ViewNameProp[];
 
     @validate<WorkflowActivityEntity>(a => scriptValidation(a.script != null, a.type))
@@ -548,7 +548,6 @@ export class WorkflowActivityModel extends ModelEntity {
         : ValidationMessage._0IsSet.niceToString(WorkflowActivityModel.nicePropertyName(x => x.customNextButton)))
     customNextButton: ButtonOptionEmbedded | null;
 
-    @noRepeatValidator()
     boundaryTimers: WorkflowEventModel[];
 
     @unit("min")
@@ -561,7 +560,7 @@ export class WorkflowActivityModel extends ModelEntity {
 
     @validate<WorkflowActivityModel>(a => a.viewNameProps.length === 0 || (a.viewName ?? "") !== "" ? null
         : ValidationMessage._0ShouldBeNull.niceToString(WorkflowActivityModel.nicePropertyName(x => x.viewNameProps)))
-    @noRepeatValidator()
+    @noRepeatValidator<ViewNamePropEmbedded>(a => a.name)
     viewNameProps: ViewNamePropEmbedded[];
 
     @stringLengthValidator({ min: 3, max: 400, multiLine: true })

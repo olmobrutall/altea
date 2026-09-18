@@ -143,7 +143,6 @@ export class EmailMessageEntity extends Entity {
 
     sendRetries: int;
 
-    @noRepeatValidator()
     attachments: EmailMessageEntity_Attachment[];
 
     /** What `bodyHash` is computed over (Signum's CalculateHash input). */

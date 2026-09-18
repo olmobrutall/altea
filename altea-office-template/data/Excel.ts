@@ -1,6 +1,6 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { EmbeddedEntity, ModelEntity } from "@altea/altea/data/entity";
-import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, ValidationMessage, noRepeatValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
 import { FileEmbedded } from "@altea/altea-files/data/Files";
@@ -140,6 +140,7 @@ export class ImportExcelModel extends ModelEntity {
      *  (see validators.ts) and these rows have none, so it would be inert — the duplicate check is folded
      *  into `collectionsError` below, where it can compare what actually identifies a row. */
     @validate<ImportExcelModel>(m => collectionsError(m))
+    @noRepeatValidator<CollectionElementEmbedded>(a => a.collectionElement)
     collections: CollectionElementEmbedded[];
 
     toString(): string {

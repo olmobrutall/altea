@@ -1,10 +1,10 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
     entity, part, primaryKey, backReference, rowOrder, implementedBy, uniqueIndex, format, unit, quoted,
 } from "@altea/altea/data/decorators";
-import { stringLengthValidator, validate } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, noRepeatValidator } from "@altea/altea/data/validators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
 import { Enum } from "@altea/altea/data/enum";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -133,7 +133,9 @@ export abstract class ToolbarElementBaseEntity extends Entity {
                 ? ToolbarMessage._0IsMandatoryWhen1IsNotSet.niceToString(
                     ToolbarMessage.Url.niceToString(), ToolbarMessage.Content.niceToString())
                 : null)
-    @stringLengthValidator({ min: 1 })
+    // Signum's `[StringLengthValidator(Min = 1, Max = int.MaxValue)]` — the max matters now that a sizeless
+    // string column takes the 200-character default, and a toolbar entry may point at a long URL.
+    @stringLengthValidator({ min: 1, max: MAX_SIZE })
     url: string | null;
 
     openInPopup: boolean = false;
@@ -250,6 +252,7 @@ export class ToolbarSwitcherEntity extends Entity implements IUserAssetEntity, I
     @implementedBy(() => [UserEntity, RoleEntity])
     owner: Lite<Entity> | null;
 
+    @noRepeatValidator<ToolbarSwitcherEntity_Option>(a => a.toolbarMenu)
     options: ToolbarSwitcherEntity_Option[];
 
     getSubToolbars(): Lite<Entity>[] {

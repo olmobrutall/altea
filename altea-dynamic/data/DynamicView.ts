@@ -1,8 +1,8 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, part, backReference, rowOrder, quoted, uniqueIndex } from "@altea/altea/data/decorators";
-import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, ValidationMessage, noRepeatValidator } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
@@ -86,7 +86,8 @@ export class DynamicViewEntity extends Entity {
     props: DynamicViewEntity_Prop[];
 
     /** The body of a `useMemo`-like hook the interpreter runs before rendering; its result is `locals`. */
-    @stringLengthValidator({ multiLine: true })
+    // Signum's `Max = int.MaxValue`: a code body, not a label.
+    @stringLengthValidator({ multiLine: true, max: MAX_SIZE })
     locals: string | null;
 
     /** The node TREE, as JSON. Interpreted by client/View/NodeUtils — never compiled. */

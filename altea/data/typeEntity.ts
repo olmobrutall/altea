@@ -1,3 +1,4 @@
+import { stringLengthValidator } from './validators';
 import { Entity } from './entity';
 import { reflect, setDefaultDatabaseSchema } from './reflection';
 import { entity, quoted, uniqueIndex } from './decorators';
@@ -23,11 +24,13 @@ import { msg } from './utils/localization';
 export class TypeEntity extends Entity {
     // The physical table name of the type (e.g. "Artist" / "note_with_date"). Signum: `[UniqueIndex]`.
     @uniqueIndex
+    @stringLengthValidator({ max: 200 })
     tableName: string;
 
     // The clean type name (Signum's Reflector.CleanTypeName, e.g. "Artist") — the
     // human-facing discriminator. Signum: `[UniqueIndex]` (Type.cs).
     @uniqueIndex
+    @stringLengthValidator({ max: 200 })
     cleanName: string;
 
     // The owning npm PACKAGE of the type (Signum's TypeEntity.Namespace analog — TS has no
@@ -41,7 +44,9 @@ export class TypeEntity extends Entity {
     // `TypeLogic.Schema_Synchronizing` copies only TableName, CleanName, Namespace and ClassName onto
     // the retrieved row — which also means altea's values SURVIVE a Signum sync untouched: filling
     // them is a one-time migration, not a tug of war.)
+    @stringLengthValidator({ max: 200 })
     package: string | null;
+    @stringLengthValidator({ max: 200 })
     className: string;
 
     // Signum's `Namespace` — the C# namespace, which TypeScript has no counterpart for, so altea
@@ -49,6 +54,7 @@ export class TypeEntity extends Entity {
     // generated is not asked to drop the column (and its values) the first time altea syncs it; the
     // type synchronizer therefore CARRIES IT OVER on a merge rather than overwriting it with null.
     // `package` is what altea groups by, and Signum is gaining the same column.
+    @stringLengthValidator({ max: 200 })
     namespace: string | null;
 
     // Whether the type is a `@part` — an entity that exists only

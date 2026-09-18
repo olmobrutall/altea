@@ -24,6 +24,7 @@ export class ChartParameterEmbedded extends EmbeddedEntity {
         p.scriptParameter != null && p.name !== p.scriptParameter.name
             ? `Name should be equal to ${p.scriptParameter.name}`
             : null)
+    @stringLengthValidator({ min: 3, max: 100 })
     name: string;
 
     // Signum's `[StringLengthValidator(Max = 500)] string? Value`, validated by the ScriptParameter.
@@ -32,6 +33,7 @@ export class ChartParameterEmbedded extends EmbeddedEntity {
         p.scriptParameter != null
             ? p.scriptParameter.validate(p.value ?? null, p.scriptParameter.getToken(p.parentChart!))
             : null)
+    @stringLengthValidator({ max: 500 })
     value: string | null;
 
     toString(): string {

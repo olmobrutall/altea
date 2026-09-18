@@ -1,7 +1,7 @@
 // The `reflect` import must be PRESENT even where no class is decorated with it: the quote-transformer
 // augments THIS import with the `field()` / `registerType()` helpers it injects for every entity field, and
 // without it the emitted module throws "field is not defined" at load time.
-import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { reflect, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { part, backReference, rowOrder } from "@altea/altea/data/decorators";
@@ -55,6 +55,9 @@ export class TextPartEntity extends Entity implements IPartEntity {
 // clickable.
 @part
 export class ImagePartEntity extends Entity implements IPartEntity {
+    // Signum's `[StringLengthValidator(Max = int.MaxValue)]` — this holds a whole `data:` URI, so the
+    // 200-character default a sizeless string column now takes would truncate the image itself.
+    @stringLengthValidator({ max: MAX_SIZE })
     imageSrcContent: string;
 
     clickActionURL: string | null;

@@ -5,7 +5,7 @@ import { Symbol } from "@altea/altea/data/symbol";
 import {
     entity, part, implementedBy, implementedByAll, format, unit, quoted, primaryKey, legacyPropertyRoute, column,
 } from "@altea/altea/data/decorators";
-import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, ValidationMessage, numberIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import { Temporal, type int } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -52,10 +52,8 @@ export class ScheduleRuleMinutelyEntity extends Entity implements IScheduleRuleE
 
     startingOn: Temporal.PlainDateTime = startOfToday();
 
-    // Greater than zero. There is no numeric comparison
-    // validator, so the same check is a field validation.
-    @validate<ScheduleRuleMinutelyEntity>(r => r.eachMinutes > 0 ? null
-        : ValidationMessage.NumberIsTooSmall.niceToString())
+    // Signum's `[NumberIsValidator(ComparisonType.GreaterThan, 0)]`.
+    @numberIsValidator(ComparisonType.GreaterThan, 0)
     eachMinutes: int;
 
     /** A divisor of an hour lands on the clock (:00, :15, :30…), anything else drifts. */

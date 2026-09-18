@@ -39,6 +39,7 @@ export class DynamicExpressionEntity extends Entity {
     @stringLengthValidator({ min: 3, max: 100 })
     @validate<DynamicExpressionEntity>((e, fi) => PascalAscii.test(e.name) ? null
         : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "PascalAscii"))
+    @stringLengthValidator({ min: 3, max: 100 })
     name: string;
 
     /** The type the expression hangs off — a clean type name, e.g. `"OrderEntity"`. */

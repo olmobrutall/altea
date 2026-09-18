@@ -1,6 +1,6 @@
 import { reflect, field } from "@altea/altea/data/reflection";
 import { EmbeddedEntity } from "@altea/altea/data/entity";
-import { validate, ValidationMessage } from "@altea/altea/data/validators";
+import { validate, ValidationMessage, numberIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
 import { OrderType } from "@altea/altea/data/dynamicQueries";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
@@ -55,6 +55,7 @@ export class ChartColumnEmbedded extends EmbeddedEntity {
         c.orderByIndex != null && c.orderByIndex <= 0
             ? ValidationMessage.NumberIsTooSmall.niceToString()
             : null)
+    @numberIsValidator(ComparisonType.GreaterThan, 0)
     orderByIndex: int | null;
 
     // Signum's `OrderType? OrderByType`. Stored as the member-name string (see enumColumn).

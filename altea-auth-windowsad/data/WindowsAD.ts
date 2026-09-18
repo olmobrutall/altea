@@ -36,6 +36,7 @@ export class WindowsADConfigurationEmbedded extends BaseADConfigurationEmbedded 
         (c.loginWithWindowsAuthenticator || c.loginWithActiveDirectoryRegistry) && !hasText(c.domainName)
             ? ValidationMessage._0IsNotSet.niceToString("Domain Name")
             : null)
+    @stringLengthValidator({ max: 200 })
     domainName: string | null = null;
 
     /** The service account used for directory LOOKUPS (searching users, reading groups and photos) when the
@@ -81,7 +82,7 @@ export class WindowsADConfigurationEmbedded extends BaseADConfigurationEmbedded 
     }
     /** This configuration's own @part rows (the row type
      *  is per module, see BaseAD's header). */
-    @noRepeatValidator()
+    @noRepeatValidator<WindowsADRoleMappingEntity>(a => a.adNameOrGuid)
     roleMapping: WindowsADRoleMappingEntity[];
 
     override roleMappings(): RoleMappingEntity[] { return this.roleMapping; }

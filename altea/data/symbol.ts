@@ -1,3 +1,4 @@
+import { stringLengthValidator } from './validators';
 import { Entity } from './entity';
 import { reflect } from './reflection';
 import { uniqueIndex, quoted } from './decorators';
@@ -25,6 +26,7 @@ export abstract class Symbol extends Entity {
     // Signum's Symbol.Key ([UniqueIndex], [StringLengthValidator(3, 200)]). The
     // stable textual identity; unique across a given concrete symbol table.
     @uniqueIndex
+    @stringLengthValidator({ min: 3, max: 200 })
     key: string;
 
     // Signum's [AutoExpressionField] ToString => Key: a translatable expression, so

@@ -1,3 +1,4 @@
+import { stringLengthValidator } from './validators';
 import { Entity } from './entity';
 import { reflect } from './reflection';
 import { entity, quoted, uniqueIndex } from './decorators';
@@ -14,6 +15,7 @@ export class QueryEntity extends Entity {
     // The query's stable string key (Signum's QueryUtils.GetKey — the clean type name for an
     // entity-ctor query). Signum: `[UniqueIndex]` (QueryEntity.cs).
     @uniqueIndex
+    @stringLengthValidator({ min: 3, max: 100 })
     key: string;
 
     // Signum's `[AutoExpressionField] ToString() => Key`. @quoted so it ALSO lowers to SQL: this table has no

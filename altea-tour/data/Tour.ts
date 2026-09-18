@@ -41,7 +41,6 @@ export class TourEntity extends Entity implements IUserAssetEntity {
     trigger: Lite<Entity>;
 
     /** The steps, in order. */
-    @noRepeatValidator()
     steps: TourStepEntity[];
 
     showProgress: boolean = false;
@@ -71,7 +70,6 @@ export class TourStepEntity extends Entity {
     title: string;
 
     /** The steps that AND together into this popover's anchor selector (see {@link cssSelector}). */
-    @noRepeatValidator()
     cssSteps: CssStepEntity[];
 
     /** Markdown — the client renders it through micromark. `@translatable` as plain TEXT, not Html: the

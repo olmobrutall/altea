@@ -27,11 +27,13 @@ export class OpenIDConfigurationEmbedded extends BaseADConfigurationEmbedded {
     @stringLengthValidator({ max: 300 })
     @validate<OpenIDConfigurationEmbedded>(c =>
         c.enabled && !hasText(c.authority) ? ValidationMessage._0IsNotSet.niceToString("Authority") : null)
+    @stringLengthValidator({ max: 300 })
     authority: string | null = null;
 
     @stringLengthValidator({ max: 200 })
     @validate<OpenIDConfigurationEmbedded>(c =>
         c.enabled && !hasText(c.clientId) ? ValidationMessage._0IsNotSet.niceToString("Client Id") : null)
+    @stringLengthValidator({ max: 200 })
     clientId: string | null = null;
 
     @stringLengthValidator({ max: 300 })
@@ -69,7 +71,7 @@ export class OpenIDConfigurationEmbedded extends BaseADConfigurationEmbedded {
     }
     /** This configuration's own @part rows (the row type
      *  is per module, see BaseAD's header). */
-    @noRepeatValidator()
+    @noRepeatValidator<OpenIDRoleMappingEntity>(a => a.adNameOrGuid)
     roleMapping: OpenIDRoleMappingEntity[];
 
     override roleMappings(): RoleMappingEntity[] { return this.roleMapping; }

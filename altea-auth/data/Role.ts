@@ -3,7 +3,7 @@ import { CurrentUser } from "@altea/altea/data/security";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, part, uniqueIndex, backReference, valueField, quoted } from "@altea/altea/data/decorators";
-import { stringLengthValidator } from "@altea/altea/data/validators";
+import { stringLengthValidator, noRepeatValidator } from "@altea/altea/data/validators";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 
 // Port of Signum.Authorization's RoleEntity.cs — see port/Auth.md.
@@ -39,6 +39,7 @@ export class RoleEntity extends Entity {
 
     isTrivialMerge: boolean = false;
 
+    @noRepeatValidator()
     inheritsFrom: RoleEntity_InheritsFrom[];
 
     @stringLengthValidator({ multiLine: true })

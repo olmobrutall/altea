@@ -4,7 +4,7 @@ import { Lite } from "@altea/altea/data/lite";
 import {
     entity, part, implementedBy, uniqueIndex, backReference, format, quoted, column,
 } from "@altea/altea/data/decorators";
-import { stringLengthValidator, validate } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, noRepeatValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
@@ -151,6 +151,7 @@ export class EmailSenderConfigurationEntity extends Entity {
 
     defaultFrom: EmailFromEmbedded | null;
 
+    @noRepeatValidator<EmailSenderConfigurationEntity_AdditionalRecipient>(a => a.emailAddress)
     additionalRecipients: EmailSenderConfigurationEntity_AdditionalRecipient[];
 
     @implementedBy(() => [SmtpEmailServiceEntity])

@@ -81,6 +81,7 @@ export class CombinedUserChartPartEntity extends Entity implements IPartEntity {
     @noRepeatValidator()
     @validate<CombinedUserChartPartEntity>(p => (p.userCharts?.length ?? 0) === 0
         ? ChartPartMessage.ACombinedChartNeedsAtLeastOneUserChart.niceToString() : null)
+    @noRepeatValidator<CombinedUserChartPartEntity_UserChart>(a => a.userChart)
     userCharts: CombinedUserChartPartEntity_UserChart[];
 
     showData: boolean = false;

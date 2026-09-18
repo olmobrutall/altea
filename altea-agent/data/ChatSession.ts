@@ -97,7 +97,7 @@ export class ChatMessageEntity extends Entity {
     @stringLengthValidator({ multiLine: true })
     reasoningContent: string | null = null;
 
-    @noRepeatValidator()
+    @noRepeatValidator<ChatMessageEntity_ToolCall>(a => a.callId)
     toolCalls: ChatMessageEntity_ToolCall[];
 
     /** Set on a Tool row: which call this is the answer to. */

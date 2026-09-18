@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity, ModelEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Enum } from "@altea/altea/data/enum";
@@ -146,7 +146,9 @@ export namespace WorkflowOperation {
  *  workflow object owns the XML that draws it, so the diagram survives a designer round-trip untouched. */
 @reflect
 export class WorkflowXmlEmbedded extends EmbeddedEntity {
-    @stringLengthValidator({ min: 3, multiLine: true })
+    // Signum's `Max = int.MaxValue`: a whole BPMN diagram. Without the max it takes the 200-character
+    // default a sizeless string column now has.
+    @stringLengthValidator({ min: 3, multiLine: true, max: MAX_SIZE })
     diagramXml: string;
 }
 

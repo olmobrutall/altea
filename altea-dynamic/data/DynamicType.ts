@@ -187,6 +187,7 @@ export class DynamicTypeEntity extends Entity {
     @stringLengthValidator({ min: 3, max: 100 })
     @validate<DynamicTypeEntity>((e, fi) => PascalAscii.test(e.typeName) ? null
         : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "PascalAscii"))
+    @stringLengthValidator({ min: 3, max: 100 })
     typeName: string;
 
     /**

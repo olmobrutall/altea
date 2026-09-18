@@ -357,7 +357,7 @@ export class PredictorSubQueryEntity extends Entity {
 
     filters: PredictorSubQueryEntity_Filter[];
 
-    @noRepeatValidator()
+    @noRepeatValidator<PredictorSubQueryEntity_Column>(a => a.token)
     columns: PredictorSubQueryEntity_Column[];
 
     @quoted
@@ -413,12 +413,12 @@ export class PredictorEntity extends Entity implements IProcessDataEntity {
     // `@part` row needs a real owner table, so they hang off the predictor. See that class's header.
     filters: PredictorEntity_Filter[];
 
-    @noRepeatValidator()
+    @noRepeatValidator<PredictorEntity_Column>(a => a.token)
     columns: PredictorEntity_Column[];
 
     subQueries: PredictorSubQueryEntity[];
 
-    @noRepeatValidator()
+    @noRepeatValidator<PredictorEntity_File>(a => a.element.fileName)
     files: PredictorEntity_File[];
 
     resultTraining: PredictorMetricsEmbedded | null;

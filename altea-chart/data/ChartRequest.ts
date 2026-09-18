@@ -1,6 +1,6 @@
 import { reflect } from "@altea/altea/data/reflection";
 import { ModelEntity, EmbeddedEntity } from "@altea/altea/data/entity";
-import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, ValidationMessage, noRepeatValidator, numberIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
 import { TimeSeriesUnit } from "@altea/altea/data/dynamicQueries";
 import { AggregateToken } from "@altea/altea/data/dynamicQuery/tokens/aggregateToken";
@@ -54,6 +54,7 @@ export class ChartRequestModel extends ModelEntity implements IChartBase {
     columns: ChartColumnEmbedded[];
 
     // Signum's `[NoRepeatValidator] MList<ChartParameterEmbedded> Parameters`.
+    @noRepeatValidator<ChartParameterEmbedded>(a => a.name)
     parameters: ChartParameterEmbedded[];
 
     // Signum's `[NumberIsValidator(GreaterThan, 0)]`-free `int? MaxRows`.
@@ -87,10 +88,12 @@ export class ChartTimeSeriesEmbedded extends EmbeddedEntity {
 
     @validate<ChartTimeSeriesEmbedded>(t =>
         t.timeSeriesStep != null && t.timeSeriesStep <= 0 ? ValidationMessage.NumberIsTooSmall.niceToString() : null)
+    @numberIsValidator(ComparisonType.GreaterThan, 0)
     timeSeriesStep: int | null;
 
     @validate<ChartTimeSeriesEmbedded>(t =>
         t.timeSeriesMaxRowsPerStep != null && t.timeSeriesMaxRowsPerStep <= 0 ? ValidationMessage.NumberIsTooSmall.niceToString() : null)
+    @numberIsValidator(ComparisonType.GreaterThan, 0)
     timeSeriesMaxRowsPerStep: int | null;
 
     splitQueries: boolean = false;

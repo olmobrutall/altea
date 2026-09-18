@@ -90,6 +90,7 @@ export class WorkflowScriptRetryStrategyEntity extends Entity implements IUserAs
     @validate<WorkflowScriptRetryStrategyEntity>(e => retryRuleRegex.test(e.rule ?? "") ? null
         : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(
             WorkflowScriptRetryStrategyEntity.nicePropertyName(a => a.rule), "RetryStrategyRule"))
+    @stringLengthValidator({ min: 3, max: 100 })
     rule: string;
 
     /**

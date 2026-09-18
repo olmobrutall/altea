@@ -43,6 +43,7 @@ export class MicrosoftGraphEmailServiceEntity extends EmailServiceEntity {
     @validate<MicrosoftGraphEmailServiceEntity>(s => !s.useActiveDirectoryConfiguration
         && !s.azure_ClientSecret && !s.newAzure_ClientSecret
         ? ValidationMessage._0IsNotSet.niceToString(MicrosoftGraphEmailServiceEntity.nicePropertyName(a => a.azure_ClientSecret)) : null)
+    @stringLengthValidator({ max: 100 })
     azure_ClientSecret: string | null;
 
     /** Carried on the wire, never a column — the Save operation encrypts it into `azure_ClientSecret`. */

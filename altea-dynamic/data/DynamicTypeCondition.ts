@@ -33,6 +33,7 @@ export class DynamicTypeConditionSymbolEntity extends Entity {
     @stringLengthValidator({ min: 1, max: 100 })
     @validate<DynamicTypeConditionSymbolEntity>((e, fi) => PascalAscii.test(e.name) ? null
         : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "PascalAscii"))
+    @stringLengthValidator({ min: 1, max: 100 })
     name: string;
 
     @quoted

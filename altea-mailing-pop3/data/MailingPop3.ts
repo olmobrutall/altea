@@ -2,7 +2,7 @@ import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection"
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { part, format, unit, column, backReference, quoted } from "@altea/altea/data/decorators";
-import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, ValidationMessage, numberIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { EmailReceptionServiceEntity } from "@altea/altea-email/data/EmailReception";
 
@@ -60,6 +60,7 @@ export class Pop3EmailReceptionServiceEntity extends EmailReceptionServiceEntity
     @validate<Pop3EmailReceptionServiceEntity>(s => s.readTimeout >= -1 ? null
         : ValidationMessage.NumberIsTooSmall.niceToString())
     @unit("ms")
+    @numberIsValidator(ComparisonType.GreaterThanOrEqualTo, -1)
     readTimeout: int = toInt(60000);
 
     clientCertificationFiles: Pop3EmailReceptionServiceEntity_ClientCertificationFile[];

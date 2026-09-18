@@ -101,10 +101,10 @@ export class TypeHelpEntity extends Entity implements IHelpEntity {
     @stringLengthValidator({ multiLine: true })
     description: string | null = null;
 
-    @noRepeatValidator()
+    @noRepeatValidator<TypeHelpEntity_Property>(a => a.property)
     properties: TypeHelpEntity_Property[];
 
-    @noRepeatValidator()
+    @noRepeatValidator<TypeHelpEntity_Operation>(a => a.operation)
     operations: TypeHelpEntity_Operation[];
 
     /**
@@ -291,7 +291,7 @@ export class QueryHelpEntity extends Entity implements IHelpEntity {
     @stringLengthValidator({ multiLine: true })
     description: string | null = null;
 
-    @noRepeatValidator()
+    @noRepeatValidator<QueryHelpEntity_Column>(a => a.columnName)
     columns: QueryHelpEntity_Column[];
 
     @quoted

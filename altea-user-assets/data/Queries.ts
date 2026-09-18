@@ -1,4 +1,4 @@
-import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { reflect, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { EmbeddedEntity, Entity } from "@altea/altea/data/entity";
 import { column, serialize, rowOrder } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
@@ -94,6 +94,9 @@ export abstract class QueryFilterBaseEntity extends Entity {
     // ORDINAL while the wire / XML / query form is the member name (Enum.toName). See dynamicQueries.
     groupOperation: FilterGroupOperation | null;
     operation: FilterOperation | null;
+    // Signum's `[StringLengthValidator(Max = int.MaxValue)]` — a stored filter value can be a whole list of
+    // ids, so the 200-character default a sizeless string column now takes would truncate the filter.
+    @stringLengthValidator({ max: MAX_SIZE })
     valueString: string | null;
     pinned: PinnedQueryFilterEmbedded | null;
     dashboardBehaviour: DashboardBehaviour | null;

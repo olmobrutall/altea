@@ -4,7 +4,7 @@ import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
     backReference, entity, part, implementedBy, primaryKey, quoted, rowOrder, translatable, valueField,
 } from "@altea/altea/data/decorators";
-import { validate, noRepeatValidator, stringLengthValidator } from "@altea/altea/data/validators";
+import { validate, noRepeatValidator, stringLengthValidator, numberIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import {
@@ -139,7 +139,9 @@ export class SystemTimeEmbedded extends EmbeddedEntity {
     endDate: string | null;
     joinMode: SystemTimeJoinMode | null;
     timeSeriesUnit: TimeSeriesUnit | null;
+    @numberIsValidator(ComparisonType.GreaterThan, 0)
     timeSeriesStep: int | null;
+    @numberIsValidator(ComparisonType.GreaterThan, 0)
     timeSeriesMaxRowsPerStep: int | null;
     splitQueries: boolean = false;
 
@@ -248,6 +250,7 @@ export class UserQueryEntity extends Entity implements IUserAssetEntity, IHasEnt
         uq.elementsPerPage != null && uq.elementsPerPage < 1
             ? UserQueryMessage.ElementsPerPageMustBeGreaterThanZero.niceToString()
             : null)
+    @numberIsValidator(ComparisonType.GreaterThanOrEqualTo, 1)
     elementsPerPage: int | null;
 
     systemTime: SystemTimeEmbedded | null;

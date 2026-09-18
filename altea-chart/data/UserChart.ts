@@ -147,6 +147,7 @@ export class UserChartEntity extends Entity implements IUserAssetEntity, IHasEnt
     chartScript: ChartScriptSymbol;
 
     // Signum's [NoRepeatValidator] MList<ChartParameterEmbedded>.
+    @noRepeatValidator<UserChartEntity_Parameter>(a => a.element.name)
     parameters: UserChartEntity_Parameter[];
 
     // Signum's [BindParent, PreserveOrder] MList<ChartColumnEmbedded>.

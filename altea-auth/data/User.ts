@@ -105,6 +105,7 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
         u.externalId != null && u.passwordHash != null && !UserEntity.allowPasswordForUserWithExternalId
             ? UserExternalIdMessage.TheUser0IsConnectedToAnExternalProviderAndCanNotHaveALocalPasswordSet.niceToString(u.userName)
             : null)
+    @stringLengthValidator({ max: 500 })
     externalId: string | null = null;
 
     @quoted

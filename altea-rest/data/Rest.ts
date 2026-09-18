@@ -58,6 +58,7 @@ export const RestApiKeyMessage = {
 export class RestLogEntity extends Entity {
 
     @column({ size: 100 })
+    @stringLengthValidator({ max: 100 })
     httpMethod: string | null = null;
 
     /** The request PATH (no query string — that is `queryString` below, one row per parameter). */

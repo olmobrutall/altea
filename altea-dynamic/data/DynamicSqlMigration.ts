@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, implementedBy, quoted } from "@altea/altea/data/decorators";
@@ -38,7 +38,9 @@ export class DynamicSqlMigrationEntity extends Entity {
     @stringLengthValidator({ min: 3, max: 200 })
     comment: string;
 
-    @stringLengthValidator({ multiLine: true })
+    // Signum's `Max = int.MaxValue`: this is a whole SQL migration. Without the max it takes the
+    // 200-character default a sizeless string column now has.
+    @stringLengthValidator({ multiLine: true, max: MAX_SIZE })
     script: string;
 
     @quoted

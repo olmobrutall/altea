@@ -5,9 +5,7 @@ import {
     entity, part, primaryKey, backReference, rowOrder, implementedBy, format, unit, quoted, legacyTableName,
     legacyClassName,
 } from "@altea/altea/data/decorators";
-import {
-    stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType,
-} from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType, numberIsValidator } from "@altea/altea/data/validators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
@@ -190,7 +188,7 @@ export class DashboardEntity_TokenEquivalenceGroup extends Entity {
 
     // Signum's [PreserveOrder, NoRepeatValidator, CountIsValidator(ComparisonType.GreaterThan, 1)] — an
     // equivalence of one token equates nothing.
-    @noRepeatValidator()
+    @noRepeatValidator<DashboardEntity_TokenEquivalenceGroup_Query>(a => a.query)
     @countIsValidator(ComparisonType.GreaterThan, 1)
     tokenEquivalences: DashboardEntity_TokenEquivalenceGroup_Query[];
 
@@ -243,6 +241,7 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
     @unit("s")
     @validate<DashboardEntity>(d => d.autoRefreshPeriod != null && (d.autoRefreshPeriod as number) < 10
         ? DashboardMessage.AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds.niceToString() : null)
+    @numberIsValidator(ComparisonType.GreaterThanOrEqualTo, 10)
     autoRefreshPeriod: int | null;
 
     @stringLengthValidator({ min: 2, max: 200 })
