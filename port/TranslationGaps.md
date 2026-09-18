@@ -343,12 +343,41 @@ Port the functionality (it is what a chart's "step" parameter needs), not just t
 
 ## C. Missing query tokens
 
-### C1 — Date tokens
-altea declares 11 of Signum's 34 `QueryTokenDateMessage` members. Missing and wanted: `DayOfWeek`,
-`DayOfYear`, `Quarter`, `WeekNumber`, `TotalDays` / `TotalHours` / `TotalMinutes` / `TotalSeconds` /
-`TotalMilliseconds`, `Every0Hours` / `Every0Minutes` / `Every0Seconds` / `Every0Milliseconds`,
-`UtcDateTime`, `DateTimePart`, plus the plain `Day` / `Hour` / `Minute` / `Second` / `Month` /
-`Millisecond` parts. Each needs a token factory, a SQL lowering per provider, and its translation.
+### C1 — Date tokens — **DONE**
+
+> The backlog read as "port the missing tokens", and that was the smaller half. Most of them EXISTED:
+> `QueryToken.dateTimeProperties` / `dateOnlyProperties` built them with `capitalize(memberName)` as the
+> caption, so `Year` / `Quarter` / `Month` / `DayOfYear` / `Day` / `DayOfWeek` / `Hour` / `Minute` /
+> `Second` / `Millisecond` displayed an English literal in every culture — and, because no
+> `QueryTokenDateMessage` member existed for them, the sync had nowhere to hang Signum's German and
+> Spanish and deleted it. Every caption now routes through a message member, and `DateToken` with them.
+>
+> Genuinely added: **`WeekNumber`** (on a PlainDateTime and a PlainDate), the four **`Every0…`** stepped
+> `DatePartStartToken`s with Signum's own bucket sizes, and the whole **`TimeSpanProperties`** family on
+> a `Duration` — the components `Days` / `Hours` / `Minutes` / `Seconds` / `Milliseconds` and the
+> measures `TotalDays` … `TotalMilliseconds`.
+>
+> Three DIVERGENCES from Signum, each because Signum's own two providers disagree:
+>  - `WeekNumber` is ISO-8601 everywhere (SQL Server `iso_week`). Signum answers three different numbers
+>    for it: culture rules in memory, `DATEPART(week)` on SQL Server, ISO `EXTRACT(week)` on Postgres.
+>  - the `Every0…` steps are `date_trunc` minus the part's remainder. Signum's SQL Server form counts the
+>    part from year 0 in an `int` (a millisecond step overflows it) and its Postgres branch drops the step
+>    entirely, answering the UNSTEPPED truncation.
+>  - `Total…` over a STORED Duration column works. A Duration column is a `time` on both providers, i.e.
+>    an elapsed time whose other operand is MIDNIGHT, and naming midnight is what makes the token family
+>    reachable at all. Signum's `TrySqlDifference` looks for a subtraction, finds none and returns null,
+>    so its own `TimeSpan.TotalMinutes` over a stored column does not translate.
+>
+> NOT ported, and why: **`UtcDateTime` / `DateTimePart`** are `DateTimeOffset` members, and altea has no
+> DateTimeOffset query type — `Instant` / `ZonedDateTime` map to `datetimeoffset` / `timestamptz` in the
+> schema but `tryGetFilterType` does not classify them and the LINQ layer types them as a `ClassType`, so
+> there is no token to hang the two members off. **`TimeOfDay`** and Signum's `TimeOnlyProperties` are
+> blocked on the same kind of hole one type down: `fieldLiteralType` has no `PlainTime` case, so a
+> PlainTime column is a `ClassType` too and none of its parts lower. **`HourStart` / `MinuteStart` /
+> `SecondStart` / `Every0…` on a Duration** are left out deliberately: bucketing exists on a date because
+> `Month` alone loses the year, and inside one duration `Hours` already IS the bucket.
+>
+> Found on the way, NOT fixed: `QueryTokenHelpMessage` (the token help text) is still stubbed.
 
 ### C2 — Other tokens
 Port `MatchRank` / `MatchRankFor0` / `MatchSnippet` / `SnippetOf0` (full-text search ranking), `Nested`,

@@ -44,16 +44,45 @@ export const QueryTokenMessage = {
     Text: msg(),
 };
 
+// The caption of EVERY date/time sub-token, and the ONLY place one is spelled. A token that built its own
+// label from its member name (`capitalize("dayOfWeek")`) showed that literal in every culture and, worse,
+// had no member here for the sync to carry a translation on — which is how Signum's German and Spanish for
+// these were deleted from Altea.<culture>.xml.
 export const QueryTokenDateMessage = {
     Date: msg(),
     TimeOfDay: msg(),
-    // The DatePartStartToken names, with Signum's own [Description] texts.
+    // The date/time PART tokens (QueryToken.dateTimeProperties / dateOnlyProperties).
+    Year: msg(),
+    Quarter: msg(),
+    Month: msg(),
+    WeekNumber: msg(),
+    DayOfYear: msg(),
+    Day: msg(),
+    DayOfWeek: msg(),
+    Hour: msg(),
+    Minute: msg(),
+    Second: msg(),
+    Millisecond: msg(),
+    // The Duration (Signum TimeSpan) tokens: `Days` is the whole-day COMPONENT, the `Total…` ones the
+    // fractional whole-duration measure — `PT36H` is 1 day and 1.5 total days.
+    Days: msg(),
+    TotalDays: msg(),
+    TotalHours: msg(),
+    TotalMinutes: msg(),
+    TotalSeconds: msg(),
+    TotalMilliseconds: msg(),
+    // The DatePartStartToken names, with Signum's own [Description] texts. The `Every0…` four are its
+    // STEPPED variants and take the step as {0}.
     QuarterStart: msg("Quarter Start"),
     MonthStart: msg("Month Start"),
     WeekStart: msg("Week Start"),
     HourStart: msg("Hour Start"),
     MinuteStart: msg("Minute Start"),
     SecondStart: msg("Second Start"),
+    Every0Hours: msg("Every {0} Hours"),
+    Every0Minutes: msg("Every {0} Minutes"),
+    Every0Seconds: msg("Every {0} Seconds"),
+    Every0Milliseconds: msg("Every {0} Milliseconds"),
     Every01: msg("Every {0} {1}"),
     SplitQueries: msg("Split queries"),
     _0Steps1Rows2TotalRowsAprox: msg("{0} steps × {1} rows = {2} total rows (aprox)"),

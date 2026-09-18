@@ -8,6 +8,7 @@ import { EntityTypeToken } from "./entityTypeToken";
 import type { Type, Entity } from "../../entity";
 import { DateToken } from "./dateToken";
 import { DatePartStartToken, type DatePartStartName } from "./datePartStartToken";
+import { DurationTotalToken, type DurationTotalName } from "./durationTotalToken";
 import { ModuloToken } from "./moduloToken";
 import { CountToken } from "./countToken";
 import { CollectionElementToken, CollectionElementType } from "./collectionElementToken";
@@ -31,7 +32,8 @@ registerTokenFactories({
     asType: (parent, entityCtor) => new AsTypeToken(parent, entityCtor as Type<Entity>),
     entityType: (parent) => new EntityTypeToken(parent),
     dateToken: (parent) => new DateToken(parent),
-    datePartStart: (parent, name) => new DatePartStartToken(parent, name as DatePartStartName),
+    datePartStart: (parent, name, step) => new DatePartStartToken(parent, name as DatePartStartName, step),
+    durationTotal: (parent, name) => new DurationTotalToken(parent, name as DurationTotalName),
     modulo: (parent, divisor) => new ModuloToken(parent, divisor),
     count: (parent) => new CountToken(parent),
     aggregate: (aggregateFunction, parent, options) => new AggregateToken(aggregateFunction as AggregateFunction, parent, options),

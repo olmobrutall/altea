@@ -699,15 +699,21 @@ class DbExpressionNominator extends DbExpressionVisitor {
     private translateDateMethod(name: string, source: Expression, args: readonly Expression[]): Expression | undefined {
         switch (name) {
             case "quarter": return this.datePartFn("quarter", "quarter", source);
+            // ISO-8601 week, so the two dialects and the in-memory body all answer the same number:
+            // Postgres `week` already is ISO, SQL Server's plain `week` is not (week 1 holds Jan 1 and
+            // weeks start on Sunday) — `iso_week` is.
+            case "weekNumber": return this.datePartFn("iso_week", "week", source);
             // Truncation / "start of" (Signum's TrySqlStartOf): date_trunc on Postgres,
-            // DATEADD(part, DATEDIFF(part, 0, x), 0) on SQL Server. Keeps the kind.
+            // DATEADD(part, DATEDIFF(part, 0, x), 0) on SQL Server. Keeps the kind. The optional
+            // argument is the STEP (`truncHours(6)` → 12:00), which buckets instead of truncating.
             case "yearStart": return this.dateTrunc("year", source);
             case "quarterStart": return this.dateTrunc("quarter", source);
             case "monthStart": return this.dateTrunc("month", source);
             case "weekStart": return this.dateTrunc("week", source);
-            case "truncHours": return this.dateTrunc("hour", source);
-            case "truncMinutes": return this.dateTrunc("minute", source);
-            case "truncSeconds": return this.dateTrunc("second", source);
+            case "truncHours": return this.dateTruncStep("hour", source, args);
+            case "truncMinutes": return this.dateTruncStep("minute", source, args);
+            case "truncSeconds": return this.dateTruncStep("second", source, args);
+            case "truncMilliseconds": return this.dateTruncStep("millisecond", source, args);
             // Convert (Signum's TrySqlCast): datetime→date / date→datetime.
             case "toPlainDate": return this.castTemporal("date", source, "date", "date");
             case "toPlainDateTime": return this.castTemporal("dateTime", source, "datetime2", "timestamp");
@@ -729,10 +735,21 @@ class DbExpressionNominator extends DbExpressionVisitor {
         }
     }
 
-    // Duration methods. `total(unit)` turns a since()/until() difference into a number of `unit`s:
-    // CAST(DATEDIFF_BIG(finer part, start, end) AS float)/divisor on SQL Server, EXTRACT(EPOCH …)/divisor
-    // on Postgres — the port of Signum's TrySqlDifference. Why the part asked of DATEDIFF is finer than
-    // the requested unit, and why the coarse units are refused, is on TOTAL_UNITS.
+    // Duration methods. `total(unit)` answers a number of `unit`s from EITHER shape a Duration reaches
+    // here in:
+    //
+    //  * a since()/until() DIFFERENCE, carried as the TIMESPAN_MARKER — the port of Signum's
+    //    TrySqlDifference, which likewise walks the expression looking for a subtraction;
+    //  * a STORED Duration column, which is a `time` on both providers (see dbType) and therefore an
+    //    elapsed time measured from midnight. Signum gives up here (TrySqlDifference finds no subtraction
+    //    and returns null), so its own `TimeSpan.TotalMinutes` over a stored column does not translate —
+    //    but midnight IS the implied operand, and naming it makes the whole TimeSpanProperties token
+    //    family (TotalDays … TotalMilliseconds, and Days) work over exactly the columns that carry one.
+    //
+    // Both shapes then take the SAME path, so the unit table, the finer DATEDIFF part and the refusal of
+    // the calendar units are shared. CAST(DATEDIFF_BIG(finer part, start, end) AS float)/divisor on SQL
+    // Server, EXTRACT(EPOCH …)/divisor on Postgres. Why the part asked of DATEDIFF is finer than the
+    // requested unit, and why the coarse units are refused, is on TOTAL_UNITS.
     //
     // Everything that cannot lower THROWS here rather than returning undefined. Undefined meant "not
     // translatable" and surfaced two frames up as `The method 'total' cannot be translated to SQL` —
@@ -742,14 +759,14 @@ class DbExpressionNominator extends DbExpressionVisitor {
     private translateDurationMethod(name: string, source: Expression, args: readonly Expression[]): Expression | undefined {
         if (name !== "total")
             throw new Error(`Duration.${name}() cannot be translated to SQL. The only translatable Duration method is ` +
-                `total(unit), over a since()/until() difference between two dates.`);
+                `total(unit), over a since()/until() difference between two dates or a stored Duration column.`);
         if (args.length !== 1)
             throw new Error(`Duration.total() needs exactly one argument — total("minutes") or total({ unit: "minutes" }).`);
-        if (!(source instanceof SqlFunctionExpression) || source.sqlFunction !== TIMESPAN_MARKER)
+        const span = this.durationOperands(source);
+        if (span == null)
             throw new Error(`Duration.total(…) can only be translated over a since()/until() difference between two ` +
-                `dates (Signum's TrySqlDifference). A stored Duration column has no SQL total(); read it and ` +
-                `total() it in memory, or store the number the query needs.`);
-        const [start, end] = source.arguments;
+                `dates or over a stored Duration column (a \`time\`); '${source}' is neither.`);
+        const [start, end] = span;
         const where = `(the difference ${end} - ${start})`;
         const unit = durationUnit(args[0]!);
         if (unit == null)
@@ -844,6 +861,17 @@ class DbExpressionNominator extends DbExpressionVisitor {
         return new SqlFunctionExpression(new TemporalType("duration"), undefined, TIMESPAN_MARKER, [start, end]);
     }
 
+    // The (start, end) a `total()` measures between. A since()/until() marker carries both; a STORED
+    // Duration column is a `time` on both providers, i.e. an elapsed time whose other operand is
+    // midnight — so midnight is named here, as the literal each dialect reads as a `time`.
+    private durationOperands(source: Expression): readonly [Expression, Expression] | undefined {
+        if (source instanceof SqlFunctionExpression && source.sqlFunction === TIMESPAN_MARKER)
+            return [source.arguments[0]!, source.arguments[1]!];
+        if (source.type instanceof TemporalType && source.type.kind === "duration")
+            return [new SqlLiteralExpression(this.isPostgres ? "TIME '00:00:00'" : "CAST('00:00:00' AS time)", new TemporalType("duration")), source];
+        return undefined;
+    }
+
     // date_trunc('part', x) (Postgres) / DATETRUNC(part, x) (SQL Server 2022+). The
     // older DATEADD(part, DATEDIFF(part, 0, x), 0) fallback overflows int for fine
     // parts (seconds since 1900 > 2^31), so DATETRUNC is used instead. The result has
@@ -852,6 +880,37 @@ class DbExpressionNominator extends DbExpressionVisitor {
         return this.isPostgres
             ? this.sqlFunction(source.type, "date_trunc", new SqlLiteralExpression(`'${part}'`), source)
             : this.sqlFunction(source.type, "DATETRUNC", new SqlLiteralExpression(part), source);
+    }
+
+    // `truncHours(6)` — Signum's STEPPED DatePartStartToken, which buckets the part into multiples of
+    // `step` (13:45 → 12:00). No argument is plain truncation, so it falls through to dateTrunc above.
+    //
+    // The shape is "truncate the part, then shift back by the part's remainder", which both dialects
+    // express directly. It deliberately does NOT follow Signum's, which on SQL Server counts the part
+    // from year 0 (`DATEADD(part, DATEDIFF(part, 0, x) / step * step, 0)` — `int`, so a millisecond step
+    // overflows) and on PostgreSQL drops the step entirely and answers the UNSTEPPED truncation, i.e.
+    // the two providers disagree there by construction.
+    //
+    // Postgres needs the FLOOR: `EXTRACT(second …)` carries the fraction (12.789) and `EXTRACT(millisecond
+    // …)` is the whole sub-minute in milliseconds (12789), where SQL Server's DATEPART is the integer
+    // component. FLOOR fixes the first; the second is harmless here because every step Signum offers
+    // divides 1000, so the extra whole seconds cancel in the modulo.
+    private dateTruncStep(part: string, source: Expression, args: readonly Expression[]): Expression | undefined {
+        if (args.length === 0)
+            return this.dateTrunc(part, source);
+        const step = args[0] instanceof ConstantExpression ? (args[0] as ConstantExpression).value : undefined;
+        if (typeof step !== "number")
+            throw new Error(`The step of a trunc…(step) must be a CONSTANT number — '${args[0]}' cannot be translated to SQL.`);
+
+        const truncated = this.dateTrunc(part, source);
+        const raw = this.datePartFn(part, part, source);
+        const whole = this.isPostgres ? this.sqlFunction(LiteralType.number, "FLOOR", raw) : raw;
+        const remainder = new BinaryExpression("%", whole, new SqlConstantExpression(step, LiteralType.number));
+        if (this.isPostgres)
+            return new BinaryExpression("-", truncated,
+                new BinaryExpression("*", new SqlCastExpression(LiteralType.number, remainder, "int"), new SqlLiteralExpression(`INTERVAL '1 ${part}'`)));
+        return this.sqlFunction(source.type, "DATEADD", new SqlLiteralExpression(part),
+            new BinaryExpression("-", new SqlConstantExpression(0, LiteralType.number), remainder), truncated);
     }
 
     // CAST(x AS <type>) — the temporal conversions (Signum's TrySqlCast / TrySqlDate).
@@ -1137,16 +1196,14 @@ class DbExpressionNominator extends DbExpressionVisitor {
         day: ["day", "day"],
         hour: ["hour", "hour"],
         minute: ["minute", "minute"],
-        second: ["second", "second"],
-        millisecond: ["millisecond", "milliseconds"],
         dayOfYear: ["dayofyear", "doy"],
         // dayOfWeek is handled specially (dayOfWeekIso) — it needs a DATEFIRST-independent
         // normalisation on SQL Server, not a plain DATEPART.
+        // second / millisecond are handled specially too (subSecondPart) — PostgreSQL's EXTRACT is not
+        // the integer component there.
         // Temporal.Duration component members are plural.
         hours: ["hour", "hour"],
         minutes: ["minute", "minute"],
-        seconds: ["second", "second"],
-        milliseconds: ["millisecond", "milliseconds"],
     };
 
     private dateMemberPart(name: string, source: Expression): Expression | undefined {
@@ -1162,9 +1219,31 @@ class DbExpressionNominator extends DbExpressionVisitor {
                     : this.sqlFunction(LiteralType.number, "DATEDIFF", new SqlLiteralExpression("day"), new SqlLiteralExpression("'0001-01-01'"), source);
             // dayOfWeek is Temporal-ISO (Mon=1..Sun=7); normalised per dialect (see below).
             case "dayOfWeek": return this.dayOfWeekIso(source);
+            // The two sub-minute parts, singular (date/time) and plural (Duration component).
+            case "second": case "seconds": return this.subSecondPart("second", source);
+            case "millisecond": case "milliseconds": return this.subSecondPart("millisecond", source);
+            // Duration.days — the WHOLE days of a duration, which is the floor of its total days and NOT
+            // a DATEPART (`DATEPART(day, <time>)` is refused by SQL Server outright). Signum's
+            // TimeSpan.Days takes the same floor over the same difference.
+            case "days": {
+                const totalDays = this.translateDurationMethod("total", source, [new ConstantExpression("days")])!;
+                return this.sqlFunction(LiteralType.number, this.isPostgres ? "floor" : "FLOOR", totalDays);
+            }
         }
         const parts = DbExpressionNominator.dateParts[name];
         return parts == null ? undefined : this.datePartFn(parts[0], parts[1], source);
+    }
+
+    // The `second` / `millisecond` COMPONENT, which is what `Temporal`'s member of that name answers and
+    // what SQL Server's DATEPART answers — but NOT what PostgreSQL's EXTRACT does. There `second` carries
+    // the fraction (12.789 for …:12.789) and `milliseconds` is the whole sub-minute expressed in
+    // milliseconds (12789), so a bare EXTRACT made the two providers disagree on the same token.
+    private subSecondPart(part: "second" | "millisecond", source: Expression): Expression {
+        const raw = this.datePartFn(part, part === "second" ? "second" : "milliseconds", source);
+        if (!this.isPostgres)
+            return raw;
+        const whole = this.sqlFunction(LiteralType.number, "FLOOR", raw);
+        return part === "second" ? whole : new BinaryExpression("%", whole, new SqlConstantExpression(1000, LiteralType.number));
     }
 
     // The ISO day-of-week (Mon=1..Sun=7), matching the in-memory `Temporal.dayOfWeek`.

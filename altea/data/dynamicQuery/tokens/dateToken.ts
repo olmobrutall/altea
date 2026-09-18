@@ -1,6 +1,7 @@
 import type { PropertyRoute } from "../../propertyRoute";
 import type { Implementations } from "../../implementations";
 import type { TypeReference } from "../../reflection";
+import { QueryTokenDateMessage } from "../../dynamicQueries";
 import { QueryToken, SubTokensOptions, TR_DATE } from "./queryToken";
 
 // Port of Signum's `DateToken`: the date (day-truncated) part of a date/time — `dt.date`
@@ -12,8 +13,9 @@ export class DateToken extends QueryToken {
 
     get parent(): QueryToken | undefined { return this._parent; }
     get key(): string { return "Date"; }
-    override toString(): string { return "Date"; }
-    niceName(): string { return `Date of ${this._parent.toString()}`; }
+    // The KEY stays the literal "Date" (it is stored in user assets); only the caption is localized.
+    override toString(): string { return QueryTokenDateMessage.Date.niceToString(); }
+    niceName(): string { return `${this.toString()} of ${this._parent.toString()}`; }
     get type(): TypeReference { return TR_DATE; }
     get format(): string | undefined { return "d"; }
     get unit(): string | undefined { return undefined; }

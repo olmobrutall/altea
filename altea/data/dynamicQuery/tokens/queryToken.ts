@@ -7,6 +7,7 @@ import { tryGetTypeInfo, TypeReference, type FieldInfo } from "../../reflection"
 import { Implementations } from "../../implementations";
 import { tryGetFilterType, type QueryName, type FilterTypeKeys } from "../queryUtils";
 import { QueryTokenMessage, QueryTokenDateMessage, CollectionMessage } from "../../dynamicQueries";
+import type { LocalizableMessage } from "../../utils/localization";
 import type { CollectionToArrayToken } from "./collectionToArrayToken";
 
 // Port of Signum's `SubTokensOptions` (DynamicQuery/QueryUtils.cs). A bit-flag set controlling
@@ -33,6 +34,8 @@ export const SubTokensOptionsAll =
 // date-parts / string length are integers (subTypeName "int" — the Integer-vs-Decimal accuracy that
 // the old RuntimeType.number lost).
 export const TR_INT = new TypeReference({ typeName: "Number", subTypeName: "int" });
+// A FRACTIONAL computed number: `TotalMinutes` of 90 s is 1.5, so it must not claim to be an integer.
+export const TR_DECIMAL = new TypeReference({ typeName: "Number", subTypeName: "decimal" });
 export const TR_STRING = new TypeReference({ typeName: "String" });
 export const TR_BOOLEAN = new TypeReference({ typeName: "Boolean" });
 export const TR_DATE = new TypeReference({ typeName: "PlainDate" });
@@ -287,8 +290,15 @@ export abstract class QueryToken {
             return this.andHasValue(this.dateTimeProperties());
         if (type.typeName === "PlainDate")
             return this.andHasValue(this.dateOnlyProperties());
-        if (type.typeName === "Duration" || type.typeName === "PlainTime")
-            return this.andHasValue([]); // TODO(phase3b+): TimeSpanProperties
+        if (type.typeName === "Duration")
+            return this.andHasValue(this.durationProperties());
+        // Signum's TimeOnlyProperties (Hour/Minute/Second/Millisecond) has no counterpart yet: altea's
+        // LINQ layer has no PlainTime expression type — `fieldLiteralType` types a PlainTime column as a
+        // ClassType, not a TemporalType — so a member read off one reaches neither dialect's DATEPART. It
+        // is one `case "PlainTime"` in server/linq/expressions.ts away, but that case also decides how the
+        // column MATERIALISES (translatorBuilder reads the TemporalType kind), so it is its own change.
+        if (type.typeName === "PlainTime")
+            return this.andHasValue([]);
 
         if (type.typeName === "Boolean" || type.getEnum() != undefined)
             return this.andHasValue([]);
@@ -438,10 +448,22 @@ export abstract class QueryToken {
         return list;
     }
 
-    // Signum's DateTimeProperties: the date/time part sub-tokens. Members are altea's binder names
-    // (quarter is a method; weekNumber is unsupported by the binder → skipped, as is TimeOfDay).
-    // The `…Start` tokens are Signum's DatePartStartToken; its STEPPED variants (`Every 12 Hours`) are
-    // not ported — see datePartStartToken.
+    // One date/time part sub-token. The MEMBER is altea's binder name (`dayOfWeek`, `quarter()`) and is
+    // what the token is KEYED by; the caption is a QueryTokenDateMessage member and is the only thing a
+    // culture changes. They are separate on purpose — the caption used to be `capitalize(memberName)`,
+    // an English literal with nowhere to hang a translation.
+    private datePart(name: string, message: LocalizableMessage, method = false): QueryToken {
+        return tokenFactories!.objectProperty(this, name, TR_INT, message.niceToString(), method);
+    }
+
+    // Signum's DateTimeProperties: the date/time part sub-tokens.
+    //
+    // The `…Start` tokens are Signum's DatePartStartToken, the `Every N …` ones its STEPPED variants —
+    // one token per bucket size, and the sizes are Signum's own (each divides its unit evenly, which is
+    // what makes the buckets line up with midnight).
+    //
+    // TimeOfDay is NOT offered: the token would be a PlainTime, whose members the LINQ layer cannot
+    // lower (see the PlainTime branch of subTokensBase).
     //
     // The list is TRIMMED to the property's declared precision, as Signum trims it (EntityPropertyToken
     // and ColumnToken both read the [DateTimePrecisionValidator] and pass its Precision here): a date
@@ -450,24 +472,33 @@ export abstract class QueryToken {
     // but altea's is reached for every PlainDateTime, and the honest default for an undeclared property
     // is that it may use the whole range.
     protected dateTimeProperties(): QueryToken[] {
-        const part = (name: string, method = false) =>
-            tokenFactories!.objectProperty(this, name, TR_INT, capitalize(name), method);
-        const start = (name: string) => tokenFactories!.datePartStart(this, name);
+        const start = (name: string, step?: number) => tokenFactories!.datePartStart(this, name, step);
         const precision = this.dateTimePrecision();
         const upTo = (p: DateTimePrecision, ...tokens: QueryToken[]) =>
             precision == undefined || precision >= p ? tokens : [];
+        const every = (p: DateTimePrecision, name: string, steps: number[]) =>
+            upTo(p, ...steps.map(s => start(name, s)));
         return [
-            part("year"), part("quarter", true), part("month"),
-            part("dayOfYear"), part("day"), part("dayOfWeek"),
-            ...upTo(DateTimePrecision.Hours, part("hour")),
-            ...upTo(DateTimePrecision.Minutes, part("minute")),
-            ...upTo(DateTimePrecision.Seconds, part("second")),
-            ...upTo(DateTimePrecision.Milliseconds, part("millisecond")),
+            this.datePart("year", QueryTokenDateMessage.Year),
+            this.datePart("quarter", QueryTokenDateMessage.Quarter, true),
+            this.datePart("month", QueryTokenDateMessage.Month),
+            this.datePart("weekNumber", QueryTokenDateMessage.WeekNumber, true),
+            this.datePart("dayOfYear", QueryTokenDateMessage.DayOfYear),
+            this.datePart("day", QueryTokenDateMessage.Day),
+            this.datePart("dayOfWeek", QueryTokenDateMessage.DayOfWeek),
+            ...upTo(DateTimePrecision.Hours, this.datePart("hour", QueryTokenDateMessage.Hour)),
+            ...upTo(DateTimePrecision.Minutes, this.datePart("minute", QueryTokenDateMessage.Minute)),
+            ...upTo(DateTimePrecision.Seconds, this.datePart("second", QueryTokenDateMessage.Second)),
+            ...upTo(DateTimePrecision.Milliseconds, this.datePart("millisecond", QueryTokenDateMessage.Millisecond)),
             tokenFactories!.dateToken(this),
             start("QuarterStart"), start("MonthStart"), start("WeekStart"),
+            ...every(DateTimePrecision.Hours, "Every0Hours", [12, 6, 4, 3, 2]),
             ...upTo(DateTimePrecision.Hours, start("HourStart")),
+            ...every(DateTimePrecision.Minutes, "Every0Minutes", [30, 20, 10, 5, 4, 3, 2]),
             ...upTo(DateTimePrecision.Minutes, start("MinuteStart")),
+            ...every(DateTimePrecision.Seconds, "Every0Seconds", [30, 20, 10, 5, 4, 3, 2]),
             ...upTo(DateTimePrecision.Seconds, start("SecondStart")),
+            ...every(DateTimePrecision.Milliseconds, "Every0Milliseconds", [500, 200, 100]),
         ];
     }
 
@@ -487,12 +518,47 @@ export abstract class QueryToken {
     // that truncate a DATE; the time-truncating ones have nothing to truncate here (Signum's
     // GetMethodInfoDateOnly throws for them, so its DateOnlyProperties offers the same three).
     protected dateOnlyProperties(): QueryToken[] {
-        const part = (name: string, method = false) =>
-            tokenFactories!.objectProperty(this, name, TR_INT, capitalize(name), method);
         const start = (name: string) => tokenFactories!.datePartStart(this, name);
         return [
-            part("year"), part("quarter", true), part("month"), part("dayOfYear"), part("day"), part("dayOfWeek"),
+            this.datePart("year", QueryTokenDateMessage.Year),
+            this.datePart("quarter", QueryTokenDateMessage.Quarter, true),
+            this.datePart("month", QueryTokenDateMessage.Month),
+            this.datePart("weekNumber", QueryTokenDateMessage.WeekNumber, true),
+            this.datePart("dayOfYear", QueryTokenDateMessage.DayOfYear),
+            this.datePart("day", QueryTokenDateMessage.Day),
+            this.datePart("dayOfWeek", QueryTokenDateMessage.DayOfWeek),
             start("QuarterStart"), start("MonthStart"), start("WeekStart"),
+        ];
+    }
+
+    // Signum's TimeSpanProperties: the sub-tokens of a DURATION — a `time` column on both providers, so
+    // an elapsed time measured from midnight (see dbType).
+    //
+    // Two families that read alike and are not: the COMPONENTS (`Days`, `Hours`, … — Temporal.Duration's
+    // own plural members, captioned by the singular message Signum captions them with) are the balanced
+    // pieces, the `Total…` ones the whole duration measured in one unit. `PT1H30M` has Hours 1 and
+    // Minutes 30, but TotalMinutes 90.
+    //
+    // Signum also lists HourStart / MinuteStart / SecondStart and the `Every N …` steps here. They are
+    // left out: bucketing exists on a DATE because `Month` alone loses the year, and inside a single
+    // duration `Hours` already IS the bucket. PostgreSQL would also need the value round-tripped through
+    // `interval` (date_trunc has no `time` overload), for no question the parts do not already answer.
+    protected durationProperties(): QueryToken[] {
+        const precision = this.dateTimePrecision();
+        const upTo = (p: DateTimePrecision, ...tokens: QueryToken[]) =>
+            precision == undefined || precision >= p ? tokens : [];
+        const total = (name: string) => tokenFactories!.durationTotal(this, name);
+        return [
+            this.datePart("days", QueryTokenDateMessage.Days),
+            ...upTo(DateTimePrecision.Hours, this.datePart("hours", QueryTokenDateMessage.Hour)),
+            ...upTo(DateTimePrecision.Minutes, this.datePart("minutes", QueryTokenDateMessage.Minute)),
+            ...upTo(DateTimePrecision.Seconds, this.datePart("seconds", QueryTokenDateMessage.Second)),
+            ...upTo(DateTimePrecision.Milliseconds, this.datePart("milliseconds", QueryTokenDateMessage.Millisecond)),
+            total("TotalDays"),
+            ...upTo(DateTimePrecision.Hours, total("TotalHours")),
+            ...upTo(DateTimePrecision.Minutes, total("TotalMinutes")),
+            ...upTo(DateTimePrecision.Seconds, total("TotalSeconds")),
+            ...upTo(DateTimePrecision.Milliseconds, total("TotalMilliseconds")),
         ];
     }
 
@@ -717,10 +783,6 @@ function getQueryKey(queryName: QueryName): string {
     return queryName.name;
 }
 
-function capitalize(s: string): string {
-    return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
 // Port of Signum's getNiceTypeName, over an altea RuntimeType: a human label for a value type. The
 // Signum server-token special result types (CellOperationDTO / OperationsContainerToken / …) are not
 // modelled in altea, so those special cases are omitted.
@@ -783,7 +845,8 @@ export interface TokenFactories {
     asType(parent: QueryToken, entityCtor: Function): QueryToken;
     entityType(parent: QueryToken): QueryToken;
     dateToken(parent: QueryToken): QueryToken;
-    datePartStart(parent: QueryToken, name: string): QueryToken;
+    datePartStart(parent: QueryToken, name: string, step?: number): QueryToken;
+    durationTotal(parent: QueryToken, name: string): QueryToken;
     modulo(parent: QueryToken, divisor: number): QueryToken;
     count(parent: QueryToken): QueryToken;
     aggregate(aggregateFunction: string, parent: QueryToken | undefined, options?: { filterOperation?: string; value?: unknown; distinct?: boolean; queryName?: QueryName }): QueryToken;

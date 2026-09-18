@@ -13,15 +13,19 @@ declare module "temporal-polyfill" {
     namespace Temporal {
         interface PlainDateTime {
             quarter(): number;
+            /** ISO-8601 week of the year, 1..53 (the week Monday–Sunday that owns this date's Thursday). */
+            weekNumber(): number;
             yearStart(): Temporal.PlainDateTime;
             quarterStart(): Temporal.PlainDateTime;
             monthStart(): Temporal.PlainDateTime;
             weekStart(): Temporal.PlainDateTime;
             /** Date part (time truncated to 00:00). */
             readonly date: Temporal.PlainDate;
-            truncHours(): Temporal.PlainDateTime;
-            truncMinutes(): Temporal.PlainDateTime;
-            truncSeconds(): Temporal.PlainDateTime;
+            /** `step` buckets the part: `truncHours(6)` floors 13:45 to 12:00 (Signum's TruncHours(dt, step)). */
+            truncHours(step?: number): Temporal.PlainDateTime;
+            truncMinutes(step?: number): Temporal.PlainDateTime;
+            truncSeconds(step?: number): Temporal.PlainDateTime;
+            truncMilliseconds(step: number): Temporal.PlainDateTime;
             readonly timeOfDay: Temporal.PlainTime;
             daysTo(other: Temporal.PlainDateTime): number;
             monthsTo(other: Temporal.PlainDateTime): number;
@@ -29,6 +33,8 @@ declare module "temporal-polyfill" {
         }
         interface PlainDate {
             quarter(): number;
+            /** ISO-8601 week of the year, 1..53 (the week Monday–Sunday that owns this date's Thursday). */
+            weekNumber(): number;
             yearStart(): Temporal.PlainDate;
             quarterStart(): Temporal.PlainDate;
             monthStart(): Temporal.PlainDate;
@@ -120,19 +126,38 @@ function quarterStartMonth(month: number): number {
 // since 0001-01-01 in the proleptic Gregorian calendar (Temporal's ISO calendar).
 const dayNumberEpoch = Temporal.PlainDate.from({ year: 1, month: 1, day: 1 });
 
+// ISO-8601 week number: the week owning this date's THURSDAY, weeks running Monday–Sunday. DIVERGES from
+// Signum, whose `WeekNumber()` asks the CURRENT CULTURE's calendar (`CalendarWeekRule`, `FirstDayOfWeek`)
+// and so answers a different number per user — while its SQL asks `DATEPART(week)` (US: week 1 holds Jan 1)
+// on SQL Server and `EXTRACT(week)` (ISO) on Postgres, three rules for one token. altea is ISO on all
+// three: Postgres already is, SQL Server gets `iso_week`, and this is the Monday-first convention
+// `weekStart` above already picked.
+function isoWeekNumber(year: number, month: number, day: number, dayOfWeek: number): number {
+    const thursday = Temporal.PlainDate.from({ year, month, day }).add({ days: 4 - dayOfWeek });
+    return Math.floor((thursday.dayOfYear - 1) / 7) + 1;
+}
+
+// The step-bucketed truncation Signum's `TruncHours(dt, step)` does: floor the part to a multiple of
+// `step`. `undefined` means plain truncation, which is the same expression with step 1.
+function floorTo(value: number, step: number | undefined): number {
+    return step == undefined ? value : value - (value % step);
+}
+
 const PlainDateTime = Temporal.PlainDateTime.prototype;
 const PlainDate = Temporal.PlainDate.prototype;
 
 PlainDateTime.quarter = function () { return quarterOf(this.month); };
+PlainDateTime.weekNumber = function () { return isoWeekNumber(this.year, this.month, this.day, this.dayOfWeek); };
 PlainDateTime.yearStart = function () { return this.with({ month: 1, day: 1, ...midnight }); };
 PlainDateTime.quarterStart = function () { return this.with({ month: quarterStartMonth(this.month), day: 1, ...midnight }); };
 PlainDateTime.monthStart = function () { return this.with({ day: 1, ...midnight }); };
 // WeekStart with Monday as the first day of the week (matching the DayOfWeek/ISO ordering and
 // the SQL translator's date_trunc('week', …)); diverges from Signum's culture-based default.
 PlainDateTime.weekStart = function () { return this.subtract({ days: this.dayOfWeek - DayOfWeek.Monday }).with(midnight); };
-PlainDateTime.truncHours = function () { return this.with({ minute: 0, second: 0, millisecond: 0, microsecond: 0, nanosecond: 0 }); };
-PlainDateTime.truncMinutes = function () { return this.with({ second: 0, millisecond: 0, microsecond: 0, nanosecond: 0 }); };
-PlainDateTime.truncSeconds = function () { return this.with({ millisecond: 0, microsecond: 0, nanosecond: 0 }); };
+PlainDateTime.truncHours = function (step) { return this.with({ hour: floorTo(this.hour, step), minute: 0, second: 0, millisecond: 0, microsecond: 0, nanosecond: 0 }); };
+PlainDateTime.truncMinutes = function (step) { return this.with({ minute: floorTo(this.minute, step), second: 0, millisecond: 0, microsecond: 0, nanosecond: 0 }); };
+PlainDateTime.truncSeconds = function (step) { return this.with({ second: floorTo(this.second, step), millisecond: 0, microsecond: 0, nanosecond: 0 }); };
+PlainDateTime.truncMilliseconds = function (step) { return this.with({ millisecond: floorTo(this.millisecond, step), microsecond: 0, nanosecond: 0 }); };
 PlainDateTime.daysTo = function (other) { return this.toPlainDate().until(other.toPlainDate(), { largestUnit: "day" }).days; };
 PlainDateTime.monthsTo = function (other) {
     let result = other.month - this.month + (other.year - this.year) * 12;
@@ -151,6 +176,7 @@ Object.defineProperty(PlainDateTime, "date", { get(this: Temporal.PlainDateTime)
 Object.defineProperty(PlainDateTime, "timeOfDay", { get(this: Temporal.PlainDateTime) { return this.toPlainTime(); }, configurable: true });
 
 PlainDate.quarter = function () { return quarterOf(this.month); };
+PlainDate.weekNumber = function () { return isoWeekNumber(this.year, this.month, this.day, this.dayOfWeek); };
 PlainDate.yearStart = function () { return this.with({ month: 1, day: 1 }); };
 PlainDate.quarterStart = function () { return this.with({ month: quarterStartMonth(this.month), day: 1 }); };
 PlainDate.monthStart = function () { return this.with({ day: 1 }); };

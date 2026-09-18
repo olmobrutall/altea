@@ -17,7 +17,7 @@ import { TypeEntity } from "../../data/typeEntity";
 import { RuntimeType, ClassType, LiteType, ArrayType, LiteralType } from "../runtimeTypes";
 import {
     QueryToken, RootToken, EntityPropertyToken, EntityToStringToken, HasValueToken, ObjectPropertyToken,
-    AsTypeToken, EntityTypeToken, DateToken, DatePartStartToken, ModuloToken, CountToken,
+    AsTypeToken, EntityTypeToken, DateToken, DatePartStartToken, DurationTotalToken, ModuloToken, CountToken,
     CollectionElementToken, CollectionAnyAllToken, CollectionAnyAllType, CollectionToArrayToken,
     AggregateToken, AggregateFunction, ExtensionToken,
     ManualContainerToken, ManualToken,
@@ -190,11 +190,21 @@ DateToken.prototype.buildExpressionInternal = function (context: BuildExpression
 };
 
 // `x.monthStart()` / `x.truncHours()` … — the Temporal extensions the nominator already lowers to
-// date_trunc (Postgres) / DATEADD(DATEDIFF(…)) (SQL Server), and which evaluate in memory too. The
-// result keeps the receiver's temporal kind, which is what the token's own `type` says.
+// date_trunc (Postgres) / DATETRUNC (SQL Server), and which evaluate in memory too. The result keeps the
+// receiver's temporal kind, which is what the token's own `type` says. A STEPPED token passes it as the
+// call's one argument (`truncHours(6)`).
 DatePartStartToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
     const base = this.parent!.buildExpression(context);
-    return new CallExpression(new PropertyExpression(base, this.member), [], base.type);
+    const args = this.step == undefined ? [] : [new ConstantExpression(this.step, LiteralType.number)];
+    return new CallExpression(new PropertyExpression(base, this.member), args, base.type);
+};
+
+// `duration.total("minutes")` — the only spelling Temporal has for Signum's `TimeSpan.TotalMinutes`, and
+// the shape the nominator's translateDurationMethod consumes (over a since()/until() difference or a
+// stored `time` column alike).
+DurationTotalToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    const base = this.parent!.buildExpression(context);
+    return new CallExpression(new PropertyExpression(base, "total"), [new ConstantExpression(this.totalUnit, LiteralType.string)], LiteralType.number);
 };
 
 ModuloToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {

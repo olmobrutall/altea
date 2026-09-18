@@ -211,15 +211,43 @@ describe("since()/until().total(unit) — what it refuses, and how loudly", () =
         }
     });
 
-    // A STORED Duration column is not a difference, so there is nothing to DATEDIFF — Signum's
-    // TrySqlDifference walks the expression looking for a subtraction and gives up the same way.
-    // AlbumEntity_Song.duration is such a column, and the message has to say which shape is missing
-    // rather than leave the reader thinking total() is unimplemented.
-    test("total() over a STORED Duration column says which shape is missing", async () => {
+});
+
+// A STORED Duration column is a `time` on both providers — an elapsed time whose other operand is
+// MIDNIGHT. Signum gives up here (TrySqlDifference walks the expression looking for a subtraction and
+// finds none, so `TimeSpan.TotalMinutes` over a stored column does not translate at all); altea names
+// midnight instead, which is what makes the whole TimeSpanProperties token family work over the columns
+// that actually carry a duration. `AlbumEntity_Song.duration` is such a column.
+describe("total() over a STORED Duration column — midnight is the other operand", () => {
+    const orderByStored = (isPostgres: boolean, unit: TotalUnit): Promise<string> =>
+        capture(isPostgres, () => table(AlbumEntity_Song).orderBy(s => s.duration!.total({ unit: unit })).toArray(), AlbumEntity_Song);
+
+    const STORED: { unit: TotalUnit; postgres: RegExp; sqlserver: RegExp }[] = [
+        { unit: "days", postgres: /EXTRACT\(EPOCH from \("as"\.duration - TIME '00:00:00'\)\) \/ 86400/i, sqlserver: /CAST\(DATEDIFF_BIG\(minute, CAST\('00:00:00' AS time\), \[AS\]\.Duration\) AS float\) \/ 1440/i },
+        { unit: "hours", postgres: /EXTRACT\(EPOCH from \("as"\.duration - TIME '00:00:00'\)\) \/ 3600/i, sqlserver: /CAST\(DATEDIFF_BIG\(minute, CAST\('00:00:00' AS time\), \[AS\]\.Duration\) AS float\) \/ 60/i },
+        { unit: "minutes", postgres: /EXTRACT\(EPOCH from \("as"\.duration - TIME '00:00:00'\)\) \/ 60/i, sqlserver: /CAST\(DATEDIFF_BIG\(second, CAST\('00:00:00' AS time\), \[AS\]\.Duration\) AS float\) \/ 60/i },
+        { unit: "seconds", postgres: /EXTRACT\(EPOCH from \("as"\.duration - TIME '00:00:00'\)\) \/ 1\b/i, sqlserver: /CAST\(DATEDIFF_BIG\(millisecond, CAST\('00:00:00' AS time\), \[AS\]\.Duration\) AS float\) \/ 1000/i },
+        { unit: "milliseconds", postgres: /EXTRACT\(EPOCH from \("as"\.duration - TIME '00:00:00'\)\) \/ 0\.001/i, sqlserver: /CAST\(DATEDIFF_BIG\(millisecond, CAST\('00:00:00' AS time\), \[AS\]\.Duration\) AS float\)/i },
+    ];
+
+    for (const { unit, postgres, sqlserver } of STORED) {
+        test(`total({ unit: "${unit}" }) lowers on both providers`, async () => {
+            for (const isPostgres of bothProviders) {
+                const sql = await orderByStored(isPostgres, unit);
+                const where = `${providerName(isPostgres)}${unit}: `;
+                assert.match(sql, /ORDER BY/i, where + "the measure reaches SQL");
+                assert.match(sql, isPostgres ? postgres : sqlserver, where + "measured from midnight, through the same unit table as a difference");
+                assert.doesNotMatch(sql, /__timespan__/, where + "no marker in SQL");
+            }
+        });
+    }
+
+    // The refusal of the calendar units is a property of the UNIT TABLE, not of the shape the duration
+    // arrived in — so it must hold here too, or a Total token would be offered that cannot answer.
+    test("the calendar units are refused here too", async () => {
         for (const isPostgres of bothProviders) {
-            const message = await rejects(isPostgres, () => capture(isPostgres, () => table(AlbumEntity_Song)
-                .orderBy(s => s.duration!.total({ unit: "minutes" })).toArray(), AlbumEntity_Song));
-            assert.match(message, /since\(\)\/until\(\) difference/, providerName(isPostgres) + "the message names the shape it needs");
+            const message = await rejects(isPostgres, () => orderByStored(isPostgres, "years"));
+            assert.match(message, /CALENDAR unit/, providerName(isPostgres));
         }
     });
 });

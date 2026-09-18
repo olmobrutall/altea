@@ -283,6 +283,9 @@ function resolveMemberType(ownerType: RuntimeType, propertyName: string): Runtim
             case "year": case "month": case "day": case "hour": case "minute":
             case "second": case "millisecond": case "dayOfYear": case "dayOfWeek":
             case "dayNumber":
+            // Temporal.Duration's own components are PLURAL, and they are a different question from the
+            // `total…` measure beside them: `PT36H` has `.days` 1 and 1.5 total days.
+            case "days": case "hours": case "minutes": case "seconds": case "milliseconds":
                 return LiteralType.number;
             case "date":
                 return new TemporalType("date");
@@ -414,6 +417,8 @@ const wellKnownResultTypes: Readonly<Record<string, RuntimeType>> = {
     // nominator lowers these to SQL (date_trunc / DATEADD-DATEDIFF / CAST / age).
     "dateTime.quarter": LiteralType.number,
     "date.quarter": LiteralType.number,
+    "dateTime.weekNumber": LiteralType.number,
+    "date.weekNumber": LiteralType.number,
     // Truncation / "start of" → keeps the receiver's temporal kind.
     "dateTime.yearStart": new TemporalType("dateTime"),
     "dateTime.quarterStart": new TemporalType("dateTime"),
@@ -422,6 +427,7 @@ const wellKnownResultTypes: Readonly<Record<string, RuntimeType>> = {
     "dateTime.truncHours": new TemporalType("dateTime"),
     "dateTime.truncMinutes": new TemporalType("dateTime"),
     "dateTime.truncSeconds": new TemporalType("dateTime"),
+    "dateTime.truncMilliseconds": new TemporalType("dateTime"),
     "date.yearStart": new TemporalType("date"),
     "date.quarterStart": new TemporalType("date"),
     "date.monthStart": new TemporalType("date"),
