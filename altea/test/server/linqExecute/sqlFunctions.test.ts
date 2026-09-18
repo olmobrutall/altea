@@ -247,6 +247,40 @@ describe.skipIf(!hasDb)("SqlFunctionsTest", () => {
         assert.ok((await table(NoteWithDateEntity).map(n => n.creationDate.dayNumber - n.creationDate.dayNumber).toArray()).every(v => v == 0));
     });
 
+    // The shape every altea log's `Duration` column is (OperationLogEntity.durationMilliseconds and its
+    // four siblings, Signum's `[ExpressionField] double? Duration` over End - Start): a NULLABLE end, so
+    // the difference is guarded by a ternary. Run against the real database, because the interesting part
+    // is not only that it compiles to a CASE WHEN (altea/test/server/linq/durationExpression.test.ts
+    // asserts that offline) but that the guarded branch comes back as NULL rather than as a number.
+    //
+    // The guard is written VALUE-FIRST: `ConditionalExpression.calculateType` is
+    // `whenTrue.type || whenFalse.type`, and the `null` literal HAS a type, so `x == null ? null : …`
+    // types the whole expression as null.
+    //
+    // The difference is taken between two TIMESTAMPS (`creationTime`), with the nullable `releaseDate` only
+    // as the guard, because `since().total()` over two Postgres DATE columns is broken today: `date - date`
+    // yields an integer day count there, and the EXTRACT(EPOCH FROM …) the nominator wraps it in then
+    // fails with "function pg_catalog.extract(unknown, integer) does not exist". Every log's Duration spans
+    // two PlainDateTime columns, so none of them hits it. Both bodies are written out rather than shared
+    // through a local helper — a local-function call inside a query lambda has no SQL translation.
+    test("NullableDateDiff", async () => {
+        const day = 24 * 60 * 60 * 1000;
+        const rows = await table(NoteWithDateEntity)
+            .map(n => ({
+                released: n.releaseDate,
+                ms: n.releaseDate != null
+                    ? n.creationTime.add({ days: 1 }).since(n.creationTime).total({ unit: "milliseconds" }) : null,
+            }))
+            .toArray();
+        assert.ok(rows.length > 0);
+        assert.ok(rows.every(r => (r.released == null) === (r.ms == null)), "null end => null duration");
+        assert.ok(rows.every(r => r.ms == null || r.ms == day));
+        // …and the same expression as a PREDICATE, which forces it into SQL rather than into the reader.
+        const positive = await table(NoteWithDateEntity).count(n => (n.releaseDate != null
+            ? n.creationTime.add({ days: 1 }).since(n.creationTime).total({ unit: "milliseconds" }) : null)! > 0);
+        assert.equal(positive, rows.filter(r => r.ms != null).length);
+    });
+
     // Dump CreationTime.DaysTo/MonthsTo/YearsTo(CreationTime)
     test("DateTimeDiffFunctionsTo", async () => {
         assert.ok((await table(NoteWithDateEntity).map(n => n.creationTime.daysTo(n.creationTime)).toArray()).every(v => v == 0));

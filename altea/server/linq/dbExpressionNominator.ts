@@ -48,39 +48,58 @@ function isClientScalar(t: RuntimeType | undefined): boolean {
         || t instanceof EnumType;
 }
 
+// A constant string expression's value — the shape a unit name or an option value arrives in, either as a
+// ConstantExpression the binder folded or as an already-lowered SqlConstantExpression.
+function constantString(e: Expression | undefined): string | undefined {
+    if (e instanceof ConstantExpression || e instanceof SqlConstantExpression)
+        return typeof e.value === "string" ? e.value : undefined;
+    return undefined;
+}
+
+// A constant options object's own keys (`{ unit }`, `{ largestUnit }`, …), in either shape: an un-folded
+// object literal, or one the binder folded into a constant. `undefined` means "not a constant object", so
+// the caller can refuse rather than guess.
+function optionKeys(arg: Expression): readonly string[] | undefined {
+    if (arg instanceof ObjectExpression)
+        return Object.keys(arg.properties);
+    if (arg instanceof ConstantExpression && arg.value != null && typeof arg.value === "object")
+        return Object.keys(arg.value as object);
+    return undefined;
+}
+
 // The unit argument of `Duration.total(…)`, in EITHER of the two forms Temporal accepts: a bare string
 // (`total("milliseconds")`) or the options object (`total({ unit: "milliseconds" })`). Only the first was
 // recognised before, so a body written in the second — the form every in-memory duration helper in the
 // workspace uses (altea-processes / -scheduler / -migrations) — failed at query time with "the method
-// 'total' cannot be translated to SQL". Returns the DIFF_UNITS entry, or undefined if it isn't a constant
-// unit we know.
-function durationUnit(arg: Expression): { ss: string; seconds: number } | undefined {
-    const nameOf = (e: Expression | undefined): string | undefined => {
-        if (e instanceof ConstantExpression || e instanceof SqlConstantExpression)
-            return typeof e.value === "string" ? e.value : undefined;
-        return undefined;
-    };
+// 'total' cannot be translated to SQL".
+//
+// Returns the unit NAME, normalized to the plural spelling the tables below are keyed by: Temporal accepts
+// `"minute"` and `"minutes"` interchangeably everywhere, and a singular one used to resolve to `undefined`
+// — i.e. "not translatable", silently. `CaseActivityEntity.durationRealTime()` is written with the
+// singular and is `@quoted`, so it could not lower. Undefined here means "not a CONSTANT unit at all"
+// (a variable unit, which no dialect can take); an unknown NAME is the caller's to reject, by name.
+function durationUnit(arg: Expression): string | undefined {
+    const plural = (u: string | undefined): string | undefined => u == null ? undefined : (u.endsWith("s") ? u : u + "s");
 
     // `total("milliseconds")`
-    const bare = nameOf(arg);
+    const bare = constantString(arg);
     if (bare != null)
-        return DIFF_UNITS[bare];
+        return plural(bare);
 
     // `total({ unit: "milliseconds" })` — either an un-folded object literal…
-    if (arg instanceof ObjectExpression) {
-        const unit = nameOf(arg.properties["unit"]);
-        return unit != null ? DIFF_UNITS[unit] : undefined;
-    }
+    if (arg instanceof ObjectExpression)
+        return plural(constantString(arg.properties["unit"]));
     // …or one the binder folded into a constant object.
     if (arg instanceof ConstantExpression && arg.value != null && typeof arg.value === "object") {
         const unit = (arg.value as { unit?: unknown }).unit;
-        return typeof unit === "string" ? DIFF_UNITS[unit] : undefined;
+        return typeof unit === "string" ? plural(unit) : undefined;
     }
     return undefined;
 }
 
-// Temporal unit → SQL DATEADD/DATEDIFF part + seconds-per-unit (for the Postgres EPOCH divisor
-// in duration.total). Keyed by Temporal.Duration's plural field names.
+// Temporal unit → SQL DATEADD/DATEPART part + seconds-per-unit, keyed by Temporal.Duration's plural field
+// names. This is the DATEADD table (`Temporal.add({ years: 1 })`), where every unit is legitimate because
+// DATEADD adds a CALENDAR unit. It is deliberately NOT the table `total()` uses — see TOTAL_UNITS.
 const DIFF_UNITS: Record<string, { ss: string; seconds: number }> = {
     years: { ss: "year", seconds: 31557600 },
     months: { ss: "month", seconds: 2629800 },
@@ -90,6 +109,29 @@ const DIFF_UNITS: Record<string, { ss: string; seconds: number }> = {
     minutes: { ss: "minute", seconds: 60 },
     seconds: { ss: "second", seconds: 1 },
     milliseconds: { ss: "millisecond", seconds: 0.001 },
+};
+
+// The units `duration.total(unit)` lowers, and how — the port of Signum's `TrySqlDifference`
+// (DbExpressionNominator.cs). Two divergences from DIFF_UNITS above, both deliberate:
+//
+//  1. **`datePart` is FINER than the requested unit, and `divisor` converts.** SQL Server's DATEDIFF
+//     counts BOUNDARIES CROSSED, not elapsed time: `DATEDIFF(hour, '01:59', '02:01')` is 1, where
+//     `.total({ unit: "hours" })` must be 0.0333. So Signum never asks DATEDIFF for the unit it wants —
+//     it asks the next finer one and divides, which is what these pairs are. altea used to ask for the
+//     requested unit directly, so the SQL Server answer was a boundary count while Postgres (which
+//     divides EXTRACT(EPOCH …), and was always right) answered elapsed time — the same expression
+//     returning different numbers on the two providers. The residual truncation is Signum's: a `days`
+//     total is exact to the minute, a `seconds` total to the millisecond.
+//  2. **years / months / weeks are ABSENT, so they are refused.** Signum's switch throws on them for a
+//     reason that no divisor can fix: Postgres would divide epoch seconds by an AVERAGE year (365.25 d)
+//     while SQL Server counts calendar-year boundaries, so the two providers would disagree by design,
+//     not by rounding. They stay in DIFF_UNITS because DATEADD's calendar semantics are well defined.
+const TOTAL_UNITS: Record<string, { datePart: string; divisor: number; seconds: number }> = {
+    days: { datePart: "minute", divisor: 60 * 24, seconds: 86400 },
+    hours: { datePart: "minute", divisor: 60, seconds: 3600 },
+    minutes: { datePart: "second", divisor: 60, seconds: 60 },
+    seconds: { datePart: "millisecond", divisor: 1000, seconds: 1 },
+    milliseconds: { datePart: "millisecond", divisor: 1, seconds: 0.001 },
 };
 
 // Port of Signum's DbExpressionNominator. Like Signum's it does two jobs in one
@@ -675,28 +717,76 @@ class DbExpressionNominator extends DbExpressionVisitor {
             case "yearsTo": return args.length === 1 ? this.datePartTo("year", source, args[0]) : undefined;
             // Temporal.add(duration) → DATEADD (SQL Server) / date + interval (Postgres).
             case "add": return args.length === 1 ? this.dateAdd(source, args[0]) : undefined;
-            // Temporal.since(other) → a lazy difference marker consumed by duration.total(unit).
-            case "since": return args.length === 1 ? this.timeSpanMarker(args[0], source) : undefined;
+            // Temporal.since(other) / .until(other) → a lazy difference marker consumed by
+            // duration.total(unit). They are exact mirrors — `a.since(b)` is `a - b` and `a.until(b)` is
+            // `b - a` — so the ONLY difference is which operand is the marker's start. `until` was
+            // unhandled (it failed even earlier than the nominator, on the missing `dateTime.until`
+            // result type in expressions.ts), which is why `CaseActivityEntity.durationRealTime()` could
+            // not lower despite being declared `@quoted`.
+            case "since": return this.differenceMarker(args, args[0]!, source);
+            case "until": return this.differenceMarker(args, source, args[0]!);
             default: return undefined;
         }
     }
 
-    // Duration methods. `total(unit)` turns a since() difference into a number of `unit`s:
-    // DATEDIFF(part, start, end) on SQL Server; EXTRACT(EPOCH …)/divisor on Postgres.
+    // Duration methods. `total(unit)` turns a since()/until() difference into a number of `unit`s:
+    // CAST(DATEDIFF_BIG(finer part, start, end) AS float)/divisor on SQL Server, EXTRACT(EPOCH …)/divisor
+    // on Postgres — the port of Signum's TrySqlDifference. Why the part asked of DATEDIFF is finer than
+    // the requested unit, and why the coarse units are refused, is on TOTAL_UNITS.
+    //
+    // Everything that cannot lower THROWS here rather than returning undefined. Undefined meant "not
+    // translatable" and surfaced two frames up as `The method 'total' cannot be translated to SQL` —
+    // which names neither the unit nor the operands, and reads like a missing feature even when the real
+    // cause is a typo in a unit name. visitCall throws on undefined anyway, so nothing that used to work
+    // is refused; only the message changes.
     private translateDurationMethod(name: string, source: Expression, args: readonly Expression[]): Expression | undefined {
-        if (name !== "total" || args.length !== 1)
-            return undefined;
+        if (name !== "total")
+            throw new Error(`Duration.${name}() cannot be translated to SQL. The only translatable Duration method is ` +
+                `total(unit), over a since()/until() difference between two dates.`);
+        if (args.length !== 1)
+            throw new Error(`Duration.total() needs exactly one argument — total("minutes") or total({ unit: "minutes" }).`);
         if (!(source instanceof SqlFunctionExpression) || source.sqlFunction !== TIMESPAN_MARKER)
-            return undefined; // only a since() difference is supported (not a stored duration)
+            throw new Error(`Duration.total(…) can only be translated over a since()/until() difference between two ` +
+                `dates (Signum's TrySqlDifference). A stored Duration column has no SQL total(); read it and ` +
+                `total() it in memory, or store the number the query needs.`);
         const [start, end] = source.arguments;
-        const part = durationUnit(args[0]!);
-        if (part == null)
-            return undefined;
-        if (!this.isPostgres)
-            return this.sqlFunction(LiteralType.number, "DATEDIFF", new SqlLiteralExpression(part.ss), start, end);
-        // Postgres: seconds between the two, divided into the requested unit.
+        const where = `(the difference ${end} - ${start})`;
+        const unit = durationUnit(args[0]!);
+        if (unit == null)
+            throw new Error(`Duration.total(…) ${where} needs a CONSTANT unit — total("minutes") or ` +
+                `total({ unit: "minutes" }). A unit computed at query time cannot be translated to SQL.`);
+        const u = TOTAL_UNITS[unit];
+        if (u == null)
+            throw new Error(`Duration.total({ unit: "${unit}" }) ${where} cannot be translated to SQL. ` +
+                `The translatable units are ${Object.keys(TOTAL_UNITS).join(", ")} (Signum's TrySqlDifference accepts ` +
+                `the same five, singular or plural).` +
+                (DIFF_UNITS[unit] != null
+                    ? ` '${unit}' is a CALENDAR unit: Postgres would divide elapsed seconds by an average ${unit.replace(/s$/, "")}` +
+                      ` while SQL Server counts calendar boundaries, so the two providers would disagree by design.` +
+                      ` Total a smaller unit, or use daysTo/monthsTo/yearsTo for a whole-unit count.`
+                    : ""));
+        if (!this.isPostgres) {
+            // DATEDIFF_BIG, not DATEDIFF: DATEDIFF returns `int`, which overflows at ~24.8 days of
+            // milliseconds (and ~68 years of seconds) — the finer part this function asks for is exactly
+            // what makes that reachable. Signum gates it on Connector.SupportsDateDifBig (SQL Server
+            // 2016+); altea emits it unconditionally because this file already emits DATETRUNC, which is
+            // SQL Server 2022+, so the floor is well above 2016 and a capability flag would be a probe
+            // whose answer is fixed.
+            //
+            // The CAST to float does two jobs: it stops SQL Server doing INTEGER division by the divisor
+            // below (`DATEDIFF_BIG(second, …) / 60` would truncate 90 s to 1 minute), and it keeps the
+            // column a float rather than a bigint, which the driver may hand back as a string. Signum
+            // instead multiplies by a pre-divided double constant (`* 0.000694`), which its formatter
+            // prints to six decimals — this divides by the exact integer instead, so a day total is not
+            // 0.07% short.
+            const diff = this.sqlFunction(LiteralType.number, "DATEDIFF_BIG", new SqlLiteralExpression(u.datePart), start, end);
+            const asFloat = new SqlCastExpression(LiteralType.number, diff, "float");
+            return u.divisor === 1 ? asFloat : new BinaryExpression("/", asFloat, new SqlConstantExpression(u.divisor, LiteralType.number));
+        }
+        // Postgres: seconds between the two, divided into the requested unit. EXTRACT(EPOCH …) is already
+        // elapsed time (not a boundary count), so it takes the requested unit's own length directly.
         const epoch = this.sqlFunction(LiteralType.number, "EXTRACT", new SqlLiteralExpression("EPOCH"), new BinaryExpression("-", end, start));
-        return new BinaryExpression("/", epoch, new SqlConstantExpression(part.seconds, LiteralType.number));
+        return new BinaryExpression("/", epoch, new SqlConstantExpression(u.seconds, LiteralType.number));
     }
 
     // Temporal.add({ days, hours, … }) → chained DATEADD (SQL Server) / `+ N * interval '1 unit'`
@@ -724,7 +814,31 @@ class DbExpressionNominator extends DbExpressionVisitor {
         return acc;
     }
 
-    // The since() difference marker: a SqlFunctionExpression that merely carries (start, end)
+    // since(other, options?) / until(other, options?) → the difference marker, after checking the
+    // optional second argument.
+    //
+    // Temporal's options object is accepted but only for `largestUnit`, which decides how the returned
+    // Duration is BALANCED into components and therefore cannot change what `.total()` answers —
+    // `CaseActivityEntity.durationRealTime()` passes `{ largestUnit: "minute" }` and means nothing by it.
+    // `smallestUnit` / `roundingIncrement` / `roundingMode` DO change the result (they round the
+    // difference), and `relativeTo` anchors calendar arithmetic; none has a SQL counterpart, so they are
+    // refused rather than silently dropped — dropping one would answer a different number than the same
+    // body run in memory.
+    private differenceMarker(args: readonly Expression[], start: Expression, end: Expression): Expression | undefined {
+        if (args.length === 2) {
+            const keys = optionKeys(args[1]!);
+            if (keys == null || keys.some(k => k !== "largestUnit"))
+                throw new Error(`since()/until() can only be translated to SQL with no options, or with { largestUnit } ` +
+                    `alone — it decides how the Duration is balanced into components, which cannot change what total() ` +
+                    `answers. ${keys == null ? "A non-constant options object" : `'${keys.filter(k => k !== "largestUnit").join("', '")}'`} ` +
+                    `would change the result and has no SQL counterpart.`);
+        } else if (args.length !== 1) {
+            return undefined;
+        }
+        return this.timeSpanMarker(start, end);
+    }
+
+    // The since()/until() difference marker: a SqlFunctionExpression that merely carries (start, end)
     // until duration.total(unit) turns it into a real DATEDIFF. Never formatted directly.
     private timeSpanMarker(start: Expression, end: Expression): Expression {
         return new SqlFunctionExpression(new TemporalType("duration"), undefined, TIMESPAN_MARKER, [start, end]);

@@ -1,7 +1,7 @@
 import type { ExLambda, OpBinary, OpUnary, Quoted, QuotedEx, ExParam, ExBinary, ExCall, ExConstant, ExProperty } from 'quote-transformer/quoted';
-import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, TsVectorType, TsQueryType, IntervalType, RuntimeType } from "../runtimeTypes";
+import { ArrayType, FunctionType as FunctionType, LiteralType, ClassType, LiteType, ObjectType, TemporalType, TsVectorType, TsQueryType, IntervalType, EnumType, RuntimeType } from "../runtimeTypes";
 import { Temporal, Decimal } from "../../data/basics";
-import { resolveType } from "../../data/registration";
+import { resolveType, enumNameOf } from "../../data/registration";
 import { tryGetTypeInfo, type FieldInfo } from "../../data/reflection";
 import { Lite } from "../../data/lite";
 import { Entity, View, ModelEntity } from "../../data/entity";
@@ -151,10 +151,28 @@ function foldOrProperty(obj: Expression, name: string, optional: boolean): Expre
         } else {
             const v = (obj.value as Record<string, unknown>)[name];
             if (typeof v !== "function" && !(v instanceof Query))
-                return new ConstantExpression(v);
+                return new ConstantExpression(v, enumMemberType(obj.value, v));
         }
     }
     return new PropertyExpression(obj, name, optional);
+}
+
+// `SomeEnum.Member` inside a @quoted body: the fold above reads the member off the enum object and gets
+// its ORDINAL, so without this the constant types as a plain number and the enum is lost for good —
+// `@quoted currentState(): AlertCurrentState { … ? AlertCurrentState.Attended : … }` typed as `number`,
+// which is what the whole expression then becomes (ConditionalExpression takes its branch's type). A
+// registered expression over it is a NUMBER token: rendered as 0/1/2, filtered by typing a digit, no
+// dropdown — the enum-ness is only recoverable from the enum OBJECT, which is right here.
+//
+// Only a REGISTERED enum answers (the registry is keyed by object identity, so nothing else matches) and
+// only for a NUMERIC member — an enum's reverse map (`AlertCurrentState[0] === "Attended"`) is a string
+// and stays one. `EnumType` is the same type a FieldEnum column binds to, so everything downstream —
+// `toTypeReference`, the nominator's value→name CASE, the client's enum token — already handles it.
+function enumMemberType(owner: object, value: unknown): RuntimeType | undefined {
+    if (typeof value !== "number")
+        return undefined;
+    const enumName = enumNameOf(owner);
+    return enumName == undefined ? undefined : new EnumType(owner, enumName);
 }
 
 // The compile-time value of a constant expression or a constant *path* (`Ns.Member.…`, e.g.
@@ -416,8 +434,13 @@ const wellKnownResultTypes: Readonly<Record<string, RuntimeType>> = {
     // `duration.total(unit)` is a number. The nominator lowers these to DATEADD / DATEDIFF.
     "dateTime.add": new TemporalType("dateTime"),
     "date.add": new TemporalType("date"),
+    // `since` and `until` are mirrors (`a.since(b)` is `a - b`, `a.until(b)` is `b - a`); both are a
+    // Duration, and the nominator's differenceMarker is what swaps the operands. `until` missing here is
+    // why it failed EARLIER than the nominator, with "Missing @resultType or @quoted in function 'until'".
     "dateTime.since": new TemporalType("duration"),
     "date.since": new TemporalType("duration"),
+    "dateTime.until": new TemporalType("duration"),
+    "date.until": new TemporalType("duration"),
     "duration.total": LiteralType.number,
 
     // Math.* — all number → number (the SQL Math-function tier).
