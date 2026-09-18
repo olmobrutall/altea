@@ -12,6 +12,39 @@ import type { IColumn } from '../schema/column';
 import { isNullableToBool } from '../schema/dbType';
 import { Connector } from './connector';
 import type { ConnectionHandle, IsolationLevel } from './connector';
+import { ForeignKeyException, UniqueKeyException } from './databaseExceptions';
+
+// ---- Constraint-violation message parsing (Signum's UniqueKeyException / ForeignKeyException regexes)
+//
+// SQL Server sends nothing structured: `RequestError.number` is the only field, and the table, the
+// constraint and the duplicate values all have to be read back out of the (LOCALIZED) message. These
+// are Signum's own regexes, kept verbatim in shape — including the German variant of the duplicate-key
+// sentence and the »guillemet« quoting some localized builds use — because there is no better source
+// for what the server actually prints. Contrast postgresConnector, where the same facts arrive as
+// fields on the error object and no message is read at all.
+
+// Signum's UniqueKeyException.regexes (Exceptions.cs), one per localized wording of error 2601.
+const DUPLICATE_KEY_REGEXES = [
+    /Cannot insert duplicate key row in object '(?<table>.*)' with unique index '(?<index>.*)'\. The duplicate key value is \((?<value>.*)\)/,
+    /Eine Zeile mit doppeltem Schlüssel kann in das Objekt "(?<table>.*)" mit dem eindeutigen Index "(?<index>.*)" nicht eingefügt werden\. Der doppelte Schlüsselwert ist \((?<value>.*)\)/,
+];
+
+// Signum's ForeignKeyException.indexRegex — the FK constraint name, in whichever quotes the localized
+// message uses. Signum then SPLITS the name into table + column; altea looks the whole name up in the
+// schema instead (see databaseExceptions), and only falls back to the split when the lookup misses.
+const FOREIGN_KEY_NAME_REGEX = /['"»](FK_.+?)['"«]/i;
+
+// Signum's ForeignKeyException.referedTable — `The conflict occurred in database "X", table "dbo.Alert",
+// column 'State_ID'.` The word "table" is localized, which is a real limitation of this path; it is
+// Signum's, and it only degrades the message (the sentence falls back to naming raw columns).
+const REFERED_TABLE_REGEX = /table "(.+?)"/;
+
+// The mssql `RequestError` fields this reads. `number` is the SQL Server error number, copied up from
+// the underlying tedious error.
+interface SqlServerError {
+    number?: number;
+    message?: string;
+}
 
 // Maps altea's dialect-neutral column type to the mssql type SqlBulkCopy needs. Uses the
 // AbstractDbType family predicates + the SQL Server type name for the numeric/date subtypes.
@@ -124,6 +157,62 @@ export class SqlServerConnector extends Connector {
     // Not readonly: `changeDatabase` re-points it at another database on the same server.
     constructor(schema: Schema, private config: MssqlConfig | string) {
         super(schema, /* isPostgres */ false, /* maxNameLength */ 128);
+    }
+
+    /**
+     * Signum's `SqlServerConnector.ReplaceException`: error 2601 (duplicate key row in a unique index)
+     * and 547 (foreign-key / reference constraint) become the framework exceptions; everything else is
+     * handed back untouched.
+     *
+     * Signum's set also maps -2 → TimeoutException and 0/state 0/class 11 → OperationCanceledException.
+     * Those are not constraint violations and altea has no counterpart class for either, so they are
+     * deliberately left out of this item rather than half-ported.
+     *
+     * 2627 (`Violation of PRIMARY KEY constraint`) is likewise NOT mapped, matching Signum: altea
+     * declares uniqueness with `CREATE UNIQUE INDEX`, which raises 2601, and a primary-key collision is
+     * an engine bug rather than something to show a user. (On Postgres both share SQLSTATE 23505, so a
+     * PK collision DOES reach UniqueKeyException there — and prints the raw constraint name, because a
+     * primary key is not a registered TableIndex. Signum behaves identically.)
+     */
+    protected override replaceException(error: unknown, sql: string): unknown {
+        if (error == null || typeof error !== "object")
+            return error;
+        const se = error as SqlServerError;
+        const message = se.message ?? "";
+        switch (se.number) {
+            case 2601: {
+                const m = DUPLICATE_KEY_REGEXES.map(rx => rx.exec(message)).find(m => m != null);
+                if (m == null)
+                    return error;
+                return new UniqueKeyException(this, error, {
+                    indexName: m.groups!["index"],
+                    tableName: m.groups!["table"],
+                    values: m.groups!["value"],
+                });
+            }
+            case 547: {
+                const constraintName = FOREIGN_KEY_NAME_REGEX.exec(message)?.[1];
+                if (constraintName == null)
+                    return error;
+                // Locale-independent where Signum's `Message.Contains("INSERT")` is not: the failing
+                // statement is in hand (see Connector.runTranslating), and only a DELETE can be the
+                // blocked side. Signum's message test stays behind it for a statement that is neither.
+                const verb = /^\s*([A-Za-z]+)/.exec(sql)?.[1]?.toUpperCase();
+                const isInsert = verb === "INSERT" || verb === "UPDATE" ? true
+                    : verb === "DELETE" ? false
+                    : message.includes("INSERT") || message.includes("UPDATE");
+                return new ForeignKeyException(this, error, {
+                    constraintName,
+                    // Error 547 names only the CONFLICTING table, which is the referenced one on a
+                    // dangling write and the referencing one on a blocked delete — so it is passed as
+                    // `referedTableName` only in the case where that is what it means.
+                    referedTableName: isInsert ? REFERED_TABLE_REGEX.exec(message)?.[1] : undefined,
+                    isInsert,
+                });
+            }
+            default:
+                return error;
+        }
     }
 
     // The mssql pool must be connect()-ed before use; cache the in-flight promise

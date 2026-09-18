@@ -29,6 +29,39 @@ const ALTEA_PG_TYPES = {
 };
 import { Connector } from './connector';
 import type { ConnectionHandle, IsolationLevel } from './connector';
+import { ForeignKeyException, UniqueKeyException } from './databaseExceptions';
+
+// The half of node-postgres' `DatabaseError` this reads — the structured fields the server sends
+// alongside the message. They are what makes the Postgres path so much shorter than the SQL Server one:
+// Signum has to regex the table and the constraint out of the text, and here they arrive as fields.
+// All optional: an error raised before the server answered (a connection failure) carries none of them.
+interface PostgresError {
+    code?: string;
+    detail?: string;
+    schema?: string;
+    table?: string;
+    constraint?: string;
+}
+
+/**
+ * The value list inside a Postgres constraint DETAIL — `Key (clean_name)=(Artist) already exists.` →
+ * `Artist`, `Key (state_id)=(0) is not present in table "alert_state".` → `0`.
+ *
+ * Only the `(cols)=(values)` skeleton is matched, and that skeleton is NOT localized (the words around
+ * it are, by `lc_messages`), so this reads the same on a German or Spanish server. Greedy on purpose: a
+ * value may itself contain a parenthesis (`Key (name)=(Foo (Bar)) already exists.`).
+ */
+function detailValues(detail: string | undefined): string | undefined {
+    return detail == null ? undefined : /\)\s*=\s*\((.*)\)/.exec(detail)?.[1];
+}
+
+/** The last double-quoted identifier in a DETAIL — the OTHER table of a foreign-key violation. */
+function detailTable(detail: string | undefined): string | undefined {
+    if (detail == null)
+        return undefined;
+    const quoted = detail.match(/"[^"]*"/g);
+    return quoted == null ? undefined : quoted[quoted.length - 1].slice(1, -1);
+}
 
 // Maps a dialect-neutral isolation level to a Postgres BEGIN clause.
 function pgIsolation(isolation: IsolationLevel): string {
@@ -163,6 +196,49 @@ export class PostgresConnector extends Connector {
      */
     override get supportsUuidV7(): boolean {
         return this.serverVersion == undefined || this.serverVersion.major >= 18;
+    }
+
+    /**
+     * Signum's `PostgreSqlConnector.ReplaceException`: SQLSTATE 23505 (unique violation) and 23503
+     * (foreign-key violation) become the framework exceptions that name the entity and the property;
+     * everything else is handed back untouched.
+     *
+     * The one thing the driver does NOT say is which SIDE failed — both a blocked DELETE and a dangling
+     * INSERT report the constraint's own (referencing) table. Signum decides by looking for "INSERT" /
+     * "UPDATE" in the exception's localized message; the seam has the statement, so the leading verb
+     * answers it instead, with the DETAIL comparison behind it for a statement whose verb says nothing
+     * (a blocked delete names the referencing table in BOTH `table` and the detail, a dangling write
+     * names the referenced one in the detail).
+     */
+    protected override replaceException(error: unknown, sql: string): unknown {
+        if (error == null || typeof error !== "object")
+            return error;
+        const pg = error as PostgresError;
+        switch (pg.code) {
+            case "23505":
+                return new UniqueKeyException(this, error, {
+                    indexName: pg.constraint,
+                    tableName: pg.table,
+                    schemaName: pg.schema,
+                    values: detailValues(pg.detail),
+                });
+            case "23503": {
+                const other = detailTable(pg.detail);
+                const verb = /^\s*([A-Za-z]+)/.exec(sql)?.[1]?.toUpperCase();
+                const isInsert = verb === "INSERT" || verb === "UPDATE" ? true
+                    : verb === "DELETE" ? false
+                    : other != null && pg.table != null && other.toLowerCase() !== pg.table.toLowerCase();
+                return new ForeignKeyException(this, error, {
+                    constraintName: pg.constraint,
+                    tableName: pg.table,
+                    schemaName: pg.schema,
+                    referedTableName: other,
+                    isInsert,
+                });
+            }
+            default:
+                return error;
+        }
     }
 
     private getPool(): Pool {

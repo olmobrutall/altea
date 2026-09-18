@@ -293,13 +293,48 @@ export abstract class Connector {
         // `await` (not a bare `return run()`) so the profiler span — disposed at function exit —
         // stays open across the real query, not just its synchronous setup.
         if (logger == null)
-            return await run();
+            return await this.runTranslating(sql, run);
         const start = performance.now();
         try {
-            return await run();
+            return await this.runTranslating(sql, run);
         } finally {
             logger.log(sql, parameters, performance.now() - start);
         }
+    }
+
+    /**
+     * The one place a driver error is turned into a framework one — Signum's per-connector
+     * `HandleException(ex, command)`, which wraps the same three primitives (ExecuteScalar /
+     * ExecuteNonQuery / DataReader) at the ADO.NET boundary.
+     *
+     * It sits INSIDE withLogging (and so inside the profiler span and the SQL-capture sink) and covers
+     * every statement both real connectors run — executeQuery, executeNonQuery and bulkInsert — rather
+     * than each call site guessing which errors it might provoke. The failing SQL is passed down
+     * because {@link replaceException} needs it: whether a foreign-key violation is a blocked delete or
+     * a dangling write is a property of the STATEMENT, not of the constraint.
+     */
+    private async runTranslating<T>(sql: string, run: () => Promise<T>): Promise<T> {
+        try {
+            return await run();
+        } catch (e) {
+            const replaced = this.replaceException(e, sql);
+            // `throw e` (not `throw replaced`) when nothing matched, so an untranslated error keeps its
+            // original stack — Signum's `if (nex == ex) throw;`.
+            throw replaced === e ? e : replaced;
+        }
+    }
+
+    /**
+     * Turn a DRIVER error into a framework one, or hand it back untouched — Signum's
+     * `ReplaceException`, which each of its two connectors implements over its own driver's error type
+     * (`PostgresException.SqlState`, `SqlException.Number`).
+     *
+     * Declared here with a no-op default rather than abstract: a connector that is not one of the two
+     * real dialects (the offline test fakes) has no driver errors to recognise, and must not be forced
+     * to say so.
+     */
+    protected replaceException(error: unknown, _sql: string): unknown {
+        return error;
     }
 
     // Decides which connection an action runs on — the analog of Signum's
