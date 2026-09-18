@@ -3,9 +3,15 @@ import { getOrCreateTypeInfo, getOrCreateFieldInfo, tryGetTypeInfo, Validator, r
 import type { FieldInfo, IntegrityCheckEnvironment, FieldInfoOf } from './reflection';
 import type { BaseEntity } from './entity';
 import { msg } from './utils/localization';
-import { Decimal } from './basics';
+import { Decimal, Temporal } from './basics';
+import { DateTimePrecision, getPrecision } from './globals/dateTimeExtensions';
+import { Enum } from './enum';
 
 export { Validator } from './reflection';
+// The vocabulary `@dateTimePrecisionValidator` takes, re-exported so a declaring entity imports the
+// decorator and its argument from one place (it LIVES in globals/dateTimeExtensions, which is where
+// Signum declares it too — DateTimeExtensions.cs, not the validation file).
+export { DateTimePrecision } from './globals/dateTimeExtensions';
 
 export const ValidationMessage = {
     _0MustHaveAtMost1Characters: msg(),
@@ -33,6 +39,8 @@ export const ValidationMessage = {
     BeA01: msg("be {0} {1}"),
     _0HasMoreThan1DecimalPlaces: msg("{0} has more than {1} decimal places"),
     Have0Decimals: msg("have {0} decimals"),
+    _0HasAPrecisionOf1InsteadOf2: msg("{0} has a precision of {1} instead of {2}"),
+    HaveAPrecisionOf0: msg("have a precision of {0}"),
 };
 
 // Signum's ComparisonType (Entities/Validation/ValidationAttributes.cs) — how a count / number validator
@@ -140,7 +148,19 @@ export interface StringLengthOptions extends ValidatorOptions {
 }
 
 export function stringLengthValidator(options: StringLengthOptions = {}) {
-    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new StringLengthValidator(options), options);
+    return (target: object, propertyKey: string | symbol) => {
+        addValidator(target, propertyKey, new StringLengthValidator(options), options);
+        // Stamped onto the FieldInfo the way `decimalsValidator` stamps `decimalPlaces`, because the six
+        // readers are CLIENT components that hold a `MemberInfo`, not a validator list: AutoLine's
+        // textarea dispatch, TextAreaLine's `maxLength` attribute and character counter, FinderRules'
+        // multi-line cell, SearchValue's filter editor. Signum fills both from the validator in
+        // `Reflector`, and both members have been declared on FieldInfo all along — with nothing writing
+        // them, so `multiLine: true` never actually produced a textarea (SMSMessageEntity.message among
+        // others) and no input ever carried its maximum length.
+        const fi = getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey));
+        if (options.max != null) fi.maxLength = options.max;
+        if (options.multiLine != null) fi.isMultiline = options.multiLine;
+    };
 }
 
 export class StringLengthValidator extends Validator {
@@ -254,6 +274,69 @@ function decimalFractionLength(value: number): number {
     }
     const dot = text.indexOf(".");
     return dot < 0 ? 0 : text.length - dot - 1;
+}
+
+// --- DateTimePrecisionValidator ---
+//
+// Signum's [DateTimePrecisionValidator(DateTimePrecision.Seconds)], the DATE sibling of DecimalsValidator
+// and, like it, more than a check — it is the one place a property says how far along a date it means,
+// and four readers take it from there:
+//
+//  • it validates that the value is not FINER than that (a stored 12:30:45.123 where seconds were
+//    promised is a lie the next round-trip may quietly change);
+//  • it is where the DISPLAY FORMAT comes from (`Reflector.GetFormatString`, altea's defaultFormat) —
+//    a date declared to the second shows its seconds, one declared to the day shows no time at all;
+//  • it TRIMS the query token's date sub-tokens (Signum's EntityPropertyToken/ColumnToken pass it to
+//    DateTimeProperties): no `Second` column under a date that never has one;
+//  • and `Days` precision is what makes a DateTime GROUPABLE (QueryToken.IsGroupable) — grouping rows by
+//    the millisecond is never meant, grouping them by the day is the whole point.
+//
+// It does NOT size the column, though the shape invites it: Signum's `SchemaSettings.GetSqlPrecision`
+// has the corresponding validator lookup COMMENTED OUT, and its DDL renders a precision only for a
+// decimal (`SqlBuilder.GetSizePrecisionScale` gates on IsDecimal). So a `datetime2`/`timestamp` keeps the
+// provider default width in both frameworks, and altea's getSqlSize/precision stay as they are — the
+// StringLengthValidator→size and DecimalsValidator→scale derivations have no third sibling here.
+//
+// altea divergences: the precision is copied onto the FieldInfo for the ONE reader that cannot walk the
+// validator list (defaultFormat, inside reflection.ts — see FieldInfo.dateTimePrecision; the query
+// tokens read the validator itself), and both messages name the precision through
+// `Enum.niceName` — Signum's error interpolates the raw enum member, because string.Format calls
+// ToString(), so its "has a precision of Milliseconds instead of Seconds" stays English in every culture.
+
+export interface DateTimePrecisionOptions extends ValidatorOptions { }
+
+export function dateTimePrecisionValidator(precision: DateTimePrecision, options: DateTimePrecisionOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => {
+        addValidator(target, propertyKey, new DateTimePrecisionValidator(precision), options);
+        // ONLY `defaultFormat` reads this copy — see the note above and FieldInfo.dateTimePrecision.
+        getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).dateTimePrecision =
+            Enum.toName(DateTimePrecision, precision);
+    };
+}
+
+export class DateTimePrecisionValidator extends Validator {
+    constructor(public readonly precision: DateTimePrecision) { super(); }
+
+    isCompatibleWith(type: Function) { return type === Temporal.PlainDateTime || type === Temporal.PlainDate; }
+
+    get helpMessage(): string {
+        return ValidationMessage.HaveAPrecisionOf0.niceToString(this.precisionName().toLowerCase());
+    }
+
+    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
+        if (value == null)
+            return null;
+        if (!(value instanceof Temporal.PlainDateTime) && !(value instanceof Temporal.PlainDate))
+            return null;
+
+        const actual = getPrecision(value);
+        return actual > this.precision
+            ? ValidationMessage._0HasAPrecisionOf1InsteadOf2.niceToString(
+                fi.niceToString(), Enum.niceName(DateTimePrecision, actual), this.precisionName())
+            : null;
+    }
+
+    private precisionName(): string { return Enum.niceName(DateTimePrecision, this.precision); }
 }
 
 // --- UrlValidator ---
@@ -489,8 +572,10 @@ function holds(comparison: ComparisonType, value: number, target: number): boole
 }
 
 // Signum's `ComparisonType.NiceToString().FirstLower()` — "greater than", "less than or equal to", …
-// Built from the member name rather than through `Enum.niceName`, so validators.ts stays free of the
-// enum-registry import (this module is loaded very early, next to reflection).
+// Built from the member name rather than through `Enum.niceName`, because ComparisonType is not
+// REGISTERED (no entity field is of that type and nothing calls registerEnum for it), so there is no
+// translation for niceName to find and it would humanise the same identifier by a longer route.
+// Contrast DateTimePrecision, which is registered and therefore does go through Enum.niceName.
 function comparisonName(comparison: ComparisonType): string {
     const name = ComparisonType[comparison];
     const spaced = name.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
