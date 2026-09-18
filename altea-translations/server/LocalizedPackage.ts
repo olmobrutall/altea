@@ -275,8 +275,10 @@ function registeredTypeSet(): Set<Function> {
 }
 
 function enumMemberNames(enumObject: object): string[] {
-    // A numeric TS enum is a two-way map; the NAME keys are the non-numeric ones.
-    return Object.keys(enumObject).filter(k => !/^\d+$/.test(k));
+    // A numeric TS enum is a two-way map; the NAME keys are the non-numeric ones. NEGATIVE values count:
+    // `UserState.New = -1` puts a "-1" key in the reverse map, and a filter of `/^\d+$/` let it through as
+    // a member, so the sync page asked for a German translation of "-1".
+    return Object.keys(enumObject).filter(k => !/^-?\d+$/.test(k));
 }
 
 // A msg container's members are LocalizableMessage instances; their `defaultDescription` is the text the
@@ -541,18 +543,27 @@ export interface StoredType {
 export function parseTranslationXml(xml: string): Map<string, StoredType> {
     const doc = parser.parse(xml) as { Translations?: { Type?: RawType[] } };
     const result = new Map<string, StoredType>();
+    // A type may appear MORE THAN ONCE, and the blocks are MERGED rather than the last one winning.
+    //
+    // A converted file routinely repeats one: TranslationConverter emits a snippet per rename target, and
+    // several of Signum's types can land on one of altea's — `QueryAllowedRule` takes its own description
+    // plus the members Signum keeps on the generic `AllowedRule\`2` and `AllowedRuleCoerced\`2`. Letting
+    // the last block win would silently drop the other two, which is the opposite of what duplicating
+    // them is for. Merging is also what makes "write more than the package declares and let the first
+    // synchronization simplify" true: `exportXml` writes one block per type, so the file self-heals.
+    //
+    // First non-empty wins, so the order of the blocks does not matter as long as they agree.
     for (const t of doc.Translations?.Type ?? []) {
         if (t.Name == undefined) continue;
-        const members = new Map<string, string>();
+        const name = String(t.Name);
+        const existing = result.get(name) ?? { members: new Map<string, string>() };
+        existing.description ??= t.Description == undefined ? undefined : String(t.Description);
+        existing.pluralDescription ??= t.PluralDescription == undefined ? undefined : String(t.PluralDescription);
+        existing.gender ??= t.Gender == undefined ? undefined : String(t.Gender);
         for (const m of t.Member ?? [])
-            if (m.Name != undefined && m.Description != undefined)
-                members.set(String(m.Name), String(m.Description));
-        result.set(String(t.Name), {
-            description: t.Description == undefined ? undefined : String(t.Description),
-            pluralDescription: t.PluralDescription == undefined ? undefined : String(t.PluralDescription),
-            gender: t.Gender == undefined ? undefined : String(t.Gender),
-            members,
-        });
+            if (m.Name != undefined && m.Description != undefined && !existing.members.has(String(m.Name)))
+                existing.members.set(String(m.Name), String(m.Description));
+        result.set(name, existing);
     }
     return result;
 }
