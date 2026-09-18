@@ -165,6 +165,33 @@ export const SearchMessage = {
     PleaseSelectOneOrSeveralEntities: msg("Please select one or several entities"),
     PleaseSelectA0_G: msg("Please select a {0}"),
     PleaseSelectAnEntity: msg("Please select an entity"),
+    // The label over a filter GROUP's own token, which every filter inside the group hangs off. Signum
+    // declares the member and then renders a hard-coded `Prefix:` beside the group's QueryTokenBuilder.
+    GroupPrefix: msg("Group prefix"),
+    // A filter GROUP can only share ONE value across its conditions, so its conditions must all agree on
+    // whether that value is a list: mixing `is in` with `equals` under one value is not expressible.
+    // `Error` is the (red) stand-in rendered where the value editor would be, with the sentence as its
+    // tooltip.
+    FilterGroupInvalidMixedOperations: msg("This filter group contains some operations that require a list ('is in' / 'is not in') and some that do not. Enable 'Split' or use the operation consistently."),
+    Error: msg("Error"),
+    // The aria-label of a result row's selection checkbox. {0} is the row's 1-based position — the only
+    // thing a screen reader can be told about a row before its cells are read.
+    SelectRow0_: msg("Select row {0}"),
+    // The `SmartSearch` filter operation's help popover: a vector search matches on MEANING, so there is
+    // no query syntax to list (the full-text operations show examples instead).
+    SmartSearchDescription: msg("Finds similar results based on meaning, not exact words"),
+    // The row count of an export selection ("Current page (25 rows)"). `_0Results_N`'s sibling: the export
+    // writes ROWS, which for a grouped query is not the same count as the underlying results.
+    _0Rows_N: msg("{0} rows"),
+    // A query the current role may not run at all (the query authorization dimension's refusal).
+    Query0NotAllowed: msg("Query {0} is not allowed"),
+    // Why a search that is ALLOWED still returned nothing: a query-auditor type condition
+    // (TypeConditionLogic.registerWhenAlreadyFilteringBy) grants the rows only to a caller that already
+    // pinned them down, so an unfiltered search legitimately matches zero rows. The first form is the
+    // generic one (the rule's symbols, {0}, and the type, {1}); the second names the very tokens the user
+    // has to filter by ({0} the type, {1} the tokens). Rendered by @altea/altea-auth's AuthAdminClient.
+    NoResultsFoundBecauseTheRule0DoesNotAllowedToExplore1WithoutFilteringFirst: msg("No results found because the rule {0} does not allow exploring {1} without filtering first"),
+    NoResultsFoundBecauseYouAreNotAllowedToExplore0WithoutFilteringBy1First: msg("No results found because you are not allowed to explore {0} without filtering by {1} first"),
 };
 
 export const SelectorMessage = {

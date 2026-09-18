@@ -20,6 +20,16 @@ import { AuthAdminMessage } from "../../data/AuthMessages";
 import { BasicPermission } from "../../data/Rules";
 import { AuthClient } from "../AuthClient";
 import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
+import { Finder } from "@altea/altea/client/Finder";
+import * as AppContext from "@altea/altea/client/AppContext";
+import { getQueryKey, type PseudoType } from "@altea/altea/client/Reflection";
+import type { QueryTokenString } from "@altea/altea/client/QueryTokenString";
+import { QueryToken, SubTokensOptionsAll } from "@altea/altea/client/QueryToken";
+import { isFilterCondition } from "@altea/altea/client/FindOptions";
+import type SearchControlLoaded from "@altea/altea/client/SearchControl/SearchControlLoaded";
+import { CollectionMessage } from "@altea/altea/data/dynamicQueries";
+import { SearchMessage } from "@altea/altea/data/uiMessages";
+import { TypeConditionSymbol } from "../../data/Rules";
 
 // Port of Signum.Authorization's AuthAdminClient.tsx — see port/Auth.md.
 //
@@ -156,6 +166,11 @@ export namespace AuthAdminClient {
             Navigator.isCreableEvent().push(typeName => typeAllowance(typeName) === TypeAllowedBasic.Write);
             Navigator.isReadonlyEvent().push(typeName => typeAllowance(typeName) < TypeAllowedBasic.Write);
 
+            // "No results found" is a lie when a QUERY-AUDITOR type condition is what emptied the table:
+            // the rows are there, the role simply may not SEE them until it says which ones it wants.
+            // See queryAuditorNoResultMessage.
+            Finder.onNoResultMessage().push(queryAuditorNoResultMessage);
+
             cb.configure(TypeRulePack).withView(() => import("./TypeRulePackControl"));
             QuickLinkClient.registerQuickLink(RoleEntity, new QuickLinkAction("types",
                 () => AuthAdminMessage.TypeRules.niceToString(),
@@ -256,6 +271,117 @@ export namespace AuthAdminClient {
             return ajaxPost({ url: "/api/authAdmin/trivialMergeRole" }, roles);
         }
     }
+
+    /**
+     * Tell the user WHICH filter a query-auditor type condition is waiting for.
+     *
+     * A condition registered with `TypeConditionLogic.registerWhenAlreadyFilteringBy` grants rows to a
+     * caller that pinned a property to a value it may read — so the module that registered it also knows
+     * the TOKEN a user has to filter by. Register that pair here (Signum's
+     * `AuthAdminClient.registerQueryAuditorToken`) and an empty result names the token instead of the
+     * bare rule. @altea/altea-diff-log registers `OperationLog.Target`.
+     *
+     * The registry lives in `AppContext.clientState`, so the re-registration every credential change
+     * triggers replaces it rather than appending to it.
+     */
+    export function registerQueryAuditorToken(
+        queryName: PseudoType,
+        token: string | QueryTokenString<any>,
+        typeCondition: TypeConditionSymbol,
+    ): void {
+        queryAuditorTokens().push({ queryKey: getQueryKey(queryName), token: token.toString(), typeCondition });
+    }
+
+    export function queryAuditorTokens(): QueryAuditorToken[] {
+        return AppContext.clientState.authQueryAuditorTokens ??= [];
+    }
+}
+
+export interface QueryAuditorToken {
+    queryKey: string;
+    token: string;
+    typeCondition: TypeConditionSymbol;
+}
+
+declare module "@altea/altea/client/AppContext" {
+    interface IClientState {
+        authQueryAuditorTokens?: QueryAuditorToken[];
+    }
+}
+
+/**
+ * Why an ALLOWED search legitimately came back empty.
+ *
+ * A type whose type-auth FALLBACK is `None` is reachable only through its condition rules, and a
+ * QUERY-AUDITOR condition among them decides from the CALLER'S OWN QUERY rather than from the row: "you
+ * may read these rows because you already pinned them to something you are allowed to read". An
+ * unfiltered search over such a type therefore matches nothing — not because nothing is there, but
+ * because nothing was asked for. The server ships the auditing conditions' keys per type
+ * (`TypeMetadata.queryAuditors`, stamped by AuthReflection).
+ *
+ * Two messages, as in Signum: the generic one when no module has said which token the rule wants, and the
+ * specific one naming the very tokens to filter by. In both cases a filter that ALREADY pins something
+ * (an `EqualTo`) means the search really did match nothing, so nothing is said.
+ *
+ * altea divergences:
+ *  - a GLOBAL Finder handler (Finder.onNoResultMessage) rather than a per-type `QuerySettings`
+ *    assignment. Signum can snapshot `getAllTypes()` at start; altea loads the reflection blob AFTER the
+ *    client modules register, so the answer has to be read at render time — which also keeps it correct
+ *    after a login / impersonation change;
+ *  - Signum's `similarToken` (which strips a leading `Entity.`) is plain string equality here, because
+ *    altea's tokens are rootless already;
+ *  - the token is rendered by resolving it against the query's own token tree (sync, client-side —
+ *    altea has no QueryDescription), falling back to the raw key.
+ */
+function queryAuditorNoResultMessage(sc: SearchControlLoaded): React.ReactElement | undefined {
+    const fo = sc.state.resultFindOptions;
+    if (fo == null)
+        return undefined;
+
+    const tis = sc.entityColumnTypeInfos();
+    const auditors = [...new Set(tis.flatMap(ti => (ti.ctor != null ? tryGetTypeMetadata(ti.ctor)?.queryAuditors : undefined) ?? []))];
+    if (auditors.length == 0)
+        return undefined;
+
+    const tokens = AuthAdminClient.queryAuditorTokens()
+        .filter(a => a.queryKey == fo.queryKey && auditors.includes(a.typeCondition.key));
+
+    const type = tis.map((ti, i) => <strong key={i}>{ti.getNicePluralName()}</strong>).joinCommaHtml(CollectionMessage.Or.niceToString());
+
+    if (tokens.length == 0) {
+        if (fo.filterOptions.some(f => isFilterCondition(f) && f.operation == "EqualTo"))
+            return undefined;
+        const symbols = auditors.map((a, i) => <strong key={i}>{a}</strong>).joinCommaHtml(CollectionMessage.And.niceToString());
+        return warning(SearchMessage.NoResultsFoundBecauseTheRule0DoesNotAllowedToExplore1WithoutFilteringFirst
+            .niceToString().formatHtml(symbols, type));
+    }
+
+    if (fo.filterOptions.some(f => isFilterCondition(f) && f.operation == "EqualTo"
+        && tokens.some(t => f.token?.fullKey() == t.token)))
+        return undefined;
+
+    const tokenCode = tokens.map((a, i) => <strong key={i}>{niceTokenName(sc.props.queryToken, a.token)}</strong>)
+        .joinCommaHtml(CollectionMessage.Or.niceToString());
+    return warning(SearchMessage.NoResultsFoundBecauseYouAreNotAllowedToExplore0WithoutFilteringBy1First
+        .niceToString().formatHtml(type, tokenCode));
+}
+
+function warning(content: React.ReactElement): React.ReactElement {
+    return <span className="text-warning"><FontAwesomeIcon aria-hidden={true} icon="hand" /> {content}</span>;
+}
+
+// A token key as a reader would recognise it, resolved hop by hop against the query's own token tree
+// (`QueryToken.subTokens` is synchronous for one level, which is all a registered auditor token needs in
+// practice). An unresolvable key falls back to itself, so an out-of-date registration still says something.
+function niceTokenName(root: QueryToken, fullKey: string): string {
+    let current: QueryToken = root;
+    for (const step of fullKey.split(".")) {
+        const next = current.subTokens(SubTokensOptionsAll).firstOrNull(t => t.key.toLowerCase() == step.toLowerCase());
+        if (next == null)
+            return fullKey;
+        current = next;
+    }
+    return current.niceName();
 }
 
 // The role's allowance for one property route. The best case across every type-condition slice, because

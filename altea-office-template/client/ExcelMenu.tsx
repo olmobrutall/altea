@@ -199,7 +199,7 @@ export async function selectPagination(sc: SearchControlLoaded): Promise<QueryRe
         message: ExcelMessage.WhatDoYouWantToExport.niceToString(),
         buttonDisplay: a => <span>
             {a === "All" ? SearchMessage.AllPages.niceToString() : SearchMessage.CurrentPage.niceToString()}{" "}
-            ({rt && SearchMessage._0Results_N.niceToString().forGenderAndNumber(a === "All" ? rt.totalElements : rt.rows.length)
+            ({rt && SearchMessage._0Rows_N.niceToString().forGenderAndNumber(a === "All" ? rt.totalElements : rt.rows.length)
                 .formatHtml(<strong>{a === "All" ? rt.totalElements : rt.rows.length}</strong>)})
         </span>,
         buttonName: a => a,

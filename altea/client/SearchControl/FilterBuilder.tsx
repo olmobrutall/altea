@@ -536,7 +536,7 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
                 {Enum.values(FilterGroupOperation).map((ft, i) => <option key={i} value={ft as any}>{ft == "Or" ? SearchMessage.OrGroup.niceToString() : SearchMessage.AndGroup.niceToString()}</option>)}
               </select>
               <small style={{ whiteSpace: "nowrap" }}>
-                Prefix:
+                {SearchMessage.GroupPrefix.niceToString()}:
               </small>
               <div className={classes("rw-widget-xs mx-2", fg.token == null ? "hidden" : undefined)}>
                 <QueryTokenBuilder

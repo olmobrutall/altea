@@ -139,6 +139,7 @@ declare module "./AppContext" {
     finder?: FinderClientState;
     finderRules?: FinderRulesClientState;
     finderButtonBar?: ((ctx: any) => ButtonBarElement | undefined)[];
+    finderNoResultMessage?: ((searchControl: SearchControlLoaded) => React.ReactElement | string | undefined)[];
     searchPageRenderTitle?: ((scl: any, defaultTitle: React.ReactNode) => React.ReactNode | undefined)[];
     searchPageTitleElements?: ((scl: any) => React.ReactNode)[];
   }
@@ -2514,6 +2515,33 @@ export namespace Finder {
       AppContext.clientState.finderButtonBar = undefined;
     }
 
+  }
+
+  /**
+   * GLOBAL "why is this empty" explanations, consulted by SearchControlLoaded when a search returned no
+   * rows and the per-query `QuerySettings.noResultMessage` said nothing. The first handler that returns
+   * something wins; `undefined` from all of them falls back to plain "No results found".
+   *
+   * DIVERGENCE from Signum, which has only the per-query hook and writes it onto each type's QuerySettings
+   * during `AuthAdminClient.start`. That is not reachable here: altea fetches the reflection metadata blob
+   * AFTER the client modules have registered (MainPublic's `reload()`), so at `start()` nothing yet knows
+   * which types the current role is restricted on — and the answer changes again on every login. A handler
+   * registered here reads the blob at RENDER time, so it is right for whoever is logged in now.
+   *
+   * Lives in `AppContext.clientState` like the button bar above, so `newClientState()` on a credential
+   * change drops it and re-registration cannot double it up.
+   */
+  export function onNoResultMessage(): ((searchControl: SearchControlLoaded) => React.ReactElement | string | undefined)[] {
+    return AppContext.clientState.finderNoResultMessage ??= [];
+  }
+
+  export function getNoResultMessage(searchControl: SearchControlLoaded): React.ReactElement | string | undefined {
+    for (const handler of onNoResultMessage()) {
+      const node = handler(searchControl);
+      if (node !== undefined)
+        return node;
+    }
+    return undefined;
   }
 
 

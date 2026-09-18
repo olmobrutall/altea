@@ -10,6 +10,7 @@ import { getKey, type QueryName } from "@altea/altea/data/dynamicQuery/queryUtil
 import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
+import { SearchMessage } from "@altea/altea/data/uiMessages";
 import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
@@ -96,7 +97,8 @@ export namespace QueryAuthLogic {
         // fullScreen:false → blocks only None.
         QueryLogic.assertQueryAllowedHook = async (queryName, fullScreen) => {
             if (!(await isQueryAllowed(queryName, fullScreen)))
-                throw new UnauthorizedAccessException(`Query '${getKey(queryName)}' is not authorized`);
+                // Localized: this refusal reaches the end user through the error modal, not just a log.
+                throw new UnauthorizedAccessException(SearchMessage.Query0NotAllowed.niceToString(getKey(queryName)));
         };
     }
 

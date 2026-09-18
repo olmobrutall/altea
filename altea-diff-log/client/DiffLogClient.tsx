@@ -2,6 +2,8 @@ import { ajaxGet } from "@altea/altea/client/Services";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import type { Lite } from "@altea/altea/data/lite";
 import { OperationLogEntity } from "@altea/altea/data/operationLog";
+import { AuthAdminClient } from "@altea/altea-auth/client/admin/AuthAdminClient";
+import { OperationLogTypeCondition } from "../data/DiffLog";
 
 // Registers the OperationLog view (which is what makes the diff tabs appear) and the two chain-walking
 // calls.
@@ -23,6 +25,14 @@ export namespace DiffLogClient {
                     token(a => a.exception),
                 ],
             }));
+
+        // The token behind `OperationLogTypeCondition.FilteringByTarget` (DiffLogLogic registers the
+        // condition itself). A role whose only way into the operation log is that condition sees nothing
+        // until it filters by Target — telling it so is the whole point of the registration.
+        AuthAdminClient.registerQueryAuditorToken(
+            OperationLogEntity,
+            OperationLogEntity.token(a => a.target),
+            OperationLogTypeCondition.FilteringByTarget);
     }
 
     export namespace API {

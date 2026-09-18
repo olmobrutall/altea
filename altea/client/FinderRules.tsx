@@ -22,7 +22,7 @@ import EntityLink from "./SearchControl/EntityLink";
 import type { Lite } from "../data/lite";
 import type { Entity } from "../data/entity";
 import type { FilterOptionParsed, FilterConditionOptionParsed, FilterGroupOptionParsed, FindOptions } from "./FindOptions";
-import { isFilterCondition, isFilterGroup, isList, isPair, getFilterOperations } from "./FindOptions";
+import { isFilterCondition, isFilterGroup, isList, isPair, getFilterOperations, isFullTextSearch, isComplexFullTextSearch, hasMixedListOperations } from "./FindOptions";
 import { TypeReference } from "../data/reflection";
 import type { FilterOperationKeys } from "../data/dynamicQueries";
 import type { QueryToken } from "./QueryToken";
@@ -45,6 +45,8 @@ import { TelephoneValidator, MultipleTelephoneValidator, EmailValidator } from "
 import { Temporal } from "../data/basics";
 import { toNumberFormat } from "./numberFormat";
 import { SearchMessage, JavascriptMessage } from "../data/uiMessages";
+import { TextAreaLine } from "./Lines/TextAreaLine";
+import { OverlayTrigger, Popover, Tooltip } from "react-bootstrap";
 
 // Render any result-cell value as text: a Lite/entity/Temporal/Decimal shows its toString() (a wire lite
 // via its `toStr`), a plain value via String().
@@ -406,6 +408,112 @@ function FilterMultiValue({ f, ffc }: { f: FilterConditionOptionParsed; ffc: Fin
   );
 }
 
+// ---- Full-text / smart search (Signum's FilterTextArea + ComplexConditionSyntax) ----
+// The full-text operations take a whole QUERY as their value — an expression in the dialect's own syntax
+// — so their editor is a TEXTAREA with a syntax cheat-sheet beside it, not a one-line box. Enter inserts
+// a newline for the operations with a real grammar (Shift+Enter is what runs the search), which is the
+// reverse of every other filter value.
+// (`isFullTextSearch` / `isComplexFullTextSearch` / `hasMixedListOperations` live in ./FindOptions, beside
+// `isList` and the full-text operation set they read.)
+
+interface FullTextSearchHelp {
+  icon: React.ReactElement;
+  title: string;
+  examples: string[];
+}
+
+// Per-operation help. The titles and examples are the dialect's own syntax, so they stay English (they are
+// literal query text); `SmartSearch` has no syntax at all, which is what SmartSearchDescription says.
+const fullTextSearchHelps: Partial<Record<FilterOperationKeys, FullTextSearchHelp>> = {
+  "ComplexCondition": {
+    icon: <span>OR</span>,
+    title: "Full-Text Search Syntax",
+    examples: [
+      "banana AND strawberry", "banana OR strawberry", "apple AND NOT (banana OR strawberry)",
+      "\"Dragon Fruit\" OR \"Passion Fruit\"", "*berry", "NEAR(\"apple\", \"orange\")", "NEAR((\"apple\", \"orange\"), 3)",
+    ],
+  },
+  "TsQuery": {
+    icon: <span>&</span>,
+    title: "Full-Text Search to_tsquery Syntax",
+    examples: [
+      "banana & strawberry", "banana | strawberry", "apple & !(banana | strawberry)",
+      "Dragon_Fruit | Passion_Fruit", "grape*", "apple <-> orange", "apple <3> orange",
+    ],
+  },
+  "TsQuery_Plain": {
+    icon: <FontAwesomeIcon aria-hidden={true} icon="quote-left" />,
+    title: "Full-Text Search plainto_tsquery Syntax",
+    examples: ["banana strawberry"],
+  },
+  "TsQuery_Phrase": {
+    icon: <FontAwesomeIcon aria-hidden={true} icon="align-left" />,
+    title: "Full-Text Search phraseto_tsquery Syntax",
+    examples: ["banana strawberry", "\"banana strawberry\" <3>"],
+  },
+  "TsQuery_WebSearch": {
+    icon: <FontAwesomeIcon aria-hidden={true} icon="globe" />,
+    title: "Full-Text Search websearch_to_tsquery Syntax",
+    examples: ["banana strawberry", "banana OR strawberry", "apple -banana -strawberry", "\"Dragon Fruit\" OR \"Passion Fruit\"", "grape*"],
+  },
+  "SmartSearch": {
+    icon: <FontAwesomeIcon aria-hidden={true} icon="brain" />,
+    title: "Smart Search",
+    examples: [],
+  },
+};
+
+/** The syntax cheat-sheet button beside a full-text / smart-search value. Renders nothing for an operation
+ *  with no help entry (`FreeText` — a plain bag of words). */
+export function ComplexConditionSyntax(p: { filterOperation: FilterOperationKeys }): React.ReactElement | null {
+  const help = fullTextSearchHelps[p.filterOperation];
+  if (help == null)
+    return null;
+
+  const popover = (
+    <Popover id="popover-full-text-syntax">
+      <Popover.Header as="h3">{help.title}</Popover.Header>
+      <Popover.Body>
+        {p.filterOperation === "SmartSearch"
+          ? <div>{SearchMessage.SmartSearchDescription.niceToString()}</div>
+          : <ul className="ps-3">
+            {help.examples.map((a, i) => <li key={i} style={{ whiteSpace: "nowrap" }}><code>{a}</code></li>)}
+          </ul>}
+      </Popover.Body>
+    </Popover>
+  );
+
+  return (
+    <OverlayTrigger trigger="click" placement="right" overlay={popover} rootClose>
+      <button type="button" className="sf-line-button sf-view btn input-group-text">{help.icon}</button>
+    </OverlayTrigger>
+  );
+}
+
+export function FilterTextArea(p: {
+  ctx: TypeContext<string | null>;
+  filterOperation: FilterOperationKeys | null;
+  onChange: () => void;
+  label?: string;
+}): React.ReactElement {
+  // The VALUE is always free text, whatever the token's own type is — a full-text query over a string
+  // column, a prose question over a Vector one. Signum passes `type={{ name: "string" }}`; altea's Lines
+  // read the type off the ctx, so stamp it (nullable: clearing a filter value must not trip the mandatory
+  // check on this route-less ctx).
+  p.ctx.typeReference = new TypeReference({ typeName: "String", isNullable: true });
+
+  // A grammar-carrying operation swallows a plain Enter (it is a line break inside the expression) and
+  // lets Shift+Enter through to the SearchControl's own key handler, which runs the search.
+  const grammar = p.filterOperation != null && p.filterOperation !== "FreeText";
+  return <TextAreaLine ctx={p.ctx} label={p.label}
+    valueHtmlAttributes={grammar ? {
+      onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey) e.preventDefault(); },
+      onKeyUp: e => { if (e.key === "Enter" && e.shiftKey) e.stopPropagation(); },
+    } : undefined}
+    extraButtons={() => p.filterOperation && <ComplexConditionSyntax filterOperation={p.filterOperation} />}
+    onChange={p.onChange} />;
+}
+
 // ---- Domain-restricted filter-value pickers (Signum's getDomainFindOptions) ----
 // A Lite/entity filter-value picker can be DOMAIN-restricted: when the query ALREADY filters an ancestor
 // entity's domain field to a value, the picker only offers entities whose OWN domain field matches. E.g.
@@ -585,6 +693,30 @@ export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
           onChange={() => ffc.handleValueChange(f)} label={ffc.label} />;
       },
     },
+    // A full-text operation's value is a whole expression in the dialect's own syntax, so it gets a
+    // textarea plus the syntax cheat-sheet (Signum's "TextArea" rule).
+    {
+      name: "TextArea",
+      applicable: (f, ffc) => isFilterCondition(f) && isFullTextSearch(f.operation ?? undefined),
+      renderValue: (f, ffc) => {
+        const fc = f as FilterConditionOptionParsed;
+        return <FilterTextArea ctx={ffc.ctx as TypeContext<string | null>} filterOperation={fc.operation ?? null}
+          onChange={() => ffc.handleValueChange(f, isComplexFullTextSearch(fc.operation ?? undefined))}
+          label={ffc.label ?? SearchMessage.Search.niceToString()} />;
+      },
+    },
+    // A VECTOR column's `SmartSearch`: free prose, matched on meaning. Same textarea, and the cheat-sheet
+    // button explains that there is no syntax (SearchMessage.SmartSearchDescription).
+    {
+      name: "VectorSmartSearch",
+      applicable: (f, ffc) => isFilterCondition(f) && f.token?.filterType == "Vector" && f.operation == "SmartSearch",
+      renderValue: (f, ffc) => {
+        const fc = f as FilterConditionOptionParsed;
+        return <FilterTextArea ctx={ffc.ctx as TypeContext<string | null>} filterOperation={fc.operation ?? null}
+          onChange={() => ffc.handleValueChange(f, false)}
+          label={ffc.label ?? SearchMessage.Search.niceToString()} />;
+      },
+    },
     // Filter group: a single value searched across the group's conditions (Signum's "FilterGroup" rule).
     // ALWAYS renders an editor — mirroring Signum's `AutoLine type={tr ?? { name: "string" }}` / TextBoxLine
     // fallback. altea's Lines read the value type from ctx.memberType (no `type` prop) and a group ctx has
@@ -601,6 +733,15 @@ export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
       renderValue: (f, ffc) => {
         const fg = f as FilterGroupOptionParsed;
         const label = ffc.label ?? SearchMessage.Search.niceToString();
+
+        // No editor can serve a group that mixes list and non-list operations over one value.
+        if (hasMixedListOperations(fg))
+          return (
+            <OverlayTrigger overlay={<Tooltip id="tooltip-mixed-operations">{SearchMessage.FilterGroupInvalidMixedOperations.niceToString()}</Tooltip>}>
+              <span className="text-danger">{SearchMessage.Error.niceToString()} <FontAwesomeIcon aria-hidden={true} icon="circle-info" /></span>
+            </OverlayTrigger>
+          );
+
         const stringTr = new TypeReference({ typeName: "String", isNullable: true });
 
         let tr: TypeReference;
@@ -632,8 +773,10 @@ export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
     //     lites via `.last(applicable)`.
     //   • "Lite_IsByAll" / "Lite_TypeEntity" — need IsByAll handling + the TypeEntity query/cleanName
     //     filtering; altea has TypeEntity but not the SearchControl wiring these rules assume.
-    //   • "TextArea" / "FilterGroup_TextArea" / "VectorSmartSearch" — full-text + vector search operations
-    //     (isFullTextSearch / SmartSearch), which altea's query engine doesn't expose yet.
+    //   • "FilterGroup_TextArea" — the full-text textarea for a GROUP whose subfilters are full-text
+    //     conditions. Needs the group multi-value rules below, which are not ported; a full-text group
+    //     falls back to the single "FilterGroup" editor. ("TextArea" and "VectorSmartSearch" ARE ported
+    //     above — the per-condition full-text / smart-search textarea plus its syntax cheat-sheet.)
     //   • "FilterGroup_MultiValue" — multi-value editor across a group's unified type; the single
     //     "FilterGroup" rule above covers the common (single-value) group case.
   ];

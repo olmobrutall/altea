@@ -5,7 +5,7 @@ import type { MetadataBlob } from "@altea/altea/data/metadata";
 import { AuthReflectionServer } from "@altea/altea-auth/server/AuthReflection";
 import { PropertyAllowed, TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
 import type { RoleEntity } from "@altea/altea-auth/data/Role";
-import { SampleEntity, SamplePanelEntity } from "../data/sample";
+import { SampleEntity, SamplePanelEntity, SampleLogEntity, SampleLogTypeCondition } from "../data/sample";
 import { start, hasDb, asRole, role, Roles } from "./setup";
 
 // What the ROLE-filtered metadata blob says, and — as much to the point — what it no longer bothers
@@ -114,6 +114,34 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
         const tm = (await blobFor(sales)).types[SampleEntity.name]!;
         assert.equal(tm.maxTypeAllowed, TypeAllowedBasic.Read);
         assert.ok(Object.keys(tm.routes ?? {}).length > 0, "its restricted routes are still described");
+    });
+
+    // ---- Query auditors -------------------------------------------------------------------------
+    // The one thing the blob says that is NOT an allowance: which of the role's type conditions decide
+    // from the CALLER'S QUERY rather than from the row. It is what lets the client answer "you have to
+    // filter first" instead of "no results found" when such a search comes back empty
+    // (AuthAdminClient's noResultMessage — SearchMessage.NoResultsFoundBecause…).
+    test("a query-auditor condition is named in the blob", async () => {
+        const blob = await blobFor(await role(Roles.LogReader));
+        assert.deepEqual(blob.types[SampleLogEntity.name]?.queryAuditors,
+            [SampleLogTypeCondition.FilteringByTarget.key],
+            "LogReader reads SampleLog ONLY through [FilteringByTarget], which audits the query");
+    });
+
+    // Shipped only where the FALLBACK is None: with any unconditional access the search is not empty
+    // because of the rule, so there is nothing to explain.
+    test("a role that reads the type unconditionally gets no auditors", async () => {
+        const blob = await blobFor(superR);
+        assert.ok(blob.types[SampleLogEntity.name] != null, "Super reads it");
+        assert.equal(blob.types[SampleLogEntity.name]?.queryAuditors, undefined);
+    });
+
+    // A NON-auditor condition (Restricted's Sample is fallback None + [Public] → Read, a plain row
+    // predicate) is not one: its rows are simply not there, and saying "filter first" would be wrong.
+    test("an ordinary row-level condition is not reported as an auditor", async () => {
+        const blob = await blobFor(await role(Roles.Restricted));
+        assert.ok(blob.types[SampleEntity.name] != null, "Restricted reads Sample conditionally");
+        assert.equal(blob.types[SampleEntity.name]?.queryAuditors, undefined);
     });
 
     // The two records are different questions about different keys, and a @part is where that shows: a

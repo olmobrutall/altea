@@ -491,6 +491,16 @@ declare module "@altea/altea/data/metadata" {
          * None has no entry at all.
          */
         maxTypeAllowed?: TypeAllowedBasic;
+        /**
+         * The keys of this role's QUERY-AUDITOR type conditions for the type — present only when the
+         * role's fallback is `None`, i.e. the type is readable ONLY through its condition rules, and at
+         * least one of those conditions decides by auditing the CALLER'S QUERY rather than the row
+         * (`TypeConditionLogic.registerWhenAlreadyFilteringBy`).
+         *
+         * It is what lets the client tell "there really are no such rows" from "you have to filter
+         * first" when a search comes back empty — see AuthAdminClient's `noResultMessage`.
+         */
+        queryAuditors?: string[];
     }
     interface RouteMetadata {
         /**

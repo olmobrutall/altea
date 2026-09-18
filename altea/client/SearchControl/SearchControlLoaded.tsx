@@ -1913,6 +1913,12 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
             return node;
         }
 
+        // Then the GLOBAL explanations (Finder.onNoResultMessage) — a query-specific message wins over
+        // them. @altea/altea-auth registers the one that says a row-level rule needs a filter first.
+        const global = Finder.getNoResultMessage(this);
+        if (global !== undefined)
+          return global;
+
         return SearchMessage.NoResultsFound.niceToString();
       }
       else
@@ -2048,7 +2054,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
                   className="sf-td-selection form-check-input"
                   checked={this.state.selectedRows!.includes(row)}
                   onChange={e => this.handleChecked(e, i)}
-                  aria-label={`Select row ${i + 1}`}
+                  aria-label={SearchMessage.SelectRow0_.niceToString(i + 1)}
                   data-index={i} />}
             </td>
           }

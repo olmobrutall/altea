@@ -11,7 +11,9 @@ import { TypeAuthLogic } from "./TypeAuthLogic";
 import { PropertyAuthLogic } from "./PropertyAuthLogic";
 import { PermissionAuthLogic } from "./PermissionAuthLogic";
 import { declaredSymbolsForType } from "@altea/altea/data/registration";
-import { PermissionSymbol, QueryAllowed, TypeAllowedBasic } from "../data/Rules";
+import { PermissionSymbol, QueryAllowed, TypeAllowed, TypeAllowedBasic } from "../data/Rules";
+import { TypeConditionLogic } from "./TypeConditionLogic";
+import { maxBound } from "./WithConditions";
 
 // Role-filtering overlay on the reflection metadata blob.
 // Installed once at web-host startup; runs inside each request's user scope, so it sees the current role.
@@ -65,17 +67,34 @@ export namespace AuthReflectionServer {
                     // undefined for an enum side-table / view — not type-auth'd.
                     const typeId = caches.tryTypeToId(ctor);
                     if (typeId == null) continue;
-                    const maxUI = await TypeAuthLogic.maxTypeAllowedUI(typeId, roleKey);
-                    if (maxUI >= TypeAllowedBasic.Write) continue;
+                    const allowed = await TypeAuthLogic.getAllowed(typeId, roleKey);
+                    const maxUI = maxBound(allowed, true);
 
                     if (maxUI === TypeAllowedBasic.None) {
                         delete meta.types[ctor.name];
                         continue;
                     }
                     const tm = meta.types[ctor.name];
+                    if (tm == null) continue;
+
                     // COARSE: one number, the best case across every type-condition slice — which is what
-                    // the UI gates on, having no row to evaluate a condition against.
-                    if (tm != null) tm.maxTypeAllowed = maxUI;
+                    // the UI gates on, having no row to evaluate a condition against. Only a RESTRICTED
+                    // type is stamped: the reader's default for a present entry is Write.
+                    if (maxUI < TypeAllowedBasic.Write) tm.maxTypeAllowed = maxUI;
+
+                    // A type whose FALLBACK is None is readable only through its condition rules — and
+                    // when one of those conditions is a QUERY AUDITOR
+                    // (TypeConditionLogic.registerWhenAlreadyFilteringBy), an UNFILTERED search over it
+                    // legitimately returns nothing. Ship the auditing conditions' keys so the client can
+                    // say so instead of a bare "No results found" (see AuthAdminClient's noResultMessage).
+                    // Not conditional on `maxUI < Write`: a condition rule may well grant Write.
+                    if (allowed.fallback === TypeAllowed.None) {
+                        const auditors = [...new Set(allowed.conditionRules
+                            .flatMap(cr => cr.typeConditions)
+                            .filter(tc => TypeConditionLogic.isQueryAuditor(ctor, tc))
+                            .map(tc => tc.key))];
+                        if (auditors.length > 0) tm.queryAuditors = auditors;
+                    }
                 }
             }
 

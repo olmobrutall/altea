@@ -402,6 +402,37 @@ const fullTextOperations: FilterOperationKeys[] = [
   "ComplexCondition", "FreeText", "TsQuery", "TsQuery_Plain", "TsQuery_Phrase", "TsQuery_WebSearch",
 ];
 
+/** A full-text operation's value is a QUERY in the dialect's own syntax, not a plain value — so it is
+ *  edited in a textarea with a syntax cheat-sheet (FinderRules' "TextArea" rule). */
+export function isFullTextSearch(fo: FilterOperationKeys | undefined): boolean {
+  return fo != null && fullTextOperations.includes(fo);
+}
+
+/** Of those, the ones whose value is a multi-token EXPRESSION rather than a bag of words: typing in one is
+ *  not a complete query until the user says so, so the editor does not search on every change. */
+export function isComplexFullTextSearch(fo: FilterOperationKeys | undefined): boolean {
+  return fo == "ComplexCondition" || fo == "TsQuery";
+}
+
+/** Every filter CONDITION under a group, nested groups included (Signum's getAllSubConditions). */
+export function allSubConditions(fg: FilterGroupOptionParsed): FilterConditionOptionParsed[] {
+  return fg.filters.flatMap(f => isFilterGroup(f) ? allSubConditions(f) : [f as FilterConditionOptionParsed]);
+}
+
+/**
+ * A filter GROUP shares ONE value across its conditions, so they have to agree on whether that value is a
+ * LIST: `is in` wants an array and `equals` a scalar, and no single editor is both. `pinned.splitValue` is
+ * the escape hatch — it splits the typed value per condition, so a mixture is then fine.
+ *
+ * Signum raises this from its two group multi-value rules; altea has one group rule, which asks here.
+ */
+export function hasMixedListOperations(fg: FilterGroupOptionParsed): boolean {
+  if (fg.pinned?.splitValue)
+    return false;
+  const subs = allSubConditions(fg).filter(sf => sf.operation != null);
+  return subs.some(sf => isList(sf.operation!)) && subs.some(sf => !isList(sf.operation!));
+}
+
 export function getFilterOperations(qt: QueryToken): FilterOperationKeys[] {
 
   if (qt.filterType == null)
