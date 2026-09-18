@@ -52,7 +52,7 @@ import type { WorkflowIssue } from "../data/WorkflowDtos";
 import { WorkflowNodeGraph, hasExpired, issueToString } from "./WorkflowNodeGraph";
 import { WorkflowBuilder } from "./WorkflowBuilder";
 import { registerWorkflowXml } from "./WorkflowXml";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // Port of Signum.Workflow's WorkflowLogic.cs — see port/Workflow.md.
 //

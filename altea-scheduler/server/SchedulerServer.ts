@@ -1,6 +1,6 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { SchedulerPermission } from "../data/Scheduler";
 import type { SchedulerState, SchedulerHealth } from "../data/SchedulerState";
 import { ScheduleTaskRunner } from "./ScheduleTaskRunner";
@@ -77,6 +77,6 @@ export namespace SchedulerServer {
 
 // The same shape @altea/altea-user-queries uses for its permission gate.
 async function assertAuthorized(): Promise<void> {
-    if (!(await PermissionAuthLogic.isAuthorized(SchedulerPermission.ViewSchedulerPanel)))
+    if (!(await PermissionLogic.isAuthorized(SchedulerPermission.ViewSchedulerPanel)))
         throw new UnauthorizedAccessException(`Not authorized for '${SchedulerPermission.ViewSchedulerPanel.key}'`);
 }

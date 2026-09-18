@@ -6,7 +6,7 @@ import { rowOrder } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { RoleEntity } from "./Role";
-import { PermissionSymbol } from "./Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 
 // Port of Signum.Authorization's BaseAD layer — see port/AuthDirectory.md.
 //

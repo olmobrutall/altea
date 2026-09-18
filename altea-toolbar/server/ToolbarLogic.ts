@@ -1,4 +1,5 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import "@altea/altea/server/fluentOperations"; // FluentInclude.withSave / withDelete
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import "@altea/altea/data/globals/arrayExtensions"; // groupWhen / notNull / firstOrNull / …
@@ -15,9 +16,9 @@ import { getTypeInfo, type TypeInfo } from "@altea/altea/data/reflection";
 import { Lite } from "@altea/altea/data/lite";
 import { Enum } from "@altea/altea/data/enum";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
-import { PermissionSymbol, TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
+import { TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { QueryAuthLogic } from "@altea/altea-auth/server/QueryAuthLogic";
 import { TypeAuthLogic } from "@altea/altea-auth/server/TypeAuthLogic";
 import { UserAssetLogic } from "@altea/altea-user-assets/server/UserAssetLogic";
@@ -194,7 +195,7 @@ export namespace ToolbarLogic {
             defaultLabel: async lite =>
                 (await SymbolLogic.cache(PermissionSymbol)).toSymbol(symbolKeyOf(lite)).niceToString(),
             isAuthorized: async lite =>
-                await PermissionAuthLogic.isAuthorized((await SymbolLogic.cache(PermissionSymbol)).toSymbol(symbolKeyOf(lite))),
+                await PermissionLogic.isAuthorized((await SymbolLogic.cache(PermissionSymbol)).toSymbol(symbolKeyOf(lite))),
             customResponses: async lite => {
                 const action = customPermissionResponse.get(symbolKeyOf(lite));
                 return action == null ? null : await action();

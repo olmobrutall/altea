@@ -1,4 +1,5 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { UserWithClaims } from "@altea/altea/data/security";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -10,7 +11,6 @@ import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { AuthServer } from "@altea/altea-auth/server/AuthServer";
 import { AuthTokenServer } from "@altea/altea-auth/server/AuthTokenServer";
 import { OpenIdConnect } from "@altea/altea-auth/server/OpenIdConnect";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { ActiveDirectoryPermission } from "@altea/altea-auth/data/BaseAD";
 import type { UserEntity } from "@altea/altea-auth/data/User";
 import { table } from "@altea/altea/server/table";
@@ -128,7 +128,7 @@ export namespace AzureADAuthenticationServer {
             ws.post("/api/createADGroup",
                 { req: CustomType<ADGroupRequest>(), res: CustomType<Lite<ADGroupEntity>>() },
                 async (req, res) => {
-                    if (!(await PermissionAuthLogic.isAuthorized(ActiveDirectoryPermission.InviteUsersFromAD)))
+                    if (!(await PermissionLogic.isAuthorized(ActiveDirectoryPermission.InviteUsersFromAD)))
                         throw new UnauthorizedAccessException(`Not authorized for '${ActiveDirectoryPermission.InviteUsersFromAD.key}'`);
 
                     const request = (await req.jsonTyped()) as ADGroupRequest | undefined;

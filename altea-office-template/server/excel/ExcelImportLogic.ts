@@ -12,10 +12,9 @@ import { parseQueryRequest } from "@altea/altea/server/queryServer";
 import type { QueryRequest as WireQueryRequest } from "@altea/altea/data/dynamicQuery/queryRequest";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { logAndBuildHttpError, type HttpError } from "@altea/altea/server/exceptionFilter";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { ExcelPermission, type ImportExcelModel } from "../../data/Excel";
 import { ExcelImporter } from "./ExcelImporter";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // Port of the IMPORT half of Signum.Excel's ExcelLogic.cs + ExcelController — see
 // port/OfficeTemplate.md. (ValidateForImport /
@@ -61,7 +60,7 @@ export namespace ExcelImportLogic {
     }
 
     async function assertImportAuthorized(): Promise<void> {
-        if (!(await PermissionAuthLogic.isAuthorized(ExcelPermission.ImportFromExcel)))
+        if (!(await PermissionLogic.isAuthorized(ExcelPermission.ImportFromExcel)))
             throw new UnauthorizedAccessException(`Not authorized for '${ExcelPermission.ImportFromExcel.key}'`);
     }
 

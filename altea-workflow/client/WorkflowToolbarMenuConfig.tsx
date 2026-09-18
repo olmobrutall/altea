@@ -10,7 +10,7 @@ import type { TypeInfo } from "@altea/altea/data/reflection";
 import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { Enum } from "@altea/altea/data/enum";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { ToolbarConfig, type ToolbarContext } from "@altea/altea-toolbar/client/ToolbarConfig";
 import type { ToolbarResponse } from "@altea/altea-toolbar/data/ToolbarResponse";
 import { ToolbarNavItem } from "@altea/altea-toolbar/client/Renderers/ToolbarRenderer";

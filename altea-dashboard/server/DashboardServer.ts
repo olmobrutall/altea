@@ -1,7 +1,7 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import type { Lite } from "@altea/altea/data/lite";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { UserAssetServer } from "@altea/altea-user-assets/server/UserAssetServer";
 import { DashboardEntity, DashboardPermission } from "../data/Dashboard";
 import type { DashboardWithCachedQueries } from "../data/CachedQuery";
@@ -79,6 +79,6 @@ export namespace DashboardServer {
 }
 
 async function assertAuthorized(): Promise<void> {
-    if (!(await PermissionAuthLogic.isAuthorized(DashboardPermission.ViewDashboard)))
+    if (!(await PermissionLogic.isAuthorized(DashboardPermission.ViewDashboard)))
         throw new UnauthorizedAccessException(`Not authorized for '${DashboardPermission.ViewDashboard.key}'`);
 }

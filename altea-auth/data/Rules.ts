@@ -4,6 +4,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { entity, part, uniqueIndex, backReference, valueField, rowOrder, legacyTableName, legacyColumnName } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { Symbol } from "@altea/altea/data/symbol";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { OperationSymbol } from "@altea/altea/data/operations";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
@@ -89,28 +90,14 @@ export function typeBasicToProperty(ta: TypeAllowedBasic): PropertyAllowed {
 
 // ---- Symbols ------------------------------------------------------------------------------------
 
-@reflect
-@entity("SystemString", "Master")
-export class PermissionSymbol extends Symbol {
-}
-
-// PermissionSymbol's table lives in the `basics` schema, not `auth`: a permission is core vocabulary —
-// every module declares its own — and only the RULES that grant one belong to authorization. The class is
-// declared inside the auth package that consumes it, so the schema is named per type. (TypeConditionSymbol
-// below stays in `auth`, as the database has it.)
-setDatabaseSchema("basics", PermissionSymbol);
+// PermissionSymbol and BasicPermission live in CORE (`@altea/altea/data/permissionSymbol`), where Signum
+// keeps them (Signum/Basics/PermissionSymbol.cs) — a permission is core vocabulary, and only the RULES
+// that grant one belong here. Deliberately NOT re-exported: a module that declares a permission should
+// import it from core and take no dependency on this package, which is the whole point of the move.
 
 @reflect
 @entity("SystemString", "Master")
 export class TypeConditionSymbol extends Symbol {
-}
-
-// The framework's own permissions; apps declare their own too.
-export namespace BasicPermission {
-    export const AdminRules: PermissionSymbol = init();
-    export const AutomaticUpgradeOfProperties: PermissionSymbol = init();
-    export const AutomaticUpgradeOfQueries: PermissionSymbol = init();
-    export const AutomaticUpgradeOfOperations: PermissionSymbol = init();
 }
 
 // ---- Persisted rules ----------------------------------------------------------------------------

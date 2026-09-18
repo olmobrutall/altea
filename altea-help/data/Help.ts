@@ -14,7 +14,7 @@ import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { FilePathEmbedded, FileTypeSymbol } from "@altea/altea-files/data/Files";
 import type { OmniboxResult, OmniboxMatch } from "@altea/altea-omnibox/data/OmniboxResults";
 

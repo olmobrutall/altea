@@ -10,7 +10,7 @@ import { TranslatedInstanceServer } from "./TranslatedInstanceServer";
 import {
     type ITranslator, AlreadyTranslatedTranslator, ReplacerTranslator,
 } from "./Translators";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // Port of Signum.Translation's TranslationLogic.cs — the module starter.
 //

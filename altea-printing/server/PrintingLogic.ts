@@ -23,7 +23,7 @@ import {
     PrintLineEntity, PrintLineOperation, PrintLineState, PrintPackageEntity, PrintPackageProcess,
     PrintPermission, PrintTask, type PrintStat,
 } from "../data/Printing";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // The print QUEUE's logic: the line's state machine, the batch process that walks a package, the panel's
 // "how many are waiting" statistics, and the scheduled task that reclaims the files of long-printed lines.

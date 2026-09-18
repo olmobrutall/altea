@@ -7,11 +7,13 @@ import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import type { PrimaryKey } from "@altea/altea/data/entity";
 import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
+import { AuthMessage } from "../data/AuthMessages";
 import {
-    RulePermissionEntity, PermissionSymbol, BasicPermission,
+    RulePermissionEntity,
     PermissionRulePack, PermissionAllowedRule,
 } from "../data/Rules";
-import { PermissionLogic } from "./PermissionLogic";
+import { PermissionSymbol, BasicPermission } from "@altea/altea/data/permissionSymbol";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { section, groupByRole, attrs, parseBool, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
@@ -72,10 +74,17 @@ export namespace PermissionAuthLogic {
         // own four.
         PermissionLogic.registerContainer(BasicPermission);
 
-        // The PermissionSymbol table and the per-role permission rules. The table holds the REGISTERED
-        // permissions,
-        // not every declared one: see PermissionLogic for what that distinction buys and what it costs.
-        SymbolLogic.start(sb, PermissionSymbol, () => PermissionLogic.registeredPermissions());
+        // The PermissionSymbol table, which CORE owns — it holds the REGISTERED permissions, not every
+        // declared one: see PermissionLogic for what that distinction buys and what it costs. Idempotent,
+        // so an app that already started it itself (as Southwind's Starter does) is not double-started.
+        PermissionLogic.start(sb);
+
+        // Core asks the question, this module answers it — Signum assigns its one multicast
+        // IsAuthorizedImplementation right here, for the same reason.
+        PermissionLogic.registerIsAuthorizedImplementation(async permission =>
+            await isAuthorized(permission) ? null
+                : AuthMessage.Permission0IsDenied.niceToString(permission.toString()));
+
         // No `withQuery()` — see TypeAuthLogic: a rule table has no search page.
         sb.include(RulePermissionEntity);
         // globalLazy runs the factory

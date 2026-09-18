@@ -2,7 +2,7 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { EmbeddedEntity, ModelEntity } from "@altea/altea/data/entity";
 import { stringLengthValidator, validate, ValidationMessage, noRepeatValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { FileEmbedded } from "@altea/altea-files/data/Files";
 
 // Port of Signum.Excel's ExcelImportModel.cs + the permission / message declarations of Signum.Excel.ts —

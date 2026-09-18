@@ -11,7 +11,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";

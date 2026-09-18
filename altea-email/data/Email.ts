@@ -7,7 +7,7 @@ import {
 } from "@altea/altea/data/validators";
 import { type int, toInt, type uuid } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { FileTypeSymbol } from "@altea/altea-files/data/Files";
 import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";

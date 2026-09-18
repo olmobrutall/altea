@@ -8,7 +8,7 @@ import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 
 // Port of Signum.Translation's TranslationReplacement.cs + Instances/TranslatedInstance.cs +
 // TranslatorMessage.cs — the two stored types of the module and its vocabulary.

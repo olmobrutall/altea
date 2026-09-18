@@ -1,4 +1,5 @@
 import { cleanTypeName } from "@altea/altea/data/registration";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import type { HelpOmniboxResult, OmniboxResult } from "@altea/altea-omnibox/data/OmniboxResults";
 import { OmniboxMessage } from "@altea/altea-omnibox/data/OmniboxMessages";
 import {
@@ -7,7 +8,6 @@ import {
 } from "@altea/altea-omnibox/server/OmniboxParser";
 import { contains, isPascalCasePattern, matches } from "@altea/altea-omnibox/server/OmniboxUtils";
 import { allowedTypeFilter } from "@altea/altea-omnibox/server/OmniboxAuth";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import {
     HelpMessage, HelpPermissions, HelpModuleOmniboxResultTypeName, type HelpModuleOmniboxResult,
 } from "../data/Help";
@@ -28,7 +28,7 @@ export class HelpOmniboxResultGenerator implements OmniboxResultGenerator {
         if (tokens.length === 0 || !REGEX.test(tokenPattern))
             return [];
 
-        if (!await PermissionAuthLogic.isAuthorized(HelpPermissions.ViewHelp))
+        if (!await PermissionLogic.isAuthorized(HelpPermissions.ViewHelp))
             return [];
 
         const niceName = OmniboxMessage.Omnibox_Help.niceToString();

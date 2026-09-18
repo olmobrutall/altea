@@ -4,7 +4,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { type uuid } from "@altea/altea/data/basics";
 import { column } from "@altea/altea/data/decorators";
 import { msg } from "@altea/altea/data/utils/localization";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import type { TypeEntity } from "@altea/altea/data/typeEntity";
 
 // LEGACY (kept only for altea-chart's filter-row enums, pending their conversion). The user-assets /

@@ -13,7 +13,7 @@ import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import { OrderType } from "@altea/altea/data/dynamicQueries";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { FileEntity } from "@altea/altea-files/data/Files";
 import { QueryTokenEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";

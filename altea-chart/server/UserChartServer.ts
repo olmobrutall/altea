@@ -1,9 +1,9 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import type { Lite } from "@altea/altea/data/lite";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { ChartPermission } from "../data/ChartPermissions";
 import { UserChartEntity } from "../data/UserChart";
 import { UserChartLogic } from "./UserChartLogic";
@@ -46,6 +46,6 @@ export namespace UserChartServer {
 }
 
 async function assertAuthorized(): Promise<void> {
-    if (!(await PermissionAuthLogic.isAuthorized(ChartPermission.ViewCharting)))
+    if (!(await PermissionLogic.isAuthorized(ChartPermission.ViewCharting)))
         throw new UnauthorizedAccessException(`Not authorized for '${ChartPermission.ViewCharting.key}'`);
 }

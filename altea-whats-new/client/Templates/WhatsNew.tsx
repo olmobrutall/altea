@@ -16,7 +16,7 @@ import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { OperationSymbol } from "@altea/altea/data/operations";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { FileLine } from "@altea/altea-files/client/Components/FileLine";
 import type { Entity, Type } from "@altea/altea/data/entity";
 import {

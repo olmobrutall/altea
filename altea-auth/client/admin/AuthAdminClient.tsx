@@ -17,7 +17,7 @@ import { SessionLogEntity } from "../../data/SessionLog";
 import { RoleEntity } from "../../data/Role";
 import { TypeRulePack, PermissionRulePack, OperationRulePack, QueryRulePack, PropertyRulePack, TypeAllowedBasic, PropertyAllowed } from "../../data/Rules";
 import { AuthAdminMessage } from "../../data/AuthMessages";
-import { BasicPermission } from "../../data/Rules";
+import { BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { AuthClient } from "../AuthClient";
 import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
 import { Finder } from "@altea/altea/client/Finder";

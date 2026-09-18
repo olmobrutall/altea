@@ -1,4 +1,5 @@
 import "@altea/altea/server";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
@@ -9,7 +10,6 @@ import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { Entity } from "@altea/altea/data/entity";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import type { Lite } from "@altea/altea/data/lite";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import {
     AppendixHelpEntity, AppendixHelpOperation,
     NamespaceHelpEntity, NamespaceHelpOperation,
@@ -253,12 +253,12 @@ export namespace HelpServer {
     }
 
     async function assertView(): Promise<void> {
-        if (!(await PermissionAuthLogic.isAuthorized(HelpPermissions.ViewHelp)))
+        if (!(await PermissionLogic.isAuthorized(HelpPermissions.ViewHelp)))
             throw new UnauthorizedAccessException(`Not authorized for '${HelpPermissions.ViewHelp.key}'`);
     }
 
     async function assertExport(): Promise<void> {
-        if (!(await PermissionAuthLogic.isAuthorized(HelpPermissions.ExportHelp)))
+        if (!(await PermissionLogic.isAuthorized(HelpPermissions.ExportHelp)))
             throw new UnauthorizedAccessException(`Not authorized for '${HelpPermissions.ExportHelp.key}'`);
     }
 

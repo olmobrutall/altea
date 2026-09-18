@@ -1,6 +1,6 @@
 import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { msg } from "@altea/altea/data/utils/localization";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 
 // Port of Signum.Omnibox's OmniboxMessage enum (OmniboxUtils.cs) — see port/Omnibox.md.
 export const OmniboxMessage = {

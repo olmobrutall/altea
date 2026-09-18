@@ -7,10 +7,9 @@ import { getNiceName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import type { QueryRequest } from "@altea/altea/server/dynamicQuery/requests";
 import type { QueryRequest as WireQueryRequest } from "@altea/altea/data/dynamicQuery/queryRequest";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { ExcelPermission } from "../../data/Excel";
 import { PlainExcelGenerator } from "./PlainExcelGenerator";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // Port of the PLAIN-EXCEL half of Signum.Excel's ExcelLogic.cs + ExcelController.ToPlainExcel: export any
 // query's rows to .xlsx, with the query's own columns as the header row.
@@ -52,7 +51,7 @@ export namespace PlainExcelLogic {
     }
 
     async function assertPlainExcelAuthorized(): Promise<void> {
-        if (!(await PermissionAuthLogic.isAuthorized(ExcelPermission.PlainExcel)))
+        if (!(await PermissionLogic.isAuthorized(ExcelPermission.PlainExcel)))
             throw new UnauthorizedAccessException(`Not authorized for '${ExcelPermission.PlainExcel.key}'`);
     }
 

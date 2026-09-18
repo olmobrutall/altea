@@ -14,7 +14,7 @@ import type { RoleEntity } from "../data/Role";
 import type { UserEntity } from "../data/User";
 import { AuthLogic } from "./AuthLogic";
 import { PermissionAuthLogic } from "./PermissionAuthLogic";
-import { PermissionLogic } from "./PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // Port of Signum.Authorization's SessionLog/SessionLogLogic.cs — see port/Auth.md.
 //

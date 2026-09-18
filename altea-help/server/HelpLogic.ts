@@ -38,7 +38,7 @@ import {
 } from "../data/Help";
 import { HelpGenerator } from "./HelpGenerator";
 import { InlineImagesLogic } from "./InlineImagesLogic";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { HelpPermissions } from "../data/Help";
 
 // Port of Signum.Help's HelpLogic.cs — the module's registrations plus the per-culture caches the pages

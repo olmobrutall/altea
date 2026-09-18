@@ -1,10 +1,10 @@
 import type { Request } from "express";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { WebBuilder, CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
 import { HeavyProfiler, HeavyProfilerEntry, parseStackTrace } from "@altea/altea/server/profiler/heavyProfiler";
 import { TimeTracker } from "@altea/altea/server/profiler/timeTracker";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
-import type { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import type { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { ProfilerPermission } from "../data/ProfilerPermission";
 
 // Port of Signum's ProfilerHeavyController + ProfilerTimesController (Signum.Profiler). The HTTP surface
@@ -116,7 +116,7 @@ export namespace ProfilerServer {
 }
 
 async function assertAuthorized(permission: PermissionSymbol): Promise<void> {
-    if (!(await PermissionAuthLogic.isAuthorized(permission)))
+    if (!(await PermissionLogic.isAuthorized(permission)))
         throw new UnauthorizedAccessException(`Not authorized for '${permission.key}'`);
 }
 

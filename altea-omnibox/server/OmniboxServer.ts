@@ -1,6 +1,6 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import type { OmniboxRequest, OmniboxResult } from "../data/OmniboxResults";
 import { OmniboxPermission } from "../data/OmniboxMessages";
 import { OmniboxParser } from "./OmniboxParser";
@@ -17,7 +17,7 @@ export namespace OmniboxServer {
         ws.post("/api/omnibox",
             { req: CustomType<OmniboxRequest>(), res: CustomType<OmniboxResult[]>() },
             async (req, res) => {
-                if (!(await PermissionAuthLogic.isAuthorized(OmniboxPermission.ViewOmnibox)))
+                if (!(await PermissionLogic.isAuthorized(OmniboxPermission.ViewOmnibox)))
                     throw new UnauthorizedAccessException(`Not authorized for '${OmniboxPermission.ViewOmnibox.key}'`);
 
                 const request = (await req.jsonTyped()) as OmniboxRequest | undefined;

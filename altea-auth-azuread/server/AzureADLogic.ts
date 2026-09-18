@@ -31,7 +31,7 @@ import { AzureADAuthorizer, MicrosoftGraphCreateUserContext } from "./AzureADAut
 import { AzureADAuthenticationServer } from "./AzureADAuthenticationServer";
 import { MicrosoftGraph, type GraphCollection, type GraphGroup, type GraphUser } from "./MicrosoftGraph";
 import { MicrosoftGraphQueryConverter } from "./MicrosoftGraphQueryConverter";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // The module's start-up plus every Microsoft Graph
 // operation it offers: the nightly deactivate-users sweep, the two directory-backed search queries, the

@@ -25,8 +25,9 @@ import { RoleEntity, RoleEntity_InheritsFrom, MergeStrategy } from "@altea/altea
 import {
     RuleTypeEntity, RuleTypeConditionEntity, RuleTypeConditionEntity_Condition,
     RulePropertyEntity, RuleOperationEntity, RulePermissionEntity,
-    TypeAllowed, PropertyAllowed, OperationAllowed, TypeConditionSymbol, PermissionSymbol, BasicPermission,
+    TypeAllowed, PropertyAllowed, OperationAllowed, TypeConditionSymbol,
 } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol, BasicPermission } from "@altea/altea/data/permissionSymbol";
 import {
     SampleEntity, SamplePanelEntity, SampleWidgetEntity, SampleLogEntity,
     SampleOperation, SampleTypeCondition, SampleLogTypeCondition,

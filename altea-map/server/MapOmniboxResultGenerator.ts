@@ -1,4 +1,5 @@
 import { cleanTypeName } from "@altea/altea/data/registration";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import type { HelpOmniboxResult, OmniboxResult } from "@altea/altea-omnibox/data/OmniboxResults";
 import {
     OmniboxParser, helpResult,
@@ -6,7 +7,6 @@ import {
 } from "@altea/altea-omnibox/server/OmniboxParser";
 import { contains, isPascalCasePattern, matches } from "@altea/altea-omnibox/server/OmniboxUtils";
 import { allowedTypeFilter } from "@altea/altea-omnibox/server/OmniboxAuth";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { OmniboxMessage } from "@altea/altea-omnibox/data/OmniboxMessages";
 import { MapMessage, MapPermission, MapOmniboxResultTypeName, type MapOmniboxResult } from "../data/Map";
 
@@ -36,7 +36,7 @@ export class MapOmniboxResultGenerator implements OmniboxResultGenerator {
         if (!REGEX.test(tokenPattern))
             return [];
 
-        if (!await PermissionAuthLogic.isAuthorized(MapPermission.ViewMap))
+        if (!await PermissionLogic.isAuthorized(MapPermission.ViewMap))
             return [];
 
         const niceName = MapMessage.Map.niceToString();

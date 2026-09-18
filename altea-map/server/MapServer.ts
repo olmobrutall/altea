@@ -1,9 +1,9 @@
 import "@altea/altea/server";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
 import { Schema } from "@altea/altea/server/schema";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { Entity } from "@altea/altea/data/entity";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { MapMessage, MapPermission, type OperationMapInfo, type SchemaMapInfo } from "../data/Map";
 import { MapColorProvider } from "./MapColorProvider";
@@ -47,7 +47,7 @@ export namespace MapServer {
     }
 
     async function assertAuthorized(): Promise<void> {
-        if (!(await PermissionAuthLogic.isAuthorized(MapPermission.ViewMap)))
+        if (!(await PermissionLogic.isAuthorized(MapPermission.ViewMap)))
             throw new UnauthorizedAccessException(`Not authorized for '${MapPermission.ViewMap.key}'`);
     }
 

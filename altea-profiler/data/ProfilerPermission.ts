@@ -1,5 +1,5 @@
 import { init } from "@altea/altea/data/reflection";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 
 // Port of Signum's ProfilerPermission (Signum.Profiler/ProfilerPermissions.cs). Reuses altea-auth's ONE
 // PermissionSymbol class/table (Signum keeps all permissions in the PermissionSymbol table too) — the

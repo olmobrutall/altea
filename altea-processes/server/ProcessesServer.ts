@@ -1,6 +1,6 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { ProcessPermission } from "../data/Processes";
 import type { ProcessLogicState, ProcessHealth } from "../data/ProcessLogicState";
 import { ProcessRunner } from "./ProcessRunner";
@@ -71,6 +71,6 @@ export namespace ProcessesServer {
 }
 
 async function assertAuthorized(): Promise<void> {
-    if (!(await PermissionAuthLogic.isAuthorized(ProcessPermission.ViewProcessPanel)))
+    if (!(await PermissionLogic.isAuthorized(ProcessPermission.ViewProcessPanel)))
         throw new UnauthorizedAccessException(`Not authorized for '${ProcessPermission.ViewProcessPanel.key}'`);
 }

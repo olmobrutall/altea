@@ -1,6 +1,6 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { ChartPermission } from "../data/ChartPermissions";
 import type { ChartScript } from "../data/ChartScript";
 import type { ChartScriptColumn } from "../data/ChartScriptColumn";
@@ -100,7 +100,7 @@ export namespace ChartServer {
         ws.get("/api/chart/scripts",
             { res: CustomType<ChartScriptTS[]>() },
             async (_req, res) => {
-                if (!(await PermissionAuthLogic.isAuthorized(ChartPermission.ViewCharting)))
+                if (!(await PermissionLogic.isAuthorized(ChartPermission.ViewCharting)))
                     throw new UnauthorizedAccessException(`Not authorized for '${ChartPermission.ViewCharting.key}'`);
 
                 res.json([...ChartScriptLogic.scripts.values()].map(chartScriptTS));

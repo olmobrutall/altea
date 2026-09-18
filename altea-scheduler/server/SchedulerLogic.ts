@@ -30,7 +30,7 @@ import { HolidayCalendarLogic } from "./HolidayCalendarLogic";
 import { SimpleTaskLogic } from "./SimpleTaskLogic";
 import { ScheduleTaskRunner, type ScheduledTaskContext } from "./ScheduleTaskRunner";
 import { SchedulerServer } from "./SchedulerServer";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // The module's `start(sb)`: the three tables, the operations, the task-dispatch registry, and the cache of
 // tasks this host should run.

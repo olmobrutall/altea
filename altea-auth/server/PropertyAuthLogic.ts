@@ -24,8 +24,9 @@ import {
     RulePropertyEntity, RulePropertyConditionEntity, RulePropertyConditionEntity_Condition,
     RulePermissionEntity, RuleTypeEntity, PropertyRulePack, PropertyAllowedRule, PropertyAllowed, TypeAllowed,
     PropertyWithConditionsModel, PropertyConditionRuleModel, TypeConditionSymbol, TypeConditionSetModel,
-    BasicPermission, typeAllowedUI, typeBasicToProperty,
+    typeAllowedUI, typeBasicToProperty,
 } from "../data/Rules";
+import { BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { WithConditions, ConditionRule, evaluateConditions } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
 import { section, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";

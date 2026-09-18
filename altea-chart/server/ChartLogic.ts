@@ -4,7 +4,7 @@ import { ChartServer } from "./ChartServer";
 import "../data/ChartPermissions"; // evaluate the module so ChartPermission.ViewCharting registers (auto-seeded)
 import { UserChartTokenSync } from "./UserChartTokenSync";
 import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { ChartPermission } from "../data/ChartPermissions";
 
 // Port of Signum.Chart/ChartLogic.cs (Start). Registers the ChartScript catalog + symbol table and, when a

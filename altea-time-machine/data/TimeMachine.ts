@@ -1,6 +1,6 @@
 import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { msg } from "@altea/altea/data/utils/localization";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 
 // The messages the Time Machine UI reads and the one permission that gates it.
 //

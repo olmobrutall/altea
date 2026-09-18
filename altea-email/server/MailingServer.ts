@@ -1,10 +1,10 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { retrieve } from "@altea/altea/server/Database";
 import { Entity, type Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { cleanTypeName } from "@altea/altea/data/registration";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { AsyncEmailSenderPermission } from "../data/Email";
 import type { AsyncEmailSenderState, AsyncEmailSenderHealth } from "../data/AsyncEmailSenderState";
 import { EmailTemplateVisibleOn, type EmailTemplateEntity } from "../data/EmailTemplate";
@@ -123,6 +123,6 @@ function visibleOnOf(name: string): EmailTemplateVisibleOn {
 
 // The same shape @altea/altea-scheduler uses for its permission gate.
 async function assertAuthorized(): Promise<void> {
-    if (!(await PermissionAuthLogic.isAuthorized(AsyncEmailSenderPermission.ViewAsyncEmailSenderPanel)))
+    if (!(await PermissionLogic.isAuthorized(AsyncEmailSenderPermission.ViewAsyncEmailSenderPanel)))
         throw new UnauthorizedAccessException(`Not authorized for '${AsyncEmailSenderPermission.ViewAsyncEmailSenderPanel.key}'`);
 }

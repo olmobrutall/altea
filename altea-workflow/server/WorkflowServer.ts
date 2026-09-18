@@ -1,4 +1,5 @@
 import "@altea/altea/data/globals/arrayExtensions";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
 import { getEntityPack } from "@altea/altea/server/operationServer";
 import { table } from "@altea/altea/server/table";
@@ -6,10 +7,9 @@ import { retrieve } from "@altea/altea/server/Database";
 import { assertGraphIntegrityAsync } from "@altea/altea/server/graphExplorer";
 import { Operations } from "@altea/altea/server/operationLogic";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { parseQueryRequest } from "@altea/altea/server/queryServer";
-import type { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import type { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
@@ -307,7 +307,7 @@ export namespace WorkflowServer {
     }
 
     async function assertAuthorized(permission: PermissionSymbol): Promise<void> {
-        if (!(await PermissionAuthLogic.isAuthorized(permission)))
+        if (!(await PermissionLogic.isAuthorized(permission)))
             throw new UnauthorizedAccessException(`Not authorized for '${permission.key}'`);
     }
 

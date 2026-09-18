@@ -1,8 +1,8 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { GlobalLazy } from "@altea/altea/server/globalLazy";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
-import type { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import type { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { CachePermission } from "../data/CachePermission";
 import type { CacheStateTS, CacheTableTS, InvalidateAllRequest, InvalidateTableRequest, ResetLazyStatsTS } from "../data/CacheState";
 import { CacheLogic } from "./CacheLogic";
@@ -77,7 +77,7 @@ function httpBroadcast(): SimpleHttpBroadcast {
 }
 
 async function assertAuthorized(permission: PermissionSymbol): Promise<void> {
-    if (!(await PermissionAuthLogic.isAuthorized(permission)))
+    if (!(await PermissionLogic.isAuthorized(permission)))
         throw new UnauthorizedAccessException(`Not authorized for '${permission.key}'`);
 }
 

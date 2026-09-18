@@ -1,4 +1,5 @@
 import "@altea/altea/server";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
@@ -13,8 +14,7 @@ import type { IQuery } from "@altea/altea/data/iquery";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { QueryAuthLogic } from "@altea/altea-auth/server/QueryAuthLogic";
 import { TypeConditionLogic } from "@altea/altea-auth/server/TypeConditionLogic";
 import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
@@ -75,7 +75,7 @@ export namespace WhatsNewLogic {
         registerRelatedConfig(QueryEntity, async lite =>
             await QueryAuthLogic.isQueryAllowed(QueryLogic.toQueryName(lite.toString()), true));
         registerRelatedConfig(PermissionSymbol, async lite =>
-            await PermissionAuthLogic.isAuthorized((await SymbolLogic.cache(PermissionSymbol)).toSymbol(lite.toString())));
+            await PermissionLogic.isAuthorized((await SymbolLogic.cache(PermissionSymbol)).toSymbol(lite.toString())));
 
     }
 

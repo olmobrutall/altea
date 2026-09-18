@@ -1,5 +1,5 @@
 import { init } from "@altea/altea/data/reflection";
-import type { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import type { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 
 // Its own module because a permission container is a symbol container: the metadata builder groups it by
 // the container half of the key, so keeping it apart from the entity model makes the one thing this file

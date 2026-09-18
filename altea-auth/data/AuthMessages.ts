@@ -75,6 +75,9 @@ export const AuthMessage = {
     NotAuthorizedTo0The1WithId2: msg("Not authorized to {0} the '{1}' with Id {2}"),
     NotAuthorizedToRetrieve0: msg("Not authorized to retrieve '{0}'"),
     NotAuthorizedTo01: msg("Not authorized to {0} '{1}'"),
+    // The refusal core's PermissionLogic.assertAuthorized reports. Signum builds this one as a raw English
+    // literal inside PermissionAuthLogic.Start, so there is no Signum text to port for it.
+    Permission0IsDenied: msg("Permission '{0}' is denied"),
     OnlyActive: msg(),
     IncludeTrivialMerges: msg(),
     DefaultAuthorization: msg("Default Authorization: "),

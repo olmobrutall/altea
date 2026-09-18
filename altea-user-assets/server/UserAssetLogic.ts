@@ -1,7 +1,7 @@
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { UserAssetServer } from "./UserAssetServer";
 import "../data/UserAssets"; // seed UserAssetPermission.UserAssetsToXML (transformer init → PermissionSymbol set)
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { UserAssetPermission } from "../data/UserAssets";
 
 // The UserAssets wiring — see port/UserAssets.md. There is no persistent UserAssets entity

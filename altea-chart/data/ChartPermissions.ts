@@ -1,5 +1,5 @@
 import { init } from "@altea/altea/data/reflection";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 
 // Port of Signum's ChartPermission (Signum.Chart/ChartPermissions.cs). Reuses altea-auth's single
 // PermissionSymbol table (like UserQueryPermission).

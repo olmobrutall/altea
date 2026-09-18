@@ -10,7 +10,7 @@ import { Entity, type Type, type PrimaryKey } from "@altea/altea/data/entity";
 import { Temporal } from "@altea/altea/data/basics";
 import { TimeMachinePermission } from "../data/TimeMachine";
 import { TimeMachineServer } from "./TimeMachineServer";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // The module starter plus the two RESTORE helpers. An application calls them from its own operation; the
 // module ships no button of its own.

@@ -21,7 +21,7 @@ import { DynamicMixinConnectionLogic } from "./DynamicMixinConnectionLogic";
 import { DynamicApiLogic } from "./DynamicApiLogic";
 import { DynamicIsolationLogic } from "./DynamicIsolationLogic";
 import { DynamicCodeCompiler, type GeneratedModule, type DynamicCompilationResult } from "./DynamicCodeCompiler";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // Port of Signum.Dynamic's DynamicLogic.cs — the module's ENTRY POINT: which features are started, in what
 // order, and what happens when the generated code does not compile. The whole picture is in

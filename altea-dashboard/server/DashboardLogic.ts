@@ -22,7 +22,7 @@ import { registerDashboardXml, registerBasePartsXml } from "./DashboardXml";
 import type { CachedQueryDefinition } from "./CachedQueryDefinitions";
 import { DashboardServer } from "./DashboardServer";
 import { ToolbarLogic } from "@altea/altea-toolbar/server/ToolbarLogic";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { DashboardPermission } from "../data/Dashboard";
 
 // Port of Signum's DashboardLogic.Start (Signum.Dashboard/DashboardLogic.cs). Registers the Dashboard

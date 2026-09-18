@@ -10,7 +10,7 @@ import { OmniboxServer } from "./OmniboxServer";
 import { EntityOmniboxResultGenerator } from "./EntityOmniboxResultGenerator";
 import { DynamicQueryOmniboxResultGenerator } from "./DynamicQueryOmniboxResultGenerator";
 import { SpecialOmniboxGenerator } from "./SpecialOmniboxResultGenerator";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { OmniboxPermission } from "../data/OmniboxMessages";
 
 // Port of Signum.Omnibox's OmniboxLogic.cs — see port/Omnibox.md.

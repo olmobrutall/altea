@@ -14,7 +14,6 @@ import { Entity } from "@altea/altea/data/entity";
 import { FileEntity } from "@altea/altea-files/data/Files";
 import { Lite } from "@altea/altea/data/lite";
 import { getKey as queryKeyOf, type QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { TemplatingLogic } from "@altea/altea-templating/server/TemplatingLogic";
 import { TextTemplateParser } from "@altea/altea-templating/server/TextTemplateParser";
@@ -40,7 +39,7 @@ import { registerOfficeTemplateXml } from "./OfficeTemplateXml";
 import { finalize as finalizeSpreadsheetPath, prepareSpreadsheet } from "./spreadsheet/SpreadsheetUtils";
 import { OfficeTemplateTokenSync } from "./OfficeTemplateTokenSync";
 import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // Port of Signum.Word's WordTemplateLogic.cs — see port/OfficeTemplate.md.
 //
@@ -307,7 +306,7 @@ export namespace OfficeTemplateLogic {
     ): Promise<OfficeFileContent> {
         using _prof = HeavyProfiler.log("CreateOfficeReport", () => template.name);
 
-        if (!(await PermissionAuthLogic.isAuthorized(OfficeTemplatePermission.GenerateReport)))
+        if (!(await PermissionLogic.isAuthorized(OfficeTemplatePermission.GenerateReport)))
             throw new UnauthorizedAccessException(
                 `Not authorized for '${OfficeTemplatePermission.GenerateReport.key}'`);
 

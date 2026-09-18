@@ -1,9 +1,9 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import type { Lite } from "@altea/altea/data/lite";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { isEnumEntityType, getBoundEnum, enumEntityMembers } from "@altea/altea/data/enumEntity";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { ChartPermission } from "../data/ChartPermissions";
 import type { ColorPaletteEntity } from "../data/ColorPalette";
 import { ColorPaletteLogic } from "./ColorPaletteLogic";
@@ -74,6 +74,6 @@ export namespace ColorPaletteServer {
 }
 
 async function assertAuthorized(): Promise<void> {
-    if (!(await PermissionAuthLogic.isAuthorized(ChartPermission.ViewCharting)))
+    if (!(await PermissionLogic.isAuthorized(ChartPermission.ViewCharting)))
         throw new UnauthorizedAccessException(`Not authorized for '${ChartPermission.ViewCharting.key}'`);
 }

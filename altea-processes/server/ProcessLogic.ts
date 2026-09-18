@@ -24,7 +24,7 @@ import {
 } from "../data/Package";
 import { ProcessRunner, ExecutingProcess } from "./ProcessRunner";
 import { ProcessesServer } from "./ProcessesServer";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // The module's `start(sb)`: the tables, the algorithm registry, and the ProcessGraph state machine
 // (Save / Execute / Suspend / Cancel / Plan / Retry).

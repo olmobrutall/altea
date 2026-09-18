@@ -11,7 +11,8 @@ import { TypeAuthLogic } from "./TypeAuthLogic";
 import { PropertyAuthLogic } from "./PropertyAuthLogic";
 import { PermissionAuthLogic } from "./PermissionAuthLogic";
 import { declaredSymbolsForType } from "@altea/altea/data/registration";
-import { PermissionSymbol, QueryAllowed, TypeAllowed, TypeAllowedBasic } from "../data/Rules";
+import { QueryAllowed, TypeAllowed, TypeAllowedBasic } from "../data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { TypeConditionLogic } from "./TypeConditionLogic";
 import { maxBound } from "./WithConditions";
 

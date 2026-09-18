@@ -19,7 +19,7 @@ import { registerUserQueryDashboardParts } from "./UserQueriesDashboardXml";
 import { ToolbarLogic } from "@altea/altea-toolbar/server/ToolbarLogic";
 import { UserQueryTokenSync } from "./UserQueryTokenSync";
 import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { UserQueryPermission } from "../data/UserQuery";
 
 // Port of Signum's UserQueryLogic.Start (Signum.UserQueries/UserQueryLogic.cs). Registers the UserQuery

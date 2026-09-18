@@ -11,7 +11,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 import { registerEnum } from "@altea/altea/data/registration";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { type IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 // A real (value) import of the node module, which imports THIS one back. The cycle is SAFE because every
 // use below is inside an `@implementedBy` THUNK, evaluated at schema-build / deserialize time — long after

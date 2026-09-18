@@ -13,7 +13,7 @@ import { WindowsADConfigurationEmbedded, WindowsADTask } from "../data/WindowsAD
 import { DirectoryServiceContext, WindowsADAuthorizer } from "./WindowsADAuthorizer";
 import { WindowsADServer } from "./WindowsADServer";
 import { WindowsDirectory, localNameOf } from "./WindowsDirectory";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // Start-up plus every directory operation: search, import a user, read a thumbnail photo, and the nightly
 // deactivate-users sweep. Every directory call goes through WindowsDirectory.

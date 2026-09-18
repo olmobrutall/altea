@@ -5,7 +5,7 @@ import { stringLengthValidator, dateTimePrecisionValidator, DateTimePrecision } 
 import { Lite } from "@altea/altea/data/lite";
 import { Temporal } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
-import type { PermissionSymbol } from "./Rules";
+import type { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { UserEntity } from "./User";
 
 // Port of Signum.Authorization's SessionLog/SessionLog.cs — see port/Auth.md.

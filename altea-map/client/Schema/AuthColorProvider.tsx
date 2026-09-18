@@ -1,7 +1,8 @@
 import "@altea/altea/data/globals/arrayExtensions";
 import "@altea/altea/data/globals/stringExtensions";
 import * as React from "react";
-import { BasicPermission, TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
+import { TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
+import { BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 import type { SchemaMapInfo } from "../../data/Map";
 import type { ClientColorProvider } from "./ClientColorProvider";

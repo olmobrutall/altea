@@ -4,7 +4,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { Enum } from "@altea/altea/data/enum";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";

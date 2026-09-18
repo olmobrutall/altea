@@ -9,7 +9,7 @@ import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
 import { ExceptionEntity } from "@altea/altea/data/exception";
 import type { DeleteSymbol } from "@altea/altea/data/operations";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { ChatbotLanguageModelEntity } from "./LanguageModel";
 

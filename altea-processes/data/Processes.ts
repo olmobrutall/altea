@@ -10,7 +10,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import type { IUserEntity } from "@altea/altea/data/security";
 import { ExceptionEntity } from "@altea/altea/data/exception";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { UserEntity } from "@altea/altea-auth/data/User";
 
 // A PROCESS is one run of a registered ALGORITHM over some DATA, tracked through a state machine

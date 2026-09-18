@@ -8,7 +8,7 @@ import { registerEnum } from "@altea/altea/data/registration";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import type { ConstructSymbol, ExecuteSymbol } from "@altea/altea/data/operations";
-import type { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import type { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { FilePathEmbedded, FileTypeSymbol } from "@altea/altea-files/data/Files";
 import type { ProcessAlgorithmSymbol } from "@altea/altea-processes/data/Processes";
 import type { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";

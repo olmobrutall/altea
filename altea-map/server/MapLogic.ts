@@ -4,7 +4,7 @@ import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { OmniboxParser } from "@altea/altea-omnibox/server/OmniboxParser";
 import { MapServer } from "./MapServer";
 import { MapOmniboxResultGenerator } from "./MapOmniboxResultGenerator";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { MapPermission } from "../data/Map";
 
 // Port of Signum.Map's MapLogic.cs. The module owns no tables: everything the two pages show is derived

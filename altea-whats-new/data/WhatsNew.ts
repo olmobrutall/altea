@@ -11,7 +11,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import type { DeleteSymbol, ExecuteSymbol } from "@altea/altea/data/operations";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { FilePathEmbedded, FileTypeSymbol } from "@altea/altea-files/data/Files";
 import { UserEntity } from "@altea/altea-auth/data/User";
 

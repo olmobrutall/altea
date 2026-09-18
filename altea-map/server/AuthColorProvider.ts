@@ -1,15 +1,16 @@
 import "@altea/altea/server";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { Schema } from "@altea/altea/server/schema";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { Entity, type Type } from "@altea/altea/data/entity";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { Enum } from "@altea/altea/data/enum";
 import {
-    BasicPermission, TypeAllowed, TypeAllowedBasic,
+    TypeAllowed, TypeAllowedBasic,
     typeAllowedDB, typeAllowedUI, typeAllowedGet,
 } from "@altea/altea-auth/data/Rules";
+import { BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { TypeAuthLogic } from "@altea/altea-auth/server/TypeAuthLogic";
 import type { WithConditions } from "@altea/altea-auth/server/WithConditions";
 import type { MapColorProvider } from "./MapColorProvider";
@@ -33,7 +34,7 @@ export namespace AuthColorProvider {
 
     /** Signum's `AuthColorProvider.GetMapColors`. Answers nothing when the caller can't administer rules. */
     export async function getMapColors(): Promise<MapColorProvider[]> {
-        if (!TypeAuthLogic.isStarted() || !await PermissionAuthLogic.isAuthorized(BasicPermission.AdminRules))
+        if (!TypeAuthLogic.isStarted() || !await PermissionLogic.isAuthorized(BasicPermission.AdminRules))
             return [];
 
         // Signum passes `includeTrivialMerge: false`: an auto-generated "A + B" merge role is a query-time

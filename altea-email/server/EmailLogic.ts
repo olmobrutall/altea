@@ -39,7 +39,7 @@ import { AsyncEmailSender } from "./AsyncEmailSender";
 import { MailingServer } from "./MailingServer";
 import { EmailTemplateTokenSync } from "./EmailTemplateTokenSync";
 import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // Port of Signum.Mailing's EmailLogic.cs — the module's `start(sb)` and its public "send this" surface.
 //

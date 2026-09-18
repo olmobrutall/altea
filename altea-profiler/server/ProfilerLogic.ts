@@ -10,7 +10,7 @@ import "../data/ProfilerPermission";
 // TimeMessage are imported only by the profiler's React pages, so the sync never saw them and rewrote
 // Altea.Profiler.*.xml without them — deleting 48 German strings Signum ships.
 import "../data/ProfilerMessages";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { ProfilerPermission } from "../data/ProfilerPermission";
 
 // Port of Signum's ProfilerLogic (Signum.Profiler/ProfilerLogic.cs). Wires the profiler module into the

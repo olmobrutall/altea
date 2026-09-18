@@ -14,7 +14,7 @@ import { Finder } from "@altea/altea/client/Finder";
 import { Constructor } from "@altea/altea/client/Constructor";
 import SelectorModal from "@altea/altea/client/SelectorModal";
 import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelpers";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import {
     ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarElementType, ShowCount,
     type ToolbarElementBaseEntity, type ToolbarMenuEntity_Element, type ShowCountKeys,

@@ -1,6 +1,6 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { EvalPanelPermission } from "@altea/altea-eval/data/EvalPanelPermission";
 import type { DynamicCompilationStatus } from "../data/DynamicPanel";
 import { DynamicLogic } from "./DynamicLogic";
@@ -33,7 +33,7 @@ export namespace DynamicPanelServer {
     }
 
     async function assertAuthorized(): Promise<void> {
-        if (!(await PermissionAuthLogic.isAuthorized(EvalPanelPermission.ViewDynamicPanel)))
+        if (!(await PermissionLogic.isAuthorized(EvalPanelPermission.ViewDynamicPanel)))
             throw new UnauthorizedAccessException(
                 `Not authorized for '${EvalPanelPermission.ViewDynamicPanel.key}'`);
     }

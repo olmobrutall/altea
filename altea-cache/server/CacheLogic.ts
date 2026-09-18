@@ -26,7 +26,7 @@ import { CachePermission } from "../data/CachePermission";
 // statistics page) is invisible to it — and the sync then rewrites Altea.Cache.*.xml without it,
 // deleting the 20 German strings Signum ships for the panel.
 import "../data/CacheMessage";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // Port of Signum.Caching's CacheLogic.cs — see port/Cache.md.
 //

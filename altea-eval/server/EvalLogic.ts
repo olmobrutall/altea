@@ -7,7 +7,7 @@ import { EvalPanelPermission } from "../data/EvalPanelPermission";
 import { EvalCompiler, type EvalCompilerOptions } from "./EvalCompiler";
 import { EvalServer } from "./EvalServer";
 import { frameworkModules, frameworkPreamble } from "./EvalFrameworkModules";
-import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // The module's registration plus the two registries a stored script depends on: what it may IMPORT
 // (`registerModule`) and what every generated wrapper gets for free (`addPreamble`).

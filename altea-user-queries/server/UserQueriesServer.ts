@@ -1,9 +1,9 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import type { Lite } from "@altea/altea/data/lite";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { UserQueryEntity, UserQueryPermission } from "../data/UserQuery";
 import { UserQueriesLogic } from "./UserQueriesLogic";
 
@@ -54,6 +54,6 @@ export namespace UserQueriesServer {
 }
 
 async function assertAuthorized(): Promise<void> {
-    if (!(await PermissionAuthLogic.isAuthorized(UserQueryPermission.ViewUserQuery)))
+    if (!(await PermissionLogic.isAuthorized(UserQueryPermission.ViewUserQuery)))
         throw new UnauthorizedAccessException(`Not authorized for '${UserQueryPermission.ViewUserQuery.key}'`);
 }

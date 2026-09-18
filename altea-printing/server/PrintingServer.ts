@@ -1,7 +1,7 @@
 import "@altea/altea/server";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import type { FileTypeSymbol } from "@altea/altea-files/data/Files";
 import type { ProcessEntity } from "@altea/altea-processes/data/Processes";
 import { PrintPermission, type PrintStat } from "../data/Printing";
@@ -34,7 +34,7 @@ export namespace PrintingServer {
     }
 
     async function assertAuthorized(): Promise<void> {
-        if (!(await PermissionAuthLogic.isAuthorized(PrintPermission.ViewPrintPanel)))
+        if (!(await PermissionLogic.isAuthorized(PrintPermission.ViewPrintPanel)))
             throw new UnauthorizedAccessException(`Not authorized for '${PrintPermission.ViewPrintPanel.key}'`);
     }
 }

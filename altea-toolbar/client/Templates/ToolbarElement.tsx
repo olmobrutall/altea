@@ -9,7 +9,7 @@ import { TextBoxLine } from "@altea/altea/client/Lines/TextBoxLine";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { parseIcon } from "@altea/altea/client/Components/IconHelpers";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import {
     ToolbarElementType, ShowCount, type ToolbarElementBaseEntity, type ShowCountKeys,
 } from "../../data/Toolbar";

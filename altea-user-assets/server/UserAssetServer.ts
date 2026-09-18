@@ -1,9 +1,9 @@
 import type { Request } from "express";
+import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { WebBuilder, CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
 import { retrieveFromListOfLite } from "@altea/altea/server/Database";
 import type { Lite } from "@altea/altea/data/lite";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { PermissionAuthLogic } from "@altea/altea-auth/server/PermissionAuthLogic";
 import { UserAssetPermission, UserAssetPreviewModel, type IUserAssetEntity } from "../data/UserAssets";
 import { UserAssetsImporter, warmUserAssetCaches } from "./UserAssetsImportExport";
 
@@ -58,6 +58,6 @@ export namespace UserAssetServer {
 }
 
 async function assertAuthorized(): Promise<void> {
-    if (!(await PermissionAuthLogic.isAuthorized(UserAssetPermission.UserAssetsToXML)))
+    if (!(await PermissionLogic.isAuthorized(UserAssetPermission.UserAssetsToXML)))
         throw new UnauthorizedAccessException(`Not authorized for '${UserAssetPermission.UserAssetsToXML.key}'`);
 }

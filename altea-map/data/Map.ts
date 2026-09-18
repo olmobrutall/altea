@@ -1,7 +1,7 @@
 import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { EntityKind, EntityData } from "@altea/altea/data/decorators";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import type { OmniboxResult, OmniboxMatch } from "@altea/altea-omnibox/data/OmniboxResults";
 
 // Port of Signum.Map's MapMessage.cs + Signum.Map.ts — plus, in the same file, the two WIRE DTO

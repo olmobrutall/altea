@@ -1,5 +1,5 @@
 import { init } from "@altea/altea/data/reflection";
-import { PermissionSymbol } from "@altea/altea-auth/data/Rules";
+import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 
 // Port of Signum.Caching's CachePermissions.cs — see port/Cache.md.
 //
