@@ -108,6 +108,44 @@ export function getPrecision(value: Temporal.PlainDateTime | Temporal.PlainDate)
     return DateTimePrecision.Days;
 }
 
+/**
+ * `getPrecision` for a TIME rather than a date — Signum's `TimeOnly.GetPrecision` and
+ * `TimeSpan.GetPrecision`, which are the same function twice. Undefined means the value is exactly zero
+ * and so uses no unit at all, which is what those return `null` for.
+ *
+ * `Days` is reachable only from a Duration, which measures ELAPSED time and may run past midnight. Its
+ * fields are not balanced (`Duration.from({ seconds: 376 })` has 376 seconds and no minutes), so it is
+ * rounded up to days before being read.
+ *
+ * DIVERGENCE: Signum's TimeOnly overload stops at `Seconds`, so a TimeOnly with milliseconds reports
+ * itself as a whole minute and passes any validator. Both halves answer `Milliseconds` here, and sub-ms
+ * Temporal remainders count towards it for the reason `getPrecision` gives.
+ */
+export function getTimePrecision(value: Temporal.PlainTime | Temporal.Duration): DateTimePrecision | undefined {
+    // A Duration names its fields in the plural, so the two are read apart and then compared alike.
+    let days = 0, hour: number, minute: number, second: number, sub: number;
+    if (value instanceof Temporal.Duration) {
+        const d = value.round({ largestUnit: "day" });
+        [days, hour, minute, second] = [d.days, d.hours, d.minutes, d.seconds];
+        sub = d.milliseconds || d.microseconds || d.nanoseconds;
+    } else {
+        [hour, minute, second] = [value.hour, value.minute, value.second];
+        sub = value.millisecond || value.microsecond || value.nanosecond;
+    }
+
+    if (sub !== 0)
+        return DateTimePrecision.Milliseconds;
+    if (second !== 0)
+        return DateTimePrecision.Seconds;
+    if (minute !== 0)
+        return DateTimePrecision.Minutes;
+    if (hour !== 0)
+        return DateTimePrecision.Hours;
+    if (days !== 0)
+        return DateTimePrecision.Days;
+    return undefined;
+}
+
 // Fields that a "start of …" truncation zeroes out on a PlainDateTime.
 const midnight = { hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0, nanosecond: 0 } as const;
 

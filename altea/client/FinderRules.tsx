@@ -41,7 +41,7 @@ import { EntityBaseController } from "./Lines/EntityBase";
 import { LinkButton } from "./Basics/LinkButton";
 import { useForceUpdate } from "./Hooks";
 import { Enum } from "../data/enum";
-import { TelephoneValidator, EmailValidator } from "../data/validators";
+import { TelephoneValidator, MultipleTelephoneValidator, EmailValidator } from "../data/validators";
 import { Temporal } from "../data/basics";
 import { toNumberFormat } from "./numberFormat";
 import { SearchMessage, JavascriptMessage } from "../data/uiMessages";
@@ -90,12 +90,12 @@ export function initFormatRules(): Finder.FormatRule[] {
         return new Finder.CellFormatter(cell => cell == null ? "" : <span className="multi-line">{hl.highlight(cellToStr(cell))}</span>, true);
       },
     },
-    // Telephone string (field carries a @telephoneValidator): comma-separated numbers rendered as tel:
-    // links (Signum's "Phone", which keys off MemberInfo.IsPhone — derived there from the same validator),
-    // with matched search keywords highlighted inside each number.
+    // Telephone string (field carries a @telephoneValidator or @multipleTelephoneValidator): comma-separated
+    // numbers rendered as tel: links (Signum's "Phone", which keys off MemberInfo.IsPhone — derived there
+    // from the same two validators), with matched search keywords highlighted inside each number.
     {
       name: "Phone",
-      isApplicable: qt => qt.filterType == "String" && (qt.getPropertyRoute()?.fieldInfo?.validators.some(v => v instanceof TelephoneValidator) ?? false),
+      isApplicable: qt => qt.filterType == "String" && (qt.getPropertyRoute()?.fieldInfo?.validators.some(v => v instanceof TelephoneValidator || v instanceof MultipleTelephoneValidator) ?? false),
       formatter: (qt, sc) => {
         const multiLineClass = qt.getPropertyRoute()?.fieldInfo?.isMultiline ? "multi-line" : "try-no-wrap";
         const hl = cellHighlighter(qt, sc);

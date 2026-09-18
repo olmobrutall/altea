@@ -4,7 +4,8 @@ import type { FieldInfo, IntegrityCheckEnvironment, FieldInfoOf } from './reflec
 import type { BaseEntity } from './entity';
 import { msg } from './utils/localization';
 import { Decimal, Temporal } from './basics';
-import { DateTimePrecision, getPrecision } from './globals/dateTimeExtensions';
+import { DateTimePrecision, getPrecision, getTimePrecision } from './globals/dateTimeExtensions';
+import { Clock } from './utils/clock';
 import { Enum } from './enum';
 import { registerEnum } from './registration';
 
@@ -45,6 +46,27 @@ export const ValidationMessage = {
     _0HasToBeUppercase: msg("{0} has to be uppercase"),
     _0HasToBeLowercase: msg("{0} has to be lowercase"),
     Be0: msg("be {0}"),
+    _0HasToBeBetween1And2: msg("{0} has to be between {1} and {2}"),
+    BeBetween0And1: msg("be between {0} and {1}"),
+    PowerOf: msg("power of"),
+    _0ShouldBeADateInThePast: msg("{0} should be a date in the past"),
+    BeInThePast: msg("be in the past"),
+    _0ShouldBeADateInTheFuture: msg("{0} should be a date in the future"),
+    BeInTheFuture: msg("be in the future"),
+    // altea has no Signum twin: Signum's TimePrecisionValidator hard-codes "{0} has days" in English.
+    // Its `IsATimeOfTheDay` member says the same thing and has never had a caller.
+    _0ShouldBeATimeOfTheDay: msg("{0} should be a time of the day"),
+    HaveValid0Format: msg("have a valid {0} format"),
+    Telephone: msg("Telephone"),
+    Numeric: msg("Numeric"),
+    FileName: msg("file name"),
+    BeNotNull: msg("be not null"),
+    BeAString: msg("be a string"),
+    BeAMultilineString: msg("be a multiline string"),
+    HaveBetween0And1Characters: msg("have between {0} and {1} characters"),
+    HaveMinimum0Characters: msg("have minimum {0} characters"),
+    HaveMaximum0Characters: msg("have maximum {0} characters"),
+    HaveNoRepeatedElements: msg("have no repeated elements"),
 };
 
 // Signum's ComparisonType (Entities/Validation/ValidationAttributes.cs) — how a count / number validator
@@ -96,7 +118,7 @@ export function notNullValidator(options: ValidatorOptions = {}) {
 
 export class NotNullValidator extends Validator {
     override get isNotNull(): boolean { return true; }
-    get helpMessage() { return 'be set'; }
+    get helpMessage(): string { return ValidationMessage.BeNotNull.niceToString(); }
 
     protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
         // Signum's NotNullValidator: null OR empty string counts as "not set". `== null` is the safe
@@ -178,11 +200,11 @@ export class StringLengthValidator extends Validator {
     isCompatibleWith(type: Function) { return type === String; }
 
     get helpMessage(): string {
-        const { min, max } = this.options;
-        if (min != null && max != null) return `have between ${min} and ${max} characters`;
-        if (min != null) return `have at least ${min} characters`;
-        if (max != null) return `have at most ${max} characters`;
-        return 'be a string';
+        const { min, max, multiLine } = this.options;
+        if (min != null && max != null) return ValidationMessage.HaveBetween0And1Characters.niceToString(min, max);
+        if (min != null) return ValidationMessage.HaveMinimum0Characters.niceToString(min);
+        if (max != null) return ValidationMessage.HaveMaximum0Characters.niceToString(max);
+        return multiLine ? ValidationMessage.BeAMultilineString.niceToString() : ValidationMessage.BeAString.niceToString();
     }
 
     protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
@@ -348,6 +370,135 @@ export class DateTimePrecisionValidator extends Validator {
     private precisionName(): string { return Enum.niceName(DateTimePrecision, this.precision); }
 }
 
+// --- TimePrecisionValidator ---
+//
+// Signum's [TimePrecisionValidator(p)], the TIME-OF-DAY sibling of DateTimePrecisionValidator: it bounds
+// how fine a `PlainTime` (Signum's TimeOnly) or `Duration` (its TimeSpan) may be. Unlike its date
+// sibling it is a check and nothing else — it puts nothing on the FieldInfo and it does not size the
+// column (Signum's `GetSqlPrecision` reads no validator; the lookup there is commented out).
+//
+// DIVERGENCE: Signum derives a DISPLAY FORMAT from it too (`Reflector.GetFormatString` →
+// FormatString_TimeSpan / FormatString_TimeOnly). Those are custom .NET patterns (@"hh\:mm\:ss"), and
+// altea's format vocabulary is the standard specifiers alone — TimeLine renders a fixed HH:MM:SS and
+// reads no format — so there is no specifier to answer with, and hence nothing to denormalise.
+//
+// Its two messages are altea's localized ones; Signum hard-codes both in English.
+
+export interface TimePrecisionOptions extends ValidatorOptions { }
+
+export function timePrecisionValidator(precision: DateTimePrecision, options: TimePrecisionOptions = {}) {
+    return (target: object, propertyKey: string | symbol) =>
+        addValidator(target, propertyKey, new TimePrecisionValidator(precision), options);
+}
+
+export class TimePrecisionValidator extends Validator {
+    constructor(public readonly precision: DateTimePrecision) { super(); }
+
+    isCompatibleWith(type: Function) { return type === Temporal.PlainTime || type === Temporal.Duration; }
+
+    get helpMessage(): string {
+        return ValidationMessage.HaveAPrecisionOf0.niceToString(Enum.niceName(DateTimePrecision, this.precision).toLowerCase());
+    }
+
+    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
+        if (value == null)
+            return null;
+        if (!(value instanceof Temporal.PlainTime) && !(value instanceof Temporal.Duration))
+            return null;
+
+        const actual = getTimePrecision(value);
+        if (actual != null && actual > this.precision)
+            return ValidationMessage._0HasAPrecisionOf1InsteadOf2.niceToString(
+                fi.niceToString(), Enum.niceName(DateTimePrecision, actual), Enum.niceName(DateTimePrecision, this.precision));
+
+        // A Duration is an ELAPSED time, so it can hold whole days a time of the day cannot (Signum's
+        // `ts.Days != 0`). A PlainTime never can.
+        if (value instanceof Temporal.Duration && value.round({ largestUnit: "day" }).days !== 0)
+            return ValidationMessage._0ShouldBeATimeOfTheDay.niceToString(fi.niceToString());
+
+        return null;
+    }
+}
+
+// --- DateInPastValidator / DateInFutureValidator ---
+//
+// Signum's [DateInPastValidator] / [DateInFutureValidator], read against `Clock` rather than the wall
+// clock so an application's UTC/local choice and a test's pinned `overrideNow` both apply. A DATE is
+// compared against today, so today passes either way — Signum reaches the same answer by widening the
+// date to midnight.
+
+export function dateInPastValidator(options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new DateInPastValidator(), options);
+}
+
+export class DateInPastValidator extends Validator {
+    isCompatibleWith(type: Function) { return type === Temporal.PlainDateTime || type === Temporal.PlainDate; }
+
+    get helpMessage(): string { return ValidationMessage.BeInThePast.niceToString(); }
+
+    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
+        const compared = compareToNow(value);
+        return compared != null && compared > 0
+            ? ValidationMessage._0ShouldBeADateInThePast.niceToString(fi.niceToString())
+            : null;
+    }
+}
+
+export function dateInFutureValidator(options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new DateInFutureValidator(), options);
+}
+
+export class DateInFutureValidator extends Validator {
+    isCompatibleWith(type: Function) { return type === Temporal.PlainDateTime || type === Temporal.PlainDate; }
+
+    get helpMessage(): string { return ValidationMessage.BeInTheFuture.niceToString(); }
+
+    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
+        const compared = compareToNow(value);
+        return compared != null && compared < 0
+            ? ValidationMessage._0ShouldBeADateInTheFuture.niceToString(fi.niceToString())
+            : null;
+    }
+}
+
+/** Where a date value sits relative to now, or undefined when it is not a date at all. */
+function compareToNow(value: unknown): number | undefined {
+    if (value instanceof Temporal.PlainDate)
+        return Temporal.PlainDate.compare(value, Clock.today);
+    if (value instanceof Temporal.PlainDateTime)
+        return Temporal.PlainDateTime.compare(value, Clock.now);
+    return undefined;
+}
+
+// --- YearGreaterThanValidator ---
+//
+// Signum's [YearGreaterThanValidator(minYear)]: a floor on the YEAR alone, which is what a birth date or
+// a licence date wants — the day and month are free.
+
+export function yearGreaterThanValidator(minYear: number, options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new YearGreaterThanValidator(minYear), options);
+}
+
+export class YearGreaterThanValidator extends Validator {
+    constructor(public readonly minYear: number) { super(); }
+
+    isCompatibleWith(type: Function) { return type === Temporal.PlainDateTime || type === Temporal.PlainDate; }
+
+    get helpMessage(): string {
+        return ValidationMessage.BeA01.niceToString(comparisonName(ComparisonType.GreaterThanOrEqualTo), this.minYear);
+    }
+
+    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
+        if (!(value instanceof Temporal.PlainDate) && !(value instanceof Temporal.PlainDateTime))
+            return null;
+
+        return value.year < this.minYear
+            ? ValidationMessage._0HasToBe12.niceToString(
+                fi.niceToString(), comparisonName(ComparisonType.GreaterThanOrEqualTo), this.minYear)
+            : null;
+    }
+}
+
 // --- StringCaseValidator ---
 //
 // Signum's [StringCaseValidator(StringCase.Uppercase)] and the enum it takes, which Signum declares in
@@ -409,42 +560,88 @@ export class StringCaseValidator extends Validator {
     }
 }
 
-// --- UrlValidator ---
+// --- RegexValidator ---
+//
+// Signum's abstract [RegexValidatorAttribute]: a string that has to MATCH at least one of a list of
+// regular expressions, described to the reader by a `FormatName` that names the shape ("URL", "IP",
+// "e-Mail"). Both messages come from here, so a concrete validator is a regex plus that name.
+//
+// `FormatName` is deliberately NOT localized — it is the `{1}` of "{0} does not have a valid {1}
+// format", and Signum writes "URL" / "IP" / "e-Mail" as literals. The three that DO name a concept
+// rather than a spelling (telephone, numeric, file name) take a ValidationMessage member, as Signum's do.
+//
+// A regex here must not carry the `g` flag: `RegExp.test` is stateful under it (lastIndex), so the same
+// validator would answer differently on consecutive calls.
 
-const urlRegex = /^(https?:\/\/)[^\s/$.?#].[^\s]*$/i;
+export abstract class RegexValidator extends Validator {
+    constructor(public readonly regexList: readonly RegExp[]) { super(); }
+
+    abstract get formatName(): string;
+
+    isCompatibleWith(type: Function) { return type === String; }
+
+    get helpMessage(): string { return ValidationMessage.HaveValid0Format.niceToString(this.formatName); }
+
+    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
+        const s = value as string | null | undefined;
+        if (s == null || s === '') return null;
+        return this.regexList.some(r => r.test(s))
+            ? null
+            : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), this.formatName);
+    }
+}
+
+// Signum's regexes are matched with `Regex.IsMatch`, which — like JS `RegExp.test` — searches ANYWHERE in
+// the string. Five of the ones below are written without anchors, which makes them accept any string that
+// merely CONTAINS something valid: `[A-Za-z0-9]` passes "!!!a!!!" for a validator called AlphanumericOnly.
+// altea anchors them; each is marked where it diverges.
+
+// --- UrlValidator ---
+//
+// Signum's URLValidator takes four shapes; altea ports the ABSOLUTE one, which is its default and the
+// only one its own url properties ask for. AspNetRelative (`~/…`) is an ASP.NET app-relative path with no
+// meaning here, and the SiteRelative / DocumentRelative regexes beside it are written so loosely that
+// they accept nearly any string — there is nothing to gain by carrying either across until a property
+// needs one, and the base above makes adding it a regex and a flag.
+const absoluteUrlRegex = /^(https?:\/\/)(([0-9a-z_!~*'().&=+$%-]+: )?[0-9a-z_!~*'().&=+$%-]+@)?(([0-9]{1,3}\.){3}[0-9]{1,3}|([0-9a-z_!~*'()-]+\.)*([0-9a-z][0-9a-z-]{0,61})?[0-9a-z](\.[a-z]{2,6})?)(:[0-9]{1,4})?[/0-9a-z_!~*'().;?:@&=+$,%#-|]+$/i;
 
 export function urlValidator(options: ValidatorOptions = {}) {
     return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new UrlValidator(), options);
 }
 
-export class UrlValidator extends Validator {
-    isCompatibleWith(type: Function) { return type === String; }
-    get helpMessage() { return 'be a valid URL'; }
-
-    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
-        const s = value as string | null | undefined;
-        if (s == null || s === '') return null;
-        return urlRegex.test(s) ? null : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), 'URL');
-    }
+export class UrlValidator extends RegexValidator {
+    constructor() { super([absoluteUrlRegex]); }
+    get formatName(): string { return "URL"; }
 }
 
 // --- TelephoneValidator ---
 
-const telephoneRegex = /^[\d+\-/() ]+$/;
+// `\p{Nd}` (any Unicode decimal digit) needs the `u` flag, and is what Signum's telephone shapes accept.
+const telephoneRegex = /^[\p{Nd}+\-/() ]+$/u;
 
 export function telephoneValidator(options: ValidatorOptions = {}) {
     return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new TelephoneValidator(), options);
 }
 
-export class TelephoneValidator extends Validator {
-    isCompatibleWith(type: Function) { return type === String; }
-    get helpMessage() { return 'be a valid telephone number'; }
+export class TelephoneValidator extends RegexValidator {
+    constructor() { super([telephoneRegex]); }
+    get formatName(): string { return ValidationMessage.Telephone.niceToString(); }
+}
 
-    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
-        const s = value as string | null | undefined;
-        if (s == null || s === '') return null;
-        return telephoneRegex.test(s) ? null : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), 'telephone number');
-    }
+// --- MultipleTelephoneValidator ---
+
+// A comma-separated list of telephone numbers. DIVERGES from Signum, whose
+// `^[\p{Nd}+\-/() ](,\s*[\p{Nd}+\-/() ])*` matches ONE character per number and is unanchored at the end,
+// so it accepts any string starting with a digit — "5 fine numbers" included.
+const multipleTelephoneRegex = /^[\p{Nd}+\-/() ]+(,\s*[\p{Nd}+\-/() ]+)*$/u;
+
+export function multipleTelephoneValidator(options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new MultipleTelephoneValidator(), options);
+}
+
+export class MultipleTelephoneValidator extends RegexValidator {
+    constructor() { super([multipleTelephoneRegex]); }
+    get formatName(): string { return ValidationMessage.Telephone.niceToString(); }
 }
 
 // --- EmailValidator ---
@@ -455,15 +652,116 @@ export function emailValidator(options: ValidatorOptions = {}) {
     return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new EmailValidator(), options);
 }
 
-export class EmailValidator extends Validator {
-    isCompatibleWith(type: Function) { return type === String; }
-    get helpMessage() { return 'be a valid e-mail address'; }
+export class EmailValidator extends RegexValidator {
+    constructor() { super([emailRegex]); }
+    get formatName(): string { return "e-Mail"; }
+}
 
-    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
-        const s = value as string | null | undefined;
-        if (s == null || s === '') return null;
-        return emailRegex.test(s) ? null : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), 'e-mail address');
+// --- AlphanumericOnlyValidator ---
+
+// DIVERGES from Signum twice. Its regex is the unanchored `[A-Za-z0-9]`, which asks for an alphanumeric
+// somewhere rather than alphanumerics only; and its FormatName splices a whole sentence ("Special
+// characters (-_#+%&...) is not allowed") into the middle of another one. The name of the shape is
+// "Alphanumeric", like "URL" and "IP" beside it.
+const alphanumericOnlyRegex = /^[A-Za-z0-9]*$/;
+
+export function alphanumericOnlyValidator(options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new AlphanumericOnlyValidator(), options);
+}
+
+export class AlphanumericOnlyValidator extends RegexValidator {
+    constructor() { super([alphanumericOnlyRegex]); }
+    get formatName(): string { return "Alphanumeric"; }
+}
+
+// --- NumericTextValidator ---
+
+// Digits held as TEXT — a phone extension, a postcode, an account number: the leading zeros matter, so
+// the property is a string and not a number.
+const numericTextRegex = /^\p{Nd}*$/u;
+
+export function numericTextValidator(options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new NumericTextValidator(), options);
+}
+
+export class NumericTextValidator extends RegexValidator {
+    constructor() { super([numericTextRegex]); }
+    get formatName(): string { return ValidationMessage.Numeric.niceToString(); }
+}
+
+// --- IpValidator ---
+
+// DIVERGES from Signum's unanchored `\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b`, which passes any string
+// with an address SOMEWHERE in it. Neither version bounds an octet to 255 — that is Signum's shape, and
+// tightening it would reject nothing a database holds today.
+const ipRegex = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+
+export function ipValidator(options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new IpValidator(), options);
+}
+
+export class IpValidator extends RegexValidator {
+    constructor() { super([ipRegex]); }
+    get formatName(): string { return "IP"; }
+}
+
+// --- FileNameValidator ---
+//
+// Signum tests `Path.GetInvalidPathChars()`, whose answer depends on the machine .NET runs on — the
+// control characters plus '|' on Windows, NUL alone on Unix — so the same entity validates differently
+// per host. altea uses the set Signum's own `RemoveInvalidCharts` uses instead
+// (`GetInvalidFileNameChars`): the characters Windows reserves, plus the control range. It is the
+// stricter of the two and the one that actually means "a file NAME", separator included.
+const fileNameRegex = /^[^\x00-\x1F<>:"/\\|?*]*$/;
+
+export function fileNameValidator(options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new FileNameValidator(), options);
+}
+
+export class FileNameValidator extends RegexValidator {
+    constructor() { super([fileNameRegex]); }
+    get formatName(): string { return ValidationMessage.FileName.niceToString(); }
+}
+
+/** Strips everything `@fileNameValidator` rejects (Signum's `FileNameValidatorAttribute.RemoveInvalidCharts`). */
+export function removeInvalidFileNameChars(name: string): string {
+    return name.replace(/[\x00-\x1F<>:"/\\|?*]/g, "");
+}
+
+// --- IdentifierValidator ---
+//
+// A string that has to read as a programming identifier — the name of a generated type, property or
+// symbol. `International` is the Unicode identifier rule (a letter or underscore, then letters, digits
+// and underscores); the two ASCII ones narrow it.
+
+export enum IdentifierType {
+    PascalAscii,
+    Ascii,
+    International,
+}
+export type IdentifierTypeKeys = keyof typeof IdentifierType;
+
+// DIVERGENCE: Signum's PascalAscii is `^[A-Z[_a-zA-Z0-9]*$` — the `[` inside the class is a typo that
+// swallows the intended second bracket, so its "Pascal" form is identical to its Ascii one and enforces
+// no leading capital at all. Both are written here as they read.
+const pascalAsciiRegex = /^[A-Z][_a-zA-Z0-9]*$/;
+const asciiRegex = /^[_a-zA-Z][_a-zA-Z0-9]*$/;
+const internationalRegex = /^[_\p{Ll}\p{Lu}\p{Lt}\p{Lo}\p{Nl}][_\p{Ll}\p{Lu}\p{Lt}\p{Lo}\p{Nl}\p{Nd}]*$/u;
+
+export function identifierValidator(type: IdentifierType, options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new IdentifierValidator(type), options);
+}
+
+export class IdentifierValidator extends RegexValidator {
+    constructor(public readonly type: IdentifierType) {
+        super([type === IdentifierType.PascalAscii ? pascalAsciiRegex
+            : type === IdentifierType.Ascii ? asciiRegex
+                : internationalRegex]);
     }
+
+    // The bare member NAME, as Signum's `type.ToString()` gives — "PascalAscii" is a spelling rule, not
+    // a word to translate, so IdentifierType needs no registerEnum.
+    get formatName(): string { return Enum.toName(IdentifierType, this.type); }
 }
 
 // --- NoRepeatValidator ---
@@ -480,7 +778,7 @@ export function noRepeatValidator(options: ValidatorOptions = {}) {
 
 export class NoRepeatValidator extends Validator {
     isCompatibleWith(type: Function) { return type === Array; }
-    get helpMessage() { return 'have no repeated elements'; }
+    get helpMessage(): string { return ValidationMessage.HaveNoRepeatedElements.niceToString(); }
 
     protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
         const list = value as unknown[] | null | undefined;
@@ -582,6 +880,81 @@ export class NumberIsValidator extends Validator {
         return ValidationMessage._0HasToBe12.niceToString(
             fi.niceToString(), comparisonName(this.comparison), this.number);
     }
+}
+
+// --- NumberBetweenValidator ---
+//
+// Signum's [NumberBetweenValidator(min, max)] — both bounds INCLUSIVE ("Not using C intervals to please
+// user!", as its source says). It reports only: a value outside the range is refused, never clamped. A
+// null passes, for the reason NumberIsValidator's header gives. It does not touch the column either —
+// SchemaSettings reads only StringLengthValidator (size) and DecimalsValidator (scale).
+
+export interface NumberBetweenOptions extends ValidatorOptions { }
+
+export function numberBetweenValidator(min: number, max: number, options: NumberBetweenOptions = {}) {
+    return (target: object, propertyKey: string | symbol) =>
+        addValidator(target, propertyKey, new NumberBetweenValidator(min, max), options);
+}
+
+export class NumberBetweenValidator extends Validator {
+    constructor(public readonly min: number, public readonly max: number) { super(); }
+
+    isCompatibleWith(type: Function) { return type === Number || type === Decimal; }
+
+    get helpMessage(): string {
+        return ValidationMessage.BeBetween0And1.niceToString(this.min, this.max);
+    }
+
+    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
+        if (value == null)
+            return null;
+
+        const n = typeof value === "number" ? value : Number(value);
+        if (Number.isNaN(n) || (this.min <= n && n <= this.max))
+            return null;
+
+        return ValidationMessage._0HasToBeBetween1And2.niceToString(fi.niceToString(), this.min, this.max);
+    }
+}
+
+// --- NumberPowerOfTwoValidator ---
+
+export function numberPowerOfTwoValidator(options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) =>
+        addValidator(target, propertyKey, new NumberPowerOfTwoValidator(), options);
+}
+
+export class NumberPowerOfTwoValidator extends Validator {
+    isCompatibleWith(type: Function) { return type === Number; }
+
+    get helpMessage(): string {
+        return ValidationMessage.BeA01.niceToString(ValidationMessage.PowerOf.niceToString(), 2);
+    }
+
+    protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
+        if (value == null)
+            return null;
+
+        const n = typeof value === "number" ? value : Number(value);
+        if (Number.isNaN(n) || isPowerOfTwo(n))
+            return null;
+
+        return ValidationMessage._0HasToBe12.niceToString(
+            fi.niceToString(), ValidationMessage.PowerOf.niceToString(), 2);
+    }
+}
+
+// Signum's halving loop rather than `n & (n - 1)`, which would be wrong above 2^31 — a JS bitwise
+// operator truncates to 32 bits.
+function isPowerOfTwo(n: number): boolean {
+    if (!Number.isInteger(n) || n <= 0)
+        return false;
+    while (n !== 1) {
+        if (n % 2 !== 0)
+            return false;
+        n /= 2;
+    }
+    return true;
 }
 
 // --- CountIsValidator ---

@@ -390,12 +390,46 @@ its own entity identity) and `PartitionId` (no partitioning).
 
 ## D. Missing validators and messages
 
-### D1 — `ValidationMessage`
-altea declares 25 members against Signum's 91, because it has 25 validators. Implement the missing
-validators as Signum has them, and bring each one's translation with it. Four altea names have no Signum
-twin and need text of their own — `_0HasToBe12`, `_0MustHaveAtLeast1Characters`,
-`_0MustHaveAtMost1Characters`, `BeA01` — but Signum's `HaveMinimum0Characters`, `HaveMaximum0Characters`
-and `BeA0_G` say the same thing and can be adapted rather than invented.
+### D1 — `ValidationMessage` — **DONE**
+The member count was a symptom of three things, and all three are closed.
+
+**The abstract `RegexValidator` now exists**, as it does in Signum, and is what most of this item turned
+out to be. `EMail` / `Telephone` / `URL` were hand-rolled with a duplicated null check, a duplicated
+`test` and a hard-coded English message each; they are now a regex plus a `formatName`, and so are the
+five that joined them (`AlphanumericOnly`, `MultipleTelephone`, `NumericText`, `Ip`, `Identifier`) plus
+`FileName`, which Signum spells out separately for no reason — a regex of the characters it accepts says
+the same thing. `FormatName` stays an English literal where Signum has one ("URL", "IP", "e-Mail"), and
+reads from `ValidationMessage` for the three that name a concept (telephone, numeric, file name).
+
+**Thirteen of the fourteen missing validators are in.** `IsAssignableTo` is NOT: it validates a
+`TypeEntity` property, and resolving one to a constructor goes through the server's `Schema` (see
+`propertyRouteLogic.resolveCtor`), so the validator could not run on the client — which every altea
+validator does. Signum has no call site for it either.
+
+**Help messages are localized.** `NotNull`, `StringLength` (all four branches, `BeAMultilineString`
+included — the multiLine one had no branch at all), `NoRepeat` and the three regex ones returned hard-coded
+English, which `altea-help`'s `HelpGenerator` compiles straight into the generated documentation. The four
+altea-only members (`_0HasToBe12`, `_0MustHaveAtLeast1Characters`, `_0MustHaveAtMost1Characters`, `BeA01`)
+have German and Spanish adapted from Signum's twins. `_0ShouldBeADateInTheFuture` / `BeInTheFuture` keep an
+empty Spanish, which is what Signum has.
+
+Five Signum regexes are unanchored, and `Regex.IsMatch` searches anywhere — `AlphanumericOnly` is
+`[A-Za-z0-9]`, which passes "a#$%". Those are anchored here, and `IdentifierValidator.PascalAscii`
+(`^[A-Z[_a-zA-Z0-9]*$` — the stray `[` makes it identical to the Ascii form) enforces the leading capital
+its name promises. Each divergence is commented at the regex and pinned by a test.
+
+Neither `NumberBetween` nor `TimePrecision` influences a column: `SchemaSettings` derives a size from
+`StringLengthValidator` and a scale from `DecimalsValidator` and reads no other validator —
+`GetSqlPrecision`'s lookup is commented out, which is the same finding the `DateTimePrecision` port made.
+`TimePrecision` denormalises nothing onto the FieldInfo either: Signum derives a display format from it
+(`FormatString_TimeSpan` / `FormatString_TimeOnly`), and those are custom .NET patterns that altea's
+specifier vocabulary cannot express — `TimeLine` renders a fixed HH:MM:SS and reads no format.
+
+> Found on the way, NOT fixed: `SMSMessageEntity.destinationNumber` (altea-sms) hand-rolls the
+> multiple-telephone rule as a `@validate` with a message of its own, written when core had no such
+> validator. `@multipleTelephoneValidator` now says it, and re-seating it would also make the field render
+> as a phone in a search result — `FinderRules`' "Phone" cell now keys off both telephone validators, as
+> Signum's `MemberInfo.IsPhone` does.
 
 ### D2 — `OperationMessage` — **DONE**
 All three ported; none turned out to be a string without a caller.
