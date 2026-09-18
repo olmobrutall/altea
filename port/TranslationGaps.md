@@ -246,11 +246,41 @@ column is wanted."* `SessionLogEntity` and `RestLogEntity` already register a `d
 missing. `ScheduledTaskLogEntity`, `ProcessEntity`, `LoadMethodLogEntity` and `ViewLogEntity` lost the same
 `Duration` translation and should be checked in the same pass.
 
-### B3 — `DeleteLogs` machinery
-`exceptionLogic.ts:13` lists "the log-cleanup/DeleteLogs machinery, per-environment overrides" as not
-ported. Signum's `DeleteLogParametersEmbedded` (ChunkSize / DeleteLogs / MaxChunks / PauseTime) and
-`DeleteLogsTypeOverridesEmbedded` (DeleteLogsOlderThan / DeleteLogsWithExceptionsOlderThan / Type) are the
-scheduled task that keeps log tables from growing without bound. Port both plus the task.
+### B3 — `DeleteLogs` machinery — **DONE**
+Signum's `DeleteLogParametersEmbedded` (ChunkSize / DeleteLogs / MaxChunks / PauseTime) and
+`DeleteLogsTypeOverridesEmbedded` (DeleteLogsOlderThan / DeleteLogsWithExceptionsOlderThan / Type) are in
+`altea/data/deleteLogs.ts`, where Signum keeps them (Basics/Exception.cs); the runner and the registry are
+`ExceptionLogic` (`registerDeleteLogs` / `deleteLogsAndExceptions` / `deleteChunksLog`).
+
+**The strategy, which is the part worth reading.** A run is `Transaction.none` — each chunk has to COMMIT,
+or chunking buys nothing. Every registered handler trims its own table through `deleteChunksLog`, which is
+`Query.executeDeleteChunks(chunkSize, maxChunks, pauseTime, signal)`: `ORDER BY id TOP n` deleted
+repeatedly, so each statement takes a short lock, with `pauseTime` handing the table back to the
+application between bites and `maxChunks` bounding ONE run — a backlog drains over several runs rather
+than one very long one. Then the exceptions go last: `referenced` is blanked and recomputed from every
+column in the schema that is a foreign key to the exception table, so an exception a handler could not
+reach (it ran out of chunks) survives this run, and only the unreferenced ones older than the cut-off go.
+
+Per-type overrides ARE the policy: a type with no row is never swept at all. Each type gets two cut-offs —
+`deleteLogsOlderThan` for ordinary rows and the SHORTER `deleteLogsWithExceptionsOlderThan` for rows that
+recorded a failure (validated to be the shorter one) — and both are midnight N days back, or the start of
+this hour for 0, so the window does not drift between chunks. `altea/test/data/deleteLogParameters.test.ts`
+pins that arithmetic.
+
+`DeleteLogParametersEmbedded` becomes a table only through an owner. Core has none: the owner is
+`@altea/altea-scheduler`'s `DeleteLogsTaskEntity` (an `ITaskEntity`), started opt-in by
+`DeleteLogsTaskLogic.start(sb)` — Signum leaves the owner to the application the same way.
+
+Registered handlers: `OperationLogEntity` + `SystemEventLogEntity` (core), `SessionLogEntity`
+(altea-auth), `RestLogEntity` (altea-rest), `ScheduledTaskLogEntity` + `SchedulerTaskExceptionLineEntity`
+(altea-scheduler), `ProcessEntity` + `ProcessExceptionLineEntity` (altea-processes), `ViewLogEntity`
+(altea-view-log), `LoadMethodLogEntity` (altea-migrations). Signum's remaining handlers —
+`EmailMessageEntity`, the SMS pair and `WorkflowEventTaskConditionResult` — are still unported, as are
+`Connector.CommandTimeoutScope` (altea has no per-command timeout scope) and `ExecuteChunksLog` (Signum's
+chunked UPDATE twin, which has no caller in the framework).
+
+`exceptionLogic.ts`'s header keeps "per-environment overrides" as the one piece of Signum's ExceptionLogic
+still missing.
 
 ### B4 — `DateTimePrecision` — **DONE**
 Signum's `DateTimePrecision { Days, Hours, Minutes, Seconds, Milliseconds }` and its

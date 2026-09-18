@@ -58,8 +58,8 @@ concurrently edits.
   whether the remaining steps still run. The console output is the same banner + timing.
 - **`ensureMigrationTable` also creates the SCHEMA** when the table lives outside the default one, as
   Signum does; `createSchema` is idempotent-guarded by the dialect builder, so emitting it is safe.
-- `ExceptionLogic.DeleteLogs` purging old LoadMethodLog rows is deferred WITH altea's DeleteLogs
-  machinery — the note every log-owning module carries.
+- `ExceptionLogic.DeleteLogs` purges old LoadMethodLog rows, with the two cut-offs Signum registers here
+  (plain rows, and rows that recorded an exception).
 - **`Duration` is an in-memory helper, not a query column.** Signum declares it `[ExpressionField]`;
   @altea/altea-processes and @altea/altea-scheduler make the same call for their own log durations, and
   the value is only ever read off a loaded row while a stored `start`/`end` pair is what a query filters on.

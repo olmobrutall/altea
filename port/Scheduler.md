@@ -67,6 +67,15 @@ same reason Signum's DTO uses `string ServerLocalTime`.
 The health check is ANONYMOUS (a load balancer polls it), as in Signum; the other two panel calls assert
 `ViewSchedulerPanel`.
 
+## Log cleanup
+
+`SchedulerLogic.start` registers this package's `ExceptionLogic.DeleteLogs` handler (exception LINES first,
+then the logs no line points at), and `DeleteLogsTaskLogic` — OPT-IN, an app calls it next to
+`SchedulerLogic.start` — is where the schedulable cleanup itself lives: `DeleteLogsTaskEntity` is an
+`ITaskEntity` holding core's `DeleteLogParametersEmbedded`, so a ScheduledTask can point at it. It is here
+rather than in core because the parameters need a persistent home and that home has to be an ITaskEntity,
+which is this package's; core may not depend on the scheduler. See `port/TranslationGaps.md` item B3.
+
 ## Not ported
 
 - **`IUserAssetEntity` (Guid + ToXml/FromXml)** on the rules and the holiday calendar: they would round-trip
@@ -79,7 +88,6 @@ The health check is ANONYMOUS (a load balancer polls it), as in Signum; the othe
   logs before dropping the row — needs `Administrator.DeleteWhereScript`, which altea does not have. A
   symbol removed from the code therefore surfaces as a foreign-key conflict in the sync script rather than
   as generated cleanup SQL.
-- `ExceptionLogic.DeleteLogs`, the note every log-owning module carries.
 - `SystemEventLogLogic.Log(...)` for the runner's start/stop — reported through the panel's state instead.
 - The ChangeLog module, `CopyHealthCheckButton`, and the `ScheduledTaskLogDatesDTO` bar-chart column
   formatter (which needs `buildDateScale` from Signum's D3Utils). `Constructor.registerConstructor` for

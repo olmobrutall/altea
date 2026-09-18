@@ -130,9 +130,6 @@ surgery Signum does by hand in its replay.
 
 ## Not ported
 
-- **`ExceptionLogic.DeleteLogs`** — altea has no log-retention machinery yet, the same note
-  @altea/altea-scheduler, -processes, -migrations, -email and -workflow all carry, so the per-type
-  retention hook is deferred with it.
 - **Swagger / `[IncludeInDocumentation]`** — altea's `httpMeta` carries OpenAPI hints but no generator is
   wired.
 

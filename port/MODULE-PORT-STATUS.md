@@ -49,8 +49,8 @@ LOC = `.cs` + `.ts` + `.tsx` lines still in `old/`, as a rough size signal only.
 | Signum.Printing | `altea-printing` | print queue; StateValidator → per-field `@fieldValidation`; the print action is an app seam (default throws); found 2 core bugs (no client sub-tokens for `@implementedByAll`, `logException` in the caller's transaction) |
 | Signum.Processes | `altea-processes` | PackageOperation contextual menu unported |
 | Signum.Profiler | `altea-profiler` | |
-| Signum.Rest | `altea-rest` | Signum's MVC action filter becomes Express middleware mounted on a path prefix; a logged `?apiKey=` is redacted; no Swagger, no DeleteLogs |
-| Signum.Scheduler | `altea-scheduler` | in-process `setTimeout` runner; owns `HolidayCalendar` |
+| Signum.Rest | `altea-rest` | Signum's MVC action filter becomes Express middleware mounted on a path prefix; a logged `?apiKey=` is redacted; no Swagger |
+| Signum.Scheduler | `altea-scheduler` | in-process `setTimeout` runner; owns `HolidayCalendar` and the opt-in `DeleteLogsTask` |
 | Signum.SMS | `altea-sms` | structurally a small sibling of `altea-email`; the GSM-alphabet length rules carry their own suite (Signum's UCS-2 budget of 60 corrected to 70); no `SendAsyncSMS`, no DeleteLogs, no package NumLines/NumErrors columns |
 | Signum.Templating | `altea-templating` | the Roslyn Eval becomes `TemplateApplicableSymbol` |
 | Signum.TimeMachine | `altea-time-machine` | |

@@ -1929,9 +1929,8 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     is — keeps the loop alive, so it drains and fires AGAIN, forever. Verified: an async `beforeExit`
     handler without the guard re-entered until killed.
   - `Schema.Current.MachineName` → `node:os`'s `hostname()`, which ExceptionLogic already uses for the
-    same column; `ExceptionLogic.DeleteLogs` is not ported (the note every log-owning module carries),
-    and note Signum registers TWO limits there — plain rows and rows WITH an exception — so a port of that
-    machinery must keep both.
+    same column; `ExceptionLogic.DeleteLogs` registers the TWO limits Signum registers here — plain rows
+    and rows WITH an exception.
   Pinned by `eastwind/terminal/probes/probeSystemEventLog.ts` (15 checks, including that a row written inside a
   DOOMED ambient transaction survives its rollback, and that an unsavable event answers false instead of
   throwing). The signal / drain paths are verified out of process instead, since they turn on exit status:
@@ -1967,7 +1966,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     `sessionEnd` — ASYNC; both dates carry `@dateTimePrecisionValidator(Seconds)` and are truncated where
     they are assigned, which is what satisfies it; the ORDER BY + TOP `UnsafeUpdate`
     becomes select-then-update-by-id (as UserTicketLogic's per-user sweep does); `ExceptionLogic.DeleteLogs`
-    is not ported, the note every log-owning module carries.
+    sweeps by `sessionStart` alone, since a session log has no exception column.
   Pinned by `eastwind/terminal/probes/probeSessionLog.ts` (23 checks, including that the nullable-ternary
   `durationSeconds` really lowers to SQL both as a projection and as an ORDER BY). `auth.session_log`
   needs a `sync` and matches Signum's table column for column. Full ledger:
@@ -2100,7 +2099,8 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     keyed by its symbol and a subclass inherits its base's. Signum registers per concrete type only because
     C# generics force `Graph<ProcessEntity>.ConstructFromMany<T>` to name one. The projector also retrieves
     through the LITE's own concrete type, since an abstract base has no table.
-  - NOT ported: both `ExceptionLogic.DeleteLogs` handlers, `SMSModelEntity`'s `[TicksColumn(false)]` (no such
+  - NOT ported: both `ExceptionLogic.DeleteLogs` handlers (the machinery exists — see TranslationGaps B3 —
+    but the SMS message / package sweeps are not registered), `SMSModelEntity`'s `[TicksColumn(false)]` (no such
     option, and the row is only ever written by the synchronizer), the `Retrieved` / `AfterDeserialization`
     token re-parse (altea resolves tokens client-side), and the two package queries' `NumLines` /
     `LastProcess` / `NumErrors` columns — altea-processes exposes neither `LastProcess()` nor

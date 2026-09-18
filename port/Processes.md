@@ -108,7 +108,9 @@ the run:
 - **`RegisterUserTypeCondition`**: its middle rule — a `PackageOperationEntity` is visible when a process the
   user owns points at it — is a subquery over another type's condition, which TypeConditionLogic cannot
   express. An app that needs it registers the three conditions itself.
-- `ExceptionLogic.DeleteLogs` (so `ExceptionLogic_DeletePackages` too), the
+- `ExceptionLogic_DeletePackages` — the Process handler IS registered (`deleteProcessLogs`, per finished
+  STATE so one state's backlog cannot use up the run's whole chunk budget), but orphaned packages are not
+  swept with it. The
   `QueryLogic.Expressions.Register` calls for Processes / LastProcess / ExceptionLines (they would make the
   isomorphic layer import the server query API), the ChangeLog module, `CopyHealthCheckButton`, and the
   ProcessDates bar-chart column formatter.
