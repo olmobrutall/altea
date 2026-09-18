@@ -129,10 +129,13 @@ describe("ReflectionServer.buildMetadata", () => {
     test("every reflected class gets an entry, with the persisted/non-persisted kind", () => {
         const types = ReflectionServer.buildMetadata("en").types;
         assert.equal(types["AlbumEntity"].kind, "Entity");
-        // An enum has no class to hang a TypeInfo on, but it does get a metadata entry — with its members'
-        // database ids, so the client can address one without a round trip.
+        // An enum has no class to hang a TypeInfo on, but it does get a metadata entry. What it does NOT
+        // carry is its members' row ids: an enum member's id IS its numeric value (`enumEntityMembers`,
+        // which is also what SEEDS the table), so the client computes it — the assertion this replaces
+        // only ever restated that identity. A member appears here when it has a declared label, and
+        // AlbumState has none.
         assert.equal(types["AlbumState"].kind, "Enum");
-        assert.equal(types["AlbumState"].fields["Saved"].id, AlbumState.Saved);
+        assert.deepEqual(types["AlbumState"].fields, {});
     });
 
     // `fields` is keyed by (declaring type, member) — the pair `FieldInfo.niceToString()` holds — so an
@@ -210,8 +213,10 @@ describe("ReflectionServer.toWire", () => {
             </Translations>`);
         const wire = ReflectionServer.toWire(ReflectionServer.buildMetadata("en"));
         assert.equal(wire.types["AlbumEntity"].fields!["name"], "Album title");
-        // An enum member carries its database id too, so it cannot collapse — it stays an object.
-        assert.deepEqual(wire.types["AlbumState"].fields!["Saved"], { id: AlbumState.Saved });
+        // An enum member collapses the same way, and an UNTRANSLATED one is absent rather than an empty
+        // object: its row id is no longer shipped (it IS the member's numeric value), so a label is the
+        // only fact an entry can hold.
+        assert.equal(wire.types["AlbumState"]?.fields?.["Saved"], undefined);
     });
 
     test("an empty fields record is not shipped at all", () => {

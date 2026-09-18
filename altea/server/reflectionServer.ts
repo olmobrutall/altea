@@ -7,7 +7,7 @@
 //
 //   niceName / nicePluralName / gender  — for the requested UI culture
 //   fields[member].niceName             — ditto, for the type's OWN members
-//   fields[member].id                   — enum-member / symbol database ids
+//   fields[member].id                   — symbol database ids (an enum member's id IS its numeric value)
 //   routes[path]                        — what the ROLE may do with a member reached by that path
 //   hasQuery                            — whether an executable query is registered (and visible)
 //   operations                          — an OperationMetadata per operation registered on the type
@@ -40,7 +40,8 @@ import {
     resolveType, resolveEnum, getRegisteredTypes, getRegisteredEnums, getRegisteredObjects,
     allDeclaredSymbols, getDefaultDescription, enumNameOf,
 } from "../data/registration";
-import { EnumEntity, enumEntityMembers } from "../data/enumEntity";
+import { EnumEntity } from "../data/enumEntity";
+import { Enum } from "../data/enum";
 import { PropertyRoute } from "../data/propertyRoute";
 import { serializeExtensionInfo } from "../data/dynamicQuery/tokenSerializer";
 import { Entity, View } from "../data/entity";
@@ -139,15 +140,27 @@ export namespace ReflectionServer {
         }
 
         // ---- Enums -----------------------------------------------------------------------------------
-        // Members carry their database id, so the client can build a Lite of an enum entity (a chart
-        // colour palette, a filter value) without a round trip.
+        // The NICE NAME, and nothing else. An enum member's row id is its own numeric value — it is not
+        // read from the database, it is what SEEDS it (`schemaGenerator` inserts `(id, name)` straight from
+        // `enumEntityMembers`, and the synchronizer reconciles against the same list), so it cannot differ.
+        // `data/enumEntity` is isomorphic, so a client that needs those ids calls `enumEntityMembers`
+        // itself — which is exactly what altea-chart's ColorPalette does to build its `Lite<EnumEntity<E>>`
+        // values. Shipping them here cost a field per member in a blob built per user AND per culture, and
+        // the only reader of `FieldMetadata.id` is the SYMBOL pass below, whose ids really are assigned by
+        // the database.
+        //
+        // Iterate the member NAMES (`Enum.values`), not the rows: `enumEntityMembers` filters to numeric
+        // members, so a STRING-valued enum — the whole query-token vocabulary, AggregateFunction /
+        // CollectionElementType / … — yielded nothing and its translations never reached the client at all.
+        // A `markAsNotMapped` member was in the same position.
         for (const [name, enumObject] of getRegisteredEnums()) {
             const tm = typeOf(name, "Enum");
-            for (const { id, name: member } of enumEntityMembers(enumObject)) {
-                const fm: FieldMetadata = { id };
+            for (const member of Enum.values(enumObject as Record<string, string | number>)) {
+                // Only a DECLARED label rides the wire, exactly as for an entity's members above: a member
+                // the client would humanise identically is pure payload, and with the id gone there is
+                // nothing else an entry could carry.
                 const niceName = declaredMember(name, member);
-                if (niceName != null) fm.niceName = niceName;
-                tm.fields[member] = fm;
+                if (niceName != null) tm.fields[member] = { niceName };
             }
         }
 
