@@ -59,6 +59,13 @@ export class ViewLogEntity extends Entity {
 
 export const ViewLogMessage = {
     ViewLogMyLast: msg("My last view log"),
+    // The caption of the `Duration` token over durationMilliseconds() (registered in ViewLogLogic).
+    // Signum translates it as the entity's `Duration` PROPERTY; a `@quoted` method is not a PropertyRoute
+    // here, so it has no <Member> entry to hold a translation — `stub-translations` builds a type's member
+    // list from PropertyRoute.memberPaths, i.e. from FIELDS — and a message is the localizable home that
+    // leaves. It used to be `nicePropertyName(e => e.durationMilliseconds())`, which silently humanised to
+    // "Duration milliseconds" in every culture.
+    Duration: msg(),
 };
 
 setDefaultDatabaseSchema("viewLog");

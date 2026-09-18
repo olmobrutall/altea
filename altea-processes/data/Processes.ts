@@ -1,8 +1,8 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Symbol } from "@altea/altea/data/symbol";
-import { entity, implementedBy, implementedByAll, format, quoted, ticksColumn } from "@altea/altea/data/decorators";
+import { column, entity, implementedBy, implementedByAll, format, legacyPropertyRoute, quoted, ticksColumn } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate } from "@altea/altea/data/validators";
 import { Temporal, Decimal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -21,9 +21,15 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 // SET-BASED update — it must not go through the save pipeline (see `ExecutingProcess.progressChanged`) —
 // and a set-based update of a field inside an embedded is not something altea expresses.
 //
-// `duration` / `durationSpan` are IN-MEMORY helpers, not queryable columns: the quote-transformer emits a
-// runtime type reference for a quoted member's return type, and a plain number has no value to reference
-// (the same reason `ScheduledTaskLog.duration` is a plain method).
+// Signum's `Duration` (double?, ms) IS ported, as the `@quoted durationMilliseconds()` below plus the
+// `Duration` token ProcessLogic registers over it — a note here used to say a quoted duration was
+// impossible, which it is not: `end.since(start).total({ unit })` lowers to DATEDIFF / EXTRACT(EPOCH …).
+//
+// Signum's second expression, `DurationSpan` (TimeSpan?), is NOT ported. altea's LINQ provider carries a
+// `since()` difference as an internal marker that only `Duration.total(unit)` consumes; there is no
+// lowering that leaves an INTERVAL standing as a column, so a member returning a raw `Temporal.Duration`
+// would emit the marker into the SELECT and fail at query time. `Duration` in milliseconds is the same
+// information, and it is what Signum's own default columns use.
 //
 // Port of Signum.Processes' Process.cs — see port/Processes.md.
 
@@ -117,10 +123,27 @@ export class ProcessEntity extends Entity {
         return null;
     }
 
-    /** An in-memory helper, not a query column — see the header. */
-    durationMilliseconds(): number | null {
-        return this.executionEnd == null || this.executionStart == null ? null
-            : this.executionEnd.since(this.executionStart).total({ unit: "milliseconds" });
+    /**
+     * Signum's `[ExpressionField("DurationExpression")] public double? Duration` — how long the run took,
+     * in milliseconds. `@quoted`, so the process search page and the panel's grid can order by it.
+     *
+     * BOTH bounds are guarded, unlike Signum, which tests only `ExecutionEnd` and relies on C# lifted
+     * `-` to null-propagate the other side. Here the guard is explicit, so a row that somehow carries an
+     * end without a start reads as "unknown" instead of a difference against NULL. The ternary lowers to
+     * a CASE WHEN; `since().total({ unit })` is the shape the nominator turns into a real DATEDIFF.
+     *
+     * It must be written VALUE-FIRST (`!= null ? … : null`, not `== null ? null : …`):
+     * `ConditionalExpression.calculateType` is `whenTrue.type || whenFalse.type` and the `null` literal
+     * HAS a type, so a null-first ternary types the whole expression as null and the registration then
+     * rejects it as "neither @quoted nor @resultType".
+     *
+     * `@legacyPropertyRoute("Duration")`: Signum's member is a C# PROPERTY, so a Signum database holds a
+     * `basics.property_route` row named `Duration` that a legacy sync must not drop.
+     */
+    @legacyPropertyRoute("Duration")
+    @quoted durationMilliseconds(): number | null {
+        return this.executionEnd != null && this.executionStart != null
+            ? this.executionEnd.since(this.executionStart).total({ unit: "milliseconds" }) : null;
     }
 
     toString(): string {
@@ -146,6 +169,9 @@ export class ProcessEntity extends Entity {
 @entity("System", "Transactional")
 export class ProcessExceptionLineEntity extends Entity {
 
+    // Signum's [DbType(Size = int.MaxValue)] — whatever identifies the element that failed, and it is
+    // written by an algorithm, not typed by anyone. Said outright: no size means the default of 200.
+    @column({ size: MAX_SIZE })
     elementInfo: string | null;
 
     /** The line (usually a PackageLine) that failed. There is no runtime interface, so
@@ -180,6 +206,11 @@ export namespace ProcessPermission {
 }
 
 export const ProcessMessage = {
+    // The caption of the `Duration` token over ProcessEntity.durationMilliseconds() (registered in
+    // ProcessLogic). Signum translates it as that entity's `Duration` PROPERTY; a `@quoted` method is not
+    // a PropertyRoute, so it has no <Member> entry to hold a translation and the caption has to be a
+    // message — the same move OperationLogic makes for its system-time tokens.
+    Duration: msg(),
     Process0IsNotRunningAnymore: msg("Process {0} is not running anymore"),
     ProcessStartIsGreaterThanProcessEnd: msg("Process Start is greater than Process End"),
     ProcessStartIsNullButProcessEndIsNot: msg("Process Start is null but Process End is not"),

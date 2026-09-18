@@ -1,7 +1,7 @@
 import { Entity } from "./entity";
 import type { IQuery } from "./iquery";
 import { Lite } from "./lite";
-import { column, entity, format, implementedBy, implementedByAll, serialize, ticksColumn } from "./decorators";
+import { column, entity, format, implementedBy, implementedByAll, legacyPropertyRoute, quoted, serialize, ticksColumn } from "./decorators";
 import { reflect, setDatabaseSchema } from "./reflection";
 import { Temporal } from "./basics";
 import { OperationSymbol } from "./operations";
@@ -20,9 +20,13 @@ import type { IUserEntity } from "./security";
 //  - `User: Lite<IUserEntity>` — who ran the operation. @implementedByAll (like target/origin) so core
 //    needn't reference altea-auth's UserEntity; set in OperationLogic.logOperation from UserHolder (null
 //    until an auth module scopes the request). ToString includes it when present.
-//  - `Duration` (Signum's [ExpressionField] computed from End - Start) is omitted — a Temporal
-//    subtraction lowered to SQL is not needed by the OperationLog query's default columns, and altea has
-//    no ExpressionField-over-Temporal-difference support yet. TODO(port) if a duration column is wanted.
+//  - `Duration` (Signum's [ExpressionField] computed from End - Start) IS here — the `@quoted`
+//    `durationMilliseconds()` below, plus the `Duration` token OperationLogic registers over it. The note
+//    that used to stand here said altea had "no ExpressionField-over-Temporal-difference support yet";
+//    it does — `end.since(start).total({ unit })` is lowered by DbExpressionNominator to
+//    CAST(DATEDIFF_BIG(millisecond, start, end) AS float) on SQL Server and EXTRACT(EPOCH FROM end - start) / 0.001 on
+//    Postgres. What altea has no counterpart for is Signum's `[Unit("ms")]` (a registered expression
+//    carries no unit), so the unit lives in the member NAME, as @altea/altea-rest and -view-log spell it.
 //  - TicksColumn(false) has no altea decorator yet; left as the schema default (as ExceptionEntity does).
 @reflect
 @entity("System", "Transactional")
@@ -75,6 +79,25 @@ export class OperationLogEntity extends Entity {
     /** Signum's `GetTemporalTarget()`. */
     getTemporalTarget(): Entity | null {
         return this.temporalTarget;
+    }
+
+    /**
+     * Signum's `Duration` — how long the operation took, in milliseconds; null while `end` is unset (an
+     * execution still running, or one that threw before `end` was stamped). `@quoted`, so it is a real
+     * SQL column the OperationLog search page can order and filter by rather than an in-memory read off
+     * an already-loaded row.
+     *
+     * The nullable guard is load-bearing: `end` is nullable, and a difference taken against NULL would
+     * report a wrong number instead of "unknown". The ternary is what the provider lowers to a CASE WHEN,
+     * and `since().total({ unit })` is the only Temporal shape the nominator turns into a real DATEDIFF.
+     *
+     * `@legacyPropertyRoute("Duration")` because Signum's member is the C# PROPERTY `Duration`, so a
+     * Signum database holds a `basics.property_route` row under exactly that name and a legacy sync must
+     * not offer it as a rename and drop it.
+     */
+    @legacyPropertyRoute("Duration")
+    @quoted durationMilliseconds(): number | null {
+        return this.end != null ? this.end.since(this.start).total({ unit: "milliseconds" }) : null;
     }
 
     // Signum's ToString(): "{Operation} {User} {Start:d}".

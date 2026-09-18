@@ -9,6 +9,7 @@ import { Administrator } from "@altea/altea/server/Administrator";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
+import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { Entity, type Type } from "@altea/altea/data/entity";
 import { SqlMigrationEntity, TypeScriptMigrationEntity, LoadMethodLogEntity, MigrationMessage } from "../data/Migrations";
@@ -32,6 +33,14 @@ export namespace MigrationLogic {
         sb.include(SqlMigrationEntity).withQuery();
         sb.include(TypeScriptMigrationEntity).withQuery();
         sb.include(LoadMethodLogEntity).withQuery();
+
+        // Signum's `Duration` column on the load log (one of MigrationLogic's own default columns there).
+        // Signum gets the token from the `[ExpressionField]` property; altea registers it, because a
+        // `@quoted` method is not a member of the type as far as the query metadata is concerned. The
+        // caption is a MESSAGE and not `nicePropertyName(l => l.durationMilliseconds())`, which resolves
+        // under (declaring type, member) and would humanise — a quoted method has no <Member> entry.
+        QueryLogic.expressions.register(LoadMethodLogEntity, l => l.durationMilliseconds(),
+            { key: "Duration", niceName: () => MigrationMessage.Duration.niceToString() });
 
         void ExceptionLogic;
     }

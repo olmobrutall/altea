@@ -1,7 +1,7 @@
 import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, quoted, ticksColumn, legacyClassName } from "@altea/altea/data/decorators";
+import { entity, uniqueIndex, quoted, ticksColumn, legacyClassName, legacyPropertyRoute } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Temporal } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -73,12 +73,27 @@ export class LoadMethodLogEntity extends Entity {
     exception: Lite<ExceptionEntity> | null;
 
     /**
-     * An IN-MEMORY helper, not a query column — the same decision @altea/altea-processes and
-     * @altea/altea-scheduler make for their own log durations: the value is only ever read off a loaded
-     * row, and a stored `start`/`end` pair is what a query filters on.
+     * Signum's `[ExpressionField("DurationExpression"), Unit("ms")] public double? Duration` — how long the
+     * load method ran, in milliseconds, null while `end` is unset (a run still going, or one that threw).
+     * `@quoted`, so it is a real SQL column the log's search page can order and filter by: Signum's own
+     * `MigrationLogic` puts `e.Duration` in this query's default columns.
+     *
+     * The guard is load-bearing — a difference taken against a NULL `end` would report a wrong number
+     * rather than "unknown". The ternary lowers to a CASE WHEN and `since().total({ unit })` to a real
+     * DATEDIFF; it was described here as impossible, which it is not.
+     *
+     * The guard is written VALUE-FIRST (`end != null ? … : null`, never `end == null ? null : …`):
+     * `ConditionalExpression.calculateType` is `whenTrue.type || whenFalse.type`, and the `null` literal
+     * HAS a type, so a null-first ternary types the whole expression as null and the registration then
+     * rejects it as "neither @quoted nor @resultType". Same spelling as SessionLogEntity.durationSeconds.
+     *
+     * Renamed from `duration()` so the unit is in the name, as every other altea log spells it;
+     * `@legacyPropertyRoute("Duration")` keeps the `basics.property_route` row a Signum database has
+     * under the C# property's name.
      */
-    duration(): number | null {
-        return this.end == null ? null : this.end.since(this.start).total({ unit: "milliseconds" });
+    @legacyPropertyRoute("Duration")
+    @quoted durationMilliseconds(): number | null {
+        return this.end != null ? this.end.since(this.start).total({ unit: "milliseconds" }) : null;
     }
 
     @quoted toString(): string { return this.methodName ?? ""; }
@@ -86,6 +101,11 @@ export class LoadMethodLogEntity extends Entity {
 
 // Only the strings the runners actually print are declared; the console UI is otherwise plain.
 export const MigrationMessage = {
+    // The caption of the `Duration` token over LoadMethodLogEntity.durationMilliseconds() (registered in
+    // MigrationLogic). Signum translates it as that entity's `Duration` PROPERTY; a `@quoted` method is
+    // not a PropertyRoute, so it has no <Member> entry of its own to hold a translation and the caption
+    // has to be a message.
+    Duration: msg(),
     // Explicit text: the humaniser would make "Reading type script migrations" of the member name.
     ReadingTypeScriptMigrations: msg("Reading TypeScript migrations"),
     AllMigrationsAreExecuted: msg(),

@@ -4,6 +4,7 @@ import { entity, quoted, legacyPropertyRoute } from "@altea/altea/data/decorator
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Lite } from "@altea/altea/data/lite";
 import { Temporal } from "@altea/altea/data/basics";
+import { msg } from "@altea/altea/data/utils/localization";
 import type { PermissionSymbol } from "./Rules";
 import { UserEntity } from "./User";
 
@@ -69,3 +70,13 @@ export class SessionLogEntity extends Entity {
 export namespace SessionLogPermission {
     export const TrackSession: PermissionSymbol = init();
 }
+
+export const SessionLogMessage = {
+    // The caption of the `Duration` token over durationSeconds() (registered in SessionLogLogic).
+    // Signum translates it as the entity's `Duration` PROPERTY; a `@quoted` method is not a PropertyRoute
+    // here, so it has no <Member> entry to hold a translation — `stub-translations` builds a type's member
+    // list from PropertyRoute.memberPaths, i.e. from FIELDS — and a message is the localizable home that
+    // leaves. It used to be `nicePropertyName(a => a.durationSeconds())`, which silently humanised to
+    // "Duration seconds" in every culture.
+    Duration: msg(),
+};

@@ -382,6 +382,20 @@ export namespace OperationLogic {
         QueryLogic.expressions.register(Entity, (e: Entity) => e.operationLogs!(),
             { key: "OperationLogs", niceName: () => OperationLogEntity.nicePluralName() });
 
+        // Signum's `[ExpressionField("DurationExpression")] public double? Duration` — how long the
+        // operation took, so the log's search page can sort and filter by it. Signum gets the token from
+        // the property itself; altea registers it explicitly, because a `@quoted` METHOD is not a
+        // PropertyRoute and so is not a column of the type.
+        //
+        // The caption is a MESSAGE, not `nicePropertyName(a => a.durationMilliseconds())`. That call would
+        // compile and read fine, but it resolves under (declaring type, member) — and a `@quoted` method
+        // has no <Member> entry, because `stub-translations` builds each type's member list from
+        // `PropertyRoute.memberPaths`, i.e. from FIELDS. So it would silently humanise to "Duration
+        // milliseconds" in every culture. `OperationMessage.Duration` is a real localizable member, the
+        // same move `registerSystemValidTokens` below makes for its two tokens.
+        QueryLogic.expressions.register(OperationLogEntity, (o: OperationLogEntity) => o.durationMilliseconds(),
+            { key: "Duration", niceName: () => OperationMessage.Duration.niceToString() });
+
 
         // Signum's `sb.Schema.SchemaCompleted += () => RegisterCurrentLogs(sb.Schema)`: every
         // @systemVersioned type gains the `PreviousOperationLog` sub-token, so a query over that type's

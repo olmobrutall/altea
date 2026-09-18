@@ -61,6 +61,16 @@ export namespace ProcessLogic {
         sb.include(ProcessEntity)
             .withStateMachine(p => p.state, registerProcessOperations)
             .withQuery();
+        // Signum's `Duration` column on the process: how long the run took. Signum gets the token from
+        // the `[ExpressionField]` property itself; altea registers it, because a `@quoted` method is not a
+        // member of the type as far as the query metadata is concerned. The caption is a MESSAGE rather
+        // than `nicePropertyName(p => p.durationMilliseconds())`: that resolves under (declaring type,
+        // member) and a quoted method has no translatable <Member> entry, so it would humanise to
+        // "Duration milliseconds" in every culture. Signum's second expression, `DurationSpan`, is not
+        // ported — see the note in data/Processes.
+        QueryLogic.expressions.register(ProcessEntity, p => p.durationMilliseconds(),
+            { key: "Duration", niceName: () => ProcessMessage.Duration.niceToString() });
+
         sb.include(ProcessExceptionLineEntity).withQuery();
         sb.include(PackageEntity).withQuery();
         sb.include(PackageOperationEntity).withQuery();

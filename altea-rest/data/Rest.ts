@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
@@ -82,10 +82,16 @@ export class RestLogEntity extends Entity {
     @implementedBy(() => [])
     user: Lite<IUserEntity> | null = null;
 
+    // All three are Signum's `[DbType(Size = int.MaxValue)]` — a forwarded-for chain, a resolved host
+    // name and a referrer URL are all client-supplied and arbitrarily long. Said outright, because a
+    // string column with no size takes the per-provider default of 200.
+    @column({ size: MAX_SIZE })
     userHostAddress: string | null = null;
 
+    @column({ size: MAX_SIZE })
     userHostName: string | null = null;
 
+    @column({ size: MAX_SIZE })
     referrer: string | null = null;
 
     /** The matched route path. */
@@ -124,7 +130,7 @@ export class RestLogEntity extends Entity {
      * `@quoted`, so it IS a query column (the log's search page orders by it) — unlike the in-memory
      * `duration()` helpers in @altea/altea-processes / -scheduler / -migrations, which return the branded
      * `int` the transformer cannot emit a runtime type reference for. A plain `number` lowers to
-     * `DATEDIFF(millisecond, start, end)` through `since().total()`.
+     * `CAST(DATEDIFF_BIG(millisecond, start, end) AS float)` through `since().total()`.
      */
     @legacyPropertyRoute("Duration")
     @quoted durationMilliseconds(): number {
@@ -163,6 +169,13 @@ export enum RestLogReplayState {
 }
 
 export const RestLogMessage = {
+    // The caption of the `Duration` token over durationMilliseconds() (registered in RestLogLogic).
+    // Signum translates it as the entity's `Duration` PROPERTY; a `@quoted` method is not a PropertyRoute
+    // here, so it has no <Member> entry to hold a translation — `stub-translations` builds a type's member
+    // list from PropertyRoute.memberPaths, i.e. from FIELDS — and a message is the localizable home that
+    // leaves. It used to be `nicePropertyName(e => e.durationMilliseconds())`, which silently humanised to
+    // "Duration milliseconds" in every culture.
+    Duration: msg(),
     Replay: msg("Replay"),
     ReplayNotAllowedForThisRestLog: msg("Replay not allowed for this rest log"),
     Previous: msg("Previous"),

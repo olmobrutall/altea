@@ -1,9 +1,9 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Symbol } from "@altea/altea/data/symbol";
 import {
-    entity, part, implementedBy, implementedByAll, format, unit, quoted, primaryKey,
+    entity, part, implementedBy, implementedByAll, format, unit, quoted, primaryKey, legacyPropertyRoute, column,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { Temporal, type int } from "@altea/altea/data/basics";
@@ -333,14 +333,27 @@ export class ScheduledTaskLogEntity extends Entity {
     @stringLengthValidator({ multiLine: true })
     remarks: string | null;
 
-    /** NOT `@quoted`, so it is an
-     *  in-memory helper rather than a queryable column — the quote-transformer emits a runtime type
-     *  reference for a quoted member's return type, and `int` is a branded TYPE with no value to reference
-     *  (every other quoted member in the workspace returns an entity, a Decimal or a string). A queryable
-     *  duration wants a Decimal-typed expression; the panel and the log's own columns do not need one. */
-    durationMilliseconds(): number | null {
-        return this.endTime == null ? null
-            : this.endTime.since(this.startTime).total({ unit: "milliseconds" });
+    /**
+     * Signum's `[ExpressionField("DurationExpression"), Unit("ms")] public double? Duration` — how long the
+     * run took, null while `endTime` is unset (a run still going, or one killed before it could stamp an
+     * end). `@quoted`, so the log's search page can order and filter by it.
+     *
+     * The guard is load-bearing: a difference taken against a NULL `endTime` would report a wrong number
+     * instead of "unknown". The ternary lowers to a CASE WHEN and `since().total({ unit })` to a real
+     * DATEDIFF — a note here used to claim the opposite (that a quoted duration was impossible because
+     * `int` is a branded type with no runtime value); the return type is plain `number`, which has one.
+     *
+     * It must be written VALUE-FIRST (`endTime != null ? … : null`): `ConditionalExpression.calculateType`
+     * is `whenTrue.type || whenFalse.type` and the `null` literal HAS a type, so a null-first ternary
+     * types the whole expression as null and the registration rejects it.
+     *
+     * `@legacyPropertyRoute("Duration")`: Signum's member is a C# PROPERTY, so a Signum database carries a
+     * `basics.property_route` row under that name, and altea renamed the member.
+     */
+    @legacyPropertyRoute("Duration")
+    @quoted durationMilliseconds(): number | null {
+        return this.endTime != null
+            ? this.endTime.since(this.startTime).total({ unit: "milliseconds" }) : null;
     }
 
     toString(): string {
@@ -357,8 +370,9 @@ export class ScheduledTaskLogEntity extends Entity {
 @reflect
 @entity("System", "Transactional")
 export class SchedulerTaskExceptionLineEntity extends Entity {
-    // An unbounded text column, so a plain string
-    // column behind a non-null embedded whose text is nullable.
+    // An unbounded text column (Signum's [DbType(Size = int.MaxValue)]), so a plain string column behind
+    // a non-null embedded whose text is nullable. Said outright: no size means the default of 200.
+    @column({ size: MAX_SIZE })
     elementInfo: string | null;
 
     schedulerTaskLog: Lite<ScheduledTaskLogEntity> | null = null;
@@ -414,6 +428,12 @@ export const SchedulerMessage = {
 
 export const ScheduledTaskMessage = {
     State: msg(),
+    // The caption of the `Duration` token over ScheduledTaskLogEntity.durationMilliseconds() (registered in
+    // SchedulerLogic). Signum translates it as that entity's `Duration` PROPERTY; altea's member is a
+    // `@quoted` method, which is not a PropertyRoute and so has no <Member> row of its own to hold a
+    // translation — `stub-translations` builds a type's member list from PropertyRoute.memberPaths, i.e.
+    // from FIELDS. A message is the localizable home that leaves.
+    Duration: msg(),
     InitialDelayMilliseconds: msg("Initial delay milliseconds"),
     SchedulerMargin: msg("Scheduler margin"),
     MachineName: msg("Machine name"),

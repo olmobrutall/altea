@@ -53,9 +53,12 @@ export namespace ViewLogLogic {
 
         sb.include(ViewLogEntity).withQuery();
 
-        // The log's own Duration column.
+        // The log's own Duration column. The caption is a MESSAGE: `nicePropertyName` resolves under
+        // (declaring type, member), and a `@quoted` method is not a PropertyRoute here, so it has no
+        // translatable <Member> entry and the call silently humanised to "Duration milliseconds" in every
+        // culture — Signum's own label is the property `Duration`.
         QueryLogic.expressions.register(ViewLogEntity, e => e.durationMilliseconds(),
-            { key: "Duration", niceName: () => ViewLogEntity.nicePropertyName(e => e.durationMilliseconds()) });
+            { key: "Duration", niceName: () => ViewLogMessage.Duration.niceToString() });
 
         for (const type of options?.registerExpressionsFor ?? [])
             registerExpressions(type);

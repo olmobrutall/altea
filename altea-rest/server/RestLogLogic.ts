@@ -2,7 +2,7 @@ import "@altea/altea/server";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
-import { RestLogEntity } from "../data/Rest";
+import { RestLogEntity, RestLogMessage } from "../data/Rest";
 import { RestApiKeyLogic } from "./RestApiKeyLogic";
 
 // The log table, its four indexes, and the "send this request again and let me diff the answer" replay.
@@ -28,7 +28,7 @@ export namespace RestLogLogic {
             .withQuery();
 
         QueryLogic.expressions.register(RestLogEntity, e => e.durationMilliseconds(),
-            { key: "Duration", niceName: () => RestLogEntity.nicePropertyName(e => e.durationMilliseconds()) });
+            { key: "Duration", niceName: () => RestLogMessage.Duration.niceToString() });
     }
 
     /**

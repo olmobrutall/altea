@@ -5,6 +5,7 @@ import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import { Graph } from "@altea/altea/server/graph";
 import { OperationLogic } from "@altea/altea/server/operationLogic";
+import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { UserHolder } from "@altea/altea/server/userHolder";
 
@@ -18,7 +19,7 @@ import { HolidayCalendarEntity } from "../data/HolidayCalendar";
 import {
     ScheduledTaskEntity, ScheduledTaskLogEntity, SchedulerTaskExceptionLineEntity,
     ScheduledTaskOperation, ScheduledTaskLogOperation, ITaskOperation, SchedulerPermission,
-    SchedulerMessage, SimpleTaskSymbol, type ITaskEntity,
+    SchedulerMessage, ScheduledTaskMessage, SimpleTaskSymbol, type ITaskEntity,
 } from "../data/Scheduler";
 import { HolidayCalendarLogic } from "./HolidayCalendarLogic";
 import { SimpleTaskLogic } from "./SimpleTaskLogic";
@@ -63,6 +64,15 @@ export namespace SchedulerLogic {
         sb.include(ScheduledTaskLogEntity)
             .withIndex(l => l.scheduledTask, undefined, l => l.startTime)
             .withQuery();
+
+        // Signum's `Duration` column on the log: how long the run took. Signum gets the token from the
+        // `[ExpressionField]` property itself; altea registers it, because a `@quoted` method is not a
+        // member of the type as far as the query metadata is concerned. The caption is a MESSAGE and not
+        // `nicePropertyName(l => l.durationMilliseconds())` — that resolves under (declaring type, member)
+        // and a quoted method has no translatable <Member> entry, so it would humanise to "Duration
+        // milliseconds" in every culture.
+        QueryLogic.expressions.register(ScheduledTaskLogEntity, l => l.durationMilliseconds(),
+            { key: "Duration", niceName: () => ScheduledTaskMessage.Duration.niceToString() });
 
         sb.include(SchedulerTaskExceptionLineEntity)
             .withQuery();

@@ -8,7 +8,7 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { Temporal } from "@altea/altea/data/basics";
 import type { Lite } from "@altea/altea/data/lite";
-import { SessionLogEntity, SessionLogPermission } from "../data/SessionLog";
+import { SessionLogEntity, SessionLogPermission, SessionLogMessage } from "../data/SessionLog";
 import type { RoleEntity } from "../data/Role";
 import type { UserEntity } from "../data/User";
 import { AuthLogic } from "./AuthLogic";
@@ -59,7 +59,7 @@ export namespace SessionLogLogic {
         // The session's length, so the search page can order by it. Signum gets this from the
         // `[AutoExpressionField]` member itself; altea registers the token explicitly.
         QueryLogic.expressions.register(SessionLogEntity, e => e.durationSeconds(),
-            { key: "Duration", niceName: () => SessionLogEntity.nicePropertyName(a => a.durationSeconds()) });
+            { key: "Duration", niceName: () => SessionLogMessage.Duration.niceToString() });
     }
 
     /**
