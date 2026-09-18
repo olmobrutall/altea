@@ -168,6 +168,12 @@ function foldOrProperty(obj: Expression, name: string, optional: boolean): Expre
 // only for a NUMERIC member — an enum's reverse map (`AlertCurrentState[0] === "Attended"`) is a string
 // and stays one. `EnumType` is the same type a FieldEnum column binds to, so everything downstream —
 // `toTypeReference`, the nominator's value→name CASE, the client's enum token — already handles it.
+// The `null` LITERAL, by its type NAME rather than by identity with the `LiteralType.null` singleton —
+// the same test `ExpressionContainer.register` uses when it detects an expression that resolved to null.
+function isNullLiteral(type: RuntimeType | undefined): boolean {
+    return type instanceof LiteralType && type.typeName === "null";
+}
+
 function enumMemberType(owner: object, value: unknown): RuntimeType | undefined {
     if (typeof value !== "number")
         return undefined;
@@ -1091,8 +1097,19 @@ export class ConditionalExpression extends Expression {
         super("?:", ConditionalExpression.calculateType(whenTrue, whenFalse));
     }
 
-    private static calculateType(trueExpression: Expression, falseExpression: Expression): RuntimeType {
-        return trueExpression.type || falseExpression.type;
+    // The VALUE branch is what a conditional is worth; a `null` branch only says the value may be absent.
+    //
+    // `null` is a real type here (`LiteralType.null`), so the plain `whenTrue.type || whenFalse.type`
+    // typed `x == null ? null : <number>` as `null` — and `ExpressionContainer.register` then refused the
+    // whole expression with "its tail method is neither @quoted nor @resultType (a forgotten @quoted?)",
+    // which names the wrong thing entirely. Three of the log tables' `Duration` helpers were written
+    // null-first and had to be spelled value-first to work around it; the spelling is free again.
+    //
+    // Only that one case changes: anything else still takes the true branch, falling back to the false
+    // one exactly as before.
+    private static calculateType(whenTrue: Expression, whenFalse: Expression): RuntimeType {
+        const t = whenTrue.type, f = whenFalse.type;
+        return isNullLiteral(t) && f != null && !isNullLiteral(f) ? f : (t || f);
     }
 
     toString(): string {
