@@ -474,10 +474,23 @@ function lastSegment(path: string): string {
  * Signum's `LocalizedAssembly.ExportXml()` — write the file back, or DELETE it when nothing is translated
  * any more (Signum's `if (xml == null) File.Delete(path)`), so an empty file never lingers.
  */
-export function exportXml(pkg: LocalizedPackage): void {
+export interface ExportOptions {
+    /**
+     * Write an entry whose text is the EMPTY STRING instead of leaving it out — the placeholder mode
+     * TranslationStubs uses, so every untranslated name becomes a `Description=""` an editor can find.
+     *
+     * Empty is not a translation: `isTypeCompleted` and `memberConflict` both treat "" as missing, so a
+     * stubbed file still reports exactly the same work on the sync page. Off for an ordinary save, which
+     * must keep leaving untranslated names out.
+     */
+    keepEmpty?: boolean;
+}
+
+export function exportXml(pkg: LocalizedPackage, options: ExportOptions = {}): void {
     const path = translationFilePath(pkg.packageName, pkg.culture, true);
     if (path == undefined)
         throw new Error(`Package '${pkg.packageName}' is not installed — nowhere to write its translations`);
+    const keepEmpty = options.keepEmpty === true;
 
     // Signum's ExportXml writes only what cannot be RE-DERIVED on the way back in, and `importXml` is now
     // the same derivation on both sides: a plural or a gender that `pluralize` / `detectGender` would
@@ -491,22 +504,25 @@ export function exportXml(pkg: LocalizedPackage): void {
     for (const lt of [...pkg.types.values()].sort((a, b) => a.typeName.localeCompare(b.typeName))) {
         const declared = declaredOf.get(lt.typeName);
         const memberNodes = [...lt.members.entries()]
-            .filter(([name, d]) => d != undefined && d !== ""
+            .filter(([name, d]) => d != undefined && (d !== "" || keepEmpty)
                 && !(isDefault && d === defaultMemberDescription(lt.typeName, name, declared)))
             .sort((a, b) => a[0].localeCompare(b[0]))
             .map(([name, description]) => ({ Name: name, Description: description! }));
 
         const description = lt.description ?? "";
+        // A stub has no text to write attributes FROM, so under keepEmpty a type is kept for its members
+        // alone, and its `Description=""` is written when the stubber asked for one (description === "").
+        const stubbedDescription = keepEmpty && lt.description === "";
         const plural = (lt.pluralDescription ?? "") === "" || (description !== "" && lt.pluralDescription === pluralize(description, pkg.culture))
             ? "" : lt.pluralDescription!;
         const gender = (lt.gender ?? "") === "" || (description !== "" && lt.gender === detectGender(description, pkg.culture))
             ? "" : lt.gender!;
 
-        if (description === "" && plural === "" && gender === "" && memberNodes.length === 0)
+        if (description === "" && !stubbedDescription && plural === "" && gender === "" && memberNodes.length === 0)
             continue;
 
         const node: Record<string, unknown> = { Name: lt.typeName };
-        if (description !== "") node.Description = description;
+        if (description !== "" || stubbedDescription) node.Description = description;
         if (plural !== "") node.PluralDescription = plural;
         if (gender !== "") node.Gender = gender;
         if (memberNodes.length > 0) node.Member = memberNodes;
