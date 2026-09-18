@@ -252,7 +252,7 @@ export namespace CaseActivityLogic {
             .withQuery();
 
         QueryLogic.expressions.register(WorkflowActivityEntity, (a: WorkflowActivityEntity) => a.averageDuration(),
-            { niceName: () => WorkflowActivityMessage.AverageDuration.niceToString() });
+            WorkflowActivityMessage.AverageDuration);
         QueryLogic.expressions.register(CaseEntity, (c: CaseEntity) => c.decompositionSurrogateActivity());
 
         // A script activity's row is what the runner picks up, so a fresh one must wake it (Signum hooks the
@@ -341,9 +341,9 @@ export namespace CaseActivityLogic {
         QueryLogic.expressions.register(type, (e: T) => e.cases!(),
             { niceName: () => CaseEntity.nicePluralName() });
         QueryLogic.expressions.register(type, (e: T) => e.lastCaseActivity!(),
-            { niceName: () => CaseActivityMessage.LastCaseActivity.niceToString() });
+            CaseActivityMessage.LastCaseActivity);
         QueryLogic.expressions.register(type, (e: T) => e.currentUserHasNotification!(),
-            { niceName: () => CaseActivityMessage.CurrentUserHasNotification.niceToString() });
+            CaseActivityMessage.CurrentUserHasNotification);
     }
 
     let avoidNotifyInProgress = false;

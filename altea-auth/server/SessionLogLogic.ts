@@ -59,7 +59,7 @@ export namespace SessionLogLogic {
         // The session's length, so the search page can order by it. Signum gets this from the
         // `[AutoExpressionField]` member itself; altea registers the token explicitly.
         QueryLogic.expressions.register(SessionLogEntity, e => e.durationSeconds(),
-            { key: "Duration", niceName: () => SessionLogMessage.Duration.niceToString() });
+            SessionLogMessage.Duration);
     }
 
     /**

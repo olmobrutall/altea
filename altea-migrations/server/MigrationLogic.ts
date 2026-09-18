@@ -40,7 +40,7 @@ export namespace MigrationLogic {
         // caption is a MESSAGE and not `nicePropertyName(l => l.durationMilliseconds())`, which resolves
         // under (declaring type, member) and would humanise — a quoted method has no <Member> entry.
         QueryLogic.expressions.register(LoadMethodLogEntity, l => l.durationMilliseconds(),
-            { key: "Duration", niceName: () => MigrationMessage.Duration.niceToString() });
+            MigrationMessage.Duration);
 
         void ExceptionLogic;
     }

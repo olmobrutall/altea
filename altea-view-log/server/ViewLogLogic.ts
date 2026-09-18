@@ -58,7 +58,7 @@ export namespace ViewLogLogic {
         // translatable <Member> entry and the call silently humanised to "Duration milliseconds" in every
         // culture — Signum's own label is the property `Duration`.
         QueryLogic.expressions.register(ViewLogEntity, e => e.durationMilliseconds(),
-            { key: "Duration", niceName: () => ViewLogMessage.Duration.niceToString() });
+            ViewLogMessage.Duration);
 
         for (const type of options?.registerExpressionsFor ?? [])
             registerExpressions(type);

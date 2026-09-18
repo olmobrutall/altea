@@ -59,9 +59,9 @@ export namespace EmailPackageLogic {
         QueryLogic.expressions.register(EmailPackageEntity, e => e.emailMessages!(),
             { niceName: () => EmailMessageEntity.nicePluralName() });
         QueryLogic.expressions.register(EmailPackageEntity, e => e.remainingMessages!(),
-            { niceName: () => EmailMessageMessage.RemainingMessages.niceToString() });
+            EmailMessageMessage.RemainingMessages);
         QueryLogic.expressions.register(EmailPackageEntity, e => e.exceptionMessages!(),
-            { niceName: () => EmailMessageMessage.ExceptionMessages.niceToString() });
+            EmailMessageMessage.ExceptionMessages);
 
         // Signum's CreateEmailsSendAsyncProcessAlgorithm: one PackageEntity whose LINES are the targets and
         // whose operation arguments carry the template (and optionally the model converter).

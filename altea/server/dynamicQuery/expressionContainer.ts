@@ -10,6 +10,7 @@ import { extractEntity } from "./tokenExpressions";
 import { ExtensionToken, type ExtensionInfo } from "../../data/dynamicQuery/tokens";
 import { Meta, CleanMeta } from "./meta";
 import { MetadataVisitor } from "./metadataVisitor";
+import { LocalizableMessage } from "../../data/utils/localization";
 
 // The SERVER-side registration of a cross-entity expression (Signum's ExtensionInfo). Holds the
 // un-serializable bits — the quoted `lambda` and its provenance `meta` — that only the server needs
@@ -38,7 +39,20 @@ export class ExpressionContainer {
     // deliberately still out (value types).
     private readonly registered = new Map<object, Map<string, RegisteredExpression>>();
 
-    register<E extends BaseEntity, S>(sourceType: Type<E>, lambda: Quoted<(source: E) => S>, opts?: { key?: string; niceName?: () => string; implementations?: Implementations }): RegisteredExpression {
+    /**
+     * `register(SourceType, e => e.member(), Caption)` — the caption may be the MESSAGE itself.
+     *
+     * A registered expression's caption almost always IS a `msg()` member, because a `@quoted` method is
+     * not a PropertyRoute and so has no `<Member>` entry a translation could live under (see
+     * `@legacyPropertyRoute`). Taking the `LocalizableMessage` directly saves every call site the same
+     * `{ niceName: () => X.niceToString() }` wrapper, and the `key` is derived from the lambda's tail
+     * member anyway — so the whole registration is three arguments and no object.
+     *
+     * The options form stays for the captions that are NOT a message: a target type's plural
+     * (`() => AlertEntity.nicePluralName()`), an enum's own name, or a key the derivation would get wrong.
+     */
+    register<E extends BaseEntity, S>(sourceType: Type<E>, lambda: Quoted<(source: E) => S>, caption?: LocalizableMessage | ExpressionOptions): RegisteredExpression {
+        const opts = toExpressionOptions(caption);
         // resultType / isProjection come from the EXPANDED body (fromQuotedLambda inlines the @quoted
         // method); the key must come from the RAW quoted body's tail member, since after expansion the
         // original method name (`albumCount`) is gone (replaced by its body's tail, e.g. `count`).
@@ -203,6 +217,20 @@ export function toTypeReference(rt: RuntimeType): TypeReference {
     if (rt instanceof TemporalType) return new TypeReference({ typeName: rt.kind === "date" ? "PlainDate" : rt.kind === "duration" ? "Duration" : "PlainDateTime" });
     if (rt instanceof LiteralType) return new TypeReference({ typeName: rt.typeName === "boolean" ? "Boolean" : rt.typeName === "string" ? "String" : rt.typeName === "number" ? "Number" : rt.typeName === "decimal" ? "Decimal" : "String" });
     return new TypeReference();
+}
+
+/** What a registration can say beyond the source type and the lambda. */
+export interface ExpressionOptions {
+    /** Only when the derived key would be wrong — it defaults to the lambda's tail member, PascalCased. */
+    key?: string;
+    /** A caption that is not a plain message: a target type's plural, an enum's own name, a format. */
+    niceName?: () => string;
+    implementations?: Implementations;
+}
+
+/** The message overload, normalised — a `LocalizableMessage` becomes the `niceName` thunk it stands for. */
+function toExpressionOptions(arg: LocalizableMessage | ExpressionOptions | undefined): ExpressionOptions | undefined {
+    return arg instanceof LocalizableMessage ? { niceName: () => arg.niceToString() } : arg;
 }
 
 // Replaces the lambda's parameter with the parent expression when inlining a registered expression.

@@ -141,23 +141,23 @@ export namespace AlertLogic {
      */
     /** The five state faces of an alert, as tokens on AlertEntity itself. Keyed as Signum names them. */
     function registerStateExpressions(): void {
-        QueryLogic.expressions.register(AlertEntity, (a: AlertEntity) => a.attended(),
-            { key: "Attended", niceName: () => AlertMessage.Alerts_Attended.niceToString() });
-        QueryLogic.expressions.register(AlertEntity, (a: AlertEntity) => a.notAttended(),
-            { key: "NotAttended", niceName: () => AlertMessage.Alerts_NotAttended.niceToString() });
-        QueryLogic.expressions.register(AlertEntity, (a: AlertEntity) => a.alerted(),
-            { key: "Alerted", niceName: () => AlertMessage.WarnedAlerts.niceToString() });
-        QueryLogic.expressions.register(AlertEntity, (a: AlertEntity) => a.future(),
-            { key: "Future", niceName: () => AlertMessage.Alerts_Future.niceToString() });
-        QueryLogic.expressions.register(AlertEntity, (a: AlertEntity) => a.currentState(),
-            { key: "CurrentState", niceName: () => Enum.niceTypeName(AlertCurrentState)! });
+        QueryLogic.expressions.register(AlertEntity, a => a.attended(),
+            AlertMessage.Alerts_Attended);
+        QueryLogic.expressions.register(AlertEntity, a => a.notAttended(),
+            AlertMessage.Alerts_NotAttended);
+        QueryLogic.expressions.register(AlertEntity, a => a.alerted(),
+            AlertMessage.WarnedAlerts);
+        QueryLogic.expressions.register(AlertEntity, a => a.future(),
+            AlertMessage.Alerts_Future);
+        QueryLogic.expressions.register(AlertEntity, a => a.currentState(),
+            { niceName: () => Enum.niceTypeName(AlertCurrentState)! });
     }
 
     export function registerExpressions<T extends Entity>(type: Type<T>): void {
         QueryLogic.expressions.register(type, (e: Entity) => e.alerts!(),
             { niceName: () => AlertEntity.nicePluralName() });
         QueryLogic.expressions.register(type, (e: Entity) => e.myActiveAlerts!(),
-            { niceName: () => AlertMessage.MyActiveAlerts.niceToString() });
+            AlertMessage.MyActiveAlerts);
     }
 
     // ---- Raising alerts ---------------------------------------------------------------------------------

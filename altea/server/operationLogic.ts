@@ -394,7 +394,7 @@ export namespace OperationLogic {
         // milliseconds" in every culture. `OperationMessage.Duration` is a real localizable member, the
         // same move `registerSystemValidTokens` below makes for its two tokens.
         QueryLogic.expressions.register(OperationLogEntity, (o: OperationLogEntity) => o.durationMilliseconds(),
-            { key: "Duration", niceName: () => OperationMessage.Duration.niceToString() });
+            OperationMessage.Duration);
 
 
         // Signum's `sb.Schema.SchemaCompleted += () => RegisterCurrentLogs(sb.Schema)`: every
@@ -440,14 +440,14 @@ export namespace OperationLogic {
      */
     export function registerSystemValidTokens<T extends Entity>(type: Type<T>): void {
         QueryLogic.expressions.register(type, (e: Entity) => e.systemValidFrom!(),
-            { niceName: () => OperationMessage.SystemValidFrom.niceToString() });
+            OperationMessage.SystemValidFrom);
         QueryLogic.expressions.register(type, (e: Entity) => e.systemValidTo!(),
-            { niceName: () => OperationMessage.SystemValidTo.niceToString() });
+            OperationMessage.SystemValidTo);
     }
 
     export function registerPreviousLog<T extends Entity>(type: Type<T>): void {
         QueryLogic.expressions.register(type, (e: Entity) => e.previousOperationLog!(),
-            { niceName: () => OperationMessage.PreviousOperationLog.niceToString() });
+            OperationMessage.PreviousOperationLog);
     }
 }
 

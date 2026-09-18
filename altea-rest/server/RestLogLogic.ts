@@ -28,7 +28,7 @@ export namespace RestLogLogic {
             .withQuery();
 
         QueryLogic.expressions.register(RestLogEntity, e => e.durationMilliseconds(),
-            { key: "Duration", niceName: () => RestLogMessage.Duration.niceToString() });
+            RestLogMessage.Duration);
     }
 
     /**

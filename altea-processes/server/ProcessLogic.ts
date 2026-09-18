@@ -69,7 +69,7 @@ export namespace ProcessLogic {
         // "Duration milliseconds" in every culture. Signum's second expression, `DurationSpan`, is not
         // ported — see the note in data/Processes.
         QueryLogic.expressions.register(ProcessEntity, p => p.durationMilliseconds(),
-            { key: "Duration", niceName: () => ProcessMessage.Duration.niceToString() });
+            ProcessMessage.Duration);
 
         sb.include(ProcessExceptionLineEntity).withQuery();
         sb.include(PackageEntity).withQuery();

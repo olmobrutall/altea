@@ -60,7 +60,7 @@ export namespace WhatsNewLogic {
         QueryLogic.expressions.register(WhatsNewEntity, (wn: WhatsNewEntity) => wn.whatsNewLogs!(),
             { key: "WhatsNewLogs", niceName: () => WhatsNewLogEntity.nicePluralName() });
         QueryLogic.expressions.register(WhatsNewEntity, (wn: WhatsNewEntity) => wn.isRead!(),
-            { key: "IsRead", niceName: () => WhatsNewMessage.IsRead.niceToString() });
+            WhatsNewMessage.IsRead);
 
         // A news item
         // with no message in the default culture is unreadable for most of its audience. Pushed onto the

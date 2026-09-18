@@ -4,6 +4,8 @@ import { FluentInclude } from "../schema/fluentInclude";
 import { QueryLogic } from "./queryLogic";
 import { AutoDynamicQueryCore } from "./dynamicQueryCore";
 import type { Implementations } from "../../data/implementations";
+import type { ExpressionOptions } from "./expressionContainer";
+import type { LocalizableMessage } from "../../data/utils/localization";
 
 // Port of Signum's `DynamicQueryFluentInclude` (extension methods on FluentInclude, kept in the
 // DynamicQuery layer so the schema layer stays independent). altea adds them by declaration merging
@@ -20,14 +22,14 @@ declare module "../schema/fluentInclude" {
         // up as a sub-token on this entity's tokens (e.g. `Customer.orders`). The niceName defaults to
         // S's NicePluralName / NiceName — which is why these helpers are for ENTITY-valued expressions;
         // register a scalar directly via `QueryLogic.expressions.register` with an explicit niceName.
-        withExpressionTo<S>(lambda: Quoted<(source: T) => S>, opts?: { key?: string; niceName?: () => string; implementations?: Implementations }): this;
+        withExpressionTo<S>(lambda: Quoted<(source: T) => S>, caption?: LocalizableMessage | ExpressionOptions): this;
         // Signum's WithExpressionFrom (hung off FluentInclude<T> for the TARGET entity T): register an
         // expression on a DIFFERENT entity F that navigates to this T (a reference or IQuery<T>), so it
         // shows up as a sub-token on F's tokens (e.g. `Include(OrderEntity).withExpressionFrom(
         // CustomerEntity, c => c.orders())` adds `Customer.orders`). niceName defaults to this T's
         // NicePluralName / NiceName. Signum infers F from the lambda's parameter type; altea can't read
         // that off a quoted lambda, so the source ctor F is passed explicitly.
-        withExpressionFrom<F extends Entity>(sourceType: Type<F>, lambda: Quoted<(source: F) => unknown>, opts?: { key?: string; niceName?: () => string; implementations?: Implementations }): this;
+        withExpressionFrom<F extends Entity>(sourceType: Type<F>, lambda: Quoted<(source: F) => unknown>, caption?: LocalizableMessage | ExpressionOptions): this;
     }
 }
 
@@ -50,13 +52,13 @@ FluentInclude.prototype.withQuery = function <T extends Entity>(this: FluentIncl
     return this;
 };
 
-FluentInclude.prototype.withExpressionTo = function <T extends Entity, S>(this: FluentInclude<T>, lambda: Quoted<(source: T) => S>, opts?: { key?: string; niceName?: () => string; implementations?: Implementations }): FluentInclude<T> {
+FluentInclude.prototype.withExpressionTo = function <T extends Entity, S>(this: FluentInclude<T>, lambda: Quoted<(source: T) => S>, opts?: LocalizableMessage | ExpressionOptions): FluentInclude<T> {
     // Source = this entity T (the lambda's parameter); `FluentInclude.type` is its `Type<T>`.
     QueryLogic.expressions.register(this.type, lambda, opts);
     return this;
 };
 
-FluentInclude.prototype.withExpressionFrom = function <T extends Entity, F extends Entity>(this: FluentInclude<T>, sourceType: Type<F>, lambda: Quoted<(source: F) => unknown>, opts?: { key?: string; niceName?: () => string; implementations?: Implementations }): FluentInclude<T> {
+FluentInclude.prototype.withExpressionFrom = function <T extends Entity, F extends Entity>(this: FluentInclude<T>, sourceType: Type<F>, lambda: Quoted<(source: F) => unknown>, opts?: LocalizableMessage | ExpressionOptions): FluentInclude<T> {
     // Source = the OTHER entity F (the lambda's parameter); the expression navigates from F to this T.
     QueryLogic.expressions.register(sourceType, lambda, opts);
     return this;

@@ -401,7 +401,7 @@ export namespace WorkflowLogic {
 
         QueryLogic.expressions.register(WorkflowEntity, (wf: WorkflowEntity) => wf.workflowStartEvent());
         QueryLogic.expressions.register(WorkflowEntity, (wf: WorkflowEntity) => wf.hasExpired(),
-            { niceName: () => WorkflowMessage.HasExpired.niceToString() });
+            WorkflowMessage.HasExpired);
 
         workflows = sb.globalLazy(async () => await table(WorkflowEntity).toArray(),
             { invalidateWith: [WorkflowEntity] });

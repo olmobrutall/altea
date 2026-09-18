@@ -72,7 +72,7 @@ export namespace SchedulerLogic {
         // and a quoted method has no translatable <Member> entry, so it would humanise to "Duration
         // milliseconds" in every culture.
         QueryLogic.expressions.register(ScheduledTaskLogEntity, l => l.durationMilliseconds(),
-            { key: "Duration", niceName: () => ScheduledTaskMessage.Duration.niceToString() });
+            ScheduledTaskMessage.Duration);
 
         sb.include(SchedulerTaskExceptionLineEntity)
             .withQuery();

@@ -98,13 +98,13 @@ export namespace TreeLogic {
         });
 
         QueryLogic.expressions.register(type, (e: TreeEntity) => e.treeChildren!(),
-            { key: "Children", niceName: () => TreeMessage.Children.niceToString() });
+            TreeMessage.Children);
         QueryLogic.expressions.register(type, (e: TreeEntity) => e.treeParent!(),
-            { key: "Parent", niceName: () => TreeMessage.Parent.niceToString() });
+            TreeMessage.Parent);
         QueryLogic.expressions.register(type, (e: TreeEntity) => e.treeDescendants!(),
-            { key: "Descendants", niceName: () => TreeMessage.Descendants.niceToString() });
+            TreeMessage.Descendants);
         QueryLogic.expressions.register(type, (e: TreeEntity) => e.treeAscendants!(),
-            { key: "Ascendants", niceName: () => TreeMessage.Ascendants.niceToString() });
+            TreeMessage.Ascendants);
     }
 
     // ---- the query twins (the same four, callable in memory) --------------------------------------
