@@ -133,3 +133,13 @@ declare module "./entity" {
         systemValidTo?(): Temporal.PlainDateTime | null;
     }
 }
+
+// The mirror of `Entity.operationLogs` seen from the other end: every execution of one OPERATION rather
+// than every operation on one entity. Its surface is the OperationSymbol search page, which SymbolLogic
+// gives every symbol type (`sb.include(ctor).withQuery()`).
+declare module "./operationSymbol" {
+    interface OperationSymbol {
+        /** Signum's `Logs()` — every operation log written for this operation. */
+        logs?(): IQuery<OperationLogEntity>;
+    }
+}

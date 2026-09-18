@@ -132,9 +132,22 @@ export namespace OperationLogic {
                 return false;
         return true;
     }
+    /**
+     * Signum's `OperationLogic.OperationAllowedMessage` — why the operation was refused, or null when it
+     * was not. Localized, and it names the operation TWICE: once as the user knows it (its nice name) and
+     * once as the developer does (its key), because an authorization complaint is read by both.
+     */
+    export async function operationAllowedMessage(symbol: OperationSymbol, entityType: Function, inUserInterface: boolean, entity: Entity | null): Promise<string | null> {
+        if (await isOperationAllowed(symbol, entityType, inUserInterface, entity))
+            return null;
+
+        return OperationMessage.Operation01IsNotAuthorized.niceToString(symbol.niceToString(), symbol.key) +
+            (inUserInterface ? " " + OperationMessage.InUserInterface.niceToString() : "");
+    }
     export async function assertOperationAllowed(symbol: OperationSymbol, entityType: Function, inUserInterface: boolean, entity: Entity | null): Promise<void> {
-        if (!(await isOperationAllowed(symbol, entityType, inUserInterface, entity)))
-            throw new UnauthorizedAccessException(`Operation '${symbol.key}' is not authorized`);
+        const message = await operationAllowedMessage(symbol, entityType, inUserInterface, entity);
+        if (message != null)
+            throw new UnauthorizedAccessException(message);
     }
 
     /**
@@ -382,6 +395,12 @@ export namespace OperationLogic {
         QueryLogic.expressions.register(Entity, (e: Entity) => e.operationLogs!(),
             { key: "OperationLogs", niceName: () => OperationLogEntity.nicePluralName() });
 
+        // Signum's `QueryLogic.Expressions.Register((OperationSymbol o) => o.Logs(), OperationMessage.Logs)`
+        // — the same history read from the operation's end. The page it hangs off is the one SymbolLogic
+        // just gave OperationSymbol above.
+        QueryLogic.expressions.register(OperationSymbol, (o: OperationSymbol) => o.logs!(),
+            OperationMessage.Logs);
+
         // Signum's `[ExpressionField("DurationExpression")] public double? Duration` — how long the
         // operation took, so the log's search page can sort and filter by it. Signum gets the token from
         // the property itself; altea registers it explicitly, because a `@quoted` METHOD is not a
@@ -451,11 +470,15 @@ export namespace OperationLogic {
     }
 }
 
-// The bodies of the four expressions DECLARED in data/operationLog (see there for why the two halves are
-// split). Stamped ONCE on `Entity.prototype`, because none of them depends on the type: which types OFFER
-// them as tokens is what the registrations above decide.
+// The bodies of the five expressions DECLARED in data/operationLog (see there for why the two halves are
+// split). The four on `Entity` are stamped ONCE on `Entity.prototype`, because none of them depends on the
+// type: which types OFFER them as tokens is what the registrations above decide.
 Entity.prototype.operationLogs = withQuoted(function (this: Entity): IQuery<OperationLogEntity> {
     return table(OperationLogEntity).filter(a => a.target!.is(this));
+});
+
+OperationSymbol.prototype.logs = withQuoted(function (this: OperationSymbol): IQuery<OperationLogEntity> {
+    return table(OperationLogEntity).filter(a => a.operation.is(this));
 });
 
 Entity.prototype.systemValidFrom = withQuoted(function (this: Entity): Temporal.PlainDateTime | null {

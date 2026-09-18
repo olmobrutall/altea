@@ -163,9 +163,18 @@ and date pickers render English ("Select", "Move back", "There are no items in t
 in every culture. Signum ships `ReactWidgetsMessage` (16 members) and `CalendarMessage.Today` for exactly
 this. Port both and pass them at every `<Localization>` site.
 
-### A4 — `CollectionMessage.No0Found` / `MoreThanOne0Found`
-Signum.Utilities raises these from `SingleEx` / `SingleOrDefaultEx`. altea's single-element accessors throw
-unlocalized English. Port the two messages and use them.
+### A4 — `CollectionMessage.No0Found` / `MoreThanOne0Found` — **DONE**
+Signum.Utilities raises these from `SingleEx` / `SingleOrDefaultEx`; altea's `Array.prototype.single` /
+`singleOrNull` (`data/globals/arrayExtensions.ts`) now raise them in place of hand-concatenated English.
+
+The `{0}` is Signum's `elementName` argument, which is exactly what altea's `errorContext` parameter
+already carried — so no signature changed. The fallback when a caller passes none stays the generic word
+`"element"`, unlocalized: Signum's own fallback is `typeof(T).TypeName()`, equally unlocalized, and a
+generic's type argument is erased at runtime here anyway.
+
+One DIVERGENCE: Signum localizes only on its `forEndUser: true` overload and keeps "Sequence contains no
+{0}" for the others. altea's accessors have no such flag — there is one message per case and it is the
+localized one.
 
 ### A5 — `StringCase` + `StringCaseValidator` — **DONE**
 Signum's `[StringCaseValidator(StringCase.Uppercase)]`. Both the enum and `@stringCaseValidator` live in
@@ -359,8 +368,23 @@ twin and need text of their own — `_0HasToBe12`, `_0MustHaveAtLeast1Characters
 `_0MustHaveAtMost1Characters`, `BeA01` — but Signum's `HaveMinimum0Characters`, `HaveMaximum0Characters`
 and `BeA0_G` say the same thing and can be adapted rather than invented.
 
-### D2 — `OperationMessage`
-Port `InUserInterface`, `Logs` and `Operation01IsNotAuthorized`.
+### D2 — `OperationMessage` — **DONE**
+All three ported; none turned out to be a string without a caller.
+
+`Operation01IsNotAuthorized` + `InUserInterface` are ONE message, not two: Signum's
+`OperationLogic.OperationAllowedMessage` builds the refusal from the first and appends the second when the
+refusal was the *button-state* check. altea threw a hand-written `Operation '<key>' is not authorized`,
+which named the operation only as a developer knows it and said nothing about which of the two questions
+was answered — and altea already calls `assertOperationAllowed` both ways (`inUserInterface: false` from
+the graph's execute/delete/construct paths, `true` from operationServer, PackageLogic and
+ExcelImportLogic). So `operationAllowedMessage` came over beside the assert, as Signum has it.
+
+`Logs` is the caption of the `OperationSymbol.Logs()` expression — the operation history read from the
+OPERATION's end rather than the entity's, the mirror of `Entity.OperationLogs()`. The surface exists:
+`SymbolLogic.start` gives every symbol type its own query (`sb.include(ctor).withQuery()`), so
+OperationSymbol has a search page for the token to hang off. Declared in `data/operationLog.ts` beside the
+four on `Entity`, stamped in `server/operationLogic.ts`, registered in `OperationLogic.start`. Verified
+against the eastwind database: the token lowers to an EXISTS sub-query.
 
 ### D3 — `SearchMessage`
 altea declares 82 of 114. Port the missing FUNCTIONALITY, not the strings alone: `SmartSearchDescription`,

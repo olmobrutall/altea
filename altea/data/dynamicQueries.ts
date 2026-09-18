@@ -59,12 +59,18 @@ export const QueryTokenDateMessage = {
     _0Steps1Rows2TotalRowsAprox: msg("{0} steps × {1} rows = {2} total rows (aprox)"),
 };
 
-// The last separator of a comma-separated list — Signum's `CommaOr` / `CommaAnd`, which here is
-// `array.joinComma(CollectionMessage.Or.niceToString())`. The SPACES are part of the value, exactly as in
-// Signum's `[Description(" or ")]`: joinComma appends the separator with none of its own.
+// `Or` / `And` are the last separator of a comma-separated list — Signum's `CommaOr` / `CommaAnd`, which
+// here is `array.joinComma(CollectionMessage.Or.niceToString())`. The SPACES are part of the value, exactly
+// as in Signum's `[Description(" or ")]`: joinComma appends the separator with none of its own.
+//
+// `No0Found` / `MoreThanOne0Found` are what the exactly-one-element accessors throw — Signum raises them
+// from `SingleEx` / `SingleOrDefaultEx`, altea from `Array.prototype.single` / `singleOrNull`
+// (data/globals/arrayExtensions). {0} is the name of the thing being looked for.
 export const CollectionMessage = {
     Or: msg(" or "),
     And: msg(" and "),
+    No0Found: msg("No {0} found"),
+    MoreThanOne0Found: msg("More than one {0} found"),
 };
 
 export enum ColumnOptionsMode {

@@ -195,6 +195,16 @@ export const OperationMessage = {
     // Signum's OperationMessage.StateShouldBe0InsteadOf1 — why a state-machine operation cannot run over
     // the current selection (see OperationLogic.getContextualCanExecute).
     StateShouldBe0InsteadOf1: msg("State should be {0} instead of {1}"),
+    // Why an operation was refused (OperationLogic.operationAllowedMessage). {0} is the operation's nice
+    // name, {1} its key. `InUserInterface` is APPENDED when the refusal was the button-state check — the
+    // same operation may still be allowed to server code, and saying so is what makes the two answers
+    // distinguishable in a log.
+    Operation01IsNotAuthorized: msg("Operation {0} ({1}) is not Authorized"),
+    InUserInterface: msg("(in user interface)"),
+    // The caption of the `Logs` token over OperationSymbol.logs() — every execution of THAT operation,
+    // from the operation symbol's own search page. A message rather than a property name for the reason
+    // `Duration` below gives.
+    Logs: msg(),
     // The `PreviousOperationLog` extension token OperationLogic registers on every @systemVersioned
     // type — "which operation produced this row version" (see OperationLogic.registerPreviousLog).
     PreviousOperationLog: msg("Previous operation log"),

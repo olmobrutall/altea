@@ -1,5 +1,6 @@
 import { Dictionary, HashSet } from "./collections";
-import { Decimal } from "../basics";
+import { Decimal, Temporal } from "../basics";
+import { CollectionMessage } from "../dynamicQueries";
 
 declare global {
 
@@ -626,15 +627,23 @@ Array.prototype.lastOrNull = function (this: any[], predicate?: ((element: any, 
   return array[array.length - 1];
 };
 
+// The {0} of CollectionMessage.No0Found / MoreThanOne0Found: what was being looked for. `errorContext` is
+// Signum's `elementName` argument to `SingleEx`, filling exactly that placeholder. Signum's own fallback is
+// the element TYPE's name, which a generic erased at runtime cannot give here, so it is the generic word —
+// and it stays English, as Signum's type name does.
+function elementName(errorContextOrPredicate: unknown): string {
+  return typeof errorContextOrPredicate == "string" ? errorContextOrPredicate : "element";
+}
+
 Array.prototype.single = function (this: any[], errorContextOrPredicate?: string | ((element: any, index: number, array: any[]) => unknown)) {
 
   var array = typeof errorContextOrPredicate == "function" ? this.filter(errorContextOrPredicate) : this;
 
   if (array.length == 0)
-    throw new Error("No " + (typeof errorContextOrPredicate == "string" ? errorContextOrPredicate : "element") + " found");
+    throw new Error(CollectionMessage.No0Found.niceToString(elementName(errorContextOrPredicate)));
 
   if (array.length > 1)
-    throw new Error("More than one " + (typeof errorContextOrPredicate == "string" ? errorContextOrPredicate : "element") + " found");
+    throw new Error(CollectionMessage.MoreThanOne0Found.niceToString(elementName(errorContextOrPredicate)));
 
   return array[0];
 };
@@ -647,7 +656,7 @@ Array.prototype.singleOrNull = function (this: any[], errorContextOrPredicate?: 
     return null;
 
   if (array.length > 1)
-    throw new Error("More than one " + (typeof errorContextOrPredicate == "string" ? errorContextOrPredicate : "element") + " found");
+    throw new Error(CollectionMessage.MoreThanOne0Found.niceToString(elementName(errorContextOrPredicate)));
 
   return array[0];
 };
