@@ -10,6 +10,8 @@ import { DateToken } from "./dateToken";
 import { DatePartStartToken, type DatePartStartName } from "./datePartStartToken";
 import { DurationTotalToken, type DurationTotalName } from "./durationTotalToken";
 import { ModuloToken } from "./moduloToken";
+import { StepToken } from "./stepToken";
+import { FullTextRankToken, StringSnippetToken } from "./fullTextTokens";
 import { CountToken } from "./countToken";
 import { CollectionElementToken, CollectionElementType } from "./collectionElementToken";
 import { CollectionAnyAllToken, CollectionAnyAllType } from "./collectionAnyAllToken";
@@ -35,6 +37,9 @@ registerTokenFactories({
     datePartStart: (parent, name, step) => new DatePartStartToken(parent, name as DatePartStartName, step),
     durationTotal: (parent, name) => new DurationTotalToken(parent, name as DurationTotalName),
     modulo: (parent, divisor) => new ModuloToken(parent, divisor),
+    step: (parent, stepSize) => new StepToken(parent, stepSize),
+    fullTextRank: (parent) => new FullTextRankToken(parent),
+    stringSnippet: (parent) => new StringSnippetToken(parent),
     count: (parent) => new CountToken(parent),
     aggregate: (aggregateFunction, parent, options) => new AggregateToken(aggregateFunction as AggregateFunction, parent, options),
     collectionElement: (parent, elementType) => new CollectionElementToken(parent, elementType as CollectionElementType),

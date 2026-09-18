@@ -102,6 +102,19 @@ const STRING_METHOD: Partial<Record<FilterOperationKeys, { method: string; negat
 export abstract class Filter {
     abstract getExpression(context: BuildExpressionContext): Expression;
     abstract getTokens(): QueryToken[];
+
+    /**
+     * The words this filter searched for (Signum's `Filter.GetKeywords`) — what `MatchSnippet` measures
+     * a sentence's density against when it picks which part of a long text to show.
+     */
+    getKeywords(): string[] { return []; }
+
+    /**
+     * The Postgres tsquery this filter contributes for `token`, or undefined when it says nothing about
+     * it (Signum's `PgTsRankToken.GetCombinedTsQuery`). Built here rather than in the rank token because
+     * this is the one place that knows the operation → `*_tsquery` mapping.
+     */
+    tsQueryFor(_token: QueryToken): Expression | undefined { return undefined; }
     // The deepest CollectionNested token, if any (drives nested-query filtering). Not modelled yet.
     getDeepestNestedToken(): QueryToken | undefined { return undefined; }
     // Signum's Filter.IsAggregate: whether this filter is a HAVING (applied after GroupBy).
@@ -168,6 +181,18 @@ export class FilterGroup extends Filter {
             return exprs.reduce((a, b) => new BinaryExpression(op, a, b));
         }
         return this.getExpressionWithAnyAll(context, anyAll);
+    }
+
+    override getKeywords(): string[] { return this.filters.flatMap(f => f.getKeywords()); }
+
+    // Signum combines a GROUP's tsqueries with the group's own operation — `&&` for And, `||` for Or —
+    // so a rank under an Or-group scores a row that matched either branch.
+    override tsQueryFor(token: QueryToken): Expression | undefined {
+        const parts = this.filters.map(f => f.tsQueryFor(token)).notNull();
+        if (parts.length === 0)
+            return undefined;
+        const method = this.groupOperation === FilterGroupOperationKeys.And ? "and" : "or";
+        return parts.reduce((a, b) => new CallExpression(new PropertyExpression(a, method), [b], new TsQueryType()));
     }
 }
 
@@ -248,6 +273,53 @@ export class FilterCondition extends Filter {
 
         throw new Error(`FilterOperation ${this.operation} not supported yet`);
     }
+
+    // Port of Signum's `FilterCondition.GetKeywords` + `FilterFullText.GetKeywords` (altea models the
+    // full-text operations as ordinary FilterCondition operations, so both live here). The split
+    // patterns are Signum's own, and each is the operator vocabulary of the query language it splits.
+    override getKeywords(): string[] {
+        if (typeof this.value === "string") {
+            const s = this.value;
+            switch (this.operation) {
+                case FilterOperationKeys.EqualTo:
+                case FilterOperationKeys.Contains:
+                case FilterOperationKeys.StartsWith:
+                case FilterOperationKeys.EndsWith:
+                case FilterOperationKeys.TsQuery_Phrase:
+                case FilterOperationKeys.TsQuery_Plain:
+                    return [s];
+                case FilterOperationKeys.TsQuery:
+                    return splitKeywords(s, /&|\||!|<->|<\d>|\(|\)|\*/g);
+                case FilterOperationKeys.TsQuery_WebSearch:
+                    return splitKeywords(s, /\bOR\b|-/g);
+                case FilterOperationKeys.FreeText:
+                    return splitKeywords(s, /\s+/g);
+                case FilterOperationKeys.ComplexCondition:
+                    return splitKeywords(s, /\bAND\b|\bOR\b|\bNOT\b|\bNEAR\b|\(|\)|\*/g);
+            }
+        }
+        if (this.operation === FilterOperationKeys.IsIn && Array.isArray(this.value))
+            return this.value.filter((v): v is string => typeof v === "string");
+        return [];
+    }
+
+    // The tsquery this condition contributes to a `MatchRank` over the SAME token: `<value>.toTsQuery*()`,
+    // exactly as `getConditionExpressionBasic` builds it for the predicate.
+    override tsQueryFor(token: QueryToken): Expression | undefined {
+        const method = TS_QUERY_METHOD[this.operation];
+        if (method == undefined || typeof this.value !== "string" || this.value.length === 0)
+            return undefined;
+        if (this.token.fullKey() !== token.fullKey())
+            return undefined;
+        return new CallExpression(new PropertyExpression(new ConstantExpression(this.value), method), [], new TsQueryType());
+    }
+}
+
+// Signum's `Regex.Split(...).Select(a => a.Trim(' ','\r','\n','\t').Trim('"')).Where(a => a.Length > 0)`.
+function splitKeywords(value: string, separators: RegExp): string[] {
+    return value.split(separators)
+        .map(a => (a ?? "").trim().replace(/^"+|"+$/g, "").trim())
+        .filter(a => a.length > 0);
 }
 
 // ---- Order (Requests/Order.cs) -------------------------------------------------------------

@@ -43,7 +43,7 @@ export class DEnumerable {
         if (filters.length === 0)
             return this;
         const predicate = (row: unknown) => filters.every(f => truthy(evalRow(f.getExpression(this.context), this.context.parameter, row)));
-        return new DEnumerable(this.collection.filter(predicate), this.context);
+        return new DEnumerable(this.collection.filter(predicate), this.context.andFilters(filters));
     }
 
     orderBy(orders: Order[]): DEnumerable {
@@ -75,7 +75,7 @@ export class DEnumerable {
         });
         const tupleParam = new ParameterExpression("_s", new ObjectType(Object.fromEntries(tokens.map((t, i) => ["c" + i, t.type]))));
         const replacements = new Map(tokens.map((t, i) => [t.fullKey(), new ExpressionBox(new PropertyExpression(tupleParam, "c" + i))]));
-        return new DEnumerable(rows, new BuildExpressionContext(tupleParam.type, tupleParam, replacements));
+        return new DEnumerable(rows, new BuildExpressionContext(tupleParam.type, tupleParam, replacements, this.context.filters));
     }
 
     // Signum's Concat: append another already-materialised result of the same shape.
@@ -163,6 +163,13 @@ export function evalExpr(expr: Expression, env: Env): unknown {
     }
     if (expr instanceof LambdaExpression)
         return makeClosure(expr, env);
+    // A call on a CAPTURED FUNCTION rather than on a receiver — `Number(x)` (the binder's float cast,
+    // which the Step tokens emit), `toInt(x)`, a branded SQL helper. In memory the captured function IS
+    // the implementation, so applying it is both the simplest and the right answer.
+    if (expr instanceof CallExpression && expr.func instanceof ConstantExpression && typeof expr.func.value === "function") {
+        const args = expr.args.map(a => a instanceof LambdaExpression ? makeClosure(a, env) : evalExpr(a, env));
+        return (expr.func.value as (...a: unknown[]) => unknown)(...args);
+    }
     if (expr instanceof CallExpression && expr.func instanceof PropertyExpression) {
         const target = evalExpr(expr.func.object, env);
         // A lambda argument (`.some(p => …)`) becomes a closure over the current env; other args

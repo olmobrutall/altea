@@ -78,7 +78,7 @@ export class DQueryable {
         keys.forEach((k, i) => newReplacements.set(k, new ExpressionBox(new PropertyExpression(tupleParam, "c" + i))));
         newReplacements.set(cet.fullKey(), new ExpressionBox(new PropertyExpression(tupleParam, elemSlot)));
 
-        return new DQueryable(flatMap, new BuildExpressionContext(tuple.type, tupleParam, newReplacements));
+        return new DQueryable(flatMap, new BuildExpressionContext(tuple.type, tupleParam, newReplacements, this.context.filters));
     }
 
     // ---- Where (Signum's DQueryable.Where + GetPredicateExpression) ---------------------------
@@ -88,7 +88,7 @@ export class DQueryable {
         const body = filters.map(f => f.getExpression(this.context)).reduce((a, b) => new BinaryExpression("&&", a, b));
         const predicate = new LambdaExpression([this.context.parameter], body);
         const filtered = new CallExpression(new PropertyExpression(this.query, "filter"), [predicate], this.query.type);
-        return new DQueryable(filtered, this.context);
+        return new DQueryable(filtered, this.context.andFilters(filters));
     }
 
     // ---- OrderBy (Signum's DQueryable.OrderBy + CreateOrderLambda) ----------------------------
@@ -130,7 +130,7 @@ export class DQueryable {
         const newReplacements = new Map<string, ExpressionBox>();
         tokens.forEach((t, i) => newReplacements.set(t.fullKey(), new ExpressionBox(new PropertyExpression(tupleParam, "c" + i))));
 
-        return new DQueryable(mapped, new BuildExpressionContext(tuple.type, tupleParam, newReplacements));
+        return new DQueryable(mapped, new BuildExpressionContext(tuple.type, tupleParam, newReplacements, this.context.filters));
     }
 
     // Signum's BuildToArrayExpression: string-aggregate a token's value over a collection. Builds
@@ -214,7 +214,7 @@ export class DQueryable {
         const grParam = new ParameterExpression("gr", resultTuple.type as ObjectType);
         const replacements = new Map<string, ExpressionBox>();
         entries.forEach((e, i) => replacements.set(e.token.fullKey(), new ExpressionBox(new PropertyExpression(grParam, "c" + i))));
-        return new DQueryable(mapped, new BuildExpressionContext(resultTuple.type, grParam, replacements));
+        return new DQueryable(mapped, new BuildExpressionContext(resultTuple.type, grParam, replacements, this.context.filters));
     }
 
     // ---- TryPaginate (Signum's DQueryable.TryPaginate) ----------------------------------------

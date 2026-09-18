@@ -280,11 +280,18 @@ export abstract class QueryToken {
             return this.collectionProperties(options);
 
         if (type.typeName === "String")
-            return this.andHasValue(this.stringTokens());
+            return this.andHasValue(this.stringTokens(options));
 
-        // Integer buckets. TODO(phase3b+): StepTokens (the Step/Multiplier/Rounding chain).
-        if (type.typeName === "Number" || type.typeName === "Decimal")
-            return this.andHasValue(this.andModuloTokens([]));
+        // Numeric buckets (Signum splits this branch in two). A FRACTIONAL number gets step tokens down
+        // to its own number of decimals; a WHOLE number gets step tokens from 1 up, plus the modulo
+        // tokens — `x mod 100` only means something when x has no fractional part.
+        if (type.typeName === "Number" || type.typeName === "Decimal") {
+            const st = type.subTypeName;
+            const fractional = type.typeName === "Decimal" || st === "decimal" || st === "float";
+            return this.andHasValue(fractional
+                ? this.stepTokens(this.numDecimals())
+                : this.andModuloTokens(this.stepTokens(0)));
+        }
 
         if (type.typeName === "PlainDateTime")
             return this.andHasValue(this.dateTimeProperties());
@@ -436,9 +443,29 @@ export abstract class QueryToken {
         return list;
     }
 
-    // Signum's StringTokens(): the string `Length` sub-token. (FullText/Snippet/Translated TODO.)
-    protected stringTokens(): QueryToken[] {
-        return [tokenFactories!.objectProperty(this, "length", TR_INT, "Length", false)];
+    // Signum's StringTokens() plus the full-text pair EntityPropertyToken adds on top of it (Signum
+    // splits them across two methods; altea's EntityPropertyToken has no string branch of its own, so
+    // both live here). `Translated` is still unported.
+    //
+    // Both extra tokens are keyed off the token's own PROPERTY ROUTE, which is where altea records the
+    // `@fullTextIndex` (isomorphically, on the FieldInfo) — so a synthetic string token with no route
+    // (ToString, an aggregate) offers neither, which is what Signum's `route != null` guard says too.
+    protected stringTokens(options: SubTokensOptions): QueryToken[] {
+        const list: QueryToken[] = [tokenFactories!.objectProperty(this, "length", TR_INT, QueryTokenMessage.Length.niceToString(), false)];
+        const fi = this.getPropertyRoute()?.fieldInfo;
+        if (fi == undefined || fi.typeName !== "String")
+            return list;
+        if (fi.hasFullTextIndex)
+            list.push(tokenFactories!.fullTextRank(this));
+        // Signum's HasSnippet: only a LONG text is worth excerpting (`Size == null || Size > 200`).
+        // altea does not yet derive a column size from @stringLengthValidator (TranslationGaps B6), so
+        // the validator's own max is read here — which is the same number Signum's column carries.
+        if ((options & SubTokensOptions.CanSnippet) !== 0) {
+            const max = fi.columnOptions?.size ?? fi.maxLength;
+            if (max == undefined || max > 200)
+                list.push(tokenFactories!.stringSnippet(this));
+        }
+        return list;
     }
 
     // Signum's AndModuloTokens: integer bucket sub-tokens.
@@ -446,6 +473,23 @@ export abstract class QueryToken {
         for (const d of [10, 100, 1000, 10000])
             list.push(tokenFactories!.modulo(this, d));
         return list;
+    }
+
+    // Signum's StepTokens(parent, decimals): one bucket size per power of ten. The sub-unit sizes are
+    // offered only as far as the value's own precision reaches — bucketing an integer by 0.1 is noise.
+    protected stepTokens(decimals: number): QueryToken[] {
+        const sizes = [0.0001, 0.001, 0.01, 0.1].filter((_, i) => decimals >= 4 - i)
+            .concat([1, 10, 100, 1000, 10000, 100000, 1000000]);
+        return sizes.map(s => tokenFactories!.step(this, s));
+    }
+
+    // Signum's `Reflector.NumDecimals(format)` — how many fraction digits the token's display format
+    // asks for, which is where a `@decimals(4)` / `@decimalsValidator` reaches this layer (FieldInfo
+    // .decimalPlaces already feeds `defaultFormat`). Signum's fallback for a fractional value with no
+    // format at all is 4, and altea's decimal default format is "N2", so a plain decimal gets 2.
+    private numDecimals(): number {
+        const m = this.format == undefined ? null : /^[NnFfCcPp](\d+)$/.exec(this.format);
+        return m != null ? parseInt(m[1], 10) : 4;
     }
 
     // One date/time part sub-token. The MEMBER is altea's binder name (`dayOfWeek`, `quarter()`) and is
@@ -848,6 +892,9 @@ export interface TokenFactories {
     datePartStart(parent: QueryToken, name: string, step?: number): QueryToken;
     durationTotal(parent: QueryToken, name: string): QueryToken;
     modulo(parent: QueryToken, divisor: number): QueryToken;
+    step(parent: QueryToken, stepSize: number): QueryToken;
+    fullTextRank(parent: QueryToken): QueryToken;
+    stringSnippet(parent: QueryToken): QueryToken;
     count(parent: QueryToken): QueryToken;
     aggregate(aggregateFunction: string, parent: QueryToken | undefined, options?: { filterOperation?: string; value?: unknown; distinct?: boolean; queryName?: QueryName }): QueryToken;
     collectionElement(parent: QueryToken, elementType: string): QueryToken;

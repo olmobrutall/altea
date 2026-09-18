@@ -12,12 +12,15 @@ import {
     Expression, ParameterExpression, PropertyExpression, CallExpression, CastExpression,
     BinaryExpression, ConstantExpression, LambdaExpression, UnaryExpression, ObjectExpression,
 } from "../linq/expressions";
+import type { Filter } from "./requests";
 import { Entity } from "../../data/entity";
 import { TypeEntity } from "../../data/typeEntity";
-import { RuntimeType, ClassType, LiteType, ArrayType, LiteralType } from "../runtimeTypes";
+import { RuntimeType, ClassType, LiteType, ArrayType, LiteralType, TsVectorType, TsQueryType } from "../runtimeTypes";
+import { Connector } from "../connection/connector";
 import {
     QueryToken, RootToken, EntityPropertyToken, EntityToStringToken, HasValueToken, ObjectPropertyToken,
     AsTypeToken, EntityTypeToken, DateToken, DatePartStartToken, DurationTotalToken, ModuloToken, CountToken,
+    StepToken, StepMultiplierToken, StepRoundingToken, RoundingType, FullTextRankToken, StringSnippetToken,
     CollectionElementToken, CollectionAnyAllToken, CollectionAnyAllType, CollectionToArrayToken,
     AggregateToken, AggregateFunction, ExtensionToken,
     ManualContainerToken, ManualToken,
@@ -40,7 +43,21 @@ export class BuildExpressionContext {
         public readonly elementType: RuntimeType,
         public readonly parameter: ParameterExpression,
         public readonly replacements: Map<string, ExpressionBox>,
+        /**
+         * The filters the query is running under (Signum's `BuildExpressionContext.Filters`). Almost
+         * no token needs them — a token is a column, not a predicate — but a full-text RANK does: the
+         * score only exists relative to the search terms, so `MatchRank` reads the full-text filters
+         * placed on its own parent token and re-builds their tsquery. Accumulated by `DQueryable.where`
+         * and carried through every later stage of the pipeline.
+         */
+        public readonly filters: readonly Filter[] = [],
     ) { }
+
+    /** The same context with `filters` appended — what `where` hands to the stages after it. */
+    andFilters(more: readonly Filter[]): BuildExpressionContext {
+        return more.length === 0 ? this
+            : new BuildExpressionContext(this.elementType, this.parameter, this.replacements, [...this.filters, ...more]);
+    }
 }
 
 // ---- Expression helpers — the BuildExpression retarget onto altea's model -------------------
@@ -209,6 +226,111 @@ DurationTotalToken.prototype.buildExpressionInternal = function (context: BuildE
 
 ModuloToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
     return new BinaryExpression("%", this.parent!.buildExpression(context), new ConstantExpression(this.divisor));
+};
+
+/**
+ * Port of Signum's `RoundingExpressionGenerator.RoundExpression`: snap a number onto a grid of
+ * `step`-wide buckets. Signum's exact sequence, and the order matters —
+ *
+ *     RoundMiddle only:  v -= step/2        (shift the grid half a bucket, so the label is its MIDDLE)
+ *     step != 1:         v /= step
+ *                        ceil / floor / round
+ *     step != 1:         v *= step
+ *     RoundMiddle only:  v += step/2
+ *
+ * Two altea-specific points:
+ *  - the leading `Number(v)` is Signum's `Expression.Convert(result, typeof(double))`, and it is NOT
+ *    cosmetic: BOTH providers do INTEGER division for `int / int`, so without the cast to float
+ *    `ceil(orderId / 1000) * 1000` would silently answer the FLOOR bucket on an integer column.
+ *  - a `Decimal` (decimal.js) token takes the decimal.js method chain instead, which lowers to the
+ *    same SQL through `decimalCall` but stays EXACT — `ceil(x / 0.1)` in binary floating point does
+ *    not. A `Number` token whose subTypeName is `decimal` (altea's branded alias) is a plain JS
+ *    number at runtime and takes the float path, so its sub-unit buckets carry the usual float noise.
+ *
+ * `Math.ceil/floor/round` lower to CEILING/FLOOR/ROUND on both providers (dbExpressionNominator
+ * .translateMath). One divergence is inherent and shared with Signum: JS `Math.round` and SQL `ROUND`
+ * round a half AWAY from zero, .NET's `Math.Round` rounds it to EVEN — so `Round` on -2.5 answers -3
+ * here and -2 in Signum's in-memory path.
+ */
+function roundToStep(value: Expression, step: number, rounding: RoundingType): Expression {
+    const half = step / 2;
+    const ceilFloorRound = rounding === RoundingType.Ceil ? "ceil" : rounding === RoundingType.Floor ? "floor" : "round";
+
+    if (value.type === LiteralType.decimal) {
+        const call = (target: Expression, method: string, arg?: number): Expression =>
+            new CallExpression(new PropertyExpression(target, method),
+                arg == undefined ? [] : [new ConstantExpression(arg, LiteralType.number)], LiteralType.decimal);
+        let r = value;
+        if (rounding === RoundingType.RoundMiddle) r = call(r, "minus", half);
+        if (step !== 1) r = call(r, "dividedBy", step);
+        r = call(r, ceilFloorRound);
+        if (step !== 1) r = call(r, "times", step);
+        if (rounding === RoundingType.RoundMiddle) r = call(r, "plus", half);
+        return r;
+    }
+
+    let r: Expression = new CallExpression(new ConstantExpression(Number), [value], LiteralType.number);
+    if (rounding === RoundingType.RoundMiddle) r = new BinaryExpression("-", r, new ConstantExpression(half));
+    if (step !== 1) r = new BinaryExpression("/", r, new ConstantExpression(step));
+    r = new CallExpression(new PropertyExpression(new ConstantExpression(Math), ceilFloorRound), [r], LiteralType.number);
+    if (step !== 1) r = new BinaryExpression("*", r, new ConstantExpression(step));
+    if (rounding === RoundingType.RoundMiddle) r = new BinaryExpression("+", r, new ConstantExpression(half));
+    return r;
+}
+
+// All three levels of the Step chain build from the ORIGINAL numeric token, never from the level
+// above — Signum's `Parent!.Parent!.Parent!.BuildExpression`. The levels differ only in the bucket
+// size they have accumulated and (at the last one) the rounding.
+StepToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    return roundToStep(this.parent!.buildExpression(context), this.stepSize, RoundingType.Ceil);
+};
+StepMultiplierToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    return roundToStep(this.parent!.parent!.buildExpression(context), this.stepSizeValue(), RoundingType.Ceil);
+};
+StepRoundingToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    return roundToStep(this.parent!.parent!.parent!.buildExpression(context), this.stepSizeValue(), this.rounding);
+};
+
+/**
+ * `MatchRank` → `ts_rank(<the entity's tsvector column>, <the tsquery the filters asked for>)`.
+ *
+ * Signum's `PgTsRankToken`: the rank is not a property of the row, it is a property of the row AGAINST
+ * THIS SEARCH, so the expression is rebuilt from the query's own full-text filters on the same token —
+ * which is why `BuildExpressionContext` carries them. With no such filter Signum answers a constant 0
+ * (the column is selectable and simply scores nothing), and so does this.
+ *
+ * SQL SERVER IS REFUSED, deliberately. There is no scalar rank function there: `CONTAINS` / `FREETEXT`
+ * are predicates only, and the score lives in the `RANK` column of a `CONTAINSTABLE` / `FREETEXTTABLE`
+ * table-valued function the query has to JOIN against — which altea's full-text filters (inline
+ * predicates, no join) do not build. Answering 0, or the Postgres shape, would be a silently wrong
+ * ranking, so the token throws instead. See port/TranslationGaps.md C2.
+ */
+FullTextRankToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    if (!Connector.current().isPostgres)
+        throw new Error(
+            `The '${this.fullKey()}' (Match Rank) token is only supported on PostgreSQL. SQL Server exposes a ` +
+            `full-text rank only through a CONTAINSTABLE / FREETEXTTABLE join, which altea's dynamic query ` +
+            `does not build (it lowers a full-text filter to an inline CONTAINS / FREETEXT predicate).`);
+
+    const parent = this.parent!;
+    const queries = context.filters.map(f => f.tsQueryFor(parent)).notNull();
+    if (queries.length === 0)
+        return new ConstantExpression(0, LiteralType.number);
+    // Several top-level filters are ANDed by `where`, so their tsqueries are ANDed too (`tsquery && tsquery`).
+    const combined = queries.reduce((a, b) => new CallExpression(new PropertyExpression(a, "and"), [b], new TsQueryType()));
+
+    // The tsvector column covers ALL of the entity's full-text columns, so it is read off the ROW, as the
+    // TsQuery filter reads it — `parent` is the indexed string property, its own parent the entity.
+    const entity = parent.parent!.buildExpression(context);
+    const tsVector = new CallExpression(new PropertyExpression(entity, "getTsVectorColumn"), [], new TsVectorType());
+    return new CallExpression(new PropertyExpression(tsVector, "rank"), [combined], LiteralType.number);
+};
+
+// `MatchSnippet` SELECTS THE TEXT ITSELF; the excerpt is computed from it afterwards, over the
+// materialised rows (server/dynamicQuery/snippet.ts). Signum does the same thing one stage earlier, in
+// the LINQ projector — `Highlighter.FindSnippet` is a CLR call it never translates to SQL either.
+StringSnippetToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    return this.parent!.buildExpression(context);
 };
 
 CountToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {

@@ -12,6 +12,8 @@ export * from "./asTypeToken";
 export * from "./entityTypeToken";
 export * from "./dateToken";
 export * from "./moduloToken";
+export * from "./stepToken";
+export * from "./fullTextTokens";
 export * from "./countToken";
 export * from "./collectionElementToken";
 export * from "./collectionAnyAllToken";

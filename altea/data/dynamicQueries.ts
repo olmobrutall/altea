@@ -36,8 +36,23 @@ export const QueryTokenMessage = {
     EntityType: msg("Entity Type"),
     GlobalUniqueIdentifier: msg(),
     IndexerContainer: msg(),
+    // The string `Length` sub-token's caption — an English literal until now, with nowhere for the
+    // sync to hang Signum's German/Spanish.
+    Length: msg(),
     ListOf0: msg("List of {0}"),
     Embedded0: msg("Embedded {0}"),
+    // The numeric BUCKET tokens (Signum's DecimalSpecialTokens.cs). `Step0` / `_0Steps1` caption the
+    // Step → xMultiplier → Rounding chain, `Modulo0` / `_0Mod1` the ModuloToken; `{0}` is the bucket
+    // size, which is why each pair has a short (column-header) and a long (token-picker) form.
+    Step0: msg("Step {0}"),
+    _0Steps1: msg("{0} step {1}"),
+    Modulo0: msg("Modulo {0}"),
+    _0Mod1: msg("{0} mod {1}"),
+    // Full-text search ranking (Signum's FullTextRankToken / PgTsRankToken / StringSnippetToken).
+    MatchRank: msg("Match Rank"),
+    MatchRankFor0: msg("Match Rank for {0}"),
+    MatchSnippet: msg("Match Snippet"),
+    SnippetOf0: msg("Snippet for {0}"),
     Not: msg(),
     Null: msg(),
     Number: msg(),

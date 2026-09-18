@@ -5,6 +5,7 @@ import type { Query } from "../query";
 import "./dQueryable"; // augments Query with .toDQueryable()
 import type { ResultTable } from "./resultTable";
 import { Column, type QueryRequest } from "./requests";
+import { applySnippets } from "./snippet";
 import { RootToken, rowEntityToken } from "../../data/dynamicQuery/tokens";
 
 // Port of Signum's `IDynamicQueryCore` (DynamicQuery/DynamicQueryCore.cs): an executable query. Its
@@ -55,7 +56,11 @@ export class AutoDynamicQueryCore implements DynamicQueryCore {
         // Row-level security (EntityEvents.queryFilter) is applied by the LINQ binder for EVERY query — a
         // dynamic query's `table(T)` source is filtered there too — so nothing extra is needed here.
         const result = await this.getQuery().toDQueryable().allQueryOperationsAsync(request);
-        return result.toResultTable(request.columns, request.pagination);
+        const resultTable = result.toResultTable(request.columns, request.pagination);
+        // A `MatchSnippet` column selected the TEXT; the excerpt around the searched words is computed
+        // here, over the fetched rows (Signum computes it in the LINQ projector, equally in-process).
+        applySnippets(resultTable, request.filters);
+        return resultTable;
     }
 
     private addEntityColumn(request: QueryRequest): void {

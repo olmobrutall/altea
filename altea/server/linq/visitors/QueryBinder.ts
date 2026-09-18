@@ -3839,6 +3839,13 @@ export class QueryBinder extends ExpressionVisitor {
         switch (fi.typeName) {
             case "String": return LiteralType.string;
             case "Number": return LiteralType.number;
+            // A `Decimal` (decimal.js) column. Missing here until now, which had two consequences: the
+            // INSTANCE decimal operators (`a.unitPrice.times(2)`) could not lower — only the static
+            // `Decimal.mul(…)` form, which types itself — and the column materialised RAW, i.e. as the
+            // string Postgres hands back for `numeric`, never reaching translatorBuilder's
+            // `LiteralType.decimal` branch (which exists for exactly this and says so).
+            // `baseTypeOfFieldInfo` — the sibling mapping altea-cache reads — has always had this case.
+            case "Decimal": return LiteralType.decimal;
             case "Boolean": return LiteralType.boolean;
             case "PlainDateTime": return new TemporalType("dateTime");
             case "PlainDate": return new TemporalType("date");
