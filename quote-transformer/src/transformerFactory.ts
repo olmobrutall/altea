@@ -763,7 +763,31 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
       const newClause = ts.factory.updateImportClause(clause, clause.phaseModifier, clause.name, newNb);
       return ts.factory.updateImportDeclaration(stmt, stmt.modifiers, newClause, stmt.moduleSpecifier, stmt.attributes);
     });
-    return patched ? ts.factory.updateSourceFile(sourceFile, newStatements) : sourceFile;
+
+    // A class decorated with @entity / @part but NOT @reflect still gets `field(...)` injected, and there
+    // is then no import to anchor on — the emit references a binding that does not exist. tsc sees nothing
+    // wrong (the call was injected after checking), so the first sign is `ReferenceError: field is not
+    // defined` when the module is loaded, which points at the wrong thing entirely. Fail HERE instead,
+    // unless the file declares its own `field` (which is how the transformer's own fixtures supply one).
+    if (!patched && !declaresOwnField(sourceFile))
+      throw new Error(
+        `${sourceFile.fileName}: the quote-transformer injected field(...) but the file imports no 'reflect' ` +
+        `to anchor the 'field' import on, so the emitted JS would reference an undefined binding. ` +
+        `Import 'reflect' from the reflection module (a reflected class needs it anyway).`);
+
+    return ts.factory.updateSourceFile(sourceFile, newStatements);
+  }
+
+  // A top-level `function field`, `declare function field` or `const field = …` in this very file, which
+  // makes the injected call resolve without any import.
+  function declaresOwnField(sourceFile: ts.SourceFile): boolean {
+    return sourceFile.statements.some(stmt => {
+      if (ts.isFunctionDeclaration(stmt))
+        return stmt.name?.text === 'field';
+      if (ts.isVariableStatement(stmt))
+        return stmt.declarationList.declarations.some(d => ts.isIdentifier(d.name) && d.name.text === 'field');
+      return false;
+    });
   }
 
   const FILE_INFO_LOCAL = "__fileInfo";

@@ -190,6 +190,22 @@ registerType(Person, "Person", __fileInfo);`
         ));
     });
 
+    // A class decorated with @entity / @part but NOT @reflect gets field(...) injected all the same, and
+    // there is then no import to anchor the 'field' import on. tsc has already checked by the time the
+    // call is injected, so it reports nothing: the emit references an undefined binding and the first sign
+    // is a ReferenceError when the module loads, far from the file that caused it.
+    test('injecting field with no reflect import to anchor on is a transform-time error', () => {
+        assert.throws(
+            () => transformSource(
+                `import { entity } from "./decorators";
+@entity
+class Person {
+    name!: string;
+}`
+            ),
+            /injected field\(\.\.\.\) but the file imports no 'reflect'/);
+    });
+
 });
 
 describe('location registration calls', () => {
