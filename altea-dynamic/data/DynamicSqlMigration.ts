@@ -1,4 +1,5 @@
 import { reflect, init, MAX_SIZE } from "@altea/altea/data/reflection";
+import type { IUserEntity } from "@altea/altea/data/security";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, implementedBy, quoted } from "@altea/altea/data/decorators";
@@ -27,13 +28,19 @@ export class DynamicSqlMigrationEntity extends Entity {
 
     creationDate: Temporal.PlainDateTime = Clock.now;
 
-    @implementedBy(() => [UserEntity])
-    createdBy: Lite<UserEntity>;
+    // Signum's `[ImplementedBy(typeof(UserEntity))] Lite<IUserEntity>`. No implementations are named
+    // here, so this module needs no reference to altea-auth; the app widens it in its EntityOverrides
+    // (the same accommodation ExceptionEntity.user and OperationLogEntity.user make).
+    @implementedBy(() => [])
+    createdBy: Lite<IUserEntity>;
 
     executionDate: Temporal.PlainDateTime | null;
 
-    @implementedBy(() => [UserEntity])
-    executedBy: Lite<UserEntity> | null;
+    // Signum's `[ImplementedBy(typeof(UserEntity))] Lite<IUserEntity>`. No implementations are named
+    // here, so this module needs no reference to altea-auth; the app widens it in its EntityOverrides
+    // (the same accommodation ExceptionEntity.user and OperationLogEntity.user make).
+    @implementedBy(() => [])
+    executedBy: Lite<IUserEntity> | null;
 
     @stringLengthValidator({ min: 3, max: 200 })
     comment: string;

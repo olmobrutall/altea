@@ -283,7 +283,10 @@ export class ScheduledTaskEntity extends Entity {
     // The USER a run acts as. There is no runtime interface to reference, so the field needs
     // it on the field, and this package already depends on altea-auth — so name UserEntity and get a real FK
     // (core entities like ExceptionEntity use @implementedByAll instead, because CORE cannot import auth).
-    @implementedBy(() => [UserEntity])
+    // Signum's `[ImplementedBy(typeof(UserEntity))] Lite<IUserEntity>`. No implementations are named
+    // here, so this module needs no reference to altea-auth; the app widens it in its EntityOverrides
+    // (the same accommodation ExceptionEntity.user and OperationLogEntity.user make).
+    @implementedBy(() => [])
     user: Lite<IUserEntity>;
 
     @stringLengthValidator({ min: 3, max: 100 })
@@ -305,7 +308,10 @@ export class ScheduledTaskLogEntity extends Entity {
 
     scheduledTask: Lite<ScheduledTaskEntity> | null = null;
 
-    @implementedBy(() => [UserEntity])
+    // Signum's `[ImplementedBy(typeof(UserEntity))] Lite<IUserEntity>`. No implementations are named
+    // here, so this module needs no reference to altea-auth; the app widens it in its EntityOverrides
+    // (the same accommodation ExceptionEntity.user and OperationLogEntity.user make).
+    @implementedBy(() => [])
     user: Lite<IUserEntity>;
 
     @format("G")

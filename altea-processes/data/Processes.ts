@@ -81,7 +81,10 @@ export class ProcessEntity extends Entity {
     @stringLengthValidator({ min: 3, max: 100 })
     applicationName: string = ProcessEntity.None;
 
-    @implementedBy(() => [UserEntity])
+    // Signum's `[ImplementedBy(typeof(UserEntity))] Lite<IUserEntity>`. No implementations are named
+    // here, so this module needs no reference to altea-auth; the app widens it in its EntityOverrides
+    // (the same accommodation ExceptionEntity.user and OperationLogEntity.user make).
+    @implementedBy(() => [])
     user: Lite<IUserEntity>;
 
     state: ProcessState = ProcessState.Created;
