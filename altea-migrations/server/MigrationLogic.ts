@@ -11,6 +11,7 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { Clock } from "@altea/altea/data/utils/clock";
+import { Temporal } from "@altea/altea/data/basics";
 import { Entity, type Type } from "@altea/altea/data/entity";
 import { SqlMigrationEntity, TypeScriptMigrationEntity, LoadMethodLogEntity, MigrationMessage } from "../data/Migrations";
 import { SafeConsole, Color } from "./SafeConsole";
@@ -42,7 +43,21 @@ export namespace MigrationLogic {
         QueryLogic.expressions.register(LoadMethodLogEntity, l => l.durationMilliseconds(),
             MigrationMessage.Duration);
 
-        void ExceptionLogic;
+        // Signum's `ExceptionLogic.DeleteLogs += ExceptionLogic_DeleteLogs`.
+        ExceptionLogic.registerDeleteLogs(async (parameters, ctx) => {
+            const typeEntity = LoadMethodLogEntity.toTypeEntity();
+
+            const dateLimit = parameters.getDateLimitDelete(typeEntity);
+            if (dateLimit != null)
+                await ExceptionLogic.deleteChunksLog(LoadMethodLogEntity, table(LoadMethodLogEntity)
+                    .filter(l => Temporal.PlainDateTime.compare(l.start, dateLimit) < 0), parameters, ctx);
+
+            const exceptionsDateLimit = parameters.getDateLimitDeleteWithExceptions(typeEntity);
+            if (exceptionsDateLimit != null)
+                await ExceptionLogic.deleteChunksLog(LoadMethodLogEntity, table(LoadMethodLogEntity)
+                    .filter(l => Temporal.PlainDateTime.compare(l.start, exceptionsDateLimit) < 0 && l.exception != null),
+                    parameters, ctx);
+        });
     }
 
     /**

@@ -2,6 +2,9 @@ import "@altea/altea/server";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
+import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
+import { table } from "@altea/altea/server/table";
+import { Temporal } from "@altea/altea/data/basics";
 import { RestLogEntity, RestLogMessage } from "../data/Rest";
 import { RestApiKeyLogic } from "./RestApiKeyLogic";
 
@@ -29,6 +32,22 @@ export namespace RestLogLogic {
 
         QueryLogic.expressions.register(RestLogEntity, e => e.durationMilliseconds(),
             RestLogMessage.Duration);
+
+        // Signum's `ExceptionLogic.DeleteLogs += ExceptionLogic_DeleteRestLogs`.
+        ExceptionLogic.registerDeleteLogs(async (parameters, ctx) => {
+            const typeEntity = RestLogEntity.toTypeEntity();
+
+            const dateLimit = parameters.getDateLimitDelete(typeEntity);
+            if (dateLimit != null)
+                await ExceptionLogic.deleteChunksLog(RestLogEntity, table(RestLogEntity)
+                    .filter(r => Temporal.PlainDateTime.compare(r.startDate, dateLimit) < 0), parameters, ctx);
+
+            const exceptionsDateLimit = parameters.getDateLimitDeleteWithExceptions(typeEntity);
+            if (exceptionsDateLimit != null)
+                await ExceptionLogic.deleteChunksLog(RestLogEntity, table(RestLogEntity)
+                    .filter(r => Temporal.PlainDateTime.compare(r.startDate, exceptionsDateLimit) < 0 && r.exception != null),
+                    parameters, ctx);
+        });
     }
 
     /**

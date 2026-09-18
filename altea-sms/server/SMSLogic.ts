@@ -53,8 +53,8 @@ import { SMSModelLogic, type ISMSModel } from "./SMSModelLogic";
 // The culture fallback for a message is: the forced culture, else the owner's, else the configured default.
 //
 // Port of Signum.SMS's SMSLogic.cs — see port/Sms.md.
-//  - **`ExceptionLogic.DeleteLogs`** (both handlers, messages and orphaned packages) is NOT ported — altea
-//    has no log-retention machinery, the note every other module carries.
+//  - **`ExceptionLogic.DeleteLogs`** (both handlers, messages and orphaned packages) is NOT registered —
+//    the machinery itself IS ported (`ExceptionLogic.registerDeleteLogs`); this module just does not use it.
 //  - **`SMSTemplateEntity.ParseData` / the `Retrieved` + web `AfterDeserialization` re-parse are gone**:
 //    altea resolves query tokens CLIENT-side (there is no QueryDescription to parse against), the same
 //    decision altea-user-queries / altea-email document. What survives is the PreSaving re-print, which is

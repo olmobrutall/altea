@@ -49,8 +49,8 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 //  - `CacheLogic.ServerBroadcast` (the cross-host "a message is ready" push) is NOT ported: the async sender's
 //    periodic timer is what notices work queued by another host, exactly as in a Signum deployment without
 //    SqlDependency.
-//  - `ExceptionLogic.DeleteLogs` (the log-cleanup hook) and `PreDeleteSqlSync` on FileTypeSymbol have no
-//    altea counterpart.
+//  - `ExceptionLogic.DeleteLogs` (this module's handler; the machinery itself IS ported) and
+//    `PreDeleteSqlSync` on FileTypeSymbol have no altea counterpart.
 //  - `OperationLogic.AllowSave<T>()` has no counterpart (altea has no save guard for an operation to lift).
 //  - `GetAllTypes` reads the `target` implementations: altea's `target` is `@implementedByAll`, so the DISTINCT
 //    target types actually stored are queried, which is Signum's own "hacky" byAll branch.

@@ -5,6 +5,7 @@ import { table } from "@altea/altea/server/table";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
+import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { Temporal } from "@altea/altea/data/basics";
 import type { Lite } from "@altea/altea/data/lite";
@@ -35,8 +36,6 @@ import { PermissionLogic } from "./PermissionLogic";
 //  - `.OrderByDescending(…).Take(1).Where(…).UnsafeUpdate()` — an UPDATE whose row set is an ORDER BY +
 //    TOP — has no altea form, so the row is selected first and updated by id (the accommodation
 //    UserTicketLogic's per-user sweep makes for the same reason).
-//  - `ExceptionLogic.DeleteLogs` is not ported: altea has no log-retention machinery, the note every other
-//    log-owning module carries.
 //  - both dates are truncated where they are assigned (the `truncSeconds` below: there is no
 //    altea counterpart — see data/SessionLog.ts).
 
@@ -60,6 +59,15 @@ export namespace SessionLogLogic {
         // `[AutoExpressionField]` member itself; altea registers the token explicitly.
         QueryLogic.expressions.register(SessionLogEntity, e => e.durationSeconds(),
             SessionLogMessage.Duration);
+
+        // Signum's `ExceptionLogic.DeleteLogs += ExceptionLogic_DeleteLogs`. One pass only: a session log
+        // has no exception column, so there is no second cut-off to apply.
+        ExceptionLogic.registerDeleteLogs(async (parameters, ctx) => {
+            const dateLimit = parameters.getDateLimitDelete(SessionLogEntity.toTypeEntity());
+            if (dateLimit != null)
+                await ExceptionLogic.deleteChunksLog(SessionLogEntity, table(SessionLogEntity)
+                    .filter(s => Temporal.PlainDateTime.compare(s.sessionStart, dateLimit) < 0), parameters, ctx);
+        });
     }
 
     /**

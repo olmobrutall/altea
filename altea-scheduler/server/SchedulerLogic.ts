@@ -7,6 +7,7 @@ import { Graph } from "@altea/altea/server/graph";
 import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
+import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { UserHolder } from "@altea/altea/server/userHolder";
 
 import { table } from "@altea/altea/server/table";
@@ -15,6 +16,10 @@ import { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
 import type { Type } from "@altea/altea/data/entity";
 import { Temporal } from "@altea/altea/data/basics";
+// Registers DeleteLogsTaskEntity (and the implementedBy override that gives core's per-type override rows
+// their owner) even when the app does not start DeleteLogsTaskLogic — a type nothing imports has no
+// reflection and no translations. Its TABLES stay opt-in; only `sb.include` makes those.
+import "../data/DeleteLogsTask";
 import { HolidayCalendarEntity } from "../data/HolidayCalendar";
 import {
     ScheduledTaskEntity, ScheduledTaskLogEntity, SchedulerTaskExceptionLineEntity,
@@ -76,6 +81,40 @@ export namespace SchedulerLogic {
 
         sb.include(SchedulerTaskExceptionLineEntity)
             .withQuery();
+
+        // Signum's `ExceptionLogic.DeleteLogs += ExceptionLogic_DeleteLogs`. The exception LINES go before
+        // the logs they hang off (nothing cascades them), and the logs are then taken only once no line
+        // points at them — a line delete that ran out of chunks leaves its log for the next run.
+        ExceptionLogic.registerDeleteLogs(async (parameters, ctx) => {
+            // Lines whose log is already gone (Signum sweeps these unconditionally).
+            await ExceptionLogic.deleteChunksLog(SchedulerTaskExceptionLineEntity,
+                table(SchedulerTaskExceptionLineEntity).filter(l => l.schedulerTaskLog == null), parameters, ctx);
+
+            const remove = async (dateLimit: Temporal.PlainDateTime | null, withExceptions: boolean): Promise<void> => {
+                if (dateLimit == null)
+                    return;
+
+                await ExceptionLogic.deleteChunksLog(SchedulerTaskExceptionLineEntity, withExceptions
+                    ? table(SchedulerTaskExceptionLineEntity).filter(el => el.schedulerTaskLog != null
+                        && Temporal.PlainDateTime.compare(el.schedulerTaskLog!.entity.startTime, dateLimit) < 0
+                        && el.schedulerTaskLog!.entity.exception != null)
+                    : table(SchedulerTaskExceptionLineEntity).filter(el => el.schedulerTaskLog != null
+                        && Temporal.PlainDateTime.compare(el.schedulerTaskLog!.entity.startTime, dateLimit) < 0),
+                    parameters, ctx);
+
+                await ExceptionLogic.deleteChunksLog(ScheduledTaskLogEntity, withExceptions
+                    ? table(ScheduledTaskLogEntity).filter(l => Temporal.PlainDateTime.compare(l.startTime, dateLimit) < 0
+                        && l.exception != null
+                        && !table(SchedulerTaskExceptionLineEntity).some(el => el.schedulerTaskLog!.is(l)).$v)
+                    : table(ScheduledTaskLogEntity).filter(l => Temporal.PlainDateTime.compare(l.startTime, dateLimit) < 0
+                        && !table(SchedulerTaskExceptionLineEntity).some(el => el.schedulerTaskLog!.is(l)).$v),
+                    parameters, ctx);
+            };
+
+            const typeEntity = ScheduledTaskLogEntity.toTypeEntity();
+            await remove(parameters.getDateLimitDelete(typeEntity), false);
+            await remove(parameters.getDateLimitDeleteWithExceptions(typeEntity), true);
+        });
 
         // The log rows OUTLIVE the task (they are the history), so they are detached
         // rather than cascaded, and the rule — a Part owned by this task — goes with it.

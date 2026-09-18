@@ -758,13 +758,24 @@ export class Query<T> implements IQuery<T> {
     // Bulk-DML variant: chunked delete — a pure utility (Signum's UnsafeDeleteChunks),
     // not a distinct command: it just deletes `order by id, top(chunkSize)` repeatedly
     // until a pass removes fewer than a full chunk.
-    async executeDeleteChunks(chunkSize: number = 10000, maxChunks: number = Number.MAX_SAFE_INTEGER): Promise<number> {
+    //
+    // `pauseMilliseconds` and `signal` are what make it usable on a LIVE table: one unbounded DELETE
+    // locks the whole thing, so the work is cut into statements that each take a short lock and the
+    // pause hands the table back to the application in between. `maxChunks` bounds one call, so a
+    // backlog is drained over several runs instead of one very long one.
+    async executeDeleteChunks(chunkSize: number = 10000, maxChunks: number = Number.MAX_SAFE_INTEGER,
+        pauseMilliseconds?: number | null, signal?: AbortSignal): Promise<number> {
         let total = 0;
         for (let i = 0; i < maxChunks; i++) {
             const num = await this.orderBy(a => (a as Entity).id).top(chunkSize).executeDelete();
             total += num;
             if (num < chunkSize)
                 break;
+
+            signal?.throwIfAborted();
+
+            if (pauseMilliseconds != null)
+                await new Promise<void>(resolve => { setTimeout(resolve, pauseMilliseconds).unref(); });
         }
         return total;
     }

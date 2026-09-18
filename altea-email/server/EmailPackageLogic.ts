@@ -31,8 +31,8 @@ import { EmailTemplateLogic } from "./EmailTemplateLogic";
 //  - the three `[AutoExpressionField]` extension methods are `withQuoted` PROTOTYPE members assigned at the
 //    bottom of this file, the idiom @altea/altea-printing's PrintPackageEntity.lines() uses: a registered
 //    expression needs a quoted member to point at, and the member is server-only because its body is a query.
-//  - `ExceptionLogic.DeleteLogs += ExceptionLogic_DeletePackages` has no counterpart — altea has no
-//    log-retention machinery, the note every other module carries.
+//  - `ExceptionLogic.DeleteLogs += ExceptionLogic_DeletePackages` has no counterpart: the log-retention
+//    machinery IS ported (ExceptionLogic.registerDeleteLogs), but orphaned e-mail packages are not swept.
 //  - `ProcessLogic.AssertStarted` / `Schema.Settings.AssertImplementedBy(ProcessEntity.Data)` have none
 //    either: `ProcessEntity.data` is @implementedByAll here, so nothing has to be widened.
 //  - `AuthLogic.Disable()` around the send loop → `ExecutionMode.global()`.

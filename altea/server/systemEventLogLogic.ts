@@ -7,6 +7,8 @@ import { ExecutionMode } from './executionMode';
 import { UserHolder } from './userHolder';
 import { ExceptionLogic } from './exceptionLogic';
 import { Clock } from '../data/utils/clock';
+import { Temporal } from '../data/basics';
+import { table } from './table';
 import type { ExceptionEntity } from '../data/exception';
 import { SystemEventLogEntity } from '../data/systemEventLog';
 
@@ -23,9 +25,6 @@ import { SystemEventLogEntity } from '../data/systemEventLog';
 // altea divergences, documented inline:
 //  - `Schema.Current.MachineName` → `node:os`'s `hostname()`, which is what ExceptionLogic already uses
 //    for the same column on ExceptionEntity.
-//  - `ExceptionLogic.DeleteLogs` is not ported: altea has no log-retention machinery (the note every
-//    log-owning module carries). Signum registers TWO limits here — one for plain rows and one for rows
-//    WITH an exception — so a port of that machinery needs to keep both.
 //  - `e.LogException(ex => ex.ControllerName = "SystemEventLog.Log")` → `ExceptionLogic.logException(e,
 //    e => { e.controllerName = … })`, and the inner `catch {}` is kept: if logging the failure to log also
 //    fails, there is nowhere left to report it.
@@ -42,6 +41,22 @@ export namespace SystemEventLogLogic {
         // registration takes none (no QueryDescription), so those are CLIENT default columns — see
         // client/Basics (registered by SignumClient).
         sb.include(SystemEventLogEntity).withQuery();
+
+        // Signum registers TWO limits here — one for plain rows and one for rows WITH an exception.
+        ExceptionLogic.registerDeleteLogs(async (parameters, ctx) => {
+            const typeEntity = SystemEventLogEntity.toTypeEntity();
+
+            const dateLimit = parameters.getDateLimitDelete(typeEntity);
+            if (dateLimit != null)
+                await ExceptionLogic.deleteChunksLog(SystemEventLogEntity, table(SystemEventLogEntity)
+                    .filter(s => Temporal.PlainDateTime.compare(s.date, dateLimit) < 0), parameters, ctx);
+
+            const exceptionsDateLimit = parameters.getDateLimitDeleteWithExceptions(typeEntity);
+            if (exceptionsDateLimit != null)
+                await ExceptionLogic.deleteChunksLog(SystemEventLogEntity, table(SystemEventLogEntity)
+                    .filter(s => Temporal.PlainDateTime.compare(s.date, exceptionsDateLimit) < 0 && s.exception != null),
+                    parameters, ctx);
+        });
 
         started = true;
     }

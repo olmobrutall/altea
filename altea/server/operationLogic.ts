@@ -415,6 +415,23 @@ export namespace OperationLogic {
         QueryLogic.expressions.register(OperationLogEntity, (o: OperationLogEntity) => o.durationMilliseconds(),
             OperationMessage.Duration);
 
+        // Signum's `ExceptionLogic.DeleteLogs += ExceptionLogic_DeleteLogs`. Two passes, because a log row
+        // that recorded an EXCEPTION has its own (shorter) cut-off.
+        ExceptionLogic.registerDeleteLogs(async (parameters, ctx) => {
+            const typeEntity = OperationLogEntity.toTypeEntity();
+
+            const dateLimit = parameters.getDateLimitDelete(typeEntity);
+            if (dateLimit != null)
+                await ExceptionLogic.deleteChunksLog(OperationLogEntity, table(OperationLogEntity)
+                    .filter(o => Temporal.PlainDateTime.compare(o.start, dateLimit) < 0), parameters, ctx);
+
+            const exceptionsDateLimit = parameters.getDateLimitDeleteWithExceptions(typeEntity);
+            if (exceptionsDateLimit != null)
+                await ExceptionLogic.deleteChunksLog(OperationLogEntity, table(OperationLogEntity)
+                    .filter(o => Temporal.PlainDateTime.compare(o.start, exceptionsDateLimit) < 0 && o.exception != null),
+                    parameters, ctx);
+        });
+
 
         // Signum's `sb.Schema.SchemaCompleted += () => RegisterCurrentLogs(sb.Schema)`: every
         // @systemVersioned type gains the `PreviousOperationLog` sub-token, so a query over that type's

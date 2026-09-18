@@ -1,16 +1,26 @@
 import { hostname } from "node:os";
 import { Temporal, type int } from "../data/basics";
+import type { Entity, Type } from "../data/entity";
 import { ExceptionEntity, ExceptionOrigin } from "../data/exception";
+// The parameter types have no table of their own (their owner is an application's, see data/deleteLogs.ts),
+// so nothing else would load the module — and an unloaded module registers no type, which costs it its
+// reflection and its translations.
+import "../data/deleteLogs";
+import type { DeleteLogParametersEmbedded } from "../data/deleteLogs";
 import type { ClientErrorModel } from "../data/clientError";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
 import { Saver } from "./saver";
 import { Transaction } from "./connection/transaction";
+import { Connector } from "./connection/connector";
+import { ExecutionMode } from "./executionMode";
+import { table } from "./table";
+import type { Query } from "./query";
 import "./dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 
 // Port of Signum's ExceptionLogic (old/Framework/Signum/Basics/ExceptionLogic.cs), trimmed to the
-// pieces eastwind needs: schema registration + the `logException` extension that builds, fills and
-// persists an ExceptionEntity. Deferred (as in Signum but not needed yet): OnExceptionLogged event,
-// the log-cleanup/DeleteLogs machinery, per-environment overrides, and the User/auth wiring.
+// pieces eastwind needs: schema registration, the `logException` extension that builds, fills and
+// persists an ExceptionEntity, and the log-cleanup registry + runner below. Deferred (as in Signum but
+// not needed yet): OnExceptionLogged event, per-environment overrides, and the User/auth wiring.
 //
 // The engine ownership is the same as Signum: an error anywhere on the server is turned into a row
 // here by the API exception filter (exceptionFilter.ts, Signum's SignumExceptionFilterAttribute).
@@ -25,6 +35,115 @@ export namespace ExceptionLogic {
         // Signum: sb.Include<ExceptionEntity>() + WithQuery(...). altea's WithQuery is parameterless.
         // Signum's `.WithIndex(a => a.CreationDate)` — the exception page is browsed newest-first.
         sb.include(ExceptionEntity).withIndex(a => a.creationDate).withQuery();
+    }
+
+    // ---- Log cleanup ------------------------------------------------------------------------------------
+    //
+    // Signum's `ExceptionLogic.DeleteLogs` event (`+= ExceptionLogic_DeleteLogs`), which is the seam that
+    // lets a module trim ITS OWN log table without core ever naming it — core holds the list, each module
+    // pushes onto it from its `start`, and `deleteLogsAndExceptions` walks it.
+
+    /** What a handler writes progress to and watches for cancellation. `ScheduledTaskContext` satisfies
+     *  it structurally, so the scheduled task hands its own context straight through. */
+    export interface DeleteLogsContext {
+        writeLine(line: string): void;
+        readonly signal: AbortSignal;
+    }
+
+    export type DeleteLogsHandler = (parameters: DeleteLogParametersEmbedded, ctx: DeleteLogsContext) => Promise<void>;
+
+    const deleteLogsHandlers: DeleteLogsHandler[] = [];
+
+    /** Trim this module's log table when the cleanup runs. */
+    export function registerDeleteLogs(handler: DeleteLogsHandler): void {
+        deleteLogsHandlers.push(handler);
+    }
+
+    /**
+     * One run of the cleanup: every registered handler, then the exceptions themselves.
+     *
+     * The exceptions go LAST and only once nothing points at them any more, which is what
+     * `ExceptionEntity.referenced` is for — it is recomputed here rather than maintained on write:
+     * blanked, then set again from every column in the schema that is a foreign key to the exception
+     * table. A handler that hit its `maxChunks` budget leaves rows behind, so their exceptions stay
+     * referenced and survive this run; the next one takes them.
+     *
+     * `Transaction.none`, deliberately: each chunk has to COMMIT, or the whole point of chunking (a short
+     * lock, released between bites) is lost to one transaction that holds every row it deleted.
+     */
+    export async function deleteLogsAndExceptions(parameters: DeleteLogParametersEmbedded, ctx: DeleteLogsContext): Promise<void> {
+        await ExecutionMode.global(() => Transaction.none(async () => {
+            for (const handler of deleteLogsHandlers) {
+                ctx.signal.throwIfAborted();
+                await handler(parameters, ctx);
+            }
+
+            await writeRows(ctx, "Updating ExceptionEntity.referenced = false",
+                () => table(ExceptionEntity).executeUpdate(_ => ({ referenced: false })));
+
+            await markReferencedExceptions(ctx);
+
+            ctx.signal.throwIfAborted();
+
+            const dateLimit = parameters.getDateLimitDelete(ExceptionEntity.toTypeEntity());
+            if (dateLimit != null)
+                await deleteChunksLog(ExceptionEntity, table(ExceptionEntity)
+                    .filter(e => !e.referenced && Temporal.PlainDateTime.compare(e.creationDate, dateLimit) < 0),
+                    parameters, ctx);
+        }));
+    }
+
+    /**
+     * The chunked delete every handler runs its query through: Signum's `UnsafeDeleteChunksLog`, which is
+     * `UnsafeDeleteChunks` plus the line it writes into the task's remarks.
+     */
+    export async function deleteChunksLog<T extends Entity>(type: Type<T>, query: Query<T>,
+        parameters: DeleteLogParametersEmbedded, ctx: DeleteLogsContext): Promise<void> {
+        await writeRows(ctx, `Deleting ${type.name}`, () =>
+            query.executeDeleteChunks(parameters.chunkSize, parameters.maxChunks, parameters.pauseTime, ctx.signal));
+    }
+
+    // Signum's WriteRows: run the statement, report rows + elapsed.
+    async function writeRows(ctx: DeleteLogsContext, text: string, makeQuery: () => Promise<number>): Promise<void> {
+        const start = performance.now();
+        const rows = await makeQuery();
+        ctx.writeLine(`${text}: ${rows} rows affected in ${Math.round(performance.now() - start)} ms`);
+    }
+
+    // Set `referenced` on every exception some other row still points at. Signum emits one
+    // `UPDATE ex … FROM <table> JOIN` per referencing column; altea uses the `IN (SELECT …)` form of the
+    // same statement, which needs no dialect branch (SQL Server and PostgreSQL spell UPDATE…JOIN
+    // differently, as primaryKeyUpdater has to).
+    async function markReferencedExceptions(ctx: DeleteLogsContext): Promise<void> {
+        const connector = Connector.current();
+        const schema = connector.schema;
+        const exceptionTable = schema.tryTable(ExceptionEntity);
+        if (exceptionTable == null)
+            return;
+
+        const sql = connector.sqlBuilder;
+        const exceptionName = sql.objectName(exceptionTable.name);
+        const idColumn = sql.sqlEscape(exceptionTable.primaryKey.column.name);
+        const referencedColumn = sql.sqlEscape(exceptionTable.fields["referenced"]!.field.columns()[0]!.name);
+        const trueLiteral = connector.isPostgres ? "true" : "1";
+
+        for (const other of schema.tables.values()) {
+            if (other === exceptionTable)
+                continue;
+
+            for (const column of Object.values(other.columns)) {
+                if (column.referenceTable !== exceptionTable)
+                    continue;
+
+                ctx.signal.throwIfAborted();
+
+                const otherName = sql.objectName(other.name);
+                const fkColumn = sql.sqlEscape(column.name);
+                await writeRows(ctx, `Updating ExceptionEntity.referenced from ${other.name.name}.${column.name}`, () =>
+                    connector.executeNonQuery(`UPDATE ${exceptionName} SET ${referencedColumn} = ${trueLiteral}`
+                        + ` WHERE ${idColumn} IN (SELECT ${fkColumn} FROM ${otherName} WHERE ${fkColumn} IS NOT NULL)`));
+            }
+        }
     }
 
     // Signum's `Exception.LogException(this Exception, Action<ExceptionEntity>? completeContext)`:

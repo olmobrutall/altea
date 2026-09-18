@@ -12,6 +12,8 @@ import { table } from "@altea/altea/server/table";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { AutoDynamicQueryCore } from "@altea/altea/server/dynamicQuery/dynamicQueryCore";
 import { Clock } from "@altea/altea/data/utils/clock";
+import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
+import type { DeleteLogParametersEmbedded } from "@altea/altea/data/deleteLogs";
 import {
     ProcessEntity, ProcessAlgorithmSymbol, ProcessExceptionLineEntity, ProcessState,
     ProcessOperation, ProcessPermission, ProcessMessage,
@@ -32,7 +34,7 @@ import { PermissionLogic } from "@altea/altea-auth/server/PermissionLogic";
 // the bug the scheduler port hit and fixed.
 //
 // Port of Signum.Processes' ProcessLogic.cs — see port/Processes.md.
-//  - `CacheLogic.ServerBroadcast`, `ExceptionLogic.DeleteLogs`, `PreDeleteSqlSync` and
+//  - `CacheLogic.ServerBroadcast`, `PreDeleteSqlSync` and
 //    `PropertyAuthLogic.SetMaxAutomaticUpgrade(p => p.User, Read)` are not ported (missing infrastructure).
 
 export interface IProcessAlgorithm {
@@ -72,6 +74,9 @@ export namespace ProcessLogic {
             ProcessMessage.Duration);
 
         sb.include(ProcessExceptionLineEntity).withQuery();
+
+        ExceptionLogic.registerDeleteLogs(deleteProcessLogs);
+
         sb.include(PackageEntity).withQuery();
         sb.include(PackageOperationEntity).withQuery();
         sb.include(PackageLineEntity).withQuery();
@@ -139,6 +144,49 @@ export namespace ProcessLogic {
             }))));
         if (sb.webBuilder)
             ProcessesServer.start(sb.webBuilder);
+    }
+
+    /**
+     * Signum's `ExceptionLogic_DeleteLogs`: trim FINISHED processes (Canceled / Finished / Error) — a
+     * process that is still planned, queued or running is not a log row and is never swept.
+     *
+     * Per STATE rather than one `state IN (…)`, because `maxChunks` is a per-statement budget: a mountain
+     * of Finished rows would otherwise use up the whole run and the Error rows would never be reached.
+     * The exception LINES go first (nothing cascades them), and a process is taken only once no line
+     * points at it.
+     */
+    async function deleteProcessLogs(parameters: DeleteLogParametersEmbedded, ctx: ExceptionLogic.DeleteLogsContext): Promise<void> {
+        const remove = async (state: ProcessState, dateLimit: Temporal.PlainDateTime, withExceptions: boolean): Promise<void> => {
+            await ExceptionLogic.deleteChunksLog(ProcessExceptionLineEntity, withExceptions
+                ? table(ProcessExceptionLineEntity).filter(el => el.process.entity.state == state
+                    && Temporal.PlainDateTime.compare(el.process.entity.creationDate, dateLimit) < 0
+                    && el.process.entity.exception != null)
+                : table(ProcessExceptionLineEntity).filter(el => el.process.entity.state == state
+                    && Temporal.PlainDateTime.compare(el.process.entity.creationDate, dateLimit) < 0),
+                parameters, ctx);
+
+            await ExceptionLogic.deleteChunksLog(ProcessEntity, withExceptions
+                ? table(ProcessEntity).filter(p => p.state == state
+                    && Temporal.PlainDateTime.compare(p.creationDate, dateLimit) < 0 && p.exception != null
+                    && !table(ProcessExceptionLineEntity).some(el => el.process.is(p)).$v)
+                : table(ProcessEntity).filter(p => p.state == state
+                    && Temporal.PlainDateTime.compare(p.creationDate, dateLimit) < 0
+                    && !table(ProcessExceptionLineEntity).some(el => el.process.is(p)).$v),
+                parameters, ctx);
+        };
+
+        const typeEntity = ProcessEntity.toTypeEntity();
+        const states = [ProcessState.Canceled, ProcessState.Finished, ProcessState.Error];
+
+        const dateLimit = parameters.getDateLimitDelete(typeEntity);
+        if (dateLimit != null)
+            for (const state of states)
+                await remove(state, dateLimit, false);
+
+        const exceptionsDateLimit = parameters.getDateLimitDeleteWithExceptions(typeEntity);
+        if (exceptionsDateLimit != null)
+            for (const state of states)
+                await remove(state, exceptionsDateLimit, true);
     }
 
     /** Register an algorithm. Call BEFORE start — the symbol table is seeded from

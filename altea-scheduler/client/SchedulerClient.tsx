@@ -7,6 +7,7 @@ import {
     ScheduleRuleMinutelyEntity, ScheduleRuleWeekDaysEntity, ScheduleRuleMonthsEntity,
     SimpleTaskSymbol, SchedulerPermission,
 } from "../data/Scheduler";
+import { DeleteLogsTaskEntity } from "../data/DeleteLogsTask";
 import { HolidayCalendarEntity } from "../data/HolidayCalendar";
 import type { SchedulerState } from "../data/SchedulerState";
 import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
@@ -42,6 +43,11 @@ export namespace SchedulerClient {
                     token(t => t.applicationName),
                 ],
             }));
+
+        // Registered unconditionally, although its TABLES are opt-in (DeleteLogsTaskLogic.start): the
+        // `implementedBy` override in its data module has to be applied on THIS tier too, and importing
+        // the module is what applies it.
+        cb.configure(DeleteLogsTaskEntity).withView(() => import("./Templates/DeleteLogsTask"));
 
         cb.configure(ScheduleRuleMinutelyEntity).withView(() => import("./Templates/ScheduleRuleMinutely"));
         cb.configure(ScheduleRuleWeekDaysEntity).withView(() => import("./Templates/ScheduleRuleWeekDays"));

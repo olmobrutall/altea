@@ -11,6 +11,7 @@ import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import type { QueryExecutedContext } from "@altea/altea/server/dynamicQuery/dynamicQueryContainer";
 import { withQuoted } from "@altea/altea/data/decorators";
 import { Clock } from "@altea/altea/data/utils/clock";
+import { Temporal } from "@altea/altea/data/basics";
 import { Entity, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { IQuery } from "@altea/altea/data/iquery";
@@ -68,6 +69,15 @@ export namespace ViewLogLogic {
 
         // "A query ran".
         QueryLogic.queries.queryExecuted.push(onQueryExecuted);
+
+        // Signum's `ExceptionLogic.DeleteLogs += ExceptionLogic_DeleteLogs`. One pass: a view log records
+        // what was looked at, never a failure, so there is no exception cut-off.
+        ExceptionLogic.registerDeleteLogs(async (parameters, ctx) => {
+            const dateLimit = parameters.getDateLimitDelete(ViewLogEntity.toTypeEntity());
+            if (dateLimit != null)
+                await ExceptionLogic.deleteChunksLog(ViewLogEntity, table(ViewLogEntity)
+                    .filter(v => Temporal.PlainDateTime.compare(v.startDate, dateLimit) < 0), parameters, ctx);
+        });
     }
 
     /** Per CONCRETE type: an extension token is keyed on a constructor, and the walk follows the

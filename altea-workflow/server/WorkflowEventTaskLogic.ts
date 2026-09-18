@@ -45,9 +45,9 @@ import {
 //    entity assembly cannot see the engine). altea keeps the same two functions but INJECTS them into the
 //    builder (setGetWorkflowEventTaskModel / setApplyWorkflowEventTaskModel), so the data layer stays free of
 //    server hooks.
-//  - `ExceptionLogic.DeleteLogs` (trimming old condition results) is not ported: altea's log-deletion
-//    parameters have no per-type date limits yet. The index on `creationDate` is kept, so it is a one-liner
-//    when they land.
+//  - `ExceptionLogic.DeleteLogs` (trimming old condition results) is not registered. The per-type date
+//    limits it wanted now exist (`ExceptionLogic.registerDeleteLogs`), and the index on `creationDate` is
+//    kept, so it is a one-liner.
 //  - the two evals become symbols, evaluated through WorkflowLogic (see data/WorkflowEval.ts).
 
 declare module "../data/WorkflowEventTask" {
