@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="OpenIDConfigurationEmbedded" Description="">
-    <Member Name="Authority" Description="" />
-    <Member Name="AvoidSSLVerify" Description="" />
-    <Member Name="ClientId" Description="" />
-    <Member Name="ClientSecret" Description="" />
-    <Member Name="Enabled" Description="" />
-    <Member Name="RoleClaimPath" Description="" />
+  <Type Name="OpenIDConfigurationEmbedded" Description="Configuración de OpenID">
+    <Member Name="Authority" Description="Autoridad" />
+    <Member Name="AvoidSSLVerify" Description="Evitar la verificación SSL" />
+    <Member Name="ClientId" Description="Id de cliente" />
+    <Member Name="ClientSecret" Description="Secreto de cliente" />
+    <Member Name="Enabled" Description="Habilitado" />
+    <Member Name="RoleClaimPath" Description="Ruta del claim del rol" />
     <Member Name="RoleMapping" Description="Asignación de roles" />
-    <Member Name="Scopes" Description="" />
+    <Member Name="Scopes" Description="Ámbitos" />
   </Type>
   <Type Name="OpenIDMessage">
-    <Member Name="SignInWithOpenID" Description="" />
+    <Member Name="SignInWithOpenID" Description="Iniciar sesión con OpenID" />
   </Type>
-  <Type Name="OpenIDRoleMappingEntity" Description="">
-    <Member Name="Configuration" Description="" />
+  <Type Name="OpenIDRoleMappingEntity" Description="Asignación de roles de OpenID">
+    <Member Name="Configuration" Description="Configuración" />
   </Type>
 </Translations>

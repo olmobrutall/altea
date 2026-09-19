@@ -9,12 +9,12 @@
     <Member Name="TranslatedText" Description="Texto traducido" />
   </Type>
   <Type Name="TranslatedInstanceOperation">
-    <Member Name="Delete" Description="" />
+    <Member Name="Delete" Description="Eliminar" />
   </Type>
-  <Type Name="TranslationConfigurationEmbedded" Description="">
-    <Member Name="AzureCognitiveServicesAPIKey" Description="" />
-    <Member Name="AzureCognitiveServicesRegion" Description="" />
-    <Member Name="DeepLAPIKey" Description="" />
+  <Type Name="TranslationConfigurationEmbedded" Description="Configuración de traducción">
+    <Member Name="AzureCognitiveServicesAPIKey" Description="Clave de API de Azure Cognitive Services" />
+    <Member Name="AzureCognitiveServicesRegion" Description="Región de Azure Cognitive Services" />
+    <Member Name="DeepLAPIKey" Description="Clave de API de DeepL" />
   </Type>
   <Type Name="TranslationJavascriptMessage">
     <Member Name="RememberChange" Description="Recordar cambio" />
@@ -26,51 +26,51 @@
     <Member Name="_0OutdatedTranslationsFor1HaveBeenDeleted" Description="{0} traducciones anticuadas para {1} han sido eliminadas" />
     <Member Name="All" Description="Todos" />
     <Member Name="AllLanguages" Description="todos los idiomas" />
-    <Member Name="AreYouSureToContinueAutoTranslation0For1WithoutRevision" Description="" />
-    <Member Name="AreYouSureToContinueAutoTranslationAllPackagesFor0WithoutRevision" Description="" />
-    <Member Name="AreYouSureToContinueAutoTranslationAllTypesFor0WithoutRevision" Description="" />
-    <Member Name="AutoSync" Description="" />
-    <Member Name="BackToSyncPackage0" Description="" />
+    <Member Name="AreYouSureToContinueAutoTranslation0For1WithoutRevision" Description="¿Seguro que desea continuar con la traducción automática {0} para {1} sin revisión?" />
+    <Member Name="AreYouSureToContinueAutoTranslationAllPackagesFor0WithoutRevision" Description="¿Seguro que desea continuar con la traducción automática de todos los paquetes para {0} sin revisión?" />
+    <Member Name="AreYouSureToContinueAutoTranslationAllTypesFor0WithoutRevision" Description="¿Seguro que desea continuar con la traducción automática de todos los tipos para {0} sin revisión?" />
+    <Member Name="AutoSync" Description="sincronización automática" />
+    <Member Name="BackToSyncPackage0" Description="Volver a sincronizar el paquete {0}" />
     <Member Name="BackToTranslationStatus" Description="Regresar al estado de la traducción" />
     <Member Name="CodeTranslations" Description="Traducciones de código" />
     <Member Name="Culture" Description="Cultura" />
     <Member Name="Description" Description="Descripción" />
     <Member Name="Download" Description="Descargar" />
-    <Member Name="DownloadSync" Description="" />
-    <Member Name="DownloadView" Description="" />
+    <Member Name="DownloadSync" Description="Descargar la sincronización" />
+    <Member Name="DownloadView" Description="Descargar la vista" />
     <Member Name="Edit" Description="editar" />
-    <Member Name="Folder" Description="" />
-    <Member Name="From0using1_" Description="" />
-    <Member Name="Gender" Description="" />
+    <Member Name="Folder" Description="Carpeta" />
+    <Member Name="From0using1_" Description="de {0} usando {1}" />
+    <Member Name="Gender" Description="Género" />
     <Member Name="Instance" Description="Instancia" />
-    <Member Name="InstanceRouteConflictsOverview" Description="" />
+    <Member Name="InstanceRouteConflictsOverview" Description="Resumen de conflictos de rutas de instancia" />
     <Member Name="InstanceTranslations" Description="Traducciones de instancia" />
     <Member Name="Member" Description="Miembro" />
     <Member Name="NewTranslations" Description="Nuevas traducciones" />
     <Member Name="NewTypes" Description="Nuevos tipos" />
     <Member Name="None" Description="nada" />
     <Member Name="NoResultsFound" Description="No se encontraron resultados" />
-    <Member Name="NoRoutesMarkedForTranslationConsiderUsing" Description="" />
+    <Member Name="NoRoutesMarkedForTranslationConsiderUsing" Description="No hay ninguna ruta marcada para traducir. Considere usar" />
     <Member Name="NothingToTranslate" Description="Nada para traducir" />
     <Member Name="NothingToTranslateIn0" Description="Nada para traducir en {0}" />
-    <Member Name="OnlyNeutralCultures" Description="" />
-    <Member Name="OnlyRecommendedInstances" Description="" />
+    <Member Name="OnlyNeutralCultures" Description="Sólo culturas neutras" />
+    <Member Name="OnlyRecommendedInstances" Description="Sólo instancias recomendadas" />
     <Member Name="Package" Description="Paquete" />
-    <Member Name="Plural" Description="" />
-    <Member Name="PluralDescription" Description="" />
+    <Member Name="Plural" Description="Plural" />
+    <Member Name="PluralDescription" Description="Descripción en plural" />
     <Member Name="PressSearchForResults" Description="Pulse Buscar para obtener resultados." />
     <Member Name="Property" Description="Propiedad" />
     <Member Name="RepeatedCultures0" Description="Culturas repetidas {0}" />
     <Member Name="Save" Description="Guardar" />
     <Member Name="Search" Description="Buscar" />
-    <Member Name="SelectAxlsxFileWithTheTranslations" Description="" />
-    <Member Name="Singular" Description="" />
+    <Member Name="SelectAxlsxFileWithTheTranslations" Description="Seleccione un fichero .xlsx con las traducciones" />
+    <Member Name="Singular" Description="Singular" />
     <Member Name="Sync" Description="sinc" />
     <Member Name="Synchronize0In1" Description="Sincronizar {0} en {1}" />
     <Member Name="ThisFieldIsTranslatable" Description="Este campo es traducible" />
-    <Member Name="TranslationFor0_" Description="" />
-    <Member Name="TranslationsOverview" Description="" />
-    <Member Name="TranslationStatus" Description="" />
+    <Member Name="TranslationFor0_" Description="Traducción de {0}" />
+    <Member Name="TranslationsOverview" Description="Resumen de traducciones" />
+    <Member Name="TranslationStatus" Description="Estado de la traducción" />
     <Member Name="Type" Description="Tipo" />
     <Member Name="View" Description="ver" />
     <Member Name="View0In1" Description="Ver {0} en {1}" />

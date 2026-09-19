@@ -4,13 +4,13 @@
     <Member Name="OnLoad" Description="Am Laden" />
     <Member Name="OnNext" Description="Als nächstes" />
   </Type>
-  <Type Name="CssStepEntity" Description="">
-    <Member Name="CssSelector" Description="" />
+  <Type Name="CssStepEntity" Description="CSS-Schritt">
+    <Member Name="CssSelector" Description="CSS-Selektor" />
     <Member Name="DashboardPart" Description="Dashboard Teil" />
     <Member Name="Property" Description="Eigenschaft" />
     <Member Name="TableColumn" Description="Tabellenspalte" />
     <Member Name="ToolbarContent" Description="Toolbar-Inhalt" />
-    <Member Name="TourStep" Description="" />
+    <Member Name="TourStep" Description="Tour-Schritt" />
     <Member Name="Type" Description="Typ" />
   </Type>
   <Type Name="CssStepType" Description="CSS-Schritttyp">
@@ -39,14 +39,14 @@
     <Member Name="Trigger" Description="Auslöser" />
   </Type>
   <Type Name="TourMessage">
-    <Member Name="_0HasToBeNullWhenTypeIsNot1" Description="" />
-    <Member Name="_0HasToBeSetWhenTypeIs1" Description="" />
+    <Member Name="_0HasToBeNullWhenTypeIsNot1" Description="{0} muss null sein, wenn der Typ nicht {1} ist" />
+    <Member Name="_0HasToBeSetWhenTypeIs1" Description="{0} muss gesetzt sein, wenn der Typ {1} ist" />
     <Member Name="Close" Description="Schließen" />
     <Member Name="CreateTour" Description="Tour erstellen" />
-    <Member Name="CssStep" Description="" />
+    <Member Name="CssStep" Description="CSS-Schritt" />
     <Member Name="Done" Description="Fertig" />
     <Member Name="EditTour" Description="Tour bearbeiten" />
-    <Member Name="FinalCSSSelector" Description="" />
+    <Member Name="FinalCSSSelector" Description="Endgültiger CSS-Selektor" />
     <Member Name="Next" Description="Weiter" />
     <Member Name="Previous" Description="Vorherige" />
     <Member Name="ReplayTour" Description="Wiederholungstour" />

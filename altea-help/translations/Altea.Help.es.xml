@@ -10,42 +10,42 @@
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="HelpImageEntity" Description="">
+  <Type Name="HelpImageEntity" Description="Imagen de ayuda">
     <Member Name="CreationDate" Description="Fecha de creación" />
-    <Member Name="File" Description="" />
+    <Member Name="File" Description="Fichero" />
     <Member Name="Target" Description="Destino" />
   </Type>
   <Type Name="HelpImageFileType">
-    <Member Name="Image" Description="" />
+    <Member Name="Image" Description="Imagen" />
   </Type>
-  <Type Name="HelpImportPreviewLineEmbedded" Description="">
+  <Type Name="HelpImportPreviewLineEmbedded" Description="Línea de la vista previa de importación">
     <Member Name="Action" Description="Acción" />
-    <Member Name="Apply" Description="" />
+    <Member Name="Apply" Description="¿Aplicar?" />
     <Member Name="Culture" Description="Cultura" />
-    <Member Name="ExitingEntity" Description="" />
+    <Member Name="ExitingEntity" Description="Entidad existente" />
     <Member Name="Key" Description="Clave" />
-    <Member Name="Text" Description="" />
+    <Member Name="Text" Description="Texto" />
     <Member Name="Type" Description="Tipo" />
   </Type>
-  <Type Name="HelpImportPreviewModel" Description="">
+  <Type Name="HelpImportPreviewModel" Description="Vista previa de la importación">
     <Member Name="Lines" Description="Líneas" />
   </Type>
-  <Type Name="HelpImportReportLineEmbedded" Description="">
+  <Type Name="HelpImportReportLineEmbedded" Description="Línea del informe de importación">
     <Member Name="Action" Description="Acción" />
-    <Member Name="ActionError" Description="" />
+    <Member Name="ActionError" Description="Error de la acción" />
     <Member Name="Culture" Description="Cultura" />
-    <Member Name="ExitingEntity" Description="" />
+    <Member Name="ExitingEntity" Description="Entidad existente" />
     <Member Name="Key" Description="Clave" />
     <Member Name="Status" Description="Estado" />
-    <Member Name="Text" Description="" />
+    <Member Name="Text" Description="Texto" />
     <Member Name="Type" Description="Tipo" />
   </Type>
-  <Type Name="HelpImportReportModel" Description="">
+  <Type Name="HelpImportReportModel" Description="Informe de la importación">
     <Member Name="Lines" Description="Líneas" />
   </Type>
   <Type Name="HelpKindMessage">
-    <Member Name="AndIsMasterDataRarelyChanges" Description="" />
-    <Member Name="AndIsTransactionalDataCreatedRegularly" Description="" />
+    <Member Name="AndIsMasterDataRarelyChanges" Description="y son datos maestros (cambian pocas veces)" />
+    <Member Name="AndIsTransactionalDataCreatedRegularly" Description="y son datos transaccionales (se crean con regularidad)" />
     <Member Name="AutomaticallyByTheSystem" Description=" automáticamente por el sistema" />
     <Member Name="ClassifyOtherEntities" Description="clasificar a otras entidades" />
     <Member Name="HisMainFunctionIsTo0" Description="Su principal función es {0}" />
@@ -56,48 +56,48 @@
     <Member Name="StorePartsOfInformationSharedByDifferentEntities" Description="alamacenar una parte de información compartida por las distintas entidades" />
   </Type>
   <Type Name="HelpMessage">
-    <Member Name="_0IsA1_G" Description="" />
+    <Member Name="_0IsA1_G" Description="{0} es un {1}" />
     <Member Name="_0IsA1AndShows2" Description="{0} es un {1} y muestra {2}" />
     <Member Name="_0IsACalculated1" Description="{0} es un {1} calculado" />
     <Member Name="_0IsACollectionOfElements1" Description="{0} es una colección de elementos {1}" />
     <Member Name="_0IsThePrimaryKeyOf1OfType2" Description="{0} es la clave principal de {1}, de tipo {2}" />
-    <Member Name="ActionStatus" Description="" />
+    <Member Name="ActionStatus" Description="Estado de la acción" />
     <Member Name="Amount" Description="importe" />
-    <Member Name="AnEmbeddedEntityOfType0" Description="" />
+    <Member Name="AnEmbeddedEntityOfType0" Description="Una entidad embebida de tipo {0}" />
     <Member Name="Any" Description="algún" />
     <Member Name="Appendices" Description="Apéndices" />
-    <Member Name="AReference1ToA2_G" Description="" />
+    <Member Name="AReference1ToA2_G" Description="Una referencia ({1}) a un {2}" />
     <Member Name="BooleanValue" Description="valor booleano (sí o no)" />
     <Member Name="Call0Over1OfThe2" Description="Ejecuta {0} sobre {1} [m:del|f:de la] {2}" />
     <Member Name="Character" Description="carácter" />
-    <Member Name="ChooseZIPFile" Description="" />
-    <Member Name="Close" Description="" />
+    <Member Name="ChooseZIPFile" Description="Elija el fichero ZIP" />
+    <Member Name="Close" Description="Cerrar" />
     <Member Name="ConstructsANew0" Description="Construye [m:un|f:una] nuev[m:o|f:a] {0}" />
-    <Member Name="CopyLinkToken" Description="" />
+    <Member Name="CopyLinkToken" Description="Copiar este token de enlace al portapapeles" />
     <Member Name="Date" Description="fecha" />
     <Member Name="DateTime" Description="fecha y hora" />
-    <Member Name="Edit" Description="" />
+    <Member Name="Edit" Description="Editar" />
     <Member Name="Entities" Description="Entidades" />
-    <Member Name="ExportAsZip" Description="" />
+    <Member Name="ExportAsZip" Description="Exportar como ZIP" />
     <Member Name="ExpressedIn" Description="expresado en " />
     <Member Name="From0OfThe1" Description="desde {0} [m:del|f:de la] {1}" />
     <Member Name="FromMany0" Description="desde muchos {0}" />
     <Member Name="Full" Description="Completo" />
     <Member Name="Help" Description="Ayuda" />
     <Member Name="HelpNotLoaded" Description="Ayuda no cargada" />
-    <Member Name="HelpZipContents" Description="" />
-    <Member Name="Import" Description="" />
-    <Member Name="ImportCompletedSuccessfully" Description="" />
-    <Member Name="ImportCompletedWithErrors" Description="" />
-    <Member Name="ImportError" Description="" />
-    <Member Name="ImportHelpContentsFromZipFile" Description="" />
-    <Member Name="ImportReport" Description="" />
+    <Member Name="HelpZipContents" Description="Contenido del ZIP de ayuda" />
+    <Member Name="Import" Description="Importar" />
+    <Member Name="ImportCompletedSuccessfully" Description="La importación ha terminado correctamente" />
+    <Member Name="ImportCompletedWithErrors" Description="La importación ha terminado con errores" />
+    <Member Name="ImportError" Description="Error de importación" />
+    <Member Name="ImportHelpContentsFromZipFile" Description="Importar el contenido de ayuda desde el fichero ZIP" />
+    <Member Name="ImportReport" Description="Informe de la importación" />
     <Member Name="In0" Description="(en {0})" />
     <Member Name="Integer" Description="entero" />
-    <Member Name="JumpToViewMore" Description="" />
+    <Member Name="JumpToViewMore" Description="Saltar a Ver más" />
     <Member Name="Key0NotFound" Description="Clave {0} no encontrada" />
-    <Member Name="Lite" Description="" />
-    <Member Name="NewKey" Description="" />
+    <Member Name="Lite" Description="lite" />
+    <Member Name="NewKey" Description="Clave nueva" />
     <Member Name="Next" Description="Siguiente" />
     <Member Name="Optional" Description="Opcional" />
     <Member Name="Previous" Description="Anterior" />
@@ -105,25 +105,25 @@
     <Member Name="QueryOf0" Description="Consulta de {0}" />
     <Member Name="RemovesThe0FromTheDatabase" Description="Elimina {0} de la base de datos" />
     <Member Name="SearchText" Description="Texto a buscar" />
-    <Member Name="SelectedFile" Description="" />
-    <Member Name="SelectTheZIPFileWithTheHelpContentsThatYouWantToImport" Description="" />
+    <Member Name="SelectedFile" Description="Fichero seleccionado" />
+    <Member Name="SelectTheZIPFileWithTheHelpContentsThatYouWantToImport" Description="Seleccione el fichero ZIP con el contenido de ayuda que desea importar" />
     <Member Name="Should" Description=". Debe  " />
     <Member Name="String" Description="cadena de texto" />
     <Member Name="TheDatabaseVersion" Description="la versión de la base de datos" />
     <Member Name="TheProperty0" Description="la propiedad {0}" />
-    <Member Name="Types" Description="" />
+    <Member Name="Types" Description="Tipos" />
     <Member Name="Value" Description="valor" />
     <Member Name="ValueLike0" Description="valor entre {0}" />
     <Member Name="ViewMore" Description="Ver más" />
     <Member Name="YourVersion" Description="tu versión" />
   </Type>
   <Type Name="HelpPermissions">
-    <Member Name="ExportHelp" Description="" />
+    <Member Name="ExportHelp" Description="Exportar la ayuda" />
     <Member Name="ViewHelp" Description="Ver ayuda" />
   </Type>
   <Type Name="HelpSearchMessage">
     <Member Name="_0ResultsFor1In2" Description="{0} resultado[s] para {1} (en {2} ms)" />
-    <Member Name="NoResults" Description="" />
+    <Member Name="NoResults" Description="No hay resultados" />
     <Member Name="Results" Description="Resultados" />
     <Member Name="Search" Description="Buscar" />
   </Type>
@@ -131,16 +131,16 @@
     <Member Name="InsertImage" Description="Insertar imagen" />
     <Member Name="TranslateFrom" Description="Traducir desde..." />
   </Type>
-  <Type Name="ImportAction" Description="">
-    <Member Name="Create" Description="" />
-    <Member Name="NoChange" Description="" />
-    <Member Name="Override" Description="" />
+  <Type Name="ImportAction" Description="Acción de importación">
+    <Member Name="Create" Description="Crear" />
+    <Member Name="NoChange" Description="Sin cambios" />
+    <Member Name="Override" Description="Sobrescribir" />
   </Type>
-  <Type Name="ImportStatus" Description="">
-    <Member Name="Applied" Description="" />
-    <Member Name="Failed" Description="" />
-    <Member Name="NoChange" Description="" />
-    <Member Name="Skipped" Description="" />
+  <Type Name="ImportStatus" Description="Estado de la importación">
+    <Member Name="Applied" Description="Aplicado" />
+    <Member Name="Failed" Description="Fallido" />
+    <Member Name="NoChange" Description="Sin cambios" />
+    <Member Name="Skipped" Description="Omitido" />
   </Type>
   <Type Name="NamespaceHelpEntity" Description="Ayuda espacio de nombres">
     <Member Name="Culture" Description="Cultura" />
@@ -164,7 +164,7 @@
     <Member Name="Description" Description="Descripción" />
     <Member Name="Info" Description="Info" />
     <Member Name="NiceName" Description="Nombre bonito" />
-    <Member Name="QueryHelp" Description="" />
+    <Member Name="QueryHelp" Description="Ayuda de la consulta" />
   </Type>
   <Type Name="QueryHelpOperation">
     <Member Name="Delete" Description="Eliminar" />
@@ -180,17 +180,17 @@
     <Member Name="Queries" Description="Consultas" />
     <Member Name="Type" Description="Tipo" />
   </Type>
-  <Type Name="TypeHelpEntity_Operation" Description="">
+  <Type Name="TypeHelpEntity_Operation" Description="Operación">
     <Member Name="Description" Description="Descripción" />
     <Member Name="Info" Description="Info" />
     <Member Name="Operation" Description="Operación" />
-    <Member Name="TypeHelp" Description="" />
+    <Member Name="TypeHelp" Description="Ayuda del tipo" />
   </Type>
-  <Type Name="TypeHelpEntity_Property" Description="">
+  <Type Name="TypeHelpEntity_Property" Description="Propiedad">
     <Member Name="Description" Description="Descripción" />
     <Member Name="Info" Description="Info" />
     <Member Name="Property" Description="Propiedad" />
-    <Member Name="TypeHelp" Description="" />
+    <Member Name="TypeHelp" Description="Ayuda del tipo" />
   </Type>
   <Type Name="TypeHelpOperation">
     <Member Name="Delete" Description="Eliminar" />

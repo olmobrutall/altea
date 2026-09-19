@@ -21,8 +21,8 @@
   <Type Name="HelpImportPreviewLineEmbedded" Description="Hilfe-Import-Vorschauzeile">
     <Member Name="Action" Description="Aktion" />
     <Member Name="Apply" Description="Anwenden?" />
-    <Member Name="Culture" Description="" />
-    <Member Name="ExitingEntity" Description="" />
+    <Member Name="Culture" Description="Kultur" />
+    <Member Name="ExitingEntity" Description="Vorhandene Entität" />
     <Member Name="Key" Description="Schlüssel" />
     <Member Name="Text" Description="Text" />
     <Member Name="Type" Description="Typ" />
@@ -33,8 +33,8 @@
   <Type Name="HelpImportReportLineEmbedded" Description="Hilfe-Import-Berichtszeile">
     <Member Name="Action" Description="Aktion" />
     <Member Name="ActionError" Description="Aktionsfehler" />
-    <Member Name="Culture" Description="" />
-    <Member Name="ExitingEntity" Description="" />
+    <Member Name="Culture" Description="Kultur" />
+    <Member Name="ExitingEntity" Description="Vorhandene Entität" />
     <Member Name="Key" Description="Schlüssel" />
     <Member Name="Status" Description="Status" />
     <Member Name="Text" Description="Text" />
@@ -73,7 +73,7 @@
     <Member Name="ChooseZIPFile" Description="Wähle ZIP-Datei" />
     <Member Name="Close" Description="Schließen" />
     <Member Name="ConstructsANew0" Description="Erstellt eine neue {0}" />
-    <Member Name="CopyLinkToken" Description="" />
+    <Member Name="CopyLinkToken" Description="Diesen Link-Token in die Zwischenablage kopieren" />
     <Member Name="Date" Description="Datum" />
     <Member Name="DateTime" Description="Datum und Uhrzeit" />
     <Member Name="Edit" Description="Bearbeiten" />
@@ -111,7 +111,7 @@
     <Member Name="String" Description="Zeichenkette" />
     <Member Name="TheDatabaseVersion" Description="die Version der Datenbank" />
     <Member Name="TheProperty0" Description="die Eigenschaft {0}" />
-    <Member Name="Types" Description="" />
+    <Member Name="Types" Description="Typen" />
     <Member Name="Value" Description="Wert" />
     <Member Name="ValueLike0" Description="Wert wie {0}" />
     <Member Name="ViewMore" Description="Mehr sehen" />
@@ -123,7 +123,7 @@
   </Type>
   <Type Name="HelpSearchMessage">
     <Member Name="_0ResultsFor1In2" Description="{0} Ergebnis[se] für {1} (in {2}ms)" />
-    <Member Name="NoResults" Description="" />
+    <Member Name="NoResults" Description="Keine Ergebnisse" />
     <Member Name="Results" Description="Ergebnisse" />
     <Member Name="Search" Description="Suchen" />
   </Type>
@@ -164,7 +164,7 @@
     <Member Name="Description" Description="Beschreibung" />
     <Member Name="Info" Description="Info" />
     <Member Name="NiceName" Description="Schöner Name" />
-    <Member Name="QueryHelp" Description="" />
+    <Member Name="QueryHelp" Description="Abfragehilfe" />
   </Type>
   <Type Name="QueryHelpOperation">
     <Member Name="Delete" Description="Löschen" />
@@ -180,17 +180,17 @@
     <Member Name="Queries" Description="Abfragen" />
     <Member Name="Type" Description="Typ" />
   </Type>
-  <Type Name="TypeHelpEntity_Operation" Description="">
+  <Type Name="TypeHelpEntity_Operation" Description="Operation">
     <Member Name="Description" Description="Beschreibung" />
     <Member Name="Info" Description="Info" />
-    <Member Name="Operation" Description="" />
-    <Member Name="TypeHelp" Description="" />
+    <Member Name="Operation" Description="Operation" />
+    <Member Name="TypeHelp" Description="Typhilfe" />
   </Type>
-  <Type Name="TypeHelpEntity_Property" Description="">
+  <Type Name="TypeHelpEntity_Property" Description="Eigenschaft">
     <Member Name="Description" Description="Beschreibung" />
     <Member Name="Info" Description="Info" />
     <Member Name="Property" Description="Eigenschaft" />
-    <Member Name="TypeHelp" Description="" />
+    <Member Name="TypeHelp" Description="Typhilfe" />
   </Type>
   <Type Name="TypeHelpOperation">
     <Member Name="Delete" Description="Löschen" />

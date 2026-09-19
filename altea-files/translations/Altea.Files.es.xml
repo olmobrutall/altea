@@ -13,24 +13,24 @@
     <Member Name="Hash" Description="Hash" />
   </Type>
   <Type Name="FileMessage">
-    <Member Name="AddMoreFiles" Description="" />
+    <Member Name="AddMoreFiles" Description="Añadir más ficheros" />
     <Member Name="DownloadFile" Description="Descargar archivo" />
     <Member Name="ErrorSavingFile" Description="Error guardadndo el archivo" />
-    <Member Name="File0ContainsAThreatBy1" Description="" />
+    <Member Name="File0ContainsAThreatBy1" Description="El fichero '{0}' contiene una amenaza detectada por {1}." />
     <Member Name="File0IsTooBigTheMaximumSizeIs1" Description="El archivo '{0}' es demasiado grande, el tamaño máximo es {1}" />
-    <Member Name="FileImage" Description="" />
-    <Member Name="FileImageMustHaveExtension" Description="" />
+    <Member Name="FileImage" Description="Imagen" />
+    <Member Name="FileImageMustHaveExtension" Description="La imagen debe tener una extensión" />
     <Member Name="FileTypes" Description="Tipos de archivo" />
     <Member Name="OnlyOneFileIsSupported" Description="Se admite un único fichero" />
     <Member Name="Open" Description="Abrir" />
     <Member Name="OpeningHasNotDefaultImplementationFor0" Description="Abrir no tiene una implementación por defecto para {0}" />
     <Member Name="OrDragAFileHere" Description="o arrastra un archivo aquí" />
-    <Member Name="RemoveFile" Description="" />
+    <Member Name="RemoveFile" Description="Quitar el fichero" />
     <Member Name="SelectFile" Description="Seleccione archivo" />
     <Member Name="TheFile0IsNotA1" Description="El archivo {0} no es un {1}" />
-    <Member Name="TheNameOfTheFileMustNotContainPercent1" Description="" />
+    <Member Name="TheNameOfTheFileMustNotContainPercent1" Description="El nombre del fichero no puede contener los caracteres {0}" />
     <Member Name="ViewFile" Description="Ver archivo" />
-    <Member Name="WriteHere" Description="" />
+    <Member Name="WriteHere" Description="Escriba aquí" />
   </Type>
   <Type Name="FilePathEmbedded" Description="Ruta del archivo incrustado">
     <Member Name="BinaryFile" Description="Archivo binario" />
@@ -45,6 +45,6 @@
   </Type>
   <Type Name="FileTypeSymbol" Description="Símbolo tipo de archivo" />
   <Type Name="FileTypeSymbols">
-    <Member Name="Default" Description="" />
+    <Member Name="Default" Description="Por defecto" />
   </Type>
 </Translations>

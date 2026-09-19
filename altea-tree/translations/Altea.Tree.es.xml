@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="InsertPlace" Description="">
-    <Member Name="After" Description="" />
-    <Member Name="Before" Description="" />
-    <Member Name="FirstNode" Description="" />
-    <Member Name="LastNode" Description="" />
+  <Type Name="InsertPlace" Description="Lugar de inserción">
+    <Member Name="After" Description="Después" />
+    <Member Name="Before" Description="Antes" />
+    <Member Name="FirstNode" Description="Primer nodo" />
+    <Member Name="LastNode" Description="Último nodo" />
   </Type>
   <Type Name="MoveTreeModel" Description="Mover árbol">
     <Member Name="InsertPlace" Description="Insertar lugar" />
@@ -29,11 +29,11 @@
     <Member Name="ImpossibleToMove0InsideOf1" Description="Imposible mover {0} dentro de {1}" />
     <Member Name="Level" Description="Nivel" />
     <Member Name="LevelShouldNotBeGreaterThan0" Description="El nivel no debe ser mayor que {0}" />
-    <Member Name="ListView" Description="" />
+    <Member Name="ListView" Description="Vista de lista" />
     <Member Name="Move0" Description="Mover {0}" />
     <Member Name="Parent" Description="Padre" />
     <Member Name="Tree" Description="Árbol" />
-    <Member Name="TreeInfo" Description="" />
+    <Member Name="TreeInfo" Description="Información del árbol" />
     <Member Name="TreeType" Description="Tipo de árbol" />
   </Type>
   <Type Name="TreeOperation">
@@ -49,10 +49,10 @@
     <Member Name="AddChild" Description="Añadir hijo" />
     <Member Name="AddRoot" Description="Añadir raíz" />
     <Member Name="AddSibling" Description="Añadir hermano" />
-    <Member Name="Collapse" Description="" />
-    <Member Name="CollapseAll" Description="" />
-    <Member Name="Expand" Description="" />
-    <Member Name="ExpandAll" Description="" />
+    <Member Name="Collapse" Description="Contraer" />
+    <Member Name="CollapseAll" Description="Contraer todo" />
+    <Member Name="Expand" Description="Expandir" />
+    <Member Name="ExpandAll" Description="Expandir todo" />
     <Member Name="None" Description="Ninguno" />
     <Member Name="Remove" Description="Quitar" />
     <Member Name="Search" Description="Buscar" />

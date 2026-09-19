@@ -5,13 +5,13 @@
     <Member Name="Name" Description="Name" />
     <Member Name="OperationArguments" Description="Operationsargumente" />
   </Type>
-  <Type Name="PackageLastProcessRowModel" Description="">
-    <Member Name="Entity" Description="" />
+  <Type Name="PackageLastProcessRowModel" Description="Letzter Prozess des Pakets">
+    <Member Name="Entity" Description="Entität" />
     <Member Name="Id" Description="Id" />
     <Member Name="LastProcess" Description="Letzter Prozess" />
     <Member Name="Name" Description="Name" />
-    <Member Name="NumErrors" Description="" />
-    <Member Name="NumLines" Description="" />
+    <Member Name="NumErrors" Description="Anzahl Fehler" />
+    <Member Name="NumLines" Description="Anzahl Zeilen" />
   </Type>
   <Type Name="PackageLineEntity" Description="Paketzeile">
     <Member Name="FinishTime" Description="Zeitende" />
@@ -19,8 +19,8 @@
     <Member Name="Result" Description="Ergebnis" />
     <Member Name="Target" Description="Ziel" />
   </Type>
-  <Type Name="PackageLineLastProcessRowModel" Description="">
-    <Member Name="Entity" Description="" />
+  <Type Name="PackageLineLastProcessRowModel" Description="Letzter Prozess der Paketzeile">
+    <Member Name="Entity" Description="Entität" />
     <Member Name="Exception" Description="Ausnahme" />
     <Member Name="FinishTime" Description="Zeitende" />
     <Member Name="Id" Description="Id" />
@@ -32,14 +32,14 @@
   <Type Name="PackageOperationEntity" Description="Paket-Operation">
     <Member Name="Operation" Description="Operation" />
   </Type>
-  <Type Name="PackageOperationLastProcessRowModel" Description="">
-    <Member Name="Entity" Description="" />
+  <Type Name="PackageOperationLastProcessRowModel" Description="Letzter Prozess der Paketoperation">
+    <Member Name="Entity" Description="Entität" />
     <Member Name="Id" Description="Id" />
     <Member Name="LastProcess" Description="Letzter Prozess" />
     <Member Name="Name" Description="Name" />
-    <Member Name="NumErrors" Description="" />
-    <Member Name="NumLines" Description="" />
-    <Member Name="Operation" Description="" />
+    <Member Name="NumErrors" Description="Anzahl Fehler" />
+    <Member Name="NumLines" Description="Anzahl Zeilen" />
+    <Member Name="Operation" Description="Operation" />
   </Type>
   <Type Name="PackageOperationProcess">
     <Member Name="PackageOperation" Description="Paket-Operation" />
@@ -90,14 +90,14 @@
     <Member Name="OnlyActive" Description="Nur aktive" />
     <Member Name="Process" Description="Prozess" />
     <Member Name="Process0IsNotRunningAnymore" Description="Prozess {0} wird nicht mehr ausgeführt" />
-    <Member Name="ProcessExecutingSuspendFirst" Description="" />
+    <Member Name="ProcessExecutingSuspendFirst" Description="Der Prozess läuft, setzen Sie ihn zuerst aus" />
     <Member Name="ProcessLogicStateLoading" Description="ProzessLogik-Zustand (laden...) " />
     <Member Name="ProcessPanel" Description="Prozess-Panel" />
     <Member Name="ProcessSettings" Description="Prozess-Einstellungen" />
     <Member Name="ProcessStartIsGreaterThanProcessEnd" Description="Prozessstart ist größer als Prozessende" />
     <Member Name="ProcessStartIsNullButProcessEndIsNot" Description="Prozessstart ist null aber Prozessende nicht" />
     <Member Name="Progress" Description="Fortschritt" />
-    <Member Name="ProgressMustBeBetween0And1" Description="" />
+    <Member Name="ProgressMustBeBetween0And1" Description="Der Fortschritt muss zwischen 0 und 1 liegen" />
     <Member Name="Running" Description="LAUFEND" />
     <Member Name="SimpleStatus" Description="Einfacher Status" />
     <Member Name="Start" Description="Start" />

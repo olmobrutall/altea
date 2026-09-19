@@ -3,161 +3,161 @@
   <Type Name="AgentOperation">
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="AgentSymbol" Description="">
-    <Member Name="SkillCustomization" Description="" />
+  <Type Name="AgentSymbol" Description="Agent">
+    <Member Name="SkillCustomization" Description="Anpassung der Fähigkeit" />
   </Type>
-  <Type Name="ChatbotConfigurationEmbedded" Description="">
-    <Member Name="AnthropicAPIKey" Description="" />
-    <Member Name="DeepSeekAPIKey" Description="" />
-    <Member Name="GeminiAPIKey" Description="" />
-    <Member Name="GithubModelsToken" Description="" />
-    <Member Name="MistralAPIKey" Description="" />
-    <Member Name="OllamaUrl" Description="" />
-    <Member Name="OpenAIAPIKey" Description="" />
+  <Type Name="ChatbotConfigurationEmbedded" Description="Chatbot-Konfiguration">
+    <Member Name="AnthropicAPIKey" Description="Anthropic-API-Schlüssel" />
+    <Member Name="DeepSeekAPIKey" Description="DeepSeek-API-Schlüssel" />
+    <Member Name="GeminiAPIKey" Description="Gemini-API-Schlüssel" />
+    <Member Name="GithubModelsToken" Description="GitHub-Models-Token" />
+    <Member Name="MistralAPIKey" Description="Mistral-API-Schlüssel" />
+    <Member Name="OllamaUrl" Description="Ollama-URL" />
+    <Member Name="OpenAIAPIKey" Description="OpenAI-API-Schlüssel" />
   </Type>
-  <Type Name="ChatbotLanguageModelEntity" Description="">
+  <Type Name="ChatbotLanguageModelEntity" Description="Sprachmodell des Chatbots">
     <Member Name="IsDefault" Description="Ist Standard" />
-    <Member Name="MaxTokens" Description="" />
+    <Member Name="MaxTokens" Description="Max. Token" />
     <Member Name="Model" Description="Modell" />
-    <Member Name="PricePerCachedInputToken" Description="" />
-    <Member Name="PricePerInputToken" Description="" />
-    <Member Name="PricePerOutputToken" Description="" />
-    <Member Name="PricePerReasoningOutputToken" Description="" />
-    <Member Name="Provider" Description="" />
-    <Member Name="Temperature" Description="" />
+    <Member Name="PricePerCachedInputToken" Description="Preis pro zwischengespeichertem Eingabetoken" />
+    <Member Name="PricePerInputToken" Description="Preis pro Eingabetoken" />
+    <Member Name="PricePerOutputToken" Description="Preis pro Ausgabetoken" />
+    <Member Name="PricePerReasoningOutputToken" Description="Preis pro Denk-Ausgabetoken" />
+    <Member Name="Provider" Description="Anbieter" />
+    <Member Name="Temperature" Description="Temperatur" />
   </Type>
   <Type Name="ChatbotLanguageModelOperation">
     <Member Name="Delete" Description="Löschen" />
-    <Member Name="MakeDefault" Description="" />
+    <Member Name="MakeDefault" Description="Als Standard festlegen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
   <Type Name="ChatbotMessage">
-    <Member Name="AnswerAbovePlease" Description="" />
-    <Member Name="InitialInstruction" Description="" />
-    <Member Name="MessageMustBeTheLastToDelete" Description="" />
-    <Member Name="NewSession" Description="" />
-    <Member Name="OpenSession" Description="" />
-    <Member Name="Price" Description="" />
-    <Member Name="ProvideFeedback" Description="" />
-    <Member Name="Reasoning" Description="" />
-    <Member Name="Recover" Description="" />
+    <Member Name="AnswerAbovePlease" Description="Bitte oben antworten" />
+    <Member Name="InitialInstruction" Description="Anfangsanweisung" />
+    <Member Name="MessageMustBeTheLastToDelete" Description="Nur die letzte Nachricht kann gelöscht werden" />
+    <Member Name="NewSession" Description="Neue Sitzung" />
+    <Member Name="OpenSession" Description="Sitzung öffnen" />
+    <Member Name="Price" Description="Preis" />
+    <Member Name="ProvideFeedback" Description="Rückmeldung geben" />
+    <Member Name="Reasoning" Description="Begründung" />
+    <Member Name="Recover" Description="Wiederherstellen" />
     <Member Name="Send" Description="Senden" />
-    <Member Name="SessionInterruptedDoYouWantToRecover" Description="" />
-    <Member Name="ShowSystem" Description="" />
+    <Member Name="SessionInterruptedDoYouWantToRecover" Description="Die Sitzung wurde unterbrochen. Möchten Sie sie wiederherstellen?" />
+    <Member Name="ShowSystem" Description="System anzeigen" />
     <Member Name="TotalPrice" Description="Gesamtpreis" />
-    <Member Name="TypeAMessage" Description="" />
-    <Member Name="UnableToChangeModelOrProviderOnceUsed" Description="" />
-    <Member Name="WhatWentWrong" Description="" />
+    <Member Name="TypeAMessage" Description="Nachricht eingeben..." />
+    <Member Name="UnableToChangeModelOrProviderOnceUsed" Description="Modell oder Anbieter können nach der ersten Verwendung nicht mehr geändert werden" />
+    <Member Name="WhatWentWrong" Description="Was ist schiefgelaufen? (optional)" />
   </Type>
   <Type Name="ChatbotPermission">
-    <Member Name="UseChatbot" Description="" />
+    <Member Name="UseChatbot" Description="Chatbot verwenden" />
   </Type>
-  <Type Name="ChatMessageEntity" Description="">
-    <Member Name="CachedInputTokens" Description="" />
-    <Member Name="ChatSession" Description="" />
+  <Type Name="ChatMessageEntity" Description="Chat-Nachricht">
+    <Member Name="CachedInputTokens" Description="Zwischengespeicherte Eingabetoken" />
+    <Member Name="ChatSession" Description="Chat-Sitzung" />
     <Member Name="Content" Description="Inhalt" />
     <Member Name="CreationDate" Description="Erstellungsdatum" />
     <Member Name="Duration" Description="Dauer" />
     <Member Name="Exception" Description="Ausnahme" />
-    <Member Name="InputTokens" Description="" />
-    <Member Name="LanguageModel" Description="" />
-    <Member Name="OutputTokens" Description="" />
-    <Member Name="ReasoningContent" Description="" />
-    <Member Name="ReasoningOutputTokens" Description="" />
+    <Member Name="InputTokens" Description="Eingabetoken" />
+    <Member Name="LanguageModel" Description="Sprachmodell" />
+    <Member Name="OutputTokens" Description="Ausgabetoken" />
+    <Member Name="ReasoningContent" Description="Begründungsinhalt" />
+    <Member Name="ReasoningOutputTokens" Description="Denk-Ausgabetoken" />
     <Member Name="Role" Description="Rolle" />
-    <Member Name="ToolCallID" Description="" />
-    <Member Name="ToolCalls" Description="" />
-    <Member Name="ToolID" Description="" />
-    <Member Name="UserFeedback" Description="" />
-    <Member Name="UserFeedbackMessage" Description="" />
+    <Member Name="ToolCallID" Description="Werkzeugaufruf-ID" />
+    <Member Name="ToolCalls" Description="Werkzeugaufrufe" />
+    <Member Name="ToolID" Description="Werkzeug-ID" />
+    <Member Name="UserFeedback" Description="Rückmeldung des Benutzers" />
+    <Member Name="UserFeedbackMessage" Description="Text der Rückmeldung" />
   </Type>
-  <Type Name="ChatMessageEntity_ToolCall" Description="">
-    <Member Name="Arguments" Description="" />
-    <Member Name="CallId" Description="" />
-    <Member Name="ChatMessage" Description="" />
-    <Member Name="IsUITool" Description="" />
-    <Member Name="ToolId" Description="" />
+  <Type Name="ChatMessageEntity_ToolCall" Description="Werkzeugaufruf">
+    <Member Name="Arguments" Description="Argumente" />
+    <Member Name="CallId" Description="Aufruf-Id" />
+    <Member Name="ChatMessage" Description="Chat-Nachricht" />
+    <Member Name="IsUITool" Description="Ist UI-Werkzeug" />
+    <Member Name="ToolId" Description="Werkzeug-Id" />
   </Type>
   <Type Name="ChatMessageOperation">
     <Member Name="Delete" Description="Löschen" />
   </Type>
-  <Type Name="ChatMessageRole" Description="">
-    <Member Name="Assistant" Description="" />
-    <Member Name="System" Description="" />
-    <Member Name="Tool" Description="" />
+  <Type Name="ChatMessageRole" Description="Rolle der Chat-Nachricht">
+    <Member Name="Assistant" Description="Assistent" />
+    <Member Name="System" Description="System" />
+    <Member Name="Tool" Description="Werkzeug" />
     <Member Name="User" Description="Benutzer" />
   </Type>
-  <Type Name="ChatSessionEntity" Description="">
-    <Member Name="LanguageModel" Description="" />
+  <Type Name="ChatSessionEntity" Description="Chat-Sitzung">
+    <Member Name="LanguageModel" Description="Sprachmodell" />
     <Member Name="StartDate" Description="Startdatum" />
     <Member Name="Title" Description="Titel" />
-    <Member Name="TotalCachedInputTokens" Description="" />
-    <Member Name="TotalInputTokens" Description="" />
-    <Member Name="TotalOutputTokens" Description="" />
-    <Member Name="TotalReasoningOutputTokens" Description="" />
-    <Member Name="TotalToolCalls" Description="" />
+    <Member Name="TotalCachedInputTokens" Description="Zwischengespeicherte Eingabetoken gesamt" />
+    <Member Name="TotalInputTokens" Description="Eingabetoken gesamt" />
+    <Member Name="TotalOutputTokens" Description="Ausgabetoken gesamt" />
+    <Member Name="TotalReasoningOutputTokens" Description="Denk-Ausgabetoken gesamt" />
+    <Member Name="TotalToolCalls" Description="Werkzeugaufrufe gesamt" />
     <Member Name="User" Description="Benutzer" />
   </Type>
   <Type Name="ChatSessionOperation">
     <Member Name="Delete" Description="Löschen" />
   </Type>
   <Type Name="DefaultAgent">
-    <Member Name="Chatbot" Description="" />
-    <Member Name="ConversationSumarizer" Description="" />
-    <Member Name="QuestionSummarizer" Description="" />
+    <Member Name="Chatbot" Description="Chatbot" />
+    <Member Name="ConversationSumarizer" Description="Zusammenfassung der Unterhaltung" />
+    <Member Name="QuestionSummarizer" Description="Zusammenfassung der Frage" />
   </Type>
-  <Type Name="EmbeddingsLanguageModelEntity" Description="">
-    <Member Name="Dimensions" Description="" />
+  <Type Name="EmbeddingsLanguageModelEntity" Description="Sprachmodell für Embeddings">
+    <Member Name="Dimensions" Description="Dimensionen" />
     <Member Name="IsDefault" Description="Ist Standard" />
     <Member Name="Model" Description="Modell" />
-    <Member Name="Provider" Description="" />
+    <Member Name="Provider" Description="Anbieter" />
   </Type>
   <Type Name="EmbeddingsLanguageModelOperation">
     <Member Name="Delete" Description="Löschen" />
-    <Member Name="MakeDefault" Description="" />
+    <Member Name="MakeDefault" Description="Als Standard festlegen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
   <Type Name="LanguageModelProviders">
-    <Member Name="Anthropic" Description="" />
-    <Member Name="DeepSeek" Description="" />
-    <Member Name="Gemini" Description="" />
-    <Member Name="GithubModels" Description="" />
-    <Member Name="Mistral" Description="" />
-    <Member Name="Ollama" Description="" />
-    <Member Name="OpenAI" Description="" />
+    <Member Name="Anthropic" Description="Anthropic" />
+    <Member Name="DeepSeek" Description="DeepSeek" />
+    <Member Name="Gemini" Description="Gemini" />
+    <Member Name="GithubModels" Description="GitHub Models" />
+    <Member Name="Mistral" Description="Mistral" />
+    <Member Name="Ollama" Description="Ollama" />
+    <Member Name="OpenAI" Description="OpenAI" />
   </Type>
-  <Type Name="LanguageModelProviderSymbol" Description="" />
-  <Type Name="SkillActivation" Description="">
-    <Member Name="Eager" Description="" />
-    <Member Name="Lazy" Description="" />
+  <Type Name="LanguageModelProviderSymbol" Description="Anbieter des Sprachmodells" />
+  <Type Name="SkillActivation" Description="Aktivierung der Fähigkeit">
+    <Member Name="Eager" Description="Sofort" />
+    <Member Name="Lazy" Description="Bei Bedarf" />
   </Type>
-  <Type Name="SkillCodeEntity" Description="">
-    <Member Name="ClassName" Description="" />
+  <Type Name="SkillCodeEntity" Description="Fähigkeitscode">
+    <Member Name="ClassName" Description="Klassenname" />
   </Type>
-  <Type Name="SkillCustomizationEntity" Description="">
-    <Member Name="Instructions" Description="" />
+  <Type Name="SkillCustomizationEntity" Description="Anpassung der Fähigkeit">
+    <Member Name="Instructions" Description="Anweisungen" />
     <Member Name="Properties" Description="Eigenschaften" />
-    <Member Name="ShortDescription" Description="" />
-    <Member Name="SkillCode" Description="" />
-    <Member Name="SubSkills" Description="" />
+    <Member Name="ShortDescription" Description="Kurzbeschreibung" />
+    <Member Name="SkillCode" Description="Fähigkeitscode" />
+    <Member Name="SubSkills" Description="Unterfähigkeiten" />
   </Type>
-  <Type Name="SkillCustomizationEntity_Property" Description="">
-    <Member Name="PropertyName" Description="" />
-    <Member Name="SkillCustomization" Description="" />
+  <Type Name="SkillCustomizationEntity_Property" Description="Eigenschaft">
+    <Member Name="PropertyName" Description="Name der Eigenschaft" />
+    <Member Name="SkillCustomization" Description="Anpassung der Fähigkeit" />
     <Member Name="Value" Description="Wert" />
   </Type>
-  <Type Name="SkillCustomizationEntity_SubSkill" Description="">
-    <Member Name="Activation" Description="" />
-    <Member Name="Skill" Description="" />
-    <Member Name="SkillCustomization" Description="" />
+  <Type Name="SkillCustomizationEntity_SubSkill" Description="Unterfähigkeit">
+    <Member Name="Activation" Description="Aktivierung" />
+    <Member Name="Skill" Description="Fähigkeit" />
+    <Member Name="SkillCustomization" Description="Anpassung der Fähigkeit" />
   </Type>
   <Type Name="SkillCustomizationOperation">
-    <Member Name="CreateFromAgent" Description="" />
+    <Member Name="CreateFromAgent" Description="Aus Agent erstellen" />
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="UserFeedback" Description="">
-    <Member Name="Negative" Description="" />
-    <Member Name="Positive" Description="" />
+  <Type Name="UserFeedback" Description="Rückmeldung des Benutzers">
+    <Member Name="Negative" Description="Negativ" />
+    <Member Name="Positive" Description="Positiv" />
   </Type>
 </Translations>

@@ -10,9 +10,9 @@
     <Member Name="UploadDuration" Description="Dauer des Uploads" />
     <Member Name="UserAssets" Description="Benutzer-Assets" />
   </Type>
-  <Type Name="CachedQueryEntity_UserAsset" Description="">
+  <Type Name="CachedQueryEntity_UserAsset" Description="Benutzer-Asset">
     <Member Name="CachedQuery" Description="Cached-Abfrage" />
-    <Member Name="UserAsset" Description="" />
+    <Member Name="UserAsset" Description="Benutzer-Asset" />
   </Type>
   <Type Name="CachedQueryFileType">
     <Member Name="CachedQuery" Description="Cached-Abfrage" />
@@ -70,24 +70,24 @@
     <Member Name="InteractionGroup" Description="Interaktionsgruppe" />
     <Member Name="TokenEquivalences" Description="Token-Äquivalenzen" />
   </Type>
-  <Type Name="DashboardEntity_TokenEquivalenceGroup_Query" Description="">
+  <Type Name="DashboardEntity_TokenEquivalenceGroup_Query" Description="Abfrage">
     <Member Name="Query" Description="Abfrage" />
     <Member Name="Token" Description="Token" />
-    <Member Name="TokenEquivalenceGroup" Description="" />
+    <Member Name="TokenEquivalenceGroup" Description="Tokenäquivalenzgruppe" />
   </Type>
   <Type Name="DashboardMessage">
     <Member Name="_0CanOnlyBeUserInA1With2" Description="{0} kann nur in einem {1} mit {2} verwendet werden" />
     <Member Name="_0Is1InstedOf2In3" Description="{0} ist {1} (statt {2}) in {3}" />
     <Member Name="AltClickToOpenResultsInAModalWindow" Description="[Alt] + Klicken, um die Ergebnisse in einem modalen Fenster zu öffnen" />
-    <Member Name="AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds" Description="" />
+    <Member Name="AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds" Description="Das Aktualisierungsintervall muss mindestens 10 Sekunden betragen" />
     <Member Name="CLickInOneChartToFilterInTheOthers" Description="Klicken Sie in ein Diagramm, um in den anderen zu filtern" />
     <Member Name="Close" Description="Schließen" />
-    <Member Name="ColumnsMustBeBetween1And12" Description="" />
+    <Member Name="ColumnsMustBeBetween1And12" Description="Die Spalten müssen zwischen 1 und 12 liegen" />
     <Member Name="CopyHealthCheckDashboardData" Description="Kopieren von Daten aus dem Health Check Dashboard" />
     <Member Name="CreateNewPart" Description="Neues Teil erstellen" />
     <Member Name="CtrlClickToFilterByMultipleElements" Description="[Strg] + Klicken, um nach mehreren Elementen zu filtern" />
     <Member Name="DashboardDN_TitleMustBeSpecifiedFor0" Description="Titel muss angegeben werden für {0}" />
-    <Member Name="DuplicatedTokens0" Description="" />
+    <Member Name="DuplicatedTokens0" Description="Doppelte Token: {0}" />
     <Member Name="Edit" Description="Bearbeiten" />
     <Member Name="ForPerformanceReasonsThisDashboardMayShowOutdatedInformation" Description="Aus Leistungsgründen kann dieses Dashboard veraltete Informationen anzeigen" />
     <Member Name="IncompatibleEntityType" Description="Inkompatibler Entitätstyp" />
@@ -97,10 +97,10 @@
     <Member Name="Part0IsTooLarge" Description="Teil {0} ist zu groß" />
     <Member Name="Part0OverlapsWith1" Description="Teil {0} überschneidet sich mit {1}" />
     <Member Name="Preview" Description="Vorschau" />
-    <Member Name="RowMustBeGreaterThanOrEqualToZero" Description="" />
+    <Member Name="RowMustBeGreaterThanOrEqualToZero" Description="Die Zeile muss größer oder gleich 0 sein" />
     <Member Name="RowsSelected" Description="Zeile(n) ausgewählt" />
     <Member Name="SelectIcon" Description="Symbol auswählen" />
-    <Member Name="StartColumnMustBeBetween0And11" Description="" />
+    <Member Name="StartColumnMustBeBetween0And11" Description="Die Startspalte muss zwischen 0 und 11 liegen" />
     <Member Name="TheUserQuery0HasNoColumnWithSummaryHeader" Description="Die Benutzerabfrage '{0}' hat keine Spalte mit Zusammenfassungskopfzeile" />
   </Type>
   <Type Name="DashboardOperation">
@@ -110,9 +110,9 @@
     <Member Name="Save" Description="Speichern" />
   </Type>
   <Type Name="DashboardPartsMessage">
-    <Member Name="ClipboardDataIsNotCompatibleWithHealthCheckData" Description="" />
-    <Member Name="HealthCheckElements" Description="" />
-    <Member Name="PasteHealthCheckLink" Description="" />
+    <Member Name="ClipboardDataIsNotCompatibleWithHealthCheckData" Description="Die Daten aus der Zwischenablage sind nicht mit Health-Check-Daten kompatibel!" />
+    <Member Name="HealthCheckElements" Description="Health-Check-Elemente" />
+    <Member Name="PasteHealthCheckLink" Description="Health-Check-Link einfügen" />
   </Type>
   <Type Name="DashboardPermission">
     <Member Name="ViewDashboard" Description="Dashboard anzeigen" />
@@ -126,10 +126,10 @@
   <Type Name="HealthCheckPartEntity" Description="Teil Gesundheitskontrolle" PluralDescription="Teile der Gesundheitskontrolle" Gender="m">
     <Member Name="Items" Description="Artikel" />
   </Type>
-  <Type Name="HealthCheckPartEntity_Item" Description="">
-    <Member Name="CheckURL" Description="" />
-    <Member Name="HealthCheckPart" Description="" />
-    <Member Name="NavigateURL" Description="" />
+  <Type Name="HealthCheckPartEntity_Item" Description="Health-Check-Element">
+    <Member Name="CheckURL" Description="Prüf-URL" />
+    <Member Name="HealthCheckPart" Description="Health-Check-Teil" />
+    <Member Name="NavigateURL" Description="Navigations-URL" />
     <Member Name="Title" Description="Titel" />
   </Type>
   <Type Name="ImagePartEntity" Description="Bildteil" PluralDescription="Bildteile" Gender="m">

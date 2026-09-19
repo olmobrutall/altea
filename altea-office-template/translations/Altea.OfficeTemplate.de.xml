@@ -67,58 +67,58 @@
     <Member Name="ThisQueryHasMultipleImplementations0" Description="Diese Abfrage hat mehrere Implementierungen {0}" />
     <Member Name="UnableToAssignMoreThanOneUnrelatedCollections0" Description="Es kann nicht mehr als eine unverbundene Sammlung zugewiesen werden: {0}" />
   </Type>
-  <Type Name="OfficeAttachmentEntity" Description="">
+  <Type Name="OfficeAttachmentEntity" Description="Office-Anhang">
     <Member Name="FileName" Description="Dateiname" />
     <Member Name="ModelConverter" Description="Modell-Konverter" />
-    <Member Name="OfficeTemplate" Description="" />
-    <Member Name="OverrideModel" Description="" />
+    <Member Name="OfficeTemplate" Description="Office-Vorlage" />
+    <Member Name="OverrideModel" Description="Modell überschreiben" />
   </Type>
-  <Type Name="OfficeConverterSymbol" Description="" />
-  <Type Name="OfficeModelEntity" Description="">
-    <Member Name="ClassName" Description="" />
+  <Type Name="OfficeConverterSymbol" Description="Office-Konverter" />
+  <Type Name="OfficeModelEntity" Description="Office-Modell">
+    <Member Name="ClassName" Description="Klassenname" />
   </Type>
-  <Type Name="OfficeTemplateEntity" Description="">
+  <Type Name="OfficeTemplateEntity" Description="Office-Vorlage">
     <Member Name="Applicable" Description="Anwendbar" />
-    <Member Name="Culture" Description="" />
+    <Member Name="Culture" Description="Kultur" />
     <Member Name="DisableAuthorization" Description="Autorisierung deaktivieren" />
     <Member Name="FileName" Description="Dateiname" />
     <Member Name="Filters" Description="Filter" />
-    <Member Name="GroupResults" Description="" />
+    <Member Name="GroupResults" Description="Ergebnisse gruppieren" />
     <Member Name="Model" Description="Modell" />
     <Member Name="Name" Description="Name" />
-    <Member Name="OfficeConverter" Description="" />
-    <Member Name="OfficeTransformer" Description="" />
+    <Member Name="OfficeConverter" Description="Office-Konverter" />
+    <Member Name="OfficeTransformer" Description="Office-Transformator" />
     <Member Name="Orders" Description="Reihenfolge" />
     <Member Name="Query" Description="Abfrage" />
     <Member Name="Template" Description="Vorlage" />
   </Type>
-  <Type Name="OfficeTemplateEntity_Filter" Description="">
-    <Member Name="OfficeTemplate" Description="" />
+  <Type Name="OfficeTemplateEntity_Filter" Description="Filter">
+    <Member Name="OfficeTemplate" Description="Office-Vorlage" />
   </Type>
-  <Type Name="OfficeTemplateEntity_Order" Description="">
-    <Member Name="OfficeTemplate" Description="" />
-    <Member Name="OrderType" Description="" />
+  <Type Name="OfficeTemplateEntity_Order" Description="Sortierung">
+    <Member Name="OfficeTemplate" Description="Office-Vorlage" />
+    <Member Name="OrderType" Description="Sortierrichtung" />
     <Member Name="Token" Description="Token" />
   </Type>
   <Type Name="OfficeTemplateMessage">
-    <Member Name="_01RequiresExtraParameters" Description="" />
-    <Member Name="ChooseAReportTemplate" Description="" />
-    <Member Name="ModelShouldBeSetToUseModel0" Description="" />
-    <Member Name="NoDefaultTemplateDefined" Description="" />
-    <Member Name="OfficeReport" Description="" />
-    <Member Name="SelectTheSourceOfDataForYourTableOrChart" Description="" />
-    <Member Name="TheFileNameContainsInvalidCharacters" Description="" />
-    <Member Name="Type0DoesNotHaveAPropertyWithName1" Description="" />
-    <Member Name="WriteThisKeyAsTileInTheAlternativeTextOfYourTableOrChart" Description="" />
+    <Member Name="_01RequiresExtraParameters" Description="{0} {1} erfordert zusätzliche Parameter" />
+    <Member Name="ChooseAReportTemplate" Description="Wählen Sie eine Berichtsvorlage" />
+    <Member Name="ModelShouldBeSetToUseModel0" Description="Das Modell muss gesetzt sein, um Modell {0} zu verwenden" />
+    <Member Name="NoDefaultTemplateDefined" Description="Es ist keine Standardvorlage definiert" />
+    <Member Name="OfficeReport" Description="Office-Bericht" />
+    <Member Name="SelectTheSourceOfDataForYourTableOrChart" Description="Wählen Sie die Datenquelle für Ihre Tabelle oder Ihr Diagramm" />
+    <Member Name="TheFileNameContainsInvalidCharacters" Description="Der Dateiname enthält ungültige Zeichen" />
+    <Member Name="Type0DoesNotHaveAPropertyWithName1" Description="Der Typ {0} hat keine Eigenschaft mit dem Namen {1}" />
+    <Member Name="WriteThisKeyAsTileInTheAlternativeTextOfYourTableOrChart" Description="Schreiben Sie diesen Schlüssel als Titel in den 'Alternativtext' Ihrer Tabelle oder Ihres Diagramms" />
   </Type>
   <Type Name="OfficeTemplateOperation">
-    <Member Name="CreateOfficeReport" Description="" />
-    <Member Name="CreateOfficeTemplateFromOfficeModel" Description="" />
+    <Member Name="CreateOfficeReport" Description="Office-Bericht erstellen" />
+    <Member Name="CreateOfficeTemplateFromOfficeModel" Description="Office-Vorlage aus dem Office-Modell erstellen" />
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
   <Type Name="OfficeTemplatePermission">
-    <Member Name="GenerateReport" Description="" />
+    <Member Name="GenerateReport" Description="Bericht erzeugen" />
   </Type>
-  <Type Name="OfficeTransformerSymbol" Description="" />
+  <Type Name="OfficeTransformerSymbol" Description="Office-Transformator" />
 </Translations>

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="InsertPlace" Description="">
+  <Type Name="InsertPlace" Description="Einfügeposition">
     <Member Name="After" Description="nach" />
     <Member Name="Before" Description="Vor" />
-    <Member Name="FirstNode" Description="" />
-    <Member Name="LastNode" Description="" />
+    <Member Name="FirstNode" Description="Erster Knoten" />
+    <Member Name="LastNode" Description="Letzter Knoten" />
   </Type>
   <Type Name="MoveTreeModel" Description="Bewege Baum">
     <Member Name="InsertPlace" Description="Platz einfügen" />
@@ -33,7 +33,7 @@
     <Member Name="Move0" Description="Verschiebe {0}" />
     <Member Name="Parent" Description="Übergeordnete" />
     <Member Name="Tree" Description="Baum" />
-    <Member Name="TreeInfo" Description="" />
+    <Member Name="TreeInfo" Description="Baum-Info" />
     <Member Name="TreeType" Description="Baum-Typ" />
   </Type>
   <Type Name="TreeOperation">
@@ -50,9 +50,9 @@
     <Member Name="AddRoot" Description="Stammverzeichnis hinzufügen" />
     <Member Name="AddSibling" Description="Geschwister hinzufügen" />
     <Member Name="Collapse" Description="Einklappen" />
-    <Member Name="CollapseAll" Description="" />
+    <Member Name="CollapseAll" Description="Alle einklappen" />
     <Member Name="Expand" Description="Ausklappen" />
-    <Member Name="ExpandAll" Description="" />
+    <Member Name="ExpandAll" Description="Alle ausklappen" />
     <Member Name="None" Description="Keine" />
     <Member Name="Remove" Description="Entfernen" />
     <Member Name="Search" Description="Suche" />

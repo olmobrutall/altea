@@ -1,99 +1,99 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="ActiveDirectoryGroupsRowModel" Description="">
+  <Type Name="ActiveDirectoryGroupsRowModel" Description="Grupo de Active Directory">
     <Member Name="Description" Description="Descripción" />
-    <Member Name="DisplayName" Description="" />
-    <Member Name="Entity" Description="" />
-    <Member Name="HasUser" Description="" />
-    <Member Name="ObjectId" Description="" />
-    <Member Name="SecurityEnabled" Description="" />
-    <Member Name="Visibility" Description="" />
+    <Member Name="DisplayName" Description="Nombre para mostrar" />
+    <Member Name="Entity" Description="Entidad" />
+    <Member Name="HasUser" Description="Tiene usuario" />
+    <Member Name="ObjectId" Description="Id del objeto" />
+    <Member Name="SecurityEnabled" Description="Seguridad habilitada" />
+    <Member Name="Visibility" Description="Visibilidad" />
   </Type>
-  <Type Name="ActiveDirectoryUsersRowModel" Description="">
-    <Member Name="AccountEnabled" Description="" />
+  <Type Name="ActiveDirectoryUsersRowModel" Description="Usuario de Active Directory">
+    <Member Name="AccountEnabled" Description="Cuenta habilitada" />
     <Member Name="CompanyName" Description="Nombre empresa" />
-    <Member Name="CreationType" Description="" />
-    <Member Name="Department" Description="" />
-    <Member Name="DisplayName" Description="" />
-    <Member Name="EmployeeType" Description="" />
-    <Member Name="Entity" Description="" />
-    <Member Name="GivenName" Description="" />
-    <Member Name="InGroup" Description="" />
-    <Member Name="JobTitle" Description="" />
-    <Member Name="Mail" Description="" />
-    <Member Name="ObjectId" Description="" />
-    <Member Name="OfficeLocation" Description="" />
-    <Member Name="OnPremisesExtensionAttributes" Description="" />
-    <Member Name="OnPremisesImmutableId" Description="" />
-    <Member Name="Surname" Description="" />
-    <Member Name="UserPrincipalName" Description="" />
+    <Member Name="CreationType" Description="Tipo de creación" />
+    <Member Name="Department" Description="Departamento" />
+    <Member Name="DisplayName" Description="Nombre para mostrar" />
+    <Member Name="EmployeeType" Description="Tipo de empleado" />
+    <Member Name="Entity" Description="Entidad" />
+    <Member Name="GivenName" Description="Nombre" />
+    <Member Name="InGroup" Description="En el grupo" />
+    <Member Name="JobTitle" Description="Puesto" />
+    <Member Name="Mail" Description="Correo electrónico" />
+    <Member Name="ObjectId" Description="Id del objeto" />
+    <Member Name="OfficeLocation" Description="Ubicación de la oficina" />
+    <Member Name="OnPremisesExtensionAttributes" Description="Atributos de extensión locales" />
+    <Member Name="OnPremisesImmutableId" Description="Id inmutable local" />
+    <Member Name="Surname" Description="Apellidos" />
+    <Member Name="UserPrincipalName" Description="Nombre principal de usuario" />
   </Type>
-  <Type Name="ADGroupEntity" Description="">
-    <Member Name="DisplayName" Description="" />
+  <Type Name="ADGroupEntity" Description="Grupo de AD">
+    <Member Name="DisplayName" Description="Nombre para mostrar" />
   </Type>
   <Type Name="ADGroupOperation">
-    <Member Name="Delete" Description="" />
-    <Member Name="Save" Description="" />
+    <Member Name="Delete" Description="Eliminar" />
+    <Member Name="Save" Description="Guardar" />
   </Type>
   <Type Name="AuthADFileType">
-    <Member Name="CachedProfilePhoto" Description="" />
+    <Member Name="CachedProfilePhoto" Description="Foto de perfil en caché" />
   </Type>
   <Type Name="AzureADConfigurationEmbedded" Description="Configuración de Active Directory">
-    <Member Name="ApplicationID" Description="" />
-    <Member Name="ClientSecret" Description="" />
-    <Member Name="DirectoryID" Description="" />
-    <Member Name="EditProfile_UserFlow" Description="" />
-    <Member Name="Enabled" Description="" />
-    <Member Name="ResetPassword_UserFlow" Description="" />
+    <Member Name="ApplicationID" Description="Id de aplicación (cliente)" />
+    <Member Name="ClientSecret" Description="Valor del secreto de cliente" />
+    <Member Name="DirectoryID" Description="Id de directorio (inquilino)" />
+    <Member Name="EditProfile_UserFlow" Description="Flujo de usuario de edición de perfil" />
+    <Member Name="Enabled" Description="Habilitado" />
+    <Member Name="ResetPassword_UserFlow" Description="Flujo de usuario de restablecimiento de contraseña" />
     <Member Name="RoleMapping" Description="Asignación de roles" />
-    <Member Name="SignIn_UserFlow" Description="" />
-    <Member Name="SignInSignUp_UserFlow" Description="" />
-    <Member Name="SignUp_UserFlow" Description="" />
-    <Member Name="TenantName" Description="" />
+    <Member Name="SignIn_UserFlow" Description="Flujo de usuario de inicio de sesión" />
+    <Member Name="SignInSignUp_UserFlow" Description="Flujo de usuario de inicio de sesión y registro" />
+    <Member Name="SignUp_UserFlow" Description="Flujo de usuario de registro" />
+    <Member Name="TenantName" Description="Nombre del inquilino" />
     <Member Name="Type" Description="Tipo" />
-    <Member Name="UseDelegatedPermission" Description="" />
+    <Member Name="UseDelegatedPermission" Description="Usar permiso delegado" />
   </Type>
   <Type Name="AzureADMessage">
-    <Member Name="_0IsNotImplementedInMicrosoftGraph" Description="" />
-    <Member Name="UnableToMixFilterAndSearchInAnOr" Description="" />
+    <Member Name="_0IsNotImplementedInMicrosoftGraph" Description="{0} no está implementado en Microsoft Graph" />
+    <Member Name="UnableToMixFilterAndSearchInAnOr" Description="No se puede mezclar filtro y búsqueda dentro de un OR" />
   </Type>
   <Type Name="AzureADRoleMappingEntity" Description="Asignación de roles">
-    <Member Name="Configuration" Description="" />
+    <Member Name="Configuration" Description="Configuración" />
   </Type>
   <Type Name="AzureADTask">
-    <Member Name="DeactivateUsers" Description="" />
+    <Member Name="DeactivateUsers" Description="Desactivar usuarios" />
   </Type>
-  <Type Name="AzureADType" Description="">
-    <Member Name="AzureAD" Description="" />
-    <Member Name="B2C" Description="" />
-    <Member Name="ExternalID" Description="" />
+  <Type Name="AzureADType" Description="Tipo de Azure AD">
+    <Member Name="AzureAD" Description="Azure AD" />
+    <Member Name="B2C" Description="B2C" />
+    <Member Name="ExternalID" Description="Id externo" />
   </Type>
-  <Type Name="CachedProfilePhotoEntity" Description="">
+  <Type Name="CachedProfilePhotoEntity" Description="Foto de perfil en caché">
     <Member Name="CreationDate" Description="Fecha de creación" />
-    <Member Name="InvalidationDate" Description="" />
+    <Member Name="InvalidationDate" Description="Fecha de invalidación" />
     <Member Name="Photo" Description="Foto" />
-    <Member Name="Size" Description="" />
+    <Member Name="Size" Description="Tamaño" />
     <Member Name="User" Description="Usuario" />
   </Type>
   <Type Name="CachedProfilePhotoOperation">
-    <Member Name="Delete" Description="" />
-    <Member Name="Save" Description="" />
+    <Member Name="Delete" Description="Eliminar" />
+    <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="OnPremisesExtensionAttributesModel" Description="">
-    <Member Name="ExtensionAttribute1" Description="" />
-    <Member Name="ExtensionAttribute10" Description="" />
-    <Member Name="ExtensionAttribute11" Description="" />
-    <Member Name="ExtensionAttribute12" Description="" />
-    <Member Name="ExtensionAttribute13" Description="" />
-    <Member Name="ExtensionAttribute14" Description="" />
-    <Member Name="ExtensionAttribute15" Description="" />
-    <Member Name="ExtensionAttribute2" Description="" />
-    <Member Name="ExtensionAttribute3" Description="" />
-    <Member Name="ExtensionAttribute4" Description="" />
-    <Member Name="ExtensionAttribute5" Description="" />
-    <Member Name="ExtensionAttribute6" Description="" />
-    <Member Name="ExtensionAttribute7" Description="" />
-    <Member Name="ExtensionAttribute8" Description="" />
-    <Member Name="ExtensionAttribute9" Description="" />
+  <Type Name="OnPremisesExtensionAttributesModel" Description="Atributos de extensión locales">
+    <Member Name="ExtensionAttribute1" Description="Atributo de extensión 1" />
+    <Member Name="ExtensionAttribute10" Description="Atributo de extensión 10" />
+    <Member Name="ExtensionAttribute11" Description="Atributo de extensión 11" />
+    <Member Name="ExtensionAttribute12" Description="Atributo de extensión 12" />
+    <Member Name="ExtensionAttribute13" Description="Atributo de extensión 13" />
+    <Member Name="ExtensionAttribute14" Description="Atributo de extensión 14" />
+    <Member Name="ExtensionAttribute15" Description="Atributo de extensión 15" />
+    <Member Name="ExtensionAttribute2" Description="Atributo de extensión 2" />
+    <Member Name="ExtensionAttribute3" Description="Atributo de extensión 3" />
+    <Member Name="ExtensionAttribute4" Description="Atributo de extensión 4" />
+    <Member Name="ExtensionAttribute5" Description="Atributo de extensión 5" />
+    <Member Name="ExtensionAttribute6" Description="Atributo de extensión 6" />
+    <Member Name="ExtensionAttribute7" Description="Atributo de extensión 7" />
+    <Member Name="ExtensionAttribute8" Description="Atributo de extensión 8" />
+    <Member Name="ExtensionAttribute9" Description="Atributo de extensión 9" />
   </Type>
 </Translations>

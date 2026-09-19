@@ -3,33 +3,33 @@
   <Type Name="HeavyProfilerMessage">
     <Member Name="Clear" Description="Limpiar" />
     <Member Name="Download" Description="Descargar" />
-    <Member Name="EnableTheProfilerWithTheDebuggerWith0AndSaveTheResultsWith1" Description="" />
-    <Member Name="Entries" Description="" />
-    <Member Name="HeavyProfiler" Description="" />
-    <Member Name="HeavyProfilerLoading" Description="" />
-    <Member Name="IgnoreHeavyProfilerEntries" Description="" />
-    <Member Name="Record" Description="" />
-    <Member Name="Update" Description="" />
-    <Member Name="Upload" Description="" />
-    <Member Name="UploadPreviousRunsToComparePerformance" Description="" />
+    <Member Name="EnableTheProfilerWithTheDebuggerWith0AndSaveTheResultsWith1" Description="Active el profiler con el depurador mediante {0} y guarde los resultados con {1}" />
+    <Member Name="Entries" Description="Entradas" />
+    <Member Name="HeavyProfiler" Description="Heavy Profiler" />
+    <Member Name="HeavyProfilerLoading" Description="Heavy Profiler (cargando...)" />
+    <Member Name="IgnoreHeavyProfilerEntries" Description="Ignorar las entradas del Heavy Profiler" />
+    <Member Name="Record" Description="Grabar" />
+    <Member Name="Update" Description="Actualizar" />
+    <Member Name="Upload" Description="Subir" />
+    <Member Name="UploadPreviousRunsToComparePerformance" Description="Suba ejecuciones anteriores para comparar el rendimiento." />
   </Type>
   <Type Name="ProfilerMessage">
-    <Member Name="AdditionalData" Description="" />
-    <Member Name="AsyncStack" Description="" />
+    <Member Name="AdditionalData" Description="Datos adicionales" />
+    <Member Name="AsyncStack" Description="Pila asíncrona" />
     <Member Name="Download" Description="Descargar" />
-    <Member Name="Entry0_" Description="" />
-    <Member Name="Entry0Loading" Description="" />
-    <Member Name="FileLine" Description="" />
-    <Member Name="HeavyProfiler" Description="" />
-    <Member Name="Method" Description="" />
+    <Member Name="Entry0_" Description="Entrada {0}" />
+    <Member Name="Entry0Loading" Description="Entrada {0} (cargando...)" />
+    <Member Name="FileLine" Description="Línea del fichero" />
+    <Member Name="HeavyProfiler" Description="Heavy Profiler" />
+    <Member Name="Method" Description="Método" />
     <Member Name="Namespace" Description="Namespace" />
-    <Member Name="NoStackTrace" Description="" />
-    <Member Name="Role" Description="" />
+    <Member Name="NoStackTrace" Description="Sin traza de pila" />
+    <Member Name="Role" Description="Rol" />
     <Member Name="StackTrace" Description="Seguimiento de la pila" />
-    <Member Name="StackTraceOverview" Description="" />
-    <Member Name="Time" Description="" />
+    <Member Name="StackTraceOverview" Description="Resumen de la traza de pila" />
+    <Member Name="Time" Description="Tiempo" />
     <Member Name="Type" Description="Tipo" />
-    <Member Name="Update" Description="" />
+    <Member Name="Update" Description="Actualizar" />
   </Type>
   <Type Name="ProfilerPermission">
     <Member Name="OverrideSessionTimeout" Description="Sobreescribir timeout de sesión" />
@@ -40,20 +40,20 @@
     <Member Name="Average" Description="Media" />
     <Member Name="Bars" Description="Barras" />
     <Member Name="Clear" Description="Limpiar" />
-    <Member Name="Count" Description="" />
-    <Member Name="Entity" Description="" />
+    <Member Name="Count" Description="Número" />
+    <Member Name="Entity" Description="Entidad" />
     <Member Name="Executed" Description="Ejecutado" />
-    <Member Name="Last" Description="" />
+    <Member Name="Last" Description="Última" />
     <Member Name="Max" Description="Max" />
     <Member Name="Min" Description="Min" />
     <Member Name="Name" Description="Nombre" />
-    <Member Name="NoDuration" Description="" />
+    <Member Name="NoDuration" Description="Sin duración" />
     <Member Name="Reload" Description="Recargar" />
-    <Member Name="Table" Description="" />
-    <Member Name="Times" Description="" />
-    <Member Name="TimesLoading" Description="" />
-    <Member Name="TimesOverview" Description="" />
-    <Member Name="TimeStatistics" Description="" />
-    <Member Name="Total" Description="" />
+    <Member Name="Table" Description="Tabla" />
+    <Member Name="Times" Description="Tiempos" />
+    <Member Name="TimesLoading" Description="Tiempos (cargando...)" />
+    <Member Name="TimesOverview" Description="Resumen de tiempos" />
+    <Member Name="TimeStatistics" Description="Estadísticas de tiempo" />
+    <Member Name="Total" Description="Total" />
   </Type>
 </Translations>

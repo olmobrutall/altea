@@ -13,7 +13,7 @@
   <Type Name="OpenIDMessage">
     <Member Name="SignInWithOpenID" Description="Anmeldung mit OpenID" />
   </Type>
-  <Type Name="OpenIDRoleMappingEntity" Description="">
-    <Member Name="Configuration" Description="" />
+  <Type Name="OpenIDRoleMappingEntity" Description="OpenID-Rollenzuordnung">
+    <Member Name="Configuration" Description="Konfiguration" />
   </Type>
 </Translations>

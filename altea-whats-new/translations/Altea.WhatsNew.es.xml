@@ -1,65 +1,65 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="WhatsNewEntity" Description="">
+  <Type Name="WhatsNewEntity" Description="Novedad">
     <Member Name="Attachments" Description="Archivos adjuntos" />
     <Member Name="CreationDate" Description="Fecha de creación" />
     <Member Name="Messages" Description="Mensajes" />
     <Member Name="Name" Description="Nombre" />
-    <Member Name="PreviewPicture" Description="" />
-    <Member Name="Related" Description="" />
+    <Member Name="PreviewPicture" Description="Imagen de vista previa" />
+    <Member Name="Related" Description="Relacionado" />
     <Member Name="Status" Description="Estado" />
   </Type>
-  <Type Name="WhatsNewEntity_Attachment" Description="">
-    <Member Name="File" Description="" />
-    <Member Name="WhatsNew" Description="" />
+  <Type Name="WhatsNewEntity_Attachment" Description="Adjunto">
+    <Member Name="File" Description="Fichero" />
+    <Member Name="WhatsNew" Description="Novedad" />
   </Type>
   <Type Name="WhatsNewFileType">
-    <Member Name="WhatsNewAttachmentFileType" Description="" />
-    <Member Name="WhatsNewPreviewFileType" Description="" />
+    <Member Name="WhatsNewAttachmentFileType" Description="Adjunto de novedad" />
+    <Member Name="WhatsNewPreviewFileType" Description="Vista previa de novedad" />
   </Type>
-  <Type Name="WhatsNewLogEntity" Description="">
-    <Member Name="ReadOn" Description="" />
+  <Type Name="WhatsNewLogEntity" Description="Registro de lectura de novedades">
+    <Member Name="ReadOn" Description="Leído el" />
     <Member Name="User" Description="Usuario" />
-    <Member Name="WhatsNew" Description="" />
+    <Member Name="WhatsNew" Description="Novedad" />
   </Type>
   <Type Name="WhatsNewLogOperation">
-    <Member Name="Delete" Description="" />
+    <Member Name="Delete" Description="Eliminar" />
   </Type>
   <Type Name="WhatsNewMessage">
-    <Member Name="_0ContiansNoVersionForCulture1" Description="" />
-    <Member Name="AllMyNews" Description="" />
-    <Member Name="BackToOverview" Description="" />
-    <Member Name="Close0WhatsNew" Description="" />
+    <Member Name="_0ContiansNoVersionForCulture1" Description="{0} no contiene ninguna versión para la cultura '{1}'" />
+    <Member Name="AllMyNews" Description="Todas mis novedades" />
+    <Member Name="BackToOverview" Description="Volver al resumen" />
+    <Member Name="Close0WhatsNew" Description="Cerrar la novedad {0}" />
     <Member Name="CloseAll" Description="Cerrar todo" />
-    <Member Name="Downloads" Description="" />
-    <Member Name="IsRead" Description="" />
+    <Member Name="Downloads" Description="Descargas" />
+    <Member Name="IsRead" Description="Leída" />
     <Member Name="Language" Description="Idioma" />
-    <Member Name="MyActiveNews" Description="" />
-    <Member Name="New" Description="" />
-    <Member Name="NewNews" Description="" />
-    <Member Name="News" Description="" />
-    <Member Name="NewsPage" Description="" />
-    <Member Name="NewUnreadNews" Description="" />
+    <Member Name="MyActiveNews" Description="Mis novedades activas" />
+    <Member Name="New" Description="NUEVO" />
+    <Member Name="NewNews" Description="Novedades nuevas" />
+    <Member Name="News" Description="Novedades" />
+    <Member Name="NewsPage" Description="Página de novedades" />
+    <Member Name="NewUnreadNews" Description="Novedades nuevas sin leer" />
     <Member Name="Preview" Description="Vista previa" />
-    <Member Name="ReadFurther" Description="" />
-    <Member Name="ThisNewIsNoLongerAvailable" Description="" />
+    <Member Name="ReadFurther" Description="Seguir leyendo" />
+    <Member Name="ThisNewIsNoLongerAvailable" Description="Esta novedad ya no está disponible" />
     <Member Name="ViewMore" Description="Ver más" />
-    <Member Name="YouDoNotHaveAnyUnreadNews" Description="" />
-    <Member Name="YourNews" Description="" />
+    <Member Name="YouDoNotHaveAnyUnreadNews" Description="No tiene ninguna novedad sin leer" />
+    <Member Name="YourNews" Description="Sus novedades" />
   </Type>
-  <Type Name="WhatsNewMessageEntity" Description="">
+  <Type Name="WhatsNewMessageEntity" Description="Novedad en un idioma">
     <Member Name="Culture" Description="Cultura" />
     <Member Name="Description" Description="Descripción" />
     <Member Name="Title" Description="Título" />
-    <Member Name="WhatsNew" Description="" />
+    <Member Name="WhatsNew" Description="Novedad" />
   </Type>
   <Type Name="WhatsNewOperation">
-    <Member Name="Delete" Description="" />
+    <Member Name="Delete" Description="Eliminar" />
     <Member Name="Publish" Description="Publicar" />
-    <Member Name="Save" Description="" />
-    <Member Name="Unpublish" Description="" />
+    <Member Name="Save" Description="Guardar" />
+    <Member Name="Unpublish" Description="Despublicar" />
   </Type>
-  <Type Name="WhatsNewState" Description="">
+  <Type Name="WhatsNewState" Description="Estado de la novedad">
     <Member Name="Draft" Description="Borrador" />
     <Member Name="Publish" Description="Publicar" />
   </Type>

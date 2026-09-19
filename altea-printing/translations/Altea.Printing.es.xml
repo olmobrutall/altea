@@ -16,14 +16,14 @@
     <Member Name="Retry" Description="Reintentar" />
     <Member Name="SaveTest" Description="Guardar prueba" />
   </Type>
-  <Type Name="PrintLineState" Description="">
-    <Member Name="Cancelled" Description="" />
-    <Member Name="Enqueued" Description="" />
+  <Type Name="PrintLineState" Description="Estado de la línea de impresión">
+    <Member Name="Cancelled" Description="Cancelada" />
+    <Member Name="Enqueued" Description="En cola" />
     <Member Name="Error" Description="Error" />
-    <Member Name="NewTest" Description="" />
-    <Member Name="Printed" Description="" />
-    <Member Name="PrintedAndDeleted" Description="" />
-    <Member Name="ReadyToPrint" Description="" />
+    <Member Name="NewTest" Description="Prueba nueva" />
+    <Member Name="Printed" Description="Impresa" />
+    <Member Name="PrintedAndDeleted" Description="Impresa y eliminada" />
+    <Member Name="ReadyToPrint" Description="Lista para imprimir" />
   </Type>
   <Type Name="PrintPackageEntity" Description="Paquete de impresión">
     <Member Name="Name" Description="Nombre" />

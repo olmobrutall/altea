@@ -19,18 +19,18 @@
     <Member Name="File0ContainsAThreatBy1" Description="Die Datei '{0}' enthält eine von {1} erkannte Bedrohung." />
     <Member Name="File0IsTooBigTheMaximumSizeIs1" Description="Datei '{0}' ist zu groß, die maximale Größe ist {1}." />
     <Member Name="FileImage" Description="Datei-Bild" />
-    <Member Name="FileImageMustHaveExtension" Description="" />
+    <Member Name="FileImageMustHaveExtension" Description="Das Bild muss eine Dateiendung haben" />
     <Member Name="FileTypes" Description="Filetypen" />
     <Member Name="OnlyOneFileIsSupported" Description="Nur eine Datei wird unterstützt" />
     <Member Name="Open" Description="Öffnen" />
     <Member Name="OpeningHasNotDefaultImplementationFor0" Description="Das Öffnen hat keine Standardimplementierung für {0}" />
     <Member Name="OrDragAFileHere" Description="oder in dieses Feld ziehen" />
-    <Member Name="RemoveFile" Description="" />
+    <Member Name="RemoveFile" Description="Datei entfernen" />
     <Member Name="SelectFile" Description="Datei auswählen" />
     <Member Name="TheFile0IsNotA1" Description="Die Datei {0} ist kein {1}." />
-    <Member Name="TheNameOfTheFileMustNotContainPercent1" Description="" />
+    <Member Name="TheNameOfTheFileMustNotContainPercent1" Description="Der Dateiname darf die Zeichen {0} nicht enthalten" />
     <Member Name="ViewFile" Description="Datei anzeigen" />
-    <Member Name="WriteHere" Description="" />
+    <Member Name="WriteHere" Description="Hier schreiben" />
   </Type>
   <Type Name="FilePathEmbedded" Description="Eingebettete Datei-Pfad">
     <Member Name="BinaryFile" Description="Binärdatei" />
@@ -45,6 +45,6 @@
   </Type>
   <Type Name="FileTypeSymbol" Description="Dateityp" PluralDescription="Dateitypen" />
   <Type Name="FileTypeSymbols">
-    <Member Name="Default" Description="" />
+    <Member Name="Default" Description="Standard" />
   </Type>
 </Translations>

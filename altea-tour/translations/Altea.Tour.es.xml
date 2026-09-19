@@ -1,68 +1,68 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="ClickTrigger" Description="">
-    <Member Name="OnLoad" Description="" />
-    <Member Name="OnNext" Description="" />
+  <Type Name="ClickTrigger" Description="Disparador del clic">
+    <Member Name="OnLoad" Description="Al cargar" />
+    <Member Name="OnNext" Description="Al pasar al siguiente" />
   </Type>
-  <Type Name="CssStepEntity" Description="">
-    <Member Name="CssSelector" Description="" />
-    <Member Name="DashboardPart" Description="" />
+  <Type Name="CssStepEntity" Description="Paso CSS">
+    <Member Name="CssSelector" Description="Selector CSS" />
+    <Member Name="DashboardPart" Description="Parte del panel" />
     <Member Name="Property" Description="Propiedad" />
-    <Member Name="TableColumn" Description="" />
-    <Member Name="ToolbarContent" Description="" />
-    <Member Name="TourStep" Description="" />
+    <Member Name="TableColumn" Description="Columna de la tabla" />
+    <Member Name="ToolbarContent" Description="Contenido de la barra de herramientas" />
+    <Member Name="TourStep" Description="Paso de la visita" />
     <Member Name="Type" Description="Tipo" />
   </Type>
-  <Type Name="CssStepType" Description="">
-    <Member Name="CSSSelector" Description="" />
-    <Member Name="DashboardPart" Description="" />
+  <Type Name="CssStepType" Description="Tipo de paso CSS">
+    <Member Name="CSSSelector" Description="Selector CSS" />
+    <Member Name="DashboardPart" Description="Parte del panel" />
     <Member Name="Property" Description="Propiedad" />
-    <Member Name="TableColumn" Description="" />
-    <Member Name="ToolbarContent" Description="" />
+    <Member Name="TableColumn" Description="Columna de la tabla" />
+    <Member Name="ToolbarContent" Description="Contenido de la barra de herramientas" />
   </Type>
-  <Type Name="PopoverAlign" Description="">
-    <Member Name="Center" Description="" />
+  <Type Name="PopoverAlign" Description="Alineación del globo">
+    <Member Name="Center" Description="Centro" />
     <Member Name="End" Description="Final" />
     <Member Name="Start" Description="Inicio" />
   </Type>
-  <Type Name="PopoverSide" Description="">
+  <Type Name="PopoverSide" Description="Lado del globo">
     <Member Name="Bottom" Description="Abajo" />
-    <Member Name="Left" Description="" />
-    <Member Name="Right" Description="" />
+    <Member Name="Left" Description="Izquierda" />
+    <Member Name="Right" Description="Derecha" />
     <Member Name="Top" Description="Arriba" />
   </Type>
-  <Type Name="TourEntity" Description="">
-    <Member Name="Animate" Description="" />
-    <Member Name="ShowCloseButton" Description="" />
-    <Member Name="ShowProgress" Description="" />
-    <Member Name="Steps" Description="" />
-    <Member Name="Trigger" Description="" />
+  <Type Name="TourEntity" Description="Visita guiada">
+    <Member Name="Animate" Description="Animar" />
+    <Member Name="ShowCloseButton" Description="Mostrar el botón Cerrar" />
+    <Member Name="ShowProgress" Description="Mostrar el progreso" />
+    <Member Name="Steps" Description="Pasos" />
+    <Member Name="Trigger" Description="Disparador" />
   </Type>
   <Type Name="TourMessage">
-    <Member Name="_0HasToBeNullWhenTypeIsNot1" Description="" />
-    <Member Name="_0HasToBeSetWhenTypeIs1" Description="" />
-    <Member Name="Close" Description="" />
-    <Member Name="CreateTour" Description="" />
-    <Member Name="CssStep" Description="" />
+    <Member Name="_0HasToBeNullWhenTypeIsNot1" Description="{0} tiene que ser nulo cuando el tipo no es {1}" />
+    <Member Name="_0HasToBeSetWhenTypeIs1" Description="{0} tiene que estar establecido cuando el tipo es {1}" />
+    <Member Name="Close" Description="Cerrar" />
+    <Member Name="CreateTour" Description="Crear una visita guiada" />
+    <Member Name="CssStep" Description="Paso CSS" />
     <Member Name="Done" Description="Hecho" />
-    <Member Name="EditTour" Description="" />
-    <Member Name="FinalCSSSelector" Description="" />
+    <Member Name="EditTour" Description="Editar la visita guiada" />
+    <Member Name="FinalCSSSelector" Description="Selector CSS final" />
     <Member Name="Next" Description="Siguiente" />
     <Member Name="Previous" Description="Anterior" />
-    <Member Name="ReplayTour" Description="" />
-    <Member Name="StartTour" Description="" />
+    <Member Name="ReplayTour" Description="Repetir la visita guiada" />
+    <Member Name="StartTour" Description="Iniciar la visita guiada" />
   </Type>
   <Type Name="TourOperation">
-    <Member Name="Delete" Description="" />
-    <Member Name="Save" Description="" />
+    <Member Name="Delete" Description="Eliminar" />
+    <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="TourStepEntity" Description="">
-    <Member Name="Align" Description="" />
-    <Member Name="Click" Description="" />
-    <Member Name="CssSteps" Description="" />
+  <Type Name="TourStepEntity" Description="Paso de la visita guiada">
+    <Member Name="Align" Description="Alineación" />
+    <Member Name="Click" Description="Clic" />
+    <Member Name="CssSteps" Description="Pasos CSS" />
     <Member Name="Description" Description="Descripción" />
     <Member Name="Side" Description="Lado" />
     <Member Name="Title" Description="Título" />
-    <Member Name="Tour" Description="" />
+    <Member Name="Tour" Description="Visita guiada" />
   </Type>
 </Translations>

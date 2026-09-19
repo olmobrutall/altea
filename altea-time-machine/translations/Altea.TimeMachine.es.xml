@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="TimeMachineMessage">
-    <Member Name="AllVersions" Description="" />
-    <Member Name="BetweenThisTimeRange" Description="" />
+    <Member Name="AllVersions" Description="Todas las versiones" />
+    <Member Name="BetweenThisTimeRange" Description="(en este intervalo de tiempo)" />
     <Member Name="CompareVersions" Description="Comparar versiones" />
-    <Member Name="DataDifferences" Description="" />
-    <Member Name="DataSnapshot" Description="" />
+    <Member Name="DataDifferences" Description="Diferencias de datos" />
+    <Member Name="DataSnapshot" Description="Instantánea de los datos" />
     <Member Name="EntityDeleted" Description="[Entidad eliminada]" />
-    <Member Name="SelectedVersions" Description="" />
-    <Member Name="ShowDiffs" Description="" />
-    <Member Name="ThisVersionDidNotChange" Description="" />
-    <Member Name="ThisVersionWasCreated" Description="" />
-    <Member Name="ThisVersionWasCreatedAndDeleted" Description="" />
-    <Member Name="ThisVersionWasDeleted" Description="" />
+    <Member Name="SelectedVersions" Description="Versiones seleccionadas" />
+    <Member Name="ShowDiffs" Description="Mostrar las diferencias" />
+    <Member Name="ThisVersionDidNotChange" Description="Esta versión NO CAMBIÓ" />
+    <Member Name="ThisVersionWasCreated" Description="Esta versión se CREÓ" />
+    <Member Name="ThisVersionWasCreatedAndDeleted" Description="Esta versión se CREÓ y se ELIMINÓ" />
+    <Member Name="ThisVersionWasDeleted" Description="Esta versión se ELIMINÓ" />
     <Member Name="TimeMachine" Description="Máquina del tiempo" />
-    <Member Name="UIDifferences" Description="" />
-    <Member Name="UISnapshot" Description="" />
-    <Member Name="YouCanNotSelectMoreThanTwoVersionToCompare" Description="" />
+    <Member Name="UIDifferences" Description="Diferencias de interfaz" />
+    <Member Name="UISnapshot" Description="Instantánea de la interfaz" />
+    <Member Name="YouCanNotSelectMoreThanTwoVersionToCompare" Description="No puede seleccionar más de dos versiones para comparar" />
   </Type>
   <Type Name="TimeMachinePermission">
     <Member Name="ShowTimeMachine" Description="Mostrar máquina del tiempo" />

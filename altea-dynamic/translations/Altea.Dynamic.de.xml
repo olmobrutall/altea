@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="DynamicApiEntity" Description="">
-    <Member Name="Eval" Description="" />
-    <Member Name="IsDisabled" Description="" />
+  <Type Name="DynamicApiEntity" Description="Dynamische API">
+    <Member Name="Eval" Description="Auswertung" />
+    <Member Name="IsDisabled" Description="Ist deaktiviert" />
     <Member Name="Name" Description="Name" />
   </Type>
-  <Type Name="DynamicApiEval" Description="" />
+  <Type Name="DynamicApiEval" Description="Auswertung der dynamischen API" />
   <Type Name="DynamicApiOperation">
     <Member Name="Clone" Description="Klonen" />
     <Member Name="Delete" Description="Löschen" />
@@ -15,10 +15,10 @@
     <Member Name="EmbeddedEntity" Description="Eingebettete Entität" />
     <Member Name="Entity" Description="Entität" />
     <Member Name="MixinEntity" Description="Mixin Entität" />
-    <Member Name="ModelEntity" Description="" />
+    <Member Name="ModelEntity" Description="Modell-Entität" />
   </Type>
-  <Type Name="DynamicCSSOverrideEntity" Description="">
-    <Member Name="IsDisabled" Description="" />
+  <Type Name="DynamicCSSOverrideEntity" Description="Dynamische CSS-Überschreibung">
+    <Member Name="IsDisabled" Description="Ist deaktiviert" />
     <Member Name="Name" Description="Name" />
     <Member Name="Script" Description="Skript" />
   </Type>
@@ -46,11 +46,11 @@
     <Member Name="TranslateExpressionName" Description="Ausdrucksnamen übersetzen" />
   </Type>
   <Type Name="DynamicIsolationMixin">
-    <Member Name="IsolationStrategy" Description="" />
+    <Member Name="IsolationStrategy" Description="Isolationsstrategie" />
   </Type>
   <Type Name="DynamicMixinConnectionEntity" Description="Dynamische mixinverbindung" PluralDescription="Dynamischen mixinverbindungen">
     <Member Name="EntityType" Description="Entitätstyp" />
-    <Member Name="MixinName" Description="" />
+    <Member Name="MixinName" Description="Name des Mixins" />
   </Type>
   <Type Name="DynamicMixinConnectionOperation">
     <Member Name="Delete" Description="Löschen" />
@@ -76,7 +76,7 @@
   <Type Name="DynamicSqlMigrationMessage">
     <Member Name="PreventingGenerationNewScriptBecauseOfErrorsInDynamicCodeFixErrorsAndRestartServer" Description="Vermeidung von ein neues Skript aufgrund von Fehlern in dynamischen Code. Beheben Sie die Fehler, und starten Sie den Server neu." />
     <Member Name="TheMigrationIsAlreadyExecuted" Description="Die Migration wird bereits ausgeführt" />
-    <Member Name="TheSchemaIsAlreadyUpToDate" Description="" />
+    <Member Name="TheSchemaIsAlreadyUpToDate" Description="Das Schema ist bereits aktuell" />
   </Type>
   <Type Name="DynamicSqlMigrationOperation">
     <Member Name="Create" Description="Erstellen" />
@@ -110,7 +110,7 @@
     <Member Name="RemoveSaveOperation" Description="Speichervorgang entfernen?" />
     <Member Name="ServerRestartedWithErrorsInDynamicCodeFixErrorsAndRestartAgain" Description="Server hat mit Fehlern im dynamischen Code neu gestartet. Beheben Sie die Fehler, und starten Sie nochmals neu." />
     <Member Name="TheEntityShouldBeSynchronizedToApplyMixins" Description="Um Mixis anwenden zu können sollte die Entität synchronisiert werden." />
-    <Member Name="TypeSaved" Description="" />
+    <Member Name="TypeSaved" Description="Typ gespeichert" />
   </Type>
   <Type Name="DynamicTypeOperation">
     <Member Name="Clone" Description="Klonen" />
@@ -121,9 +121,9 @@
   <Type Name="DynamicValidationEntity" Description="Dynamische Validierung">
     <Member Name="EntityType" Description="Entitätstyp" />
     <Member Name="Eval" Description="Auswertung" />
-    <Member Name="IsDisabled" Description="" />
+    <Member Name="IsDisabled" Description="Ist deaktiviert" />
     <Member Name="Name" Description="Name" />
-    <Member Name="SubEntity" Description="" />
+    <Member Name="SubEntity" Description="Unterentität" />
   </Type>
   <Type Name="DynamicValidationEval" Description="Dynamische Validierung auswerten" />
   <Type Name="DynamicValidationOperation">
@@ -133,13 +133,13 @@
   </Type>
   <Type Name="DynamicViewEntity" Description="Dynamische Ansicht" PluralDescription="Dynamische Ansichten" Gender="f">
     <Member Name="EntityType" Description="Entitätstyp" />
-    <Member Name="Locals" Description="" />
-    <Member Name="Props" Description="" />
+    <Member Name="Locals" Description="Lokale Variablen" />
+    <Member Name="Props" Description="Eigenschaften" />
     <Member Name="ViewContent" Description="Anzeige Inhalt" />
     <Member Name="ViewName" Description="Ansichtsname" />
   </Type>
-  <Type Name="DynamicViewEntity_Prop" Description="">
-    <Member Name="DynamicView" Description="" />
+  <Type Name="DynamicViewEntity_Prop" Description="Eigenschaft">
+    <Member Name="DynamicView" Description="Dynamische Ansicht" />
     <Member Name="Name" Description="Name" />
     <Member Name="Type" Description="Typ" />
   </Type>
@@ -151,8 +151,8 @@
     <Member Name="ExampleEntity" Description="Beispiel-Entität" />
     <Member Name="GenerateChildren" Description="Erstellte children" />
     <Member Name="HideHelp" Description="Hilfe verstecken" />
-    <Member Name="ModulesHelp" Description="" />
-    <Member Name="PropsHelp" Description="" />
+    <Member Name="ModulesHelp" Description="Module" />
+    <Member Name="PropsHelp" Description="Eigenschaften" />
     <Member Name="Remove" Description="Entfernen" />
     <Member Name="SelectANodeFirst" Description="Wählen Sie zuerst einen Knoten" />
     <Member Name="SelectATypeOfComponent" Description="Wählen Sie einen Komponententyp" />
@@ -186,10 +186,10 @@
     <Member Name="Save" Description="Speichern" />
   </Type>
   <Type Name="DynamicViewValidationMessage">
-    <Member Name="_0CanNotBe1" Description="" />
-    <Member Name="_0IsNotAValidIdentifier" Description="" />
+    <Member Name="_0CanNotBe1" Description="{0} kann nicht '{1}' sein" />
+    <Member Name="_0IsNotAValidIdentifier" Description="{0} ist kein gültiger Bezeichner" />
     <Member Name="_0RequiresA1" Description="{0} erfordert eine {1}" />
-    <Member Name="_0ShouldStartByLowercase" Description="" />
+    <Member Name="_0ShouldStartByLowercase" Description="{0} sollte mit einem Kleinbuchstaben beginnen" />
     <Member Name="AggregateIsMandatoryFor01" Description="Aggregat ist obligatorisch für &quot;{0}&quot; ({1})." />
     <Member Name="CollectionOfEntities" Description="Liste von Entitäten" />
     <Member Name="CollectionOfEnums" Description="Liste von Enumerationen" />

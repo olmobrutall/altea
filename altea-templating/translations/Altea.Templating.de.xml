@@ -8,7 +8,7 @@
     <Member Name="Filters" Description="Filter" />
     <Member Name="Orders" Description="Reihenfolge" />
     <Member Name="Pagination" Description="Paginierung" />
-    <Member Name="QueryKey" Description="" />
+    <Member Name="QueryKey" Description="Abfrageschlüssel" />
   </Type>
   <Type Name="QueryModelMessage">
     <Member Name="ConfigureYourQueryAndPressSearchBeforeOk" Description="Konfigurieren Sie Ihre Abfrage und klicken Sie auf [suchen] vor Sie [Ok] drücken." />

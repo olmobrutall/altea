@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="DiffLogMessage">
-    <Member Name="_0LinesRemoved" Description="" />
+    <Member Name="_0LinesRemoved" Description="----- {0} líneas eliminadas -----" />
     <Member Name="CurrentEntity" Description="Entidad actual" />
     <Member Name="DifferenceBetweenFinalStateAndTheCurrentStateOfTheEntity" Description="Diferencia entre el estado final y el estado actual de la entidad" />
     <Member Name="DifferenceBetweenFinalStateAndTheInitialStateOfNextLog" Description="Diferencia entre el estado final y el estado inicial del siguiente registro" />
@@ -12,12 +12,12 @@
     <Member Name="NavigatesToThePreviousOperationLog" Description="Navega al registro de operación anterior" />
     <Member Name="NextLog" Description="Registro siguiente" />
     <Member Name="PreviousLog" Description="Registro anterior" />
-    <Member Name="ShowOnly0LinesAroundEachChange" Description="" />
-    <Member Name="SimplifyChanges" Description="" />
+    <Member Name="ShowOnly0LinesAroundEachChange" Description="Mostrar sólo {0} líneas alrededor de cada cambio" />
+    <Member Name="SimplifyChanges" Description="Simplificar los cambios" />
     <Member Name="StateWhenTheOperationFinished" Description="Estado cuando finalizó la operación" />
     <Member Name="StateWhenTheOperationStarted" Description="Estado cuando se inició la operación" />
-    <Member Name="TheTwoStringsAreTooBig01AndCouldFreezeYourBrowser" Description="" />
-    <Member Name="TryAnyway" Description="" />
+    <Member Name="TheTwoStringsAreTooBig01AndCouldFreezeYourBrowser" Description="Los dos textos son demasiado grandes ({0} y {1}) y podrían bloquear su navegador..." />
+    <Member Name="TryAnyway" Description="¡Probar de todos modos!" />
   </Type>
   <Type Name="DiffLogMixin">
     <Member Name="Cleaned" Description="Limpiar" />
@@ -25,6 +25,6 @@
     <Member Name="InitialState" Description="Estado inicial" />
   </Type>
   <Type Name="OperationLogTypeCondition">
-    <Member Name="FilteringByTarget" Description="" />
+    <Member Name="FilteringByTarget" Description="Filtrando por destino" />
   </Type>
 </Translations>

@@ -53,23 +53,23 @@
     <Member Name="ShowTitleAsBreadcrumb" Description="Titel als Breadcrumb anzeigen" />
     <Member Name="SystemTime" Description="Systemzeit" />
   </Type>
-  <Type Name="UserQueryEntity_Column" Description="">
-    <Member Name="CombineRows" Description="" />
-    <Member Name="DisplayName" Description="" />
+  <Type Name="UserQueryEntity_Column" Description="Spalte">
+    <Member Name="CombineRows" Description="Zeilen kombinieren" />
+    <Member Name="DisplayName" Description="Anzeigename" />
     <Member Name="HiddenColumn" Description="Ausgeblendete Spalte" />
-    <Member Name="SummaryToken" Description="" />
+    <Member Name="SummaryToken" Description="Token der Zusammenfassung" />
     <Member Name="Token" Description="Token" />
     <Member Name="UserQuery" Description="Benutzer-Abfrage" />
   </Type>
-  <Type Name="UserQueryEntity_CustomDrilldown" Description="">
-    <Member Name="Drilldown" Description="" />
+  <Type Name="UserQueryEntity_CustomDrilldown" Description="Benutzerdefinierter Drilldown">
+    <Member Name="Drilldown" Description="Drilldown" />
     <Member Name="UserQuery" Description="Benutzer-Abfrage" />
   </Type>
-  <Type Name="UserQueryEntity_Filter" Description="">
+  <Type Name="UserQueryEntity_Filter" Description="Filter">
     <Member Name="UserQuery" Description="Benutzer-Abfrage" />
   </Type>
-  <Type Name="UserQueryEntity_Order" Description="">
-    <Member Name="OrderType" Description="" />
+  <Type Name="UserQueryEntity_Order" Description="Sortierung">
+    <Member Name="OrderType" Description="Sortierrichtung" />
     <Member Name="Token" Description="Token" />
     <Member Name="UserQuery" Description="Benutzer-Abfrage" />
   </Type>
@@ -80,7 +80,7 @@
     <Member Name="CreateNew" Description="Erstellen" />
     <Member Name="Date" Description="Datum" />
     <Member Name="Edit" Description="Bearbeiten" />
-    <Member Name="ElementsPerPageMustBeGreaterThanZero" Description="" />
+    <Member Name="ElementsPerPageMustBeGreaterThanZero" Description="Die Anzahl der Elemente pro Seite muss mindestens 1 sein" />
     <Member Name="MakesThe0AvailableAsAQuickLinkOf1" Description="Stellt die {0} als Quick Link of {1} zur Verfügung" />
     <Member Name="MakesThe0AvailableForCustomDrilldownsAndInContextualMenuWhenGrouping0" Description="Macht die {0} für benutzerdefinierte Drilldowns und im Kontextmenü beim Gruppieren verfügbar {1}" />
     <Member Name="Pagination" Description="Paginierung" />
@@ -111,11 +111,11 @@
   <Type Name="ValueUserQueryListPartEntity" Description="Wert Benutzerabfrage Listen Teil" PluralDescription="Wert Benutzerabfrage Listen Teilen" Gender="n">
     <Member Name="UserQueries" Description="Benutzer-Abfragen" />
   </Type>
-  <Type Name="ValueUserQueryListPartEntity_UserQuery" Description="">
-    <Member Name="Href" Description="" />
+  <Type Name="ValueUserQueryListPartEntity_UserQuery" Description="Benutzerabfrage">
+    <Member Name="Href" Description="Href" />
     <Member Name="IsQueryCached" Description="Ist Cached-Abfrage" />
     <Member Name="Label" Description="Etikett" />
     <Member Name="UserQuery" Description="Benutzer-Abfrage" />
-    <Member Name="ValueUserQueryListPart" Description="" />
+    <Member Name="ValueUserQueryListPart" Description="Liste von Benutzerabfragen mit Wert" />
   </Type>
 </Translations>

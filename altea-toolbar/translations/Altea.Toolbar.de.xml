@@ -37,7 +37,7 @@
     <Member Name="Priority" Description="Priorität" />
   </Type>
   <Type Name="ToolbarEntity_Element" Description="Toolbar-element">
-    <Member Name="Toolbar" Description="" />
+    <Member Name="Toolbar" Description="Symbolleiste" />
   </Type>
   <Type Name="ToolbarLocation" Description="Toolbar-Position">
     <Member Name="Main" Description="Haupt" />
@@ -62,19 +62,19 @@
   <Type Name="ToolbarMessage">
     <Member Name="_0CyclesHaveBeenFoundInTheToolbarDueToTheRelationships" Description="{0} Zyklen wurden aufgrund der Beziehungen in der Toolbar gefunden:" />
     <Member Name="_0IsMandatoryWhen1IsNotSet" Description="{0} ist Pflicht, wenn {1} nicht festgesetzt ist" />
-    <Member Name="ADividerHasNoLabelIconContentOrUrl" Description="" />
-    <Member Name="AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds" Description="" />
+    <Member Name="ADividerHasNoLabelIconContentOrUrl" Description="Ein Trenner hat weder Beschriftung, Symbol, Inhalt noch URL" />
+    <Member Name="AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds" Description="Das Aktualisierungsintervall muss mindestens 10 Sekunden betragen" />
     <Member Name="Content" Description="Inhalt" />
     <Member Name="ExtraIconCanNotComeAfterDivider" Description="Zusätzliches Symbol kann nicht nach der Trennwand kommen" />
     <Member Name="FirstElementCanNotBeExtraIcon" Description="Das erste Element kann kein zusätzliches Symbol sein" />
     <Member Name="If0Selected" Description="Wenn {0} ausgewählt" />
-    <Member Name="InvalidUrl0" Description="" />
+    <Member Name="InvalidUrl0" Description="Ungültige URL: {0}" />
     <Member Name="Label" Description="Etikett" />
     <Member Name="No0Selected" Description="Keine {0} ausgewählt" />
-    <Member Name="NoContentOrUrlFound" Description="" />
+    <Member Name="NoContentOrUrlFound" Description="Es wurde weder Inhalt noch URL gefunden" />
     <Member Name="RecursionDetected" Description="Rekursion erkannt" />
     <Member Name="ShowTogether" Description="Gemeinsam anzeigen" />
-    <Member Name="ToolbarConfigNotRegistered0" Description="" />
+    <Member Name="ToolbarConfigNotRegistered0" Description="{0}ToolbarConfig ist nicht registriert" />
     <Member Name="Url" Description="URL" />
   </Type>
   <Type Name="ToolbarOperation">
@@ -90,7 +90,7 @@
     <Member Name="IconColor" Description="Symbolfarbe" />
     <Member Name="IconName" Description="Symbolname" />
     <Member Name="ToolbarMenu" Description="Toolbar-Menü" />
-    <Member Name="ToolbarSwitcher" Description="" />
+    <Member Name="ToolbarSwitcher" Description="Symbolleistenumschalter" />
   </Type>
   <Type Name="ToolbarSwitcherOperation">
     <Member Name="Delete" Description="Löschen" />

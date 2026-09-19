@@ -4,7 +4,7 @@
     <Member Name="Azure_ApplicationID" Description="Azure Application (client) ID" />
     <Member Name="Azure_ClientSecret" Description="Azure Client Secret Value" />
     <Member Name="Azure_DirectoryID" Description="&amp;#x9;Azure Directory (tenant) ID" />
-    <Member Name="NewAzure_ClientSecret" Description="" />
+    <Member Name="NewAzure_ClientSecret" Description="Neuer Azure-Client-Secret-Wert" />
     <Member Name="UseActiveDirectoryConfiguration" Description="Active Directory-Konfiguration verwenden" />
   </Type>
   <Type Name="RecipientEmbedded" Description="Empfänger">
@@ -64,10 +64,10 @@
     <Member Name="User" Description="Benutzer" />
     <Member Name="WebLink" Description="Weblink" />
   </Type>
-  <Type Name="RemoteEmailMessageRowModel" Description="">
+  <Type Name="RemoteEmailMessageRowModel" Description="Entfernte E-Mail-Nachricht">
     <Member Name="Categories" Description="Kategorien" />
     <Member Name="CreatedDateTime" Description="Erstellungsdatum" />
-    <Member Name="Entity" Description="" />
+    <Member Name="Entity" Description="Entität" />
     <Member Name="Extension0" Description="Erweiterung0" />
     <Member Name="Extension1" Description="Erweiterung1" />
     <Member Name="Extension2" Description="Erweiterung2" />
@@ -76,9 +76,9 @@
     <Member Name="From" Description="Von" />
     <Member Name="HasAttachments" Description="Hat Anhänge" />
     <Member Name="IsDraft" Description="Ist Entwurf" />
-    <Member Name="IsRead" Description="" />
+    <Member Name="IsRead" Description="Gelesen" />
     <Member Name="LastModifiedDateTime" Description="Letzten-Änderung-Datum" />
-    <Member Name="MessageId" Description="" />
+    <Member Name="MessageId" Description="Nachrichten-Id" />
     <Member Name="ReceivedDateTime" Description="Empfangsdatum " />
     <Member Name="SentDateTime" Description="Versanddatum" />
     <Member Name="Subject" Description="Betreff" />

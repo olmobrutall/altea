@@ -15,14 +15,14 @@
     <Member Name="SubDivisionCode" Description="Code der Unterteilung" />
     <Member Name="ToYear" Description="Bis Jahr" />
   </Type>
-  <Type Name="HolidayCalendarEntity_Holiday" Description="">
+  <Type Name="HolidayCalendarEntity_Holiday" Description="Feiertag">
     <Member Name="Calendar" Description="Kalender" />
     <Member Name="Date" Description="Datum" />
     <Member Name="Name" Description="Name" />
   </Type>
   <Type Name="HolidayCalendarMessage">
     <Member Name="ForImport01and2ShouldBeSet" Description="Für den Import sollten {0}, {1} und {2} eingestellt werden." />
-    <Member Name="SomeDatesHaveBeenRepeated" Description="" />
+    <Member Name="SomeDatesHaveBeenRepeated" Description="Einige Daten wurden wiederholt:" />
   </Type>
   <Type Name="HolidayCalendarOperation">
     <Member Name="Delete" Description="Löschen" />

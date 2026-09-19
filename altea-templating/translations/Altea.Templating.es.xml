@@ -8,18 +8,18 @@
     <Member Name="Filters" Description="Filtros" />
     <Member Name="Orders" Description="Órdenes" />
     <Member Name="Pagination" Description="Paginación" />
-    <Member Name="QueryKey" Description="" />
+    <Member Name="QueryKey" Description="Clave de consulta" />
   </Type>
   <Type Name="QueryModelMessage">
     <Member Name="ConfigureYourQueryAndPressSearchBeforeOk" Description="Configure su consulta y pulse [Buscar] antes de [Aceptar]" />
   </Type>
   <Type Name="TemplateApplicableEval" Description="Evaluar plantilla aplicable" />
   <Type Name="TemplateMessage">
-    <Member Name="CopyToClipboard" Description="" />
+    <Member Name="CopyToClipboard" Description="Copiar al portapapeles: Ctrl+C, ESC" />
     <Member Name="Template" Description="Plantilla" />
   </Type>
   <Type Name="TemplateTokenMessage">
-    <Member Name="ImpossibleToAccess0BecauseTheTemplateHAsNo1" Description="" />
+    <Member Name="ImpossibleToAccess0BecauseTheTemplateHAsNo1" Description="No se puede acceder a {0} porque la plantilla no tiene {1}" />
     <Member Name="Insert" Description="Insertar" />
     <Member Name="NoColumnSelected" Description="Ninguna columna seleccionada" />
     <Member Name="YouCannotAddBlocksWithAllOrAny" Description="No puede agregar bloques con 'Todos' o 'Alguno'" />

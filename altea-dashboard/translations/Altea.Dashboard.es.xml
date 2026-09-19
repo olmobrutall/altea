@@ -1,29 +1,29 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="CachedQueryEntity" Description="">
+  <Type Name="CachedQueryEntity" Description="Consulta en caché">
     <Member Name="CreationDate" Description="Fecha de creación" />
-    <Member Name="Dashboard" Description="" />
-    <Member Name="File" Description="" />
-    <Member Name="NumColumns" Description="" />
-    <Member Name="NumRows" Description="" />
-    <Member Name="QueryDuration" Description="" />
-    <Member Name="UploadDuration" Description="" />
-    <Member Name="UserAssets" Description="" />
+    <Member Name="Dashboard" Description="Panel" />
+    <Member Name="File" Description="Fichero" />
+    <Member Name="NumColumns" Description="Número de columnas" />
+    <Member Name="NumRows" Description="Número de filas" />
+    <Member Name="QueryDuration" Description="Duración de la consulta" />
+    <Member Name="UploadDuration" Description="Duración de la subida" />
+    <Member Name="UserAssets" Description="Recursos de usuario" />
   </Type>
-  <Type Name="CachedQueryEntity_UserAsset" Description="">
-    <Member Name="CachedQuery" Description="" />
-    <Member Name="UserAsset" Description="" />
+  <Type Name="CachedQueryEntity_UserAsset" Description="Recurso de usuario">
+    <Member Name="CachedQuery" Description="Consulta en caché" />
+    <Member Name="UserAsset" Description="Recurso de usuario" />
   </Type>
   <Type Name="CachedQueryFileType">
-    <Member Name="CachedQuery" Description="" />
+    <Member Name="CachedQuery" Description="Consulta en caché" />
   </Type>
-  <Type Name="CacheQueryConfigurationEmbedded" Description="">
-    <Member Name="AutoRegenerateWhenOlderThan" Description="" />
+  <Type Name="CacheQueryConfigurationEmbedded" Description="Configuración de la consulta en caché">
+    <Member Name="AutoRegenerateWhenOlderThan" Description="Regenerar automáticamente cuando sea más antigua de" />
     <Member Name="MaxRows" Description="Filas máximas" />
-    <Member Name="TimeoutForQueries" Description="" />
+    <Member Name="TimeoutForQueries" Description="Tiempo de espera de las consultas" />
   </Type>
-  <Type Name="CustomPartEntity" Description="">
-    <Member Name="CustomPartName" Description="" />
+  <Type Name="CustomPartEntity" Description="Parte personalizada">
+    <Member Name="CustomPartName" Description="Nombre de la parte personalizada" />
   </Type>
   <Type Name="DashboardEmbedededInEntity" Description="Panel incrustado en entidad">
     <Member Name="Bottom" Description="Abajo" />
@@ -33,133 +33,133 @@
   </Type>
   <Type Name="DashboardEntity" Description="Panel de control">
     <Member Name="AutoRefreshPeriod" Description="Período de actualización automática" />
-    <Member Name="CacheQueryConfiguration" Description="" />
+    <Member Name="CacheQueryConfiguration" Description="Configuración de la consulta en caché" />
     <Member Name="CombineSimilarRows" Description="Combinar filas similares" />
     <Member Name="DashboardPriority" Description="Prioridad panel de información" />
     <Member Name="DisplayName" Description="Nombre" />
     <Member Name="EmbeddedInEntity" Description="Incrustado en entidad" />
     <Member Name="EntityType" Description="Tipo de entidad" />
-    <Member Name="HideDisplayName" Description="" />
+    <Member Name="HideDisplayName" Description="Ocultar el nombre" />
     <Member Name="HideQuickLink" Description="Ocultar quick link" />
     <Member Name="IconColor" Description="Color de icono" />
     <Member Name="IconName" Description="Nombre de icono" />
     <Member Name="Key" Description="Clave" />
     <Member Name="Owner" Description="Propietario" />
     <Member Name="Parts" Description="Partes" />
-    <Member Name="ShowTitleAsBreadcrumb" Description="" />
-    <Member Name="TitleColor" Description="" />
-    <Member Name="TokenEquivalencesGroups" Description="" />
+    <Member Name="ShowTitleAsBreadcrumb" Description="Mostrar el título como miga de pan" />
+    <Member Name="TitleColor" Description="Color del título" />
+    <Member Name="TokenEquivalencesGroups" Description="Grupos de equivalencias de tokens" />
   </Type>
   <Type Name="DashboardEntity_Part" Description="Parte del panel">
     <Member Name="Columns" Description="Columnas" />
     <Member Name="Content" Description="Contenido" />
-    <Member Name="CustomColor" Description="" />
-    <Member Name="Dashboard" Description="" />
-    <Member Name="HideTitle" Description="" />
+    <Member Name="CustomColor" Description="Color personalizado" />
+    <Member Name="Dashboard" Description="Panel" />
+    <Member Name="HideTitle" Description="Ocultar el título" />
     <Member Name="IconColor" Description="Color de icono" />
     <Member Name="IconName" Description="Nombre de icono" />
-    <Member Name="InteractionGroup" Description="" />
+    <Member Name="InteractionGroup" Description="Grupo de interacción" />
     <Member Name="Row" Description="Fila" />
     <Member Name="StartColumn" Description="Columna Inicio" />
     <Member Name="Title" Description="Título" />
-    <Member Name="TitleColor" Description="" />
-    <Member Name="Tooltip" Description="" />
+    <Member Name="TitleColor" Description="Color del título" />
+    <Member Name="Tooltip" Description="Descripción emergente" />
   </Type>
-  <Type Name="DashboardEntity_TokenEquivalenceGroup" Description="">
-    <Member Name="Dashboard" Description="" />
-    <Member Name="InteractionGroup" Description="" />
-    <Member Name="TokenEquivalences" Description="" />
+  <Type Name="DashboardEntity_TokenEquivalenceGroup" Description="Grupo de equivalencias de tokens">
+    <Member Name="Dashboard" Description="Panel" />
+    <Member Name="InteractionGroup" Description="Grupo de interacción" />
+    <Member Name="TokenEquivalences" Description="Equivalencias de tokens" />
   </Type>
-  <Type Name="DashboardEntity_TokenEquivalenceGroup_Query" Description="">
+  <Type Name="DashboardEntity_TokenEquivalenceGroup_Query" Description="Consulta">
     <Member Name="Query" Description="Consulta" />
     <Member Name="Token" Description="Token" />
-    <Member Name="TokenEquivalenceGroup" Description="" />
+    <Member Name="TokenEquivalenceGroup" Description="Grupo de equivalencias de tokens" />
   </Type>
   <Type Name="DashboardMessage">
-    <Member Name="_0CanOnlyBeUserInA1With2" Description="" />
+    <Member Name="_0CanOnlyBeUserInA1With2" Description="{0} sólo se puede usar en un {1} con {2}" />
     <Member Name="_0Is1InstedOf2In3" Description="{0} es {1} (en lugar de {2}) en {3}" />
-    <Member Name="AltClickToOpenResultsInAModalWindow" Description="" />
-    <Member Name="AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds" Description="" />
-    <Member Name="CLickInOneChartToFilterInTheOthers" Description="" />
-    <Member Name="Close" Description="" />
-    <Member Name="ColumnsMustBeBetween1And12" Description="" />
-    <Member Name="CopyHealthCheckDashboardData" Description="" />
+    <Member Name="AltClickToOpenResultsInAModalWindow" Description="[Alt] + clic para abrir los resultados en una ventana modal" />
+    <Member Name="AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds" Description="El periodo de actualización automática debe ser de al menos 10 segundos" />
+    <Member Name="CLickInOneChartToFilterInTheOthers" Description="Haga clic en un gráfico para filtrar en los demás" />
+    <Member Name="Close" Description="Cerrar" />
+    <Member Name="ColumnsMustBeBetween1And12" Description="Las columnas deben estar entre 1 y 12" />
+    <Member Name="CopyHealthCheckDashboardData" Description="Copiar los datos del panel de health check" />
     <Member Name="CreateNewPart" Description="Crear nueva parte" />
-    <Member Name="CtrlClickToFilterByMultipleElements" Description="" />
+    <Member Name="CtrlClickToFilterByMultipleElements" Description="[Ctrl] + clic para filtrar por varios elementos" />
     <Member Name="DashboardDN_TitleMustBeSpecifiedFor0" Description="Se debe especificar el título para {0}" />
-    <Member Name="DuplicatedTokens0" Description="" />
-    <Member Name="Edit" Description="" />
-    <Member Name="ForPerformanceReasonsThisDashboardMayShowOutdatedInformation" Description="" />
-    <Member Name="IncompatibleEntityType" Description="" />
-    <Member Name="InteractiveDashboard" Description="" />
-    <Member Name="LasUpdateWasOn0" Description="" />
-    <Member Name="NotFilteringBy0" Description="" />
+    <Member Name="DuplicatedTokens0" Description="Tokens duplicados: {0}" />
+    <Member Name="Edit" Description="Editar" />
+    <Member Name="ForPerformanceReasonsThisDashboardMayShowOutdatedInformation" Description="Por motivos de rendimiento, este panel puede mostrar información desactualizada" />
+    <Member Name="IncompatibleEntityType" Description="Tipo de entidad incompatible" />
+    <Member Name="InteractiveDashboard" Description="Panel interactivo" />
+    <Member Name="LasUpdateWasOn0" Description="La última actualización fue el {0}" />
+    <Member Name="NotFilteringBy0" Description="Sin filtrar por {0}" />
     <Member Name="Part0IsTooLarge" Description="Parte {0} es demasiado grande" />
     <Member Name="Part0OverlapsWith1" Description="Parte {0} se superpone con {1}" />
     <Member Name="Preview" Description="Vista previa" />
-    <Member Name="RowMustBeGreaterThanOrEqualToZero" Description="" />
-    <Member Name="RowsSelected" Description="" />
-    <Member Name="SelectIcon" Description="" />
-    <Member Name="StartColumnMustBeBetween0And11" Description="" />
-    <Member Name="TheUserQuery0HasNoColumnWithSummaryHeader" Description="" />
+    <Member Name="RowMustBeGreaterThanOrEqualToZero" Description="La fila debe ser mayor o igual que 0" />
+    <Member Name="RowsSelected" Description="fila(s) seleccionada(s)" />
+    <Member Name="SelectIcon" Description="Seleccionar el icono" />
+    <Member Name="StartColumnMustBeBetween0And11" Description="La columna inicial debe estar entre 0 y 11" />
+    <Member Name="TheUserQuery0HasNoColumnWithSummaryHeader" Description="La consulta de usuario '{0}' no tiene ninguna columna con cabecera de resumen" />
   </Type>
   <Type Name="DashboardOperation">
     <Member Name="Clone" Description="Clonar" />
     <Member Name="Delete" Description="Eliminar" />
-    <Member Name="RegenerateCachedQueries" Description="" />
+    <Member Name="RegenerateCachedQueries" Description="Regenerar las consultas en caché" />
     <Member Name="Save" Description="Guardar" />
   </Type>
   <Type Name="DashboardPartsMessage">
-    <Member Name="ClipboardDataIsNotCompatibleWithHealthCheckData" Description="" />
-    <Member Name="HealthCheckElements" Description="" />
-    <Member Name="PasteHealthCheckLink" Description="" />
+    <Member Name="ClipboardDataIsNotCompatibleWithHealthCheckData" Description="Los datos del portapapeles no son compatibles con los datos de health check." />
+    <Member Name="HealthCheckElements" Description="Elementos de health check" />
+    <Member Name="PasteHealthCheckLink" Description="Pegar el enlace de health check" />
   </Type>
   <Type Name="DashboardPermission">
     <Member Name="ViewDashboard" Description="Vista panel de control" />
   </Type>
   <Type Name="DashboardVariableMessage">
-    <Member Name="GoodAfternoon" Description="" />
-    <Member Name="GoodEvening" Description="" />
-    <Member Name="GoodMorning" Description="" />
-    <Member Name="GoodNight" Description="" />
+    <Member Name="GoodAfternoon" Description="Buenas tardes" />
+    <Member Name="GoodEvening" Description="Buenas noches" />
+    <Member Name="GoodMorning" Description="Buenos días" />
+    <Member Name="GoodNight" Description="Buenas noches" />
   </Type>
-  <Type Name="HealthCheckPartEntity" Description="">
-    <Member Name="Items" Description="" />
+  <Type Name="HealthCheckPartEntity" Description="Parte de health check">
+    <Member Name="Items" Description="Elementos" />
   </Type>
-  <Type Name="HealthCheckPartEntity_Item" Description="">
-    <Member Name="CheckURL" Description="" />
-    <Member Name="HealthCheckPart" Description="" />
-    <Member Name="NavigateURL" Description="" />
+  <Type Name="HealthCheckPartEntity_Item" Description="Elemento de health check">
+    <Member Name="CheckURL" Description="URL de comprobación" />
+    <Member Name="HealthCheckPart" Description="Parte de health check" />
+    <Member Name="NavigateURL" Description="URL de navegación" />
     <Member Name="Title" Description="Título" />
   </Type>
-  <Type Name="ImagePartEntity" Description="">
-    <Member Name="AltText" Description="" />
-    <Member Name="ClickActionURL" Description="" />
-    <Member Name="ImageSrcContent" Description="" />
+  <Type Name="ImagePartEntity" Description="Parte de imagen">
+    <Member Name="AltText" Description="Texto alternativo" />
+    <Member Name="ClickActionURL" Description="URL de la acción" />
+    <Member Name="ImageSrcContent" Description="Contenido del src de la imagen" />
   </Type>
-  <Type Name="InteractionGroup" Description="">
-    <Member Name="Group1" Description="" />
-    <Member Name="Group2" Description="" />
-    <Member Name="Group3" Description="" />
-    <Member Name="Group4" Description="" />
-    <Member Name="Group5" Description="" />
-    <Member Name="Group6" Description="" />
-    <Member Name="Group7" Description="" />
-    <Member Name="Group8" Description="" />
+  <Type Name="InteractionGroup" Description="Grupo de interacción">
+    <Member Name="Group1" Description="Grupo 1" />
+    <Member Name="Group2" Description="Grupo 2" />
+    <Member Name="Group3" Description="Grupo 3" />
+    <Member Name="Group4" Description="Grupo 4" />
+    <Member Name="Group5" Description="Grupo 5" />
+    <Member Name="Group6" Description="Grupo 6" />
+    <Member Name="Group7" Description="Grupo 7" />
+    <Member Name="Group8" Description="Grupo 8" />
   </Type>
-  <Type Name="SeparatorPartEntity" Description="">
+  <Type Name="SeparatorPartEntity" Description="Parte separadora">
     <Member Name="Title" Description="Título" />
   </Type>
-  <Type Name="TextPartEntity" Description="">
-    <Member Name="TextContent" Description="" />
-    <Member Name="TextPartType" Description="" />
+  <Type Name="TextPartEntity" Description="Parte de texto">
+    <Member Name="TextContent" Description="Contenido del texto" />
+    <Member Name="TextPartType" Description="Tipo de parte de texto" />
   </Type>
-  <Type Name="TextPartType" Description="">
-    <Member Name="HTML" Description="" />
-    <Member Name="Markdown" Description="" />
-    <Member Name="Text" Description="" />
+  <Type Name="TextPartType" Description="Tipo de parte de texto">
+    <Member Name="HTML" Description="HTML" />
+    <Member Name="Markdown" Description="Markdown" />
+    <Member Name="Text" Description="Texto" />
   </Type>
-  <Type Name="ToolbarMenuPartEntity" Description="">
-    <Member Name="ToolbarMenu" Description="" />
+  <Type Name="ToolbarMenuPartEntity" Description="Parte de menú de la barra de herramientas">
+    <Member Name="ToolbarMenu" Description="Menú de la barra de herramientas" />
   </Type>
 </Translations>

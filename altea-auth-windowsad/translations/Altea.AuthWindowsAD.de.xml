@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="WindowsADConfigurationEmbedded" Description="Active Directory-Konfiguration">
-    <Member Name="BaseDN" Description="" />
-    <Member Name="DirectoryRegistry_Password" Description="" />
-    <Member Name="DirectoryRegistry_Username" Description="" />
-    <Member Name="DomainName" Description="" />
-    <Member Name="LdapUrl" Description="" />
-    <Member Name="LoginWithActiveDirectoryRegistry" Description="" />
-    <Member Name="LoginWithWindowsAuthenticator" Description="" />
+    <Member Name="BaseDN" Description="Basis-DN" />
+    <Member Name="DirectoryRegistry_Password" Description="Passwort der Verzeichnisregistrierung" />
+    <Member Name="DirectoryRegistry_Username" Description="Benutzername der Verzeichnisregistrierung" />
+    <Member Name="DomainName" Description="Domänenname" />
+    <Member Name="LdapUrl" Description="LDAP-URL" />
+    <Member Name="LoginWithActiveDirectoryRegistry" Description="Anmeldung über die Active-Directory-Registrierung" />
+    <Member Name="LoginWithWindowsAuthenticator" Description="Anmeldung über den Windows-Authentifikator" />
     <Member Name="RoleMapping" Description="Rollenzuordnung" />
   </Type>
   <Type Name="WindowsADMessage">
-    <Member Name="LoginWithWindowsUser" Description="" />
-    <Member Name="LooksLikeYourWindowsUserIsNotAllowedToUseThisApplication" Description="" />
-    <Member Name="NoWindowsUserFound" Description="" />
-    <Member Name="TheUser0IsConnectedToActiveDirectoryAndCanNotHaveALocalPasswordSet" Description="" />
-    <Member Name="WindowsIntegratedAuthenticationIsNotConfiguredOnThisHost" Description="" />
+    <Member Name="LoginWithWindowsUser" Description="Mit Windows-Benutzer anmelden" />
+    <Member Name="LooksLikeYourWindowsUserIsNotAllowedToUseThisApplication" Description="Ihr Windows-Benutzer darf diese Anwendung offenbar nicht verwenden" />
+    <Member Name="NoWindowsUserFound" Description="Kein Windows-Benutzer gefunden" />
+    <Member Name="TheUser0IsConnectedToActiveDirectoryAndCanNotHaveALocalPasswordSet" Description="Der Benutzer {0} ist mit Active Directory verbunden und kann kein lokales Passwort festlegen" />
+    <Member Name="WindowsIntegratedAuthenticationIsNotConfiguredOnThisHost" Description="Die integrierte Windows-Authentifizierung ist auf diesem Host nicht konfiguriert" />
   </Type>
   <Type Name="WindowsADRoleMappingEntity" Description="Rollenzuordnung">
-    <Member Name="Configuration" Description="" />
+    <Member Name="Configuration" Description="Konfiguration" />
   </Type>
   <Type Name="WindowsADTask">
     <Member Name="DeactivateUsers" Description="Benutzer deaktivieren" />

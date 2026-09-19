@@ -1,26 +1,26 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="WindowsADConfigurationEmbedded" Description="Configuración de Active Directory">
-    <Member Name="BaseDN" Description="" />
+    <Member Name="BaseDN" Description="DN base" />
     <Member Name="DirectoryRegistry_Password" Description="Contraseña de Registro de directorio" />
     <Member Name="DirectoryRegistry_Username" Description="Nombre de usuario de Registro de directorio" />
     <Member Name="DomainName" Description="Nombre de dominio" />
-    <Member Name="LdapUrl" Description="" />
+    <Member Name="LdapUrl" Description="URL de LDAP" />
     <Member Name="LoginWithActiveDirectoryRegistry" Description="Inicie sesión con el registro de Active Directory" />
     <Member Name="LoginWithWindowsAuthenticator" Description="Inicie sesión con Windows Authenticator" />
     <Member Name="RoleMapping" Description="Asignación de roles" />
   </Type>
   <Type Name="WindowsADMessage">
-    <Member Name="LoginWithWindowsUser" Description="" />
-    <Member Name="LooksLikeYourWindowsUserIsNotAllowedToUseThisApplication" Description="" />
-    <Member Name="NoWindowsUserFound" Description="" />
-    <Member Name="TheUser0IsConnectedToActiveDirectoryAndCanNotHaveALocalPasswordSet" Description="" />
-    <Member Name="WindowsIntegratedAuthenticationIsNotConfiguredOnThisHost" Description="" />
+    <Member Name="LoginWithWindowsUser" Description="Iniciar sesión con el usuario de Windows" />
+    <Member Name="LooksLikeYourWindowsUserIsNotAllowedToUseThisApplication" Description="Parece que su usuario de Windows no tiene permiso para usar esta aplicación" />
+    <Member Name="NoWindowsUserFound" Description="No se ha encontrado ningún usuario de Windows" />
+    <Member Name="TheUser0IsConnectedToActiveDirectoryAndCanNotHaveALocalPasswordSet" Description="El usuario {0} está conectado a Active Directory y no puede tener una contraseña local" />
+    <Member Name="WindowsIntegratedAuthenticationIsNotConfiguredOnThisHost" Description="La autenticación integrada de Windows no está configurada en este host" />
   </Type>
   <Type Name="WindowsADRoleMappingEntity" Description="Asignación de roles">
-    <Member Name="Configuration" Description="" />
+    <Member Name="Configuration" Description="Configuración" />
   </Type>
   <Type Name="WindowsADTask">
-    <Member Name="DeactivateUsers" Description="" />
+    <Member Name="DeactivateUsers" Description="Desactivar usuarios" />
   </Type>
 </Translations>

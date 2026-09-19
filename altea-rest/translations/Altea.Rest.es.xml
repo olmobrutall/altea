@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="QueryStringValueEntity" Description="">
+  <Type Name="QueryStringValueEntity" Description="Valor de la cadena de consulta">
     <Member Name="Key" Description="Clave" />
-    <Member Name="RestLog" Description="" />
-    <Member Name="Value" Description="" />
+    <Member Name="RestLog" Description="Registro REST" />
+    <Member Name="Value" Description="Valor" />
   </Type>
   <Type Name="RestApiKeyEntity" Description="Clave de API REST" Gender="f">
     <Member Name="ApiKey" Description="Clave de API" />
     <Member Name="User" Description="Usuario" />
   </Type>
   <Type Name="RestApiKeyMessage">
-    <Member Name="GenerateApiKey" Description="" />
+    <Member Name="GenerateApiKey" Description="Generar una clave de API" />
   </Type>
   <Type Name="RestApiKeyOperation">
     <Member Name="Delete" Description="Eliminar" />
@@ -41,11 +41,11 @@
   </Type>
   <Type Name="RestLogMessage">
     <Member Name="Current" Description="Actual" />
-    <Member Name="Difference" Description="" />
+    <Member Name="Difference" Description="Diferencia" />
     <Member Name="Duration" Description="Duración" />
     <Member Name="Previous" Description="Anterior" />
-    <Member Name="Replay" Description="" />
-    <Member Name="ReplayNotAllowedForThisRestLog" Description="" />
+    <Member Name="Replay" Description="Reproducir" />
+    <Member Name="ReplayNotAllowedForThisRestLog" Description="No se permite reproducir este registro REST" />
   </Type>
   <Type Name="RestLogReplayState" Description="Estado de repetición del registro de REST">
     <Member Name="NoChanges" Description="Sin cambios" />

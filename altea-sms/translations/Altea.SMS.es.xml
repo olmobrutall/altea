@@ -25,9 +25,9 @@
     <Member Name="DefaultCulture" Description="Cultura predeterminada" />
   </Type>
   <Type Name="SMSMessage">
-    <Member Name="NotAValidTelephoneNumberList" Description="" />
-    <Member Name="SMSMessagesMustBeSentPriorToUpdateTheStatus" Description="" />
-    <Member Name="TheTextForTheSMSMessageHasNotBeenSet" Description="" />
+    <Member Name="NotAValidTelephoneNumberList" Description="No es un número de teléfono válido (ni una lista de ellos separada por comas)" />
+    <Member Name="SMSMessagesMustBeSentPriorToUpdateTheStatus" Description="Los mensajes SMS deben enviarse antes de poder actualizar el estado" />
+    <Member Name="TheTextForTheSMSMessageHasNotBeenSet" Description="No se ha establecido el texto del mensaje SMS" />
   </Type>
   <Type Name="SMSMessageEntity" Description="Mensaje SMS">
     <Member Name="Certified" Description="Certificado" />

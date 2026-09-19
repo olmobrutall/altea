@@ -16,14 +16,14 @@
     <Member Name="Retry" Description="Nochmals versuchen" />
     <Member Name="SaveTest" Description="Test speichern" />
   </Type>
-  <Type Name="PrintLineState" Description="">
-    <Member Name="Cancelled" Description="" />
-    <Member Name="Enqueued" Description="" />
+  <Type Name="PrintLineState" Description="Status der Druckzeile">
+    <Member Name="Cancelled" Description="Abgebrochen" />
+    <Member Name="Enqueued" Description="In der Warteschlange" />
     <Member Name="Error" Description="Fehler" />
-    <Member Name="NewTest" Description="" />
-    <Member Name="Printed" Description="" />
-    <Member Name="PrintedAndDeleted" Description="" />
-    <Member Name="ReadyToPrint" Description="" />
+    <Member Name="NewTest" Description="Neuer Test" />
+    <Member Name="Printed" Description="Gedruckt" />
+    <Member Name="PrintedAndDeleted" Description="Gedruckt und gelöscht" />
+    <Member Name="ReadyToPrint" Description="Druckbereit" />
   </Type>
   <Type Name="PrintPackageEntity" Description="Druckpaket" Gender="n">
     <Member Name="Name" Description="Name" />

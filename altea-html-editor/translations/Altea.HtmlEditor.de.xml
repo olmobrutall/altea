@@ -7,11 +7,11 @@
     <Member Name="EnterYourUrlHere" Description="Geben Sie hier Ihre URL ein..." />
     <Member Name="Headings" Description="Überschriften" />
     <Member Name="Hyperlink" Description="Hyperlink" />
-    <Member Name="InsertHyperlink" Description="" />
+    <Member Name="InsertHyperlink" Description="Hyperlink einfügen" />
     <Member Name="Italic" Description="Kursiv (Strg + I)" />
     <Member Name="OrderedList" Description="Geordnete Liste" />
     <Member Name="Quote" Description="Zitat" />
-    <Member Name="RemoveLink" Description="" />
+    <Member Name="RemoveLink" Description="Link entfernen" />
     <Member Name="Underline" Description="Unterstrichen (Strg + U)" />
     <Member Name="UnorderedList" Description="Ungeordnete Liste" />
   </Type>

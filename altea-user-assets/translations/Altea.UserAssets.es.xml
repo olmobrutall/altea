@@ -7,14 +7,14 @@
   </Type>
   <Type Name="PinnedQueryFilterEmbedded" Description="Filtro de consulta fijado">
     <Member Name="Active" Description="Activo" />
-    <Member Name="ColSpan" Description="" />
+    <Member Name="ColSpan" Description="ColSpan" />
     <Member Name="Column" Description="Columna" />
     <Member Name="Label" Description="Etiqueta" />
     <Member Name="Row" Description="Fila" />
-    <Member Name="SplitValue" Description="" />
+    <Member Name="SplitValue" Description="Dividir el valor" />
   </Type>
   <Type Name="QueryFilterBaseEntity" Description="Filtro de consulta">
-    <Member Name="DashboardBehaviour" Description="" />
+    <Member Name="DashboardBehaviour" Description="Comportamiento en el panel" />
     <Member Name="GroupOperation" Description="Operación de grupo" />
     <Member Name="Indentation" Description="Sangría" />
     <Member Name="IsGroup" Description="Es grupo" />
@@ -26,26 +26,26 @@
   <Type Name="QueryTokenEmbedded" Description="Token de consulta">
     <Member Name="TokenString" Description="Cadena del token" />
   </Type>
-  <Type Name="TokenMigrationEntity" Description="">
+  <Type Name="TokenMigrationEntity" Description="Migración de tokens">
     <Member Name="Comment" Description="Comentario" />
     <Member Name="VersionNumber" Description="Número de versión" />
   </Type>
   <Type Name="UserAssetMessage">
-    <Member Name="_0IsNotFilterable" Description="" />
-    <Member Name="Advanced" Description="" />
-    <Member Name="AssumeIs" Description="" />
+    <Member Name="_0IsNotFilterable" Description="{0} no se puede filtrar" />
+    <Member Name="Advanced" Description="Avanzado" />
+    <Member Name="AssumeIs" Description="Suponer que es" />
     <Member Name="ExportToXml" Description="Exportar a xml" />
-    <Member Name="Import" Description="" />
+    <Member Name="Import" Description="Importar" />
     <Member Name="ImportPreview" Description="Previsualizar importación" />
     <Member Name="ImportUserAssets" Description="Importar recursos de usuario" />
-    <Member Name="LooksLikeSomeEntitiesIn0DoNotExistsOrHaveADifferentMeaningInThisDatabase" Description="" />
-    <Member Name="SameSelectionForAllConflictsOf0" Description="" />
+    <Member Name="LooksLikeSomeEntitiesIn0DoNotExistsOrHaveADifferentMeaningInThisDatabase" Description="Parece que algunas entidades de {0} no existen o significan otra cosa en esta base de datos..." />
+    <Member Name="SameSelectionForAllConflictsOf0" Description="La misma selección para todos los conflictos de {0}" />
     <Member Name="SelectTheEntitiesToOverride" Description="Seleccione las entidades a reemplazar" />
     <Member Name="SelectTheXmlFileWithTheUserAssetsThatYouWantToImport" Description="Seleccione el archivo xml con los activos del usuario que desea importar" />
     <Member Name="SucessfullyImported" Description="Correctamente importado" />
-    <Member Name="TheFilterOperation0isNotCompatibleWith1" Description="" />
-    <Member Name="UsedBy" Description="" />
-    <Member Name="UserAssetLines" Description="" />
+    <Member Name="TheFilterOperation0isNotCompatibleWith1" Description="La operación de filtro {0} no es compatible con {1}" />
+    <Member Name="UsedBy" Description="Usado por" />
+    <Member Name="UserAssetLines" Description="Líneas del recurso de usuario" />
   </Type>
   <Type Name="UserAssetPermission">
     <Member Name="UserAssetsToXML" Description="Activos del usuario a XML" />
@@ -63,7 +63,7 @@
   <Type Name="UserAssetQueryMessage">
     <Member Name="_0IsNotAValid1Try2Instead" Description="«{0}» no es un {1} válido. Pruebe {2} en su lugar" />
     <Member Name="_0MustBeBetween1And2" Description="{0} debe estar entre {1} y {2}" />
-    <Member Name="SwitchToExpression" Description="" />
-    <Member Name="SwitchToValue" Description="" />
+    <Member Name="SwitchToExpression" Description="Cambiar a expresión" />
+    <Member Name="SwitchToValue" Description="Cambiar a valor" />
   </Type>
 </Translations>

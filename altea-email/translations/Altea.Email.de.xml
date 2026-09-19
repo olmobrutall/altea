@@ -3,8 +3,8 @@
   <Type Name="AsyncEmailSenderPermission">
     <Member Name="ViewAsyncEmailSenderPanel" Description="E-Mail-Absender Ansichtsbereich async" />
   </Type>
-  <Type Name="ClientCertificationFileEntity" Description="">
-    <Member Name="FullFilePath" Description="" />
+  <Type Name="ClientCertificationFileEntity" Description="Client-Zertifikatsdatei">
+    <Member Name="FullFilePath" Description="Vollständiger Dateipfad" />
     <Member Name="Service" Description="Dienst" />
   </Type>
   <Type Name="CompareInbox" Description="Posteingang vergleichen">
@@ -49,7 +49,7 @@
     <Member Name="Messages" Description="Nachrichten" />
     <Member Name="Name" Description="Name" />
   </Type>
-  <Type Name="EmailMasterTemplateEntity_Attachment" Description="">
+  <Type Name="EmailMasterTemplateEntity_Attachment" Description="Anhang">
     <Member Name="Attachment" Description="Anhang" />
     <Member Name="MasterTemplate" Description="Hauptvorlage" />
   </Type>
@@ -85,13 +85,13 @@
     <Member Name="Template" Description="Vorlage" />
     <Member Name="UniqueIdentifier" Description="Einzigartiger Identifikator" />
   </Type>
-  <Type Name="EmailMessageEntity_Attachment" Description="">
-    <Member Name="ContentId" Description="" />
+  <Type Name="EmailMessageEntity_Attachment" Description="Anhang">
+    <Member Name="ContentId" Description="Inhalts-Id" />
     <Member Name="EmailMessage" Description="E-Mail Nachricht" />
     <Member Name="File" Description="Datei" />
     <Member Name="Type" Description="Typ" />
   </Type>
-  <Type Name="EmailMessageEntity_Recipient" Description="">
+  <Type Name="EmailMessageEntity_Recipient" Description="Empfänger">
     <Member Name="EmailMessage" Description="E-Mail Nachricht" />
   </Type>
   <Type Name="EmailMessageFormat" Description="Format der E-Mail-Nachricht">
@@ -101,11 +101,11 @@
   </Type>
   <Type Name="EmailMessageMessage">
     <Member Name="_01requiresExtraParameters" Description="{0} {1} erfordert zusätzliche Parameter" />
-    <Member Name="DefaultFromNotFound" Description="" />
+    <Member Name="DefaultFromNotFound" Description="Kein Standardabsender gefunden" />
     <Member Name="ExceptionMessages" Description="Ausnahmenachrichten" />
     <Member Name="Message" Description="Nachricht" />
     <Member Name="Messages" Description="Nachrichten" />
-    <Member Name="NoSuitableRecipientsWereFound" Description="" />
+    <Member Name="NoSuitableRecipientsWereFound" Description="Es wurden keine geeigneten Empfänger gefunden" />
     <Member Name="RemainingMessages" Description="Verbleibenden Nachrichten" />
     <Member Name="TheEmailMessageCannotBeSentFromState0" Description="Die E-Mail kann nicht aus dem Status {0} gesendet werden" />
   </Type>
@@ -189,8 +189,8 @@
     <Member Name="ReceptionInfo" Description="Empfangsinfo" />
   </Type>
   <Type Name="EmailReceptionServiceEntity" Description="E-Mail-Empfangsdienst" PluralDescription="E-Mail-Empfangsdienste" Gender="m" />
-  <Type Name="EmailRecipientBaseEntity" Description="">
-    <Member Name="DisplayName" Description="" />
+  <Type Name="EmailRecipientBaseEntity" Description="Empfänger">
+    <Member Name="DisplayName" Description="Anzeigename" />
     <Member Name="EmailAddress" Description="E-Mail-Adresse" />
     <Member Name="EmailOwner" Description="E-Mail-Besitzer" />
     <Member Name="InvalidEmail" Description="Ungültige e-Mail" />
@@ -207,11 +207,11 @@
     <Member Name="Name" Description="Name" />
     <Member Name="Service" Description="Dienst" />
   </Type>
-  <Type Name="EmailSenderConfigurationEntity_AdditionalRecipient" Description="">
-    <Member Name="SenderConfiguration" Description="" />
+  <Type Name="EmailSenderConfigurationEntity_AdditionalRecipient" Description="Zusätzlicher Empfänger">
+    <Member Name="SenderConfiguration" Description="Absenderkonfiguration" />
   </Type>
   <Type Name="EmailSenderConfigurationMessage">
-    <Member Name="SenderConfiguration" Description="" />
+    <Member Name="SenderConfiguration" Description="Absenderkonfiguration" />
   </Type>
   <Type Name="EmailSenderConfigurationOperation">
     <Member Name="Clone" Description="Klonen" />
@@ -235,11 +235,11 @@
     <Member Name="Query" Description="Abfrage" />
     <Member Name="Recipients" Description="Empfänger" />
   </Type>
-  <Type Name="EmailTemplateEntity_Attachment" Description="">
+  <Type Name="EmailTemplateEntity_Attachment" Description="Anhang">
     <Member Name="Attachment" Description="Anhang" />
     <Member Name="EmailTemplate" Description="E-Mail Vorlage" />
   </Type>
-  <Type Name="EmailTemplateEntity_Filter" Description="">
+  <Type Name="EmailTemplateEntity_Filter" Description="Filter">
     <Member Name="EmailTemplate" Description="E-Mail Vorlage" />
   </Type>
   <Type Name="EmailTemplateEntity_Message" Description="Nachricht E-Mail-Vorlage">
@@ -248,14 +248,14 @@
     <Member Name="Subject" Description="Betreff" />
     <Member Name="Text" Description="Text" />
   </Type>
-  <Type Name="EmailTemplateEntity_Order" Description="">
+  <Type Name="EmailTemplateEntity_Order" Description="Sortierung">
     <Member Name="EmailTemplate" Description="E-Mail Vorlage" />
-    <Member Name="OrderType" Description="" />
+    <Member Name="OrderType" Description="Sortierrichtung" />
     <Member Name="Token" Description="Token" />
   </Type>
   <Type Name="EmailTemplateEntity_Recipient" Description="E-Mail-Vorlagenempfänger">
-    <Member Name="AddressSource" Description="" />
-    <Member Name="DisplayName" Description="" />
+    <Member Name="AddressSource" Description="Quelle der Adresse" />
+    <Member Name="DisplayName" Description="Anzeigename" />
     <Member Name="EmailAddress" Description="E-Mail-Adresse" />
     <Member Name="EmailTemplate" Description="E-Mail Vorlage" />
     <Member Name="Kind" Description="Art" />
@@ -264,9 +264,9 @@
     <Member Name="WhenNone" Description="Wenn keine" />
   </Type>
   <Type Name="EmailTemplateFromEmbedded" Description="E-Mail Vorlage Von">
-    <Member Name="AddressSource" Description="" />
+    <Member Name="AddressSource" Description="Quelle der Adresse" />
     <Member Name="AzureUserId" Description="Azure-Benutzer-ID" />
-    <Member Name="DisplayName" Description="" />
+    <Member Name="DisplayName" Description="Anzeigename" />
     <Member Name="EmailAddress" Description="E-Mail-Adresse" />
     <Member Name="Token" Description="Token" />
     <Member Name="WhenMany" Description="Wenn viele" />
@@ -291,9 +291,9 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="EmailTemplateTargetFrom" Description="">
-    <Member Name="NoTarget" Description="" />
-    <Member Name="Unique" Description="" />
+  <Type Name="EmailTemplateTargetFrom" Description="Absender aus dem Ziel">
+    <Member Name="NoTarget" Description="Kein Ziel" />
+    <Member Name="Unique" Description="Eindeutig" />
     <Member Name="UserQuery" Description="Benutzer-Abfrage" />
   </Type>
   <Type Name="EmailTemplateViewMessage">
@@ -324,14 +324,14 @@
   <Type Name="SendEmailTaskOperation">
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="SmtpDeliveryFormat" Description="">
-    <Member Name="International" Description="" />
-    <Member Name="SevenBit" Description="" />
+  <Type Name="SmtpDeliveryFormat" Description="SMTP-Zustellformat">
+    <Member Name="International" Description="International" />
+    <Member Name="SevenBit" Description="7-Bit" />
   </Type>
-  <Type Name="SmtpDeliveryMethod" Description="">
+  <Type Name="SmtpDeliveryMethod" Description="SMTP-Zustellmethode">
     <Member Name="Network" Description="Netzwerk" />
-    <Member Name="PickupDirectoryFromIis" Description="" />
-    <Member Name="SpecifiedPickupDirectory" Description="" />
+    <Member Name="PickupDirectoryFromIis" Description="Abholverzeichnis von IIS" />
+    <Member Name="SpecifiedPickupDirectory" Description="Angegebenes Abholverzeichnis" />
   </Type>
   <Type Name="SmtpEmailServiceEntity" Description="SMTP-E-Mail-Dienst" PluralDescription="SMTP-E-Mail-Dienste" Gender="m">
     <Member Name="DeliveryFormat" Description="Delivery format" />

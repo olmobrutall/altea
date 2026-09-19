@@ -1,28 +1,28 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="ActiveDirectoryAuthorizerMessage">
-    <Member Name="ActiveDirectoryUser0IsNotAssociatedWithAUserInThisApplication" Description="" />
+    <Member Name="ActiveDirectoryUser0IsNotAssociatedWithAUserInThisApplication" Description="El usuario de Active Directory '{0}' no está asociado a ningún usuario de esta aplicación." />
   </Type>
   <Type Name="ActiveDirectoryMessage">
-    <Member Name="AccountEnabled" Description="" />
+    <Member Name="AccountEnabled" Description="Cuenta habilitada" />
     <Member Name="CompanyName" Description="Nombre empresa" />
     <Member Name="Description" Description="Descripción" />
-    <Member Name="DisplayName" Description="" />
-    <Member Name="GivenName" Description="" />
-    <Member Name="HasUser" Description="" />
+    <Member Name="DisplayName" Description="Nombre para mostrar" />
+    <Member Name="GivenName" Description="Nombre" />
+    <Member Name="HasUser" Description="Tiene usuario" />
     <Member Name="Id" Description="Id" />
-    <Member Name="InGroup" Description="" />
-    <Member Name="JobTitle" Description="" />
-    <Member Name="Mail" Description="" />
-    <Member Name="OnlyActiveUsers" Description="" />
-    <Member Name="OnPremisesExtensionAttributes" Description="" />
-    <Member Name="OnPremisesImmutableId" Description="" />
-    <Member Name="SecurityEnabled" Description="" />
-    <Member Name="Surname" Description="" />
-    <Member Name="Visibility" Description="" />
+    <Member Name="InGroup" Description="En el grupo" />
+    <Member Name="JobTitle" Description="Puesto" />
+    <Member Name="Mail" Description="Correo electrónico" />
+    <Member Name="OnlyActiveUsers" Description="Sólo usuarios activos" />
+    <Member Name="OnPremisesExtensionAttributes" Description="Atributos de extensión locales" />
+    <Member Name="OnPremisesImmutableId" Description="Id inmutable local" />
+    <Member Name="SecurityEnabled" Description="Seguridad habilitada" />
+    <Member Name="Surname" Description="Apellidos" />
+    <Member Name="Visibility" Description="Visibilidad" />
   </Type>
   <Type Name="ActiveDirectoryPermission">
-    <Member Name="InviteUsersFromAD" Description="" />
+    <Member Name="InviteUsersFromAD" Description="Invitar usuarios desde AD" />
   </Type>
   <Type Name="AuthAdminMessage">
     <Member Name="_0InDB" Description="{0} (en BD solamente)" />
@@ -32,56 +32,56 @@
     <Member Name="Allowed" Description="Permitido" />
     <Member Name="Check" Description="sí/no" />
     <Member Name="Deny" Description="Denegar" />
-    <Member Name="DownloadAuthRules" Description="" />
+    <Member Name="DownloadAuthRules" Description="Descargar AuthRules.xml" />
     <Member Name="MasterEntity" Description="Maestro" />
     <Member Name="Overriden" Description="Sobrescrito" />
     <Member Name="OwnsParts0" Description="Posee partes: {0}" />
-    <Member Name="PasswordChangeIsNotCompleted" Description="" />
+    <Member Name="PasswordChangeIsNotCompleted" Description="El cambio de contraseña no se ha completado" />
     <Member Name="PermissionRules" Description="Reglas de permiso" />
-    <Member Name="Property0IsNotAllowed" Description="" />
+    <Member Name="Property0IsNotAllowed" Description="La propiedad {0} no está permitida" />
     <Member Name="RemoveCondition" Description="Quitar condición" />
-    <Member Name="RepeatedTypeCondition" Description="" />
+    <Member Name="RepeatedTypeCondition" Description="Condiciones de tipo repetidas" />
     <Member Name="ResetChanges" Description="Resetear cambios" />
     <Member Name="Save" Description="Guardar" />
-    <Member Name="Search" Description="" />
-    <Member Name="SelectMoreThanOneToOverrideAccessFor0ThatSatisfyAllTheConditionsAtTheSameTime" Description="" />
-    <Member Name="SelectOneToOverrideTheAccessFor0ThatSatisfyThisCondition" Description="" />
-    <Member Name="SelectTypeConditions" Description="" />
+    <Member Name="Search" Description="Buscar" />
+    <Member Name="SelectMoreThanOneToOverrideAccessFor0ThatSatisfyAllTheConditionsAtTheSameTime" Description="Seleccione más de una para sobrescribir el acceso a {0} que cumplan todas las condiciones a la vez." />
+    <Member Name="SelectOneToOverrideTheAccessFor0ThatSatisfyThisCondition" Description="Seleccione una para sobrescribir el acceso a {0} que cumplan esta condición." />
+    <Member Name="SelectTypeConditions" Description="Seleccione la condición (o condiciones) de tipo" />
     <Member Name="SwitchTo" Description="Cambiar a" />
-    <Member Name="TheFollowingTypeConditionsHaveAlreadyBeenUsed" Description="" />
-    <Member Name="ThereAre0TypeConditionsDefinedFor1" Description="" />
+    <Member Name="TheFollowingTypeConditionsHaveAlreadyBeenUsed" Description="Las siguientes condiciones de tipo ya se han usado:" />
+    <Member Name="ThereAre0TypeConditionsDefinedFor1" Description="Hay {0} condiciones de tipo definidas para {1}." />
     <Member Name="TheUserStateMustBeDisabled" Description="El estado de usuario debe ser deshabilitado" />
-    <Member Name="TypePermissionOverview" Description="" />
+    <Member Name="TypePermissionOverview" Description="Resumen de permisos de tipo" />
     <Member Name="TypeRules" Description="Reglas de tipo" />
-    <Member Name="Uncheck" Description="" />
+    <Member Name="Uncheck" Description="Desmarcar" />
   </Type>
   <Type Name="AuthMessage">
-    <Member Name="DefaultAuthorization" Description="" />
-    <Member Name="Everything" Description="" />
-    <Member Name="IncludeTrivialMerges" Description="" />
-    <Member Name="MaximumOfThe0" Description="" />
-    <Member Name="MinumumOfThe0" Description="" />
-    <Member Name="NotAuthorizedTo01" Description="" />
+    <Member Name="DefaultAuthorization" Description="Autorización por defecto:" />
+    <Member Name="Everything" Description="Todo" />
+    <Member Name="IncludeTrivialMerges" Description="Incluir las combinaciones triviales" />
+    <Member Name="MaximumOfThe0" Description="Máximo de {0}" />
+    <Member Name="MinumumOfThe0" Description="Mínimo de {0}" />
+    <Member Name="NotAuthorizedTo01" Description="No tiene autorización para {0} '{1}'" />
     <Member Name="NotAuthorizedTo0The1WithId2" Description="No autorizado para {0} la entidad {1} con Id {2}" />
     <Member Name="NotAuthorizedToRetrieve0" Description="No autorizado para recuperar '{0}'" />
-    <Member Name="Nothing" Description="" />
-    <Member Name="OnlyActive" Description="" />
-    <Member Name="Permission0IsDenied" Description="" />
-    <Member Name="SameAs0" Description="" />
-    <Member Name="TheQueryDoesNotEnsureThatYouCanRead0" Description="" />
-    <Member Name="UnableToDetermineIfYouCanRead0" Description="" />
+    <Member Name="Nothing" Description="Nada" />
+    <Member Name="OnlyActive" Description="Sólo activas" />
+    <Member Name="Permission0IsDenied" Description="El permiso {0} está denegado" />
+    <Member Name="SameAs0" Description="Igual que {0}" />
+    <Member Name="TheQueryDoesNotEnsureThatYouCanRead0" Description="La consulta no garantiza que pueda leer {0}." />
+    <Member Name="UnableToDetermineIfYouCanRead0" Description="No se puede determinar si puede leer {0}" />
   </Type>
-  <Type Name="BaseADConfigurationEmbedded" Description="">
-    <Member Name="AllowMatchUsersBySimpleUserName" Description="" />
-    <Member Name="AutoCreateUsers" Description="" />
-    <Member Name="AutoUpdateUsers" Description="" />
-    <Member Name="DefaultRole" Description="" />
+  <Type Name="BaseADConfigurationEmbedded" Description="Configuración de Active Directory">
+    <Member Name="AllowMatchUsersBySimpleUserName" Description="Asociar usuarios por nombre de usuario simple" />
+    <Member Name="AutoCreateUsers" Description="Crear usuarios automáticamente" />
+    <Member Name="AutoUpdateUsers" Description="Actualizar usuarios automáticamente" />
+    <Member Name="DefaultRole" Description="Rol por defecto" />
   </Type>
-  <Type Name="ConditionRuleModel" Description="">
+  <Type Name="ConditionRuleModel" Description="Regla de condición">
     <Member Name="Allowed" Description="Permitido" />
-    <Member Name="TypeConditions" Description="" />
+    <Member Name="TypeConditions" Description="Condiciones de tipo" />
   </Type>
-  <Type Name="DimensionSummaryModel" Description="">
+  <Type Name="DimensionSummaryModel" Description="Resumen de la dimensión">
     <Member Name="Max" Description="Max" />
     <Member Name="Min" Description="Min" />
   </Type>
@@ -91,8 +91,8 @@
     <Member Name="ChangePassword" Description="Cambiar contraseña" />
     <Member Name="ConfirmNewPassword" Description="Confirmar nueva contraseña" />
     <Member Name="CurrentPassword" Description="Contraseña actual" />
-    <Member Name="EMailAddress" Description="" />
-    <Member Name="EmailAddressOrUsername" Description="" />
+    <Member Name="EMailAddress" Description="Dirección de correo electrónico" />
+    <Member Name="EmailAddressOrUsername" Description="Dirección de correo electrónico o nombre de usuario" />
     <Member Name="EnterActualPasswordAndNewOne" Description="Introduzca su contraseña actual y la nueva" />
     <Member Name="EnterTheNewPassword" Description="Introduzca la nueva contraseña" />
     <Member Name="EnterYourUserEmail" Description="Introduzca su correo electrónico de usuario" />
@@ -102,21 +102,21 @@
     <Member Name="IHaveForgottenMyPassword" Description="He olvidado mi contraseña" />
     <Member Name="IncorrectPassword" Description="Contraseña incorrecta" />
     <Member Name="InvalidPassword" Description="Contraseña no válida" />
-    <Member Name="InvalidTokenDate0" Description="" />
+    <Member Name="InvalidTokenDate0" Description="Fecha de token no válida {0}" />
     <Member Name="InvalidUsername" Description="Nombre de usuario no válido" />
     <Member Name="InvalidUsernameOrPassword" Description="Nombre de usuario o contraseña no válidos" />
     <Member Name="Login" Description="Iniciar sesión" />
     <Member Name="LoginWith0" Description="Inicie sesión con {0}" />
-    <Member Name="LoginWithAzureB2C" Description="" />
+    <Member Name="LoginWithAzureB2C" Description="Iniciar sesión con Azure B2C" />
     <Member Name="Logout" Description="Cerrar sesión" />
-    <Member Name="MyProfile" Description="" />
+    <Member Name="MyProfile" Description="Mi perfil" />
     <Member Name="NewPassword" Description="Nueva contraseña" />
-    <Member Name="NoLocalUserFound" Description="" />
+    <Member Name="NoLocalUserFound" Description="No se ha encontrado ningún usuario local" />
     <Member Name="NotUserLogged" Description="Ningún usuario registrado" />
     <Member Name="Password" Description="Contraseña" />
     <Member Name="PasswordChanged" Description="Contraseña cambiada" />
     <Member Name="PasswordHasBeenChangedSuccessfully" Description="La contraseña se ha cambiado correctamente" />
-    <Member Name="PasswordMustBeChanged" Description="" />
+    <Member Name="PasswordMustBeChanged" Description="Hay que cambiar la contraseña" />
     <Member Name="PasswordMustHaveAValue" Description="La contraseña debe tener un valor" />
     <Member Name="PasswordsAreDifferent" Description="Las contraseñas no coinciden" />
     <Member Name="Register0" Description="Registrar {0}" />
@@ -124,26 +124,26 @@
     <Member Name="RequestAccepted" Description="Solicitud aceptada" />
     <Member Name="SendEmail" Description="Enviar correo electrónico" />
     <Member Name="ShowLoginForm" Description="Mostrar formulario de inicio de sesión" />
-    <Member Name="SignInWithAzureB2C" Description="" />
-    <Member Name="SignInWithMicrosoft" Description="" />
-    <Member Name="SignUpWithAzureB2C" Description="" />
+    <Member Name="SignInWithAzureB2C" Description="Iniciar sesión con Azure B2C" />
+    <Member Name="SignInWithMicrosoft" Description="Iniciar sesión con Microsoft" />
+    <Member Name="SignUpWithAzureB2C" Description="Registrarse con Azure B2C" />
     <Member Name="Success" Description="Éxito" />
     <Member Name="SwitchUser" Description="Cambiar de usuario" />
     <Member Name="ThePasswordMustHaveAtLeast0Characters" Description="La contraseña debe tener al menos {0} caracteres" />
     <Member Name="TheUserIsNotLongerInTheDatabase" Description="El usuario ya no está en la base de datos" />
     <Member Name="TryToLogInWithIt" Description="¡Intenta iniciar sesión con él!" />
-    <Member Name="User0IsDeactivated" Description="" />
+    <Member Name="User0IsDeactivated" Description="El usuario {0} está desactivado" />
     <Member Name="Username" Description="Nombre de usuario" />
     <Member Name="Username0IsNotValid" Description="El nombre de usuario {0} no es válido" />
     <Member Name="UserNameMustHaveAValue" Description="El nombre de usuario debe tener un valor" />
     <Member Name="WeHaveSentYouAnEmailToResetYourPassword" Description="Le hemos enviado un correo electrónico con un enlace que le permitirá restablecer su contraseña." />
-    <Member Name="YouMustChangeYourPasswordBeforeContinuing" Description="" />
+    <Member Name="YouMustChangeYourPasswordBeforeContinuing" Description="Debe cambiar su contraseña antes de continuar" />
   </Type>
   <Type Name="MergeStrategy" Description="Estrategia de mezcla">
     <Member Name="Intersection" Description="Intersección" />
     <Member Name="Union" Description="Unión" />
   </Type>
-  <Type Name="OperationAllowed" Description="">
+  <Type Name="OperationAllowed" Description="Operación permitida">
     <Member Name="Allow" Description="Permitir" />
     <Member Name="DBOnly" Description="Sólo BBDD" />
     <Member Name="None" Description="Ninguno" />
@@ -151,24 +151,24 @@
   <Type Name="OperationAllowedRule" Description="Operación permitida regla">
     <Member Name="Allowed" Description="Permitido" />
     <Member Name="AllowedBase" Description="Permitido base" />
-    <Member Name="Coerced" Description="" />
+    <Member Name="Coerced" Description="Forzado" />
     <Member Name="Operation" Description="Operación" />
   </Type>
-  <Type Name="OperationConditionRuleModel" Description="">
+  <Type Name="OperationConditionRuleModel" Description="Regla de condición de operación">
     <Member Name="Allowed" Description="Permitido" />
-    <Member Name="TypeConditions" Description="" />
+    <Member Name="TypeConditions" Description="Condiciones de tipo" />
   </Type>
   <Type Name="OperationRulePack" Description="Paquete de reglas de operación">
     <Member Name="AvailableConditions" Description="Condiciones disponibles" />
-    <Member Name="AvailableTypeConditions" Description="" />
+    <Member Name="AvailableTypeConditions" Description="Condiciones de tipo disponibles" />
     <Member Name="Role" Description="Role" />
     <Member Name="Rules" Description="Reglas" />
     <Member Name="Strategy" Description="Estrategia" />
     <Member Name="Type" Description="Tipo" />
   </Type>
-  <Type Name="OperationWithConditionsModel" Description="">
-    <Member Name="ConditionRules" Description="" />
-    <Member Name="Fallback" Description="" />
+  <Type Name="OperationWithConditionsModel" Description="Operación con condiciones">
+    <Member Name="ConditionRules" Description="Reglas de condición" />
+    <Member Name="Fallback" Description="Valor por defecto" />
   </Type>
   <Type Name="PermissionAllowedRule" Description="Permiso que permitir regla">
     <Member Name="Allowed" Description="Permitido" />
@@ -180,7 +180,7 @@
     <Member Name="Rules" Description="Reglas" />
     <Member Name="Strategy" Description="Estrategia" />
   </Type>
-  <Type Name="PropertyAllowed" Description="">
+  <Type Name="PropertyAllowed" Description="Propiedad permitida">
     <Member Name="None" Description="Ninguno" />
     <Member Name="Read" Description="Lectura" />
     <Member Name="Write" Description="Escribir" />
@@ -188,26 +188,26 @@
   <Type Name="PropertyAllowedRule" Description="Propiedad que permitir regla">
     <Member Name="Allowed" Description="Permitido" />
     <Member Name="AllowedBase" Description="Permitido base" />
-    <Member Name="Coerced" Description="" />
+    <Member Name="Coerced" Description="Forzado" />
     <Member Name="Path" Description="Ruta" />
   </Type>
-  <Type Name="PropertyConditionRuleModel" Description="">
+  <Type Name="PropertyConditionRuleModel" Description="Regla de condición de propiedad">
     <Member Name="Allowed" Description="Permitido" />
-    <Member Name="TypeConditions" Description="" />
+    <Member Name="TypeConditions" Description="Condiciones de tipo" />
   </Type>
   <Type Name="PropertyRulePack" Description="Paquete de reglas de propiedades">
     <Member Name="AvailableConditions" Description="Condiciones disponibles" />
-    <Member Name="AvailableTypeConditions" Description="" />
+    <Member Name="AvailableTypeConditions" Description="Condiciones de tipo disponibles" />
     <Member Name="Role" Description="Role" />
     <Member Name="Rules" Description="Reglas" />
     <Member Name="Strategy" Description="Estrategia" />
     <Member Name="Type" Description="Tipo" />
   </Type>
-  <Type Name="PropertyWithConditionsModel" Description="">
-    <Member Name="ConditionRules" Description="" />
-    <Member Name="Fallback" Description="" />
+  <Type Name="PropertyWithConditionsModel" Description="Propiedad con condiciones">
+    <Member Name="ConditionRules" Description="Reglas de condición" />
+    <Member Name="Fallback" Description="Valor por defecto" />
   </Type>
-  <Type Name="QueryAllowed" Description="">
+  <Type Name="QueryAllowed" Description="Consulta permitida">
     <Member Name="Allow" Description="Permitir" />
     <Member Name="EmbeddedOnly" Description="Incrustado sólo" />
     <Member Name="None" Description="Ninguno" />
@@ -215,7 +215,7 @@
   <Type Name="QueryAllowedRule" Description="Consulta que permitir regla">
     <Member Name="Allowed" Description="Permitido" />
     <Member Name="AllowedBase" Description="Permitido base" />
-    <Member Name="Coerced" Description="" />
+    <Member Name="Coerced" Description="Forzado" />
     <Member Name="Resource" Description="Recursos" />
   </Type>
   <Type Name="QueryRulePack" Description="Paquete de reglas de consultas">
@@ -225,44 +225,44 @@
     <Member Name="Type" Description="Tipo" />
   </Type>
   <Type Name="ResetPasswordB2CMessage">
-    <Member Name="DoYouWantToContinue" Description="" />
-    <Member Name="ResetPassword" Description="" />
-    <Member Name="ResetPasswordRequested" Description="" />
+    <Member Name="DoYouWantToContinue" Description="¿Desea continuar?" />
+    <Member Name="ResetPassword" Description="Restablecer la contraseña" />
+    <Member Name="ResetPasswordRequested" Description="Restablecimiento de contraseña solicitado" />
   </Type>
   <Type Name="RoleEntity" Description="Rol">
     <Member Name="Description" Description="Descripción" />
-    <Member Name="InheritsFrom" Description="" />
-    <Member Name="IsTrivialMerge" Description="" />
+    <Member Name="InheritsFrom" Description="Hereda de" />
+    <Member Name="IsTrivialMerge" Description="Es una combinación trivial" />
     <Member Name="MergeStrategy" Description="Estrategia de mezcla" />
     <Member Name="Name" Description="Nombre" />
   </Type>
-  <Type Name="RoleEntity_InheritsFrom" Description="">
-    <Member Name="InheritsFrom" Description="" />
-    <Member Name="Role" Description="" />
+  <Type Name="RoleEntity_InheritsFrom" Description="Hereda de">
+    <Member Name="InheritsFrom" Description="Hereda de" />
+    <Member Name="Role" Description="Rol" />
   </Type>
-  <Type Name="RoleMappingEntity" Description="">
-    <Member Name="AdNameOrGuid" Description="" />
-    <Member Name="Role" Description="" />
+  <Type Name="RoleMappingEntity" Description="Asignación de roles">
+    <Member Name="AdNameOrGuid" Description="Nombre o Guid de AD" />
+    <Member Name="Role" Description="Rol" />
   </Type>
   <Type Name="RoleOperation">
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="RuleEntity" Description="">
-    <Member Name="Role" Description="" />
+  <Type Name="RuleEntity" Description="Regla">
+    <Member Name="Role" Description="Rol" />
   </Type>
-  <Type Name="RuleOperationConditionEntity" Description="">
+  <Type Name="RuleOperationConditionEntity" Description="Condición de la regla de operación">
     <Member Name="Allowed" Description="Permitido" />
-    <Member Name="Conditions" Description="" />
-    <Member Name="RuleOperation" Description="" />
+    <Member Name="Conditions" Description="Condiciones" />
+    <Member Name="RuleOperation" Description="Regla de operación" />
   </Type>
-  <Type Name="RuleOperationConditionEntity_Condition" Description="">
-    <Member Name="RuleOperationCondition" Description="" />
-    <Member Name="Symbol" Description="" />
+  <Type Name="RuleOperationConditionEntity_Condition" Description="Condición">
+    <Member Name="RuleOperationCondition" Description="Condición de la regla de operación" />
+    <Member Name="Symbol" Description="Símbolo" />
   </Type>
   <Type Name="RuleOperationEntity" Description="Regla de operación">
-    <Member Name="ConditionRules" Description="" />
-    <Member Name="Fallback" Description="" />
+    <Member Name="ConditionRules" Description="Reglas de condición" />
+    <Member Name="Fallback" Description="Valor por defecto" />
     <Member Name="Operation" Description="Operación" />
     <Member Name="Type" Description="Tipo" />
   </Type>
@@ -270,36 +270,36 @@
     <Member Name="Allowed" Description="Permitido" />
     <Member Name="Resource" Description="Recursos" />
   </Type>
-  <Type Name="RulePropertyConditionEntity" Description="">
+  <Type Name="RulePropertyConditionEntity" Description="Condición de la regla de propiedad">
     <Member Name="Allowed" Description="Permitido" />
-    <Member Name="Conditions" Description="" />
-    <Member Name="RuleProperty" Description="" />
+    <Member Name="Conditions" Description="Condiciones" />
+    <Member Name="RuleProperty" Description="Regla de propiedad" />
   </Type>
-  <Type Name="RulePropertyConditionEntity_Condition" Description="">
-    <Member Name="RulePropertyCondition" Description="" />
-    <Member Name="Symbol" Description="" />
+  <Type Name="RulePropertyConditionEntity_Condition" Description="Condición">
+    <Member Name="RulePropertyCondition" Description="Condición de la regla de propiedad" />
+    <Member Name="Symbol" Description="Símbolo" />
   </Type>
   <Type Name="RulePropertyEntity" Description="Regla de propiedad">
-    <Member Name="ConditionRules" Description="" />
-    <Member Name="Fallback" Description="" />
+    <Member Name="ConditionRules" Description="Reglas de condición" />
+    <Member Name="Fallback" Description="Valor por defecto" />
     <Member Name="Resource" Description="Recursos" />
   </Type>
   <Type Name="RuleQueryEntity" Description="Regla de consulta">
     <Member Name="Allowed" Description="Permitido" />
     <Member Name="Resource" Description="Recursos" />
   </Type>
-  <Type Name="RuleTypeConditionEntity" Description="">
+  <Type Name="RuleTypeConditionEntity" Description="Condición de la regla de tipo">
     <Member Name="Allowed" Description="Permitido" />
-    <Member Name="Conditions" Description="" />
-    <Member Name="RuleType" Description="" />
+    <Member Name="Conditions" Description="Condiciones" />
+    <Member Name="RuleType" Description="Regla de tipo" />
   </Type>
-  <Type Name="RuleTypeConditionEntity_Condition" Description="">
-    <Member Name="RuleTypeCondition" Description="" />
-    <Member Name="Symbol" Description="" />
+  <Type Name="RuleTypeConditionEntity_Condition" Description="Condición">
+    <Member Name="RuleTypeCondition" Description="Condición de la regla de tipo" />
+    <Member Name="Symbol" Description="Símbolo" />
   </Type>
   <Type Name="RuleTypeEntity" Description="Regla de tipo">
-    <Member Name="ConditionRules" Description="" />
-    <Member Name="Fallback" Description="" />
+    <Member Name="ConditionRules" Description="Reglas de condición" />
+    <Member Name="Fallback" Description="Valor por defecto" />
     <Member Name="Resource" Description="Recursos" />
   </Type>
   <Type Name="SessionLogEntity" Description="Registro de sesión">
@@ -316,7 +316,7 @@
   <Type Name="SessionLogPermission">
     <Member Name="TrackSession" Description="Seguimiento de sesión" />
   </Type>
-  <Type Name="TypeAllowed" Description="">
+  <Type Name="TypeAllowed" Description="Tipo permitido">
     <Member Name="DBReadUINone" Description="Lectura en BBDD ninguno en IU" />
     <Member Name="DBWriteUINone" Description="DB escribir UI nada" />
     <Member Name="DBWriteUIRead" Description="DB escribir UI leer" />
@@ -328,15 +328,15 @@
     <Member Name="Allowed" Description="Permitido" />
     <Member Name="AllowedBase" Description="Permitido base" />
     <Member Name="AvailableConditions" Description="Condiciones disponibles" />
-    <Member Name="OperationsSummary" Description="" />
-    <Member Name="OwnedParts" Description="" />
-    <Member Name="PackageName" Description="" />
-    <Member Name="PropertiesSummary" Description="" />
-    <Member Name="QueriesSummary" Description="" />
+    <Member Name="OperationsSummary" Description="Resumen de operaciones" />
+    <Member Name="OwnedParts" Description="Partes propias" />
+    <Member Name="PackageName" Description="Nombre del paquete" />
+    <Member Name="PropertiesSummary" Description="Resumen de propiedades" />
+    <Member Name="QueriesSummary" Description="Resumen de consultas" />
     <Member Name="Resource" Description="Recursos" />
   </Type>
-  <Type Name="TypeConditionSetModel" Description="">
-    <Member Name="TypeConditions" Description="" />
+  <Type Name="TypeConditionSetModel" Description="Conjunto de condiciones de tipo">
+    <Member Name="TypeConditions" Description="Condiciones de tipo" />
   </Type>
   <Type Name="TypeConditionSymbol" Description="Símbolo de condición de tipo" />
   <Type Name="TypeRulePack" Description="Paquete de reglas de tipo">
@@ -345,33 +345,33 @@
     <Member Name="Strategy" Description="Estrategia" />
   </Type>
   <Type Name="UserADMessage">
-    <Member Name="Find0InActiveDirectory" Description="" />
-    <Member Name="FindInActiveDirectory" Description="" />
-    <Member Name="NameOrEmail" Description="" />
-    <Member Name="NoUserContaining0FoundInActiveDirectory" Description="" />
-    <Member Name="PleaseSelectTheUserFromActiveDirectoryThatYouWantToImport" Description="" />
-    <Member Name="SelectActiveDirectoryUser" Description="" />
+    <Member Name="Find0InActiveDirectory" Description="Buscar '{0}' en Active Directory" />
+    <Member Name="FindInActiveDirectory" Description="Buscar en Active Directory" />
+    <Member Name="NameOrEmail" Description="Nombre o correo electrónico" />
+    <Member Name="NoUserContaining0FoundInActiveDirectory" Description="No se ha encontrado en Active Directory ningún usuario que contenga '{0}'" />
+    <Member Name="PleaseSelectTheUserFromActiveDirectoryThatYouWantToImport" Description="Por favor, seleccione el usuario de Active Directory que desea importar" />
+    <Member Name="SelectActiveDirectoryUser" Description="Seleccionar usuario de Active Directory" />
   </Type>
   <Type Name="UserEntity" Description="Usuario">
     <Member Name="CultureInfo" Description="Información cultura" />
     <Member Name="DisabledOn" Description="Desabilitado el" />
     <Member Name="Email" Description="e-Mail" />
-    <Member Name="ExternalId" Description="" />
+    <Member Name="ExternalId" Description="Id externo" />
     <Member Name="LoginFailedCounter" Description="Contador de inicios de sesión fallidos" />
-    <Member Name="MustChangePassword" Description="" />
-    <Member Name="PasswordIsChanging" Description="" />
+    <Member Name="MustChangePassword" Description="Debe cambiar la contraseña" />
+    <Member Name="PasswordIsChanging" Description="La contraseña se está cambiando" />
     <Member Name="Role" Description="Rol" />
     <Member Name="State" Description="Estado" />
     <Member Name="UserName" Description="Login" />
   </Type>
   <Type Name="UserExternalIdMessage">
-    <Member Name="TheUser0IsConnectedToAnExternalProviderAndCanNotHaveALocalPasswordSet" Description="" />
+    <Member Name="TheUser0IsConnectedToAnExternalProviderAndCanNotHaveALocalPasswordSet" Description="El usuario {0} está conectado a un proveedor externo y no puede tener una contraseña local" />
   </Type>
   <Type Name="UserMessage">
-    <Member Name="UserIsNotActive" Description="" />
+    <Member Name="UserIsNotActive" Description="El usuario no está activo" />
   </Type>
   <Type Name="UserOperation">
-    <Member Name="AutoDeactivate" Description="" />
+    <Member Name="AutoDeactivate" Description="Desactivar automáticamente" />
     <Member Name="Create" Description="Crear" />
     <Member Name="Deactivate" Description="Desactivar" />
     <Member Name="Delete" Description="Eliminar" />
@@ -380,8 +380,8 @@
   </Type>
   <Type Name="UserState" Description="Estado del usuario">
     <Member Name="Active" Description="Activo" />
-    <Member Name="AutoDeactivate" Description="" />
-    <Member Name="Deactivated" Description="" />
+    <Member Name="AutoDeactivate" Description="Desactivar automáticamente" />
+    <Member Name="Deactivated" Description="Desactivado" />
     <Member Name="New" Description="Nuevo" />
   </Type>
   <Type Name="UserTicketEntity" Description="Ticket de usuario" Gender="m">
@@ -391,10 +391,10 @@
     <Member Name="User" Description="Usuario" />
   </Type>
   <Type Name="UserTypeCondition">
-    <Member Name="DeactivatedUsers" Description="" />
+    <Member Name="DeactivatedUsers" Description="Usuarios desactivados" />
   </Type>
-  <Type Name="WithConditionsModel" Description="">
-    <Member Name="ConditionRules" Description="" />
-    <Member Name="Fallback" Description="" />
+  <Type Name="WithConditionsModel" Description="Con condiciones">
+    <Member Name="ConditionRules" Description="Reglas de condición" />
+    <Member Name="Fallback" Description="Valor por defecto" />
   </Type>
 </Translations>

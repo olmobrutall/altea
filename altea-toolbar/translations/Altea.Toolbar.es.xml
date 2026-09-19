@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="LayoutMessage">
-    <Member Name="JumpToMainContent" Description="" />
-    <Member Name="SelectA0_G" Description="" />
+    <Member Name="JumpToMainContent" Description="Ir al contenido principal" />
+    <Member Name="SelectA0_G" Description="Seleccione [m:un|f:una] {0}" />
   </Type>
-  <Type Name="ShowCount" Description="">
+  <Type Name="ShowCount" Description="Mostrar el recuento">
     <Member Name="Always" Description="Siempre" />
-    <Member Name="MoreThan0" Description="" />
+    <Member Name="MoreThan0" Description="Más de 0" />
   </Type>
   <Type Name="SubPageMessage">
-    <Member Name="No0FoundIn1" Description="" />
-    <Member Name="NotAllowedToCreate0In1" Description="" />
+    <Member Name="No0FoundIn1" Description="No se ha encontrado ningún {0} en {1}" />
+    <Member Name="NotAllowedToCreate0In1" Description="No está permitido crear {0} en {1}" />
   </Type>
   <Type Name="ToolbarElementBaseEntity" Description="Elemento de la barra de herramientas">
     <Member Name="AutoRefreshPeriod" Description="Período de actualización automática" />
@@ -19,13 +19,13 @@
     <Member Name="IconName" Description="Nombre de icono" />
     <Member Name="Label" Description="Etiqueta" />
     <Member Name="OpenInPopup" Description="Abrir en popup" />
-    <Member Name="ShowCount" Description="" />
+    <Member Name="ShowCount" Description="Mostrar el recuento" />
     <Member Name="Type" Description="Tipo" />
     <Member Name="Url" Description="URL" />
   </Type>
   <Type Name="ToolbarElementType" Description="Tipo de elemento de barra de herramientas">
     <Member Name="Divider" Description="Divisor" />
-    <Member Name="ExtraIcon" Description="" />
+    <Member Name="ExtraIcon" Description="Icono adicional" />
     <Member Name="Header" Description="Cabecera" />
     <Member Name="Item" Description="Elemento" />
   </Type>
@@ -37,7 +37,7 @@
     <Member Name="Priority" Description="Prioridad" />
   </Type>
   <Type Name="ToolbarEntity_Element" Description="Elemento de la barra de herramientas">
-    <Member Name="Toolbar" Description="" />
+    <Member Name="Toolbar" Description="Barra de herramientas" />
   </Type>
   <Type Name="ToolbarLocation" Description="Ubicación de la barra de herramientas">
     <Member Name="Main" Description="Principal" />
@@ -50,50 +50,50 @@
     <Member Name="Name" Description="Nombre" />
     <Member Name="Owner" Description="Propietario" />
   </Type>
-  <Type Name="ToolbarMenuEntity_Element" Description="">
-    <Member Name="AutoSelect" Description="" />
-    <Member Name="ToolbarMenu" Description="" />
-    <Member Name="WithEntity" Description="" />
+  <Type Name="ToolbarMenuEntity_Element" Description="Elemento">
+    <Member Name="AutoSelect" Description="Seleccionar automáticamente" />
+    <Member Name="ToolbarMenu" Description="Menú de la barra de herramientas" />
+    <Member Name="WithEntity" Description="Con entidad" />
   </Type>
   <Type Name="ToolbarMenuOperation">
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
   <Type Name="ToolbarMessage">
-    <Member Name="_0CyclesHaveBeenFoundInTheToolbarDueToTheRelationships" Description="" />
+    <Member Name="_0CyclesHaveBeenFoundInTheToolbarDueToTheRelationships" Description="Se han encontrado {0} ciclos en la barra de herramientas debido a las relaciones:" />
     <Member Name="_0IsMandatoryWhen1IsNotSet" Description="{0} es obligatorio si {1} no está establecido" />
-    <Member Name="ADividerHasNoLabelIconContentOrUrl" Description="" />
-    <Member Name="AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds" Description="" />
+    <Member Name="ADividerHasNoLabelIconContentOrUrl" Description="Un separador no tiene etiqueta, icono, contenido ni URL" />
+    <Member Name="AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds" Description="El periodo de actualización automática debe ser de al menos 10 segundos" />
     <Member Name="Content" Description="Contenido" />
-    <Member Name="ExtraIconCanNotComeAfterDivider" Description="" />
-    <Member Name="FirstElementCanNotBeExtraIcon" Description="" />
-    <Member Name="If0Selected" Description="" />
-    <Member Name="InvalidUrl0" Description="" />
+    <Member Name="ExtraIconCanNotComeAfterDivider" Description="Un icono adicional no puede ir después de un separador" />
+    <Member Name="FirstElementCanNotBeExtraIcon" Description="El primer elemento no puede ser un icono adicional" />
+    <Member Name="If0Selected" Description="Si {0} está seleccionado" />
+    <Member Name="InvalidUrl0" Description="URL no válida: {0}" />
     <Member Name="Label" Description="Etiqueta" />
-    <Member Name="No0Selected" Description="" />
-    <Member Name="NoContentOrUrlFound" Description="" />
-    <Member Name="RecursionDetected" Description="" />
-    <Member Name="ShowTogether" Description="" />
-    <Member Name="ToolbarConfigNotRegistered0" Description="" />
+    <Member Name="No0Selected" Description="Ningún {0} seleccionado" />
+    <Member Name="NoContentOrUrlFound" Description="No se ha encontrado contenido ni URL" />
+    <Member Name="RecursionDetected" Description="Se ha detectado una recursión" />
+    <Member Name="ShowTogether" Description="Mostrar juntos" />
+    <Member Name="ToolbarConfigNotRegistered0" Description="{0}ToolbarConfig no está registrado" />
     <Member Name="Url" Description="URL" />
   </Type>
   <Type Name="ToolbarOperation">
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="ToolbarSwitcherEntity" Description="">
+  <Type Name="ToolbarSwitcherEntity" Description="Selector de barras de herramientas">
     <Member Name="Name" Description="Nombre" />
-    <Member Name="Options" Description="" />
+    <Member Name="Options" Description="Opciones" />
     <Member Name="Owner" Description="Propietario" />
   </Type>
-  <Type Name="ToolbarSwitcherEntity_Option" Description="">
+  <Type Name="ToolbarSwitcherEntity_Option" Description="Opción">
     <Member Name="IconColor" Description="Color de icono" />
     <Member Name="IconName" Description="Nombre de icono" />
-    <Member Name="ToolbarMenu" Description="" />
-    <Member Name="ToolbarSwitcher" Description="" />
+    <Member Name="ToolbarMenu" Description="Menú de la barra de herramientas" />
+    <Member Name="ToolbarSwitcher" Description="Selector de barras de herramientas" />
   </Type>
   <Type Name="ToolbarSwitcherOperation">
-    <Member Name="Delete" Description="" />
-    <Member Name="Save" Description="" />
+    <Member Name="Delete" Description="Eliminar" />
+    <Member Name="Save" Description="Guardar" />
   </Type>
 </Translations>

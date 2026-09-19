@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="HtmlEditorMessage">
-    <Member Name="Bold" Description="" />
+    <Member Name="Bold" Description="Negrita (Ctrl + B)" />
     <Member Name="Code" Description="Código" />
-    <Member Name="CodeBlock" Description="" />
-    <Member Name="EnterYourUrlHere" Description="" />
-    <Member Name="Headings" Description="" />
-    <Member Name="Hyperlink" Description="" />
-    <Member Name="InsertHyperlink" Description="" />
-    <Member Name="Italic" Description="" />
-    <Member Name="OrderedList" Description="" />
-    <Member Name="Quote" Description="" />
-    <Member Name="RemoveLink" Description="" />
-    <Member Name="Underline" Description="" />
-    <Member Name="UnorderedList" Description="" />
+    <Member Name="CodeBlock" Description="Bloque de código" />
+    <Member Name="EnterYourUrlHere" Description="Escriba aquí su URL..." />
+    <Member Name="Headings" Description="Encabezados" />
+    <Member Name="Hyperlink" Description="Hipervínculo" />
+    <Member Name="InsertHyperlink" Description="Insertar un hipervínculo" />
+    <Member Name="Italic" Description="Cursiva (Ctrl + I)" />
+    <Member Name="OrderedList" Description="Lista ordenada" />
+    <Member Name="Quote" Description="Cita" />
+    <Member Name="RemoveLink" Description="Quitar el enlace" />
+    <Member Name="Underline" Description="Subrayado (Ctrl + U)" />
+    <Member Name="UnorderedList" Description="Lista sin ordenar" />
   </Type>
 </Translations>

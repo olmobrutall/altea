@@ -11,7 +11,7 @@
     <Member Name="HelpShiftClick" Description="Umschalt+Klick fügt eine Tabelle zur Auswahl hinzu oder entfernt sie." />
     <Member Name="Map" Description="Karte" />
     <Member Name="Namespace" Description="Namespace" />
-    <Member Name="NoHistoryTable" Description="" />
+    <Member Name="NoHistoryTable" Description="Keine Verlaufstabelle" />
     <Member Name="Press0ToExploreEachTable" Description="Drücken Sie {0}, um jede Tabelle zu erkunden" />
     <Member Name="Press0ToExploreStatesAndOperations" Description="Drücken Sie {0}, um Status und Operationen zu erkunden" />
     <Member Name="Rows" Description="Zeilen" />

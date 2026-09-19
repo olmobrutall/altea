@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="QueryStringValueEntity" Description="">
+  <Type Name="QueryStringValueEntity" Description="Wert aus der Abfragezeichenfolge">
     <Member Name="Key" Description="Schlüssel" />
     <Member Name="RestLog" Description="Rest-Protokoll" />
     <Member Name="Value" Description="Wert" />
@@ -41,11 +41,11 @@
   </Type>
   <Type Name="RestLogMessage">
     <Member Name="Current" Description="Aktuell" />
-    <Member Name="Difference" Description="" />
+    <Member Name="Difference" Description="Unterschied" />
     <Member Name="Duration" Description="Dauer" />
     <Member Name="Previous" Description="Vorherige" />
-    <Member Name="Replay" Description="" />
-    <Member Name="ReplayNotAllowedForThisRestLog" Description="" />
+    <Member Name="Replay" Description="Erneut abspielen" />
+    <Member Name="ReplayNotAllowedForThisRestLog" Description="Das erneute Abspielen ist für dieses REST-Protokoll nicht erlaubt" />
   </Type>
   <Type Name="RestLogReplayState" Description="Restlog Wiederholungszustand">
     <Member Name="NoChanges" Description="Keine Änderungen" />

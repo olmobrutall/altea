@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="ExchangeVersion" Description="">
-    <Member Name="Exchange2007_SP1" Description="" />
-    <Member Name="Exchange2010" Description="" />
-    <Member Name="Exchange2010_SP1" Description="" />
-    <Member Name="Exchange2010_SP2" Description="" />
-    <Member Name="Exchange2013" Description="" />
-    <Member Name="Exchange2013_SP1" Description="" />
-    <Member Name="Exchange2015" Description="" />
-    <Member Name="Exchange2016" Description="" />
-    <Member Name="V2015_10_05" Description="" />
+  <Type Name="ExchangeVersion" Description="Versión de Exchange">
+    <Member Name="Exchange2007_SP1" Description="Exchange 2007 SP1" />
+    <Member Name="Exchange2010" Description="Exchange 2010" />
+    <Member Name="Exchange2010_SP1" Description="Exchange 2010 SP1" />
+    <Member Name="Exchange2010_SP2" Description="Exchange 2010 SP2" />
+    <Member Name="Exchange2013" Description="Exchange 2013" />
+    <Member Name="Exchange2013_SP1" Description="Exchange 2013 SP1" />
+    <Member Name="Exchange2015" Description="Exchange 2015" />
+    <Member Name="Exchange2016" Description="Exchange 2016" />
+    <Member Name="V2015_10_05" Description="V2015_10_05" />
   </Type>
-  <Type Name="ExchangeWebServiceEmailServiceEntity" Description="">
-    <Member Name="ExchangeVersion" Description="" />
+  <Type Name="ExchangeWebServiceEmailServiceEntity" Description="Servicio de correo de Exchange Web Services">
+    <Member Name="ExchangeVersion" Description="Versión de Exchange" />
     <Member Name="NewPassword" Description="Nueva contraseña" />
     <Member Name="Password" Description="Contraseña" />
     <Member Name="Url" Description="URL" />

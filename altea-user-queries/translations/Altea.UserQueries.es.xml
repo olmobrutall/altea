@@ -1,48 +1,48 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="AutoUpdate" Description="">
-    <Member Name="Dashboard" Description="" />
-    <Member Name="InteractionGroup" Description="" />
-    <Member Name="None" Description="" />
+  <Type Name="AutoUpdate" Description="Actualización automática">
+    <Member Name="Dashboard" Description="Panel" />
+    <Member Name="InteractionGroup" Description="Grupo de interacción" />
+    <Member Name="None" Description="Ninguna" />
   </Type>
-  <Type Name="BigValuePartEntity" Description="">
-    <Member Name="CustomBigValue" Description="" />
-    <Member Name="CustomUrl" Description="" />
-    <Member Name="IsClickable" Description="" />
+  <Type Name="BigValuePartEntity" Description="Parte de valor destacado">
+    <Member Name="CustomBigValue" Description="Valor destacado personalizado" />
+    <Member Name="CustomUrl" Description="URL personalizada" />
+    <Member Name="IsClickable" Description="Se puede pulsar" />
     <Member Name="Navigate" Description="Navegar" />
     <Member Name="UserQuery" Description="Consulta de usuario" />
-    <Member Name="ValueToken" Description="" />
+    <Member Name="ValueToken" Description="Token del valor" />
   </Type>
-  <Type Name="HealthCheckConditionEmbedded" Description="">
+  <Type Name="HealthCheckConditionEmbedded" Description="Condición de health check">
     <Member Name="Operation" Description="Operación" />
-    <Member Name="Value" Description="" />
+    <Member Name="Value" Description="Valor" />
   </Type>
-  <Type Name="HealthCheckEmbedded" Description="">
-    <Member Name="DegradedWhen" Description="" />
-    <Member Name="FailWhen" Description="" />
+  <Type Name="HealthCheckEmbedded" Description="Health check">
+    <Member Name="DegradedWhen" Description="Degradado cuando" />
+    <Member Name="FailWhen" Description="Falla cuando" />
   </Type>
-  <Type Name="SystemTimeEmbedded" Description="">
-    <Member Name="EndDate" Description="" />
-    <Member Name="JoinMode" Description="" />
-    <Member Name="Mode" Description="" />
-    <Member Name="SplitQueries" Description="" />
+  <Type Name="SystemTimeEmbedded" Description="Tiempo de sistema">
+    <Member Name="EndDate" Description="Fecha de fin" />
+    <Member Name="JoinMode" Description="Modo de unión" />
+    <Member Name="Mode" Description="Modo" />
+    <Member Name="SplitQueries" Description="Dividir las consultas" />
     <Member Name="StartDate" Description="Fecha de inicio" />
-    <Member Name="TimeSeriesMaxRowsPerStep" Description="" />
-    <Member Name="TimeSeriesStep" Description="" />
-    <Member Name="TimeSeriesUnit" Description="" />
+    <Member Name="TimeSeriesMaxRowsPerStep" Description="Máximo de filas por paso" />
+    <Member Name="TimeSeriesStep" Description="Paso de la serie temporal" />
+    <Member Name="TimeSeriesUnit" Description="Unidad de la serie temporal" />
   </Type>
   <Type Name="UserQueryEntity" Description="Consulta de Usuario">
     <Member Name="AppendFilters" Description="Agregar filtros" />
     <Member Name="Columns" Description="Columnas" />
     <Member Name="ColumnsMode" Description="Modo columnas" />
-    <Member Name="CreateTitle" Description="" />
-    <Member Name="CustomDrilldowns" Description="" />
+    <Member Name="CreateTitle" Description="Título del botón Nuevo" />
+    <Member Name="CustomDrilldowns" Description="Drilldowns personalizados" />
     <Member Name="DisplayName" Description="Nombre" />
     <Member Name="ElementsPerPage" Description="Elementos por página" />
     <Member Name="EntityType" Description="Tipo de entidad" />
     <Member Name="Filters" Description="Filtros" />
     <Member Name="GroupResults" Description="Agrupar resultados" />
-    <Member Name="HealthCheck" Description="" />
+    <Member Name="HealthCheck" Description="Health check" />
     <Member Name="HideQuickLink" Description="Ocultar quick link" />
     <Member Name="IncludeDefaultFilters" Description="Incluir filtros predeterminados" />
     <Member Name="Orders" Description="Ordenes" />
@@ -50,55 +50,55 @@
     <Member Name="PaginationMode" Description="Modo de paginación" />
     <Member Name="Query" Description="Consulta" />
     <Member Name="RefreshMode" Description="Modo de refresco" />
-    <Member Name="ShowTitleAsBreadcrumb" Description="" />
-    <Member Name="SystemTime" Description="" />
+    <Member Name="ShowTitleAsBreadcrumb" Description="Mostrar el título como miga de pan" />
+    <Member Name="SystemTime" Description="Tiempo de sistema" />
   </Type>
-  <Type Name="UserQueryEntity_Column" Description="">
-    <Member Name="CombineRows" Description="" />
-    <Member Name="DisplayName" Description="" />
+  <Type Name="UserQueryEntity_Column" Description="Columna">
+    <Member Name="CombineRows" Description="Combinar filas" />
+    <Member Name="DisplayName" Description="Nombre para mostrar" />
     <Member Name="HiddenColumn" Description="Columna oculta" />
-    <Member Name="SummaryToken" Description="" />
+    <Member Name="SummaryToken" Description="Token del resumen" />
     <Member Name="Token" Description="Token" />
     <Member Name="UserQuery" Description="Consulta de usuario" />
   </Type>
-  <Type Name="UserQueryEntity_CustomDrilldown" Description="">
-    <Member Name="Drilldown" Description="" />
+  <Type Name="UserQueryEntity_CustomDrilldown" Description="Drilldown personalizado">
+    <Member Name="Drilldown" Description="Drilldown" />
     <Member Name="UserQuery" Description="Consulta de usuario" />
   </Type>
-  <Type Name="UserQueryEntity_Filter" Description="">
+  <Type Name="UserQueryEntity_Filter" Description="Filtro">
     <Member Name="UserQuery" Description="Consulta de usuario" />
   </Type>
-  <Type Name="UserQueryEntity_Order" Description="">
-    <Member Name="OrderType" Description="" />
+  <Type Name="UserQueryEntity_Order" Description="Ordenación">
+    <Member Name="OrderType" Description="Sentido de la ordenación" />
     <Member Name="Token" Description="Token" />
     <Member Name="UserQuery" Description="Consulta de usuario" />
   </Type>
   <Type Name="UserQueryMessage">
-    <Member Name="_0CountOf1Is2Than3" Description="" />
+    <Member Name="_0CountOf1Is2Than3" Description="{0} el número de {1} es {2} que {3}" />
     <Member Name="ApplyChanges" Description="Aplicar cambios" />
     <Member Name="BackToDefault" Description="Restablecer por defecto" />
     <Member Name="CreateNew" Description="Crear" />
-    <Member Name="Date" Description="" />
+    <Member Name="Date" Description="Fecha" />
     <Member Name="Edit" Description="Editar" />
-    <Member Name="ElementsPerPageMustBeGreaterThanZero" Description="" />
-    <Member Name="MakesThe0AvailableAsAQuickLinkOf1" Description="" />
-    <Member Name="MakesThe0AvailableForCustomDrilldownsAndInContextualMenuWhenGrouping0" Description="" />
+    <Member Name="ElementsPerPageMustBeGreaterThanZero" Description="El número de elementos por página debe ser al menos 1" />
+    <Member Name="MakesThe0AvailableAsAQuickLinkOf1" Description="Hace que {0} esté disponible como enlace rápido de {1}" />
+    <Member Name="MakesThe0AvailableForCustomDrilldownsAndInContextualMenuWhenGrouping0" Description="Hace que {0} esté disponible para drilldowns personalizados y en el menú contextual al agrupar {1}" />
     <Member Name="Pagination" Description="Paginación" />
     <Member Name="Preview" Description="Vista previa" />
     <Member Name="TheSelected0" Description="la entidad {0} seleccionada " />
     <Member Name="Use0ToFilterCurrentEntity" Description="Utilice {0} para filtrar la entidad actual" />
   </Type>
   <Type Name="UserQueryOperation">
-    <Member Name="Clone" Description="" />
+    <Member Name="Clone" Description="Clonar" />
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
   <Type Name="UserQueryPartEntity" Description="Parte consulta de usuario">
-    <Member Name="AllowMaxHeight" Description="" />
+    <Member Name="AllowMaxHeight" Description="Permitir altura máxima" />
     <Member Name="AllowSelection" Description="Permitir selección" />
-    <Member Name="AutoUpdate" Description="" />
+    <Member Name="AutoUpdate" Description="Actualización automática" />
     <Member Name="CreateNew" Description="Crear nuevo" />
-    <Member Name="IsQueryCached" Description="" />
+    <Member Name="IsQueryCached" Description="Consulta en caché" />
     <Member Name="ShowFooter" Description="Mostrar pie de página" />
     <Member Name="UserQuery" Description="Consulta de usuario" />
   </Type>
@@ -111,11 +111,11 @@
   <Type Name="ValueUserQueryListPartEntity" Description="Parte de valor de lista de consulta de usuario" Gender="f">
     <Member Name="UserQueries" Description="Consultas de usuario" />
   </Type>
-  <Type Name="ValueUserQueryListPartEntity_UserQuery" Description="">
-    <Member Name="Href" Description="" />
-    <Member Name="IsQueryCached" Description="" />
+  <Type Name="ValueUserQueryListPartEntity_UserQuery" Description="Consulta de usuario">
+    <Member Name="Href" Description="Href" />
+    <Member Name="IsQueryCached" Description="Consulta en caché" />
     <Member Name="Label" Description="Etiqueta" />
     <Member Name="UserQuery" Description="Consulta de usuario" />
-    <Member Name="ValueUserQueryListPart" Description="" />
+    <Member Name="ValueUserQueryListPart" Description="Lista de consultas de usuario con valor" />
   </Type>
 </Translations>

@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="ConcurrentUserEntity" Description="">
-    <Member Name="ConnectionID" Description="" />
-    <Member Name="IsModified" Description="" />
+  <Type Name="ConcurrentUserEntity" Description="Usuario concurrente">
+    <Member Name="ConnectionID" Description="Id de la conexión" />
+    <Member Name="IsModified" Description="Está modificada" />
     <Member Name="StartTime" Description="Hora de inicio" />
-    <Member Name="TargetEntity" Description="" />
+    <Member Name="TargetEntity" Description="Entidad destino" />
     <Member Name="User" Description="Usuario" />
   </Type>
   <Type Name="ConcurrentUserMessage">
-    <Member Name="ConcurrentUsers" Description="" />
-    <Member Name="ConsiderOpening0InANewTabAndApplyYourChangesManually" Description="" />
-    <Member Name="CurrentlyEditing" Description="" />
-    <Member Name="DatabaseChangesDetected" Description="" />
-    <Member Name="DoYouWantToReloadIt" Description="" />
-    <Member Name="LooksLikeSomeoneJustSaved0ToTheDatabase" Description="" />
-    <Member Name="LooksLikeYouAreNotTheOnlyOneCurrentlyModifiying0OnlyTheFirstOneWillBeAbleToSaveChanges" Description="" />
-    <Member Name="ReloadIt" Description="" />
-    <Member Name="ThisIsNotTheLatestVersionOf0" Description="" />
-    <Member Name="WarningYouWillLostYourCurrentChanges" Description="" />
-    <Member Name="YouHaveLocalChangesBut0HasAlreadyBeenSavedInTheDatabaseYouWillNotBeAbleToSaveChanges" Description="" />
-    <Member Name="YouHaveLocalChangesIn0ThatIsCurrentlyOpenByOtherUsersSoFarNoOneElseHasMadeModifications" Description="" />
+    <Member Name="ConcurrentUsers" Description="Usuarios concurrentes" />
+    <Member Name="ConsiderOpening0InANewTabAndApplyYourChangesManually" Description="Valore abrir {0} en una pestaña nueva y aplicar sus cambios a mano" />
+    <Member Name="CurrentlyEditing" Description="Editando ahora mismo" />
+    <Member Name="DatabaseChangesDetected" Description="¡Se han detectado cambios en la base de datos!" />
+    <Member Name="DoYouWantToReloadIt" Description="¿Desea recargarlo?" />
+    <Member Name="LooksLikeSomeoneJustSaved0ToTheDatabase" Description="Parece que alguien acaba de guardar {0} en la base de datos." />
+    <Member Name="LooksLikeYouAreNotTheOnlyOneCurrentlyModifiying0OnlyTheFirstOneWillBeAbleToSaveChanges" Description="Parece que no es el único que está modificando {0}... ¡sólo el primero podrá guardar los cambios!" />
+    <Member Name="ReloadIt" Description="¡Recargarlo!" />
+    <Member Name="ThisIsNotTheLatestVersionOf0" Description="Ésta no es la última versión de {0}" />
+    <Member Name="WarningYouWillLostYourCurrentChanges" Description="AVISO: perderá los cambios que tiene ahora." />
+    <Member Name="YouHaveLocalChangesBut0HasAlreadyBeenSavedInTheDatabaseYouWillNotBeAbleToSaveChanges" Description="Tiene cambios locales, pero {0} ya se ha guardado en la base de datos... no podrá guardar los cambios :(" />
+    <Member Name="YouHaveLocalChangesIn0ThatIsCurrentlyOpenByOtherUsersSoFarNoOneElseHasMadeModifications" Description="Tiene cambios locales en {0}, que otros usuarios tienen abierto ahora mismo. De momento nadie más ha hecho modificaciones." />
   </Type>
   <Type Name="ConcurrentUserOperation">
-    <Member Name="Delete" Description="" />
+    <Member Name="Delete" Description="Eliminar" />
   </Type>
 </Translations>

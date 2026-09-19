@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="PackageEntity" Description="Paquete">
-    <Member Name="ConfigString" Description="" />
+    <Member Name="ConfigString" Description="Cadena de configuración" />
     <Member Name="Name" Description="Nombre" />
     <Member Name="OperationArguments" Description="Argumentos operación" />
   </Type>
-  <Type Name="PackageLastProcessRowModel" Description="">
-    <Member Name="Entity" Description="" />
+  <Type Name="PackageLastProcessRowModel" Description="Último proceso del paquete">
+    <Member Name="Entity" Description="Entidad" />
     <Member Name="Id" Description="Id" />
     <Member Name="LastProcess" Description="Último proceso" />
     <Member Name="Name" Description="Nombre" />
-    <Member Name="NumErrors" Description="" />
-    <Member Name="NumLines" Description="" />
+    <Member Name="NumErrors" Description="Número de errores" />
+    <Member Name="NumLines" Description="Número de líneas" />
   </Type>
   <Type Name="PackageLineEntity" Description="Línea paquete">
     <Member Name="FinishTime" Description="Fin" />
@@ -19,9 +19,9 @@
     <Member Name="Result" Description="Resultado" />
     <Member Name="Target" Description="Destino" />
   </Type>
-  <Type Name="PackageLineLastProcessRowModel" Description="">
-    <Member Name="Entity" Description="" />
-    <Member Name="Exception" Description="" />
+  <Type Name="PackageLineLastProcessRowModel" Description="Último proceso de la línea del paquete">
+    <Member Name="Entity" Description="Entidad" />
+    <Member Name="Exception" Description="Excepción" />
     <Member Name="FinishTime" Description="Fin" />
     <Member Name="Id" Description="Id" />
     <Member Name="LastProcess" Description="Último proceso" />
@@ -32,13 +32,13 @@
   <Type Name="PackageOperationEntity" Description="Operación de paquete">
     <Member Name="Operation" Description="Operación" />
   </Type>
-  <Type Name="PackageOperationLastProcessRowModel" Description="">
-    <Member Name="Entity" Description="" />
+  <Type Name="PackageOperationLastProcessRowModel" Description="Último proceso de la operación del paquete">
+    <Member Name="Entity" Description="Entidad" />
     <Member Name="Id" Description="Id" />
     <Member Name="LastProcess" Description="Último proceso" />
     <Member Name="Name" Description="Nombre" />
-    <Member Name="NumErrors" Description="" />
-    <Member Name="NumLines" Description="" />
+    <Member Name="NumErrors" Description="Número de errores" />
+    <Member Name="NumLines" Description="Número de líneas" />
     <Member Name="Operation" Description="Operación" />
   </Type>
   <Type Name="PackageOperationProcess">
@@ -71,39 +71,39 @@
     <Member Name="Process" Description="Proceso" />
   </Type>
   <Type Name="ProcessMessage">
-    <Member Name="_0ProcessesExcecutingIn1_2" Description="" />
+    <Member Name="_0ProcessesExcecutingIn1_2" Description="{0} procesos ejecutándose en {1} / {2}" />
     <Member Name="ApplicationName" Description="Nombre de la aplicación" />
-    <Member Name="Dates" Description="" />
+    <Member Name="Dates" Description="Fechas" />
     <Member Name="Duration" Description="Duración" />
     <Member Name="ExceptionLines" Description="Lineas excepción" />
-    <Member Name="ExecutingProcesses" Description="" />
-    <Member Name="InitialDelayMilliseconds" Description="" />
-    <Member Name="IsCancellationRequest" Description="" />
-    <Member Name="JustMyProcesses" Description="" />
+    <Member Name="ExecutingProcesses" Description="Procesos en ejecución" />
+    <Member Name="InitialDelayMilliseconds" Description="Retardo inicial en milisegundos" />
+    <Member Name="IsCancellationRequest" Description="Es una petición de cancelación" />
+    <Member Name="JustMyProcesses" Description="Sólo mis procesos" />
     <Member Name="LastProcess" Description="Último proceso" />
-    <Member Name="LatestProcesses" Description="" />
+    <Member Name="LatestProcesses" Description="Últimos procesos" />
     <Member Name="Lines" Description="Líneas" />
-    <Member Name="MachineName" Description="" />
-    <Member Name="MaxDegreeOfParallelism" Description="" />
-    <Member Name="NextPlannedExecution" Description="" />
-    <Member Name="None" Description="" />
-    <Member Name="OnlyActive" Description="" />
+    <Member Name="MachineName" Description="Nombre de la máquina" />
+    <Member Name="MaxDegreeOfParallelism" Description="Grado máximo de paralelismo" />
+    <Member Name="NextPlannedExecution" Description="Próxima ejecución planificada" />
+    <Member Name="None" Description="Ninguno" />
+    <Member Name="OnlyActive" Description="Sólo activos" />
     <Member Name="Process" Description="Proceso" />
     <Member Name="Process0IsNotRunningAnymore" Description="Proceso {0} ya no está en ejecución" />
-    <Member Name="ProcessExecutingSuspendFirst" Description="" />
-    <Member Name="ProcessLogicStateLoading" Description="" />
-    <Member Name="ProcessPanel" Description="" />
-    <Member Name="ProcessSettings" Description="" />
+    <Member Name="ProcessExecutingSuspendFirst" Description="El proceso se está ejecutando, suspéndalo primero" />
+    <Member Name="ProcessLogicStateLoading" Description="Estado de ProcessLogic (cargando...)" />
+    <Member Name="ProcessPanel" Description="Panel de procesos" />
+    <Member Name="ProcessSettings" Description="Ajustes del proceso" />
     <Member Name="ProcessStartIsGreaterThanProcessEnd" Description="Process Start es mayor que Process End" />
     <Member Name="ProcessStartIsNullButProcessEndIsNot" Description="Process Start es nulo, pero Process End no" />
     <Member Name="Progress" Description="Progreso" />
-    <Member Name="ProgressMustBeBetween0And1" Description="" />
-    <Member Name="Running" Description="" />
-    <Member Name="SimpleStatus" Description="" />
+    <Member Name="ProgressMustBeBetween0And1" Description="El progreso debe estar entre 0 y 1" />
+    <Member Name="Running" Description="EN EJECUCIÓN" />
+    <Member Name="SimpleStatus" Description="Estado simple" />
     <Member Name="Start" Description="Inicio" />
     <Member Name="State" Description="Estado" />
-    <Member Name="Stop" Description="" />
-    <Member Name="Stopped" Description="" />
+    <Member Name="Stop" Description="Parar" />
+    <Member Name="Stopped" Description="PARADO" />
     <Member Name="SuspendIsTheSaferWayOfStoppingARunningProcessCancelAnyway" Description="Suspender de la forma más segura para detener un proceso en ejecución. ¿Cancelar de todos modos?" />
   </Type>
   <Type Name="ProcessOperation">

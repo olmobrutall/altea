@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="MapMessage">
-    <Member Name="All" Description="" />
+    <Member Name="All" Description="Todas" />
     <Member Name="Color" Description="Color" />
     <Member Name="Columns" Description="Columnas" />
     <Member Name="Filter" Description="Filtro" />
     <Member Name="Help" Description="Ayuda" />
-    <Member Name="HelpClick" Description="" />
-    <Member Name="HelpCtrlClick" Description="" />
-    <Member Name="HelpShiftClick" Description="" />
+    <Member Name="HelpClick" Description="Haga clic en una tabla para seleccionarla. Vuelva a hacer clic para deseleccionarla." />
+    <Member Name="HelpCtrlClick" Description="Ctrl+clic abre la tabla en una pestaña nueva." />
+    <Member Name="HelpShiftClick" Description="Mayús+clic añade o quita una tabla de la selección." />
     <Member Name="Map" Description="Mapa" />
     <Member Name="Namespace" Description="Namespace" />
-    <Member Name="NoHistoryTable" Description="" />
+    <Member Name="NoHistoryTable" Description="Sin tabla de histórico" />
     <Member Name="Press0ToExploreEachTable" Description="Pulsa {0} para explorar cada tabla" />
     <Member Name="Press0ToExploreStatesAndOperations" Description="Pulsa {0} para explorar estados y operaciones" />
     <Member Name="Rows" Description="Filas" />
     <Member Name="RowsHistory" Description="Historial de filas" />
     <Member Name="Selected" Description="Seleccionado" />
-    <Member Name="SelectedAndNeighbors" Description="" />
-    <Member Name="Show" Description="" />
+    <Member Name="SelectedAndNeighbors" Description="Seleccionadas y vecinas" />
+    <Member Name="Show" Description="Mostrar" />
     <Member Name="State" Description="Estado" />
     <Member Name="StateColor" Description="Color estado" />
     <Member Name="TableSize" Description="Tamaño de la tabla" />

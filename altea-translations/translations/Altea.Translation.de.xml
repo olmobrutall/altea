@@ -11,10 +11,10 @@
   <Type Name="TranslatedInstanceOperation">
     <Member Name="Delete" Description="Löschen" />
   </Type>
-  <Type Name="TranslationConfigurationEmbedded" Description="">
-    <Member Name="AzureCognitiveServicesAPIKey" Description="" />
-    <Member Name="AzureCognitiveServicesRegion" Description="" />
-    <Member Name="DeepLAPIKey" Description="" />
+  <Type Name="TranslationConfigurationEmbedded" Description="Übersetzungskonfiguration">
+    <Member Name="AzureCognitiveServicesAPIKey" Description="API-Schlüssel für Azure Cognitive Services" />
+    <Member Name="AzureCognitiveServicesRegion" Description="Region für Azure Cognitive Services" />
+    <Member Name="DeepLAPIKey" Description="DeepL-API-Schlüssel" />
   </Type>
   <Type Name="TranslationJavascriptMessage">
     <Member Name="RememberChange" Description="Änderung erinnern" />
@@ -27,10 +27,10 @@
     <Member Name="All" Description="Alle" />
     <Member Name="AllLanguages" Description="Alle Sprachen" />
     <Member Name="AreYouSureToContinueAutoTranslation0For1WithoutRevision" Description="Sind Sie sicher, dass Sie die automatische Übersetzung {0} für {1} ohne Revision fortsetzen wollen?" />
-    <Member Name="AreYouSureToContinueAutoTranslationAllPackagesFor0WithoutRevision" Description="" />
+    <Member Name="AreYouSureToContinueAutoTranslationAllPackagesFor0WithoutRevision" Description="Sind Sie sicher, dass Sie die automatische Übersetzung aller Pakete für {0} ohne Revision fortsetzen wollen?" />
     <Member Name="AreYouSureToContinueAutoTranslationAllTypesFor0WithoutRevision" Description="Sind Sie sicher, dass Sie die automatische Übersetzung aller Typen für {0} ohne Revision fortsetzen wollen?" />
     <Member Name="AutoSync" Description="auto-sync" />
-    <Member Name="BackToSyncPackage0" Description="" />
+    <Member Name="BackToSyncPackage0" Description="Zurück zur Synchronisierung des Pakets {0}" />
     <Member Name="BackToTranslationStatus" Description="Zurück zum Übersetzungsstatus" />
     <Member Name="CodeTranslations" Description="Code-Übersetzungen" />
     <Member Name="Culture" Description="Sprache" />

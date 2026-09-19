@@ -58,7 +58,7 @@
     <Member Name="YouDoNotHaveAnyActiveAlert" Description="Sie haben keine aktive Benachrichtigung" />
     <Member Name="YouHaveSomePendingAlerts" Description="Sie haben einige ausstehende Benachrichtigungen:" />
   </Type>
-  <Type Name="AlertNotificationMail" Description="">
+  <Type Name="AlertNotificationMail" Description="Benachrichtigungs-E-Mail">
     <Member Name="Alerts" Description="Benachrichtigungen" />
   </Type>
   <Type Name="AlertOperation">
@@ -79,7 +79,7 @@
     <Member Name="Save" Description="Speichern" />
   </Type>
   <Type Name="AlertTypeSymbol" Description="Benachrichtigungstyp" />
-  <Type Name="DelayOption" Description="">
+  <Type Name="DelayOption" Description="Verzögerungsoption">
     <Member Name="_15Mins" Description="15 Minuten" />
     <Member Name="_1Day" Description="1 Tag" />
     <Member Name="_1Hour" Description="1 Stunde" />
@@ -99,9 +99,9 @@
     <Member Name="SendBehavior" Description="Senden-Verhalten" />
     <Member Name="SendNotificationsOlderThan" Description="Benachrichtigungen senden älter als" />
   </Type>
-  <Type Name="SendNotificationEmailTaskEntity_AlertType" Description="">
+  <Type Name="SendNotificationEmailTaskEntity_AlertType" Description="Benachrichtigungstyp">
     <Member Name="AlertType" Description="Benachrichtigungstyp" />
-    <Member Name="Task" Description="" />
+    <Member Name="Task" Description="Aufgabe" />
   </Type>
   <Type Name="SendNotificationEmailTaskOperation">
     <Member Name="Save" Description="Speichern" />
