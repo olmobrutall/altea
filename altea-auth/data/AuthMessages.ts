@@ -122,4 +122,12 @@ export const AuthAdminMessage = {
     Allow: msg("Allow"),
     Deny: msg("Deny"),
     Search: msg("Search…"),
+    // The type-rules grid: the condition rows, and the two per-type badges. AddCondition and
+    // RemoveCondition are Signum's — they were raw English title= literals here, so English in every
+    // culture. The other two are altea's own: Signum marks a Master type with a CSS class rather than a
+    // label, and has no owned-parts badge at all, because parts are not hidden from its grid.
+    AddCondition: msg("Add condition"),
+    RemoveCondition: msg("Remove condition"),
+    MasterEntity: msg("Master"),
+    OwnsParts0: msg("Owns parts: {0}"),
 };

@@ -274,14 +274,14 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                                     <tr key={String(rule.resource.id)}>
                                         <td>
                                             {!ctx.readOnly && rule.availableConditions.length > 0
-                                                ? <LinkButton className="sf-condition-icon me-2" title="Add condition" onClick={() => void addCondition(rule)}>
+                                                ? <LinkButton className="sf-condition-icon me-2" title={AuthAdminMessage.AddCondition.niceToString()} onClick={() => void addCondition(rule)}>
                                                     <FontAwesomeIcon aria-hidden={true} icon="circle-plus" />
                                                 </LinkButton>
                                                 : <FontAwesomeIcon aria-hidden={true} icon="circle" className="sf-placeholder-icon me-2" />}
                                             {rule.resource.toString()}
-                                            {isMaster && <small className="sf-entity-data ms-1" title="Master">M</small>}
+                                            {isMaster && <small className="sf-entity-data ms-1" title={AuthAdminMessage.MasterEntity.niceToString()}>M</small>}
                                             {rule.ownedParts.length > 0 &&
-                                                <small className="sf-owned-parts ms-2" title={"Owns parts: " + rule.ownedParts.join(", ")}>
+                                                <small className="sf-owned-parts ms-2" title={AuthAdminMessage.OwnsParts0.niceToString(rule.ownedParts.join(", "))}>
                                                     <FontAwesomeIcon aria-hidden={true} icon="puzzle-piece" /> {rule.ownedParts.length}
                                                 </small>}
                                         </td>
@@ -316,7 +316,7 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                                                     label stays in the same column instead of shifting left. */}
                                                 {ctx.readOnly
                                                     ? <FontAwesomeIcon aria-hidden={true} icon="circle" className="sf-placeholder-icon me-2" />
-                                                    : <LinkButton className="sf-condition-icon me-2" title="Remove condition" onClick={() => removeCondition(rule, cr)}>
+                                                    : <LinkButton className="sf-condition-icon me-2" title={AuthAdminMessage.RemoveCondition.niceToString()} onClick={() => removeCondition(rule, cr)}>
                                                         <FontAwesomeIcon aria-hidden={true} icon="circle-minus" />
                                                     </LinkButton>}
                                                 <small>{cr.typeConditions.map(shortKey).join(" & ")}</small>

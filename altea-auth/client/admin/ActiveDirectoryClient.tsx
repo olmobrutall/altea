@@ -183,7 +183,7 @@ function SearchTextModalComponent(p: SearchTextModalProps): React.ReactElement {
         <Modal show={show} onExited={() => p.onExited!(answer.current)} onHide={() => setShow(false)} size="lg">
             <div className="modal-header">
                 <h5 className="modal-title">{p.title}</h5>
-                <button type="button" className="btn-close" aria-label="Close" onClick={() => setShow(false)} />
+                <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={() => setShow(false)} />
             </div>
             <div className="modal-body">
                 <form onSubmit={e => { e.preventDefault(); handleOk(); }}>
