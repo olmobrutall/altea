@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import "@altea/altea/server";
 import { WebBuilder, CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
+import { reloadTranslationsForCulture } from "@altea/altea/server/translations";
 import { pluralize, detectGender, determinersFor } from "@altea/altea/data/utils/naturalLanguage";
 import type { Gender } from "@altea/altea/data/utils/naturalLanguage";
 import { TranslatedSummaryState } from "../data/Translation";
@@ -357,9 +358,11 @@ export namespace TranslationServer {
 
     /** Signum's `SaveTypes` — overlay what the page posted onto each culture's file and write it back. */
     export function saveTypes(packageName: string, culture: string | undefined, result: PackageResultTS): void {
+        const written: string[] = [];
         for (const cult of Object.keys(result.cultures)) {
             if (culture != undefined && culture !== cult)
                 continue;
+            written.push(cult);
 
             const pkg = importXml(packageName, cult);
             for (const lt of pkg.types.values()) {
@@ -377,6 +380,20 @@ export namespace TranslationServer {
             }
             exportXml(pkg);
         }
+
+        // The file is only half the state: the running process answers from the in-memory Metadata store,
+        // which is loaded at boot. Without this the editor appeared to work — the file on disk was right —
+        // while every label in the app kept its old text until a restart.
+        //
+        // Re-read from DISK rather than pushing `pkg` in directly, so what the process serves is exactly
+        // what the file says (`exportXml` is the one writer, its parser the one reader) and a cleared
+        // translation really disappears instead of lingering. See `reloadTranslationsForCulture` for why
+        // the whole culture is replayed.
+        //
+        // In a container the file lives in the image's writable layer: this keeps the RUNNING process
+        // correct, but the edit still has to be exported before a redeploy or it is lost with the container.
+        for (const cult of written)
+            reloadTranslationsForCulture(cult);
     }
 
     /**

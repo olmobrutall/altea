@@ -208,6 +208,17 @@ export namespace Metadata {
     // NOT be written back here — the server serves concurrent roles.
     const store = new Map<string, Map<string, TypeMetadata>>();
 
+    /**
+     * Fired after a culture's stored translations change — at boot as each file loads, and again whenever
+     * the translation editor saves and the culture is re-read.
+     *
+     * It exists so that a cache BUILT from this store cannot silently outlive it: the server's metadata
+     * blob is assembled per culture and memoised, and before this hook "the translations never change at
+     * runtime" was an assumption held together by the fact that nothing happened to call `merge` twice.
+     * Anything that derives from the store should subscribe rather than rely on that.
+     */
+    export const onChanged: ((culture: string) => void)[] = [];
+
     // Merge TypeMetadata into a culture (later entries override earlier keys, per key not per type).
     // Deep-copies so a caller's object never becomes shared mutable state.
     export function merge(culture: string, types: Record<string, TypeMetadata>): void {
@@ -231,6 +242,8 @@ export namespace Metadata {
             if (tm.operations != null)
                 Object.assign(existing.operations ??= {}, tm.operations);
         }
+        for (const h of onChanged)
+            h(culture);
     }
 
     // Every TypeMetadata loaded for a culture, deep-copied (the server folds this into the wire blob).
@@ -362,7 +375,12 @@ export namespace Metadata {
 
     /** Drop everything loaded (tests / a culture reload). */
     export function clear(): void {
+        const cultures = [...store.keys()];
         store.clear();
+        // Announced like any other change, so a derived cache cannot survive a wipe.
+        for (const c of cultures)
+            for (const h of onChanged)
+                h(c);
     }
 }
 

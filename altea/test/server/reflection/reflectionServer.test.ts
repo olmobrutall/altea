@@ -330,3 +330,30 @@ describe("ReflectionServer.cachedWire", () => {
         reset();
     });
 });
+
+// The blob is assembled from the translation store, so a store write must reach the next request. Before
+// the editor could reload a culture in-process this was true only because nothing ever wrote twice.
+describe("the blob cache follows the translation store", () => {
+
+    test("loading a translation drops the cached payloads", async () => {
+        ReflectionServer.setMetadataFilter(undefined);
+        ReflectionServer.setMetadataCacheKey(undefined);
+
+        loadSignumTranslations("pt", `<?xml version="1.0" encoding="utf-8"?>
+<Translations>
+  <Type Name="AlbumEntity" Description="Disco" />
+</Translations>`);
+        assert.equal((await ReflectionServer.cachedWire("pt")).types["AlbumEntity"]!.niceName, "Disco");
+        assert.equal(ReflectionServer.metadataCacheSize(), 1);
+
+        // What the editor's save does: rewrite the caption, then re-read the culture.
+        loadSignumTranslations("pt", `<?xml version="1.0" encoding="utf-8"?>
+<Translations>
+  <Type Name="AlbumEntity" Description="Álbum" />
+</Translations>`);
+
+        // The write announced itself, so the stale payload is gone rather than served until restart.
+        assert.equal(ReflectionServer.metadataCacheSize(), 0);
+        assert.equal((await ReflectionServer.cachedWire("pt")).types["AlbumEntity"]!.niceName, "Álbum");
+    });
+});

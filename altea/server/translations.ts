@@ -81,12 +81,17 @@ export function loadTranslationFile(locale: string, path: string): void {
     loadSignumTranslations(locale, readFileSync(path, "utf8"));
 }
 
+/** The culture a translation file name declares (`Altea.Chart.es.xml` → `es`), or undefined. */
+function localeOfFile(file: string): string | undefined {
+    return /\.([A-Za-z]{2}(?:-[A-Za-z]{2})?)\.xml$/.exec(file)?.[1];
+}
+
 // Load every `*.<culture>.xml` file in a directory, inferring the locale from each file name.
 export function loadTranslationsFromDir(dir: string): void {
     for (const file of readdirSync(dir)) {
-        const m = /\.([A-Za-z]{2}(?:-[A-Za-z]{2})?)\.xml$/.exec(file);
-        if (m != null)
-            loadTranslationFile(m[1], join(dir, file));
+        const locale = localeOfFile(file);
+        if (locale != undefined)
+            loadTranslationFile(locale, join(dir, file));
     }
 }
 
@@ -191,11 +196,39 @@ export function resolveTranslationsDir(dir?: string): string {
 // Metadata.merge, later entries winning per key — so an app file can override a module's caption).
 // Missing directories are skipped. Returns the directories loaded, in order. Call once at startup.
 export function loadAppTranslations(dir?: string): string[] {
+    const dirs = translationDirs(dir);
+    for (const d of dirs)
+        loadTranslationsFromDir(d);
+    return dirs;
+}
+
+/** Every directory `loadAppTranslations` reads, in load order: modules first, the application last. */
+export function translationDirs(dir?: string): string[] {
     const dirs = collectModuleTranslationsDirs(resolveAppRoot());
     const appDir = resolveTranslationsDir(dir);
     if (existsSync(appDir) && !dirs.includes(appDir))
         dirs.push(appDir);
-    for (const d of dirs)
-        loadTranslationsFromDir(d);
     return dirs;
+}
+
+/**
+ * Re-read ONE culture from disk, replacing what is in memory for it.
+ *
+ * The translation editor writes a package's XML file; without this the running process would keep
+ * serving the strings it booted with, which is why editing a caption used to need a restart.
+ *
+ * REPLACE rather than merge, and re-read every directory rather than just the file that changed, because
+ * `Metadata.merge` is additive per key: it can update a caption but never remove one, so a translation
+ * the user CLEARED would linger in memory while the file no longer had it. Dropping the culture and
+ * replaying every file in load order reproduces boot semantics exactly — including an application file
+ * overriding a module's caption for the same key, which reloading one package's file alone would lose.
+ *
+ * Cheap enough to be uninteresting: ~100 small files, read only when an admin actually saves.
+ */
+export function reloadTranslationsForCulture(locale: string, dir?: string): void {
+    Metadata.replace(locale, {});
+    for (const d of translationDirs(dir))
+        for (const file of readdirSync(d))
+            if (localeOfFile(file) === locale)
+                loadTranslationFile(locale, join(d, file));
 }

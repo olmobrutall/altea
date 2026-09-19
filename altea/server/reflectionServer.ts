@@ -82,13 +82,18 @@ export namespace ReflectionServer {
     // combination is built exactly once and the mutable blob never outlives the request that owns it.
     //
     // The two inputs run on different clocks:
-    //  - CULTURE is static after boot. Type and member names come from the translation XMLs that
-    //    `loadSignumTranslations` reads at startup, and nothing rewrites them at runtime (altea-translations
-    //    edits the FILES — picking a change up needs a restart, which is why a long-running dev server keeps
-    //    serving the strings it booted with). So nothing has to invalidate on its account.
+    //  - CULTURE changes rarely — the translation XMLs are read at boot — but it is NOT immutable: the
+    //    translation editor saves a file and re-reads that culture into the store. So this subscribes to
+    //    the store rather than assuming, which is the difference between an invariant and a comment.
     //  - ROLE is not: an authorization rule change rewrites what the filter removes. Auth owns that clock,
     //    so it supplies the key and calls `invalidateMetadataCache()`; core has no notion of a role.
     const wireCache = new Map<string, Promise<MetadataBlobWire>>();
+
+    // The blob is assembled FROM the translation store, so any write to it stales every cached payload —
+    // a caption saved in the editor must reach the next request, not the next restart. Dropping all
+    // cultures rather than just the one that changed keeps this honest for free: at boot the cache is
+    // empty anyway, and a save is not a hot path.
+    Metadata.onChanged.push(() => invalidateMetadataCache());
 
     /**
      * What makes one viewer's blob differ from another's — the current ROLE, supplied by the auth module
