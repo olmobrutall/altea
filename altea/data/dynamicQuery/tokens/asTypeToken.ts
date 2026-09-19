@@ -1,4 +1,5 @@
 import { PropertyRoute, usingLegacyPropertyPaths } from "../../propertyRoute";
+import { QueryTokenMessage } from "../../dynamicQueries";
 import { Implementations } from "../../implementations";
 import { cleanTypeName } from "../../registration";
 import type { Type, Entity } from "../../entity";
@@ -20,8 +21,8 @@ export class AsTypeToken extends QueryToken {
 
     get parent(): QueryToken | undefined { return this._parent; }
     get key(): string { return `(${cleanTypeName(this.entityCtor)})`; }
-    override toString(): string { return `As ${this.entityCtor.niceName()}`; }
-    niceName(): string { return `${this._parent.toString()} as ${this.entityCtor.niceName()}`; }
+    override toString(): string { return QueryTokenMessage.As0.niceToString(this.entityCtor.niceName()); }
+    niceName(): string { return QueryTokenMessage._0As1.niceToString(this._parent.toString(), this.entityCtor.niceName()); }
     get type(): TypeReference { return new TypeReference({ type: () => this.entityCtor, lite: true }); }
     get format(): string | undefined { return undefined; }
     get unit(): string | undefined { return undefined; }

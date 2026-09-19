@@ -61,6 +61,18 @@ export const QueryTokenMessage = {
     VectorDistance: msg("Distance"),
     VectorDistanceFor0: msg("Distance for {0}"),
     Vector: msg("Vector"),
+    // Captions three tokens used to build by concatenating English (Signum: CountToken.ToString,
+    // HasValueToken.ToString / NiceName, AsTypeToken.ToString / NiceName). `And` joins the
+    // implementedBy list an AsType token offers.
+    Count: msg("Count"),
+    HasValue: msg("Has value"),
+    _0HasValue: msg("{0} has value"),
+    As0: msg("As {0}"),
+    _0As1: msg("({0} as {1})"),
+    And: msg("And"),
+    // Token-parser failures. altea reported them as raw English; Signum has had both since forever.
+    Column0NotFound: msg("The column {0} was not found"),
+    MoreThanOneColumnNamed0: msg("More than one column named {0}"),
     Not: msg(),
     Null: msg(),
     Number: msg(),

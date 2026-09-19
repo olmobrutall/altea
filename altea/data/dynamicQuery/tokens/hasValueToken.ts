@@ -1,4 +1,5 @@
 import type { PropertyRoute } from "../../propertyRoute";
+import { QueryTokenMessage } from "../../dynamicQueries";
 import type { Implementations } from "../../implementations";
 import type { TypeReference } from "../../reflection";
 import { QueryToken, SubTokensOptions, TR_BOOLEAN } from "./queryToken";
@@ -15,8 +16,8 @@ export class HasValueToken extends QueryToken {
     get parent(): QueryToken | undefined { return this._parent; }
     get key(): string { return "HasValue"; }
     override get hideInAutoExpand(): boolean { return true; }
-    override toString(): string { return "[Has value]"; }
-    niceName(): string { return `Has value of ${this._parent.toString()}`; }
+    override toString(): string { return `[${QueryTokenMessage.HasValue.niceToString()}]`; }
+    niceName(): string { return QueryTokenMessage._0HasValue.niceToString(this._parent.toString()); }
     get type(): TypeReference { return TR_BOOLEAN; }
     get format(): string | undefined { return undefined; }
     get unit(): string | undefined { return undefined; }
