@@ -1,4 +1,7 @@
-import { WebBuilder, CustomType, setAuthorizeRequest, setUserCultureProvider, type HttpMeta } from "@altea/altea/server/webApi";
+import { WebBuilder, CustomType, type HttpMeta } from "@altea/altea/server/webApi";
+import { setAuthorizeRequest } from "@altea/altea/server/filters/authorizationFilter";
+import { setUserCultureProvider } from "@altea/altea/server/filters/cultureFilter";
+import { useUserScope } from "./filters/userScope";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { UserWithClaims } from "@altea/altea/data/security";
 import { AuthenticationException } from "@altea/altea/server/exceptions";
@@ -20,18 +23,19 @@ import { SessionLogLogic } from "./SessionLogLogic";
 
 // Port of Signum.Authorization's AuthServer.cs + AuthController.cs — see port/Auth.md.
 //
-// The HTTP surface of authentication: a per-request user-context middleware plus the /api/auth/*
-// endpoints. The role-filtering overlay on the reflection blob is installed from here too — see
-// AuthReflection.
+// The HTTP surface of authentication: the per-request user scope plus the /api/auth/* endpoints. The
+// role-filtering overlay on the reflection blob is installed from here too — see AuthReflection.
 //
-// SECURE BY DEFAULT. Two cooperating pieces:
-//  1. A per-request `app.use` middleware opens a UserHolder scope and authenticates via the token
-//     authenticator chain (setting the current user when a valid token is present).
-//  2. An authorization gate installed via `setAuthorizeRequest` runs in every route wrapper AFTER
-//     routing: it DENIES the request (throws AuthenticationException → 403) unless a user is
-//     authenticated OR the matched route is declared `allowAnonymous`. So a route is protected unless
-//     it opts out — the login endpoint, the boot reflection metadata, and client-error reporting are
-//     the anonymous opt-outs.
+// SECURE BY DEFAULT. Two cooperating pieces, at two different levels:
+//  1. `useUserScope` (filters/userScope) — APP-level Express middleware, mounted first: it opens a
+//     UserHolder scope and authenticates via the token authenticator chain, setting the current user when
+//     a valid token is present. App-level rather than a route filter because middleware outside routing
+//     reads it (isolation, the REST log).
+//  2. An authorization gate installed via `setAuthorizeRequest`, which core runs as a route FILTER, AFTER
+//     routing (so meta.allowAnonymous is known): it DENIES the request (throws AuthenticationException →
+//     403) unless a user is authenticated OR the matched route is declared `allowAnonymous`. So a route
+//     is protected unless it opts out — the login endpoint, the boot reflection metadata, and
+//     client-error reporting are the anonymous opt-outs.
 // A configured AnonymousUser (AuthLogic.anonymousUserName) still counts as "authenticated" for the gate.
 // Seams left as no-ops: OnUserPreLogin. (rememberMe → UserTicketServer, SessionLog → SessionLogLogic.)
 
@@ -72,7 +76,10 @@ export namespace AuthServer {
             console.warn("[auth] AUTH_TOKEN_KEY not set — using an insecure dev fallback. Set it in the environment.");
         }
         AuthTokenServer.start(key, config);
-        installMiddleware(ws);
+        // The per-request user scope. APP-level, and mounted first, because things OUTSIDE routing read
+        // it — altea-isolation resolves the tenant in its own `app.use`, altea-rest stamps the log row —
+        // so it cannot be one of core's route filters. See filters/userScope.
+        useUserScope(ws);
         // Secure-by-default gate: deny any route that is not allowAnonymous when no user is authenticated.
         setAuthorizeRequest(authorizeGate);
         startRoutes(ws);
@@ -100,43 +107,6 @@ export namespace AuthServer {
     function authorizeGate(meta: HttpMeta): void {
         if (!meta.allowAnonymous && UserHolder.current() == null)
             throw new AuthenticationException(LoginAuthMessage.NotUserLogged.niceToString());
-    }
-
-    function installMiddleware(ws: WebBuilder): void {
-        const middleware = (req: ReqLike, res: ResLike, next: NextLike): void => {
-            // Open a fresh per-request user scope; authenticate within it, then continue the pipeline
-            // INSIDE the scope so downstream handlers see UserHolder.current() (AsyncLocalStorage
-            // propagates across the awaited continuation).
-            UserHolder.withScope(() => {
-                authenticate(req, res).then(
-                    uwc => { if (uwc != null) UserHolder.setCurrent(uwc); next(); },
-                    next,
-                );
-            });
-        };
-        (ws.app.use as (h: unknown) => void)(middleware);
-    }
-
-    async function authenticate(req: ReqLike, res: ResLike): Promise<UserWithClaims | undefined> {
-        const reqLike = {
-            header: (n: string) => req.header(n) ?? undefined,
-            hasQuery: (n: string) => req.query[n] != null,
-            // Express gives a repeated parameter as an array and a single one as a string; normalise to
-            // an array so an authenticator can see "more than one" (see AuthRequestLike.query).
-            query: (n: string) => {
-                const v = req.query[n];
-                return v == null ? [] : Array.isArray(v) ? v.map(String) : [String(v)];
-            },
-        };
-        const resLike = { setHeader: (n: string, v: string) => { res.setHeader(n, v); } };
-        for (const authenticator of AuthTokenServer.authenticators) {
-            const result = await authenticator(reqLike, resLike);
-            if (result != null)
-                return result;
-        }
-        // Permissive fallback: a configured AnonymousUser, else undefined (request proceeds anonymous).
-        const anon = await AuthLogic.anonymousUser();
-        return anon != null ? new UserWithClaims(anon) : undefined;
     }
 
     export function startRoutes(ws: WebBuilder): void {

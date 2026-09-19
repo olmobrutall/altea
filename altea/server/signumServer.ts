@@ -3,7 +3,7 @@ import { EntitiesServer } from "./entitiesServer";
 import { QueryServer } from "./queryServer";
 import { OperationServer } from "./operationServer";
 import { ReflectionServer } from "./reflectionServer";
-import { useExceptionFilter } from "./exceptionFilter";
+import { useExceptionFilter } from "./filters/exceptionFilter";
 import { ExceptionLogic } from "./exceptionLogic";
 import { ClientErrorModel } from "../data/clientError";
 import { VisualTipServer } from "./visualTipServer";

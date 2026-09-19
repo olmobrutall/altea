@@ -9,9 +9,10 @@ import { CultureInfo } from '../data/utils/cultureInfo';
 //
 //   - the CATALOGUE is whatever has translations loaded (`GET /api/reflection/cultures`) — a culture
 //     nothing translated is not a culture worth offering;
-//   - the CHOICE lives in the BROWSER (localStorage), not in a per-user server row. The client applies it
-//     by booting with it — the metadata blob is the per-culture payload — and sends it on every request
-//     (`Accept-Language`, see client/Services) so the server resolves ITS labels in the same language.
+//   - the CHOICE lives in the BROWSER, not in a per-user server row: localStorage is what the client
+//     boots from, and the `language` COOKIE is the half the server can see (Signum writes that same
+//     cookie, but server-side from `setCurrentCulture`). Ordinary calls also carry `Accept-Language`
+//     (client/Services), which is the third step of the server's chain — see server/filters/cultureFilter.
 //   - the display name comes from `Intl.DisplayNames`, not a stored `nativeName` column.
 export namespace CultureClient {
 
@@ -19,7 +20,7 @@ export namespace CultureClient {
     // outlive the tab, unlike the auth token that SessionSharing hands between tabs.
     const storageKey = "altea.culture";
 
-    /** Shared with the server (webApi's CULTURE_COOKIE) and with Signum, which names it the same. */
+    /** Shared with the server (the culture filter's CULTURE_COOKIE) and with Signum, which names it the same. */
     const cultureCookie = "language";
 
     export interface CultureCatalogue {
@@ -76,7 +77,7 @@ export namespace CultureClient {
     }
 
     /**
-     * The cookie the SERVER reads to decide what language a request runs in (webApi's `requestCulture`,
+     * The cookie the SERVER reads to decide what language a request runs in (the culture filter's `requestCulture`,
      * Signum's `language` cookie — same name, same contract).
      *
      * localStorage is what the client boots from, but the server cannot see it, and the metadata fetch

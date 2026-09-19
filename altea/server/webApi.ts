@@ -16,14 +16,13 @@ import express, { type Express, type Request, type Response, type RequestHandler
 import { BaseEntity, type Entity } from "../data/entity";
 import type { Lite } from "../data/lite";
 import { RuntimeType, ClassType, ArrayType, LiteType, LiteralType } from "./runtimeTypes";
-import { Serializer, resolveSerializationAuthContext } from "../data/serializer";
+import { Serializer } from "../data/serializer";
 import type { IntegrityCheck } from "../data/validation";
-import { HeavyProfiler } from "./profiler/heavyProfiler";
-import { TimeTracker } from "./profiler/timeTracker";
-import { UserHolder } from "./userHolder";
-import { CultureInfo } from "../data/utils/cultureInfo";
-import { Metadata } from "../data/metadata";
 import { attachHubs, type WebSocketHub } from "./webSocketHub";
+import { composeFilters, type RequestFilter, type RequestFilterContext } from "./filters/requestFilter";
+import { authorizationFilter, serializationAuthFilter } from "./filters/authorizationFilter";
+import { cultureFilter } from "./filters/cultureFilter";
+import { heavyProfilerFilter, timeTrackerFilter } from "./filters/profilerFilter";
 
 // A class reference (abstract-tolerant, so `Entity`/`BaseEntity` bases are accepted).
 type Ctor<T> = abstract new (...args: any[]) => T;
@@ -114,15 +113,6 @@ export interface HttpMeta {
     resType?: RuntimeType;
 }
 
-// Pluggable per-request authorization gate (Signum's SignumAuthenticationFilter). An auth module
-// installs it via setAuthorizeRequest; the route wrapper calls it AFTER routing (so meta.allowAnonymous
-// is known) and INSIDE the request's async/user-context scope (so it can read the current user). It
-// throws to reject — the terminal exception filter maps AuthenticationException/UnauthorizedAccessException
-// to HTTP 403. Undefined (no auth module installed) → no enforcement: the framework runs open, as before.
-export type AuthorizeRequest = (meta: HttpMeta) => void;
-let _authorizeRequest: AuthorizeRequest | undefined;
-export function setAuthorizeRequest(fn: AuthorizeRequest | undefined): void { _authorizeRequest = fn; }
-
 // Pluggable request-body deserializer (Signum's model binder / JsonConverter). The default is the pure,
 // isomorphic Serializer.parse. A server module can REPLACE it — e.g. property authorization installs a
 // deserializer that resolves an existing entity's DB original and overlays the incoming changes onto it,
@@ -136,81 +126,42 @@ export function setRequestDeserializer(fn: RequestDeserializer): void { _request
 const rawBody = express.text({ type: "*/*", limit: "16mb" });
 
 /**
- * The logged-in user's own culture preference, when an auth module is installed to answer. Core has no
- * notion of a user, so this is a seam — Signum reads `UserHolder.CurrentUserCulture` directly, which it
- * can because its framework assembly knows about users.
- */
-let _userCulture: (() => string | undefined) | undefined;
-export function setUserCultureProvider(fn: (() => string | undefined) | undefined): void { _userCulture = fn; }
-
-/** The name of the culture cookie. Signum's is `language`, and this is the same wire contract. */
-export const CULTURE_COOKIE = "language";
-
-/** One cookie out of the `Cookie` header, without pulling in cookie-parser for a single name. */
-function readCookie(req: Request, name: string): string | undefined {
-    const header = req.headers?.["cookie"];
-    const raw = Array.isArray(header) ? header[0] : header;
-    if (raw == null)
-        return undefined;
-    for (const part of raw.split(";")) {
-        const eq = part.indexOf("=");
-        if (eq >= 0 && part.slice(0, eq).trim() === name)
-            return decodeURIComponent(part.slice(eq + 1).trim());
-    }
-    return undefined;
-}
-
-/** A culture, if translations are actually loaded for it — else its neutral parent (`es-ES` → `es`). */
-function usable(tag: string | undefined): string | undefined {
-    if (tag == null || tag === "")
-        return undefined;
-    const loaded = Metadata.cultures();
-    if (loaded.includes(tag))
-        return tag;
-    // Signum's GetCultureFromAcceptedLanguage walks to the neutral part and then prefix-matches, so
-    // `es-ES` finds a loaded `es` rather than falling all the way back to English.
-    const neutral = tag.split("-")[0]!;
-    return loaded.includes(neutral) ? neutral : loaded.find(c => c.startsWith(neutral));
-}
-
-/**
- * The culture a request runs in — Signum's `CultureServer.GetCurrentCulture`, same order:
+ * The filters every WebBuilder starts with, outermost first — the pipeline that used to be inlined in
+ * `route`. The order is Signum's: the authorization gate is outside the culture scope (so the culture
+ * chain can read the current user), and the profiler scope is outside everything it should measure.
  *
- *   1. the `language` COOKIE — what the picker just set, a temporary override that beats the stored
- *      preference precisely so switching language does not rewrite the user's profile;
- *   2. the logged-in USER's own culture;
- *   3. the browser's preferred languages (`Accept-Language`, a weighted list — each tag in order, then
- *      its neutral parent);
- *   4. the process default, which is the untranslated source language.
- *
- * Every candidate is filtered through {@link usable}: a culture nothing is translated into is not a
- * culture this application can render, so it is skipped rather than serving a half-English page.
+ * The USER scope is deliberately NOT here, and could not be. Core has no notion of a user, and an auth
+ * module cannot express it as a filter either: middleware OUTSIDE routing reads the current user
+ * (altea-isolation resolves the tenant in its own `app.use`, altea-rest stamps its log row), so
+ * establishing it has to happen before any of them. altea-auth mounts it as app-level middleware — see
+ * its `filters/userScope` — and fills the authorization seam that runs in here.
  */
-export function requestCulture(req: Request): string {
-    const fromCookie = usable(readCookie(req, CULTURE_COOKIE));
-    if (fromCookie != undefined)
-        return fromCookie;
-
-    const fromUser = usable(_userCulture?.());
-    if (fromUser != undefined)
-        return fromUser;
-
-    // `headers` is optional-chained: a hand-built request object (the route unit tests invoke handlers
-    // directly, without Express) has none, and a missing header is exactly the default-culture case.
-    const header = req.headers?.["accept-language"];
-    const raw = Array.isArray(header) ? header[0] : header;
-    for (const entry of raw?.split(",") ?? []) {
-        // Drop the quality factor; the header is already in preference order.
-        const fromHeader = usable(entry.split(";")[0]!.trim());
-        if (fromHeader != undefined)
-            return fromHeader;
-    }
-
-    return CultureInfo.currentUICulture();
-}
+export const defaultFilters: readonly RequestFilter[] = [
+    heavyProfilerFilter,
+    timeTrackerFilter,
+    authorizationFilter,
+    serializationAuthFilter,
+    cultureFilter,
+];
 
 export class WebBuilder {
     constructor(public readonly app: Express) { }
+
+    // The per-request filter chain, outermost first. Seeded with `defaultFilters` so an app that wires
+    // nothing behaves exactly as before; `use` appends, and assigning replaces the whole chain for a host
+    // that wants a different one.
+    filters: RequestFilter[] = [...defaultFilters];
+
+    /**
+     * Add a filter around every route registered AFTER this call — Signum's `options.Filters.Add`.
+     *
+     * Appended, so it runs INSIDE the ones already there. An auth module adds its user scope here; it
+     * lands inside the profiler (so opening the scope is measured) and outside culture and the gate,
+     * which both need the user.
+     */
+    use(filter: RequestFilter): void {
+        this.filters.push(filter);
+    }
 
     // WebSocket hubs, keyed by path (Signum's `WebApplication.MapHub<T>("/api/xxxHub")`). Registered by a
     // module's `Logic.start`, then bound to the http.Server by `attachWebSockets` — the host calls that
@@ -240,18 +191,21 @@ export class WebBuilder {
         const reqRef = def.req != null ? resolveRef(def.req) : undefined;
         const resRef = def.res != null ? resolveRef(def.res) : undefined;
 
+        // The chain is FIXED once the route is registered, so fold it here rather than per request.
+        const runPipeline = composeFilters(this.filters, async ctx => {
+            await (handler as (r: Request, s: Response) => unknown)(ctx.req, ctx.res);
+        });
+
         const wrapped: RequestHandler & { httpMeta?: HttpMeta } = (req, res, next) => {
-            // The IMMUTABLE serialization-auth snapshot for THIS request, resolved once (below) before the
-            // handler and read synchronously by both the request write-gate and the response codec — a
-            // captured snapshot, so a concurrent rule invalidation can't affect this request's serialization.
-            let authCtx: unknown;
+            const ctx: RequestFilterContext = { req, res, meta: wrapped.httpMeta! };
             // (de)serialization is delegated to altea's Serializer ("altea/json") — reqRef/resRef are
-            // only for the OpenAPI schema below.
+            // only for the OpenAPI schema below. Both read the auth snapshot off the CONTEXT, which the
+            // serializationAuthFilter fills before the handler runs.
             (req as any).jsonTyped = () => {
                 const body = (req as { body?: string }).body;
-                return body ? Promise.resolve(_requestDeserializer(body, authCtx)) : Promise.resolve(undefined);
+                return body ? Promise.resolve(_requestDeserializer(body, ctx.authContext)) : Promise.resolve(undefined);
             };
-            (res as any).jsonTyped = (obj: unknown) => res.type("application/json").send(Serializer.stringify(obj, { authContext: authCtx }));
+            (res as any).jsonTyped = (obj: unknown) => res.type("application/json").send(Serializer.stringify(obj, { authContext: ctx.authContext }));
             // Flat ModelState body (field → message), NO `exceptionType` — the exact shape the client's
             // ThrowErrorFilter turns into a ValidationError. Same shape the exceptionFilter emits for a
             // Saver IntegrityCheckException, so every validation failure reaches the client identically.
@@ -273,18 +227,11 @@ export class WebBuilder {
             // BOTH cultures are scoped (withCultures), not just the UI one: server-side formatting should
             // follow the caller as well, and a per-culture cache that keys on `currentCulture()` would
             // otherwise key on a constant and serve whichever language warmed it first to everyone.
-            const culture = requestCulture(req);
-            void HeavyProfiler.runScope(async () => CultureInfo.withCultures(culture, async () => {
-                using _prof = HeavyProfiler.log("Web.API " + verb.toUpperCase(), () => req.originalUrl);
-                using _time = TimeTracker.start(verb.toUpperCase() + " " + path, req.originalUrl, () => UserHolder.currentUserLite()?.toString());
-                try {
-                    if (_authorizeRequest != null) _authorizeRequest(wrapped.httpMeta!);
-                    authCtx = await resolveSerializationAuthContext();
-                    await (handler as (r: Request, s: Response) => unknown)(req, res);
-                } catch (e) {
-                    next(e);
-                }
-            }));
+            // The error funnel is INTRINSIC, not a filter: everything past here is async, so without a
+            // catch at the boundary a rejection becomes an unhandled promise rejection instead of a
+            // response. What to DO with the error is the pluggable part — `useExceptionFilter` (Signum's
+            // SignumExceptionFilterAttribute) is the Express error handler `next` hands it to.
+            void runPipeline(ctx).catch(next);
         };
         wrapped.httpMeta = { verb, path, allowAnonymous: (def as RouteDef).allowAnonymous, paramsType: paramsRef?.runtimeType, reqType: reqRef?.runtimeType, resType: resRef?.runtimeType };
 

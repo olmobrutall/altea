@@ -1,7 +1,7 @@
 import { test, describe, beforeAll, afterEach } from "vitest";
 import assert from "node:assert/strict";
 import type { Request } from "express";
-import { requestCulture, setUserCultureProvider, CULTURE_COOKIE } from "@altea/altea/server/webApi";
+import { requestCulture, setUserCultureProvider, CULTURE_COOKIE } from "@altea/altea/server/filters/cultureFilter";
 import { loadSignumTranslations } from "@altea/altea/server/translations";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 

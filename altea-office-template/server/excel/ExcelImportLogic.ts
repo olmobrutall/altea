@@ -11,7 +11,7 @@ import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { parseQueryRequest } from "@altea/altea/server/queryServer";
 import type { QueryRequest as WireQueryRequest } from "@altea/altea/data/dynamicQuery/queryRequest";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { logAndBuildHttpError, type HttpError } from "@altea/altea/server/exceptionFilter";
+import { logAndBuildHttpError, type HttpError } from "@altea/altea/server/filters/exceptionFilter";
 import { ExcelPermission, type ImportExcelModel } from "../../data/Excel";
 import { ExcelImporter } from "./ExcelImporter";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";

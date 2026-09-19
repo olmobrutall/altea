@@ -4,7 +4,7 @@ import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
 import { Lite } from "@altea/altea/data/lite";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { applyMixins } from "@altea/altea/server/exceptionFilter";
+import { applyMixins } from "@altea/altea/server/filters/exceptionFilter";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { MapColorProvider } from "@altea/altea-map/server/MapColorProvider";
 import type { IFilePath } from "@altea/altea-files/server/FileTypeAlgorithm";
