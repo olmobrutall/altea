@@ -1,29 +1,33 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
+  <Type Name="DeleteLogsTaskEntity" Description="Protokolle löschen Task" PluralDescription="Protokolle löschen Tasks" Gender="f">
+    <Member Name="Parameters" Description="Parameter" />
+  </Type>
+  <Type Name="DeleteLogsTaskOperation">
+    <Member Name="Save" Description="Speichern" />
+  </Type>
   <Type Name="HolidayCalendarEntity" Description="Ferienkalender" Gender="m">
     <Member Name="CountryCode" Description="Landescode" />
     <Member Name="FromYear" Description="Ab Jahr" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="Holidays" Description="Ferien" />
     <Member Name="IsDefault" Description="Ist Standard" />
     <Member Name="Name" Description="Name" />
     <Member Name="SubDivisionCode" Description="Code der Unterteilung" />
     <Member Name="ToYear" Description="Bis Jahr" />
   </Type>
+  <Type Name="HolidayCalendarEntity_Holiday" Description="">
+    <Member Name="Calendar" Description="Kalender" />
+    <Member Name="Date" Description="Datum" />
+    <Member Name="Name" Description="Name" />
+  </Type>
   <Type Name="HolidayCalendarMessage">
     <Member Name="ForImport01and2ShouldBeSet" Description="Für den Import sollten {0}, {1} und {2} eingestellt werden." />
+    <Member Name="SomeDatesHaveBeenRepeated" Description="" />
   </Type>
   <Type Name="HolidayCalendarOperation">
     <Member Name="Delete" Description="Löschen" />
     <Member Name="ImportPublicHolidays" Description="Feiertage importieren" />
     <Member Name="Save" Description="Speichern" />
-  </Type>
-  <Type Name="HolidayEmbedded" Description="Feiertag">
-    <Member Name="Date" Description="Datum" />
-    <Member Name="Name" Description="Name" />
-  </Type>
-  <Type Name="IScheduleRuleEntity">
-    <Member Name="StartingOn" Description="Beginnend am" />
   </Type>
   <Type Name="ITaskMessage">
     <Member Name="ExceptionLines" Description="Ausnahmezeilen" />
@@ -44,7 +48,6 @@
   </Type>
   <Type Name="ScheduledTaskLogEntity" Description="Geplantes Task-Protokoll" PluralDescription="Geplante Task-Protokolle" Gender="n">
     <Member Name="ApplicationName" Description="Anwendungsname" />
-    <Member Name="Duration" Description="Dauer" />
     <Member Name="EndTime" Description="Endzeit" />
     <Member Name="Exception" Description="Ausnahme" />
     <Member Name="MachineName" Description="Computername" />
@@ -63,6 +66,7 @@
     <Member Name="AvailableTasks" Description="Verfügbare Aufgaben" />
     <Member Name="Cancel" Description="Abbrechen" />
     <Member Name="Dates" Description="Daten" />
+    <Member Name="Duration" Description="Dauer" />
     <Member Name="InitialDelayMilliseconds" Description="Anfangsverzögerung in Millisekunden" />
     <Member Name="InMemoryQueue" Description="Speicher Warteschlange" />
     <Member Name="MachineName" Description="Maschinenname" />
@@ -85,6 +89,7 @@
     <Member Name="State" Description="Zustand" />
     <Member Name="Stop" Description="Stopp" />
     <Member Name="Stopped" Description="ANGEHALTEN" />
+    <Member Name="Suspended" Description="Ausgesetzt" />
     <Member Name="ThereAreNoTasksRunning" Description="Es werden keine Aufgaben ausgeführt" />
     <Member Name="ThereIsNoActiveScheduledTask" Description="Es gibt keine aktive geplante Aufgabe" />
   </Type>
@@ -96,6 +101,7 @@
     <Member Name="Day0At1In2" Description="Tag {0} auf {1} in {2}" />
     <Member Name="Each0Minutes" Description="Alle {0} Minuten" />
     <Member Name="Holiday" Description="Feiertag" />
+    <Member Name="January" Description="Januar" />
     <Member Name="ScheduleRuleWeekDaysDN_AndHoliday" Description="und an Feiertagen" />
     <Member Name="ScheduleRuleWeekDaysDN_At" Description="an" />
     <Member Name="ScheduleRuleWeekDaysDN_ButHoliday" Description="aber Feiertage" />
@@ -119,8 +125,6 @@
   </Type>
   <Type Name="ScheduleRuleMinutelyEntity" Description="Schedule-Regel minütlich">
     <Member Name="EachMinutes" Description="Alle Minuten" />
-    <Member Name="Guid" Description="Guid" />
-    <Member Name="IsAligned" Description="Ist ausgerichtet" />
     <Member Name="StartingOn" Description="Beginnend am" />
   </Type>
   <Type Name="ScheduleRuleMonthsEntity" Description="Schedule-Regel monatlich">
@@ -128,7 +132,6 @@
     <Member Name="August" Description="August" />
     <Member Name="December" Description="Dezember" />
     <Member Name="February" Description="Februar" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="January" Description="Januar" />
     <Member Name="July" Description="Juli" />
     <Member Name="June" Description="Juni" />
@@ -142,7 +145,6 @@
   <Type Name="ScheduleRuleWeekDaysEntity" Description="Schedule-Regel Wochentage" PluralDescription="Schedule-Regeln Wochentage">
     <Member Name="Calendar" Description="Kalender" />
     <Member Name="Friday" Description="Freitag" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="Holiday" Description="Feiertag" />
     <Member Name="Monday" Description="Montag" />
     <Member Name="Saturday" Description="Samstag" />

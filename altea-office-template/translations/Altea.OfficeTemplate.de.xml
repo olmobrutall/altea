@@ -1,14 +1,8 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="CollectionElementEmbedded" Description="Collection-Element">
     <Member Name="CollectionElement" Description="Collection-Element" />
     <Member Name="MatchByColumn" Description="Übereinstimmung nach Spalte" />
-  </Type>
-  <Type Name="ExcelAttachmentEntity" Description="Excel-Anlage">
-    <Member Name="FileName" Description="Dateiname" />
-    <Member Name="Related" Description="In Beziehung mit" />
-    <Member Name="Title" Description="Titel" />
-    <Member Name="UserQuery" Description="Benutzer-Abfrage" />
   </Type>
   <Type Name="ExcelMessage">
     <Member Name="Administer" Description="Verwalten" />
@@ -19,8 +13,6 @@
     <Member Name="ExcelReport" Description="Excel Bericht" />
     <Member Name="ExcelTemplateMustHaveExtensionXLSXandCurrentOneHas0" Description="Die Excel Vorlage muss eine xlsx-Erweiterung haben, und die Aktuelle hat eine {0}-Erweiterung" />
     <Member Name="ExportToExcel" Description="Nach Excel exportieren" />
-    <Member Name="FindLocationFoExcelReport" Description="Speicherort für Excel Bericht finden" />
-    <Member Name="Reports" Description="Berichte" />
     <Member Name="TheExcelTemplateHasAColumn0NotPresentInTheFindWindow" Description="Die Excel Vorlage hat eine Spalte {0}, die nicht in der Suche vorhanden ist" />
     <Member Name="ThereAreNoResultsToWrite" Description="Es gibt keine Ergebnisse für den Bericht zu exportieren" />
     <Member Name="WhatDoYouWantToExport" Description="Was möchten Sie exportieren?" />
@@ -64,67 +56,69 @@
     <Member Name="ColumnsDoNotMatchExcelColumns0QueryColumns1" Description="Die Spalten stimmen nicht überein. Excel-Spalten: {0} Abfragespalten: {1}" />
     <Member Name="DownloadTemplate" Description="Excel-Vorlage für diese Abfrage herunterladen" />
     <Member Name="DuplicatedNonConsecutive0Found1" Description="Duplikate nicht aufeinanderfolgender {0} gefunden: {1}" />
-    <Member Name="_0Inserted1Updated2Unchanged" Description="{0} eingefügt, {1} aktualisiert, {2} unverändert" />
     <Member Name="ErrorsIn0Rows_N" Description="Fehler in {0} Zeile(n)" />
-    <Member Name="ImportSummary" Description="Import-Zusammenfassung" />
-    <Member Name="NothingWasSavedTheWholeImportRunsInOneTransaction" Description="Es wurde nichts gespeichert: Der gesamte Import läuft in einer Transaktion und einige Zeilen sind fehlgeschlagen. Korrigieren Sie die unten aufgeführten Zeilen und importieren Sie erneut, oder deaktivieren Sie 'Transaktionale', um die funktionierenden Zeilen zu behalten." />
     <Member Name="Import0FromExcel" Description="{0} aus Excel Importieren" />
     <Member Name="ImportFromExcel" Description="Aus Excel importieren" />
     <Member Name="Importing0" Description="Importieren {0}" />
     <Member Name="ManyFiltersTryToAssignTheSameProperty0WithDifferentValues1" Description="Viele Filter versuchen, die gleiche Eigenschaft {0} mit unterschiedlichen Werten {1} zuzuweisen" />
-    <Member Name="MoreThanOne0FoundInThisQueryWith1EqualsTo2" Description="Mehr als eine {0} gefunden in dieser Abfrage mit {1} gleich {2}. Die Abgleichsspalte muss eine Zeile eindeutig bestimmen; wählen Sie eine Spalte mit eindeutigen Werten, z. B. Id" />
     <Member Name="No0FoundInThisQueryWith1EqualsTo2" Description="Keine {0} gefunden in dieser Abfrage mit {1} gleich {2}" />
     <Member Name="Operation0IsNotSupported" Description="Operation {0} wird nicht unterstützt" />
     <Member Name="SomeColumnsAreIncompatibleWithImportingFromExcel" Description="Einige Spalten sind für den Import aus Excel nicht kompatibel:" />
     <Member Name="ThisQueryHasMultipleImplementations0" Description="Diese Abfrage hat mehrere Implementierungen {0}" />
     <Member Name="UnableToAssignMoreThanOneUnrelatedCollections0" Description="Es kann nicht mehr als eine unverbundene Sammlung zugewiesen werden: {0}" />
   </Type>
-
-  <Type Name="WordAttachmentEntity" Description="Word-Anhang" PluralDescription="Word-Anhänge" Gender="m">
+  <Type Name="OfficeAttachmentEntity" Description="">
     <Member Name="FileName" Description="Dateiname" />
     <Member Name="ModelConverter" Description="Modell-Konverter" />
-    <Member Name="OverrideModel" Description="Modell überschreiben" />
-    <Member Name="WordTemplate" Description="Word-Vorlage" />
+    <Member Name="OfficeTemplate" Description="" />
+    <Member Name="OverrideModel" Description="" />
   </Type>
-  <Type Name="WordConverterSymbol" Description="Word-Konverter" Gender="m" />
-  <Type Name="WordModelEntity" Description="Word-Modell" PluralDescription="Word-Modelle" Gender="n">
-    <Member Name="ClassName" Description="Class Name" />
+  <Type Name="OfficeConverterSymbol" Description="" />
+  <Type Name="OfficeModelEntity" Description="">
+    <Member Name="ClassName" Description="" />
   </Type>
-  <Type Name="WordTemplateEntity" Description="Word-Vorlage">
+  <Type Name="OfficeTemplateEntity" Description="">
     <Member Name="Applicable" Description="Anwendbar" />
-    <Member Name="Culture" Description="Kultur" />
+    <Member Name="Culture" Description="" />
     <Member Name="DisableAuthorization" Description="Autorisierung deaktivieren" />
-    <Member Name="DisableValidation" Description="Validierung deaktivieren" />
     <Member Name="FileName" Description="Dateiname" />
     <Member Name="Filters" Description="Filter" />
-    <Member Name="GroupResults" Description="Ergebnisse gruppieren" />
-    <Member Name="Guid" Description="Guid" />
-    <Member Name="Model" Description="modell" />
+    <Member Name="GroupResults" Description="" />
+    <Member Name="Model" Description="Modell" />
     <Member Name="Name" Description="Name" />
+    <Member Name="OfficeConverter" Description="" />
+    <Member Name="OfficeTransformer" Description="" />
     <Member Name="Orders" Description="Reihenfolge" />
     <Member Name="Query" Description="Abfrage" />
     <Member Name="Template" Description="Vorlage" />
-    <Member Name="WordConverter" Description="Word-Konverter" />
-    <Member Name="WordTransformer" Description="Word-Transformator" />
   </Type>
-  <Type Name="WordTemplateMessage">
-    <Member Name="_01RequiresExtraParameters" Description="{0} {1} erfordert zusätzliche Parameter" />
-    <Member Name="ChooseAReportTemplate" Description="Wählen Sie eine Berichtsvorlage" />
-    <Member Name="ModelShouldBeSetToUseModel0" Description="Modell sollte angegeben werden, um Modell {0} zu benutzen" />
-    <Member Name="NoDefaultTemplateDefined" Description="Keine Standard-Vorlage definiert" />
-    <Member Name="SelectTheSourceOfDataForYourTableOrChart" Description="Wählen Sie die Quelle der Daten für Ihre Tabelle oder Diagramm" />
-    <Member Name="Type0DoesNotHaveAPropertyWithName1" Description="Typ {0} verfügt nicht über eine Eigenschaft mit dem Namen {1}" />
-    <Member Name="WordReport" Description="Word-Bericht" />
-    <Member Name="WriteThisKeyAsTileInTheAlternativeTextOfYourTableOrChart" Description="Schreiben Sie diesen Schlüssel als Titel in den &quot;Alternativen Text&quot; Ihre Tabelle oder Diagramm" />
+  <Type Name="OfficeTemplateEntity_Filter" Description="">
+    <Member Name="OfficeTemplate" Description="" />
   </Type>
-  <Type Name="WordTemplateOperation">
-    <Member Name="CreateWordReport" Description="Word-Bericht erstellen" />
-    <Member Name="CreateWordTemplateFromWordModel" Description="Wortvorlage aus Wort-Modell erstellen" />
+  <Type Name="OfficeTemplateEntity_Order" Description="">
+    <Member Name="OfficeTemplate" Description="" />
+    <Member Name="OrderType" Description="" />
+    <Member Name="Token" Description="Token" />
+  </Type>
+  <Type Name="OfficeTemplateMessage">
+    <Member Name="_01RequiresExtraParameters" Description="" />
+    <Member Name="ChooseAReportTemplate" Description="" />
+    <Member Name="ModelShouldBeSetToUseModel0" Description="" />
+    <Member Name="NoDefaultTemplateDefined" Description="" />
+    <Member Name="OfficeReport" Description="" />
+    <Member Name="SelectTheSourceOfDataForYourTableOrChart" Description="" />
+    <Member Name="TheFileNameContainsInvalidCharacters" Description="" />
+    <Member Name="Type0DoesNotHaveAPropertyWithName1" Description="" />
+    <Member Name="WriteThisKeyAsTileInTheAlternativeTextOfYourTableOrChart" Description="" />
+  </Type>
+  <Type Name="OfficeTemplateOperation">
+    <Member Name="CreateOfficeReport" Description="" />
+    <Member Name="CreateOfficeTemplateFromOfficeModel" Description="" />
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="WordTemplatePermission">
-    <Member Name="GenerateReport" Description="Bericht generieren" />
+  <Type Name="OfficeTemplatePermission">
+    <Member Name="GenerateReport" Description="" />
   </Type>
-  <Type Name="WordTransformerSymbol" Description="Word-Transformator" PluralDescription="Word-Transformatoren" />
+  <Type Name="OfficeTransformerSymbol" Description="" />
 </Translations>

@@ -1,5 +1,11 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
+  <Type Name="InsertPlace" Description="">
+    <Member Name="After" Description="nach" />
+    <Member Name="Before" Description="Vor" />
+    <Member Name="FirstNode" Description="" />
+    <Member Name="LastNode" Description="" />
+  </Type>
   <Type Name="MoveTreeModel" Description="Bewege Baum">
     <Member Name="InsertPlace" Description="Platz einfügen" />
     <Member Name="NewParent" Description="Neuer parent" />
@@ -13,7 +19,6 @@
     <Member Name="ParentOrSibling" Description="Elternteil oder Geschwister" />
     <Member Name="ParentRoute" Description="Eltern-route" />
     <Member Name="Route" Description="Route" />
-    <Member Name="RouteToString" Description="Route zum string" />
   </Type>
   <Type Name="TreeMessage">
     <Member Name="Ascendants" Description="Verwandte in aufsteigender Linie" />
@@ -24,9 +29,11 @@
     <Member Name="ImpossibleToMove0InsideOf1" Description="Unmöglich, {0} innerhalb {1} zu bewegen" />
     <Member Name="Level" Description="Level" />
     <Member Name="LevelShouldNotBeGreaterThan0" Description="Niveau sollte nicht größer als {0} sein." />
+    <Member Name="ListView" Description="Listenansicht" />
     <Member Name="Move0" Description="Verschiebe {0}" />
     <Member Name="Parent" Description="Übergeordnete" />
     <Member Name="Tree" Description="Baum" />
+    <Member Name="TreeInfo" Description="" />
     <Member Name="TreeType" Description="Baum-Typ" />
   </Type>
   <Type Name="TreeOperation">
@@ -42,12 +49,15 @@
     <Member Name="AddChild" Description="Kind hinzufügen" />
     <Member Name="AddRoot" Description="Stammverzeichnis hinzufügen" />
     <Member Name="AddSibling" Description="Geschwister hinzufügen" />
+    <Member Name="Collapse" Description="Einklappen" />
+    <Member Name="CollapseAll" Description="" />
+    <Member Name="Expand" Description="Ausklappen" />
+    <Member Name="ExpandAll" Description="" />
     <Member Name="None" Description="Keine" />
     <Member Name="Remove" Description="Entfernen" />
     <Member Name="Search" Description="Suche" />
   </Type>
   <Type Name="UserTreePartEntity" Description="Benutzerbaumteil" PluralDescription="Benutzerbaumteile" Gender="m">
-    <Member Name="RequiresTitle" Description="Titel erforderlich" />
     <Member Name="UserQuery" Description="Benutzer-Abfrage" />
   </Type>
 </Translations>

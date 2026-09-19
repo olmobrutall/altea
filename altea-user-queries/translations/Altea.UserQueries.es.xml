@@ -1,15 +1,48 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
+  <Type Name="AutoUpdate" Description="">
+    <Member Name="Dashboard" Description="" />
+    <Member Name="InteractionGroup" Description="" />
+    <Member Name="None" Description="" />
+  </Type>
+  <Type Name="BigValuePartEntity" Description="">
+    <Member Name="CustomBigValue" Description="" />
+    <Member Name="CustomUrl" Description="" />
+    <Member Name="IsClickable" Description="" />
+    <Member Name="Navigate" Description="Navegar" />
+    <Member Name="UserQuery" Description="Consulta de usuario" />
+    <Member Name="ValueToken" Description="" />
+  </Type>
+  <Type Name="HealthCheckConditionEmbedded" Description="">
+    <Member Name="Operation" Description="Operación" />
+    <Member Name="Value" Description="" />
+  </Type>
+  <Type Name="HealthCheckEmbedded" Description="">
+    <Member Name="DegradedWhen" Description="" />
+    <Member Name="FailWhen" Description="" />
+  </Type>
+  <Type Name="SystemTimeEmbedded" Description="">
+    <Member Name="EndDate" Description="" />
+    <Member Name="JoinMode" Description="" />
+    <Member Name="Mode" Description="" />
+    <Member Name="SplitQueries" Description="" />
+    <Member Name="StartDate" Description="Fecha de inicio" />
+    <Member Name="TimeSeriesMaxRowsPerStep" Description="" />
+    <Member Name="TimeSeriesStep" Description="" />
+    <Member Name="TimeSeriesUnit" Description="" />
+  </Type>
   <Type Name="UserQueryEntity" Description="Consulta de Usuario">
     <Member Name="AppendFilters" Description="Agregar filtros" />
     <Member Name="Columns" Description="Columnas" />
     <Member Name="ColumnsMode" Description="Modo columnas" />
+    <Member Name="CreateTitle" Description="" />
+    <Member Name="CustomDrilldowns" Description="" />
     <Member Name="DisplayName" Description="Nombre" />
     <Member Name="ElementsPerPage" Description="Elementos por página" />
     <Member Name="EntityType" Description="Tipo de entidad" />
     <Member Name="Filters" Description="Filtros" />
     <Member Name="GroupResults" Description="Agrupar resultados" />
-    <Member Name="Guid" Description="Guid" />
+    <Member Name="HealthCheck" Description="" />
     <Member Name="HideQuickLink" Description="Ocultar quick link" />
     <Member Name="IncludeDefaultFilters" Description="Incluir filtros predeterminados" />
     <Member Name="Orders" Description="Ordenes" />
@@ -17,42 +50,72 @@
     <Member Name="PaginationMode" Description="Modo de paginación" />
     <Member Name="Query" Description="Consulta" />
     <Member Name="RefreshMode" Description="Modo de refresco" />
+    <Member Name="ShowTitleAsBreadcrumb" Description="" />
+    <Member Name="SystemTime" Description="" />
+  </Type>
+  <Type Name="UserQueryEntity_Column" Description="">
+    <Member Name="CombineRows" Description="" />
+    <Member Name="DisplayName" Description="" />
+    <Member Name="HiddenColumn" Description="Columna oculta" />
+    <Member Name="SummaryToken" Description="" />
+    <Member Name="Token" Description="Token" />
+    <Member Name="UserQuery" Description="Consulta de usuario" />
+  </Type>
+  <Type Name="UserQueryEntity_CustomDrilldown" Description="">
+    <Member Name="Drilldown" Description="" />
+    <Member Name="UserQuery" Description="Consulta de usuario" />
+  </Type>
+  <Type Name="UserQueryEntity_Filter" Description="">
+    <Member Name="UserQuery" Description="Consulta de usuario" />
+  </Type>
+  <Type Name="UserQueryEntity_Order" Description="">
+    <Member Name="OrderType" Description="" />
+    <Member Name="Token" Description="Token" />
+    <Member Name="UserQuery" Description="Consulta de usuario" />
   </Type>
   <Type Name="UserQueryMessage">
+    <Member Name="_0CountOf1Is2Than3" Description="" />
     <Member Name="ApplyChanges" Description="Aplicar cambios" />
     <Member Name="BackToDefault" Description="Restablecer por defecto" />
     <Member Name="CreateNew" Description="Crear" />
+    <Member Name="Date" Description="" />
     <Member Name="Edit" Description="Editar" />
+    <Member Name="ElementsPerPageMustBeGreaterThanZero" Description="" />
+    <Member Name="MakesThe0AvailableAsAQuickLinkOf1" Description="" />
+    <Member Name="MakesThe0AvailableForCustomDrilldownsAndInContextualMenuWhenGrouping0" Description="" />
+    <Member Name="Pagination" Description="Paginación" />
     <Member Name="Preview" Description="Vista previa" />
     <Member Name="TheSelected0" Description="la entidad {0} seleccionada " />
     <Member Name="Use0ToFilterCurrentEntity" Description="Utilice {0} para filtrar la entidad actual" />
   </Type>
   <Type Name="UserQueryOperation">
+    <Member Name="Clone" Description="" />
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
   <Type Name="UserQueryPartEntity" Description="Parte consulta de usuario">
+    <Member Name="AllowMaxHeight" Description="" />
     <Member Name="AllowSelection" Description="Permitir selección" />
+    <Member Name="AutoUpdate" Description="" />
     <Member Name="CreateNew" Description="Crear nuevo" />
-    <Member Name="RenderMode" Description="Modo de renderizado" />
-    <Member Name="RequiresTitle" Description="Requiere título" />
+    <Member Name="IsQueryCached" Description="" />
     <Member Name="ShowFooter" Description="Mostrar pie de página" />
     <Member Name="UserQuery" Description="Consulta de usuario" />
   </Type>
-  <Type Name="UserQueryPartRenderMode" Description="Modo de renderizado de parte de consulta de usuario">
-    <Member Name="BigValue" Description="Gran valor" />
-    <Member Name="SearchControl" Description="Control de búsqueda" />
+  <Type Name="UserQueryPartMessage">
+    <Member Name="UserQueries" Description="Consultas de usuario" />
   </Type>
   <Type Name="UserQueryPermission">
     <Member Name="ViewUserQuery" Description="Ver consultas de usuario" />
   </Type>
-  <Type Name="ValueUserQueryElementEmbedded" Description="Valor de elemento de consulta de usuario">
-    <Member Name="Href" Description="Href" />
+  <Type Name="ValueUserQueryListPartEntity" Description="Parte de valor de lista de consulta de usuario" Gender="f">
+    <Member Name="UserQueries" Description="Consultas de usuario" />
+  </Type>
+  <Type Name="ValueUserQueryListPartEntity_UserQuery" Description="">
+    <Member Name="Href" Description="" />
+    <Member Name="IsQueryCached" Description="" />
     <Member Name="Label" Description="Etiqueta" />
     <Member Name="UserQuery" Description="Consulta de usuario" />
-  </Type>
-  <Type Name="ValueUserQueryListPartEntity" Description="Parte de valor de lista de consulta de usuario" Gender="f">
-    <Member Name="RequiresTitle" Description="Requiere título" />
-    <Member Name="UserQueries" Description="Consultas de usuario" />
+    <Member Name="ValueUserQueryListPart" Description="" />
   </Type>
 </Translations>

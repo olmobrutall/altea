@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<Translations>
+  <Type Name="OpenIDConfigurationEmbedded" Description="">
+    <Member Name="Authority" Description="" />
+    <Member Name="AvoidSSLVerify" Description="" />
+    <Member Name="ClientId" Description="" />
+    <Member Name="ClientSecret" Description="" />
+    <Member Name="Enabled" Description="" />
+    <Member Name="RoleClaimPath" Description="" />
+    <Member Name="RoleMapping" Description="Asignación de roles" />
+    <Member Name="Scopes" Description="" />
+  </Type>
+  <Type Name="OpenIDMessage">
+    <Member Name="SignInWithOpenID" Description="" />
+  </Type>
+  <Type Name="OpenIDRoleMappingEntity" Description="">
+    <Member Name="Configuration" Description="" />
+  </Type>
+</Translations>

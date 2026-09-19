@@ -1,7 +1,19 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
+  <Type Name="ExchangeVersion" Description="">
+    <Member Name="Exchange2007_SP1" Description="" />
+    <Member Name="Exchange2010" Description="" />
+    <Member Name="Exchange2010_SP1" Description="" />
+    <Member Name="Exchange2010_SP2" Description="" />
+    <Member Name="Exchange2013" Description="" />
+    <Member Name="Exchange2013_SP1" Description="" />
+    <Member Name="Exchange2015" Description="" />
+    <Member Name="Exchange2016" Description="" />
+    <Member Name="V2015_10_05" Description="" />
+  </Type>
   <Type Name="ExchangeWebServiceEmailServiceEntity" Description="Exchange-Webdienstes-E-Mail-Dienst " Gender="m">
     <Member Name="ExchangeVersion" Description="Exchange-Version" />
+    <Member Name="NewPassword" Description="Neues Passwort" />
     <Member Name="Password" Description="Passwort" />
     <Member Name="Url" Description="URL" />
     <Member Name="UseDefaultCredentials" Description="Use default credentials" />

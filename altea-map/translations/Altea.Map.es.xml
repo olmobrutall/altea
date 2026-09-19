@@ -1,20 +1,24 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="DefaultState">
-    <Member Name="All" Description="Todos" />
-    <Member Name="End" Description="Fin" />
-    <Member Name="Start" Description="Inicio" />
-  </Type>
   <Type Name="MapMessage">
+    <Member Name="All" Description="" />
     <Member Name="Color" Description="Color" />
     <Member Name="Columns" Description="Columnas" />
     <Member Name="Filter" Description="Filtro" />
+    <Member Name="Help" Description="Ayuda" />
+    <Member Name="HelpClick" Description="" />
+    <Member Name="HelpCtrlClick" Description="" />
+    <Member Name="HelpShiftClick" Description="" />
     <Member Name="Map" Description="Mapa" />
     <Member Name="Namespace" Description="Namespace" />
+    <Member Name="NoHistoryTable" Description="" />
     <Member Name="Press0ToExploreEachTable" Description="Pulsa {0} para explorar cada tabla" />
     <Member Name="Press0ToExploreStatesAndOperations" Description="Pulsa {0} para explorar estados y operaciones" />
     <Member Name="Rows" Description="Filas" />
     <Member Name="RowsHistory" Description="Historial de filas" />
+    <Member Name="Selected" Description="Seleccionado" />
+    <Member Name="SelectedAndNeighbors" Description="" />
+    <Member Name="Show" Description="" />
     <Member Name="State" Description="Estado" />
     <Member Name="StateColor" Description="Color estado" />
     <Member Name="TableSize" Description="Tamaño de la tabla" />

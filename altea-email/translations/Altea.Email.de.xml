@@ -1,10 +1,11 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="AsyncEmailSenderPermission">
     <Member Name="ViewAsyncEmailSenderPanel" Description="E-Mail-Absender Ansichtsbereich async" />
   </Type>
-  <Type Name="ClientCertificationFileEmbedded" Description="Client-Zertifikat-Datei">
-    <Member Name="FullFilePath" Description="Vollständiger Pfad" />
+  <Type Name="ClientCertificationFileEntity" Description="">
+    <Member Name="FullFilePath" Description="" />
+    <Member Name="Service" Description="Dienst" />
   </Type>
   <Type Name="CompareInbox" Description="Posteingang vergleichen">
     <Member Name="Full" Description="Voll" />
@@ -20,11 +21,6 @@
     <Member Name="CurrentUser" Description="Aktueller Benutzer" />
     <Member Name="HardcodedAddress" Description="Festgelegte Adresse" />
     <Member Name="QueryToken" Description="Abfrage-Token" />
-  </Type>
-  <Type Name="EmailAttachmentEmbedded" Description="E-Mail-Anhang">
-    <Member Name="ContentId" Description="Content-id" />
-    <Member Name="File" Description="Datei" />
-    <Member Name="Type" Description="Typ" />
   </Type>
   <Type Name="EmailAttachmentType" Description="E-Mail-Anhangtyp">
     <Member Name="Attachment" Description="Anhang" />
@@ -49,13 +45,17 @@
   </Type>
   <Type Name="EmailMasterTemplateEntity" Description="Master E-Mail-Vorlage">
     <Member Name="Attachments" Description="Anhänge" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="IsDefault" Description="Ist Standard" />
     <Member Name="Messages" Description="Nachrichten" />
     <Member Name="Name" Description="Name" />
   </Type>
+  <Type Name="EmailMasterTemplateEntity_Attachment" Description="">
+    <Member Name="Attachment" Description="Anhang" />
+    <Member Name="MasterTemplate" Description="Hauptvorlage" />
+  </Type>
   <Type Name="EmailMasterTemplateEntity_Message" Description="Nachricht E-Mail-Vorlage">
     <Member Name="CultureInfo" Description="Sprache" />
+    <Member Name="MasterTemplate" Description="Hauptvorlage" />
     <Member Name="Text" Description="Text" />
   </Type>
   <Type Name="EmailMasterTemplateOperation">
@@ -85,6 +85,15 @@
     <Member Name="Template" Description="Vorlage" />
     <Member Name="UniqueIdentifier" Description="Einzigartiger Identifikator" />
   </Type>
+  <Type Name="EmailMessageEntity_Attachment" Description="">
+    <Member Name="ContentId" Description="" />
+    <Member Name="EmailMessage" Description="E-Mail Nachricht" />
+    <Member Name="File" Description="Datei" />
+    <Member Name="Type" Description="Typ" />
+  </Type>
+  <Type Name="EmailMessageEntity_Recipient" Description="">
+    <Member Name="EmailMessage" Description="E-Mail Nachricht" />
+  </Type>
   <Type Name="EmailMessageFormat" Description="Format der E-Mail-Nachricht">
     <Member Name="HtmlComplex" Description="HTML (Komplex)" />
     <Member Name="HtmlSimple" Description="HTML (Simpel)" />
@@ -92,9 +101,11 @@
   </Type>
   <Type Name="EmailMessageMessage">
     <Member Name="_01requiresExtraParameters" Description="{0} {1} erfordert zusätzliche Parameter" />
+    <Member Name="DefaultFromNotFound" Description="" />
     <Member Name="ExceptionMessages" Description="Ausnahmenachrichten" />
     <Member Name="Message" Description="Nachricht" />
     <Member Name="Messages" Description="Nachrichten" />
+    <Member Name="NoSuitableRecipientsWereFound" Description="" />
     <Member Name="RemainingMessages" Description="Verbleibenden Nachrichten" />
     <Member Name="TheEmailMessageCannotBeSentFromState0" Description="Die E-Mail kann nicht aus dem Status {0} gesendet werden" />
   </Type>
@@ -128,6 +139,10 @@
     <Member Name="Sent" Description="Gesendet" />
     <Member Name="SentException" Description="Sendungsausnahme" />
   </Type>
+  <Type Name="EmailMessageViewMessage">
+    <Member Name="Body" Description="Körper" />
+    <Member Name="Preview" Description="Vorschau" />
+  </Type>
   <Type Name="EmailModelEntity" Description="E-Mail-Modell" Gender="n">
     <Member Name="ClassName" Description="Class Name" />
   </Type>
@@ -146,7 +161,6 @@
   </Type>
   <Type Name="EmailReceptionConfigurationOperation">
     <Member Name="ReceiveEmails" Description="E-Mails empfangen" />
-    <Member Name="ReceiveLastEmails" Description="Letzte E-Mails erhalten" />
     <Member Name="Save" Description="Speichern" />
   </Type>
   <Type Name="EmailReceptionEntity" Description="E-Mail-Rezeption" PluralDescription="E-Mail-Empfänge">
@@ -175,7 +189,11 @@
     <Member Name="ReceptionInfo" Description="Empfangsinfo" />
   </Type>
   <Type Name="EmailReceptionServiceEntity" Description="E-Mail-Empfangsdienst" PluralDescription="E-Mail-Empfangsdienste" Gender="m" />
-  <Type Name="EmailRecipientEmbedded" Description="E-Mail-Empfänger">
+  <Type Name="EmailRecipientBaseEntity" Description="">
+    <Member Name="DisplayName" Description="" />
+    <Member Name="EmailAddress" Description="E-Mail-Adresse" />
+    <Member Name="EmailOwner" Description="E-Mail-Besitzer" />
+    <Member Name="InvalidEmail" Description="Ungültige e-Mail" />
     <Member Name="Kind" Description="Art" />
   </Type>
   <Type Name="EmailRecipientKind" Description="E-Mailempfängertyp">
@@ -189,17 +207,17 @@
     <Member Name="Name" Description="Name" />
     <Member Name="Service" Description="Dienst" />
   </Type>
+  <Type Name="EmailSenderConfigurationEntity_AdditionalRecipient" Description="">
+    <Member Name="SenderConfiguration" Description="" />
+  </Type>
+  <Type Name="EmailSenderConfigurationMessage">
+    <Member Name="SenderConfiguration" Description="" />
+  </Type>
   <Type Name="EmailSenderConfigurationOperation">
     <Member Name="Clone" Description="Klonen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
   <Type Name="EmailServiceEntity" Description="E-Mail-Dienst" PluralDescription="E-Mail-Dienste" Gender="m" />
-  <Type Name="EmailTemplateAddressEmbedded" Description="E-Mail-Vorlagenadresse">
-    <Member Name="AddressSource" Description="Adressquelle" />
-    <Member Name="DisplayName" Description="Anzeigename" />
-    <Member Name="EmailAddress" Description="E-Mail-Adresse" />
-    <Member Name="Token" Description="Token" />
-  </Type>
   <Type Name="EmailTemplateEntity" Description="E-Mail-Vorlage">
     <Member Name="Applicable" Description="Anwendbar" />
     <Member Name="Attachments" Description="Anlagen" />
@@ -208,7 +226,6 @@
     <Member Name="Filters" Description="Filter" />
     <Member Name="From" Description="Von" />
     <Member Name="GroupResults" Description="Ergebnisse gruppieren " />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="MasterTemplate" Description="Hauptvorlage" />
     <Member Name="MessageFormat" Description="Nachrichtenformat" />
     <Member Name="Messages" Description="Nachrichten" />
@@ -218,8 +235,40 @@
     <Member Name="Query" Description="Abfrage" />
     <Member Name="Recipients" Description="Empfänger" />
   </Type>
+  <Type Name="EmailTemplateEntity_Attachment" Description="">
+    <Member Name="Attachment" Description="Anhang" />
+    <Member Name="EmailTemplate" Description="E-Mail Vorlage" />
+  </Type>
+  <Type Name="EmailTemplateEntity_Filter" Description="">
+    <Member Name="EmailTemplate" Description="E-Mail Vorlage" />
+  </Type>
+  <Type Name="EmailTemplateEntity_Message" Description="Nachricht E-Mail-Vorlage">
+    <Member Name="CultureInfo" Description="Kulturinfo" />
+    <Member Name="EmailTemplate" Description="E-Mail Vorlage" />
+    <Member Name="Subject" Description="Betreff" />
+    <Member Name="Text" Description="Text" />
+  </Type>
+  <Type Name="EmailTemplateEntity_Order" Description="">
+    <Member Name="EmailTemplate" Description="E-Mail Vorlage" />
+    <Member Name="OrderType" Description="" />
+    <Member Name="Token" Description="Token" />
+  </Type>
+  <Type Name="EmailTemplateEntity_Recipient" Description="E-Mail-Vorlagenempfänger">
+    <Member Name="AddressSource" Description="" />
+    <Member Name="DisplayName" Description="" />
+    <Member Name="EmailAddress" Description="E-Mail-Adresse" />
+    <Member Name="EmailTemplate" Description="E-Mail Vorlage" />
+    <Member Name="Kind" Description="Art" />
+    <Member Name="Token" Description="Token" />
+    <Member Name="WhenMany" Description="Wenn viele" />
+    <Member Name="WhenNone" Description="Wenn keine" />
+  </Type>
   <Type Name="EmailTemplateFromEmbedded" Description="E-Mail Vorlage Von">
+    <Member Name="AddressSource" Description="" />
     <Member Name="AzureUserId" Description="Azure-Benutzer-ID" />
+    <Member Name="DisplayName" Description="" />
+    <Member Name="EmailAddress" Description="E-Mail-Adresse" />
+    <Member Name="Token" Description="Token" />
     <Member Name="WhenMany" Description="Wenn viele" />
     <Member Name="WhenNone" Description="Wenn keine" />
   </Type>
@@ -228,18 +277,12 @@
     <Member Name="HidePreview" Description="Vorschau verstecken" />
     <Member Name="NewCulture" Description="Neue Kultur" />
     <Member Name="ShowPreview" Description="Vorschau anzeigen" />
-    <Member Name="ThereAreNoMessagesForTheTemplate" Description="Es gibt keine Nachrichten für die Vorlage" />
     <Member Name="ThereMustBeAMessageFor0" Description="Es muss eine Nachricht für {0} geben" />
     <Member Name="TheresMoreThanOneMessageForTheSameLanguage" Description="Es gibt mehr als eine Nachricht für die gleiche Sprache" />
     <Member Name="TheTextMustContain0IndicatingReplacementPoint" Description="Der Text muss {0} enthalten, um den Ersatzpunkt anzugeben" />
     <Member Name="TokenAndEmailAddressCanNotBeSetAtTheSameTime" Description="Token und E-Mail-Adresse können nicht gleichzeitig angegeben werden" />
     <Member Name="TokenMustBeA0" Description="Token muss {0} sein" />
     <Member Name="TokenOrEmailAddressMustBeSet" Description="Token oder E-Mail-Adresse müssen angegeben werden" />
-  </Type>
-  <Type Name="EmailTemplateEntity_Message" Description="Nachricht E-Mail-Vorlage">
-    <Member Name="CultureInfo" Description="Kulturinfo" />
-    <Member Name="Subject" Description="Betreff" />
-    <Member Name="Text" Description="Text" />
   </Type>
   <Type Name="EmailTemplateOperation">
     <Member Name="Clone" Description="Klonen" />
@@ -248,20 +291,15 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="EmailTemplateEntity_Recipient" Description="E-Mail-Vorlagenempfänger">
-    <Member Name="Kind" Description="Art" />
-    <Member Name="WhenMany" Description="Wenn viele" />
-    <Member Name="WhenNone" Description="Wenn keine" />
+  <Type Name="EmailTemplateTargetFrom" Description="">
+    <Member Name="NoTarget" Description="" />
+    <Member Name="Unique" Description="" />
+    <Member Name="UserQuery" Description="Benutzer-Abfrage" />
   </Type>
   <Type Name="EmailTemplateViewMessage">
     <Member Name="Insert" Description="Einfügen" />
     <Member Name="InsertMessageContent" Description="Inhalt der Nachricht einfügen" />
     <Member Name="Language" Description="Sprache" />
-  </Type>
-  <Type Name="EmaiTemplateTargetFrom" Description="Emai-Vorlage Ziel von">
-    <Member Name="NoTarget" Description="Kein Ziel" />
-    <Member Name="Unique" Description="Einzigartig" />
-    <Member Name="UserQuery" Description="Benutzer-Abfrage" />
   </Type>
   <Type Name="FileTokenAttachmentEntity" Description="File-Token-Anhang" PluralDescription="Datei-Token-Anhänge" Gender="m">
     <Member Name="ContentId" Description="Inhalts-ID" />
@@ -285,6 +323,15 @@
   </Type>
   <Type Name="SendEmailTaskOperation">
     <Member Name="Save" Description="Speichern" />
+  </Type>
+  <Type Name="SmtpDeliveryFormat" Description="">
+    <Member Name="International" Description="" />
+    <Member Name="SevenBit" Description="" />
+  </Type>
+  <Type Name="SmtpDeliveryMethod" Description="">
+    <Member Name="Network" Description="Netzwerk" />
+    <Member Name="PickupDirectoryFromIis" Description="" />
+    <Member Name="SpecifiedPickupDirectory" Description="" />
   </Type>
   <Type Name="SmtpEmailServiceEntity" Description="SMTP-E-Mail-Dienst" PluralDescription="SMTP-E-Mail-Dienste" Gender="m">
     <Member Name="DeliveryFormat" Description="Delivery format" />

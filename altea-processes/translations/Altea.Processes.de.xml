@@ -1,9 +1,17 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="PackageEntity" Description="Paket" PluralDescription="Pakete" Gender="n">
     <Member Name="ConfigString" Description="Konfig-String" />
     <Member Name="Name" Description="Name" />
     <Member Name="OperationArguments" Description="Operationsargumente" />
+  </Type>
+  <Type Name="PackageLastProcessRowModel" Description="">
+    <Member Name="Entity" Description="" />
+    <Member Name="Id" Description="Id" />
+    <Member Name="LastProcess" Description="Letzter Prozess" />
+    <Member Name="Name" Description="Name" />
+    <Member Name="NumErrors" Description="" />
+    <Member Name="NumLines" Description="" />
   </Type>
   <Type Name="PackageLineEntity" Description="Paketzeile">
     <Member Name="FinishTime" Description="Zeitende" />
@@ -11,16 +19,30 @@
     <Member Name="Result" Description="Ergebnis" />
     <Member Name="Target" Description="Ziel" />
   </Type>
+  <Type Name="PackageLineLastProcessRowModel" Description="">
+    <Member Name="Entity" Description="" />
+    <Member Name="Exception" Description="Ausnahme" />
+    <Member Name="FinishTime" Description="Zeitende" />
+    <Member Name="Id" Description="Id" />
+    <Member Name="LastProcess" Description="Letzter Prozess" />
+    <Member Name="Package" Description="Paket" />
+    <Member Name="Result" Description="Ergebnis" />
+    <Member Name="Target" Description="Ziel" />
+  </Type>
   <Type Name="PackageOperationEntity" Description="Paket-Operation">
     <Member Name="Operation" Description="Operation" />
   </Type>
+  <Type Name="PackageOperationLastProcessRowModel" Description="">
+    <Member Name="Entity" Description="" />
+    <Member Name="Id" Description="Id" />
+    <Member Name="LastProcess" Description="Letzter Prozess" />
+    <Member Name="Name" Description="Name" />
+    <Member Name="NumErrors" Description="" />
+    <Member Name="NumLines" Description="" />
+    <Member Name="Operation" Description="" />
+  </Type>
   <Type Name="PackageOperationProcess">
     <Member Name="PackageOperation" Description="Paket-Operation" />
-  </Type>
-  <Type Name="PackageQuery">
-    <Member Name="PackageLastProcess" Description="Paket letzter Prozess" />
-    <Member Name="PackageLineLastProcess" Description="Paketzeile letzter Prozess" />
-    <Member Name="PackageOperationLastProcess" Description="Paketvorgang letzter Prozess" />
   </Type>
   <Type Name="ProcessAlgorithmSymbol" Description="Prozess-Algorithmus" PluralDescription="Prozess-Algorithmen" Gender="m" />
   <Type Name="ProcessEntity" Description="Prozess" PluralDescription="Prozesse" Gender="m">
@@ -29,8 +51,6 @@
     <Member Name="CancelationDate" Description="Stornierungsdatum" />
     <Member Name="CreationDate" Description="Erstellungsdatum" />
     <Member Name="Data" Description="Daten" />
-    <Member Name="Duration" Description="Dauer" />
-    <Member Name="DurationSpan" Description="Dauer-span" />
     <Member Name="Exception" Description="Ausnahme" />
     <Member Name="ExceptionDate" Description="Ausnahmedatum" />
     <Member Name="ExecutionEnd" Description="Ausführungsende" />
@@ -54,6 +74,7 @@
     <Member Name="_0ProcessesExcecutingIn1_2" Description="{0} Prozesse, die in {1} / {2} ausgeführt werden" />
     <Member Name="ApplicationName" Description="Anwendungsname" />
     <Member Name="Dates" Description="Daten" />
+    <Member Name="Duration" Description="Dauer" />
     <Member Name="ExceptionLines" Description="Ausnahmezeilen" />
     <Member Name="ExecutingProcesses" Description="Ausführen von Prozessen" />
     <Member Name="InitialDelayMilliseconds" Description="Anfangsverzögerung in Millisekunden" />
@@ -69,12 +90,14 @@
     <Member Name="OnlyActive" Description="Nur aktive" />
     <Member Name="Process" Description="Prozess" />
     <Member Name="Process0IsNotRunningAnymore" Description="Prozess {0} wird nicht mehr ausgeführt" />
+    <Member Name="ProcessExecutingSuspendFirst" Description="" />
     <Member Name="ProcessLogicStateLoading" Description="ProzessLogik-Zustand (laden...) " />
     <Member Name="ProcessPanel" Description="Prozess-Panel" />
     <Member Name="ProcessSettings" Description="Prozess-Einstellungen" />
     <Member Name="ProcessStartIsGreaterThanProcessEnd" Description="Prozessstart ist größer als Prozessende" />
     <Member Name="ProcessStartIsNullButProcessEndIsNot" Description="Prozessstart ist null aber Prozessende nicht" />
     <Member Name="Progress" Description="Fortschritt" />
+    <Member Name="ProgressMustBeBetween0And1" Description="" />
     <Member Name="Running" Description="LAUFEND" />
     <Member Name="SimpleStatus" Description="Einfacher Status" />
     <Member Name="Start" Description="Start" />

@@ -1,32 +1,20 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="EntityAction" Description="Acción de la entidad">
     <Member Name="Different" Description="Diferentes" />
     <Member Name="Identical" Description="Idénticas" />
     <Member Name="New" Description="Nueva" />
   </Type>
-  <Type Name="IUserAssetEntity">
-    <Member Name="Guid" Description="Guid" />
-  </Type>
   <Type Name="PinnedQueryFilterEmbedded" Description="Filtro de consulta fijado">
     <Member Name="Active" Description="Activo" />
+    <Member Name="ColSpan" Description="" />
     <Member Name="Column" Description="Columna" />
     <Member Name="Label" Description="Etiqueta" />
     <Member Name="Row" Description="Fila" />
-  </Type>
-  <Type Name="UserQueryEntity_Column" Description="Columna de consulta">
-    <Member Name="DisplayName" Description="Nombre" />
-    <Member Name="HiddenColumn" Description="Columna oculta" />
-    <Member Name="SummaryToken" Description="Token Resumen de cabecera" />
-    <Member Name="Token" Description="Token" />
-  </Type>
-  <Type Name="UserChartEntity_Column" Description="Columna de consulta">
-    <Member Name="DisplayName" Description="Nombre" />
-    <Member Name="HiddenColumn" Description="Columna oculta" />
-    <Member Name="SummaryToken" Description="Token Resumen de cabecera" />
-    <Member Name="Token" Description="Token" />
+    <Member Name="SplitValue" Description="" />
   </Type>
   <Type Name="QueryFilterBaseEntity" Description="Filtro de consulta">
+    <Member Name="DashboardBehaviour" Description="" />
     <Member Name="GroupOperation" Description="Operación de grupo" />
     <Member Name="Indentation" Description="Sangría" />
     <Member Name="IsGroup" Description="Es grupo" />
@@ -34,52 +22,36 @@
     <Member Name="Pinned" Description="Fijado" />
     <Member Name="Token" Description="Token" />
     <Member Name="ValueString" Description="Valor cadena" />
-  </Type>
-  <Type Name="UserChartEntity_Filter" Description="Filtro de consulta">
-    <Member Name="GroupOperation" Description="Operación de grupo" />
-    <Member Name="Indentation" Description="Sangría" />
-    <Member Name="IsGroup" Description="Es grupo" />
-    <Member Name="Operation" Description="Operación" />
-    <Member Name="Pinned" Description="Fijado" />
-    <Member Name="Token" Description="Token" />
-    <Member Name="ValueString" Description="Valor cadena" />
-  </Type>
-  <Type Name="UserQueryEntity_Filter" Description="Filtro de consulta">
-    <Member Name="GroupOperation" Description="Operación de grupo" />
-    <Member Name="Indentation" Description="Sangría" />
-    <Member Name="IsGroup" Description="Es grupo" />
-    <Member Name="Operation" Description="Operación" />
-    <Member Name="Pinned" Description="Fijado" />
-    <Member Name="Token" Description="Token" />
-    <Member Name="ValueString" Description="Valor cadena" />
-  </Type>
-  <Type Name="UserQueryEntity_Order" Description="Orden de consulta">
-    <Member Name="OrderType" Description="Tipo de orden" />
-    <Member Name="Token" Description="Token" />
-  </Type>
-  <Type Name="OfficeTemplateEntity_Order" Description="Orden de consulta">
-    <Member Name="OrderType" Description="Tipo de orden" />
-    <Member Name="Token" Description="Token" />
   </Type>
   <Type Name="QueryTokenEmbedded" Description="Token de consulta">
     <Member Name="TokenString" Description="Cadena del token" />
   </Type>
+  <Type Name="TokenMigrationEntity" Description="">
+    <Member Name="Comment" Description="Comentario" />
+    <Member Name="VersionNumber" Description="Número de versión" />
+  </Type>
   <Type Name="UserAssetMessage">
+    <Member Name="_0IsNotFilterable" Description="" />
+    <Member Name="Advanced" Description="" />
+    <Member Name="AssumeIs" Description="" />
     <Member Name="ExportToXml" Description="Exportar a xml" />
+    <Member Name="Import" Description="" />
     <Member Name="ImportPreview" Description="Previsualizar importación" />
     <Member Name="ImportUserAssets" Description="Importar recursos de usuario" />
+    <Member Name="LooksLikeSomeEntitiesIn0DoNotExistsOrHaveADifferentMeaningInThisDatabase" Description="" />
+    <Member Name="SameSelectionForAllConflictsOf0" Description="" />
     <Member Name="SelectTheEntitiesToOverride" Description="Seleccione las entidades a reemplazar" />
     <Member Name="SelectTheXmlFileWithTheUserAssetsThatYouWantToImport" Description="Seleccione el archivo xml con los activos del usuario que desea importar" />
     <Member Name="SucessfullyImported" Description="Correctamente importado" />
-    <Member Name="SwitchToExpression" Description="Cambie a la expresión" />
-    <Member Name="SwitchToValue" Description="Cambie al valor" />
+    <Member Name="TheFilterOperation0isNotCompatibleWith1" Description="" />
+    <Member Name="UsedBy" Description="" />
+    <Member Name="UserAssetLines" Description="" />
   </Type>
   <Type Name="UserAssetPermission">
     <Member Name="UserAssetsToXML" Description="Activos del usuario a XML" />
   </Type>
   <Type Name="UserAssetPreviewLineEmbedded" Description="Línea de previsualización de activos de usuario">
     <Member Name="Action" Description="Acción" />
-    <Member Name="CustomResolution" Description="Resolución personalizada" />
     <Member Name="Guid" Description="Guid" />
     <Member Name="OverrideEntity" Description="Reemplazar la entidad" />
     <Member Name="Text" Description="Texto" />
@@ -87,5 +59,11 @@
   </Type>
   <Type Name="UserAssetPreviewModel" Description="Previsualización de recursos de usuario">
     <Member Name="Lines" Description="Líneas" />
+  </Type>
+  <Type Name="UserAssetQueryMessage">
+    <Member Name="_0IsNotAValid1Try2Instead" Description="«{0}» no es un {1} válido. Pruebe {2} en su lugar" />
+    <Member Name="_0MustBeBetween1And2" Description="{0} debe estar entre {1} y {2}" />
+    <Member Name="SwitchToExpression" Description="" />
+    <Member Name="SwitchToValue" Description="" />
   </Type>
 </Translations>

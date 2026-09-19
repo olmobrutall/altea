@@ -1,7 +1,8 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="QueryStringValueEmbedded" Description="Abfrage-String-Wert">
+  <Type Name="QueryStringValueEntity" Description="">
     <Member Name="Key" Description="Schlüssel" />
+    <Member Name="RestLog" Description="Rest-Protokoll" />
     <Member Name="Value" Description="Wert" />
   </Type>
   <Type Name="RestApiKeyEntity" Description="Rest-API-Schlüssel" Gender="m">
@@ -22,7 +23,6 @@
     <Member Name="ChangedPercentage" Description="Geänderter Prozentsatz" />
     <Member Name="Controller" Description="Controller" />
     <Member Name="ControllerName" Description="Controllername" />
-    <Member Name="Duration" Description="Dauer" />
     <Member Name="EndDate" Description="Enddatum" />
     <Member Name="Exception" Description="Ausnahme" />
     <Member Name="HttpMethod" Description="HTTP-Methode" />
@@ -38,6 +38,14 @@
     <Member Name="User" Description="Benutzer" />
     <Member Name="UserHostAddress" Description="Benutzer Hostadresse" />
     <Member Name="UserHostName" Description="Benutzer Hostname" />
+  </Type>
+  <Type Name="RestLogMessage">
+    <Member Name="Current" Description="Aktuell" />
+    <Member Name="Difference" Description="" />
+    <Member Name="Duration" Description="Dauer" />
+    <Member Name="Previous" Description="Vorherige" />
+    <Member Name="Replay" Description="" />
+    <Member Name="ReplayNotAllowedForThisRestLog" Description="" />
   </Type>
   <Type Name="RestLogReplayState" Description="Restlog Wiederholungszustand">
     <Member Name="NoChanges" Description="Keine Änderungen" />

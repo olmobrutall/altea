@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<Translations>
+  <Type Name="MicrosoftGraphEmailServiceEntity" Description="">
+    <Member Name="Azure_ApplicationID" Description="" />
+    <Member Name="Azure_ClientSecret" Description="" />
+    <Member Name="Azure_DirectoryID" Description="" />
+    <Member Name="NewAzure_ClientSecret" Description="" />
+    <Member Name="UseActiveDirectoryConfiguration" Description="" />
+  </Type>
+  <Type Name="RecipientEmbedded" Description="">
+    <Member Name="EmailAddress" Description="Dirección email" />
+    <Member Name="Name" Description="Nombre" />
+  </Type>
+  <Type Name="RemoteAttachmentEmbedded" Description="">
+    <Member Name="ContentId" Description="Content id" />
+    <Member Name="Id" Description="Id" />
+    <Member Name="IsInline" Description="" />
+    <Member Name="LastModifiedDateTime" Description="" />
+    <Member Name="Name" Description="Nombre" />
+    <Member Name="Size" Description="" />
+  </Type>
+  <Type Name="RemoteEmailFolderModel" Description="">
+    <Member Name="DisplayName" Description="" />
+    <Member Name="FolderId" Description="" />
+  </Type>
+  <Type Name="RemoteEmailMessageMessage">
+    <Member Name="AddCategory" Description="" />
+    <Member Name="ChangingCategories" Description="" />
+    <Member Name="Delete" Description="" />
+    <Member Name="Deleting" Description="" />
+    <Member Name="Message" Description="Mensaje" />
+    <Member Name="Messages" Description="Mensajes" />
+    <Member Name="Move" Description="Mover" />
+    <Member Name="Moving" Description="" />
+    <Member Name="PleaseConfirmYouWouldLikeToDelete0FromOutlook" Description="" />
+    <Member Name="RemoveCategory" Description="" />
+    <Member Name="SelectAFolder" Description="" />
+    <Member Name="User0HasNoMailbox" Description="" />
+    <Member Name="UserFilterNotFound" Description="" />
+  </Type>
+  <Type Name="RemoteEmailMessageModel" Description="">
+    <Member Name="Attachments" Description="Archivos adjuntos" />
+    <Member Name="BccRecipients" Description="" />
+    <Member Name="Body" Description="Cuerpo" />
+    <Member Name="Categories" Description="" />
+    <Member Name="CcRecipients" Description="" />
+    <Member Name="CreatedDateTime" Description="" />
+    <Member Name="Extension0" Description="" />
+    <Member Name="Extension1" Description="" />
+    <Member Name="Extension2" Description="" />
+    <Member Name="Extension3" Description="" />
+    <Member Name="Folder" Description="" />
+    <Member Name="From" Description="" />
+    <Member Name="HasAttachments" Description="" />
+    <Member Name="Id" Description="Id" />
+    <Member Name="IsBodyHtml" Description="Es html" />
+    <Member Name="IsDraft" Description="" />
+    <Member Name="IsRead" Description="" />
+    <Member Name="LastModifiedDateTime" Description="" />
+    <Member Name="ReceivedDateTime" Description="" />
+    <Member Name="SentDateTime" Description="" />
+    <Member Name="Subject" Description="Asunto" />
+    <Member Name="ToRecipients" Description="" />
+    <Member Name="User" Description="Usuario" />
+    <Member Name="WebLink" Description="" />
+  </Type>
+  <Type Name="RemoteEmailMessageRowModel" Description="">
+    <Member Name="Categories" Description="" />
+    <Member Name="CreatedDateTime" Description="" />
+    <Member Name="Entity" Description="" />
+    <Member Name="Extension0" Description="" />
+    <Member Name="Extension1" Description="" />
+    <Member Name="Extension2" Description="" />
+    <Member Name="Extension3" Description="" />
+    <Member Name="Folder" Description="" />
+    <Member Name="From" Description="" />
+    <Member Name="HasAttachments" Description="" />
+    <Member Name="IsDraft" Description="" />
+    <Member Name="IsRead" Description="" />
+    <Member Name="LastModifiedDateTime" Description="" />
+    <Member Name="MessageId" Description="" />
+    <Member Name="ReceivedDateTime" Description="" />
+    <Member Name="SentDateTime" Description="" />
+    <Member Name="Subject" Description="Asunto" />
+    <Member Name="ToRecipients" Description="" />
+    <Member Name="User" Description="Usuario" />
+  </Type>
+</Translations>

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<Translations>
+  <Type Name="ClickTrigger" Description="">
+    <Member Name="OnLoad" Description="" />
+    <Member Name="OnNext" Description="" />
+  </Type>
+  <Type Name="CssStepEntity" Description="">
+    <Member Name="CssSelector" Description="" />
+    <Member Name="DashboardPart" Description="" />
+    <Member Name="Property" Description="Propiedad" />
+    <Member Name="TableColumn" Description="" />
+    <Member Name="ToolbarContent" Description="" />
+    <Member Name="TourStep" Description="" />
+    <Member Name="Type" Description="Tipo" />
+  </Type>
+  <Type Name="CssStepType" Description="">
+    <Member Name="CSSSelector" Description="" />
+    <Member Name="DashboardPart" Description="" />
+    <Member Name="Property" Description="Propiedad" />
+    <Member Name="TableColumn" Description="" />
+    <Member Name="ToolbarContent" Description="" />
+  </Type>
+  <Type Name="PopoverAlign" Description="">
+    <Member Name="Center" Description="" />
+    <Member Name="End" Description="Final" />
+    <Member Name="Start" Description="Inicio" />
+  </Type>
+  <Type Name="PopoverSide" Description="">
+    <Member Name="Bottom" Description="Abajo" />
+    <Member Name="Left" Description="" />
+    <Member Name="Right" Description="" />
+    <Member Name="Top" Description="Arriba" />
+  </Type>
+  <Type Name="TourEntity" Description="">
+    <Member Name="Animate" Description="" />
+    <Member Name="ShowCloseButton" Description="" />
+    <Member Name="ShowProgress" Description="" />
+    <Member Name="Steps" Description="" />
+    <Member Name="Trigger" Description="" />
+  </Type>
+  <Type Name="TourMessage">
+    <Member Name="_0HasToBeNullWhenTypeIsNot1" Description="" />
+    <Member Name="_0HasToBeSetWhenTypeIs1" Description="" />
+    <Member Name="Close" Description="" />
+    <Member Name="CreateTour" Description="" />
+    <Member Name="CssStep" Description="" />
+    <Member Name="Done" Description="Hecho" />
+    <Member Name="EditTour" Description="" />
+    <Member Name="FinalCSSSelector" Description="" />
+    <Member Name="Next" Description="Siguiente" />
+    <Member Name="Previous" Description="Anterior" />
+    <Member Name="ReplayTour" Description="" />
+    <Member Name="StartTour" Description="" />
+  </Type>
+  <Type Name="TourOperation">
+    <Member Name="Delete" Description="" />
+    <Member Name="Save" Description="" />
+  </Type>
+  <Type Name="TourStepEntity" Description="">
+    <Member Name="Align" Description="" />
+    <Member Name="Click" Description="" />
+    <Member Name="CssSteps" Description="" />
+    <Member Name="Description" Description="Descripción" />
+    <Member Name="Side" Description="Lado" />
+    <Member Name="Title" Description="Título" />
+    <Member Name="Tour" Description="" />
+  </Type>
+</Translations>

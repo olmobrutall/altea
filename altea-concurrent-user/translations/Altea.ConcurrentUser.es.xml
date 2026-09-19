@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<Translations>
+  <Type Name="ConcurrentUserEntity" Description="">
+    <Member Name="ConnectionID" Description="" />
+    <Member Name="IsModified" Description="" />
+    <Member Name="StartTime" Description="Hora de inicio" />
+    <Member Name="TargetEntity" Description="" />
+    <Member Name="User" Description="Usuario" />
+  </Type>
+  <Type Name="ConcurrentUserMessage">
+    <Member Name="ConcurrentUsers" Description="" />
+    <Member Name="ConsiderOpening0InANewTabAndApplyYourChangesManually" Description="" />
+    <Member Name="CurrentlyEditing" Description="" />
+    <Member Name="DatabaseChangesDetected" Description="" />
+    <Member Name="DoYouWantToReloadIt" Description="" />
+    <Member Name="LooksLikeSomeoneJustSaved0ToTheDatabase" Description="" />
+    <Member Name="LooksLikeYouAreNotTheOnlyOneCurrentlyModifiying0OnlyTheFirstOneWillBeAbleToSaveChanges" Description="" />
+    <Member Name="ReloadIt" Description="" />
+    <Member Name="ThisIsNotTheLatestVersionOf0" Description="" />
+    <Member Name="WarningYouWillLostYourCurrentChanges" Description="" />
+    <Member Name="YouHaveLocalChangesBut0HasAlreadyBeenSavedInTheDatabaseYouWillNotBeAbleToSaveChanges" Description="" />
+    <Member Name="YouHaveLocalChangesIn0ThatIsCurrentlyOpenByOtherUsersSoFarNoOneElseHasMadeModifications" Description="" />
+  </Type>
+  <Type Name="ConcurrentUserOperation">
+    <Member Name="Delete" Description="" />
+  </Type>
+</Translations>

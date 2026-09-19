@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="ModelConverterSymbol" Description="Conversor de modelo" />
   <Type Name="MultiEntityModel" Description="Multi entidad">
@@ -8,13 +8,18 @@
     <Member Name="Filters" Description="Filtros" />
     <Member Name="Orders" Description="Órdenes" />
     <Member Name="Pagination" Description="Paginación" />
-    <Member Name="QueryName" Description="Nombre de la consulta" />
+    <Member Name="QueryKey" Description="" />
   </Type>
   <Type Name="QueryModelMessage">
     <Member Name="ConfigureYourQueryAndPressSearchBeforeOk" Description="Configure su consulta y pulse [Buscar] antes de [Aceptar]" />
   </Type>
   <Type Name="TemplateApplicableEval" Description="Evaluar plantilla aplicable" />
+  <Type Name="TemplateMessage">
+    <Member Name="CopyToClipboard" Description="" />
+    <Member Name="Template" Description="Plantilla" />
+  </Type>
   <Type Name="TemplateTokenMessage">
+    <Member Name="ImpossibleToAccess0BecauseTheTemplateHAsNo1" Description="" />
     <Member Name="Insert" Description="Insertar" />
     <Member Name="NoColumnSelected" Description="Ninguna columna seleccionada" />
     <Member Name="YouCannotAddBlocksWithAllOrAny" Description="No puede agregar bloques con 'Todos' o 'Alguno'" />

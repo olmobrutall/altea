@@ -1,5 +1,27 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
+  <Type Name="CacheMessage">
+    <Member Name="CacheStatistics" Description="" />
+    <Member Name="Clear" Description="Limpiar" />
+    <Member Name="Count" Description="" />
+    <Member Name="Disable" Description="" />
+    <Member Name="Enable" Description="" />
+    <Member Name="Hits" Description="" />
+    <Member Name="InvalidationExceptions" Description="" />
+    <Member Name="Invalidations" Description="" />
+    <Member Name="Lazies" Description="" />
+    <Member Name="LazyStats" Description="" />
+    <Member Name="Loading" Description="Cargando..." />
+    <Member Name="Loads" Description="" />
+    <Member Name="LoadTime" Description="" />
+    <Member Name="NotLoaded" Description="" />
+    <Member Name="ServerBroadcast" Description="" />
+    <Member Name="SqlDependency" Description="" />
+    <Member Name="Table" Description="" />
+    <Member Name="Tables" Description="" />
+    <Member Name="TableStats" Description="" />
+    <Member Name="Type" Description="Tipo" />
+  </Type>
   <Type Name="CachePermission">
     <Member Name="InvalidateCache" Description="Invalidar caché" />
     <Member Name="ViewCache" Description="Ver Caché" />

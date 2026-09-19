@@ -1,13 +1,22 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="ActivityWithRemarks" Description="Aktivität mit Bemerkungen">
-    <Member Name="Alerts" Description="Benachrichtigungen" />
     <Member Name="Case" Description="Fall" />
     <Member Name="CaseActivity" Description="Fall-Aktivität" />
     <Member Name="Notification" Description="Benachrichtigung" />
     <Member Name="Remarks" Description="Bemerkungen" />
     <Member Name="Tags" Description="Tags" />
     <Member Name="WorkflowActivity" Description="Workflow-Aktivität" />
+  </Type>
+  <Type Name="BootstrapStyle" Description="">
+    <Member Name="Danger" Description="" />
+    <Member Name="Dark" Description="" />
+    <Member Name="Info" Description="Info" />
+    <Member Name="Light" Description="" />
+    <Member Name="Primary" Description="" />
+    <Member Name="Secondary" Description="" />
+    <Member Name="Success" Description="Erfolg" />
+    <Member Name="Warning" Description="Warnung" />
   </Type>
   <Type Name="BpmnEntityPairEmbedded" Description="Bpmn Entitätenpaar">
     <Member Name="BpmnElementId" Description="Bpmn Elemente Id" />
@@ -16,6 +25,7 @@
   <Type Name="ButtonOptionEmbedded" Description="Schaltflächenoption">
     <Member Name="Name" Description="Name" />
     <Member Name="Style" Description="Stil" />
+    <Member Name="WithConfirmation" Description="" />
   </Type>
   <Type Name="CaseActivityEntity" Description="Fall-Aktivität">
     <Member Name="Case" Description="Fall" />
@@ -24,16 +34,11 @@
     <Member Name="DoneDecision" Description="Erledigte Entscheidung" />
     <Member Name="DoneType" Description="Fertigstellungstypen" />
     <Member Name="Duration" Description="Dauer" />
-    <Member Name="DurationRatio" Description="Dauerverhältnis" />
-    <Member Name="DurationRealTime" Description="Dauer in Echtzeit" />
-    <Member Name="DurationRealTimeRatio" Description="Dauer-Echtzeit-Verhältnis" />
-    <Member Name="IsHistoric" Description="Historisch" />
     <Member Name="Note" Description="Notiz" />
     <Member Name="OriginalWorkflowActivityName" Description="Ursprünglicher Name der Workflow-Aktivität" />
     <Member Name="Previous" Description="Vorherige" />
     <Member Name="ScriptExecution" Description="Ausführung des Skripts" />
     <Member Name="StartDate" Description="Startdatum" />
-    <Member Name="State" Description="Zustand" />
     <Member Name="WorkflowActivity" Description="Workflow-Aktivität" />
   </Type>
   <Type Name="CaseActivityExecutedTimerEntity" Description="Fall Aktivität ausgeführt Timer" Gender="m">
@@ -66,9 +71,9 @@
     <Member Name="Only0CanUndoThisOperation" Description="Nur &quot;{0}&quot; kann diesen Vorgang rückgängig machen." />
     <Member Name="OnlyForScriptWorkflowActivities" Description="Nur für Skript-Workflow-Aktivitäten" />
     <Member Name="Pending" Description="Ausstehend" />
+    <Member Name="PersonalRemarksForThisNotification" Description="Persönliche Anmerkungen für diese Benachrichtigung" />
     <Member Name="ResetToCaseActivityIsNotSupportedForDecomposedCases" Description="Das Zurücksetzen auf diese Aktivität wird nicht unterstützt, da danach eine Zerlegung liegt, die bereits Teilfälle erzeugt hat. Setzen Sie stattdessen auf eine Aktivität an oder nach der Zerlegung zurück." />
     <Member Name="ResetToCaseActivityRequiresAnOpenSubCase" Description="Das Zurücksetzen auf eine Zerlegung ist nur möglich, solange mindestens einer ihrer Teilfälle noch nicht abgeschlossen ist." />
-    <Member Name="PersonalRemarksForThisNotification" Description="Persönliche Anmerkungen für diese Benachrichtigung" />
     <Member Name="ShowHelp" Description="Hilfe anzeigen" />
     <Member Name="TheActivity0RequiresToBeOpened" Description="Die Aktivität &quot;{0}&quot; muss geöffnet werden" />
     <Member Name="ThereAreInprogressActivities" Description="Es gibt laufende Aktivitäten" />
@@ -81,7 +86,7 @@
     <Member Name="CreateCaseActivityFromWorkflow" Description="Erstelle eine Vorgangsaktivität vom Arbeitsablauf" />
     <Member Name="CreateCaseFromWorkflowEventTask" Description="Erstelle eine Vorgangsaktivität vom Arbeitsablauf Event Task" />
     <Member Name="Delete" Description="Löschen" />
-    <Member Name="FixCaseDescriptions" Description="Vorgangsbeschreibung beheben" />
+    <Member Name="FreeJump" Description="" />
     <Member Name="Jump" Description="Springen" />
     <Member Name="MarkAsUnread" Description="Als ungelesen markieren" />
     <Member Name="Next" Description="Nächstes" />
@@ -95,9 +100,6 @@
   </Type>
   <Type Name="CaseActivityProcessAlgorithm">
     <Member Name="Timeout" Description="Timeout" />
-  </Type>
-  <Type Name="CaseActivityQuery">
-    <Member Name="Inbox" Description="Posteingang" />
   </Type>
   <Type Name="CaseActivityState" Description="Vorgangsaktivität Zustand">
     <Member Name="Done" Description="Abgeschlossen" />
@@ -115,15 +117,16 @@
     <Member Name="StartDate" Description="Startdatum" />
     <Member Name="Workflow" Description="Workflow" />
   </Type>
-  <Type Name="CaseFlowColor">
+  <Type Name="CaseFlowColor" Description="">
     <Member Name="AverageDuration" Description="Durchschnittliche Bearbeitungsdauer" />
     <Member Name="CaseMaxDuration" Description="Maximale Bearbeitungsdauer für Vorgang" />
     <Member Name="EstimatedDuration" Description="Veranschlagte Bearbeitungsdauer" />
   </Type>
-  <Type Name="CaseJunctionEntity" Description="Fall Zusammenführung">
-    <Member Name="Direction" Description="Richtung" />
-    <Member Name="From" Description="Von" />
-    <Member Name="To" Description="An" />
+  <Type Name="CaseMessage">
+    <Member Name="DeleteMainEntity" Description="" />
+    <Member Name="DoYouWAntToAlsoDeleteTheMainEntities" Description="" />
+    <Member Name="DoYouWAntToAlsoDeleteTheMainEntity0" Description="" />
+    <Member Name="SetTags" Description="Setze Tags" />
   </Type>
   <Type Name="CaseNotificationEntity" Description="Fall Benachrichtigung">
     <Member Name="Actor" Description="Akteur" />
@@ -133,6 +136,8 @@
     <Member Name="User" Description="Benutzer" />
   </Type>
   <Type Name="CaseNotificationOperation">
+    <Member Name="CreateCaseNotificationFromCaseActivity" Description="" />
+    <Member Name="Delete" Description="Löschen" />
     <Member Name="SetRemarks" Description="Bemerkungen hinzufügen" />
   </Type>
   <Type Name="CaseNotificationState" Description="Fall Benachrichtigungszustand">
@@ -144,6 +149,7 @@
   </Type>
   <Type Name="CaseOperation">
     <Member Name="Cancel" Description="Abbrechen" />
+    <Member Name="Delete" Description="Löschen" />
     <Member Name="Reactivate" Description="Reaktivieren" />
     <Member Name="SetTags" Description="Setze Tags" />
   </Type>
@@ -163,6 +169,12 @@
   </Type>
   <Type Name="CaseTagTypeOperation">
     <Member Name="Save" Description="Speichern" />
+  </Type>
+  <Type Name="ConnectionType" Description="">
+    <Member Name="Decision" Description="Entscheidung" />
+    <Member Name="Jump" Description="Springen" />
+    <Member Name="Normal" Description="" />
+    <Member Name="ScriptException" Description="" />
   </Type>
   <Type Name="DateFilterRange" Description="Datumsbereichs filtern">
     <Member Name="All" Description="Alle" />
@@ -191,12 +203,17 @@
     <Member Name="Sender" Description="Sender" />
     <Member Name="SenderNote" Description="Sender Notiz" />
   </Type>
-  <Type Name="IWorkflowNodeEntity">
-    <Member Name="Lane" Description="Fahrbahn" />
-  </Type>
-  <Type Name="IWorkflowObjectEntity">
-    <Member Name="BpmnElementId" Description="BPMN Element-id" />
-    <Member Name="Xml" Description="XML" />
+  <Type Name="InboxRowModel" Description="">
+    <Member Name="Activity" Description="Aktivität" />
+    <Member Name="Actor" Description="Akteur" />
+    <Member Name="Entity" Description="" />
+    <Member Name="MainEntity" Description="Hauptentität" />
+    <Member Name="Sender" Description="Sender" />
+    <Member Name="SenderNote" Description="Sender Notiz" />
+    <Member Name="StartDate" Description="Startdatum" />
+    <Member Name="State" Description="" />
+    <Member Name="User" Description="Benutzer" />
+    <Member Name="Workflow" Description="Workflow" />
   </Type>
   <Type Name="NewTasksEmbedded" Description="Neue Aufgaben">
     <Member Name="BpmnId" Description="Bpmn-ID" />
@@ -219,13 +236,17 @@
     <Member Name="Minutes" Description="Minuten" />
     <Member Name="Seconds" Description="Sekunden" />
   </Type>
+  <Type Name="TriggeredOn" Description="">
+    <Member Name="Always" Description="Immer" />
+    <Member Name="ConditionChangesToTrue" Description="" />
+    <Member Name="ConditionIsTrue" Description="" />
+  </Type>
   <Type Name="ViewNamePropEmbedded" Description="View name prop">
     <Member Name="Expression" Description="Ausdruck" />
     <Member Name="Name" Description="Name" />
   </Type>
   <Type Name="WorkflowActionEntity" Description="Workflow-Aktion">
     <Member Name="Eval" Description="Eval" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
     <Member Name="Name" Description="Name" />
   </Type>
@@ -253,8 +274,28 @@
     <Member Name="ViewNameProps" Description="Namensrequisiten anzeigen" />
     <Member Name="Xml" Description="XML" />
   </Type>
+  <Type Name="WorkflowActivityEntity_DecisionOption" Description="">
+    <Member Name="Activity" Description="Aktivität" />
+    <Member Name="Option" Description="" />
+  </Type>
+  <Type Name="WorkflowActivityEntity_ViewNameProp" Description="">
+    <Member Name="Activity" Description="Aktivität" />
+    <Member Name="Prop" Description="" />
+  </Type>
   <Type Name="WorkflowActivityMessage">
+    <Member Name="ActivityIs" Description="" />
+    <Member Name="Approve" Description="" />
+    <Member Name="AreYouSureYouWantToExecute0" Description="" />
+    <Member Name="AverageDuration" Description="Durchschnittliche Bearbeitungsdauer" />
+    <Member Name="CaseFlow" Description="" />
+    <Member Name="ChooseADestinationForWorkflowJumping" Description="" />
+    <Member Name="Confirmation" Description="" />
+    <Member Name="Decline" Description="" />
     <Member Name="DuplicateViewNameFound0" Description="Doppelter Ansichtsname gefunden: {0}" />
+    <Member Name="InprogressCaseActivities" Description="" />
+    <Member Name="LocateWorkflowActivityInDiagram" Description="" />
+    <Member Name="NoActiveTimerFound" Description="" />
+    <Member Name="OpenCaseActivityStats" Description="" />
   </Type>
   <Type Name="WorkflowActivityModel" Description="Workflow-Aktivität">
     <Member Name="BoundaryTimers" Description="Boundary-Timer" />
@@ -279,6 +320,7 @@
     <Member Name="Draw" Description="Zeichnen" />
     <Member Name="Filters" Description="Filter" />
     <Member Name="Find" Description="Finden" />
+    <Member Name="OpenWorkflow" Description="" />
     <Member Name="ResetZoom" Description="Zoom zurücksetzen" />
     <Member Name="WorkflowActivityMonitor" Description="Workflow-Aktivitätsmonitor" />
   </Type>
@@ -298,22 +340,40 @@
     <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
     <Member Name="Name" Description="Name" />
   </Type>
+  <Type Name="WorkflowConditionEval" Description="" />
   <Type Name="WorkflowConditionOperation">
+    <Member Name="Clone" Description="Klonen" />
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
+  <Type Name="WorkflowConfigurationEmbedded" Description="">
+    <Member Name="AvoidExecutingScriptsOlderThan" Description="" />
+    <Member Name="ChunkSizeRunningScripts" Description="" />
+    <Member Name="ScriptRunnerPeriod" Description="" />
+  </Type>
   <Type Name="WorkflowConnectionEntity" Description="Workflow-Verbindung">
+    <Member Name="Action" Description="Aktion" />
+    <Member Name="BpmnElementId" Description="" />
     <Member Name="Condition" Description="Bedingung" />
+    <Member Name="DecisionOptionName" Description="" />
     <Member Name="From" Description="Von" />
     <Member Name="Name" Description="Name" />
     <Member Name="Order" Description="Reihenfolge" />
     <Member Name="To" Description="An" />
+    <Member Name="Type" Description="Typ" />
     <Member Name="Xml" Description="XML" />
   </Type>
   <Type Name="WorkflowConnectionModel" Description="Workflow-Verbindung">
+    <Member Name="Action" Description="Aktion" />
     <Member Name="Condition" Description="Bedingung" />
+    <Member Name="DecisionOptionName" Description="" />
+    <Member Name="DecisionOptions" Description="Entscheidungsoptionen" />
+    <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
     <Member Name="Name" Description="Name" />
+    <Member Name="NeedCondition" Description="" />
+    <Member Name="NeedOrder" Description="" />
     <Member Name="Order" Description="Reihenfolge" />
+    <Member Name="Type" Description="Typ" />
   </Type>
   <Type Name="WorkflowConnectionOperation">
     <Member Name="Delete" Description="Löschen" />
@@ -321,28 +381,71 @@
   </Type>
   <Type Name="WorkflowEntity" Description="Workflow" Gender="m">
     <Member Name="ExpirationDate" Description="Verfallsdatum" />
-    <Member Name="FullDiagramXml" Description="Vollständiges XML Diagramm" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="MainEntityStrategies" Description="Hauptentität-Strategien" />
     <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
     <Member Name="Name" Description="Name" />
   </Type>
+  <Type Name="WorkflowEntity_MainEntityStrategy" Description="">
+    <Member Name="Strategy" Description="Strategie" />
+    <Member Name="Workflow" Description="Workflow" />
+  </Type>
   <Type Name="WorkflowEventEntity" Description="Workflow-event">
+    <Member Name="BoundaryOf" Description="" />
+    <Member Name="BpmnElementId" Description="" />
+    <Member Name="DecisionOptionName" Description="" />
     <Member Name="Lane" Description="Fahrbahn" />
     <Member Name="Name" Description="Name" />
+    <Member Name="RunRepeatedly" Description="" />
+    <Member Name="Timer" Description="Zeitschaltuhr" />
     <Member Name="Type" Description="Typ" />
     <Member Name="Xml" Description="XML" />
   </Type>
   <Type Name="WorkflowEventModel" Description="Workflow-event">
+    <Member Name="BpmnElementId" Description="" />
+    <Member Name="DecisionOptionName" Description="" />
+    <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
     <Member Name="Name" Description="Name" />
+    <Member Name="RunRepeatedly" Description="" />
+    <Member Name="Task" Description="" />
+    <Member Name="Timer" Description="Zeitschaltuhr" />
     <Member Name="Type" Description="Typ" />
   </Type>
   <Type Name="WorkflowEventOperation">
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
+  <Type Name="WorkflowEventTaskActionEval" Description="" />
+  <Type Name="WorkflowEventTaskConditionEval" Description="" />
+  <Type Name="WorkflowEventTaskConditionResultEntity" Description="">
+    <Member Name="CreationDate" Description="Erstellungsdatum" />
+    <Member Name="Result" Description="Ergebnis" />
+    <Member Name="WorkflowEventTask" Description="" />
+  </Type>
+  <Type Name="WorkflowEventTaskEntity" Description="">
+    <Member Name="Action" Description="Aktion" />
+    <Member Name="Condition" Description="Bedingung" />
+    <Member Name="Event" Description="" />
+    <Member Name="FullWorkflow" Description="" />
+    <Member Name="TriggeredOn" Description="" />
+    <Member Name="Workflow" Description="Workflow" />
+  </Type>
+  <Type Name="WorkflowEventTaskModel" Description="">
+    <Member Name="Action" Description="Aktion" />
+    <Member Name="Condition" Description="Bedingung" />
+    <Member Name="Rule" Description="Regel" />
+    <Member Name="Suspended" Description="Ausgesetzt" />
+    <Member Name="TriggeredOn" Description="" />
+  </Type>
+  <Type Name="WorkflowEventTaskOperation">
+    <Member Name="Delete" Description="Löschen" />
+    <Member Name="Save" Description="Speichern" />
+  </Type>
   <Type Name="WorkflowEventType" Description="Workflow-Event-Typ">
+    <Member Name="BoundaryForkTimer" Description="" />
+    <Member Name="BoundaryInterruptingTimer" Description="" />
     <Member Name="Finish" Description="Abschließen" />
+    <Member Name="IntermediateTimer" Description="" />
+    <Member Name="ScheduledStart" Description="" />
     <Member Name="Start" Description="Start" />
   </Type>
   <Type Name="WorkflowGatewayDirection" Description="Workflow-Gateway-Richtung">
@@ -350,6 +453,7 @@
     <Member Name="Split" Description="Aufteilen" />
   </Type>
   <Type Name="WorkflowGatewayEntity" Description="Workflow-gateway">
+    <Member Name="BpmnElementId" Description="" />
     <Member Name="Direction" Description="Richtung" />
     <Member Name="Lane" Description="Fahrbahn" />
     <Member Name="Name" Description="Name" />
@@ -370,20 +474,32 @@
     <Member Name="Inclusive" Description="Inklusive" />
     <Member Name="Parallel" Description="Parallel" />
   </Type>
-  <Type Name="WorkflowIssueType">
+  <Type Name="WorkflowIssueType" Description="">
     <Member Name="Error" Description="Fehler" />
     <Member Name="Warning" Description="Warnung" />
   </Type>
+  <Type Name="WorkflowLaneActorsEval" Description="" />
   <Type Name="WorkflowLaneEntity" Description="Workflowstrasse">
     <Member Name="Actors" Description="Akteur" />
+    <Member Name="ActorsEval" Description="" />
+    <Member Name="BpmnElementId" Description="" />
+    <Member Name="CombineActorAndActorEvalWhenContinuing" Description="" />
     <Member Name="Name" Description="Name" />
     <Member Name="Pool" Description="Pool" />
+    <Member Name="UseActorEvalForStart" Description="" />
     <Member Name="Xml" Description="XML" />
+  </Type>
+  <Type Name="WorkflowLaneEntity_Actor" Description="">
+    <Member Name="Actor" Description="Akteur" />
+    <Member Name="Lane" Description="Fahrbahn" />
   </Type>
   <Type Name="WorkflowLaneModel" Description="Workflowstrasse">
     <Member Name="Actors" Description="Akteur" />
+    <Member Name="ActorsEval" Description="" />
+    <Member Name="CombineActorAndActorEvalWhenContinuing" Description="" />
     <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
     <Member Name="Name" Description="Name" />
+    <Member Name="UseActorEvalForStart" Description="" />
   </Type>
   <Type Name="WorkflowLaneOperation">
     <Member Name="Delete" Description="Löschen" />
@@ -397,15 +513,18 @@
   <Type Name="WorkflowMessage">
     <Member Name="_0BelongsToADifferentWorkflow" Description="{0} gehört zu  einem anderem Arbeitsablauf" />
     <Member Name="_0NotAllowedFor1NoConstructorHasBeenDefinedInWithWorkflow" Description="{0} nicht erlaubt für {1} (es wurde kein Konstruktor in 'WithWorkflow' definiert)" />
+    <Member Name="_0Operations" Description="" />
     <Member Name="ChangeWorkflowMainEntityTypeIsNotAllowedBecauseWeHaveNodesThatUseIt" Description="Workflow-Hauptentitätstyp ändern ist nicht erlaubt, weil wir Knoten haben, die ihn verwenden." />
     <Member Name="Color" Description="Farbe:" />
     <Member Name="Condition0IsDefinedFor1Not2" Description="Zustand {0} ist für {1} definiert, nicht für {2}" />
     <Member Name="DeactivateWorkflow" Description="Workflow deaktivieren" />
+    <Member Name="EvaluationOrderOfTheConnectionForIfElse" Description="" />
     <Member Name="HasExpired" Description="Abgelaufen" />
     <Member Name="JumpsToSameActivityNotAllowed" Description="Sprünge für dieselbe Tätigkeit sind nicht erlaubt" />
     <Member Name="JumpTo0FailedBecause1" Description="Wechseln zu &quot;{0}' ist fehlgeschlagen, da&quot;{1}&quot;" />
     <Member Name="PleaseChooseExpirationDate" Description="Bitte wählen Sie das Verfallsdatum" />
     <Member Name="ResetZoom" Description="Zoom zurücksetzen" />
+    <Member Name="SaveAsSVG" Description="" />
     <Member Name="ToUse0YouSouldSaveWorkflow" Description="Um '{0}' benutzen zu können solltest du den Arbeitsablauf speichern" />
     <Member Name="ToUse0YouSouldSetTheWorkflow1" Description="Um '{0}' zu benutzen solltest Du den Arbeitsablauf für '1' setzen " />
     <Member Name="ToUseNewNodesOnJumpsYouSouldSaveWorkflow" Description="Um neue Knoten für Sprünge benutzen zu können solltest Du den Arbeitsablauf speichern" />
@@ -431,8 +550,10 @@
   <Type Name="WorkflowPermission">
     <Member Name="ViewCaseFlow" Description="Fallablauf anzeigen" />
     <Member Name="ViewWorkflowPanel" Description="Workflow-Panel anzeigen" />
+    <Member Name="WorkflowToolbarMenu" Description="" />
   </Type>
   <Type Name="WorkflowPoolEntity" Description="Workflow-pool">
+    <Member Name="BpmnElementId" Description="" />
     <Member Name="Name" Description="Name" />
     <Member Name="Workflow" Description="Workflow" />
     <Member Name="Xml" Description="XML" />
@@ -453,9 +574,45 @@
     <Member Name="NewTasks" Description="Neue Aufgaben" />
     <Member Name="Replacements" Description="Ersatz" />
   </Type>
+  <Type Name="WorkflowScriptEntity" Description="">
+    <Member Name="Eval" Description="" />
+    <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
+    <Member Name="Name" Description="Name" />
+  </Type>
+  <Type Name="WorkflowScriptEval" Description="">
+    <Member Name="CustomTypes" Description="" />
+  </Type>
+  <Type Name="WorkflowScriptOperation">
+    <Member Name="Clone" Description="Klonen" />
+    <Member Name="Delete" Description="Löschen" />
+    <Member Name="Save" Description="Speichern" />
+  </Type>
   <Type Name="WorkflowScriptPartEmbedded" Description="Workflow-Skript Teil">
     <Member Name="RetryStrategy" Description="Wiederholungsstrategie" />
     <Member Name="Script" Description="Skript" />
+  </Type>
+  <Type Name="WorkflowScriptRetryStrategyEntity" Description="">
+    <Member Name="Rule" Description="Regel" />
+  </Type>
+  <Type Name="WorkflowScriptRetryStrategyOperation">
+    <Member Name="Delete" Description="Löschen" />
+    <Member Name="Save" Description="Speichern" />
+  </Type>
+  <Type Name="WorkflowTimerConditionEntity" Description="">
+    <Member Name="Eval" Description="" />
+    <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
+    <Member Name="Name" Description="Name" />
+  </Type>
+  <Type Name="WorkflowTimerConditionEval" Description="" />
+  <Type Name="WorkflowTimerConditionOperation">
+    <Member Name="Clone" Description="Klonen" />
+    <Member Name="Delete" Description="Löschen" />
+    <Member Name="Save" Description="Speichern" />
+  </Type>
+  <Type Name="WorkflowTimerEmbedded" Description="">
+    <Member Name="AvoidExecuteConditionByTimer" Description="" />
+    <Member Name="Condition" Description="Bedingung" />
+    <Member Name="Duration" Description="Dauer" />
   </Type>
   <Type Name="WorkflowValidationMessage">
     <Member Name="_0CanNotBeConnectedToAParallelJoinBecauseHasNoPreviousParallelSplit" Description="'{0}' kann nicht mit einem parallelen Join verbunden werden, da es keine vorherige parallele Split gibt." />
@@ -475,6 +632,9 @@
     <Member Name="Activity0OfType1ShouldHaveExactlyOneConnectionOfType2" Description="Aktivität '{0}' vom Typ '{1}' sollte genau eine Verbindung vom Typ '{2}' haben." />
     <Member Name="Activity0ShouldBeDecision" Description="Aktivität &quot;{0}&quot; sollte Entscheidung sein." />
     <Member Name="Activity0WithDecisionTypeShouldGoToAnExclusiveOrInclusiveGateways" Description="Aktivität &quot;{0}&quot; mit Entscheidungstyp sollte an ein exklusives oder inklusives Gateway gehen." />
+    <Member Name="BoundaryTimer0OfActivity1CanNotHave2BecauseActivityIsNot3" Description="" />
+    <Member Name="BoundaryTimer0OfActivity1HasInvalid23" Description="" />
+    <Member Name="BoundaryTimer0OfActivity1ShouldHave2BecauseActivityIs3" Description="" />
     <Member Name="BoundaryTimer0OfActivity1ShouldHaveExactlyOneConnectionOfType2" Description="Der Boundary-Timer '{0}' der Aktivität '{1}' sollte genau eine Verbindung vom Typ '{2}' haben." />
     <Member Name="DecisionOption0IsDeclaredButNeverUsedInAConnection" Description="Entscheidungsoption '{0}' wird deklariert, aber nie in einer Verbindung verwendet" />
     <Member Name="DecisionOptionName0IsNotDeclaredInAnyActivity" Description="Entscheidungsoption Name '{0}' wird in keiner Aktivität deklariert" />

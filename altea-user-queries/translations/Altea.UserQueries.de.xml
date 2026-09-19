@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="AutoUpdate" Description="Automatische Aktualisierung">
     <Member Name="Dashboard" Description="Dashboard" />
@@ -10,7 +10,6 @@
     <Member Name="CustomUrl" Description="Benutzerdefinierte URL" />
     <Member Name="IsClickable" Description="Ist anklickbar" />
     <Member Name="Navigate" Description="Navigieren" />
-    <Member Name="RequiresTitle" Description="Erfordert Titel" />
     <Member Name="UserQuery" Description="Benutzer-Abfrage" />
     <Member Name="ValueToken" Description="Wert-Token" />
   </Type>
@@ -43,7 +42,6 @@
     <Member Name="EntityType" Description="Entitätstyp" />
     <Member Name="Filters" Description="Filter" />
     <Member Name="GroupResults" Description="Ergebnisse gruppieren" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="HealthCheck" Description="Health check" />
     <Member Name="HideQuickLink" Description="Quick Link verstecken" />
     <Member Name="IncludeDefaultFilters" Description="Standardfilter einschließen" />
@@ -55,11 +53,25 @@
     <Member Name="ShowTitleAsBreadcrumb" Description="Titel als Breadcrumb anzeigen" />
     <Member Name="SystemTime" Description="Systemzeit" />
   </Type>
-  <Type Name="UserQueryLiteModel" Description="Benutzerabfrage lite">
-    <Member Name="DisplayName" Description="Anzeigename" />
-    <Member Name="HideQuickLink" Description="Quick Link verstecken" />
-    <Member Name="Query" Description="Abfrage" />
-    <Member Name="ShowTitleAsBreadcrumb" Description="Titel als Breadcrumb anzeigen" />
+  <Type Name="UserQueryEntity_Column" Description="">
+    <Member Name="CombineRows" Description="" />
+    <Member Name="DisplayName" Description="" />
+    <Member Name="HiddenColumn" Description="Ausgeblendete Spalte" />
+    <Member Name="SummaryToken" Description="" />
+    <Member Name="Token" Description="Token" />
+    <Member Name="UserQuery" Description="Benutzer-Abfrage" />
+  </Type>
+  <Type Name="UserQueryEntity_CustomDrilldown" Description="">
+    <Member Name="Drilldown" Description="" />
+    <Member Name="UserQuery" Description="Benutzer-Abfrage" />
+  </Type>
+  <Type Name="UserQueryEntity_Filter" Description="">
+    <Member Name="UserQuery" Description="Benutzer-Abfrage" />
+  </Type>
+  <Type Name="UserQueryEntity_Order" Description="">
+    <Member Name="OrderType" Description="" />
+    <Member Name="Token" Description="Token" />
+    <Member Name="UserQuery" Description="Benutzer-Abfrage" />
   </Type>
   <Type Name="UserQueryMessage">
     <Member Name="_0CountOf1Is2Than3" Description="{0} Anzahl der {1} ist {2} als {3}" />
@@ -68,15 +80,16 @@
     <Member Name="CreateNew" Description="Erstellen" />
     <Member Name="Date" Description="Datum" />
     <Member Name="Edit" Description="Bearbeiten" />
+    <Member Name="ElementsPerPageMustBeGreaterThanZero" Description="" />
     <Member Name="MakesThe0AvailableAsAQuickLinkOf1" Description="Stellt die {0} als Quick Link of {1} zur Verfügung" />
     <Member Name="MakesThe0AvailableForCustomDrilldownsAndInContextualMenuWhenGrouping0" Description="Macht die {0} für benutzerdefinierte Drilldowns und im Kontextmenü beim Gruppieren verfügbar {1}" />
-    <Member Name="OverridesTheDefault0CaptionOfTheCreateButton" Description="Überschreibt die Standardbeschriftung &quot;{0}&quot; der Neu-Schaltfläche" />
     <Member Name="Pagination" Description="Paginierung" />
     <Member Name="Preview" Description="Vorschau" />
     <Member Name="TheSelected0" Description="die ausgewählte {0}" />
     <Member Name="Use0ToFilterCurrentEntity" Description="Verwenden Sie {0}, um nach der aktuellen Entität zu filtern" />
   </Type>
   <Type Name="UserQueryOperation">
+    <Member Name="Clone" Description="Klonen" />
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
@@ -86,21 +99,23 @@
     <Member Name="AutoUpdate" Description="Automatische Aktualisierung" />
     <Member Name="CreateNew" Description="Neue erstellen" />
     <Member Name="IsQueryCached" Description="Ist Cached-Abfrage" />
-    <Member Name="RequiresTitle" Description="Erfordert Titel" />
     <Member Name="ShowFooter" Description="Show-Fußzeile" />
     <Member Name="UserQuery" Description="Benutzer-Abfrage" />
+  </Type>
+  <Type Name="UserQueryPartMessage">
+    <Member Name="UserQueries" Description="Benutzer-Abfragen" />
   </Type>
   <Type Name="UserQueryPermission">
     <Member Name="ViewUserQuery" Description="Benutzer-Abfrage anzeigen" />
   </Type>
-  <Type Name="ValueUserQueryElementEmbedded" Description="Wert der Benutzerabfrage">
-    <Member Name="Href" Description="Href" />
+  <Type Name="ValueUserQueryListPartEntity" Description="Wert Benutzerabfrage Listen Teil" PluralDescription="Wert Benutzerabfrage Listen Teilen" Gender="n">
+    <Member Name="UserQueries" Description="Benutzer-Abfragen" />
+  </Type>
+  <Type Name="ValueUserQueryListPartEntity_UserQuery" Description="">
+    <Member Name="Href" Description="" />
     <Member Name="IsQueryCached" Description="Ist Cached-Abfrage" />
     <Member Name="Label" Description="Etikett" />
     <Member Name="UserQuery" Description="Benutzer-Abfrage" />
-  </Type>
-  <Type Name="ValueUserQueryListPartEntity" Description="Wert Benutzerabfrage Listen Teil" PluralDescription="Wert Benutzerabfrage Listen Teilen" Gender="n">
-    <Member Name="RequiresTitle" Description="Erfordert Titel" />
-    <Member Name="UserQueries" Description="Benutzer-Abfragen" />
+    <Member Name="ValueUserQueryListPart" Description="" />
   </Type>
 </Translations>

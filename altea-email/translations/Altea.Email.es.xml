@@ -1,15 +1,15 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="AsyncEmailSenderPermission">
     <Member Name="ViewAsyncEmailSenderPanel" Description="View async email sender panel" />
   </Type>
-  <Type Name="CertFileType" Description="Tipo de archivo de CERT">
-    <Member Name="CertFile" Description="Archivo de certificado" />
-    <Member Name="SignedFile" Description="Archivo firmado" />
+  <Type Name="ClientCertificationFileEntity" Description="">
+    <Member Name="FullFilePath" Description="" />
+    <Member Name="Service" Description="" />
   </Type>
-  <Type Name="ClientCertificationFileEmbedded" Description="Archivo de certificado de cliente">
-    <Member Name="CertFileType" Description="Tipo de archivo de certificado" />
-    <Member Name="FullFilePath" Description="Ruta completa del archivo" />
+  <Type Name="CompareInbox" Description="">
+    <Member Name="Full" Description="Completo" />
+    <Member Name="LastNEmails" Description="" />
   </Type>
   <Type Name="EmailAddressEmbedded" Description="Dirección email">
     <Member Name="DisplayName" Description="Nombre" />
@@ -17,10 +17,10 @@
     <Member Name="EmailOwner" Description="Propietario email" />
     <Member Name="InvalidEmail" Description="Correo electrónico no válida" />
   </Type>
-  <Type Name="EmailAttachmentEmbedded" Description="Archivo adjunto de email">
-    <Member Name="ContentId" Description="Content id" />
-    <Member Name="File" Description="Archivo" />
-    <Member Name="Type" Description="Tipo" />
+  <Type Name="EmailAddressSource" Description="">
+    <Member Name="CurrentUser" Description="" />
+    <Member Name="HardcodedAddress" Description="" />
+    <Member Name="QueryToken" Description="" />
   </Type>
   <Type Name="EmailAttachmentType" Description="Tipo archivo adjunto de email">
     <Member Name="Attachment" Description="Archivo adjunto" />
@@ -44,17 +44,24 @@
     <Member Name="AzureUserId" Description="Id usuario Azure" />
   </Type>
   <Type Name="EmailMasterTemplateEntity" Description="Plantilla maestra de email">
-    <Member Name="Guid" Description="Guid" />
+    <Member Name="Attachments" Description="Archivos adjuntos" />
     <Member Name="IsDefault" Description="Es por defecto" />
     <Member Name="Messages" Description="Mensajes" />
     <Member Name="Name" Description="Nombre" />
   </Type>
+  <Type Name="EmailMasterTemplateEntity_Attachment" Description="">
+    <Member Name="Attachment" Description="Archivo adjunto" />
+    <Member Name="MasterTemplate" Description="Plantilla principal" />
+  </Type>
   <Type Name="EmailMasterTemplateEntity_Message" Description="Mensaje email plantilla maestra">
     <Member Name="CultureInfo" Description="Información cultura" />
+    <Member Name="MasterTemplate" Description="Plantilla principal" />
     <Member Name="Text" Description="Texto" />
   </Type>
   <Type Name="EmailMasterTemplateOperation">
+    <Member Name="Clone" Description="" />
     <Member Name="Create" Description="Crear" />
+    <Member Name="Delete" Description="" />
     <Member Name="Save" Description="Guardar" />
   </Type>
   <Type Name="EmailMessageEntity" Description="Mensaje de e-mail">
@@ -71,17 +78,34 @@
     <Member Name="Recipients" Description="Destinatarios" />
     <Member Name="SendRetries" Description="Reintentos de envío" />
     <Member Name="Sent" Description="Enviado" />
+    <Member Name="SentBy" Description="" />
     <Member Name="State" Description="Estado" />
     <Member Name="Subject" Description="Asunto" />
     <Member Name="Target" Description="Destino" />
     <Member Name="Template" Description="Plantilla" />
     <Member Name="UniqueIdentifier" Description="Identificador único" />
   </Type>
+  <Type Name="EmailMessageEntity_Attachment" Description="">
+    <Member Name="ContentId" Description="Content id" />
+    <Member Name="EmailMessage" Description="Mensaje de e-mail" />
+    <Member Name="File" Description="" />
+    <Member Name="Type" Description="Tipo" />
+  </Type>
+  <Type Name="EmailMessageEntity_Recipient" Description="">
+    <Member Name="EmailMessage" Description="Mensaje de e-mail" />
+  </Type>
+  <Type Name="EmailMessageFormat" Description="">
+    <Member Name="HtmlComplex" Description="" />
+    <Member Name="HtmlSimple" Description="" />
+    <Member Name="PlainText" Description="" />
+  </Type>
   <Type Name="EmailMessageMessage">
     <Member Name="_01requiresExtraParameters" Description="{0} {1} requiere parámetros adicionales" />
+    <Member Name="DefaultFromNotFound" Description="" />
     <Member Name="ExceptionMessages" Description="Mensajes excepción" />
     <Member Name="Message" Description="Mensaje" />
     <Member Name="Messages" Description="Mensajes" />
+    <Member Name="NoSuitableRecipientsWereFound" Description="" />
     <Member Name="RemainingMessages" Description="Mensajes pendientes" />
     <Member Name="TheEmailMessageCannotBeSentFromState0" Description="El email no se pueden enviar desde el estado {0}" />
   </Type>
@@ -94,6 +118,16 @@
     <Member Name="Save" Description="Guardar" />
     <Member Name="Send" Description="Enviar" />
   </Type>
+  <Type Name="EmailMessagePackageMixin">
+    <Member Name="Package" Description="Paquete" />
+  </Type>
+  <Type Name="EmailMessagePackageOperation">
+    <Member Name="ReSendEmails" Description="" />
+  </Type>
+  <Type Name="EmailMessageProcess">
+    <Member Name="CreateEmailsSendAsync" Description="Crear correos electrónicos envío asincrónico" />
+    <Member Name="SendEmails" Description="Enviar correos electrónicos" />
+  </Type>
   <Type Name="EmailMessageState" Description="Estado del email">
     <Member Name="Created" Description="Creado" />
     <Member Name="Draft" Description="Borrador" />
@@ -105,10 +139,61 @@
     <Member Name="Sent" Description="Enviado" />
     <Member Name="SentException" Description="Excepción envío" />
   </Type>
+  <Type Name="EmailMessageViewMessage">
+    <Member Name="Body" Description="Cuerpo" />
+    <Member Name="Preview" Description="Vista previa" />
+  </Type>
   <Type Name="EmailModelEntity" Description="Modelo de e-Mail">
     <Member Name="ClassName" Description="Class Name" />
   </Type>
-  <Type Name="EmailRecipientEmbedded" Description="Destinatario de correo electrónico">
+  <Type Name="EmailPackageEntity" Description="Paquete de e-mail">
+    <Member Name="Name" Description="Nombre" />
+  </Type>
+  <Type Name="EmailReceptionAction">
+    <Member Name="ReceiveAllActiveEmailConfigurations" Description="" />
+  </Type>
+  <Type Name="EmailReceptionConfigurationEntity" Description="">
+    <Member Name="Active" Description="Activo" />
+    <Member Name="CompareInbox" Description="" />
+    <Member Name="DeleteMessagesAfter" Description="" />
+    <Member Name="EmailAddress" Description="Dirección email" />
+    <Member Name="Service" Description="" />
+  </Type>
+  <Type Name="EmailReceptionConfigurationOperation">
+    <Member Name="ReceiveEmails" Description="" />
+    <Member Name="Save" Description="" />
+  </Type>
+  <Type Name="EmailReceptionEntity" Description="">
+    <Member Name="EmailReceptionConfiguration" Description="" />
+    <Member Name="EndDate" Description="" />
+    <Member Name="Exception" Description="" />
+    <Member Name="LastServerMessageUID" Description="" />
+    <Member Name="MailsFromDifferentAccounts" Description="" />
+    <Member Name="NewEmails" Description="" />
+    <Member Name="ServerEmails" Description="" />
+    <Member Name="StartDate" Description="Fecha de inicio" />
+  </Type>
+  <Type Name="EmailReceptionExceptionEntity" Description="">
+    <Member Name="Exception" Description="" />
+    <Member Name="Reception" Description="" />
+  </Type>
+  <Type Name="EmailReceptionInfoEmbedded" Description="">
+    <Member Name="DeletionDate" Description="" />
+    <Member Name="RawContent" Description="" />
+    <Member Name="ReceivedDate" Description="" />
+    <Member Name="Reception" Description="" />
+    <Member Name="SentDate" Description="" />
+    <Member Name="UniqueId" Description="" />
+  </Type>
+  <Type Name="EmailReceptionMixin">
+    <Member Name="ReceptionInfo" Description="" />
+  </Type>
+  <Type Name="EmailReceptionServiceEntity" Description="" />
+  <Type Name="EmailRecipientBaseEntity" Description="">
+    <Member Name="DisplayName" Description="" />
+    <Member Name="EmailAddress" Description="Dirección email" />
+    <Member Name="EmailOwner" Description="Propietario email" />
+    <Member Name="InvalidEmail" Description="Correo electrónico no válida" />
     <Member Name="Kind" Description="Tipo" />
   </Type>
   <Type Name="EmailRecipientKind" Description="Tipo destinatario email">
@@ -120,15 +205,19 @@
     <Member Name="AdditionalRecipients" Description="Destinatarios adicionales" />
     <Member Name="DefaultFrom" Description="De por defecto" />
     <Member Name="Name" Description="Nombre" />
+    <Member Name="Service" Description="" />
+  </Type>
+  <Type Name="EmailSenderConfigurationEntity_AdditionalRecipient" Description="">
+    <Member Name="SenderConfiguration" Description="" />
+  </Type>
+  <Type Name="EmailSenderConfigurationMessage">
+    <Member Name="SenderConfiguration" Description="" />
   </Type>
   <Type Name="EmailSenderConfigurationOperation">
+    <Member Name="Clone" Description="" />
     <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="EmailTemplateAddressEmbedded" Description="Dirección plantilla email">
-    <Member Name="DisplayName" Description="Nombre para mostrar" />
-    <Member Name="EmailAddress" Description="Dirección email" />
-    <Member Name="Token" Description="Token" />
-  </Type>
+  <Type Name="EmailServiceEntity" Description="" />
   <Type Name="EmailTemplateEntity" Description="Plantillas de email">
     <Member Name="Applicable" Description="Aplicable" />
     <Member Name="Attachments" Description="Archivos adjuntos" />
@@ -137,8 +226,8 @@
     <Member Name="Filters" Description="Filtros" />
     <Member Name="From" Description="De" />
     <Member Name="GroupResults" Description="Agrupar resultados" />
-    <Member Name="Guid" Description="Guid" />
     <Member Name="MasterTemplate" Description="Plantilla principal" />
+    <Member Name="MessageFormat" Description="" />
     <Member Name="Messages" Description="Mensajes" />
     <Member Name="Model" Description="Modelo" />
     <Member Name="Name" Description="Nombre" />
@@ -146,8 +235,40 @@
     <Member Name="Query" Description="Consulta" />
     <Member Name="Recipients" Description="Destinatarios" />
   </Type>
+  <Type Name="EmailTemplateEntity_Attachment" Description="">
+    <Member Name="Attachment" Description="Archivo adjunto" />
+    <Member Name="EmailTemplate" Description="Plantilla de correo electrónico" />
+  </Type>
+  <Type Name="EmailTemplateEntity_Filter" Description="">
+    <Member Name="EmailTemplate" Description="Plantilla de correo electrónico" />
+  </Type>
+  <Type Name="EmailTemplateEntity_Message" Description="Mensaje plantilla email">
+    <Member Name="CultureInfo" Description="Cultura" />
+    <Member Name="EmailTemplate" Description="Plantilla de correo electrónico" />
+    <Member Name="Subject" Description="Asunto" />
+    <Member Name="Text" Description="Texto" />
+  </Type>
+  <Type Name="EmailTemplateEntity_Order" Description="">
+    <Member Name="EmailTemplate" Description="Plantilla de correo electrónico" />
+    <Member Name="OrderType" Description="" />
+    <Member Name="Token" Description="Token" />
+  </Type>
+  <Type Name="EmailTemplateEntity_Recipient" Description="Destinatario de la plantilla de correo electrónico">
+    <Member Name="AddressSource" Description="" />
+    <Member Name="DisplayName" Description="" />
+    <Member Name="EmailAddress" Description="Dirección email" />
+    <Member Name="EmailTemplate" Description="Plantilla de correo electrónico" />
+    <Member Name="Kind" Description="Tipo" />
+    <Member Name="Token" Description="Token" />
+    <Member Name="WhenMany" Description="Cuando varios" />
+    <Member Name="WhenNone" Description="Cuando ninguno" />
+  </Type>
   <Type Name="EmailTemplateFromEmbedded" Description="De plantilla email">
+    <Member Name="AddressSource" Description="" />
     <Member Name="AzureUserId" Description="Id usuario Azure" />
+    <Member Name="DisplayName" Description="" />
+    <Member Name="EmailAddress" Description="Dirección email" />
+    <Member Name="Token" Description="Token" />
     <Member Name="WhenMany" Description="Cuando varios" />
     <Member Name="WhenNone" Description="Cuando ninguno" />
   </Type>
@@ -156,7 +277,6 @@
     <Member Name="HidePreview" Description="Ocultar vista previa" />
     <Member Name="NewCulture" Description="Nueva cultura" />
     <Member Name="ShowPreview" Description="Mostrar vista previa" />
-    <Member Name="ThereAreNoMessagesForTheTemplate" Description="No hay mensajes para la plantilla" />
     <Member Name="ThereMustBeAMessageFor0" Description="Debe haber un mensaje para {0}" />
     <Member Name="TheresMoreThanOneMessageForTheSameLanguage" Description="Hay más de un mensaje para el mismo idioma" />
     <Member Name="TheTextMustContain0IndicatingReplacementPoint" Description="El texto debe contener {0} indicando punto de reemplazamiento" />
@@ -164,26 +284,28 @@
     <Member Name="TokenMustBeA0" Description="Token debe ser un {0}" />
     <Member Name="TokenOrEmailAddressMustBeSet" Description="Debe establecerse Token o correo electrónico" />
   </Type>
-  <Type Name="EmailTemplateEntity_Message" Description="Mensaje plantilla email">
-    <Member Name="CultureInfo" Description="Cultura" />
-    <Member Name="Subject" Description="Asunto" />
-    <Member Name="Text" Description="Texto" />
-  </Type>
   <Type Name="EmailTemplateOperation">
+    <Member Name="Clone" Description="" />
     <Member Name="Create" Description="Crear" />
     <Member Name="CreateEmailTemplateFromModel" Description="Crear plantilla de e-Mail desde modelo" />
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="EmailTemplateEntity_Recipient" Description="Destinatario de la plantilla de correo electrónico">
-    <Member Name="Kind" Description="Tipo" />
-    <Member Name="WhenMany" Description="Cuando varios" />
-    <Member Name="WhenNone" Description="Cuando ninguno" />
+  <Type Name="EmailTemplateTargetFrom" Description="">
+    <Member Name="NoTarget" Description="" />
+    <Member Name="Unique" Description="" />
+    <Member Name="UserQuery" Description="Consulta de usuario" />
   </Type>
   <Type Name="EmailTemplateViewMessage">
     <Member Name="Insert" Description="Insertar" />
     <Member Name="InsertMessageContent" Description="Insertar contenido del mensaje" />
     <Member Name="Language" Description="Idioma" />
+  </Type>
+  <Type Name="FileTokenAttachmentEntity" Description="">
+    <Member Name="ContentId" Description="Content id" />
+    <Member Name="FileName" Description="" />
+    <Member Name="FileToken" Description="" />
+    <Member Name="Type" Description="Tipo" />
   </Type>
   <Type Name="ImageAttachmentEntity" Description="Archivo adjunto de imagen">
     <Member Name="ContentId" Description="Content id" />
@@ -191,10 +313,37 @@
     <Member Name="FileName" Description="Nombre de archivo" />
     <Member Name="Type" Description="Tipo" />
   </Type>
+  <Type Name="SendEmailTaskEntity" Description="Tareas de enviar correo electrónico">
+    <Member Name="EmailTemplate" Description="Plantilla de correo electrónico" />
+    <Member Name="ModelConverter" Description="Conversor de modelo" />
+    <Member Name="Name" Description="Nombre" />
+    <Member Name="TargetFrom" Description="" />
+    <Member Name="TargetsFromUserQuery" Description="Objetivos de la consulta de usuario" />
+    <Member Name="UniqueTarget" Description="Único objetivo" />
+  </Type>
+  <Type Name="SendEmailTaskOperation">
+    <Member Name="Save" Description="Guardar" />
+  </Type>
+  <Type Name="SmtpDeliveryFormat" Description="">
+    <Member Name="International" Description="" />
+    <Member Name="SevenBit" Description="" />
+  </Type>
+  <Type Name="SmtpDeliveryMethod" Description="">
+    <Member Name="Network" Description="" />
+    <Member Name="PickupDirectoryFromIis" Description="" />
+    <Member Name="SpecifiedPickupDirectory" Description="" />
+  </Type>
+  <Type Name="SmtpEmailServiceEntity" Description="">
+    <Member Name="DeliveryFormat" Description="" />
+    <Member Name="DeliveryMethod" Description="" />
+    <Member Name="Network" Description="" />
+    <Member Name="PickupDirectoryLocation" Description="" />
+  </Type>
   <Type Name="SmtpNetworkDeliveryEmbedded" Description="Smtp network delivery">
     <Member Name="ClientCertificationFiles" Description="Client certification files" />
     <Member Name="EnableSSL" Description="Habilitar SSL" />
     <Member Name="Host" Description="Host" />
+    <Member Name="NewPassword" Description="Nueva contraseña" />
     <Member Name="Password" Description="Contraseña" />
     <Member Name="Port" Description="Puerto" />
     <Member Name="UseDefaultCredentials" Description="Utilizar credenciales predeterminadas" />
@@ -218,21 +367,4 @@
     <Member Name="NoRecipients" Description="Ningún destinatario" />
     <Member Name="ThrowException" Description="Lanzar excepción" />
   </Type>
-	<Type Name="EmailMessageProcess">
-		<Member Name="CreateEmailsSendAsync" Description="Crear correos electrónicos envío asincrónico" />
-		<Member Name="SendEmails" Description="Enviar correos electrónicos" />
-	</Type>
-	<Type Name="EmailPackageEntity" Description="Paquete de e-mail">
-		<Member Name="Name" Description="Nombre" />
-	</Type>
-	<Type Name="SendEmailTaskEntity" Description="Tareas de enviar correo electrónico">
-		<Member Name="EmailTemplate" Description="Plantilla de correo electrónico" />
-		<Member Name="ModelConverter" Description="Conversor de modelo" />
-		<Member Name="Name" Description="Nombre" />
-		<Member Name="TargetsFromUserQuery" Description="Objetivos de la consulta de usuario" />
-		<Member Name="UniqueTarget" Description="Único objetivo" />
-	</Type>
-	<Type Name="SendEmailTaskOperation">
-		<Member Name="Save" Description="Guardar" />
-	</Type>
 </Translations>

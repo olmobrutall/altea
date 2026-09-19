@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="AppendixHelpEntity" Description="Anlagehilfe">
     <Member Name="Culture" Description="Kultur" />
@@ -18,31 +18,34 @@
   <Type Name="HelpImageFileType">
     <Member Name="Image" Description="Bild" />
   </Type>
-  <Type Name="HelpImportLineBase" Description="Hilfe-Import-Linienbasis">
+  <Type Name="HelpImportPreviewLineEmbedded" Description="Hilfe-Import-Vorschauzeile">
     <Member Name="Action" Description="Aktion" />
-    <Member Name="Culture" Description="Kultur" />
-    <Member Name="ExitingEntity" Description="Austretende Einheit" />
+    <Member Name="Apply" Description="Anwenden?" />
+    <Member Name="Culture" Description="" />
+    <Member Name="ExitingEntity" Description="" />
     <Member Name="Key" Description="Schlüssel" />
     <Member Name="Text" Description="Text" />
     <Member Name="Type" Description="Typ" />
-  </Type>
-  <Type Name="HelpImportPreviewLineEmbedded" Description="Hilfe-Import-Vorschauzeile">
-    <Member Name="Apply" Description="Anwenden?" />
-    <Member Name="ApplyVisible" Description="Sichtbare Anwendung" />
   </Type>
   <Type Name="HelpImportPreviewModel" Description="Hilfe-Import-Vorschau">
     <Member Name="Lines" Description="Zeilen" />
   </Type>
   <Type Name="HelpImportReportLineEmbedded" Description="Hilfe-Import-Berichtszeile">
+    <Member Name="Action" Description="Aktion" />
     <Member Name="ActionError" Description="Aktionsfehler" />
+    <Member Name="Culture" Description="" />
+    <Member Name="ExitingEntity" Description="" />
+    <Member Name="Key" Description="Schlüssel" />
     <Member Name="Status" Description="Status" />
+    <Member Name="Text" Description="Text" />
+    <Member Name="Type" Description="Typ" />
   </Type>
   <Type Name="HelpImportReportModel" Description="Hilfe-Import-Bericht">
     <Member Name="Lines" Description="Zeilen" />
   </Type>
   <Type Name="HelpKindMessage">
     <Member Name="AndIsMasterDataRarelyChanges" Description=" und ist Stammdaten (ändert sich selten)" />
-    <Member Name="andIsTransactionalDataCreatedRegularly" Description=" und sind Transaktionsdaten (regelmäßig erstellt)" />
+    <Member Name="AndIsTransactionalDataCreatedRegularly" Description=" und sind Transaktionsdaten (regelmäßig erstellt)" />
     <Member Name="AutomaticallyByTheSystem" Description=" automatisch vom System" />
     <Member Name="ClassifyOtherEntities" Description="andere Entitäten klassifizieren" />
     <Member Name="HisMainFunctionIsTo0" Description="Ihre Hauptfunktion ist {0}" />
@@ -65,12 +68,12 @@
     <Member Name="Appendices" Description="Anhang" />
     <Member Name="AReference1ToA2_G" Description="Ein Verweis ({1}) auf eine {2}" />
     <Member Name="BooleanValue" Description="boolescher Wert (ja oder nein)" />
-    <Member Name="Buscador" Description="Suchmaschine" />
     <Member Name="Call0Over1OfThe2" Description="Führt {0} auf {1} von {2}" />
     <Member Name="Character" Description="Zeichen" />
     <Member Name="ChooseZIPFile" Description="Wähle ZIP-Datei" />
     <Member Name="Close" Description="Schließen" />
     <Member Name="ConstructsANew0" Description="Erstellt eine neue {0}" />
+    <Member Name="CopyLinkToken" Description="" />
     <Member Name="Date" Description="Datum" />
     <Member Name="DateTime" Description="Datum und Uhrzeit" />
     <Member Name="Edit" Description="Bearbeiten" />
@@ -79,7 +82,7 @@
     <Member Name="ExpressedIn" Description="ausgedrückt in " />
     <Member Name="From0OfThe1" Description="von {0} von {1} " />
     <Member Name="FromMany0" Description="von vielen {0}" />
-    <Member Name="full" Description="voll" />
+    <Member Name="Full" Description="voll" />
     <Member Name="Help" Description="Hilfe" />
     <Member Name="HelpNotLoaded" Description="Hilfe nicht geladen" />
     <Member Name="HelpZipContents" Description="Hilfe-Zip-Inhalt" />
@@ -93,7 +96,7 @@
     <Member Name="Integer" Description="ganze Zahl " />
     <Member Name="JumpToViewMore" Description="Zu Mehr Sehen springen" />
     <Member Name="Key0NotFound" Description="Key {0} wurde nicht gefunden" />
-    <Member Name="lite" Description="leicht" />
+    <Member Name="Lite" Description="leicht" />
     <Member Name="NewKey" Description="Neuer Schlüssel" />
     <Member Name="Next" Description="Nächster" />
     <Member Name="Optional" Description=" (fakultativ)" />
@@ -108,6 +111,7 @@
     <Member Name="String" Description="Zeichenkette" />
     <Member Name="TheDatabaseVersion" Description="die Version der Datenbank" />
     <Member Name="TheProperty0" Description="die Eigenschaft {0}" />
+    <Member Name="Types" Description="" />
     <Member Name="Value" Description="Wert" />
     <Member Name="ValueLike0" Description="Wert wie {0}" />
     <Member Name="ViewMore" Description="Mehr sehen" />
@@ -119,37 +123,13 @@
   </Type>
   <Type Name="HelpSearchMessage">
     <Member Name="_0ResultsFor1In2" Description="{0} Ergebnis[se] für {1} (in {2}ms)" />
+    <Member Name="NoResults" Description="" />
     <Member Name="Results" Description="Ergebnisse" />
     <Member Name="Search" Description="Suchen" />
   </Type>
   <Type Name="HelpSyntaxMessage">
-    <Member Name="BoldText" Description="Fette Schrift" />
-    <Member Name="Edit" Description="Bearbeiten" />
-    <Member Name="Example" Description="Beispiel" />
-    <Member Name="ExernalLink" Description="Externer Link" />
-    <Member Name="Images" Description="Bilder" />
     <Member Name="InsertImage" Description="Bild einfügen" />
-    <Member Name="ItalicText" Description="Kursive Schrift" />
-    <Member Name="Links" Description="Links" />
-    <Member Name="LinksAllowAnExtraParameterForTheText" Description="Links ermöglichen einen zusätzlichen Parameter für den Text" />
-    <Member Name="LinkToEntity" Description="Link zur Entität" />
-    <Member Name="LinkToNamespace" Description="Link zum namespace" />
-    <Member Name="LinkToOperation" Description="Link zur Operation" />
-    <Member Name="LinkToProperty" Description="Link zur Eigenschaft" />
-    <Member Name="LinkToQuery" Description="Link zur Abfrage" />
-    <Member Name="Lists" Description="Listen" />
-    <Member Name="Options" Description="Optionen" />
-    <Member Name="OrderedListItem" Description="Geordnetes Listenelement" />
-    <Member Name="OtherItem" Description="Anderes Element" />
-    <Member Name="Save" Description="Speichern" />
-    <Member Name="StriketroughText" Description="Striketrough Text" />
-    <Member Name="Syntax" Description="Syntax" />
-    <Member Name="Texts" Description="Texte" />
-    <Member Name="Title" Description="Titel" />
-    <Member Name="TitleLevel" Description="Titel-Ebene" />
     <Member Name="TranslateFrom" Description="Übersetzen aus..." />
-    <Member Name="UnderlineText" Description="Text unterstreichen" />
-    <Member Name="UnorderedListItem" Description="Ungeordnetes Listenelement" />
   </Type>
   <Type Name="ImportAction" Description="Importaktion">
     <Member Name="Create" Description="Erstellen" />
@@ -172,29 +152,19 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="OperationHelpEmbedded" Description="Hilfe zur Operation">
+  <Type Name="QueryHelpEntity" Description="Abfragehilfe">
+    <Member Name="Columns" Description="Spalten" />
+    <Member Name="Culture" Description="Kultur" />
     <Member Name="Description" Description="Beschreibung" />
     <Member Name="Info" Description="Info" />
-    <Member Name="Operation" Description="Operation" />
-  </Type>
-  <Type Name="PropertyRouteHelpEmbedded" Description="Eigenschaftsweghilfe">
-    <Member Name="Description" Description="Beschreibung" />
-    <Member Name="Info" Description="Info" />
-    <Member Name="Property" Description="Eigenschaft" />
+    <Member Name="Query" Description="Abfrage" />
   </Type>
   <Type Name="QueryHelpEntity_Column" Description="Abfrage Spaltenhilfe">
     <Member Name="ColumnName" Description="Spaltenname" />
     <Member Name="Description" Description="Beschreibung" />
     <Member Name="Info" Description="Info" />
     <Member Name="NiceName" Description="Schöner Name" />
-  </Type>
-  <Type Name="QueryHelpEntity" Description="Abfragehilfe">
-    <Member Name="Columns" Description="Spalten" />
-    <Member Name="Culture" Description="Kultur" />
-    <Member Name="Description" Description="Beschreibung" />
-    <Member Name="Info" Description="Info" />
-    <Member Name="IsEmpty" Description="Ist leer" />
-    <Member Name="Query" Description="Abfrage" />
+    <Member Name="QueryHelp" Description="" />
   </Type>
   <Type Name="QueryHelpOperation">
     <Member Name="Delete" Description="Löschen" />
@@ -204,22 +174,26 @@
     <Member Name="Culture" Description="Kultur" />
     <Member Name="Description" Description="Beschreibung" />
     <Member Name="Info" Description="Info" />
-    <Member Name="IsEmpty" Description="Ist leer" />
+    <Member Name="Namespace" Description="Namespace" />
     <Member Name="Operations" Description="Operationen" />
     <Member Name="Properties" Description="Eigenschaften" />
     <Member Name="Queries" Description="Abfragen" />
     <Member Name="Type" Description="Typ" />
   </Type>
+  <Type Name="TypeHelpEntity_Operation" Description="">
+    <Member Name="Description" Description="Beschreibung" />
+    <Member Name="Info" Description="Info" />
+    <Member Name="Operation" Description="" />
+    <Member Name="TypeHelp" Description="" />
+  </Type>
+  <Type Name="TypeHelpEntity_Property" Description="">
+    <Member Name="Description" Description="Beschreibung" />
+    <Member Name="Info" Description="Info" />
+    <Member Name="Property" Description="Eigenschaft" />
+    <Member Name="TypeHelp" Description="" />
+  </Type>
   <Type Name="TypeHelpOperation">
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
-  </Type>
-  <Type Name="TypeSearchResult">
-    <Member Name="Appendix" Description="Anlage" />
-    <Member Name="Namespace" Description="Namespace" />
-    <Member Name="Operation" Description="Operation" />
-    <Member Name="Property" Description="Eigenschaft" />
-    <Member Name="Query" Description="Abfrage" />
-    <Member Name="Type" Description="Typ" />
   </Type>
 </Translations>

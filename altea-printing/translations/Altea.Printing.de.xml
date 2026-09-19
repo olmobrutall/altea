@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="PrintLineEntity" Description="Drucklinie">
     <Member Name="CreationDate" Description="Erstellungsdatum" />
@@ -15,6 +15,15 @@
     <Member Name="Print" Description="Drucken" />
     <Member Name="Retry" Description="Nochmals versuchen" />
     <Member Name="SaveTest" Description="Test speichern" />
+  </Type>
+  <Type Name="PrintLineState" Description="">
+    <Member Name="Cancelled" Description="" />
+    <Member Name="Enqueued" Description="" />
+    <Member Name="Error" Description="Fehler" />
+    <Member Name="NewTest" Description="" />
+    <Member Name="Printed" Description="" />
+    <Member Name="PrintedAndDeleted" Description="" />
+    <Member Name="ReadyToPrint" Description="" />
   </Type>
   <Type Name="PrintPackageEntity" Description="Druckpaket" Gender="n">
     <Member Name="Name" Description="Name" />

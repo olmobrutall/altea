@@ -1,8 +1,7 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="ViewLogEntity" Description="Registro de visita">
     <Member Name="Data" Description="Datos" />
-    <Member Name="Duration" Description="Duración" />
     <Member Name="EndDate" Description="Fecha de fin" />
     <Member Name="StartDate" Description="Fecha de inicio" />
     <Member Name="Target" Description="Destino" />
@@ -10,6 +9,7 @@
     <Member Name="ViewAction" Description="Acción de vista" />
   </Type>
   <Type Name="ViewLogMessage">
+    <Member Name="Duration" Description="Duración" />
     <Member Name="ViewLogMyLast" Description="Ver mi último log" />
   </Type>
 </Translations>

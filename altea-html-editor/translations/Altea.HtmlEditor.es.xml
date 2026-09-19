@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<Translations>
+  <Type Name="HtmlEditorMessage">
+    <Member Name="Bold" Description="" />
+    <Member Name="Code" Description="Código" />
+    <Member Name="CodeBlock" Description="" />
+    <Member Name="EnterYourUrlHere" Description="" />
+    <Member Name="Headings" Description="" />
+    <Member Name="Hyperlink" Description="" />
+    <Member Name="InsertHyperlink" Description="" />
+    <Member Name="Italic" Description="" />
+    <Member Name="OrderedList" Description="" />
+    <Member Name="Quote" Description="" />
+    <Member Name="RemoveLink" Description="" />
+    <Member Name="Underline" Description="" />
+    <Member Name="UnorderedList" Description="" />
+  </Type>
+</Translations>

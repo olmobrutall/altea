@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="MessageLengthExceeded" Description="Nachrichtenlänge überschritten">
     <Member Name="Allowed" Description="Erlaubt" />
@@ -23,6 +23,11 @@
   </Type>
   <Type Name="SMSConfigurationEmbedded" Description="SMS-Konfiguration">
     <Member Name="DefaultCulture" Description="Standardkultur" />
+  </Type>
+  <Type Name="SMSMessage">
+    <Member Name="NotAValidTelephoneNumberList" Description="" />
+    <Member Name="SMSMessagesMustBeSentPriorToUpdateTheStatus" Description="" />
+    <Member Name="TheTextForTheSMSMessageHasNotBeenSet" Description="" />
   </Type>
   <Type Name="SMSMessageEntity" Description="SMS-Nachricht" PluralDescription="SMS-Nachrichten" Gender="f">
     <Member Name="Certified" Description="Zertifiziert" />
@@ -64,11 +69,6 @@
   <Type Name="SMSModelEntity" Description="SMS-Modell" Gender="n">
     <Member Name="FullClassName" Description="Full Class Name" />
   </Type>
-  <Type Name="SMSOwnerData" Description="SMS-Besitzerdaten">
-    <Member Name="CultureInfo" Description="Sprache" />
-    <Member Name="Owner" Description="Besitzer" />
-    <Member Name="TelephoneNumber" Description="Telefonnummer" />
-  </Type>
   <Type Name="SMSPackageEntity" Description="SMS-Paket" PluralDescription="SMS-Pakete" Gender="n">
     <Member Name="Name" Description="Name" />
   </Type>
@@ -87,6 +87,11 @@
     <Member Name="RemoveNoSMSCharacters" Description="Keine SMS-Zeichen entfernen" />
     <Member Name="To" Description="An" />
   </Type>
+  <Type Name="SMSTemplateEntity_Message" Description="SMS-Vorlagennachricht">
+    <Member Name="CultureInfo" Description="Sprache" />
+    <Member Name="Message" Description="Nachricht" />
+    <Member Name="Template" Description="Vorlage" />
+  </Type>
   <Type Name="SMSTemplateMessage">
     <Member Name="_0CharactersRemainingBeforeReplacements" Description="{0} Zeichen übrig (vor Textersetzung)" />
     <Member Name="NewCulture" Description="Neue Kultur" />
@@ -94,10 +99,6 @@
     <Member Name="ThereMustBeAMessageFor0" Description="Es muss eine Nachricht für {0} geben" />
     <Member Name="TheresMoreThanOneMessageForTheSameLanguage" Description="Es gibt mehr als eine Nachricht für die gleiche Sprache" />
     <Member Name="ToMustBeSetInTheTemplate" Description="'An' muss in der Vorlage gesetzt sein." />
-  </Type>
-  <Type Name="SMSTemplateEntity_Message" Description="SMS-Vorlagennachricht">
-    <Member Name="CultureInfo" Description="Sprache" />
-    <Member Name="Message" Description="Nachricht" />
   </Type>
   <Type Name="SMSTemplateOperation">
     <Member Name="Create" Description="Erstellen" />

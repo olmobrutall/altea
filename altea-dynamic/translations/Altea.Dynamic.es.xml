@@ -1,7 +1,8 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="DynamicApiEntity" Description="API dinámica" PluralDescription="APIs dinámicas" Gender="f">
     <Member Name="Eval" Description="Eval" />
+    <Member Name="IsDisabled" Description="" />
     <Member Name="Name" Description="Nombre" />
   </Type>
   <Type Name="DynamicApiEval" Description="Dynamic API eval" />
@@ -16,16 +17,8 @@
     <Member Name="MixinEntity" Description="Entidad mixin" />
     <Member Name="ModelEntity" Description="Entidad de modelo" />
   </Type>
-  <Type Name="DynamicClientEntity" Description="Cliente dinámico" PluralDescription="Clientes dinámicos">
-    <Member Name="Code" Description="Código" />
-    <Member Name="Name" Description="Nombre" />
-  </Type>
-  <Type Name="DynamicClientOperation">
-    <Member Name="Clone" Description="Clonar" />
-    <Member Name="Delete" Description="Eliminar" />
-    <Member Name="Save" Description="Guardar" />
-  </Type>
   <Type Name="DynamicCSSOverrideEntity" Description="Sobrescritura dinámica de CSS" PluralDescription="Sobrescrituras dinámicas de CSS">
+    <Member Name="IsDisabled" Description="" />
     <Member Name="Name" Description="Nombre" />
     <Member Name="Script" Description="Script" />
   </Type>
@@ -83,6 +76,7 @@
   <Type Name="DynamicSqlMigrationMessage">
     <Member Name="PreventingGenerationNewScriptBecauseOfErrorsInDynamicCodeFixErrorsAndRestartServer" Description="Se impide la generación de un nuevo script debido a errores en el código dinámico. Corrija los errores y reinicie el servidor." />
     <Member Name="TheMigrationIsAlreadyExecuted" Description="La migración ya se ha ejecutado" />
+    <Member Name="TheSchemaIsAlreadyUpToDate" Description="" />
   </Type>
   <Type Name="DynamicSqlMigrationOperation">
     <Member Name="Create" Description="Crear" />
@@ -127,13 +121,11 @@
   <Type Name="DynamicValidationEntity" Description="Validación dinámica">
     <Member Name="EntityType" Description="Tipo de entidad" />
     <Member Name="Eval" Description="Eval" />
+    <Member Name="IsDisabled" Description="" />
     <Member Name="Name" Description="Nombre" />
     <Member Name="SubEntity" Description="Sub entidad" />
   </Type>
   <Type Name="DynamicValidationEval" Description="Validación dinámica eval" />
-  <Type Name="DynamicValidationMessage">
-    <Member Name="PropertyIs" Description="La propiedad es" />
-  </Type>
   <Type Name="DynamicValidationOperation">
     <Member Name="Clone" Description="Clonar" />
     <Member Name="Delete" Description="Eliminar" />
@@ -145,6 +137,11 @@
     <Member Name="Props" Description="Propiedades" />
     <Member Name="ViewContent" Description="Ver el contenido de" />
     <Member Name="ViewName" Description="Nombre de la vista" />
+  </Type>
+  <Type Name="DynamicViewEntity_Prop" Description="Prop de vista dinámica">
+    <Member Name="DynamicView" Description="" />
+    <Member Name="Name" Description="Nombre" />
+    <Member Name="Type" Description="Tipo" />
   </Type>
   <Type Name="DynamicViewMessage">
     <Member Name="AddChild" Description="Agregar hijo" />
@@ -180,10 +177,6 @@
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="DynamicViewEntity_Prop" Description="Prop de vista dinámica">
-    <Member Name="Name" Description="Nombre" />
-    <Member Name="Type" Description="Tipo" />
-  </Type>
   <Type Name="DynamicViewSelectorEntity" Description="Selector de vista dinámica">
     <Member Name="EntityType" Description="Tipo de entidad" />
     <Member Name="Script" Description="Script" />
@@ -194,6 +187,7 @@
   </Type>
   <Type Name="DynamicViewValidationMessage">
     <Member Name="_0CanNotBe1" Description="0NoPuedeSer1" />
+    <Member Name="_0IsNotAValidIdentifier" Description="" />
     <Member Name="_0RequiresA1" Description="{0} requiere un {1}" />
     <Member Name="_0ShouldStartByLowercase" Description="0DeberíaEmpezarPorMinúscula" />
     <Member Name="AggregateIsMandatoryFor01" Description="Agregar es obligatorio para '{0}' ({1})." />

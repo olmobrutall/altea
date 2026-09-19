@@ -1,7 +1,6 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="OmniboxMessage">
-    <Member Name="ComplementWordsRegex" Description="\b(der|die|das|den|dem|von) " />
     <Member Name="No" Description="nein" />
     <Member Name="NotFound" Description="[Nicht gefunden]" />
     <Member Name="Omnibox_Dashboard" Description="Dashboard" />

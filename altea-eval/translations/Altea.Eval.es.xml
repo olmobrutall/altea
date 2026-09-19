@@ -1,6 +1,23 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="EvalEmbedded`1">
+  <Type Name="EvalEmbedded" Description="">
     <Member Name="Script" Description="Script" />
+  </Type>
+  <Type Name="EvalMessage">
+    <Member Name="_0Errors" Description="" />
+    <Member Name="Line0_1" Description="" />
+    <Member Name="NoCompilerIsConfigured" Description="" />
+    <Member Name="TheOwnerOf0HasNotBeenBound" Description="" />
+    <Member Name="TheScriptHasNotBeenCompiled" Description="" />
+  </Type>
+  <Type Name="EvalPanelMessage">
+    <Member Name="_0Found" Description="" />
+    <Member Name="CheckEvals" Description="" />
+    <Member Name="ExceptionChecking0" Description="" />
+    <Member Name="NoErrorsFound" Description="" />
+    <Member Name="OpenErrors" Description="" />
+  </Type>
+  <Type Name="EvalPanelPermission">
+    <Member Name="ViewDynamicPanel" Description="" />
   </Type>
 </Translations>

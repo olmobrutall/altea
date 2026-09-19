@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<Translations>
+  <Type Name="Pop3EmailReceptionServiceEntity" Description="">
+    <Member Name="ClientCertificationFiles" Description="Klientzertfikatsdateien" />
+    <Member Name="EnableSSL" Description="SSL aktivieren" />
+    <Member Name="Host" Description="Host" />
+    <Member Name="NewPassword" Description="Neues Passwort" />
+    <Member Name="Password" Description="Passwort" />
+    <Member Name="Port" Description="Port" />
+    <Member Name="ReadTimeout" Description="" />
+    <Member Name="Username" Description="Benutzername" />
+  </Type>
+  <Type Name="Pop3EmailReceptionServiceEntity_ClientCertificationFile" Description="">
+    <Member Name="FullFilePath" Description="" />
+    <Member Name="Service" Description="Dienst" />
+  </Type>
+</Translations>

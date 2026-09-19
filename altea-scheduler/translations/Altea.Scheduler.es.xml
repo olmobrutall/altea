@@ -1,19 +1,33 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
+  <Type Name="DeleteLogsTaskEntity" Description="Tarea de eliminación de registros">
+    <Member Name="Parameters" Description="Parámetros" />
+  </Type>
+  <Type Name="DeleteLogsTaskOperation">
+    <Member Name="Save" Description="Guardar" />
+  </Type>
   <Type Name="HolidayCalendarEntity" Description="Calendario de fiestas">
+    <Member Name="CountryCode" Description="" />
+    <Member Name="FromYear" Description="" />
     <Member Name="Holidays" Description="Vacaciones" />
+    <Member Name="IsDefault" Description="Es por defecto" />
     <Member Name="Name" Description="Nombre" />
+    <Member Name="SubDivisionCode" Description="" />
+    <Member Name="ToYear" Description="" />
+  </Type>
+  <Type Name="HolidayCalendarEntity_Holiday" Description="">
+    <Member Name="Calendar" Description="Calendario" />
+    <Member Name="Date" Description="" />
+    <Member Name="Name" Description="Nombre" />
+  </Type>
+  <Type Name="HolidayCalendarMessage">
+    <Member Name="ForImport01and2ShouldBeSet" Description="" />
+    <Member Name="SomeDatesHaveBeenRepeated" Description="" />
   </Type>
   <Type Name="HolidayCalendarOperation">
     <Member Name="Delete" Description="Eliminar" />
+    <Member Name="ImportPublicHolidays" Description="" />
     <Member Name="Save" Description="Guardar" />
-  </Type>
-  <Type Name="HolidayEmbedded" Description="Festivo">
-    <Member Name="Date" Description="Fecha" />
-    <Member Name="Name" Description="Nombre" />
-  </Type>
-  <Type Name="IScheduleRuleEntity">
-    <Member Name="StartingOn" Description="A partir de" />
   </Type>
   <Type Name="ITaskMessage">
     <Member Name="ExceptionLines" Description="Lineas de excepción" />
@@ -22,7 +36,6 @@
     <Member Name="LastExecution" Description="Última ejecución" />
   </Type>
   <Type Name="ITaskOperation">
-    <Member Name="ExecuteAsync" Description="Ejecutar Async" />
     <Member Name="ExecuteSync" Description="Ejecutar Sync" />
   </Type>
   <Type Name="ScheduledTaskEntity" Description="Tarea programada">
@@ -35,7 +48,6 @@
   </Type>
   <Type Name="ScheduledTaskLogEntity" Description="Registro de tareas programadas">
     <Member Name="ApplicationName" Description="Nombre de la aplicación" />
-    <Member Name="Duration" Description="Duración" />
     <Member Name="EndTime" Description="Hora de finalización" />
     <Member Name="Exception" Description="Excepción" />
     <Member Name="MachineName" Description="Nombre de la máquina" />
@@ -49,6 +61,38 @@
   <Type Name="ScheduledTaskLogOperation">
     <Member Name="CancelRunningTask" Description="Cancelar tarea en ejecución" />
   </Type>
+  <Type Name="ScheduledTaskMessage">
+    <Member Name="ApplicationName" Description="Nombre de la aplicación" />
+    <Member Name="AvailableTasks" Description="" />
+    <Member Name="Cancel" Description="Cancelar" />
+    <Member Name="Dates" Description="" />
+    <Member Name="Duration" Description="Duración" />
+    <Member Name="InitialDelayMilliseconds" Description="" />
+    <Member Name="InMemoryQueue" Description="" />
+    <Member Name="MachineName" Description="" />
+    <Member Name="NextDate" Description="" />
+    <Member Name="NextExecution" Description="Siguiente ejecución" />
+    <Member Name="None" Description="" />
+    <Member Name="Remarks" Description="Observaciones" />
+    <Member Name="Rule" Description="Regla" />
+    <Member Name="Running" Description="" />
+    <Member Name="RunningTasks" Description="" />
+    <Member Name="ScheduledTask" Description="Tarea programada" />
+    <Member Name="SchedulePanel" Description="" />
+    <Member Name="SchedulerMargin" Description="" />
+    <Member Name="SchedulerTaskLog" Description="Registro de tareas programadas" />
+    <Member Name="ServerLocalTime" Description="" />
+    <Member Name="ServerTimeZone" Description="" />
+    <Member Name="SimpleStatus" Description="" />
+    <Member Name="Start" Description="Inicio" />
+    <Member Name="StartTime" Description="Hora de inicio" />
+    <Member Name="State" Description="Estado" />
+    <Member Name="Stop" Description="" />
+    <Member Name="Stopped" Description="" />
+    <Member Name="Suspended" Description="Suspendido" />
+    <Member Name="ThereAreNoTasksRunning" Description="" />
+    <Member Name="ThereIsNoActiveScheduledTask" Description="" />
+  </Type>
   <Type Name="ScheduledTaskOperation">
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
@@ -56,6 +100,8 @@
   <Type Name="SchedulerMessage">
     <Member Name="Day0At1In2" Description="Día {0} a {1} en {2}" />
     <Member Name="Each0Minutes" Description="Cada {0} minutos " />
+    <Member Name="Holiday" Description="Festivo" />
+    <Member Name="January" Description="Enero" />
     <Member Name="ScheduleRuleWeekDaysDN_AndHoliday" Description="y festivos" />
     <Member Name="ScheduleRuleWeekDaysDN_At" Description="a las" />
     <Member Name="ScheduleRuleWeekDaysDN_ButHoliday" Description="excepto festivos" />
@@ -66,6 +112,7 @@
     <Member Name="ScheduleRuleWeekDaysDN_Th" Description="J" />
     <Member Name="ScheduleRuleWeekDaysDN_Tu" Description="Ma" />
     <Member Name="ScheduleRuleWeekDaysDN_We" Description="Mi" />
+    <Member Name="SelectAll" Description="" />
     <Member Name="TaskIsNotRunning" Description="La tarea no se está ejecutando" />
   </Type>
   <Type Name="SchedulerPermission">
@@ -78,7 +125,6 @@
   </Type>
   <Type Name="ScheduleRuleMinutelyEntity" Description="Reglas por minuto">
     <Member Name="EachMinutes" Description="cada minutos" />
-    <Member Name="IsAligned" Description="Está alineado" />
     <Member Name="StartingOn" Description="A partir de" />
   </Type>
   <Type Name="ScheduleRuleMonthsEntity" Description="Horario meses de regla">

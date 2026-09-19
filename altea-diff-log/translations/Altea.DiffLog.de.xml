@@ -1,6 +1,7 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="DiffLogMessage">
+    <Member Name="_0LinesRemoved" Description="" />
     <Member Name="CurrentEntity" Description="Aktuelle Entität" />
     <Member Name="DifferenceBetweenFinalStateAndTheCurrentStateOfTheEntity" Description="Unterschied zwischen Endstatus und dem aktuellen Status der Entität" />
     <Member Name="DifferenceBetweenFinalStateAndTheInitialStateOfNextLog" Description="Unterschied zwischen Endstatus und dem anfänglichen Status des nächsten Protokolls" />
@@ -11,8 +12,12 @@
     <Member Name="NavigatesToThePreviousOperationLog" Description="Navigiert zu dem vorherigen Operationsprotokoll" />
     <Member Name="NextLog" Description="Nächstes Protokoll" />
     <Member Name="PreviousLog" Description="Vorheriges Protokoll" />
+    <Member Name="ShowOnly0LinesAroundEachChange" Description="" />
+    <Member Name="SimplifyChanges" Description="" />
     <Member Name="StateWhenTheOperationFinished" Description="Zustand, wenn die Operation beendet ist" />
     <Member Name="StateWhenTheOperationStarted" Description="Status bei Beginn der Operation" />
+    <Member Name="TheTwoStringsAreTooBig01AndCouldFreezeYourBrowser" Description="" />
+    <Member Name="TryAnyway" Description="" />
   </Type>
   <Type Name="DiffLogMixin">
     <Member Name="Cleaned" Description="Gereinigt" />

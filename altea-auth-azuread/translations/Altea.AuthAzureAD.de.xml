@@ -1,5 +1,33 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
+  <Type Name="ActiveDirectoryGroupsRowModel" Description="">
+    <Member Name="Description" Description="Beschreibung" />
+    <Member Name="DisplayName" Description="" />
+    <Member Name="Entity" Description="" />
+    <Member Name="HasUser" Description="Hat Benutzer" />
+    <Member Name="ObjectId" Description="" />
+    <Member Name="SecurityEnabled" Description="Sicherheit aktiviert" />
+    <Member Name="Visibility" Description="Sichtbarkeit" />
+  </Type>
+  <Type Name="ActiveDirectoryUsersRowModel" Description="">
+    <Member Name="AccountEnabled" Description="Konto aktiviert" />
+    <Member Name="CompanyName" Description="Firmenname" />
+    <Member Name="CreationType" Description="" />
+    <Member Name="Department" Description="" />
+    <Member Name="DisplayName" Description="" />
+    <Member Name="EmployeeType" Description="" />
+    <Member Name="Entity" Description="" />
+    <Member Name="GivenName" Description="Vorname" />
+    <Member Name="InGroup" Description="In der Gruppe" />
+    <Member Name="JobTitle" Description="Berufsbezeichnung" />
+    <Member Name="Mail" Description="E-Mail" />
+    <Member Name="ObjectId" Description="" />
+    <Member Name="OfficeLocation" Description="" />
+    <Member Name="OnPremisesExtensionAttributes" Description="On-Premises-Erweiterungsattribute" />
+    <Member Name="OnPremisesImmutableId" Description="On-premises unveränderliches Id" />
+    <Member Name="Surname" Description="Nachname" />
+    <Member Name="UserPrincipalName" Description="" />
+  </Type>
   <Type Name="ADGroupEntity" Description="AD-Gruppe">
     <Member Name="DisplayName" Description="Anzeigename" />
   </Type>
@@ -17,6 +45,7 @@
     <Member Name="EditProfile_UserFlow" Description="EditProfile UserFlow" />
     <Member Name="Enabled" Description="Aktiviert" />
     <Member Name="ResetPassword_UserFlow" Description="ResetPassword UserFlow" />
+    <Member Name="RoleMapping" Description="Rollenzuordnung" />
     <Member Name="SignIn_UserFlow" Description="SignIn UserFlow" />
     <Member Name="SignInSignUp_UserFlow" Description="SignInSignUp UserFlow" />
     <Member Name="SignUp_UserFlow" Description="SignUp UserFlow" />
@@ -24,9 +53,12 @@
     <Member Name="Type" Description="Typ" />
     <Member Name="UseDelegatedPermission" Description="Use delegated permission" />
   </Type>
-  <Type Name="AzureADQuery">
-    <Member Name="ActiveDirectoryGroups" Description="Active Directory-Gruppen" />
-    <Member Name="ActiveDirectoryUsers" Description="Active Directory-Nutzer" />
+  <Type Name="AzureADMessage">
+    <Member Name="_0IsNotImplementedInMicrosoftGraph" Description="" />
+    <Member Name="UnableToMixFilterAndSearchInAnOr" Description="" />
+  </Type>
+  <Type Name="AzureADRoleMappingEntity" Description="">
+    <Member Name="Configuration" Description="" />
   </Type>
   <Type Name="AzureADTask">
     <Member Name="DeactivateUsers" Description="Benutzer deaktivieren" />
@@ -63,11 +95,5 @@
     <Member Name="ExtensionAttribute7" Description="Erweiterungsattribut7" />
     <Member Name="ExtensionAttribute8" Description="Erweiterungsattribut8" />
     <Member Name="ExtensionAttribute9" Description="Erweiterungsattribut9" />
-  </Type>
-  <Type Name="UserAzureADMixin">
-    <Member Name="OID" Description="OID" />
-  </Type>
-  <Type Name="UserOIDMessage">
-    <Member Name="TheUser0IsConnectedToActiveDirectoryAndCanNotHaveALocalPasswordSet" Description="Der Benutzer ist {0} mit Active Directory verbunden und kann kein lokales Passwort festlegen" />
   </Type>
 </Translations>

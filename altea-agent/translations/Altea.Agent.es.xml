@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<Translations>
+  <Type Name="AgentOperation">
+    <Member Name="Save" Description="" />
+  </Type>
+  <Type Name="AgentSymbol" Description="">
+    <Member Name="SkillCustomization" Description="" />
+  </Type>
+  <Type Name="ChatbotConfigurationEmbedded" Description="">
+    <Member Name="AnthropicAPIKey" Description="" />
+    <Member Name="DeepSeekAPIKey" Description="" />
+    <Member Name="GeminiAPIKey" Description="" />
+    <Member Name="GithubModelsToken" Description="" />
+    <Member Name="MistralAPIKey" Description="" />
+    <Member Name="OllamaUrl" Description="" />
+    <Member Name="OpenAIAPIKey" Description="" />
+  </Type>
+  <Type Name="ChatbotLanguageModelEntity" Description="">
+    <Member Name="IsDefault" Description="Es por defecto" />
+    <Member Name="MaxTokens" Description="" />
+    <Member Name="Model" Description="Modelo" />
+    <Member Name="PricePerCachedInputToken" Description="" />
+    <Member Name="PricePerInputToken" Description="" />
+    <Member Name="PricePerOutputToken" Description="" />
+    <Member Name="PricePerReasoningOutputToken" Description="" />
+    <Member Name="Provider" Description="" />
+    <Member Name="Temperature" Description="" />
+  </Type>
+  <Type Name="ChatbotLanguageModelOperation">
+    <Member Name="Delete" Description="" />
+    <Member Name="MakeDefault" Description="" />
+    <Member Name="Save" Description="" />
+  </Type>
+  <Type Name="ChatbotMessage">
+    <Member Name="AnswerAbovePlease" Description="" />
+    <Member Name="InitialInstruction" Description="" />
+    <Member Name="MessageMustBeTheLastToDelete" Description="" />
+    <Member Name="NewSession" Description="" />
+    <Member Name="OpenSession" Description="" />
+    <Member Name="Price" Description="" />
+    <Member Name="ProvideFeedback" Description="" />
+    <Member Name="Reasoning" Description="" />
+    <Member Name="Recover" Description="" />
+    <Member Name="Send" Description="Enviar" />
+    <Member Name="SessionInterruptedDoYouWantToRecover" Description="" />
+    <Member Name="ShowSystem" Description="" />
+    <Member Name="TotalPrice" Description="Precio total" />
+    <Member Name="TypeAMessage" Description="" />
+    <Member Name="UnableToChangeModelOrProviderOnceUsed" Description="" />
+    <Member Name="WhatWentWrong" Description="" />
+  </Type>
+  <Type Name="ChatbotPermission">
+    <Member Name="UseChatbot" Description="" />
+  </Type>
+  <Type Name="ChatMessageEntity" Description="">
+    <Member Name="CachedInputTokens" Description="" />
+    <Member Name="ChatSession" Description="" />
+    <Member Name="Content" Description="Contenido" />
+    <Member Name="CreationDate" Description="Fecha de creación" />
+    <Member Name="Duration" Description="Duración" />
+    <Member Name="Exception" Description="" />
+    <Member Name="InputTokens" Description="" />
+    <Member Name="LanguageModel" Description="" />
+    <Member Name="OutputTokens" Description="" />
+    <Member Name="ReasoningContent" Description="" />
+    <Member Name="ReasoningOutputTokens" Description="" />
+    <Member Name="Role" Description="" />
+    <Member Name="ToolCallID" Description="" />
+    <Member Name="ToolCalls" Description="" />
+    <Member Name="ToolID" Description="" />
+    <Member Name="UserFeedback" Description="" />
+    <Member Name="UserFeedbackMessage" Description="" />
+  </Type>
+  <Type Name="ChatMessageEntity_ToolCall" Description="">
+    <Member Name="Arguments" Description="" />
+    <Member Name="CallId" Description="" />
+    <Member Name="ChatMessage" Description="" />
+    <Member Name="IsUITool" Description="" />
+    <Member Name="ToolId" Description="" />
+  </Type>
+  <Type Name="ChatMessageOperation">
+    <Member Name="Delete" Description="" />
+  </Type>
+  <Type Name="ChatMessageRole" Description="">
+    <Member Name="Assistant" Description="" />
+    <Member Name="System" Description="" />
+    <Member Name="Tool" Description="" />
+    <Member Name="User" Description="Usuario" />
+  </Type>
+  <Type Name="ChatSessionEntity" Description="">
+    <Member Name="LanguageModel" Description="" />
+    <Member Name="StartDate" Description="Fecha de inicio" />
+    <Member Name="Title" Description="Título" />
+    <Member Name="TotalCachedInputTokens" Description="" />
+    <Member Name="TotalInputTokens" Description="" />
+    <Member Name="TotalOutputTokens" Description="" />
+    <Member Name="TotalReasoningOutputTokens" Description="" />
+    <Member Name="TotalToolCalls" Description="" />
+    <Member Name="User" Description="Usuario" />
+  </Type>
+  <Type Name="ChatSessionOperation">
+    <Member Name="Delete" Description="" />
+  </Type>
+  <Type Name="DefaultAgent">
+    <Member Name="Chatbot" Description="" />
+    <Member Name="ConversationSumarizer" Description="" />
+    <Member Name="QuestionSummarizer" Description="" />
+  </Type>
+  <Type Name="EmbeddingsLanguageModelEntity" Description="">
+    <Member Name="Dimensions" Description="" />
+    <Member Name="IsDefault" Description="Es por defecto" />
+    <Member Name="Model" Description="Modelo" />
+    <Member Name="Provider" Description="" />
+  </Type>
+  <Type Name="EmbeddingsLanguageModelOperation">
+    <Member Name="Delete" Description="" />
+    <Member Name="MakeDefault" Description="" />
+    <Member Name="Save" Description="" />
+  </Type>
+  <Type Name="LanguageModelProviders">
+    <Member Name="Anthropic" Description="" />
+    <Member Name="DeepSeek" Description="" />
+    <Member Name="Gemini" Description="" />
+    <Member Name="GithubModels" Description="" />
+    <Member Name="Mistral" Description="" />
+    <Member Name="Ollama" Description="" />
+    <Member Name="OpenAI" Description="" />
+  </Type>
+  <Type Name="LanguageModelProviderSymbol" Description="" />
+  <Type Name="SkillActivation" Description="">
+    <Member Name="Eager" Description="" />
+    <Member Name="Lazy" Description="" />
+  </Type>
+  <Type Name="SkillCodeEntity" Description="">
+    <Member Name="ClassName" Description="" />
+  </Type>
+  <Type Name="SkillCustomizationEntity" Description="">
+    <Member Name="Instructions" Description="" />
+    <Member Name="Properties" Description="Propiedades" />
+    <Member Name="ShortDescription" Description="" />
+    <Member Name="SkillCode" Description="" />
+    <Member Name="SubSkills" Description="" />
+  </Type>
+  <Type Name="SkillCustomizationEntity_Property" Description="">
+    <Member Name="PropertyName" Description="" />
+    <Member Name="SkillCustomization" Description="" />
+    <Member Name="Value" Description="" />
+  </Type>
+  <Type Name="SkillCustomizationEntity_SubSkill" Description="">
+    <Member Name="Activation" Description="" />
+    <Member Name="Skill" Description="" />
+    <Member Name="SkillCustomization" Description="" />
+  </Type>
+  <Type Name="SkillCustomizationOperation">
+    <Member Name="CreateFromAgent" Description="" />
+    <Member Name="Delete" Description="" />
+    <Member Name="Save" Description="" />
+  </Type>
+  <Type Name="UserFeedback" Description="">
+    <Member Name="Negative" Description="" />
+    <Member Name="Positive" Description="" />
+  </Type>
+</Translations>
