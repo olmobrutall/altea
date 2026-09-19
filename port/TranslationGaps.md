@@ -866,3 +866,44 @@ package was being edited concurrently.
 `FilterOperation.GreaterThanOrEqualTo` / `LessThanOrEqualTo` (a converter artefact: `ComparisonType` is
 merged into `FilterOperation`, and altea's shorter spellings are present and translated) ·
 `ExceptionOrigin.Backend_DotNet` / `Frontend_React` (renamed to `Backend` / `Frontend`).
+
+---
+
+## G. The deletion sweep — using the sync's prune as a feature detector
+
+`convert-translations` copies Signum's file wholesale; `stub-translations` then rewrites it from what the
+running altea process DECLARES. **Everything the second step drops is a name Signum has and altea has no
+counterpart for**, which makes the difference a feature-gap detector. The strings themselves are worth
+nothing without the code behind them — that is the only reason to read this list.
+
+A full re-copy of all 83 mapped files (2026-09-19) settled the other question for good: it **gained 0**
+entries, and a near-miss scan (case flips, the `_0` convention, renamed types) found **0** more hiding
+under unmatched names. Signum has nothing left to give. It also OVERWROTE 104 altea-only translations,
+which had to be restored from a snapshot — so the round trip is not idempotent, and anyone repeating it
+should snapshot first.
+
+**The detector over-reports**, and every entry has to be checked against the code before it is believed.
+Confirmed false positives so far, all of them "implemented differently":
+
+- `CultureInfoEntity.IsNeutral`, `OperationLogEntity.Duration` — altea moved these from a PROPERTY to a
+  message container, because a `@quoted` method is not a PropertyRoute and has no `<Member>` to hold a
+  translation (see F1).
+- `QueryTokenMessage.TimeOfDay` — altea declares it, under `QueryTokenDateMessage`.
+- `HtmlEditorMessage` — routed to `@altea/altea-html-editor` by `translationFiles.txt`; core is right not
+  to declare it.
+- **`NumberUnitsMessage`** (10 members) — Signum hand-rolls a K / M / B / T suffix table and appends it in
+  `NaturalLanguageTools.FormatCompact`. altea's `K` number format already does this through
+  `Intl.NumberFormat`'s `notation: "compact"`, which is localized by CLDR — German "1,23 Mio.", Spanish
+  "1,2 mil". Porting the enum would replace a better implementation with a worse one. NOT a gap.
+  (Worth knowing: Signum's own `ToStringWithCompact` has no caller in Signum or Southwind.)
+
+### Core (`@altea/altea`) — the real gaps
+
+| Feature | Evidence | State |
+|---|---|---|
+| Query-token captions | `Count`, `HasValue` / `_0HasValue`, `As0` / `_0As1`, `And` | **DONE** — three tokens built their caption by concatenating English at runtime |
+| SmartDateTime | `DateTimeMessage` (21) — really TWO features: 14 duration-prose members (`_0Days`, `_0Hours`…) and 5 relative-date ones (`Today`, `Yesterday`, `Last0`, `This0`) | open |
+| Search-control vocabulary | `JavascriptMessage` (28): group/ungroup results, show/hide filters, `selectToken`, `joinMode`, row moveUp/Down, `popupErrors`, `openTab`, time-machine controls | open |
+| Entity-line UI controls | `EntityControlMessage` (11), `FontSizeMessage` (4), `ContainerToggleMessage` (2) | open |
+| DisabledMixin | `DisabledMixin` + `DisabledMessage` + `DisableOperation` (4) | open |
+| Long tail | `LiteMessage` (4), `SelectorMessage` (5), `EngineMessage` (3), `OperationMessage` (3), `PaginationMessage`, `FrameMessage` (2), `EmailOwnerData` (5), `IEntity`, `SystemTimeProperty`, `EmbeddedEntity` / `ModelEntity` / `ModifiableEntity` | open |
