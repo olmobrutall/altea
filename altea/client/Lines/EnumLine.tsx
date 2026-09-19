@@ -5,10 +5,10 @@ import { ariaLabelOf } from "./ariaLabel";
 //     object via resolveEnum(typeName). Member LABELS come from `Enum.niceName`, the resolver behind
 //     Signum's `member.niceName` (loaded translation → setNiceName → humanised PascalCase).
 //   - type is a FieldInfo: .name→.typeName, .isNotNullable→!.isNullable; boolean typeName is "Boolean".
-//   - DropdownList/Combobox (react-widgets) wrapped in <Localization> (Intl localizers + the widgets'
-//     own message strings, all from ReactWidgetsLocalizer). A plain <select> needs none.
+//   - DropdownList/Combobox (react-widgets) take their localizers and message strings from the
+//     app-wide <ReactWidgetsLocalization> around the router. A plain <select> needs none.
 import * as React from 'react'
-import { DropdownList, Combobox, Localization } from 'react-widgets-up'
+import { DropdownList, Combobox } from 'react-widgets-up'
 import { Dic, classes } from '../../data/globals'
 import { Enum } from '../../data/enum'
 import { BooleanEnum } from '../../data/uiMessages'
@@ -17,12 +17,8 @@ import { genericMemo, LineBaseController, useController } from './LineBase'
 import { FormGroup } from './FormGroup'
 import { FormControlReadonly } from './FormControlReadonly'
 import { getTimeMachineIcon } from './TimeMachineIcon'
-import { getDateLocalizer, getMessages, getNumberLocalizer } from './ReactWidgetsLocalizer'
 import { ValueBaseController, type ValueBaseProps } from './ValueBase'
 
-const dateLocalizer = getDateLocalizer();
-const numberLocalizer = getNumberLocalizer();
-const messages = getMessages();
 
 export interface EnumLineProps<V extends string | number | boolean | null> extends ValueBaseProps<V> {
   lineType?:
@@ -128,36 +124,35 @@ function internalDropDownList<V extends string | number | boolean | null>(c: Enu
     return (
       <FormGroup ctx={p.ctx} error={p.error} label={p.label} labelIcon={p.labelIcon} helpText={helpText} helpTextOnTop={helpTextOnTop} htmlAttributes={{ ...c.baseHtmlAttributes(), ...p.formGroupHtmlAttributes }} labelHtmlAttributes={p.labelHtmlAttributes} ariaAttributes={ariaAtts}>
         {inputId => c.withItemGroup(
-          <Localization date={dateLocalizer} number={numberLocalizer} messages={messages}>
-            <DropdownList<OptionItem> className={classes(c.props.valueHtmlAttributes?.className, p.ctx.formControlClass, c.mandatoryClass, "p-0")} data={optionItems}
-              id={inputId}
-              onChange={(oe, md) => c.setValue(oe.value, md.originalEvent)}
-              value={oi}
-              autoComplete="off"
-              dataKey="value"
-              textField="label"
-              renderValue={renderElement}
-              renderListItem={renderElement}
-              title={niceValue}
-              inputProps={{
-                value: oi?.label ?? "",
-                role: "combobox",
-                "aria-haspopup": "listbox",
-                "aria-expanded": false,
-                "aria-controls": `${inputId}_listbox`,
-                // `ariaLabelOf`, like the two sibling branches: a `label` prop may be a React ELEMENT, and
-                // `String(element)` reaches the DOM as "[object Object]" (see ariaLabel.ts). It also
-                // replaces a hardcoded German "Auswahl" that was the fallback here — the property's own
-                // nice name is both localized and more specific.
-                "aria-label": ariaLabelOf(p.label, p.ctx)
-              }}
-              listProps={{
-                role: "listbox",
-                id: `${inputId}_listbox`,
-              }}
-              {...(p.valueHtmlAttributes as any)}
-            />
-          </Localization>)
+          <DropdownList<OptionItem> className={classes(c.props.valueHtmlAttributes?.className, p.ctx.formControlClass, c.mandatoryClass, "p-0")} data={optionItems}
+            id={inputId}
+            onChange={(oe, md) => c.setValue(oe.value, md.originalEvent)}
+            value={oi}
+            autoComplete="off"
+            dataKey="value"
+            textField="label"
+            renderValue={renderElement}
+            renderListItem={renderElement}
+            title={niceValue}
+            inputProps={{
+              value: oi?.label ?? "",
+              role: "combobox",
+              "aria-haspopup": "listbox",
+              "aria-expanded": false,
+              "aria-controls": `${inputId}_listbox`,
+              // `ariaLabelOf`, like the two sibling branches: a `label` prop may be a React ELEMENT, and
+              // `String(element)` reaches the DOM as "[object Object]" (see ariaLabel.ts). It also
+              // replaces a hardcoded German "Auswahl" that was the fallback here — the property's own
+              // nice name is both localized and more specific.
+              "aria-label": ariaLabelOf(p.label, p.ctx)
+            }}
+            listProps={{
+              role: "listbox",
+              id: `${inputId}_listbox`,
+            }}
+            {...(p.valueHtmlAttributes as any)}
+          />
+          )
         }
       </FormGroup>
     );
@@ -240,22 +235,20 @@ function internalComboBoxText<V extends string | number | boolean | null>(c: Enu
   return (
     <FormGroup ctx={p.ctx} error={p.error} label={p.label} labelIcon={p.labelIcon} helpText={helpText} helpTextOnTop={helpTextOnTop} htmlAttributes={{ ...c.baseHtmlAttributes(), ...p.formGroupHtmlAttributes }} labelHtmlAttributes={p.labelHtmlAttributes} ariaAttributes={ariaAtts}>
       {inputId => c.withItemGroup(
-        <Localization date={dateLocalizer} number={numberLocalizer} messages={messages}>
-          <Combobox<OptionItem>
-            id={inputId}
-            className={classes(c.props.valueHtmlAttributes?.className, p.ctx.formControlClass, c.mandatoryClass)} data={optionItems}
-            onChange={(e: string | OptionItem, md) => {
-              c.setValue((e == null ? null : typeof e == "string" ? e : e.value) as V, md.originalEvent);
-            }}
-            value={p.ctx.value}
-            dataKey="value"
-            textField="label"
-            focusFirstItem
-            autoSelectMatches
-            renderListItem={renderItem}
-            {...(p.valueHtmlAttributes as any)}
-          />
-        </Localization>
+        <Combobox<OptionItem>
+          id={inputId}
+          className={classes(c.props.valueHtmlAttributes?.className, p.ctx.formControlClass, c.mandatoryClass)} data={optionItems}
+          onChange={(e: string | OptionItem, md) => {
+            c.setValue((e == null ? null : typeof e == "string" ? e : e.value) as V, md.originalEvent);
+          }}
+          value={p.ctx.value}
+          dataKey="value"
+          textField="label"
+          focusFirstItem
+          autoSelectMatches
+          renderListItem={renderItem}
+          {...(p.valueHtmlAttributes as any)}
+        />
       )
       }
     </FormGroup>

@@ -5,9 +5,9 @@
 //     Entity; getToString(x, f?)→comboToString (f = liteToString applied to the resolved entity;
 //     altea's toLite can't carry a custom toString, so getLite drops it — see TODO).
 //   - ResultRow/ResultTable come from entities/dynamicQuery/queryRequest (wire DTOs).
-//   - the DropdownList (onRenderItem) branch is wrapped in <Localization> (Intl localizer), matching
-//     EnumLine; the plain <select> branch needs none. Data loads via the active Finder query APIs
-//     (getResultTable / defaultNoColumnsAllRows), so the combo is fully functional.
+//   - the DropdownList (onRenderItem) branch gets its localization from the app-wide
+//     <ReactWidgetsLocalization> around the router; the plain <select> branch needs none. Data loads
+//     via the active Finder query APIs (getResultTable / defaultNoColumnsAllRows).
 import * as React from 'react'
 import { BaseEntity, Entity } from '../../data/entity'
 import { Lite } from '../../data/lite'
@@ -24,14 +24,10 @@ import { FormControlReadonly } from './FormControlReadonly'
 import { classes } from '../../data/globals'
 import { genericMemo, useController } from './LineBase'
 import { useMounted } from '../Hooks'
-import { DropdownList, Localization } from 'react-widgets-up'
-import { getDateLocalizer, getMessages, getNumberLocalizer } from './ReactWidgetsLocalizer'
+import { DropdownList } from 'react-widgets-up'
 import { getTimeMachineIcon } from './TimeMachineIcon'
 import { TextHighlighter } from '../Components/Typeahead'
 
-const dateLocalizer = getDateLocalizer();
-const numberLocalizer = getNumberLocalizer();
-const messages = getMessages();
 
 // ALTEA: Signum's null-safe free `is(a, b)`; altea `.is()` is an instance method, so guard the receiver.
 function isLiteEqual(a?: Entity | Lite<Entity>, b?: Entity | Lite<Entity>): boolean {
@@ -288,20 +284,18 @@ export function EntityComboSelect<V extends Entity | Lite<Entity> | null>(p: Ent
 
   if (p.onRenderItem) {
     return (
-      <Localization date={dateLocalizer} number={numberLocalizer} messages={messages}>
-        <DropdownList<ResultRow>
-          className={classes(ctx.formControlClass, p.mandatoryClass)} data={getOptionRows()}
-          onChange={(row, e) => p.onChange(e.originalEvent, (row?.entity as AsLite<V>) ?? null)}
-          value={getResultRow(lite)}
-          title={comboToString(lite)}
-          filter={(e, query) => {
-            var toStr = comboToString((e as ResultRow).entity).toLowerCase();
-            return query.toLowerCase().split(' ').every(part => toStr.includes(part));
-          }}
-          renderValue={a => p.onRenderItem!(a.item?.entity == null ? undefined : a.item, "Value")}
-          renderListItem={a => p.onRenderItem!(a.item?.entity == null ? undefined : a.item, "ListItem", a.searchTerm)}
-        />
-      </Localization>
+      <DropdownList<ResultRow>
+        className={classes(ctx.formControlClass, p.mandatoryClass)} data={getOptionRows()}
+        onChange={(row, e) => p.onChange(e.originalEvent, (row?.entity as AsLite<V>) ?? null)}
+        value={getResultRow(lite)}
+        title={comboToString(lite)}
+        filter={(e, query) => {
+          var toStr = comboToString((e as ResultRow).entity).toLowerCase();
+          return query.toLowerCase().split(' ').every(part => toStr.includes(part));
+        }}
+        renderValue={a => p.onRenderItem!(a.item?.entity == null ? undefined : a.item, "Value")}
+        renderListItem={a => p.onRenderItem!(a.item?.entity == null ? undefined : a.item, "ListItem", a.searchTerm)}
+      />
     );
   } else {
     return (

@@ -7,20 +7,17 @@
 //     inlined (message container not ported).
 import * as React from 'react';
 import type { CalendarProps } from 'react-widgets-up/Calendar'
-import { DatePicker, Localization } from 'react-widgets-up';
+import { DatePicker } from 'react-widgets-up';
 import type { RenderDayProp } from 'react-widgets-up/Month';
 import { Temporal } from '../../data/basics';
 import { classes } from '../../data/globals';
-import { getDateLocalizer, getMessages, getNumberLocalizer, toDateFormatOptions, dateTimePlaceholder, formatDateValue } from './ReactWidgetsLocalizer';
+import { toDateFormatOptions, dateTimePlaceholder, formatDateValue } from './ReactWidgetsLocalizer';
 import { genericMemo, LineBaseController, useController } from './LineBase';
 import { FormGroup } from './FormGroup';
 import { FormControlReadonly } from './FormControlReadonly';
 import { ValueBaseController, type ValueBaseProps } from './ValueBase';
 import { ariaLabelOf } from "./ariaLabel";
 
-const dateLocalizer = getDateLocalizer();
-const numberLocalizer = getNumberLocalizer();
-const messages = getMessages();
 
 export interface DateTimeLineProps extends ValueBaseProps<string | null> {
   showTimeBox?: boolean;
@@ -129,24 +126,22 @@ export const DateTimeLine: (props: DateTimeLineProps) => React.ReactNode | null 
     <FormGroup ctx={p.ctx} error={p.error} label={p.label} labelIcon={p.labelIcon} helpText={helpText} helpTextOnTop={helpTextOnTop} htmlAttributes={{ ...c.baseHtmlAttributes(), ...p.formGroupHtmlAttributes }} labelHtmlAttributes={p.labelHtmlAttributes} ariaAttributes={ariaAtts}>
       {inputId => c.withItemGroup(
         <div className={classes(p.ctx.rwWidgetClass, c.mandatoryClass ? c.mandatoryClass + "-widget" : undefined, p.calendarAlignEnd && "sf-calendar-end")}>
-          <Localization date={dateLocalizer} number={numberLocalizer} messages={messages}>
-            <DatePicker
-              id={inputId}
-              value={jsDate} onChange={handleDatePickerOnChange} autoFocus={Boolean(c.props.initiallyFocused)}
-              valueEditFormat={options}
-              {...ariaAtts}
-              valueDisplayFormat={options}
-              includeTime={showTime}
-              inputProps={htmlAttributes as any}
-              placeholder={htmlAttributes.placeholder}
-              min={p.minDate}
-              max={p.maxDate}
-              calendarProps={{
-                renderDay: rdat.renderDay,
-                views: monthOnly ? ["year", "decade", "century"] : undefined,
-                ...p.calendarProps
-              }} />
-          </Localization>
+          <DatePicker
+            id={inputId}
+            value={jsDate} onChange={handleDatePickerOnChange} autoFocus={Boolean(c.props.initiallyFocused)}
+            valueEditFormat={options}
+            {...ariaAtts}
+            valueDisplayFormat={options}
+            includeTime={showTime}
+            inputProps={htmlAttributes as any}
+            placeholder={htmlAttributes.placeholder}
+            min={p.minDate}
+            max={p.maxDate}
+            calendarProps={{
+              renderDay: rdat.renderDay,
+              views: monthOnly ? ["year", "decade", "century"] : undefined,
+              ...p.calendarProps
+            }} />
         </div>
       )}
     </FormGroup>

@@ -21,8 +21,8 @@
 //     `optionItems`, which maps each member NAME to the ordinal a bound enum field actually holds.
 //   - `getNiceTypeName` is not re-declared: altea already routes that job through
 //     `Finder.getTypeNiceName` (see SearchControl/ColumnEditor's header).
-//   - the property DropdownList is wrapped in <Localization>: react-widgets' own strings only reach a
-//     widget through that provider, and altea wraps each widget site because it has no app-wide one.
+//   - the property DropdownList takes react-widgets own strings from the app-wide
+//     <ReactWidgetsLocalization> around the router.
 //
 // TWO DIVERGENCES worth knowing:
 //   1. A setter's `property` path never crosses an ORDINARY entity reference. altea's `PropertyRoute.add`
@@ -37,8 +37,7 @@
 //      `isCollection && (isEmbedded || isPart(name))` collapses to "the element is a part entity".
 import * as React from 'react'
 import { Modal } from 'react-bootstrap'
-import { DropdownList, Localization } from 'react-widgets-up'
-import { getDateLocalizer, getMessages, getNumberLocalizer } from '../Lines/ReactWidgetsLocalizer'
+import { DropdownList } from 'react-widgets-up'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { Dic, classes } from '../../data/globals'
 import { Enum } from '../../data/enum'
@@ -71,9 +70,6 @@ import { EntityCombo } from '../Lines/EntityCombo'
 import type { Operations } from '../Operations'
 import './MultiPropertySetter.css';
 
-const dateLocalizer = getDateLocalizer();
-const numberLocalizer = getNumberLocalizer();
-const messages = getMessages();
 
 interface MultiPropertySetterModalProps extends IModalProps<boolean | undefined> {
   typeInfo: TypeInfo;
@@ -518,19 +514,17 @@ export function PropertyPart(p: PropertyPartProps): React.ReactElement | null {
 
   return (
     <div className="sf-property-part" onKeyUp={handleKeyUp} onKeyDown={handleKeyUp}>
-      <Localization date={dateLocalizer} number={numberLocalizer} messages={messages}>
-        <DropdownList
-          filter="contains"
-          data={subMembers}
-          value={p.selectedRoute?.fieldInfo}
-          onChange={value => handleOnChange(value as MemberInfo)}
-          dataKey={(item: unknown) => (item as MemberInfo | null)?.name}
-          textField={(item: unknown) => (item as MemberInfo | null)?.niceToString() ?? ""}
-          renderValue={a => <PropertyItem item={a.item as MemberInfo | null} />}
-          renderListItem={a => <PropertyItemOptional item={a.item as MemberInfo | null} />}
-          defaultOpen={p.defaultOpen}
-        />
-      </Localization>
+      <DropdownList
+        filter="contains"
+        data={subMembers}
+        value={p.selectedRoute?.fieldInfo}
+        onChange={value => handleOnChange(value as MemberInfo)}
+        dataKey={(item: unknown) => (item as MemberInfo | null)?.name}
+        textField={(item: unknown) => (item as MemberInfo | null)?.niceToString() ?? ""}
+        renderValue={a => <PropertyItem item={a.item as MemberInfo | null} />}
+        renderListItem={a => <PropertyItemOptional item={a.item as MemberInfo | null} />}
+        defaultOpen={p.defaultOpen}
+      />
     </div>
   );
 

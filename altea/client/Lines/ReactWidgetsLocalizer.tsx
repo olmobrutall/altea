@@ -5,6 +5,7 @@
 // trimming) is done with Temporal in DateTimeLine — this module wires the picker's localizer, maps
 // altea/.NET format specifiers to Intl options, and supplies the widgets' own message strings.
 import { DateLocalizer as IntlDateLocalizer, NumberLocalizer as IntlNumberLocalizer } from 'react-widgets-up/IntlLocalizer';
+import { Localization } from 'react-widgets-up';
 import type { DateLocalizer, NumberLocalizer } from 'react-widgets-up';
 import type { UserProvidedMessages } from 'react-widgets-up/messages';
 import * as React from 'react';
@@ -60,6 +61,30 @@ const messages: UserProvidedMessages = {
 
 export function getMessages(): UserProvidedMessages {
   return messages;
+}
+
+// ONE provider for the whole application, wrapped around the router — Signum's shape (Southwind's
+// MainPublic builds the two localizers at module scope and renders a single `<Localization>` around
+// `<RouterProvider>`).
+//
+// altea used to wrap each widget SITE instead: seven `<Localization>` elements across DateTimeLine,
+// EntityCombo, EntityMultiSelect, EnumLine, MultiPropertySetter and QueryTokenBuilder, each with its own
+// localizer instances. Nothing was gained by it — every one of those sites built its localizers at module
+// scope too, so they were no fresher than a single pair at the root — and it cost a context provider per
+// site, duplicate localizer objects, and the standing requirement that anyone adding a react-widgets
+// control remember to wrap it or silently get English.
+//
+// The component lives HERE rather than being assembled in the app, so an application wires the widgets'
+// localization with one element and never has to know which three props it takes.
+const dateLocalizer = getDateLocalizer();
+const numberLocalizer = getNumberLocalizer();
+
+export function ReactWidgetsLocalization({ children }: { children?: React.ReactNode }): React.JSX.Element {
+  return (
+    <Localization date={dateLocalizer} number={numberLocalizer} messages={messages}>
+      {children}
+    </Localization>
+  );
 }
 
 // Map an altea/.NET date format specifier + column type to Intl.DateTimeFormatOptions (Signum's
