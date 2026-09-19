@@ -11,6 +11,7 @@
 import {
     Expression, ParameterExpression, PropertyExpression, CallExpression, CastExpression,
     BinaryExpression, ConstantExpression, LambdaExpression, UnaryExpression, ObjectExpression,
+    ConditionalExpression,
 } from "../linq/expressions";
 import type { Filter } from "./requests";
 import { Entity } from "../../data/entity";
@@ -26,7 +27,11 @@ import {
     CollectionElementToken, CollectionAnyAllToken, CollectionAnyAllType, CollectionToArrayToken,
     AggregateToken, AggregateFunction, ExtensionToken,
     ManualContainerToken, ManualToken,
+    OperationsContainerToken, OperationToken,
 } from "../../data/dynamicQuery/tokens";
+import type { Quoted } from "quote-transformer/quoted";
+import { ExpressionVisitor } from "../linq/visitors/ExpressionVisitor";
+import { inState } from "../operation";
 
 // ---- BuildExpressionContext / ExpressionBox (Signum's, in QueryToken.cs) --------------------
 
@@ -489,5 +494,104 @@ ManualToken.prototype.buildExpressionInternal = function (context: BuildExpressi
         lite: buildLite(entity),
         manualContainerTokenKey: new ConstantExpression(this.parent!.key, LiteralType.string),
         manualTokenKey: new ConstantExpression(this.key, LiteralType.string),
+    });
+};
+
+// ---- Operation tokens (Signum's OperationsContainerToken / OperationToken) -------------------
+
+/**
+ * What the `[Operations]` leaf needs from the registered operation to build its per-row expression —
+ * Signum's `OperationToken.BuildExtension` seam, reduced to data so the whole expression assembly stays
+ * here and `OperationLogic` needs no reference to the linq layer.
+ */
+export interface OperationTokenExpressionInfo {
+    /** The QUOTED can-execute guard, if the operation declares one. */
+    canExecuteExpression?: Quoted<(entity: any) => string | null>;
+    /** The QUOTED state selector, if the operation participates in a state machine. */
+    getState?: Quoted<(entity: any) => unknown>;
+    /** The states the operation may run from (in the runtime form the entity's field holds). */
+    fromStates?: readonly unknown[];
+    /** EVERY member of the state enum, in that same form — the domain the state CASE enumerates. */
+    allStates?: readonly unknown[];
+    /** The enum object the states belong to, for their nice names in the refusal message. */
+    stateEnum?: object;
+}
+
+// Set by OperationLogic.start. It THROWS for an operation that cannot be a column (Signum's
+// "requires CanExecuteExpression to be used as query token"), so a stored column naming an operation
+// that has since grown an in-memory-only guard fails loudly instead of rendering an always-enabled button.
+let operationTokenInfo: ((operationKey: string, entityCtor: Function) => OperationTokenExpressionInfo) | undefined;
+export function setOperationTokenInfoProvider(fn: (operationKey: string, entityCtor: Function) => OperationTokenExpressionInfo): void {
+    operationTokenInfo = fn;
+}
+
+// Inline a quoted lambda's body over `target` (the same move ExpressionContainer.buildExtension makes
+// for a registered expression): bind the tree, then substitute its single parameter.
+function inlineQuotedLambda(lambda: Quoted<Function>, target: Expression): Expression {
+    const bound = Expression.fromQuotedLambda(lambda as never, [target.type]);
+    return new ParameterReplacer(bound.parameters[0]!, target).visit(bound.body);
+}
+
+class ParameterReplacer extends ExpressionVisitor {
+    constructor(private readonly param: ParameterExpression, private readonly replacement: Expression) { super(); }
+    override visitParameter(node: ParameterExpression): Expression {
+        return node === this.param ? this.replacement : node;
+    }
+}
+
+// Operations container (Signum's OperationsContainerToken.BuildExpressionInternal): its parent's
+// expression verbatim — the leaf below is what turns it into a value.
+OperationsContainerToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    return this.parent!.buildExpression(context);
+};
+
+/**
+ * Operation leaf (Signum's OperationToken.BuildExpressionInternal → OperationLogic.OperationToken_
+ * BuildExpression): `new CellOperationDTO(entity.ToLite(), operationKey, canExecute)`. altea has no
+ * registered CellOperationDTO class, so it projects an object literal of the same shape — the client's
+ * "CellOperation" format rule reads `{ lite, operationKey, canExecute }`.
+ *
+ * `canExecute` is the interesting half, and it is the reason the column exists: it is computed IN SQL,
+ * per row, so a page of buttons gets its disabled reasons without retrieving a single entity.
+ *
+ * altea divergence in the STATE refusal. Signum emits `state.NiceToString()` into the tree and lets its
+ * provider translate the enum to its label; altea's provider has no such translation, so the whole
+ * refusal is a CASE over CONSTANTS — one precomputed sentence per state the operation cannot run from,
+ * selected by comparing the state column. Same output, no database-side localization, and the allowed
+ * states simply fall through to the can-execute guard (or to null).
+ */
+OperationToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    if (operationTokenInfo == undefined)
+        throw new Error("OperationToken build hook not set (OperationLogic.start has not run)");
+
+    const info = operationTokenInfo(this.operation.operationKey, this.entityCtor);
+    const parentExpression = this.parent!.buildExpression(context);
+    const entity = extractEntity(parentExpression, false);
+
+    let canExecute: Expression = info.canExecuteExpression != undefined
+        ? inlineQuotedLambda(info.canExecuteExpression, entity)
+        : new ConstantExpression(null, LiteralType.string);
+
+    if (info.getState != undefined && info.fromStates != undefined && info.fromStates.length > 0) {
+        if (info.allStates == undefined)
+            throw new Error(`Operation '${this.operation.operationKey}' has states whose enum cannot be resolved, so it cannot be used as a query token`);
+        const state = inlineQuotedLambda(info.getState, entity);
+        for (const s of info.allStates) {
+            // `inState` IS the sentence the in-memory guard produces, so a refusal reads identically
+            // whether it came from the button or from the column. null ⇒ allowed, nothing to emit.
+            const message = inState(s, info.stateEnum, ...info.fromStates);
+            if (message == null)
+                continue;
+            canExecute = new ConditionalExpression(
+                new BinaryExpression("==", state, new ConstantExpression(s)),
+                new ConstantExpression(message, LiteralType.string),
+                canExecute);
+        }
+    }
+
+    return new ObjectExpression({
+        lite: buildLite(entity),
+        operationKey: new ConstantExpression(this.operation.operationKey, LiteralType.string),
+        canExecute,
     });
 };

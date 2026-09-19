@@ -76,6 +76,9 @@ export const QueryTokenMessage = {
     Not: msg(),
     Null: msg(),
     Number: msg(),
+    // The `[Operations]` container's caption — Signum wraps it in brackets at the call site
+    // (OperationsContainerToken.ToString), so the member itself is the bare word.
+    Operations: msg(),
     Text: msg(),
 };
 

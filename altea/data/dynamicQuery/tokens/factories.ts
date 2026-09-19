@@ -19,6 +19,7 @@ import { CollectionAnyAllToken, CollectionAnyAllType } from "./collectionAnyAllT
 import { CollectionToArrayToken, CollectionToArrayType } from "./collectionToArrayToken";
 import { AggregateToken, AggregateFunction } from "./aggregateToken";
 import { QuickLinksToken } from "./manualToken";
+import { OperationsContainerToken } from "./operationToken";
 
 // Single wiring point for the base's factory hook. Importing this module (or the `tokens` barrel)
 // registers every concrete token so QueryToken.subTokensBase can construct them without a static
@@ -47,5 +48,6 @@ registerTokenFactories({
     collectionElement: (parent, elementType) => new CollectionElementToken(parent, elementType as CollectionElementType),
     collectionAnyAll: (parent, anyAllType) => new CollectionAnyAllToken(parent, anyAllType as CollectionAnyAllType),
     collectionToArray: (parent, toArrayType) => new CollectionToArrayToken(parent, toArrayType as CollectionToArrayType),
+    operationsContainer: (parent) => new OperationsContainerToken(parent),
     quickLinksContainer: (parent) => new QuickLinksToken(parent),
 });

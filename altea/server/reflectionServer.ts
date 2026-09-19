@@ -35,6 +35,7 @@ import { CultureInfo } from "../data/utils/cultureInfo";
 import type { QueryName } from "../data/dynamicQuery/queryUtils";
 import { QueryLogic } from "./dynamicQuery/queryLogic";
 import { OperationLogic } from "./operationLogic";
+import type { IOperation } from "./operation";
 import { WebBuilder, CustomType } from "./webApi";
 import {
     resolveType, resolveEnum, getRegisteredTypes, getRegisteredEnums, getRegisteredObjects,
@@ -210,7 +211,7 @@ export namespace ReflectionServer {
             for (const symbol of OperationLogic.declaredOperationsForType(ctor)) {
                 const op = OperationLogic.tryFindOperation(symbol);
                 if (op == null) continue;
-                (tm.operations ??= {})[symbol.key] = buildOperation(symbol.key, op, declaredMember);
+                (tm.operations ??= {})[symbol.key] = buildOperation(symbol.key, op, ctor, declaredMember);
             }
         }
 
@@ -411,6 +412,7 @@ function ownMembersOf(ctor: Function): string[] {
 function buildOperation(
     key: string,
     op: { operationType: OperationMetadata["operationType"] },
+    entityCtor: Function,
     declaredMember: (typeName: string, member: string) => string | undefined,
 ): OperationMetadata {
     const anyOp = op as Record<string, unknown>;
@@ -432,6 +434,9 @@ function buildOperation(
     if (anyOp["canBeNew"] === true) info.canBeNew = true;
     if (anyOp["canBeModified"] === true) info.canBeModified = true;
     if (anyOp["resultIsSaved"] === true) info.resultIsSaved = true;
+    // The `[Operations].<op>` cell-operation column's eligibility, answered where the rule lives so the
+    // client's locally-built token tree agrees with the server's. See OperationMetadata.canBeCellOperation.
+    if (OperationLogic.isEligibleForCellOperation(op as IOperation, entityCtor)) info.canBeCellOperation = true;
     return info;
 }
 

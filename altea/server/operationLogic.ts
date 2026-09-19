@@ -30,8 +30,11 @@ import {
     type IOperation, type IEntityOperation, type IExecuteOperation, type IDeleteOperation,
     type IConstructOperation, type IConstructorFromOperation, type IConstructorFromManyOperation,
     type IGraphStateOperation,
-    stateEnumOf, normalizeState, stateNiceToString,
+    stateEnumOf, normalizeState, stateNiceToString, hasInMemoryOnlyCanExecute,
 } from "./operation";
+import { Enum } from "../data/enum";
+import { setEligibleTypeOperationsProvider, type EligibleOperation } from "../data/dynamicQuery/tokens";
+import { setOperationTokenInfoProvider, type OperationTokenExpressionInfo } from "./dynamicQuery/tokenExpressions";
 
 // Port of Signum's OperationLogic (Signum/Operations/OperationLogic.cs): the operation
 // registry + the service entrypoints. (OperationType + the IOperation interfaces live in
@@ -380,6 +383,76 @@ export namespace OperationLogic {
     //
     // Idempotent (Signum's `sb.AlreadyDefined` guard), so a second call from a module that is not sure
     // the app made one is a no-op rather than a duplicate `schemaCompleted` handler.
+    /**
+     * Whether an operation may be surfaced as a search-result COLUMN — Signum's filter inside
+     * `OperationsToken_GetEligibleTypeOperations`, which is `op is IEntityOperation && (!op.HasCanExecute
+     * || op.CanExecuteExpression() != null)`.
+     *
+     * The rule is entirely about the DISABLED REASON. A cell-operation column renders one button per row
+     * and has to say, per row, why it cannot run — computed in SQL over the page, never by retrieving the
+     * entities. So an operation whose guard exists only in memory is excluded, and one that constrains
+     * STATE is included only while its state enum resolves (that is what turns the refusal into the same
+     * sentence the button shows). An operation with no guard at all is always eligible: its button is
+     * simply always enabled.
+     */
+    export function isEligibleForCellOperation(op: IOperation, entityCtor: Function): boolean {
+        if (op.operationType !== OperationType.Execute && op.operationType !== OperationType.Delete
+            && op.operationType !== OperationType.ConstructorFrom)
+            return false;
+        if (hasInMemoryOnlyCanExecute(op as IEntityOperation))
+            return false;
+        const sop = op as IGraphStateOperation;
+        if (sop.fromStates != null && sop.fromStates.length > 0
+            && (sop.getState == null || stateEnumOf(sop, entityCtor) == null))
+            return false;
+        return true;
+    }
+
+    // Signum's `OperationsContainerToken.GetEligibleTypeOperations` seam — the `[Operations]` container's
+    // sub-tokens for one entity type.
+    function eligibleTypeOperations(entityCtor: Function): EligibleOperation[] {
+        const result: EligibleOperation[] = [];
+        for (const symbol of operationsForType(entityCtor)) {
+            const op = tryFindOperation(symbol);
+            if (op != null && isEligibleForCellOperation(op, entityCtor))
+                result.push({ operationKey: symbol.key!, niceName: symbol.niceToString() });
+        }
+        return result;
+    }
+
+    // Signum's `OperationToken.BuildExtension` seam, as the DATA the expression is assembled from (the
+    // assembly itself lives in dynamicQuery/tokenExpressions, which owns the linq layer). Throws for an
+    // operation that cannot be a column — Signum's "requires CanExecuteExpression to be used as query
+    // token" — so a STORED column whose operation has since grown an in-memory-only guard fails loudly
+    // rather than rendering an always-enabled button.
+    function operationTokenExpressionInfo(operationKey: string, entityCtor: Function): OperationTokenExpressionInfo {
+        const op = operations.get(operationKey);
+        if (op == null)
+            throw new Error(`Operation '${operationKey}' is not registered`);
+        if (op.operationType !== OperationType.Execute && op.operationType !== OperationType.Delete
+            && op.operationType !== OperationType.ConstructorFrom)
+            throw new Error(`Operation '${operationKey}' is not an entity operation, so it cannot be used as a query token`);
+        if (hasInMemoryOnlyCanExecute(op as IEntityOperation))
+            throw new Error(`Operation '${operationKey}' requires canExecuteExpression to be used as a query token`);
+
+        const info: OperationTokenExpressionInfo = { canExecuteExpression: (op as IEntityOperation).canExecuteExpression };
+        const sop = op as IGraphStateOperation;
+        if (sop.getState != null && sop.fromStates != null && sop.fromStates.length > 0) {
+            info.getState = sop.getState as Quoted<(entity: any) => unknown>;
+            info.fromStates = sop.fromStates;
+            const stateEnum = stateEnumOf(sop, entityCtor);
+            info.stateEnum = stateEnum;
+            // Every member of the enum, in the SAME runtime form `fromStates` holds (an altea enum member
+            // is a numeric ordinal, its wire/stored value the name — a declaration may spell either).
+            if (stateEnum != null) {
+                const numeric = typeof sop.fromStates[0] === "number";
+                info.allStates = Enum.values(stateEnum as never)
+                    .map(n => numeric ? Enum.toValue(stateEnum as never, n) : n);
+            }
+        }
+        return info;
+    }
+
     export function start(sb: SchemaBuilder): void {
         if (sb.alreadyDefined(start))
             return;
@@ -432,6 +505,12 @@ export namespace OperationLogic {
                     parameters, ctx);
         });
 
+
+        // Signum's three OperationToken statics, assigned at the end of OperationLogic.Start: the
+        // `[Operations]` container's sub-token set, and the per-row expression each leaf projects.
+        // See {@link eligibleTypeOperations} / {@link operationTokenExpressionInfo}.
+        setEligibleTypeOperationsProvider(eligibleTypeOperations);
+        setOperationTokenInfoProvider(operationTokenExpressionInfo);
 
         // Signum's `sb.Schema.SchemaCompleted += () => RegisterCurrentLogs(sb.Schema)`: every
         // @systemVersioned type gains the `PreviousOperationLog` sub-token, so a query over that type's

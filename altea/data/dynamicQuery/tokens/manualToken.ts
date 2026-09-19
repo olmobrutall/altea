@@ -4,6 +4,7 @@ import { TypeReference } from "../../reflection";
 import type { Lite } from "../../lite";
 import { Entity } from "../../entity";
 import { QueryToken, SubTokensOptions } from "./queryToken";
+import { ContainerTokenKey } from "./operationToken";
 
 // Port of Signum's manual-token family (DynamicQuery/Tokens/ManualToken.cs + ManualContainerToken.cs +
 // QuickLinksToken.cs). A "manual" token is one whose leaves are declared imperatively at runtime (the
@@ -74,7 +75,7 @@ export abstract class ManualContainerToken extends QueryToken {
 
 // Signum's QuickLinksToken — the manual container for quick links.
 export class QuickLinksToken extends ManualContainerToken {
-    getTokenKey(): string { return "[QuickLinks]"; }
+    getTokenKey(): string { return ContainerTokenKey.QuickLinks; }
 }
 
 // Signum's ManualToken — a single manual leaf. `display` carries the client-registered nice name / color

@@ -70,6 +70,38 @@ export interface IEntityOperation extends IOperation {
     canBeNew: boolean;
     canBeModified: boolean;
     onCanExecute(entity: Entity): string | null;
+    /**
+     * Signum's `IOperation.CanExecuteExpression()` — the guard as an expression TREE, so the reason the
+     * button is disabled can be computed in SQL for a whole page of rows (the `[Operations]` cell-operation
+     * column) instead of one entity at a time.
+     *
+     * altea needs only ONE member where Signum has a pair per operation kind
+     * (`CanExecute`+`CanExecuteExpression`, `CanDelete`+`CanDeleteExpression`, …): `Quoted<F>` IS the
+     * function plus its tree, so writing this one also supplies the in-memory guard — each Graph class
+     * copies it onto `canExecute` / `canDelete` / `canConstruct` when that one is unset, which is exactly
+     * Signum's `CanExecute = CanExecuteExpression.Compile()`.
+     *
+     * The name is shared across the three classes because altea already unified Signum's three guard
+     * METHODS into one `onCanExecute`.
+     */
+    readonly canExecuteExpression?: Quoted<(entity: any) => string | null>;
+}
+
+/**
+ * Whether this operation's guard is IN-MEMORY ONLY — a `canExecute` / `canDelete` / `canConstruct`
+ * lambda with no quoted twin, hence nothing a query can evaluate. Signum asks the same question as
+ * `op.HasCanExecute && op.CanExecuteExpression() == null`, and it is what keeps such an operation out
+ * of the `[Operations]` container: a column that cannot say WHY a row's button is disabled would have
+ * to retrieve every row to find out.
+ *
+ * The three field names are read positionally rather than declared on the interface: they are the
+ * user-facing option names, one per Graph class, and the interface already exposes the unified answer.
+ */
+export function hasInMemoryOnlyCanExecute(op: IEntityOperation): boolean {
+    if (op.canExecuteExpression != null)
+        return false;
+    const anyOp = op as unknown as Record<string, unknown>;
+    return anyOp["canExecute"] != null || anyOp["canDelete"] != null || anyOp["canConstruct"] != null;
 }
 
 export interface IConstructOperation extends IOperation {

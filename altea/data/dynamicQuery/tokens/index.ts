@@ -22,5 +22,6 @@ export * from "./collectionToArrayToken";
 export * from "./aggregateToken";
 export * from "./extensionToken";
 export * from "./manualToken";
+export * from "./operationToken";
 export * from "./datePartStartToken";
 export * from "./durationTotalToken";

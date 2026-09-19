@@ -22,7 +22,8 @@ import { MultiOperationProgressModal } from "./Operations/MultiOperationProgress
 import { ProgressModal } from "./Operations/ProgressModal";
 import type { ProgressModalOptions } from "./Operations/ProgressModal";
 import { getOperationInfo, tryGetOperationInfo, getOperationInfos, hasOperations, getTypeInfo, getQueryKey, getTypeName, GraphExplorer } from './Reflection';
-import type { OperationMetadata, OperationType } from './Reflection';
+import type { OperationMetadata, OperationType, PseudoType } from './Reflection';
+import { setEligibleTypeOperationsProvider } from '../data/dynamicQuery/tokens';
 import { QuickLinkClient, QuickLinkExplore } from './QuickLinkClient';
 import { OperationLogEntity } from '../data/operationLog';
 import type { TypeInfo } from '../data/reflection';
@@ -84,6 +85,15 @@ export namespace Operations {
         color: "success",
       }),
     ]));
+
+    // Signum's `OperationsContainerToken.GetEligibleTypeOperations`, client side. Signum's client asks the
+    // SERVER for an entity token's sub-tokens, so it never needs this; altea's builds them from local
+    // metadata, so the `[Operations]` container is filled from the same blob — with the eligibility
+    // decided server-side and shipped per operation (`canBeCellOperation`), so the two tiers cannot drift.
+    // The blob only carries operations the current role may see, so the list is authorized for free.
+    setEligibleTypeOperationsProvider(entityCtor => getOperationInfos(entityCtor as PseudoType)
+      .filter(oi => oi.canBeCellOperation)
+      .map(oi => ({ operationKey: oi.key, niceName: oi.niceName })));
 
     Finder.formatRules().push({
       name: "CellOperation",

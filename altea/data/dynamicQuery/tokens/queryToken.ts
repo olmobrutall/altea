@@ -343,13 +343,15 @@ export abstract class QueryToken {
 
             const only = imp.only();
             if (only != undefined && only === entityCtor) {
-                // Single concrete implementation: id + ToString + (when CanManual) the [QuickLinks]
-                // manual container + the entity's own properties. Signum adds QuickLinksToken here
-                // (QueryToken.cs SubTokensBase, gated by CanManual), before EntityProperties.
-                // TODO(phase3b/4): EntityType/PartitionId, system-time, operations container.
+                // Single concrete implementation: id + ToString + (when CanOperation) the [Operations]
+                // container + (when CanManual) the [QuickLinks] manual container + the entity's own
+                // properties. Signum adds both here and in this order (QueryToken.cs SubTokensBase,
+                // each gated by its own option), before EntityProperties.
+                // TODO(phase3b/4): EntityType/PartitionId, system-time.
                 return this.andHasValue([
                     this.idPropertyToken(),
                     tokenFactories!.entityToString(this),
+                    ...(options & SubTokensOptions.CanOperation ? [tokenFactories!.operationsContainer(this)] : []),
                     ...(options & SubTokensOptions.CanManual ? [tokenFactories!.quickLinksContainer(this)] : []),
                     ...this.entityProperties(entityCtor),
                 ]);
@@ -727,7 +729,8 @@ export abstract class QueryToken {
         return false;
     }
 
-    // Not-yet-ported exotic token kinds (Operation/Manual/Nested/TimeSeries/Snippet) — always false.
+    // Not-yet-ported exotic token kinds (Nested/TimeSeries/Snippet) — always false. Operation and
+    // Manual ARE ported: their two tokens each override the matching flag to true.
     hasOperation(): boolean { return false; }
     hasManual(): boolean { return false; }
     hasNested(): boolean { return false; }
@@ -924,6 +927,7 @@ export interface TokenFactories {
     collectionElement(parent: QueryToken, elementType: string): QueryToken;
     collectionAnyAll(parent: QueryToken, anyAllType: string): QueryToken;
     collectionToArray(parent: QueryToken, toArrayType: string): QueryToken;
+    operationsContainer(parent: QueryToken): QueryToken;
     quickLinksContainer(parent: QueryToken): QueryToken;
 }
 let tokenFactories: TokenFactories | undefined;

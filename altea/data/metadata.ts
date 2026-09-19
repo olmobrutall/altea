@@ -104,6 +104,17 @@ export interface OperationMetadata {
     // Signum's ForReadonlyEntity: the operation may run on an entity the role can only read. Likewise not
     // set by altea's builder yet (the nearest declared concept is Graph's `avoidImplicitSave`).
     forReadonlyEntity?: boolean;
+    /**
+     * Whether this operation may be surfaced as a search-result COLUMN — a button per row, backed by the
+     * `[Operations].<op>` query token (`OperationLogic.isEligibleForCellOperation`).
+     *
+     * ALTEA-ONLY, and it exists because the two frameworks build token trees in different places: Signum's
+     * client asks the SERVER for an entity token's sub-tokens, so its `GetEligibleTypeOperations` seam is
+     * consulted server-side only; altea's client builds them from this blob. Shipping the ANSWER (rather
+     * than the `canExecute` internals it is computed from) keeps the two tiers from drifting, and the blob
+     * already carries only the operations the role may see — so the client's list is authorized for free.
+     */
+    canBeCellOperation?: boolean;
 }
 
 /**

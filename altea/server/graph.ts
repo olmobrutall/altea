@@ -106,6 +106,8 @@ export interface ConstructOptionsWithState<T extends Entity, S> extends Construc
 export interface ConstructFromOptions<T extends Entity, F extends Entity> {
     construct: (from: F, args: unknown[]) => T | Promise<T>;
     canConstruct?: (from: F) => string | null;
+    /** See {@link IEntityOperation.canExecuteExpression} — the QUOTED twin of `canConstruct`. */
+    canExecuteExpression?: Quoted<(from: F) => string | null>;
     canBeNew?: boolean;
     canBeModified?: boolean;
     resultIsSaved?: boolean;
@@ -124,6 +126,8 @@ export interface ConstructFromManyOptionsWithState<T extends Entity, F extends E
 export interface ExecuteOptions<T extends Entity> {
     execute: (entity: T, args: unknown[]) => void | Promise<void>;
     canExecute?: (entity: T) => string | null;
+    /** See {@link IEntityOperation.canExecuteExpression} — the QUOTED twin of `canExecute`. */
+    canExecuteExpression?: Quoted<(entity: T) => string | null>;
     canBeNew?: boolean;
     canBeModified?: boolean;
     avoidImplicitSave?: boolean;
@@ -136,6 +140,8 @@ export interface ExecuteOptionsWithState<T extends Entity, S> extends ExecuteOpt
 export interface DeleteOptions<T extends Entity> {
     delete: (entity: T, args: unknown[]) => void | Promise<void>;
     canDelete?: (entity: T) => string | null;
+    /** See {@link IEntityOperation.canExecuteExpression} — the QUOTED twin of `canDelete`. */
+    canExecuteExpression?: Quoted<(entity: T) => string | null>;
 }
 export interface DeleteOptionsWithState<T extends Entity, S> extends DeleteOptions<T>, StateSelectorOptions<T, S> {
     fromStates: S[];
@@ -207,6 +213,7 @@ export namespace Graph {
         readonly operationType = OperationType.ConstructorFrom;
         construct!: (from: F, args: unknown[]) => T | Promise<T>;
         canConstruct?: (from: F) => string | null;
+        canExecuteExpression?: Quoted<(from: F) => string | null>;
         canBeNew = false;
         canBeModified = false;
         resultIsSaved = false;
@@ -214,7 +221,12 @@ export namespace Graph {
         getState?: Quoted<(entity: T) => S>;
         stateEnum?: object | null; // memoised by stateEnumOf; stamped by withStateMachine
         /** `entityType` is the SOURCE type F — where the button appears — not the constructed T. */
-        constructor(readonly entityType: Type<F>, readonly symbol: ConstructSymbol<T, From<F>>, options: ConstructFromOptions<T, F> | ConstructFromOptionsWithState<T, F, S>) { Object.assign(this, options); }
+        constructor(readonly entityType: Type<F>, readonly symbol: ConstructSymbol<T, From<F>>, options: ConstructFromOptions<T, F> | ConstructFromOptionsWithState<T, F, S>) {
+            Object.assign(this, options);
+            // Signum's `CanConstruct = CanConstructExpression.Compile()`: a Quoted IS the function, so
+            // declaring only the expression still guards the in-memory path.
+            this.canConstruct ??= this.canExecuteExpression;
+        }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         onCanExecute(from: F): string | null {
@@ -271,6 +283,7 @@ export namespace Graph {
         readonly operationType = OperationType.Execute;
         execute!: (entity: T, args: unknown[]) => void | Promise<void>;
         canExecute?: (entity: T) => string | null;
+        canExecuteExpression?: Quoted<(entity: T) => string | null>;
         canBeNew = false;
         canBeModified = false;
         avoidImplicitSave = false;
@@ -278,7 +291,11 @@ export namespace Graph {
         toStates?: S[];
         getState?: Quoted<(entity: T) => S>;
         stateEnum?: object | null; // memoised by stateEnumOf; stamped by withStateMachine
-        constructor(readonly entityType: Type<T>, readonly symbol: ExecuteSymbol<T>, options: ExecuteOptions<T> | ExecuteOptionsWithState<T, S>) { Object.assign(this, options); }
+        constructor(readonly entityType: Type<T>, readonly symbol: ExecuteSymbol<T>, options: ExecuteOptions<T> | ExecuteOptionsWithState<T, S>) {
+            Object.assign(this, options);
+            // Signum's `CanExecute = CanExecuteExpression.Compile()` (Graph.cs) — a Quoted IS the function.
+            this.canExecute ??= this.canExecuteExpression;
+        }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         onCanExecute(entity: T): string | null {
@@ -312,12 +329,17 @@ export namespace Graph {
         readonly operationType = OperationType.Delete;
         delete!: (entity: T, args: unknown[]) => void | Promise<void>;
         canDelete?: (entity: T) => string | null;
+        canExecuteExpression?: Quoted<(entity: T) => string | null>;
         readonly canBeNew = false;
         readonly canBeModified = false;
         fromStates?: S[];
         getState?: Quoted<(entity: T) => S>;
         stateEnum?: object | null; // memoised by stateEnumOf; stamped by withStateMachine
-        constructor(readonly entityType: Type<T>, readonly symbol: DeleteSymbol<T>, options: DeleteOptions<T> | DeleteOptionsWithState<T, S>) { Object.assign(this, options); }
+        constructor(readonly entityType: Type<T>, readonly symbol: DeleteSymbol<T>, options: DeleteOptions<T> | DeleteOptionsWithState<T, S>) {
+            Object.assign(this, options);
+            // Signum's `CanDelete = CanDeleteExpression.Compile()` — a Quoted IS the function.
+            this.canDelete ??= this.canExecuteExpression;
+        }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
         onCanExecute(entity: T): string | null {
