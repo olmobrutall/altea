@@ -13,6 +13,7 @@ import { Finder } from "@altea/altea/client/Finder";
 import { tryGetTypeInfo } from "@altea/altea/client/Reflection";
 import { classes } from "@altea/altea/data/globals";
 import SelectorModal from "@altea/altea/client/SelectorModal";
+import MessageModal from "@altea/altea/client/Modals/MessageModal";
 import type { Lite } from "@altea/altea/data/lite";
 import {
     TypeAllowed, TypeAllowedBasic, TypeAllowedRule, ConditionRuleModel, WithConditionsModel,
@@ -201,16 +202,39 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
     }
 
     async function addCondition(rule: TypeAllowedRule): Promise<void> {
+        const ti = tryGetTypeInfo(rule.resource.toString());
+        const typeName = ti?.getNiceName() ?? rule.resource.toString();
+        const typePlural = ti?.getNicePluralName() ?? typeName;
+
         const chosen = await SelectorModal.chooseManyElement(rule.availableConditions, {
             buttonDisplay: shortKey,
-            title: AuthAdminMessage.TypeRules.niceToString(),
-            message: "Select the type condition(s) that must ALL hold for this rule to apply.",
+            title: AuthAdminMessage.SelectTypeConditions.niceToString(),
+            // Three parts, as Signum: how many conditions this type has, what picking ONE does, and what
+            // picking SEVERAL does — the AND is the part a first-time reader gets wrong.
+            message: <div>
+                <p>{AuthAdminMessage.ThereAre0TypeConditionsDefinedFor1.niceToString()
+                    .formatHtml(<strong>{rule.availableConditions.length}</strong>, <strong>{typeName}</strong>)}</p>
+                <p>{AuthAdminMessage.SelectOneToOverrideTheAccessFor0ThatSatisfyThisCondition.niceToString()
+                    .formatHtml(<strong>{typePlural}</strong>)}</p>
+                <p>{AuthAdminMessage.SelectMoreThanOneToOverrideAccessFor0ThatSatisfyAllTheConditionsAtTheSameTime.niceToString()
+                    .formatHtml(<strong>{typePlural}</strong>)}</p>
+            </div>,
+            size: "md",
         });
         if (chosen == null || chosen.length === 0)
             return;
         const key = condSetKey(chosen);
-        if (rule.allowed.conditionRules.some(cr => condSetKey(cr.typeConditions) === key))
-            return; // repeated condition set — IGNORED (Signum shows an error modal)
+        if (rule.allowed.conditionRules.some(cr => condSetKey(cr.typeConditions) === key)) {
+            // Signum REFUSES here, naming the set. Silently returning left the button looking broken:
+            // the user clicks Add, picks the same pair again, and nothing happens with no explanation.
+            await MessageModal.showError(
+                <div>
+                    <p>{AuthAdminMessage.TheFollowingTypeConditionsHaveAlreadyBeenUsed.niceToString()}</p>
+                    <p><strong>{chosen.map(shortKey).sort().join(" & ")}</strong></p>
+                </div>,
+                AuthAdminMessage.RepeatedTypeCondition.niceToString());
+            return;
+        }
         rule.allowed.conditionRules.push(ConditionRuleModel.create({ typeConditions: chosen, allowed: TypeAllowed.None }));
         markDirty();
     }

@@ -1,4 +1,5 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { registerEnum } from "@altea/altea/data/registration";
 import { Entity, EmbeddedEntity, ModelEntity, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
@@ -387,6 +388,14 @@ export enum ImportStatus {
     Skipped,
 }
 export type ImportStatusKeys = keyof typeof ImportStatus;
+
+// Both are RENDERED on the import-preview page through `Enum.niceName`, and neither would be registered
+// otherwise: the fields that hold them are typed `ImportActionKeys` / `ImportStatusKeys` — STRINGS — so
+// the transformer never sees the enum and cannot auto-register it the way it does for a field typed as
+// the enum itself. Unregistered, `Enum.niceName` has no key to look up and falls back to the English
+// identifier in every culture.
+registerEnum(ImportAction);
+registerEnum(ImportStatus);
 
 /**
  * Signum's `HelpImportPreviewLineEmbedded`. One line per `.help` file found in the uploaded zip: what it

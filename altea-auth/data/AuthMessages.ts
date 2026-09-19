@@ -128,6 +128,17 @@ export const AuthAdminMessage = {
     // label, and has no owned-parts badge at all, because parts are not hidden from its grid.
     AddCondition: msg("Add condition"),
     RemoveCondition: msg("Remove condition"),
+    // The add-condition dialog. It used to carry a single raw English sentence; Signum explains the
+    // choice in three parts — how many conditions exist, what picking ONE means, and what picking
+    // SEVERAL means (they are AND-ed) — and refuses a set that is already used instead of ignoring it.
+    SelectTypeConditions: msg("Select type condition(s)"),
+    ThereAre0TypeConditionsDefinedFor1: msg("There are {0} type conditions defined for {1}."),
+    SelectOneToOverrideTheAccessFor0ThatSatisfyThisCondition:
+        msg("Select one to override the access for {0} that satisfy this condition."),
+    SelectMoreThanOneToOverrideAccessFor0ThatSatisfyAllTheConditionsAtTheSameTime:
+        msg("Select more than one to override access for {0} that satisfy all the conditions at the same time."),
+    TheFollowingTypeConditionsHaveAlreadyBeenUsed: msg("The following type conditions have already been used:"),
+    RepeatedTypeCondition: msg("Repeated type conditions"),
     MasterEntity: msg("Master"),
     OwnsParts0: msg("Owns parts: {0}"),
 };
