@@ -935,3 +935,36 @@ behind it — the state this whole exercise exists to get out of.
 Two more false positives found on the way: `MarkdownMessage` and `EmailOwnerData` both exist in altea —
 in `@altea/altea-markdown` and the directory-login packages respectively. That brings the confirmed
 false-positive count to seven, which is the headline caution for every module still to be swept.
+
+### altea-auth — swept
+
+Detector output: Signum declares 57 types here; 13 had no altea counterpart and 7 more were missing
+members. After checking each against the code, **most of it is noise**, and the same handful of
+categories account for all of it:
+
+- **C# generics** — `AllowedRule\`2`, `BaseRulePack\`1`, `ConditionRuleModel\`1`, `RuleEntity\`1`,
+  `WithConditionsModel\`1`, `AllowedRuleCoerced\`2`. altea collapses these into CONCRETE classes (there
+  are no generic entities), so the backtick-arity names can never match. 6 false positives.
+- **Moved to core** — `BasicPermission`, this session.
+- **Implemented differently** — `RoleMappingEmbedded` is a `@part` ENTITY in altea, not an embedded.
+- **Renamed by design** — `RuleTypeConditionEntity.Order` and its two siblings are now `rowOrder`, and
+  `@rowOrder` sets `avoidTranslation`, so they are deliberately absent. 3 false positives.
+
+**What was real:** four raw English literals in the type-rules grid (`title="Add condition"`,
+`"Remove condition"`, `"Master"`, `"Owns parts: …"`) and two `aria-label="Close"`. Fixed — the first
+two are Signum members, so its German came with them; the other two are altea-specific.
+
+**Left, and needing a decision:**
+
+| Left | What it really is |
+|---|---|
+| `AuthThumbnail` | altea DECLARES the enum and never uses it. Signum renders it as the roll-up badge on each rule-pack drill-in link — "are this type's property / query / operation rules all default, mixed, or none". altea has the drill-in but no badge, so the enum is vocabulary for a feature that is not there |
+| `TypeAllowedBasic` | declared and compared, never RENDERED. Registering it would add three translatable members nobody reads; Signum translates it because its grid shows the DB/UI split as text |
+| `AuthAdminMessage`, ~28 more | the rest of Signum's admin vocabulary (`CopyFrom`, `UsedByRoles`, `PleaseSaveChangesFirst`, `SelectTypeConditions`, the cycle/trivial-merge diagnostics…). Each names an admin affordance; whether altea wants the affordance is the question, not whether it wants the string |
+| `UserLiteModel`, `AuthTokenConfigurationEmbedded`, `OperationTypeEmbedded` | types altea does not model |
+
+**A registration trap worth remembering**, found here: none of the six auth enums calls `registerEnum`,
+yet four of them (`TypeAllowed`, `PropertyAllowed`, `QueryAllowed`, `OperationAllowed`) are in the
+translation file anyway — the quote-transformer auto-registers an enum that a reflected FIELD
+references. The two that no field references (`TypeAllowedBasic`, `AuthThumbnail`) silently fall out.
+So "is it registered?" cannot be answered by grepping for `registerEnum`.
