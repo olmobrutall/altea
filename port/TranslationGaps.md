@@ -520,6 +520,44 @@ render and filter a 0…1 score as a whole number); and `StringSnippetToken.nice
 passes the parent's name to `MatchSnippet`, which has no placeholder, so the argument is dropped and the
 long form reads identically to the short one.
 
+**`Distance` / `SmartSearch` — BOTH providers, and the embedding is a CORE SEAM.** The vector half of the
+same story: `FilterOperation.SmartSearch` is prose the user types against a `vector(N)` column, turned into
+an embedding and used to RANK rows — the client half (`FilterType.Vector`, the `VectorSmartSearch` value
+editor, `SmartSearchDescription`) was already here and could never fire, because nothing server-side
+produced `FilterType.Vector`. Four pieces landed together:
+
+- `QueryUtils.tryGetFilterType` now answers `"Vector"` for the `Vector` class (`isVectorType`, by class
+  identity — a `Vector` field gets a `type: () => Vector` thunk and NO `typeName`, so the switch could
+  never have matched a string).
+- `VectorDistanceToken` (`data/dynamicQuery/tokens/vectorTokens.ts`). Signum reaches it through a
+  synthetic `VectorColumnToken` minted server-side from `Schema.Current`'s `VectorTableIndex` entries;
+  altea's token tree is isomorphic and has no Schema, and the column already HAS a token, so `Distance`
+  hangs off the vector property's own `EntityPropertyToken` — the same move `MatchRank` makes above.
+  What the index was needed for is the distance METRIC, so `@vectorIndex` now stamps its per-dialect
+  options onto the covered `FieldInfo` (`vectorIndex`, beside `hasFullTextIndex`); a vector column with no
+  index offers no `Distance`, exactly as Signum offers no `VectorColumnToken` for one.
+- The filter contributes **no predicate** (Signum's `Expression.Constant(true)`): the prose is the query
+  VECTOR, not a condition. `DQueryable.where` now DROPS a constant-true body instead of ANDing it in —
+  a lone one reached SQL as a bare parameter, and `WHERE @p1` is not valid T-SQL.
+- The embedding seam, `server/dynamicQuery/smartSearch.ts`, filled by @altea/altea-agent's
+  `LanguageModelLogic.start`. With none registered it **throws**: a permission check with no policy can
+  honestly allow, but a smart search with no model has no answer at all, and both alternatives (drop the
+  filter, or rank against a zero vector) hand back a plausible ordering that is wrong.
+
+Two divergences. The seam is **async**, so it is resolved by a PASS over the request's filters in
+`DynamicQueryContainer.executeQueryAsync` (where the SystemTime scope is opened) rather than lazily inside
+`BuildExpressionInternal` as Signum does — Node cannot block on Signum's `.ResultSafe()`, and the pass also
+means a missing implementation is reported at the query instead of silently ignored. And **both providers
+build the distance**, where Signum's `Filter.ToTableFilter` gates SmartSearch on `SqlServerConnector`: on
+SQL Server it rewrites the query into a `VECTOR_SEARCH` table-valued-function JOIN that also keeps the 100
+nearest rows. altea's vector substrate (`server/vectorSearch`, the QueryBinder's `bindPgVectorDistance` /
+`bindSqlVectorDistance`, the `vector` / `VECTOR(n)` casts) covers both dialects already, so the inline
+`cosine_distance(…)` / `VECTOR_DISTANCE('cosine', …)` shape is used on both and nothing is refused. **What
+is NOT ported is that TVF join**, and with it SmartSearch's implicit top-100 narrowing on SQL Server — the
+same missing machinery as the `CONTAINSTABLE` join above, and it should land with it. The one thing that
+DOES throw is a `Hamming` / `Jaccard` index: pgvector measures those over a `bit` column, which altea does
+not model, so the token names the gap rather than quietly measuring cosine.
+
 **`Nested` — NOT PORTED. It is a whole feature, not a token.** `CollectionNestedToken` throws
 "should have a replacement at this stage" in Signum too: the token is only a marker, and everything it means
 lives in the query pipeline around it —
@@ -549,6 +587,21 @@ its own entity identity) and `PartitionId` (no partitioning).
 
 ### D1 — `ValidationMessage` — **DONE**
 The member count was a symptom of three things, and all three are closed.
+
+> **Second pass — the container is now COMPLETE (46 members added).** The first pass declared the
+> members altea itself had a caller for. That is the wrong test for a FRAMEWORK: an application built
+> on altea reaches for `ValidationMessage.X` in its own `@validate` bodies and operation guards, and a
+> member altea never declares is simply unavailable to it. All 91 of Signum's are declared now, with
+> Signum's `[Description]` verbatim where it has one and the humanised name in altea's sentence case
+> where it does not. Two deliberate departures, both of which the existing members made first: no
+> trailing full stop, and a sentence FRAGMENT (one spliced into a help message) stays lowercase. Two of
+> Signum's English typos are fixed in the TEXT while the member NAME keeps them, because the name is the
+> key an application already references: `TheLenghtOf0HasToBeEqualTo1` and
+> `WhenPressedTheFilterValueWillBeSplittedAndAllTheWordsHaveToBeFound` (SearchMessage).
+>
+> `isSetOnlyWhen` came with them, into `data/validators.ts` beside the container, because Signum declares
+> it there (`ValidationAttributes.cs`) and three altea packages had written it out by hand.
+> `test/data/validation/isSetOnlyWhen.test.ts` pins both directions and its definition of "not set".
 
 **The abstract `RegexValidator` now exists**, as it does in Signum, and is what most of this item turned
 out to be. `EMail` / `Telephone` / `URL` were hand-rolled with a duplicated null check, a duplicated
@@ -608,14 +661,18 @@ against the eastwind database: the token lowers to an EXISTS sub-query.
 
 ### D3 — `SearchMessage` — **DONE**
 
-altea declared 82 of Signum's 114. Nine of the 32 missing members had functionality behind them and are
-ported; the other 23 are recorded below with the reason they do not apply.
+altea declared 82 of Signum's 114. Nine of the 32 missing members had functionality behind them and were
+ported first; **the remaining 23 are declared too, and the container is complete.**
 
-The striking finding is how many of them are dead **in Signum**. Only 88 of its 114 members are referenced
-anywhere in the framework or the extensions — so of the 32 altea was missing, 23 are referenced by nothing
-at all on either side, and several of those exist beside a hard-coded English literal that the member was
-evidently meant to replace. Two of those literals were in altea too, and porting the member means fixing
-the literal.
+The first pass declined those 23 on the grounds that they are dead **in Signum** as well — only 88 of its
+114 members are referenced anywhere in the framework or the extensions. That reasoning does not hold for a
+FRAMEWORK: an application replacing altea's column editor, rule set or finder has to be able to say these
+things in the user's language, and a member the framework never declares is unavailable to it. "Nothing in
+altea renders it" is a statement about altea, not about the container's surface.
+
+What the first pass DID establish stands and is worth keeping, because it says what each member is for and
+which of them still want functionality behind them — so the table below is now a map of where each one
+lands, not a list of refusals.
 
 #### Ported
 
@@ -668,34 +725,41 @@ Divergences from Signum, and why:
   altea has none, so the token is resolved hop by hop against the query's own token tree (`QueryToken
   .subTokens` is synchronous), falling back to the raw key when a registration has gone stale.
 
-#### Not ported
+#### Declared, with nothing rendering them yet
 
-**Deferred with the UI that would use them** — Signum renders these from `ColumnBuilder.tsx` and
+All 23 are in the container. What each is FOR, and what would have to exist for altea to render it:
+
+**Waiting on the column editor** — Signum renders these from `ColumnBuilder.tsx` and
 `ColumnEditorModal.tsx`; altea has no `ColumnBuilder`, and its `ColumnEditorModal` is a documented stub
-(`show()` resolves `false`). They land with that modal, not before it:
-`AddColumn` · `Orders` · `HiddenColumn`.
+(`show()` resolves `false`). That modal is its own port item (see below); the members are declared and
+waiting for it: `AddColumn` · `Orders` · `HiddenColumn` · `ChooseTheDisplayNameOfTheNewColumn` · `Name` ·
+`NewColumnSName` · `Rename` · `NoColumnSelected` · `NoFiltersSpecified`.
 
-**Duplicates of a member altea already has and uses**:
+> **Port item — `ColumnBuilder` + a real `ColumnEditorModal`.** Nine of the members above are its
+> vocabulary. Recorded rather than half-built: it is a feature, not a string.
+
+**Signum's second spelling of something altea already renders elsewhere.** Declared, because an
+application porting Signum code may reference either spelling, but altea keeps rendering its own:
 
 - `NoActionsFound` — `JavascriptMessage.noActionsFound`, which the contextual menu renders;
-- `Query0IsNotAllowed` — the same `[Description]` as `Query0NotAllowed`, which is the one ported above.
-  Signum declares both and uses neither (`ChartMessage` has its own third copy).
+- `Query0IsNotAllowed` — the same `[Description]` as `Query0NotAllowed`, which is the one wired above.
+  Signum declares both and uses neither (`ChartMessage` has its own third copy);
+- `Create` · `ViewSelected` · `ThereIsNo0` — superseded by `CreateNew0_G` / `EntityControlMessage.Create` /
+  `OperationMessage.Create`, and by the toolbar altea does render.
 
-**A developer diagnostic, English by design** — the same call as `ConsoleMessage` / `SynchronizerMessage` in
-section E: `Query0NotRegistered`. altea's `QueryLogic` throw already names the API to call, which is what
-the reader of that message needs and a translation would lose.
+**A developer diagnostic** — `Query0NotRegistered`. Declared; altea's `QueryLogic` still THROWS a raw
+`Error` naming the API to call, which is what the reader of that message needs and a translation would
+lose (the same call as `ConsoleMessage` / `SynchronizerMessage` in section E). The declared text names
+altea's registration API rather than Signum's `QueryLogic.Queries`.
 
-**Dead in Signum, and with no altea counterpart to attach to** — no reference anywhere in the framework or
-the extensions, and nothing in altea's search UI renders a literal for them either (checked). Each is a
-leftover from a UI Signum itself no longer has:
+**Leftovers from a UI Signum itself no longer has** — no reference anywhere in the framework or the
+extensions, and nothing in altea's search UI renders a literal for them either (checked). Declared so an
+application that DOES build that UI has the vocabulary:
 
 | Member | Where it came from |
 | --- | --- |
-| `ChooseTheDisplayNameOfTheNewColumn` · `Name` · `NewColumnSName` · `Rename` | The pre-React "add / rename column" dialog. altea's `ColumnEditor` labels the field with `DisplayName` and renames in place. |
 | `Find` · `FinderOf0` | The old finder WINDOW's title. altea's `SearchModal` is titled with the type's plural nice name. |
-| `NoColumnSelected` · `NoFiltersSpecified` | Empty-state text for the same dialog. |
-| `Of` | A bare preposition, which cannot be translated outside the sentence it belonged to. |
-| `Create` · `ThereIsNo0` · `ViewSelected` | Superseded by `CreateNew0_G` / `EntityControlMessage.Create` / `OperationMessage.Create`, and by the toolbar altea does render. |
+| `Of` | A bare preposition, which only a translation of the whole sentence it belonged to can place. |
 | `PinnedFilter` | A heading for the pinned-filter editor; `EditPinnedFilters` / `PinFilter` / `UnpinFilter` are what both frameworks actually render. (Signum's `PinnedFilter` TYPE is unrelated.) |
 | `WhenPressedTheFilterWillTakeNoEffectIfTheValueIsNull` · `WhenPressedTheFilterValueWillBeSplittedAndAllTheWordsHaveToBeFound` | Superseded by `SplitsTheStringValueBySpaceAndSearchesEachPartIndependentlyInAnANDGroup` / `SplitsTheValuesAndSearchesEachOneIndependentlyInAnANDGroup`, which altea has and renders, and by the pinned `active` enum's own nice names. |
 | `_0FiltersCollapsed` | A count badge for collapsed filters. Neither framework's `FilterBuilder` has one. |
@@ -725,6 +789,67 @@ The premise "the culture dropdown filters on it" was WRONG, and nothing was wire
   (no filter), which is what altea already does everywhere.
 
 The token is therefore a SEARCH-page filter, which is what the entity keeps the member for.
+
+### D5 — the IMPERATIVE validations behind the messages — **DONE**
+
+Completing `ValidationMessage` raised the obvious next question: what does Signum DO with each member?
+Every `ValidationMessage.*` call site in Signum and Southwind was walked and checked against altea. Most
+were already ported — Signum.Workflow's twenty-one are all there, Signum.Mailing.MicrosoftGraph's three
+are the model the others should copy. What the sweep found falls into three kinds.
+
+**Rules altea did not have, now ported.** Each is on the field it is about, with Signum's message:
+
+| Signum | altea |
+| --- | --- |
+| `RoleEntity.PropertyValidation` — the three trivial-merge branches | `altea-auth/data/Role.ts`. The file said they "land with the authorization phase"; the phase landed long ago and the checkbox IS rendered, so every one of these states was reachable by hand. Signum passes ONE argument to the two-placeholder `_0ShouldBe1`, leaving a literal `{1}`; both halves are filled here. Its inheritsFrom message says "greater than 2" where the check is `< 2` — the check is the rule. |
+| `NoRepeatValidatorAttribute.ByKey(ConditionRules, …)` ×4 | `altea-auth/data/Rules.ts` — six places (the three rule ENTITIES and the three pack MODELS; altea has one concrete pair per dimension where Signum has a generic). Two condition rows naming the same SET of conditions do not conflict loudly: last-match-wins makes the later silently shadow the earlier. `@noRepeatValidator` already took the key selector Signum's `ByKey` is. |
+| `QueryFilterEmbedded.PropertyValidation` — the three MANDATORY branches | `altea-user-assets/data/Queries.ts`. A GROUP needs its group operation, a LEAF needs both its token and its comparison. The fourth set of branches asks `QueryUtils`/`QueryDescription` what a token can be filtered by, which is a server-side catalogue altea does not have. |
+| `QueryTokenEmbedded.PropertyValidation` | Same file. Reports the PARSE error when there is one, "is not set" otherwise. CLIENT-ONLY, where Signum checks on both tiers: the resolved `token` is filled by Finder's TokenCompleter and is neither a column nor serialized, so a tier-blind rule would refuse every server-side save. |
+| `BigValuePartEntity.PropertyValidation` — all three branches | `altea-user-queries/data/DashboardParts.ts`. They turn on whether the OWNING dashboard is entity-scoped, which needed a parent chain: `@altea/altea-dashboard` now marks `DashboardEntity.parts` and `DashboardEntity_Part.content` `@bindParent` (Signum marks both) and exposes `tryGetDashboard` for the two hops. The header comment saying the rules were dropped for want of a parent pointer is gone. |
+| `HealthCheckEmbedded.PropertyValidation` | `altea-user-queries/data/UserQuery.ts` — a health check with neither threshold reports nothing. |
+| `DashboardEntity.PropertyValidation` — the `CacheQueryConfiguration` branch | `altea-dashboard/data/Dashboard.ts`. A cached dashboard is one snapshot for everybody, so it cannot also be an entity widget. |
+| `EmailTemplateAddressEmbedded.PropertyValidation` — the "template has no query" branch | `altea-email/data/EmailTemplate.ts`, on both address classes and on `FileTokenAttachmentEntity` (Signum's `FileTokenAttachmenEntity.cs` uses the same wording for the same condition). Needed `@bindParent` on the template's `from` / `recipients` / `attachments` and on the attachment row's generator — all four of which Signum marks. Its second FileToken branch (the token's type must be assignable to `IFile`) needs the RESOLVED token's type, which only the client holds; the generator's runtime check stands in. |
+| `DynamicTypeLogic`'s duplicate-property guard | `altea-dynamic/data/DynamicType.ts`. Signum throws it from the Save operation; it is a VALIDATION here, on the member it is about, so the author hears it while editing. Case-insensitive, as Signum's `GroupToDictionary(a => a.Name.ToLower())` is. |
+| `AddressEmbedded.PropertyValidation` (Southwind) | `eastwind/app/customers/Customer.data.ts` — a postal code is mandatory except in Ireland. The field stays nullable; the rule is about the country, not the column. |
+
+**A validation that existed but never RAN.** `altea-dashboard`'s `validateEmbeddedInEntity` was an
+exported free function with zero call sites anywhere in the repository — the rule read as ported and
+enforced nothing. It is the `@validate` on `embeddedInEntity` now. It also said Signum's sentence with two
+`DashboardMessage` members of altea's own invention, written when core carried neither half; core carries
+both now (`_0IsNecessary` / `_0IsNotAllowed`), so the two invented members are gone with it.
+
+**Checks that were there, saying it in raw English.** A user-visible string has to be a localizable
+member, and so does every NAME spliced into one:
+
+- `eastwind/app/orders/OrderLogic.server.ts` — `"Details is empty."` → `_0IsEmpty`, and `"Only shipped
+  orders can be cloned."` → the state message, through the new `inState`;
+- `altea-processes/server/ProcessLogic.ts` — the Retry guard's English sentence → `inState`;
+- `altea-chart/data/ChartParameter.ts` — a template literal → `_0ShouldBe12`;
+- `altea-email/data/EmailMessage.ts` — two rules returning the literal `"{0} should be empty"`, which
+  reached the user with the `{0}` still in it → `_0IsNotAllowedOnState1`, which is what Signum's
+  `StateValidator` says. The same un-substituted `{0}` idiom was in `Email.ts` and `EmailTemplate.ts`
+  five more times (Signum has it too, at `EmailMessage.cs:247`) and now passes the field's nice name;
+- `altea-scheduler/server/HolidayCalendarLogic.ts`, `altea-auth-azuread`, `altea-auth-openid`,
+  `altea-auth-windowsad` — English property LABELS spliced into a translated sentence → `nicePropertyName`
+  / `fi.niceToString()`. AzureAD's `niceFieldName` de-camel-cased the TypeScript identifier, so it also
+  ignored the `@niceName` overrides two fields above it.
+
+**Two helpers came out of this, both where Signum keeps them.** `OperationLogic.InState` →
+`inState` in `server/operation.ts` (the graph's own `stateError` delegates to it, so a transition refused
+by the graph and one refused by a hand-written guard read identically — a ConstructFrom has no
+`fromStates`, which is why Signum needs it at all), and `IsSetOnlyWhen` → `isSetOnlyWhen` in
+`data/validators.ts`, which three packages had written out by hand.
+
+**Not applicable.** `DisableLogic` / `TreeLogic`'s DisabledMixin guards and
+`DisconnectedMachineEntity` have no altea counterpart (section E). `SendEmailTaskLogic`'s two
+`_0ShouldBeOfType1` branches and `FileTokenAttachment`'s second branch need a server-side
+`QueryDescription`/implementations list that altea does not have. `EntityJsonConverter`'s
+`SetTemporalError` is structural: C# cannot assign null to a non-nullable property, so Signum reports it
+specially — altea assigns it and the implicit NotNull reports it in the ordinary pass.
+
+**Left for its owner.** `Signum.Agent/SkillCustomizationEntity.cs:28` (`SkillCustomization` is required
+when `Key` is null) has no counterpart in `altea-agent/data/SkillCustomization.ts`. Not touched: that
+package was being edited concurrently.
 
 ---
 
