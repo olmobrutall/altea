@@ -84,6 +84,11 @@ export const QueryTokenMessage = {
 // had no member here for the sync to carry a translation on — which is how Signum's German and Spanish for
 // these were deleted from Altea.<culture>.xml.
 export const QueryTokenDateMessage = {
+    // Signum declares both; altea offers neither token yet (a DateTimeOffset has no altea counterpart,
+    // and the DateTimePart container is part of the same shape). Declared because a container is public
+    // surface — see the ValidationMessage sweep.
+    DateTimePart: msg("Date and time"),
+    UtcDateTime: msg("UTC date and time"),
     Date: msg(),
     TimeOfDay: msg(),
     // The date/time PART tokens (QueryToken.dateTimeProperties / dateOnlyProperties).

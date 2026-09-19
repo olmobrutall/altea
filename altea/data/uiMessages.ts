@@ -8,6 +8,15 @@ import { Enum } from './enum';
 import { registerEnum } from './registration';
 
 export const EntityControlMessage = {
+    Navigate: msg("Navigate"),
+    Edit: msg("Edit"),
+    Detail: msg("Detail"),
+    Download: msg("Download"),
+    Move: msg("Move"),
+    Maximize: msg("Maximize"),
+    Minimize: msg("Minimize"),
+    _0Characters: msg("{0} character[s]"),
+    _0CharactersRemaining: msg("{0} character[s] remaining"),
     Add: msg("Add"),
     Create: msg(),
     Find: msg(),
@@ -40,6 +49,28 @@ export const EntityControlMessage = {
 };
 
 export const JavascriptMessage = {
+    // Signum spells this one "Acivate Time Machine"; the member NAME is the key an application
+    // already references, the TEXT is not, so the typo stops here.
+    activateTimeMachine: msg("Activate Time Machine"),
+    deactivateTimeMachine: msg("Deactivate Time Machine"),
+    showPeriod: msg("Show period"),
+    showPreviousOperation: msg("Show previous operation"),
+    chooseAType: msg("Choose a type"),
+    groupResults: msg("Group results"),
+    ungroupResults: msg("Ungroup results"),
+    showFilters: msg("Show filters"),
+    hideFilters: msg("Hide filters"),
+    joinMode: msg("Join mode"),
+    selectToken: msg("Select token"),
+    showRecords: msg("Show records"),
+    openTab: msg("Open tab"),
+    navigate: msg("Navigate"),
+    newEntity: msg("New entity"),
+    saved: msg("Saved"),
+    noElementsSelected: msg("No elements selected"),
+    selectOnlyOneElement: msg("Select only one element"),
+    popupErrors: msg("There are errors in the entity, do you want to continue?"),
+    popupErrorsStop: msg("There are errors in the entity"),
     ok: msg("OK"),
     cancel: msg("Cancel"),
     yes: msg("Yes"),
@@ -65,6 +96,8 @@ export const JavascriptMessage = {
 };
 
 export const FrameMessage = {
+    CopyToClipboard: msg("Copy to clipboard"),
+    New0_G: msg("New {0}"),
     Fullscreen: msg("Fullscreen"),
     ThereAreErrors: msg("There are errors"),
     Main: msg("Main"),
@@ -248,6 +281,11 @@ export const SearchMessage = {
 };
 
 export const SelectorMessage = {
+    ConstructorSelector: msg("Constructor Selector"),
+    SelectAnElement: msg("Select an element"),
+    PleaseSelectAnElement: msg("Please select an element"),
+    CreationOf0Cancelled: msg("Creation of {0} cancelled"),
+    ValueMustBeSpecifiedFor0: msg("A value must be specified for {0}"),
     ChooseAValue: msg("Choose a value"),
     ChooseValues: msg("Choose values"),
     PleaseChooseA0ToContinue: msg("Please choose a {0} to continue"),
@@ -261,6 +299,9 @@ export const SelectorMessage = {
 
 // Operations (Signum's OperationMessage). Members used by the Operations client layer.
 export const OperationMessage = {
+    TheStateOf0ShouldBe1InsteadOf2: msg("The state of {0} should be {1} (instead of {2})"),
+    TheOperation0DidNotReturnAnEntity: msg("{0} didn't return an entity"),
+    LastOperationLog: msg("Last operation log"),
     Create: msg("Create…"),
     // Simplifies a ConstructorFrom nice name inside a Create group ("Create Order from Customer" → group 1).
     CreateFromRegex: msg("^Create (.+?)( from .+)?$"),
@@ -315,6 +356,9 @@ export const OperationMessage = {
 
 // Engine (Signum's EngineMessage) — the members the Operations layer reads.
 export const EngineMessage = {
+    ConcurrencyErrorOnDatabaseTable0Id1: msg("Concurrency error on the database, Table = {0}, Id = {1}"),
+    NoWayOfMappingType0Found: msg("No way of mapping type {0} found"),
+    UnauthorizedAccessTo0Because1: msg("Unauthorized access to {0} because {1}"),
     TheEntity0IsNew: msg("The entity {0} is new"),
     // Signum's EngineMessage.EntityWithType0AndId1NotFound — shown when a stored/urled id no longer resolves
     // (e.g. @altea/altea-toolbar's entity-scoped menu restoring its last selection).
@@ -333,6 +377,7 @@ export const EngineMessage = {
 
 // NormalControl (Signum's NormalControlMessage) — the members the Operations layer reads.
 export const NormalControlMessage = {
+    ViewForType0IsNotAllowed: msg("View for type {0} is not allowed"),
     SaveChangesFirst: msg("Save changes first!"),
     CopyEntityTypeAndIdForAutocomplete: msg("Copy entity type and id (for autocomplete)"),
     CopyEntityUrl: msg("Copy entity URL"),
