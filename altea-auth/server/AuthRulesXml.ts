@@ -50,7 +50,7 @@ export function section<T>(
 // The nested `<Condition Name="a, b" Allowed="…">` rows of a conditioned rule (Type / Operation / Property),
 // ordered by their persisted `rowOrder`. `enumName` renders the allowed value; `condKey` resolves each symbol id.
 export function conditionsXml(
-    rows: { rowOrder: unknown; allowed: number; conditions: { symbol: { id: PrimaryKey } }[] }[],
+    rows: { rowOrder: number; allowed: number; conditions: { symbol: { id: PrimaryKey } }[] }[],
     enumName: (v: number) => string,
     condKey: (id: PrimaryKey) => string,
 ): Record<string, unknown>[] {
