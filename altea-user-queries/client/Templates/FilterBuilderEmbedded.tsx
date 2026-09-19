@@ -16,7 +16,12 @@ import {
 import type { HeaderType } from "@altea/altea/client/Lines/GroupHeader";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { useAPI, useForceUpdate } from "@altea/altea/client/Hooks";
+import { Clock } from "@altea/altea/data/utils/clock";
 import { parseFilterValue, stringifyFilterValue } from "@altea/altea-user-assets/data/FilterValueString";
+import { FilterValueConverter } from "@altea/altea-user-assets/data/FilterValueConverter";
+import {
+    isSmartDateTimeExpression, smartDateTimeExpression, smartDateTimeFormat,
+} from "@altea/altea-user-assets/data/FilterValueConverters/SmartDateTimeFilterValueConverter";
 import { UserAssetQueryMessage } from "@altea/altea-user-assets/data/UserAssets";
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import { UserQueryEntity_Filter } from "../../data/UserQuery";
@@ -25,8 +30,9 @@ import { UserQueryEntity_Filter } from "../../data/UserQuery";
 // UserQuery's stored filter rows to altea's FilterBuilder. altea divergences:
 //  - MList → plain `UserQueryEntity_Filter[]`; `X.New({...})` → `new X()` + field assignment.
 //  - altea's FilterBuilder takes the ROOT queryToken (no QueryDescription DTO) and renders filter VALUES
-//    natively — so Signum's `renderValue` expression-toggle (SwitchToValue/Expression, [CurrentEntity],
-//    SmartDateTime) is DEFERRED; the raw string still round-trips.
+//    natively, so Signum's `renderValue` expression-toggle is one plain text box rather than a typed
+//    editor per type. A SMART DATE is converted (FilterValueConverters/SmartDateTime…); [CurrentEntity] /
+//    [CurrentUser] still round-trip as raw strings, resolved by whoever runs the asset.
 //  - values are converted to/from their stored string form by filterType (FilterValueString), lists on "|".
 //  - the ctx takes the SHARED `QueryFilterBaseEntity[]` rather than one owner's row type: every stored query
 //    definition owns its OWN @part filter rows (a part row has exactly one owner in altea), and they all
@@ -102,21 +108,35 @@ export function FilterBuilderEmbedded(p: FilterBuilderEmbeddedProps): React.JSX.
 function ValueOrExpression(props: { rvc: RenderValueContext; ffc: Finder.FilterFormatterContext }): React.JSX.Element {
     const { rvc, ffc } = props;
     const f = rvc.filter as FilterConditionOptionParsed;
+    const token = f.token as QueryToken | undefined;
     const forceUpdate = useForceUpdate();
-    // Expression mode when the stored value is one of the "[…]" expressions (or a string typed by the user).
-    const [expression, setExpression] = React.useState<boolean>(() => typeof f.value === "string" && f.value.startsWith("["));
+    // Expression mode when the stored value is one of the "[…]" expressions or a SMART DATE — the two
+    // things a stored filter can hold that are not the value itself.
+    const [expression, setExpression] = React.useState<boolean>(
+        () => typeof f.value === "string" && (f.value.startsWith("[") || isSmartDateTimeExpression(f.value)));
 
     function toggle(): void {
         if (expression) {
             f.value = null; // back to a concrete value → clear
         } else {
-            // Switch to expression: seed [CurrentEntity] for a reference token, else an empty expression.
-            const ft = (f.token as QueryToken | undefined)?.filterType;
-            f.value = ft === "Lite" || ft === "Embedded" || ft === "Model" ? "[CurrentEntity]" : "";
+            // Switch to expression: seed [CurrentEntity] for a reference token, the current date written
+            // RELATIVE to now for a date one (the grammar is hard to guess at from an empty box), else
+            // an empty expression.
+            const ft = token?.filterType;
+            f.value =
+                ft === "Lite" || ft === "Embedded" || ft === "Model" ? "[CurrentEntity]" :
+                    ft === "DateTime" ? smartDateSeed(f.value) :
+                        "";
         }
         setExpression(!expression);
         rvc.handleValueChange();
     }
+
+    // Why the typed expression will not do — a malformed smart date, say. Shown rather than thrown: the
+    // same string reaches `parseFilterValue` when the asset runs, which throws there.
+    const error = expression && typeof f.value === "string"
+        ? FilterValueConverter.validationError(f.value, { filterType: token?.filterType, typeName: token?.type.typeName })
+        : null;
 
     const toggleButton = (
         <LinkButton
@@ -131,10 +151,13 @@ function ValueOrExpression(props: { rvc: RenderValueContext; ffc: Finder.FilterF
         <div className="d-flex align-items-center gap-1">
             <div className="flex-grow-1">
                 {expression
-                    ? <input type="text" className="form-control form-control-xs" readOnly={rvc.readonly}
+                    ? <input type="text" className={"form-control form-control-xs" + (error != null ? " is-invalid" : "")}
+                        readOnly={rvc.readonly}
+                        title={token?.filterType === "DateTime" ? smartDateTimeFormat : undefined}
                         value={(f.value as string | null) ?? ""}
                         onChange={e => { f.value = e.currentTarget.value; forceUpdate(); rvc.handleValueChange(); }} />
                     : Finder.renderFilterValue(f, ffc)}
+                {error != null && <div className="invalid-feedback d-block">{error}</div>}
             </div>
             {toggleButton}
         </div>
@@ -165,7 +188,7 @@ export async function toFilterOptionParsed(
                 return {
                     token,
                     operation: head.operation == null ? "EqualTo" : Enum.toName(FilterOperation, head.operation),
-                    value: parseFilterValue(head.valueString, token?.filterType),
+                    value: parseFilterValue(head.valueString, token?.filterType, token?.type.typeName),
                     frozen: false,
                     pinned: head.pinned ? toPinnedParsed(head.pinned) : undefined,
                     dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviour, head.dashboardBehaviour),
@@ -219,6 +242,16 @@ export function filterOptionsParsedToEmbedded(
     }
     filters.forEach(fo => push(fo, 0));
     return rows;
+}
+
+/** What the expression box starts with for a DATE token: the value it held, written relative to now.
+ *  The box also accepts anything else, so a value it cannot read falls back to today rather than throwing. */
+function smartDateSeed(value: unknown): string {
+    try {
+        return smartDateTimeExpression(typeof value === "string" && value !== "" ? value : Clock.now);
+    } catch {
+        return smartDateTimeExpression(Clock.now);
+    }
 }
 
 function toTokenEmbedded(token: QueryToken): QueryTokenEmbedded {

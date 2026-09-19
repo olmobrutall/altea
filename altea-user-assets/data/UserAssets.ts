@@ -70,10 +70,17 @@ export const UserAssetMessage = {
     Advanced: msg("Advanced"),
 };
 
-// The value/expression toggle on a filter.
+// The value/expression toggle on a filter, and why an expression will not do.
+//
+// The last two are the SmartDateTime parse errors (Signum spells them as raw English literals inside
+// SmartDateTimeFilterValueConverter). The part that is wrong is named with `QueryTokenDateMessage.Year`
+// … `.Second`, which are already translated — a bare "mm" could not say whether it meant the month or
+// the minute.
 export const UserAssetQueryMessage = {
     SwitchToValue: msg("Switch to value"),
     SwitchToExpression: msg("Switch to expression"),
+    _0MustBeBetween1And2: msg("{0} must be between {1} and {2}"),
+    _0IsNotAValid1Try2Instead: msg("'{0}' is not a valid {1}. Try {2} instead"),
 };
 
 // How an incoming asset compares to what the DB already has.

@@ -123,7 +123,7 @@ export namespace QueryFilterUtils {
             return null;
 
         if (op === FilterOperationKeys.IsIn || op === FilterOperationKeys.IsNotIn)
-            return valueString.split("|").map(v => parseFilterValue(v.trim(), t.filterType));
+            return valueString.split("|").map(v => parseFilterValue(v.trim(), t.filterType, t.type.typeName));
 
         // …then coerced to what the COLUMN holds. `parseFilterValue` is isomorphic and answers what the
         // CLIENT works with — for an enum that is the member NAME, because the wire value is the name — but
@@ -133,7 +133,7 @@ export namespace QueryFilterUtils {
         // integer", and every SERVER-side consumer of that asset is affected (a dashboard snapshot, an
         // e-mail or Office template's query, the SMS one) while the UI path works, since there the client
         // builds the request and the route coerces it.
-        return deserializeFilterValue(t, op, parseFilterValue(valueString, t.filterType));
+        return deserializeFilterValue(t, op, parseFilterValue(valueString, t.filterType, t.type.typeName));
     }
 
     /** The "this row's entity" filter every single-entity render starts from. */

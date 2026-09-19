@@ -11,6 +11,7 @@ import { SubTokensOptions, type QueryToken } from "@altea/altea/data/dynamicQuer
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { FilterOperationKeys } from "@altea/altea/server/dynamicQuery/requests";
 import type { ResultColumn, ResultRow, ResultTable } from "@altea/altea/server/dynamicQuery/resultTable";
+import { parseFilterValue } from "@altea/altea-user-assets/data/FilterValueString";
 import { TemplateTokenMessage } from "../data/Templating";
 import { distinctSingle, groupByColumn, scapeColon, ScopedDictionary } from "./TemplateUtils";
 // TYPE-only: TemplateSync imports this module, so a runtime import would close a cycle. The providers only
@@ -753,8 +754,9 @@ export class GlobalValueProvider extends ValueProviderBase {
 
 // ---- DateValueProvider (`@[d:2020-01-01]`) --------------------------------------------------------------
 
-/** A literal or "now" date. The expression is an ISO PlainDateTime (empty ⇒ `Clock.now`): the
- *  SmartDateTime grammar (`yyyy/mm/-1 00:00:00`) is not ported. */
+/** A literal or "now" date (empty ⇒ `Clock.now`). The expression goes through the filter-value
+ *  converters, exactly as Signum's `FilterValueConverter.Parse(…, typeof(DateTime?))` does — so it is
+ *  either an ISO PlainDateTime or a SMART DATE (`yyyy/mm/-1 00:00:00`), re-resolved on every render. */
 export class DateValueProvider extends ValueProviderBase {
     private dateTimeExpression: string | undefined;
 
@@ -771,7 +773,11 @@ export class DateValueProvider extends ValueProviderBase {
     override get type(): TypeReference | undefined { return new TypeReference({ typeName: "PlainDateTime", isNullable: true }); }
 
     override getValue(_p: TemplateParameters): unknown {
-        return this.dateTimeExpression == undefined ? Clock.now : Temporal.PlainDateTime.from(this.dateTimeExpression);
+        if (this.dateTimeExpression == undefined)
+            return Clock.now;
+        // The converters answer in the form a filter value takes — an ISO string — so the Temporal is
+        // rebuilt here rather than there.
+        return Temporal.PlainDateTime.from(parseFilterValue(this.dateTimeExpression, "DateTime", "PlainDateTime") as string);
     }
 
     override fillQueryTokens(_list: QueryToken[], _forForeach: boolean): void { }

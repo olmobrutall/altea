@@ -1,0 +1,17 @@
+{
+  // TEST layer — DB-FREE. The filter-value converters: a stored string is the only form a user asset keeps
+  // its filter values in, so a converter that resolves one differently silently changes what a saved query
+  // MEANS. The smart-date cases pin that against a fixed clock.
+  "extends": "../altea/presets/server.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" }
+  ]
+}
