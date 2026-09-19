@@ -52,7 +52,7 @@ export namespace PredictRequestBuilder {
         splitKeys: PredictorSubQueryEntity_Column[];
         values: PredictorSubQueryEntity_Column[];
     } {
-        const columns = [...sq.columns].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
+        const columns = sq.columns.orderBy(a => a.rowOrder);
         return {
             splitKeys: columns.filter(c => c.usage === PredictorSubQueryColumnUsage.SplitBy),
             values: columns.filter(c => c.usage === PredictorSubQueryColumnUsage.Input
@@ -61,11 +61,11 @@ export namespace PredictRequestBuilder {
     }
 
     function mainColumns(predictor: PredictorEntity): PredictorEntity_Column[] {
-        return [...predictor.columns].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
+        return predictor.columns.orderBy(a => a.rowOrder);
     }
 
     function subQueriesOf(predictor: PredictorEntity): PredictorSubQueryEntity[] {
-        return [...predictor.subQueries].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
+        return predictor.subQueries.orderBy(a => a.rowOrder);
     }
 
     /**

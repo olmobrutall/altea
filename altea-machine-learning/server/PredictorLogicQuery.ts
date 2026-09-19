@@ -70,7 +70,7 @@ export namespace PredictorLogicQuery {
         const main = await executeMainQuery(predictor);
 
         const subQueries: SubQueryResult[] = [];
-        for (const sq of [...predictor.subQueries].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number))) {
+        for (const sq of predictor.subQueries.orderBy(a => a.rowOrder)) {
             ctx.reportProgress(`Executing sub-query ${sq.name}`);
             subQueries.push(await executeSubQuery(predictor, sq));
         }
@@ -81,7 +81,7 @@ export namespace PredictorLogicQuery {
         const codifications: PredictorCodification[] = [];
         const mainQueryName = queryNameOf(predictor);
 
-        const orderedColumns = [...predictor.columns].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
+        const orderedColumns = predictor.columns.orderBy(a => a.rowOrder);
         orderedColumns.forEach((col, i) => {
             const resolved = resolveToken(mainQueryName, col.token.tokenString, mainOptions(predictor));
             const mainCol = new PredictorColumnMain(col, i, resolved);
@@ -90,7 +90,7 @@ export namespace PredictorLogicQuery {
 
         // A sub-query contributes one column PER (SplitBy key × value column) — see the module header.
         for (const sq of subQueries) {
-            const sqColumns = [...sq.subQuery.columns].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
+            const sqColumns = sq.subQuery.columns.orderBy(a => a.rowOrder);
             const sqQueryName = QueryLogic.toQueryName(sq.subQuery.query.key);
 
             for (const splitKey of sq.distinctSplitKeys) {
@@ -269,7 +269,7 @@ export namespace PredictorLogicQuery {
         const request = subQueryRequest(predictor, sq);
         const resultTable = await QueryLogic.queries.executeQueryAsync(request);
 
-        const sqColumns = [...sq.columns].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
+        const sqColumns = sq.columns.orderBy(a => a.rowOrder);
         const parentIndexes = indexesWhere(sqColumns, c => c.usage === PredictorSubQueryColumnUsage.ParentKey);
         const splitIndexes = indexesWhere(sqColumns, c => c.usage === PredictorSubQueryColumnUsage.SplitBy);
         const valueColumnIndexes = indexesWhere(sqColumns,

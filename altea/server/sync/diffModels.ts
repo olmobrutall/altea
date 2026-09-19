@@ -199,7 +199,7 @@ export class DiffIndex extends View {
         // Order by the catalog's column ordinal (Signum's `orderby ic.index_column_id`) so key
         // columns precede included ones and both match the model's declaration order. Done
         // client-side to keep the reader query free of an ordered projection.
-        ix.columns = [...v.columns].sort((a, b) => a.index - b.index);
+        ix.columns = v.columns.orderBy(a => a.index);
         return ix;
     }
 

@@ -66,7 +66,7 @@ export function getQueryColumns(model: ChartRequestModel, queryName: QueryName):
 export function getQueryOrders(model: ChartRequestModel, queryName: QueryName): Order[] {
     return model.columns
         .filter(c => c.orderByIndex != null && c.token != null)
-        .sort((a, b) => Number(a.orderByIndex) - Number(b.orderByIndex))
+        .orderBy(a => a.orderByIndex)
         .map(c => new Order(token(queryName, c.token!.tokenString), orderTypeOf(c.orderByType!)));
 }
 

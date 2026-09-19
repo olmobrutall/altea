@@ -118,7 +118,7 @@ export function buildModel(
 
     const model = tfl.sequential();
 
-    const layers = [...settings.hiddenLayers].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
+    const layers = settings.hiddenLayers.orderBy(a => a.rowOrder);
     layers.forEach((hl, i) => {
         model.add(tfl.layers.dense({
             units: hl.size as number,

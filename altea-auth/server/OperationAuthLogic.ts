@@ -129,7 +129,7 @@ export namespace OperationAuthLogic {
     // A persisted RuleOperationEntity (fallback + owned condition rows) → the immutable runtime value.
     function toWithConditions(row: RuleOperationEntity, symbolById: Map<string, TypeConditionSymbol>): WithConditions<OperationAllowed> {
         const conditionRules = [...row.conditionRules]
-            .sort((a, b) => Number(a.rowOrder) - Number(b.rowOrder))
+            .orderBy(a => a.rowOrder)
             .map(cr => new ConditionRule<OperationAllowed>(
                 cr.conditions.map(c => {
                     const s = symbolById.get(String(c.symbol.id));

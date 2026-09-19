@@ -55,7 +55,7 @@ export function conditionsXml(
     condKey: (id: PrimaryKey) => string,
 ): Record<string, unknown>[] {
     return [...rows]
-        .sort((a, b) => Number(a.rowOrder) - Number(b.rowOrder))
+        .orderBy(a => a.rowOrder)
         .map(cr => attrs({
             Name: cr.conditions.map(c => condKey(c.symbol.id)).join(", "),
             Allowed: enumName(cr.allowed),

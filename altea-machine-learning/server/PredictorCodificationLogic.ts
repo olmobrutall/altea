@@ -94,8 +94,8 @@ export namespace PredictorCodificationLogic {
 
         const mainQueryName = PredictorLogicQuery.queryNameOf(predictor);
         const mainOptions = PredictorLogicQuery.mainOptions(predictor);
-        const mainColumns = [...predictor.columns].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
-        const subQueries = [...predictor.subQueries].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
+        const mainColumns = predictor.columns.orderBy(a => a.rowOrder);
+        const subQueries = predictor.subQueries.orderBy(a => a.rowOrder);
 
         // One runtime COLUMN per distinct (sub-query, column index, split keys) — the codifications of a
         // one-hot column must share the column object, because that is where its value→slot memo lives.
@@ -118,7 +118,7 @@ export namespace PredictorCodificationLogic {
                         const sq = subQueries[row.subQueryIndex as number];
                         if (sq == null)
                             throw new Error(codificationMismatch(predictor, `sub-query ${row.subQueryIndex}`));
-                        const sqColumns = [...sq.columns].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
+                        const sqColumns = sq.columns.orderBy(a => a.rowOrder);
                         const col = sqColumns[row.originalColumnIndex as number];
                         if (col == null)
                             throw new Error(codificationMismatch(predictor, `sub-query column ${row.originalColumnIndex}`));
@@ -162,7 +162,7 @@ export namespace PredictorCodificationLogic {
     }
 
     function indexOfSubQuery(predictor: PredictorEntity, column: PredictorColumnSubQuery): number {
-        const sorted = [...predictor.subQueries].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
+        const sorted = predictor.subQueries.orderBy(a => a.rowOrder);
         const index = sorted.indexOf(column.subQuery);
         if (index < 0)
             throw new Error(`Sub-query '${column.subQuery.name}' is not part of predictor '${predictor.name}'`);

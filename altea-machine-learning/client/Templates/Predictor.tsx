@@ -200,7 +200,7 @@ export default function Predictor(
             filterOptions: Finder.toFilterOptions(parsed),
             // Inputs first, then outputs — the shape the training table has.
             columnOptions: [...p.columns]
-                .sort((a, b) => Number(a.usage) - Number(b.usage))
+                .orderBy(a => a.usage)
                 .map(c => ({ token: c.token?.tokenString } as ColumnOption)),
             columnOptionsMode: "ReplaceAll",
         };

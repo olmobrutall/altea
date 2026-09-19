@@ -157,7 +157,7 @@ export namespace PredictorPredictLogic {
         // altea's ROOT entity token is the EMPTY string, where Signum spells it "Entity" — there is no
         // storable root token here (the divergence the user-asset token rules document).
         const entityToken = QueryLogic.getToken(queryName, "", mainOptions);
-        const columns = [...predictor.columns].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
+        const columns = predictor.columns.orderBy(a => a.rowOrder);
 
         const request = new QueryRequest(
             queryName,
@@ -195,10 +195,10 @@ export namespace PredictorPredictLogic {
     ): Promise<void> {
         const predictor = ctx.predictor;
 
-        for (const sq of [...predictor.subQueries].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number))) {
+        for (const sq of predictor.subQueries.orderBy(a => a.rowOrder)) {
             const request = PredictorLogicQuery.subQueryRequest(predictor, sq);
             const sqQueryName = QueryLogic.toQueryName(sq.query.key);
-            const sqColumns = [...sq.columns].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
+            const sqColumns = sq.columns.orderBy(a => a.rowOrder);
 
             const parentKeyColumn = sqColumns.find(c => c.usage === PredictorSubQueryColumnUsage.ParentKey)!;
             const parentToken = QueryLogic.getToken(sqQueryName, parentKeyColumn.token.tokenString,

@@ -436,7 +436,7 @@ export namespace TypeAuthLogic {
     // resolves its Lite<TypeConditionSymbol> references back to the shared symbol instances.
     function toWithConditions(row: RuleTypeEntity, symbolById: Map<string, TypeConditionSymbol>): WithConditions<TypeAllowed> {
         const conditionRules = [...row.conditionRules]
-            .sort((a, b) => Number(a.rowOrder) - Number(b.rowOrder))
+            .orderBy(a => a.rowOrder)
             .map(cr => new ConditionRule<TypeAllowed>(
                 cr.conditions.map(c => {
                     const s = symbolById.get(String(c.symbol.id));

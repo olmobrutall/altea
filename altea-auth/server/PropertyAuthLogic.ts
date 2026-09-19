@@ -279,7 +279,7 @@ export namespace PropertyAuthLogic {
 
     function toWithConditions(row: RulePropertyEntity, symbolById: Map<string, TypeConditionSymbol>): WithConditions<PropertyAllowed> {
         const conditionRules = [...row.conditionRules]
-            .sort((a, b) => Number(a.rowOrder) - Number(b.rowOrder))
+            .orderBy(a => a.rowOrder)
             .map(cr => new ConditionRule<PropertyAllowed>(
                 cr.conditions.map(c => {
                     const s = symbolById.get(String(c.symbol.id));
