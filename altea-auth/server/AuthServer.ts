@@ -1,4 +1,4 @@
-import { WebBuilder, CustomType, setAuthorizeRequest, type HttpMeta } from "@altea/altea/server/webApi";
+import { WebBuilder, CustomType, setAuthorizeRequest, setUserCultureProvider, type HttpMeta } from "@altea/altea/server/webApi";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { UserWithClaims } from "@altea/altea/data/security";
 import { AuthenticationException } from "@altea/altea/server/exceptions";
@@ -81,6 +81,11 @@ export namespace AuthServer {
         // endpoints (/api/authAdmin/*). Registered here so AuthLogic.start wires ALL auth routes in one
         // call; their handlers/filters run at request time, after the authorization logics have started.
         AuthReflectionServer.install();
+        // Step 2 of webApi's culture chain (Signum's `UserHolder.CurrentUserCulture`): a logged-in user's
+        // own preference, which beats the browser's Accept-Language but loses to the `language` cookie the
+        // picker sets. Core cannot read it — it has no notion of a user — so auth fills the seam. The name
+        // rides in the claims bag (see data/User's fillClaims), so this costs no retrieve.
+        setUserCultureProvider(() => UserHolder.current()?.claims["Culture"] as string | undefined);
         AuthAdminServer.start(ws);
         // The shared BaseAD routes (find / import a directory user). Signum's ActiveDirectoryController
         // lives in the same assembly and is always discovered by ASP.NET, so it is always reachable;

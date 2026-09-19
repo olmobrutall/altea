@@ -357,3 +357,21 @@ describe("the blob cache follows the translation store", () => {
         assert.equal((await ReflectionServer.cachedWire("pt")).types["AlbumEntity"]!.niceName, "Álbum");
     });
 });
+
+// Signum's ReflectionServer.LastModified, behind the endpoint's 304: a client holding the payload
+// revalidates and gets an empty response until something actually moves.
+describe("ReflectionServer.metadataLastModified", () => {
+
+    test("bumps on invalidation, so If-Modified-Since stops matching", async () => {
+        ReflectionServer.setMetadataFilter(undefined);
+        ReflectionServer.setMetadataCacheKey(undefined);
+
+        await ReflectionServer.cachedWire("en");
+        const before = ReflectionServer.metadataLastModified();
+
+        ReflectionServer.invalidateMetadataCache();
+        assert.ok(ReflectionServer.metadataLastModified() >= before,
+            "a stamp that went backwards would serve a stale payload forever");
+        assert.equal(ReflectionServer.metadataCacheSize(), 0);
+    });
+});

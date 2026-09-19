@@ -135,16 +135,78 @@ export function setRequestDeserializer(fn: RequestDeserializer): void { _request
 
 const rawBody = express.text({ type: "*/*", limit: "16mb" });
 
-// The UI culture for a request: the client's `Accept-Language` (a bare locale tag — the client sends
-// exactly the culture it rendered with), honoured only when metadata is actually loaded for it. Anything
-// else — no header, an unknown tag, a full browser Accept-Language list — falls back to the process
-// default, which is the untranslated source language.
-function requestCulture(req: Request): string {
+/**
+ * The logged-in user's own culture preference, when an auth module is installed to answer. Core has no
+ * notion of a user, so this is a seam — Signum reads `UserHolder.CurrentUserCulture` directly, which it
+ * can because its framework assembly knows about users.
+ */
+let _userCulture: (() => string | undefined) | undefined;
+export function setUserCultureProvider(fn: (() => string | undefined) | undefined): void { _userCulture = fn; }
+
+/** The name of the culture cookie. Signum's is `language`, and this is the same wire contract. */
+export const CULTURE_COOKIE = "language";
+
+/** One cookie out of the `Cookie` header, without pulling in cookie-parser for a single name. */
+function readCookie(req: Request, name: string): string | undefined {
+    const header = req.headers?.["cookie"];
+    const raw = Array.isArray(header) ? header[0] : header;
+    if (raw == null)
+        return undefined;
+    for (const part of raw.split(";")) {
+        const eq = part.indexOf("=");
+        if (eq >= 0 && part.slice(0, eq).trim() === name)
+            return decodeURIComponent(part.slice(eq + 1).trim());
+    }
+    return undefined;
+}
+
+/** A culture, if translations are actually loaded for it — else its neutral parent (`es-ES` → `es`). */
+function usable(tag: string | undefined): string | undefined {
+    if (tag == null || tag === "")
+        return undefined;
+    const loaded = Metadata.cultures();
+    if (loaded.includes(tag))
+        return tag;
+    // Signum's GetCultureFromAcceptedLanguage walks to the neutral part and then prefix-matches, so
+    // `es-ES` finds a loaded `es` rather than falling all the way back to English.
+    const neutral = tag.split("-")[0]!;
+    return loaded.includes(neutral) ? neutral : loaded.find(c => c.startsWith(neutral));
+}
+
+/**
+ * The culture a request runs in — Signum's `CultureServer.GetCurrentCulture`, same order:
+ *
+ *   1. the `language` COOKIE — what the picker just set, a temporary override that beats the stored
+ *      preference precisely so switching language does not rewrite the user's profile;
+ *   2. the logged-in USER's own culture;
+ *   3. the browser's preferred languages (`Accept-Language`, a weighted list — each tag in order, then
+ *      its neutral parent);
+ *   4. the process default, which is the untranslated source language.
+ *
+ * Every candidate is filtered through {@link usable}: a culture nothing is translated into is not a
+ * culture this application can render, so it is skipped rather than serving a half-English page.
+ */
+export function requestCulture(req: Request): string {
+    const fromCookie = usable(readCookie(req, CULTURE_COOKIE));
+    if (fromCookie != undefined)
+        return fromCookie;
+
+    const fromUser = usable(_userCulture?.());
+    if (fromUser != undefined)
+        return fromUser;
+
     // `headers` is optional-chained: a hand-built request object (the route unit tests invoke handlers
     // directly, without Express) has none, and a missing header is exactly the default-culture case.
     const header = req.headers?.["accept-language"];
-    const tag = (Array.isArray(header) ? header[0] : header)?.trim();
-    return tag != null && Metadata.cultures().includes(tag) ? tag : CultureInfo.currentUICulture();
+    const raw = Array.isArray(header) ? header[0] : header;
+    for (const entry of raw?.split(",") ?? []) {
+        // Drop the quality factor; the header is already in preference order.
+        const fromHeader = usable(entry.split(";")[0]!.trim());
+        if (fromHeader != undefined)
+            return fromHeader;
+    }
+
+    return CultureInfo.currentUICulture();
 }
 
 export class WebBuilder {

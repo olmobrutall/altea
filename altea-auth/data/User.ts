@@ -150,14 +150,18 @@ export namespace UserOperation {
 
 // ---- The current user, on BOTH tiers -----------------------------------------------------------------
 
-// Stamp Role / ExternalId
+// Stamp Role / ExternalId / Culture
 // onto the claims bag whenever a UserWithClaims is built from a full user. It lives HERE, in the data
 // layer, because altea builds a UserWithClaims on both tiers — the server per request (UserHolder) and the
 // client on every login (AppContext) — and a filler declared once serves both. That is what makes
 // `RoleEntity.current()` answer in a React component as well as in a query.
-// (Culture is omitted: altea's CultureInfoEntity is not carried in the claims.)
+//
+// Culture rides as the culture NAME rather than the entity, because that is all either tier wants from it:
+// the server picks the request's culture from it (webApi's requestCulture), and `UserHolder.current()`
+// holds a Lite, so anything richer would cost a retrieve on every request that asks.
 UserWithClaims.fillClaims.push((uwc, user) => {
     const u = user as UserEntity;
     uwc.claims["Role"] = u.role;
     uwc.claims["ExternalId"] = u.externalId;
+    uwc.claims["Culture"] = u.cultureInfo?.name;
 });

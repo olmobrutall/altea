@@ -106,8 +106,31 @@ export namespace ReflectionServer {
         invalidateMetadataCache();
     }
 
+    /**
+     * When the blob last changed — Signum's `ReflectionServer.LastModified`. Bumped by every invalidation.
+     */
+    let lastModified = Date.now();
+    export function metadataLastModified(): number { return lastModified; }
+
+    /**
+     * The validator behind the endpoint's 304, identifying the exact REPRESENTATION: which culture, which
+     * role, and which generation of the blob.
+     *
+     * An ETag rather than Signum's `Last-Modified`, because altea derives the culture from the request
+     * (cookie / user / Accept-Language) instead of from the URL, so one URL legitimately has several
+     * bodies. A bare timestamp cannot say which one a cache is holding: after switching language the
+     * browser revalidated `?culture=de`, the stamp had not moved, and it went on serving the ENGLISH body
+     * it had cached under that URL. Naming the representation makes "not modified" mean what it says.
+     */
+    function metadataETag(culture: string): string {
+        return `W/"${culture}.${_metadataCacheKey?.() ?? ""}.${lastModified}"`;
+    }
+
     /** Drop every cached blob. Auth calls this whenever a rule change makes the overlay stale. */
-    export function invalidateMetadataCache(): void { wireCache.clear(); }
+    export function invalidateMetadataCache(): void {
+        wireCache.clear();
+        lastModified = Date.now();
+    }
 
     /** How many (culture, role) payloads are currently held — for tests and the cache statistics panel. */
     export function metadataCacheSize(): number { return wireCache.size; }
@@ -405,15 +428,42 @@ export namespace ReflectionServer {
     }
 
     export function start(ws: WebBuilder): void {
-        // GET /api/reflection/metadata?culture=xx — plain JSON (no entities), so res.json (not the
-        // entity Serializer). Culture defaults to the process/context UI culture.
+        // GET /api/reflection/metadata — plain JSON (no entities), so res.json (not the entity Serializer).
+        //
+        // The blob is built for the REQUEST's culture, which webApi already resolved and scoped (cookie →
+        // user → Accept-Language → default) — Signum's ReflectionController does the same, deriving
+        // everything from the ambient culture.
+        //
+        // `?culture=` (and `?user=`/`?userTicks=`) are CACHE BUSTERS only, and are deliberately not read:
+        // they make the URL differ so the browser's HTTP cache treats another language or another user as
+        // another resource, which is what the 304 below is paired with. Signum sends the same three for
+        // the same reason and its controller ignores them too. Honouring the parameter instead was how the
+        // blob's culture could disagree with the request's — the bug that shipped every registered
+        // expression in the process default language.
         ws.get("/api/reflection/metadata",
             // allowAnonymous: the client fetches this at boot to render (among other things) the login
             // page, before any user is authenticated. The blob is role-filtered by the MetadataFilter
             // once an authorization module is installed.
             { res: CustomType<MetadataBlobWire>(), allowAnonymous: true },
             async (req, res) => {
-                const culture = (req.query["culture"] as string | undefined) ?? CultureInfo.currentUICulture();
+                // The payload is ~186KB and changes only when something invalidates the cache, so a boot
+                // that changed nothing costs an empty 304 instead of the whole blob — and the check runs
+                // BEFORE the blob is built or serialized, so a 304 is nearly free on the server too.
+                const culture = CultureInfo.currentUICulture();
+                const etag = metadataETag(culture);
+                res.setHeader("ETag", etag);
+                res.setHeader("Cache-Control", "no-cache");   // revalidate, don't serve blind from cache
+                // The body depends on request state that is NOT in the URL, so any cache between here and
+                // the browser has to key on it too.
+                res.setHeader("Vary", "Accept-Language, Cookie");
+
+                const inm = req.headers?.["if-none-match"];
+                const offered = (Array.isArray(inm) ? inm.join(",") : inm ?? "").split(",").map(t => t.trim());
+                if (offered.includes(etag)) {
+                    res.status(304).end();
+                    return;
+                }
+
                 res.json(await cachedWire(culture));
             });
 
