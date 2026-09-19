@@ -239,13 +239,6 @@ export class WebBuilder {
         (this.app as any)[verb](path, ...mws, wrapped);
     }
 
-    // JSON error funnel (add AFTER routes). Unexpected error -> 500. (Validation is explicit, via
-    // res.modelState.)
-    useDefaultErrorHandler(): void {
-        this.app.use((err: unknown, _req: Request, res: Response, _next: express.NextFunction) => {
-            res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
-        });
-    }
 }
 
 // Convenience factory (Signum's SignumServer host setup): a fresh Express app wrapped in a WebBuilder.
