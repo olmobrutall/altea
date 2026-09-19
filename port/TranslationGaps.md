@@ -968,3 +968,50 @@ yet four of them (`TypeAllowed`, `PropertyAllowed`, `QueryAllowed`, `OperationAl
 translation file anyway — the quote-transformer auto-registers an enum that a reflected FIELD
 references. The two that no field references (`TypeAllowedBasic`, `AuthThumbnail`) silently fall out.
 So "is it registered?" cannot be answered by grepping for `registerEnum`.
+
+### altea-help — swept
+
+**Fixed:** `ImportAction` and `ImportStatus` were RENDERED on the import-preview page through
+`Enum.niceName` (five call sites) and neither was registered, so both fell back to the English
+identifier in every culture. A new variant of the registration trap: the fields that hold them are
+typed `ImportActionKeys` / `ImportStatusKeys`, which are STRINGS, so the transformer never sees the
+enum and cannot auto-register it the way it does for a field typed as the enum itself. Third instance
+after `DelayOption` and `ComparisonType`, each reached a different way.
+
+**Noise, in the usual shapes:** `QueryColumnHelpEmbedded` / `OperationHelpEmbedded` /
+`PropertyRouteHelpEmbedded` are `@part` ENTITIES in altea, not embeddeds (the MList divergence);
+`QueryHelpEntity.IsEmpty` / `TypeHelpEntity.IsEmpty` are METHODS here, not computed properties, so they
+have no `<Member>` entry — the F1 pattern.
+
+**`HelpSyntaxMessage` — NOT a gap. A dead vestige in Signum.** altea declares 2 of its 29 members and
+that is the correct subset. The other 27 label a WIKI MARKUP LANGUAGE — "Fette Schrift", "Link zur
+Entität", "Ungeordnetes Listenelement", "Titel-Ebene", i.e. `'''bold'''`, `[e:Entity]`, `*`, `=Title=`.
+Three checks agree it is gone:
+
+1. Signum never uses them — every one appears only in the enum and in the generated MessageKeys.
+2. Signum no longer PARSES that syntax: no `[e:` handling, no WikiLink, nothing.
+3. Both editors are the same rich HTML editor — `Signum.Help/Editor/EditableHtml.tsx` uses HtmlEditor
+   with the Link and Image extensions, and altea's `EditableHtml.tsx` is the direct port of it.
+
+Declaring the 27 would be WORSE than leaving them out, and this is where the framework-surface
+argument stops applying. An application genuinely reaches for `ValidationMessage._0IsNecessary`; nobody
+reaches for a label describing syntax the editor rejects. Declaring them would have a translator
+localize a help screen that can never render, and would tell a reader that altea's help editor accepts
+`*` for a bullet. It does not. The two live members (`InsertImage`, `TranslateFrom`) are already here.
+
+### A fifth category: DEAD IN SIGNUM
+
+Distinct from "implemented differently", where altea does the same thing another way. These are things
+Signum ships and abandoned, so porting them adds a caption with nothing behind it on EITHER side:
+
+| | Evidence |
+|---|---|
+| `HelpSyntaxMessage` (27 of 29) | wiki markup neither framework parses |
+| `PaginationMessage` | one member, `All`; both frameworks label the selector from the `PaginationMode` ENUM |
+| `NumberUnitsMessage` + `ToStringWithCompact` | no caller in Signum or Southwind; altea does it through `Intl` compact notation |
+| `SmartDatePattern` / `SmartShortDatePattern` | no caller outside its own file; the behaviour anyone reaches for is `toRelativeTime` |
+| `SearchMessage`, 23 members | found by the D3 pass: only 88 of Signum's 114 are referenced in Signum itself |
+
+The lesson for the remaining modules: "Signum declares it" is not on its own a reason to port it.
+Check for a caller on the SIGNUM side first — it is one grep, and it has now changed the answer five
+times.
