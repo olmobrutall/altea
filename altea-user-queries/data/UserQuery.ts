@@ -4,7 +4,7 @@ import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
     backReference, entity, part, implementedBy, primaryKey, quoted, rowOrder, translatable, valueField,
 } from "@altea/altea/data/decorators";
-import { validate, noRepeatValidator, stringLengthValidator, numberIsValidator, ComparisonType } from "@altea/altea/data/validators";
+import { validate, noRepeatValidator, stringLengthValidator, numberIsValidator, ComparisonType, ValidationMessage } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import {
@@ -176,6 +176,12 @@ export class HealthCheckConditionEmbedded extends EmbeddedEntity {
 @reflect
 export class HealthCheckEmbedded extends EmbeddedEntity {
     failWhen: HealthCheckConditionEmbedded | null;
+    // Signum's HealthCheckEmbedded.PropertyValidation: a health check with NEITHER threshold reports
+    // nothing, so the embedded itself is the thing that should have been left null.
+    @validate<HealthCheckEmbedded>((h, fi) => h.failWhen == null && h.degradedWhen == null
+        ? ValidationMessage._0Or1ShouldBeSet.niceToString(
+            HealthCheckEmbedded.nicePropertyName("failWhen"), fi.niceToString())
+        : null)
     degradedWhen: HealthCheckConditionEmbedded | null;
 
     /** Signum's HealthCheckEmbedded.Clone(). */

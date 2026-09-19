@@ -3,7 +3,8 @@ import { CurrentUser } from "@altea/altea/data/security";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, part, uniqueIndex, backReference, valueField, quoted } from "@altea/altea/data/decorators";
-import { stringLengthValidator, noRepeatValidator } from "@altea/altea/data/validators";
+import { stringLengthValidator, noRepeatValidator, validate, ValidationMessage, ComparisonType } from "@altea/altea/data/validators";
+import { Enum } from "@altea/altea/data/enum";
 import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 
 // Port of Signum.Authorization's RoleEntity.cs — see port/Auth.md.
@@ -18,8 +19,9 @@ import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 //    de-dup check when authorization lands.)
 //  - `RoleEntity.Current` / `RetrieveFromCache` are server-only (read UserHolder claims / the role
 //    cache) — they live in AuthLogic, not on the isomorphic entity.
-//  - `PreSaving` (trivial-merge name) and the trivial-merge `PropertyValidation` are authorization-admin
-//    concerns; they land with the authorization phase (the Save operation computes the name server-side).
+//  - `PreSaving` (the trivial-merge name) is an authorization-admin concern and lives in AuthLogic, where
+//    the Save operation computes the name server-side. The trivial-merge `PropertyValidation` is here,
+//    on the three fields it is about.
 
 // A plain numeric entity enum, like OrderState (the proven
 // pattern for entity enum fields that also feed the operation graph).
@@ -35,13 +37,30 @@ export class RoleEntity extends Entity {
     @stringLengthValidator({ min: 2, max: 200 })
     name: string;
 
+    // Signum's three trivial-merge PropertyValidations (RoleEntity.PropertyValidation). A TRIVIAL MERGE
+    // role is not a role anybody wrote: AuthLogic synthesises it to stand for "the union of these N
+    // roles", names it after them (the `PreSaving` below, done server-side in AuthLogic) and nothing else
+    // about it is the admin's to choose. So the three members that WOULD be theirs are pinned — and the
+    // checkbox IS rendered on the Role page (client/admin/Role.tsx), so a user can reach every one of
+    // these states by hand.
+    @validate<RoleEntity>((r, fi) => !r.isTrivialMerge || r.mergeStrategy === MergeStrategy.Union ? null
+        // Signum passes ONE argument to the two-placeholder `{0} should be {1}`, so its message ends in a
+        // literal "{1}"; both halves are filled here.
+        : ValidationMessage._0ShouldBe1.niceToString(fi.niceToString(), Enum.niceName(MergeStrategy, "Union")))
     mergeStrategy: MergeStrategy = MergeStrategy.Union;
 
     isTrivialMerge: boolean = false;
 
+    // A merge of fewer than two roles is not a merge. Signum's message says "greater than 2" while its
+    // check is `< 2`; the check is the rule, so the message says what the check means.
+    @validate<RoleEntity>((r, fi) => !r.isTrivialMerge || r.inheritsFrom.length >= 2 ? null
+        : ValidationMessage._0ShouldBe12.niceToString(
+            fi.niceToString(), Enum.niceName(ComparisonType, "GreaterThanOrEqualTo"), 2))
     @noRepeatValidator()
     inheritsFrom: RoleEntity_InheritsFrom[];
 
+    @validate<RoleEntity>((r, fi) => !r.isTrivialMerge || (r.description ?? "") === "" ? null
+        : ValidationMessage._0ShouldBeNull.niceToString(fi.niceToString()))
     @stringLengthValidator({ multiLine: true })
     description: string | null = null;
 

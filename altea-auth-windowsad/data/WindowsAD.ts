@@ -32,9 +32,9 @@ export class WindowsADConfigurationEmbedded extends BaseADConfigurationEmbedded 
     loginWithActiveDirectoryRegistry: boolean = false;
 
     @stringLengthValidator({ max: 200 })
-    @validate<WindowsADConfigurationEmbedded>(c =>
+    @validate<WindowsADConfigurationEmbedded>((c, fi) =>
         (c.loginWithWindowsAuthenticator || c.loginWithActiveDirectoryRegistry) && !hasText(c.domainName)
-            ? ValidationMessage._0IsNotSet.niceToString("Domain Name")
+            ? ValidationMessage._0IsNotSet.niceToString(fi.niceToString())
             : null)
     @stringLengthValidator({ max: 200 })
     domainName: string | null = null;

@@ -1,11 +1,12 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
+import { tryGetParentEntity } from "@altea/altea/data/parentEntity";
 import {
-    entity, part, primaryKey, backReference, rowOrder, implementedBy, format, unit, quoted, legacyTableName,
+    entity, part, primaryKey, backReference, rowOrder, implementedBy, format, unit, quoted, legacyTableName, bindParent,
     legacyClassName,
 } from "@altea/altea/data/decorators";
-import { stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType, numberIsValidator } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType, numberIsValidator, ValidationMessage } from "@altea/altea/data/validators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
@@ -142,6 +143,11 @@ export class DashboardEntity_Part extends Entity implements IGridEntity {
     // Signum's [BindParent, ImplementedBy(…the base parts…)] IPartEntity Content. The app WIDENS this list
     // to the parts of every registered module (Signum did the same from Southwind's Starter) — see
     // eastwind/app/entityOverrides.data.ts's `overrideImplementedBy(DashboardEntity_Part, d => d.content, …)`.
+    // Signum's [BindParent] on the same member: a part's content is a CONTINUATION of the dashboard,
+    // and a rule on the content that has to know the dashboard (BigValuePartEntity's three, in
+    // @altea/altea-user-queries) walks up through here. Nothing else changes — the parent lives in a
+    // WeakMap, never on the wire.
+    @bindParent
     @implementedBy(() => [TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity, ToolbarMenuPartEntity])
     content: IPartEntity;
 
@@ -228,6 +234,7 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
     // ShowTitleAsBreadcrumb; the editor does that in onChange (see client/Admin/Dashboard.tsx).
     entityType: Lite<TypeEntity> | null;
 
+    @validate<DashboardEntity>(d => validateEmbeddedInEntity(d))
     embeddedInEntity: DashboardEmbedededInEntity | null;
 
     // Signum's `Lite<Entity>? Owner` — AssertImplementedBy(User, Role) in logic. Whose dashboard this is
@@ -256,12 +263,20 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
     // Signum's [BindParent, NoRepeatValidator] MList<PanelPartEmbedded>. The grid-geometry checks Signum
     // runs in ChildPropertyValidation (a part sticking out past column 12, two parts overlapping in a row)
     // need the sibling rows, so they are an owner-level field validation here.
+    @bindParent
     @validate<DashboardEntity>(d => validateParts(d.parts))
     parts: DashboardEntity_Part[];
 
     // Signum's CacheQueryConfiguration: set it and the dashboard is served from a SNAPSHOT
     // (DashboardOperation.RegenerateCachedQueries builds one; the client runs every part's query against
     // it locally). Null means every part queries the database as it is viewed.
+    // A cached dashboard is one SNAPSHOT for everybody, so it cannot also be an entity widget: an
+    // embedded dashboard's parts are filtered by the entity it is shown on, and a snapshot has no entity
+    // to be filtered by (Signum's third DashboardEntity.PropertyValidation branch).
+    @validate<DashboardEntity>((d, fi) => d.cacheQueryConfiguration != null && d.entityType != null
+        ? ValidationMessage._0ShouldBeNullWhen1IsSet.niceToString(
+            fi.niceToString(), DashboardEntity.nicePropertyName("entityType"))
+        : null)
     cacheQueryConfiguration: CacheQueryConfigurationEmbedded | null = null;
 
     // Signum's [Ignore, QueryableProperty, BindParent] MList<DashboardEntity_TokenEquivalenceGroup> (a virtual MList).
@@ -291,13 +306,30 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
     }
 }
 
+/**
+ * Signum's `IPartEntity.GetDashboard()` — the dashboard a part CONTENT sits on, two `@bindParent` hops up
+ * (content → its grid cell → the dashboard). A part validated outside a dashboard (one being constructed,
+ * or one a test holds on its own) answers undefined and a rule that needs the dashboard stands down,
+ * which is the same thing `tryGetParentEntity` does for a single hop.
+ */
+export function tryGetDashboard(part: IPartEntity): DashboardEntity | undefined {
+    const cell = tryGetParentEntity(part, DashboardEntity_Part);
+    return cell == null ? undefined : tryGetParentEntity(cell, DashboardEntity);
+}
+
 // Signum's DashboardEntity.PropertyValidation for EmbeddedInEntity (it is required exactly when EntityType
-// is set) — an entity-level check because it spans two fields. Exposed for the editor / the save path.
+// is set) — an entity-level check because it spans two fields. Wired as the `@validate` on
+// `embeddedInEntity`; still exported, because the editor asks it directly too.
+//
+// It used to say this with two DashboardMessage members of altea's own invention, written when core's
+// ValidationMessage carried neither half of Signum's sentence. It carries both now, so this is Signum's
+// wording again — and the two invented members are gone with it.
 export function validateEmbeddedInEntity(d: DashboardEntity): string | null {
+    const name = DashboardEntity.nicePropertyName("embeddedInEntity");
     if (d.embeddedInEntity == null && d.entityType != null)
-        return DashboardMessage.EmbeddedInEntityIsNecessaryWhenEntityTypeIsSet.niceToString();
+        return ValidationMessage._0IsNecessary.niceToString(name);
     if (d.embeddedInEntity != null && d.entityType == null)
-        return DashboardMessage.EmbeddedInEntityIsNotAllowedWithoutEntityType.niceToString();
+        return ValidationMessage._0IsNotAllowed.niceToString(name);
     return null;
 }
 
@@ -414,8 +446,6 @@ export const DashboardMessage = {
     ColumnsMustBeBetween1And12: msg("Columns must be between 1 and 12"),
     AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds: msg("Auto refresh period must be greater than or equal to 10 seconds"),
     DuplicatedTokens0: msg("Duplicated tokens: {0}"),
-    EmbeddedInEntityIsNecessaryWhenEntityTypeIsSet: msg("Embedded in entity is necessary when Entity Type is set"),
-    EmbeddedInEntityIsNotAllowedWithoutEntityType: msg("Embedded in entity is not allowed without an Entity Type"),
 };
 
 // Signum's DashboardVariableMessage (DashboardEntity.cs) — the `$UserGreeting$` text-part variable.

@@ -42,7 +42,12 @@ export namespace HolidayCalendarLogic {
             .withExecute(HolidayCalendarOperation.ImportPublicHolidays, {
                 canBeModified: true,
                 canExecute: (c: HolidayCalendarEntity) => c.fromYear != null && c.toYear != null && (c.countryCode ?? "") !== "" ? null
-                    : HolidayCalendarMessage.ForImport01and2ShouldBeSet.niceToString("From year", "To year", "Country code"),
+                    // The three names are the FIELDS' nice names (Signum's `Entity.NicePropertyName`), not
+                    // English labels: the sentence around them is translated, so they have to be too.
+                    : HolidayCalendarMessage.ForImport01and2ShouldBeSet.niceToString(
+                        HolidayCalendarEntity.nicePropertyName(a => a.fromYear),
+                        HolidayCalendarEntity.nicePropertyName(a => a.toYear),
+                        HolidayCalendarEntity.nicePropertyName(a => a.countryCode)),
                 execute: async (c: HolidayCalendarEntity) => { await importPublicHolidays(c); },
             })
             .withQuery();

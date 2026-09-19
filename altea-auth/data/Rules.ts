@@ -24,6 +24,19 @@ import type { } from "@altea/altea/data/metadata";
 // concrete rule adding its own `resource` — a direct FK to the seeded TypeEntity / QueryEntity /
 // PermissionSymbol table.
 
+/**
+ * Signum's `NoRepeatValidatorAttribute.ByKey(ConditionRules, a => a.Conditions.OrderBy(…).ToString(" & "))`
+ * — declared three times in RulesEntities.cs and once more in RulePackModels.cs.
+ *
+ * Two condition rows under one rule may not name the SAME SET of conditions. The rows are evaluated
+ * last-match-wins, so a duplicate does not conflict loudly: the later row silently shadows the earlier
+ * one, and an administrator who edited the first sees no effect and no error. Order inside a row is
+ * irrelevant (the symbols are AND-ed), which is why the key sorts before joining.
+ */
+function conditionSetKey(symbols: readonly unknown[]): string {
+    return symbols.map(String).sort().join(" & ");
+}
+
 // ---- Allowed enums ------------------------------------------------------------------------------
 
 export enum TypeAllowedBasic {
@@ -131,6 +144,7 @@ export class RuleQueryEntity extends RuleEntity {
 export class RuleTypeEntity extends RuleEntity {
     resource: Lite<TypeEntity>;
     fallback: TypeAllowed = TypeAllowed.None;
+    @noRepeatValidator((r: RuleTypeConditionEntity) => conditionSetKey(r.conditions.map(c => c.symbol)))
     conditionRules: RuleTypeConditionEntity[];
 }
 
@@ -187,6 +201,7 @@ export class ConditionRuleModel extends EmbeddedEntity {
 @reflect
 export class WithConditionsModel extends EmbeddedEntity {
     fallback: TypeAllowed = TypeAllowed.None;
+    @noRepeatValidator((r: ConditionRuleModel) => conditionSetKey(r.typeConditions))
     conditionRules: ConditionRuleModel[];
 }
 
@@ -265,6 +280,7 @@ export class RuleOperationEntity extends RuleEntity {
     type: Lite<TypeEntity>;
 
     fallback: OperationAllowed = OperationAllowed.None;
+    @noRepeatValidator((r: RuleOperationConditionEntity) => conditionSetKey(r.conditions.map(c => c.symbol)))
     conditionRules: RuleOperationConditionEntity[];
 }
 
@@ -316,6 +332,7 @@ export class OperationConditionRuleModel extends EmbeddedEntity {
 @reflect
 export class OperationWithConditionsModel extends EmbeddedEntity {
     fallback: OperationAllowed = OperationAllowed.None;
+    @noRepeatValidator((r: OperationConditionRuleModel) => conditionSetKey(r.typeConditions))
     conditionRules: OperationConditionRuleModel[];
 }
 
@@ -380,6 +397,7 @@ export class QueryRulePack extends ModelEntity {
 export class RulePropertyEntity extends RuleEntity {
     resource: PropertyRouteEntity;
     fallback: PropertyAllowed = PropertyAllowed.None;
+    @noRepeatValidator((r: RulePropertyConditionEntity) => conditionSetKey(r.conditions.map(c => c.symbol)))
     conditionRules: RulePropertyConditionEntity[];
 }
 
@@ -421,6 +439,7 @@ export class PropertyConditionRuleModel extends EmbeddedEntity {
 @reflect
 export class PropertyWithConditionsModel extends EmbeddedEntity {
     fallback: PropertyAllowed = PropertyAllowed.None;
+    @noRepeatValidator((r: PropertyConditionRuleModel) => conditionSetKey(r.typeConditions))
     conditionRules: PropertyConditionRuleModel[];
 }
 

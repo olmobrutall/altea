@@ -1,7 +1,7 @@
 import { reflect, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { EmbeddedEntity, Entity } from "@altea/altea/data/entity";
 import { column, serialize, rowOrder } from "@altea/altea/data/decorators";
-import { stringLengthValidator } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import {
     PinnedFilterActive, FilterGroupOperation, FilterOperation, DashboardBehaviour,
@@ -16,6 +16,8 @@ import { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 @reflect
 export class QueryTokenEmbedded extends EmbeddedEntity {
     // The token's rootless fullKey — altea tokens carry no root: "Customer.Name", "Id", "ToString".
+    @validate<QueryTokenEmbedded>((q, fi, env) => env !== "Client" || q.token != null ? null
+        : q.parseException ?? ValidationMessage._0IsNotSet.niceToString(fi.niceToString()))
     @stringLengthValidator({ min: 1, max: 200 })
     tokenString: string;
 
@@ -27,6 +29,14 @@ export class QueryTokenEmbedded extends EmbeddedEntity {
     // The parse error message when `tokenString` no longer resolves against the query (client-filled).
     @column(false) @serialize(false)
     parseException: string | null;
+
+    // Signum's QueryTokenEmbedded.PropertyValidation: a token that did not resolve is not a token, and
+    // saving it stores a filter/column/order that can never run again. It reports the PARSE error when
+    // there is one (it names the member that went away), and the bare "is not set" otherwise.
+    //
+    // CLIENT-ONLY, where Signum checks on both tiers: `token` is resolved by Finder's TokenCompleter in
+    // the browser and is neither a column nor serialized (altea has no server-side QueryDescription), so
+    // on the server it is null for every row — a tier-blind rule would refuse every save.
 
     toString(): string {
         return this.tokenString;
@@ -88,11 +98,24 @@ export class PinnedQueryFilterEmbedded extends EmbeddedEntity {
 export abstract class QueryFilterBaseEntity extends Entity {
     @rowOrder order: int;
 
+    // Signum's QueryFilterEmbedded.PropertyValidation, the three MANDATORY halves of it (the fourth set
+    // of branches asks QueryUtils/QueryDescription what a token can be filtered by, which is a
+    // server-side catalogue altea does not have — the client's own FilterBuilder answers it instead).
+    //
+    // A filter is one of two shapes and each needs a different member: a GROUP is an And/Or over its
+    // children and needs the group operation (its own token is the optional group PREFIX), a LEAF needs
+    // both the token it compares and the comparison.
+    @validate<QueryFilterBaseEntity>((f, fi) => f.isGroup || f.token != null ? null
+        : ValidationMessage._0IsNotSet.niceToString(fi.niceToString()))
     token: QueryTokenEmbedded | null;
     isGroup: boolean = false;
     // Real altea enums (int FK to the enum table, translatable), so the in-memory value is the numeric
     // ORDINAL while the wire / XML / query form is the member name (Enum.toName). See dynamicQueries.
+    @validate<QueryFilterBaseEntity>((f, fi) => !f.isGroup || f.groupOperation != null ? null
+        : ValidationMessage._0IsNotSet.niceToString(fi.niceToString()))
     groupOperation: FilterGroupOperation | null;
+    @validate<QueryFilterBaseEntity>((f, fi) => f.isGroup || f.operation != null ? null
+        : ValidationMessage._0IsNotSet.niceToString(fi.niceToString()))
     operation: FilterOperation | null;
     // Signum's `[StringLengthValidator(Max = int.MaxValue)]` — a stored filter value can be a whole list of
     // ids, so the 200-character default a sizeless string column now takes would truncate the filter.

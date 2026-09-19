@@ -4,11 +4,11 @@ import { reflect } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { part, backReference, quoted } from "@altea/altea/data/decorators";
-import { stringLengthValidator } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
-import type { IPartEntity } from "@altea/altea-dashboard/data/Dashboard";
+import { type IPartEntity, tryGetDashboard } from "@altea/altea-dashboard/data/Dashboard";
 import { UserQueryEntity } from "./UserQuery";
 
 // Port of the DASHBOARD PART entities Signum declares in Signum.UserQueries/UserQueryEntity.cs —
@@ -23,9 +23,10 @@ import { UserQueryEntity } from "./UserQuery";
 //    Signum.Scheduler, so altea's dashboard always queries live (see @altea/altea-dashboard's data header).
 //  - `RequiresTitle` stays an entity member (the title validation is isomorphic); `Clone`/`ToXml`/`FromXml`
 //    live in the server-side part registry — see server/UserQueriesDashboardXml.server.ts.
-//  - Signum's `PropertyValidation`s on BigValuePart (which cross-check the OWNING dashboard's entityType via
-//    GetDashboard()) are dropped: an altea part has no parent pointer, and the editor already surfaces the
-//    mismatch (getEntityTypeHelpText).
+//  - Signum's `PropertyValidation`s on BigValuePart cross-check the OWNING dashboard's entityType through
+//    `GetDashboard()`. altea's part HAS a parent pointer now: `@altea/altea-dashboard` marks
+//    `DashboardEntity.parts` and `DashboardEntity_Part.content` `@bindParent`, exactly as Signum does, and
+//    exposes `tryGetDashboard` for the two hops.
 
 // Signum's AutoUpdate (UserQueryEntity.cs): after this part's data changes, refresh the rest of the dashboard.
 export enum AutoUpdate {
@@ -109,8 +110,34 @@ export class ValueUserQueryListPartEntity extends Entity implements IPartEntity 
 // clickable / navigating somewhere.
 @part
 export class BigValuePartEntity extends Entity implements IPartEntity {
+    // Signum's BigValuePartEntity.PropertyValidation, which turns on whether the dashboard it sits on is
+    // scoped to an ENTITY TYPE (`tryGetDashboard`, the two `@bindParent` hops up):
+    //
+    //  - on a STANDALONE dashboard there is no entity for a bare token to be read off, so the number can
+    //    only come from a user query — the query is mandatory and a token without one is meaningless;
+    //  - on an ENTITY dashboard either source works (the token reads off the entity the dashboard is
+    //    shown on), so exactly one of the two has to be there.
+    //
+    // A part not yet placed on a dashboard answers undefined and both rules stand down.
+    @validate<BigValuePartEntity>((p, fi) => {
+        const dashboard = tryGetDashboard(p);
+        if (dashboard == null)
+            return null;
+        if (dashboard.entityType == null)
+            return p.valueToken != null && p.userQuery == null
+                ? ValidationMessage._0ShouldBeNull.niceToString(fi.niceToString()) : null;
+        return bothUnset(p);
+    })
     valueToken: QueryTokenEmbedded | null;
 
+    @validate<BigValuePartEntity>((p, fi) => {
+        const dashboard = tryGetDashboard(p);
+        if (dashboard == null)
+            return null;
+        return dashboard.entityType == null
+            ? (p.userQuery == null ? ValidationMessage._0IsNotSet.niceToString(fi.niceToString()) : null)
+            : bothUnset(p);
+    })
     userQuery: UserQueryEntity | null;
 
     customBigValue: string | null;
@@ -130,6 +157,14 @@ export class BigValuePartEntity extends Entity implements IPartEntity {
     toString(): string {
         return this.userQuery?.toString() ?? this.valueToken?.tokenString ?? "";
     }
+}
+
+/** The shared half of the two rules above: on an ENTITY dashboard a big value needs one source or the other. */
+function bothUnset(p: BigValuePartEntity): string | null {
+    return p.userQuery == null && p.valueToken == null
+        ? ValidationMessage._0Or1ShouldBeSet.niceToString(
+            BigValuePartEntity.nicePropertyName("userQuery"), BigValuePartEntity.nicePropertyName("valueToken"))
+        : null;
 }
 
 // altea-only message container for the part toStrings Signum expressed with NicePluralName.

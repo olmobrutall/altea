@@ -5,6 +5,7 @@ import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { UserHolder } from "@altea/altea/server/userHolder";
+import { inState } from "@altea/altea/server/operation";
 import { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
 import { Temporal, type int } from "@altea/altea/data/basics";
@@ -324,9 +325,11 @@ export namespace ProcessLogic {
         });
 
         sm.withConstructFrom(ProcessEntity, ProcessOperation.Retry, {
-        canConstruct: (p: ProcessEntity) => [ProcessState.Error, ProcessState.Canceled,
-            ProcessState.Finished, ProcessState.Suspended].includes(p.state)
-            ? null : `A process can only be retried from Error / Canceled / Finished / Suspended`,
+        // Signum's `CanConstruct = p => p.State.InState(Error, Canceled, Finished, Suspended)` — a
+        // ConstructFrom has no `fromStates`, so the guard is `canConstruct`, worded by the same message
+        // the graph's own transition check uses.
+        canConstruct: (p: ProcessEntity) => inState(p.state, ProcessState,
+            ProcessState.Error, ProcessState.Canceled, ProcessState.Finished, ProcessState.Suspended),
         toStates: [ProcessState.Created],
         construct: async (p: ProcessEntity) => await create(p.algorithm, p.data),
         });

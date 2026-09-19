@@ -1,6 +1,7 @@
 import { reflect, field } from "@altea/altea/data/reflection";
 import { EmbeddedEntity } from "@altea/altea/data/entity";
-import { stringLengthValidator, validate } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, ValidationMessage, ComparisonType } from "@altea/altea/data/validators";
+import { Enum } from "@altea/altea/data/enum";
 import type { ChartScriptParameter } from "./ChartScriptParameter";
 import type { IChartBase } from "./ChartRequest";
 
@@ -19,16 +20,15 @@ export class ChartParameterEmbedded extends EmbeddedEntity {
     scriptParameter: ChartScriptParameter | null;
 
     // Signum's `[StringLengthValidator(Min = 3, Max = 100)] string Name`. Must match ScriptParameter.Name.
-    @stringLengthValidator({ min: 3, max: 100 })
-    @validate<ChartParameterEmbedded>(p =>
+    @validate<ChartParameterEmbedded>((p, fi) =>
         p.scriptParameter != null && p.name !== p.scriptParameter.name
-            ? `Name should be equal to ${p.scriptParameter.name}`
+            ? ValidationMessage._0ShouldBe12.niceToString(
+                fi.niceToString(), Enum.niceName(ComparisonType, "EqualTo"), p.scriptParameter.name)
             : null)
     @stringLengthValidator({ min: 3, max: 100 })
     name: string;
 
     // Signum's `[StringLengthValidator(Max = 500)] string? Value`, validated by the ScriptParameter.
-    @stringLengthValidator({ max: 500 })
     @validate<ChartParameterEmbedded>(p =>
         p.scriptParameter != null
             ? p.scriptParameter.validate(p.value ?? null, p.scriptParameter.getToken(p.parentChart!))

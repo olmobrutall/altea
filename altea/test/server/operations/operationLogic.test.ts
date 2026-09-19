@@ -5,6 +5,7 @@ import { SchemaBuilder } from "@altea/altea/server/schema";
 import "@altea/altea/server/fluentOperations"; // FluentInclude.withStateMachine / withExecute / …
 import { Graph } from "@altea/altea/server/graph";
 import { Operations, OperationLogic } from "@altea/altea/server/operationLogic";
+import { inState } from "@altea/altea/server/operation";
 import { CollectionMessage } from "@altea/altea/data/dynamicQueries";
 import { toInt } from "@altea/altea/data/basics";
 import "@altea/altea/data/globals"; // Array.prototype.joinComma
@@ -107,6 +108,22 @@ describe("OperationLogic / fluent operations", () => {
         await assert.rejects(
             () => offline(() => Operations.construct(AlbumOperation.CreateInvalid)),
             /State should be New instead of Saved/); // the NICE names, never the ordinals
+    });
+
+    // Signum's `OperationLogic.InState` — the state guard a hand-written `canExecute` / `canConstruct`
+    // writes when the graph cannot (a ConstructFrom has no `fromStates`). It is the SAME sentence the
+    // graph's own transition check produces, which is why `stateError` now delegates to it.
+    test("inState answers null in an allowed state and the graph's own message otherwise", () => {
+        assert.equal(inState(AlbumState.Saved, AlbumState, AlbumState.Saved), null);
+        assert.equal(inState(AlbumState.Saved, AlbumState, AlbumState.New, AlbumState.Saved), null);
+
+        assert.equal(inState(AlbumState.New, AlbumState, AlbumState.Saved),
+            "State should be Saved instead of New"); // the NICE names, never the ordinals
+    });
+
+    test("inState lists several allowed states the way the graph does", () => {
+        const message = inState(AlbumState.New, AlbumState, AlbumState.Saved, AlbumState.Saved);
+        assert.match(String(message), new RegExp(CollectionMessage.Or.niceToString()));
     });
 
     test("execute applies the state transition and returns the same instance", async () => {

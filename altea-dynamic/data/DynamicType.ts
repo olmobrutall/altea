@@ -208,7 +208,27 @@ export class DynamicTypeEntity extends Entity {
 
         const bad = (def.properties ?? [])
             .filter(prop => prop.name != null && prop.name !== "" && !PascalAscii.test(prop.name))
-            .map(prop => ValidationMessage._0DoesNotHaveAValid1Format.niceToString(prop.name, "PascalAscii"));
+            // Signum spells this one `_0DoesNotHaveAValid1IdentifierFormat` (DynamicType.cs) — the member
+            // NAME is the subject, so it is quoted, where the field-level rule above names a field.
+            .map(prop => ValidationMessage._0DoesNotHaveAValid1IdentifierFormat.niceToString(prop.name, "PascalAscii"));
+
+        // Signum throws this from DynamicTypeOperation.Save (DynamicTypeLogic.cs). It is a VALIDATION
+        // here, on the member it is about: two properties differing only in case generate two members
+        // that collide, and the author should hear it while editing rather than from the compiler.
+        // Case-INSENSITIVE, as Signum groups by `a.Name.ToLower()`.
+        const byLower = new Map<string, string>();
+        const repeated: string[] = [];
+        for (const prop of def.properties ?? []) {
+            if (prop.name == null || prop.name === "")
+                continue;
+            const key = prop.name.toLowerCase();
+            if (byLower.has(key))
+                repeated.push(byLower.get(key)!);
+            else
+                byLower.set(key, prop.name);
+        }
+        if (repeated.length > 0)
+            bad.push(ValidationMessage._0HasSomeRepeatedElements1.niceToString(e.typeName, repeated.join(", ")));
 
         return bad.length === 0 ? null : bad.join("\n");
     })

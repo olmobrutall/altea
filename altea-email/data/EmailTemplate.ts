@@ -1,11 +1,14 @@
 import { reflect, init, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
+import { tryGetParentEntity } from "@altea/altea/data/parentEntity";
+import type { BaseEntity } from "@altea/altea/data/entity";
 import {
     entity, part, primaryKey, implementedBy, uniqueIndex, backReference, rowOrder, valueField, quoted, bindParent, column,
 } from "@altea/altea/data/decorators";
 import {
     stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType, ValidationMessage,
+    isSetOnlyWhen,
 } from "@altea/altea/data/validators";
 import { type int, toInt, type uuid } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -129,6 +132,11 @@ export class FileTokenAttachmentEntity extends Entity implements IAttachmentGene
 
     type: EmailAttachmentType;
 
+    // Signum's FileTokenAttachmenEntity.PropertyValidation: the token is read off the template's
+    // query rows, so the template must have a query. (Its second branch — the token's type must be
+    // assignable to IFile — needs the resolved token's TYPE, which only the client holds; the
+    // generator's own runtime check in server/AttachmentLogic.ts stands in for it.)
+    @validate<FileTokenAttachmentEntity>(a => templateHasNoQuery(a))
     fileToken: QueryTokenEmbedded;
 
     @quoted
@@ -248,18 +256,20 @@ export namespace EmailMasterTemplateOperation {
 @reflect
 export class EmailTemplateFromEmbedded extends EmbeddedEntity {
 
+    // Reading the address off a query TOKEN needs a query to read it from (Signum's first
+    // EmailTemplateAddressEmbedded.PropertyValidation branch).
+    @validate<EmailTemplateFromEmbedded>(a => a.addressSource === EmailAddressSource.QueryToken
+        ? templateHasNoQuery(a) : null)
     addressSource: EmailAddressSource;
 
-    @validate<EmailTemplateFromEmbedded>(a =>
-        (a.addressSource === EmailAddressSource.HardcodedAddress) === (a.emailAddress != null) ? null
-            : ValidationMessage._0IsNotSet.niceToString("{0}"))
+    @validate<EmailTemplateFromEmbedded>((a, fi) =>
+        isSetOnlyWhen(a.emailAddress, a.addressSource === EmailAddressSource.HardcodedAddress, fi.niceToString()))
     emailAddress: string | null;
 
     displayName: string | null;
 
-    @validate<EmailTemplateFromEmbedded>(a =>
-        (a.addressSource === EmailAddressSource.QueryToken) === (a.token != null) ? null
-            : ValidationMessage._0IsNotSet.niceToString("{0}"))
+    @validate<EmailTemplateFromEmbedded>((a, fi) =>
+        isSetOnlyWhen(a.token, a.addressSource === EmailAddressSource.QueryToken, fi.niceToString()))
     token: QueryTokenEmbedded | null;
 
     whenNone: WhenNoneFromBehaviour;
@@ -297,18 +307,18 @@ export class EmailTemplateFromEmbedded extends EmbeddedEntity {
 export class EmailTemplateEntity_Recipient extends Entity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
 
+    @validate<EmailTemplateEntity_Recipient>(a => a.addressSource === EmailAddressSource.QueryToken
+        ? templateHasNoQuery(a) : null)
     addressSource: EmailAddressSource;
 
-    @validate<EmailTemplateEntity_Recipient>(a =>
-        (a.addressSource === EmailAddressSource.HardcodedAddress) === (a.emailAddress != null) ? null
-            : ValidationMessage._0IsNotSet.niceToString("{0}"))
+    @validate<EmailTemplateEntity_Recipient>((a, fi) =>
+        isSetOnlyWhen(a.emailAddress, a.addressSource === EmailAddressSource.HardcodedAddress, fi.niceToString()))
     emailAddress: string | null;
 
     displayName: string | null;
 
-    @validate<EmailTemplateEntity_Recipient>(a =>
-        (a.addressSource === EmailAddressSource.QueryToken) === (a.token != null) ? null
-            : ValidationMessage._0IsNotSet.niceToString("{0}"))
+    @validate<EmailTemplateEntity_Recipient>((a, fi) =>
+        isSetOnlyWhen(a.token, a.addressSource === EmailAddressSource.QueryToken, fi.niceToString()))
     token: QueryTokenEmbedded | null;
 
     kind: EmailRecipientKind;
@@ -340,6 +350,7 @@ export class EmailTemplateEntity_Attachment extends Entity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
     @rowOrder order: int;
 
+    @bindParent
     @valueField @implementedBy(() => [ImageAttachmentEntity, FileTokenAttachmentEntity])
     attachment: IAttachmentGeneratorEntity;
 
@@ -419,18 +430,24 @@ export class EmailTemplateEntity extends Entity implements IUserAssetEntity, ICo
 
     model: EmailModelEntity | null;
 
+    // Signum's [BindParent] on the same three members: an address / an attachment is a CONTINUATION
+    // of the template, and its rules ask the template whether it HAS a query (see `templateHasNoQuery`).
+    @bindParent
     from: EmailTemplateFromEmbedded | null;
 
+    @bindParent
     recipients: EmailTemplateEntity_Recipient[];
 
     groupResults: boolean;
 
     filters: EmailTemplateEntity_Filter[];
 
-    @validate<EmailTemplateEntity>(t => t.orders.length > 0 && t.query == null
-        ? ValidationMessage._0IsNotSet.niceToString("{0}") : null)
+    // An order is a clause of the template's QUERY, so without one there is nothing to order.
+    @validate<EmailTemplateEntity>((t, fi) => t.orders.length > 0 && t.query == null
+        ? ValidationMessage._0ShouldBeEmpty.niceToString(fi.niceToString()) : null)
     orders: EmailTemplateEntity_Order[];
 
+    @bindParent
     @noRepeatValidator()
     attachments: EmailTemplateEntity_Attachment[];
 
@@ -461,6 +478,27 @@ export class EmailTemplateEntity extends Entity implements IUserAssetEntity, ICo
         return this.messages.find(m => cultureNameOf(m.cultureInfo) === culture)
             ?? this.messages.find(m => cultureNameOf(m.cultureInfo) === languageOf(culture));
     }
+}
+
+/**
+ * Signum's `this.TryGetParentEntity<EmailTemplateEntity>()` guard, shared by the four rules that read
+ * something off the template's QUERY rows (the two address embeddeds' `addressSource`, and the file
+ * attachment's token). A child reached outside a template answers null and the rule stands down.
+ */
+function templateHasNoQuery(child: BaseEntity): string | null {
+    const template = tryGetTemplate(child);
+    return template != null && template.query == null
+        ? ValidationMessage._0IsNotSet.niceToString(EmailTemplateEntity.nicePropertyName("query"))
+        : null;
+}
+
+/** One hop for an address, two for an attachment GENERATOR (it hangs off the attachment row). */
+function tryGetTemplate(child: BaseEntity): EmailTemplateEntity | undefined {
+    const direct = tryGetParentEntity(child, EmailTemplateEntity);
+    if (direct != null)
+        return direct;
+    const row = tryGetParentEntity(child, EmailTemplateEntity_Attachment);
+    return row == null ? undefined : tryGetParentEntity(row, EmailTemplateEntity);
 }
 
 export namespace EmailTemplateOperation {

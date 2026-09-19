@@ -49,39 +49,40 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     // what is optional, and a directory that is configured at all has to be configured properly. The
     // columns are nullable because the embedded is.
     @niceName("Application (client) ID")
-    @validate<AzureADConfigurationEmbedded>(c =>
-        c.enabled && !isUuid(c.applicationID) ? ValidationMessage._0DoesNotHaveAValid1Format.niceToString("Application (client) ID", "Guid") : null)
+    @validate<AzureADConfigurationEmbedded>((c, fi) =>
+        c.enabled && !isUuid(c.applicationID) ? ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "Guid") : null)
     applicationID: uuid;
 
     @niceName("Directory (tenant) ID")
-    @validate<AzureADConfigurationEmbedded>(c =>
-        c.enabled && !isUuid(c.directoryID) ? ValidationMessage._0DoesNotHaveAValid1Format.niceToString("Directory (tenant) ID", "Guid") : null)
+    @validate<AzureADConfigurationEmbedded>((c, fi) =>
+        c.enabled && !isUuid(c.directoryID) ? ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "Guid") : null)
     directoryID: uuid;
 
     @stringLengthValidator({ max: 100 })
-    @validate<AzureADConfigurationEmbedded>(c => {
+    @validate<AzureADConfigurationEmbedded>((c, fi) => {
         const state = stateRule(c, "tenantName");
         if (state != null)
             return state;
         // For ExternalID the tenant name must be a b2clogin/ciamlogin DOMAIN, not a bare name.
         if (c.enabled && c.type === AzureADType.ExternalID && hasText(c.tenantName) && !c.tenantName!.includes("."))
-            return ValidationMessage._0DoesNotHaveAValid1Format.niceToString("Tenant Name", "b2clogin domain");
+            return ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "b2clogin domain");
         return null;
     })
     @stringLengthValidator({ max: 100 })
     tenantName: string | null = null;
 
     @stringLengthValidator({ max: 300 })
-    @validate<AzureADConfigurationEmbedded>(c => {
+    @validate<AzureADConfigurationEmbedded>((c, fi) => {
         // The B2C row is "either SignInSignUp_UserFlow or SignIn_UserFlow".
         if (c.enabled && c.type === AzureADType.B2C && !hasText(c.signInSignUp_UserFlow) && !hasText(c.signIn_UserFlow))
-            return ValidationMessage._0IsNotSet.niceToString("Sign In Sign Up User Flow");
+            return ValidationMessage.Either0Or1ShouldBeSet.niceToString(
+                fi.niceToString(), AzureADConfigurationEmbedded.nicePropertyName("signIn_UserFlow"));
         const state = stateRule(c, "signInSignUp_UserFlow");
         if (state != null)
             return state;
         // For ExternalID it is an absolute URL (the CIAM authority), not a flow name.
         if (c.enabled && c.type === AzureADType.ExternalID && hasText(c.signInSignUp_UserFlow) && !/^https?:\/\//i.test(c.signInSignUp_UserFlow!))
-            return ValidationMessage._0DoesNotHaveAValid1Format.niceToString("Sign In Sign Up User Flow", "URL");
+            return ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "URL");
         return null;
     })
     @stringLengthValidator({ max: 300 })
@@ -233,8 +234,10 @@ function stateRule(c: AzureADConfigurationEmbedded, field: StateField): string |
     return null;
 }
 
+// The field's REGISTERED nice name (translated, and honouring the @niceName overrides above), not the
+// TS identifier de-camel-cased: the sentence it is spliced into is localized, so the name must be too.
 function niceFieldName(field: StateField): string {
-    return field.replace(/_/g, " ").replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()).trim();
+    return AzureADConfigurationEmbedded.nicePropertyName(field);
 }
 
 function hasText(s: string | null | undefined): boolean {

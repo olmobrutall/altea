@@ -68,6 +68,72 @@ export const ValidationMessage = {
     HaveMinimum0Characters: msg("have minimum {0} characters"),
     HaveMaximum0Characters: msg("have maximum {0} characters"),
     HaveNoRepeatedElements: msg("have no repeated elements"),
+
+    // --- The rest of Signum's ValidationMessage -------------------------------------------------
+    //
+    // No DECORATOR in altea builds these: they are the vocabulary a hand-written rule reaches for —
+    // a `@validate` method, an operation's `canExecute`, a logic-layer guard. That is exactly why they
+    // belong here: a container is a framework's public surface, and an APPLICATION built on altea has
+    // no other way to say "{0} and {1} can not be set at the same time" in the user's language. Several
+    // have no altea caller today and are still declared, because a member the framework never declares
+    // is simply unavailable to the application.
+    //
+    // Text is Signum's `[Description]` verbatim, with two deliberate departures, both of which the
+    // members already above made first: no trailing full stop (Signum is inconsistent about it and
+    // altea's `_0IsMandatoryWhen1IsSetTo2` already dropped it), and a sentence FRAGMENT — one spliced
+    // into a help message rather than shown on its own — stays lowercase (`or be null`, as `be not null`
+    // and `power of` are). A member Signum leaves undescribed takes its humanised name in altea's
+    // sentence case ("Invalid date format"), not C#'s Title Case.
+    _0DoesNotHaveAValid1IdentifierFormat: msg("'{0}' does not have a valid {1} identifier format"),
+    _0HasAnInvalidFormat: msg("{0} has an invalid format"),
+    _0ShouldBe1InsteadOf2: msg("{0} should be {1} instead of {2}"),
+    _0IsNecessary: msg("{0} is necessary"),
+    _0IsNecessaryOnState1: msg("{0} is necessary on state {1}"),
+    _0IsNotAllowed: msg("{0} is not allowed"),
+    _0IsNotAllowedOnState1: msg("{0} is not allowed on state {1}"),
+    _0IsNotSetIn1: msg("{0} is not set in {1}"),
+    _0AreNotSet: msg("{0} are not set"),
+    _0IsNotA1_G: msg("{0} is not a {1}"),
+    BeA0_G: msg("be a {0}"),
+    InvalidDateFormat: msg("Invalid date format"),
+    InvalidFormat: msg("Invalid format"),
+    NotPossibleToaAssign0: msg("Not possible to assign {0}"),
+    OrBeNull: msg("or be null"),
+    _0ShouldHaveJustOneLine: msg("{0} should have just one line"),
+    _0ShouldNotHaveInitialSpaces: msg("{0} should not have initial spaces"),
+    _0ShouldNotHaveFinalSpaces: msg("{0} should not have final spaces"),
+    // Signum's English says "lenght" here and "length" in the two below; the member NAME keeps the typo
+    // (it is the translation key an application already references), the text does not.
+    TheLenghtOf0HasToBeEqualTo1: msg("The length of {0} has to be equal to {1}"),
+    TheLengthOf0HasToBeGreaterOrEqualTo1: msg("The length of {0} has to be greater than or equal to {1}"),
+    TheLengthOf0HasToBeLesserOrEqualTo1: msg("The length of {0} has to be less than or equal to {1}"),
+    TheRowsAreBeingGroupedBy0: msg("The rows are being grouped by {0}"),
+    Type0NotAllowed: msg("Type {0} not allowed"),
+    _0IsMandatoryWhen1IsNotSetTo2: msg("{0} is mandatory when {1} is not set to {2}"),
+    _0ShouldBeNullWhen1IsNotSetTo2: msg("{0} should be null when {1} is not set to {2}"),
+    _0ShouldBe1When2Is3: msg("{0} should be {1} when {2} is {3}"),
+    _0ShouldBeGreaterThanOrEqual1: msg("{0} should be greater than or equal {1}"),
+    _0ShouldBeLessThan1: msg("{0} should be less than {1}"),
+    _0ShouldBeLessThanOrEqual1: msg("{0} should be less than or equal {1}"),
+    _0ShouldBeOfType1: msg("{0} should be of type {1}"),
+    _0ShouldNotBeOfType1: msg("{0} should not be of type {1}"),
+    _0And1CanNotBeSetAtTheSameTime: msg("{0} and {1} can not be set at the same time"),
+    _0Or1ShouldBeSet: msg("{0} or {1} should be set"),
+    _0And1And2CanNotBeSetAtTheSameTime: msg("{0} and {1} and {2} can not be set at the same time"),
+    _0Have1ElementsButAllowedOnly2: msg("{0} have {1} elements, but allowed only {2}"),
+    _0IsEmpty: msg("{0} is empty"),
+    _0ShouldBeEmpty: msg("{0} should be empty"),
+    _AtLeastOneValueIsNeeded: msg("At least one value is needed"),
+    // Signum's help-message twin of `_0ShouldBeATimeOfTheDay` above (which is the sentence the
+    // TimePrecisionValidator reports); this is the fragment the help generator splices.
+    IsATimeOfTheDay: msg("is a time of the day"),
+    ThereAre0InState1: msg("There are {0} in state {1}"),
+    ThereAre0ThatReferenceThis1: msg("There are {0} that reference this {1}"),
+    _0IsNotCompatibleWith1: msg("{0} is not compatible with {1}"),
+    _0IsRepeated: msg("{0} is repeated"),
+    Either0Or1ShouldBeSet: msg("Either {0} or {1} should be set"),
+    _0ContainsInvalidControlCharactersNear1: msg("{0} contains invalid control characters near: '{1}'"),
+    ValidXMLCharacters: msg("Valid XML characters"),
 };
 
 // Signum's ComparisonType (Entities/Validation/ValidationAttributes.cs) — how a count / number validator
@@ -135,6 +201,24 @@ export class NotNullValidator extends Validator {
 // Register the factory the reflection layer uses to build the IMPLICIT NotNull it auto-adds (kept here,
 // with the class, to avoid a reflection→validators import cycle).
 registerImplicitNotNullValidator(() => new NotNullValidator());
+
+/**
+ * Signum's `(pi, value).IsSetOnlyWhen(shouldBeSet)` (ValidationAttributes.cs, beside ValidationMessage) —
+ * the one hand-written rule common enough to be framework vocabulary: a member must be present EXACTLY
+ * when some other member says so, and both halves of getting it wrong have a message.
+ *
+ * "Not set" is Signum's: null, the empty string, or an empty collection. `propertyName` is the member's
+ * NICE name — `fi.niceToString()` inside a `@validate`, or `X.nicePropertyName(…)` when the rule is
+ * reported on a different member than the one it is about.
+ */
+export function isSetOnlyWhen(value: unknown, shouldBeSet: boolean, propertyName: string): string | null {
+    const notSet = value == null || value === "" || (Array.isArray(value) && value.length === 0);
+    if (notSet && shouldBeSet)
+        return ValidationMessage._0IsNotSet.niceToString(propertyName);
+    if (!notSet && !shouldBeSet)
+        return ValidationMessage._0ShouldBeNull.niceToString(propertyName);
+    return null;
+}
 
 // --- @validate ---
 

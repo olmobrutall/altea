@@ -25,14 +25,14 @@ export class OpenIDConfigurationEmbedded extends BaseADConfigurationEmbedded {
     /** The provider's base URL, e.g. `https://keycloak.example.com/realms/myrealm`. */
     @urlValidator()
     @stringLengthValidator({ max: 300 })
-    @validate<OpenIDConfigurationEmbedded>(c =>
-        c.enabled && !hasText(c.authority) ? ValidationMessage._0IsNotSet.niceToString("Authority") : null)
+    @validate<OpenIDConfigurationEmbedded>((c, fi) =>
+        c.enabled && !hasText(c.authority) ? ValidationMessage._0IsNotSet.niceToString(fi.niceToString()) : null)
     @stringLengthValidator({ max: 300 })
     authority: string | null = null;
 
     @stringLengthValidator({ max: 200 })
-    @validate<OpenIDConfigurationEmbedded>(c =>
-        c.enabled && !hasText(c.clientId) ? ValidationMessage._0IsNotSet.niceToString("Client Id") : null)
+    @validate<OpenIDConfigurationEmbedded>((c, fi) =>
+        c.enabled && !hasText(c.clientId) ? ValidationMessage._0IsNotSet.niceToString(fi.niceToString()) : null)
     @stringLengthValidator({ max: 200 })
     clientId: string | null = null;
 

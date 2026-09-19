@@ -2,16 +2,13 @@ import type { Quoted } from "quote-transformer/quoted";
 import type { Entity, Type } from "../data/entity";
 import type { Lite } from "../data/lite";
 import type { OperationSymbol } from "../data/operations";
-import { OperationMessage } from "../data/uiMessages";
-import { CollectionMessage } from "../data/dynamicQueries";
-import "../data/globals"; // Array.prototype.joinComma (Signum's CommaOr)
 import type {
     ExecuteSymbol, DeleteSymbol,
     ConstructSymbol, From, FromMany,
 } from "../data/operations";
 import { Transaction } from "./connection/transaction";
 import {
-    OperationType, stateEnumOf, stateNiceToString,
+    OperationType, stateEnumOf, inState,
     type IExecuteOperation, type IDeleteOperation, type IConstructOperation,
     type IConstructorFromOperation, type IConstructorFromManyOperation,
     type IGraphStateOperation,
@@ -161,9 +158,9 @@ const isNewError = "The entity is new.";
 // ConstructFrom that one is the SOURCE type, while `getState` selects on the constructed one.
 function stateError<S>(op: IGraphStateOperation, entity: unknown, state: S, allowed: readonly S[]): string {
     const stateEnum = stateEnumOf(op, (entity as Entity).constructor);
-    return OperationMessage.StateShouldBe0InsteadOf1.niceToString(
-        allowed.map(s => stateNiceToString(s, stateEnum)).joinComma(CollectionMessage.Or.niceToString()),
-        stateNiceToString(state, stateEnum));
+    // `inState` is the same sentence, exported for a hand-written `canExecute` / `canConstruct`; the two
+    // share it so a transition refused by the graph and one refused by a guard read identically.
+    return inState(state, stateEnum, ...allowed)!;
 }
 
 // After a construct/execute, assert the entity's resulting state is in toStates. Uses the

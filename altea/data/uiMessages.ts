@@ -192,6 +192,59 @@ export const SearchMessage = {
     // has to filter by ({0} the type, {1} the tokens). Rendered by @altea/altea-auth's AuthAdminClient.
     NoResultsFoundBecauseTheRule0DoesNotAllowedToExplore1WithoutFilteringFirst: msg("No results found because the rule {0} does not allow exploring {1} without filtering first"),
     NoResultsFoundBecauseYouAreNotAllowedToExplore0WithoutFilteringBy1First: msg("No results found because you are not allowed to explore {0} without filtering by {1} first"),
+
+    // --- The rest of Signum's SearchMessage ------------------------------------------------------
+    //
+    // altea renders none of these TODAY — some belong to a search UI altea has not built yet
+    // (`ColumnBuilder` / `ColumnEditorModal`, see port/TranslationGaps.md D3), some are Signum's own
+    // second spelling of a message altea already shows. They are declared because the container is
+    // altea's PUBLIC surface: an application replacing a rule set, a column editor or a finder of its
+    // own has to be able to say these things in the user's language, and a member the framework never
+    // declares is unavailable to it. Text is Signum's `[Description]` verbatim where it has one, and
+    // the humanised member name in altea's sentence case where it does not.
+
+    // The column editor Signum splits across ColumnBuilder.tsx / ColumnEditorModal.tsx. altea's
+    // `ColumnEditorModal` is a stub (`show()` resolves false) and there is no `ColumnBuilder`; these
+    // land with that feature, which is tracked as its own port item.
+    AddColumn: msg("Add column"),
+    HiddenColumn: msg("Hidden column"),
+    Orders: msg("Orders"),
+    ChooseTheDisplayNameOfTheNewColumn: msg("Choose the display name of the new column"),
+    NewColumnSName: msg("New column's Name"),
+    Name: msg("Name"),
+    Rename: msg("Rename"),
+    NoColumnSelected: msg("No column selected"),
+    NoFiltersSpecified: msg("No filters specified"),
+
+    // The pre-React finder WINDOW. altea's SearchModal is titled with the type's plural nice name.
+    Find: msg("Find"),
+    FinderOf0: msg("Finder of {0}"),
+
+    // Signum's second spelling of messages altea renders from elsewhere: `JavascriptMessage
+    // .noActionsFound` for the contextual menu, `Query0NotAllowed` above for the query-auth refusal,
+    // and `EntityControlMessage.Create` / `OperationMessage.Create` for the toolbar.
+    NoActionsFound: msg("No actions found"),
+    Query0IsNotAllowed: msg("Query {0} is not allowed"),
+    Create: msg("Create"),
+    ViewSelected: msg("View Selected"),
+    ThereIsNo0: msg("There is no {0}"),
+
+    // A developer diagnostic. Signum's text names its own registration API; altea's QueryLogic throws
+    // a raw Error that names altea's.
+    Query0NotRegistered: msg("Query {0} is not registered in QueryLogic.queries"),
+
+    // Filter-panel chrome Signum declares and no longer renders. `EditPinnedFilters` / `PinFilter` /
+    // `UnpinFilter` and the pinned `active` enum's own nice names are what both frameworks show, and
+    // the two "when pressed" sentences are superseded by the two `Splits…` members above.
+    PinnedFilter: msg("Pinned filter"),
+    _0FiltersCollapsed: msg("{0} filters collapsed"),
+    Options: msg("Options"),
+    WhenPressedTheFilterWillTakeNoEffectIfTheValueIsNull: msg("When pressed, the filter will take no effect if the value is null"),
+    // Signum's English says "splited"; the member name is the key, the text is not.
+    WhenPressedTheFilterValueWillBeSplittedAndAllTheWordsHaveToBeFound: msg("When pressed, the filter value will be split and all the words have to be found"),
+
+    // A bare preposition, which only a translation of the whole sentence it belonged to can place.
+    Of: msg("of"),
 };
 
 export const SelectorMessage = {

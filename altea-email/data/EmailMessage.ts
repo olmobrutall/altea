@@ -3,7 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, part, implementedByAll, backReference, column, format, quoted } from "@altea/altea/data/decorators";
 import {
-    stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType,
+    stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType, ValidationMessage,
 } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt, type uuid } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -125,12 +125,21 @@ export class EmailMessageEntity extends Entity {
     isBodyHtml: boolean;
 
     /** Set when a send attempt threw; goes with state SentException. */
-    @validate<EmailMessageEntity>(m =>
+    //
+    // The two rules below are the columns of Signum's `StateValidator<EmailMessageEntity,
+    // EmailMessageState>` that altea keeps, and they now say what that validator says
+    // (`_0IsNotAllowedOnState1`). Both used to return the raw literal `"{0} should be empty"`, which
+    // reached the user with the `{0}` still in it, and in English either way.
+    @validate<EmailMessageEntity>((m, fi) =>
         m.exception != null && m.state !== EmailMessageState.SentException && m.state !== EmailMessageState.ReceptionNotified
-            ? "{0} should be empty" : null)
+            ? ValidationMessage._0IsNotAllowedOnState1.niceToString(fi.niceToString(), niceState(m.state)) : null)
     exception: Lite<ExceptionEntity> | null;
 
-    @validate<EmailMessageEntity>(m => stateAllowsSent(m.state) || m.sent == null ? null : "{0} should be empty")
+    // Reported on `state` rather than on `sent`, because the state is the member the user can still
+    // change: a message has a "sent at" only once it has reached one of the sent states.
+    @validate<EmailMessageEntity>(m => stateAllowsSent(m.state) || m.sent == null ? null
+        : ValidationMessage._0IsNotAllowedOnState1.niceToString(
+            EmailMessageEntity.nicePropertyName("sent"), niceState(m.state)))
     state: EmailMessageState;
 
     /** Signum's UniqueIdentifier — a stable id the reception side matches a reply against. */
@@ -154,6 +163,11 @@ export class EmailMessageEntity extends Entity {
     toString(): string {
         return this.subject!;
     }
+}
+
+/** The state as the user sees it — a state field holds the numeric ordinal in memory. */
+function niceState(state: EmailMessageState): string {
+    return Enum.niceName(EmailMessageState, Enum.toName(EmailMessageState, state)!);
 }
 
 function stateAllowsSent(state: EmailMessageState): boolean {

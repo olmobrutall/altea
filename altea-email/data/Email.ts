@@ -60,8 +60,8 @@ export abstract class EmailAddressEmbedded extends EmbeddedEntity {
 
     // Signum's [StringLengthValidator(3, 100)] + an EMailValidator applied in PropertyValidation only when
     // `invalidEmail` is false (a received message may legitimately carry a malformed address).
-    @validate<EmailAddressEmbedded>(a => a.invalidEmail || a.emailAddress == null || emailRegex.test(a.emailAddress) ? null
-        : ValidationMessage._0DoesNotHaveAValid1Format.niceToString("{0}", "e-Mail"))
+    @validate<EmailAddressEmbedded>((a, fi) => a.invalidEmail || a.emailAddress == null || emailRegex.test(a.emailAddress) ? null
+        : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "e-Mail"))
     @stringLengthValidator({ min: 3, max: 100 })
     emailAddress: string;
 
@@ -126,8 +126,8 @@ export abstract class EmailRecipientBaseEntity extends Entity {
     @implementedBy(() => [UserEntity])
     emailOwner: Lite<IEmailOwnerEntity> | null;
 
-    @validate<EmailRecipientBaseEntity>(a => a.invalidEmail || a.emailAddress == null || emailRegex.test(a.emailAddress) ? null
-        : ValidationMessage._0DoesNotHaveAValid1Format.niceToString("{0}", "e-Mail"))
+    @validate<EmailRecipientBaseEntity>((a, fi) => a.invalidEmail || a.emailAddress == null || emailRegex.test(a.emailAddress) ? null
+        : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "e-Mail"))
     @stringLengthValidator({ min: 3, max: 100 })
     emailAddress: string;
 

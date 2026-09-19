@@ -36,12 +36,12 @@ export class CachedProfilePhotoEntity extends Entity {
     user: Lite<UserEntity>;
 
     @unit("px")
-    @validate<CachedProfilePhotoEntity>(p => {
+    @validate<CachedProfilePhotoEntity>((p, fi) => {
         const size = p.size;
         if (!(size > 0))
             return ValidationMessage.NumberIsTooSmall.niceToString();
         return size !== toAzureSize(size)
-            ? ValidationMessage._0ShouldBe1.niceToString("Size", toAzureSize(size))
+            ? ValidationMessage._0ShouldBe1.niceToString(fi.niceToString(), toAzureSize(size))
             : null;
     })
     @numberIsValidator(ComparisonType.GreaterThan, 0)

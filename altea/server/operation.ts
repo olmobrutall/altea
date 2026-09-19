@@ -1,6 +1,9 @@
 import type { Quoted } from "quote-transformer/quoted";
 import type { Entity, Type } from "../data/entity";
 import { Enum } from "../data/enum";
+import { OperationMessage } from "../data/uiMessages";
+import { CollectionMessage } from "../data/dynamicQueries";
+import "../data/globals"; // Array.prototype.joinComma (Signum's CommaOr)
 import { PropertyRoute } from "../data/propertyRoute";
 import type { Lite } from "../data/lite";
 import type { OperationSymbol } from "../data/operations";
@@ -131,4 +134,22 @@ export function stateNiceToString(state: unknown, stateEnum: object | undefined)
     if (stateEnum == null || (typeof state !== "number" && typeof state !== "string"))
         return String(state);
     return Enum.niceName(stateEnum as never, state as never);
+}
+
+/**
+ * Signum's `OperationLogic.InState` — the state guard a `canExecute` / `canConstruct` that is NOT the
+ * graph's own `fromStates` writes by hand: answers null when `state` is one of `allowed`, and otherwise
+ * the very message the graph's own transition check produces (`StateShouldBe0InsteadOf1`, both sides as
+ * NICE names). It is the reason a ConstructFrom needs no `fromStates`: Signum guards one with
+ * `CanConstructExpression = e => e.State.InState(…)`, and so does altea.
+ *
+ * The enum OBJECT is an explicit argument, where Signum recovers it from the generic: an altea state
+ * field holds a numeric ordinal in memory, and a number cannot name the enum it came from.
+ */
+export function inState<S>(state: S, stateEnum: object | undefined, ...allowed: S[]): string | null {
+    if (allowed.includes(state))
+        return null;
+    return OperationMessage.StateShouldBe0InsteadOf1.niceToString(
+        allowed.map(s => stateNiceToString(s, stateEnum)).joinComma(CollectionMessage.Or.niceToString()),
+        stateNiceToString(state, stateEnum));
 }
