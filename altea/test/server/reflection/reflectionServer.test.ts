@@ -239,3 +239,94 @@ describe("ReflectionServer.toWire", () => {
         assert.deepEqual(back, model);
     });
 });
+
+// The route does not call buildMetadata directly — it calls cachedWire, which memoises the FINISHED wire
+// payload per (culture, role). These pin the two things that make that safe: the key really does separate
+// roles, and every clock that can stale a payload drops it.
+describe("ReflectionServer.cachedWire", () => {
+
+    function reset(): void {
+        ReflectionServer.setMetadataFilter(undefined);   // both setters clear the cache
+        ReflectionServer.setMetadataCacheKey(undefined);
+    }
+
+    test("the same culture and role is built once and reused", async () => {
+        reset();
+        let builds = 0;
+        ReflectionServer.setMetadataFilter(m => { builds++; return m; });
+
+        const a = await ReflectionServer.cachedWire("en");
+        const b = await ReflectionServer.cachedWire("en");
+
+        assert.equal(builds, 1);
+        assert.equal(a, b);                                 // the very same payload object
+        assert.equal(ReflectionServer.metadataCacheSize(), 1);
+        reset();
+    });
+
+    test("a different culture is a different entry", async () => {
+        reset();
+        await ReflectionServer.cachedWire("en");
+        await ReflectionServer.cachedWire("es");
+        assert.equal(ReflectionServer.metadataCacheSize(), 2);
+        reset();
+    });
+
+    test("a different role is a different entry, and gets its own filtered payload", async () => {
+        reset();
+        let role = "Alice";
+        ReflectionServer.setMetadataCacheKey(() => role);
+        // Stamp something role-specific so the two payloads are distinguishable by content, not just count.
+        ReflectionServer.setMetadataFilter(m => {
+            m.types["AlbumEntity"]!.niceName = `seen by ${role}`;
+            return m;
+        });
+
+        const alice = await ReflectionServer.cachedWire("en");
+        role = "Bob";
+        const bob = await ReflectionServer.cachedWire("en");
+
+        assert.equal(alice.types["AlbumEntity"]!.niceName, "seen by Alice");
+        assert.equal(bob.types["AlbumEntity"]!.niceName, "seen by Bob");
+        assert.equal(ReflectionServer.metadataCacheSize(), 2);
+
+        // …and Alice still gets Alice's, rather than whichever was built last.
+        role = "Alice";
+        assert.equal((await ReflectionServer.cachedWire("en")).types["AlbumEntity"]!.niceName, "seen by Alice");
+        assert.equal(ReflectionServer.metadataCacheSize(), 2);
+        reset();
+    });
+
+    test("invalidateMetadataCache drops what was held", async () => {
+        reset();
+        let builds = 0;
+        ReflectionServer.setMetadataFilter(m => { builds++; return m; });
+
+        await ReflectionServer.cachedWire("en");
+        ReflectionServer.invalidateMetadataCache();
+        assert.equal(ReflectionServer.metadataCacheSize(), 0);
+
+        await ReflectionServer.cachedWire("en");
+        assert.equal(builds, 2);                            // rebuilt rather than served stale
+        reset();
+    });
+
+    test("a failed build is not cached, so the next request retries", async () => {
+        reset();
+        let attempts = 0;
+        ReflectionServer.setMetadataFilter(m => {
+            if (++attempts === 1)
+                throw new Error("rule cache unavailable");
+            return m;
+        });
+
+        await assert.rejects(() => ReflectionServer.cachedWire("en"));
+        // The rejected promise self-evicts — otherwise that one error would be served until restart.
+        assert.equal(ReflectionServer.metadataCacheSize(), 0);
+
+        const ok = await ReflectionServer.cachedWire("en");
+        assert.equal(attempts, 2);
+        assert.notEqual(ok, undefined);
+        reset();
+    });
+});

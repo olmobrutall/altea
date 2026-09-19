@@ -90,6 +90,7 @@ export namespace OperationAuthLogic {
         // in ExecutionMode.global, so the RuleOperation read is ungated.
         rulesLazy = sb.globalLazy(async () => new OperationRulesCache(await loadRules(), await AuthLogic.roleGraph()),
             { invalidateWith: [RuleOperationEntity, RoleEntity] });
+        AuthLogic.invalidateBlobWith(rulesLazy);   // the blob is filtered per role, so a rule change stales it
         AuthLogic.registerXmlExporter(exportXml);
         AuthLogic.registerXmlImporter(importXml);
         // The execute / button-state authorization gate, now

@@ -91,6 +91,7 @@ export namespace QueryAuthLogic {
         // so a type-rule change must reset the query cache.
         rulesLazy = sb.globalLazy(async () => new QueryRulesCache(await loadRules(), await AuthLogic.roleGraph(), await TypeAuthLogic.rulesCache()),
             { invalidateWith: [RuleQueryEntity, RuleTypeEntity, RoleEntity] });
+        AuthLogic.invalidateBlobWith(rulesLazy);   // the blob is filtered per role, so a rule change stales it
         AuthLogic.registerXmlExporter(exportXml);
         AuthLogic.registerXmlImporter(importXml);
         // The query-access gate. Called by queryServer with

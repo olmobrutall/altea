@@ -168,6 +168,7 @@ export namespace TypeAuthLogic {
         // Disable, and no re-entry into the row-filter provider during the load.
         rulesLazy = sb.globalLazy(async () => new TypeRulesCache(await loadRules(), await AuthLogic.roleGraph()),
             { invalidateWith: [RuleTypeEntity, RoleEntity] });
+        AuthLogic.invalidateBlobWith(rulesLazy);   // the blob is filtered per role, so a rule change stales it
         AuthLogic.registerXmlExporter(exportXml);
         AuthLogic.registerXmlImporter(importXml);
         // Enforcement. The save gate is installed now; the row-read FILTER goes on each CONDITIONED type's

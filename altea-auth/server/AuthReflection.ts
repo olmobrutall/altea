@@ -27,6 +27,12 @@ import { maxBound } from "./WithConditions";
 // role's allowances into the shared per-culture store.
 export namespace AuthReflectionServer {
     export function install(): void {
+        // What makes one viewer's blob differ from another's: the ROLE this filter is about to apply.
+        // Core caches the finished payload per (culture, key) and cannot name this itself — it has no
+        // notion of a role. Everyone without one (pre-login, auth off) shares the unfiltered blob, which
+        // is exactly the `roleKey == null` early return below.
+        ReflectionServer.setMetadataCacheKey(() => AuthLogic.currentRoleKey() ?? "");
+
         ReflectionServer.setMetadataFilter(async (meta: MetadataBlob): Promise<MetadataBlob> => {
             const roleKey = AuthLogic.currentRoleKey();
             if (roleKey == null)

@@ -13,6 +13,7 @@ import { PasswordEncoding } from "@altea/altea/server/passwordEncoding";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { ResetLazy } from "@altea/altea/server/resetLazy";
+import { ReflectionServer } from "@altea/altea/server/reflectionServer";
 import { codify } from "@altea/altea/server/sync/stringHash";
 import { UserEntity, UserState, UserOperation } from "../data/User";
 import { RoleEntity, RoleEntity_InheritsFrom, RoleOperation, MergeStrategy } from "../data/Role";
@@ -141,6 +142,8 @@ export namespace AuthLogic {
         // ExecutionMode.global, so the RoleEntity read is UNGATED — no explicit withDisabled, and no
         // re-entry into the row-filter provider.
         roleGraphLazy = sb.globalLazy(() => loadRoleGraph(), { invalidateWith: [RoleEntity] });
+        // Role INHERITANCE decides what the per-role overlay computes, so the blob stales with the graph too.
+        invalidateBlobWith(roleGraphLazy);
         // Loaded at startup, and again when a role changes. Not because a reader depends on it being warm —
         // every reader awaits — but because `currentRoles()` is a PEEK (it runs inside a `@quoted` lambda, where
         // there is no await) and cold it answers with the current role ALONE. That is fail-closed, so it is
@@ -443,6 +446,25 @@ export namespace AuthLogic {
      *  out-of-band callers — a set-based role delete. */
     export function invalidateRoles(): void {
         roleGraphLazy?.reset();
+    }
+
+    /**
+     * Make a rule cache's invalidation also drop the cached metadata blobs, which are filtered PER ROLE and
+     * so go stale for exactly the same reasons.
+     *
+     * Chained onto the lazy's own `onReset` rather than added to each dimension's `invalidate()`, because
+     * `invalidate()` is only the out-of-band half: an ordinary rule SAVE resets the lazy through the
+     * GlobalLazy's `invalidateWith` without going near it. `reset()` is the one path both take.
+     *
+     * `onReset` holds a single callback (not a list), so chain whatever is already there — see
+     * SchedulerLogic for the same pattern.
+     */
+    export function invalidateBlobWith(lazy: { onReset?: () => void }): void {
+        const previous = lazy.onReset;
+        lazy.onReset = () => {
+            previous?.();
+            ReflectionServer.invalidateMetadataCache();
+        };
     }
 
     // Async convenience wrappers over the loaded RoleGraph, for callers outside a cache (import /

@@ -91,6 +91,7 @@ export namespace PermissionAuthLogic {
         // in ExecutionMode.global, so the RulePermission read is ungated (no explicit Disable needed).
         rulesLazy = sb.globalLazy(async () => new PermissionRulesCache(await loadRules(), await AuthLogic.roleGraph()),
             { invalidateWith: [RulePermissionEntity, RoleEntity] });
+        AuthLogic.invalidateBlobWith(rulesLazy);   // the blob is filtered per role, so a rule change stales it
         AuthLogic.registerXmlExporter(exportXml);
         AuthLogic.registerXmlImporter(importXml);
     }

@@ -63,8 +63,74 @@ export namespace ReflectionServer {
     // per-CULTURE store.
     export type MetadataFilter = (meta: MetadataBlob) => MetadataBlob | Promise<MetadataBlob>;
     let _metadataFilter: MetadataFilter | undefined;
-    export function setMetadataFilter(fn: MetadataFilter | undefined): void { _metadataFilter = fn; }
+    export function setMetadataFilter(fn: MetadataFilter | undefined): void {
+        _metadataFilter = fn;
+        invalidateMetadataCache();
+    }
     export function getMetadataFilter(): MetadataFilter | undefined { return _metadataFilter; }
+
+    // ---- the per (culture, role) blob cache ----------------------------------------------------------
+    //
+    // Signum caches the serialized blob rather than rebuilding it per request, and this route is hit by
+    // every client at boot: for eastwind that was ~35ms and 186KB of freshly built object graph each time,
+    // walking all 540 registered types to resolve their operations and expressions.
+    //
+    // ONE cache keyed by BOTH inputs, rather than a per-culture layer under a per-role one. A per-culture
+    // layer would have to be CLONED on every read — the filter's contract is that the blob is its own to
+    // mutate — and cloning the whole graph is most of what building it costs, so the second layer would buy
+    // little while adding a way for one role's overlay to leak into the shared copy. Keyed this way each
+    // combination is built exactly once and the mutable blob never outlives the request that owns it.
+    //
+    // The two inputs run on different clocks:
+    //  - CULTURE is static after boot. Type and member names come from the translation XMLs that
+    //    `loadSignumTranslations` reads at startup, and nothing rewrites them at runtime (altea-translations
+    //    edits the FILES — picking a change up needs a restart, which is why a long-running dev server keeps
+    //    serving the strings it booted with). So nothing has to invalidate on its account.
+    //  - ROLE is not: an authorization rule change rewrites what the filter removes. Auth owns that clock,
+    //    so it supplies the key and calls `invalidateMetadataCache()`; core has no notion of a role.
+    const wireCache = new Map<string, Promise<MetadataBlobWire>>();
+
+    /**
+     * What makes one viewer's blob differ from another's — the current ROLE, supplied by the auth module
+     * that installed the filter. Undefined (no auth module) means the blob is the same for everyone and
+     * culture alone keys the cache.
+     */
+    let _metadataCacheKey: (() => string) | undefined;
+    export function setMetadataCacheKey(fn: (() => string) | undefined): void {
+        _metadataCacheKey = fn;
+        invalidateMetadataCache();
+    }
+
+    /** Drop every cached blob. Auth calls this whenever a rule change makes the overlay stale. */
+    export function invalidateMetadataCache(): void { wireCache.clear(); }
+
+    /** How many (culture, role) payloads are currently held — for tests and the cache statistics panel. */
+    export function metadataCacheSize(): number { return wireCache.size; }
+
+    /**
+     * The wire payload for a culture in the CURRENT request's role, reused when one was already built for
+     * that pair. This — not `buildMetadata` — is what the route answers with.
+     */
+    export function cachedWire(culture: string): Promise<MetadataBlobWire> {
+        // JSON-encoded rather than glued with a separator, so no culture or role key can spell another
+        // pair's key.
+        const key = JSON.stringify([culture, _metadataCacheKey?.() ?? ""]);
+        let p = wireCache.get(key);
+        if (p == undefined) {
+            p = (async () => {
+                let meta = buildMetadata(culture);
+                if (_metadataFilter != null)
+                    meta = await _metadataFilter(meta);
+                return toWire(meta);
+            })();
+            // A rejected promise must not stay cached, or one transient failure (the filter reading a rule
+            // cache outside a transaction, say) would be served until restart — the trap ResetLazy
+            // self-evicts for.
+            p.catch(() => { if (wireCache.get(key) === p) wireCache.delete(key); });
+            wireCache.set(key, p);
+        }
+        return p;
+    }
 
     /**
      * The key a query occupies in `MetadataBlob.types` — its own type's entry, so `hasQuery` sits next
@@ -343,10 +409,7 @@ export namespace ReflectionServer {
             { res: CustomType<MetadataBlobWire>(), allowAnonymous: true },
             async (req, res) => {
                 const culture = (req.query["culture"] as string | undefined) ?? CultureInfo.currentUICulture();
-                let meta = buildMetadata(culture);
-                if (_metadataFilter != null)
-                    meta = await _metadataFilter(meta);
-                res.json(toWire(meta));
+                res.json(await cachedWire(culture));
             });
 
         // GET /api/reflection/cultures — the locales that have translations loaded, plus the process

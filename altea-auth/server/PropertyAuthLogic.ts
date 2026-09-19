@@ -198,6 +198,7 @@ export namespace PropertyAuthLogic {
             // PropertyRouteEntity too: the cache is keyed by the route's PATH, which the routes table's own
             // synchronization rewrites in place when a member is renamed.
             { invalidateWith: [RulePropertyEntity, RuleTypeEntity, RulePermissionEntity, RoleEntity, PropertyRouteEntity] });
+        AuthLogic.invalidateBlobWith(rulesLazy);   // the blob is filtered per role, so a rule change stales it
         // The serializer is SYNCHRONOUS. Per request the codec calls `resolveContext` ONCE (async, before the
         // walk) to capture the loaded PropertyRulesCache — which IS the serialization-auth context — and then
         // reads it synchronously in `access`. A concurrent invalidate() can't affect an in-flight walk: the
