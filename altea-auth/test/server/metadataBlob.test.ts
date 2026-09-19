@@ -1,5 +1,8 @@
 import { describe, test, beforeAll } from "vitest";
 import assert from "node:assert/strict";
+// See reflectionServer.test.ts: buildMetadata scopes the culture while resolving the registered
+// expressions' niceName thunks, and the scope needs the AsyncLocalStorage context this binds.
+import "@altea/altea/server/context.node";
 import { ReflectionServer } from "@altea/altea/server/reflectionServer";
 import type { MetadataBlob } from "@altea/altea/data/metadata";
 import { AuthReflectionServer } from "@altea/altea-auth/server/AuthReflection";

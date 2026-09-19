@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
   <Type Name="Pop3EmailReceptionServiceEntity" Description="Servicio de recepción de correo POP3">
-    <Member Name="ClientCertificationFiles" Description="Client certification files" />
+    <Member Name="ClientCertificationFiles" Description="Ficheros de certificado de cliente" />
     <Member Name="EnableSSL" Description="Habilitar SSL" />
     <Member Name="Host" Description="Host" />
     <Member Name="NewPassword" Description="Nueva contraseña" />

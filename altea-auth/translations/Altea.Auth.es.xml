@@ -161,7 +161,7 @@
   <Type Name="OperationRulePack" Description="Paquete de reglas de operación">
     <Member Name="AvailableConditions" Description="Condiciones disponibles" />
     <Member Name="AvailableTypeConditions" Description="Condiciones de tipo disponibles" />
-    <Member Name="Role" Description="Role" />
+    <Member Name="Role" Description="Rol" />
     <Member Name="Rules" Description="Reglas" />
     <Member Name="Strategy" Description="Estrategia" />
     <Member Name="Type" Description="Tipo" />
@@ -176,7 +176,7 @@
     <Member Name="Resource" Description="Recursos" />
   </Type>
   <Type Name="PermissionRulePack" Description="Paquete de la regla de permiso">
-    <Member Name="Role" Description="Role" />
+    <Member Name="Role" Description="Rol" />
     <Member Name="Rules" Description="Reglas" />
     <Member Name="Strategy" Description="Estrategia" />
   </Type>
@@ -198,7 +198,7 @@
   <Type Name="PropertyRulePack" Description="Paquete de reglas de propiedades">
     <Member Name="AvailableConditions" Description="Condiciones disponibles" />
     <Member Name="AvailableTypeConditions" Description="Condiciones de tipo disponibles" />
-    <Member Name="Role" Description="Role" />
+    <Member Name="Role" Description="Rol" />
     <Member Name="Rules" Description="Reglas" />
     <Member Name="Strategy" Description="Estrategia" />
     <Member Name="Type" Description="Tipo" />
@@ -219,7 +219,7 @@
     <Member Name="Resource" Description="Recursos" />
   </Type>
   <Type Name="QueryRulePack" Description="Paquete de reglas de consultas">
-    <Member Name="Role" Description="Role" />
+    <Member Name="Role" Description="Rol" />
     <Member Name="Rules" Description="Reglas" />
     <Member Name="Strategy" Description="Estrategia" />
     <Member Name="Type" Description="Tipo" />
@@ -307,8 +307,8 @@
     <Member Name="SessionStart" Description="Inicio sesión" />
     <Member Name="SessionTimeOut" Description="Time out sesión" />
     <Member Name="User" Description="Usuario" />
-    <Member Name="UserAgent" Description="User Agent" />
-    <Member Name="UserHostAddress" Description="User Host Address" />
+    <Member Name="UserAgent" Description="Agente de usuario" />
+    <Member Name="UserHostAddress" Description="Dirección del host del usuario" />
   </Type>
   <Type Name="SessionLogMessage">
     <Member Name="Duration" Description="Duración" />
@@ -340,7 +340,7 @@
   </Type>
   <Type Name="TypeConditionSymbol" Description="Símbolo de condición de tipo" />
   <Type Name="TypeRulePack" Description="Paquete de reglas de tipo">
-    <Member Name="Role" Description="Role" />
+    <Member Name="Role" Description="Rol" />
     <Member Name="Rules" Description="Reglas" />
     <Member Name="Strategy" Description="Estrategia" />
   </Type>

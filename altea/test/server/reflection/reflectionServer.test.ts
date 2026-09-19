@@ -1,5 +1,10 @@
 import { test, describe } from "vitest";
 import assert from "node:assert/strict";
+// Binds the AsyncLocalStorage context — among other things CultureInfo.initLocalizationContext(Statics).
+// buildMetadata resolves the registered expressions' niceName THUNKS inside a culture scope (the only
+// part of the blob that cannot read the culture off its own snapshot), so without this the culture-pure
+// contract the tests below rely on has nothing to scope with.
+import "@altea/altea/server/context.node";
 import { init, reflect } from "@altea/altea/data/reflection";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import type { ConstructSymbol, From, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";

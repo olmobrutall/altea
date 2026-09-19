@@ -13,7 +13,7 @@ import {
 } from "./SearchControlIcons";
 import { Enum } from "../../data/enum";
 import { SearchMessage } from "../../data/uiMessages";
-import { QueryTokenMessage, QueryTokenDateMessage, CollectionMessage, FilterOperation } from "../../data/dynamicQueries";
+import { QueryTokenMessage, QueryTokenDateMessage, CollectionMessage, FilterOperation, OrderType } from "../../data/dynamicQueries";
 import { AggregateFunction } from "../../data/dynamicQuery/tokens/aggregateToken";
 import { CollectionElementType } from "../../data/dynamicQuery/tokens/collectionElementToken";
 import { CollectionAnyAllType } from "../../data/dynamicQuery/tokens/collectionAnyAllToken";
@@ -129,9 +129,13 @@ export function SearchHelp(p: { sc: SearchControlLoaded; injected: OverlayInject
             <p className="my-2">
                 {SearchHelpMessage.YouCanOrderResultsByClickingInAColumnHeaderDefaultOrderingIs0AndByClickingAgainItChangesTo1YouCanOrderByMoreThanOneColumnIfYouKeep2DownWhenClickingOnTheColumnsHeader
                     .niceToString().formatHtml(
-                        <span><samp>Ascending</samp> <FontAwesomeIcon aria-hidden={true} icon="sort-up" /></span>,
-                        <span><samp>Descending</samp> <FontAwesomeIcon aria-hidden={true} icon="sort-down" /></span>,
-                        <kbd>Shift</kbd>)}
+                        // The two sort directions and the modifier key are DECLARED names — OrderType is a
+                        // reflected enum and SearchHelpMessage.Shift a message member, both translated in
+                        // every shipped culture. They were hardcoded English literals, so this one
+                        // sentence stayed half-English inside an otherwise translated paragraph.
+                        <span><samp>{Enum.niceName(OrderType, "Ascending")}</samp> <FontAwesomeIcon aria-hidden={true} icon="sort-up" /></span>,
+                        <span><samp>{Enum.niceName(OrderType, "Descending")}</samp> <FontAwesomeIcon aria-hidden={true} icon="sort-down" /></span>,
+                        <kbd>{SearchHelpMessage.Shift.niceToString()}</kbd>)}
             </p>
 
             <div className="pt-2"><strong>{SearchHelpMessage.ChangeColumns.niceToString()}</strong></div>

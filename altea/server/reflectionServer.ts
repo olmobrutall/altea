@@ -224,13 +224,21 @@ export namespace ReflectionServer {
         // registered on `Entity` (Alerts, Notes, OperationLogs, SystemValidFrom …) are shipped once rather
         // than per entity. The niceName and allowedReason thunks resolve HERE, which is where the request's
         // culture and role are — the two reasons this could never be baked into the compile-time TypeInfo.
-        for (const [source, infos] of QueryLogic.expressions.declaredExtensions()) {
-            const name = typeof source === "function" ? source.name : enumNameOf(source);
-            if (name == undefined) continue;
-            const tm = typeOf(name, typeof source === "function" ? "Entity" : "Enum");
-            for (const info of infos)
-                (tm.extensions ??= {})[info.key] = serializeExtensionInfo(info);
-        }
+        // `serializeExtensionInfo` resolves the niceName / allowedReason THUNKS, and a thunk reads the
+        // AMBIENT UI culture — every other name here comes from the `translations` snapshot this function
+        // was handed. Without the scope the two disagree: a blob built for "es" shipped its extensions in
+        // whatever culture the request happened to be running in (the process default for the anonymous
+        // boot fetch), so `Order.TotalPrice` stayed "Total price" among Spanish column headers while the
+        // same expression resolved correctly everywhere the thunk ran inside a request scope.
+        CultureInfo.withUICulture(culture, () => {
+            for (const [source, infos] of QueryLogic.expressions.declaredExtensions()) {
+                const name = typeof source === "function" ? source.name : enumNameOf(source);
+                if (name == undefined) continue;
+                const tm = typeOf(name, typeof source === "function" ? "Entity" : "Enum");
+                for (const info of infos)
+                    (tm.extensions ??= {})[info.key] = serializeExtensionInfo(info);
+            }
+        });
 
         // `hasConstructorOperation` stays PER CONCRETE TYPE, and so keeps walking the chain: it answers
         // "does this type have a Constructor at all", read BEFORE the per-role filter drops operations,

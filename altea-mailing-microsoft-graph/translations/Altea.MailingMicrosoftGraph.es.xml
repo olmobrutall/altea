@@ -12,7 +12,7 @@
     <Member Name="Name" Description="Nombre" />
   </Type>
   <Type Name="RemoteAttachmentEmbedded" Description="Adjunto remoto">
-    <Member Name="ContentId" Description="Content id" />
+    <Member Name="ContentId" Description="Id del contenido" />
     <Member Name="Id" Description="Id" />
     <Member Name="IsInline" Description="Es en línea" />
     <Member Name="LastModifiedDateTime" Description="Fecha de última modificación" />

@@ -216,7 +216,7 @@
     <Member Name="Workflow" Description="Flujo de trabajo" />
   </Type>
   <Type Name="NewTasksEmbedded" Description="Nuevas tareas">
-    <Member Name="BpmnId" Description="Bpmn id" />
+    <Member Name="BpmnId" Description="Id de BPMN" />
     <Member Name="Name" Description="Nombre" />
     <Member Name="SubWorkflow" Description="Sub flujo de trabajo" />
   </Type>

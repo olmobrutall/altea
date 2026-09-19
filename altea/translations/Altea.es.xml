@@ -232,7 +232,7 @@
     <Member Name="StackTraceHash" Description="Stack Trace Hash" />
     <Member Name="ThreadId" Description="Identificador de subproceso" />
     <Member Name="TraceId" Description="Id de traza" />
-    <Member Name="UrlReferer" Description="Url Referer" />
+    <Member Name="UrlReferer" Description="URL de referencia" />
     <Member Name="User" Description="Usuario" />
     <Member Name="UserAgent" Description="Agente de usuario" />
     <Member Name="UserHostAddress" Description="Dirección de Host de usuario" />
@@ -297,7 +297,7 @@
     <Member Name="IsNotIn" Description="No esta en" />
     <Member Name="LessThan" Description="menor que" />
     <Member Name="LessThanOrEqual" Description="menor o igual que" />
-    <Member Name="Like" Description="like" />
+    <Member Name="Like" Description="como" />
     <Member Name="NotContains" Description="no contiene" />
     <Member Name="NotEndsWith" Description="no termina con" />
     <Member Name="NotLike" Description="no como" />
@@ -606,7 +606,7 @@
     <Member Name="IconOrAnyRelatedEntity" Description="icono) o de cualquier entidad relacionada." />
     <Member Name="InsertColumn" Description="Insertar columna" />
     <Member Name="InSql" Description="en SQL" />
-    <Member Name="Like" Description="like" />
+    <Member Name="Like" Description="como" />
     <Member Name="OnceGroupingYouCanFilterNormallyOrUsingAggregatesAsTheField0" Description="Una vez agrupado, puede filtrar con normalidad o usando agregados como campo ({0})." />
     <Member Name="OrAnyOtherFieldThatYouSeeInThe" Description="o cualquier otro campo que vea en la" />
     <Member Name="OrAnyOtherFieldThatYouSeeInTheProjectWhenYouClick" Description="o cualquier otro campo que vea en el proyecto al hacer clic en" />
@@ -816,12 +816,12 @@
   </Type>
   <Type Name="TourTriggerSymbol" Description="Disparador de visita guiada" />
   <Type Name="TypeEntity" Description="Tipo">
-    <Member Name="ClassName" Description="Class Name" />
-    <Member Name="CleanName" Description="Clean Name" />
+    <Member Name="ClassName" Description="Nombre de la clase" />
+    <Member Name="CleanName" Description="Nombre limpio" />
     <Member Name="IsPart" Description="Es parte" />
     <Member Name="Namespace" Description="Namespace" />
     <Member Name="Package" Description="Paquete" />
-    <Member Name="TableName" Description="Table Name" />
+    <Member Name="TableName" Description="Nombre de la tabla" />
   </Type>
   <Type Name="TypeEntityMessage">
     <Member Name="IncludePartEntities" Description="Incluir entidades parte" />

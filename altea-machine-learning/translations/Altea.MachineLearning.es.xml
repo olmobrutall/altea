@@ -26,7 +26,7 @@
   </Type>
   <Type Name="NeuralNetworkActivation" Description="Activación de la red neuronal">
     <Member Name="None" Description="Ninguno" />
-    <Member Name="ReLU" Description="Re LU" />
+    <Member Name="ReLU" Description="ReLU" />
     <Member Name="Sigmoid" Description="Sigmoideo" />
     <Member Name="Tanh" Description="Tanh" />
   </Type>
@@ -58,7 +58,7 @@
     <Member Name="LearningRate" Description="Tasa de aprendizaje" />
     <Member Name="LossFunction" Description="Función de pérdida" />
     <Member Name="MinibatchSize" Description="Tamaño de minibatch" />
-    <Member Name="NumMinibatches" Description="Num minibatches" />
+    <Member Name="NumMinibatches" Description="Número de minibatches" />
     <Member Name="Optimizer" Description="Optimizador" />
     <Member Name="OutputActivation" Description="Activación de salida" />
     <Member Name="OutputInitializer" Description="Inicializador de salida" />
@@ -96,10 +96,10 @@
     <Member Name="Min" Description="Min" />
     <Member Name="OriginalColumnIndex" Description="Índice de columna original" />
     <Member Name="Predictor" Description="Predictor" />
-    <Member Name="SplitKey0" Description="Split key0" />
-    <Member Name="SplitKey1" Description="Split Key1" />
-    <Member Name="SplitKey2" Description="Split Key2" />
-    <Member Name="StdDev" Description="STD dev" />
+    <Member Name="SplitKey0" Description="Clave de división 0" />
+    <Member Name="SplitKey1" Description="Clave de división 1" />
+    <Member Name="SplitKey2" Description="Clave de división 2" />
+    <Member Name="StdDev" Description="Desviación típica" />
     <Member Name="SubQueryIndex" Description="Índice de sub consulta" />
     <Member Name="Usage" Description="Uso" />
   </Type>
@@ -272,9 +272,9 @@
     <Member Name="SubQuery" Description="Subconsulta" />
   </Type>
   <Type Name="PredictSimpleResultEntity" Description="Resultado simple de predictor">
-    <Member Name="Key0" Description="Key0" />
-    <Member Name="Key1" Description="Key1" />
-    <Member Name="Key2" Description="Key2" />
+    <Member Name="Key0" Description="Clave 0" />
+    <Member Name="Key1" Description="Clave 1" />
+    <Member Name="Key2" Description="Clave 2" />
     <Member Name="OriginalCategory" Description="Categoría original" />
     <Member Name="OriginalValue" Description="Valor original" />
     <Member Name="PredictedCategory" Description="Categoría pronosticada" />
