@@ -79,7 +79,6 @@ export class CombinedUserChartPartEntity_UserChart extends Entity {
 @part
 export class CombinedUserChartPartEntity extends Entity implements IPartEntity {
     // Signum's [PreserveOrder, NoRepeatValidator].
-    @noRepeatValidator()
     @validate<CombinedUserChartPartEntity>(p => (p.userCharts?.length ?? 0) === 0
         ? ChartPartMessage.ACombinedChartNeedsAtLeastOneUserChart.niceToString() : null)
     @noRepeatValidator<CombinedUserChartPartEntity_UserChart>(a => a.userChart)

@@ -1,5 +1,5 @@
 
-import { getOrCreateTypeInfo, getOrCreateFieldInfo, tryGetTypeInfo, Validator, registerImplicitNotNullValidator } from './reflection';
+import { getOrCreateTypeInfo, getOrCreateFieldInfo, tryGetTypeInfo, Validator, registerImplicitNotNullValidator, MAX_SIZE } from './reflection';
 import type { FieldInfo, IntegrityCheckEnvironment, FieldInfoOf } from './reflection';
 import type { BaseEntity } from './entity';
 import { msg } from './utils/localization';
@@ -284,8 +284,18 @@ export class StringLengthValidator extends Validator {
 
     isCompatibleWith(type: Function) { return type === String; }
 
+    /** `max: MAX_SIZE` means UNBOUNDED, not "at most -1". Signum spells the same rule `Max != -1`, and it
+     *  is the value an entity writes to say "this column has no size limit" — so the check has to skip,
+     *  not fail. Without this every such field is permanently invalid, and the message reads literally
+     *  "must have at most -1 characters". */
+    private get boundedMax(): number | undefined {
+        const max = this.options.max;
+        return max == null || max === MAX_SIZE ? undefined : max;
+    }
+
     get helpMessage(): string {
-        const { min, max, multiLine } = this.options;
+        const { min, multiLine } = this.options;
+        const max = this.boundedMax;
         if (min != null && max != null) return ValidationMessage.HaveBetween0And1Characters.niceToString(min, max);
         if (min != null) return ValidationMessage.HaveMinimum0Characters.niceToString(min);
         if (max != null) return ValidationMessage.HaveMaximum0Characters.niceToString(max);
@@ -295,7 +305,8 @@ export class StringLengthValidator extends Validator {
     protected overrideError(value: unknown, _entity: BaseEntity, fi: FieldInfo): string | null {
         const s = value as string | null | undefined;
         if (s == null || s === '') return null;
-        const { min, max } = this.options;
+        const { min } = this.options;
+        const max = this.boundedMax;
         if (max != null && s.length > max)
             return ValidationMessage._0MustHaveAtMost1Characters.niceToString(fi.niceToString(), max);
         if (min != null && s.length < min)
