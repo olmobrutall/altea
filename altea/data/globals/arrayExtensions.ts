@@ -83,8 +83,6 @@ declare global {
     top(this: Array<T>, count: number): T[];
     skip(this: Array<T>, count: number): T[];
     distinct(this: Array<T>): T[];
-    orderBy<V>(this: Array<T>, selector: (element: T) => V): T[];
-    orderByDescending<V>(this: Array<T>, selector: (element: T) => V): T[];
     defaultIfEmpty(this: Array<T>, defaultValue?: T): T[];
     toArray(this: Array<T>): T[];
 
@@ -290,31 +288,46 @@ Array.prototype.groupWhenChange = function (this: any[], keySelector: (element: 
   return result;
 };
 
+// The comparison `<` / `>` cannot make.
+//
+// A Temporal value has NO usable `valueOf`: `a < b` throws "Cannot use valueOf" outright rather than
+// comparing wrong quietly, so every key-based helper here threw on a PlainDate / PlainDateTime / Duration
+// key. A decimal.js value has the opposite problem — its `valueOf` returns the STRING, where "10" < "9".
+// Both carry a real comparison of their own; this picks it, and falls back to the operators otherwise.
+//
+// Nulls sort FIRST, as a database orders them ascending. The operators answered false in BOTH directions
+// for a null, which made it compare EQUAL to everything and left the result dependent on input order.
+function compareValues(v1: any, v2: any): number {
+  if (v1 == null || v2 == null)
+    return v1 == null ? (v2 == null ? 0 : -1) : 1;
+
+  if (v1 instanceof Decimal && v2 instanceof Decimal)
+    return v1.comparedTo(v2);
+
+  // Every Temporal type but PlainMonthDay exposes a static `compare`; so may any other value type that
+  // wants to be ordered by these helpers.
+  const ctor: any = v1.constructor;
+  if (ctor != null && typeof ctor.compare === "function" && v2 instanceof ctor)
+    return ctor.compare(v1, v2);
+
+  try {
+    return v1 > v2 ? 1 : v1 < v2 ? -1 : 0;
+  } catch {
+    // Refuses the operators and offers no static compare — Temporal.PlainMonthDay is the one such type,
+    // and its toString (MM-DD) happens to order lexicographically.
+    const s1 = String(v1), s2 = String(v2);
+    return s1 > s2 ? 1 : s1 < s2 ? -1 : 0;
+  }
+}
 Array.prototype.orderBy = function (this: any[], keySelector: (element: any) => any): any[] {
   const cloned = this.slice(0);
-  cloned.sort((e1, e2) => {
-    const v1 = keySelector(e1);
-    const v2 = keySelector(e2);
-    if (v1 > v2)
-      return 1;
-    if (v1 < v2)
-      return -1;
-    return 0;
-  });
+  cloned.sort((e1, e2) => compareValues(keySelector(e1), keySelector(e2)));
   return cloned;
 };
 
 Array.prototype.orderByDescending = function (this: any[], keySelector: (element: any) => any): any[] {
   const cloned = this.slice(0);
-  cloned.sort((e1, e2) => {
-    const v1 = keySelector(e1);
-    const v2 = keySelector(e2);
-    if (v1 < v2)
-      return 1;
-    if (v1 > v2)
-      return -1;
-    return 0;
-  });
+  cloned.sort((e1, e2) => -compareValues(keySelector(e1), keySelector(e2)));
   return cloned;
 };
 
@@ -327,7 +340,7 @@ Array.prototype.minBy = function (this: any[], keySelector: (element: any) => an
   var result = this[0];
   for (var i = 1; i < this.length; i++) {
     var val = keySelector(this[i]);
-    if (val < min) {
+    if (compareValues(val, min) < 0) {
       min = val;
       result = this[i];
     }
@@ -343,7 +356,7 @@ Array.prototype.maxBy = function (this: any[], keySelector: (element: any) => an
   var result = this[0];
   for (var i = 1; i < this.length; i++) {
     var val = keySelector(this[i]);
-    if (val > max) {
+    if (compareValues(val, max) > 0) {
       max = val;
       result = this[i];
     }
@@ -515,7 +528,7 @@ Array.prototype.max = function (this: any[], selector?: (element: any, index: nu
   var max = array[0];
   for (var i = 1; i < array.length; i++) {
     var val = array[i];
-    if (max < val) {
+    if (compareValues(max, val) < 0) {
       max = val;
     }
   }
@@ -537,7 +550,7 @@ Array.prototype.min = function (this: any[], selector?: (element: any, index: nu
   var min = array[0];
   for (var i = 1; i < array.length; i++) {
     var val = array[i];
-    if (val < min) {
+    if (compareValues(val, min) < 0) {
       min = val;
     }
   }
@@ -695,13 +708,6 @@ Array.prototype.distinct = function (this: any[]) {
   return Array.from(new Set(this));
 };
 
-Array.prototype.orderBy = function (this: any[], selector: (e: any) => any) {
-  return this.slice().sort((a, b) => { const ka = selector(a), kb = selector(b); return ka < kb ? -1 : ka > kb ? 1 : 0; });
-};
-
-Array.prototype.orderByDescending = function (this: any[], selector: (e: any) => any) {
-  return this.slice().sort((a, b) => { const ka = selector(a), kb = selector(b); return ka < kb ? 1 : ka > kb ? -1 : 0; });
-};
 
 Array.prototype.defaultIfEmpty = function (this: any[], defaultValue?: any) {
   return this.length > 0 ? this : [defaultValue];
