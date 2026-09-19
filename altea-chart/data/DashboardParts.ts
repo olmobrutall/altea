@@ -3,7 +3,7 @@
 import { reflect } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { part, unit, backReference, rowOrder, quoted } from "@altea/altea/data/decorators";
+import { legacyColumnName, part, unit, backReference, rowOrder, quoted } from "@altea/altea/data/decorators";
 import { noRepeatValidator, validate } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -64,7 +64,8 @@ export class CombinedUserChartPartEntity_UserChart extends Entity {
     isQueryCached: boolean = false;
 
     @backReference combinedUserChartPart: Lite<CombinedUserChartPartEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     userChart: UserChartEntity;
 

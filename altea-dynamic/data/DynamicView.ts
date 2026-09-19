@@ -1,7 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, part, backReference, rowOrder, quoted, uniqueIndex } from "@altea/altea/data/decorators";
+import { legacyColumnName, entity, part, backReference, rowOrder, quoted, uniqueIndex } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, ValidationMessage, noRepeatValidator } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -30,7 +30,8 @@ import type { ConstructSymbol, ExecuteSymbol, DeleteSymbol, From } from "@altea/
 @part
 export class DynamicViewEntity_Prop extends Entity {
     @backReference dynamicView: Lite<DynamicViewEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     @stringLengthValidator({ max: 100 })
     @validate<DynamicViewEntity_Prop>(p => propNameError(p))

@@ -38,7 +38,7 @@ export default function HealthCheckPart(p: PartEditorProps<HealthCheckPartEntity
                             item.title = data[0];
                             item.checkURL = data[1];
                             item.navigateURL = data[2];
-                            item.order = toInt(ctx.value.items?.length ?? 0);
+                            item.rowOrder = toInt(ctx.value.items?.length ?? 0);
                             (ctx.value.items ??= []).push(item);
                             forceUpdate();
                         }}>

@@ -4,6 +4,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { SemiSymbol } from "@altea/altea/data/semiSymbol";
 import {
     entity, part, implementedByAll, quoted, column, unit, valueField, backReference, rowOrder, legacyPropertyRoute,
+    legacyColumnName,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, noRepeatValidator, notNullValidator, ValidationMessage, numberIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
@@ -240,7 +241,8 @@ export class SendNotificationEmailTaskEntity extends Entity {
 @part
 export class SendNotificationEmailTaskEntity_AlertType extends Entity {
     @backReference task: Lite<SendNotificationEmailTaskEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
     @valueField alertType: AlertTypeSymbol;
 }
 

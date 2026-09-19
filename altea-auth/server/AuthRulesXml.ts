@@ -48,14 +48,14 @@ export function section<T>(
 }
 
 // The nested `<Condition Name="a, b" Allowed="…">` rows of a conditioned rule (Type / Operation / Property),
-// ordered by their persisted `order`. `enumName` renders the allowed value; `condKey` resolves each symbol id.
+// ordered by their persisted `rowOrder`. `enumName` renders the allowed value; `condKey` resolves each symbol id.
 export function conditionsXml(
-    rows: { order: unknown; allowed: number; conditions: { symbol: { id: PrimaryKey } }[] }[],
+    rows: { rowOrder: unknown; allowed: number; conditions: { symbol: { id: PrimaryKey } }[] }[],
     enumName: (v: number) => string,
     condKey: (id: PrimaryKey) => string,
 ): Record<string, unknown>[] {
     return [...rows]
-        .sort((a, b) => Number(a.order) - Number(b.order))
+        .sort((a, b) => Number(a.rowOrder) - Number(b.rowOrder))
         .map(cr => attrs({
             Name: cr.conditions.map(c => condKey(c.symbol.id)).join(", "),
             Allowed: enumName(cr.allowed),

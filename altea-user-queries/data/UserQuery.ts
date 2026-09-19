@@ -3,6 +3,7 @@ import { Entity, EmbeddedEntity, type PrimaryKey } from "@altea/altea/data/entit
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
     backReference, entity, part, implementedBy, primaryKey, quoted, rowOrder, translatable, valueField,
+    legacyColumnName,
 } from "@altea/altea/data/decorators";
 import { validate, noRepeatValidator, stringLengthValidator, numberIsValidator, ComparisonType, ValidationMessage } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
@@ -64,7 +65,8 @@ export class UserQueryEntity_Filter extends QueryFilterBaseEntity {
 @primaryKey("uuid")
 export class UserQueryEntity_Column extends Entity {
     @backReference userQuery: Lite<UserQueryEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     token: QueryTokenEmbedded;
     displayName: string | null;
@@ -88,7 +90,8 @@ export class UserQueryEntity_Column extends Entity {
 @part
 export class UserQueryEntity_Order extends Entity {
     @backReference userQuery: Lite<UserQueryEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     token: QueryTokenEmbedded;
     orderType: OrderType = OrderType.Ascending;
@@ -104,7 +107,8 @@ export class UserQueryEntity_Order extends Entity {
 @part
 export class UserQueryEntity_CustomDrilldown extends Entity {
     @backReference userQuery: Lite<UserQueryEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
     // DECLARED `Lite<Entity>` and NARROWED by `@implementedBy`, exactly as Signum declares it
     // (`[ImplementedBy(typeof(UserQueryEntity))] MList<Lite<Entity>>`). The declared type is what names
     // the column of an MList element in legacy mode — `EntityID_UserQuery`, the implementation supplying

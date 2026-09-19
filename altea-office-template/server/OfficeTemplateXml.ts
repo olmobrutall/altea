@@ -103,7 +103,7 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
 
     ot.filters = syncRows(ot.filters ?? [], list(asRecord(xml["Filters"])?.["Filter"]),
         () => new OfficeTemplateEntity_Filter(), (f, x, i) => {
-            f.order = toInt(i);
+            f.rowOrder = toInt(i);
             f.indentation = toInt(num(x[A + "Indentation"]) ?? 0);
             if (x[A + "GroupOperation"] != undefined) {
                 f.isGroup = true;
@@ -118,7 +118,7 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
 
     ot.orders = list(asRecord(xml["Orders"])?.["Orden"]).map((x, i) => {
         const o = new OfficeTemplateEntity_Order();
-        o.order = toInt(i);
+        o.rowOrder = toInt(i);
         o.token = token(str(x[A + "Token"])!);
         o.orderType = Enum.toValue(OrderType, str(x[A + "OrderType"]) as never);
         return o;

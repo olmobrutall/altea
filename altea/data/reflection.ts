@@ -342,6 +342,15 @@ export class FieldInfo extends TypeReference {
     // Set by @rowOrder: this int column preserves MList row order (Signum's
     // [PreserveOrder]).
     isRowOrder?: boolean;
+    // This member is MACHINERY, not vocabulary: it has no label a user ever reads, so the translation
+    // sync must not ask for one. Without it every `@rowOrder` column raised a `<Member Name="Order">` in
+    // every culture file of every package that owns a `@part` row — dozens of stubs for a positional
+    // index, and (worse) a name that collides with the ORDER entity, so a translator filling them by name
+    // would write "Pedido" where "Orden" was meant.
+    //
+    // Signum has no equivalent because it has no such member: an MList's order is a column of the
+    // relation table, not a property of anything, so there is nothing for its sync to enumerate.
+    avoidTranslation?: boolean;
     // Set by @valueField: this field holds the element value of a non-embedded
     // MList row (the scalar/reference the MList<T> stored).
     isValueField?: boolean;

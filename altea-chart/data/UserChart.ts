@@ -3,6 +3,7 @@ import { Entity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
     backReference, entity, part, implementedBy, primaryKey, quoted, rowOrder, valueField,
+    legacyColumnName,
 } from "@altea/altea/data/decorators";
 import { noRepeatValidator, stringLengthValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
@@ -69,7 +70,8 @@ export class UserChartEntity_Filter extends QueryFilterBaseEntity {
 @primaryKey("uuid")
 export class UserChartEntity_Column extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
     @valueField element: ChartColumnEmbedded;
 
     /** The row half of Signum's `Columns.Select(c => c.Clone())`: a new row around a cloned element.
@@ -98,7 +100,8 @@ export class UserChartEntity_Parameter extends Entity {
 @part
 export class UserChartEntity_CustomDrilldown extends Entity {
     @backReference userChart: Lite<UserChartEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
     // DECLARED `Lite<Entity>` and NARROWED by `@implementedBy`, exactly as Signum declares it
     // (`[ImplementedBy(typeof(UserQueryEntity))] MList<Lite<Entity>>`). The declared type is what names
     // the column of an MList element in legacy mode — `EntityID_UserQuery`, the implementation supplying

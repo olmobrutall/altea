@@ -121,7 +121,7 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
 
     et.filters = syncRows(et.filters ?? [], list(asRecord(xml["Filters"])?.["Filter"]),
         () => new EmailTemplateEntity_Filter(), (f, x, i) => {
-            f.order = toInt(i);
+            f.rowOrder = toInt(i);
             f.indentation = toInt(num(x[A + "Indentation"]) ?? 0);
             if (x[A + "GroupOperation"] != undefined) {
                 f.isGroup = true;
@@ -136,7 +136,7 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
 
     et.orders = list(asRecord(xml["Orders"])?.["Orden"]).map((x, i) => {
         const o = new EmailTemplateEntity_Order();
-        o.order = toInt(i);
+        o.rowOrder = toInt(i);
         o.token = token(str(x[A + "Token"])!);
         o.orderType = Enum.toValue(OrderType, str(x[A + "OrderType"]) as never);
         return o;
@@ -172,7 +172,7 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
     });
 
     et.attachments = readAttachments(xml["Attachments"]).map((a, i) =>
-        EmailTemplateEntity_Attachment.create({ order: toInt(i), attachment: a }));
+        EmailTemplateEntity_Attachment.create({ rowOrder: toInt(i), attachment: a }));
 
     // Signum's `Applicable = element.Element("Applicable")?.Let(app => new TemplateApplicableEval { Script =
     // app.Value })`. Round-trips verbatim now that the script IS the stored value.
@@ -211,13 +211,13 @@ async function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string,
     const cultures = await CultureInfoLogic.lookup();
     emt.messages = list(asRecord(xml["Messages"])?.["Message"]).map((x, i) => {
         const m = new EmailMasterTemplateEntity_Message();
-        m.order = toInt(i);
+        m.rowOrder = toInt(i);
         m.cultureInfo = cultures.get(str(x[A + "CultureInfo"])!).toLite();
         m.text = str(x["#text"]) ?? "";
         return m;
     });
     emt.attachments = readAttachments(xml["Attachments"]).map((a, i) =>
-        EmailMasterTemplateEntity_Attachment.create({ order: toInt(i), attachment: a }));
+        EmailMasterTemplateEntity_Attachment.create({ rowOrder: toInt(i), attachment: a }));
 }
 
 // ---- shared pieces -------------------------------------------------------------------------------------

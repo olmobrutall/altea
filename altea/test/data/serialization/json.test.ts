@@ -211,7 +211,7 @@ describe("EntityJson", () => {
         assert.equal(o.author.$type, "Artist");              // @implementedBy ⇒ discriminator
         assert.equal(o.songs[0].$type, undefined);                 // Auto, monomorphic ⇒ inferred
         assert.equal(o.songs[0].album, undefined);                 // @backReference skipped
-        assert.equal(o.songs[0].order, undefined);                 // @rowOrder skipped
+        assert.equal(o.songs[0].rowOrder, undefined);                 // @rowOrder skipped
         assert.equal(o.bonusTrack.name, "bt");
 
         const a2 = deserialize(json) as AlbumEntity;
@@ -220,8 +220,8 @@ describe("EntityJson", () => {
         // back-reference recovered as a fat lite pointing at the owner; order from index.
         assert.ok(a2.songs[0].album instanceof Lite);
         assert.equal(a2.songs[0].album.entityOrNull, a2);
-        assert.equal(a2.songs[0].order, 0);
-        assert.equal(a2.songs[1].order, 1);
+        assert.equal(a2.songs[0].rowOrder, 0);
+        assert.equal(a2.songs[1].rowOrder, 1);
         assert.equal(a2.songs[1].duration?.toString(), "PT3M");
 
         assert.equal(serialize(a2), json);                         // idempotent

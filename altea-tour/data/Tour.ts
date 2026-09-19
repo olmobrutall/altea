@@ -3,6 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
     entity, part, primaryKey, uniqueIndex, implementedBy, quoted, backReference, rowOrder, translatable,
+    legacyColumnName,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, noRepeatValidator } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
@@ -63,7 +64,8 @@ export class TourStepEntity extends Entity {
 
     @backReference tour: Lite<TourEntity>;
 
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     @translatable
     @stringLengthValidator({ max: 200 })
@@ -123,7 +125,8 @@ export class CssStepEntity extends Entity {
 
     @backReference tourStep: Lite<TourStepEntity>;
 
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     type: CssStepType = CssStepType.CSSSelector;
 

@@ -69,7 +69,13 @@ export const Roles = {
 } as const;
 
 // Close the pooled connection when a file's tests finish (each `node --test` file is its own process).
-afterAll(async () => { await Connector.default?.closeConnection(); });
+//
+// Only under the RUNNER: `generateEnvironment` imports this module from a plain `node` process (the
+// `gen:postgres` script), where a suite hook has no suite to attach to and vitest throws "failed to find
+// the current suite" before the generator can do anything. That made the one documented way to (re)build
+// the test database unusable — which only showed once a schema change made a rebuild necessary.
+if (process.env["VITEST"] != undefined)
+    afterAll(async () => { await Connector.default?.closeConnection(); });
 
 let started: Promise<Connector> | undefined;
 
@@ -99,6 +105,13 @@ export async function generateAuthEnvironment(): Promise<Connector> {
     // uses (StartParameters.withIgnoredDatabaseMismatches); the mismatches are discarded because the very
     // next statements drop and regenerate everything.
     const { result: connector } = await StartParameters.withIgnoredDatabaseMismatches(() => start());
+    // `start()` turns on globalLazyReadUncommitted for the TESTS, whose pattern is to mutate inside a
+    // rolled-back scope and read back through the caches. The generator is not a test: it writes real
+    // rows and its lazies are warmed by `schema.initialize()` below, whose promises outlive the ambient
+    // transaction they were created in — so nesting (Transaction.create) hands them a finished
+    // transaction and the first statement dies with "Transaction not started". Reading COMMITTED state
+    // (Transaction.forceNew) is both correct here and what production does.
+    connector.schema.globalLazyReadUncommitted = false;
     // Every global lazy was warmed by the start() above, against the database the next line DROPS — so
     // whatever they hold is about to become ids that no longer exist. Dropping every table is the
     // ultimate invalidation, but nothing tells them that (`invalidateWith` hooks entity events, and
@@ -198,7 +211,7 @@ async function seed(): Promise<void> {
         resource: typeLite,
         fallback: TypeAllowed.None,
         conditionRules: [RuleTypeConditionEntity.create({
-            order: toInt(0),
+            rowOrder: toInt(0),
             allowed: TypeAllowed.Read,
             conditions: [RuleTypeConditionEntity_Condition.create({ symbol: publicSym })],
         })],
@@ -213,7 +226,7 @@ async function seed(): Promise<void> {
         resource: logTypeLite,
         fallback: TypeAllowed.None,
         conditionRules: [RuleTypeConditionEntity.create({
-            order: toInt(0),
+            rowOrder: toInt(0),
             allowed: TypeAllowed.Read,
             conditions: [RuleTypeConditionEntity_Condition.create({ symbol: filteringSym })],
         })],

@@ -119,7 +119,7 @@ function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlCo
 
     tour.steps = asArray(xml["TourStep"]).map((sx, i) => {
         const s = new TourStepEntity();
-        s.order = toInt(i);
+        s.rowOrder = toInt(i);
         s.title = String(sx[A + "Title"] ?? "");
         s.side = sx[A + "Side"] == null ? null : Enum.toValue(PopoverSide, String(sx[A + "Side"]) as never);
         s.align = sx[A + "Align"] == null ? null : Enum.toValue(PopoverAlign, String(sx[A + "Align"]) as never);
@@ -145,7 +145,7 @@ function triggerRootType(trigger: Lite<Entity>, ctx: IFromXmlContext): TypeEntit
 
 function cssStepFromXml(cx: Record<string, unknown>, order: number, ctx: IFromXmlContext, rootType: TypeEntity | null): CssStepEntity {
     const cs = new CssStepEntity();
-    cs.order = toInt(order);
+    cs.rowOrder = toInt(order);
     cs.type = Enum.toValue(CssStepType, String(cx[A + "Type"]) as never);
     cs.cssSelector = cx[A + "CssSelector"] == null ? null : String(cx[A + "CssSelector"]);
     cs.property = cx[A + "Property"] == null || rootType == null ? null

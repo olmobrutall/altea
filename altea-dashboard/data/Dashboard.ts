@@ -5,6 +5,7 @@ import { tryGetParentEntity } from "@altea/altea/data/parentEntity";
 import {
     entity, part, primaryKey, backReference, rowOrder, implementedBy, format, unit, quoted, legacyTableName, bindParent,
     legacyClassName,
+    legacyColumnName,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType, numberIsValidator, ValidationMessage } from "@altea/altea/data/validators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
@@ -166,7 +167,8 @@ export class DashboardEntity_Part extends Entity implements IGridEntity {
 @part
 export class DashboardEntity_TokenEquivalenceGroup_Query extends Entity {
     @backReference tokenEquivalenceGroup: Lite<DashboardEntity_TokenEquivalenceGroup>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     query: QueryEntity;
     token: QueryTokenEmbedded;

@@ -6,6 +6,7 @@ import { Enum } from "@altea/altea/data/enum";
 import {
     entity, part, implementedBy, forceNullable, column, unit, backReference, rowOrder, valueField, quoted, uniqueIndex,
     bindParent,
+    legacyColumnName,
 } from "@altea/altea/data/decorators";
 import {
     stringLengthValidator, validate, noRepeatValidator, ValidationMessage, ComparisonType,
@@ -377,7 +378,8 @@ export class SubWorkflowEmbedded extends EmbeddedEntity {
 @part
 export class WorkflowActivityEntity_DecisionOption extends Entity {
     @backReference activity: Lite<WorkflowActivityEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     @valueField option: ButtonOptionEmbedded;
 
@@ -390,7 +392,8 @@ export class WorkflowActivityEntity_DecisionOption extends Entity {
 @part
 export class WorkflowActivityEntity_ViewNameProp extends Entity {
     @backReference activity: Lite<WorkflowActivityEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     @valueField prop: ViewNamePropEmbedded;
 

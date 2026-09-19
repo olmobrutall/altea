@@ -774,8 +774,14 @@ export function column(options: ColumnOptions | false = {}) {
 // into the schema transitively from that ctor.)
 
 // Marks the int column that preserves MList row order (Signum's [PreserveOrder]).
+//
+// Also `avoidTranslation`: the row index is machinery the save cascade writes, never a label anyone
+// reads, so the translation sync must not raise a stub for it in every culture of every package that
+// owns a `@part` row. See FieldInfo.avoidTranslation.
 export function rowOrder(target: object, propertyKey: string | symbol): void {
-    getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).isRowOrder = true;
+    const fi = getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey));
+    fi.isRowOrder = true;
+    fi.avoidTranslation = true;
 }
 
 // Signum's [ForceNullable]: the column is generated NULL even though the field's type is

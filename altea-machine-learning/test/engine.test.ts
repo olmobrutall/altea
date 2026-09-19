@@ -36,7 +36,7 @@ function token(typeName: string, subTypeName?: string): QueryToken {
 
 function column(usage: PredictorColumnUsage, encoding: typeof DefaultColumnEncodings.None, tk: QueryToken, index: number): PredictorColumnMain {
     return new PredictorColumnMain(
-        PredictorEntity_Column.create({ usage, encoding, order: toInt(index) }), index, tk);
+        PredictorEntity_Column.create({ usage, encoding, rowOrder: toInt(index) }), index, tk);
 }
 
 function regressionSettings(): NeuralNetworkSettingsEntity {
@@ -44,7 +44,7 @@ function regressionSettings(): NeuralNetworkSettingsEntity {
         predictionType: PredictionType.Regression,
         hiddenLayers: [NeuralNetworkSettingsEntity_HiddenLayer.create({
             size: toInt(8), activation: NeuralNetworkActivation.ReLU,
-            initializer: NeuralNetworkInitializer.glorot_uniform_initializer, order: toInt(0),
+            initializer: NeuralNetworkInitializer.glorot_uniform_initializer, rowOrder: toInt(0),
         })],
         outputActivation: NeuralNetworkActivation.None,
         outputInitializer: NeuralNetworkInitializer.glorot_uniform_initializer,

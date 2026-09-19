@@ -4,7 +4,7 @@ import "@altea/altea/data/globals";
 import { reflect, setDatabaseSchema } from "@altea/altea/data/reflection"; // anchor for the transformer's @field injection
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, part, backReference, valueField, rowOrder, implementedBy, overrideImplementedBy } from "@altea/altea/data/decorators";
+import { legacyColumnName, entity, part, backReference, valueField, rowOrder, implementedBy, overrideImplementedBy } from "@altea/altea/data/decorators";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { IsNullable } from "@altea/altea/server/schema/dbType";
 import { wireOwnedChildren } from "@altea/altea/server/saver";
@@ -44,8 +44,9 @@ class EcOwner_Tag extends Entity {
     owner: Lite<EcOwner>;
 
     // Signum's [PreserveOrder]: the row's index in the collection, wired by the save cascade.
+    @legacyColumnName("Order")
     @rowOrder
-    order: number;
+    rowOrder: number;
 
     @valueField
     tag: Lite<EcTag>;
@@ -191,7 +192,7 @@ describe("collections inside embeddeds", () => {
         wireOwnedChildren(owner);
 
         const rows = owner.settings!.tags;
-        assert.deepEqual(rows.map(r => r.order), [0, 1]);
+        assert.deepEqual(rows.map(r => r.rowOrder), [0, 1]);
         assert.ok(rows.every(r => (r.owner as any) === owner), "pointed at the entity, not the embedded");
     });
 

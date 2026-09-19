@@ -5,6 +5,7 @@ import { tryGetParentEntity } from "@altea/altea/data/parentEntity";
 import type { BaseEntity } from "@altea/altea/data/entity";
 import {
     entity, part, primaryKey, implementedBy, uniqueIndex, backReference, rowOrder, valueField, quoted, bindParent, column,
+    legacyColumnName,
 } from "@altea/altea/data/decorators";
 import {
     stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType, ValidationMessage,
@@ -166,7 +167,8 @@ export const masterTemplateContentRegexGlobal = /@\[content\]/g;
 @part
 export class EmailMasterTemplateEntity_Message extends Entity {
     @backReference masterTemplate: Lite<EmailMasterTemplateEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     /** Signum's `CultureInfoEntity CultureInfo` — the culture this message is written in. Named as
      *  Signum names it, because the member IS the column (`CultureInfo_ID`). */
@@ -193,7 +195,8 @@ export class EmailMasterTemplateEntity_Message extends Entity {
 @part
 export class EmailMasterTemplateEntity_Attachment extends Entity {
     @backReference masterTemplate: Lite<EmailMasterTemplateEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     @valueField @implementedBy(() => [ImageAttachmentEntity])
     attachment: IAttachmentGeneratorEntity;
@@ -348,7 +351,8 @@ export class EmailTemplateEntity_Recipient extends Entity {
 @part
 export class EmailTemplateEntity_Attachment extends Entity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     @bindParent
     @valueField @implementedBy(() => [ImageAttachmentEntity, FileTokenAttachmentEntity])
@@ -373,7 +377,8 @@ export class EmailTemplateEntity_Filter extends QueryFilterBaseEntity {
 @part
 export class EmailTemplateEntity_Order extends Entity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     token: QueryTokenEmbedded;
     orderType: OrderType;

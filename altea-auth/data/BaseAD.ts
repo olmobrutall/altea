@@ -2,7 +2,7 @@ import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import type { int } from "@altea/altea/data/basics";
 import { Lite } from "@altea/altea/data/lite";
-import { rowOrder } from "@altea/altea/data/decorators";
+import { legacyColumnName, rowOrder } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { RoleEntity } from "./Role";
@@ -50,8 +50,9 @@ import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 @reflect
 export abstract class RoleMappingEntity extends Entity {
     /** The row's index in the collection — the table has an Order column. */
+    @legacyColumnName("Order")
     @rowOrder
-    order: int;
+    rowOrder: int;
 
     /** The directory group's display name OR its GUID/objectGUID — whichever the directory reports. */
     @stringLengthValidator({ max: 100 })

@@ -24,7 +24,7 @@ export namespace QueryFilterUtils {
 
     /** The stored rows, nested by `indentation`. */
     export function toFilterList(queryName: QueryName, rows: readonly QueryFilterBaseEntity[]): Filter[] {
-        const ordered = [...rows].sort((a, b) => (a.order as number) - (b.order as number));
+        const ordered = [...rows].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
         const [filters] = build(queryName, ordered, 0, 0);
         return filters;
     }

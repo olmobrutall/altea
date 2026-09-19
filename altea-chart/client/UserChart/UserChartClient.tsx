@@ -179,7 +179,7 @@ export namespace UserChartClient {
         uc.columns = (cr.columns ?? []).map((c, i) => {
             const row = new UserChartEntity_Column();
             row.element = copyChartColumn(c);
-            row.order = toInt(i);
+            row.rowOrder = toInt(i);
             return row;
         });
         uc.parameters = (cr.parameters ?? []).map(p => {

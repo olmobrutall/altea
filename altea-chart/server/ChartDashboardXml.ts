@@ -80,7 +80,7 @@ export function registerUserChartDashboardParts(): void {
             c.userCharts = (p.userCharts ?? []).map(e => {
                 const row = new CombinedUserChartPartEntity_UserChart();
                 row.userChart = e.userChart;
-                row.order = e.order;
+                row.rowOrder = e.rowOrder;
                 return row;
             });
             c.showData = p.showData;
@@ -108,7 +108,7 @@ export function registerUserChartDashboardParts(): void {
             p.minHeight = x[A + "MinHeight"] == null ? null : (Number(x[A + "MinHeight"]) as int);
             p.userCharts = list(x["UserChart"]).map((e, i) => {
                 const row = new CombinedUserChartPartEntity_UserChart();
-                row.order = i as int;
+                row.rowOrder = i as int;
                 row.userChart = ctx.getEntity(String(e[A + "Guid"])) as UserChartEntity;
                 return row;
             });

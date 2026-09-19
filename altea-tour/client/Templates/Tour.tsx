@@ -58,7 +58,7 @@ export default function Tour(p: { ctx: TypeContext<TourEntity> }): React.JSX.Ele
             <AutoLine ctx={ctx.subCtx(a => a.trigger)} onChange={forceUpdate} />
 
             <EntityTabRepeater ctx={ctx.subCtx(a => a.steps)} avoidFieldSet="h4"
-                onCreate={() => Promise.resolve(TourStepEntity.create({ side: PopoverSide.Bottom, order: toInt(0) }))}
+                onCreate={() => Promise.resolve(TourStepEntity.create({ side: PopoverSide.Bottom, rowOrder: toInt(0) }))}
                 getComponent={sctx => <TourStep ctx={sctx} invalidate={forceUpdate}
                     rootType={rootType} dashboard={dashboard ?? null} userQuery={userQuery ?? null} />}
                 getTitle={sctx => sctx.value.title || ""} />

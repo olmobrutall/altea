@@ -4,7 +4,7 @@
 import { reflect, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { part, backReference, rowOrder } from "@altea/altea/data/decorators";
+import { legacyColumnName, part, backReference, rowOrder } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -110,7 +110,8 @@ export class ToolbarMenuPartEntity extends Entity implements IPartEntity {
 @part
 export class HealthCheckPartEntity_Item extends Entity {
     @backReference healthCheckPart: Lite<HealthCheckPartEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     @stringLengthValidator({ max: 100 })
     title: string;

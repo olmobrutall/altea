@@ -67,7 +67,7 @@ describe.skipIf(!hasDb)("UnsafeInsertTest", () => {
     txTest("InsertMListSimple", async () => {
         const before = await table(AlbumEntity_Song).count();
         const value = await table(AlbumEntity_Song)
-            .executeInsert(AlbumEntity_Song, mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, index: mle.index, order: mle.order }));
+            .executeInsert(AlbumEntity_Song, mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, index: mle.index, rowOrder: mle.rowOrder }));
         assert.ok(value > 0);
         assert.equal(await table(AlbumEntity_Song).count(), before + value);
     });
@@ -76,7 +76,7 @@ describe.skipIf(!hasDb)("UnsafeInsertTest", () => {
     txTest("InsertMListParameter", async () => {
         const before = await table(AlbumEntity_Song).count();
         const value = await table(AlbumEntity_Song)
-            .map(mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, index: mle.index, order: mle.order }))
+            .map(mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, index: mle.index, rowOrder: mle.rowOrder }))
             .executeInsert(AlbumEntity_Song, mle => mle);
         assert.ok(value > 0);
         assert.equal(await table(AlbumEntity_Song).count(), before + value);
@@ -86,7 +86,7 @@ describe.skipIf(!hasDb)("UnsafeInsertTest", () => {
     txTest("InsertMListId", async () => {
         const before = await table(AlbumEntity_Song).count();
         const value = await table(AlbumEntity_Song)
-            .executeInsert(AlbumEntity_Song, mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, index: mle.index, id: (mle.id as number) + 1000, order: mle.order }));
+            .executeInsert(AlbumEntity_Song, mle => ({ album: mle.album, name: mle.name, seconds: mle.seconds, index: mle.index, id: (mle.id as number) + 1000, rowOrder: mle.rowOrder }));
         assert.ok(value > 0);
         assert.equal(await table(AlbumEntity_Song).count(), before + value);
     });

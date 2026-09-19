@@ -3,6 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
     entity, part, primaryKey, backReference, rowOrder, implementedBy, uniqueIndex, format, unit, quoted,
+    legacyColumnName,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, noRepeatValidator } from "@altea/altea/data/validators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
@@ -158,7 +159,8 @@ export abstract class ToolbarElementBaseEntity extends Entity {
 @primaryKey("uuid")
 export class ToolbarEntity_Element extends ToolbarElementBaseEntity {
     @backReference toolbar: Lite<ToolbarEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 }
 
 // A ToolbarMenu element, which additionally says whether
@@ -168,7 +170,8 @@ export class ToolbarEntity_Element extends ToolbarElementBaseEntity {
 @primaryKey("uuid")
 export class ToolbarMenuEntity_Element extends ToolbarElementBaseEntity {
     @backReference toolbarMenu: Lite<ToolbarMenuEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     withEntity: boolean = false;
     autoSelect: boolean = false;
@@ -270,7 +273,8 @@ export class ToolbarSwitcherEntity extends Entity implements IUserAssetEntity, I
 @part
 export class ToolbarSwitcherEntity_Option extends Entity {
     @backReference toolbarSwitcher: Lite<ToolbarSwitcherEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     toolbarMenu: Lite<ToolbarMenuEntity>;
 

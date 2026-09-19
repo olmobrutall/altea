@@ -279,7 +279,7 @@ export namespace PropertyAuthLogic {
 
     function toWithConditions(row: RulePropertyEntity, symbolById: Map<string, TypeConditionSymbol>): WithConditions<PropertyAllowed> {
         const conditionRules = [...row.conditionRules]
-            .sort((a, b) => Number(a.order) - Number(b.order))
+            .sort((a, b) => Number(a.rowOrder) - Number(b.rowOrder))
             .map(cr => new ConditionRule<PropertyAllowed>(
                 cr.conditions.map(c => {
                     const s = symbolById.get(String(c.symbol.id));
@@ -532,7 +532,7 @@ export namespace PropertyAuthLogic {
             });
             rp.fallback = coerced.fallback;
             rp.conditionRules = coerced.conditionRules.map((cr, i) => RulePropertyConditionEntity.create({
-                order: toInt(i),
+                rowOrder: toInt(i),
                 allowed: cr.allowed,
                 conditions: cr.typeConditions.map(s => RulePropertyConditionEntity_Condition.create({ symbol: symbolLite(s) })),
             }));

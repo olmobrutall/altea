@@ -1,6 +1,6 @@
 import { reflect, registerEnum } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
-import { part, backReference, rowOrder, unit, format, legacyTableName } from "@altea/altea/data/decorators";
+import { legacyColumnName, part, backReference, rowOrder, unit, format, legacyTableName } from "@altea/altea/data/decorators";
 import {
     stringLengthValidator, validate, noRepeatValidator, numberIsValidator, ComparisonType,
 } from "@altea/altea/data/validators";
@@ -100,7 +100,8 @@ export function isClassificationType(t: PredictionType): boolean {
 @legacyTableName("NeuralNetworkSettingsHiddenLayers")
 export class NeuralNetworkSettingsEntity_HiddenLayer extends Entity {
     @backReference settings: Lite<NeuralNetworkSettingsEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     @unit("Neurons")
     size: int;

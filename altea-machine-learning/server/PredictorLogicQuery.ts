@@ -70,7 +70,7 @@ export namespace PredictorLogicQuery {
         const main = await executeMainQuery(predictor);
 
         const subQueries: SubQueryResult[] = [];
-        for (const sq of [...predictor.subQueries].sort((a, b) => (a.order as number) - (b.order as number))) {
+        for (const sq of [...predictor.subQueries].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number))) {
             ctx.reportProgress(`Executing sub-query ${sq.name}`);
             subQueries.push(await executeSubQuery(predictor, sq));
         }
@@ -81,7 +81,7 @@ export namespace PredictorLogicQuery {
         const codifications: PredictorCodification[] = [];
         const mainQueryName = queryNameOf(predictor);
 
-        const orderedColumns = [...predictor.columns].sort((a, b) => (a.order as number) - (b.order as number));
+        const orderedColumns = [...predictor.columns].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
         orderedColumns.forEach((col, i) => {
             const resolved = resolveToken(mainQueryName, col.token.tokenString, mainOptions(predictor));
             const mainCol = new PredictorColumnMain(col, i, resolved);
@@ -90,7 +90,7 @@ export namespace PredictorLogicQuery {
 
         // A sub-query contributes one column PER (SplitBy key × value column) — see the module header.
         for (const sq of subQueries) {
-            const sqColumns = [...sq.subQuery.columns].sort((a, b) => (a.order as number) - (b.order as number));
+            const sqColumns = [...sq.subQuery.columns].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
             const sqQueryName = QueryLogic.toQueryName(sq.subQuery.query.key);
 
             for (const splitKey of sq.distinctSplitKeys) {
@@ -199,7 +199,7 @@ export namespace PredictorLogicQuery {
             QueryFilterUtils.toFilterList(queryName, predictor.filters),
             [],
             [...predictor.columns]
-                .sort((a, b) => (a.order as number) - (b.order as number))
+                .sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number))
                 .map(c => new Column(resolveToken(queryName, c.token.tokenString, options))),
             new Pagination.All(),
             predictor.mainQuery.groupResults,
@@ -256,7 +256,7 @@ export namespace PredictorLogicQuery {
             filters,
             [],
             [...sq.columns]
-                .sort((a, b) => (a.order as number) - (b.order as number))
+                .sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number))
                 .map(c => new Column(resolveToken(sqQueryName, c.token.tokenString, options))),
             new Pagination.All(),
             // ALWAYS grouped: a sub-query's job is to aggregate the many rows per parent into one value
@@ -269,7 +269,7 @@ export namespace PredictorLogicQuery {
         const request = subQueryRequest(predictor, sq);
         const resultTable = await QueryLogic.queries.executeQueryAsync(request);
 
-        const sqColumns = [...sq.columns].sort((a, b) => (a.order as number) - (b.order as number));
+        const sqColumns = [...sq.columns].sort((a, b) => (a.rowOrder as number) - (b.rowOrder as number));
         const parentIndexes = indexesWhere(sqColumns, c => c.usage === PredictorSubQueryColumnUsage.ParentKey);
         const splitIndexes = indexesWhere(sqColumns, c => c.usage === PredictorSubQueryColumnUsage.SplitBy);
         const valueColumnIndexes = indexesWhere(sqColumns,

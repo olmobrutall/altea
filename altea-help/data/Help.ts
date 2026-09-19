@@ -2,7 +2,8 @@ import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/refle
 import { Entity, EmbeddedEntity, ModelEntity, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
-    entity, part, implementedBy, implementedByAll, backReference, forceNotNullable, rowOrder, column, primaryKey, quoted,
+    entity, part, implementedBy, implementedByAll, backReference, forceNotNullable, rowOrder, legacyColumnName,
+    column, primaryKey, quoted,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, noRepeatValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -320,7 +321,8 @@ export class QueryHelpEntity_Column extends Entity {
     @backReference
     queryHelp: QueryHelpEntity;
 
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     @stringLengthValidator({ max: 100 })
     columnName: string;

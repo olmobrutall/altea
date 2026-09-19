@@ -114,7 +114,8 @@ export class OfficeTemplateEntity_Filter extends QueryFilterBaseEntity {
 @part
 export class OfficeTemplateEntity_Order extends Entity {
     @backReference officeTemplate: Lite<OfficeTemplateEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     token: QueryTokenEmbedded;
     orderType: OrderType;

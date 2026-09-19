@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
-import { entity, part, backReference, rowOrder, implementedByAll, uniqueIndex, quoted } from "@altea/altea/data/decorators";
+import { legacyColumnName, entity, part, backReference, rowOrder, implementedByAll, uniqueIndex, quoted } from "@altea/altea/data/decorators";
 import { stringLengthValidator, noRepeatValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
@@ -35,7 +35,8 @@ import { msg } from "@altea/altea/data/utils/localization";
 @part
 export class ColorPaletteEntity_SpecificColor extends Entity {
     @backReference colorPalette: Lite<ColorPaletteEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     // Signum's `[ImplementedByAll, UniqueIndex] Lite<Entity> Entity` — the entity (or enum-entity row)
     // this color is for. The index comes out UNFILTERED because the discriminator is NOT NULL (Signum's

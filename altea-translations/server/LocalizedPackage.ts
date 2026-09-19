@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import { EmbeddedEntity, Entity, MixinEntity, ModelEntity, View } from "@altea/altea/data/entity";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { tryGetTypeInfo } from "@altea/altea/data/reflection";
 import { Localization, type LocalizableMessage } from "@altea/altea/data/utils/localization";
 import { pluralize, detectGender, determinersFor } from "@altea/altea/data/utils/naturalLanguage";
 import {
@@ -253,7 +254,11 @@ const ownMembersCache = new Map<Function, string[]>();
 function ownMembersOf(ctor: Function): string[] {
     let members = ownMembersCache.get(ctor);
     if (members == undefined)
-        ownMembersCache.set(ctor, members = PropertyRoute.memberPaths(ctor).filter(p => p !== "" && !/[.\/\[\]]/.test(p)));
+        ownMembersCache.set(ctor, members = PropertyRoute.memberPaths(ctor)
+            .filter(p => p !== "" && !/[.\/\[\]]/.test(p))
+            // A member the model marks as machinery has no label to ask for — see
+            // FieldInfo.avoidTranslation, which `@rowOrder` sets.
+            .filter(p => tryGetTypeInfo(ctor)?.fields?.[p]?.avoidTranslation !== true));
     return members;
 }
 

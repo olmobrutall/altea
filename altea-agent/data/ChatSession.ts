@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { backReference, column, entity, part, quoted, rowOrder, serialize } from "@altea/altea/data/decorators";
+import { legacyColumnName, backReference, column, entity, part, quoted, rowOrder, serialize } from "@altea/altea/data/decorators";
 import { validate, stringLengthValidator, noRepeatValidator, ValidationMessage } from "@altea/altea/data/validators";
 import { Temporal } from "@altea/altea/data/basics";
 import type { int } from "@altea/altea/data/basics";
@@ -154,7 +154,8 @@ export namespace ChatMessageOperation {
 @part
 export class ChatMessageEntity_ToolCall extends Entity {
     @backReference chatMessage: Lite<ChatMessageEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     /** The provider's call id — how a Tool row finds the call it answers. */
     @stringLengthValidator({ max: 100 })

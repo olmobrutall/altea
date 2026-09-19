@@ -2,7 +2,7 @@ import { reflect, init, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
-    entity, part, column, uniqueIndex, quoted, backReference, rowOrder, implementedBy, legacyPropertyRoute,
+    entity, part, column, uniqueIndex, quoted, backReference, rowOrder, legacyColumnName, implementedBy, legacyPropertyRoute,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -153,7 +153,8 @@ export class QueryStringValueEntity extends Entity {
 
     @backReference restLog: Lite<RestLogEntity>;
 
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     key: string;
 

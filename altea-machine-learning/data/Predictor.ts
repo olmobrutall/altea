@@ -4,6 +4,7 @@ import { Symbol } from "@altea/altea/data/symbol";
 import {
     entity, part, backReference, valueField, rowOrder, quoted, implementedBy, implementedByAll, column, format, unit,
     legacyTableName,
+    legacyColumnName,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, noRepeatValidator } from "@altea/altea/data/validators";
 import { Lite } from "@altea/altea/data/lite";
@@ -212,7 +213,8 @@ export class PredictorRegressionMetricsEmbedded extends EmbeddedEntity {
 @legacyTableName("PredictorMainQueryColumns")
 export class PredictorEntity_Column extends Entity {
     @backReference predictor: Lite<PredictorEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     usage: PredictorColumnUsage;
 
@@ -257,7 +259,8 @@ export class PredictorEntity_Filter extends QueryFilterBaseEntity {
 @legacyTableName("PredictorFiles")
 export class PredictorEntity_File extends Entity {
     @backReference predictor: Lite<PredictorEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     @valueField element: FilePathEmbedded;
 }
@@ -288,7 +291,8 @@ export class PredictorMainQueryEmbedded extends EmbeddedEntity {
 @legacyTableName("PredictorSubQueryColumns")
 export class PredictorSubQueryEntity_Column extends Entity {
     @backReference subQuery: Lite<PredictorSubQueryEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     usage: PredictorSubQueryColumnUsage;
 
@@ -348,7 +352,8 @@ export class PredictorSubQueryEntity_Filter extends QueryFilterBaseEntity {
 @legacyTableName({ name: "PredictorSubQuery", wasVirtualMList: true })
 export class PredictorSubQueryEntity extends Entity {
     @backReference predictor: Lite<PredictorEntity>;
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     @stringLengthValidator({ min: 3, max: 100 })
     name: string;

@@ -1,6 +1,6 @@
 import { reflect, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { EmbeddedEntity, Entity } from "@altea/altea/data/entity";
-import { column, serialize, rowOrder } from "@altea/altea/data/decorators";
+import { legacyColumnName, column, serialize, rowOrder } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import {
@@ -96,7 +96,8 @@ export class PinnedQueryFilterEmbedded extends EmbeddedEntity {
 // (QueryTokenEmbedded, PinnedQueryFilterEmbedded), which is what both packages already depend on.
 @reflect
 export abstract class QueryFilterBaseEntity extends Entity {
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
 
     // Signum's QueryFilterEmbedded.PropertyValidation, the three MANDATORY halves of it (the fourth set
     // of branches asks QueryUtils/QueryDescription what a token can be filtered by, which is a

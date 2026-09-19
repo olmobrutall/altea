@@ -214,7 +214,7 @@ export namespace AutoconfigureNeuralNetworkAlgorithm {
 
                 if (target > nns.hiddenLayers.length) {
                     nns.hiddenLayers.push(NeuralNetworkSettingsEntity_HiddenLayer.create({
-                        order: toInt(nns.hiddenLayers.length),
+                        rowOrder: toInt(nns.hiddenLayers.length),
                         size: toInt(randomBetween(rand, conf.minNeuronsPerLayer as number, conf.maxNeuronsPerLayer as number)),
                         activation: pickOne(activations),
                         initializer: pickOne(initializers),
@@ -222,7 +222,7 @@ export namespace AutoconfigureNeuralNetworkAlgorithm {
                 } else if (target < nns.hiddenLayers.length) {
                     nns.hiddenLayers.splice(Math.floor(rand() * nns.hiddenLayers.length), 1);
                     // Re-number, since @rowOrder is positional.
-                    nns.hiddenLayers.forEach((hl, i) => hl.order = toInt(i));
+                    nns.hiddenLayers.forEach((hl, i) => hl.rowOrder = toInt(i));
                 }
             }
 

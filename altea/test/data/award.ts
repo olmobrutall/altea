@@ -1,5 +1,5 @@
 import { reflect } from "@altea/altea/data/reflection";
-import { entity, part, implementedBy, customLite, backReference, rowOrder, forceNullable } from "@altea/altea/data/decorators";
+import { legacyColumnName, entity, part, implementedBy, customLite, backReference, rowOrder, forceNullable } from "@altea/altea/data/decorators";
 import { notNullValidator } from "@altea/altea/data/validators";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
@@ -64,8 +64,9 @@ export class AwardNominationEntity_Point extends Entity {
     @backReference
     awardNomination: Lite<AwardNominationEntity>;
 
+    @legacyColumnName("Order")
     @rowOrder
-    order: int;
+    rowOrder: int;
 
     point: int;
 }

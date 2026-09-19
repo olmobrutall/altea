@@ -1,4 +1,4 @@
-import { entity, part, implementedBy, backReference, rowOrder, forceNullable, quoted } from "@altea/altea/data/decorators";
+import { legacyColumnName, entity, part, implementedBy, backReference, rowOrder, forceNullable, quoted } from "@altea/altea/data/decorators";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
@@ -39,8 +39,9 @@ export class AlbumEntity_Song extends Entity {
     @backReference
     album: Lite<AlbumEntity>;
 
+    @legacyColumnName("Order")
     @rowOrder
-    order: int;
+    rowOrder: int;
 
     name: string;
     duration: Temporal.Duration | null;

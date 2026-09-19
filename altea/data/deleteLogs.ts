@@ -1,7 +1,7 @@
 import { Entity, EmbeddedEntity } from "./entity";
 import { reflect } from "./reflection";
 import { Lite } from "./lite";
-import { part, backReference, implementedBy, rowOrder, unit } from "./decorators";
+import { part, backReference, implementedBy, rowOrder, legacyColumnName, unit } from "./decorators";
 import { ComparisonType, numberIsValidator, validate, ValidationMessage } from "./validators";
 import { Temporal, type int } from "./basics";
 import { Clock } from "./utils/clock";
@@ -28,8 +28,9 @@ import { TypeEntity } from "./typeEntity";
 @part
 export class DeleteLogsTypeOverridesEmbedded extends Entity {
     // Signum's [PreserveOrder] on the collection.
+    @legacyColumnName("Order")
     @rowOrder
-    order: int;
+    rowOrder: int;
 
     @backReference @implementedBy(() => [])
     parameters: Lite<Entity>;

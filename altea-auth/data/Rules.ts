@@ -157,7 +157,8 @@ export class RuleTypeEntity extends RuleEntity {
 @legacyTableName({ wasVirtualMList: true })
 export class RuleTypeConditionEntity extends Entity {
     @backReference ruleType: Lite<RuleTypeEntity>;
-    @rowOrder order: int = toInt(0);
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int = toInt(0);
     // A condition row that ANDs nothing would match EVERY row, so it must name at least one condition.
     @noRepeatValidator()
     @countIsValidator(ComparisonType.GreaterThan, 0)
@@ -170,7 +171,8 @@ export class RuleTypeConditionEntity extends Entity {
 export class RuleTypeConditionEntity_Condition extends Entity {
     @backReference ruleTypeCondition: Lite<RuleTypeConditionEntity>;
     // [PreserveOrder] there, so the table has an Order column.
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
     @valueField symbol: Lite<TypeConditionSymbol>;
 }
 
@@ -292,7 +294,8 @@ export class RuleOperationEntity extends RuleEntity {
 @legacyTableName({ wasVirtualMList: true })
 export class RuleOperationConditionEntity extends Entity {
     @backReference ruleOperation: Lite<RuleOperationEntity>;
-    @rowOrder order: int = toInt(0);
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int = toInt(0);
     // A condition row that ANDs nothing would match EVERY row, so it must name at least one condition.
     @noRepeatValidator()
     @countIsValidator(ComparisonType.GreaterThan, 0)
@@ -304,7 +307,8 @@ export class RuleOperationConditionEntity extends Entity {
 export class RuleOperationConditionEntity_Condition extends Entity {
     @backReference ruleOperationCondition: Lite<RuleOperationConditionEntity>;
     // [PreserveOrder] there, so the table has an Order column.
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
     @valueField symbol: Lite<TypeConditionSymbol>;
 }
 
@@ -409,7 +413,8 @@ export class RulePropertyEntity extends RuleEntity {
 @legacyTableName({ wasVirtualMList: true })
 export class RulePropertyConditionEntity extends Entity {
     @backReference ruleProperty: Lite<RulePropertyEntity>;
-    @rowOrder order: int = toInt(0);
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int = toInt(0);
     // A condition row that ANDs nothing would match EVERY row, so it must name at least one condition.
     @noRepeatValidator()
     @countIsValidator(ComparisonType.GreaterThan, 0)
@@ -421,7 +426,8 @@ export class RulePropertyConditionEntity extends Entity {
 export class RulePropertyConditionEntity_Condition extends Entity {
     @backReference rulePropertyCondition: Lite<RulePropertyConditionEntity>;
     // [PreserveOrder] there, so the table has an Order column.
-    @rowOrder order: int;
+    @legacyColumnName("Order")
+    @rowOrder rowOrder: int;
     @valueField symbol: Lite<TypeConditionSymbol>;
 }
 
