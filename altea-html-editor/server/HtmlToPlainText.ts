@@ -13,20 +13,6 @@
 // block tag (p / div / h1-h6) ends with a newline, `<ul>`'s items are prefixed "- " and `<ol>`'s "1. ", "2. ",
 // and any other tag is transparent.
 
-// Side effect: REGISTERS `HtmlEditorMessage`. A `msg()` container registers when its module is IMPORTED and
-// the translation sync reads the LIVE registry, so a container only the CLIENT imports is invisible to it.
-// Without this the package declared nothing localizable at all — no `translations/` directory, no line in the
-// application's translationFiles.txt, and `stub-translations @altea/altea-html-editor` answered "Not a package
-// that declares anything localizable", so the 11 strings Signum ships German for had nowhere to land. Core's
-// `searchHelpMessages`, altea-cache's CacheMessage and altea-profiler's three containers are the same shape.
-//
-// HERE, and not in an application's starter, because this is the package's ONLY server module and therefore
-// its server entry — the counterpart of CacheLogic.ts and ProfilerLogic.ts. It is already reached by a started
-// application: @altea/altea-office-template's PlainExcelGenerator imports `htmlToText` (above), and
-// PlainExcelLogic is started. So no package gains a dependency it did not have, and no application has to
-// remember to wire a UI-only module's messages in by hand.
-import "../data/HtmlEditor";
-
 type Token =
     | { kind: "text"; value: string }
     | { kind: "open"; name: string }
