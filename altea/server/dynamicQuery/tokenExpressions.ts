@@ -17,10 +17,12 @@ import { Entity } from "../../data/entity";
 import { TypeEntity } from "../../data/typeEntity";
 import { RuntimeType, ClassType, LiteType, ArrayType, LiteralType, TsVectorType, TsQueryType } from "../runtimeTypes";
 import { Connector } from "../connection/connector";
+import { PgVectorSearch, SqlVectorSearch } from "../vectorSearch";
 import {
     QueryToken, RootToken, EntityPropertyToken, EntityToStringToken, HasValueToken, ObjectPropertyToken,
     AsTypeToken, EntityTypeToken, DateToken, DatePartStartToken, DurationTotalToken, ModuloToken, CountToken,
     StepToken, StepMultiplierToken, StepRoundingToken, RoundingType, FullTextRankToken, StringSnippetToken,
+    VectorDistanceToken,
     CollectionElementToken, CollectionAnyAllToken, CollectionAnyAllType, CollectionToArrayToken,
     AggregateToken, AggregateFunction, ExtensionToken,
     ManualContainerToken, ManualToken,
@@ -324,6 +326,51 @@ FullTextRankToken.prototype.buildExpressionInternal = function (context: BuildEx
     const entity = parent.parent!.buildExpression(context);
     const tsVector = new CallExpression(new PropertyExpression(entity, "getTsVectorColumn"), [], new TsVectorType());
     return new CallExpression(new PropertyExpression(tsVector, "rank"), [combined], LiteralType.number);
+};
+
+/**
+ * `Distance` → the dialect's vector-distance function between the row's embedding column and the vector
+ * the search asked for: `cosine_distance(col, v)` / `l2_distance` / … on Postgres (pgvector),
+ * `VECTOR_DISTANCE('cosine', col, v)` on SQL Server. Port of Signum's `VectorDistanceToken`.
+ *
+ * Like `MatchRank` above, this is not a property of the row but a property of the row AGAINST THIS
+ * SEARCH, so the query vector is rebuilt from the request's own filters on the same token — the
+ * `SmartSearch` condition's prose, already resolved to a Vector by `SmartSearchLogic.resolveEmbeddings`,
+ * or a Vector handed straight in by server-side code. With no such filter Signum answers a typed null
+ * (the column is selectable and simply has nothing to measure against), and so does this.
+ *
+ * BOTH PROVIDERS ARE IMPLEMENTED, which Signum's SmartSearch filter is not (it gates its rewrite on
+ * `Connector.Current is SqlServerConnector`); altea's vector substrate — `server/vectorSearch`, the
+ * QueryBinder's bind*Vector* pair, the `VECTOR(n)` / `vector` casts — already covers both, so gating
+ * would refuse a query the engine can run. The METRIC comes from the column's own `@vectorIndex`,
+ * defaulting to Cosine on either dialect exactly as the SchemaBuilder defaults the real index.
+ */
+VectorDistanceToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    const parent = this.parent!;
+    const vector = context.filters.map(f => f.vectorFor(parent)).notNull()[0];
+    if (vector == undefined)
+        return new ConstantExpression(null, LiteralType.number);
+
+    const column = parent.buildExpression(context);
+    const options = parent.getPropertyRoute()?.fieldInfo?.vectorIndex;
+
+    if (Connector.current().isPostgres) {
+        const metric = options?.postgres?.metric ?? "Cosine";
+        // `Hamming` / `Jaccard` index BIT vectors, and pgvector's distance functions for them
+        // (hamming_distance / jaccard_distance) take a `bit`, not a `vector` — a different column type
+        // altogether, which altea does not model. Refusing names the gap; silently measuring cosine
+        // instead would rank by a metric the index was not built for.
+        if (metric === "Hamming" || metric === "Jaccard")
+            throw new Error(
+                `The '${this.fullKey()}' (Distance) token cannot use the '${metric}' metric: pgvector measures it over a ` +
+                `'bit' column (hamming_distance / jaccard_distance), and altea models a vector column as 'vector(N)' only.`);
+        return new CallExpression(new PropertyExpression(new ConstantExpression(PgVectorSearch), "distance"),
+            [new ConstantExpression(metric), column, new ConstantExpression(vector)], LiteralType.number);
+    }
+
+    const metric = options?.sqlServer?.metric ?? "Cosine";
+    return new CallExpression(new PropertyExpression(new ConstantExpression(SqlVectorSearch), "vectorDistance"),
+        [new ConstantExpression(metric), column, new ConstantExpression(vector)], LiteralType.number);
 };
 
 // `MatchSnippet` SELECTS THE TEXT ITSELF; the excerpt is computed from it afterwards, over the

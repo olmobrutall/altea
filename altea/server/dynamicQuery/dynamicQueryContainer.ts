@@ -6,6 +6,7 @@ import { RootToken, type QueryToken } from "../../data/dynamicQuery/tokens";
 import type { DynamicQueryCore } from "./dynamicQueryCore";
 import { getKey, type QueryName } from "../../data/dynamicQuery/queryUtils";
 import { resolveCleanType } from "../../data/registration";
+import { SmartSearchLogic } from "./smartSearch";
 
 // Port of Signum's `DynamicQueryContainer` (DynamicQuery/DynamicQueryContainer.cs): the registry of
 // executable queries. Each is registered as a lazy `DynamicQueryBucket` (Signum's ResetLazy) so the
@@ -80,6 +81,11 @@ export class DynamicQueryContainer {
      */
     async executeQueryAsync(request: QueryRequest): Promise<ResultTable> {
         const core = this.getCore(request.queryName);
+        // A `SmartSearch` filter carries PROSE; the vector a `Distance` token measures against comes from
+        // an embeddings model, over the network. Resolved here — before anything builds an expression —
+        // because the seam is async and expression building is not. Applied in the container, like the
+        // SystemTime scope below, so every core gets it. No SmartSearch filter ⇒ no work, no seam call.
+        await SmartSearchLogic.resolveEmbeddings(request.filters);
         const run = (): Promise<ResultTable> => request.systemTime == undefined
             ? core.executeQueryAsync(request)
             : SystemTime.override(request.systemTime, () => core.executeQueryAsync(request));

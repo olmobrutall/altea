@@ -1,4 +1,5 @@
 import { Entity, EmbeddedEntity, ModelEntity, type BaseEntity, type Type } from "../entity";
+import { Vector } from "../vector";
 import { cleanTypeName } from "../registration";
 import { Localization } from "../utils/localization";
 import type { TypeReference } from "../reflection";
@@ -22,6 +23,16 @@ export type { FilterTypeKeys } from "../dynamicQueries";
 export { FilterType } from "../dynamicQueries";
 import type { FilterTypeKeys } from "../dynamicQueries";
 
+/**
+ * A `vector(N)` column's type (Signum's `uType == typeof(Pgvector.Vector)`). Tested by CLASS IDENTITY,
+ * not by `typeName`: a field typed `Vector | null` is emitted by the transformer as `type: () => Vector`
+ * with no `typeName` at all (Vector is a runtime class, so it gets a thunk, as an entity reference does);
+ * the `typeName` string is only filled in for the by-name value types (String / Number / PlainDate / …).
+ */
+export function isVectorType(type: TypeReference): boolean {
+    return !type.array && type.getFunction() === Vector;
+}
+
 // Port of Signum's `QueryUtils.TryGetFilterType`, over an altea `TypeReference`. Unlike the old
 // RuntimeType form this needs no `fromTypeName` refinement: the TypeReference carries `typeName` +
 // `subTypeName`, so the Integer-vs-Decimal split is recovered directly.
@@ -35,6 +46,13 @@ export function tryGetFilterType(type: TypeReference): FilterTypeKeys | undefine
     // A collection is navigated (`.Any` / `.Element` / `.SeparatedByComma`), never filtered directly.
     if (type.array)
         return undefined;
+
+    // A dense float vector (data/vector) — Signum's `uType == typeof(Pgvector.Vector)`. This single case
+    // is what makes a `vector(N)` column reachable from the query layer at all: the client keys the
+    // `SmartSearch` filter operation (and its prose editor) off exactly this filter type, and nothing
+    // produced it before.
+    if (isVectorType(type))
+        return "Vector";
 
     if (type.getEnum() != undefined)
         return "Enum";

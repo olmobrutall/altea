@@ -1,4 +1,5 @@
 import { Expression, ParameterExpression, BinaryExpression, ConstantExpression, PropertyExpression, CallExpression } from "../linq/expressions";
+import { Vector } from "../../data/vector";
 import { LiteralType, ArrayType, TsVectorType, TsQueryType } from "../runtimeTypes";
 import { SqlFullTextSearch } from "../fullTextSearch";
 import type { Implementations } from "../../data/implementations";
@@ -70,6 +71,10 @@ export enum FilterOperationKeys {
     TsQuery_Plain = "TsQuery_Plain",
     TsQuery_Phrase = "TsQuery_Phrase",
     TsQuery_WebSearch = "TsQuery_WebSearch",
+    // Vector (embedding) search over a `vector(N)` column: the value is PROSE, resolved to an embedding
+    // by the SmartSearchLogic seam before the query is built. Like Signum, it contributes NO predicate —
+    // see the SmartSearch branch of getConditionExpressionBasic.
+    SmartSearch = "SmartSearch",
 }
 
 // The Postgres tsquery builder method (on String) for each TsQuery filter operation.
@@ -115,6 +120,19 @@ export abstract class Filter {
      * this is the one place that knows the operation → `*_tsquery` mapping.
      */
     tsQueryFor(_token: QueryToken): Expression | undefined { return undefined; }
+
+    /**
+     * The vector this filter searched `token` for, or undefined when it says nothing about it (Signum's
+     * `VectorDistanceToken.GetVectorFromFilters`) — what a `Distance` sub-token measures against.
+     */
+    vectorFor(_token: QueryToken): Vector | undefined { return undefined; }
+
+    /**
+     * Every `SmartSearch` condition in this filter (and its descendants) whose value is still the PROSE
+     * the user typed. Read by `SmartSearchLogic.resolveEmbeddings`, which turns each one into a Vector
+     * before the query is built — the embedding seam is async and expression building is not.
+     */
+    smartSearchConditions(): FilterCondition[] { return []; }
     // The deepest CollectionNested token, if any (drives nested-query filtering). Not modelled yet.
     getDeepestNestedToken(): QueryToken | undefined { return undefined; }
     // Signum's Filter.IsAggregate: whether this filter is a HAVING (applied after GroupBy).
@@ -194,6 +212,23 @@ export class FilterGroup extends Filter {
         const method = this.groupOperation === FilterGroupOperationKeys.And ? "and" : "or";
         return parts.reduce((a, b) => new CallExpression(new PropertyExpression(a, method), [b], new TsQueryType()));
     }
+
+    // Signum recurses into a group and takes the FIRST vector it finds, whatever the group's operation:
+    // a distance is measured against ONE query vector, so there is nothing to combine (unlike a tsquery,
+    // which really does compose). Two SmartSearch filters on one column is a malformed request, and
+    // Signum's answer — the first one wins — is the only one that does not invent a meaning.
+    override vectorFor(token: QueryToken): Vector | undefined {
+        for (const f of this.filters) {
+            const v = f.vectorFor(token);
+            if (v != undefined)
+                return v;
+        }
+        return undefined;
+    }
+
+    override smartSearchConditions(): FilterCondition[] {
+        return this.filters.flatMap(f => f.smartSearchConditions());
+    }
 }
 
 // Port of Signum's `FilterCondition`: a token compared to a value.
@@ -203,6 +238,14 @@ export class FilterCondition extends Filter {
         public readonly operation: FilterOperationKeys,
         public readonly value: unknown,
     ) { super(); }
+
+    /**
+     * The embedding a `SmartSearch` filter's prose resolved to, filled by `SmartSearchLogic
+     * .resolveEmbeddings` before the query is built. It is a SEPARATE slot rather than an overwrite of
+     * `value`, so the prose the user typed survives for anything that reads the request back (the
+     * keyword / snippet pass, a query log, a re-serialization).
+     */
+    resolvedVector?: Vector;
 
     getTokens(): QueryToken[] { return [this.token]; }
 
@@ -271,6 +314,20 @@ export class FilterCondition extends Filter {
             return new CallExpression(new PropertyExpression(tsVector, "matches"), [tsQuery], LiteralType.boolean);
         }
 
+        // ---- Vector smart search (Signum's `Operation.IsSmartSearch() => Expression.Constant(true)`) --
+        // A SmartSearch contributes NO PREDICATE. It is not really a filter: it is the query vector,
+        // parked on the request so the `Distance` sub-token can measure against it and the result list
+        // can be ORDERED by similarity. Filtering by it would mean a distance THRESHOLD, and there is no
+        // meaningful one — an embedding distance is only comparable to other distances in the same query.
+        //
+        // altea divergence: on SQL Server Signum ALSO rewrites the request into a `FilterSqlServerVector
+        // Search` — a VECTOR_SEARCH table-valued-function join that keeps the 100 nearest rows — so there
+        // the operation does narrow the result set. altea builds no TVF join in its dynamic query (the
+        // same machinery `MatchRank` is missing on SQL Server), so both providers get the inline shape:
+        // no predicate, and a `Distance` column/order that works on either. See port/TranslationGaps.md.
+        if (this.operation === FilterOperationKeys.SmartSearch)
+            return new ConstantExpression(true);
+
         throw new Error(`FilterOperation ${this.operation} not supported yet`);
     }
 
@@ -312,6 +369,24 @@ export class FilterCondition extends Filter {
         if (this.token.fullKey() !== token.fullKey())
             return undefined;
         return new CallExpression(new PropertyExpression(new ConstantExpression(this.value), method), [], new TsQueryType());
+    }
+
+    /**
+     * The vector this condition searched `token` for (Signum's `GetVectorFromFilters`). Either the
+     * embedding the seam produced from the prose, or — Signum's second branch — a Vector handed in
+     * directly, which is how server-side code searches without going through an embeddings model.
+     */
+    override vectorFor(token: QueryToken): Vector | undefined {
+        if (this.token.fullKey() !== token.fullKey())
+            return undefined;
+        if (this.resolvedVector != undefined)
+            return this.resolvedVector;
+        return this.value instanceof Vector ? this.value : undefined;
+    }
+
+    override smartSearchConditions(): FilterCondition[] {
+        return this.operation === FilterOperationKeys.SmartSearch && typeof this.value === "string" && this.value.length > 0
+            ? [this] : [];
     }
 }
 

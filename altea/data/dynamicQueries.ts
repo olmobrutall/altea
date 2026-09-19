@@ -53,6 +53,14 @@ export const QueryTokenMessage = {
     MatchRankFor0: msg("Match Rank for {0}"),
     MatchSnippet: msg("Match Snippet"),
     SnippetOf0: msg("Snippet for {0}"),
+    // Vector (embedding) search — the `Distance` sub-token of a @vectorIndex'd vector column, and the
+    // name of the value type itself. Signum spells both of the first two as English string literals in
+    // `VectorDistanceToken` ("Distance", "Distance for " + parent) and `VectorColumnToken.NiceTypeName`,
+    // which is the same C1 defect the Step / Modulo / Length captions had: no member for a translation
+    // to hang on.
+    VectorDistance: msg("Distance"),
+    VectorDistanceFor0: msg("Distance for {0}"),
+    Vector: msg("Vector"),
     Not: msg(),
     Null: msg(),
     Number: msg(),

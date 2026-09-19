@@ -572,7 +572,14 @@ export function vectorIndex<T>(
 ): (target: Function) => void {
     return function (target: Function): void {
         const ti = getOrCreateTypeInfo(target);
-        (ti.vectorIndexes ??= []).push({ field: field as Quoted<(element: any) => unknown>, sqlServer: options?.sqlServer, postgres: options?.postgres });
+        const quotedField = field as Quoted<(element: any) => unknown>;
+        (ti.vectorIndexes ??= []).push({ field: quotedField, sqlServer: options?.sqlServer, postgres: options?.postgres });
+        // Stamp the covered column with its index options, the way @fullTextIndex stamps
+        // hasFullTextIndex: this is where the query layer's `Distance` sub-token finds out that the
+        // column is searchable at all, and which METRIC to measure it with. Isomorphic, so the client's
+        // token tree offers `Distance` without asking the server.
+        for (const name of accessedFields(quotedField))
+            getOrCreateFieldInfo(ti, name).vectorIndex = { sqlServer: options?.sqlServer, postgres: options?.postgres };
     };
 }
 

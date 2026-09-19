@@ -9,6 +9,8 @@ import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { table as tableQuery } from "@altea/altea/server/table";
 import type { Lite } from "@altea/altea/data/lite";
 import { ValidationMessage } from "@altea/altea/data/validators";
+import { Vector } from "@altea/altea/data/vector";
+import { SmartSearchLogic } from "@altea/altea/server/dynamicQuery/smartSearch";
 import "@altea/altea/data/globals";
 import {
     ChatbotConfigurationEmbedded, ChatbotLanguageModelEntity, ChatbotLanguageModelOperation,
@@ -31,10 +33,11 @@ import { GeminiProvider } from "./Providers/GeminiProvider";
 //    AgentLogic's agent registry: a symbol read from a row is a different instance).
 //  - Signum instantiates seven provider classes; altea instantiates three, because five of Signum's speak
 //    ONE protocol behind five SDKs (see Providers/OpenAICompatible.ts).
-//  - `Filter.GetEmbeddingForSmartSearch` is NOT wired: altea's query engine does not expose a vector
-//    smart-search filter operation yet (see client/FinderRules.tsx's note on `VectorSmartSearch`), so
-//    there is no hook to install. `getEmbeddings` is fully ported and callable directly, which is what the
-//    other Southwind consumers (EmployeesLogic, the terminal) use it for.
+//  - `Filter.GetEmbeddingForSmartSearch` is wired, as `SmartSearchLogic.registerGetEmbedding` — core's
+//    seam for the `SmartSearch` filter operation over a vector column (@altea/altea/server/dynamicQuery/
+//    smartSearch). It is async there, where Signum's Func blocks; the body is otherwise Signum's, the
+//    default embeddings model. `getEmbeddings` stays callable directly too, which is what the other
+//    Southwind consumers (EmployeesLogic, the terminal) use it for.
 //  - `HeavyProfiler.Log("GetEmbeddings", …)` is kept, on altea's profiler.
 export namespace LanguageModelLogic {
 
@@ -184,6 +187,24 @@ export namespace LanguageModelLogic {
             const map = await embeddingsModels!.value();
             return [...map.values()].find(a => a.isDefault)?.toLite() ?? null;
         }, { invalidateWith: [EmbeddingsLanguageModelEntity] });
+
+        // Signum's `Filter.GetEmbeddingForSmartSearch = …` — the query engine's vector smart-search seam,
+        // answered with the DEFAULT embeddings model. This is the whole reason core declares the hook:
+        // @altea/altea/server owns the question (a `SmartSearch` filter over a vector column) and this
+        // module owns the model rows, the provider and the credentials that answer it. Installed on
+        // start, so an application that never starts the agent module simply has no smart search — and
+        // says so, rather than ranking by nothing (see SmartSearchLogic.getEmbedding).
+        //
+        // altea's seam is async, where Signum's Func blocks on `.ResultSafe()`; everything else is the
+        // same call. The query token is ignored, as it is there — one default model serves every column.
+        SmartSearchLogic.registerGetEmbedding(async (_token, searchText) => {
+            const lite = await getDefaultEmbeddingsModel();
+            if (lite == null)
+                throw new Error("No default EmbeddingsLanguageModelEntity configured (mark one with the MakeDefault operation).");
+            const model = await retrieveEmbeddingsFromCache(lite);
+            const embeddings = await getEmbeddings(model, [searchText]);
+            return new Vector(embeddings.single());
+        });
     }
 
     function symbolByKey(key: string): LanguageModelProviderSymbol {

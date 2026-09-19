@@ -288,6 +288,21 @@ export type FieldInfoOf<T> = FieldInfo & { readonly name: MemberOf<T> };
  * is asked next (see `FieldInfo.isReadOnlyFor`).
  */
 export type ReadOnlyRule = (entity: any, fi: FieldInfo) => boolean | undefined;
+
+/**
+ * The per-dialect options of a `@vectorIndex` (Signum's `VectorTableIndex.SqlServerOptions` /
+ * `PostgresOptions`, as bare shapes — `data/` must not import the server's schema layer).
+ *
+ * Both halves are carried on BOTH tiers, and both are OPTIONAL: the SchemaBuilder fills each dialect's
+ * default (`Cosine`, `HNSW` / `DiskANN`) when it builds the real index, and the query layer defaults the
+ * METRIC the same way when it builds a `Distance` expression — a vector index declared with no options at
+ * all is a cosine index on either provider.
+ */
+export interface VectorIndexOptions {
+    sqlServer?: { metric?: 'Cosine' | 'Euclidean' | 'DotProduct'; indexType?: 'DiskANN'; maxDegreeOfParallelism?: number };
+    postgres?: { indexType?: 'HNSW' | 'IVFFlat'; metric?: 'Cosine' | 'L2' | 'InnerProduct' | 'L1' | 'Hamming' | 'Jaccard'; lists?: number };
+}
+
 export class FieldInfo extends TypeReference {
     readonly name: string;
     // The TypeInfo that DECLARES this field (Signum's PropertyRoute.RootType). Set once at creation;
@@ -342,6 +357,17 @@ export class FieldInfo extends TypeReference {
     // Drives the client's full-text filter operations and the Rank sub-token. Computed by the
     // SchemaBuilder from TypeInfo.fullTextIndexes.
     hasFullTextIndex?: boolean;
+    /**
+     * Set when this field's `vector(N)` column carries a class-level `@vectorIndex` — Signum's
+     * `VectorTableIndex`, which its `VectorColumnToken` is minted from and reads the distance METRIC off.
+     *
+     * altea has no VectorColumnToken (see `data/dynamicQuery/tokens/vectorTokens`): the vector PROPERTY's
+     * own token is the one the `Distance` sub-token hangs off, exactly as `MatchRank` hangs off the
+     * full-text-indexed string property — so the index options have to reach the token, and the token is
+     * isomorphic. Stamped by the decorator (like `hasFullTextIndex`), NOT by the SchemaBuilder, so the
+     * client sees it without a server round-trip.
+     */
+    vectorIndex?: VectorIndexOptions;
     columnOptions?: ColumnOptions;
     // The LOGICAL name SIGNUM gave this field's column (@legacyColumnName), used ONLY when
     // SchemaSettings.legacyMode is on — for a field altea models differently from Signum but which occupies
@@ -714,11 +740,7 @@ export class TypeInfo {
     // Set by @vectorIndex(e => e.embedding, options?): a nearest-neighbour index over one vector
     // column (Signum's WithVectorIndex). Stored as the @quoted single-column selector + per-dialect
     // options as bare shapes; the SchemaBuilder resolves the column and builds a VectorTableIndex.
-    vectorIndexes?: {
-        field: Quoted<(element: any) => unknown>;
-        sqlServer?: { metric?: 'Cosine' | 'Euclidean' | 'DotProduct'; indexType?: 'DiskANN'; maxDegreeOfParallelism?: number };
-        postgres?: { indexType?: 'HNSW' | 'IVFFlat'; metric?: 'Cosine' | 'L2' | 'InnerProduct' | 'L1' | 'Hamming' | 'Jaccard'; lists?: number };
-    }[];
+    vectorIndexes?: ({ field: Quoted<(element: any) => unknown> } & VectorIndexOptions)[];
     // Set by @systemVersioned (Signum's [SystemVersioned]): the type's table keeps a full
     // history of every row version. The optional fields override the period column / history
     // table names; the SchemaBuilder fills dialect defaults. Stored as a bare shape here

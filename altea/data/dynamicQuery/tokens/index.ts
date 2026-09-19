@@ -14,6 +14,7 @@ export * from "./dateToken";
 export * from "./moduloToken";
 export * from "./stepToken";
 export * from "./fullTextTokens";
+export * from "./vectorTokens";
 export * from "./countToken";
 export * from "./collectionElementToken";
 export * from "./collectionAnyAllToken";

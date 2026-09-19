@@ -5,7 +5,7 @@ import { DateTimePrecision } from "../../globals/dateTimeExtensions";
 import { DateTimePrecisionValidator } from "../../validators";
 import { tryGetTypeInfo, TypeReference, type FieldInfo } from "../../reflection";
 import { Implementations } from "../../implementations";
-import { tryGetFilterType, type QueryName, type FilterTypeKeys } from "../queryUtils";
+import { tryGetFilterType, isVectorType, type QueryName, type FilterTypeKeys } from "../queryUtils";
 import { QueryTokenMessage, QueryTokenDateMessage, CollectionMessage } from "../../dynamicQueries";
 import type { LocalizableMessage } from "../../utils/localization";
 import type { CollectionToArrayToken } from "./collectionToArrayToken";
@@ -307,6 +307,12 @@ export abstract class QueryToken {
         if (type.typeName === "PlainTime")
             return this.andHasValue([]);
 
+        // A `vector(N)` column: its one sub-token is the distance to what the search asked for. See
+        // vectorTokens.ts — Signum reaches this through a synthetic VectorColumnToken minted from the
+        // schema's vector indexes; altea hangs it off the property token, which the client already has.
+        if (isVectorType(type))
+            return this.vectorTokens();
+
         if (type.typeName === "Boolean" || type.getEnum() != undefined)
             return this.andHasValue([]);
 
@@ -466,6 +472,20 @@ export abstract class QueryToken {
                 list.push(tokenFactories!.stringSnippet(this));
         }
         return list;
+    }
+
+    /**
+     * The sub-tokens of a vector column: `Distance`, and only when the column carries a `@vectorIndex`
+     * (Signum mints its VectorColumnToken from the index entries, so an unindexed vector column offers
+     * nothing there either). The index is what names the distance METRIC — without one there is no
+     * defensible default, and guessing would rank rows by the wrong measure without saying so.
+     *
+     * Keyed off the token's own PROPERTY ROUTE, like `stringTokens`: a synthetic token with no route
+     * (ToString, an aggregate) can carry no index and offers nothing.
+     */
+    protected vectorTokens(): QueryToken[] {
+        const fi = this.getPropertyRoute()?.fieldInfo;
+        return fi?.vectorIndex == undefined ? [] : [tokenFactories!.vectorDistance(this)];
     }
 
     // Signum's AndModuloTokens: integer bucket sub-tokens.
@@ -843,6 +863,9 @@ function niceTypeNameOf(type: TypeReference, filterType: FilterTypeKeys | undefi
                 : QueryTokenMessage.DateTime.niceToString();
         case "Boolean": return QueryTokenMessage.Check.niceToString();
         case "Guid": return QueryTokenMessage.GlobalUniqueIdentifier.niceToString();
+        // Signum's `VectorColumnToken.NiceTypeName` is `$"Vector ({property})"`; the property name is
+        // already the token's own caption right beside it, so altea names the TYPE and nothing else.
+        case "Vector": return QueryTokenMessage.Vector.niceToString();
         case "Enum": return type.getTypeName() ?? ""; // TODO: localized enum type name
         case "Lite": {
             const impl = implementations ?? implementationsOf(type);
@@ -895,6 +918,7 @@ export interface TokenFactories {
     step(parent: QueryToken, stepSize: number): QueryToken;
     fullTextRank(parent: QueryToken): QueryToken;
     stringSnippet(parent: QueryToken): QueryToken;
+    vectorDistance(parent: QueryToken): QueryToken;
     count(parent: QueryToken): QueryToken;
     aggregate(aggregateFunction: string, parent: QueryToken | undefined, options?: { filterOperation?: string; value?: unknown; distinct?: boolean; queryName?: QueryName }): QueryToken;
     collectionElement(parent: QueryToken, elementType: string): QueryToken;

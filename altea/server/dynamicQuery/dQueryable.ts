@@ -85,7 +85,17 @@ export class DQueryable {
     where(filters: Filter[]): DQueryable {
         if (filters.length === 0)
             return this;
-        const body = filters.map(f => f.getExpression(this.context)).reduce((a, b) => new BinaryExpression("&&", a, b));
+        // A filter may contribute NO predicate and still belong to the request: `SmartSearch` carries the
+        // query VECTOR a `Distance` token measures against, not a condition, so its expression is a
+        // constant true (Signum's `Expression.IsSmartSearch() => Expression.Constant(true)`). Those are
+        // dropped here rather than ANDed in — a lone constant would otherwise reach SQL as a bare
+        // parameter (`WHERE $1`, and `WHERE @p1` is not even valid T-SQL). The filters themselves still
+        // go onto the context, which is where the token reads them from.
+        const bodies = filters.map(f => f.getExpression(this.context))
+            .filter(e => !(e instanceof ConstantExpression && e.value === true));
+        if (bodies.length === 0)
+            return new DQueryable(this.query, this.context.andFilters(filters));
+        const body = bodies.reduce((a, b) => new BinaryExpression("&&", a, b));
         const predicate = new LambdaExpression([this.context.parameter], body);
         const filtered = new CallExpression(new PropertyExpression(this.query, "filter"), [predicate], this.query.type);
         return new DQueryable(filtered, this.context.andFilters(filters));

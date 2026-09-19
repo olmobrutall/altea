@@ -292,6 +292,10 @@ function deserializeSingle(token: QueryToken, raw: unknown): unknown {
         case "Time": return coerceTemporal(token, raw);
         case "String":
         case "Guid": return String(raw);
+        // A Vector column's only operation is SmartSearch, and its value is PROSE (Signum's
+        // `FilterCondition.GetValueType` answers `string` for it) — the embedding is produced on this
+        // side, by the SmartSearchLogic seam, just before the query is built. Nothing to convert.
+        case "Vector": return raw;
         default: return raw; // Lite / Embedded / Model — already decoded by the Serializer
     }
 }
