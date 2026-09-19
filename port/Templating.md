@@ -19,7 +19,7 @@ both tiers need.
 @[m:ShortAddress]    the MODEL              → ModelValueProvider
 @[g:Now]             a GLOBAL variable      → GlobalValueProvider
 @[n:Order.State]     a NICE NAME            → NiceNameValueProvider
-@[d:…]               a DATE expression      → DateValueProvider
+@[d:…]               a DATE expression      → DateValueProvider (ISO, or a SMART DATE — see UserAssets.md)
 @[$line.Product]     a $variable's member   → ContinueValueProvider
 @[42] / @["x"]       a constant             → ConstantValueProvider
 ```

@@ -59,8 +59,74 @@ RETRIEVE. altea's client resolves a token locally from `tokenString` (`Finder.To
 
 `FilterValueString` is the value↔string half of Signum's server-side `FilterValueConverter`, moved into the
 DATA layer because both tiers need it — the SearchControl editors on the client, `QueryFilterUtils` on the
-server. Deferred and passed through unchanged as raw strings: the SmartDateTime expression grammar
-("Today", "Now+2Months") and the `[CurrentEntity]` / `[CurrentUser]` special expressions.
+server. Still passed through unchanged as raw strings: the `[CurrentEntity]` / `[CurrentUser]` special
+expressions (each caller resolves them against its own context — see below).
+
+## The filter-value converters
+
+A stored filter value is a STRING, and not always the value: it may be an EXPRESSION that means something
+different every time the asset runs. Signum keeps one ordered list of rules for that
+(`FilterValueConverter.SpecificConverters`) and asks each in turn until one claims the value; altea's is
+`data/FilterValueConverter.ts` over `data/FilterValueConverters/`, with `FilterValueString` reduced to the
+façade the two tiers call — the loop plus Signum's own primitive fallback.
+
+Two of Signum's four rules are here. `LiteFilterValueConverter` is the entity reference (`"Order;42"`) that
+was inlined in `FilterValueString` before the family existed, and `SmartDateTimeFilterValueConverter` is the
+relative date: `yyyy/mm/dd hh:mm:ss` where each part is its own PATTERN ("whatever it is now"), a `+n` /
+`-n` shift, or a literal — plus `max` and a weekday (`mon`…`sun`, optionally `+n` / `-n`) in the day
+position. It is what makes a saved query mean "since the start of this month" rather than freezing on a
+date, and Southwind's own `UserAssets.xml` stores exactly two spellings of it: `yyyy/mm/01 00:00:00` on
+three month-axis charts and `-1/mm/dd 00:00:00` on "Evolution By Employee".
+
+`CurrentEntityConverter` / `CurrentUserConverter` are NOT ported. Both read an ambient "the entity this is
+being rendered for" / "the logged-in user" out of a thread variable, and the callers that need them already
+resolve the two strings themselves against a context this package cannot see (`UserChartClient.parseValue`
+against the chart's scope entity and `AppContext.currentUser`). Porting them means giving altea that
+ambient context first.
+
+### Divergences
+
+- **The parts are mixed with the clock INDEPENDENTLY and then carried** — Temporal changes nothing about
+  that, because the grammar is not a duration: `-1/mm/dd` is "this day and month, a year ago", not "365
+  days ago", so it cannot be `now.subtract({ years: 1 })`. What Temporal does replace is the normalization
+  underneath: `DateTime.DaysInMonth(y, m)` is `PlainDate.from({year, month, day: 1}).daysInMonth`, and
+  `new DateTime(y, m, now.Day)` — which THROWS on the 31st of a 30-day month — is `PlainDate.from(…,
+  { overflow: "constrain" })`.
+- **The weekday walks a MONDAY-based week.** Signum starts it at `CultureInfo.CurrentCulture.FirstDayOfWeek`;
+  altea's `weekStart` is Monday everywhere (data/globals/dateTimeExtensions, matching the SQL the WeekStart
+  token emits), so `sun` is the END of the week here and, under en-US, the START of it there.
+- **A string without the `a/b/c d:e:f` SHAPE is "not mine", where Signum calls it an error.** Signum can
+  afford that because it writes EVERY date filter value through this converter, so a stored date is always
+  in the shape. altea does not (next bullet), and an error would reject every ISO value already stored.
+- **Formatting a date back to a relative expression is NOT wired into the toString direction**, which is
+  where Signum puts it. Signum has no way for a user to say whether a saved date filter is meant absolutely
+  or relatively, so it guesses on every save — a filter for the 19th saved on the 19th is stored
+  `yyyy/mm/dd 00:00:00` and means the 19th of NEXT month next month. altea's filter editor has an explicit
+  value↔expression toggle, so the choice is the user's; the toggle seeds the box with
+  `smartDateTimeExpression(…)`, which is Signum's `TryGetExpression` verbatim and what the round-trip tests
+  drive. The other reason is that `stringifyFilterValue` is reused by callers that are not stored filters
+  at all — altea-machine-learning codifies a predictor column's KEYS with it — where a relative spelling
+  would simply be wrong.
+- **`isValidExpression` answers the expression, not a Type.** Signum returns the .NET type the expression
+  yields and checks it is convertible to the target; there is no runtime Type to answer with in the data
+  layer, and every caller only wants "valid, or why not".
+- **The parse errors are localized** (`UserAssetQueryMessage._0MustBeBetween1And2` /
+  `._0IsNotAValid1Try2Instead`), where Signum's are raw English literals. The part that is wrong is named
+  with `QueryTokenDateMessage.Year` … `.Second` rather than its pattern, because a bare `mm` cannot say
+  whether it means the month or the minute.
+- **`parseFilterValue` takes the token's `typeName`** as well as its FilterType. Both `PlainDate` and
+  `PlainDateTime` are FilterType "DateTime", and the resolved value is an ISO STRING (which is what an
+  altea date filter value IS on both tiers — `Finder.parseFilterValues`), so without it a date-only editor
+  would be handed a timestamp.
+
+Two Signum bugs, not reproduced: `Extensions.DivMod` is floor division EXCEPT on an exact negative
+multiple, where `-60 DivMod 60` answers `(-2, 60)` — a remainder equal to the divisor, which reaches
+`new DateTime(…, second: 60)` and throws (plain floor division here); and the "not a valid day" message
+lists `(max|sun|mon|tue|wed|fri|sat|)`, missing `thu` and with a stray empty alternative.
+
+`SmartDateTimeSpan.TryParse` also opens with an "{0} has no value" case that cannot happen: every group of
+the grammar is `.+`, so a part that matched at all is non-empty. Dropped rather than carried as a message
+key nothing would show.
 
 `QueryFilterUtils.toFilterList` turns the flat, indentation-encoded rows of a stored filter tree into the
 engine's nested Filter list. It works for ANY owner's rows because they are all `QueryFilterBaseEntity` —
