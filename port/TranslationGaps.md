@@ -903,7 +903,35 @@ Confirmed false positives so far, all of them "implemented differently":
 |---|---|---|
 | Query-token captions | `Count`, `HasValue` / `_0HasValue`, `As0` / `_0As1`, `And` | **DONE** — three tokens built their caption by concatenating English at runtime |
 | SmartDateTime | `DateTimeMessage` (21) — really TWO features: 14 duration-prose members (`_0Days`, `_0Hours`…) and 5 relative-date ones (`Today`, `Yesterday`, `Last0`, `This0`) | open |
-| Search-control vocabulary | `JavascriptMessage` (28): group/ungroup results, show/hide filters, `selectToken`, `joinMode`, row moveUp/Down, `popupErrors`, `openTab`, time-machine controls | open |
-| Entity-line UI controls | `EntityControlMessage` (11), `FontSizeMessage` (4), `ContainerToggleMessage` (2) | open |
+| Search-control vocabulary | `JavascriptMessage` (21, after the cross-container check) | **DONE** — members declared |
+| Entity-line UI controls | `EntityControlMessage` (9, after the cross-container check) | **DONE** — members declared |
 | DisabledMixin | `DisabledMixin` + `DisabledMessage` + `DisableOperation` (4) | open |
-| Long tail | `LiteMessage` (4), `SelectorMessage` (5), `EngineMessage` (3), `OperationMessage` (3), `PaginationMessage`, `FrameMessage` (2), `EmailOwnerData` (5), `IEntity`, `SystemTimeProperty`, `EmbeddedEntity` / `ModelEntity` / `ModifiableEntity` | open |
+| Long tail | `SelectorMessage` (5), `EngineMessage` (3), `OperationMessage` (3), `FrameMessage` (2), `NormalControlMessage`, `QueryTokenDateMessage` (2) | **DONE** — members declared |
+
+### Core — what is LEFT, and why each needs a decision rather than a declaration
+
+The member-level work is done: 45 members across seven containers now exist, on the same
+framework-surface argument as the ValidationMessage sweep. A CROSS-CONTAINER check went in first, and
+it matters: altea keeps several names Signum has but under a different container — the entity-line
+button titles (Create / Find / View / Remove / MoveUp / MoveDown) live in `EntityControlMessage` where
+Signum splits them between that and `JavascriptMessage`. Comparing container-by-container reported all
+of those as missing. That check alone cut `JavascriptMessage` from 28 to 21 and `EntityControlMessage`
+from 11 to 9.
+
+What remains is NOT vocabulary an application reaches for. It is a caption for an altea UI control or
+engine feature **that does not exist**, and declaring it would put a string in the file with nothing
+behind it — the state this whole exercise exists to get out of.
+
+| Left | What it really is | Size |
+|---|---|---|
+| `DateTimeMessage` | TWO features: 14 duration-prose members (`_0Days`, `_0Hours`…) for rendering a Duration as text, and 5 relative-date ones (`Today`, `Yesterday`, `Last0`, `This0`) — Signum SmartDatePattern / SmartShortDatePattern | 21 |
+| `ContainerTokenKey` + `QueryTokenMessage.Operations` | the OPERATIONS / QUICKLINKS container tokens. altea has no OperationsContainerToken at all, so the enum would name containers that cannot be built | 3 |
+| `DisabledMixin` + `DisabledMessage` + `DisableOperation` | the framework-wide enable/disable feature. The ValidationMessage sweep reached the same conclusion from the other side: DisableLogic guards, no altea counterpart | 4 |
+| `FontSizeMessage`, `ContainerToggleMessage` | captions for a font-size control and a compress/expand container toggle. Neither control exists in altea | 6 |
+| `SystemTimeProperty` | a time-machine token shape altea does not offer | 2 |
+| `IEntity`, `EmbeddedEntity`, `ModelEntity`, `ModifiableEntity` | altea HAS these classes; it simply never registers them as localizable, so their nice names humanise. The smallest real gap here | 4 |
+| `LiteMessage`, `PaginationMessage`, `VoidEnumMessage` | small vocabulary; `VoidEnumMessage` is the "-" a null enum renders as | 6 |
+
+Two more false positives found on the way: `MarkdownMessage` and `EmailOwnerData` both exist in altea —
+in `@altea/altea-markdown` and the directory-login packages respectively. That brings the confirmed
+false-positive count to seven, which is the headline caution for every module still to be swept.
