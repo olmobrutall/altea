@@ -66,7 +66,7 @@ export class HelpOmniboxResultGenerator implements OmniboxResultGenerator {
         const types = OmniboxParser.manager.types();
         const isAllowed = await allowedTypeFilter([...types.values()]);
 
-        return [...matches(types, isAllowed, pattern, isPascalCase)]
+        return [...matches(types, isAllowed, pattern, isPascalCase, t => cleanTypeName(t))]
             .sort((a, b) => a.match.distance - b.match.distance)
             .map((m): HelpModuleOmniboxResult => ({
                 resultTypeName: HelpModuleOmniboxResultTypeName,

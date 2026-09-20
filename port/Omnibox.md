@@ -69,6 +69,32 @@ Signum's `ReflectionServer.RegisterLike(typeof(OmniboxMessage), …)` — gating
 reflection blob for unauthorized users — has no counterpart: altea's message containers are plain objects
 bundled with the client, not blob entries. The ROUTE is gated, which is what actually matters.
 
+## A suggestion answers to its CODE name too
+
+Signum matches every candidate on its localized nice name ALONE, which means an application translated
+away from English has no way to reach a query by the name its own source calls it: in German, typing
+`Order` returned nothing, because the query is shown as `Bestellung`.
+
+So `OmniboxUtils.matches` takes an optional `codeName` selector, giving each entry a SECOND identifier
+tried by the same three strategies. Every catalogue passes one: the query key and the clean type name
+(`getKey` / `cleanTypeName`), a sub-token's `key`, and an enum member's name. This is what the
+QueryTokenBuilder dropdown has always done — its filter hits either `t.key` or `t.toString()` — so the
+two token pickers now answer to the same words.
+
+The rules, where the two identifiers disagree:
+
+- **The row still reads as the translated name.** The omnibox offers one vocabulary; only the DISTANCE
+  comes from the code name, so a prefix hit on it still outranks a mid-string one.
+- **ONE row per entry.** When both names match, the closer distance ranks the row but the nice match
+  keeps the bold mask — those characters really are in the text being shown. A code-name-ONLY hit comes
+  through unbolded, because nothing in that text was typed.
+- **An exact code name is matched case-INSENSITIVELY**, unlike the nice name's map lookup, and a camelCase
+  key has its first letter raised before the PascalCase subsequence walks it — `totalPrice` has no leading
+  uppercase to consume otherwise, so `TP` would not reach it.
+- **A whole code name counts as a fully-typed query name** in the dynamic-query generator, which offers a
+  query's columns once its name is complete. That check compares the match TEXT with what was typed, and
+  the text is the translated name, so the code name is compared separately.
+
 ## Smaller things
 
 - `OmniboxUtils` is the fuzzy matcher, three strategies in order of preference: an exact key hit (distance

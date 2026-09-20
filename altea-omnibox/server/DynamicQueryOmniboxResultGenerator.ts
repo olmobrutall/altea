@@ -65,7 +65,11 @@ export class DynamicQueryOmniboxResultGenerator implements OmniboxResultGenerato
 
         const result: DynamicQueryOmniboxResult[] = [];
 
-        for (const match of [...matches(queries, isAllowed, pattern, isPascalCase)].sort((a, b) => a.match.distance - b.match.distance)) {
+        // A query is reachable by its translated title AND by its key — the clean type name a developer
+        // knows it by ("Order"), which in an app translated away from English is the only name they have.
+        const queryMatches = matches(queries, isAllowed, pattern, isPascalCase, qn => getKey(qn));
+
+        for (const match of [...queryMatches].sort((a, b) => a.match.distance - b.match.distance)) {
 
             const queryName = match.value;
 
@@ -87,8 +91,12 @@ export class DynamicQueryOmniboxResultGenerator implements OmniboxResultGenerato
                 }
             } else {
                 // A fully-typed query name followed by a space: offer each of its columns as the next
-                // thing to filter by.
-                if (match.match.text === pattern && tokens.length === 1 && tokens[0].next(rawQuery) === " ") {
+                // thing to filter by. The match TEXT is the translated name even when the code name is
+                // what was typed, so a whole code name counts as fully typed too — otherwise typing
+                // "Order " in a Spanish app would fall through to the bare search with no columns.
+                const fullyTyped = match.match.text === pattern || getKey(queryName).toLowerCase() === pattern.toLowerCase();
+
+                if (fullyTyped && tokens.length === 1 && tokens[0].next(rawQuery) === " ") {
                     const rootToken = QueryLogic.getRootToken(queryName);
 
                     for (const qt of rootToken.subTokens(SUB_TOKEN_OPTIONS)) {
@@ -287,7 +295,9 @@ export class DynamicQueryOmniboxResultGenerator implements OmniboxResultGenerato
 
                     const dic = toOmniboxPascalDictionary(Enum.values(e), n => Enum.niceName(e, n), n => n as unknown);
 
-                    return [...matches(dic, () => true, value, isPascalValue)].map(m => ({ value: m.value, match: m.match }));
+                    // The VALUE of an enum entry is its member name, which is exactly its code name:
+                    // "Shipped" finds the state a Spanish user sees as "Enviado".
+                    return [...matches(dic, () => true, value, isPascalValue, n => String(n))].map(m => ({ value: m.value, match: m.match }));
                 }
                 break;
 
@@ -393,7 +403,9 @@ function* getAmbiguousTokens(
     // The query's columns ARE the root token's sub-tokens.
     const parent = queryToken ?? rootToken;
     const dic = toOmniboxPascalDictionary(parent.subTokens(SUB_TOKEN_OPTIONS), qt => qt.toString(), qt => qt);
-    const ms = matches(dic, qt => qt.isAllowed() == null, omniboxToken.value, isPascal);
+    // `qt.key` is the token's code name ("totalPrice", "Customer") — the same second identifier the
+    // QueryTokenBuilder dropdown filters on, so the two token pickers answer to the same words.
+    const ms = matches(dic, qt => qt.isAllowed() == null, omniboxToken.value, isPascal, qt => qt.key);
 
     if (index === operatorIndex - 1) {
         for (const m of ms)

@@ -1,4 +1,5 @@
 import { getTypeInfo } from "@altea/altea/data/reflection";
+import { cleanTypeName } from "@altea/altea/data/registration";
 import { Implementations } from "@altea/altea/data/implementations";
 import type { PrimaryKey } from "@altea/altea/data/entity";
 import type {
@@ -43,7 +44,8 @@ export class EntityOmniboxResultGenerator implements OmniboxResultGenerator {
         // and the matcher filters against it.
         const isAllowed = await allowedTypeFilter([...OmniboxParser.manager.types().values()]);
 
-        const typeMatches = [...matches(OmniboxParser.manager.types(), isAllowed, ident, isPascalCase)]
+        // The clean type name is the second identifier: "Order 5" works in an app whose Order is a Pedido.
+        const typeMatches = [...matches(OmniboxParser.manager.types(), isAllowed, ident, isPascalCase, t => cleanTypeName(t))]
             .sort((a, b) => a.match.distance - b.match.distance);
 
         const result: EntityOmniboxResult[] = [];

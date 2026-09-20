@@ -62,7 +62,7 @@ export class MapOmniboxResultGenerator implements OmniboxResultGenerator {
 
         const isAllowed = await allowedTypeFilter([...withOperations.values()]);
 
-        return [...matches(withOperations, isAllowed, pattern, isPascalCase)]
+        return [...matches(withOperations, isAllowed, pattern, isPascalCase, ctor => cleanTypeName(ctor))]
             .sort((a, b) => a.match.distance - b.match.distance)
             .map((m): MapOmniboxResult => ({
                 resultTypeName: MapOmniboxResultTypeName,

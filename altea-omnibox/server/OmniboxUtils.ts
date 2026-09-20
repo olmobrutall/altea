@@ -7,6 +7,8 @@ import type { OmniboxMatch } from "../data/OmniboxResults";
 //   2. PascalCase subsequence      → "OD" matches "OrderDate" (only when the pattern is all-uppercase)
 //   3. case-insensitive contains   → each space-separated part must occur somewhere
 // A match carries a same-length '#'/'_' mask so the client can bold the hit characters.
+// Each strategy is tried against the entry's TRANSLATED name and, when the caller passes a `codeName`,
+// against its CODE name too — the closer of the two wins, and the row still reads as the translated name.
 //
 // `toPascal`, `removeDiacritics` and `splitNoEmpty` live here, next to their only consumer.
 
@@ -73,11 +75,17 @@ export function subsequencePascal<T>(value: T, identifier: string, pattern: stri
 // An exact key hit short-circuits with distance 0; otherwise every
 // (allowed) entry is tried with the PascalCase subsequence (when the pattern is all-caps) and then the
 // contains matcher. Only entries whose value passes `filter` are considered.
+//
+// The map is keyed by the TRANSLATED nice name, so `codeName` — when a caller supplies one — gives each
+// entry its second identifier: the code name a developer knows it by ("totalPrice", "Order"), matched by
+// the same three strategies. This is the QueryTokenBuilder dropdown's behaviour, where a search term hits
+// either the token's `key` or its `toString()`; Signum's omnibox matches the nice name alone.
 export function* matches<T>(
     values: ReadonlyMap<string, T>,
     filter: (value: T) => boolean,
     pattern: string,
     isPascalCase: boolean,
+    codeName?: (value: T) => string | undefined,
 ): Generator<OmniboxMatchOf<T>> {
     pattern = removeDiacritics(pattern);
 
@@ -91,18 +99,65 @@ export function* matches<T>(
         if (!filter(value))
             continue;
 
-        if (isPascalCase) {
-            const sub = subsequencePascal(value, key, pattern);
-            if (sub != undefined) {
-                yield sub;
-                continue;
-            }
-        }
+        const nice = matchIdentifier(value, key, pattern, isPascalCase);
+        const code = codeName == undefined ? undefined
+            : matchCodeName(value, key, codeName(value), pattern, isPascalCase);
 
-        const cont = contains(value, key, pattern);
-        if (cont != undefined)
-            yield cont;
+        // ONE row per entry. When both names match, the CLOSER distance ranks the row but the NICE
+        // match keeps the mask: those characters really are in the text being shown, so they are still
+        // worth bolding. Only a code-name-ONLY hit comes through unbolded.
+        const best = nice == undefined ? code :
+            code == undefined ? nice :
+                { value, match: { ...nice.match, distance: Math.min(nice.match.distance, code.match.distance) } };
+
+        if (best != undefined)
+            yield best;
     }
+}
+
+// The PascalCase subsequence (when the pattern is all-caps) and then the contains
+// matcher, against ONE identifier — the loop body `matches` had before it grew a second one.
+function matchIdentifier<T>(value: T, identifier: string, pattern: string, isPascalCase: boolean): OmniboxMatchOf<T> | undefined {
+    if (isPascalCase) {
+        const sub = subsequencePascal(value, identifier, pattern);
+        if (sub != undefined)
+            return sub;
+    }
+
+    return contains(value, identifier, pattern);
+}
+
+// An entry matched through its CODE name. The distance is the code name's, so a
+// prefix hit on it still outranks a mid-string one, but the row still READS as the translated name —
+// the omnibox offers one vocabulary, and nothing in that text was typed, so nothing in it is bold.
+function matchCodeName<T>(
+    value: T,
+    niceIdentifier: string,
+    codeIdentifier: string | undefined,
+    pattern: string,
+    isPascalCase: boolean,
+): OmniboxMatchOf<T> | undefined {
+    if (codeIdentifier == undefined || codeIdentifier.length === 0)
+        return undefined;
+
+    const code = removeDiacritics(codeIdentifier);
+
+    const m = code.toLowerCase() === pattern.toLowerCase()
+        // An exact code name is worth as much as an exact nice name. Case-INSENSITIVELY, unlike the nice
+        // name's map lookup: a code name is typed from memory, and altea's members are camelCase where
+        // Signum's were Pascal, so the casing is the last thing a user gets right.
+        ? newOmniboxMatch(value, 0, code, "#".repeat(code.length))
+        // A camelCase key ("totalPrice") offers the subsequence no leading uppercase to consume, so the
+        // first letter is raised before the pattern is walked — "TP" reaches it, as it reaches "TotalPrice".
+        : matchIdentifier(value, capitalizeFirst(code), pattern, isPascalCase);
+
+    if (m == undefined)
+        return undefined;
+
+    return {
+        value,
+        match: { distance: m.match.distance, text: niceIdentifier, boldMask: "_".repeat(niceIdentifier.length) },
+    };
 }
 
 // Every whitespace-separated part of the pattern must occur (case
@@ -131,6 +186,10 @@ export function cleanCommas(str: string): string {
 }
 
 // ---- string helpers ---------------------------------------------------------------------------
+
+function capitalizeFirst(s: string): string {
+    return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
+}
 
 function isUpper(c: string): boolean {
     return c !== c.toLowerCase() && c === c.toUpperCase();
