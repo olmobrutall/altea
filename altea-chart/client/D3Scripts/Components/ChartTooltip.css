@@ -1,0 +1,111 @@
+/* The shadcn chart-tooltip card, in bootstrap variables instead of tailwind utilities. The numbers are
+   shadcn's: rounded-lg, border-border/50, px-2.5 py-1.5, text-xs, gap-1.5, shadow-xl, and a 10px swatch
+   with a 2px radius. */
+
+/* .sf-chart-container is `overflow: auto`, and a transformed absolute child counts towards its scrollable
+   overflow — so the card would give a small chart a scrollbar. This layer absorbs that: it is exactly the
+   container's box and clips. Nothing is lost to the clip, because the card is kept inside that box anyway
+   (ChartTooltip measures it and slides it in). */
+.sf-chart-tooltip-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    /* Never steal the hover from the shape underneath, nor its click. */
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* The ANCHOR carries the animated position, the card inside it carries the static offset that lifts it
+   above the point. Two elements, because one cannot animate `translate3d(x, y)` while also holding a
+   `translate(-50%, -100%)` that must NOT be interpolated. */
+.sf-chart-tooltip-anchor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: max-content;
+    will-change: transform;
+}
+
+.sf-chart-tooltip {
+    /* -50% centres the card on the point, -100% lifts it clear of it. Static, and on the card rather than
+       on the anchor, so the animated translate3d above never interpolates it. */
+    transform: translate(-50%, -100%) translate(0, -10px);
+
+    display: grid;
+    gap: .375rem;
+    min-width: 8rem;
+    width: max-content;
+    max-width: 16rem;
+
+    padding: .375rem .625rem;
+    border: 1px solid color-mix(in srgb, var(--bs-border-color) 50%, transparent);
+    border-radius: .5rem;
+    background: var(--bs-body-bg);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, .1), 0 8px 10px -6px rgba(0, 0, 0, .1);
+
+    font-size: .75rem;
+    line-height: 1rem;
+    color: var(--bs-body-color);
+    text-align: start;
+    /* The card is an overlay on an SVG, which does not inherit the page's text rendering. */
+    white-space: nowrap;
+
+    animation: sf-chart-tooltip-in 120ms ease-out;
+}
+
+/* Too close to the top to sit above the point, so it sits below it instead. */
+.sf-chart-tooltip.below {
+    transform: translate(-50%, 0) translate(0, 10px);
+}
+
+@keyframes sf-chart-tooltip-in {
+    from {
+        opacity: 0;
+        scale: .96;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sf-chart-tooltip-anchor {
+        transition: none !important;
+    }
+
+    .sf-chart-tooltip {
+        animation: none;
+    }
+}
+
+.sf-chart-tooltip-head {
+    font-weight: 500;
+}
+
+.sf-chart-tooltip-rows {
+    display: grid;
+    gap: .375rem;
+}
+
+.sf-chart-tooltip-row {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+.sf-chart-tooltip-swatch {
+    flex-shrink: 0;
+    width: .625rem;
+    height: .625rem;
+    border-radius: 2px;
+}
+
+.sf-chart-tooltip-label {
+    color: var(--bs-secondary-color);
+}
+
+/* Pushed to the right edge of the row, so a column of values lines up under itself. */
+.sf-chart-tooltip-value {
+    margin-left: auto;
+    font-family: var(--bs-font-monospace);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-body-color);
+}

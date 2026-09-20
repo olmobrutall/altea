@@ -16,6 +16,7 @@ import TextIfFits from './Components/TextIfFits';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
+import { ShapeTitleText } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/StackedColumns.tsx. Standard fixes; the c.c1 && … Legend props
 // become type-safe ternaries.
@@ -107,8 +108,8 @@ export default function renderStackedColumns({ data, width, height, parameters, 
   const bandMargin = x.bandwidth() > 20 ? 2 : x.bandwidth() > 10 ? 1 : 0;
 
   return (
-    <svg direction="ltr" width={width} height={height} role="img">
-      <title id="stackedColumnsChartTitle">{ChartMessage._0Of1_2Per3.niceToString(ChartClient.symbolNiceName(D3ChartScript.StackedColumns), getQueryNiceName(chartRequest.queryKey), [keyColumn.title, valueColumn0.title].join(", "), [c.c1, c.c3, c.c4, c.c5, c.c6].filter(cn => cn != undefined).map(cn => cn!.title).join(", "))}</title>
+    <svg direction="ltr" width={width} height={height} role="img"
+      aria-label={ChartMessage._0Of1_2Per3.niceToString(ChartClient.symbolNiceName(D3ChartScript.StackedColumns), getQueryNiceName(chartRequest.queryKey), [keyColumn.title, valueColumn0.title].join(", "), [c.c1, c.c3, c.c4, c.c5, c.c6].filter(cn => cn != undefined).map(cn => cn!.title).join(", "))}>
       <g opacity={dashboardFilter ? .5 : undefined}>
         <XTitle xRule={xRule} yRule={yRule} keyColumn={keyColumn} />
         <YScaleTicks xRule={xRule} yRule={yRule} valueColumn={valueColumn0} y={y} format={format} />
@@ -146,9 +147,7 @@ export default function renderStackedColumns({ data, width, height, parameters, 
                     (onclick as any)?.(e);
                   }
                 }}>
-                <title>
-                  {row.valueTitle}
-                </title>
+                <ShapeTitleText text={row.valueTitle} />
               </rect>
               {parseFloat(parameters["NumberOpacity"]) > 0 && x.bandwidth() > 15 &&
                 <TextIfFits className="number-label sf-transition"
@@ -166,11 +165,9 @@ export default function renderStackedColumns({ data, width, height, parameters, 
                   {pValueAsPercent == "Yes"
                     ? totalCount > 0 ? (row.value / totalCount).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 }) : '0%'
                     : r.data.values[s.key].valueNiceName}
-                  <title>
-                    {pValueAsPercent == "Yes"
+                  <ShapeTitleText text={pValueAsPercent == "Yes"
                       ? totalCount > 0 ? (row.value / totalCount).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 }) : '0%'
-                      : r.data.values[s.key].valueTitle}
-                  </title>
+                      : r.data.values[s.key].valueTitle} />
                 </TextIfFits>}
             </g>
           );

@@ -12,7 +12,7 @@ import type { MemoRepository } from './Components/ReactChart';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
-import { chartTitle } from './Components/ChartTitle';
+import { ShapeTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Line.tsx. Same fixes as Columns/Bars (@framework→altea,
 // symbolNiceName→ChartClient.symbolNiceName, import type). Also the home of the shared
@@ -72,8 +72,10 @@ export default function renderLine({ data, width, height, parameters, loading, c
   var detector = ChartClient.getActiveDetector(dashboardFilter, chartRequest);
 
   return (
-    <svg direction="ltr" width={width} height={height}>
-      <title id="lineChartTitle">{ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Line), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}</title>
+    // `role="img"` is a fix, not a port: every other chart script has it and this one did not, so its
+    // aria-label would have had nothing to attach to.
+    <svg direction="ltr" width={width} height={height} role="img"
+      aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Line), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}>
       {hasHorizontalScale ?
         <XScaleTicks xRule={xRule} yRule={yRule} valueColumn={keyColumn as ChartColumn<number>} x={x as d3.ScaleContinuousNumeric<number, number>} /> :
         <XKeyTicks xRule={xRule} yRule={yRule} keyValues={keyValues} keyColumn={keyColumn} x={x as d3.ScaleBand<string>} showLines={(x as d3.ScaleBand<string>).bandwidth() > 5}
@@ -176,6 +178,10 @@ export function paintLine({ xRule, yRule, x, y, keyValues, data, hasHorizontalSc
                 fill="#fff"
                 fillOpacity={0}
                 stroke="none"
+                // This circle is invisible on purpose, so ChartTooltip cannot read the point's colour off
+                // it — and the coloured dot it covers is in a different group, keyed by the same row but
+                // not reachable from here. So the colour is declared.
+                data-chart-tooltip-color={color}
                 role="button"
                 cursor="pointer"
                 onKeyDown={e => {
@@ -186,7 +192,7 @@ export function paintLine({ xRule, yRule, x, y, keyValues, data, hasHorizontalSc
                 }}
                 r={circleRadiusHover}
                 onClick={e => onDrillDown(r, e)}>
-                <title>{chartTitle(r, [keyColumn, valueColumn])}</title>
+                <ShapeTitle row={r} parts={[keyColumn, valueColumn]} />
               </circle>
             );
           })}
@@ -221,7 +227,7 @@ export function paintLine({ xRule, yRule, x, y, keyValues, data, hasHorizontalSc
                     }
                   }}
                   shapeRendering="initial">
-                  <title>{chartTitle(r, [keyColumn, valueColumn])}</title>
+                  <ShapeTitle row={r} parts={[keyColumn, valueColumn]} />
                 </circle>
                 { /*Point labels*/
                   numberOpacity > 0 &&

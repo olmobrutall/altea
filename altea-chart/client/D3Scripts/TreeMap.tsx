@@ -11,7 +11,7 @@ import InitialMessage from './Components/InitialMessage';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
-import { chartTitle } from './Components/ChartTitle';
+import { ShapeTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/TreeMap.tsx (d3.treemap hierarchy). Standard fixes.
 export default function renderTreeMap({ data, width, height, parameters, loading, onDrillDown, initialLoad, chartRequest, memo, dashboardFilter }: ChartScriptProps): React.ReactElement<any> {
@@ -98,8 +98,8 @@ export default function renderTreeMap({ data, width, height, parameters, loading
     <svg direction="ltr"
       width={width}
       height={height}
-      role="img">
-      <title id="treeMapChartTitle">{ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Treemap), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}</title>
+      role="img"
+      aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Treemap), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}>
       {nodes.map((d, i) => {
         const active = activeDetector?.(isFolder(d.data) ? ({ c2: d.data.folder }) : d.data);
 
@@ -119,9 +119,9 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               focusable={true}>
               {/* A folder is not a row — it is the roll-up of its leaves — so both parts carry their own
                   value and no row is passed. */}
-              <title>{chartTitle(null, [
+              <ShapeTitle row={null} parts={[
                 { value: parentColumn!.getNiceName(d.data.folder) },
-                { column: valueColumn, value: format(size.invert(d.value!)) }])}</title>
+                { column: valueColumn, value: format(size.invert(d.value!)) }]} />
             </rect>
           }
           {!isFolder(d.data) &&
@@ -139,8 +139,8 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               tabIndex={0}
               focusable={true}>
               {/* c0 … c4. The parent and the two colour columns were missing entirely. */}
-              <title>{chartTitle(d.data, [keyColumn, valueColumn, parentColumn,
-                colorScaleColumn, colorSchemeColumn])}</title>
+              <ShapeTitle row={d.data} parts={[keyColumn, valueColumn, parentColumn,
+                colorScaleColumn, colorSchemeColumn]} />
             </rect>}
 
           {!isFolder(d.data) && nodeWidth(d) > 10 && nodeHeight(d) > 25 &&
@@ -152,8 +152,8 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               onClick={e => onDrillDown(d.data as ChartRow, e)}>
               {keyColumn.getValueNiceName(d.data as ChartRow)}
               {/* The label sits ON the leaf, so it repeats the leaf's own tooltip. */}
-              <title>{chartTitle(d.data as ChartRow, [keyColumn, valueColumn, parentColumn,
-                colorScaleColumn, colorSchemeColumn])}</title>
+              <ShapeTitle row={d.data as ChartRow} parts={[keyColumn, valueColumn, parentColumn,
+                colorScaleColumn, colorSchemeColumn]} />
             </TextEllipsis>
           }
 

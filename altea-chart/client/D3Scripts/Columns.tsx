@@ -14,7 +14,7 @@ import TextIfFits from './Components/TextIfFits';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
-import { chartTitle } from './Components/ChartTitle';
+import { ShapeTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Columns.tsx. Fixes: @framework/* → altea; ../Signum.Chart →
 // ../../data/*; symbolNiceName → ChartClient.symbolNiceName; interfaces via `import type`; unused
@@ -82,8 +82,8 @@ export default function renderColumns({ data, width, height, parameters, loading
       direction="ltr"
       width={width}
       height={height}
-      role="img">
-      <title id="columnChartTitle">{ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Columns), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}</title>
+      role="img"
+      aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Columns), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}>
       <g opacity={dashboardFilter ? .5 : undefined}>
         <XTitle xRule={xRule} yRule={yRule} keyColumn={keyColumn} />
         <YScaleTicks xRule={xRule} yRule={yRule} valueColumn={valueColumn} y={y} />
@@ -176,7 +176,7 @@ export function paintColumns({ xRule, yRule, x: x2, y, keyValues, data, paramete
                   }
                 }}
                 onClick={e => onDrillDown(row!, e)}>
-                <title>{chartTitle(row, [keyColumn, valueColumn])}</title>
+                <ShapeTitle row={row} parts={[keyColumn, valueColumn]} />
               </rect>}
               {bandwidth > 15 && (isAll || row != null) &&
                 (isMargin ?

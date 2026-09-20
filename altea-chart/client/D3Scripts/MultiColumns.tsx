@@ -14,6 +14,7 @@ import TextIfFits from './Components/TextIfFits';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
+import { ShapeTitleText } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/MultiColumns.tsx. Standard fixes; the c.c1 && … Legend props
 // become type-safe ternaries.
@@ -84,8 +85,8 @@ export default function renderMultiColumns({ data, width, height, parameters, lo
   var detector = ChartClient.getActiveDetector(dashboardFilter, chartRequest);
 
   return (
-    <svg direction="ltr" width={width} height={height} role="img">
-      <title id="multiColumnsChartTitle">{ChartMessage._0Of1_2Per3.niceToString(ChartClient.symbolNiceName(D3ChartScript.MultiColumns), getQueryNiceName(chartRequest.queryKey), [keyColumn.title, valueColumn0.title].join(", "), [c.c1, c.c3, c.c4, c.c5, c.c6].filter(cn => cn != undefined).map(cn => cn!.title).join(", "))}</title>
+    <svg direction="ltr" width={width} height={height} role="img"
+      aria-label={ChartMessage._0Of1_2Per3.niceToString(ChartClient.symbolNiceName(D3ChartScript.MultiColumns), getQueryNiceName(chartRequest.queryKey), [keyColumn.title, valueColumn0.title].join(", "), [c.c1, c.c3, c.c4, c.c5, c.c6].filter(cn => cn != undefined).map(cn => cn!.title).join(", "))}>
       <XKeyTicks xRule={xRule} yRule={yRule} keyValues={keyValues} keyColumn={keyColumn} x={x} isActive={detector && (val => detector!({ c0: val }))} onDrillDown={(v, e) => onDrillDown({ c0: v }, e)} />
       <g opacity={dashboardFilter ? .5 : undefined}>
         <YScaleTicks xRule={xRule} yRule={yRule} valueColumn={valueColumn0} y={y} />
@@ -136,9 +137,7 @@ export default function renderMultiColumns({ data, width, height, parameters, lo
                       (onclick as any)?.(e);
                     }
                   }}>
-                  <title>
-                    {row.valueTitle}
-                  </title>
+                  <ShapeTitleText text={row.valueTitle} />
                 </rect>
 
                 {x.bandwidth() > 15 && parseFloat(parameters["NumberOpacity"]) > 0 &&
@@ -161,9 +160,7 @@ export default function renderMultiColumns({ data, width, height, parameters, lo
                     textAnchor="middle"
                     fontWeight="bold">
                     {row.valueNiceName}
-                    <title>
-                      {row.valueTitle}
-                    </title>
+                    <ShapeTitleText text={row.valueTitle} />
                   </TextIfFits>
                 }
 

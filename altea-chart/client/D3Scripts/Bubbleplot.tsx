@@ -13,7 +13,7 @@ import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import { AggregateToken } from '@altea/altea/data/dynamicQuery/tokens/aggregateToken';
-import { chartTitle } from './Components/ChartTitle';
+import { ShapeTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Bubbleplot.tsx. Standard fixes (@framework→altea,
 // symbolNiceName→ChartClient.symbolNiceName, import type, ../Signum.Chart→data/*). Divergence:
@@ -105,8 +105,8 @@ export default function renderBubbleplot({ data, width, height, parameters, load
     ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Bubbleplot), getQueryNiceName(chartRequest.queryKey), keyColumns.map(cn => cn.title).join(", "));
 
   return (
-    <svg direction="ltr" width={width} height={height} role="img">
-      <title id="bubbleplotChartTitle">{titleMessage}</title>
+    <svg direction="ltr" width={width} height={height} role="img"
+      aria-label={titleMessage}>
       <g opacity={dashboardFilter ? .5 : undefined}>
         <XScaleTicks xRule={xRule} yRule={yRule} valueColumn={horizontalColumn} x={x} />
         <YScaleTicks xRule={xRule} yRule={yRule} valueColumn={verticalColumn} y={y} />
@@ -153,8 +153,8 @@ export default function renderBubbleplot({ data, width, height, parameters, load
 
               {/* c0 … c5. The two colour columns were missing: a bubble encodes them purely as a colour,
                   so the tooltip was the only place they could be read and it did not name them. */}
-              <title>{chartTitle(r, [keyColumn, horizontalColumn, verticalColumn, sizeColumn,
-                colorScaleColumn, colorSchemeColumn])}</title>
+              <ShapeTitle row={r} parts={[keyColumn, horizontalColumn, verticalColumn, sizeColumn,
+                colorScaleColumn, colorSchemeColumn]} />
 
             </g>
           );

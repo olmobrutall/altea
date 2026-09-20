@@ -13,7 +13,7 @@ import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import '@altea/altea/data/globals/arrayExtensions';
-import { chartTitle } from './Components/ChartTitle';
+import { ShapeTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Punchcard.tsx.
 export default function renderPunchcard({ data, width, height, parameters, loading, onDrillDown, initialLoad, chartRequest, dashboardFilter }: ChartScriptProps): React.ReactElement<any> {
@@ -220,8 +220,8 @@ export default function renderPunchcard({ data, width, height, parameters, loadi
   const detector = ChartClient.getActiveDetector(dashboardFilter, chartRequest);
 
   return (
-    <svg direction="ltr" width={width} height={height} role="img">
-      <title id="punchcardChartTitle">{ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Punchcard), getQueryNiceName(chartRequest.queryKey), [verticalColumn.title, horizontalColumn.title].join(", "))}</title>
+    <svg direction="ltr" width={width} height={height} role="img"
+      aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Punchcard), getQueryNiceName(chartRequest.queryKey), [verticalColumn.title, horizontalColumn.title].join(", "))}>
       <XKeyTicks keyColumn={horizontalColumn} keyValues={horizontalKeys} xRule={xRule} yRule={yRule} x={x} showLines={x.bandwidth() > 5} isActive={detector && (val => detector!({ c0: val }))} onDrillDown={(v, e) => onDrillDown({ c0: v }, e)}/>
       <YKeyTicks keyColumn={verticalColumn} keyValues={verticalKeys} xRule={xRule} yRule={yRule} y={y} showLines={y.bandwidth() > 5} showLabels={true} isActive={detector && (val => detector!({ c1: val }))} onDrillDown={(v, e) => onDrillDown({ c1: v }, e)}/>
       <g className="punch-panel" transform={translate(xRule.start('content') + x.bandwidth() / 2, yRule.end('content') - y.bandwidth() / 2)}>
@@ -259,10 +259,10 @@ export default function renderPunchcard({ data, width, height, parameters, loadi
                 }
                 {/* c0 … c6. Both key columns are bare: a cell is the CROSSING of the two axes, so neither
                     alone identifies it. A relative inner size reads as a percentage, not as its raw value. */}
-                <title>{chartTitle(r, [horizontalColumn, { column: verticalColumn, bare: true },
+                <ShapeTitle row={r} parts={[horizontalColumn, { column: verticalColumn, bare: true },
                   sizeColumn, colorColumn, opacityColumn,
                   { column: innerSizeColumn, value: innerSizeColumn && ist == "Relative" ? percentage(innerSizeColumn.getValue(r)) : undefined },
-                  orderColumn])}</title>
+                  orderColumn]} />
               </g>
             );
           }

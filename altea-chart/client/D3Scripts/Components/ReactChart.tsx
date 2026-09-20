@@ -4,6 +4,7 @@ import type { ChartRow, ChartScriptProps, ChartTable } from '../../ChartClient';
 import { useThrottle, useSize, areEqualDeps } from '@altea/altea/client/Hooks';
 import { ChartRequestModel } from '../../../data/ChartRequest';
 import type { DashboardFilter } from '../../DashboardFilterStub';
+import { ChartTooltip } from './ChartTooltip';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Components/ReactChart.tsx. Fixes: @framework/* → altea paths,
 // ../../Signum.Chart → ../../../data/ChartRequest, DashboardFilter → local stub, and Signum's
@@ -34,8 +35,17 @@ function ReactChart(p: ReactChartProps): React.JSX.Element {
 
   const { size, setContainer } = useSize({ deps: p.sizeDeps });
 
+  // ChartTooltip needs the container ELEMENT (to delegate its pointer handlers and to measure against),
+  // while useSize hands out a callback ref — so keep both and feed them from one callback.
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const setRefs = React.useCallback((div: HTMLDivElement | null) => {
+    containerRef.current = div;
+    setContainer(div);
+  }, [setContainer]);
+
   return (
-    <div className={classes("sf-chart-container", isSimple ? "sf-chart-animable" : "")} style={{ minHeight: (p.minHeight ?? 300) + "px" }} ref={setContainer} onClick={p.onBackgroundClick}>
+    <div className={classes("sf-chart-container", isSimple ? "sf-chart-animable" : "")} style={{ minHeight: (p.minHeight ?? 300) + "px" }} ref={setRefs} onClick={p.onBackgroundClick}>
+      <ChartTooltip containerRef={containerRef} />
       {size &&
         p.onRenderChart({
           chartRequest: p.chartRequest,

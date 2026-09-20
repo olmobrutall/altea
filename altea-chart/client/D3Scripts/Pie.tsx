@@ -12,7 +12,7 @@ import { Color } from '@altea/altea/client/Basics/Color';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import '@altea/altea/data/globals/arrayExtensions';
-import { chartTitle } from './Components/ChartTitle';
+import { ShapeTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Pie.tsx. Fixes: @framework→altea; symbolNiceName→
 // ChartClient.symbolNiceName; Color from the local ../Color port; TextRectangle from ./StackedLines;
@@ -61,8 +61,8 @@ export default function renderPie({ data, width, height, parameters, loading, on
   var orderedPie = pie(data.rows).orderBy(s => keyColumn.getValueKey(s.data));
   var numFormat = toNumberFormat('0.#K');
   return (
-    <svg direction="ltr" width={width} height={height} role="img">
-      <title id="pieChartTitle">{ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Pie), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}</title>
+    <svg direction="ltr" width={width} height={height} role="img"
+      aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Pie), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}>
       <g className="shape" transform={translate(width / 2, height / 2)}>
         {orderedPie.map(slice => {
           var m = (slice.endAngle + slice.startAngle) / 2;
@@ -79,7 +79,7 @@ export default function renderPie({ data, width, height, parameters, loading, on
           return (
             <g key={slice.index} className="slice hover-group">
               {/* c0, c1. `valueText` keeps the chart's own number format rather than the column's. */}
-              <title>{chartTitle(slice.data, [keyColumn, { column: valueColumn, value: valueText }])}</title>
+              <ShapeTitle row={slice.data} parts={[keyColumn, { column: valueColumn, value: valueText }]} />
               <path className="shape sf-transition hover-target" d={arc(slice)!}
                 opacity={active == false ? .5 : undefined}
                 stroke={active == true ? "var(--bs-body-color)" : undefined}

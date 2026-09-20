@@ -5,6 +5,7 @@ import { ChartRequestModel } from "../../../data/ChartRequest";
 import type { ChartRow, ChartTable } from "../../ChartClient";
 import ReactChart, { MemoRepository } from "./ReactChart";
 import { renderCombinedLinesAndColumns } from "../CombinedLinesAndColumns";
+import { ChartTooltip } from "./ChartTooltip";
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Components/ReactChartCombined.tsx — the ReactChart twin that paints
 // SEVERAL chart requests into ONE svg (a dashboard's CombinedUserChartPart). Fixes: @framework/* → altea
@@ -33,10 +34,18 @@ export function ReactChartCombined(p: {
 
     const { size, setContainer } = useSize({ deps: p.sizeDeps });
 
+    // See ReactChart: the tooltip needs the element, useSize wants a callback.
+    const containerRef = React.useRef<HTMLDivElement | null>(null);
+    const setRefs = React.useCallback((div: HTMLDivElement | null) => {
+        containerRef.current = div;
+        setContainer(div);
+    }, [setContainer]);
+
     return (
         <div className={classes("sf-chart-container", isSimple ? "sf-chart-animable" : "")}
             style={{ minHeight: (p.minHeigh ?? 400) + "px" }}
-            ref={setContainer}>
+            ref={setRefs}>
+            <ChartTooltip containerRef={containerRef} />
             {size &&
                 renderCombinedLinesAndColumns({
                     infos: p.infos,

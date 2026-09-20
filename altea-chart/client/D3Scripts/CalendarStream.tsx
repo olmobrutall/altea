@@ -13,7 +13,7 @@ import type { DashboardFilter } from '../DashboardFilterStub';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import '@altea/altea/data/globals/arrayExtensions';
 import '@altea/altea/data/globals/stringExtensions';
-import { chartTitle } from './Components/ChartTitle';
+import { ShapeTitle, ShapeTitleText } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/CalendarStream.tsx (a year calendar heat-map). altea divergences:
 // standard import fixes + luxon → native Date (DateTime.local(y,m,1)→new Date(y,m-1,1); .plus({month:1,
@@ -123,8 +123,8 @@ export default function renderCalendarStream({ data, width, height, parameters, 
 
 
   return (
-    <svg direction="ltr" width={width} height={height} role="img">
-      <title id="calendarStreamChartTitle">{ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.CalendarStream), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, dateColumn.title].join(", "))}</title>
+    <svg direction="ltr" width={width} height={height} role="img"
+      aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.CalendarStream), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, dateColumn.title].join(", "))}>
       <g transform={translate(xRule.start("content"), yRule.start("content"))}>
         {years.map((yr, i) => <CalendarYear key={yr}
           transform={rules == vertical ?
@@ -254,9 +254,7 @@ export function CalendarYear({ year, rules, rowByDate, width, height, onDrillDow
                   height={cellSize}
                   x={day(d) * cellSize}
                   y={week(d) * cellSize}>
-                  <title>
-                    {dateFormat(d)}
-                  </title>
+                  <ShapeTitleText text={dateFormat(d)} />
                 </rect>
               </g>
             )
@@ -286,7 +284,7 @@ export function CalendarYear({ year, rules, rowByDate, width, height, onDrillDow
                   {/* c0, c1. The date is the CELL's, formatted by the chart, so it carries its own value
                       and names no column; the value column then names itself instead of the old bare
                       "(12)" parenthetical. */}
-                  <title>{chartTitle(r, [{ value: dateFormat(d) }, valueColumn])}</title>
+                  <ShapeTitle row={r} parts={[{ value: dateFormat(d) }, valueColumn]} />
                 </rect>
               </g>
             );

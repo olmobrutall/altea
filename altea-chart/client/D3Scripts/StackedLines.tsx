@@ -13,6 +13,7 @@ import InitialMessage from './Components/InitialMessage';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
+import { ShapeTitleText } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/StackedLines.tsx. Standard fixes; the c.c1 && … Legend props
 // become type-safe ternaries.
@@ -119,8 +120,8 @@ export default function renderStackedLines({ data, width, height, parameters, lo
   var bw = hasHorizontalScale ? 0 : (x as d3.ScaleBand<string>).bandwidth();
 
   return (
-    <svg direction="ltr" width={width} height={height} role="img">
-      <title id="stackedLinesChartTitle">{ChartMessage._0Of1_2Per3.niceToString(ChartClient.symbolNiceName(D3ChartScript.StackedLines), getQueryNiceName(chartRequest.queryKey), [keyColumn.title, valueColumn0.title].join(", "), [c.c1, c.c3, c.c4, c.c5, c.c6].filter(cn => cn != undefined).map(cn => cn!.title).join(", "))}</title>
+    <svg direction="ltr" width={width} height={height} role="img"
+      aria-label={ChartMessage._0Of1_2Per3.niceToString(ChartClient.symbolNiceName(D3ChartScript.StackedLines), getQueryNiceName(chartRequest.queryKey), [keyColumn.title, valueColumn0.title].join(", "), [c.c1, c.c3, c.c4, c.c5, c.c6].filter(cn => cn != undefined).map(cn => cn!.title).join(", "))}>
       {hasHorizontalScale ?
         <XScaleTicks xRule={xRule} yRule={yRule} valueColumn={keyColumn as ChartColumn<number>} x={x as d3.ScaleContinuousNumeric<number, number>} /> :
         <XKeyTicks xRule={xRule} yRule={yRule} keyValues={keyValues} keyColumn={keyColumn} x={x as d3.ScaleBand<string>} isActive={detector && (val => detector!({ c0: val }))} onDrillDown={(v, e) => onDrillDown({ c0: v }, e)} />
@@ -131,9 +132,7 @@ export default function renderStackedLines({ data, width, height, parameters, lo
       {stackedSeries.orderBy(s => s.key).map(s => <g key={s.key} opacity={dashboardFilter && !(c.c1 && detector?.({ c1: columnsByKey[s.key].value }) == true) ? .5 : undefined} className="shape-serie"
         transform={translate(xRule.start('content') + bw / 2, yRule.end('content'))}>
         <path className="shape sf-transition" fill={colorByKey[s.key] ?? color(s.key)} shapeRendering="initial" d={area(s)!} transform={(initialLoad ? scale(1, 0) : scale(1, 1))}>
-          <title>
-            {columnsByKey[s.key].niceName!}
-          </title>
+          <ShapeTitleText text={columnsByKey[s.key].niceName!} />
         </path>
       </g>)}
 
@@ -174,9 +173,7 @@ export default function renderStackedLines({ data, width, height, parameters, lo
                       (onclick as any)?.(e);
                     }
                   }}>
-                  <title>
-                    {row.valueTitle}
-                  </title>
+                  <ShapeTitleText text={row.valueTitle} />
                 </rect>
 
                 {(bw > 15 || hasHorizontalScale) && parseFloat(parameters["NumberOpacity"]) > 0 &&
@@ -197,11 +194,9 @@ export default function renderStackedLines({ data, width, height, parameters, lo
                     {pValueAsPercent == "Yes"
                       ? totalCount > 0 ? (row.value / totalCount).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 }) : '0%'
                       : row.valueNiceName}
-                    <title>
-                      {pValueAsPercent == "Yes"
+                    <ShapeTitleText text={pValueAsPercent == "Yes"
                         ? totalCount > 0 ? (row.value / totalCount).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 }) : '0%'
-                        : row.valueTitle}
-                    </title>
+                        : row.valueTitle} />
                   </TextRectangle>
                 }
 

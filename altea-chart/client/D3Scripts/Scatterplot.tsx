@@ -14,7 +14,7 @@ import type { ChartRequestModel } from '../../data/ChartRequest';
 import type { DashboardFilter } from '../DashboardFilterStub';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import { AggregateToken } from '@altea/altea/data/dynamicQuery/tokens/aggregateToken';
-import { chartTitle } from './Components/ChartTitle';
+import { chartTitle, ShapeTitleText } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Scatterplot.tsx. Standard fixes (@framework→altea,
 // symbolNiceName→ChartClient.symbolNiceName, import type, ../Signum.Chart→data/*). Divergence:
@@ -103,8 +103,8 @@ export default function renderScatterplot({ data, width, height, parameters, loa
     ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Scatterplot), getQueryNiceName(chartRequest.queryKey), keyColumns.map(cn => cn.title).join(", "));
   return (
     <>
-      <svg direction="ltr" width={width} height={height} role="img">
-        <title id="scatterplotlCoodinatesChartTitle">{titleMessage}</title>
+      <svg direction="ltr" width={width} height={height} role="img"
+      aria-label={titleMessage}>
         <g opacity={dashboardFilter ? .5 : undefined}>
           <XScaleTicks xRule={xRule} yRule={yRule} valueColumn={horizontalColumn} x={x} />
           <YScaleTicks xRule={xRule} yRule={yRule} valueColumn={verticalColumn} y={y} />
@@ -227,7 +227,7 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
                   (onclick as any)?.(e);
                 }
               }}>
-              <title>{pointTitle(r, titleColumns)}</title>
+              <ShapeTitleText text={pointTitle(r, titleColumns)} />
             </circle>
           </g>);
 
@@ -289,7 +289,7 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
               (onclick as any)?.(e);
             }
           }} />
-        <title>{pointTitle(r, titleColumns)}</title>
+        <ShapeTitleText text={pointTitle(r, titleColumns)} />
 
       </g>)}
     </>);
@@ -378,16 +378,25 @@ function CanvasScatterplot(p: {
         .toString();
     }
 
-    c.addEventListener('mousemove', function (e) {
+    // `pointermove`, not Signum's `mousemove`, so this runs in the SAME event as ChartTooltip's own
+    // container listener: pointermove fires before mousemove, so a mousemove here would always leave the
+    // tooltip one move behind. Target phase beats bubble phase, so the data below is written first.
+    c.addEventListener('pointermove', function (e) {
       const imageData = vctx.getImageData(e.offsetX, e.offsetY, 1, 1);
       const color = d3.rgb.apply(null, imageData.data).toString();
       const r = colorToData[color];
       if (r) {
         c.style.cursor = "pointer";
-        c.setAttribute("title", pointTitle(r, p));
+        // ChartTooltip's canvas channel (see its header): a canvas has no per-point element to hang a
+        // <desc> on, so the point under the cursor is handed over as data instead. Its OWN colour, not
+        // the virtual hit-test colour, so the card's swatch matches what is on screen.
+        c.dataset.chartTooltip = pointTitle(r, p);
+        c.dataset.chartTooltipColor = colorKeyColumn.getValueColor(r) ?? p.color(r) ?? "";
+        c.dataset.chartTooltipX = String(e.offsetX);
+        c.dataset.chartTooltipY = String(e.offsetY);
       } else {
         c.style.cursor = "initial";
-        c.setAttribute("title", "...");
+        delete c.dataset.chartTooltip;
       }
     });
 

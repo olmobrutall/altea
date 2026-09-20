@@ -16,6 +16,7 @@ import TextIfFits from './Components/TextIfFits';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
+import { ShapeTitleText } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/StackedBars.tsx. Standard fixes; the c.c1 && … Legend props
 // become type-safe ternaries.
@@ -111,8 +112,8 @@ export default function renderStackedBars({ data, width, height, parameters, loa
   const bandMargin = y.bandwidth() > 20 ? 2 : y.bandwidth() > 10 ? 1 : 0;
 
   return (
-    <svg direction="ltr" width={width} height={height} role="img">
-      <title id="stackedBarsChartTitle">{ChartMessage._0Of1_2Per3.niceToString(ChartClient.symbolNiceName(D3ChartScript.StackedBars), getQueryNiceName(chartRequest.queryKey), [keyColumn.title, valueColumn0.title].join(", "), [c.c1, c.c3, c.c4, c.c5, c.c6].filter(cn => cn != undefined).map(cn => cn!.title).join(", "))}</title>
+    <svg direction="ltr" width={width} height={height} role="img"
+      aria-label={ChartMessage._0Of1_2Per3.niceToString(ChartClient.symbolNiceName(D3ChartScript.StackedBars), getQueryNiceName(chartRequest.queryKey), [keyColumn.title, valueColumn0.title].join(", "), [c.c1, c.c3, c.c4, c.c5, c.c6].filter(cn => cn != undefined).map(cn => cn!.title).join(", "))}>
       <g opacity={dashboardFilter ? .5 : undefined}>
         <XScaleTicks xRule={xRule} yRule={yRule} valueColumn={valueColumn0} x={x} format={format} />
       </g>
@@ -153,9 +154,7 @@ export default function renderStackedBars({ data, width, height, parameters, loa
                       (onclick as any)?.(e);
                     }
                   }}>
-                  <title>
-                    {row.valueTitle}
-                  </title>
+                  <ShapeTitleText text={row.valueTitle} />
                 </rect>
                 {y.bandwidth() > 15 && parseFloat(parameters["NumberOpacity"]) > 0 &&
                   <TextIfFits className="number-label sf-transition"
@@ -173,11 +172,9 @@ export default function renderStackedBars({ data, width, height, parameters, loa
                     {pValueAsPercent == "Yes"
                       ? totalCount > 0 ? (row.value / totalCount).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 }) : '0%'
                       : r.data.values[s.key].valueNiceName}
-                    <title>
-                      {pValueAsPercent == "Yes"
+                    <ShapeTitleText text={pValueAsPercent == "Yes"
                         ? totalCount > 0 ? (row.value / totalCount).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 }) : '0%'
-                        : r.data.values[s.key].valueTitle}
-                    </title>
+                        : r.data.values[s.key].valueTitle} />
                   </TextIfFits>
                 }
               </g>

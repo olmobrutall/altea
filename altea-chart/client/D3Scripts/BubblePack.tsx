@@ -12,7 +12,7 @@ import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import '@altea/altea/data/globals/arrayExtensions';
-import { chartTitle } from './Components/ChartTitle';
+import { chartTitle, ShapeTitleText } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/BubblePack.tsx (d3.pack hierarchy of bubbles). Standard fixes.
 export default function renderBubblePack({ data, width, height, parameters, loading, onDrillDown, initialLoad, memo, dashboardFilter, chartRequest }: ChartScriptProps): React.ReactElement<any> {
@@ -84,8 +84,8 @@ export default function renderBubblePack({ data, width, height, parameters, load
   var numberSizeLimit = parseInt(parameters["NumberSizeLimit"]);
 
   return (
-    <svg direction="ltr" width={width} height={height} role="img">
-      <title id="bubblePackChartTitle">{ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.BubblePack), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}</title>
+    <svg direction="ltr" width={width} height={height} role="img"
+      aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.BubblePack), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}>
       {
         nodes.orderByDescending(a => a.r).map(d => {
           const active = activeDetector?.(isFolder(d.data) ? ({ c2: d.data.folder }) : d.data);
@@ -116,12 +116,12 @@ export default function renderBubblePack({ data, width, height, parameters, load
               }
               {/* A folder is the roll-up of its leaves and not a row, so it carries its own values; a leaf
                   is c0 … c4. This one already named every column, in its own parenthesised format. */}
-              <title>{isFolder(d.data)
+              <ShapeTitleText text={isFolder(d.data)
                 ? chartTitle(null, [
                   { value: parentColumn!.getNiceName(d.data.folder) },
                   { column: valueColumn, value: format(size.invert(d.value!)) }])
                 : chartTitle(d.data, [keyColumn, valueColumn, parentColumn,
-                  colorScaleColumn, colorSchemeColumn])}</title>
+                  colorScaleColumn, colorSchemeColumn])} />
             </g>);
         })
       }

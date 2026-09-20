@@ -13,7 +13,7 @@ import TextEllipsis from './Components/TextEllipsis';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
-import { chartTitle } from './Components/ChartTitle';
+import { ShapeTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Bars.tsx (the horizontal-bars renderer). Same fixes as Columns.tsx:
 // @framework/* → altea; ../Signum.Chart → ../../data/*; symbolNiceName → ChartClient.symbolNiceName;
@@ -88,8 +88,8 @@ export default function renderBars({ data, width, height, parameters, loading, o
       direction="ltr"
       width={width}
       height={height}
-      role="img">
-      <title id="barChartTitle">{ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Bars), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}</title>
+      role="img"
+      aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Bars), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}>
       <g opacity={dashboardFilter ? .5 : undefined}>
         <XScaleTicks xRule={xRule} yRule={yRule} valueColumn={valueColumn} x={x} />
       </g>
@@ -144,7 +144,7 @@ export default function renderBars({ data, width, height, parameters, loading, o
                     (onclick as any)?.(e);
                   }
                 }}>
-                <title>{chartTitle(row, [keyColumn, valueColumn])}</title>
+                <ShapeTitle row={row} parts={[keyColumn, valueColumn]} />
               </rect>
               }
               {y.bandwidth() > 15 && (isAll || row != null) &&

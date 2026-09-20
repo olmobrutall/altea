@@ -13,7 +13,7 @@ import { AggregateToken } from '@altea/altea/data/dynamicQuery/tokens/aggregateT
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import '@altea/altea/data/globals/arrayExtensions';
 import '@altea/altea/data/globals/stringExtensions';
-import { chartTitle } from './Components/ChartTitle';
+import { ShapeTitle } from './Components/ChartTitle';
 
 interface ColumnWithScales {
   column: ChartColumn<number>;
@@ -109,8 +109,8 @@ function ParallelCoordinatesImp({ data, width, height, parameters, loading, onDr
     ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.ParallelCoordinates), getQueryNiceName(chartRequest.queryKey), keyColumns.map(cn => cn.title).join(", "));
 
   return (
-    <svg direction="ltr" width={width} height={height} role="img">
-      <title id="parallelCoodinatesChartTitle">{titleMessage}</title>
+    <svg direction="ltr" width={width} height={height} role="img"
+      aria-label={titleMessage}>
       <g className="x-tick" transform={translate(xRule.start('content') + x.bandwidth() / 2, yRule.start('content'))}>
         {cords.map(d => <line key={d.column.name} className="x-tick sf-transition"
           transform={translate(x(d.column.name)!, 0)}
@@ -179,7 +179,7 @@ function ParallelCoordinatesImp({ data, width, height, parameters, loading, onDr
               d={line(cords.map(c => ({ col: c, row: r })))!}>
               {/* c0 plus every axis the user filled — `cords` IS c1 … c8 without the gaps, so this one
                   was already complete by construction. */}
-              <title>{chartTitle(r, [keyColumn, ...cords.map(c => c.column)])}</title>
+              <ShapeTitle row={r} parts={[keyColumn, ...cords.map(c => c.column)]} />
             </path>
           </g>
         );
