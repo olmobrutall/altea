@@ -60,8 +60,15 @@ export enum FilterOperationKeys {
     NotContains = "NotContains",
     NotStartsWith = "NotStartsWith",
     NotEndsWith = "NotEndsWith",
+    Like = "Like",
+    NotLike = "NotLike",
     IsIn = "IsIn",
     IsNotIn = "IsNotIn",
+    // A RANGE, whose value is the pair [min, max] — either end may be null. BetweenNoEnd excludes the
+    // max, so consecutive ranges do not both claim the boundary. See the range branch of
+    // getConditionExpressionBasic.
+    Between = "Between",
+    BetweenNoEnd = "BetweenNoEnd",
     // Full-text operations (Signum's Filter.cs). SQL Server: FreeText → FREETEXT, ComplexCondition
     // → CONTAINS. Postgres: TsQuery* → the matching `tsvector @@ *_tsquery(value)`. The string
     // values match the client FilterOperationEnum (data/dynamicQueries.ts).
@@ -100,6 +107,11 @@ const STRING_METHOD: Partial<Record<FilterOperationKeys, { method: string; negat
     [FilterOperationKeys.NotContains]: { method: "includes", negate: true },
     [FilterOperationKeys.NotStartsWith]: { method: "startsWith", negate: true },
     [FilterOperationKeys.NotEndsWith]: { method: "endsWith", negate: true },
+    // Signum StringExtensions.Like: the value is a raw SQL LIKE pattern, its own % / _ wildcards and
+    // all, which the nominator lowers to a LikeExpression. The search UI offers both on every string
+    // column, so leaving them out made the dropdown promise two operations the server then refused.
+    [FilterOperationKeys.Like]: { method: "like", negate: false },
+    [FilterOperationKeys.NotLike]: { method: "like", negate: true },
 };
 
 // Port of Signum's `Filter` (abstract). Only `FilterCondition` is ported; `FilterGroup` (and full
@@ -292,6 +304,29 @@ export class FilterCondition extends Filter {
             const values = ci && Array.isArray(this.value) ? this.value.map(toLowerValue) : this.value;
             const call = new CallExpression(new PropertyExpression(new ConstantExpression(values), "includes"), [cmpLeft], LiteralType.boolean);
             return this.operation === FilterOperationKeys.IsNotIn ? new BinaryExpression("==", call, new ConstantExpression(false)) : call;
+        }
+
+        // ---- Range (Signum's `Operation.IsPair()` branch) ---------------------------------------
+        // A range is the two comparisons it means: `>= min` and `<= max` — `< max` for BetweenNoEnd, so
+        // two consecutive ranges cannot both claim the boundary. EITHER END MAY BE MISSING: the
+        // FilterBuilder starts a Between as [null, null] and a url may carry only one end, and an absent
+        // end is simply not compared. A pair with neither end says nothing about the row, which is
+        // `true` — never "no rows", which would make an empty date range hide everything.
+        if (this.operation === FilterOperationKeys.Between || this.operation === FilterOperationKeys.BetweenNoEnd) {
+            const pair = Array.isArray(this.value) ? this.value as unknown[] : [];
+            const min = pair[0] ?? null;
+            const max = pair[1] ?? null;
+
+            const geMin = min == null ? undefined :
+                new BinaryExpression(">=", cmpLeft, new ConstantExpression(ci ? toLowerValue(min) : min));
+            const leMax = max == null ? undefined :
+                new BinaryExpression(this.operation === FilterOperationKeys.BetweenNoEnd ? "<" : "<=",
+                    cmpLeft, new ConstantExpression(ci ? toLowerValue(max) : max));
+
+            if (geMin == undefined)
+                return leMax ?? new ConstantExpression(true);
+
+            return leMax == undefined ? geMin : new BinaryExpression("&&", geMin, leMax);
         }
 
         // ---- Full-text (Signum's FilterFullText) ------------------------------------------------

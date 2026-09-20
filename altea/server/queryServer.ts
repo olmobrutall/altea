@@ -272,6 +272,11 @@ function parseFilter(token: (s: string) => QueryToken, f: FilterRequest): Filter
 export function deserializeFilterValue(token: QueryToken, operation: FilterOperationKeys, raw: unknown): unknown {
     if (operation === FilterOperationKeys.IsIn || operation === FilterOperationKeys.IsNotIn)
         return Array.isArray(raw) ? raw.map(v => deserializeSingle(token, v)) : raw;
+    // Between / BetweenNoEnd carry the two ENDS of a range, and each is converted on its own — the array
+    // itself is not a value of the token's type, so handing it to deserializeSingle left both ends as the
+    // raw wire strings and a date range then compared a string against a Temporal column.
+    if (operation === FilterOperationKeys.Between || operation === FilterOperationKeys.BetweenNoEnd)
+        return Array.isArray(raw) ? raw.map(v => deserializeSingle(token, v)) : raw;
     return deserializeSingle(token, raw);
 }
 
