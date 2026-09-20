@@ -51,6 +51,14 @@ export function applyMetadata(wire: MetadataBlobWire): MetadataBlob {
     // each operation carries its own key. Everything below reads THAT.
     const meta = Metadata.apply(wire);
 
+    // The document language has to be the language the application actually renders in, and the blob's
+    // culture is that language — negotiated from the remembered choice, the cookie and Accept-Language,
+    // any of which can disagree with the browser's own preferred one. Signum stamps lang server-side from
+    // Index.cshtml and only corrected it when the user actively switched culture, so a German browser on
+    // an English account served <html lang="de-DE"> over an English interface. Here there is one place:
+    // altea reloads the page on a culture change, so every path comes back through this.
+    document.documentElement.setAttribute("lang", meta.culture);
+
     // Query-defined registry (Finder.isFindable / isQueryDefined), derived from the per-type `hasQuery`.
     setDefinedQueries(queryKeys(meta));
 
