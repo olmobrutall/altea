@@ -15,6 +15,7 @@
 // therefore lives on the deserialize path (the server resolves the DB original implicitly), not here.
 
 import { Entity } from "../data/entity";
+import { Lite } from "../data/lite";
 import { entityIntegrityCheckAsync } from "../data/validation";
 import type { EntityPack } from "../data/entityPack";
 import * as Database from "./Database";
@@ -72,6 +73,18 @@ export namespace EntitiesServer {
             async (req, res) => {
                 const entity = await req.jsonTyped();
                 return res.jsonTyped(await getEntityPack(entity));
+            });
+
+        // Signum's EntitiesController.Lites (/api/liteModels): name a batch of thin lites. The client
+        // sends the lites it could not name, and gets back one display string per lite IN ORDER — null
+        // where the row is gone or the current user may not read it, so the caller keeps its fallback
+        // rather than showing an empty box. altea has no separate lite MODEL (a custom lite carries its
+        // fields on the lite itself and still renders through toStr), so the wire carries STRINGS.
+        ws.post("/api/liteToStrings",
+            { req: CustomType<Lite<Entity>[]>(), res: CustomType<(string | null)[]>() },
+            async (req, res) => {
+                const lites = (await req.jsonTyped()) ?? [];
+                res.jsonTyped(await Database.toStrings(lites));
             });
 
         // The client's pre-flight "would this save?" check (FrameModal). Validate as the save would

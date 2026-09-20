@@ -5,7 +5,7 @@
 // served from memory instead of the database.
 
 import { Entity, type PrimaryKey, type Type } from "../data/entity";
-import { Lite } from "../data/lite";
+import { Lite, LiteImp } from "../data/lite";
 import { getCacheController } from "./cache";
 import { EntityNotFoundException } from "./exceptions";
 import { retrieveEntitiesByIds, retrieveEntitiesFromCache, table } from "./table";
@@ -86,6 +86,94 @@ export async function retrieveFromListOfLite<T extends Entity>(lites: Lite<T>[])
 
     // Reassemble in the original order (duplicate lites map to the same instance).
     return lites.map(lite => byType.get(lite.entityType)!.get(lite.id)!);
+}
+
+/**
+ * "May the current user read this TYPE at all?" — the flat, conditionless half of the type-READ rule,
+ * as a gate that THROWS to deny (the idiom `postRetrieveGates` already uses). The authorization module
+ * fills it; with none installed — a terminal, a test — everything is readable, as everywhere else in core.
+ *
+ * It exists because a PROJECTION is gated by neither of the two mechanisms that cover everything else:
+ * row-level conditions ride on every query through EntityEvents.queryFilter, and the retrieve path has
+ * `Retriever.postRetrieveGates`, but `map(e => e.toLite())` reads a row without materialising an entity,
+ * so it passes neither. That is FINE inside a query the caller was already allowed to run — which is what
+ * the retriever's own nameless-lite completion is — and it is NOT fine at an entry point that names
+ * whatever lites the caller hands it.
+ */
+export const readTypeGates: ((type: Type<Entity>) => void | Promise<void>)[] = [];
+
+async function isReadable<T extends Entity>(type: Type<T>): Promise<boolean> {
+    for (const gate of readTypeGates) {
+        try {
+            await gate(type as unknown as Type<Entity>);
+        } catch {
+            return false;
+        }
+    }
+    return true;
+}
+
+// The lookup, BY INDEX: null for a lite nothing named. It is a separate function from the fill because
+// "could not be named" cannot be read back off a filled lite — a lite that crossed the wire arrives with
+// the FALLBACK already in its `toStr` (the serializer writes `toString()`), so the route answering the
+// client has to be told, not left to compare.
+export async function toStrings<T extends Entity>(lites: Lite<T>[]): Promise<(string | null)[]> {
+    if (lites.length === 0)
+        return [];
+
+    const byType = new Map<Type<T>, Lite<T>[]>();
+    for (const lite of lites) {
+        const arr = byType.get(lite.entityType);
+        if (arr != null)
+            arr.push(lite);
+        else
+            byType.set(lite.entityType, [lite]);
+    }
+
+    const names = new Map<Lite<T>, string>();
+
+    for (const [type, group] of byType) {
+        // A type this user may not read yields nothing, and its lites keep their "<NiceName> <id>"
+        // fallback — the same answer as a row that is gone. Deliberately not an error: this endpoint is
+        // asked about lites the caller merely HAS (a url it was sent, a list it pasted), so a type it
+        // cannot read is an ordinary outcome, and one shared answer tells an attacker nothing.
+        if (!await isReadable(type))
+            continue;
+
+        // A captured const, not an expression: the ids reach the SQL as a parameter list.
+        const ids = group.map(l => l.id).distinctBy(id => String(id));
+        const named = await table(type).filter(e => ids.includes(e.id)).map(e => e.toLite()).toArray();
+
+        const byId = new Map(named.map(n => [String(n.id), n.toString()]));
+        for (const lite of group) {
+            const toStr = byId.get(String(lite.id));
+            if (toStr != null)
+                names.set(lite, toStr);
+        }
+    }
+
+    return lites.map(l => names.get(l) ?? null);
+}
+
+// Signum's Database.FillLiteModels: stamp each lite's DISPLAY STRING, one query per type. A lite that
+// reached the server or the client from OUTSIDE a query — parsed from a url filter, read out of a stored
+// user asset, pasted as a key — carries an id and a type and nothing else, so it renders as LiteImp's
+// last-resort "<NiceName> <id>" until something names it.
+//
+// Deliberately a lite PROJECTION, never a retrieve: `map(e => e.toLite())` selects the row's `to_str`
+// (or its lowered @quoted toString()) alone — the same query the retriever's nameless-lite completion
+// runs (Retriever.liteListImpl) — so no Retrieved handler fires and no unasked-for reference is dragged
+// in.
+//
+// Lites are mutated IN PLACE (Signum's `FillLiteModels` does the same), so a caller holding the filter
+// value or the pasted list sees the names appear without rebuilding anything.
+export async function fillToStrings<T extends Entity>(lites: Lite<T>[]): Promise<void> {
+    const names = await toStrings(lites);
+    lites.forEach((lite, i) => {
+        const toStr = names[i];
+        if (toStr != null && lite instanceof LiteImp)
+            lite.setToStr(toStr);
+    });
 }
 
 // Signum's Database.DeleteList — delete a list of entities/lites one row at a time (as

@@ -119,10 +119,16 @@ export class LiteImp<T extends Entity> extends Lite<T> {
     }
 
     /**
-     * Signum's `Lite.SetToString`. The ONE legitimate caller is the retriever's display-string completion
-     * pass (`Retriever.completeLiteToStrings`): an `@implementedByAll` column stores only (id, typeId), so
-     * there is no table to join a `to_str` from and the query hands the lite back nameless. Anyone else
-     * wanting a different display string should build a new lite.
+     * Signum's `Lite.SetToString`. Two legitimate callers, and both are answering the same question —
+     * "what is this row called?" — for a lite that arrived without the answer:
+     *
+     * - the retriever's display-string completion pass (`Retriever.completeLiteToStrings`): an
+     *   `@implementedByAll` column stores only (id, typeId), so there is no table to join a `to_str`
+     *   from and the query hands the lite back nameless;
+     * - `Database.fillToStrings` and its route (`Navigator.API.fillToStrings` on the client), for a lite
+     *   built from a KEY — a url filter value, a stored user asset, a pasted list.
+     *
+     * Anyone else wanting a different display string should build a new lite.
      */
     setToStr(toStr: string): void {
         this.toStr = toStr;

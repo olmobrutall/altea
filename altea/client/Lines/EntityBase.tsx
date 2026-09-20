@@ -342,9 +342,10 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
     const tiName = cleanTypeName(ti.ctor!);
     lites = lites.filter(lite => getTypeName(lite) == tiName);
 
-    // TODO(port): Signum pre-fills the lites' models/toStrings via Navigator.API.fillLiteModels before
-    // the selector; that API is not in the active Navigator region yet, so the selector shows the raw
-    // lites until it lands.
+    // A pasted key names a row but does not say what it is called, so the lites are named before the
+    // selector opens — otherwise it lists "Person 01a0b933-…" and there is nothing to choose between.
+    await Navigator.API.fillToStringsArray(lites);
+
     var lite = await SelectorModal.chooseLite(tiName, lites);
     if (!lite)
       return;

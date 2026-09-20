@@ -1748,10 +1748,14 @@ export namespace Finder {
   // dereferences `lite.entityType` and dies on undefined. It also fixes the UI: the filter row binds an
   // EntityLine, which needs a Lite, not its key.
   //
-  // Two Signum branches have no counterpart here. There is no `Navigator.API.fillLiteModelsArray` pass
-  // (altea has no lite MODEL, so a parsed lite keeps `toStr === ""` and LiteImp.toString falls back to
-  // "<NiceName> <id>" — what every nameless @implementedByAll lite already renders with). And no
-  // DateTime normalization: an altea date filter value IS an ISO string on both sides (the FilterBuilder
+  // Then the lites are NAMED. A lite parsed from a key carries an id and a type and nothing else, so
+  // `filter0=Customer~EqualTo~Person;01a0b933-…` rendered as LiteImp's fallback "Person 01a0b933-…" in
+  // the filter's EntityLine until something asked the server who that is. This is Signum's
+  // `Navigator.API.fillLiteModelsArray` branch, over altea's toStr rather than a lite MODEL (altea has
+  // none — a custom lite carries its fields itself and still displays through toStr). It is the whole
+  // reason this function is async, and it is why it runs BEFORE the SearchControl first renders.
+  //
+  // One Signum branch still has no counterpart: DateTime normalization — an altea date filter value IS an ISO string on both sides (the FilterBuilder
   // trims it to the token's precision when the token changes) and the server coerces it with
   // `Temporal.PlainDate(Time).from`, which accepts either precision — where Signum has to convert
   // between DateOnly and DateTime itself.
@@ -1794,7 +1798,23 @@ export namespace Finder {
 
     filterOptions.forEach(fo => parseFilterValue(fo));
 
-    return Promise.resolve();
+    const lites: Lite<Entity>[] = [];
+    filterOptions.forEach(fo => collectLites(fo, lites));
+
+    return Navigator.API.fillToStringsArray(lites);
+  }
+
+  // Every Lite sitting in a parsed filter tree, wherever the operation put it: a scalar value, an IsIn
+  // list, a Between pair, or a group's own list. Named lites are passed along too — fillToStringsArray
+  // is what decides there is nothing to ask for.
+  function collectLites(fo: FilterOptionParsed, acc: Lite<Entity>[]): void {
+    if (isFilterGroup(fo))
+      fo.filters.forEach(f => collectLites(f, acc));
+
+    for (const v of Array.isArray(fo.value) ? fo.value : [fo.value]) {
+      if (v instanceof Lite)
+        acc.push(v);
+    }
   }
 
   // One scalar filter value against its token's FilterType (Signum's `parseValue`). Only the types whose

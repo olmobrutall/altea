@@ -17,7 +17,7 @@ import type { Type } from '../data/entity';
 import { Dic } from '../data/globals';
 import { Metadata } from '../data/metadata';
 import { Entity, BaseEntity } from '../data/entity';
-import { Lite } from '../data/lite';
+import { Lite, LiteImp } from '../data/lite';
 import type { EntityPack } from '../data/entityPack';
 import type { EntityFrame } from './TypeContext';
 import { useAPI, useAPIWithReload, useForceUpdate } from './Hooks';
@@ -277,8 +277,11 @@ export namespace Navigator {
   }
 
   /* ============================ TODO PORT — custom Lite models + enum-entity map. Needs server routes
-     /api/liteModels and /api/reflection/enumEntities (plus newLite); useLiteToString / useFillToString
-     hang off fillLiteModels. ============================
+     /api/reflection/enumEntities (plus newLite); useLiteToString / useFillToString hang off
+     fillLiteModels. The DISPLAY-STRING half of this has landed: API.fillToStrings (in the active region
+     below) names thin lites through /api/liteToStrings. What is still missing is the custom-lite MODEL —
+     the extra fields a custom lite carries, which a lite parsed from a key does not have.
+     ============================
   export function useLiteToString<T extends Entity>(type: Type<T>, id: number | string, deps?: React.DependencyList, options?: APIHookOptions): Lite<T> {
 
     var lite = React.useMemo(() => newLite(type, id), [type, id, ...(deps ?? [])]);
@@ -355,6 +358,39 @@ export namespace Navigator {
     // Serializer.parse revives the nested { $type } entity and leaves `canExecute` plain.
     function getEntityPack<T extends Entity>(url: string): Promise<EntityPack<T>> {
       return ajaxGet<EntityPack<T>>({ url });
+    }
+
+    /**
+     * Name the lites that arrived without a name — Signum's `fillLiteModels`, over altea's toStr.
+     *
+     * A lite built from a KEY ("Person;01a0b933-…") — the url's filter values, a stored user asset, a
+     * pasted list — has no display string, and LiteImp then renders "<NiceName> <id>". One POST names
+     * the whole batch (one query per type on the server) and the lites are stamped IN PLACE, so whatever
+     * holds them shows the name without being rebuilt.
+     *
+     * Already-named lites and fat ones are skipped, so calling this with a mixed list costs nothing when
+     * there is nothing to ask for. A lite the server could not name keeps its fallback.
+     */
+    export function fillToStrings(...lites: (Lite<Entity> | null | undefined)[]): Promise<void> {
+      return fillToStringsArray(lites.filter(l => l != null) as Lite<Entity>[]);
+    }
+
+    export function fillToStringsArray(lites: Lite<Entity>[], force?: boolean): Promise<void> {
+
+      const nameless = lites.filter(l =>
+        l instanceof LiteImp && l.id != null &&
+        (force || ((l.toStr == null || l.toStr === "") && l.entityOrNull == null))) as LiteImp<Entity>[];
+
+      if (nameless.length == 0)
+        return Promise.resolve();
+
+      return ajaxPost<(string | null)[]>({ url: "/api/liteToStrings" }, nameless).then(toStrs => {
+        nameless.forEach((l, i) => {
+          const toStr = toStrs[i];
+          if (toStr != null)
+            l.setToStr(toStr);
+        });
+      });
     }
 
     // The persisted TypeEntity row for a (clean) type name (Signum's Navigator.API.getType). Served by

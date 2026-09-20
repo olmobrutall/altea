@@ -12,6 +12,7 @@ import { markStable, stableValue } from "@altea/altea/server/stablePromise";
 import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { preSaveGates } from "@altea/altea/server/saver";
 import { postRetrieveGates } from "@altea/altea/server/linq/Retriever";
+import { readTypeGates } from "@altea/altea/server/Database";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { cleanTypeName, getLocation } from "@altea/altea/data/registration";
@@ -179,6 +180,7 @@ export namespace TypeAuthLogic {
         // only once ALL conditions are registered (app conditions register after this start).
         preSaveGates.push(authSaveGate);
         postRetrieveGates.push(authRetrieveGate);
+        readTypeGates.push(assertTypeReadable);
         // The contextual menu of a SearchControl
         // asks whether ANY of the selected rows is read-only for this role, and hides the operations that
         // would fail anyway. altea core owns the seam (OperationLogic.onAnyReadonly); this is its one filler.
@@ -394,21 +396,30 @@ export namespace TypeAuthLogic {
     // the queryFilter, not here. A type not registered in TypeLogic (enum side-table / view) is not
     // type-auth-gated, so it is skipped.
     async function authRetrieveGate(entities: Entity[]): Promise<void> {
-        const rk = AuthLogic.currentRoleKey();
-        if (rk == null || !AuthLogic.isEnabled())
-            return;
         const checked = new Set<Function>();
         for (const e of entities) {
             const ctor = e.constructor as Function;
             if (checked.has(ctor))
                 continue;
             checked.add(ctor);
-            let typeId: PrimaryKey;
-            try { typeId = (await TypeLogic.caches()).typeToId(ctor); } catch { continue; }
-            const wc = await getAllowed(typeId, rk);
-            if (maxBound(wc, false) < TypeAllowedBasic.Read)
-                throw new UnauthorizedAccessException(`Not authorized to retrieve ${ctor.name}`);
+            await assertTypeReadable(ctor);
         }
+    }
+
+    // The per-TYPE half of the gate above, on its own because the reading of a row is not always the
+    // materialising of an entity: a lite PROJECTION (Database.toStrings, naming the lites a url filter or
+    // a pasted list carries) reads the display string without ever building one, so it has no entity to
+    // hand `authRetrieveGate` and asks by type instead. A CONDITIONED type passes here on its most
+    // permissive branch — the per-row half is the queryFilter's, as it is for every other query.
+    async function assertTypeReadable(ctor: Function): Promise<void> {
+        const rk = AuthLogic.currentRoleKey();
+        if (rk == null || !AuthLogic.isEnabled())
+            return;
+        let typeId: PrimaryKey;
+        try { typeId = (await TypeLogic.caches()).typeToId(ctor); } catch { return; }
+        const wc = await getAllowed(typeId, rk);
+        if (maxBound(wc, false) < TypeAllowedBasic.Read)
+            throw new UnauthorizedAccessException(`Not authorized to retrieve ${ctor.name}`);
     }
 
     // Explicit reset (for setTypeRulePack, whose deletes don't fire the `saved` event the GlobalLazy
