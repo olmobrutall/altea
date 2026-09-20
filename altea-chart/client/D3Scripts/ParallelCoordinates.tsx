@@ -13,7 +13,7 @@ import { AggregateToken } from '@altea/altea/data/dynamicQuery/tokens/aggregateT
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import '@altea/altea/data/globals/arrayExtensions';
 import '@altea/altea/data/globals/stringExtensions';
-import { ShapeTitle } from './Components/ChartTitle';
+import { shapeTitle } from './Components/ChartTitle';
 
 interface ColumnWithScales {
   column: ChartColumn<number>;
@@ -176,10 +176,10 @@ function ParallelCoordinatesImp({ data, width, height, parameters, loading, onDr
                   (onclick as any)?.(e);
                 }
               }}
-              d={line(cords.map(c => ({ col: c, row: r })))!}>
-              {/* c0 plus every axis the user filled — `cords` IS c1 … c8 without the gaps, so this one
-                  was already complete by construction. */}
-              <ShapeTitle row={r} parts={[keyColumn, ...cords.map(c => c.column)]} />
+              d={line(cords.map(c => ({ col: c, row: r })))!}
+              /* c0 plus every axis the user filled — `cords` IS c1 … c8 without the gaps, so this one
+                  was already complete by construction. */
+              {...shapeTitle(r, [keyColumn, ...cords.map(c => c.column)])}>
             </path>
           </g>
         );

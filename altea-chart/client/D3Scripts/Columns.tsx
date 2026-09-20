@@ -14,7 +14,7 @@ import TextIfFits from './Components/TextIfFits';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
-import { ShapeTitle } from './Components/ChartTitle';
+import { shapeTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Columns.tsx. Fixes: @framework/* → altea; ../Signum.Chart →
 // ../../data/*; symbolNiceName → ChartClient.symbolNiceName; interfaces via `import type`; unused
@@ -175,9 +175,8 @@ export function paintColumns({ xRule, yRule, x: x2, y, keyValues, data, paramete
                     (onclick as any)?.(e);
                   }
                 }}
-                onClick={e => onDrillDown(row!, e)}>
-                <ShapeTitle row={row} parts={[keyColumn, valueColumn]} />
-              </rect>}
+                onClick={e => onDrillDown(row!, e)}
+                {...shapeTitle(row, [keyColumn, valueColumn])} />}
               {bandwidth > 15 && (isAll || row != null) &&
                 (isMargin ?
                   <g className="x-label" transform={translate(0, labelsPadding + posy)} >

@@ -27,9 +27,10 @@
 }
 
 .sf-chart-tooltip {
-    /* -50% centres the card on the point, -100% lifts it clear of it. Static, and on the card rather than
-       on the anchor, so the animated translate3d above never interpolates it. */
-    transform: translate(-50%, -100%) translate(0, -10px);
+    /* -50% centres the card on the anchor, -100% puts it above it. Static, and on the card rather than on
+       the anchor, so the animated translate3d above never interpolates it. The clearance from the shape is
+       NOT here: ChartTooltip works it out from the shape's box and folds it into the anchor. */
+    transform: translate(-50%, -100%);
 
     display: grid;
     gap: .375rem;
@@ -50,12 +51,27 @@
     /* The card is an overlay on an SVG, which does not inherit the page's text rendering. */
     white-space: nowrap;
 
-    animation: sf-chart-tooltip-in 120ms ease-out;
+    animation: sf-chart-tooltip-in 140ms ease-out;
 }
 
-/* Too close to the top to sit above the point, so it sits below it instead. */
+/* The way OUT, and a keyframe rather than a transition on purpose: a transition only runs if the browser
+   has already painted the value it starts from, which is not guaranteed for a card that may have appeared
+   moments ago. An animation runs from its own first frame either way. Keep the duration in step with
+   ChartTooltip's `fadeMs`, which is how long the card stays mounted — a card that simply disappeared read
+   as a flicker every time the pointer crossed the gap between two shapes. */
+.sf-chart-tooltip.leaving {
+    animation: sf-chart-tooltip-out 200ms ease forwards;
+}
+
+@keyframes sf-chart-tooltip-out {
+    to {
+        opacity: 0;
+    }
+}
+
+/* Too close to the top to sit above the shape, so it sits below it instead. */
 .sf-chart-tooltip.below {
-    transform: translate(-50%, 0) translate(0, 10px);
+    transform: translate(-50%, 0);
 }
 
 @keyframes sf-chart-tooltip-in {
@@ -70,7 +86,8 @@
         transition: none !important;
     }
 
-    .sf-chart-tooltip {
+    .sf-chart-tooltip,
+    .sf-chart-tooltip.leaving {
         animation: none;
     }
 }

@@ -11,7 +11,7 @@ import InitialMessage from './Components/InitialMessage';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
-import { ShapeTitle } from './Components/ChartTitle';
+import { shapeTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/TreeMap.tsx (d3.treemap hierarchy). Standard fixes.
 export default function renderTreeMap({ data, width, height, parameters, loading, onDrillDown, initialLoad, chartRequest, memo, dashboardFilter }: ChartScriptProps): React.ReactElement<any> {
@@ -120,13 +120,12 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               cursor="pointer"
               role="button"
               tabIndex={0}
-              focusable={true}>
-              {/* A folder is not a row — it is the roll-up of its leaves — so both parts carry their own
-                  value and no row is passed. */}
-              <ShapeTitle row={null} parts={[
+              focusable={true}
+              /* A folder is not a row — it is the roll-up of its leaves — so both parts carry their own
+                 value and no row is passed. */
+              {...shapeTitle(null, [
                 { value: parentColumn!.getNiceName(d.data.folder) },
-                { column: valueColumn, value: format(size.invert(d.value!)) }]} />
-            </rect>
+                { column: valueColumn, value: format(size.invert(d.value!)) }])} />
           }
           {!isFolder(d.data) &&
             <rect className="leaf sf-transition hover-target"
@@ -141,11 +140,10 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               cursor="pointer"
               role="button"
               tabIndex={0}
-              focusable={true}>
-              {/* c0 … c4. The parent and the two colour columns were missing entirely. */}
-              <ShapeTitle row={d.data} parts={[keyColumn, valueColumn, parentColumn,
-                colorScaleColumn, colorSchemeColumn]} />
-            </rect>}
+              focusable={true}
+              /* c0 … c4. The parent and the two colour columns were missing entirely. */
+              {...shapeTitle(d.data, [keyColumn, valueColumn, parentColumn,
+                colorScaleColumn, colorSchemeColumn])} />}
 
           {!isFolder(d.data) && nodeWidth(d) > 10 && nodeHeight(d) > 25 &&
             <TextEllipsis maxWidth={nodeWidth(d)} padding={4} etcText=""
@@ -153,11 +151,11 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               dominantBaseline="middle"
               dx={nodeWidth(d) / 2}
               dy={nodeHeight(d) / 2 + (showNumber ? -6 : 0)}
-              onClick={e => onDrillDown(d.data as ChartRow, e)}>
+              onClick={e => onDrillDown(d.data as ChartRow, e)}
+              /* The label sits ON the leaf, so it repeats the leaf's own tooltip. */
+              {...shapeTitle(d.data as ChartRow, [keyColumn, valueColumn, parentColumn,
+                colorScaleColumn, colorSchemeColumn])}>
               {keyColumn.getValueNiceName(d.data as ChartRow)}
-              {/* The label sits ON the leaf, so it repeats the leaf's own tooltip. */}
-              <ShapeTitle row={d.data as ChartRow} parts={[keyColumn, valueColumn, parentColumn,
-                colorScaleColumn, colorSchemeColumn]} />
             </TextEllipsis>
           }
 

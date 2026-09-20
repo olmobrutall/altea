@@ -13,7 +13,7 @@ import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import { AggregateToken } from '@altea/altea/data/dynamicQuery/tokens/aggregateToken';
-import { ShapeTitle } from './Components/ChartTitle';
+import { shapeTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Bubbleplot.tsx. Standard fixes (@framework→altea,
 // symbolNiceName→ChartClient.symbolNiceName, import type, ../Signum.Chart→data/*). Divergence:
@@ -134,6 +134,10 @@ export default function renderBubbleplot({ data, width, height, parameters, load
                 }
               }}
               onClick={e => onDrillDown(r, e)}
+              /* c0 … c5. The two colour columns were missing: a bubble encodes them purely as a colour,
+                 so the tooltip was the only place they could be read and it did not name them. */
+              {...shapeTitle(r, [keyColumn, horizontalColumn, verticalColumn, sizeColumn,
+                colorScaleColumn, colorSchemeColumn])}
             >
               <circle className="shape sf-transition hover-target"
                 stroke={active == true ? "var(--bs-body-color)" : keyColumn.getValueColor(r) ?? color(r)}
@@ -155,10 +159,6 @@ export default function renderBubbleplot({ data, width, height, parameters, load
                 </TextEllipsis>
               }
 
-              {/* c0 … c5. The two colour columns were missing: a bubble encodes them purely as a colour,
-                  so the tooltip was the only place they could be read and it did not name them. */}
-              <ShapeTitle row={r} parts={[keyColumn, horizontalColumn, verticalColumn, sizeColumn,
-                colorScaleColumn, colorSchemeColumn]} />
 
             </g>
           );

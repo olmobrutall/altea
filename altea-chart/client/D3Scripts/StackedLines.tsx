@@ -13,7 +13,7 @@ import InitialMessage from './Components/InitialMessage';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
-import { ShapeTitleText } from './Components/ChartTitle';
+import { shapeTitleText } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/StackedLines.tsx. Standard fixes; the c.c1 && … Legend props
 // become type-safe ternaries.
@@ -131,8 +131,8 @@ export default function renderStackedLines({ data, width, height, parameters, lo
       </g>
       {stackedSeries.orderBy(s => s.key).map(s => <g key={s.key} opacity={dashboardFilter && !(c.c1 && detector?.({ c1: columnsByKey[s.key].value }) == true) ? .5 : undefined} className="shape-serie"
         transform={translate(xRule.start('content') + bw / 2, yRule.end('content'))}>
-        <path className="shape sf-transition" fill={colorByKey[s.key] ?? color(s.key)} shapeRendering="initial" d={area(s)!} transform={(initialLoad ? scale(1, 0) : scale(1, 1))}>
-          <ShapeTitleText text={columnsByKey[s.key].niceName!} />
+        <path className="shape sf-transition" fill={colorByKey[s.key] ?? color(s.key)} shapeRendering="initial" d={area(s)!} transform={(initialLoad ? scale(1, 0) : scale(1, 1))}
+          {...shapeTitleText(columnsByKey[s.key].niceName!)}>
         </path>
       </g>)}
 
@@ -172,8 +172,8 @@ export default function renderStackedLines({ data, width, height, parameters, lo
                       e.preventDefault();
                       (onclick as any)?.(e);
                     }
-                  }}>
-                  <ShapeTitleText text={row.valueTitle} />
+                  }}
+                  {...shapeTitleText(row.valueTitle)}>
                 </rect>
 
                 {(bw > 15 || hasHorizontalScale) && parseFloat(parameters["NumberOpacity"]) > 0 &&
@@ -190,13 +190,13 @@ export default function renderStackedLines({ data, width, height, parameters, lo
                     dominantBaseline="middle"
                     onClick={e => onDrillDown(row.rowClick, e)}
                     textAnchor="middle"
-                    fontWeight="bold">
+                    fontWeight="bold"
+                    {...shapeTitleText(pValueAsPercent == "Yes"
+                        ? totalCount > 0 ? (row.value / totalCount).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 }) : '0%'
+                        : row.valueTitle)}>
                     {pValueAsPercent == "Yes"
                       ? totalCount > 0 ? (row.value / totalCount).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 }) : '0%'
                       : row.valueNiceName}
-                    <ShapeTitleText text={pValueAsPercent == "Yes"
-                        ? totalCount > 0 ? (row.value / totalCount).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 }) : '0%'
-                        : row.valueTitle} />
                   </TextRectangle>
                 }
 

@@ -14,7 +14,7 @@ import type { ChartRequestModel } from '../../data/ChartRequest';
 import type { DashboardFilter } from '../DashboardFilterStub';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import { AggregateToken } from '@altea/altea/data/dynamicQuery/tokens/aggregateToken';
-import { chartTitle, ShapeTitleText } from './Components/ChartTitle';
+import { chartTitle, shapeTitleText } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Scatterplot.tsx. Standard fixes (@framework→altea,
 // symbolNiceName→ChartClient.symbolNiceName, import type, ../Signum.Chart→data/*). Divergence:
@@ -230,8 +230,8 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
                   e.preventDefault();
                   (onclick as any)?.(e);
                 }
-              }}>
-              <ShapeTitleText text={pointTitle(r, titleColumns)} />
+              }}
+              {...shapeTitleText(pointTitle(r, titleColumns))}>
             </circle>
           </g>);
 
@@ -240,7 +240,8 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
   else {
     return (<>
       {data.rows.map((r, i) => <g key={rowKeys[i]} className="shape-serie sf-transition"
-        transform={translate(xRule.start('content'), yRule.end('content')) + (initialLoad ? scale(1, 0) : scale(1, 1))}>
+        transform={translate(xRule.start('content'), yRule.end('content')) + (initialLoad ? scale(1, 0) : scale(1, 1))}
+        {...shapeTitleText(pointTitle(r, titleColumns))}>
         <line className="shape sf-transition"
           x1={x(horizontalColumn.getValue(r))}
           y1={-y(verticalColumn.getValue(r))}
@@ -293,8 +294,6 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
               (onclick as any)?.(e);
             }
           }} />
-        <ShapeTitleText text={pointTitle(r, titleColumns)} />
-
       </g>)}
     </>);
   }

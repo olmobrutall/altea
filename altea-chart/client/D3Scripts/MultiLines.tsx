@@ -14,7 +14,7 @@ import InitialMessage from './Components/InitialMessage';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
-import { ShapeTitleText } from './Components/ChartTitle';
+import { shapeTitleText } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/MultiLines.tsx. Standard fixes; numberOpacity is hoisted above
 // the `if` with a default (function-scoped var used after the block); Legend props become type-safe ternaries.
@@ -166,8 +166,8 @@ export default function renderMultiLines({ data, width, height, parameters, load
                         e.preventDefault();
                         (onclick as any)?.(e);
                       }
-                    }}>
-                    <ShapeTitleText text={pv.valueTitle} />
+                    }}
+                    {...shapeTitleText(pv.valueTitle)}>
                   </circle>
                 );
               })}
@@ -208,8 +208,8 @@ export default function renderMultiLines({ data, width, height, parameters, load
                           e.preventDefault();
                           (onclick as any)?.(e);
                         }
-                      }}>
-                      <ShapeTitleText text={pv.valueTitle} />
+                      }}
+                      {...shapeTitleText(pv.valueTitle)}>
                     </circle>
                     {numberOpacity > 0 &&
                       <text className="point-label sf-transition"

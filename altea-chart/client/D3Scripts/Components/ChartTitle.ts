@@ -1,4 +1,3 @@
-import * as React from "react";
 import type { ChartColumn, ChartRow } from "../../ChartClient";
 
 // ONE tooltip builder for every chart script. NOT in Signum, where each script spells its own <title> out
@@ -79,20 +78,35 @@ export function parseChartTitle(text: string): ChartTitleParts {
   };
 }
 
+/** What a chart script spreads onto a shape to give it a tooltip and a name. */
+export interface ShapeTitleProps {
+  "aria-label": string;
+  "data-chart-title": string;
+}
+
 /**
- * What a chart script puts inside a shape to give it a tooltip.
+ * ATTRIBUTES, spread onto the shape — not a `<title>` or `<desc>` child. All three of these bit:
  *
- * A `<desc>`, deliberately NOT a `<title>`: a `<title>` child makes the BROWSER draw its own plain tooltip,
- * which would sit on top of ChartTooltip's card. `<desc>` renders nothing and is still the shape's
- * accessible description, and ChartTooltip finds the hovered shape by looking for exactly this child.
+ *  - a `<title>` child is exactly what makes the browser draw its own plain tooltip, which would then sit
+ *    under ChartTooltip's card;
+ *  - a `<desc>` child gives the shape a DESCRIPTION and leaves its name empty, and most of these shapes
+ *    are marked `role="button"` — a button with no name is announced as just "button";
+ *  - TextIfFits and TextEllipsis measure their label by assigning `textContent`, which deletes every child
+ *    element. A tooltip parked inside one of those — the number label on a bar, a stacked column — was
+ *    wiped out of the DOM the moment it rendered.
+ *
+ * So `aria-label` carries the text to a screen reader (it is the accessible NAME, read on focus, and every
+ * script already makes its shapes focusable), and `data-chart-title` carries the same text as the hook
+ * ChartTooltip matches on. Two attributes and not one, because the `<svg>` itself has an aria-label — the
+ * chart's own name — and the tooltip must not mistake the canvas for a shape.
  */
-export function ShapeTitle(p: { row: ChartRow | null, parts: TitleArg[] }): React.ReactElement {
-  return <desc>{chartTitle(p.row, p.parts)}</desc>;
+export function shapeTitle(row: ChartRow | null, parts: TitleArg[]): ShapeTitleProps {
+  return shapeTitleText(chartTitle(row, parts));
 }
 
 /** The same, for a shape whose text was built earlier — a pivot cell's `valueTitle`, a series name. */
-export function ShapeTitleText(p: { text: string }): React.ReactElement {
-  return <desc>{p.text}</desc>;
+export function shapeTitleText(text: string): ShapeTitleProps {
+  return { "aria-label": text, "data-chart-title": text };
 }
 
 function isColumn(p: TitlePart | ChartColumn<any>): p is ChartColumn<any> {

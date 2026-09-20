@@ -16,7 +16,7 @@ import TextIfFits from './Components/TextIfFits';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
-import { ShapeTitleText } from './Components/ChartTitle';
+import { shapeTitleText } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/StackedColumns.tsx. Standard fixes; the c.c1 && … Legend props
 // become type-safe ternaries.
@@ -146,8 +146,8 @@ export default function renderStackedColumns({ data, width, height, parameters, 
                     e.preventDefault();
                     (onclick as any)?.(e);
                   }
-                }}>
-                <ShapeTitleText text={row.valueTitle} />
+                }}
+                {...shapeTitleText(row.valueTitle)}>
               </rect>
               {parseFloat(parameters["NumberOpacity"]) > 0 && x.bandwidth() > 15 &&
                 <TextIfFits className="number-label sf-transition"
@@ -161,13 +161,13 @@ export default function renderStackedColumns({ data, width, height, parameters, 
                   dominantBaseline="middle"
                   opacity={parameters["NumberOpacity"]}
                   textAnchor="middle"
-                  fontWeight="bold">
+                  fontWeight="bold"
+                  {...shapeTitleText(pValueAsPercent == "Yes"
+                      ? totalCount > 0 ? (row.value / totalCount).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 }) : '0%'
+                      : r.data.values[s.key].valueTitle)}>
                   {pValueAsPercent == "Yes"
                     ? totalCount > 0 ? (row.value / totalCount).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 }) : '0%'
                     : r.data.values[s.key].valueNiceName}
-                  <ShapeTitleText text={pValueAsPercent == "Yes"
-                      ? totalCount > 0 ? (row.value / totalCount).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 0 }) : '0%'
-                      : r.data.values[s.key].valueTitle} />
                 </TextIfFits>}
             </g>
           );
