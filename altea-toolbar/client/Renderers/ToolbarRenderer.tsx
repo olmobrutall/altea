@@ -8,7 +8,7 @@ import { classes } from "@altea/altea/data/globals";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import type { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { EngineMessage } from "@altea/altea/data/uiMessages";
+import { EngineMessage, JavascriptMessage } from "@altea/altea/data/uiMessages";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { Finder } from "@altea/altea/client/Finder";
@@ -85,10 +85,15 @@ export default function ToolbarRenderer(p: {
 
     return (
         <div className={"sidebar-inner"}>
-            <div className={"close-sidebar"}
+            {/* A <div> with onClick is reachable by mouse only, so on narrow viewports — where this is the
+                only way to dismiss the sidebar overlay — keyboard and screen reader users were stuck with
+                it open. The label sat on the icon, which is aria-hidden, so it never reached the
+                accessible name either. */}
+            <button type="button" className={"close-sidebar"}
+                aria-label={JavascriptMessage.Close.niceToString()}
                 onClick={() => p.onAutoClose && p.onAutoClose()}>
-                <FontAwesomeIcon aria-hidden={true} icon={"angles-left"} aria-label="Close" />
-            </div>
+                <FontAwesomeIcon aria-hidden={true} icon={"angles-left"} />
+            </button>
 
             <ul>
                 {response && response.elements && response.elements.map((res: ToolbarResponse<any>, i: number) => renderNavItem(res, i, ctx, null))}
@@ -232,7 +237,10 @@ export function renderNavItem(res: ToolbarResponse<any>, key: string | number, c
 
     switch (res.type) {
         case "Divider":
-            return <hr style={{ margin: "10px 0 5px 0px" }} key={key}></hr>;
+            // Wrapped in an <li>: these are rendered into the sidebar's <ul>, where an <hr> is not a
+            // permitted child. A list with a stray child can be announced with the wrong item count, or
+            // lose its list semantics altogether. The <hr> keeps its own separator role inside.
+            return <li key={key}><hr style={{ margin: "10px 0 5px 0px" }} /></li>;
         case "Header":
         case "Item":
             if (res.content?.entityType === ToolbarMenuEntity) {
@@ -261,7 +269,10 @@ export function renderNavItem(res: ToolbarResponse<any>, key: string | number, c
             if (res.content) {
                 const config = ToolbarClient.getConfig(res);
                 if (!config)
-                    return <Nav.Item className="text-danger">
+                    // as="li": these render into the sidebar's <ul>, where Nav.Item's default <div> is not
+                    // a permitted child. A misconfiguration path, but it is the one a screen reader meets
+                    // on a broken toolbar, and a stray child can cost the list its semantics entirely.
+                    return <Nav.Item as="li" className="text-danger">
                         {ToolbarMessage.ToolbarConfigNotRegistered0.niceToString(cleanTypeName(res.content.entityType))}
                     </Nav.Item>;
 
@@ -273,12 +284,13 @@ export function renderNavItem(res: ToolbarResponse<any>, key: string | number, c
                     <li key={key} className={"nav-item-header"}>
                         {ToolbarConfig.coloredIcon(parseIcon(res.iconName), res.iconColor)}
                         <span className={"nav-item-text"}>{res.label}</span>
-                        <div className={"nav-item-float"}>{res.label}</div>
+                        {/* Same hover-only duplicate of the label as in ToolbarNavItem. */}
+                        <div aria-hidden={true} className={"nav-item-float"}>{res.label}</div>
                     </li>
                 );
             }
 
-            return <Nav.Item key={key} style={{ color: "red" }}>{ToolbarMessage.NoContentOrUrlFound.niceToString()}</Nav.Item>;
+            return <Nav.Item as="li" key={key} style={{ color: "red" }}>{ToolbarMessage.NoContentOrUrlFound.niceToString()}</Nav.Item>;
 
         default:
             throw new Error("Unexpected " + res.type);
@@ -517,8 +529,11 @@ function ToolbarMenuItemsEntityType(p: { response: ToolbarResponse<ToolbarMenuEn
 
     return (
         <>
+            {/* as="li" below: Nav.Item renders a <div> by default, and this sits directly inside the
+                toolbar's <ul> alongside real <li> items. A <ul> may only contain <li>, which breaks both
+                the parsing of the list and the count assistive technology announces for it. */}
             {entityType && (
-                <Nav.Item title={ti.getNiceName()} className="d-flex mx-2 mb-2">
+                <Nav.Item as="li" title={ti.getNiceName()} className="d-flex mx-2 mb-2">
                     <div style={{ width: "100%" }}>
                         <EntityLine ctx={ctx} view={false} mandatory="warning"
                             inputAttributes={{ placeholder: LayoutMessage.SelectA0_G.niceToString(ti.getNiceName()) }}
@@ -649,7 +664,9 @@ function ToolbarSwitcher(p: { response: ToolbarResponse<ToolbarSwitcherEntity>, 
     return (
         <li>
             <ul>
-                <Nav.Item
+                {/* as="li": see the sibling case above — Nav.Item's default <div> is not a permitted child
+                    of <ul>. */}
+                <Nav.Item as="li"
                     data-toolbar-content={liteKeyOrQuery(p.response.content)}
                     title={title} className="d-flex mb-2">
                     {icon}
@@ -678,7 +695,10 @@ export function ToolbarNavItem(p: { title: string | undefined, content?: Lite<En
 
     return (
         <li className="nav-item d-flex">
+            {/* Nav.Link's `active` only adds a class, so which item is the current page was conveyed by
+                colour alone and never announced. aria-current says it. */}
             <Nav.Link title={p.title} onClick={p.onClick} onAuxClick={p.onClick} active={p.active} className="d-flex w-100"
+                aria-current={p.active ? "page" : undefined}
                 data-toolbar-content={liteKeyOrQuery(p.content)}>
                 <div>{p.icon}</div>
                 <span className={classes("nav-item-text", p.isGroup && "nav-item-group")}>
@@ -686,7 +706,9 @@ export function ToolbarNavItem(p: { title: string | undefined, content?: Lite<En
                     {p.isExternalLink && <FontAwesomeIcon aria-hidden={true} icon="arrow-up-right-from-square" transform="shrink-5 up-3" />}
                 </span>
                 {p.extraIcons}
-                <div className={classes("nav-item-float", p.isGroup && "nav-item-group")}>{p.title}</div>
+                {/* Hover-only visual tooltip repeating the label of the collapsed sidebar. Left exposed it
+                    doubled the accessible name ("Dashboard Dashboard") whenever it was shown. */}
+                <div aria-hidden={true} className={classes("nav-item-float", p.isGroup && "nav-item-group")}>{p.title}</div>
             </Nav.Link>
         </li>
     );

@@ -3,6 +3,7 @@
   <Type Name="LayoutMessage">
     <Member Name="JumpToMainContent" Description="Ir al contenido principal" />
     <Member Name="SelectA0_G" Description="Seleccione [m:un|f:una] {0}" />
+    <Member Name="MainNavigation" Description="Navegación principal" />
   </Type>
   <Type Name="ShowCount" Description="Mostrar el recuento">
     <Member Name="Always" Description="Siempre" />

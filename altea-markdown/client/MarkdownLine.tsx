@@ -39,6 +39,10 @@ export function MarkdownLine({ ctx, markdownOption, readOnly, label, valueHtmlAt
     // has no controller to hand it, so only the plain form is forwarded.
     const helpTextOnTopResolved: React.ReactNode = typeof helpTextOnTop == "function" ? undefined : helpTextOnTop;
 
+    // The visible label sits on the FormGroup below, while the control inside it is named from the
+    // property, so the field could say one thing on screen and announce another.
+    const accessibleLabel = typeof label === "string" ? label : ctx.niceName();
+
     React.useEffect(() => {
         setPreview(ctx.readOnly);
     }, [ctx.readOnly]);
@@ -83,6 +87,7 @@ export function MarkdownLine({ ctx, markdownOption, readOnly, label, valueHtmlAt
                         {...p}
                         valueHtmlAttributes={{
                             ...valueHtmlAttributes,
+                            "aria-label": accessibleLabel,
                             style: { minHeight: 80, ...valueHtmlAttributes?.style },
                         }} />}
             </FormGroup>

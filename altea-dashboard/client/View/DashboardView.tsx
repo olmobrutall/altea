@@ -220,6 +220,11 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
 
     const customDataRef = React.useRef<any>(undefined);
 
+    // Names the panel's region from its own title, so moving into a panel says which one it is. Declared
+    // up here with the other hooks: there is an early return below, and a hook after it would change the
+    // hook count between renders.
+    const titleId = React.useId();
+
     const state = useAPI(() => DashboardClient.partRenderers[typeName]?.component()
         .then((c: React.ComponentType<PanelPartContentProps<IPartEntity>>) => ({ component: c, lastType: typeName }))
         ?? Promise.resolve(undefined),
@@ -267,17 +272,24 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
         <FontAwesomeIcon aria-hidden={true} icon={fallbackIcon(icon)} color={iconColor ?? undefined} className="me-1" style={{ fontSize: "16px" }} />
     ) : null;
 
-    const title = part.hideTitle ? null : !icon ? (
+    const titleInner = (
         <>
-            {titleText}
-            {tooltipHtml && <DashboardTooltipIcon tooltipHtml={tooltipHtml} className="ms-2" iconClassName="sf-tooltip-icon" />}
-        </>
-    ) : (
-        <span>
             {iconElement}{titleText}
             {tooltipHtml && <DashboardTooltipIcon tooltipHtml={tooltipHtml} className="ms-2" iconClassName="sf-tooltip-icon" />}
-        </span>
+        </>
     );
+
+    // A panel's title IS the heading of that panel, but it was plain bold text in the card-header, so a
+    // dashboard was a flat wall of content with nothing to navigate between. h2 sits under the page's own
+    // h1; `font: inherit` keeps the card-header's existing size and weight, and margin 0 its spacing, so
+    // nothing moves. Parts registered with withPanel: false render no header and supply their own heading.
+    //
+    // Only an ACTUAL title becomes a heading: a part can have an empty title and still show a header for
+    // its icon or its tooltip, and an <h2> with no text would put a blank entry in the heading list.
+    const headingStyle: React.CSSProperties = { font: "inherit", margin: 0 };
+    const title = part.hideTitle ? null :
+        titleText ? <h2 id={titleId} style={headingStyle}>{titleInner}</h2> :
+            (icon || tooltipHtml) ? <span>{titleInner}</span> : null;
 
     const dashboardFilter = p.dashboardController?.filters.get(part);
 
@@ -286,7 +298,12 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
     }
 
     return (
-        <div className={classes("card", !part.customColor && "border-tertiary", "shadow-sm", "mb-4")} style={{ flex: p.flex ? 1 : undefined }}>
+        // A titled panel is a REGION named by its own title. A heading alone is only found by someone going
+        // looking for it; a landmark is announced on the way in, which is what tells a screen reader user
+        // that they have moved from one panel of the dashboard to another.
+        <div className={classes("card", !part.customColor && "border-tertiary", "shadow-sm", "mb-4")}
+            role={titleText ? "region" : undefined} aria-labelledby={titleText ? titleId : undefined}
+            style={{ flex: p.flex ? 1 : undefined }}>
             {title &&
                 <div className={classes("card-header fw-bold", "sf-show-hover", "d-flex")}
                     style={{

@@ -89,6 +89,7 @@
     <Member Name="DashboardDN_TitleMustBeSpecifiedFor0" Description="Titel muss angegeben werden für {0}" />
     <Member Name="DuplicatedTokens0" Description="Doppelte Token: {0}" />
     <Member Name="Edit" Description="Bearbeiten" />
+    <Member Name="MoreInformation" Description="Weitere Informationen" />
     <Member Name="ForPerformanceReasonsThisDashboardMayShowOutdatedInformation" Description="Aus Leistungsgründen kann dieses Dashboard veraltete Informationen anzeigen" />
     <Member Name="IncompatibleEntityType" Description="Inkompatibler Entitätstyp" />
     <Member Name="InteractiveDashboard" Description="Interaktives Dashboard" />

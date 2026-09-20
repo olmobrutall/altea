@@ -432,6 +432,7 @@ export const DashboardMessage = {
     LasUpdateWasOn0: msg("Last update was on {0}"),
     TheUserQuery0HasNoColumnWithSummaryHeader: msg("The User Query '{0}' has no column with summary header"),
     Edit: msg(),
+    MoreInformation: msg("More information"),
     CLickInOneChartToFilterInTheOthers: msg("Click in one chart to filter in the others"),
     CtrlClickToFilterByMultipleElements: msg("[Ctrl] + Click to filter by multiple elements"),
     AltClickToOpenResultsInAModalWindow: msg("[Alt] + Click to open results in a modal window"),

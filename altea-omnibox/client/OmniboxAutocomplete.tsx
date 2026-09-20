@@ -50,7 +50,9 @@ export default function OmniboxAutocomplete(p: OmniboxAutocompleteProps): React.
         return null;
     }
 
-    const inputAttr = { placeholder: OmniboxMessage.Search.niceToString(), ...p.inputAttrs };
+    // The placeholder was the only thing naming this field. A placeholder is not a label: it disappears as
+    // soon as the user types, so a screen reader user who tabs back to the field hears nothing.
+    const inputAttr = { placeholder: OmniboxMessage.Search.niceToString(), "aria-label": OmniboxMessage.Search.niceToString(), ...p.inputAttrs };
 
     return (
         <ErrorBoundary>

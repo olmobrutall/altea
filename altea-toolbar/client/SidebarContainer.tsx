@@ -5,6 +5,7 @@ import { classes } from "@altea/altea/data/globals";
 import { ErrorBoundary } from "@altea/altea/client/Components";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { EntityControlMessage } from "@altea/altea/data/uiMessages";
+import { LayoutMessage } from "../data/Toolbar";
 import "./Sidebar.css";
 
 // Port of Signum.Toolbar's SidebarContainer.tsx — see port/Toolbar.md.
@@ -66,6 +67,8 @@ export function SidebarContainer(p: SidebarContainerProps): React.JSX.Element {
 
     function renderSideBar(): React.JSX.Element {
         return (
+            // The page has two navigation landmarks (this and the main toolbar). Without a name this one
+            // was announced as just "navigation", so the landmark list gave no way to tell them apart.
             <nav
                 ref={sidebarRef}
                 className={classes(
@@ -74,6 +77,7 @@ export function SidebarContainer(p: SidebarContainerProps): React.JSX.Element {
                     p.isMobile && "mobile",
                 )}
                 role="navigation"
+                aria-label={LayoutMessage.MainNavigation.niceToString()}
             >
                 {p.sidebarContent}
 

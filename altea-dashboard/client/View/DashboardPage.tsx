@@ -4,7 +4,7 @@ import { Link, useLocation, useParams } from "react-router";
 import { OverlayTrigger, Popover } from "react-bootstrap";
 import { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
-import { JavascriptMessage } from "@altea/altea/data/uiMessages";
+import { EntityControlMessage, JavascriptMessage } from "@altea/altea/data/uiMessages";
 import { Navigator } from "@altea/altea/client/Navigator";
 import EntityLink from "@altea/altea/client/SearchControl/EntityLink";
 import { useTitle } from "@altea/altea/client/AppContext";
@@ -73,7 +73,11 @@ export default function DashboardPage(): React.JSX.Element {
                                             <h1 tabIndex={0} className="h3">
                                                 <span className="display-6">{entity.toString()}</span>
                                                 {Navigator.isViewable({ entity: entity, canExecute: {} }) &&
-                                                    <Link className="display-6 ms-2" to={Navigator.navigateRoute(entity)}>
+                                                    // The icon is aria-hidden and there is no text, so
+                                                    // this link had no accessible name at all and was
+                                                    // announced as a bare "link".
+                                                    <Link className="display-6 ms-2" to={Navigator.navigateRoute(entity)}
+                                                        aria-label={EntityControlMessage.Navigate.niceToString()}>
                                                         <FontAwesomeIcon aria-hidden={true} icon="up-right-from-square" />
                                                     </Link>
                                                 }
@@ -82,7 +86,14 @@ export default function DashboardPage(): React.JSX.Element {
                                         </>
                                 }
                             </div> :
-                            <h1 className="display-6 h3">{DashboardClient.Options.customTitle(dashboard)}</h1>
+                            // customTitle answers undefined for a dashboard with hideDisplayName, which
+                            // left an EMPTY <h1> at the top of the page: an unnamed entry in the heading
+                            // list, and the anchor a skip link lands on. Dropping the heading is no better
+                            // — the page would then have no level-1 heading to navigate to at all — so the
+                            // name it is configured to hide is kept for assistive technology only.
+                            dashboard.hideDisplayName ?
+                                <h1 className="visually-hidden">{dashboard.displayName}</h1> :
+                                <h1 className="display-6 h3">{DashboardClient.Options.customTitle(dashboard)}</h1>
                         }
                     </div>
                     <div className="ms-auto">

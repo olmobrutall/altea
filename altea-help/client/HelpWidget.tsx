@@ -52,6 +52,9 @@ export function HelpWidget(p: HelpWidgetProps): React.JSX.Element {
             role="button"
             target="_blank"
             rel="noreferrer"
+            // The icon inside is aria-hidden, so without this the link had no accessible name at all; the
+            // title alone is a tooltip and the sighted-mouse half of the same thing.
+            aria-label={HelpMessage.Help.niceToString()}
             title={HelpMessage.Help.niceToString()}
             className={hasContent ? "sf-help-button active" : "sf-help-button"}>
             <FontAwesomeIcon aria-hidden={true} icon="circle-question" />
@@ -128,6 +131,7 @@ export function TypeHelpIcon({ type, className, ...rest }: { type: string } & Re
             role="button"
             target="_blank"
             rel="noreferrer"
+            aria-label={HelpMessage.Help.niceToString()}
             className={classes("sf-help-button", className)}
             {...rest}>
             <FontAwesomeIcon aria-hidden={true} icon="circle-question" />

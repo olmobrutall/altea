@@ -402,6 +402,7 @@ export const ToolbarMessage = {
 export const LayoutMessage = {
     JumpToMainContent: msg("Jump to main content"),
     SelectA0_G: msg("Select a {0}"),
+    MainNavigation: msg("Main navigation"),
 };
 
 // Kept although the feature they belong to — SubFramePage / SubsClient, a sub-entity frame page bundled

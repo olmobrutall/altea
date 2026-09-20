@@ -189,13 +189,20 @@ function AlertDropdownImp(props: { keepRingingFor: number }): React.JSX.Element 
     const visibleGroups = (alertGroups ?? []).orderByDescending(a => a.maxDate).filter((_gr, i) => i < showGroups);
     const stackedHeight = visibleGroups.sum(a => a.removing ? 0 : a.totalHeight ?? 0);
 
+    const alertsLabel = (countResult ? String(countResult.numAlerts) : AlertEntity.nicePluralName())
+        + (ringing ? " " + AlertMessage.Ringing.niceToString() : "");
+
     return (
         <>
+            {/* The only thing left in the accessible name was the badge number, because the icon carrying
+                the real description is aria-hidden — so the button announced as just "32, button". The
+                description the icon already computes belongs on the button itself, along with whether the
+                panel it toggles is open. */}
             <button className="nav-link sf-bell-container" onClick={() => setIsOpen(!isOpen)}
+                aria-label={alertsLabel} aria-expanded={isOpen}
                 style={{ border: 0, backgroundColor: "var(--alert-bg)" }}>
                 <FontAwesomeIcon aria-hidden icon="bell"
-                    title={(countResult ? String(countResult.numAlerts) : AlertEntity.nicePluralName())
-                        + (ringing ? " " + AlertMessage.Ringing.niceToString() : "")}
+                    title={alertsLabel}
                     className={classes("sf-bell", ringing && "ringing", isOpen && "open",
                         countResult != null && countResult.numAlerts > 0 && "active")} />
                 {countResult != null && countResult.numAlerts > 0 &&

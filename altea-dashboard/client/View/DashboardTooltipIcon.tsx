@@ -2,6 +2,7 @@ import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Overlay, Tooltip } from "react-bootstrap";
 import HtmlViewer from "./HtmlViewer";
+import { DashboardMessage } from "../../data/Dashboard";
 
 // Port of Signum's Signum.Dashboard/View/DashboardTooltipIcon.tsx — the ⓘ next to a part title that opens
 // the part's (HTML) tooltip on click and closes on an outside click. altea divergence: the body renders
@@ -16,7 +17,12 @@ export interface DashboardTooltipIconProps {
 
 export function DashboardTooltipIcon(p: DashboardTooltipIconProps): React.JSX.Element {
     const [show, setShow] = React.useState(false);
-    const targetRef = React.useRef<HTMLSpanElement>(null);
+    // A <button>, not a <span>: the trigger is what opens the explanation, and as a span with an onClick
+    // it could not be reached or activated from the keyboard at all.
+    const targetRef = React.useRef<HTMLButtonElement>(null);
+    // Unique per instance: a dashboard renders one of these per part, and the tooltip id is referenced by
+    // aria-describedby, so a fixed id would point every trigger at the same element.
+    const tooltipId = React.useId();
 
     const handleClick = (e: React.MouseEvent): void => {
         e.preventDefault();
@@ -29,19 +35,39 @@ export function DashboardTooltipIcon(p: DashboardTooltipIconProps): React.JSX.El
             setShow(false);
     }, []);
 
+    // Dismissing was mousedown-outside only, which leaves a keyboard user with no way to close it again.
+    const handleKeyDown = React.useCallback((e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+            setShow(false);
+            targetRef.current?.focus();
+        }
+    }, []);
+
     React.useEffect(() => {
         if (show) {
             document.addEventListener("mousedown", handleClickOutside);
-            return () => document.removeEventListener("mousedown", handleClickOutside);
+            document.addEventListener("keydown", handleKeyDown);
+            return () => {
+                document.removeEventListener("mousedown", handleClickOutside);
+                document.removeEventListener("keydown", handleKeyDown);
+            };
         }
         return undefined;
-    }, [show, handleClickOutside]);
+    }, [show, handleClickOutside, handleKeyDown]);
 
     return (
         <>
-            <span ref={targetRef} className={p.className} onClick={handleClick} style={{ cursor: "pointer" }}>
+            <button
+                type="button"
+                ref={targetRef}
+                className={p.className}
+                onClick={handleClick}
+                aria-label={DashboardMessage.MoreInformation.niceToString()}
+                aria-expanded={show}
+                aria-describedby={show ? tooltipId : undefined}
+                style={{ cursor: "pointer", background: "none", border: 0, padding: 0, lineHeight: 1, color: "inherit" }}>
                 <FontAwesomeIcon aria-hidden={true} icon="circle-info" className={p.iconClassName} />
-            </span>
+            </button>
             <Overlay
                 show={show}
                 target={targetRef.current}
@@ -57,7 +83,7 @@ export function DashboardTooltipIcon(p: DashboardTooltipIconProps): React.JSX.El
                     ],
                 }}
             >
-                <Tooltip id="dashboard-tooltip-popover" className="dashboard-tooltip-content">
+                <Tooltip id={tooltipId} className="dashboard-tooltip-content">
                     <HtmlViewer text={p.tooltipHtml} />
                 </Tooltip>
             </Overlay>
