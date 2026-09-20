@@ -1,0 +1,8 @@
+/* A maximized chart has to fill the tab pane it lives in, and bootstrap's .tab-pane is a plain block —
+   so the pane, its content wrapper and the component all have to opt into the flex chain. The rest of
+   that chain (.sf-chart-tab-container and down) is in altea-chart's Chart.css; this is the last link,
+   and it lives here beside the component that needs it, exactly as Signum has it. */
+.sf-chart-tab-container .tab-content .tab-pane.active .sf-fullscreen-component {
+    flex-grow: 1;
+    display: flex;
+}

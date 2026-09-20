@@ -3,7 +3,7 @@ import "../Chart.css"
 import { ChartClient } from '../ChartClient';
 import type { ChartRow, ChartScriptProps, ChartTable } from '../ChartClient';
 import type { ChartRequestModel } from '../../data/ChartRequest';
-import { ErrorBoundary } from '@altea/altea/client/Components';
+import { ErrorBoundary, FullscreenComponent } from '@altea/altea/client/Components';
 import ReactChart from '../D3Scripts/Components/ReactChart';
 import { useAPI } from '@altea/altea/client/Hooks';
 import { Navigator } from '@altea/altea/client/Navigator';
@@ -14,8 +14,10 @@ import type { DashboardFilter } from '../DashboardFilterStub';
 // Partial port of Signum.Chart/Templates/ChartRenderer.tsx — resolves the chart's renderer component +
 // script (by symbol) and paints it via ReactChart. Clicking a chart mark drills down (handleDrillDown):
 // a row backed by a single entity opens that entity; otherwise it explores the underlying query filtered by
-// the row's key columns (ChartClient.extractFindOptions). altea divergences (MVP): Signum's
-// FullscreenComponent wrapper, the UserChart cross-filter (onDrilldownUserChart), and autoRefresh are deferred.
+// the row's key columns (ChartClient.extractFindOptions). The FullscreenComponent wrapper carries Signum's
+// maximize / reload mini-buttons, and its `fullScreen` flag reaches ReactChart as a `sizeDeps` entry so the
+// chart re-measures its container on the toggle. altea divergences (MVP): the UserChart cross-filter
+// (onDrilldownUserChart) and autoRefresh are deferred.
 export interface ChartRendererProps {
   chartRequest: ChartRequestModel;
   loading: boolean;
@@ -37,22 +39,26 @@ export default function ChartRenderer(p: ChartRendererProps): React.JSX.Element 
   var parameters = cs && ChartClient.API.getParameterWithDefault(p.chartRequest, cs.chartScript);
 
   return (
-    <ErrorBoundary deps={[p.data]}>
-      {cs && parameters &&
-        <ReactChart
-          chartRequest={p.chartRequest}
-          data={p.data}
-          dashboardFilter={p.dashboardFilter}
-          loading={p.loading}
-          onDrillDown={p.onDrillDown ?? ((r, e) => handleDrillDown(r, e, p.chartRequest, p.onReload as (() => void) | undefined))}
-          onBackgroundClick={p.onBackgroundClick}
-          parameters={parameters}
-          onReload={p.onReload as (() => void) | undefined}
-          onRenderChart={cs.chartComponent as ((p: ChartScriptProps) => React.ReactNode)}
-          minHeight={p.minHeight}
-        />
+    <FullscreenComponent onReload={p.onReload}>
+      {fullScreen => <ErrorBoundary deps={[p.data]}>
+        {cs && parameters &&
+          <ReactChart
+            chartRequest={p.chartRequest}
+            data={p.data}
+            sizeDeps={[fullScreen]}
+            dashboardFilter={p.dashboardFilter}
+            loading={p.loading}
+            onDrillDown={p.onDrillDown ?? ((r, e) => handleDrillDown(r, e, p.chartRequest, p.onReload as (() => void) | undefined))}
+            onBackgroundClick={p.onBackgroundClick}
+            parameters={parameters}
+            onReload={p.onReload as (() => void) | undefined}
+            onRenderChart={cs.chartComponent as ((p: ChartScriptProps) => React.ReactNode)}
+            minHeight={p.minHeight}
+          />
+        }
+      </ErrorBoundary>
       }
-    </ErrorBoundary>
+    </FullscreenComponent>
   );
 }
 

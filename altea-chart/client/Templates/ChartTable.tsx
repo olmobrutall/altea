@@ -8,13 +8,14 @@ import type { ResultRow, ResultTable } from "@altea/altea/data/dynamicQuery/quer
 import { ChartRequestModel } from "../../data/ChartRequest";
 import { OrderType } from "@altea/altea/data/dynamicQueries";
 import { ChartClient } from "../ChartClient";
+import { FullscreenComponent } from "@altea/altea/client/Components";
 
 // Copy-and-fix of Signum.Chart/Templates/ChartTable.tsx — the chart's data as a plain result TABLE (the
 // "Show data" toggle of a chart page / a dashboard's UserChartPart). Header click re-orders the chart's
 // columns; double-clicking a row drills down (the row's entity, else the underlying query filtered by that
 // row's key columns).
 //
-// altea divergences: no FullscreenComponent wrapper (not ported); `token.fullKey` / `hasAggregate(t)` /
+// altea divergences: `token.fullKey` / `hasAggregate(t)` /
 // `t.queryTokenType == "Aggregate"` become the QueryToken CLASS's `fullKey()` / `hasAggregate()` /
 // `isAggregate()`; `cr.columns` is a plain `ChartColumnEmbedded[]` (altea has no MList, so no `.element`).
 
@@ -120,47 +121,51 @@ export default function ChartTableComponent(p: ChartTableProps): React.JSX.Eleme
 
     return (
         <div className="sf-scroll-table-container">
-            <table className="sf-search-results table table-hover table-sm">
-                <thead>
-                    <tr>
-                        {hasEntity && <th></th>}
-                        {columns.map((col, i) =>
-                            <th key={i} data-column-name={col.column.token!.fullKey()}
-                                onClick={e => handleHeaderClick(e, col.column)}>
-                                <span className={"sf-header-sort " + orderClassName(col.column)} />
-                                <span> {col.column.displayName || col.column.token!.niceName()}</span>
-                            </th>)}
-                    </tr>
-                </thead>
-                <tbody>
-                    {
-                        resultTable.rows.map((row, i) => {
-                            const ctx: Finder.CellFormatterContext = {
-                                refresh: undefined,
-                                columns: resultTable.columns,
-                                row: row,
-                                rowIndex: i,
-                            };
-                            return (
-                                <tr key={i} onDoubleClick={e => handleOnDoubleClick(e, row)}>
-                                    {hasEntity &&
-                                        <td className={entityFormatter.cellClass}>
-                                            {entityFormatter.formatter(ctx)}
-                                        </td>
-                                    }
-                                    {columns.map((c, j) =>
-                                        <td key={j} className={c.cellFormatter && c.cellFormatter.cellClass}>
-                                            {c.resultIndex == -1 || c.cellFormatter == undefined ? undefined :
-                                                c.cellFormatter.formatter(c.resultIndex == "Entity" ? row.entity : row.columns[c.resultIndex], ctx,
-                                                    { column: c.column, resultIndex: c.resultIndex, columnIndex: j, cellFormatter: c.cellFormatter })}
-                                        </td>)
-                                    }
-                                </tr>
-                            );
-                        })
-                    }
-                </tbody>
-            </table>
+            <FullscreenComponent onReload={p.onReload}>
+                {() => (
+                    <table className="sf-search-results table table-hover table-sm">
+                        <thead>
+                            <tr>
+                                {hasEntity && <th></th>}
+                                {columns.map((col, i) =>
+                                    <th key={i} data-column-name={col.column.token!.fullKey()}
+                                        onClick={e => handleHeaderClick(e, col.column)}>
+                                        <span className={"sf-header-sort " + orderClassName(col.column)} />
+                                        <span> {col.column.displayName || col.column.token!.niceName()}</span>
+                                    </th>)}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {
+                                resultTable.rows.map((row, i) => {
+                                    const ctx: Finder.CellFormatterContext = {
+                                        refresh: undefined,
+                                        columns: resultTable.columns,
+                                        row: row,
+                                        rowIndex: i,
+                                    };
+                                    return (
+                                        <tr key={i} onDoubleClick={e => handleOnDoubleClick(e, row)}>
+                                            {hasEntity &&
+                                                <td className={entityFormatter.cellClass}>
+                                                    {entityFormatter.formatter(ctx)}
+                                                </td>
+                                            }
+                                            {columns.map((c, j) =>
+                                                <td key={j} className={c.cellFormatter && c.cellFormatter.cellClass}>
+                                                    {c.resultIndex == -1 || c.cellFormatter == undefined ? undefined :
+                                                        c.cellFormatter.formatter(c.resultIndex == "Entity" ? row.entity : row.columns[c.resultIndex], ctx,
+                                                            { column: c.column, resultIndex: c.resultIndex, columnIndex: j, cellFormatter: c.cellFormatter })}
+                                                </td>)
+                                            }
+                                        </tr>
+                                    );
+                                })
+                            }
+                        </tbody>
+                    </table>
+                )}
+            </FullscreenComponent>
         </div>
     );
 }
