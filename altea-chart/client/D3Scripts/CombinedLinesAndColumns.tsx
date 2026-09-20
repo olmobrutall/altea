@@ -11,6 +11,7 @@ import { paintLine } from "./Line";
 import { paintColumns } from "./Columns";
 import type { ReactChartCombinedInfo } from "./Components/ReactChartCombined";
 import { D3ChartScript } from "../../data/ChartScript";
+import { getQueryNiceName } from "@altea/altea/client/Reflection";
 
 // Copy-and-fix of Signum.Chart/D3Scripts/CombinedLinesAndColumns.tsx — paints SEVERAL Line / Columns charts
 // over ONE shared horizontal (key) axis, either sharing the vertical scale or giving the second chart its own
@@ -116,7 +117,11 @@ export function renderCombinedLinesAndColumns({ infos, width, height, initialLoa
     const colCount = infos.filter(a => a.chartRequest.chartScript.key == D3ChartScript.Columns.key).length;
     let colIndex = 0;
     return (
-        <svg direction="ltr" width={width} height={height} role="img">
+        // role="group", not "img": the lines and columns painted below are the same interactive segments
+        // the standalone Line and Columns charts draw, and role="img" flattens everything inside it, so a
+        // screen reader saw one unlabelled picture instead of the segments it can actually operate.
+        <svg direction="ltr" width={width} height={height} role="group">
+            <title>{infos.map(i => getQueryNiceName(i.chartRequest.queryKey)).distinctBy(a => a).join(", ")}</title>
 
             <XKeyTicks xRule={xRule} yRule={yRule} keyValues={keyValues} keyColumn={keyColumn} x={x} showLines={x.bandwidth() > 5} />
             <YScaleTicks xRule={xRule} yRule={yRule} valueColumn={valueColumn} y={yScales[0]!} />

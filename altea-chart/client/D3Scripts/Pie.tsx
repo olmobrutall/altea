@@ -61,7 +61,7 @@ export default function renderPie({ data, width, height, parameters, loading, on
   var orderedPie = pie(data.rows).orderBy(s => keyColumn.getValueKey(s.data));
   var numFormat = toNumberFormat('0.#K');
   return (
-    <svg direction="ltr" width={width} height={height} role="img"
+    <svg direction="ltr" width={width} height={height} role="group"
       aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Pie), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}>
       <g className="shape" transform={translate(width / 2, height / 2)}>
         {orderedPie.map(slice => {
@@ -82,8 +82,13 @@ export default function renderPie({ data, width, height, parameters, loading, on
               {...shapeTitle(slice.data, [keyColumn, { column: valueColumn, value: valueText }])}>
               <path className="shape sf-transition hover-target" d={arc(slice)!}
                 opacity={active == false ? .5 : undefined}
-                stroke={active == true ? "var(--bs-body-color)" : undefined}
-                strokeWidth={active == true ? 3 : undefined}
+                // A separating stroke on every slice, not only the highlighted one. Categorical palettes
+                // are built to differ in hue, not in luminance — every palette shipped here has adjacent
+                // colours far below 3:1 — so two neighbouring slices can be impossible to tell apart. A
+                // stroke in the page background separates them whatever the fill colours turn out to be,
+                // which no choice of palette can guarantee on its own.
+                stroke={active == true ? "var(--bs-body-color)" : "var(--bs-body-bg)"}
+                strokeWidth={active == true ? 3 : 1}
                 transform={initialLoad ? scale(0, 0) : scale(1, 1)}
                 fill={sliceColor}
                 shapeRendering="initial"

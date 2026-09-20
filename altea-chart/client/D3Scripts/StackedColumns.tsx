@@ -108,7 +108,7 @@ export default function renderStackedColumns({ data, width, height, parameters, 
   const bandMargin = x.bandwidth() > 20 ? 2 : x.bandwidth() > 10 ? 1 : 0;
 
   return (
-    <svg direction="ltr" width={width} height={height} role="img"
+    <svg direction="ltr" width={width} height={height} role="group"
       aria-label={ChartMessage._0Of1_2Per3.niceToString(ChartClient.symbolNiceName(D3ChartScript.StackedColumns), getQueryNiceName(chartRequest.queryKey), [keyColumn.title, valueColumn0.title].join(", "), [c.c1, c.c3, c.c4, c.c5, c.c6].filter(cn => cn != undefined).map(cn => cn!.title).join(", "))}>
       <g opacity={dashboardFilter ? .5 : undefined}>
         <XTitle xRule={xRule} yRule={yRule} keyColumn={keyColumn} />
@@ -131,9 +131,13 @@ export default function renderStackedColumns({ data, width, height, parameters, 
 
           return (
             <g className="hover-group" key={keyColumn.getKey(r.data.rowValue)}>
+              {/* Separating stroke, as on the pie: stacked neighbours share an edge, and adjacent palette
+                  colours are not guaranteed to differ in luminance. */}
               <rect className="shape sf-transition hover-target"
                 transform={translate(x(keyColumn.getKey(r.data.rowValue))! + bandMargin, -y(r[1])!) + (initialLoad ? scale(1, 0) : scale(1, 1))}
                 opacity={active == false ? .5 : undefined}
+                stroke="var(--bs-body-bg)"
+                strokeWidth={1}
                 fill={colorByKey[s.key] ?? color(s.key)}
                 width={x.bandwidth() - bandMargin * 2}
                 height={y(r[1])! - y(r[0])!}

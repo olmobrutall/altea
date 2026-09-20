@@ -228,7 +228,7 @@ export default function renderPunchcard({ data, width, height, parameters, loadi
   const rowKeys = uniqueKeys(sortedRows.map(r => horizontalColumn.getValueKey(r) + "-" + verticalColumn.getValueKey(r)));
 
   return (
-    <svg direction="ltr" width={width} height={height} role="img"
+    <svg direction="ltr" width={width} height={height} role="group"
       aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Punchcard), getQueryNiceName(chartRequest.queryKey), [verticalColumn.title, horizontalColumn.title].join(", "))}>
       <XKeyTicks keyColumn={horizontalColumn} keyValues={horizontalKeys} xRule={xRule} yRule={yRule} x={x} showLines={x.bandwidth() > 5} isActive={detector && (val => detector!({ c0: val }))} onDrillDown={(v, e) => onDrillDown({ c0: v }, e)}/>
       <YKeyTicks keyColumn={verticalColumn} keyValues={verticalKeys} xRule={xRule} yRule={yRule} y={y} showLines={y.bandwidth() > 5} showLabels={true} isActive={detector && (val => detector!({ c1: val }))} onDrillDown={(v, e) => onDrillDown({ c1: v }, e)}/>

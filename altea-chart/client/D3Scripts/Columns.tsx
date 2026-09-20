@@ -82,7 +82,7 @@ export default function renderColumns({ data, width, height, parameters, loading
       direction="ltr"
       width={width}
       height={height}
-      role="img"
+      role="group"
       aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Columns), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}>
       <g opacity={dashboardFilter ? .5 : undefined}>
         <XTitle xRule={xRule} yRule={yRule} keyColumn={keyColumn} />

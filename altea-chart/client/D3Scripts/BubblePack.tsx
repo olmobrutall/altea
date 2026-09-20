@@ -89,7 +89,7 @@ export default function renderBubblePack({ data, width, height, parameters, load
   const nodeKeys = uniqueKeys(orderedNodes.map(getNodeKey));
 
   return (
-    <svg direction="ltr" width={width} height={height} role="img"
+    <svg direction="ltr" width={width} height={height} role="group"
       aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.BubblePack), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}>
       {
         orderedNodes.map((d, i) => {

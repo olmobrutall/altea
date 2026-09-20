@@ -72,9 +72,9 @@ export default function renderLine({ data, width, height, parameters, loading, c
   var detector = ChartClient.getActiveDetector(dashboardFilter, chartRequest);
 
   return (
-    // `role="img"` is a fix, not a port: every other chart script has it and this one did not, so its
-    // aria-label would have had nothing to attach to.
-    <svg direction="ltr" width={width} height={height} role="img"
+    // The role is a fix, not a port: this script carried none at all, so its aria-label had nothing to
+    // attach to.
+    <svg direction="ltr" width={width} height={height} role="group"
       aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Line), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}>
       {hasHorizontalScale ?
         <XScaleTicks xRule={xRule} yRule={yRule} valueColumn={keyColumn as ChartColumn<number>} x={x as d3.ScaleContinuousNumeric<number, number>} /> :

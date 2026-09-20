@@ -84,7 +84,7 @@ export default function renderMultiBars({ data, width, height, parameters, loadi
   var detector = ChartClient.getActiveDetector(dashboardFilter, chartRequest);
 
   return (
-    <svg direction="ltr" width={width} height={height} role="img"
+    <svg direction="ltr" width={width} height={height} role="group"
       aria-label={ChartMessage._0Of1_2Per3.niceToString(ChartClient.symbolNiceName(D3ChartScript.MultiBars), getQueryNiceName(chartRequest.queryKey), [keyColumn.title, valueColumn0.title].join(", "), [c.c1, c.c3, c.c4, c.c5, c.c6].filter(cn => cn != undefined).map(cn => cn!.title).join(", "))}>
       <g opacity={dashboardFilter ? .5 : undefined}>
         <XScaleTicks xRule={xRule} yRule={yRule} valueColumn={valueColumn0} x={x} />

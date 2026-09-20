@@ -88,7 +88,7 @@ export default function renderBars({ data, width, height, parameters, loading, o
       direction="ltr"
       width={width}
       height={height}
-      role="img"
+      role="group"
       aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Bars), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}>
       <g opacity={dashboardFilter ? .5 : undefined}>
         <XScaleTicks xRule={xRule} yRule={yRule} valueColumn={valueColumn} x={x} />

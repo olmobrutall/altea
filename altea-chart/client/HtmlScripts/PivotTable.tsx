@@ -275,9 +275,11 @@ interface DimParameters {
 
 export default function renderPivotTable({ data, width, height, parameters, loading, onDrillDown, initialLoad, chartRequest, onReload, dashboardFilter }: ChartScriptProps): React.ReactElement<any> {
 
+  // No role on the empty state: its only content is a message, which role="img" would flatten away
+  // behind a picture that has no name either.
   if (data == null)
     return (
-      <svg direction="ltr" width={width} height={height} role="img">
+      <svg direction="ltr" width={width} height={height}>
         <InitialMessage data={data} x={width / 2} y={height / 2} loading={loading} />
       </svg>
     );

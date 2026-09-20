@@ -109,7 +109,7 @@ export default function renderBubbleplot({ data, width, height, parameters, load
     ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Bubbleplot), getQueryNiceName(chartRequest.queryKey), keyColumns.map(cn => cn.title).join(", "));
 
   return (
-    <svg direction="ltr" width={width} height={height} role="img"
+    <svg direction="ltr" width={width} height={height} role="group"
       aria-label={titleMessage}>
       <g opacity={dashboardFilter ? .5 : undefined}>
         <XScaleTicks xRule={xRule} yRule={yRule} valueColumn={horizontalColumn} x={x} />
