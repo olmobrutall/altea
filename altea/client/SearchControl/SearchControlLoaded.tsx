@@ -22,7 +22,7 @@ import { QueryToken, SubTokensOptions, rowEntityToken } from '../QueryToken'
 import { getKey } from '../../data/dynamicQuery/queryUtils'
 import { Temporal } from 'temporal-polyfill'
 import { cleanTypeName } from '../../data/registration'
-import { SearchMessage, JavascriptMessage, FrameMessage } from '../../data/uiMessages'
+import { SearchMessage, JavascriptMessage, FrameMessage, EntityControlMessage } from '../../data/uiMessages'
 import { Lite } from '../../data/lite'
 import { Entity, ModelEntity, EmbeddedEntity, BaseEntity as ModifiableEntity } from '../../data/entity'
 import type { EntityPack } from '../../data/entityPack'
@@ -69,6 +69,8 @@ import {
     getEditAllColumnsIcon,
     getTimeMachineIcon,
     getEditColumnIcon,
+    getMoveColumnLeftIcon,
+    getMoveColumnRightIcon,
     getInsertColumnIcon,
     getAddFilterIcon,
 } from "./SearchControlIcons";
@@ -160,6 +162,8 @@ export interface SearchControlLoadedProps {
   onHeighChanged?: () => void;
   onSearch?: (fo: FindOptionsParsed, dataChange: boolean, sc: SearchControlLoaded) => void;
   onResult?: (table: ResultTable, dataChange: boolean, sc: SearchControlLoaded) => void;
+  /** Selects every row of the FIRST completed search. Later searches keep the normal behaviour. */
+  selectAllOnLoad?: boolean;
   ctx?: StyleContext;
   customRequest?: (req: QueryRequest, fop: FindOptionsParsed) => Promise<ResultTable>,
   onPageTitleChanged?: () => void;
@@ -414,7 +418,9 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
           dataChanged: undefined,
           summaryResultTable: summaryRt,
           resultFindOptions: resultFindOptions,
-          selectedRows: selectedLites?.map(l => rt.rows.firstOrNull(a => a.entity != null && a.entity.is(l))).notNull() ?? [],
+          // searchCount is still the PREVIOUS one here, so == null means this is the first completed search.
+          selectedRows: selectedLites?.map(l => rt.rows.firstOrNull(a => a.entity != null && a.entity.is(l))).notNull() ??
+            (this.props.selectAllOnLoad && this.state.searchCount == null ? rt.rows.clone() : []),
           currentMenuPack: undefined,
           markedRows: undefined,
           searchCount: (this.state.searchCount ?? 0) + 1
@@ -635,8 +641,13 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
               <div ref={d => { this.containerDiv = d; }}
                 className="sf-scroll-table-container table-responsive"
                 style={{ maxHeight: this.props.maxResultsHeight }}>
-                <table aria-multiselectable="true" role="grid"
-                  aria-label={this.createCaption()}
+                {/* A plain data table, NOT role="grid". role="grid" promises the ARIA grid keyboard model
+                    — one tab stop for the whole widget and arrow keys between cells — which this control
+                    does not implement: the rows are not focusable, so the ArrowUp/ArrowDown handler on the
+                    <tr> below can never fire. Claiming the role made things actively worse than not
+                    claiming it, because a screen reader switches to focus mode inside a grid, which
+                    suppresses the browse-mode table commands a plain <table> gets for free. */}
+                <table aria-label={this.createCaption()}
                   className={classes("sf-search-results table table-hover table-sm", this.props.view && "sf-row-view")} onContextMenu={this.props.showContextMenu(this.props.findOptions) != false ? this.handleOnContextMenu : undefined}>
                   {AccessibleTable.Options.ariaLabelAsCaption && <caption>{this.createCaption()}</caption>}
                   <thead>
@@ -1070,8 +1081,14 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     };
 
     const cm = this.state.contextualMenu!;
+
+    // The filler header that takes the remaining width when every column is small has no column of its
+    // own, and neither do the selection and entity headers, so there is nothing to insert before or after
+    // there: the new column goes at the end.
+    const index = cm.columnIndex == null ? this.props.findOptions.columnOptions.length : cm.columnIndex + cm.columnOffset!;
+
     this.setState({ editingColumn: newColumn }, () => this.handleHeightChanged());
-    this.props.findOptions.columnOptions.insertAt(cm.columnIndex! + cm.columnOffset!, newColumn);
+    this.props.findOptions.columnOptions.insertAt(index, newColumn);
 
     this.forceUpdate();
   }
@@ -1083,6 +1100,24 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     this.setState({ editingColumn: fo.columnOptions[cm.columnIndex!] }, () => this.handleHeightChanged());
 
     this.forceUpdate();
+  }
+
+  // Reordering a column was possible by dragging its header and no other way, so it could not be done
+  // without a pointer at all, and dragging is the only route even with one. This is the same move the drop
+  // handler performs, reachable from the column menu.
+  handleMoveColumn = (direction: -1 | 1): void => {
+    const cm = this.state.contextualMenu!;
+    const fo = this.props.findOptions;
+    const from = cm.columnIndex!;
+    const to = from + direction;
+    if (to < 0 || to >= fo.columnOptions.length)
+      return;
+
+    const col = fo.columnOptions[from];
+    fo.columnOptions.removeAt(from);
+    fo.columnOptions.insertAt(to, col);
+
+    this.setState({ editingColumn: undefined }, () => this.handleHeightChanged());
   }
 
   handleRemoveColumn = (): void => {
@@ -1252,18 +1287,34 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
       menuItems.push(<Dropdown.Header>{SearchMessage.Columns.niceToString()}</Dropdown.Header>);
 
-      if (cm.columnIndex != null) {
-        menuItems.push(<Dropdown.Item className="sf-insert-column" onClick={this.handleInsertColumn}>
-          {getInsertColumnIcon()}&nbsp;{JavascriptMessage.insertColumn.niceToString()}
-          {cm.columnOffset === 0 ? ` (${SearchMessage.Before.niceToString()})` : cm.columnOffset === 1 ? ` (${SearchMessage.After.niceToString()})` : ""}
-        </Dropdown.Item>);
+      // Insert is offered on the headers that have no column of their own too — the filler one that
+      // appears when every column is small, and the selection and entity ones — where it appends at the
+      // end instead, so the only route to a new column is not a right click that happens to land on a
+      // real header.
+      menuItems.push(<Dropdown.Item className="sf-insert-column" onClick={this.handleInsertColumn}>
+        {getInsertColumnIcon()}&nbsp;{JavascriptMessage.insertColumn.niceToString()}
+        {cm.columnIndex == null ? "" :
+          cm.columnOffset === 0 ? ` (${SearchMessage.Before.niceToString()})` : cm.columnOffset === 1 ? ` (${SearchMessage.After.niceToString()})` : ""}
+      </Dropdown.Item>);
 
+      if (cm.columnIndex != null) {
         menuItems.push(<Dropdown.Item className="sf-edit-column" onClick={this.handleEditColumn}>
           {getEditColumnIcon()}&nbsp;{JavascriptMessage.editColumn.niceToString()}
         </Dropdown.Item>);
 
         menuItems.push(<Dropdown.Item className="sf-remove-column" onClick={this.handleRemoveColumn}>
           {getRemoveColumnIcon()}&nbsp;{JavascriptMessage.removeColumn.niceToString()}
+        </Dropdown.Item>);
+
+        // The pointer-free way to reorder columns; dragging the header remains available.
+        menuItems.push(<Dropdown.Item className="sf-move-column-left" disabled={cm.columnIndex === 0}
+          onClick={() => this.handleMoveColumn(-1)}>
+          {getMoveColumnLeftIcon()}&nbsp;{EntityControlMessage.MoveLeft.niceToString()}
+        </Dropdown.Item>);
+
+        menuItems.push(<Dropdown.Item className="sf-move-column-right" disabled={cm.columnIndex === this.props.findOptions.columnOptions.length - 1}
+          onClick={() => this.handleMoveColumn(1)}>
+          {getMoveColumnRightIcon()}&nbsp;{EntityControlMessage.MoveRight.niceToString()}
         </Dropdown.Item>);
 
 
@@ -1617,16 +1668,35 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
     return (
       <tr>
+        {/* Single selection renders no select-all checkbox, which left this header completely empty, so
+            the column was announced as a blank one with every row. A hidden label names it instead. */}
         {this.props.allowSelection && <th scope="col" className="sf-small-column sf-th-selection">
-          {this.props.allowSelection == true &&
-            <input type="checkbox" aria-label={SearchMessage.SelectAllResults.niceToString()} className="form-check-input" id="cbSelectAll" onChange={this.handleToggleAll} checked={this.allSelected()} />
+          {this.props.allowSelection == true ?
+            <input type="checkbox" aria-label={SearchMessage.SelectAllResults.niceToString()} className="form-check-input" id="cbSelectAll" onChange={this.handleToggleAll} checked={this.allSelected()} /> :
+            <span className="visually-hidden">{EntityControlMessage.Selected.niceToString()}</span>
           }
         </th>
         }
-        {(this.props.view || this.props.findOptions.groupResults) && <th className="sf-small-column sf-th-entity" data-column-name="Entity">{Finder.Options.entityColumnHeader()}</th>}
+        {/* entityColumnHeader() is empty by default, which left this column with no header at all, so its
+            cells had no column name to be announced with. When nothing is configured a visually hidden one
+            is supplied, keeping the column as narrow as before. */}
+        {(this.props.view || this.props.findOptions.groupResults) && <th scope="col" className="sf-small-column sf-th-entity" data-column-name="Entity">
+          {Finder.Options.entityColumnHeader() || <span className="visually-hidden">{EntityControlMessage.View.niceToString()}</span>}
+        </th>}
         {visibleColumns.map(({ column: co, cellFormatter, columnIndex: i }) =>
+          // tabIndex: the header is operable — it sorts on click and opens the column menu on the context
+          // menu key — but it was not reachable without a pointer at all. Focusable, Enter or Space sorts
+          // exactly as a click does, and from there the context menu key reaches "move left" and "move
+          // right", which is what makes reordering possible without dragging.
           <th key={i}
             scope="col"
+            tabIndex={0}
+            onKeyDown={e => {
+              if ((e.key === "Enter" || e.key === " ") && this.canOrder(co)) {
+                e.preventDefault();
+                this.handleHeaderClick(e as unknown as React.MouseEvent<any>);
+              }
+            }}
             draggable={true}
             className={classes(
               cellFormatter?.fillWidth == false ? "sf-small-column" : undefined,
@@ -2028,10 +2098,14 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
       };
 
       var tr = (
+        // No hardcoded aria-describedby here: the tooltip it named is rendered only for rows that carry
+        // a mark message, and even then only while the overlay is open, so on every other row the
+        // reference pointed at an element that never exists — one dangling reference per result row. The
+        // OverlayTrigger below already sets aria-describedby on this row while its tooltip is shown,
+        // which is where the description actually exists. aria-selected goes with it: it means something
+        // only inside a grid, and this is a plain table again.
         <tr
           key={i}
-          aria-describedby={`result_row_${i}_tooltip`}
-          aria-selected={selected}
           ref={this.rowRefs[i]}
           data-row-index={i}
           data-entity={row.entity && row.entity.key()}
@@ -2124,9 +2198,11 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     return (
       <span className="row-mark-icon">
         {mark.message ?
+          // The tooltip id is deliberately distinct from the ROW tooltip's: both describe the same row,
+          // so a shared id produced a duplicate in the document whenever both were open.
           <OverlayTrigger
             trigger="click"
-            overlay={<Tooltip placement="bottom" id={"result_row_" + rowIndex + "_tooltip"}>{mark.message.split("\n").map((s, i) => <p key={i}>{s}</p>)}</Tooltip>}>
+            overlay={<Tooltip placement="bottom" id={"result_row_" + rowIndex + "_mark_tooltip"}>{mark.message.split("\n").map((s, i) => <p key={i}>{s}</p>)}</Tooltip>}>
             {icon}
           </OverlayTrigger> : icon}
       </span>

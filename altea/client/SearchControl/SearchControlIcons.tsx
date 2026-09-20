@@ -45,6 +45,21 @@ export function getTimeMachineIcon(): React.ReactElement {
   return <FontAwesomeIcon aria-hidden={true} icon="clock-rotate-left" transform="left-2" color="blue" />
 }
 
+// A bare FontAwesomeIcon is not the fixed width the rest of the column menu uses, so these two arrows
+// sat off the shared icon column. Same `fa-layers fa-fw icon` wrapper as the others, so everything
+// lines up.
+export function getMoveColumnLeftIcon(): React.ReactElement {
+  return <span className="fa-layers fa-fw icon">
+    <FontAwesomeIcon aria-hidden={true} icon="arrow-left" color="var(--bs-body-color)" />
+  </span>
+}
+
+export function getMoveColumnRightIcon(): React.ReactElement {
+  return <span className="fa-layers fa-fw icon">
+    <FontAwesomeIcon aria-hidden={true} icon="arrow-right" color="var(--bs-body-color)" />
+  </span>
+}
+
 export function getEditColumnIcon(): React.ReactElement {
   return <span className="fa-layers fa-fw icon">
     <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
