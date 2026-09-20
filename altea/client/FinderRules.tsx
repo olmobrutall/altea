@@ -205,7 +205,12 @@ export function initFormatRules(): Finder.FormatRule[] {
     {
       name: "Boolean",
       isApplicable: qt => qt.filterType == "Boolean",
-      formatter: () => new Finder.CellFormatter((cell: any) => cell == null ? "" : <input type="checkbox" className="form-check-input" disabled={true} readOnly checked={Boolean(cell)} />, false, "centered-cell"),
+      // Named from its column: this checkbox DISPLAYS a value rather than accepting one, and without a
+      // label it was announced as an anonymous "checkbox, checked" with no clue which column it belonged
+      // to. The disabled state already conveys that it is not operable.
+      formatter: col => new Finder.CellFormatter((cell: any, ctx, column) => cell == null ? "" :
+        <input type="checkbox" className="form-check-input" disabled={true} readOnly checked={Boolean(cell)}
+          aria-label={column?.column?.displayName ?? column?.column?.token?.niceName ?? col?.niceName} />, false, "centered-cell"),
     },
     // DateOnly / DateTime (filterType "DateTime"): parse the ISO string with the matching Temporal type
     // (keyed by `column.type.typeName`) and render its localized form; on a parse error fall back to the
