@@ -83,6 +83,10 @@ async function partToXml(p: DashboardEntity_Part, ctx: IToXmlContext): Promise<R
     if (p.titleColor != null) x[A + "TitleColor"] = p.titleColor;
     if (p.interactionGroup != null) x[A + "InteractionGroup"] = Enum.toName(InteractionGroup, p.interactionGroup);
     if (p.customColor) x[A + "CustomColor"] = p.customColor;
+    // NOT in Signum, which added DefaultOpen to the entity and forgot the XML, so an exported dashboard
+    // came back with every panel open again. An attribute Signum does not read is simply ignored there,
+    // so writing it costs that direction nothing.
+    if (p.defaultOpen != null) x[A + "DefaultOpen"] = p.defaultOpen;
 
     const config = DashboardLogic.partConfigForEntity(p.content);
     x[config.elementName] = [await config.toXml(p.content, ctx)];
@@ -141,6 +145,7 @@ function fillPart(p: DashboardEntity_Part, x: Record<string, unknown>, ctx: IFro
     const interactionGroup = str(x[A + "InteractionGroup"]);
     p.interactionGroup = interactionGroup == null ? null : toEnum(InteractionGroup, interactionGroup);
     p.customColor = str(x[A + "CustomColor"]) ?? null;
+    p.defaultOpen = x[A + "DefaultOpen"] == null ? null : bool(x[A + "DefaultOpen"]);
 
     // The ONE child element that is not an attribute names the part type (Signum's PartNames lookup).
     const contentEntry = Object.entries(x).find(([k]) => !k.startsWith(A) && k !== "#text");

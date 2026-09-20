@@ -141,6 +141,17 @@ export class DashboardEntity_Part extends Entity implements IGridEntity {
     @format("Color")
     customColor: string | null;
 
+    /** Whether the panel starts expanded. Null is the default, which is open. */
+    defaultOpen: boolean | null;
+
+    /**
+     * CLIENT-ONLY (Signum's `[Ignore] bool IsOpen`): whether the panel is expanded right now. It lives on
+     * the part rather than in the view so the DashboardController can skip the collapsed parts when it
+     * decides whether the dashboard is still loading. No column — DashboardLogic.start hands the route to
+     * SchemaSettings.ignoreFieldRoute — but it does ride the wire, like every other field.
+     */
+    isOpen: boolean = true;
+
     // Signum's [BindParent, ImplementedBy(…the base parts…)] IPartEntity Content. The app WIDENS this list
     // to the parts of every registered module (Signum did the same from Southwind's Starter) — see
     // eastwind/app/entityOverrides.data.ts's `overrideImplementedBy(DashboardEntity_Part, d => d.content, …)`.

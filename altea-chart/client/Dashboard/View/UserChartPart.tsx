@@ -83,6 +83,9 @@ export default function UserChartPart(p: PanelPartContentProps<UserChartPartEnti
         if (chartRequest)
             p.dashboardController.registerInvalidations(p.partEmbedded, () => setRefreshKey(a => a + 1));
 
+        // Unregister on unmount: a collapsed part is removed from the tree, and a registration left behind
+        // would be invoked on a component that is no longer there.
+        return () => p.dashboardController.tryRemoveInvalidations(p.partEmbedded);
     }, [chartRequest, queryToken]);
 
     // The reload dep is Signum's: the chart request ENCODED as its url. `chartRequest` itself is a stable

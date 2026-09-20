@@ -2,6 +2,7 @@ import * as React from "react";
 import { Link } from "react-router";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { classes } from "@altea/altea/data/globals";
+import { EntityControlMessage } from "@altea/altea/data/uiMessages";
 import type { Entity } from "@altea/altea/data/entity";
 import { TypeContext, mlistItemContext } from "@altea/altea/client/TypeContext";
 import { Navigator } from "@altea/altea/client/Navigator";
@@ -225,6 +226,15 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
     // hook count between renders.
     const titleId = React.useId();
 
+    // The part carries its own expanded state so the DashboardController can skip the collapsed ones while
+    // deciding whether the dashboard is still loading; the initial value is written back for the same
+    // reason, before the first render of anything that reads it.
+    const [isOpen, setIsOpen] = React.useState<boolean>(() => {
+        const o = p.ctx.value.defaultOpen ?? true;
+        p.ctx.value.isOpen = o;
+        return o;
+    });
+
     const state = useAPI(() => DashboardClient.partRenderers[typeName]?.component()
         .then((c: React.ComponentType<PanelPartContentProps<IPartEntity>>) => ({ component: c, lastType: typeName }))
         ?? Promise.resolve(undefined),
@@ -291,6 +301,10 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
         titleText ? <h2 id={titleId} style={headingStyle}>{titleInner}</h2> :
             (icon || tooltipHtml) ? <span>{titleInner}</span> : null;
 
+    // The collapse toggle sits in the card-header, so a part that renders no header (hideTitle, or nothing
+    // to put in it) has no way back from collapsed and always shows its content.
+    const showContent = title == null || isOpen;
+
     const dashboardFilter = p.dashboardController?.filters.get(part);
 
     function handleClearFilter(): void {
@@ -303,7 +317,7 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
         // that they have moved from one panel of the dashboard to another.
         <div className={classes("card", !part.customColor && "border-tertiary", "shadow-sm", "mb-4")}
             role={titleText ? "region" : undefined} aria-labelledby={titleText ? titleId : undefined}
-            style={{ flex: p.flex ? 1 : undefined }}>
+            style={{ flex: (p.flex && showContent) ? 1 : undefined }}>
             {title &&
                 <div className={classes("card-header fw-bold", "sf-show-hover", "d-flex")}
                     style={{
@@ -339,14 +353,19 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
                                 <FontAwesomeIcon aria-hidden={true} icon="pen-to-square" className="me-1" />
                             </LinkButton>
                         }
+                        <LinkButton className="sf-pointer sf-hide" title={isOpen ? EntityControlMessage.Minimize.niceToString() : EntityControlMessage.Maximize.niceToString()}
+                            onClick={() => { part.isOpen = !isOpen; setIsOpen(!isOpen); }}>
+                            <FontAwesomeIcon aria-hidden={true} icon={isOpen ? "chevron-up" : "chevron-down"} />
+                        </LinkButton>
                     </div>
                 </div>
             }
-            <div data-part-content={partContentKey} className="card-body py-2 px-3 d-flex flex-column">
-                <ErrorBoundary>
-                    {React.createElement(state.component, contentProps)}
-                </ErrorBoundary>
-            </div>
+            {showContent &&
+                <div data-part-content={partContentKey} className="card-body py-2 px-3 d-flex flex-column">
+                    <ErrorBoundary>
+                        {React.createElement(state.component, contentProps)}
+                    </ErrorBoundary>
+                </div>}
         </div>
     );
 }

@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ColorLine, TextBoxLine } from "@altea/altea/client/Lines/TextBoxLine";
 import { TextAreaLine } from "@altea/altea/client/Lines/TextAreaLine";
 import { EnumLine } from "@altea/altea/client/Lines/EnumLine";
+import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { DashboardEntity_Part } from "../../data/Dashboard";
@@ -53,6 +54,8 @@ export default function PanelPart(p: { ctx: TypeContext<DashboardEntity_Part> })
                     <ColorLine ctx={settingsCtx.subCtx(pp => pp.customColor)} onChange={() => forceUpdate()} />
                 </div>
             </div>
+
+            <AutoLine ctx={settingsCtx.subCtx(pp => pp.defaultOpen)} />
 
             <EnumLine ctx={settingsCtx.subCtx(pp => pp.interactionGroup)}
                 onRenderDropDownListItem={io => (

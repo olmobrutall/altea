@@ -50,6 +50,10 @@ export default function UserQueryPart(p: PanelPartContentProps<UserQueryPartEnti
                 p.dashboardController.registerInvalidations(p.partEmbedded, () => updateVersion());
             }
         }
+
+        // Unregister on unmount: a collapsed part is removed from the tree, and a registration left behind
+        // would be invoked on a component that is no longer there.
+        return () => p.dashboardController.tryRemoveInvalidations(p.partEmbedded);
     }, [fo, p.partEmbedded]);
 
     if (!fo)

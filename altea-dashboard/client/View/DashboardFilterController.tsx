@@ -54,11 +54,20 @@ export class DashboardController {
     setIsLoading(): void {
         this.isLoading = !(this.dashboard.parts ?? [])
             .filter(p => p.content != null && DashboardClient.hasWaitForInvalidation(p.content))
+            // A COLLAPSED part renders no content, so it never registers an invalidation and would hold
+            // the dashboard in "loading" for ever.
+            .filter(p => p.isOpen)
             .every(p => this.invalidationMap.has(p));
     }
 
     registerInvalidations(part: DashboardEntity_Part, invalidation: () => void): void {
         this.invalidationMap.set(part, invalidation);
+    }
+
+    /** The other half of registerInvalidations: a part unmounts when it is collapsed, and a registration
+     *  left behind would be invoked on a component that is no longer there. */
+    tryRemoveInvalidations(part: DashboardEntity_Part): void {
+        this.invalidationMap.delete(part);
     }
 
     invalidate(source: DashboardEntity_Part, interactionGroup: InteractionGroup | null | undefined): void {
