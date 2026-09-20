@@ -16,6 +16,7 @@ import type { PseudoType } from './Reflection';
 import type { Type } from '../data/entity';
 import { Dic } from '../data/globals';
 import { Metadata } from '../data/metadata';
+import { FrameMessage } from '../data/uiMessages';
 import { Entity, BaseEntity } from '../data/entity';
 import { Lite, LiteImp } from '../data/lite';
 import type { EntityPack } from '../data/entityPack';
@@ -787,7 +788,7 @@ export namespace Navigator {
     if ((entity as Entity).isNew) {
       var ti = tryGetTypeInfo(getTypeName(entity));
       if (ti)
-        return ti.getNiceName(); // TODO(port): FrameMessage.New0_G gender-formatted "New {0}"
+        return FrameMessage.New0_G.niceToString().forGenderAndNumber(ti.getGender()).formatWith(ti.getNiceName());
     }
     return entity.toString();
   }

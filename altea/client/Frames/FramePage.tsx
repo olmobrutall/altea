@@ -16,7 +16,7 @@ import type { ButtonBarHandle } from './ButtonBar'
 import { Entity, BaseEntity } from '../../data/entity'
 import type { Lite } from '../../data/lite'
 import type { EntityPack } from '../../data/entityPack'
-import { JavascriptMessage } from '../../data/uiMessages'
+import { FrameMessage, JavascriptMessage } from '../../data/uiMessages'
 import { TypeContext } from '../TypeContext'
 import type { StyleOptions, EntityFrame } from '../TypeContext'
 import { getTypeInfo, GraphExplorer, parseId, entityInfo, getTypeName, newLite } from '../Reflection'
@@ -72,7 +72,16 @@ export default function FramePage(): React.ReactElement {
   if (state && id != null && String((state.pack.entity as Entity).id) != id)
     state = undefined;
 
-  useTitle(state?.pack.entity.toString() ?? "", [state?.pack.entity]);
+  // A new entity has no toString yet, so every /create/<Type> page fell back to the bare application
+  // name and none of them could be told apart in the tab or by a screen reader. Same wording as the
+  // heading (Navigator.renderEntity), so the two agree.
+  // isNew FIRST, in that same order: a new entity can carry a blank-but-not-empty toString, which would
+  // short-circuit ahead of it and leave the tab reading " - eastwind" while the heading says
+  // "New Order". Falling back to the type name keeps it from ever being empty.
+  useTitle(
+    (state?.pack.entity as Entity | undefined)?.isNew ? FrameMessage.New0_G.niceToString().forGenderAndNumber(ti.getGender()).formatWith(ti.getNiceName()) :
+      state?.pack.entity.toString() || ti.getNiceName(),
+    [state?.pack.entity]);
 
   usePageUIState(() => ({ name: "FramePage", context: state?.pack ?? null }));
 
