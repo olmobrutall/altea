@@ -63,7 +63,7 @@ export default function ChangeLogViewer(): React.ReactElement | null {
     return (
         <LinkButton title={ConnectionMessage.VersionInfo.niceToString()}
             ref={triggerRef}
-            className="sf-pointer nav-link"
+            className="sf-pointer nav-link sf-change-log-container"
             aria-haspopup="dialog"
             onClick={() => { void handleOpen(); }}>
             <FontAwesomeIcon icon="circle-info" />

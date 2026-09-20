@@ -1,7 +1,20 @@
+/* The host, so the badge below can hang off it: a nav item is a flex child, and without `flex-shrink: 0`
+   a crowded navbar squeezes it narrower than its own content. */
+.sf-change-log-container {
+    position: relative;
+    flex-shrink: 0;
+}
+
 .sf-change-log-badge {
     padding: 1px 2px;
-    position: relative;
-    top: -10px;
-    left: -5px;
+    /* ABSOLUTE, not Signum's `position: relative; top: -10px; left: -5px`. Relative only PAINTS the badge
+       offset — it still occupies its place in the link's line box, so it adds its own width to the link and,
+       once the navbar is tight enough to shrink that link (under about 1000px), it WRAPS onto a second line.
+       The link then goes from 41px tall to 64px and takes the whole navbar up with it. An overlay has no
+       line box to wrap out of, so the navbar is the same height at every width. The offsets keep Signum's
+       look: the badge overlapping the icon's top-right corner. */
+    position: absolute;
+    top: 4px;
+    right: 2px;
     border-radius: 10px !important;
 }
