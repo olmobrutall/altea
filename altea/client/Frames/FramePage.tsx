@@ -24,6 +24,7 @@ import { PropertyRoute, isPartType } from '../../data/propertyRoute'
 import { TypeReference } from '../../data/reflection'
 import { ReadonlyBinding } from '../binding'
 import { isGraphModified } from '../../data/changes'
+import { Serializer } from '../../data/serializer'
 import { renderWidgets } from './Widgets'
 import type { WidgetContext } from './Widgets'
 import { ValidationErrors } from './ValidationErrors'
@@ -38,13 +39,6 @@ import { useTitle } from '../AppContext'
 import { FunctionalAdapter, usePageUIState } from '../Modals'
 import { QueryString } from '../QueryString'
 import { classes } from '../../data/globals'
-
-declare global {
-  interface Window {
-    dataForChildWindow?: any;
-    dataForCurrentWindow?: any;
-  }
-}
 
 interface FramePageState {
   pack: EntityPack<Entity>;
@@ -172,16 +166,21 @@ export default function FramePage(): React.ReactElement {
 
     const queryString = QueryString.parse(location.search);
 
+    // ALTEA divergence: the opener hands the pack over as Serializer TEXT, and every read of it goes
+    // through Serializer.parse. Signum passed the live object and re-created it with JSON.parse, which
+    // only works because its entities are plain objects; altea's are real class instances, and the
+    // opener is a DIFFERENT realm whose classes are not these — a handed-over graph fails every
+    // `instanceof` here (getTypeName throws "Unexpected pseudoType ..."). Parsing rebuilds the graph
+    // out of THIS tab's classes. See Navigator.createInNewTab / createInCurrentTab.
     if (queryString.waitOpenerData) {
-      if (window.opener!.dataForChildWindow == undefined) {
+      if (window.opener == null || window.opener.dataForChildWindow == undefined) {
         console.error("No dataForChildWindow in parent found!");
       } else {
-        var pack = window.opener!.dataForChildWindow as EntityPack<Entity>;
+        var txt = window.opener!.dataForChildWindow as string;
         window.opener!.dataForChildWindow = undefined;
-        var txt = JSON.stringify(pack);
         return {
-          pack,
-          createNew: () => Promise.resolve(JSON.parse(txt))
+          pack: Serializer.parse(txt) as EntityPack<Entity>,
+          createNew: () => Promise.resolve(Serializer.parse(txt) as EntityPack<Entity>)
         };
       }
     }
@@ -190,12 +189,11 @@ export default function FramePage(): React.ReactElement {
       if (window.dataForCurrentWindow == undefined) {
         console.error("No dataForCurrentWindow in parent found!");
       } else {
-        var pack = window.dataForCurrentWindow as EntityPack<Entity>;
+        var txt = window.dataForCurrentWindow as string;
         window.dataForCurrentWindow = undefined;
-        var txt = JSON.stringify(pack);
         return {
-          pack,
-          createNew: () => Promise.resolve(JSON.parse(txt))
+          pack: Serializer.parse(txt) as EntityPack<Entity>,
+          createNew: () => Promise.resolve(Serializer.parse(txt) as EntityPack<Entity>)
         };
       }
     }

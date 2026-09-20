@@ -18,8 +18,9 @@ declare global {
     __allowNavigatorWithoutUser?: boolean;
     __baseName: string;
     __baseNameAPI: string;
-    dataForChildWindow?: any;
-    dataForCurrentWindow?: any;
+    /** The Serializer TEXT of an EntityPack handed over to a child tab / the next page — see Navigator.createInNewTab. */
+    dataForChildWindow?: string;
+    dataForCurrentWindow?: string;
     exploreGraphDebugMode: boolean;
   }
 

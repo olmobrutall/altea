@@ -872,17 +872,24 @@ export namespace Navigator {
     });
   }
 
+  // ALTEA divergence: the pack crosses as Serializer TEXT, not as the live object Signum hands over.
+  // The opened tab is a separate JS realm with its OWN copy of every module, so its `Entity` / `Lite`
+  // classes are not these ones: an object passed by reference fails every `instanceof` there and
+  // `getTypeName` throws "Unexpected pseudoType ...". Signum could pass the graph itself because its
+  // entities are plain objects; altea's are real class instances, so the child has to rebuild them.
   export function createInNewTab(pack: EntityPack<Entity>, viewName?: string): void {
     var url = "/create/" + getTypeName(pack.entity) + (viewName ? "?viewName=" + viewName : "") + (viewName ? "&" : "?") + "waitOpenerData=true";
-    (window as { dataForChildWindow?: unknown }).dataForChildWindow = pack;
+    (window as { dataForChildWindow?: unknown }).dataForChildWindow = Serializer.stringify(pack);
     window.open(toAbsoluteUrl(url));
   }
 
   // Same as createInNewTab but navigates the CURRENT tab (Signum's Navigator.createInCurrentTab). The
   // target FramePage reads `dataForCurrentWindow` when the "/create" route carries `waitCurrentData`.
+  // Same realm here, so the text is not strictly needed — but the handover format stays the one
+  // FramePage parses, and it also gives the "create another" button a clean graph to rebuild from.
   export function createInCurrentTab(pack: EntityPack<Entity>, viewName?: string): void {
     var url = "/create/" + getTypeName(pack.entity) + (viewName ? "?viewName=" + viewName : "") + (viewName ? "&" : "?") + "waitCurrentData=true";
-    (window as { dataForCurrentWindow?: unknown }).dataForCurrentWindow = pack;
+    (window as { dataForCurrentWindow?: unknown }).dataForCurrentWindow = Serializer.stringify(pack);
     navigate(url);
   }
 
