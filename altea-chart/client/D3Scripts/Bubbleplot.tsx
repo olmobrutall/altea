@@ -3,7 +3,7 @@ import * as d3 from 'd3'
 import { ChartClient } from '../ChartClient';
 import type { ChartScriptProps, ChartColumn, ChartRow } from '../ChartClient';
 import * as ChartUtils from './Components/ChartUtils';
-import { translate, scale, scaleFor } from './Components/ChartUtils';
+import { translate, scale, scaleFor, uniqueKeys } from './Components/ChartUtils';
 import { XScaleTicks, YScaleTicks } from './Components/Ticks';
 import { XAxis, YAxis } from './Components/Axis';
 import TextEllipsis from './Components/TextEllipsis';
@@ -97,6 +97,10 @@ export default function renderBubbleplot({ data, width, height, parameters, load
 
   var detector = ChartClient.getActiveDetector(dashboardFilter, chartRequest);
 
+  // Same as Scatterplot: `keyColumns` has neither the aggregates nor the colour columns, so a second
+  // group key makes several bubbles share a key. Built over `orderRows`, the order they are RENDERED in.
+  const rowKeys = uniqueKeys(orderRows.map(r => keyColumns.map(c => c.getValueKey(r)).join("/")));
+
   var aggregateColumns: ChartColumn<any>[] = data.columns.entity ? [data.columns.entity] :
     [keyColumn, horizontalColumn, verticalColumn].filter(cn => cn != undefined).filter(a => a.token && a.token instanceof AggregateToken)
 
@@ -112,11 +116,11 @@ export default function renderBubbleplot({ data, width, height, parameters, load
         <YScaleTicks xRule={xRule} yRule={yRule} valueColumn={verticalColumn} y={y} />
       </g>
       <g className="panel" transform={translate(xRule.start('content'), yRule.end('content'))}>
-        {orderRows.map(r => {
+        {orderRows.map((r, i) => {
           const active = detector?.(r);
 
           return (
-            <g key={keyColumns.map(c => c.getValueKey(r)).join("/")}
+            <g key={rowKeys[i]}
               className="shape-serie sf-transition hover-group"
               opacity={active == false ? .5 : undefined}
               transform={translate(x(horizontalColumn.getValue(r))!, -y(verticalColumn.getValue(r))!) + (initialLoad ? scale(0, 0) : scale(1, 1))}

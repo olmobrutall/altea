@@ -3,7 +3,7 @@ import * as d3 from 'd3'
 import { ChartClient } from '../ChartClient';
 import type { ChartScriptProps, ChartColumn, ChartRow, ChartTable } from '../ChartClient';
 import * as ChartUtils from './Components/ChartUtils';
-import { translate, scale, scaleFor } from './Components/ChartUtils';
+import { translate, scale, scaleFor, uniqueKeys } from './Components/ChartUtils';
 import { YScaleTicks, XScaleTicks } from './Components/Ticks';
 import { XAxis, YAxis } from './Components/Axis';
 import { Rule } from './Components/Rule';
@@ -200,13 +200,17 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
 
   var detector = ChartClient.getActiveDetector(dashboardFilter, chartRequest);
 
+  // `keyColumns` drops every aggregate and never had the colour columns, so with a second group key —
+  // a colour CATEGORY, say — several points share a key. See uniqueKeys.
+  const rowKeys = uniqueKeys(data.rows.map(r => keyColumns.map(c => c.getValueKey(r)).join("/")));
+
   if (horizontalColumn2 == null && verticalColumn2 == null)
     return (<>{
-      data.rows.map(r => {
+      data.rows.map((r, i) => {
         const active = detector?.(r);
 
         return (
-          <g key={keyColumns.map(c => c.getValueKey(r)).join("/")} className="shape-serie sf-transition hover-group"
+          <g key={rowKeys[i]} className="shape-serie sf-transition hover-group"
             opacity={active == false ? .5 : undefined}
             transform={translate(xRule.start('content'), yRule.end('content')) + (initialLoad ? scale(1, 0) : scale(1, 1))}>
             <circle className="shape sf-transition hover-target"
@@ -235,7 +239,7 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
     }</>);
   else {
     return (<>
-      {data.rows.map(r => <g key={keyColumns.map(c => c.getValueKey(r)).join("/")} className="shape-serie sf-transition"
+      {data.rows.map((r, i) => <g key={rowKeys[i]} className="shape-serie sf-transition"
         transform={translate(xRule.start('content'), yRule.end('content')) + (initialLoad ? scale(1, 0) : scale(1, 1))}>
         <line className="shape sf-transition"
           x1={x(horizontalColumn.getValue(r))}

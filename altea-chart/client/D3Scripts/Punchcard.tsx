@@ -1,7 +1,7 @@
 import * as React from 'react'
 import * as d3 from 'd3'
 import * as ChartUtils from './Components/ChartUtils';
-import { translate, scale, scaleFor } from './Components/ChartUtils';
+import { translate, scale, scaleFor, uniqueKeys } from './Components/ChartUtils';
 import { ChartClient } from '../ChartClient';
 import type { ChartScriptProps, ChartColumn, ChartRow } from '../ChartClient';
 import { Dic } from '@altea/altea/data/globals/index';
@@ -219,19 +219,25 @@ export default function renderPunchcard({ data, width, height, parameters, loadi
 
   const detector = ChartClient.getActiveDetector(dashboardFilter, chartRequest);
 
+  // The two axes are a cell's identity only while they are the query's ONLY group keys. Put a plain
+  // (non-aggregate) number in Size or Colour and the query groups by that too, so several rows land on the
+  // same cell and shared its key. Sorted first, because the keys must follow the render order.
+  const sortedRows = data.rows
+    .orderBy(horizontalColumn.getValueKey)
+    .orderBy(verticalColumn.getValueKey);
+  const rowKeys = uniqueKeys(sortedRows.map(r => horizontalColumn.getValueKey(r) + "-" + verticalColumn.getValueKey(r)));
+
   return (
     <svg direction="ltr" width={width} height={height} role="img"
       aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Punchcard), getQueryNiceName(chartRequest.queryKey), [verticalColumn.title, horizontalColumn.title].join(", "))}>
       <XKeyTicks keyColumn={horizontalColumn} keyValues={horizontalKeys} xRule={xRule} yRule={yRule} x={x} showLines={x.bandwidth() > 5} isActive={detector && (val => detector!({ c0: val }))} onDrillDown={(v, e) => onDrillDown({ c0: v }, e)}/>
       <YKeyTicks keyColumn={verticalColumn} keyValues={verticalKeys} xRule={xRule} yRule={yRule} y={y} showLines={y.bandwidth() > 5} showLabels={true} isActive={detector && (val => detector!({ c1: val }))} onDrillDown={(v, e) => onDrillDown({ c1: v }, e)}/>
       <g className="punch-panel" transform={translate(xRule.start('content') + x.bandwidth() / 2, yRule.end('content') - y.bandwidth() / 2)}>
-      {data.rows
-        .orderBy(horizontalColumn.getValueKey)
-        .orderBy(verticalColumn.getValueKey)
-          .map(r => {
+      {sortedRows
+          .map((r, i) => {
             const active = detector?.(r);
             return (
-              <g key={horizontalColumn.getValueKey(r) + "-" + verticalColumn.getValueKey(r)} className="chart-groups sf-transition hover-group"
+              <g key={rowKeys[i]} className="chart-groups sf-transition hover-group"
                 cursor="pointer"
                 role="button"
                 tabIndex={0}

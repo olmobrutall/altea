@@ -3,7 +3,7 @@ import * as d3 from 'd3'
 import { ChartClient } from '../ChartClient';
 import type { ChartScriptProps, ChartRow, ChartColumn } from '../ChartClient';
 import * as ChartUtils from './Components/ChartUtils';
-import { translate, scale, scaleFor } from './Components/ChartUtils';
+import { translate, scale, scaleFor, uniqueKeys } from './Components/ChartUtils';
 import { isFolder, isRoot, stratifyTokens } from './Components/Stratify';
 import type { Folder, Root } from './Components/Stratify';
 import TextEllipsis from './Components/TextEllipsis';
@@ -92,6 +92,10 @@ export default function renderTreeMap({ data, width, height, parameters, loading
 
     return last;
   };
+  // getNodeKey names the key and the colour CATEGORY, but not the colour scale — put a plain
+  // (non-aggregate) number there and the query groups by it too, so two leaves share a key.
+  const nodeKeys = uniqueKeys(nodes.map(getNodeKey));
+
   var format = d3.format(",d");
 
   return (
@@ -103,7 +107,7 @@ export default function renderTreeMap({ data, width, height, parameters, loading
       {nodes.map((d, i) => {
         const active = activeDetector?.(isFolder(d.data) ? ({ c2: d.data.folder }) : d.data);
 
-        return (<g key={getNodeKey(d)} className="node sf-transition hover-group" transform={translate(d.x0 - p2, d.y0 - p2) + scaleTransform}>
+        return (<g key={nodeKeys[i]} className="node sf-transition hover-group" transform={translate(d.x0 - p2, d.y0 - p2) + scaleTransform}>
           {isFolder(d.data) &&
             <rect className="folder sf-transition" shapeRendering="initial"
               opacity={active == false ? .5 : undefined}

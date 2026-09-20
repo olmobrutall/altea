@@ -254,3 +254,30 @@ export function getColorInterpolation(interpolationName: string | undefined | nu
 
   return ColorUtils.getColorInterpolation(interpolationName);
 }
+
+/**
+ * React keys for one list of shapes: each key AS GIVEN while it is unique, then `-2`, `-3`, … for every
+ * repeat after the first.
+ *
+ * A chart builds a shape's key from the columns it believes identify a row, but the QUERY may group by
+ * more than that — a Scatterplot's colour-category column, a value column that is not an aggregate — and
+ * then two shapes legitimately share one. React answers a duplicate key by duplicating or DROPPING a
+ * child, so the chart silently loses points.
+ *
+ * Deduplicating rather than falling back to the array index is the point: a key is what ties a shape to
+ * its CSS transition across renders, so a row whose key is already unique has to keep exactly that key,
+ * and a repeat has to be given the same suffix every time. Both hold as long as the caller passes the rows
+ * in the order it renders them.
+ *
+ * (A row whose own key happened to read `x-2` could still collide with the second `x`. Token keys do not
+ * look like that, and the alternative — a separator no key can contain — would change every key that is
+ * already fine.)
+ */
+export function uniqueKeys(keys: string[]): string[] {
+  const seen = new Map<string, number>();
+  return keys.map(k => {
+    const n = (seen.get(k) ?? 0) + 1;
+    seen.set(k, n);
+    return n == 1 ? k : k + "-" + n;
+  });
+}

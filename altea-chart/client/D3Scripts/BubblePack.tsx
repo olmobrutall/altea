@@ -3,7 +3,7 @@ import * as d3 from 'd3'
 import { ChartClient } from '../ChartClient';
 import type { ChartColumn, ChartRow, ChartScriptProps } from '../ChartClient';
 import * as ChartUtils from './Components/ChartUtils';
-import { translate, scale, scaleFor } from './Components/ChartUtils';
+import { translate, scale, scaleFor, uniqueKeys } from './Components/ChartUtils';
 import { isFolder, isRoot, stratifyTokens } from './Components/Stratify';
 import type { Folder, Root } from './Components/Stratify';
 import TextEllipsis from './Components/TextEllipsis';
@@ -83,14 +83,19 @@ export default function renderBubblePack({ data, width, height, parameters, load
   var showNumber = parseFloat(parameters["NumberOpacity"]) > 0;
   var numberSizeLimit = parseInt(parameters["NumberSizeLimit"]);
 
+  // Same as TreeMap: getNodeKey names the key and the colour CATEGORY, but not the colour scale, so a
+  // plain (non-aggregate) number there makes two bubbles share a key. Ordered first, to match the render.
+  const orderedNodes = nodes.orderByDescending(a => a.r);
+  const nodeKeys = uniqueKeys(orderedNodes.map(getNodeKey));
+
   return (
     <svg direction="ltr" width={width} height={height} role="img"
       aria-label={ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.BubblePack), getQueryNiceName(chartRequest.queryKey), [valueColumn.title, keyColumn.title].join(", "))}>
       {
-        nodes.orderByDescending(a => a.r).map(d => {
+        orderedNodes.map((d, i) => {
           const active = activeDetector?.(isFolder(d.data) ? ({ c2: d.data.folder }) : d.data);
           return (
-            <g key={getNodeKey(d)} className="node sf-transition hover-group" transform={translate(d.x, d.y) + (initialLoad ? scale(0, 0) : scale(1, 1))} cursor="pointer"
+            <g key={nodeKeys[i]} className="node sf-transition hover-group" transform={translate(d.x, d.y) + (initialLoad ? scale(0, 0) : scale(1, 1))} cursor="pointer"
               onClick={e => isFolder(d.data) ? onDrillDown({ c2: d.data.folder }, e) : onDrillDown(d.data, e)} role="button" tabIndex={0} focusable={true}>
               <circle className="sf-transition hover-target" shapeRendering="initial" r={d.r}
                 opacity={active == false ? .5 : undefined}
