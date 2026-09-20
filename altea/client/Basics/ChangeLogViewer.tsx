@@ -34,9 +34,14 @@ export default function ChangeLogViewer(): React.ReactElement | null {
         [hasUser],
         { avoidReset: true });
 
+    // `isStarted` as well as `hasUser`: the two are set by different things — the current user by the
+    // auth client, the change log by the logged-in bundle's `start` — so a user is not on its own evidence
+    // that there is a log to ask for. Asking anyway is a TypeError, not an empty log.
+    const canLoad = hasUser && ChangeLogClient.isStarted();
+
     const logs = useAPI(
-        () => hasUser ? ChangeLogClient.getChangeLogs() : Promise.resolve(null),
-        [hasUser]);
+        () => canLoad ? ChangeLogClient.getChangeLogs() : Promise.resolve(null),
+        [canLoad]);
 
     const triggerRef = React.useRef<HTMLAnchorElement | null>(null);
 

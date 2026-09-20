@@ -36,6 +36,22 @@ export namespace ChangeLogClient {
         changeLogs: {} as { [module: string]: () => Promise<{ default: ChangeLogDic }> },
     };
 
+    /**
+     * Whether `start` has run — i.e. whether there is an application change log to load at all.
+     *
+     * A UI has to ask rather than infer it from "a user is logged in": `start` is called by the LOGGED-IN
+     * bundle, and nothing guarantees that bundle has run by the time a component that gates on the current
+     * user first renders. `getChangeLogs` calls `mainChangeLog` unconditionally, so getting that wrong is
+     * a TypeError out of an unawaited promise rather than an empty log.
+     *
+     * (Seen in dev: rebuilding altea's dist under a running vite server invalidates this module, which
+     * hands the importers that reload it a fresh `Options` while `start` — already run, in the previous
+     * instance — is not called again. The guard is for the invariant, not for that.)
+     */
+    export function isStarted(): boolean {
+        return Options.mainChangeLog != null;
+    }
+
     /** Signum's same call: a module publishes its own changelog. */
     export function registerChangeLogModule(name: string, loader: () => Promise<{ default: ChangeLogDic }>): void {
         Options.changeLogs[name] = loader;
