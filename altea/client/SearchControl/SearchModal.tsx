@@ -174,9 +174,14 @@ function SearchModal(p: SearchModalProps): React.ReactElement {
 
   const okEnabled = p.isMany ? (p.allowNoSelection || selectedRows.current.length > 0) : selectedRows.current.length == 1;
 
+  // Unique per instance: search, selector and frame dialogs are opened nested, so a fixed id would appear
+  // several times in the document and the reference would be ambiguous.
+  const titleId = React.useId();
+
   return (
-    <Modal size={(p.size ?? qs?.modalSize ?? "lg") as any} show={show} onExited={handleOnExited} onHide={handleCancelClicked} className="sf-search-modal">
-      <ModalHeaderButtons onClose={p.findMode == "Explore" ? handleCancelClicked : undefined}>
+    <Modal size={(p.size ?? qs?.modalSize ?? "lg") as any} show={show} onExited={handleOnExited} onHide={handleCancelClicked} className="sf-search-modal"
+      aria-labelledby={titleId}>
+      <ModalHeaderButtons titleId={titleId} onClose={p.findMode == "Explore" ? handleCancelClicked : undefined}>
         <span className="sf-entity-title">
           {p.title}
           &nbsp;

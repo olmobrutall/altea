@@ -79,7 +79,12 @@ function SearchPage(): React.ReactElement {
         showFooter={true}
         avoidChangeUrl={false}
         maxResultsHeight={"none"}
-        enableAutoFocus={true}
+        // false on a PAGE: 200ms after loading it moved the focus into the pinned filters — on a query
+        // with several of them that is more than twenty tab stops in, past the skip link, which is the
+        // very first one. A keyboard user then had to tab the whole page on every visit with the skip
+        // link behind them. A dialog is the opposite case, and SearchModal still sets it, because there
+        // the focus does have to move inside.
+        enableAutoFocus={false}
         onHeighChanged={onResize}
         onSearch={() => changeUrl()}
         onPageTitleChanged={forceUpdate}

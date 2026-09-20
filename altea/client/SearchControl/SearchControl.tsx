@@ -42,6 +42,8 @@ export interface SearchControlProps {
   maxResultsHeight?: string | number;
   tag?: string | {};
   searchOnLoad?: boolean;
+  /** Selects every row of the FIRST completed search. Later searches keep the normal behaviour. */
+  selectAllOnLoad?: boolean;
   allowSelection?: boolean | "single";
   showContextMenu?: (fop: FindOptionsParsed) => boolean | "Basic";
   hideButtonBar?: boolean;
@@ -229,6 +231,7 @@ function SearchControl(p: SearchControlProps): React.JSX.Element | null {
 
         defaultIncudeDefaultFilters={p.defaultIncludeDefaultFilters ?? false}
         searchOnLoad={p.searchOnLoad != null ? p.searchOnLoad : true}
+        selectAllOnLoad={p.selectAllOnLoad ?? false}
         showHeader={p.showHeader != null ? p.showHeader : true}
         avoidTableFooterContainer={p.avoidTableFooterContainer ?? false}
         avoidGroupByMessage={p.avoidGroupByMessage ?? false}
