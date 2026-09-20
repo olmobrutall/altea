@@ -38,6 +38,14 @@ export namespace AsyncEmailSender {
     let queuedItems = 0;
     let processIdentifier: uuid | undefined;
 
+    // A pass that fails is retried on the next wake-up, which is right for a transient SMTP or network
+    // fault. What it is NOT right for is a fault that will never clear — a bad configuration, a dropped
+    // connection string — where the sender would go on failing every period for ever, one logged exception
+    // at a time. After this many failures in a row it stops itself, which is what the panel and the health
+    // probe then report.
+    let consecutiveErrors = 0;
+    const maxConsecutiveErrors = 3;
+
     let timer: NodeJS.Timeout | undefined;
     let pumping = false;
     let pumpAgain = false;
@@ -54,6 +62,7 @@ export namespace AsyncEmailSender {
             lastExecutionFinishedOn: lastExecutionFinishedOn?.toString() ?? null,
             queuedItems,
             currentProcessIdentifier: processIdentifier ?? null,
+            consecutiveErrors,
         };
     }
 
@@ -78,6 +87,7 @@ export namespace AsyncEmailSender {
 
         running = true;
         cancellationRequested = false;
+        consecutiveErrors = 0;
         initialDelayMilliseconds ??= 0;
 
         // Signum's one-off "anything older than this was never going to be sent" sweep.
@@ -115,11 +125,25 @@ export namespace AsyncEmailSender {
                     pumpAgain = false;
                     await pump();
                 } while (pumpAgain && !cancellationRequested);
+                consecutiveErrors = 0;
             } catch (e) {
+                consecutiveErrors++;
                 await Transaction.forceNew(() => ExceptionLogic.logException(e, ex => {
                     ex.controllerName = "AsyncEmailSender";
                     ex.actionName = "wakeUp: " + reason;
                 })).catch(() => { /* logging must never take the host down */ });
+
+                if (consecutiveErrors >= maxConsecutiveErrors) {
+                    // stop() clears the timer and flips `running`, so the finally below re-arms nothing
+                    // and getHealthStatus starts answering Unhealthy — which is the point: something has
+                    // to notice, and a log line every period was not doing it.
+                    stop();
+                    await Transaction.forceNew(() => ExceptionLogic.logException(
+                        new Error(`AsyncEmailSender stopped after ${maxConsecutiveErrors} consecutive errors.`), ex => {
+                            ex.controllerName = "AsyncEmailSender";
+                            ex.actionName = "wakeUp: " + reason;
+                        })).catch(() => { /* as above */ });
+                }
             } finally {
                 pumping = false;
                 if (running && !cancellationRequested)

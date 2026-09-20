@@ -125,6 +125,9 @@ export namespace EmailLogic {
 
         // Its recipient / attachment @part rows are included automatically (see EmailTemplateLogic).
         sb.include(EmailMessageEntity)
+            // The one query the async sender runs on every wake-up: state = ReadyToSend, ordered by
+            // creation date. Without this it is a scan of the whole message log.
+            .withIndex(m => [m.state, m.creationDate])
             .withStateMachine(m => m.state, registerEmailMessageOperations)
             .withQuery();
 

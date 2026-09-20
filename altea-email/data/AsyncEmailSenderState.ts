@@ -15,6 +15,8 @@ export interface AsyncEmailSenderState {
     lastExecutionFinishedOn: string | null;
     queuedItems: number;
     currentProcessIdentifier: string | null;
+    /** Passes that have failed in a row. The sender stops itself once this reaches its limit. */
+    consecutiveErrors: number;
 }
 
 /** The anonymous health probe's response (a monitor polls it). */

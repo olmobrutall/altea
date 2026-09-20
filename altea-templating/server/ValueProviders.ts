@@ -368,9 +368,11 @@ export class TokenValueProvider extends ValueProviderBase {
 
         const value = distinctSingle(qc.currentRows, qc.column(this.parsedToken.queryToken!));
 
-        // A `…ToArray` token yields the whole collection; join it.
+        // A `…ToArray` token yields the whole collection; join it. Guarded on Array, not just on null:
+        // a row can answer a SCALAR for a ToArray token (one element folded, or a stored token that no
+        // longer resolves to a collection), and calling join on it throws far away from the cause.
         if (this.parsedToken.queryToken!.isToArray()) {
-            const array = (value ?? []) as unknown[];
+            const array = Array.isArray(value) ? value : value == null ? [] : [value];
             const separator = this.parsedToken.queryToken!.key.includes("NewLine") ? "\n" : ", ";
             return array.join(separator);
         }

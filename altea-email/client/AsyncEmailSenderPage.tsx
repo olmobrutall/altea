@@ -72,6 +72,8 @@ export default function AsyncEmailSenderPage(): React.JSX.Element {
                 IsCancelationRequested: {String(s.isCancelationRequested)}
                 <br />
                 QueuedItems: {s.queuedItems}
+                <br />
+                ConsecutiveErrors: {s.consecutiveErrors}
             </div>
 
             <br />
