@@ -13,6 +13,7 @@ import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import '@altea/altea/data/globals/arrayExtensions';
+import { chartTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Punchcard.tsx.
 export default function renderPunchcard({ data, width, height, parameters, loading, onDrillDown, initialLoad, chartRequest, dashboardFilter }: ChartScriptProps): React.ReactElement<any> {
@@ -256,14 +257,12 @@ export default function renderPunchcard({ data, width, height, parameters, loadi
                           opacityColumn != null ? opacityColumn.getValue(r) : null}
                   </text>
                 }
-                <title>
-                  {horizontalColumn.getValueNiceName(r) + ', ' + verticalColumn.getValueNiceName(r) +
-                    (sizeColumn == null ? "" : ("\n" + sizeColumn.title + ": " + sizeColumn.getValueNiceName(r))) +
-                    (colorColumn == null ? "" : ("\n" + colorColumn.title + ": " + colorColumn.getValueNiceName(r))) +
-                    (opacityColumn == null ? "" : ("\n" + opacityColumn.title + ": " + opacityColumn.getValueNiceName(r))) +
-                    (innerSizeColumn == null ? "" : ("\n" + innerSizeColumn.title + ": " + (ist == "Relative" ? percentage(innerSizeColumn.getValue(r)) : innerSizeColumn.getValueNiceName(r)))) +
-                    (orderColumn == null ? "" : ("\n" + orderColumn.title + ": " + orderColumn.getValueNiceName(r)))}
-                </title>
+                {/* c0 … c6. Both key columns are bare: a cell is the CROSSING of the two axes, so neither
+                    alone identifies it. A relative inner size reads as a percentage, not as its raw value. */}
+                <title>{chartTitle(r, [horizontalColumn, { column: verticalColumn, bare: true },
+                  sizeColumn, colorColumn, opacityColumn,
+                  { column: innerSizeColumn, value: innerSizeColumn && ist == "Relative" ? percentage(innerSizeColumn.getValue(r)) : undefined },
+                  orderColumn])}</title>
               </g>
             );
           }

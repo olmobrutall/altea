@@ -11,6 +11,7 @@ import InitialMessage from './Components/InitialMessage';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
+import { chartTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/TreeMap.tsx (d3.treemap hierarchy). Standard fixes.
 export default function renderTreeMap({ data, width, height, parameters, loading, onDrillDown, initialLoad, chartRequest, memo, dashboardFilter }: ChartScriptProps): React.ReactElement<any> {
@@ -116,9 +117,11 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               role="button"
               tabIndex={0}
               focusable={true}>
-              <title>
-                {parentColumn!.getNiceName(d.data.folder)}: {format(size.invert(d.value!))}
-              </title>
+              {/* A folder is not a row — it is the roll-up of its leaves — so both parts carry their own
+                  value and no row is passed. */}
+              <title>{chartTitle(null, [
+                { value: parentColumn!.getNiceName(d.data.folder) },
+                { column: valueColumn, value: format(size.invert(d.value!)) }])}</title>
             </rect>
           }
           {!isFolder(d.data) &&
@@ -135,9 +138,9 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               role="button"
               tabIndex={0}
               focusable={true}>
-              <title>
-                {keyColumn.getValueNiceName(d.data) + ': ' + valueColumn.getValueNiceName(d.data)}
-              </title>
+              {/* c0 … c4. The parent and the two colour columns were missing entirely. */}
+              <title>{chartTitle(d.data, [keyColumn, valueColumn, parentColumn,
+                colorScaleColumn, colorSchemeColumn])}</title>
             </rect>}
 
           {!isFolder(d.data) && nodeWidth(d) > 10 && nodeHeight(d) > 25 &&
@@ -148,9 +151,9 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               dy={nodeHeight(d) / 2 + (showNumber ? -6 : 0)}
               onClick={e => onDrillDown(d.data as ChartRow, e)}>
               {keyColumn.getValueNiceName(d.data as ChartRow)}
-              <title>
-                {keyColumn.getValueNiceName(d.data as ChartRow) + ': ' + valueColumn.getValueNiceName(d.data as ChartRow)}
-              </title>
+              {/* The label sits ON the leaf, so it repeats the leaf's own tooltip. */}
+              <title>{chartTitle(d.data as ChartRow, [keyColumn, valueColumn, parentColumn,
+                colorScaleColumn, colorSchemeColumn])}</title>
             </TextEllipsis>
           }
 

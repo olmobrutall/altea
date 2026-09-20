@@ -12,6 +12,7 @@ import { Color } from '@altea/altea/client/Basics/Color';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import '@altea/altea/data/globals/arrayExtensions';
+import { chartTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Pie.tsx. Fixes: @framework→altea; symbolNiceName→
 // ChartClient.symbolNiceName; Color from the local ../Color port; TextRectangle from ./StackedLines;
@@ -77,7 +78,8 @@ export default function renderPie({ data, width, height, parameters, loading, on
           var arcHeight = Math.abs(Math.sin(slice.endAngle) * outerRadious * legendRadius - Math.sin(slice.startAngle) * outerRadious * legendRadius);
           return (
             <g key={slice.index} className="slice hover-group">
-              <title>{`${keyColumn.getValueNiceName(slice.data)}: ${valueText}`}</title>
+              {/* c0, c1. `valueText` keeps the chart's own number format rather than the column's. */}
+              <title>{chartTitle(slice.data, [keyColumn, { column: valueColumn, value: valueText }])}</title>
               <path className="shape sf-transition hover-target" d={arc(slice)!}
                 opacity={active == false ? .5 : undefined}
                 stroke={active == true ? "var(--bs-body-color)" : undefined}

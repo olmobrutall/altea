@@ -13,6 +13,7 @@ import type { DashboardFilter } from '../DashboardFilterStub';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import '@altea/altea/data/globals/arrayExtensions';
 import '@altea/altea/data/globals/stringExtensions';
+import { chartTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/CalendarStream.tsx (a year calendar heat-map). altea divergences:
 // standard import fixes + luxon → native Date (DateTime.local(y,m,1)→new Date(y,m-1,1); .plus({month:1,
@@ -282,9 +283,10 @@ export function CalendarYear({ year, rules, rowByDate, width, height, onDrillDow
                     }
                   }}
                   onClick={e => onDrillDown(r, e)}>
-                  <title>
-                    {dateFormat(d) + ("(" + valueColumn.getValueNiceName(r) + ")")}
-                  </title>
+                  {/* c0, c1. The date is the CELL's, formatted by the chart, so it carries its own value
+                      and names no column; the value column then names itself instead of the old bare
+                      "(12)" parenthetical. */}
+                  <title>{chartTitle(r, [{ value: dateFormat(d) }, valueColumn])}</title>
                 </rect>
               </g>
             );

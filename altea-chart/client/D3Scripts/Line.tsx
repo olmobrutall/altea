@@ -12,6 +12,7 @@ import type { MemoRepository } from './Components/ReactChart';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
+import { chartTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Line.tsx. Same fixes as Columns/Bars (@framework→altea,
 // symbolNiceName→ChartClient.symbolNiceName, import type). Also the home of the shared
@@ -185,9 +186,7 @@ export function paintLine({ xRule, yRule, x, y, keyValues, data, hasHorizontalSc
                 }}
                 r={circleRadiusHover}
                 onClick={e => onDrillDown(r, e)}>
-                <title>
-                  {keyColumn.getValueNiceName(r) + ': ' + valueColumn.getValueNiceName(r)}
-                </title>
+                <title>{chartTitle(r, [keyColumn, valueColumn])}</title>
               </circle>
             );
           })}
@@ -222,9 +221,7 @@ export function paintLine({ xRule, yRule, x, y, keyValues, data, hasHorizontalSc
                     }
                   }}
                   shapeRendering="initial">
-                  <title>
-                    {keyColumn.getValueNiceName(r) + ': ' + valueColumn.getValueNiceName(r)}
-                  </title>
+                  <title>{chartTitle(r, [keyColumn, valueColumn])}</title>
                 </circle>
                 { /*Point labels*/
                   numberOpacity > 0 &&

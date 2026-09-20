@@ -13,6 +13,7 @@ import TextEllipsis from './Components/TextEllipsis';
 import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
+import { chartTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Bars.tsx (the horizontal-bars renderer). Same fixes as Columns.tsx:
 // @framework/* → altea; ../Signum.Chart → ../../data/*; symbolNiceName → ChartClient.symbolNiceName;
@@ -143,9 +144,7 @@ export default function renderBars({ data, width, height, parameters, loading, o
                     (onclick as any)?.(e);
                   }
                 }}>
-                <title>
-                  {keyColumn.getValueNiceName(row) + ': ' + valueColumn.getValueNiceName(row)}
-                </title>
+                <title>{chartTitle(row, [keyColumn, valueColumn])}</title>
               </rect>
               }
               {y.bandwidth() > 15 && (isAll || row != null) &&

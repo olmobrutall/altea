@@ -1,6 +1,7 @@
 import type { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import type { ChartTable, ChartColumn, ChartRow } from "../../ChartClient";
 import "@altea/altea/data/globals/arrayExtensions";
+import { chartTitle } from './ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Components/PivotTable.ts. Reshapes a flat ChartTable into a
 // multi-series pivot (one PivotColumn per value column, or per split-column value). Verbatim except
@@ -18,7 +19,8 @@ export function toPivotTable(data: ChartTable,
         rowClick: r,
         value: cn.getValue(r),
         valueNiceName: cn.getValueNiceName(r),
-        valueTitle: `${col0.getValueNiceName(r)}, ${cn.title}: ${cn.getValueNiceName(r)}`
+        // The tooltip of ONE cell, so only this cell's value column — the siblings are the other cells.
+        valueTitle: chartTitle(r, [col0, cn]),
       }))
     } as PivotRow));
 
@@ -61,7 +63,12 @@ export function groupedPivotTable(data: ChartTable,
             rowClick: r,
             value: colValue.getValue(r),
             valueNiceName: colValue.getValueNiceName(r),
-            valueTitle: `${col0.getNiceName(rowValue)}, ${colSplit.getValueNiceName(r)}: ${colValue.getValueNiceName(r)}`
+            // Both keys are bare: a cell is the CROSSING of the row key and the split value. `rowValue`
+            // comes off the group, not the row, so col0 carries its own value.
+            valueTitle: chartTitle(r, [
+              { column: col0, value: col0.getNiceName(rowValue) },
+              { column: colSplit, bare: true },
+              colValue]),
           })),
       } as PivotRow;
     });

@@ -14,6 +14,7 @@ import type { ChartRequestModel } from '../../data/ChartRequest';
 import type { DashboardFilter } from '../DashboardFilterStub';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import { AggregateToken } from '@altea/altea/data/dynamicQuery/tokens/aggregateToken';
+import { chartTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/Scatterplot.tsx. Standard fixes (@framework→altea,
 // symbolNiceName→ChartClient.symbolNiceName, import type, ../Signum.Chart→data/*). Divergence:
@@ -117,6 +118,8 @@ export default function renderScatterplot({ data, width, height, parameters, loa
             horizontalColumn2={horizontalColumn2}
             verticalColumn2={verticalColumn2}
             colorKeyColumn={keyColumn}
+            colorScaleColumn={colorScaleColumn}
+            colorSchemeColumn={colorSchemeColumn}
             color={color}
             pointSize={pointSize}
             chartRequest={chartRequest}
@@ -135,6 +138,8 @@ export default function renderScatterplot({ data, width, height, parameters, loa
         <CanvasScatterplot
           color={color}
           colorKeyColumn={keyColumn}
+          colorScaleColumn={colorScaleColumn}
+          colorSchemeColumn={colorSchemeColumn}
           horizontalColumn={horizontalColumn}
           verticalColumn={verticalColumn}
           horizontalColumn2={horizontalColumn2}
@@ -152,9 +157,28 @@ export default function renderScatterplot({ data, width, height, parameters, loa
   );
 }
 
+// The columns a point's tooltip names. BOTH renderers take the whole set, so neither can quietly leave one
+// out — which is how they came over from Signum: the SVG one skipped the colour columns and the canvas one
+// skipped those AND the second horizontal / vertical column.
+interface ScatterplotTitleColumns {
+  colorKeyColumn: ChartColumn<unknown>,
+  horizontalColumn: ChartColumn<number>,
+  horizontalColumn2?: ChartColumn<number>,
+  verticalColumn: ChartColumn<number>,
+  verticalColumn2?: ChartColumn<number>,
+  colorScaleColumn?: ChartColumn<number>,
+  colorSchemeColumn?: ChartColumn<unknown>,
+}
+
+/** c0 … c6, the order the chart editor lists them in. */
+function pointTitle(r: ChartRow, cols: ScatterplotTitleColumns): string {
+  return chartTitle(r, [cols.colorKeyColumn, cols.horizontalColumn, cols.verticalColumn,
+    cols.horizontalColumn2, cols.verticalColumn2, cols.colorScaleColumn, cols.colorSchemeColumn]);
+}
+
 function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
   horizontalColumn, verticalColumn, horizontalColumn2, verticalColumn2,
-  colorKeyColumn, color, onDrillDown, pointSize, dashboardFilter, chartRequest }: {
+  colorKeyColumn, colorScaleColumn, colorSchemeColumn, color, onDrillDown, pointSize, dashboardFilter, chartRequest }: {
     data: ChartTable,
     keyColumns: ChartColumn<any>[],
     xRule: Rule<"content">,
@@ -162,17 +186,17 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
     initialLoad: boolean,
     x: d3.ScaleContinuousNumeric<number, number, never>,
     y: d3.ScaleContinuousNumeric<number, number, never>,
-    horizontalColumn: ChartColumn<number>,
-    horizontalColumn2?: ChartColumn<number>,
-    verticalColumn: ChartColumn<number>,
-    verticalColumn2?: ChartColumn<number>,
-    colorKeyColumn: ChartColumn<unknown>,
     color: (val: ChartRow) => string | undefined,
     pointSize: number,
     dashboardFilter?: DashboardFilter,
     chartRequest: ChartRequestModel,
     onDrillDown: (row: ChartRow, e: MouseEvent | React.MouseEvent<any, MouseEvent>) => void
-  }): React.JSX.Element {
+  } & ScatterplotTitleColumns): React.JSX.Element {
+
+  const titleColumns: ScatterplotTitleColumns = {
+    colorKeyColumn, horizontalColumn, horizontalColumn2, verticalColumn, verticalColumn2,
+    colorScaleColumn, colorSchemeColumn,
+  };
 
   var detector = ChartClient.getActiveDetector(dashboardFilter, chartRequest);
 
@@ -203,11 +227,7 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
                   (onclick as any)?.(e);
                 }
               }}>
-              <title>
-                {colorKeyColumn.getValueNiceName(r) +
-                  ("\n" + horizontalColumn.title + ": " + horizontalColumn.getValueNiceName(r)) +
-                  ("\n" + verticalColumn.title + ": " + verticalColumn.getValueNiceName(r))}
-              </title>
+              <title>{pointTitle(r, titleColumns)}</title>
             </circle>
           </g>);
 
@@ -269,14 +289,7 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
               (onclick as any)?.(e);
             }
           }} />
-        <title>
-          {colorKeyColumn.getValueNiceName(r) +
-            ("\n" + horizontalColumn.title + ": " + horizontalColumn.getValueNiceName(r)) +
-            (horizontalColumn2 ? ("\n" + horizontalColumn2.title + ": " + horizontalColumn2.getValueNiceName(r)) : "") +
-            ("\n" + verticalColumn.title + ": " + verticalColumn.getValueNiceName(r)) +
-            (verticalColumn2 ? ("\n" + verticalColumn2.title + ": " + verticalColumn2.getValueNiceName(r)) : "")
-          }
-        </title>
+        <title>{pointTitle(r, titleColumns)}</title>
 
       </g>)}
     </>);
@@ -286,18 +299,13 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
 function CanvasScatterplot(p: {
   xRule: Rule<"content">,
   yRule: Rule<"content">,
-  colorKeyColumn: ChartColumn<unknown>,
-  horizontalColumn: ChartColumn<number>,
-  horizontalColumn2?: ChartColumn<number>,
-  verticalColumn: ChartColumn<number>,
-  verticalColumn2?: ChartColumn<number>,
   pointSize: number,
   data: ChartTable,
   onDrillDown: (r: ChartRow, e: MouseEvent) => void,
   color: (val: ChartRow) => string | undefined,
   x: d3.ScaleContinuousNumeric<number, number>,
   y: d3.ScaleContinuousNumeric<number, number>,
-}) {
+} & ScatterplotTitleColumns) {
 
   var cRef = React.useRef<HTMLCanvasElement>(null);
   var vcRef = React.useRef<HTMLCanvasElement>(null);
@@ -376,9 +384,7 @@ function CanvasScatterplot(p: {
       const r = colorToData[color];
       if (r) {
         c.style.cursor = "pointer";
-        c.setAttribute("title", colorKeyColumn.getValueNiceName(r) +
-          ("\n" + horizontalColumn.title + ": " + horizontalColumn.getValueNiceName(r)) +
-          ("\n" + verticalColumn.title + ": " + verticalColumn.getValueNiceName(r)));
+        c.setAttribute("title", pointTitle(r, p));
       } else {
         c.style.cursor = "initial";
         c.setAttribute("title", "...");

@@ -13,6 +13,7 @@ import { AggregateToken } from '@altea/altea/data/dynamicQuery/tokens/aggregateT
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import '@altea/altea/data/globals/arrayExtensions';
 import '@altea/altea/data/globals/stringExtensions';
+import { chartTitle } from './Components/ChartTitle';
 
 interface ColumnWithScales {
   column: ChartColumn<number>;
@@ -176,10 +177,9 @@ function ParallelCoordinatesImp({ data, width, height, parameters, loading, onDr
                 }
               }}
               d={line(cords.map(c => ({ col: c, row: r })))!}>
-              <title>
-                {keyColumn.getValueNiceName(r) + "\n" +
-                  cords.map(c => c.column.title + ": " + c.column.getValueNiceName(r)).join("\n")}
-              </title>
+              {/* c0 plus every axis the user filled — `cords` IS c1 … c8 without the gaps, so this one
+                  was already complete by construction. */}
+              <title>{chartTitle(r, [keyColumn, ...cords.map(c => c.column)])}</title>
             </path>
           </g>
         );

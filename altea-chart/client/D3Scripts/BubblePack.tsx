@@ -12,6 +12,7 @@ import { ChartMessage } from '../../data/ChartMessage';
 import { D3ChartScript } from '../../data/ChartScript';
 import { getQueryNiceName } from '@altea/altea/client/Reflection';
 import '@altea/altea/data/globals/arrayExtensions';
+import { chartTitle } from './Components/ChartTitle';
 
 // Copy-and-fix of Signum.Chart/D3Scripts/BubblePack.tsx (d3.pack hierarchy of bubbles). Standard fixes.
 export default function renderBubblePack({ data, width, height, parameters, loading, onDrillDown, initialLoad, memo, dashboardFilter, chartRequest }: ChartScriptProps): React.ReactElement<any> {
@@ -113,15 +114,14 @@ export default function renderBubblePack({ data, width, height, parameters, load
                   {valueColumn.getValueNiceName(d.data as ChartRow)}
                 </text>
               }
-              <title>
-                {isFolder(d.data) ? parentColumn!.getNiceName(d.data.folder) :
-                  (keyColumn.getValueNiceName(d.data as ChartRow) + (parentColumn == null ? '' : (' (' + parentColumn.getValueNiceName(d.data as ChartRow) + ')')))}:
-                {isFolder(d.data) ? format(size.invert(d.value!)) :
-                  (valueColumn.getValueNiceName(d.data)
-                    + (colorScaleColumn == null ? '' : (' (' + colorScaleColumn.getValueNiceName(d.data) + ')'))
-                    + (colorSchemeColumn == null ? '' : (' (' + colorSchemeColumn.getValueNiceName(d.data) + ')'))
-                  )}
-              </title>
+              {/* A folder is the roll-up of its leaves and not a row, so it carries its own values; a leaf
+                  is c0 … c4. This one already named every column, in its own parenthesised format. */}
+              <title>{isFolder(d.data)
+                ? chartTitle(null, [
+                  { value: parentColumn!.getNiceName(d.data.folder) },
+                  { column: valueColumn, value: format(size.invert(d.value!)) }])
+                : chartTitle(d.data, [keyColumn, valueColumn, parentColumn,
+                  colorScaleColumn, colorSchemeColumn])}</title>
             </g>);
         })
       }
