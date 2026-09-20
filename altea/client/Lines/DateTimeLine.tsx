@@ -130,10 +130,14 @@ export const DateTimeLine: (props: DateTimeLineProps) => React.ReactNode | null 
             id={inputId}
             value={jsDate} onChange={handleDatePickerOnChange} autoFocus={Boolean(c.props.initiallyFocused)}
             valueEditFormat={options}
-            {...ariaAtts}
             valueDisplayFormat={options}
             includeTime={showTime}
-            inputProps={htmlAttributes as any}
+            // The ARIA attributes belong on the INPUT, not on the DatePicker. react-widgets puts props it
+            // does not recognise on its root <div class="rw-date-picker">, which carries no role, so
+            // aria-label there was ignored and the field had no accessible name at all. It cannot fall
+            // back on the visible label either: react-widgets renames the id it is given to "<id>_input",
+            // so the <label for> FormGroup rendered points at nothing.
+            inputProps={{ ...htmlAttributes, ...ariaAtts } as any}
             placeholder={htmlAttributes.placeholder}
             min={p.minDate}
             max={p.maxDate}
