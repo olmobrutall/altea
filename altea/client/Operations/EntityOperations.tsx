@@ -34,6 +34,8 @@ export namespace EntityOperations {
     const operations = Operations.operationInfos(ti)
       .filter(oi => Operations.isEntityOperation(oi.operationType) && (oi.canBeNew || !(ctx.pack.entity as Entity).isNew))
       .filter(oi => (ctx.pack.entity as Entity).isNew || oi.key in ctx.pack.canExecute)
+      .filter(oi => !ctx.filter || ctx.filter.split("~").some(f => oi.niceName.toLowerCase().includes(f.toLowerCase())))
+      .filter(oi => !ctx.operations || ctx.operations.split("~").some(opt => oi.key.toLowerCase().endsWith(`.${opt.toLowerCase()}`)))
       .map(oi => {
 
         const eos = Operations.getSettings(oi.key) as EntityOperationSettings<Entity>;
@@ -48,6 +50,11 @@ export namespace EntityOperations {
       .filter(eoc => eoc.isVisibleInButtonBar(ctx));
 
     operations.forEach(eoc => eoc.complete());
+
+    // A narrowed bar is a flat list: grouping a handful of hand-picked operations into their menus would
+    // hide most of them again behind a dropdown.
+    if (ctx.filter || ctx.operations)
+      return operations.flatMap(eoc => eoc.createButton());
 
     const groups = operations.groupBy(eoc => eoc.group && eoc.group.key || "");
 

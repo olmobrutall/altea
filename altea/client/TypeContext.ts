@@ -581,6 +581,12 @@ export interface ButtonsContext {
   frame: EntityFrame<BaseEntity>;
   isOperationVisible?: (eoc: EntityOperationContext<any /*Entity*/>) => boolean;
   tag?: string;
+  /** Operation KEYS to keep, tilde-separated and matched on the member after the last dot — the form a
+   *  `?operations=` query parameter carries. Shows only those, ungrouped. */
+  operations?: string;
+  /** Free text to match against operation nice names, tilde-separated (any match keeps the operation).
+   *  What the button bar's own search box fills in. */
+  filter?: string;
 }
 
 export interface ButtonBarElement {
