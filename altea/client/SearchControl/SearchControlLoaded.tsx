@@ -1789,8 +1789,10 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
           window.open(AppContext.toAbsoluteUrl(Finder.findOptionsPath(fo)));
         } else {
 
-          // TODO(port): Finder.explore opens the full-screen SearchPage (not ported yet — Stage 4).
-          return Promise.resolve().then(() => {
+          // The drill-down: a MODAL over the group's own rows. `fo` above already carries the group's key
+          // columns as filters and every aggregate re-pointed at its parent token, so the modal is the same
+          // query narrowed to this one group.
+          return Finder.explore(fo).then(() => {
             this.dataChanged();
           });
         }
