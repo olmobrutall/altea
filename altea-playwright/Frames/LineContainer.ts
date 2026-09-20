@@ -227,11 +227,16 @@ export class LineContainer<T extends BaseEntity> {
 
     // ---- Tabs --------------------------------------------------------------------------------------
 
-    /** Signum's `SelectTabAsync(eventKey)` — click a react-bootstrap tab and wait for it to be active. */
+    /**
+     * Signum's `SelectTabAsync(eventKey)` — click a react-bootstrap tab and wait for it to be active.
+     *
+     * No `.nav-item` step: react-bootstrap renders a Tab's link directly under `.nav-tabs` unless it is
+     * given a Nav.Item of its own, and a tab strip built that way matched nothing at all.
+     */
     async selectTab(eventKey: string): Promise<this> {
-        const tab = this.element.locator(`.nav-tabs .nav-item .nav-link[data-rr-ui-event-key='${eventKey}']`);
+        const tab = this.element.locator(`.nav-tabs .nav-link[data-rr-ui-event-key='${eventKey}']`);
         await tab.click();
-        await waitVisible(this.element.locator(".nav-tabs .nav-item .nav-link.active"));
+        await waitVisible(this.element.locator(".nav-tabs .nav-link.active"));
         return this;
     }
 }

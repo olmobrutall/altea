@@ -20,13 +20,41 @@ export class NumberLineProxy<S extends NumberMember = NumberMember> extends Base
             await input.blur();
     }
 
+    /**
+     * The member's value as a number.
+     *
+     * A READ-ONLY number is rendered FORMATTED — grouped, and for a percentage column multiplied by a
+     * hundred and suffixed — so it cannot be parsed as a bare numeral. Signum reads the separators off the
+     * test process's CurrentCulture; there is no such thing here, so the parse happens in the PAGE, where
+     * `document.documentElement.lang` says which culture rendered the text and Intl gives that culture's
+     * own separators. The editable input is unformatted and falls through the same code unchanged.
+     */
     async getValue(): Promise<number | null> {
         const input = this.anyInput;
         await input.waitFor({ state: "attached" });
-        const text = await input.evaluate(e =>
-            e.tagName.toLowerCase() === "input" ? (e as HTMLInputElement).value : e.textContent ?? "");
-        const clean = text.trim();
-        return clean === "" ? null : Number(clean.replace(/[^\d.,-]/g, "").replace(",", "."));
+        return await input.evaluate(e => {
+            const raw = (e.tagName.toLowerCase() === "input" ? (e as HTMLInputElement).value : e.textContent ?? "").trim();
+            if (raw === "")
+                return null;
+
+            const locale = document.documentElement.lang || undefined;
+            const parts = new Intl.NumberFormat(locale).formatToParts(12345.6);
+            const group = parts.find(p => p.type === "group")?.value ?? ",";
+            const decimal = parts.find(p => p.type === "decimal")?.value ?? ".";
+            // The percent sign arrives with its own spacing in several cultures, including a non-breaking
+            // one, so it is matched as a character rather than trimmed around.
+            const percent = /[%\u2030]/.test(raw);
+
+            let s = raw;
+            for (const sep of new Set([group, "\u00A0", "\u202F", "\u2009", " "]))
+                s = s.split(sep).join("");
+            s = s.split(decimal).join(".").replace(/[^\d.eE+-]/g, "");
+
+            const n = Number(s);
+            if (Number.isNaN(n))
+                return null;
+            return percent ? n / 100 : n;
+        });
     }
 
     override async getValueUntyped(): Promise<unknown> { return await this.getValue(); }

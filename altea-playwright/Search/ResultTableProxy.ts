@@ -124,8 +124,13 @@ export class ResultTableProxy<T extends BaseEntity> {
     // ---- Navigation --------------------------------------------------------------------------------
 
     /** The entity LINK of a row (its first cell's anchor). */
+    /**
+     * The row's "view" button. Addressed by its CLASS, not by column position: `nth-child(2)` assumed a
+     * selection checkbox in front of it, so the link was missed entirely on a search control that does not
+     * allow selection, and matched the wrong cell on one with a combined first column.
+     */
     entityLink(rowIndex: number): Locator {
-        return this.row(rowIndex).locator("td:nth-child(2):not([data-column-index]) a, a.sf-entity-link").first();
+        return this.row(rowIndex).locator("td:not([data-column-index]) a.sf-line-button.sf-view, a.sf-entity-link").first();
     }
 
     /**
