@@ -211,10 +211,23 @@ export function wrapRequest(options: AjaxOptions, makeCall: () => Promise<Respon
     makeCall = () => NotifyPendingFilter.onPendingRequest(call);
   }
 
+  // Outermost, and not switchable off by an option: whatever the host wraps every request in wraps the
+  // other filters too.
+  if (Options.globalFilter) {
+    let call = makeCall;
+    makeCall = () => Options.globalFilter!(call);
+  }
+
   const promise = makeCall();
 
   return promise;
 }
+
+/** Host-level hook around EVERY request this module makes — a queue, a circuit breaker, an IP filter.
+ *  Set by the application; undefined (the default) is no wrapping at all. */
+export const Options = {
+  globalFilter: undefined as ((makeCall: () => Promise<Response>) => Promise<Response>) | undefined,
+};
 
 export namespace RetryFilter {
   export function retryFilter(makeCall: () => Promise<Response>): Promise<Response> {
