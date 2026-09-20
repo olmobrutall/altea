@@ -2425,3 +2425,46 @@ Known structural divergences from Signum (this is what "fix" means — don't por
   posts to (as opposed to `constructFromMany`, one entity out of the whole selection), and it had always
   been called — so every such menu entry 404'd. And `PropertyOperationEnum` is now `registerEnum`'d, so
   `Enum.niceName` finds the translated member names the shipped XMLs already carried.
+
+- **Signum's September 2026 accessibility campaign, ported in one pass** (Signum `b1567409e5..62975feca9`,
+  by way of `old/` — the sixteen commits Jafar Mirzaie authored between the 11th and the 15th plus the four
+  column-menu ones on the 16th). What it amounted to, and where altea already differed:
+  - **The result table stopped claiming `role="grid"`.** The role promises the ARIA grid keyboard model —
+    one tab stop for the whole widget, arrow keys between cells — which the control does not implement:
+    its rows are not focusable, so the `ArrowUp`/`ArrowDown` handler on `<tr>` can never fire. Claiming it
+    was WORSE than not claiming it, because a screen reader switches to focus mode inside a grid and loses
+    the browse-mode table commands a plain `<table>` gets for free. The per-row `aria-selected` went with
+    it, being meaningful only inside a grid.
+  - **Every chart `<svg>` became `role="group"`, not `role="img"`.** `role="img"` makes everything inside
+    presentational, and altea's shapes are focusable and carry `role="button"` plus an `aria-label` of
+    their own — so they were reachable by keyboard and absent from the accessibility tree at the same time.
+    Signum's half of that commit also dropped each script's fixed `<title id="…ChartTitle">`, which two
+    charts on one page duplicated; altea names its charts with `aria-label` (see `D3Scripts/Components/
+    ChartTitle`) and never had the ids.
+  - **Twelve dialogs had no accessible name.** `ModalHeaderButtons` grew a `titleId` prop for the two that
+    render their header through it; the rest point `aria-labelledby` at their own heading, with an id from
+    `useId` because these are opened nested. Two of altea's are not in Signum's list because they are not
+    in Signum: `SelectorModal`'s first click was also swallowed (mousedown moved focus, the modal began to
+    hide, mouseup landed on nothing), and `ErrorModal`'s header carried a second `role="dialog"`.
+  - **`FormGroup` rendered neither of the elements `aria-describedby` names.** `baseAriaAttributes` points
+    at `<prefix>_error` and `<prefix>_help` and nothing had those ids, so both references were dead and the
+    error text existed only in a `title` attribute — a tooltip, which reaches nobody without a mouse.
+  - **Some of it was already ours.** Signum's `taskHelpIcon` null-guard (`c910b3a2d1`) and its
+    `EntityTable` column `eval` (`22ea1be397`) have no counterpart: the first was written guarded here,
+    and altea's EntityTable columns are member NAMES, not lambdas.
+  NOT ported from the same range, with the reason:
+  - **`LiteJsonConverter`'s "Id's don't match"** (`ae57552706`) — altea's lite deserializer carries no
+    existing-value id check to relax.
+  - **`AutoLineModal`** (part of `935a1d8550`, and its Playwright proxy `20210c40aa`) — not ported; altea
+    routes that through `SelectorModal`.
+  - **The ineffective dynamic import on `View/Nodes`** (`261d99736f`) — a real rollup warning here too,
+    since three modules already import Nodes for its values, but Signum's fix pulls the whole designer
+    into whatever chunk `DynamicViewClient` lands in and this package's chunking was verified as it is.
+  - **`.Take(ChunkSizeSendingEmails)` on the email sender's recruiting `UnsafeUpdate`** (part of
+    `a21258d980`) — altea claims the whole ready queue in one statement and re-recruits when the claim is
+    exhausted; whether this binder lowers a TOP onto a set-based UPDATE is not a thing to assume about
+    which rows get claimed. The rest of that commit — the consecutive-error stop and the
+    `(state, creationDate)` index — is in.
+  - **`WaitHasClassAsync(Regex)` and `ClassRegexes`** (`97ad57e536`) — altea's `hasClass` already splits
+    the class attribute on whitespace and matches a whole token, which is what Signum's `\bselected\b`
+    regex is for.
