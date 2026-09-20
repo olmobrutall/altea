@@ -170,15 +170,20 @@ function MessageModal(p: MessageModalProps): React.ReactElement {
     }, [p.autoFocusonTitle]);
 
     return (
-      <h1 ref={titleRef} tabIndex={0} className="modal-title h5">
+      <h1 ref={titleRef} id={titleId} tabIndex={0} className="modal-title h5">
         {iconSpan}{iconSpan && <span>&nbsp;&nbsp;</span>}{p.title}
       </h1>
     );
   }
 
+  // aria-labelledby names the dialog from its own title: it carried role="dialog" and aria-modal but no
+  // accessible name, so it was announced as just "dialog". useId because dialogs here are opened nested,
+  // so a fixed id could appear twice in the document.
+  const titleId = React.useId();
   return (
     <Modal show={show} onExited={handleOnExited} backdrop={p.shouldSelect ? 'static' : undefined}
       dialogClassName={classes("message-modal", p.size && "modal-" + p.size, p.additionalDialogClassName)}
+      aria-labelledby={titleId}
       onHide={handleCancelClicked} autoFocus={true}>
       <div className={classes("modal-header", dialogHeaderClass(p.style))}>
         {renderTitle()}

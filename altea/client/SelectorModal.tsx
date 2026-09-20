@@ -32,6 +32,8 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
   const [show, setShow] = React.useState(true);
   const [selectedItems, setSelectedItems] = React.useState<unknown[]>([]);
   const selectedValue = React.useRef<any>(undefined);
+  // Unique per instance: a selector dialog is opened nested with search and frame dialogs.
+  const titleId = React.useId();
 
   function handleButtonClicked(val: any) {
     selectedValue.current = val;
@@ -79,15 +81,19 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
   var groups = p.options.groupBy(a => a.groupKey ?? "");
 
   return (
+    // aria-labelledby names the dialog from its own visible title; only when there IS a title, since a
+    // reference to a heading that was never rendered would be a dangling one.
     <Modal size={p.size || "sm" as any} show={show} onExited={handleOnExited}
-      className="sf-selector-modal" dialogClassName={p.dialogClassName} onHide={handleCancelClicked}>
+      className="sf-selector-modal" dialogClassName={p.dialogClassName} onHide={handleCancelClicked}
+      aria-labelledby={p.title ? titleId : undefined}>
       <div className="modal-header">
         {p.title &&
-          <h1 className="modal-title h4">
+          <h1 className="modal-title h4" id={titleId}>
             {p.title}
           </h1>
         }
-        <button type="button" className="btn-close" data-dismiss="modal" aria-label="Close" onClick={handleCancelClicked} />
+        <button type="button" className="btn-close" data-dismiss="modal"
+          aria-label={JavascriptMessage.Close.niceToString()} onClick={handleCancelClicked} />
       </div>
 
       <div className="modal-body">
@@ -105,6 +111,9 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
                       {" "}{o.displayName}
                     </label> :
                     <button key={i} type="button" onClick={() => handleButtonClicked(o.value)} name={o.name}
+                      // Keeps the first click from being swallowed: mousedown moved focus out of the
+                      // button, the modal began to hide, and mouseup then landed on nothing.
+                      onMouseDown={e => e.preventDefault()}
                       className={"sf-chooser-button sf-close-button btn btn-tertiary"} >
                       {o.displayName}
                     </button>)

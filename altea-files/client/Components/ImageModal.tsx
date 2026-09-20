@@ -28,11 +28,15 @@ export function ImageModal(p: ImageModalProps): React.JSX.Element {
 
     const [show, setShow] = React.useState(true);
 
+    // aria-labelledby names the dialog from its own title: it carried role="dialog" and aria-modal but no
+    // accessible name, so it was announced as just "dialog". useId because dialogs here are opened nested,
+    // so a fixed id could appear twice in the document.
+    const titleId = React.useId();
     return (
         <Modal onHide={() => setShow(false)} show={show} className="message-modal" size="xl"
-            onExited={() => p.onExited!(undefined)}>
+            onExited={() => p.onExited!(undefined)} aria-labelledby={titleId}>
             <div className="modal-header">
-                <h1 className="modal-title h4">
+                <h1 id={titleId} className="modal-title h4">
                     {p.title ?? p.file.fileName}
                 </h1>
                 <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()}

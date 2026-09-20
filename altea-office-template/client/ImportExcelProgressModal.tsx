@@ -68,13 +68,17 @@ export function ImportExcelProgressModal(p: ImportExcelProgressModalProps): Reac
     const errors = importResultsRef.current.filter(a => a.error != null);
     const totalRows = importResultsRef.current[0]?.totalRows;
 
+    // aria-labelledby names the dialog from its own title: it carried role="dialog" and aria-modal but no
+    // accessible name, so it was announced as just "dialog". useId because dialogs here are opened nested,
+    // so a fixed id could appear twice in the document.
+    const titleId = React.useId();
     return (
-        <Modal show={show} className="message-modal" backdrop="static" onExited={handleOnExited}>
+        <Modal show={show} className="message-modal" backdrop="static" onExited={handleOnExited} aria-labelledby={titleId}>
             <div className="modal-header">
-                <h1 className="modal-title h5">
+                <h1 id={titleId} className="modal-title h5">
                     {ImportFromExcelMessage.Importing0.niceToString(p.typeInfo.getNicePluralName())}
                 </h1>
-                <button type="button" className="btn-close" aria-label="Close" onClick={handleCancelClicked} />
+                <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={handleCancelClicked} />
             </div>
             <div className="modal-body">
                 <p><strong>{totalRows}</strong> {totalRows === 1 ? p.typeInfo.getNiceName() : p.typeInfo.getNicePluralName()}</p>

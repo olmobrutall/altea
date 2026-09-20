@@ -21,17 +21,24 @@ interface ModalHeaderButtonsProps {
   closeButtonProps?: ModalIconProps;
   children?: React.ReactNode;
   stickyHeader?: boolean;
+  /**
+   * Put on the title heading so the surrounding <Modal> can point aria-labelledby at it, which is what
+   * gives the dialog its accessible name. Generate it with React.useId() in the modal, so nested dialogs
+   * — up to three are open at once here — never collide on the same id.
+   */
+  titleId?: string;
 }
 
 export function ModalHeaderButtons(p: ModalHeaderButtonsProps): React.ReactElement {
 
+  // Localized: the literal "Close" was announced in English whatever the interface language.
   var close = p.onClose &&
-    <button type="button" className="btn-close" aria-label="Close" onClick={p.onClose} />
+    <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={p.onClose} />
 
   return (
     <div className={classes("modal-header align-items-start", p.stickyHeader && "sf-sticky-header")} {...p.htmlAttributes} >
       {p.closeBeforeTitle && close}
-      <h1 className="modal-title h4" >
+      <h1 className="modal-title h4" id={p.titleId}>
         {p.children}
       </h1>
       {!p.closeBeforeTitle && close}
@@ -55,9 +62,12 @@ export function ModalFooterButtons(p: ModalFooterButtonsProps): React.ReactEleme
 
   return (
     <div className="modal-footer" {...p.htmlAttributes}>
-      <h1 className="modal-title h4" >
-        {p.children}
-      </h1>
+      {/* Only when there is something to put in it. Most footers pass no children, which left an empty
+          <h1> in every such dialog — a blank entry in the heading list, and one at level 1. */}
+      {p.children &&
+        <h1 className="modal-title h4" >
+          {p.children}
+        </h1>}
       {(p.onCancel || p.onOk) &&
         <div className="btn-toolbar" style={{ flexWrap: "nowrap" }}>
           {p.onOk && <button

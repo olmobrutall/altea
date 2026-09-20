@@ -83,6 +83,9 @@ export function FrameModal<T extends BaseEntity>(p: FrameModalProps<T>): React.J
   const entityComponent = React.useRef<React.Component>(null);
   const validationErrors = React.useRef<ValidationErrorsHandle>(null);
   const frameRef = React.useRef<EntityFrame<T> | undefined>(undefined);
+  // Names the dialog through aria-labelledby on the <Modal> below. Unique per instance because search,
+  // selector and frame dialogs are opened nested here, so a fixed id would be ambiguous.
+  const titleId = React.useId();
 
   const forceUpdate = useForceUpdate();
 
@@ -325,8 +328,9 @@ export function FrameModal<T extends BaseEntity>(p: FrameModalProps<T>): React.J
       dialogClassName={classes(settings?.modalDialogClass, settings?.modalMaxWidth ? "modal-max-width" : undefined)}
       enforceFocus={settings?.enforceFocusInModal ?? true}
       fullscreen={settings?.modalFullScreen ? true : undefined}
+      aria-labelledby={titleId}
     >
-      <ModalHeaderButtons onClose={p.buttons == "close" ? handleCancelClicked : undefined} stickyHeader={settings?.stickyHeader}>
+      <ModalHeaderButtons titleId={titleId} onClose={p.buttons == "close" ? handleCancelClicked : undefined} stickyHeader={settings?.stickyHeader}>
         <FrameModalTitle pack={state?.pack} pr={p.propertyRoute} title={p.title} subTitle={p.subTitle} getViewPromise={p.getViewPromise as any} widgets={wc && renderWidgets(wc, settings?.stickyHeader)} />
       </ModalHeaderButtons>
       {state && renderBody(state)}

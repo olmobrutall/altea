@@ -37,14 +37,21 @@ function SaveChangesModal(p: SaveChangesModalProps): React.ReactElement {
     p.onExited!(selectedValue.current);
   }
 
+  // aria-labelledby names the dialog from its own title: it carried role="dialog" and aria-modal but no
+  // accessible name, so it was announced as just "dialog". useId because dialogs here are opened nested,
+  // so a fixed id could appear twice in the document.
+  const titleId = React.useId();
+  // The header text was a bare <span>, which is also why the dialog had no heading to name it with; it is
+  // now the same modal-title h1 MessageModal uses inside this same message-modal layout.
   return (
     <Modal show={show} onExited={handleOnExited}
       dialogClassName={classes("message-modal")}
+      aria-labelledby={titleId}
       onHide={handleCancelClicked} autoFocus={true}>
       <div className={classes("modal-header", "dialog-header-wait")}>
-        <span>
+        <h1 id={titleId} className="modal-title h5">
           {SaveChangesMessage.ThereAreChanges.niceToString()}
-        </span>
+        </h1>
       </div>
       <div className="modal-body">
         {SaveChangesMessage.YoureTryingToCloseAnEntityWithChanges.niceToString()}
