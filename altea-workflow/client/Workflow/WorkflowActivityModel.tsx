@@ -311,10 +311,12 @@ function DecompositionComponent(p: { ctx: TypeContext<SubWorkflowEmbedded>; main
 
 /**
  * A view prop's `expression` is a JavaScript snippet the DESIGNER wrote, evaluated in the browser to build
- * the prop value — as in Signum, whose `eval(a.element.expression)` runs client-side too. It is not
- * an altea Eval divergence: nothing is compiled or stored server-side.
+ * the prop value — as in Signum, which runs it client-side too. It is not an altea Eval divergence:
+ * nothing is compiled or stored server-side.
+ *
+ * `new Function`, not a direct `eval`, and for the same reason WorkflowClient gives: an expression is
+ * meant to be a literal or a simple global lookup, not a closure over this module.
  */
 function evalExpression(expression: string): unknown {
-    // eslint-disable-next-line no-eval
-    return eval(expression);
+    return new Function("return (" + expression + ");")();
 }

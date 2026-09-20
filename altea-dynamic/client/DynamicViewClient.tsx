@@ -290,18 +290,16 @@ export namespace DynamicViewClient {
     // ---- the two interpreted snippets -------------------------------------------------------------------
 
     /**
-     * A selector is `e => <body>`. The `eval` is direct so the snippet sees `modules` from this scope — the
-     * same arrangement NodeUtils.evalWithScope documents.
+     * A selector is `e => <body>`. `new Function`, not a direct `eval`: a direct eval pins this module's
+     * whole lexical scope, which both bundlers and minifiers refuse to optimise around (vite warns on
+     * every build), and the snippet only ever needed ONE name — `modules` — which is passed explicitly.
      */
     export function asSelectorFunction(dvs: DynamicViewSelectorEntity): (e: Entity) => string {
 
         const code = "e => " + dvs.script;
-        const modules = globalModules;
-        void modules;
 
         try {
-            // eslint-disable-next-line no-eval
-            return eval(code) as (e: Entity) => string;
+            return new Function("modules", "return (" + code + ");")(globalModules) as (e: Entity) => string;
         } catch (e) {
             throw new Error(`Syntax in DynamicViewSelector for '${String(dvs.entityType)}':\n${code}\n${(e as Error).message}`);
         }
@@ -315,12 +313,12 @@ export namespace DynamicViewClient {
     export function asOverrideFunction(dvo: DynamicViewOverrideEntity): (vr: ViewReplacer<BaseEntity>) => void {
 
         const code = "(function(vr){ " + dvo.script + "})";
-        const modules = globalModules;
-        void modules;
 
         try {
-            // eslint-disable-next-line no-eval
-            return eval(code) as (vr: ViewReplacer<BaseEntity>) => void;
+            // As above: `modules` is the only name a snippet needs, so it is a parameter rather than
+            // something a direct eval has to reach out of scope for. Signum, which DOES re-declare its
+            // twenty-five bare names, has to pass all twenty-five here.
+            return new Function("modules", "return (" + code + ");")(globalModules) as (vr: ViewReplacer<BaseEntity>) => void;
         } catch (e) {
             throw new Error(`Syntax in DynamicViewOverride for '${String(dvo.entityType)}':\n${code}\n${(e as Error).message}`);
         }

@@ -584,9 +584,11 @@ export function asFunction(
 }
 
 /**
- * The one `eval` the module rests on. The locals declared just below are DELIBERATE: a direct `eval` sees
- * the enclosing lexical scope, which is how a stored snippet can say `AutoLine` or `modules.Finder` without
- * importing anything. Same trick, and same locals, as Signum.
+ * The one interpreter the module rests on. The four names below are what a stored snippet may say without
+ * importing anything — `AutoLine`, `modules.Finder`, `props`, `locals` — and they are PARAMETERS of a
+ * `new Function`, not locals a direct `eval` reaches out of scope for. Same names as Signum, one scope
+ * narrower: nothing else in this module is visible to the snippet, and the bundler is free to optimise
+ * around it.
  */
 export function evalWithScope(
     code: string,
@@ -595,24 +597,17 @@ export function evalWithScope(
     locals: Record<string, unknown>,
 ): (e: TypeContext<BaseEntity>) => unknown {
 
-    // Lines
-    const AutoLine = AutoLineForEval;
-
-    // Referenced so the bundler cannot drop them: they exist to be visible to `eval`.
-    void AutoLine; void modules; void props; void locals;
-
-    // eslint-disable-next-line no-eval
-    return eval(code) as (e: TypeContext<BaseEntity>) => unknown;
+    const func = new Function("modules", "props", "locals", "AutoLine", "return (" + code + ");");
+    return func(modules, props, locals, AutoLineForEval) as (e: TypeContext<BaseEntity>) => unknown;
 }
 
 export function asFieldFunction(field: string): (e: BaseEntity) => unknown {
     const fixedRoute = getFieldExpression("e", field);
 
-    const code = "(function(e){ return " + fixedRoute + ";})";
+    const code = "return (function(e){ return " + fixedRoute + ";});";
 
     try {
-        // eslint-disable-next-line no-eval
-        return eval(code) as (e: BaseEntity) => unknown;
+        return new Function(code)() as (e: BaseEntity) => unknown;
     } catch (e) {
         throw new Error("Syntax in '" + fixedRoute + "':\n" + code + "\n" + (e as Error).message);
     }
