@@ -23,8 +23,11 @@ export function ValidationErrors(p: { entity: BaseEntity, prefix: string, ref?: 
   if (!modelState || Dic.getKeys(modelState).length == 0)
     return null;
 
+  // role="alert" so the summary is announced when it appears after a failed save. Until now it was
+  // inserted silently, which is why a screen reader reported a field as invalid but never said why.
+  // "alert" rather than "status": this interrupts, which is right for an error blocking the save.
   return (
-    <ul className="validaton-summary alert alert-danger">
+    <ul className="validaton-summary alert alert-danger" role="alert">
       {Dic.map(modelState, (key, value) => <li
         key={key}
         style={{ cursor: "pointer", whiteSpace: "pre-wrap" }}
