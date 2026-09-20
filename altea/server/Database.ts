@@ -113,10 +113,9 @@ async function isReadable<T extends Entity>(type: Type<T>): Promise<boolean> {
     return true;
 }
 
-// The lookup, BY INDEX: null for a lite nothing named. It is a separate function from the fill because
-// "could not be named" cannot be read back off a filled lite — a lite that crossed the wire arrives with
-// the FALLBACK already in its `toStr` (the serializer writes `toString()`), so the route answering the
-// client has to be told, not left to compare.
+// The lookup, BY INDEX: null for a lite nothing named. Separate from the fill below because a caller
+// that has to REPORT the outcome — the route, answering a client that asked about lites it cannot see —
+// wants the answer itself, not a mutation to compare against.
 export async function toStrings<T extends Entity>(lites: Lite<T>[]): Promise<(string | null)[]> {
     if (lites.length === 0)
         return [];

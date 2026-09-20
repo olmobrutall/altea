@@ -196,7 +196,13 @@ class LiteSerializer implements JsonSerializer {
         if (writeType || sc.writeTypes === 'Always' || this.expectedCtor == null)
             o.$lite = cleanTypeName(lite.entityType);
         o.id = lite.id ?? null;
-        o.toStr = lite.toString();
+        // The STORED display string, not `toString()`: a lite carries a toStr on the wire if and only if
+        // it had one in memory. `toString()` is LiteImp's FALLBACK ("<NiceName> <id>") when it has none,
+        // and writing that put a made-up name in the field — so a nameless lite arrived looking named,
+        // and no receiver could tell the two apart. Null crosses instead, and the receiving LiteImp falls
+        // back on its own, which is the same string wherever it is actually displayed.
+        const stored = lite instanceof LiteImp ? lite.toStr : lite.toString();
+        o.toStr = stored == null || stored === "" ? null : stored;
         for (const key of Object.keys(lite)) {           // custom-lite display fields, flat
             if (LITE_RESERVED_KEYS.has(key)) continue;
             o[key] = factory.dynamic.toJson((lite as unknown as Record<string, unknown>)[key], sc, false);
