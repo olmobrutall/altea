@@ -204,7 +204,19 @@ export namespace AsyncEmailSender {
         });
     }
 
-    /** Signum's RecruitQueuedItems — claim every due ReadyToSend message for THIS pass. */
+    /**
+     * Signum's RecruitQueuedItems — claim a CHUNK of the due ReadyToSend messages for this pass.
+     *
+     * `.top(chunkSizeSendingEmails)`, like Signum: claiming the whole ready queue in one statement writes
+     * every matching row under one lock, which on a backlog is the longest write the sender ever makes and
+     * blocks anything else touching those rows for its duration. A chunk is bounded, and the pump
+     * re-recruits as soon as it has drained one — so the queue still empties in the same pass, in claims
+     * the database can interleave.
+     *
+     * The limit lands inside the source subquery the UPDATE joins (`LIMIT n` on Postgres, `TOP (n)` on
+     * SQL Server), which is exactly what is wanted and is covered by UnsafeUpdateTest.UpdateValueTop on
+     * both dialects.
+     */
     async function recruitQueuedItems(): Promise<boolean> {
         const config = EmailLogic.configuration();
         const now = Clock.now;
@@ -212,13 +224,16 @@ export namespace AsyncEmailSender {
             : now.subtract({ hours: config.avoidSendingEmailsOlderThan });
 
         const pid = processIdentifier!;
+        const chunkSize = config.chunkSizeSendingEmails;
 
         queuedItems = firstDate == undefined
             ? await table(EmailMessageEntity)
                 .filter(m => m.state == EmailMessageState.ReadyToSend && m.creationDate < now)
+                .top(chunkSize)
                 .executeUpdate(() => ({ processIdentifier: pid, state: EmailMessageState.RecruitedForSending }))
             : await table(EmailMessageEntity)
                 .filter(m => m.state == EmailMessageState.ReadyToSend && m.creationDate < now && m.creationDate >= firstDate)
+                .top(chunkSize)
                 .executeUpdate(() => ({ processIdentifier: pid, state: EmailMessageState.RecruitedForSending }));
 
         return queuedItems > 0;

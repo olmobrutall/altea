@@ -43,6 +43,17 @@ describe.skipIf(!hasDb)("UnsafeUpdateTest", () => {
         assert.ok(count > 0);
     });
 
+    // Signum's `.Take(n).UnsafeUpdate()` — claim only a CHUNK of the matching rows, so one pass does not
+    // lock the whole queue (Signum.Mailing's AsyncEmailSender recruits that way). The source select
+    // carries the limit and the UPDATE joins it, so the count is the chunk size, not the match count.
+    txTest("UpdateValueTop", async () => {
+        const total = await table(AlbumEntity).count();
+        assert.ok(total > 2, "needs more than two albums to be a chunk at all");
+
+        const count = await table(AlbumEntity).top(2).executeUpdate(a => ({ year: toInt(a.year * 2) }));
+        assert.equal(count, 2);
+    });
+
     // Database.Query<AlbumEntity>().UnsafeUpdate().Set(a => a.Name, a => a.Name.ToUpper()).Execute();
     txTest("UpdateValueSqlFunction", async () => {
         const count = await table(AlbumEntity).executeUpdate(a => ({ name: a.name.toUpperCase() }));
