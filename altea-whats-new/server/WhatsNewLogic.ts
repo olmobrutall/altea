@@ -1,3 +1,4 @@
+import { WhatsNewServer } from "./WhatsNewServer";
 import "@altea/altea/server";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
@@ -77,6 +78,10 @@ export namespace WhatsNewLogic {
         registerRelatedConfig(PermissionSymbol, async lite =>
             await PermissionLogic.isAuthorized((await SymbolLogic.cache(PermissionSymbol)).toSymbol(lite.toString())));
 
+        // Its own HTTP surface. This module starts well after the auth module, so a route registered here
+        // already folds in the user scope.
+        if (sb.webBuilder)
+            WhatsNewServer.start(sb.webBuilder);
     }
 
     /** The condition an app grants ordinary users. */

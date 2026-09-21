@@ -1,3 +1,4 @@
+import { ChatbotServer } from "./ChatbotServer";
 import "@altea/altea/server";
 import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
@@ -84,6 +85,10 @@ export namespace ChatbotLogic {
 
         // Signum's `PermissionLogic.RegisterTypes(typeof(ChatbotPermission))`.
         PermissionLogic.registerContainer(ChatbotPermission);
+
+        // Its own HTTP surface, as every module past the auth module mounts its own.
+        if (sb.webBuilder)
+            ChatbotServer.start(sb.webBuilder);
     }
 
     /** Signum's RegisterUserTypeCondition — a role sees only its own sessions. */

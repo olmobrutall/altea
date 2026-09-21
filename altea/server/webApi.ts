@@ -180,6 +180,28 @@ export class WebBuilder {
         attachHubs(server, this.hubs);
     }
 
+    // Routes whose registration must WAIT for the filter chain to be complete.
+    //
+    // A route folds `filters` into a fixed pipeline the moment it is registered (see `route` below), so a
+    // module that mounts before the auth module has installed its user scope gets that chain for good —
+    // its handlers would never see an authenticated user. Most modules start after the auth module and
+    // have nothing to think about; one that must start EARLY (CacheLogic swaps the global-lazy
+    // invalidation strategy, so it goes before any `sb.globalLazy`) would otherwise have to leave its
+    // HTTP surface for the application's starter to mount at the right moment, which is a rule every
+    // application has to remember rather than a guarantee.
+    private readonly deferredRoutes: (() => void)[] = [];
+
+    /** Register these routes once every filter is in place, rather than now. */
+    deferRoutes(mount: () => void): void {
+        this.deferredRoutes.push(mount);
+    }
+
+    /** Run what `deferRoutes` collected. `SignumServer.start` calls this; nothing else should. */
+    mountDeferredRoutes(): void {
+        for (const mount of this.deferredRoutes.splice(0))
+            mount();
+    }
+
     get<D extends RouteDef>(path: string, def: D, handler: Handler<D>): void { this.route("get", path, def, handler); }
     post<D extends RouteDef>(path: string, def: D, handler: Handler<D>): void { this.route("post", path, def, handler); }
     put<D extends RouteDef>(path: string, def: D, handler: Handler<D>): void { this.route("put", path, def, handler); }

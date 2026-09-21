@@ -15,6 +15,11 @@ import { ChangeLogServer } from "./changeLogServer";
 // first, the JSON error funnel last (it is Express error middleware, so it must come after the routes).
 export namespace SignumServer {
     export function start(ws: WebBuilder): void {
+        // FIRST: whatever a module deferred because it had to start before the filter chain was complete
+        // (see WebBuilder.deferRoutes). Here, because this call is already last of the starter — after
+        // every module, and before the exception middleware below, which must stay last of all.
+        ws.mountDeferredRoutes();
+
         EntitiesServer.start(ws);
         QueryServer.start(ws);
         OperationServer.start(ws);
