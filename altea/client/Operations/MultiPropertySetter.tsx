@@ -68,6 +68,8 @@ import { EnumLine } from '../Lines/EnumLine'
 import { EntityLine } from '../Lines/EntityLine'
 import { EntityCombo } from '../Lines/EntityCombo'
 import type { Operations } from '../Operations'
+import { useDropdownListSearchLabel } from '../Components/DropdownListSearch';
+import { FilterFieldMessage } from '../../data/searchHelpMessages';
 import './MultiPropertySetter.css';
 
 
@@ -496,6 +498,10 @@ interface PropertyPartProps {
 
 export function PropertyPart(p: PropertyPartProps): React.ReactElement | null {
 
+  // Before the early returns below, because it is a hook. The widget's own typeahead input has no name of
+  // its own — see useDropdownListSearchLabel — and this picker chooses a FIELD to set.
+  const searchLabel = useDropdownListSearchLabel(FilterFieldMessage.Field.niceToString());
+
   if (p.parentRoute.propertyRouteType != PropertyRouteType.Mixin &&
     p.parentRoute.propertyRouteType != PropertyRouteType.Root) {
     const tr = p.parentRoute.type;
@@ -519,6 +525,7 @@ export function PropertyPart(p: PropertyPartProps): React.ReactElement | null {
   return (
     <div className="sf-property-part" onKeyUp={handleKeyUp} onKeyDown={handleKeyUp}>
       <DropdownList
+        {...searchLabel}
         filter="contains"
         data={subMembers}
         value={p.selectedRoute?.fieldInfo}
