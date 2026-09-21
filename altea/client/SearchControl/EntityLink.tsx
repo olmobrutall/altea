@@ -15,6 +15,7 @@ import * as AppContext from "../AppContext";
 import { StyleContext } from "../TypeContext";
 import { classes } from "../../data/globals";
 import type { ViewPromise } from "../EntitySettings";
+import { tryGetTypeInfo } from "../Reflection";
 
 export interface EntityLinkProps extends React.HTMLAttributes<HTMLAnchorElement> {
   lite: Lite<Entity>;
@@ -43,11 +44,20 @@ export default function EntityLink(p: EntityLinkProps): React.ReactElement | nul
     return <span data-entity={lite.key()} className={settings?.allowWrapEntityLink ? undefined : "try-no-wrap"}>{children ?? Navigator.renderLite(lite)}</span>;
   }
 
+  // An entity whose toString is blank left nothing to name the link with: the title is that same empty
+  // string, and the children are either the empty toString or an icon that carries no text, so the link
+  // reached a screen reader unnamed. The type and the id always identify the row, and this only applies
+  // when there is nothing better — a caller passing its own aria-label still wins, because htmlAtts is
+  // spread after.
+  const fallbackName = lite.toString()?.trim() ? undefined :
+    (tryGetTypeInfo(lite.entityType)?.getNiceName() ?? lite.entityType) + " " + lite.id;
+
   return (
     <Link
       ref={innerRef as any}
       to={Navigator.navigateRoute(lite)}
       title={StyleContext.default.titleLabels ? (p.title ?? lite.toString()) : undefined}
+      aria-label={fallbackName}
       data-entity={lite.key()}
       className={classes(settings?.allowWrapEntityLink ? undefined : "try-no-wrap", shy ? "sf-shy-link" : null)}
       {...(htmlAtts as React.HTMLAttributes<HTMLAnchorElement>)}

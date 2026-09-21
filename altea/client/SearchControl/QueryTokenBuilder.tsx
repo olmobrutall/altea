@@ -24,6 +24,9 @@ import { StyleContext } from '../TypeContext';
 import * as AppContext from '../AppContext';
 import { useAPI } from '../Hooks';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { useDropdownListSearchLabel } from '../Components/DropdownListSearch';
+import { FilterFieldMessage } from '../../data/searchHelpMessages';
+import { SearchMessage } from '../../data/uiMessages';
 
 interface QueryTokenBuilderProps {
   prefixQueryToken?: QueryToken | undefined;
@@ -217,6 +220,10 @@ export function QueryTokenPart(p: QueryTokenPartProps): React.ReactElement | nul
 
   const [open, setOpen] = React.useState(p.defaultOpen)
 
+  // The widget's own typeahead input has no name of its own — see useDropdownListSearchLabel. This picker
+  // chooses a FIELD of the query, which is what it is called everywhere else in the filter designer.
+  const searchLabel = useDropdownListSearchLabel(FilterFieldMessage.Field.niceToString());
+
 
   if (subTokens != undefined && subTokens.length == 0)
     return null;
@@ -225,6 +232,7 @@ export function QueryTokenPart(p: QueryTokenPartProps): React.ReactElement | nul
     <div className="sf-query-token-part" onKeyUp={handleKeyUp} onKeyDown={handleKeyUp}>
       {p.selectedToken || p.parentToken == null || p.defaultOpen ?
         <DropdownList
+          {...searchLabel}
           disabled={p.readOnly}
           selectIcon={open && doAutoExpand ? <FontAwesomeIcon aria-hidden={true} icon="magnifying-glass" /> : undefined}
           onToggle={isOpen => setOpen(isOpen)}
@@ -243,7 +251,9 @@ export function QueryTokenPart(p: QueryTokenPartProps): React.ReactElement | nul
           defaultOpen={p.defaultOpen}
           busy={!p.readOnly && subTokens == undefined}
         />
-        : <button type="button" className="btn btn-sm sf-query-token-plus" onClick={e => { e.preventDefault(); p.setLastTokenChange(p.parentToken!.fullKey()); }}>
+        : <button type="button" className="btn btn-sm sf-query-token-plus"
+          aria-label={SearchMessage.AddField.niceToString()} title={SearchMessage.AddField.niceToString()}
+          onClick={e => { e.preventDefault(); p.setLastTokenChange(p.parentToken!.fullKey()); }}>
           <FontAwesomeIcon aria-hidden={true} icon="plus" />
         </button>}
     </div>
