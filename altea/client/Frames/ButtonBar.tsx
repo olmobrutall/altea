@@ -73,7 +73,9 @@ export function ButtonBar(p: ButtonBarProps): React.JSX.Element {
   return (
     <div className={classes("btn-toolbar", "sf-button-bar", p.align == "right" ? "justify-content-end" : undefined)}>
       {!qualifiedOperations && ButtonBarManager.showSearch(getTypeName(p.pack.entity), Dic.getKeys(p.pack.canExecute)) && renderSearch()}
-      {buttons.map(a => a!.button)}
+      {/* Keyed here rather than by each producer: this used to be `cloneElement(<div/>, undefined, ...buttons)`,
+          which passes them as varargs and needs no keys, and mapping to an ARRAY does. */}
+      {buttons.map((a, i) => React.cloneElement(a!.button, { key: i }))}
     </div>
   );
 
