@@ -4,6 +4,16 @@
   "description": "Microsoft Entra ID / Azure AD login, directory queries and profile photos (ported from Signum.Authorization.AzureAD)",
   "type": "module",
   "exports": {
+    "./client/*": {
+      "altea-server": null,
+      "types": "./dist/client/*.d.ts",
+      "default": "./dist/client/*.js"
+    },
+    "./server/*": {
+      "altea-client": null,
+      "types": "./dist/server/*.d.ts",
+      "default": "./dist/server/*.js"
+    },
     "./*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"

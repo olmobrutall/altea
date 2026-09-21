@@ -4,6 +4,11 @@
   "description": "Code editors (ported from Signum.CodeMirror)",
   "type": "module",
   "exports": {
+    "./client/*": {
+      "altea-server": null,
+      "types": "./dist/client/*.d.ts",
+      "default": "./dist/client/*.js"
+    },
     "./*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"

@@ -4,6 +4,16 @@
   "description": "User-defined saved queries (ported from Signum.UserQueries)",
   "type": "module",
   "exports": {
+    "./client/*": {
+      "altea-server": null,
+      "types": "./dist/client/*.d.ts",
+      "default": "./dist/client/*.js"
+    },
+    "./server/*": {
+      "altea-client": null,
+      "types": "./dist/server/*.d.ts",
+      "default": "./dist/server/*.js"
+    },
     "./*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"

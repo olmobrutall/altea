@@ -4,6 +4,16 @@
   "description": "Sending e-mail through Microsoft Graph, plus browsing a remote Outlook mailbox (ported from Signum.Mailing.MicrosoftGraph)",
   "type": "module",
   "exports": {
+    "./client/*": {
+      "altea-server": null,
+      "types": "./dist/client/*.d.ts",
+      "default": "./dist/client/*.js"
+    },
+    "./server/*": {
+      "altea-client": null,
+      "types": "./dist/server/*.d.ts",
+      "default": "./dist/server/*.js"
+    },
     "./*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"

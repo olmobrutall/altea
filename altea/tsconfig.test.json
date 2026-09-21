@@ -10,6 +10,9 @@
   // data/, client/ or server/.
   "extends": "./presets/server.json",
   "compilerOptions": {
+    // Cleared: the shipping layers block each other's subpaths behind the altea-client /
+    // altea-server export conditions, but a test host deliberately spans both tiers.
+    "customConditions": [],
     "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
     "types": ["node"],
     "lib": ["ESNext", "DOM", "DOM.Iterable"]

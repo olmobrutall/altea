@@ -4,6 +4,16 @@
   "description": "API-key authentication for a public REST surface, plus a replayable log of every request that reached it (ported from Signum.Rest)",
   "type": "module",
   "exports": {
+    "./client/*": {
+      "altea-server": null,
+      "types": "./dist/client/*.d.ts",
+      "default": "./dist/client/*.js"
+    },
+    "./server/*": {
+      "altea-client": null,
+      "types": "./dist/server/*.d.ts",
+      "default": "./dist/server/*.js"
+    },
     "./*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"

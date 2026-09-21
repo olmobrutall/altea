@@ -4,6 +4,16 @@
   "description": "A markdown editor line, a markdown query-column format rule, and a markdown→text flattener (ported from Signum.Markdown)",
   "type": "module",
   "exports": {
+    "./client/*": {
+      "altea-server": null,
+      "types": "./dist/client/*.d.ts",
+      "default": "./dist/client/*.js"
+    },
+    "./server/*": {
+      "altea-client": null,
+      "types": "./dist/server/*.d.ts",
+      "default": "./dist/server/*.js"
+    },
     "./*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"

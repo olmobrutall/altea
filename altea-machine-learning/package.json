@@ -4,6 +4,16 @@
   "description": "Train and use predictive models over registered queries: a predictor definition, column codification, a TensorFlow.js neural network and the prediction API (ported from Signum.MachineLearning)",
   "type": "module",
   "exports": {
+    "./client/*": {
+      "altea-server": null,
+      "types": "./dist/client/*.d.ts",
+      "default": "./dist/client/*.js"
+    },
+    "./server/*": {
+      "altea-client": null,
+      "types": "./dist/server/*.d.ts",
+      "default": "./dist/server/*.js"
+    },
     "./*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"

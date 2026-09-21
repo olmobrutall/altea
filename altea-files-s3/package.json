@@ -4,6 +4,11 @@
   "description": "S3 (and S3-compatible, e.g. MinIO) file store (ported from Signum.Files.S3)",
   "type": "module",
   "exports": {
+    "./server/*": {
+      "altea-client": null,
+      "types": "./dist/server/*.d.ts",
+      "default": "./dist/server/*.js"
+    },
     "./*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"

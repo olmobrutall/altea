@@ -12,12 +12,23 @@
   // there used to be 18 identical copies, one per package, because an ambient decl only reaches the program
   // that includes it). `${configDir}/*.d.ts` still picks up a module's OWN root-level ambient decls
   // (e.g. eastwind/env.d.ts) — a no-op in modules that have none.
+  //
+  // `customConditions` is what ENFORCES "never server". Project `references` do not: they only order the
+  // build and redirect an import of a REFERENCED project's output back to its source. An import of an
+  // UNREFERENCED project resolves through node_modules to a `dist/**/*.d.ts` that is already on disk, and
+  // TypeScript reads it as an ordinary declaration file — no error. So every altea package blocks its own
+  // server subpath behind this condition (`"./server/*": { "altea-client": null, … }`), and a client file
+  // reaching for `@altea/<pkg>/server/X` now fails to resolve. Nothing else sets `altea-client`, so node
+  // and Vite keep resolving those subpaths through `default` — this is a COMPILE-time guard only.
+  // (Within a package the boundary was already enforced: `server/**` is excluded below, so a relative
+  // import of a *.server.ts sibling fails with TS6307.)
   "extends": "./base.json",
   "compilerOptions": {
     "rootDir": "${configDir}",
     "outDir": "${configDir}/dist",
     "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.client",
-    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "customConditions": ["altea-client"]
   },
   "include": [
     "./styles.d.ts",

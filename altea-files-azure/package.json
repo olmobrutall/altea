@@ -4,6 +4,11 @@
   "description": "Azure Blob Storage file store (ported from Signum.Files.AzureBlobs)",
   "type": "module",
   "exports": {
+    "./server/*": {
+      "altea-client": null,
+      "types": "./dist/server/*.d.ts",
+      "default": "./dist/server/*.js"
+    },
     "./*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"

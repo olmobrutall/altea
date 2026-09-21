@@ -7,12 +7,25 @@
   // accepted: a server/ directory OR co-located *.server.ts suffix files. A module's server project
   // references its own DATA layer (+ upstream server layers) but NEVER client, so server code can't pull
   // browser code into scope.
+  //
+  // `customConditions` is what ENFORCES that — the mirror of presets/client.json, for the same reason:
+  // `references` orders the build, it does not police imports, and a cross-package import resolves
+  // straight to an already-built `dist/client/*.d.ts` through node_modules. Every altea package blocks
+  // its client subpath behind this condition (`"./client/*": { "altea-server": null, … }`), so a server
+  // file reaching for `@altea/<pkg>/client/X` now fails to resolve. Nothing else sets `altea-server`, so
+  // node and Vite keep resolving those subpaths through `default` — a COMPILE-time guard only.
+  // (Within a package the boundary was already enforced: `client/**` is excluded below, so a relative
+  // import of a *.client.ts / *.tsx sibling fails with TS6307.)
+  //
+  // The TEST layer extends this preset but clears `customConditions` — a test host is not shipped code
+  // and deliberately spans both tiers (see tsconfig.test.json).
   "extends": "./base.json",
   "compilerOptions": {
     "rootDir": "${configDir}",
     "outDir": "${configDir}/dist",
     "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.server",
-    "types": ["node"]
+    "types": ["node"],
+    "customConditions": ["altea-server"]
   },
   "include": ["${configDir}/server/**/*", "${configDir}/**/*.server.ts"],
   "exclude": ["${configDir}/data/**", "${configDir}/client/**", "${configDir}/terminal/**", "${configDir}/test/**"]
