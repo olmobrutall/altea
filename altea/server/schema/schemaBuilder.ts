@@ -41,7 +41,7 @@ import { Table } from './table';
 import { FluentInclude } from './fluentInclude';
 import { SystemVersionedInfo } from './systemVersioned';
 import { TableIndex, FullTextTableIndex, VectorTableIndex, generateUniqueIndexes, multiUniqueIndexes } from './tableIndex';
-import { accessedFields } from '../../data/accessedFields';
+import { accessedFields, memberPath } from '../../data/accessedFields';
 import { StringLengthValidator } from '../../data/validators';
 import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntity';
@@ -495,10 +495,20 @@ export class SchemaSettings {
     // `this`) — there is no mixin STEP in the path, unlike Signum's `route.Add(typeof(TheMixin))`.
     private readonly ignoredFieldRoutes = new Set<string>();
 
-    /** Emit no column for ONE property route: `ignoreFieldRoute(ExceptionEntity, "stackTrace.file")`. Must be
-     *  called BEFORE the root type is included (Signum has the same ordering rule). */
-    ignoreFieldRoute(type: Type<Entity>, memberPath: string): void {
-        this.ignoredFieldRoutes.add(`${cleanTypeName(type)}.${memberPath}`);
+    /**
+     * Emit no column for ONE property route: `ignoreFieldRoute(ExceptionEntity, e => e.stackTrace.file)`.
+     * Must be called BEFORE the root type is included (Signum has the same ordering rule).
+     *
+     * The selector is the form to reach for: it is checked, it renames with the field, and a typo is a
+     * compile error rather than a route that silently never matches. The STRING overload exists for a path
+     * computed at runtime — `BigStringLogic.registerAll` walks a type's routes and ignores
+     * `${route}.file` or `${route}.text` per route — and is not for hand-written call sites.
+     */
+    ignoreFieldRoute<T extends Entity>(type: Type<T>, selector: Quoted<(entity: T) => unknown>): void;
+    ignoreFieldRoute(type: Type<Entity>, memberPath: string): void;
+    ignoreFieldRoute(type: Type<Entity>, selectorOrPath: Quoted<(entity: any) => unknown> | string): void {
+        const path = typeof selectorOrPath === "string" ? selectorOrPath : memberPath(selectorOrPath);
+        this.ignoredFieldRoutes.add(`${cleanTypeName(type)}.${path}`);
     }
 
     // Takes the raw ctor (a Table's `type` is `Type<Entity> | ViewType<View>`; a view has no routes to ignore,

@@ -236,8 +236,8 @@ export namespace PredictorLogic {
 
     /** See the call in `start` for why. */
     export function ignorePinned(sb: SchemaBuilder): void {
-        sb.settings.ignoreFieldRoute(PredictorEntity_Filter, "pinned");
-        sb.settings.ignoreFieldRoute(PredictorSubQueryEntity_Filter, "pinned");
+        sb.settings.ignoreFieldRoute(PredictorEntity_Filter, f => f.pinned);
+        sb.settings.ignoreFieldRoute(PredictorSubQueryEntity_Filter, f => f.pinned);
     }
 
     // ---- the runs in flight ----------------------------------------------------------------------------

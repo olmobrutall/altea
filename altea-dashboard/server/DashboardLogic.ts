@@ -134,7 +134,7 @@ export namespace DashboardLogic {
 
         // `isOpen` is the panel's CURRENT expanded state, which only the browser has an opinion about —
         // Signum marks it [Ignore]. Before the include, as the ordering rule requires.
-        sb.settings.ignoreFieldRoute(DashboardEntity_Part, "isOpen");
+        sb.settings.ignoreFieldRoute(DashboardEntity_Part, p => p.isOpen);
 
         sb.include(DashboardEntity)
             .withOperations(registerDashboardOperations)
