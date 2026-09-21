@@ -122,8 +122,6 @@ export abstract class QueryFilterBaseEntity extends Entity {
     // ids, so the 200-character default a sizeless string column now takes would truncate the filter.
     @stringLengthValidator({ max: MAX_SIZE })
     valueString: string | null;
-    pinned: PinnedQueryFilterEmbedded | null;
-    dashboardBehaviour: DashboardBehaviour | null;
     indentation: int = toInt(0);
 
     /**
@@ -135,8 +133,7 @@ export abstract class QueryFilterBaseEntity extends Entity {
      * `@rowOrder` and the `@backReference` are deliberately left unset: the save cascade fills both from
      * the array the clone is placed into.
      *
-     * DIVERGENCE (a fix, not a port): Signum's Clone omits `DashboardBehaviour`, so cloning a UserQuery
-     * whose filter drives a dashboard interaction silently turns it back into an ordinary filter.
+     * The PINNED half is cloned by the subclass that declares it, {@link QueryFilterPinnedBaseEntity}.
      */
     clone(): this {
         const target = new (this.constructor as new () => this)();
@@ -145,9 +142,35 @@ export abstract class QueryFilterBaseEntity extends Entity {
         target.groupOperation = this.groupOperation;
         target.operation = this.operation;
         target.valueString = this.valueString;
+        target.indentation = this.indentation;
+        return target;
+    }
+}
+
+/**
+ * A filter row for an owner whose filters are edited through a SEARCH CONTROL, and so can be PINNED —
+ * shown in the search header for the user to change — or made to drive a dashboard interaction.
+ *
+ * Those two members are not universal. A predictor's filters define a training population, read once by a
+ * background process; nothing pins them and no dashboard reacts to them. Signum declares one
+ * `QueryFilterEmbedded` for every owner and then tells `PredictorLogic` to drop seven columns it never
+ * wanted (`IgnorePinned`) — the columns are in the MODEL and taken out of the SCHEMA afterwards. Here the
+ * split is in the model: an owner that cannot pin extends {@link QueryFilterBaseEntity} and never has the
+ * columns to drop.
+ */
+@reflect
+export abstract class QueryFilterPinnedBaseEntity extends QueryFilterBaseEntity {
+    pinned: PinnedQueryFilterEmbedded | null;
+    dashboardBehaviour: DashboardBehaviour | null;
+
+    /**
+     * DIVERGENCE (a fix, not a port): Signum's Clone omits `DashboardBehaviour`, so cloning a UserQuery
+     * whose filter drives a dashboard interaction silently turns it back into an ordinary filter.
+     */
+    override clone(): this {
+        const target = super.clone();
         target.pinned = this.pinned?.clone() ?? null;
         target.dashboardBehaviour = this.dashboardBehaviour;
-        target.indentation = this.indentation;
         return target;
     }
 }

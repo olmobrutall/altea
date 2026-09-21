@@ -109,19 +109,6 @@ export namespace PredictorLogic {
             return;
         started = true;
 
-        // Called HERE rather than by the app (Southwind calls it, and Signum then ASSERTS it was called).
-        //
-        // A PINNED filter is a SearchControl affordance — "show this filter in the header, let the user
-        // change it" — and a predictor's filters are not a search: they define the training population,
-        // which is fixed once and read by a background process. So the seven pinned columns are dead
-        // weight on both filter tables, which is why Signum drops them.
-        //
-        // Here it is done in `start` rather than left to the app: altea's filter rows share
-        // QueryFilterBaseEntity, so the routes exist unless the MODULE says otherwise, and an app that
-        // forgot the call would silently get seven columns Signum's schema does not have. It must precede
-        // the includes below — the same ordering rule Signum has.
-        ignorePinned(sb);
-
         FilePathEmbeddedLogic.start(sb);
         FileTypeLogic.start(sb);
         if (options?.predictorFile != undefined)
@@ -232,12 +219,6 @@ export namespace PredictorLogic {
         sb.include(PredictorColumnEncodingSymbol).withQuery();
         sb.include(PredictorResultSaverSymbol).withQuery();
         sb.include(PredictorPublicationSymbol).withQuery();
-    }
-
-    /** See the call in `start` for why. */
-    export function ignorePinned(sb: SchemaBuilder): void {
-        sb.settings.ignoreFieldRoute(PredictorEntity_Filter, f => f.pinned);
-        sb.settings.ignoreFieldRoute(PredictorSubQueryEntity_Filter, f => f.pinned);
     }
 
     // ---- the runs in flight ----------------------------------------------------------------------------
@@ -569,8 +550,6 @@ export namespace PredictorLogic {
             operation: filter.operation,
             valueString: filter.valueString,
             indentation: filter.indentation,
-            pinned: filter.pinned,
-            dashboardBehaviour: filter.dashboardBehaviour,
         };
     }
 

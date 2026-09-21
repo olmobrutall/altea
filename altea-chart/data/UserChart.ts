@@ -13,7 +13,7 @@ import { TypeEntity } from "@altea/altea/data/typeEntity";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
-import { QueryTokenEmbedded, PinnedQueryFilterEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
+import { QueryTokenEmbedded, PinnedQueryFilterEmbedded, QueryFilterPinnedBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import { ChartScriptSymbol } from "./ChartScript";
@@ -57,7 +57,7 @@ import { ChartTimeSeriesEmbedded } from "./ChartRequest";
 // the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
 // its identity across databases (see UserAssetsImporter.syncRows).
 @primaryKey("uuid")
-export class UserChartEntity_Filter extends QueryFilterBaseEntity {
+export class UserChartEntity_Filter extends QueryFilterPinnedBaseEntity {
     @backReference userChart: Lite<UserChartEntity>;
 }
 

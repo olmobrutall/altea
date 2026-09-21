@@ -18,7 +18,7 @@ import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/
 import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
-import { QueryTokenEmbedded, PinnedQueryFilterEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
+import { QueryTokenEmbedded, PinnedQueryFilterEmbedded, QueryFilterPinnedBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
 
 // Port of Signum's Signum.UserQueries/UserQueryEntity.cs. A UserQuery is a user-authored, saved query
@@ -52,7 +52,7 @@ import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-as
 // the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
 // its identity across databases (see UserAssetsImporter.syncRows).
 @primaryKey("uuid")
-export class UserQueryEntity_Filter extends QueryFilterBaseEntity {
+export class UserQueryEntity_Filter extends QueryFilterPinnedBaseEntity {
     @backReference userQuery: Lite<UserQueryEntity>;
 }
 

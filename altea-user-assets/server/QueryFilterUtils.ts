@@ -8,6 +8,7 @@ import { Enum } from "@altea/altea/data/enum";
 import { deserializeFilterValue } from "@altea/altea/server/queryServer";
 import { FilterOperation, FilterGroupOperation, DashboardBehaviour, PinnedFilterActive } from "@altea/altea/data/dynamicQueries";
 import { Entity } from "@altea/altea/data/entity";
+import { QueryFilterPinnedBaseEntity } from "../data/Queries";
 import type { QueryFilterBaseEntity } from "../data/Queries";
 import { parseFilterValue } from "../data/FilterValueString";
 
@@ -79,6 +80,11 @@ export namespace QueryFilterUtils {
      * asset (a scheduled report, an emailed user query, a snapshot).
      */
     function skipAsFilter(row: QueryFilterBaseEntity, parsedValue: unknown): boolean {
+        // An owner whose filters cannot be pinned (a predictor's training population) has neither member,
+        // and neither reason to skip: every row of its tree is a filter.
+        if (!(row instanceof QueryFilterPinnedBaseEntity))
+            return false;
+
         const behaviour = row.dashboardBehaviour == null ? null : Enum.toName(DashboardBehaviour, row.dashboardBehaviour);
         // TODO (Signum's, kept as written): "works for CachedQueries but maybe not in other cases".
         if (behaviour === "UseAsInitialSelection" || behaviour === "UseWhenNoFilters")

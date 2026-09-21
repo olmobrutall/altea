@@ -23,7 +23,7 @@ import {
     isSmartDateTimeExpression, smartDateTimeExpression, smartDateTimeFormat,
 } from "@altea/altea-user-assets/data/FilterValueConverters/SmartDateTimeFilterValueConverter";
 import { UserAssetQueryMessage } from "@altea/altea-user-assets/data/UserAssets";
-import { QueryTokenEmbedded, PinnedQueryFilterEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
+import { QueryTokenEmbedded, PinnedQueryFilterEmbedded, QueryFilterBaseEntity, QueryFilterPinnedBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import { UserQueryEntity_Filter } from "../../data/UserQuery";
 
 // Port of Signum's Signum.UserAssets/Templates/FilterBuilderEmbedded.tsx — the editor that binds a
@@ -179,6 +179,22 @@ export async function toFilterOptionParsed(
             completer.request(f.token.tokenString);
     await completer.finished();
 
+    /**
+     * The PINNED half of a stored row, for an owner that has one. An owner whose filters cannot be pinned
+     * (a predictor's training population — see QueryFilterPinnedBaseEntity) carries neither member, and
+     * its parsed filter gets neither.
+     */
+    function pinnedParsed(row: QueryFilterBaseEntity): Pick<FilterConditionOptionParsed, "pinned" | "dashboardBehaviour"> {
+        if (!(row instanceof QueryFilterPinnedBaseEntity))
+            return {};
+
+        return {
+            pinned: row.pinned ? toPinnedParsed(row.pinned) : undefined,
+            dashboardBehaviour: row.dashboardBehaviour == null ? undefined
+                : Enum.toName(DashboardBehaviour, row.dashboardBehaviour),
+        };
+    }
+
     function build(filters: QueryFilterBaseEntity[], indent: number): FilterOptionParsed[] {
         return groupWhen(filters, f => f.indentation === indent).map(run => {
             const head = run[0];
@@ -190,8 +206,7 @@ export async function toFilterOptionParsed(
                     operation: head.operation == null ? "EqualTo" : Enum.toName(FilterOperation, head.operation),
                     value: parseFilterValue(head.valueString, token?.filterType, token?.type.typeName),
                     frozen: false,
-                    pinned: head.pinned ? toPinnedParsed(head.pinned) : undefined,
-                    dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviour, head.dashboardBehaviour),
+                    ...pinnedParsed(head),
                 } as FilterConditionOptionParsed;
             }
             return {
@@ -200,8 +215,7 @@ export async function toFilterOptionParsed(
                 filters: build(children, indent + 1),
                 value: head.valueString ?? undefined,
                 frozen: false,
-                pinned: head.pinned ? toPinnedParsed(head.pinned) : undefined,
-                dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviour, head.dashboardBehaviour),
+                ...pinnedParsed(head),
             } as FilterGroupOptionParsed;
         });
     }
@@ -219,9 +233,13 @@ export function filterOptionsParsedToEmbedded(
     function push(fo: FilterOptionParsed, indent: number): void {
         const row = new rowConstructor();
         row.indentation = indent as QueryFilterBaseEntity["indentation"];
-        row.pinned = fo.pinned ? toPinnedEmbedded(fo.pinned) : null;
-        // FindOptions carries member-name strings; the embedded enum fields are int-FK ordinals (Enum.toValue).
-        row.dashboardBehaviour = fo.dashboardBehaviour == null ? null : Enum.toValue(DashboardBehaviour, fo.dashboardBehaviour);
+        // An owner that cannot pin (a predictor's training population) has neither member, and a parsed
+        // filter for it never carries either — its editor does not offer them.
+        if (row instanceof QueryFilterPinnedBaseEntity) {
+            row.pinned = fo.pinned ? toPinnedEmbedded(fo.pinned) : null;
+            // FindOptions carries member-name strings; the embedded enum fields are int-FK ordinals.
+            row.dashboardBehaviour = fo.dashboardBehaviour == null ? null : Enum.toValue(DashboardBehaviour, fo.dashboardBehaviour);
+        }
         if (isFilterGroup(fo)) {
             row.isGroup = true;
             row.groupOperation = fo.groupOperation == null ? null : Enum.toValue(FilterGroupOperation, fo.groupOperation);
