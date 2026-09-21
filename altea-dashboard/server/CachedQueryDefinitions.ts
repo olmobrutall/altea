@@ -5,7 +5,7 @@ import { SubTokensOptionsAll, type QueryToken } from "@altea/altea/data/dynamicQ
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { getKey } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { DashboardBehaviour } from "@altea/altea/data/dynamicQueries";
-import type { QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
+import type { QueryFilterPinnedBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import type { Lite } from "@altea/altea/data/lite";
 import type { DashboardEntity, DashboardEntity_Part, DashboardEntity_TokenEquivalenceGroup } from "../data/Dashboard";
@@ -47,7 +47,8 @@ export interface CachedQueryDefinition {
  * one more indent" — which is why this walks by indent rather than by structure.
  */
 export function getDashboardPinnedFilterTokens(
-    filters: QueryFilterBaseEntity[],
+    // PINNED rows specifically: only a user query / user chart reaches here, and only those can pin.
+    filters: QueryFilterPinnedBaseEntity[],
     indent = 0,
 ): { token: QueryToken; promotedToDashboard: boolean }[] {
     const result: { token: QueryToken; promotedToDashboard: boolean }[] = [];

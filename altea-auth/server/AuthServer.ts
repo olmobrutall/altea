@@ -13,7 +13,8 @@ import {
     AuthLogic, decodeHash,
     IncorrectUsernameException, IncorrectPasswordException, UserLockedException,
 } from "./AuthLogic";
-import { AuthTokenServer, type AuthTokenConfiguration } from "./AuthTokenServer";
+import { AuthTokenServer } from "./AuthTokenServer";
+import type { AuthTokenConfigurationEmbedded } from "../data/AuthToken";
 import { AuthReflectionServer } from "./AuthReflection";
 import { AuthAdminServer } from "./AuthAdminServer";
 import { ActiveDirectoryServer } from "./ActiveDirectoryServer";
@@ -65,7 +66,8 @@ export namespace AuthServer {
     /** Wire authentication: token config + per-request middleware + the /api/auth routes. Call BEFORE
      *  SignumServer.start(ws) so the middleware runs before the framework routes and the auth routes are
      *  registered before the terminal exception filter. */
-    export function start(ws: WebBuilder, encryptionKey?: string, config?: Partial<AuthTokenConfiguration>): void {
+    export function start(ws: WebBuilder, encryptionKey?: string,
+        getConfiguration?: () => AuthTokenConfigurationEmbedded): void {
         // The token-encryption key comes from AUTH_TOKEN_KEY unless one is passed explicitly; a dev
         // fallback is used with a warning (NEVER a real secret — set AUTH_TOKEN_KEY for anything but local
         // dev). Read here (rather than in the host) so wiring is self-contained: AuthLogic.start calls
@@ -75,7 +77,7 @@ export namespace AuthServer {
             key = "eastwind-dev-only-token-key";
             console.warn("[auth] AUTH_TOKEN_KEY not set — using an insecure dev fallback. Set it in the environment.");
         }
-        AuthTokenServer.start(key, config);
+        AuthTokenServer.start(key, getConfiguration);
         // The per-request user scope. APP-level, and mounted first, because things OUTSIDE routing read
         // it — altea-isolation resolves the tenant in its own `app.use`, altea-rest stamps the log row —
         // so it cannot be one of core's route filters. See filters/userScope.

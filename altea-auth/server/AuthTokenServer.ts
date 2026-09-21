@@ -9,6 +9,7 @@ import { table } from "@altea/altea/server/table";
 import { UserEntity, UserState } from "../data/User";
 import { RoleEntity } from "../data/Role";
 import { LoginAuthMessage } from "../data/AuthMessages";
+import { AuthTokenConfigurationEmbedded } from "../data/AuthToken";
 import { encodeHash } from "./AuthLogic";
 
 // Port of Signum.Authorization's AuthToken/AuthTokensServer.cs — see port/Auth.md.
@@ -34,10 +35,6 @@ interface TokenPayload {
     cl?: string;            // the CLAIMS bag, Serializer-encoded
 }
 
-export interface AuthTokenConfiguration {
-    refreshTokenEveryMinutes: number;
-}
-
 // One authenticator in the chain. Returns the
 // resolved user, `undefined` to fall through to the next, or throws to reject the request.
 export type Authenticator = (req: AuthRequestLike, res: AuthResponseLike) => Promise<UserWithClaims | undefined>;
@@ -60,7 +57,11 @@ export interface AuthResponseLike {
 }
 
 export namespace AuthTokenServer {
-    export let configuration: AuthTokenConfiguration = { refreshTokenEveryMinutes: 30 };
+    /**
+     * The settings, read through a THUNK so they come off the application's configuration ROW and an
+     * administrator's change takes effect without a restart. The host supplies it in `start`.
+     */
+    export let configuration: () => AuthTokenConfigurationEmbedded = () => new AuthTokenConfigurationEmbedded();
     export const authHeader = "Authorization";
 
     // The authenticator chain. TokenAuthenticator is the only built-in for
@@ -69,16 +70,21 @@ export namespace AuthTokenServer {
 
     let cryptoKey: Buffer | null = null;
 
-    export function start(encryptionKey: string, config?: Partial<AuthTokenConfiguration>): void {
+    /**
+     * @param encryptionKey  what the token is SIGNED with. From the environment, not the configuration
+     *   row: it is needed to read the very first request, before any row can be loaded.
+     * @param getConfiguration  the settings row's `authTokens` member. Omitted, the defaults apply.
+     */
+    export function start(encryptionKey: string, getConfiguration?: () => AuthTokenConfigurationEmbedded): void {
         if (encryptionKey == null || encryptionKey === "")
             throw new Error("AuthTokenServer.start: encryptionKey is not set");
         cryptoKey = createHash("md5").update(Buffer.from(encryptionKey, "utf8")).digest(); // 16 bytes → AES-128
-        if (config != null) configuration = { ...configuration, ...config };
+        if (getConfiguration != null) configuration = getConfiguration;
         authenticators.push(tokenAuthenticator);
     }
 
     export function getTokenLimitDate(): Temporal.PlainDateTime {
-        return Temporal.Now.plainDateTimeISO().subtract({ minutes: configuration.refreshTokenEveryMinutes });
+        return Temporal.Now.plainDateTimeISO().subtract({ minutes: configuration().refreshTokenEvery as number });
     }
 
     // A base64 fingerprint of the user's stored password hash (now raw binary bytes), embedded in the
@@ -123,8 +129,11 @@ export namespace AuthTokenServer {
         if (Temporal.PlainDateTime.compare(now.add({ seconds: 2 }), creation) < 0)
             throw new AuthenticationException(LoginAuthMessage.InvalidTokenDate0.niceToString(token.c));
 
+        // Too old, minted before the configured cut-off, or asked for explicitly.
+        const previousTo = configuration().refreshAnyTokenPreviousTo;
         const requiresRefresh =
             Temporal.PlainDateTime.compare(creation, getTokenLimitDate()) < 0 ||
+            (previousTo != null && Temporal.PlainDateTime.compare(creation, previousTo) < 0) ||
             req.hasQuery("refreshToken");
 
         if (requiresRefresh) {

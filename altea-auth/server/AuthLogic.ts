@@ -23,6 +23,7 @@ import type { AuthImportCtx } from "./AuthRulesXml";
 // inside functions, never at module-eval), so ESM resolves it fine. AuthServer is invoked lazily from
 // start() below, guarded by sb.webBuilder.
 import { AuthServer } from "./AuthServer";
+import type { AuthTokenConfigurationEmbedded } from "../data/AuthToken";
 
 // Port of Signum.Authorization's AuthLogic.cs — see port/Auth.md.
 //
@@ -114,10 +115,14 @@ export namespace AuthLogic {
     }
 
     /**
-     * Both names are OPTIONAL, so an app or a test starter that wants neither still reads as
+     * Everything is OPTIONAL, so an app or a test starter that wants none of it still reads as
      * `AuthLogic.start(sb)`.
+     *
+     * @param options.getTokenConfiguration  the settings row's `authTokens` member — how long a token
+     *   stays fresh. Omitted, AuthTokenServer's defaults apply.
      */
-    export function start(sb: SchemaBuilder, systemUser?: string | null, anonymousUser?: string | null): void {
+    export function start(sb: SchemaBuilder, systemUser?: string | null, anonymousUser?: string | null,
+        options?: { getTokenConfiguration?: () => AuthTokenConfigurationEmbedded }): void {
         systemUserName = systemUser ?? null;
         anonymousUserName = anonymousUser ?? null;
 
@@ -165,7 +170,7 @@ export namespace AuthLogic {
         // /api/auth, the role-filtered reflection blob, and the /api/authAdmin rule-pack routes). A
         // terminal / test build leaves webBuilder undefined, so no HTTP is mounted.
         if (sb.webBuilder)
-            AuthServer.start(sb.webBuilder);
+            AuthServer.start(sb.webBuilder, undefined, options?.getTokenConfiguration);
     }
 
     // A SWAPPABLE slot. Exact-match on userName: usernames are case-SENSITIVE here, where Signum
