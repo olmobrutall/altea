@@ -2457,14 +2457,23 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     existing-value id check to relax.
   - **`AutoLineModal`** (part of `935a1d8550`, and its Playwright proxy `20210c40aa`) — not ported; altea
     routes that through `SelectorModal`.
-  - **The ineffective dynamic import on `View/Nodes`** (`261d99736f`) — a real rollup warning here too,
-    since three modules already import Nodes for its values, but Signum's fix pulls the whole designer
-    into whatever chunk `DynamicViewClient` lands in and this package's chunking was verified as it is.
-  - **`.Take(ChunkSizeSendingEmails)` on the email sender's recruiting `UnsafeUpdate`** (part of
-    `a21258d980`) — altea claims the whole ready queue in one statement and re-recruits when the claim is
-    exhausted; whether this binder lowers a TOP onto a set-based UPDATE is not a thing to assume about
-    which rows get claimed. The rest of that commit — the consecutive-error stop and the
-    `(state, creationDate)` index — is in.
+  - **The ineffective dynamic import on `View/Nodes`** (`261d99736f`) — NOT a warning here, and measured
+    rather than assumed: eastwind's client bundle splits `Nodes` into a chunk of its own (111.8 kB, 21.9
+    gzipped) and rollup does not list it among the ineffective ones, so the dynamic import is doing exactly
+    what it is there for. Signum's fix would MERGE that chunk into whatever eager chunk `DynamicViewClient`
+    lands in. Left alone deliberately.
+    (The same build does report six genuine ones — `Services`, `Navigator`, `Operations`, `SelectorModal`,
+    `metadata`, `LoginPage` — which are altea's own and predate this. They are not mechanically fixable:
+    each is dynamically imported by one module and statically by dozens, and the dynamic import is there to
+    break an import CYCLE, so making it static is the thing that would break.)
   - **`WaitHasClassAsync(Regex)` and `ClassRegexes`** (`97ad57e536`) — altea's `hasClass` already splits
     the class attribute on whitespace and matches a whole token, which is what Signum's `\bselected\b`
     regex is for.
+
+  Settled afterwards: **`a21258d980` is now in whole**, including the `.Take(ChunkSizeSendingEmails)` on the
+  email sender's recruiting UPDATE that was deferred above. The doubt was whether this binder lowers a limit
+  onto a set-based UPDATE, which is now a test rather than an assumption —
+  `UnsafeUpdateTest.UpdateValueTop` asserts the affected count IS the chunk size and passes on both
+  dialects. The limit lands inside the source subquery the UPDATE joins (`LIMIT n` on Postgres, `TOP (n)`
+  on SQL Server), which is the part that could have gone wrong.
+
