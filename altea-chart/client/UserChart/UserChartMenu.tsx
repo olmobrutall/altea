@@ -24,6 +24,9 @@ export interface UserChartMenuProps {
 
 export default function UserChartMenu(p: UserChartMenuProps): React.JSX.Element {
     const [isOpen, setIsOpen] = React.useState(false);
+    // The three shared menus — this one, the user-query menu and the Excel menu — carried one fixed id
+    // between them, so a single search control rendering two of them was already enough to duplicate it.
+    const toggleId = React.useId();
     const [userCharts, setUserCharts] = React.useState<Lite<UserChartEntity>[] | undefined>(undefined);
 
     const crv = p.chartRequestView;
@@ -72,7 +75,7 @@ export default function UserChartMenu(p: UserChartMenuProps): React.JSX.Element 
 
     return (
         <Dropdown onToggle={() => setIsOpen(!isOpen)} show={isOpen}>
-            <Dropdown.Toggle id="userChartsDropDown" variant="tertiary">
+            <Dropdown.Toggle id={toggleId} variant="tertiary">
                 <span><FontAwesomeIcon icon="chart-bar" />&nbsp;{label}</span>
             </Dropdown.Toggle>
             <Dropdown.Menu>

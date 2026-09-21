@@ -194,20 +194,7 @@ export function FrameModal<T extends BaseEntity>(p: FrameModalProps<T>): React.J
   }
 
   function hasChanges() {
-
-    const hc = FunctionalAdapter.innerRef(entityComponent.current) as IHasChanges | null;
-    if (hc?.entityHasChanges) {
-      var result = hc.entityHasChanges();
-      if (result != null)
-        return result;
-    }
-
-    if (state == null)
-      return false;
-
-    const entity = state.pack.entity;
-
-    return isGraphModified(entity) && JSON.stringify(entity) != state.lastEntity;
+    return state != null && computeHasChanges(state, entityComponent);
   }
 
   function handleCancelClicked() {
@@ -459,4 +446,35 @@ export function FrameModalTitle({ pack, pr, title, subTitle, widgets, getViewPro
     var vp = getViewPromise && getViewPromise(entity);
     AppContext.pushOrOpenInTab(Navigator.navigateRoute(entity as Entity, typeof vp == "string" ? vp : undefined), e);
   }
+}
+
+/** The state `computeHasChanges` needs — the two frames keep different shapes around it. */
+export interface HasChangesState {
+  executing?: boolean;
+  lastEntity: string;
+  pack: EntityPack<BaseEntity>;
+}
+
+/**
+ * Whether the entity behind a frame differs from what was loaded — the question the unsaved-changes
+ * prompt and the beforeunload guard both ask. ONE implementation for both frames: the page's copy had
+ * drifted from the modal's, which is how the modal came to ignore `executing` (so an operation running on
+ * the entity counted as an unsaved change) and the page came to ignore a component's own
+ * `entityHasChanges` (so a view that answers for itself was not consulted at all).
+ */
+export function computeHasChanges(state: HasChangesState, entityComponent: React.RefObject<React.Component | null>): boolean {
+
+  if (state.executing)
+    return false;
+
+  const hc = FunctionalAdapter.innerRef(entityComponent.current) as IHasChanges | null;
+  if (hc?.entityHasChanges) {
+    var result = hc.entityHasChanges();
+    if (result != null)
+      return result;
+  }
+
+  const entity = state.pack.entity;
+
+  return isGraphModified(entity) && JSON.stringify(entity) != state.lastEntity;
 }

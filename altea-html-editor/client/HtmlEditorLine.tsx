@@ -54,6 +54,12 @@ export default function HtmlEditorLine({
                                 readOnly={readOnly ?? ctx.readOnly}
                                 binding={ctx.binding}
                                 ref={htmlEditorRef}
+                                // The FormGroup's label cannot name this one: `for` binds to form controls
+                                // and the editable area is a contenteditable div, so the text box was
+                                // reaching a screen reader with no name at all. The property's own label
+                                // text, the same words shown above the field. BEFORE the spread, so a
+                                // caller can still pass its own.
+                                ariaLabel={ctx.propertyRoute?.fieldInfo?.niceToString()}
                                 {...p}
                                 onEditorBlur={(e, controller) => {
                                     forceUpdate();

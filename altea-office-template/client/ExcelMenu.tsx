@@ -43,6 +43,9 @@ export interface ExcelMenuProps {
 export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
 
     const [isOpen, setIsOpen] = React.useState(false);
+    // The three shared menus — this one, the user-query menu and the Excel menu — carried one fixed id
+    // between them, so a single search control rendering two of them was already enough to duplicate it.
+    const toggleId = React.useId();
     const [excelReports, setExcelReports] = React.useState<Lite<ExcelReportEntity>[] | undefined>(undefined);
 
     const queryKey = p.searchControl.props.findOptions.queryKey;
@@ -117,7 +120,7 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
 
     return (
         <Dropdown show={isOpen} onToggle={handleToggle} title={ExcelMessage.ExportToExcel.niceToString()}>
-            <Dropdown.Toggle id="excelDropDown" variant="tertiary">
+            <Dropdown.Toggle id={toggleId} variant="tertiary">
                 {label}
             </Dropdown.Toggle>
             <Dropdown.Menu>
