@@ -18,7 +18,7 @@ import { CultureInfoEntity, cultureNameOf } from "@altea/altea/data/cultureInfoE
 import { OrderType } from "@altea/altea/data/dynamicQueries";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import { FileEmbedded } from "@altea/altea-files/data/Files";
-import { QueryTokenEmbedded, QueryFilterPinnedBaseEntity } from "@altea/altea-user-assets/data/Queries";
+import { QueryTokenEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { ModelConverterSymbol, TemplateApplicableEval, type IContainsQuery } from "@altea/altea-templating/data/Templating";
 import { EmailModelEntity, EmailRecipientKind } from "./Email";
@@ -366,7 +366,7 @@ export class EmailTemplateEntity_Attachment extends Entity {
 // the XML" — so the id is written per row on export and MATCHED on import, which is what lets a row keep
 // its identity across databases (see UserAssetsImporter.syncRows).
 @primaryKey("uuid")
-export class EmailTemplateEntity_Filter extends QueryFilterPinnedBaseEntity {
+export class EmailTemplateEntity_Filter extends QueryFilterBaseEntity {
     @backReference emailTemplate: Lite<EmailTemplateEntity>;
 }
 

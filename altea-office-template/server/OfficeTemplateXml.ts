@@ -112,8 +112,9 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
             if (x[A + "Token"] != undefined) f.token = token(str(x[A + "Token"])!);
             if (x[A + "Operation"] != undefined) f.operation = Enum.toValue(FilterOperation, str(x[A + "Operation"]) as never);
             if (x[A + "Value"] != undefined) f.valueString = str(x[A + "Value"])!;
-            if (x[A + "DashboardBehaviour"] != undefined)
-                f.dashboardBehaviour = Enum.toValue(DashboardBehaviour, str(x[A + "DashboardBehaviour"]) as never);
+            // A `DashboardBehaviour` attribute is IGNORED: a template's filters drive no dashboard, so the
+            // row has no such member (see QueryFilterPinnedBaseEntity). A file written by an application
+            // that shared one filter type with its user queries may still carry it.
         });
 
     ot.orders = list(asRecord(xml["Orders"])?.["Orden"]).map((x, i) => {
@@ -153,7 +154,6 @@ function filterXml(f: OfficeTemplateEntity_Filter): Record<string, unknown> {
         if (f.operation != null) x[A + "Operation"] = Enum.toName(FilterOperation, f.operation);
         if (f.valueString != null) x[A + "Value"] = f.valueString;
     }
-    if (f.dashboardBehaviour != null) x[A + "DashboardBehaviour"] = Enum.toName(DashboardBehaviour, f.dashboardBehaviour);
     return x;
 }
 
