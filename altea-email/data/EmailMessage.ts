@@ -1,4 +1,4 @@
-import { reflect, init, MAX_SIZE } from "@altea/altea/data/reflection";
+import { init, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, part, implementedByAll, backReference, column, format, quoted } from "@altea/altea/data/decorators";
@@ -81,7 +81,6 @@ export class EmailMessageEntity_Attachment extends Entity {
 }
 
 // Signum's EmailMessageEntity.
-@reflect
 @entity("Main", "Transactional")
 export class EmailMessageEntity extends Entity {
     /** Signum's [CountIsValidator(ComparisonType.GreaterThan, 0)] — a message with no recipients cannot be

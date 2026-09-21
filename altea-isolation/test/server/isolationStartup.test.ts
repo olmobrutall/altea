@@ -5,7 +5,7 @@ import "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import "@altea/altea/server";
 import { SchemaBuilder } from "@altea/altea/server/schema";
-import { reflect } from "@altea/altea/data/reflection";
+import { field } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { entity, quoted } from "@altea/altea/data/decorators";
@@ -25,21 +25,18 @@ import { CatalogEntity, ProjectEntity, TagEntity } from "../data/tenancy";
 // The strategy table is process-global, so the cases that must see an UNDECLARED type use a locally
 // declared entity class rather than un-registering a fixture one.
 
-@reflect
 @entity("String", "Master")
 class UndeclaredEntity extends Entity {
     @stringLengthValidator({ min: 1, max: 100 }) name: string;
     @quoted toString(): string { return this.name; }
 }
 
-@reflect
 @entity("String", "Master")
 class ReferencedEntity extends Entity {
     @stringLengthValidator({ min: 1, max: 100 }) name: string;
     @quoted toString(): string { return this.name; }
 }
 
-@reflect
 @entity("String", "Master")
 class ReferrerEntity extends Entity {
     @stringLengthValidator({ min: 1, max: 100 }) name: string;
@@ -48,7 +45,6 @@ class ReferrerEntity extends Entity {
 }
 
 /** Declared a strategy but never included — the "Remove something like" half of the message. */
-@reflect
 @entity("String", "Master")
 class NotIncludedEntity extends Entity {
     @stringLengthValidator({ min: 1, max: 100 }) name: string;

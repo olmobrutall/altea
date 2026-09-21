@@ -26,7 +26,6 @@ import { PascalAscii } from "./DynamicType";
 //    altea `Symbol` / `SemiSymbol`, because the name is invented by a user at runtime and no code declares
 //    it. That is what Signum's separate table is for too.
 
-@reflect
 @entity("Shared", "Transactional")
 export class DynamicTypeConditionSymbolEntity extends Entity {
 
@@ -49,7 +48,6 @@ export namespace DynamicTypeConditionSymbolOperation {
 /** The function a condition's script becomes — Signum's `IDynamicTypeConditionEvaluator`. */
 export type IDynamicTypeConditionEvaluator = (e: Entity) => boolean;
 
-@reflect
 @entity("Main", "Transactional")
 export class DynamicTypeConditionEntity extends Entity {
 

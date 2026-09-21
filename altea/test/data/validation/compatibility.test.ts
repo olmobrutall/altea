@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import { entityIntegrityCheck } from "@altea/altea/data/validation";
 import { stringLengthValidator, decimalsValidator } from "@altea/altea/data/validators";
-import { reflect, MAX_SIZE } from "@altea/altea/data/reflection";
+import { MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity } from "@altea/altea/data/decorators";
 
@@ -18,14 +18,12 @@ import { entity } from "@altea/altea/data/decorators";
 // The two samples are separate types on purpose: `entityIntegrityCheck` visits every field, so a single
 // entity carrying the bad declaration would throw in the compatible case too.
 
-@reflect
 @entity("Main", "Master")
 class CompatOk extends Entity {
     @stringLengthValidator({ max: 10 })
     name: string | null = null;
 }
 
-@reflect
 @entity("Main", "Master")
 class CompatBad extends Entity {
     // Wrong on purpose: DecimalsValidator answers `type === Decimal || type === Number`, never String.
@@ -64,7 +62,6 @@ describe("validator compatibility", () => {
 // `StringLengthValidatorAttribute.Max = -1`. The sizing half honoured it; the VALIDATOR did not, so
 // `s.length > -1` was true for every non-empty string and the field could never be saved. The message
 // even read "must have at most -1 characters". Found by regenerating the database from scratch.
-@reflect
 @entity("Main", "Master")
 class UnboundedText extends Entity {
     @stringLengthValidator({ max: MAX_SIZE })

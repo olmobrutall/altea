@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Symbol } from "@altea/altea/data/symbol";
@@ -44,7 +44,6 @@ export interface IScheduleRuleEntity extends Entity {
 // ---- Schedule rules -------------------------------------------------------------------------------------
 
 // Every N minutes.
-@reflect
 @part
 // Signum declares this `[PrimaryKey(typeof(Guid))]`.
 @primaryKey("uuid")
@@ -84,7 +83,6 @@ export class ScheduleRuleMinutelyEntity extends Entity implements IScheduleRuleE
 
 // On the chosen weekdays, at StartingOn's time of day, optionally
 // including or excluding a calendar's holidays.
-@reflect
 @part
 // Signum declares this `[PrimaryKey(typeof(Guid))]`.
 @primaryKey("uuid")
@@ -178,7 +176,6 @@ export class ScheduleRuleWeekDaysEntity extends Entity implements IScheduleRuleE
 }
 
 // On StartingOn's day-of-month and time, in the chosen months.
-@reflect
 @part
 // Signum declares this `[PrimaryKey(typeof(Guid))]`.
 @primaryKey("uuid")
@@ -253,13 +250,11 @@ export class ScheduleRuleMonthsEntity extends Entity implements IScheduleRuleEnt
 // ---- Tasks ----------------------------------------------------------------------------------------------
 
 // A task that IS just a registered function (SimpleTaskLogic.register).
-@reflect
 @entity("SystemString", "Master")
 export class SimpleTaskSymbol extends Symbol implements ITaskEntity {
 }
 
 // The pairing of a task with a rule, optionally pinned to one machine.
-@reflect
 @entity("Main", "Master")
 export class ScheduledTaskEntity extends Entity {
 
@@ -299,7 +294,6 @@ export class ScheduledTaskEntity extends Entity {
 }
 
 // One run: when, by whom, on which host, and what came out.
-@reflect
 @entity("System", "Transactional")
 export class ScheduledTaskLogEntity extends Entity {
 
@@ -371,7 +365,6 @@ export class ScheduledTaskLogEntity extends Entity {
 
 // One failed element inside a task that iterates (see the
 // runner's ScheduledTaskContext.forEach), so one bad row does not lose the whole run.
-@reflect
 @entity("System", "Transactional")
 export class SchedulerTaskExceptionLineEntity extends Entity {
     // An unbounded text column (Signum's [DbType(Size = int.MaxValue)]), so a plain string column behind

@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { SemiSymbol } from "@altea/altea/data/semiSymbol";
@@ -36,7 +36,6 @@ export enum SkillActivation {
 }
 
 /** Signum's SkillCodeEntity — the registry row for one `SkillCode` subclass, keyed by its class name. */
-@reflect
 @entity("SystemString", "Master")
 export class SkillCodeEntity extends Entity {
 
@@ -51,7 +50,6 @@ export class SkillCodeEntity extends Entity {
 }
 
 /** Signum's AgentSymbol — names one agent (see the header note on SemiSymbol). */
-@reflect
 @entity("Main", "Master", { lowPopulation: true })
 export class AgentSymbol extends SemiSymbol {
 
@@ -70,7 +68,6 @@ export namespace DefaultAgent {
     export const ConversationSumarizer: AgentSymbol = init();
 }
 
-@reflect
 @entity("Main", "Master")
 export class SkillCustomizationEntity extends Entity {
 
@@ -93,7 +90,6 @@ export class SkillCustomizationEntity extends Entity {
 }
 
 /** Signum's `MList<SkillPropertyEmbedded> Properties`, as this owner's @part row. */
-@reflect
 @part
 export class SkillCustomizationEntity_Property extends Entity {
     @backReference skillCustomization: Lite<SkillCustomizationEntity>;
@@ -116,7 +112,6 @@ export class SkillCustomizationEntity_Property extends Entity {
  * customization (this sub-skill is itself overridden) or the bare code row (use the code default) —
  * Signum's `[ImplementedBy(typeof(SkillCustomizationEntity), typeof(SkillCodeEntity))]`.
  */
-@reflect
 @part
 export class SkillCustomizationEntity_SubSkill extends Entity {
     @backReference skillCustomization: Lite<SkillCustomizationEntity>;

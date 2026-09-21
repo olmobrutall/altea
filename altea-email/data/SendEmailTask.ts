@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, uniqueIndex, implementedByAll, quoted } from "@altea/altea/data/decorators";
@@ -27,7 +27,6 @@ export enum EmailTemplateTargetFrom {
     UserQuery,
 }
 
-@reflect
 @entity("Main", "Master")
 export class SendEmailTaskEntity extends Entity implements ITaskEntity {
 

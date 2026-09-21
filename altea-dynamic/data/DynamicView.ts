@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { legacyColumnName, entity, part, backReference, rowOrder, quoted, uniqueIndex } from "@altea/altea/data/decorators";
@@ -69,7 +69,6 @@ function propNameError(prop: DynamicViewEntity_Prop): string | null {
 // ---- the three entities -------------------------------------------------------------------------------
 
 /** One named view for one entity type. */
-@reflect
 @entity("Main", "Master")
 @uniqueIndex<DynamicViewEntity>(v => [v.viewName, v.entityType])
 export class DynamicViewEntity extends Entity {
@@ -136,7 +135,6 @@ export namespace DynamicViewOperation {
  * for a given entity, so which view renders can depend on the row. Two names are reserved: "STATIC" falls
  * back to the code-compiled view, "NEW" opens a fresh unsaved dynamic view.
  */
-@reflect
 @entity("Main", "Master")
 export class DynamicViewSelectorEntity extends Entity {
 
@@ -161,7 +159,6 @@ export namespace DynamicViewSelectorOperation {
  * A JS function body that receives a ViewReplacer and rewrites an
  * EXISTING view (compiled or dynamic). `viewName` null means the type's default view.
  */
-@reflect
 @entity("Main", "Master")
 export class DynamicViewOverrideEntity extends Entity {
 

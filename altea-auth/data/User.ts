@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, column, uniqueIndex, quoted, serialize } from "@altea/altea/data/decorators";
@@ -41,7 +41,6 @@ export enum UserState {
 }
 Enum.markAsNotMapped(UserState, UserState.New);
 
-@reflect
 @entity("Main", "Transactional")
 export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity {
     @uniqueIndex

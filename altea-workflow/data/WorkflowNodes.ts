@@ -54,7 +54,6 @@ import { WorkflowEventTaskModel } from "./WorkflowEventTask";
 
 // altea declares a COMPOSITE index on
 // the entity itself rather than on the include.
-@reflect
 @uniqueIndex<WorkflowPoolEntity>(p => [p.workflow, p.name])
 @entity("String", "Master")
 export class WorkflowPoolEntity extends Entity implements IWorkflowObjectEntity, IWithModel {
@@ -103,7 +102,6 @@ export class WorkflowPoolModel extends ModelEntity {
 
 /** The actors collection as this owner's `@part` row — a
  *  POLYMORPHIC collection cannot be a bare array in altea, it needs the row's `@valueField`. */
-@reflect
 @part
 export class WorkflowLaneEntity_Actor extends Entity {
     @backReference lane: Lite<WorkflowLaneEntity>;
@@ -118,7 +116,6 @@ export class WorkflowLaneEntity_Actor extends Entity {
     }
 }
 
-@reflect
 @uniqueIndex<WorkflowLaneEntity>(l => [l.pool, l.name])
 @entity("Main", "Master")
 export class WorkflowLaneEntity extends Entity implements IWorkflowObjectEntity, IWithModel {
@@ -374,7 +371,6 @@ export class SubWorkflowEmbedded extends EmbeddedEntity {
 }
 
 /** An embedded collection, so a `@part` row. */
-@reflect
 @part
 export class WorkflowActivityEntity_DecisionOption extends Entity {
     @backReference activity: Lite<WorkflowActivityEntity>;
@@ -388,7 +384,6 @@ export class WorkflowActivityEntity_DecisionOption extends Entity {
     }
 }
 
-@reflect
 @part
 export class WorkflowActivityEntity_ViewNameProp extends Entity {
     @backReference activity: Lite<WorkflowActivityEntity>;
@@ -402,7 +397,6 @@ export class WorkflowActivityEntity_ViewNameProp extends Entity {
     }
 }
 
-@reflect
 @uniqueIndex<WorkflowActivityEntity>(a => [a.lane, a.name])
 @entity("Main", "Master")
 export class WorkflowActivityEntity extends Entity implements IWorkflowNodeEntity, IWithModel {
@@ -697,7 +691,6 @@ export class WorkflowTimerEmbedded extends EmbeddedEntity {
     }
 }
 
-@reflect
 @entity("String", "Master")
 export class WorkflowEventEntity extends Entity implements IWorkflowNodeEntity, IWithModel {
 
@@ -803,7 +796,6 @@ export enum WorkflowGatewayDirection {
 }
 registerEnum(WorkflowGatewayDirection);
 
-@reflect
 @entity("String", "Master")
 export class WorkflowGatewayEntity extends Entity implements IWorkflowNodeEntity, IWithModel {
 
@@ -868,7 +860,6 @@ export enum ConnectionType {
 }
 registerEnum(ConnectionType);
 
-@reflect
 @entity("Main", "Master")
 export class WorkflowConnectionEntity extends Entity implements IWorkflowObjectEntity, IWithModel {
 

@@ -1,4 +1,4 @@
-import { reflect, registerEnum } from "@altea/altea/data/reflection";
+import { registerEnum } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { legacyColumnName, part, backReference, rowOrder, unit, format, legacyTableName } from "@altea/altea/data/decorators";
 import {
@@ -95,7 +95,6 @@ export function isClassificationType(t: PredictionType): boolean {
 // ---- the settings --------------------------------------------------------------------------------------
 
 /** Signum's `NeuralNetworkHidenLayerEmbedded` — spelling kept deliberately (see the header). */
-@reflect
 @part
 @legacyTableName("NeuralNetworkSettingsHiddenLayers")
 export class NeuralNetworkSettingsEntity_HiddenLayer extends Entity {
@@ -117,7 +116,6 @@ export class NeuralNetworkSettingsEntity_HiddenLayer extends Entity {
     }
 }
 
-@reflect
 @part
 export class NeuralNetworkSettingsEntity extends Entity implements IPredictorAlgorithmSettings {
     /** Signum's `Device` — which TF device to pin. tfjs picks its backend, so this is advisory here. */
@@ -250,7 +248,6 @@ export function validateOutputActivation(
  *
  * It is a process's data entity, so one run is a ProcessEntity a user can watch and cancel.
  */
-@reflect
 @part
 export class AutoconfigureNeuralNetworkEntity extends Entity implements IProcessDataEntity {
     initialPredictor: Lite<PredictorEntity>;

@@ -40,7 +40,6 @@ import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eva
  */
 export type IDynamicApiEvaluator = (...args: never[]) => void;
 
-@reflect
 @entity("Main", "Master")
 export class DynamicApiEntity extends Entity {
 

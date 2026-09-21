@@ -48,13 +48,11 @@ export enum CompareInbox {
 }
 
 // Signum's EmailReceptionServiceEntity — the abstract "fetching mechanism" a configuration points at.
-@reflect
 @part
 export abstract class EmailReceptionServiceEntity extends Entity {
 }
 
 // Signum's EmailReceptionConfigurationEntity.
-@reflect
 @entity("Shared", "Master")
 export class EmailReceptionConfigurationEntity extends Entity implements ITaskEntity {
 
@@ -94,7 +92,6 @@ export namespace EmailReceptionAction {
 }
 
 // Signum's EmailReceptionEntity — one poll of one mailbox: when it ran, how much it found, what broke.
-@reflect
 @entity("System", "Transactional")
 export class EmailReceptionEntity extends Entity {
 
@@ -125,7 +122,6 @@ export class EmailReceptionEntity extends Entity {
 
 // Signum's EmailReceptionExceptionEntity — one message that failed to be stored, so ONE bad message does not
 // lose the whole poll (the reception row itself stays successful).
-@reflect
 @entity("System", "Transactional")
 export class EmailReceptionExceptionEntity extends Entity {
 

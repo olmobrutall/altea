@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity, quoted } from "@altea/altea/data/decorators";
 import { stringLengthValidator, ValidationMessage, validate } from "@altea/altea/data/validators";
@@ -32,7 +32,6 @@ export enum DynamicExpressionTranslation {
 export type DynamicExpressionTranslationKeys = keyof typeof DynamicExpressionTranslation;
 registerEnum(DynamicExpressionTranslation);
 
-@reflect
 @entity("Main", "Transactional")
 export class DynamicExpressionEntity extends Entity {
 

@@ -190,11 +190,11 @@ registerType(Person, "Person", __fileInfo);`
         ));
     });
 
-    // A class decorated with @entity / @part but NOT @reflect gets field(...) injected all the same, and
-    // there is then no import to anchor the 'field' import on. tsc has already checked by the time the
-    // call is injected, so it reports nothing: the emit references an undefined binding and the first sign
-    // is a ReferenceError when the module loads, far from the file that caused it.
-    test('injecting field with no reflect import to anchor on is a transform-time error', () => {
+    // A reflected class gets field(...) injected, and with no import from the reflection module there is
+    // nothing to anchor the 'field' import on. tsc has already checked by the time the call is injected,
+    // so it reports nothing: the emit references an undefined binding and the first sign is a
+    // ReferenceError when the module loads, far from the file that caused it.
+    test('injecting field with no reflection import to anchor on is a transform-time error', () => {
         assert.throws(
             () => transformSource(
                 `import { entity } from "./decorators";
@@ -203,7 +203,128 @@ class Person {
     name!: string;
 }`
             ),
-            /injected field\(\.\.\.\) but the file imports no 'reflect'/);
+            /injected field\(\.\.\.\) but the file has no value import from the reflection module/);
+    });
+
+    // The anchor is the MODULE, not the 'reflect' binding: an @entity / @part file has no reason to
+    // import 'reflect' (see the redundancy tests below), so anchoring on that name would leave it with
+    // nothing to hang 'field' and 'registerType' on.
+    test('field/registerType anchor on any value import from the reflection module', () => {
+        assert.strictEqual(normalize(transformSource(
+            `import { part } from "./decorators";
+import { Quoted } from "./reflection";
+@part
+class Person {
+    name!: string;
+}`
+        )), normalize(
+            `import { part } from "./decorators";
+import { Quoted, field, registerType } from "./reflection";
+const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };
+@part
+class Person {
+    @field({ typeName: "String" }) name!: string;
+}
+registerType(Person, "Person", __fileInfo);`
+        ));
+    });
+
+});
+
+// @entity and @part both route through defineEntity, which does the same getOrCreateTypeInfo +
+// registerType that @reflect does, and this transformer injects @field for all three names alike. Any
+// two of them on one class is the same declaration written twice — rejected, rather than left to drift
+// into rival spellings that a reader has to tell apart.
+describe('a class declares exactly one of @reflect / @entity / @part', () => {
+
+    test('@reflect + @part is a transform-time error', () => {
+        assert.throws(
+            () => transformSource(
+                `import { reflect } from "./reflection";
+import { part } from "./decorators";
+@reflect
+@part
+class Person {
+    name!: string;
+}`
+            ),
+            /class Person carries @reflect and @part/);
+    });
+
+    test('@reflect + @entity(...) is a transform-time error', () => {
+        assert.throws(
+            () => transformSource(
+                `import { reflect } from "./reflection";
+import { entity } from "./decorators";
+@reflect
+@entity("Main", "Transactional")
+class Person {
+    name!: string;
+}`
+            ),
+            /class Person carries @reflect and @entity/);
+    });
+
+    // @part IS @entity("Part"), so the two together are not a kind plus a refinement — they are two
+    // kinds, and the one that wins is whichever decorator happens to run last.
+    test('@entity(...) + @part is a transform-time error too', () => {
+        assert.throws(
+            () => transformSource(
+                `import { entity, part } from "./decorators";
+@entity("Main", "Transactional")
+@part
+class Person {
+    name!: string;
+}`
+            ),
+            /class Person carries @entity and @part/);
+    });
+
+    test('all three together names all three', () => {
+        assert.throws(
+            () => transformSource(
+                `import { reflect } from "./reflection";
+import { entity, part } from "./decorators";
+@reflect
+@entity("Main", "Transactional")
+@part
+class Person {
+    name!: string;
+}`
+            ),
+            /carries @reflect, @entity and @part/);
+    });
+
+    test('the order of the decorators does not matter', () => {
+        assert.throws(
+            () => transformSource(
+                `import { reflect } from "./reflection";
+import { part } from "./decorators";
+@part
+@reflect
+class Person {
+    name!: string;
+}`
+            ),
+            /carries @part and @reflect/);
+    });
+
+    test('@reflect on its own is still accepted', () => {
+        assert.strictEqual(normalize(transformSource(
+            `import { reflect } from "./reflection";
+@reflect
+class Person {
+    name!: string;
+}`
+        )), normalize(
+            `import { reflect, field, registerType } from "./reflection";
+const __fileInfo = { packageName: "quote-test", fileName: "__test__.ts" };
+@reflect
+class Person {
+    @field({ typeName: "String" }) name!: string;
+}
+registerType(Person, "Person", __fileInfo);`
+        ));
     });
 
 });

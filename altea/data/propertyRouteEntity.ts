@@ -1,5 +1,5 @@
 import { Entity } from './entity';
-import { reflect } from './reflection';
+import { field } from './reflection';
 import { entity, quoted, ticksColumn, uniqueIndex } from './decorators';
 import { stringLengthValidator } from './validators';
 import { msg } from './utils/localization';
@@ -26,7 +26,6 @@ import { resolveCleanType } from './registration';
 //  - `ToPropertyRouteFunc` — Signum's static hook filled by `PropertyRouteLogic` so the DATA layer can
 //    resolve a row into a `PropertyRoute` without referencing the server — is unnecessary: `PropertyRoute`
 //    and the type↔ctor registry both live in this isomorphic layer, so `toPropertyRoute()` resolves here.
-@reflect
 @entity("System", "Master")
 // Signum's [TicksColumn(false)]: the rows are written only by generation and by the synchronizer, never by
 // two people at once, so a concurrency stamp would be a column with no reader.

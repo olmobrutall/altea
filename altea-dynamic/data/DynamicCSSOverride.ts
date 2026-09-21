@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity, quoted, uniqueIndex } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
@@ -16,7 +16,6 @@ import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 //  - Signum serves the stylesheet by interpolating it into `Index.cshtml`. There is no server-rendered
 //    page, so DynamicCSSOverrideServer exposes it as an endpoint the client fetches at boot (the same call
 //    the AzureAD / OpenID configuration endpoints made).
-@reflect
 @entity("Main", "Master")
 export class DynamicCSSOverrideEntity extends Entity {
 

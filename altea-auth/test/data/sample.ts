@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, part, uniqueIndex, quoted, backReference, implementedByAll } from "@altea/altea/data/decorators";
@@ -12,7 +12,6 @@ import { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
 // mutually-exclusive row-level type conditions, and two operations — enough to exercise every dimension
 // (type / property / operation / query) plus type conditions and the cross-role merge.
 
-@reflect
 @entity("Main", "Master")
 export class SampleEntity extends Entity {
     @uniqueIndex
@@ -37,7 +36,6 @@ export class SampleEntity extends Entity {
 }
 
 // A Part of SampleEntity (array/back-reference). Hidden from the Type-Auth grid; inherits Sample's rules.
-@reflect
 @part
 export class SamplePanelEntity extends Entity {
     @backReference sample: Lite<SampleEntity>;
@@ -47,7 +45,6 @@ export class SamplePanelEntity extends Entity {
     widgets: SampleWidgetEntity[];
 }
 
-@reflect
 @part
 export class SampleWidgetEntity extends Entity {
     @backReference panel: Lite<SamplePanelEntity>;
@@ -70,7 +67,6 @@ export namespace SampleOperation {
  *
  * `target` is @implementedByAll, as OperationLogEntity.target is: a log row can be about anything.
  */
-@reflect
 @entity("System", "Transactional")
 export class SampleLogEntity extends Entity {
     @implementedByAll target: Lite<Entity> | null = null;

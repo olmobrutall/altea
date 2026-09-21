@@ -44,7 +44,6 @@ export namespace TranslationPermission {
  * see altea/data/propertyRouteEntity.ts — and the row carries its own root type, so the separate
  * `rootType` column is gone with it: "every translation of X" joins through the route instead.)
  */
-@reflect
 @uniqueIndex((e: TranslatedInstanceEntity) => [e.culture, e.propertyRoute, e.instance, e.rowId])
 @entity("System", "Master")
 export class TranslatedInstanceEntity extends Entity {
@@ -108,7 +107,6 @@ export enum MatchTranslatedInstances {
  * write Y instead" — the house-style layer over Azure / DeepL output. Fed by the editor's feedback (you
  * correct a suggestion, the correction is remembered).
  */
-@reflect
 @uniqueIndex((e: TranslationReplacementEntity) => [e.cultureInfo, e.wrongTranslation])
 @entity("Main", "Master")
 export class TranslationReplacementEntity extends Entity {

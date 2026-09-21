@@ -31,7 +31,6 @@ export interface IContainsQuery extends Entity {
 
 // A named, code-registered conversion from one model/entity to another
 // (used by a scheduled send: "take this target entity and turn it into the model the template wants").
-@reflect
 @entity("SystemString", "Master", { lowPopulation: true })
 export class ModelConverterSymbol extends Symbol {
 }

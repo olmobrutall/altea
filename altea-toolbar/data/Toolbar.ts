@@ -179,7 +179,6 @@ export class ToolbarMenuEntity_Element extends ToolbarElementBaseEntity {
 
 // ---- The root entities ---------------------------------------------------------------------------------
 
-@reflect
 @primaryKey("uuid")
 @entity("Main", "Master")
 export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarEntity {
@@ -213,7 +212,6 @@ export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarE
 
 // A reusable, collapsible GROUP of elements, optionally bound to
 // an entity type (then the menu shows an entity picker and its elements split into with-/without-entity).
-@reflect
 @primaryKey("uuid")
 @entity("Shared", "Master")
 export class ToolbarMenuEntity extends Entity implements IUserAssetEntity, IHasEntityType, IToolbarEntity {
@@ -242,7 +240,6 @@ export class ToolbarMenuEntity extends Entity implements IUserAssetEntity, IHasE
 
 // One sidebar slot that switches between N
 // ToolbarMenus (a dropdown; the picked menu's elements render below it).
-@reflect
 @primaryKey("uuid")
 @entity("Shared", "Master")
 export class ToolbarSwitcherEntity extends Entity implements IUserAssetEntity, IToolbarEntity {

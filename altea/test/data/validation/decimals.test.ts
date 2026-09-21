@@ -2,7 +2,7 @@ import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import { entityIntegrityCheck } from "@altea/altea/data/validation";
 import { decimalsValidator } from "@altea/altea/data/validators";
-import { reflect, getTypeInfo, defaultFormat } from "@altea/altea/data/reflection";
+import { getTypeInfo, defaultFormat } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity, format } from "@altea/altea/data/decorators";
 import { Decimal } from "@altea/altea/data/basics";
@@ -11,7 +11,6 @@ import { Decimal } from "@altea/altea/data/basics";
 // VALIDATES the value, it is where the column's SCALE comes from (that half is in the schema suite —
 // server/schema/valueTypes.test.ts), and it is where the display FORMAT comes from.
 
-@reflect
 @entity("Main", "Master")
 class DvSample extends Entity {
     // Signum's parameterless ctor defaults to 2.

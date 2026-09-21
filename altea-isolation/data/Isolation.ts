@@ -17,7 +17,6 @@ import { msg } from "@altea/altea/data/utils/localization";
 // goes), and the server's `IsolationLogic.start` reads the map back.
 //
 // Port of Signum.Isolation's IsolationEntity.cs — see port/Isolation.md.
-@reflect
 @entity("String", "Master", { lowPopulation: true })
 export class IsolationEntity extends Entity {
     @uniqueIndex

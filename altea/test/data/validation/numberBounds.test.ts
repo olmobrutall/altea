@@ -5,7 +5,7 @@ import { entityIntegrityCheck } from "@altea/altea/data/validation";
 import {
     ValidationMessage, numberBetweenValidator, NumberBetweenValidator, numberPowerOfTwoValidator,
 } from "@altea/altea/data/validators";
-import { reflect, getTypeInfo } from "@altea/altea/data/reflection";
+import { getTypeInfo } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity } from "@altea/altea/data/decorators";
 
@@ -13,7 +13,6 @@ import { entity } from "@altea/altea/data/decorators";
 // VALUE, both report only, and neither touches the column — SchemaSettings derives a size from
 // StringLengthValidator and a scale from DecimalsValidator, and reads no other validator.
 
-@reflect
 @entity("Main", "Master")
 class BoundsSample extends Entity {
     @numberBetweenValidator(0, 11)

@@ -8,7 +8,7 @@ import {
     emailValidator, alphanumericOnlyValidator, numericTextValidator, ipValidator,
     fileNameValidator, removeInvalidFileNameChars, identifierValidator, IdentifierType, IdentifierValidator,
 } from "@altea/altea/data/validators";
-import { reflect, getTypeInfo } from "@altea/altea/data/reflection";
+import { getTypeInfo } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity } from "@altea/altea/data/decorators";
 
@@ -16,7 +16,6 @@ import { entity } from "@altea/altea/data/decorators";
 // buys is that a concrete one is a REGEX and a FORMAT NAME: both messages — the error "{0} does not have
 // a valid {1} format" and the help "have a valid {1} format" — are written once, here.
 
-@reflect
 @entity("Main", "Master")
 class RegexSample extends Entity {
     @urlValidator()

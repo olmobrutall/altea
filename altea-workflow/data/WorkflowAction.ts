@@ -12,7 +12,6 @@ import type { IWorkflowActionExecutor } from "./WorkflowEval";
 // Same two divergences as WorkflowCondition.ts: `Eval` is a TypeScript script compiled by
 // @altea/altea-eval, and the portable `Guid` becomes a uuid primary key.
 
-@reflect
 @primaryKey("uuid")
 @entity("Shared", "Master")
 export class WorkflowActionEntity extends Entity implements IUserAssetEntity {

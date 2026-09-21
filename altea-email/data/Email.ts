@@ -151,7 +151,6 @@ export abstract class EmailRecipientBaseEntity extends Entity {
 
 // Signum's EmailModelEntity — the registry row for one code-declared email MODEL (an "EmailModel<T>": the
 // in-memory object a template renders against, instead of / alongside a query row).
-@reflect
 @entity("SystemString", "Master")
 export class EmailModelEntity extends Entity {
     // Signum declares no `[StringLengthValidator]` here and gets `varchar(200)` from its own default —

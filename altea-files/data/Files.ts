@@ -31,7 +31,6 @@ import { msg } from "@altea/altea/data/utils/localization";
 
 // Names a STORE + policy (where files go, size/type limits).
 // The algorithm behind each symbol is registered server-side (FileTypeLogic.register).
-@reflect
 @entity("SystemString", "Master")
 export class FileTypeSymbol extends Symbol {
 }
@@ -58,7 +57,6 @@ export class FileEmbedded extends EmbeddedEntity {
 //
 // `hash` is filled server-side (`prepareForSave`), since the isomorphic layer has no crypto. There is no
 // path constructor for the same reason: reading a file off disk is server-only.
-@reflect
 @entity("SharedPart", "Transactional")
 // An immutable row cannot be concurrently edited, so a stamp would guard
 // nothing. (A SharedPart would otherwise get one — it is reached by reference, not through one owner.)

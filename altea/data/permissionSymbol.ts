@@ -1,4 +1,4 @@
-import { reflect, init } from './reflection';
+import { init } from './reflection';
 import { entity } from './decorators';
 import { Symbol } from './symbol';
 
@@ -11,13 +11,12 @@ import { Symbol } from './symbol';
 // ./security rather than in altea-auth. The check itself goes through PermissionLogic's
 // `isAuthorizedImplementation` seam, which altea-auth fills at start.
 //
-// `@reflect @entity(...)` together mirrors OperationSymbol and TypeEntity, the other SystemString system
-// tables: @entity carries the kind/data, @reflect anchors the transformer's registerType import.
+// `@entity(...)` alone carries the kind/data AND the registration, as OperationSymbol and TypeEntity,
+// the other SystemString system tables, declare it.
 //
 // The table is `basics.permission`, which is the schema this folder already declares by default — so
 // unlike OperationSymbol (which Signum puts in an `operations` schema) there is no setDatabaseSchema
 // override here, and moving the class out of altea-auth does NOT move the table.
-@reflect
 @entity("SystemString", "Master")
 export class PermissionSymbol extends Symbol {
 }

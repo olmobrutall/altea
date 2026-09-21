@@ -1,4 +1,4 @@
-import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
@@ -16,7 +16,6 @@ import type { IQuery } from "@altea/altea/data/iquery";
 // and, for a query, the SQL it ran.
 //
 // Port of Signum.ViewLog's ViewLogEntity.cs — see port/ViewLog.md.
-@reflect
 @entity("System", "Transactional")
 export class ViewLogEntity extends Entity {
 

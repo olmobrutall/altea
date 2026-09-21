@@ -1,4 +1,4 @@
-import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, uniqueIndex, quoted, ticksColumn, legacyClassName, legacyPropertyRoute } from "@altea/altea/data/decorators";
@@ -15,7 +15,6 @@ import { ExceptionEntity } from "@altea/altea/data/exception";
 //
 // Port of Signum.Migrations' entity model — see port/Migrations.md.
 
-@reflect
 @entity("System", "Transactional")
 // The engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.
@@ -31,7 +30,6 @@ export class SqlMigrationEntity extends Entity {
     @quoted toString(): string { return this.versionNumber; }
 }
 
-@reflect
 @entity("System", "Transactional")
 // The engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.
@@ -51,7 +49,6 @@ export class TypeScriptMigrationEntity extends Entity {
     @quoted toString(): string { return this.uniqueName; }
 }
 
-@reflect
 @entity("System", "Transactional")
 // The engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.

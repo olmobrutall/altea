@@ -101,7 +101,6 @@ export interface IAttachmentGeneratorEntity extends Entity { }
 // hold image attachments, and an altea Part may have exactly ONE owner (its auth rules are inherited from that
 // owner — see altea-auth's PartOwnership). A SharedPart appears in the Type-Auth grid in its own right and
 // gets its rules defined explicitly, which is the correct reading for a type two owners share.
-@reflect
 @entity("SharedPart", "Master")
 export class ImageAttachmentEntity extends Entity implements IAttachmentGeneratorEntity {
     /** The name the attachment carries. It is itself a TEMPLATE (`Invoice @[Id].pdf`), parsed at send time. */
@@ -122,7 +121,6 @@ export class ImageAttachmentEntity extends Entity implements IAttachmentGenerato
 }
 
 // Signum's FileTokenAttachmentEntity — attach whatever FILE the rows' token points at.
-@reflect
 @part
 export class FileTokenAttachmentEntity extends Entity implements IAttachmentGeneratorEntity {
     @stringLengthValidator({ min: 3, max: 100 })
@@ -208,7 +206,6 @@ export class EmailMasterTemplateEntity_Attachment extends Entity {
 
 // Signum's EmailMasterTemplateEntity — the shared chrome (header / footer / styles) a template's body is
 // spliced into at `@[content]`.
-@reflect
 @primaryKey("uuid")
 @entity("Main", "Master")
 export class EmailMasterTemplateEntity extends Entity implements IUserAssetEntity {
@@ -416,7 +413,6 @@ export class EmailTemplateEntity_Message extends Entity {
 // ---- EmailTemplate -------------------------------------------------------------------------------------
 
 // Signum's EmailTemplateEntity.
-@reflect
 @primaryKey("uuid")
 @entity("Main", "Master")
 export class EmailTemplateEntity extends Entity implements IUserAssetEntity, IContainsQuery {

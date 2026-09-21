@@ -1,4 +1,4 @@
-import { reflect } from "./reflection";
+import { field } from "./reflection";
 import { entity } from "./decorators";
 import { Symbol } from "./symbol";
 
@@ -14,6 +14,5 @@ import { Symbol } from "./symbol";
 //
 //     export namespace MyTourTrigger { export const OrderDashboard: TourTriggerSymbol = init(); }
 //     TourTriggerLogic.registerTourTriggers(MyTourTrigger.OrderDashboard);
-@reflect
 @entity("SystemString", "Master", { lowPopulation: true })
 export class TourTriggerSymbol extends Symbol { }

@@ -1,7 +1,7 @@
 import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
-import { reflect, getTypeInfo } from "@altea/altea/data/reflection"; // anchor for the transformer's @field injection
+import { getTypeInfo } from "@altea/altea/data/reflection"; // also the transformer's @field-injection anchor
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, part, backReference, overrideImplementedBy } from "@altea/altea/data/decorators";
@@ -91,4 +91,3 @@ describe("a @part's EntityData comes from its owner", () => {
     });
 });
 
-void reflect;   // the transformer's @field-injection anchor

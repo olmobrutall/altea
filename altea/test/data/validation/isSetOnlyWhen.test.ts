@@ -4,7 +4,7 @@ import "@altea/altea/data/globals";
 import { entityIntegrityCheck } from "@altea/altea/data/validation";
 import { isSetOnlyWhen, ValidationMessage } from "@altea/altea/data/validators";
 import { validate } from "@altea/altea/data/validators";
-import { reflect } from "@altea/altea/data/reflection";
+import { field } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity } from "@altea/altea/data/decorators";
 
@@ -12,7 +12,6 @@ import { entity } from "@altea/altea/data/decorators";
 // in three altea packages before it was framework vocabulary; these cases pin the two directions and
 // Signum's definition of "not set" (null, the empty string, the empty collection — NOT `false`, and not 0).
 
-@reflect
 @entity("Main", "Master")
 class Address extends Entity {
     usesToken: boolean = false;

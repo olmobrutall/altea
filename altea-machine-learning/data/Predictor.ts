@@ -98,19 +98,15 @@ export function toPredictorColumnUsage(usage: PredictorSubQueryColumnUsage): Pre
 
 // ---- symbols -------------------------------------------------------------------------------------------
 
-@reflect
 @entity("SystemString", "Master", { lowPopulation: true })
 export class PredictorAlgorithmSymbol extends Symbol { }
 
-@reflect
 @entity("SystemString", "Master", { lowPopulation: true })
 export class PredictorResultSaverSymbol extends Symbol { }
 
-@reflect
 @entity("SystemString", "Master", { lowPopulation: true })
 export class PredictorPublicationSymbol extends Symbol { }
 
-@reflect
 @entity("SystemString", "Master", { lowPopulation: true })
 export class PredictorColumnEncodingSymbol extends Symbol { }
 
@@ -208,7 +204,6 @@ export class PredictorRegressionMetricsEmbedded extends EmbeddedEntity {
  * One column of the main query: what it is FOR (input or output),
  * which token it reads, how it is encoded, and what to do when it is null.
  */
-@reflect
 @part
 @legacyTableName("PredictorMainQueryColumns")
 export class PredictorEntity_Column extends Entity {
@@ -246,7 +241,6 @@ export class PredictorEntity_Column extends Entity {
 }
 
 /** The main query's filters — a `@part` row over the shared `QueryFilterBaseEntity`. */
-@reflect
 @part
 @legacyTableName("PredictorMainQueryFilters")
 export class PredictorEntity_Filter extends QueryFilterBaseEntity {
@@ -254,7 +248,6 @@ export class PredictorEntity_Filter extends QueryFilterBaseEntity {
 }
 
 /** The trained model's files. */
-@reflect
 @part
 @legacyTableName("PredictorFiles")
 export class PredictorEntity_File extends Entity {
@@ -286,7 +279,6 @@ export class PredictorMainQueryEmbedded extends EmbeddedEntity {
  * it has two structural ones: `ParentKey` (how a sub-query row joins back to a main-query row) and
  * `SplitBy` (what turns a collection of rows into a fixed set of columns).
  */
-@reflect
 @part
 @legacyTableName("PredictorSubQueryColumns")
 export class PredictorSubQueryEntity_Column extends Entity {
@@ -333,7 +325,6 @@ export function isDataUsage(usage: PredictorSubQueryColumnUsage): boolean {
     return usage === PredictorSubQueryColumnUsage.Input || usage === PredictorSubQueryColumnUsage.Output;
 }
 
-@reflect
 @part
 @legacyTableName("PredictorSubQueryFilters")
 export class PredictorSubQueryEntity_Filter extends QueryFilterBaseEntity {
@@ -347,7 +338,6 @@ export class PredictorSubQueryEntity_Filter extends QueryFilterBaseEntity {
  * Signum declares it a virtual MList (`[Ignore, QueryableProperty]` + a back reference); here a
  * `@part` row IS that shape, so it needs no such marker pair.
  */
-@reflect
 @part
 @legacyTableName({ name: "PredictorSubQuery", wasVirtualMList: true })
 export class PredictorSubQueryEntity extends Entity {
@@ -386,7 +376,6 @@ export function tokenContainsKey(token: QueryTokenEmbedded | null, part: string)
 
 // ---- the predictor -------------------------------------------------------------------------------------
 
-@reflect
 @entity("Main", "Transactional")
 export class PredictorEntity extends Entity implements IProcessDataEntity {
     @stringLengthValidator({ min: 3, max: 100 })
@@ -475,7 +464,6 @@ export namespace PredictorOperation {
  * PREDICTION has to normalize its input exactly as the training data was normalized — otherwise the model
  * is fed numbers on a different scale than it learned on.
  */
-@reflect
 @entity("System", "Transactional")
 export class PredictorCodificationEntity extends Entity {
     predictor: Lite<PredictorEntity>;
@@ -508,7 +496,6 @@ export class PredictorCodificationEntity extends Entity {
 }
 
 /** One row per recorded training epoch, for the loss chart. */
-@reflect
 @entity("System", "Transactional")
 export class PredictorEpochProgressEntity extends Entity {
     predictor: Lite<PredictorEntity>;
@@ -533,7 +520,6 @@ export class PredictorEpochProgressEntity extends Entity {
  * beside what actually happened. Written by the `Full` result saver, and the reason it exists is that
  * aggregate metrics hide WHICH rows a model gets wrong.
  */
-@reflect
 @entity("System", "Transactional")
 export class PredictSimpleResultEntity extends Entity {
     predictor: Lite<PredictorEntity>;

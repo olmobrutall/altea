@@ -1,6 +1,6 @@
 import { stringLengthValidator } from './validators';
 import { Entity } from './entity';
-import { reflect, setDefaultDatabaseSchema } from './reflection';
+import { setDefaultDatabaseSchema } from './reflection';
 import { entity, quoted, uniqueIndex } from './decorators';
 import { msg } from './utils/localization';
 
@@ -19,7 +19,6 @@ import { msg } from './utils/localization';
 //  - there is no `ToStr` column: `toString()` is `@quoted` (see below), so the display string is
 //    COMPUTED — which is what gives a `Lite<TypeEntity>` its text, and therefore what the
 //    `[EntityType]` query token projects.
-@reflect
 @entity("SystemString", "Master")
 export class TypeEntity extends Entity {
     // The physical table name of the type (e.g. "Artist" / "note_with_date"). Signum: `[UniqueIndex]`.

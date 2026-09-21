@@ -20,7 +20,6 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 /** How long a mailed reset code stays usable. Two hours, as in Signum — but settable here. */
 export const RESET_PASSWORD_VALID_HOURS = 2;
 
-@reflect
 @entity("System", "Transactional")
 export class ResetPasswordRequestEntity extends Entity {
     // A plain unique index: there is no per-index opt-out from the isolation rewrite to express.

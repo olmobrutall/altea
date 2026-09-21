@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema, renameSymbolContainer } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema, renameSymbolContainer } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
@@ -62,7 +62,6 @@ export enum OfficeTemplateVisibleOn {
  * Use it to stamp a watermark,
  * swap an image, drop a section.
  */
-@reflect
 @entity("SystemString", "Master", { lowPopulation: true })
 @legacyClassName("WordTransformerSymbol")
 export class OfficeTransformerSymbol extends Symbol {
@@ -72,7 +71,6 @@ export class OfficeTransformerSymbol extends Symbol {
  * A registered conversion applied to the SAVED bytes (
  * `Func<WordContext, byte[], byte[]>`). Use it to render the document to PDF through an external tool.
  */
-@reflect
 @entity("SystemString", "Master", { lowPopulation: true })
 @legacyClassName("WordConverterSymbol")
 export class OfficeConverterSymbol extends Symbol {
@@ -85,7 +83,6 @@ export class OfficeConverterSymbol extends Symbol {
  * One row per registered IOfficeModel implementation, keyed by its class name — the exact shape
  * @altea/altea-email's EmailModelEntity uses, and synchronised the same way.
  */
-@reflect
 @entity("SystemString", "Master")
 @legacyClassName("WordModelEntity")
 export class OfficeModelEntity extends Entity {
@@ -123,7 +120,6 @@ export class OfficeTemplateEntity_Order extends Entity {
 
 // ---- OfficeTemplate ------------------------------------------------------------------------------------
 
-@reflect
 @primaryKey("uuid")
 @entity("Main", "Master")
 @legacyClassName("WordTemplateEntity")
@@ -191,7 +187,6 @@ export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IC
  * WIDENS the field with `overrideImplementedBy` at start-up instead — the extension point altea-email's
  * own comment on IAttachmentGeneratorEntity points at.
  */
-@reflect
 @part
 @legacyClassName("WordAttachmentEntity")
 export class OfficeAttachmentEntity extends Entity implements IAttachmentGeneratorEntity {

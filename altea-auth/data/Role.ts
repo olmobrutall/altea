@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { CurrentUser } from "@altea/altea/data/security";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
@@ -30,7 +30,6 @@ export enum MergeStrategy {
     Intersection,
 }
 
-@reflect
 @entity("Main", "Master")
 export class RoleEntity extends Entity {
     @uniqueIndex

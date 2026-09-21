@@ -11,7 +11,6 @@ import type { IWorkflowTimerConditionEvaluator } from "./WorkflowEval";
 // Port of Signum.Workflow's WorkflowTimerCondition.cs — a NAMED "has this timer fired?" predicate, an
 // alternative to a fixed duration on a timer event. Same two divergences as WorkflowCondition.ts.
 
-@reflect
 @primaryKey("uuid")
 @entity("Shared", "Master")
 export class WorkflowTimerConditionEntity extends Entity implements IUserAssetEntity {

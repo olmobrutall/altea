@@ -14,14 +14,14 @@ import type { Lite } from "@altea/altea/data/lite";
 // the answer: the SELECTOR form does the comparison Signum meant, and the bare form REFUSES rather than
 // passing silently whenever the value it would compare has no identity of its own.
 
-@reflect @part
+@part
 class NoRepeatRow extends Entity {
     @backReference owner: Lite<NoRepeatOwner>;
     product: string = "";
     quantity: number = 0;
 }
 
-@reflect @part
+@part
 class ValueRow extends Entity {
     @backReference owner: Lite<NoRepeatOwner>;
     @valueField territory: string = "";
@@ -32,34 +32,30 @@ class KeylessEmbedded extends EmbeddedEntity {
     name: string = "";
 }
 
-@reflect @part
+@part
 class EmbeddedValueRow extends Entity {
     @backReference owner: Lite<NoRepeatOwner>;
     @valueField element: KeylessEmbedded = new KeylessEmbedded();
 }
 
-@reflect
 @entity("Main", "Master")
 class NoRepeatOwner extends Entity {
     @noRepeatValidator<NoRepeatRow>(a => a.product)
     lines: NoRepeatRow[] = [];
 }
 
-@reflect
 @entity("Main", "Master")
 class BareOverRows extends Entity {
     @noRepeatValidator()
     lines: NoRepeatRow[] = [];
 }
 
-@reflect
 @entity("Main", "Master")
 class BareOverValues extends Entity {
     @noRepeatValidator()
     territories: ValueRow[] = [];
 }
 
-@reflect
 @entity("Main", "Master")
 class BareOverEmbeddedValues extends Entity {
     @noRepeatValidator()

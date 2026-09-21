@@ -18,7 +18,6 @@ import type { DeleteSymbol, ExecuteSymbol } from "@altea/altea/data/operations";
 //    de-camelCased, and Signum's attribute exists only because C# cannot express `openAIAPIKey`.
 
 /** Signum's LanguageModelProviderSymbol — names a registered provider (one wire protocol + credential). */
-@reflect
 @entity("SystemString", "Master", { lowPopulation: true })
 export class LanguageModelProviderSymbol extends Symbol {
 }
@@ -34,7 +33,6 @@ export namespace LanguageModelProviders {
     export const DeepSeek: LanguageModelProviderSymbol = init();
 }
 
-@reflect
 @entity("Main", "Master")
 export class ChatbotLanguageModelEntity extends Entity {
 
@@ -82,7 +80,6 @@ export namespace ChatbotLanguageModelOperation {
     export const Delete: DeleteSymbol<ChatbotLanguageModelEntity> = init();
 }
 
-@reflect
 @entity("Main", "Master")
 export class EmbeddingsLanguageModelEntity extends Entity {
 

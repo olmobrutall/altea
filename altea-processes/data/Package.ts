@@ -24,7 +24,6 @@ import { ExceptionEntity } from "@altea/altea/data/exception";
 //  - `PackageOperationEntity` subclasses PackageEntity. Kept, since it is what names the operation
 //    a PackageOperation process applies.
 
-@reflect
 @entity("System", "Transactional")
 export class PackageEntity extends Entity implements IProcessDataEntity {
 
@@ -48,7 +47,6 @@ export class PackageEntity extends Entity implements IProcessDataEntity {
 }
 
 /** A package whose lines are all to be fed to ONE operation. */
-@reflect
 @entity("System", "Transactional")
 export class PackageOperationEntity extends PackageEntity {
 
@@ -60,7 +58,6 @@ export class PackageOperationEntity extends PackageEntity {
 }
 
 /** One element of a package, plus what came out of processing it. */
-@reflect
 @entity("System", "Transactional")
 // The engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.

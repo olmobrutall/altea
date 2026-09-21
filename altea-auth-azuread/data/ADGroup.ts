@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity, primaryKey, uniqueIndex, quoted } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
@@ -14,7 +14,6 @@ import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 // already uses for portable identities), and an explicitly-assigned uuid PK needs no identity juggling —
 // letting the database assign one — which is why `ADGroupOperation.Save` below needs no identity dance.
 
-@reflect
 @entity("String", "Master")
 @primaryKey("uuid")
 export class ADGroupEntity extends Entity {

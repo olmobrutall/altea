@@ -1,4 +1,4 @@
-import { reflect } from "@altea/altea/data/reflection";
+import { field } from "@altea/altea/data/reflection";
 import { entity, quoted } from "@altea/altea/data/decorators";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";

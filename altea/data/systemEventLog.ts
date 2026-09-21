@@ -1,4 +1,4 @@
-import { reflect } from './reflection';
+import { field } from './reflection';
 import { Entity } from './entity';
 import { entity, implementedBy } from './decorators';
 import { stringLengthValidator } from './validators';
@@ -18,7 +18,6 @@ import { ExceptionEntity } from './exception';
 // written in its OWN transaction and never throws (see server/systemEventLogLogic): the log of a restart
 // is useless if a restart during a failure is exactly when it goes missing.
 
-@reflect
 @entity("System", "Transactional")
 export class SystemEventLogEntity extends Entity {
     @stringLengthValidator({ min: 3, max: 100 })

@@ -1,7 +1,7 @@
 import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
-import { reflect } from "@altea/altea/data/reflection";
+import { field } from "@altea/altea/data/reflection";
 import { Entity, type BaseEntity, type Type } from "@altea/altea/data/entity";
 import { entity, fullTextIndex } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
@@ -25,7 +25,6 @@ import { NoteWithDateEntity, AlbumEntity } from "../../data/music";
 
 const O = SubTokensOptionsAll;
 
-@reflect
 @entity("Main", "Master")
 @fullTextIndex<FtProbeEntity>(a => [a.shortTitle])
 class FtProbeEntity extends Entity {

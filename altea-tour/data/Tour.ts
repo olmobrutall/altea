@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
@@ -31,7 +31,6 @@ import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 //
 // Port of Signum.Tour's Tour.cs — see port/Tour.md.
 
-@reflect
 @primaryKey("uuid")
 @entity("Main", "Master")
 export class TourEntity extends Entity implements IUserAssetEntity {
@@ -58,7 +57,6 @@ export namespace TourOperation {
     export const Delete: DeleteSymbol<TourEntity> = init();
 }
 
-@reflect
 @part
 export class TourStepEntity extends Entity {
 
@@ -119,7 +117,6 @@ export enum CssStepType {
  * One segment of a step's anchor: a discriminated record where exactly one field is set, chosen by `type`.
  * An ENTITY rather than an embedded because it is a collection row (see the header).
  */
-@reflect
 @part
 export class CssStepEntity extends Entity {
 

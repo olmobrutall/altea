@@ -34,7 +34,6 @@ export enum TriggeredOn {
 }
 registerEnum(TriggeredOn);
 
-@reflect
 @entity("Shared", "Master")
 export class WorkflowEventTaskEntity extends Entity implements ITaskEntity {
 
@@ -133,7 +132,6 @@ export class WorkflowEventTaskActionEval extends EvalEmbedded<IWorkflowEventTask
 
 /** The log of what a `ConditionChangesToTrue` task saw
  *  last time, which is how "changes to" is decided. */
-@reflect
 @index<WorkflowEventTaskConditionResultEntity>(e => [e.creationDate])
 @entity("System", "Transactional")
 export class WorkflowEventTaskConditionResultEntity extends Entity {

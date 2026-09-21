@@ -92,7 +92,6 @@ function processField<T extends object, K extends keyof T>(owner: T, key: K, pro
 
 // ---- TypeHelp ------------------------------------------------------------------------------------
 
-@reflect
 @entity("Main", "Master")
 export class TypeHelpEntity extends Entity implements IHelpEntity {
 
@@ -152,7 +151,6 @@ export class TypeHelpEntity extends Entity implements IHelpEntity {
 }
 
 /** Signum's `PropertyRouteHelpEmbedded` — a `@part` row here (see the header on MList). */
-@reflect
 @part
 export class TypeHelpEntity_Property extends Entity {
 
@@ -182,7 +180,6 @@ export class TypeHelpEntity_Property extends Entity {
 }
 
 /** Signum's `OperationHelpEmbedded`. */
-@reflect
 @part
 export class TypeHelpEntity_Operation extends Entity {
 
@@ -214,7 +211,6 @@ export namespace TypeHelpOperation {
 
 // ---- NamespaceHelp -------------------------------------------------------------------------------
 
-@reflect
 @entity("Main", "Master")
 export class NamespaceHelpEntity extends Entity implements IHelpEntity {
 
@@ -248,7 +244,6 @@ export namespace NamespaceHelpOperation {
 
 // ---- AppendixHelp --------------------------------------------------------------------------------
 
-@reflect
 @entity("Main", "Master")
 export class AppendixHelpEntity extends Entity implements IHelpEntity {
 
@@ -279,7 +274,6 @@ export namespace AppendixHelpOperation {
 
 // ---- QueryHelp -----------------------------------------------------------------------------------
 
-@reflect
 @entity("SharedPart", "Master")
 export class QueryHelpEntity extends Entity implements IHelpEntity {
 
@@ -315,7 +309,6 @@ export class QueryHelpEntity extends Entity implements IHelpEntity {
 }
 
 /** Signum's `QueryColumnHelpEmbedded`. `columnName` holds a rootless TOKEN key (see the header). */
-@reflect
 @part
 export class QueryHelpEntity_Column extends Entity {
 
@@ -353,7 +346,6 @@ export namespace QueryHelpOperation {
  * An image pasted into a help description. The bytes live in a file store; the HTML keeps only
  * `data-help-image-id`, so the same description renders in any environment the ZIP was imported into.
  */
-@reflect
 @primaryKey("uuid")
 @part
 export class HelpImageEntity extends Entity {

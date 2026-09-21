@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import {
@@ -19,7 +19,6 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 //
 // Port of Signum.Rest's RestApiKeyEntity.cs + RestLog.cs — see port/Rest.md.
 
-@reflect
 @entity("Main", "Master")
 export class RestApiKeyEntity extends Entity {
 
@@ -53,7 +52,6 @@ export const RestApiKeyMessage = {
 
 // ---- the log ------------------------------------------------------------------------------------
 
-@reflect
 @entity("System", "Transactional")
 export class RestLogEntity extends Entity {
 
@@ -147,7 +145,6 @@ export class RestLogEntity extends Entity {
 }
 
 /** One query-string parameter of a logged request. */
-@reflect
 @part
 export class QueryStringValueEntity extends Entity {
 

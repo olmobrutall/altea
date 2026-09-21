@@ -1,7 +1,7 @@
 import { Entity } from "./entity";
 import { Lite } from "./lite";
 import { entity, column, forceNotNullable, implementedBy, ticksColumn } from "./decorators";
-import { MAX_SIZE, reflect } from "./reflection";
+import { MAX_SIZE } from "./reflection";
 import { Temporal, type int } from "./basics";
 import { BigStringEmbedded } from "./bigString";
 import type { IUserEntity } from "./security";

@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
@@ -120,7 +120,6 @@ export class UserChartEntity_CustomDrilldown extends Entity {
 
 // altea divergence (see file header): the Guid portable-identity is a uuid PRIMARY KEY, so IUserAssetEntity
 // is a bare marker. IHasEntityType carries the `entityType` quick-link scope.
-@reflect
 @primaryKey("uuid")
 @entity("Main", "Master")
 export class UserChartEntity extends Entity implements IUserAssetEntity, IHasEntityType {

@@ -1,4 +1,4 @@
-import { reflect, init } from "./reflection";
+import { init } from "./reflection";
 import { Entity } from "./entity";
 import { Lite } from "./lite";
 import { Symbol } from "./symbol";
@@ -24,11 +24,9 @@ import type { DeleteSymbol } from "./operations";
 // reference altea-auth; the app overrides it to the concrete user type in its EntityOverrides — the same
 // accommodation `ExceptionEntity.user` and `OperationLogEntity.user` already make.
 
-@reflect
 @entity("SystemString", "Master", { lowPopulation: true })
 export class VisualTipSymbol extends Symbol { }
 
-@reflect
 @entity("System", "Transactional")
 export class VisualTipConsumedEntity extends Entity {
 

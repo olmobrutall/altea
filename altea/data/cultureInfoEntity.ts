@@ -1,5 +1,5 @@
 import { Entity } from './entity';
-import { reflect } from './reflection';
+import { field } from './reflection';
 import { entity, uniqueIndex, quoted, niceName, nicePluralName, legacyPropertyRoute } from './decorators';
 import { validate, stringLengthValidator } from './validators';
 import { init } from './registration';
@@ -22,7 +22,6 @@ import { msg } from './utils/localization';
 // so say so in English too. (These are only the no-translation default — a translation file still wins.)
 @niceName("Culture")
 @nicePluralName("Cultures")
-@reflect
 @entity("String", "Master")
 export class CultureInfoEntity extends Entity {
     // The locale tag ("en", "es", "de-CH"). Signum's [UniqueIndex, StringLengthValidator(2, 10)].

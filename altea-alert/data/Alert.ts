@@ -40,7 +40,6 @@ import { Enum } from "@altea/altea/data/enum";
 //  - a date comparison is written `Temporal.PlainDateTime.compare(a, b) <op> 0` (Temporal has no relational
 //    operators — see CLAUDE.md), which is also the form the provider translates.
 
-@reflect
 @entity("Main", "Transactional")
 export class AlertEntity extends Entity {
 
@@ -192,7 +191,6 @@ registerEnum(DelayOption);
  *     export namespace MyAlertType { export const OrderDelayed: AlertTypeSymbol = init(); }
  *     AlertLogic.registerAlertType(MyAlertType.OrderDelayed, () => MyMessage.OrderIsDelayed.niceToString());
  */
-@reflect
 @entity("String", "Master", { lowPopulation: true })
 export class AlertTypeSymbol extends SemiSymbol { }
 
@@ -214,7 +212,6 @@ export enum AlertDropDownGroup {
 // Signum's SendNotificationEmailTaskEntity: a ScheduledTask that mails every user their unattended alerts.
 // The app widens `ScheduledTaskEntity.task` to include it (altea's AssertImplementedBy, checked in
 // AlertLogic.registerAlertNotificationMail).
-@reflect
 @entity("Shared", "Master")
 export class SendNotificationEmailTaskEntity extends Entity {
 

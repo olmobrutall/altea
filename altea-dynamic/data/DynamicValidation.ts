@@ -37,7 +37,6 @@ import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eva
  */
 export type IDynamicValidationEvaluator = (e: Entity, fi: FieldInfo) => string | null;
 
-@reflect
 @entity("Shared", "Master")
 export class DynamicValidationEntity extends Entity {
 

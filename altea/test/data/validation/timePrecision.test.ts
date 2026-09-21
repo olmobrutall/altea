@@ -6,7 +6,7 @@ import {
     ValidationMessage, timePrecisionValidator, TimePrecisionValidator, DateTimePrecision,
 } from "@altea/altea/data/validators";
 import { getTimePrecision } from "@altea/altea/data/globals/dateTimeExtensions";
-import { reflect, getTypeInfo, defaultFormat } from "@altea/altea/data/reflection";
+import { getTypeInfo, defaultFormat } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity } from "@altea/altea/data/decorators";
 import { Temporal } from "@altea/altea/data/basics";
@@ -17,7 +17,6 @@ import { Enum } from "@altea/altea/data/enum";
 // derives no display format (see the validator's header) and it does not size the column, which is true
 // of its date sibling as well — Signum's GetSqlPrecision reads no validator at all.
 
-@reflect
 @entity("Main", "Master")
 class TimeSample extends Entity {
     @timePrecisionValidator(DateTimePrecision.Minutes)

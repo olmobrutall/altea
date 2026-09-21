@@ -2,7 +2,7 @@ import { Entity } from "./entity";
 import type { IQuery } from "./iquery";
 import { Lite } from "./lite";
 import { column, entity, format, implementedBy, implementedByAll, legacyPropertyRoute, quoted, serialize, ticksColumn } from "./decorators";
-import { reflect, setDatabaseSchema } from "./reflection";
+import { setDatabaseSchema } from "./reflection";
 import { Temporal } from "./basics";
 import { OperationSymbol } from "./operations";
 import { ExceptionEntity } from "./exception";
@@ -28,7 +28,6 @@ import type { IUserEntity } from "./security";
 //    Postgres. What altea has no counterpart for is Signum's `[Unit("ms")]` (a registered expression
 //    carries no unit), so the unit lives in the member NAME, as @altea/altea-rest and -view-log spell it.
 //  - TicksColumn(false) has no altea decorator yet; left as the schema default (as ExceptionEntity does).
-@reflect
 @entity("System", "Transactional")
 // Signum's [TicksColumn(false)] — the engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.

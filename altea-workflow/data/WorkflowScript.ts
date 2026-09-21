@@ -21,7 +21,6 @@ import type { IWorkflowScriptExecutor } from "./WorkflowEval";
 //    the user-asset XML round-trips them. See `customTypes` below.
 //  - `Guid` → a uuid PRIMARY KEY (the IUserAssetEntity convention).
 
-@reflect
 @primaryKey("uuid")
 @entity("Shared", "Master")
 export class WorkflowScriptEntity extends Entity implements IUserAssetEntity {
@@ -79,7 +78,6 @@ export namespace WorkflowScriptOperation {
 const retryRuleRegex = /^\s*\d+[smhd](\s*,\s*\d+[smhd])*\s*$/i;
 const retryPartRegex = /\d+[smhd]/gi;
 
-@reflect
 @primaryKey("uuid")
 @entity("Shared", "Master")
 export class WorkflowScriptRetryStrategyEntity extends Entity implements IUserAssetEntity {

@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { entity } from "@altea/altea/data/decorators";
 import { Symbol } from "@altea/altea/data/symbol";
 import type { ChartScriptColumn } from "./ChartScriptColumn";
@@ -9,7 +9,6 @@ import type { ChartScriptParameter, ChartScriptParameterGroup } from "./ChartScr
 // Signum's `[EntityKind(SystemString, Master, IsLowPopulation = true)] class ChartScriptSymbol : Symbol`.
 // The identity of a chart TYPE (Bars, Pie, …); its own SystemString symbol table (like OperationSymbol),
 // seeded + read back by SymbolLogic. Instances are declared in the AutoInit groups below.
-@reflect
 @entity("SystemString", "Master")
 export class ChartScriptSymbol extends Symbol {
 }

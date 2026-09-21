@@ -16,7 +16,6 @@ import type { IWorkflowConditionEvaluator } from "./WorkflowEval";
 //  - `Guid` → a uuid PRIMARY KEY (the IUserAssetEntity convention).
 //  - `ToXml` / `FromXml` are server-only (WorkflowXml.server.ts), not members of the isomorphic entity.
 
-@reflect
 @primaryKey("uuid")
 @entity("Shared", "Master")
 export class WorkflowConditionEntity extends Entity implements IUserAssetEntity {

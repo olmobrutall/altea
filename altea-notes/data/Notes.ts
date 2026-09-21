@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import type { IQuery } from "@altea/altea/data/iquery";
@@ -19,7 +19,6 @@ import type { IUserEntity } from "@altea/altea/data/security";
 // — then it has a key and SemiSymbolLogic keeps it in step — or created by a USER at runtime, when it has
 // only a name and the synchronizer leaves it alone.
 
-@reflect
 @entity("Main", "Transactional")
 export class NoteEntity extends Entity {
 
@@ -51,7 +50,6 @@ export class NoteEntity extends Entity {
 
 /** Signum's NoteTypeSymbol — a SemiSymbol: declared in code (it gets a key) or created by a user (it gets
  *  only a name). @entity("String") because the table IS user-writable, unlike a Symbol's. */
-@reflect
 @entity("String", "Master")
 export class NoteTypeSymbol extends SemiSymbol {
 }

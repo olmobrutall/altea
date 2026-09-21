@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { IQuery } from "@altea/altea/data/iquery";
@@ -23,7 +23,6 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 //
 // Port of Signum.WhatsNew's WhatsNew.cs + WhatsNewLog.cs — see port/WhatsNew.md.
 
-@reflect
 @entity("Main", "Master")
 export class WhatsNewEntity extends Entity {
     @stringLengthValidator({ max: 30 })
@@ -55,7 +54,6 @@ export class WhatsNewEntity extends Entity {
 }
 
 /** The news item in ONE culture, as this owner's `@part` row. */
-@reflect
 @part
 export class WhatsNewMessageEntity extends Entity {
     @backReference whatsNew: Lite<WhatsNewEntity>;
@@ -73,7 +71,6 @@ export class WhatsNewMessageEntity extends Entity {
 }
 
 /** One attachment, as this owner's `@part` row wrapping a FilePathEmbedded. */
-@reflect
 @part
 export class WhatsNewEntity_Attachment extends Entity {
     @backReference whatsNew: Lite<WhatsNewEntity>;
@@ -104,7 +101,6 @@ export namespace WhatsNewFileType {
 }
 
 /** Who has read which news item, and when. */
-@reflect
 @entity("System", "Transactional")
 export class WhatsNewLogEntity extends Entity {
     whatsNew: Lite<WhatsNewEntity>;

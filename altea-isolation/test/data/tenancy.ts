@@ -1,4 +1,4 @@
-import { reflect } from "@altea/altea/data/reflection";
+import { field } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { entity, quoted, uniqueIndex } from "@altea/altea/data/decorators";
@@ -18,7 +18,6 @@ import { stringLengthValidator } from "@altea/altea/data/validators";
 // A fourth type is deliberately absent: `assertIsolationStrategies` is exercised by REGISTERING nothing
 // for one of these (see isolationStartup.test.ts), which needs no extra entity.
 
-@reflect
 @entity("String", "Transactional")
 export class ProjectEntity extends Entity {
     @uniqueIndex
@@ -28,7 +27,6 @@ export class ProjectEntity extends Entity {
     @quoted toString(): string { return this.name; }
 }
 
-@reflect
 @entity("String", "Master")
 export class TagEntity extends Entity {
     @stringLengthValidator({ min: 1, max: 100 })
@@ -37,7 +35,6 @@ export class TagEntity extends Entity {
     @quoted toString(): string { return this.name; }
 }
 
-@reflect
 @entity("String", "Master")
 export class CatalogEntity extends Entity {
     @stringLengthValidator({ min: 1, max: 100 })

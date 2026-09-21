@@ -1,4 +1,4 @@
-import { reflect } from "@altea/altea/data/reflection";
+import { field } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity, quoted, ticksColumn, uniqueIndex } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
@@ -14,7 +14,6 @@ import { stringLengthValidator } from "@altea/altea/data/validators";
 // data, not schema. So the renames are captured into versioned `.tokens.json` files beside the SQL
 // migrations, and replayed against the stored assets; this table records which of those files have run.
 
-@reflect
 @entity("System", "Transactional")
 // Written once by the runner, never edited by a person.
 @ticksColumn(false)

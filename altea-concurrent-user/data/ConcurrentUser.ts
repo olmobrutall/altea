@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, implementedByAll, legacyColumnName, quoted } from "@altea/altea/data/decorators";
@@ -13,7 +13,6 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 // deletes on exit or disconnect.
 //
 // Port of Signum.ConcurrentUser's ConcurrentUser.cs — see port/ConcurrentUser.md.
-@reflect
 @entity("System", "Transactional")
 export class ConcurrentUserEntity extends Entity {
 

@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity, legacyTableName, quoted } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate } from "@altea/altea/data/validators";
@@ -31,7 +31,6 @@ import type { DeleteSymbol, ExecuteSymbol } from "@altea/altea/data/operations";
 //    `word`. A `setDefaultDatabaseSchema("excel")` beside it would REPLACE that scope, not add to it.
 //  - `[AutoExpressionField] ToString() => DisplayName` is a `@quoted` override, altea's same mechanism.
 
-@reflect
 @entity("Main", "Master")
 export class ExcelReportEntity extends Entity {
     query: QueryEntity;

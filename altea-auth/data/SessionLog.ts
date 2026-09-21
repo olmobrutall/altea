@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity, quoted, legacyPropertyRoute } from "@altea/altea/data/decorators";
 import { stringLengthValidator, dateTimePrecisionValidator, DateTimePrecision } from "@altea/altea/data/validators";
@@ -27,7 +27,6 @@ import { UserEntity } from "./User";
 //  - `Duration` is a `@quoted` member returning a plain `number | null`, so it is a real query column
 //    (@altea/altea-rest and -view-log make the same move for theirs).
 
-@reflect
 @entity("System", "Transactional")
 export class SessionLogEntity extends Entity {
     user: Lite<UserEntity>;

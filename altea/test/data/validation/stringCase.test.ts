@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import { entityIntegrityCheck } from "@altea/altea/data/validation";
 import { stringCaseValidator, StringCase, StringCaseValidator } from "@altea/altea/data/validators";
-import { reflect, getTypeInfo, defaultFormat } from "@altea/altea/data/reflection";
+import { getTypeInfo, defaultFormat } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity } from "@altea/altea/data/decorators";
 import { Enum } from "@altea/altea/data/enum";
@@ -14,7 +14,6 @@ import { enumNameOf } from "@altea/altea/data/registration";
 // nothing on the FieldInfo and it does not touch the column. The "does not correct" case below is the one
 // worth pinning — a validator that silently upper-cased the value would pass every other test here.
 
-@reflect
 @entity("Main", "Master")
 class StringCaseSample extends Entity {
     @stringCaseValidator(StringCase.Uppercase)

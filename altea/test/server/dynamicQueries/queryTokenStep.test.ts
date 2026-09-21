@@ -1,7 +1,7 @@
 import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
-import { reflect } from "@altea/altea/data/reflection"; // anchor for the transformer's @field injection
+import { field } from "@altea/altea/data/reflection"; // anchor for the transformer's @field injection
 import { Entity, type BaseEntity, type Type } from "@altea/altea/data/entity";
 import { entity, decimalsValidator } from "@altea/altea/data/decorators";
 import { Decimal, type float, type int } from "@altea/altea/data/basics";
@@ -28,7 +28,6 @@ import { MusicLogic } from "../MusicLogic";
 
 const O = SubTokensOptionsAll;
 
-@reflect
 @entity("Main", "Master")
 class StepProbeEntity extends Entity {
     counter: int;

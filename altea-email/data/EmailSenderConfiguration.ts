@@ -36,7 +36,6 @@ export enum SmtpDeliveryMethod {
 }
 
 // Signum's EmailServiceEntity — the abstract "sending mechanism" a configuration points at.
-@reflect
 @part
 export abstract class EmailServiceEntity extends Entity {
     abstract clone(): EmailServiceEntity;
@@ -142,7 +141,6 @@ export class EmailSenderConfigurationEntity_AdditionalRecipient extends EmailRec
 }
 
 // Signum's EmailSenderConfigurationEntity.
-@reflect
 @entity("Shared", "Master")
 export class EmailSenderConfigurationEntity extends Entity {
     @uniqueIndex

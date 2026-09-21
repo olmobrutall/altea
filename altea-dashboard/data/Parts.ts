@@ -1,7 +1,7 @@
 // The `reflect` import must be PRESENT even where no class is decorated with it: the quote-transformer
 // augments THIS import with the `field()` / `registerType()` helpers it injects for every entity field, and
 // without it the emitted module throws "field is not defined" at load time.
-import { reflect, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
+import { setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { legacyColumnName, part, backReference, rowOrder } from "@altea/altea/data/decorators";

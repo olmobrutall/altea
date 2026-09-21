@@ -24,7 +24,6 @@ import { TypeEntity } from "./typeEntity";
  * a downstream package, so the list is widened there (altea-scheduler's data/DeleteLogsTask.ts), the
  * accommodation altea-auth's RoleMappingEntity already uses.
  */
-@reflect
 @part
 export class DeleteLogsTypeOverridesEmbedded extends Entity {
     // Signum's [PreserveOrder] on the collection.

@@ -71,7 +71,6 @@ Enum.markAsNotMapped(CaseActivityState, CaseActivityState.New);
 // The two filtered indexes on the include (`.withIndex(a => new { a.scriptExecution!.processIdentifier },
 // a => a.DoneDate == null)` and the same for NextExecution) — the two lookups the script runner does on
 // every pass, over the tiny slice of rows that are still pending.
-@reflect
 @index<CaseActivityEntity>(a => [a.scriptExecution!.processIdentifier], a => a.doneDate == null)
 @index<CaseActivityEntity>(a => [a.scriptExecution!.nextExecution], a => a.doneDate == null)
 @entity("System", "Transactional")
@@ -180,7 +179,6 @@ export namespace CaseActivityProcessAlgorithm {
 
 /** One row per firing of a BoundaryForkTimer, which is how
  *  `runRepeatedly` knows when it last fired. */
-@reflect
 @entity("System", "Transactional")
 export class CaseActivityExecutedTimerEntity extends Entity {
 

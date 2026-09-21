@@ -1,4 +1,4 @@
-import { reflect, init, MAX_SIZE } from "@altea/altea/data/reflection";
+import { init, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Symbol } from "@altea/altea/data/symbol";
@@ -34,7 +34,6 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 // Port of Signum.Processes' Process.cs — see port/Processes.md.
 
 /** Names a registered algorithm (ProcessLogic.register). */
-@reflect
 @entity("SystemString", "Master")
 export class ProcessAlgorithmSymbol extends Symbol {
 }
@@ -54,7 +53,6 @@ export enum ProcessState {
     Error,
 }
 
-@reflect
 @entity("Main", "Transactional")
 // The engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.
@@ -179,7 +177,6 @@ export class ProcessEntity extends Entity {
 
 /** One element a process failed on, so the run continues past it and
  *  the failures stay individually inspectable. */
-@reflect
 @entity("System", "Transactional")
 export class ProcessExceptionLineEntity extends Entity {
 

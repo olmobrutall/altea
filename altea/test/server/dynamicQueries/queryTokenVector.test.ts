@@ -1,7 +1,7 @@
 import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
-import { reflect } from "@altea/altea/data/reflection";
+import { field } from "@altea/altea/data/reflection";
 import { Entity, type BaseEntity, type Type } from "@altea/altea/data/entity";
 import { entity, column, vectorIndex } from "@altea/altea/data/decorators";
 import { Vector } from "@altea/altea/data/vector";
@@ -26,7 +26,6 @@ import { SimplePassageEntity } from "../../data/simplePassage";
 
 const O = SubTokensOptionsAll;
 
-@reflect
 @entity("Main", "Master")
 // Metrics deliberately NOT the default on either dialect, so the expression is shown to read them.
 @vectorIndex<VecProbeEntity>(a => a.indexed, { postgres: { metric: "L2" }, sqlServer: { metric: "Euclidean" } })
@@ -38,7 +37,6 @@ class VecProbeEntity extends Entity {
     unindexed: Vector | null;
 }
 
-@reflect
 @entity("Main", "Master")
 @vectorIndex<BitVecProbeEntity>(a => a.bits, { postgres: { metric: "Hamming" } })
 class BitVecProbeEntity extends Entity {

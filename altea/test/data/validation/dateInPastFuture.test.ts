@@ -6,7 +6,7 @@ import {
     ValidationMessage, ComparisonType,
     dateInPastValidator, dateInFutureValidator, yearGreaterThanValidator, YearGreaterThanValidator,
 } from "@altea/altea/data/validators";
-import { reflect, getTypeInfo } from "@altea/altea/data/reflection";
+import { getTypeInfo } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity } from "@altea/altea/data/decorators";
 import { Temporal } from "@altea/altea/data/basics";
@@ -17,7 +17,6 @@ import { Enum } from "@altea/altea/data/enum";
 // are the only validators in the set whose answer depends on WHEN they run, and they read `Clock` rather
 // than the wall clock — so an application's UTC/local choice applies and a test can pin the value.
 
-@reflect
 @entity("Main", "Master")
 class WhenSample extends Entity {
     @dateInPastValidator()

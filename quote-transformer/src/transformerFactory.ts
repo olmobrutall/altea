@@ -522,12 +522,35 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
   // gets no @field injection at all and is invisible to reflection.
   const FIELD_INJECTING_DECORATORS = new Set(["reflect", "entity", "part"]);
   function hasReflectionDecorator(node: ts.ClassDeclaration): boolean {
-    return node.modifiers?.some(m =>
-      ts.isDecorator(m) && (
-        (ts.isIdentifier(m.expression) && FIELD_INJECTING_DECORATORS.has(m.expression.text)) ||
-        (ts.isCallExpression(m.expression) && ts.isIdentifier(m.expression.expression) && FIELD_INJECTING_DECORATORS.has(m.expression.expression.text))
-      )
-    ) ?? false;
+    return decoratorNames(node).some(n => FIELD_INJECTING_DECORATORS.has(n));
+  }
+
+  // The name of each decorator on the class, bare (`@part`) or called (`@entity(...)`) alike.
+  function decoratorNames(node: ts.ClassDeclaration): string[] {
+    const names: string[] = [];
+    for (const m of node.modifiers ?? []) {
+      if (!ts.isDecorator(m)) continue;
+      const e = m.expression;
+      if (ts.isIdentifier(e)) names.push(e.text);
+      else if (ts.isCallExpression(e) && ts.isIdentifier(e.expression)) names.push(e.expression.text);
+    }
+    return names;
+  }
+
+  // @reflect, @entity and @part are three spellings of ONE registration: @entity and @part both route
+  // through defineEntity, which does the same getOrCreateTypeInfo + registerType that @reflect does, and
+  // this transformer injects @field for all three names alike. A class carrying two of them says the same
+  // thing twice, and the pair invites the reading that one of them contributes something the others do
+  // not. Exactly one, then — rejected here rather than left to drift into rival spellings in the source.
+  function assertSingleReflectionDecorator(node: ts.ClassDeclaration, sourceFile: ts.SourceFile): void {
+    const found = decoratorNames(node).filter(n => FIELD_INJECTING_DECORATORS.has(n));
+    if (found.length < 2) return;
+    const list = found.map(n => `@${n}`);
+    throw new Error(
+      `${sourceFile.fileName}: class ${node.name?.text ?? "(anonymous)"} carries ` +
+      `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}. @reflect, @entity and @part are three ` +
+      `spellings of the same registration — a class declares exactly ONE: @entity or @part for a persistent ` +
+      `entity, @reflect for a class that is reflected but not persisted (the abstract Entity base, models, DTOs, views).`);
   }
 
   function hasThisReference(node: ts.Node): boolean {
@@ -734,9 +757,12 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     );
   }
 
-  // Adds 'field' to whatever import already brings in 'reflect'.
-  // Both live in the same module (e.g. ./reflection), so field auto-injection
-  // works for any reflective class (entities, models, DTOs, views, ...).
+  // The reflection module, by specifier: './reflection', '../data/reflection', '@altea/altea/data/reflection', …
+  // It exports 'field' and the register* functions, so any value import from it can carry an injected one.
+  const REFLECTION_MODULE = /(^|\/)reflection$/;
+
+  // Adds 'field' to whatever import already pulls from the reflection module, which is where 'field'
+  // lives — so field auto-injection works for any reflective class (entities, parts, models, DTOs, views).
   function ensureFieldImport(sourceFile: ts.SourceFile): ts.SourceFile {
     // If 'field' is already imported anywhere, nothing to do
     const hasFieldImport = sourceFile.statements.some(stmt => {
@@ -746,16 +772,18 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     });
     if (hasFieldImport) return sourceFile;
 
-    // Find the import that has 'reflect' and add 'field' alongside it. 'field' and
-    // 'reflect' both live in the reflection module, so field auto-injection anchors on
-    // the reflect import. Every reflected file (entity / view) imports
-    // 'reflect' for exactly this reason.
+    // Add 'field' to whatever import already pulls from the REFLECTION MODULE, which is where 'field'
+    // lives. The anchor is the module specifier, not any particular binding: it used to be the 'reflect'
+    // import, but @entity / @part classes have no reason to import 'reflect' at all (it is redundant
+    // beside them — see assertSingleReflectionDecorator), and such a file would have had nothing to anchor on.
+    // A type-only import is skipped: it cannot carry a value binding.
     let patched = false;
     const newStatements = sourceFile.statements.map(stmt => {
       if (patched || !ts.isImportDeclaration(stmt)) return stmt;
+      if (!ts.isStringLiteral(stmt.moduleSpecifier) || !REFLECTION_MODULE.test(stmt.moduleSpecifier.text)) return stmt;
+      if (stmt.importClause?.isTypeOnly) return stmt;
       const nb = stmt.importClause?.namedBindings;
       if (nb == null || !ts.isNamedImports(nb)) return stmt;
-      if (!nb.elements.some(e => e.name.text === 'reflect')) return stmt;
       patched = true;
       const newEl = ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('field'));
       const newNb = ts.factory.updateNamedImports(nb, [...nb.elements, newEl]);
@@ -764,16 +792,16 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
       return ts.factory.updateImportDeclaration(stmt, stmt.modifiers, newClause, stmt.moduleSpecifier, stmt.attributes);
     });
 
-    // A class decorated with @entity / @part but NOT @reflect still gets `field(...)` injected, and there
-    // is then no import to anchor on — the emit references a binding that does not exist. tsc sees nothing
+    // A reflected class gets `field(...)` injected, and with no import from the reflection module there is
+    // nothing to anchor on — the emit would reference a binding that does not exist. tsc sees nothing
     // wrong (the call was injected after checking), so the first sign is `ReferenceError: field is not
     // defined` when the module is loaded, which points at the wrong thing entirely. Fail HERE instead,
     // unless the file declares its own `field` (which is how the transformer's own fixtures supply one).
     if (!patched && !declaresOwnField(sourceFile))
       throw new Error(
-        `${sourceFile.fileName}: the quote-transformer injected field(...) but the file imports no 'reflect' ` +
-        `to anchor the 'field' import on, so the emitted JS would reference an undefined binding. ` +
-        `Import 'reflect' from the reflection module (a reflected class needs it anyway).`);
+        `${sourceFile.fileName}: the quote-transformer injected field(...) but the file has no value import ` +
+        `from the reflection module to anchor the 'field' import on, so the emitted JS would reference an ` +
+        `undefined binding. Import 'field' from the reflection module.`);
 
     return ts.factory.updateSourceFile(sourceFile, newStatements);
   }
@@ -792,12 +820,16 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
 
   const FILE_INFO_LOCAL = "__fileInfo";
 
-  // Adds `importName` to the first existing import that brings in any of `anchors`
-  // (no-op if already imported, or if no anchor import is present). Piggybacking on
-  // an existing import means the transformer never needs to know the module path:
+  // Adds `importName` to the first existing import that brings in any of `anchors`, or that comes from a
+  // module whose specifier matches `moduleAnchor` (no-op if already imported, or if neither is present).
+  // Piggybacking on an existing import means the transformer never needs to know the module path:
   // reflect / register* come from reflection, msg from localization — all of which
   // export the register* functions (localization re-exports them from the leaf).
-  function ensureImported(sourceFile: ts.SourceFile, importName: string, anchors: ReadonlySet<string>): ts.SourceFile {
+  //
+  // The specifier anchor is what makes an @entity / @part file work: such a file has no reason to import
+  // 'reflect' (redundant beside them — see assertSingleReflectionDecorator), so a name-only anchor would find
+  // nothing and silently skip the import, leaving the emitted registerType(...) call undefined.
+  function ensureImported(sourceFile: ts.SourceFile, importName: string, anchors: ReadonlySet<string>, moduleAnchor?: RegExp): ts.SourceFile {
     const already = sourceFile.statements.some(stmt => {
       if (!ts.isImportDeclaration(stmt)) return false;
       const nb = stmt.importClause?.namedBindings;
@@ -808,9 +840,12 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     let patched = false;
     const newStatements = sourceFile.statements.map(stmt => {
       if (patched || !ts.isImportDeclaration(stmt)) return stmt;
+      if (stmt.importClause?.isTypeOnly) return stmt;
       const nb = stmt.importClause?.namedBindings;
       if (nb == null || !ts.isNamedImports(nb)) return stmt;
-      if (!nb.elements.some(e => anchors.has(e.name.text))) return stmt;
+      const bySpecifier = moduleAnchor != null && ts.isStringLiteral(stmt.moduleSpecifier)
+        && moduleAnchor.test(stmt.moduleSpecifier.text);
+      if (!bySpecifier && !nb.elements.some(e => anchors.has(e.name.text))) return stmt;
       patched = true;
       const newEl = ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier(importName));
       const newNb = ts.factory.updateNamedImports(nb, [...nb.elements, newEl]);
@@ -1406,6 +1441,7 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
 
         if (ts.isClassDeclaration(node)) {
           // Check BEFORE visiting children (type checker works on original AST)
+          assertSingleReflectionDecorator(node, sourceFile);
           const isReflection = hasReflectionDecorator(node);
           const visited = ts.visitEachChild(node, visit, ctx) as ts.ClassDeclaration;
 
@@ -1472,16 +1508,16 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
       if (sourceLocation != null && (hasAppends || usedFileInfo)) {
         // Location resolved: declare one __fileInfo object literal and pass it to
         // every register* call, so the package/file literals aren't repeated.
-        if (registerNames.length > 0) result = ensureImported(result, "registerType", REFLECT_ANCHOR);
-        if (autoEnumNames.length > 0) result = ensureImported(result, "registerEnum", REFLECT_ANCHOR);
-        if (registerObjectNames.length > 0) result = ensureImported(result, "registerObject", OBJECT_ANCHOR);
+        if (registerNames.length > 0) result = ensureImported(result, "registerType", REFLECT_ANCHOR, REFLECTION_MODULE);
+        if (autoEnumNames.length > 0) result = ensureImported(result, "registerEnum", REFLECT_ANCHOR, REFLECTION_MODULE);
+        if (registerObjectNames.length > 0) result = ensureImported(result, "registerObject", OBJECT_ANCHOR, REFLECTION_MODULE);
         result = insertFileInfoDecl(result, sourceLocation);
         result = appendRegistrations(result, registerNames, autoEnumNames, registerObjectNames, sourceLocation);
       } else if (hasAppends) {
         // No resolvable package: register without a __fileInfo argument.
-        if (registerNames.length > 0) result = ensureImported(result, "registerType", REFLECT_ANCHOR);
-        if (autoEnumNames.length > 0) result = ensureImported(result, "registerEnum", REFLECT_ANCHOR);
-        if (registerObjectNames.length > 0) result = ensureImported(result, "registerObject", OBJECT_ANCHOR);
+        if (registerNames.length > 0) result = ensureImported(result, "registerType", REFLECT_ANCHOR, REFLECTION_MODULE);
+        if (autoEnumNames.length > 0) result = ensureImported(result, "registerEnum", REFLECT_ANCHOR, REFLECTION_MODULE);
+        if (registerObjectNames.length > 0) result = ensureImported(result, "registerObject", OBJECT_ANCHOR, REFLECTION_MODULE);
         result = appendRegistrations(result, registerNames, autoEnumNames, registerObjectNames, null);
       }
 

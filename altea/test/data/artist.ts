@@ -2,7 +2,7 @@ import { entity, part, implementedByAll, backReference, valueField, quoted } fro
 import { Entity } from "@altea/altea/data/entity";
 import type { PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
-import { init, reflect } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import type { ConstructSymbol, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 
 // Signum's IAuthorEntity: the shared interface behind AlbumEntity.Author /

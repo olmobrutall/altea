@@ -61,7 +61,6 @@ export enum SMSMessageState {
     DeliveryFailed,
 }
 
-@reflect
 @entity("Main", "Transactional")
 export class SMSMessageEntity extends Entity {
 
@@ -181,12 +180,10 @@ export abstract class SMSPackageEntity extends Entity {
     @quoted toString(): string { return this.name ?? ""; }
 }
 
-@reflect
 @entity("System", "Transactional")
 export class SMSSendPackageEntity extends SMSPackageEntity {
 }
 
-@reflect
 @entity("System", "Transactional")
 export class SMSUpdatePackageEntity extends SMSPackageEntity {
 }
@@ -199,7 +196,6 @@ export enum MessageLengthExceeded {
     TextPruning,
 }
 
-@reflect
 @entity("Main", "Master")
 export class SMSTemplateEntity extends Entity {
 
@@ -261,7 +257,6 @@ function hasDuplicateCulture(messages: readonly SMSTemplateEntity_Message[]): bo
 }
 
 /** The text for ONE culture. A collection row, hence an entity. */
-@reflect
 @part
 export class SMSTemplateEntity_Message extends Entity {
 
@@ -306,7 +301,6 @@ export const SMSTemplateMessage = {
  * `sms.sms_model.full_class_name` in a Signum database, and renaming it would break exactly the parity the
  * other two just gained. See port/Sms.md for when that changes.
  */
-@reflect
 @entity("SystemString", "Master")
 export class SMSModelEntity extends Entity {
 

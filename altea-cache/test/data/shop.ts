@@ -24,7 +24,6 @@ export class GeoEmbedded extends EmbeddedEntity {
     longitude: Decimal;
 }
 
-@reflect
 @entity("String", "Master")
 export class DepartmentEntity extends Entity {
     @stringLengthValidator({ min: 1, max: 100 })
@@ -33,7 +32,6 @@ export class DepartmentEntity extends Entity {
     @quoted toString(): string { return this.name; }
 }
 
-@reflect
 @entity("String", "Master")
 export class CurrencyEntity extends Entity {
     @stringLengthValidator({ min: 1, max: 10 })
@@ -49,7 +47,6 @@ export class CurrencyEntity extends Entity {
     }
 }
 
-@reflect
 @entity("Main", "Transactional")
 export class EmployeeEntity extends Entity {
     @stringLengthValidator({ min: 1, max: 100 })
@@ -83,7 +80,6 @@ export class EmployeeLite extends LiteImp<EmployeeEntity> {
 
 registerCustomLite(EmployeeEntity, EmployeeLite, e => new EmployeeLite(e.id, e.toString(), e.email), true);
 
-@reflect
 @entity("Main", "Transactional")
 export class OrderEntity extends Entity {
     @stringLengthValidator({ min: 1, max: 50 })
@@ -97,7 +93,6 @@ export class OrderEntity extends Entity {
     }
 }
 
-@reflect
 @entity("Main", "Master")
 export class CountryEntity extends Entity {
     @stringLengthValidator({ min: 2, max: 3 })
@@ -131,7 +126,6 @@ export class CountryEntity extends Entity {
     @quoted toString(): string { return this.name; }
 }
 
-@reflect
 @part
 export class CountryEntity_Region extends Entity {
     @backReference country: Lite<CountryEntity>;

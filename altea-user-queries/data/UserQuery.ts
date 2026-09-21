@@ -203,7 +203,6 @@ export class HealthCheckEmbedded extends EmbeddedEntity {
 // replaced by a uuid PRIMARY KEY (`@primaryKey("uuid")`). The `id` IS the stable, portable identity used
 // by XML export/import — so IUserAssetEntity is a bare marker (no `guid` field) and there is no separate
 // unique index. (Import sets `entity.id` to the incoming uuid before saving.)
-@reflect
 @primaryKey("uuid")
 @entity("Main", "Master")
 export class UserQueryEntity extends Entity implements IUserAssetEntity, IHasEntityType {

@@ -1,4 +1,4 @@
-import { reflect } from "@altea/altea/data/reflection";
+import { field } from "@altea/altea/data/reflection";
 import { Entity, type PrimaryKey } from "@altea/altea/data/entity";
 import { entity, ticksColumn } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
@@ -24,7 +24,6 @@ import { UserEntity } from "./User";
 //    halves. The secret is a v4 GUID today, so this is latent there; anchoring the id to the digits/GUID
 //    shape it actually has costs nothing and cannot mis-split.
 
-@reflect
 @entity("System", "Transactional")
 // Engine-written rows, never edited by a person, so no concurrency stamp.
 @ticksColumn(false)

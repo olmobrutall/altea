@@ -108,7 +108,6 @@ export function typeBasicToProperty(ta: TypeAllowedBasic): PropertyAllowed {
 // that grant one belong here. Deliberately NOT re-exported: a module that declares a permission should
 // import it from core and take no dependency on this package, which is the whole point of the move.
 
-@reflect
 @entity("SystemString", "Master")
 export class TypeConditionSymbol extends Symbol {
 }

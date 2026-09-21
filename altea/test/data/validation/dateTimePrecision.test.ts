@@ -4,7 +4,7 @@ import "@altea/altea/data/globals";
 import "@altea/altea/data/dynamicQuery/tokens/factories"; // register metadata factories → local subtoken gen
 import { entityIntegrityCheck } from "@altea/altea/data/validation";
 import { dateTimePrecisionValidator, DateTimePrecision } from "@altea/altea/data/validators";
-import { reflect, getTypeInfo, defaultFormat } from "@altea/altea/data/reflection";
+import { getTypeInfo, defaultFormat } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity, format } from "@altea/altea/data/decorators";
 import { Temporal } from "@altea/altea/data/basics";
@@ -17,7 +17,6 @@ import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/query
 // — Signum's GetSqlPrecision has that lookup commented out — so there is nothing to pin in the schema
 // suite, unlike DecimalsValidator's scale.
 
-@reflect
 @entity("Main", "Master")
 class DtpSample extends Entity {
     @dateTimePrecisionValidator(DateTimePrecision.Seconds)

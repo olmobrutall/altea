@@ -43,7 +43,6 @@ export interface ICaseMainEntity extends Entity {
     currentUserHasNotification?(): Promise<boolean>;
 }
 
-@reflect
 @entity("System", "Transactional")
 export class CaseEntity extends Entity {
 
@@ -80,7 +79,6 @@ export namespace CaseOperation {
 
 // ---- Tags -----------------------------------------------------------------------------------------------
 
-@reflect
 @entity("Main", "Master")
 export class CaseTagTypeEntity extends Entity {
 
@@ -103,7 +101,6 @@ export namespace CaseTagTypeOperation {
     export const Save: ExecuteSymbol<CaseTagTypeEntity> = init();
 }
 
-@reflect
 @entity("System", "Transactional")
 export class CaseTagEntity extends Entity {
 

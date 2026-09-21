@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, unit, quoted } from "@altea/altea/data/decorators";
@@ -30,7 +30,6 @@ export function toAzureSize(size: number): number {
     return azureImageSizes.find(s => size <= s) ?? 648;
 }
 
-@reflect
 @entity("System", "Transactional")
 export class CachedProfilePhotoEntity extends Entity {
     user: Lite<UserEntity>;

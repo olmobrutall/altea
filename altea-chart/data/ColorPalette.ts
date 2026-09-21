@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { legacyColumnName, entity, part, backReference, rowOrder, implementedByAll, uniqueIndex, quoted } from "@altea/altea/data/decorators";
@@ -48,7 +48,6 @@ export class ColorPaletteEntity_SpecificColor extends Entity {
 }
 
 // Signum's ColorPaletteEntity.
-@reflect
 @entity("Main", "Master")
 export class ColorPaletteEntity extends Entity {
     // Signum's `[UniqueIndex] TypeEntity Type` — at most one palette per type.

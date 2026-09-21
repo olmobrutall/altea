@@ -1,4 +1,4 @@
-import { reflect, init } from "./reflection";
+import { init } from "./reflection";
 import { Entity } from "./entity";
 import { Lite } from "./lite";
 import { entity, implementedBy, uniqueIndex, quoted } from "./decorators";
@@ -21,7 +21,6 @@ import type { DeleteSymbol } from "./operations";
 // is the DEVELOPERS' list, compiled into the client, and it is per MODULE — which is what lets the app's own
 // "Update Altea" line pull the framework's entries into the app's deployment timeline (`getChangeLogs`).
 
-@reflect
 @entity("System", "Transactional")
 export class ChangeLogViewLogEntity extends Entity {
 

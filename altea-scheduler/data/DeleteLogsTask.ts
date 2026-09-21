@@ -1,4 +1,4 @@
-import { init, reflect } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { entity, overrideImplementedBy } from "@altea/altea/data/decorators";
 import { DeleteLogParametersEmbedded, DeleteLogsTypeOverridesEmbedded } from "@altea/altea/data/deleteLogs";
@@ -14,7 +14,6 @@ import { type ITaskEntity } from "./Scheduler";
 
 /** A ScheduledTask that trims every registered log table. One row per retention POLICY — an app that wants
  *  a gentle nightly sweep and an aggressive weekend one keeps two. */
-@reflect
 @entity("Main", "Master")
 export class DeleteLogsTaskEntity extends Entity implements ITaskEntity {
 

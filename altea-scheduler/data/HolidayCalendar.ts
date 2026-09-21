@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, part, backReference, uniqueIndex, quoted, primaryKey } from "@altea/altea/data/decorators";
@@ -32,7 +32,6 @@ export class HolidayCalendarEntity_Holiday extends Entity {
     }
 }
 
-@reflect
 @entity("Shared", "Master")
 // A FILTERED unique index, so at
 // most one calendar is the default while any number are not.

@@ -86,7 +86,6 @@ registerEnum(WorkflowIssueType);
 
 /** The strategies collection as this owner's `@part` row (a
  *  collection of scalars is a row carrying the value on its `@valueField`). */
-@reflect
 @part
 export class WorkflowEntity_MainEntityStrategy extends Entity {
     @backReference workflow: Lite<WorkflowEntity>;
@@ -100,7 +99,6 @@ export class WorkflowEntity_MainEntityStrategy extends Entity {
     }
 }
 
-@reflect
 @primaryKey("uuid")
 @entity("Main", "Master")
 export class WorkflowEntity extends Entity implements IUserAssetEntity {

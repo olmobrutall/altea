@@ -1,4 +1,4 @@
-import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { part, format, column } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { EmailServiceEntity } from "@altea/altea-email/data/EmailSenderConfiguration";
@@ -25,7 +25,6 @@ export enum ExchangeVersion {
     V2015_10_05,
 }
 
-@reflect
 @part
 export class ExchangeWebServiceEmailServiceEntity extends EmailServiceEntity {
 

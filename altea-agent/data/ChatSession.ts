@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { legacyColumnName, backReference, column, entity, part, quoted, rowOrder, serialize } from "@altea/altea/data/decorators";
@@ -44,7 +44,6 @@ export enum UserFeedback {
     Negative,
 }
 
-@reflect
 @entity("System", "Transactional")
 export class ChatSessionEntity extends Entity {
 
@@ -72,7 +71,6 @@ export namespace ChatSessionOperation {
     export const Delete: DeleteSymbol<ChatSessionEntity> = init();
 }
 
-@reflect
 @entity("System", "Transactional")
 export class ChatMessageEntity extends Entity {
 
@@ -150,7 +148,6 @@ export namespace ChatMessageOperation {
 }
 
 /** Signum's `MList<ToolCallEmbedded>` on ChatMessageEntity, as this owner's @part row. */
-@reflect
 @part
 export class ChatMessageEntity_ToolCall extends Entity {
     @backReference chatMessage: Lite<ChatMessageEntity>;

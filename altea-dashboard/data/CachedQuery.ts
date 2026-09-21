@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { legacyColumnName, entity, part, backReference, rowOrder, valueField, implementedBy, unit } from "@altea/altea/data/decorators";
@@ -44,7 +44,6 @@ export namespace CachedQueryFileType {
 }
 
 /** One entry of CachedQueryEntity.userAssets (Signum's MList element). */
-@reflect
 @part
 export class CachedQueryEntity_UserAsset extends Entity {
     @backReference cachedQuery: Lite<CachedQueryEntity>;
@@ -56,7 +55,6 @@ export class CachedQueryEntity_UserAsset extends Entity {
     userAsset: Lite<IUserAssetEntity>;
 }
 
-@reflect
 @entity("System", "Master")
 export class CachedQueryEntity extends Entity {
 

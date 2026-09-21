@@ -1,4 +1,4 @@
-import { reflect, init, MAX_SIZE } from "@altea/altea/data/reflection";
+import { init, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { column, entity, quoted } from "@altea/altea/data/decorators";
 import { stringLengthValidator, ValidationMessage, validate, ComparisonType, type StringCaseKeys } from "@altea/altea/data/validators";
@@ -176,7 +176,6 @@ export const PascalAscii = /^[A-Z][a-zA-Z0-9]*$/;
 
 // ---- the entity ----------------------------------------------------------------------------------------
 
-@reflect
 @entity("Main", "Master")
 export class DynamicTypeEntity extends Entity {
 

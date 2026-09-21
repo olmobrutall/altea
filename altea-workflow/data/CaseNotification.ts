@@ -24,7 +24,6 @@ export enum CaseNotificationState {
 }
 registerEnum(CaseNotificationState);
 
-@reflect
 @entity("System", "Transactional")
 export class CaseNotificationEntity extends Entity {
 

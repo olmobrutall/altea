@@ -1,4 +1,4 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, quoted } from "@altea/altea/data/decorators";
@@ -16,7 +16,6 @@ import type { ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 //
 // The mixin itself is usually a DynamicType with `baseType = MixinEntity`; it can equally be a hand-written
 // one, since the connection names it by clean type name.
-@reflect
 @entity("Main", "Master")
 export class DynamicMixinConnectionEntity extends Entity {
 

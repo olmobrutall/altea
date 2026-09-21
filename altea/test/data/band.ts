@@ -1,4 +1,4 @@
-import { reflect } from "@altea/altea/data/reflection";
+import { field } from "@altea/altea/data/reflection";
 import { entity, part, implementedBy, backReference, valueField, quoted } from "@altea/altea/data/decorators";
 import { Entity } from "@altea/altea/data/entity";
 import type { PrimaryKey } from "@altea/altea/data/entity";

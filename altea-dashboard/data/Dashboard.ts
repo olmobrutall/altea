@@ -237,7 +237,6 @@ export class CacheQueryConfigurationEmbedded extends EmbeddedEntity {
 
 // ---- The Dashboard entity -------------------------------------------------------------------------------
 
-@reflect
 @primaryKey("uuid")
 @entity("Main", "Master")
 export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEntityType {

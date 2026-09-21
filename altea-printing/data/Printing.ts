@@ -1,4 +1,4 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { IQuery } from "@altea/altea/data/iquery";
@@ -23,7 +23,6 @@ import type { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 // evaluate; PostgreSQL answered "cannot subscript type unknown" on every query of the table.
 //
 // Port of Signum.Printing's PrintLine.cs + PrintPackages.cs — see port/Printing.md.
-@reflect
 @entity("System", "Transactional")
 export class PrintLineEntity extends Entity {
     creationDate: Temporal.PlainDateTime = Clock.now;
@@ -86,7 +85,6 @@ export namespace PrintLineOperation {
 }
 
 /** One batch of lines, and what the PrintPackage process runs over. */
-@reflect
 @entity("System", "Transactional")
 export class PrintPackageEntity extends Entity {
     @stringLengthValidator({ max: 200 })

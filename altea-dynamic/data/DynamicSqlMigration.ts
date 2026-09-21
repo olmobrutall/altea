@@ -1,4 +1,4 @@
-import { reflect, init, MAX_SIZE } from "@altea/altea/data/reflection";
+import { init, MAX_SIZE } from "@altea/altea/data/reflection";
 import type { IUserEntity } from "@altea/altea/data/security";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
@@ -22,7 +22,6 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 //    the browser", and it records its executions here rather than there.
 //  - `DynamicSqlMigrationMessage.PreventingGenerationNewScript…` is kept but can no longer trigger: it
 //    guarded against generating a script while the dynamic C# failed to compile.
-@reflect
 @entity("Main", "Transactional")
 export class DynamicSqlMigrationEntity extends Entity {
 
@@ -63,7 +62,6 @@ export class DynamicSqlMigrationEntity extends Entity {
 // In Signum the rows are written by the dynamic-TYPE editor, which needs Roslyn and does not port; here
 // they are written by hand (or by `DynamicSqlMigrationLogic.addDynamicRename`) — which is the point, since
 // a rename recorded once is then applied by every later `sync` of that database without a prompt.
-@reflect
 @entity("Main", "Transactional")
 export class DynamicRenameEntity extends Entity {
 

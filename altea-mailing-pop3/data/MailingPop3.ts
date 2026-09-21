@@ -1,4 +1,4 @@
-import { reflect, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { part, format, unit, column, backReference, quoted } from "@altea/altea/data/decorators";
@@ -29,7 +29,6 @@ export class Pop3EmailReceptionServiceEntity_ClientCertificationFile extends Ent
     }
 }
 
-@reflect
 @part
 export class Pop3EmailReceptionServiceEntity extends EmailReceptionServiceEntity {
 

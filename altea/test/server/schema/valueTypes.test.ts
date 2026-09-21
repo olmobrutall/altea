@@ -15,7 +15,6 @@ import { IsNullable } from "@altea/altea/server/schema/dbType";
 // has five numeric widths and a uuid, and the widths are the difference between a Signum-compatible
 // schema and a merely working one. DB-free: builds the schema in memory and inspects the columns.
 
-@reflect
 @entity("Main", "Master")
 class VtWidths extends Entity {
     // The branded numeric aliases, narrowest first.
@@ -44,7 +43,6 @@ class VtWidths extends Entity {
 }
 
 // The two deliberate disagreements between a field's nullability and its column's.
-@reflect
 @entity("Main", "Master")
 class VtNullability extends Entity {
     // Ordinary: they agree.
@@ -71,7 +69,6 @@ class VtOuter extends EmbeddedEntity {
     inner: VtInner | null = null;
 }
 
-@reflect
 @entity("Main", "Master")
 class VtNested extends Entity {
     outer: VtOuter | null = null;

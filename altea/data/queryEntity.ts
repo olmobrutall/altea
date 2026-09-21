@@ -1,6 +1,6 @@
 import { stringLengthValidator } from './validators';
 import { Entity } from './entity';
-import { reflect } from './reflection';
+import { field } from './reflection';
 import { entity, quoted, uniqueIndex } from './decorators';
 
 // Port of Signum's `QueryEntity` (Signum/Basics/QueryEntity.cs): the system table with one row per
@@ -9,7 +9,6 @@ import { entity, quoted, uniqueIndex } from './decorators';
 //
 // TODO(phase4): DB generation + synchronization of the rows (Signum's Schema_Generating /
 // SynchronizeQueries) and the QueryNameToEntity cache are NOT wired yet — see queryLogic.ts.
-@reflect
 @entity("SystemString", "Master")
 export class QueryEntity extends Entity {
     // The query's stable string key (Signum's QueryUtils.GetKey — the clean type name for an
