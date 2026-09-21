@@ -4,6 +4,9 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { IconName } from "@fortawesome/fontawesome-svg-core";
 import "@altea/altea/data/globals/stringExtensions";
 import { useWindowEvent } from "../Hooks";
+import { ThemeModeMessage } from "../../data/uiMessages";
+import type { LocalizableMessage } from "../../data/utils/localization";
+import { dropdownActive } from "./DropdownActive";
 
 // Port of Signum's ThemeModeSelector (React/Components/ThemeModeSelector.tsx) — the navbar light / dark /
 // auto picker. "auto" follows the OS through `prefers-color-scheme`; the choice is remembered, and bootstrap
@@ -21,13 +24,20 @@ import { useWindowEvent } from "../Hooks";
 //    can never survive a reload, although it is the default. Fixed rather than mirrored.
 //  - the icons are looked up by NAME (the app registers the free sets with `library.add`), altea's
 //    convention, instead of importing the three definitions.
-//  - the labels are not translated, exactly as in Signum: "Light" / "Dark" / "Auto" read the same in the
-//    languages altea ships, and a message enum in core would have to be translated by every application.
+//  - the labels ARE translated (ThemeModeMessage), which Signum now does too: an English word in the
+//    middle of a German toolbar is not something "reads the same" covers.
 
 /** The three states the picker offers: an explicit theme, or "follow the OS". */
 export type ThemeMode = "light" | "dark" | "auto";
 
 const THEME_MODES: ThemeMode[] = ["light", "dark", "auto"];
+
+// The mode keys are internal; what the reader sees comes from the translations.
+const LABELS: Record<ThemeMode, LocalizableMessage> = {
+    light: ThemeModeMessage.Light,
+    dark: ThemeModeMessage.Dark,
+    auto: ThemeModeMessage.Auto,
+};
 
 const ICONS: Record<ThemeMode, IconName> = {
     light: "sun",
@@ -65,7 +75,12 @@ export function getStoredThemeMode(): ThemeMode {
     return stored != null && THEME_MODES.includes(stored) ? stored : "auto";
 }
 
-export function ThemeModeSelector(p: { onSetMode?: (theme: "dark" | "light") => void }): React.ReactElement {
+/**
+ * `extraItems` lets an application add its own presentation choices to this menu — a high-contrast mode,
+ * say — without a second dropdown competing for the same corner, and without their wording having to live
+ * in the framework.
+ */
+export function ThemeModeSelector(p: { onSetMode?: (theme: "dark" | "light") => void, extraItems?: React.ReactNode }): React.ReactElement {
 
     const [mode, setMode] = React.useState<ThemeMode>(getStoredThemeMode);
 
@@ -89,15 +104,19 @@ export function ThemeModeSelector(p: { onSetMode?: (theme: "dark" | "light") => 
     }, []);
 
     return (
+        // The icon is the only visible content of the toggle, so its title is the button's accessible
+        // name: it has to say what the button DOES, not just repeat the mode.
         <NavDropdown id="changeTheme" className="sf-theme-mode-dropdown" data-theme-mode={mode}
-            title={<FontAwesomeIcon icon={ICONS[mode]} title={mode.firstUpper()} />}
-            aria-label={mode.firstUpper()}>
+            title={<FontAwesomeIcon icon={ICONS[mode]} title={ThemeModeMessage.Theme.niceToString() + ": " + LABELS[mode].niceToString()} />}
+            aria-label={ThemeModeMessage.Theme.niceToString() + ": " + LABELS[mode].niceToString()}>
             {THEME_MODES.map(m =>
-                <NavDropdown.Item key={m} data-theme-mode={m} active={mode === m} onClick={() => setMode(m)}>
+                <NavDropdown.Item key={m} data-theme-mode={m} {...dropdownActive(mode === m)} onClick={() => setMode(m)}>
                     <FontAwesomeIcon aria-hidden={true} icon={ICONS[m]} className="me-2" />
-                    {m.firstUpper()}
+                    {LABELS[m].niceToString()}
                 </NavDropdown.Item>
             )}
+            {p.extraItems && <NavDropdown.Divider />}
+            {p.extraItems}
         </NavDropdown>
     );
 }

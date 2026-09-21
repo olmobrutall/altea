@@ -12,6 +12,7 @@ import * as React from 'react'
 import { BaseEntity, Entity } from '../../data/entity'
 import { Lite } from '../../data/lite'
 import { Finder } from '../Finder'
+import { useDropdownListSearchLabel } from '../Components/DropdownListSearch'
 import type { FindOptions } from '../FindOptions'
 import type { ResultRow, ResultTable } from '../../data/dynamicQuery/queryRequest'
 import type { TypeContext } from '../TypeContext'
@@ -228,6 +229,11 @@ export function EntityComboSelect<V extends Entity | Lite<Entity> | null>(p: Ent
 
   const [loadData, setLoadData] = React.useState<boolean>(!p.delayLoadData);
 
+  // Only the onRenderItem branch below renders a DropdownList, but this is a hook, so it is called
+  // unconditionally. The widget's own typeahead input has no name of its own — see
+  // useDropdownListSearchLabel — and the field's name is what labels the combo beside it.
+  const searchLabel = useDropdownListSearchLabel(p.ctx.propertyRoute?.fieldInfo?.niceToString());
+
   const selectRef = React.useRef<HTMLSelectElement>(null);
   const mounted = useMounted();
 
@@ -285,6 +291,7 @@ export function EntityComboSelect<V extends Entity | Lite<Entity> | null>(p: Ent
   if (p.onRenderItem) {
     return (
       <DropdownList<ResultRow>
+        {...searchLabel}
         className={classes(ctx.formControlClass, p.mandatoryClass)} data={getOptionRows()}
         onChange={(row, e) => p.onChange(e.originalEvent, (row?.entity as AsLite<V>) ?? null)}
         value={getResultRow(lite)}

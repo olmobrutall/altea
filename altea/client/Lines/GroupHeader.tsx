@@ -3,16 +3,33 @@ import * as React from 'react';
 import { classes } from '../../data/globals';
 
 export type HeaderType = "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "display-1" | "display-2" | "display-3" | "display-4" | "display-5" | "display-6" | "display-7" | "lead";
-export function Title(p: { children: React.ReactNode, type: HeaderType }): React.ReactElement {
 
-  var ElementType =
-    p.type == "lead" ? "p" as const :
-    p.type.includes("display-") ? ("h" + p.type.after("display-")) as "h1" :
-    p.type as "h1";
+/**
+ * The level the next section heading should use. The frames render the page or dialog title as the <h1>,
+ * so the sections below it start at 2, and every group that renders a heading moves its own children one
+ * level further down.
+ */
+export const HeadingLevelContext: React.Context<number> = React.createContext<number>(2);
 
-  const className = p.type.includes("display-") || p.type == "lead" ? p.type : undefined;
+export function NextHeadingLevel(p: { children: React.ReactNode }): React.ReactElement {
+  const level = React.useContext(HeadingLevelContext);
+  return <HeadingLevelContext.Provider value={Math.min(level + 1, 6)}>{p.children}</HeadingLevelContext.Provider>;
+}
 
-  return <ElementType className={classes("mt-3", className)}>{p.children}</ElementType>;
+export function Title(p: { children: React.ReactNode, type: HeaderType, id?: string }): React.ReactElement {
+
+  if (p.type == "lead")
+    return <p className={classes("mt-3", "lead")} id={p.id}>{p.children}</p>;
+
+  // HeaderType used to pick the ELEMENT, so a form whose title is an <h1> jumped straight to the <h5> its
+  // sections wanted to look like, and a screen reader reading the heading list saw four levels missing.
+  // The level now comes from how deep the section actually is, and the requested type becomes the
+  // Bootstrap size CLASS — which is what keeps the size identical: Bootstrap's _type.scss declares .hN as
+  // @extend hN, so a stylesheet rule written for the element already applies to the class.
+  const level = React.useContext(HeadingLevelContext);
+  const ElementType = ("h" + level) as "h1";
+
+  return <ElementType className={classes("mt-3", p.type)} id={p.id}>{p.children}</ElementType>;
 }
 
 export function GroupHeader(p: {
@@ -25,14 +42,37 @@ export function GroupHeader(p: {
   htmlAttributes?: React.HTMLAttributes<HTMLDivElement>;
   fieldsetClassName?: string
   fieldsetHtmlAttributes?: React.HTMLAttributes<HTMLFieldSetElement>
+  /**
+   * Pass "group" when the children are a set of form controls that belong together — a checkbox list, a
+   * set of radios. The fieldset branch gets this from <fieldset> and <legend> for free, but avoidFieldSet
+   * renders a plain div, and then nothing tied the controls to the label a sighted user reads above them.
+   * Left unset for a section that merely has a heading, so an ordinary group of lines is not announced as
+   * something it is not.
+   */
+  role?: "group";
+  /**
+   * Applied beside the role — aria-required, aria-invalid and aria-describedby belong to the SET as a
+   * whole rather than to each option.
+   */
+  ariaAttributes?: React.AriaAttributes;
 }): React.ReactElement {
+
+  const titleId = React.useId();
 
   if (p.avoidFieldSet) {
 
+    // Only a real heading opens a level for what follows it; "lead" renders a <p> and the fieldset branch
+    // below renders a <legend>, and neither is a heading.
+    const rendersHeading = p.avoidFieldSet != true && p.avoidFieldSet != "lead";
+    const hasTitle = p.avoidFieldSet != true;
+
     return (
-      <div className={p.className} {...p.htmlAttributes}>
-        {p.avoidFieldSet != true && <Title type={p.avoidFieldSet}>{p.label}{p.labelIcon} {p.buttons}</Title>}
-        {p.children}
+      <div className={p.className} {...p.htmlAttributes}
+        role={p.role}
+        {...(p.role ? p.ariaAttributes : undefined)}
+        aria-labelledby={p.role && hasTitle ? titleId : undefined}>
+        {hasTitle && <Title type={p.avoidFieldSet as HeaderType} id={titleId}>{p.label}{p.labelIcon} {p.buttons}</Title>}
+        {rendersHeading ? <NextHeadingLevel>{p.children}</NextHeadingLevel> : p.children}
       </div>
     );
   }
@@ -40,10 +80,12 @@ export function GroupHeader(p: {
   return (
     <fieldset className={p.fieldsetClassName} {...p.fieldsetHtmlAttributes}>
       {(p.label || p.labelIcon || p.buttons) && < legend >
-        <div>
+        {/* A span, not a div: a <legend> takes phrasing content only. d-block keeps the full-width box the
+            float-end buttons need. */}
+        <span className="d-block">
           <span>{p.label}{p.labelIcon}</span>
           {p.buttons}
-        </div>
+        </span>
       </legend>
       }
       <div className={p.className} {...p.htmlAttributes}>

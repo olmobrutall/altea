@@ -318,7 +318,11 @@ export function EntityTable<R extends BaseEntity, RS>(props: EntityTableProps<R,
                 {/* The row-button column (remove / move / view): `width: 0%` collapses it to just what its
                     buttons need, so the DATA columns get the rest of the table instead of the browser
                     handing this one an equal share. Spread after, so firstColumnHtmlAttributes can override. */}
-                {firstColumnVisible && <th style={{ width: "0%" }} {...p.firstColumnHtmlAttributes}></th>}
+                {/* The column of row buttons had an empty header, so its cells had no column name to be
+                    announced with. Visually hidden, so the column stays as narrow as it was. */}
+                {firstColumnVisible && <th style={{ width: "0%" }} {...p.firstColumnHtmlAttributes}>
+                  <span className="visually-hidden">{EntityControlMessage.Actions.niceToString()}</span>
+                </th>}
                 {
                   cleanColumns.map((col, i) => <th key={i} {...col.headerHtmlAttributes}>
                     {col.header === undefined && col.property ? columnNiceName(elementPr, col.property) : col.header}

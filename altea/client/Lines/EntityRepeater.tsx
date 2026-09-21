@@ -139,7 +139,8 @@ export function EntityRepeaterElement<R extends BaseEntity>({ ctx, getComponent,
         {...EntityBaseController.entityHtmlAttributes(ctx.value)}>
         {(onRemove || move || drag || itemExtraButtons || title) &&
           <legend>
-            <div className="d-flex">
+            {/* A span, not a div: a <legend> takes phrasing content only. d-flex is unchanged. */}
+            <span className="d-flex">
               {onRemove && <LinkButton className={classes("sf-line-button", "sf-remove")}
                 onClick={onRemove}
                 title={ctx.titleLabels ? EntityControlMessage.Remove.niceToString() : undefined}>
@@ -159,7 +160,7 @@ export function EntityRepeaterElement<R extends BaseEntity>({ ctx, getComponent,
               {itemExtraButtons && itemExtraButtons()}
               {title && '\xa0'}
               {title}
-            </div>
+            </span>
           </legend>}
         <div className="sf-line-entity">
           {/* getComponent/getViewPromise are R-typed; RenderEntity types them over AsEntity<R>, which
