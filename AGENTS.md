@@ -19,6 +19,10 @@ React UI kit, modelled on Signum Framework.
 change needs — is [`port/port.md`](port/port.md).** Read it when a rule looks arbitrary, or before
 re-applying a Signum change. Per-module ledgers are the sibling files in that directory.
 
+**Porting an EXISTING Signum application onto altea is [`AlteaPortLegacy.md`](AlteaPortLegacy.md)** — the
+C# → TypeScript translation table (MList, Graph, LINQ, LiteModel, `@quoted`), what parity means, and the
+`@legacy*` names that keep the ported application running against the database the Signum one left.
+
 ## Layers
 
 Every package is organized into three layers, and the boundary is enforced by the tsconfig presets in
