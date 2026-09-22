@@ -25,8 +25,8 @@ registered, queried, authorized and rendered by exactly the mechanisms `UserEnti
 
 ## What a module looks like
 
-Three files — and this is a complete one from the demo application: a table, a save operation, a search
-page and an edit form.
+Four files — and this is a complete one, verbatim from the demo application: a table, a save operation, a
+search page and an edit form.
 
 ```ts
 // Shipper.data.ts — the model. Compiled verbatim into the server AND the browser.
@@ -48,21 +48,44 @@ export namespace ShipperOperation {
 ```ts
 // ShipperLogic.server.ts — the table, the save operation, the query.
 sb.include(ShipperEntity)
-    .withCache()                        // three rows, read constantly, changed almost never
     .withSave(ShipperOperation.Save)
     .withQuery();
 ```
 
 ```ts
-// ShipperClient.client.ts — which columns the search page opens with.
+// ShipperClient.client.ts — the view, and which columns the search page opens with.
 cb.configure(ShipperEntity)
+    .withView(() => import("./Shipper"))
     .withQuerySettings(token => ({
-        defaultColumns: [token(a => a.id), token(a => a.companyName), token(a => a.phone)],
+        defaultColumns: [
+            token(a => a.id),
+            token(a => a.companyName),
+            token(a => a.phone),
+        ],
     }));
 ```
 
-That is the whole feature. The schema, the `/api` surface, the search page, the edit form, the save
-button and its authorization all follow from those declarations.
+```tsx
+// Shipper.tsx — the form. `AutoLine` picks the editor from the field's own type, and the orders this
+// shipper carried are a search page embedded in it.
+export default function Shipper(p: { ctx: TypeContext<ShipperEntity> }): React.JSX.Element {
+  const ctx = p.ctx;
+  return (
+    <div>
+      <AutoLine ctx={ctx.subCtx(s => s.companyName)} />
+      <AutoLine ctx={ctx.subCtx(s => s.phone)} />
+      <h2>{OrderEntity.nicePluralName()}</h2>
+      <SearchControl findOptions={OrderEntity.findOptions(token => ({
+        filterOptions: [token(a => a.shipVia).filter("EqualTo", ctx.value)]
+      }))} showSimpleFilterBuilder={false} />
+    </div>
+  );
+}
+```
+
+That is the whole feature. The schema, the `/api` surface, the search page, the save button and its
+authorization all follow from those declarations — and the form is a plain React component, so the lines
+are yours to arrange. Leave the view out entirely and the entity still gets a generated one.
 
 ## The ideas behind it
 
