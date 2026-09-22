@@ -64,8 +64,8 @@ export namespace AuthServer {
     export const userLoggingOut: ((user: UserWithClaims | undefined) => void)[] = [];
     export const userLogged: ((user: UserEntity) => void)[] = [];
 
-    /** Wire authentication: token config + the authenticator + the /api/auth routes. Call BEFORE
-     *  SignumServer.start(ws), whose terminal exception filter must be registered after every route. */
+    /** Wire authentication: token config + the authenticator + the /api/auth routes. Order-free — the
+     *  scope is already mounted and everything installed here is a seam read per request. */
     export function start(ws: WebBuilder, encryptionKey?: string,
         getConfiguration?: () => StablePromise<AuthTokenConfigurationEmbedded>): void {
         // The token-encryption key comes from AUTH_TOKEN_KEY unless one is passed explicitly; a dev
