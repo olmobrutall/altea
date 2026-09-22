@@ -1,3 +1,4 @@
+import type { Quoted } from "quote-transformer/quoted";
 import type { RuntimeType } from "./runtimeTypes";
 
 // STABLE promises — the only promises `.$v` may unwrap inside a query.
@@ -28,20 +29,45 @@ import type { RuntimeType } from "./runtimeTypes";
 // `.$v` itself stays strictly query-only: the accessor on Promise.prototype (see server/table.ts) always
 // throws, and the query pipeline reads the fields below BY NAME without ever touching it.
 
-/** The value's declared type, as a thunk: a `RuntimeType` graph names entity constructors, and a cache is
- *  declared at module level, so building it eagerly would invite import cycles. Called at most once per
- *  promise (memoised by `markStable`). */
-export type RuntimeTypeThunk = () => RuntimeType;
-
-export interface StablePromise<T> extends Promise<T> {
+/**
+ * The three fields a stable promise CARRIES — what the query pipeline reads, by name. Split out from
+ * {@link StablePromise} so a READER can take a promise that merely happens to be stable (a cache's own,
+ * passed around as a plain `Promise<T>`) without also demanding the `thenTyped` member only `markStable`
+ * installs.
+ */
+export interface StableMarkers<T> extends Promise<T> {
     /** Set by {@link markStable}: this promise is memoised by its producer, so the same instance comes back
      *  on the next attempt and the value stamped below is seen again. */
     readonly stable?: true;
     /** The declared type of the value — present only when the producer meant it to be read by `.$v` inside
-     *  a query, which needs a type before it has a value. */
-    readonly runtimeType?: RuntimeTypeThunk;
+     *  a query, which needs a type before it has a value. A THUNK: a `RuntimeType` graph names entity
+     *  constructors, and a cache is declared at module level, so building it eagerly would invite import
+     *  cycles. Called at most once per promise (memoised by {@link markStable}). */
+    readonly runtimeType?: () => RuntimeType;
     /** The settled value, in a BOX so a legitimately-`undefined` value still counts as loaded. */
     readonly resolvedValue?: { readonly value: T };
+}
+
+export interface StablePromise<T> extends StableMarkers<T> {
+    /**
+     * One member of this promise's value, as a promise that is still stable and still typed — so a query
+     * can read it through `.$v`, and a module can take `() => StablePromise<Member>` where the cache holds
+     * the whole row. `lazy.value().thenTyped(c => c.email)`.
+     *
+     * A member of THIS interface rather than of `Promise`: only a promise a producer memoises can be
+     * derived from at all, so a one-off simply does not offer it.
+     */
+    thenTyped<U>(selector: Quoted<(value: T) => U>): StablePromise<U>;
+}
+
+// `thenTyped`'s BODY lives in ./thenTyped, because deriving the member's declared type needs the linq type
+// resolver and linq is built on this file. That module fills this slot when it loads (server/table.ts
+// imports it), which is long before any cache hands a promise out.
+let deriveTyped: (<T, U>(source: StablePromise<T>, selector: Quoted<(value: T) => U>) => StablePromise<U>) | undefined;
+
+/** Called once by server/thenTyped. */
+export function installThenTyped(impl: NonNullable<typeof deriveTyped>): void {
+    deriveTyped = impl;
 }
 
 /** Raised by the query pipeline when a `.$v` names a stable promise that has not settled yet. Carries the
@@ -62,13 +88,21 @@ export class PromiseNotLoaded extends Error {
  * `resolved` may be passed when the value is already in hand, so the very next fold succeeds instead of
  * waiting a microtask for the `then` below.
  */
-export function markStable<T>(promise: Promise<T>, runtimeType?: RuntimeTypeThunk, resolved?: { value: T }): StablePromise<T> {
-    const p = promise as { stable?: true; runtimeType?: RuntimeTypeThunk; resolvedValue?: { value: T } };
+export function markStable<T>(promise: Promise<T>, runtimeType?: () => RuntimeType, resolved?: { value: T }): StablePromise<T> {
+    const p = promise as { stable?: true; runtimeType?: () => RuntimeType; resolvedValue?: { value: T } };
     if (resolved != null)
         p.resolvedValue = resolved;
     if (p.stable === true)
         return promise as StablePromise<T>;
     p.stable = true;
+    // The member, on the instance — which is what keeps it off every other promise in the process.
+    (p as { thenTyped?: unknown }).thenTyped = function <U>(this: StablePromise<T>,
+        selector: Quoted<(value: T) => U>): StablePromise<U> {
+        if (deriveTyped == undefined)
+            throw new Error("`thenTyped` has not been installed — import \"@altea/altea/server/thenTyped\""
+                + " (server/table.ts does, so anything that reaches a table already has it).");
+        return deriveTyped(this, selector);
+    };
     if (runtimeType != null) {
         // Memoised: the thunk builds a RuntimeType graph, and the binder asks for it on every fold.
         let type: { value: RuntimeType } | undefined;
@@ -82,7 +116,7 @@ export function markStable<T>(promise: Promise<T>, runtimeType?: RuntimeTypeThun
 
 /** Whether `value` is a promise its producer memoises — the contract `stableValue` needs. */
 export function isStablePromise(value: unknown): value is StablePromise<unknown> {
-    return value instanceof Promise && (value as StablePromise<unknown>).stable === true;
+    return value instanceof Promise && (value as StableMarkers<unknown>).stable === true;
 }
 
 /** Whether `value` may additionally be read by `.$v` INSIDE a query: stable, and typed. */
@@ -91,7 +125,7 @@ export function isQueryReadablePromise(value: unknown): value is StablePromise<u
 }
 
 /** The declared type of a stable promise's value — what `.$v` types to before (and after) it loads. */
-export function stableRuntimeType(promise: StablePromise<unknown>): RuntimeType {
+export function stableRuntimeType(promise: StableMarkers<unknown>): RuntimeType {
     return promise.runtimeType!();
 }
 
@@ -103,7 +137,7 @@ export function stableRuntimeType(promise: StablePromise<unknown>): RuntimeType 
  * A promise that is not stable never reaches here — {@link refuseUnstablePromise} refuses it at fold time,
  * where the offending expression is still in hand.
  */
-export function stableValue(promise: StablePromise<unknown>): unknown {
+export function stableValue(promise: StableMarkers<unknown>): unknown {
     if (promise.resolvedValue == null)
         throw new PromiseNotLoaded(promise);
     return promise.resolvedValue.value;

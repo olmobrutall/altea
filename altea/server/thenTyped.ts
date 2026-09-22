@@ -2,7 +2,7 @@ import type { Quoted } from "quote-transformer/quoted";
 import { memberPath } from "../data/accessedFields";
 import { resolveMemberPathType } from "./linq/expressions";
 import {
-    isQueryReadablePromise, isStablePromise, markStable, refuseUntypedCache, type StablePromise,
+    installThenTyped, isQueryReadablePromise, markStable, refuseUntypedCache, type StablePromise,
 } from "./stablePromise";
 
 // `thenTyped` — project a STABLE promise onto one of its members and keep it stable.
@@ -27,26 +27,17 @@ import {
 //
 // Accordingly the selector must be a plain member READ — `c => c.email`, `c => c.email.urlLeft`. A
 // computation has no member path, so there is nothing to type it from.
-
-declare global {
-    interface Promise<T> {
-        /**
-         * One member of this promise's value, as a promise that a query can still read through `.$v`.
-         *
-         * The receiver must be a cache's promise (stable and typed); a one-off promise has neither the
-         * identity nor the declared type this needs.
-         */
-        thenTyped<U>(selector: Quoted<(value: T) => U>): StablePromise<U>;
-    }
-}
+//
+// It is a member of `StablePromise` (installed per instance by `markStable`), not of `Promise.prototype`:
+// deriving from a one-off could never converge, so a one-off simply does not offer it — a refusal the
+// checker makes instead of the runtime. The body lives here rather than beside the interface because
+// `resolveMemberPathType` is a linq thing and linq is built on server/stablePromise.
 
 // Per source promise, the derived promise for each member path. A WeakMap so a cache that resets — and
 // hands out a new promise next time — takes its derivations with it.
 const derivations = new WeakMap<Promise<unknown>, Map<string, StablePromise<unknown>>>();
 
-export function thenTyped<T, U>(source: Promise<T>, selector: Quoted<(value: T) => U>): StablePromise<U> {
-    if (!isStablePromise(source))
-        refuseUnstableThenTyped();
+export function thenTyped<T, U>(source: StablePromise<T>, selector: Quoted<(value: T) => U>): StablePromise<U> {
     if (!isQueryReadablePromise(source))
         refuseUntypedCache();
 
@@ -70,13 +61,10 @@ export function thenTyped<T, U>(source: Promise<T>, selector: Quoted<(value: T) 
     if (already != undefined)
         return already as StablePromise<U>;
 
-    // The guards above narrow to StablePromise<unknown>, which does not intersect with Promise<T> as far as
-    // the checker is concerned; the two fields are what they proved.
-    const stable = source as StablePromise<T>;
-    const sourceRuntimeType = stable.runtimeType!;
+    const sourceRuntimeType = source.runtimeType!;
     // Stamp the projected value straight away when the source has already loaded, so the very next fold
     // succeeds instead of waiting a microtask — the same reason `ResetLazy` stamps its own.
-    const loaded = stable.resolvedValue;
+    const loaded = source.resolvedValue;
     const derived = markStable(
         source.then(selector),
         () => resolveMemberPathType(sourceRuntimeType(), path),
@@ -86,20 +74,6 @@ export function thenTyped<T, U>(source: Promise<T>, selector: Quoted<(value: T) 
     return derived;
 }
 
-if (!Object.prototype.hasOwnProperty.call(Promise.prototype, "thenTyped")) {
-    Object.defineProperty(Promise.prototype, "thenTyped", {
-        configurable: true,
-        enumerable: false,
-        writable: true,
-        value: function <T, U>(this: Promise<T>, selector: Quoted<(value: T) => U>): StablePromise<U> {
-            return thenTyped(this, selector);
-        },
-    });
-}
-
-function refuseUnstableThenTyped(): never {
-    throw new Error("`thenTyped` projects a STABLE promise — one a cache memoises, so the same instance"
-        + " comes back on the next fold. This one is a one-off (a fetch, an `async` call, a `.then` chain):"
-        + " deriving from it would be a different object every time and could never converge. Call it on"
-        + " the cache's own promise (`lazy.value().thenTyped(...)`), or await the value instead.");
-}
+// Fills the slot `markStable` calls. Importing this module (server/table.ts does) is what turns the
+// member on; nothing else may install it.
+installThenTyped(thenTyped);

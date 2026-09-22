@@ -15,7 +15,8 @@
 //    `valueOrUndefined` (undefined until the first `value()` resolves, or during a reload after
 //    `reset()`). Concurrent `value()` calls share ONE in-flight promise; a rejection self-evicts
 //    so the next call retries (a transient DB error never poisons the cache permanently).
-import { markStable, type RuntimeTypeThunk, type StablePromise } from "./stablePromise";
+import { markStable, type StablePromise } from "./stablePromise";
+import type { RuntimeType } from "./runtimeTypes";
 
 export interface IResetLazy {
     reset(): void;
@@ -53,7 +54,7 @@ export class ResetLazy<T> implements IResetLazy {
     // synchronous engine code demand one mid-bind. See server/stablePromise.ts.
     constructor(
         private readonly valueFactory: () => Promise<T>,
-        private readonly runtimeType?: RuntimeTypeThunk,
+        private readonly runtimeType?: () => RuntimeType,
     ) { }
 
     // The cached value, resolved once and reused until `reset()`. Concurrent callers share the
@@ -77,15 +78,14 @@ export class ResetLazy<T> implements IResetLazy {
         // the query region report the cycle).
         let settle!: (value: T) => void;
         let fail!: (err: unknown) => void;
-        const p: Promise<T> = new Promise<T>((res, rej) => { settle = res; fail = rej; });
-        this.loading = p;
         // Stable while still LOADING too: a reader that meets the in-flight promise asks the region to await
         // THIS one rather than starting a second load.
-        markStable(p, this.runtimeType);
+        const p = markStable(new Promise<T>((res, rej) => { settle = res; fail = rej; }), this.runtimeType);
+        this.loading = p;
         void (async () => {
             try {
                 const v = await this.valueFactory();
-                if (this.loading === p) { this.box = { value: v }; this.settled = p as StablePromise<T>; this.loading = undefined; this.sumLoadTime += performance.now() - start; }
+                if (this.loading === p) { this.box = { value: v }; this.settled = p; this.loading = undefined; this.sumLoadTime += performance.now() - start; }
                 // Stamp the value on the promise HERE rather than leaving it to markStable’s own `then`, so
                 // it is there the instant this load settles — the query region that awaited this very promise
                 // binds again immediately after, and a value one microtask late would look unloaded.

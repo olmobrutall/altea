@@ -5,7 +5,9 @@ import { reflect } from "@altea/altea/data/reflection"; // anchor for the transf
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import { entity } from "@altea/altea/data/decorators";
 import { ClassType, LiteralType, RuntimeType } from "@altea/altea/server/runtimeTypes";
-import { markStable, isQueryReadablePromise, stableRuntimeType, stableValue } from "@altea/altea/server/stablePromise";
+import {
+    markStable, isQueryReadablePromise, stableRuntimeType, stableValue, type StablePromise,
+} from "@altea/altea/server/stablePromise";
 import { ResetLazy } from "@altea/altea/server/resetLazy";
 import { withPromisesLoaded } from "@altea/altea/server/promiseResolution";
 import "@altea/altea/server/table"; // installs `.$v` and `.thenTyped`
@@ -28,7 +30,7 @@ class ThenConfig extends Entity {
 }
 
 /** A cache's promise: memoised by its producer, typed, and stamped with its value. */
-function cached<T>(value: T, runtimeType: () => RuntimeType): Promise<T> {
+function cached<T>(value: T, runtimeType: () => RuntimeType): StablePromise<T> {
     return markStable(Promise.resolve(value), runtimeType, { value });
 }
 
@@ -81,8 +83,11 @@ describe("thenTyped", () => {
         assert.equal((await source.thenTyped(c => c.email)).urlLeft, "http://localhost:5173");
     });
 
-    test("a ONE-OFF promise is refused — it could never converge", () => {
-        assert.throws(() => Promise.resolve(config()).thenTyped(c => c.email), /STABLE promise/);
+    test("a ONE-OFF promise does not OFFER it — deriving from one could never converge", () => {
+        // The member is installed per instance by `markStable`, not on Promise.prototype, so this is not a
+        // refusal at all: an ordinary promise simply has nothing to call.
+        const oneOff = Promise.resolve(config()) as Partial<StablePromise<ThenConfig>>;
+        assert.equal(oneOff.thenTyped, undefined);
     });
 
     test("a selector that is not a plain member read is refused", () => {
