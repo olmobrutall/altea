@@ -90,6 +90,19 @@ describe("thenTyped", () => {
         assert.equal(oneOff.thenTyped, undefined);
     });
 
+    test("an UNTYPED cache still derives a stable promise — most settings are never read in a query", () => {
+        // `markStable` with no runtimeType: an ordinary globalLazy, which is what an app's configuration row
+        // is. Demanding a type here would fail every module's settings thunk at runtime.
+        const value = config();
+        const source = markStable(Promise.resolve(value), undefined, { value });
+
+        const email = source.thenTyped(c => c.email);
+        assert.equal(source.thenTyped(c => c.email), email, "still memoised per member path");
+        assert.ok(!isQueryReadablePromise(email), "…and honestly still not readable inside a query");
+        assert.equal((email as { resolvedValue?: { value: ThenMailConfig } }).resolvedValue?.value.urlLeft,
+            "http://localhost:5173");
+    });
+
     test("a selector that is not a plain member read is refused", () => {
         const source = cached(config(), () => new ClassType(ThenConfig));
         assert.throws(() => source.thenTyped(c => c.email.urlLeft + c.environment), /ONE member path/);

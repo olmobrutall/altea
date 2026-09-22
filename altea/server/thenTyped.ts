@@ -1,9 +1,7 @@
 import type { Quoted } from "quote-transformer/quoted";
 import { memberPath } from "../data/accessedFields";
 import { resolveMemberPathType } from "./linq/expressions";
-import {
-    installThenTyped, isQueryReadablePromise, markStable, refuseUntypedCache, type StablePromise,
-} from "./stablePromise";
+import { installThenTyped, markStable, type StablePromise } from "./stablePromise";
 
 // `thenTyped` — project a STABLE promise onto one of its members and keep it stable.
 //
@@ -12,14 +10,20 @@ import {
 // promise on every call, so it is a different object each time, carries no declared type, and the query
 // translator refuses it outright — "it would be a different object every time and could never converge".
 //
-// `thenTyped` is the same projection with the two things `.$v` needs, and nothing else:
+// `thenTyped` is the same projection, with what `.then` throws away kept:
 //
-//  - the DECLARED TYPE of the member, derived from the source's own `runtimeType` by walking the selector's
-//    member path. No value is needed for this, which is the point: a query types `.$v` at FOLD time, long
-//    before anything has loaded.
 //  - STABILITY, by memoising per (source promise, member path). The source is memoised by its cache, so the
 //    same source plus the same path hands back the same derived promise — which is exactly the contract
 //    `.$v` checks. A different path off the same source is a different promise, as it should be.
+//  - the DECLARED TYPE of the member, when the source HAS one, derived from its `runtimeType` by walking
+//    the selector's member path. No value is needed for this, which is the point: a query types `.$v` at
+//    FOLD time, long before anything has loaded.
+//
+// The type is what `.$v` needs; stability is what a module's settings THUNK needs, and most caches want
+// only that. So a source with no `runtimeType` — an ordinary `globalLazy` that nothing reads inside a
+// query — derives a stable promise with no type, which is exactly as far as it can be read. Demanding a
+// type here would tax every cache for a capability almost none of them use, and the bill would arrive at
+// runtime, from whichever background timer first touched a settings thunk.
 //
 // The selector is `Quoted`, so what arrives is a lambda the transformer has stamped with its own AST. That
 // is what makes the member path READABLE without running anything; the function itself is still an ordinary
@@ -38,9 +42,6 @@ import {
 const derivations = new WeakMap<Promise<unknown>, Map<string, StablePromise<unknown>>>();
 
 export function thenTyped<T, U>(source: StablePromise<T>, selector: Quoted<(value: T) => U>): StablePromise<U> {
-    if (!isQueryReadablePromise(source))
-        refuseUntypedCache();
-
     // Exactly one member path off the parameter, which is the whole contract: no path, no type. The
     // underlying reader speaks of index selectors, which is not what the caller wrote.
     let path: string;
@@ -61,13 +62,15 @@ export function thenTyped<T, U>(source: StablePromise<T>, selector: Quoted<(valu
     if (already != undefined)
         return already as StablePromise<U>;
 
-    const sourceRuntimeType = source.runtimeType!;
+    // Typed only if the source is: `.$v` reads the declared type, and a cache that never declared one is
+    // not readable inside a query on either side of this projection.
+    const sourceRuntimeType = source.runtimeType;
     // Stamp the projected value straight away when the source has already loaded, so the very next fold
     // succeeds instead of waiting a microtask — the same reason `ResetLazy` stamps its own.
     const loaded = source.resolvedValue;
     const derived = markStable(
         source.then(selector),
-        () => resolveMemberPathType(sourceRuntimeType(), path),
+        sourceRuntimeType == undefined ? undefined : () => resolveMemberPathType(sourceRuntimeType(), path),
         loaded == undefined ? undefined : { value: selector(loaded.value) });
 
     byPath.set(path, derived);
