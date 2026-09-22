@@ -30,7 +30,11 @@ A module is one folder with the same three layers every altea package has — **
 
 ### Data — the model
 
-One file, compiled into the server bundle AND the browser bundle. Nothing here knows about SQL or React.
+One file, compiled into the server bundle AND the browser bundle. It imports neither the engine nor
+React — and it SHAPES both. `companyName` is a `varchar(100) NOT NULL` with a unique index, because the
+field is non-nullable and the validator's `max` sizes the column; it is also a required text box that
+refuses fewer than three characters as you type, and a sortable, filterable column on the search page.
+One declaration, read from both ends.
 
 ```ts
 // Shipper.data.ts
