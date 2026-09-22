@@ -1,4 +1,5 @@
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { localizablePackages, importXml, defaultCultureOf, translationFileExists } from "./LocalizedPackage";
 import { TranslationReplacementLogic } from "./TranslationReplacementLogic";
 
@@ -137,12 +138,12 @@ export class AzureTranslator implements ITranslator {
     readonly name = "Azure";
 
     constructor(
-        private readonly azureKey: () => string | null | undefined,
-        private readonly region?: () => string | null | undefined,
+        private readonly azureKey: () => StablePromise<string | null | undefined>,
+        private readonly region?: () => StablePromise<string | null | undefined>,
     ) { }
 
     async translateBatch(list: string[], from: string, to: string): Promise<(string | null)[] | null> {
-        const key = this.azureKey();
+        const key = await this.azureKey();
         if (key == null || key === "")
             return null;
 
@@ -157,7 +158,7 @@ export class AzureTranslator implements ITranslator {
             "Content-Type": "application/json",
             "Ocp-Apim-Subscription-Key": key,
         };
-        const region = this.region?.();
+        const region = await this.region?.();
         if (region != null && region !== "")
             headers["Ocp-Apim-Subscription-Region"] = region;
 
@@ -186,7 +187,7 @@ export class DeepLTranslator implements ITranslator {
     private sourceLanguages?: string[];
     private targetLanguages?: string[];
 
-    constructor(private readonly apiKey: () => string | null | undefined) { }
+    constructor(private readonly apiKey: () => StablePromise<string | null | undefined>) { }
 
     /** The endpoint host — a free-tier key (suffix `:fx`) uses api-free.deepl.com, as the SDK decides. */
     private baseUrl(key: string): string {
@@ -194,7 +195,7 @@ export class DeepLTranslator implements ITranslator {
     }
 
     async translateBatch(list: string[], from: string, to: string): Promise<(string | null)[] | null> {
-        const key = this.apiKey();
+        const key = await this.apiKey();
         if (key == null || key === "")
             return null;
 

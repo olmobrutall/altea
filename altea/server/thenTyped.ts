@@ -36,7 +36,7 @@ declare global {
          * The receiver must be a cache's promise (stable and typed); a one-off promise has neither the
          * identity nor the declared type this needs.
          */
-        thenTyped<U>(selector: Quoted<(value: T) => U>): Promise<U>;
+        thenTyped<U>(selector: Quoted<(value: T) => U>): StablePromise<U>;
     }
 }
 
@@ -91,7 +91,7 @@ if (!Object.prototype.hasOwnProperty.call(Promise.prototype, "thenTyped")) {
         configurable: true,
         enumerable: false,
         writable: true,
-        value: function <T, U>(this: Promise<T>, selector: Quoted<(value: T) => U>): Promise<U> {
+        value: function <T, U>(this: Promise<T>, selector: Quoted<(value: T) => U>): StablePromise<U> {
             return thenTyped(this, selector);
         },
     });

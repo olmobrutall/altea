@@ -1,4 +1,5 @@
 import "@altea/altea/server";
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/data/globals";
@@ -74,12 +75,29 @@ export interface ISMSProvider {
 
 export namespace SMSLogic {
 
-    let getConfiguration: () => SMSConfigurationEmbedded = () => {
+    let getConfiguration: () => StablePromise<SMSConfigurationEmbedded> = () => {
         throw new Error("SMSLogic.start was not called with a configuration accessor");
     };
 
-    export function configuration(): SMSConfigurationEmbedded {
+    /**
+     * The SMS settings, off the application's configuration row. A THUNK returning the cache's own
+     * promise: a captured promise would keep the value it was stamped with and go stale.
+     */
+    export function configuration(): StablePromise<SMSConfigurationEmbedded> {
         return getConfiguration();
+    }
+
+    /**
+     * The same settings SYNCHRONOUSLY, for the seams that cannot await — an operation's `construct` and a
+     * `preSaving` event. Reads the value the cache has already stamped; caches nothing of its own, so it
+     * cannot go stale, and a cold read throws rather than guessing.
+     */
+    export function configurationLoaded(): SMSConfigurationEmbedded {
+        const loaded = configuration().resolvedValue;
+        if (loaded == undefined)
+            throw new Error("The SMS configuration has not loaded yet. This is one of the few places that"
+                + " cannot await it; await `SMSLogic.configuration()` once at startup.");
+        return loaded.value;
     }
 
     /** A settable slot, unset by default. */
@@ -103,7 +121,7 @@ export namespace SMSLogic {
         sb: SchemaBuilder,
         options: {
             provider?: ISMSProvider;
-            getConfiguration: () => SMSConfigurationEmbedded;
+            getConfiguration: () => StablePromise<SMSConfigurationEmbedded>;
             /** The SMSModel registry — its search page and the CreateSMSTemplateFromModel operation.
              *  A Signum database may have the sms_model TABLE (SMSTemplate.model references it) with
              *  neither a query row nor that operation, since Southwind never starts that half. Default: on. */
@@ -130,7 +148,7 @@ export namespace SMSLogic {
                 // Seed ONE message, for the configured default culture.
                 construct: () => SMSTemplateEntity.create({
                     messages: [SMSTemplateEntity_Message.create({
-                        cultureInfo: SMSLogic.configuration().defaultCulture.toLite(),
+                        cultureInfo: SMSLogic.configurationLoaded().defaultCulture.toLite(),
                     })],
                 }),
             })
@@ -157,7 +175,7 @@ export namespace SMSLogic {
         // There must be a message for the CONFIGURED default culture. The rule cannot live on the entity,
         // because it depends on the configuration — hence a schema event rather than a `@validate`.
         sb.schema.entityEvents(SMSTemplateEntity).preSaving.push(template => {
-            const dc = configuration().defaultCulture?.name;
+            const dc = configurationLoaded().defaultCulture?.name;
             if (dc != null && !template.messages.some(m => cultureNameOf(m.cultureInfo) === dc))
                 throw new Error(SMSTemplateMessage.ThereMustBeAMessageFor0.niceToString(dc));
         });
@@ -264,7 +282,7 @@ export namespace SMSLogic {
         if (t == null)
             throw new Error(`SMSTemplate '${String(templateLite.id)}' not found`);
 
-        const defaultCulture = configuration().defaultCulture.name;
+        const defaultCulture = (await configuration()).defaultCulture.name;
         const queryName = tryQueryName(t);
 
         if (queryName == null) {

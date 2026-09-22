@@ -54,7 +54,7 @@ export namespace RemoteEmailsServer {
             async (req, res) => {
                 const messageId = req.params.messageId;
                 const oid = await RemoteEmailsLogic.mailboxOfUserId(req.params.userId);
-                const config = RemoteEmailsLogic.getGraphConfig(oid);
+                const config = await RemoteEmailsLogic.getGraphConfig(oid);
 
                 const expand = ["attachments", ...expansionProperties()];
 
@@ -71,7 +71,7 @@ export namespace RemoteEmailsServer {
             { params: CustomType<{ userId: string }>(), res: CustomType<RemoteEmailFolderModel[]>() },
             async (req, res) => {
                 const oid = await RemoteEmailsLogic.mailboxOfUserId(req.params.userId);
-                const folders = await RemoteEmailsLogic.mailFolders(RemoteEmailsLogic.getGraphConfig(oid), oid);
+                const folders = await RemoteEmailsLogic.mailFolders(await RemoteEmailsLogic.getGraphConfig(oid), oid);
                 res.jsonTyped([...folders.values()]);
             });
 
@@ -85,7 +85,7 @@ export namespace RemoteEmailsServer {
 
                 const oid = await RemoteEmailsLogic.mailboxOfUserId(req.params.userId);
                 const categories = await MicrosoftGraph.get<{ value?: { displayName?: string }[] }>(
-                    RemoteEmailsLogic.getGraphConfig(oid), `users/${oid}/outlook/masterCategories`);
+                    await RemoteEmailsLogic.getGraphConfig(oid), `users/${oid}/outlook/masterCategories`);
 
                 res.jsonTyped((categories.value ?? []).map(c => c.displayName ?? "").filter(n => n !== ""));
             });
@@ -96,7 +96,7 @@ export namespace RemoteEmailsServer {
             async (req, res) => {
                 const { messageId, attachmentId } = req.params;
                 const oid = await RemoteEmailsLogic.mailboxOfUserId(req.params.userId);
-                const config = RemoteEmailsLogic.getGraphConfig(oid);
+                const config = await RemoteEmailsLogic.getGraphConfig(oid);
 
                 const attachment = await MicrosoftGraph.get<GraphAttachment>(
                     config, `users/${oid}/messages/${messageId}/attachments/${attachmentId}`);
@@ -118,7 +118,7 @@ export namespace RemoteEmailsServer {
             { params: CustomType<{ userId: string }>(), req: CustomType<string[]>(), res: CustomType<void>() },
             async (req, res) => {
                 const oid = await RemoteEmailsLogic.mailboxOfUserId(req.params.userId);
-                const config = RemoteEmailsLogic.getGraphConfig(oid);
+                const config = await RemoteEmailsLogic.getGraphConfig(oid);
                 const messageIds = await req.jsonTyped();
 
                 await forEachMessageNDJson(res, messageIds, "delete", async messageId => {
@@ -131,7 +131,7 @@ export namespace RemoteEmailsServer {
             async (req, res) => {
                 const folderId = req.params.folderId;
                 const oid = await RemoteEmailsLogic.mailboxOfUserId(req.params.userId);
-                const config = RemoteEmailsLogic.getGraphConfig(oid);
+                const config = await RemoteEmailsLogic.getGraphConfig(oid);
                 const messageIds = await req.jsonTyped();
 
                 await forEachMessageNDJson(res, messageIds, "moveTo", async messageId => {
@@ -144,7 +144,7 @@ export namespace RemoteEmailsServer {
             { params: CustomType<{ userId: string }>(), req: CustomType<ChangeCategoriesRequest>(), res: CustomType<void>() },
             async (req, res) => {
                 const oid = await RemoteEmailsLogic.mailboxOfUserId(req.params.userId);
-                const config = RemoteEmailsLogic.getGraphConfig(oid);
+                const config = await RemoteEmailsLogic.getGraphConfig(oid);
                 const request = await req.jsonTyped();
 
                 await forEachMessageNDJson(res, request.messageIds, "changeCategories", async messageId => {

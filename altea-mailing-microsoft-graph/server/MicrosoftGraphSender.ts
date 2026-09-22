@@ -42,7 +42,7 @@ export class MicrosoftGraphSender extends EmailSenderBase {
     protected override async sendInternal(email: EmailMessageEntity): Promise<void> {
         using _prof = HeavyProfiler.log("MicrosoftGraph-Send");
 
-        const config = this.graphConfig();
+        const config = await this.graphConfig();
 
         const userId = email.from.azureUserId;
         if (!userId)
@@ -60,9 +60,9 @@ export class MicrosoftGraphSender extends EmailSenderBase {
      * `useActiveDirectoryConfiguration` branch reaches into the AUTH module's configuration on purpose: the
      * point of the flag is not to duplicate the tenant's client secret in the mail settings.
      */
-    private graphConfig(): AzureADConfigurationEmbedded {
+    private async graphConfig(): Promise<AzureADConfigurationEmbedded> {
         if (this.microsoftGraph.useActiveDirectoryConfiguration)
-            return AzureADLogic.requireConfig();
+            return await AzureADLogic.requireConfig();
 
         const { azure_DirectoryID, azure_ApplicationID, azure_ClientSecret } = this.microsoftGraph;
         if (azure_DirectoryID == null || azure_ApplicationID == null || azure_ClientSecret == null)

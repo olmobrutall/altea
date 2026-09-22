@@ -5,6 +5,7 @@ import { useUserScope } from "./filters/userScope";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { UserWithClaims } from "@altea/altea/data/security";
 import { AuthenticationException } from "@altea/altea/server/exceptions";
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import * as Database from "@altea/altea/server/Database";
 import { PasswordEncoding } from "@altea/altea/server/passwordEncoding";
 import { UserEntity } from "../data/User";
@@ -67,7 +68,7 @@ export namespace AuthServer {
      *  SignumServer.start(ws) so the middleware runs before the framework routes and the auth routes are
      *  registered before the terminal exception filter. */
     export function start(ws: WebBuilder, encryptionKey?: string,
-        getConfiguration?: () => Promise<AuthTokenConfigurationEmbedded>): void {
+        getConfiguration?: () => StablePromise<AuthTokenConfigurationEmbedded>): void {
         // The token-encryption key comes from AUTH_TOKEN_KEY unless one is passed explicitly; a dev
         // fallback is used with a warning (NEVER a real secret — set AUTH_TOKEN_KEY for anything but local
         // dev). Read here (rather than in the host) so wiring is self-contained: AuthLogic.start calls

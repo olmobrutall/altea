@@ -1,4 +1,5 @@
 import type { SchemaBuilder } from "@altea/altea/server/schema";
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { OpenIDConfigurationEmbedded } from "../data/OpenID";
 import { OpenIDAuthorizer } from "./OpenIDAuthorizer";
@@ -26,7 +27,7 @@ export namespace OpenIDLogic {
      * makes the client's boot probe a clean 200 instead of a 404. Signum needs no equivalent: its Starter
      * assigns the one authorizer by hand and does not start the modules it is not using.
      */
-    export function start(sb: SchemaBuilder, getConfig: () => OpenIDConfigurationEmbedded | null,
+    export function start(sb: SchemaBuilder, getConfig: () => StablePromise<OpenIDConfigurationEmbedded | null>,
         options?: { installAuthorizer?: boolean }): void {
         if (sb.alreadyDefined(start))
             return;

@@ -3,6 +3,7 @@ import "@altea/altea/server";
 import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { table as tableQuery } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -56,7 +57,7 @@ export namespace ChatbotLogic {
         return tableQuery(ChatMessageEntity).filter(a => a.chatSession.is(session)).toArray();
     }
 
-    export function start(sb: SchemaBuilder, config: () => ChatbotConfigurationEmbedded): void {
+    export function start(sb: SchemaBuilder, config: () => StablePromise<ChatbotConfigurationEmbedded>): void {
         if (sb.alreadyDefined(start))
             return;
 

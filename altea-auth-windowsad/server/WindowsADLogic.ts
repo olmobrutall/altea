@@ -3,6 +3,7 @@ import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { Operations } from "@altea/altea/server/operationLogic";
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { UserEntity, UserOperation, UserState } from "@altea/altea-auth/data/User";
@@ -29,7 +30,7 @@ export namespace WindowsADLogic {
     export let authorizer: WindowsADAuthorizer | undefined;
 
     export interface StartOptions {
-        getConfig: () => WindowsADConfigurationEmbedded | null;
+        getConfig: () => StablePromise<WindowsADConfigurationEmbedded | null>;
         /** Register the nightly sweep that deactivates users the directory no longer has. */
         deactivateUsersTask?: boolean;
     }
@@ -53,8 +54,8 @@ export namespace WindowsADLogic {
             WindowsADServer.start(sb.webBuilder);
     }
 
-    export function requireConfig(): WindowsADConfigurationEmbedded {
-        const config = authorizer?.getConfig() ?? null;
+    export async function requireConfig(): Promise<WindowsADConfigurationEmbedded> {
+        const config = authorizer == undefined ? null : await authorizer.getConfig();
         if (config == null)
             throw new Error("No WindowsADConfiguration is set");
         return config;
@@ -68,7 +69,7 @@ export namespace WindowsADLogic {
      */
     function registerDeactivateUsersTask(): void {
         SimpleTaskLogic.register(WindowsADTask.DeactivateUsers, async ctx => {
-            const config = requireConfig();
+            const config = await requireConfig();
             const users = await table(UserEntity).toArray() as UserEntity[];
 
             await ctx.forEach(users, u => u.userName, async u => {
@@ -101,7 +102,7 @@ export namespace WindowsADLogic {
 
     /** Find directory users by name, for the invite / import UI. */
     export async function searchUser(subString: string, limit: number): Promise<ExternalUser[]> {
-        const config = requireConfig();
+        const config = await requireConfig();
         const found = await WindowsDirectory.searchUsers(config, subString, limit);
 
         return found.map(u => ({
@@ -115,7 +116,7 @@ export namespace WindowsADLogic {
 
     /** Import a directory hit as a local user (or refresh it). */
     export async function createUserFromAD(adUser: ExternalUser): Promise<UserEntity> {
-        const config = requireConfig();
+        const config = await requireConfig();
         const ada = authorizer!;
 
         const directoryUser = await WindowsDirectory.findByIdentity(config, adUser.upn);
@@ -141,14 +142,14 @@ export namespace WindowsADLogic {
     /** The AD `thumbnailPhoto`. */
     export async function getProfilePicture(userName: string): Promise<Buffer | null> {
         return await AuthLogic.withDisabled(async () => {
-            const config = requireConfig();
+            const config = await requireConfig();
             return await WindowsDirectory.getThumbnailPhoto(config, userName);
         });
     }
 
     /** Whether AD says the account is enabled. */
     export async function checkUserActive(userName: string): Promise<boolean> {
-        const config = requireConfig();
+        const config = await requireConfig();
         const found = await WindowsDirectory.findByIdentity(config, userName);
         return found?.enabled === true;
     }

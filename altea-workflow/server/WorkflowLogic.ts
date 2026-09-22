@@ -3,6 +3,7 @@ import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery / withExpressionFrom
 import "@altea/altea/data/globals/arrayExtensions";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { table } from "@altea/altea/server/table";
 import type { IQuery } from "@altea/altea/data/iquery";
 import { Operations } from "@altea/altea/server/operationLogic";
@@ -201,9 +202,13 @@ export namespace WorkflowLogic {
     export let timerConditions: ResetLazy<Map<string, WorkflowTimerConditionEntity>> = null!;
     export let scripts: ResetLazy<Map<string, WorkflowScriptEntity>> = null!;
 
-    let getConfiguration: () => WorkflowConfigurationEmbedded = null!;
+    let getConfiguration: () => StablePromise<WorkflowConfigurationEmbedded> = null!;
 
-    export function configuration(): WorkflowConfigurationEmbedded {
+    /**
+     * The workflow settings, off the application's configuration row. A THUNK returning the cache's own
+     * promise: a captured promise would keep the value it was stamped with and go stale.
+     */
+    export function configuration(): StablePromise<WorkflowConfigurationEmbedded> {
         return getConfiguration();
     }
 
@@ -360,7 +365,7 @@ export namespace WorkflowLogic {
 
     // ---- start ------------------------------------------------------------------------------------
 
-    export function start(sb: SchemaBuilder, getConfig: () => WorkflowConfigurationEmbedded): void {
+    export function start(sb: SchemaBuilder, getConfig: () => StablePromise<WorkflowConfigurationEmbedded>): void {
         if (sb.alreadyDefined(start))
             return;
 

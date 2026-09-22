@@ -60,7 +60,7 @@ export namespace OpenIDAuthenticationServer {
         ws.get("/api/auth/openIDConfig",
             { res: CustomType<OpenIDClientSettings>(), allowAnonymous: true },
             async (_req, res) => {
-                const config = tryGetConfig();
+                const config = await tryGetConfig();
                 const clientConfig = config?.toClientConfig();
                 if (config == null || clientConfig == null) {
                     res.jsonTyped(null);
@@ -79,7 +79,7 @@ export namespace OpenIDAuthenticationServer {
         ws.get("/api/auth/openIDEndpoints",
             { res: CustomType<OpenIDEndpoints>(), allowAnonymous: true },
             async (_req, res) => {
-                const config = requireConfig();
+                const config = await requireConfig();
                 const discovery = await OpenIdConnect.getConfiguration(config.getDiscoveryEndpoint(), config);
                 res.jsonTyped({
                     authorizationEndpoint: discovery.authorization_endpoint,
@@ -97,7 +97,7 @@ export namespace OpenIDAuthenticationServer {
         return await AuthLogic.withDisabled(async () => {
             try {
                 const authorizer = requireAuthorizer();
-                const config = authorizer.getConfig();
+                const config = await authorizer.getConfig();
                 if (config == null || !config.enabled)
                     return null;
 
@@ -148,13 +148,13 @@ export namespace OpenIDAuthenticationServer {
         return authorizer;
     }
 
-    function tryGetConfig(): OpenIDConfigurationEmbedded | null {
+    async function tryGetConfig(): Promise<OpenIDConfigurationEmbedded | null> {
         const authorizer = AuthLogic.authorizer;
-        return authorizer instanceof OpenIDAuthorizer ? authorizer.getConfig() : null;
+        return authorizer instanceof OpenIDAuthorizer ? await authorizer.getConfig() : null;
     }
 
-    function requireConfig(): OpenIDConfigurationEmbedded {
-        const config = tryGetConfig();
+    async function requireConfig(): Promise<OpenIDConfigurationEmbedded> {
+        const config = await tryGetConfig();
         if (config == null)
             throw new Error("OpenID is not configured");
         return config;

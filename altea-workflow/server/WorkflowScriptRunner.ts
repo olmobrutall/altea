@@ -45,12 +45,12 @@ export namespace WorkflowScriptRunner {
     let pumping = false;
     let runAgain = false;
 
-    export function executionState(): WorkflowScriptRunnerState {
+    export async function executionState(): Promise<WorkflowScriptRunnerState> {
         return {
             running,
             initialDelayMilliseconds,
             currentProcessIdentifier: processIdentifier,
-            scriptRunnerPeriod: WorkflowLogic.configuration().scriptRunnerPeriod,
+            scriptRunnerPeriod: (await WorkflowLogic.configuration()).scriptRunnerPeriod,
             nextPlannedExecution: nextPlannedExecution?.toString() ?? null,
             isCancelationRequested: cancelRequested,
             queuedItems,
@@ -73,7 +73,7 @@ export namespace WorkflowScriptRunner {
         running = true;
         cancelRequested = false;
         wakeUp("StartRunningScripts");
-        setTimer();
+        void setTimer();
     }
 
     export function stop(): void {
@@ -127,7 +127,7 @@ export namespace WorkflowScriptRunner {
         } finally {
             pumping = false;
             if (running)
-                setTimer();
+                await setTimer();
         }
     }
 
@@ -149,7 +149,7 @@ export namespace WorkflowScriptRunner {
             if (!await recruitQueuedItems())
                 return;
 
-            const chunkSize = WorkflowLogic.configuration().chunkSizeRunningScripts;
+            const chunkSize = (await WorkflowLogic.configuration()).chunkSizeRunningScripts;
 
             while (queuedItems > 0) {
                 if (cancelRequested)
@@ -200,7 +200,7 @@ export namespace WorkflowScriptRunner {
 
     /** CLAIM the due rows by stamping this pass's identifier on them. */
     async function recruitQueuedItems(): Promise<boolean> {
-        const config = WorkflowLogic.configuration();
+        const config = await WorkflowLogic.configuration();
         const firstDate = config.avoidExecutingScriptsOlderThan == null ? null
             : Clock.now.add({ hours: -config.avoidExecutingScriptsOlderThan });
         const now = Clock.now;
@@ -216,11 +216,11 @@ export namespace WorkflowScriptRunner {
         return queuedItems > 0;
     }
 
-    function setTimer(): void {
+    async function setTimer(): Promise<void> {
         if (timer != null)
             clearTimeout(timer);
 
-        const periodSeconds = WorkflowLogic.configuration().scriptRunnerPeriod;
+        const periodSeconds = (await WorkflowLogic.configuration()).scriptRunnerPeriod;
         nextPlannedExecution = Clock.now.add({ seconds: periodSeconds });
         timer = setTimeout(() => wakeUp("TimerNextExecution"), periodSeconds * 1000);
         timer.unref?.();

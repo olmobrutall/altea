@@ -50,7 +50,7 @@ export namespace RemoteEmailsLogic {
     export let hardCodedCategories: (() => string[]) | null = null;
 
     /** Which Entra registration a mailbox is read with. */
-    export let getGraphConfig: (mailboxId: string) => AzureADConfigurationEmbedded =
+    export let getGraphConfig: (mailboxId: string) => Promise<AzureADConfigurationEmbedded> =
         () => AzureADLogic.requireConfig();
 
     /** Replaceable, because `GetExpansionPropertyId` is the app's extension point.
@@ -95,7 +95,7 @@ export namespace RemoteEmailsLogic {
                     throw new Error(RemoteEmailMessageMessage.UserFilterNotFound.niceToString());
 
                 const mailbox = await getMailbox(user);
-                const config = getGraphConfig(mailbox);
+                const config = await getGraphConfig(mailbox);
 
                 // https://learn.microsoft.com/en-us/graph/api/user-list-messages — see fixFiltersAndOrders.
                 const { filters, orders } = fixFiltersAndOrders(rest, request.orders);

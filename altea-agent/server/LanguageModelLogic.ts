@@ -1,4 +1,5 @@
 import "@altea/altea/server";
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { type FluentOperations } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
@@ -41,10 +42,27 @@ import { GeminiProvider } from "./Providers/GeminiProvider";
 //  - `HeavyProfiler.Log("GetEmbeddings", …)` is kept, on altea's profiler.
 export namespace LanguageModelLogic {
 
-    /** Signum's `GetConfig` — supplied by the app (its own configuration entity holds the credentials). */
-    export let getConfig: () => ChatbotConfigurationEmbedded = () => {
+    /**
+     * Supplied by the app (its own configuration entity holds the credentials) — a THUNK returning the
+     * configuration cache's own promise, so a change takes effect without a restart.
+     */
+    export let getConfig: () => StablePromise<ChatbotConfigurationEmbedded> = () => {
         throw new Error("LanguageModelLogic.getConfig was not set (pass it to ChatbotLogic.start)");
     };
+
+    /**
+     * The same settings SYNCHRONOUSLY, for the provider callbacks below: an `apiKey` thunk is read from
+     * inside an HTTP client's request path, which is sync the whole way down. Reads the value the cache
+     * has already stamped — caching nothing of its own, so it cannot go stale — and throws if cold, which
+     * by then it never is.
+     */
+    export function configLoaded(): ChatbotConfigurationEmbedded {
+        const loaded = getConfig().resolvedValue;
+        if (loaded == undefined)
+            throw new Error("The chatbot configuration has not loaded yet; await"
+                + " `LanguageModelLogic.getConfig()` once at startup.");
+        return loaded.value;
+    }
 
     let languageModels: ResetLazy<Map<string, ChatbotLanguageModelEntity>> | undefined;
     let defaultLanguageModel: ResetLazy<Lite<ChatbotLanguageModelEntity> | null> | undefined;
@@ -65,7 +83,7 @@ export namespace LanguageModelLogic {
     }
 
     function registerBuiltInProviders(): void {
-        const cfg = (): ChatbotConfigurationEmbedded => getConfig();
+        const cfg = (): ChatbotConfigurationEmbedded => configLoaded();
 
         const openAI = new OpenAICompatibleProvider({
             name: "OpenAI",
@@ -133,7 +151,7 @@ export namespace LanguageModelLogic {
     }
 
     function ollamaRoot(): string {
-        const url = required(getConfig().ollamaUrl, "No Ollama URL configured!");
+        const url = required(configLoaded().ollamaUrl, "No Ollama URL configured!");
         return url.replace(/\/+$/, "");
     }
 
@@ -143,7 +161,7 @@ export namespace LanguageModelLogic {
         return value;
     }
 
-    export function start(sb: SchemaBuilder, config: () => ChatbotConfigurationEmbedded): void {
+    export function start(sb: SchemaBuilder, config: () => StablePromise<ChatbotConfigurationEmbedded>): void {
         if (sb.alreadyDefined(start))
             return;
 

@@ -229,7 +229,7 @@ export namespace WorkflowServer {
             { res: CustomType<WorkflowScriptRunnerState>() },
             async (_req, res) => {
                 await assertAuthorized(WorkflowPermission.ViewWorkflowPanel);
-                res.jsonTyped(WorkflowScriptRunner.executionState());
+                res.jsonTyped(await WorkflowScriptRunner.executionState());
             });
 
         ws.post("/api/workflow/scriptRunner/start",
@@ -237,7 +237,7 @@ export namespace WorkflowServer {
             async (_req, res) => {
                 await assertAuthorized(WorkflowPermission.ViewWorkflowPanel);
                 WorkflowScriptRunner.startRunningScripts();
-                res.jsonTyped(WorkflowScriptRunner.executionState());
+                res.jsonTyped(await WorkflowScriptRunner.executionState());
             });
 
         ws.post("/api/workflow/scriptRunner/stop",
@@ -245,7 +245,7 @@ export namespace WorkflowServer {
             async (_req, res) => {
                 await assertAuthorized(WorkflowPermission.ViewWorkflowPanel);
                 WorkflowScriptRunner.stop();
-                res.jsonTyped(WorkflowScriptRunner.executionState());
+                res.jsonTyped(await WorkflowScriptRunner.executionState());
             });
 
         // ---- The contextual-menu helpers ------------------------------------------------------------

@@ -1,5 +1,6 @@
 import "@altea/altea/server";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import type { SMSConfigurationEmbedded } from "../data/SMS";
 import { SMSLogic, type ISMSProvider } from "./SMSLogic";
 import { SMSProcessLogic } from "./SMSProcessLogic";
@@ -15,7 +16,7 @@ export namespace SMSModuleLogic {
     export function start(
         sb: SchemaBuilder,
         options: {
-            getConfiguration: () => SMSConfigurationEmbedded;
+            getConfiguration: () => StablePromise<SMSConfigurationEmbedded>;
             /** The gateway. Null is legitimate: a queue with no provider still records messages. */
             provider?: ISMSProvider;
             /** The send / update-status processes and the scheduled status refresh. Default: on. */

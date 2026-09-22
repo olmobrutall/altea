@@ -5,6 +5,7 @@ import { Temporal } from "@altea/altea/data/basics";
 import { UserWithClaims, type IUserEntity } from "@altea/altea/data/security";
 import { Serializer } from "@altea/altea/data/serializer";
 import { AuthenticationException } from "@altea/altea/server/exceptions";
+import { markStable, type StablePromise } from "@altea/altea/server/stablePromise";
 import { table } from "@altea/altea/server/table";
 import { UserEntity, UserState } from "../data/User";
 import { RoleEntity } from "../data/Role";
@@ -56,6 +57,10 @@ export interface AuthResponseLike {
     setHeader(name: string, value: string): void;
 }
 
+// The defaults, for a host that starts auth without a configuration row (a test starter). ONE instance,
+// marked stable, so this thunk honours the same contract a cache's does.
+const defaultConfiguration = markStable(Promise.resolve(new AuthTokenConfigurationEmbedded()));
+
 export namespace AuthTokenServer {
     /**
      * The settings, read through a THUNK returning the cache's own promise, so they come off the
@@ -64,8 +69,7 @@ export namespace AuthTokenServer {
      * A thunk and not the promise itself: a captured promise keeps the value it was stamped with, so it
      * would go stale at the first invalidation. The host supplies it in `start`.
      */
-    export let configuration: () => Promise<AuthTokenConfigurationEmbedded> =
-        () => Promise.resolve(new AuthTokenConfigurationEmbedded());
+    export let configuration: () => StablePromise<AuthTokenConfigurationEmbedded> = () => defaultConfiguration;
     export const authHeader = "Authorization";
 
     // The authenticator chain. TokenAuthenticator is the only built-in for
@@ -80,7 +84,7 @@ export namespace AuthTokenServer {
      * @param getConfiguration  the settings row's `authTokens` member. Omitted, the defaults apply.
      */
     export function start(encryptionKey: string,
-        getConfiguration?: () => Promise<AuthTokenConfigurationEmbedded>): void {
+        getConfiguration?: () => StablePromise<AuthTokenConfigurationEmbedded>): void {
         if (encryptionKey == null || encryptionKey === "")
             throw new Error("AuthTokenServer.start: encryptionKey is not set");
         cryptoKey = createHash("md5").update(Buffer.from(encryptionKey, "utf8")).digest(); // 16 bytes → AES-128

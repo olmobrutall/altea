@@ -113,7 +113,7 @@ export namespace WindowsADServer {
                 if (!(authorizer instanceof WindowsADAuthorizer))
                     return fail(throwErrors, "No WindowsADAuthorizer set in AuthLogic.authorizer");
 
-                const config = authorizer.getConfig();
+                const config = await authorizer.getConfig();
                 if (config == null)
                     return fail(throwErrors, "No WindowsADConfiguration is set");
 

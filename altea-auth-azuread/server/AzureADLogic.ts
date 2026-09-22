@@ -22,6 +22,7 @@ import { ActiveDirectoryPermission } from "@altea/altea-auth/data/BaseAD";
 import type { ExternalUser } from "@altea/altea-auth/server/ADAuthorizer";
 import { SimpleTaskLogic } from "@altea/altea-scheduler/server/SimpleTaskLogic";
 import { Operations } from "@altea/altea/server/operationLogic";
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { AzureADConfigurationEmbedded, AzureADTask } from "../data/AzureAD";
 import { ADGroupEntity, ADGroupOperation } from "../data/ADGroup";
 import {
@@ -74,7 +75,7 @@ export namespace AzureADLogic {
 
     export interface StartOptions {
         /** Per AD VARIANT ("default" or an application-specific name). */
-        getConfig: (adVariant: string | null) => AzureADConfigurationEmbedded | null;
+        getConfig: (adVariant: string | null) => StablePromise<AzureADConfigurationEmbedded | null>;
         /** Include ADGroupEntity and register the two directory queries. */
         adGroupsAndQueries?: boolean;
         /** Register the AzureADTask.DeactivateUsers simple task. */
@@ -111,8 +112,8 @@ export namespace AzureADLogic {
     }
 
     /** The configuration for one variant, or a clear error (every Graph call needs one). */
-    export function requireConfig(adVariant: string | null = null): AzureADConfigurationEmbedded {
-        const config = authorizer?.getConfigFor(adVariant) ?? null;
+    export async function requireConfig(adVariant: string | null = null): Promise<AzureADConfigurationEmbedded> {
+        const config = authorizer == undefined ? null : await authorizer.getConfigFor(adVariant);
         if (config == null)
             throw new Error(`No AzureADConfiguration for variant '${adVariant ?? "default"}'`);
         return config;
@@ -127,7 +128,7 @@ export namespace AzureADLogic {
      */
     function registerDeactivateUsersTask(): void {
         SimpleTaskLogic.register(AzureADTask.DeactivateUsers, async ctx => {
-            const config = requireConfig();
+            const config = await requireConfig();
             const users = await table(UserEntity).filter(u => u.externalId != null).toArray() as UserEntity[];
 
             const chunks: UserEntity[][] = [];
@@ -169,7 +170,7 @@ export namespace AzureADLogic {
 
         QueryLogic.queries.register(ActiveDirectoryUsersRowModel, () =>
             new ManualDynamicQueryCore(ActiveDirectoryUsersRowModel, async request => {
-                const config = requireConfig();
+                const config = await requireConfig();
                 const converter = new MicrosoftGraphQueryConverter();
 
                 // An `inGroup` EqualTo filter switches the call to that group's transitive members and is
@@ -196,7 +197,7 @@ export namespace AzureADLogic {
 
         QueryLogic.queries.register(ActiveDirectoryGroupsRowModel, () =>
             new ManualDynamicQueryCore(ActiveDirectoryGroupsRowModel, async request => {
-                const config = requireConfig();
+                const config = await requireConfig();
                 const converter = new MicrosoftGraphQueryConverter();
 
                 // A `hasUser` EqualTo filter asks for that user's transitive group membership instead.
@@ -321,7 +322,7 @@ export namespace AzureADLogic {
 
     /** The autocomplete behind "invite a user from the directory". */
     export async function findActiveDirectoryUsers(subStr: string, top: number, _signal?: AbortSignal): Promise<ExternalUser[]> {
-        const config = requireConfig();
+        const config = await requireConfig();
         const s = subStr.replace(/'/g, "''");
 
         const query =
@@ -342,7 +343,7 @@ export namespace AzureADLogic {
 
     /** One directory user by object id. */
     export async function getActiveDirectoryUser(oid: string): Promise<ExternalUser> {
-        const config = requireConfig();
+        const config = await requireConfig();
         const u = await MicrosoftGraph.get<GraphUser>(config, `users/${oid}`);
         if (u == null)
             throw new Error(`User with OID '${oid}' not found in Active Directory`);
@@ -357,7 +358,7 @@ export namespace AzureADLogic {
 
     /** Import a directory hit as a local user (or refresh the existing row). */
     export async function createUserFromAD(adUser: ExternalUser): Promise<UserEntity> {
-        const config = requireConfig();
+        const config = await requireConfig();
         const ada = authorizer!;
 
         const graphUser = await MicrosoftGraph.get<GraphUser>(config, `users/${adUser.externalId}`);
@@ -412,7 +413,7 @@ export namespace AzureADLogic {
 
     /** The square photo bytes at a Graph-supported size, or null. */
     export async function getUserPhoto(oid: string, size: number): Promise<Buffer | null> {
-        const config = requireConfig();
+        const config = await requireConfig();
         return await MicrosoftGraph.getBytes(config, `users/${oid}/photos/${size}x${size}/$value`);
     }
 }
@@ -423,4 +424,3 @@ function before(value: string, separator: string): string {
 function after(value: string, separator: string): string {
     return value.substring(value.indexOf(separator) + separator.length);
 }
-

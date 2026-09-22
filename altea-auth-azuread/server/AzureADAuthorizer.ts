@@ -3,6 +3,7 @@ import {
     ADAuthorizer, type DirectoryGroup, type ExternalUser, type IAutoCreateUserContext, type IDirectoryInviter,
 } from "@altea/altea-auth/server/ADAuthorizer";
 import type { UserEntity } from "@altea/altea-auth/data/User";
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { AzureADConfigurationEmbedded, AzureADType } from "../data/AzureAD";
 import { AzureADLogic } from "./AzureADLogic";
 import type { GraphUser } from "./MicrosoftGraph";
@@ -113,7 +114,7 @@ export class AzureADAuthorizer extends ADAuthorizer<AzureADConfigurationEmbedded
      * AD VARIANT ("default", or an application-specific name). The base class's `getConfig()` is the
      * default variant.
      */
-    constructor(readonly getConfigFor: (adVariant: string | null) => AzureADConfigurationEmbedded | null) {
+    constructor(readonly getConfigFor: (adVariant: string | null) => StablePromise<AzureADConfigurationEmbedded | null>) {
         super(() => getConfigFor(null));
     }
 

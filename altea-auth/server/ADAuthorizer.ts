@@ -3,6 +3,7 @@ import { table } from "@altea/altea/server/table";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Lite } from "@altea/altea/data/lite";
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { UserEntity, UserState } from "../data/User";
 import { RoleEntity } from "../data/Role";
 import { LoginAuthMessage } from "../data/AuthMessages";
@@ -75,8 +76,11 @@ export function isDirectoryInviter(value: unknown): value is IDirectoryInviter {
  */
 export abstract class ADAuthorizer<TConfig extends BaseADConfigurationEmbedded> implements ICustomAuthorizer {
 
-    /** A callback, so the host can re-read a changed configuration. */
-    constructor(readonly getConfig: () => TConfig | null) { }
+    /**
+     * A callback, so the host can re-read a changed configuration — a THUNK returning the configuration
+     * cache's own promise, not a captured promise, which would keep the value it was stamped with.
+     */
+    constructor(readonly getConfig: () => StablePromise<TConfig | null>) { }
 
     /** By default the local database is the only credential store (an interactive
      *  directory sign-in happens through the module's own endpoint, not through /api/auth/login). */

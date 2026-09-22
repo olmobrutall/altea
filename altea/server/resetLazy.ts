@@ -29,7 +29,7 @@ export class ResetLazy<T> implements IResetLazy {
     private box: { value: T } | undefined;
     // The in-flight load, so concurrent `value()` callers share one factory invocation. Cleared
     // when the load settles (or on `reset()`), guarded so a stale load can't populate a reset box.
-    private loading: Promise<T> | undefined;
+    private loading: StablePromise<T> | undefined;
     // The promise handed out while the value is warm, so `value()` returns the SAME object every time. That
     // identity is what makes every ResetLazy a STABLE promise: synchronous code inside a re-runnable region
     // can demand it (a row filter asking for its caches mid-bind), and a query can fold it through `.$v`
@@ -60,7 +60,7 @@ export class ResetLazy<T> implements IResetLazy {
     // in-flight promise; a rejection self-evicts (the next call retries) so a transient error —
     // e.g. a "Transaction not started" when the load runs outside a request's transaction — never
     // poisons the cache for the whole process.
-    value(): Promise<T> {
+    value(): StablePromise<T> {
         const b = this.box;
         if (b != null) {
             this.hits++;

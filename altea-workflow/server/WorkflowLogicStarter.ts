@@ -1,4 +1,5 @@
 import type { SchemaBuilder } from "@altea/altea/server/schema";
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import type { WorkflowConfigurationEmbedded } from "../data/Workflow";
 import { WorkflowLogic } from "./WorkflowLogic";
 import { CaseActivityLogic } from "./CaseActivityLogic";
@@ -13,7 +14,8 @@ import { WorkflowServer } from "./WorkflowServer";
 // because it needs all three logic layers to be registered first.
 
 export namespace WorkflowLogicStarter {
-    export function start(sb: SchemaBuilder, getConfiguration: () => WorkflowConfigurationEmbedded): void {
+    export function start(sb: SchemaBuilder,
+        getConfiguration: () => StablePromise<WorkflowConfigurationEmbedded>): void {
         WorkflowLogic.start(sb, getConfiguration);
         CaseActivityLogic.start(sb);
         WorkflowEventTaskLogic.start(sb);

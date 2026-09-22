@@ -5,6 +5,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { DirectedGraph } from "@altea/altea/server/directedGraph";
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { Temporal, toInt } from "@altea/altea/data/basics";
 import { Lite } from "@altea/altea/data/lite";
@@ -122,7 +123,7 @@ export namespace AuthLogic {
      *   stays fresh. Omitted, AuthTokenServer's defaults apply.
      */
     export function start(sb: SchemaBuilder, systemUser?: string | null, anonymousUser?: string | null,
-        options?: { getTokenConfiguration?: () => Promise<AuthTokenConfigurationEmbedded> }): void {
+        options?: { getTokenConfiguration?: () => StablePromise<AuthTokenConfigurationEmbedded> }): void {
         systemUserName = systemUser ?? null;
         anonymousUserName = anonymousUser ?? null;
 

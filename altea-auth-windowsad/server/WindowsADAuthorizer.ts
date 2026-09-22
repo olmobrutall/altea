@@ -70,7 +70,7 @@ export class WindowsADAuthorizer extends ADAuthorizer<WindowsADConfigurationEmbe
     /** Validate the credential by binding to the directory. */
     async loginWithWindowsADRegistry(userName: string, password: string): Promise<UserEntity | null> {
         return await AuthLogic.withDisabled(async () => {
-            const config = this.getConfig();
+            const config = await this.getConfig();
             if (config == null || !config.loginWithActiveDirectoryRegistry)
                 return null;
 

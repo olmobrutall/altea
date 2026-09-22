@@ -61,7 +61,7 @@ import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 export namespace EmailLogic {
 
-    let getConfiguration: (() => Promise<EmailConfigurationEmbedded>) | undefined;
+    let getConfiguration: (() => StablePromise<EmailConfigurationEmbedded>) | undefined;
     let attachmentFileTypeSymbol: FileTypeSymbol = EmailFileType.Attachment;
 
     /**
@@ -70,7 +70,7 @@ export namespace EmailLogic {
      * A THUNK returning the cache's own promise, not a captured promise: a captured one keeps the value
      * it was stamped with and would go stale at the first invalidation.
      */
-    export function configuration(): Promise<EmailConfigurationEmbedded> {
+    export function configuration(): StablePromise<EmailConfigurationEmbedded> {
         if (getConfiguration == undefined)
             throw new Error("EmailLogic.start has not been called (no email configuration)");
         return getConfiguration();
@@ -85,7 +85,7 @@ export namespace EmailLogic {
      * rather than guessing, and says what to await.
      */
     export function configurationLoaded(): EmailConfigurationEmbedded {
-        const loaded = (configuration() as StablePromise<EmailConfigurationEmbedded>).resolvedValue;
+        const loaded = configuration().resolvedValue;
         if (loaded == undefined)
             throw new Error("The email configuration has not loaded yet. This is one of the few places that"
                 + " cannot await it (a template's global variables, the master-template culture check);"
@@ -107,7 +107,7 @@ export namespace EmailLogic {
 
     export function start(sb: SchemaBuilder, options: {
         /** The app's mail settings, as a thunk returning the configuration cache's promise. */
-        getConfiguration: () => Promise<EmailConfigurationEmbedded>;
+        getConfiguration: () => StablePromise<EmailConfigurationEmbedded>;
         /** Signum's `getEmailSenderConfiguration` — which sender configuration a template / target uses. */
         getSenderConfiguration: (
             template: EmailTemplateEntity | null,
