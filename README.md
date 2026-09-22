@@ -59,18 +59,11 @@ export namespace ShipperOperation {
 the same file is what both tiers compile, a validator declared once runs in the form as the user types
 *and* again before the `INSERT`. There is no DTO layer and nothing to keep in sync.
 
-**A method can be part of the model too.** `@quoted` marks one whose body is captured as an expression
-tree at build time, so it is callable in memory *and* translatable to SQL — `toString` above, and in the
-orders module:
-
-```ts
-@quoted totalPrice(): Decimal { return this.details.sum(d => d.subTotalPrice()); }
-```
-
-Register it and `TotalPrice` becomes a column users can filter, sort, chart and export by — computed in
-the database, never fetched row by row.
-
 ### Server — the table, the operations, the queries
+
+Declaring the class is not enough: an entity reaches the schema only when it is **registered**, and
+`sb.include` is that registration — the table, its columns and its indexes, then whatever else this type
+offers.
 
 ```ts
 // ShipperLogic.server.ts
@@ -107,6 +100,9 @@ to read before it runs. Renames are asked about rather than guessed, because a w
 
 ### Client — the search page and the form
 
+All of this is **optional**: an entity with no client registration still gets a search page and a
+generated form. This is where you override those defaults.
+
 ```ts
 // ShipperClient.client.ts — the view, and which columns the search page opens with.
 cb.configure(ShipperEntity)
@@ -138,9 +134,13 @@ export default function Shipper(p: { ctx: TypeContext<ShipperEntity> }): React.J
 }
 ```
 
+A `TypeContext` is the entity plus where you are inside it — the value, its property route, its
+read-only-ness — so `ctx.subCtx(s => s.phone)` hands a Line everything it needs to render and validate
+that one field.
+
 That is the whole feature. The schema, the `/api` surface, the search page, the save button and its
 authorization all follow from those declarations — and the form is a plain React component, so the lines
-are yours to arrange. Leave the view out entirely and the entity still gets a generated one.
+are yours to arrange.
 
 ## The compiler magic
 
@@ -192,8 +192,14 @@ type Quoted<T extends Function> = T & { __quoted?: () => ExLambda };
 ```
 
 A quoted lambda is still an ordinary function you can call. What it gains is a property holding its own
-body — a tree of plain arrays with the operator in slot 0. This is the whole of `ShipperEntity`'s
-`toString`, source and emitted output:
+body — a tree of plain arrays with the operator in slot 0: `["p", …]` a parameter, `[".", …]` a member
+access, `["c", …]` a captured constant, `["()", …]` a call, and a binary operator spelled as in
+JavaScript. Plain data — no `eval`, no parsing a function's `toString()`.
+
+Two things produce one, and you write neither.
+
+**`@quoted` on a method**, when you want it to be part of the model — callable in memory *and* usable as
+a column. `ShipperEntity.toString`, source and emitted:
 
 ```ts
 @quoted toString(): string { return this.companyName; }
@@ -201,22 +207,13 @@ body — a tree of plain arrays with the operator in slot 0. This is the whole o
 quoted(() => (_this => ["=>", [_this], [".", _this, "companyName"]])(["p", "_this"]))
 ```
 
-`["p", …]` is a parameter and `[".", …]` a member access; elsewhere `["c", …]` is a captured constant,
-`["()", …]` a call, and a binary operator is its own JavaScript spelling. Note that the parameter node is
-built once and referenced from both the parameter list and the body — the binder matches parameters by
-object identity, not by name.
+`OrderEntity.totalPrice` is the same thing with a body worth computing —
+`this.details.sum(d => d.subTotalPrice())` — and registering it makes `TotalPrice` a column users can
+filter, sort, chart and export by, summed in the database rather than fetched row by row.
 
-It is plain data: no `eval`, no parsing a function's `toString()`, nothing to build until something asks.
-
-**There are exactly two ways a function becomes `Quoted`, and you write neither of them.**
-
-*You ask for it, with `@quoted`* — that is the case above, and it is for a **method that is part of the
-model**: something you want callable in memory *and* usable as a column.
-
-*Or the position asks for it.* Anywhere a parameter, field or variable is declared `Quoted<…>`, the arrow
-you put there is stamped — and you just write an arrow. `Query.filter` declares
-`predicate: Quoted<(element: T) => boolean>`, and that is the whole reason a query lambda works. Source
-and emitted, verbatim from the demo:
+**A `Quoted<…>` position**, for everything else. Anywhere a parameter, field or variable is declared
+`Quoted<…>`, the arrow you put there is stamped. `Query.filter` declares
+`predicate: Quoted<(element: T) => boolean>` — which is the entire reason a query lambda works:
 
 ```ts
 table(ProductEntity).filter(p => !p.discontinued)
@@ -226,11 +223,7 @@ table(ProductEntity).filter(Object.assign(p => !p.discontinued, {
 }))
 ```
 
-The arrow itself is untouched and still runs; `Object.assign` just travels the tree alongside it. Nothing
-in your source changed — `filter`'s parameter type is the entire trigger.
-
-So: `@quoted` marks a model method, `Quoted<T>` in a signature quietly does the rest, and the day-to-day
-experience is writing ordinary TypeScript that happens to reach the database.
+Both leave the function untouched and still callable; the tree just travels beside it.
 
 **The practical consequences.** Build with `tspc`; plain `tsc` compiles happily and produces functions with
 no `__quoted`, so everything fails at run time with "has not been quoted". And a change to the transformer
