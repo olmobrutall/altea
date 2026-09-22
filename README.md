@@ -241,6 +241,9 @@ More to the point, there is no *edge* to the syntax. Because the provider reads 
 rather than a DSL you assembled, a query can call a method you defined, navigate a reference, or nest
 another query — things a builder cannot express because no vocabulary was invented for them.
 
+**Operators that BUILD the query.** Each returns a new `Query<T>` and touches nothing — chain as many as
+you like, and hand the result around unfinished.
+
 | | |
 | --- | --- |
 | `filter(p)` | `WHERE` |
@@ -249,19 +252,30 @@ another query — things a builder cannot express because no vocabulary was inve
 | `distinct()` | `DISTINCT` |
 | `orderBy(f)` · `orderByDescending(f)` | `ORDER BY` |
 | `thenBy(f)` · `thenByDescending(f)` | the next sort key |
+| `reverse()` | invert the ordering so far |
 | `top(n)` · `skip(n)` | `TOP` / `LIMIT`, and `OFFSET` |
+| `groupBy(k)` | `GROUP BY`, yielding `{ key, elements }` |
+| `ofType(T)` · `cast(T)` | narrow a polymorphic reference to one implementation |
+| `innerJoin` · `leftJoin` · `rightJoin` · `fullJoin` | explicit joins — rarely needed, a reference joins itself |
+
+**Operators that RUN it.** Each is `await`ed, and each is where a statement is finally sent.
+
+| | |
+| --- | --- |
+| `toArray()` | the rows |
+| `first()` · `firstOrNull()` · `last()` · `lastOrNull()` | one row, throwing or null when there is none |
+| `single()` · `singleOrNull()` | the same, and complains if there are two |
 | `count(p?)` | `COUNT` |
 | `sum(f?)` · `avg(f?)` | `SUM` · `AVG` |
 | `min(f?)` · `max(f?)` | `MIN` · `MAX` |
 | `minBy(f)` · `maxBy(f)` | the ROW with the smallest / largest value |
 | `some(p?)` · `every(p)` | `EXISTS`, and `EXISTS` over the negated predicate |
 | `includes(x)` | `IN` |
-| `first()` · `firstOrNull()` | one row, or throw / null |
-| `single()` · `singleOrNull()` | the same, and complain if there are two |
-| `groupBy(k)` | `GROUP BY`, yielding `{ key, elements }` |
-| `innerJoin` · `leftJoin` · `rightJoin` · `fullJoin` | explicit joins — rarely needed, a reference joins itself |
-| `toArray()` | the only call that runs anything; everything above is lazy |
 | `executeUpdate(f)` · `executeDelete()` | one statement, nothing retrieved |
+
+Nothing before an `await` reaches the database, so a query is worth passing around and adding to. And the
+same names appear on *both* sides of the line depending on where you write them: `o.details.some(…)`
+inside a lambda is an `EXISTS` sub-query the outer statement carries, not a second round trip.
 
 Between your arrow and the rows, four steps:
 
