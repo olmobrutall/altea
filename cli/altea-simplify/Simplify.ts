@@ -216,9 +216,11 @@ export namespace Simplify {
                     if (lines[i].trim() === wanted)
                         lines.splice(i, 1);
 
-                return before === lines.length
-                    ? { changed: false, note: `no line equals ${JSON.stringify(d.line)}` }
-                    : { changed: true, note: `removed ${before - lines.length} line(s) ${JSON.stringify(d.line)}` };
+                if (before === lines.length)
+                    return { changed: false, note: `no line equals ${JSON.stringify(d.line)}` };
+
+                repairTrailingComma(d.path, lines);
+                return { changed: true, note: `removed ${before - lines.length} line(s) ${JSON.stringify(d.line)}` };
             }
 
             const start = lines.findIndex(l => l.includes(d.from!));
@@ -230,8 +232,29 @@ export namespace Simplify {
                 return { changed: false, note: `no line contains To=${JSON.stringify(d.to)} at or after From` };
 
             lines.splice(start, end - start + 1);
+            repairTrailingComma(d.path, lines);
             return { changed: true, note: `removed ${end - start + 1} line(s) ${JSON.stringify(d.from)}…` };
         });
+    }
+
+    /**
+     * JSON has no trailing commas, so removing the LAST entry of an object or array leaves the one above it
+     * ending in a comma and the file unparseable — which `pnpm install` reports long after the run, as a
+     * syntax error in a file nobody edited by hand. `RemovePackageReference` has always repaired its own;
+     * a plain `RemoveLine` over package.json or a tsconfig (a script, a reference) can land in exactly the
+     * same place, so it repairs too. Only for `.json`: a trailing comma is legal everywhere else.
+     */
+    function repairTrailingComma(relative: string, lines: string[]): void {
+        if (!relative.toLowerCase().endsWith(".json"))
+            return;
+
+        for (let i = 0; i < lines.length; i++) {
+            if (!lines[i].trimEnd().endsWith(","))
+                continue;
+            const next = lines.slice(i + 1).find(l => l.trim() !== "");
+            if (next != undefined && (next.trim().startsWith("}") || next.trim().startsWith("]")))
+                lines[i] = lines[i].trimEnd().replace(/,$/, "");
+        }
     }
 
     /**
