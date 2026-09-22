@@ -58,10 +58,14 @@ export interface AuthResponseLike {
 
 export namespace AuthTokenServer {
     /**
-     * The settings, read through a THUNK so they come off the application's configuration ROW and an
-     * administrator's change takes effect without a restart. The host supplies it in `start`.
+     * The settings, read through a THUNK returning the cache's own promise, so they come off the
+     * application's configuration ROW and an administrator's change takes effect without a restart.
+     *
+     * A thunk and not the promise itself: a captured promise keeps the value it was stamped with, so it
+     * would go stale at the first invalidation. The host supplies it in `start`.
      */
-    export let configuration: () => AuthTokenConfigurationEmbedded = () => new AuthTokenConfigurationEmbedded();
+    export let configuration: () => Promise<AuthTokenConfigurationEmbedded> =
+        () => Promise.resolve(new AuthTokenConfigurationEmbedded());
     export const authHeader = "Authorization";
 
     // The authenticator chain. TokenAuthenticator is the only built-in for
@@ -75,7 +79,8 @@ export namespace AuthTokenServer {
      *   row: it is needed to read the very first request, before any row can be loaded.
      * @param getConfiguration  the settings row's `authTokens` member. Omitted, the defaults apply.
      */
-    export function start(encryptionKey: string, getConfiguration?: () => AuthTokenConfigurationEmbedded): void {
+    export function start(encryptionKey: string,
+        getConfiguration?: () => Promise<AuthTokenConfigurationEmbedded>): void {
         if (encryptionKey == null || encryptionKey === "")
             throw new Error("AuthTokenServer.start: encryptionKey is not set");
         cryptoKey = createHash("md5").update(Buffer.from(encryptionKey, "utf8")).digest(); // 16 bytes → AES-128
@@ -83,8 +88,9 @@ export namespace AuthTokenServer {
         authenticators.push(tokenAuthenticator);
     }
 
-    export function getTokenLimitDate(): Temporal.PlainDateTime {
-        return Temporal.Now.plainDateTimeISO().subtract({ minutes: configuration().refreshTokenEvery as number });
+    export async function getTokenLimitDate(): Promise<Temporal.PlainDateTime> {
+        const config = await configuration();
+        return Temporal.Now.plainDateTimeISO().subtract({ minutes: config.refreshTokenEvery as number });
     }
 
     // A base64 fingerprint of the user's stored password hash (now raw binary bytes), embedded in the
@@ -130,9 +136,10 @@ export namespace AuthTokenServer {
             throw new AuthenticationException(LoginAuthMessage.InvalidTokenDate0.niceToString(token.c));
 
         // Too old, minted before the configured cut-off, or asked for explicitly.
-        const previousTo = configuration().refreshAnyTokenPreviousTo;
+        const config = await configuration();
+        const previousTo = config.refreshAnyTokenPreviousTo;
         const requiresRefresh =
-            Temporal.PlainDateTime.compare(creation, getTokenLimitDate()) < 0 ||
+            Temporal.PlainDateTime.compare(creation, await getTokenLimitDate()) < 0 ||
             (previousTo != null && Temporal.PlainDateTime.compare(creation, previousTo) < 0) ||
             req.hasQuery("refreshToken");
 

@@ -96,7 +96,7 @@ export namespace Pop3ConfigurationLogic {
         ctx: ScheduledTaskContext,
     ): Promise<EmailReceptionEntity> {
 
-        if (!EmailLogic.configuration().reciveEmails)
+        if (!(await EmailLogic.configuration()).reciveEmails)
             throw new Error("EmailLogic.configuration().reciveEmails is set to false");
 
         using _prof = HeavyProfiler.log("ReceiveEmails", () => config.emailAddress);

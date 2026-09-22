@@ -44,7 +44,7 @@ export namespace MailingServer {
             { res: CustomType<AsyncEmailSenderState>() },
             async (_req, res) => {
                 await assertAuthorized();
-                res.jsonTyped(AsyncEmailSender.executionState());
+                res.jsonTyped(await AsyncEmailSender.executionState());
             });
 
         // Anonymous on purpose (Signum's [SignumAllowAnonymous]): this is what a monitor polls.
@@ -60,7 +60,7 @@ export namespace MailingServer {
             async (_req, res) => {
                 await assertAuthorized();
                 await AsyncEmailSender.startAsyncEmailSender();
-                res.jsonTyped(AsyncEmailSender.executionState());
+                res.jsonTyped(await AsyncEmailSender.executionState());
             });
 
         ws.post("/api/asyncEmailSender/stop",
@@ -68,7 +68,7 @@ export namespace MailingServer {
             async (_req, res) => {
                 await assertAuthorized();
                 AsyncEmailSender.stop();
-                res.jsonTyped(AsyncEmailSender.executionState());
+                res.jsonTyped(await AsyncEmailSender.executionState());
             });
 
         // ---- the "send this template" lookups -----------------------------------------------------------
@@ -106,7 +106,7 @@ export namespace MailingServer {
         ws.get("/api/email/getDefaultCulture",
             { res: CustomType<CultureInfoEntity>() },
             async (_req, res) => {
-                res.jsonTyped(EmailLogic.configuration().defaultCulture);
+                res.jsonTyped((await EmailLogic.configuration()).defaultCulture);
             });
 
         AsyncEmailSender.installShutdownHook();

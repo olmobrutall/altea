@@ -225,7 +225,7 @@ function recipientOf(address: EmailAddressEmbedded): GraphRecipient {
 /** Honours OverrideEmailAddress (the test catch-all) and
  *  refuses to build an address at all when sending is off. */
 function recipientOfRecipient(recipient: EmailRecipientBaseEntity): GraphRecipient {
-    const config = EmailLogic.configuration();
+    const config = EmailLogic.configurationLoaded();
     if (!config.sendEmails)
         throw new Error("EmailConfigurationEmbedded.sendEmails is set to false");
 

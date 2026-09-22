@@ -105,7 +105,7 @@ export namespace EmailPackageLogic {
                 .map(e => e.toLite())
                 .toArray() as Lite<EmailMessageEntity>[];
 
-            const config = EmailLogic.configuration();
+            const config = await EmailLogic.configuration();
             const chunkSize = Number(config.chunkSizeSendingEmails);
             const maxRetries = Number(config.maxEmailSendRetries);
 

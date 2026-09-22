@@ -108,7 +108,7 @@ export namespace EmailReceptionLogic {
 
         // …or the sweep task polls every ACTIVE configuration in turn.
         SimpleTaskLogic.register(EmailReceptionAction.ReceiveAllActiveEmailConfigurations, async ctx => {
-            if (!EmailLogic.configuration().reciveEmails)
+            if (!(await EmailLogic.configuration()).reciveEmails)
                 throw new Error("EmailLogic.configuration().reciveEmails is set to false");
 
             const active = await table(EmailReceptionConfigurationEntity).filter(c => c.active).toArray();

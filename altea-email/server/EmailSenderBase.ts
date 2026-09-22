@@ -24,7 +24,7 @@ export abstract class EmailSenderBase {
     /** Signum's Send — send, then stamp Sent / SentException on the message. */
     async send(email: EmailMessageEntity): Promise<void> {
         // The master switch: record the message as sent without touching the network (a dev / test database).
-        if (!EmailLogic.configuration().sendEmails) {
+        if (!(await EmailLogic.configuration()).sendEmails) {
             email.state = EmailMessageState.Sent;
             email.sent = Clock.now;
             await email.save();

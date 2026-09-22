@@ -6,7 +6,7 @@ import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbedde
 import { mimeType } from "@altea/altea-files/server/FileTypeAlgorithm";
 import { EmailMessageEntity } from "../data/EmailMessage";
 import { EmailAttachmentType } from "../data/EmailTemplate";
-import { EmailRecipientKind, type EmailAddressEmbedded, type EmailRecipientBaseEntity } from "../data/Email";
+import { EmailRecipientKind, type EmailAddressEmbedded, type EmailRecipientBaseEntity, type EmailConfigurationEmbedded } from "../data/Email";
 import {
     SmtpDeliveryMethod, type EmailSenderConfigurationEntity, type SmtpEmailServiceEntity,
 } from "../data/EmailSenderConfiguration";
@@ -34,7 +34,7 @@ export class SmtpSender extends EmailSenderBase {
     }
 
     protected override async sendInternal(email: EmailMessageEntity): Promise<void> {
-        const message = this.createMailMessage(email);
+        const message = this.createMailMessage(email, await EmailLogic.configuration());
 
         using _ = HeavyProfiler.log("SMTP-Send");
 
@@ -46,7 +46,7 @@ export class SmtpSender extends EmailSenderBase {
         }
     }
 
-    private createMailMessage(email: EmailMessageEntity): SendMailOptions {
+    private createMailMessage(email: EmailMessageEntity, config: EmailConfigurationEmbedded): SendMailOptions {
         const attachments = email.attachments.map(a => ({
             filename: a.file.fileName,
             content: Buffer.from(FilePathEmbeddedLogic.readAllBytesSync(a.file)),
@@ -57,9 +57,9 @@ export class SmtpSender extends EmailSenderBase {
 
         return {
             from: formatAddress(email.from),
-            to: recipientsOfKind(email, EmailRecipientKind.To),
-            cc: recipientsOfKind(email, EmailRecipientKind.Cc),
-            bcc: recipientsOfKind(email, EmailRecipientKind.Bcc),
+            to: recipientsOfKind(email, EmailRecipientKind.To, config),
+            cc: recipientsOfKind(email, EmailRecipientKind.Cc, config),
+            bcc: recipientsOfKind(email, EmailRecipientKind.Bcc, config),
             subject: email.subject ?? "",
             ...(email.isBodyHtml ? { html: email.body.text ?? "" } : { text: email.body.text ?? "" }),
             attachments,
@@ -74,8 +74,7 @@ function formatAddress(address: EmailAddressEmbedded): string {
 
 /** Signum's `ToMailAddress(EmailRecipientEmbedded)` — honours OverrideEmailAddress (the test catch-all) and
  *  refuses to build an address at all when sending is off. */
-function formatRecipient(recipient: EmailRecipientBaseEntity): string {
-    const config = EmailLogic.configuration();
+function formatRecipient(recipient: EmailRecipientBaseEntity, config: EmailConfigurationEmbedded): string {
     if (!config.sendEmails)
         throw new Error("EmailConfigurationEmbedded.sendEmails is set to false");
 
@@ -83,13 +82,14 @@ function formatRecipient(recipient: EmailRecipientBaseEntity): string {
     return recipient.displayName ? `"${recipient.displayName.replace(/"/g, "'")}" <${address}>` : address;
 }
 
-function recipientsOfKind(email: EmailMessageEntity, kind: EmailRecipientKind): string[] {
-    return email.recipients.filter(r => r.kind === kind).map(formatRecipient);
+function recipientsOfKind(email: EmailMessageEntity, kind: EmailRecipientKind,
+    config: EmailConfigurationEmbedded): string[] {
+    return email.recipients.filter(r => r.kind === kind).map(r => formatRecipient(r, config));
 }
 
 /** Signum's `GenerateSmtpClient(SmtpEmailServiceEntity)`. */
 export async function createTransporter(config: SmtpEmailServiceEntity): Promise<Transporter> {
-    if (!EmailLogic.configuration().sendEmails)
+    if (!(await EmailLogic.configuration()).sendEmails)
         throw new Error("EmailLogic.configuration().sendEmails is set to false");
 
     switch (config.deliveryMethod) {

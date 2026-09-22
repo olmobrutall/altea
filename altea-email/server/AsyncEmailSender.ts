@@ -51,12 +51,12 @@ export namespace AsyncEmailSender {
     let pumpAgain = false;
 
     /** Signum's ExecutionState — what the panel shows. */
-    export function executionState(): AsyncEmailSenderState {
+    export async function executionState(): Promise<AsyncEmailSenderState> {
         return {
             running,
             initialDelayMilliseconds: initialDelayMilliseconds ?? null,
             machineName: hostname(),
-            asyncSenderPeriod: EmailLogic.configuration().asyncSenderPeriod,
+            asyncSenderPeriod: (await EmailLogic.configuration()).asyncSenderPeriod,
             isCancelationRequested: cancellationRequested,
             nextPlannedExecution: nextPlannedExecution?.toString() ?? null,
             lastExecutionFinishedOn: lastExecutionFinishedOn?.toString() ?? null,
@@ -147,14 +147,14 @@ export namespace AsyncEmailSender {
             } finally {
                 pumping = false;
                 if (running && !cancellationRequested)
-                    setTimer();
+                    await setTimer();
             }
         })();
     }
 
     /** One pass: claim what is ready, then send it in chunks until nothing is left. */
     async function pump(): Promise<void> {
-        const config = EmailLogic.configuration();
+        const config = await EmailLogic.configuration();
         if (!config.sendEmails)
             throw new Error("EmailConfigurationEmbedded.sendEmails is set to false");
 
@@ -218,7 +218,7 @@ export namespace AsyncEmailSender {
      * both dialects.
      */
     async function recruitQueuedItems(): Promise<boolean> {
-        const config = EmailLogic.configuration();
+        const config = await EmailLogic.configuration();
         const now = Clock.now;
         const firstDate = config.avoidSendingEmailsOlderThan == null ? undefined
             : now.subtract({ hours: config.avoidSendingEmailsOlderThan });
@@ -241,7 +241,7 @@ export namespace AsyncEmailSender {
 
     /** Signum's retry branch: put the message back in ReadyToSend until maxEmailSendRetries is spent. */
     async function retryLater(email: EmailMessageEntity): Promise<void> {
-        const max = EmailLogic.configuration().maxEmailSendRetries;
+        const max = (await EmailLogic.configuration()).maxEmailSendRetries;
         if (email.sendRetries >= max)
             return;
 
@@ -258,7 +258,7 @@ export namespace AsyncEmailSender {
 
     /** Signum's one-off sweep on start: too old to be worth sending. */
     async function markOutdated(): Promise<void> {
-        const hours = EmailLogic.configuration().avoidSendingEmailsOlderThan;
+        const hours = (await EmailLogic.configuration()).avoidSendingEmailsOlderThan;
         if (hours == null)
             return;
 
@@ -269,8 +269,8 @@ export namespace AsyncEmailSender {
     }
 
     /** Signum's SetTimer — re-arm for the configured period. */
-    function setTimer(): void {
-        const seconds = EmailLogic.configuration().asyncSenderPeriod;
+    async function setTimer(): Promise<void> {
+        const seconds = (await EmailLogic.configuration()).asyncSenderPeriod;
         nextPlannedExecution = Clock.now.add({ seconds });
         clearTimer();
         timer = setTimeout(() => wakeUp("TimerNextExecution"), seconds * 1000);

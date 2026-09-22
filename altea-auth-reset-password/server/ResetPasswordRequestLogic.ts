@@ -145,7 +145,7 @@ export namespace ResetPasswordRequestLogic {
 
     /** The link a mailed code lands on. */
     export function resetUrl(code: string): string {
-        return `${EmailLogic.configuration().urlLeft}/auth/resetPassword?code=${encodeURIComponent(code)}`;
+        return `${EmailLogic.configurationLoaded().urlLeft}/auth/resetPassword?code=${encodeURIComponent(code)}`;
     }
 
     /**

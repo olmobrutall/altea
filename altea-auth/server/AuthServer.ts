@@ -67,7 +67,7 @@ export namespace AuthServer {
      *  SignumServer.start(ws) so the middleware runs before the framework routes and the auth routes are
      *  registered before the terminal exception filter. */
     export function start(ws: WebBuilder, encryptionKey?: string,
-        getConfiguration?: () => AuthTokenConfigurationEmbedded): void {
+        getConfiguration?: () => Promise<AuthTokenConfigurationEmbedded>): void {
         // The token-encryption key comes from AUTH_TOKEN_KEY unless one is passed explicitly; a dev
         // fallback is used with a warning (NEVER a real secret — set AUTH_TOKEN_KEY for anything but local
         // dev). Read here (rather than in the host) so wiring is self-contained: AuthLogic.start calls

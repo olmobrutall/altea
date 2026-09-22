@@ -77,7 +77,7 @@ export class EmailMessageBuilder {
 
     private async createEmailMessage(from: EmailFromEmbedded, recipients: EmailOwnerRecipientData[]): Promise<EmailMessageEntity> {
         try {
-            const config = EmailLogic.configuration();
+            const config = await EmailLogic.configuration();
             const ci = this.culture
                 ?? EmailTemplateLogic.getCultureInfo?.(this.entity ?? this.model?.untypedEntity ?? null)
                 ?? recipients.find(a => a.kind === EmailRecipientKind.To)?.ownerData.culture

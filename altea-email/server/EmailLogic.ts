@@ -1,4 +1,5 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
+import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { createHash, randomUUID } from "node:crypto";
@@ -60,14 +61,36 @@ import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 export namespace EmailLogic {
 
-    let getConfiguration: (() => EmailConfigurationEmbedded) | undefined;
+    let getConfiguration: (() => Promise<EmailConfigurationEmbedded>) | undefined;
     let attachmentFileTypeSymbol: FileTypeSymbol = EmailFileType.Attachment;
 
-    /** Signum's `EmailLogic.Configuration`. */
-    export function configuration(): EmailConfigurationEmbedded {
+    /**
+     * The mail settings, off the application's configuration row.
+     *
+     * A THUNK returning the cache's own promise, not a captured promise: a captured one keeps the value
+     * it was stamped with and would go stale at the first invalidation.
+     */
+    export function configuration(): Promise<EmailConfigurationEmbedded> {
         if (getConfiguration == undefined)
             throw new Error("EmailLogic.start has not been called (no email configuration)");
         return getConfiguration();
+    }
+
+    /**
+     * The same settings SYNCHRONOUSLY, for the two seams that cannot await: the template evaluator's
+     * global variables (`getValue` is sync the whole way down) and the master-template culture check.
+     *
+     * It does not cache anything of its own — it reads the value the configuration cache has already
+     * stamped on its promise. Both callers run long after startup, so it is loaded; a cold read throws
+     * rather than guessing, and says what to await.
+     */
+    export function configurationLoaded(): EmailConfigurationEmbedded {
+        const loaded = (configuration() as StablePromise<EmailConfigurationEmbedded>).resolvedValue;
+        if (loaded == undefined)
+            throw new Error("The email configuration has not loaded yet. This is one of the few places that"
+                + " cannot await it (a template's global variables, the master-template culture check);"
+                + " await `EmailLogic.configuration()` once before rendering.");
+        return loaded.value;
     }
 
     /** The FileTypeSymbol attachments are written to. */
@@ -83,8 +106,8 @@ export namespace EmailLogic {
     const emailOwners = new Map<Function, (entity: Entity) => EmailOwnerData>();
 
     export function start(sb: SchemaBuilder, options: {
-        /** Signum's `getConfiguration` — the app's mail settings. */
-        getConfiguration: () => EmailConfigurationEmbedded;
+        /** The app's mail settings, as a thunk returning the configuration cache's promise. */
+        getConfiguration: () => Promise<EmailConfigurationEmbedded>;
         /** Signum's `getEmailSenderConfiguration` — which sender configuration a template / target uses. */
         getSenderConfiguration: (
             template: EmailTemplateEntity | null,

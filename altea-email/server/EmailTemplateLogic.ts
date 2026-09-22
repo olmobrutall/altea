@@ -117,7 +117,7 @@ export namespace EmailTemplateLogic {
             { invalidateWith: [EmailTemplateEntity] });
 
         EmailModelLogic.start(sb);
-        EmailMasterTemplateLogic.start(sb, { requiredCulture: () => EmailLogic.configuration().defaultCulture.name });
+        EmailMasterTemplateLogic.start(sb, { requiredCulture: () => EmailLogic.configurationLoaded().defaultCulture.name });
 
         registerEmailTemplateXml();
 
@@ -144,7 +144,7 @@ export namespace EmailTemplateLogic {
         const dateTime = new TypeReference({ typeName: "PlainDateTime" });
         const date = new TypeReference({ typeName: "PlainDate" });
 
-        GlobalValueProvider.registerGlobalVariable("UrlLeft", () => EmailLogic.configuration().urlLeft, str);
+        GlobalValueProvider.registerGlobalVariable("UrlLeft", () => EmailLogic.configurationLoaded().urlLeft, str);
         GlobalValueProvider.registerGlobalVariable("Now", () => Clock.now, dateTime, "G");
         GlobalValueProvider.registerGlobalVariable("Today", () => Clock.now.toPlainDate(), date, "d");
         // Signum resolves the full UserEntity; altea's UserHolder already carries the lite + claims, and a
@@ -179,8 +179,9 @@ export namespace EmailTemplateLogic {
 
         if (template.masterTemplate != null) {
             const master = await EmailLogic.retrieveLite(template.masterTemplate);
-            const masterMessage = EmailMasterTemplateLogic.getCultureMessage(master, cultureNameOf(message.cultureInfo) ?? EmailLogic.configuration().defaultCulture.name)
-                ?? EmailMasterTemplateLogic.getCultureMessage(master, EmailLogic.configuration().defaultCulture.name);
+            const defaultCulture = (await EmailLogic.configuration()).defaultCulture.name;
+            const masterMessage = EmailMasterTemplateLogic.getCultureMessage(master, cultureNameOf(message.cultureInfo) ?? defaultCulture)
+                ?? EmailMasterTemplateLogic.getCultureMessage(master, defaultCulture);
 
             if (masterMessage != null) {
                 // `@[content]` is where the body goes. Use a REPLACER FUNCTION so a `$` in the body is not

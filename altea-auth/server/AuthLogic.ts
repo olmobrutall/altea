@@ -122,7 +122,7 @@ export namespace AuthLogic {
      *   stays fresh. Omitted, AuthTokenServer's defaults apply.
      */
     export function start(sb: SchemaBuilder, systemUser?: string | null, anonymousUser?: string | null,
-        options?: { getTokenConfiguration?: () => AuthTokenConfigurationEmbedded }): void {
+        options?: { getTokenConfiguration?: () => Promise<AuthTokenConfigurationEmbedded> }): void {
         systemUserName = systemUser ?? null;
         anonymousUserName = anonymousUser ?? null;
 
