@@ -288,6 +288,96 @@ Between your arrow and the rows, four steps:
 child collection is **one** more query, grouped into a lookup keyed by the parent id that the projector
 reads its slice out of. Ten thousand orders with their lines is two queries, whatever you do to it.
 
+## Extensions
+
+Fifty vertical modules. Each is an npm package you depend on or do not, and each brings its own tables,
+server logic and React components — nothing is compiled into the core waiting to be switched on.
+
+**Security and identity**
+
+| | |
+| --- | --- |
+| `altea-auth` | users, roles and rule packs, with authorization on five dimensions: type, property, query, operation, permission |
+| `altea-auth-azuread` | Entra ID / Azure AD login, directory search and profile photos |
+| `altea-auth-openid` | OpenID Connect login |
+| `altea-auth-windowsad` | Windows Active Directory login over LDAP |
+| `altea-auth-reset-password` | self-service password reset by e-mail |
+| `altea-isolation` | multi-tenancy by row: an ambient isolation, and a filter on every isolated table |
+| `altea-rest` | API-key authentication for a public REST surface, with a replayable log of every request |
+
+**Search, reporting and navigation**
+
+| | |
+| --- | --- |
+| `altea-user-assets` | the shared plumbing behind saved assets: query models, filters, XML import/export |
+| `altea-user-queries` | user-defined saved queries |
+| `altea-chart` | charting — nineteen chart types over any query |
+| `altea-dashboard` | dashboards of composable parts |
+| `altea-toolbar` | the side, top and main navigation bars |
+| `altea-omnibox` | the type-ahead command bar |
+| `altea-map` | a d3 force graph of the schema, and of an entity's state machine |
+
+**Files, documents and messaging**
+
+| | |
+| --- | --- |
+| `altea-files` | file storage, with the two backends below |
+| `altea-files-azure` | Azure Blob Storage backend |
+| `altea-files-s3` | S3 and S3-compatible (MinIO) backend |
+| `altea-email` | e-mail messages, templates and the asynchronous sender |
+| `altea-mailing-microsoft-graph` | sending through Microsoft Graph, and browsing a remote Outlook mailbox |
+| `altea-mailing-exchange` | sending through Exchange Web Services |
+| `altea-mailing-pop3` | receiving over POP3 |
+| `altea-sms` | SMS templates, messages and the send / update-status processes |
+| `altea-templating` | text templating over a query plus a model |
+| `altea-office-template` | the same for Word, Excel and PowerPoint documents |
+| `altea-markdown` | a markdown editor line, column format and flattener |
+| `altea-html-editor` | a WYSIWYG rich-text editor over Lexical |
+
+**Background work**
+
+| | |
+| --- | --- |
+| `altea-processes` | long-running processes, with progress, cancellation and a line per error |
+| `altea-scheduler` | scheduled tasks |
+| `altea-alert` | user notifications: alerts, the navbar dropdown, the notification e-mail task |
+| `altea-printing` | a print queue, batched into packages an app-supplied hook prints |
+
+**History and data**
+
+| | |
+| --- | --- |
+| `altea-cache` | in-memory entity cache with cross-process invalidation |
+| `altea-time-machine` | browse, compare and restore the versions of a system-versioned entity |
+| `altea-diff-log` | before/after dumps on every operation, with a diff view |
+| `altea-view-log` | who viewed which entity, and what they searched for |
+| `altea-concurrent-user` | live presence and stale-entity detection on an open entity |
+| `altea-notes` | free-text notes attached to any entity |
+| `altea-tree` | hierarchical entities as a route per row, with a viewer and move / copy |
+| `altea-migrations` | versioned SQL migrations and load-method logging |
+| `altea-translations` | the application's own translation files, and per-instance translated fields |
+
+**Authoring and extensibility**
+
+| | |
+| --- | --- |
+| `altea-eval` | scripts stored in the database, type-checked and compiled at run time |
+| `altea-dynamic` | views defined in the database, plus CSS overrides and SQL migrations from the admin UI |
+| `altea-workflow` | a BPMN workflow engine and designer |
+| `altea-machine-learning` | train and use predictive models over a query, on TensorFlow.js |
+| `altea-agent` | an LLM agent: a chatbot, skills as tools, model providers and an MCP endpoint |
+| `altea-help` | in-app documentation per type, query and package, generated from reflection and editable in place |
+| `altea-tour` | guided in-app tours |
+| `altea-whats-new` | in-app release notes, with a per-user read log |
+| `altea-codemirror` | code editors |
+
+**Development**
+
+| | |
+| --- | --- |
+| `altea-profiler` | the heavy profiler and its admin panel |
+| `altea-playwright` | strongly-typed Playwright page objects for an altea UI |
+
 ## Layout
 
 ```
