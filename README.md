@@ -145,9 +145,17 @@ are yours to arrange. Leave the view out entirely and the entity still gets a ge
 
 ## The compiler magic
 
-Two of those claims should look impossible. TypeScript erases types at run time, and a lambda is just a
-closure — nobody can see inside it. So how does the schema builder know `companyName` is a 100-character
-string, and how does anything turn `p => !p.discontinued` into a `WHERE` clause?
+If you have written TypeScript for any length of time, two of the claims above should have bothered you.
+
+**Types are erased.** `companyName: string` is an annotation the compiler checks and then deletes; at run
+time the property is just a property. The decorator beside it survives — `@stringLengthValidator({ max: 100 })`
+is an ordinary function call, which is why a decorator-based ORM like TypeORM leans on them so heavily —
+but the *type* does not. **And a lambda is a closure**: `p => !p.discontinued` is a function you can call,
+and nothing more. There is no way to ask it what it does.
+
+So how does the schema builder know `companyName` is a string at all — let alone that `shipVia` is a
+reference to `ShipperEntity`, and therefore a foreign key, and therefore a join? And how does anything
+turn that arrow into a `WHERE` clause?
 
 A **compiler plugin** puts back what the compiler throws away. `quote-transformer` is a TypeScript
 transformer, run through [ts-patch](https://github.com/nonara/ts-patch) — which is why the build command
