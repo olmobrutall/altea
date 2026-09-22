@@ -242,6 +242,18 @@ function isProjectableCtorValue(value: unknown): value is Function {
     return value === View || proto instanceof View || value === ModelEntity || proto instanceof ModelEntity;
 }
 
+/**
+ * The declared type of a dotted member PATH ("email", "address.city") off `ownerType` — the same walk a
+ * chain of property reads makes, done in one go for a caller that holds the path as a string rather than
+ * as an expression tree (see `thenTyped`).
+ */
+export function resolveMemberPathType(ownerType: RuntimeType, memberPath: string): RuntimeType {
+    let type = ownerType;
+    for (const step of memberPath.split("."))
+        type = resolveMemberType(type, step);
+    return type;
+}
+
 function resolveMemberType(ownerType: RuntimeType, propertyName: string): RuntimeType {
     // `x.constructor` (GetType) / `lite.entityType` (Lite.EntityType) → a runtime-type token,
     // typed as ClassType(Function): `=== SomeClass` type-checks (both sides are constructors) and

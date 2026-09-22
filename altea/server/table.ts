@@ -29,6 +29,7 @@ import type { Schema } from "./schema/schema";
 import { setQuerySourceFactory } from "./schema/filterQueryArgs";
 import { HeavyProfiler } from "./profiler/heavyProfiler";
 import { withPromisesLoaded } from "./promiseResolution";
+import "./thenTyped"; // installs Promise.prototype.thenTyped beside `.$v` below
 import type { CacheController } from "./cache";
 
 
