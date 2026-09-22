@@ -26,7 +26,9 @@ registered, queried, authorized and rendered by exactly the mechanisms `UserEnti
 ## What a module looks like
 
 A module is one folder with the same three layers every altea package has — **data**, **server**,
-**client**. This is the smallest complete one in the demo application.
+**client**. The boundary is enforced by the tsconfig presets, not by convention: a `client` file that
+reaches for the engine is a build error, which is what keeps the engine, and your connection string, out
+of the browser bundle. This is the smallest complete module in the demo application.
 
 ### Data — the model
 
@@ -48,15 +50,25 @@ export class ShipperEntity extends Entity {
     @quoted toString(): string { return this.companyName; }
 }
 
-// Cross-entity navigation: declared here, implemented in the server layer where `table(T)` lives.
-export interface ShipperEntity {
-    orders(): IQuery<OrderEntity>;
-}
-
 export namespace ShipperOperation {
     export const Save: ExecuteSymbol<ShipperEntity> = init();
 }
 ```
+
+**An entity is a plain class with plain fields** — no getters, no setters, no change tracking. Because
+the same file is what both tiers compile, a validator declared once runs in the form as the user types
+*and* again before the `INSERT`. There is no DTO layer and nothing to keep in sync.
+
+**A method can be part of the model too.** `@quoted` marks one whose body is captured as an expression
+tree at build time, so it is callable in memory *and* translatable to SQL — `toString` above, and in the
+orders module:
+
+```ts
+@quoted totalPrice(): Decimal { return this.details.sum(d => d.subTotalPrice()); }
+```
+
+Register it and `TotalPrice` becomes a column users can filter, sort, chart and export by — computed in
+the database, never fetched row by row.
 
 ### Server — the table, the operations, the queries
 
@@ -64,22 +76,35 @@ export namespace ShipperOperation {
 // ShipperLogic.server.ts
 sb.include(ShipperEntity)
     .withSave(ShipperOperation.Save)
-    .withExpressionTo(s => s.orders())
     .withQuery();
 ```
 
-And the navigation the model declared — a LINQ query, and the reason the model could declare it without
-knowing anything about the database:
+**Queries are LINQ, and they become SQL.** Not a builder that happens to look like LINQ — a provider that
+translates the expression tree you wrote:
 
 ```ts
-ShipperEntity.prototype.orders = withQuoted(function (this: ShipperEntity): Query<OrderEntity> {
-    return table(OrderEntity).filter(o => o.shipVia!.id == this.id);
-});
+const busiest = await table(OrderEntity)
+    .groupBy(o => o.shipVia)
+    .map(g => ({ shipper: g.key, orders: g.elements.length }))
+    .orderByDescending(x => x.orders)
+    .toArray();
 ```
 
-That one registration turns `Orders` into a token on the Shipper query — so a user can add *Orders.Count*
-as a column, filter by *Orders.Any.Total price*, or chart against it, none of which anybody wrote a screen
-for. `await shipper.orders().toArray()` is the same expression, from code.
+One statement, one round trip. Nothing in there is a string, so a renamed field is a compile error rather
+than a runtime surprise — and `o.shipVia` is a reference, so the join to reach it is the provider's
+problem, not yours.
+
+It can also `UPDATE` or `DELETE` without retrieving anything first:
+
+```ts
+await table(ProductEntity)
+    .filter(p => p.category.is(seasonal))
+    .executeUpdate(() => ({ discontinued: true }));
+```
+
+**And the table itself is derived, then migrated by diff.** There are no migration classes to write by
+hand: the console compares the model against the live database and writes the script it proposes, for you
+to read before it runs. Renames are asked about rather than guessed, because a wrong guess drops a column.
 
 ### Client — the search page and the form
 
@@ -118,46 +143,11 @@ That is the whole feature. The schema, the `/api` surface, the search page, the 
 authorization all follow from those declarations — and the form is a plain React component, so the lines
 are yours to arrange. Leave the view out entirely and the entity still gets a generated one.
 
-## The ideas behind it
-
-**Entities are the centre, and there is one of them.** An entity is a plain class with plain fields — no
-getters, no setters, no change tracking. The same file is compiled into the server bundle and the browser
-bundle, so a validator declared once runs in the form as the user types *and* again before the `INSERT`.
-There is no DTO layer and nothing to keep in sync.
-
-**Queries are LINQ, and they become SQL.** Not a builder that happens to look like LINQ — a provider that
-translates the expression tree you wrote, and avoids N+1 by construction. It can also `UPDATE` or `DELETE`
-without retrieving anything first:
-
-```ts
-await table(ProductEntity)
-    .filter(p => p.category.is(seasonal))
-    .executeUpdate(() => ({ discontinued: true }));
-```
-
-**A method can be part of the model.** `@quoted` marks one whose body is captured as an expression tree at
-build time by a TypeScript transformer, so it is callable in memory *and* translatable to SQL:
-
-```ts
-@quoted totalPrice(): Decimal { return this.details.sum(d => d.subTotalPrice()); }
-```
-
-Register it and `TotalPrice` becomes a column users can filter, sort, chart and export by — computed in
-the database, never fetched row by row.
-
-**The schema is derived, and migrated by diff.** There are no migration classes to write by hand: the
-console compares the model against the live database and writes the script it proposes, for you to read
-before it runs. Renames are asked about rather than guessed, because a wrong guess drops a column.
-
-**The layer boundary is enforced by the compiler.** Every package is split into `data` (the isomorphic
-model), `client` (React) and `server` (the engine), and the tsconfig presets make a violation a build
-error — which is what keeps the engine, and your connection string, out of the browser bundle.
-
 ## The compiler magic
 
 Two of those claims should look impossible. TypeScript erases types at run time, and a lambda is just a
-closure — nobody can see inside it. So how does the schema builder know `phone` is a 24-character string,
-and how does anything turn `o => o.totalPrice() > 100` into a `WHERE` clause?
+closure — nobody can see inside it. So how does the schema builder know `companyName` is a 100-character
+string, and how does anything turn `p => !p.discontinued` into a `WHERE` clause?
 
 A **compiler plugin** puts back what the compiler throws away. `quote-transformer` is a TypeScript
 transformer, run through [ts-patch](https://github.com/nonara/ts-patch) — which is why the build command
@@ -216,27 +206,25 @@ It is plain data: no `eval`, no parsing a function's `toString()`, nothing to bu
 model**: something you want callable in memory *and* usable as a column.
 
 *Or the position asks for it.* Anywhere a parameter, field or variable is declared `Quoted<…>`, the arrow
-you put there is stamped — you just write an arrow. `Query.filter` declares
-`predicate: Quoted<(element: T) => boolean>`, and that is the whole reason a query lambda works. Here is
-the shipper's `orders()` from the module above, source and emitted (the inner arrow only — the whole
-method is wrapped the same way):
+you put there is stamped — and you just write an arrow. `Query.filter` declares
+`predicate: Quoted<(element: T) => boolean>`, and that is the whole reason a query lambda works. Source
+and emitted, verbatim from the demo:
 
 ```ts
-return table(OrderEntity).filter(o => o.shipVia!.id == this.id);
+table(ProductEntity).filter(p => !p.discontinued)
 
-return table(OrderEntity).filter(o => o.shipVia.id == this.id);
-//                               ↑ still a plain arrow — the tree rides beside it:
-(o => ["=>", [o], ["==", [".", [".", o, "shipVia"], "id"], [".", _this, "id"]]])(["p", "o"])
+table(ProductEntity).filter(Object.assign(p => !p.discontinued, {
+    __quoted: () => (p => ["=>", [p], ["!", [".", p, "discontinued"]]])(["p", "p"])
+}))
 ```
 
-The arrow is untouched and still runs. The transformer wraps it with `Object.assign(fn, { __quoted: … })`
-so the tree travels with it — which is also how a *registered* expression is passed:
-`withExpressionTo(s => s.orders())` emits `Object.assign(s => s.orders(), { __quoted: … })`.
+The arrow itself is untouched and still runs; `Object.assign` just travels the tree alongside it. Nothing
+in your source changed — `filter`'s parameter type is the entire trigger.
 
-So `@quoted` marks a model method; `Quoted<T>` in a signature quietly does the rest, and the day-to-day
-experience is that you write ordinary TypeScript and it happens to reach the database. The transformer
-also emits a `registerType(...)` call and a `__fileInfo` constant per file, so a type knows its own name
-and which package it came from — what the schema builder and the reflection endpoint read.
+So: `@quoted` marks a model method, `Quoted<T>` in a signature quietly does the rest, and the day-to-day
+experience is writing ordinary TypeScript that happens to reach the database. The transformer also emits a
+`registerType(...)` call and a `__fileInfo` constant per file, so a type knows its own name and which
+package it came from — what the schema builder and the reflection endpoint read.
 
 **The practical consequences.** Build with `tspc`; plain `tsc` compiles happily and produces functions with
 no `__quoted`, so everything fails at run time with "has not been quoted". And a change to the transformer
@@ -294,7 +282,7 @@ two queries, whatever you do to it.
 
 **And nothing forces a round trip.** `.executeUpdate(…)` / `.executeDelete()` translate to a single
 statement — no `SELECT`, no entities materialised, no optimistic-concurrency dance — which is what the
-example in *The ideas behind it* above is doing.
+`executeUpdate` in *Server* above is doing.
 
 ## Layout
 
