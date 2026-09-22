@@ -79,8 +79,7 @@ sb.include(ShipperEntity)
     .withQuery();
 ```
 
-**Queries are LINQ, and they become SQL.** Not a builder that happens to look like LINQ — a provider that
-translates the expression tree you wrote:
+**Queries are LINQ, and they become SQL** — the same array methods you already use, over a table:
 
 ```ts
 const busiest = await table(OrderEntity)
@@ -146,25 +145,17 @@ are yours to arrange. Leave the view out entirely and the entity still gets a ge
 ## The compiler magic
 
 If you have written TypeScript for any length of time, two of the claims above should have bothered you.
+**Types are erased** — `shipVia: Lite<ShipperEntity> | null` is checked and then deleted, so nothing at
+run time knows that property is a foreign key. **And a lambda is a closure** — `p => !p.discontinued` is a
+function you can call, with no way to ask what it does.
 
-**Types are erased.** `companyName: string` is an annotation the compiler checks and then deletes; at run
-time the property is just a property. The decorator beside it survives — `@stringLengthValidator({ max: 100 })`
-is an ordinary function call, which is why a decorator-based ORM like TypeORM leans on them so heavily —
-but the *type* does not. **And a lambda is a closure**: `p => !p.discontinued` is a function you can call,
-and nothing more. There is no way to ask it what it does.
+`quote-transformer` puts both back. It is a TypeScript transformer run through
+[ts-patch](https://github.com/nonara/ts-patch), which is why the build command is `tspc` and not `tsc`.
 
-So how does the schema builder know `companyName` is a string at all — let alone that `shipVia` is a
-reference to `ShipperEntity`, and therefore a foreign key, and therefore a join? And how does anything
-turn that arrow into a `WHERE` clause?
+### Automatic metadata
 
-A **compiler plugin** puts back what the compiler throws away. `quote-transformer` is a TypeScript
-transformer, run through [ts-patch](https://github.com/nonara/ts-patch) — which is why the build command
-is `tspc`, not `tsc`. It does exactly two things.
-
-### 1. It writes your `@field` decorators for you
-
-A class carrying `@entity`, `@part` or `@reflect` gets one synthesised onto every property, derived from
-the **type annotation you already wrote**:
+A class carrying `@entity`, `@part` or `@reflect` gets an `@field(…)` decorator synthesised onto every
+property, derived from **the type annotation you already wrote**:
 
 ```ts
 // what you write                     // what the compiler emits (verbatim, from Order and Shipper)
@@ -175,15 +166,24 @@ shipVia: Lite<ShipperEntity> | null;  field({ type: () => ShipperEntity, nullabl
 quantity: int;                        field({ typeName: "Number", subTypeName: "int" })
 ```
 
-That decorator is **data**, and it survives to run time. The schema builder reads it to decide the column
-type, its nullability and its foreign key; the client reads the same thing to pick an editor for
-`<AutoLine>` and to build the filter tokens for the search page. Write `@field` yourself and yours is
-kept; `@field(false)` opts a property out entirely.
+A decorator is an ordinary function call, so unlike the type it survives compilation — and `field` records
+what it was given in a per-class registry, alongside a `registerType(…)` naming the class and a
+`__fileInfo` saying which package it came from.
 
-This is the piece that removes the code generator. There is no `.d.ts` to regenerate, no decorator to keep
-in step with the type beside it, and no way for the two to disagree — because there is only one of them.
+That registry is **reflection**, and it is what every layer reads instead of reading your source. The
+schema builder asks it for columns, sizes and foreign keys; the serializer asks it how to rebuild a graph
+from JSON; the client asks it which editor `<AutoLine>` should render and which query tokens the search
+page can offer. Write `@field` yourself and yours is kept; `@field(false)` opts a property out.
 
-### 2. It attaches the source of a lambda to the lambda
+This is the piece that removes the code generator: one declaration, read by everything, with no second
+artefact to regenerate and no way for the two to disagree.
+
+### Quoting expressions
+
+**Quoting** is capturing an expression as *data* rather than compiling it to code. You write a lambda;
+what the transformer stores beside it is an **expression tree** — the operators, the property reads and
+the constants, in a structure something else can walk, understand and translate into another language.
+C# spells it `Expression<Func<T, bool>>`, and it is the mechanism LINQ is built on.
 
 `Quoted<T>` is the marker, and it is barely a type at all:
 
@@ -191,8 +191,8 @@ in step with the type beside it, and no way for the two to disagree — because 
 type Quoted<T extends Function> = T & { __quoted?: () => ExLambda };
 ```
 
-A quoted lambda is still an ordinary function you can call. What it gains is a property holding **its own
-body, as data** — a tree of plain arrays with the operator in slot 0. This is the whole of `ShipperEntity`'s
+A quoted lambda is still an ordinary function you can call. What it gains is a property holding its own
+body — a tree of plain arrays with the operator in slot 0. This is the whole of `ShipperEntity`'s
 `toString`, source and emitted output:
 
 ```ts
@@ -230,9 +230,7 @@ The arrow itself is untouched and still runs; `Object.assign` just travels the t
 in your source changed — `filter`'s parameter type is the entire trigger.
 
 So: `@quoted` marks a model method, `Quoted<T>` in a signature quietly does the rest, and the day-to-day
-experience is writing ordinary TypeScript that happens to reach the database. The transformer also emits a
-`registerType(...)` call and a `__fileInfo` constant per file, so a type knows its own name and which
-package it came from — what the schema builder and the reflection endpoint read.
+experience is writing ordinary TypeScript that happens to reach the database.
 
 **The practical consequences.** Build with `tspc`; plain `tsc` compiles happily and produces functions with
 no `__quoted`, so everything fails at run time with "has not been quoted". And a change to the transformer
@@ -240,57 +238,48 @@ is invisible to tsc's up-to-date check — after one, `tspc -b --force`.
 
 ## The LINQ provider
 
-If you have used **Prisma**, **Drizzle** or **TypeORM**, you have written the same query twice: once as
-the shape you want, once in whatever the library can actually see.
+**You already know how to write these queries.** `filter`, `map`, `flatMap`, `some`, `every`, `includes`,
+`reverse` — they are the array methods you use every day, taking the arrows you would write for an array,
+over a table instead of an array. There is no query language to learn, no builder to assemble, no object
+DSL to look up, and no string to typo: a renamed field is a compile error, and your IDE's rename fixes
+every query in the codebase.
 
-```ts
-// Drizzle — a builder, because JS cannot look inside an arrow
-.where(and(eq(orders.state, "Ordered"), gt(orders.totalPrice, 100)))
+More to the point, there is no *edge* to the syntax. Because the provider reads the expression you wrote
+rather than a DSL you assembled, a query can call a method you defined, navigate a reference, or nest
+another query — things a builder cannot express because no vocabulary was invented for them.
 
-// Prisma — an object DSL
-where: { state: "Ordered", totalPrice: { gt: 100 } }
+| | |
+| --- | --- |
+| `filter(p)` | `WHERE` |
+| `map(f)` | `SELECT` — project to an entity, a model, or an object literal |
+| `flatMap(f)` | one row per element of a nested collection |
+| `distinct()` | `DISTINCT` |
+| `orderBy(f)` · `orderByDescending(f)` | `ORDER BY` |
+| `thenBy(f)` · `thenByDescending(f)` | the next sort key |
+| `top(n)` · `skip(n)` | `TOP` / `LIMIT`, and `OFFSET` |
+| `count(p?)` | `COUNT` |
+| `sum(f?)` · `avg(f?)` | `SUM` · `AVG` |
+| `min(f?)` · `max(f?)` | `MIN` · `MAX` |
+| `minBy(f)` · `maxBy(f)` | the ROW with the smallest / largest value |
+| `some(p?)` · `every(p)` | `EXISTS`, and `EXISTS` over the negated predicate |
+| `includes(x)` | `IN` |
+| `first()` · `firstOrNull()` | one row, or throw / null |
+| `single()` · `singleOrNull()` | the same, and complain if there are two |
+| `groupBy(k)` | `GROUP BY`, yielding `{ key, elements }` |
+| `innerJoin` · `leftJoin` · `rightJoin` · `fullJoin` | explicit joins — rarely needed, a reference joins itself |
+| `toArray()` | the only call that runs anything; everything above is lazy |
+| `executeUpdate(f)` · `executeDelete()` | one statement, nothing retrieved |
 
-// altea — the predicate IS TypeScript
-.filter(o => o.state == "Ordered" && o.totalPrice() > 100)
-```
+Between your arrow and the rows, four steps:
 
-The difference is not syntax sugar. Because the transformer left the body on the function, altea's provider
-can *read the expression you wrote*, so the predicate is checked by the compiler, renamed by your IDE's
-rename, and free to call a method you defined (`o.totalPrice()`) — a computed value that lowers into the
-SQL rather than being fetched and recomputed in Node. This is LINQ, the idea .NET has had since 2007, and
-it is the whole reason the `@quoted` machinery above exists.
+1. **Tuples become an expression tree** — typed nodes, with any parameter-free subtree folded to a constant, which is how a captured variable becomes a query parameter and not a column.
+2. **The tree becomes a relational one** — `QueryBinder` turns the operators into selects, joins and columns, and expands `o.customer.address.city` into the joins that reach it.
+3. **A dozen rewriters tidy it** — aggregates into their `GROUP BY`, orderings into columns, unused columns and redundant sub-queries and duplicate joins removed.
+4. **SQL, and a projector** — the statement plus a "build an object from this row" function, emitted as JavaScript and compiled with `new Function` rather than interpreted per row.
 
-Here is what happens between your arrow and the rows coming back.
-
-**1. Tuples become an expression tree.** `Expression.fromQuotedLambda` walks the arrays and builds typed
-nodes — `PropertyExpression`, `BinaryExpression`, `CallExpression` — resolving each one's type from the
-`@field` metadata of section 1. Any subtree that mentions no parameter is folded to a constant in the same
-pass, which is how a captured variable from the enclosing scope becomes a query *parameter* rather than a
-column reference.
-
-**2. The tree becomes a relational one.** `QueryBinder` is the piece that knows about databases: it turns
-`.filter` / `.map` / `.flatMap` / `.groupBy` into selects, joins and columns, expands `o.customer.address.city`
-into the joins that reach it, and resolves a polymorphic reference into its type-discriminator columns. The
-result is a `ProjectionExpression` — a relational query plus a description of the object to build from each
-row.
-
-**3. A dozen rewriters tidy it.** Aggregates get hoisted into their `GROUP BY`; orderings get promoted to
-columns; unused columns, redundant sub-queries and duplicate joins are removed. This is why the SQL for a
-three-line query does not look like three lines of query — it looks like what you would have written.
-
-**4. SQL, and a compiled projector.** The formatter emits the statement and its parameters. Separately, the
-projector — the "build an object from a row" half — is emitted as **JavaScript source and compiled with
-`new Function`**, so materialising ten thousand rows runs compiled code rather than an interpreter walking
-a tree per row.
-
-**Where N+1 goes.** A collection is not a join that multiplies rows, and it is certainly not a query per
-parent. Each child collection becomes **one** additional query, whose rows are grouped into a lookup keyed
-by the parent id; the projector reads its slice out of that lookup. Ten thousand orders with their lines is
-two queries, whatever you do to it.
-
-**And nothing forces a round trip.** `.executeUpdate(…)` / `.executeDelete()` translate to a single
-statement — no `SELECT`, no entities materialised, no optimistic-concurrency dance — which is what the
-`executeUpdate` in *Server* above is doing.
+**Where N+1 goes.** A collection is not a join that multiplies rows, and never a query per parent: each
+child collection is **one** more query, grouped into a lookup keyed by the parent id that the projector
+reads its slice out of. Ten thousand orders with their lines is two queries, whatever you do to it.
 
 ## Layout
 
