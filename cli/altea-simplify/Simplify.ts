@@ -281,7 +281,16 @@ export namespace Simplify {
         });
     }
 
-    /** Drop a dependency from the application's package.json. altea's `<RemoveProjectReference>`. */
+    /**
+     * Drop a dependency from the application's package.json (altea's `<RemoveProjectReference>`) — AND every
+     * tsconfig PROJECT REFERENCE to it.
+     *
+     * The two always travel together: a reference exists because the dependency did. Leaving the references
+     * behind is worse than useless, because TypeScript then still RESOLVES `@altea/<removed>`, so a leftover
+     * import compiles cleanly — the build says the removal worked and the application fails at run time,
+     * which is exactly what a removal must never be allowed to do. With the references gone, `tsc` names
+     * every file the module forgot.
+     */
     function removePackageReference(file: ModulesFile, name: string, dryRun: boolean): void {
         const application = path.basename(path.dirname(file.filePath));
         edit(file, `${application}/package.json`, dryRun, lines => {
@@ -296,6 +305,55 @@ export namespace Simplify {
                 lines[i - 1] = lines[i - 1].trimEnd().replace(/,$/, "");
 
             return { changed: true, note: `removed dependency ${name}` };
+        });
+
+        // `@altea/altea-auth` → any `"…/altea-auth/tsconfig.<layer>.json"`. What a reference path ends in is
+        // the package's own FOLDER name, so that is what is matched, not the npm scope in front of it.
+        const folder = name.includes("/") ? name.slice(name.lastIndexOf("/") + 1) : name;
+        for (const tsconfig of tsconfigsOf(file, application))
+            removeTsProjectReferencesTo(file, tsconfig, folder, dryRun);
+    }
+
+    /** The application's own `tsconfig*.json` files, relative to the root — the ones that carry references. */
+    function tsconfigsOf(file: ModulesFile, application: string): string[] {
+        const dir = path.join(file.rootFolder, application);
+        if (!fs.existsSync(dir))
+            return [];
+
+        return fs.readdirSync(dir)
+            .filter(n => /^tsconfig.*\.json$/.test(n))
+            .map(n => `${application}/${n}`);
+    }
+
+    /** Every `{ "path": "…/<folder>/tsconfig.*.json" }` entry in one tsconfig. */
+    function removeTsProjectReferencesTo(file: ModulesFile, relative: string, folder: string,
+        dryRun: boolean): void {
+        const full = path.join(file.rootFolder, relative);
+        if (!fs.existsSync(full))
+            return;
+
+        const marker = new RegExp(`["/]${escapeRegex(folder)}/tsconfig[^"]*\\.json"`);
+        // Silent when there is nothing to do: most of an application's tsconfigs never referenced this
+        // package, and reporting that for every layer of every removed module is noise, not information.
+        if (!marker.test(fs.readFileSync(full, "utf8")))
+            return;
+
+        edit(file, relative, dryRun, lines => {
+            let removed = 0;
+            for (let i = lines.length - 1; i >= 0; i--) {
+                if (!marker.test(lines[i]) || !lines[i].includes("path"))
+                    continue;
+
+                const wasLast = !lines[i].trimEnd().endsWith(",");
+                lines.splice(i, 1);
+                if (wasLast && i > 0 && lines[i - 1].trimEnd().endsWith(","))
+                    lines[i - 1] = lines[i - 1].trimEnd().replace(/,$/, "");
+                removed++;
+            }
+
+            return removed === 0
+                ? { changed: false, note: `no project reference to ${folder}` }
+                : { changed: true, note: `removed ${removed} project reference(s) to ${folder}` };
         });
     }
 
