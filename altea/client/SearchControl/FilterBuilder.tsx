@@ -42,6 +42,8 @@ import { SearchVisualTip } from '../../data/visualTip';
 import { FilterHelp } from './SearchControlVisualTips'
 import { GroupHeader, type HeaderType } from '../Lines/GroupHeader'
 import { LinkButton } from '../Basics/LinkButton'
+import { FilterFieldMessage } from '../../data/searchHelpMessages'
+import { dropdownActive } from '../Components/DropdownActive'
 
 interface FilterBuilderProps {
   filterOptions: FilterOptionParsed[];
@@ -651,7 +653,9 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
     // editor to render for the value. A group may have no unifying token → undefined (handled by rules).
     const ctx = new TypeContext<any>(undefined, { formGroupStyle: "None", readOnly: readOnly, formSize: "xs" }, f.token?.type, Binding.create(f, a => a.value));
 
-    return Finder.renderFilterValue(f, { ctx, queryToken: p.queryToken, filterOptions: p.allFilterOptions, handleValueChange: handleValueChange });
+    // label: the context is built with formGroupStyle "None", so no <label> is rendered and this is what
+    // gives the value editor its name. It is the word the filter designer's own help text uses.
+    return Finder.renderFilterValue(f, { ctx, label: FilterFieldMessage.Value.niceToString(), queryToken: p.queryToken, filterOptions: p.allFilterOptions, handleValueChange: handleValueChange });
   }
 
   function handleValueChange() {
@@ -847,7 +851,8 @@ export function FilterConditionComponent(p: FilterConditionComponentProps): Reac
         </td>
         <td className="sf-filter-operation">
           {f.token && f.token.filterType && f.operation &&
-            <select className="form-select form-select-xs" value={f.operation} disabled={readOnly} onChange={handleChangeOperation}>
+            <select className="form-select form-select-xs" aria-label={FilterFieldMessage.Operator.niceToString()}
+              value={f.operation} disabled={readOnly} onChange={handleChangeOperation}>
               {f.token.filterType && getFilterOperations(f.token)
                 .map((ft, i) => <option key={i} value={ft as any} title={Enum.niceName(FilterOperation, ft)}>{niceNameOrSymbol(ft)}</option>)}
             </select>}
@@ -899,7 +904,9 @@ export function FilterConditionComponent(p: FilterConditionComponentProps): Reac
     // editor to render for the value (text/number/date/enum/entity picker).
     const ctx = new TypeContext<any>(undefined, { formGroupStyle: "None", readOnly: readOnly, formSize: "xs" }, f.token?.type, Binding.create(f, a => a.value));
 
-    return Finder.renderFilterValue(f, { ctx: ctx, queryToken: p.queryToken, filterOptions: p.allFilterOptions, handleValueChange });
+    // label: see the filter group's value editor above — formGroupStyle "None" renders no <label>, so this
+    // is what names the control.
+    return Finder.renderFilterValue(f, { ctx: ctx, label: FilterFieldMessage.Value.niceToString(), queryToken: p.queryToken, filterOptions: p.allFilterOptions, handleValueChange });
   }
 
   function handleValueChange() {
@@ -992,7 +999,7 @@ export function PinnedFilterEditor(p: PinnedFilterEditorProps): React.ReactEleme
 
         <Dropdown.Menu>
           {Enum.values(PinnedFilterActive).map(v =>
-            <Dropdown.Item key={v} active={v == value} onClick={() => { binding.setValue(v == "Always" ? undefined : v); p.onChange(); }}>
+            <Dropdown.Item key={v} {...dropdownActive(v == value)} onClick={() => { binding.setValue(v == "Always" ? undefined : v); p.onChange(); }}>
               {Enum.niceName(PinnedFilterActive, v)}
             </Dropdown.Item>)
           }
@@ -1012,7 +1019,7 @@ function DashboardBehaviourComponent(p: { filter: FilterOptionParsed, readonly: 
 
       <Dropdown.Menu>
         {[undefined, ...Enum.values(DashboardBehaviour)].map(v =>
-          <Dropdown.Item key={v ?? "-"} active={v == p.filter.dashboardBehaviour} onClick={() => {
+          <Dropdown.Item key={v ?? "-"} {...dropdownActive(v == p.filter.dashboardBehaviour)} onClick={() => {
 
             p.filter.dashboardBehaviour = v;
             if (v == "PromoteToDasboardPinnedFilter" && p.filter.pinned == null)

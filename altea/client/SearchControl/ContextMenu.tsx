@@ -18,9 +18,15 @@ interface ContextMenuProps extends React.HTMLAttributes<HTMLUListElement> {
   alignRight?: boolean;
   children: React.ReactNode;
   itemsCount: number;
+  /**
+   * Move focus into the menu as it opens. Set when it was opened from the KEYBOARD: a menu that appears
+   * next to a pointer is where the pointer already is, but one opened with Shift+F10 is unreachable unless
+   * focus follows it there.
+   */
+  autoFocus?: boolean;
 }
 
-export default function ContextMenu({ position, onHide, children, alignRight, itemsCount, ...rest }: ContextMenuProps): React.ReactElement {
+export default function ContextMenu({ position, onHide, children, alignRight, itemsCount, autoFocus, ...rest }: ContextMenuProps): React.ReactElement {
 
   const { top, left } = position;
 
@@ -54,6 +60,15 @@ export default function ContextMenu({ position, onHide, children, alignRight, it
       setAdjustedPosition({ top: adjustedTop, left: adjustedLeft });
     }
   }, [itemsCount, left, top, position.maxTop]);
+
+  React.useEffect(() => {
+    if (!autoFocus)
+      return;
+
+    // The search box of a ROW menu focuses itself through AutoFocus; this covers the menus that have none.
+    const first = menuRef.current?.querySelector<HTMLElement>(".dropdown-menu .dropdown-item:not(.disabled):not([disabled])");
+    first?.focus();
+  }, [autoFocus]);
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

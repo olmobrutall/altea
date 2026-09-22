@@ -26,8 +26,12 @@ export function ValidationErrors(p: { entity: BaseEntity, prefix: string, ref?: 
   // role="alert" so the summary is announced when it appears after a failed save. Until now it was
   // inserted silently, which is why a screen reader reported a field as invalid but never said why.
   // "alert" rather than "status": this interrupts, which is right for an error blocking the save.
+  // The role goes on a WRAPPER, not on the <ul>: a role replaces the element's own, so role="alert" on the
+  // list made it stop being a list and left every <li> an orphan. A plain div announces just the same and
+  // the list stays a list.
   return (
-    <ul className="validaton-summary alert alert-danger" role="alert">
+    <div role="alert">
+    <ul className="validaton-summary alert alert-danger">
       {Dic.map(modelState, (key, value) => <li
         key={key}
         style={{ cursor: "pointer", whiteSpace: "pre-wrap" }}
@@ -36,6 +40,7 @@ export function ValidationErrors(p: { entity: BaseEntity, prefix: string, ref?: 
         {value}
       </li>)}
     </ul>
+    </div>
   );
 
   function handleOnClick(key: string) {

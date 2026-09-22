@@ -104,6 +104,8 @@ export function EntityCheckboxList<R extends BaseEntity>(props: EntityCheckboxLi
       label={p.label}
       labelIcon={p.labelIcon}
       avoidFieldSet={p.avoidFieldSet}
+      role="group"
+      ariaAttributes={p.ctx.readOnly ? c.baseAriaAttributes() : c.extendedAriaAttributes()}
       buttons={renderButtons()}
       htmlAttributes={{ ...c.baseHtmlAttributes(), ...p.formGroupHtmlAttributes, ...c.errorAttributes() }} >
       {renderCheckboxList()}

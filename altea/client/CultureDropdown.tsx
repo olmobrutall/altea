@@ -3,6 +3,7 @@ import { NavDropdown } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useAPI } from './Hooks';
 import { CultureClient } from './CultureClient';
+import { dropdownActive } from './Components/DropdownActive';
 
 // Port of Signum's CultureDropdown (React/Basics/CultureDropdown.tsx) — the navbar language picker.
 // A culture is a plain locale TAG here rather than a `Lite<CultureInfoEntity>` (see CultureClient for why),
@@ -38,7 +39,7 @@ export default function CultureDropdown(p: { fullName?: boolean; isMobile?: bool
     <NavDropdown data-culture={current} title={title} className="sf-culture-dropdown"
       aria-label={currentLabel}>
       {catalogue.cultures.map(c =>
-        <NavDropdown.Item key={c} data-culture={c} active={c === current}
+        <NavDropdown.Item key={c} data-culture={c} {...dropdownActive(c === current)}
           onClick={() => CultureClient.changeCurrentCulture(c)}>
           {CultureClient.nativeName(c)}
         </NavDropdown.Item>

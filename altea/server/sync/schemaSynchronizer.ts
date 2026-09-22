@@ -349,7 +349,7 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
                     if (oldName != null) {
                         const oldDiffCol = dif.columns[oldName];
                         if (tabCol.primaryKey && oldDiffCol != null) {
-                            delayedUpdatesFks.push(pkUpdater.updateImplementedByAll(tab, tab.name, tabCol, oldDiffCol.dbType, oldName));
+                            delayedUpdatesFks.push(pkUpdater.updateImplementedByAll(tab, tab.name, tabCol, oldDiffCol.dbType, oldName, replacements));
                             delayedUpdatesFks.push(pkUpdater.updateHistoryTable(tab, tabCol, oldName));
                         } else if (tabCol.referenceTable != null && oldDiffCol != null) {
                             delayedUpdatesFks.push(pkUpdater.updateForeignKeyTypeChanged(tab, tabCol, oldDiffCol, preRenameMap));

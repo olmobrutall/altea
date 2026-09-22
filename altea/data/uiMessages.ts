@@ -43,6 +43,8 @@ export const EntityControlMessage = {
     Added: msg("Added"),
     RemovedAndSelectedAgain: msg("Removed and selected again"),
     Selected: msg("Selected"),
+    /** Names the column of row action buttons, which otherwise has an empty header. */
+    Actions: msg("Actions"),
     // Signum's EntityControlMessage.ToggleSideBar — used by the sidebar toggle in the navbar
     // (@altea/altea-toolbar's SidebarToggleItem), which is why it lives with the framework messages.
     ToggleSideBar: msg("Toggle side bar"),
@@ -240,6 +242,8 @@ export const SearchMessage = {
     // `ColumnEditorModal` is a stub (`show()` resolves false) and there is no `ColumnBuilder`; these
     // land with that feature, which is tracked as its own port item.
     AddColumn: msg("Add column"),
+    /** The plus button that continues a field expression in the query token builder. */
+    AddField: msg("Add field"),
     HiddenColumn: msg("Hidden column"),
     Orders: msg("Orders"),
     ChooseTheDisplayNameOfTheNewColumn: msg("Choose the display name of the new column"),
@@ -466,4 +470,14 @@ export const ReactWidgetsMessage = {
 // reach for instead of inventing a second string.
 export const CalendarMessage = {
     Today: msg("Today"),
+};
+
+// ThemeMode (Signum's ThemeModeMessage) — the light / dark / auto picker in the navbar. Signum marks it
+// `[AllowUnauthenticated]` because that dropdown is on the login page too; altea ships every message in
+// the reflection blob for every user, so the marker has no analogue here.
+export const ThemeModeMessage = {
+    Theme: msg("Theme"),
+    Light: msg("Light"),
+    Dark: msg("Dark"),
+    Auto: msg("Auto"),
 };

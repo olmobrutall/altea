@@ -7,6 +7,9 @@ import type { DiffTable, DiffColumn } from './diffModels';
 import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandWithHistory, Spacing } from './sqlPreCommand';
 import type { SqlBuilder } from './sqlBuilder';
 import type { Schema } from '../schema/schema';
+import type { Replacements } from './synchronizer';
+import { readLineSync } from './synchronizer';
+import { isNullableToBool } from '../schema/dbType';
 
 // Port of Signum's PrimaryKeyUpdater (old/Framework/Signum/Engine/Sync/PrimaryKeyUpdater.cs). When an
 // entity's primary key changes type (the common case: int-identity → guid) the PK column is renamed to
@@ -104,7 +107,8 @@ export class PrimaryKeyUpdater {
     // rows pointing at THAT entity must be re-pointed. altea's ImplementedByAllIdColumn is type-keyed (no
     // per-target referenceTable), so — like Signum — we scope by joining the type discriminator to the
     // migrated entity's TypeEntity row (matched by table name).
-    updateImplementedByAll(migratedTable: Table, oldTableName: ObjectName, newIdCol: IColumn, oldPkDbType: AbstractDbType, oldIdColName: string): SqlPreCommand | undefined {
+    updateImplementedByAll(migratedTable: Table, oldTableName: ObjectName, newIdCol: IColumn, oldPkDbType: AbstractDbType, oldIdColName: string,
+        replacements: Replacements): SqlPreCommand | undefined {
         if (this.typeTable == null || this.typeIdCol == null || this.typeTableNameCol == null)
             return undefined;
 
@@ -122,16 +126,17 @@ export class PrimaryKeyUpdater {
             if (ibaOldId == null || ibaNewId == null || ibaOldId === ibaNewId)
                 continue;
 
-            commands.push(this.updateIBAOne(migratedTable, oldTableName, newIdCol, oldIdColName, holder, typeCol, ibaOldId, ibaNewId));
+            commands.push(this.updateIBAOne(migratedTable, oldTableName, newIdCol, oldIdColName, holder, typeCol, ibaOldId, ibaNewId, replacements));
             if (holder.systemVersioned != null)
-                commands.push(this.updateIBAOne(migratedTable, oldTableName, newIdCol, oldIdColName, holder, typeCol, ibaOldId, ibaNewId, holder.systemVersioned.historyTableName));
+                commands.push(this.updateIBAOne(migratedTable, oldTableName, newIdCol, oldIdColName, holder, typeCol, ibaOldId, ibaNewId, replacements, holder.systemVersioned.historyTableName));
         }
         return SqlPreCommand.combine(Spacing.Double, ...commands);
     }
 
     private updateIBAOne(
         migratedTable: Table, oldTableName: ObjectName, newIdCol: IColumn, oldIdColName: string,
-        holder: Table, typeCol: ImplementedByAllTypeColumn, ibaOldId: IColumn, ibaNewId: IColumn, holderHistory?: ObjectName,
+        holder: Table, typeCol: ImplementedByAllTypeColumn, ibaOldId: IColumn, ibaNewId: IColumn,
+        replacements: Replacements, holderHistory?: ObjectName,
     ): SqlPreCommand | undefined {
         const holderName = holderHistory ?? holder.name;
         const typeName = this.tbl(this.typeTable!.name);
@@ -154,7 +159,86 @@ export class PrimaryKeyUpdater {
             `FROM ${this.tbl(holderName)} tgt\n` +
             `JOIN ${this.tbl(migratedTable.name)} src ON tgt.${this.esc(ibaOldId.name)} = src.${this.esc(oldIdColName)}\n` +
             `JOIN ${typeName} ty ON ty.${this.esc(this.typeIdCol!)} = tgt.${this.esc(typeCol.name)} AND ty.${this.esc(this.typeTableNameCol!)} = '${oldTableLit}';`;
+        return SqlPreCommand.combine(Spacing.Double,
+            new SqlPreCommandSimple(sql),
+            this.fixUnmatched(holderName, typeCol, ibaOldId, oldTableName, replacements));
+    }
+
+    /**
+     * Deals with the rows the remap above could NOT reach: a row whose target entity had already been
+     * deleted matches no `_old` value, so it would keep an id of the previous type for a type that is now
+     * keyed differently. Reading such a row throws ("… requires ids of type uuid, not int"), and because
+     * these references are usually loaded through a cached table or a global lazy, one stale row can break
+     * every request rather than only the record that holds it.
+     *
+     * What to do with the row depends on whether the reference is OPTIONAL, which is what the type column
+     * records: the id columns are always nullable when more than one primary key type is configured, so
+     * they say nothing about the field. An optional reference (an operation log's target) just becomes
+     * empty and the row, which is meaningful on its own, is kept. A required one (a translated instance)
+     * cannot become empty, and a row with no id in any of its id columns is no more readable than the
+     * stale one, so the row goes with its target — after asking, because deleting rows is not a decision
+     * to take on the author's behalf.
+     *
+     * NOT in altea before now: the earlier port of the PK migration stopped at the remap, so an unmatched
+     * row kept an id of the old type and the first read of it threw.
+     */
+    private fixUnmatched(holderName: ObjectName, typeCol: ImplementedByAllTypeColumn, ibaOldId: IColumn,
+        oldTableName: ObjectName, replacements: Replacements): SqlPreCommand {
+
+        const typeName = this.tbl(this.typeTable!.name);
+        const oldTableLit = oldTableName.name.replace(/'/g, "''");
+        const condition =
+            `ty.${this.esc(this.typeIdCol!)} = tgt.${this.esc(typeCol.name)}\n` +
+            `  AND ty.${this.esc(this.typeTableNameCol!)} = '${oldTableLit}'\n` +
+            `  AND tgt.${this.esc(ibaOldId.name)} IS NOT NULL`;
+
+        if (!isNullableToBool(typeCol.nullable) && this.askDeleteUnmatched(holderName, typeCol, oldTableName, replacements)) {
+            const comment =
+                `-- The target no longer exists, so the remap above could not reach this row, and ` +
+                `${holderName.name}.${typeCol.name} cannot be null: the row is deleted\n`;
+            const sql = this.isPostgres
+                ? `${comment}DELETE FROM ${this.tbl(holderName)} tgt\nUSING ${typeName} ty\nWHERE ${condition};`
+                : `${comment}DELETE tgt\nFROM ${this.tbl(holderName)} tgt\nJOIN ${typeName} ty ON ${condition};`;
+            return new SqlPreCommandSimple(sql);
+        }
+
+        // Only the ID is cleared, not the row: the reference becomes empty instead of invalid.
+        const setNull = `${this.esc(typeCol.name)} = NULL, ${this.esc(ibaOldId.name)} = NULL`;
+        const sql = this.isPostgres
+            ? `UPDATE ${this.tbl(holderName)} tgt SET ${setNull}\nFROM ${typeName} ty\nWHERE ${condition};`
+            : `UPDATE tgt SET ${setNull}\nFROM ${this.tbl(holderName)} tgt\nJOIN ${typeName} ty ON ${condition};`;
         return new SqlPreCommandSimple(sql);
+    }
+
+    /** Answered once for the whole synchronization. Unattended the rows are deleted — the script is still
+     *  reviewed before it is run. */
+    private deleteUnmatchedIBARows?: boolean;
+
+    private askDeleteUnmatched(holderName: ObjectName, typeCol: ImplementedByAllTypeColumn,
+        oldTableName: ObjectName, replacements: Replacements): boolean {
+
+        if (!replacements.interactive)
+            return true;
+
+        if (this.deleteUnmatchedIBARows != null)
+            return this.deleteUnmatchedIBARows;
+
+        console.log();
+        console.log(`Delete the rows of ${holderName} that point to a ${oldTableName} that no longer exists?`);
+        console.log(`(${holderName.name}.${typeCol.name} is not nullable, so they cannot be emptied instead)`);
+        console.log(` y: yes    y!: yes, always    n: no, clear the id instead    n!: no, always`);
+
+        for (; ;) {
+            const answer = (readLineSync() ?? "y").trim().toLowerCase();
+            if (answer === "y" || answer === "")
+                return true;
+            if (answer === "y!")
+                return this.deleteUnmatchedIBARows = true;
+            if (answer === "n")
+                return false;
+            if (answer === "n!")
+                return this.deleteUnmatchedIBARows = false;
+        }
     }
 
     // ---- system-versioned history rows (Signum's UpdateHistoryTable) ---------

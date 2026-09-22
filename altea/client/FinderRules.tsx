@@ -47,6 +47,7 @@ import { toNumberFormat } from "./numberFormat";
 import { SearchMessage, JavascriptMessage } from "../data/uiMessages";
 import { TextAreaLine } from "./Lines/TextAreaLine";
 import { OverlayTrigger, Popover, Tooltip } from "react-bootstrap";
+import { getKey } from "../data/dynamicQuery/queryUtils";
 
 // Render any result-cell value as text: a Lite/entity/Temporal/Decimal shows its toString() (a wire lite
 // via its `toStr`), a plain value via String().
@@ -551,18 +552,25 @@ function domainFindOptions(filterToken: QueryToken, ffc: Finder.FilterFormatterC
       Array.isArray(val) ? allDomains.push(...val) : allDomains.push(val);
   }
 
-  if (allDomains.length == 0)
+  // Restrictions the registration attached to THIS query, which apply whether or not a domain filter is
+  // present — so a query with no domain value can still narrow the picker.
+  const extraFilters = entry.extraFilters?.(getKey(ffc.queryToken.queryName))?.notNull() ?? [];
+
+  if (allDomains.length == 0 && extraFilters.length == 0)
     return undefined;
 
   const distinctDomains = allDomains.distinctBy(l => l.key());
 
   return {
     queryName: entry.type,
-    filterOptions: [{
-      token: tokenSequence(entry.getDomainField, true), // rootless: the picked entity's own domain field
-      operation: distinctDomains.length > 1 ? "IsIn" : "EqualTo",
-      value: distinctDomains.length > 1 ? distinctDomains : distinctDomains[0],
-    }],
+    filterOptions: [
+      ...(distinctDomains.length == 0 ? [] : [{
+        token: tokenSequence(entry.getDomainField, true), // rootless: the picked entity's own domain field
+        operation: (distinctDomains.length > 1 ? "IsIn" : "EqualTo") as FilterOperationKeys,
+        value: distinctDomains.length > 1 ? distinctDomains : distinctDomains[0],
+      }]),
+      ...extraFilters,
+    ],
   };
 }
 

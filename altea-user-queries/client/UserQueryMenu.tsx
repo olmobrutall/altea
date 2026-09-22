@@ -44,6 +44,9 @@ export interface UserQueryMenuProps {
 
 export default function UserQueryMenu(p: UserQueryMenuProps): React.JSX.Element | null {
     const [isOpen, setIsOpen] = React.useState(false);
+    // The three shared menus — this one, the user-query menu and the Excel menu — carried one fixed id
+    // between them, so a single search control rendering two of them was already enough to duplicate it.
+    const toggleId = React.useId();
     const [currentUserQuery, setCurrentUserQueryState] = React.useState<Lite<UserQueryEntity> | undefined>();
     const [userQueries, setUserQueries] = React.useState<Lite<UserQueryEntity>[] | undefined>(undefined);
     const forceUpdate = useForceUpdate();
@@ -217,7 +220,7 @@ export default function UserQueryMenu(p: UserQueryMenuProps): React.JSX.Element 
 
     return (
         <Dropdown onToggle={handleToggle} show={isOpen}>
-            <Dropdown.Toggle id="userQueriesDropDown" variant="tertiary">
+            <Dropdown.Toggle id={toggleId} variant="tertiary">
                 <span title={currentToStr}>
                     <FontAwesomeIcon icon="rectangle-list" />
                     {large && <>&nbsp;<span className="d-none d-sm-inline">

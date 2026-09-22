@@ -234,15 +234,19 @@ function CaseFramePage(): React.JSX.Element {
 
     return (
         <div className="normal-control">
-            <h3 className="border-bottom pb-3">
-                <span className="sf-entity-title">{Navigator.renderEntity(pack.activity)}</span>
+            // As in FramePage: the sub-title block is not phrasing content, so it cannot sit inside the
+            // heading. The heading keeps the title; the block becomes its sibling.
+            <div className="border-bottom pb-3">
+                <h3 className="mb-0">
+                    <span className="sf-entity-title">{Navigator.renderEntity(pack.activity)}</span>
+                </h3>
                 <div className="sf-entity-sub-title">
                     <small className="sf-type-nice-name text-muted">
                         {Navigator.getTypeSubTitle(pack.activity, undefined)}
                     </small>
                     {renderWidgets(wc, settings?.stickyHeader)}
                 </div>
-            </h3>
+            </div>
             <div className="case-activity-widgets mt-2 me-2">
                 {!pack.activity.case.isNew &&
                     <div className="mx-2">

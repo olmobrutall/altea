@@ -463,7 +463,7 @@ function minBy<T>(items: T[], selector: (t: T) => number): T | undefined {
 // Synchronous console line read (blocks the event loop). Keeps askForReplacements
 // synchronous like the C#, instead of forcing the whole synchronizer async through
 // readline. Returns null on EOF. Divergence: Signum uses Console.ReadLine directly.
-function readLineSync(): string | null {
+export function readLineSync(): string | null {
     const buffer = Buffer.alloc(1);
     let line = '';
     for (;;) {

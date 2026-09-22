@@ -2477,3 +2477,35 @@ Known structural divergences from Signum (this is what "fix" means — don't por
   dialects. The limit lands inside the source subquery the UPDATE joins (`LIMIT n` on Postgres, `TOP (n)`
   on SQL Server), which is the part that could have gone wrong.
 
+- **Signum's second accessibility review, ported in one pass** (Signum `42e1500b70..6b0186266a`, the
+  `a11y/review-2026-09-18` branch plus two fixes). The first pass is the entry above; this one went after
+  what it had left. The parts worth knowing:
+  - **Two new components carry what a library would not let the call site do.** `DropdownListSearch` names
+    the typeahead input react-widgets' `DropdownList` builds itself — `DropdownListInput` destructures the
+    props it knows and drops the rest, so `inputProps` never arrives, and the input is the element that
+    takes focus (the `role="combobox"` root above it is `tabindex="-1"` when there is a filter). It writes
+    the name onto the input from a layout effect, which is stable because React does not manage that
+    attribute. `DropdownActive` replaces react-bootstrap's `active`, which emits `aria-selected` on an
+    element whose role is `button`, where it is not allowed and is ignored — and the call site cannot
+    override it, because `DropdownItem` spreads the library's props last.
+  - **Heading level stopped coming from the requested style.** `HeaderType` picked the ELEMENT, so a form
+    whose title is an `<h1>` jumped to the `<h5>` its sections wanted to LOOK like. A `HeadingLevelContext`
+    supplies the level from how deep the section is and the type becomes the Bootstrap size class — which
+    keeps the size identical, since `_type.scss` declares `.hN` as `@extend hN`.
+  - **A label pointed at an id that often does not exist.** A line that hands `controlId` to a third-party
+    widget ends up with the id on a wrapper or suffixed (react-widgets makes `${id}_input`), and one that
+    renders a link rather than a field has nothing to put it on. `FormGroup` now drops `htmlFor` when there
+    is no such element and falls back to focusing the first control in the group.
+  - **`aria-required` was read from the wrong thing.** `mandatory` is the call site's flag; the visible
+    asterisk comes from the field being non-nullable. A field required by the SCHEMA therefore showed the
+    asterisk and reported `aria-required="false"`. Both now read the same source.
+  - **Some of it altea already had, and one thing it did not.** `ValidationErrors` kept `role="alert"` on
+    the `<ul>` from the first pass, which stopped it being a list — fixed here by moving the role to a
+    wrapper. altea's `SearchPage` hardcoded `enableAutoFocus={false}` in the first pass; upstream makes it
+    `Options.enableAutoFocus()` and returns the default to true, which is what this follows.
+  - **The one engine change brought a missing predecessor with it** (`a9991dbdb5`): altea's PK migration
+    stopped at the IBA remap and never handled the rows it could not reach, so Signum's original
+    `NullOutUnmatched` is ported here together with the delete-when-required refinement that replaces it.
+  NOT ported: `Signum.Toolbar/Subs/SubFramePage.tsx` (the sub-entity frame page is not ported — see
+  `SubPageMessage` in `@altea/altea-toolbar`, kept to mark the deferral) and `CaseFlowViewerComponent`'s
+  `dropdownActive` (altea's case-flow viewer has no colour menu).
