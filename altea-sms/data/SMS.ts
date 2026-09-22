@@ -25,8 +25,8 @@ import { SMS_MAX_TEXT_LENGTH, SMSCharactersMessage } from "./SMSCharacters";
 // **`SMSOwnerData` is an INTERFACE, not an entity**: a `@quoted` member returning a hand-built object IS a
 // real query token, so it needs no reflected type — which is what a template's `to` points at.
 //
-// `SMSConfigurationEmbedded` is read through the app's `() => GlobalsLogic.configuration().sms` lambda,
-// as every other module's configuration is.
+// `SMSConfigurationEmbedded` is read through the app's settings THUNK, as every other module's
+// configuration is — a `StablePromise` of this member, projected off the app's configuration cache.
 //
 // Port of Signum.SMS's SMSMessage.cs + SMSTemplate.cs + SMSPackages.cs — see port/Sms.md.
 
@@ -34,8 +34,8 @@ import { SMS_MAX_TEXT_LENGTH, SMSCharactersMessage } from "./SMSCharacters";
 
 /**
  * Embedded on the app's ApplicationConfiguration row, and read by
- * every `SMSLogic` call through the `() => GlobalsLogic.configuration().sms` lambda the app passes to
- * `start` (see CLAUDE.md).
+ * every `SMSLogic` call through the `getConfiguration` thunk the app passes to `start` — which hands back
+ * a `StablePromise` of this member, so an administrator's edit is seen without a restart.
  *
  * `defaultCulture` references a `CultureInfoEntity` row — the same call
  * @altea/altea-email's `EmailConfigurationEmbedded` makes, so the two modules' configurations read alike.
