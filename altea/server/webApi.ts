@@ -20,6 +20,7 @@ import { Serializer } from "../data/serializer";
 import type { IntegrityCheck } from "../data/validation";
 import { attachHubs, type WebSocketHub } from "./webSocketHub";
 import { composeFilters, type RequestFilter, type RequestFilterContext } from "./filters/requestFilter";
+import { useUserScope } from "./filters/userScope";
 import { authorizationFilter, serializationAuthFilter } from "./filters/authorizationFilter";
 import { cultureFilter } from "./filters/cultureFilter";
 import { heavyProfilerFilter, timeTrackerFilter } from "./filters/profilerFilter";
@@ -130,11 +131,10 @@ const rawBody = express.text({ type: "*/*", limit: "16mb" });
  * `route`. The order is Signum's: the authorization gate is outside the culture scope (so the culture
  * chain can read the current user), and the profiler scope is outside everything it should measure.
  *
- * The USER scope is deliberately NOT here, and could not be. Core has no notion of a user, and an auth
- * module cannot express it as a filter either: middleware OUTSIDE routing reads the current user
- * (altea-isolation resolves the tenant in its own `app.use`, altea-rest stamps its log row), so
- * establishing it has to happen before any of them. altea-auth mounts it as app-level middleware — see
- * its `filters/userScope` — and fills the authorization seam that runs in here.
+ * The USER scope is deliberately NOT here, and could not be: middleware OUTSIDE routing reads the current
+ * user (altea-isolation resolves the tenant in its own `app.use`, altea-rest stamps its log row), so
+ * establishing it has to happen before any of them. It is app-level middleware the WebBuilder mounts at
+ * construction; altea-auth fills its `setAuthenticateRequest` seam, and the authorization seam in here.
  */
 export const defaultFilters: readonly RequestFilter[] = [
     heavyProfilerFilter,
@@ -145,7 +145,12 @@ export const defaultFilters: readonly RequestFilter[] = [
 ];
 
 export class WebBuilder {
-    constructor(public readonly app: Express) { }
+    constructor(public readonly app: Express) {
+        // FIRST, before any module can register anything: Express runs middleware in registration order, so
+        // mounting the user scope later would leave every route registered before it without a user — see
+        // filters/userScope.
+        useUserScope(app);
+    }
 
     // The per-request filter chain, outermost first. Seeded with `defaultFilters` so an app that wires
     // nothing behaves exactly as before; `use` appends, and assigning replaces the whole chain for a host
@@ -178,28 +183,6 @@ export class WebBuilder {
     /** Binds every registered hub to the listening server. Call once, after `app.listen(...)`. */
     attachWebSockets(server: Parameters<typeof attachHubs>[0]): void {
         attachHubs(server, this.hubs);
-    }
-
-    // Routes whose registration must WAIT for the filter chain to be complete.
-    //
-    // A route folds `filters` into a fixed pipeline the moment it is registered (see `route` below), so a
-    // module that mounts before the auth module has installed its user scope gets that chain for good —
-    // its handlers would never see an authenticated user. Most modules start after the auth module and
-    // have nothing to think about; one that must start EARLY (CacheLogic swaps the global-lazy
-    // invalidation strategy, so it goes before any `sb.globalLazy`) would otherwise have to leave its
-    // HTTP surface for the application's starter to mount at the right moment, which is a rule every
-    // application has to remember rather than a guarantee.
-    private readonly deferredRoutes: (() => void)[] = [];
-
-    /** Register these routes once every filter is in place, rather than now. */
-    deferRoutes(mount: () => void): void {
-        this.deferredRoutes.push(mount);
-    }
-
-    /** Run what `deferRoutes` collected. `SignumServer.start` calls this; nothing else should. */
-    mountDeferredRoutes(): void {
-        for (const mount of this.deferredRoutes.splice(0))
-            mount();
     }
 
     get<D extends RouteDef>(path: string, def: D, handler: Handler<D>): void { this.route("get", path, def, handler); }

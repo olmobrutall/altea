@@ -108,13 +108,8 @@ export namespace CacheLogic {
 
         PermissionLogic.registerContainer(CachePermission);
 
-        // The cache admin surface, DEFERRED. This module starts before every other — it swaps the
-        // global-lazy invalidation strategy, which has to happen before the first `sb.globalLazy` — and a
-        // route folds the filter chain as it stands when it is registered, so mounting here and now would
-        // give these routes a chain without the auth module's user scope. See WebBuilder.deferRoutes.
-        const ws = sb.webBuilder;
-        if (ws)
-            ws.deferRoutes(() => CacheServer.start(ws));
+        if (sb.webBuilder)
+            CacheServer.start(sb.webBuilder);
     }
 
     function assertStarted(): void {

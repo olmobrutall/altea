@@ -1,34 +1,18 @@
-import { UserHolder } from "@altea/altea/server/userHolder";
-import type { WebBuilder } from "@altea/altea/server/webApi";
 import { UserWithClaims } from "@altea/altea/data/security";
+import {
+    setAuthenticateRequest, type AuthRequestLike, type AuthResponseLike,
+} from "@altea/altea/server/filters/userScope";
 import { AuthTokenServer } from "../AuthTokenServer";
 import { AuthLogic } from "../AuthLogic";
 
-// Signum's `SignumAuthenticationFilter` — the frame that establishes WHO the request is.
+// Signum's `SignumAuthenticationFilter` — the auth half of it.
 //
-// It is APP-level Express middleware, not a route filter, and that is deliberate rather than historical.
-// The other three concerns (culture, profiler, authorization) only ever wrap a ROUTE, so they live in
-// core's per-route filter chain. This one has readers OUTSIDE routing:
-//
-//   - @altea/altea-isolation mounts `app.use` middleware that resolves the tenant, and its
-//     `resolveIsolation` reads `UserHolder.current()` and the user's pinned isolation;
-//   - @altea/altea-rest mounts `RestLogFilter` on a path prefix and stamps `UserHolder.currentUserLite()`
-//     onto the log row.
-//
-// Both run before any route handler, so a route-level user frame would leave them looking at nobody —
-// silently: isolation would fall through to its request-derived default and the REST log would record an
-// anonymous call. Establishing the user has to happen before any middleware that reads it, which is
-// exactly what `app.use` ordering gives.
-//
-// Extracted into its own file all the same, so it is one named, installable piece — `useUserScope(ws)`,
-// the same idiom as core's `useExceptionFilter(ws)`.
+// The SCOPE is core's, mounted by the WebBuilder constructor so it is in place before any module runs
+// (see @altea/altea/server/filters/userScope for why that has to be true). What is left here is naming
+// WHO the request is, which is the one part core cannot know — the same shape as the authorization gate
+// and the culture provider this module also fills.
 
-/** The Express request/response surface an authenticator needs; altea-auth does not depend on @types/express. */
-interface ReqLike { header(name: string): string | undefined; query: Record<string, unknown>; }
-interface ResLike { setHeader(name: string, value: string): void; }
-type NextLike = (err?: unknown) => void;
-
-async function authenticate(req: ReqLike, res: ResLike): Promise<UserWithClaims | undefined> {
+async function authenticate(req: AuthRequestLike, res: AuthResponseLike): Promise<UserWithClaims | undefined> {
     const reqLike = {
         header: (n: string) => req.header(n) ?? undefined,
         hasQuery: (n: string) => req.query[n] != null,
@@ -51,23 +35,14 @@ async function authenticate(req: ReqLike, res: ResLike): Promise<UserWithClaims 
 }
 
 /**
- * Open a fresh per-request user scope, authenticate inside it, then continue the pipeline THERE — so
- * everything downstream sees `UserHolder.current()` (AsyncLocalStorage propagates across the awaited
- * continuation).
+ * Hand core the authenticator chain.
  *
  * Authenticating is not authorizing: a request with no valid token simply proceeds with no user, and the
  * authorization filter is what rejects it unless the route is `allowAnonymous`.
  *
- * Mount FIRST — before any other `app.use` that reads the user, and before the routes.
+ * Order-free, unlike the middleware this replaced: the scope is already mounted, so a route registered
+ * before this call is authenticated just the same.
  */
-export function useUserScope(ws: WebBuilder): void {
-    const middleware = (req: ReqLike, res: ResLike, next: NextLike): void => {
-        UserHolder.withScope(() => {
-            authenticate(req, res).then(
-                uwc => { if (uwc != null) UserHolder.setCurrent(uwc); next(); },
-                next,
-            );
-        });
-    };
-    (ws.app.use as (h: unknown) => void)(middleware);
+export function installAuthenticator(): void {
+    setAuthenticateRequest(authenticate);
 }

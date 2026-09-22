@@ -8,7 +8,7 @@ import { CallExpression, type Expression, LambdaExpression, PropertyExpression, 
 import { ClassType, LiteralType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
-import { markStable, stableValue } from "@altea/altea/server/stablePromise";
+import { markStable, stableValue, type StablePromise } from "@altea/altea/server/stablePromise";
 import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { preSaveGates } from "@altea/altea/server/saver";
 import { postRetrieveGates } from "@altea/altea/server/linq/Retriever";
@@ -107,7 +107,7 @@ export namespace TypeAuthLogic {
      * enclosing bind simplifies ONCE, outside the region, so every attempt meets the same node. A WeakMap
      * keyed by it also means the memo dies with the query tree.
      */
-    const auditsBySource = new WeakMap<Expression, Map<string, Promise<Map<TypeConditionSymbol, LambdaExpression>>>>();
+    const auditsBySource = new WeakMap<Expression, Map<string, StablePromise<Map<TypeConditionSymbol, LambdaExpression>>>>();
 
     function auditedConditions(ctor: Function, roleKey: string, args: FilterQueryArgs | undefined)
         : Map<TypeConditionSymbol, LambdaExpression> | undefined {

@@ -29,13 +29,7 @@ import type { RuntimeType } from "./runtimeTypes";
 // `.$v` itself stays strictly query-only: the accessor on Promise.prototype (see server/table.ts) always
 // throws, and the query pipeline reads the fields below BY NAME without ever touching it.
 
-/**
- * The three fields a stable promise CARRIES — what the query pipeline reads, by name. Split out from
- * {@link StablePromise} so a READER can take a promise that merely happens to be stable (a cache's own,
- * passed around as a plain `Promise<T>`) without also demanding the `thenTyped` member only `markStable`
- * installs.
- */
-export interface StableMarkers<T> extends Promise<T> {
+export interface StablePromise<T> extends Promise<T> {
     /** Set by {@link markStable}: this promise is memoised by its producer, so the same instance comes back
      *  on the next attempt and the value stamped below is seen again. */
     readonly stable?: true;
@@ -46,9 +40,6 @@ export interface StableMarkers<T> extends Promise<T> {
     readonly runtimeType?: () => RuntimeType;
     /** The settled value, in a BOX so a legitimately-`undefined` value still counts as loaded. */
     readonly resolvedValue?: { readonly value: T };
-}
-
-export interface StablePromise<T> extends StableMarkers<T> {
     /**
      * One member of this promise's value, as a promise that is still stable and still typed — so a query
      * can read it through `.$v`, and a module can take `() => StablePromise<Member>` where the cache holds
@@ -116,7 +107,7 @@ export function markStable<T>(promise: Promise<T>, runtimeType?: () => RuntimeTy
 
 /** Whether `value` is a promise its producer memoises — the contract `stableValue` needs. */
 export function isStablePromise(value: unknown): value is StablePromise<unknown> {
-    return value instanceof Promise && (value as StableMarkers<unknown>).stable === true;
+    return value instanceof Promise && (value as StablePromise<unknown>).stable === true;
 }
 
 /** Whether `value` may additionally be read by `.$v` INSIDE a query: stable, and typed. */
@@ -125,7 +116,7 @@ export function isQueryReadablePromise(value: unknown): value is StablePromise<u
 }
 
 /** The declared type of a stable promise's value — what `.$v` types to before (and after) it loads. */
-export function stableRuntimeType(promise: StableMarkers<unknown>): RuntimeType {
+export function stableRuntimeType(promise: StablePromise<unknown>): RuntimeType {
     return promise.runtimeType!();
 }
 
@@ -137,7 +128,7 @@ export function stableRuntimeType(promise: StableMarkers<unknown>): RuntimeType 
  * A promise that is not stable never reaches here — {@link refuseUnstablePromise} refuses it at fold time,
  * where the offending expression is still in hand.
  */
-export function stableValue(promise: StableMarkers<unknown>): unknown {
+export function stableValue(promise: StablePromise<unknown>): unknown {
     if (promise.resolvedValue == null)
         throw new PromiseNotLoaded(promise);
     return promise.resolvedValue.value;

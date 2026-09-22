@@ -1,7 +1,7 @@
 import { WebBuilder, CustomType, type HttpMeta } from "@altea/altea/server/webApi";
 import { setAuthorizeRequest } from "@altea/altea/server/filters/authorizationFilter";
 import { setUserCultureProvider } from "@altea/altea/server/filters/cultureFilter";
-import { useUserScope } from "./filters/userScope";
+import { installAuthenticator } from "./filters/userScope";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { UserWithClaims } from "@altea/altea/data/security";
 import { AuthenticationException } from "@altea/altea/server/exceptions";
@@ -25,13 +25,13 @@ import { SessionLogLogic } from "./SessionLogLogic";
 
 // Port of Signum.Authorization's AuthServer.cs + AuthController.cs — see port/Auth.md.
 //
-// The HTTP surface of authentication: the per-request user scope plus the /api/auth/* endpoints. The
+// The HTTP surface of authentication: the authenticator chain plus the /api/auth/* endpoints. The
 // role-filtering overlay on the reflection blob is installed from here too — see AuthReflection.
 //
 // SECURE BY DEFAULT. Two cooperating pieces, at two different levels:
-//  1. `useUserScope` (filters/userScope) — APP-level Express middleware, mounted first: it opens a
-//     UserHolder scope and authenticates via the token authenticator chain, setting the current user when
-//     a valid token is present. App-level rather than a route filter because middleware outside routing
+//  1. `installAuthenticator` (filters/userScope) — fills core's `setAuthenticateRequest` seam, which runs
+//     inside the APP-level user scope the WebBuilder mounted at construction: it names the user from the
+//     token authenticator chain. App-level rather than a route filter because middleware outside routing
 //     reads it (isolation, the REST log).
 //  2. An authorization gate installed via `setAuthorizeRequest`, which core runs as a route FILTER, AFTER
 //     routing (so meta.allowAnonymous is known): it DENIES the request (throws AuthenticationException →
@@ -64,9 +64,8 @@ export namespace AuthServer {
     export const userLoggingOut: ((user: UserWithClaims | undefined) => void)[] = [];
     export const userLogged: ((user: UserEntity) => void)[] = [];
 
-    /** Wire authentication: token config + per-request middleware + the /api/auth routes. Call BEFORE
-     *  SignumServer.start(ws) so the middleware runs before the framework routes and the auth routes are
-     *  registered before the terminal exception filter. */
+    /** Wire authentication: token config + the authenticator + the /api/auth routes. Call BEFORE
+     *  SignumServer.start(ws), whose terminal exception filter must be registered after every route. */
     export function start(ws: WebBuilder, encryptionKey?: string,
         getConfiguration?: () => StablePromise<AuthTokenConfigurationEmbedded>): void {
         // The token-encryption key comes from AUTH_TOKEN_KEY unless one is passed explicitly; a dev
@@ -79,10 +78,9 @@ export namespace AuthServer {
             console.warn("[auth] AUTH_TOKEN_KEY not set — using an insecure dev fallback. Set it in the environment.");
         }
         AuthTokenServer.start(key, getConfiguration);
-        // The per-request user scope. APP-level, and mounted first, because things OUTSIDE routing read
-        // it — altea-isolation resolves the tenant in its own `app.use`, altea-rest stamps the log row —
-        // so it cannot be one of core's route filters. See filters/userScope.
-        useUserScope(ws);
+        // Who each request is. The SCOPE is already mounted (the WebBuilder constructor does it, before any
+        // module runs); this names the user inside it. See filters/userScope.
+        installAuthenticator();
         // Secure-by-default gate: deny any route that is not allowAnonymous when no user is authenticated.
         setAuthorizeRequest(authorizeGate);
         startRoutes(ws);

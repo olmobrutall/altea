@@ -6,6 +6,7 @@ import { TypeEntity } from "../data/typeEntity";
 import { quotedFunction } from "./query";
 import { ClassType } from "./runtimeTypes";
 import { ResetLazy } from "./resetLazy";
+import type { StablePromise } from "./stablePromise";
 import { insertSqlSyncGenerated, updateSqlSync, deleteSqlSync, copyRowFields } from "./save";
 import { table as table_ } from "./table";
 import { existsTable } from "./sync/syncTableRead";
@@ -181,7 +182,7 @@ export class TypeLogic {
     // resolved {@link TypeCaches} to whatever synchronous code needs it. There is no synchronous static
     // twin on purpose — one would silently depend on somebody else having loaded the caches first, and on
     // them not having been reloaded since. `schema` defaults to the active connection's schema.
-    static caches(schema: Schema = this.schema): Promise<TypeCaches> {
+    static caches(schema: Schema = this.schema): StablePromise<TypeCaches> {
         return schema.typeCaches.value();
     }
 
