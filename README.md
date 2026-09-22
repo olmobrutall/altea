@@ -101,7 +101,10 @@ retrieving first:
 ```ts
 await table(OrderEntity)
     .filter(o => Temporal.PlainDate.compare(o.orderDate, cutoff) < 0)
-    .executeUpdate(() => ({ cancelationDate, state: OrderState.Canceled }));
+    .executeUpdate(() => ({
+        cancelationDate: now,
+        state: OrderState.Canceled,
+    }));
 ```
 
 **A method can be part of the model.** `@quoted` marks one whose body is captured as an expression tree at
@@ -121,6 +124,129 @@ before it runs. Renames are asked about rather than guessed, because a wrong gue
 **The layer boundary is enforced by the compiler.** Every package is split into `data` (the isomorphic
 model), `client` (React) and `server` (the engine), and the tsconfig presets make a violation a build
 error — which is what keeps the engine, and your connection string, out of the browser bundle.
+
+## The compiler magic
+
+Two of those claims should look impossible. TypeScript erases types at run time, and a lambda is just a
+closure — nobody can see inside it. So how does the schema builder know `phone` is a 24-character string,
+and how does anything turn `o => o.orderDate < cutoff` into a `WHERE` clause?
+
+A **compiler plugin** puts back what the compiler throws away. `quote-transformer` is a TypeScript
+transformer, run through [ts-patch](https://github.com/nonara/ts-patch) — which is why the build command
+is `tspc`, not `tsc`. It does exactly two things.
+
+### 1. It writes your `@field` decorators for you
+
+A class carrying `@entity`, `@part` or `@reflect` gets one synthesised onto every property, derived from
+the **type annotation you already wrote**:
+
+```ts
+// what you write                     // what the compiler emits (verbatim, from Order and Shipper)
+companyName: string;                  field({ typeName: "String" })
+customer: CustomerEntity;             field({ type: () => CustomerEntity })
+details: OrderLineEntity[];           field({ type: () => OrderLineEntity, array: true })
+shipVia: Lite<ShipperEntity> | null;  field({ type: () => ShipperEntity, nullable: true, lite: true })
+quantity: int;                        field({ typeName: "Number", subTypeName: "int" })
+```
+
+That decorator is **data**, and it survives to run time. The schema builder reads it to decide the column
+type, its nullability and its foreign key; the client reads the same thing to pick an editor for
+`<AutoLine>` and to build the filter tokens for the search page. Write `@field` yourself and yours is
+kept; `@field(false)` opts a property out entirely.
+
+This is the piece that removes the code generator. There is no `.d.ts` to regenerate, no decorator to keep
+in step with the type beside it, and no way for the two to disagree — because there is only one of them.
+
+### 2. It attaches the source of a lambda to the lambda
+
+`Quoted<T>` is the marker, and it is barely a type at all:
+
+```ts
+type Quoted<T extends Function> = T & { __quoted?: () => ExLambda };
+```
+
+A quoted lambda is still an ordinary function you can call. What it gains is a property holding **its own
+body, as data** — a tree of plain arrays with the operator in slot 0. This is the whole of `ShipperEntity`'s
+`toString`, source and emitted output:
+
+```ts
+@quoted toString(): string { return this.companyName; }
+
+quoted(() => (_this => ["=>", [_this], [".", _this, "companyName"]])(["p", "_this"]))
+```
+
+`["p", …]` is a parameter and `[".", …]` a member access; elsewhere `["c", …]` is a captured constant,
+`["()", …]` a call, and a binary operator is its own JavaScript spelling. Note that the parameter node is
+built once and referenced from both the parameter list and the body — the binder matches parameters by
+object identity, not by name.
+
+It is plain data: no `eval`, no parsing a function's `toString()`, nothing to build until something asks.
+The transformer emits two more things beside it — a `registerType(...)` call and a `__fileInfo` constant —
+so a type knows its own name and which package and file it came from, which is what the schema builder and
+the reflection endpoint read.
+
+You will almost never write `@quoted` on a query lambda, because **the parameter's type is the trigger**.
+`filter` declares `predicate: Quoted<(element: T) => boolean>`, so every arrow passed to it is stamped —
+the same for an arrow assigned to a `Quoted<…>` field. `@quoted` is only for the other case: a *method* on
+an entity that you want to be part of the model, where the decorator marks the method whose body should be
+captured.
+
+**The practical consequences.** Build with `tspc`; plain `tsc` compiles happily and produces functions with
+no `__quoted`, so everything fails at run time with "has not been quoted". And a change to the transformer
+is invisible to tsc's up-to-date check — after one, `tspc -b --force`.
+
+## The LINQ provider
+
+If you have used **Prisma**, **Drizzle** or **TypeORM**, you have written the same query twice: once as
+the shape you want, once in whatever the library can actually see.
+
+```ts
+// Drizzle — a builder, because JS cannot look inside an arrow
+.where(and(lt(orders.orderDate, cutoff), eq(orders.state, "Ordered")))
+
+// Prisma — an object DSL
+where: { orderDate: { lt: cutoff }, state: "Ordered" }
+
+// altea — the predicate IS TypeScript
+.filter(o => Temporal.PlainDate.compare(o.orderDate, cutoff) < 0 && o.state == "Ordered")
+```
+
+The difference is not syntax sugar. Because the transformer left the body on the function, altea's provider
+can *read the expression you wrote*, so the predicate is checked by the compiler, renamed by your IDE's
+rename, and free to call a method you defined (`o.totalPrice()`) — a computed value that lowers into the
+SQL rather than being fetched and recomputed in Node. This is LINQ, the idea .NET has had since 2007, and
+it is the whole reason the `@quoted` machinery above exists.
+
+Here is what happens between your arrow and the rows coming back.
+
+**1. Tuples become an expression tree.** `Expression.fromQuotedLambda` walks the arrays and builds typed
+nodes — `PropertyExpression`, `BinaryExpression`, `CallExpression` — resolving each one's type from the
+`@field` metadata of section 1. Any subtree that mentions no parameter is folded to a constant in the same
+pass, which is how a captured `cutoff` becomes a query *parameter* rather than a column reference.
+
+**2. The tree becomes a relational one.** `QueryBinder` is the piece that knows about databases: it turns
+`.filter` / `.map` / `.flatMap` / `.groupBy` into selects, joins and columns, expands `o.customer.address.city`
+into the joins that reach it, and resolves a polymorphic reference into its type-discriminator columns. The
+result is a `ProjectionExpression` — a relational query plus a description of the object to build from each
+row.
+
+**3. A dozen rewriters tidy it.** Aggregates get hoisted into their `GROUP BY`; orderings get promoted to
+columns; unused columns, redundant sub-queries and duplicate joins are removed. This is why the SQL for a
+three-line query does not look like three lines of query — it looks like what you would have written.
+
+**4. SQL, and a compiled projector.** The formatter emits the statement and its parameters. Separately, the
+projector — the "build an object from a row" half — is emitted as **JavaScript source and compiled with
+`new Function`**, so materialising ten thousand rows runs compiled code rather than an interpreter walking
+a tree per row.
+
+**Where N+1 goes.** A collection is not a join that multiplies rows, and it is certainly not a query per
+parent. Each child collection becomes **one** additional query, whose rows are grouped into a lookup keyed
+by the parent id; the projector reads its slice out of that lookup. Ten thousand orders with their lines is
+two queries, whatever you do to it.
+
+**And nothing forces a round trip.** `.executeUpdate(…)` / `.executeDelete()` translate to a single
+statement — no `SELECT`, no entities materialised, no optimistic-concurrency dance — which is what the
+example in *The ideas behind it* above is doing.
 
 ## Layout
 
