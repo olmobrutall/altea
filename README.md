@@ -25,11 +25,15 @@ registered, queried, authorized and rendered by exactly the mechanisms `UserEnti
 
 ## What a module looks like
 
-Four files — and this is a complete one, verbatim from the demo application: a table, a save operation, a
-search page and an edit form.
+A module is one folder with the same three layers every altea package has — **data**, **server**,
+**client**. This is the smallest complete one in the demo application.
+
+### Data — the model
+
+One file, compiled into the server bundle AND the browser bundle. Nothing here knows about SQL or React.
 
 ```ts
-// Shipper.data.ts — the model. Compiled verbatim into the server AND the browser.
+// Shipper.data.ts
 @entity("Main", "Master")
 export class ShipperEntity extends Entity {
     @uniqueIndex
@@ -40,17 +44,40 @@ export class ShipperEntity extends Entity {
     @quoted toString(): string { return this.companyName; }
 }
 
+// Cross-entity navigation: declared here, implemented in the server layer where `table(T)` lives.
+export interface ShipperEntity {
+    orders(): IQuery<OrderEntity>;
+}
+
 export namespace ShipperOperation {
     export const Save: ExecuteSymbol<ShipperEntity> = init();
 }
 ```
 
+### Server — the table, the operations, the queries
+
 ```ts
-// ShipperLogic.server.ts — the table, the save operation, the query.
+// ShipperLogic.server.ts
 sb.include(ShipperEntity)
     .withSave(ShipperOperation.Save)
+    .withExpressionTo(s => s.orders())
     .withQuery();
 ```
+
+And the navigation the model declared — a LINQ query, and the reason the model could declare it without
+knowing anything about the database:
+
+```ts
+ShipperEntity.prototype.orders = withQuoted(function (this: ShipperEntity): Query<OrderEntity> {
+    return table(OrderEntity).filter(o => o.shipVia!.id == this.id);
+});
+```
+
+That one registration turns `Orders` into a token on the Shipper query — so a user can add *Orders.Count*
+as a column, filter by *Orders.Any.Total price*, or chart against it, none of which anybody wrote a screen
+for. `await shipper.orders().toArray()` is the same expression, from code.
+
+### Client — the search page and the form
 
 ```ts
 // ShipperClient.client.ts — the view, and which columns the search page opens with.
@@ -95,16 +122,13 @@ bundle, so a validator declared once runs in the form as the user types *and* ag
 There is no DTO layer and nothing to keep in sync.
 
 **Queries are LINQ, and they become SQL.** Not a builder that happens to look like LINQ — a provider that
-translates the expression tree, avoids N+1 by construction, and can `UPDATE` or `DELETE` without
-retrieving first:
+translates the expression tree you wrote, and avoids N+1 by construction. It can also `UPDATE` or `DELETE`
+without retrieving anything first:
 
 ```ts
-await table(OrderEntity)
-    .filter(o => Temporal.PlainDate.compare(o.orderDate, cutoff) < 0)
-    .executeUpdate(() => ({
-        cancelationDate: now,
-        state: OrderState.Canceled,
-    }));
+await table(ProductEntity)
+    .filter(p => p.category.is(seasonal))
+    .executeUpdate(() => ({ discontinued: true }));
 ```
 
 **A method can be part of the model.** `@quoted` marks one whose body is captured as an expression tree at
@@ -129,7 +153,7 @@ error — which is what keeps the engine, and your connection string, out of the
 
 Two of those claims should look impossible. TypeScript erases types at run time, and a lambda is just a
 closure — nobody can see inside it. So how does the schema builder know `phone` is a 24-character string,
-and how does anything turn `o => o.orderDate < cutoff` into a `WHERE` clause?
+and how does anything turn `o => o.totalPrice() > 100` into a `WHERE` clause?
 
 A **compiler plugin** puts back what the compiler throws away. `quote-transformer` is a TypeScript
 transformer, run through [ts-patch](https://github.com/nonara/ts-patch) — which is why the build command
@@ -181,15 +205,34 @@ built once and referenced from both the parameter list and the body — the bind
 object identity, not by name.
 
 It is plain data: no `eval`, no parsing a function's `toString()`, nothing to build until something asks.
-The transformer emits two more things beside it — a `registerType(...)` call and a `__fileInfo` constant —
-so a type knows its own name and which package and file it came from, which is what the schema builder and
-the reflection endpoint read.
 
-You will almost never write `@quoted` on a query lambda, because **the parameter's type is the trigger**.
-`filter` declares `predicate: Quoted<(element: T) => boolean>`, so every arrow passed to it is stamped —
-the same for an arrow assigned to a `Quoted<…>` field. `@quoted` is only for the other case: a *method* on
-an entity that you want to be part of the model, where the decorator marks the method whose body should be
-captured.
+**There are exactly two ways a function becomes `Quoted`, and you write neither of them.**
+
+*You ask for it, with `@quoted`* — that is the case above, and it is for a **method that is part of the
+model**: something you want callable in memory *and* usable as a column.
+
+*Or the position asks for it.* Anywhere a parameter, field or variable is declared `Quoted<…>`, the arrow
+you put there is stamped — you just write an arrow. `Query.filter` declares
+`predicate: Quoted<(element: T) => boolean>`, and that is the whole reason a query lambda works. Here is
+the shipper's `orders()` from the module above, source and emitted (the inner arrow only — the whole
+method is wrapped the same way):
+
+```ts
+return table(OrderEntity).filter(o => o.shipVia!.id == this.id);
+
+return table(OrderEntity).filter(o => o.shipVia.id == this.id);
+//                               ↑ still a plain arrow — the tree rides beside it:
+(o => ["=>", [o], ["==", [".", [".", o, "shipVia"], "id"], [".", _this, "id"]]])(["p", "o"])
+```
+
+The arrow is untouched and still runs. The transformer wraps it with `Object.assign(fn, { __quoted: … })`
+so the tree travels with it — which is also how a *registered* expression is passed:
+`withExpressionTo(s => s.orders())` emits `Object.assign(s => s.orders(), { __quoted: … })`.
+
+So `@quoted` marks a model method; `Quoted<T>` in a signature quietly does the rest, and the day-to-day
+experience is that you write ordinary TypeScript and it happens to reach the database. The transformer
+also emits a `registerType(...)` call and a `__fileInfo` constant per file, so a type knows its own name
+and which package it came from — what the schema builder and the reflection endpoint read.
 
 **The practical consequences.** Build with `tspc`; plain `tsc` compiles happily and produces functions with
 no `__quoted`, so everything fails at run time with "has not been quoted". And a change to the transformer
@@ -202,13 +245,13 @@ the shape you want, once in whatever the library can actually see.
 
 ```ts
 // Drizzle — a builder, because JS cannot look inside an arrow
-.where(and(lt(orders.orderDate, cutoff), eq(orders.state, "Ordered")))
+.where(and(eq(orders.state, "Ordered"), gt(orders.totalPrice, 100)))
 
 // Prisma — an object DSL
-where: { orderDate: { lt: cutoff }, state: "Ordered" }
+where: { state: "Ordered", totalPrice: { gt: 100 } }
 
 // altea — the predicate IS TypeScript
-.filter(o => Temporal.PlainDate.compare(o.orderDate, cutoff) < 0 && o.state == "Ordered")
+.filter(o => o.state == "Ordered" && o.totalPrice() > 100)
 ```
 
 The difference is not syntax sugar. Because the transformer left the body on the function, altea's provider
@@ -222,7 +265,8 @@ Here is what happens between your arrow and the rows coming back.
 **1. Tuples become an expression tree.** `Expression.fromQuotedLambda` walks the arrays and builds typed
 nodes — `PropertyExpression`, `BinaryExpression`, `CallExpression` — resolving each one's type from the
 `@field` metadata of section 1. Any subtree that mentions no parameter is folded to a constant in the same
-pass, which is how a captured `cutoff` becomes a query *parameter* rather than a column reference.
+pass, which is how a captured variable from the enclosing scope becomes a query *parameter* rather than a
+column reference.
 
 **2. The tree becomes a relational one.** `QueryBinder` is the piece that knows about databases: it turns
 `.filter` / `.map` / `.flatMap` / `.groupBy` into selects, joins and columns, expands `o.customer.address.city`
