@@ -15,7 +15,7 @@ import {
 import { PermissionSymbol, BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
-import { section, groupByRole, attrs, parseBool, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, overridesOnly, removeUnlisted, groupByRole, attrs, parseBool, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 
 // Port of Signum.Authorization's Rules/PermissionAuthLogic.cs — see port/Auth.md.
@@ -99,7 +99,9 @@ export namespace PermissionAuthLogic {
     // ---- AuthRules XML ------------------------------------------------------------------------
     async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
         const permKey = new Map((await SymbolLogic.cache(PermissionSymbol)).symbols().map(s => [String(s.id), s.key]));
-        const byRole = groupByRole(await table(RulePermissionEntity).toArray() as RulePermissionEntity[]);
+        const stored = await table(RulePermissionEntity).toArray() as RulePermissionEntity[];
+        const byRole = groupByRole(await overridesOnly(stored, async r =>
+            (await getAllowed(r.resource.id!, r.role.key())) !== (await getAllowedBase(r.resource.id!, r.role.key()))));
         return {
             name: "Permissions",
             content: section("Permission", ctx.orderedRoleKeys, ctx.roleName, byRole, r =>
@@ -119,6 +121,11 @@ export namespace PermissionAuthLogic {
             }
             await setPermissionRulePack(pack);
         }
+        const permKey = new Map((await SymbolLogic.cache(PermissionSymbol)).symbols().map(s => [String(s.id), s.key]));
+        if (await removeUnlisted((auth.Permissions as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Permission", ctx,
+            await table(RulePermissionEntity).toArray() as RulePermissionEntity[],
+            r => permKey.get(String(r.resource.id)) ?? String(r.resource.id), x => x.Resource))
+            invalidate();
     }
 
     /** Explicit reset for setPermissionRulePack (whose deletes don't fire `saved`). Saves auto-invalidate. */

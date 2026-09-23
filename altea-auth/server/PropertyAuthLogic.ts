@@ -30,7 +30,7 @@ import {
 import { BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { WithConditions, ConditionRule, evaluateConditions, sliceValue, adjustShape } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
-import { section, attr, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, overridesOnly, removeUnlisted, attr, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 import { setSerializationAuth, type PropertyAccess } from "@altea/altea/data/serializer/graphSerializers";
 import { Serializer } from "@altea/altea/data/serializer";
@@ -574,7 +574,14 @@ export namespace PropertyAuthLogic {
     async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
         const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
         const condKey = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s.key]));
-        const byRole = groupByRole(await table(RulePropertyEntity).toArray() as RulePropertyEntity[]);
+        // Compared as the editor compares them: both in the type's shape, capped at its ceiling.
+        const stored = await table(RulePropertyEntity).toArray() as RulePropertyEntity[];
+        const byRole = groupByRole(await overridesOnly(stored, async r => {
+            const typeId = r.resource.rootType.id!, rk = r.role.key();
+            const ceiling = await typeCeilingWC(typeId, rk);
+            const shaped = (wc: WithConditions<PropertyAllowed>): WithConditions<PropertyAllowed> => coerceToCeiling(adjustShape(wc, ceiling), ceiling);
+            return !shaped(await getAllowed(typeId, r.resource.path, rk)).equals(shaped(await getAllowedBase(typeId, r.resource.path, rk)));
+        }));
         return {
             name: "Properties",
             content: section("Property", ctx.orderedRoleKeys, ctx.roleName, byRole, r => {
@@ -609,6 +616,12 @@ export namespace PropertyAuthLogic {
             }
             await setPropertyRulePack(pack);
         }, r => r.Resource);
+        const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
+        if (await removeUnlisted((auth.Properties as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Property", ctx,
+            await table(RulePropertyEntity).toArray() as RulePropertyEntity[],
+            r => (typeName.get(String(r.resource.rootType.id)) ?? String(r.resource.rootType.id)) + "|" + r.resource.path,
+            x => ctx.applyType(x.OnType ?? "") + "|" + x.Resource))
+            invalidate();
     }
 }
 

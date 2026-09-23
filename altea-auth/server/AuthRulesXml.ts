@@ -76,12 +76,60 @@ export function conditionsXml(
         }));
 }
 
+/**
+ * Signum's export filter (`where !allowed.Equals(allowedBase)`): only the rules that still DIFFER from what
+ * the role would inherit. A stored rule can stop mattering without being touched — its type rule changed,
+ * or a parent role's did — and the editor does not revisit the other dimensions when that happens; the
+ * export leaves such a rule out, and importing the file then removes it (see {@link removeUnlisted}).
+ */
+export async function overridesOnly<T>(rows: T[], isOverride: (row: T) => Promise<boolean>): Promise<T[]> {
+    const keep: T[] = [];
+    for (const row of rows)
+        if (await isOverride(row))
+            keep.push(row);
+    return keep;
+}
+
 // ---- Import ------------------------------------------------------------------------------------
 
 // The parsed shapes (XMLParser with attributeNamePrefix "", every element name in `isArray`).
 export interface XmlCondition { Name: string; Allowed: string; }
 export interface XmlRow { Resource: string; Allowed: string; OnType?: string; Condition?: XmlCondition[]; }
 export interface XmlRoleBlock { Name: string; Type?: XmlRow[]; Permission?: XmlRow[]; Query?: XmlRow[]; Operation?: XmlRow[]; Property?: XmlRow[]; }
+
+/**
+ * Signum's import is a full SYNC of each dimension (Synchronizer over the stored rules): a stored rule the
+ * file does not list is deleted, and a role missing from the section loses all its rules there. The
+ * per-type importers only overlay the (role, type) pairs the file mentions, so this runs after them to
+ * delete the rest — which is what makes "export, then import" the cleanup of rules that became redundant.
+ *
+ * `rowKey` / `xmlKey` must spell a rule the same way from both sides (after renames). Returns whether
+ * anything was deleted, so the caller can invalidate its cache.
+ */
+export async function removeUnlisted<R extends { role: { key(): string }; delete(): Promise<unknown> }>(
+    roleBlocks: XmlRoleBlock[] | undefined,
+    elem: "Type" | "Permission" | "Query" | "Operation" | "Property",
+    ctx: AuthImportCtx,
+    stored: R[],
+    rowKey: (row: R) => string,
+    xmlKey: (x: XmlRow) => string,
+): Promise<boolean> {
+    const listed = new Map<string, Set<string>>();
+    for (const rb of roleBlocks ?? []) {
+        const role = ctx.noteRole(rb.Name);
+        if (role == null) continue;
+        const keys = listed.get(role.toLite().key()) ?? new Set<string>();
+        for (const x of rb[elem] ?? []) keys.add(xmlKey(x));
+        listed.set(role.toLite().key(), keys);
+    }
+    let deleted = false;
+    for (const row of stored)
+        if (!listed.get(row.role.key())?.has(rowKey(row))) {
+            await row.delete();
+            deleted = true;
+        }
+    return deleted;
+}
 
 export interface AuthImportCtx {
     /** The current-DB RoleEntity for an XML role name (rename-resolved), recording applied/skipped. */

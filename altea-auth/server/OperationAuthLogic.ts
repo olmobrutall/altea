@@ -20,7 +20,7 @@ import {
 } from "../data/Rules";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
-import { section, attr, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, overridesOnly, removeUnlisted, attr, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 import { WithConditions, ConditionRule, evaluateConditions, sliceValue } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
@@ -269,7 +269,9 @@ export namespace OperationAuthLogic {
         const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
         const opKey = new Map((await SymbolLogic.cache(OperationSymbol)).symbols().map(s => [String(s.id), s.key]));
         const condKey = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s.key]));
-        const byRole = groupByRole(await table(RuleOperationEntity).toArray() as RuleOperationEntity[]);
+        const stored = await table(RuleOperationEntity).toArray() as RuleOperationEntity[];
+        const byRole = groupByRole(await overridesOnly(stored, async r =>
+            !(await getAllowed(r.operation.id!, r.type.id!, r.role.key())).equals(await getAllowedBase(r.operation.id!, r.type.id!, r.role.key()))));
         return {
             name: "Operations",
             content: section("Operation", ctx.orderedRoleKeys, ctx.roleName, byRole, r => {
@@ -308,5 +310,12 @@ export namespace OperationAuthLogic {
             }
             await setOperationRulePack(pack);
         }, r => r.Resource);
+        const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
+        const opKey = new Map((await SymbolLogic.cache(OperationSymbol)).symbols().map(s => [String(s.id), s.key]));
+        if (await removeUnlisted((auth.Operations as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Operation", ctx,
+            await table(RuleOperationEntity).toArray() as RuleOperationEntity[],
+            r => (opKey.get(String(r.operation.id)) ?? String(r.operation.id)) + "/" + (typeName.get(String(r.type.id)) ?? String(r.type.id)),
+            x => x.Resource + "/" + ctx.applyType(x.OnType ?? "")))
+            invalidate();
     }
 }

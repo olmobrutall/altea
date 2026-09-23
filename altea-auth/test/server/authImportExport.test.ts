@@ -46,11 +46,39 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
         assert.match(xml, /<Role Name="AuthTest_Sales" Contains="AuthTest_Base"/);
         // Sales single-dimension overrides.
         assert.match(xml, /<Type Resource="Sample" Allowed="Read"/);
-        assert.match(xml, /<Property OnType="Sample" Resource="secret" Allowed="None"/);
+        // Manager's secret=Read differs from what it inherits (Sales' None), so it is exported.
+        assert.match(xml, /<Property OnType="Sample" Resource="secret" Allowed="Read"/);
         assert.match(xml, /<Operation OnType="Sample" Resource="SampleOperation\.Save" Allowed="Allow"/);
         // Restricted's row-level condition round-trips as a nested <Condition>.
         assert.match(xml, /<Condition Name="[^"]*SampleTypeCondition\.Public[^"]*" Allowed="Read"/);
         void restricted;
+    });
+
+    // One role's block inside one section of the export.
+    const roleBlock = (doc: string, sectionName: string, roleName: string): string | undefined =>
+        doc.match(new RegExp(`<${sectionName}>[\\s\\S]*?</${sectionName}>`))?.[0]
+            .match(new RegExp(`<Role Name="${roleName}"[^>]*>[\\s\\S]*?</Role>`))?.[0];
+
+    // Signum's export filter: a stored rule equal to what the role inherits is left out. Sales' secret=None is
+    // exactly its no-rule default (no AutomaticUpgradeOfProperties), so it is such a rule.
+    test("export leaves out a stored rule equal to what the role inherits", () => {
+        assert.doesNotMatch(roleBlock(xml, "Properties", "AuthTest_Sales") ?? "", /Resource="secret"/);
+    });
+
+    // Signum's import is a full sync: a role missing from a section loses its rules there.
+    test("import removes the rules of a role the file does not list", async () => {
+        const salesTypes = roleBlock(xml, "Types", "AuthTest_Sales");
+        assert.ok(salesTypes, "precondition: Sales has a Types block");
+        await Transaction.noCommit(async () => {
+            assert.equal(await salesCanRead(), true, "precondition: Sales reads Sample");
+
+            const repl = new Replacements();
+            repl.interactive = false;
+            await AuthImportExport.importAuthRules(xml.replace(salesTypes!, ""), repl);
+            resetAuthCaches();
+
+            assert.equal(await salesCanRead(), false, "Sales' Sample=Read rule was removed with its block");
+        });
     });
 
     test("import restores a rule deleted from the DB (round-trip)", async () => {

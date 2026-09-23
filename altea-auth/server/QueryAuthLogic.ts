@@ -17,7 +17,7 @@ import { MergeStrategy, RoleEntity } from "../data/Role";
 import { RuleQueryEntity, RuleTypeEntity, QueryRulePack, QueryAllowedRule, QueryAllowed, TypeAllowedBasic } from "../data/Rules";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { maxBound } from "./WithConditions";
-import { section, groupByRole, attrs, applyPerType, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, overridesOnly, removeUnlisted, groupByRole, attrs, applyPerType, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 import { cleanTypeName } from "@altea/altea/data/registration";
 
@@ -245,7 +245,16 @@ export namespace QueryAuthLogic {
             const ctor = qn != null ? QueryLogic.queries.tryGetCore(qn)?.getRootType() : undefined;
             return ctor != null ? cleanTypeName(ctor) : "";
         };
-        const byRole = groupByRole(await table(RuleQueryEntity).toArray() as RuleQueryEntity[]);
+        const caches = await TypeLogic.caches();
+        const rootTid = (qk: string): PrimaryKey | undefined => {
+            const qn = QueryLogic.tryGetQueryNameByKey(qk);
+            return qn != null ? rootTypeId(qn, caches) : undefined;
+        };
+        const stored = await table(RuleQueryEntity).toArray() as RuleQueryEntity[];
+        const byRole = groupByRole(await overridesOnly(stored, async r => {
+            const tid = rootTid(queryKey.get(String(r.resource.id)) ?? "");
+            return (await getAllowed(r.resource.id!, tid, r.role.key())) !== (await getAllowedBase(r.resource.id!, tid, r.role.key()));
+        }));
         return {
             name: "Queries",
             content: section("Query", ctx.orderedRoleKeys, ctx.roleName, byRole, r => {
@@ -264,5 +273,10 @@ export namespace QueryAuthLogic {
             }
             await setQueryRulePack(pack);
         }, r => r.Resource);
+        const queryKey = new Map((await table(QueryEntity).toArray() as QueryEntity[]).map(q => [String(q.id), q.key]));
+        if (await removeUnlisted((auth.Queries as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Query", ctx,
+            await table(RuleQueryEntity).toArray() as RuleQueryEntity[],
+            r => queryKey.get(String(r.resource.id)) ?? String(r.resource.id), x => x.Resource))
+            invalidate();
     }
 }

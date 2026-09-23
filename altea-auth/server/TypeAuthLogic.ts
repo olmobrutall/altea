@@ -37,7 +37,7 @@ import { mergeTypeConditions } from "./TypeConditionMerger";
 import { buildAuthFilter, authFilterLambda, rebasePartFilter, conditionValueLambda } from "./TypeConditionAlgebra";
 import { FilterQueryArgs, findQuerySources, querySourceCtor } from "@altea/altea/server/schema/filterQueryArgs";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
-import { section, groupByRole, attrs, conditionsXml, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, overridesOnly, removeUnlisted, groupByRole, attrs, conditionsXml, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 
 // Port of Signum.Authorization's Rules/TypeAuthLogic.cs + .Conditions.cs — see port/Auth.md.
@@ -715,7 +715,9 @@ export namespace TypeAuthLogic {
     async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
         const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
         const condKey = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s.key]));
-        const byRole = groupByRole(await table(RuleTypeEntity).toArray() as RuleTypeEntity[]);
+        const stored = await table(RuleTypeEntity).toArray() as RuleTypeEntity[];
+        const byRole = groupByRole(await overridesOnly(stored, async r =>
+            !(await getAllowed(r.resource.id!, r.role.key())).equals(await getAllowedBase(r.resource.id!, r.role.key()))));
         return {
             name: "Types",
             content: section("Type", ctx.orderedRoleKeys, ctx.roleName, byRole, r => {
@@ -754,5 +756,10 @@ export namespace TypeAuthLogic {
             }
             await setTypeRulePack(pack);
         }
+        const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
+        if (await removeUnlisted((auth.Types as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Type", ctx,
+            await table(RuleTypeEntity).toArray() as RuleTypeEntity[],
+            r => typeName.get(String(r.resource.id)) ?? String(r.resource.id), x => ctx.applyType(x.Resource)))
+            invalidate();
     }
 }
