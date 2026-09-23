@@ -17,6 +17,29 @@ export function evaluateConditions<A>(wc: WithConditions<A>, matches: (tc: TypeC
 }
 
 /**
+ * Signum's `PropertyCache.AdjustShape`: `values` re-expressed with exactly `shape`'s condition sets, in
+ * its order — each one taking the value the LAST rule of `values` whose set it contains would give it, else
+ * the fallback. Two property allowances are only comparable (is this rule redundant?) in the same shape,
+ * which Signum guarantees by keeping every property value in its TYPE's shape.
+ */
+function sameSet(a: readonly TypeConditionSymbol[], b: readonly TypeConditionSymbol[]): boolean {
+    const keys = new Set(b.map(tc => tc.key));
+    return a.length === keys.size && a.every(tc => keys.has(tc.key));
+}
+
+export function adjustShape<A>(values: WithConditions<A>, shape: WithConditions<unknown>): WithConditions<A> {
+    const same = values.conditionRules.length === shape.conditionRules.length
+        && values.conditionRules.every((cr, i) => sameSet(cr.typeConditions, shape.conditionRules[i]!.typeConditions));
+    if (same)
+        return values;
+    return new WithConditions<A>(values.fallback, shape.conditionRules.map(cr => {
+        const keys = new Set(cr.typeConditions.map(tc => tc.key));
+        const rule = [...values.conditionRules].reverse().find(v => v.typeConditions.every(tc => keys.has(tc.key)));
+        return new ConditionRule<A>(cr.typeConditions, rule != null ? rule.allowed : values.fallback);
+    }));
+}
+
+/**
  * The value for exactly ONE condition set — what the rules editor shows for that "slice": the rule for that
  * set, else the fallback (`undefined` = the Fallback slice itself). Not an evaluation: no other rule's set
  * is consulted, as none is when an administrator edits the slice.

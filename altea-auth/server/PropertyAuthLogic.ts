@@ -28,7 +28,7 @@ import {
     typeAllowedUI, typeBasicToProperty,
 } from "../data/Rules";
 import { BasicPermission } from "@altea/altea/data/permissionSymbol";
-import { WithConditions, ConditionRule, evaluateConditions, sliceValue } from "./WithConditions";
+import { WithConditions, ConditionRule, evaluateConditions, sliceValue, adjustShape } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
 import { section, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
@@ -487,6 +487,9 @@ export namespace PropertyAuthLogic {
         // exceed its type for any condition, so a None slice caps that slice's properties at None). Same
         // shape for every route, but emit a fresh model per row (each is an independent transport instance).
         const ceiling = await typeCeilingWC(typeId, roleKey); // the per-slice ceiling (same for every route)
+        // Every value in the TYPE's shape (its condition sets, in its order), as Signum keeps them: the
+        // editor then always edits an existing slice, and `allowed` vs `allowedBase` compare like for like.
+        const inTypeShape = (wc: WithConditions<PropertyAllowed>): WithConditions<PropertyAllowed> => coerceToCeiling(adjustShape(wc, ceiling), ceiling);
         const rules: PropertyAllowedRule[] = [];
         for (const route of authRoutes(ctor)) {
             const path = route.propertyString();
@@ -494,8 +497,8 @@ export namespace PropertyAuthLogic {
             rules.push(PropertyAllowedRule.create({
                 path,
                 part: part != undefined ? cleanTypeName(part) : null,
-                allowed: toModel(coerceToCeiling(await getAllowed(typeId, path, roleKey), ceiling)),
-                allowedBase: toModel(coerceToCeiling(await getAllowedBase(typeId, path, roleKey), ceiling)),
+                allowed: toModel(inTypeShape(await getAllowed(typeId, path, roleKey))),
+                allowedBase: toModel(inTypeShape(await getAllowedBase(typeId, path, roleKey))),
                 coerced: toModel(ceiling),
             }));
         }
@@ -533,13 +536,18 @@ export namespace PropertyAuthLogic {
             const existing = currentByPath.get(r.path);
             // Coerce to the type ceiling (never store a value above the type), then drop no-op condition
             // rows (a slice whose allowed equals the fallback is a last-match-wins no-op).
-            const coerced0 = coerceToCeiling(fromModel(r.allowed, symbolById), ceiling);
-            const coerced = new WithConditions<PropertyAllowed>(coerced0.fallback, coerced0.conditionRules.filter(cr => cr.allowed !== coerced0.fallback));
+            // BOTH sides in the type's shape before comparing (Signum's AdjustShape), and stored that way.
+            // They used to be compared as they came: the edited value with its condition rows equal to the
+            // fallback PRUNED, the base not — so under a conditioned type (Dashboard's UserEntities) a base
+            // of {Read, UserEntities→Read} never equalled an untouched {Read}, and saving one property wrote
+            // a rule for EVERY property of the type.
+            const coerced = coerceToCeiling(adjustShape(fromModel(r.allowed, symbolById), ceiling), ceiling);
+            const base = coerceToCeiling(adjustShape(fromModel(r.allowedBase, symbolById), ceiling), ceiling);
             // A rule equal to what the property would resolve to WITHOUT it (the inherited base, which for a
             // root role IS the no-rule default) is redundant → don't store. NB: equality with the type
             // ceiling is NOT redundant anymore — a role without AutomaticUpgradeOfProperties defaults to None,
             // so an explicit "follow the type" rule is meaningful and must be kept.
-            const isRedundant = coerced.equals(fromModel(r.allowedBase, symbolById));
+            const isRedundant = coerced.equals(base);
             if (isRedundant) {
                 if (existing != null)
                     await existing.delete();

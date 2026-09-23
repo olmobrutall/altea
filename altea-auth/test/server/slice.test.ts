@@ -1,10 +1,11 @@
 import { describe, test, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import { Transaction } from "@altea/altea/server/connection/transaction";
+import { table } from "@altea/altea/server/table";
 import type { Lite } from "@altea/altea/data/lite";
 import type { RoleEntity } from "@altea/altea-auth/data/Role";
 import { PropertyAuthLogic } from "@altea/altea-auth/server/PropertyAuthLogic";
-import { PropertyConditionRuleModel, PropertyAllowed } from "@altea/altea-auth/data/Rules";
+import { PropertyConditionRuleModel, PropertyAllowed, RulePropertyEntity } from "@altea/altea-auth/data/Rules";
 import type { PropertyWithConditionsModel, TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
 import { start, hasDb, role, Roles, resetAuthCaches } from "./setup";
 
@@ -78,6 +79,32 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
             const secret3 = p3.rules.find(r => r.path === "secret")!;
             assert.equal(sliceValue(secret3.allowed, publicSet), sliceValue(secret3.allowedBase, publicSet),
                 "the [Public] slice is back to the inherited value (override cleared)");
+        });
+    });
+
+    // A conditioned type pads every property's inherited base with its condition sets (Restricted's Sample:
+    // None + [Public]). Saving used to compare each edited value — its rows equal to the fallback pruned —
+    // with that padded base, so NO property ever looked redundant and one edit stored a rule for all of them.
+    test("saving a pack stores only the properties that were changed", async () => {
+        await Transaction.noCommit(async () => {
+            const roleLite = restricted.toLite();
+            const stored = async (): Promise<number> =>
+                (await table(RulePropertyEntity).filter(rp => rp.role == roleLite).toArray()).length;
+            const before = await stored();
+
+            const pack = await PropertyAuthLogic.getPropertyRulePack("Sample", restricted.id);
+            await PropertyAuthLogic.setPropertyRulePack(pack);
+            resetAuthCaches();
+            assert.equal(await stored(), before, "an untouched pack stores nothing");
+
+            const p2 = await PropertyAuthLogic.getPropertyRulePack("Sample", restricted.id);
+            const publicSet = p2.availableTypeConditions[0].typeConditions;
+            const secret = p2.rules.find(r => r.path === "secret")!;
+            const base = sliceValue(secret.allowedBase, publicSet);
+            setSlice(secret.allowed, publicSet, base === PropertyAllowed.None ? PropertyAllowed.Read : PropertyAllowed.None);
+            await PropertyAuthLogic.setPropertyRulePack(p2);
+            resetAuthCaches();
+            assert.equal(await stored(), before + 1, "one edited property, one rule");
         });
     });
 });
