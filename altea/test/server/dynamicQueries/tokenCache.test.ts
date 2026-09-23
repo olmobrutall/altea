@@ -1,4 +1,4 @@
-import { test, describe, beforeEach, afterAll } from "vitest";
+import { test, describe, beforeEach, afterAll, vi } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import "@altea/altea/server/dynamicQuery/tokenExpressions"; // register factories + expression prototypes
@@ -8,13 +8,29 @@ import { SubTokensOptionsAll, getSubTokens, setServerTokensProvider } from "@alt
 import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
 import { isServerOnlyToken, serializeServerToken, type ServerTokenJson } from "@altea/altea/data/dynamicQuery/tokenSerializer";
 import { Metadata } from "@altea/altea/data/metadata";
-import { initQueryClient, setFetchServerTokens, clearServerTokenCache } from "@altea/altea/client/QueryClient";
+import { initTokenCache } from "@altea/altea/client/TokenCache";
+import { isNotPart, type TypeInfo } from "@altea/altea/data/reflection";
 import { MusicLogic } from "../MusicLogic";
-import { ArtistEntity } from "../../data/music";
+import { ArtistEntity, AlbumEntity } from "../../data/music";
+import { Entity } from "@altea/altea/data/entity";
 
-// Phase 2 — the CLIENT wiring: setServerTokensProvider fetches the server-only tokens (via an
-// injectable transport, here faked with the server's own serialized output) and rebuilds them off the
-// client's local parent; getSubTokens then merges them with the locally-generated metadata tokens.
+// TokenCache reads Finder's expression settings, but Finder itself cannot load here (it pulls in the React
+// components and their CSS) — so it is stood in for by the one member TokenCache reads, over a map the
+// tests below fill (by key; the declaring type each lookup is asked about is recorded beside it).
+const expressionSettings = vi.hoisted(() => new Map<string, { isVisibleForType?: (ti: TypeInfo) => boolean }>());
+const lookups = vi.hoisted(() => [] as { declaringType: unknown; key: string }[]);
+vi.mock("@altea/altea/client/Finder", () => ({
+    Finder: {
+        getExpressionSettings: (declaringType: unknown, key: string) => {
+            lookups.push({ declaringType, key });
+            return expressionSettings.get(key);
+        },
+    },
+}));
+
+// The CLIENT wiring: the server-only tokens (registered expressions) come out of the metadata blob and are
+// rebuilt off the client's local parent; getSubTokens then merges them with the locally-generated metadata
+// tokens.
 
 const O = SubTokensOptionsAll;
 const sb = new SchemaBuilder();
@@ -24,25 +40,36 @@ QueryLogic.expressions.register(ArtistEntity, (a: ArtistEntity) => a.albumCount(
 QueryLogic.expressions.register(ArtistEntity, (a: ArtistEntity) => a.name, { key: "artistName", niceName: () => "Artist Name" });
 sb.complete();
 
-// The JSON the server would return for Artist's server-only tokens (produced by the server path).
+// Artist's server-only tokens as the server serializes them — what its blob entry carries.
 const serverJson = QueryLogic.getToken(ArtistEntity, "", O).subTokens(O).filter(isServerOnlyToken).map(serializeServerToken);
 
-describe("QueryClient (client-side server-token source)", () => {
+// NOTE: `Metadata.isApplied()` is one-way, so this must stay BEFORE the blocks that apply a blob.
+describe("TokenCache before the metadata blob", () => {
+    beforeEach(() => initTokenCache());
+
+    // There is nothing to read yet, and an empty answer would look exactly like "this type has none".
+    test("asking for sub-tokens is an error, not a silent empty list", async () => {
+        await assert.rejects(getSubTokens(new RootToken(ArtistEntity), O), /before the metadata blob was applied/);
+    });
+});
+
+describe("TokenCache (client-side server-token source)", () => {
     beforeEach(() => {
         // re-assert the wiring (another test in this file may have swapped the provider)
-        // and route the transport at the canned server JSON instead of a real ajax call.
-        initQueryClient();
-        clearServerTokenCache();
-        setFetchServerTokens(async () => serverJson);
+        initTokenCache();
+        Metadata.apply({ culture: "en", types: {
+            ArtistEntity: { kind: "Entity", fields: {}, extensions: Object.fromEntries(serverJson.map(j => [j.key, j])) },
+        } as never });
     });
 
-    test("getSubTokens merges fetched server tokens with locally-generated metadata tokens", async () => {
+    test("getSubTokens merges the blob's server tokens with locally-generated metadata tokens", async () => {
         const localRoot = new RootToken(ArtistEntity);
         const keys = (await getSubTokens(localRoot, O)).map(t => t.key);
 
-        // fetched-from-server (extension) tokens
+        // registered expressions, from the blob
         assert.ok(keys.includes("Albums"));
         assert.ok(keys.includes("AlbumCount"));
+        assert.ok(keys.includes("artistName"));
         // locally-generated metadata tokens (never crossed the wire)
         assert.ok(keys.includes("ToString"));
         assert.ok(keys.includes("Id"));
@@ -53,15 +80,14 @@ describe("QueryClient (client-side server-token source)", () => {
         const albums = (await getSubTokens(localRoot, O)).find(t => t.key === "Albums")!;
         assert.equal(albums.parent, localRoot);          // hung off the caller's local parent
         assert.equal(albums.niceName(), "Albums");
+        assert.equal(albums.fullKey(), "Albums");
         assert.ok(albums.subTokens(O).map(t => t.key).includes("Element")); // navigates locally
     });
 
-    // keep the shared global provider from leaking the fake transport into other suites
+    // keep the shared global provider from leaking into other suites
     afterAll(() => setServerTokensProvider(undefined));
 });
 
-// NOTE: this block APPLIES a metadata blob, and `Metadata.isApplied()` is one-way — so it must stay
-// AFTER the block above, which exercises the pre-blob fetch path.
 //
 // An expression is registered against a TYPE, so the answer rides in the metadata blob the client already
 // holds — once, on the type that DECLARES it — instead of costing a request per TOKEN of that type. This
@@ -85,10 +111,7 @@ describe("extension tokens resolved from the metadata blob", () => {
     });
 
     beforeEach(() => {
-        initQueryClient();
-        clearServerTokenCache();
-        
-        setFetchServerTokens(async () => { throw new Error("must not reach the server"); });
+        initTokenCache();
     });
 
     test("a token reads its own type's extensions with no request", async () => {
@@ -105,6 +128,44 @@ describe("extension tokens resolved from the metadata blob", () => {
         const artist = (await getSubTokens(new RootToken(ArtistEntity), O)).find(t => t.key === "operationLogs");
         assert.ok(artist, "inherited from Entity");
         assert.equal(artist!.niceName(), "Operation Logs");
+    });
+
+    // Finder's expression settings (`isVisibleForType`) are judged against the token's OWN type, where the
+    // chain walk started.
+    test("an expression's isVisibleForType leaves it off the types it rules out", async () => {
+        applyExtensions({ Entity: [ext("OperationLogs", "Operation Logs"), ext("kept", "Kept")], ArtistEntity: [] });
+        expressionSettings.set("OperationLogs", { isVisibleForType: ti => ti.ctor !== ArtistEntity });
+        try {
+            const artist = (await getSubTokens(new RootToken(ArtistEntity), O)).map(t => t.key);
+            assert.ok(!artist.includes("OperationLogs"), `hidden on Artist, got ${artist}`);
+            assert.ok(artist.includes("kept"));
+            assert.ok((await getSubTokens(new RootToken(AlbumEntity), O)).some(t => t.key === "OperationLogs"),
+                "a type the predicate accepts still gets it");
+        } finally {
+            expressionSettings.clear();
+        }
+    });
+
+    test("isNotPart is what hides the Entity-level expressions on a part row", async () => {
+        applyExtensions({ Entity: [ext("OperationLogs", "Operation Logs")], AlbumEntity: [] });
+        expressionSettings.set("OperationLogs", { isVisibleForType: isNotPart });
+        try {
+            const songs = new RootToken(AlbumEntity).subToken("songs", O)!.subToken("Element", O)!;
+            assert.ok(!(await getSubTokens(songs, O)).some(t => t.key === "OperationLogs"), "not on a song row");
+            assert.ok((await getSubTokens(new RootToken(AlbumEntity), O)).some(t => t.key === "OperationLogs"));
+        } finally {
+            expressionSettings.clear();
+        }
+    });
+
+    // Settings are looked up by the type the expression is DECLARED on — where the chain walk found it —
+    // since two types may each declare an expression of the same key.
+    test("settings are asked for by the expression's declaring type", async () => {
+        applyExtensions({ Entity: [ext("OperationLogs", "Operation Logs")], ArtistEntity: [ext("artistOnly", "Artist Only")] });
+        lookups.length = 0;
+        await getSubTokens(new RootToken(ArtistEntity), O);
+        assert.equal(lookups.find(l => l.key === "OperationLogs")?.declaringType, Entity);
+        assert.equal(lookups.find(l => l.key === "artistOnly")?.declaringType, ArtistEntity);
     });
 
     test("the nearest declaring type wins on a key collision", async () => {

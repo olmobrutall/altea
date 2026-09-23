@@ -277,7 +277,7 @@ export type FindMode = "Find" | "Explore";
 // ALTEA: Signum's QueryTokenWithoutParent / QueryDescriptionDTO (a serialized token TREE sent from
 // the server) are dropped — altea's QueryToken is a class whose `subTokens` is a METHOD (generated
 // locally on the client), incompatible with a property-map DTO, and the client no longer receives the
-// whole tree (it builds the root locally and fetches only server-only tokens via QueryClient).
+// whole tree (it builds the root locally and fetches only server-only tokens via TokenCache).
 
 export function withoutAggregate(fop: FilterOptionParsed): FilterOptionParsed | undefined {
 

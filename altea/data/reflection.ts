@@ -862,6 +862,15 @@ export function tryGetTypeInfo(target: object): TypeInfo | undefined {
         : undefined;
 }
 
+/**
+ * Whether the type is a record in its own right rather than a `Part` / `SharedPart` row — the
+ * `isVisibleForType` of what is inherited from `Entity` but only belongs on the former: its Notes /
+ * Alerts / OperationLogs tokens, and the operations that create a note or an alert from it.
+ */
+export function isNotPart(ti: TypeInfo): boolean {
+    return ti.entityKind !== "Part" && ti.entityKind !== "SharedPart";
+}
+
 export function getOrCreateTypeInfo(target: object): TypeInfo {
     const ctor = ctorOf(target) as any;
     // Class constructors inherit *static* properties through their own prototype

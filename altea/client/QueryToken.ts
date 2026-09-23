@@ -1,7 +1,7 @@
 // Client surface for the query-token layer. The token MODEL — the `QueryToken` class, its sub-token
 // generation, and the `filterType` / `niceTypeName` / `isGroupable` classification — now lives in
 // entities/dynamicQuery/tokens and is generated LOCALLY on the client (server-only tokens arrive via
-// QueryClient). This file is a thin re-export of that model plus the CLIENT-only bits Signum kept in
+// TokenCache). This file is a thin re-export of that model plus the CLIENT-only bits Signum kept in
 // QueryToken.ts: the token-tree colour (CSS) and the parent-walking helpers.
 //
 // Where Signum's client used a `queryTokenType` string discriminator (its client token was a flat

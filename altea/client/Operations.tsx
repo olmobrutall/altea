@@ -21,12 +21,12 @@ import { DeleteErrorModal } from './Operations/DeleteErrorModal';
 import { MultiOperationProgressModal } from "./Operations/MultiOperationProgressModal";
 import { ProgressModal } from "./Operations/ProgressModal";
 import type { ProgressModalOptions } from "./Operations/ProgressModal";
-import { getOperationInfo, tryGetOperationInfo, getOperationInfos, hasOperations, getTypeInfo, getQueryKey, getTypeName, GraphExplorer } from './Reflection';
+import { getOperationInfo, tryGetOperationInfo, getOperationInfos, hasOperations, getTypeInfo, tryGetTypeInfo, getQueryKey, getTypeName, GraphExplorer } from './Reflection';
 import type { OperationMetadata, OperationType, PseudoType } from './Reflection';
 import { setEligibleTypeOperationsProvider } from '../data/dynamicQuery/tokens';
 import { QuickLinkClient, QuickLinkExplore } from './QuickLinkClient';
 import { OperationLogEntity } from '../data/operationLog';
-import type { TypeInfo } from '../data/reflection';
+import { isNotPart, type TypeInfo } from '../data/reflection';
 import type { QueryTokenString } from './QueryTokenString';
 import type { Type } from '../data/entity';
 import SearchControlLoaded from "./SearchControl/SearchControlLoaded";
@@ -66,6 +66,12 @@ export namespace Operations {
     ButtonBarManager.onButtonBarRender().push(EntityOperations.getEntityOperationButtons);
     ContextualItems.onContextualItems().push(ContextualOperations.getOperationsContextualItems);
 
+    // `OperationLogs` is registered on `Entity`, so every type gets the token — but a part row's history
+    // is its owner's, which is where the operations run. Same for `PreviousOperationLog` below.
+    Finder.addExpressionSettings(Entity, e => e.operationLogs!(), { isVisibleForType: isNotPart });
+    // Likewise the operation that produced a row VERSION (registered per @systemVersioned type).
+    Finder.addExpressionSettings(Entity, e => e.previousOperationLog!(), { isVisibleForType: isNotPart });
+
     // ALTEA: Signum's AppContext.clearSettingsActions doesn't exist in altea (it diverged to per-user
     // client state); the operation-settings registry is cleared directly if/when needed.
 
@@ -92,7 +98,7 @@ export namespace Operations {
     // decided server-side and shipped per operation (`canBeCellOperation`), so the two tiers cannot drift.
     // The blob only carries operations the current role may see, so the list is authorized for free.
     setEligibleTypeOperationsProvider(entityCtor => getOperationInfos(entityCtor as PseudoType)
-      .filter(oi => oi.canBeCellOperation)
+      .filter(oi => oi.canBeCellOperation && isVisibleForType(oi.key, tryGetTypeInfo(entityCtor as PseudoType)))
       .map(oi => ({ operationKey: oi.key, niceName: oi.niceName })));
 
     Finder.formatRules().push({
@@ -166,9 +172,21 @@ export namespace Operations {
   }
 
   // Operations are per-ROLE, so they live on the metadata blob rather than on the (compile-time) TypeInfo;
-  // the TypeInfo parameter is kept because that is what every caller has in hand.
+  // the TypeInfo parameter is kept because that is what every caller has in hand. Narrowed to what the
+  // operation's settings show for this type (`isVisibleForType`) — this is the list every frame, button
+  // bar and contextual menu is built from.
   export function operationInfos(ti: TypeInfo): OperationMetadata[] {
-    return getOperationInfos(ti.ctor);
+    return getOperationInfos(ti.ctor).filter(oi => isVisibleForType(oi.key, ti));
+  }
+
+  /**
+   * Whether the UI offers this operation on this type at all — its settings' `isVisibleForType`. For an
+   * operation every type inherits (one registered on `Entity`) that only makes sense on some of them.
+   * Undefined `ti` (a type with no reflection info) answers true: nothing to judge by.
+   */
+  export function isVisibleForType(operation: OperationSymbol | string, ti: TypeInfo | undefined): boolean {
+    const visible = ti == undefined ? undefined : getSettings(operation)?.isVisibleForType;
+    return visible == undefined || visible(ti!);
   }
 
   export function notifySuccess(message?: string, timeout?: number): void {
@@ -445,6 +463,8 @@ export namespace Operations {
 export abstract class OperationSettings {
 
   operationSymbol: string;
+  /** See {@link OperationOptions.isVisibleForType}. */
+  isVisibleForType?: (ti: TypeInfo) => boolean;
 
   constructor(operationSymbol: OperationSymbol | string) {
     this.operationSymbol = typeof operationSymbol == "string" ? operationSymbol : operationSymbol.key;
@@ -469,7 +489,19 @@ export class ConstructorOperationSettings<T extends Entity> extends OperationSet
   }
 }
 
-export interface ConstructorOperationOptions<T extends Entity> {
+/** What every kind of operation settings takes. */
+export interface OperationOptions {
+  /**
+   * Which of the types that have this operation the UI shows it on — for one inherited by every type
+   * (registered on `Entity`) that only belongs on some: `ti => isNotPart(ti)`. Read off the settings
+   * registered for the operation by `Operations.operationInfos`, so it hides the operation everywhere
+   * the UI lists them (frames, contextual menus, cell operations, the auth rules editor). UI only — the
+   * server still has the operation.
+   */
+  isVisibleForType?: (ti: TypeInfo) => boolean;
+}
+
+export interface ConstructorOperationOptions<T extends Entity> extends OperationOptions {
   text?: (coc: ConstructorOperationContext<T>) => string;
   isVisible?: (coc: ConstructorOperationContext<T>) => boolean;
   onConstruct?: (coc: ConstructorOperationContext<T>, props?: Partial<T>) => Promise<EntityPack<T> | undefined> | undefined;
@@ -527,7 +559,7 @@ export class ContextualOperationSettings<T extends Entity> extends OperationSett
   }
 }
 
-export interface ContextualOperationOptions<T extends Entity> {
+export interface ContextualOperationOptions<T extends Entity> extends OperationOptions {
   text?: (coc: ContextualOperationContext<T>) => string;
   isVisible?: (coc: ContextualOperationContext<T>) => boolean;
   hideOnCanExecute?: boolean;
@@ -1040,7 +1072,7 @@ export class EntityOperationSettings<T extends Entity> extends OperationSettings
   }
 }
 
-export interface EntityOperationOptions<T extends Entity> {
+export interface EntityOperationOptions<T extends Entity> extends OperationOptions {
   contextual?: ContextualOperationOptions<T>;
   contextualFromMany?: ContextualOperationOptions<T>;
   cell?: CellOperationOptions<T>;

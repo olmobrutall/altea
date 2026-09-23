@@ -57,6 +57,8 @@ import type { FilterOperationKeys, FilterGroupOperationKeys, PinnedFilterActiveK
 import { timeSeriesDates } from '../data/dynamicQuery/timeSeriesDates';
 
 import { Entity, BaseEntity, EmbeddedEntity, ModelEntity, type Type } from '../data/entity';
+import type { Quoted } from 'quote-transformer/quoted';
+import { expressionKeyOf } from '../data/lambdaMembers';
 import { Lite } from '../data/lite';
 // DIVERGENCE: Signum's free helpers are METHODS here — `toLite`→`e.toLite()`, `liteKey`→`l.key()`,
 // `parseLite`→`Lite.parse`, `is`→`.is()`, `isLite`/`isEntity`/`isModifiableEntity`→`instanceof`;
@@ -110,7 +112,7 @@ import { QueryTokenMessage } from '../data/dynamicQueries';
 // import Finder back — safe because they only touch Finder inside render-time functions. This makes both
 // implicit on `import { Finder }` (no side-effect imports needed in the app's startup).
 import "./EntityTypeApi";
-import "./QueryClient"; // side-effect: initQueryClient() wires the ASYNC server-only token source
+import "./TokenCache"; // side-effect: initTokenCache() wires the ASYNC server-only token source
                         // (extensions/manual/ops). Without it getSubTokens returns local tokens only,
                         // so registered-expression tokens (e.g. Order.totalPrice) never reach the client.
 import { initFormatRules, initEntityFormatRules, initQuickFilterRules, initFilterValueFormatRules as defaultFilterValueFormatRules } from "./FinderRules";
@@ -124,6 +126,9 @@ import type SearchControlLoaded from "./SearchControl/SearchControlLoaded";
 // AppContext.clientState (see IClientState) so a single newClientState() on login resets everything.
 interface FinderClientState {
   querySettings: { [queryKey: string]: Finder.QuerySettings };
+  // By DECLARING type (the class, or the enum object — the key the server's ExpressionContainer uses),
+  // then extension key: two types may each declare an expression of the same key.
+  expressionSettings?: Map<object, Map<string, Finder.ExpressionSettings>>;
 }
 // The four cell/filter RULE lists + the per-property formatter map (see Finder.rulesState). Kept as its own
 // slice because it is SEEDED from FinderRules on first read, where querySettings starts empty.
@@ -204,6 +209,70 @@ export namespace Finder {
 
   export function addSettings(...settings: QuerySettings[]): void {
     settings.forEach(s => Dic.addOrThrow(state().querySettings, getQueryKey(s.queryName), s));
+  }
+
+  /**
+   * UI settings for a REGISTERED EXPRESSION (an extension token: `OperationLogs`, `Notes`, `Alerts`), by
+   * the type it is registered on and its key. altea-only: Signum's client asks the server for sub-tokens, so it never had one; altea
+   * builds them from the metadata blob (TokenCache, which reads these), so this is where their visibility is decided.
+   * UI only — the server still resolves the token, so a saved query naming it keeps working.
+   */
+  export interface ExpressionSettings {
+    /**
+     * The type the expression is registered on — or a BASE of it, which then covers an expression of
+     * that key registered on any of its subtypes. A class (entity, embedded, model) or an enum object.
+     */
+    type: Function | object;
+    key: string;
+    /**
+     * Which of the types the expression reaches it is offered on — for one registered on `Entity` that
+     * only belongs on some: `ti => isNotPart(ti)`. Judged against the token's own (concrete) type.
+     */
+    isVisibleForType?: (ti: TypeInfo) => boolean;
+  }
+
+  /**
+   * `addExpressionSettings(Entity, e => e.operationLogs!(), { isVisibleForType: isNotPart })` — the same
+   * (type, lambda) a server registration names, so the key is derived the same way (`expressionKeyOf`).
+   */
+  export function addExpressionSettings<T extends BaseEntity>(type: Type<T>, lambda: Quoted<(e: T) => unknown>,
+    options: Omit<ExpressionSettings, "type" | "key">): void {
+    const key = expressionKeyOf(lambda);
+    const byType = state().expressionSettings ??= new Map();
+    let byKey = byType.get(type);
+    if (byKey == undefined) byType.set(type, byKey = new Map());
+    if (byKey.has(key))
+      throw new Error(`Expression settings for '${key}' on ${type.name} are already registered`);
+    byKey.set(key, { ...options, type, key });
+  }
+
+  /**
+   * Whether the UI offers the expression `lambda` names on `type` — its settings' `isVisibleForType`, as
+   * TokenCache applies it to the token list. For code that addresses the token directly (a column, a
+   * filter) and must not name one the type does not offer.
+   */
+  export function isExpressionVisible<T extends BaseEntity>(type: Type<T>, lambda: Quoted<(e: T) => unknown>): boolean {
+    const visible = getExpressionSettings(type, expressionKeyOf(lambda))?.isVisibleForType;
+    const ti = tryGetTypeInfo(type);
+    return visible == undefined || ti == undefined || visible(ti);
+  }
+
+  /**
+   * The settings of the expression `key` DECLARED on `declaringType`: the ones registered for that type,
+   * else for the nearest base of it that has some (an enum has no base).
+   */
+  export function getExpressionSettings(declaringType: Function | object, key: string): ExpressionSettings | undefined {
+    const byType = state().expressionSettings;
+    if (byType == undefined)
+      return undefined;
+    if (typeof declaringType !== "function")
+      return byType.get(declaringType)?.get(key);
+    for (let c: Function | undefined = declaringType; c != undefined && c !== Object; c = Object.getPrototypeOf(c)) {
+      const found = byType.get(c)?.get(key);
+      if (found != undefined)
+        return found;
+    }
+    return undefined;
   }
 
   export function pinnedSearchFilter(): FilterGroupOption;
@@ -1550,7 +1619,7 @@ export namespace Finder {
   // fetching them from the server (/api/query/parseTokens + subTokens) and rebuilding a flat-DTO tree.
   // altea generates tokens CLIENT-SIDE: it walks each fullKey hop-by-hop from the entity root using the
   // shared `generateSubTokens` (entities getSubTokens: local metadata ∪ server-only tokens fetched via
-  // QueryClient), caching by fullKey. The public surface (requestFilter/request/finished/get/
+  // TokenCache), caching by fullKey. The public surface (requestFilter/request/finished/get/
   // getSubTokens/toFilterOptionParsed) is unchanged so the parse functions are untouched.
   export class TokenCompleter {
 
@@ -1859,7 +1928,7 @@ export namespace Finder {
   // ALTEA REWRITE: Signum fetched the QueryDescription (its column token tree) from the server DTO.
   // altea builds the query's ROOT token CLIENT-SIDE: the entity-root token carries the query
   // name/type and its direct sub-tokens ARE the query's columns (generated locally by the shared
-  // token model; server-only tokens fetched via QueryClient). Kept async so awaiting callers are
+  // token model; server-only tokens fetched via TokenCache). Kept async so awaiting callers are
   // unchanged even though clientRootToken is cheap and synchronous.
   export function getQueryRoot(queryName: PseudoType): Promise<QueryToken> {
     return Promise.resolve(clientRootToken(getQueryKey(queryName)));

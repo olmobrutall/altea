@@ -2,8 +2,7 @@
 // Register on a SchemaBuilder's webBuilder alongside EntitiesServer:
 //   if (sb.webBuilder) QueryServer.start(sb.webBuilder);
 //
-// Two layers of contract cross here:
-//   - the SERVER-ONLY sub-tokens (serverTokens) — plain JSON, no entity graph, so res.json.
+// The contract that crosses here:
 //   - executeQuery — the client POSTs a wire QueryRequest (string tokens, filters, orders,
 //     pagination — entities/dynamicQuery/queryRequest); the server PARSES it into the engine's
 //     QueryRequest (parsed QueryTokens), runs it, and serialises the ResultTable back through the
@@ -14,9 +13,6 @@ import { QueryEntity } from "../data/queryEntity";
 import { Temporal, Decimal } from "../data/basics";
 import { Enum } from "../data/enum";
 import { SubTokensOptionsAll } from "../data/dynamicQuery/tokens";
-import {
-    isServerOnlyToken, serializeServerToken, type ServerTokenJson,
-} from "../data/dynamicQuery/tokenSerializer";
 import type { QueryName } from "../data/dynamicQuery/queryUtils";
 import type { QueryToken } from "../data/dynamicQuery/tokens";
 import type {
@@ -37,24 +33,6 @@ import { WebBuilder, CustomType } from "./webApi";
 export namespace QueryServer {
 
     export function start(ws: WebBuilder): void {
-
-        // GET /api/query/:queryKey/serverTokens?token=<fullKey>&options=<bitflags>
-        // The server-only sub-tokens of the parent token (empty `token` ⇒ children of the entity root).
-        ws.get("/api/query/:queryKey/serverTokens",
-            { params: CustomType<{ queryKey: string }>(), res: CustomType<ServerTokenJson[]>() },
-            async (req, res) => {
-                const queryName = QueryLogic.tryToQueryName(req.params.queryKey);
-                if (queryName == undefined) {
-                    res.status(404).json({ error: `Query '${req.params.queryKey}' not found` });
-                    return;
-                }
-                const tokenString = (req.query.token as string | undefined) ?? "";
-                const options = req.query.options != undefined ? Number(req.query.options) : SubTokensOptionsAll;
-
-                const parent = QueryLogic.getToken(queryName, tokenString, options);
-                const serverTokens = parent.subTokens(options).filter(isServerOnlyToken).map(serializeServerToken);
-                res.json(serverTokens);
-            });
 
         // GET /api/query/queryEntity/:queryKey — the QueryEntity ROW for a key (Signum's
         // `QueryController.GetQueryEntity`, which its client reads through `Finder.API.fetchQueryEntity`).

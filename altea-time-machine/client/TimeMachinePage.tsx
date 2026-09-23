@@ -11,6 +11,7 @@ import type { SearchControlLoaded } from '@altea/altea/client/SearchControl/Sear
 import EntityLink from '@altea/altea/client/SearchControl/EntityLink';
 import { QueryTokenString } from '@altea/altea/client/QueryTokenString';
 import { getTypeName } from '@altea/altea/client/Reflection';
+import { Finder } from '@altea/altea/client/Finder';
 import { useAPI, useForceUpdate } from '@altea/altea/client/Hooks';
 import { type IModalProps, openModal } from '@altea/altea/client/Modals';
 import MessageModal from '@altea/altea/client/Modals/MessageModal';
@@ -20,7 +21,7 @@ import type { ResultRow } from '@altea/altea/data/dynamicQuery/queryRequest';
 import { Entity } from '@altea/altea/data/entity';
 import { Lite } from '@altea/altea/data/lite';
 import { JavascriptMessage } from '@altea/altea/data/uiMessages';
-import { OperationLogEntity } from '@altea/altea/data/operationLog';
+import '@altea/altea/data/operationLog'; // declares Entity.previousOperationLog()
 import { DiffDocument } from '@altea/altea-diff-log/client/Templates/DiffDocument';
 import { TimeMachineMessage } from '../data/TimeMachine';
 import { TimeMachineClient } from './TimeMachineClient';
@@ -99,9 +100,12 @@ export function TimeMachine(p: { lite: Lite<Entity>; isModal?: boolean }): React
     }
 
     // The `previousOperationLog` extension token core registers on every @systemVersioned type
-    // (OperationLogic.registerPreviousLog): who ran which operation to produce this version. ROOTLESS and
-    // camelCase — an extension token's key is derived from its quoted lambda's tail member.
-    const prevLogToken = new QueryTokenString<OperationLogEntity>("previousOperationLog");
+    // (OperationLogic.registerPreviousLog): who ran which operation to produce this version. Rooted at
+    // `Entity`, which declares the member — tokens are rootless, so it is the same token on any type.
+    const prevLogToken = Entity.token(e => e.previousOperationLog!());
+    // …where the type offers it (Finder's expression settings hide it on a part row), or its columns would
+    // not parse.
+    const showPrevLog = Finder.isExpressionVisible(p.lite.entityType, e => e.previousOperationLog!());
 
     return (
         <div>
@@ -124,9 +128,11 @@ export function TimeMachine(p: { lite: Lite<Entity>; isModal?: boolean }): React
                 // is exactly "every version of this row".
                 filterOptions: [{ token: "id", operation: "EqualTo", value: p.lite.id }],
                 columnOptions: [
-                    { token: prevLogToken.append(a => a.start) },
-                    { token: prevLogToken.append(a => a.user) },
-                    { token: prevLogToken.append(a => a.operation) },
+                    ...(showPrevLog ? [
+                        { token: prevLogToken.append(a => a.start) },
+                        { token: prevLogToken.append(a => a.user) },
+                        { token: prevLogToken.append(a => a.operation) },
+                    ] : []),
                     { token: QueryTokenString.entity().systemValidFrom() },
                     { token: QueryTokenString.entity().systemValidTo() },
                 ],

@@ -22,6 +22,14 @@ import type {
 // MListElement — a `@part` collection is a plain array — so it is simply the array element).
 type ArrayElement<A> = A extends (infer E)[] ? E : never;
 
+/**
+ * What a token over a lambda's result `S` holds. An expression member that yields ONE row reached by a
+ * query (`previousOperationLog(): Promise<OperationLogEntity | null>`) is a Promise to TypeScript, but its
+ * token IS that row — so the Promise (and the null a navigation already tolerates) is unwrapped, and
+ * `token(e => e.previousOperationLog()).append(l => l.start)` type-checks.
+ */
+export type TokenValue<S> = S extends Promise<infer E> ? NonNullable<E> : S;
+
 // Turns a property lambda into a dotted, PascalCased token path (Signum's tokenSequence). The
 // leading "entity" hop of a `Lite<T>` navigation is dropped for convenience; `toStr` maps to the
 // query column "ToString".
@@ -55,9 +63,9 @@ export class QueryTokenString<T> {
   // signature, so the clean name comes from cleanTypeName(t) (Signum used `t.typeName` directly).
   cast<R extends Entity>(t: Type<R>): QueryTokenString<R> { return new QueryTokenString<R>(this.token + ".(" + cleanTypeName(t) + ")"); }
 
-  append<S>(lambdaToProperty: Quoted<(v: T) => S>): QueryTokenString<S> {
+  append<S>(lambdaToProperty: Quoted<(v: T) => S>): QueryTokenString<TokenValue<S>> {
     const seq = tokenSequence(lambdaToProperty, !this.token);
-    return new QueryTokenString<S>(this.token + (this.token && seq ? "." : "") + seq);
+    return new QueryTokenString<TokenValue<S>>(this.token + (this.token && seq ? "." : "") + seq);
   }
 
   mixin<M extends MixinEntity>(_t: Type<M>): QueryTokenString<M> { return new QueryTokenString<M>(this.token); }
@@ -187,7 +195,7 @@ export interface TokenFunction<T> {
   /** `token()` — the token this factory is rooted at (the entity, or the collection element after any()/all()/element()). */
   (): QueryTokenString<T>;
   /** `token(a => a.name)` — navigates the entity graph; the accessed property path becomes the token. */
-  <S>(lambdaToColumn: Quoted<(v: AnonymousOf<T>) => S>): QueryTokenString<S>;
+  <S>(lambdaToColumn: Quoted<(v: AnonymousOf<T>) => S>): QueryTokenString<TokenValue<S>>;
   /** `token<V>("Key")` — escape hatch for a query-only column with no entity-graph home. */
   <S = unknown>(columnName: string): QueryTokenString<S>;
 }

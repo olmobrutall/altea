@@ -10,6 +10,7 @@ import { QuickLinkClient, QuickLinkExplore } from "@altea/altea/client/QuickLink
 import SelectorModal from "@altea/altea/client/SelectorModal";
 import { ajaxGet } from "@altea/altea/client/Services";
 import { Entity } from "@altea/altea/data/entity";
+import { isNotPart } from "@altea/altea/data/reflection";
 import { Lite } from "@altea/altea/data/lite";
 import { Enum } from "@altea/altea/data/enum";
 import { Temporal } from "@altea/altea/data/basics";
@@ -75,8 +76,10 @@ export namespace AlertsClient {
             .withView(() => import("./Templates/SendNotificationEmailTask"));
 
         // "Create an alert about this entity" — the button lives on the SOURCE type, so its visibility is
-        // per type (Signum's couldHaveAlerts).
+        // per type (Signum's couldHaveAlerts). Registered on `Entity`, so a part row inherits it too; an
+        // alert is about its owner (`isVisibleForType`).
         Operations.addSettings(new EntityOperationSettings(AlertOperation.CreateAlertFromEntity, {
+            isVisibleForType: isNotPart,
             isVisible: ctx => showAlerts(ctx.entity.constructor.name, "CreateAlert"),
             icon: "bell",
             iconColor: "darkorange",

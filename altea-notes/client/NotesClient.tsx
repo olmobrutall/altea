@@ -1,4 +1,5 @@
 import { Navigator } from "@altea/altea/client/Navigator";
+import { isNotPart } from "@altea/altea/data/reflection";
 import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
 import { QuickLinkClient, QuickLinkExplore } from "@altea/altea/client/QuickLinkClient";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
@@ -42,8 +43,10 @@ export namespace NotesClient {
             }));
 
         // "Write a note about this entity" — the button lives on the SOURCE type, so its visibility is
-        // per type (Signum's couldHaveNotes).
+        // per type (Signum's couldHaveNotes). Registered on `Entity`, so a part row inherits it too; a
+        // note is about its owner (`isVisibleForType`).
         Operations.addSettings(new EntityOperationSettings(NoteOperation.CreateNoteFromEntity, {
+            isVisibleForType: isNotPart,
             isVisible: ctx => couldHaveNotes(ctx.entity.constructor.name),
             icon: "note-sticky",
             iconColor: "#0e4f8c",

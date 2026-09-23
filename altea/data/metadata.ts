@@ -118,15 +118,15 @@ export interface OperationMetadata {
 }
 
 /**
- * A registered EXPRESSION of this type, in the form the client rebuilds a token from — the same shape
- * `/api/query/:queryKey/serverTokens` ships, because it IS the same thing arriving earlier.
+ * A registered EXPRESSION of this type, in the form the client rebuilds a token from (a serialized
+ * server-only token). This is the ONLY way the client learns of one.
  *
  * Keyed by extension key in `TypeMetadata.extensions`, and `key` is stamped back on apply exactly as
  * `OperationMetadata.key` is. An expression is registered against a TYPE, not a query, so it belongs in
  * the per-type blob the client already has rather than in a request per token of that type.
  *
  * Parameterized extensions — Signum's dictionary-style access with dynamic keys — cannot be enumerated
- * into a blob and keep the on-demand endpoint. Nothing in altea declares one yet.
+ * into a blob, so they are not supported on the client. Nothing in altea declares one.
  */
 export type ExtensionMetadata = ServerTokenJson;
 
@@ -294,7 +294,7 @@ export namespace Metadata {
     // `extensions` entry means "this type has no registered expressions", but only once there is a blob
     // to have read — before that it means nothing at all, and a token picker that ran that early would
     // otherwise conclude there are none rather than asking the server. Lives on the store because that is
-    // what the question is about; asking QueryClient instead would close an import cycle through
+    // what the question is about; asking TokenCache instead would close an import cycle through
     // ReflectionClient.
     let appliedAny = false;
     export function isApplied(): boolean { return appliedAny; }

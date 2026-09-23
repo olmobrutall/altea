@@ -10,12 +10,12 @@
 //     columnOptions: [token(a => a.id), token(a => a.customer).column("Customer")],
 //   }))
 //
-// Import this module once at client startup to install the statics (mirrors ./QueryClient).
+// Import this module once at client startup to install the statics (mirrors ./TokenCache).
 
 import { BaseEntity, type Type } from '../data/entity';
 import {
   QueryTokenString, tokenSequence, createTokenFunction,
-  type TokenFunction, type Anonymous,
+  type TokenFunction, type Anonymous, type TokenValue,
 } from './QueryTokenString';
 import type { FindOptions, FetchOptions, TypedResultsOptions, ResultObject, OptionalQueryName } from './FindOptions';
 import type { Quoted } from 'quote-transformer/quoted';
@@ -27,7 +27,7 @@ declare module '../data/entity' {
     /** A {@link QueryTokenString} rooted at this type (Signum's Type.token). `S` (the column result
      * type) is the explicit type arg; `T` infers from `this`, so `token<number>("Expr")` works. */
     export function token<T extends BaseEntity>(this: Type<T>): QueryTokenString<Anonymous<T>>;
-    export function token<S, T extends BaseEntity = BaseEntity>(this: Type<T>, lambdaToColumn: Quoted<(v: Anonymous<T>) => S>): QueryTokenString<S>;
+    export function token<S, T extends BaseEntity = BaseEntity>(this: Type<T>, lambdaToColumn: Quoted<(v: Anonymous<T>) => S>): QueryTokenString<TokenValue<S>>;
     export function token<S = unknown, T extends BaseEntity = BaseEntity>(this: Type<T>, columnName: string): QueryTokenString<S>;
 
     /** A strongly-typed {@link FindOptions} rooted at this type; `queryName` defaults to this type. */
