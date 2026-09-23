@@ -6,6 +6,7 @@ import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { Operations } from "@altea/altea/client/Operations";
 import { Finder } from "@altea/altea/client/Finder";
+import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { tryGetTypeInfo } from "@altea/altea/client/Reflection";
 import type { PropertyRulePack, PropertyAllowedRule, TypeConditionSymbol } from "../../data/Rules";
 import { PropertyAllowed, PropertyConditionRuleModel } from "../../data/Rules";
@@ -124,6 +125,16 @@ function PropertyRulesGroupTable({ rules, readOnly, markDirty, slice }: { rules:
             : <ColorRadio readOnly={readOnly} checked={get() === level.value} color={level.color}
                 onClicked={() => { set(level.value); markDirty(); }} />;
 
+    // Signum's header click: a level's header sets EVERY row of this table to it, for the selected slice,
+    // capped at each row's ceiling for that slice.
+    const setAll = (level: PropertyAllowed): void => {
+        for (const rule of rules) {
+            const coerced = sliceBinding(rule.coerced, slice, makeCR).get();
+            sliceBinding(rule.allowed, slice, makeCR).set(Math.min(level, coerced) as PropertyAllowed);
+        }
+        markDirty();
+    };
+
     return (
         // Fixed layout + colgroup so every table has identical column geometry — when AuthClosureModal
         // stacks one table per type (owner + parts), the Property / Write / Read / None / Overridden columns
@@ -138,7 +149,9 @@ function PropertyRulesGroupTable({ rules, readOnly, markDirty, slice }: { rules:
             <thead>
                 <tr>
                     <th>Property</th>
-                    {LEVELS.map(l => <th key={l.value} className="text-center">{l.label}</th>)}
+                    {LEVELS.map(l => <th key={l.value} className="text-center">
+                        {readOnly ? l.label : <LinkButton title={undefined} onClick={() => setAll(l.value)} style={{ color: "inherit" }}>{l.label}</LinkButton>}
+                    </th>)}
                     <th className="text-center">{AuthAdminMessage.Overriden.niceToString()}</th>
                 </tr>
             </thead>

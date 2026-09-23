@@ -6,6 +6,7 @@ import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { Operations } from "@altea/altea/client/Operations";
 import { Finder } from "@altea/altea/client/Finder";
+import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { tryGetTypeInfo } from "@altea/altea/client/Reflection";
 import type { OperationRulePack, OperationAllowedRule, TypeConditionSymbol } from "../../data/Rules";
 import { OperationAllowed, OperationConditionRuleModel } from "../../data/Rules";
@@ -104,12 +105,22 @@ export function OperationRulesTable({ pack, readOnly, markDirty, slice }: { pack
             : <ColorRadio readOnly={readOnly} checked={get() === level.value} color={level.color}
                 onClicked={() => { set(level.value); markDirty(); }} />;
 
+    // Signum's header click: a level's header sets every SHOWN row to it, for the selected slice, capped at
+    // each row's ceiling.
+    const setAll = (level: OperationAllowed): void => {
+        for (const rule of visibleOperationRules(pack))
+            sliceBinding(rule.allowed, slice, makeCR).set(Math.min(level, rule.coerced) as OperationAllowed);
+        markDirty();
+    };
+
     return (
         <table className="table table-sm table-hover sf-auth-rules" style={{ maxWidth: "40rem" }}>
             <thead>
                 <tr>
                     <th>Operation</th>
-                    {LEVELS.map(l => <th key={l.value} className="text-center">{l.label()}</th>)}
+                    {LEVELS.map(l => <th key={l.value} className="text-center">
+                        {readOnly ? l.label() : <LinkButton title={undefined} onClick={() => setAll(l.value)} style={{ color: "inherit" }}>{l.label()}</LinkButton>}
+                    </th>)}
                     <th className="text-center">{AuthAdminMessage.Overriden.niceToString()}</th>
                 </tr>
             </thead>
