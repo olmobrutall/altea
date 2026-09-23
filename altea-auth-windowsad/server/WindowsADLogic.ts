@@ -3,7 +3,6 @@ import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
-import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { Operations } from "@altea/altea/server/operationLogic";
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { UserEntity, UserOperation, UserState } from "@altea/altea-auth/data/User";
@@ -26,22 +25,23 @@ import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 export namespace WindowsADLogic {
 
-    /** The authorizer this module installed (also reachable as `AuthLogic.authorizer`). */
-    export let authorizer: WindowsADAuthorizer | undefined;
+    /**
+     * The application's authorizer when it is a WindowsAD one, else undefined. The APPLICATION installs
+     * `AuthLogic.authorizer` in its Starter; the configuration comes from that object.
+     */
+    export function authorizer(): WindowsADAuthorizer | undefined {
+        return AuthLogic.authorizer instanceof WindowsADAuthorizer ? AuthLogic.authorizer : undefined;
+    }
 
     export interface StartOptions {
-        getConfig: () => StablePromise<WindowsADConfigurationEmbedded | null>;
         /** Register the nightly sweep that deactivates users the directory no longer has. */
         deactivateUsersTask?: boolean;
     }
 
-    /** The module's start-up, including wiring `AuthLogic.authorizer`. */
-    export function start(sb: SchemaBuilder, options: StartOptions): void {
+    /** The module's start-up. It does NOT install an authorizer: the application's Starter does. */
+    export function start(sb: SchemaBuilder, options: StartOptions = {}): void {
         if (sb.alreadyDefined(start))
             return;
-
-        authorizer = new WindowsADAuthorizer(options.getConfig);
-        AuthLogic.authorizer = authorizer;
 
         // The same container
         // the AzureAD module registers.
@@ -55,7 +55,7 @@ export namespace WindowsADLogic {
     }
 
     export async function requireConfig(): Promise<WindowsADConfigurationEmbedded> {
-        const config = authorizer == undefined ? null : await authorizer.getConfig();
+        const config = await authorizer()?.getConfig() ?? null;
         if (config == null)
             throw new Error("No WindowsADConfiguration is set");
         return config;
@@ -117,7 +117,7 @@ export namespace WindowsADLogic {
     /** Import a directory hit as a local user (or refresh it). */
     export async function createUserFromAD(adUser: ExternalUser): Promise<UserEntity> {
         const config = await requireConfig();
-        const ada = authorizer!;
+        const ada = authorizer()!;
 
         const directoryUser = await WindowsDirectory.findByIdentity(config, adUser.upn);
         if (directoryUser == null)

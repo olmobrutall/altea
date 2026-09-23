@@ -1,40 +1,25 @@
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
-import { OpenIDConfigurationEmbedded } from "../data/OpenID";
 import { OpenIDAuthorizer } from "./OpenIDAuthorizer";
 import { OpenIDAuthenticationServer } from "./OpenIDAuthenticationServer";
 
-// The module's start-up. `start(sb, getConfig)` is the ONE call a host makes — including wiring
-// `AuthLogic.authorizer`, because the authorizer is what every route here resolves its configuration
-// through.
+// The module's start-up. It registers the routes; it does NOT install an authorizer — the application's
+// Starter sets `AuthLogic.authorizer` (an `OpenIDAuthorizer` subclass, to sign in through OpenID), and
+// every route here resolves its configuration through that object. With another authorizer installed the
+// routes stay and `/api/auth/openIDConfig` answers null, so the client's boot probe is a clean 200.
 //
 // See port/AuthDirectory.md.
 
 export namespace OpenIDLogic {
 
-    /** The authorizer this module installed (also reachable as `AuthLogic.authorizer`). */
-    export let authorizer: OpenIDAuthorizer | undefined;
+    /** The application's authorizer when it is an OpenID one, else undefined. */
+    export function authorizer(): OpenIDAuthorizer | undefined {
+        return AuthLogic.authorizer instanceof OpenIDAuthorizer ? AuthLogic.authorizer : undefined;
+    }
 
-    /**
-     * The module's start-up, including wiring `AuthLogic.authorizer`.
-     * `getConfig` is a CALLBACK so a host that stores the
-     * configuration in the database sees an edit without a restart.
-     *
-     * `installAuthorizer` (altea addition, default true) exists because `AuthLogic.authorizer` is a single
-     * slot: a host that offers SEVERAL directory modules but wants a different one to own the login flow
-     * can still start this one — the routes exist and `/api/auth/openIDConfig` answers null, which is what
-     * makes the client's boot probe a clean 200 instead of a 404. Signum needs no equivalent: its Starter
-     * assigns the one authorizer by hand and does not start the modules it is not using.
-     */
-    export function start(sb: SchemaBuilder, getConfig: () => StablePromise<OpenIDConfigurationEmbedded | null>,
-        options?: { installAuthorizer?: boolean }): void {
+    export function start(sb: SchemaBuilder): void {
         if (sb.alreadyDefined(start))
             return;
-
-        authorizer = new OpenIDAuthorizer(getConfig);
-        if (options?.installAuthorizer ?? true)
-            AuthLogic.authorizer = authorizer;
 
         if (sb.webBuilder)
             OpenIDAuthenticationServer.start(sb.webBuilder);

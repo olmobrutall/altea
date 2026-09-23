@@ -26,10 +26,12 @@ The shared BaseAD half — the configuration embedded, `IAutoCreateUserContext`,
 `IDirectoryInviter`, the find/create-AD-user routes, the invite-a-user UI, `ProfilePhoto.urlProviders` —
 likewise lives in altea-auth, exactly as it does in `Signum.Authorization`.
 
-**`AuthLogic.authorizer` is a single slot**, so at most ONE directory owns the login flow; the app picks
-(eastwind: `EASTWIND_AD_PROVIDER`). Signum leaves wiring it to the application's Starter; altea does it in
-each module's `start`, because the authorizer is what every route in the module resolves its configuration
-through — so `start(sb, getConfig)` is the ONE call a host makes.
+**`AuthLogic.authorizer` is a single slot**, so at most ONE directory owns the login flow. As in Signum,
+the APPLICATION installs it in its Starter (`AuthLogic.authorizer = new EastwindAuthorizer()`, a subclass
+of the directory's authorizer) and each module's `start` takes no configuration: every route resolves it
+through `XLogic.authorizer()` — the installed authorizer when it is of that module's kind, else undefined,
+which the routes and the client probe answer as "not configured". So several directory modules can be
+started side by side; only the one the authorizer extends signs in.
 
 ## No server-rendered configuration blob
 

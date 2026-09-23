@@ -22,7 +22,6 @@ import { ActiveDirectoryPermission } from "@altea/altea-auth/data/BaseAD";
 import type { ExternalUser } from "@altea/altea-auth/server/ADAuthorizer";
 import { SimpleTaskLogic } from "@altea/altea-scheduler/server/SimpleTaskLogic";
 import { Operations } from "@altea/altea/server/operationLogic";
-import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { AzureADConfigurationEmbedded, AzureADTask } from "../data/AzureAD";
 import { ADGroupEntity, ADGroupOperation } from "../data/ADGroup";
 import {
@@ -70,24 +69,25 @@ export namespace AzureADLogic {
         adGroupsCache.clear();
     }
 
-    /** The authorizer this module installed (also reachable as `AuthLogic.authorizer`). */
-    export let authorizer: AzureADAuthorizer | undefined;
+    /**
+     * The application's authorizer when it is an Azure one, else undefined — in which case every route of
+     * this module answers as "not configured". The APPLICATION installs `AuthLogic.authorizer` in its
+     * Starter (Southwind's `new SouthwindAuthorizer(...)`); the configuration comes from that object.
+     */
+    export function authorizer(): AzureADAuthorizer | undefined {
+        return AuthLogic.authorizer instanceof AzureADAuthorizer ? AuthLogic.authorizer : undefined;
+    }
 
     export interface StartOptions {
-        /** Per AD VARIANT ("default" or an application-specific name). */
-        getConfig: (adVariant: string | null) => StablePromise<AzureADConfigurationEmbedded | null>;
         /** Include ADGroupEntity and register the two directory queries. */
         adGroupsAndQueries?: boolean;
         /** Register the AzureADTask.DeactivateUsers simple task. */
         deactivateUsersTask?: boolean;
     }
 
-    export function start(sb: SchemaBuilder, options: StartOptions): void {
+    export function start(sb: SchemaBuilder, options: StartOptions = {}): void {
         if (sb.alreadyDefined(start))
             return;
-
-        authorizer = new AzureADAuthorizer(options.getConfig);
-        AuthLogic.authorizer = authorizer;
 
         // The same permission container the WindowsAD module
         // registers the same container; the registry is a set, so whichever directory an app wires gets it.
@@ -113,7 +113,7 @@ export namespace AzureADLogic {
 
     /** The configuration for one variant, or a clear error (every Graph call needs one). */
     export async function requireConfig(adVariant: string | null = null): Promise<AzureADConfigurationEmbedded> {
-        const config = authorizer == undefined ? null : await authorizer.getConfigFor(adVariant);
+        const config = await authorizer()?.getConfigFor(adVariant) ?? null;
         if (config == null)
             throw new Error(`No AzureADConfiguration for variant '${adVariant ?? "default"}'`);
         return config;
@@ -359,7 +359,7 @@ export namespace AzureADLogic {
     /** Import a directory hit as a local user (or refresh the existing row). */
     export async function createUserFromAD(adUser: ExternalUser): Promise<UserEntity> {
         const config = await requireConfig();
-        const ada = authorizer!;
+        const ada = authorizer()!;
 
         const graphUser = await MicrosoftGraph.get<GraphUser>(config, `users/${adUser.externalId}`);
         const ctx = new MicrosoftGraphCreateUserContext(graphUser, config);

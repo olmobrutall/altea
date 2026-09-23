@@ -88,8 +88,7 @@ export namespace AzureADAuthenticationServer {
             async (req, res) => {
                 const query = req.query;
                 const adVariant = (query["adVariant"] as string | undefined) ?? null;
-                const azureAuthorizer = AzureADLogic.authorizer;
-                const config = azureAuthorizer == undefined ? null : await azureAuthorizer.getConfigFor(adVariant);
+                const config = await AzureADLogic.authorizer()?.getConfigFor(adVariant) ?? null;
                 res.jsonTyped(config?.toClientConfig() ?? null);
             });
 
@@ -161,7 +160,7 @@ export namespace AzureADAuthenticationServer {
     ): Promise<UserEntity | null> {
         return await AuthLogic.withDisabled(async () => {
             try {
-                const authorizer = AzureADLogic.authorizer;
+                const authorizer = AzureADLogic.authorizer();
                 if (authorizer == null)
                     return null;
 

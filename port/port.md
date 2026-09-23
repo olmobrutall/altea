@@ -916,8 +916,8 @@ Known structural divergences from Signum (this is what "fix" means — don't por
   BaseAD half (the configuration embedded, `IAutoCreateUserContext`, `ExternalUser`, `IDirectoryInviter`,
   the find/create-AD-user routes, the invite-a-user UI, `ProfilePhoto.urlProviders`) likewise lives in
   altea-auth, exactly as it does in `Signum.Authorization`. Also:
-  - `AuthLogic.authorizer` is a single slot, so at most ONE directory owns the login flow; the app picks
-    (eastwind: `EASTWIND_AD_PROVIDER`). The CONFIGURATION itself is a persisted @part entity on the app's
+  - `AuthLogic.authorizer` is a single slot, so at most ONE directory owns the login flow; the app installs
+    it in its Starter, as Signum does (eastwind: `EastwindAuthorizer`). The CONFIGURATION itself is a persisted @part entity on the app's
     ApplicationConfiguration row — see the bullet above.
   - Signum injects the browser-visible configuration into `Index.cshtml`
     (`window.__azureADConfig` / `__openIDConfig`). altea has no server-rendered page, so each module serves
