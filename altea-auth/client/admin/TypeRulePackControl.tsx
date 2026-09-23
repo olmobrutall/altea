@@ -3,7 +3,7 @@ import { Button } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { TypeContext } from "@altea/altea/client/TypeContext";
-import type { IRenderButtons, ButtonsContext, ButtonBarElement } from "@altea/altea/client/TypeContext";
+import type { IRenderButtons, IHasChanges, ButtonsContext, ButtonBarElement } from "@altea/altea/client/TypeContext";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
@@ -168,7 +168,7 @@ function cloneModel(m: WithConditionsModel): WithConditionsModel {
     });
 }
 
-export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<TypeRulePack>; ref?: React.Ref<IRenderButtons> }): React.JSX.Element {
+export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<TypeRulePack>; ref?: React.Ref<IRenderButtons & IHasChanges> }): React.JSX.Element {
 
     const dirty = React.useRef(false);
     React.useEffect(() => { dirty.current = false; }, [ctx.value]);
@@ -190,7 +190,9 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
             { button: <Button type="button" variant="info" disabled={hasChanges} onClick={() => handleSwitchToClick(bc)}>{AuthAdminMessage.SwitchTo.niceToString()}</Button> },
         ];
     }
-    React.useImperativeHandle(ref, () => ({ renderButtons }), [ctx.value]);
+    // `entityHasChanges`: the frame's "you will lose changes" check asks THIS rather than diffing the pack,
+    // which the editor also writes to for display (e.g. the grid's summary icons after a drill-in).
+    React.useImperativeHandle(ref, () => ({ renderButtons, entityHasChanges: () => dirty.current }), [ctx.value]);
 
     function handleSaveClick(bc: ButtonsContext): void {
         const pack = ctx.value;

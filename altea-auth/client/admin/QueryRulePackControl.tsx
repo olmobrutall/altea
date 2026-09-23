@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Button } from "react-bootstrap";
 import { TypeContext } from "@altea/altea/client/TypeContext";
-import type { IRenderButtons, ButtonsContext, ButtonBarElement } from "@altea/altea/client/TypeContext";
+import type { IRenderButtons, IHasChanges, ButtonsContext, ButtonBarElement } from "@altea/altea/client/TypeContext";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { Operations } from "@altea/altea/client/Operations";
@@ -25,7 +25,7 @@ const LEVELS: { value: QueryAllowed; color: string; label: string }[] = [
     { value: QueryAllowed.None, color: "red", label: "None" },
 ];
 
-export default function QueryRulePackControl({ ctx, ref }: { ctx: TypeContext<QueryRulePack>; ref?: React.Ref<IRenderButtons> }): React.JSX.Element {
+export default function QueryRulePackControl({ ctx, ref }: { ctx: TypeContext<QueryRulePack>; ref?: React.Ref<IRenderButtons & IHasChanges> }): React.JSX.Element {
 
     const dirty = React.useRef(false);
     React.useEffect(() => { dirty.current = false; }, [ctx.value]);
@@ -39,7 +39,9 @@ export default function QueryRulePackControl({ ctx, ref }: { ctx: TypeContext<Qu
             { button: <Button type="button" variant="info" disabled={hasChanges} onClick={() => handleSwitchToClick(bc)}>{AuthAdminMessage.SwitchTo.niceToString()}</Button> },
         ];
     }
-    React.useImperativeHandle(ref, () => ({ renderButtons }), [ctx.value]);
+    // `entityHasChanges`: the frame's "you will lose changes" check asks THIS rather than diffing the pack,
+    // which the editor also writes to for display (e.g. the grid's summary icons after a drill-in).
+    React.useImperativeHandle(ref, () => ({ renderButtons, entityHasChanges: () => dirty.current }), [ctx.value]);
 
     function handleSaveClick(bc: ButtonsContext): void {
         const pack = ctx.value;
