@@ -323,7 +323,9 @@ export class SMSModelEntity extends Entity {
  */
 export interface ISMSOwnerEntity extends Entity {
     /** Every SMS whose `referred` is this entity — stamped by `SMSLogic.registerSMSOwner`. */
-    smsMessages?(): IQuery<SMSMessageEntity>;
+    // PascalCase on purpose: an expression's token key is its member name with the first letter raised, and
+    // Signum's key is "SMSMessages".
+    SMSMessages?(): IQuery<SMSMessageEntity>;
 }
 
 /**

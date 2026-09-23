@@ -59,7 +59,7 @@ export namespace WhatsNewLogic {
             .withQuery();
 
         QueryLogic.expressions.register(WhatsNewEntity, (wn: WhatsNewEntity) => wn.whatsNewLogs!(),
-            { key: "WhatsNewLogs", niceName: () => WhatsNewLogEntity.nicePluralName() });
+            { niceName: () => WhatsNewLogEntity.nicePluralName() });
         QueryLogic.expressions.register(WhatsNewEntity, (wn: WhatsNewEntity) => wn.isRead!(),
             WhatsNewMessage.IsRead);
 
@@ -199,7 +199,7 @@ WhatsNewEntity.prototype.whatsNewLogs = withQuoted(function (this: WhatsNewEntit
 
 // A quoted member's body must be ONE return statement (the transformer stamps that expression), so the
 // current user is read INSIDE it — the transformer captures the call as a constant, the way
-// @altea/altea-view-log's viewLogMyLast does. The declared return type is a PROMISE because `some` is a
+// @altea/altea-view-log's lastViewLog does. The declared return type is a PROMISE because `some` is a
 // query terminal, as @altea/altea-workflow's `currentUserHasNotification` declares it; as a query TOKEN it
 // is a plain boolean column.
 WhatsNewEntity.prototype.isRead = withQuoted(function (this: WhatsNewEntity): Promise<boolean> {

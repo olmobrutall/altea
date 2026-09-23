@@ -79,6 +79,6 @@ declare module "@altea/altea/data/entity" {
         /** Every view log whose `target` is this entity. */
         viewLogs?(): IQuery<ViewLogEntity>;
         /** …narrowed to the CURRENT user's. */
-        viewLogMyLast?(): IQuery<ViewLogEntity>;
+        lastViewLog?(): IQuery<ViewLogEntity>;
     }
 }

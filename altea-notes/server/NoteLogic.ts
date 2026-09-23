@@ -53,7 +53,7 @@ export namespace NoteLogic {
         // Signum registers ONE ExtensionInfo per requested type; altea needs the same, per concrete type.
         for (const type of options?.registerExpressionsFor ?? [])
             QueryLogic.expressions.register(type, (e: Entity) => e.entityNotes!(),
-                { key: "Notes", niceName: () => NoteEntity.nicePluralName() });
+                { niceName: () => NoteEntity.nicePluralName() });
 
         started = true;
     }

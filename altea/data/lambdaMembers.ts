@@ -85,3 +85,31 @@ export interface LambdaMember {
 }
 
 export type MemberType = "Member" | "Mixin" | "Indexer";
+
+/**
+ * The KEY of a registered expression, from its quoted lambda — the tail member of the RAW body (before
+ * @quoted expansion): `a => a.albumCount()` → "AlbumCount", `a => a.address` → "Address". Mirrors
+ * Signum's ReflectionTools.GetMethodInfo / property-name extraction from the un-inlined
+ * MethodCallExpression — PascalCased, because a token key is (see EntityPropertyToken.key), and because
+ * Signum derives its own from a PascalCase C# member.
+ *
+ * Shared by the server's `ExpressionContainer.register` and the client's `Finder.addExpressionSettings`,
+ * so the two name the same expression the same way.
+ */
+export function expressionKeyOf(lambda: Function): string {
+  const q = (lambda as Quoted<Function>).__quoted;
+  if (q == undefined)
+    throw new Error("Extension lambda is not quoted (needs the quote-transformer)");
+  const ex = q(); // ["=>", params, body]
+  return tailMember(ex[2]).firstUpper();
+}
+
+function tailMember(node: unknown): string {
+  if (Array.isArray(node)) {
+    if (node[0] === "()" || node[0] === "?.()")
+      return tailMember(node[1]);        // a call → the member being called
+    if (node[0] === "." || node[0] === "?.")
+      return node[2] as string;          // a property access → its name
+  }
+  throw new Error("Cannot derive an extension key from the lambda body: it must end in a member (a => a.foo or a => a.foo()), named what the token should be called");
+}

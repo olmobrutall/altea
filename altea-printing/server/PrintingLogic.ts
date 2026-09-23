@@ -66,7 +66,7 @@ export namespace PrintingLogic {
         // The package's own line list, so a package's view and the process can both ask for it as a query
         // token.
         QueryLogic.expressions.register(PrintPackageEntity, (p: PrintPackageEntity) => p.lines!(),
-            { key: "Lines", niceName: () => PrintLineEntity.nicePluralName() });
+            { niceName: () => PrintLineEntity.nicePluralName() });
 
         ProcessLogic.registerAction(PrintPackageProcess.PrintPackage, printPackage);
 

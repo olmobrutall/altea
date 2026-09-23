@@ -76,7 +76,7 @@ export namespace UserTicketLogic {
         });
 
         QueryLogic.expressions.register(UserEntity, u => u.userTickets!(),
-            { key: "UserTickets", niceName: () => UserTicketEntity.nicePluralName() });
+            { niceName: () => UserTicketEntity.nicePluralName() });
 
         // Signum wires this two different ways — `UserGraph.OnDeactivated += …` for Deactivate, and a
         // direct `UserTicketLogic.RemoveTickets(u)` inside AutoDeactivate. Both mean "a user who can no

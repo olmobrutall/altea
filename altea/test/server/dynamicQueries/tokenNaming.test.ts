@@ -101,7 +101,7 @@ describe("a polymorphic reference offers casting, and expressions on the declare
     // `AwardEntity` is the abstract base of the three implementations, and declares `Year` / `Category`
     // / `Result`. Registering ONE of them is what tells the two tests below apart.
     QueryLogic.expressions.register(AwardEntity, (a: AwardEntity) => a.category,
-        { key: "Category", niceName: () => "Category" });
+        { niceName: () => "Category" });
 
     test("one AsType token per implementation, plus [EntityType] / HasValue — and the registered expression", () => {
         const keys = award().subTokens(O).filter(t => !t.isAggregate()).map(t => t.key);

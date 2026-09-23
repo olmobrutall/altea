@@ -84,9 +84,9 @@ export namespace ViewLogLogic {
      *  concrete prototype chain. */
     export function registerExpressions<T extends Entity>(type: Type<T>): void {
         QueryLogic.expressions.register(type, (e: Entity) => e.viewLogs!(),
-            { key: "ViewLogs", niceName: () => ViewLogEntity.nicePluralName() });
-        QueryLogic.expressions.register(type, (e: Entity) => e.viewLogMyLast!(),
-            { key: "LastViewLog", niceName: () => ViewLogMessage.ViewLogMyLast.niceToString() });
+            { niceName: () => ViewLogEntity.nicePluralName() });
+        QueryLogic.expressions.register(type, (e: Entity) => e.lastViewLog!(),
+            { niceName: () => ViewLogMessage.ViewLogMyLast.niceToString() });
     }
 
     /**
@@ -173,7 +173,7 @@ Entity.prototype.viewLogs = withQuoted(function (this: Entity): IQuery<ViewLogEn
     return table(ViewLogEntity).filter(log => log.target.is(this));
 });
 
-Entity.prototype.viewLogMyLast = withQuoted(function (this: Entity): IQuery<ViewLogEntity> {
+Entity.prototype.lastViewLog = withQuoted(function (this: Entity): IQuery<ViewLogEntity> {
     return table(ViewLogEntity).filter(log =>
         log.target.is(this) && log.user.is(UserHolder.currentUserLite()));
 });

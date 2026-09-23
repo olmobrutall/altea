@@ -89,8 +89,8 @@ setDefaultDatabaseSchema("notes");
 //
 // It is called `entityNotes`, not `notes`, because an EXTENSION METHOD occupies no name on the type while a
 // prototype member does — and a real entity already has the obvious one (eastwind's EmployeeEntity.notes is
-// Northwind's employee notes column). The query TOKEN is still Signum's "Notes": the registration names it
-// explicitly, so the member's own name never reaches the query surface.
+// Northwind's employee notes column). So the query TOKEN is "EntityNotes", derived from the member like every
+// registered expression's key — a divergence from Signum's "Notes", accepted to keep the key strongly typed.
 declare module "@altea/altea/data/entity" {
     interface Entity {
         entityNotes?(): IQuery<NoteEntity>;

@@ -466,7 +466,7 @@ export namespace OperationLogic {
         // an extension token is resolved by walking the parent token's prototype chain, so every concrete
         // type finds it there (the call altea-sms makes for `SMSOwnerData` on its abstract base).
         QueryLogic.expressions.register(Entity, (e: Entity) => e.operationLogs!(),
-            { key: "OperationLogs", niceName: () => OperationLogEntity.nicePluralName() });
+            { niceName: () => OperationLogEntity.nicePluralName() });
 
         // Signum's `QueryLogic.Expressions.Register((OperationSymbol o) => o.Logs(), OperationMessage.Logs)`
         // — the same history read from the operation's end. The page it hangs off is the one SymbolLogic

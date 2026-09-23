@@ -185,7 +185,7 @@ export namespace SMSLogic {
     // ---- the owner registry + its expression ---------------------------------------------------------
 
     /**
-     * Every type that can be the SUBJECT of an SMS registers itself, which stamps `smsMessages()` on its
+     * Every type that can be the SUBJECT of an SMS registers itself, which stamps `SMSMessages()` on its
      * prototype and registers the sub-token. EXPLICIT rather than a scan, because a TypeScript interface is
      * erased — and an extension token is keyed on a CONSTRUCTOR anyway, so the registration has to be per
      * concrete type (altea-alert's `registerExpressions` makes the same call).
@@ -197,12 +197,12 @@ export namespace SMSLogic {
         // so the member stays declared there rather than on Entity — and the prototype is named as that
         // contract instead of an opaque bag, which is what makes the write below checked.
         const proto = type.prototype as ISMSOwnerEntity;
-        proto.smsMessages = withQuoted(function (this: Entity): IQuery<SMSMessageEntity> {
+        proto.SMSMessages = withQuoted(function (this: Entity): IQuery<SMSMessageEntity> {
             return table(SMSMessageEntity).filter(m => m.referred!.is(this));
         });
 
-        QueryLogic.expressions.register(type, (e: ISMSOwnerEntity) => e.smsMessages!(),
-            { key: "SMSMessages", niceName: () => SMSMessageEntity.nicePluralName() });
+        QueryLogic.expressions.register(type, (e: ISMSOwnerEntity) => e.SMSMessages!(),
+            { niceName: () => SMSMessageEntity.nicePluralName() });
     }
 
     /** The clean names the client's quick link checks against. */

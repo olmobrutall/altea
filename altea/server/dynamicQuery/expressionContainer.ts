@@ -11,6 +11,7 @@ import { ExtensionToken, type ExtensionInfo } from "../../data/dynamicQuery/toke
 import { Meta, CleanMeta } from "./meta";
 import { MetadataVisitor } from "./metadataVisitor";
 import { LocalizableMessage } from "../../data/utils/localization";
+import { expressionKeyOf } from "../../data/lambdaMembers";
 
 // The SERVER-side registration of a cross-entity expression (Signum's ExtensionInfo). Holds the
 // un-serializable bits — the quoted `lambda` and its provenance `meta` — that only the server needs
@@ -58,7 +59,7 @@ export class ExpressionContainer {
         // original method name (`albumCount`) is gone (replaced by its body's tail, e.g. `count`).
         const bound = Expression.fromQuotedLambda(lambda as never, [new ClassType(sourceType)]);
         const body = bound.body;
-        const key = opts?.key ?? deriveKeyFromQuoted(lambda);
+        const key = opts?.key ?? expressionKeyOf(lambda as Function);
         // Fail-fast on a forgotten @quoted. Signum catches this at compile time (the lambda IS the
         // expression tree); here the tail method silently falls through to fromQuoted's residual-call
         // path, which types the body as `null` — a token that then shows up broken (or not at all) on
@@ -178,29 +179,6 @@ export class ExpressionContainer {
     }
 }
 
-// The tail member of the RAW quoted lambda body (before @quoted expansion): `a => a.albumCount()`
-// → "AlbumCount", `a => a.address` → "Address". Mirrors Signum's ReflectionTools.GetMethodInfo /
-// property-name extraction from the un-inlined MethodCallExpression — PascalCased, because a token key
-// is (see EntityPropertyToken.key), and because Signum derives its own from a PascalCase C# member. The
-// explicit `{ key }` registrations across the workspace were already spelled that way.
-function deriveKeyFromQuoted(lambda: unknown): string {
-    const q = (lambda as Quoted<Function>).__quoted;
-    if (q == undefined)
-        throw new Error("Extension lambda is not quoted (needs the quote-transformer); pass { key } explicitly");
-    const ex = q(); // ["=>", params, body]
-    return tailMember(ex[2]).firstUpper();
-}
-
-function tailMember(node: unknown): string {
-    if (Array.isArray(node)) {
-        if (node[0] === "()" || node[0] === "?.()")
-            return tailMember(node[1]);        // a call → the member being called
-        if (node[0] === "." || node[0] === "?.")
-            return node[2] as string;          // a property access → its name
-    }
-    throw new Error("Cannot derive an extension key from the lambda body; pass { key } explicitly");
-}
-
 function autoImplementations(elementType: RuntimeType): Implementations | undefined {
     const ctor = entityCtorOf(toTypeReference(elementType));
     return ctor != undefined ? Implementations.by(ctor) : undefined;
@@ -221,7 +199,11 @@ export function toTypeReference(rt: RuntimeType): TypeReference {
 
 /** What a registration can say beyond the source type and the lambda. */
 export interface ExpressionOptions {
-    /** Only when the derived key would be wrong — it defaults to the lambda's tail member, PascalCased. */
+    /**
+     * TESTS ONLY — for a throwaway lambda with no member worth naming (`e => table(X).filter(…)`). Real
+     * registrations take the key from the lambda's tail member (`expressionKeyOf`), so it stays typed:
+     * name the member what the token should be called.
+     */
     key?: string;
     /** A caption that is not a plain message: a target type's plural, an enum's own name, a format. */
     niceName?: () => string;

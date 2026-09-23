@@ -60,7 +60,7 @@ export namespace CachedQueryLogic {
 
         // Signum's `QueryLogic.Expressions.Register((DashboardEntity db) => db.CachedQueries())`.
         QueryLogic.expressions.register(DashboardEntity, (db: DashboardEntity) => db.cachedQueries!(),
-            { key: "CachedQueries", niceName: () => CachedQueryEntity.nicePluralName() });
+            { niceName: () => CachedQueryEntity.nicePluralName() });
 
         // Signum registers RegenerateCachedQueries inside its DashboardGraph; altea hangs it off the
         // include DashboardLogic already opened — `sb.include` is idempotent, so reaching a type another
