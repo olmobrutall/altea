@@ -94,7 +94,13 @@ export namespace Check {
             return;
         }
 
-        // RemoveLine, in both of its forms.
+        // RemoveLine, in its three forms.
+        if (d.contains != undefined) {
+            if (!lines.some(l => l.includes(d.contains!)))
+                report(module, `${d.path}: no line contains Contains=${JSON.stringify(d.contains)}`);
+            return;
+        }
+
         if (d.line != undefined) {
             if (!lines.some(l => l.includes(d.line!)))
                 report(module, `${d.path}: no line contains Line=${JSON.stringify(d.line)}`);

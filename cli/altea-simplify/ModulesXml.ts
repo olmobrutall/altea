@@ -11,7 +11,7 @@ import { XMLParser, XMLValidator } from "fast-xml-parser";
 
 export type Directive =
     | { kind: "RemoveFiles"; path: string; dependsOn?: string }
-    | { kind: "RemoveLine"; path: string; line?: string; from?: string; to?: string; dependsOn?: string }
+    | { kind: "RemoveLine"; path: string; line?: string; contains?: string; from?: string; to?: string; dependsOn?: string }
     | { kind: "RemoveSpanInLines"; path: string; span: string; dependsOn?: string }
     | { kind: "ReplaceSpanInLines"; path: string; span: string; with: string; dependsOn?: string }
     | { kind: "RemovePackageReference"; name: string; dependsOn?: string }
@@ -137,10 +137,10 @@ function readDirective(module: string, kind: string, d: Record<string, string>):
             return { kind, path: need("Path"), dependsOn };
 
         case "RemoveLine": {
-            const line = d["@Line"], from = d["@From"], to = d["@To"];
-            if (line == undefined && (from == undefined || to == undefined))
-                throw new Error(`[${module}] <RemoveLine> needs either Line, or both From and To.`);
-            return { kind, path: need("Path"), line, from, to, dependsOn };
+            const line = d["@Line"], contains = d["@Contains"], from = d["@From"], to = d["@To"];
+            if (line == undefined && contains == undefined && (from == undefined || to == undefined))
+                throw new Error(`[${module}] <RemoveLine> needs Line, Contains, or both From and To.`);
+            return { kind, path: need("Path"), line, contains, from, to, dependsOn };
         }
 
         case "RemoveSpanInLines":

@@ -210,18 +210,23 @@ export namespace Simplify {
 
     function removeLine(file: ModulesFile, d: Extract<Directive, { kind: "RemoveLine" }>, dryRun: boolean): void {
         edit(file, d.path, dryRun, lines => {
-            if (d.line != undefined) {
-                const wanted = d.line.trim();
+            if (d.line != undefined || d.contains != undefined) {
+                // Line= is whole-line equality; Contains= is every line holding the substring — for a
+                // setting that may appear both live and commented out, like a key across the .env files.
+                const matches = d.line != undefined
+                    ? (l: string) => l.trim() === d.line!.trim()
+                    : (l: string) => l.includes(d.contains!);
+                const what = JSON.stringify(d.line ?? d.contains);
                 const before = lines.length;
                 for (let i = lines.length - 1; i >= 0; i--)
-                    if (lines[i].trim() === wanted)
+                    if (matches(lines[i]))
                         lines.splice(i, 1);
 
                 if (before === lines.length)
-                    return { changed: false, note: `no line equals ${JSON.stringify(d.line)}` };
+                    return { changed: false, note: `no line ${d.line != undefined ? "equals" : "contains"} ${what}` };
 
                 repairTrailingComma(d.path, lines);
-                return { changed: true, note: `removed ${before - lines.length} line(s) ${JSON.stringify(d.line)}` };
+                return { changed: true, note: `removed ${before - lines.length} line(s) ${what}` };
             }
 
             const start = lines.findIndex(l => l.includes(d.from!));
