@@ -4683,9 +4683,8 @@ var Simplify;
     return ModulesXml.closeRemoval(file.modules, removing);
   }
   function applyModule(file, module, removing, dryRun) {
-    for (const d of module.directives) {
-      if (d.dependsOn != void 0 && !removing.has(d.dependsOn) && !removing.has(module.name))
-        continue;
+    const meeting = file.modules.filter((m) => !removing.has(m.name)).flatMap((m) => m.directives.filter((d) => d.dependsOn === module.name));
+    for (const d of [...module.directives, ...meeting]) {
       try {
         applyDirective(file, d, dryRun);
       } catch (e) {

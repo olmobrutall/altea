@@ -170,12 +170,14 @@ export namespace Simplify {
     // ---- applying ----------------------------------------------------------------------------------
 
     function applyModule(file: ModulesFile, module: Module, removing: Set<string>, dryRun: boolean): void {
-        for (const d of module.directives) {
-            // A directive with its own DependsOn exists only because two modules meet: apply it when its
-            // OWN module is removed (always true here) or when the named one is.
-            if (d.dependsOn != undefined && !removing.has(d.dependsOn) && !removing.has(module.name))
-                continue;
+        // A directive with its own DependsOn exists only because two modules meet, so it applies when EITHER
+        // goes: with its own module's directives, and — for a module that is KEPT — here, with the module
+        // it names.
+        const meeting = file.modules
+            .filter(m => !removing.has(m.name))
+            .flatMap(m => m.directives.filter(d => d.dependsOn === module.name));
 
+        for (const d of [...module.directives, ...meeting]) {
             try {
                 applyDirective(file, d, dryRun);
             } catch (e) {
