@@ -32,9 +32,9 @@ try {
         if (args.flags.has("check")) {
             const filePath = ModulesXml.locate(uctx.rootFolder, uctx.applicationName);
             if (filePath == undefined)
-                throw new Error(`No Modules.xml in ${uctx.applicationName}/.`);
+                throw new Error(`No Modules.xml at the root or in ${uctx.applicationName}/.`);
 
-            if (!Check.run(ModulesXml.read(filePath, uctx.rootFolder)))
+            if (!Check.run(ModulesXml.read(filePath, uctx.rootFolder, uctx.applicationName)))
                 process.exit(1);
 
             process.exit(0);

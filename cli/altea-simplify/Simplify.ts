@@ -36,9 +36,9 @@ export namespace Simplify {
     export async function run(uctx: ApplicationContext, options: Options = {}): Promise<void> {
         const filePath = ModulesXml.locate(uctx.rootFolder, uctx.applicationName);
         if (filePath == undefined)
-            throw new Error(`No Modules.xml in ${uctx.applicationName}/ — nothing to simplify.`);
+            throw new Error(`No Modules.xml at the root or in ${uctx.applicationName}/ — nothing to simplify.`);
 
-        const file = ModulesXml.read(filePath, uctx.rootFolder);
+        const file = ModulesXml.read(filePath, uctx.rootFolder, uctx.applicationName);
 
         const removing = options.keep != undefined || options.remove != undefined
             ? fromArguments(file, options)
@@ -298,7 +298,7 @@ export namespace Simplify {
      * every file the module forgot.
      */
     function removePackageReference(file: ModulesFile, name: string, dryRun: boolean): void {
-        const application = path.basename(path.dirname(file.filePath));
+        const application = file.applicationName;
         edit(file, `${application}/package.json`, dryRun, lines => {
             const i = lines.findIndex(l => new RegExp(`^\\s*"${escapeRegex(name)}"\\s*:`).test(l));
             if (i < 0)

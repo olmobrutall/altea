@@ -31,12 +31,14 @@ export interface ModulesFile {
     filePath: string;
     /** The repository root every directive path is relative to. */
     rootFolder: string;
+    /** The application folder under the root — whose package.json and tsconfigs the package directives edit. */
+    applicationName: string;
     modules: Module[];
 }
 
 export namespace ModulesXml {
 
-    export function read(filePath: string, rootFolder: string): ModulesFile {
+    export function read(filePath: string, rootFolder: string, applicationName: string): ModulesFile {
         const xml = fs.readFileSync(filePath, "utf8");
 
         const valid = XMLValidator.validate(xml);
@@ -68,13 +70,16 @@ export namespace ModulesXml {
                 if (!names.has(d))
                     throw new Error(`Module '${m.name}' DependsOn '${d}', which does not exist.`);
 
-        return { filePath, rootFolder, modules };
+        return { filePath, rootFolder, applicationName, modules };
     }
 
-    /** Find the application's Modules.xml — `<root>/<app>/Modules.xml`. */
+    /**
+     * Find the application's Modules.xml: at the repository ROOT (its paths are root-relative, and it spans
+     * the workspace files as well as the application), else the older `<root>/<app>/Modules.xml`.
+     */
     export function locate(rootFolder: string, applicationName: string): string | undefined {
-        const candidate = path.join(rootFolder, applicationName, "Modules.xml");
-        return fs.existsSync(candidate) ? candidate : undefined;
+        return [path.join(rootFolder, "Modules.xml"), path.join(rootFolder, applicationName, "Modules.xml")]
+            .find(candidate => fs.existsSync(candidate));
     }
 
     /**
