@@ -1,0 +1,1294 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = transformerFactory;
+const quoteConverter_1 = require("./quoteConverter");
+const fs = require('fs');
+const path = require('path');
+// dir -> nearest package info (or null when none up the tree). Module-scoped so
+// it persists across every file in a single build process. Keyed per directory;
+// the whole walked chain is memoized on each lookup.
+const packageInfoCache = new Map();
+function findNearestPackage(startDir) {
+    const chain = [];
+    let dir = startDir;
+    while (true) {
+        const cached = packageInfoCache.get(dir);
+        if (cached !== undefined) {
+            for (const d of chain)
+                packageInfoCache.set(d, cached);
+            return cached;
+        }
+        chain.push(dir);
+        let resolved;
+        const pkgPath = path.join(dir, 'package.json');
+        try {
+            if (fs.existsSync(pkgPath)) {
+                const json = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+                // Nearest package.json wins even if it lacks a "name" (→ no location).
+                resolved = typeof json.name === 'string' ? { name: json.name, dir } : null;
+            }
+        }
+        catch {
+            resolved = null;
+        }
+        if (resolved !== undefined) {
+            for (const d of chain)
+                packageInfoCache.set(d, resolved);
+            return resolved;
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir) { // filesystem root, no package.json found
+            for (const d of chain)
+                packageInfoCache.set(d, null);
+            return null;
+        }
+        dir = parent;
+    }
+}
+// Resolves a source file's owning package + path relative to that package
+// (forward slashes, original .ts extension). null when no named package.json is
+// found — callers then omit the location args.
+function resolveSourceLocation(fileName) {
+    if (!fileName)
+        return null;
+    const abs = path.resolve(fileName);
+    const pkg = findNearestPackage(path.dirname(abs));
+    if (pkg == null)
+        return null;
+    const rel = path.relative(pkg.dir, abs).split(path.sep).join('/');
+    return { packageName: pkg.name, fileName: rel };
+}
+/** Changes string literal 'before' to 'after' */
+function transformerFactory(program, pluginConfig, { ts, addDiagnostic }) {
+    function isQuoteOfT(type) {
+        return type.aliasSymbol?.name == "Quoted" && type.aliasTypeArguments?.length == 1;
+    }
+    function isQuotedLikeType(type) {
+        // A union counts as quoted-like if ANY constituent is (e.g. `Quoted<...> | string` — the type of an
+        // optional `EntityTableColumn.property` / an overloaded param). An arrow can only ever satisfy the
+        // Quoted member, so rewriting it is correct; a non-arrow (string) is never visited here anyway.
+        if (type.isUnion())
+            return type.types.some(isQuotedLikeType);
+        if (isQuoteOfT(type))
+            return true;
+        const quotedProperty = type.getProperty("__quoted");
+        return quotedProperty != null;
+    }
+    // The target of `x = a => a.b`. Uses isQuotedLikeType (not the bare isQuoteOfT) so that an OPTIONAL
+    // quoted member counts: `GetState?: Quoted<(e: T) => S>` has the declared type
+    // `Quoted<…> | undefined`, a UNION that isQuoteOfT rejects — which silently left every
+    // `g.GetState = o => o.state` unstamped. The other branches of assignedToQuoteOfT already used the
+    // union-aware predicate; this one did not.
+    function isQuoteTypedLValue(node, typeChecker) {
+        const symbol = typeChecker.getSymbolAtLocation(node);
+        if (symbol?.declarations != null) {
+            for (const declaration of symbol.declarations) {
+                if ((ts.isVariableDeclaration(declaration) ||
+                    ts.isPropertyDeclaration(declaration) ||
+                    ts.isParameter(declaration) ||
+                    ts.isPropertySignature(declaration)) &&
+                    declaration.type != null) {
+                    const declaredType = typeChecker.getTypeFromTypeNode(declaration.type);
+                    if (isQuotedLikeType(declaredType))
+                        return true;
+                }
+            }
+        }
+        return isQuotedLikeType(typeChecker.getTypeAtLocation(node));
+    }
+    function assignedToQuoteOfT(node, typeChecker) {
+        if (node.parent == null)
+            return false;
+        if (ts.isCallExpression(node.parent)) {
+            var index = node.parent.arguments.indexOf(node);
+            if (index == -1)
+                return false;
+            var signature = typeChecker.getResolvedSignature(node.parent);
+            if (signature == null)
+                return false;
+            var paramType = signature.getTypeParameterAtPosition(index);
+            if (isQuotedLikeType(paramType))
+                return true;
+            const signatureDeclaration = signature.getDeclaration();
+            const parameterDeclaration = signatureDeclaration?.parameters?.[index];
+            if (parameterDeclaration?.type != null) {
+                const declaredParamType = typeChecker.getTypeFromTypeNode(parameterDeclaration.type);
+                if (isQuotedLikeType(declaredParamType))
+                    return true;
+            }
+            return false;
+        }
+        if (ts.isBinaryExpression(node.parent) &&
+            node.parent.operatorToken.kind == ts.SyntaxKind.EqualsToken &&
+            node.parent.right === node) {
+            return isQuoteTypedLValue(node.parent.left, typeChecker);
+        }
+        if (ts.isVariableDeclaration(node.parent) && node.parent.initializer === node) {
+            const declaredType = node.parent.type != null
+                ? typeChecker.getTypeFromTypeNode(node.parent.type)
+                : typeChecker.getTypeAtLocation(node.parent.name);
+            return isQuotedLikeType(declaredType);
+        }
+        if (ts.isPropertyDeclaration(node.parent) && node.parent.initializer === node && node.parent.type != null) {
+            const declaredType = typeChecker.getTypeFromTypeNode(node.parent.type);
+            return isQuotedLikeType(declaredType);
+        }
+        // A lambda assigned to a property inside an OBJECT LITERAL — e.g. an EntityTable column
+        // `{ property: a => a.key }`, where `property: Quoted<(a: R) => unknown> | string`. The expected
+        // type comes from the object literal's contextual type (the surrounding array / prop / param), so
+        // we read the lambda's contextual type directly rather than a local declaration.
+        if (ts.isPropertyAssignment(node.parent) && node.parent.initializer === node) {
+            const contextualType = typeChecker.getContextualType(node);
+            return contextualType != null && isQuotedLikeType(contextualType);
+        }
+        return false;
+    }
+    const typeChecker = program.getTypeChecker();
+    const quoteExpression = (0, quoteConverter_1.getQuoteConverter)(ts, typeChecker);
+    const printer = ts.createPrinter();
+    let generatedExParam = false;
+    let needsFieldImport = false;
+    // Source names of top-level @reflect/@entity classes in the
+    // current file; each gets an explicit registerType(Class, "Class") appended so
+    // name-based type resolution survives bundling (see registerType).
+    let registerNames = [];
+    // Names of module-level const objects whose msg() members were transformed;
+    // each gets a registerObject(Name, "Name", __fileInfo) appended.
+    let registerObjectNames = [];
+    // Set when __fileInfo is referenced (so we declare/import it even when there are
+    // no appended registrations — e.g. only a hand-written registerEnum call).
+    let usedFileInfo = false;
+    // Top-level enum declarations in this file, and enum type names referenced by a
+    // reflected @field. Their intersection is auto-registered (same-file enums);
+    // cross-file enums must be registered by hand.
+    let declaredEnumNames = new Set();
+    let referencedEnumNames = new Set();
+    function addQuoteError(sourceFile, quote) {
+        addDiagnostic({
+            category: ts.DiagnosticCategory.Error,
+            code: 9876,
+            file: sourceFile,
+            start: quote.node.getStart(),
+            length: quote.node.getFullWidth(),
+            messageText: quote.message
+        });
+    }
+    function addNodeError(sourceFile, node, messageText) {
+        addDiagnostic({
+            category: ts.DiagnosticCategory.Error,
+            code: 9876,
+            file: sourceFile,
+            start: node.getStart(),
+            length: node.getFullWidth(),
+            messageText,
+        });
+    }
+    function ensureQuotedImportHasExParam(sourceFile) {
+        const quotedModule = "quote-transformer/quoted";
+        function noImportPhaseModifier() {
+            return undefined;
+        }
+        function hasExParamNamedImport(named) {
+            return named.elements.some(e => {
+                const imported = e.propertyName?.text ?? e.name.text;
+                return imported == "ExParam";
+            });
+        }
+        function createExParamImportSpecifier() {
+            return ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier("ExParam"));
+        }
+        for (let i = 0; i < sourceFile.statements.length; i++) {
+            const statement = sourceFile.statements[i];
+            if (!ts.isImportDeclaration(statement))
+                continue;
+            if (!ts.isStringLiteral(statement.moduleSpecifier) || statement.moduleSpecifier.text != quotedModule)
+                continue;
+            const importClause = statement.importClause;
+            if (importClause?.namedBindings && ts.isNamedImports(importClause.namedBindings)) {
+                if (hasExParamNamedImport(importClause.namedBindings))
+                    return sourceFile;
+                const updatedNamedImports = ts.factory.updateNamedImports(importClause.namedBindings, [
+                    ...importClause.namedBindings.elements,
+                    createExParamImportSpecifier(),
+                ]);
+                const updatedClause = ts.factory.updateImportClause(importClause, importClause.phaseModifier, importClause.name, updatedNamedImports);
+                const updatedImport = ts.factory.updateImportDeclaration(statement, statement.modifiers, updatedClause, statement.moduleSpecifier, statement.attributes);
+                const updatedStatements = [...sourceFile.statements];
+                updatedStatements[i] = updatedImport;
+                return ts.factory.updateSourceFile(sourceFile, updatedStatements);
+            }
+            const exParamImport = ts.factory.createImportDeclaration(undefined, ts.factory.createImportClause(noImportPhaseModifier(), undefined, ts.factory.createNamedImports([createExParamImportSpecifier()])), ts.factory.createStringLiteral(quotedModule));
+            const updatedStatements = [...sourceFile.statements];
+            updatedStatements.splice(i + 1, 0, exParamImport);
+            return ts.factory.updateSourceFile(sourceFile, updatedStatements);
+        }
+        const exParamImport = ts.factory.createImportDeclaration(undefined, ts.factory.createImportClause(noImportPhaseModifier(), undefined, ts.factory.createNamedImports([createExParamImportSpecifier()])), ts.factory.createStringLiteral(quotedModule));
+        return ts.factory.updateSourceFile(sourceFile, [exParamImport, ...sourceFile.statements]);
+    }
+    function isMsgCall(node) {
+        if (!ts.isIdentifier(node.expression) || node.expression.text !== 'msg')
+            return false;
+        if (node.arguments.length === 0)
+            return true;
+        if (node.arguments.length === 1 && ts.isStringLiteral(node.arguments[0]))
+            return true;
+        return false;
+    }
+    function transformMsgCall(call, memberName, moduleName) {
+        const firstArg = call.arguments.length === 0
+            ? ts.factory.createIdentifier('undefined')
+            : call.arguments[0];
+        return ts.factory.updateCallExpression(call, call.expression, call.typeArguments, [firstArg, ts.factory.createStringLiteral(memberName), ts.factory.createStringLiteral(moduleName)]);
+    }
+    // A developer `init()` / `init({ … })` (the symbol-declaration marker). Only the bare form or a
+    // single options object literal is rewritten — an already-augmented `init(SymbolClass, "key", …)`
+    // (first arg an identifier) is left untouched.
+    function isInitCall(node) {
+        if (!ts.isIdentifier(node.expression) || node.expression.text !== 'init')
+            return false;
+        if (node.arguments.length === 0)
+            return true;
+        return node.arguments.length === 1 && ts.isObjectLiteralExpression(node.arguments[0]);
+    }
+    // Rewrites `init()` → `init(<SymbolClass>, "<key>", __fileInfo)` and `init({ … })` →
+    // `init(<SymbolClass>, "<key>", __fileInfo, { … })` — passing the concrete Symbol entity
+    // CONSTRUCTOR as a value (not a string kind), so init just `new`s it. The __fileInfo arg is omitted
+    // when the file has no resolvable package; when options are present but __fileInfo is not, `undefined`
+    // holds its slot so the options stay the 4th positional argument.
+    function transformInitCall(call, symbolClass, key, loc) {
+        const optionsArg = call.arguments.length === 1 ? call.arguments[0] : null;
+        const args = [
+            ts.factory.createIdentifier(symbolClass),
+            ts.factory.createStringLiteral(key),
+        ];
+        if (loc != null) {
+            usedFileInfo = true;
+            args.push(ts.factory.createIdentifier(FILE_INFO_LOCAL));
+        }
+        else if (optionsArg != null) {
+            args.push(ts.factory.createIdentifier('undefined'));
+        }
+        if (optionsArg != null)
+            args.push(optionsArg);
+        return ts.factory.updateCallExpression(call, call.expression, call.typeArguments, args);
+    }
+    // The concrete Symbol entity class name for an `init()` from its declared container
+    // type: base-walk to the class/interface directly extending `Symbol`
+    // (ExecuteSymbol<E> / ConstructSymbol<E,…> → "OperationSymbol"; TypeConditionSymbol →
+    // itself). That class is emitted as the value reference passed to init(). null when the
+    // type does not descend from a `Symbol` base. Walks declaration heritage clauses (not
+    // getBaseTypes) so it is robust to generic instantiations like ExecuteSymbol<E>.
+    function deriveSymbolClassName(typeNode) {
+        let sym;
+        try {
+            sym = typeChecker.getTypeFromTypeNode(typeNode).getSymbol();
+        }
+        catch {
+            return null;
+        }
+        return sym == null ? null : findSymbolClass(sym, new Set());
+    }
+    function findSymbolClass(sym, seen) {
+        if (seen.has(sym))
+            return null;
+        seen.add(sym);
+        const name = sym.getName();
+        for (const decl of sym.getDeclarations() ?? []) {
+            if (!ts.isInterfaceDeclaration(decl) && !ts.isClassDeclaration(decl))
+                continue;
+            for (const heritage of decl.heritageClauses ?? []) {
+                if (heritage.token !== ts.SyntaxKind.ExtendsKeyword)
+                    continue;
+                for (const baseExpr of heritage.types) {
+                    const baseName = cleanTypeName(exprToEntityName(baseExpr.expression));
+                    // SemiSymbol is Symbol's sibling, not its subclass (it derives from Entity, because its `key` is
+                    // nullable — see data/semiSymbol), so the walk has to recognise BOTH roots or a code-declared
+                    // SemiSymbol could never be written: `init()` would be rejected on it.
+                    if (baseName === 'Symbol' || baseName === 'SemiSymbol')
+                        return name; // the class directly extending one of them (e.g. OperationSymbol, NoteTypeSymbol)
+                    let baseSym = typeChecker.getSymbolAtLocation(baseExpr.expression)
+                        ?? typeChecker.getTypeAtLocation(baseExpr).getSymbol();
+                    if (baseSym != null && (baseSym.flags & ts.SymbolFlags.Alias) !== 0) {
+                        try {
+                            baseSym = typeChecker.getAliasedSymbol(baseSym);
+                        }
+                        catch { /* keep alias */ }
+                    }
+                    if (baseSym != null) {
+                        const deeper = findSymbolClass(baseSym, seen);
+                        if (deeper != null)
+                            return deeper;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+    // The module specifier the declared Symbol type was imported from (e.g.
+    // "@altea/altea/data/operations" for `ConstructSymbol` or `Operations.ConstructSymbol`).
+    // Used to emit a side-effect import so the entity module's registerSymbolKind runs.
+    function symbolModuleSpecifier(typeNode) {
+        if (!ts.isTypeReferenceNode(typeNode))
+            return null;
+        // Bare `ConstructSymbol` → resolve the identifier's import; qualified
+        // `Operations.ConstructSymbol` → resolve the `Operations` namespace import.
+        const target = ts.isQualifiedName(typeNode.typeName) ? typeNode.typeName.left : typeNode.typeName;
+        const ref = ts.isQualifiedName(target) ? target.right : target;
+        const sym = typeChecker.getSymbolAtLocation(ref);
+        for (const decl of sym?.declarations ?? []) {
+            if (ts.isImportSpecifier(decl)) {
+                const importDecl = decl.parent.parent.parent; // ImportSpecifier→NamedImports→ImportClause→ImportDeclaration
+                if (ts.isImportDeclaration(importDecl) && ts.isStringLiteral(importDecl.moduleSpecifier))
+                    return importDecl.moduleSpecifier.text;
+            }
+            else if (ts.isNamespaceImport(decl)) {
+                const importDecl = decl.parent.parent; // NamespaceImport→ImportClause→ImportDeclaration
+                if (ts.isImportDeclaration(importDecl) && ts.isStringLiteral(importDecl.moduleSpecifier))
+                    return importDecl.moduleSpecifier.text;
+            }
+        }
+        return null;
+    }
+    // Prepends `import { <name> } from "<spec>";` unless a value (non-type-only) binding of
+    // <name> from <spec> already exists — so init(<name>, …) has the Symbol constructor in
+    // scope even when the file otherwise only `import type`s from that module.
+    function ensureNamedValueImport(sourceFile, name, spec) {
+        const alreadyValue = sourceFile.statements.some(s => {
+            if (!ts.isImportDeclaration(s) || !ts.isStringLiteral(s.moduleSpecifier) || s.moduleSpecifier.text !== spec)
+                return false;
+            const clause = s.importClause;
+            if (clause == null || clause.isTypeOnly)
+                return false;
+            const nb = clause.namedBindings;
+            return nb != null && ts.isNamedImports(nb) && nb.elements.some(e => e.name.text === name && !e.isTypeOnly);
+        });
+        if (alreadyValue)
+            return sourceFile;
+        const imp = ts.factory.createImportDeclaration(undefined, ts.factory.createImportClause(false, undefined, ts.factory.createNamedImports([
+            ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier(name)),
+        ])), ts.factory.createStringLiteral(spec));
+        return ts.factory.updateSourceFile(sourceFile, [imp, ...sourceFile.statements]);
+    }
+    // The rightmost identifier of an `extends X` / `extends A.B` expression, as an
+    // EntityName for cleanTypeName. Returns undefined for exotic expressions.
+    function exprToEntityName(expr) {
+        if (ts.isIdentifier(expr))
+            return expr;
+        if (ts.isPropertyAccessExpression(expr) && ts.isIdentifier(expr.name))
+            return expr.name;
+        return ts.factory.createIdentifier(""); // no match → cleanTypeName yields ""
+    }
+    function isWithQuotedCall(node) {
+        return ts.isIdentifier(node.expression) && node.expression.text == "withQuoted";
+    }
+    function isQuotedDecoratorNoArgs(modifier) {
+        return ts.isDecorator(modifier) && ((ts.isCallExpression(modifier.expression) && ts.isIdentifier(modifier.expression.expression) && modifier.expression.expression.text == "quoted" && modifier.expression.arguments.length == 0) ||
+            (ts.isIdentifier(modifier.expression) && modifier.expression.text == "quoted"));
+    }
+    // The author writing the expression OUT, because the body diverges from it: SQL is null-tolerant and
+    // JavaScript arithmetic is not, so an in-memory implementation often needs guards the translated formula
+    // must not carry. `@quoted(<lambda>)` and `withQuoted(fn, <lambda>)` are the two places it can appear.
+    //
+    // A FUNCTION EXPRESSION, or an arrow WITH parameters. The zero-parameter arrow is deliberately excluded:
+    // it is the shape this transformer emits (`() => (<ExLambda>)`), so admitting it would make the pass
+    // non-idempotent — and it says nothing anyway, having no entity to reference. Write `function () { … }`
+    // for the rare expression over constants alone.
+    function isExplicitQuotedLambda(node) {
+        return ts.isFunctionExpression(node) || (ts.isArrowFunction(node) && node.parameters.length > 0);
+    }
+    // The lambda of a `@quoted(<lambda>)` decorator, or undefined for the bare form / the emitted thunk.
+    function quotedDecoratorLambda(modifier) {
+        if (!ts.isDecorator(modifier))
+            return undefined;
+        if (!ts.isCallExpression(modifier.expression))
+            return undefined;
+        if (!ts.isIdentifier(modifier.expression.expression) || modifier.expression.expression.text != "quoted")
+            return undefined;
+        if (modifier.expression.arguments.length != 1)
+            return undefined;
+        const first = modifier.expression.arguments[0];
+        return isExplicitQuotedLambda(first) ? first : undefined;
+    }
+    function isFieldDecorator(modifier) {
+        if (!ts.isDecorator(modifier))
+            return false;
+        if (ts.isIdentifier(modifier.expression) && modifier.expression.text == "field")
+            return true;
+        if (ts.isCallExpression(modifier.expression) && ts.isIdentifier(modifier.expression.expression) && modifier.expression.expression.text == "field") {
+            const args = modifier.expression.arguments;
+            return !(args.length === 1 && args[0].kind === ts.SyntaxKind.FalseKeyword);
+        }
+        return false;
+    }
+    function isFieldFalseDecorator(modifier) {
+        if (!ts.isDecorator(modifier))
+            return false;
+        if (!ts.isCallExpression(modifier.expression))
+            return false;
+        if (!ts.isIdentifier(modifier.expression.expression) || modifier.expression.expression.text !== "field")
+            return false;
+        const args = modifier.expression.arguments;
+        return args.length === 1 && args[0].kind === ts.SyntaxKind.FalseKeyword;
+    }
+    // Auto @field injection is triggered by @reflect (a generic, ORM-agnostic
+    // marker in ./reflection) and by the entity decorators @entity / @part, so it
+    // applies to entities, part entities, models, DTOs, views, etc.
+    // @part is `@entity("Part")` with the kind spelled as the decorator name — by far the
+    // most-declared kind — so the transformer has to know BOTH names or a part class silently
+    // gets no @field injection at all and is invisible to reflection.
+    const FIELD_INJECTING_DECORATORS = new Set(["reflect", "entity", "part"]);
+    function hasReflectionDecorator(node) {
+        return decoratorNames(node).some(n => FIELD_INJECTING_DECORATORS.has(n));
+    }
+    // The name of each decorator on the class, bare (`@part`) or called (`@entity(...)`) alike.
+    function decoratorNames(node) {
+        const names = [];
+        for (const m of node.modifiers ?? []) {
+            if (!ts.isDecorator(m))
+                continue;
+            const e = m.expression;
+            if (ts.isIdentifier(e))
+                names.push(e.text);
+            else if (ts.isCallExpression(e) && ts.isIdentifier(e.expression))
+                names.push(e.expression.text);
+        }
+        return names;
+    }
+    // @reflect, @entity and @part are three spellings of ONE registration: @entity and @part both route
+    // through defineEntity, which does the same getOrCreateTypeInfo + registerType that @reflect does, and
+    // this transformer injects @field for all three names alike. A class carrying two of them says the same
+    // thing twice, and the pair invites the reading that one of them contributes something the others do
+    // not. Exactly one, then — rejected here rather than left to drift into rival spellings in the source.
+    function assertSingleReflectionDecorator(node, sourceFile) {
+        const found = decoratorNames(node).filter(n => FIELD_INJECTING_DECORATORS.has(n));
+        if (found.length < 2)
+            return;
+        const list = found.map(n => `@${n}`);
+        throw new Error(`${sourceFile.fileName}: class ${node.name?.text ?? "(anonymous)"} carries ` +
+            `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}. @reflect, @entity and @part are three ` +
+            `spellings of the same registration — a class declares exactly ONE: @entity or @part for a persistent ` +
+            `entity, @reflect for a class that is reflected but not persisted (the abstract Entity base, models, DTOs, views).`);
+    }
+    function hasThisReference(node) {
+        let found = false;
+        const walk = (n) => {
+            if (found)
+                return;
+            if (ts.isThisTypeNode(n) || n.kind == ts.SyntaxKind.ThisKeyword) {
+                found = true;
+                return;
+            }
+            ts.forEachChild(n, walk);
+        };
+        walk(node);
+        return found;
+    }
+    function createQuotedArg(quote) {
+        // No return-type annotation: the post-transform AST is emitted to JS, never
+        // re-type-checked, so the `: ExLambda` annotation (and the ExParam import it
+        // would drag in) are pure dead weight that ESM bundlers choke on.
+        return ts.factory.createArrowFunction(undefined, undefined, [], undefined, ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken), quote);
+    }
+    // Quotes the lambda a `withQuoted(...)` / `@quoted(...)` was handed and returns the
+    // `() => <ExLambda>` thunk, or undefined when it could not be quoted (the error is already reported).
+    //
+    // Two shapes, and the second is the one that matters for a member of a class: an ARROW cannot declare a
+    // `this` parameter, so an expression written in terms of `this` has to be a function expression with a
+    // block body of exactly one `return` — which is also what makes it read the same as the method it stands
+    // for. `what` only names the caller in the diagnostics.
+    function quoteLambdaArgument(first, sourceFile, what) {
+        if (ts.isArrowFunction(first)) {
+            const quote = quoteExpression(first, []);
+            if (quote instanceof quoteConverter_1.QuoteError) {
+                addQuoteError(sourceFile, quote);
+                return undefined;
+            }
+            return createQuotedArg(quote);
+        }
+        if (!ts.isFunctionExpression(first)) {
+            addNodeError(sourceFile, first, what + " expects a lambda or function expression");
+            return undefined;
+        }
+        if (!ts.isBlock(first.body)) {
+            addNodeError(sourceFile, first.body, what + " function expression must have a block body with exactly one return statement");
+            return undefined;
+        }
+        const returnStatements = first.body.statements.filter(s => ts.isReturnStatement(s));
+        if (first.body.statements.length != 1 || returnStatements.length != 1 || returnStatements[0].expression == null) {
+            addNodeError(sourceFile, first.body, what + " function expression must have exactly one return statement");
+            return undefined;
+        }
+        const thisParams = first.parameters.filter(p => ts.isIdentifier(p.name) && p.name.text == "this");
+        if (thisParams.length > 1) {
+            addNodeError(sourceFile, first, what + " function expression can declare at most one this parameter");
+            return undefined;
+        }
+        const declaredThis = thisParams.length == 1;
+        const usesThis = hasThisReference(first.body);
+        if (usesThis && !declaredThis) {
+            addNodeError(sourceFile, first, what + " function expression uses this but does not declare a this parameter");
+            return undefined;
+        }
+        const parameters = first.parameters.filter(p => !(ts.isIdentifier(p.name) && p.name.text == "this"));
+        const syntheticArrow = ts.factory.createArrowFunction(undefined, undefined, parameters, undefined, ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken), returnStatements[0].expression);
+        const quote = quoteExpression(syntheticArrow, [], declaredThis);
+        if (quote instanceof quoteConverter_1.QuoteError) {
+            addQuoteError(sourceFile, quote);
+            return undefined;
+        }
+        return createQuotedArg(quote);
+    }
+    // `withQuoted(fn)` quotes fn itself; `withQuoted(fn, <lambda>)` quotes the LAMBDA instead and leaves fn
+    // alone — the prototype-member counterpart of `@quoted(<lambda>)`, for a registered expression whose
+    // runtime body has to guard against nulls SQL handles by itself. Either way what is EMITTED is the
+    // `() => <ExLambda>` thunk in the second argument, so the runtime `withQuoted` is unchanged.
+    function transformWithQuotedCall(node, sourceFile) {
+        if (!isWithQuotedCall(node))
+            return node;
+        const explicit = node.arguments.length == 2 && isExplicitQuotedLambda(node.arguments[1]);
+        if (!explicit && node.arguments.length != 1)
+            return node;
+        const first = node.arguments[0];
+        const quotedArg = quoteLambdaArgument(explicit ? node.arguments[1] : first, sourceFile, "withQuoted");
+        if (quotedArg == undefined)
+            return node;
+        return ts.factory.updateCallExpression(node, node.expression, node.typeArguments, [first, quotedArg]);
+    }
+    function methodSingleReturnExpression(node) {
+        if (node.body == null)
+            return null;
+        const statements = node.body.statements;
+        const returnStatements = statements.filter(s => ts.isReturnStatement(s));
+        if (statements.length != 1 || returnStatements.length != 1 || returnStatements[0].expression == null)
+            return null;
+        return returnStatements[0].expression;
+    }
+    function transformQuotedMethod(node, sourceFile) {
+        const explicit = node.modifiers?.map(quotedDecoratorLambda).find(l => l != undefined);
+        const bare = node.modifiers?.some(isQuotedDecoratorNoArgs) ?? false;
+        if (!bare && explicit == undefined)
+            return node;
+        // `@quoted(<lambda>)` says the expression outright, so the BODY is free to diverge from it — which is
+        // the point: it may guard against the nulls SQL handles by itself. `@quoted` bare quotes the body,
+        // and then the body has to BE the expression (one return statement).
+        let quotedArg;
+        if (explicit != undefined) {
+            quotedArg = quoteLambdaArgument(explicit, sourceFile, "@quoted");
+            if (quotedArg == undefined)
+                return node;
+        }
+        else {
+            const returnExpression = methodSingleReturnExpression(node);
+            if (returnExpression == null) {
+                addNodeError(sourceFile, node, "@quoted methods must have exactly one return statement");
+                return node;
+            }
+            const isStatic = node.modifiers?.some(m => m.kind == ts.SyntaxKind.StaticKeyword) ?? false;
+            const syntheticArrow = ts.factory.createArrowFunction(undefined, undefined, node.parameters, undefined, ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken), returnExpression);
+            const quote = quoteExpression(syntheticArrow, [], !isStatic);
+            if (quote instanceof quoteConverter_1.QuoteError) {
+                addQuoteError(sourceFile, quote);
+                return node;
+            }
+            quotedArg = createQuotedArg(quote);
+        }
+        const modifiers = node.modifiers.map(m => {
+            if (!ts.isDecorator(m))
+                return m;
+            if (ts.isCallExpression(m.expression) && ts.isIdentifier(m.expression.expression) && m.expression.expression.text == "quoted" &&
+                (m.expression.arguments.length == 0 || quotedDecoratorLambda(m) != undefined)) {
+                return ts.factory.createDecorator(ts.factory.createCallExpression(m.expression.expression, undefined, [quotedArg]));
+            }
+            if (ts.isIdentifier(m.expression) && m.expression.text == "quoted") {
+                return ts.factory.createDecorator(ts.factory.createCallExpression(m.expression, undefined, [quotedArg]));
+            }
+            return m;
+        });
+        return ts.factory.updateMethodDeclaration(node, modifiers, node.asteriskToken, node.name, node.questionToken, node.typeParameters, node.parameters, node.type, node.body);
+    }
+    // The reflection module, by specifier: './reflection', '../data/reflection', '@altea/altea/data/reflection', …
+    // It exports 'field' and the register* functions, so any value import from it can carry an injected one.
+    const REFLECTION_MODULE = /(^|\/)reflection$/;
+    // Adds 'field' to whatever import already pulls from the reflection module, which is where 'field'
+    // lives — so field auto-injection works for any reflective class (entities, parts, models, DTOs, views).
+    function ensureFieldImport(sourceFile) {
+        // If 'field' is already imported anywhere, nothing to do
+        const hasFieldImport = sourceFile.statements.some(stmt => {
+            if (!ts.isImportDeclaration(stmt))
+                return false;
+            const nb = stmt.importClause?.namedBindings;
+            return nb != null && ts.isNamedImports(nb) && nb.elements.some(e => e.name.text === 'field');
+        });
+        if (hasFieldImport)
+            return sourceFile;
+        // Add 'field' to whatever import already pulls from the REFLECTION MODULE, which is where 'field'
+        // lives. The anchor is the module specifier, not any particular binding: it used to be the 'reflect'
+        // import, but @entity / @part classes have no reason to import 'reflect' at all (it is redundant
+        // beside them — see assertSingleReflectionDecorator), and such a file would have had nothing to anchor on.
+        // A type-only import is skipped: it cannot carry a value binding.
+        let patched = false;
+        const newStatements = sourceFile.statements.map(stmt => {
+            if (patched || !ts.isImportDeclaration(stmt))
+                return stmt;
+            if (!ts.isStringLiteral(stmt.moduleSpecifier) || !REFLECTION_MODULE.test(stmt.moduleSpecifier.text))
+                return stmt;
+            if (stmt.importClause?.isTypeOnly)
+                return stmt;
+            const nb = stmt.importClause?.namedBindings;
+            if (nb == null || !ts.isNamedImports(nb))
+                return stmt;
+            patched = true;
+            const newEl = ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier('field'));
+            const newNb = ts.factory.updateNamedImports(nb, [...nb.elements, newEl]);
+            const clause = stmt.importClause;
+            const newClause = ts.factory.updateImportClause(clause, clause.phaseModifier, clause.name, newNb);
+            return ts.factory.updateImportDeclaration(stmt, stmt.modifiers, newClause, stmt.moduleSpecifier, stmt.attributes);
+        });
+        // A reflected class gets `field(...)` injected, and with no import from the reflection module there is
+        // nothing to anchor on — the emit would reference a binding that does not exist. tsc sees nothing
+        // wrong (the call was injected after checking), so the first sign is `ReferenceError: field is not
+        // defined` when the module is loaded, which points at the wrong thing entirely. Fail HERE instead,
+        // unless the file declares its own `field` (which is how the transformer's own fixtures supply one).
+        if (!patched && !declaresOwnField(sourceFile))
+            throw new Error(`${sourceFile.fileName}: the quote-transformer injected field(...) but the file has no value import ` +
+                `from the reflection module to anchor the 'field' import on, so the emitted JS would reference an ` +
+                `undefined binding. Import 'field' from the reflection module.`);
+        return ts.factory.updateSourceFile(sourceFile, newStatements);
+    }
+    // A top-level `function field`, `declare function field` or `const field = …` in this very file, which
+    // makes the injected call resolve without any import.
+    function declaresOwnField(sourceFile) {
+        return sourceFile.statements.some(stmt => {
+            if (ts.isFunctionDeclaration(stmt))
+                return stmt.name?.text === 'field';
+            if (ts.isVariableStatement(stmt))
+                return stmt.declarationList.declarations.some(d => ts.isIdentifier(d.name) && d.name.text === 'field');
+            return false;
+        });
+    }
+    const FILE_INFO_LOCAL = "__fileInfo";
+    // Adds `importName` to the first existing import that brings in any of `anchors`, or that comes from a
+    // module whose specifier matches `moduleAnchor` (no-op if already imported, or if neither is present).
+    // Piggybacking on an existing import means the transformer never needs to know the module path:
+    // reflect / register* come from reflection, msg from localization — all of which
+    // export the register* functions (localization re-exports them from the leaf).
+    //
+    // The specifier anchor is what makes an @entity / @part file work: such a file has no reason to import
+    // 'reflect' (redundant beside them — see assertSingleReflectionDecorator), so a name-only anchor would find
+    // nothing and silently skip the import, leaving the emitted registerType(...) call undefined.
+    function ensureImported(sourceFile, importName, anchors, moduleAnchor) {
+        const already = sourceFile.statements.some(stmt => {
+            if (!ts.isImportDeclaration(stmt))
+                return false;
+            const nb = stmt.importClause?.namedBindings;
+            return nb != null && ts.isNamedImports(nb) && nb.elements.some(e => e.name.text === importName);
+        });
+        if (already)
+            return sourceFile;
+        let patched = false;
+        const newStatements = sourceFile.statements.map(stmt => {
+            if (patched || !ts.isImportDeclaration(stmt))
+                return stmt;
+            if (stmt.importClause?.isTypeOnly)
+                return stmt;
+            const nb = stmt.importClause?.namedBindings;
+            if (nb == null || !ts.isNamedImports(nb))
+                return stmt;
+            const bySpecifier = moduleAnchor != null && ts.isStringLiteral(stmt.moduleSpecifier)
+                && moduleAnchor.test(stmt.moduleSpecifier.text);
+            if (!bySpecifier && !nb.elements.some(e => anchors.has(e.name.text)))
+                return stmt;
+            patched = true;
+            const newEl = ts.factory.createImportSpecifier(false, undefined, ts.factory.createIdentifier(importName));
+            const newNb = ts.factory.updateNamedImports(nb, [...nb.elements, newEl]);
+            const clause = stmt.importClause;
+            const newClause = ts.factory.updateImportClause(clause, clause.phaseModifier, clause.name, newNb);
+            return ts.factory.updateImportDeclaration(stmt, stmt.modifiers, newClause, stmt.moduleSpecifier, stmt.attributes);
+        });
+        return patched ? ts.factory.updateSourceFile(sourceFile, newStatements) : sourceFile;
+    }
+    const REFLECT_ANCHOR = new Set(["reflect"]);
+    const OBJECT_ANCHOR = new Set(["msg", "reflect"]);
+    // Augments a hand-written registerEnum(X) / registerObject(X) call: injects the
+    // bundler-proof name literal (from the identifier arg) and, when a location is
+    // resolved, the per-file __fileInfo object. Idempotent — a call that already
+    // carries extra args is left untouched. Stays a free function call so it can be
+    // written by hand (for enums/objects declared in another file).
+    const LOCATION_REGISTRATION_CALLS = new Set(["registerEnum", "registerObject"]);
+    function augmentRegistrationCall(node, loc) {
+        if (!ts.isIdentifier(node.expression) || !LOCATION_REGISTRATION_CALLS.has(node.expression.text))
+            return node;
+        if (node.arguments.length !== 1)
+            return node; // already augmented (or an unexpected shape) — don't touch
+        const first = node.arguments[0];
+        if (!ts.isIdentifier(first))
+            return node; // need an identifier to derive the "Name" literal
+        const args = [first, ts.factory.createStringLiteral(first.text)];
+        if (loc != null) {
+            usedFileInfo = true;
+            args.push(ts.factory.createIdentifier(FILE_INFO_LOCAL));
+        }
+        return ts.factory.updateCallExpression(node, node.expression, node.typeArguments, args);
+    }
+    // Augments a package/folder-default call — setDefaultCulture("en") / setDefaultDatabaseSchema("dbo") —
+    // by appending the per-file __fileInfo, so the runtime knows the package + source directory the default
+    // was declared in (culture keys on the package, schema on the directory). Idempotent: a call that
+    // already carries the __fileInfo (2 args) is left untouched. When no package resolves, the call is
+    // left bare — the runtime then treats it as a process-wide fallback.
+    const DEFAULT_SCOPE_CALLS = new Set(["setDefaultCulture", "setDefaultDatabaseSchema"]);
+    function augmentDefaultScopeCall(node, loc) {
+        if (!ts.isIdentifier(node.expression) || !DEFAULT_SCOPE_CALLS.has(node.expression.text))
+            return node;
+        if (node.arguments.length !== 1 || loc == null)
+            return node; // already augmented, an unexpected shape, or no resolvable location
+        usedFileInfo = true;
+        return ts.factory.updateCallExpression(node, node.expression, node.typeArguments, [node.arguments[0], ts.factory.createIdentifier(FILE_INFO_LOCAL)]);
+    }
+    // Inserts `const __fileInfo = { packageName: "@pkg", fileName: "rel/file.ts" };` right
+    // after the file's import section. A plain object literal (no FileInfo class, no
+    // import), passed as the last arg of register* — so the package/file literals
+    // aren't repeated per call, and manual registerEnum/registerObject calls can use it.
+    function insertFileInfoDecl(sourceFile, loc) {
+        let lastImport = -1;
+        for (let i = 0; i < sourceFile.statements.length; i++)
+            if (ts.isImportDeclaration(sourceFile.statements[i]))
+                lastImport = i;
+        const decl = ts.factory.createVariableStatement(undefined, ts.factory.createVariableDeclarationList([ts.factory.createVariableDeclaration(FILE_INFO_LOCAL, undefined, undefined, ts.factory.createObjectLiteralExpression([
+                ts.factory.createPropertyAssignment("packageName", ts.factory.createStringLiteral(loc.packageName)),
+                ts.factory.createPropertyAssignment("fileName", ts.factory.createStringLiteral(loc.fileName)),
+            ], false))], ts.NodeFlags.Const));
+        const statements = [...sourceFile.statements];
+        statements.splice(lastImport + 1, 0, decl);
+        return ts.factory.updateSourceFile(sourceFile, statements);
+    }
+    // Appends registerType(Class, "Class", __fileInfo) / registerEnum(E, "E", __fileInfo)
+    // / registerObject(Obj, "Obj", __fileInfo) at module scope. When loc is null
+    // (no resolvable package) the __fileInfo arg is omitted.
+    function appendRegistrations(sourceFile, typeNames, enumNames, objectNames, loc) {
+        const call = (fn, name) => {
+            const args = [ts.factory.createIdentifier(name), ts.factory.createStringLiteral(name)];
+            if (loc != null)
+                args.push(ts.factory.createIdentifier(FILE_INFO_LOCAL));
+            return ts.factory.createExpressionStatement(ts.factory.createCallExpression(ts.factory.createIdentifier(fn), undefined, args));
+        };
+        const stmts = [
+            ...typeNames.map(n => call("registerType", n)),
+            ...enumNames.map(n => call("registerEnum", n)),
+            ...objectNames.map(n => call("registerObject", n)),
+        ];
+        return ts.factory.updateSourceFile(sourceFile, [...sourceFile.statements, ...stmts]);
+    }
+    // Computes the @field factory args from a type annotation node.
+    // First arg is always the element/inner type; second arg is an options object when needed.
+    // e.g. @field(() => Person, { array: true }) for Person[]
+    //      @field(() => Person, { lite: true }) for Lite<Person>
+    //      @field(() => Number, { subTypeName: "int", nullable: true, array: true }) for (int | null)[]
+    // The container is described by boolean flags (lite / array) rather than a
+    // runtime `() => Lite`/`() => Array` reference — so the transformer never emits
+    // a value reference to the imported `Lite` type (which TS would elide).
+    function buildFieldFactories(typeNode) {
+        const resolved = resolveElementType(typeNode, false);
+        if (resolved == null)
+            return null;
+        const { typeName, subTypeName, nullable, lite, array, thunkNode } = resolved;
+        const props = [];
+        if (thunkNode != null) {
+            if (isTypeOnlyImported(thunkNode))
+                throw new Error(`@field: '${thunkNode.text}' is used as a runtime type reference but is imported with 'import type'. ` +
+                    `Import it as a value (\`import { ${thunkNode.text} }\`) so the transformer can emit a ` +
+                    `\`() => ${thunkNode.text}\` reference (needed for registration under verbatimModuleSyntax).`);
+            // A value reference (entity/embedded class or enum): emit a lazy `type` thunk and
+            // NOT `typeName`. The thunk makes the module graph mirror the entity reference
+            // graph (importing an owner transitively loads + registers the referenced type)
+            // and gives rename-/load-order-proof resolution; consumers read it via fieldType /
+            // fieldEnum, and the clean wire/URL name is derived from the resolved ctor. Only
+            // value types (which have no runtime value to thunk) carry `typeName`.
+            props.push(ts.factory.createPropertyAssignment("type", ts.factory.createArrowFunction(undefined, undefined, [], undefined, ts.factory.createToken(ts.SyntaxKind.EqualsGreaterThanToken), ts.factory.createIdentifier(thunkNode.text))));
+        }
+        else {
+            props.push(ts.factory.createPropertyAssignment("typeName", ts.factory.createStringLiteral(typeName)));
+        }
+        if (subTypeName != null)
+            props.push(ts.factory.createPropertyAssignment("subTypeName", ts.factory.createStringLiteral(subTypeName)));
+        if (nullable === true)
+            props.push(ts.factory.createPropertyAssignment("nullable", ts.factory.createTrue()));
+        if (lite === true)
+            props.push(ts.factory.createPropertyAssignment("lite", ts.factory.createTrue()));
+        if (array === true)
+            props.push(ts.factory.createPropertyAssignment("array", ts.factory.createTrue()));
+        return [ts.factory.createObjectLiteralExpression(props)];
+    }
+    // Type names that map to a value by NAME (in logic/schema/dbType), so they stay
+    // plain `typeName` strings and never get a `() => X` thunk — even though Date /
+    // Decimal are runtime classes. (Number/String/Boolean arrive as keywords, and
+    // Temporal.* as qualified names, so they never reach the thunk check anyway; the
+    // set makes the intent explicit and guards the direct-import edge cases.)
+    const VALUE_TYPE_NAMES = new Set([
+        "Number", "String", "Boolean", "BigInt", "Date", "Decimal",
+        "PlainDate", "PlainDateTime", "PlainTime", "Instant", "ZonedDateTime",
+        "Duration", "PlainYearMonth", "PlainMonthDay",
+        "Blob", // Uint8Array / Buffer → the binary "Blob" value type (byte[] column); no runtime thunk.
+    ]);
+    // True when a type-reference identifier resolves to a runtime value — a class or a
+    // (non-const) enum — i.e. something a `() => X` thunk can reference. Interfaces and
+    // type aliases have no value declaration and return false (those stay name strings,
+    // e.g. @implementedBy interface references).
+    function resolvesToValue(name) {
+        let symbol = typeChecker.getSymbolAtLocation(name);
+        if (symbol == null)
+            return false;
+        if (symbol.flags & ts.SymbolFlags.Alias) {
+            try {
+                symbol = typeChecker.getAliasedSymbol(symbol);
+            }
+            catch {
+                return false;
+            }
+        }
+        if (symbol.flags & ts.SymbolFlags.ConstEnum)
+            return false; // inlined, no runtime object
+        return (symbol.flags & ts.SymbolFlags.Value) !== 0;
+    }
+    // True when the identifier is brought in by a type-only import (`import type { X }`
+    // or a type-only specifier). Emitting `() => X` for such a reference would compile
+    // but crash at runtime (the import is erased under verbatimModuleSyntax), so the
+    // transformer refuses it with a clear error instead.
+    function isTypeOnlyImported(name) {
+        const symbol = typeChecker.getSymbolAtLocation(name);
+        if (symbol == null)
+            return false;
+        for (const decl of symbol.declarations ?? []) {
+            if (ts.isImportSpecifier(decl)) {
+                if (decl.isTypeOnly)
+                    return true;
+                const clause = decl.parent.parent;
+                if (ts.isImportClause(clause) && clause.isTypeOnly)
+                    return true;
+            }
+            else if (ts.isImportClause(decl) && decl.isTypeOnly) {
+                return true;
+            }
+        }
+        return false;
+    }
+    // Resolves the element/inner type to its runtime *name* plus container/nullable
+    // metadata. The name is a string (never a `() => Type` reference), so an
+    // imported type is never referenced at runtime and so never elided by TS.
+    // insideContainer=true: a | null on this node sets nullable on the result.
+    function resolveElementType(typeNode, insideContainer) {
+        // (T | null)[] has elementType = ParenthesizedTypeNode — unwrap before processing
+        let type = typeNode;
+        while (ts.isParenthesizedTypeNode(type))
+            type = type.type;
+        let elementNullable;
+        const stripped = extractNull(type);
+        if (stripped) {
+            type = stripped.cleanType;
+            while (ts.isParenthesizedTypeNode(type))
+                type = type.type;
+            if (!ts.isArrayTypeNode(type))
+                elementNullable = true;
+        }
+        // T[] — array shorthand. Preserves an inner `lite` flag (Lite<T>[]).
+        if (ts.isArrayTypeNode(type)) {
+            const inner = resolveElementType(type.elementType, true);
+            if (inner == null)
+                return null;
+            return { ...inner, array: true };
+        }
+        // Generic<T> with exactly one type arg: only Lite<T> and Array<T> are
+        // recognized containers (mapped to flags); other generics fall through to
+        // be treated as a plain class reference.
+        if (ts.isTypeReferenceNode(type) && type.typeArguments?.length == 1 && ts.isIdentifier(type.typeName)) {
+            const outerName = type.typeName.text;
+            if (outerName === "Lite" || outerName === "Array") {
+                const inner = resolveElementType(type.typeArguments[0], true);
+                if (inner == null)
+                    return null;
+                const flag = outerName === "Lite" ? { lite: true } : { array: true };
+                return { ...inner, ...flag, nullable: elementNullable ?? inner.nullable };
+            }
+        }
+        if (ts.isTypeReferenceNode(type) && !type.typeArguments?.length && ts.isIdentifier(type.typeName)) {
+            // Primitive alias: type int = number  →  @field({ typeName: "Number", subTypeName: "int" })
+            const alias = resolvePrimitiveAlias(type);
+            if (alias != null) {
+                return {
+                    typeName: alias.constructorName,
+                    subTypeName: alias.aliasName,
+                    nullable: elementNullable,
+                };
+            }
+            // Regular enum: Color  →  @field({ type: () => Color, typeName: "Color", enum: true }).
+            // The thunk keeps the enum registered across files (import edge); typeName + enum
+            // flag drive the existing enum handling.
+            if (isEnumType(type)) {
+                return {
+                    typeName: type.typeName.text,
+                    isEnum: true,
+                    nullable: elementNullable,
+                    thunkNode: type.typeName,
+                };
+            }
+        }
+        // Fallback: keyword (number, string, boolean) or a plain named type reference
+        // (class, Date, Decimal, Temporal.*, entity, embedded).
+        const typeName = typeNameOf(type);
+        if (typeName == null)
+            return null;
+        const result = { typeName, nullable: elementNullable };
+        // Entity/embedded class reference (a runtime value that isn't a by-name value
+        // type) → emit a `() => X` thunk. Interfaces (@implementedBy targets), Date,
+        // Decimal, Temporal.* and keywords stay name-only.
+        if (ts.isTypeReferenceNode(type) && ts.isIdentifier(type.typeName)
+            && !VALUE_TYPE_NAMES.has(typeName) && resolvesToValue(type.typeName))
+            result.thunkNode = type.typeName;
+        return result;
+    }
+    // The runtime *name* of a type node: built-in keywords map to their wrapper
+    // constructor name; a type reference uses its (rightmost) identifier, e.g.
+    // `Temporal.PlainDate` → "PlainDate", `CustomerEntity` → "CustomerEntity".
+    function typeNameOf(node) {
+        if (node.kind == ts.SyntaxKind.BooleanKeyword)
+            return "Boolean";
+        if (node.kind == ts.SyntaxKind.NumberKeyword)
+            return "Number";
+        if (node.kind == ts.SyntaxKind.StringKeyword)
+            return "String";
+        if (ts.isTypeReferenceNode(node)) {
+            const n = cleanTypeName(node.typeName) ?? null;
+            // A binary field (Signum's byte[]) is a `Uint8Array` (isomorphic; a Node `Buffer` is one) → the
+            // "Blob" value type (mapped to a bytea/varbinary column in dbType). No `() => X` thunk (it's a value
+            // type, in VALUE_TYPE_NAMES), so the Uint8Array/Buffer global is never referenced at runtime.
+            if (n === "Uint8Array" || n === "Buffer")
+                return "Blob";
+            return n;
+        }
+        return null;
+    }
+    function resolvePrimitiveAlias(node) {
+        let tsType = typeChecker.getTypeFromTypeNode(node);
+        const aliasName = node.typeName.text;
+        // Branded aliases like `type int = number & { __brand }` are intersection
+        // types — unwrap to the underlying primitive so `int`/`long` resolve to
+        // Number (the alias name is carried through as the `name`/kind).
+        if (tsType.flags & ts.TypeFlags.Intersection) {
+            const primitive = tsType.types.find(t => t.flags & (ts.TypeFlags.Number | ts.TypeFlags.String | ts.TypeFlags.Boolean | ts.TypeFlags.BigInt));
+            if (primitive != null)
+                tsType = primitive;
+        }
+        if (tsType.flags & ts.TypeFlags.Number)
+            return { constructorName: "Number", aliasName };
+        if (tsType.flags & ts.TypeFlags.String)
+            return { constructorName: "String", aliasName };
+        if (tsType.flags & ts.TypeFlags.Boolean)
+            return { constructorName: "Boolean", aliasName };
+        if (tsType.flags & ts.TypeFlags.BigInt)
+            return { constructorName: "BigInt", aliasName };
+        return null;
+    }
+    function isEnumType(node) {
+        const symbol = typeChecker.getSymbolAtLocation(node.typeName);
+        return symbol != null && (symbol.flags & ts.SymbolFlags.RegularEnum) !== 0;
+    }
+    // Injects @field decorators for properties in a class decorated with @entity that are missing them.
+    function injectMissingFieldDecorators(node, sourceFile) {
+        const newMembers = node.members.map((member) => {
+            if (!ts.isPropertyDeclaration(member))
+                return member;
+            const isStatic = member.modifiers?.some(m => m.kind === ts.SyntaxKind.StaticKeyword) ?? false;
+            if (isStatic)
+                return member;
+            // Record enum types referenced by this reflected class (whether the @field
+            // is injected below or already explicit) so same-file enums auto-register.
+            if (member.type != null) {
+                const resolved = resolveElementType(member.type, false);
+                if (resolved?.isEnum)
+                    referencedEnumNames.add(resolved.typeName);
+            }
+            const hasField = member.modifiers?.some(m => isFieldDecorator(m)) ?? false;
+            const hasFieldFalse = member.modifiers?.some(m => isFieldFalseDecorator(m)) ?? false;
+            // Only @field / @field(false) suppress auto-injection. @column(false) does NOT — a
+            // non-mapped field still gets reflection type metadata (client-side UI controls, JSON).
+            if (hasField || hasFieldFalse || !member.type)
+                return member;
+            const factories = buildFieldFactories(member.type);
+            if (factories == null) {
+                addNodeError(sourceFile, member.type, "Unable to make run-time reference for auto-injected @field");
+                return member;
+            }
+            needsFieldImport = true;
+            const fieldCall = ts.factory.createCallExpression(ts.factory.createIdentifier("field"), undefined, factories);
+            const fieldDecorator = ts.factory.createDecorator(fieldCall);
+            const newModifiers = [fieldDecorator, ...(member.modifiers ?? [])];
+            // Auto-seed collection fields. A reflected `x: T[]` with NO initializer compiles (under
+            // ES2022 class-field semantics — useDefineForClassFields defaults on) to `x = undefined`,
+            // so a freshly `new`'d entity carries an undefined collection. That is what forces Signum's
+            // per-entity manual `= []` init and makes the UI (EntityList/EntityTable) and callers guard
+            // every collection. Emit `= []` instead — but ONLY when the field declares no initializer of
+            // its own, so an explicit default (`x: T[] = something`) is never clobbered. Runs only here,
+            // inside the @reflect/@entity injection path, so plain (non-reflected) classes are untouched.
+            const resolved = resolveElementType(member.type, false);
+            const initializer = (resolved?.array === true && member.initializer == null)
+                ? ts.factory.createArrayLiteralExpression([], false)
+                : member.initializer;
+            return ts.factory.updatePropertyDeclaration(member, newModifiers, member.name, member.questionToken ?? member.exclamationToken, member.type, initializer);
+        });
+        return ts.factory.updateClassDeclaration(node, node.modifiers, node.name, node.typeParameters, node.heritageClauses, newMembers);
+    }
+    return function myTransformer(ctx) {
+        return (sourceFile) => {
+            generatedExParam = false;
+            needsFieldImport = false;
+            registerNames = [];
+            registerObjectNames = [];
+            usedFileInfo = false;
+            declaredEnumNames = new Set();
+            referencedEnumNames = new Set();
+            const sourceLocation = resolveSourceLocation(sourceFile.fileName);
+            let quotedContextDepth = 0;
+            let msgModuleName = null;
+            let msgMemberName = null;
+            // The declared type of the current namespace member (e.g. the
+            // `ExecuteSymbol<UserEntity>` on `export const Save = init()`), used to derive an
+            // init()'s symbol-kind. Only set inside symbol/msg containers.
+            let msgMemberType = null;
+            // Concrete Symbol classes referenced by init() calls in this file → the module
+            // they come from. A value `import { <Class> } from "<spec>"` is emitted for each so
+            // init(<Class>, …) has the constructor in scope (and, being a value import, it also
+            // loads the module). The declared symbol TYPE imports are erased `import type`, so
+            // they can't supply the value themselves.
+            let symbolClassImports = new Map();
+            function visitWithQuotedContext(node) {
+                quotedContextDepth++;
+                try {
+                    return ts.visitEachChild(node, visit, ctx);
+                }
+                finally {
+                    quotedContextDepth--;
+                }
+            }
+            function visit(node) {
+                // Record top-level enum declarations (for same-file auto-registration).
+                if (ts.isEnumDeclaration(node) && ts.isSourceFile(node.parent))
+                    declaredEnumNames.add(node.name.text);
+                // Track module name for msg() rewriting: module-level const X = { ... }
+                if (ts.isVariableDeclaration(node) &&
+                    ts.isIdentifier(node.name) &&
+                    node.initializer && ts.isObjectLiteralExpression(node.initializer) &&
+                    ts.isVariableDeclarationList(node.parent) &&
+                    (node.parent.flags & ts.NodeFlags.Const) !== 0 &&
+                    ts.isVariableStatement(node.parent.parent) &&
+                    ts.isSourceFile(node.parent.parent.parent)) {
+                    const prev = msgModuleName;
+                    msgModuleName = node.name.text;
+                    const result = ts.visitEachChild(node, visit, ctx);
+                    msgModuleName = prev;
+                    return result;
+                }
+                // Track container name for msg()/init() rewriting inside a top-level
+                // `export namespace X { ... }` — the declaration shape used for symbol
+                // containers (XOperation, XTypeCondition) and, going forward, message
+                // containers. The namespace name is the "module" half of the key.
+                if (ts.isModuleDeclaration(node) &&
+                    ts.isIdentifier(node.name) &&
+                    node.body != null && ts.isModuleBlock(node.body) &&
+                    ts.isSourceFile(node.parent)) {
+                    const prev = msgModuleName;
+                    msgModuleName = node.name.text;
+                    const result = ts.visitEachChild(node, visit, ctx);
+                    msgModuleName = prev;
+                    return result;
+                }
+                // Track member name/type for msg()/init() rewriting inside a namespace:
+                // each `export const Y: <Type> = <call>` supplies the member half of the key
+                // (Y) and, for init(), the declared type used to derive the symbol kind.
+                if (ts.isVariableDeclaration(node) &&
+                    msgModuleName != null &&
+                    ts.isIdentifier(node.name) &&
+                    node.initializer && ts.isCallExpression(node.initializer)) {
+                    const prevM = msgMemberName;
+                    const prevT = msgMemberType;
+                    msgMemberName = node.name.text;
+                    msgMemberType = node.type ?? null;
+                    const result = ts.visitEachChild(node, visit, ctx);
+                    msgMemberName = prevM;
+                    msgMemberType = prevT;
+                    return result;
+                }
+                // Track member name for msg() rewriting: property keys inside the object
+                if (ts.isPropertyAssignment(node) && msgModuleName != null) {
+                    const key = ts.isIdentifier(node.name) || ts.isStringLiteral(node.name) ? node.name.text : null;
+                    if (key != null) {
+                        const prev = msgMemberName;
+                        msgMemberName = key;
+                        const result = ts.visitEachChild(node, visit, ctx);
+                        msgMemberName = prev;
+                        return result;
+                    }
+                }
+                if (ts.isCallExpression(node)) {
+                    let visited;
+                    if (isWithQuotedCall(node) && node.arguments.length > 0) {
+                        const expression = ts.visitNode(node.expression, visit);
+                        const updatedArguments = node.arguments.map((arg, index) => index == 0
+                            ? visitWithQuotedContext(arg)
+                            : ts.visitNode(arg, visit));
+                        visited = ts.factory.updateCallExpression(node, expression, node.typeArguments, updatedArguments);
+                    }
+                    else {
+                        visited = ts.visitEachChild(node, visit, ctx);
+                    }
+                    const afterQuote = transformWithQuotedCall(visited, sourceFile);
+                    if (ts.isCallExpression(afterQuote) && isMsgCall(afterQuote) && msgModuleName != null && msgMemberName != null) {
+                        // A msg() container const: remember it so it gets registerObject'd.
+                        if (!registerObjectNames.includes(msgModuleName))
+                            registerObjectNames.push(msgModuleName);
+                        return transformMsgCall(afterQuote, msgMemberName, msgModuleName);
+                    }
+                    if (ts.isCallExpression(afterQuote) && isInitCall(afterQuote) && msgModuleName != null && msgMemberName != null) {
+                        // A symbol container const `= init()`: derive the kind from the declared
+                        // type and inject (kind, "Container.member", __fileInfo). Signum's AutoInit.
+                        const symbolClass = msgMemberType != null ? deriveSymbolClassName(msgMemberType) : null;
+                        if (symbolClass == null) {
+                            addNodeError(sourceFile, afterQuote, "init() must be assigned to a Symbol-typed `export const` inside a namespace, e.g. `export const Save: ExecuteSymbol<E> = init();`");
+                            return afterQuote;
+                        }
+                        // Record a value import of the Symbol class so init(<Class>, …) resolves it
+                        // (and loads its module). When the class is declared in this file (no import
+                        // to resolve), it is already in scope — nothing to inject.
+                        const spec = symbolModuleSpecifier(msgMemberType);
+                        if (spec != null)
+                            symbolClassImports.set(symbolClass, spec);
+                        return transformInitCall(afterQuote, symbolClass, `${msgModuleName}.${msgMemberName}`, sourceLocation);
+                    }
+                    if (ts.isCallExpression(afterQuote)) {
+                        const scoped = augmentDefaultScopeCall(afterQuote, sourceLocation);
+                        if (scoped !== afterQuote)
+                            return scoped;
+                        return augmentRegistrationCall(afterQuote, sourceLocation);
+                    }
+                    return afterQuote;
+                }
+                if (ts.isMethodDeclaration(node)) {
+                    const visited = node.modifiers?.some(isQuotedDecoratorNoArgs)
+                        ? visitWithQuotedContext(node)
+                        : ts.visitEachChild(node, visit, ctx);
+                    return transformQuotedMethod(visited, sourceFile);
+                }
+                if (ts.isArrowFunction(node)) {
+                    const assignedToQuoted = assignedToQuoteOfT(node, typeChecker);
+                    const visited = assignedToQuoted
+                        ? visitWithQuotedContext(node)
+                        : ts.visitEachChild(node, visit, ctx);
+                    if (!(assignedToQuoted && quotedContextDepth == 0))
+                        return visited;
+                    var quote = quoteExpression(visited, []);
+                    if (quote instanceof quoteConverter_1.QuoteError) {
+                        addQuoteError(sourceFile, quote);
+                        return visited;
+                    }
+                    else {
+                        const quotedArg = createQuotedArg(quote);
+                        return ts.factory.createCallExpression(ts.factory.createPropertyAccessExpression(ts.factory.createIdentifier("Object"), "assign"), undefined, [
+                            visited,
+                            ts.factory.createObjectLiteralExpression([
+                                ts.factory.createPropertyAssignment("__quoted", quotedArg),
+                            ], true),
+                        ]);
+                    }
+                }
+                if (ts.isClassDeclaration(node)) {
+                    // Check BEFORE visiting children (type checker works on original AST)
+                    assertSingleReflectionDecorator(node, sourceFile);
+                    const isReflection = hasReflectionDecorator(node);
+                    const visited = ts.visitEachChild(node, visit, ctx);
+                    if (!isReflection)
+                        return visited;
+                    // Record top-level reflection classes so a registerType(Class, "Class")
+                    // can be appended at module scope (where the binding is in scope).
+                    if (node.name != null && ts.isSourceFile(node.parent))
+                        registerNames.push(node.name.text);
+                    return injectMissingFieldDecorators(visited, sourceFile);
+                }
+                if (ts.isPropertyDeclaration(node)) {
+                    if (node.type && node.modifiers) {
+                        const hasFieldDec = node.modifiers.some(m => isFieldDecorator(m));
+                        if (!hasFieldDec)
+                            return ts.visitEachChild(node, visit, ctx);
+                        const factories = buildFieldFactories(node.type);
+                        if (factories == null) {
+                            addNodeError(sourceFile, node.type, "Unable to take make run-time reference for @field");
+                            return node;
+                        }
+                        const modifiers = node.modifiers.map(m => {
+                            if (!ts.isDecorator(m))
+                                return m;
+                            if (ts.isIdentifier(m.expression) && m.expression.text == "field") {
+                                return ts.factory.createDecorator(ts.factory.createCallExpression(m.expression, undefined, factories));
+                            }
+                            if (!ts.isCallExpression(m.expression) || !ts.isIdentifier(m.expression.expression) || m.expression.expression.text != "field")
+                                return m;
+                            if (m.expression.arguments.length == 0)
+                                return ts.factory.createDecorator(ts.factory.createCallExpression(m.expression.expression, undefined, factories));
+                            // @field(type) already provided explicitly — leave as-is
+                            return m;
+                        });
+                        const result = ts.factory.updatePropertyDeclaration(node, modifiers, node.name, node.questionToken ?? node.exclamationToken, node.type, node.initializer);
+                        return result;
+                    }
+                }
+                return ts.visitEachChild(node, visit, ctx);
+            }
+            const transformed = ts.visitNode(sourceFile, visit);
+            const withExParam = generatedExParam ? ensureQuotedImportHasExParam(transformed) : transformed;
+            let result = needsFieldImport ? ensureFieldImport(withExParam) : withExParam;
+            // Enums declared in this file AND referenced by a reflected field get an
+            // auto registerEnum; cross-file enums are registered by hand.
+            const autoEnumNames = [...referencedEnumNames].filter(n => declaredEnumNames.has(n));
+            const hasAppends = registerNames.length > 0 || autoEnumNames.length > 0 || registerObjectNames.length > 0;
+            if (sourceLocation != null && (hasAppends || usedFileInfo)) {
+                // Location resolved: declare one __fileInfo object literal and pass it to
+                // every register* call, so the package/file literals aren't repeated.
+                if (registerNames.length > 0)
+                    result = ensureImported(result, "registerType", REFLECT_ANCHOR, REFLECTION_MODULE);
+                if (autoEnumNames.length > 0)
+                    result = ensureImported(result, "registerEnum", REFLECT_ANCHOR, REFLECTION_MODULE);
+                if (registerObjectNames.length > 0)
+                    result = ensureImported(result, "registerObject", OBJECT_ANCHOR, REFLECTION_MODULE);
+                result = insertFileInfoDecl(result, sourceLocation);
+                result = appendRegistrations(result, registerNames, autoEnumNames, registerObjectNames, sourceLocation);
+            }
+            else if (hasAppends) {
+                // No resolvable package: register without a __fileInfo argument.
+                if (registerNames.length > 0)
+                    result = ensureImported(result, "registerType", REFLECT_ANCHOR, REFLECTION_MODULE);
+                if (autoEnumNames.length > 0)
+                    result = ensureImported(result, "registerEnum", REFLECT_ANCHOR, REFLECTION_MODULE);
+                if (registerObjectNames.length > 0)
+                    result = ensureImported(result, "registerObject", OBJECT_ANCHOR, REFLECTION_MODULE);
+                result = appendRegistrations(result, registerNames, autoEnumNames, registerObjectNames, null);
+            }
+            // Ensure each Symbol class passed to an init() is imported as a value.
+            for (const [name, spec] of symbolClassImports)
+                result = ensureNamedValueImport(result, name, spec);
+            return result;
+        };
+    };
+    function extractNull(node) {
+        if (ts.isUnionTypeNode(node)) {
+            if (node.types.some(t => ts.isLiteralTypeNode(t) && t.literal.kind == ts.SyntaxKind.NullKeyword)) {
+                var other = node.types.filter(t => !(ts.isLiteralTypeNode(t) && t.literal.kind == ts.SyntaxKind.NullKeyword));
+                if (other.length == 1)
+                    return ({ cleanType: other[0] });
+            }
+        }
+        return null;
+    }
+    function cleanTypeName(name) {
+        return ts.isQualifiedName(name) ? cleanTypeName(name.right) :
+            ts.isIdentifier(name) ? name.text :
+                undefined;
+    }
+}
+//# sourceMappingURL=transformerFactory.js.map

@@ -4,7 +4,7 @@
   "description": "Remove an altea application's optional modules, following its Modules.xml",
   "type": "module",
   "bin": {
-    "altea-simplify": "./dist/main.js"
+    "altea-simplify": "./bin/altea-simplify.js"
   },
   "exports": {
     "./*": {
@@ -13,11 +13,15 @@
     }
   },
   "scripts": {
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "bundle": "tsc -b && node ../bundle.mjs"
   },
   "keywords": [],
   "author": "Olmo del Corral",
   "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.27.0"
+  },
   "dependencies": {
     "@altea/altea-cli-utils": "workspace:*",
     "fast-xml-parser": "^5.0.0"

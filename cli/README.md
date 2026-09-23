@@ -67,18 +67,23 @@ It also settles two things for free:
 ## Using them
 
 ```bash
-pnpm --filter @altea/altea-clone build     # or: cd cli/altea-clone && npx tsc -b
-node cli/altea-clone/dist/main.js --help
+node cli/altea-clone/bin/altea-clone.js --help
+```
+
+`bin/<tool>.js` is a COMMITTED bundle (the tool and its dependencies in one file), so nothing has to be
+built or installed to run it. After changing a CLI or altea-cli-utils, rebuild and commit it:
+
+```bash
+pnpm --filter @altea/altea-simplify bundle      # tsc -b, then node cli/bundle.mjs (bundles both)
 ```
 
 The usual first-run sequence for a new application:
 
 ```bash
-node <altea>/cli/altea-clone/dist/main.js --name northbreeze
+node <altea>/cli/altea-clone/bin/altea-clone.js --name northbreeze
 cd ../northbreeze
-node <altea>/cli/altea-simplify/dist/main.js     # untick what you do not need; one commit per module
+node altea/cli/altea-simplify/bin/altea-simplify.js     # untick what you do not need; one commit per module
 pnpm install
-pnpm --filter quote-transformer build
 pnpm --filter northbreeze build
 ```
 

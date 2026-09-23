@@ -1,6 +1,5 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as url from "node:url";
 import { ApplicationContext, Color, Console, Git, Prompt } from "@altea/altea-cli-utils";
 
 /**
@@ -102,26 +101,14 @@ export namespace Clone {
         Console.writeLine();
         Console.writeLine("  Next:");
         Console.writeLine(`    cd ${target}`);
-        // The CLIs are workspace packages of the framework, so in a project that has not been installed
-        // yet they are neither linked nor built. The one the developer just ran IS, so name it by its own
-        // path rather than pretending `altea-simplify` is on theirs.
-        Console.writeLine(`    node "${simplifyPath()}"`);
+        // The new project's own submodule already carries the committed bundle: nothing to build first.
+        Console.writeLine("    node altea/cli/altea-simplify/bin/altea-simplify.js");
         Console.writeLine("    pnpm install");
-        Console.writeLine("    pnpm --filter quote-transformer build");
         Console.writeLine(`    pnpm --filter ${name} build`);
         Console.writeLine();
         Console.writeLineColor(Color.darkGray,
             `    Then edit ${name}/.env.local — the environment files came across, are git-ignored, and `
             + "still hold the source application's connection strings.");
-    }
-
-    /**
-     * Where `altea-simplify` is, derived from where THIS tool is: the two are siblings in the framework's
-     * `cli/` folder, and a developer who could run one can run the other.
-     */
-    function simplifyPath(): string {
-        const here = path.dirname(url.fileURLToPath(import.meta.url));       // …/cli/altea-clone/dist
-        return path.resolve(here, "..", "..", "altea-simplify", "dist", "main.js");
     }
 
     // ---- prompts -----------------------------------------------------------------------------------

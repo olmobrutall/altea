@@ -4,7 +4,7 @@
   "description": "Copy an altea application into a new project, renamed, with its own git repository",
   "type": "module",
   "bin": {
-    "altea-clone": "./dist/main.js"
+    "altea-clone": "./bin/altea-clone.js"
   },
   "exports": {
     "./*": {
@@ -13,11 +13,15 @@
     }
   },
   "scripts": {
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "bundle": "tsc -b && node ../bundle.mjs"
   },
   "keywords": [],
   "author": "Olmo del Corral",
   "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.27.0"
+  },
   "dependencies": {
     "@altea/altea-cli-utils": "workspace:*"
   }

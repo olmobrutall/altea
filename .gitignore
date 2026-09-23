@@ -18,3 +18,10 @@ playwright-report/
 # (quote-transformer-test/src/codeExamples.test.ts writes it). A failure's evidence, reviewed and then
 # renamed over codeExamples.transformed.ts to accept it — never committed under this name.
 quote-transformer-test/examples/*.new.ts
+
+# Committed BUILDS, so an application uses these without compiling them first. Rebuild and commit them
+# whenever their sources change: `tsc` in quote-transformer/, `node cli/bundle.mjs` for the two CLIs.
+!quote-transformer/dist/
+!quote-transformer/dist/*.js
+!cli/altea-clone/bin/*.js
+!cli/altea-simplify/bin/*.js

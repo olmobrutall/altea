@@ -397,16 +397,15 @@ altea is consumed as a **git submodule of an application**, not installed from a
 start from an empty folder: you copy the demo application and delete the modules you do not want.
 
 ```bash
-node <workspace>/altea/cli/altea-clone/dist/main.js --name myapp    # a new repo, renamed, altea pinned
+node <workspace>/altea/cli/altea-clone/bin/altea-clone.js --name myapp    # a new repo, renamed, altea pinned
 cd ../myapp
-node <workspace>/altea/cli/altea-simplify/dist/main.js             # untick the modules you do not want
+node altea/cli/altea-simplify/bin/altea-simplify.js                           # untick the modules you do not want
 pnpm install
-pnpm --filter quote-transformer build
 pnpm --filter myapp build
 ```
 
-`<workspace>` is the application you are copying FROM: the new project's own submodule is not installed
-yet, so the CLIs are run from there. `altea-clone` prints these steps with the paths filled in.
+`<workspace>` is the application you are copying FROM. `altea-simplify` then runs from the new project's own
+submodule: both CLIs are committed as ready-to-run bundles. `altea-clone` prints these steps.
 
 [**eastwind**](https://github.com/olmobrutall/eastwind) is that demo application — Microsoft's Northwind
 schema and data, with most of the modules wired up. It is the reference for how an altea application is
