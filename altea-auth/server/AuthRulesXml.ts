@@ -34,18 +34,32 @@ export function groupByRole<T extends { role: { key(): string } }>(rows: T[]): M
 
 // Assemble a dimension section for the XMLBuilder object: `{ Role: [{ @_Name, <elementName>: [row…] }] }`,
 // roles in dependency order, only roles that have rows. `rowObj` builds one element object from a rule row.
+//
+// Each role's rows are SORTED by `sortKey` — Signum's `orderby resource`, over the same resource string
+// (`Resource`; a property's `Type|path`, an operation's `Key/Type`) — so the file is diffable: without it
+// they came out in table order, and a rule re-saved in the editor moved to the end of its role.
 export function section<T>(
     elementName: string,
     orderedRoleKeys: string[],
     roleName: (key: string) => string,
     byRole: Map<string, T[]>,
     rowObj: (row: T) => Record<string, unknown>,
+    sortKey: (element: Record<string, unknown>) => string = e => attr(e, "Resource"),
 ): { Role: Record<string, unknown>[] } {
     const Role = orderedRoleKeys
         .filter(k => (byRole.get(k)?.length ?? 0) > 0)
-        .map(k => ({ ...attrs({ Name: roleName(k) }), [elementName]: byRole.get(k)!.map(rowObj) }));
+        .map(k => ({
+            ...attrs({ Name: roleName(k) }),
+            [elementName]: byRole.get(k)!.map(rowObj)
+                .map(e => ({ e, key: sortKey(e) }))
+                .sort((a, b) => a.key.localeCompare(b.key, "en"))
+                .map(x => x.e),
+        }));
     return { Role };
 }
+
+/** An attribute of an element object built with {@link attrs} ("" when absent) — for a `section` sortKey. */
+export const attr = (element: Record<string, unknown>, name: string): string => String(element[ATTR + name] ?? "");
 
 // The nested `<Condition Name="a, b" Allowed="…">` rows of a conditioned rule (Type / Operation / Property),
 // ordered by their persisted `rowOrder`. `enumName` renders the allowed value; `condKey` resolves each symbol id.

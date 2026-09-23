@@ -20,7 +20,7 @@ import {
 } from "../data/Rules";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
-import { section, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, attr, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 import { WithConditions, ConditionRule, evaluateConditions, sliceValue } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
@@ -282,7 +282,7 @@ export namespace OperationAuthLogic {
                     }),
                     ...(conds.length ? { Condition: conds } : {}),
                 };
-            }),
+            }, e => attr(e, "Resource") + "/" + attr(e, "OnType")), // Signum: `Operation.Key/Type`
         };
     }
 

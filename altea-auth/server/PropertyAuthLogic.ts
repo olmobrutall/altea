@@ -30,7 +30,7 @@ import {
 import { BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { WithConditions, ConditionRule, evaluateConditions, sliceValue, adjustShape } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
-import { section, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, attr, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 import { setSerializationAuth, type PropertyAccess } from "@altea/altea/data/serializer/graphSerializers";
 import { Serializer } from "@altea/altea/data/serializer";
@@ -583,7 +583,7 @@ export namespace PropertyAuthLogic {
                     ...attrs({ OnType: typeName.get(String(r.resource.rootType.id)) ?? String(r.resource.rootType.id), Resource: r.resource.path, Allowed: PropertyAllowed[r.fallback] }),
                     ...(conds.length ? { Condition: conds } : {}),
                 };
-            }),
+            }, e => attr(e, "OnType") + "|" + attr(e, "Resource")), // Signum: `Type|path`
         };
     }
 
