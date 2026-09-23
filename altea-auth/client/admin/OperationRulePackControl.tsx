@@ -6,6 +6,7 @@ import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { Operations } from "@altea/altea/client/Operations";
 import { Finder } from "@altea/altea/client/Finder";
+import { tryGetTypeInfo } from "@altea/altea/client/Reflection";
 import type { OperationRulePack, OperationAllowedRule, TypeConditionSymbol } from "../../data/Rules";
 import { OperationAllowed, OperationConditionRuleModel } from "../../data/Rules";
 import type { Lite } from "@altea/altea/data/lite";
@@ -84,6 +85,16 @@ export default function OperationRulePackControl({ ctx, initialTypeConditions, r
     );
 }
 
+/**
+ * The rules of the operations the UI shows on the pack's type — the rest are hidden by their settings'
+ * `isVisibleForType` (CreateAlertFromEntity on a part row), so they are not offered here either. Their
+ * rules are still saved untouched: the pack posts every rule it was given.
+ */
+export function visibleOperationRules(pack: OperationRulePack): OperationAllowedRule[] {
+    const ti = tryGetTypeInfo(pack.type.toString());
+    return pack.rules.filter(r => Operations.isVisibleForType(r.operation.toString(), ti));
+}
+
 // Just the per-type operation-rules TABLE for one SLICE (no header) — extracted so the stacked part-closure
 // modal can render one table per type sharing a single slice.
 export function OperationRulesTable({ pack, readOnly, markDirty, slice }: { pack: OperationRulePack; readOnly: boolean; markDirty: () => void; slice: Slice }): React.JSX.Element {
@@ -103,7 +114,7 @@ export function OperationRulesTable({ pack, readOnly, markDirty, slice }: { pack
                 </tr>
             </thead>
             <tbody>
-                {pack.rules.map((rule: OperationAllowedRule) => {
+                {visibleOperationRules(pack).map((rule: OperationAllowedRule) => {
                     const b = sliceBinding(rule.allowed, slice, makeCR);
                     const base = sliceBinding(rule.allowedBase, slice, makeCR);
                     return (

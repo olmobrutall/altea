@@ -10,7 +10,7 @@ import type { PropertyRulePack, OperationRulePack, QueryRulePack, TypeConditionS
 import { AuthAdminMessage } from "../../data/AuthMessages";
 import { AuthAdminClient } from "./AuthAdminClient";
 import { PropertyRulesTable } from "./PropertyRulePackControl";
-import { OperationRulesTable } from "./OperationRulePackControl";
+import { OperationRulesTable, visibleOperationRules } from "./OperationRulePackControl";
 import { QueryRulesTable } from "./QueryRulePackControl";
 import { type Slice } from "./AuthSlice";
 import { SliceSelector } from "./SliceSelector";
@@ -20,7 +20,9 @@ import { SliceSelector } from "./SliceSelector";
 // modal for the owner's transitive owned-part closure {owner ∪ parts}. A Part is hidden from the grid
 // (it inherits the owner's TYPE rules) but its own property/operation/query rules stay editable here.
 // Storage stays per-type: Save posts every pack independently. A part section is shown only when it has
-// rules (so operation/query modals aren't cluttered with parts that have none; properties always do).
+// rules (so operation/query modals aren't cluttered with parts that have none). A part's PROPERTY pack is
+// always empty — its members are routes of the owner — so PropertyRulesTable splits the owner's pack into
+// the same per-part tables itself.
 
 type Kind = "properties" | "operations" | "queries";
 type AnyPack = PropertyRulePack | OperationRulePack | QueryRulePack;
@@ -81,8 +83,10 @@ function AuthClosureModal(p: AuthClosureModalProps): React.JSX.Element {
             .catch(() => { saving.current = false; forceUpdate(); });
     }
 
-    // Always show the owner (index 0); show a part only if it carries rules for this dimension.
-    const sections = packs.filter((pk, i) => i === 0 || pk.rules.length > 0);
+    // Always show the owner (index 0); show a part only if it carries rules for this dimension — counting
+    // only the operations the UI shows on it, so a part whose sole operations are hidden has no section.
+    const shownRules = (pk: AnyPack): unknown[] => p.kind === "operations" ? visibleOperationRules(pk as OperationRulePack) : pk.rules;
+    const sections = packs.filter((pk, i) => i === 0 || shownRules(pk).length > 0);
 
     return (
         <Modal size="lg" show={show} onExited={() => p.onExited!(undefined)} onHide={() => setShow(false)} className="sf-frame-modal">

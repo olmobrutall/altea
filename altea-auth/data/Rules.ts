@@ -197,6 +197,11 @@ export class ConditionRuleModel extends EmbeddedEntity {
     @countIsValidator(ComparisonType.GreaterThan, 0)
     typeConditions: Lite<TypeConditionSymbol>[];
     allowed: TypeAllowed = TypeAllowed.None;
+    // The condition row's drill-in icon colours in the Type-Auth grid: the Properties / Operations summary of
+    // THIS condition set, as `TypeAllowedRule`'s are of the fallback. Display only — ignored on save, and
+    // null on a row added in the editor until its drill-in has been opened.
+    propertiesSummary: DimensionSummaryModel | null = null;
+    operationsSummary: DimensionSummaryModel | null = null;
 }
 
 @reflect
@@ -455,6 +460,10 @@ export class PropertyWithConditionsModel extends EmbeddedEntity {
 @reflect
 export class PropertyAllowedRule extends EmbeddedEntity {
     path: string = "";               // the route PropertyString (the row's identity + display)
+    // The clean name of the `@part` whose member this route is, null for the pack type's own. A part's
+    // members are routes of its OWNER (stored under it), so they arrive in the owner's pack; this is what
+    // lets the editor still show one table per part, as it does for operations.
+    part: string | null = null;
     allowed: PropertyWithConditionsModel;
     allowedBase: PropertyWithConditionsModel;
     // The type's UI-read ceiling PER SLICE: a property can't exceed

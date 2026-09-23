@@ -21,7 +21,9 @@ import {
     PropertyAllowed, OperationAllowed, QueryAllowed,
 } from "../../data/Rules";
 import { toInt } from "@altea/altea/data/basics";
-import type { TypeRulePack, PropertyRulePack, QueryRulePack, OperationRulePack, DimensionSummaryModel } from "../../data/Rules";
+import type { TypeRulePack, PropertyRulePack, QueryRulePack, OperationRulePack } from "../../data/Rules";
+import { DimensionSummaryModel } from "../../data/Rules";
+import { type Slice, sliceValue } from "./AuthSlice";
 import { AuthAdminMessage } from "../../data/AuthMessages";
 import { AuthAdminClient } from "./AuthAdminClient";
 import { openAuthClosureModal } from "./AuthClosureModal";
@@ -63,20 +65,33 @@ const BASICS: { basic: TypeAllowedBasic; color: string; label: string }[] = [
 // (red), -1 = n/a / empty (muted gray). The drill-in icon glyph takes the MAX colour and an underline
 // shows the MIN — so a uniform dimension reads as one solid colour and a mixed one shows its range.
 const RANK_COLOR = (rank: number): string => rank === 2 ? "green" : rank === 1 ? "#FFAD00" : rank === 0 ? "red" : "#adb5bd";
+// Icon = summary of the permissions inside: glyph in the MAX colour. When the dimension is MIXED (min ≠ max)
+// an underline in the MIN colour shows the range; a uniform dimension is just the solid glyph. No summary (a
+// condition row added in the editor, not yet drilled into) is the n/a gray.
+function renderSummaryIcon(icon: IconProp, sum: DimensionSummaryModel | null | undefined): React.JSX.Element {
+    const min = sum == null ? -1 : Number(sum.min), max = sum == null ? -1 : Number(sum.max);
+    const mixed = min !== max;
+    return (
+        <span style={{ display: "inline-block", lineHeight: 1, paddingBottom: mixed ? 1 : 0, borderBottom: mixed ? `2px solid ${RANK_COLOR(min)}` : undefined }}>
+            <FontAwesomeIcon aria-hidden={true} icon={icon} color={RANK_COLOR(max)} />
+        </span>
+    );
+}
 const summaryFor = (rule: TypeAllowedRule, kind: "properties" | "operations" | "queries"): DimensionSummaryModel =>
     kind === "properties" ? rule.propertiesSummary : kind === "operations" ? rule.operationsSummary : rule.queriesSummary;
 // A package name for display / grouping ("" → "Other").
 const packageLabel = (rule: TypeAllowedRule): string => rule.packageName || "Other";
 
 // Collapse a freshly-fetched sub-pack into a {min,max} access rank — so the grid icon colour can be
-// recomputed after the drill-in closes (mirrors the server's fallbackSummary). undefined = empty dimension.
+// recomputed after the drill-in closes (mirrors the server's sliceSummary). `slice`: a condition row's set,
+// or undefined for the fallback (the type row). undefined = empty dimension.
 const propRank = (a: PropertyAllowed): number => a === PropertyAllowed.None ? 0 : a === PropertyAllowed.Read ? 1 : 2;
 const opRank = (a: OperationAllowed): number => a === OperationAllowed.None ? 0 : a === OperationAllowed.DBOnly ? 1 : 2;
 const queryRank = (a: QueryAllowed): number => a === QueryAllowed.None ? 0 : a === QueryAllowed.EmbeddedOnly ? 1 : 2;
-function summarizePack(kind: "properties" | "operations" | "queries", pack: PropertyRulePack | OperationRulePack | QueryRulePack): { min: number; max: number } | undefined {
+function summarizePack(kind: "properties" | "operations" | "queries", pack: PropertyRulePack | OperationRulePack | QueryRulePack, slice?: Slice): { min: number; max: number } | undefined {
     const ranks = kind === "queries" ? (pack as QueryRulePack).rules.map(r => queryRank(r.allowed))
-        : kind === "properties" ? (pack as PropertyRulePack).rules.map(r => propRank(r.allowed.fallback))
-            : (pack as OperationRulePack).rules.map(r => opRank(r.allowed.fallback));
+        : kind === "properties" ? (pack as PropertyRulePack).rules.map(r => propRank(sliceValue(r.allowed, slice)))
+            : (pack as OperationRulePack).rules.map(r => opRank(sliceValue(r.allowed, slice)));
     return ranks.length ? { min: Math.min(...ranks), max: Math.max(...ranks) } : undefined;
 }
 
@@ -192,12 +207,24 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
         // The sub-pack(s) may have been edited + saved; re-collapse the OWNER + its associated parts into
         // this row's summary so the drill-in icon colour reflects the whole editable closure (min of mins /
         // max of maxes), matching the server-side summary — not just the main entity.
-        const summaries = (await Promise.all(closure.map(fetchOne)))
-            .map(p => summarizePack(kind, p))
-            .filter((x): x is { min: number; max: number } => x != null);
+        // The condition rows too: an edit in the drill-in may have changed any slice.
+        const fresh = await Promise.all(closure.map(fetchOne));
+        const collapse = (slice: Slice): DimensionSummaryModel => {
+            const summaries = fresh.map(p => summarizePack(kind, p, slice)).filter((x): x is { min: number; max: number } => x != null);
+            return DimensionSummaryModel.create({
+                min: toInt(summaries.length ? Math.min(...summaries.map(s => s.min)) : -1),
+                max: toInt(summaries.length ? Math.max(...summaries.map(s => s.max)) : -1),
+            });
+        };
+        const fallback = collapse(undefined);
         const target = kind === "properties" ? rule.propertiesSummary : kind === "operations" ? rule.operationsSummary : rule.queriesSummary;
-        target.min = toInt(summaries.length ? Math.min(...summaries.map(s => s.min)) : -1);
-        target.max = toInt(summaries.length ? Math.max(...summaries.map(s => s.max)) : -1);
+        target.min = fallback.min;
+        target.max = fallback.max;
+        if (kind !== "queries")
+            for (const cr of rule.allowed.conditionRules) {
+                if (kind === "properties") cr.propertiesSummary = collapse(cr.typeConditions);
+                else cr.operationsSummary = collapse(cr.typeConditions);
+            }
         forceUpdate();
     }
 
@@ -316,22 +343,12 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                                             <GrayCheckbox readOnly={ctx.readOnly} checked={!withConditionsEquals(rule.allowed, rule.allowedBase)}
                                                 onUnchecked={() => { rule.allowed = cloneModel(rule.allowedBase); markDirty(); }} />
                                         </td>
-                                        {SUBLINKS.filter(s => s.enabled()).map(s => {
-                                            // Icon = summary of the permissions inside: glyph in the MAX colour. When the
-                                            // dimension is MIXED (min ≠ max) an underline in the MIN colour shows the range;
-                                            // a uniform dimension is just the solid glyph (no underline).
-                                            const sum = summaryFor(rule, s.kind);
-                                            const mixed = Number(sum.min) !== Number(sum.max);
-                                            return (
-                                                <td key={s.kind} className="text-center">
-                                                    <LinkButton className="sf-auth-link" title={s.title} onClick={() => void openSubPack(s.kind, rule)}>
-                                                        <span style={{ display: "inline-block", lineHeight: 1, paddingBottom: mixed ? 1 : 0, borderBottom: mixed ? `2px solid ${RANK_COLOR(Number(sum.min))}` : undefined }}>
-                                                            <FontAwesomeIcon aria-hidden={true} icon={s.icon} color={RANK_COLOR(Number(sum.max))} />
-                                                        </span>
-                                                    </LinkButton>
-                                                </td>
-                                            );
-                                        })}
+                                        {SUBLINKS.filter(s => s.enabled()).map(s =>
+                                            <td key={s.kind} className="text-center">
+                                                <LinkButton className="sf-auth-link" title={s.title} onClick={() => void openSubPack(s.kind, rule)}>
+                                                    {renderSummaryIcon(s.icon, summaryFor(rule, s.kind))}
+                                                </LinkButton>
+                                            </td>)}
                                     </tr>,
                                     ...rule.allowed.conditionRules.map((cr, i) => (
                                         <tr key={String(rule.resource.id) + "_c" + i} className="table-active">
@@ -350,14 +367,13 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                                             </td>)}
                                             <td />
                                             {/* One cell per dimension column. Property/operation drill-ins are scoped to
-                                                THIS condition; the Query column stays empty (queries have no type
-                                                conditions).
-                                                Neutral colour — no per-condition summary computed. */}
+                                                THIS condition, and coloured by its own summary; the Query column stays
+                                                empty (queries have no type conditions). */}
                                             {SUBLINKS.filter(s => s.enabled()).map(s =>
                                                 <td key={s.kind} className="text-center">
                                                     {s.kind !== "queries" &&
                                                         <LinkButton className="sf-auth-link" title={s.title} onClick={() => void openSubPack(s.kind, rule, cr.typeConditions)}>
-                                                            <FontAwesomeIcon aria-hidden={true} icon={s.icon} color="#6c757d" />
+                                                            {renderSummaryIcon(s.icon, s.kind === "properties" ? cr.propertiesSummary : cr.operationsSummary)}
                                                         </LinkButton>}
                                                 </td>)}
                                         </tr>

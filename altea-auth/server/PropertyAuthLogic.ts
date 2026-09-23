@@ -5,7 +5,8 @@ import { ResetLazy } from "@altea/altea/server/resetLazy";
 import { table } from "@altea/altea/server/table";
 import { Entity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
-import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { PropertyRoute, isPartType } from "@altea/altea/data/propertyRoute";
+import { cleanTypeName } from "@altea/altea/data/registration";
 import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import { getRegisteredTypes } from "@altea/altea/data/registration";
@@ -27,7 +28,7 @@ import {
     typeAllowedUI, typeBasicToProperty,
 } from "../data/Rules";
 import { BasicPermission } from "@altea/altea/data/permissionSymbol";
-import { WithConditions, ConditionRule, evaluateConditions } from "./WithConditions";
+import { WithConditions, ConditionRule, evaluateConditions, sliceValue } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
 import { section, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
@@ -172,7 +173,7 @@ export namespace PropertyAuthLogic {
         if (started)
             return;
         started = true;
-        TypeAuthLogic.registerDimensionSummary("properties", fallbackSummary); // grid icon colour summary
+        TypeAuthLogic.registerDimensionSummary("properties", sliceSummary); // grid icon colour summary
         // A property rule POINTS at a route row, so this module owns bringing the table along — which is
         // where Signum starts it from too.
         PropertyRouteLogic.start(sb);
@@ -381,6 +382,19 @@ export namespace PropertyAuthLogic {
      * PropertyRoute.assertNotPartRoot. Parts are already absent from the TYPE grid (PartOwnership), so
      * this is the same rule one dimension down.
      */
+    // The `@part` a route's member belongs to — the nearest part-typed step ABOVE it (the reference to a
+    // part, `details`, is still the owner's own member; `details/product` is the part's). undefined for a
+    // member of the route's root.
+    function partOf(route: PropertyRoute): Function | undefined {
+        for (let r = route.parent; r != undefined; r = r.parent) {
+            const tr = r.type;
+            const ctor = tr.is(Entity) ? tr.getFunction() : undefined;
+            if (isPartType(ctor))
+                return ctor;
+        }
+        return undefined;
+    }
+
     function authRoutes(ctor: Function): PropertyRoute[] {
         // `includeCasts` is ON: a `@part` reached through a POLYMORPHIC reference has no route root of
         // its own, so without the cast step its members are the one part of the model no rule can name
@@ -421,15 +435,16 @@ export namespace PropertyAuthLogic {
 
     const symbolLite = (s: TypeConditionSymbol): Lite<TypeConditionSymbol> => TypeConditionSymbol.newLite(s.id, s.key);
 
-    /** Min/max access RANK (0 None, 1 Read, 2 Write) over ALL property routes' fallback allowance — the
-     *  grid's colour summary for the Properties drill-in. undefined when the type has no routes. */
-    export async function fallbackSummary(typeName: string, roleKey: string): Promise<{ min: number; max: number } | undefined> {
+    /** Min/max access RANK (0 None, 1 Read, 2 Write) over ALL property routes' allowance in one SLICE (the
+     *  fallback, or one condition set) — the grid's colour summary for the Properties drill-in of the type
+     *  row / a condition row. undefined when the type has no routes. */
+    export async function sliceSummary(typeName: string, roleKey: string, slice?: readonly TypeConditionSymbol[]): Promise<{ min: number; max: number } | undefined> {
         const ctor = Entity.resolveType(typeName);
         const typeId = (await TypeLogic.caches()).typeToId(ctor);
         const rank = (v: PropertyAllowed): number => v === PropertyAllowed.None ? 0 : v === PropertyAllowed.Read ? 1 : 2;
         let min = 2, max = 0, any = false;
         for (const route of authRoutes(ctor)) {
-            const r = rank((await getAllowed(typeId, route.propertyString(), roleKey)).fallback);
+            const r = rank(sliceValue(await getAllowed(typeId, route.propertyString(), roleKey), slice));
             if (r < min) min = r;
             if (r > max) max = r;
             any = true;
@@ -475,14 +490,15 @@ export namespace PropertyAuthLogic {
         const rules: PropertyAllowedRule[] = [];
         for (const route of authRoutes(ctor)) {
             const path = route.propertyString();
+            const part = partOf(route);
             rules.push(PropertyAllowedRule.create({
                 path,
+                part: part != undefined ? cleanTypeName(part) : null,
                 allowed: toModel(coerceToCeiling(await getAllowed(typeId, path, roleKey), ceiling)),
                 allowedBase: toModel(coerceToCeiling(await getAllowedBase(typeId, path, roleKey), ceiling)),
                 coerced: toModel(ceiling),
             }));
         }
-        rules.sort((a, b) => a.path.localeCompare(b.path));
         const conditionSets = await TypeAuthLogic.conditionSetsForType(typeId, roleKey);
         return PropertyRulePack.create({
             role: role.toLite(),
@@ -490,7 +506,11 @@ export namespace PropertyAuthLogic {
             strategy: MergeStrategy[role.mergeStrategy],
             availableConditions: TypeConditionLogic.conditionsFor(ctor).map(symbolLite),
             availableTypeConditions: conditionSets.map(set => TypeConditionSetModel.create({ typeConditions: set.map(symbolLite) })),
-            rules,
+            // In DECLARATION order — `generateRoutes` walks the members as the classes declare them — but
+            // with each part's rows together, since the editor draws one table per part and the walk
+            // interleaves them with the members around them. `groupBy` keeps both orders: groups by first
+            // appearance (the type's own members first, as its first member is), elements as they came.
+            rules: rules.groupBy(r => r.part ?? "").flatMap(g => g.elements),
         });
     }
 

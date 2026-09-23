@@ -143,7 +143,8 @@ export namespace TypeAuthLogic {
     // Per-dimension access-summary providers (property/operation/query), registered by each dimension
     // logic at start (they already import TypeAuthLogic, so this avoids a back-import cycle). Each returns
     // the role's min/max allowance RANK over that dimension's rules for a type, or undefined if none.
-    type SummaryFn = (typeName: string, roleKey: string) => Promise<{ min: number; max: number } | undefined>;
+    // `slice`: one condition set's values rather than the fallback's (queries have no conditions and ignore it).
+    type SummaryFn = (typeName: string, roleKey: string, slice?: readonly TypeConditionSymbol[]) => Promise<{ min: number; max: number } | undefined>;
     const summaryProviders: { properties?: SummaryFn; operations?: SummaryFn; queries?: SummaryFn } = {};
     export function registerDimensionSummary(kind: "properties" | "operations" | "queries", fn: SummaryFn): void {
         summaryProviders[kind] = fn;
@@ -638,21 +639,29 @@ export namespace TypeAuthLogic {
             // over the WHOLE closure, not just the main entity, so a row's summary reflects the parts a
             // drill-in would edit too (matching the modal that opens on click).
             const closure = ownedPartClosure(t.cleanName);
-            const summary = async (fn: SummaryFn | undefined): Promise<DimensionSummaryModel> => {
+            const summary = async (fn: SummaryFn | undefined, slice?: readonly TypeConditionSymbol[]): Promise<DimensionSummaryModel> => {
                 if (fn == null)
                     return DimensionSummaryModel.create({ min: toInt(-1), max: toInt(-1) });
                 let min: number | undefined, max: number | undefined;
                 for (const name of closure) {
-                    const s = await fn(name, roleKey);
+                    const s = await fn(name, roleKey, slice);
                     if (s == null) continue;
                     min = min == null ? Number(s.min) : Math.min(min, Number(s.min));
                     max = max == null ? Number(s.max) : Math.max(max, Number(s.max));
                 }
                 return DimensionSummaryModel.create({ min: toInt(min ?? -1), max: toInt(max ?? -1) });
             };
+            // Each condition row gets the summaries of ITS set, so its drill-in icons are coloured like the type
+            // row's are for the fallback.
+            const allowedWC = await getAllowed(t.id, roleKey);
+            const allowed = toModel(allowedWC);
+            for (const [i, cr] of allowedWC.conditionRules.entries()) {
+                allowed.conditionRules[i]!.propertiesSummary = await summary(summaryProviders.properties, cr.typeConditions);
+                allowed.conditionRules[i]!.operationsSummary = await summary(summaryProviders.operations, cr.typeConditions);
+            }
             rules.push(TypeAllowedRule.create({
                 resource: TypeEntity.newLite(t.id, t.cleanName),
-                allowed: toModel(await getAllowed(t.id, roleKey)),
+                allowed,
                 allowedBase: toModel(await getAllowedBase(t.id, roleKey)),
                 availableConditions: (availableByType.get(t.id) ?? []).map(symbolLite),
                 ownedParts: closure.slice(1), // [owner, ...parts] → just the parts

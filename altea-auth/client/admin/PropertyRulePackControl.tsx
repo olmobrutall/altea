@@ -6,6 +6,7 @@ import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { Operations } from "@altea/altea/client/Operations";
 import { Finder } from "@altea/altea/client/Finder";
+import { tryGetTypeInfo } from "@altea/altea/client/Reflection";
 import type { PropertyRulePack, PropertyAllowedRule, TypeConditionSymbol } from "../../data/Rules";
 import { PropertyAllowed, PropertyConditionRuleModel } from "../../data/Rules";
 import type { Lite } from "@altea/altea/data/lite";
@@ -86,9 +87,36 @@ export default function PropertyRulePackControl({ ctx, initialTypeConditions, re
     );
 }
 
-// Just the per-type property-rules TABLE for one SLICE (no header / no slice picker) — extracted so the
-// stacked part-closure modal (AuthClosureModal) can render one table per type sharing a single slice.
+// The per-type property-rules TABLES for one SLICE (no header / no slice picker) — extracted so the
+// stacked part-closure modal (AuthClosureModal) can render them for each type sharing a single slice.
+//
+// One table per PART, like the operation modal. A part's members are routes of its owner, so they come
+// in the OWNER's pack (the part's own pack is empty) — each rule says which part it belongs to, and the
+// server keeps them in declaration order, owner first, one run per part. A group keeps its full path: that is the
+// rule's identity, and what distinguishes two parts' members of the same name.
 export function PropertyRulesTable({ pack, readOnly, markDirty, slice }: { pack: PropertyRulePack; readOnly: boolean; markDirty: () => void; slice: Slice }): React.JSX.Element {
+
+    const groups: { part: string | null; rules: PropertyAllowedRule[] }[] = [];
+    for (const rule of pack.rules) {
+        const last = groups[groups.length - 1];
+        if (last != null && last.part === rule.part) last.rules.push(rule);
+        else groups.push({ part: rule.part, rules: [rule] });
+    }
+    if (groups.length == 0 || groups[0].part != null)
+        groups.unshift({ part: null, rules: [] }); // the type's own table always shows, as its pack's heading implies
+
+    return (
+        <>
+            {groups.map((g, i) =>
+                <React.Fragment key={g.part ?? ""}>
+                    {g.part != null && <h6 className={i > 0 ? "text-muted mt-4" : "text-muted"}>{tryGetTypeInfo(g.part)?.getNiceName() ?? g.part}</h6>}
+                    <PropertyRulesGroupTable rules={g.rules} readOnly={readOnly} markDirty={markDirty} slice={slice} />
+                </React.Fragment>)}
+        </>
+    );
+}
+
+function PropertyRulesGroupTable({ rules, readOnly, markDirty, slice }: { rules: PropertyAllowedRule[]; readOnly: boolean; markDirty: () => void; slice: Slice }): React.JSX.Element {
 
     // A radio bound to a PropertyAllowed getter/setter, hidden above the row's coerced ceiling.
     const renderRadio = (get: () => PropertyAllowed, set: (v: PropertyAllowed) => void, coerced: PropertyAllowed, level: typeof LEVELS[number]): React.JSX.Element | null =>
@@ -100,11 +128,12 @@ export function PropertyRulesTable({ pack, readOnly, markDirty, slice }: { pack:
         // Fixed layout + colgroup so every table has identical column geometry — when AuthClosureModal
         // stacks one table per type (owner + parts), the Property / Write / Read / None / Overridden columns
         // line up vertically instead of each table auto-sizing to its own property-name lengths.
-        <table className="table table-sm table-hover sf-auth-rules" style={{ width: "40rem", tableLayout: "fixed" }}>
+        // The Property column takes whatever width is left; the radio columns are fixed.
+        <table className="table table-sm table-hover sf-auth-rules" style={{ width: "100%", tableLayout: "fixed" }}>
             <colgroup>
-                <col style={{ width: "40%" }} />
-                {LEVELS.map(l => <col key={l.value} style={{ width: "12%" }} />)}
-                <col style={{ width: "16%" }} />
+                <col />
+                {LEVELS.map(l => <col key={l.value} style={{ width: "5.5rem" }} />)}
+                <col style={{ width: "7rem" }} />
             </colgroup>
             <thead>
                 <tr>
@@ -114,7 +143,7 @@ export function PropertyRulesTable({ pack, readOnly, markDirty, slice }: { pack:
                 </tr>
             </thead>
             <tbody>
-                {pack.rules.map((rule: PropertyAllowedRule) => {
+                {rules.map((rule: PropertyAllowedRule) => {
                     const b = sliceBinding(rule.allowed, slice, makeCR);
                     const base = sliceBinding(rule.allowedBase, slice, makeCR);
                     // Per-slice ceiling: a None slice on the type caps this slice's radios at None.

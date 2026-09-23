@@ -19,6 +19,14 @@ export const sliceKey = (s: Slice): string => s == null ? "" : setKey(s);
 
 interface WithConditionsLike<A, CR> { fallback: A; conditionRules: CR[]; }
 
+/** The value of a WithConditionsModel for a SLICE: the matching conditionRule's `allowed`, else the fallback. */
+export function sliceValue<A>(wc: WithConditionsLike<A, { typeConditions: Lite<TypeConditionSymbol>[]; allowed: A }>, slice: Slice): A {
+    if (slice == null)
+        return wc.fallback;
+    const key = setKey(slice);
+    return wc.conditionRules.find(cr => setKey(cr.typeConditions) === key)?.allowed ?? wc.fallback;
+}
+
 // A get/set binding onto the value of a WithConditionsModel FOR A SLICE:
 //   • Fallback slice  → the model's `fallback`.
 //   • a condition set → the matching conditionRule's `allowed`; reading a set with no rule yields the
@@ -34,7 +42,7 @@ export function sliceBinding<A, CR extends { typeConditions: Lite<TypeConditionS
     const key = setKey(slice);
     const find = (): CR | undefined => wc.conditionRules.find(cr => setKey(cr.typeConditions) === key);
     return {
-        get: () => find()?.allowed ?? wc.fallback,
+        get: () => sliceValue(wc, slice),
         set: v => { const cr = find(); if (cr) cr.allowed = v; else wc.conditionRules.push(makeCR([...slice], v)); },
     };
 }

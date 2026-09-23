@@ -22,7 +22,7 @@ import { TypeAuthLogic } from "./TypeAuthLogic";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { section, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
-import { WithConditions, ConditionRule, evaluateConditions } from "./WithConditions";
+import { WithConditions, ConditionRule, evaluateConditions, sliceValue } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
 import { TypeConditionLogic } from "./TypeConditionLogic";
 
@@ -83,7 +83,7 @@ export namespace OperationAuthLogic {
         if (started)
             return;
         started = true;
-        TypeAuthLogic.registerDimensionSummary("operations", fallbackSummary); // grid icon colour summary
+        TypeAuthLogic.registerDimensionSummary("operations", sliceSummary); // grid icon colour summary
         // No `withQuery()` — see TypeAuthLogic.
         sb.include(RuleOperationEntity);
         // globalLazy runs the factory
@@ -152,15 +152,16 @@ export namespace OperationAuthLogic {
         return (await rulesLazy.value()).getAllowedBase(operationId, typeId, roleKey);
     }
 
-    /** Min/max access RANK (0 None, 1 DBOnly, 2 Allow) over ALL of the type's operations' fallback
-     *  allowance — the grid's colour summary for the Operations drill-in. undefined when the type has none. */
-    export async function fallbackSummary(typeName: string, roleKey: string): Promise<{ min: number; max: number } | undefined> {
+    /** Min/max access RANK (0 None, 1 DBOnly, 2 Allow) over ALL of the type's operations' allowance in one
+     *  SLICE (the fallback, or one condition set) — the grid's colour summary for the Operations drill-in of
+     *  the type row / a condition row. undefined when the type has none. */
+    export async function sliceSummary(typeName: string, roleKey: string, slice?: readonly TypeConditionSymbol[]): Promise<{ min: number; max: number } | undefined> {
         const ctor = Entity.resolveType(typeName);
         const typeId = (await TypeLogic.caches()).typeToId(ctor);
         const rank = (v: OperationAllowed): number => v === OperationAllowed.None ? 0 : v === OperationAllowed.DBOnly ? 1 : 2;
         let min = 2, max = 0, any = false;
         for (const op of OperationLogic.operationsForTypeName(typeName)) {
-            const r = rank((await getAllowed(op.id, typeId, roleKey)).fallback);
+            const r = rank(sliceValue(await getAllowed(op.id, typeId, roleKey), slice));
             if (r < min) min = r;
             if (r > max) max = r;
             any = true;

@@ -16,6 +16,19 @@ export function evaluateConditions<A>(wc: WithConditions<A>, matches: (tc: TypeC
     return wc.fallback;
 }
 
+/**
+ * The value for exactly ONE condition set — what the rules editor shows for that "slice": the rule for that
+ * set, else the fallback (`undefined` = the Fallback slice itself). Not an evaluation: no other rule's set
+ * is consulted, as none is when an administrator edits the slice.
+ */
+export function sliceValue<A>(wc: WithConditions<A>, slice: readonly TypeConditionSymbol[] | undefined): A {
+    if (slice == null)
+        return wc.fallback;
+    const keys = new Set(slice.map(tc => tc.key));
+    const cr = wc.conditionRules.find(r => r.typeConditions.length === keys.size && r.typeConditions.every(tc => keys.has(tc.key)));
+    return cr != null ? cr.allowed : wc.fallback;
+}
+
 // Port of Signum's immutable WithConditions<A> / ConditionRule<A> (Rules/RulePackModels.cs).
 // A role's access to a type is not a single value but a `WithConditions<TypeAllowed>`: a `fallback` plus
 // an ORDERED list of condition rules, each a SET of TypeConditionSymbols (AND-ed) → an allowed value.
