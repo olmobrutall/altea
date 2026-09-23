@@ -69,12 +69,13 @@ export namespace AuthReflectionServer {
             // says nothing, because the reader's default for a present entry is Write.
             if (TypeAuthLogic.isStarted()) {
                 const caches = await TypeLogic.caches();
+                const typeRules = await TypeAuthLogic.rulesCache();
                 for (const [ctor] of Connector.current().schema.tables) {
                     if (typeof ctor !== "function") continue;
                     // undefined for an enum side-table / view — not type-auth'd.
                     const typeId = caches.tryTypeToId(ctor);
                     if (typeId == null) continue;
-                    const allowed = await TypeAuthLogic.getAllowed(typeId, roleKey);
+                    const allowed = typeRules.getAllowed(typeId, caches, roleKey);
                     const maxUI = maxBound(allowed, true);
 
                     if (maxUI === TypeAllowedBasic.None) {

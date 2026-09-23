@@ -23,7 +23,7 @@ import type { MapColorProvider } from "./MapColorProvider";
 //
 // altea divergences:
 //  - `TypeAuthLogic.GetTypeRulesSimple(role)` has no counterpart, so the per-role rules are gathered by
-//    asking `TypeAuthLogic.getAllowed(typeId, roleKey)` per (role, type) — the same information, one
+//    reading `TypeAuthLogic.rulesCache()` per (role, type) — the same information, one
 //    lookup at a time, all served from the already-warm rule cache.
 //  - `TypeAllowedBasic` is a NUMERIC enum here (Signum's is a string on the wire), so the gradient band
 //    names come from the enum's member name and the tooltip from `Enum.niceName`.
@@ -54,11 +54,12 @@ export namespace AuthColorProvider {
             const rules = new Map<string, WithConditions<TypeAllowed>>();
 
             const caches = await TypeLogic.caches();
+            const typeRules = await TypeAuthLogic.rulesCache();
             for (const ctor of types) {
                 const typeId = caches.tryTypeToId(ctor);
                 if (typeId == null)
                     continue; // not a persisted type
-                rules.set(cleanTypeName(ctor), await TypeAuthLogic.getAllowed(typeId, roleKey));
+                rules.set(cleanTypeName(ctor), typeRules.getAllowed(typeId, caches, roleKey));
             }
 
             const name = `role-${roleKey}`;

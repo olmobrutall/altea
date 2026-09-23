@@ -20,7 +20,7 @@ import {
 } from "../data/Rules";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
-import { section, overridesOnly, removeUnlisted, attr, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, removeUnlisted, attr, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 import { WithConditions, ConditionRule, evaluateConditions, sliceValue } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
@@ -96,7 +96,7 @@ export namespace OperationAuthLogic {
         // The execute / button-state authorization gate, now
         // condition-aware — the allowance is evaluated against the operated entity (fallback when absent).
         OperationLogic.onAllowOperation(async (symbol, entityType, inUserInterface, entity) => {
-            const wc = await getAllowed(symbol.id, (await TypeLogic.caches()).typeToId(entityType));
+            const wc = (await rulesLazy.value()).getAllowed(symbol.id, (await TypeLogic.caches()).typeToId(entityType));
             const oa = entity != null
                 ? evaluateConditions(wc, tc => TypeConditionLogic.inTypeCondition(entity, tc))
                 : wc.fallback;
@@ -141,27 +141,17 @@ export namespace OperationAuthLogic {
         return new WithConditions<OperationAllowed>(row.fallback, conditionRules);
     }
 
-    /** The full WithConditions<OperationAllowed> for (operation, type) and the current role (or given role).
-     *  No current role (anonymous / auth off) → simple Allow. */
-    async function getAllowed(operationId: PrimaryKey, typeId: PrimaryKey, roleKey?: string): Promise<WithConditions<OperationAllowed>> {
-        return (await rulesLazy.value()).getAllowed(operationId, typeId, roleKey);
-    }
-
-    // The value with NO explicit rule.
-    async function getAllowedBase(operationId: PrimaryKey, typeId: PrimaryKey, roleKey: string): Promise<WithConditions<OperationAllowed>> {
-        return (await rulesLazy.value()).getAllowedBase(operationId, typeId, roleKey);
-    }
-
     /** Min/max access RANK (0 None, 1 DBOnly, 2 Allow) over ALL of the type's operations' allowance in one
      *  SLICE (the fallback, or one condition set) — the grid's colour summary for the Operations drill-in of
      *  the type row / a condition row. undefined when the type has none. */
     export async function sliceSummary(typeName: string, roleKey: string, slice?: readonly TypeConditionSymbol[]): Promise<{ min: number; max: number } | undefined> {
         const ctor = Entity.resolveType(typeName);
         const typeId = (await TypeLogic.caches()).typeToId(ctor);
+        const rules = await rulesLazy.value();
         const rank = (v: OperationAllowed): number => v === OperationAllowed.None ? 0 : v === OperationAllowed.DBOnly ? 1 : 2;
         let min = 2, max = 0, any = false;
         for (const op of OperationLogic.operationsForTypeName(typeName)) {
-            const r = rank(sliceValue(await getAllowed(op.id, typeId, roleKey), slice));
+            const r = rank(sliceValue(rules.getAllowed(op.id, typeId, roleKey), slice));
             if (r < min) min = r;
             if (r > max) max = r;
             any = true;
@@ -202,12 +192,13 @@ export namespace OperationAuthLogic {
         const roleKey = role.toLite().key();
         const ctor = Entity.resolveType(typeName);
         const typeId = (await TypeLogic.caches()).typeToId(ctor);
+        const cache = await rulesLazy.value();
         const rules: OperationAllowedRule[] = [];
         for (const op of OperationLogic.operationsForTypeName(typeName)) {
             rules.push(OperationAllowedRule.create({
                 operation: OperationSymbol.newLite(op.id, op.key),
-                allowed: toModel(await getAllowed(op.id, typeId, roleKey)),
-                allowedBase: toModel(await getAllowedBase(op.id, typeId, roleKey)),
+                allowed: toModel(cache.getAllowed(op.id, typeId, roleKey)),
+                allowedBase: toModel(cache.getAllowedBase(op.id, typeId, roleKey)),
                 coerced: OperationAllowed.Allow,
             }));
         }
@@ -269,9 +260,10 @@ export namespace OperationAuthLogic {
         const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
         const opKey = new Map((await SymbolLogic.cache(OperationSymbol)).symbols().map(s => [String(s.id), s.key]));
         const condKey = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s.key]));
+        const rules = await rulesLazy.value();
         const stored = await table(RuleOperationEntity).toArray() as RuleOperationEntity[];
-        const byRole = groupByRole(await overridesOnly(stored, async r =>
-            !(await getAllowed(r.operation.id!, r.type.id!, r.role.key())).equals(await getAllowedBase(r.operation.id!, r.type.id!, r.role.key()))));
+        const byRole = groupByRole(stored.filter(r =>
+            !rules.getAllowed(r.operation.id!, r.type.id!, r.role.key()).equals(rules.getAllowedBase(r.operation.id!, r.type.id!, r.role.key()))));
         return {
             name: "Operations",
             content: section("Operation", ctx.orderedRoleKeys, ctx.roleName, byRole, r => {

@@ -35,6 +35,12 @@ export function groupByRole<T extends { role: { key(): string } }>(rows: T[]): M
 // Assemble a dimension section for the XMLBuilder object: `{ Role: [{ @_Name, <elementName>: [row…] }] }`,
 // roles in dependency order, only roles that have rows. `rowObj` builds one element object from a rule row.
 //
+// Each dimension passes only the stored rules that still DIFFER from what the role would inherit — Signum's
+// export filter (`where !allowed.Equals(allowedBase)`). A stored rule can stop mattering without being
+// touched (its type rule changed, or a parent role's did) and the editor does not revisit the other
+// dimensions when that happens: the export leaves it out, and importing the file removes it
+// ({@link removeUnlisted}).
+//
 // Each role's rows are SORTED by `sortKey` — Signum's `orderby resource`, over the same resource string
 // (`Resource`; a property's `Type|path`, an operation's `Key/Type`) — so the file is diffable: without it
 // they came out in table order, and a rule re-saved in the editor moved to the end of its role.
@@ -74,20 +80,6 @@ export function conditionsXml(
             Name: cr.conditions.map(c => condKey(c.symbol.id)).join(", "),
             Allowed: enumName(cr.allowed),
         }));
-}
-
-/**
- * Signum's export filter (`where !allowed.Equals(allowedBase)`): only the rules that still DIFFER from what
- * the role would inherit. A stored rule can stop mattering without being touched — its type rule changed,
- * or a parent role's did — and the editor does not revisit the other dimensions when that happens; the
- * export leaves such a rule out, and importing the file then removes it (see {@link removeUnlisted}).
- */
-export async function overridesOnly<T>(rows: T[], isOverride: (row: T) => Promise<boolean>): Promise<T[]> {
-    const keep: T[] = [];
-    for (const row of rows)
-        if (await isOverride(row))
-            keep.push(row);
-    return keep;
 }
 
 // ---- Import ------------------------------------------------------------------------------------

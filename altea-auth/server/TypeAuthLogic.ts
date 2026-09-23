@@ -37,7 +37,7 @@ import { mergeTypeConditions } from "./TypeConditionMerger";
 import { buildAuthFilter, authFilterLambda, rebasePartFilter, conditionValueLambda } from "./TypeConditionAlgebra";
 import { FilterQueryArgs, findQuerySources, querySourceCtor } from "@altea/altea/server/schema/filterQueryArgs";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
-import { section, overridesOnly, removeUnlisted, groupByRole, attrs, conditionsXml, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, removeUnlisted, groupByRole, attrs, conditionsXml, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 
 // Port of Signum.Authorization's Rules/TypeAuthLogic.cs + .Conditions.cs — see port/Auth.md.
@@ -253,8 +253,10 @@ export namespace TypeAuthLogic {
             group.push(lite);
         }
 
+        const caches = await TypeLogic.caches();
+        const rules = await rulesLazy.value();
         for (const [ctor, group] of byType) {
-            const wc = await getAllowed((await TypeLogic.caches()).typeToId(ctor));
+            const wc = rules.getAllowed(caches.typeToId(ctor), caches);
             if (minBound(wc, true) >= TypeAllowedBasic.Write)
                 continue;
             if (maxBound(wc, true) <= TypeAllowedBasic.Read)
@@ -378,11 +380,13 @@ export namespace TypeAuthLogic {
         for (const group of byCtor.values())
             await TypeConditionLogic.fillTypeConditions(group);
 
+        const caches = await TypeLogic.caches();
+        const rules = await rulesLazy.value();
         for (const e of entities) {
             const ctor = e.constructor as Function;
             if (TypeConditionLogic.conditionsFor(ctor).length === 0)
                 continue;
-            const wc = await getAllowed((await TypeLogic.caches()).typeToId(ctor), rk);
+            const wc = rules.getAllowed(caches.typeToId(ctor), caches, rk);
             if (maxBound(wc, false) < TypeAllowedBasic.Write)
                 continue;
             if (!(await isAllowedFor(e, TypeAllowedBasic.Write, false, rk)))
@@ -416,9 +420,10 @@ export namespace TypeAuthLogic {
         const rk = AuthLogic.currentRoleKey();
         if (rk == null || !AuthLogic.isEnabled())
             return;
+        const caches = await TypeLogic.caches();
         let typeId: PrimaryKey;
-        try { typeId = (await TypeLogic.caches()).typeToId(ctor); } catch { return; }
-        const wc = await getAllowed(typeId, rk);
+        try { typeId = caches.typeToId(ctor); } catch { return; }
+        const wc = (await rulesLazy.value()).getAllowed(typeId, caches, rk);
         if (maxBound(wc, false) < TypeAllowedBasic.Read)
             throw new UnauthorizedAccessException(`Not authorized to retrieve ${ctor.name}`);
     }
@@ -470,21 +475,13 @@ export namespace TypeAuthLogic {
         return rulesLazy.value();
     }
 
-    /** The full WithConditions<TypeAllowed> for a type id and role. No current role → simple Write. */
-    export async function getAllowed(typeId: PrimaryKey, roleKey?: string): Promise<WithConditions<TypeAllowed>> {
-        // The type↔id snapshot is resolved HERE, per call, rather than captured inside the rules cache: the
-        // rules are invalidated by a RuleType/Role save, the type ids by a schema sync, and a cache holding
-        // a snapshot of the other would go stale on the wrong signal.
-        return (await rulesLazy.value()).getAllowed(typeId, await TypeLogic.caches(), roleKey);
-    }
-
     /** The type's configured type-condition SETS for a role (each an AND-ed TypeConditionSymbol set), from
      *  the role's merged type rule condition rows. These are the selectable "slices" in the property /
      *  operation rule editors. Empty when the type / role
      *  has no condition rules. (A Part collapses to a scalar with no conditions → empty; a part's property
      *  rules are edited on the Fallback slice only.) */
     export async function conditionSetsForType(typeId: PrimaryKey, roleKey?: string): Promise<TypeConditionSymbol[][]> {
-        const wc = await getAllowed(typeId, roleKey);
+        const wc = (await rulesLazy.value()).getAllowed(typeId, await TypeLogic.caches(), roleKey);
         return wc.conditionRules.map(cr => [...cr.typeConditions]);
     }
 
@@ -492,7 +489,7 @@ export namespace TypeAuthLogic {
      *  None/Read/Write. Shipped per type in the reflection blob so the client can render a `None` type's
      *  EntityLink as text (not a link). */
     export async function maxTypeAllowedUI(typeId: PrimaryKey, roleKey?: string): Promise<TypeAllowedBasic> {
-        return maxBound(await getAllowed(typeId, roleKey), true);
+        return maxBound((await rulesLazy.value()).getAllowed(typeId, await TypeLogic.caches(), roleKey), true);
     }
 
     /** Coarse "can this role reach `requested` for this type AT ALL" — used by the
@@ -503,7 +500,7 @@ export namespace TypeAuthLogic {
         userInterface: boolean,
         roleKey?: string,
     ): Promise<boolean> {
-        const wc = await getAllowed(typeId, roleKey);
+        const wc = (await rulesLazy.value()).getAllowed(typeId, await TypeLogic.caches(), roleKey);
         return maxBound(wc, userInterface) >= requested;
     }
 
@@ -515,7 +512,8 @@ export namespace TypeAuthLogic {
         const rk = roleKey ?? AuthLogic.currentRoleKey();
         if (rk == null || !AuthLogic.isEnabled())
             return true;
-        const tac = await getAllowed((await TypeLogic.caches()).typeToId(entity.constructor), rk);
+        const caches = await TypeLogic.caches();
+        const tac = (await rulesLazy.value()).getAllowed(caches.typeToId(entity.constructor), caches, rk);
         const min = minBound(tac, userInterface);
         if (requested <= min)
             return true;
@@ -560,8 +558,8 @@ export namespace TypeAuthLogic {
             return true;
 
         const ctor = lite.entityType as Type<Entity>;
-        const typeId = (await TypeLogic.caches()).typeToId(ctor);
-        const wc = await getAllowed(typeId, rk);
+        const caches = await TypeLogic.caches();
+        const wc = (await rulesLazy.value()).getAllowed(caches.typeToId(ctor), caches, rk);
         if (minBound(wc, userInterface) >= requested)
             return true;
         if (maxBound(wc, userInterface) < requested)
@@ -582,11 +580,6 @@ export namespace TypeAuthLogic {
                 new PropertyExpression(q.expression, "some"), [filter], LiteralType.boolean);
             return (await q.translator.execute(some)) === true;
         });
-    }
-
-    // The value a role would get for a type with NO explicit rule.
-    export async function getAllowedBase(typeId: PrimaryKey, roleKey: string): Promise<WithConditions<TypeAllowed>> {
-        return (await rulesLazy.value()).getAllowedBase(typeId, await TypeLogic.caches(), roleKey);
     }
 
     const symbolLite = (s: TypeConditionSymbol): Lite<TypeConditionSymbol> => TypeConditionSymbol.newLite(s.id, s.key);
@@ -626,6 +619,7 @@ export namespace TypeAuthLogic {
         const roleKey = role.toLite().key();
         // typeId -> the symbols registered for that type (only types with conditions appear).
         const caches = await TypeLogic.caches();
+        const cache = await rulesLazy.value();
         const availableByType = new Map<PrimaryKey, TypeConditionSymbol[]>(
             TypeConditionLogic.types().map(ctor => [caches.typeToId(ctor), TypeConditionLogic.conditionsFor(ctor)]));
         const rules: TypeAllowedRule[] = [];
@@ -653,7 +647,7 @@ export namespace TypeAuthLogic {
             };
             // Each condition row gets the summaries of ITS set, so its drill-in icons are coloured like the type
             // row's are for the fallback.
-            const allowedWC = await getAllowed(t.id, roleKey);
+            const allowedWC = cache.getAllowed(t.id, caches, roleKey);
             const allowed = toModel(allowedWC);
             for (const [i, cr] of allowedWC.conditionRules.entries()) {
                 allowed.conditionRules[i]!.propertiesSummary = await summary(summaryProviders.properties, cr.typeConditions);
@@ -662,7 +656,7 @@ export namespace TypeAuthLogic {
             rules.push(TypeAllowedRule.create({
                 resource: TypeEntity.newLite(t.id, t.cleanName),
                 allowed,
-                allowedBase: toModel(await getAllowedBase(t.id, roleKey)),
+                allowedBase: toModel(cache.getAllowedBase(t.id, caches, roleKey)),
                 availableConditions: (availableByType.get(t.id) ?? []).map(symbolLite),
                 ownedParts: closure.slice(1), // [owner, ...parts] → just the parts
                 propertiesSummary: await summary(summaryProviders.properties),
@@ -715,9 +709,11 @@ export namespace TypeAuthLogic {
     async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
         const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
         const condKey = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s.key]));
+        const caches = await TypeLogic.caches();
+        const rules = await rulesLazy.value();
         const stored = await table(RuleTypeEntity).toArray() as RuleTypeEntity[];
-        const byRole = groupByRole(await overridesOnly(stored, async r =>
-            !(await getAllowed(r.resource.id!, r.role.key())).equals(await getAllowedBase(r.resource.id!, r.role.key()))));
+        const byRole = groupByRole(stored.filter(r =>
+            !rules.getAllowed(r.resource.id!, caches, r.role.key()).equals(rules.getAllowedBase(r.resource.id!, caches, r.role.key()))));
         return {
             name: "Types",
             content: section("Type", ctx.orderedRoleKeys, ctx.roleName, byRole, r => {

@@ -17,7 +17,7 @@ import { MergeStrategy, RoleEntity } from "../data/Role";
 import { RuleQueryEntity, RuleTypeEntity, QueryRulePack, QueryAllowedRule, QueryAllowed, TypeAllowedBasic } from "../data/Rules";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { maxBound } from "./WithConditions";
-import { section, overridesOnly, removeUnlisted, groupByRole, attrs, applyPerType, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, removeUnlisted, groupByRole, attrs, applyPerType, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 import { cleanTypeName } from "@altea/altea/data/registration";
 
@@ -133,7 +133,8 @@ export namespace QueryAuthLogic {
         const roleKey = AuthLogic.currentRoleKey();
         if (roleKey == null)
             return QueryAllowed.Allow;
-        return getAllowed(QueryLogic.getQueryEntity(queryName).id, rootTypeId(queryName, await TypeLogic.caches()), roleKey);
+        const caches = await TypeLogic.caches();
+        return (await rulesLazy.value()).getAllowed(QueryLogic.getQueryEntity(queryName).id, rootTypeId(queryName, caches), caches, roleKey);
     }
 
     export async function isQueryAllowed(queryName: QueryName, fullScreen: boolean): Promise<boolean> {
@@ -151,26 +152,21 @@ export namespace QueryAuthLogic {
         if (qe == null)
             return QueryAllowed.Allow;
         const qn = QueryLogic.tryGetQueryNameByKey(key);
-        return getAllowed(qe.id, qn ? rootTypeId(qn, await TypeLogic.caches()) : undefined, rk);
-    }
-
-    async function getAllowed(queryId: PrimaryKey, rootTid: PrimaryKey | undefined, roleKey: string): Promise<QueryAllowed> {
-        return (await rulesLazy.value()).getAllowed(queryId, rootTid, await TypeLogic.caches(), roleKey);
-    }
-
-    async function getAllowedBase(queryId: PrimaryKey, rootTid: PrimaryKey | undefined, roleKey: string): Promise<QueryAllowed> {
-        return (await rulesLazy.value()).getAllowedBase(queryId, rootTid, await TypeLogic.caches(), roleKey);
+        const caches = await TypeLogic.caches();
+        return (await rulesLazy.value()).getAllowed(qe.id, qn ? rootTypeId(qn, caches) : undefined, caches, rk);
     }
 
     /** Min/max access RANK (0 None, 1 EmbeddedOnly, 2 Allow) over ALL of the type's queries — the grid's
      *  colour summary for the Queries drill-in. undefined when the type has no queries. */
     export async function fallbackSummary(typeName: string, roleKey: string): Promise<{ min: number; max: number } | undefined> {
         const ctor = Entity.resolveType(typeName);
-        const typeId = (await TypeLogic.caches()).typeToId(ctor);
+        const caches = await TypeLogic.caches();
+        const rules = await rulesLazy.value();
+        const typeId = caches.typeToId(ctor);
         const rank = (v: QueryAllowed): number => v === QueryAllowed.None ? 0 : v === QueryAllowed.EmbeddedOnly ? 1 : 2;
         let min = 2, max = 0, any = false;
         for (const qn of QueryLogic.getTypeQueries(ctor)) {
-            const r = rank(await getAllowed(QueryLogic.getQueryEntity(qn).id, typeId, roleKey));
+            const r = rank(rules.getAllowed(QueryLogic.getQueryEntity(qn).id, typeId, caches, roleKey));
             if (r < min) min = r;
             if (r > max) max = r;
             any = true;
@@ -185,14 +181,16 @@ export namespace QueryAuthLogic {
             throw new Error(`Role '${roleId}' not found`);
         const roleKey = role.toLite().key();
         const ctor = Entity.resolveType(typeName);
-        const typeId = (await TypeLogic.caches()).typeToId(ctor);
+        const caches = await TypeLogic.caches();
+        const cache = await rulesLazy.value();
+        const typeId = caches.typeToId(ctor);
         const rules: QueryAllowedRule[] = [];
         for (const qn of QueryLogic.getTypeQueries(ctor)) {
             const qe = QueryLogic.getQueryEntity(qn);
             rules.push(QueryAllowedRule.create({
                 resource: QueryEntity.newLite(qe.id, getKey(qn)),
-                allowed: await getAllowed(qe.id, typeId, roleKey),        // all queries here root on this type
-                allowedBase: await getAllowedBase(qe.id, typeId, roleKey),
+                allowed: cache.getAllowed(qe.id, typeId, caches, roleKey),        // all queries here root on this type
+                allowedBase: cache.getAllowedBase(qe.id, typeId, caches, roleKey),
                 coerced: QueryAllowed.Allow,
             }));
         }
@@ -250,10 +248,11 @@ export namespace QueryAuthLogic {
             const qn = QueryLogic.tryGetQueryNameByKey(qk);
             return qn != null ? rootTypeId(qn, caches) : undefined;
         };
+        const rules = await rulesLazy.value();
         const stored = await table(RuleQueryEntity).toArray() as RuleQueryEntity[];
-        const byRole = groupByRole(await overridesOnly(stored, async r => {
+        const byRole = groupByRole(stored.filter(r => {
             const tid = rootTid(queryKey.get(String(r.resource.id)) ?? "");
-            return (await getAllowed(r.resource.id!, tid, r.role.key())) !== (await getAllowedBase(r.resource.id!, tid, r.role.key()));
+            return rules.getAllowed(r.resource.id!, tid, caches, r.role.key()) !== rules.getAllowedBase(r.resource.id!, tid, caches, r.role.key());
         }));
         return {
             name: "Queries",

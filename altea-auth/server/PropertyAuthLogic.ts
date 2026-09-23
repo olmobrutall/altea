@@ -30,7 +30,7 @@ import {
 import { BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { WithConditions, ConditionRule, evaluateConditions, sliceValue, adjustShape } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
-import { section, overridesOnly, removeUnlisted, attr, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, removeUnlisted, attr, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 import { setSerializationAuth, type PropertyAccess } from "@altea/altea/data/serializer/graphSerializers";
 import { Serializer } from "@altea/altea/data/serializer";
@@ -292,12 +292,6 @@ export namespace PropertyAuthLogic {
         return new WithConditions<PropertyAllowed>(row.fallback, conditionRules);
     }
 
-    // The type's allowance mapped to a property WithConditions — the per-slice CEILING (radios can't exceed
-    // it, and stored values are coerced to it). NOT the no-rule default (which applies the auto-upgrade gate).
-    async function typeCeilingWC(typeId: PrimaryKey, roleKey: string): Promise<WithConditions<PropertyAllowed>> {
-        return (await rulesLazy.value()).typeCeilingWC(typeId, await TypeLogic.caches(), roleKey);
-    }
-
     // A synchronous AutomaticUpgradeOfProperties predicate for the cache — the loaded permission cache read
     // for the BasicPermission.AutomaticUpgradeOfProperties symbol per role. When permission auth isn't
     // started (minimal setups), fall back to auto-upgrade ON (the pre-gate behaviour).
@@ -322,16 +316,6 @@ export namespace PropertyAuthLogic {
         );
     }
 
-    // The role's effective / inherited-base property allowance —
-    // the AutomaticUpgradeOfProperties recursion lives on the cache; these just await + delegate.
-    async function getAllowed(typeId: PrimaryKey, path: string, roleKey: string): Promise<WithConditions<PropertyAllowed>> {
-        return (await rulesLazy.value()).getAllowed(typeId, path, await TypeLogic.caches(), roleKey);
-    }
-
-    async function getAllowedBase(typeId: PrimaryKey, path: string, roleKey: string): Promise<WithConditions<PropertyAllowed>> {
-        return (await rulesLazy.value()).getAllowedBase(typeId, path, await TypeLogic.caches(), roleKey);
-    }
-
     /**
      * Could the CURRENT role reach `requested` on this
      * route under AT LEAST ONE type-condition slice? null when it could, else the reason.
@@ -345,11 +329,12 @@ export namespace PropertyAuthLogic {
         if (roleKey == null || !AuthLogic.isEnabled())
             return null;
 
-        const typeId = (await TypeLogic.caches()).tryTypeToId(Entity.resolveType(typeName));
+        const caches = await TypeLogic.caches();
+        const typeId = caches.tryTypeToId(Entity.resolveType(typeName));
         if (typeId == null)
             return null;
 
-        const wc = await getAllowed(typeId, path, roleKey);
+        const wc = (await rulesLazy.value()).getAllowed(typeId, path, caches, roleKey);
         const max = Math.max(wc.fallback, ...wc.conditionRules.map(cr => cr.allowed)) as PropertyAllowed;
         if (max >= requested)
             return null;
@@ -440,11 +425,13 @@ export namespace PropertyAuthLogic {
      *  row / a condition row. undefined when the type has no routes. */
     export async function sliceSummary(typeName: string, roleKey: string, slice?: readonly TypeConditionSymbol[]): Promise<{ min: number; max: number } | undefined> {
         const ctor = Entity.resolveType(typeName);
-        const typeId = (await TypeLogic.caches()).typeToId(ctor);
+        const caches = await TypeLogic.caches();
+        const rules = await rulesLazy.value();
+        const typeId = caches.typeToId(ctor);
         const rank = (v: PropertyAllowed): number => v === PropertyAllowed.None ? 0 : v === PropertyAllowed.Read ? 1 : 2;
         let min = 2, max = 0, any = false;
         for (const route of authRoutes(ctor)) {
-            const r = rank(sliceValue(await getAllowed(typeId, route.propertyString(), roleKey), slice));
+            const r = rank(sliceValue(rules.getAllowed(typeId, route.propertyString(), caches, roleKey), slice));
             if (r < min) min = r;
             if (r > max) max = r;
             any = true;
@@ -482,11 +469,13 @@ export namespace PropertyAuthLogic {
             throw new Error(`Role '${roleId}' not found`);
         const roleKey = role.toLite().key();
         const ctor = Entity.resolveType(typeName);
-        const typeId = (await TypeLogic.caches()).typeToId(ctor);
+        const caches = await TypeLogic.caches();
+        const cache = await rulesLazy.value();
+        const typeId = caches.typeToId(ctor);
         // The per-slice ceiling = the type's own allowance mapped to PropertyAllowed (a property can't
         // exceed its type for any condition, so a None slice caps that slice's properties at None). Same
         // shape for every route, but emit a fresh model per row (each is an independent transport instance).
-        const ceiling = await typeCeilingWC(typeId, roleKey); // the per-slice ceiling (same for every route)
+        const ceiling = cache.typeCeilingWC(typeId, caches, roleKey); // the per-slice ceiling (same for every route)
         // Every value in the TYPE's shape (its condition sets, in its order), as Signum keeps them: the
         // editor then always edits an existing slice, and `allowed` vs `allowedBase` compare like for like.
         const inTypeShape = (wc: WithConditions<PropertyAllowed>): WithConditions<PropertyAllowed> => coerceToCeiling(adjustShape(wc, ceiling), ceiling);
@@ -497,8 +486,8 @@ export namespace PropertyAuthLogic {
             rules.push(PropertyAllowedRule.create({
                 path,
                 part: part != undefined ? cleanTypeName(part) : null,
-                allowed: toModel(inTypeShape(await getAllowed(typeId, path, roleKey))),
-                allowedBase: toModel(inTypeShape(await getAllowedBase(typeId, path, roleKey))),
+                allowed: toModel(inTypeShape(cache.getAllowed(typeId, path, caches, roleKey))),
+                allowedBase: toModel(inTypeShape(cache.getAllowedBase(typeId, path, caches, roleKey))),
                 coerced: toModel(ceiling),
             }));
         }
@@ -526,8 +515,9 @@ export namespace PropertyAuthLogic {
         const roleLite = role.toLite();
         const roleKey = roleLite.key();
         const symbolById = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s] as const));
-        const ceiling = await typeCeilingWC(pack.type.id, roleKey); // the per-slice type ceiling (coerce cap)
-        const typeEntity = (await TypeLogic.caches()).idToEntity(pack.type.id!)!;
+        const caches = await TypeLogic.caches();
+        const ceiling = (await rulesLazy.value()).typeCeilingWC(pack.type.id, caches, roleKey); // the per-slice type ceiling (coerce cap)
+        const typeEntity = caches.idToEntity(pack.type.id!)!;
         const current = await table(RulePropertyEntity)
             .filter(rp => rp.role == roleLite && rp.resource.rootType.is(typeEntity)).toArray() as RulePropertyEntity[];
         const currentByPath = new Map(current.map(rp => [rp.resource.path, rp]));
@@ -575,12 +565,14 @@ export namespace PropertyAuthLogic {
         const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
         const condKey = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s.key]));
         // Compared as the editor compares them: both in the type's shape, capped at its ceiling.
+        const caches = await TypeLogic.caches();
+        const rules = await rulesLazy.value();
         const stored = await table(RulePropertyEntity).toArray() as RulePropertyEntity[];
-        const byRole = groupByRole(await overridesOnly(stored, async r => {
+        const byRole = groupByRole(stored.filter(r => {
             const typeId = r.resource.rootType.id!, rk = r.role.key();
-            const ceiling = await typeCeilingWC(typeId, rk);
+            const ceiling = rules.typeCeilingWC(typeId, caches, rk);
             const shaped = (wc: WithConditions<PropertyAllowed>): WithConditions<PropertyAllowed> => coerceToCeiling(adjustShape(wc, ceiling), ceiling);
-            return !shaped(await getAllowed(typeId, r.resource.path, rk)).equals(shaped(await getAllowedBase(typeId, r.resource.path, rk)));
+            return !shaped(rules.getAllowed(typeId, r.resource.path, caches, rk)).equals(shaped(rules.getAllowedBase(typeId, r.resource.path, caches, rk)));
         }));
         return {
             name: "Properties",

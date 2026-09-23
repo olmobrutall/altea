@@ -15,7 +15,7 @@ import {
 import { PermissionSymbol, BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
-import { section, overridesOnly, removeUnlisted, groupByRole, attrs, parseBool, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, removeUnlisted, groupByRole, attrs, parseBool, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 
 // Port of Signum.Authorization's Rules/PermissionAuthLogic.cs — see port/Auth.md.
@@ -99,9 +99,10 @@ export namespace PermissionAuthLogic {
     // ---- AuthRules XML ------------------------------------------------------------------------
     async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
         const permKey = new Map((await SymbolLogic.cache(PermissionSymbol)).symbols().map(s => [String(s.id), s.key]));
+        const rules = await rulesLazy.value();
         const stored = await table(RulePermissionEntity).toArray() as RulePermissionEntity[];
-        const byRole = groupByRole(await overridesOnly(stored, async r =>
-            (await getAllowed(r.resource.id!, r.role.key())) !== (await getAllowedBase(r.resource.id!, r.role.key()))));
+        const byRole = groupByRole(stored.filter(r =>
+            rules.getAllowed(r.resource.id!, r.role.key()) !== rules.getAllowedBase(r.resource.id!, r.role.key())));
         return {
             name: "Permissions",
             content: section("Permission", ctx.orderedRoleKeys, ctx.roleName, byRole, r =>
@@ -157,16 +158,6 @@ export namespace PermissionAuthLogic {
         return (await rulesLazy.value()).getAllowed(permission.id, roleKey);
     }
 
-    /** The role's effective allowed for a permission id. No current role → allowed. */
-    async function getAllowed(permissionId: PrimaryKey, roleKey: string): Promise<boolean> {
-        return (await rulesLazy.value()).getAllowed(permissionId, roleKey);
-    }
-
-    // The value a role gets for a permission with NO explicit rule.
-    async function getAllowedBase(permissionId: PrimaryKey, roleKey: string): Promise<boolean> {
-        return (await rulesLazy.value()).getAllowedBase(permissionId, roleKey);
-    }
-
     // The admin pack: every permission with the role's effective `allowed`
     // and its inherited `allowedBase`. The resource Lite carries the symbol key as its toStr.
     export async function getPermissionRulePack(roleId: PrimaryKey): Promise<PermissionRulePack> {
@@ -174,12 +165,13 @@ export namespace PermissionAuthLogic {
         if (role == null)
             throw new Error(`Role '${roleId}' not found`);
         const roleKey = role.toLite().key();
+        const cache = await rulesLazy.value();
         const rules: PermissionAllowedRule[] = [];
         for (const p of (await SymbolLogic.cache(PermissionSymbol)).symbols()) {
             rules.push(PermissionAllowedRule.create({
                 resource: PermissionSymbol.newLite(p.id, p.key),
-                allowed: await getAllowed(p.id, roleKey),
-                allowedBase: await getAllowedBase(p.id, roleKey),
+                allowed: cache.getAllowed(p.id, roleKey),
+                allowedBase: cache.getAllowedBase(p.id, roleKey),
             }));
         }
         rules.sort((a, b) => a.resource.toString().localeCompare(b.resource.toString()));
