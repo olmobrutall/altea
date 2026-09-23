@@ -121,6 +121,37 @@ const shortKey = (l: Lite<TypeConditionSymbol>): string => {
 };
 const condSetKey = (tcs: Lite<TypeConditionSymbol>[]): string => tcs.map(l => String(l.id)).sort().join("&");
 
+// Signum's type filter box, verbatim in grammar: `+term` / `-term` (a bare term is `+`), read from the
+// LAST term back and the first that matches decides — so "Auth-!overriden" is "the Auth types, except the
+// overridden ones". `*` matches everything. A term matches as a case-insensitive substring of the
+// package, clean name or nice name, or — prefixed with `!` — as a command, any prefix of its name:
+//   !overriden   the type's rule differs from what it inherits
+//   !conditions  the type has type conditions registered
+function matchesFilter(filter: string, rule: TypeAllowedRule): boolean {
+    const parts = filter.match(/[+-]?((!?\w+)|\*)/g);
+    if (!parts || parts.length == 0)
+        return true;
+    const typeName = rule.resource.toString();
+    const str = [rule.packageName, typeName, tryGetTypeInfo(typeName)?.getNiceName() ?? ""].join("|").toLowerCase();
+    for (let i = parts.length - 1; i >= 0; i--) {
+        const p = parts[i]!;
+        const isPositive = !p.startsWith("-");
+        const token = p.startsWith("+") || p.startsWith("-") ? p.substring(1) : p;
+        if (token == "*")
+            return isPositive;
+        if (token.startsWith("!")) {
+            const command = token.substring(1).toLowerCase();
+            if ("overriden".startsWith(command) && !withConditionsEquals(rule.allowed, rule.allowedBase))
+                return isPositive;
+            if ("conditions".startsWith(command) && rule.availableConditions.length > 0)
+                return isPositive;
+        }
+        if (str.includes(token.toLowerCase()))
+            return isPositive;
+    }
+    return false;
+}
+
 // Structural fallback + conditions equality — drives the "overridden" flag.
 function withConditionsEquals(a: WithConditionsModel, b: WithConditionsModel): boolean {
     if (a.fallback !== b.fallback || a.conditionRules.length !== b.conditionRules.length)
@@ -144,10 +175,8 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
     const forceUpdate = (): void => ctx.frame!.frameComponent.forceUpdate();
     const markDirty = (): void => { dirty.current = true; forceUpdate(); };
 
-    // Type filter box: a case-insensitive substring match on the type's nice name; empty = show all.
     const [filter, setFilter] = React.useState("");
-    const isMatch = (rule: TypeAllowedRule): boolean =>
-        filter.trim() === "" || rule.resource.toString().toLowerCase().includes(filter.trim().toLowerCase());
+    const isMatch = (rule: TypeAllowedRule): boolean => matchesFilter(filter, rule);
 
     function renderButtons(bc: ButtonsContext): ButtonBarElement[] {
         // Track edits via the explicit `dirty` ref (set by markDirty on every change, cleared on reload),
@@ -290,7 +319,8 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                 <AutoLine ctx={ctx.subCtx(f => f.strategy)} readOnly={true} />
             </div>
             <div className="mb-2" style={{ maxWidth: "44rem" }}>
-                <input type="text" className="form-control form-control-sm" placeholder={AuthAdminMessage.Search.niceToString()}
+                <input type="text" className="form-control form-control-sm" placeholder="Auth-!overriden+!conditions"
+                    title="+term / -term (the last matching term decides), * = all, !overriden, !conditions"
                     value={filter} onChange={e => setFilter(e.currentTarget.value)} />
             </div>
             <table className="table table-sm table-hover sf-auth-rules" style={{ maxWidth: "44rem" }}
