@@ -107,13 +107,14 @@ export namespace Simplify {
             description: m.dependsOn.length > 0 ? `needs ${m.dependsOn.join(", ")}` : "",
             value: m,
             selected: !m.optional,
+            requires: m.dependsOn,
         }));
 
         Console.writeLine();
         Console.writeLineColor(Color.darkGray,
             "  Tick a module to KEEP it. Unticked modules are REMOVED from the source, one commit each.");
         Console.writeLineColor(Color.darkGray,
-            "  Removing a module also removes everything that depends on it.");
+            "  Unticking a module unticks everything that depends on it; ticking one ticks what it needs.");
 
         const kept = await Prompt.multiSelect("Modules to keep", choices);
         if (kept == undefined)

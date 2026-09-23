@@ -10,6 +10,12 @@ export interface Choice<T> {
     selected: boolean;
     /** Ticked and NOT unticked by the caller — shown as forced, e.g. a module something else depends on. */
     forced?: boolean;
+    /**
+     * Keys of the choices this one cannot be ticked without. Toggling follows them both ways: ticking this
+     * ticks what it requires, and unticking a requirement unticks everything that requires it — so the list
+     * on screen is always the selection that will actually be applied.
+     */
+    requires?: string[];
 }
 
 /**
@@ -33,6 +39,12 @@ export namespace Prompt {
                 "Not an interactive console — using the default selection.");
             return choices.filter(c => c.selected).map(c => c.value);
         }
+
+        // The defaults may already break a requirement (a ticked row needing an unticked one): settle that
+        // before the first draw, so the opening list is honest too.
+        for (const c of choices)
+            if (!c.selected)
+                cascade(choices, c);
 
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
         Console.handleSigInt(rl);
@@ -92,7 +104,7 @@ export namespace Prompt {
             if (/^\d+$/.test(token)) { toggleIndex(choices, Number(token) - 1, token); continue; }
 
             const byKey = choices.filter(c => c.key.toLowerCase() === token.toLowerCase());
-            if (byKey.length === 1) { toggle(byKey[0], token); continue; }
+            if (byKey.length === 1) { toggle(choices, byKey[0], token); continue; }
 
             Console.writeLineColor(Color.red, `  '${token}' is not one of the options`);
         }
@@ -103,16 +115,50 @@ export namespace Prompt {
             Console.writeLineColor(Color.red, `  '${token}' is out of range`);
             return;
         }
-        toggle(choices[index], token);
+        toggle(choices, choices[index], token);
     }
 
-    function toggle<T>(choice: Choice<T>, token: string): void {
+    function toggle<T>(choices: Choice<T>[], choice: Choice<T>, token: string): void {
         if (choice.forced === true) {
             Console.writeLineColor(Color.yellow,
                 `  '${token}' cannot be changed here (something selected depends on it)`);
             return;
         }
         choice.selected = !choice.selected;
+
+        const changed = cascade(choices, choice);
+        if (changed.length > 0)
+            Console.writeLineColor(Color.yellow, choice.selected
+                ? `  '${choice.key}' needs ${changed.join(", ")} — ticked too`
+                : `  ${changed.join(", ")} need${changed.length === 1 ? "s" : ""} '${choice.key}' — unticked too`);
+    }
+
+    /**
+     * Propagate one choice's state through `requires`: a ticked choice ticks everything it requires, an
+     * unticked one unticks everything that requires it — transitively. Forced rows are never touched.
+     * Returns the keys it changed.
+     */
+    function cascade<T>(choices: Choice<T>[], start: Choice<T>): string[] {
+        const byKey = new Map(choices.map(c => [c.key.toLowerCase(), c]));
+        const changed: string[] = [];
+        const pending = [start];
+
+        while (pending.length > 0) {
+            const c = pending.pop()!;
+            const next = c.selected
+                ? (c.requires ?? []).map(k => byKey.get(k.toLowerCase())).filter(r => r != undefined)
+                : choices.filter(o => (o.requires ?? []).some(k => k.toLowerCase() === c.key.toLowerCase()));
+
+            for (const n of next) {
+                if (n.forced === true || n.selected === c.selected)
+                    continue;
+                n.selected = c.selected;
+                changed.push(n.key);
+                pending.push(n);
+            }
+        }
+
+        return changed;
     }
 
     /** Ask for a value, re-asking while `validate` returns a complaint. */
