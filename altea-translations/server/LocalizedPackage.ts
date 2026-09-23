@@ -414,7 +414,7 @@ export function importXml(packageName: string, culture: string): LocalizedPackag
         const declared = isDefault ? getDefaultDescription(t.typeName) : undefined;
 
         const description = t.options.hasDescription
-            ? s?.description ?? (isDefault ? declared?.description ?? Localization.Internal.niceNameFromName(t.typeName) : undefined)
+            ? s?.description ?? (isDefault ? declared?.description ?? Localization.Internal.niceNameFromTypeName(t.typeName) : undefined)
             : undefined;
 
         types.set(t.typeName, {

@@ -148,7 +148,7 @@ export function resolveType(name: string): Function | undefined {
 //
 // Signum's Reflector.CleanTypeName also strips Embedded / Model / Symbol; here those
 // suffixes STAY, because an identity must keep "SongEmbedded" distinct from a "Song"
-// beside it. Localization's niceNameFromName strips all four (and RowModel), but only for DISPLAY.
+// beside it. Localization's niceNameFromTypeName strips all four (and RowModel), but only for DISPLAY.
 export function cleanTypeName(ctor: Function): string {
     // LEGACY MODE: SIGNUM's own clean name for this type, when altea renamed it — declared outright with
     // `@legacyCleanName`, or derived from `@legacyClassName` by the same suffix rule as any other name.
@@ -191,7 +191,7 @@ export function cleanTypeName(ctor: Function): string {
 // Signum survives the same pairs because its clean name is used for DESCRIPTIONS while a Model's runtime
 // identity stays the full class name (its generated `new Type<WorkflowActivityModel>("WorkflowActivityModel")`
 // beside `new Type<WorkflowActivityEntity>("WorkflowActivity")`), and altea already strips all four (plus
-// RowModel) for display in `Localization.Internal.niceNameFromName`.
+// RowModel) for display in `Localization.Internal.niceNameFromTypeName`.
 //
 // `RowModel` IS stripped, because it is the one Model whose clean name has to be identity: the row shape
 // of a MANUAL query is that query's NAME (altea has no enum-named queries — see data/dynamicQuery/

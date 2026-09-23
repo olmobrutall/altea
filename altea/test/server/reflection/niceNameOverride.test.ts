@@ -107,3 +107,13 @@ describe("nice-name overrides (no translation file)", () => {
         assert.equal(Localization.Internal.typeNicePluralName("WidgetThing"), "Gadgets");
     });
 });
+
+// A `@part` row class is named `Owner_Member`: each segment is humanised on its own, joined by an arrow.
+describe("the default nice name of a part row class", () => {
+    test("Owner_Member reads as Owner ⇒ Member, suffixes stripped per segment", () => {
+        assert.equal(Localization.Internal.niceNameFromTypeName("DashboardEntity_Part"), "Dashboard ⇒ Part");
+        assert.equal(Localization.Internal.niceNameFromTypeName("DashboardEntity_TokenEquivalenceGroup_Query"),
+            "Dashboard ⇒ Token Equivalence Group ⇒ Query");
+        assert.equal(Localization.Internal.niceNameFromTypeName("GrammyAwardEntity"), "Grammy Award", "no underscore: unchanged");
+    });
+});

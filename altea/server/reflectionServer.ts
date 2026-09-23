@@ -186,7 +186,7 @@ export namespace ReflectionServer {
                 // Only DECLARED names ride the wire. A name that equals what the client would humanise
                 // anyway is pure payload, and a route-complete blob has a lot of those.
                 const niceName = t?.niceName ?? d?.description;
-                if (niceName != null && niceName !== Localization.Internal.niceNameFromName(name)) tm.niceName = niceName;
+                if (niceName != null && niceName !== Localization.Internal.niceNameFromTypeName(name)) tm.niceName = niceName;
                 const plural = t?.nicePluralName ?? d?.pluralDescription;
                 if (plural != null) tm.nicePluralName = plural;
                 const gender = t?.gender ?? d?.gender;

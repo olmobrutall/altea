@@ -43,7 +43,7 @@ export namespace Localization {
         // class name with a trailing "Entity" dropped and PascalCase split into words —
         // `GrammyAwardEntity` → "Grammy Award".
         export function typeNiceName(typeName: string): string {
-            return typeDescription(typeName) ?? niceNameFromName(typeName);
+            return typeDescription(typeName) ?? niceNameFromTypeName(typeName);
         }
 
         // Plural of the type's nice name (Signum's `Type.NicePluralName()`). Signum runs a real
@@ -81,9 +81,15 @@ export namespace Localization {
         // Entity / Symbol / RowModel, because there it is the reflection IDENTITY (the `$type` / `$lite`
         // wire discriminator, TypeEntity.cleanName, an @implementedBy column's suffix) and "SongEmbedded"
         // / "WorkflowModel" must stay distinct from any "Song" / "Workflow" beside them.
-        export function niceNameFromName(name: string): string {
-            const raw = name.replace(/(Entity|Embedded|RowModel|Model|Symbol)$/, "");
-            return raw.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2").trim();
+        //
+        // A `@part` row class is named `Owner_Member` (`DashboardEntity_Part`, and nested:
+        // `DashboardEntity_TokenEquivalenceGroup_Query`), so each underscore-separated segment is humanised
+        // on its own and they are joined with an arrow: "Dashboard ⇒ Part" reads as "a Part of a Dashboard".
+        export function niceNameFromTypeName(typeName: string): string {
+            return typeName.split("_").filter(seg => seg.length > 0).map(seg => {
+                const raw = seg.replace(/(Entity|Embedded|RowModel|Model|Symbol)$/, "");
+                return raw.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2").trim();
+            }).join(" ⇒ ");
         }
 
         // --- Member-level names ------------------------------------------------------------------
