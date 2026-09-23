@@ -34,7 +34,6 @@ export enum AzureADType {
 }
 
 @reflect
-@reflect
 export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     enabled: boolean = false;
 

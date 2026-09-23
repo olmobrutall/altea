@@ -17,7 +17,6 @@ import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 // port/AuthDirectory.md.
 
 @reflect
-@reflect
 export class WindowsADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     /**
      * Sign in with the browser's own Windows credentials (SPNEGO / Kerberos), no password typed.

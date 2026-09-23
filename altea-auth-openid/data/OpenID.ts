@@ -18,7 +18,6 @@ import { BaseADConfigurationEmbedded, RoleMappingEntity } from "@altea/altea-aut
 // Port of Signum.Authorization.OpenID's OpenIDConfigurationEmbedded.cs — see port/AuthDirectory.md.
 
 @reflect
-@reflect
 export class OpenIDConfigurationEmbedded extends BaseADConfigurationEmbedded {
     enabled: boolean = false;
 
