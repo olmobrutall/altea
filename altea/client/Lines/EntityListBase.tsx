@@ -132,8 +132,16 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
   // the memberType being a lite reference (a real N-M/1-N collection field's memberType is the ROW
   // type, never lite). In this mode there is no @valueField and no wrapping: getElementValue /
   // createRowFromValue are identity.
+  // Also a model's plain `T[]` of full entities (Signum's MList<T> on a ModelEntity, e.g. a checkbox list of
+  // picked skills): the element is an entity type that is not a row — a collection's row type always
+  // carries a @backReference.
   isDirectValueArray(memberType = this.props.ctx.memberType): boolean {
-    return this.needsValue && memberType?.lite == true;
+    if (!this.needsValue || memberType == null)
+      return false;
+    if (memberType.lite == true)
+      return true;
+    const tis = memberType.typeInfos();
+    return tis.length == 1 && tis[0].kind == "Entity" && tis[0].backReferenceField == null;
   }
 
   // The row type's @valueField — ONLY when this line consumes a value (needsValue) via a wrapping row;
@@ -171,9 +179,9 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
   async convertValue(valueOrLite: unknown): Promise<unknown> {
     const vf = this.getValueField();
     const isRef = valueOrLite instanceof Lite || valueOrLite instanceof BaseEntity;
-    const wantLite = vf ? !!vf.lite : this.isDirectValueArray();
-    if (!isRef || (vf == null && !wantLite))
+    if (!isRef || (vf == null && !this.isDirectValueArray()))
       return valueOrLite;
+    const wantLite = vf ? !!vf.lite : this.props.ctx.memberType?.lite == true;
     const isLiteVal = valueOrLite instanceof Lite;
     if (isLiteVal == wantLite)
       return valueOrLite;

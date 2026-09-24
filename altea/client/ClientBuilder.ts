@@ -78,6 +78,13 @@ export class EntityClientBuilder<T extends BaseEntity> {
     return this;
   }
 
+  /** Register the entity's settings with NO view module (Signum's `new EntitySettings(Type, undefined, options)`):
+   * it is viewed through the auto-generated AutoComponent, or not at all (`isViewable: "Never"`). */
+  withSettings(options?: EntitySettingsOptions<T>): this {
+    Navigator.addSettings(new EntitySettings(this.type, undefined, options) as unknown as EntitySettings<BaseEntity>);
+    return this;
+  }
+
   /** Register Finder query settings (Signum's `Finder.addSettings({ queryName, ... })`). `queryName`
    * defaults to the configured type; the builder may override it in its returned object. */
   withQuerySettings(builder?: (token: TokenFunction<T>) => Partial<Finder.QuerySettings>): this {

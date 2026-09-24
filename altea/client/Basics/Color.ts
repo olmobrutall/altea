@@ -45,6 +45,11 @@ export class Color {
     return contrastWithBlack >= contrastWithWhite ? Color.Black : Color.White;
   }
 
+  // Signum's Color.withAlpha — the same colour at the given opacity (0..1).
+  withAlpha(alpha: number): Color {
+    return new Color(this.r, this.g, this.b, alpha);
+  }
+
   // Ported from Signum's Color.lerp — linear blend towards `target` by `ratio` (0..1). Used by the
   // PivotTable renderer to pick a readable text color against a gradient cell background.
   lerp(ratio: number, target: Color): Color {

@@ -147,6 +147,10 @@ export abstract class BaseEntity {
     static gender(this: Function): string | undefined { return Localization.Internal.typeNiceGender(this.name); }
     /** Display name of a new (unsaved) instance (Signum's `Type.NewNiceName()`). */
     static newNiceName(this: Function): string { return Localization.Internal.typeNewNiceName(this.name); }
+    /** `3 Orders` / `1 Order` (Signum's `Type.niceCount(count)`). */
+    static niceCount(this: Function, count: number): string {
+        return count + " " + (count == 1 ? Localization.Internal.typeNiceName(this.name) : Localization.Internal.typeNicePluralName(this.name));
+    }
 
     /**
      * Display name of one of this type's properties (Signum's `Type.NicePropertyName(a => a.X)`):
