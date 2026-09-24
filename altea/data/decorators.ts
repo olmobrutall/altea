@@ -817,6 +817,11 @@ export function forceNotNullable(target: object, propertyKey: string | symbol): 
 // flattens a RICHER embedded's members (EmailAttachmentEmbedded's `file` + its siblings) has no single
 // element field, and neither does one Signum models as an entity.
 //
+// An EMBEDDED value field is an anti-pattern: the row already IS the element, so wrapping its members in an
+// embedded only adds a hop (`r.element.skillGroup`) and a second class. Declare the embedded's members on
+// the row instead — the columns come out the same, unprefixed. Keep an embedded value only when that class
+// is shared with other owners (a framework embedded such as FilePathEmbedded, or one several rows reuse).
+//
 // In legacy mode this is what names the column, because an MList element has no property in Signum: the
 // column is named from the element TYPE for a reference/enum, and an embedded's members are inlined with
 // NO prefix at all — `file_name`, not altea's `element_file_name`. The embedded case used to be excluded
