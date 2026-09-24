@@ -289,6 +289,9 @@ export type FieldInfoOf<T> = FieldInfo & { readonly name: MemberOf<T> };
  */
 export type ReadOnlyRule = (entity: any, fi: FieldInfo) => boolean | undefined;
 
+/** A class-level validation rule (see `TypeInfo.propertyValidation`): the error for `fi`, or null / undefined. */
+export type PropertyValidationRule = (entity: any, fi: FieldInfo, env: IntegrityCheckEnvironment) => string | null | undefined | Promise<string | null | undefined>;
+
 /**
  * The per-dialect options of a `@vectorIndex` (Signum's `VectorTableIndex.SqlServerOptions` /
  * `PostgresOptions`, as bare shapes — `data/` must not import the server's schema layer).
@@ -515,6 +518,14 @@ export class FieldInfo extends TypeReference {
         if (global != null)
             return global;
 
+        for (const rule of this.propertyValidationRules(entity)) {
+            const result = rule(entity, this, env);
+            if (result instanceof Promise)
+                continue; // enforced by validateAsync, as a pending customValidation is
+            if (result != null)
+                return result;
+        }
+
         const custom = this.customValidation?.(entity, this, env);
         // A PENDING custom validation cannot be resolved here. Reporting "valid" would be fail-open,
         // so the sync path reports NOTHING and `validateAsync` (every server path) is what enforces it.
@@ -542,7 +553,20 @@ export class FieldInfo extends TypeReference {
                 return result;
         }
 
+        for (const rule of this.propertyValidationRules(entity)) {
+            const result = await rule(entity, this, env);
+            if (result != null)
+                return result;
+        }
+
         return (await this.customValidation?.(entity, this, env)) ?? null;
+    }
+
+    /** The class-level `@validate` rules that apply to this field of `entity`: its classes', and the mixin's
+     *  for a mixin field — the same owners `isReadOnlyFor` asks. */
+    private *propertyValidationRules(entity: any): Iterable<PropertyValidationRule> {
+        for (const ctor of ruleOwners(entity?.constructor, this.declaringType?.ctor))
+            yield* getTypeInfo(ctor)?.propertyValidation ?? [];
     }
 
     /** The sync half of the global pass — a PENDING result is skipped, as for customValidation. */
@@ -719,6 +743,13 @@ export class TypeInfo {
      * rather than a clobber. Read, in order, by `FieldInfo.isReadOnlyFor`.
      */
     isReadOnly?: (boolean | ReadOnlyRule)[];
+    /**
+     * Set by a class-level `@validate` — Signum's `ModifiableEntity.PropertyValidation(PropertyInfo)`
+     * override: one rule asked about EVERY member of the type, answering for the ones it knows. A list for the
+     * same reason as `isReadOnly`: a prototype chain and a mixin can each contribute one. Run by
+     * `FieldInfo.validate`, after the declared validators and before the field's own `@validate`.
+     */
+    propertyValidation?: PropertyValidationRule[];
     // Explicit database table/view name (Signum's [TableName]); overrides the
     // name derived from the class. For a view class (@reflect + @tableName) this is
     // the raw view name ViewBuilder maps to, e.g. "pg_catalog.pg_namespace".

@@ -2,7 +2,7 @@ import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import { entityIntegrityCheck } from "@altea/altea/data/validation";
-import { ValidationMessage, StateValidator } from "@altea/altea/data/validators";
+import { ValidationMessage, StateValidator, validate } from "@altea/altea/data/validators";
 import { Entity } from "@altea/altea/data/entity";
 import { entity } from "@altea/altea/data/decorators";
 import { Enum } from "@altea/altea/data/enum";
@@ -13,6 +13,7 @@ import { getTypeInfo } from "@altea/altea/data/reflection";
 // (false) or either (null). The shape is ReNew's RoleAssignment, whose dates follow its status.
 
 @entity("Main", "Transactional")
+@validate<AssignmentSample>((as, field) => assignmentStates.validate(as, field))
 class AssignmentSample extends Entity {
     status: AssignmentStatus = AssignmentStatus.Interested;
     fromDate: Temporal.PlainDate | null = null;
@@ -26,13 +27,14 @@ enum AssignmentStatus {
     Finished,
 }
 
-const assignmentStates = new StateValidator(AssignmentSample, a => a.status, ["fromDate", "toDate"], AssignmentStatus)
-    .add(AssignmentStatus.Interested, false, false)
-    .add(AssignmentStatus.Assigned, true, null)
-    .add(AssignmentStatus.Rejected, null, null)
-    .add(AssignmentStatus.Finished, true, true);
+const assignmentStates = new StateValidator(AssignmentSample,
+    a => a.status,                    "fromDate", "toDate")
+    .add(AssignmentStatus.Interested, false,      false   )
+    .add(AssignmentStatus.Assigned,   true,       null    )
+    .add(AssignmentStatus.Rejected,   null,       null    )
+    .add(AssignmentStatus.Finished,   true,       true    );
 
-// For the error cases, whose validators must not land on AssignmentSample.
+// For the error cases: a validator no entity calls.
 @entity("Main", "Transactional")
 class MisconfiguredSample extends Entity {
     status: AssignmentStatus = AssignmentStatus.Interested;
@@ -57,11 +59,11 @@ describe("StateValidator", () => {
             ValidationMessage._0IsNecessaryOnState1.niceToString("To date", Enum.niceName(AssignmentStatus, AssignmentStatus.Finished)));
     });
 
-    test("the validator puts one field validator on each listed property", () => {
-        const fields = getTypeInfo(AssignmentSample)!.fields;
-        assert.equal(fields["fromDate"]?.validators?.length ?? 0, 1);
-        assert.equal(fields["toDate"]?.validators?.length ?? 0, 1);
-        assert.equal(fields["status"]?.validators?.length ?? 0, 0);
+    test("a class-level @validate is one rule asked about every field", () => {
+        assert.equal(getTypeInfo(AssignmentSample)!.propertyValidation?.length, 1);
+        const a = new AssignmentSample();
+        a.fromDate = day;
+        assert.deepEqual(Object.keys(errorsOf(a)), ["fromDate"]);
     });
 
     test("null means either", () => {
@@ -84,10 +86,10 @@ describe("StateValidator", () => {
     });
 
     test("a row of the wrong length, or an unregistered state, is refused", () => {
-        assert.throws(() => new StateValidator(MisconfiguredSample, a => a.status, ["fromDate", "toDate"]).add(AssignmentStatus.Assigned, true),
+        assert.throws(() => new StateValidator(MisconfiguredSample, a => a.status, "fromDate", "toDate").add(AssignmentStatus.Assigned, true),
             /has 1 values instead of 2/);
 
-        const partial = new StateValidator(MisconfiguredSample, a => a.status, ["fromDate"], AssignmentStatus)
+        const partial = new StateValidator(MisconfiguredSample, a => a.status, "fromDate")
             .add(AssignmentStatus.Assigned, true);
         assert.throws(() => partial.validate(new MisconfiguredSample(), "fromDate"), /not registered/);
     });

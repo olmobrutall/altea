@@ -1,6 +1,8 @@
 
-import { getOrCreateTypeInfo, getOrCreateFieldInfo, tryGetTypeInfo, Validator, registerImplicitNotNullValidator, MAX_SIZE } from './reflection';
-import type { FieldInfo, IntegrityCheckEnvironment, FieldInfoOf } from './reflection';
+import { getOrCreateTypeInfo, getOrCreateFieldInfo, tryGetTypeInfo, Validator, registerImplicitNotNullValidator, MAX_SIZE, resolveField } from './reflection';
+import { getLambdaMembers } from './lambdaMembers';
+import type { Quoted } from 'quote-transformer/quoted';
+import type { FieldInfo, IntegrityCheckEnvironment, FieldInfoOf, PropertyValidationRule } from './reflection';
 import type { BaseEntity } from './entity';
 import { msg } from './utils/localization';
 import { Decimal, Temporal } from './basics';
@@ -236,6 +238,10 @@ export function isSetOnlyWhen(value: unknown, shouldBeSet: boolean, propertyName
  * runs ONLY on the awaiting paths (the save and deserialization passes, and /api/validateEntity), never
  * in the client's live per-keystroke path; see `FieldInfo.validate`.
  *
+ * On a CLASS it is Signum's `PropertyValidation(PropertyInfo)` override: asked about every member of the
+ * type (`fi` says which), after the declared validators and before the field's own `@validate`. A
+ * prototype chain and a mixin can each declare one; they compose.
+ *
  * On a MIXIN's field it belongs on the mixin, where the field is declared — and it is honoured there,
  * because every reader resolves a field through `resolveField` / `eachFieldInfo`, which walk the declared
  * mixins as well as the type itself.
@@ -247,8 +253,13 @@ export function isSetOnlyWhen(value: unknown, shouldBeSet: boolean, propertyName
 export function validate<T>(
     fn: (entity: T, fi: FieldInfoOf<T>, env: IntegrityCheckEnvironment) => string | null | undefined | Promise<string | null | undefined>,
 ) {
-    return (target: object, propertyKey: string | symbol) => {
+    return (target: object, propertyKey?: string | symbol): void => {
         const typeInfo = getOrCreateTypeInfo(target);
+        // No propertyKey ⇒ a CLASS decorator (a field one gets the prototype plus the key), as @isReadOnly.
+        if (propertyKey == null) {
+            (typeInfo.propertyValidation ??= []).push(fn as PropertyValidationRule);
+            return;
+        }
         getOrCreateFieldInfo(typeInfo, String(propertyKey)).customValidation =
             fn as FieldInfo["customValidation"];
     };
@@ -1171,33 +1182,37 @@ function comparisonName(comparison: ComparisonType): string {
 //
 // Signum's StateValidator<E, S> (Entities/Validation/ValidationAttributes.cs): which properties an entity
 // must, may, or must not have in each of its states. Per state, one entry per property — `true` necessary,
-// `false` not allowed, `null` either — and a property's value is judged against its entity's CURRENT state:
+// `false` not allowed, `null` either — and a property's value is judged against its entity's CURRENT state.
+// Declared after the entity, like Signum's static field, and called from the entity's class-level
+// `@validate`, as Signum's is from PropertyValidation:
 //
+//     @entity("Main", "Transactional")
+//     @validate<RoleAssignmentEntity>((ra, fi) => roleAssignmentStates.validate(ra, fi))
 //     export class RoleAssignmentEntity extends Entity { … }
 //
-//     export const roleAssignmentStates = new StateValidator(RoleAssignmentEntity, a => a.status,
-//         ["fromDate", "toDate"], RoleAssignmentStatus)
-//         .add(RoleAssignmentStatus.Interested, false, false)
-//         .add(RoleAssignmentStatus.Assigned, true, null);
+//     export const roleAssignmentStates = new StateValidator(RoleAssignmentEntity,
+//         a => a.status,                       "fromDate",  "toDate")
+//         .add(RoleAssignmentStatus.Interested, false,       false   )
+//         .add(RoleAssignmentStatus.Assigned,   true,        null    );
 //
-// Declared after the entity, like Signum's static field: the constructor installs a validator on each listed
-// property, which is where Signum calls `Validate(this, pi)` from PropertyValidation. An empty string or an empty array counts as no value — both are indistinguishable from
-// null once retrieved. Pass the state's enum object so an enum state compares by member and the message
-// names it by its nice name.
+// Laid out as a TABLE: a column per property, a row per state.
+//
+// The state's ENUM is the type of the field `getState` reads, so an enum state compares by member and the
+// message names it by its nice name. An empty string or an empty array counts as no value — both are
+// indistinguishable from null once retrieved.
 export class StateValidator<E extends BaseEntity, S> {
     private readonly byState = new Map<string, (boolean | null)[]>();
+    private stateEnumCache: object | null | undefined;
 
     constructor(
         readonly entityType: abstract new (...args: never[]) => E,
-        readonly getState: (entity: E) => S,
-        readonly propertyNames: readonly (keyof E & string)[],
-        readonly stateEnum?: object,
+        readonly getState: Quoted<(entity: E) => S>,
+        ...propertyNames: (keyof E & string)[]
     ) {
-        // Signum calls Validate(this, pi) from PropertyValidation; here each listed property gets a
-        // validator that does, installed as soon as the StateValidator exists.
-        for (const name of propertyNames)
-            addValidator(entityType.prototype, name, new StateFieldValidator(this as unknown as StateValidator<BaseEntity, unknown>));
+        this.propertyNames = propertyNames;
     }
+
+    readonly propertyNames: readonly (keyof E & string)[];
 
     /** The row for one state: an entry per property, in the constructor's order. */
     add(state: S, ...necessary: (boolean | null)[]): this {
@@ -1210,9 +1225,12 @@ export class StateValidator<E extends BaseEntity, S> {
         return this;
     }
 
-    /** The error for `propertyName` in the entity's current state, or null (also for an unlisted property). */
-    validate(entity: E, propertyName: string, showState = true): string | null {
-        const index = this.propertyNames.indexOf(propertyName as keyof E & string);
+    /**
+     * The error for a property in the entity's current state, or null — also for a property the validator
+     * does not list, so a class-level `@validate` can hand it every field.
+     */
+    validate(entity: E, field: FieldInfo | string, showState = true): string | null {
+        const index = this.propertyNames.indexOf((typeof field === "string" ? field : field.name) as keyof E & string);
         if (index === -1)
             return null;
         return this.message(entity, this.getState(entity), showState, index);
@@ -1247,7 +1265,7 @@ export class StateValidator<E extends BaseEntity, S> {
         if (Array.isArray(value) && value.length === 0 || value === "")
             value = null;
 
-        const niceName = tryGetTypeInfo(entity.constructor)?.fields[this.propertyNames[index]]?.niceToString() ?? this.propertyNames[index];
+        const niceName = resolveField(entity, this.propertyNames[index])?.niceToString() ?? this.propertyNames[index];
         if (value != null && !necessary)
             return showState ? ValidationMessage._0IsNotAllowedOnState1.niceToString(niceName, this.stateText(state)) : ValidationMessage._0IsNotAllowed.niceToString(niceName);
         if (value == null && necessary)
@@ -1262,22 +1280,22 @@ export class StateValidator<E extends BaseEntity, S> {
         return row[index];
     }
 
+    // The enum of the field `getState` reads (`a => a.status`, or a mixin's `u => u.mixin(M).status`), or null
+    // for a state that is not an enum. Resolved on first use: the enum may be declared after the entity.
+    private get stateEnum(): object | null {
+        if (this.stateEnumCache === undefined) {
+            const members = getLambdaMembers(this.getState).filter(m => m.type === "Member");
+            const last = members[members.length - 1];
+            this.stateEnumCache = last == null ? null : resolveField(this.entityType.prototype, last.name)?.getEnum() ?? null;
+        }
+        return this.stateEnumCache;
+    }
+
     private stateKey(state: S): string {
         return this.stateEnum != null && typeof state === "number" ? Enum.toName(this.stateEnum as never, state as never) : String(state);
     }
 
     private stateText(state: S): string {
         return this.stateEnum != null ? Enum.niceName(this.stateEnum as never, state as never) : String(state);
-    }
-}
-
-
-class StateFieldValidator extends Validator {
-    constructor(readonly stateValidator: StateValidator<BaseEntity, unknown>) { super(); }
-
-    get helpMessage(): string { return ""; }
-
-    protected overrideError(_value: unknown, entity: BaseEntity, fi: FieldInfo): string | null {
-        return this.stateValidator.validate(entity, fi.name);
     }
 }
