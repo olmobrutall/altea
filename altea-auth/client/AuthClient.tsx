@@ -9,6 +9,7 @@ import { Metadata } from "@altea/altea/data/metadata";
 import type { UserEntity } from "../data/User";
 import type { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { AuthMessage } from "../data/AuthMessages";
+import { TypeAllowedBasic } from "../data/Rules";
 
 // Port of Signum.Authorization's AuthClient.tsx — see port/Auth.md.
 //
@@ -100,6 +101,19 @@ export namespace AuthClient {
         return refreshing ??= API.fetchCurrentUser(false, /* avoidTokenRefresh */ true)
             .then(cu => { setCurrentUser(cu); }, () => { /* the error filter already handled it */ })
             .finally(() => { refreshing = undefined; });
+    }
+
+    /**
+     * Signum's `TypeInfo.minTypeAllowed` / `maxTypeAllowed`: the current role's worst and best UI allowance for
+     * a type across its condition slices, from the metadata blob. Undefined before the blob is applied, or for
+     * a type it does not list (the role cannot read it).
+     */
+    export function typeAllowed(type: Function): { min: TypeAllowedBasic; max: TypeAllowedBasic } | undefined {
+        const tm = Metadata.tryType(type.name);
+        if (tm == null)
+            return undefined;
+        const max = tm.maxTypeAllowed ?? TypeAllowedBasic.Write;
+        return { min: tm.minTypeAllowed ?? max, max };
     }
 
     export function currentUser(): UserEntity | undefined {

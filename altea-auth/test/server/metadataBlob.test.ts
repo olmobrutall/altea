@@ -84,6 +84,18 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
         assert.ok(Object.values(sampleRoutes(blob)).some(rm => rm.propertyAllowed === PropertyAllowed.None));
     });
 
+    // Signum's TypeInfo.minTypeAllowed: Restricted reads only the [Public] rows, so its best case is Read and
+    // its worst None — shipped because the two differ.
+    test("a conditioned type ships its worst case beside its best", async () => {
+        const blob = await blobFor(await role(Roles.Restricted));
+        assert.equal(blob.types[SampleEntity.name]?.maxTypeAllowed, TypeAllowedBasic.Read);
+        assert.equal(blob.types[SampleEntity.name]?.minTypeAllowed, TypeAllowedBasic.None);
+    });
+    test("an unconditioned type ships no worst case", async () => {
+        const blob = await blobFor(sales);
+        assert.equal(blob.types[SampleEntity.name]?.minTypeAllowed, undefined);
+    });
+
     test("an unrestricted role carries no property section at all", async () => {
         assert.equal(propertyEntries(await blobFor(superR)), 0);
     });

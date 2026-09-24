@@ -14,7 +14,7 @@ import { declaredSymbolsForType } from "@altea/altea/data/registration";
 import { QueryAllowed, TypeAllowed, TypeAllowedBasic } from "../data/Rules";
 import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { TypeConditionLogic } from "./TypeConditionLogic";
-import { maxBound } from "./WithConditions";
+import { maxBound, minBound } from "./WithConditions";
 
 // Role-filtering overlay on the reflection metadata blob.
 // Installed once at web-host startup; runs inside each request's user scope, so it sees the current role.
@@ -89,6 +89,8 @@ export namespace AuthReflectionServer {
                     // the UI gates on, having no row to evaluate a condition against. Only a RESTRICTED
                     // type is stamped: the reader's default for a present entry is Write.
                     if (maxUI < TypeAllowedBasic.Write) tm.maxTypeAllowed = maxUI;
+                    const minUI = minBound(allowed, true);
+                    if (minUI < maxUI) tm.minTypeAllowed = minUI;
 
                     // A type whose FALLBACK is None is readable only through its condition rules — and
                     // when one of those conditions is a QUERY AUDITOR

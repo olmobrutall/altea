@@ -512,6 +512,12 @@ declare module "@altea/altea/data/metadata" {
          */
         maxTypeAllowed?: TypeAllowedBasic;
         /**
+         * The role's MIN UI-read allowance — the worst case across the type-condition slices, Signum's
+         * `TypeInfo.minTypeAllowed`: a view tells "may edit every row" from "may edit some rows" with it.
+         * Absent = the same as `maxTypeAllowed`.
+         */
+        minTypeAllowed?: TypeAllowedBasic;
+        /**
          * The keys of this role's QUERY-AUDITOR type conditions for the type — present only when the
          * role's fallback is `None`, i.e. the type is readable ONLY through its condition rules, and at
          * least one of those conditions decides by auditing the CALLER'S QUERY rather than the row
