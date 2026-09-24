@@ -4,6 +4,7 @@ import { Entity } from "@altea/altea/data/entity";
 import type { IQuery } from "@altea/altea/data/iquery";
 import { withQuoted } from "@altea/altea/data/decorators";
 import { Clock } from "@altea/altea/data/utils/clock";
+import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { Graph } from "@altea/altea/server/graph";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -49,9 +50,9 @@ export namespace EmailPackageLogic {
         // The mixin must be DECLARED before the schema is built — the app does that beside its other entity
         // overrides (both tiers). Fail loudly rather than silently generating an email_message with no
         // package column, which would surface much later as a missing column.
-        if (!EmailMessagePackageMixin.isDeclared())
+        if (!MixinDeclarations.isDeclared(EmailMessageEntity, EmailMessagePackageMixin))
             throw new Error(
-                "EmailMessagePackageMixin is not declared. Call EmailMessagePackageMixin.declare() from the "
+                "EmailMessagePackageMixin is not declared. Call MixinDeclarations.register(EmailMessageEntity, EmailMessagePackageMixin) from the "
                 + "app's shared entity-overrides module (it must run on BOTH tiers, before the schema is built).");
 
         sb.include(EmailPackageEntity).withQuery();

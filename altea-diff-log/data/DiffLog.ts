@@ -1,7 +1,5 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { MixinEntity, type Type } from "@altea/altea/data/entity";
-import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
-import { OperationLogEntity } from "@altea/altea/data/operationLog";
 import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { TypeConditionSymbol } from "@altea/altea-auth/data/Rules";
@@ -25,30 +23,6 @@ export class DiffLogMixin extends MixinEntity {
 
     /** Set when a log-cleaning process has discarded the dumps to reclaim space. */
     cleaned: boolean = false;
-}
-
-export namespace DiffLogMixin {
-    let declared = false;
-
-    /**
-     * Declare the mixin on OperationLogEntity. Idempotent, and it must run on BOTH TIERS before anything is
-     * (de)serialized or the schema is built — it is what tells the serializer and the schema builder that
-     * the three fields exist. Put the call in the module the client and the server both load, next to the
-     * app's other entity overrides.
-     */
-    export function declare(): void {
-        if (declared)
-            return;
-        declared = true;
-
-        MixinDeclarations.register(
-            OperationLogEntity,
-            DiffLogMixin);
-    }
-
-    export function isDeclared(): boolean {
-        return declared;
-    }
 }
 
 export const DiffLogMessage = {

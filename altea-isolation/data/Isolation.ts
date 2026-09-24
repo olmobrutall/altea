@@ -13,7 +13,7 @@ import { msg } from "@altea/altea/data/utils/localization";
 // The strategy table lives HERE, not in the logic layer, and that is load-bearing: a mixin's fields are
 // INLINED onto its owner, so the client has to know a type carries the mixin in order to deserialize the
 // `isolation` field at all. `Isolation.register(T, strategy)` is therefore an ISOMORPHIC call the app makes
-// from its shared entity-overrides module (the same place @altea/altea-diff-log's `DiffLogMixin.declare()`
+// from its shared entity-overrides module (the same place @altea/altea-diff-log's `MixinDeclarations.register(OperationLogEntity, DiffLogMixin)`
 // goes), and the server's `IsolationLogic.start` reads the map back.
 //
 // Port of Signum.Isolation's IsolationEntity.cs — see port/Isolation.md.

@@ -1,6 +1,7 @@
 import * as React from "react";
 import type { Quoted } from "quote-transformer/quoted";
 import { Dic, ifError } from "@altea/altea/data/globals";
+import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { ajaxGet, ajaxPost, ValidationError } from "@altea/altea/client/Services";
 import { QueryString } from "@altea/altea/client/QueryString";
 import { ClientBuilder } from "@altea/altea/client/ClientBuilder";
@@ -629,7 +630,7 @@ export namespace WorkflowClient {
     export function overrideCaseActivityMixinView<T extends Entity>(type: Type<T>,
         afterLine: Quoted<(entity: T) => unknown>): void {
 
-        if (!CaseActivityMixin.isDeclaredOn(type))
+        if (!MixinDeclarations.isDeclared(type, CaseActivityMixin))
             throw new Error("CaseActivityMixin is not declared on " + cleanTypeName(type)
                 + " — call sb.include(...).withCaseActivityMixin() on the server first.");
 

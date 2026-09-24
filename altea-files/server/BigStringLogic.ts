@@ -29,7 +29,7 @@ import { FilePathEmbeddedLogic } from "./FilePathEmbeddedLogic";
 // A route must be registered BEFORE its root type is included in the schema, because registration is what
 // removes the column the chosen mode does not use (see SchemaSettings.ignoreFieldRoute):
 //
-//   BigStringMixin.declare();                                       // once, on BOTH tiers
+//   MixinDeclarations.register(BigStringEmbedded, BigStringMixin);      // once, on BOTH tiers
 //   BigStringLogic.register(sb, ExceptionEntity, e => e.stackTrace, new BigStringConfiguration("File", MyFileType.Logs));
 //   BigStringLogic.registerAll(sb, ExceptionEntity, new BigStringConfiguration("Database", null));
 //   BigStringLogic.start(sb);
@@ -80,8 +80,8 @@ export namespace BigStringLogic {
 
         // The declaration has to happen on BOTH tiers — it is what makes the serializer carry `file` — which
         // is why it is the app's call and not ours.
-        if (!BigStringMixin.isDeclared())
-            throw new Error("BigStringLogic.start: BigStringMixin is not declared. Call BigStringMixin.declare() from a "
+        if (!MixinDeclarations.isDeclared(BigStringEmbedded, BigStringMixin))
+            throw new Error("BigStringLogic.start: BigStringMixin is not declared. Call MixinDeclarations.register(BigStringEmbedded, BigStringMixin) from a "
                 + "module BOTH the client and the server load (next to the app's other entity overrides).");
 
         // The file save / delete plumbing the mixin's `file` rides on.

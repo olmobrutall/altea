@@ -1,6 +1,7 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
 import { type FluentOperations, type FluentStateMachine } from "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
+import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import "@altea/altea/data/globals/arrayExtensions";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { FluentInclude } from "@altea/altea/server/schema/fluentInclude";
@@ -1871,7 +1872,7 @@ FluentInclude.prototype.withWorkflow = function <T extends Entity>(this: FluentI
 };
 
 FluentInclude.prototype.withCaseActivityMixin = function <T extends Entity>(this: FluentInclude<T>): FluentInclude<T> {
-    CaseActivityMixin.declareOn(this.type as never);
+    MixinDeclarations.register(this.type, CaseActivityMixin);
     // Signum stamps the mixin in its CONSTRUCTOR from the ambient activity; here the mixin field initializers
     // only run in `create()`, and the ambient activity is a server concept, so the stamping is a preSaving
     // hook on the owner: whatever an activity produces gets tagged with it.

@@ -4,8 +4,9 @@ import { EnumLine } from "@altea/altea/client/Lines/EnumLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { classes } from "@altea/altea/data/globals/helpers";
+import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { DynamicTypeDefinitionComponent } from "./DynamicTypeDefinitionComponent";
-import { DynamicBaseType, type DynamicTypeDefinition, type DynamicTypeEntity } from "../../data/DynamicType";
+import { DynamicBaseType, type DynamicTypeDefinition, DynamicTypeEntity } from "../../data/DynamicType";
 import { DynamicIsolationMixin } from "../../data/DynamicIsolation";
 
 // Port of Signum.Dynamic's Type/DynamicType.tsx — the type designer's outer frame: the base type, the
@@ -81,7 +82,7 @@ export default function DynamicTypeComponent(p: {
                         field (and its column) exists at all. Note the MIXIN STEP in the route: altea
                         flattens a mixin's columns onto the owner, but a PropertyRoute still models the
                         step (the accommodation @altea/altea-diff-log documents). */}
-                    {DynamicIsolationMixin.isDeclared() &&
+                    {MixinDeclarations.isDeclared(DynamicTypeEntity, DynamicIsolationMixin) &&
                         <AutoLine labelColumns={3}
                             ctx={ctx.subCtx(dt => dt.mixin(DynamicIsolationMixin)).subCtx(m => m.isolationStrategy)} />}
                 </div>

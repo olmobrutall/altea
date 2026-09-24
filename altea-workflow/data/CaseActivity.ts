@@ -1,8 +1,6 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity, MixinEntity, ModelEntity, type Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
-import { cleanTypeName } from "@altea/altea/data/registration";
 import { entity, implementedBy, unit, quoted, index, legacyPropertyRoute } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Temporal, type int, type uuid } from "@altea/altea/data/basics";
@@ -224,32 +222,6 @@ export class ActivityWithRemarks extends ModelEntity {
 @reflect
 export class CaseActivityMixin extends MixinEntity {
     caseActivity: Lite<CaseActivityEntity> | null = null;
-}
-
-export namespace CaseActivityMixin {
-    const declaredOn = new Set<string>();
-
-    /**
-     * Declare the mixin on an owner type (`MixinDeclarations.register<EmailMessageEntity,
-     * CaseActivityMixin>()`, which Southwind calls in its Starter). Idempotent, and it must run on BOTH TIERS
-     * before anything is (de)serialized or the schema is built — put the call in the module the client and
-     * the server both load, next to the app's other entity overrides.
-     */
-    export function declareOn<T extends Entity>(type: Type<T>): void {
-        if (declaredOn.has(cleanTypeName(type)))
-            return;
-        declaredOn.add(cleanTypeName(type));
-
-        MixinDeclarations.register(type, CaseActivityMixin);
-    }
-
-    export function isDeclaredOn<T extends Entity>(type: Type<T>): boolean {
-        return declaredOn.has(cleanTypeName(type));
-    }
-
-    export function declaredTypes(): string[] {
-        return [...declaredOn];
-    }
 }
 
 // ---- The Inbox row model ---------------------------------------------------------------------------------

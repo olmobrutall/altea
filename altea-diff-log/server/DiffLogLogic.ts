@@ -9,6 +9,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import { ObjectDumper } from "@altea/altea/data/objectDumper";
 import { OperationLogEntity } from "@altea/altea/data/operationLog";
+import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { FilterQueryArgs } from "@altea/altea/server/schema/filterQueryArgs";
 import { TypeConditionLogic } from "@altea/altea-auth/server/TypeConditionLogic";
 import { TypeAuthLogic } from "@altea/altea-auth/server/TypeAuthLogic";
@@ -49,9 +50,9 @@ export namespace DiffLogLogic {
 
         // The mixin must already be declared: the declaration is what puts the columns in the schema, and
         // it has to happen on both tiers, so the app owns the call.
-        if (!DiffLogMixin.isDeclared())
+        if (!MixinDeclarations.isDeclared(OperationLogEntity, DiffLogMixin))
             throw new Error("DiffLogLogic.start: DiffLogMixin is not declared on OperationLogEntity."
-                + " Call DiffLogMixin.declare() from the app's shared entity-overrides module (BOTH tiers)"
+                + " Call MixinDeclarations.register(OperationLogEntity, DiffLogMixin) from the app's shared entity-overrides module (BOTH tiers)"
                 + " before building the schema.");
 
         // What the condition says: you may see an operation log BECAUSE you asked for the logs of ONE

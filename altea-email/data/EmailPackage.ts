@@ -3,7 +3,6 @@ import { Entity, MixinEntity, type Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, ticksColumn } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
-import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import type { ConstructSymbol, FromMany } from "@altea/altea/data/operations";
 import type { IQuery } from "@altea/altea/data/iquery";
 import { ProcessAlgorithmSymbol, type IProcessDataEntity } from "@altea/altea-processes/data/Processes";
@@ -59,24 +58,6 @@ export class EmailPackageEntity extends Entity implements IProcessDataEntity {
 @reflect
 export class EmailMessagePackageMixin extends MixinEntity {
     package: Lite<EmailPackageEntity> | null = null;
-}
-
-export namespace EmailMessagePackageMixin {
-    let declared = false;
-
-    export function declare(): void {
-        if (declared)
-            return;
-        declared = true;
-
-        MixinDeclarations.register(
-            EmailMessageEntity,
-            EmailMessagePackageMixin);
-    }
-
-    export function isDeclared(): boolean {
-        return declared;
-    }
 }
 
 /** Signum's `[AutoInit] EmailMessageProcess` — the two algorithms this module registers. */

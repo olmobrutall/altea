@@ -11,6 +11,7 @@ import { Clock } from "@altea/altea/data/utils/clock";
 import { Entity, type Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { ExceptionEntity } from "@altea/altea/data/exception";
+import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { ScheduledTaskLogEntity } from "@altea/altea-scheduler/data/Scheduler";
 import { SchedulerLogic } from "@altea/altea-scheduler/server/SchedulerLogic";
@@ -77,9 +78,9 @@ export namespace EmailReceptionLogic {
         if (sb.alreadyDefined(start))
             return;
 
-        if (!EmailReceptionMixin.isDeclared())
+        if (!MixinDeclarations.isDeclared(EmailMessageEntity, EmailReceptionMixin))
             throw new Error("EmailReceptionMixin is not declared on EmailMessageEntity. Call"
-                + " EmailReceptionMixin.declare() from the app's shared entity-overrides module (it must run on"
+                + " MixinDeclarations.register(EmailMessageEntity, EmailReceptionMixin) from the app's shared entity-overrides module (it must run on"
                 + " BOTH tiers, before anything is (de)serialized or the schema is built).");
 
         // The SERVICE (a polymorphic @implementedBy target) is reached from this entity's field, so the

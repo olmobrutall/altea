@@ -5,14 +5,12 @@ import {
     entity, part, implementedBy, uniqueIndex, backReference, format, unit, quoted,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
-import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import { ExceptionEntity } from "@altea/altea/data/exception";
 import type { ExecuteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
 import type { ITaskEntity } from "@altea/altea-scheduler/data/Scheduler";
 import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
-import { EmailMessageEntity } from "./EmailMessage";
 
 // Port of Signum.Mailing/Reception's EmailReceptionConfigurationEntity.cs + EmailReceptionMixin.cs — the
 // INBOUND half of the mail module: which mailboxes are polled, what each poll produced, and the extra
@@ -162,26 +160,4 @@ export class EmailReceptionInfoEmbedded extends EmbeddedEntity {
 @reflect
 export class EmailReceptionMixin extends MixinEntity {
     receptionInfo: EmailReceptionInfoEmbedded | null = null;
-}
-
-export namespace EmailReceptionMixin {
-    let declared = false;
-
-    /** Declare the mixin on EmailMessageEntity (Signum's `MixinDeclarations.Register<EmailMessageEntity,
-     *  EmailReceptionMixin>()`, asserted by EmailReceptionLogic.start). Idempotent, and must run on BOTH
-     *  TIERS before anything is (de)serialized or the schema is built — so an app calls it from its shared
-     *  entity-overrides module, next to the `overrideImplementedBy` for `service`. */
-    export function declare(): void {
-        if (declared)
-            return;
-        declared = true;
-
-        MixinDeclarations.register(
-            EmailMessageEntity,
-            EmailReceptionMixin);
-    }
-
-    export function isDeclared(): boolean {
-        return declared;
-    }
 }
