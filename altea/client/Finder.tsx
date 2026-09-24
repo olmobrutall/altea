@@ -36,7 +36,7 @@ import type {
 } from '../data/dynamicQuery/queryRequest';
 import {
   isList, isPair, type ColumnOptionsModeKeys, toPinnedFilterParsed, isActive, canSplitValue,
-  getFilterOperations, isFilterGroup, isFilterCondition, isGroupList, toColumnOption,
+  getFilterOperations, isFilterGroup, isFilterCondition, isGroupList, toColumnOption, parseDateFilterValue,
 } from './FindOptions';
 // DIVERGENCE: there is no QueryDescription DTO. altea builds the token tree in the BROWSER from registered
 // entity metadata (`getQueryRoot` / `getSubTokens`), so `QueryDescriptionDTO` / `QueryTokenWithoutParent`
@@ -1898,9 +1898,11 @@ export namespace Finder {
       case "Decimal": return typeof val === "string" ? nanToNull(parseFloat(val)) : val;
       case "Lite": return convertToLite(val as string | Lite<Entity> | Entity | null | undefined);
       case "Model": return typeof val === "string" ? (Decoder.decodeModel[token.type.getTypeName()!]?.(val) ?? val) : val;
+      case "DateTime": return parseDateFilterValue(token.type.typeName, val);
       default: return val;
     }
   }
+
 
   function nanToNull(n: number): number | undefined {
     return isNaN(n) ? undefined : n;

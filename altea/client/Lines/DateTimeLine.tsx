@@ -1,17 +1,15 @@
 // Ported from Signum.React/Lines/DateTimeLine.tsx — copy-paste + fix. altea fixes:
-//   - luxon → Temporal: the ISO string ⇄ Date boundary, weekend/holiday detection, and
-//     trimDateToFormat use Temporal (temporal-polyfill); the picker's display/parse uses the
-//     react-widgets Intl localizer (see ReactWidgetsLocalizer). Format is Intl.DateTimeFormatOptions
-//     (was luxon token strings).
+//   - luxon → Temporal: the value is a Temporal.PlainDate / PlainDateTime; the Temporal ⇄ Date boundary the
+//     picker needs, its Intl localizer and trimDateToFormat are in ReactWidgetsLocalizer. Format is
+//     Intl.DateTimeFormatOptions (was luxon token strings).
 //   - dropped dead imports (Exceptions/Exception, TypeContext); JavascriptMessage.Date button label
 //     inlined (message container not ported).
 import * as React from 'react';
 import type { CalendarProps } from 'react-widgets-up/Calendar'
 import { DatePicker } from 'react-widgets-up';
 import type { RenderDayProp } from 'react-widgets-up/Month';
-import { Temporal } from '../../data/basics';
 import { classes } from '../../data/globals';
-import { toDateFormatOptions, dateTimePlaceholder, formatDateValue } from './ReactWidgetsLocalizer';
+import { toDateFormatOptions, dateTimePlaceholder, formatDateValue, dateValueToDate, dateToDateValue, type DateValue } from './ReactWidgetsLocalizer';
 import { genericMemo, LineBaseController, useController } from './LineBase';
 import { FormGroup } from './FormGroup';
 import { FormControlReadonly } from './FormControlReadonly';
@@ -19,7 +17,7 @@ import { ValueBaseController, type ValueBaseProps } from './ValueBase';
 import { ariaLabelOf } from "./ariaLabel";
 
 
-export interface DateTimeLineProps extends ValueBaseProps<string | null> {
+export interface DateTimeLineProps extends ValueBaseProps<DateValue | null> {
   showTimeBox?: boolean;
   minDate?: Date;
   maxDate?: Date;
@@ -29,35 +27,11 @@ export interface DateTimeLineProps extends ValueBaseProps<string | null> {
   ref?: React.Ref<DateTimeLineController>
 }
 
-export class DateTimeLineController extends ValueBaseController<DateTimeLineProps, string | null>{
+export class DateTimeLineController extends ValueBaseController<DateTimeLineProps, DateValue | null>{
   override init(p: DateTimeLineProps): void {
     super.init(p);
     this.assertType("DateTimeLine", ["PlainDate", "PlainDateTime"]);
   }
-}
-
-// ISO string → JS Date at local wall-clock time (react-widgets works with JS Date). Accepts a Temporal
-// value too: a deserialized entity carries its date fields as Temporal.PlainDate/PlainDateTime objects
-// (the Serializer type-decodes them), while a wire/search value arrives as a string — toString() gives
-// the ISO form in both cases.
-export function isoToDate(value: string | { toString(): string }): Date {
-  const iso = typeof value === "string" ? value : value.toString();
-  if (iso.length <= 10) { // date-only "YYYY-MM-DD"
-    const pd = Temporal.PlainDate.from(iso);
-    return new Date(pd.year, pd.month - 1, pd.day);
-  }
-  const pdt = Temporal.PlainDateTime.from(iso.replace(/(Z|[+-]\d{2}:?\d{2})$/, "")); // wall time, drop tz
-  return new Date(pdt.year, pdt.month - 1, pdt.day, pdt.hour, pdt.minute, pdt.second);
-}
-
-// JS Date → altea ISO string ("YYYY-MM-DD" for DateOnly, "YYYY-MM-DDTHH:mm:ss" otherwise).
-function dateToIso(date: Date, dateOnly: boolean, withTime: boolean): string {
-  if (dateOnly)
-    return Temporal.PlainDate.from({ year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() }).toString();
-  return Temporal.PlainDateTime.from({
-    year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate(),
-    hour: withTime ? date.getHours() : 0, minute: withTime ? date.getMinutes() : 0, second: withTime ? date.getSeconds() : 0,
-  }).toString();
 }
 
 export const DateTimeLine: (props: DateTimeLineProps) => React.ReactNode | null =
@@ -76,7 +50,7 @@ export const DateTimeLine: (props: DateTimeLineProps) => React.ReactNode | null 
   const type = c.props.ctx.memberType!.typeName as "PlainDate" | "PlainDateTime";
   const options = toDateFormatOptions(p.format, type);
 
-  const jsDate = p.ctx.value ? isoToDate(p.ctx.value) : undefined;
+  const jsDate = p.ctx.value ? dateValueToDate(p.ctx.value) : undefined;
   const showTime = p.showTimeBox != null ? p.showTimeBox : type != "PlainDate" && (options.timeStyle != null || options.hour != null);
   const monthOnly = options.year != null && options.month != null && options.day == null && options.dateStyle == null;
 
@@ -109,7 +83,7 @@ export const DateTimeLine: (props: DateTimeLineProps) => React.ReactNode | null 
     );
 
   const handleDatePickerOnChange = (date: Date | null | undefined, str: string) => {
-    c.setValue(date == null ? null : dateToIso(date, type == "PlainDate", showTime));
+    c.setValue(date == null ? null : dateToDateValue(date, type == "PlainDate", showTime));
   };
 
   const htmlAttributes = {
@@ -190,20 +164,4 @@ export function defaultRenderDay({ date, label }: { date: Date; label: string })
 
 function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() == b.getFullYear() && a.getMonth() == b.getMonth() && a.getDate() == b.getDate();
-}
-
-// Trim an ISO date value to the precision implied by its format/type (Signum's trimDateToFormat,
-// Temporal-based). DateOnly ⇒ strip any time; month/year-only format ⇒ first of the month.
-// TODO(port): richer custom-format precision trimming if needed.
-export function trimDateToFormat(iso: string, type: "PlainDate" | "PlainDateTime", format: string | undefined): string {
-  const options = toDateFormatOptions(format, type);
-  const monthOnly = options.year != null && options.month != null && options.day == null && options.dateStyle == null;
-
-  if (type == "PlainDate" || monthOnly) {
-    let pd = Temporal.PlainDate.from(iso.slice(0, 10));
-    if (monthOnly)
-      pd = pd.with({ day: 1 });
-    return pd.toString();
-  }
-  return iso;
 }

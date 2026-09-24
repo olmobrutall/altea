@@ -1,15 +1,17 @@
 // altea replacement for Signum's ConfigureReactWidgets.tsx. Signum built a react-widgets
 // DateLocalizer<string> on luxon (format = luxon token strings). altea drops luxon (→ Temporal), so
 // the picker's display/parse layer is built on react-widgets' own Intl-based localizer instead, and
-// the localizer's format type is `Intl.DateTimeFormatOptions`. Value handling (ISO string ⇄ Date,
-// trimming) is done with Temporal in DateTimeLine — this module wires the picker's localizer, maps
-// altea/.NET format specifiers to Intl options, and supplies the widgets' own message strings.
+// the localizer's format type is `Intl.DateTimeFormatOptions`. This module wires the picker's localizer, maps
+// altea/.NET format specifiers to Intl options, supplies the widgets' own message strings, and owns the one
+// value boundary the date lines have: a Temporal value ⇄ the JS Date the picker shows, and trimming.
 import { DateLocalizer as IntlDateLocalizer, NumberLocalizer as IntlNumberLocalizer } from 'react-widgets-up/IntlLocalizer';
 import { Localization } from 'react-widgets-up';
 import type { DateLocalizer, NumberLocalizer } from 'react-widgets-up';
 import type { UserProvidedMessages } from 'react-widgets-up/messages';
 import * as React from 'react';
 import { ReactWidgetsMessage } from '../../data/uiMessages';
+import { Temporal } from '../../data/basics';
+import { Clock } from '../../data/utils/clock';
 
 // react-widgets firstOfWeek is 0=Sunday..6=Saturday; the modern Intl weekInfo.firstDay is
 // 1=Monday..7=Sunday, so `% 7` maps Sunday(7)→0 and leaves Mon..Sat as 1..6. Undefined ⇒ let the
@@ -126,12 +128,48 @@ export function dateTimePlaceholder(options: Intl.DateTimeFormatOptions): string
     .join("");
 }
 
-// Format an ISO date/datetime string for read-only display (Signum's toFormatWithFixes). Accepts a
-// Temporal value too (same as isoToDate above): a deserialized entity carries its date fields as
-// Temporal.PlainDate/PlainDateTime OBJECTS, so coerce via toString() — passing the object straight to
-// `new Date(object + "…")` would force valueOf() and throw "Cannot use valueOf".
-export function formatDateValue(value: string | { toString(): string }, options: Intl.DateTimeFormatOptions): string {
-  const iso = typeof value === "string" ? value : value.toString();
-  const d = new Date(iso.length <= 10 ? iso + "T00:00:00" : iso);
-  return new Intl.DateTimeFormat(undefined, options).format(d);
+/** A date field's value: a calendar day, or a datetime in the Clock's frame. */
+export type DateValue = Temporal.PlainDate | Temporal.PlainDateTime;
+
+// Format a date value for read-only display (Signum's toFormatWithFixes).
+export function formatDateValue(value: DateValue, options: Intl.DateTimeFormatOptions): string {
+  return new Intl.DateTimeFormat(undefined, options).format(dateValueToDate(value));
+}
+
+// A stored value → the JS Date react-widgets and Intl work with, at the wall time the user should SEE in the
+// browser's zone. A PlainDate is a calendar day and never shifts; a PlainDateTime is in the Clock's frame, so
+// under a UTC clock it moves to the viewer's zone (Clock.toUserInterface).
+export function dateValueToDate(value: DateValue): Date {
+  if (value instanceof Temporal.PlainDate)
+    return new Date(value.year, value.month - 1, value.day);
+  const ui = Clock.toUserInterface(value);
+  return new Date(ui.year, ui.month - 1, ui.day, ui.hour, ui.minute, ui.second, ui.millisecond);
+}
+
+// The inverse: the JS Date the user picked → the value to STORE.
+export function dateToDateValue(date: Date, dateOnly: true): Temporal.PlainDate;
+export function dateToDateValue(date: Date, dateOnly: boolean, withTime?: boolean): DateValue;
+export function dateToDateValue(date: Date, dateOnly: boolean, withTime = true): DateValue {
+  const day = Temporal.PlainDate.from({ year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() });
+  if (dateOnly)
+    return day;
+  return Clock.fromUserInterface(withTime
+    ? day.toPlainDateTime({ hour: date.getHours(), minute: date.getMinutes(), second: date.getSeconds() })
+    : day.toPlainDateTime());
+}
+// A date value converted to a token's type and trimmed to the precision its format shows (Signum's
+// trimDateToFormat): a PlainDate token takes the day, a month/year-only format the first of the month.
+// TODO(port): richer custom-format precision trimming if needed.
+export function trimDateToFormat(value: DateValue, type: "PlainDate" | "PlainDateTime", format: string | undefined): DateValue {
+  const options = toDateFormatOptions(format, type);
+  const monthOnly = options.year != null && options.month != null && options.day == null && options.dateStyle == null;
+
+  let day = value instanceof Temporal.PlainDate ? value : value.toPlainDate();
+  if (monthOnly)
+    day = day.with({ day: 1 });
+
+  if (type == "PlainDate")
+    return day;
+
+  return monthOnly || value instanceof Temporal.PlainDate ? day.toPlainDateTime() : value;
 }

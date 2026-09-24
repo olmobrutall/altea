@@ -36,6 +36,7 @@ import { EntityLine } from "./Lines/EntityLine";
 import { EntityCombo } from "./Lines/EntityCombo";
 import { EntityStrip } from "./Lines/EntityStrip";
 import { DateTimeRange } from "./Lines/DateTimeRange";
+import type { DateValue } from "./Lines/ReactWidgetsLocalizer";
 import { FormGroup } from "./Lines/FormGroup";
 import { EntityBaseController } from "./Lines/EntityBase";
 import { LinkButton } from "./Basics/LinkButton";
@@ -43,6 +44,7 @@ import { useForceUpdate } from "./Hooks";
 import { Enum } from "../data/enum";
 import { TelephoneValidator, MultipleTelephoneValidator, EmailValidator } from "../data/validators";
 import { Temporal } from "../data/basics";
+import { Clock } from "../data/utils/clock";
 import { toNumberFormat } from "./numberFormat";
 import { SearchMessage, JavascriptMessage } from "../data/uiMessages";
 import { TextAreaLine } from "./Lines/TextAreaLine";
@@ -229,7 +231,7 @@ export function initFormatRules(): Finder.FormatRule[] {
             if (tn == "PlainDate")
               return <bdi className="date try-no-wrap">{Temporal.PlainDate.from(s).toLocaleString()}</bdi>;
             if (tn == "PlainDateTime")
-              return <bdi className="date try-no-wrap">{Temporal.PlainDateTime.from(s).toLocaleString()}</bdi>;
+              return <bdi className="date try-no-wrap">{Clock.toUserInterface(Temporal.PlainDateTime.from(s)).toLocaleString()}</bdi>;
           }
           catch { return s; }
           return s;
@@ -672,8 +674,8 @@ export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
           fc.value = [null, null];
 
         const tokenType = fc.token!.type;
-        const minCtx = new TypeContext<string | null>(undefined, { readOnly: fc.frozen }, tokenType, new Binding<any>(fc.value, 0));
-        const maxCtx = new TypeContext<string | null>(undefined, { readOnly: fc.frozen }, tokenType, new Binding<any>(fc.value, 1));
+        const minCtx = new TypeContext<DateValue | null>(undefined, { readOnly: fc.frozen }, tokenType, new Binding<any>(fc.value, 0));
+        const maxCtx = new TypeContext<DateValue | null>(undefined, { readOnly: fc.frozen }, tokenType, new Binding<any>(fc.value, 1));
 
         return (
           <DateTimeRange

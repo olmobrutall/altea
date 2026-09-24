@@ -17,6 +17,7 @@ import type { HeaderType } from "@altea/altea/client/Lines/GroupHeader";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { useAPI, useForceUpdate } from "@altea/altea/client/Hooks";
 import { Clock } from "@altea/altea/data/utils/clock";
+import { Temporal } from "@altea/altea/data/basics";
 import { parseFilterValue, stringifyFilterValue } from "@altea/altea-user-assets/data/FilterValueString";
 import { FilterValueConverter } from "@altea/altea-user-assets/data/FilterValueConverter";
 import {
@@ -266,7 +267,7 @@ export function filterOptionsParsedToEmbedded(
  *  The box also accepts anything else, so a value it cannot read falls back to today rather than throwing. */
 function smartDateSeed(value: unknown): string {
     try {
-        return smartDateTimeExpression(typeof value === "string" && value !== "" ? value : Clock.now);
+        return smartDateTimeExpression(value instanceof Temporal.PlainDate || value instanceof Temporal.PlainDateTime || (typeof value === "string" && value !== "") ? value : Clock.now);
     } catch {
         return smartDateTimeExpression(Clock.now);
     }

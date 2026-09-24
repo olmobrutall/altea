@@ -3,7 +3,7 @@
 //     `type.isByAll()` (TypeReference); Signum's `queryTokenType == "AnyOrAll"` discriminator →
 //     `token.isAnyOrAll()`.
 //   - luxon → Temporal: the DateOnly/DateTime value re-trim on token change uses altea's
-//     `trimDateToFormat(iso, "PlainDate"|"PlainDateTime", format)` (ISO-string in/out) — no DateTime.
+//     `trimDateToFormat(value, "PlainDate"|"PlainDateTime", format)` over Temporal values — no DateTime.
 //   - `getTypeInfos(name)` (removed in the de-string-ify pass) → `token.type.typeInfos()` (structured),
 //     comparing the pinned Lite's `entityType` ctor directly.
 //   - enums: FilterOperation/FilterGroupOperation/PinnedFilterActive/DashboardBehaviour import the
@@ -35,7 +35,8 @@ import { useForceUpdate, useForceUpdatePromise } from '../Hooks'
 import { Dropdown } from 'react-bootstrap'
 import PinnedFilterBuilder from './PinnedFilterBuilder'
 import { Finder } from '../Finder'
-import { trimDateToFormat } from '../Lines/DateTimeLine'
+import { trimDateToFormat } from '../Lines/ReactWidgetsLocalizer'
+import { Temporal } from '../../data/basics'
 import { isNumberKey, NumberBox } from '../Lines/NumberLine'
 import { VisualTipIcon } from '../Basics/VisualTipIcon';
 import { SearchVisualTip } from '../../data/visualTip';
@@ -745,14 +746,15 @@ export function FilterConditionComponent(p: FilterConditionComponentProps): Reac
         if (f.value) {
           const type = newToken.type.getTypeName() as "PlainDate" | "PlainDateTime";
 
-          function convertDateToNewFormat(val: string) {
-            return trimDateToFormat(val, type, newToken!.format);
+          // An expression string (a user-query smart date) is left as it is.
+          function convertDateToNewFormat(val: unknown) {
+            return val instanceof Temporal.PlainDate || val instanceof Temporal.PlainDateTime ? trimDateToFormat(val, type, newToken!.format) : val;
           }
 
           if (f.operation && isList(f.operation)) {
-            f.value = (f.value as string[]).map(v => convertDateToNewFormat(v));
+            f.value = (f.value as unknown[]).map(v => convertDateToNewFormat(v));
           } else if (f.operation && isPair(f.operation)) {
-            f.value = (f.value as [string | null, string | null]).map(v => v == null ? null : convertDateToNewFormat(v));
+            f.value = (f.value as unknown[]).map(v => convertDateToNewFormat(v));
           } else {
             f.value = convertDateToNewFormat(f.value);
           }

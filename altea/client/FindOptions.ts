@@ -9,6 +9,7 @@
 import * as React from "react";
 import { type PseudoType } from './Reflection';
 import { TypeReference } from '../data/reflection';
+import { Temporal } from '../data/basics';
 import { Entity, EmbeddedEntity, type Type } from '../data/entity';
 import { QueryTokenString } from './QueryTokenString';
 // The UNPARSED option DTOs moved to the data layer with QueryTokenString, whose builder methods
@@ -580,3 +581,23 @@ export const filterOperations: Record<FilterTypeKeys, FilterOperationKeys[]> = {
     "SmartSearch",
   ]
 };
+
+// A date filter value is a Temporal value, like the entity field it filters — what DateTimeLine edits. An
+// ISO string (a query string, a stored user-query value) is parsed to the token's type; any OTHER string
+// is left alone, because a user-query filter may hold an expression ("[CurrentEntity]", a smart date)
+// that is resolved on the server.
+export function parseDateFilterValue(typeName: string | undefined, val: unknown): unknown {
+  if (typeof val !== "string")
+    return val;
+  if (val === "")
+    return undefined;
+
+  const iso = val.replace(/(Z|[+-]\d{2}:?\d{2})$/, "");
+  try {
+    return typeName === "PlainDate"
+      ? Temporal.PlainDate.from(iso.slice(0, 10))
+      : iso.length <= 10 ? Temporal.PlainDate.from(iso).toPlainDateTime() : Temporal.PlainDateTime.from(iso);
+  } catch {
+    return val;
+  }
+}

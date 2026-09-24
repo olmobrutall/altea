@@ -3,7 +3,7 @@
 // each constrained by the other and the in-range days highlighted.
 //
 // altea fixes vs Signum:
-//   - luxon → no date library: values are altea ISO strings; the calendar day key is the JS Date's local
+//   - luxon → no date library: values are Temporal.PlainDate / PlainDateTime; the calendar day key is the JS Date's local
 //     "YYYY-MM-DD" and range membership is a plain string compare on the date part.
 //   - DateTimeLine reads its type from `ctx.memberType` (Signum passed an explicit `type=` prop), so the
 //     part ctx must already carry the date TypeReference; DateRangePartProps drops `type`.
@@ -13,12 +13,13 @@ import * as React from 'react';
 import type { CalendarProps } from 'react-widgets-up/Calendar';
 import type { RenderDayProp } from 'react-widgets-up/Month';
 import { StyleContext, TypeContext } from '../TypeContext';
-import { DateTimeLine, DateTimeLineOptions, isoToDate, type RenderDayAndTitle } from './DateTimeLine';
+import { DateTimeLine, DateTimeLineOptions, type RenderDayAndTitle } from './DateTimeLine';
+import { dateValueToDate, type DateValue } from './ReactWidgetsLocalizer';
 import { FormGroup } from './FormGroup';
 import type { ChangeEvent } from './LineBase';
 
 export interface DateRangePartProps {
-  ctx: TypeContext<string | null>;
+  ctx: TypeContext<DateValue | null>;
   format?: string;
   minDate?: Date;
   maxDate?: Date;
@@ -54,7 +55,7 @@ function laterDate(a: Date | undefined, b: Date | undefined): Date | undefined {
   return a > b ? a : b;
 }
 
-// The date-part ("YYYY-MM-DD") of a JS Date in LOCAL time — the same basis isoToDate builds Dates on,
+// The date-part ("YYYY-MM-DD") of a JS Date in LOCAL time — the same basis dateValueToDate builds Dates on,
 // so a calendar day compares equal to the range endpoints regardless of time component.
 function jsDateToIsoDate(date: Date): string {
   const y = date.getFullYear().toString().padStart(4, "0");
@@ -93,11 +94,11 @@ export function DateTimeRange(p: DateTimeRangeProps): React.ReactElement | null 
 
   const base = DateTimeLineOptions.Options.useRenderDay();
 
-  const minIso = p.min.ctx.value ? jsDateToIsoDate(isoToDate(p.min.ctx.value)) : null;
-  const maxIso = p.max.ctx.value ? jsDateToIsoDate(isoToDate(p.max.ctx.value)) : null;
+  const minIso = p.min.ctx.value ? jsDateToIsoDate(dateValueToDate(p.min.ctx.value)) : null;
+  const maxIso = p.max.ctx.value ? jsDateToIsoDate(dateValueToDate(p.max.ctx.value)) : null;
 
-  const minAsDate = p.min.ctx.value ? isoToDate(p.min.ctx.value) : undefined;
-  const maxAsDate = p.max.ctx.value ? isoToDate(p.max.ctx.value) : undefined;
+  const minAsDate = p.min.ctx.value ? dateValueToDate(p.min.ctx.value) : undefined;
+  const maxAsDate = p.max.ctx.value ? dateValueToDate(p.max.ctx.value) : undefined;
 
   const rangeRenderDay = makeRangeRenderDayAndTitle(base, minIso, maxIso);
 
