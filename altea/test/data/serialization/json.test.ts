@@ -8,7 +8,7 @@ import { cleanModified, isModifiedSelf } from "@altea/altea/data/changes";
 import { Temporal, toInt } from "@altea/altea/data/basics";
 import {
     CountryEntity, ArtistEntity, AlbumEntity, AlbumEntity_Song, SongEmbedded,
-    NoteWithDateEntity, Sex, Status, AlbumState,
+    NoteWithDateEntity, Sex, Status, AlbumState, LabelEntity,
 } from "../music";
 import { GadgetEntity } from "../gadget";   // @column(false) / @serialize(false) fixture
 
@@ -192,6 +192,34 @@ describe("EntityJson", () => {
         const plain = deserialize(serialize(plainLite));
         assert.ok(plain instanceof LiteImp);
         assert.ok(!(plain instanceof CountryLite));
+    });
+
+    // A model field may itself be a lite (Signum's SkillLiteModel.SubTopic): `fromJson` reads it back through
+    // the codec's `read`, so it arrives as a real Lite, not the raw `{ $lite, id, toStr }`.
+    test("custom lite: a nested lite field round-trips as a Lite", () => {
+        class LabelLite extends LiteImp<LabelEntity> {
+            constructor(id: PrimaryKey, toStr: string, readonly homeCountry: Lite<CountryEntity> | null) {
+                super(id, LabelEntity, toStr);
+            }
+            static isCompatible(json: Record<string, unknown>): boolean {
+                return "homeCountry" in json;
+            }
+            static fromJson(json: Record<string, unknown>, read: (value: unknown) => unknown): Lite<LabelEntity> {
+                return new LabelLite(json.id as PrimaryKey, (json.toStr as string) ?? "", read(json.homeCountry) as Lite<CountryEntity> | null);
+            }
+        }
+        registerCustomLite(LabelEntity, LabelLite, l => new LabelLite(l.id, l.toString(), l.country.toLite()), false);
+
+        const lite = new LabelLite(3, "Sony", new LiteImp<CountryEntity>(7, CountryEntity, "Japan"));
+        const back = deserialize(serialize(lite)) as LabelLite;
+        assert.ok(back instanceof LabelLite);
+        assert.ok(back.homeCountry instanceof LiteImp);
+        assert.equal(back.homeCountry!.entityType, CountryEntity);
+        assert.equal(back.homeCountry!.id, 7);
+        assert.equal(back.homeCountry!.toString(), "Japan");
+
+        const none = deserialize(serialize(new LabelLite(4, "Indie", null))) as LabelLite;
+        assert.equal(none.homeCountry, null);
     });
 
     test("embedded + part-entity collection: back-ref/order skipped and recovered", () => {

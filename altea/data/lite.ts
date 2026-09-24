@@ -168,7 +168,11 @@ export function parseLiteList(text: string): Lite<Entity>[] {
 // picks it among the type's registered custom lites, fromJson materialises it.
 export interface CustomLiteClass {
     isCompatible(json: Record<string, unknown>): boolean;
-    fromJson(json: Record<string, unknown>): Lite<Entity>;
+    /**
+     * `read` deserializes one of the lite's own fields that is not a primitive — a nested lite, an enum
+     * member — exactly as the codec reads any other value, so a model field may be a `Lite<T>`.
+     */
+    fromJson(json: Record<string, unknown>, read: (value: unknown) => unknown): Lite<Entity>;
 }
 
 // One registration: the class (for JSON round-trip via its statics), the from-entity builder

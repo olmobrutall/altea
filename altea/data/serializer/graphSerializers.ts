@@ -229,11 +229,11 @@ class LiteSerializer implements JsonSerializer {
         if (this.fieldCustomLite != null) {
             const match = this.fieldCustomLite.find(c => (c.forEntityType() as Type<Entity>) === ctor);
             if (match != null)
-                lite = (match.liteClass() as CustomLiteClass).fromJson(j);
+                lite = (match.liteClass() as CustomLiteClass).fromJson(j, v => factory.dynamic.fromJson(v, dc, undefined));
         }
         if (lite == null)
             for (const candidate of getCustomLites(ctor))
-                if (candidate.isCompatible(j)) { lite = candidate.fromJson(j); break; }
+                if (candidate.isCompatible(j)) { lite = candidate.fromJson(j, v => factory.dynamic.fromJson(v, dc, undefined)); break; }
         lite ??= new LiteImp(id, ctor as Type<Entity>, (j.toStr as string | undefined) ?? '');
 
         if (j.entity != null)
