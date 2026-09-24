@@ -6,7 +6,7 @@ import { Operations } from './Operations';
 import { QuickLinkClient } from './QuickLinkClient';
 import { ExceptionClient } from './Exceptions/ExceptionClient';
 import { TypeEntityClient } from './TypeEntityClient';
-import { EntitySettings, type ViewModule } from './EntitySettings';
+import { EntitySettings, type EntitySettingsOptions, type ViewModule } from './EntitySettings';
 import { QueryTokenString, createTokenFunction, type TokenFunction } from './QueryTokenString';
 
 // The client-side mirror of the server's SchemaBuilder (see eastwind/app/starter.server.ts). Where the
@@ -69,12 +69,12 @@ export class EntityClientBuilder<T extends BaseEntity> {
   constructor(private type: Type<T>) {}
 
   /** Register the entity's view module with Navigator (Signum's
-   * `Navigator.addSettings(new EntitySettings(Type, getViewModule))`). */
-  withView(getViewModule: (entity: T) => Promise<ViewModule<T>>): this {
+   * `Navigator.addSettings(new EntitySettings(Type, getViewModule, options))`). */
+  withView(getViewModule: (entity: T) => Promise<ViewModule<T>>, options?: EntitySettingsOptions<T>): this {
     // EntitySettings is invariant on its entity type (getViewPromise), so EntitySettings<T> for a
     // generic T isn't structurally assignable to the registry's EntitySettings<BaseEntity>. The cast is
     // sound — `T extends BaseEntity` and the settings only ever handle entities of type T.
-    Navigator.addSettings(new EntitySettings(this.type, getViewModule) as unknown as EntitySettings<BaseEntity>);
+    Navigator.addSettings(new EntitySettings(this.type, getViewModule, options) as unknown as EntitySettings<BaseEntity>);
     return this;
   }
 
