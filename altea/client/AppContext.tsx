@@ -189,10 +189,27 @@ export function navigate(url: string, options?: NavigateOptions): void {
     window.location.assign(to);
 }
 
-// Ported from Signum.React/AppContext.tsx — sets document.title while the component is mounted.
+// Ported from Signum.React/AppContext.tsx — how a page title becomes the document title (an app adds its own
+// suffix with `setTitleFunction`), and the hook that sets it while the component is mounted and resets it
+// (`setTitle()` with no title) on unmount. The default writes the page title as-is and leaves the document
+// title alone when there is none.
+let titleFunction: (pageTitle?: string) => void = pageTitle => {
+  if (pageTitle != null)
+    document.title = pageTitle;
+};
+
+export function setTitleFunction(newFunction: (pageTitle?: string) => void): void {
+  titleFunction = newFunction;
+}
+
+export function setTitle(pageTitle?: string): void {
+  titleFunction(pageTitle);
+}
+
 export function useTitle(title: string, deps?: React.DependencyList): void {
   React.useEffect(() => {
-    document.title = title;
+    setTitle(title);
+    return () => setTitle();
   }, deps);
 }
 
