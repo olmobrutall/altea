@@ -425,3 +425,17 @@ describe('init() symbol-declaration transform', () => {
         );
     });
 });
+
+describe('constructor arguments', () => {
+
+    // `new StateValidator(Entity, a => a.status, …)`: an arrow handed to a Quoted<T> CONSTRUCTOR parameter is
+    // quoted exactly as one handed to a call.
+    test('an arrow passed to a Quoted<T> constructor parameter is quoted', () => {
+        const result = transformSource(HEADER + `
+class Holder<T extends Function> { constructor(readonly exp: Quoted<T>, readonly plain: T) { } }
+new Holder((a: { name: string }) => a.name, (b: { name: string }) => b.name);`);
+        const body = normalize(result).slice(normalize(getPrintedHeader()).length);
+        assert.match(body, /new Holder\(Object\.assign\(\(a: \{\s*name: string;\s*\}\) => a\.name, \{\s*__quoted:/);
+        assert.doesNotMatch(body, /Object\.assign\(\(b:/, "a plain parameter stays a plain arrow");
+    });
+});

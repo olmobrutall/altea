@@ -128,8 +128,10 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
     if (node.parent == null)
       return false;
 
-    if (ts.isCallExpression(node.parent)) {
-      var index = node.parent.arguments.indexOf(node);
+    // A constructor argument too (`new StateValidator(E, a => a.status, …)`): a NewExpression resolves its
+    // signature the same way a call does.
+    if (ts.isCallExpression(node.parent) || ts.isNewExpression(node.parent)) {
+      var index = node.parent.arguments?.indexOf(node) ?? -1;
 
       if (index == -1)
         return false;
