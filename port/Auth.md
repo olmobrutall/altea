@@ -269,7 +269,7 @@ bases collapse into concrete per-dimension models.
 ## AuthRules XML
 
 A port of the AuthRules half of Signum's `AuthLogic` (`ExportRules`, `ImportRulesScript`, `LoadRoles`,
-`SynchronizeRoles`, `AutomaticImportAuthRules`, `ImportExportAuthRules`) and of each cache's
+`SynchronizeRoles`, `ImportAuthRules`, `ImportExportAuthRules`) and of each cache's
 `ExportXml` / `ImportXml`, in `AuthImportExport` and `AuthRulesXml`. The file is Signum's: an operation row
 is `Resource="Operation.Key/Type"`, a property row `Resource="Type|path"`, so a Signum export imports as is.
 
@@ -285,8 +285,7 @@ Divergences:
 
 - The scripts have no `use <database>` line: they run on the connection that executes them.
 - A dropped file row is listed in the script as a `-- Skipped …` comment.
-- `automaticImportAuthRules` does not re-run `Schema.initialize()` (every caller has), and resets the
-  caches after executing, as `ImportAuthRules` does.
+- `importAuthRules` does not re-run `Schema.initialize()`: every caller has.
 - `ImportExportAuthRules` has no `tmr` (the trivial-merge refactor), and export does not offer to copy the
   file into the source tree: the terminal writes it there.
 - A role removed by a non-interactive `synchronizeRoles` has its users moved one save at a time (altea has

@@ -77,7 +77,7 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
         await Transaction.noCommit(async () => {
             assert.equal(await salesCanRead(), true, "precondition: Sales reads Sample");
 
-            await AuthImportExport.automaticImportAuthRules(xml.replace(salesTypes!, ""), noRename);
+            await AuthImportExport.importAuthRules(xml.replace(salesTypes!, ""), noRename);
             resetAuthCaches();
 
             assert.equal(await salesCanRead(), false, "Sales' Sample=Read rule was removed with its block");
@@ -89,7 +89,7 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
             await deleteSalesSampleTypeRule();
             assert.equal(await salesCanRead(), false, "precondition: Sales lost Read after the rule was deleted");
 
-            await AuthImportExport.automaticImportAuthRules(xml, noRename);
+            await AuthImportExport.importAuthRules(xml, noRename);
             resetAuthCaches();
 
             assert.equal(await salesCanRead(), true, "import restored Sales' Sample=Read rule");
@@ -105,7 +105,7 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
             assert.equal(await salesCanRead(), false, "precondition: rule deleted");
 
             const asked: string[] = [];
-            await AuthImportExport.automaticImportAuthRules(renamedXml, ({ replacementKey, oldValue, newValues }) => {
+            await AuthImportExport.importAuthRules(renamedXml, ({ replacementKey, oldValue, newValues }) => {
                 asked.push(replacementKey);
                 return oldValue === "OldSample" && (newValues?.includes("Sample") ?? false)
                     ? { oldValue: "OldSample", newValue: "Sample" }
@@ -132,7 +132,7 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
 
     test("a second import of the same file has nothing to do", async () => {
         await Transaction.noCommit(async () => {
-            await AuthImportExport.automaticImportAuthRules(xml, noRename);
+            await AuthImportExport.importAuthRules(xml, noRename);
             assert.equal(await AuthImportExport.importRulesScript(xml, false, noRename), undefined);
         });
     });

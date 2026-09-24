@@ -22,7 +22,7 @@ import { TypeConditionSymbol } from "../data/Rules";
 import { ATTR, attrs, enumName, parseEnum, parseBool, boolText, type AuthImportCtx } from "./AuthRulesXml";
 
 // Port of the AuthRules half of Signum.Authorization's AuthLogic.cs (ExportRules, ImportRulesScript,
-// LoadRoles, SynchronizeRoles, AutomaticImportAuthRules, ImportExportAuthRules) — see port/Auth.md.
+// LoadRoles, SynchronizeRoles, ImportAuthRules, ImportExportAuthRules) — see port/Auth.md.
 //
 // One `<Auth>` document: a `<Roles>` section this file owns plus one section per dimension, each
 // dimension registering its own block through `AuthLogic.registerXmlExporter` / `registerXmlImporter`.
@@ -30,8 +30,7 @@ import { ATTR, attrs, enumName, parseEnum, parseBool, boolText, type AuthImportC
 // Divergences from Signum:
 //  - The scripts have no `use <database>` line: they run on the connection that executes them.
 //  - A dropped file row (its resource no longer exists) is listed as a `-- Skipped …` comment.
-//  - AutomaticImportAuthRules does not re-run Schema.initialize() (every caller has), and resets the
-//    caches after executing, as ImportAuthRules does.
+//  - ImportAuthRules does not re-run Schema.initialize(): every caller has.
 export namespace AuthImportExport {
 
     const rolesReplacementKey = "Roles";
@@ -179,19 +178,11 @@ export namespace AuthImportExport {
             new SqlPreCommandSimple("-- END AUTH SYNC SCRIPT"));
     }
 
-    /** Signum's ImportAuthRules: build the script and run it as it is. */
-    export async function importAuthRules(xml: string, interactive: boolean, autoReplacement?: Replacements["autoReplacement"]): Promise<void> {
-        const script = await importRulesScript(xml, interactive, autoReplacement);
-        if (script != null)
-            await Connector.current().executeNonQuery(script.plainSql());
-        GlobalLazy.resetAll(false);
-    }
-
     /**
-     * Signum's AutomaticImportAuthRules: build the script without asking (a rename is answered by
-     * `autoReplacement`, or fails), print it and run it in one transaction — for deploys and code migrations.
+     * Signum's ImportAuthRules: build the script without asking (a rename is answered by `autoReplacement`,
+     * or fails), print it and run it in one transaction — for deploys and code migrations.
      */
-    export async function automaticImportAuthRules(xml: string, autoReplacement?: Replacements["autoReplacement"]): Promise<void> {
+    export async function importAuthRules(xml: string, autoReplacement?: Replacements["autoReplacement"]): Promise<void> {
         const script = await importRulesScript(xml, false, autoReplacement);
         if (script == null) {
             SafeConsole.writeLineColor(Color.green, "AuthRules already synchronized");
@@ -338,7 +329,7 @@ export namespace AuthImportExport {
                     await openSqlFileRetry(SqlPreCommand.combine(Spacing.Triple,
                         new SqlPreCommandSimple("-- BEGIN ROLE SYNC SCRIPT"),
                         roleInsertsDeletes,
-                        new SqlPreCommandSimple("-- END ROLE  SYNC SCRIPT"))!, syncDirectory, "Roles " + syncFileName(new Date()));
+                        new SqlPreCommandSimple("-- END ROLE  SYNC SCRIPT"))!, syncDirectory, scriptFileName("Auth_Roles"));
 
                     if (!await SafeConsole.ask("Did you run the previous script (Sync Roles)?"))
                         return;
@@ -394,7 +385,7 @@ export namespace AuthImportExport {
                     new SqlPreCommandSimple("-- BEGIN ROLE SYNC SCRIPT"),
                     roleRelationships,
                     trivialMergesScript,
-                    new SqlPreCommandSimple("-- END ROLE  SYNC SCRIPT"))!, syncDirectory, "Roles Relationships " + syncFileName(new Date()));
+                    new SqlPreCommandSimple("-- END ROLE  SYNC SCRIPT"))!, syncDirectory, scriptFileName("Auth_RoleRels"));
 
                 if (!await SafeConsole.ask("Did you run the previous script (Sync Roles Relationships)?"))
                     return;
@@ -413,6 +404,9 @@ export namespace AuthImportExport {
                 [{ name: "p0", value: role.id }]).addComment(role.name);
         }
     }
+
+    // Signum names each script "<prefix> {0:yyyy-MM-dd HH_mm_ss}.sql".
+    const scriptFileName = (prefix: string): string => prefix + syncFileName(new Date()).slice("Sync".length);
 
     async function retrieveRoles(): Promise<RoleEntity[]> {
         return await table(RoleEntity).toArray() as RoleEntity[];
@@ -495,7 +489,7 @@ export namespace AuthImportExport {
             if (command == null)
                 SafeConsole.writeLineColor(Color.green, "Already synchronized");
             else
-                await openSqlFileRetry(command, syncDirectory, "AuthRules " + syncFileName(new Date()));
+                await openSqlFileRetry(command, syncDirectory, scriptFileName("Auth"));
 
             GlobalLazy.resetAll(false);
         };

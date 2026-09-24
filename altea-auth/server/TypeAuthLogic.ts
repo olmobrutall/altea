@@ -728,6 +728,10 @@ export namespace TypeAuthLogic {
         };
     }
 
+    function failNotDefined(tc: TypeConditionSymbol, ctor: Function): never {
+        throw new Error(`Type condition ${tc.key} is not defined for ${ctor.name}. Import AuthRules interactively.`);
+    }
+
     async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<SqlPreCommand | undefined> {
         const rows = sectionRows(auth, "Types", "Type");
         ctx.replacements.askForReplacements(
@@ -761,7 +765,9 @@ export namespace TypeAuthLogic {
                 for (const xc of x.Condition ?? []) {
                     const tcs: TypeConditionSymbol[] = [];
                     for (const tc of conditionSymbols(xc, ctx))
-                        if (TypeConditionLogic.isDefined(ctor, tc) || !await SafeConsole.ask(`Type condition ${tc.key} is not defined. Remove it?`))
+                        if (TypeConditionLogic.isDefined(ctor, tc) || (ctx.replacements.interactive
+                            ? !await SafeConsole.ask(`Type condition ${tc.key} is not defined for ${ctor.name}. Remove it?`)
+                            : failNotDefined(tc, ctor)))
                             tcs.push(tc);
                     if (tcs.length > 0)
                         conditionRules.push(RuleTypeConditionEntity.create({
