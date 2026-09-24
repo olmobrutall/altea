@@ -772,7 +772,7 @@ export const Operations = {
             result => result);
     },
     // The button-state check (Signum's entity.CanExecute(symbol)).
-    canExecute<T extends Entity>(entity: T, symbol: ExecuteSymbol<T> | DeleteSymbol<T>): string | null {
-        return (OperationLogic.findOperation(symbol) as IEntityOperation).onCanExecute(entity);
+    async canExecute<T extends Entity>(entity: T, symbol: ExecuteSymbol<T> | DeleteSymbol<T>): Promise<string | null> {
+        return await (OperationLogic.findOperation(symbol) as IEntityOperation).onCanExecute(entity);
     },
 };

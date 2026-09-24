@@ -174,18 +174,18 @@ describe("OperationLogic / fluent operations", () => {
             /State should be Saved instead of New/); // the NICE names, never the ordinals
     });
 
-    test("canExecute gates on isNew, fromStates and returns null when allowed", () => {
+    test("canExecute gates on isNew, fromStates and returns null when allowed", async () => {
         const brandNew = AlbumEntity.create({ state: AlbumState.New });
-        assert.equal(Operations.canExecute(brandNew, AlbumOperation.Save), null); // canBeNew + New in from
-        assert.match(Operations.canExecute(brandNew, AlbumOperation.Delete)!, /is new/);
+        assert.equal(await Operations.canExecute(brandNew, AlbumOperation.Save), null); // canBeNew + New in from
+        assert.match((await Operations.canExecute(brandNew, AlbumOperation.Delete))!, /is new/);
 
         const savedButNewState = AlbumEntity.create({ state: AlbumState.New });
         savedButNewState.isNew = false;
-        assert.match(Operations.canExecute(savedButNewState, AlbumOperation.Delete)!, /State should be/);
+        assert.match((await Operations.canExecute(savedButNewState, AlbumOperation.Delete))!, /State should be/);
 
         const proper = AlbumEntity.create({ state: AlbumState.Saved });
         proper.isNew = false;
-        assert.equal(Operations.canExecute(proper, AlbumOperation.Delete), null);
+        assert.equal(await Operations.canExecute(proper, AlbumOperation.Delete), null);
     });
 
     test("delete rejects a new entity before touching the DB", async () => {
@@ -196,7 +196,7 @@ describe("OperationLogic / fluent operations", () => {
     });
 
     // Operations are real classes — createable/replaceable/removable from outside the state machine.
-    test("operations can be replaced and removed from outside the state machine", () => {
+    test("operations can be replaced and removed from outside the state machine", async () => {
         const original = OperationLogic.findOperation(AlbumOperation.Save);
         assert.ok(original instanceof Graph.Execute);
 
@@ -216,7 +216,7 @@ describe("OperationLogic / fluent operations", () => {
         album.isNew = false;
         // Nice-named through the LAZY `stateEnumOf`: a hand-built operation carries no stamped enum,
         // so the property route behind its selector is walked here — once — and memoised on it.
-        assert.match(Operations.canExecute(album, AlbumOperation.Save)!, /State should be Saved instead of New/);
+        assert.match((await Operations.canExecute(album, AlbumOperation.Save))!, /State should be Saved instead of New/);
         assert.equal((replacement as { stateEnum?: object | null }).stateEnum, AlbumState);
 
         // And it can be removed entirely.
@@ -224,6 +224,36 @@ describe("OperationLogic / fluent operations", () => {
         assert.equal(OperationLogic.tryFindOperation(AlbumOperation.Save), undefined);
 
         OperationLogic.register(original, /* replace */ true); // restore for any later runs
+    });
+
+    // Signum's CanExecute may query the database, so a guard may be async: the button state and the
+    // operation itself both wait for it.
+    test("an async canExecute disables the operation and stops it running", async () => {
+        const original = OperationLogic.findOperation(AlbumOperation.OnlyWhenSaved);
+        let ran = false;
+        OperationLogic.register(new Graph.Execute<AlbumEntity, AlbumState>(AlbumEntity, AlbumOperation.OnlyWhenSaved, {
+            getState: a => a.state,
+            fromStates: [AlbumState.Saved],
+            toStates: [AlbumState.Saved],
+            avoidImplicitSave: true,
+            canExecute: async a => { await Promise.resolve(); return a.name === "locked" ? "It is locked" : null; },
+            execute: () => { ran = true; },
+        }), /* replace */ true);
+        try {
+            const locked = AlbumEntity.create({ state: AlbumState.Saved, name: "locked", author: ArtistEntity.create({ name: "A1" }) });
+            locked.id = toInt(1); locked.isNew = false;
+            assert.equal(await Operations.canExecute(locked, AlbumOperation.OnlyWhenSaved), "It is locked");
+            await assert.rejects(() => offline(() => Operations.execute(locked, AlbumOperation.OnlyWhenSaved)), /It is locked/);
+            assert.equal(ran, false);
+
+            const open = AlbumEntity.create({ state: AlbumState.Saved, name: "open", author: ArtistEntity.create({ name: "A1" }) });
+            open.id = toInt(2); open.isNew = false;
+            assert.equal(await Operations.canExecute(open, AlbumOperation.OnlyWhenSaved), null);
+            await offline(() => Operations.execute(open, AlbumOperation.OnlyWhenSaved));
+            assert.equal(ran, true);
+        } finally {
+            OperationLogic.register(original, /* replace */ true);
+        }
     });
 
     test("the allowed states read as a comma-OR list", () => {

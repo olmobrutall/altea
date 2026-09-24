@@ -69,7 +69,7 @@ export interface IGraphStateOperation extends IOperation {
 export interface IEntityOperation extends IOperation {
     canBeNew: boolean;
     canBeModified: boolean;
-    onCanExecute(entity: Entity): string | null;
+    onCanExecute(entity: Entity): Promise<string | null>;
     /**
      * Signum's `IOperation.CanExecuteExpression()` — the guard as an expression TREE, so the reason the
      * button is disabled can be computed in SQL for a whole page of rows (the `[Operations]` cell-operation

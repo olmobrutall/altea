@@ -96,6 +96,12 @@ export interface StateSelectorOptions<T extends Entity, S> {
     stateEnum?: object;
 }
 
+/**
+ * An operation's guard: the reason it cannot run, or null. It may read the database (Signum's CanExecute
+ * runs queries freely), so it may be async; the entity pack and the operation itself await it.
+ */
+export type Guard = string | null | Promise<string | null>;
+
 export interface ConstructOptions<T extends Entity> {
     construct: (args: unknown[]) => T | Promise<T>;
 }
@@ -105,7 +111,7 @@ export interface ConstructOptionsWithState<T extends Entity, S> extends Construc
 
 export interface ConstructFromOptions<T extends Entity, F extends Entity> {
     construct: (from: F, args: unknown[]) => T | Promise<T>;
-    canConstruct?: (from: F) => string | null;
+    canConstruct?: (from: F) => Guard;
     /** See {@link IEntityOperation.canExecuteExpression} — the QUOTED twin of `canConstruct`. */
     canExecuteExpression?: Quoted<(from: F) => string | null>;
     canBeNew?: boolean;
@@ -125,7 +131,7 @@ export interface ConstructFromManyOptionsWithState<T extends Entity, F extends E
 
 export interface ExecuteOptions<T extends Entity> {
     execute: (entity: T, args: unknown[]) => void | Promise<void>;
-    canExecute?: (entity: T) => string | null;
+    canExecute?: (entity: T) => Guard;
     /** See {@link IEntityOperation.canExecuteExpression} — the QUOTED twin of `canExecute`. */
     canExecuteExpression?: Quoted<(entity: T) => string | null>;
     canBeNew?: boolean;
@@ -139,7 +145,7 @@ export interface ExecuteOptionsWithState<T extends Entity, S> extends ExecuteOpt
 
 export interface DeleteOptions<T extends Entity> {
     delete: (entity: T, args: unknown[]) => void | Promise<void>;
-    canDelete?: (entity: T) => string | null;
+    canDelete?: (entity: T) => Guard;
     /** See {@link IEntityOperation.canExecuteExpression} — the QUOTED twin of `canDelete`. */
     canExecuteExpression?: Quoted<(entity: T) => string | null>;
 }
@@ -212,7 +218,7 @@ export namespace Graph {
     export class ConstructFrom<T extends Entity, F extends Entity, S = never> implements IConstructorFromOperation {
         readonly operationType = OperationType.ConstructorFrom;
         construct!: (from: F, args: unknown[]) => T | Promise<T>;
-        canConstruct?: (from: F) => string | null;
+        canConstruct?: (from: F) => Guard;
         canExecuteExpression?: Quoted<(from: F) => string | null>;
         canBeNew = false;
         canBeModified = false;
@@ -229,14 +235,14 @@ export namespace Graph {
         }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
-        onCanExecute(from: F): string | null {
+        async onCanExecute(from: F): Promise<string | null> {
             if (from.isNew && !this.canBeNew) return isNewError;
-            return this.canConstruct != null ? this.canConstruct(from) : null;
+            return this.canConstruct != null ? await this.canConstruct(from) : null;
         }
         async doConstructFrom(from: F, args: unknown[]): Promise<Entity> {
             using _prof = HeavyProfiler.log("ConstructFrom", () => `${this.symbol.key} on ${from}`);
             return await Transaction.create(async () => {
-                const error = this.onCanExecute(from);
+                const error = await this.onCanExecute(from);
                 if (error != null) throw new Error(error);
                 const result = await this.construct(from, args);
                 assertToStates(this, result);
@@ -282,7 +288,7 @@ export namespace Graph {
     export class Execute<T extends Entity, S = never> implements IExecuteOperation {
         readonly operationType = OperationType.Execute;
         execute!: (entity: T, args: unknown[]) => void | Promise<void>;
-        canExecute?: (entity: T) => string | null;
+        canExecute?: (entity: T) => Guard;
         canExecuteExpression?: Quoted<(entity: T) => string | null>;
         canBeNew = false;
         canBeModified = false;
@@ -298,16 +304,16 @@ export namespace Graph {
         }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
-        onCanExecute(entity: T): string | null {
+        async onCanExecute(entity: T): Promise<string | null> {
             if (entity.isNew && !this.canBeNew) return isNewError;
             if (this.fromStates != null && this.getState != null && !this.fromStates.includes(this.getState(entity)))
                 return stateError(this, entity, this.getState(entity), this.fromStates);
-            return this.canExecute != null ? this.canExecute(entity) : null;
+            return this.canExecute != null ? await this.canExecute(entity) : null;
         }
         async doExecute(entity: T, args: unknown[]): Promise<Entity> {
             using _prof = HeavyProfiler.log("Execute", () => `${this.symbol.key} on ${entity}`);
             return await Transaction.create(async () => {
-                const error = this.onCanExecute(entity);
+                const error = await this.onCanExecute(entity);
                 if (error != null) throw new Error(error);
                 await this.execute(entity, args);
                 assertToStates(this, entity);
@@ -328,7 +334,7 @@ export namespace Graph {
     export class Delete<T extends Entity, S = never> implements IDeleteOperation {
         readonly operationType = OperationType.Delete;
         delete!: (entity: T, args: unknown[]) => void | Promise<void>;
-        canDelete?: (entity: T) => string | null;
+        canDelete?: (entity: T) => Guard;
         canExecuteExpression?: Quoted<(entity: T) => string | null>;
         readonly canBeNew = false;
         readonly canBeModified = false;
@@ -342,16 +348,16 @@ export namespace Graph {
         }
         get operationSymbol(): OperationSymbol { return this.symbol; }
 
-        onCanExecute(entity: T): string | null {
+        async onCanExecute(entity: T): Promise<string | null> {
             if (entity.isNew) return isNewError;
             if (this.fromStates != null && this.getState != null && !this.fromStates.includes(this.getState(entity)))
                 return stateError(this, entity, this.getState(entity), this.fromStates);
-            return this.canDelete != null ? this.canDelete(entity) : null;
+            return this.canDelete != null ? await this.canDelete(entity) : null;
         }
         async doDelete(entity: T, args: unknown[]): Promise<void> {
             using _prof = HeavyProfiler.log("Delete", () => `${this.symbol.key} on ${entity}`);
             await Transaction.create(async () => {
-                const error = this.onCanExecute(entity);
+                const error = await this.onCanExecute(entity);
                 if (error != null) throw new Error(error);
                 await this.delete(entity, args);
             });

@@ -255,7 +255,7 @@ export async function getEntityPack(entity: Entity): Promise<EntityPack<Entity>>
             continue;
 
         try {
-            canExecute[symbol.key] = eo.onCanExecute(entity) ?? "";
+            canExecute[symbol.key] = (await eo.onCanExecute(entity)) ?? "";
         } catch (e) {
             // Signum rethrows with `e.Data["entity"] = entity`. This used to SWALLOW, because the loop ran
             // every operation in the application against every entity and most of them threw; now that the

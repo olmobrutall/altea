@@ -78,7 +78,7 @@ declare module '../data/entity' {
         constructFrom<R extends Entity, F extends Entity>(this: F, symbol: ConstructSymbol<R, From<F>>, ...args: unknown[]): Promise<R>;
         // The button-state check (Signum's `entity.CanExecute(symbol)`): null when the operation
         // is available, otherwise the reason it is not.
-        canExecute(symbol: ExecuteSymbol<this> | DeleteSymbol<this>): string | null;
+        canExecute(symbol: ExecuteSymbol<this> | DeleteSymbol<this>): Promise<string | null>;
         // Polymorphic combine hint over an @implementedBy reference (Signum's
         // CombineUnion / CombineCase): picks how the query provider merges the
         // implementations when a member is navigated — combineUnion() a UNION ALL
@@ -222,7 +222,7 @@ Entity.prototype.constructFrom = (function (this: Entity, symbol: ConstructSymbo
     return Operations.constructFrom(this, symbol, ...args);
 }) as Entity["constructFrom"];
 
-Entity.prototype.canExecute = function (this: Entity, symbol: ExecuteSymbol<Entity> | DeleteSymbol<Entity>): string | null {
+Entity.prototype.canExecute = function (this: Entity, symbol: ExecuteSymbol<Entity> | DeleteSymbol<Entity>): Promise<string | null> {
     return Operations.canExecute(this, symbol);
 };
 Lite.prototype.delete = function (this: Lite<Entity>): Promise<void> {
