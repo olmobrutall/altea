@@ -98,6 +98,7 @@ the prefix stays singular even where the namespace is plural.
 | `[ImplementedBy(typeof(A), typeof(B))]` | `@implementedBy(() => [A, B])` |
 | `[ImplementedByAll]` | `@implementedByAll` |
 | `LinqHints.DistinctNull(a, b)` | `distinctNull(a, b)` (`@altea/altea/data/linqHints`) |
+| `[Mixin(typeof(CorruptMixin))]` + `Corruption.Strict` | `@mixin(() => [CorruptMixin])` + `Corruption.strict()` (`@altea/altea/data/corruptMixin`) |
 | `[DefaultFileType(nameof(XFileType.Y))]` | `@defaultFileType(() => XFileType.Y)` (altea-files): the store's limits come from its registered algorithm |
 | `static StateValidator<E, S> v = new(e => e.State, e => e.A, e => e.B) { { S.X, true, null } }` + `PropertyValidation` | `const v = new StateValidator(E, e => e.state, "a", "b").add(S.X, true, null)` after the class, called from `@validate<E>((e, fi) => v.validate(e, fi))` on it |
 | `[UniqueIndex]`, `[TableName]`, `[ColumnName]` | `@uniqueIndex`, `@column({...})` |

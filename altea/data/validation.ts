@@ -1,6 +1,6 @@
-
 import type { BaseEntity } from './entity';
 import type { FieldInfo, IntegrityCheckEnvironment } from './reflection';
+import { Corruption } from './corruptMixin';
 import { forEachField } from './changes';
 // Side-effect import: validators.ts registers the implicit-NotNull factory the reflection layer needs
 // (registerImplicitNotNullValidator). Loading it here guarantees the factory is present on every
@@ -28,6 +28,11 @@ export interface IntegrityCheck {
  * or `null` when everything is valid — matching Signum's `IntegrityCheck()` return.
  */
 export function entityIntegrityCheck(m: BaseEntity, env: IntegrityCheckEnvironment): IntegrityCheck | null {
+    // A CORRUPT entity is checked tolerantly (Signum's Entity.EntityIntegrityCheck): see data/corruptMixin.
+    return Corruption.isCorrupt(m) ? Corruption.allowScope(() => checkFields(m, env)) : checkFields(m, env);
+}
+
+function checkFields(m: BaseEntity, env: IntegrityCheckEnvironment): IntegrityCheck | null {
     let errors: { [field: string]: string } | undefined;
 
     forEachField(m, fi => {
@@ -48,6 +53,11 @@ export function entityIntegrityCheck(m: BaseEntity, env: IntegrityCheckEnvironme
  * that is reported field-by-field anyway.
  */
 export async function entityIntegrityCheckAsync(m: BaseEntity, env: IntegrityCheckEnvironment): Promise<IntegrityCheck | null> {
+    return Corruption.isCorrupt(m) ? Corruption.allowScope(() => checkFieldsAsync(m, env)) : checkFieldsAsync(m, env);
+}
+
+/** The check with no corruption tolerance — what a corrupt entity must pass to stop being corrupt. */
+export async function checkFieldsAsync(m: BaseEntity, env: IntegrityCheckEnvironment): Promise<IntegrityCheck | null> {
     let errors: { [field: string]: string } | undefined;
 
     const fields: FieldInfo[] = [];

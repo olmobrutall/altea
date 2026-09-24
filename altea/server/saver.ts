@@ -3,7 +3,8 @@ import { bindParentsOwn } from '../data/parentEntity';
 import type { Type, PrimaryKey } from '../data/entity';
 import { cleanModified, forEachField } from '../data/changes';
 import { getTypeInfo } from '../data/reflection';
-import { IntegrityCheckException } from '../data/validation';
+import { IntegrityCheckException, checkFieldsAsync } from '../data/validation';
+import { Corruption } from '../data/corruptMixin';
 import {
     exploreModifiables,
     propagateModifications,
@@ -84,6 +85,12 @@ export namespace Saver {
             for (const m of all)
                 if (m instanceof Entity)
                     schema.entityEvents(m.constructor as Type<Entity>).onPreSaving(m);
+
+            // Signum's CorruptMixin.PreSaving: a corrupt entity is re-checked STRICTLY, and stops being
+            // corrupt once it passes; the tolerant check below then lets the rest through.
+            for (const m of all)
+                if (m instanceof Entity)
+                    await Corruption.preSaving(m, async () => (await checkFieldsAsync(m, "Saving"))?.errors);
 
             // Phase 3: the last-word validation, right before writing rows. Server-only validators that
             // were skipped earlier (disabled on "Client" / "ServerDeserialization") are enforced here.
