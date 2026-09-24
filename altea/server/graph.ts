@@ -117,6 +117,10 @@ export interface ConstructFromOptions<T extends Entity, F extends Entity> {
     canBeNew?: boolean;
     canBeModified?: boolean;
     resultIsSaved?: boolean;
+    /** Signum's SourceEntityIsModified — see IConstructorFromOperation. */
+    sourceEntityIsModified?: boolean;
+    /** The constructed type; the fluent `withConstructFrom` stamps its include's type. */
+    returnType?: Type<T>;
 }
 export interface ConstructFromOptionsWithState<T extends Entity, F extends Entity, S> extends ConstructFromOptions<T, F>, StateSelectorOptions<T, S> {
     toStates: S[];
@@ -124,6 +128,8 @@ export interface ConstructFromOptionsWithState<T extends Entity, F extends Entit
 
 export interface ConstructFromManyOptions<T extends Entity, F extends Entity> {
     construct: (lites: Lite<F>[], args: unknown[]) => T | Promise<T>;
+    /** The constructed type; the fluent `withConstructFromMany` stamps its include's type. */
+    returnType?: Type<T>;
 }
 export interface ConstructFromManyOptionsWithState<T extends Entity, F extends Entity, S> extends ConstructFromManyOptions<T, F>, StateSelectorOptions<T, S> {
     toStates: S[];
@@ -137,6 +143,8 @@ export interface ExecuteOptions<T extends Entity> {
     canBeNew?: boolean;
     canBeModified?: boolean;
     avoidImplicitSave?: boolean;
+    /** Signum's ForReadonlyEntity — see IExecuteOperation. */
+    forReadonlyEntity?: boolean;
 }
 export interface ExecuteOptionsWithState<T extends Entity, S> extends ExecuteOptions<T>, StateSelectorOptions<T, S> {
     fromStates: S[];
@@ -223,6 +231,8 @@ export namespace Graph {
         canBeNew = false;
         canBeModified = false;
         resultIsSaved = false;
+        sourceEntityIsModified = false;
+        returnType?: Type<T>;
         toStates?: S[];
         getState?: Quoted<(entity: T) => S>;
         stateEnum?: object | null; // memoised by stateEnumOf; stamped by withStateMachine
@@ -261,6 +271,7 @@ export namespace Graph {
     export class ConstructFromMany<T extends Entity, F extends Entity, S = never> implements IConstructorFromManyOperation {
         readonly operationType = OperationType.ConstructorFromMany;
         construct!: (lites: Lite<F>[], args: unknown[]) => T | Promise<T>;
+        returnType?: Type<T>;
         toStates?: S[];
         getState?: Quoted<(entity: T) => S>;
         stateEnum?: object | null; // memoised by stateEnumOf; stamped by withStateMachine
@@ -293,6 +304,7 @@ export namespace Graph {
         canBeNew = false;
         canBeModified = false;
         avoidImplicitSave = false;
+        forReadonlyEntity = false;
         fromStates?: S[];
         toStates?: S[];
         getState?: Quoted<(entity: T) => S>;

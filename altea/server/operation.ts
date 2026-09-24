@@ -110,14 +110,22 @@ export interface IConstructOperation extends IOperation {
 
 export interface IConstructorFromOperation extends IEntityOperation {
     resultIsSaved: boolean;
+    /** Signum's SourceEntityIsModified: the construct writes the SOURCE too, so running it needs Write on it. */
+    sourceEntityIsModified: boolean;
+    /** The constructed type (Signum's ReturnType), stamped by the include that registers it. */
+    readonly returnType?: Type<Entity>;
     doConstructFrom(entity: Entity, args: unknown[]): Promise<Entity>;
 }
 
 export interface IConstructorFromManyOperation extends IOperation {
+    /** The constructed type (Signum's ReturnType), stamped by the include that registers it. */
+    readonly returnType?: Type<Entity>;
     doConstructFromMany(lites: Lite<Entity>[], args: unknown[]): Promise<Entity>;
 }
 
 export interface IExecuteOperation extends IEntityOperation {
+    /** Signum's ForReadonlyEntity: it runs on an entity the user may only READ (the button shows on it). */
+    forReadonlyEntity: boolean;
     doExecute(entity: Entity, args: unknown[]): Promise<Entity>;
 }
 

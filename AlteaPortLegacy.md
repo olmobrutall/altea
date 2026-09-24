@@ -205,6 +205,8 @@ function registerOrderOperations(sm: FluentStateMachine<OrderEntity, OrderState>
 | `CanExecute = o => …` | `canExecuteExpression: o => …` |
 | `AllowsNew = true` | `canBeNew: true` |
 | `Lite = false` | `canBeModified: true` |
+| `ForReadonlyEntity = true` / `SourceEntityIsModified = true` | `forReadonlyEntity: true` / `sourceEntityIsModified: true` |
+| `op.SetMaxAutomaticUpgrade(OperationAllowed.None)` | `OperationAuthLogic.setMaxAutomaticUpgrade(Symbol, OperationAllowed.None)` (and `PropertyAuthLogic` / `QueryAuthLogic`'s twins) |
 
 A `ConstructFromMany` whose RESULT is another type hangs off THAT type's include:
 `sb.include(ProcessEntity).withConstructFromMany(OrderEntity, OrderOperation.CancelWithProcess, { … })`.

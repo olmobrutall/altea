@@ -218,6 +218,7 @@ const fluentOperations = {
 
     withConstructFrom<T extends Entity, S, R extends Entity, F extends Entity>(this: OperationsThis<T, S>, fromType: Type<F>, symbol: ConstructSymbol<R, From<F>>, options: Partial<ConstructFromOptionsWithState<R, F, S>>) {
         new Graph.ConstructFrom<R, F, S>(fromType, symbol, {
+            returnType: this.type as never,
             getState: this.getState,
             stateEnum: this.stateEnum,
             ...options,
@@ -227,6 +228,7 @@ const fluentOperations = {
 
     withConstructFromMany<T extends Entity, S, R extends Entity, F extends Entity>(this: OperationsThis<T, S>, fromType: Type<F>, symbol: ConstructSymbol<R, FromMany<F>>, options: Partial<ConstructFromManyOptionsWithState<R, F, S>>) {
         new Graph.ConstructFromMany<R, F, S>(fromType, symbol, {
+            returnType: this.type as never,
             getState: this.getState,
             stateEnum: this.stateEnum,
             ...options,
