@@ -140,6 +140,19 @@ columns by the LINQ provider. Signum's per-field `[LiteModel(…, ForEntityType 
 `@customLite(() => XLite, () => XEntity)` field decorator. `ToStringExpression` is simply
 `@quoted toString(): string { … }`.
 
+Signum's `As.ReplaceExpression((UserEntity u) => u.ToString(), u => …)` — an application replacing a
+framework type's expression — is assigning a new `withQuoted` function to the prototype, on BOTH tiers
+(so in `entityOverrides.data.ts`), before the schema is built:
+
+```ts
+UserEntity.prototype.toString = withQuoted(function (this: UserEntity): string {
+    return this.mixin(UserCareerMixin).firstName + " " + this.mixin(UserCareerMixin).lastName;
+});
+```
+
+The in-memory body and the query expression are both read off the prototype when used, so queries,
+lites and `toString()` all see the replacement (test/server/linqExecute/quotedReplace.test.ts).
+
 ### Mixins inline
 
 A mixin's fields land on the OWNER's table (`employee_id` on `user`), where Signum gives the mixin its
