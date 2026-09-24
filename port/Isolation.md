@@ -21,7 +21,7 @@ order to deserialize the `isolation` field at all — where Signum's client read
 mixin bag.
 
 So `Isolation.register(T, strategy)` is an ISOMORPHIC call in the DATA layer, made from the app's shared
-entity-overrides module (the same place @altea/altea-diff-log's `DiffLogMixin.declare()` goes), and the
+entity-overrides module (the same place @altea/altea-diff-log's `MixinDeclarations.register(OperationLogEntity, DiffLogMixin)` goes), and the
 server's `IsolationLogic.start` reads the map back. Signum's `IsolationLogic.Register<T>` is server-only and
 declares the mixin itself.
 

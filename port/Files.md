@@ -101,7 +101,7 @@ per PROPERTY ROUTE — see the CLAUDE.md bullet for what eastwind configures.
 - **A route must be registered BEFORE its root type is included**, because registration is what removes
   the column the chosen mode does not use (`SchemaSettings.ignoreFieldRoute`).
 - **The mixin must be DECLARED on BOTH TIERS** — it is what tells the serializer the field exists — so
-  `BigStringMixin.declare()` goes in a module the client and the server both load. Signum declares it in
+  `MixinDeclarations.register(BigStringEmbedded, BigStringMixin)` goes in a module the client and the server both load. Signum declares it in
   the app's Starter and BigStringLogic merely asserts it; the split is the same.
 - Signum keys its configuration by PropertyRoute and reaches the owning embedded through
   `bs.GetParentEntity()` (hence its `[BindParent]` requirement). altea keys by the MEMBER PATH from the

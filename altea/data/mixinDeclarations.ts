@@ -23,17 +23,34 @@ function ownThunks(ctor: any): MixinThunk[] {
     return own;
 }
 
+// What `register` has already declared, so a second call (both tiers share the module, tests re-run the
+// overrides) is a no-op instead of a duplicate mixin.
+const registered = new WeakMap<Function, Set<Function>>();
+
 export namespace MixinDeclarations {
+    /** Signum's `MixinDeclarations.Register<T, M>()`. Idempotent; must run on BOTH tiers before anything is
+     *  (de)serialized or the schema is built. */
     export function register<T extends BaseEntity, M extends BaseEntity>(
         target: Type<T>,
         mixin: Type<M>,
     ): void {
+        let mixins = registered.get(target);
+        if (mixins == null)
+            registered.set(target, mixins = new Set());
+        if (mixins.has(mixin))
+            return;
+        mixins.add(mixin);
         ownThunks(target).push(() => [mixin]);
     }
 
     export function getMixins(target: Type<BaseEntity>): Type<BaseEntity>[] {
         const thunks = (target as any)?.[mixinDeclarationsKey] as MixinThunk[] | undefined;
         return thunks?.flatMap(t => t()) ?? [];
+    }
+
+    /** Whether `mixin` is declared on `target` — what a module's `start` asserts before relying on it. */
+    export function isDeclared(target: Type<BaseEntity>, mixin: Type<BaseEntity>): boolean {
+        return getMixins(target).includes(mixin);
     }
 }
 

@@ -6,6 +6,7 @@ import { Connector } from "@altea/altea/server/connection/connector";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { SafeConsole } from "@altea/altea/server/safeConsole";
 import { StartParameters } from "@altea/altea/data/utils/startParameters";
+import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { DynamicBaseType, DynamicTypeEntity } from "../data/DynamicType";
 import { DynamicTypeLogic } from "./DynamicTypeLogic";
 import { DynamicIsolationMixin, isolationStrategies } from "../data/DynamicIsolation";
@@ -85,7 +86,7 @@ export namespace DynamicIsolationLogic {
     export async function strategies(): Promise<Map<string, string>> {
         const result = new Map<string, string>();
 
-        if (!DynamicIsolationMixin.isDeclared())
+        if (!MixinDeclarations.isDeclared(DynamicTypeEntity, DynamicIsolationMixin))
             return result;
 
         const t = Connector.current().schema.tryTable(DynamicTypeEntity);
