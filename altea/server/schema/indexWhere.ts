@@ -20,7 +20,7 @@ import { sqlEscape } from "../linq/sqlEscape";
 // Scope (altea's flat index model): comparisons/equality (→ `col = <literal>`, or IS [NOT]
 // NULL against null, with the string `<> ''` companion), a bare boolean member (→ `col = <true>`),
 // unary NOT, and/or, and arithmetic. The `is` type-check and SystemPeriod cases Signum also
-// handles, and nested member paths, are not modelled.
+// handles are not modelled; a nested member path walks EMBEDDED steps only (see fieldPath).
 export function getIndexWhere(where: Quoted<(element: any) => boolean>, table: Table, isPostgres: boolean): string {
     const lambda = LambdaExpression.fromQuotedLambda(where, [new ClassType(table.type)]);
     return new IndexWhereVisitor(table, isPostgres).visit(lambda.body);
@@ -187,12 +187,29 @@ class IndexWhereVisitor {
         if (e instanceof PropertyExpression) {
             if (e.propertyName === "entity" || e.propertyName === "entityOrNull")
                 return this.getColumn(e.object);
-            const cols = this.table.columnsFromFields([e.propertyName]);
+            const path = this.fieldPath(e);
+            const cols = this.table.columnsFromFields([path]);
             if (cols.length !== 1)
-                throw new Error(`Index where: field '${e.propertyName}' maps to ${cols.length} columns (only single-column fields supported)`);
+                throw new Error(`Index where: field '${path}' maps to ${cols.length} columns (only single-column fields supported)`);
             return cols[0];
         }
         throw new Error(`Index where: unsupported field expression '${e.toString()}'`);
+    }
+
+    // `e.a.b` → "a.b": the dotted name columnsFromFields walks through EMBEDDED steps (a collection row's
+    // `element.skillGroup`), so a filter reaches the same fields the index's own key can.
+    private fieldPath(e: PropertyExpression): string {
+        const steps: string[] = [e.propertyName];
+        let obj = e.object;
+        while (obj instanceof CastExpression)
+            obj = obj.expression;
+        while (obj instanceof PropertyExpression) {
+            steps.unshift(obj.propertyName);
+            obj = obj.object;
+            while (obj instanceof CastExpression)
+                obj = obj.expression;
+        }
+        return steps.join(".");
     }
 
     // Signum's Equals: value==null routes to IS NULL; otherwise `col = <literal>`.

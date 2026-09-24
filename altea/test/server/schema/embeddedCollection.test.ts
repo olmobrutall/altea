@@ -2,9 +2,10 @@ import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import { reflect, setDatabaseSchema } from "@altea/altea/data/reflection"; // anchor for the transformer's @field injection
-import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
+import { Entity, EmbeddedEntity, MixinEntity } from "@altea/altea/data/entity";
+import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { Lite } from "@altea/altea/data/lite";
-import { legacyColumnName, entity, part, backReference, valueField, rowOrder, implementedBy, overrideImplementedBy } from "@altea/altea/data/decorators";
+import { legacyColumnName, entity, part, backReference, valueField, rowOrder, implementedBy, overrideImplementedBy, uniqueIndex } from "@altea/altea/data/decorators";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { IsNullable } from "@altea/altea/server/schema/dbType";
 import { wireOwnedChildren } from "@altea/altea/server/saver";
@@ -267,5 +268,60 @@ describe("an MList row table's schema", () => {
         const sb = build(sb => { sb.settings.isPostgres = true; sb.settings.legacyMode = true; });
         const owner = sb.include(EcSchemaOwner as any).table;
         assert.equal(sb.include(EcSchemaOwner_Tag as any).table.name.schema.name, owner.name.schema.name);
+    });
+});
+
+// ---- a collection declared on a MIXIN ---------------------------------------------------------------
+//
+// A mixin is flattened onto its owner's row just like an embedded, so a collection it declares belongs to
+// the OWNER entity: the rows point back at it. Signum's route steps through the mixin WITHOUT adding a
+// name — ReNew's UserEntity + [UserCareerMixin].CareerPaths is `auth.user_career_paths` — and a filtered
+// index over the row's embedded element walks into it (`r.element.tag != null`).
+
+@entity("Main", "Master")
+class EcMixinOwner extends Entity {
+    name: string;
+}
+
+@reflect
+class EcTagsMixin extends MixinEntity {
+    tags: EcMixinOwner_Tag[];
+}
+
+@reflect
+class EcTagElement extends EmbeddedEntity {
+    label: string;
+    tag: Lite<EcTag> | null;
+}
+
+@part
+@uniqueIndex<EcMixinOwner_Tag>(r => [r.owner, r.element.label], r => r.element.tag != null)
+class EcMixinOwner_Tag extends Entity {
+    @backReference owner: Lite<EcMixinOwner>;
+    @rowOrder rowOrder: number;
+    @valueField element: EcTagElement;
+}
+MixinDeclarations.register(EcMixinOwner, EcTagsMixin);
+
+describe("collections on a mixin", () => {
+
+    test("legacy mode names it owner + collection, with no segment for the mixin", () => {
+        const sb = build(sb => { sb.settings.isPostgres = true; sb.settings.legacyMode = true; });
+        sb.include(EcMixinOwner as any);
+        const table = sb.include(EcMixinOwner_Tag as any).table;
+        assert.equal(table.name.name, "ec_mixin_owner_tags");
+        const cols = Object.keys(table.columns);
+        assert.ok(cols.includes("parent_id") && cols.includes("order"), cols.join(", "));
+        assert.ok(!cols.some(c => /ticks/i.test(c)), cols.join(", "));
+    });
+
+    test("a filtered index walks the row's embedded element", () => {
+        const sb = build(sb => { sb.settings.isPostgres = true; sb.settings.legacyMode = true; });
+        sb.include(EcMixinOwner as any);
+        const table = sb.include(EcMixinOwner_Tag as any).table;
+        sb.complete();
+        const ix = table.indexes.find((i: any) => i.unique && i.where != null);
+        assert.ok(ix != null, "the filtered unique index exists");
+        assert.match(ix!.where!, /^tag_id IS NOT NULL$/); // an embedded element inlines its members unprefixed
     });
 });
