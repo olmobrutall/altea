@@ -726,7 +726,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     var fo = this.props.findOptions;
 
     if (fo.systemTime == null)
-      fo.systemTime = { mode: "AsOf", startDate: Temporal.Now.plainDateTimeISO().toString() };
+      fo.systemTime = { mode: "AsOf", startDate: Temporal.Now.plainDateTimeISO("UTC").toString() }; // the system period is UTC in either Clock mode
     else
       fo.systemTime = undefined;
 

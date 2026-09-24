@@ -16,6 +16,7 @@ import { ExecutionMode } from "./executionMode";
 import { table } from "./table";
 import type { Query } from "./query";
 import "./dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
+import { Clock } from "../data/utils/clock";
 
 // Port of Signum's ExceptionLogic (old/Framework/Signum/Basics/ExceptionLogic.cs), trimmed to the
 // pieces eastwind needs: schema registration, the `logException` extension that builds, fills and
@@ -186,7 +187,7 @@ export namespace ExceptionLogic {
 
         const err = error instanceof Error ? error : undefined;
         const entity = new ExceptionEntity();
-        entity.creationDate = Temporal.Now.plainDateTimeISO();
+        entity.creationDate = Clock.now;
         entity.exceptionType = err ? err.name : "Error";
         setMessage(entity, err ? (err.message ?? "") : String(error));
         setStackTrace(entity, flattenStack(err));
@@ -206,7 +207,7 @@ export namespace ExceptionLogic {
     // Signum's ExceptionEntity(ClientErrorModel) ctor + LogException: log a client-reported error.
     export async function logClientError(model: ClientErrorModel): Promise<ExceptionEntity> {
         const entity = new ExceptionEntity();
-        entity.creationDate = Temporal.Now.plainDateTimeISO();
+        entity.creationDate = Clock.now;
         entity.exceptionType = [model.errorType, model.name].filter(Boolean).join("/");
         setMessage(entity, model.message);
         setStackTrace(entity, model.stack);

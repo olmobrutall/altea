@@ -26,6 +26,7 @@ import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
 // start() below, guarded by sb.webBuilder.
 import { AuthServer } from "./AuthServer";
 import type { AuthTokenConfigurationEmbedded } from "../data/AuthToken";
+import { Clock } from "@altea/altea/data/utils/clock";
 
 // Port of Signum.Authorization's AuthLogic.cs — see port/Auth.md.
 //
@@ -237,7 +238,7 @@ export namespace AuthLogic {
                 // sees an Active user (altea-auth-reset-password mails a reset link from here).
                 if (onDeactivateUser != null)
                     await onDeactivateUser(user);
-                user.disabledOn = Temporal.Now.plainDateTimeISO();
+                user.disabledOn = Clock.now;
                 user.state = UserState.Deactivated;
                 await asSystemUser(() => user.save());
                 throw new UserLockedException(LoginAuthMessage.User0IsDeactivated.niceToString(user.userName));
@@ -327,7 +328,7 @@ function registerUserOperations(sm: FluentStateMachine<UserEntity, UserState>): 
         fromStates: [UserState.Active],
         toStates: [UserState.Deactivated],
         execute: async u => {
-            u.disabledOn = Temporal.Now.plainDateTimeISO();
+            u.disabledOn = Clock.now;
             u.state = UserState.Deactivated;
             // The state is set FIRST: removeTickets only acts on a user who is no longer Active, which is
             // what a handler firing after the assignment would see.
@@ -339,7 +340,7 @@ function registerUserOperations(sm: FluentStateMachine<UserEntity, UserState>): 
         fromStates: [UserState.Active],
         toStates: [UserState.AutoDeactivate],
         execute: async u => {
-            u.disabledOn = Temporal.Now.plainDateTimeISO();
+            u.disabledOn = Clock.now;
             u.state = UserState.AutoDeactivate;
             await AuthLogic.onRemoveUserTickets?.(u);
         },

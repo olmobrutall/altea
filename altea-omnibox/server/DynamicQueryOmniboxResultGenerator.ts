@@ -25,6 +25,7 @@ import {
 } from "./OmniboxUtils";
 import { allowedQueryFilter } from "./OmniboxAuth";
 import { tryParsePrimaryKey } from "./EntityOmniboxResultGenerator";
+import { Clock } from "@altea/altea/data/utils/clock";
 
 // Port of Signum.Omnibox's DynamicQueryOmniboxResultGenerator.cs — see port/Omnibox.md.
 //
@@ -200,7 +201,7 @@ export class DynamicQueryOmniboxResultGenerator implements OmniboxResultGenerato
             case "Integer": return [{ value: 0 }];
             case "Decimal": return [{ value: new Decimal(0) }];
             case "String": return [{ value: "" }];
-            case "DateTime": return [{ value: queryToken.type.typeName === "PlainDate" ? Temporal.Now.plainDateISO() : Temporal.Now.plainDateISO().toPlainDateTime() }];
+            case "DateTime": return [{ value: queryToken.type.typeName === "PlainDate" ? Clock.today : Clock.today.toPlainDateTime() }];
             case "Time": return [{ value: queryToken.type.typeName === "Duration" ? new Temporal.Duration() : new Temporal.PlainTime() }];
             case "Boolean": return [{ value: true }, { value: false }];
             case "Enum": {

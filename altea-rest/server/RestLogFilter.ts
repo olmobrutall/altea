@@ -10,6 +10,7 @@ import { UserHolder } from "@altea/altea/server/userHolder";
 import { QueryStringValueEntity, RestLogEntity } from "../data/Rest";
 import { RestLogLogic } from "./RestLogLogic";
 import { RestApiKeyLogic } from "./RestApiKeyLogic";
+import { Clock } from "@altea/altea/data/utils/clock";
 
 // "Log every request that reaches this API." Express middleware the app mounts on the path prefix its
 // public API lives under — one mount per logged API, each with its own options:
@@ -54,7 +55,7 @@ export namespace RestLogFilter {
 
     export function middleware(options: RestLogOptions): (req: ReqLike, res: ResLike, next: NextLike) => void {
         return (req, res, next) => {
-            const startDate = Temporal.Now.plainDateTimeISO();
+            const startDate = Clock.now;
 
             // Capture the response body by intercepting the two methods that produce it. Kept as Buffers so
             // a multi-chunk response reassembles byte-exactly before being decoded once as UTF-8.
@@ -124,7 +125,7 @@ export namespace RestLogFilter {
                 machineName: cap(100, hostname()),
                 applicationName: cap(100, RestLogLogic.applicationName),
                 startDate,
-                endDate: Temporal.Now.plainDateTimeISO(),
+                endDate: Clock.now,
                 userHostAddress: req.ip ?? null,
                 userHostName: req.get("host") ?? null,
                 // Browsers send the misspelled "referer"; read both spellings.

@@ -12,6 +12,7 @@ import { RoleEntity } from "../data/Role";
 import { LoginAuthMessage } from "../data/AuthMessages";
 import { AuthTokenConfigurationEmbedded } from "../data/AuthToken";
 import { encodeHash } from "./AuthLogic";
+import { Clock } from "@altea/altea/data/utils/clock";
 
 // Port of Signum.Authorization's AuthToken/AuthTokensServer.cs — see port/Auth.md.
 //
@@ -94,7 +95,7 @@ export namespace AuthTokenServer {
 
     export async function getTokenLimitDate(): Promise<Temporal.PlainDateTime> {
         const config = await configuration();
-        return Temporal.Now.plainDateTimeISO().subtract({ minutes: config.refreshTokenEvery as number });
+        return Clock.now.subtract({ minutes: config.refreshTokenEvery as number });
     }
 
     // A base64 fingerprint of the user's stored password hash (now raw binary bytes), embedded in the
@@ -111,7 +112,7 @@ export namespace AuthTokenServer {
             r: role?.id ?? null,
             rt: role?.toString() ?? null,
             ph: phFingerprint(user),
-            c: Temporal.Now.plainDateTimeISO().toString(),
+            c: Clock.now.toString(),
             // Every claim a module derived from the full user rides along, so
             // a LATER request — which only ever decodes this token — sees the same bag the login did.
             // Without it a claim existed for exactly one request and `EmployeeEntity.current()` answered
@@ -132,7 +133,7 @@ export namespace AuthTokenServer {
         if (token == null)
             return undefined;
 
-        const now = Temporal.Now.plainDateTimeISO();
+        const now = Clock.now;
         const creation = Temporal.PlainDateTime.from(token.c);
 
         // A token dated in the future is invalid.

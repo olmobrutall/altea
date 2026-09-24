@@ -35,6 +35,7 @@ import {
 import { Enum } from "../data/enum";
 import { setEligibleTypeOperationsProvider, type EligibleOperation } from "../data/dynamicQuery/tokens";
 import { setOperationTokenInfoProvider, type OperationTokenExpressionInfo } from "./dynamicQuery/tokenExpressions";
+import { Clock } from "../data/utils/clock";
 
 // Port of Signum's OperationLogic (Signum/Operations/OperationLogic.cs): the operation
 // registry + the service entrypoints. (OperationType + the IOperation interfaces live in
@@ -628,8 +629,8 @@ async function logOperation<T>(
     const log = OperationLogEntity.create({
         operation: symbol,
         origin: origin == null || origin.isNew ? null : origin.toLite(),
-        user: UserHolder.currentUserLite(),
-        start: Temporal.Now.plainDateTimeISO(),
+        user: UserHolder.currentUserLite()!,
+        start: Clock.now,
     });
 
     // The SCOPING half (OperationLogic.aroundOperation): establish every registered ambient around the
@@ -662,14 +663,14 @@ async function logOperation<T>(
             await runSurroundBefore(afters, symbol, log, entity, args);
             const result = await run();
             log.setTarget(getTarget(result));
-            log.end = Temporal.Now.plainDateTimeISO();
+            log.end = Clock.now;
             // AFTER setTarget, so a handler reading `log.target` sees the operation's result (Signum's
             // `log.GetTemporalTarget()`), and BEFORE the save, so what a handler writes onto the log persists.
             await runSurroundAfter(afters);
             await persistLog(log, false);
             return result;
         } catch (error) {
-            log.end = Temporal.Now.plainDateTimeISO();
+            log.end = Clock.now;
             // Everything from here runs while an error is already on its way up, so a second failure would
             // REPLACE the first and hide what actually went wrong — the one place a catch earns its keep.
             // It is not silent: the secondary rides on the error being rethrown, so the exception log and
