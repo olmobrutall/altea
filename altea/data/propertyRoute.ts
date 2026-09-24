@@ -440,7 +440,9 @@ export class PropertyRoute {
         // routes reached THROUGH an owner.
         const insidePart = isPartType(this.ownerCtor()) && this.propertyRouteType !== PropertyRouteType.Root;
         for (const [name, fi] of Object.entries(this.subMembers())) {
-            if (fi.noSerialize) // @serialize(false) bookkeeping (isNew / _snapshot) — not a real property
+            // Bookkeeping (isNew / _snapshot) is neither serialized nor a column, so it is not a property. A
+            // COLUMN kept off the wire (the user's password hash) still is one, and Signum has a route for it.
+            if (fi.noSerialize && fi.notMapped)
                 continue;
             if (insidePart && (fi.isBackReference || fi.isRowOrder || name === "id" || name === "ticks"))
                 continue;

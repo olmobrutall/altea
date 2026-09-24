@@ -16,6 +16,7 @@ import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
 import { type uuid } from "@altea/altea/data/basics";
 import { FileTypeLogic } from "@altea/altea-files/server/FileTypeLogic";
+import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { FilePathEmbeddedLogic } from "@altea/altea-files/server/FilePathEmbeddedLogic";
 import type { IFileTypeAlgorithm } from "@altea/altea-files/server/FileTypeAlgorithm";
@@ -162,6 +163,12 @@ export namespace EmailLogic {
         // template. altea resolves owners through a registry instead (see the header), so the equivalent is
         // registering it HERE — this module already depends on altea-auth — rather than making every app
         // repeat it. An app with its OWN owner types adds them with `registerEmailOwner`.
+        // LEGACY MODE: Signum's EmailOwnerData is a PROPERTY of the user, so a Signum database has a route
+        // for it (and property rules may point at it). altea reads owners through the registry, so the
+        // route is declared here to keep that row.
+        if (sb.settings.legacyMode)
+            PropertyRouteLogic.extraSyncRoutes.push(ctor => ctor === UserEntity ? ["EmailOwnerData"] : []);
+
         registerEmailOwner(UserEntity, u => ({
             owner: u.toLite(),
             email: u.email,
