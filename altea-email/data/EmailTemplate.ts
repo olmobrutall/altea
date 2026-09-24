@@ -174,6 +174,8 @@ export class EmailMasterTemplateEntity_Message extends Entity {
 
     @validate<EmailMasterTemplateEntity_Message>(m => masterTemplateContentRegex.test(m.text ?? "") ? null
         : EmailTemplateMessage.TheTextMustContain0IndicatingReplacementPoint.niceToString("@[content]"))
+    @column({ size: MAX_SIZE }) // Signum's [StringLengthValidator(MultiLine = true)]: unbounded
+    @stringLengthValidator({ multiLine: true })
     text: string;
 
     toString(): string {

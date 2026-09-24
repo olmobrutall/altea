@@ -1,9 +1,9 @@
-import { reflect, init } from "@altea/altea/data/reflection";
+import { reflect, init, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity, EmbeddedEntity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import { tryGetParentEntity } from "@altea/altea/data/parentEntity";
 import {
-    entity, part, primaryKey, backReference, rowOrder, implementedBy, format, unit, quoted, legacyTableName, bindParent,
+    column, entity, part, primaryKey, backReference, rowOrder, implementedBy, format, unit, quoted, legacyTableName, bindParent,
     legacyClassName,
     legacyColumnName,
 } from "@altea/altea/data/decorators";
@@ -104,9 +104,11 @@ export class DashboardEntity_Part extends Entity implements IGridEntity {
 
     hideTitle: boolean = false;
 
-    // Signum's [StringLengthValidator(MultiLine), Translatable] Tooltip — HTML in Signum (authored with
-    // HtmlEditorLine). altea has no HtmlEditor port, so the editor uses a plain multi-line text box; the
-    // stored value is still rendered as HTML by DashboardTooltipIcon.
+    // Signum's [StringLengthValidator(Max = int.MaxValue, MultiLine = true), Translatable] Tooltip — HTML in
+    // Signum (authored with HtmlEditorLine). altea has no HtmlEditor port, so the editor uses a plain
+    // multi-line text box; the stored value is still rendered as HTML by DashboardTooltipIcon.
+    @column({ size: MAX_SIZE })
+    @stringLengthValidator({ multiLine: true })
     tooltip: string | null;
 
     @stringLengthValidator({ min: 3, max: 100 })

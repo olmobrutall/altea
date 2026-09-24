@@ -17,7 +17,7 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 // (Created → Queued → Executing → Finished / Error / Suspended / Canceled) with a progress fraction and a
 // status line, so a long job is observable and interruptible.
 //
-// **`status` is a sized COLUMN, not a BigString.** The runner rewrites it on every progress tick with a
+// **`status` is a plain COLUMN, not a BigString.** The runner rewrites it on every progress tick with a
 // SET-BASED update — it must not go through the save pipeline (see `ExecutingProcess.progressChanged`) —
 // and a set-based update of a field inside an embedded is not something altea expresses.
 //
@@ -119,8 +119,9 @@ export class ProcessEntity extends Entity {
     @numberBetweenValidator(0, 1)
     progress: Decimal | null = null;
 
-    /** The line the algorithm is on, shown live on the panel (see the header note on why it is sized). */
-    @stringLengthValidator({ max: 400, multiLine: true })
+    /** The line the algorithm is on, shown live on the panel. Unbounded, as Signum's `[DbType(Size = int.MaxValue)]`. */
+    @column({ size: MAX_SIZE })
+    @stringLengthValidator({ multiLine: true })
     status: string | null = null;
 
     /** Execution start and end must be set together. */

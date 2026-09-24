@@ -4,7 +4,7 @@
 import { setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { legacyColumnName, part, backReference, rowOrder } from "@altea/altea/data/decorators";
+import { legacyColumnName, part, backReference, rowOrder, quoted } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -46,7 +46,9 @@ export class TextPartEntity extends Entity implements IPartEntity {
         return false;
     }
 
-    toString(): string {
+    // @quoted, as Signum's TextPartEntity keeps Entity's EXPRESSION ToString: a quoted toString is what
+    // leaves the table without a stored ToStr column.
+    @quoted toString(): string {
         return this.textContent ?? "";
     }
 }

@@ -78,7 +78,7 @@ export class SmtpNetworkDeliveryEmbedded extends EmbeddedEntity {
     /** The ENCRYPTED password at rest (EmailSenderConfigurationLogic.encryptPassword). Never shown in the
      *  editor as itself — the user types into `newPassword`, which the Save operation encrypts into here. */
     @format("Password")
-    @stringLengthValidator({ max: 200 })
+    @stringLengthValidator({ max: 100 }) // Signum's size: the default EncryptPassword is the identity
     password: string | null;
 
     /** Signum's `[Ignore, InTypeScript(true)] NewPassword` — carried on the wire, never a column. */
