@@ -9,6 +9,10 @@ import { Synchronizer, type Replacements } from "./sync/synchronizer";
 import { existsTable as existsObjectName } from "./sync/syncTableRead";
 import { table as tableQuery } from "./table";
 import type { Table } from "./schema/table";
+import type { IColumn } from "./schema/column";
+import type { Lite } from "../data/lite";
+import { Transaction } from "./connection/transaction";
+import { SqlPreCommand, SqlPreCommandSimple } from "./sync/sqlPreCommand";
 
 // Signum's `Administrator.AfterSynchronize` event — fires at the end of a schema synchronize, after
 // the script (if any) has been written, with the file name and the `Replacements` the sync collected.
@@ -239,3 +243,34 @@ function assertPlainName(name: string): string {
 
 function sqlServerName(name: string): string { return `[${assertPlainName(name)}]`; }
 function postgresName(name: string): string { return `"${assertPlainName(name)}"`; }
+
+// Signum's Administrator.MoveAllForeignKeys: point every foreign key that references `from` at `to`
+// instead, in every table of the schema (collection rows included). What it is for is deleting a row that
+// others still point at — ReNew moves a deleted user's history onto its "Deleted" system user. `shouldMove`
+// narrows it to some columns.
+export async function moveAllForeignKeys<T extends Entity>(
+    from: Lite<T>, to: Lite<T>, shouldMove?: (table: Table, column: IColumn) => boolean,
+): Promise<void> {
+    if (from.entityType !== to.entityType)
+        throw new Error("from and to should have the same type");
+    if (from.id === to.id)
+        throw new Error("from and to should not be the same");
+
+    const connector = Connector.current();
+    const schema = connector.schema;
+    const refTable = schema.table(from.entityType as Type<Entity>);
+    const p = (i: number): string => connector.isPostgres ? `$${i + 1}` : `@p${i}`;
+
+    const updates: SqlPreCommand[] = [];
+    for (const t of schema.tables.values())
+        for (const col of Object.values(t.columns))
+            if (col.referenceTable === refTable && (shouldMove == null || shouldMove(t, col)))
+                updates.push(new SqlPreCommandSimple(
+                    `UPDATE ${connector.sqlBuilder.objectName(t.name)}\nSET ${connector.sqlBuilder.sqlEscape(col.name)} = ${p(0)}\nWHERE ${connector.sqlBuilder.sqlEscape(col.name)} = ${p(1)}`,
+                    [{ name: p(0), value: to.id }, { name: p(1), value: from.id }]));
+
+    await Transaction.create(async () => {
+        for (const update of updates)
+            await update.executeNonQuery();
+    });
+}
