@@ -313,6 +313,8 @@ export class FieldInfo extends TypeReference {
     // (IsNullable.Forced) while the field stays non-null in the object model — so queries
     // navigate it as a normal non-null reference but the column accepts NULL.
     forceNullable?: boolean;
+    // Set by @legacyForceNullable: forceNullable, but only when SchemaSettings.legacyMode is on.
+    legacyForceNullable?: boolean;
     // Set by @forceNotNullable (Signum's [ForceNotNullable]): the exact inverse — the COLUMN is NOT
     // NULL while the field stays nullable in the object model.
     forceNotNullable?: boolean;

@@ -1060,7 +1060,7 @@ export class SchemaBuilder {
         // The two deliberate disagreements between the field and its column: @forceNullable → a nullable
         // COLUMN for a non-null field (Signum's IsNullable.Forced), @forceNotNullable → a NOT NULL column
         // for a nullable field (Signum's [ForceNotNullable]).
-        const nullable = fi.forceNullable ? IsNullable.Forced
+        const nullable = fi.forceNullable || (fi.legacyForceNullable && this.settings.legacyMode) ? IsNullable.Forced
             : fi.forceNotNullable ? IsNullable.No
                 : fi.isNullable === true ? IsNullable.Yes : IsNullable.No;
 

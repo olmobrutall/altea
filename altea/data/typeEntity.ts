@@ -1,7 +1,7 @@
 import { stringLengthValidator } from './validators';
 import { Entity } from './entity';
 import { setDefaultDatabaseSchema } from './reflection';
-import { entity, quoted, uniqueIndex } from './decorators';
+import { entity, legacyForceNullable, quoted, uniqueIndex } from './decorators';
 import { msg } from './utils/localization';
 
 // Port of Signum's TypeEntity (Signum/Basics/Type.cs): the system table that maps
@@ -77,8 +77,9 @@ export class TypeEntity extends Entity {
     //
     // Signum now DECLARES the column too (`public bool? IsPart`, Signum/Basics/Type.cs) and, exactly as
     // for `package`, neither fills it nor copies it on a merge — so the two tables converge and altea’s
-    // values survive a Signum sync untouched. It stays NON-nullable here, because altea derives it for
-    // every row it writes; the nullable half is Signum’s "some application may know this".
+    // values survive a Signum sync untouched. It stays NON-nullable in the model, because altea derives it
+    // for every row it writes; against a legacy database the COLUMN keeps Signum's nullable declaration.
+    @legacyForceNullable
     isPart: boolean;
 
     // Signum's TypeEntity.ToString => CleanName. altea originally left the inherited default (which renders

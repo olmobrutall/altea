@@ -791,6 +791,13 @@ export function forceNullable(target: object, propertyKey: string | symbol): voi
     getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).forceNullable = true;
 }
 
+// @forceNullable in LEGACY MODE only: the column is NULL where the Signum database declares it so, and
+// NOT NULL everywhere else. For a column altea always fills but a Signum application declares nullable
+// and leaves empty — asking the legacy database to tighten it would be a divergence, not a sync.
+export function legacyForceNullable(target: object, propertyKey: string | symbol): void {
+    getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).legacyForceNullable = true;
+}
+
 // Signum's [ForceNotNullable] — the exact inverse: the column is generated NOT NULL even though the
 // field's type is nullable. For a value the model has no sensible EMPTY for but that is always set by
 // the time a row exists: an exception's `exceptionType` is `string | null` because the object is built
