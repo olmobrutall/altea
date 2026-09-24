@@ -1166,3 +1166,120 @@ function comparisonName(comparison: ComparisonType): string {
     const name = Enum.niceName(ComparisonType, comparison);
     return name.charAt(0).toLowerCase() + name.slice(1);
 }
+
+// --- StateValidator ---
+//
+// Signum's StateValidator<E, S> (Entities/Validation/ValidationAttributes.cs): which properties an entity
+// must, may, or must not have in each of its states. Per state, one entry per property — `true` necessary,
+// `false` not allowed, `null` either — and a property's value is judged against its entity's CURRENT state:
+//
+//     export const roleAssignmentStates = new StateValidator<RoleAssignmentEntity, RoleAssignmentStatus>(
+//         a => a.status, ["fromDate", "toDate"], RoleAssignmentStatus)
+//         .add(RoleAssignmentStatus.Interested, false, false)
+//         .add(RoleAssignmentStatus.Assigned, true, null);
+//
+//     @stateValidator(roleAssignmentStates)
+//     export class RoleAssignmentEntity extends Entity { … }
+//
+// Signum calls `Validate(this, pi)` from PropertyValidation; `@stateValidator` puts that call on each listed
+// property instead. An empty string or an empty array counts as no value — both are indistinguishable from
+// null once retrieved. Pass the state's enum object so an enum state compares by member and the message
+// names it by its nice name.
+export class StateValidator<E extends BaseEntity, S> {
+    private readonly byState = new Map<string, (boolean | null)[]>();
+
+    constructor(
+        readonly getState: (entity: E) => S,
+        readonly propertyNames: readonly (keyof E & string)[],
+        readonly stateEnum?: object,
+    ) { }
+
+    /** The row for one state: an entry per property, in the constructor's order. */
+    add(state: S, ...necessary: (boolean | null)[]): this {
+        if (necessary.length !== this.propertyNames.length)
+            throw new Error(`The StateValidator for state ${this.stateText(state)} has ${necessary.length} values instead of ${this.propertyNames.length}`);
+        const key = this.stateKey(state);
+        if (this.byState.has(key))
+            throw new Error(`The StateValidator already has state ${this.stateText(state)}`);
+        this.byState.set(key, necessary);
+        return this;
+    }
+
+    /** The error for `propertyName` in the entity's current state, or null (also for an unlisted property). */
+    validate(entity: E, propertyName: string, showState = true): string | null {
+        const index = this.propertyNames.indexOf(propertyName as keyof E & string);
+        if (index === -1)
+            return null;
+        return this.message(entity, this.getState(entity), showState, index);
+    }
+
+    /** Whether the property is allowed in `state` — undefined for a property the validator does not list. */
+    isAllowed(state: S, propertyName: string): boolean | null | undefined {
+        const index = this.propertyNames.indexOf(propertyName as keyof E & string);
+        return index === -1 ? undefined : this.necessaryAt(state, index);
+    }
+
+    /** `true` necessary, `false` not allowed, `null` either — for a listed property. */
+    necessary(state: S, propertyName: keyof E & string): boolean | null {
+        const index = this.propertyNames.indexOf(propertyName);
+        if (index === -1)
+            throw new Error(`The property '${propertyName}' is not registered in the StateValidator`);
+        return this.necessaryAt(state, index);
+    }
+
+    /** Every error the entity would have in `targetState` — what a state transition would be refused for. */
+    previewErrors(entity: E, targetState: S, showState = true): string | null {
+        const errors = this.propertyNames.map((_, i) => this.message(entity, targetState, showState, i)).filter(e => e != null);
+        return errors.length === 0 ? null : errors.join("\n");
+    }
+
+    private message(entity: E, state: S, showState: boolean, index: number): string | null {
+        const necessary = this.necessaryAt(state, index);
+        if (necessary == null)
+            return null;
+
+        let value: unknown = entity[this.propertyNames[index]];
+        if (Array.isArray(value) && value.length === 0 || value === "")
+            value = null;
+
+        const niceName = tryGetTypeInfo(entity.constructor)?.fields[this.propertyNames[index]]?.niceToString() ?? this.propertyNames[index];
+        if (value != null && !necessary)
+            return showState ? ValidationMessage._0IsNotAllowedOnState1.niceToString(niceName, this.stateText(state)) : ValidationMessage._0IsNotAllowed.niceToString(niceName);
+        if (value == null && necessary)
+            return showState ? ValidationMessage._0IsNecessaryOnState1.niceToString(niceName, this.stateText(state)) : ValidationMessage._0IsNecessary.niceToString(niceName);
+        return null;
+    }
+
+    private necessaryAt(state: S, index: number): boolean | null {
+        const row = this.byState.get(this.stateKey(state));
+        if (row == null)
+            throw new Error(`State ${this.stateText(state)} not registered in StateValidator`);
+        return row[index];
+    }
+
+    private stateKey(state: S): string {
+        return this.stateEnum != null && typeof state === "number" ? Enum.toName(this.stateEnum as never, state as never) : String(state);
+    }
+
+    private stateText(state: S): string {
+        return this.stateEnum != null ? Enum.niceName(this.stateEnum as never, state as never) : String(state);
+    }
+}
+
+/** Puts a StateValidator on each property it lists (Signum calls it from PropertyValidation). */
+export function stateValidator<E extends BaseEntity, S>(validator: StateValidator<E, S>): (target: Function) => void {
+    return (target: Function) => {
+        for (const name of validator.propertyNames)
+            addValidator(target.prototype, name, new StateFieldValidator(validator as StateValidator<BaseEntity, unknown>));
+    };
+}
+
+class StateFieldValidator extends Validator {
+    constructor(readonly stateValidator: StateValidator<BaseEntity, unknown>) { super(); }
+
+    get helpMessage(): string { return ""; }
+
+    protected overrideError(_value: unknown, entity: BaseEntity, fi: FieldInfo): string | null {
+        return this.stateValidator.validate(entity, fi.name);
+    }
+}
