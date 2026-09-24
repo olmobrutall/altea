@@ -28,6 +28,7 @@ import {
     AggregateToken, AggregateFunction, ExtensionToken,
     ManualContainerToken, ManualToken,
     OperationsContainerToken, OperationToken,
+    IndexerContainerToken, ExtensionWithParameterToken,
 } from "../../data/dynamicQuery/tokens";
 import type { Quoted } from "quote-transformer/quoted";
 import { ExpressionVisitor } from "../linq/visitors/ExpressionVisitor";
@@ -111,6 +112,12 @@ const COMPARE_OP: Record<string, "==" | "!=" | ">" | ">=" | "<" | "<="> = {
 let buildExtensionExpr: ((serverInfo: unknown, parentExpression: Expression) => Expression) | undefined;
 export function setBuildExtensionExpr(fn: (serverInfo: unknown, parentExpression: Expression) => Expression): void {
     buildExtensionExpr = fn;
+}
+
+// The same for an expression with a parameter: the registration, the key value, the parent.
+let buildExtensionWithParameterExpr: ((serverInfo: unknown, key: unknown, parentExpression: Expression) => Expression) | undefined;
+export function setBuildExtensionWithParameterExpr(fn: (serverInfo: unknown, key: unknown, parentExpression: Expression) => Expression): void {
+    buildExtensionWithParameterExpr = fn;
 }
 
 // ---- Prototype augmentation: declare the expression surface, then install the bodies --------
@@ -476,6 +483,18 @@ ExtensionToken.prototype.buildExpressionInternal = function (context: BuildExpre
     if (buildExtensionExpr == undefined)
         throw new Error("ExtensionToken build hook not set (import logic/dynamicQuery/expressionContainer)");
     return buildExtensionExpr(this.info.serverInfo, this.parent!.buildExpression(context));
+};
+
+// An expression-with-parameter container (Signum's IndexerContainerToken.BuildExpressionInternal): its
+// parent's expression — the child below applies the registered lambda to it with its key.
+IndexerContainerToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    return this.parent!.buildExpression(context);
+};
+
+ExtensionWithParameterToken.prototype.buildExpressionInternal = function (context: BuildExpressionContext): Expression {
+    if (buildExtensionWithParameterExpr == undefined)
+        throw new Error("ExtensionWithParameterToken build hook not set (import server/dynamicQuery/queryLogic)");
+    return buildExtensionWithParameterExpr(this.parent.info.serverInfo, this.parameter.value, this.parent.buildExpression(context));
 };
 
 // Manual container (Signum's ManualContainerToken.BuildExpressionInternal): just its parent's entity

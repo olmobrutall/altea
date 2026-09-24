@@ -6,7 +6,7 @@ import { SchemaBuilder } from "@altea/altea/server/schema";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { SubTokensOptionsAll, getSubTokens, setServerTokensProvider } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { RootToken } from "@altea/altea/data/dynamicQuery/tokens/rootToken";
-import { isServerOnlyToken, serializeServerToken, type ServerTokenJson } from "@altea/altea/data/dynamicQuery/tokenSerializer";
+import { isServerOnlyToken, serializeServerToken, type ServerTokenJson, type ExtensionTokenJson } from "@altea/altea/data/dynamicQuery/tokenSerializer";
 import { Metadata } from "@altea/altea/data/metadata";
 import { initTokenCache } from "@altea/altea/client/TokenCache";
 import { isNotPart, type TypeInfo } from "@altea/altea/data/reflection";
@@ -107,7 +107,7 @@ describe("extension tokens resolved from the metadata blob", () => {
 
     const ext = (key: string, niceName: string): ServerTokenJson => ({
         tokenType: "Extension", key, niceName, isProjection: false,
-        resultType: serverJson[0]!.resultType, allowedReason: null,
+        resultType: (serverJson[0] as ExtensionTokenJson).resultType, allowedReason: null,
     });
 
     beforeEach(() => {

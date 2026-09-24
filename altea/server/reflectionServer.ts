@@ -46,7 +46,7 @@ import {
 import { EnumEntity } from "../data/enumEntity";
 import { Enum } from "../data/enum";
 import { PropertyRoute } from "../data/propertyRoute";
-import { serializeExtensionInfo } from "../data/dynamicQuery/tokenSerializer";
+import { serializeExtensionInfo, serializeIndexerInfo } from "../data/dynamicQuery/tokenSerializer";
 import { Entity, View } from "../data/entity";
 import { TypeLogic } from "./typeLogic";
 import type { TypeEntity } from "../data/typeEntity";
@@ -333,6 +333,15 @@ export namespace ReflectionServer {
                 const tm = typeOf(name, typeof source === "function" ? "Entity" : "Enum");
                 for (const info of infos)
                     (tm.extensions ??= {})[info.key] = serializeExtensionInfo(info);
+            }
+            // The [Prefix] containers of the expressions with a parameter ride in the same record; their
+            // keys are listed on demand (/api/query/indexerTokens), since a blob cannot enumerate them.
+            for (const [source, infos] of QueryLogic.expressions.declaredIndexers()) {
+                const name = typeof source === "function" ? source.name : enumNameOf(source);
+                if (name == undefined) continue;
+                const tm = typeOf(name, typeof source === "function" ? "Entity" : "Enum");
+                for (const info of infos)
+                    (tm.extensions ??= {})["[" + info.prefix + "]"] = serializeIndexerInfo(info);
             }
         });
 

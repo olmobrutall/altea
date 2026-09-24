@@ -4,6 +4,7 @@ import { StringDistance } from "@altea/altea/server/sync/stringDistance";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
 import { SubTokensOptions, SubTokensOptionsAll, type QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
+import { splitTokenKey } from "@altea/altea/data/dynamicQuery/tokens/tokenKey";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { usingLegacyPropertyPaths } from "@altea/altea/data/propertyRoute";
 import { getKey, type QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
@@ -69,7 +70,7 @@ export namespace QueryTokenSynchronizer {
 
     /** The same split `getToken` makes. */
     function splitToken(tokenString: string): string[] {
-        return tokenString.split(".").filter(p => p.length > 0);
+        return splitTokenKey(tokenString);
     }
 
     function cleanTypeNameOf(token: QueryToken): string {

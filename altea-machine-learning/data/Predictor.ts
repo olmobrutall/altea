@@ -19,6 +19,7 @@ import { FilePathEmbedded, FileTypeSymbol } from "@altea/altea-files/data/Files"
 import { QueryFilterBaseEntity, QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import type { IProcessDataEntity } from "@altea/altea-processes/data/Processes";
 import { ProcessAlgorithmSymbol, ProcessEntity } from "@altea/altea-processes/data/Processes";
+import { splitTokenKey } from "@altea/altea/data/dynamicQuery/tokens/tokenKey";
 
 // Port of Signum.MachineLearning's Predictor.cs — the PREDICTOR: which query the training examples come
 // from, which of its columns are inputs and which are outputs, how each is encoded, and (once trained)
@@ -371,7 +372,7 @@ export class PredictorSubQueryEntity extends Entity {
 
 /** Does the token's path pass through this member? */
 export function tokenContainsKey(token: QueryTokenEmbedded | null, part: string): boolean {
-    return token?.tokenString?.split(".").includes(part) === true;
+    return token?.tokenString != null && splitTokenKey(token.tokenString).includes(part);
 }
 
 // ---- the predictor -------------------------------------------------------------------------------------

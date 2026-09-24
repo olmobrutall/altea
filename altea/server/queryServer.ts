@@ -12,7 +12,8 @@ import { Entity } from "../data/entity";
 import { QueryEntity } from "../data/queryEntity";
 import { Temporal, Decimal } from "../data/basics";
 import { Enum } from "../data/enum";
-import { SubTokensOptionsAll } from "../data/dynamicQuery/tokens";
+import { SubTokensOptionsAll, IndexerContainerToken } from "../data/dynamicQuery/tokens";
+import { serializeServerToken, type ServerTokenJson } from "../data/dynamicQuery/tokenSerializer";
 import type { QueryName } from "../data/dynamicQuery/queryUtils";
 import type { QueryToken } from "../data/dynamicQuery/tokens";
 import type {
@@ -69,6 +70,21 @@ export namespace QueryServer {
                 await QueryLogic.assertQueryAllowedHook?.(request.queryName, false);
                 const rt = await QueryLogic.queries.executeQueryAsync(request);
                 res.jsonTyped(toWireResultTable(rt, wire));
+            });
+
+        // POST /api/query/indexerTokens/:queryKey — the children of an expression-with-parameter container
+        // (`[Skill]` → `[Skill].[Java]`, …): the one kind of sub-token the metadata blob cannot enumerate,
+        // because its keys are listed at runtime. Signum's /api/query/subTokens, narrowed to that case.
+        ws.post("/api/query/indexerTokens/:queryKey",
+            { params: CustomType<{ queryKey: string }>(), req: CustomType<{ token: string }>(), res: CustomType<ServerTokenJson[]>() },
+            async (req, res) => {
+                const wire = await req.jsonTyped() as { token: string };
+                const queryName = resolveQueryName(req.params.queryKey);
+                await QueryLogic.assertQueryAllowedHook?.(queryName, false);
+                const container = QueryLogic.getToken(queryName, wire.token, SubTokensOptionsAll);
+                if (!(container instanceof IndexerContainerToken))
+                    throw new Error(`'${wire.token}' is not an expression-with-parameter container`);
+                res.jsonTyped(container.subTokens(SubTokensOptionsAll).map(serializeServerToken));
             });
 
         // POST /api/query/queryValue/:queryKey — a scalar value for a query (Signum's

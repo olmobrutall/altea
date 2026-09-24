@@ -1,8 +1,8 @@
 import "../../data/globals"; // Array.prototype.toMap
 import { Connector } from "../connection/connector";
 import { tryGetTypeInfo } from "../../data/reflection";
-import { setImplementedByAllTypesProvider, setExtensionTokensProvider, RootToken, SubTokensOptions, stripLegacyRootPrefix, appendLegacyValueField, type QueryToken } from "../../data/dynamicQuery/tokens";
-import { setBuildExtensionExpr } from "./tokenExpressions";
+import { setImplementedByAllTypesProvider, setExtensionTokensProvider, RootToken, SubTokensOptions, stripLegacyRootPrefix, appendLegacyValueField, setIndexerKeysProvider, splitTokenKey, type QueryToken } from "../../data/dynamicQuery/tokens";
+import { setBuildExtensionExpr, setBuildExtensionWithParameterExpr } from "./tokenExpressions";
 import { getKey, type QueryName } from "../../data/dynamicQuery/queryUtils";
 import { DynamicQueryContainer } from "./dynamicQueryContainer";
 import { ExpressionContainer } from "./expressionContainer";
@@ -48,14 +48,13 @@ export namespace QueryLogic {
     // QueryUtils.SubToken over a QueryDescription). An empty string ⇒ the root token itself. A
     // registered query supplies its own root; otherwise an entity-ctor queryName roots a plain
     // RootToken (so navigation works for any entity, not only explicitly registered queries).
-    // NOTE: splits on "." — good for the common navigations; the dotted special tokens
-    // ("[Operations].X", indexers) need a smarter parser (TODO, Signum's tokenizer).
+    // The parts come from splitTokenKey, which keeps a "." inside an indexer key ("[Skill].[Node.js]").
     export function getToken(queryName: QueryName, tokenString: string, options: SubTokensOptions): QueryToken {
         // An unregistered type still navigates: its own RootToken. (Before QueryName narrowed to a
         // Type this needed a guard, because a string name had no type to root on.)
         let token: QueryToken = tryGetRootToken(queryName) ?? new RootToken(queryName);
         // LEGACY MODE: a token stored by Signum starts at its `Entity` column; altea's root is rootless.
-        for (const part of stripLegacyRootPrefix(token, tokenString, options).split(".").filter(p => p.length > 0)) {
+        for (const part of splitTokenKey(stripLegacyRootPrefix(token, tokenString, options))) {
             const sub: QueryToken | undefined = token.subToken(part, options);
             if (sub == undefined)
                 throw new Error(`Token '${part}' not found on '${token.fullKey()}' (query '${getKey(queryName)}')`);
@@ -253,3 +252,5 @@ async function loadQueries(schema: Schema): Promise<void> {
 setImplementedByAllTypesProvider(QueryLogic.getImplementedByAllTypes);
 setExtensionTokensProvider(parent => QueryLogic.expressions.getExtensionsTokens(parent));
 setBuildExtensionExpr((info, parentExpression) => QueryLogic.expressions.buildExtension(info, parentExpression));
+setBuildExtensionWithParameterExpr((info, key, parentExpression) => QueryLogic.expressions.buildExtensionWithParameter(info, key, parentExpression));
+setIndexerKeysProvider(container => QueryLogic.expressions.indexerKeys(container));

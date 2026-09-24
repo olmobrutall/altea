@@ -294,6 +294,13 @@ Registering it as a query TOKEN is `.withExpressionTo(p => p.lines())` on the in
 `.withExpressionFrom(SourceType, …)` from the other side), and a scalar expression is
 `QueryLogic.expressions.register(OrderEntity, o => o.totalPrice(), OrderMessage.totalPrice)`.
 
+Signum's `WithExpressionWithParameter` / `Expressions.RegisterWithParameter` — a `[Prefix]` token whose
+children are listed at runtime — is `.withExpressionWithParameter(keyType, (e, k) => …, getKeys, Message)`
+(or `QueryLogic.expressions.registerWithParameter`). The prefix is the message's member name and a child's
+key is the parameter's `toString()`, as in Signum, so `Entity.[Skill].[Java]` becomes `[Skill].[Java]`.
+`getKeys` is synchronous: read a cache warmed at start-up. The client lists the children through
+`/api/query/indexerTokens`.
+
 A `withQuoted` prototype member is **query-only**: calling it in memory throws, so a module that needs an
 in-memory path registers a plain twin function beside it.
 

@@ -7,11 +7,14 @@ import { Expression, ParameterExpression } from "../linq/expressions";
 import { ExpressionVisitor } from "../linq/visitors/ExpressionVisitor";
 import { QueryToken, entityCtorOf, expressionSourceKeyOf } from "../../data/dynamicQuery/tokens";
 import { extractEntity } from "./tokenExpressions";
-import { ExtensionToken, type ExtensionInfo } from "../../data/dynamicQuery/tokens";
+import { ExtensionToken, IndexerContainerToken, type ExtensionInfo, type IndexerInfo, type IndexerKey } from "../../data/dynamicQuery/tokens";
+import { ConstantExpression } from "../linq/expressions";
 import { Meta, CleanMeta } from "./meta";
 import { MetadataVisitor } from "./metadataVisitor";
 import { LocalizableMessage } from "../../data/utils/localization";
 import { expressionKeyOf } from "../../data/lambdaMembers";
+import { enumNameOf } from "../../data/registration";
+import { Enum } from "../../data/enum";
 
 // The SERVER-side registration of a cross-entity expression (Signum's ExtensionInfo). Holds the
 // un-serializable bits — the quoted `lambda` and its provenance `meta` — that only the server needs
@@ -91,6 +94,95 @@ export class ExpressionContainer {
         return reg;
     }
 
+    // source type → (prefix → registration with a parameter).
+    private readonly indexers = new Map<object, Map<string, RegisteredIndexer>>();
+
+    /**
+     * Signum's `RegisterWithParameter`: an expression with a PARAMETER, shown as a `[Prefix]` container
+     * whose children `[Prefix].[<key>]` are one per key `getKeys` lists, each evaluating `lambda(e, key)`.
+     *
+     * `keyType` is what `key` is inside the lambda — an entity class, an enum object, or a scalar name —
+     * so the body binds (`us.skill.is(sk)`). The container's prefix is the caption message's MEMBER name
+     * (Signum's `enumMessage.ToString()`), and a key's text is its `toString()`, as Signum's: a stored
+     * column must mean the same thing in every environment, and ids differ between them.
+     *
+     * `getKeys` is SYNCHRONOUS — a token is resolved while a query is parsed — so it reads a cache that is
+     * already warm (a lazy loaded at start-up, read with `valueOrUndefined`).
+     */
+    registerWithParameter<E extends BaseEntity, K, V>(
+        sourceType: Type<E>,
+        keyType: Function | object | "string" | "number",
+        lambda: Quoted<(source: E, key: K) => V>,
+        getKeys: (parent: QueryToken) => readonly K[],
+        caption: LocalizableMessage | IndexerOptions<K>,
+    ): RegisteredIndexer {
+        const opts: IndexerOptions<K> = caption instanceof LocalizableMessage
+            ? { prefix: caption.member!, niceName: () => caption.niceToString() }
+            : caption;
+        const keyRuntimeType = toKeyRuntimeType(keyType);
+        const bound = Expression.fromQuotedLambda(lambda as never, [new ClassType(sourceType), keyRuntimeType]);
+        const body = bound.body;
+        if (body.type instanceof LiteralType && body.type.typeName === "null")
+            throw new Error(`Expression with parameter '${opts.prefix}' on '${(sourceType as Function).name}' did not resolve to a translatable value (a forgotten @quoted?).`);
+        const elementType = body.type instanceof ArrayType ? body.type.elementType : body.type;
+        const reg: RegisteredIndexer = {
+            sourceType, prefix: opts.prefix, niceName: opts.niceName ?? (() => opts.prefix),
+            resultType: body.type, implementations: opts.implementations ?? autoImplementations(elementType),
+            keyRuntimeType, lambda, getKeys: getKeys as (parent: QueryToken) => readonly unknown[],
+            keyText: (opts.keyText as ((k: unknown) => string) | undefined) ?? defaultKeyText(keyRuntimeType),
+            keyNiceName: (opts.keyNiceName as ((k: unknown) => string) | undefined) ?? (opts.keyText as ((k: unknown) => string) | undefined) ?? defaultKeyNiceName(keyRuntimeType),
+            autoExpand: opts.autoExpand ?? false,
+            // The key parameter reads no column, so the provenance is the source parameter's alone.
+            meta: MetadataVisitor.gatherMeta(body, bound.parameters[0], sourceType),
+        };
+        let map = this.indexers.get(sourceType);
+        if (map == undefined) { map = new Map(); this.indexers.set(sourceType, map); }
+        map.set(reg.prefix, reg);
+        return reg;
+    }
+
+    /** The containers, grouped by declaring type — shipped in the blob beside the plain expressions. */
+    declaredIndexers(): Map<object, IndexerInfo[]> {
+        const out = new Map<object, IndexerInfo[]>();
+        for (const [source, byPrefix] of this.indexers)
+            out.set(source, [...byPrefix.values()].map(reg => this.toIndexerInfo(reg)));
+        return out;
+    }
+
+    /** The server's listing of a container's children (the indexer-keys provider). */
+    indexerKeys(container: IndexerContainerToken): IndexerKey[] {
+        const reg = container.info.serverInfo as RegisteredIndexer | undefined;
+        if (reg == undefined)
+            return [];
+        return reg.getKeys(container.parent!).map(k => ({ key: reg.keyText(k), niceName: reg.keyNiceName(k), value: k }));
+    }
+
+    // The body with the source replaced by the parent and the key by a constant — Signum's
+    // `t => LambdaExpression.Evaluate(t, key)`.
+    buildExtensionWithParameter(serverInfo: unknown, key: unknown, parentExpression: Expression): Expression {
+        const reg = serverInfo as RegisteredIndexer;
+        const bound = Expression.fromQuotedLambda(reg.lambda as never, [new ClassType(reg.sourceType), reg.keyRuntimeType]);
+        const pe = parentExpression.type instanceof LiteType ? extractEntity(parentExpression, false) : parentExpression;
+        const withSource = new ParameterReplacer(bound.parameters[0], pe).visit(bound.body);
+        // An enum key is its NUMERIC member inside a query, as any captured enum constant is.
+        const value = reg.keyRuntimeType instanceof EnumType && typeof key === "string" ? Enum.toValue(reg.keyRuntimeType.enumObject as never, key as never) : key;
+        return new ParameterReplacer(bound.parameters[1], new ConstantExpression(value, reg.keyRuntimeType)).visit(withSource);
+    }
+
+    private toIndexerInfo(reg: RegisteredIndexer): IndexerInfo {
+        const propertyRoute = reg.meta instanceof CleanMeta && reg.meta.propertyRoutes.length === 1 ? reg.meta.propertyRoutes[0] : undefined;
+        return {
+            prefix: reg.prefix,
+            niceName: reg.niceName,
+            resultType: toTypeReference(reg.resultType),
+            implementations: reg.implementations,
+            propertyRoute,
+            autoExpand: reg.autoExpand,
+            allowedReason: () => reg.meta.isAllowed(),
+            serverInfo: reg,
+        };
+    }
+
     /**
      * Every registration, grouped by the source type that DECLARES it — what the metadata blob ships, so
      * the client can build an extension token without asking per token of that type. The key is the same
@@ -130,6 +222,8 @@ export class ExpressionContainer {
         if (typeof key !== "function") {
             for (const reg of this.registered.get(key)?.values() ?? [])
                 out.push(new ExtensionToken(parent, this.toExtensionInfo(reg)));
+            for (const reg of this.indexers.get(key)?.values() ?? [])
+                out.push(new IndexerContainerToken(parent, this.toIndexerInfo(reg)));
             return out;
         }
         for (let c: Function | undefined = key; c != undefined && c !== Object; c = Object.getPrototypeOf(c)) {
@@ -137,6 +231,9 @@ export class ExpressionContainer {
             if (map != undefined)
                 for (const reg of map.values())
                     out.push(new ExtensionToken(parent, this.toExtensionInfo(reg)));
+            // …and the [Prefix] containers of the expressions with a parameter, walked the same way.
+            for (const reg of this.indexers.get(c)?.values() ?? [])
+                out.push(new IndexerContainerToken(parent, this.toIndexerInfo(reg)));
         }
         return out;
     }
@@ -221,4 +318,55 @@ class ParameterReplacer extends ExpressionVisitor {
     override visitParameter(node: ParameterExpression): Expression {
         return node === this.param ? this.replacement : node;
     }
+}
+
+// The server registration of an expression with a parameter (Signum's ExtensionWithParameterInfo).
+interface RegisteredIndexer {
+    readonly sourceType: Function;
+    readonly prefix: string;
+    readonly niceName: () => string;
+    readonly resultType: RuntimeType;
+    readonly implementations?: Implementations;
+    readonly keyRuntimeType: RuntimeType;
+    readonly lambda: unknown; // Quoted<(source, key) => result>
+    readonly getKeys: (parent: QueryToken) => readonly unknown[];
+    readonly keyText: (key: unknown) => string;
+    readonly keyNiceName: (key: unknown) => string;
+    readonly autoExpand: boolean;
+    readonly meta: Meta;
+}
+
+/** What a registration with a parameter can say beyond the source, the key type and the lambda. */
+export interface IndexerOptions<K> {
+    /** The container's key, `[prefix]` — a message's member name when the caption is a message. */
+    prefix: string;
+    niceName?: () => string;
+    /** A key's text — the child token's key. Default: `toString()`, as Signum's. */
+    keyText?: (key: K) => string;
+    /** A key's caption. Default: its text. */
+    keyNiceName?: (key: K) => string;
+    implementations?: Implementations;
+    /** Signum's AutoExpand: the picker lists the children inline. */
+    autoExpand?: boolean;
+}
+
+// Signum's `ParameterValue?.ToString() ?? "null"` — an enum by its MEMBER NAME, whichever form the key is in.
+function defaultKeyText(keyType: RuntimeType): (key: unknown) => string {
+    if (keyType instanceof EnumType)
+        return key => typeof key === "number" ? Enum.toName(keyType.enumObject as never, key as never) : String(key);
+    return key => key == null ? "null" : String(key);
+}
+
+// Signum's NiceName: an enum member's own nice name, anything else its text.
+function defaultKeyNiceName(keyType: RuntimeType): (key: unknown) => string {
+    if (keyType instanceof EnumType)
+        return key => Enum.niceName(keyType.enumObject as never, key as never);
+    return defaultKeyText(keyType);
+}
+
+function toKeyRuntimeType(keyType: Function | object | "string" | "number"): RuntimeType {
+    if (keyType === "string") return LiteralType.string;
+    if (keyType === "number") return LiteralType.number;
+    if (typeof keyType === "function") return new ClassType(keyType);
+    return new EnumType(keyType, enumNameOf(keyType) ?? "Enum");
 }

@@ -9,6 +9,7 @@ import { Implementations } from "@altea/altea/data/implementations";
 import { TypeReference } from "@altea/altea/data/reflection";
 import {
     serializeServerToken, deserializeServerToken, serializeTypeReference, deserializeTypeReference,
+    type ExtensionTokenJson,
 } from "@altea/altea/data/dynamicQuery/tokenSerializer";
 import { ArtistEntity, AlbumEntity } from "../music";
 
@@ -104,7 +105,7 @@ describe("token serializer", () => {
             allowedReason: () => "Denied",
         };
         const json = serializeServerToken(new ExtensionToken(parent, info));
-        assert.equal(json.allowedReason, "Denied");
+        assert.equal((json as ExtensionTokenJson).allowedReason, "Denied");
 
         const rebuilt = deserializeServerToken(json, parent) as ExtensionToken;
         assert.equal(rebuilt.isAllowed(), "Denied");

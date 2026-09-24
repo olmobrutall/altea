@@ -15,6 +15,7 @@ import { Implementations } from "../implementations";
 import { PropertyRoute } from "../propertyRoute";
 import type { QueryToken } from "./tokens/queryToken";
 import { ExtensionToken, type ExtensionInfo } from "./tokens/extensionToken";
+import { IndexerContainerToken, ExtensionWithParameterToken, type IndexerInfo } from "./tokens/indexerToken";
 
 // ---- TypeReference <-> JSON ------------------------------------------------------------------
 // A ctor/enum can't cross the wire — its clean name can; the client rebuilds the `type` thunk via the
@@ -75,9 +76,10 @@ export function deserializeImplementations(s: string | undefined): Implementatio
 // ---- Server-only token <-> JSON --------------------------------------------------------------
 
 // A serialized server-only token. `tokenType` discriminates the concrete class; the remaining fields
-// are its serializable metadata. (Only ExtensionToken today; ManualToken / OperationToken follow the
-// same shape when they arrive.)
-export interface ServerTokenJson {
+// are its serializable metadata.
+export type ServerTokenJson = ExtensionTokenJson | IndexerContainerTokenJson | ExtensionWithParameterTokenJson;
+
+export interface ExtensionTokenJson {
     tokenType: "Extension";
     key: string;
     niceName: string;
@@ -88,11 +90,32 @@ export interface ServerTokenJson {
     allowedReason?: string | null;
 }
 
+/** A registration with a parameter, as the blob ships it: the `[Prefix]` container, without its keys. */
+export interface IndexerContainerTokenJson {
+    tokenType: "IndexerContainer";
+    key: string;
+    prefix: string;
+    niceName: string;
+    resultType: TypeReferenceJson;
+    implementations?: string;
+    propertyRoute?: string;
+    autoExpand: boolean;
+    allowedReason?: string | null;
+}
+
+/** One child of a container, as the sub-tokens endpoint lists it. */
+export interface ExtensionWithParameterTokenJson {
+    tokenType: "ExtensionWithParameter";
+    key: string;
+    parameterKey: string;
+    niceName: string;
+}
+
 // Whether a token is one the client CANNOT generate from local metadata and must fetch — i.e. one
 // `serializeServerToken` knows how to ship. Used to pick the server-only tokens out of a parent's
-// full sub-token set. (ExtensionToken today; ManualToken / OperationToken join the union later.)
+// full sub-token set.
 export function isServerOnlyToken(token: QueryToken): boolean {
-    return token instanceof ExtensionToken;
+    return token instanceof ExtensionToken || token instanceof IndexerContainerToken || token instanceof ExtensionWithParameterToken;
 }
 
 // Server side: flatten a generated server-only token to its wire form (resolving the lazy
@@ -100,6 +123,10 @@ export function isServerOnlyToken(token: QueryToken): boolean {
 export function serializeServerToken(token: QueryToken): ServerTokenJson {
     if (token instanceof ExtensionToken)
         return serializeExtensionInfo(token.info);
+    if (token instanceof IndexerContainerToken)
+        return serializeIndexerInfo(token.info);
+    if (token instanceof ExtensionWithParameterToken)
+        return { tokenType: "ExtensionWithParameter", key: token.key, parameterKey: token.parameter.key, niceName: token.parameter.niceName };
     throw new Error(`serializeServerToken: unsupported token ${token.constructor.name} (fullKey '${token.fullKey()}')`);
 }
 
@@ -112,7 +139,7 @@ export function serializeServerToken(token: QueryToken): ServerTokenJson {
  * Resolves the lazy niceName / allowedReason thunks, so it must run inside the request's culture + auth
  * context — as the metadata blob's assembly does.
  */
-export function serializeExtensionInfo(i: ExtensionInfo): ServerTokenJson {
+export function serializeExtensionInfo(i: ExtensionInfo): ExtensionTokenJson {
     return {
         tokenType: "Extension",
         key: i.key,
@@ -142,5 +169,37 @@ export function deserializeServerToken(json: ServerTokenJson, parent: QueryToken
             };
             return new ExtensionToken(parent, info);
         }
+        case "IndexerContainer": {
+            const info: IndexerInfo = {
+                prefix: json.prefix,
+                niceName: () => json.niceName,
+                resultType: deserializeTypeReference(json.resultType),
+                implementations: deserializeImplementations(json.implementations),
+                propertyRoute: json.propertyRoute != undefined ? PropertyRoute.parseFull(json.propertyRoute) : undefined,
+                autoExpand: json.autoExpand,
+                allowedReason: () => json.allowedReason ?? null,
+            };
+            return new IndexerContainerToken(parent, info);
+        }
+        case "ExtensionWithParameter": {
+            if (!(parent instanceof IndexerContainerToken))
+                throw new Error(`A parameter token needs its [container] as parent, not "${parent.fullKey()}"`);
+            return new ExtensionWithParameterToken(parent, { key: json.parameterKey, niceName: json.niceName });
+        }
     }
+}
+
+/** The blob's form of a registration with a parameter — its container, whose keys are listed on demand. */
+export function serializeIndexerInfo(i: IndexerInfo): IndexerContainerTokenJson {
+    return {
+        tokenType: "IndexerContainer",
+        key: "[" + i.prefix + "]",
+        prefix: i.prefix,
+        niceName: i.niceName(),
+        resultType: serializeTypeReference(i.resultType),
+        implementations: serializeImplementations(i.implementations),
+        propertyRoute: i.propertyRoute?.toString(),
+        autoExpand: i.autoExpand,
+        allowedReason: i.allowedReason?.() ?? null,
+    };
 }

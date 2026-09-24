@@ -48,6 +48,7 @@ import { Metadata } from '../data/metadata';
 import { getKey } from '../data/dynamicQuery/queryUtils';
 import { reflectionDefaultColumns } from '../data/dynamicQuery/defaultColumns';
 import { RootToken } from '../data/dynamicQuery/tokens/rootToken';
+import { parentTokenKey } from '../data/dynamicQuery/tokens/tokenKey';
 import { JavascriptMessage, SearchMessage } from '../data/uiMessages';
 import Notify, { type NotifyOptions } from './Frames/Notify';
 import { QueryTokenString, type Anonymous } from './QueryTokenString';
@@ -1675,7 +1676,7 @@ export namespace Finder {
       if (existing != null)
         return existing;
 
-      const parentKey = getParentTokenKey(fullKey);
+      const parentKey = parentTokenKey(fullKey);
       const parent = parentKey == null ? this.root : await this.resolveToken(parentKey);
       if (parent == null)
         return undefined;
@@ -1784,13 +1785,6 @@ export namespace Finder {
     // TypeInfo.ctor is declared `Function` across reflection; a registered type's is always an
     // entity/embedded/model constructor, which is what RootToken (and QueryName) now ask for.
     return new RootToken(ti.ctor as Type<BaseEntity>);
-  }
-
-  // The parent fullKey of a token key (Signum's getParent): strip the trailing indexer or "."-segment.
-  function getParentTokenKey(fullKey: string): string | null {
-    if (fullKey.endsWith("]"))
-      return fullKey.beforeLast("[").beforeLast(".");
-    return fullKey.tryBeforeLast(".") ?? null;
   }
 
   // Which sub-token family (if any) is disallowed by `options` — the reason, or null when allowed.

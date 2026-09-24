@@ -4,7 +4,8 @@ import { FluentInclude } from "../schema/fluentInclude";
 import { QueryLogic } from "./queryLogic";
 import { AutoDynamicQueryCore } from "./dynamicQueryCore";
 import type { Implementations } from "../../data/implementations";
-import type { ExpressionOptions } from "./expressionContainer";
+import type { ExpressionOptions, IndexerOptions } from "./expressionContainer";
+import type { QueryToken } from "../../data/dynamicQuery/tokens/queryToken";
 import type { LocalizableMessage } from "../../data/utils/localization";
 
 // Port of Signum's `DynamicQueryFluentInclude` (extension methods on FluentInclude, kept in the
@@ -30,6 +31,10 @@ declare module "../schema/fluentInclude" {
         // NicePluralName / NiceName. Signum infers F from the lambda's parameter type; altea can't read
         // that off a quoted lambda, so the source ctor F is passed explicitly.
         withExpressionFrom<F extends Entity>(sourceType: Type<F>, lambda: Quoted<(source: F) => unknown>, caption?: LocalizableMessage | ExpressionOptions): this;
+        // Signum's WithExpressionWithParameter: an expression from this entity T with a PARAMETER — a
+        // `[Prefix]` container whose children are one per key `getKeys` lists (see
+        // ExpressionContainer.registerWithParameter).
+        withExpressionWithParameter<K, V>(keyType: Function | object | "string" | "number", lambda: Quoted<(source: T, key: K) => V>, getKeys: (parent: QueryToken) => readonly K[], caption: LocalizableMessage | IndexerOptions<K>): this;
     }
 }
 
@@ -61,5 +66,10 @@ FluentInclude.prototype.withExpressionTo = function <T extends Entity, S>(this: 
 FluentInclude.prototype.withExpressionFrom = function <T extends Entity, F extends Entity>(this: FluentInclude<T>, sourceType: Type<F>, lambda: Quoted<(source: F) => unknown>, opts?: LocalizableMessage | ExpressionOptions): FluentInclude<T> {
     // Source = the OTHER entity F (the lambda's parameter); the expression navigates from F to this T.
     QueryLogic.expressions.register(sourceType, lambda, opts);
+    return this;
+};
+
+FluentInclude.prototype.withExpressionWithParameter = function <T extends Entity, K, V>(this: FluentInclude<T>, keyType: Function | object | "string" | "number", lambda: Quoted<(source: T, key: K) => V>, getKeys: (parent: QueryToken) => readonly K[], caption: LocalizableMessage | IndexerOptions<K>): FluentInclude<T> {
+    QueryLogic.expressions.registerWithParameter(this.type, keyType, lambda, getKeys, caption);
     return this;
 };
