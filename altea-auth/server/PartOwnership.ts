@@ -22,10 +22,30 @@ function isPart(ctor: Function): boolean {
 
 // Scan every table's fields (+ mixin fields) for owned-part edges (owner → part). Enum FKs (FieldEnum) and
 // @implementedByAll are ignored (an enum target is never a Part; byAll can't be enumerated statically).
+//
+// A Part with a @backReference (a collection row, including a virtual collection's standalone rows) names its
+// owner itself: the edge comes from that back-reference, and a forward reference to the row from ANY other
+// entity is a plain reference, not a second owner (e.g. a career step pointing at the skill group its career
+// path owns).
 export function partEdges(schema: Schema): PartEdge[] {
     const edges: PartEdge[] = [];
+
+    const backRefOwner = new Map<Function, Function>();
+    for (const table of schema.tables.values()) {
+        if (!isPart(table.type))
+            continue;
+        for (const ef of Object.values(table.fields) as { fieldInfo?: { isBackReference?: boolean }; field: unknown }[]) {
+            const owner = ef.fieldInfo?.isBackReference && ef.field instanceof FieldReference ? ef.field.column.referenceTable?.type : undefined;
+            if (owner != null) {
+                backRefOwner.set(table.type, owner);
+                edges.push({ owner, part: table.type });
+                break;
+            }
+        }
+    }
+
     const add = (owner: Function, target: Function | undefined): void => {
-        if (target != null && isPart(target)) edges.push({ owner, part: target });
+        if (target != null && isPart(target) && !backRefOwner.has(target)) edges.push({ owner, part: target });
     };
     const scan = (owner: Function, ef: { fieldInfo?: { isBackReference?: boolean }; field: unknown }): void => {
         // A @backReference is a child pointing UP to its parent — the reverse of ownership, NOT an owned
