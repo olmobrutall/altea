@@ -136,12 +136,17 @@ export namespace AuthReflectionServer {
                         // MAX — the best case across every type-condition slice. The client has no row to
                         // evaluate conditions against, and hiding a property the user may well be allowed
                         // to edit for THIS row is the worse error; the serializer still enforces the exact
-                        // per-instance answer on the way in and out. `fallback` and `min` were shipped
-                        // beside it and read by nothing.
-                        if (allowed.max as number === typeAllowed) continue;
+                        // per-instance answer on the way in and out. MIN beside it only where it differs:
+                        // Signum's MemberInfo.minPropertyAllowed, which a view reads to tell "hidden for
+                        // some rows" apart.
+                        const differsFromType = allowed.max as number !== typeAllowed;
+                        const conditioned = allowed.min < allowed.max;
+                        if (!differsFromType && !conditioned) continue;
                         // `routes`, keyed by the owner-rooted path the rule is written against — NOT
                         // `fields`, which is keyed by (declaring type, member) and knows nothing of paths.
-                        ((tm.routes ??= {})[path] ??= {}).propertyAllowed = allowed.max;
+                        const rm = ((tm.routes ??= {})[path] ??= {});
+                        if (differsFromType) rm.propertyAllowed = allowed.max;
+                        if (conditioned) rm.minPropertyAllowed = allowed.min;
                     }
                 }
             }

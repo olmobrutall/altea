@@ -542,6 +542,11 @@ declare module "@altea/altea/data/metadata" {
          * allowances, while they share one label. The route is the thing a rule is written against.
          */
         propertyAllowed?: PropertyAllowed;
+        /**
+         * The worst case across the slices (Signum's `MemberInfo.minPropertyAllowed`), shipped only where it
+         * is below `propertyAllowed`. Absent = the same as the max.
+         */
+        minPropertyAllowed?: PropertyAllowed;
     }
     interface FieldMetadata {
         /**

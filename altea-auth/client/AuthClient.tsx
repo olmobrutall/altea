@@ -9,7 +9,7 @@ import { Metadata } from "@altea/altea/data/metadata";
 import type { UserEntity } from "../data/User";
 import type { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { AuthMessage } from "../data/AuthMessages";
-import { TypeAllowedBasic } from "../data/Rules";
+import { TypeAllowedBasic, PropertyAllowed } from "../data/Rules";
 
 // Port of Signum.Authorization's AuthClient.tsx — see port/Auth.md.
 //
@@ -114,6 +114,20 @@ export namespace AuthClient {
             return undefined;
         const max = tm.maxTypeAllowed ?? TypeAllowedBasic.Write;
         return { min: tm.minTypeAllowed ?? max, max };
+    }
+
+    /**
+     * Signum's `MemberInfo.minPropertyAllowed` / `maxPropertyAllowed`: the current role's worst and best
+     * allowance for a route (root entity type + its property string), from the metadata blob. A route with no
+     * entry follows its type. Undefined when the blob does not list the type.
+     */
+    export function propertyAllowed(rootType: Function, path: string): { min: PropertyAllowed; max: PropertyAllowed } | undefined {
+        const tm = Metadata.tryType(rootType.name);
+        if (tm == null)
+            return undefined;
+        const rm = tm.routes?.[path];
+        const max = rm?.propertyAllowed ?? (tm.maxTypeAllowed ?? TypeAllowedBasic.Write) as number as PropertyAllowed;
+        return { min: rm?.minPropertyAllowed ?? max, max };
     }
 
     export function currentUser(): UserEntity | undefined {

@@ -449,10 +449,11 @@ export namespace PropertyAuthLogic {
                 const wc = cache.getAllowed(typeId, path, caches, roleKey);
                 const all = [wc.fallback, ...wc.conditionRules.map(cr => cr.allowed)];
                 const max = Math.max(...all) as PropertyAllowed;
-                if (max >= PropertyAllowed.Write)
+                const min = Math.min(...all) as PropertyAllowed;
+                if (min >= PropertyAllowed.Write)
                     continue;
                 if (byPath == null) result.set(ctor.name, byPath = new Map());
-                byPath.set(path, { fallback: wc.fallback, min: Math.min(...all) as PropertyAllowed, max });
+                byPath.set(path, { fallback: wc.fallback, min, max });
             }
         }
         return result;
