@@ -106,6 +106,14 @@ the prefix stays singular even where the namespace is plural.
 | `Guid` | `Guid` |
 | `byte[]` | `Blob` |
 
+**Datetimes follow `Clock.mode`, as in Signum.** A `DateTime` field stays a `Temporal.PlainDateTime` in the
+clock's frame, and `Clock.mode` (Signum's `Clock.Mode` / `Schema.TimeZoneMode`) decides the rest: under `Utc`
+(the default) Postgres stores `timestamptz` with the session pinned to UTC, and the UI shows and edits the
+value in the viewer's zone through `Clock.toUserInterface` / `fromUserInterface` (Signum's
+`ToUserInterface` / `FromUserInterface`, with `Clock.withTimeZone` for `OverrideTimeZone`). SQL Server keeps
+`datetime2` in both modes. Set `Clock.mode = TimeZoneMode.Local` before the schema is built for an
+application that stored local time.
+
 **Field initializers.** `strictPropertyInitialization` is off. Write `order: int;`, not
 `order: int = 0` — keep only initializers that carry a real business value (`port = 25`).
 

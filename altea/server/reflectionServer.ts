@@ -32,6 +32,8 @@ import type {
 } from "../data/metadata";
 import { Localization } from "../data/utils/localization";
 import { CultureInfo } from "../data/utils/cultureInfo";
+import { Clock, TimeZoneMode } from "../data/utils/clock";
+import type { TimeZoneModeName } from "../data/metadata";
 import type { QueryName } from "../data/dynamicQuery/queryUtils";
 import { QueryLogic } from "./dynamicQuery/queryLogic";
 import { OperationLogic } from "./operationLogic";
@@ -376,7 +378,7 @@ export namespace ReflectionServer {
             }
         }
 
-        return { culture, types };
+        return { culture, timeZoneMode: TimeZoneMode[Clock.mode] as TimeZoneModeName, types };
     }
 
     // The blob as it goes OUT — the model squeezed into the wire encoding described on `MetadataBlobWire`,
@@ -424,7 +426,7 @@ export namespace ReflectionServer {
 
             types[name] = tw;
         }
-        return { culture: meta.culture, types };
+        return { culture: meta.culture, timeZoneMode: meta.timeZoneMode, types };
     }
 
     export function start(ws: WebBuilder): void {

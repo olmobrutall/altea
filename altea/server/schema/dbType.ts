@@ -1,4 +1,5 @@
 import type { PrimaryKeyType } from '../../data/reflection';
+import { Clock, TimeZoneMode } from '../../data/utils/clock';
 
 // Whether a column accepts NULL. `Forced` mirrors Signum: the object-model
 // property is non-null, but the column is nullable in the DB because it lives
@@ -115,7 +116,10 @@ export function defaultDbType(typeName: string, kind: string | undefined): Abstr
         // Temporal.* — keyed by the rightmost name the transformer emits.
         case 'PlainDate': return new AbstractDbType('date', 'date');
         case 'PlainTime': return new AbstractDbType('time', 'time');
-        case 'PlainDateTime': return new AbstractDbType('datetime2', 'timestamp');
+        // Signum's Schema.TimeZoneMode: a UTC clock stores `timestamptz` on Postgres (so the instant is
+        // unambiguous to any other client of the database), a local one `timestamp`. SQL Server keeps
+        // datetime2 either way, as Signum does.
+        case 'PlainDateTime': return new AbstractDbType('datetime2', Clock.mode === TimeZoneMode.Utc ? 'timestamptz' : 'timestamp');
         case 'Instant':
         case 'ZonedDateTime': return new AbstractDbType('datetimeoffset', 'timestamptz');
         // Signum's TimeSpan → (Time, Time). Postgres `interval` would be the better fit for a

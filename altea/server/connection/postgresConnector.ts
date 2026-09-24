@@ -3,6 +3,7 @@ import type { PoolConfig, PoolClient } from 'pg';
 import { from as copyFrom } from 'pg-copy-streams';
 import type { Schema } from '../schema/schema';
 import type { IColumn } from '../schema/column';
+import { Clock, TimeZoneMode } from '../../data/utils/clock';
 
 // Postgres returns int8 (bigint — the type of COUNT(*), SUM(int), and Ticks) as a
 // string to avoid precision loss past 2^53. altea treats these as JS numbers, so a
@@ -246,7 +247,13 @@ export class PostgresConnector extends Connector {
         if (this.pool != null)
             return this.pool;
 
-        const pool = new Pool({ ...base, types: ALTEA_PG_TYPES as PoolConfig['types'] });
+        // A UTC clock stores `timestamptz` (dbType.ts), and every conversion between it and a plain
+        // wall time — a bound PlainDateTime parameter, a `::timestamp` cast, date_trunc / EXTRACT, the
+        // text a read hands back — happens in the SESSION's zone. Pinning it to UTC makes all of them
+        // the clock's frame, whatever the server's or the role's default is.
+        const options = Clock.mode === TimeZoneMode.Utc ? [base.options, '-c TimeZone=UTC'].filter(o => o).join(' ') : base.options;
+
+        const pool = new Pool({ ...base, options, types: ALTEA_PG_TYPES as PoolConfig['types'] });
 
         // An IDLE pooled client whose backend went away (a server restart, a `pg_terminate_backend`, a
         // dropped network) emits `error` on the POOL, and node kills the process for an unhandled 'error'

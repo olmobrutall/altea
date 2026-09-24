@@ -27,6 +27,7 @@ import type { PrimaryKey } from './entity';
 import type { OperationType } from './reflection';
 import type { ServerTokenJson } from './dynamicQuery/tokenSerializer';
 import { CultureInfo } from './utils/cultureInfo';
+import { Clock, TimeZoneMode } from './utils/clock';
 
 // Signum's `KindOfType`. altea folds Signum's "Message" / "Query" / "SymbolContainer" into one
 // "Container" (a named runtime object that owns localizable members but is not a class), and its
@@ -166,8 +167,13 @@ export interface TypeMetadata {
 // A type is in `types` exactly when the current role may READ it. An ABSENT entry means the opposite of
 // what it once did: no access at all (or no such type). That is why a type with nothing else to say
 // still ships as a bare `{ kind }` — the entry IS the permission, so it cannot be squeezed out.
+export type TimeZoneModeName = keyof typeof TimeZoneMode;
+
 export interface MetadataBlob {
     culture: string;
+    /** The server's `Clock.mode`, which the client adopts: it decides whether a datetime is shown in the
+     *  viewer's zone (see Clock.toUserInterface). Optional only so a hand-built blob (a test) may omit it. */
+    timeZoneMode?: TimeZoneModeName;
     // Keyed by the type's registered name (the same key translation XML uses): "OrderEntity",
     // "OrderState", "OrderOperation". A Record, not an array — every consumer is a by-name lookup.
     types: Record<string, TypeMetadata>;
@@ -193,6 +199,7 @@ export type TypeMetadataWire = Omit<TypeMetadata, "fields"> & { fields?: Record<
 
 export interface MetadataBlobWire {
     culture: string;
+    timeZoneMode?: TimeZoneModeName;
     types: Record<string, TypeMetadataWire>;
 }
 
@@ -287,7 +294,7 @@ export namespace Metadata {
             }
             types[name] = tm;
         }
-        return { culture: blob.culture, types };
+        return { culture: blob.culture, timeZoneMode: blob.timeZoneMode, types };
     }
 
     // Whether a blob has ever been APPLIED here. The distinction that needs it: a type with no
@@ -309,6 +316,8 @@ export namespace Metadata {
         const model = fromWire(blob);
         CultureInfo.setDefaultCulture(model.culture);
         CultureInfo.setDefaultUICulture(model.culture);
+        if (model.timeZoneMode != null)
+            Clock.mode = TimeZoneMode[model.timeZoneMode];
         replace(model.culture, model.types);
         appliedAny = true;
         return model;

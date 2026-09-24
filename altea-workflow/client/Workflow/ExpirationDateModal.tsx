@@ -4,6 +4,7 @@ import { ModalHeaderButtons } from "@altea/altea/client/Components/ModalHeaderBu
 import { openModal, type IModalProps } from "@altea/altea/client/Modals";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import { Temporal } from "@altea/altea/data/basics";
+import { Clock } from "@altea/altea/data/utils/clock";
 
 // Signum asks for the workflow's expiration date with `AutoLineModal.show({ type: { name: "DateTime" }, … })`.
 // altea has no AutoLineModal (the same gap altea-auth's ActiveDirectoryClient and altea-dynamic's
@@ -22,8 +23,9 @@ function ExpirationDateModal(p: ExpirationDateModalProps): React.JSX.Element {
     const answerRef = React.useRef<Temporal.PlainDateTime | undefined>(undefined);
 
     function handleOk(): void {
-        // An `<input type="datetime-local">` answers "YYYY-MM-DDTHH:mm" — exactly a PlainDateTime literal.
-        answerRef.current = value === "" ? undefined : Temporal.PlainDateTime.from(value);
+        // An `<input type="datetime-local">` answers "YYYY-MM-DDTHH:mm" — a PlainDateTime literal, in the
+        // viewer's zone.
+        answerRef.current = value === "" ? undefined : Clock.fromUserInterface(Temporal.PlainDateTime.from(value));
         setShow(false);
     }
 

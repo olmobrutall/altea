@@ -1,4 +1,5 @@
 import { Temporal, Decimal } from "@altea/altea/data/basics";
+import { Clock } from "@altea/altea/data/utils/clock";
 import { Enum } from "@altea/altea/data/enum";
 import { Lite } from "@altea/altea/data/lite";
 import type { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/index";
@@ -171,8 +172,11 @@ export function toExcelDate(value: unknown): string {
         return String(value.since(OA_EPOCH).total("days"));
 
     if (value instanceof Temporal.PlainDateTime) {
-        const days = value.toPlainDate().since(OA_EPOCH).total("days");
-        const fraction = value.toPlainTime().since(Temporal.PlainTime.from("00:00")).total("days");
+        // Signum's `datetime.ToUserInterface().ToOADate()`: an Excel serial has no zone, so it is written
+        // as the reader's wall time, not the clock's.
+        const ui = Clock.toUserInterface(value);
+        const days = ui.toPlainDate().since(OA_EPOCH).total("days");
+        const fraction = ui.toPlainTime().since(Temporal.PlainTime.from("00:00")).total("days");
         return String(days + fraction);
     }
 

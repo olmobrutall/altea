@@ -93,7 +93,21 @@ function toPlainDateTime(value: unknown): Temporal.PlainDateTime {
         return new Temporal.PlainDateTime(value.getUTCFullYear(), value.getUTCMonth() + 1, value.getUTCDate(),
             value.getUTCHours(), value.getUTCMinutes(), value.getUTCSeconds(), value.getUTCMilliseconds());
     // Postgres `timestamp` text is "YYYY-MM-DD HH:MM:SS[.ffffff]"; ISO needs a 'T' separator.
-    return Temporal.PlainDateTime.from(String(value).replace(' ', 'T'));
+    const iso = String(value).replace(' ', 'T');
+    // A `timestamptz` (a UTC clock's column) carries the session's offset — "+00" once the pool pins the
+    // session to UTC. Resolve it to the instant and read that instant's UTC wall time, so a value is right
+    // even from a session in another zone.
+    const offset = /([+-]\d{2})(:?\d{2})?(:?\d{2})?$|Z$/.exec(iso.slice(19));
+    if (offset != null)
+        return Temporal.Instant.from(iso.slice(0, 19 + offset.index) + normalizeOffset(offset[0])).toZonedDateTimeISO("UTC").toPlainDateTime();
+    return Temporal.PlainDateTime.from(iso);
+}
+
+// Postgres writes an offset as "+00", "+05:30" or "+05:30:15"; Temporal accepts "+HH:MM[:SS]" or "Z".
+function normalizeOffset(offset: string): string {
+    if (offset === "Z")
+        return offset;
+    return offset.length === 3 ? offset + ":00" : offset;
 }
 
 function toDuration(value: unknown): Temporal.Duration {

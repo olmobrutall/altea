@@ -479,7 +479,9 @@ function max(a: Temporal.PlainDateTime, b: Temporal.PlainDateTime): Temporal.Pla
 }
 
 function shortTime(dateTime: Temporal.PlainDateTime): string {
-    return dateTime.toLocaleString(undefined, { hour: "2-digit", minute: "2-digit" });
+    // Signum's `StartingOn.ToUserInterface().ToShortTimeString()`: the rule runs in the clock's frame, its
+    // description reads in the user's.
+    return Clock.toUserInterface(dateTime).toLocaleString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
 function monthName(month: number): string {

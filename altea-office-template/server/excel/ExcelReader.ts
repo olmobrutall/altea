@@ -1,4 +1,5 @@
 import { Temporal, Decimal } from "@altea/altea/data/basics";
+import { Clock } from "@altea/altea/data/utils/clock";
 import { OxmlPackage, RelationshipTypes } from "../oxml/OxmlPackage";
 import type { OxmlElement } from "../oxml/OxmlElement";
 import { columnIndex, columnLetters, rowDigits } from "../spreadsheet/FormulaRewriter";
@@ -105,7 +106,7 @@ export function fromExcelNumber(text: string): Decimal {
 export function fromExcelDate(text: string, withTime: boolean): Temporal.PlainDate | Temporal.PlainDateTime {
     // A cell an author typed into may hold an ISO string rather than a serial number.
     if (isNaN(Number(text)))
-        return withTime ? Temporal.PlainDateTime.from(text.replace(" ", "T")) : Temporal.PlainDate.from(text);
+        return withTime ? Clock.fromUserInterface(Temporal.PlainDateTime.from(text.replace(" ", "T"))) : Temporal.PlainDate.from(text);
 
     const serial = Number(text);
     const days = Math.floor(serial);
@@ -114,7 +115,8 @@ export function fromExcelDate(text: string, withTime: boolean): Temporal.PlainDa
         return date;
 
     const millis = Math.round((serial - days) * 24 * 60 * 60 * 1000);
-    return date.toPlainDateTime(Temporal.PlainTime.from("00:00").add({ milliseconds: millis }));
+    // Signum's `FromExcelDate(…).ToKind(Unspecified)`: the sheet holds the reader's wall time.
+    return Clock.fromUserInterface(date.toPlainDateTime(Temporal.PlainTime.from("00:00").add({ milliseconds: millis })));
 }
 
 /** The fraction of a day back to a time. */

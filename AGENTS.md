@@ -64,7 +64,9 @@ three shipping presets, and the one place that gets both node types and the DOM 
   `Guid` / `Duration` / `Blob`.
 - **Dates are `Temporal`** — `PlainDate` / `PlainDateTime` / `PlainTime` / `Duration`. Temporal has no
   relational operators, so a comparison inside a query is written
-  `Temporal.PlainDateTime.compare(a, b) < 0`, which is the form the provider translates.
+  `Temporal.PlainDateTime.compare(a, b) < 0`, which is the form the provider translates. A stored
+  `PlainDateTime` is in `Clock.mode`'s frame (UTC by default, `timestamptz` on Postgres); anything a user
+  SEES or TYPES crosses `Clock.toUserInterface` / `fromUserInterface`.
 - **`Type<T>` is the one entity-type handle, and it is a constructor** — abstract-tolerant, so an abstract
   base is a valid handle. `TypeReference` is the one value-type descriptor (`.typeName`, `.array`, `.lite`,
   `.kind`, `.getEnum()`, `.typeInfos()`).
