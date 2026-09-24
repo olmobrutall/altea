@@ -15,7 +15,8 @@ import {
 import { PermissionSymbol, BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
-import { section, removeUnlisted, groupByRole, attrs, parseBool, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, groupByRole, attrs, parseBool, boolText, sectionRows, syncRulesScript, updateAllowed, type AuthImportCtx } from "./AuthRulesXml";
+import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
 import type { AuthExportCtx } from "./AuthLogic";
 
 // Port of Signum.Authorization's Rules/PermissionAuthLogic.cs — see port/Auth.md.
@@ -110,23 +111,30 @@ export namespace PermissionAuthLogic {
         };
     }
 
-    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<void> {
-        for (const rb of (auth.Permissions as { Role?: XmlRoleBlock[] } | undefined)?.Role ?? []) {
-            const role = ctx.noteRole(rb.Name);
-            if (role == null) continue;
-            const byResource = new Map((rb.Permission ?? []).map(r => [r.Resource, r])); // permissions aren't renamed
-            const pack = await getPermissionRulePack(role.id);
-            for (const rule of pack.rules) {
-                const x = byResource.get(rule.resource.toString());
-                rule.allowed = x != null ? parseBool(x.Allowed) : rule.allowedBase;
-            }
-            await setPermissionRulePack(pack);
-        }
-        const permKey = new Map((await SymbolLogic.cache(PermissionSymbol)).symbols().map(s => [String(s.id), s.key]));
-        if (await removeUnlisted((auth.Permissions as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Permission", ctx,
-            await table(RulePermissionEntity).toArray() as RulePermissionEntity[],
-            r => permKey.get(String(r.resource.id)) ?? String(r.resource.id), x => x.Resource))
-            invalidate();
+    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<SqlPreCommand | undefined> {
+        const replacementKey = "AuthRules:PermissionSymbol";
+        const symbols = new Map((await SymbolLogic.cache(PermissionSymbol)).symbols().map(s => [s.key, s]));
+        ctx.replacements.askForReplacements(
+            new Set(sectionRows(auth, "Permissions", "Permission").map(p => p.Resource)),
+            new Set(symbols.keys()),
+            replacementKey);
+
+        const permKey = new Map([...symbols.values()].map(s => [String(s.id), s.key]));
+        return syncRulesScript(auth, ctx, {
+            rootName: "Permissions",
+            elementName: "Permission",
+            resourceName: PermissionSymbol.niceName(),
+            stored: await table(RulePermissionEntity).toArray() as RulePermissionEntity[],
+            storedKey: r => permKey.get(String(r.resource.id)) ?? String(r.resource.id),
+            toResource: s => {
+                const p = symbols.get(ctx.replacements.apply(replacementKey, s));
+                if (p == null) ctx.noteSkipped("Permission", s);
+                return p?.key;
+            },
+            create: (role, key, x) => RulePermissionEntity.create({ role, resource: symbols.get(key)!.toLite(), allowed: parseBool(x.Allowed) }),
+            allowedComment: r => boolText(r.allowed),
+            update: updateAllowed(),
+        });
     }
 
     /** Explicit reset for setPermissionRulePack (whose deletes don't fire `saved`). Saves auto-invalidate. */

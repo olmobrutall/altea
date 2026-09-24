@@ -30,7 +30,7 @@ import {
 import { BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { WithConditions, ConditionRule, evaluateConditions, sliceValue, adjustShape } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
-import { section, removeUnlisted, attr, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, groupByRole, attrs, conditionsXml, parseEnum, sectionRows, syncRulesScript, conditionedRules, conditionSymbols, typeReplacementKey, type AuthImportCtx } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 import { setSerializationAuth, type PropertyAccess } from "@altea/altea/data/serializer/graphSerializers";
 import { Serializer } from "@altea/altea/data/serializer";
@@ -579,41 +579,78 @@ export namespace PropertyAuthLogic {
             content: section("Property", ctx.orderedRoleKeys, ctx.roleName, byRole, r => {
                 const conds = conditionsXml(r.conditionRules, v => PropertyAllowed[v], id => condKey.get(String(id)) ?? String(id));
                 return {
-                    ...attrs({ OnType: typeName.get(String(r.resource.rootType.id)) ?? String(r.resource.rootType.id), Resource: r.resource.path, Allowed: PropertyAllowed[r.fallback] }),
+                    // Signum's `Type|path`.
+                    ...attrs({ Resource: (typeName.get(String(r.resource.rootType.id)) ?? String(r.resource.rootType.id)) + "|" + r.resource.path, Allowed: PropertyAllowed[r.fallback] }),
                     ...(conds.length ? { Condition: conds } : {}),
                 };
-            }, e => attr(e, "OnType") + "|" + attr(e, "Resource")), // Signum: `Type|path`
+            }),
         };
     }
 
-    const cloneModel = (m: PropertyWithConditionsModel): PropertyWithConditionsModel => PropertyWithConditionsModel.create({
-        fallback: m.fallback,
-        conditionRules: m.conditionRules.map(cr => PropertyConditionRuleModel.create({ allowed: cr.allowed, typeConditions: [...cr.typeConditions] })),
-    });
+    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<SqlPreCommand | undefined> {
+        // Signum's `Type|path`.
+        const split = (s: string): { type: string; property: string } => ({ type: s.slice(0, s.indexOf("|")), property: s.slice(s.indexOf("|") + 1) });
+        const propertiesReplacementKey = (ctor: Function): string => `AuthRules:${ctor.name} Properties`;
 
-    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<void> {
-        await applyPerType((auth.Properties as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Property", ctx, async (role, typeName, byKey) => {
-            const pack = await getPropertyRulePack(typeName, role.id);
-            for (const rule of pack.rules) {
-                const x = byKey.get(rule.path);
-                rule.allowed = x != null
-                    ? PropertyWithConditionsModel.create({
-                        fallback: parseEnum(PropertyAllowed, x.Allowed),
-                        conditionRules: (x.Condition ?? []).map(c => PropertyConditionRuleModel.create({
-                            allowed: parseEnum(PropertyAllowed, c.Allowed),
-                            typeConditions: condLites(c, ctx).map(l => TypeConditionSymbol.newLite(l.id, l.key)),
-                        })),
-                    })
-                    : cloneModel(rule.allowedBase);
-            }
-            await setPropertyRulePack(pack);
-        }, r => r.Resource);
-        const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
-        if (await removeUnlisted((auth.Properties as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Property", ctx,
-            await table(RulePropertyEntity).toArray() as RulePropertyEntity[],
-            r => (typeName.get(String(r.resource.rootType.id)) ?? String(r.resource.rootType.id)) + "|" + r.resource.path,
-            x => ctx.applyType(x.OnType ?? "") + "|" + x.Resource))
-            invalidate();
+        // A type's paths are rename-resolved against its own routes, asked once per type up front.
+        const groups = new Map<string, Set<string>>();
+        for (const x of sectionRows(auth, "Properties", "Property")) {
+            const pp = split(x.Resource);
+            let set = groups.get(pp.type);
+            if (set == null) groups.set(pp.type, set = new Set());
+            set.add(pp.property);
+        }
+        const routesByType = new Map<Function, Set<string>>();
+        for (const [typeName, properties] of groups) {
+            const ctor = ctx.nameToType.get(ctx.replacements.apply(typeReplacementKey, typeName));
+            if (ctor == null)
+                continue;
+            const paths = new Set(authRoutes(ctor).map(r => r.propertyString()));
+            ctx.replacements.askForReplacements(properties, paths, propertiesReplacementKey(ctor));
+            routesByType.set(ctor, paths);
+        }
+
+        const caches = await TypeLogic.caches();
+        const routes = new Map<string, PropertyRouteEntity>();
+        const rules = conditionedRules<RulePropertyEntity>(PropertyAllowed);
+        return syncRulesScript(auth, ctx, {
+            rootName: "Properties",
+            elementName: "Property",
+            resourceName: PropertyRouteEntity.niceName(),
+            stored: await table(RulePropertyEntity).toArray() as RulePropertyEntity[],
+            storedKey: r => (caches.idToEntity(r.resource.rootType.id)?.cleanName ?? String(r.resource.rootType.id)) + "|" + r.resource.path,
+            // A PropertyRouteEntity row is demand-populated: one no rule named yet is SAVED here, as Signum does.
+            toResource: async s => {
+                const pp = split(s);
+                const typeName = ctx.replacements.apply(typeReplacementKey, pp.type);
+                const ctor = ctx.nameToType.get(typeName);
+                const path = ctor == null ? undefined : ctx.replacements.apply(propertiesReplacementKey(ctor), pp.property);
+                if (ctor == null || path == null || !routesByType.get(ctor)!.has(path)) {
+                    ctx.noteSkipped("Property", s);
+                    return undefined;
+                }
+                const key = typeName + "|" + path;
+                if (!routes.has(key)) {
+                    const route = PropertyRouteLogic.propertyRouteEntitySync(ctx.typeToEntity(ctor), path);
+                    if (route.isNew)
+                        await route.save();
+                    routes.set(key, route);
+                }
+                return key;
+            },
+            resourceText: key => key.slice(key.indexOf("|") + 1), // PropertyRouteEntity.ToString() is its Path
+            create: (role, key, x) => RulePropertyEntity.create({
+                role,
+                resource: routes.get(key)!,
+                fallback: parseEnum(PropertyAllowed, x.Allowed),
+                conditionRules: (x.Condition ?? []).map(xc => RulePropertyConditionEntity.create({
+                    allowed: parseEnum(PropertyAllowed, xc.Allowed),
+                    conditions: conditionSymbols(xc, ctx).map(tc => RulePropertyConditionEntity_Condition.create({ symbol: tc.toLite() })),
+                })),
+            }),
+            allowedComment: rules.allowedComment,
+            update: rules.update,
+        });
     }
 }
 

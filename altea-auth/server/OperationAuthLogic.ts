@@ -20,7 +20,8 @@ import {
 } from "../data/Rules";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
-import { section, removeUnlisted, attr, groupByRole, attrs, conditionsXml, applyPerType, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, groupByRole, attrs, conditionsXml, parseEnum, sectionRows, syncRulesScript, conditionedRules, conditionSymbols, typeReplacementKey, type AuthImportCtx } from "./AuthRulesXml";
+import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
 import type { AuthExportCtx } from "./AuthLogic";
 import { WithConditions, ConditionRule, evaluateConditions, sliceValue } from "./WithConditions";
 import { mergeWithConditions } from "./TypeConditionMerger";
@@ -270,44 +271,61 @@ export namespace OperationAuthLogic {
                 const conds = conditionsXml(r.conditionRules, v => OperationAllowed[v], id => condKey.get(String(id)) ?? String(id));
                 return {
                     ...attrs({
-                        OnType: typeName.get(String(r.type.id)) ?? String(r.type.id),
-                        Resource: opKey.get(String(r.operation.id)) ?? String(r.operation.id),
+                        // Signum's `Operation.Key/Type`.
+                        Resource: (opKey.get(String(r.operation.id)) ?? String(r.operation.id)) + "/" + (typeName.get(String(r.type.id)) ?? String(r.type.id)),
                         Allowed: OperationAllowed[r.fallback],
                     }),
                     ...(conds.length ? { Condition: conds } : {}),
                 };
-            }, e => attr(e, "Resource") + "/" + attr(e, "OnType")), // Signum: `Operation.Key/Type`
+            }),
         };
     }
 
-    const cloneModel = (m: OperationWithConditionsModel): OperationWithConditionsModel => OperationWithConditionsModel.create({
-        fallback: m.fallback,
-        conditionRules: m.conditionRules.map(cr => OperationConditionRuleModel.create({ allowed: cr.allowed, typeConditions: [...cr.typeConditions] })),
-    });
+    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<SqlPreCommand | undefined> {
+        const operationReplacementKey = "AuthRules:OperationSymbol";
+        const symbols = new Map((await SymbolLogic.cache(OperationSymbol)).symbols().map(s => [s.key, s]));
+        // Signum's `Operation.Key/Type`.
+        const allResources = new Set(sectionRows(auth, "Operations", "Operation").map(p => p.Resource));
+        ctx.replacements.askForReplacements(
+            new Set([...allResources].map(a => a.includes("/") ? a.slice(0, a.indexOf("/")) : a)),
+            new Set(symbols.keys()),
+            operationReplacementKey);
+        ctx.replacements.askForReplacements(
+            new Set([...allResources].map(a => a.slice(a.indexOf("/") + 1))),
+            new Set(ctx.nameToType.keys()),
+            typeReplacementKey);
 
-    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<void> {
-        await applyPerType((auth.Operations as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Operation", ctx, async (role, typeName, byKey) => {
-            const pack = await getOperationRulePack(typeName, role.id);
-            for (const rule of pack.rules) {
-                const x = byKey.get(rule.operation.toString());
-                rule.allowed = x != null
-                    ? OperationWithConditionsModel.create({
-                        fallback: parseEnum(OperationAllowed, x.Allowed),
-                        conditionRules: (x.Condition ?? []).map(c => OperationConditionRuleModel.create({
-                            allowed: parseEnum(OperationAllowed, c.Allowed),
-                            typeConditions: condLites(c, ctx).map(l => TypeConditionSymbol.newLite(l.id, l.key)),
-                        })),
-                    })
-                    : cloneModel(rule.allowedBase);
-            }
-            await setOperationRulePack(pack);
-        }, r => r.Resource);
-        const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
-        const opKey = new Map((await SymbolLogic.cache(OperationSymbol)).symbols().map(s => [String(s.id), s.key]));
-        if (await removeUnlisted((auth.Operations as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Operation", ctx,
-            await table(RuleOperationEntity).toArray() as RuleOperationEntity[],
-            r => (opKey.get(String(r.operation.id)) ?? String(r.operation.id)) + "/" + (typeName.get(String(r.type.id)) ?? String(r.type.id)),
-            x => x.Resource + "/" + ctx.applyType(x.OnType ?? "")))
-            invalidate();
+        const caches = await TypeLogic.caches();
+        const opKey = new Map([...symbols.values()].map(s => [String(s.id), s.key]));
+        const rules = conditionedRules<RuleOperationEntity>(OperationAllowed);
+        return syncRulesScript(auth, ctx, {
+            rootName: "Operations",
+            elementName: "Operation",
+            resourceName: "Operation Type",
+            stored: await table(RuleOperationEntity).toArray() as RuleOperationEntity[],
+            storedKey: r => (opKey.get(String(r.operation.id)) ?? String(r.operation.id)) + "/" + (caches.idToEntity(r.type.id)?.cleanName ?? String(r.type.id)),
+            toResource: s => {
+                const operation = symbols.get(ctx.replacements.apply(operationReplacementKey, s.slice(0, s.indexOf("/"))));
+                const typeName = ctx.replacements.apply(typeReplacementKey, s.slice(s.indexOf("/") + 1));
+                const type = ctx.nameToType.get(typeName);
+                if (operation == null || type == null || !OperationLogic.operationsForType(type).some(o => o.key === operation.key)) {
+                    ctx.noteSkipped("Operation", s);
+                    return undefined;
+                }
+                return operation.key + "/" + typeName;
+            },
+            create: (role, key, x) => RuleOperationEntity.create({
+                role,
+                operation: symbols.get(key.slice(0, key.indexOf("/")))!.toLite(),
+                type: ctx.typeToEntity(ctx.nameToType.get(key.slice(key.indexOf("/") + 1))!).toLite(),
+                fallback: parseEnum(OperationAllowed, x.Allowed),
+                conditionRules: (x.Condition ?? []).map(xc => RuleOperationConditionEntity.create({
+                    allowed: parseEnum(OperationAllowed, xc.Allowed),
+                    conditions: conditionSymbols(xc, ctx).map(tc => RuleOperationConditionEntity_Condition.create({ symbol: tc.toLite() })),
+                })),
+            }),
+            allowedComment: rules.allowedComment,
+            update: rules.update,
+        });
     }
 }

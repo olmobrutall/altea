@@ -20,6 +20,7 @@ import { UserEntity, UserState, UserOperation } from "../data/User";
 import { RoleEntity, RoleEntity_InheritsFrom, RoleOperation, MergeStrategy } from "../data/Role";
 import { UserMessage, LoginAuthMessage } from "../data/AuthMessages";
 import type { AuthImportCtx } from "./AuthRulesXml";
+import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
 // NOTE: AuthServer imports back from AuthLogic — a runtime-only cycle (both sides use the other only
 // inside functions, never at module-eval), so ESM resolves it fine. AuthServer is invoked lazily from
 // start() below, guarded by sb.webBuilder.
@@ -404,9 +405,10 @@ export interface AuthExportCtx {
     roleName(key: string): string;
 }
 // An exporter returns its section's name (the XML element, e.g. "Types") + the section content object for
-// the XMLBuilder. An importer reads its section off the parsed `auth` object and applies it.
+// the XMLBuilder. An importer reads its section off the parsed `auth` object and returns the SQL that
+// makes the stored rules match it (Signum's ImportFromXml), or undefined when they already do.
 export type AuthXmlExporter = (ctx: AuthExportCtx) => Promise<{ name: string; content: unknown }>;
-export type AuthXmlImporter = (auth: Record<string, unknown>, ctx: AuthImportCtx) => Promise<void>;
+export type AuthXmlImporter = (auth: Record<string, unknown>, ctx: AuthImportCtx) => Promise<SqlPreCommand | undefined>;
 const exporterList: AuthXmlExporter[] = [];
 const importerList: AuthXmlImporter[] = [];
 

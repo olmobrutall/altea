@@ -237,6 +237,11 @@ export class Replacements {
         this.map.set(replacementsKey, value);
     }
 
+    // Signum's `Values.Any(a => a.Any())`: whether a rename was recorded under any key.
+    hasReplacements(): boolean {
+        return [...this.map.values()].some(m => m.size > 0);
+    }
+
     getOrCreate(replacementsKey: string): Map<string, string> {
         let d = this.map.get(replacementsKey);
         if (d == null) {

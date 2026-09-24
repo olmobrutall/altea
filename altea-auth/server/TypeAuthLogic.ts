@@ -37,7 +37,9 @@ import { mergeTypeConditions } from "./TypeConditionMerger";
 import { buildAuthFilter, authFilterLambda, rebasePartFilter, conditionValueLambda } from "./TypeConditionAlgebra";
 import { FilterQueryArgs, findQuerySources, querySourceCtor } from "@altea/altea/server/schema/filterQueryArgs";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
-import { section, removeUnlisted, groupByRole, attrs, conditionsXml, condLites, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, groupByRole, attrs, conditionsXml, parseEnum, sectionRows, syncRulesScript, conditionedRules, conditionSymbols, typeReplacementKey, typeConditionReplacementKey, type AuthImportCtx } from "./AuthRulesXml";
+import { SafeConsole } from "@altea/altea/server/safeConsole";
+import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
 import type { AuthExportCtx } from "./AuthLogic";
 
 // Port of Signum.Authorization's Rules/TypeAuthLogic.cs + .Conditions.cs — see port/Auth.md.
@@ -726,36 +728,51 @@ export namespace TypeAuthLogic {
         };
     }
 
-    // Deep-clone a WithConditionsModel (resetting a rule to its base must not alias the base graph).
-    const cloneModel = (m: WithConditionsModel): WithConditionsModel => WithConditionsModel.create({
-        fallback: m.fallback,
-        conditionRules: m.conditionRules.map(cr => ConditionRuleModel.create({ allowed: cr.allowed, typeConditions: [...cr.typeConditions] })),
-    });
+    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<SqlPreCommand | undefined> {
+        const rows = sectionRows(auth, "Types", "Type");
+        ctx.replacements.askForReplacements(
+            new Set(rows.map(x => x.Resource)),
+            new Set([...ctx.nameToType].filter(([, ctor]) => !isEnumEntityType(ctor)).map(([name]) => name)),
+            typeReplacementKey);
+        ctx.replacements.askForReplacements(
+            new Set(rows.flatMap(x => (x.Condition ?? []).flatMap(c => c.Name.split(",").map(n => n.trim()).filter(Boolean)))),
+            new Set(ctx.typeConditions.keys()),
+            typeConditionReplacementKey);
 
-    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<void> {
-        for (const rb of (auth.Types as { Role?: XmlRoleBlock[] } | undefined)?.Role ?? []) {
-            const role = ctx.noteRole(rb.Name);
-            if (role == null) continue;
-            const byResource = new Map((rb.Type ?? []).map(r => [ctx.applyType(r.Resource), r]));
-            const pack = await getTypeRulePack(role.id);
-            for (const rule of pack.rules) {
-                const x = byResource.get(rule.resource.toString());
-                rule.allowed = x != null
-                    ? WithConditionsModel.create({
-                        fallback: parseEnum(TypeAllowed, x.Allowed),
-                        conditionRules: (x.Condition ?? []).map(c => ConditionRuleModel.create({
-                            allowed: parseEnum(TypeAllowed, c.Allowed),
-                            typeConditions: condLites(c, ctx).map(l => TypeConditionSymbol.newLite(l.id, l.key)),
-                        })),
-                    })
-                    : cloneModel(rule.allowedBase);
-            }
-            await setTypeRulePack(pack);
-        }
-        const typeName = new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [String(t.id), t.cleanName]));
-        if (await removeUnlisted((auth.Types as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Type", ctx,
-            await table(RuleTypeEntity).toArray() as RuleTypeEntity[],
-            r => typeName.get(String(r.resource.id)) ?? String(r.resource.id), x => ctx.applyType(x.Resource)))
-            invalidate();
+        const caches = await TypeLogic.caches();
+        const rules = conditionedRules<RuleTypeEntity>(TypeAllowed);
+        return syncRulesScript(auth, ctx, {
+            rootName: "Types",
+            elementName: "Type",
+            resourceName: TypeEntity.niceName(),
+            stored: await table(RuleTypeEntity).toArray() as RuleTypeEntity[],
+            storedKey: r => caches.idToEntity(r.resource.id)?.cleanName ?? String(r.resource.id),
+            toResource: s => {
+                const name = ctx.replacements.apply(typeReplacementKey, s);
+                if (!ctx.nameToType.has(name)) {
+                    ctx.noteSkipped("Type", s);
+                    return undefined;
+                }
+                return name;
+            },
+            create: async (role, key, x) => {
+                const ctor = ctx.nameToType.get(key)!;
+                const conditionRules: RuleTypeConditionEntity[] = [];
+                for (const xc of x.Condition ?? []) {
+                    const tcs: TypeConditionSymbol[] = [];
+                    for (const tc of conditionSymbols(xc, ctx))
+                        if (TypeConditionLogic.isDefined(ctor, tc) || !await SafeConsole.ask(`Type condition ${tc.key} is not defined. Remove it?`))
+                            tcs.push(tc);
+                    if (tcs.length > 0)
+                        conditionRules.push(RuleTypeConditionEntity.create({
+                            allowed: parseEnum(TypeAllowed, xc.Allowed),
+                            conditions: tcs.map(tc => RuleTypeConditionEntity_Condition.create({ symbol: tc.toLite() })),
+                        }));
+                }
+                return RuleTypeEntity.create({ role, resource: ctx.typeToEntity(ctor).toLite(), fallback: parseEnum(TypeAllowed, x.Allowed), conditionRules });
+            },
+            allowedComment: rules.allowedComment,
+            update: rules.update,
+        });
     }
 }

@@ -166,6 +166,17 @@ export class SqlPreCommandSimple extends SqlPreCommand {
         });
     }
 
+    // Signum's AddComment: ` -- comment` at the end of the statement's FIRST line (a copy — the command is
+    // immutable here).
+    addComment(comment: string | undefined): SqlPreCommandSimple {
+        if (comment == null || comment === "")
+            return this;
+        const index = this.sql.indexOf("\n");
+        return new SqlPreCommandSimple(
+            index === -1 ? `${this.sql} -- ${comment}` : `${this.sql.slice(0, index)} -- ${comment}${this.sql.slice(index)}`,
+            this.parameters);
+    }
+
     // Positional parameter values, in declaration order (or undefined when none),
     // as expected by Connector.executeNonQuery / executeQuery.
     paramValues(): unknown[] | undefined {

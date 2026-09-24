@@ -17,9 +17,9 @@ import { MergeStrategy, RoleEntity } from "../data/Role";
 import { RuleQueryEntity, RuleTypeEntity, QueryRulePack, QueryAllowedRule, QueryAllowed, TypeAllowedBasic } from "../data/Rules";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { maxBound } from "./WithConditions";
-import { section, removeUnlisted, groupByRole, attrs, applyPerType, parseEnum, type AuthImportCtx, type XmlRoleBlock } from "./AuthRulesXml";
+import { section, groupByRole, attrs, parseEnum, parseBool, enumName, sectionRows, syncRulesScript, updateAllowed, type AuthImportCtx } from "./AuthRulesXml";
+import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
 import type { AuthExportCtx } from "./AuthLogic";
-import { cleanTypeName } from "@altea/altea/data/registration";
 
 // Port of Signum.Authorization's Rules/QueryAuthLogic.cs — see port/Auth.md.
 //
@@ -238,11 +238,6 @@ export namespace QueryAuthLogic {
     // ---- AuthRules XML -----------------------------------------------------------------------
     async function exportXml(ctx: AuthExportCtx): Promise<{ name: string; content: unknown }> {
         const queryKey = new Map((await table(QueryEntity).toArray() as QueryEntity[]).map(q => [String(q.id), q.key]));
-        const onType = (qk: string): string => {
-            const qn = QueryLogic.tryGetQueryNameByKey(qk);
-            const ctor = qn != null ? QueryLogic.queries.tryGetCore(qn)?.getRootType() : undefined;
-            return ctor != null ? cleanTypeName(ctor) : "";
-        };
         const caches = await TypeLogic.caches();
         const rootTid = (qk: string): PrimaryKey | undefined => {
             const qn = QueryLogic.tryGetQueryNameByKey(qk);
@@ -258,24 +253,41 @@ export namespace QueryAuthLogic {
             name: "Queries",
             content: section("Query", ctx.orderedRoleKeys, ctx.roleName, byRole, r => {
                 const qk = queryKey.get(String(r.resource.id)) ?? String(r.resource.id);
-                return attrs({ OnType: onType(qk), Resource: qk, Allowed: QueryAllowed[r.allowed] });
+                return attrs({ Resource: qk, Allowed: QueryAllowed[r.allowed] });
             }),
         };
     }
 
-    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<void> {
-        await applyPerType((auth.Queries as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Query", ctx, async (role, typeName, byKey) => {
-            const pack = await getQueryRulePack(typeName, role.id);
-            for (const rule of pack.rules) {
-                const x = byKey.get(rule.resource.toString());
-                rule.allowed = x != null ? parseEnum(QueryAllowed, x.Allowed) : rule.allowedBase;
-            }
-            await setQueryRulePack(pack);
-        }, r => r.Resource);
+    async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<SqlPreCommand | undefined> {
+        const replacementKey = "AuthRules:QueryEntity";
+        // Signum's QueryLogic.QueryNames: the registered queries (a row whose query is gone is not one).
+        const queries = (await table(QueryEntity).toArray() as QueryEntity[]).filter(q => QueryLogic.tryGetQueryNameByKey(q.key) != null);
+        const byKey = new Map(queries.map(q => [q.key, q]));
+        ctx.replacements.askForReplacements(
+            new Set(sectionRows(auth, "Queries", "Query").map(p => p.Resource)),
+            new Set(byKey.keys()),
+            replacementKey);
+
         const queryKey = new Map((await table(QueryEntity).toArray() as QueryEntity[]).map(q => [String(q.id), q.key]));
-        if (await removeUnlisted((auth.Queries as { Role?: XmlRoleBlock[] } | undefined)?.Role, "Query", ctx,
-            await table(RuleQueryEntity).toArray() as RuleQueryEntity[],
-            r => queryKey.get(String(r.resource.id)) ?? String(r.resource.id), x => x.Resource))
-            invalidate();
+        return syncRulesScript(auth, ctx, {
+            rootName: "Queries",
+            elementName: "Query",
+            resourceName: QueryEntity.niceName(),
+            stored: await table(RuleQueryEntity).toArray() as RuleQueryEntity[],
+            storedKey: r => queryKey.get(String(r.resource.id)) ?? String(r.resource.id),
+            toResource: s => {
+                const q = byKey.get(ctx.replacements.apply(replacementKey, s));
+                if (q == null) ctx.noteSkipped("Query", s);
+                return q?.key;
+            },
+            create: (role, key, x) => RuleQueryEntity.create({
+                role,
+                resource: byKey.get(key)!.toLite(),
+                // A bool is read for backwards compatibility.
+                allowed: x.Allowed.trim() in QueryAllowed ? parseEnum(QueryAllowed, x.Allowed) : (parseBool(x.Allowed) ? QueryAllowed.Allow : QueryAllowed.None),
+            }),
+            allowedComment: r => enumName(QueryAllowed, r.allowed),
+            update: updateAllowed(QueryAllowed),
+        });
     }
 }

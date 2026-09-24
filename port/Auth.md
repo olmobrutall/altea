@@ -268,19 +268,29 @@ bases collapse into concrete per-dimension models.
 
 ## AuthRules XML
 
-One `<Auth>` document: a `<Roles>` section the orchestrator owns plus one section per dimension, each
-dimension registering its own block through `AuthLogic.registerXmlExporter` / `registerXmlImporter` —
-Signum's `ExportToXml` / `ImportFromXml` multicast events. `AuthRulesXml` holds the mechanical parts (role
-grouping, section assembly, the per-type overlay loop, enum parsing) so they are not repeated five times.
+A port of the AuthRules half of Signum's `AuthLogic` (`ExportRules`, `ImportRulesScript`, `LoadRoles`,
+`SynchronizeRoles`, `AutomaticImportAuthRules`, `ImportExportAuthRules`) and of each cache's
+`ExportXml` / `ImportXml`, in `AuthImportExport` and `AuthRulesXml`. The file is Signum's: an operation row
+is `Resource="Operation.Key/Type"`, a property row `Resource="Type|path"`, so a Signum export imports as is.
 
-Divergences from Signum's exact wire format:
+The import builds a script and writes nothing (`importRulesScript`): the role graph must already match —
+every `<Roles>` role present, not renamed, with the same merge strategy, trivial-merge flag and `Contains`,
+or `InvalidRoleGraphException` — and each section then syncs its stored rules to the file
+(`syncRulesScript`, Signum's `AuthCache.ImportXmlInternal`), a resource that no longer resolves being
+dropped. `synchronizeRoles` makes the role graph match. A rule with condition rows is inserted as one
+statement whose new ids live in script variables (`insertSqlSyncGraph`, Signum's InsertSqlSync with its
+MLists); a property route no rule named yet is saved while the script is built, as in Signum.
 
-- Operation / Query / Property rows carry an `OnType` attribute, because those rules are keyed by (type, …).
-- Property rows use `Resource` = the PropertyString PATH. (The source used to gloss this as "no
-  PropertyRouteEntity"; the table is ported and `PropertyAuthLogic` resolves through
-  `propertyRouteEntitySync` — the XML simply keys by the path, as Signum's does.)
-- Import APPLIES directly, in the caller's transaction, through each dimension's verified `set*RulePack`,
-  rather than emitting a review SqlPreCommand. Roles are NOT created — matched by name, rename-aware.
+Divergences:
+
+- The scripts have no `use <database>` line: they run on the connection that executes them.
+- A dropped file row is listed in the script as a `-- Skipped …` comment.
+- `automaticImportAuthRules` does not re-run `Schema.initialize()` (every caller has), and resets the
+  caches after executing, as `ImportAuthRules` does.
+- `ImportExportAuthRules` has no `tmr` (the trivial-merge refactor), and export does not offer to copy the
+  file into the source tree: the terminal writes it there.
+- A role removed by a non-interactive `synchronizeRoles` has its users moved one save at a time (altea has
+  no `UnsafeUpdate`).
 
 ## Reflection
 

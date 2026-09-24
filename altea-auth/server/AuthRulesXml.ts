@@ -1,12 +1,17 @@
-import type { PrimaryKey } from "@altea/altea/data/entity";
+import type { PrimaryKey, Type, Entity } from "@altea/altea/data/entity";
+import type { Lite } from "@altea/altea/data/lite";
 import type { RoleEntity } from "../data/Role";
-import type { Replacements } from "@altea/altea/server/sync/synchronizer";
-import { TypeConditionSymbol } from "../data/Rules";
+import { Synchronizer, type Replacements } from "@altea/altea/server/sync/synchronizer";
+import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandConcat, Spacing, combineCommands } from "@altea/altea/server/sync/sqlPreCommand";
+import type { TypeEntity } from "@altea/altea/data/typeEntity";
+import { Connector } from "@altea/altea/server/connection/connector";
+import { updateSqlSync, insertSqlSyncGraph, deleteSqlSyncGraph, insertOwnedRowsSqlSync } from "@altea/altea/server/save";
+import { TypeConditionSymbol, type RuleEntity } from "../data/Rules";
 
 // Shared helpers for the AuthRules XML import/export, used by each dimension's `exportXml` / `importXml`
 // — see port/Auth.md. The per-dimension logics own their section's
-// row shape + how it applies; this module owns the mechanical bits (role grouping, section assembly, the
-// per-TYPE overlay loop, enum parsing) so they aren't repeated five times.
+// row shape + how it maps to a rule; this module owns the mechanical bits (role grouping, section assembly,
+// the per-role sync script, enum parsing) so they aren't repeated five times.
 
 // fast-xml-parser XMLBuilder attribute prefix. The BUILDER marks attributes with this in the JS object; the
 // PARSER reads them back as plain keys (attributeNamePrefix ""). The XML on the wire is identical either way.
@@ -39,7 +44,7 @@ export function groupByRole<T extends { role: { key(): string } }>(rows: T[]): M
 // export filter (`where !allowed.Equals(allowedBase)`). A stored rule can stop mattering without being
 // touched (its type rule changed, or a parent role's did) and the editor does not revisit the other
 // dimensions when that happens: the export leaves it out, and importing the file removes it
-// ({@link removeUnlisted}).
+// ({@link syncRulesScript}).
 //
 // Each role's rows are SORTED by `sortKey` — Signum's `orderby resource`, over the same resource string
 // (`Resource`; a property's `Type|path`, an operation's `Key/Type`) — so the file is diffable: without it
@@ -86,52 +91,37 @@ export function conditionsXml(
 
 // The parsed shapes (XMLParser with attributeNamePrefix "", every element name in `isArray`).
 export interface XmlCondition { Name: string; Allowed: string; }
-export interface XmlRow { Resource: string; Allowed: string; OnType?: string; Condition?: XmlCondition[]; }
+export interface XmlRow { Resource: string; Allowed: string; Condition?: XmlCondition[]; }
 export interface XmlRoleBlock { Name: string; Type?: XmlRow[]; Permission?: XmlRow[]; Query?: XmlRow[]; Operation?: XmlRow[]; Property?: XmlRow[]; }
 
-/**
- * Signum's import is a full SYNC of each dimension (Synchronizer over the stored rules): a stored rule the
- * file does not list is deleted, and a role missing from the section loses all its rules there. The
- * per-type importers only overlay the (role, type) pairs the file mentions, so this runs after them to
- * delete the rest — which is what makes "export, then import" the cleanup of rules that became redundant.
- *
- * `rowKey` / `xmlKey` must spell a rule the same way from both sides (after renames). Returns whether
- * anything was deleted, so the caller can invalidate its cache.
- */
-export async function removeUnlisted<R extends { role: { key(): string }; delete(): Promise<unknown> }>(
-    roleBlocks: XmlRoleBlock[] | undefined,
-    elem: "Type" | "Permission" | "Query" | "Operation" | "Property",
-    ctx: AuthImportCtx,
-    stored: R[],
-    rowKey: (row: R) => string,
-    xmlKey: (x: XmlRow) => string,
-): Promise<boolean> {
-    const listed = new Map<string, Set<string>>();
-    for (const rb of roleBlocks ?? []) {
-        const role = ctx.noteRole(rb.Name);
-        if (role == null) continue;
-        const keys = listed.get(role.toLite().key()) ?? new Set<string>();
-        for (const x of rb[elem] ?? []) keys.add(xmlKey(x));
-        listed.set(role.toLite().key(), keys);
-    }
-    let deleted = false;
-    for (const row of stored)
-        if (!listed.get(row.role.key())?.has(rowKey(row))) {
-            await row.delete();
-            deleted = true;
-        }
-    return deleted;
-}
+export type XmlElem = "Type" | "Permission" | "Query" | "Operation" | "Property";
+
+// Signum's replacement keys for the resources more than one section names.
+export const typeReplacementKey = "AuthRules:TypeEntity";
+export const typeConditionReplacementKey = "AuthRules:TypeConditionSymbol";
 
 export interface AuthImportCtx {
-    /** The current-DB RoleEntity for an XML role name (rename-resolved), recording applied/skipped. */
-    noteRole(xmlName: string): RoleEntity | undefined;
-    /** Rename-apply a type clean-name / a condition-symbol key. */
-    applyType(xmlName: string): string;
-    applyCond(xmlName: string): string;
-    /** Registered TypeConditionSymbols by key (post-rename lookup). */
-    condSymByKey: Map<string, TypeConditionSymbol>;
+    /** File role name → database role, after the role renames (Signum's `roles`). */
+    roles: Map<string, Lite<RoleEntity>>;
     replacements: Replacements;
+    /** Signum's TypeLogic.NameToType: the model types that have a TypeEntity row, by clean name. */
+    nameToType: Map<string, Function>;
+    /** Signum's TypeLogic.TypeToEntity. */
+    typeToEntity(ctor: Function): TypeEntity;
+    /** The TypeConditionSymbols, by key. */
+    typeConditions: Map<string, TypeConditionSymbol>;
+    /** A file row dropped because its resource no longer resolves — listed as a `-- Skipped` line. */
+    noteSkipped(kind: string, resource: string): void;
+}
+
+/** The `<Role>` blocks of one section (`root.Element(rootName).Elements("Role")`). */
+export function roleBlocks(auth: Record<string, unknown>, rootName: string): XmlRoleBlock[] {
+    return (auth[rootName] as { Role?: XmlRoleBlock[] } | undefined)?.Role ?? [];
+}
+
+/** Every row of one element across a section's role blocks. */
+export function sectionRows(auth: Record<string, unknown>, rootName: string, elem: XmlElem): XmlRow[] {
+    return roleBlocks(auth, rootName).flatMap(rb => rb[elem] ?? []);
 }
 
 export function parseEnum<E extends Record<string, string | number>>(enumObj: E, name: string): E[keyof E] {
@@ -141,41 +131,156 @@ export function parseEnum<E extends Record<string, string | number>>(enumObj: E,
     return v as E[keyof E];
 }
 
+/** An enum value as its member name, whichever of the two a rule holds. */
+export function enumName(enumObj: Record<string, string | number>, value: unknown): string {
+    return typeof value === "number" ? String(enumObj[value]) : String(value);
+}
+
+/** .NET's bool.Parse. */
 export function parseBool(s: string): boolean {
-    return s.trim().toLowerCase() === "true";
+    const t = s.trim().toLowerCase();
+    if (t !== "true" && t !== "false")
+        throw new Error(`Import: '${s}' is not a valid Boolean`);
+    return t === "true";
 }
 
-// Resolve a `<Condition Name="a, b">` to its symbol lites (rename-aware).
-export function condLites(c: XmlCondition, ctx: AuthImportCtx): { id: PrimaryKey; key: string }[] {
-    return c.Name.split(",").map(s => s.trim()).filter(Boolean).map(n => {
-        const s = ctx.condSymByKey.get(ctx.applyCond(n));
-        if (s == null) throw new Error(`Import: TypeConditionSymbol '${n}' not found (after rename)`);
-        return { id: s.id, key: s.key };
-    });
+/** .NET's bool.ToString(). */
+export const boolText = (b: boolean): string => b ? "True" : "False";
+
+/** A `<Condition Name="a, b">`'s symbols, rename-applied; a name that is no symbol is dropped (Signum's TryToSymbol + NotNull). */
+export function conditionSymbols(c: XmlCondition, ctx: AuthImportCtx): TypeConditionSymbol[] {
+    return c.Name.split(",").map(s => s.trim()).filter(Boolean)
+        .map(n => ctx.typeConditions.get(ctx.replacements.apply(typeConditionReplacementKey, n)))
+        .filter((s): s is TypeConditionSymbol => s != null);
 }
 
-// Apply a per-TYPE dimension section (Query / Operation / Property): for each role, group its rows by target
-// type (the `OnType` attr, rename-applied) and by the row's identity key, then hand each type's rows to
-// `apply` (which fetches the pack, overlays, and saves) — the per-type set-rules shape.
-export async function applyPerType(
-    roleBlocks: XmlRoleBlock[] | undefined,
-    elem: "Query" | "Operation" | "Property",
-    ctx: AuthImportCtx,
-    apply: (role: RoleEntity, typeName: string, byKey: Map<string, XmlRow>) => Promise<void>,
-    identity: (r: XmlRow) => string,
-): Promise<void> {
-    for (const rb of roleBlocks ?? []) {
-        const role = ctx.noteRole(rb.Name);
-        if (role == null) continue;
-        const rows = rb[elem] ?? [];
-        const byType = new Map<string, Map<string, XmlRow>>();
-        for (const r of rows) {
-            const tn = ctx.applyType(r.OnType ?? r.Resource);
-            let m = byType.get(tn);
-            if (m == null) { m = new Map(); byType.set(tn, m); }
-            m.set(identity(r), r);
-        }
-        for (const [typeName, byKey] of byType)
-            await apply(role, typeName, byKey);
+// ---- The import script -------------------------------------------------------------------------
+
+export interface RuleSync<R extends RuleEntity> {
+    rootName: string;
+    elementName: XmlElem;
+    /** The resource's nice name, for the comments (Signum's `typeof(R).NiceName()`). */
+    resourceName: string;
+    stored: R[];
+    /** A stored rule's resource key (Signum's `ToKey(rt.Resource)`). */
+    storedKey(rule: R): string;
+    /** Signum's `toResource`: the file's `Resource` as that key, or undefined when it no longer resolves. */
+    toResource(resource: string): string | undefined | Promise<string | undefined>;
+    /** The resource as the comments print it (its `ToString()`); the key by default. */
+    resourceText?(key: string): string;
+    /** A new rule of `role` for the resource, holding the row's allowance (Signum's parseAllowed + SetRuleAllowed). */
+    create(role: Lite<RoleEntity>, key: string, x: XmlRow): R | Promise<R>;
+    /** Signum's `AllowedComment`. */
+    allowedComment(rule: R): string;
+    /** Signum's SetRuleAllowed + UpdateSqlSync: the SQL that gives `current` the allowance of `should`, or
+     *  undefined when it already has it. */
+    update(current: R, should: R): SqlPreCommand | undefined;
+}
+
+/**
+ * Signum's AuthCache.ImportXmlInternal: the script that makes one dimension's stored rules what the file
+ * says — a Synchronizer over role → resource → rule. A stored rule the file does not list is deleted and a
+ * role missing from the section loses all its rules there; a resource that no longer resolves is dropped.
+ * Rules are compared as stored: the export already left out the ones equal to what the role inherits.
+ */
+export async function syncRulesScript<R extends RuleEntity>(auth: Record<string, unknown>, ctx: AuthImportCtx, spec: RuleSync<R>): Promise<SqlPreCommand | undefined> {
+    const current = new Map<string, R[]>();
+    for (const rule of spec.stored) {
+        const list = current.get(rule.role.key());
+        if (list == null) current.set(rule.role.key(), [rule]); else list.push(rule);
     }
+
+    const should = new Map<string, { role: Lite<RoleEntity>; rules: Map<string, R> }>();
+    for (const rb of roleBlocks(auth, spec.rootName)) {
+        const role = ctx.roles.get(rb.Name);
+        if (role == null)
+            throw new Error(`Key '${rb.Name}' not found in the roles of the file`);
+        const rules = new Map<string, R>();
+        for (const x of rb[spec.elementName] ?? []) {
+            const key = await spec.toResource(x.Resource);
+            if (key == null) continue;
+            if (rules.has(key))
+                throw new Error(`There are some repeated ${spec.resourceName} rules for ${role}: ${key}`);
+            rules.set(key, await spec.create(role, key, x));
+        }
+        should.set(role.key(), { role, rules });
+    }
+
+    const text = (key: string): string => spec.resourceText?.(key) ?? key;
+    const comment = (role: Lite<RoleEntity>, key: string, allowed: string): string =>
+        `${spec.resourceName} ${text(key)} for ${role.toString()} (${allowed})`;
+    const insert = (role: Lite<RoleEntity>, key: string, rule: R): SqlPreCommand =>
+        addComment(insertSqlSyncGraph(rule), comment(role, key, spec.allowedComment(rule)))!;
+
+    return Synchronizer.synchronizeScript(Spacing.Double, should, current,
+        (_role, s) => combineCommands(Spacing.Simple, [...s.rules].map(([key, rule]) => insert(s.role, key, rule))),
+        (_role, rules) => combineCommands(Spacing.Simple, rules.map(rule => deleteSqlSyncGraph(rule))),
+        (_role, s, rules) => Synchronizer.synchronizeScript(Spacing.Simple, s.rules, new Map(rules.map(r => [spec.storedKey(r), r])),
+            (key, rule) => insert(s.role, key, rule),
+            (key, rule) => addComment(deleteSqlSyncGraph(rule), comment(s.role, key, spec.allowedComment(rule))),
+            (key, sh, rule) => {
+                const from = spec.allowedComment(rule);
+                return addComment(spec.update(rule, sh), `${spec.resourceName} ${text(key)} for ${s.role.toString()} (${from} -> ${spec.allowedComment(sh)})`);
+            }));
+}
+
+/** Signum's AddComment on the first statement of a command. */
+function addComment(command: SqlPreCommand | undefined, comment: string): SqlPreCommand | undefined {
+    if (command instanceof SqlPreCommandSimple)
+        return command.addComment(comment);
+    if (command instanceof SqlPreCommandConcat && command.commands.length > 0)
+        return new SqlPreCommandConcat(command.spacing, [addComment(command.commands[0], comment)!, ...command.commands.slice(1)]);
+    return command;
+}
+
+/** `update` for a rule holding a single value (`allowed`, an enum read through `enumObj` when given). */
+export function updateAllowed(enumObj?: Record<string, string | number>): <R extends RuleEntity & { allowed: unknown }>(current: R, should: R) => SqlPreCommand | undefined {
+    const text = (v: unknown): string => enumObj != null ? enumName(enumObj, v) : String(v);
+    return <R extends RuleEntity & { allowed: unknown }>(current: R, should: R): SqlPreCommand | undefined => {
+        if (text(current.allowed) === text(should.allowed))
+            return undefined;
+        current.allowed = should.allowed;
+        return updateSqlSync(Connector.current().schema.table(current.constructor as Type<R>), current);
+    };
+}
+
+// The shape the Type / Operation / Property rules share: a fallback plus ordered, AND-ed condition rows.
+export interface ConditionedRule extends RuleEntity {
+    fallback: unknown;
+    conditionRules: { rowOrder: number; allowed: unknown; conditions: { symbol: Lite<TypeConditionSymbol> }[] }[];
+}
+
+/** `allowedComment` / `update` for a conditioned rule, its allowances read through `enumObj`. */
+export function conditionedRules<R extends ConditionedRule>(enumObj: Record<string, string | number>): {
+    allowedComment(rule: R): string;
+    update(current: R, should: R): SqlPreCommand | undefined;
+} {
+    // A stored rule's rows come back in table order; the evaluation order is `rowOrder`.
+    const rowsKey = (rule: ConditionedRule): string => (rule.id == null ? rule.conditionRules : rule.conditionRules.orderBy(a => a.rowOrder))
+        .map(cr => `${cr.conditions.map(c => String(c.symbol.id)).orderBy(k => k).join("&")}:${enumName(enumObj, cr.allowed)}`)
+        .join(";");
+    const fallback = (rule: ConditionedRule): string => enumName(enumObj, rule.fallback);
+    return {
+        // Signum's AllowedComment for a WithConditions.
+        allowedComment(rule: R): string {
+            return rule.conditionRules.length === 0 ? fallback(rule) : `${fallback(rule)} + ${rule.conditionRules.length} conditions`;
+        },
+        update(current: R, should: R): SqlPreCommand | undefined {
+            const sameRows = rowsKey(current) === rowsKey(should);
+            const sameFallback = fallback(current) === fallback(should);
+            if (sameRows && sameFallback)
+                return undefined;
+            let update: SqlPreCommand | undefined;
+            if (!sameFallback) {
+                current.fallback = should.fallback;
+                update = updateSqlSync(Connector.current().schema.table(current.constructor as Type<R>), current);
+            }
+            if (sameRows)
+                return update;
+            // The condition rows are REPLACED, as Signum rewrites the MList: the stored ones go, the file's go in.
+            const removed = combineCommands(Spacing.Simple, current.conditionRules.map(cr => deleteSqlSyncGraph(cr as unknown as Entity)));
+            current.conditionRules = should.conditionRules;
+            return SqlPreCommand.combine(Spacing.Simple, update, removed, insertOwnedRowsSqlSync(current));
+        },
+    };
 }

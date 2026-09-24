@@ -1,4 +1,4 @@
-import { Entity } from '../data/entity';
+import { Entity, EmbeddedEntity } from '../data/entity';
 import type { Type, PrimaryKey, BaseEntity } from '../data/entity';
 import { TypeLogic, type TypeCaches } from './typeLogic';
 import { getTypeInfo } from '../data/reflection';
@@ -211,6 +211,118 @@ export function deleteSqlSync(table: Table, entity: Entity): SqlPreCommand | und
         [{ name: "p0", value: entity.id }]);
     return SqlPreCommand.combine(Spacing.Simple, pre, main);
 }
+
+// ---- Synchronization SQL for an entity WITH its owned rows ------------------
+//
+// Signum's Table.InsertSqlSync / DeleteSqlSync write the entity's MLists too; here those are the @part
+// rows of its `T[]` fields, each in its own table pointing back at the owner. A new owner's id is
+// assigned by the database, so when its rows need it the id is captured in a script VARIABLE (SQL
+// Server `DECLARE` + SCOPE_IDENTITY(), PostgreSQL a `DO` block with `RETURNING … INTO`) — one statement
+// with its values inlined, which runs from a saved .sql file exactly as printed.
+
+let syncVariableCounter = 0;
+
+/**
+ * INSERT `entity` and, recursively, its owned rows (back reference and row order wired as the saver
+ * does). `ids` gives the SQL expression that stands for a REFERENCED entity with no id yet — a row
+ * inserted by another statement of the same script, as a natural-key subquery, say. Only direct
+ * references (FieldReference) are resolved through it; any other reference to a new entity throws.
+ */
+export function insertSqlSyncGraph(entity: Entity, ids: Map<Entity, string> = new Map()): SqlPreCommandSimple {
+    const connector = Connector.current();
+    const sb = connector.sqlBuilder;
+    const declarations: string[] = [];
+    const statements: string[] = [];
+
+    const insertRow = (row: Entity): void => {
+        const table = connector.schema.table(row.constructor as Type<Entity>);
+        const children = wireOwnedRows(row);
+
+        const assignments = collectAssignments(table, row);
+        if (row.id != null)
+            assignments.unshift({ column: table.primaryKey.column, value: row.id });
+        const raw = new Map<IColumn, string>();
+        for (const ef of Object.values(table.fields)) {
+            const value = ef.getter(row);
+            const target = value instanceof Lite ? value.entityOrNull : value;
+            if (!(target instanceof Entity) || target.id != null)
+                continue;
+            const expression = ids.get(target);
+            if (expression == null || !(ef.field instanceof FieldReference))
+                throw new Error(`insertSqlSyncGraph: ${rawName(table)} references a new ${target.constructor.name} the script has no id for.`);
+            raw.set(ef.field.column, expression);
+        }
+
+        const params = assignments.filter(a => !raw.has(a.column));
+        const cols = assignments.map(a => sb.sqlEscape(a.column.name)).join(', ');
+        const values = assignments.map(a => raw.get(a.column) ?? placeholder(sb.isPostgres, params.indexOf(a))).join(', ');
+        let sql = new SqlPreCommandSimple(`INSERT INTO ${sb.objectName(table.name)} (${cols})\nVALUES (${values})`, namedParameters(params)).plainSql();
+
+        if (row.id == null && children.length > 0) {
+            const variable = (sb.isPostgres ? "v" : "@v") + (++syncVariableCounter) + "_" + table.name.name;
+            declarations.push(`${variable} ${sb.getColumnType(table.primaryKey.column)}`);
+            ids.set(row, variable);
+            sql = sb.isPostgres
+                ? `${sql}\nRETURNING ${sb.sqlEscape(table.primaryKey.column.name)} INTO ${variable};`
+                : `${sql};\nSET ${variable} = SCOPE_IDENTITY();`;
+        } else {
+            sql += ";";
+        }
+        statements.push(sql);
+        children.forEach(insertRow);
+    };
+    insertRow(entity);
+
+    if (declarations.length === 0)
+        return new SqlPreCommandSimple(statements.join("\n"));
+    return new SqlPreCommandSimple(sb.isPostgres
+        ? `DO $sync$\nDECLARE ${declarations.join("; ")};\nBEGIN\n${statements.join("\n")}\nEND $sync$;`
+        : `DECLARE ${declarations.join(", ")};\n${statements.join("\n")}`);
+}
+
+/** INSERT the owned rows of an owner that is already in the database (e.g. after replacing a collection). */
+export function insertOwnedRowsSqlSync(owner: Entity): SqlPreCommand | undefined {
+    if (owner.id == null)
+        throw new Error("insertOwnedRowsSqlSync: the owner has no id — use insertSqlSyncGraph on it instead.");
+    return SqlPreCommand.combine(Spacing.Simple, ...wireOwnedRows(owner).map(r => insertSqlSyncGraph(r)));
+}
+
+/** DELETE `entity` and its owned rows (as loaded on it), deepest first — the back references have no cascade. */
+export function deleteSqlSyncGraph(entity: Entity): SqlPreCommand | undefined {
+    const table = Connector.current().schema.table(entity.constructor as Type<Entity>);
+    return SqlPreCommand.combine(Spacing.Simple,
+        ...ownedRows(entity).map(r => deleteSqlSyncGraph(r.row)),
+        deleteSqlSync(table, entity));
+}
+
+// The elements of `owner`'s `T[]` collections of @part rows with their positions (through embeddeds,
+// as the saver walks them).
+function ownedRows(owner: Entity): { row: Entity; index: number }[] {
+    const rows: { row: Entity; index: number }[] = [];
+    const visit = (m: Entity | EmbeddedEntity): void => forEachField(m, (fi, value) => {
+        if (value instanceof EmbeddedEntity)
+            visit(value);
+        else if (fi.array && Array.isArray(value))
+            value.forEach((row, index) => { if (row instanceof Entity) rows.push({ row, index }); });
+    });
+    visit(owner);
+    return rows;
+}
+
+// saver's wireOwnedChildren for one owner: point each owned row at it and number it. Returns the rows.
+function wireOwnedRows(owner: Entity): Entity[] {
+    return ownedRows(owner).map(({ row, index }) => {
+        for (const cfi of Object.values(getTypeInfo(row.constructor)?.fields ?? {})) {
+            if (cfi.isBackReference)
+                (row as unknown as Record<string, unknown>)[cfi.name] = owner;
+            else if (cfi.isRowOrder)
+                (row as unknown as Record<string, unknown>)[cfi.name] = index;
+        }
+        return row;
+    });
+}
+
+const rawName = (table: Table): string => (table.type as Function).name;
 
 // Copy every persistent field of the EXPECTED row onto the row RETRIEVED from the database, so the
 // retrieved entity's own change tracking (isModifiedSelf, against the snapshot the Retriever took)
