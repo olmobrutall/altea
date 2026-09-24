@@ -275,6 +275,55 @@ export namespace OfficeTemplateLogic {
         return result.errorMessage === "" ? undefined : result.errorMessage;
     }
 
+    // ---- a model's own template (Signum's WordModelLogic.GetDefaultTemplate / CreateReport) ------------
+
+    /** Signum's `WordTemplateLogic.GetCultureInfo`: the culture a report about `entity` renders in. Unset ⇒
+     *  the current UI culture. */
+    export let getCultureInfo: ((entity: Entity | null) => string | undefined) | undefined;
+
+    /**
+     * The template a MODEL renders with: its single applicable template in the entity's culture (else the
+     * parent culture, else the only one). A model with no template at all gets its default one, created in
+     * its own transaction with authorization off — a system report must work for whoever triggered it.
+     */
+    export async function getDefaultTemplate(modelEntity: OfficeModelEntity, entity: Entity | null): Promise<OfficeTemplateEntity> {
+        const templates = [...(await officeTemplatesLazy.value()).values()]
+            .filter(t => t.model != null && String(t.model.id) === String(modelEntity.id));
+
+        if (templates.length === 0 && OfficeModelLogic.hasDefaultTemplateConstructor(modelEntity))
+            return await Transaction.forceNew(() => ExecutionMode.global(async () => {
+                const template = await OfficeModelLogic.createDefaultTemplateInternal(modelEntity);
+                await template.save();
+                officeTemplatesLazy.reset();
+                return template;
+            }));
+
+        const culture = getCultureInfo?.(entity) ?? CultureInfo.currentUICulture();
+        const parent = CultureInfo.currentUICulture().split("-")[0];
+        const candidates = templates.filter(t => isApplicable(t, entity));
+        const inCulture = (name: string): OfficeTemplateEntity | undefined => {
+            const found = candidates.filter(t => cultureNameOf(t.culture) === name);
+            if (found.length > 1)
+                throw new Error(`More than one active OfficeTemplate for OfficeModel ${modelEntity.className} in ${name} found`);
+            return found[0];
+        };
+
+        const result = inCulture(culture) ?? inCulture(parent);
+        if (result != null)
+            return result;
+        if (candidates.length !== 1)
+            throw new Error(`${candidates.length === 0 ? "No" : "More than one"} active OfficeTemplate for ${modelEntity.className} in ${CultureInfo.currentUICulture()} or ${parent}`);
+        return candidates[0];
+    }
+
+    /** Signum's `IWordModel.CreateReportFileContent()`: render a model with its own template. The model's
+     *  CLASS is the registered model type. */
+    export async function createReportFileContentFromModel(model: IOfficeModel, avoidConversion = false): Promise<OfficeFileContent> {
+        const modelEntity = await OfficeModelLogic.toOfficeModelEntity(model.constructor);
+        const template = await getDefaultTemplate(modelEntity, model.untypedEntity);
+        return await createReportFileContent(template, null, model, avoidConversion);
+    }
+
     // ---- the report ----------------------------------------------------------------------------
 
     export async function createReportFileContentFromLite(

@@ -78,7 +78,7 @@ interface OfficeModelInfo {
     /** Build the model from a target entity. */
     construct: ((entity: Entity | null) => IOfficeModel) | undefined;
     /** The template generated when none exists. */
-    defaultTemplateConstructor: (() => OfficeTemplateEntity) | undefined;
+    defaultTemplateConstructor: (() => OfficeTemplateEntity | Promise<OfficeTemplateEntity>) | undefined;
 }
 
 export namespace OfficeModelLogic {
@@ -155,7 +155,7 @@ export namespace OfficeModelLogic {
         queryName: QueryName | undefined;
         className?: string;
         construct?: (entity: Entity | null) => IOfficeModel;
-        defaultTemplateConstructor?: () => OfficeTemplateEntity;
+        defaultTemplateConstructor?: () => OfficeTemplateEntity | Promise<OfficeTemplateEntity>;
     }): void {
         const className = options.className ?? cleanTypeName(options.modelType);
         registeredModels.set(className, {
@@ -224,7 +224,7 @@ export namespace OfficeModelLogic {
             throw new Error(
                 `No OfficeTemplate for '${modelEntity.className}' found and defaultTemplateConstructor is not set`);
 
-        const template = i.defaultTemplateConstructor();
+        const template = await i.defaultTemplateConstructor();
         template.name ||= modelEntity.className;
         template.model = modelEntity;
         template.query = i.queryName != undefined && QueryLogic.queries.tryGetCore(i.queryName) != undefined
