@@ -58,6 +58,13 @@ export const Roles = {
      * own follows its type (Read ⇒ read-only); without it — every other role here — it is hidden.
      */
     AutoUpgrade: "AuthTest_AutoUpgrade",
+    /**
+     * Union + no parents. Sample: type Write + `AutomaticUpgradeOfOperations`, and NO operation rule: Save
+     * follows the type (Allow), Delete stays None (its MaxAutomaticUpgrade).
+     */
+    OpUpgrade: "AuthTest_OpUpgrade",
+    /** Union, inherits Base. The same rules as OpUpgrade: the upgrade happens in the MERGE of Base's None. */
+    OpUpgradeChild: "AuthTest_OpUpgradeChild",
     /** Union + no parents. Sample: fallback None + condition [Public] → Read (row-level). */
     Restricted: "AuthTest_Restricted",
     /**
@@ -175,6 +182,8 @@ async function seed(): Promise<void> {
     const sales = await mkRole(Roles.Sales, MergeStrategy.Union, [await role(Roles.Base)]);
     const manager = await mkRole(Roles.Manager, MergeStrategy.Union, [sales]);
     const autoUpgrade = await mkRole(Roles.AutoUpgrade, MergeStrategy.Union, []);
+    const opUpgrade = await mkRole(Roles.OpUpgrade, MergeStrategy.Union, []);
+    const opUpgradeChild = await mkRole(Roles.OpUpgradeChild, MergeStrategy.Union, [await role(Roles.Base)]);
     const restricted = await mkRole(Roles.Restricted, MergeStrategy.Union, []);
     const logReader = await mkRole(Roles.LogReader, MergeStrategy.Union, [restricted]);
 
@@ -202,6 +211,17 @@ async function seed(): Promise<void> {
             BasicPermission.AutomaticUpgradeOfProperties.id, BasicPermission.AutomaticUpgradeOfProperties.key),
         allowed: true,
     }).save();
+
+    // OpUpgrade / OpUpgradeChild: type Write + the permission that makes operations follow their type.
+    for (const r of [opUpgrade, opUpgradeChild]) {
+        await RuleTypeEntity.create({ role: r.toLite(), resource: typeLite, fallback: TypeAllowed.Write, conditionRules: [] }).save();
+        for (const permission of [BasicPermission.AutomaticUpgradeOfOperations, BasicPermission.AutomaticUpgradeOfQueries])
+            await RulePermissionEntity.create({
+                role: r.toLite(),
+                resource: PermissionSymbol.newLite(permission.id, permission.key),
+                allowed: true,
+            }).save();
+    }
 
     // Manager: overrides the type (Write) + secret (Read); NO Save rule → inherits Sales' Allow.
     await RuleTypeEntity.create({ role: manager.toLite(), resource: typeLite, fallback: TypeAllowed.Write, conditionRules: [] }).save();

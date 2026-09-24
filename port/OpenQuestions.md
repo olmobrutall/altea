@@ -464,11 +464,7 @@ third is a parity gap that wants a decision.
   `editorText` / `editorValue`). The same is true of a readonly enum, which renders an
   `<input readonly class="form-control" data-value=…>` rather than keeping the `<select>` tag Signum keeps.
 
-- **`BasicPermission.AutomaticUpgradeOfOperations` is not implemented — OPEN.** The operation dimension's
-  no-rule default is `roleGraph.getDefaultAllowed(role)` alone (`OperationAuthLogic.getAllowed`): an
-  Intersection/no-parent role gets Allow, every Union role gets None. Signum instead upgrades a no-rule
-  operation from the TYPE's allowance when the role holds that permission — which is why Southwind grants it
-  to "Standard user" in `AuthRules.xml`, and why Southwind's own browser test can create an order as
-  Standard. Here the same test had to run as `Super`. The PROPERTY dimension already has the equivalent gate
-  (`noRuleDefaultWC`, gated on `AutomaticUpgradeOfProperties`), so the shape to copy exists; the QUERY
-  dimension is worth checking at the same time (`AutomaticUpgradeOfQueries` is granted in the same file).
+- **`BasicPermission.AutomaticUpgradeOfOperations` — RESOLVED.** The automatic upgrade is ported for all
+  three dimensions (operations, properties, queries), with `MaxAutomaticUpgrade` caps — see Auth.md, "The
+  automatic upgrade". A browser test that ran as `Super` only because Standard lacked operations can run as
+  Standard again.

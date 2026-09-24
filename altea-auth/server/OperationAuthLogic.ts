@@ -17,14 +17,17 @@ import {
     RuleOperationEntity, RuleOperationConditionEntity, RuleOperationConditionEntity_Condition,
     OperationRulePack, OperationAllowedRule, OperationAllowed, TypeConditionSymbol, TypeConditionSetModel,
     OperationWithConditionsModel, OperationConditionRuleModel,
+    RuleTypeEntity, RulePermissionEntity, TypeAllowedBasic, typeAllowedUI, typeAllowedDB,
 } from "../data/Rules";
 import { TypeAuthLogic } from "./TypeAuthLogic";
-import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { section, groupByRole, attrs, conditionsXml, parseEnum, sectionRows, syncRulesScript, conditionedRules, conditionSymbols, typeReplacementKey, type AuthImportCtx } from "./AuthRulesXml";
 import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
 import type { AuthExportCtx } from "./AuthLogic";
-import { WithConditions, ConditionRule, evaluateConditions, sliceValue } from "./WithConditions";
-import { mergeWithConditions } from "./TypeConditionMerger";
+import { WithConditions, ConditionRule, evaluateConditions, sliceValue, adjustShape, maxBound } from "./WithConditions";
+import { PermissionAuthLogic } from "./PermissionAuthLogic";
+import { BasicPermission } from "@altea/altea/data/permissionSymbol";
+import { OperationType, type IConstructorFromOperation, type IExecuteOperation } from "@altea/altea/server/operation";
+import type { TypeCaches } from "@altea/altea/server/typeLogic";
 import { TypeConditionLogic } from "./TypeConditionLogic";
 
 // Port of Signum.Authorization's Rules/OperationAuthLogic.cs — see port/Auth.md.
@@ -43,32 +46,138 @@ import { TypeConditionLogic } from "./TypeConditionLogic";
 // conditions against.
 const compositeKey = (operationId: PrimaryKey, typeId: PrimaryKey): string => `${String(operationId)}/${String(typeId)}`;
 
-const mergeOp = (strategy: MergeStrategy, baseValues: WithConditions<OperationAllowed>[]): WithConditions<OperationAllowed> =>
-    mergeWithConditions(strategy, baseValues, OperationAllowed.Allow);
+/**
+ * What the no-rule default of an operation is derived from (Signum's GetDefaultFromType): the basic type
+ * access running it needs, and the type it constructs, which caps it. Resolved from the registered operation.
+ */
+interface OperationTypeInfo {
+    constructor: boolean;
+    checkFor: TypeAllowedBasic;
+    returnTypeId?: PrimaryKey;
+}
 
-// Raw per-(operation,type) rules + role graph + merged memo, folded
-// synchronously. Construct / no-entity operations evaluate the fallback (no instance to test conditions).
+const minOp = (a: OperationAllowed, b: OperationAllowed): OperationAllowed => a < b ? a : b;
+const maxOp = (a: OperationAllowed, b: OperationAllowed): OperationAllowed => a > b ? a : b;
+
+/** Signum's `ToOperationAllowed(TypeAllowed, checkFor)`, given the type's UI and DB basic access. */
+function toOperationAllowed(ui: TypeAllowedBasic, db: TypeAllowedBasic, checkFor: TypeAllowedBasic): OperationAllowed {
+    return checkFor <= ui ? OperationAllowed.Allow : checkFor <= db ? OperationAllowed.DBOnly : OperationAllowed.None;
+}
+
+/** Signum's CoerceSimple: every slice capped at `max`, the shape kept. */
+function coerce(wc: WithConditions<OperationAllowed>, max: OperationAllowed): WithConditions<OperationAllowed> {
+    return wc.mapWithConditions(a => minOp(a, max));
+}
+
+// Port of Signum's OperationCache. A role's allowance for an (operation, type) is its explicit rule, else —
+// with no base role — its no-rule DEFAULT, else the MERGE of its base roles. Both of the last two are where
+// Signum's automatic upgrade happens:
+//
+//  - the default is DERIVED FROM THE TYPE (an Execute / Delete needs Write on it, a ForReadonlyEntity
+//    Execute or a ConstructFrom Read, a Construct Write on the type anywhere) — for a default-allowed role
+//    as it is, for any other role only if it holds `AutomaticUpgradeOfOperations`, and never above the
+//    operation's `MaxAutomaticUpgrade`;
+//  - a merge takes the base roles' values, and then, for a role holding that permission, UPGRADES a slice
+//    to the type-derived value where every base role that produced the merged value was itself only
+//    following its type — so a type granted later reaches its operations.
+//
+// Construct / no-entity operations evaluate the fallback (no instance to test conditions).
 class OperationRulesCache {
-    private readonly computed: ComputedCache<WithConditions<OperationAllowed>> = new Map();
+    private readonly computed = new Map<string, Map<string, WithConditions<OperationAllowed>>>();
     constructor(
         private readonly rules: Map<string, Map<PrimaryKey | string, WithConditions<OperationAllowed>>>,
         private readonly graph: RoleGraph,
+        private readonly typeCache: TypeAuthLogic.TypeRulesCache,
+        private readonly caches: TypeCaches,
+        private readonly autoUpgradeAllowed: (roleKey: string) => boolean,
+        private readonly operationInfo: (operationId: PrimaryKey) => OperationTypeInfo | undefined,
     ) { }
 
     getAllowed(operationId: PrimaryKey, typeId: PrimaryKey, roleKey?: string): WithConditions<OperationAllowed> {
         const rk = roleKey ?? AuthLogic.currentRoleKey();
         if (rk == null)
             return WithConditions.simple(OperationAllowed.Allow);
-        const getDefaultSync = (r: string): WithConditions<OperationAllowed> =>
-            WithConditions.simple(this.graph.getDefaultAllowed(r) ? OperationAllowed.Allow : OperationAllowed.None);
-        return computeAllowed<WithConditions<OperationAllowed>>(rk, compositeKey(operationId, typeId), this.rules, mergeOp, getDefaultSync, this.computed, this.graph);
+        const key = compositeKey(operationId, typeId);
+        let inner = this.computed.get(rk);
+        if (inner == null)
+            this.computed.set(rk, inner = new Map());
+        let result = inner.get(key);
+        if (result === undefined) {
+            result = this.rules.get(rk)?.get(key) ?? this.getAllowedBase(operationId, typeId, rk);
+            inner.set(key, result);
+        }
+        return result;
     }
 
+    /** What the role gets with no rule of its own: its default, or its base roles merged. */
     getAllowedBase(operationId: PrimaryKey, typeId: PrimaryKey, roleKey: string): WithConditions<OperationAllowed> {
-        const parents = this.graph.relatedTo(roleKey);
-        if (parents.size === 0)
+        const parents = [...this.graph.relatedTo(roleKey)];
+        return parents.length === 0
+            ? this.defaultValue(operationId, typeId, roleKey)
+            : this.merge(operationId, typeId, roleKey, parents);
+    }
+
+    // Signum's GetDefaultValue.
+    private defaultValue(operationId: PrimaryKey, typeId: PrimaryKey, roleKey: string): WithConditions<OperationAllowed> {
+        const fromType = this.defaultFromType(operationId, typeId, roleKey);
+        if (this.graph.getDefaultAllowed(roleKey))
+            return fromType;
+        if (!this.autoUpgradeAllowed(roleKey))
+            return coerce(fromType, OperationAllowed.None);
+        const maxUp = OperationAuthLogic.maxAutomaticUpgradeOf(operationId);
+        return maxUp == null ? fromType : coerce(fromType, maxUp);
+    }
+
+    // Signum's Merge, automatic upgrade included.
+    private merge(operationId: PrimaryKey, typeId: PrimaryKey, roleKey: string, parents: string[]): WithConditions<OperationAllowed> {
+        const union = this.graph.getMergeStrategy(roleKey) === MergeStrategy.Union;
+        const collapse = (values: OperationAllowed[]): OperationAllowed =>
+            values.reduce(union ? maxOp : minOp, union ? OperationAllowed.None : OperationAllowed.Allow);
+
+        const tac = this.defaultFromType(operationId, typeId, roleKey);
+        const bases = parents.map(p => adjustShape(this.getAllowed(operationId, typeId, p), tac));
+        const best = bases.length === 1 ? bases[0]! : new WithConditions<OperationAllowed>(
+            collapse(bases.map(b => b.fallback)),
+            tac.conditionRules.map((cr, i) => new ConditionRule<OperationAllowed>(cr.typeConditions, collapse(bases.map(b => b.conditionRules[i]!.allowed)))));
+
+        if (!this.autoUpgradeAllowed(roleKey))
+            return best;
+
+        const maxUp = OperationAuthLogic.maxAutomaticUpgradeOf(operationId);
+        const upgrade = (merged: OperationAllowed, pairs: { base: OperationAllowed; fromType: OperationAllowed }[], fromType: OperationAllowed): OperationAllowed => {
+            if (maxUp != null && maxUp <= merged)
+                return merged;
+            if (pairs.filter(p => p.base === merged).every(p => p.fromType === merged))
+                return maxUp != null ? minOp(fromType, maxUp) : fromType;
+            return merged;
+        };
+
+        const basesFromType = parents.map(p => adjustShape(this.defaultFromType(operationId, typeId, p), tac));
+        return new WithConditions<OperationAllowed>(
+            upgrade(best.fallback, bases.map((b, j) => ({ base: b.fallback, fromType: basesFromType[j]!.fallback })), tac.fallback),
+            tac.conditionRules.map((cr, i) => new ConditionRule<OperationAllowed>(cr.typeConditions,
+                upgrade(best.conditionRules[i]!.allowed,
+                    bases.map((b, j) => ({ base: b.conditionRules[i]!.allowed, fromType: basesFromType[j]!.conditionRules[i]!.allowed })),
+                    cr.allowed))));
+    }
+
+    // Signum's GetDefaultFromType / ToOperationAllowed: the type's allowance for the role, turned into what
+    // running the operation needs of it — capped, for a construct, by what the role may do with the result.
+    private defaultFromType(operationId: PrimaryKey, typeId: PrimaryKey, roleKey: string): WithConditions<OperationAllowed> {
+        const info = this.operationInfo(operationId);
+        if (info == null)
             return WithConditions.simple(this.graph.getDefaultAllowed(roleKey) ? OperationAllowed.Allow : OperationAllowed.None);
-        return mergeOp(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.getAllowed(operationId, typeId, p)));
+
+        const ta = this.typeCache.getAllowed(typeId, this.caches, roleKey);
+        if (info.constructor)
+            return WithConditions.simple(toOperationAllowed(maxBound(ta, true), maxBound(ta, false), TypeAllowedBasic.Write));
+
+        const result = ta.mapWithConditions(t => toOperationAllowed(typeAllowedUI(t), typeAllowedDB(t), info.checkFor));
+        if (info.returnTypeId == null)
+            return result;
+
+        const ra = this.typeCache.getAllowed(info.returnTypeId, this.caches, roleKey);
+        return coerce(result, toOperationAllowed(maxBound(ra, true), maxBound(ra, false), TypeAllowedBasic.Write));
     }
 }
 
@@ -89,8 +198,11 @@ export namespace OperationAuthLogic {
         sb.include(RuleOperationEntity);
         // globalLazy runs the factory
         // in ExecutionMode.global, so the RuleOperation read is ungated.
-        rulesLazy = sb.globalLazy(async () => new OperationRulesCache(await loadRules(), await AuthLogic.roleGraph()),
-            { invalidateWith: [RuleOperationEntity, RoleEntity] });
+        // The no-rule default derives from the TYPE rules and the AutomaticUpgradeOfOperations permission,
+        // so a change to either stales it too.
+        rulesLazy = sb.globalLazy(async () => new OperationRulesCache(await loadRules(), await AuthLogic.roleGraph(),
+            await TypeAuthLogic.rulesCache(), await TypeLogic.caches(), await autoUpgradePredicate(), await operationInfoResolver()),
+            { invalidateWith: [RuleOperationEntity, RuleTypeEntity, RulePermissionEntity, RoleEntity] });
         AuthLogic.invalidateBlobWith(rulesLazy);   // the blob is filtered per role, so a rule change stales it
         AuthLogic.registerXmlExporter(exportXml);
         AuthLogic.registerXmlImporter(importXml);
@@ -103,6 +215,58 @@ export namespace OperationAuthLogic {
                 : wc.fallback;
             return toBoolean(oa, inUserInterface);
         });
+    }
+
+    /**
+     * Signum's `operation.SetMaxAutomaticUpgrade(allowed)`: the most the automatic upgrade may give this
+     * operation — typically `None`, for an operation that must not just follow its type (a role then gets it
+     * only from an explicit rule). Declared by symbol; read by id once the symbols are loaded.
+     */
+    const maxAutomaticUpgrade = new Map<OperationSymbol, OperationAllowed>();
+
+    export function setMaxAutomaticUpgrade(symbol: OperationSymbol, allowed: OperationAllowed): void {
+        if (maxAutomaticUpgrade.has(symbol))
+            throw new Error(`MaxAutomaticUpgrade of '${symbol.key}' is already set`);
+        maxAutomaticUpgrade.set(symbol, allowed);
+    }
+
+    export function maxAutomaticUpgradeOf(operationId: PrimaryKey): OperationAllowed | undefined {
+        for (const [symbol, allowed] of maxAutomaticUpgrade)
+            if (symbol.id != null && String(symbol.id) === String(operationId))
+                return allowed;
+        return undefined;
+    }
+
+    // A synchronous AutomaticUpgradeOfOperations predicate for the cache (see PropertyAuthLogic's twin).
+    // Without permission auth started, the upgrade is on.
+    async function autoUpgradePredicate(): Promise<(roleKey: string) => boolean> {
+        if (!PermissionAuthLogic.isStarted())
+            return () => true;
+        const permCache = await PermissionAuthLogic.rulesCache();
+        const permId = BasicPermission.AutomaticUpgradeOfOperations.id;
+        return roleKey => permCache.getAllowed(permId, roleKey);
+    }
+
+    // Each registered operation's kind, as the no-rule default needs it.
+    async function operationInfoResolver(): Promise<(operationId: PrimaryKey) => OperationTypeInfo | undefined> {
+        const caches = await TypeLogic.caches();
+        const byId = new Map<string, OperationTypeInfo>();
+        for (const symbol of OperationLogic.registeredOperations()) {
+            const op = OperationLogic.tryFindOperation(symbol);
+            if (op == null || symbol.id == null)
+                continue;
+            const returnType = (op as { returnType?: Function }).returnType;
+            byId.set(String(symbol.id), {
+                constructor: op.operationType === OperationType.Constructor,
+                checkFor:
+                    op.operationType === OperationType.ConstructorFrom ? ((op as IConstructorFromOperation).sourceEntityIsModified ? TypeAllowedBasic.Write : TypeAllowedBasic.Read)
+                        : op.operationType === OperationType.ConstructorFromMany ? TypeAllowedBasic.Read
+                            : op.operationType === OperationType.Execute ? ((op as IExecuteOperation).forReadonlyEntity ? TypeAllowedBasic.Read : TypeAllowedBasic.Write)
+                                : TypeAllowedBasic.Write,
+                returnTypeId: returnType == null ? undefined : caches.tryTypeToId(returnType) ?? undefined,
+            });
+        }
+        return operationId => byId.get(String(operationId));
     }
 
     /** Explicit reset for setOperationRulePack (whose deletes don't fire `saved`). Saves auto-invalidate. */

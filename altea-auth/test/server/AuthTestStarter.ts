@@ -12,7 +12,8 @@ import { QueryAuthLogic } from "@altea/altea-auth/server/QueryAuthLogic";
 import { PropertyAuthLogic } from "@altea/altea-auth/server/PropertyAuthLogic";
 import { TypeConditionLogic } from "@altea/altea-auth/server/TypeConditionLogic";
 import { FilterQueryArgs } from "@altea/altea/server/schema/filterQueryArgs";
-import { TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
+import { TypeAllowedBasic, OperationAllowed, PropertyAllowed } from "@altea/altea-auth/data/Rules";
+import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { SampleEntity, SampleLogEntity, SampleOperation, SampleTypeCondition, SampleLogTypeCondition } from "../data/sample";
 
 // Builds the connector + registers the sample domain and the FULL authorization stack — in the same order
@@ -49,6 +50,10 @@ export namespace AuthTestStarter {
             .withSave(SampleOperation.Save)
             .withDelete(SampleOperation.Delete)
             .withQuery();
+        // Delete must never just follow the type: a role gets it only from an explicit rule.
+        OperationAuthLogic.setMaxAutomaticUpgrade(SampleOperation.Delete, OperationAllowed.None);
+        // …and `value` must never just follow the type either.
+        PropertyAuthLogic.setMaxAutomaticUpgrade(PropertyRoute.parse(SampleEntity, "value"), PropertyAllowed.None);
         TypeConditionLogic.registerCompile(SampleEntity, SampleTypeCondition.Confidential, s => s.confidential === true);
         TypeConditionLogic.registerCompile(SampleEntity, SampleTypeCondition.Public, s => s.confidential === false);
         // DB-ONLY (no in-memory predicate) → forces the fillTypeConditions SQL path for inTypeCondition.

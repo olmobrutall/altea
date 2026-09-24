@@ -63,15 +63,15 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
     });
 
     // AutoUpgrade holds Sample at Read PLUS AutomaticUpgradeOfProperties, so every un-ruled route follows
-    // its type: Read, for all of them. Spelling that out per route was 40 bytes each to repeat what the
-    // type entry says two lines up — the reader falls back to it.
+    // its type: Read — except `value`, whose MaxAutomaticUpgrade is None. Spelling the Reads out per route
+    // was 40 bytes each to repeat what the type entry says two lines up — the reader falls back to it.
     test("a property that only repeats its type's allowance is not shipped", async () => {
         const blob = await blobFor(autoUpgrade);
         assert.equal(blob.types[SampleEntity.name]?.maxTypeAllowed, TypeAllowedBasic.Read, "the type is Read");
         assert.deepEqual(
-            Object.entries(sampleRoutes(blob)).filter(([, rm]) => rm.propertyAllowed !== undefined).map(([p]) => p),
-            [],
-            "and so is every property of it — nothing left to say");
+            Object.entries(sampleRoutes(blob)).filter(([, rm]) => rm.propertyAllowed !== undefined).map(([p, rm]) => [p, rm.propertyAllowed]),
+            [["value", PropertyAllowed.None]],
+            "only the capped property differs from its type");
     });
 
     // The counter-case, and the reason this is a comparison and not a blanket "drop them on a Read type":

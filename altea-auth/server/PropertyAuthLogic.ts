@@ -29,7 +29,6 @@ import {
 } from "../data/Rules";
 import { BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { WithConditions, ConditionRule, evaluateConditions, sliceValue, adjustShape } from "./WithConditions";
-import { mergeWithConditions } from "./TypeConditionMerger";
 import { section, groupByRole, attrs, conditionsXml, parseEnum, sectionRows, syncRulesScript, conditionedRules, conditionSymbols, typeReplacementKey, type AuthImportCtx } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 import { setSerializationAuth, type PropertyAccess } from "@altea/altea/data/serializer/graphSerializers";
@@ -41,9 +40,9 @@ import * as Database from "@altea/altea/server/Database";
 //
 // A role's allowance per property route: None → hidden, Read → read-only, Write. A property is CAPPED by
 // its type's UI-read allowance — it cannot be more accessible than its type (`typeCeilingWC`) — and with
-// no explicit rule takes `noRuleDefaultWC`, which is the part worth stating precisely: a role WITHOUT
+// no explicit rule takes Signum's automatic upgrade, which is the part worth stating precisely: a role WITHOUT
 // `BasicPermission.AutomaticUpgradeOfProperties` defaults to NONE, so properties are HIDDEN unless
-// explicitly granted; otherwise it follows its type. There is no per-property MaxAutomaticUpgrade cap.
+// explicitly granted; otherwise it follows its type, up to the route's MaxAutomaticUpgrade.
 //
 // A rule POINTS at a `PropertyRouteEntity` row, as in Signum, but the runtime CACHES are keyed by
 // (rootType id, path) rather than by the row: there is no ambient EntityCache, so two reads of one row
@@ -56,9 +55,6 @@ import * as Database from "@altea/altea/server/Database";
 // immune to a concurrent `invalidate()`, which a permanently-warm cache is not. None → the value is
 // omitted server→client and its line hidden; Read → read-only, kept on save; Write → normal.
 const compositeKey = (typeId: PrimaryKey, path: string): string => `${String(typeId)}|${path}`;
-
-const mergeProp = (strategy: MergeStrategy, baseValues: WithConditions<PropertyAllowed>[]): WithConditions<PropertyAllowed> =>
-    mergeWithConditions(strategy, baseValues, PropertyAllowed.Write);
 
 // And, since it is fully synchronous once loaded, it IS the serialization
 // auth context (Phase 2): the codec's async boundary resolves ONE of these (`resolveContext`) and the sync
@@ -99,58 +95,75 @@ class PropertyRulesCache {
     }
 
     // The type's UI-read allowance mapped to a property WithConditions — the per-slice CEILING (a property
-    // can't exceed its type, conditions included). NOT the no-rule
-    // default — that is `noRuleDefaultWC`, which additionally applies the auto-upgrade permission gate.
+    // can't exceed its type, conditions included), and what the automatic upgrade follows.
     typeCeilingWC(typeId: PrimaryKey, caches: TypeCaches, roleKey: string): WithConditions<PropertyAllowed> {
         return this.typeCache.getAllowed(typeId, caches, roleKey).mapWithConditions(t => typeBasicToProperty(typeAllowedUI(t)));
     }
 
-    // The allowance a property route gets for this role when NO
-    // explicit rule applies. A default-allowed role follows its type (the ceiling); a role WITHOUT the
-    // AutomaticUpgradeOfProperties permission is coerced to None (shape-preserving, so condition slices are
-    // still padded); otherwise it follows its type.
-    noRuleDefaultWC(typeId: PrimaryKey, caches: TypeCaches, roleKey: string): WithConditions<PropertyAllowed> {
-        const ceiling = this.typeCeilingWC(typeId, caches, roleKey);
-        if (this.graph.getDefaultAllowed(roleKey))
-            return ceiling;
-        if (!this.autoUpgradeAllowed(roleKey))
-            return ceiling.mapWithConditions(() => PropertyAllowed.None);
-        return ceiling;
-    }
-
-    // A property with NO explicit rule follows ITS OWN role's no-rule
-    // default (varies per role), not the parents' value — so this recursion is bespoke (not computeAllowed):
-    // no explicit rule up the chain → this role's no-rule default; else the explicit rule or the per-parent merge.
+    // Port of Signum's PropertyCache: a role's allowance is its explicit rule, else — with no base role —
+    // its DEFAULT, else the MERGE of its base roles, both with the automatic upgrade (see the header).
     private propAllowed(typeId: PrimaryKey, key: string, caches: TypeCaches, roleKey: string): WithConditions<PropertyAllowed> {
-        if (!this.hasExplicitInChain(roleKey, key))
-            return this.noRuleDefaultWC(typeId, caches, roleKey);
-        const explicit = this.propRules.get(roleKey)?.get(key);
-        if (explicit !== undefined)
-            return explicit;
-        const parents = this.graph.relatedTo(roleKey);
-        return mergeProp(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.propAllowed(typeId, key, caches, p)));
+        return this.propRules.get(roleKey)?.get(key) ?? this.allowedBase(typeId, key, caches, roleKey);
     }
 
-    // True if roleKey OR any ancestor has an explicit property rule for `key`.
-    private hasExplicitInChain(roleKey: string, key: string): boolean {
-        const seen = new Set<string>();
-        const stack = [roleKey];
-        while (stack.length > 0) {
-            const rk = stack.pop()!;
-            if (seen.has(rk)) continue;
-            seen.add(rk);
-            if (this.propRules.get(rk)?.has(key)) return true;
-            for (const p of this.graph.relatedTo(rk)) stack.push(p);
-        }
-        return false;
+    private allowedBase(typeId: PrimaryKey, key: string, caches: TypeCaches, roleKey: string): WithConditions<PropertyAllowed> {
+        const parents = [...this.graph.relatedTo(roleKey)];
+        return parents.length === 0
+            ? this.defaultValue(typeId, key, caches, roleKey)
+            : this.merge(typeId, key, caches, roleKey, parents);
+    }
+
+    // Signum's GetDefaultValue: the type's allowance, as it is for a default-allowed role, None without
+    // AutomaticUpgradeOfProperties, else capped by the route's MaxAutomaticUpgrade.
+    private defaultValue(typeId: PrimaryKey, key: string, caches: TypeCaches, roleKey: string): WithConditions<PropertyAllowed> {
+        const typeAllowed = this.typeCeilingWC(typeId, caches, roleKey);
+        if (this.graph.getDefaultAllowed(roleKey))
+            return typeAllowed;
+        if (!this.autoUpgradeAllowed(roleKey))
+            return coerceProp(typeAllowed, PropertyAllowed.None);
+        const maxUp = PropertyAuthLogic.maxAutomaticUpgradeOf(key);
+        return maxUp == null ? typeAllowed : coerceProp(typeAllowed, maxUp);
+    }
+
+    // Signum's Merge: the base roles' values in the type's shape, and — with the permission — a slice
+    // upgraded to the type's value where every base role that produced it was itself following its type.
+    private merge(typeId: PrimaryKey, key: string, caches: TypeCaches, roleKey: string, parents: string[]): WithConditions<PropertyAllowed> {
+        const union = this.graph.getMergeStrategy(roleKey) === MergeStrategy.Union;
+        const collapse = (values: PropertyAllowed[]): PropertyAllowed =>
+            values.reduce((x, y) => (union ? Math.max(x, y) : Math.min(x, y)) as PropertyAllowed, union ? PropertyAllowed.None : PropertyAllowed.Write);
+
+        const tac = this.typeCeilingWC(typeId, caches, roleKey);
+        const bases = parents.map(p => adjustShape(this.propAllowed(typeId, key, caches, p), tac));
+        const best = bases.length === 1 ? bases[0]! : new WithConditions<PropertyAllowed>(
+            collapse(bases.map(x => x.fallback)),
+            tac.conditionRules.map((cr, i) => new ConditionRule<PropertyAllowed>(cr.typeConditions, collapse(bases.map(x => x.conditionRules[i]!.allowed)))));
+
+        if (!this.autoUpgradeAllowed(roleKey))
+            return best;
+
+        const maxUp = PropertyAuthLogic.maxAutomaticUpgradeOf(key);
+        const upgrade = (merged: PropertyAllowed, pairs: { base: PropertyAllowed; fromType: PropertyAllowed }[], fromType: PropertyAllowed): PropertyAllowed =>
+            pairs.filter(x => x.base === merged).every(x => x.fromType === merged)
+                ? (maxUp != null && maxUp <= fromType ? maxUp : fromType)
+                : merged;
+
+        const basesFromType = parents.map(p => adjustShape(this.typeCeilingWC(typeId, caches, p), tac));
+        return new WithConditions<PropertyAllowed>(
+            upgrade(best.fallback, bases.map((x, j) => ({ base: x.fallback, fromType: basesFromType[j]!.fallback })), tac.fallback),
+            tac.conditionRules.map((cr, i) => new ConditionRule<PropertyAllowed>(cr.typeConditions,
+                upgrade(best.conditionRules[i]!.allowed,
+                    bases.map((x, j) => ({ base: x.conditionRules[i]!.allowed, fromType: basesFromType[j]!.conditionRules[i]!.allowed })),
+                    cr.allowed))));
     }
 
     getAllowedBase(typeId: PrimaryKey, path: string, caches: TypeCaches, roleKey: string): WithConditions<PropertyAllowed> {
-        const parents = this.graph.relatedTo(roleKey);
-        if (parents.size === 0)
-            return this.noRuleDefaultWC(typeId, caches, roleKey);
-        return mergeProp(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.getAllowed(typeId, path, caches, p)));
+        return this.allowedBase(typeId, compositeKey(typeId, path), caches, roleKey);
     }
+}
+
+/** Signum's CoerceSimple: every slice capped at `max`, the shape kept. */
+function coerceProp(wc: WithConditions<PropertyAllowed>, max: PropertyAllowed): WithConditions<PropertyAllowed> {
+    return wc.mapWithConditions(v => Math.min(v, max) as PropertyAllowed);
 }
 
 /** The per-request serialization snapshot: the property rules AND the type↔id caches the synchronous
@@ -292,10 +305,37 @@ export namespace PropertyAuthLogic {
         return new WithConditions<PropertyAllowed>(row.fallback, conditionRules);
     }
 
+    /**
+     * Signum's `PropertyAuthLogic.SetMaxAutomaticUpgrade(route, allowed)`: the most the automatic upgrade may
+     * give this property — typically `None`, for a field a role must be granted explicitly. Read by the cache
+     * key once the type ids are known.
+     */
+    const maxAutomaticUpgrade: { route: PropertyRoute; allowed: PropertyAllowed }[] = [];
+    let maxAutomaticUpgradeByKey = new Map<string, PropertyAllowed>();
+
+    export function setMaxAutomaticUpgrade(route: PropertyRoute, allowed: PropertyAllowed): void {
+        if (maxAutomaticUpgrade.some(m => m.route.toString() === route.toString()))
+            throw new Error(`MaxAutomaticUpgrade of '${route}' is already set`);
+        maxAutomaticUpgrade.push({ route, allowed });
+    }
+
+    export function maxAutomaticUpgradeOf(key: string): PropertyAllowed | undefined {
+        return maxAutomaticUpgradeByKey.get(key);
+    }
+
     // A synchronous AutomaticUpgradeOfProperties predicate for the cache — the loaded permission cache read
-    // for the BasicPermission.AutomaticUpgradeOfProperties symbol per role. When permission auth isn't
-    // started (minimal setups), fall back to auto-upgrade ON (the pre-gate behaviour).
+    // for the BasicPermission.AutomaticUpgradeOfProperties symbol per role — and the caps by cache key. When
+    // permission auth isn't started (minimal setups), fall back to auto-upgrade ON (the pre-gate behaviour).
     async function autoUpgradePredicate(): Promise<(roleKey: string) => boolean> {
+        const caches = await TypeLogic.caches();
+        const byKey = new Map<string, PropertyAllowed>();
+        for (const { route, allowed } of maxAutomaticUpgrade) {
+            const typeId = caches.tryTypeToId(route.rootType);
+            if (typeId != null)
+                byKey.set(compositeKey(typeId, route.propertyString()), allowed);
+        }
+        maxAutomaticUpgradeByKey = byKey;
+
         if (!PermissionAuthLogic.isStarted())
             return () => true;
         const permCache = await PermissionAuthLogic.rulesCache();

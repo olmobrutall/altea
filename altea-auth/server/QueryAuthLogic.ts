@@ -14,8 +14,9 @@ import { SearchMessage } from "@altea/altea/data/uiMessages";
 import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
-import { RuleQueryEntity, RuleTypeEntity, QueryRulePack, QueryAllowedRule, QueryAllowed, TypeAllowedBasic } from "../data/Rules";
-import { computeAllowed, type ComputedCache } from "./AuthCache";
+import { RuleQueryEntity, RuleTypeEntity, RulePermissionEntity, QueryRulePack, QueryAllowedRule, QueryAllowed, TypeAllowedBasic } from "../data/Rules";
+import { PermissionAuthLogic } from "./PermissionAuthLogic";
+import { BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { maxBound } from "./WithConditions";
 import { section, groupByRole, attrs, parseEnum, parseBool, enumName, sectionRows, syncRulesScript, updateAllowed, type AuthImportCtx } from "./AuthRulesXml";
 import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
@@ -31,43 +32,75 @@ import type { AuthExportCtx } from "./AuthLogic";
 //
 // Prerequisite: QueryLogic.start (QueryEntity row seeding + key↔entity cache) — invoked from start below.
 // altea divergences (mirroring the other dimensions): async cache via sb.globalLazy + computeAllowed,
-// keyed by the QueryEntity id; merge Union-max/Intersection-min. AutomaticUpgradeOfQueries coercion cap
-// is deferred (coerced = Allow).
+// keyed by the QueryEntity id; merge Union-max/Intersection-min, and Signum's automatic upgrade: with
+// AutomaticUpgradeOfQueries a query with no rule follows its entity type's readability, up to its
+// MaxAutomaticUpgrade.
 const mergeQuery = (strategy: MergeStrategy, baseValues: QueryAllowed[]): QueryAllowed =>
     strategy === MergeStrategy.Union
         ? baseValues.reduce((a, b) => Math.max(a, b), QueryAllowed.None)
         : baseValues.reduce((a, b) => Math.min(a, b), QueryAllowed.Allow);
 
-// Raw per-role query rules + role graph + the captured type-rule cache
-// (queries auto-upgrade to their entity type's read allowance) + the merged memo, folded synchronously.
+// Port of Signum's QueryCache: raw per-role query rules + role graph + the captured type-rule cache (a
+// query follows its entity type's readability) + the merged memo, folded synchronously.
 class QueryRulesCache {
-    private readonly computed: ComputedCache<QueryAllowed> = new Map();
+    private readonly computed = new Map<string, Map<string, QueryAllowed>>();
     constructor(
         private readonly rules: Map<string, Map<PrimaryKey, QueryAllowed>>,
         private readonly graph: RoleGraph,
         private readonly typeCache: TypeAuthLogic.TypeRulesCache,
+        private readonly autoUpgradeAllowed: (roleKey: string) => boolean,
     ) { }
 
-    // The value a role gets for a query with NO explicit rule anywhere in its graph. The
-    // AutomaticUpgradeOfQueries (simplified): default-allowed role → Allow; else AUTO-UPGRADE to Allow when
-    // the underlying entity TYPE is UI-readable for the role (queries follow type visibility); else None.
-    private queryDefault(rootTypeId: PrimaryKey | undefined, caches: TypeCaches, roleKey: string): QueryAllowed {
+    // Signum's GetDefault: Allow when the role can read the query's entity type.
+    private fromType(rootTypeId: PrimaryKey | undefined, caches: TypeCaches, roleKey: string): QueryAllowed {
+        return rootTypeId != null && maxBound(this.typeCache.getAllowed(rootTypeId, caches, roleKey), true) >= TypeAllowedBasic.Read
+            ? QueryAllowed.Allow
+            : QueryAllowed.None;
+    }
+
+    // Signum's GetDefaultValue: the value of a role with no rule and no base role.
+    private queryDefault(queryId: PrimaryKey, rootTypeId: PrimaryKey | undefined, caches: TypeCaches, roleKey: string): QueryAllowed {
         if (this.graph.getDefaultAllowed(roleKey))
             return QueryAllowed.Allow;
-        if (rootTypeId != null && maxBound(this.typeCache.getAllowed(rootTypeId, caches, roleKey), true) >= TypeAllowedBasic.Read)
-            return QueryAllowed.Allow;
-        return QueryAllowed.None;
+        if (!this.autoUpgradeAllowed(roleKey))
+            return QueryAllowed.None;
+        const def = this.fromType(rootTypeId, caches, roleKey);
+        const maxUp = QueryAuthLogic.maxAutomaticUpgradeOf(queryId);
+        return maxUp != null && maxUp <= def ? maxUp : def;
     }
 
     getAllowed(queryId: PrimaryKey, rootTid: PrimaryKey | undefined, caches: TypeCaches, roleKey: string): QueryAllowed {
-        return computeAllowed<QueryAllowed>(roleKey, queryId, this.rules, mergeQuery, rk => this.queryDefault(rootTid, caches, rk), this.computed, this.graph);
+        let inner = this.computed.get(roleKey);
+        if (inner == null)
+            this.computed.set(roleKey, inner = new Map());
+        const key = String(queryId);
+        let result = inner.get(key);
+        if (result === undefined) {
+            result = this.rules.get(roleKey)?.get(queryId) ?? this.getAllowedBase(queryId, rootTid, caches, roleKey);
+            inner.set(key, result);
+        }
+        return result;
     }
 
     getAllowedBase(queryId: PrimaryKey, rootTid: PrimaryKey | undefined, caches: TypeCaches, roleKey: string): QueryAllowed {
-        const parents = this.graph.relatedTo(roleKey);
-        if (parents.size === 0)
-            return this.queryDefault(rootTid, caches, roleKey);
-        return mergeQuery(this.graph.getMergeStrategy(roleKey), [...parents].map(p => this.getAllowed(queryId, rootTid, caches, p)));
+        const parents = [...this.graph.relatedTo(roleKey)];
+        if (parents.length === 0)
+            return this.queryDefault(queryId, rootTid, caches, roleKey);
+
+        // Signum's Merge: the base roles' values, upgraded to this role's type-derived value when every base
+        // role that produced the merged value was itself only following its type.
+        const bases = parents.map(p => ({ role: p, value: this.getAllowed(queryId, rootTid, caches, p) }));
+        const best = mergeQuery(this.graph.getMergeStrategy(roleKey), bases.map(x => x.value));
+        const maxUp = QueryAuthLogic.maxAutomaticUpgradeOf(queryId);
+        if (maxUp != null && maxUp <= best)
+            return best;
+        if (!this.autoUpgradeAllowed(roleKey))
+            return best;
+        if (bases.filter(x => x.value === best).every(x => this.fromType(rootTid, caches, x.role) === x.value)) {
+            const def = this.fromType(rootTid, caches, roleKey);
+            return maxUp != null && maxUp <= def ? maxUp : def;
+        }
+        return best;
     }
 }
 
@@ -89,8 +122,9 @@ export namespace QueryAuthLogic {
         sb.include(RuleQueryEntity);
         // invalidateWith RuleType too: the no-rule default auto-upgrades to the query's TYPE read allowance,
         // so a type-rule change must reset the query cache.
-        rulesLazy = sb.globalLazy(async () => new QueryRulesCache(await loadRules(), await AuthLogic.roleGraph(), await TypeAuthLogic.rulesCache()),
-            { invalidateWith: [RuleQueryEntity, RuleTypeEntity, RoleEntity] });
+        rulesLazy = sb.globalLazy(async () => new QueryRulesCache(await loadRules(), await AuthLogic.roleGraph(), await TypeAuthLogic.rulesCache(),
+            await autoUpgradePredicate()),
+            { invalidateWith: [RuleQueryEntity, RuleTypeEntity, RulePermissionEntity, RoleEntity] });
         AuthLogic.invalidateBlobWith(rulesLazy);   // the blob is filtered per role, so a rule change stales it
         AuthLogic.registerXmlExporter(exportXml);
         AuthLogic.registerXmlImporter(importXml);
@@ -101,6 +135,42 @@ export namespace QueryAuthLogic {
                 // Localized: this refusal reaches the end user through the error modal, not just a log.
                 throw new UnauthorizedAccessException(SearchMessage.Query0NotAllowed.niceToString(getKey(queryName)));
         };
+    }
+
+    /**
+     * Signum's `QueryAuthLogic.SetMaxAutomaticUpgrade(queryName, allowed)`: the most the automatic upgrade
+     * may give this query. Declared by query name; read by the query row's id once the queries are loaded.
+     */
+    const maxAutomaticUpgrade = new Map<string, QueryAllowed>();
+    let maxAutomaticUpgradeById: Map<string, QueryAllowed> | undefined;
+
+    export function setMaxAutomaticUpgrade(queryName: QueryName, allowed: QueryAllowed): void {
+        const key = getKey(queryName);
+        if (maxAutomaticUpgrade.has(key))
+            throw new Error(`MaxAutomaticUpgrade of query '${key}' is already set`);
+        maxAutomaticUpgrade.set(key, allowed);
+    }
+
+    export function maxAutomaticUpgradeOf(queryId: PrimaryKey): QueryAllowed | undefined {
+        return maxAutomaticUpgradeById?.get(String(queryId));
+    }
+
+    // A synchronous AutomaticUpgradeOfQueries predicate for the cache (see PropertyAuthLogic's twin), and
+    // the caps keyed by query id. Without permission auth started, the upgrade is on.
+    async function autoUpgradePredicate(): Promise<(roleKey: string) => boolean> {
+        const byId = new Map<string, QueryAllowed>();
+        for (const [key, allowed] of maxAutomaticUpgrade) {
+            const entity = QueryLogic.tryGetQueryEntityByKey(key);
+            if (entity != null)
+                byId.set(String(entity.id), allowed);
+        }
+        maxAutomaticUpgradeById = byId;
+
+        if (!PermissionAuthLogic.isStarted())
+            return () => true;
+        const permCache = await PermissionAuthLogic.rulesCache();
+        const permId = BasicPermission.AutomaticUpgradeOfQueries.id;
+        return roleKey => permCache.getAllowed(permId, roleKey);
     }
 
     /** Explicit reset for setQueryRulePack (whose deletes don't fire `saved`). Saves auto-invalidate. */

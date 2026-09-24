@@ -5,6 +5,7 @@ import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { toInt } from "@altea/altea/data/basics";
 import { TypeAuthLogic } from "@altea/altea-auth/server/TypeAuthLogic";
+import { QueryAuthLogic } from "@altea/altea-auth/server/QueryAuthLogic";
 import { TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
 import type { PrimaryKey } from "@altea/altea/data/entity";
 import type { RoleEntity } from "@altea/altea-auth/data/Role";
@@ -71,6 +72,35 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
         test("Manager: Save allowed via INHERITANCE from Sales (no explicit Manager rule)", async () => {
             assert.equal(await asRole(manager, canSave), true);
         });
+
+        // Signum's automatic upgrade: with AutomaticUpgradeOfOperations, an operation with no rule follows
+        // its type (Save needs Write), up to its MaxAutomaticUpgrade (Delete's is None).
+        const canDelete = (): Promise<boolean> =>
+            OperationLogic.isOperationAllowed(SampleOperation.Delete, SampleEntity, false, sample(false));
+        test("OpUpgrade: Save follows the type's Write; Delete is capped at None", async () => {
+            const r = await role(Roles.OpUpgrade);
+            assert.equal(await asRole(r, canSave), true);
+            assert.equal(await asRole(r, canDelete), false);
+        });
+        test("OpUpgradeChild: the upgrade happens in the merge over Base's None", async () => {
+            const r = await role(Roles.OpUpgradeChild);
+            assert.equal(await asRole(r, canSave), true);
+            assert.equal(await asRole(r, canDelete), false);
+        });
+        test("Sales: no permission, so Delete (no rule) stays None although its type is readable", async () => {
+            assert.equal(await asRole(sales, canDelete), false);
+        });
+    });
+
+    describe("query dimension: the automatic upgrade", () => {
+        const canQuery = (): Promise<boolean> => QueryAuthLogic.isQueryAllowed(SampleEntity, false);
+        test("OpUpgrade / OpUpgradeChild (AutomaticUpgradeOfQueries): the Sample query follows its readable type", async () => {
+            assert.equal(await asRole(await role(Roles.OpUpgrade), canQuery), true);
+            assert.equal(await asRole(await role(Roles.OpUpgradeChild), canQuery), true);
+        });
+        test("Sales: no permission, so the query (no rule) is None although its type is readable", async () => {
+            assert.equal(await asRole(sales, canQuery), false);
+        });
     });
 
     describe("row-level type conditions (per instance)", () => {
@@ -110,6 +140,9 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
             const o = await asRole(autoUpgrade, async () => ser(sample(false)));
             assert.equal(o.name, "S", "a read-only property is still written");
             assert.ok((o.propsMeta as string[]).includes("name"), "propsMeta marks `name` read-only");
+            // …but `value` has a MaxAutomaticUpgrade of None: without a rule of its own it stays hidden.
+            assert.equal(o.value, undefined, "a property capped at None is omitted");
+            assert.ok((o.propsMeta as string[]).includes("!value"), "propsMeta marks `value` hidden");
         });
         test("Manager: `secret` (Read) is read-only (written + flagged); `name` (type Write) is writable", async () => {
             const o = await asRole(manager, async () => ser(sample(false)));

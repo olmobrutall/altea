@@ -186,8 +186,22 @@ nothing about the base row.
 A property is CAPPED by its type's UI-read allowance — it cannot be more accessible than its type — and
 with no explicit rule takes a DEFAULT that is worth stating precisely: a role WITHOUT
 `BasicPermission.AutomaticUpgradeOfProperties` defaults to NONE, so properties are hidden unless
-explicitly granted; otherwise it follows its type. Signum's per-property `MaxAutomaticUpgrade` cap is not
-ported.
+explicitly granted; otherwise it follows its type, up to the route's `MaxAutomaticUpgrade`
+(`PropertyAuthLogic.setMaxAutomaticUpgrade`).
+
+### The automatic upgrade (all three dimensions)
+
+Ported from Signum's OperationCache / PropertyCache / QueryCache. A role's value is its explicit rule, else —
+with no base role — its DEFAULT, else the MERGE of its base roles:
+
+- the default is derived from the TYPE: an operation from what running it needs of the type (Write for an
+  Execute / Delete, Read for a `forReadonlyEntity` Execute or a ConstructFrom, Write anywhere for a
+  Construct, capped by the constructed type), a property from the type's UI read, a query from whether the
+  type is readable. A default-allowed role takes it as is; any other role only with the dimension's
+  `AutomaticUpgradeOf*` permission (else None), and never above the resource's `MaxAutomaticUpgrade`;
+- a merge collapses the base roles' values (Union max, Intersection min) and then, with the permission,
+  upgrades a slice to this role's type-derived value where every base role that produced it was itself only
+  following its type.
 
 A rule POINTS at a `PropertyRouteEntity` row, as in Signum, but the runtime CACHES are keyed by
 (rootType id, path) rather than by the row: there is no ambient EntityCache, so two reads of one row are
@@ -215,7 +229,7 @@ use `@entity("SharedPart")` for real sharing, which is shown in the grid with ru
 
 **Query.** The gate is `allowed === Allow || (allowed === EmbeddedOnly && !fullScreen)`. The server
 executes with `fullScreen: false`, so it only ever blocks None — the full-screen distinction is a client
-concern. `AutomaticUpgradeOfQueries` coercion is deferred (coerced = Allow).
+concern. The no-rule default is the automatic upgrade above.
 
 **Operation.** Rules are keyed by a composite `${operationId}/${typeId}`, Signum's (OperationSymbol, Type)
 resource flattened. Enforcement is the core `OperationLogic.onAllow` hook: `assertOperationAllowed` throws
