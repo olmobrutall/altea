@@ -1173,26 +1173,31 @@ function comparisonName(comparison: ComparisonType): string {
 // must, may, or must not have in each of its states. Per state, one entry per property — `true` necessary,
 // `false` not allowed, `null` either — and a property's value is judged against its entity's CURRENT state:
 //
-//     export const roleAssignmentStates = new StateValidator<RoleAssignmentEntity, RoleAssignmentStatus>(
-//         a => a.status, ["fromDate", "toDate"], RoleAssignmentStatus)
+//     export class RoleAssignmentEntity extends Entity { … }
+//
+//     export const roleAssignmentStates = new StateValidator(RoleAssignmentEntity, a => a.status,
+//         ["fromDate", "toDate"], RoleAssignmentStatus)
 //         .add(RoleAssignmentStatus.Interested, false, false)
 //         .add(RoleAssignmentStatus.Assigned, true, null);
 //
-//     @stateValidator(roleAssignmentStates)
-//     export class RoleAssignmentEntity extends Entity { … }
-//
-// Signum calls `Validate(this, pi)` from PropertyValidation; `@stateValidator` puts that call on each listed
-// property instead. An empty string or an empty array counts as no value — both are indistinguishable from
+// Declared after the entity, like Signum's static field: the constructor installs a validator on each listed
+// property, which is where Signum calls `Validate(this, pi)` from PropertyValidation. An empty string or an empty array counts as no value — both are indistinguishable from
 // null once retrieved. Pass the state's enum object so an enum state compares by member and the message
 // names it by its nice name.
 export class StateValidator<E extends BaseEntity, S> {
     private readonly byState = new Map<string, (boolean | null)[]>();
 
     constructor(
+        readonly entityType: abstract new (...args: never[]) => E,
         readonly getState: (entity: E) => S,
         readonly propertyNames: readonly (keyof E & string)[],
         readonly stateEnum?: object,
-    ) { }
+    ) {
+        // Signum calls Validate(this, pi) from PropertyValidation; here each listed property gets a
+        // validator that does, installed as soon as the StateValidator exists.
+        for (const name of propertyNames)
+            addValidator(entityType.prototype, name, new StateFieldValidator(this as unknown as StateValidator<BaseEntity, unknown>));
+    }
 
     /** The row for one state: an entry per property, in the constructor's order. */
     add(state: S, ...necessary: (boolean | null)[]): this {
@@ -1266,13 +1271,6 @@ export class StateValidator<E extends BaseEntity, S> {
     }
 }
 
-/** Puts a StateValidator on each property it lists (Signum calls it from PropertyValidation). */
-export function stateValidator<E extends BaseEntity, S>(validator: StateValidator<E, S>): (target: Function) => void {
-    return (target: Function) => {
-        for (const name of validator.propertyNames)
-            addValidator(target.prototype, name, new StateFieldValidator(validator as StateValidator<BaseEntity, unknown>));
-    };
-}
 
 class StateFieldValidator extends Validator {
     constructor(readonly stateValidator: StateValidator<BaseEntity, unknown>) { super(); }

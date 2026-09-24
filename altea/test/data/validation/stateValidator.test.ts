@@ -2,10 +2,9 @@ import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import { entityIntegrityCheck } from "@altea/altea/data/validation";
-import { ValidationMessage, StateValidator, stateValidator } from "@altea/altea/data/validators";
+import { ValidationMessage, StateValidator } from "@altea/altea/data/validators";
 import { Entity } from "@altea/altea/data/entity";
 import { entity } from "@altea/altea/data/decorators";
-import { registerEnum } from "@altea/altea/data/registration";
 import { Enum } from "@altea/altea/data/enum";
 import { Temporal } from "@altea/altea/data/basics";
 import { getTypeInfo } from "@altea/altea/data/reflection";
@@ -13,23 +12,29 @@ import { getTypeInfo } from "@altea/altea/data/reflection";
 // Signum's StateValidator: per state, whether each listed property is necessary (true), not allowed
 // (false) or either (null). The shape is ReNew's RoleAssignment, whose dates follow its status.
 
+@entity("Main", "Transactional")
+class AssignmentSample extends Entity {
+    status: AssignmentStatus = AssignmentStatus.Interested;
+    fromDate: Temporal.PlainDate | null = null;
+    toDate: Temporal.PlainDate | null = null;
+}
+
 enum AssignmentStatus {
     Interested,
     Assigned,
     Rejected,
     Finished,
 }
-registerEnum(AssignmentStatus);
 
-const assignmentStates = new StateValidator<AssignmentSample, AssignmentStatus>(a => a.status, ["fromDate", "toDate"], AssignmentStatus)
+const assignmentStates = new StateValidator(AssignmentSample, a => a.status, ["fromDate", "toDate"], AssignmentStatus)
     .add(AssignmentStatus.Interested, false, false)
     .add(AssignmentStatus.Assigned, true, null)
     .add(AssignmentStatus.Rejected, null, null)
     .add(AssignmentStatus.Finished, true, true);
 
+// For the error cases, whose validators must not land on AssignmentSample.
 @entity("Main", "Transactional")
-@stateValidator(assignmentStates)
-class AssignmentSample extends Entity {
+class MisconfiguredSample extends Entity {
     status: AssignmentStatus = AssignmentStatus.Interested;
     fromDate: Temporal.PlainDate | null = null;
     toDate: Temporal.PlainDate | null = null;
@@ -52,7 +57,7 @@ describe("StateValidator", () => {
             ValidationMessage._0IsNecessaryOnState1.niceToString("To date", Enum.niceName(AssignmentStatus, AssignmentStatus.Finished)));
     });
 
-    test("@stateValidator puts one validator on each listed property", () => {
+    test("the validator puts one field validator on each listed property", () => {
         const fields = getTypeInfo(AssignmentSample)!.fields;
         assert.equal(fields["fromDate"]?.validators?.length ?? 0, 1);
         assert.equal(fields["toDate"]?.validators?.length ?? 0, 1);
@@ -79,11 +84,11 @@ describe("StateValidator", () => {
     });
 
     test("a row of the wrong length, or an unregistered state, is refused", () => {
-        assert.throws(() => new StateValidator<AssignmentSample, AssignmentStatus>(a => a.status, ["fromDate", "toDate"]).add(AssignmentStatus.Assigned, true),
+        assert.throws(() => new StateValidator(MisconfiguredSample, a => a.status, ["fromDate", "toDate"]).add(AssignmentStatus.Assigned, true),
             /has 1 values instead of 2/);
 
-        const partial = new StateValidator<AssignmentSample, AssignmentStatus>(a => a.status, ["fromDate"], AssignmentStatus)
+        const partial = new StateValidator(MisconfiguredSample, a => a.status, ["fromDate"], AssignmentStatus)
             .add(AssignmentStatus.Assigned, true);
-        assert.throws(() => partial.validate(new AssignmentSample(), "fromDate"), /not registered/);
+        assert.throws(() => partial.validate(new MisconfiguredSample(), "fromDate"), /not registered/);
     });
 });
