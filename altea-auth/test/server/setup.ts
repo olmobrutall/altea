@@ -80,7 +80,7 @@ if (process.env["VITEST"] != undefined)
 let started: Promise<Connector> | undefined;
 
 // Connect + build the in-memory schema + register the auth stack — nothing else (no DDL, no seed).
-export function start(): Promise<Connector> {
+export function start(options?: { initialize?: boolean }): Promise<Connector> {
     return (started ??= (async () => {
         const sb = new SchemaBuilder();
         const connector = await AuthTestStarter.connectorFromEnv(sb.schema, process.env.ALTEA_AUTH_TEST_DB!);
@@ -92,7 +92,9 @@ export function start(): Promise<Connector> {
         sb.schema.globalLazyReadUncommitted = true;
         AuthTestStarter.registerLogic(sb);
         sb.complete();
-        await connector.schema.initialize();
+        // The generator skips it: on a database with no tables yet (a first run) there is nothing to read.
+        if (options?.initialize !== false)
+            await connector.schema.initialize();
         return connector;
     })());
 }
@@ -104,7 +106,7 @@ export async function generateAuthEnvironment(): Promise<Connector> {
     // `gen` exists to fix, so that pre-clean read has to be tolerant. Same seam the terminal's create/sync
     // uses (StartParameters.withIgnoredDatabaseMismatches); the mismatches are discarded because the very
     // next statements drop and regenerate everything.
-    const { result: connector } = await StartParameters.withIgnoredDatabaseMismatches(() => start());
+    const { result: connector } = await StartParameters.withIgnoredDatabaseMismatches(() => start({ initialize: false }));
     // `start()` turns on globalLazyReadUncommitted for the TESTS, whose pattern is to mutate inside a
     // rolled-back scope and read back through the caches. The generator is not a test: it writes real
     // rows and its lazies are warmed by `schema.initialize()` below, whose promises outlive the ambient

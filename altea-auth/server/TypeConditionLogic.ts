@@ -11,7 +11,7 @@ import {
     Expression, LambdaExpression, ParameterExpression, PropertyExpression, ConstantExpression,
 } from "@altea/altea/server/linq/expressions";
 import { replaceParameter } from "@altea/altea/server/linq/expressionReplacer";
-import { LiteralType, ClassType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
+import { LiteralType, ClassType, quotedFunction, type RuntimeType } from "@altea/altea/server/runtimeTypes";
 import type { FilterQueryArgs } from "@altea/altea/server/schema/filterQueryArgs";
 import { filterAuditor, isEqualsConstant } from "./QueryAuditorVisitor";
 import { quotedReadsPromiseMarker } from "@altea/altea/server/stablePromise";
@@ -495,4 +495,52 @@ function infoOrThrow(ctor: Function, typeCondition: TypeConditionSymbol): TypeCo
     if (info == null)
         throw new Error(`TypeCondition ${typeCondition.key} is not registered for ${ctor.name}`);
     return info;
+}
+
+// ---- entity.inCondition(symbol) (Signum's TypeConditionLogic.InCondition) ----------------------------------
+//
+// In memory: the condition's answer for this instance. Inside a query: a METHOD EXPANDER inlines the
+// condition registered for the receiver's STATIC type, applied to the receiver — Signum's
+// InConditionExpander, `Expression.Invoke(GetCondition(entity.Type, tc), entity)`. The expanded body is
+// visited again, so a condition that is itself written with inCondition expands in turn.
+// Declared HERE, beside its implementation, rather than in the data layer: conditions are registered and
+// evaluated on the server only, so the browser has no use for the member.
+declare module "@altea/altea/data/entity" {
+    interface Entity {
+        inCondition(typeCondition: TypeConditionSymbol): boolean;
+    }
+}
+
+const inCondition = function (this: EntityClass, typeCondition: TypeConditionSymbol): boolean {
+    return TypeConditionLogic.inTypeCondition(this, typeCondition);
+};
+const inConditionSf = quotedFunction(inCondition);
+inConditionSf.__resultType = () => LiteralType.boolean;
+inConditionSf.__methodExpander = (instance, args) => {
+    if (instance == null || args.length !== 1)
+        throw new Error("inCondition takes the entity and one TypeConditionSymbol");
+
+    const ctor = instance.type instanceof ClassType ? instance.type.constructorFunction : undefined;
+    if (ctor == null)
+        throw new Error(`inCondition needs an entity of a known type, not ${instance.type}`);
+
+    const typeCondition = constantValue(args[0]);
+    if (!(typeCondition instanceof TypeConditionSymbol))
+        throw new Error("The argument of inCondition must be a TypeConditionSymbol known when the query is built");
+
+    const condition = Expression.fromQuotedLambda(TypeConditionLogic.getCondition(ctor, typeCondition), [instance.type]);
+    return replaceParameter(condition.body, condition.parameters[0], instance);
+};
+EntityClass.prototype.inCondition = inCondition;
+
+// The value of a sub-expression the query builder already knows: a captured constant, or a member of one
+// (`RenewTypeCondition.MyPractice` arrives as `<the namespace object>.MyPractice`).
+function constantValue(e: Expression): unknown {
+    if (e instanceof ConstantExpression)
+        return e.value;
+    if (e instanceof PropertyExpression) {
+        const owner = constantValue(e.object);
+        return owner == null ? undefined : (owner as Record<string, unknown>)[e.propertyName];
+    }
+    return undefined;
 }
