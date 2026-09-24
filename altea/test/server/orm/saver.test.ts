@@ -89,6 +89,25 @@ describe.skipIf(!hasDb)("SaverTest", () => {
     // saved with the members going in ONE multi-row INSERT — so the whole graph is 2 insert
     // round-trips (band + members), not 4 (band + 3 × member). Proven by counting the INSERT
     // statements the connector actually issues.
+    // Signum's Saved runs inside the save, so a handler may query and write: the saver awaits it, and the
+    // save does not finish before the handler does.
+    txTest("SavedHandlersAreAwaitedInsideTheSave", async () => {
+        const events = Connector.current().schema.entityEvents(LabelEntity);
+        const seen: string[] = [];
+        const handler = async (l: LabelEntity, args: { wasNew: boolean; wasModified: boolean }) => {
+            const count = await table(LabelEntity).count(x => x.id == l.id);
+            seen.push(`${l.name} new=${args.wasNew} modified=${args.wasModified} inDb=${count}`);
+        };
+        events.saved.push(handler);
+        try {
+            const usa = await table(CountryEntity).first();
+            await LabelEntity.create({ name: "Saved Event", country: usa, owner: null }).save();
+            assert.deepEqual(seen, ["Saved Event new=true modified=true inDb=1"]);
+        } finally {
+            events.saved.splice(events.saved.indexOf(handler), 1);
+        }
+    });
+
     txTest("BatchesCollectionInsertsInOneStatement", async () => {
         const artists = (await table(ArtistEntity).orderBy(a => a.name).toArray()).slice(0, 3);
         assert.equal(artists.length, 3, "need 3 seeded artists");

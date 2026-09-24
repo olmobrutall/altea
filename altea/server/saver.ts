@@ -197,10 +197,10 @@ export namespace Saver {
             }
 
             // Signum's EntityEvents<T>.Saved: after the DB write, still inside the transaction
-            // (so a handler's own writes are part of the same atomic save). `wasNew` reflects the
-            // state before the INSERT cleared isNew.
+            // (so a handler's own writes are part of the same atomic save), and AWAITED. `wasNew` reflects
+            // the state before the INSERT cleared isNew.
             for (const e of saveSet)
-                schema.entityEvents(e.constructor as Type<Entity>).onSaved(e, { wasNew: wasNew.get(e) ?? false });
+                await schema.entityEvents(e.constructor as Type<Entity>).onSaved(e, { wasNew: wasNew.get(e) ?? false, wasModified: true });
 
             // Commit-time re-baseline: every saved row now matches the database.
             for (const e of saveSet)

@@ -35,8 +35,11 @@ import type { FilterQueryArgs } from './filterQueryArgs';
 export type PreDeleteSqlSyncHandler<T extends Entity> = (entity: T) => SqlPreCommand | undefined;
 export type PreSavingHandler<T extends Entity> = (entity: T) => void;
 export type SavingHandler<T extends Entity> = (entity: T) => void;
-export interface SavedArgs { readonly wasNew: boolean; }
-export type SavedHandler<T extends Entity> = (entity: T, args: SavedArgs) => void;
+// Signum's SavedEventArgs. `wasModified` is Signum's too, and as there it is true for every row that is
+// saved at all: an entity whose graph was not modified is not written, so no Saved fires for it.
+export interface SavedArgs { readonly wasNew: boolean; readonly wasModified: boolean; }
+// Awaited by the saver, still inside the transaction, so a handler may read and write the database.
+export type SavedHandler<T extends Entity> = (entity: T, args: SavedArgs) => void | Promise<void>;
 export type RetrievedHandler<T extends Entity> = (entity: T) => void;
 export type PreUnsafeDeleteHandler<T extends Entity> = (query: Query<T>) => void | Promise<void>;
 export type PreUnsafeUpdateHandler<T extends Entity> = (query: Query<T>) => void | Promise<void>;
@@ -113,9 +116,9 @@ export class EntityEvents<T extends Entity> {
             h(entity);
     }
 
-    onSaved(entity: T, args: SavedArgs): void {
+    async onSaved(entity: T, args: SavedArgs): Promise<void> {
         for (const h of this.saved)
-            h(entity, args);
+            await h(entity, args);
     }
 
     onRetrieved(entity: T): void {
