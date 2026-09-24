@@ -5,6 +5,7 @@ import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { declaredSymbolsForType } from "@altea/altea/data/reflection";
 import { FileTypeSymbol } from "../data/Files";
 import type { IFileTypeAlgorithm } from "./FileTypeAlgorithm";
+import { ReflectionServer } from "@altea/altea/server/reflectionServer";
 
 // Port of Signum.Files' FileTypeLogic.cs — see port/Files.md.
 //
@@ -27,6 +28,20 @@ export namespace FileTypeLogic {
         SymbolLogic.start(sb, FileTypeSymbol,
             () => (declaredSymbolsForType(FileTypeSymbol) as FileTypeSymbol[]).filter(s => fileTypes.has(s.key)));
         sb.include(FileTypeSymbol).withQuery();
+
+        // Each registered store's limits, on its symbol's entry in the metadata blob — what the file lines
+        // enforce for a field whose `@defaultFileType` names that type (Signum's defaultFileTypeInfo).
+        ReflectionServer.metadataExtensions.push((_types, typeOf) => {
+            for (const [key, algorithm] of fileTypes) {
+                const dot = key.lastIndexOf(".");
+                const container = typeOf(key.slice(0, dot), "Container");
+                const member = key.slice(dot + 1);
+                (container.fields[member] ??= {}).fileTypeLimits = {
+                    onlyImages: algorithm.onlyImages,
+                    maxSizeInBytes: algorithm.maxSizeInBytes,
+                };
+            }
+        });
     }
 
     export function register(fileType: FileTypeSymbol, algorithm: IFileTypeAlgorithm): void {

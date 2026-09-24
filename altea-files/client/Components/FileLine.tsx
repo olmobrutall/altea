@@ -10,7 +10,7 @@ import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { FileEntity, FileEmbedded, FilePathEmbedded, FileMessage } from "../../data/Files";
 import type { FileTypeSymbol } from "../../data/Files";
 import { FileDownloader, type DownloadBehaviour } from "./FileDownloader";
-import { FileUploader } from "./FileUploader";
+import { FileUploader, uploadOptions } from "./FileUploader";
 import "./Files.css";
 
 // Port of Signum.Files' Components/FileLine.tsx — see port/Files.md.
@@ -24,7 +24,7 @@ import "./Files.css";
 // single file rendered as a thumbnail). MultiFileImageLine is not ported.
 
 export interface FileLineProps<V extends FilePathEmbedded | FileEmbedded | FileEntity | null> extends LineBaseProps<V> {
-    /** The store a NEW FilePathEmbedded goes to (required for FilePathEmbedded, ignored for FileEmbedded). */
+    /** The store a NEW FilePathEmbedded goes to; defaults to the field's `@defaultFileType` (ignored for FileEmbedded). */
     fileType?: FileTypeSymbol;
     /** The entity that holds this field — the downloader needs it to build the file's URL. */
     containerEntity?: Entity;
@@ -93,15 +93,17 @@ export function FileLine<V extends FilePathEmbedded | FileEmbedded | FileEntity 
         c.setValue(null as V);
     }
 
+    const upload = uploadOptions(p, p.ctx.propertyRoute?.fieldInfo);
+
     return (
         <FormGroup ctx={p.ctx} label={p.label} helpText={typeof p.helpText === "function" ? p.helpText(c) : p.helpText} htmlAttributes={{ ...c.errorAttributes() }}>
             {() => file == null
                 ? (p.ctx.readOnly ? null :
                     <FileUploader
                         kind={c.kind()}
-                        fileType={p.fileType}
-                        accept={p.accept}
-                        maxSizeInBytes={p.maxSizeInBytes}
+                        fileType={upload.fileType}
+                        accept={upload.accept}
+                        maxSizeInBytes={upload.maxSizeInBytes}
                         dragAndDrop={p.dragAndDrop}
                         fileDropCssClass={c.mandatoryClass ?? undefined}
                         divHtmlAttributes={{ className: "sf-file-line-new" }}

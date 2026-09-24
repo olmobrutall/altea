@@ -13,7 +13,7 @@ import { ErrorBoundary } from "@altea/altea/client/Components";
 import { FileEntity, FileEmbedded, FileMessage, FilePathEmbedded } from "../../data/Files";
 import type { FileTypeSymbol } from "../../data/Files";
 import { FileDownloader, type DownloadBehaviour } from "./FileDownloader";
-import { FileUploader } from "./FileUploader";
+import { FileUploader, uploadOptions } from "./FileUploader";
 import { memberPath, rootEntity } from "./FileLine";
 import "./Files.css";
 
@@ -28,7 +28,7 @@ import "./Files.css";
 // nested embedded) rather than a lambda, because the quote-transformer does not rewrite lambdas in JSX
 // attributes — and a name is all the route needs, both to read the value and to build the download URL.
 //
-// Pass `fileType` explicitly, exactly like FileLine.
+// The store comes from `fileType`, else the collection's (or the row file field's) `@defaultFileType`.
 
 export interface MultiFileLineProps<R extends BaseEntity> extends EntityListBaseProps<R> {
     /** The ROW member holding the file — a name, dotted for a nested embedded ("attachment.file"). Defaults
@@ -37,7 +37,7 @@ export interface MultiFileLineProps<R extends BaseEntity> extends EntityListBase
     /** How a picked file becomes a row. Defaults to `RowType.create({ <fileField>: file })` — override it
      *  when the row needs more than the file set. */
     createElementFromFile?: (file: FilePathEmbedded | FileEmbedded | FileEntity) => Promise<NoInfer<R> | undefined> | NoInfer<R> | undefined;
-    /** The store NEW FilePathEmbedded files go to (required for FilePathEmbedded, ignored for FileEmbedded). */
+    /** The store NEW FilePathEmbedded files go to; defaults to the collection's `@defaultFileType` (ignored for FileEmbedded). */
     fileType?: FileTypeSymbol;
     /** The entity that holds this collection — the downloader needs it to build each file's URL. */
     containerEntity?: Entity;
@@ -190,6 +190,8 @@ export const MultiFileLine: <R extends BaseEntity>(props: MultiFileLineProps<R>)
         const ctxs = c.getMListItemContext(p.ctx.subCtx({ formGroupStyle: "None" }));
         const container = p.containerEntity ?? rootEntity(p.ctx);
         const propertyRoute = c.filePropertyRoute();
+        // The collection field first: Signum puts [DefaultFileType] on the MList itself.
+        const upload = uploadOptions(p, p.ctx.propertyRoute?.fieldInfo, c.fileMember().fieldInfo);
 
         return (
             <FormGroup ctx={p.ctx} error={p.error} label={p.label} labelIcon={p.labelIcon}
@@ -259,10 +261,10 @@ export const MultiFileLine: <R extends BaseEntity>(props: MultiFileLineProps<R>)
                                     ctxs.length === 0 || c.forceShowUploader || p.forceShowUploader ?
                                         <FileUploader
                                             kind={c.kind()}
-                                            fileType={p.fileType}
-                                            accept={p.accept}
+                                            fileType={upload.fileType}
+                                            accept={upload.accept}
                                             multiple={true}
-                                            maxSizeInBytes={p.maxSizeInBytes}
+                                            maxSizeInBytes={upload.maxSizeInBytes}
                                             dragAndDrop={p.dragAndDrop ?? true}
                                             dragAndDropMessage={p.dragAndDropMessage}
                                             onFileLoaded={c.handleFileLoaded}

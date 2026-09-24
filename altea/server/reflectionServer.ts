@@ -387,8 +387,23 @@ export namespace ReflectionServer {
             }
         }
 
+        // What a MODULE adds that is the same for every user (a file type's store limits): after the passes
+        // above, in the culture scope, so it is cached with the blob. Per-ROLE additions are the filter's.
+        CultureInfo.withUICulture(culture, () => {
+            for (const extend of metadataExtensions)
+                extend(types, typeOf);
+        });
+
         return { culture, timeZoneMode: TimeZoneMode[Clock.mode] as TimeZoneModeName, types };
     }
+
+    /**
+     * Module additions to the blob that depend on neither the user nor the role — Signum's
+     * `ReflectionServer.PropertyRouteExtension` / `FieldInfoExtension` family, as one list any module may push
+     * to. `typeOf` answers (creating when absent) the entry for a type name. Contrast `setMetadataFilter`,
+     * the single per-request, per-role overlay an authorization module owns.
+     */
+    export const metadataExtensions: ((types: Record<string, TypeMetadata>, typeOf: (name: string, kind: KindOfType) => TypeMetadata) => void)[] = [];
 
     // The blob as it goes OUT — the model squeezed into the wire encoding described on `MetadataBlobWire`,
     // which `Metadata.fromWire` undoes on arrival:

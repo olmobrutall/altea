@@ -9,7 +9,7 @@ import { LineBaseController, type LineBaseProps, useController } from "@altea/al
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { FileEntity, FileEmbedded, FilePathEmbedded, FileMessage } from "../../data/Files";
 import type { FileTypeSymbol } from "../../data/Files";
-import { FileUploader } from "./FileUploader";
+import { FileUploader, uploadOptions } from "./FileUploader";
 import { FileImage } from "./FileImage";
 import { ImageModal } from "./ImageModal";
 import { memberPath, rootEntity } from "./FileLine";
@@ -21,10 +21,10 @@ import "./Files.css";
 // (click → ImageModal) with the remove button floating over it. Structurally FileLine with an <img>
 // instead of a downloader.
 //
-// Pass `fileType` explicitly: there is no per-property file-type metadata to default it from.
+// The store comes from `fileType`, else the field's `@defaultFileType` (see uploadOptions).
 
 export interface FileImageLineProps<V extends FilePathEmbedded | FileEmbedded | FileEntity | null> extends LineBaseProps<V> {
-    /** The store a NEW FilePathEmbedded goes to (required for FilePathEmbedded, ignored for FileEmbedded). */
+    /** The store a NEW FilePathEmbedded goes to; defaults to the field's `@defaultFileType` (ignored for FileEmbedded). */
     fileType?: FileTypeSymbol;
     /** The entity that holds this field — the image needs it to fetch a file that is already stored. */
     containerEntity?: Entity;
@@ -97,6 +97,8 @@ export function FileImageLine<V extends FilePathEmbedded | FileEmbedded | FileEn
 
     const removable = (p.remove ?? true) && !p.ctx.readOnly;
 
+    const upload = uploadOptions(p, p.ctx.propertyRoute?.fieldInfo);
+
     return (
         <FormGroup ctx={p.ctx} label={p.label} helpText={typeof p.helpText === "function" ? p.helpText(c) : p.helpText}
             htmlAttributes={{ ...c.errorAttributes() }}>
@@ -104,9 +106,9 @@ export function FileImageLine<V extends FilePathEmbedded | FileEmbedded | FileEn
                 ? (p.ctx.readOnly ? null :
                     <FileUploader
                         kind={c.kind()}
-                        fileType={p.fileType}
-                        accept={p.accept}
-                        maxSizeInBytes={p.maxSizeInBytes}
+                        fileType={upload.fileType}
+                        accept={upload.accept}
+                        maxSizeInBytes={upload.maxSizeInBytes}
                         dragAndDrop={p.dragAndDrop}
                         dragAndDropMessage={p.dragAndDropMessage}
                         fileDropCssClass={c.mandatoryClass ?? undefined}

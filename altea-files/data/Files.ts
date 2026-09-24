@@ -1,4 +1,5 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { reflect, init, setDefaultDatabaseSchema, getOrCreateFieldInfo, getOrCreateTypeInfo } from "@altea/altea/data/reflection";
+import { Metadata } from "@altea/altea/data/metadata";
 import { EmbeddedEntity } from "@altea/altea/data/entity";
 import { ImmutableEntity } from "@altea/altea/data/immutableEntity";
 import { Symbol } from "@altea/altea/data/symbol";
@@ -226,6 +227,49 @@ export namespace FileTypeSymbols {
     /** A store for files uploaded through the app's generic file line — registered by the app (eastwind's
      *  starter) with a folder algorithm. Declared here so a shared component can reference it. */
     export const Default: FileTypeSymbol = init();
+}
+
+// ---- @defaultFileType ------------------------------------------------------------------------------------
+//
+// Signum's [DefaultFileType]: the store a file field's NEW files go to, so the file lines upload to it
+// without every view naming it. A THUNK, because the symbol is often declared after the entity that uses it.
+//
+// The store's LIMITS (images only, maximum size) are not declared here: they belong to the file type, whose
+// algorithm the server registers, so two fields sharing a type cannot disagree. The server ships them with
+// the symbol in the metadata blob (see `fileTypeLimits`).
+
+declare module "@altea/altea/data/reflection" {
+    interface FieldInfo {
+        /** Set by `@defaultFileType`. */
+        defaultFileType?: () => FileTypeSymbol;
+    }
+}
+
+declare module "@altea/altea/data/metadata" {
+    interface FieldMetadata {
+        /** On a FileTypeSymbol member: what its registered store accepts (Signum's defaultFileTypeInfo). */
+        fileTypeLimits?: FileTypeLimits;
+    }
+}
+
+/** What a file type's store accepts, as the server registered it. */
+export interface FileTypeLimits {
+    onlyImages: boolean;
+    maxSizeInBytes: number | null;
+}
+
+/** `@defaultFileType(() => MyFileType.Attachment)` on a FilePathEmbedded field, or on a collection of them. */
+export function defaultFileType(fileType: () => FileTypeSymbol) {
+    return (target: object, propertyKey: string | symbol): void => {
+        getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).defaultFileType = fileType;
+    };
+}
+
+/** The limits the server shipped for a file type — undefined before the blob is applied, or for a type with no
+ *  registered store. */
+export function fileTypeLimits(fileType: FileTypeSymbol): FileTypeLimits | undefined {
+    const dot = fileType.key.lastIndexOf(".");
+    return Metadata.tryType(fileType.key.slice(0, dot))?.fields[fileType.key.slice(dot + 1)]?.fileTypeLimits;
 }
 
 // The database schema this package's tables live in. FOLDER-scoped, so it covers every type declared

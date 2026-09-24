@@ -1,0 +1,20 @@
+{
+  // TEST layer — node-only test files INSIDE the package they test, built by the same `tspc -b` into
+  // dist/test/**. Mirrors altea-cache's.
+  "extends": "../altea/presets/server.json",
+  "compilerOptions": {
+    "customConditions": [],
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "./tsconfig.server.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" },
+    { "path": "../altea-auth/tsconfig.data.json" },
+    { "path": "../altea-auth/tsconfig.server.json" }
+  ]
+}

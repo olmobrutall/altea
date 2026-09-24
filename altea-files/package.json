@@ -20,7 +20,8 @@
     }
   },
   "scripts": {
-    "build": "tspc -b"
+    "build": "tspc -b",
+    "test": "tspc -b && vitest run"
   },
   "keywords": [],
   "author": "Olmo del Corral",

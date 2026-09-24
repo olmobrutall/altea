@@ -2,7 +2,8 @@ import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { classes } from "@altea/altea/data/globals";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
-import { FileEntity, FileEmbedded, FileMessage, FilePathEmbedded, toComputerSize } from "../../data/Files";
+import { FileEntity, FileEmbedded, FileMessage, FilePathEmbedded, toComputerSize, fileTypeLimits } from "../../data/Files";
+import type { FieldInfo } from "@altea/altea/data/reflection";
 import type { FileTypeSymbol } from "../../data/Files";
 import "./Files.css";
 
@@ -153,4 +154,23 @@ export async function toFile(
     fpe.fileType = options.fileType;
     fpe.prepareForSave(); // length + the forced extension; the SERVER fills hash + suffix
     return fpe;
+}
+
+/**
+ * What an uploader for a field is configured with: the line's own props first, then the field's
+ * `@defaultFileType` (the first of `fields` that has one — a collection before its row's file field, as
+ * Signum puts the attribute on the MList), and the size / image limits of that type's store, which the
+ * server ships in the metadata blob.
+ */
+export function uploadOptions(
+    p: { fileType?: FileTypeSymbol; accept?: string; maxSizeInBytes?: number | null },
+    ...fields: (FieldInfo | undefined)[]
+): { fileType?: FileTypeSymbol; accept?: string; maxSizeInBytes?: number | null } {
+    const fileType = p.fileType ?? fields.map(f => f?.defaultFileType?.()).find(t => t != null);
+    const limits = fileType != null ? fileTypeLimits(fileType) : undefined;
+    return {
+        fileType,
+        accept: p.accept ?? (limits?.onlyImages ? "image/*" : undefined),
+        maxSizeInBytes: p.maxSizeInBytes !== undefined ? p.maxSizeInBytes : limits?.maxSizeInBytes,
+    };
 }
