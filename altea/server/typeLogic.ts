@@ -1,7 +1,7 @@
 import "../data/globals"; // Array.prototype.toMap
 import { joinRelaxed } from "../data/globals/joinRelaxed";
 import { Connector } from "./connection/connector";
-import { cleanTypeName, getLocation, enumNameOf, resolveCleanType, legacyClassName } from "../data/registration";
+import { cleanTypeName, getLocation, enumNameOf, resolveCleanType, resolveEntityType, legacyClassName } from "../data/registration";
 import { TypeEntity } from "../data/typeEntity";
 import { quotedFunction } from "./query";
 import { ClassType } from "./runtimeTypes";
@@ -16,7 +16,7 @@ import { isPartType } from "../data/propertyRoute";
 import { Synchronizer, Replacements } from "./sync/synchronizer";
 import { ObjectName, SchemaName, defaultDatabaseName } from "./schema/objectName";
 import { ImplementedByAllTypeColumn } from "./schema/column";
-import type { Entity, PrimaryKey } from "../data/entity";
+import type { BaseEntity, Entity, PrimaryKey, Type, View, ViewType } from "../data/entity";
 import type { Schema } from "./schema/schema";
 import type { Table } from "./schema/table";
 import { SqlPreCommand, SqlPreCommandSimple, Spacing } from "./sync/sqlPreCommand";
@@ -62,13 +62,13 @@ import { SqlPreCommand, SqlPreCommandSimple, Spacing } from "./sync/sqlPreComman
  */
 export class TypeCaches {
     constructor(
-        private readonly byType: Map<Function, PrimaryKey>,
-        private readonly byId: Map<PrimaryKey, Function>,
+        private readonly byType: Map<Type<Entity>, PrimaryKey>,
+        private readonly byId: Map<PrimaryKey, Type<Entity>>,
         private readonly entityById: Map<PrimaryKey, TypeEntity>,
     ) { }
 
     /** The discriminator id for an entity type (Signum's TypeToId.GetOrThrow). */
-    typeToId(ctor: Function): PrimaryKey {
+    typeToId(ctor: Type<Entity>): PrimaryKey {
         const id = this.byType.get(ctor);
         if (id == null)
             throw new Error(`Type '${ctor.name}' is not registered in TypeLogic. Was its table included before SchemaBuilder.complete(), and TypeLogic.load() run after generation/sync?`);
@@ -76,25 +76,26 @@ export class TypeCaches {
     }
 
     /** The discriminator id, or undefined when the type has no TypeEntity row (Signum's TypeToId.TryGetC)
-     *  — for a caller that resolved a type NAME which may not name a persistent type at all. */
-    tryTypeToId(ctor: Function): PrimaryKey | undefined {
-        return this.byType.get(ctor);
+     *  — for a caller that resolved a type NAME which may not name a persistent type at all. Takes ANY
+     *  modifiable or view type for the same reason: an embedded, a model or a view simply has no row. */
+    tryTypeToId(ctor: Type<BaseEntity> | ViewType<View>): PrimaryKey | undefined {
+        return this.byType.get(ctor as Type<Entity>);
     }
 
     /** The discriminator id for a type NAME — clean ("Order") or full ("OrderEntity") — or undefined when
      *  the name does not resolve to a persistent type. */
     tryTypeToIdByName(typeName: string): PrimaryKey | undefined {
-        const ctor = resolveCleanType(typeName);
+        const ctor = resolveEntityType(typeName);
         return ctor == null ? undefined : this.tryTypeToId(ctor);
     }
 
     /** The entity type for a discriminator id, or undefined if unknown (Signum's Schema.GetType / IdToType
      *  — the @implementedByAll materialisation path). */
-    tryGetType(id: PrimaryKey | null): Function | undefined {
+    tryGetType(id: PrimaryKey | null): Type<Entity> | undefined {
         return id == null ? undefined : this.byId.get(id);
     }
 
-    getType(id: PrimaryKey): Function {
+    getType(id: PrimaryKey): Type<Entity> {
         const ctor = this.byId.get(id);
         if (ctor == null)
             throw new Error(`No registered entity type for TypeEntity id '${id}'.`);
@@ -106,9 +107,9 @@ export class TypeCaches {
         return this.entityById.get(id);
     }
 
-    /** The TypeEntity row for an entity type, or undefined when it has none. */
-    tryTypeToEntity(ctor: Function): TypeEntity | undefined {
-        const id = this.byType.get(ctor);
+    /** The TypeEntity row for a type, or undefined when it has none (any non-entity type has none). */
+    tryTypeToEntity(ctor: Type<BaseEntity> | ViewType<View>): TypeEntity | undefined {
+        const id = this.byType.get(ctor as Type<Entity>);
         return id == null ? undefined : this.entityById.get(id);
     }
 
@@ -124,7 +125,7 @@ export class TypeCaches {
 // `undefined` means the caches weren't available (a query bound while they were loading): a discriminator
 // (@implementedByAll) can't be resolved there, so `requireTypeId` throws — but the re-entrant
 // `table(TypeEntity)` load has no such discriminator, so it never calls this.
-export function requireTypeId(caches: TypeCaches | undefined, ctor: Function): PrimaryKey {
+export function requireTypeId(caches: TypeCaches | undefined, ctor: Type<Entity>): PrimaryKey {
     if (caches == null)
         throw new Error(`@implementedByAll for '${ctor.name}' can't be resolved: type caches unavailable (a query bound while they were loading).`);
     return caches.typeToId(ctor);
@@ -198,7 +199,7 @@ export class TypeLogic {
 
     // The clean type name (Signum's Reflector.CleanTypeName) — used to populate the
     // TypeEntity.cleanName column and for display, NOT as the stored discriminator.
-    static getCleanName(ctor: Function): string {
+    static getCleanName(ctor: Type<BaseEntity> | ViewType<View>): string {
         return cleanTypeName(ctor);
     }
 }
@@ -228,8 +229,8 @@ async function buildCaches(schema: Schema): Promise<TypeCaches> {
 function projectCaches(schema: Schema, rows: TypeEntity[]): TypeCaches {
     const modelTypes = typedTables(schema).map(([type]) => type);
 
-    const typeToId = new Map<Function, PrimaryKey>();
-    const idToType = new Map<PrimaryKey, Function>();
+    const typeToId = new Map<Type<Entity>, PrimaryKey>();
+    const idToType = new Map<PrimaryKey, Type<Entity>>();
     const idToEntity = new Map<PrimaryKey, TypeEntity>();
 
     if (rows.length === 0)
@@ -240,7 +241,7 @@ function projectCaches(schema: Schema, rows: TypeEntity[]): TypeCaches {
         modelTypes,
         te => te.className,
         classNameOf,
-        (te, ctor) => [ctor, te] as [Function, TypeEntity],
+        (te, ctor) => [ctor, te] as [Type<Entity>, TypeEntity],
         "caching " + TypeEntity.name,
     )) {
         const id = te.id!;
@@ -341,8 +342,8 @@ function deleteImplementedByAllRowsOfType(type: TypeEntity): SqlPreCommand | und
  * The single source for every consumer, so the caches, the generation order and the sync all agree on
  * which types exist — a model type missing from one of them is reported as a database mismatch.
  */
-function typedTables(schema: Schema): [Function, Table][] {
-    const entries: [Function, Table][] = [];
+function typedTables(schema: Schema): [Type<Entity>, Table][] {
+    const entries: [Type<Entity>, Table][] = [];
     for (const [type, table] of schema.tables)
         if (typeof type === "function" && !(table.legacyMode && table.isMListRow))
             entries.push([type, table]);
@@ -382,7 +383,7 @@ function bootstrapMetas(schema: Schema): TypeMeta[] {
 // altea's — and it is DECLARED (`@legacyClassName`), not derived. It has to be: this column is the one a
 // Signum application synchronizes back to its own answer, so guessing it from the clean name plus a kind
 // suffix would be a guess about the very value the two applications must agree on.
-export function classNameOf(ctor: Function): string {
+export function classNameOf(ctor: Type<BaseEntity> | ViewType<View>): string {
     const boundEnum = (ctor as { boundEnum?: object }).boundEnum;
     if (boundEnum != null) {
         const enumName = enumNameOf(boundEnum);
@@ -401,7 +402,7 @@ export function classNameOf(ctor: Function): string {
 // not the "EnumEntity<E>" ctor name, which has no registered location). `null` when unknown: the column
 // is nullable (as Signum's is), so "no package" is a NULL rather than an empty string that would read
 // as a package named "".
-function packageOf(ctor: Function): string | null {
+function packageOf(ctor: Type<BaseEntity> | ViewType<View>): string | null {
     return getLocation(classNameOf(ctor))?.packageName ?? null;
 }
 
@@ -537,6 +538,6 @@ Function.prototype.toTypeEntity = function (this: Function): TypeEntity {
         throw new Error("`toTypeEntity()` ran IN MEMORY before the type↔id caches were loaded."
             + " Inside a query it is translated and needs nothing; in memory, await TypeLogic.caches()"
             + " first (schema.initialize() does) — or read the row through those caches directly.");
-    return caches.idToEntity(caches.typeToId(this))!;
+    return caches.idToEntity(caches.typeToId(this as Type<Entity>))!;
 };
 quotedFunction(Function.prototype.toTypeEntity).__resultType = () => new ClassType(TypeEntity);

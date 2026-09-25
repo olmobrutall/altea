@@ -3,6 +3,7 @@ import { Entity } from './entity';
 import { reflect } from './reflection';
 import { uniqueIndex, quoted } from './decorators';
 import { Localization } from './utils/localization';
+import type { Type } from "./entity";
 
 // Port of Signum's Symbol (Signum/Basics/Symbol.cs): the abstract base of every
 // "symbol" — a SystemString entity identified by a unique textual `key` of the
@@ -55,6 +56,6 @@ export abstract class Symbol extends Entity {
 // base and non-symbols. The SchemaBuilder uses it to give symbol tables the seeded,
 // no-ticks treatment (like TypeEntity) — an IDENTITY PK whose rows SymbolLogic seeds
 // (without ids) and reads back.
-export function isSymbolType(ctor: Function): boolean {
+export function isSymbolType(ctor: Function): ctor is Type<Symbol> {
     return ctor !== Symbol && ctor.prototype instanceof Symbol;
 }

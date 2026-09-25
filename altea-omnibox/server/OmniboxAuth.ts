@@ -3,6 +3,7 @@ import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { TypeAuthLogic } from "@altea/altea-auth/server/TypeAuthLogic";
 import { QueryAuthLogic } from "@altea/altea-auth/server/QueryAuthLogic";
 import { TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
+import type { Type, Entity } from "@altea/altea/data/entity";
 
 // The authorization adapters the generators use.
 //
@@ -14,11 +15,11 @@ import { TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
 // omnibox then shows everything, as an unsecured application should.
 
 /** Coarse UI-Read. */
-export async function allowedTypeFilter(candidates: Function[]): Promise<(type: Function) => boolean> {
+export async function allowedTypeFilter(candidates: Type<Entity>[]): Promise<(type: Type<Entity>) => boolean> {
     if (!TypeAuthLogic.isStarted())
         return () => true;
 
-    const allowed = new Set<Function>();
+    const allowed = new Set<Type<Entity>>();
     const caches = await TypeLogic.caches();
     for (const ctor of candidates) {
         const typeId = caches.tryTypeToId(ctor);

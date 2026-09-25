@@ -1,7 +1,7 @@
 import { Expression, CallExpression, ConstantExpression, LambdaExpression, ParameterExpression, PropertyExpression } from "../linq/expressions";
 import { ExpressionVisitor } from "../linq/visitors/ExpressionVisitor";
 import { LiteralType, ArrayType, ClassType } from "../runtimeTypes";
-import type { Entity, Type } from "../../data/entity";
+import type { Entity, Type, View, ViewType } from "../../data/entity";
 import type { Lite } from "../../data/lite";
 
 // Port of Signum's `FilterQueryArgs` (Engine/Schema/EntityEvents.cs) — WHAT THE CALLER ASKED FOR, handed
@@ -51,7 +51,7 @@ export class FilterQueryArgs {
 
     /** Signum's `FromEntity(entity)` — `table(T).filter(e => e.is(entity))`. */
     static fromEntity<T extends Entity>(entity: T): FilterQueryArgs {
-        const ctor = entity.constructor as Type<T>;
+        const ctor = entity.getType();
         return FilterQueryArgs.fromFilter(ctor, isFilterLambda(ctor, entity));
     }
 }
@@ -92,8 +92,8 @@ export function isQuerySourceCall(node: Expression): node is CallExpression {
 }
 
 /** The entity/view constructor a query-source node reads from. */
-export function querySourceCtor(node: CallExpression): Function {
-    return (node.args[0] as ConstantExpression).value as Function;
+export function querySourceCtor(node: CallExpression): Type<Entity> | ViewType<View> {
+    return (node.args[0] as ConstantExpression).value as Type<Entity> | ViewType<View>;
 }
 
 class QuerySourceFinder extends ExpressionVisitor {
@@ -113,14 +113,14 @@ class QuerySourceFinder extends ExpressionVisitor {
 // without a module cycle in the engine's hottest path. `table.ts` registers itself here on load instead,
 // which is the same accommodation `cultureInfoEntity.setCultureNameResolver` makes.
 
-let querySourceFactory: ((ctor: Function) => CallExpression) | undefined;
+let querySourceFactory: ((ctor: Type<Entity> | ViewType<View>) => CallExpression) | undefined;
 
 /** Called once by `server/table.ts` — see the note above. */
-export function setQuerySourceFactory(factory: (ctor: Function) => CallExpression): void {
+export function setQuerySourceFactory(factory: (ctor: Type<Entity> | ViewType<View>) => CallExpression): void {
     querySourceFactory = factory;
 }
 
-function querySourceCall(ctor: Function): CallExpression {
+function querySourceCall(ctor: Type<Entity> | ViewType<View>): CallExpression {
     if (querySourceFactory == null)
         throw new Error("FilterQueryArgs: the query source factory is not registered — import '@altea/altea/server/table' first.");
     return querySourceFactory(ctor);

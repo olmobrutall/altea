@@ -33,6 +33,7 @@ import {
 import type { Quoted } from "quote-transformer/quoted";
 import { ExpressionVisitor } from "../linq/visitors/ExpressionVisitor";
 import { inState } from "../operation";
+import type { Type } from "../../data/entity";
 
 // ---- BuildExpressionContext / ExpressionBox (Signum's, in QueryToken.cs) --------------------
 
@@ -72,7 +73,7 @@ export class BuildExpressionContext {
 // Ports of Signum's ExtractEntity / BuildLiteNullifyUnwrapPrimaryKey (QueryUtils.cs). They emit
 // altea `Expression` nodes the Phase-D binder already understands (`.entity`, `.toLite`).
 
-function isEntityCtor(ctor: Function): boolean {
+function isEntityCtor(ctor: Function): ctor is Type<Entity> {
     return ctor === Entity || ctor.prototype instanceof Entity;
 }
 
@@ -539,8 +540,8 @@ export interface OperationTokenExpressionInfo {
 // Set by OperationLogic.start. It THROWS for an operation that cannot be a column (Signum's
 // "requires CanExecuteExpression to be used as query token"), so a stored column naming an operation
 // that has since grown an in-memory-only guard fails loudly instead of rendering an always-enabled button.
-let operationTokenInfo: ((operationKey: string, entityCtor: Function) => OperationTokenExpressionInfo) | undefined;
-export function setOperationTokenInfoProvider(fn: (operationKey: string, entityCtor: Function) => OperationTokenExpressionInfo): void {
+let operationTokenInfo: ((operationKey: string, entityCtor: Type<Entity>) => OperationTokenExpressionInfo) | undefined;
+export function setOperationTokenInfoProvider(fn: (operationKey: string, entityCtor: Type<Entity>) => OperationTokenExpressionInfo): void {
     operationTokenInfo = fn;
 }
 

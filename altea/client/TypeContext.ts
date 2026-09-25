@@ -363,7 +363,7 @@ export class TypeContext<T> extends StyleContext {
 
   static root<T extends BaseEntity>(value: T, styleOptions?: StyleOptions, parent?: StyleContext): TypeContext<T> {
     // ALTEA: value.Type (string) -> the real constructor.
-    return new TypeContext(parent, styleOptions, rootRouteOrType(value.constructor as Type<BaseEntity>), new ReadonlyBinding<T>(value, ""));
+    return new TypeContext(parent, styleOptions, rootRouteOrType(value.getType()), new ReadonlyBinding<T>(value, ""));
   }
 
   constructor(parent: StyleContext | undefined, styleOptions: StyleOptions | undefined, route: PropertyRoute | TypeReference | undefined, binding: IBinding<T>, prefix?: string) {
@@ -434,7 +434,7 @@ export class TypeContext<T> extends StyleContext {
     if (typeName != getTypeName(entity))
       throw new Error(`Impossible to cast ${getTypeName(entity)} into ${typeName}`);
 
-    const newPr = this.propertyRoute == null ? undefined : rootRouteOrType(entity.constructor as Type<BaseEntity>);
+    const newPr = this.propertyRoute == null ? undefined : rootRouteOrType(entity.getType());
 
     return new TypeContext<any>(this, undefined, newPr, new ReadonlyBinding(entity, ""));
   }
@@ -446,7 +446,7 @@ export class TypeContext<T> extends StyleContext {
     if (getTypeName(type) != getTypeName(entity))
       return undefined;
 
-    const newPr = rootRouteOrType(entity.constructor as Type<BaseEntity>);
+    const newPr = rootRouteOrType(entity.getType());
 
     return new TypeContext<any>(this, undefined, newPr, new ReadonlyBinding(entity, ""));
   }

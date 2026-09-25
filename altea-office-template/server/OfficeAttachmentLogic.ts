@@ -3,7 +3,6 @@ import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { Entity } from "@altea/altea/data/entity";
 import { overrideImplementedBy } from "@altea/altea/data/decorators";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
-import { retrieve } from "@altea/altea/server/Database";
 import type { Type } from "@altea/altea/data/entity";
 import { TextTemplateParser } from "@altea/altea-templating/server/TextTemplateParser";
 import { TextTemplateParameters, type BlockNode } from "@altea/altea-templating/server/TextTemplateParser.Nodes";
@@ -66,7 +65,7 @@ export namespace OfficeAttachmentLogic {
         EmailTemplateLogic.registerGenerateAttachment<OfficeAttachmentEntity>(OfficeAttachmentEntity, async (a, ctx) => {
             // The override model, else the context's entity, else the context model's own entity.
             let entity: Entity | null = a.overrideModel != null
-                ? await retrieve(a.overrideModel.entityType as Type<Entity>, a.overrideModel.id)
+                ? await a.overrideModel.retrieve()
                 : ctx.entity ?? (ctx.model?.untypedEntity ?? null);
 
             if (a.modelConverter != null && entity != null)

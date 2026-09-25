@@ -71,12 +71,12 @@ function asyncPerInstance(info: TypeConditionInfo): ((e: BaseEntity) => Promise<
     return info.asyncInMemoryCondition;
 }
 
-const infos = new Map<Function, Map<TypeConditionSymbol, TypeConditionInfo>>();
+const infos = new Map<Type<Entity>, Map<TypeConditionSymbol, TypeConditionInfo>>();
 
 export namespace TypeConditionLogic {
     // The entity types that have at least one registered condition
     // (the set the enforcement phase installs a FilterQuery on).
-    export function types(): Function[] {
+    export function types(): Type<Entity>[] {
         return [...infos.keys()];
     }
 
@@ -263,13 +263,13 @@ export namespace TypeConditionLogic {
 
     /** True when this condition is a QUERY AUDITOR: it has no SQL predicate of
      *  its own, so the row filter takes its lambda from the audit and the retrieve-time binding skips it. */
-    export function isQueryAuditor(ctor: Function, typeCondition: TypeConditionSymbol): boolean {
+    export function isQueryAuditor(ctor: Type<Entity>, typeCondition: TypeConditionSymbol): boolean {
         return infos.get(ctor)?.get(typeCondition)?.queryAuditor != null;
     }
 
     /** True if `ctor` has at least one query-auditor condition — lets the row-security provider skip the
      *  audit for the (overwhelmingly common) types that have none. */
-    export function hasQueryAuditorConditions(ctor: Function): boolean {
+    export function hasQueryAuditorConditions(ctor: Type<Entity>): boolean {
         const dic = infos.get(ctor);
         return dic != null && [...dic.values()].some(i => i.queryAuditor != null);
     }
@@ -277,7 +277,7 @@ export namespace TypeConditionLogic {
     /** Run every query-auditor condition of `ctor` against `args` (the provider phase — see the header),
      *  yielding the per-symbol lambda the row filter then splices in. */
     export async function auditQueryConditions(
-        ctor: Function,
+        ctor: Type<Entity>,
         args: FilterQueryArgs,
     ): Promise<Map<TypeConditionSymbol, LambdaExpression>> {
         const result = new Map<TypeConditionSymbol, LambdaExpression>();
@@ -290,19 +290,19 @@ export namespace TypeConditionLogic {
         return result;
     }
 
-    export function conditionsFor(ctor: Function): TypeConditionSymbol[] {
+    export function conditionsFor(ctor: Type<Entity>): TypeConditionSymbol[] {
         const dic = infos.get(ctor);
         return dic == null ? [] : [...dic.keys()];
     }
 
-    export function isDefined(ctor: Function, typeCondition: TypeConditionSymbol): boolean {
+    export function isDefined(ctor: Type<Entity>, typeCondition: TypeConditionSymbol): boolean {
         return infos.get(ctor)?.has(typeCondition) === true;
     }
 
     // The SQL / expression predicate — the @quoted lambda the LINQ binder lowers.
     // A QUERY-AUDITOR condition has none: its predicate is whatever the audit of the caller's query said,
     // which only the row-security provider can produce (see auditQueryConditions).
-    export function getCondition(ctor: Function, typeCondition: TypeConditionSymbol): Quoted<(e: BaseEntity) => boolean> {
+    export function getCondition(ctor: Type<Entity>, typeCondition: TypeConditionSymbol): Quoted<(e: BaseEntity) => boolean> {
         const info = infoOrThrow(ctor, typeCondition);
         if (info.condition == null)
             throw new Error(
@@ -317,7 +317,7 @@ export namespace TypeConditionLogic {
      * a DB-only condition and for one whose in-memory twin is async — both are pre-computed and cached
      * instead (the retrieve-time additional binding, or `fillTypeConditions`).
      */
-    export function hasSyncInMemoryCondition(ctor: Function, typeCondition: TypeConditionSymbol): boolean {
+    export function hasSyncInMemoryCondition(ctor: Type<Entity>, typeCondition: TypeConditionSymbol): boolean {
         const info = infoOrThrow(ctor, typeCondition);
         return info.inMemoryCondition != null && !info.inMemoryIsAsync;
     }
@@ -336,7 +336,7 @@ export namespace TypeConditionLogic {
     // a query (e.g. a fresh instance on the save path), `fillTypeConditions` fills on demand. If neither ran,
     // we throw rather than silently returning a wrong (unfilled) answer.
     export function inTypeCondition<T extends Entity>(entity: T, typeCondition: TypeConditionSymbol): boolean {
-        const func = getInMemoryCondition(entity.constructor as Type<T>, typeCondition);
+        const func = getInMemoryCondition(entity.getType(), typeCondition);
         if (func != null) {
             const answer = func(entity) as boolean | Promise<boolean>;
             // A predicate that hands back a promise without being declared `async` would otherwise be TRUTHY
@@ -449,7 +449,7 @@ export namespace TypeConditionLogic {
 
     /** True if `ctor` has at least one DB-only condition (needs SQL fill) — lets the retrieve/save
      *  integration skip types whose conditions are all in-memory. */
-    export function hasDbOnlyConditions(ctor: Function): boolean {
+    export function hasDbOnlyConditions(ctor: Type<Entity>): boolean {
         return conditionsFor(ctor).some(tc => !hasSyncInMemoryCondition(ctor, tc));
     }
 }
@@ -487,7 +487,7 @@ function convertValue<P>(value: unknown): P | null {
     return value as P;
 }
 
-function infoOrThrow(ctor: Function, typeCondition: TypeConditionSymbol): TypeConditionInfo {
+function infoOrThrow(ctor: Type<Entity>, typeCondition: TypeConditionSymbol): TypeConditionInfo {
     const dic = infos.get(ctor);
     if (dic == null)
         throw new Error(`There's no TypeCondition registered for type ${ctor.name}`);
@@ -520,7 +520,7 @@ inConditionSf.__methodExpander = (instance, args) => {
     if (instance == null || args.length !== 1)
         throw new Error("inCondition takes the entity and one TypeConditionSymbol");
 
-    const ctor = instance.type instanceof ClassType ? instance.type.constructorFunction : undefined;
+    const ctor = instance.type instanceof ClassType ? instance.type.constructorFunction as Type<Entity> : undefined;
     if (ctor == null)
         throw new Error(`inCondition needs an entity of a known type, not ${instance.type}`);
 

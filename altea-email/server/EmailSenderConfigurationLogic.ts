@@ -5,7 +5,7 @@ import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import { table } from "@altea/altea/server/table";
 import type { Lite } from "@altea/altea/data/lite";
-import type { Type } from "@altea/altea/data/entity";
+import type { Type, Entity } from "@altea/altea/data/entity";
 import {
     EmailSenderConfigurationEntity, EmailSenderConfigurationOperation, SmtpEmailServiceEntity,
     EmailServiceEntity,
@@ -37,7 +37,7 @@ export namespace EmailSenderConfigurationLogic {
     let decrypt: (s: string) => string = s => s;
 
     // altea-only (see the header): per service type, what Save must do before the row is written.
-    const serviceSaves = new Map<Function, (service: EmailServiceEntity) => void>();
+    const serviceSaves = new Map<Type<Entity>, (service: EmailServiceEntity) => void>();
 
     export function encryptPassword(value: string): string { return encrypt(value); }
     export function decryptPassword(value: string): string { return decrypt(value); }
@@ -101,7 +101,7 @@ export namespace EmailSenderConfigurationLogic {
      *  prototype-chain walk Signum's Polymorphic does). */
     export function prepareServiceForSave(service: EmailServiceEntity): void {
         for (let ctor: Function | null = service.constructor; ctor != null; ctor = Object.getPrototypeOf(ctor) as Function | null) {
-            const prepare = serviceSaves.get(ctor);
+            const prepare = serviceSaves.get(ctor as Type<Entity>);
             if (prepare != null) {
                 prepare(service);
                 return;

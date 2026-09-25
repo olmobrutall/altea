@@ -2,7 +2,7 @@ import "@altea/altea/server";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
-import { retrieve, retrieveFromListOfLite } from "@altea/altea/server/Database";
+import { retrieveFromListOfLite } from "@altea/altea/server/Database";
 import { Graph } from "@altea/altea/server/graph";
 import { Operations } from "@altea/altea/server/operationLogic";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -130,7 +130,7 @@ export namespace SMSProcessLogic {
                     // may be owned by an ABSTRACT base (eastwind registers CustomerEntity, whose Person /
                     // Company subclasses each have their own table), and an abstract base has no table to
                     // query. The lite already knows which one it came from.
-                    const entity = await retrieve(lite.entityType as Type<Entity>, lite.id!) as T;
+                    const entity = await lite.retrieve();
                     const od = await ownerData(entity);
                     if (od == null)
                         continue;

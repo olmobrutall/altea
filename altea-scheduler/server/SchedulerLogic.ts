@@ -11,7 +11,6 @@ import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { UserHolder } from "@altea/altea/server/userHolder";
 
 import { table } from "@altea/altea/server/table";
-import { retrieve } from "@altea/altea/server/Database";
 import { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
 import type { Type } from "@altea/altea/data/entity";
@@ -50,7 +49,7 @@ export namespace SchedulerLogic {
 
     // The task-dispatch registry, keyed by task CONSTRUCTOR and walked up the prototype chain.
     type ExecuteTaskHandler = (task: ITaskEntity, ctx: ScheduledTaskContext) => Promise<Lite<Entity> | null>;
-    const executeTaskHandlers = new Map<Function, ExecuteTaskHandler>();
+    const executeTaskHandlers = new Map<Type<Entity>, ExecuteTaskHandler>();
 
     export function start(sb: SchemaBuilder): void {
         if (sb.alreadyDefined(start))
@@ -185,7 +184,7 @@ export namespace SchedulerLogic {
      *  registered on a base task type serves its subclasses (Polymorphic's behaviour). */
     export async function executeTask(task: ITaskEntity, ctx: ScheduledTaskContext): Promise<Lite<Entity> | null> {
         for (let ctor: Function | null = task.constructor; ctor != null; ctor = Object.getPrototypeOf(ctor) as Function | null) {
-            const handler = executeTaskHandlers.get(ctor);
+            const handler = executeTaskHandlers.get(ctor as Type<Entity>);
             if (handler != null)
                 return await handler(task, ctx);
         }
@@ -227,6 +226,6 @@ export namespace SchedulerLogic {
 
     /** Retrieve a task's user (used by the terminal / seeds that build a ScheduledTask by hand). */
     export async function retrieveUser(user: Lite<Entity>): Promise<Entity> {
-        return await retrieve(user.entityType as Type<Entity>, user.id!);
+        return await user.retrieve();
     }
 }

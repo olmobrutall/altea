@@ -40,6 +40,7 @@ import { HelpGenerator } from "./HelpGenerator";
 import { InlineImagesLogic } from "./InlineImagesLogic";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { HelpPermissions } from "../data/Help";
+import type { BaseEntity } from "@altea/altea/data/entity";
 
 // Port of Signum.Help's HelpLogic.cs — the module's registrations plus the per-culture caches the pages
 // read. What a page shows is a MERGE of two things: the reflection-generated prose (HelpGenerator, free)
@@ -237,7 +238,7 @@ export namespace HelpLogic {
      * @altea/altea-map's `namespaceOf`, deliberately — the map and the help index must agree on what a
      * module is.
      */
-    export function namespaceOf(ctor: Function): string {
+    export function namespaceOf(ctor: Type<BaseEntity>): string {
         const boundEnum = getBoundEnum(ctor);
         const registeredName = boundEnum != null ? enumNameOf(boundEnum) : ctor.name;
         const location = registeredName == null ? undefined : getLocation(registeredName);

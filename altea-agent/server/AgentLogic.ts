@@ -163,7 +163,7 @@ export namespace AgentLogic {
                 if (agent.key == null)
                     continue;
                 if (agent.skillCustomization != null) {
-                    const customization = await Database.retrieve(SkillCustomizationEntity, agent.skillCustomization.id);
+                    const customization = await agent.skillCustomization.retrieve();
                     result.set(agent.key, await toSkillCode(customization));
                 } else {
                     const factory = registeredAgents.get(agent.key);

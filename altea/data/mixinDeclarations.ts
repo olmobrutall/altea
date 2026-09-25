@@ -1,5 +1,5 @@
 
-import type { BaseEntity, Type } from './entity';
+import type { BaseEntity, Type, Entity } from './entity';
 
 const mixinDeclarationsKey = Symbol.for('altea:mixinDeclarations');
 
@@ -25,7 +25,7 @@ function ownThunks(ctor: any): MixinThunk[] {
 
 // What `register` has already declared, so a second call (both tiers share the module, tests re-run the
 // overrides) is a no-op instead of a duplicate mixin.
-const registered = new WeakMap<Function, Set<Function>>();
+const registered = new WeakMap<Type<BaseEntity>, Set<Type<BaseEntity>>>();
 
 export namespace MixinDeclarations {
     /** Signum's `MixinDeclarations.Register<T, M>()`. Idempotent; must run on BOTH tiers before anything is
@@ -57,7 +57,7 @@ export namespace MixinDeclarations {
 // Attaches one or more mixins to an entity: `@mixin(() => [ColaboratorsMixin])`.
 // The thunk defers evaluation so mixin classes may be declared after the owner.
 export function mixin(mixins: () => Type<BaseEntity>[]) {
-    return function (target: Function): void {
+    return function (target: Type<Entity>): void {
         ownThunks(target).push(mixins);
     };
 }

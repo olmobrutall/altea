@@ -15,6 +15,7 @@ import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { Isolation, IsolationEntity, IsolationOperation } from "../../data/Isolation";
 import { IsolationLogic } from "../../server/IsolationLogic";
 import { CatalogEntity, ProjectEntity, TagEntity } from "../data/tenancy";
+import type { Type } from "@altea/altea/data/entity";
 
 // `assertIsolationStrategies` is the module's safety net, and it needs NO database: it compares the built
 // schema's table list against the declared strategies, in memory, on `schemaCompleted`. It is worth its own
@@ -57,7 +58,7 @@ describe("assertIsolationStrategies", () => {
     // bookkeeping (TypeEntity, the operation log, …), which a real app also has to declare — only enum and
     // symbol tables are exempt. Declaring them "None" here is exactly what an app would do, and it keeps
     // each case's message about ITS types.
-    const caseOwned: Function[] = [ProjectEntity, TagEntity, CatalogEntity,
+    const caseOwned: Type<Entity>[] = [ProjectEntity, TagEntity, CatalogEntity,
         UndeclaredEntity, ReferencedEntity, ReferrerEntity, NotIncludedEntity];
 
     // Returns the COMPLETION step, because that is where the assertion runs: `sb.complete()` fires
@@ -75,7 +76,7 @@ describe("assertIsolationStrategies", () => {
         // TypeEntity is added by `complete()` itself, so it is not in the map yet.
         Isolation.register(TypeEntity, "None");
         for (const tab of sb.schema.tables.values()) {
-            const ctor = tab.type as Function;
+            const ctor = tab.type as Type<Entity>;
             // IsolationEntity is EXEMPT, so declaring it would be the "Remove something like" half.
             if (!caseOwned.includes(ctor) && ctor !== IsolationEntity)
                 Isolation.register(ctor as never, "None");

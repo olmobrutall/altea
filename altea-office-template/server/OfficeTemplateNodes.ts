@@ -29,6 +29,7 @@ import { OxmlElement, OxmlText, type OxmlNode, type XmlTextWriter } from "./oxml
 import type { INodeProvider } from "./NodeProviders";
 import { SpreadsheetNodeProvider } from "./NodeProviders";
 import type { OfficeTemplateParameters } from "./OfficeTemplateParameters";
+import type { Type, BaseEntity } from "@altea/altea/data/entity";
 
 /** An unrendered node serializes under the markup-compatibility prefix, so it is VISIBLE in the output. */
 function nodeName(className: string): string {

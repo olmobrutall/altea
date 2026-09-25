@@ -7,7 +7,7 @@ import type { WidgetContext } from "@altea/altea/client/Frames/Widgets";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { classes } from "@altea/altea/data/globals";
-import type { Entity } from "@altea/altea/data/entity";
+import type { Entity, Type, BaseEntity } from "@altea/altea/data/entity";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { HelpMessage, type TypeHelpEntity } from "../data/Help";
 import { HelpClient } from "./HelpClient";
@@ -32,7 +32,7 @@ export interface HelpWidgetProps {
 export function HelpWidget(p: HelpWidgetProps): React.JSX.Element {
 
     const entity = p.wc.ctx.value;
-    const cleanName = cleanTypeName(entity.constructor);
+    const cleanName = cleanTypeName(entity.getType());
 
     const typeHelp = useAPI(() => HelpClient.API.type(cleanName), [cleanName]);
 

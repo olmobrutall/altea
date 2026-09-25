@@ -43,7 +43,7 @@ import {
 // have no counterpart and never will — see the CLAUDE.md bullet.
 import { completeToken, QueryToken, SubTokensOptions, type Writable } from './QueryToken';
 import { getSubTokens as generateSubTokens, SubTokensOptionsAll, setImplementedByAllTypesProvider, stripLegacyRootPrefix, appendLegacyValueField } from '../data/dynamicQuery/tokens/queryToken';
-import { getRegisteredTypes } from '../data/registration';
+import { getRegisteredTypes, isEntityType } from '../data/registration';
 import { Metadata } from '../data/metadata';
 import { getKey } from '../data/dynamicQuery/queryUtils';
 import { reflectionDefaultColumns } from '../data/dynamicQuery/defaultColumns';
@@ -180,7 +180,7 @@ type ColumnParsed = any;
 // are from the server's table list. A type the role cannot read has no entry at all, so it drops out here
 // too: the picker offers what the user could actually open.
 setImplementedByAllTypesProvider(cleanTypeCtor =>
-  getRegisteredTypes().filter(ctor =>
+  getRegisteredTypes().filter(isEntityType).filter(ctor =>
     (ctor === cleanTypeCtor || ctor.prototype instanceof cleanTypeCtor)
     && Metadata.tryType(ctor.name)?.kind === "Entity"));
 

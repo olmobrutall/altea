@@ -1,7 +1,6 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { retrieve } from "@altea/altea/server/Database";
 import { Entity, type Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { cleanTypeName } from "@altea/altea/data/registration";
@@ -91,7 +90,7 @@ export namespace MailingServer {
                 // `req.body` is the RAW string, not the parsed object — reading `.lite` off it always
                 // yielded undefined, so a single-row contextual menu silently lost its entity filter.
                 const lite = (await req.jsonTyped())?.lite ?? null;
-                const entity = lite == null ? null : await retrieve(lite.entityType as Type<Entity>, lite.id);
+                const entity = lite == null ? null : await lite.retrieve();
 
                 res.jsonTyped(await EmailTemplateLogic.getApplicableEmailTemplates(queryKey, entity, visibleOn));
             });

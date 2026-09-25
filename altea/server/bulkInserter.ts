@@ -122,14 +122,14 @@ async function insertOwnedCollections(entities: Entity[]): Promise<void> {
     for (const e of entities)
         wireOwnedChildren(e);
 
-    const childrenByType = new Map<Function, Entity[]>();
+    const childrenByType = new Map<Type<Entity>, Entity[]>();
     for (const e of entities)
         forEachField(e, (fi, value) => {
             if (!fi.array || !Array.isArray(value)) return;
             for (const child of value)
                 if (child instanceof Entity) {
-                    let group = childrenByType.get(child.constructor);
-                    if (group == null) { group = []; childrenByType.set(child.constructor, group); }
+                    let group = childrenByType.get(child.getType());
+                    if (group == null) { group = []; childrenByType.set(child.getType(), group); }
                     group.push(child);
                 }
         });

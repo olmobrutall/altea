@@ -1,7 +1,7 @@
 import { getTypeInfo } from "@altea/altea/data/reflection";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { Implementations } from "@altea/altea/data/implementations";
-import type { PrimaryKey } from "@altea/altea/data/entity";
+import type { PrimaryKey, Type, Entity } from "@altea/altea/data/entity";
 import type {
     EntityOmniboxResult, HelpOmniboxResult, OmniboxResult,
 } from "../data/OmniboxResults";
@@ -116,7 +116,7 @@ export class EntityOmniboxResultGenerator implements OmniboxResultGenerator {
 
 // Coerce the raw token to the type's PK form, or
 // undefined when it can't possibly be one (a guid typed at an int-keyed table, and vice versa).
-export function tryParsePrimaryKey(type: Function, value: string): PrimaryKey | undefined {
+export function tryParsePrimaryKey(type: Type<Entity>, value: string): PrimaryKey | undefined {
     const pk = getTypeInfo(type)?.fields["id"]?.columnOptions?.primaryKey ?? "int";
 
     if (pk === "uuid" || pk === "uuid7")
@@ -127,6 +127,6 @@ export function tryParsePrimaryKey(type: Function, value: string): PrimaryKey | 
 
 // The display form the client echoes back into the
 // input on [Tab] (see EntityOmniboxProvider.toString). Exported for the dynamic-query generator too.
-export function niceOmniboxPluralName(type: Function): string {
+export function niceOmniboxPluralName(type: Type<Entity>): string {
     return toOmniboxPascal(type.nicePluralName());
 }

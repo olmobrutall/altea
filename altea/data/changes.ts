@@ -59,7 +59,7 @@ export function forEachField(
     m: BaseEntity,
     callback: (fieldInfo: FieldInfo, value: unknown) => void,
 ): void {
-    const ctor = m.constructor as Type<BaseEntity>;
+    const ctor = m.getType();
 
     const visit = (owner: Type<BaseEntity>): void => {
         const ti = getTypeInfo(owner);

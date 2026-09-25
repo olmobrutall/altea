@@ -1,5 +1,4 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import { retrieve } from "@altea/altea/server/Database";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { toInt } from "@altea/altea/data/basics";
@@ -39,7 +38,7 @@ export namespace AutoconfigureNeuralNetworkAlgorithm {
         report: (message: string, progress: number) => void,
         signal: AbortSignal,
     ): Promise<PredictorEntity | null> {
-        const initial = await ExecutionMode.global(() => retrieve(PredictorEntity, conf.initialPredictor.id));
+        const initial = await ExecutionMode.global(() => conf.initialPredictor.retrieve());
         const rand = conf.seed == null ? Math.random : mulberry32(conf.seed as number);
 
         const mutationProbability = conf.initialMutationProbability;

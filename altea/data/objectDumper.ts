@@ -119,7 +119,7 @@ class DumpVisitor {
             return;
         }
 
-        const typeName = cleanTypeName(o.constructor);
+        const typeName = cleanTypeName(o.getType());
         this.append("new " + typeName);
 
         if (ObjectDumper.ignoreTypes.has(typeName)) {

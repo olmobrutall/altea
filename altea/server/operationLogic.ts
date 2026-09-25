@@ -7,7 +7,7 @@ import type {
 } from "../data/operations";
 import { OperationLogEntity } from "../data/operationLog";
 import type { IQuery } from "../data/iquery";
-import { resolveCleanType, resolveType } from "../data/registration";
+import { isEntityType, resolveCleanType, resolveType } from "../data/registration";
 import { Temporal } from "../data/basics";
 import { withQuoted } from "../data/decorators";
 import { OperationMessage } from "../data/uiMessages";
@@ -56,7 +56,7 @@ const operations = new Map<string, IOperation>();
 
 // entity ctor → the operations registered on it, maintained alongside `operations`. Rebuilt on every
 // register/unregister rather than derived on demand, because the metadata blob reads it per request.
-const operationsByType = new Map<Function, Set<OperationSymbol>>();
+const operationsByType = new Map<Type<Entity>, Set<OperationSymbol>>();
 
 /** The second half of a surround handler — Signum's `IDisposable.Dispose`. */
 export type SurroundOperationAfter = () => void | Promise<void>;
@@ -126,11 +126,11 @@ export namespace OperationLogic {
     // getEntityPack to hide operations. `inUserInterface` distinguishes "the client may click it" (Allow)
     // from "server code may run it" (DBOnly or Allow). No hook installed → open (returns true / no throw).
     export type AllowOperationHook =
-        (symbol: OperationSymbol, entityType: Function, inUserInterface: boolean, entity: Entity | null) => Promise<boolean>;
+        (symbol: OperationSymbol, entityType: Type<Entity>, inUserInterface: boolean, entity: Entity | null) => Promise<boolean>;
     const allowOperationHooks: AllowOperationHook[] = [];
     export function onAllowOperation(fn: AllowOperationHook): void { allowOperationHooks.push(fn); }
 
-    export async function isOperationAllowed(symbol: OperationSymbol, entityType: Function, inUserInterface: boolean, entity: Entity | null): Promise<boolean> {
+    export async function isOperationAllowed(symbol: OperationSymbol, entityType: Type<Entity>, inUserInterface: boolean, entity: Entity | null): Promise<boolean> {
         for (const h of allowOperationHooks)
             if (!(await h(symbol, entityType, inUserInterface, entity)))
                 return false;
@@ -141,14 +141,14 @@ export namespace OperationLogic {
      * was not. Localized, and it names the operation TWICE: once as the user knows it (its nice name) and
      * once as the developer does (its key), because an authorization complaint is read by both.
      */
-    export async function operationAllowedMessage(symbol: OperationSymbol, entityType: Function, inUserInterface: boolean, entity: Entity | null): Promise<string | null> {
+    export async function operationAllowedMessage(symbol: OperationSymbol, entityType: Type<Entity>, inUserInterface: boolean, entity: Entity | null): Promise<string | null> {
         if (await isOperationAllowed(symbol, entityType, inUserInterface, entity))
             return null;
 
         return OperationMessage.Operation01IsNotAuthorized.niceToString(symbol.niceToString(), symbol.key) +
             (inUserInterface ? " " + OperationMessage.InUserInterface.niceToString() : "");
     }
-    export async function assertOperationAllowed(symbol: OperationSymbol, entityType: Function, inUserInterface: boolean, entity: Entity | null): Promise<void> {
+    export async function assertOperationAllowed(symbol: OperationSymbol, entityType: Type<Entity>, inUserInterface: boolean, entity: Entity | null): Promise<void> {
         const message = await operationAllowedMessage(symbol, entityType, inUserInterface, entity);
         if (message != null)
             throw new UnauthorizedAccessException(message);
@@ -162,7 +162,7 @@ export namespace OperationLogic {
      * Was previously derived from the `<Type>Operation.<Member>` key convention, which silently missed
      * every operation whose container is not named after its type (and every abstract-base one).
      */
-    export function operationsForType(ctor: Function): OperationSymbol[] {
+    export function operationsForType(ctor: Type<Entity>): OperationSymbol[] {
         const result: OperationSymbol[] = [];
         for (const [owner, symbols] of operationsByType)
             if (owner === ctor || ctor.prototype instanceof owner)
@@ -176,7 +176,7 @@ export namespace OperationLogic {
     /** As {@link operationsForType}, by clean type name (the auth admin pack works in names). */
     export function operationsForTypeName(cleanTypeName: string): OperationSymbol[] {
         const ctor = resolveCleanType(cleanTypeName) ?? resolveType(cleanTypeName);
-        return ctor == null ? [] : operationsForType(ctor);
+        return ctor == null || !isEntityType(ctor) ? [] : operationsForType(ctor);
     }
 
     /**
@@ -190,14 +190,14 @@ export namespace OperationLogic {
      * up before the module that owns the operation gets to its graph (SimpleTaskLogic.start runs before
      * SchedulerLogic registers ITaskOperation), and readers skip a symbol with no implementation anyway.
      */
-    export function registerForType(symbol: OperationSymbol, ctor: Function): void {
+    export function registerForType(symbol: OperationSymbol, ctor: Type<Entity>): void {
         let byType = operationsByType.get(ctor);
         if (byType == null) operationsByType.set(ctor, byType = new Set());
         byType.add(symbol);
     }
 
     /** Every entity ctor that has at least one operation registered on it (the metadata builder). */
-    export function typesWithOperations(): Function[] {
+    export function typesWithOperations(): Type<Entity>[] {
         return [...operationsByType.keys()];
     }
 
@@ -208,7 +208,7 @@ export namespace OperationLogic {
      * inheritance itself needs: the metadata blob ships each operation once, on this type, and the client
      * walks the prototype chain rather than being handed the same object once per subclass.
      */
-    export function declaredOperationsForType(ctor: Function): OperationSymbol[] {
+    export function declaredOperationsForType(ctor: Type<Entity>): OperationSymbol[] {
         const symbols = operationsByType.get(ctor);
         // Same rule as operationsForType: a symbol indexed before (or without) an implementation is not
         // an operation of this type.
@@ -396,7 +396,7 @@ export namespace OperationLogic {
      * sentence the button shows). An operation with no guard at all is always eligible: its button is
      * simply always enabled.
      */
-    export function isEligibleForCellOperation(op: IOperation, entityCtor: Function): boolean {
+    export function isEligibleForCellOperation(op: IOperation, entityCtor: Type<Entity>): boolean {
         if (op.operationType !== OperationType.Execute && op.operationType !== OperationType.Delete
             && op.operationType !== OperationType.ConstructorFrom)
             return false;
@@ -411,7 +411,7 @@ export namespace OperationLogic {
 
     // Signum's `OperationsContainerToken.GetEligibleTypeOperations` seam — the `[Operations]` container's
     // sub-tokens for one entity type.
-    function eligibleTypeOperations(entityCtor: Function): EligibleOperation[] {
+    function eligibleTypeOperations(entityCtor: Type<Entity>): EligibleOperation[] {
         const result: EligibleOperation[] = [];
         for (const symbol of operationsForType(entityCtor)) {
             const op = tryFindOperation(symbol);
@@ -426,7 +426,7 @@ export namespace OperationLogic {
     // operation that cannot be a column — Signum's "requires CanExecuteExpression to be used as query
     // token" — so a STORED column whose operation has since grown an in-memory-only guard fails loudly
     // rather than rendering an always-enabled button.
-    function operationTokenExpressionInfo(operationKey: string, entityCtor: Function): OperationTokenExpressionInfo {
+    function operationTokenExpressionInfo(operationKey: string, entityCtor: Type<Entity>): OperationTokenExpressionInfo {
         const op = operations.get(operationKey);
         if (op == null)
             throw new Error(`Operation '${operationKey}' is not registered`);
@@ -744,13 +744,13 @@ function find(symbol: OperationSymbol, type: OperationType): IOperation {
 export const Operations = {
     async execute<T extends Entity>(entity: T, symbol: ExecuteSymbol<T>, ...args: unknown[]): Promise<T> {
         // Signum's execute-time authorization (Graph.Execute → AssertOperationAllowed, inUserInterface:false).
-        await OperationLogic.assertOperationAllowed(symbol, entity.constructor, false, entity);
+        await OperationLogic.assertOperationAllowed(symbol, entity.getType(), false, entity);
         return await logOperation(symbol, null, entity, args,
             () => (find(symbol, OperationType.Execute) as IExecuteOperation).doExecute(entity, args) as Promise<T>,
             result => result);
     },
     async delete<T extends Entity>(entity: T, symbol: DeleteSymbol<T>, ...args: unknown[]): Promise<void> {
-        await OperationLogic.assertOperationAllowed(symbol, entity.constructor, false, entity);
+        await OperationLogic.assertOperationAllowed(symbol, entity.getType(), false, entity);
         await logOperation(symbol, null, entity, args,
             () => (find(symbol, OperationType.Delete) as IDeleteOperation).doDelete(entity, args),
             () => entity);
@@ -761,7 +761,7 @@ export const Operations = {
             result => result);
     },
     async constructFrom<T extends Entity, F extends Entity>(entity: F, symbol: ConstructSymbol<T, From<F>>, ...args: unknown[]): Promise<T> {
-        await OperationLogic.assertOperationAllowed(symbol, entity.constructor, false, entity);
+        await OperationLogic.assertOperationAllowed(symbol, entity.getType(), false, entity);
         return await logOperation(symbol, entity, entity, args,
             () => (find(symbol, OperationType.ConstructorFrom) as IConstructorFromOperation).doConstructFrom(entity, args) as Promise<T>,
             result => result);

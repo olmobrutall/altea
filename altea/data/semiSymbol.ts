@@ -3,6 +3,7 @@ import { reflect } from './reflection';
 import { uniqueIndex, quoted, ticksColumn, isReadOnly } from './decorators';
 import { stringLengthValidator } from './validators';
 import { Localization } from './utils/localization';
+import type { Type } from "./entity";
 
 // Port of Signum's SemiSymbol (Signum/Basics/SemiSymbol.cs) — HALF a symbol: a row that MAY be declared in
 // code (then it has a `key`, like a Symbol) or created by a user at runtime (then it has only a `name`).
@@ -67,6 +68,6 @@ export abstract class SemiSymbol extends Entity {
 }
 
 /** True for a concrete SemiSymbol subclass (NoteTypeSymbol, …), false for the abstract base. */
-export function isSemiSymbolType(ctor: Function): boolean {
+export function isSemiSymbolType(ctor: Function): ctor is Type<SemiSymbol> {
     return ctor !== SemiSymbol && ctor.prototype instanceof SemiSymbol;
 }

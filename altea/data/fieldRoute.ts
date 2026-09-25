@@ -1,6 +1,6 @@
 import type { Quoted, ExArray } from 'quote-transformer/quoted';
 import { BaseEntity, EmbeddedEntity, MixinEntity } from './entity';
-import type { Type } from './entity';
+import type { Type, View, ViewType, Entity } from './entity';
 import type { FieldInfo } from './reflection';
 import { tryGetTypeInfo } from './reflection';
 import { cleanTypeName } from './registration';
@@ -27,28 +27,28 @@ import { MixinDeclarations } from './mixinDeclarations';
 
 export type FieldRouteStep =
     | { readonly type: "Field"; readonly name: string; readonly fieldInfo: FieldInfo }
-    | { readonly type: "Mixin"; readonly name: string; readonly mixinType: Function };
+    | { readonly type: "Mixin"; readonly name: string; readonly mixinType: Type<MixinEntity> };
 
 export class FieldRoute {
     private constructor(
-        readonly rootType: Function,
+        readonly rootType: Type<Entity> | ViewType<View>,
         readonly parent: FieldRoute | undefined,
         readonly step: FieldRouteStep | undefined,
     ) { }
 
-    static root(type: Function): FieldRoute {
+    static root(type: Type<Entity> | ViewType<View>): FieldRoute {
         return new FieldRoute(type, undefined, undefined);
     }
 
     /** `FieldRoute.from(AlbumEntity, a => a.address.city)`, `(e => e.mixin(DiffLogMixin).initialState)`. */
-    static from<T extends BaseEntity>(type: Type<T>, lambda: Quoted<(entity: T) => unknown>): FieldRoute;
-    static from(type: Function, lambda: Quoted<(entity: any) => unknown>): FieldRoute;
-    static from(type: Function, lambda: Quoted<(entity: any) => unknown>): FieldRoute {
+    static from<T extends Entity>(type: Type<T>, lambda: Quoted<(entity: T) => unknown>): FieldRoute;
+    static from(type: Type<Entity> | ViewType<View>, lambda: Quoted<(entity: any) => unknown>): FieldRoute;
+    static from(type: Type<Entity> | ViewType<View>, lambda: Quoted<(entity: any) => unknown>): FieldRoute {
         return FieldRoute.root(type).addLambda(lambda);
     }
 
     /** The route of a member path already read off a quoted lambda (see getLambdaMembers / quotedMembers). */
-    static fromMembers(type: Function, members: readonly LambdaMember[]): FieldRoute {
+    static fromMembers(type: Type<Entity> | ViewType<View>, members: readonly LambdaMember[]): FieldRoute {
         return FieldRoute.root(type).addMembers(members);
     }
 
@@ -76,7 +76,7 @@ export class FieldRoute {
     }
 
     // The class whose fields the NEXT step names: the root type, an embedded's type, or a mixin.
-    private ownerForNextStep(): Function {
+    private ownerForNextStep(): Type<BaseEntity> | ViewType<View> {
         const step = this.step;
         if (step == undefined)
             return this.rootType;
@@ -92,11 +92,11 @@ export class FieldRoute {
         const owner = this.ownerForNextStep();
         const fi = tryGetTypeInfo(owner)?.fields[fieldName];
         if (fi == undefined)
-            throw new Error(`FieldRoute ${this}: '${fieldName}' is not a field of ${cleanTypeName(owner as Type<BaseEntity>)}.`);
+            throw new Error(`FieldRoute ${this}: '${fieldName}' is not a field of ${cleanTypeName(owner)}.`);
         return new FieldRoute(this.rootType, this, { type: "Field", name: fieldName, fieldInfo: fi });
     }
 
-    addMixin(mixin: Function | string): FieldRoute {
+    addMixin(mixin: Type<MixinEntity> | string): FieldRoute {
         if (this.step?.type == "Mixin")
             throw new Error(`FieldRoute ${this}: a mixin step cannot follow another.`);
         const owner = this.ownerForNextStep();
@@ -139,7 +139,7 @@ export class FieldRoute {
  * key): `e => [e.code, e.address.city, e.mixin(M).flag]`, rooted at `type` — what the schema resolves to
  * columns (Table.field).
  */
-export function accessedRoutes(type: Function, selector: Quoted<(element: any) => unknown>): FieldRoute[] {
+export function accessedRoutes(type: Type<Entity> | ViewType<View>, selector: Quoted<(element: any) => unknown>): FieldRoute[] {
     const quoted = selector.__quoted;
     if (quoted == null)
         throw new Error("An index selector must be @quoted (e => e.code or e => [e.a, e.b]). Is ts-patch + quote-transformer configured?");
@@ -152,11 +152,11 @@ export function accessedRoutes(type: Function, selector: Quoted<(element: any) =
     return routes;
 }
 
-function isEmbeddedType(ctor: Function): boolean {
+function isEmbeddedType(ctor: Function): ctor is Type<EmbeddedEntity> {
     return ctor === EmbeddedEntity || ctor.prototype instanceof EmbeddedEntity;
 }
 
-export function isMixinType(ctor: Function | undefined): boolean {
+export function isMixinType(ctor: Function | undefined): ctor is Type<MixinEntity> {
     return ctor != undefined && ctor.prototype instanceof MixinEntity;
 }
 
@@ -169,7 +169,7 @@ declare module "./entity" {
 }
 
 Object.assign(BaseEntity, {
-    fieldRoute(this: Function, lambda: Quoted<(entity: any) => unknown>): FieldRoute {
+    fieldRoute(this: Type<Entity>, lambda: Quoted<(entity: any) => unknown>): FieldRoute {
         return FieldRoute.from(this, lambda);
     },
 });

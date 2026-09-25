@@ -115,7 +115,7 @@ export namespace TimeMachineLogic {
     }
 
     async function exists(entity: Entity): Promise<boolean> {
-        const type = entity.constructor as Type<Entity>;
+        const type = entity.getType();
         const id = entity.id;
         return await table(type).some(a => a.id == id);
     }

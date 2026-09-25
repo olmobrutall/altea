@@ -7,7 +7,7 @@
 // suite pulls it in via MusicLoader; the type augmentations are ambient (the file
 // is part of the @altea/altea program), so callers see the methods without importing.
 
-import { Entity } from '../data/entity';
+import { BaseEntity, Entity } from '../data/entity';
 import { Lite } from '../data/lite';
 import type { IQuery } from '../data/iquery';
 import type { Quoted } from 'quote-transformer/quoted';
@@ -160,7 +160,7 @@ quotedFunction(Enum.toName).__resultType = () => LiteralType.string;
 // `this.getType().niceName()`. It lowers to `this.constructor` (the runtime-type token, which the
 // binder types as ClassType(Function) and localizes via typeNiceName). __resultType matches so
 // fromQuoted types the call; the expander rewrites it to the constructor access.
-const getTypeSf = quotedFunction(Entity.prototype.getType);
+const getTypeSf = quotedFunction(BaseEntity.prototype.getType);
 getTypeSf.__resultType = () => new ClassType(Function);
 getTypeSf.__methodExpander = (instance: Expression | undefined) => new PropertyExpression(instance!, "constructor");
 

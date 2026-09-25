@@ -529,7 +529,7 @@ export function toStringValue(filterType: FilterTypeKeys | undefined, value: unk
 
 // A placeholder lite for "<Type> <id>" typed as a filter value — the ToString is
 // synthesised, since the row is not fetched.
-function createLite(type: Function, value: string): Lite<Entity> | undefined {
+function createLite(type: Type<Entity>, value: string): Lite<Entity> | undefined {
     const id = tryParsePrimaryKey(type, value);
     if (id == undefined)
         return undefined;

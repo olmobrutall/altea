@@ -13,7 +13,7 @@ import { existsTable } from "../sync/syncTableRead";
 import { Administrator } from "../Administrator";
 import { Synchronizer, type Replacements } from "../sync/synchronizer";
 import { SqlPreCommand, Spacing } from "../sync/sqlPreCommand";
-import type { Entity, Type } from "../../data/entity";
+import type { BaseEntity, Entity, Type } from "../../data/entity";
 import type { Schema } from "../schema/schema";
 import type { SchemaBuilder } from "../schema/schemaBuilder";
 
@@ -81,14 +81,14 @@ export namespace QueryLogic {
     // Signum's QueryLogic.GetImplementedByAllSubTokens type set: every mapped entity type assignable
     // to `cleanTypeCtor` (Schema.Current.Tables.Keys). Reads the active connector's schema; returns
     // [] when there is no connector (navigation still works, it just yields no byAll sub-tokens).
-    export function getImplementedByAllTypes(cleanTypeCtor: Function): Function[] {
+    export function getImplementedByAllTypes(cleanTypeCtor: Type<BaseEntity>): Type<Entity>[] {
         let schema;
         try {
             schema = Connector.current().schema;
         } catch {
             return [];
         }
-        const out: Function[] = [];
+        const out: Type<Entity>[] = [];
         for (const t of schema.tables.keys()) {
             const ctor = t;
             if (typeof ctor === "function" && (ctor === cleanTypeCtor || ctor.prototype instanceof cleanTypeCtor))
@@ -98,12 +98,12 @@ export namespace QueryLogic {
     }
 
     // Signum's QueryLogic.IsSystemVersioned: the type's table keeps row history (@systemVersioned).
-    export function isSystemVersioned(ctor: Function): boolean {
+    export function isSystemVersioned(ctor: Type<Entity>): boolean {
         return tryGetTypeInfo(ctor)?.systemVersioned != undefined;
     }
 
     // Signum's QueryLogic.HasPartitionId — altea has no partition id column yet.
-    export function hasPartitionId(_ctor: Function): boolean {
+    export function hasPartitionId(_ctor: Type<Entity>): boolean {
         return false;
     }
 
@@ -155,7 +155,7 @@ export namespace QueryLogic {
     // The queries whose shape roots on `ctor` (Signum's QueryLogic.GetTypeQueries). altea matches by the
     // core's root type rather than Signum's EntityImplementations.Types.Contains (no Implementations DTO) —
     // fine for the 1-auto-query-per-entity norm; abstract-base / multi-impl queries aren't matched (gap).
-    export function getTypeQueries(ctor: Function): QueryName[] {
+    export function getTypeQueries(ctor: Type<Entity>): QueryName[] {
         return queries.getQueryNames().filter(qn => {
             const core = queries.tryGetCore(qn);
             return core != null && core.getRootType() === ctor;

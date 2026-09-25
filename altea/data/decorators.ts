@@ -2,11 +2,12 @@
 import { getOrCreateTypeInfo, getOrCreateFieldInfo, registerType, FieldInfo, ctorOf, setDefaultTypeDescription, setDefaultMemberDescription } from './reflection';
 import type { Gender } from './utils/naturalLanguage';
 import type { PrimaryKeyType, ColumnOptions, TranslatableRouteType, FieldInfoOf, ReadOnlyRule } from './reflection';
-import type { Type, Entity } from './entity';
+import type { Type, Entity, View, ViewType } from "./entity";
 import type { CustomLiteClass } from './lite';
 import type { ExLambda, Quoted } from 'quote-transformer/quoted';
 import { accessedFields, memberPath } from './accessedFields';
 import { declareLegacyCleanName, declareLegacyClassName } from './registration';
+import type { BaseEntity } from "./entity";
 
 export type { ColumnOptions, TranslatableRouteType } from './reflection';
 
@@ -176,8 +177,8 @@ export function avoidExpandOnRetrieving(target: object, propertyKey: string | sy
 // The shared body of @entity and @part. Like @reflect it creates reflection metadata and registers the
 // type (so the quote-transformer auto-injects @field on its properties); additionally it records the
 // EntityKind / EntityData / lowPopulation.
-function defineEntity(kind: EntityKind, data: EntityData | undefined, options: EntityOptions | undefined): (target: Function) => void {
-    return function (target: Function): void {
+function defineEntity(kind: EntityKind, data: EntityData | undefined, options: EntityOptions | undefined): (target: Type<Entity>) => void {
+    return function (target: Type<Entity>): void {
         (target as any)[entityInfoKey] = { kind, data, lowPopulation: options?.lowPopulation, identity: options?.identity } satisfies EntityInfo;
         const ti = getOrCreateTypeInfo(target);
         ti.entityKind = kind;
@@ -191,7 +192,7 @@ function defineEntity(kind: EntityKind, data: EntityData | undefined, options: E
 // Marks a class as a persistent entity. `kind` and `data` are both MANDATORY — the abstract base Entity
 // uses @reflect (not @entity), so there is no no-arg form. "Part" is not one of the kinds it takes: a part
 // is declared `@part`, which is the only way to say it (see below).
-export function entity(kind: Exclude<EntityKind, "Part">, data: EntityData, options?: EntityOptions): (target: Function) => void {
+export function entity(kind: Exclude<EntityKind, "Part">, data: EntityData, options?: EntityOptions): (target: Type<Entity>) => void {
     return defineEntity(kind, data, options);
 }
 
@@ -214,7 +215,7 @@ export function entity(kind: Exclude<EntityKind, "Part">, data: EntityData, opti
  * quote-transformer recognises the name, so a `@part` class gets its `@field` injection exactly as an
  * `@entity` one does.
  */
-export function part(target: Function): void {
+export function part(target: Type<Entity>): void {
     defineEntity("Part", undefined, undefined)(target);
 }
 
@@ -222,7 +223,7 @@ export function part(target: Function): void {
 // [PrimaryKey(typeof(...))]). Recorded on the implicit `id` field's
 // columnOptions and consumed by SchemaBuilder. Absent → schema default (int).
 export function primaryKey(type: PrimaryKeyType) {
-    return function (target: Function): void {
+    return function (target: Type<Entity>): void {
         const typeInfo = getOrCreateTypeInfo(target);
         // The base Entity's `id` FieldInfo is shallow-copied (by reference) into
         // every subclass's TypeInfo, so it is SHARED. Replace it with an own copy
@@ -240,7 +241,7 @@ export function primaryKey(type: PrimaryKeyType) {
 // overriding the name derived from the class. Used e.g. for temporary views
 // (`@tableName("#MyTempView")`); consumed by SchemaBuilder / Administrator.
 export function tableName(name: string) {
-    return function (target: Function): void {
+    return function (target: Type<Entity> | ViewType<View>): void {
         getOrCreateTypeInfo(target).tableName = name;
     };
 }
@@ -266,7 +267,7 @@ export function tableName(name: string) {
 // of table this is, which is true of every subclass — one declaration on SemiSymbol reaches every note
 // type, alert type and agent, exactly as Signum's inherited attribute does.
 export function ticksColumn(enabled: boolean) {
-    return function (target: Function): void {
+    return function (target: Type<Entity>): void {
         getOrCreateTypeInfo(target).ticksColumn = enabled;
     };
 }
@@ -334,7 +335,7 @@ export type LegacyTableOptions = {
  * a type is the MODULE's knowledge, where the database came from is the app's.
  */
 export function legacyClassName(className: string) {
-    return function (target: Function): void {
+    return function (target: Type<BaseEntity>): void {
         declareLegacyClassName(target, className);
     };
 }
@@ -349,16 +350,16 @@ export function legacyClassName(className: string) {
  * answer, do not write this.
  */
 export function legacyCleanName(cleanName: string) {
-    return function (target: Function): void {
+    return function (target: Type<BaseEntity>): void {
         declareLegacyCleanName(target, cleanName);
     };
 }
 
-export function legacyTableName(name: string): (target: Function) => void;
-export function legacyTableName(options: LegacyTableOptions): (target: Function) => void;
+export function legacyTableName(name: string): (target: Type<Entity> | ViewType<View>) => void;
+export function legacyTableName(options: LegacyTableOptions): (target: Type<Entity> | ViewType<View>) => void;
 export function legacyTableName(arg: string | LegacyTableOptions) {
     const options: LegacyTableOptions = typeof arg === 'string' ? { name: arg } : arg;
-    return function (target: Function): void {
+    return function (target: Type<Entity> | ViewType<View>): void {
         const ti = getOrCreateTypeInfo(target);
         if (options.name != null) ti.legacyTableName = options.name;
         if (options.wasVirtualMList) ti.legacyWasVirtualMList = true;
@@ -449,7 +450,7 @@ function addLegacyRouteMember(target: object, member: string, signumName: string
  * CONCRETE root type — a property on an abstract base is a route of every type that derives from it — and
  * a subclass's declaration wins.
  */
-export function legacyPropertyRoutesOf(ctor: Function): Map<string, string | undefined> {
+export function legacyPropertyRoutesOf(ctor: Type<BaseEntity>): Map<string, string | undefined> {
     const result = new Map<string, string | undefined>();
     for (let c: Function | null = ctor; c != null; c = Object.getPrototypeOf(c) as Function | null)
         for (const [member, signumName] of legacyRouteMembers.get(c) ?? [])
@@ -464,15 +465,15 @@ export function legacyPropertyRoutesOf(ctor: Function): Map<string, string | und
 // overrides them. Consumed by the SchemaBuilder (period columns + history table + SS
 // SYSTEM_VERSIONING / PG versioning trigger).
 type SystemVersionedOptions = { startColumnName?: string; endColumnName?: string; sysPeriodColumnName?: string; historyTableName?: string };
-export function systemVersioned(target: Function): void;
-export function systemVersioned(options: SystemVersionedOptions): (target: Function) => void;
+export function systemVersioned(target: Type<Entity>): void;
+export function systemVersioned(options: SystemVersionedOptions): (target: Type<Entity>) => void;
 export function systemVersioned(arg?: unknown): unknown {
     if (typeof arg === 'function') {
         getOrCreateTypeInfo(arg).systemVersioned = {};
         return;
     }
     const options = (arg ?? {}) as SystemVersionedOptions;
-    return function (target: Function): void {
+    return function (target: Type<Entity>): void {
         getOrCreateTypeInfo(target).systemVersioned = { ...options };
     };
 }
@@ -492,7 +493,7 @@ export function viewPrimaryKey(target: object, propertyKey: string | symbol): vo
 // The class form (Signum's AddIndex(fields, where?, includeFields?)) stores the raw selector
 // lambdas; the SchemaBuilder resolves fields/includeFields to columns and renders `where`.
 export function index(target: object, propertyKey: string | symbol): void;
-export function index<T>(fields: Quoted<(element: T) => unknown>, where?: Quoted<(element: T) => boolean>, includeFields?: Quoted<(element: T) => unknown>): (target: Function) => void;
+export function index<T>(fields: Quoted<(element: T) => unknown>, where?: Quoted<(element: T) => boolean>, includeFields?: Quoted<(element: T) => unknown>): (target: Type<Entity>) => void;
 export function index(arg1: unknown, arg2?: unknown, arg3?: unknown): unknown {
     return indexDecorator(false, arg1, arg2, arg3);
 }
@@ -501,7 +502,7 @@ export function index(arg1: unknown, arg2?: unknown, arg3?: unknown): unknown {
 //   • field:  `@uniqueIndex code!: string;`                        — a unique index on that column
 //   • class:  `@uniqueIndex(e => [e.name, e.country], e => e.active)` — composite unique, optionally filtered
 export function uniqueIndex(target: object, propertyKey: string | symbol): void;
-export function uniqueIndex<T>(fields: Quoted<(element: T) => unknown>, where?: Quoted<(element: T) => boolean>, includeFields?: Quoted<(element: T) => unknown>): (target: Function) => void;
+export function uniqueIndex<T>(fields: Quoted<(element: T) => unknown>, where?: Quoted<(element: T) => boolean>, includeFields?: Quoted<(element: T) => unknown>): (target: Type<Entity>) => void;
 export function uniqueIndex(arg1: unknown, arg2?: unknown, arg3?: unknown): unknown {
     return indexDecorator(true, arg1, arg2, arg3);
 }
@@ -520,7 +521,7 @@ function indexDecorator(unique: boolean, arg1: unknown, arg2: unknown, arg3: unk
     const fields = arg1 as Quoted<(element: any) => unknown>;
     const where = arg2 as Quoted<(element: any) => boolean> | undefined;
     const includeFields = arg3 as Quoted<(element: any) => unknown> | undefined;
-    return function (target: Function): void {
+    return function (target: Type<Entity>): void {
         const ti = getOrCreateTypeInfo(target);
         (ti.indexes ??= []).push({ unique, fields, includeFields, where });
     };
@@ -541,8 +542,8 @@ export function fullTextIndex<T>(
         sqlServer?: { catalogName?: string; changeTracking?: 'Manual' | 'Auto' | 'Off' | 'Off_NoPopulation'; stoplistName?: string; propertyListName?: string };
         postgres?: { tsVectorColumnName?: string; configuration?: string; weights?: Record<string, 'A' | 'B' | 'C' | 'D'> };
     },
-): (target: Function) => void {
-    return function (target: Function): void {
+): (target: Type<Entity>) => void {
+    return function (target: Type<Entity>): void {
         const ti = getOrCreateTypeInfo(target);
         const quotedFields = fields as Quoted<(element: any) => unknown>;
         (ti.fullTextIndexes ??= []).push({ fields: quotedFields, sqlServer: options?.sqlServer, postgres: options?.postgres });
@@ -569,8 +570,8 @@ export function vectorIndex<T>(
         sqlServer?: { metric?: 'Cosine' | 'Euclidean' | 'DotProduct'; indexType?: 'DiskANN'; maxDegreeOfParallelism?: number };
         postgres?: { indexType?: 'HNSW' | 'IVFFlat'; metric?: 'Cosine' | 'L2' | 'InnerProduct' | 'L1' | 'Hamming' | 'Jaccard'; lists?: number };
     },
-): (target: Function) => void {
-    return function (target: Function): void {
+): (target: Type<Entity>) => void {
+    return function (target: Type<Entity>): void {
         const ti = getOrCreateTypeInfo(target);
         const quotedField = field as Quoted<(element: any) => unknown>;
         (ti.vectorIndexes ??= []).push({ field: quotedField, sqlServer: options?.sqlServer, postgres: options?.postgres });
@@ -583,7 +584,7 @@ export function vectorIndex<T>(
     };
 }
 
-export function allowUnauthenticated(target: Function): void {
+export function allowUnauthenticated(target: Type<Entity>): void {
     (target as any)[allowUnauthenticatedKey] = true;
 }
 

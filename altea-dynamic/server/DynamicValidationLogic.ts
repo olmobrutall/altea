@@ -7,7 +7,7 @@ import { Connector } from "@altea/altea/server/connection/connector";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { globalValidators } from "@altea/altea/data/reflection";
 import type { FieldInfo, IntegrityCheckEnvironment } from "@altea/altea/data/reflection";
-import type { Entity } from "@altea/altea/data/entity";
+import type { Entity, Type, BaseEntity } from "@altea/altea/data/entity";
 import { resolveType } from "@altea/altea/data/reflection";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
@@ -48,7 +48,7 @@ import { DynamicValidationEntity, DynamicValidationOperation } from "../data/Dyn
 interface CachedValidation {
     validation: DynamicValidationEntity;
     /** The type the validation is declared for. */
-    entityType: Function;
+    entityType: Type<BaseEntity>;
     /** The stored route, or undefined for "the whole entity". */
     route: string | undefined;
 }

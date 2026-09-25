@@ -176,7 +176,7 @@ const isNewError = "The entity is new.";
 // need). Its resolution root is the ENTITY's own type, not the operation's `entityType`: for a
 // ConstructFrom that one is the SOURCE type, while `getState` selects on the constructed one.
 function stateError<S>(op: IGraphStateOperation, entity: unknown, state: S, allowed: readonly S[]): string {
-    const stateEnum = stateEnumOf(op, (entity as Entity).constructor);
+    const stateEnum = stateEnumOf(op, (entity as Entity).getType());
     // `inState` is the same sentence, exported for a hand-written `canExecute` / `canConstruct`; the two
     // share it so a transition refused by the graph and one refused by a guard read identically.
     return inState(state, stateEnum, ...allowed)!;

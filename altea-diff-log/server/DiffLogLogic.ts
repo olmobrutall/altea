@@ -16,6 +16,7 @@ import { TypeAuthLogic } from "@altea/altea-auth/server/TypeAuthLogic";
 import { TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
 import { DiffLogMixin, OperationLogTypeCondition } from "../data/DiffLog";
 import { DiffLogServer } from "./DiffLogServer";
+import type { Type } from "@altea/altea/data/entity";
 
 // Registers ONE surround-operation handler, and that handler is the whole module: dump the entity before
 // the operation, dump the target after it, store both on the operation log. The after half still runs when
@@ -25,19 +26,19 @@ import { DiffLogServer } from "./DiffLogServer";
 export namespace DiffLogLogic {
 
     /** Per entity type, "is this worth dumping?". Keyed by ctor; a registration on a base type applies. */
-    const shouldLogByType = new Map<Function, ShouldLogHandler>();
+    const shouldLogByType = new Map<Type<Entity>, ShouldLogHandler>();
 
     export type ShouldLogHandler = (entity: Entity, operation: { key: string }) => boolean;
 
     /** A registration on a BASE type covers its subclasses. */
-    export function registerShouldLog(type: Function, handler: ShouldLogHandler): void {
+    export function registerShouldLog(type: Type<Entity>, handler: ShouldLogHandler): void {
         shouldLogByType.set(type, handler);
     }
 
     /** The nearest registration up the prototype chain. */
     export function shouldLog(entity: Entity, operationKey: string): boolean {
         for (let ctor: Function | null = entity.constructor; ctor != null; ctor = Object.getPrototypeOf(ctor)) {
-            const handler = shouldLogByType.get(ctor);
+            const handler = shouldLogByType.get(ctor as Type<Entity>);
             if (handler != undefined)
                 return handler(entity, { key: operationKey });
         }

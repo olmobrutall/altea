@@ -7,7 +7,6 @@ import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/query
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { retrieve } from "@altea/altea/server/Database";
 import type { Type } from "@altea/altea/data/entity";
 import { TextTemplateParser } from "@altea/altea-templating/server/TextTemplateParser";
 import { TextTemplateParameters } from "@altea/altea-templating/server/TextTemplateParser.Nodes";
@@ -140,7 +139,7 @@ async function readFile(value: unknown): Promise<{ fileName: string; bytes: Uint
         return { fileName: value.fileName, bytes: await FilePathEmbeddedLogic.readAllBytes(value) };
 
     const entity = value instanceof Lite
-        ? await retrieve(value.entityType as Type<Entity>, value.id)
+        ? await value.retrieve()
         : value;
 
     // An entity that HOLDS a file: take its first file-shaped field (Signum required the token's type to be

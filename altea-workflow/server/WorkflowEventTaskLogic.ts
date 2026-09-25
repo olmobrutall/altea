@@ -8,7 +8,6 @@ import { table } from "@altea/altea/server/table";
 import type { IQuery } from "@altea/altea/data/iquery";
 import { Operations } from "@altea/altea/server/operationLogic";
 import { Transaction } from "@altea/altea/server/connection/transaction";
-import { retrieve } from "@altea/altea/server/Database";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { withQuoted } from "@altea/altea/data/decorators";
 import { Lite } from "@altea/altea/data/lite";
@@ -355,7 +354,7 @@ export namespace WorkflowEventTaskLogic {
                     mainEntity,
                 });
 
-                const start = await retrieve(WorkflowEventEntity, wet.event.id!);
+                const start = await wet.event.retrieve();
                 const conn = (await WorkflowLogic.nextConnectionsFromCache(start, ConnectionType.Normal)).single();
                 await CaseActivityLogic.executeInitialStep(caseEntity, start, conn);
 

@@ -17,7 +17,7 @@ import { SafeConsole } from "./safeConsole";
 import chalk from "chalk";
 import { cleanModified } from "../data/changes";
 import { registerAfterDeserialization } from "../data/serializer";
-import type { Entity, Type } from "../data/entity";
+import type { BaseEntity, Entity, Type } from "../data/entity";
 import type { Lite } from "../data/lite";
 import type { Schema } from "./schema/schema";
 
@@ -186,7 +186,7 @@ export namespace PropertyRouteLogic {
      * because those are real routes a stored row may name and dropping them from `should` would delete
      * exactly those rows. (Signum calls the same flag `includeMListElements`.)
      */
-    export function generateProperties(ctor: Function, rootType: TypeEntity, forSync: boolean): PropertyRouteEntity[] {
+    export function generateProperties(ctor: Type<BaseEntity>, rootType: TypeEntity, forSync: boolean): PropertyRouteEntity[] {
         return [...modelPaths(ctor, forSync)]
             .map(path => PropertyRouteEntity.create({ rootType, path }));
     }
@@ -209,13 +209,13 @@ export namespace PropertyRouteLogic {
      * NORMAL mode registers nothing: there the database is one altea generated, so it has no route the model
      * cannot name.
      */
-    export const extraSyncRoutes: ((ctor: Function) => Iterable<string>)[] = [];
+    export const extraSyncRoutes: ((ctor: Type<BaseEntity>) => Iterable<string>)[] = [];
 
     /**
      * The model's route paths for a type, plus whatever {@link extraSyncRoutes} adds. A Set, so a handler
      * naming a route the model already has is a no-op rather than a duplicate.
      */
-    export function modelPaths(ctor: Function, forSync: boolean): Set<string> {
+    export function modelPaths(ctor: Type<BaseEntity>, forSync: boolean): Set<string> {
         // A `@part` owns NO routes: its members are routes of the entity that owns it
         // (`AdditionalInformation/Key` on Product), which `generateRoutes` descends into from there. So
         // the part's own set is empty rather than a second spelling of the same members — see
@@ -267,7 +267,7 @@ export namespace PropertyRouteLogic {
  * Only the type's OWN members: a property on an EMBEDDED would be a dotted route (`Owner.address.Foo`),
  * which needs walking the embedded fields — no case needs it yet, and a handler can be added when one does.
  */
-export function declaredLegacyRoutes(ctor: Function): string[] {
+export function declaredLegacyRoutes(ctor: Type<BaseEntity>): string[] {
     return [...legacyPropertyRoutesOf(ctor)]
         .map(([member, signumName]) => signumName ?? storedMemberName(member));
 }
@@ -292,7 +292,7 @@ async function warmUp(): Promise<void> {
     }
 }
 
-function resolveCtor(rootType: TypeEntity): Function {
+function resolveCtor(rootType: TypeEntity): Type<Entity> {
     const ctor = [...Connector.current().schema.tables.keys()]
         .find(t => cleanTypeName(t) === rootType.cleanName);
     if (ctor == undefined)

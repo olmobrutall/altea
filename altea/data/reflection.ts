@@ -9,6 +9,7 @@ import { Decimal, Temporal } from './basics';
 // TYPE-only: the enum's runtime object lives in a module that installs the Temporal prototype
 // augmentations, and reflection.ts is imported by everything — the member NAMES are all it needs.
 import type { DateTimePrecisionKeys } from './globals/dateTimeExtensions';
+import type { BaseEntity, View, ViewType } from "./entity";
 
 // The runtime type of a primary key. `int`/`long` are identity-style integers;
 // `uuid`/`uuid7` are GUID columns (uuid7 is time-ordered). Maps to an
@@ -166,9 +167,9 @@ export class TypeReference {
     // The referenced entity/embedded *constructor* — `type()` when it resolves to a class. undefined
     // for value types, enums, and name-only @implementedBy interface references (which have no thunk;
     // their concrete targets are reached via {@link is}/`implementations`). Was the free `fieldType`.
-    getFunction(): Function | undefined {
+    getFunction(): Type<BaseEntity> | undefined {
         const t = this.type?.();
-        return typeof t === 'function' ? t : undefined;
+        return typeof t === 'function' ? t as Type<BaseEntity> : undefined;
     }
 
     // The referenced enum OBJECT — `type()` when it resolves to a (non-function) object. Enums are NOT
@@ -792,7 +793,7 @@ export class TypeInfo {
     // ---- Client TypeInfo surface (Signum's TypeInfo) ----
     // Back-reference to the constructor this describes (set in getOrCreateTypeInfo) so the
     // culture-dependent display names can be computed on demand.
-    ctor?: Function;
+    ctor?: Type<BaseEntity>;
 
     // Signum's EntityKind / EntityData — stamped by @entity (see decorators). `entityKind` is mandatory
     // on concrete entities (the abstract base uses @reflect, so it stays undefined here).
@@ -864,8 +865,8 @@ export class TypeInfo {
 
 // Set once by data/entity (which imports THIS module, so the dependency can only run that way): whether a
 // ctor descends from the persisted `Entity` base. A direct `import { Entity }` here would be a cycle.
-let isPersistedEntity: (ctor: Function) => boolean = () => true;
-export function registerIsPersistedEntity(fn: (ctor: Function) => boolean): void { isPersistedEntity = fn; }
+let isPersistedEntity: (ctor: Type<BaseEntity> | ViewType<View>) => boolean = () => true;
+export function registerIsPersistedEntity(fn: (ctor: Type<BaseEntity> | ViewType<View>) => boolean): void { isPersistedEntity = fn; }
 
 // The five operation kinds (Signum's OperationType). STABLE per operation, so it stays on the Info side;
 // the per-culture label and the per-role allowance live on `OperationMetadata` (data/metadata).
@@ -939,7 +940,7 @@ export function getOrCreateTypeInfo(target: object): TypeInfo {
 // concerns like @entity / @column live in ./decorators instead.
 export function reflect(target: Function): void {
     getOrCreateTypeInfo(target);
-    registerType(target);
+    registerType(target as Type<BaseEntity> | ViewType<View>);
 }
 
 // The runtime registries + FileInfo live in the (import-free) ./registration
@@ -1035,7 +1036,7 @@ export function ruleOwners(entityCtor: Function | undefined, declaringCtor?: Fun
     return chain;
 }
 
-export function eachFieldInfo(ctor: Function, callback: (fi: FieldInfo) => void): void {
+export function eachFieldInfo(ctor: Type<BaseEntity>, callback: (fi: FieldInfo) => void): void {
     const visit = (owner: Function): void => {
         const ti = getTypeInfo(owner);
         if (ti == null) return;

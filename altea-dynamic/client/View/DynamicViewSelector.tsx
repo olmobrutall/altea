@@ -7,7 +7,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { JavascriptMessage, SaveChangesMessage } from "@altea/altea/data/uiMessages";
 import { Binding } from "@altea/altea/client/binding";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
-import { resolveType } from "@altea/altea/data/registration";
+import { isModifiableType, resolveType } from "@altea/altea/data/registration";
 import { Navigator } from "@altea/altea/client/Navigator";
 import MessageModal from "@altea/altea/client/Modals/MessageModal";
 import { useAPI, useForceUpdate } from "@altea/altea/client/Hooks";
@@ -106,7 +106,7 @@ export default function DynamicViewSelectorComponent(p: { ctx: TypeContext<Dynam
 
     function renderExampleEntity(typeName: string): React.ReactNode {
         const ctor = resolveType(typeName);
-        if (ctor == undefined)
+        if (ctor == undefined || !isModifiableType(ctor))
             return <div className="alert alert-warning">Type '{typeName}' is not registered on the client</div>;
 
         const exampleCtx = new TypeContext<Entity | null>(

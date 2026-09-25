@@ -4,6 +4,7 @@ import { TypeReference } from "../../reflection";
 import { Entity } from "../../entity";
 import { QueryTokenMessage } from "../../dynamicQueries";
 import { QueryToken, SubTokensOptions, entityCtorOf } from "./queryToken";
+import type { Type } from "../../entity";
 
 // Port of Signum's OperationsContainerToken.cs + OperationToken.cs: an entity OPERATION surfaced as a
 // search-result COLUMN, so each row carries its own button.
@@ -79,8 +80,8 @@ export interface EligibleOperation {
  * exactly as Signum's would if its seam returned an empty sequence). Signum THROWS when its static is
  * null; altea cannot, because the token layer runs on a client that may not have started Operations.
  */
-let eligibleTypeOperationsProvider: ((entityCtor: Function) => EligibleOperation[]) | undefined;
-export function setEligibleTypeOperationsProvider(fn: ((entityCtor: Function) => EligibleOperation[]) | undefined): void {
+let eligibleTypeOperationsProvider: ((entityCtor: Type<Entity>) => EligibleOperation[]) | undefined;
+export function setEligibleTypeOperationsProvider(fn: ((entityCtor: Type<Entity>) => EligibleOperation[]) | undefined): void {
     eligibleTypeOperationsProvider = fn;
 }
 
@@ -91,8 +92,8 @@ export function setEligibleTypeOperationsProvider(fn: ((entityCtor: Function) =>
  * it) and the SERVER's until a SYNCHRONOUS operation-auth snapshot exists — `OperationAuthLogic`'s
  * check is async, and `QueryToken.isAllowed()` is not.
  */
-let operationTokenAuthorizer: ((operationKey: string, entityCtor: Function) => string | null) | undefined;
-export function setOperationTokenAuthorizer(fn: ((operationKey: string, entityCtor: Function) => string | null) | undefined): void {
+let operationTokenAuthorizer: ((operationKey: string, entityCtor: Type<Entity>) => string | null) | undefined;
+export function setOperationTokenAuthorizer(fn: ((operationKey: string, entityCtor: Type<Entity>) => string | null) | undefined): void {
     operationTokenAuthorizer = fn;
 }
 
@@ -129,7 +130,7 @@ export class OperationsContainerToken extends QueryToken {
     isAllowed(): string | null { return this._parent.isAllowed(); }
 
     /** The entity type the operations are looked up for (Signum's `parent.Type.CleanType()`). */
-    get entityCtor(): Function | undefined { return entityCtorOf(this._parent.type); }
+    get entityCtor(): Type<Entity> | undefined { return entityCtorOf(this._parent.type); }
 
     protected subTokensOverride(_options: SubTokensOptions): QueryToken[] {
         const ctor = this.entityCtor;
@@ -145,7 +146,7 @@ export class OperationsContainerToken extends QueryToken {
 export class OperationToken extends QueryToken {
     constructor(
         private readonly _parent: OperationsContainerToken,
-        readonly entityCtor: Function,
+        readonly entityCtor: Type<Entity>,
         readonly operation: EligibleOperation,
     ) {
         super();

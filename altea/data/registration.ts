@@ -1,3 +1,4 @@
+import type { BaseEntity, Entity, Type, View, ViewType } from "./entity";
 // Leaf module: the runtime registries (type / enum / object) plus the FileInfo
 // shape. It imports nothing at runtime, so it can be re-exported from BOTH
 // reflection.ts and utils/localization.ts without an import cycle (reflection
@@ -20,7 +21,7 @@ export interface FileInfo {
 // classification (entity / embedded) and recursion. Value types (String, Number,
 // Date, Decimal, Temporal.*) are intentionally absent — they resolve by name in
 // defaultDbType.
-const typeRegistry = new Map<string, Function>();
+const typeRegistry = new Map<string, Type<BaseEntity> | ViewType<View>>();
 
 // Enum registry: maps an enum's name to its runtime enum object. Enums have no
 // constructor to hang metadata on, so they are registered explicitly via
@@ -34,7 +35,7 @@ const enumRegistry = new Map<string, object>();
 // re-adding a suffix. Where two types clean to the same name the higher-priority SUFFIX wins, which
 // makes the answer independent of module evaluation order — the alias this replaces was first-come,
 // so `Customer` belonged to whichever of CustomerEntity / CustomerRowModel happened to load first.
-const cleanRegistry = new Map<string, Function>();
+const cleanRegistry = new Map<string, Type<BaseEntity> | ViewType<View>>();
 
 // What SIGNUM calls a type this framework renamed — the attribute stores behind the three `@legacy*`
 // name decorators, written once at CLASS DEFINITION time and read only while LEGACY MODE is on.
@@ -44,8 +45,8 @@ const cleanRegistry = new Map<string, Function>();
 // about that column unless the altea side can say "Signum calls this class WordTemplateEntity". The
 // other two are DERIVED from it by the ordinary rules (strip the kind suffix for the clean name, snake
 // it for the table), and are declared only where those rules do not land on Signum's answer.
-const legacyClassNames = new Map<Function, string>();
-const legacyCleanNames = new Map<Function, string>();
+const legacyClassNames = new Map<Type<BaseEntity> | ViewType<View>, string>();
+const legacyCleanNames = new Map<Type<BaseEntity> | ViewType<View>, string>();
 
 // Whether the `@legacy*` NAMES apply — the data-layer half of SchemaSettings.legacyMode, which is what
 // sets it (and an application's shared entity-overrides module on the CLIENT, which has no schema).
@@ -79,7 +80,7 @@ const locationRegistry = new Map<string, FileInfo>();
 // strip the `var X = class {}` binding that gives an anonymous class its `.name`,
 // leaving ctor.name === "" and breaking name-based resolution. Falls back to
 // ctor.name when called directly (e.g. from @reflect at decoration time).
-export function registerType(ctor: Function, name?: string, fileInfo?: FileInfo): void {
+export function registerType(ctor: Type<BaseEntity> | ViewType<View>, name?: string, fileInfo?: FileInfo): void {
     const key = name ?? ctor?.name;
     if (!key) return;
     // Restore ctor.name when the bundler stripped it (anonymous class → name
@@ -112,7 +113,7 @@ export function registerType(ctor: Function, name?: string, fileInfo?: FileInfo)
 // Every constructor registered via registerType. Keyed by the COMPLETE name alone, so the values need
 // no dedupe. Used by ReflectionClient to propagate an abstract base type's operations to its concrete
 // subclasses, since altea gives every class its own TypeInfo (operations don't inherit).
-export function getRegisteredTypes(): Function[] {
+export function getRegisteredTypes(): (Type<BaseEntity> | ViewType<View>)[] {
     return [...new Set(typeRegistry.values())];
 }
 
@@ -121,13 +122,13 @@ export function getRegisteredTypes(): Function[] {
  * {@link cleanRegistry} rather than derived, since the strip is per underscore-SEGMENT
  * (`EmployeeEntity_Territory` -> `Employee_Territory`) and re-adding a suffix cannot undo that.
  */
-function resolveBySuffix(name: string): Function | undefined {
+function resolveBySuffix(name: string): Type<BaseEntity> | ViewType<View> | undefined {
     // The COMPLETE name first, so a type literally called `QueryModel` is never shadowed by another
     // type's clean name.
     return typeRegistry.get(name) ?? cleanRegistry.get(name);
 }
 
-export function resolveType(name: string): Function | undefined {
+export function resolveType(name: string): Type<BaseEntity> | ViewType<View> | undefined {
     // The canonical (PascalCase) names — the full name, and every clean name through resolveBySuffix.
     // The firstLower fallback resolves names that come from URLs, where navigateRouteDefault lower-cases
     // the first letter (`/view/order/1` → "order" → "Order"); PascalCase names never reach it.
@@ -149,7 +150,7 @@ export function resolveType(name: string): Function | undefined {
 // Signum's Reflector.CleanTypeName also strips Embedded / Model / Symbol; here those
 // suffixes STAY, because an identity must keep "SongEmbedded" distinct from a "Song"
 // beside it. Localization's niceNameFromTypeName strips all four (and RowModel), but only for DISPLAY.
-export function cleanTypeName(ctor: Function): string {
+export function cleanTypeName(ctor: Type<BaseEntity> | ViewType<View>): string {
     // LEGACY MODE: SIGNUM's own clean name for this type, when altea renamed it — declared outright with
     // `@legacyCleanName`, or derived from `@legacyClassName` by the same suffix rule as any other name.
     const legacy = legacyCleanNameOf(ctor);
@@ -210,8 +211,47 @@ function stripEntitySuffix(name: string): string {
 
 // Reverse of cleanTypeName: a wire discriminator back to its constructor — the same derivation
 // resolveType uses, without the URL's lower-case tolerance.
-export function resolveCleanType(cleanName: string): Function | undefined {
+export function resolveCleanType(cleanName: string): Type<BaseEntity> | ViewType<View> | undefined {
     return resolveBySuffix(cleanName);
+}
+
+/** {@link resolveCleanType}, for a name that must be a modifiable class (entity, embedded, model) — undefined for a view. */
+export function resolveModifiableType(cleanName: string): Type<BaseEntity> | undefined {
+    const ctor = resolveBySuffix(cleanName);
+    return ctor != undefined && isModifiableCtor(ctor) ? ctor : undefined;
+}
+
+/** {@link resolveCleanType}, for a name that must be an entity type — undefined for anything else. */
+export function resolveEntityType(cleanName: string): Type<Entity> | undefined {
+    const ctor = resolveBySuffix(cleanName);
+    return ctor != undefined && isEntityType(ctor) ? ctor : undefined;
+}
+
+/** Whether a registered type is a modifiable class (entity, embedded, model) rather than a view. */
+export function isModifiableType(ctor: Type<BaseEntity> | ViewType<View>): ctor is Type<BaseEntity> {
+    return isModifiableCtor(ctor);
+}
+
+/** Whether a registered type is an ENTITY (a table row, with an id) — not an embedded, model or view. */
+export function isEntityType(ctor: Type<BaseEntity> | ViewType<View>): ctor is Type<Entity> {
+    return isModifiableCtor(ctor) && isEntityCtor(ctor);
+}
+
+// By prototype NAME chain rather than `instanceof`: this module is imported by ./entity, so it cannot hold
+// the classes themselves.
+function isModifiableCtor(ctor: Type<BaseEntity> | ViewType<View>): ctor is Type<BaseEntity> {
+    return inheritsFromNamed(ctor, "BaseEntity");
+}
+
+function isEntityCtor(ctor: Type<BaseEntity>): ctor is Type<Entity> {
+    return inheritsFromNamed(ctor, "Entity");
+}
+
+function inheritsFromNamed(ctor: Function, baseName: string): boolean {
+    for (let c: Function | null = ctor; c != null && c !== Function.prototype; c = Object.getPrototypeOf(c))
+        if (c.name === baseName)
+            return true;
+    return false;
 }
 
 // Registers a database enum by name (so the enum-table support can map a field's
@@ -461,20 +501,20 @@ export function schemaForName(name: string): string | undefined {
  * Read only while legacy mode is on (see {@link setLegacyMode}) — an altea-native database gets altea's
  * own names.
  */
-export function declareLegacyClassName(ctor: Function, className: string): void {
+export function declareLegacyClassName(ctor: Type<BaseEntity>, className: string): void {
     legacyClassNames.set(ctor, className);
     indexLegacyAliases(ctor);
 }
 
 /** The attribute store behind `@legacyCleanName` — an OVERRIDE, for the rare type whose Signum clean
  *  name does not follow from its Signum class name by the ordinary suffix rule. */
-export function declareLegacyCleanName(ctor: Function, cleanName: string): void {
+export function declareLegacyCleanName(ctor: Type<BaseEntity>, cleanName: string): void {
     legacyCleanNames.set(ctor, cleanName);
     indexLegacyAliases(ctor);
 }
 
 /** SIGNUM's class name for this type, while legacy mode is on. */
-export function legacyClassName(ctor: Function): string | undefined {
+export function legacyClassName(ctor: Type<BaseEntity> | ViewType<View>): string | undefined {
     return legacyNames ? legacyClassNames.get(ctor) : undefined;
 }
 
@@ -486,7 +526,7 @@ export function legacyClassName(ctor: Function): string | undefined {
  * The single resolution both copies of `cleanTypeName` use — this one and the schema builder's, which
  * names tables and @implementedBy columns.
  */
-export function legacyCleanNameOf(ctor: Function): string | undefined {
+export function legacyCleanNameOf(ctor: Type<BaseEntity> | ViewType<View>): string | undefined {
     if (!legacyNames)
         return undefined;
     const declared = legacyCleanNames.get(ctor);
@@ -511,7 +551,7 @@ export function isLegacyMode(): boolean {
  * `WordTemplateEntity` is the same answer whichever database the process happens to point at, and a
  * porting run must not have to flip a global to get it.
  */
-export function declaredLegacyClassNames(): Map<string, Function> {
+export function declaredLegacyClassNames(): Map<string, Type<BaseEntity> | ViewType<View>> {
     return new Map([...legacyClassNames].map(([ctor, className]) => [className, ctor]));
 }
 
@@ -541,7 +581,7 @@ export function setLegacyMode(enabled: boolean): void {
  * stored has to be migrated to be readable. Nothing else can own these names — they are two spellings of
  * one type — and the priority guard below is the same one `registerType` applies.
  */
-function indexLegacyAliases(ctor: Function): void {
+function indexLegacyAliases(ctor: Type<BaseEntity> | ViewType<View>): void {
     const legacy = legacyCleanNames.get(ctor) ?? legacyClassNameStripped(ctor);
     for (const name of [cleanTypeName(ctor), stripEntitySuffix(ctor.name), legacy]) {
         if (name == null)
@@ -552,7 +592,7 @@ function indexLegacyAliases(ctor: Function): void {
     }
 }
 
-function legacyClassNameStripped(ctor: Function): string | undefined {
+function legacyClassNameStripped(ctor: Type<BaseEntity> | ViewType<View>): string | undefined {
     const className = legacyClassNames.get(ctor);
     return className != null ? stripEntitySuffix(className) : undefined;
 }

@@ -9,6 +9,7 @@ import {
     NoteWithDateEntity, AwardNominationEntity, GrammyAwardEntity,
     type IAuthorEntity,
 } from "../../data/music";
+import type { Type, Entity } from "@altea/altea/data/entity";
 
 // Port of Signum.Test/LinqProvider/SelectImplementations.cs (class
 // SelectImplementationsTest1). C# → altea idiom:
@@ -152,9 +153,9 @@ describe.skipIf(!hasDb)("SelectImplementationsTest1", () => {
 
     // Type[] types = { typeof(GrammyAwardEntity) }; Where(a => types.Contains(a.Award.Entity.GetType())).ToList();
     test("SelectEntityWithLiteIbTypeContains", async () => {
-        const types: Function[] = [GrammyAwardEntity];
+        const types: Type<Entity>[] = [GrammyAwardEntity];
         const list = await table(AwardNominationEntity)
-            .filter(a => types.includes(a.award.entity.constructor))
+            .filter(a => types.includes(a.award.entity.getType()))
             .toArray();
         assert.ok(Array.isArray(list));
     });

@@ -5,7 +5,6 @@ import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.w
 import { createHash, randomUUID } from "node:crypto";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
-import { retrieve } from "@altea/altea/server/Database";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { UserHolder } from "@altea/altea/server/userHolder";
@@ -42,6 +41,7 @@ import { MailingServer } from "./MailingServer";
 import { EmailTemplateTokenSync } from "./EmailTemplateTokenSync";
 import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
+import { modelClassName, type ModelClass } from "@altea/altea-templating/server/ValueProviders";
 
 // Port of Signum.Mailing's EmailLogic.cs — the module's `start(sb)` and its public "send this" surface.
 //
@@ -101,10 +101,10 @@ export namespace EmailLogic {
 
     // Signum's `EmailSenders` Polymorphic, keyed by the service entity's constructor.
     type SenderFactory = (service: EmailServiceEntity, config: EmailSenderConfigurationEntity) => EmailSenderBase;
-    const emailSenders = new Map<Function, SenderFactory>();
+    const emailSenders = new Map<Type<Entity>, SenderFactory>();
 
     // altea-only (see the header): how to read an EmailOwnerData off an owner entity.
-    const emailOwners = new Map<Function, (entity: Entity) => EmailOwnerData>();
+    const emailOwners = new Map<Type<Entity>, (entity: Entity) => EmailOwnerData>();
 
     export function start(sb: SchemaBuilder, options: {
         /** The app's mail settings, as a thunk returning the configuration cache's promise. */
@@ -199,14 +199,14 @@ export namespace EmailLogic {
     }
 
     /** Signum's `EmailSenders.Register(...)`. */
-    export function registerEmailSender(serviceType: Function, factory: SenderFactory): void {
+    export function registerEmailSender(serviceType: Type<Entity>, factory: SenderFactory): void {
         emailSenders.set(serviceType, factory);
     }
 
     /** altea-only: how to read an EmailOwnerData off one owner ENTITY type (see the header). Register the
      *  types a From / Recipient token can yield — e.g. `registerEmailOwner(CustomerEntity, c => ({ … }))`. */
     export function registerEmailOwner<T extends Entity>(ownerType: Type<T>, read: (entity: T) => EmailOwnerData): void {
-        emailOwners.set(ownerType as Function, read as (entity: Entity) => EmailOwnerData);
+        emailOwners.set(ownerType as Type<Entity>, read as (entity: Entity) => EmailOwnerData);
     }
 
     /** Turn whatever a From / Recipient token yielded into an EmailOwnerData: a Lite / Entity of a registered
@@ -216,7 +216,7 @@ export namespace EmailLogic {
             return { owner: null, email: value, displayName: null, culture: null, externalId: null };
 
         const entity = value instanceof Lite
-            ? await retrieve(value.entityType as Type<Entity>, value.id)
+            ? await value.retrieve()
             : value as Entity;
 
         return ownerDataOfEntity(entity);
@@ -227,7 +227,7 @@ export namespace EmailLogic {
      *  in-memory expression over an entity already in hand — `SendTo(Entity.User.EmailOwnerData)`). */
     export function ownerDataOfEntity(entity: Entity): EmailOwnerData {
         for (let ctor: Function | null = entity.constructor; ctor != null; ctor = Object.getPrototypeOf(ctor) as Function | null) {
-            const read = emailOwners.get(ctor);
+            const read = emailOwners.get(ctor as Type<Entity>);
             if (read != null)
                 return read(entity);
         }
@@ -253,7 +253,7 @@ export namespace EmailLogic {
             throw new Error(EmailMessageMessage.DefaultFromNotFound.niceToString());
 
         for (let ctor: Function | null = config.service.constructor; ctor != null; ctor = Object.getPrototypeOf(ctor) as Function | null) {
-            const factory = emailSenders.get(ctor);
+            const factory = emailSenders.get(ctor as Type<Entity>);
             if (factory != null)
                 return factory(config.service, config);
         }
@@ -368,11 +368,6 @@ export namespace EmailLogic {
         return [...names];
     }
 
-    /** Retrieve the entity behind a lite (used for a master template / a target). */
-    export async function retrieveLite<T extends Entity>(lite: Lite<T>): Promise<T> {
-        return await retrieve(lite.entityType as Type<T>, lite.id) as T;
-    }
-
     // ---- the state machine -----------------------------------------------------------------------------
 
     const sendableStates = [
@@ -413,7 +408,7 @@ export namespace EmailLogic {
             : null,
         construct: async (et: EmailTemplateEntity, args?: unknown[]) => {
             const arg = args?.[0];
-            const entity = arg instanceof Lite ? await retrieveLite(arg)
+            const entity = arg instanceof Lite ? await arg.retrieve()
                 : arg instanceof Entity ? arg
                     : null;
 
@@ -488,12 +483,12 @@ export namespace EmailLogic {
 
 /** The model's registered TYPE. An altea model is a plain shape, so the type is the entity it is about
  *  (Signum read `model.GetType()`); a model with no entity must be created through its registration. */
-function modelTypeOf(model: IEmailModel): Function {
-    const modelType = (model as { modelType?: Function }).modelType;
+function modelTypeOf(model: IEmailModel): ModelClass {
+    const modelType = (model as { modelType?: ModelClass }).modelType;
     if (modelType != undefined)
         return modelType;
     if (model.untypedEntity != null)
-        return model.untypedEntity.constructor;
+        return model.untypedEntity.getType();
     throw new Error("An IEmailModel with no untypedEntity must carry a `modelType` so its registration can be found");
 }
 

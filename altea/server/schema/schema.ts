@@ -1,4 +1,4 @@
-import type { Entity, PrimaryKey, Type, View, ViewType } from '../../data/entity';
+import type { Entity, PrimaryKey, Type, View, ViewType, BaseEntity } from '../../data/entity';
 import type { ResetLazy } from '../../server/resetLazy';
 import type { TypeCaches } from '../typeLogic';
 import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
@@ -70,7 +70,7 @@ export class Schema {
     // It has to happen in the PROJECTION and not in an `entityEvents.retrieved` handler: an embedded can be
     // projected without its owner ever being materialised — a SearchControl column over `Category.Picture`
     // selects that embedded and nothing else — and the position must survive that.
-    readonly embeddedRoutePositions = new Map<Function, (embedded: any, position: RoutePosition) => void>();
+    readonly embeddedRoutePositions = new Map<Type<BaseEntity>, (embedded: any, position: RoutePosition) => void>();
 
     // Generation event chain (mirrors Signum's Schema.Generating). Seeded with
     // the default schema/table/FK steps; apps may push more (e.g. seed data).
@@ -109,7 +109,7 @@ export class Schema {
     // Per-entity-type engine hooks (Signum's Schema.EntityEvents<T>()), lazily created per ctor.
     // A module registers handlers in its start(); the engine fires them from the relevant path
     // (currently only PreDeleteSqlSync, from the sync delete — see save.ts deleteSqlSync).
-    private readonly entityEventsMap = new Map<Function, EntityEvents<Entity>>();
+    private readonly entityEventsMap = new Map<Type<Entity>, EntityEvents<Entity>>();
 
     entityEvents<T extends Entity>(ctor: Type<T>): EntityEvents<T> {
         let ee = this.entityEventsMap.get(ctor);

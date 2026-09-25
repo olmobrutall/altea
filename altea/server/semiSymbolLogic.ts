@@ -30,8 +30,8 @@ interface SemiSymbolTypeLogic<T extends SemiSymbol> {
     readonly lazy: ResetLazy<Map<string, T>>;
 }
 
-const byCtor = new Map<Function, SemiSymbolTypeLogic<SemiSymbol>>();
-const startedBySchema = new WeakMap<Schema, Set<Function>>();
+const byCtor = new Map<Type<SemiSymbol>, SemiSymbolTypeLogic<SemiSymbol>>();
+const startedBySchema = new WeakMap<Schema, Set<Type<SemiSymbol>>>();
 
 let loading = false;
 

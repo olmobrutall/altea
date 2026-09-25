@@ -21,7 +21,7 @@ import { Enum } from "../../data/enum";
 // (to build the SQL expression + derive auth/route). getExtensionsTokens() projects this into the
 // serializable entities ExtensionInfo, stashing `this` as the token's opaque `serverInfo`.
 interface RegisteredExpression {
-    readonly sourceType: Function;
+    readonly sourceType: Type<BaseEntity>;
     readonly key: string;
     readonly resultType: RuntimeType;
     readonly isProjection: boolean;
@@ -322,7 +322,7 @@ class ParameterReplacer extends ExpressionVisitor {
 
 // The server registration of an expression with a parameter (Signum's ExtensionWithParameterInfo).
 interface RegisteredIndexer {
-    readonly sourceType: Function;
+    readonly sourceType: Type<BaseEntity>;
     readonly prefix: string;
     readonly niceName: () => string;
     readonly resultType: RuntimeType;

@@ -6,7 +6,7 @@ import { Saver } from "@altea/altea/server/saver";
 import { table } from "@altea/altea/server/table";
 import { retrieveList } from "@altea/altea/server/Database";
 import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
-import type { Type } from "@altea/altea/data/entity";
+import type { Type, BaseEntity } from "@altea/altea/data/entity";
 import { isModifiedSelf } from "@altea/altea/data/changes";
 import { getTypeInfo } from "@altea/altea/data/reflection";
 import { FieldRoute, isMixinType } from "@altea/altea/data/fieldRoute";
@@ -297,12 +297,12 @@ function writeTextToFile(bs: BigStringEmbedded, mixin: BigStringMixin, route: Bi
 function bigStringRoutesOf<T extends Entity>(type: Type<T>): FieldRoute[] {
     const result: FieldRoute[] = [];
 
-    const walk = (ctor: Function, route: FieldRoute, seen: Set<Function>): void => {
+    const walk = (ctor: Type<BaseEntity>, route: FieldRoute, seen: Set<Type<BaseEntity>>): void => {
         if (seen.has(ctor))
             return;
         seen.add(ctor);
 
-        const visit = (owner: Function, ownerRoute: FieldRoute): void => {
+        const visit = (owner: Type<BaseEntity>, ownerRoute: FieldRoute): void => {
             for (const fi of Object.values(getTypeInfo(owner)?.fields ?? {})) {
                 if (fi.notMapped || fi.array === true || fi.lite === true)
                     continue;
@@ -383,7 +383,7 @@ function readBigString(entity: Entity, route: FieldRoute): BigStringEmbedded | n
     return current instanceof BigStringEmbedded ? current : null;
 }
 
-function isEmbeddedCtor(ctor: Function): boolean {
+function isEmbeddedCtor(ctor: Type<BaseEntity>): boolean {
     return ctor === EmbeddedEntity || ctor.prototype instanceof EmbeddedEntity;
 }
 

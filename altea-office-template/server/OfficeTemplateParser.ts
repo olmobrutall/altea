@@ -53,6 +53,8 @@ import {
 import {
     AnyNode, BaseNode, BlockContainerNode, DeclareNode, ForeachNode, IfNode, MatchNode, TokenNode,
 } from "./OfficeTemplateNodes";
+import type { Type, BaseEntity } from "@altea/altea/data/entity";
+import type { OfficeModelType } from "./OfficeModelLogic";
 
 /** A half-open text interval `[min, max)`. */
 interface Interval { min: number; max: number }
@@ -91,7 +93,7 @@ export class OfficeTemplateParser implements ITemplateParser {
         private readonly package_: OxmlPackage,
         private readonly template: OfficeTemplateEntity,
         readonly queryName: QueryName | undefined,
-        readonly modelType: Function | undefined,
+        readonly modelType: OfficeModelType | undefined,
         /** Injected xlsx preparation (SpreadsheetUtils); omitted when the spreadsheet path is not needed. */
         private readonly spreadsheetPrepare?: (workbookPart: OxmlPackage) => void,
     ) { }

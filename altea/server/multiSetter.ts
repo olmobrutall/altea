@@ -33,7 +33,7 @@ import { Lite } from "../data/lite";
 import { Decimal, Temporal } from "../data/basics";
 import { PropertyRoute, PropertyRouteType, isPartType } from "../data/propertyRoute";
 import type { TypeReference } from "../data/reflection";
-import { resolveCleanType } from "../data/registration";
+import { resolveEntityType } from "../data/registration";
 import { Enum } from "../data/enum";
 import { tryGetFilterType } from "../data/dynamicQuery/queryUtils";
 import type { PropertyOperationKeys } from "../data/operations";
@@ -100,7 +100,7 @@ export namespace MultiSetter {
                 // For an EMBEDDED — and for a `@part`, which behaves as one — the block continues on the
                 // same route; an ordinary entity reference re-roots at the referenced instance's own type.
                 const subPr = item instanceof Entity && !isPartType(item.constructor)
-                    ? PropertyRoute.root(item.constructor as Function) : pr;
+                    ? PropertyRoute.root(item.getType()) : pr;
                 MultiSetter.setSetters(item, setter.setters ?? [], subPr, authContext, meta);
                 setValue(entity, pr, route, item);
             } else if (setter.operation === "Set") {
@@ -171,7 +171,7 @@ function normalizedElementRoute(elementPr: PropertyRoute): PropertyRoute {
         ? PropertyRoute.root(ctor) : elementPr;
 }
 
-function elementCtor(elementPr: PropertyRoute): Function {
+function elementCtor(elementPr: PropertyRoute): Type<BaseEntity> {
     const ctor = elementPr.type.getFunction();
     if (ctor == null)
         throw new Error(`${elementPr} has no single element type to create`);
@@ -379,7 +379,7 @@ function getValue(entity: BaseEntity, pr: PropertyRoute, parentRoute: PropertyRo
     return resolveContainer(entity, pr, parentRoute)[pr.member];
 }
 
-function embeddedCtorOf(pr: PropertyRoute): Function {
+function embeddedCtorOf(pr: PropertyRoute): Type<BaseEntity> {
     const ctor = pr.type.getFunction();
     if (ctor == null)
         throw new Error(`${pr} has no single embedded type to create`);
@@ -388,9 +388,9 @@ function embeddedCtorOf(pr: PropertyRoute): Function {
 
 // The concrete type a CreateNewEntity builds: what the dialog chose (`entityType`, a clean name), else
 // the reference's own single implementation.
-function entityTypeOf(setter: PropertySetter, pr: PropertyRoute): Function {
+function entityTypeOf(setter: PropertySetter, pr: PropertyRoute): Type<BaseEntity> {
     if (setter.entityType != null) {
-        const ctor = resolveCleanType(setter.entityType);
+        const ctor = resolveEntityType(setter.entityType);
         if (ctor == undefined)
             throw new Error(`Type '${setter.entityType}' is not recognized`);
         return ctor;
@@ -402,7 +402,7 @@ function entityTypeOf(setter: PropertySetter, pr: PropertyRoute): Function {
 }
 
 // `create({})` rather than `new` — a mixin's field initializers only run in the create FACTORY.
-function createInstance(ctor: Function): BaseEntity {
+function createInstance(ctor: Type<BaseEntity>): BaseEntity {
     return (ctor as Type<BaseEntity> & { create(values: object): BaseEntity }).create({});
 }
 

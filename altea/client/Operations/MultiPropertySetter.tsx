@@ -46,7 +46,7 @@ import type { Entity } from '../../data/entity'
 import type { Lite } from '../../data/lite'
 import { TypeReference } from '../../data/reflection'
 import { PropertyRoute, PropertyRouteType } from '../../data/propertyRoute'
-import { cleanTypeName, resolveCleanType } from '../../data/registration'
+import { cleanTypeName, resolveCleanType, resolveEntityType } from '../../data/registration'
 import { tryGetFilterType } from '../../data/dynamicQuery/queryUtils'
 import { PropertyOperation } from '../../data/operations'
 import type { PropertyOperationKeys } from '../../data/operations'
@@ -403,7 +403,7 @@ function cleanNameOf(ti: TypeInfo): string {
 }
 
 function subRootOfEntityType(entityType: string | undefined): PropertyRoute | null {
-  const ctor = entityType == null ? undefined : resolveCleanType(entityType);
+  const ctor = entityType == null ? undefined : resolveEntityType(entityType);
   return ctor == undefined ? null : PropertyRoute.root(ctor);
 }
 

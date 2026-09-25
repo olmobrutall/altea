@@ -1,6 +1,7 @@
 import { PropertyRoute, PropertyRouteType } from "../../data/propertyRoute";
 import { Implementations } from "../../data/implementations";
 import { Entity } from "../../data/entity";
+import type { BaseEntity, Type } from "../../data/entity";
 import {
     Expression, ParameterExpression, PropertyExpression, CallExpression, ObjectExpression,
     LambdaExpression, BinaryExpression, ConditionalExpression, UnaryExpression, CastExpression,
@@ -64,7 +65,7 @@ export class MetadataVisitor {
 
     // Gather the Meta of a value expression evaluated with `param` bound to `sourceMeta` (a
     // CleanMeta root of the source entity). Signum's MetadataVisitor.JustVisit.
-    static gatherMeta(body: Expression, param: ParameterExpression, sourceType: Function): Meta {
+    static gatherMeta(body: Expression, param: ParameterExpression, sourceType: Type<BaseEntity>): Meta {
         const v = new MetadataVisitor();
         // `rootStandalone`: an expression may be REGISTERED on a `@part` (eastwind does it for
         // `OrderLineEntity.subTotalPrice`), and the source parameter of one is the part with no owner in
@@ -209,8 +210,8 @@ export class MetadataVisitor {
 }
 
 // The concrete entity ctor behind a cast target type (ClassType / LiteType), if any.
-function entityCtorOfType(type: unknown): Function | undefined {
+function entityCtorOfType(type: unknown): Type<Entity> | undefined {
     const t = type as { entityType?: unknown; constructorFunction?: Function };
     const inner = (t.entityType as { constructorFunction?: Function } | undefined)?.constructorFunction ?? t.constructorFunction;
-    return typeof inner === "function" ? inner : undefined;
+    return typeof inner === "function" ? inner as Type<Entity> : undefined;
 }

@@ -4,6 +4,8 @@ import { PropertyRoute, PropertyRouteType } from "../data/propertyRoute";
 import type { TranslatableRouteType } from "../data/reflection";
 import { setTranslatedFieldProvider } from "../data/serializer";
 import type { SchemaBuilder } from "./schema/schemaBuilder";
+import { isEntityType } from "../data/registration";
+import type { BaseEntity } from "../data/entity";
 
 // Port of Signum's `PropertyRouteTranslationLogic` (Signum/Basics/PropertyRouteTranslationLogic.cs) —
 // the registry of which property routes carry a PER-INSTANCE translation, and the resolver that turns a
@@ -33,7 +35,7 @@ import type { SchemaBuilder } from "./schema/schemaBuilder";
 export namespace PropertyRouteTranslationLogic {
 
     /** Signum's `TranslateableRoutes`: root ctor → route `propertyString()` → how it is edited. */
-    export const translateableRoutes = new Map<Function, Map<string, TranslatableRouteType>>();
+    export const translateableRoutes = new Map<Type<BaseEntity>, Map<string, TranslatableRouteType>>();
 
     /** Signum's `IsActivated` — true once @altea/altea-translations has started. */
     export let isActivated = false;
@@ -92,13 +94,14 @@ export namespace PropertyRouteTranslationLogic {
     }
 
     /** The translatable routes of a root type (Signum's `TranslateableRoutes.GetOrThrow(type)`). */
-    export function routesOf(rootCtor: Function): Map<string, TranslatableRouteType> {
+    export function routesOf(rootCtor: Type<BaseEntity>): Map<string, TranslatableRouteType> {
         return translateableRoutes.get(rootCtor) ?? new Map();
     }
 
     /** Every root type that has at least one translatable route. */
-    export function translatableTypes(): Function[] {
-        return [...translateableRoutes.keys()];
+    export function translatableTypes(): Type<Entity>[] {
+        // Keyed by the route ROOT, which is typed as any modifiable; a translated instance is an entity row.
+        return [...translateableRoutes.keys()].filter(isEntityType);
     }
 
     export function isTranslateable(route: PropertyRoute): boolean {

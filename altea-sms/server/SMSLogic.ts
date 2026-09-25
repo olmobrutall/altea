@@ -6,7 +6,6 @@ import "@altea/altea/data/globals";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import { table } from "@altea/altea/server/table";
-import { retrieve } from "@altea/altea/server/Database";
 import { Graph } from "@altea/altea/server/graph";
 import { Saver } from "@altea/altea/server/saver";
 import { Transaction } from "@altea/altea/server/connection/transaction";
@@ -364,7 +363,7 @@ export namespace SMSLogic {
         // Render in the scope of the
         // entity the message is ABOUT. No-op unless @altea/altea-isolation is installed.
         return await ExecutionMode.withIsolationOf(model.untypedEntity, async () => {
-            const modelType = model.modelType ?? model.untypedEntity!.constructor;
+            const modelType = model.modelType ?? model.untypedEntity!.getType();
             const modelEntity = await SMSModelLogic.toSMSModelEntity(modelType);
             const template = await SMSModelLogic.getDefaultTemplate(modelEntity);
             return await createSMSMessage(template.toLite(), model.untypedEntity, model, forceCulture);
@@ -480,7 +479,7 @@ function registerSMSMessageOperations(sm: FluentStateMachine<SMSMessageEntity, S
             const culture = args.find(a => typeof a === "string") as string | undefined;
 
             const lite = args.find(a => a instanceof Lite) as Lite<Entity> | undefined;
-            const entity = lite != null ? await retrieve(lite.entityType as Type<Entity>, lite.id!)
+            const entity = lite != null ? await lite.retrieve()
                 : args.find(a => a instanceof Entity) as Entity | undefined;
 
             return await SMSLogic.createSMSMessage(t.toLite(), entity ?? null, model ?? null, culture);

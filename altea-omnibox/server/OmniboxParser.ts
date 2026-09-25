@@ -185,13 +185,13 @@ export class OmniboxManager {
 
     // Every MAPPED entity type except enum-entity/symbol tables,
     // keyed by the omnibox-pascal form of its nice name. Cached per UI culture.
-    private readonly typesByCulture = new Map<string, Map<string, Function>>();
+    private readonly typesByCulture = new Map<string, Map<string, Type<Entity>>>();
 
-    types(): Map<string, Function> {
+    types(): Map<string, Type<Entity>> {
         const culture = CultureInfo.currentUICulture();
         let d = this.typesByCulture.get(culture);
         if (d == undefined) {
-            let ctors: Function[];
+            let ctors: Type<Entity>[];
             try {
                 ctors = [...Connector.current().schema.tables.keys()];
             } catch {
@@ -266,7 +266,7 @@ export class OmniboxManager {
 
     // There is no retrieveLite, so the entity is retrieved and lited. A missing row — or one the current
     // role may not read — yields undefined, which the provider renders as "[Not found]".
-    async tryRetrieveLite(type: Function, id: PrimaryKey): Promise<Lite<Entity> | undefined> {
+    async tryRetrieveLite(type: Type<Entity>, id: PrimaryKey): Promise<Lite<Entity> | undefined> {
         try {
             const e = await retrieve(type as Type<Entity>, id);
             return e.toLite() as Lite<Entity>;
@@ -316,6 +316,6 @@ export namespace OmniboxParser {
 
 // The generated tables that back an enum or a symbol container are
 // never navigable targets, so they are hidden from the omnibox's type list.
-function isEnumEntityOrSymbol(ctor: Function): boolean {
+function isEnumEntityOrSymbol(ctor: Type<Entity>): boolean {
     return isEnumEntityType(ctor) || ctor === SymbolBase || ctor.prototype instanceof SymbolBase;
 }

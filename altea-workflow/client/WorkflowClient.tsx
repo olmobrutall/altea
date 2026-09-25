@@ -787,7 +787,7 @@ export namespace WorkflowClient {
     export function executeCaseActivity(eoc: EntityOperationContext<CaseActivityEntity>,
         defaultOnClick: (eoc: EntityOperationContext<CaseActivityEntity>) => Promise<void>): Promise<void> {
         const onClick = customOnClicks[eoc.operationInfo.key]
-            ?.[cleanTypeName(eoc.entity.case.mainEntity.constructor as Type<Entity>)];
+            ?.[cleanTypeName(eoc.entity.case.mainEntity.getType())];
 
         return onClick ? onClick(eoc) : defaultOnClick(eoc);
     }

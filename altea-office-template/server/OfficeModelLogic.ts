@@ -20,11 +20,11 @@ import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/query
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import "@altea/altea/data/globals"; // Array.prototype.toMap
 import { Entity } from "@altea/altea/data/entity";
-import { cleanTypeName } from "@altea/altea/data/registration";
 import { MultiEntityModel, QueryModel } from "@altea/altea-templating/data/Templating";
 import { parseFilter, parseOrder, parsePagination } from "@altea/altea-email/server/EmailModelLogic";
 import { OfficeModelEntity, OfficeTemplateEntity, OfficeTemplateOperation, OfficeTemplateMessage } from "../data/OfficeTemplate";
 import type { IOfficeModel } from "./OfficeTemplateParameters";
+import { modelClassName, type ModelClass } from "@altea/altea-templating/server/ValueProviders";
 
 // Port of Signum.Word's WordModelLogic.cs — see port/OfficeTemplate.md.
 //
@@ -67,11 +67,17 @@ export function queryOfficeModel(entity: QueryModel): IOfficeModel {
     });
 }
 
+/**
+ * What an office model is registered under: a model ENTITY (`MultiEntityModel`, `QueryModel`) or a plain class
+ * implementing {@link IOfficeModel} (an app's `AgreementWordModel`) — Signum's model is any class.
+ */
+export type OfficeModelType = ModelClass;
+
 /** One registered model type: which query it renders against, and how to build it. */
 interface OfficeModelInfo {
     /** The REGISTRY name — the `office_model.class_name` column, and this registry's own key. */
     className: string;
-    modelType: Function;
+    modelType: OfficeModelType;
     /** The query the model renders against, or undefined when the MODEL is the data (Signum passes
      *  `queryName: null` for MultiEntityWord / QueryWord, and derives it from `T` otherwise). */
     queryName: QueryName | undefined;
@@ -151,13 +157,13 @@ export namespace OfficeModelLogic {
      * class to name, the row's name has to be given.
      */
     export function registerOfficeModel(options: {
-        modelType: Function;
+        modelType: OfficeModelType;
         queryName: QueryName | undefined;
         className?: string;
         construct?: (entity: Entity | null) => IOfficeModel;
         defaultTemplateConstructor?: () => OfficeTemplateEntity | Promise<OfficeTemplateEntity>;
     }): void {
-        const className = options.className ?? cleanTypeName(options.modelType);
+        const className = options.className ?? modelClassName(options.modelType);
         registeredModels.set(className, {
             className,
             modelType: options.modelType,
@@ -174,8 +180,8 @@ export namespace OfficeModelLogic {
         return found;
     }
 
-    export async function toOfficeModelEntity(modelType: Function): Promise<OfficeModelEntity> {
-        return await getOfficeModelEntity(cleanTypeName(modelType));
+    export async function toOfficeModelEntity(modelType: OfficeModelType): Promise<OfficeModelEntity> {
+        return await getOfficeModelEntity(modelClassName(modelType));
     }
 
     export async function getOfficeModelEntity(className: string): Promise<OfficeModelEntity> {
@@ -191,7 +197,7 @@ export namespace OfficeModelLogic {
         return [...(await officeModelsLazy.value()).values()];
     }
 
-    export function toType(modelEntity: OfficeModelEntity): Function {
+    export function toType(modelEntity: OfficeModelEntity): OfficeModelType {
         return info(modelEntity).modelType;
     }
 
@@ -234,7 +240,7 @@ export namespace OfficeModelLogic {
         return template;
     }
 
-    export function registeredModelTypes(): Function[] {
+    export function registeredModelTypes(): OfficeModelType[] {
         return [...registeredModels.values()].map(i => i.modelType);
     }
 }

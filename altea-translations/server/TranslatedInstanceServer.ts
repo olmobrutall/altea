@@ -8,6 +8,7 @@ import { MatchTranslatedInstances, TranslatedSummaryState } from "../data/Transl
 import { TranslatedInstanceLogic } from "./TranslatedInstanceLogic";
 import { TranslationLogic } from "./TranslationLogic";
 import type { AutomaticTranslation } from "./TranslationSynchronizer";
+import type { Type } from "@altea/altea/data/entity";
 
 // Port of Signum.Translation's Instances/TranslatedInstanceController.cs — the INSTANCE half's HTTP
 // surface: the status grid, the per-type view and sync pages, the save, and the excel round-trip.
@@ -295,7 +296,7 @@ export namespace TranslatedInstanceServer {
         }
     }
 
-    function routesOf(type: Function): Record<string, TranslatableRouteType> {
+    function routesOf(type: Type<Entity>): Record<string, TranslatableRouteType> {
         return Object.fromEntries(PropertyRouteTranslationLogic.routesOf(type));
     }
 

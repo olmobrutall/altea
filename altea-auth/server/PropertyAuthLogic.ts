@@ -3,13 +3,13 @@ import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // withQuery
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { ResetLazy } from "@altea/altea/server/resetLazy";
 import { table } from "@altea/altea/server/table";
-import { Entity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
+import { Entity, type BaseEntity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { PropertyRoute, isPartType } from "@altea/altea/data/propertyRoute";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
-import { getRegisteredTypes } from "@altea/altea/data/registration";
+import { getRegisteredTypes, isEntityType } from "@altea/altea/data/registration";
 import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
 import { SqlPreCommand, SqlPreCommandSimple, Spacing } from "@altea/altea/server/sync/sqlPreCommand";
 import { Connector } from "@altea/altea/server/connection/connector";
@@ -79,7 +79,7 @@ class PropertyRulesCache {
         if (roleKey == null || !AuthLogic.isEnabled())
             return PropertyAllowed.Write;
         // Absent for a type with no row in the DB type table — nothing to gate.
-        const typeId = caches.tryTypeToId(root.constructor);
+        const typeId = caches.tryTypeToId(root.getType());
         if (typeId == null)
             return PropertyAllowed.Write;
         const wc = this.propAllowed(typeId, compositeKey(typeId, path), caches, roleKey);
@@ -410,7 +410,7 @@ export namespace PropertyAuthLogic {
     // The `@part` a route's member belongs to — the nearest part-typed step ABOVE it (the reference to a
     // part, `details`, is still the owner's own member; `details/product` is the part's). undefined for a
     // member of the route's root.
-    function partOf(route: PropertyRoute): Function | undefined {
+    function partOf(route: PropertyRoute): Type<Entity> | undefined {
         for (let r = route.parent; r != undefined; r = r.parent) {
             const tr = r.type;
             const ctor = tr.is(Entity) ? tr.getFunction() : undefined;
@@ -420,7 +420,7 @@ export namespace PropertyAuthLogic {
         return undefined;
     }
 
-    function authRoutes(ctor: Function): PropertyRoute[] {
+    function authRoutes(ctor: Type<Entity>): PropertyRoute[] {
         // `includeCasts` is ON: a `@part` reached through a POLYMORPHIC reference has no route root of
         // its own, so without the cast step its members are the one part of the model no rule can name
         // (a dashboard's `parts/content` stopped dead at the reference). With it they are routes of the
@@ -439,7 +439,7 @@ export namespace PropertyAuthLogic {
         const cache = await rulesLazy.value();
         const caches = await TypeLogic.caches();
         for (const ctor of getRegisteredTypes()) {
-            if (!(ctor.prototype instanceof Entity))
+            if (!isEntityType(ctor))
                 continue; // embedded / model / view — reached as a dotted route under its owner instead
             const typeId = caches.tryTypeToId(ctor);
             if (typeId == null) continue; // not in the DB type table
@@ -631,7 +631,7 @@ export namespace PropertyAuthLogic {
     async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<SqlPreCommand | undefined> {
         // Signum's `Type|path`.
         const split = (s: string): { type: string; property: string } => ({ type: s.slice(0, s.indexOf("|")), property: s.slice(s.indexOf("|") + 1) });
-        const propertiesReplacementKey = (ctor: Function): string => `AuthRules:${ctor.name} Properties`;
+        const propertiesReplacementKey = (ctor: Type<Entity>): string => `AuthRules:${ctor.name} Properties`;
 
         // A type's paths are rename-resolved against its own routes, asked once per type up front.
         const groups = new Map<string, Set<string>>();
@@ -641,7 +641,7 @@ export namespace PropertyAuthLogic {
             if (set == null) groups.set(pp.type, set = new Set());
             set.add(pp.property);
         }
-        const routesByType = new Map<Function, Set<string>>();
+        const routesByType = new Map<Type<Entity>, Set<string>>();
         for (const [typeName, properties] of groups) {
             const ctor = ctx.nameToType.get(ctx.replacements.apply(typeReplacementKey, typeName));
             if (ctor == null)

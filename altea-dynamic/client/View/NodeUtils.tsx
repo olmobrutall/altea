@@ -8,7 +8,7 @@ import { classes, Dic } from "@altea/altea/data/globals";
 import { ViewReplacer } from "@altea/altea/client/Frames/ReactVisitor";
 import { Binding } from "@altea/altea/client/binding";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
-import { resolveType } from "@altea/altea/data/registration";
+import { isModifiableType, resolveType } from "@altea/altea/data/registration";
 import { Enum } from "@altea/altea/data/enum";
 
 /** altea keeps `EnumObject` module-private; the shape is what `Enum.values` accepts. */
@@ -370,7 +370,7 @@ export class DesignerNode<N extends BaseNode> {
 /** altea's `PropertyRoute.root` takes a CONSTRUCTOR; a stored type name has to be resolved first. */
 export function tryRoot(typeName: string): PropertyRoute | undefined {
     const ctor = resolveType(typeName);
-    return ctor == undefined ? undefined : PropertyRoute.root(ctor);
+    return ctor == undefined || !isModifiableType(ctor) ? undefined : PropertyRoute.root(ctor);
 }
 
 /** `PropertyRoute.add` THROWS on an unknown member, and a half-typed field is normal in a designer. */

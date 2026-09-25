@@ -105,9 +105,9 @@ export interface AuthImportCtx {
     roles: Map<string, Lite<RoleEntity>>;
     replacements: Replacements;
     /** Signum's TypeLogic.NameToType: the model types that have a TypeEntity row, by clean name. */
-    nameToType: Map<string, Function>;
+    nameToType: Map<string, Type<Entity>>;
     /** Signum's TypeLogic.TypeToEntity. */
-    typeToEntity(ctor: Function): TypeEntity;
+    typeToEntity(ctor: Type<Entity>): TypeEntity;
     /** The TypeConditionSymbols, by key. */
     typeConditions: Map<string, TypeConditionSymbol>;
     /** A file row dropped because its resource no longer resolves — listed as a `-- Skipped` line. */
@@ -240,7 +240,7 @@ export function updateAllowed(enumObj?: Record<string, string | number>): <R ext
         if (text(current.allowed) === text(should.allowed))
             return undefined;
         current.allowed = should.allowed;
-        return updateSqlSync(Connector.current().schema.table(current.constructor as Type<R>), current);
+        return updateSqlSync(Connector.current().schema.table(current.getType()), current);
     };
 }
 
@@ -273,7 +273,7 @@ export function conditionedRules<R extends ConditionedRule>(enumObj: Record<stri
             let update: SqlPreCommand | undefined;
             if (!sameFallback) {
                 current.fallback = should.fallback;
-                update = updateSqlSync(Connector.current().schema.table(current.constructor as Type<R>), current);
+                update = updateSqlSync(Connector.current().schema.table(current.getType()), current);
             }
             if (sameRows)
                 return update;

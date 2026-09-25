@@ -189,7 +189,7 @@ export async function deleteList<T extends Entity>(list: (Lite<T> | T)[]): Promi
     // Database.DeleteList (which likewise batches by type rather than one round-trip per row).
     const idsByType = new Map<Type<T>, PrimaryKey[]>();
     for (const item of list) {
-        const type = item instanceof Entity ? (item.constructor as Type<T>) : (item as Lite<T>).entityType;
+        const type = item instanceof Entity ? (item.getType()) : (item as Lite<T>).entityType;
         const id = item.id;
         if (id == null)
             throw new Error(`Cannot delete a ${type.name} with no Id`);

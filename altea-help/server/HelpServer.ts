@@ -22,6 +22,7 @@ import {
 import { HelpLogic } from "./HelpLogic";
 import { HelpSearch } from "./HelpSearch";
 import { HelpExportImport } from "./HelpExportImport";
+import type { Type, BaseEntity } from "@altea/altea/data/entity";
 
 // Port of Signum.Help's HelpController.cs — the routes the pages call.
 //
@@ -248,7 +249,7 @@ export namespace HelpServer {
         });
     }
 
-    function cleanOf(type: Function): string {
+    function cleanOf(type: Type<BaseEntity>): string {
         return cleanTypeName(type);
     }
 

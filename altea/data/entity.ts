@@ -70,6 +70,12 @@ export type InitValues<T> = Partial<{
 export type EntitySnapshot = Record<string, unknown>;
 
 export abstract class BaseEntity {
+    // Signum's GetType(): the instance's own class, typed as such — what `this.constructor` is at runtime but
+    // TypeScript types as a bare Function. Translatable in a query (server/index.ts lowers it to `constructor`).
+    getType(): Type<this> {
+        return this.constructor as Type<this>;
+    }
+
     // The clean baseline used for snapshot-based change tracking: the normalized
     // row image taken on load / after save. Three states (see ./changes.isModifiedSelf):
     //   - a projection (Record) → diff the live values against it;
@@ -88,7 +94,7 @@ export abstract class BaseEntity {
         // but assert the mixin is actually declared on this entity (Signum's MixinDeclarations
         // guard, mirrored by the query binder's `entity.mixin(X)` check). Without it a typo or
         // an undeclared mixin would silently return `this` and read/write phantom fields.
-        const declared = MixinDeclarations.getMixins(this.constructor as Type<BaseEntity>);
+        const declared = MixinDeclarations.getMixins(this.getType());
         if (!declared.some(m => m === mixinClass))
             throw new Error(`Mixin '${mixinClass.name}' is not declared on '${this.constructor.name}'`);
         return this as unknown as M;
@@ -281,7 +287,7 @@ export abstract class Entity extends BaseEntity {
         if (!fat && this.id == null)
             throw new Error('toLite() is not allowed for new entities (no id yet), use toLiteFat() instead');
 
-        const type = this.constructor as Type<this>;
+        const type = this.getType();
         const constructor = getCustomLiteConstructor(type);
         const lite = constructor != null
             ? constructor(this)
@@ -317,7 +323,7 @@ export abstract class Entity extends BaseEntity {
         if (!fat && this.id == null)
             throw new Error('toCustomLite() is not allowed for new entities (no id yet), use toCustomLite(class, true) instead');
 
-        const type = this.constructor as Type<this>;
+        const type = this.getType();
         const constructor = getCustomLiteConstructorFor(type, liteClass);
         if (constructor == null)
             throw new Error(`No custom lite '${(liteClass as { name?: string }).name ?? '?'}' is registered for '${this.constructor.name}'`);
@@ -332,8 +338,8 @@ export abstract class Entity extends BaseEntity {
         if (other == null)
             return false;
 
-        const otherType = other instanceof Entity ? (other.constructor as Type<Entity>) : other.entityType;
-        if ((this.constructor as Type<Entity>) !== otherType)
+        const otherType = other instanceof Entity ? (other.getType()) : other.entityType;
+        if ((this.getType()) !== otherType)
             return false;
 
         if (this.id != null || other.id != null)
@@ -386,9 +392,6 @@ export abstract class Entity extends BaseEntity {
         return t === ctor || t.prototype instanceof ctor;
     }
 
-    getType(): Type<this> {
-        return this.constructor as Type<this>;
-    }
 }
 
 // NOTE: the query-expression result-type metadata for `.is()` / `.toLite()` / `Ctor.isInstance` /
@@ -430,7 +433,7 @@ function stepInto(ctor: Function, member: { name: string; type: MemberType }): F
 // fields onto the entity (mixin() returns `this`) but doesn't declare them there, so their
 // initializers (e.g. `corrupt = false`) never run on `new Entity()` — this seeds them. Only
 // declared mixin fields with a defined default are copied (never base bookkeeping props).
-function applyMixinDefaults(instance: object, ctor: Function): void {
+function applyMixinDefaults(instance: object, ctor: Type<BaseEntity>): void {
     for (const mixinCtor of MixinDeclarations.getMixins(ctor as Type<BaseEntity>)) {
         const info = getTypeInfo(mixinCtor);
         if (info == null)

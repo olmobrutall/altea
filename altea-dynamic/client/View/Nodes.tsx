@@ -59,6 +59,7 @@ import { toFindOptions, type FindOptionsExpr } from "./FindOptionsExpression";
 import { toHtmlAttributes, type HtmlAttributesExpression, withClassName } from "./HtmlAttributesExpression";
 import { toStyleOptions, type StyleOptionsExpression } from "./StyleOptionsExpression";
 import { DynamicViewValidationMessage } from "../../data/DynamicView";
+import type { Type } from "@altea/altea/data/entity";
 
 // Port of Signum.Dynamic's View/Nodes.tsx — the NODE LIBRARY: every kind of node a stored view may contain,
 // each declaring four things (Signum's NodeOptions): how it RENDERS, what SOURCE it would print, what it
@@ -528,7 +529,7 @@ NodeUtils.register<TypeIsNode>({
         const value = parentCtx.value;
         // There is no `.Type` accessor — the runtime check is
         // the constructor's own clean name (see the "no compat accessors" divergence in CLAUDE.md).
-        if (!(value instanceof Entity) || cleanTypeName(value.constructor) !== dn.node.typeName)
+        if (!(value instanceof Entity) || cleanTypeName(value.getType()) !== dn.node.typeName)
             return undefined;
 
         const nctx = TypeContext.root(value, undefined, parentCtx);

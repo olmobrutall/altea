@@ -10,6 +10,7 @@ import type { IColumn } from "./column";
 import { Field, FieldEmbedded, FieldImplementedBy, FieldImplementedByAll } from "./field";
 import { IsNullable } from "./dbType";
 import { sqlEscape } from "../linq/sqlEscape";
+import type { Type, MixinEntity } from "../../data/entity";
 
 // Port of Signum's Engine/Schema/TableIndexes.cs IndexWhereExpressionVisitor. Renders a
 // filtered-index predicate LAMBDA to an SQL WHERE string in two steps, mirroring Signum:
@@ -197,14 +198,14 @@ class IndexWhereVisitor {
             e = unwrapCasts(e.object);
 
         // Collected leaf-first, then applied root-first.
-        const steps: ({ field: string } | { mixin: Function })[] = [];
+        const steps: ({ field: string } | { mixin: Type<MixinEntity> })[] = [];
         for (;;) {
             if (e instanceof PropertyExpression) {
                 steps.unshift({ field: e.propertyName });
                 e = unwrapCasts(e.object);
             } else if (e instanceof CallExpression && e.func instanceof PropertyExpression && e.func.propertyName === "mixin"
                 && e.args[0] instanceof ConstantExpression && typeof e.args[0].value === "function") {
-                steps.unshift({ mixin: e.args[0].value as Function });
+                steps.unshift({ mixin: e.args[0].value as Type<MixinEntity> });
                 e = unwrapCasts(e.func.object);
             } else
                 break;

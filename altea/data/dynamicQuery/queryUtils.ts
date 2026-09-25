@@ -30,7 +30,7 @@ import type { FilterTypeKeys } from "../dynamicQueries";
  * the `typeName` string is only filled in for the by-name value types (String / Number / PlainDate / …).
  */
 export function isVectorType(type: TypeReference): boolean {
-    return !type.array && type.getFunction() === Vector;
+    return !type.array && type.type?.() === Vector;
 }
 
 // Port of Signum's `QueryUtils.TryGetFilterType`, over an altea `TypeReference`. Unlike the old

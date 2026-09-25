@@ -7,6 +7,7 @@ import { entity, part, mixin, column, bindParent, isReadOnly } from "@altea/alte
 import { validate } from "@altea/altea/data/validators";
 import { bindParents, tryGetParentEntity, tryGetOwnerEntity, setParentEntity } from "@altea/altea/data/parentEntity";
 import { Binding } from "@altea/altea/client/binding";
+import type { Type, BaseEntity } from "@altea/altea/data/entity";
 
 // The three model RULES that resolve against an instance, and the two-level field lookup all of them go
 // through. DB-free by construction: everything here is reflection plus a WeakMap.
@@ -79,7 +80,7 @@ class RuleOwnerEntity extends Entity {
     unmarked: RuleLineEntity | null = null;
 }
 
-const fieldOf = (ctor: Function, member: string): FieldInfo =>
+const fieldOf = (ctor: Type<BaseEntity>, member: string): FieldInfo =>
     resolveField(ctor, member) ?? assert.fail(`no FieldInfo for ${ctor.name}.${member}`);
 
 describe("resolveField — the two-level lookup", () => {

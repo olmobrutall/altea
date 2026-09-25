@@ -28,8 +28,8 @@ import type { FilterRequest, OrderRequest } from "@altea/altea/data/dynamicQuery
 import { MultiEntityModel, QueryModel } from "@altea/altea-templating/data/Templating";
 import { EmailModelEntity, type EmailOwnerRecipientData, type EmailOwnerData } from "../data/Email";
 import { EmailTemplateEntity, EmailTemplateOperation } from "../data/EmailTemplate";
-import type { EmailMessageEntity } from "../data/EmailMessage";
 import { EmailMasterTemplateLogic } from "./EmailMasterTemplateLogic";
+import { modelClassName, type ModelClass } from "@altea/altea-templating/server/ValueProviders";
 
 // Port of Signum.Mailing's EmailModelLogic.cs — the MODEL side: a code-declared object a template renders
 // against (instead of / alongside a query row), its registry table, and the default template it can generate.
@@ -61,7 +61,7 @@ export interface IEmailModel {
      * from the entity it is about; it falls back to `untypedEntity.constructor`, which is correct only for a
      * model registered under the entity type itself.
      */
-    modelType?: Function;
+    modelType?: ModelClass;
     /** Extra recipients the model itself supplies. */
     getRecipients(): EmailOwnerRecipientData[];
     /** A From the model itself supplies (else the template's / the configuration's default). */
@@ -107,7 +107,7 @@ export function queryEmailModel(entity: QueryModel): IEmailModel {
 /** One registered model type: which query it renders against, and how to build it. */
 interface EmailModelInfo {
     /** The model's registered type (its clean name is the registry key). */
-    modelType: Function;
+    modelType: ModelClass;
     queryName: QueryName;
     /** Build the model from a target entity (Signum's single-parameter constructor). */
     construct: ((entity: Entity | null) => IEmailModel) | undefined;
@@ -168,19 +168,19 @@ export namespace EmailModelLogic {
      *  the schema-pipeline functions below. */
     export function shouldRowsForSync(): Map<string, EmailModelEntity> {
         return new Map([...registeredModels.values()]
-            .map(info => cleanTypeName(info.modelType))
+            .map(info => modelClassName(info.modelType))
             .sort()
             .map(name => [name, EmailModelEntity.create({ className: name })]));
     }
 
     /** Signum's RegisterEmailModel. Call BEFORE start (the registry table is seeded from these keys). */
     export function registerEmailModel(options: {
-        modelType: Function;
+        modelType: ModelClass;
         queryName: QueryName;
         construct?: (entity: Entity | null) => IEmailModel;
         defaultTemplateConstructor?: () => EmailTemplateEntity | Promise<EmailTemplateEntity>;
     }): void {
-        registeredModels.set(cleanTypeName(options.modelType), {
+        registeredModels.set(modelClassName(options.modelType), {
             modelType: options.modelType,
             queryName: options.queryName,
             construct: options.construct,
@@ -196,8 +196,8 @@ export namespace EmailModelLogic {
     }
 
     /** Signum's `ToEmailModelEntity(type)`. */
-    export async function toEmailModelEntity(modelType: Function): Promise<EmailModelEntity> {
-        return await getEmailModelEntity(cleanTypeName(modelType));
+    export async function toEmailModelEntity(modelType: ModelClass): Promise<EmailModelEntity> {
+        return await getEmailModelEntity(modelClassName(modelType));
     }
 
     /** Signum's `GetEmailModelEntity(className)`. */
@@ -214,7 +214,7 @@ export namespace EmailModelLogic {
     }
 
     /** Signum's `modelEntity.ToType()`. */
-    export function toType(modelEntity: EmailModelEntity): Function {
+    export function toType(modelEntity: EmailModelEntity): ModelClass {
         return info(modelEntity).modelType;
     }
 
@@ -260,7 +260,7 @@ export namespace EmailModelLogic {
     }
 
     /** Every registered model type (the terminal's "generate all templates" helper reads it). */
-    export function registeredModelTypes(): Function[] {
+    export function registeredModelTypes(): ModelClass[] {
         return [...registeredModels.values()].map(i => i.modelType);
     }
 }

@@ -74,7 +74,7 @@ export interface ToolbarContentConfig<T extends Entity = Entity> {
 
 // Keyed by the CONTENT
 // entity ctor (altea's Lite carries the ctor in `entityType`, so no clean-name detour is needed).
-const contentConfigs = new Map<Function, ToolbarContentConfig>();
+const contentConfigs = new Map<Type<Entity>, ToolbarContentConfig>();
 
 export namespace ToolbarLogic {
 

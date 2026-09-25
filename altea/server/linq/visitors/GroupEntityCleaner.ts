@@ -7,6 +7,7 @@ import {
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 import { requireTypeId, type TypeCaches } from "../../typeLogic";
 import { ClassType, LiteralType } from "../../runtimeTypes";
+import type { Entity, Type } from "../../../data/entity";
 
 // Port of Signum's GroupEntityCleaner
 // (Engine/Linq/ExpressionVisitor/GroupEntityCleaner.cs), scoped to what altea
@@ -48,14 +49,14 @@ export class GroupEntityCleaner extends DbExpressionVisitor {
         const ctor = t.typeValue instanceof ClassType ? t.typeValue.constructorFunction : undefined;
         if (ctor == null) return t;
         const disc = new CaseExpression(
-            [new When(new IsNotNullExpression(t.externalId.value), new SqlConstantExpression(requireTypeId(this.typeCaches, ctor), LiteralType.number))],
+            [new When(new IsNotNullExpression(t.externalId.value), new SqlConstantExpression(requireTypeId(this.typeCaches, ctor as Type<Entity>), LiteralType.number))],
             new SqlConstantExpression(null, LiteralType.null));
         return new TypeImplementedByAllExpression(disc);
     }
 
     override visitTypeImplementedBy(t: TypeImplementedByExpression): Expression {
         const whens = [...t.typeImplementations].map(([ctor, id]) =>
-            new When(new IsNotNullExpression(id.value), new SqlConstantExpression(requireTypeId(this.typeCaches, ctor), LiteralType.number)));
+            new When(new IsNotNullExpression(id.value), new SqlConstantExpression(requireTypeId(this.typeCaches, ctor as Type<Entity>), LiteralType.number)));
         const disc = new CaseExpression(whens, new SqlConstantExpression(null, LiteralType.null));
         return new TypeImplementedByAllExpression(disc);
     }

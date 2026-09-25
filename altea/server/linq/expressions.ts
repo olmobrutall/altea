@@ -9,6 +9,7 @@ import { getLambdaTypeResolvers, getResultTypeResolver, type LambdaTypeResolver,
 import type { QuotedFunction } from "../runtimeTypes";
 import type { ExpressionVisitor } from "./visitors/ExpressionVisitor";
 import { isQueryReadablePromise, isStablePromise, refuseUntypedCache, refuseUnstablePromise, stableRuntimeType } from "../stablePromise";
+import type { ViewType } from "../../data/entity";
 
 // ---- constant folding (used by fromQuoted) --------------------------------------------------
 // fromQuoted folds parameter-free subtrees to constants BOTTOM-UP, in the same single pass that
@@ -364,7 +365,7 @@ export interface ViewColumn {
 // Reflects a table-valued function's IView row type into its output columns. The view is a plain
 // `@reflect class … extends View` (Signum's `IntValue : IView`); it is never built into a Table —
 // only its fields describe the function's result shape.
-export function viewColumns(viewCtor: Function): ViewColumn[] {
+export function viewColumns(viewCtor: ViewType<View>): ViewColumn[] {
     const typeInfo = tryGetTypeInfo(viewCtor);
     if (typeInfo == null)
         throw new Error(`Table-valued function view '${viewCtor.name}' has no reflection metadata. Decorate it with @reflect.`);

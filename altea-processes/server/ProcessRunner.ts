@@ -7,10 +7,8 @@ import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { table } from "@altea/altea/server/table";
 import type { Query } from "@altea/altea/server/query";
-import { retrieve } from "@altea/altea/server/Database";
 import { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
-import type { Type } from "@altea/altea/data/entity";
 import { Temporal, Decimal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { UserWithClaims, type IUserEntity } from "@altea/altea/data/security";
@@ -458,7 +456,7 @@ export class ExecutingProcess {
     /** Run the algorithm as the process's user and record how it ended. */
     async execute(): Promise<void> {
         const user = await ExecutionMode.global(() =>
-            retrieve(this.currentProcess.user.entityType as Type<Entity>, this.currentProcess.user.id!));
+            this.currentProcess.user.retrieve());
 
         // The run adopts an isolation from the process row, else (when it has data) from
         // ExecutionMode.SetIsolation(CurrentProcess.Data) : null))`: a background runner has no request to
@@ -512,7 +510,7 @@ export class ExecutingProcess {
             return [process];
         try {
             const data = await ExecutionMode.global(() =>
-                retrieve(process.data!.entityType as Type<Entity>, process.data!.id!)) as Entity;
+                process.data!.retrieve());
             return [process, data];
         } catch {
             return [process]; // the row is gone, or its type is not queryable — nothing to adopt

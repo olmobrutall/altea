@@ -18,8 +18,9 @@ import { OfficeTemplateEntity } from "../data/OfficeTemplate";
 import { OxmlPackage } from "./oxml/OxmlPackage";
 import { OfficeTemplateParser } from "./OfficeTemplateParser";
 import { BaseNode } from "./OfficeTemplateNodes";
-import { OfficeModelLogic } from "./OfficeModelLogic";
+import { OfficeModelLogic, type OfficeModelType } from "./OfficeModelLogic";
 import { prepareSpreadsheet } from "./spreadsheet/SpreadsheetUtils";
+import type { Type, BaseEntity } from "@altea/altea/data/entity";
 
 // The OfficeTemplate half of Signum's `TokenMigrationLogic.TokenSynchronizing` subscription
 // (WordTemplateLogic.TokenMigration_Sync / ProcessWordTemplate — `Word*` is `Office*` here, see
@@ -169,7 +170,7 @@ export namespace OfficeTemplateTokenSync {
         ctx: TokenSyncContext,
         ot: OfficeTemplateEntity,
         queryName: ReturnType<typeof QueryLogic.tryToQueryName>,
-        modelType: Function | undefined,
+        modelType: OfficeModelType | undefined,
     ): Promise<boolean> {
         const file = ot.template;
         if (file?.binaryFile == null || file.binaryFile.length === 0)

@@ -61,7 +61,7 @@ import {
 } from "../../schema/field";
 import type { FieldInfo } from "../../../data/reflection";
 import { Entity, View, ModelEntity } from "../../../data/entity";
-import type { PrimaryKey, Type, ViewType } from "../../../data/entity";
+import type { PrimaryKey, Type, ViewType, BaseEntity } from "../../../data/entity";
 import { TypeEntity } from "../../../data/typeEntity";
 import { toInt, toLong, inSql, Temporal } from "../../../data/basics";
 import { Enum } from "../../../data/enum";
@@ -114,9 +114,9 @@ function isTypeExpression(e: Expression): boolean {
         || e instanceof TypeImplementedByAllExpression;
 }
 
-function ctorOfType(type: RuntimeType): Function {
+function ctorOfType(type: RuntimeType): Type<Entity> {
     if (type instanceof ClassType)
-        return type.constructorFunction;
+        return type.constructorFunction as Type<Entity>;
     throw new Error("Expected a ClassType for an entity reference");
 }
 
@@ -133,7 +133,7 @@ function liteInner(type: RuntimeType): RuntimeType {
 // the leaves. The Case strategy (SwitchStrategy) builds a CASE; the Union strategy
 // (a UnionAllRequest, added later) projects the leaves into union columns.
 interface ICombineStrategy {
-    combineValues(implementations: ReadonlyMap<Function, Expression>, returnType: RuntimeType): Expression;
+    combineValues(implementations: ReadonlyMap<Type<Entity>, Expression>, returnType: RuntimeType): Expression;
 }
 
 // Signum's SwitchStrategy: combine the per-implementation values with a CASE keyed
@@ -143,7 +143,7 @@ interface ICombineStrategy {
 class SwitchStrategy implements ICombineStrategy {
     constructor(private readonly ib: ImplementedByExpression) { }
 
-    combineValues(implementations: ReadonlyMap<Function, Expression>, _returnType: RuntimeType): Expression {
+    combineValues(implementations: ReadonlyMap<Type<Entity>, Expression>, _returnType: RuntimeType): Expression {
         const whens: When[] = [];
         for (const [ctor, ee] of this.ib.implementations)
             whens.push(new When(new IsNotNullExpression(ee.externalId.value), implementations.get(ctor)!));
@@ -153,8 +153,8 @@ class SwitchStrategy implements ICombineStrategy {
 
 // Map each value of a keyed map through `fn`, preserving the (implementation ctor)
 // keys — the workhorse of `combineImplementations`' structural recursion.
-function mapValues(map: ReadonlyMap<Function, Expression>, fn: (v: Expression) => Expression): Map<Function, Expression> {
-    const out = new Map<Function, Expression>();
+function mapValues(map: ReadonlyMap<Type<Entity>, Expression>, fn: (v: Expression) => Expression): Map<Type<Entity>, Expression> {
+    const out = new Map<Type<Entity>, Expression>();
     for (const [k, v] of map)
         out.set(k, fn(v));
     return out;
@@ -185,14 +185,14 @@ type Nominable =
 // combineImplementations drives it at the leaves, and exposes buildJoin() so the
 // QueryJoinExpander can splice it in.
 class UnionAllRequest implements ICombineStrategy {
-    private readonly declarations = new Map<string, Map<Function, Expression>>();
+    private readonly declarations = new Map<string, Map<Type<Entity>, Expression>>();
     private readonly usedNames = new Set<string>();
     private nextName = 0;
 
     constructor(
         readonly originalIb: ImplementedByExpression,
         readonly unionAlias: Alias,
-        readonly implementations: ReadonlyMap<Function, UnionEntity>,
+        readonly implementations: ReadonlyMap<Type<Entity>, UnionEntity>,
         private readonly isPostgres: boolean,
     ) { }
 
@@ -207,9 +207,9 @@ class UnionAllRequest implements ICombineStrategy {
 
     // Declare a union column whose value per implementation is `getColumn(ctor)`.
     // Returns the outer reference to it (unionAlias.name).
-    addUnionColumn(type: RuntimeType, suggestedName: string, getColumn: (ctor: Function) => Expression): ColumnExpression {
+    addUnionColumn(type: RuntimeType, suggestedName: string, getColumn: (ctor: Type<Entity>) => Expression): ColumnExpression {
         const name = this.uniqueName(suggestedName || ("c" + this.nextName++));
-        const perImpl = new Map<Function, Expression>();
+        const perImpl = new Map<Type<Entity>, Expression>();
         for (const ctor of this.implementations.keys())
             perImpl.set(ctor, getColumn(ctor));
         this.declarations.set(name, perImpl);
@@ -217,13 +217,13 @@ class UnionAllRequest implements ICombineStrategy {
     }
 
     // A union column carrying `expression` only for `implementation` (NULL elsewhere).
-    addIndependentColumn(type: RuntimeType, suggestedName: string, implementation: Function, expression: Expression): ColumnExpression {
+    addIndependentColumn(type: RuntimeType, suggestedName: string, implementation: Type<Entity>, expression: Expression): ColumnExpression {
         const nullValue = new SqlConstantExpression(null, type);
         return this.addUnionColumn(type, suggestedName, ctor => ctor === implementation ? expression : nullValue);
     }
 
     // The SELECT-list declarations for one implementation's inner SELECT.
-    getDeclarations(ctor: Function): ColumnDeclaration[] {
+    getDeclarations(ctor: Type<Entity>): ColumnDeclaration[] {
         return [...this.declarations].map(([name, perImpl]) => new ColumnDeclaration(name, perImpl.get(ctor)!));
     }
 
@@ -238,8 +238,8 @@ class UnionAllRequest implements ICombineStrategy {
         return { kind: "dirty", projector: expression, candidates };
     }
 
-    combineValues(implementations: ReadonlyMap<Function, Expression>, returnType: RuntimeType): Expression {
-        const values = new Map<Function, Nominable>();
+    combineValues(implementations: ReadonlyMap<Type<Entity>, Expression>, returnType: RuntimeType): Expression {
+        const values = new Map<Type<Entity>, Nominable>();
         for (const [ctor, exp] of implementations)
             values.set(ctor, this.getNominable(exp));
 
@@ -288,7 +288,7 @@ class UnionAllRequest implements ICombineStrategy {
 
 // The implementation's short name for a union id column (Signum's CleanTypeName):
 // the constructor name without a trailing "Entity".
-function cleanTypeName(ctor: Function): string {
+function cleanTypeName(ctor: Type<Entity> | ViewType<View>): string {
     return ctor.name.replace(/Entity$/, "");
 }
 
@@ -348,10 +348,10 @@ class ColumnUnionProjector extends DbExpressionVisitor {
     private constructor(
         private readonly candidates: Set<Expression>,
         private readonly request: UnionAllRequest,
-        private readonly implementation: Function,
+        private readonly implementation: Type<Entity>,
     ) { super(); }
 
-    static project(projector: Expression, candidates: Set<Expression>, request: UnionAllRequest, implementation: Function): Expression {
+    static project(projector: Expression, candidates: Set<Expression>, request: UnionAllRequest, implementation: Type<Entity>): Expression {
         return new ColumnUnionProjector(candidates, request, implementation).visit(projector);
     }
 
@@ -528,7 +528,7 @@ export class QueryBinder extends ExpressionVisitor {
     // The @implementedByAll type-discriminator constant for a ctor — the target's TypeEntity int id
     // (Signum's TypeToId), from the threaded caches. Inline SQL literal (not a bound parameter) so a CASE
     // branch that combines it has an unambiguous integer type (see the deleted module note below).
-    private typeConstant(ctor: Function): Expression {
+    private typeConstant(ctor: Type<Entity>): Expression {
         return new SqlConstantExpression(requireTypeId(this.typeCaches, ctor), LiteralType.number);
     }
 
@@ -558,7 +558,7 @@ export class QueryBinder extends ExpressionVisitor {
     // OUTER-JOIN request) so its ToStr column is reachable; undefined when neither is possible.
     liteModelExpression(reference: Expression, fieldCustomLite?: FieldCustomLite): Expression | undefined {
         if (reference instanceof EntityExpression && reference.type instanceof ClassType) {
-            const model = this.customLiteModel(reference.type.constructorFunction, reference, fieldCustomLite);
+            const model = this.customLiteModel(reference.type.constructorFunction as Type<Entity>, reference, fieldCustomLite);
             if (model != null)
                 return model;
         }
@@ -571,8 +571,8 @@ export class QueryBinder extends ExpressionVisitor {
     // field's @customLite override) contributes its `fromEntity` NewExpression; the rest their
     // ToString. The reader dispatches on the runtime type and evaluates the matching model
     // client-side, so no CASE reaches the projector.
-    liteImplementationModels(ib: ImplementedByExpression, fieldCustomLite?: FieldCustomLite): Map<Function, Expression> {
-        const models = new Map<Function, Expression>();
+    liteImplementationModels(ib: ImplementedByExpression, fieldCustomLite?: FieldCustomLite): Map<Type<Entity>, Expression> {
+        const models = new Map<Type<Entity>, Expression>();
         for (const [ctor, ee] of ib.implementations) {
             const model = this.customLiteModel(ctor, ee, fieldCustomLite) ?? this.entityToString(ee);
             if (model != null)
@@ -586,7 +586,7 @@ export class QueryBinder extends ExpressionVisitor {
     // registered default is used. The chosen `fromEntity` (a Quoted lambda) is bound against the
     // reference exactly like a @quoted toString, yielding a NewExpression whose args project the
     // model's columns.
-    private customLiteModel(ctor: Function, ee: EntityExpression, fieldCustomLite?: FieldCustomLite): Expression | undefined {
+    private customLiteModel(ctor: Type<Entity>, ee: EntityExpression, fieldCustomLite?: FieldCustomLite): Expression | undefined {
         const override = fieldCustomLite?.get(ctor as Type<Entity>);
         const fromEntity: Quoted<Function> | undefined = override != null
             ? getCustomLiteConstructorFor(ctor as Type<Entity>, override)
@@ -1065,7 +1065,7 @@ export class QueryBinder extends ExpressionVisitor {
                     // entityIsInstance lowers both (it unwraps a lite reference first), so a
                     // lite never goes through an `instanceof` that would fail at runtime.
                     if (member === Entity.isInstance || member === Entity.isLite)
-                        return this.smart.entityIsInstance(this.visit(call.args[0]), property.object.value as Function);
+                        return this.smart.entityIsInstance(this.visit(call.args[0]), property.object.value as Type<Entity>);
                 }
             }
             if (op === "thenBy")
@@ -1449,7 +1449,7 @@ export class QueryBinder extends ExpressionVisitor {
         if (targetCtor != null) {
             // Entity downcast: narrow a polymorphic reference to one implementation.
             if (expr instanceof ImplementedByExpression || expr instanceof ImplementedByAllExpression) {
-                const narrowed = this.narrowReference(expr, targetCtor);
+                const narrowed = this.narrowReference(expr, targetCtor as Type<Entity>);
                 if (narrowed != null)
                     return narrowed;
             }
@@ -1460,7 +1460,7 @@ export class QueryBinder extends ExpressionVisitor {
             // completer, so carry them through unchanged.
             if (expr instanceof LiteReferenceExpression
                 && (expr.reference instanceof ImplementedByExpression || expr.reference instanceof ImplementedByAllExpression)) {
-                const narrowed = this.narrowReference(expr.reference, targetCtor);
+                const narrowed = this.narrowReference(expr.reference, targetCtor as Type<Entity>);
                 if (narrowed != null)
                     return new LiteReferenceExpression(new LiteType(new ClassType(targetCtor)), narrowed, expr.toStr, expr.expandLite, expr.fieldCustomLite);
             }
@@ -1491,10 +1491,10 @@ export class QueryBinder extends ExpressionVisitor {
     // one of the implementations → the cast stays a no-op). IBA → a typed EntityExpression
     // reading the shared id column, but guarded by the type discriminator so a row of another
     // type nulls out (a bare id read would join a same-id row of the target table).
-    private narrowReference(ref: ImplementedByExpression | ImplementedByAllExpression, targetCtor: Function): EntityExpression | undefined {
+    private narrowReference(ref: ImplementedByExpression | ImplementedByAllExpression, targetCtor: Type<Entity>): EntityExpression | undefined {
         if (ref instanceof ImplementedByExpression)
             return ref.implementations.get(targetCtor);
-        const refTable = this.schema.table(targetCtor as any);
+        const refTable = this.schema.table(targetCtor);
         const rawId = ref.ids.get(this.pkTypeOf(targetCtor)) ?? [...ref.ids.values()][0];
         // CASE WHEN <type column> = typeof(targetCtor) THEN <id> ELSE NULL END
         const typeMatch = this.smart.entityIsInstance(ref, targetCtor);
@@ -1503,10 +1503,10 @@ export class QueryBinder extends ExpressionVisitor {
     }
 
     // The constructor behind the right operand of `instanceof` (a captured ctor).
-    private constantCtor(e: Expression): Function {
+    private constantCtor(e: Expression): Type<Entity> {
         const v = this.visit(e);
         if (v instanceof ConstantExpression && typeof v.value === "function")
-            return v.value as Function;
+            return v.value as Type<Entity>;
         throw new Error("instanceof right operand is not a constructor: " + e.toString());
     }
 
@@ -2521,7 +2521,7 @@ export class QueryBinder extends ExpressionVisitor {
         if (ib.strategy === "Union")
             return this.dispatchIbUnion(ib, selector);
 
-        const dictionary = new Map<Function, Expression>();
+        const dictionary = new Map<Type<Entity>, Expression>();
         for (const [ctor, ee] of ib.implementations)
             dictionary.set(ctor, selector(ee));
         return this.combineImplementations(new SwitchStrategy(ib), dictionary, ib.type);
@@ -2534,7 +2534,7 @@ export class QueryBinder extends ExpressionVisitor {
     // union columns read back from the union alias.
     private dispatchIbUnion(ib: ImplementedByExpression, selector: (ee: EntityExpression) => Expression): Expression {
         const ur = this.completedUnion(ib);
-        const dictionary = new Map<Function, Expression>();
+        const dictionary = new Map<Type<Entity>, Expression>();
         for (const [ctor, ue] of ur.implementations)
             dictionary.set(ctor, this.runWithSource(ue.tableExpr, () => selector(ue.entity)));
         return this.combineImplementations(ur, dictionary, ib.type);
@@ -2550,7 +2550,7 @@ export class QueryBinder extends ExpressionVisitor {
             return cached;
 
         const unionAlias = this.aliasGenerator.nextTableAlias("Union");
-        const implementations = new Map<Function, UnionEntity>();
+        const implementations = new Map<Type<Entity>, UnionEntity>();
         for (const [ctor, ee] of ib.implementations) {
             const innerAlias = this.aliasGenerator.nextTableAlias(ee.table.name.name);
             implementations.set(ctor, {
@@ -2589,7 +2589,7 @@ export class QueryBinder extends ExpressionVisitor {
     // and defers to `strategy.combineValues` only at scalar leaves. `returnType` is
     // the combined reference's nominal type; the concrete type is recovered at read
     // time from the discriminator, so it is only load-bearing for scalar column types.
-    private combineImplementations(strategy: ICombineStrategy, expressions: ReadonlyMap<Function, Expression>, returnType: RuntimeType): Expression {
+    private combineImplementations(strategy: ICombineStrategy, expressions: ReadonlyMap<Type<Entity>, Expression>, returnType: RuntimeType): Expression {
         const values = [...expressions.values()];
 
         // All Lite<T> → combine the wrapped references and re-wrap as a Lite.
@@ -2630,7 +2630,7 @@ export class QueryBinder extends ExpressionVisitor {
         // All typed-or-@implementedBy → combine to @implementedBy over the union of
         // implementation types; each implementation entity is combined independently.
         if (values.every(v => v instanceof EntityExpression || v instanceof ImplementedByExpression)) {
-            const implTypes = new Set<Function>();
+            const implTypes = new Set<Type<Entity>>();
             for (const v of values) {
                 if (v instanceof EntityExpression)
                     implTypes.add(ctorOfType(v.type));
@@ -2638,7 +2638,7 @@ export class QueryBinder extends ExpressionVisitor {
                     for (const k of (v as ImplementedByExpression).implementations.keys())
                         implTypes.add(k);
             }
-            const newImpls = new Map<Function, EntityExpression>();
+            const newImpls = new Map<Type<Entity>, EntityExpression>();
             for (const t of implTypes) {
                 const perType = mapValues(expressions, v => {
                     if (v instanceof EntityExpression)
@@ -2736,7 +2736,7 @@ export class QueryBinder extends ExpressionVisitor {
 
     // A lazy, always-null typed EntityExpression standing in for an implementation
     // that a given branch of the combine doesn't populate (Signum's null-id filler).
-    private nullEntity(ctor: Function): EntityExpression {
+    private nullEntity(ctor: Type<Entity>): EntityExpression {
         const nullId = new PrimaryKeyExpression(new SqlConstantExpression(null, LiteralType.null));
         return new EntityExpression(new ClassType(ctor), this.schema.table(ctor as any), nullId, undefined, undefined, undefined, false);
     }
@@ -2829,7 +2829,7 @@ export class QueryBinder extends ExpressionVisitor {
     // member — the concrete fields are reachable only through a cast).
     // The altea PrimaryKeyType an entity's id column uses (from its PK column's db type),
     // to pick the matching @implementedByAll id column when the target type is known.
-    private pkTypeOf(ctor: Function): string {
+    private pkTypeOf(ctor: Type<Entity>): string {
         const pg = this.schema.table(ctor as any).primaryKey.column.dbType.postgres;
         return pg === "int8" ? "long" : pg === "uuid" ? "uuid" : "int";
     }
@@ -2884,7 +2884,7 @@ export class QueryBinder extends ExpressionVisitor {
         if (expr instanceof EntityExpression)
             return new TypeEntityExpression(expr.externalId, expr.type);
         if (expr instanceof ImplementedByExpression) {
-            const map = new Map<Function, PrimaryKeyExpression>();
+            const map = new Map<Type<Entity>, PrimaryKeyExpression>();
             for (const [ctor, ee] of expr.implementations)
                 map.set(ctor, ee.externalId);
             return new TypeImplementedByExpression(map);
@@ -3100,7 +3100,7 @@ export class QueryBinder extends ExpressionVisitor {
         // Signum's `new FilterQueryArgs(this.rootExpression, (ConstantExpression)query.Expression)`: the
         // whole query being translated, plus THIS table source — the node the WHERE is about to wrap.
         const args = this.root == null ? undefined : new FilterQueryArgs(this.root, source);
-        const lambdas = hooks.map(h => h({ ctor, elementType, args })).filter((l): l is LambdaExpression => l != null);
+        const lambdas = hooks.map(h => h({ ctor: ctor as Type<Entity>, elementType, args })).filter((l): l is LambdaExpression => l != null);
         if (lambdas.length === 0)
             return undefined;
         return new CallExpression(new PropertyExpression(source, "filter"), [combineFilterLambdas(lambdas, elementType)], source.type);
@@ -3213,7 +3213,7 @@ export class QueryBinder extends ExpressionVisitor {
             // Reflect the IView row type into its output columns (Signum reflects the SqlMethod's
             // IQueryable<T> element). The Postgres column-alias list (see queryFormatter) names a
             // single column, so a TVF view maps to exactly one column for now.
-            const cols = viewColumns(viewCtor);
+            const cols = viewColumns(viewCtor as ViewType<View>);
             if (cols.length !== 1)
                 throw new Error(`Table-valued function '${functionName}' view '${viewCtor.name}' must declare exactly one column (got ${cols.length}).`);
             const [c] = cols;
@@ -3733,7 +3733,7 @@ export class QueryBinder extends ExpressionVisitor {
             const inner = this.routePositionsIn(fb.binding.bindings, rootType, ownerId, propertyRoute);
 
             const ctor = fb.binding.type instanceof ClassType ? fb.binding.type.constructorFunction : undefined;
-            const callback = ctor == null ? undefined : this.schema.embeddedRoutePositions.get(ctor);
+            const callback = ctor == null ? undefined : this.schema.embeddedRoutePositions.get(ctor as Type<BaseEntity>);
 
             if (inner === fb.binding.bindings && callback == null)
                 return fb;
@@ -3803,10 +3803,10 @@ export class QueryBinder extends ExpressionVisitor {
             // One lazy EntityExpression per implementation, keyed by its ctor; its
             // externalId is that implementation's (nullable) FK column. Navigation
             // / cast picks one; the reader reads whichever id column is non-null.
-            const implementations = new Map<Function, EntityExpression>();
+            const implementations = new Map<Type<Entity>, EntityExpression>();
             for (const col of f.implementationColumns) {
                 const implTable = col.referenceTable!;
-                const implCtor = implTable.type;
+                const implCtor = implTable.type as Type<Entity>;
                 const externalId = new PrimaryKeyExpression(new ColumnExpression(LiteralType.number, alias, col.name));
                 implementations.set(implCtor, new EntityExpression(new ClassType(implCtor), implTable, externalId, undefined, undefined, undefined, f.avoidExpandOnRetrieving));
             }
@@ -3846,12 +3846,12 @@ export class QueryBinder extends ExpressionVisitor {
     // The declared (base) constructor of a polymorphic reference field — e.g.
     // `Entity` for `author: Entity`. Used only for the IB/IBA expression's nominal
     // `.type`; the reader materialises the concrete implementation, never this.
-    private refCleanCtor(fi: FieldInfo): Function {
+    private refCleanCtor(fi: FieldInfo): Type<Entity> {
         // The polymorphic reference's nominal base type. A field declared with an
         // interface type (e.g. `author: IAuthorEntity`, Signum-style) has no runtime
         // constructor — the base is nominal only (the reader picks the concrete
         // implementation), so fall back to Entity. Concrete base types resolve normally.
-        return fi.getFunction() ?? Entity;
+        return (fi.getFunction() as Type<Entity> | undefined) ?? Entity;
     }
 
     // Maps a value field's declared type name to a SQL literal type. The entity

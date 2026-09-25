@@ -139,7 +139,7 @@ export class EmailMessageBuilder {
     /** Signum's attachment loop: the template's own rules plus its master template's. */
     private async generateAttachments(email: EmailMessageEntity, culture: string): Promise<EmailMessageEntity_Attachment[]> {
         const master = this.template.masterTemplate == null ? null
-            : await EmailLogic.retrieveLite(this.template.masterTemplate);
+            : await this.template.masterTemplate.retrieve();
 
         // A row holds the attachment RULE in its @valueField (see data/EmailTemplate.ts).
         const rules = [...this.template.attachments, ...(master?.attachments ?? [])].map(r => r.attachment);

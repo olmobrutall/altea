@@ -7,7 +7,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { JavascriptMessage, SaveChangesMessage } from "@altea/altea/data/uiMessages";
 import { Binding, ReadonlyBinding } from "@altea/altea/client/binding";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
-import { resolveType } from "@altea/altea/data/registration";
+import { isModifiableType, resolveType } from "@altea/altea/data/registration";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { ViewReplacer } from "@altea/altea/client/Frames/ReactVisitor";
 import { ErrorBoundary } from "@altea/altea/client/Components";
@@ -18,6 +18,7 @@ import { DynamicViewClient } from "../DynamicViewClient";
 import { ModulesHelp } from "./ModulesHelp";
 import { CopyTextModal } from "./CopyTextModal";
 import { DynamicViewMessage, type DynamicViewOverrideEntity } from "../../data/DynamicView";
+import type { Type, BaseEntity } from "@altea/altea/data/entity";
 
 // Port of Signum.Dynamic's View/DynamicViewOverride.tsx — the override editor: write `vr => …` against a
 // ViewReplacer, pick an example entity, and see the ALREADY-EXISTING view for that entity with the override
@@ -123,7 +124,7 @@ export default function DynamicViewOverrideComponent(p: DynamicViewOverrideCompo
 
     function renderExampleEntity(cleanName: string): React.ReactNode {
         const ctor = resolveType(cleanName);
-        if (ctor == undefined)
+        if (ctor == undefined || !isModifiableType(ctor))
             return <div className="alert alert-warning">Type '{cleanName}' is not registered on the client</div>;
 
         const exampleCtx = new TypeContext<Entity | null>(
@@ -231,7 +232,7 @@ export function RenderWithReplacements(p: RenderWithReplacementsProps): React.Re
     const frame = { refreshCount: 0 } as EntityFrame;
 
     const ctx = new TypeContext<Entity>(
-        undefined, { frame }, PropertyRoute.root(p.entity.constructor), new ReadonlyBinding(p.entity, "example"));
+        undefined, { frame }, PropertyRoute.root(p.entity.getType()), new ReadonlyBinding(p.entity, "example"));
 
     const result = p.viewFunc(ctx);
 

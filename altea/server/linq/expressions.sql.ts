@@ -830,7 +830,7 @@ export class LiteValueExpression extends DbExpression {
         public readonly typeId: Expression,
         public readonly id: Expression,
         public readonly toStr: Expression | undefined,
-        public readonly models: ReadonlyMap<Function, Expression> | undefined = undefined,
+        public readonly models: ReadonlyMap<Type<Entity>, Expression> | undefined = undefined,
     ) {
         super("LiteValue", type);
     }
@@ -999,11 +999,11 @@ export type CombineStrategy = "Case" | "Union";
 // implementations (their id columns are the projected columns); the reader picks
 // whichever implementation column is non-null.
 export class ImplementedByExpression extends DbExpression {
-    readonly implementations: ReadonlyMap<Function, EntityExpression>;
+    readonly implementations: ReadonlyMap<Type<Entity>, EntityExpression>;
     constructor(
         type: RuntimeType,
         public readonly strategy: CombineStrategy,
-        implementations: ReadonlyMap<Function, EntityExpression>,
+        implementations: ReadonlyMap<Type<Entity>, EntityExpression>,
     ) {
         super("ImplementedBy", type);
         this.implementations = implementations;
@@ -1091,14 +1091,14 @@ export class TypeEntityExpression extends DbExpression {
 // determines the type. `typeImplementations` maps each possible implementation
 // constructor to its (nullable) id column.
 export class TypeImplementedByExpression extends DbExpression {
-    readonly typeImplementations: ReadonlyMap<Function, PrimaryKeyExpression>;
-    constructor(typeImplementations: ReadonlyMap<Function, PrimaryKeyExpression>) {
+    readonly typeImplementations: ReadonlyMap<Type<Entity>, PrimaryKeyExpression>;
+    constructor(typeImplementations: ReadonlyMap<Type<Entity>, PrimaryKeyExpression>) {
         super("TypeImplementedBy", LiteralType.string);
         this.typeImplementations = typeImplementations;
     }
 
     toString(): string {
-        const imps = [...this.typeImplementations].map(([c, id]) => `${(c as Function).name}(${id})`).join(" | ");
+        const imps = [...this.typeImplementations].map(([c, id]) => `${c.name}(${id})`).join(" | ");
         return `TypeIb(${imps})`;
     }
 

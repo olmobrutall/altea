@@ -1,6 +1,6 @@
 import type { Schema } from "@altea/altea/server/schema";
 import { TypeCaches } from "@altea/altea/server/typeLogic";
-import type { PrimaryKey } from "@altea/altea/data/entity";
+import type { Entity, PrimaryKey, Type } from "@altea/altea/data/entity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { isPartType } from "@altea/altea/data/propertyRoute";
@@ -13,14 +13,14 @@ import { isPartType } from "@altea/altea/data/propertyRoute";
 // tests never execute, only determinism matters. Kept out of the framework on purpose: inventing ids is a
 // test concern, not an engine one.
 export function seedTypeCachesForTest(schema: Schema): void {
-    const ctors: Function[] = [];
+    const ctors: Type<Entity>[] = [];
     for (const [type] of schema.tables)
         if (typeof type === "function")
-            ctors.push(type as Function);
+            ctors.push(type);
     ctors.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
-    const typeToId = new Map<Function, PrimaryKey>();
-    const idToType = new Map<PrimaryKey, Function>();
+    const typeToId = new Map<Type<Entity>, PrimaryKey>();
+    const idToType = new Map<PrimaryKey, Type<Entity>>();
     const idToEntity = new Map<PrimaryKey, TypeEntity>();
 
     ctors.forEach((ctor, i) => {
@@ -30,7 +30,7 @@ export function seedTypeCachesForTest(schema: Schema): void {
         te.isNew = false;
         te.className = ctor.name;
         te.cleanName = cleanTypeName(ctor);
-        te.tableName = schema.tryTable(ctor as never)!.name.name;
+        te.tableName = schema.tryTable(ctor)!.name.name;
         te.package = "";
         te.isPart = isPartType(ctor);
         typeToId.set(ctor, id);

@@ -112,7 +112,7 @@ export namespace SchemaMap {
 
     // ---- nodes -----------------------------------------------------------------------------------
 
-    function niceNameOf(ctor: Function): string {
+    function niceNameOf(ctor: Type<Entity>): string {
         const boundEnum = getBoundEnum(ctor);
         if (boundEnum != null)
             return Enum.niceTypeName(boundEnum as Record<string, string | number>) ?? ctor.name;
@@ -120,7 +120,7 @@ export namespace SchemaMap {
     }
 
     /** Signum's `SchemaMap.GetEntityBaseType`, minus SemiSymbol and MList (see data/Map.ts). */
-    function entityBaseTypeOf(ctor: Function): EntityBaseType {
+    function entityBaseTypeOf(ctor: Type<Entity>): EntityBaseType {
         if (isEnumEntityType(ctor))
             return "EnumEntity";
 
@@ -140,7 +140,7 @@ export namespace SchemaMap {
      * altea-translations groups a package's translations by, read off the transformer's `__fileInfo`.
      * `"@altea/altea-auth/data"`, `"eastwind/app/orders"`.
      */
-    function namespaceOf(ctor: Function): string {
+    function namespaceOf(ctor: Type<Entity>): string {
         // An enum table is a GENERATED `EnumEntity<X>` subclass, so it has no registration of its own —
         // its location is the ENUM's, which is what Signum's `EnumEntity.Extract(t.Type).Namespace` reads.
         const boundEnum = getBoundEnum(ctor);
@@ -313,11 +313,11 @@ export namespace SchemaMap {
      * altea's check is async (the same adaptation altea-omnibox's `allowedTypeFilter` makes). Permissive
      * when authorization is not started, so an unsecured host shows the whole schema.
      */
-    async function allowedTypes(candidates: Type<Entity>[]): Promise<(ctor: Function) => boolean> {
+    async function allowedTypes(candidates: Type<Entity>[]): Promise<(ctor: Type<Entity>) => boolean> {
         if (!TypeAuthLogic.isStarted())
             return () => true;
 
-        const allowed = new Set<Function>();
+        const allowed = new Set<Type<Entity>>();
         const caches = await TypeLogic.caches();
         for (const ctor of candidates) {
             const typeId = caches.tryTypeToId(ctor);

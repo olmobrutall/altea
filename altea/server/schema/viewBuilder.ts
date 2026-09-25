@@ -111,7 +111,7 @@ export class ViewBuilder {
         return table;
     }
 
-    private generateViewField(ctor: Function, fi: FieldInfo, isTempTable: boolean): Field {
+    private generateViewField(ctor: ViewType<View>, fi: FieldInfo, isTempTable: boolean): Field {
         // A temp-table view maps a real FK column (Signum's temp views hold Lite<T>
         // references, e.g. MyTempView.Artist). Reuse the entity reference-field shape so
         // binding `b.artist` yields a lite reference, exactly like an entity FK.

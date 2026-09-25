@@ -61,7 +61,7 @@ export abstract class Lite<out T extends Entity> {
             return false;
 
         const isEntity = !(other instanceof Lite);
-        const otherType = isEntity ? ((other as Entity).constructor as Type<Entity>) : (other as Lite<Entity>).entityType;
+        const otherType = isEntity ? ((other as Entity).getType()) : (other as Lite<Entity>).entityType;
         if (this.entityType !== otherType)
             return false;
 
@@ -186,7 +186,7 @@ interface CustomLiteRegistration {
     isDefault: boolean;
 }
 
-const customLiteRegistry = new Map<Function, CustomLiteRegistration[]>();
+const customLiteRegistry = new Map<Type<Entity>, CustomLiteRegistration[]>();
 
 /**
  * Registers a custom lite for an entity type. Instead of a separate `LiteModel` class (as in
@@ -262,7 +262,7 @@ export function getCustomLiteConstructor<T extends Entity>(
 }
 
 /** The custom lite classes registered for a ctor, in registration (isCompatible match) order. */
-export function getCustomLites(ctor: Function): CustomLiteClass[] {
+export function getCustomLites(ctor: Type<Entity>): CustomLiteClass[] {
     return (customLiteRegistry.get(ctor) ?? []).map(r => r.liteClass);
 }
 

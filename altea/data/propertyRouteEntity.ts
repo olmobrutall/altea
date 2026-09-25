@@ -5,7 +5,7 @@ import { stringLengthValidator } from './validators';
 import { msg } from './utils/localization';
 import { TypeEntity } from './typeEntity';
 import { PropertyRoute } from './propertyRoute';
-import { resolveCleanType } from './registration';
+import { resolveModifiableType } from './registration';
 
 // Port of Signum's `PropertyRouteEntity` (Signum/Basics/PropertyRouteEntity.cs): the system table with one
 // row per PROPERTY ROUTE of every registered type — `(rootType, path)`, where the path is the route's
@@ -45,7 +45,7 @@ export class PropertyRouteEntity extends Entity {
      * current schema, which is what makes a stale row loud rather than silently ignored.
      */
     toPropertyRoute(): PropertyRoute {
-        const ctor = resolveCleanType(this.rootType.cleanName);
+        const ctor = resolveModifiableType(this.rootType.cleanName);
         if (ctor == undefined)
             throw new Error(`PropertyRoute '${this.path}': root type '${this.rootType.cleanName}' is not a registered type`);
         return PropertyRoute.parse(ctor, this.path);

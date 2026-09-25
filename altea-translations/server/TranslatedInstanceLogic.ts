@@ -62,7 +62,7 @@ export namespace TranslatedInstanceLogic {
      * translating at all ("only the user queries that a dashboard or a toolbar actually shows"). The Status
      * and Sync pages offer it as the "only recommended instances" toggle.
      */
-    const instanceFilters = new Map<Function, (e: Entity) => boolean>();
+    const instanceFilters = new Map<Type<Entity>, (e: Entity) => boolean>();
 
     export function registerFilter<T extends Entity>(type: Type<T>, filter: (e: T) => boolean): void {
         instanceFilters.set(type, filter as (e: Entity) => boolean);
@@ -182,7 +182,7 @@ export namespace TranslatedInstanceLogic {
             .sort((a, b) => (a === def ? -1 : b === def ? 1 : a.localeCompare(b)));
     }
 
-    async function getState(type: Function, culture: string, applyFilter: boolean): Promise<TranslatedSummaryState> {
+    async function getState(type: Type<Entity>, culture: string, applyFilter: boolean): Promise<TranslatedSummaryState> {
         const master = await fromEntities(type, applyFilter);
         const translations = await translationsForType(type, culture);
 
@@ -215,14 +215,14 @@ export namespace TranslatedInstanceLogic {
      * and walks their routes in memory, because a `@part` collection is a separate type with its own pass
      * and an embedded's value is already on the loaded row.
      */
-    export async function fromEntities(type: Function, applyFilter = false): Promise<Map<InstanceKey, string | null>> {
+    export async function fromEntities(type: Type<Entity>, applyFilter = false): Promise<Map<InstanceKey, string | null>> {
         const result = new Map<InstanceKey, string | null>();
         for (const v of await masterValues(type, applyFilter))
             result.set(instanceKey(v.lite, v.route), v.text);
         return result;
     }
 
-    export async function masterValues(type: Function, applyFilter = false): Promise<MasterValue[]> {
+    export async function masterValues(type: Type<Entity>, applyFilter = false): Promise<MasterValue[]> {
         const routes = [...PropertyRouteTranslationLogic.routesOf(type).keys()];
         if (routes.length === 0)
             return [];
@@ -254,7 +254,7 @@ export namespace TranslatedInstanceLogic {
     }
 
     /** Signum's `TranslationsForType` — the stored translations of one type, for one culture (or all). */
-    export async function translationsForType(type: Function, culture: string): Promise<Map<InstanceKey, TranslatedInstanceEntity>> {
+    export async function translationsForType(type: Type<Entity>, culture: string): Promise<Map<InstanceKey, TranslatedInstanceEntity>> {
         const all = await localizationCache.value();
         const forCulture = all.get(culture);
         if (forCulture == undefined)
@@ -269,7 +269,7 @@ export namespace TranslatedInstanceLogic {
     }
 
     /** Every culture's translations of one type (Signum's `TranslationsForType(type, null)`). */
-    export async function allTranslationsForType(type: Function): Promise<Map<string, Map<InstanceKey, TranslatedInstanceEntity>>> {
+    export async function allTranslationsForType(type: Type<Entity>): Promise<Map<string, Map<InstanceKey, TranslatedInstanceEntity>>> {
         const result = new Map<string, Map<InstanceKey, TranslatedInstanceEntity>>();
         for (const culture of await currentCultures())
             result.set(culture, await translationsForType(type, culture));
@@ -296,7 +296,7 @@ export namespace TranslatedInstanceLogic {
      * translation in `targetCulture`, with what every other culture has for them as source material.
      */
     export async function getInstanceChanges(
-        type: Function, targetCulture: string, cultures: string[], applyFilter = true,
+        type: Type<Entity>, targetCulture: string, cultures: string[], applyFilter = true,
     ): Promise<InstanceChanges[]> {
 
         const support = await allTranslationsForType(type);
@@ -371,7 +371,7 @@ export namespace TranslatedInstanceLogic {
      * and with the automatic suggestions filled in.
      */
     export async function getTypeInstanceChangesTranslated(
-        translators: ITranslator[], type: Function, targetCulture: string, applyFilter = true,
+        translators: ITranslator[], type: Type<Entity>, targetCulture: string, applyFilter = true,
     ): Promise<{ instances: InstanceChanges[]; totalInstances: number }> {
 
         const cultures = (await currentCultures()).filter(c => c !== targetCulture);
@@ -439,7 +439,7 @@ export namespace TranslatedInstanceLogic {
      * simply nothing to save (the user skipped it), where on the VIEW page it means "clear it".
      */
     export async function saveRecordsByInstance(
-        records: TranslationRecord[], type: Function, isSync: boolean, culture: string | undefined,
+        records: TranslationRecord[], type: Type<Entity>, isSync: boolean, culture: string | undefined,
     ): Promise<void> {
 
         const should = new Map<string, TranslationRecord>();
@@ -491,7 +491,7 @@ export namespace TranslatedInstanceLogic {
      * original text) instead of by instance id, so a file exported from another environment still lands.
      */
     export async function saveRecordsByOriginalText(
-        records: TranslationRecord[], type: Function, isSync: boolean, culture: string | undefined,
+        records: TranslationRecord[], type: Type<Entity>, isSync: boolean, culture: string | undefined,
     ): Promise<void> {
 
         // (route, originalText) → culture → translated
@@ -532,7 +532,7 @@ export namespace TranslatedInstanceLogic {
      * Signum's `CleanTranslations` — drop translations whose route no longer exists, or whose row is gone.
      * Returns how many were deleted (the sync page reports it).
      */
-    export async function cleanTranslations(type: Function): Promise<number> {
+    export async function cleanTranslations(type: Type<Entity>): Promise<number> {
         const validRoutes = [...PropertyRouteTranslationLogic.routesOf(type).keys()];
         const typeLite = typeEntityOf(type, await TypeLogic.caches());
         const liveKeys = new Set((await masterValues(type)).map(v => instanceKey(v.lite, v.route)));
@@ -561,7 +561,7 @@ export namespace TranslatedInstanceLogic {
     export interface FileContent { fileName: string; bytes: Uint8Array }
 
     /** Signum's `ExportExcelFile` — the translations that EXIST, for review. */
-    export async function exportExcelFile(type: Function, culture: string, applyFilter = true): Promise<FileContent> {
+    export async function exportExcelFile(type: Type<Entity>, culture: string, applyFilter = true): Promise<FileContent> {
         const master = await fromEntities(type, applyFilter);
         const translations = await translationsForType(type, culture);
 
@@ -577,7 +577,7 @@ export namespace TranslatedInstanceLogic {
     }
 
     /** Signum's `ExportExcelFileSync` — what is still MISSING, for a translator to fill in. */
-    export async function exportExcelFileSync(type: Function, culture: string, applyFilter = true): Promise<FileContent> {
+    export async function exportExcelFileSync(type: Type<Entity>, culture: string, applyFilter = true): Promise<FileContent> {
         const def = defaultCulture();
         const changes = await getInstanceChanges(type, culture, [def], applyFilter);
 
@@ -625,7 +625,7 @@ export namespace TranslatedInstanceLogic {
 
 // The TypeEntity row for an entity ctor (Signum's `type.ToTypeEntity()`). TypeLogic exposes the id→row
 // direction, so this is the one hop across.
-function typeEntityOf(type: Function, caches: TypeCaches): TypeEntity {
+function typeEntityOf(type: Type<Entity>, caches: TypeCaches): TypeEntity {
     const te = caches.tryTypeToEntity(type);
     if (te == undefined)
         throw new Error(`No TypeEntity row for '${type.name}'`);

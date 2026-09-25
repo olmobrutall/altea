@@ -1,7 +1,6 @@
 import * as React from "react";
 import type { BaseEntity, Entity } from "@altea/altea/data/entity";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
-import type { Type } from "@altea/altea/data/entity";
 import type { WidgetContext } from "@altea/altea/client/Frames/Widgets";
 import { IsolationMessage, IsolationMixin, Isolation } from "../data/Isolation";
 import { IsolationClient } from "./IsolationClient";
@@ -18,7 +17,7 @@ export function IsolationWidget(p: IsolationWidgetProps): React.JSX.Element | nu
 
     // altea flattens a mixin onto its owner, so the
     // question is whether the mixin is DECLARED on this type — `entity.mixin(X)` throws when it is not.
-    const declared = MixinDeclarations.getMixins(entity.constructor as Type<BaseEntity>)
+    const declared = MixinDeclarations.getMixins(entity.getType())
         .some(m => m === (IsolationMixin));
     if (!declared)
         return null;

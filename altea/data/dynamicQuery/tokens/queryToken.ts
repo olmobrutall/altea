@@ -9,6 +9,7 @@ import { tryGetFilterType, isVectorType, type QueryName, type FilterTypeKeys } f
 import { QueryTokenMessage, QueryTokenDateMessage, CollectionMessage } from "../../dynamicQueries";
 import type { LocalizableMessage } from "../../utils/localization";
 import type { CollectionToArrayToken } from "./collectionToArrayToken";
+import type { BaseEntity, Type } from "../../entity";
 
 // Port of Signum's `SubTokensOptions` (DynamicQuery/QueryUtils.cs). A bit-flag set controlling
 // which families of sub-tokens a token exposes (aggregates, element access, operations, …).
@@ -42,10 +43,10 @@ export const TR_DATE = new TypeReference({ typeName: "PlainDate" });
 
 // The concrete entity ctor a reference type points to — `is`/`getFunction` are lite-agnostic, so no
 // CleanType() unwrap is needed. undefined for value / embedded / enum / name-only-interface references.
-export function entityCtorOf(tr: TypeReference): Function | undefined {
-    return tr.is(Entity) ? tr.getFunction() : undefined;
+export function entityCtorOf(tr: TypeReference): Type<Entity> | undefined {
+    return tr.is(Entity) ? tr.getFunction() as Type<Entity> | undefined : undefined;
 }
-function embeddedOrModelCtorOf(tr: TypeReference): Function | undefined {
+function embeddedOrModelCtorOf(tr: TypeReference): Type<BaseEntity> | undefined {
     return (tr.is(EmbeddedEntity) || tr.is(ModelEntity)) ? tr.getFunction() : undefined;
 }
 
@@ -319,7 +320,7 @@ export abstract class QueryToken {
         // Entity reference — is(Entity) also holds for a polymorphic @implementedBy interface (which
         // has no single ctor, so getFunction() is undefined; it takes the implementedBy-many path).
         if (type.is(Entity)) {
-            const entityCtor = type.getFunction();
+            const entityCtor = type.getFunction() as Type<Entity> | undefined;
             const imp = implementations;
             if (imp == undefined)
                 return [];
@@ -638,7 +639,7 @@ export abstract class QueryToken {
     // unreachable as a column, a filter and an order. Signum never hits this because a ModelEntity
     // has no Id property to collide with; altea's row models do (eastwind's CustomerRowModel projects a
     // synthetic "P 5" / "C 3" id over the Person + Company union, and it was silently invisible).
-    protected entityProperties(type: Function): QueryToken[] {
+    protected entityProperties(type: Type<BaseEntity>): QueryToken[] {
         const base = this.normalizePropertyRoute();
         const ti = tryGetTypeInfo(type);
         if (ti == undefined || base == undefined)
@@ -912,7 +913,7 @@ export interface TokenFactories {
     entityToString(parent: QueryToken): QueryToken;
     hasValue(parent: QueryToken): QueryToken;
     objectProperty(parent: QueryToken, memberName: string, resultType: TypeReference, displayName: string, isMethod: boolean, format?: string, unit?: string): QueryToken;
-    asType(parent: QueryToken, entityCtor: Function): QueryToken;
+    asType(parent: QueryToken, entityCtor: Type<Entity>): QueryToken;
     entityType(parent: QueryToken): QueryToken;
     dateToken(parent: QueryToken): QueryToken;
     datePartStart(parent: QueryToken, name: string, step?: number): QueryToken;
@@ -939,8 +940,8 @@ export function registerTokenFactories(f: TokenFactories): void {
 // assignable to the given clean type (Signum's QueryLogic.GetImplementedByAllSubTokens type set).
 // Wired by queryLogic.ts (needs the Schema, so it can't live in the base). Unset ⇒ byAll yields no
 // sub-tokens.
-let implementedByAllTypesProvider: ((cleanTypeCtor: Function) => Function[]) | undefined;
-export function setImplementedByAllTypesProvider(fn: (cleanTypeCtor: Function) => Function[]): void {
+let implementedByAllTypesProvider: ((cleanTypeCtor: Type<Entity>) => Type<Entity>[]) | undefined;
+export function setImplementedByAllTypesProvider(fn: (cleanTypeCtor: Type<Entity>) => Type<Entity>[]): void {
     implementedByAllTypesProvider = fn;
 }
 

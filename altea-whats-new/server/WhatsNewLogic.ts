@@ -44,7 +44,7 @@ export namespace WhatsNewLogic {
 
     // Per `Related` type, "may the current user reach this?". A news
     // item about a query nobody may run is a news item nobody should be shown.
-    const relatedConfigs = new Map<Function, (lite: Lite<Entity>) => Promise<boolean>>();
+    const relatedConfigs = new Map<Type<Entity>, (lite: Lite<Entity>) => Promise<boolean>>();
 
     export function start(sb: SchemaBuilder): void {
         if (sb.alreadyDefined(start))

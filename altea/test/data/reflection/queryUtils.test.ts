@@ -2,6 +2,7 @@ import { test, describe } from "vitest";
 import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import type { BaseEntity, Type } from "@altea/altea/data/entity";
 import { TypeReference } from "@altea/altea/data/reflection";
 import {
     tryGetFilterType, getKey, getNiceName, type FilterTypeKeys,
@@ -14,7 +15,7 @@ import {
 // PropertyRoute (Phase 0).
 
 describe("QueryUtils.tryGetFilterType", () => {
-    const ft = (root: Function, path: string) => tryGetFilterType(PropertyRoute.parse(root, path).type);
+    const ft = (root: Type<BaseEntity>, path: string) => tryGetFilterType(PropertyRoute.parse(root, path).type);
 
     test("scalars", () => {
         assert.equal(ft(LabelEntity, "name"), "String");

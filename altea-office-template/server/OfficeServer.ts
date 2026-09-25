@@ -1,11 +1,10 @@
 import { WebBuilder, CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
-import { retrieve } from "@altea/altea/server/Database";
-import { Entity, type Type } from "@altea/altea/data/entity";
+import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { cleanTypeName } from "@altea/altea/data/registration";
 import { OfficeModelEntity, OfficeTemplateVisibleOn, type OfficeTemplateEntity } from "../data/OfficeTemplate";
 import { OfficeModelLogic } from "./OfficeModelLogic";
 import { OfficeTemplateLogic } from "./OfficeTemplateLogic";
+import { modelClassName } from "@altea/altea-templating/server/ValueProviders";
 
 // Port of Signum.Word's WordController.cs + WordServer.cs — the module's HTTP surface: render a report, and
 // the two lookups the "create report" menus make.
@@ -50,7 +49,7 @@ export namespace OfficeServer {
 
                 const entity = body.entity ?? (body.lite == null
                     ? null
-                    : await retrieve(body.lite.entityType as Type<Entity>, body.lite.id));
+                    : await body.lite.retrieve());
 
                 const file = await OfficeTemplateLogic.createReportFileContent(template, entity);
 
@@ -66,7 +65,7 @@ export namespace OfficeServer {
                 // The type the CLIENT must build to create
                 // a report from this model (a MultiEntityModel, a QueryModel, an app model). It is not the
                 // model's QUERY, which the two framework models do not even have.
-                res.jsonTyped(cleanTypeName(OfficeModelLogic.toType(await req.jsonTyped())));
+                res.jsonTyped(modelClassName(OfficeModelLogic.toType(await req.jsonTyped())));
             });
 
         // The templates a contextual menu / a query button should offer.
@@ -76,7 +75,7 @@ export namespace OfficeServer {
                 const queryKey = String(req.query["queryKey"] ?? "");
                 const visibleOn = visibleOnOf(String(req.query["visibleOn"] ?? "Single"));
                 const lite = (await req.jsonTyped())?.lite ?? null;
-                const entity = lite == null ? null : await retrieve(lite.entityType as Type<Entity>, lite.id);
+                const entity = lite == null ? null : await lite.retrieve();
 
                 res.jsonTyped(await OfficeTemplateLogic.getApplicableOfficeTemplates(queryKey, entity, visibleOn));
             });

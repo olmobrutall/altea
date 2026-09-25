@@ -141,7 +141,7 @@ export namespace AlertNotificationLogic {
 
             let sent = 0;
             for (const group of byRecipient.values()) {
-                const recipient = await group.recipient.retrieve() as UserEntity;
+                const recipient = await group.recipient.retrieve();
                 const model = AlertNotificationMail.create({
                     alerts: group.alerts.sort((a, b) =>
                         Temporal.PlainDateTime.compare(b.alertDate!, a.alertDate!)),

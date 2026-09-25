@@ -52,7 +52,7 @@ const byCtor = new Map<Type<Symbol>, SymbolTypeLogic<Symbol>>();
 // Per-schema idempotency (Signum's per-schema AlreadyDefined): altea builds several schemas per process
 // (e.g. one per dialect in the offline tests), each of which must still include the table and push its own
 // generate/sync/initialize steps — so the guard is keyed by schema, NOT globally by ctor.
-const startedBySchema = new WeakMap<Schema, Set<Function>>();
+const startedBySchema = new WeakMap<Schema, Set<Type<Symbol>>>();
 
 // True WHILE a symbol lazy is loading (its `table(ctor)` read is in flight) — a guard for any re-entrant
 // symbol lookup (there is none today: reading a symbol table needs no symbol id), mirroring TypeLogic.isLoading.
@@ -139,7 +139,7 @@ export namespace SymbolLogic {
      * content-config registry). Resolved once at the caller's async boundary and then read synchronously.
      */
     export async function allCaches(): Promise<SymbolCaches> {
-        const byCtorCache = new Map<Function, SymbolCache<Symbol>>();
+        const byCtorCache = new Map<Type<Symbol>, SymbolCache<Symbol>>();
         for (const [ctor, stl] of byCtor)
             byCtorCache.set(ctor, new SymbolCache(ctor as Type<Symbol>, await stl.lazy.value() as Map<string, Symbol>));
         return new SymbolCaches(byCtorCache);
@@ -172,7 +172,7 @@ export class SymbolCache<T extends Symbol> {
 
 /** Every symbol type's cache in one object — see {@link SymbolLogic.allCaches}. */
 export class SymbolCaches {
-    constructor(private readonly byCtor: Map<Function, SymbolCache<Symbol>>) { }
+    constructor(private readonly byCtor: Map<Type<Symbol>, SymbolCache<Symbol>>) { }
 
     of<T extends Symbol>(ctor: Type<T>): SymbolCache<T> {
         const c = this.byCtor.get(ctor);

@@ -9,9 +9,11 @@ import { pluralize, detectGender, determinersFor } from "@altea/altea/data/utils
 import {
     getRegisteredTypes, getRegisteredEnums, getRegisteredObjects, getLocation, getPackageCulture,
     allDeclaredSymbols, getDefaultDescription,
+    isModifiableType,
 } from "@altea/altea/data/registration";
 
 import { tryResolvePackageDir, resolveAppRoot } from "@altea/altea/server/translations";
+import type { Type, BaseEntity, ViewType } from "@altea/altea/data/entity";
 
 // Port of Signum.Utilities' `LocalizedAssembly` / `LocalizedType` (the model Signum.Translation's code half
 // edits) — an in-memory, WRITABLE view of one package's translation file for one culture.
@@ -122,7 +124,7 @@ export function localizableTypes(): LocalizableType[] {
     // and no user-facing name, so there is nobody to read a translation of one. Asking for the eleven
     // `Pg*` shapes in every culture is the same noise the blob was cleaned of.
     for (const ctor of getRegisteredTypes())
-        if (!isViewType(ctor))
+        if (isModifiableType(ctor))
             add(ctor.name, descriptionOptionsOf(ctor), routeMemberNames(ctor));
 
     // Enums: a name and its members (Signum: Description | Members).
@@ -173,7 +175,7 @@ export function defaultCultureOf(packageName: string): string {
 // Which of the four labels a reflected class has. Signum keeps this on the base classes, as an
 // INHERITED `[DescriptionOptions]`, and the branches below are those bases one for one — except for
 // the MODEL, the single case altea widens.
-function descriptionOptionsOf(ctor: Function): DescriptionOptions {
+function descriptionOptionsOf(ctor: Type<BaseEntity>): DescriptionOptions {
 
     // Signum's `[DescriptionOptions(All)]` on `Entity`.
     if (isOrExtends(ctor, Entity))
@@ -211,10 +213,6 @@ function descriptionOptionsOf(ctor: Function): DescriptionOptions {
     return { hasDescription: true, hasPluralDescription: false, hasGender: false, hasMembers: true };
 }
 
-function isViewType(ctor: Function): boolean {
-    return isOrExtends(ctor, View);
-}
-
 function isOrExtends(ctor: Function, base: Function): boolean {
     return ctor === base || ctor.prototype instanceof base;
 }
@@ -241,7 +239,7 @@ function isOrExtends(ctor: Function, base: Function): boolean {
  * `declaredMember(ctor.name, member)`. One entry under the declaring type is the only one that can be
  * read, which is the entry Signum writes.
  */
-function routeMemberNames(ctor: Function): string[] {
+function routeMemberNames(ctor: Type<BaseEntity>): string[] {
     const inherited = baseMembersOf(ctor);
     return ownMembersOf(ctor)
         .filter(p => !inherited.has(p))
@@ -250,8 +248,8 @@ function routeMemberNames(ctor: Function): string[] {
 
 // Depth 1 of a type's routes — core's `ownMembersOf`, same rule and same reason. `memberPaths` rather
 // than `generateRoutes` so a `@part` answers with its own members instead of an empty list.
-const ownMembersCache = new Map<Function, string[]>();
-function ownMembersOf(ctor: Function): string[] {
+const ownMembersCache = new Map<Type<BaseEntity>, string[]>();
+function ownMembersOf(ctor: Type<BaseEntity>): string[] {
     let members = ownMembersCache.get(ctor);
     if (members == undefined)
         ownMembersCache.set(ctor, members = PropertyRoute.memberPaths(ctor)
@@ -266,16 +264,16 @@ function ownMembersOf(ctor: Function): string[] {
 // Only a registered base is consulted: it is the one that has an entry of its own to hold the member
 // (`Entity` and `ModelEntity` are registered and do appear in the localizable set), and it is the only
 // one `memberPaths` can be asked about safely.
-function baseMembersOf(ctor: Function): Set<string> {
+function baseMembersOf(ctor: Type<BaseEntity>): Set<string> {
     const registered = registeredTypeSet();
     for (let base = Object.getPrototypeOf(ctor) as Function; typeof base === "function"; base = Object.getPrototypeOf(base) as Function)
-        if (registered.has(base))
-            return new Set(ownMembersOf(base));
+        if (registered.has(base as Type<BaseEntity>))
+            return new Set(ownMembersOf(base as Type<BaseEntity>));
     return new Set();
 }
 
-let registeredSet: Set<Function> | undefined;
-function registeredTypeSet(): Set<Function> {
+let registeredSet: Set<Type<BaseEntity> | ViewType<View>> | undefined;
+function registeredTypeSet(): Set<Type<BaseEntity> | ViewType<View>> {
     return registeredSet ??= new Set(getRegisteredTypes());
 }
 

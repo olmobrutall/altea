@@ -182,7 +182,7 @@ export namespace IsolationLogic {
     function assertIsolationStrategies(schema: Schema): void {
         const declared = Isolation.allStrategies();
         const tables = [...schema.tables.values()]
-            .map(t => t.type as Function)
+            .map(t => t.type as Type<Entity>)
             .filter(t => !isExempt(t));
 
         const tableSet = new Set(tables);
@@ -191,7 +191,7 @@ export namespace IsolationLogic {
 
         if (missing.length > 0 || extra.length > 0) {
             const referencedBy = referencesOf(schema, new Set([...missing, ...extra]));
-            const line = (t: Function): string => {
+            const line = (t: Type<Entity>): string => {
                 const refs = referencedBy.get(t);
                 return `  Isolation.register(${t.name}, "XXX");`
                     + (refs != undefined && refs.length > 0 ? ` // referenced by: ${refs.join(", ")}` : "");
@@ -221,7 +221,7 @@ export namespace IsolationLogic {
 
     // Enum tables, symbol tables and IsolationEntity itself are exempt from the assertion. An enum
     // or symbol table is DECLARED, not application data: its rows are identical in every isolation.
-    function isExempt(ctor: Function): boolean {
+    function isExempt(ctor: Type<Entity>): boolean {
         return ctor === IsolationEntity
             || isSubclassOf(ctor, EnumEntity) || isSubclassOf(ctor, EntitySymbol);
     }
@@ -234,9 +234,9 @@ export namespace IsolationLogic {
     }
 
     /** The `Type.field` sites pointing at each of `types`. */
-    function referencesOf(schema: Schema, types: Set<Function>): Map<Function, string[]> {
-        const result = new Map<Function, string[]>();
-        const add = (target: Function, info: string): void => {
+    function referencesOf(schema: Schema, types: Set<Type<Entity>>): Map<Type<Entity>, string[]> {
+        const result = new Map<Type<Entity>, string[]>();
+        const add = (target: Type<Entity>, info: string): void => {
             if (!types.has(target))
                 return;
             const list = result.get(target);
@@ -245,7 +245,7 @@ export namespace IsolationLogic {
         for (const tab of schema.tables.values()) {
             for (const [name, field] of Object.entries(tab.fields)) {
                 for (const target of referencedTypesOf(field.field))
-                    add(target, `${(tab.type as Function).name}.${name}`);
+                    add(target, `${(tab.type as Type<Entity>).name}.${name}`);
             }
         }
         return result;
@@ -254,11 +254,11 @@ export namespace IsolationLogic {
     // A field's referenced entity types: one for a plain reference, several for an @implementedBy. Read off
     // the BUILT field, so it sees exactly what the schema has rather than what was declared. An
     // @implementedByAll names no type and so contributes none.
-    function referencedTypesOf(field: unknown): Function[] {
+    function referencedTypesOf(field: unknown): Type<Entity>[] {
         if (field instanceof FieldReference)
-            return [field.column.referenceTable!.type as Function];
+            return [field.column.referenceTable!.type as Type<Entity>];
         if (field instanceof FieldImplementedBy)
-            return field.implementationColumns.map(c => c.referenceTable!.type as Function);
+            return field.implementationColumns.map(c => c.referenceTable!.type as Type<Entity>);
         return [];
     }
 
@@ -401,7 +401,7 @@ export namespace IsolationLogic {
         const curr = current();
         if (curr == null)
             return collection;
-        return collection.filter(e => Isolation.tryStrategy(e.constructor) === "None"
+        return collection.filter(e => Isolation.tryStrategy(e.getType()) === "None"
             || Isolation.tryIsolation(e)?.is(curr) === true);
     }
 

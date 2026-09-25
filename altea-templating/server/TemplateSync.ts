@@ -11,6 +11,7 @@ import type { FixTokenResult } from "@altea/altea-user-assets/server/QueryTokenS
 import { QueryTokenSynchronizer } from "@altea/altea-user-assets/server/QueryTokenSynchronizer";
 import { ScopedDictionary } from "./TemplateUtils";
 import { MemberWithArguments, ParsedToken, TokenValueProvider, type ValueProviderBase } from "./ValueProviders";
+import type { ModelClass } from "./ValueProviders";
 
 // Port of Signum.Templating's `TemplateSynchronizationContext` (CommonTemplate.cs) — the BODY-TEXT half of
 // the token migration, and the consumer @altea/altea-user-assets' `Member` / `Global` rename buckets were
@@ -62,7 +63,7 @@ export class TemplateSynchronizationContext {
         /** The template's query, or undefined for a model-only template (no query tokens to fix). */
         readonly queryName: QueryName | undefined,
         /** The template's model type, when it has one — what `@[m:…]` members are read off. */
-        readonly modelType: Function | undefined,
+        readonly modelType: ModelClass | undefined,
     ) {
         this.variables = new ScopedDictionary<ValueProviderBase>(undefined);
     }
@@ -110,7 +111,7 @@ export class TemplateSynchronizationContext {
             tokenString = head + (dot < 0 ? "" : "." + tokenString.substring(dot + 1));
         }
 
-        SafeConsole.writeLine(`${cleanTypeName(this.template.constructor)}: ${this.template.toString()}`);
+        SafeConsole.writeLine(`${cleanTypeName(this.template.getType())}: ${this.template.toString()}`);
         SafeConsole.writeColor(Color.red, "  " + tokenString);
         SafeConsole.writeLine(" " + remainingText);
 
@@ -150,7 +151,7 @@ export class TemplateSynchronizationContext {
      *
      * See the header on why a step whose owner is not a REFLECTED type is accepted unchanged.
      */
-    async getMembers(fieldOrPropertyChain: string, initialType: Function | undefined): Promise<MemberWithArguments[] | undefined> {
+    async getMembers(fieldOrPropertyChain: string, initialType: ModelClass | undefined): Promise<MemberWithArguments[] | undefined> {
         const members: MemberWithArguments[] = [];
         let ti = initialType == undefined ? undefined : tryGetTypeInfo(initialType);
 

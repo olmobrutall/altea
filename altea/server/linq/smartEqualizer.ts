@@ -10,10 +10,11 @@ import { Entity } from "../../data/entity";
 import { Lite } from "../../data/lite";
 import { getTypeInfo } from "../../data/reflection";
 import { requireTypeId, type TypeCaches } from "../typeLogic";
+import type { Type } from "../../data/entity";
 
 // The @implementedByAll id column matching a known target ctor's PK type (NULL if absent):
 // comparisons against a typed value resolve to the one column that can hold its id.
-function ibaIdOf(iba: ImplementedByAllExpression, ctor: Function): Expression {
+function ibaIdOf(iba: ImplementedByAllExpression, ctor: Type<Entity>): Expression {
     const pk = (getTypeInfo(ctor)?.fields["id"]?.columnOptions?.primaryKey as string | undefined) ?? "int";
     return iba.ids.get(pk) ?? new ConstantExpression(null);
 }
@@ -43,7 +44,7 @@ export class SmartEqualizer {
 
     // The @implementedByAll type discriminator value for a constructor — the target's TypeEntity int id
     // (Signum's TypeToId), compared as a SQL int literal. Resolved from the threaded caches.
-    private typeConstant(ctor: Function): Expression {
+    private typeConstant(ctor: Type<Entity>): Expression {
         return new ConstantExpression(requireTypeId(this.tc, ctor));
     }
 
@@ -100,7 +101,7 @@ export class SmartEqualizer {
     // row of that concrete type: for a typed reference, the static type must match;
     // for IB, the matching implementation column must be non-null; for IBA, the type
     // discriminator must equal the target's TypeEntity id.
-    entityIsInstance(expr: Expression, ctor: Function): Expression {
+    entityIsInstance(expr: Expression, ctor: Type<Entity>): Expression {
         const node = this.unwrapLite(expr);
 
         if (node instanceof EntityExpression)
@@ -370,19 +371,19 @@ function isNullConstant(e: Expression): boolean {
     return e instanceof ConstantExpression && e.value == null;
 }
 
-function ctorOf(type: unknown): Function {
+function ctorOf(type: unknown): Type<Entity> {
     if (type instanceof ClassType)
-        return type.constructorFunction;
+        return type.constructorFunction as Type<Entity>;
     throw new Error("Expected a ClassType for an entity reference");
 }
 
-function sameCtor(type: unknown, ctor: Function): boolean {
+function sameCtor(type: unknown, ctor: Type<Entity>): boolean {
     return type instanceof ClassType && type.constructorFunction === ctor;
 }
 
 // A captured Entity/Lite (or null) on one side of the comparison.
 interface ConstRef {
-    readonly ctor: Function | undefined; // undefined when isNull
+    readonly ctor: Type<Entity> | undefined; // undefined when isNull
     readonly id: unknown;
     readonly isNull: boolean;
 }
@@ -396,7 +397,7 @@ function constRef(e: Expression): ConstRef | null {
     if (v instanceof Lite)
         return { ctor: v.entityType, id: v.id, isNull: false };
     if (v instanceof Entity)
-        return { ctor: v.constructor, id: v.id, isNull: false };
+        return { ctor: v.getType(), id: v.id, isNull: false };
     return null;
 }
 
@@ -406,7 +407,7 @@ function idConstant(c: ConstRef): Expression {
 
 // A captured constructor (`typeof X`) or null on one side of a type comparison.
 interface TypeConst {
-    readonly ctor: Function | undefined; // undefined when isNull
+    readonly ctor: Type<Entity> | undefined; // undefined when isNull
     readonly isNull: boolean;
 }
 
@@ -416,6 +417,6 @@ function typeConstOf(e: Expression): TypeConst | null {
     if (e.value == null)
         return { ctor: undefined, isNull: true };
     if (typeof e.value === "function")
-        return { ctor: e.value as Function, isNull: false };
+        return { ctor: e.value as Type<Entity>, isNull: false };
     return null;
 }

@@ -30,6 +30,8 @@ import { EmailModelLogic, type IEmailModel } from "./EmailModelLogic";
 import { EmailMasterTemplateLogic } from "./EmailMasterTemplateLogic";
 import { EmailMessageBuilder } from "./EmailMessageBuilder";
 import { registerEmailTemplateXml } from "./EmailTemplateXml";
+import type { Type, BaseEntity } from "@altea/altea/data/entity";
+import { modelClassName, type ModelClass } from "@altea/altea-templating/server/ValueProviders";
 
 // Port of Signum.Mailing's Templates/EmailTemplateLogic.cs — the template table, its caches, the parse-time
 // validation, the operations, and the global variables every template may read.
@@ -53,7 +55,7 @@ import { registerEmailTemplateXml } from "./EmailTemplateXml";
 export interface FillAttachmentTokenContext {
     queryName: QueryName;
     queryTokens: QueryToken[];
-    modelType: Function | undefined;
+    modelType: ModelClass | undefined;
 }
 
 /** Signum's GenerateAttachmentContext. */
@@ -61,7 +63,7 @@ export interface GenerateAttachmentContext {
     template: EmailTemplateEntity;
     culture: string;
     queryContext: QueryContext | undefined;
-    modelType: Function | undefined;
+    modelType: ModelClass | undefined;
     entity: Entity | null;
     model: IEmailModel | null;
 }
@@ -93,8 +95,8 @@ export namespace EmailTemplateLogic {
     type FillTokens = (attachment: IAttachmentGeneratorEntity, ctx: FillAttachmentTokenContext) => void;
     type Generate = (attachment: IAttachmentGeneratorEntity, ctx: GenerateAttachmentContext) => Promise<GeneratedAttachment[]>;
 
-    const fillAttachmentTokensHandlers = new Map<Function, FillTokens>();
-    const generateAttachmentHandlers = new Map<Function, Generate>();
+    const fillAttachmentTokensHandlers = new Map<Type<Entity>, FillTokens>();
+    const generateAttachmentHandlers = new Map<Type<Entity>, Generate>();
 
     /** Signum's memoised parse trees, off the entity (see the header). Keyed by the message ROW instance. */
     const parsedNodes = new WeakMap<object, { subject?: BlockNode; text?: BlockNode }>();
@@ -178,7 +180,7 @@ export namespace EmailTemplateLogic {
         let body = message.text;
 
         if (template.masterTemplate != null) {
-            const master = await EmailLogic.retrieveLite(template.masterTemplate);
+            const master = await template.masterTemplate.retrieve();
             const defaultCulture = (await EmailLogic.configuration()).defaultCulture.name;
             const masterMessage = EmailMasterTemplateLogic.getCultureMessage(master, cultureNameOf(message.cultureInfo) ?? defaultCulture)
                 ?? EmailMasterTemplateLogic.getCultureMessage(master, defaultCulture);
@@ -213,7 +215,7 @@ export namespace EmailTemplateLogic {
 
     /** Signum's `FillAttachmentTokens.Register(...)`. */
     export function registerFillAttachmentTokens<T extends IAttachmentGeneratorEntity>(
-        attachmentType: Function,
+        attachmentType: Type<Entity>,
         handler: (attachment: T, ctx: FillAttachmentTokenContext) => void,
     ): void {
         fillAttachmentTokensHandlers.set(attachmentType, handler as FillTokens);
@@ -221,7 +223,7 @@ export namespace EmailTemplateLogic {
 
     /** Signum's `GenerateAttachment.Register(...)`. */
     export function registerGenerateAttachment<T extends IAttachmentGeneratorEntity>(
-        attachmentType: Function,
+        attachmentType: Type<Entity>,
         handler: (attachment: T, ctx: GenerateAttachmentContext) => Promise<GeneratedAttachment[]>,
     ): void {
         generateAttachmentHandlers.set(attachmentType, handler as Generate);
@@ -235,9 +237,9 @@ export namespace EmailTemplateLogic {
         return dispatch(generateAttachmentHandlers, attachment, "generateAttachment")(attachment, ctx);
     }
 
-    function dispatch<H>(handlers: Map<Function, H>, attachment: IAttachmentGeneratorEntity, what: string): H {
+    function dispatch<H>(handlers: Map<Type<Entity>, H>, attachment: IAttachmentGeneratorEntity, what: string): H {
         for (let ctor: Function | null = attachment.constructor; ctor != null; ctor = Object.getPrototypeOf(ctor) as Function | null) {
-            const handler = handlers.get(ctor);
+            const handler = handlers.get(ctor as Type<Entity>);
             if (handler != null)
                 return handler;
         }
@@ -305,7 +307,7 @@ export namespace EmailTemplateLogic {
     }
 
     /** Signum's VisibleOnDictionary — where a MODEL's templates are offered. */
-    export const visibleOnByModelType = new Map<Function, EmailTemplateVisibleOn>([
+    export const visibleOnByModelType = new Map<ModelClass, EmailTemplateVisibleOn>([
         [MultiEntityModel, EmailTemplateVisibleOn.Single | EmailTemplateVisibleOn.Multiple],
         [QueryModel, EmailTemplateVisibleOn.Single | EmailTemplateVisibleOn.Multiple | EmailTemplateVisibleOn.Query],
     ]);

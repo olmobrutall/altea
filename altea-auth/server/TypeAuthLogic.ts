@@ -111,7 +111,7 @@ export namespace TypeAuthLogic {
      */
     const auditsBySource = new WeakMap<Expression, Map<string, StablePromise<Map<TypeConditionSymbol, LambdaExpression>>>>();
 
-    function auditedConditions(ctor: Function, roleKey: string, args: FilterQueryArgs | undefined)
+    function auditedConditions(ctor: Type<Entity>, roleKey: string, args: FilterQueryArgs | undefined)
         : Map<TypeConditionSymbol, LambdaExpression> | undefined {
         // Nothing to audit: the common case by far, and it costs one synchronous registry read.
         if (args == null || !TypeConditionLogic.hasQueryAuditorConditions(ctor))
@@ -135,12 +135,12 @@ export namespace TypeAuthLogic {
     // never gets its own rule and never shows in the grid. Keyed by CTOR (not typeId) because it is built at
     // schema.initialize — which also runs BEFORE generation, when a brand-new Part type has no TypeEntity id
     // yet; the id lookups are deferred to runtime (getAllowed), by when the caches are fully loaded.
-    let partRootCtor = new Map<Function, Function>();
+    let partRootCtor = new Map<Type<Entity>, Type<Entity>>();
     // Back-reference Part ctor → the field-name chain to navigate UP to its non-Part root (e.g. Widget →
     // ["panel", "sample"]). Installed as a queryFilter on the Part so a STANDALONE `table(Part)` query is
     // gated by the root's TypeCondition (via-owner access never reaches this — the owner's collection
     // projection bypasses the queryFilter marker). Only conditioned roots produce an entry.
-    let partChains = new Map<Function, string[]>();
+    let partChains = new Map<Type<Entity>, string[]>();
 
     // Per-dimension access-summary providers (property/operation/query), registered by each dimension
     // logic at start (they already import TypeAuthLogic, so this avoids a back-import cycle). Each returns
@@ -321,7 +321,7 @@ export namespace TypeAuthLogic {
     // when it meets THAT table source. Synchronous, like every queryFilter hook — and self-sufficient: it
     // demands the caches it folds the role's allowance from, and the auditor verdicts for this source, so a
     // query pays for the types it actually reads. Nothing is resolved in advance for it any more.
-    function authQueryFilterHook(ctx: { ctor: Function; elementType: RuntimeType; args: FilterQueryArgs | undefined }): LambdaExpression | undefined {
+    function authQueryFilterHook(ctx: { ctor: Type<Entity>; elementType: RuntimeType; args: FilterQueryArgs | undefined }): LambdaExpression | undefined {
         const rk = AuthLogic.currentRoleKey();
         if (rk == null || !AuthLogic.isEnabled())
             return undefined;
@@ -340,8 +340,8 @@ export namespace TypeAuthLogic {
     // `table(Part)` query is restricted exactly as the root is. SYNCHRONOUS, like authQueryFilterHook —
     // reads the same async-resolved ConditionsByType for the ROOT's id. No root entry (auth off / no role)
     // or the root reduces to "all" → no filter.
-    function partAuthQueryFilterHook(rootCtor: Function, chain: readonly string[]) {
-        return (ctx: { ctor: Function; elementType: RuntimeType; args: FilterQueryArgs | undefined }): LambdaExpression | undefined => {
+    function partAuthQueryFilterHook(rootCtor: Type<Entity>, chain: readonly string[]) {
+        return (ctx: { ctor: Type<Entity>; elementType: RuntimeType; args: FilterQueryArgs | undefined }): LambdaExpression | undefined => {
             const rk = AuthLogic.currentRoleKey();
             if (rk == null || !AuthLogic.isEnabled())
                 return undefined;
@@ -372,11 +372,12 @@ export namespace TypeAuthLogic {
         // per type — so the per-instance isAllowedFor below
         // reads cached values. (A brand-new row isn't in the DB yet, so its DB-only conditions resolve
         // false — the same limitation as any pre-write gate; in-memory conditions evaluate live regardless.)
-        const byCtor = new Map<Function, Entity[]>();
+        const byCtor = new Map<Type<Entity>, Entity[]>();
         for (const e of entities) {
-            if (!TypeConditionLogic.hasDbOnlyConditions(e.constructor)) continue;
-            let g = byCtor.get(e.constructor);
-            if (g == null) { g = []; byCtor.set(e.constructor, g); }
+            const ctor = e.getType();
+            if (!TypeConditionLogic.hasDbOnlyConditions(ctor)) continue;
+            let g = byCtor.get(ctor);
+            if (g == null) { g = []; byCtor.set(ctor, g); }
             g.push(e);
         }
         for (const group of byCtor.values())
@@ -385,7 +386,7 @@ export namespace TypeAuthLogic {
         const caches = await TypeLogic.caches();
         const rules = await rulesLazy.value();
         for (const e of entities) {
-            const ctor = e.constructor as Function;
+            const ctor = e.getType();
             if (TypeConditionLogic.conditionsFor(ctor).length === 0)
                 continue;
             const wc = rules.getAllowed(caches.typeToId(ctor), caches, rk);
@@ -403,9 +404,9 @@ export namespace TypeAuthLogic {
     // the queryFilter, not here. A type not registered in TypeLogic (enum side-table / view) is not
     // type-auth-gated, so it is skipped.
     async function authRetrieveGate(entities: Entity[]): Promise<void> {
-        const checked = new Set<Function>();
+        const checked = new Set<Type<Entity>>();
         for (const e of entities) {
-            const ctor = e.constructor as Function;
+            const ctor = e.getType();
             if (checked.has(ctor))
                 continue;
             checked.add(ctor);
@@ -418,7 +419,7 @@ export namespace TypeAuthLogic {
     // a pasted list carries) reads the display string without ever building one, so it has no entity to
     // hand `authRetrieveGate` and asks by type instead. A CONDITIONED type passes here on its most
     // permissive branch — the per-row half is the queryFilter's, as it is for every other query.
-    async function assertTypeReadable(ctor: Function): Promise<void> {
+    async function assertTypeReadable(ctor: Type<Entity>): Promise<void> {
         const rk = AuthLogic.currentRoleKey();
         if (rk == null || !AuthLogic.isEnabled())
             return;
@@ -515,7 +516,7 @@ export namespace TypeAuthLogic {
         if (rk == null || !AuthLogic.isEnabled())
             return true;
         const caches = await TypeLogic.caches();
-        const tac = (await rulesLazy.value()).getAllowed(caches.typeToId(entity.constructor), caches, rk);
+        const tac = (await rulesLazy.value()).getAllowed(caches.typeToId(entity.getType()), caches, rk);
         const min = minBound(tac, userInterface);
         if (requested <= min)
             return true;
@@ -728,7 +729,7 @@ export namespace TypeAuthLogic {
         };
     }
 
-    function failNotDefined(tc: TypeConditionSymbol, ctor: Function): never {
+    function failNotDefined(tc: TypeConditionSymbol, ctor: Type<Entity>): never {
         throw new Error(`Type condition ${tc.key} is not defined for ${ctor.name}. Import AuthRules interactively.`);
     }
 

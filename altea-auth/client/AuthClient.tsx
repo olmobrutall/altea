@@ -11,6 +11,7 @@ import type { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { AuthMessage } from "../data/AuthMessages";
 import { TypeAllowedBasic, PropertyAllowed } from "../data/Rules";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import type { Type, Entity, BaseEntity } from "@altea/altea/data/entity";
 
 // Signum's `PropertyRoute.member.minPropertyAllowed` / `maxPropertyAllowed`, on the route itself:
 // `UserEntity.propertyRoute(u => u.mixin(UserCareerMixin).careerPaths).propertyAllowed()?.max`. See
@@ -122,7 +123,7 @@ export namespace AuthClient {
      * a type across its condition slices, from the metadata blob. Undefined before the blob is applied, or for
      * a type it does not list (the role cannot read it).
      */
-    export function typeAllowed(type: Function): { min: TypeAllowedBasic; max: TypeAllowedBasic } | undefined {
+    export function typeAllowed(type: Type<Entity>): { min: TypeAllowedBasic; max: TypeAllowedBasic } | undefined {
         const tm = Metadata.tryType(type.name);
         if (tm == null)
             return undefined;
@@ -135,7 +136,7 @@ export namespace AuthClient {
      * allowance for a route (root entity type + its property string), from the metadata blob. A route with no
      * entry follows its type. Undefined when the blob does not list the type.
      */
-    export function propertyAllowed(rootType: Function, path: string): { min: PropertyAllowed; max: PropertyAllowed } | undefined {
+    export function propertyAllowed(rootType: Type<BaseEntity>, path: string): { min: PropertyAllowed; max: PropertyAllowed } | undefined {
         const tm = Metadata.tryType(rootType.name);
         if (tm == null)
             return undefined;

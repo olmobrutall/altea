@@ -12,6 +12,8 @@ import {
     AnyNode, BlockNode, DeclareNode, ForeachNode, IfNode, LiteralNode, ValueNode,
 } from "./TextTemplateParser.Nodes";
 import type { TemplateSynchronizationContext } from "./TemplateSync";
+import type { Type, BaseEntity } from "@altea/altea/data/entity";
+import type { ModelClass } from "./ValueProviders";
 
 // Port of Signum.Templating's TextTemplateParser.cs — see port/Templating.md.
 //
@@ -22,13 +24,13 @@ import type { TemplateSynchronizationContext } from "./TemplateSync";
 export namespace TextTemplateParser {
 
     /** Throw on ANY error (used when saving a template: the text must be valid). */
-    export function parse(text: string | null | undefined, queryName: QueryName | undefined, modelType: Function | undefined): BlockNode {
+    export function parse(text: string | null | undefined, queryName: QueryName | undefined, modelType: ModelClass | undefined): BlockNode {
         return new TextTemplateParserImp(text, queryName, modelType).parse();
     }
 
     /** Always returns a tree; the errors come back as one message (used by the
      *  property validators, so a bad template shows as a validation error instead of an exception). */
-    export function tryParse(text: string | null | undefined, queryName: QueryName | undefined, modelType: Function | undefined): { node: BlockNode; errorMessage: string } {
+    export function tryParse(text: string | null | undefined, queryName: QueryName | undefined, modelType: ModelClass | undefined): { node: BlockNode; errorMessage: string } {
         return new TextTemplateParserImp(text, queryName, modelType).tryParse();
     }
 
@@ -66,7 +68,7 @@ export namespace TextTemplateParser {
         // exactly as it was, and the operator is told which one to look at.
         if (print(node) !== text) {
             SafeConsole.writeLineColor(Color.darkRed,
-                `  ${cleanTypeName(sc.template.constructor)} '${sc.template.toString()}': the body did not`
+                `  ${cleanTypeName(sc.template.getType())} '${sc.template.toString()}': the body did not`
                 + ` parse back to itself, so it is left UNCHANGED. Fix the template by hand.`);
             return text;
         }
@@ -89,10 +91,10 @@ export namespace TextTemplateParser {
         private errors: TemplateError[] = [];
 
         variables: ScopedDictionary<ValueProviderBase> = null!;
-        readonly modelType: Function | undefined;
+        readonly modelType: ModelClass | undefined;
         readonly queryName: QueryName | undefined;
 
-        constructor(text: string | null | undefined, queryName: QueryName | undefined, modelType: Function | undefined) {
+        constructor(text: string | null | undefined, queryName: QueryName | undefined, modelType: ModelClass | undefined) {
             this.text = text ?? "";
             this.queryName = queryName;
             this.modelType = modelType;

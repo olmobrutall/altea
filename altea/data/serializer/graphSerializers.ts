@@ -15,7 +15,7 @@ import { isModifiedSelf, getSnapshot, snapshotEqual } from '../changes';
 import { getTypeInfo, eachFieldInfo } from '../reflection';
 import { bindParentsOwn } from '../parentEntity';
 import type { FieldInfo } from '../reflection';
-import { resolveCleanType, resolveEnum, cleanTypeName } from '../registration';
+import { resolveModifiableType, resolveEnum, cleanTypeName } from '../registration';
 import { EnumEntity } from '../enumEntity';
 import { toInt, Decimal } from '../basics';
 import type {
@@ -81,12 +81,12 @@ export function setTranslatedFieldProvider(fn: TranslatedFieldProvider | undefin
  * refreshed from its async lazy — the pattern `GlobalsLogic.warmUp` and `CultureInfoLogic` already use.
  */
 export type AfterDeserialization<T extends Entity> = (entity: T) => void;
-const _afterDeserialization = new Map<Function, AfterDeserialization<never>>();
+const _afterDeserialization = new Map<Type<BaseEntity>, AfterDeserialization<never>>();
 export function registerAfterDeserialization<T extends Entity>(ctor: Type<T>, fn: AfterDeserialization<T>): void {
     _afterDeserialization.set(ctor, fn as AfterDeserialization<never>);
 }
 function runAfterDeserialization(entity: Entity): void {
-    _afterDeserialization.get(entity.constructor)?.(entity as never);
+    _afterDeserialization.get(entity.getType())?.(entity as never);
 }
 /** True once a SerializationAuth is installed — lets the save path decide whether to run the write-gate overlay. */
 export function hasSerializationAuth(): boolean { return _serAuth != null; }
@@ -124,7 +124,7 @@ function fieldRouteOf(ownerRoute: PropertyRoute | undefined, name: string): Prop
  * `undefined` when there is no route in hand, which means no gate: that happens only for a part reached
  * with no owner at all, and the Navigator does not make one navigable.
  */
-function continueRoute(route: PropertyRoute | undefined, ctor: Function): PropertyRoute | undefined {
+function continueRoute(route: PropertyRoute | undefined, ctor: Type<Entity>): PropertyRoute | undefined {
     if (route == null) return undefined;
     try {
         const r = route.type.array ? route.add("Item") : route;
@@ -146,11 +146,11 @@ function continueRoute(route: PropertyRoute | undefined, ctor: Function): Proper
 // ./temporalHelpers and ../enum respectively) ----------------------------------------------------
 
 // True for a persisted Entity ctor (gates the id/ticks/toStr handling in EntitySerializer).
-function ctorIsEntity(ctor: Function): boolean {
+function ctorIsEntity(ctor: Function): ctor is Type<Entity> {
     return ctor === Entity || ctor.prototype instanceof Entity;
 }
 // True for an id-less modifiable (EmbeddedEntity OR ModelEntity) — both (de)serialize the same way.
-function ctorIsEmbedded(ctor: Function): boolean {
+function ctorIsEmbedded(ctor: Function): ctor is Type<EmbeddedEntity> {
     return ctor === EmbeddedEntity || ctor.prototype instanceof EmbeddedEntity
         || ctor === ModelEntity || ctor.prototype instanceof ModelEntity;
 }
@@ -167,8 +167,8 @@ import {
 // enum registry and re-mints the SAME memoized bound ctor via EnumEntity.typeFor. Without this an enum lite
 // in an @implementedByAll field (e.g. ColorPalette.specificColors) deserializes to base Entity and the save
 // discriminator write (TypeLogic.typeToId) throws "Type 'Entity' is not registered".
-function resolveWireType(name: string): Function | undefined {
-    const ctor = resolveCleanType(name);
+function resolveWireType(name: string): Type<BaseEntity> | undefined {
+    const ctor = resolveModifiableType(name);
     if (ctor != null)
         return ctor;
     const enumObj = resolveEnum(name);
@@ -186,7 +186,7 @@ const LITE_RESERVED_KEYS = new Set(['id', 'entityType', 'toStr', '_entity']);
 // type's globally-registered custom lites.
 class LiteSerializer implements JsonSerializer {
     constructor(
-        private readonly expectedCtor: Function | undefined,
+        private readonly expectedCtor: Type<Entity> | undefined,
         private readonly fieldCustomLite?: { liteClass: () => unknown; forEntityType: () => unknown }[],
     ) { }
 
@@ -209,7 +209,7 @@ class LiteSerializer implements JsonSerializer {
         }
         const entity = lite.entityOrNull;
         if (entity != null)   // fat lite — the entity's type is the lite's, so Auto omits $type
-            o.entity = factory.forEntity(entity.constructor as Type<BaseEntity>).toJson(entity, sc, sc.writeTypes === 'Always');
+            o.entity = factory.forEntity(entity.getType()).toJson(entity, sc, sc.writeTypes === 'Always');
         return o;
     }
 
@@ -232,12 +232,12 @@ class LiteSerializer implements JsonSerializer {
                 lite = (match.liteClass() as CustomLiteClass).fromJson(j, v => factory.dynamic.fromJson(v, dc, undefined));
         }
         if (lite == null)
-            for (const candidate of getCustomLites(ctor))
+            for (const candidate of getCustomLites(ctor as Type<Entity>))
                 if (candidate.isCompatible(j)) { lite = candidate.fromJson(j, v => factory.dynamic.fromJson(v, dc, undefined)); break; }
         lite ??= new LiteImp(id, ctor as Type<Entity>, (j.toStr as string | undefined) ?? '');
 
         if (j.entity != null)
-            lite.setEntity(factory.forEntity(ctor as Type<BaseEntity>).fromJson(j.entity, dc, undefined) as Entity);
+            lite.setEntity(factory.forEntity(ctor as Type<Entity>).fromJson(j.entity, dc, undefined) as Entity);
         return lite;
     }
 }
@@ -247,13 +247,13 @@ class LiteSerializer implements JsonSerializer {
 class PolyReferenceSerializer implements JsonSerializer {
     toJson(value: unknown, sc: SerializationContext): unknown {
         const entity = value as Entity;
-        return factory.forEntity(entity.constructor as Type<BaseEntity>).toJson(entity, sc, /* writeType */ true);
+        return factory.forEntity(entity.getType()).toJson(entity, sc, /* writeType */ true);
     }
     fromJson(json: unknown, dc: DeserializationContext, existing: unknown, slot?: Slot): unknown {
         const j = json as Record<string, unknown>;
         const ctor = resolveWireType(j.$type as string);
         if (ctor == null) throw new Error(`Cannot deserialize polymorphic reference: unknown type "${String(j.$type)}"`);
-        return factory.forEntity(ctor as Type<BaseEntity>).fromJson(j, dc, existing, slot);
+        return factory.forEntity(ctor as Type<Entity>).fromJson(j, dc, existing, slot);
     }
 }
 
@@ -261,7 +261,7 @@ class PolyReferenceSerializer implements JsonSerializer {
 
 abstract class ModifiableSerializer implements JsonSerializer {
     plan: FieldPlan[] = [];   // precomputed by the factory (see build)
-    constructor(readonly ctor: Function) { }
+    constructor(readonly ctor: Type<BaseEntity>) { }
 
     abstract toJson(value: unknown, sc: SerializationContext, writeType: boolean, parented?: boolean): unknown;
     abstract fromJson(json: unknown, dc: DeserializationContext, existing: unknown, slot?: Slot): unknown;
@@ -364,7 +364,7 @@ class EmbeddedSerializer extends ModifiableSerializer {
     toJson(value: unknown, sc: SerializationContext, writeType: boolean): unknown {
         const em = value as EmbeddedEntity;
         const o: Record<string, unknown> = {};
-        if (writeType) o.$type = cleanTypeName(em.constructor);
+        if (writeType) o.$type = cleanTypeName(em.getType());
         if (isModifiedSelf(em)) o.modified = true;
         // An embedded continues the owner's route (set by the parent's serializeFields in sc.route); the
         // root entity's authMeta stays in effect (routes are keyed from the root).
@@ -389,6 +389,8 @@ class EmbeddedSerializer extends ModifiableSerializer {
 // ---- Entity ----------------------------------------------------------------
 
 class EntitySerializer extends ModifiableSerializer {
+    constructor(override readonly ctor: Type<Entity>) { super(ctor); }
+
     toJson(value: unknown, sc: SerializationContext, writeType: boolean, parented = false): unknown {
         const entity = value as Entity;
         if (sc.path.has(entity))
@@ -396,7 +398,7 @@ class EntitySerializer extends ModifiableSerializer {
         sc.path.add(entity);
         try {
             const o: Record<string, unknown> = {};
-            if (writeType) o.$type = cleanTypeName(entity.constructor);
+            if (writeType) o.$type = cleanTypeName(entity.getType());
             o.id = entity.id ?? null;
             if (entity.ticks != null) o.ticks = entity.ticks;
             o.toStr = entity.toString();
@@ -410,8 +412,8 @@ class EntitySerializer extends ModifiableSerializer {
             // The route is needed by the property-auth gate AND by the translated-field hook, so compute
             // it whenever either is installed.
             const ownerRoute = _serAuth == null && _translatedField == null ? undefined
-                : isPart ? continueRoute(sc.route, entity.constructor)
-                    : PropertyRoute.root(entity.constructor);
+                : isPart ? continueRoute(sc.route, entity.getType())
+                    : PropertyRoute.root(entity.getType());
             if (_serAuth != null && !isPart) sc.authMeta = _serAuth.getMetadata(entity);
             const prevOwner = sc.translationOwner;
             sc.translationOwner = entity;
@@ -431,7 +433,7 @@ class EntitySerializer extends ModifiableSerializer {
         if (wire != null) {
             const concrete = resolveWireType(wire);
             if (concrete != null && concrete !== this.ctor)
-                return factory.forEntity(concrete as Type<BaseEntity>).fromJson(j, dc, existing, slot);
+                return factory.forEntity(concrete as Type<Entity>).fromJson(j, dc, existing, slot);
         }
 
         const id = (j.id === undefined ? null : j.id) as PrimaryKey | null;
@@ -439,7 +441,7 @@ class EntitySerializer extends ModifiableSerializer {
 
         // New entity: build; _snapshot stays `true` (modified), like create()/new.
         if (id == null) {
-            const inst = newInstance(this.ctor as Type<Entity>);
+            const inst = newInstance(this.ctor);
             this.applyFields(inst, j, dc);
             this.recover(inst, slot);
             runAfterDeserialization(inst);
@@ -556,9 +558,9 @@ class DynamicSerializer implements JsonSerializer {
     toJson(value: unknown, sc: SerializationContext, _writeType?: boolean, _parented?: boolean): unknown {
         if (value == null) return null;
         if (value instanceof Lite) return LITE_DYNAMIC.toJson(value, sc, true);
-        if (value instanceof Entity) return factory.forEntity(value.constructor as Type<BaseEntity>).toJson(value, sc, true);
+        if (value instanceof Entity) return factory.forEntity(value.getType()).toJson(value, sc, true);
         // EmbeddedEntity and ModelEntity are both id-less modifiables — serialize both via forEmbedded.
-        if (value instanceof EmbeddedEntity || value instanceof ModelEntity) return factory.forEmbedded(value.constructor as Type<BaseEntity>).toJson(value, sc, true);
+        if (value instanceof EmbeddedEntity || value instanceof ModelEntity) return factory.forEmbedded(value.getType()).toJson(value, sc, true);
         if (isTemporal(value)) return (value as { toString(): string }).toString();
         if (value instanceof Decimal) return value.toString();
         if (value instanceof Date) return value.toISOString();
@@ -580,7 +582,7 @@ class DynamicSerializer implements JsonSerializer {
             if ('$type' in j) {
                 const ctor = resolveWireType(j.$type as string);
                 if (ctor == null) throw new Error(`Cannot deserialize: unknown type "${String(j.$type)}"`);
-                return factory.forCtor(ctor as Type<BaseEntity>).fromJson(j, dc, existing);
+                return factory.forCtor(ctor).fromJson(j, dc, existing);
             }
             const o: Record<string, unknown> = {};   // plain dictionary of roots
             for (const [k, v] of Object.entries(j)) o[k] = this.fromJson(v, dc, undefined);
@@ -595,11 +597,11 @@ class DynamicSerializer implements JsonSerializer {
 const EXCLUDED_FIELD_NAMES = new Set(['id', 'ticks']);   // serialized specially by EntitySerializer
 
 class SerializerFactory {
-    private readonly entityCache = new Map<Type<BaseEntity>, EntitySerializer>();
+    private readonly entityCache = new Map<Type<Entity>, EntitySerializer>();
     private readonly embeddedCache = new Map<Type<BaseEntity>, EmbeddedSerializer>();
     readonly dynamic = new DynamicSerializer();
 
-    forEntity(ctor: Type<BaseEntity>): EntitySerializer {
+    forEntity(ctor: Type<Entity>): EntitySerializer {
         let s = this.entityCache.get(ctor);
         if (s != null) return s;
         s = new EntitySerializer(ctor);
@@ -618,7 +620,7 @@ class SerializerFactory {
     }
 
     forCtor(ctor: Type<BaseEntity>): ModifiableSerializer {
-        return ctorIsEmbedded(ctor) ? this.forEmbedded(ctor) : this.forEntity(ctor);
+        return ctorIsEmbedded(ctor) ? this.forEmbedded(ctor) : this.forEntity(ctor as Type<Entity>);
     }
 
     // Precompute a modifiable's field plan: every reflected field (own + mixin, including
@@ -659,13 +661,13 @@ class SerializerFactory {
             // serializer must be polymorphic (expectedCtor undefined) — otherwise it takes the DECLARED base
             // (`Lite<Entity>` ⇒ Entity) as the expected type and never emits the `$lite` discriminator, so the
             // reader can't recover the target type (Entity isn't a persistable type: TypeLogic.typeToId throws).
-            const ctor = fi.implementations != null ? undefined : fi.getFunction();
+            const ctor = fi.implementations != null ? undefined : fi.getFunction() as Type<Entity> | undefined;
             return new LiteSerializer(ctor, fi.customLite);   // undefined ctor ⇒ polymorphic lite
         }
         if (fi.implementations != null) return new PolyReferenceSerializer();
 
         const ctor = fi.getFunction();
-        if (ctor != null && ctorIsEntity(ctor)) return this.forEntity(ctor as Type<BaseEntity>);
+        if (ctor != null && ctorIsEntity(ctor)) return this.forEntity(ctor);
         // A POLYMORPHIC id-less modifiable — a field declared as the abstract `ModelEntity` /
         // `EmbeddedEntity` itself (Signum writes `[ImplementedBy()]`, an empty list, on exactly these).
         // The declared ctor carries no fields, so a fixed EmbeddedSerializer would write an empty object;

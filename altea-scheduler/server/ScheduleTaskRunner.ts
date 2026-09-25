@@ -5,10 +5,8 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
-import { retrieve } from "@altea/altea/server/Database";
 import { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
-import type { Type } from "@altea/altea/data/entity";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { UserWithClaims, type IUserEntity } from "@altea/altea/data/security";
@@ -237,7 +235,7 @@ export namespace ScheduleTaskRunner {
 
             // The task runs AS ITS USER — that is the whole point of ScheduledTask.user: the rules the task
             // is subject to are the user's, not the scheduler's.
-            const userEntity = await ExecutionMode.global(() => retrieve(user.entityType as Type<Entity>, user.id!));
+            const userEntity = await ExecutionMode.global(() => user.retrieve());
 
             try {
                 // The run adopts an isolation from the user, else the task))`:

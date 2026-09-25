@@ -22,6 +22,7 @@ import { Entity, type Type } from "@altea/altea/data/entity";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { joinRelaxed } from "@altea/altea/data/globals/joinRelaxed";
 import { SMSModelEntity, SMSTemplateEntity, SMSTemplateOperation } from "../data/SMS";
+import { modelClassName, type ModelClass } from "@altea/altea-templating/server/ValueProviders";
 
 // The MODEL side: a code-declared object a template renders against
 // (instead of / alongside a query row), its registry table, and the default template it can generate.
@@ -48,7 +49,7 @@ export interface ISMSModel {
      * its type is its own). Falls back to `untypedEntity.constructor`, which is correct only for a model
      * registered under the entity type itself.
      */
-    modelType?: Function;
+    modelType?: ModelClass;
     getFilters(queryName: QueryName): Filter[];
     getOrders(queryName: QueryName): Order[];
     getPagination(): Pagination | undefined;
@@ -84,7 +85,7 @@ export namespace SMSModelLogic {
 
     /** Keyed by the model's CLEAN TYPE NAME — the registry key AND the persisted `fullClassName`. */
     const registeredModels = new Map<string, SMSModelInfo>();
-    const keyToType = new Map<string, Function>();
+    const keyToType = new Map<string, ModelClass>();
 
     export let smsModelsLazy: ResetLazy<Map<string, SMSModelEntity>> = null!;
     let modelToTemplatesLazy: ResetLazy<Map<string, SMSTemplateEntity[]>> = null!;
@@ -120,7 +121,7 @@ export namespace SMSModelLogic {
     }
 
     /** Declare an SMS model: what it renders against, and the template generated when none exists. */
-    export function register(modelType: Function, info: Omit<SMSModelInfo, "queryName"> & { queryName?: QueryName }): void {
+    export function register(modelType: ModelClass, info: Omit<SMSModelInfo, "queryName"> & { queryName?: QueryName }): void {
         const key = cleanTypeName(modelType as Type<Entity>);
         keyToType.set(key, modelType);
         registeredModels.set(key, {
@@ -135,7 +136,7 @@ export namespace SMSModelLogic {
     }
 
     /** The registry ROW for a model type. */
-    export async function toSMSModelEntity(modelType: Function): Promise<SMSModelEntity> {
+    export async function toSMSModelEntity(modelType: ModelClass): Promise<SMSModelEntity> {
         const key = cleanTypeName(modelType as Type<Entity>);
         const found = (await smsModelsLazy.value()).get(key);
         if (found == null)
@@ -152,7 +153,7 @@ export namespace SMSModelLogic {
     }
 
     /** The registered model's own constructor function, when the host handed one over. */
-    export async function toType(model: SMSModelEntity): Promise<Function | undefined> {
+    export async function toType(model: SMSModelEntity): Promise<ModelClass | undefined> {
         return keyToType.get(await toKey(model));
     }
 

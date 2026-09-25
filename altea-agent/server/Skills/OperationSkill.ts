@@ -2,11 +2,12 @@ import { OperationLogic, Operations } from "@altea/altea/server/operationLogic";
 import { getEntityPack } from "@altea/altea/server/operationServer";
 import { Serializer } from "@altea/altea/data/serializer";
 import { Metadata } from "@altea/altea/data/metadata";
-import { cleanTypeName, getRegisteredTypes, resolveCleanType } from "@altea/altea/data/registration";
+import { cleanTypeName, getRegisteredTypes, resolveCleanType, resolveModifiableType } from "@altea/altea/data/registration";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import type { ConstructSymbol, DeleteSymbol, ExecuteSymbol, From, FromMany } from "@altea/altea/data/operations";
 import { SkillCode, Schema as S } from "../SkillCode";
+import type { Type, BaseEntity } from "@altea/altea/data/entity";
 
 // Port of Signum.Agent's Skills/OperationSkill.cs — the WRITE half: construct, construct-from, execute and
 // delete, plus the type metadata the model needs to fill an entity in.
@@ -129,8 +130,8 @@ function entityJsonSchema(): ReturnType<typeof S.string> {
 }
 
 /** Signum's `GetTypeWithHint` — resolve, or fail naming the near misses. */
-function typeWithHint(name: string): Function {
-    const ctor = resolveCleanType(name);
+function typeWithHint(name: string): Type<BaseEntity> {
+    const ctor = resolveModifiableType(name);
     if (ctor != undefined)
         return ctor;
 

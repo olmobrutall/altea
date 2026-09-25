@@ -17,6 +17,7 @@ import {
     SqlArrayIndexExpression, SqlTableValuedFunctionExpression,
 } from "../expressions.sql";
 import { ExpressionVisitor } from "./ExpressionVisitor";
+import type { Entity, Type } from "../../../data/entity";
 
 // Port of Signum's DbExpressionVisitor. Identity-preserving: every visit returns
 // the same node reference when nothing changed, so optimiser passes can cheaply
@@ -244,7 +245,7 @@ export class DbExpressionVisitor extends ExpressionVisitor {
         let models = lite.models;
         if (lite.models != null) {
             let changed = false;
-            const next = new Map<Function, Expression>();
+            const next = new Map<Type<Entity>, Expression>();
             for (const [ctor, model] of lite.models) {
                 const v = this.visit(model);
                 if (v !== model) changed = true;
@@ -259,7 +260,7 @@ export class DbExpressionVisitor extends ExpressionVisitor {
 
     visitImplementedBy(ib: ImplementedByExpression): Expression {
         let changed = false;
-        const implementations = new Map<Function, EntityExpression>();
+        const implementations = new Map<Type<Entity>, EntityExpression>();
         for (const [ctor, ee] of ib.implementations) {
             const visited = this.visit(ee) as EntityExpression;
             if (visited !== ee) changed = true;
@@ -298,7 +299,7 @@ export class DbExpressionVisitor extends ExpressionVisitor {
 
     visitTypeImplementedBy(t: TypeImplementedByExpression): Expression {
         let changed = false;
-        const map = new Map<Function, PrimaryKeyExpression>();
+        const map = new Map<Type<Entity>, PrimaryKeyExpression>();
         for (const [ctor, id] of t.typeImplementations) {
             const visited = this.visit(id) as PrimaryKeyExpression;
             if (visited !== id) changed = true;

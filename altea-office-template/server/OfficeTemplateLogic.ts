@@ -40,6 +40,8 @@ import { finalize as finalizeSpreadsheetPath, prepareSpreadsheet } from "./sprea
 import { OfficeTemplateTokenSync } from "./OfficeTemplateTokenSync";
 import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
+import type { Type, BaseEntity } from "@altea/altea/data/entity";
+import { modelClassName, type ModelClass } from "@altea/altea-templating/server/ValueProviders";
 
 // Port of Signum.Word's WordTemplateLogic.cs — see port/OfficeTemplate.md.
 //
@@ -319,7 +321,7 @@ export namespace OfficeTemplateLogic {
     /** Signum's `IWordModel.CreateReportFileContent()`: render a model with its own template. The model's
      *  CLASS is the registered model type. */
     export async function createReportFileContentFromModel(model: IOfficeModel, avoidConversion = false): Promise<OfficeFileContent> {
-        const modelEntity = await OfficeModelLogic.toOfficeModelEntity(model.constructor);
+        const modelEntity = await OfficeModelLogic.toOfficeModelEntity(model.constructor as ModelClass);
         const template = await getDefaultTemplate(modelEntity, model.untypedEntity);
         return await createReportFileContent(template, null, model, avoidConversion);
     }

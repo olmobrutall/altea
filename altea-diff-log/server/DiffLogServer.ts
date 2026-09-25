@@ -1,7 +1,6 @@
 import "@altea/altea/server";
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
 import { table as tableQuery } from "@altea/altea/server/table";
-import * as Database from "@altea/altea/server/Database";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
@@ -103,7 +102,7 @@ export namespace DiffLogServer {
     /** The target's dump today, or null when the row no longer exists. */
     async function dumpCurrent(target: Lite<Entity>): Promise<string | null> {
         try {
-            const entity = await ExecutionMode.global(() => Database.retrieve(target.entityType as never, target.id));
+            const entity = await ExecutionMode.global(() => target.retrieve());
             return ObjectDumper.dump(entity);
         } catch {
             // A failed retrieve is the existence check, in one query.

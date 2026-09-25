@@ -1,7 +1,7 @@
 import { Entity, type BaseEntity } from "@altea/altea/data/entity";
 import { Decimal, Temporal } from "@altea/altea/data/basics";
 import { defaultFormat, tryGetTypeInfo, TypeReference, type FieldInfo, type TypeInfo } from "@altea/altea/data/reflection";
-import { resolveCleanType, resolveEnum, resolveType } from "@altea/altea/data/registration";
+import { cleanTypeName, isModifiableType, resolveEnum, resolveType } from "@altea/altea/data/registration";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { Enum } from "@altea/altea/data/enum";
@@ -17,6 +17,7 @@ import { distinctSingle, groupByColumn, scapeColon, ScopedDictionary } from "./T
 // TYPE-only: TemplateSync imports this module, so a runtime import would close a cycle. The providers only
 // ever name the context as a parameter type, so the `import type` is erased and nothing circles.
 import type { TemplateSynchronizationContext } from "./TemplateSync";
+import type { Type } from "@altea/altea/data/entity";
 
 // Port of Signum.Templating's ValueProviders.cs — see port/Templating.md.
 //
@@ -43,10 +44,23 @@ import type { TemplateSynchronizationContext } from "./TemplateSync";
 // @altea/altea-translations, so this is now a follow-up rather than a blocker. See
 // port/Templating.md.
 
+/**
+ * The class a template's MODEL is (email, SMS and office models): any class — a model entity or a plain one
+ * implementing the model interface, as Signum's model is any type. Its members are read through reflection
+ * when it has any; the name is what the model registries key on.
+ */
+export type ModelClass = abstract new (...args: never[]) => object;
+
+/** The registry name of a model class: cleanTypeName reads only the class (its name and legacy declaration),
+ *  so it answers for a plain model class exactly as for an entity. */
+export function modelClassName(modelType: ModelClass): string {
+    return cleanTypeName(modelType as Type<BaseEntity>);
+}
+
 /** What a value provider needs from the parse in progress. */
 export interface ITemplateParser {
     /** The MODEL type (a reflected entity/model ctor) this template is written against, if any. */
-    readonly modelType: Function | undefined;
+    readonly modelType: ModelClass | undefined;
     /** The QUERY this template is written against, if any. */
     readonly queryName: QueryName | undefined;
     assertQueryName(action: string): QueryName;
@@ -492,7 +506,7 @@ function walk(members: readonly MemberWithArguments[] | undefined, start: unknow
 /** The declared TypeReference of the LAST step of a member chain, when the chain starts at a reflected
  *  type and every step is a reflected FIELD. Otherwise undefined — a template can still print it, it just
  *  cannot type-check a comparison's constant against it. */
-function chainType(startType: Function | undefined, members: readonly MemberWithArguments[]): TypeReference | undefined {
+function chainType(startType: ModelClass | undefined, members: readonly MemberWithArguments[]): TypeReference | undefined {
     let current = startType;
     let result: TypeReference | undefined;
 
@@ -515,7 +529,7 @@ function chainType(startType: Function | undefined, members: readonly MemberWith
 export class ModelValueProvider extends ValueProviderBase {
     private members: MemberWithArguments[] | undefined;
 
-    constructor(private fieldOrPropertyChain: string, private readonly modelType: Function | undefined, tp: ITemplateParser) {
+    constructor(private fieldOrPropertyChain: string, private readonly modelType: ModelClass | undefined, tp: ITemplateParser) {
         super();
         if (modelType == undefined) {
             tp.addError(false, TemplateTokenMessage.ImpossibleToAccess0BecauseTheTemplateHAsNo1.niceToString(fieldOrPropertyChain, "Model"));
@@ -573,12 +587,12 @@ export class ModelValueProvider extends ValueProviderBase {
 export class NiceNameValueProvider extends ValueProviderBase {
     private resolved: (() => string) | undefined;
 
-    constructor(private readonly fieldOrMessageChain: string, modelType: Function | undefined, tp: ITemplateParser) {
+    constructor(private readonly fieldOrMessageChain: string, modelType: ModelClass | undefined, tp: ITemplateParser) {
         super();
         const parts = fieldOrMessageChain.split(".");
 
         // The chain's ROOT: a member of the model, or a registered type name.
-        let currentType: Function | undefined;
+        let currentType: Type<BaseEntity> | undefined;
         if (modelType != undefined) {
             const fi = tryGetTypeInfo(modelType)?.members?.[parts[0]];
             currentType = fi?.getFunction();
@@ -596,7 +610,7 @@ export class NiceNameValueProvider extends ValueProviderBase {
             return;
         }
 
-        let ctor: Function | undefined = currentType;
+        let ctor: Type<BaseEntity> | undefined = currentType;
         for (let i = 1; i < parts.length; i++) {
             const ti: TypeInfo | undefined = ctor == undefined ? undefined : tryGetTypeInfo(ctor);
             const fi: FieldInfo | undefined = ti?.members?.[parts[i]];
@@ -865,7 +879,7 @@ export class ContinueValueProvider extends ValueProviderBase {
         this.members = getMembers(fieldOrPropertyChain, tp);
     }
 
-    private parentType(): Function | undefined {
+    private parentType(): Type<BaseEntity> | undefined {
         const t = this.parent.type;
         if (t == undefined)
             return undefined;
@@ -966,10 +980,11 @@ function afterDot(s: string): string | undefined {
 
 /** A registered entity/model/enum type by its (clean or class) name — the root of an `@[n:…]` chain.
  *  An ENUM resolves to its object, which is not a Function; the caller treats it as an enum container. */
-function tryResolveTypeByName(name: string): Function | undefined {
-    return resolveType(name)
-        ?? resolveCleanType(name)
-        ?? (resolveEnum(name) as Function | undefined);
+function tryResolveTypeByName(name: string): Type<BaseEntity> | undefined {
+    const ctor = resolveType(name);
+    if (ctor != undefined)
+        return isModifiableType(ctor) ? ctor : undefined;
+    return resolveEnum(name) as Type<BaseEntity> | undefined;
 }
 
 /** The explicit `@format` when the reference is a reflected

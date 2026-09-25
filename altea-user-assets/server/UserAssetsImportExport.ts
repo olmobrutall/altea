@@ -171,7 +171,7 @@ export namespace UserAssetsImporter {
                 }
                 return guid;
             },
-            retrieveLite: async lite => await retrieveLite(lite),
+            retrieveLite: lite => lite.retrieve(),
         };
 
         for (const e of entities)
@@ -290,13 +290,6 @@ export namespace UserAssetsImporter {
 }
 
 // ---- helpers -------------------------------------------------------------------------------------------
-
-async function retrieveLite<T extends Entity>(lite: Lite<T>): Promise<T> {
-    const rows = await table((lite as any).entityType).filter((e: Entity) => e.id == lite.id).toArray() as T[];
-    if (rows[0] == null)
-        throw new Error(`UserAssets export: entity ${String(lite)} not found`);
-    return rows[0];
-}
 
 function parse(content: string): { elementName: string; obj: Record<string, unknown> }[] {
     const parser = new XMLParser({ attributeNamePrefix: ATTR, ignoreAttributes: false, isArray: () => true });

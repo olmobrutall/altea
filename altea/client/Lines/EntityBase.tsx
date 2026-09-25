@@ -37,6 +37,7 @@ import { TypeEntity } from '../../data/typeEntity'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { toAbsoluteUrl } from '../AppContext'
 import { LinkButton } from '../Basics/LinkButton'
+import type { Type } from '../../data/entity';
 
 export interface EntityBaseProps<V extends BaseEntity | Lite<Entity> | null> extends LineBaseProps<V> {
   view?: boolean;
@@ -176,7 +177,7 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
       // @implementedBy; @implementedByAll accepts any entity.
       if (!type.isByAll()) {
         const allowedCtors = type.typeInfos().map(ti => ti.ctor);
-        const entityCtor = entityOrLite instanceof Lite ? entityOrLite.entityType : (entityOrLite as BaseEntity).constructor as Function;
+        const entityCtor = entityOrLite instanceof Lite ? entityOrLite.entityType : (entityOrLite as BaseEntity).getType();
         if (allowedCtors.length > 0 && !allowedCtors.some(c => c === entityCtor))
           throw new Error(`Impossible to convert '${entityType}' to '${typeName}'`);
       }
@@ -217,7 +218,7 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
   getGetViewPromise(): undefined | ((entity: AsEntity<V>) => undefined | string | ViewPromise<AsEntity<V>>) {
     var getComponent = this.props.getComponent;
     if (getComponent)
-      return e => ViewPromise.resolve(getComponent!);
+      return e => ViewPromise.resolve<AsEntity<V> & BaseEntity>(getComponent!);
 
     var getViewPromise = this.props.getViewPromise;
     if (getViewPromise)

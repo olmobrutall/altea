@@ -373,7 +373,7 @@ export namespace CaseActivityLogic {
 
     /** Reading an activity marks its New notification as Opened. */
     export async function retrieveForViewing(lite: Lite<CaseActivityEntity>): Promise<CaseActivityEntity> {
-        const ca = await retrieve(CaseActivityEntity, lite.id!);
+        const ca = await lite.retrieve();
 
         if (ca.doneBy == null)
             await table(CaseNotificationEntity)
@@ -554,7 +554,7 @@ export namespace CaseActivityLogic {
     }
 
     function optionsOf(mainEntity: ICaseMainEntity): WorkflowOptions {
-        const cleanName = cleanNameOf(mainEntity.constructor);
+        const cleanName = cleanNameOf(mainEntity.getType());
         const opts = options.get(cleanName);
         if (opts == null)
             throw new Error(`'${cleanName}' is not registered as a case main entity `
@@ -773,7 +773,7 @@ export namespace CaseActivityLogic {
                     .ImpossibleToDeleteCaseActivity0OnWorkflowActivity1BecauseHasNoPreviousActivity
                     .niceToString(a.id, a.workflowActivity));
 
-            const previous = await retrieve(CaseActivityEntity, a.previous.id!);
+            const previous = await a.previous.retrieve();
             await Operations.execute(previous, CaseActivityOperation.Undo);
         }
 
@@ -1530,7 +1530,7 @@ export namespace CaseActivityLogic {
                     && (a.from as WorkflowEventEntity).type === WorkflowEventType.Start);
 
                 const wec = new WorkflowExecuteStepContext(ca.case,
-                    ca.previous == null ? null : await retrieve(CaseActivityEntity, ca.previous.id!));
+                    ca.previous == null ? null : await ca.previous.retrieve());
 
                 await wec.executeConnection(prevConn);
 
@@ -1580,7 +1580,7 @@ export namespace CaseActivityLogic {
             canBeModified: true,
             execute: async (ca, args) => {
                 const toLite = args[0] as Lite<WorkflowActivityEntity>;
-                const to = await retrieve(WorkflowActivityEntity, toLite.id!);
+                const to = await toLite.retrieve();
                 if (!to.lane.pool.workflow.is(ca.case.workflow))
                     throw new Error(`Activity ${to} does not belong to workflow ${ca.case.workflow}`);
 
@@ -1891,7 +1891,7 @@ function etc(text: string, max: number): string {
     return text.length <= max ? text : text.substring(0, max - 3) + "...";
 }
 
-function cleanNameOf(ctor: Function): string {
+function cleanNameOf(ctor: Type<Entity>): string {
     return ctor.name.replace(/Entity$/, "");
 }
 

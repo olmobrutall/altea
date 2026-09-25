@@ -656,7 +656,7 @@ async function resolveValue(assignment: Assignment, value: unknown): Promise<unk
 
     // Already a lite: only a retrieve may be needed.
     if (value instanceof Lite)
-        return wantsEntity ? await retrieveOf(value) : value;
+        return wantsEntity ? await value.retrieve() : value;
 
     if (queryName == undefined)
         return value;
@@ -673,11 +673,7 @@ async function resolveValue(assignment: Assignment, value: unknown): Promise<unk
         throw new Error(`More than one row found with ${token} equals to '${String(value)}'`);
 
     const lite = found[0] as Lite<Entity>;
-    return wantsEntity ? await retrieveOf(lite) : lite;
-}
-
-async function retrieveOf(lite: Lite<Entity>): Promise<Entity> {
-    return await retrieve(lite.entityType as Type<Entity>, lite.id);
+    return wantsEntity ? await lite.retrieve() : lite;
 }
 
 /** Honour the property's decimal-places validator. */
@@ -886,7 +882,7 @@ async function findExisting(pq: ParsedQueryForImport, matchBy: QueryToken, key: 
     if (lites.length > 1)
         throw new Error(`More than one ${niceNameOf(pq.mainType)} found with ${matchBy} equals to '${String(key)}'`);
 
-    return await retrieveOf(lites[0] as Lite<Entity>);
+    return await (lites[0] as Lite<Entity>).retrieve();
 }
 
 function cleanNameOf(type: Type<Entity>): string {

@@ -67,7 +67,7 @@ export class IsolationMixin extends MixinEntity {
 
 // The strategy table, and the mixin declaration that goes with it. Isomorphic on purpose (see the file
 // header): both tiers must agree on which types carry the field.
-const strategies = new Map<Function, IsolationStrategy>();
+const strategies = new Map<Type<Entity>, IsolationStrategy>();
 
 export namespace Isolation {
 
@@ -95,7 +95,7 @@ export namespace Isolation {
 
     /** THROWS for an unregistered type — a type quietly falling through as un-isolated is the worst
      *  thing this module could get wrong. */
-    export function strategy(type: Function): IsolationStrategy {
+    export function strategy(type: Type<Entity>): IsolationStrategy {
         const s = strategies.get(type);
         if (s == undefined)
             throw new Error(`No isolation strategy registered for '${type.name}'. Register every entity type with Isolation.register(...)`);
@@ -103,12 +103,12 @@ export namespace Isolation {
     }
 
     /** The strategy, or `None` for an unregistered type. */
-    export function tryStrategy(type: Function): IsolationStrategy {
+    export function tryStrategy(type: Type<Entity>): IsolationStrategy {
         return strategies.get(type) ?? "None";
     }
 
     /** A copy, keyed by ctor. */
-    export function allStrategies(): Map<Function, IsolationStrategy> {
+    export function allStrategies(): Map<Type<Entity>, IsolationStrategy> {
         return new Map(strategies);
     }
 
@@ -117,7 +117,7 @@ export namespace Isolation {
      * does not carry the mixin. Safe on any entity.
      */
     export function tryIsolation(entity: Entity): Lite<IsolationEntity> | null {
-        if (tryStrategy(entity.constructor) === "None")
+        if (tryStrategy(entity.getType()) === "None")
             return null;
         return (entity as unknown as IsolationMixin).isolation ?? null;
     }

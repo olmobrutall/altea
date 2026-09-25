@@ -9,6 +9,7 @@ import { isQuerySourceCall, querySourceCtor } from "@altea/altea/server/schema/f
 import type { FilterQueryArgs } from "@altea/altea/server/schema/filterQueryArgs";
 import { LiteType, ClassType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
 import { cleanTypeName } from "@altea/altea/data/registration";
+import type { Type, BaseEntity } from "@altea/altea/data/entity";
 
 // Port of Signum.Authorization's Rules/QueryAuditorVisitor.cs — see port/Auth.md.
 //
@@ -117,7 +118,7 @@ function audit(node: Expression, baseQuery: Expression): FilterAuditorProjector 
 // The clean type name's capitals, lowercased — OperationLogEntity → "ol".
 function paramNameFor(elementType: RuntimeType): string {
     const ctor = elementType instanceof ClassType ? elementType.constructorFunction : undefined;
-    const name = ctor != null ? cleanTypeName(ctor) : "e";
+    const name = ctor != null ? cleanTypeName(ctor as Type<BaseEntity>) : "e";
     const capitals = [...name].filter(c => c >= "A" && c <= "Z").join("").toLowerCase();
     return capitals.length > 0 ? capitals : "e";
 }

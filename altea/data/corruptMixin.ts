@@ -1,4 +1,4 @@
-import { MixinEntity, type BaseEntity, type Type } from "./entity";
+import { MixinEntity, type BaseEntity } from "./entity";
 import { reflect } from "./reflection";
 import { MixinDeclarations } from "./mixinDeclarations";
 import { Statics, type IContextVariable } from "./utils/context";
@@ -44,7 +44,7 @@ export namespace Corruption {
 
     /** Whether the entity's type declares the mixin and its flag is set — its integrity check is tolerant. */
     export function isCorrupt(entity: BaseEntity): boolean {
-        return MixinDeclarations.getMixins(entity.constructor as Type<BaseEntity>).includes(CorruptMixin)
+        return MixinDeclarations.getMixins(entity.getType()).includes(CorruptMixin)
             && (entity as unknown as CorruptMixin).corrupt === true;
     }
 

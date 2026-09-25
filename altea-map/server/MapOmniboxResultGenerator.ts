@@ -9,6 +9,7 @@ import { contains, isPascalCasePattern, matches } from "@altea/altea-omnibox/ser
 import { allowedTypeFilter } from "@altea/altea-omnibox/server/OmniboxAuth";
 import { OmniboxMessage } from "@altea/altea-omnibox/data/OmniboxMessages";
 import { MapMessage, MapPermission, MapOmniboxResultTypeName, type MapOmniboxResult } from "../data/Map";
+import type { Type, Entity } from "@altea/altea/data/entity";
 
 // Port of Signum.Map's MapOmniboxResultGenerator.cs — "Map" alone opens the schema map, "Map Order" the
 // operation map of a type that has operations.
@@ -30,7 +31,7 @@ export class MapOmniboxResultGenerator implements OmniboxResultGenerator {
      * Signum passes `type => OperationLogic.TypeOperations(type).Any()` from MapLogic — the module owning
      * the predicate rather than the generator, so a host can narrow which types are offered.
      */
-    constructor(public hasOperations: (type: Function) => boolean) { }
+    constructor(public hasOperations: (type: Type<Entity>) => boolean) { }
 
     async getResults(_rawQuery: string, tokens: OmniboxToken[], tokenPattern: string, _ctx: OmniboxContext): Promise<OmniboxResult[]> {
         if (!REGEX.test(tokenPattern))

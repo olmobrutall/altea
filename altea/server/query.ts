@@ -659,7 +659,7 @@ export class Query<T> implements IQuery<T> {
         // Fire on the TARGET type's events (the entity being inserted), passing the source query AND the
         // constructor — a handler may hand back a rewritten one (Signum's PreUnsafeInsert returns the
         // constructor), which is how a module folds a value into every set-based insert of the target.
-        const rewritten = await this.firePreUnsafeInsert(target, lambda);
+        const rewritten = await this.firePreUnsafeInsert(target as unknown as Type<Entity>, lambda);
         var call = new CallExpression(
             new PropertyExpression(this.expression, "executeInsert"),
             [new ConstantExpression(target, new ClassType(target)), rewritten],
@@ -672,7 +672,7 @@ export class Query<T> implements IQuery<T> {
     // (delete/update) or the explicit target (insert); resolved to a ctor and skipped when it is
     // not a registered entity table (a projected/scalar query). Handlers run in the ambient
     // transaction, so a cascade delete they issue is part of the same atomic operation.
-    private async firePreUnsafe(kind: "delete" | "update", targetCtor?: Function): Promise<void> {
+    private async firePreUnsafe(kind: "delete" | "update", targetCtor?: Type<Entity>): Promise<void> {
         const ee = this.unsafeEvents(targetCtor);
         if (ee == null)
             return;
@@ -685,14 +685,14 @@ export class Query<T> implements IQuery<T> {
 
     // The insert variant, separate because it THREADS the constructor lambda through the handlers and
     // returns whatever they leave (Signum's PreUnsafeInsert signature).
-    private async firePreUnsafeInsert(targetCtor: Function, constructor: LambdaExpression): Promise<LambdaExpression> {
+    private async firePreUnsafeInsert(targetCtor: Type<Entity>, constructor: LambdaExpression): Promise<LambdaExpression> {
         const ee = this.unsafeEvents(targetCtor);
         return ee == null ? constructor : await ee.onPreUnsafeInsert(this as unknown as Query<Entity>, constructor);
     }
 
     // The EntityEvents of the affected type: the query's element type (delete/update) or the explicit
     // target (insert); undefined when it is not a registered entity table (a projected/scalar query).
-    private unsafeEvents(targetCtor?: Function): EntityEvents<Entity> | undefined {
+    private unsafeEvents(targetCtor?: Type<Entity>): EntityEvents<Entity> | undefined {
         const elem = this.elementType;
         const ctor = targetCtor ?? (elem instanceof ClassType ? elem.constructorFunction : undefined);
         if (ctor == null)

@@ -84,7 +84,7 @@ export namespace Saver {
             // a module can normalise/populate the graph right before it is checked and written.
             for (const m of all)
                 if (m instanceof Entity)
-                    await schema.entityEvents(m.constructor as Type<Entity>).onPreSaving(m);
+                    await schema.entityEvents(m.getType()).onPreSaving(m);
 
             // Signum's CorruptMixin.PreSaving: a corrupt entity is re-checked STRICTLY, and stops being
             // corrupt once it passes; the tolerant check below then lets the rest through.
@@ -117,7 +117,7 @@ export namespace Saver {
             const wasNew = new Map<Entity, boolean>();
             for (const e of saveSet) {
                 wasNew.set(e, e.isNew);
-                await schema.entityEvents(e.constructor as Type<Entity>).onSaving(e);
+                await schema.entityEvents(e.getType()).onSaving(e);
             }
 
             // Pre-write authorization gate: the full save set through each registered gate, after
@@ -169,11 +169,11 @@ export namespace Saver {
                 // `isNew` (Signum's discriminator) — not `id == null` — so a new entity that
                 // already carries a client-assigned key still inserts (insertEntityRows writes
                 // its explicit PK); an existing row (isNew == false) updates.
-                const insertGroups = new Map<Function, Entity[]>();
+                const insertGroups = new Map<Type<Entity>, Entity[]>();
                 for (const e of sinks)
                     if (e.isNew) {
-                        let group = insertGroups.get(e.constructor);
-                        if (group == null) { group = []; insertGroups.set(e.constructor, group); }
+                        let group = insertGroups.get(e.getType());
+                        if (group == null) { group = []; insertGroups.set(e.getType(), group); }
                         group.push(e);
                     }
                 for (const group of insertGroups.values())
@@ -200,7 +200,7 @@ export namespace Saver {
             // (so a handler's own writes are part of the same atomic save), and AWAITED. `wasNew` reflects
             // the state before the INSERT cleared isNew.
             for (const e of saveSet)
-                await schema.entityEvents(e.constructor as Type<Entity>).onSaved(e, { wasNew: wasNew.get(e) ?? false, wasModified: true });
+                await schema.entityEvents(e.getType()).onSaved(e, { wasNew: wasNew.get(e) ?? false, wasModified: true });
 
             // Commit-time re-baseline: every saved row now matches the database.
             for (const e of saveSet)
@@ -222,7 +222,7 @@ async function deleteCollectionOrphans(owner: Entity): Promise<void> {
     // there are no known prior rows to orphan — nothing to remove.
     if (snapshot == null || snapshot === true) return;
 
-    const table = Connector.current().schema.table(owner.constructor as Type<Entity>);
+    const table = Connector.current().schema.table(owner.getType());
     const orphans: { type: Type<Entity>; ids: PrimaryKey[] }[] = [];
 
     // Walks the schema's field map beside the live values and the matching slice of the

@@ -2,7 +2,7 @@ import { describe, test, beforeAll } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
-import type { PrimaryKey } from "@altea/altea/data/entity";
+import type { PrimaryKey, Type, Entity } from "@altea/altea/data/entity";
 import type { RoleEntity } from "@altea/altea-auth/data/Role";
 import { TypeAuthLogic } from "@altea/altea-auth/server/TypeAuthLogic";
 import { partRoots, type PartEdge } from "@altea/altea-auth/server/PartOwnership";
@@ -16,7 +16,7 @@ import { start, hasDb, role, asRole, Roles } from "./setup";
 // Panel → Sample chain).
 
 describe("PartOwnership.partRoots (pure)", () => {
-    const C = (name: string): Function => { const f = function (): void { /* stub ctor */ }; Object.defineProperty(f, "name", { value: name }); return f; };
+    const C = (name: string): Type<Entity> => { const f = function (): void { /* stub ctor */ }; Object.defineProperty(f, "name", { value: name }); return f as unknown as Type<Entity>; };
 
     test("chains to the nearest non-Part root (Widget → Panel → Sample)", () => {
         const Sample = C("Sample"), Panel = C("Panel"), Widget = C("Widget");

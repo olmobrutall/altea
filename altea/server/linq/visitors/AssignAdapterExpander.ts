@@ -14,7 +14,7 @@ import { Entity } from "../../../data/entity";
 
 // The altea PrimaryKeyType of an entity ctor's id, from its @primaryKey (default 'int') —
 // picks which @implementedByAll id column an assigned value populates.
-function pkTypeOfCtor(ctor: Function | undefined): string {
+function pkTypeOfCtor(ctor: Type<Entity> | undefined): string {
     return (ctor != null ? getTypeInfo(ctor)?.fields["id"]?.columnOptions?.primaryKey as string | undefined : undefined) ?? "int";
 }
 
@@ -36,6 +36,7 @@ function combineId(a: Expression, b: Expression, op: (a: Expression, b: Expressi
 }
 import { Lite } from "../../../data/lite";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
+import type { Type } from "../../../data/entity";
 
 // Port of Signum's AssignAdapterExpander (nested in QueryBinder.cs). Rewrites an
 // update/insert VALUE expression into the SHAPE of its target column expression so
@@ -98,7 +99,7 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
                 undefined, undefined, undefined, false);
 
         if (col instanceof ImplementedByExpression && t instanceof ImplementedByExpression && f instanceof ImplementedByExpression) {
-            const impls = new Map<Function, EntityExpression>();
+            const impls = new Map<Type<Entity>, EntityExpression>();
             for (const [ctor, ee] of col.implementations) {
                 // For an implementation absent from BOTH branches, both ids are NULL — keep a
                 // single (typeless) NULL instead of `CASE WHEN … THEN NULL ELSE NULL`, which
@@ -203,7 +204,7 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
         if (col instanceof EntityExpression || col instanceof ImplementedByExpression || col instanceof ImplementedByAllExpression) {
             const ent = c.value as Entity | null | undefined;
             const id = idObject(ent);
-            return this.entityConstant(id, ent?.constructor);
+            return this.entityConstant(id, ent?.constructor as Type<Entity> | undefined);
         }
         if (col instanceof EmbeddedEntityExpression)
             return this.embeddedFromConstant(c, col);
@@ -218,7 +219,7 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
     }
 
     // A captured-constant entity/lite id → the shaped value matching the target column.
-    private entityConstant(id: unknown, type: Function | undefined): Expression {
+    private entityConstant(id: unknown, type: Type<Entity> | undefined): Expression {
         const col = this.colExpression;
         const idExpr = new SqlConstantExpression(id ?? null, LiteralType.number);
 
@@ -236,14 +237,14 @@ export class AssignAdapterExpander extends DbExpressionVisitor {
         throw new Error("colExpression is not an entity");
     }
 
-    private fanOutIb(col: ImplementedByExpression, type: Function | undefined, make: (ctor: Function) => EntityExpression): ImplementedByExpression {
-        const impls = new Map<Function, EntityExpression>();
+    private fanOutIb(col: ImplementedByExpression, type: Type<Entity> | undefined, make: (ctor: Type<Entity>) => EntityExpression): ImplementedByExpression {
+        const impls = new Map<Type<Entity>, EntityExpression>();
         for (const [ctor, ee] of col.implementations)
             impls.set(ctor, ctor === type ? make(ctor) : new EntityExpression(ee.type, ee.table, new PrimaryKeyExpression(nullConst()), undefined, undefined, undefined, false));
         return new ImplementedByExpression(col.type, col.strategy, impls);
     }
 
-    private entityToIba(type: RuntimeType, idExpr: Expression, ctor: Function | undefined): ImplementedByAllExpression {
+    private entityToIba(type: RuntimeType, idExpr: Expression, ctor: Type<Entity> | undefined): ImplementedByAllExpression {
         const typeId = ctor != null ? requireTypeId(this.typeCaches, ctor) : null;
         // The constant's id populates only the column matching its PK type.
         return new ImplementedByAllExpression(type, new Map([[pkTypeOfCtor(ctor), idExpr]]),
@@ -279,14 +280,14 @@ function idObject(ent: Entity | null | undefined): unknown {
     return ent.id;
 }
 
-function ctorOf(type: RuntimeType): Function {
-    return (type as { constructorFunction?: Function }).constructorFunction ?? (type as unknown as Function);
+function ctorOf(type: RuntimeType): Type<Entity> {
+    return ((type as { constructorFunction?: Function }).constructorFunction ?? (type as unknown as Function)) as Type<Entity>;
 }
 
 function nullConst(): SqlConstantExpression {
     return new SqlConstantExpression(null, LiteralType.number);
 }
 
-function nullEntity(ctor: Function): EntityExpression {
+function nullEntity(ctor: Type<Entity>): EntityExpression {
     return new EntityExpression(ctor as any, undefined as any, new PrimaryKeyExpression(nullConst()), undefined, undefined, undefined, false);
 }

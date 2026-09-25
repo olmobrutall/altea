@@ -1,6 +1,7 @@
 import { Entity } from './entity';
 import type { TypeReference } from './reflection';
 import { cleanTypeName } from './registration';
+import type { BaseEntity, Type } from "./entity";
 
 // Port of Signum's `Implementations` (Entities/FieldAttributes.cs): the set of concrete
 // entity types a reference may hold. Either a fixed list (`ImplementedBy`) or "any entity"
@@ -14,18 +15,18 @@ import { cleanTypeName } from './registration';
 // needs no global registration step.
 export class Implementations {
     // `undefined` ⇒ ImplementedByAll; a ctor array ⇒ ImplementedBy(those types).
-    private constructor(private readonly arrayOrType: Function[] | undefined) { }
+    private constructor(private readonly arrayOrType: Type<Entity>[] | undefined) { }
 
     get isByAll(): boolean { return this.arrayOrType == undefined; }
 
-    get types(): Function[] {
+    get types(): Type<Entity>[] {
         if (this.arrayOrType == undefined)
             throw new Error("ImplementedByAll");
         return this.arrayOrType;
     }
 
     // The single implementation, or undefined if there are zero or many (Signum's `Types.Only()`).
-    only(): Function | undefined {
+    only(): Type<Entity> | undefined {
         return this.arrayOrType != undefined && this.arrayOrType.length === 1 ? this.arrayOrType[0] : undefined;
     }
 
@@ -44,15 +45,16 @@ export class Implementations {
      * Only the ROOT is special-cased: a Lite, an interface or a non-entity still throws, since those are
      * mistakes rather than "any entity".
      */
-    static ofDeclaredType(type: Function): Implementations {
+    static ofDeclaredType(type: Type<BaseEntity>): Implementations {
         return type === Entity ? Implementations.byAll : Implementations.by(type);
     }
 
+    // Takes any constructor and CHECKS it is an entity type — the errors name what is not.
     static by(...types: Function[]): Implementations {
         const errors = types.map(Implementations.error).filter((e): e is string => e != null);
         if (errors.length > 0)
             throw new Error(errors.join("\n"));
-        return new Implementations(types);
+        return new Implementations(types as Type<Entity>[]);
     }
 
     // Resolve a reference field's implementations from its reflection metadata (Signum's

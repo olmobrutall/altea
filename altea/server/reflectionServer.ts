@@ -42,12 +42,14 @@ import { WebBuilder, CustomType } from "./webApi";
 import {
     resolveType, resolveEnum, getRegisteredTypes, getRegisteredEnums, getRegisteredObjects,
     allDeclaredSymbols, getDefaultDescription, enumNameOf,
+    isEntityType,
 } from "../data/registration";
 import { EnumEntity } from "../data/enumEntity";
 import { Enum } from "../data/enum";
 import { PropertyRoute } from "../data/propertyRoute";
 import { serializeExtensionInfo, serializeIndexerInfo } from "../data/dynamicQuery/tokenSerializer";
 import { Entity, View } from "../data/entity";
+import type { BaseEntity, Type, ViewType } from "../data/entity";
 import { TypeLogic } from "./typeLogic";
 import type { TypeEntity } from "../data/typeEntity";
 
@@ -350,7 +352,7 @@ export namespace ReflectionServer {
         // precisely so "has none" and "has one this role may not run" stay distinguishable (see the
         // field's own doc). One boolean per type is not what made the blob big.
         for (const ctor of getRegisteredTypes()) {
-            const hasCtor = OperationLogic.operationsForType(ctor)
+            const hasCtor = isEntityType(ctor) && OperationLogic.operationsForType(ctor)
                 .some(s => OperationLogic.tryFindOperation(s)?.operationType === "Constructor");
             if (hasCtor)
                 typeOf(ctor.name, "Entity").hasConstructorOperation = true;
@@ -527,7 +529,7 @@ export namespace ReflectionServer {
                 if (ctor == null) {
                     const enumObj = resolveEnum(req.params.typeName);
                     if (enumObj != null)
-                        ctor = EnumEntity.typeFor(enumObj as object) as Function;
+                        ctor = EnumEntity.typeFor(enumObj as object);
                 }
                 // undefined when the type has no row in the DB type table — a lookup, not an error.
                 const te = ctor == null ? undefined : (await TypeLogic.caches()).tryTypeToEntity(ctor);
@@ -538,8 +540,8 @@ export namespace ReflectionServer {
 
 // Whether a registered type is a query-projection VIEW rather than something the client can hold. The
 // `View` base itself counts: it is registered too, and is no more useful to a client than its subclasses.
-function isViewType(ctor: Function): boolean {
-    return ctor === View || ctor.prototype instanceof View;
+function isViewType(ctor: Type<BaseEntity> | ViewType<View>): ctor is ViewType<View> {
+    return (ctor as Function) === View || ctor.prototype instanceof View;
 }
 
 // A type's OWN members — the first step of each of its routes, and nothing below it. Structural (culture-
@@ -553,8 +555,8 @@ function isViewType(ctor: Function): boolean {
 // Filtering to depth 1 is what keeps that promise: a deeper path belongs to the type that DECLARES its
 // last step, and that type describes it under itself. A mixin step (`[SomeMixin].member`) goes the same
 // way — a mixin is a reflected type of its own, so its members ride on its own entry.
-const ownMembersCache = new Map<Function, string[]>();
-function ownMembersOf(ctor: Function): string[] {
+const ownMembersCache = new Map<Type<BaseEntity>, string[]>();
+function ownMembersOf(ctor: Type<BaseEntity>): string[] {
     let members = ownMembersCache.get(ctor);
     if (members == null)
         ownMembersCache.set(ctor, members = PropertyRoute.memberPaths(ctor).filter(p => !/[.\/\[\]]/.test(p)));
@@ -564,7 +566,7 @@ function ownMembersOf(ctor: Function): string[] {
 function buildOperation(
     key: string,
     op: { operationType: OperationMetadata["operationType"] },
-    entityCtor: Function,
+    entityCtor: Type<Entity>,
     declaredMember: (typeName: string, member: string) => string | undefined,
 ): OperationMetadata {
     const anyOp = op as Record<string, unknown>;

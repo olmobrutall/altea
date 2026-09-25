@@ -5,6 +5,7 @@ import "@altea/altea/server/context.node";
 import { Isolation, IsolationEntity, IsolationMixin } from "../../data/Isolation";
 import { IsolationLogic } from "../../server/IsolationLogic";
 import { CatalogEntity, ProjectEntity, TagEntity } from "../data/tenancy";
+import { Entity } from "@altea/altea/data/entity";
 
 // The ambient current-isolation and the strategy table, with NO database: they are pure in-memory logic, and
 // the ambient is SCOPE-shaped (a callback rather than a disposable), so
@@ -107,7 +108,7 @@ describe("the strategy table", () => {
     });
 
     test("strategy throws for an unregistered type; tryStrategy answers None", () => {
-        class UnregisteredEntity { }
+        class UnregisteredEntity extends Entity { }
         assert.throws(() => Isolation.strategy(UnregisteredEntity), /No isolation strategy registered/);
         assert.equal(Isolation.tryStrategy(UnregisteredEntity), "None");
     });

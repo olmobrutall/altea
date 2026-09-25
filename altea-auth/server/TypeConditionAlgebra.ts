@@ -7,6 +7,7 @@ import { LiteralType, type RuntimeType } from "@altea/altea/server/runtimeTypes"
 import { TypeConditionSymbol, TypeAllowed, TypeAllowedBasic, typeAllowedGet } from "../data/Rules";
 import { WithConditions } from "./WithConditions";
 import { TypeConditionLogic } from "./TypeConditionLogic";
+import type { Type, Entity } from "@altea/altea/data/entity";
 
 // Port of Signum.Authorization's Rules/TypeConditionAlgebra.cs — see port/Auth.md.
 //
@@ -120,7 +121,7 @@ function simplify(node: Node): Node {
 export type AuthFilter = LambdaExpression | "all" | "none";
 
 export function buildAuthFilter(
-    ctor: Function,
+    ctor: Type<Entity>,
     elementType: RuntimeType,
     wc: WithConditions<TypeAllowed>,
     requested: TypeAllowedBasic,
@@ -156,7 +157,7 @@ export function buildAuthFilter(
 // registered `@quoted` predicate. Undefined when it is an auditor condition whose verdict was not
 // resolved — see the header on why that denies rather than throws.
 function symbolLambda(
-    ctor: Function,
+    ctor: Type<Entity>,
     elementType: RuntimeType,
     symbol: TypeConditionSymbol,
     auditedConditions: ReadonlyMap<TypeConditionSymbol, LambdaExpression> | undefined,
@@ -181,7 +182,7 @@ export function authFilterLambda(filter: AuthFilter, elementType: RuntimeType): 
 // is ONE condition, un-combined and un-negated — the binder folds it straight into the retrieval SELECT
 // (QueryBinder.withAdditionalBindings binds it against the entity). fromQuotedLambda already yields a
 // single-parameter lambda over `elementType`, so it needs no re-basing.
-export function conditionValueLambda(ctor: Function, elementType: RuntimeType, symbol: TypeConditionSymbol): LambdaExpression {
+export function conditionValueLambda(ctor: Type<Entity>, elementType: RuntimeType, symbol: TypeConditionSymbol): LambdaExpression {
     return Expression.fromQuotedLambda(TypeConditionLogic.getCondition(ctor, symbol), [elementType]);
 }
 

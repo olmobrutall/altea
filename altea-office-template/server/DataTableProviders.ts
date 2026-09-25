@@ -25,7 +25,8 @@ import { Lite } from "@altea/altea/data/lite";
 import type { OfficeTemplateEntity } from "../data/OfficeTemplate";
 import { DataColumn, DataTable, type DataColumnKind } from "./DataTable";
 import type { DataTableResult, IOfficeDataTableProvider, OfficeContext } from "./TableBinder";
-import { OfficeModelLogic } from "./OfficeModelLogic";
+import { OfficeModelLogic, type OfficeModelType } from "./OfficeModelLogic";
+import type { Type, BaseEntity } from "@altea/altea/data/entity";
 
 /** The entity a provider resolves against. */
 export function contextEntity(ctx: OfficeContext): Entity | null {
@@ -40,7 +41,7 @@ export class ModelDataTableProvider implements IOfficeDataTableProvider {
         if (template.model == null)
             return `No OfficeModel found in template '${template.name}' to call '${suffix.trim()}'`;
 
-        const type = OfficeModelLogic.toType(template.model) as Function & { prototype?: Record<string, unknown> };
+        const type = OfficeModelLogic.toType(template.model) as OfficeModelType & { prototype?: Record<string, unknown> };
         if (typeof type.prototype?.[suffix.trim()] !== "function")
             return `No Method with name '${suffix.trim()}' found in type '${type.name}'`;
 

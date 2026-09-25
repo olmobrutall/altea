@@ -111,7 +111,7 @@ export async function insertEntityRows(entities: Entity[], forbiddens?: Forbidde
 // since this entity was retrieved matches zero rows and raises ConcurrencyException.
 export async function updateEntityRow(entity: Entity, forbidden: Forbidden = NO_FORBIDDEN): Promise<void> {
     const connector = Connector.current();
-    const table = connector.schema.table(entity.constructor as Type<Entity>);
+    const table = connector.schema.table(entity.getType());
     const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
     const assignments = collectAssignments(table, entity, forbidden, typeCaches);
 
@@ -205,7 +205,7 @@ export function updateSqlSync(table: Table, entity: Entity): SqlPreCommandSimple
 export async function deleteSqlSync(table: Table, entity: Entity): Promise<SqlPreCommand | undefined> {
     const sb = Connector.current().sqlBuilder;
     const idCol = sb.sqlEscape(table.primaryKey.column.name);
-    const pre = await Connector.current().schema.entityEvents(entity.constructor as Type<Entity>).onPreDeleteSqlSync(entity);
+    const pre = await Connector.current().schema.entityEvents(entity.getType()).onPreDeleteSqlSync(entity);
     const main = new SqlPreCommandSimple(
         `DELETE FROM ${sb.objectName(table.name)} WHERE ${idCol} = ${placeholder(sb.isPostgres, 0)};`,
         [{ name: "p0", value: entity.id }]);
@@ -235,7 +235,7 @@ export function insertSqlSyncGraph(entity: Entity, ids: Map<Entity, string> = ne
     const statements: string[] = [];
 
     const insertRow = (row: Entity): void => {
-        const table = connector.schema.table(row.constructor as Type<Entity>);
+        const table = connector.schema.table(row.getType());
         const children = wireOwnedRows(row);
 
         const assignments = collectAssignments(table, row);
@@ -289,7 +289,7 @@ export function insertOwnedRowsSqlSync(owner: Entity): SqlPreCommand | undefined
 
 /** DELETE `entity` and its owned rows (as loaded on it), deepest first — the back references have no cascade. */
 export async function deleteSqlSyncGraph(entity: Entity): Promise<SqlPreCommand | undefined> {
-    const table = Connector.current().schema.table(entity.constructor as Type<Entity>);
+    const table = Connector.current().schema.table(entity.getType());
     const commands: (SqlPreCommand | undefined)[] = [];
     for (const r of ownedRows(entity))
         commands.push(await deleteSqlSyncGraph(r.row));
@@ -324,7 +324,7 @@ function wireOwnedRows(owner: Entity): Entity[] {
     });
 }
 
-const rawName = (table: Table): string => (table.type as Function).name;
+const rawName = (table: Table): string => table.type.name;
 
 // Copy every persistent field of the EXPECTED row onto the row RETRIEVED from the database, so the
 // retrieved entity's own change tracking (isModifiedSelf, against the snapshot the Retriever took)
@@ -460,9 +460,9 @@ function referenceId(value: unknown): PrimaryKey | null {
     return null;
 }
 
-function entityConstructorOf(value: unknown): Function {
+function entityConstructorOf(value: unknown): Type<Entity> {
     if (value instanceof Lite) return value.entityType;
-    return (value as object).constructor;
+    return (value as object).constructor as Type<Entity>;
 }
 
 // ---- SQL building ----------------------------------------------------------

@@ -1,8 +1,8 @@
 import { BaseEntity, Entity, EmbeddedEntity } from './entity';
-import type { Type } from './entity';
+import type { Type, View, ViewType } from './entity';
 import type { FieldInfo } from './reflection';
 import { tryGetTypeInfo, TypeReference } from './reflection';
-import { cleanTypeName, resolveCleanType } from './registration';
+import { cleanTypeName, resolveCleanType, resolveEntityType, resolveModifiableType } from './registration';
 import { getLambdaMembers } from './lambdaMembers';
 import type { Quoted } from 'quote-transformer/quoted';
 import { MixinDeclarations } from './mixinDeclarations';
@@ -78,7 +78,7 @@ export function usingLegacyPropertyPaths(): boolean {
  * and re-rooting is the only unambiguous thing to do — which is exactly the distinction Signum's
  * `EntityKind.SharedPart` draws.
  */
-export function isPartType(ctor: Function | undefined): boolean {
+export function isPartType(ctor: Function | undefined): ctor is Type<Entity> {
     return ctor != undefined && tryGetTypeInfo(ctor)?.entityKind === "Part";
 }
 
@@ -101,11 +101,11 @@ export class PropertyRoute {
     private constructor(
         public readonly propertyRouteType: PropertyRouteType,
         public readonly parent: PropertyRoute | undefined,
-        private readonly rootCtor: Function | undefined,
+        private readonly rootCtor: Type<BaseEntity> | undefined,
         public readonly fieldInfo: FieldInfo | undefined,
-        private readonly mixinCtor: Function | undefined,
+        private readonly mixinCtor: Type<BaseEntity> | undefined,
         /** The concrete type a {@link PropertyRouteType.Cast} step narrows to. */
-        private readonly castCtor: Function | undefined = undefined,
+        private readonly castCtor: Type<Entity> | undefined = undefined,
         /** Only {@link memberPaths} passes this — see there for the one consumer a part root is right for. */
         allowPartRoot = false,
     ) {
@@ -122,10 +122,9 @@ export class PropertyRoute {
                 `(\`owner.thePart.member\`, \`owner.theParts/member\`), or hold the OWNER's route and add to it.`);
     }
 
-    private static rootCache = new Map<Function, PropertyRoute>();
+    private static rootCache = new Map<Type<BaseEntity>, PropertyRoute>();
 
-    static root(rootEntity: Function | Type<BaseEntity>): PropertyRoute {
-        const ctor = typeof rootEntity === 'function' ? rootEntity : rootEntity;
+    static root(ctor: Type<BaseEntity>): PropertyRoute {
         let r = PropertyRoute.rootCache.get(ctor);
         if (r == undefined) {
             r = new PropertyRoute(PropertyRouteType.Root, undefined, ctor, undefined, undefined);
@@ -150,7 +149,7 @@ export class PropertyRoute {
         }
     }
 
-    get rootType(): Function {
+    get rootType(): Type<BaseEntity> {
         let r: PropertyRoute = this;
         while (r.propertyRouteType !== PropertyRouteType.Root)
             r = r.parent!;
@@ -164,14 +163,14 @@ export class PropertyRoute {
 
     // The concrete entity ctor this route references (through a Lite<T> if present), or undefined
     // if it is not an entity reference (value / embedded / collection).
-    private entityCtor(): Function | undefined {
+    private entityCtor(): Type<Entity> | undefined {
         const t = this.type;
         if (t.array) return undefined;                 // a collection is not a single entity reference
-        return t.is(Entity) ? t.getFunction() : undefined;
+        return t.is(Entity) ? t.getFunction() as Type<Entity> | undefined : undefined;
     }
 
     // The ctor whose fields the next member is read from.
-    private ownerCtor(): Function | undefined {
+    private ownerCtor(): Type<BaseEntity> | undefined {
         switch (this.propertyRouteType) {
             case PropertyRouteType.Root: return this.rootCtor!;
             case PropertyRouteType.Mixin: return this.mixinCtor!;
@@ -226,9 +225,9 @@ export class PropertyRoute {
         // follow a polymorphic reference, which every branch below either re-roots or refuses.
         if (member.length > 2 && member.startsWith("(") && member.endsWith(")")) {
             const cleanName = member.substring(1, member.length - 1);
-            const ctor = resolveCleanType(cleanName);
+            const ctor = resolveEntityType(cleanName);
             if (ctor == undefined)
-                throw new Error(`Type '${cleanName}' is not recognized (route ${this})`);
+                throw new Error(`Type '${cleanName}' is not recognized as an entity type (route ${this})`);
             return this.addCast(ctor);
         }
 
@@ -316,7 +315,7 @@ export class PropertyRoute {
      * The step itself is mode-independent: a path is parsed the same way whichever mode is on, so a
      * stored one always reads back. What legacy mode suppresses is GENERATION — see {@link generateRoutes}.
      */
-    addCast(ctor: Function): PropertyRoute {
+    addCast(ctor: Type<Entity>): PropertyRoute {
         if (this.type.array || !this.type.is(Entity))
             throw new Error(`Cannot cast ${this} to ${ctor.name}: it is not an entity reference.`);
 
@@ -361,7 +360,7 @@ export class PropertyRoute {
     // whole descent on it, so the property-auth pack (which passes false, as Signum's does) never saw a
     // single collection member: Southwind's `Product|AdditionalInformation/Key` rule had no counterpart
     // here and eastwind's AuthRules.xml carries it commented out.
-    static generateRoutes(rootType: Function, includeArrayElements = false, includeCasts = false): PropertyRoute[] {
+    static generateRoutes(rootType: Type<BaseEntity>, includeArrayElements = false, includeCasts = false): PropertyRoute[] {
         // A `@part` has NONE of its own: its members are routes of the entity that owns it, which this
         // walk descends into from there. Answering `[]` rather than throwing is what lets the half-dozen
         // enumerators that loop over every mapped type — property authorization, the routes table's sync,
@@ -396,7 +395,7 @@ export class PropertyRoute {
      * It hands back strings rather than routes precisely so the answer cannot be mistaken for one and
      * stored: a `@part` root exists for the length of this call and never escapes it.
      */
-    static memberPaths(rootType: Function, includeArrayElements = false): string[] {
+    static memberPaths(rootType: Type<BaseEntity>, includeArrayElements = false): string[] {
         const result: PropertyRoute[] = [];
         PropertyRoute.rootStandalone(rootType).generateRoutesInto(result, includeArrayElements);
         return result.map(r => r.propertyString());
@@ -418,7 +417,7 @@ export class PropertyRoute {
      * Everything else goes through {@link root} and is refused, which is the point: those two are a short
      * list that can be read, and an accidental third is a throw rather than a second name for a member.
      */
-    static rootStandalone(rootType: Function): PropertyRoute {
+    static rootStandalone(rootType: Type<BaseEntity>): PropertyRoute {
         if (!isPartType(rootType))
             return PropertyRoute.root(rootType);
         let r = PropertyRoute.partRootCache.get(rootType);
@@ -428,9 +427,9 @@ export class PropertyRoute {
         return r;
     }
 
-    private static partRootCache = new Map<Function, PropertyRoute>();
+    private static partRootCache = new Map<Type<Entity>, PropertyRoute>();
 
-    private generateRoutesInto(result: PropertyRoute[], includeArrayElements: boolean, visiting: Set<Function> = new Set(), includeCasts = false): void {
+    private generateRoutesInto(result: PropertyRoute[], includeArrayElements: boolean, visiting: Set<Type<BaseEntity>> = new Set(), includeCasts = false): void {
         // Inside a `@part` the row's BOOKKEEPING is not part of the model: the part stands in for a
         // Signum embedded / MList element, which has no `Id`, no `Ticks`, no `Parent` and no `Order`
         // property at all — Signum's `Parent`/`Order` are MList TABLE columns built with a null route.
@@ -593,7 +592,7 @@ export class PropertyRoute {
 
     // ---- Parsing (Signum's PropertyRoute.Parse) --------------------------------------------
 
-    static parse(rootType: Function, propertyString: string): PropertyRoute {
+    static parse(rootType: Type<BaseEntity>, propertyString: string): PropertyRoute {
         let result = PropertyRoute.root(rootType);
         for (const part of splitRoute(propertyString))
             result = result.add(part);
@@ -606,7 +605,7 @@ export class PropertyRoute {
         const m = /^\(([^)]+)\)\.?(.*)$/.exec(fullToString);
         if (m == null)
             throw new Error(`'${fullToString}' should start with the root type between parentheses`);
-        const ctor = resolveCleanType(m[1]);
+        const ctor = resolveModifiableType(m[1]);
         if (ctor == undefined)
             throw new Error(`Type '${m[1]}' is not recognized`);
         return m[2].length === 0 ? PropertyRoute.root(ctor) : PropertyRoute.parse(ctor, m[2]);
@@ -748,10 +747,10 @@ declare module "./entity" {
 }
 
 Object.assign(BaseEntity, {
-    propertyRoute(this: Function, lambda: Quoted<(val: any) => any>): PropertyRoute {
+    propertyRoute(this: Type<BaseEntity>, lambda: Quoted<(val: any) => any>): PropertyRoute {
         return PropertyRoute.root(this).addLambda(lambda);
     },
-    tryPropertyRoute(this: Function, lambda: Quoted<(val: any) => any>): PropertyRoute | undefined {
+    tryPropertyRoute(this: Type<BaseEntity>, lambda: Quoted<(val: any) => any>): PropertyRoute | undefined {
         return PropertyRoute.root(this).tryAddLambda(lambda);
     },
 });

@@ -1,6 +1,7 @@
 import type { Schema } from "@altea/altea/server/schema";
 import { getTypeInfo } from "@altea/altea/data/reflection";
 import { FieldReference, FieldEnum, FieldImplementedBy, FieldEntityArray } from "@altea/altea/server/schema/field";
+import type { Type, Entity } from "@altea/altea/data/entity";
 
 // Ownership derivation for PART entities (altea's MList replacement). A Part is OWNED by exactly one
 // entity and, for authorization, INHERITS that owner's TypeAllowed + TypeConditions — so Parts never carry
@@ -14,9 +15,9 @@ import { FieldReference, FieldEnum, FieldImplementedBy, FieldEntityArray } from 
 // is no longer needed. MULTI-OWNER IS FORBIDDEN: a Part referenced by two different
 // owners throws — use `@entity("SharedPart")` (shown in the grid, rules defined manually) for real sharing.
 
-export interface PartEdge { owner: Function; part: Function; }
+export interface PartEdge { owner: Type<Entity>; part: Type<Entity>; }
 
-function isPart(ctor: Function): boolean {
+function isPart(ctor: Type<Entity>): boolean {
     return getTypeInfo(ctor)?.entityKind === "Part";
 }
 
@@ -30,24 +31,24 @@ function isPart(ctor: Function): boolean {
 export function partEdges(schema: Schema): PartEdge[] {
     const edges: PartEdge[] = [];
 
-    const backRefOwner = new Map<Function, Function>();
-    for (const table of schema.tables.values()) {
-        if (!isPart(table.type))
+    const backRefOwner = new Map<Type<Entity>, Type<Entity>>();
+    for (const [type, table] of schema.tables) {
+        if (!isPart(type))
             continue;
         for (const ef of Object.values(table.fields) as { fieldInfo?: { isBackReference?: boolean }; field: unknown }[]) {
-            const owner = ef.fieldInfo?.isBackReference && ef.field instanceof FieldReference ? ef.field.column.referenceTable?.type : undefined;
+            const owner = ef.fieldInfo?.isBackReference && ef.field instanceof FieldReference ? ef.field.column.referenceTable?.entityType : undefined;
             if (owner != null) {
-                backRefOwner.set(table.type, owner);
-                edges.push({ owner, part: table.type });
+                backRefOwner.set(type, owner);
+                edges.push({ owner, part: type });
                 break;
             }
         }
     }
 
-    const add = (owner: Function, target: Function | undefined): void => {
+    const add = (owner: Type<Entity>, target: Type<Entity> | undefined): void => {
         if (target != null && isPart(target) && !backRefOwner.has(target)) edges.push({ owner, part: target });
     };
-    const scan = (owner: Function, ef: { fieldInfo?: { isBackReference?: boolean }; field: unknown }): void => {
+    const scan = (owner: Type<Entity>, ef: { fieldInfo?: { isBackReference?: boolean }; field: unknown }): void => {
         // A @backReference is a child pointing UP to its parent — the reverse of ownership, NOT an owned
         // edge. Skip it, else a part-of-a-part's back-pointer would look like a second owner of the parent.
         if (ef.fieldInfo?.isBackReference)
@@ -55,27 +56,27 @@ export function partEdges(schema: Schema): PartEdge[] {
         const field = ef.field;
         if (field instanceof FieldEntityArray) add(owner, field.childType);
         else if (field instanceof FieldEnum) { /* enum side-table, never a Part */ }
-        else if (field instanceof FieldReference) add(owner, field.column.referenceTable?.type);
-        else if (field instanceof FieldImplementedBy) for (const c of field.implementationColumns) add(owner, c.referenceTable?.type);
+        else if (field instanceof FieldReference) add(owner, field.column.referenceTable?.entityType);
+        else if (field instanceof FieldImplementedBy) for (const c of field.implementationColumns) add(owner, c.referenceTable?.entityType);
     };
-    for (const table of schema.tables.values()) {
-        for (const ef of Object.values(table.fields)) scan(table.type, ef);
-        for (const mixin of Object.values(table.mixins)) for (const ef of Object.values(mixin.fields)) scan(table.type, ef);
+    for (const [type, table] of schema.tables) {
+        for (const ef of Object.values(table.fields)) scan(type, ef);
+        for (const mixin of Object.values(table.mixins)) for (const ef of Object.values(mixin.fields)) scan(type, ef);
     }
     return edges;
 }
 
 // part → its ROOT (nearest non-Part owner), from the edge list. PURE (no schema) so it is unit-testable.
 // Throws on a multi-owner Part (forbidden) or a cyclic ownership chain.
-export function partRoots(edges: PartEdge[]): Map<Function, Function> {
-    const owners = new Map<Function, Set<Function>>();
+export function partRoots(edges: PartEdge[]): Map<Type<Entity>, Type<Entity>> {
+    const owners = new Map<Type<Entity>, Set<Type<Entity>>>();
     for (const { owner, part } of edges) {
         let s = owners.get(part);
         if (s == null) owners.set(part, s = new Set());
         s.add(owner);
     }
 
-    const immediate = new Map<Function, Function>();
+    const immediate = new Map<Type<Entity>, Type<Entity>>();
     for (const [part, set] of owners) {
         if (set.size > 1)
             throw new Error(`Part '${part.name}' has ${set.size} owners (${[...set].map(o => o.name).join(", ")}). A Part may have exactly ONE owner — declare it @entity("SharedPart") and define its auth rules manually instead.`);
@@ -83,9 +84,9 @@ export function partRoots(edges: PartEdge[]): Map<Function, Function> {
     }
 
     // A ctor is a Part (for chaining) iff it is itself an owned key in `immediate`.
-    const root = new Map<Function, Function>();
+    const root = new Map<Type<Entity>, Type<Entity>>();
     for (const part of immediate.keys()) {
-        const seen = new Set<Function>([part]);
+        const seen = new Set<Type<Entity>>([part]);
         let cur = part;
         for (;;) {
             const owner = immediate.get(cur)!;
@@ -99,7 +100,7 @@ export function partRoots(edges: PartEdge[]): Map<Function, Function> {
 }
 
 // part → root over the live schema (the wiring TypeAuthLogic uses at initialize).
-export function computePartRoots(schema: Schema): Map<Function, Function> {
+export function computePartRoots(schema: Schema): Map<Type<Entity>, Type<Entity>> {
     return partRoots(partEdges(schema));
 }
 
@@ -109,25 +110,24 @@ export function computePartRoots(schema: Schema): Map<Function, Function> {
 // is absent — its standalone-query filter (a reverse lookup) is not derivable here and is left unfiltered
 // (those Parts aren't exposed standalone anyway). Used to rebase the ROOT's TypeCondition onto a standalone
 // `table(Part)` query. Throws on a cyclic chain.
-export function partParentChains(schema: Schema): Map<Function, string[]> {
+export function partParentChains(schema: Schema): Map<Type<Entity>, string[]> {
     // Each Part's immediate back-reference: { field name, owner ctor }.
-    const backref = new Map<Function, { field: string; owner: Function }>();
-    for (const table of schema.tables.values()) {
-        const owner = table.type;
+    const backref = new Map<Type<Entity>, { field: string; owner: Type<Entity> }>();
+    for (const [owner, table] of schema.tables) {
         if (!isPart(owner)) continue;
         for (const [name, ef] of Object.entries(table.fields) as [string, { fieldInfo?: { isBackReference?: boolean }; field: unknown }][]) {
             if (ef.fieldInfo?.isBackReference && ef.field instanceof FieldReference) {
-                backref.set(owner, { field: name, owner: ef.field.column.referenceTable?.type as Function });
+                backref.set(owner, { field: name, owner: ef.field.column.referenceTable!.entityType });
                 break; // an owned Part has a single back-reference to its owner
             }
         }
     }
 
-    const chains = new Map<Function, string[]>();
+    const chains = new Map<Type<Entity>, string[]>();
     for (const part of backref.keys()) {
         const chain: string[] = [];
-        const seen = new Set<Function>([part]);
-        let cur: Function = part;
+        const seen = new Set<Type<Entity>>([part]);
+        let cur: Type<Entity> = part;
         for (;;) {
             const br = backref.get(cur);
             if (br == null) break;         // cur is a non-Part (root) OR a Part without a back-reference

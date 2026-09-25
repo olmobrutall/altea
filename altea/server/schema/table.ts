@@ -60,6 +60,14 @@ export class Table {
         this.name = name;
     }
 
+    // `type` for a table of ENTITY rows — every table but a view's (a referenced table, a part's, any
+    // table in Schema.tables). Throws for a view rather than handing a View ctor to entity-only code.
+    get entityType(): Type<Entity> {
+        if (this.isView)
+            throw new Error(`Table ${this.name} is a view (${this.type.name}), not an entity table`);
+        return this.type as Type<Entity>;
+    }
+
     // Fluent index declaration (Signum's FluentInclude.WithIndex / WithUniqueIndex, whose
     // signature is `(fields, where?, includeFields?)`). `fields` reads the covered columns
     // (`e => e.code`, `e => [e.a, e.b]`); `where` is a filtered-index predicate captured by the

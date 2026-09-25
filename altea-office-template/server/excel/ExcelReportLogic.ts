@@ -4,7 +4,6 @@ import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { WebBuilder } from "@altea/altea/server/webApi";
 import { CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
 import { table } from "@altea/altea/server/table";
-import { retrieve } from "@altea/altea/server/Database";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { parseQueryRequest } from "@altea/altea/server/queryServer";
 import type { QueryRequest } from "@altea/altea/server/dynamicQuery/requests";
@@ -64,7 +63,7 @@ export namespace ExcelReportLogic {
     ): Promise<{ report: ExcelReportEntity; bytes: Uint8Array }> {
         const results = await QueryLogic.queries.executeQueryAsync(request);
 
-        const report = await retrieve(ExcelReportEntity, excelReport.id);
+        const report = await excelReport.retrieve();
         assertExtension(report);
 
         return { report, bytes: ExcelReportGenerator.writeDataInExcelFile(results, request, report.file.binaryFile) };

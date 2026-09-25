@@ -625,7 +625,7 @@ export class SchemaBuilder {
      * child pointing UP, the reverse of ownership.
      */
     private propagatePartEntityData(): void {
-        const types = [...this.schema.tables.keys()].filter(t => typeof t === "function") as Function[];
+        const types = [...this.schema.tables.keys()].filter(t => typeof t === "function");
         for (let pass = 0; pass < types.length; pass++) {
             let changed = false;
             for (const owner of types) {

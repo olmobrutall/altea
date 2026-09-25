@@ -59,7 +59,7 @@ export namespace HelpGenerator {
         return typeIs + ". " + kind + ".";
     }
 
-    function baseTypeNiceName(type: Function): string {
+    function baseTypeNiceName(type: Type<Entity>): string {
         const base = Object.getPrototypeOf(type) as Function | null;
         if (base == null || base === Function.prototype || base.name === "")
             return Entity.name;

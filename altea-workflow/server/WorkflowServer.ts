@@ -195,7 +195,7 @@ export namespace WorkflowServer {
             { req: CustomType<NextConnectionsRequest>(), res: CustomType<Lite<IWorkflowNodeEntity>[]>() },
             async (req, res) => {
                 const r = await req.jsonTyped() as NextConnectionsRequest;
-                const wa = await retrieve(WorkflowActivityEntity, r.workflowActivity.id!);
+                const wa = await r.workflowActivity.retrieve();
                 const conns = await WorkflowLogic.nextConnectionsFromCache(wa, r.connectionType);
                 res.jsonTyped(conns.map(a => a.to.toLite()));
             });

@@ -136,7 +136,7 @@ export class Retriever {
         for (const e of this.populated)
             bindParentsOwn(e);
         for (const e of this.populated)
-            await schema.entityEvents(e.constructor as Type<Entity>).onRetrieved(e);
+            await schema.entityEvents(e.getType()).onRetrieved(e);
         // A Retrieved handler may DERIVE an in-memory value from what was just read — Signum.Files stamps a
         // FilePathEmbedded's routing fields there, and BigStringLogic substitutes a file's content for the
         // embedded's `text`. Those writes land AFTER each instance's clean baseline was taken (materialisation
@@ -293,7 +293,7 @@ export class Retriever {
     // The runtime type of an @implementedByAll reference (Signum's Schema.GetType):
     // resolve the TypeEntity-id discriminator back to its constructor — altea's
     // analogue of a C# `Type`. Returns null for a null/unknown discriminator.
-    type(typeId: PrimaryKey | null): Function | null {
+    type(typeId: PrimaryKey | null): Type<Entity> | null {
         if (typeId == null) return null;
         return this.types().tryGetType(typeId) ?? null;
     }

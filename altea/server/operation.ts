@@ -31,7 +31,7 @@ export interface IOperation {
      * For a ConstructFrom / ConstructFromMany this is the SOURCE type, not the constructed one.
      * Explicit rather than derived, because a generic parameter is erased at runtime — see graph.ts.
      */
-    readonly entityType: Function;
+    readonly entityType: Type<Entity>;
     assertIsValid(): void;
 }
 
@@ -140,9 +140,9 @@ export interface IDeleteOperation extends IEntityOperation {
  * ConstructFrom / ConstructFromMany that one is the SOURCE type, while `getState` selects on the
  * CONSTRUCTED one. Returns undefined for a selector that is not a plain property route.
  */
-export function tryStateEnum(ctor: Function, getState: (entity: any) => unknown): object | undefined {
+export function tryStateEnum(ctor: Type<Entity>, getState: (entity: any) => unknown): object | undefined {
     try {
-        return PropertyRoute.root(ctor as Type<Entity>).addLambda(getState as Quoted<(entity: Entity) => unknown>).type.getEnum();
+        return PropertyRoute.root(ctor).addLambda(getState as Quoted<(entity: Entity) => unknown>).type.getEnum();
     } catch {
         return undefined;
     }
@@ -153,7 +153,7 @@ export function tryStateEnum(ctor: Function, getState: (entity: any) => unknown)
  * the type to walk the selector from, and is only consulted on a miss: `withStateMachine` stamps
  * `stateEnum` for every operation it declares, so the walk is skipped entirely for those.
  */
-export function stateEnumOf(op: IGraphStateOperation, root: Function): object | undefined {
+export function stateEnumOf(op: IGraphStateOperation, root: Type<Entity>): object | undefined {
     if (op.stateEnum === undefined)
         op.stateEnum = (op.getState == null ? undefined : tryStateEnum(root, op.getState)) ?? null;
     return op.stateEnum ?? undefined;

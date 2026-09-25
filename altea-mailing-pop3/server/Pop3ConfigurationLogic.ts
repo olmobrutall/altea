@@ -292,7 +292,7 @@ export namespace Pop3ConfigurationLogic {
                     .sort((a, b) => compareDates(b.date, a.date))[0];
 
                 const duplicate = newest == undefined ? null
-                    : await retrieve(EmailMessageEntity, newest.lite.id) as EmailMessageEntity;
+                    : await newest.lite.retrieve();
 
                 if (duplicate != null && areDuplicates(email, duplicate)) {
                     assignEntities(email, duplicate);

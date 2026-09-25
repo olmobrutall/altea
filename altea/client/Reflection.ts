@@ -6,7 +6,7 @@
 // system was extracted to ./binding.
 
 import { Entity, BaseEntity, EmbeddedEntity, ModelEntity } from '../data/entity';
-import type { Type, PrimaryKey } from '../data/entity';
+import type { Type, PrimaryKey, View, ViewType } from '../data/entity';
 import { forEachField } from '../data/changes';
 import { Lite, LiteImp } from '../data/lite';
 import { TypeInfo, tryGetTypeInfo as alteaTryGetTypeInfo } from '../data/reflection';
@@ -37,7 +37,7 @@ export function getTypeName(pseudoType: PseudoType | Lite<Entity> | BaseEntity):
   if (pseudoType instanceof Lite)
     return cleanTypeName(pseudoType.entityType);
   if (pseudoType instanceof BaseEntity)
-    return cleanTypeName(pseudoType.constructor as Function);
+    return cleanTypeName(pseudoType.getType());
   if (typeof pseudoType === 'string')
     return pseudoType;
   if (typeof pseudoType === 'function')
@@ -47,13 +47,13 @@ export function getTypeName(pseudoType: PseudoType | Lite<Entity> | BaseEntity):
 
 // Anything that can name a type: a PseudoType, an instance, a lite — or a bare `Function`, which is what
 // `TypeInfo.ctor` and the LINQ layer hand around (a ctor is a Type<T> at runtime but not to the checker).
-export type AnyTypeRef = PseudoType | Lite<Entity> | BaseEntity | Function | undefined | null;
+export type AnyTypeRef = PseudoType | Lite<Entity> | BaseEntity | Type<BaseEntity> | ViewType<View> | undefined | null;
 
 // Resolve any PseudoType / instance to its constructor (for the TypeInfo lookups below).
-function pseudoCtor(type: AnyTypeRef): Function | undefined {
+function pseudoCtor(type: AnyTypeRef): Type<BaseEntity> | ViewType<View> | undefined {
   if (type == null) return undefined;
   if (type instanceof Lite) return type.entityType;
-  if (type instanceof BaseEntity) return type.constructor as Function;
+  if (type instanceof BaseEntity) return type.getType();
   if (typeof type === 'string') return resolveCleanType(type) ?? resolveType(type);
   if (typeof type === 'function') return type;
   return undefined;

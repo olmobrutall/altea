@@ -62,11 +62,11 @@ export namespace EmailReceptionLogic {
         config: EmailReceptionConfigurationEntity,
         ctx: ScheduledTaskContext,
     ) => Promise<EmailReceptionEntity>;
-    const receptionServices = new Map<Function, ReceiveHandler>();
+    const receptionServices = new Map<Type<Entity>, ReceiveHandler>();
 
     // altea-only (see the header): the protocol package's chance to fold a typed-in password into the
     // stored one when a configuration is saved.
-    const receptionServiceSaves = new Map<Function, (service: EmailReceptionServiceEntity) => void>();
+    const receptionServiceSaves = new Map<Type<Entity>, (service: EmailReceptionServiceEntity) => void>();
 
     let started = false;
 
@@ -141,7 +141,7 @@ export namespace EmailReceptionLogic {
         serviceType: Type<T>,
         receive: (service: T, config: EmailReceptionConfigurationEntity, ctx: ScheduledTaskContext) => Promise<EmailReceptionEntity>,
     ): void {
-        receptionServices.set(serviceType as Function, receive as ReceiveHandler);
+        receptionServices.set(serviceType as Type<Entity>, receive as ReceiveHandler);
     }
 
     /** altea-only (see the header): what the Save operation should do to this service type before it is
@@ -176,15 +176,15 @@ export namespace EmailReceptionLogic {
     /** The concrete types `EmailReceptionConfiguration.service` may hold (Signum's
      *  `sb.Schema.FindImplementations(PropertyRoute.Construct(s => s.Service))`). Read off the FieldInfo, so
      *  an app's `overrideImplementedBy` is what this sees. */
-    function serviceImplementations(): Function[] {
+    function serviceImplementations(): Type<Entity>[] {
         const impl = getTypeInfo(EmailReceptionConfigurationEntity)?.fields["service"]?.implementations;
         return impl?.kind === "implementedBy" ? impl.types() : [];
     }
 
     /** Signum's Polymorphic lookup: the handler registered for this instance's type, or for a base of it. */
-    function lookup<H>(registry: Map<Function, H>, service: EmailReceptionServiceEntity): H | undefined {
+    function lookup<H>(registry: Map<Type<Entity>, H>, service: EmailReceptionServiceEntity): H | undefined {
         for (let ctor: Function | null = service.constructor; ctor != null; ctor = Object.getPrototypeOf(ctor) as Function | null) {
-            const handler = registry.get(ctor);
+            const handler = registry.get(ctor as Type<Entity>);
             if (handler != null)
                 return handler;
         }

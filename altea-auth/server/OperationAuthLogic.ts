@@ -29,6 +29,7 @@ import { BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { OperationType, type IConstructorFromOperation, type IExecuteOperation } from "@altea/altea/server/operation";
 import type { TypeCaches } from "@altea/altea/server/typeLogic";
 import { TypeConditionLogic } from "./TypeConditionLogic";
+import type { Type } from "@altea/altea/data/entity";
 
 // Port of Signum.Authorization's Rules/OperationAuthLogic.cs — see port/Auth.md.
 //
@@ -255,7 +256,7 @@ export namespace OperationAuthLogic {
             const op = OperationLogic.tryFindOperation(symbol);
             if (op == null || symbol.id == null)
                 continue;
-            const returnType = (op as { returnType?: Function }).returnType;
+            const returnType = (op as { returnType?: Type<Entity> }).returnType;
             byId.set(String(symbol.id), {
                 constructor: op.operationType === OperationType.Constructor,
                 checkFor:

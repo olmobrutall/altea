@@ -1,4 +1,4 @@
-import type { Entity } from '../../data/entity';
+import type { Entity, Type } from '../../data/entity';
 import { SqlPreCommand, Spacing } from '../sync/sqlPreCommand';
 import type { Query } from '../query';
 import type { LambdaExpression } from '../linq/expressions';
@@ -58,7 +58,7 @@ export type PreBulkInsertHandler = () => void | Promise<void>;
 // therefore starved: a handler that needs cached data DEMANDS it (`stableValue`, server/stablePromise.ts),
 // and the region around the bind loads it and binds again. Returns undefined for "no restriction".
 export type QueryFilterHandler = (ctx: {
-    ctor: Function;
+    ctor: Type<Entity>;
     elementType: RuntimeType;
     // Signum's `FilterQueryArgs` — the query this filter is being spliced into. A filter that only asks
     // "what may this role read" ignores it; one whose answer depends on what the CALLER already filtered by

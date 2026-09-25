@@ -30,6 +30,7 @@ import type SearchControlLoaded from "@altea/altea/client/SearchControl/SearchCo
 import { CollectionMessage } from "@altea/altea/data/dynamicQueries";
 import { SearchMessage } from "@altea/altea/data/uiMessages";
 import { TypeConditionSymbol } from "../../data/Rules";
+import type { Type, BaseEntity } from "@altea/altea/data/entity";
 
 // Port of Signum.Authorization's AuthAdminClient.tsx — see port/Auth.md.
 //
@@ -392,7 +393,7 @@ function niceTokenName(root: QueryToken, fullKey: string): string {
 // A route is shipped only where it is STRICTER THAN ITS TYPE, so an absent entry falls back to the type's
 // own allowance — which is Write when the type is unrestricted, and None when the type is not in the blob
 // at all (the role cannot read it, so neither can it read any property of it).
-function propertyAllowance(rootType: Function, path: string): PropertyAllowed {
+function propertyAllowance(rootType: Type<BaseEntity>, path: string): PropertyAllowed {
     const tm = tryGetTypeMetadata(rootType);
     if (tm == null)
         // Absent: denied if it could have been removed, unrestricted otherwise — the same three-way read
@@ -420,7 +421,7 @@ function propertyAllowance(rootType: Function, path: string): PropertyAllowed {
  * the sub-entity's properties are governed by ITS OWN rules — prepending would invent
  * "Order.customer.firstName", which is not a rule anyone can write. A `@part` row is likewise its own root.
  */
-function ownerRootedRoute(ctx: TypeContext<unknown>): { rootType: Function; path: string } | undefined {
+function ownerRootedRoute(ctx: TypeContext<unknown>): { rootType: Type<BaseEntity>; path: string } | undefined {
     const route = ctx.propertyRoute;
     if (route == null || route.propertyRouteType != PropertyRouteType.FieldOrProperty)
         return undefined;
@@ -438,7 +439,7 @@ function ownerRootedRoute(ctx: TypeContext<unknown>): { rootType: Function; path
     return { rootType, path };
 }
 
-function isPersistedEntity(ctor: Function): boolean {
+function isPersistedEntity(ctor: Type<BaseEntity>): ctor is Type<Entity> {
     return ctor === Entity || ctor.prototype instanceof Entity;
 }
 

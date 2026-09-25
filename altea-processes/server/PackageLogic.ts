@@ -1,7 +1,6 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
-import { retrieve } from "@altea/altea/server/Database";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { Lite } from "@altea/altea/data/lite";
 import { Entity, type Type, type PrimaryKey } from "@altea/altea/data/entity";
@@ -66,7 +65,7 @@ export namespace PackageLogic {
     export async function createLines(pack: PackageEntity, lites: readonly Lite<Entity>[]): Promise<PackageEntity> {
         await pack.save();
 
-        const byType = new Map<Function, PrimaryKey[]>();
+        const byType = new Map<Type<Entity>, PrimaryKey[]>();
         for (const lite of lites) {
             let ids = byType.get(lite.entityType);
             if (ids == undefined)
@@ -123,12 +122,7 @@ async function packageOf<T extends PackageEntity>(ep: ExecutingProcess, type: Ty
     const data = ep.data;
     if (data == null)
         throw new Error(`The process ${ep.currentProcess.id} has no package to walk`);
-    return await retrieve(data.entityType as Type<T>, data.id!) as T;
-}
-
-/** Retrieve a line's target — the lite carries the concrete type, so this works for a polymorphic package. */
-function targetOf(line: PackageLineEntity): Promise<Entity> {
-    return retrieve(line.target.entityType as Type<Entity>, line.target.id!);
+    return await data.retrieve() as T;
 }
 
 /**
@@ -151,10 +145,10 @@ export class PackageOperationAlgorithm implements IProcessAlgorithm {
         const lines = await PackageLogic.pendingLines(pack).toArray() as PackageLineEntity[];
 
         await ep.forEach(lines, l => `PackageLine ${l.id}`, async line => {
-            const target = await targetOf(line);
+            const target = await line.target.retrieve();
             const operationType = OperationLogic.findOperation(symbol).operationType;
 
-            await OperationLogic.assertOperationAllowed(symbol, target.constructor, true, target);
+            await OperationLogic.assertOperationAllowed(symbol, target.getType(), true, target);
 
             switch (operationType) {
                 case OperationType.Execute:
@@ -194,7 +188,7 @@ export class PackageExecuteAlgorithm<T extends Entity> implements IProcessAlgori
         const lines = await PackageLogic.pendingLines(pack).toArray() as PackageLineEntity[];
 
         await ep.forEach(lines, l => `PackageLine ${l.id}`, async line => {
-            await Operations.execute(await targetOf(line) as T, this.symbol, ...args);
+            await Operations.execute(await line.target.retrieve() as T, this.symbol, ...args);
             line.finishTime = Clock.now;
             await line.save();
         }, l => l.target);
@@ -216,7 +210,7 @@ export class PackageDeleteAlgorithm<T extends Entity> implements IProcessAlgorit
         const lines = await PackageLogic.pendingLines(pack).toArray() as PackageLineEntity[];
 
         await ep.forEach(lines, l => `PackageLine ${l.id}`, async line => {
-            await Operations.delete(await targetOf(line) as T, this.symbol, ...args);
+            await Operations.delete(await line.target.retrieve() as T, this.symbol, ...args);
             line.finishTime = Clock.now;
             await line.save();
         }, l => l.target);
@@ -241,7 +235,7 @@ export class PackageConstructFromAlgorithm<F extends Entity, T extends Entity> i
         const lines = await PackageLogic.pendingLines(pack).toArray() as PackageLineEntity[];
 
         await ep.forEach(lines, l => `PackageLine ${l.id}`, async line => {
-            const result = await Operations.constructFrom(await targetOf(line) as F, this.symbol, ...args);
+            const result = await Operations.constructFrom(await line.target.retrieve(), this.symbol, ...args);
             if (result != null) {
                 // There is no "allow save" scope to open — a
                 // construct-from returning an unsaved entity is saved by whoever asked for it.

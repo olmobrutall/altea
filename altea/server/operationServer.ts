@@ -8,13 +8,13 @@
 // by the entity Serializer via req.jsonTyped; the EntityPack is re-serialised by res.jsonTyped.
 
 import { Entity } from "../data/entity";
+import type { Type } from "../data/entity";
 import type { Lite } from "../data/lite";
 import { Serializer } from "../data/serializer";
 import type { OperationSymbol, ExecuteSymbol, DeleteSymbol, ConstructSymbol, From, FromMany } from "../data/operations";
 import type { EntityPack } from "../data/entityPack";
 import { OperationLogic, Operations } from "./operationLogic";
 import type { IEntityOperation } from "./operation";
-import * as Database from "./Database";
 import { assertGraphIntegrityAsync } from "./graphExplorer";
 import { Transaction } from "./connection/transaction";
 import { ExceptionLogic } from "./exceptionLogic";
@@ -53,7 +53,7 @@ export namespace OperationServer {
             { params: CustomType<{ operationKey: string }>(), req: CustomType<LiteOperationRequest>(), res: CustomType<EntityPack<Entity>>() },
             async (req, res) => {
                 const { lite, args } = await req.jsonTyped() as LiteOperationRequest;
-                const entity = await Database.retrieve(lite.entityType, lite.id);
+                const entity = await lite.retrieve();
                 const result = await Operations.execute(entity, resolve<ExecuteSymbol<Entity>>(req.params.operationKey), ...(args ?? []));
                 res.jsonTyped(await getEntityPack(result));
             });
@@ -80,7 +80,7 @@ export namespace OperationServer {
             { params: CustomType<{ operationKey: string }>(), req: CustomType<LiteOperationRequest>(), res: CustomType<EntityPack<Entity>>() },
             async (req, res) => {
                 const { lite, args } = await req.jsonTyped() as LiteOperationRequest;
-                const entity = await Database.retrieve(lite.entityType, lite.id);
+                const entity = await lite.retrieve();
                 const result = await Operations.constructFrom(entity, resolve<ConstructSymbol<Entity, From<Entity>>>(req.params.operationKey), ...(args ?? []));
                 res.jsonTyped(await getEntityPack(result));
             });
@@ -119,9 +119,9 @@ export namespace OperationServer {
                 let error: string | null = null;
                 try {
                     await Transaction.forceNew(async () => {
-                        const entity = await Database.retrieve(lite.entityType, lite.id);
+                        const entity = await lite.retrieve();
                         if (setters?.length)
-                            MultiSetter.setSetters(entity, setters, PropertyRoute.root(entity.constructor as Function), authContext);
+                            MultiSetter.setSetters(entity, setters, PropertyRoute.root(entity.getType()), authContext);
                         await action(entity);
                     });
                 } catch (e) {
@@ -193,7 +193,7 @@ export namespace OperationServer {
                 // assert the current role may run it IN THE UI on that type. This is the route's only gate —
                 // without it an anonymous caller could read the state distribution of any table by asking
                 // (Signum's whole API is authorized globally by ASP.NET; altea gates per route).
-                const types = [...new Set(lites.map(l => l.entityType as Function))];
+                const types = [...new Set(lites.map(l => l.entityType))];
                 const symbols: OperationSymbol[] = [];
                 for (const key of operationKeys) {
                     const symbol = resolve(key);
@@ -211,7 +211,7 @@ export namespace OperationServer {
             { params: CustomType<{ operationKey: string }>(), req: CustomType<LiteOperationRequest>() },
             async (req, res) => {
                 const { lite, args } = await req.jsonTyped() as LiteOperationRequest;
-                const entity = await Database.retrieve(lite.entityType, lite.id);
+                const entity = await lite.retrieve();
                 await Operations.delete(entity, resolve<DeleteSymbol<Entity>>(req.params.operationKey), ...(args ?? []));
                 res.status(204).end();
             });
@@ -242,7 +242,7 @@ export async function getEntityPack(entity: Entity): Promise<EntityPack<Entity>>
     // NOT ported: Signum's `CreateMultiCanExecuteState` scope, a scratchpad a canExecute body may use to
     // share an expensive computation across the operations of one pack. Nothing in altea writes to it.
     const canExecute: Record<string, string> = {};
-    for (const symbol of OperationLogic.operationsForType(entity.constructor)) {
+    for (const symbol of OperationLogic.operationsForType(entity.getType())) {
         const op = OperationLogic.tryFindOperation(symbol);
         if (op == undefined || !("onCanExecute" in op))
             continue;
@@ -251,7 +251,7 @@ export async function getEntityPack(entity: Entity): Promise<EntityPack<Entity>>
         if (entity.isNew && !eo.canBeNew)
             continue;
 
-        if (!(await OperationLogic.isOperationAllowed(symbol, entity.constructor, true, entity)))
+        if (!(await OperationLogic.isOperationAllowed(symbol, entity.getType(), true, entity)))
             continue;
 
         try {

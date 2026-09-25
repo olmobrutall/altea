@@ -4,7 +4,7 @@ import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
 import { exploreModifiables, fullIntegrityCheckAsync } from "@altea/altea/server/graphExplorer";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { Entity, type Type } from "@altea/altea/data/entity";
+import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { EvalPanelPermission } from "../data/EvalPanelPermission";
 import { EvalLogic } from "./EvalLogic";
@@ -58,7 +58,7 @@ export namespace EvalServer {
                 const all = exploreModifiables([entity]);
                 for (const m of all)
                     if (m instanceof Entity)
-                        schema.entityEvents(m.constructor as Type<Entity>).onPreSaving(m);
+                        schema.entityEvents(m.getType()).onPreSaving(m);
 
                 const checks = await fullIntegrityCheckAsync(all, "Saving");
                 const error = checks

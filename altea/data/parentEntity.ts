@@ -151,7 +151,7 @@ export function bindParentsOwn(owner: BaseEntity): void {
  * entity-overrides module had a chance to set `bindParent` imperatively.
  */
 function forEachBoundChild(owner: BaseEntity, callback: (child: BaseEntity, member: string) => void): void {
-    eachFieldInfo(owner.constructor, fi => {
+    eachFieldInfo(owner.getType(), fi => {
         if (fi.bindParent !== true)
             return;
 
