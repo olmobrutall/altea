@@ -6,6 +6,8 @@ import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import type { Entity, Type } from "@altea/altea/data/entity";
+import type { FieldInfo } from "@altea/altea/data/reflection";
+import { FieldRoute, isMixinType } from "@altea/altea/data/fieldRoute";
 import { FilePathEmbedded } from "../data/Files";
 import { FileTypeLogic } from "./FileTypeLogic";
 import type { IFilePath } from "./FileTypeAlgorithm";
@@ -49,19 +51,19 @@ export namespace FilePathEmbeddedLogic {
             fp.setRouting(position.rootType, position.entityId == null ? null : String(position.entityId), position.propertyRoute));
 
         sb.schema.initializing.push(() => {
-            for (const [ctor, paths] of filePathFieldsByType(sb.schema)) {
-                registerSaveHook(sb, ctor, paths);
-                registerDeleteHook(sb, ctor, paths);
-                registerRoutingHooks(sb, ctor, paths);
+            for (const [ctor, routes] of filePathRoutesByType(sb.schema)) {
+                registerSaveHook(sb, ctor, routes);
+                registerDeleteHook(sb, ctor, routes);
+                registerRoutingHooks(sb, ctor, routes);
             }
         });
     }
 
-    /** Every FilePathEmbedded reachable from `entity` through the given (possibly nested) field paths. */
-    export function filesOf(entity: Entity, paths: readonly string[][]): FilePathEmbedded[] {
+    /** Every FilePathEmbedded of `entity` at the given routes (rooted at its type, nested embeddeds included). */
+    export function filesOf(entity: Entity, routes: readonly FieldRoute[]): FilePathEmbedded[] {
         const result: FilePathEmbedded[] = [];
-        for (const path of paths) {
-            const value = readPath(entity, path);
+        for (const route of routes) {
+            const value = readRoute(entity, route);
             if (value instanceof FilePathEmbedded)
                 result.push(value);
         }
@@ -110,9 +112,9 @@ export namespace FilePathEmbeddedLogic {
 
 // ---- hook registration ---------------------------------------------------------------------------------
 
-function registerSaveHook(sb: SchemaBuilder, ctor: Type<Entity>, paths: string[][]): void {
+function registerSaveHook(sb: SchemaBuilder, ctor: Type<Entity>, routes: FieldRoute[]): void {
     sb.schema.entityEvents(ctor).preSaving.push(entity => {
-        for (const fp of FilePathEmbeddedLogic.filesOf(entity, paths)) {
+        for (const fp of FilePathEmbeddedLogic.filesOf(entity, routes)) {
             // A file that is already stored (has a suffix) and carries no new bytes is untouched.
             if (fp.binaryFile == null || fp.suffix != null)
                 continue;
@@ -129,55 +131,59 @@ function registerSaveHook(sb: SchemaBuilder, ctor: Type<Entity>, paths: string[]
 // no id until now, which is exactly why this runs on `saved` and not `preSaving`. Safe to write here: the
 // saver re-baselines the entity afterwards, and the routing fields are `@column(false)` anyway, so they are
 // outside change tracking.
-function registerRoutingHooks(sb: SchemaBuilder, ctor: Type<Entity>, paths: string[][]): void {
+function registerRoutingHooks(sb: SchemaBuilder, ctor: Type<Entity>, routes: FieldRoute[]): void {
     const rootType = cleanTypeName(ctor);
 
     sb.schema.entityEvents(ctor).saved.push(entity => {
-        for (const path of paths) {
-            const value = readPath(entity, path);
+        for (const route of routes) {
+            const value = readRoute(entity, route);
             if (value instanceof FilePathEmbedded)
                 // `entityId` is a string because that is what the URL carries; the download route parses it
-                // back with the owning type's own `parseId` (int / long / uuid).
-                value.setRouting(rootType, entity.id == null ? null : String(entity.id), path.join("."));
+                // back with the owning type's own `parseId` (int / long / uuid). The URL's `route=` is the
+                // field names alone, as the binder's RoutePosition spells it (mixin fields are inlined).
+                value.setRouting(rootType, entity.id == null ? null : String(entity.id), route.fieldPath.join("."));
         }
     });
 }
 
-function registerDeleteHook(sb: SchemaBuilder, ctor: Type<Entity>, paths: string[][]): void {
+function registerDeleteHook(sb: SchemaBuilder, ctor: Type<Entity>, routes: FieldRoute[]): void {
     sb.schema.entityEvents(ctor).preUnsafeDelete.push(async query => {
         // Read the rows that are about to go (ungated — this is a cleanup pass, not a user read) and remember
         // their files; they are removed from the store only after the delete commits.
         const doomed = await ExecutionMode.global(async () => await query.toArray() as Entity[]);
 
         for (const entity of doomed)
-            for (const fp of FilePathEmbeddedLogic.filesOf(entity, paths))
+            for (const fp of FilePathEmbeddedLogic.filesOf(entity, routes))
                 FilePathEmbeddedLogic.deleteFileOnCommit(fp);
     });
 }
 
 // ---- schema scan ---------------------------------------------------------------------------------------
 
-/** ctor → the field paths (each a list of field names, nested embeddeds included) holding a FilePathEmbedded. */
-function filePathFieldsByType(schema: Schema): Map<Type<Entity>, string[][]> {
-    const result = new Map<Type<Entity>, string[][]>();
+/** ctor → the routes (nested embeddeds included) holding a FilePathEmbedded — the table's own fields and its
+ *  mixins'. An embedded's mixin fields are flattened into it in the schema, so a field declared by a mixin gets
+ *  its mixin step back from its FieldInfo (BigStringMixin's `file`: `(Exception).stackTrace.[BigStringMixin].file`). */
+function filePathRoutesByType(schema: Schema): Map<Type<Entity>, FieldRoute[]> {
+    const result = new Map<Type<Entity>, FieldRoute[]>();
 
     for (const table of schema.tables.values()) {
-        const paths: string[][] = [];
-        collectPaths(table.fields as Record<string, { field: unknown }>, [], paths, new Set());
+        const routes: FieldRoute[] = [];
+        const root = FieldRoute.root(table.type);
+        const seen = new Set<object>();
+        collectRoutes(table.fields as EntityFieldMap, root, routes, seen, false);
+        for (const [mixinName, mixin] of Object.entries(table.mixins))
+            collectRoutes(mixin.fields as EntityFieldMap, root.addMixin(mixinName), routes, seen, false);
 
-        if (paths.length > 0)
-            result.set(table.type as Type<Entity>, paths);
+        if (routes.length > 0)
+            result.set(table.type as Type<Entity>, routes);
     }
 
     return result;
 }
 
-function collectPaths(
-    fields: Record<string, { field: unknown }>,
-    prefix: string[],
-    result: string[][],
-    seen: Set<object>,
-): void {
+type EntityFieldMap = Record<string, { field: unknown; fieldInfo: FieldInfo }>;
+
+function collectRoutes(fields: EntityFieldMap, owner: FieldRoute, result: FieldRoute[], seen: Set<object>, inEmbedded: boolean): void {
     for (const [name, ef] of Object.entries(fields)) {
         const field = ef.field;
         if (!(field instanceof FieldEmbedded))
@@ -187,11 +193,12 @@ function collectPaths(
             continue;
         seen.add(field);
 
-        const path = [...prefix, name];
+        const declaring = ef.fieldInfo.declaringType?.ctor;
+        const route = (inEmbedded && isMixinType(declaring) ? owner.addMixin(declaring!) : owner).add(name);
         if (isFilePathEmbedded(field))
-            result.push(path);
+            result.push(route);
         else
-            collectPaths(field.embeddedFields as Record<string, { field: unknown }>, path, result, seen);
+            collectRoutes(field.embeddedFields as EntityFieldMap, route, result, seen, true);
     }
 }
 
@@ -202,9 +209,10 @@ function isFilePathEmbedded(field: FieldEmbedded): boolean {
     return ["fileName", "suffix", "fileLength", "fileType"].every(n => names.includes(n));
 }
 
-function readPath(entity: Entity, path: readonly string[]): unknown {
+// Mixin fields are inlined onto their owner (`mixin()` returns `this`), so the route's FIELD names are the path.
+function readRoute(entity: Entity, route: FieldRoute): unknown {
     let current: unknown = entity;
-    for (const step of path) {
+    for (const step of route.fieldPath) {
         if (current == null)
             return undefined;
         current = (current as Record<string, unknown>)[step];
