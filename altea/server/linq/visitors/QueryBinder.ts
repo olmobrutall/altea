@@ -72,6 +72,7 @@ import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, Temp
 import { PostgresTsVectorColumn } from "../../schema/column";
 import type { IColumn } from "../../schema/column";
 import { ExpressionVisitor } from "./ExpressionVisitor";
+import { OverloadingSimplifier } from "./OverloadingSimplifier";
 import { DbExpressionVisitor } from "./DbExpressionVisitor";
 
 // Adapted port of Signum's QueryBinder. Input is altea's source Expression AST
@@ -2978,15 +2979,17 @@ export class QueryBinder extends ExpressionVisitor {
 
         const table = ee.table;
         const newAlias = this.aliasGenerator.nextTableAlias(table.name.name);
-        const completed = this.withAdditionalBindings(this.createEntityExpression(table, newAlias, ee.externalId));
-        this.entityReplacements.set(ee, completed);
-
         const newId = new ColumnExpression(LiteralType.number, newAlias, table.primaryKey.column.name);
         const condition = new BinaryExpression("==", ee.externalId.value, newId);
         // A completion join to a @systemVersioned table carries the active SystemTime too, so
         // `a.parent.entity.systemPeriod()` reads the joined table under the same history scope.
         const joinSystemTime = table.systemVersioned != null ? this.systemTime : undefined;
+        // The join is requested BEFORE the additional bindings are built: one that navigates further from
+        // this entity reads its alias, which is known to the source only once this join is.
         this.addRequest({ table: new TableExpression(newAlias, table, undefined, joinSystemTime), condition });
+
+        const completed = this.withAdditionalBindings(this.createEntityExpression(table, newAlias, ee.externalId));
+        this.entityReplacements.set(ee, completed);
 
         return completed;
     }
@@ -3336,7 +3339,6 @@ export class QueryBinder extends ExpressionVisitor {
 
     private getTableProjectionForTable(table: Table, elementType: RuntimeType): ProjectionExpression {
         const tableAlias = this.aliasGenerator.nextTableAlias(table.name.name);
-        const entity = this.withAdditionalBindings(this.createEntityExpression(table, tableAlias));
 
         // Consume the pending WithHint (if any) into this table, then clear it so it
         // applies to exactly one table (Signum: currentTableHint = null after use). A
@@ -3345,6 +3347,10 @@ export class QueryBinder extends ExpressionVisitor {
         const systemTime = table.systemVersioned != null ? this.systemTime : undefined;
         const tableExpr = new TableExpression(tableAlias, table, this.currentTableHint, systemTime);
         this.currentTableHint = undefined;
+
+        // The additional bindings are built with the table as the current source, so one that navigates a
+        // reference (a condition over `u.practice.entity`) has a source to attach its join to.
+        const entity = this.runWithSource(tableExpr, () => this.withAdditionalBindings(this.createEntityExpression(table, tableAlias)));
         const selectAlias = this.aliasGenerator.nextSelectAlias();
         const pc = this.projectColumns(entity, selectAlias);
 
@@ -3669,7 +3675,10 @@ export class QueryBinder extends ExpressionVisitor {
             return ee;
         this.buildingAdditional = true;
         try {
-            const additional = specs.map(s => new AdditionalBinding(this.bindWithParam(s.valueLambda, ee), s.set));
+            // The value lambda arrives unsimplified (it never went through the query's pre-binding pass), so
+            // run its @methodExpander calls here — a DB condition written with `inCondition` expands then.
+            const additional = specs.map(s => new AdditionalBinding(
+                this.bindWithParam(OverloadingSimplifier.simplify(s.valueLambda) as LambdaExpression, ee), s.set));
             return new EntityExpression(ee.type, ee.table, ee.externalId, ee.tableAlias, ee.bindings,
                 ee.mixins, ee.avoidExpandOnRetrieving, additional);
         } finally {
