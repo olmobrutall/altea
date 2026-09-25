@@ -233,7 +233,6 @@ async function seed(): Promise<void> {
         resource: typeLite,
         fallback: TypeAllowed.None,
         conditionRules: [RuleTypeConditionEntity.create({
-            rowOrder: toInt(0),
             allowed: TypeAllowed.Read,
             conditions: [RuleTypeConditionEntity_Condition.create({ symbol: publicSym })],
         })],
@@ -248,7 +247,6 @@ async function seed(): Promise<void> {
         resource: logTypeLite,
         fallback: TypeAllowed.None,
         conditionRules: [RuleTypeConditionEntity.create({
-            rowOrder: toInt(0),
             allowed: TypeAllowed.Read,
             conditions: [RuleTypeConditionEntity_Condition.create({ symbol: filteringSym })],
         })],

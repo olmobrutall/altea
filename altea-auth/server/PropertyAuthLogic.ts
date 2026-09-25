@@ -15,7 +15,6 @@ import { SqlPreCommand, SqlPreCommandSimple, Spacing } from "@altea/altea/server
 import { Connector } from "@altea/altea/server/connection/connector";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
-import { toInt } from "@altea/altea/data/basics";
 import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { TypeAuthLogic } from "./TypeAuthLogic";
 import { PermissionAuthLogic } from "./PermissionAuthLogic";
@@ -591,8 +590,7 @@ export namespace PropertyAuthLogic {
                 resource: PropertyRouteLogic.propertyRouteEntitySync(typeEntity, r.path),
             });
             rp.fallback = coerced.fallback;
-            rp.conditionRules = coerced.conditionRules.map((cr, i) => RulePropertyConditionEntity.create({
-                rowOrder: toInt(i),
+            rp.conditionRules = coerced.conditionRules.map(cr => RulePropertyConditionEntity.create({
                 allowed: cr.allowed,
                 conditions: cr.typeConditions.map(s => RulePropertyConditionEntity_Condition.create({ symbol: symbolLite(s) })),
             }));

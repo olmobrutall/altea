@@ -162,9 +162,8 @@ function tokenEquivalenceGroupFromXml(x: Record<string, unknown>, ctx: IFromXmlC
     const gr = new DashboardEntity_TokenEquivalenceGroup();
     const interactionGroup = str(x[A + "InteractionGroup"]);
     gr.interactionGroup = interactionGroup == null ? null : toEnum(InteractionGroup, interactionGroup);
-    gr.tokenEquivalences = list(x["TokenEquivalence"]).map((te, i) => {
+    gr.tokenEquivalences = list(x["TokenEquivalence"]).map(te => {
         const row = DashboardEntity_TokenEquivalenceGroup_Query.create({
-            rowOrder: i as int,
             query: ctx.getQuery(str(te[A + "Query"])!),
             token: token(str(te[A + "Token"])!),
         });
@@ -239,7 +238,6 @@ export function registerBasePartsXml(): void {
                     title: i.title,
                     checkURL: i.checkURL,
                     navigateURL: i.navigateURL,
-                    rowOrder: i.rowOrder,
                 });
                 return item;
             });
@@ -253,9 +251,8 @@ export function registerBasePartsXml(): void {
             })),
         }),
         fromXml: (p, x) => {
-            p.items = list(x["HealthCheckElement"]).map((i, index) => {
+            p.items = list(x["HealthCheckElement"]).map(i => {
                 const item = HealthCheckPartEntity_Item.create({
-                    rowOrder: index as int,
                     title: str(i[A + "Title"]) ?? "",
                     checkURL: str(i[A + "CheckURL"]) ?? "",
                     navigateURL: str(i[A + "NavigateURL"]) ?? "",

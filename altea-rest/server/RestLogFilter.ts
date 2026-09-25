@@ -155,8 +155,7 @@ export namespace RestLogFilter {
     }
 
     function queryStringRows(req: ReqLike): QueryStringValueEntity[] {
-        return Object.entries(req.query).map(([key, value], i) => QueryStringValueEntity.create({
-            rowOrder: toInt(i) as int,
+        return Object.entries(req.query).map(([key, value]) => QueryStringValueEntity.create({
             key,
             value: redact(key, value),
         }));

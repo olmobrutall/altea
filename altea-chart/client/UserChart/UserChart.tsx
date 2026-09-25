@@ -8,7 +8,6 @@ import { Finder } from "@altea/altea/client/Finder";
 import { getQueryNiceName } from "@altea/altea/client/Reflection";
 import { useForceUpdate, useAPI } from "@altea/altea/client/Hooks";
 import { SubTokensOptions } from "@altea/altea/client/QueryToken";
-import { toInt } from "@altea/altea/data/basics";
 import CollapsableCard from "@altea/altea/client/Components/CollapsableCard";
 import { UserAssetMessage } from "@altea/altea-user-assets/data/UserAssets";
 import { UserQueryMessage } from "@altea/altea-user-queries/data/UserQuery";
@@ -137,10 +136,9 @@ function writeBack(cr: ChartRequestModel, uc: UserChartEntity): void {
     uc.maxRows = cr.maxRows;
     uc.chartTimeSeries = cr.chartTimeSeries;
 
-    uc.columns = cr.columns.map((el, i) => {
+    uc.columns = cr.columns.map(el => {
         const row = uc.columns.find(c => c.element === el) ?? new UserChartEntity_Column();
         row.element = el;
-        row.rowOrder = toInt(i);
         return row;
     });
     uc.parameters = cr.parameters.map(el => {

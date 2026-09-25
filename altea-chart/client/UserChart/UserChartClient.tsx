@@ -178,8 +178,8 @@ export namespace UserChartClient {
             chartTimeSeries: cr.chartTimeSeries == null ? null : cloneTimeSeries(cr.chartTimeSeries),
             filters: filterOptionsParsedToChartEmbedded(cr.filterOptions ?? []),
         });
-        uc.columns = (cr.columns ?? []).map((c, i) => {
-            const row = UserChartEntity_Column.create({ element: copyChartColumn(c), rowOrder: toInt(i) });
+        uc.columns = (cr.columns ?? []).map(c => {
+            const row = UserChartEntity_Column.create({ element: copyChartColumn(c) });
             return row;
         });
         uc.parameters = (cr.parameters ?? []).map(p => {

@@ -5,7 +5,6 @@ import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import ErrorModal from "@altea/altea/client/Modals/ErrorModal";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { EntityControlMessage } from "@altea/altea/data/uiMessages";
-import { toInt } from "@altea/altea/data/basics";
 import { HealthCheckPartEntity_Item, HealthCheckPartEntity, DashboardPartsMessage } from "../../data/Parts";
 import type { PartEditorProps } from "./PartEditor";
 
@@ -38,7 +37,6 @@ export default function HealthCheckPart(p: PartEditorProps<HealthCheckPartEntity
                                 title: data[0],
                                 checkURL: data[1],
                                 navigateURL: data[2],
-                                rowOrder: toInt(ctx.value.items?.length ?? 0),
                             });
                             (ctx.value.items ??= []).push(item);
                             forceUpdate();

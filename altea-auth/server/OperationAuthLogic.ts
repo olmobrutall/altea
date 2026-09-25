@@ -10,7 +10,6 @@ import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
-import { toInt } from "@altea/altea/data/basics";
 import { AuthLogic, RoleGraph } from "./AuthLogic";
 import { MergeStrategy, RoleEntity } from "../data/Role";
 import {
@@ -411,8 +410,7 @@ export namespace OperationAuthLogic {
                 type: TypeEntity.newLite(pack.type.id, pack.type.toString()),
             });
             ro.fallback = prunedAllowed.fallback;
-            ro.conditionRules = prunedAllowed.conditionRules.map((cr, i) => RuleOperationConditionEntity.create({
-                rowOrder: toInt(i),
+            ro.conditionRules = prunedAllowed.conditionRules.map(cr => RuleOperationConditionEntity.create({
                 allowed: cr.allowed,
                 conditions: cr.typeConditions.map(lite => RuleOperationConditionEntity_Condition.create({ symbol: lite })),
             }));

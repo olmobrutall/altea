@@ -7,7 +7,6 @@ import { Navigator } from "@altea/altea/client/Navigator";
 import { useAPI, useForceUpdate } from "@altea/altea/client/Hooks";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { TourTriggerSymbol } from "@altea/altea/data/tourTrigger";
-import { toInt } from "@altea/altea/data/basics";
 import { DashboardEntity } from "@altea/altea-dashboard/data/Dashboard";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import { TourEntity, TourStepEntity, PopoverSide } from "../../data/Tour";
@@ -58,7 +57,7 @@ export default function Tour(p: { ctx: TypeContext<TourEntity> }): React.JSX.Ele
             <AutoLine ctx={ctx.subCtx(a => a.trigger)} onChange={forceUpdate} />
 
             <EntityTabRepeater ctx={ctx.subCtx(a => a.steps)} avoidFieldSet="h4"
-                onCreate={() => Promise.resolve(TourStepEntity.create({ side: PopoverSide.Bottom, rowOrder: toInt(0) }))}
+                onCreate={() => Promise.resolve(TourStepEntity.create({ side: PopoverSide.Bottom }))}
                 getComponent={sctx => <TourStep ctx={sctx} invalidate={forceUpdate}
                     rootType={rootType} dashboard={dashboard ?? null} userQuery={userQuery ?? null} />}
                 getTitle={sctx => sctx.value.title || ""} />

@@ -4,7 +4,6 @@ import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import type { TypeCaches } from "@altea/altea/server/typeLogic";
 import { TourTriggerLogic } from "@altea/altea/server/tourTriggerLogic";
 import { Enum } from "@altea/altea/data/enum";
-import { toInt } from "@altea/altea/data/basics";
 import { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
@@ -117,15 +116,14 @@ function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlCo
     tour.animate = xml[A + "Animate"] == null || xml[A + "Animate"] === true || xml[A + "Animate"] === "true";
     tour.showCloseButton = xml[A + "ShowCloseButton"] == null || xml[A + "ShowCloseButton"] === true || xml[A + "ShowCloseButton"] === "true";
 
-    tour.steps = asArray(xml["TourStep"]).map((sx, i) => {
+    tour.steps = asArray(xml["TourStep"]).map(sx => {
         const s = TourStepEntity.create({
-            rowOrder: toInt(i),
             title: String(sx[A + "Title"] ?? ""),
             side: sx[A + "Side"] == null ? null : Enum.toValue(PopoverSide, String(sx[A + "Side"]) as never),
             align: sx[A + "Align"] == null ? null : Enum.toValue(PopoverAlign, String(sx[A + "Align"]) as never),
             click: sx[A + "Click"] == null ? null : Enum.toValue(ClickTrigger, String(sx[A + "Click"]) as never),
             description: String(sx["Description"] ?? ""),
-            cssSteps: asArray(sx["CssStep"]).map((cx, j) => cssStepFromXml(cx, j, ctx, rootType)),
+            cssSteps: asArray(sx["CssStep"]).map(cx => cssStepFromXml(cx, ctx, rootType)),
         });
         return s;
     });
@@ -144,9 +142,8 @@ function triggerRootType(trigger: Lite<Entity>, ctx: IFromXmlContext): TypeEntit
     return null;
 }
 
-function cssStepFromXml(cx: Record<string, unknown>, order: number, ctx: IFromXmlContext, rootType: TypeEntity | null): CssStepEntity {
+function cssStepFromXml(cx: Record<string, unknown>, ctx: IFromXmlContext, rootType: TypeEntity | null): CssStepEntity {
     const cs = CssStepEntity.create({
-        rowOrder: toInt(order),
         type: Enum.toValue(CssStepType, String(cx[A + "Type"]) as never),
         cssSelector: cx[A + "CssSelector"] == null ? null : String(cx[A + "CssSelector"]),
     });

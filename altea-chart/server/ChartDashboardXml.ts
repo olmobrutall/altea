@@ -81,7 +81,6 @@ export function registerUserChartDashboardParts(): void {
             c.userCharts = (p.userCharts ?? []).map(e => {
                 const row = CombinedUserChartPartEntity_UserChart.create({
                     userChart: e.userChart,
-                    rowOrder: e.rowOrder,
                 });
                 return row;
             });
@@ -108,9 +107,8 @@ export function registerUserChartDashboardParts(): void {
             p.combinePinnedFiltersWithSameLabel = bool(x[A + "CombinePinnedFiltersWithSameLabel"]);
             p.useSameScale = bool(x[A + "UseSameScale"]);
             p.minHeight = x[A + "MinHeight"] == null ? null : (Number(x[A + "MinHeight"]) as int);
-            p.userCharts = list(x["UserChart"]).map((e, i) => {
+            p.userCharts = list(x["UserChart"]).map(e => {
                 const row = CombinedUserChartPartEntity_UserChart.create({
-                    rowOrder: i as int,
                     userChart: ctx.getEntity(String(e[A + "Guid"])) as UserChartEntity,
                 });
                 return row;

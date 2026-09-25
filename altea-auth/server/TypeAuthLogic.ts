@@ -698,8 +698,7 @@ export namespace TypeAuthLogic {
                 resource: TypeEntity.newLite(r.resource.id, r.resource.toString()),
             });
             rt.fallback = r.allowed.fallback;
-            rt.conditionRules = r.allowed.conditionRules.map((cr, i) => RuleTypeConditionEntity.create({
-                rowOrder: toInt(i),
+            rt.conditionRules = r.allowed.conditionRules.map(cr => RuleTypeConditionEntity.create({
                 allowed: cr.allowed,
                 conditions: cr.typeConditions.map(lite => RuleTypeConditionEntity_Condition.create({ symbol: lite })),
             }));

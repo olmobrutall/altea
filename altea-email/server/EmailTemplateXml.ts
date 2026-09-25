@@ -120,8 +120,7 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
         et.masterTemplate = (ctx.getEntity(str(xml[A + "MasterTemplate"])!) as EmailMasterTemplateEntity).toLite();
 
     et.filters = syncRows(et.filters ?? [], list(asRecord(xml["Filters"])?.["Filter"]),
-        () => new EmailTemplateEntity_Filter(), (f, x, i) => {
-            f.rowOrder = toInt(i);
+        () => new EmailTemplateEntity_Filter(), (f, x) => {
             f.indentation = toInt(num(x[A + "Indentation"]) ?? 0);
             if (x[A + "GroupOperation"] != undefined) {
                 f.isGroup = true;
@@ -135,9 +134,8 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
             // that shared one filter type with its user queries may still carry it.
         });
 
-    et.orders = list(asRecord(xml["Orders"])?.["Orden"]).map((x, i) => {
+    et.orders = list(asRecord(xml["Orders"])?.["Orden"]).map(x => {
         const o = EmailTemplateEntity_Order.create({
-            rowOrder: toInt(i),
             token: token(str(x[A + "Token"])!),
             orderType: Enum.toValue(OrderType, str(x[A + "OrderType"]) as never),
         });
@@ -174,8 +172,8 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
         return m;
     });
 
-    et.attachments = readAttachments(xml["Attachments"]).map((a, i) =>
-        EmailTemplateEntity_Attachment.create({ rowOrder: toInt(i), attachment: a }));
+    et.attachments = readAttachments(xml["Attachments"]).map(a =>
+        EmailTemplateEntity_Attachment.create({ attachment: a }));
 
     // Signum's `Applicable = element.Element("Applicable")?.Let(app => new TemplateApplicableEval { Script =
     // app.Value })`. Round-trips verbatim now that the script IS the stored value.
@@ -212,16 +210,15 @@ function masterToXml(emt: EmailMasterTemplateEntity, _ctx: IToXmlContext): Recor
 async function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string, unknown>, _ctx: IFromXmlContext): Promise<void> {
     emt.name = str(xml[A + "Name"])!;
     const cultures = await CultureInfoLogic.lookup();
-    emt.messages = list(asRecord(xml["Messages"])?.["Message"]).map((x, i) => {
+    emt.messages = list(asRecord(xml["Messages"])?.["Message"]).map(x => {
         const m = EmailMasterTemplateEntity_Message.create({
-            rowOrder: toInt(i),
             cultureInfo: cultures.get(str(x[A + "CultureInfo"])!).toLite(),
             text: str(x["#text"]) ?? "",
         });
         return m;
     });
-    emt.attachments = readAttachments(xml["Attachments"]).map((a, i) =>
-        EmailMasterTemplateEntity_Attachment.create({ rowOrder: toInt(i), attachment: a }));
+    emt.attachments = readAttachments(xml["Attachments"]).map(a =>
+        EmailMasterTemplateEntity_Attachment.create({ attachment: a }));
 }
 
 // ---- shared pieces -------------------------------------------------------------------------------------

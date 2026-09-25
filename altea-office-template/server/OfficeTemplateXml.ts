@@ -102,8 +102,7 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
     ot.officeConverter = symbolOr(OfficeConverterSymbol, str(xml[A + "OfficeConverter"]));
 
     ot.filters = syncRows(ot.filters ?? [], list(asRecord(xml["Filters"])?.["Filter"]),
-        () => new OfficeTemplateEntity_Filter(), (f, x, i) => {
-            f.rowOrder = toInt(i);
+        () => new OfficeTemplateEntity_Filter(), (f, x) => {
             f.indentation = toInt(num(x[A + "Indentation"]) ?? 0);
             if (x[A + "GroupOperation"] != undefined) {
                 f.isGroup = true;
@@ -117,9 +116,8 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
             // that shared one filter type with its user queries may still carry it.
         });
 
-    ot.orders = list(asRecord(xml["Orders"])?.["Orden"]).map((x, i) => {
+    ot.orders = list(asRecord(xml["Orders"])?.["Orden"]).map(x => {
         const o = OfficeTemplateEntity_Order.create({
-            rowOrder: toInt(i),
             token: token(str(x[A + "Token"])!),
             orderType: Enum.toValue(OrderType, str(x[A + "OrderType"]) as never),
         });
