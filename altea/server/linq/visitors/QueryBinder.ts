@@ -64,6 +64,8 @@ import { Entity, View, ModelEntity } from "../../../data/entity";
 import type { PrimaryKey, Type, ViewType } from "../../../data/entity";
 import { TypeEntity } from "../../../data/typeEntity";
 import { toInt, toLong, inSql, Temporal } from "../../../data/basics";
+import { Enum } from "../../../data/enum";
+import { EnumEntity } from "../../../data/enumEntity";
 import { Lite, getCustomLiteConstructor, getCustomLiteConstructorFor } from "../../../data/lite";
 import type { CustomLiteClass } from "../../../data/lite";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, TsVectorType, VectorType, RuntimeType } from "../../runtimeTypes";
@@ -1032,6 +1034,9 @@ export class QueryBinder extends ExpressionVisitor {
                 const member = (property.object.value as Record<string, unknown> | null)?.[op];
                 // SqlFullTextSearch.contains / freeText (Signum's SqlFullTextSearch) → a CONTAINS /
                 // FREETEXT predicate. Recognised by identity on the captured constant object.
+                // Enum.toName(E, value) (Signum's enum ToString() in a query): a CASE over E's values.
+                if (member === Enum.toName)
+                    return this.bindEnumToName(call);
                 if (member === SqlFullTextSearch.contains)
                     return this.bindFullTextSearch("CONTAINS", call);
                 if (member === SqlFullTextSearch.freeText)
@@ -2914,6 +2919,19 @@ export class QueryBinder extends ExpressionVisitor {
         const typeId = this.extractTypeId(typeExpr);
         const table = this.schema.table(TypeEntity as any);
         return new EntityExpression(new ClassType(TypeEntity), table, new PrimaryKeyExpression(typeId), undefined, undefined, undefined, false);
+    }
+
+    // Enum.toName(E, value): the member NAME of an enum value, as Signum translates an enum's ToString() —
+    // a reference to E's enum table (EnumEntity<E>, one row per member) keyed by the value, whose `name`
+    // column is read through the usual reference join. NULL for a null value. E must be the enum itself.
+    private bindEnumToName(call: CallExpression): Expression {
+        const enumArg = call.args[0];
+        if (!(enumArg instanceof ConstantExpression))
+            throw new Error("Enum.toName(E, value) in a query needs the enum E itself as its first argument");
+        const enumCtor = EnumEntity.typeFor(enumArg.value as object);
+        const value = this.visit(call.args[1]);
+        const enumRow = new EntityExpression(new ClassType(enumCtor), this.schema.table(enumCtor), new PrimaryKeyExpression(value), undefined, undefined, undefined, false);
+        return this.bindMember(enumRow, "name", false);
     }
 
     // Signum's Type.NiceName(): the localized display name. Like typeName but using the localized

@@ -17,6 +17,7 @@ import { Saver } from './saver';
 import { retrieve } from './Database';
 import { table } from './table';
 import { quotedFunction, Query } from './query';
+import { Enum } from "../data/enum";
 import { ArrayType, ClassType, FunctionType, LiteType, LiteralType, RuntimeType, IntervalType, TemporalType } from './runtimeTypes';
 import { NullableInterval } from './systemTime';
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, ParameterExpression, PropertyExpression } from './linq/expressions';
@@ -149,6 +150,8 @@ quotedFunction(Entity.isInstance).__resultType = () => LiteralType.boolean;
 quotedFunction(Entity.isLite).__resultType = () => LiteralType.boolean;
 quotedFunction(Lite.prototype.is).__resultType = () => LiteralType.boolean;
 quotedFunction(Lite.prototype.isInstanceOf).__resultType = () => LiteralType.boolean;
+// Enum.toName(E, value) — the member name; the binder lowers it to a CASE over E's values.
+quotedFunction(Enum.toName).__resultType = () => LiteralType.string;
 // `<typeExpr>.niceName()` (Signum's Type.NiceName()) has no Function.prototype method to hang metadata
 // on — the runtime impl is BaseEntity's static (entities/entity) — so its result type is resolved by
 // name in the front-end's wellKnownResultType (server/linq/expressions), and the binder lowers the call.
