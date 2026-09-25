@@ -16,6 +16,7 @@ import {
 import type { Filter } from "./requests";
 import { Entity } from "../../data/entity";
 import { TypeEntity } from "../../data/typeEntity";
+import { PropertyRouteType } from "../../data/propertyRoute";
 import { RuntimeType, ClassType, LiteType, ArrayType, LiteralType, TsVectorType, TsQueryType } from "../runtimeTypes";
 import { Connector } from "../connection/connector";
 import { PgVectorSearch, SqlVectorSearch } from "../vectorSearch";
@@ -161,8 +162,13 @@ EntityPropertyToken.prototype.buildExpressionInternal = function (context: Build
         // Late-bound `.id` over a lite or an entity (Signum's ExtractEntity(true) + Id).
         return new PropertyExpression(extractEntity(base, true), "id");
 
-    // TODO(phase3): mixin route step → wrap `entity.mixin(M)`; ToString property.
-    const entity = extractEntity(base, false);
+    // A mixin field reads through `entity.mixin(M)` (Signum's BindMixin), which the route records.
+    let entity = extractEntity(base, false);
+    const parentRoute = this.route?.parent;
+    if (parentRoute?.propertyRouteType === PropertyRouteType.Mixin) {
+        const mixin = parentRoute.type.getFunction()!;
+        entity = new CallExpression(new PropertyExpression(entity, "mixin"), [new ConstantExpression(mixin)], new ClassType(mixin));
+    }
     const prop = new PropertyExpression(entity, this.fieldInfo.name);
     return buildLite(prop);
 };

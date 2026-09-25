@@ -4,6 +4,7 @@ import { PropertyRoute, PropertyRouteType, isPartType, usingLegacyPropertyPaths 
 import { DateTimePrecision } from "../../globals/dateTimeExtensions";
 import { DateTimePrecisionValidator } from "../../validators";
 import { tryGetTypeInfo, TypeReference, type FieldInfo } from "../../reflection";
+import { MixinDeclarations } from "../../mixinDeclarations";
 import { Implementations } from "../../implementations";
 import { tryGetFilterType, isVectorType, type QueryName, type FilterTypeKeys } from "../queryUtils";
 import { QueryTokenMessage, QueryTokenDateMessage, CollectionMessage } from "../../dynamicQueries";
@@ -629,8 +630,9 @@ export abstract class QueryToken {
         ];
     }
 
-    // Signum's EntityProperties: one EntityPropertyToken per queryable field of `type` (mixins
-    // TODO). Pure bookkeeping fields (noSerialize) are excluded.
+    // Signum's EntityProperties: one EntityPropertyToken per queryable field of `type`, then the fields of
+    // its mixins — FLAT, as Signum's (`User.OrganizationalUnit`, no mixin step in the key; the route
+    // carries it). Pure bookkeeping fields (noSerialize) are excluded.
     //
     // `id` / `ticks` are excluded ONLY for an ENTITY, where they are the base class's: `id` is added
     // back by subTokensBase as the synthetic idPropertyToken (typed from the real @primaryKey), and
@@ -650,6 +652,12 @@ export abstract class QueryToken {
             if (fi.noSerialize || (isEntityType && (fi.name === "id" || fi.name === "ticks")))
                 continue;
             out.push(tokenFactories!.entityProperty(this, fi, base.add(fi.name)));
+        }
+        for (const mixin of MixinDeclarations.getMixins(type)) {
+            const mixinRoute = base.addMixin(mixin.name);
+            for (const fi of Object.values(tryGetTypeInfo(mixin)?.fields ?? {}))
+                if (!fi.noSerialize)
+                    out.push(tokenFactories!.entityProperty(this, fi, mixinRoute.add(fi.name)));
         }
         return out;
     }
