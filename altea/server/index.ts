@@ -103,8 +103,8 @@ declare module '../data/lite' {
         // Re-query the referenced entity (Signum's Lite.InDB).
         inDB(): IQuery<T>;
         inDB<V>(selector: Quoted<(entity: T) => V>): V;
-        // Retrieve the referenced entity from the database (Signum's Lite.Retrieve) —
-        // returns the already-attached entity when the lite is fat.
+        // Retrieve the referenced entity from the database (Signum's Lite.Retrieve) — always a fetch,
+        // an attached entity is ignored (see retrieveAndRemember).
         retrieve(): Promise<T>;
         // Retrieve the referenced entity and attach it to the lite (Signum's RetrieveAndRemember).
         retrieveAndRemember(): Promise<T>;
@@ -287,11 +287,12 @@ class ParamReplacer extends ExpressionVisitor {
     }
 }
 
-// Lite → entity (Signum's Lite.Retrieve / RetrieveAndRemember). `retrieve` returns the
-// already-attached entity when the lite is fat, else fetches it by (type, id) via the
-// cache-aware Database.retrieve. `retrieveAndRemember` additionally attaches it to the lite.
+// Lite → entity (Signum's Lite.Retrieve / RetrieveAndRemember). `retrieve` ALWAYS fetches by (type, id)
+// through the cache-aware Database.retrieve — like Signum's, it ignores an attached entity, so what it returns
+// is the stored row even for a fat lite (one deserialized from a request carries the client's copy). Only
+// `retrieveAndRemember` reads and writes the attached entity.
 Lite.prototype.retrieve = async function (this: Lite<Entity>): Promise<Entity> {
-    return this.entityOrNull ?? await retrieve(this.entityType, this.id);
+    return await retrieve(this.entityType, this.id);
 };
 
 Lite.prototype.retrieveAndRemember = async function (this: Lite<Entity>): Promise<Entity> {
