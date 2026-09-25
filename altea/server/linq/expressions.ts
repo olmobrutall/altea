@@ -1279,7 +1279,11 @@ export class CallExpression extends Expression {
             return this;
         }
 
-        return new CallExpression(func, args, this.type, this.isOptionalChaining);
+        // The expander travels with the call: a visitor that rewrites the receiver or an argument (a
+        // parameter replaced by an expanded condition's receiver) must not turn it into an untranslatable call.
+        const call = new CallExpression(func, args, this.type, this.isOptionalChaining);
+        call.methodExpander = this.methodExpander;
+        return call;
     }
 }
 
