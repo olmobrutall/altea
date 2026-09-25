@@ -1,5 +1,5 @@
-import { Entity, EmbeddedEntity } from './entity';
-import type { BaseEntity, Type } from './entity';
+import { BaseEntity, Entity, EmbeddedEntity } from './entity';
+import type { Type } from './entity';
 import type { FieldInfo } from './reflection';
 import { tryGetTypeInfo, TypeReference } from './reflection';
 import { cleanTypeName, resolveCleanType } from './registration';
@@ -736,3 +736,22 @@ function splitRoute(propertyString: string): string[] {
     // Each '/' contributes the element step Signum names "Item".
     return propertyString.split("/").flatMap((part, i) => i === 0 ? splitDot(part) : ["Item", ...splitDot(part)]);
 }
+
+// Signum's `Type.propertyRouteAssert(a => a.x)` / `tryPropertyRoute`: a route rooted at this type, from an INLINE
+// property lambda (`UserEntity.propertyRoute(u => u.mixin(UserCareerMixin).careerPaths)`). Installed here rather
+// than in ./entity, which this module imports (see the note on stepInto there).
+declare module "./entity" {
+    namespace BaseEntity {
+        export function propertyRoute<T extends BaseEntity>(this: Type<T>, lambda: Quoted<(val: T) => any>): PropertyRoute;
+        export function tryPropertyRoute<T extends BaseEntity>(this: Type<T>, lambda: Quoted<(val: T) => any>): PropertyRoute | undefined;
+    }
+}
+
+Object.assign(BaseEntity, {
+    propertyRoute(this: Function, lambda: Quoted<(val: any) => any>): PropertyRoute {
+        return PropertyRoute.root(this).addLambda(lambda);
+    },
+    tryPropertyRoute(this: Function, lambda: Quoted<(val: any) => any>): PropertyRoute | undefined {
+        return PropertyRoute.root(this).tryAddLambda(lambda);
+    },
+});
