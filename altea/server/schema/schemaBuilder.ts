@@ -41,7 +41,7 @@ import { Table } from './table';
 import { FluentInclude } from './fluentInclude';
 import { SystemVersionedInfo } from './systemVersioned';
 import { TableIndex, FullTextTableIndex, VectorTableIndex, generateUniqueIndexes, multiUniqueIndexes } from './tableIndex';
-import { accessedMembers, memberPath } from '../../data/accessedFields';
+import { FieldRoute, accessedRoutes } from '../../data/fieldRoute';
 import { StringLengthValidator } from '../../data/validators';
 import { getIndexWhere } from './indexWhere';
 import { EnumEntity, isEnumEntityType, getBoundEnum } from '../../data/enumEntity';
@@ -506,32 +506,25 @@ export class SchemaSettings {
     // BigStringEmbedded keeps its text in the row at one route and in a file at another, so whichever column
     // is unused has to disappear per route, not per class.
     //
-    // The route is the MEMBER PATH from the root entity, dot-separated ("stackTrace.file"). A mixin field
-    // contributes its bare name, because altea inlines mixin fields onto their owner (`mixin()` returns
-    // `this`) — there is no mixin STEP in the path, unlike Signum's `route.Add(typeof(TheMixin))`.
+    // Keyed by the route's one spelling (FieldRoute.toString), but set and asked through the route itself. A
+    // mixin field is reached through its explicit mixin step, as in Signum's `route.Add(typeof(TheMixin))`.
     private readonly ignoredFieldRoutes = new Set<string>();
 
     /**
-     * Emit no column for ONE property route: `ignoreFieldRoute(ExceptionEntity, e => e.stackTrace.file)`.
-     * Must be called BEFORE the root type is included (Signum has the same ordering rule).
-     *
-     * The selector is the form to reach for: it is checked, it renames with the field, and a typo is a
-     * compile error rather than a route that silently never matches. The STRING overload exists for a path
-     * computed at runtime — `BigStringLogic.registerAll` walks a type's routes and ignores
-     * `${route}.file` or `${route}.text` per route — and is not for hand-written call sites.
+     * Emit no column for ONE field route: `ignoreFieldRoute(ExceptionEntity, e => e.stackTrace.text)`, or a
+     * route built from another (`ignoreFieldRoute(route.addMixin(BigStringMixin).add("file"))`, as
+     * BigStringLogic does per BigString). Must be called BEFORE the root type is included (Signum has the same
+     * ordering rule).
      */
     ignoreFieldRoute<T extends Entity>(type: Type<T>, selector: Quoted<(entity: T) => unknown>): void;
-    ignoreFieldRoute(type: Type<Entity>, memberPath: string): void;
-    ignoreFieldRoute(type: Type<Entity>, selectorOrPath: Quoted<(entity: any) => unknown> | string): void {
-        const path = typeof selectorOrPath === "string" ? selectorOrPath : memberPath(selectorOrPath);
-        this.ignoredFieldRoutes.add(`${cleanTypeName(type)}.${path}`);
+    ignoreFieldRoute(route: FieldRoute): void;
+    ignoreFieldRoute(typeOrRoute: Type<Entity> | FieldRoute, selector?: Quoted<(entity: any) => unknown>): void {
+        const route = typeOrRoute instanceof FieldRoute ? typeOrRoute : FieldRoute.from(typeOrRoute, selector!);
+        this.ignoredFieldRoutes.add(route.toString());
     }
 
-    // Takes the raw ctor (a Table's `type` is `Type<Entity> | ViewType<View>`; a view has no routes to ignore,
-    // it just never matches).
-    isIgnoredFieldRoute(type: Function, memberPath: string): boolean {
-        return this.ignoredFieldRoutes.size > 0
-            && this.ignoredFieldRoutes.has(`${cleanTypeName(type as Type<Entity>)}.${memberPath}`);
+    isIgnoredFieldRoute(route: FieldRoute): boolean {
+        return this.ignoredFieldRoutes.size > 0 && this.ignoredFieldRoutes.has(route.toString());
     }
 }
 
@@ -882,10 +875,14 @@ export class SchemaBuilder {
         }
 
         const preName = NameSequence.void();
+        const rootRoute = FieldRoute.root(table.type);
         for (const [name, fi] of Object.entries(typeInfo.fields)) {
-            if (fi.notMapped || RESERVED_FIELDS.has(name) || this.settings.isIgnoredFieldRoute(table.type, name))
+            if (fi.notMapped || RESERVED_FIELDS.has(name))
                 continue;
-            const field = this.generateField(table, fi, preName, name);
+            const route = rootRoute.add(name);
+            if (this.settings.isIgnoredFieldRoute(route))
+                continue;
+            const field = this.generateField(table, fi, preName, route);
             field.avoidExpandOnRetrieving = fi.avoidExpandOnRetrieving === true;
             table.fields[name] = new EntityField(fi, field, makeGetter(name));
         }
@@ -895,10 +892,14 @@ export class SchemaBuilder {
             if (mixinInfo == null)
                 continue;
             const mixinFields: { [name: string]: EntityField } = {};
+            const mixinRoute = rootRoute.addMixin(mixinCtor);
             for (const [name, mfi] of Object.entries(mixinInfo.fields)) {
-                if (mfi.notMapped || RESERVED_FIELDS.has(name) || this.settings.isIgnoredFieldRoute(table.type, name))
+                if (mfi.notMapped || RESERVED_FIELDS.has(name))
                     continue;
-                const field = this.generateField(table, mfi, preName, name);
+                const route = mixinRoute.add(name);
+                if (this.settings.isIgnoredFieldRoute(route))
+                    continue;
+                const field = this.generateField(table, mfi, preName, route);
                 field.avoidExpandOnRetrieving = mfi.avoidExpandOnRetrieving === true;
                 mixinFields[name] = new EntityField(mfi, field, makeGetter(name));
             }
@@ -1015,10 +1016,10 @@ export class SchemaBuilder {
                 addFieldIndexes(ef.fieldInfo, ef.field);
 
         // Class-level composite indexes: read the covered member paths off each stored @quoted selector's
-        // AST (accessedMembers), then resolve them to columns.
+        // AST (accessedRoutes), then resolve them to columns.
         for (const desc of typeInfo.indexes ?? []) {
-            const blocks = table.fieldBlocksFromMembers(accessedMembers(desc.fields));
-            const includeColumns = desc.includeFields == null ? undefined : table.columnsFromMembers(accessedMembers(desc.includeFields));
+            const blocks = table.fieldBlocks(accessedRoutes(table.type, desc.fields));
+            const includeColumns = desc.includeFields == null ? undefined : table.columnsOf(accessedRoutes(table.type, desc.includeFields));
             // Render the class-level filtered predicate to SQL now (Quoted → Expression → string).
             const whereSql = desc.where == null ? undefined : getIndexWhere(desc.where, table, this.settings.isPostgres);
             // A UNIQUE index is expanded per polymorphic alternative and filtered to the rows that
@@ -1034,7 +1035,7 @@ export class SchemaBuilder {
         // its generated tsvector column to the table's physical layout so the DDL emits it. Mark the
         // covered fields with hasFullTextIndex (Signum's Schema.HasFullTextIndex → MemberInfo flag).
         for (const desc of typeInfo.fullTextIndexes ?? []) {
-            const columns = table.columnsFromMembers(accessedMembers(desc.fields));
+            const columns = table.columnsOf(accessedRoutes(table.type, desc.fields));
             const index = new FullTextTableIndex(table, columns, { sqlServer: desc.sqlServer, postgres: desc.postgres });
             table.indexes.push(index);
             for (const col of index.generateColumns(this.settings.isPostgres))
@@ -1045,7 +1046,7 @@ export class SchemaBuilder {
         // Class-level vector indexes (Signum's SchemaBuilder.AddVectorIndex): one vector column per
         // index, resolved from the single-field selector.
         for (const desc of typeInfo.vectorIndexes ?? []) {
-            const [column] = table.columnsFromMembers(accessedMembers(desc.field));
+            const [column] = table.columnsOf(accessedRoutes(table.type, desc.field));
             table.indexes.push(new VectorTableIndex(table, column, { sqlServer: desc.sqlServer, postgres: desc.postgres }));
         }
 
@@ -1062,10 +1063,10 @@ export class SchemaBuilder {
             table.indexes.push(new TableIndex(table, [table.primaryKey.column, ...table.systemVersioned.columns()]));
     }
 
-    // `memberPath` is the dotted member path from the ROOT entity down to (and including) this field — the
-    // key SchemaSettings.ignoreFieldRoute is expressed in. It tracks the OBJECT model, not the column names
-    // `preName` accumulates (a @column({columnName}) renames the column, never the route).
-    private generateField(table: Table, fi: FieldInfo, preName: NameSequence, memberPath: string): Field {
+    // `route` is this field's FieldRoute in the table's row — what SchemaSettings.ignoreFieldRoute is asked
+    // with. It tracks the OBJECT model, not the column names `preName` accumulates (a @column({columnName})
+    // renames the column, never the route).
+    private generateField(table: Table, fi: FieldInfo, preName: NameSequence, route: FieldRoute): Field {
         const isArray = fi.array === true;
         const isLite = fi.lite === true;
         // The field's referenced entity/embedded constructor, resolved by reference via
@@ -1169,7 +1170,7 @@ export class SchemaBuilder {
 
         // Single embedded value object.
         if (isEmbeddedCtor(elementType))
-            return this.generateEmbedded(table, fi, preName, memberPath);
+            return this.generateEmbedded(table, fi, preName, route);
 
         // Enum: FK to the enum's EnumEntity<T> table (Signum's FieldEnum). The
         // enum becomes a real included entity (so it supports mixins / polymorphic
@@ -1208,7 +1209,7 @@ export class SchemaBuilder {
         return new FieldValue(column);
     }
 
-    private generateEmbedded(table: Table, fi: FieldInfo, preName: NameSequence, memberPath: string): FieldEmbedded {
+    private generateEmbedded(table: Table, fi: FieldInfo, preName: NameSequence, route: FieldRoute): FieldEmbedded {
         const embeddedType = this.resolveFieldType(fi);
         const typeInfo = embeddedType != null ? getTypeInfo(embeddedType) : undefined;
         if (typeInfo == null)
@@ -1228,12 +1229,13 @@ export class SchemaBuilder {
 
         const embeddedFields: { [name: string]: EntityField } = {};
 
-        const addField = (name: string, efi: FieldInfo): void => {
+        const addField = (name: string, efi: FieldInfo, owner: FieldRoute): void => {
             if (efi.notMapped || RESERVED_FIELDS.has(name))
                 return;
-            if (this.settings.isIgnoredFieldRoute(table.type, `${memberPath}.${name}`))
+            const fieldRoute = owner.add(name);
+            if (this.settings.isIgnoredFieldRoute(fieldRoute))
                 return;
-            const field = this.generateField(table, efi, embeddedPre, `${memberPath}.${name}`);
+            const field = this.generateField(table, efi, embeddedPre, fieldRoute);
             field.avoidExpandOnRetrieving = efi.avoidExpandOnRetrieving === true;
             // A nullable embedded can be entirely absent, so every flattened
             // sub-column must be nullable regardless of the sub-field's own
@@ -1253,7 +1255,7 @@ export class SchemaBuilder {
         };
 
         for (const [name, efi] of Object.entries(typeInfo.fields))
-            addField(name, efi);
+            addField(name, efi, route);
 
         // An embedded's MIXIN fields (Signum's FieldEmbedded.Mixins — e.g. Signum.Files' BigStringMixin, which
         // hangs a FilePathEmbedded off every BigStringEmbedded so the text can live in a file instead of the
@@ -1267,10 +1269,11 @@ export class SchemaBuilder {
             const mixinInfo = getTypeInfo(mixinCtor);
             if (mixinInfo == null)
                 continue;
+            const mixinRoute = route.addMixin(mixinCtor);
             for (const [name, mfi] of Object.entries(mixinInfo.fields)) {
                 if (embeddedFields[name] != null)
                     throw new Error(`Mixin '${(mixinCtor as { name: string }).name}' field '${name}' collides with a field of embedded '${fi.getTypeName() ?? fi.name}'.`);
-                addField(name, mfi);
+                addField(name, mfi, mixinRoute);
             }
         }
 

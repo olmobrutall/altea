@@ -3,7 +3,7 @@ import {
     Expression, LambdaExpression, BinaryExpression, UnaryExpression,
     PropertyExpression, ConstantExpression, CastExpression, CallExpression, ParameterExpression,
 } from "../linq/expressions";
-import type { LambdaMember } from "../../data/lambdaMembers";
+import { FieldRoute } from "../../data/fieldRoute";
 import { ClassType } from "../runtimeTypes";
 import type { Table } from "./table";
 import type { IColumn } from "./column";
@@ -21,8 +21,8 @@ import { sqlEscape } from "../linq/sqlEscape";
 // Scope (altea's flat index model): comparisons/equality (→ `col = <literal>`, or IS [NOT]
 // NULL against null, with the string `<> ''` companion), a bare boolean member (→ `col = <true>`),
 // unary NOT, and/or, and arithmetic. The `is` type-check and SystemPeriod cases Signum also
-// handles are not modelled; a member path is resolved like an index key's (Table.fieldFromMembers): an own or
-// mixin field, then EMBEDDED steps only.
+// handles are not modelled; a member path is read as a FieldRoute and resolved like an index key's (Table.field):
+// an own or mixin field, then EMBEDDED steps only.
 export function getIndexWhere(where: Quoted<(element: any) => boolean>, table: Table, isPostgres: boolean): string {
     const lambda = LambdaExpression.fromQuotedLambda(where, [new ClassType(table.type)]);
     return new IndexWhereVisitor(table, isPostgres).visit(lambda.body);
@@ -182,36 +182,36 @@ class IndexWhereVisitor {
     }
 
     // Resolve a member access to its physical column (Signum's GetField + its single column): the path is
-    // read off the expression as member steps — a lite's `.entity` / `.entityOrNull` at the end names the
+    // read off the expression as a FieldRoute — a lite's `.entity` / `.entityOrNull` at the end names the
     // lite's own column, and `mixin(M)` is a mixin step — and the table resolves it.
     private getColumn(e: Expression): IColumn {
-        const members = this.membersOf(e);
-        const cols = this.table.fieldFromMembers(members).field.columns();
+        const cols = this.table.field(this.routeOf(e)).field.columns();
         if (cols.length !== 1)
             throw new Error(`Index where: '${e.toString()}' maps to ${cols.length} columns (only single-column fields supported)`);
         return cols[0];
     }
 
-    private membersOf(e: Expression): LambdaMember[] {
+    private routeOf(e: Expression): FieldRoute {
         e = unwrapCasts(e);
         while (e instanceof PropertyExpression && (e.propertyName === "entity" || e.propertyName === "entityOrNull"))
             e = unwrapCasts(e.object);
 
-        const steps: LambdaMember[] = [];
+        // Collected leaf-first, then applied root-first.
+        const steps: ({ field: string } | { mixin: Function })[] = [];
         for (;;) {
             if (e instanceof PropertyExpression) {
-                steps.unshift({ name: e.propertyName, type: "Member" });
+                steps.unshift({ field: e.propertyName });
                 e = unwrapCasts(e.object);
             } else if (e instanceof CallExpression && e.func instanceof PropertyExpression && e.func.propertyName === "mixin"
                 && e.args[0] instanceof ConstantExpression && typeof e.args[0].value === "function") {
-                steps.unshift({ name: (e.args[0].value as Function).name, type: "Mixin" });
+                steps.unshift({ mixin: e.args[0].value as Function });
                 e = unwrapCasts(e.func.object);
             } else
                 break;
         }
         if (steps.length === 0 || !(e instanceof ParameterExpression))
             throw new Error(`Index where: unsupported field expression '${e.toString()}' — a member path off the row is expected`);
-        return steps;
+        return steps.reduce((route, step) => "field" in step ? route.add(step.field) : route.addMixin(step.mixin), FieldRoute.root(this.table.type));
     }
 
     // Signum's Equals: value==null routes to IS NULL; otherwise `col = <literal>`.

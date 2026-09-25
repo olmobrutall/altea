@@ -9,11 +9,12 @@ import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
 import type { Type } from "@altea/altea/data/entity";
 import { isModifiedSelf } from "@altea/altea/data/changes";
 import { getTypeInfo } from "@altea/altea/data/reflection";
-import { memberPath as memberPathOf } from "@altea/altea/data/accessedFields";
+import { FieldRoute, isMixinType } from "@altea/altea/data/fieldRoute";
 import { storedMemberName } from "@altea/altea/data/propertyRoute";
 import type { Quoted } from "quote-transformer/quoted";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { cleanTypeName } from "@altea/altea/data/registration";
+import type { FieldInfo } from "@altea/altea/data/reflection";
 import { BigStringEmbedded } from "@altea/altea/data/bigString";
 import { FilePathEmbedded } from "../data/Files";
 import type { FileTypeSymbol } from "../data/Files";
@@ -35,8 +36,8 @@ import { FilePathEmbeddedLogic } from "./FilePathEmbeddedLogic";
 //   BigStringLogic.start(sb);
 //   ... sb.include(ExceptionEntity) ...
 //
-// The configuration is keyed by the MEMBER PATH from the root entity and the walk goes DOWN from the entity
-// the hook fires on, so nothing has to track an embedded's parent. Writing goes through
+// The configuration is keyed by the FieldRoute of the BigStringEmbedded in its table's row, and the walk goes
+// DOWN from the entity the hook fires on, so nothing has to track an embedded's parent. Writing goes through
 // `FilePathEmbeddedLogic.prepareAndWriteOnCommit` — the ONE code path that also serves an ordinary file
 // field — and a SUPERSEDED file is deleted on commit rather than left behind.
 //
@@ -63,16 +64,21 @@ export class BigStringConfiguration {
     }
 }
 
-/** One configured route: where its BigStringEmbedded sits inside the root entity, and what to do with it. */
+/** One configured route: where its BigStringEmbedded sits in its table's row, and what to do with it. */
 interface BigStringRoute {
-    readonly path: string[];
+    readonly route: FieldRoute;
     readonly config: BigStringConfiguration;
 }
 
 export namespace BigStringLogic {
 
-    /** Keyed by "<CleanRootType>.<member path>". */
-    export const configurations: Map<string, { type: Type<Entity>; path: string[]; config: BigStringConfiguration }> = new Map();
+    // Keyed by the route's one spelling (FieldRoute.toString); read and written through the route.
+    const configurations = new Map<string, BigStringRoute>();
+
+    /** The configuration of one BigStringEmbedded route, if it was registered. */
+    export function configurationOf(route: FieldRoute): BigStringConfiguration | undefined {
+        return configurations.get(route.toString())?.config;
+    }
 
     export function start(sb: SchemaBuilder): void {
         if (sb.alreadyDefined(start))
@@ -90,43 +96,41 @@ export namespace BigStringLogic {
         sb.schema.initializing.push(() => schemaCompleted(sb.schema));
     }
 
-    /** Configure ONE route. The selector is
-     *  written INLINE (that is where the transformer stamps its AST) and may walk EMBEDDEDs
-     *  (`e => e.requestContext.form`), which is what makes the route a dotted path. */
+    /** Configure ONE route. The selector is written INLINE (that is where the transformer stamps its AST) and
+     *  may walk EMBEDDEDs and name a mixin (`e => e.requestContext.form`, `e => e.mixin(DiffLogMixin).initialState`). */
     export function register<T extends Entity>(sb: SchemaBuilder, type: Type<T>, selector: Quoted<(entity: T) => BigStringEmbedded>, config: BigStringConfiguration): void {
-        registerPath(sb, type, memberPathOf(selector), config);
+        registerRoute(sb, FieldRoute.from(type, selector), config);
     }
 
-    /** {@link register} minus the selector — what `registerAll` calls, since it already has the routes as
-     *  paths (it reads them off the model rather than off a lambda). Not exported: an application names a
-     *  property with a selector, so a string path never has to be written by hand. */
-    function registerPath<T extends Entity>(sb: SchemaBuilder, type: Type<T>, memberPath: string, config: BigStringConfiguration): void {
-        const key = routeKey(type, memberPath);
+    /** {@link register} for a route already in hand — what `registerAll` calls, having read the routes off the
+     *  model rather than off a lambda. */
+    export function registerRoute(sb: SchemaBuilder, route: FieldRoute, config: BigStringConfiguration): void {
+        const key = route.toString();
 
         if (configurations.has(key))
             throw new Error(`BigStringLogic.register: '${key}' is already registered`);
 
         // Registration removes a COLUMN, so it is too late once the table is generated.
-        if (sb.schema.tables.has(type))
-            throw new Error(`BigStringLogic.register: ${cleanTypeName(type)} is already included in the Schema. `
+        if (sb.schema.tables.has(route.rootType as Type<Entity>))
+            throw new Error(`BigStringLogic.register: ${cleanTypeName(route.rootType as Type<Entity>)} is already included in the Schema. `
                 + "Call BigStringLogic.register earlier in your starter, before the type is included.");
 
-        assertBigStringRoute(type, memberPath.split("."));
+        assertBigStringRoute(route);
 
         // Drop the column this mode does not use. `Database` (the default everywhere) keeps the row column and
         // costs nothing; `File` keeps only the file. A Migrating_* mode needs BOTH.
         if (config.mode === "Database")
-            sb.settings.ignoreFieldRoute(type, `${memberPath}.file`);
+            sb.settings.ignoreFieldRoute(route.addLambda((b: BigStringEmbedded) => b.mixin(BigStringMixin).file));
         else if (config.mode === "File")
-            sb.settings.ignoreFieldRoute(type, `${memberPath}.text`);
+            sb.settings.ignoreFieldRoute(route.addLambda((b: BigStringEmbedded) => b.text));
 
-        configurations.set(key, { type: type, path: memberPath.split("."), config });
+        configurations.set(key, { route, config });
     }
 
     /** Configure EVERY BigStringEmbedded route of `type` the same way. */
     export function registerAll<T extends Entity>(sb: SchemaBuilder, type: Type<T>, config: BigStringConfiguration): void {
-        for (const path of bigStringRoutesOf(type))
-            registerPath(sb, type, path.join("."), config);
+        for (const route of bigStringRoutesOf(type))
+            registerRoute(sb, route, config);
     }
 
     /** Re-save every row so the configured mode is applied to its text.
@@ -146,48 +150,47 @@ export namespace BigStringLogic {
     /** Every BigStringEmbedded route in the schema must be configured, and
      *  every configured route must exist — then hook the owning types. */
     function schemaCompleted(schema: Schema): void {
-        const inSchema = bigStringFieldsByType(schema);
+        const inSchema = bigStringRoutesInSchema(schema);
 
-        const present = new Set<string>();
-        for (const [ctor, paths] of inSchema)
-            for (const path of paths)
-                present.add(`${cleanTypeName(ctor)}.${path.join(".")}`);
+        const present = new Map<string, FieldRoute>();
+        for (const routes of inSchema.values())
+            for (const route of routes)
+                present.set(route.toString(), route);
 
-        const example = (key: string): string =>
-            `  BigStringLogic.register(sb, ${key.substring(0, key.indexOf("."))}, e => e.${key.substring(key.indexOf(".") + 1)}, `
-            + `new BigStringConfiguration("Database", null));`;
-
-        const missing = [...present].filter(k => !configurations.has(k)).sort();
+        const missing = [...present.keys()].filter(k => !configurations.has(k)).sort();
         const extra = [...configurations.keys()].filter(k => !present.has(k)).sort();
 
         if (missing.length > 0 || extra.length > 0)
             throw new Error("BigStringLogic's configurations are not synchronized with the Schema. In your starter you need to...\n"
-                + (extra.length > 0 ? `Remove something like:\n${extra.map(example).join("\n")}\n\n` : "")
-                + (missing.length > 0 ? `Add something like:\n${missing.map(example).join("\n")}\n\n` : ""));
+                + (extra.length > 0 ? `Remove something like:\n${extra.map(k => example(configurations.get(k)!.route)).join("\n")}\n\n` : "")
+                + (missing.length > 0 ? `Add something like:\n${missing.map(k => example(present.get(k)!)).join("\n")}\n\n` : ""));
 
-        for (const [ctor, paths] of inSchema) {
-            const routes: BigStringRoute[] = paths.map(path => ({
-                path,
-                config: configurations.get(`${cleanTypeName(ctor)}.${path.join(".")}`)!.config,
-            }));
+        for (const [ctor, routes] of inSchema) {
+            const configured: BigStringRoute[] = routes.map(route => configurations.get(route.toString())!);
 
             const events = schema.entityEvents(ctor);
             events.preSaving.push(entity => {
-                for (const route of routes)
-                    preSavingRoute(entity, route);
+                for (const bsr of configured)
+                    preSavingRoute(entity, bsr);
             });
             events.retrieved.push(entity => {
-                for (const route of routes)
-                    postRetrievingRoute(entity, route);
+                for (const bsr of configured)
+                    postRetrievingRoute(entity, bsr);
             });
         }
+    }
+
+    // The registration a missing / extra route would need, as the starter would write it.
+    function example(route: FieldRoute): string {
+        const body = route.steps.map(s => s.type == "Mixin" ? `.mixin(${s.name})` : `.${s.name}`).join("");
+        return `  BigStringLogic.register(sb, ${cleanTypeName(route.rootType as Type<Entity>)}, e => e${body}, new BigStringConfiguration("Database", null));`;
     }
 }
 
 // ---- the two lifecycle handlers -------------------------------------------------------------------------
 
 function preSavingRoute(entity: Entity, route: BigStringRoute): void {
-    const bs = readBigString(entity, route.path);
+    const bs = readBigString(entity, route.route);
     if (bs == null)
         return;
 
@@ -232,7 +235,7 @@ function preSavingRoute(entity: Entity, route: BigStringRoute): void {
 
 /** Substitute the file's content for the text, on retrieve. */
 function postRetrievingRoute(entity: Entity, route: BigStringRoute): void {
-    const bs = readBigString(entity, route.path);
+    const bs = readBigString(entity, route.route);
     if (bs == null)
         return;
 
@@ -273,7 +276,7 @@ function writeTextToFile(bs: BigStringEmbedded, mixin: BigStringMixin, route: Bi
         // holds — `InitialState.txt`, not `initialState.txt` — so it is spelled by the same
         // `storedMemberName` a stored property route goes through, never by a second rule that could drift
         // from it.
-        fp.fileName = `${storedMemberName(route.path[route.path.length - 1])}.txt`;
+        fp.fileName = `${storedMemberName(route.route.fieldInfo!.name)}.txt`;
         fp.binaryFile = encodeUtf8(bs.text);
         fp.fileType = route.config.fileType!;
         // Assign the suffix NOW and write the bytes just before the commit. Doing it here rather than leaving
@@ -289,99 +292,90 @@ function writeTextToFile(bs: BigStringEmbedded, mixin: BigStringMixin, route: Bi
 
 // ---- route discovery -----------------------------------------------------------------------------------
 
-function routeKey<T extends Entity>(type: Type<T>, memberPath: string): string {
-    return `${cleanTypeName(type)}.${memberPath}`;
-}
+/** Every BigStringEmbedded route of a type, from its REFLECTION metadata (used by registerAll, which runs
+ *  before the type is in the schema). A mixin's field is reached through its mixin step. */
+function bigStringRoutesOf<T extends Entity>(type: Type<T>): FieldRoute[] {
+    const result: FieldRoute[] = [];
 
-/** Every BigStringEmbedded member path of a type, from its REFLECTION metadata (used by registerAll, which
- *  runs before the type is in the schema). */
-function bigStringRoutesOf<T extends Entity>(type: Type<T>): string[][] {
-    const result: string[][] = [];
-
-    const walk = (ctor: Function, prefix: string[], seen: Set<Function>): void => {
+    const walk = (ctor: Function, route: FieldRoute, seen: Set<Function>): void => {
         if (seen.has(ctor))
             return;
         seen.add(ctor);
 
-        const typeInfo = getTypeInfo(ctor);
-        if (typeInfo == null)
-            return;
-
-        // A MIXIN's fields count as this type's own — they are flattened onto the owner, so
-        // OperationLogEntity's DiffLog dumps are the routes "initialState" / "finalState" with no mixin
-        // step (which is also how bigStringFieldsByType reports them off the schema). Without this,
-        // registerAll silently skips every mixin-contributed BigString and schemaCompleted then refuses to
-        // start.
-        const fields = [...Object.values(typeInfo.fields)];
-        for (const mixinCtor of MixinDeclarations.getMixins(ctor as any)) {
-            const mixinInfo = getTypeInfo(mixinCtor);
-            if (mixinInfo != null)
-                fields.push(...Object.values(mixinInfo.fields));
-        }
-
-        for (const fi of fields) {
-            if (fi.notMapped || fi.array === true || fi.lite === true)
-                continue;
-            if (fi.getTypeName() === "BigStringEmbedded") {
-                result.push([...prefix, fi.name]);
-                continue;
+        const visit = (owner: Function, ownerRoute: FieldRoute): void => {
+            for (const fi of Object.values(getTypeInfo(owner)?.fields ?? {})) {
+                if (fi.notMapped || fi.array === true || fi.lite === true)
+                    continue;
+                if (fi.getTypeName() === "BigStringEmbedded") {
+                    result.push(ownerRoute.add(fi.name));
+                    continue;
+                }
+                // Recurse through nested EMBEDDEDS only — a reference starts another table, not this route.
+                const nested = fi.getFunction();
+                if (nested != null && isEmbeddedCtor(nested))
+                    walk(nested, ownerRoute.add(fi.name), seen);
             }
-            // Recurse through nested EMBEDDEDS only — a reference starts another root, not this route.
-            const nested = fi.getFunction();
-            if (nested != null && isEmbeddedCtor(nested))
-                walk(nested, [...prefix, fi.name], seen);
-        }
+        };
+
+        visit(ctor, route);
+        for (const mixinCtor of MixinDeclarations.getMixins(ctor as Type<Entity>))
+            if (mixinCtor !== BigStringMixin)
+                visit(mixinCtor, route.addMixin(mixinCtor));
     };
 
-    walk(type, [], new Set());
+    walk(type, FieldRoute.root(type), new Set());
     return result;
 }
 
-function assertBigStringRoute<T extends Entity>(type: Type<T>, path: string[]): void {
-    const routes = bigStringRoutesOf(type).map(p => p.join("."));
-    if (!routes.includes(path.join(".")))
-        throw new Error(`BigStringLogic: '${cleanTypeName(type)}.${path.join(".")}' is not a BigStringEmbedded member.`
-            + (routes.length > 0 ? ` Candidates: ${routes.join(", ")}.` : ""));
+function assertBigStringRoute(route: FieldRoute): void {
+    if (route.fieldInfo?.getTypeName() === "BigStringEmbedded")
+        return;
+    const candidates = bigStringRoutesOf(route.rootType as Type<Entity>).map(r => r.toString());
+    throw new Error(`BigStringLogic: '${route}' is not a BigStringEmbedded member.`
+        + (candidates.length > 0 ? ` Candidates: ${candidates.join(", ")}.` : ""));
 }
 
-/** ctor → the BigStringEmbedded member paths actually PRESENT in the built schema. Identified by the field's
- *  reflected type name (an EntityField keeps its FieldInfo), not by column shape. */
-function bigStringFieldsByType(schema: Schema): Map<Type<Entity>, string[][]> {
-    const result = new Map<Type<Entity>, string[][]>();
+/** ctor → the BigStringEmbedded routes actually PRESENT in the built schema. Identified by the field's
+ *  reflected type name (an EntityField keeps its FieldInfo), not by column shape. An embedded's mixin fields
+ *  are flattened into it in the schema, so a field declared by a mixin gets its mixin step back from its
+ *  FieldInfo — the same route bigStringRoutesOf builds from reflection. */
+function bigStringRoutesInSchema(schema: Schema): Map<Type<Entity>, FieldRoute[]> {
+    const result = new Map<Type<Entity>, FieldRoute[]>();
 
     for (const table of schema.tables.values()) {
-        const paths: string[][] = [];
-        collectPaths(table.fields as EntityFieldMap, [], paths);
-        for (const mixin of Object.values(table.mixins))
-            collectPaths(mixin.fields as EntityFieldMap, [], paths);
+        const routes: FieldRoute[] = [];
+        const root = FieldRoute.root(table.type);
+        collectRoutes(table.fields as EntityFieldMap, root, routes);
+        for (const [mixinName, mixin] of Object.entries(table.mixins))
+            collectRoutes(mixin.fields as EntityFieldMap, root.addMixin(mixinName), routes);
 
-        if (paths.length > 0)
-            result.set(table.type as Type<Entity>, paths);
+        if (routes.length > 0)
+            result.set(table.type as Type<Entity>, routes);
     }
 
     return result;
 }
 
-type EntityFieldMap = Record<string, { field: unknown; fieldInfo: { getTypeName(): string | undefined } }>;
+type EntityFieldMap = Record<string, { field: unknown; fieldInfo: FieldInfo }>;
 
-function collectPaths(fields: EntityFieldMap, prefix: string[], result: string[][]): void {
+function collectRoutes(fields: EntityFieldMap, owner: FieldRoute, result: FieldRoute[], inEmbedded = false): void {
     for (const [name, ef] of Object.entries(fields)) {
         if (!(ef.field instanceof FieldEmbedded))
             continue;
 
-        const path = [...prefix, name];
+        const declaring = ef.fieldInfo.declaringType?.ctor;
+        const route = (inEmbedded && isMixinType(declaring) ? owner.addMixin(declaring!) : owner).add(name);
         if (ef.fieldInfo.getTypeName() === "BigStringEmbedded")
-            result.push(path);
+            result.push(route);
         else
-            collectPaths(ef.field.embeddedFields as EntityFieldMap, path, result);
+            collectRoutes(ef.field.embeddedFields as EntityFieldMap, route, result, true);
     }
 }
 
-// ---- small helpers -------------------------------------------------------------------------------------
-
-function readBigString(entity: Entity, path: readonly string[]): BigStringEmbedded | null {
+// Mixin fields are inlined onto their owner (`mixin()` returns `this`), so the route's FIELD names are the path.
+function readBigString(entity: Entity, route: FieldRoute): BigStringEmbedded | null {
     let current: unknown = entity;
-    for (const step of path) {
+    for (const step of route.fieldPath) {
         if (current == null)
             return null;
         current = (current as Record<string, unknown>)[step];

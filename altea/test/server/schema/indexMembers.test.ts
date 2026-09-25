@@ -9,7 +9,7 @@ import { SchemaBuilder } from "@altea/altea/server/schema";
 import type { Table } from "@altea/altea/server/schema/table";
 import type { IColumn } from "@altea/altea/server/schema/column";
 
-// Index keys and filtered-index predicates resolve their member paths the same way (Table.fieldFromMembers,
+// Index keys and filtered-index predicates resolve their member paths the same way (Table.field over a FieldRoute,
 // Signum's Schema.FindField): an own field, a mixin's through an explicit `mixin(M)` step, then embedded
 // steps. A field NAME that two mixins share is ambiguous and must name its mixin. DB-free.
 
@@ -85,8 +85,8 @@ describe("Index member paths", () => {
 
     test("a path that leaves the row is refused", () => {
         const table = build();
-        assert.throws(() => table.addIndex(e => e.target.entity.name), /not embedded/);
-        assert.throws(() => table.addIndex(e => e.code, e => e.target.entity.name == "x"), /not embedded/);
-        assert.throws(() => table.addIndex(e => e.mixin(IdxMemMixinA).nope), /no field 'nope'/);
+        assert.throws(() => table.addIndex(e => e.target.entity.name), /not an embedded field/);
+        assert.throws(() => table.addIndex(e => e.code, e => e.target.entity.name == "x"), /not an embedded field/);
+        assert.throws(() => table.addIndex(e => e.mixin(IdxMemMixinA).nope), /'nope' is not a field of/);
     });
 });

@@ -1,14 +1,13 @@
 import type { Quoted, QuotedEx, ExProperty, ExArray, ExAs } from "quote-transformer/quoted";
-import { quotedMembers, type LambdaMember } from "./lambdaMembers";
 
 // Extracts the entity field names an index selector reads, from its QUOTED AST — the altea
 // analogue of Signum's Engine/Schema/TableIndexes.cs IndexKeyColumns.Split over a KeySelector
 // expression tree. A single field (`e => e.code`), an array of fields (`e => [e.a, e.b]`), or a
 // path through EMBEDDED values (`e => e.address.city`, which flattens to the one column
 // `address_city`) — returned dotted: what the data-layer decorators key FieldInfo by. The SCHEMA resolves an
-// index's columns from accessedMembers instead (member steps, with a mixin as an explicit step); a path
+// index's columns from accessedRoutes (./fieldRoute) instead (member steps, with a mixin as an explicit step); a path
 // through a REFERENCE is not indexable (it is a column on the other table), and the resolution — and the
-// error — belong to the table (Table.fieldFromMembers).
+// error — belong to the table (Table.field).
 //
 // Replaces the earlier approach of running the selector against a recording Proxy: it reads the
 // captured lambda instead of executing it, so it is isomorphic (no live entity needed) and shares
@@ -24,24 +23,6 @@ export function accessedFields(selector: Quoted<(element: any) => unknown>): str
     if (fields.length === 0)
         throw new Error("An index selector must read at least one field, e.g. e => [e.name] or e => e.code");
     return fields;
-}
-
-/**
- * The member PATHS an index selector reads, one per selected field, as the steps of each (Signum's
- * `Reflector.GetMemberListBase` per key): `e => [e.code, e.address.city, e.mixin(M).flag]`. What the schema
- * resolves to columns (Table.fieldFromMembers) — a mixin is an explicit step here, never guessed by name.
- */
-export function accessedMembers(selector: Quoted<(element: any) => unknown>): LambdaMember[][] {
-    const quoted = selector.__quoted;
-    if (quoted == null)
-        throw new Error("An index selector must be @quoted (e => e.code or e => [e.a, e.b]). Is ts-patch + quote-transformer configured?");
-
-    const body = quoted()[2]; // ExLambda = ["=>", params, body]
-    const elements = body[0] === "[]" ? (body as ExArray)[1] : [body];
-    const members = elements.map(e => quotedMembers(e));
-    if (members.length === 0 || members.some(m => m.length === 0))
-        throw new Error("An index selector must read at least one field, e.g. e => [e.name] or e => e.code");
-    return members;
 }
 
 /**

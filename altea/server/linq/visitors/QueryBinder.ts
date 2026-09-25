@@ -3703,8 +3703,8 @@ export class QueryBinder extends ExpressionVisitor {
 
         const bindings = this.routePositionsIn(ee.bindings, rootType, ownerId, "");
         const mixins = ee.mixins?.map(m => {
-            // A mixin's fields are addressed by their bare name (altea inlines mixin fields onto the owner —
-            // the same convention SchemaSettings.ignoreFieldRoute uses).
+            // A mixin's fields are addressed by their bare name (altea inlines mixin fields onto the owner), which
+            // is what RoutePosition.propertyRoute — the file download URL's `route=` — carries.
             const mb = this.routePositionsIn(m.bindings, rootType, ownerId, "");
             return mb === m.bindings ? m : new MixinEntityExpression(m.type, mb, m.mainEntityAlias);
         });
