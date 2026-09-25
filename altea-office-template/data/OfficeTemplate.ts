@@ -80,7 +80,7 @@ export class OfficeConverterSymbol extends Symbol {
 
 /**
  * The registry row for a code-declared model that supplies a template's data.
- * One row per registered IOfficeModel implementation, keyed by its class name — the exact shape
+ * One row per registered OfficeModel subclass, keyed by its class name — the exact shape
  * @altea/altea-email's EmailModelEntity uses, and synchronised the same way.
  */
 @entity("SystemString", "Master")

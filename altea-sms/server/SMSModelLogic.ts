@@ -19,18 +19,16 @@ import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { FilterCondition, FilterOperationKeys, type Filter, type Order, type Pagination } from "@altea/altea/server/dynamicQuery/requests";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { Entity, type Type } from "@altea/altea/data/entity";
-import { cleanTypeName } from "@altea/altea/data/registration";
 import { joinRelaxed } from "@altea/altea/data/globals/joinRelaxed";
 import { SMSModelEntity, SMSTemplateEntity, SMSTemplateOperation } from "../data/SMS";
-import { modelClassName, type ModelClass } from "@altea/altea-templating/server/ValueProviders";
+import { modelClassName } from "@altea/altea-templating/server/ValueProviders";
 
 // The MODEL side: a code-declared object a template renders against
 // (instead of / alongside a query row), its registry table, and the default template it can generate.
 //
 // This is the direct sibling of @altea/altea-email's EmailModelLogic and makes the same calls:
-//  - the `SMSModel<T>` abstract base becomes a TS INTERFACE (`ISMSModel`): there is no C#-style
-//    protected virtual members to inherit, and a model is just an object with a known shape. `smsModel(...)`
-//    below is the factory that supplies the defaults (filter by the entity, no orders, all rows).
+//  - `SMSModel<T>` is an abstract base class, as in Signum (ISMSModel folds into it). A model is a plain
+//    SERVER class, the registration key is the class itself, and `@[m:…]` reads the live instance.
 //  - `Type.FullName` (the registry key) → altea's CLEAN TYPE NAME, the stable identity altea already uses
 //    for a type on the wire. `fullClassName` keeps the column name — see data/SMS.ts on why not `className`.
 //  - `Schema_Generating` / `Schema_Synchronizing` ARE ported: the registry rows go through the schema
@@ -39,44 +37,42 @@ import { modelClassName, type ModelClass } from "@altea/altea-templating/server/
 //    the new name and leave every template pointing at the old one.
 //  - `RequiresExtraParameters` / `GetEntityConstructor` (C# reflection over the model's constructors) become
 //    the registration's own `construct` callback: present ⇒ the model can be built from one entity.
+//  - `queryName` is REQUIRED at registration: Signum defaults it to the model's `T`, which TS erases.
 
-/** The object a template renders against. */
-export interface ISMSModel {
+/** Signum's `SMSModel<T>`: the object a template renders against. One subclass per model; the CLASS is the
+ *  registration key (its clean name is the persisted `fullClassName`). */
+export abstract class SMSModel<T extends Entity = Entity> {
+    constructor(readonly entity: T) { }
+
     /** The entity this model is ABOUT — becomes the message's `referred`. */
-    untypedEntity: Entity | null;
-    /**
-     * The REGISTERED model type this object stands for. Needed because a plain object carries no type, where
-     * its type is its own). Falls back to `untypedEntity.constructor`, which is correct only for a model
-     * registered under the entity type itself.
-     */
-    modelType?: ModelClass;
-    getFilters(queryName: QueryName): Filter[];
-    getOrders(queryName: QueryName): Order[];
-    getPagination(): Pagination | undefined;
+    get untypedEntity(): Entity {
+        return this.entity;
+    }
+
+    /** By default, the query's Entity column is THIS entity. */
+    getFilters(queryName: QueryName): Filter[] {
+        return [new FilterCondition(
+            QueryLogic.getToken(queryName, "", SubTokensOptionsAll), FilterOperationKeys.EqualTo, this.entity.toLite())];
+    }
+
+    getOrders(_queryName: QueryName): Order[] {
+        return [];
+    }
+
+    getPagination(): Pagination | undefined {
+        return undefined;
+    }
 }
 
-/**
- * The model defaults, as a factory. Override any member on the result to get what a subclass
- * would get by overriding a virtual.
- */
-export function smsModel(entity: Entity, overrides?: Partial<ISMSModel>): ISMSModel {
-    return {
-        untypedEntity: entity,
-        getFilters: queryName => [new FilterCondition(
-            QueryLogic.getToken(queryName, "", SubTokensOptionsAll), FilterOperationKeys.EqualTo, entity.toLite())],
-        getOrders: () => [],
-        getPagination: () => undefined,
-        ...overrides,
-    };
-}
+/** A model class, as registered. */
+export type SMSModelType = abstract new (...args: never[]) => SMSModel;
 
 interface SMSModelInfo {
-    /** Optional; defaults to the model's own entity type. */
     queryName: QueryName;
     /** The template generated when none exists yet. */
     defaultTemplateConstructor: () => SMSTemplateEntity;
     /** Present ⇒ this model can be built from one entity. */
-    construct?: (entity: Entity | null) => ISMSModel;
+    construct?: (entity: Entity | null) => SMSModel;
 }
 
 const SMS_MODEL_REPLACEMENT_KEY = "SMSModel";
@@ -85,7 +81,7 @@ export namespace SMSModelLogic {
 
     /** Keyed by the model's CLEAN TYPE NAME — the registry key AND the persisted `fullClassName`. */
     const registeredModels = new Map<string, SMSModelInfo>();
-    const keyToType = new Map<string, ModelClass>();
+    const keyToType = new Map<string, SMSModelType>();
 
     export let smsModelsLazy: ResetLazy<Map<string, SMSModelEntity>> = null!;
     let modelToTemplatesLazy: ResetLazy<Map<string, SMSTemplateEntity[]>> = null!;
@@ -121,11 +117,11 @@ export namespace SMSModelLogic {
     }
 
     /** Declare an SMS model: what it renders against, and the template generated when none exists. */
-    export function register(modelType: ModelClass, info: Omit<SMSModelInfo, "queryName"> & { queryName?: QueryName }): void {
-        const key = cleanTypeName(modelType as Type<Entity>);
+    export function register(modelType: SMSModelType, info: SMSModelInfo): void {
+        const key = modelClassName(modelType);
         keyToType.set(key, modelType);
         registeredModels.set(key, {
-            queryName: info.queryName ?? (modelType as QueryName),
+            queryName: info.queryName,
             defaultTemplateConstructor: info.defaultTemplateConstructor,
             construct: info.construct,
         });
@@ -136,8 +132,8 @@ export namespace SMSModelLogic {
     }
 
     /** The registry ROW for a model type. */
-    export async function toSMSModelEntity(modelType: ModelClass): Promise<SMSModelEntity> {
-        const key = cleanTypeName(modelType as Type<Entity>);
+    export async function toSMSModelEntity(modelType: SMSModelType): Promise<SMSModelEntity> {
+        const key = modelClassName(modelType);
         const found = (await smsModelsLazy.value()).get(key);
         if (found == null)
             throw new Error(`The SMSModel '${key}' was not registered (SMSModelLogic.register)`);
@@ -153,7 +149,7 @@ export namespace SMSModelLogic {
     }
 
     /** The registered model's own constructor function, when the host handed one over. */
-    export async function toType(model: SMSModelEntity): Promise<ModelClass | undefined> {
+    export async function toType(model: SMSModelEntity): Promise<SMSModelType | undefined> {
         return keyToType.get(await toKey(model));
     }
 
@@ -163,7 +159,7 @@ export namespace SMSModelLogic {
     }
 
     /** Build a model instance from one entity. */
-    export async function createModel(model: SMSModelEntity, entity: Entity | null): Promise<ISMSModel> {
+    export async function createModel(model: SMSModelEntity, entity: Entity | null): Promise<SMSModel> {
         const info = registeredModels.get(await toKey(model));
         if (info?.construct == null)
             throw new Error(`The SMSModel '${model.fullClassName}' cannot be constructed from an entity`);

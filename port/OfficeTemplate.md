@@ -161,8 +161,8 @@ hunting for a MultiLine StringLength validator.
 ## The model side
 
 `OfficeModelLogic` is structurally identical to @altea/altea-email's `EmailModelLogic`, deliberately:
-Signum's two files are near-copies of each other, so the ports should be too. `WordModel<T>`'s abstract
-base becomes an `officeModel()` factory, `QueryDescription` is gone (a model shapes its query from the
+Signum's two files are near-copies of each other, so the ports should be too. `WordModel<T>` is the abstract
+base class `OfficeModel<T>` (with `MultiEntityWord` / `QueryWord`), `QueryDescription` is gone (a model shapes its query from the
 `queryName` alone), and the request-DTO converters are SHARED with altea-email rather than duplicated.
 
 `Lite<FileEntity> Template` is a FileEntity REFERENCE, as in Signum, so the column is `Template_ID` into

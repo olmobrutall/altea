@@ -11,7 +11,7 @@ Structurally a small sibling of @altea/altea-email, which ports the same templat
 message shape — and almost every decision here is inherited from it: `MList` → `@part` rows, the model
 registry keyed by CLEAN TYPE NAME and maintained through `Schema.Generating` / `Schema.Synchronizing` (so a
 renamed model class keeps its row, and the FK every template holds), the `SMSModel<T>` abstract base
-becoming an interface plus an `smsModel(...)` defaults factory, and the query executed through
+class kept as one (the class is the registry key), and the query executed through
 `QueryLogic.queries.executeQueryAsync` with hand-built Columns / Filters / Orders because there is no
 QueryDescription to thread.
 

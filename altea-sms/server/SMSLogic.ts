@@ -39,7 +39,7 @@ import {
     type ISMSOwnerEntity, type SMSOwnerData,
 } from "../data/SMS";
 import { SMSCharacters, SMSCharactersMessage } from "../data/SMSCharacters";
-import { SMSModelLogic, type ISMSModel } from "./SMSModelLogic";
+import { SMSModel, SMSModelLogic, type SMSModelType } from "./SMSModelLogic";
 
 // The module's core: the two tables, the PROVIDER seam (nobody sends an SMS without one), the template
 // renderer, and the message state machine.
@@ -273,7 +273,7 @@ export namespace SMSLogic {
     export async function createSMSMessage(
         templateLite: Lite<SMSTemplateEntity>,
         entity: Entity | null,
-        model: ISMSModel | null,
+        model: SMSModel | null,
         forceCulture?: string,
     ): Promise<SMSMessageEntity> {
         const all = await smsTemplatesLazy.value();
@@ -356,15 +356,11 @@ export namespace SMSLogic {
     }
 
     /** Render a model through its default template. */
-    export async function createSMSMessageFromModel(model: ISMSModel, forceCulture?: string): Promise<SMSMessageEntity> {
-        if (model.untypedEntity == null)
-            throw new Error("Entity property not set on the SMSModel");
-
+    export async function createSMSMessageFromModel(model: SMSModel, forceCulture?: string): Promise<SMSMessageEntity> {
         // Render in the scope of the
         // entity the message is ABOUT. No-op unless @altea/altea-isolation is installed.
         return await ExecutionMode.withIsolationOf(model.untypedEntity, async () => {
-            const modelType = model.modelType ?? model.untypedEntity!.getType();
-            const modelEntity = await SMSModelLogic.toSMSModelEntity(modelType);
+            const modelEntity = await SMSModelLogic.toSMSModelEntity(model.constructor as SMSModelType);
             const template = await SMSModelLogic.getDefaultTemplate(modelEntity);
             return await createSMSMessage(template.toLite(), model.untypedEntity, model, forceCulture);
         });
@@ -475,7 +471,7 @@ function registerSMSMessageOperations(sm: FluentStateMachine<SMSMessageEntity, S
         construct: async (t, args) => {
             // Three optional args: the target, the model and the culture. A caller that already holds the
             // entity may pass it directly — the client sends a lite, a server caller usually has the entity.
-            const model = args.find(a => a != null && typeof a === "object" && "untypedEntity" in a) as ISMSModel | undefined;
+            const model = args.find(a => a instanceof SMSModel) as SMSModel | undefined;
             const culture = args.find(a => typeof a === "string") as string | undefined;
 
             const lite = args.find(a => a instanceof Lite) as Lite<Entity> | undefined;

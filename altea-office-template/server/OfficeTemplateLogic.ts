@@ -18,7 +18,6 @@ import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { TemplatingLogic } from "@altea/altea-templating/server/TemplatingLogic";
 import { TextTemplateParser } from "@altea/altea-templating/server/TextTemplateParser";
 import type { BlockNode as TextBlockNode } from "@altea/altea-templating/server/TextTemplateParser.Nodes";
-import { MultiEntityModel, QueryModel } from "@altea/altea-templating/data/Templating";
 import {
     OfficeConverterSymbol, OfficeModelEntity, OfficeTemplateEntity, OfficeTemplateMessage,
     OfficeTemplateOperation, OfficeTemplatePermission, OfficeTemplateVisibleOn, OfficeTransformerSymbol,
@@ -28,8 +27,7 @@ import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { OxmlPackage } from "./oxml/OxmlPackage";
 import { OfficeTemplateParser } from "./OfficeTemplateParser";
 import { OfficeTemplateRenderer } from "./OfficeTemplateRenderer";
-import type { IOfficeModel } from "./OfficeTemplateParameters";
-import { OfficeModelLogic, multiEntityOfficeModel, queryOfficeModel } from "./OfficeModelLogic";
+import { OfficeModelLogic, MultiEntityWord, QueryWord, type OfficeModel, type OfficeModelType } from "./OfficeModelLogic";
 import { toDataTableProviders, type OfficeContext } from "./TableBinder";
 import { ModelDataTableProvider, UserChartDataTableProvider, UserQueryDataTableProvider } from "./DataTableProviders";
 import { OxmlElement } from "./oxml/OxmlElement";
@@ -41,7 +39,6 @@ import { OfficeTemplateTokenSync } from "./OfficeTemplateTokenSync";
 import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import type { Type, BaseEntity } from "@altea/altea/data/entity";
-import { modelClassName, type ModelClass } from "@altea/altea-templating/server/ValueProviders";
 
 // Port of Signum.Word's WordTemplateLogic.cs — see port/OfficeTemplate.md.
 //
@@ -188,11 +185,11 @@ export namespace OfficeTemplateLogic {
      *
      * A template with no model is a single-entity report. A model-backed one is offered wherever its model
      * says: the two built-in models (a set of entities, a query result) are the ones that can be offered
-     * from a search page, so they are keyed here by clean name.
+     * from a search page.
      */
-    const visibleOnByModelType = new Map<string, OfficeTemplateVisibleOn>([
-        [MultiEntityModel.name, OfficeTemplateVisibleOn.Single | OfficeTemplateVisibleOn.Multiple],
-        [QueryModel.name, OfficeTemplateVisibleOn.Single | OfficeTemplateVisibleOn.Multiple | OfficeTemplateVisibleOn.Query],
+    const visibleOnByModelType = new Map<OfficeModelType, OfficeTemplateVisibleOn>([
+        [MultiEntityWord, OfficeTemplateVisibleOn.Single | OfficeTemplateVisibleOn.Multiple],
+        [QueryWord, OfficeTemplateVisibleOn.Single | OfficeTemplateVisibleOn.Multiple | OfficeTemplateVisibleOn.Query],
     ]);
 
     export function isVisible(t: OfficeTemplateEntity, visibleOn: OfficeTemplateVisibleOn): boolean {
@@ -203,8 +200,7 @@ export namespace OfficeTemplateLogic {
         if (OfficeModelLogic.hasDefaultTemplateConstructor(t.model))
             return false;
 
-        const modelTypeName = OfficeModelLogic.toType(t.model).name;
-        const should = visibleOnByModelType.get(modelTypeName) ?? OfficeTemplateVisibleOn.Single;
+        const should = visibleOnByModelType.get(OfficeModelLogic.toType(t.model)) ?? OfficeTemplateVisibleOn.Single;
         return (should & visibleOn) !== 0;
     }
 
@@ -320,8 +316,8 @@ export namespace OfficeTemplateLogic {
 
     /** Signum's `IWordModel.CreateReportFileContent()`: render a model with its own template. The model's
      *  CLASS is the registered model type. */
-    export async function createReportFileContentFromModel(model: IOfficeModel, avoidConversion = false): Promise<OfficeFileContent> {
-        const modelEntity = await OfficeModelLogic.toOfficeModelEntity(model.constructor as ModelClass);
+    export async function createReportFileContentFromModel(model: OfficeModel<BaseEntity | null>, avoidConversion = false): Promise<OfficeFileContent> {
+        const modelEntity = await OfficeModelLogic.toOfficeModelEntity(model.constructor as OfficeModelType);
         const template = await getDefaultTemplate(modelEntity, model.untypedEntity);
         return await createReportFileContent(template, null, model, avoidConversion);
     }
@@ -329,13 +325,13 @@ export namespace OfficeTemplateLogic {
     // ---- the report ----------------------------------------------------------------------------
 
     export async function createReportFileContentFromLite(
-        lite: Lite<OfficeTemplateEntity>, entity?: Entity | null, model?: IOfficeModel, avoidConversion = false,
+        lite: Lite<OfficeTemplateEntity>, entity?: Entity | null, model?: OfficeModel<BaseEntity | null>, avoidConversion = false,
     ): Promise<OfficeFileContent> {
         return await createReportFileContent(await getFromCache(lite), entity, model, avoidConversion);
     }
 
     export async function createReportFileContent(
-        template: OfficeTemplateEntity, entity?: Entity | null, model?: IOfficeModel, avoidConversion = false,
+        template: OfficeTemplateEntity, entity?: Entity | null, model?: OfficeModel<BaseEntity | null>, avoidConversion = false,
     ): Promise<OfficeFileContent> {
         return await createReport(template, entity, model, avoidConversion, true);
     }
@@ -351,7 +347,7 @@ export namespace OfficeTemplateLogic {
     export async function createReport(
         template: OfficeTemplateEntity,
         entity?: Entity | null,
-        model?: IOfficeModel,
+        model?: OfficeModel<BaseEntity | null>,
         avoidConversion = false,
         wantFileName = false,
     ): Promise<OfficeFileContent> {
@@ -365,8 +361,7 @@ export namespace OfficeTemplateLogic {
         if (template.model != null) {
             if (model == null)
                 model = OfficeModelLogic.createModel(template.model, entity ?? null);
-            else if (OfficeModelLogic.toType(template.model) !== model.constructor
-                && OfficeModelLogic.toType(template.model).name !== model.constructor?.name)
+            else if (OfficeModelLogic.toType(template.model) !== model.constructor)
                 throw new Error(
                     `model should be a ${template.model.className} instead of ${model.constructor?.name}`);
         } else {
@@ -458,7 +453,7 @@ function fixDocument(package_: OxmlPackage): void {
     }
 }
 
-export { multiEntityOfficeModel, queryOfficeModel };
+export { MultiEntityWord, QueryWord };
 
 // ---- OfficeTemplateEntity's operations --------------------------------------------------------
 

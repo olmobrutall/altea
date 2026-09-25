@@ -62,7 +62,7 @@ describe("synchronize", () => {
         hasChanges: false,
         queryName: query,
         modelType: undefined,
-        template: { constructor: FakeQuery, toString: () => "a template" },
+        template: { getType: () => FakeQuery, toString: () => "a template" },
         // A rename that answers "unchanged" for whatever it is asked.
         tokenSync: { askRename: async (_b: unknown, _s: unknown, old: string) => old },
     } as unknown as TemplateSynchronizationContext);

@@ -253,21 +253,6 @@ export namespace SendNotificationEmailTaskOperation {
     export const Save: ExecuteSymbol<SendNotificationEmailTaskEntity> = init();
 }
 
-/**
- * Signum's `AlertLogic.AlertNotificationMail` — the e-mail model "here are your pending alerts", rendered
- * against the RECIPIENT (`@[Entity]` is the user) with the alerts as `@foreach[m:alerts] as $a`.
- *
- * altea divergence: Signum's model also exposes a static `TextFormatted(TemplateParameters)` that expands an
- * alert's `[prop:text](url)` placeholders into anchors inside the MAIL. That expansion is not ported here —
- * it lives in the client's `AlertsClient.format`, which is what the dropdown and the alert view render with,
- * so a mail shows the alert text as written. (The mail is a notification; the link is the app.)
- */
-@reflect
-export class AlertNotificationMail extends ModelEntity {
-    /** The alerts this mail lists, newest first. */
-    alerts: AlertEntity[];
-}
-
 
 // ---- Messages -------------------------------------------------------------------------------------------
 

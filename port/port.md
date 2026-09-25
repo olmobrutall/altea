@@ -2069,7 +2069,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
   @altea/altea-email, which ports the same template + model-registry + message shape: `MList` → `@part` rows,
   the model registry keyed by CLEAN TYPE NAME and maintained through `Schema.Generating` /
   `Schema.Synchronizing` (so a renamed model class keeps its row, and the FK every template holds), the
-  `SMSModel<T>` abstract base becoming an interface plus an `smsModel(...)` defaults factory, and the query
+  `SMSModel<T>` abstract base class kept as one (the class is the registry key), and the query
   executed through `QueryLogic.queries.executeQueryAsync` with hand-built Columns / Filters / Orders because
   there is no QueryDescription to thread. What is specific to this module:
   - **`SMSCharacters` is the one piece worth its own suite** (`test/smsCharacters.test.ts`, 13 cases). The

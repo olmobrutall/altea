@@ -34,13 +34,14 @@ import type { OfficeTemplateParameters } from "./OfficeTemplateParameters";
 import { DataTable, parsePivot, toDataTablePivot } from "./DataTable";
 import { OxmlElement, OxmlText } from "./oxml/OxmlElement";
 import { RelationshipTypes, type OxmlPart } from "./oxml/OxmlPackage";
-import type { IOfficeModel } from "./OfficeTemplateParameters";
+import type { OfficeModel } from "./OfficeModelLogic";
+import type { BaseEntity } from "@altea/altea/data/entity";
 
 /** What a provider gets to resolve its data against. */
 export interface OfficeContext {
     readonly template: OfficeTemplateEntity;
     readonly entity: object | null;
-    readonly model: IOfficeModel | undefined;
+    readonly model: OfficeModel<BaseEntity | null> | undefined;
 }
 
 /** A provider's result: the table, plus any per-series/point colour overrides it wants applied. */

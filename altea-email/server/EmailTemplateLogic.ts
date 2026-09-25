@@ -17,7 +17,6 @@ import { TextTemplateParser } from "@altea/altea-templating/server/TextTemplateP
 import type { BlockNode } from "@altea/altea-templating/server/TextTemplateParser.Nodes";
 import { GlobalValueProvider, type QueryContext } from "@altea/altea-templating/server/ValueProviders";
 import { TemplatingLogic } from "@altea/altea-templating/server/TemplatingLogic";
-import { MultiEntityModel, QueryModel } from "@altea/altea-templating/data/Templating";
 import { UserHolder } from "@altea/altea/server/userHolder";
 import {
     EmailTemplateEntity, EmailTemplateEntity_Message, EmailTemplateEntity_Order, EmailTemplateOperation, EmailTemplateVisibleOn, type IAttachmentGeneratorEntity, EmailTemplateEntity_Recipient,
@@ -26,12 +25,11 @@ import type { EmailMessageEntity } from "../data/EmailMessage";
 import type { EmailModelEntity } from "../data/Email";
 import type { EmailSenderConfigurationEntity } from "../data/EmailSenderConfiguration";
 import { EmailLogic } from "./EmailLogic";
-import { EmailModelLogic, type IEmailModel } from "./EmailModelLogic";
+import { EmailModelLogic, MultiEntityEmail, QueryEmail, type EmailModel, type EmailModelType } from "./EmailModelLogic";
 import { EmailMasterTemplateLogic } from "./EmailMasterTemplateLogic";
 import { EmailMessageBuilder } from "./EmailMessageBuilder";
 import { registerEmailTemplateXml } from "./EmailTemplateXml";
 import type { Type, BaseEntity } from "@altea/altea/data/entity";
-import { modelClassName, type ModelClass } from "@altea/altea-templating/server/ValueProviders";
 
 // Port of Signum.Mailing's Templates/EmailTemplateLogic.cs — the template table, its caches, the parse-time
 // validation, the operations, and the global variables every template may read.
@@ -55,7 +53,7 @@ import { modelClassName, type ModelClass } from "@altea/altea-templating/server/
 export interface FillAttachmentTokenContext {
     queryName: QueryName;
     queryTokens: QueryToken[];
-    modelType: ModelClass | undefined;
+    modelType: EmailModelType | undefined;
 }
 
 /** Signum's GenerateAttachmentContext. */
@@ -63,9 +61,9 @@ export interface GenerateAttachmentContext {
     template: EmailTemplateEntity;
     culture: string;
     queryContext: QueryContext | undefined;
-    modelType: ModelClass | undefined;
+    modelType: EmailModelType | undefined;
     entity: Entity | null;
-    model: IEmailModel | null;
+    model: EmailModel<BaseEntity | null> | null;
 }
 
 /** What an attachment RULE contributes to a message (Signum's `List<EmailAttachmentEmbedded>`). */
@@ -262,7 +260,7 @@ export namespace EmailTemplateLogic {
     export async function createEmailMessageFromLite(
         liteTemplate: Lite<EmailTemplateEntity>,
         entity?: Entity | null,
-        model?: IEmailModel | null,
+        model?: EmailModel<BaseEntity | null> | null,
         culture?: string,
     ): Promise<EmailMessageEntity[]> {
         return await createEmailMessage(await getEmailTemplate(liteTemplate), entity, model, culture);
@@ -271,7 +269,7 @@ export namespace EmailTemplateLogic {
     export async function createEmailMessage(
         template: EmailTemplateEntity,
         entity?: Entity | null,
-        model?: IEmailModel | null,
+        model?: EmailModel<BaseEntity | null> | null,
         culture?: string,
     ): Promise<EmailMessageEntity[]> {
         let theModel = model ?? null;
@@ -307,9 +305,9 @@ export namespace EmailTemplateLogic {
     }
 
     /** Signum's VisibleOnDictionary — where a MODEL's templates are offered. */
-    export const visibleOnByModelType = new Map<ModelClass, EmailTemplateVisibleOn>([
-        [MultiEntityModel, EmailTemplateVisibleOn.Single | EmailTemplateVisibleOn.Multiple],
-        [QueryModel, EmailTemplateVisibleOn.Single | EmailTemplateVisibleOn.Multiple | EmailTemplateVisibleOn.Query],
+    export const visibleOnByModelType = new Map<EmailModelType, EmailTemplateVisibleOn>([
+        [MultiEntityEmail, EmailTemplateVisibleOn.Single | EmailTemplateVisibleOn.Multiple],
+        [QueryEmail, EmailTemplateVisibleOn.Single | EmailTemplateVisibleOn.Multiple | EmailTemplateVisibleOn.Query],
     ]);
 
     /** Signum's IsVisible. */

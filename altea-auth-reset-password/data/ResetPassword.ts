@@ -1,5 +1,5 @@
-import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
-import { Entity, ModelEntity } from "@altea/altea/data/entity";
+import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
+import { Entity } from "@altea/altea/data/entity";
 import { entity, uniqueIndex, quoted, legacyPropertyRoute } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Temporal } from "@altea/altea/data/basics";
@@ -67,29 +67,6 @@ export class ResetPasswordRequestEntity extends Entity {
     // No `toString()`, so the table has no
     // ToStr column — a request is short-lived bookkeeping nobody browses by name. Entity's own
     // "<nice name> <id>" default (which IS translatable) stands in.
-}
-
-// ---- E-mail models ---------------------------------------------------------------------------------------
-//
-// The two email models this module declares:
-// `UserLockedMail : EmailModel<UserEntity>` are plain C# classes whose public `Url` field the template
-// reads as `@[m:Url]`. altea's templating resolves a `@[m:…]` member off the REGISTERED model TYPE's
-// reflection metadata, so the shape has to be a declared model entity — these two — while the object the
-// renderer actually walks is assembled on the server (see ResetPasswordRequestLogic).
-
-/** "Here is your reset link". The NAME is Signum's exactly, because it is the EmailModel registry ROW
- *  (mailing.email_model.class_name) — so "Mail" here would read as a model Southwind
- *  does not have plus one of its own that was gone. */
-@reflect
-export class ResetPasswordRequestEmail extends ModelEntity {
-    /** The absolute link the recipient clicks (`@[m:url]` in the template). */
-    url: string;
-}
-
-/** "your account was locked; here is a reset link". */
-@reflect
-export class UserLockedMail extends ModelEntity {
-    url: string;
 }
 
 /** The request's operations. */

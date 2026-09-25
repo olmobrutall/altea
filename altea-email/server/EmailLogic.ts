@@ -34,14 +34,14 @@ import { EmailSenderBase } from "./EmailSenderBase";
 import { SmtpSender } from "./SmtpSender";
 import { EmailSenderConfigurationLogic } from "./EmailSenderConfigurationLogic";
 import { EmailTemplateLogic } from "./EmailTemplateLogic";
-import { EmailModelLogic, type IEmailModel } from "./EmailModelLogic";
+import { EmailModelLogic, type EmailModel, type EmailModelType } from "./EmailModelLogic";
 import { AttachmentLogic } from "./AttachmentLogic";
 import { AsyncEmailSender } from "./AsyncEmailSender";
 import { MailingServer } from "./MailingServer";
 import { EmailTemplateTokenSync } from "./EmailTemplateTokenSync";
 import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
-import { modelClassName, type ModelClass } from "@altea/altea-templating/server/ValueProviders";
+import type { BaseEntity } from "@altea/altea/data/entity";
 
 // Port of Signum.Mailing's EmailLogic.cs — the module's `start(sb)` and its public "send this" surface.
 //
@@ -223,7 +223,7 @@ export namespace EmailLogic {
     }
 
     /** The SYNCHRONOUS half of `ownerDataOf`: read an already-LOADED owner entity through its registered
-     *  reader. Split out because an IEmailModel's `getRecipients()` is synchronous (Signum's is an
+     *  reader. Split out because an EmailModel's `getRecipients()` is synchronous (Signum's is an
      *  in-memory expression over an entity already in hand — `SendTo(Entity.User.EmailOwnerData)`). */
     export function ownerDataOfEntity(entity: Entity): EmailOwnerData {
         for (let ctor: Function | null = entity.constructor; ctor != null; ctor = Object.getPrototypeOf(ctor) as Function | null) {
@@ -276,7 +276,7 @@ export namespace EmailLogic {
     }
 
     /** Signum's `model.SendMail()`. */
-    export async function sendMailFromModel(model: IEmailModel, culture?: string): Promise<void> {
+    export async function sendMailFromModel(model: EmailModel<BaseEntity | null>, culture?: string): Promise<void> {
         for (const email of await createEmailMessagesFromModel(model, culture))
             await sendMail(email);
     }
@@ -298,7 +298,7 @@ export namespace EmailLogic {
     }
 
     /** Signum's `model.CreateEmailMessage()` — render the model's current template. */
-    export async function createEmailMessagesFromModel(model: IEmailModel, culture?: string): Promise<EmailMessageEntity[]> {
+    export async function createEmailMessagesFromModel(model: EmailModel<BaseEntity | null>, culture?: string): Promise<EmailMessageEntity[]> {
         // Signum's `using (emailModel.UntypedEntity is IEntity mod ? ExecutionMode.SetIsolation(mod) : null)`:
         // rendering reads the template and whatever the model navigates to, and must do that in the scope of
         // the entity the mail is ABOUT — a mail may well be produced by work that has no ambient scope of its
@@ -481,15 +481,9 @@ export namespace EmailLogic {
     }
 }
 
-/** The model's registered TYPE. An altea model is a plain shape, so the type is the entity it is about
- *  (Signum read `model.GetType()`); a model with no entity must be created through its registration. */
-function modelTypeOf(model: IEmailModel): ModelClass {
-    const modelType = (model as { modelType?: ModelClass }).modelType;
-    if (modelType != undefined)
-        return modelType;
-    if (model.untypedEntity != null)
-        return model.untypedEntity.getType();
-    throw new Error("An IEmailModel with no untypedEntity must carry a `modelType` so its registration can be found");
+/** The model's registered class — Signum's `model.GetType()`: a model IS an instance of its class. */
+function modelTypeOf(model: EmailModel<BaseEntity | null>): EmailModelType {
+    return model.constructor as EmailModelType;
 }
 
 /** Re-exported so an app's starter needs only this module. */

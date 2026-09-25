@@ -26,8 +26,8 @@ validation, and altea has no entity-level PropertyValidation hook anyway.
 - **`Random.Shared.NextString(32)` → `node:crypto` `randomBytes` → base64url**, and it moves to the logic
   layer (server-only). The code is a BEARER CREDENTIAL, so `Math.random()` would be a real weakness rather
   than a style choice.
-- **`EmailModel<T>` classes** → the declared model types in `data/` plus two factories — see
-  @altea/altea-email's EmailModelLogic header for the shape.
+- **`EmailModel<T>` classes** → the same two server classes (`ResetPasswordRequestEmail`, `UserLockedMail`)
+  extending altea-email's `EmailModel<T>`; their names are the registry rows.
 - **`CultureInfoLogic.ForEachCulture(culture => …)`** → `CultureInfoLogic.applicationCultures()` mapped
   inside `CultureInfo.withCultures`, so each message's text is resolved in ITS culture.
 - `out string? passwordError` becomes a returned object (TypeScript has no out parameters).

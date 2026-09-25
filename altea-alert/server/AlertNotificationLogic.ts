@@ -10,7 +10,8 @@ import type { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { EmailLogic } from "@altea/altea-email/server/EmailLogic";
-import { EmailModelLogic, emailModel } from "@altea/altea-email/server/EmailModelLogic";
+import { EmailModel, EmailModelLogic } from "@altea/altea-email/server/EmailModelLogic";
+import type { EmailOwnerRecipientData } from "@altea/altea-email/data/Email";
 import {
     EmailTemplateEntity, EmailTemplateEntity_Message, EmailMessageFormat,
 } from "@altea/altea-email/data/EmailTemplate";
@@ -22,10 +23,29 @@ import { getTypeInfo } from "@altea/altea/data/reflection";
 import { SchedulerLogic } from "@altea/altea-scheduler/server/SchedulerLogic";
 import { ScheduledTaskEntity } from "@altea/altea-scheduler/data/Scheduler";
 import {
-    AlertEntity, AlertState, AlertMessage, AlertNotificationMail, SendAlertTypeBehavior,
+    AlertEntity, AlertState, AlertMessage, SendAlertTypeBehavior,
     SendNotificationEmailTaskEntity, SendNotificationEmailTaskOperation,
 } from "../data/Alert";
 import { AlertLogic } from "./AlertLogic";
+
+/**
+ * Signum's AlertNotificationMail — the unread alerts of ONE user, newest first. The template's query is about
+ * the user (`@[Entity]`); the alert list is the model's own (`@foreach[m:alerts] as $a`).
+ *
+ * altea divergence: Signum's model also exposes a static `TextFormatted(TemplateParameters)` that expands an
+ * alert's `[prop:text](url)` placeholders into anchors inside the MAIL. That expansion is not ported here —
+ * it lives in the client's `AlertsClient.format`, which is what the dropdown and the alert view render with,
+ * so a mail shows the alert text as written. (The mail is a notification; the link is the app.)
+ */
+export class AlertNotificationMail extends EmailModel<UserEntity> {
+    constructor(user: UserEntity, readonly alerts: AlertEntity[]) {
+        super(user);
+    }
+
+    override getRecipients(): EmailOwnerRecipientData[] {
+        return [{ ownerData: EmailLogic.ownerDataOfEntity(this.entity), kind: EmailRecipientKind.To }];
+    }
+}
 
 // Port of Signum.Alerts' `AlertLogic.RegisterAlertNotificationMail(sb)` — the OPT-IN half that mails a user
 // the alerts they have not attended, driven by a ScheduledTask.
@@ -41,7 +61,7 @@ import { AlertLogic } from "./AlertLogic";
 //    task's "product". Here the messages are simply queued and the task's product is null.
 //  - **no `BulkInsertQueryIds` / `UnsafeUpdate`-from-query for the flag**: the messages are saved one by one
 //    and `emailNotificationsSent` is set with a set-based `executeUpdate` over the same filter.
-//  - the template body drops Signum's `@[m:TextFormatted]` — see AlertNotificationMail in data/Alert.ts.
+//  - the template body drops Signum's `@[m:TextFormatted]` — see AlertNotificationMail above.
 export namespace AlertNotificationLogic {
 
     export function start(sb: SchemaBuilder): void {
@@ -142,29 +162,13 @@ export namespace AlertNotificationLogic {
             let sent = 0;
             for (const group of byRecipient.values()) {
                 const recipient = await group.recipient.retrieve();
-                const model = AlertNotificationMail.create({
-                    alerts: group.alerts.sort((a, b) =>
-                        Temporal.PlainDateTime.compare(b.alertDate!, a.alertDate!)),
-                });
+                const model = new AlertNotificationMail(recipient, group.alerts.sort((a, b) =>
+                    Temporal.PlainDateTime.compare(b.alertDate!, a.alertDate!)));
 
-                const messages = await EmailLogic.createEmailMessagesFromModel(emailModel({
-                    untypedEntity: recipient,
-                    modelType: AlertNotificationMail,
-                    getRecipients: () => [{
-                        ownerData: EmailLogic.ownerDataOfEntity(recipient),
-                        kind: EmailRecipientKind.To,
-                    }],
-                    // The model IS the alert list; the template's query is only about the user.
-                    getFilters: undefined,
-                }) as never);
-
-                for (const message of messages) {
+                for (const message of await EmailLogic.createEmailMessagesFromModel(model)) {
                     await EmailLogic.sendMailAsync(message);
                     sent++;
                 }
-
-                // Carry the model through: `createEmailMessagesFromModel` renders `@[m:…]` off it.
-                void model;
             }
 
             // Signum: `query.UnsafeUpdate().Set(a => a.EmailNotificationsSent, true)`.

@@ -22,12 +22,12 @@ import { AuthServer } from "@altea/altea-auth/server/AuthServer";
 import { UserEntity, UserOperation, UserState } from "@altea/altea-auth/data/User";
 import { LoginAuthMessage } from "@altea/altea-auth/data/AuthMessages";
 import { EmailLogic } from "@altea/altea-email/server/EmailLogic";
-import { EmailModelLogic, emailModel, type IEmailModel } from "@altea/altea-email/server/EmailModelLogic";
+import { EmailModel, EmailModelLogic } from "@altea/altea-email/server/EmailModelLogic";
+import type { EmailOwnerRecipientData } from "@altea/altea-email/data/Email";
 import { EmailRecipientKind } from "@altea/altea-email/data/Email";
 import { EmailTemplateEntity, EmailTemplateEntity_Message, EmailMessageFormat } from "@altea/altea-email/data/EmailTemplate";
 import {
-    ResetPasswordRequestEntity, ResetPasswordRequestOperation, ResetPasswordRequestEmail, UserLockedMail,
-    ResetPasswordMessage,
+    ResetPasswordRequestEntity, ResetPasswordRequestOperation, ResetPasswordMessage,
 } from "../data/ResetPassword";
 import { ResetPasswordServer } from "./ResetPasswordServer";
 
@@ -43,33 +43,30 @@ import { ResetPasswordServer } from "./ResetPasswordServer";
 // Port of Signum.Authorization.ResetPassword's ResetPasswordRequestLogic.cs — see
 // port/ResetPassword.md.
 
-// `modelType` is what altea's renderer looks the REGISTRATION up by (see EmailLogic's `modelTypeOf`): a
-// model whose shape differs from the entity it is about MUST carry it, or the lookup falls back to
-// `untypedEntity.constructor` — here ResetPasswordRequestEntity / UserEntity, which are not registered
-// models — needed because a plain object carries no type of its own.
+// The two email models (Signum's `ResetPasswordRequestEmail : EmailModel<ResetPasswordRequestEntity>` and
+// `UserLockedMail : EmailModel<UserEntity>`). Their NAMES are Signum's exactly: the class name is the EmailModel
+// registry ROW (mailing.email_model.class_name). The template reads the link as `@[m:url]`.
 
-/** The "here is your reset link" model. */
-export function resetPasswordRequestMail(request: ResetPasswordRequestEntity, url: string): IEmailModel & { url: string } {
-    return {
-        ...emailModel({
-            untypedEntity: request,
-            getRecipients: () => [{ ownerData: EmailLogic.ownerDataOfEntity(request.user), kind: EmailRecipientKind.To }],
-        }),
-        modelType: ResetPasswordRequestEmail,
-        url,
-    };
+/** "Here is your reset link". */
+export class ResetPasswordRequestEmail extends EmailModel<ResetPasswordRequestEntity> {
+    constructor(request: ResetPasswordRequestEntity, readonly url: string) {
+        super(request);
+    }
+
+    override getRecipients(): EmailOwnerRecipientData[] {
+        return [{ ownerData: EmailLogic.ownerDataOfEntity(this.entity.user), kind: EmailRecipientKind.To }];
+    }
 }
 
-/** The "your account is locked" model. */
-export function userLockedMail(user: UserEntity, url: string): IEmailModel & { url: string } {
-    return {
-        ...emailModel({
-            untypedEntity: user,
-            getRecipients: () => [{ ownerData: EmailLogic.ownerDataOfEntity(user), kind: EmailRecipientKind.To }],
-        }),
-        modelType: UserLockedMail,
-        url,
-    };
+/** "Your account was locked; here is a reset link". */
+export class UserLockedMail extends EmailModel<UserEntity> {
+    constructor(user: UserEntity, readonly url: string) {
+        super(user);
+    }
+
+    override getRecipients(): EmailOwnerRecipientData[] {
+        return [{ ownerData: EmailLogic.ownerDataOfEntity(this.entity), kind: EmailRecipientKind.To }];
+    }
 }
 
 export namespace ResetPasswordRequestLogic {
@@ -89,7 +86,7 @@ export namespace ResetPasswordRequestLogic {
         // link so they can recover without an administrator.
         AuthLogic.onDeactivateUser = async user => {
             const request = await resetPasswordRequest(user);
-            await EmailLogic.sendMailFromModel(userLockedMail(user, resetUrl(request.code)));
+            await EmailLogic.sendMailFromModel(new UserLockedMail(user, resetUrl(request.code)));
         };
 
         EmailModelLogic.registerEmailModel({
@@ -215,7 +212,7 @@ export namespace ResetPasswordRequestLogic {
                 for (const user of users) {
                     const request = await resetPasswordRequest(user);
                     await AuthLogic.withDisabled(() =>
-                        EmailLogic.sendMailFromModel(resetPasswordRequestMail(request, resetUrl(request.code))));
+                        EmailLogic.sendMailFromModel(new ResetPasswordRequestEmail(request, resetUrl(request.code))));
                 }
             } catch (e) {
                 await logException(e);

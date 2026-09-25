@@ -4,7 +4,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { OfficeModelEntity, OfficeTemplateVisibleOn, type OfficeTemplateEntity } from "../data/OfficeTemplate";
 import { OfficeModelLogic } from "./OfficeModelLogic";
 import { OfficeTemplateLogic } from "./OfficeTemplateLogic";
-import { modelClassName } from "@altea/altea-templating/server/ValueProviders";
+import { cleanTypeName } from "@altea/altea/data/registration";
 
 // Port of Signum.Word's WordController.cs + WordServer.cs — the module's HTTP surface: render a report, and
 // the two lookups the "create report" menus make.
@@ -65,7 +65,10 @@ export namespace OfficeServer {
                 // The type the CLIENT must build to create
                 // a report from this model (a MultiEntityModel, a QueryModel, an app model). It is not the
                 // model's QUERY, which the two framework models do not even have.
-                res.jsonTyped(modelClassName(OfficeModelLogic.toType(await req.jsonTyped())));
+                const entityType = OfficeModelLogic.getEntityType(await req.jsonTyped());
+                if (entityType == null)
+                    throw new Error("This office model has no entity type to construct (register it with a queryName or an entityType)");
+                res.jsonTyped(cleanTypeName(entityType));
             });
 
         // The templates a contextual menu / a query button should offer.

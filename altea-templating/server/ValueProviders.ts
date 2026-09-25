@@ -45,9 +45,9 @@ import type { Type } from "@altea/altea/data/entity";
 // port/Templating.md.
 
 /**
- * The class a template's MODEL is (email, SMS and office models): any class — a model entity or a plain one
- * implementing the model interface, as Signum's model is any type. Its members are read through reflection
- * when it has any; the name is what the model registries key on.
+ * The class a template's MODEL is — an `EmailModel<T>` / `OfficeModel<T>` / `SMSModel<T>` subclass; templating
+ * itself only needs a class. A `@[m:…]` chain is read off the live instance; its steps are validated against
+ * reflection only when the class has any. The name is what the model registries key on.
  */
 export type ModelClass = abstract new (...args: never[]) => object;
 

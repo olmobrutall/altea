@@ -18,7 +18,7 @@
 //  - `EmbeddedPackagePart` (the workbook Word embeds behind a chart) has no typed class; it is recognised
 //    by CONTENT TYPE instead.
 
-import type { Entity } from "@altea/altea/data/entity";
+import type { Entity, BaseEntity } from "@altea/altea/data/entity";
 import type { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
@@ -30,7 +30,8 @@ import { TextTemplateParameters } from "@altea/altea-templating/server/TextTempl
 import { QueryFilterUtils } from "@altea/altea-user-assets/server/QueryFilterUtils";
 import type { OfficeTemplateEntity } from "../data/OfficeTemplate";
 import { BaseNode, MatchNode } from "./OfficeTemplateNodes";
-import { OfficeTemplateParameters, type IOfficeModel } from "./OfficeTemplateParameters";
+import { OfficeTemplateParameters } from "./OfficeTemplateParameters";
+import type { OfficeModel } from "./OfficeModelLogic";
 import type { OxmlPackage } from "./oxml/OxmlPackage";
 import { processTables } from "./TableBinder";
 
@@ -42,7 +43,7 @@ export class OfficeTemplateRenderer {
         private readonly queryName: QueryName | undefined,
         private readonly culture: string,
         private readonly template: OfficeTemplateEntity,
-        private readonly model: IOfficeModel | undefined,
+        private readonly model: OfficeModel<BaseEntity | null> | undefined,
         private readonly entity: Entity | null,
         /** The parsed `fileName` template, printed after the document renders. */
         private readonly fileNameBlock: TextBlockNode | undefined,
@@ -69,7 +70,7 @@ export class OfficeTemplateRenderer {
 
         const model = this.model;
 
-        const filters: Filter[] = model?.getFilters != null ? model.getFilters(queryName)
+        const filters: Filter[] = model != null ? model.getFilters(queryName)
             : this.entity != null ? [QueryFilterUtils.entityFilter(queryName, this.entity)]
                 : (() => {
                     throw new Error(
@@ -78,13 +79,13 @@ export class OfficeTemplateRenderer {
 
         filters.push(...QueryFilterUtils.toFilterList(queryName, this.template.filters));
 
-        const orders: Order[] = model?.getOrders?.(queryName) ?? [];
+        const orders: Order[] = model?.getOrders(queryName) ?? [];
         orders.push(...this.template.orders.map(qo =>
             new Order(this.token(qo.token.tokenString), qo.orderType as unknown as Order["orderType"])));
 
         const table = await QueryLogic.queries.executeQueryAsync(new QueryRequest(
             queryName, filters, orders, columns,
-            model?.getPagination?.(), this.template.groupResults));
+            model?.getPagination(), this.template.groupResults));
 
         this.queryContext = new QueryContext(queryName, table);
     }

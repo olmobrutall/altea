@@ -41,7 +41,7 @@ export class ModelDataTableProvider implements IOfficeDataTableProvider {
         if (template.model == null)
             return `No OfficeModel found in template '${template.name}' to call '${suffix.trim()}'`;
 
-        const type = OfficeModelLogic.toType(template.model) as OfficeModelType & { prototype?: Record<string, unknown> };
+        const type = OfficeModelLogic.toType(template.model) as OfficeModelType & { prototype: Record<string, unknown> };
         if (typeof type.prototype?.[suffix.trim()] !== "function")
             return `No Method with name '${suffix.trim()}' found in type '${type.name}'`;
 

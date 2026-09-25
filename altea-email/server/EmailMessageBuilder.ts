@@ -28,8 +28,9 @@ import {
 import type { EmailSenderConfigurationEntity } from "../data/EmailSenderConfiguration";
 import { EmailLogic } from "./EmailLogic";
 import { EmailTemplateLogic } from "./EmailTemplateLogic";
-import type { IEmailModel } from "./EmailModelLogic";
+import type { EmailModel } from "./EmailModelLogic";
 import { EmailModelLogic } from "./EmailModelLogic";
+import type { BaseEntity } from "@altea/altea/data/entity";
 
 // Port of Signum.Mailing's Templates/EmailTemplateRenderer.cs (its `EmailMessageBuilder`) — the RENDERER:
 // run the template's query, work out every From × recipient-group combination, and print one message for each.
@@ -51,7 +52,7 @@ export class EmailMessageBuilder {
     constructor(
         private readonly template: EmailTemplateEntity,
         private readonly entity: Entity | null,
-        private readonly model: IEmailModel | null,
+        private readonly model: EmailModel<BaseEntity | null> | null,
         private readonly culture: string | undefined,
     ) {
         this.queryName = EmailTemplateLogic.tryQueryName(template);

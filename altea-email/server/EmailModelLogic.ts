@@ -20,7 +20,7 @@ import {
 } from "@altea/altea/server/dynamicQuery/requests";
 import { SubTokensOptionsAll } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
-import { Entity, type Type } from "@altea/altea/data/entity";
+import { Entity, type BaseEntity, type Type } from "@altea/altea/data/entity";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import "@altea/altea/data/globals"; // Array.prototype.toMap
 import { joinRelaxed } from "@altea/altea/data/globals/joinRelaxed";
@@ -29,16 +29,15 @@ import { MultiEntityModel, QueryModel } from "@altea/altea-templating/data/Templ
 import { EmailModelEntity, type EmailOwnerRecipientData, type EmailOwnerData } from "../data/Email";
 import { EmailTemplateEntity, EmailTemplateOperation } from "../data/EmailTemplate";
 import { EmailMasterTemplateLogic } from "./EmailMasterTemplateLogic";
-import { modelClassName, type ModelClass } from "@altea/altea-templating/server/ValueProviders";
+import { modelClassName } from "@altea/altea-templating/server/ValueProviders";
 
 // Port of Signum.Mailing's EmailModelLogic.cs — the MODEL side: a code-declared object a template renders
 // against (instead of / alongside a query row), its registry table, and the default template it can generate.
 //
 // altea divergences, documented inline:
-//  - Signum's `EmailModel<T>` abstract base is a TS INTERFACE (`IEmailModel`) plus the `emailModel()` helper
-//    that supplies its defaults: altea has no C#-style protected virtual members to inherit, and a model is
-//    just an object with a known shape. `MultiEntityEmail` / `QueryEmail` become the two `emailModel(...)`
-//    factories below, byte-for-byte the same behaviour.
+//  - `EmailModel<T>` is an abstract base class, as in Signum (IEmailModel folds into it). A model is a plain
+//    SERVER class: `@[m:…]` chains read the live instance, and an unreflected step is accepted as written
+//    (see TemplateSync), so it needs no reflection or type registration.
 //  - the registry key is altea's CLEAN TYPE NAME (`cleanTypeName(ctor)`), the stable identity altea already
 //    uses for a type on the wire — and **Signum has converged on it**. It keyed by `Type.FullName` in a
 //    `FullClassName` column; it now stores `type.Name` in a `ClassName` one, which is the same string altea
@@ -51,66 +50,79 @@ import { modelClassName, type ModelClass } from "@altea/altea-templating/server/
 //  - `RequiresExtraParameters` / `GetEntityConstructor` (C# reflection over the model's constructors) become
 //    the registration's own `construct` callback — present ⇒ the model can be built from an entity.
 
-/** Signum's IEmailModel — the object a template renders against. */
-export interface IEmailModel {
-    /** The entity this model is ABOUT (Signum's UntypedEntity) — becomes the message's `target`. */
-    untypedEntity: Entity | null;
-    /**
-     * The REGISTERED model type this object stands for (altea only — Signum's model IS a class instance, so
-     * its type is its own). `EmailLogic.modelTypeOf` needs it whenever the model's declared shape differs
-     * from the entity it is about; it falls back to `untypedEntity.constructor`, which is correct only for a
-     * model registered under the entity type itself.
-     */
-    modelType?: ModelClass;
+/**
+ * Signum's `EmailModel<T>` (and its IEmailModel contract): the object a template renders against. One subclass
+ * per model; the CLASS is the registration key (its clean name is the `email_model.class_name` row), so an
+ * instance needs no pointer to what it is. Its own fields and methods are what `@[m:…]` tokens read.
+ */
+export abstract class EmailModel<T extends BaseEntity | null = Entity> {
+    constructor(readonly entity: T) { }
+
+    /** The entity this model is ABOUT (Signum's UntypedEntity) — becomes the message's `target`. Null for a
+     *  model over a non-entity (MultiEntityEmail, QueryEmail). */
+    get untypedEntity(): Entity | null {
+        return this.entity instanceof Entity ? this.entity : null;
+    }
+
     /** Extra recipients the model itself supplies. */
-    getRecipients(): EmailOwnerRecipientData[];
+    getRecipients(): EmailOwnerRecipientData[] {
+        return [];
+    }
+
     /** A From the model itself supplies (else the template's / the configuration's default). */
-    getFrom(): EmailOwnerData | null;
-    /** The filters the template's query should run with. */
-    getFilters(queryName: QueryName): Filter[];
-    getOrders(queryName: QueryName): Order[];
-    getPagination(): Pagination;
+    getFrom(): EmailOwnerData | null {
+        return null;
+    }
+
+    /** The filters the template's query runs with — Signum's default: the query's Entity column is THIS entity. */
+    getFilters(queryName: QueryName): Filter[] {
+        const entity = this.untypedEntity;
+        if (entity == null)
+            throw new Error(`${this.constructor.name} is not about an entity: override getFilters`);
+        return [entityFilter(queryName, entity)];
+    }
+
+    getOrders(_queryName: QueryName): Order[] {
+        return [];
+    }
+
+    getPagination(): Pagination {
+        return new Pagination.All();
+    }
 }
 
-/** Signum's `EmailModel<T>` defaults, as a factory: pass what differs, inherit the rest. */
-export function emailModel(init: Partial<IEmailModel> & { untypedEntity: Entity | null }): IEmailModel {
-    return {
-        untypedEntity: init.untypedEntity,
-        modelType: init.modelType,
-        getRecipients: init.getRecipients ?? (() => []),
-        getFrom: init.getFrom ?? (() => null),
-        // Signum's default: filter the query's Entity column to THIS entity.
-        getFilters: init.getFilters ?? (queryName => [entityFilter(queryName, init.untypedEntity!)]),
-        getOrders: init.getOrders ?? (() => []),
-        getPagination: init.getPagination ?? (() => new Pagination.All()),
-    };
+/** A model class, as registered: the registry key and what `template.model` resolves back to. */
+export type EmailModelType = abstract new (...args: never[]) => EmailModel<BaseEntity | null>;
+
+/** Signum's MultiEntityEmail — one mail for a SET of entities. */
+export class MultiEntityEmail extends EmailModel<MultiEntityModel> {
+    override getFilters(queryName: QueryName): Filter[] {
+        return [new FilterCondition(rootToken(queryName), FilterOperationKeys.IsIn, this.entity.entities)];
+    }
 }
 
-/** Signum's MultiEntityEmail — one report for a SET of entities. */
-export function multiEntityEmailModel(entity: MultiEntityModel): IEmailModel {
-    return emailModel({
-        untypedEntity: null,
-        getFilters: queryName => [new FilterCondition(rootToken(queryName), FilterOperationKeys.IsIn, entity.entities)],
-    });
-}
+/** Signum's QueryEmail — one mail for the RESULT of a query the user configured. */
+export class QueryEmail extends EmailModel<QueryModel> {
+    override getFilters(queryName: QueryName): Filter[] {
+        return (this.entity.filters ?? []).map(f => parseFilter(queryName, f));
+    }
 
-/** Signum's QueryEmail — one report for the RESULT of a query the user configured. */
-export function queryEmailModel(entity: QueryModel): IEmailModel {
-    return emailModel({
-        untypedEntity: null,
-        getFilters: queryName => (entity.filters ?? []).map(f => parseFilter(queryName, f)),
-        getOrders: queryName => (entity.orders ?? []).map(o => parseOrder(queryName, o)),
-        getPagination: () => parsePagination(entity.pagination),
-    });
+    override getOrders(queryName: QueryName): Order[] {
+        return (this.entity.orders ?? []).map(o => parseOrder(queryName, o));
+    }
+
+    override getPagination(): Pagination {
+        return parsePagination(this.entity.pagination);
+    }
 }
 
 /** One registered model type: which query it renders against, and how to build it. */
 interface EmailModelInfo {
-    /** The model's registered type (its clean name is the registry key). */
-    modelType: ModelClass;
+    /** The model's registered class (its clean name is the registry key). */
+    modelType: EmailModelType;
     queryName: QueryName;
     /** Build the model from a target entity (Signum's single-parameter constructor). */
-    construct: ((entity: Entity | null) => IEmailModel) | undefined;
+    construct: ((entity: Entity | null) => EmailModel<BaseEntity | null>) | undefined;
     /** Signum's DefaultTemplateConstructor — the template generated when none exists. */
     defaultTemplateConstructor: (() => EmailTemplateEntity | Promise<EmailTemplateEntity>) | undefined;
 }
@@ -175,9 +187,9 @@ export namespace EmailModelLogic {
 
     /** Signum's RegisterEmailModel. Call BEFORE start (the registry table is seeded from these keys). */
     export function registerEmailModel(options: {
-        modelType: ModelClass;
+        modelType: EmailModelType;
         queryName: QueryName;
-        construct?: (entity: Entity | null) => IEmailModel;
+        construct?: (entity: Entity | null) => EmailModel<BaseEntity | null>;
         defaultTemplateConstructor?: () => EmailTemplateEntity | Promise<EmailTemplateEntity>;
     }): void {
         registeredModels.set(modelClassName(options.modelType), {
@@ -196,7 +208,7 @@ export namespace EmailModelLogic {
     }
 
     /** Signum's `ToEmailModelEntity(type)`. */
-    export async function toEmailModelEntity(modelType: ModelClass): Promise<EmailModelEntity> {
+    export async function toEmailModelEntity(modelType: EmailModelType): Promise<EmailModelEntity> {
         return await getEmailModelEntity(modelClassName(modelType));
     }
 
@@ -214,7 +226,7 @@ export namespace EmailModelLogic {
     }
 
     /** Signum's `modelEntity.ToType()`. */
-    export function toType(modelEntity: EmailModelEntity): ModelClass {
+    export function toType(modelEntity: EmailModelEntity): EmailModelType {
         return info(modelEntity).modelType;
     }
 
@@ -235,7 +247,7 @@ export namespace EmailModelLogic {
     }
 
     /** Signum's CreateModel. */
-    export function createModel(modelEntity: EmailModelEntity, entity: Entity | null): IEmailModel {
+    export function createModel(modelEntity: EmailModelEntity, entity: Entity | null): EmailModel<BaseEntity | null> {
         const construct = info(modelEntity).construct;
         if (construct == undefined)
             throw new Error(`The EmailModel '${modelEntity.className}' cannot be built from an entity alone`);
@@ -260,7 +272,7 @@ export namespace EmailModelLogic {
     }
 
     /** Every registered model type (the terminal's "generate all templates" helper reads it). */
-    export function registeredModelTypes(): ModelClass[] {
+    export function registeredModelTypes(): EmailModelType[] {
         return [...registeredModels.values()].map(i => i.modelType);
     }
 }
