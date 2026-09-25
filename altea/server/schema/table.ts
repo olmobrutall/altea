@@ -5,7 +5,8 @@ import { EntityField, FieldPrimaryKey, FieldTicks, FieldMixin, FieldEmbedded } f
 import type { IColumn } from './column';
 import type { IndexBlock } from './tableIndex';
 import { TableIndex, multiUniqueIndexes } from './tableIndex';
-import { accessedFields } from '../../data/accessedFields';
+import { accessedMembers } from '../../data/accessedFields';
+import type { LambdaMember } from '../../data/lambdaMembers';
 import { getIndexWhere } from './indexWhere';
 import type { SystemVersionedInfo } from './systemVersioned';
 
@@ -76,8 +77,8 @@ export class Table {
     }
 
     private addFluentIndex(fields: Quoted<(element: any) => unknown>, unique: boolean, where?: Quoted<(element: any) => boolean>, includeFields?: Quoted<(element: any) => unknown>): void {
-        const blocks = this.fieldBlocksFromFields(accessedFields(fields));
-        const includeColumns = includeFields == null ? undefined : this.columnsFromFields(accessedFields(includeFields));
+        const blocks = this.fieldBlocksFromMembers(accessedMembers(fields));
+        const includeColumns = includeFields == null ? undefined : this.columnsFromMembers(accessedMembers(includeFields));
         // Render the predicate to SQL now (registration time), like Signum's AddIndex.
         const whereSql = where == null ? undefined : getIndexWhere(where, this, this.isPostgres);
         // A UNIQUE index is EXPANDED per polymorphic alternative and filtered (Signum's
@@ -88,41 +89,74 @@ export class Table {
             this.indexes.push(new TableIndex(this, blocks.flatMap(b => b.columns), { unique, includeColumns, where: whereSql }));
     }
 
-    // Resolves entity field names (own or mixin) to their physical columns. A DOTTED name walks
-    // EMBEDDED steps ("scriptExecution.nextExecution"), which live in this same row and so are
-    // indexable exactly like a flat field — Signum indexes them by the same expression.
-    columnsFromFields(fieldNames: string[]): IColumn[] {
-        return this.fieldBlocksFromFields(fieldNames).flatMap(b => b.columns);
+    // Resolves a member path (Signum's Schema.FindField over a member list) to the field it names in THIS
+    // row: an own field, or a mixin's through an explicit `mixin(M)` step, then EMBEDDED steps
+    // ("scriptExecution.nextExecution"), which live in this same row and so are indexable exactly like a
+    // flat field — Signum indexes them by the same expression. A reference or collection step leaves the
+    // row, so it is refused, as is any step after a leaf.
+    fieldFromMembers(members: readonly LambdaMember[]): EntityField {
+        const path = () => members.map(m => m.type == "Mixin" ? `mixin(${m.name})` : m.type == "Indexer" ? "[i]" : m.name).join(".");
+        if (members.length === 0)
+            throw new Error(`Index on '${this.name.name}': an empty member path names no field.`);
+
+        let i = 0;
+        let fields: { [name: string]: EntityField } = this.fields;
+        if (members[0].type == "Mixin") {
+            const mixin = this.mixins[members[0].name];
+            if (mixin == null)
+                throw new Error(`Index on '${this.name.name}': '${path()}' names mixin '${members[0].name}', which the table does not have.`);
+            fields = mixin.fields;
+            i = 1;
+        }
+
+        let ef: EntityField | undefined;
+        for (; i < members.length; i++) {
+            const m = members[i];
+            if (m.type != "Member")
+                throw new Error(`Index on '${this.name.name}': '${path()}' — only field steps can follow a mixin, not ${m.type == "Mixin" ? "another mixin" : "an indexer"}.`);
+            if (ef != null) {
+                if (!(ef.field instanceof FieldEmbedded))
+                    throw new Error(`Index on '${this.name.name}': '${path()}' walks '${m.name}' through a field that is not embedded — only embedded steps stay in this row.`);
+                fields = ef.field.embeddedFields;
+            }
+            ef = fields[m.name];
+            if (ef == null)
+                throw new Error(`Index on '${this.name.name}': no field '${m.name}' in '${path()}' to index.`);
+        }
+        if (ef == null)
+            throw new Error(`Index on '${this.name.name}': '${path()}' names a mixin, not a field.`);
+        return ef;
     }
 
-    // The same resolution, keeping each name's FIELD beside its columns — Signum's
+    columnsFromMembers(memberLists: readonly (readonly LambdaMember[])[]): IColumn[] {
+        return this.fieldBlocksFromMembers(memberLists).flatMap(b => b.columns);
+    }
+
+    // The same resolution, keeping each path's FIELD beside its columns — Signum's
     // IndexKeyColumns.Split. A UNIQUE index needs the field, because a polymorphic one owns
     // several columns of which exactly one is filled per row (see multiUniqueIndexes).
-    fieldBlocksFromFields(fieldNames: string[]): IndexBlock[] {
-        return fieldNames.map(name => {
-            const [first, ...rest] = name.split(".");
-            let ef = this.fields[first] ?? this.findMixinField(first);
-            if (ef == null)
-                throw new Error(`Index on '${this.name.name}': no field '${first}' to index.`);
-
-            for (const step of rest) {
-                if (!(ef.field instanceof FieldEmbedded))
-                    throw new Error(`Index on '${this.name.name}': '${name}' walks '${step}' through a field that is not embedded — only embedded steps stay in this row.`);
-                const next = ef.field.embeddedFields[step];
-                if (next == null)
-                    throw new Error(`Index on '${this.name.name}': no field '${step}' inside '${name}' to index.`);
-                ef = next;
-            }
-
+    fieldBlocksFromMembers(memberLists: readonly (readonly LambdaMember[])[]): IndexBlock[] {
+        return memberLists.map(members => {
+            const ef = this.fieldFromMembers(members);
             return { field: ef.field, columns: ef.field.columns() };
         });
     }
 
-    private findMixinField(name: string): EntityField | undefined {
-        for (const mixin of Object.values(this.mixins))
-            if (mixin.fields[name] != null)
-                return mixin.fields[name];
-        return undefined;
+    // Field NAMES, for the callers that name a field rather than hold a selector: a dotted name walks
+    // embedded steps; a root name that is no field of the entity is looked up in its mixins, and must
+    // name exactly one of their fields.
+    columnsFromFields(fieldNames: string[]): IColumn[] {
+        return this.columnsFromMembers(fieldNames.map(name => this.membersOfFieldName(name)));
+    }
+
+    private membersOfFieldName(name: string): LambdaMember[] {
+        const steps: LambdaMember[] = name.split(".").map(n => ({ name: n, type: "Member" }));
+        if (this.fields[steps[0].name] != null)
+            return steps;
+        const owners = Object.entries(this.mixins).filter(([, m]) => m.fields[steps[0].name] != null).map(([k]) => k);
+        if (owners.length > 1)
+            throw new Error(`Index on '${this.name.name}': '${steps[0].name}' is a field of several mixins (${owners.join(", ")}); name the mixin (e => e.mixin(M).${steps[0].name}).`);
+        return owners.length == 1 ? [{ name: owners[0], type: "Mixin" }, ...steps] : steps;
     }
 
     // Flattens every field's columns (plus mixins') into `columns`, failing on

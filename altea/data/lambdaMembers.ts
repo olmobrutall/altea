@@ -16,10 +16,19 @@ export function getLambdaMembers(lambda: Function): LambdaMember[] {
       "getLambdaMembers: the lambda carries no `__quoted` expression tree. It must be an inline " +
       "property lambda passed to a `Quoted<...>` parameter (there is no regex/toString fallback).");
 
-  // ExLambda = ["=>", params, body]. Walk the body's property/index chain down to the parameter,
-  // collecting members leaf-first, then reverse to root-first.
+  // ExLambda = ["=>", params, body].
+  return quotedMembers(ex[2]);
+}
+
+/**
+ * The member path of one quoted expression over the lambda's parameter, root-first — the body of a property
+ * lambda, or one element of an array selector (`e => [e.a, e.mixin(M).b]`, see accessedMembers).
+ */
+export function quotedMembers(body: QuotedEx): LambdaMember[] {
+  // Walk the property/index chain down to the parameter, collecting members leaf-first, then reverse
+  // to root-first.
   const result: LambdaMember[] = [];
-  let node: any = ex[2];
+  let node: any = body;
   while (true) {
     switch (node[0] as QuotedEx[0]) {
       case ".":
@@ -32,6 +41,7 @@ export function getLambdaMembers(lambda: Function): LambdaMember[] {
         node = node[1];
         break;
       case "as": // a cast (e => (e.a as X).b) — transparent to the member path
+      case "!":  // a non-null assertion (e => e.a!.b) — likewise
         node = node[1];
         break;
       case "()":
