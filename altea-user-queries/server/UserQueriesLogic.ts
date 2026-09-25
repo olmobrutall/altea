@@ -150,13 +150,13 @@ export namespace UserQueriesLogic {
 
     /** Signum's `UserQueryLogic.RegisterUserTypeCondition` — this query belongs to the current USER. */
     export function registerUserTypeCondition(typeCondition: TypeConditionSymbol): void {
-        UserAssetOwnerAuth.registerUserTypeCondition(UserQueryEntity, typeCondition);
+        UserAssetOwnerAuth.registerUserTypeCondition(typeCondition, UserQueryEntity);
     }
 
     /** Signum's `UserQueryLogic.RegisterRoleTypeCondition` — global (no owner), or owned by one of the current
      *  user's roles. */
     export function registerRoleTypeCondition(typeCondition: TypeConditionSymbol): void {
-        UserAssetOwnerAuth.registerRoleTypeCondition(UserQueryEntity, typeCondition);
+        UserAssetOwnerAuth.registerRoleTypeCondition(typeCondition, UserQueryEntity);
     }
 
     // Every lookup below serves from `userQueriesLazy`, whose factory runs in ExecutionMode.global — so the

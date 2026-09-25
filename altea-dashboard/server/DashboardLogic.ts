@@ -183,13 +183,13 @@ export namespace DashboardLogic {
      *  current USER. altea needs no per-part mirroring: parts inherit the dashboard's conditions structurally
      *  (see @altea/altea-user-assets' UserAssetOwnerAuth for the full note). */
     export function registerUserTypeCondition(typeCondition: TypeConditionSymbol): void {
-        UserAssetOwnerAuth.registerUserTypeCondition(DashboardEntity, typeCondition);
+        UserAssetOwnerAuth.registerUserTypeCondition(typeCondition, DashboardEntity);
     }
 
     /** Signum's `DashboardLogic.RegisterRoleTypeCondition(sb, typeCondition)` — this dashboard is global (no
      *  owner) or owned by one of the current user's roles. */
     export function registerRoleTypeCondition(typeCondition: TypeConditionSymbol): void {
-        UserAssetOwnerAuth.registerRoleTypeCondition(DashboardEntity, typeCondition);
+        UserAssetOwnerAuth.registerRoleTypeCondition(typeCondition, DashboardEntity);
     }
 
     // ---- Lookups (Signum's GetHomePageDashboard / GetDashboards / GetEmbeddedDashboards) --------------

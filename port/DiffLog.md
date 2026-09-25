@@ -61,8 +61,8 @@ before the operation, dump the target after it, store both on the operation log.
 
 ## The type condition IS ported
 
-`TypeConditionLogic.registerWhenAlreadyFilteringBy(OperationLogEntity,
-OperationLogTypeCondition.FilteringByTarget, …)` is registered in `DiffLogLogic.start`.
+`TypeConditionLogic.registerWhenAlreadyFilteringBy(OperationLogTypeCondition.FilteringByTarget,
+OperationLogEntity, …)` is registered in `DiffLogLogic.start`.
 
 What the condition says: you may see an operation log BECAUSE you asked for the logs of ONE entity that you
 are allowed to read. It answers a real problem — the operation log is a single table across every type in

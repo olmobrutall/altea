@@ -213,17 +213,17 @@ export namespace ToolbarLogic {
 
     /** The toolbar belongs to the current USER. */
     export function registerUserTypeCondition(typeCondition: TypeConditionSymbol): void {
-        UserAssetOwnerAuth.registerUserTypeCondition(ToolbarEntity, typeCondition);
-        UserAssetOwnerAuth.registerUserTypeCondition(ToolbarMenuEntity, typeCondition);
-        UserAssetOwnerAuth.registerUserTypeCondition(ToolbarSwitcherEntity, typeCondition);
+        UserAssetOwnerAuth.registerUserTypeCondition(typeCondition, ToolbarEntity);
+        UserAssetOwnerAuth.registerUserTypeCondition(typeCondition, ToolbarMenuEntity);
+        UserAssetOwnerAuth.registerUserTypeCondition(typeCondition, ToolbarSwitcherEntity);
     }
 
     /** Global (no owner), or owned by one of the current
      *  user's roles. */
     export function registerRoleTypeCondition(typeCondition: TypeConditionSymbol): void {
-        UserAssetOwnerAuth.registerRoleTypeCondition(ToolbarEntity, typeCondition);
-        UserAssetOwnerAuth.registerRoleTypeCondition(ToolbarMenuEntity, typeCondition);
-        UserAssetOwnerAuth.registerRoleTypeCondition(ToolbarSwitcherEntity, typeCondition);
+        UserAssetOwnerAuth.registerRoleTypeCondition(typeCondition, ToolbarEntity);
+        UserAssetOwnerAuth.registerRoleTypeCondition(typeCondition, ToolbarMenuEntity);
+        UserAssetOwnerAuth.registerRoleTypeCondition(typeCondition, ToolbarSwitcherEntity);
     }
 
     // DEFERRED, noted where it belongs: `registerAllowedTypeTypeCondition` + an `allowedTypes` dictionary

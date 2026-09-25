@@ -94,11 +94,11 @@ export namespace ChatbotLogic {
 
     /** Signum's RegisterUserTypeCondition — a role sees only its own sessions. */
     export function registerUserTypeCondition(userEntities: TypeConditionSymbol): void {
-        TypeConditionLogic.registerCompile(ChatSessionEntity, userEntities,
+        TypeConditionLogic.registerCompile(userEntities, ChatSessionEntity,
             cm => cm.user.is(UserHolder.currentUserLite() as Lite<UserEntity> | null));
         // Signum nests the condition (`cm.ChatSession.Entity.InCondition(userEntities)`); altea has no
         // `inCondition` on an entity, so the same predicate is written out one level deeper.
-        TypeConditionLogic.registerCompile(ChatMessageEntity, userEntities,
+        TypeConditionLogic.registerCompile(userEntities, ChatMessageEntity,
             cm => cm.chatSession.entity!.user.is(UserHolder.currentUserLite() as Lite<UserEntity> | null));
     }
 

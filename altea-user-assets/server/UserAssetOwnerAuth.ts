@@ -36,8 +36,8 @@ export namespace UserAssetOwnerAuth {
      * paths agree. `UserHolder.currentUserLite()` takes no parameters, so the LINQ binder folds it to a
      * constant while building each query.
      */
-    export function registerUserTypeCondition<T extends IOwnedAssetEntity>(ctor: Type<T>, typeCondition: TypeConditionSymbol): void {
-        TypeConditionLogic.registerCompile<T>(ctor, typeCondition,
+    export function registerUserTypeCondition<T extends IOwnedAssetEntity>(typeCondition: TypeConditionSymbol, ctor: Type<T>): void {
+        TypeConditionLogic.registerCompile<T>(typeCondition, ctor,
             e => e.owner != null && e.owner.is(UserHolder.currentUserLite()));
     }
 
@@ -50,8 +50,8 @@ export namespace UserAssetOwnerAuth {
      * `Array.includes` is REFERENCE equality, which would silently never match. The in-memory twin
      * therefore compares with Lite's value equality instead.
      */
-    export function registerRoleTypeCondition<T extends IOwnedAssetEntity>(ctor: Type<T>, typeCondition: TypeConditionSymbol): void {
-        TypeConditionLogic.register<T>(ctor, typeCondition,
+    export function registerRoleTypeCondition<T extends IOwnedAssetEntity>(typeCondition: TypeConditionSymbol, ctor: Type<T>): void {
+        TypeConditionLogic.register<T>(typeCondition, ctor,
             e => e.owner == null || currentRoleOwners().includes(e.owner),
             e => e.owner == null || AuthLogic.currentRoles().some(r => r.is(e.owner)));
     }

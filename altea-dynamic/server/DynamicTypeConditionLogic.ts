@@ -135,8 +135,8 @@ export class DynamicTypeConditionCodeGenerator {
             // the transformer stamp a tree for it and the condition usable as a query filter.
             const script = c.eval.script.trim();
             const body = script.includes(";") || script.startsWith("{") ? `{ ${script} }` : script;
-            lines.push(`        TypeConditionLogic.register(${c.entityType.className}, `
-                + `CodeGenTypeCondition.${c.symbolName.name}, e => ${body});`);
+            lines.push(`        TypeConditionLogic.register(CodeGenTypeCondition.${c.symbolName.name}, `
+                + `${c.entityType.className}, e => ${body});`);
         }
 
         lines.push("    }");

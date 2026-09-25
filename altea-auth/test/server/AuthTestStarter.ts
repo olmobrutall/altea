@@ -54,17 +54,17 @@ export namespace AuthTestStarter {
         OperationAuthLogic.setMaxAutomaticUpgrade(SampleOperation.Delete, OperationAllowed.None);
         // …and `value` must never just follow the type either.
         PropertyAuthLogic.setMaxAutomaticUpgrade(PropertyRoute.parse(SampleEntity, "value"), PropertyAllowed.None);
-        TypeConditionLogic.registerCompile(SampleEntity, SampleTypeCondition.Confidential, s => s.confidential === true);
-        TypeConditionLogic.registerCompile(SampleEntity, SampleTypeCondition.Public, s => s.confidential === false);
+        TypeConditionLogic.registerCompile(SampleTypeCondition.Confidential, SampleEntity, s => s.confidential === true);
+        TypeConditionLogic.registerCompile(SampleTypeCondition.Public, SampleEntity, s => s.confidential === false);
         // DB-ONLY (no in-memory predicate) → forces the fillTypeConditions SQL path for inTypeCondition.
-        TypeConditionLogic.register(SampleEntity, SampleTypeCondition.HighValue, s => s.value > 0);
+        TypeConditionLogic.register(SampleTypeCondition.HighValue, SampleEntity, s => s.value > 0);
 
         // The QUERY-AUDITOR condition — the exact registration Signum.DiffLog makes for
         // OperationLogEntity, here on the sample log: a log row is readable BECAUSE
         // the caller pinned its `target` to something they may read.
         sb.include(SampleLogEntity).withQuery();
         TypeConditionLogic.registerWhenAlreadyFilteringBy(
-            SampleLogEntity, SampleLogTypeCondition.FilteringByTarget, {
+            SampleLogTypeCondition.FilteringByTarget, SampleLogEntity, {
             property: l => l.target,
             isConstantAuthorized: async target => target != null
                 && await TypeAuthLogic.isAllowedForLite(target, TypeAllowedBasic.Read, true, FilterQueryArgs.fromLite(target)),

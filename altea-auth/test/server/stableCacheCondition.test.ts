@@ -25,13 +25,13 @@ describe("a type condition whose SQL half reads a cache", () => {
 
     test("registerCompile refuses a predicate that reads .$v", () => {
         assert.throws(
-            () => TypeConditionLogic.registerCompile(SampleEntity, SampleTypeCondition.HighValue,
+            () => TypeConditionLogic.registerCompile(SampleTypeCondition.HighValue, SampleEntity,
                 s => vipIds.value().$v.includes(s.id), true),
             /cannot be registered with registerCompile/);
     });
 
     test("an async twin answers, and is filled and cached like a DB-only condition", async () => {
-        TypeConditionLogic.register(SampleEntity, SampleTypeCondition.HighValue,
+        TypeConditionLogic.register(SampleTypeCondition.HighValue, SampleEntity,
             s => vipIds.value().$v.includes(s.id),
             async s => (await vipIds.value()).some(id => String(id) === String(s.id)),
             true);
@@ -59,7 +59,7 @@ describe("a type condition whose SQL half reads a cache", () => {
     // A twin that hands back a promise without being declared `async` would otherwise be TRUTHY at every
     // call — every row silently satisfying the condition. It is named instead.
     test("a promise-returning twin that is not declared async is named", () => {
-        TypeConditionLogic.register(SampleEntity, SampleTypeCondition.HighValue,
+        TypeConditionLogic.register(SampleTypeCondition.HighValue, SampleEntity,
             s => s.value > 0,
             s => Promise.resolve(s.value > 0) as unknown as boolean,
             true);

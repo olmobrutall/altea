@@ -165,7 +165,7 @@ export namespace TypeAuthLogic {
         sb.include(RuleTypeEntity);
         // Type conditions: seed the TypeConditionSymbol table + register the framework predicates
         TypeConditionLogic.start(sb);
-        TypeConditionLogic.registerCompile(UserEntity, UserTypeCondition.DeactivatedUsers, u => u.state === UserState.Deactivated);
+        TypeConditionLogic.registerCompile(UserTypeCondition.DeactivatedUsers, UserEntity, u => u.state === UserState.Deactivated);
         // Cache the rules + merged values,
         // resetting when a RuleType or Role is saved. (setTypeRulePack also resets explicitly for its deletes.)
         // globalLazy runs the factory in ExecutionMode.global, so its RuleType read is ungated — no explicit

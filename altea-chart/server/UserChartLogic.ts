@@ -89,13 +89,13 @@ export namespace UserChartLogic {
 
     /** Signum's `UserChartLogic.RegisterUserTypeCondition` — this chart belongs to the current USER. */
     export function registerUserTypeCondition(typeCondition: TypeConditionSymbol): void {
-        UserAssetOwnerAuth.registerUserTypeCondition(UserChartEntity, typeCondition);
+        UserAssetOwnerAuth.registerUserTypeCondition(typeCondition, UserChartEntity);
     }
 
     /** Signum's `UserChartLogic.RegisterRoleTypeCondition` — global (no owner), or owned by one of the current
      *  user's roles. */
     export function registerRoleTypeCondition(typeCondition: TypeConditionSymbol): void {
-        UserAssetOwnerAuth.registerRoleTypeCondition(UserChartEntity, typeCondition);
+        UserAssetOwnerAuth.registerRoleTypeCondition(typeCondition, UserChartEntity);
     }
 
     // ---- Clone (Signum's UserChartEntity.Clone) --------------------------------------------------

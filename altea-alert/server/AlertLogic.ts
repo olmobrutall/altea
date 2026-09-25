@@ -267,13 +267,13 @@ export namespace AlertLogic {
 
     /** Signum's `RegisterCreatorTypeCondition` — "the alerts I raised". */
     export function registerCreatorTypeCondition(typeCondition: TypeConditionSymbol): void {
-        TypeConditionLogic.registerCompile(AlertEntity, typeCondition,
+        TypeConditionLogic.registerCompile(typeCondition, AlertEntity,
             a => a.createdBy!.is(UserHolder.currentUserLite()));
     }
 
     /** Signum's `RegisterRecipientTypeCondition` — "the alerts addressed to me". */
     export function registerRecipientTypeCondition(typeCondition: TypeConditionSymbol): void {
-        TypeConditionLogic.registerCompile(AlertEntity, typeCondition,
+        TypeConditionLogic.registerCompile(typeCondition, AlertEntity,
             a => a.recipient!.is(UserHolder.currentUserLite()));
     }
 

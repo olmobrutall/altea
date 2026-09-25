@@ -97,8 +97,8 @@ export namespace TypeConditionLogic {
     }
 
     export function register<T extends Entity>(
-        ctor: Type<T>,
         typeCondition: TypeConditionSymbol,
+        ctor: Type<T>,
         condition: Quoted<(e: T) => boolean>,
         inMemoryCondition?: (e: T) => boolean | Promise<boolean>,
         replace = false,
@@ -124,8 +124,8 @@ export namespace TypeConditionLogic {
     // The common form: the same lambda is both the SQL expression and the
     // in-memory evaluator (in altea, a @quoted lambda is already callable, so no separate .Compile()).
     export function registerCompile<T extends Entity>(
-        ctor: Type<T>,
         typeCondition: TypeConditionSymbol,
+        ctor: Type<T>,
         condition: Quoted<(e: T) => boolean>,
         replace = false,
     ): void {
@@ -138,7 +138,7 @@ export namespace TypeConditionLogic {
                 `TypeCondition ${typeCondition.key} on ${ctor.name} reads \`.$v\`, so it cannot be registered ` +
                 `with registerCompile: that form runs the SAME lambda in memory, where \`.$v\` always throws. ` +
                 `Use register(...) and give it an in-memory twin that awaits the cache instead.`);
-        register(ctor, typeCondition, condition, condition as (e: T) => boolean, replace);
+        register(typeCondition, ctor, condition, condition as (e: T) => boolean, replace);
     }
 
     /**
@@ -155,8 +155,8 @@ export namespace TypeConditionLogic {
      * Always REPLACES a previous registration — it assigns rather than adding.
      */
     export function registerWhenAlreadyFiltering<T extends Entity>(
-        ctor: Type<T>,
         typeCondition: TypeConditionSymbol,
+        ctor: Type<T>,
         queryAuditor: (args: FilterQueryArgs) => Promise<LambdaExpression>,
         asyncInMemoryCondition?: (e: T) => Promise<boolean>,
     ): void {
@@ -188,8 +188,8 @@ export namespace TypeConditionLogic {
      * database (for a property the in-memory graph may not carry) or by calling the lambda.
      */
     export function registerWhenAlreadyFilteringBy<T extends Entity, P>(
-        ctor: Type<T>,
         typeCondition: TypeConditionSymbol,
+        ctor: Type<T>,
         options: {
             property: Quoted<(e: T) => P>;
             isConstantAuthorized: (value: P | null) => boolean | Promise<boolean>;
@@ -200,7 +200,7 @@ export namespace TypeConditionLogic {
         const elementType = new ClassType(ctor);
         const readProperty = property;
 
-        registerWhenAlreadyFiltering<T>(ctor, typeCondition, async args => {
+        registerWhenAlreadyFiltering<T>(typeCondition, ctor, async args => {
             const audited = filterAuditor(args);
             if (audited.param == null || audited.filters.length === 0)
                 return constantLambda(elementType, false);

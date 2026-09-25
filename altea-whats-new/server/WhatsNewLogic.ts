@@ -86,7 +86,7 @@ export namespace WhatsNewLogic {
 
     /** The condition an app grants ordinary users. */
     export function registerPublishedTypeCondition(typeCondition: TypeConditionSymbol): void {
-        TypeConditionLogic.registerCompile(WhatsNewEntity, typeCondition, wn => wn.status === WhatsNewState.Publish);
+        TypeConditionLogic.registerCompile(typeCondition, WhatsNewEntity, wn => wn.status === WhatsNewState.Publish);
     }
 
     /** Teach the module how to reach — and how to icon — a `Related` type of an app's own. */

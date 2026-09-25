@@ -65,7 +65,7 @@ export namespace DiffLogLogic {
         // `useInDBForInMemoryCondition: false`: the per-instance path reads `target` off the log in hand
         // (the log always carries it) rather than going back to the database for it.
         TypeConditionLogic.registerWhenAlreadyFilteringBy(
-            OperationLogEntity, OperationLogTypeCondition.FilteringByTarget, {
+            OperationLogTypeCondition.FilteringByTarget, OperationLogEntity, {
             property: ol => ol.target,
             isConstantAuthorized: async target => target != null
                 && await TypeAuthLogic.isAllowedForLite(target, TypeAllowedBasic.Read, true, FilterQueryArgs.fromLite(target)),
