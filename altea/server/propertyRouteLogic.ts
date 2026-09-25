@@ -301,7 +301,7 @@ function resolveCtor(rootType: TypeEntity): Function {
 }
 
 // Signum's `PropertyRouteLogic_PreDeleteSqlSync`: DELETE every route of a type being removed.
-function deleteRoutesOfType(schema: Schema, type: TypeEntity): SqlPreCommand | undefined {
+async function deleteRoutesOfType(schema: Schema, type: TypeEntity): Promise<SqlPreCommand | undefined> {
     const prTable = schema.tryTable(PropertyRouteEntity as never);
     if (prTable == null)
         return undefined;
@@ -310,13 +310,16 @@ function deleteRoutesOfType(schema: Schema, type: TypeEntity): SqlPreCommand | u
     if (rows == undefined || rows.length === 0)
         return undefined;
 
-    return SqlPreCommand.combine(Spacing.Simple, ...rows.map(r => deleteSqlSync(prTable, r)));
+    const deletes: (SqlPreCommand | undefined)[] = [];
+    for (const r of rows)
+        deletes.push(await deleteSqlSync(prTable, r));
+    return SqlPreCommand.combine(Spacing.Simple, ...deletes);
 }
 
 // The rows read by the LAST synchronizeProperties run, grouped by root clean name. The PreDeleteSqlSync
-// handler is SYNCHRONOUS (Signum's is too, because its Database.Query is), so it cannot read the table
-// itself — and it does not need to: a type delete is scripted by the same sync pass, which read every row a
-// moment earlier.
+// handler could read the table itself now that it may be async, but it should not: a type delete is scripted
+// by the same sync pass, which read every row a moment earlier through tryRetrieveAll — under the table's OLD
+// name and with the replacements applied, which a fresh query here would not have.
 let pendingRoutesByType = new Map<string, PropertyRouteEntity[]>();
 
 // Signum's `SynchronizeProperties`. Two levels, both with `createNew` undefined (nothing is ever seeded —
@@ -353,7 +356,7 @@ async function synchronizeProperties(replacements: Replacements): Promise<SqlPre
             new Map([...PropertyRouteLogic.modelPaths(ctor, true)].map(path => [path, path])));
     }
 
-    return Synchronizer.synchronizeScript<string, Map<string, string>, Map<string, PropertyRouteEntity>>(
+    return Synchronizer.synchronizeScriptAsync<string, Map<string, string>, Map<string, PropertyRouteEntity>>(
         Spacing.Double,
         should,
         current,

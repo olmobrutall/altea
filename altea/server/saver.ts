@@ -48,7 +48,7 @@ import { HeavyProfiler } from './profiler/heavyProfiler';
 // Pre-write authorization seam (Signum's `EntityEventsGlobal.Saving` write gate). Each gate gets the full
 // save set AFTER validation and BEFORE any row is written, and may `throw` (e.g. UnauthorizedAccessException)
 // to abort the save. The authorization module pushes one that checks `isAllowedFor(entity, Write)` per row.
-// Async (unlike the sync `entityEvents.saving`) so it can consult the role/rule cache. Empty by default.
+// Async (like `entityEvents.saving`) so it can consult the role/rule cache. Empty by default.
 export const preSaveGates: ((entities: Entity[]) => Promise<void>)[] = [];
 
 export namespace Saver {
@@ -84,7 +84,7 @@ export namespace Saver {
             // a module can normalise/populate the graph right before it is checked and written.
             for (const m of all)
                 if (m instanceof Entity)
-                    schema.entityEvents(m.constructor as Type<Entity>).onPreSaving(m);
+                    await schema.entityEvents(m.constructor as Type<Entity>).onPreSaving(m);
 
             // Signum's CorruptMixin.PreSaving: a corrupt entity is re-checked STRICTLY, and stops being
             // corrupt once it passes; the tolerant check below then lets the rest through.
@@ -117,7 +117,7 @@ export namespace Saver {
             const wasNew = new Map<Entity, boolean>();
             for (const e of saveSet) {
                 wasNew.set(e, e.isNew);
-                schema.entityEvents(e.constructor as Type<Entity>).onSaving(e);
+                await schema.entityEvents(e.constructor as Type<Entity>).onSaving(e);
             }
 
             // Pre-write authorization gate: the full save set through each registered gate, after

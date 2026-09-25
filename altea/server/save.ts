@@ -202,10 +202,10 @@ export function updateSqlSync(table: Table, entity: Entity): SqlPreCommandSimple
 // So a module can cascade-delete rows that reference this one before it goes (e.g. OperationLogic
 // clearing OperationLogEntity rows for a removed TypeEntity). Returns just the DELETE when no
 // handler is registered (combine collapses the undefined pre-command).
-export function deleteSqlSync(table: Table, entity: Entity): SqlPreCommand | undefined {
+export async function deleteSqlSync(table: Table, entity: Entity): Promise<SqlPreCommand | undefined> {
     const sb = Connector.current().sqlBuilder;
     const idCol = sb.sqlEscape(table.primaryKey.column.name);
-    const pre = Connector.current().schema.entityEvents(entity.constructor as Type<Entity>).onPreDeleteSqlSync(entity);
+    const pre = await Connector.current().schema.entityEvents(entity.constructor as Type<Entity>).onPreDeleteSqlSync(entity);
     const main = new SqlPreCommandSimple(
         `DELETE FROM ${sb.objectName(table.name)} WHERE ${idCol} = ${placeholder(sb.isPostgres, 0)};`,
         [{ name: "p0", value: entity.id }]);
@@ -288,11 +288,13 @@ export function insertOwnedRowsSqlSync(owner: Entity): SqlPreCommand | undefined
 }
 
 /** DELETE `entity` and its owned rows (as loaded on it), deepest first — the back references have no cascade. */
-export function deleteSqlSyncGraph(entity: Entity): SqlPreCommand | undefined {
+export async function deleteSqlSyncGraph(entity: Entity): Promise<SqlPreCommand | undefined> {
     const table = Connector.current().schema.table(entity.constructor as Type<Entity>);
-    return SqlPreCommand.combine(Spacing.Simple,
-        ...ownedRows(entity).map(r => deleteSqlSyncGraph(r.row)),
-        deleteSqlSync(table, entity));
+    const commands: (SqlPreCommand | undefined)[] = [];
+    for (const r of ownedRows(entity))
+        commands.push(await deleteSqlSyncGraph(r.row));
+    commands.push(await deleteSqlSync(table, entity));
+    return SqlPreCommand.combine(Spacing.Simple, ...commands);
 }
 
 // The elements of `owner`'s `T[]` collections of @part rows with their positions (through embeddeds,

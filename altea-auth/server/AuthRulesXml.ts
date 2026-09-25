@@ -174,7 +174,7 @@ export interface RuleSync<R extends RuleEntity> {
     allowedComment(rule: R): string;
     /** Signum's SetRuleAllowed + UpdateSqlSync: the SQL that gives `current` the allowance of `should`, or
      *  undefined when it already has it. */
-    update(current: R, should: R): SqlPreCommand | undefined;
+    update(current: R, should: R): SqlPreCommand | undefined | Promise<SqlPreCommand | undefined>;
 }
 
 /**
@@ -212,15 +212,15 @@ export async function syncRulesScript<R extends RuleEntity>(auth: Record<string,
     const insert = (role: Lite<RoleEntity>, key: string, rule: R): SqlPreCommand =>
         addComment(insertSqlSyncGraph(rule), comment(role, key, spec.allowedComment(rule)))!;
 
-    return Synchronizer.synchronizeScript(Spacing.Double, should, current,
+    return Synchronizer.synchronizeScriptAsync(Spacing.Double, should, current,
         (_role, s) => combineCommands(Spacing.Simple, [...s.rules].map(([key, rule]) => insert(s.role, key, rule))),
-        (_role, rules) => combineCommands(Spacing.Simple, rules.map(rule => deleteSqlSyncGraph(rule))),
-        (_role, s, rules) => Synchronizer.synchronizeScript(Spacing.Simple, s.rules, new Map(rules.map(r => [spec.storedKey(r), r])),
+        async (_role, rules) => combineCommands(Spacing.Simple, await Promise.all(rules.map(rule => deleteSqlSyncGraph(rule)))),
+        (_role, s, rules) => Synchronizer.synchronizeScriptAsync(Spacing.Simple, s.rules, new Map(rules.map(r => [spec.storedKey(r), r])),
             (key, rule) => insert(s.role, key, rule),
-            (key, rule) => addComment(deleteSqlSyncGraph(rule), comment(s.role, key, spec.allowedComment(rule))),
-            (key, sh, rule) => {
+            async (key, rule) => addComment(await deleteSqlSyncGraph(rule), comment(s.role, key, spec.allowedComment(rule))),
+            async (key, sh, rule) => {
                 const from = spec.allowedComment(rule);
-                return addComment(spec.update(rule, sh), `${spec.resourceName} ${text(key)} for ${s.role.toString()} (${from} -> ${spec.allowedComment(sh)})`);
+                return addComment(await spec.update(rule, sh), `${spec.resourceName} ${text(key)} for ${s.role.toString()} (${from} -> ${spec.allowedComment(sh)})`);
             }));
 }
 
@@ -253,7 +253,7 @@ export interface ConditionedRule extends RuleEntity {
 /** `allowedComment` / `update` for a conditioned rule, its allowances read through `enumObj`. */
 export function conditionedRules<R extends ConditionedRule>(enumObj: Record<string, string | number>): {
     allowedComment(rule: R): string;
-    update(current: R, should: R): SqlPreCommand | undefined;
+    update(current: R, should: R): SqlPreCommand | undefined | Promise<SqlPreCommand | undefined>;
 } {
     // A stored rule's rows come back in table order; the evaluation order is `rowOrder`.
     const rowsKey = (rule: ConditionedRule): string => (rule.id == null ? rule.conditionRules : rule.conditionRules.orderBy(a => a.rowOrder))
@@ -265,7 +265,7 @@ export function conditionedRules<R extends ConditionedRule>(enumObj: Record<stri
         allowedComment(rule: R): string {
             return rule.conditionRules.length === 0 ? fallback(rule) : `${fallback(rule)} + ${rule.conditionRules.length} conditions`;
         },
-        update(current: R, should: R): SqlPreCommand | undefined {
+        async update(current: R, should: R): Promise<SqlPreCommand | undefined> {
             const sameRows = rowsKey(current) === rowsKey(should);
             const sameFallback = fallback(current) === fallback(should);
             if (sameRows && sameFallback)
@@ -278,7 +278,7 @@ export function conditionedRules<R extends ConditionedRule>(enumObj: Record<stri
             if (sameRows)
                 return update;
             // The condition rows are REPLACED, as Signum rewrites the MList: the stored ones go, the file's go in.
-            const removed = combineCommands(Spacing.Simple, current.conditionRules.map(cr => deleteSqlSyncGraph(cr as unknown as Entity)));
+            const removed = combineCommands(Spacing.Simple, await Promise.all(current.conditionRules.map(cr => deleteSqlSyncGraph(cr as unknown as Entity))));
             current.conditionRules = should.conditionRules;
             return SqlPreCommand.combine(Spacing.Simple, update, removed, insertOwnedRowsSqlSync(current));
         },

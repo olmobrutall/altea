@@ -861,12 +861,12 @@ export async function synchronizeEnumsScript(replacements: Replacements): Promis
                 new Map([...m].filter(([n]) => middle.has(n) === inMiddle));
 
             if (middle.size > 0)
-                commands.push(syncEnums(schema, sqlBuilder, table, only(current, true), middle));
+                commands.push(await syncEnums(schema, sqlBuilder, table, only(current, true), middle));
 
-            commands.push(syncEnums(schema, sqlBuilder, table, only(current, false), only(shouldByName, false)));
+            commands.push(await syncEnums(schema, sqlBuilder, table, only(current, false), only(shouldByName, false)));
 
             if (middle.size > 0)
-                commands.push(syncEnums(schema, sqlBuilder, table, middle, only(shouldByName, true)));
+                commands.push(await syncEnums(schema, sqlBuilder, table, middle, only(shouldByName, true)));
         } catch (e) {
             commands.push(commentedError(`enum table ${table.name.toString()}`, e));
         }
@@ -887,8 +887,8 @@ export async function synchronizeEnumsScript(replacements: Replacements): Promis
 // Within the merge phase, a member that kept its id is an UPDATE and one that did not is
 // INSERT + move every incoming reference + DELETE. The caller has already moved aside any member whose
 // new id is still occupied, so that INSERT cannot collide either.
-function syncEnums(schema: Schema, sqlBuilder: SqlBuilder, table: Table,
-    current: Map<string, EnumEntity>, should: Map<string, EnumEntity>): SqlPreCommand | undefined {
+async function syncEnums(schema: Schema, sqlBuilder: SqlBuilder, table: Table,
+    current: Map<string, EnumEntity>, should: Map<string, EnumEntity>): Promise<SqlPreCommand | undefined> {
 
     const deletes: (SqlPreCommand | undefined)[] = [];
     const moves: (SqlPreCommand | undefined)[] = [];
@@ -896,7 +896,7 @@ function syncEnums(schema: Schema, sqlBuilder: SqlBuilder, table: Table,
 
     for (const [name, cur] of current)
         if (!should.has(name))
-            deletes.push(deleteSqlSync(table, cur));
+            deletes.push(await deleteSqlSync(table, cur));
 
     for (const [name, s] of should) {
         const cur = current.get(name);
@@ -913,7 +913,7 @@ function syncEnums(schema: Schema, sqlBuilder: SqlBuilder, table: Table,
         } else {
             moves.push(insertSqlSync(table, s));
             moves.push(moveReferences(schema, sqlBuilder, table, cur.id, s.id));
-            moves.push(deleteSqlSync(table, cur));
+            moves.push(await deleteSqlSync(table, cur));
         }
     }
 

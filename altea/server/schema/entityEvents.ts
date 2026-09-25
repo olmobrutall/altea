@@ -31,16 +31,18 @@ import type { FilterQueryArgs } from './filterQueryArgs';
 //    (no altea infrastructure yet): CacheController (no caching module), AlternativeRetrieve (custom
 //    retrieval). Add them here + at their engine path when that infrastructure lands.
 
-// Handler signatures (Signum's event delegate types).
-export type PreDeleteSqlSyncHandler<T extends Entity> = (entity: T) => SqlPreCommand | undefined;
-export type PreSavingHandler<T extends Entity> = (entity: T) => void;
-export type SavingHandler<T extends Entity> = (entity: T) => void;
+// Handler signatures (Signum's event delegate types). Each may be async — a handler that has to read the
+// database (Signum's PreDeleteSqlSync checks `query.Any()` before emitting a DELETE) returns a promise, and the
+// events await it.
+export type PreDeleteSqlSyncHandler<T extends Entity> = (entity: T) => SqlPreCommand | undefined | Promise<SqlPreCommand | undefined>;
+export type PreSavingHandler<T extends Entity> = (entity: T) => void | Promise<void>;
+export type SavingHandler<T extends Entity> = (entity: T) => void | Promise<void>;
 // Signum's SavedEventArgs. `wasModified` is Signum's too, and as there it is true for every row that is
 // saved at all: an entity whose graph was not modified is not written, so no Saved fires for it.
 export interface SavedArgs { readonly wasNew: boolean; readonly wasModified: boolean; }
 // Awaited by the saver, still inside the transaction, so a handler may read and write the database.
 export type SavedHandler<T extends Entity> = (entity: T, args: SavedArgs) => void | Promise<void>;
-export type RetrievedHandler<T extends Entity> = (entity: T) => void;
+export type RetrievedHandler<T extends Entity> = (entity: T) => void | Promise<void>;
 export type PreUnsafeDeleteHandler<T extends Entity> = (query: Query<T>) => void | Promise<void>;
 export type PreUnsafeUpdateHandler<T extends Entity> = (query: Query<T>) => void | Promise<void>;
 // Signum's PreUnsafeInsert: `(query, constructor, entityQuery) => constructor`. A handler may return a
@@ -49,7 +51,7 @@ export type PreUnsafeUpdateHandler<T extends Entity> = (query: Query<T>) => void
 // async handler may return one too; the rewrites chain, each seeing the previous one's result.
 export type PreUnsafeInsertHandler<T extends Entity> =
     (query: Query<T>, constructor: LambdaExpression) => LambdaExpression | void | Promise<LambdaExpression | void>;
-export type PreBulkInsertHandler = () => void;
+export type PreBulkInsertHandler = () => void | Promise<void>;
 // Signum's FilterQuery: contribute a boolean predicate (a LambdaExpression over the entity `elementType`)
 // that the LINQ binder splices as a WHERE onto EVERY query of T — Database.retrieve, dynamic queries,
 // navigations — so row-level security applies uniformly. SYNCHRONOUS, because the binder is — but not
@@ -100,20 +102,23 @@ export class EntityEvents<T extends Entity> {
 
     // Combine every PreDeleteSqlSync handler's SQL (Signum's OnPreDeleteSqlSync) — reverse
     // registration order, Spacing.Simple; undefined when nothing is registered.
-    onPreDeleteSqlSync(entity: T): SqlPreCommand | undefined {
+    async onPreDeleteSqlSync(entity: T): Promise<SqlPreCommand | undefined> {
         if (this.preDeleteSqlSync.length === 0)
             return undefined;
-        return SqlPreCommand.combine(Spacing.Simple, ...[...this.preDeleteSqlSync].reverse().map(h => h(entity)));
+        const commands: (SqlPreCommand | undefined)[] = [];
+        for (const h of [...this.preDeleteSqlSync].reverse())
+            commands.push(await h(entity));
+        return SqlPreCommand.combine(Spacing.Simple, ...commands);
     }
 
-    onPreSaving(entity: T): void {
+    async onPreSaving(entity: T): Promise<void> {
         for (const h of this.preSaving)
-            h(entity);
+            await h(entity);
     }
 
-    onSaving(entity: T): void {
+    async onSaving(entity: T): Promise<void> {
         for (const h of this.saving)
-            h(entity);
+            await h(entity);
     }
 
     async onSaved(entity: T, args: SavedArgs): Promise<void> {
@@ -121,9 +126,9 @@ export class EntityEvents<T extends Entity> {
             await h(entity, args);
     }
 
-    onRetrieved(entity: T): void {
+    async onRetrieved(entity: T): Promise<void> {
         for (const h of this.retrieved)
-            h(entity);
+            await h(entity);
     }
 
     // The unsafe-DML pre-hooks run every handler (reverse order), awaiting async ones, before the
@@ -147,8 +152,8 @@ export class EntityEvents<T extends Entity> {
         return current;
     }
 
-    onPreBulkInsert(): void {
+    async onPreBulkInsert(): Promise<void> {
         for (const h of [...this.preBulkInsert].reverse())
-            h();
+            await h();
     }
 }

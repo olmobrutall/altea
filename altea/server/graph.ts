@@ -100,7 +100,6 @@ export interface StateSelectorOptions<T extends Entity, S> {
  * An operation's guard: the reason it cannot run, or null. It may read the database (Signum's CanExecute
  * runs queries freely), so it may be async; the entity pack and the operation itself await it.
  */
-export type Guard = string | null | Promise<string | null>;
 
 export interface ConstructOptions<T extends Entity> {
     construct: (args: unknown[]) => T | Promise<T>;
@@ -111,7 +110,7 @@ export interface ConstructOptionsWithState<T extends Entity, S> extends Construc
 
 export interface ConstructFromOptions<T extends Entity, F extends Entity> {
     construct: (from: F, args: unknown[]) => T | Promise<T>;
-    canConstruct?: (from: F) => Guard;
+    canConstruct?: (from: F) => string | null | Promise<string | null>;
     /** See {@link IEntityOperation.canExecuteExpression} — the QUOTED twin of `canConstruct`. */
     canExecuteExpression?: Quoted<(from: F) => string | null>;
     canBeNew?: boolean;
@@ -137,7 +136,7 @@ export interface ConstructFromManyOptionsWithState<T extends Entity, F extends E
 
 export interface ExecuteOptions<T extends Entity> {
     execute: (entity: T, args: unknown[]) => void | Promise<void>;
-    canExecute?: (entity: T) => Guard;
+    canExecute?: (entity: T) => string | null | Promise<string | null>;
     /** See {@link IEntityOperation.canExecuteExpression} — the QUOTED twin of `canExecute`. */
     canExecuteExpression?: Quoted<(entity: T) => string | null>;
     canBeNew?: boolean;
@@ -153,7 +152,7 @@ export interface ExecuteOptionsWithState<T extends Entity, S> extends ExecuteOpt
 
 export interface DeleteOptions<T extends Entity> {
     delete: (entity: T, args: unknown[]) => void | Promise<void>;
-    canDelete?: (entity: T) => Guard;
+    canDelete?: (entity: T) => string | null | Promise<string | null>;
     /** See {@link IEntityOperation.canExecuteExpression} — the QUOTED twin of `canDelete`. */
     canExecuteExpression?: Quoted<(entity: T) => string | null>;
 }
@@ -226,7 +225,7 @@ export namespace Graph {
     export class ConstructFrom<T extends Entity, F extends Entity, S = never> implements IConstructorFromOperation {
         readonly operationType = OperationType.ConstructorFrom;
         construct!: (from: F, args: unknown[]) => T | Promise<T>;
-        canConstruct?: (from: F) => Guard;
+        canConstruct?: (from: F) => string | null | Promise<string | null>;
         canExecuteExpression?: Quoted<(from: F) => string | null>;
         canBeNew = false;
         canBeModified = false;
@@ -299,7 +298,7 @@ export namespace Graph {
     export class Execute<T extends Entity, S = never> implements IExecuteOperation {
         readonly operationType = OperationType.Execute;
         execute!: (entity: T, args: unknown[]) => void | Promise<void>;
-        canExecute?: (entity: T) => Guard;
+        canExecute?: (entity: T) => string | null | Promise<string | null>;
         canExecuteExpression?: Quoted<(entity: T) => string | null>;
         canBeNew = false;
         canBeModified = false;
@@ -346,7 +345,7 @@ export namespace Graph {
     export class Delete<T extends Entity, S = never> implements IDeleteOperation {
         readonly operationType = OperationType.Delete;
         delete!: (entity: T, args: unknown[]) => void | Promise<void>;
-        canDelete?: (entity: T) => Guard;
+        canDelete?: (entity: T) => string | null | Promise<string | null>;
         canExecuteExpression?: Quoted<(entity: T) => string | null>;
         readonly canBeNew = false;
         readonly canBeModified = false;

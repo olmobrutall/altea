@@ -136,7 +136,7 @@ export class Retriever {
         for (const e of this.populated)
             bindParentsOwn(e);
         for (const e of this.populated)
-            schema.entityEvents(e.constructor as Type<Entity>).onRetrieved(e);
+            await schema.entityEvents(e.constructor as Type<Entity>).onRetrieved(e);
         // A Retrieved handler may DERIVE an in-memory value from what was just read — Signum.Files stamps a
         // FilePathEmbedded's routing fields there, and BigStringLogic substitutes a file's content for the
         // embedded's `text`. Those writes land AFTER each instance's clean baseline was taken (materialisation

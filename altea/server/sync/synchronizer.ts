@@ -11,6 +11,8 @@ import type { Table } from '../schema/table';
 // The generic operates on Map<K,V> (Signum's Dictionary<K,V>); callers convert altea's
 // plain-object column/field dictionaries via `new Map(Object.entries(...))`.
 
+type MaybePromise<T> = T | Promise<T>;
+
 export class Synchronizer {
     // Visit every key present in either dictionary, dispatching to createNew (new only),
     // removeOld (old only), or merge (both). Void form, used for side-effecting passes.
@@ -93,18 +95,20 @@ export class Synchronizer {
         return combineCommands(spacing, list);
     }
 
-    // Asks for renames on the given key first, then runs synchronizeScript with the
-    // replacement-applied old dictionary. Mirrors Signum's SynchronizeScriptReplacing.
-    static synchronizeScriptReplacing<N, O>(
+    // Asks for renames on the given key first, then builds one command per key from the replacement-applied
+    // old dictionary. Mirrors Signum's SynchronizeScriptReplacing. Its callbacks produce DATA rows' scripts
+    // (an entity's INSERT / UPDATE / DELETE, whose PreDeleteSqlSync handlers may read the database first), so
+    // they may be async — unlike synchronizeScript, whose callers diff the SCHEMA in memory.
+    static async synchronizeScriptReplacing<N, O>(
         replacements: Replacements,
         replacementsKey: string,
         spacing: Spacing,
         newDictionary: Map<string, N>,
         oldDictionary: Map<string, O>,
-        createNew: ((key: string, n: N) => SqlPreCommand | undefined) | undefined,
-        removeOld: ((key: string, o: O) => SqlPreCommand | undefined) | undefined,
-        mergeBoth: ((key: string, n: N, o: O) => SqlPreCommand | undefined) | undefined,
-    ): SqlPreCommand | undefined {
+        createNew: ((key: string, n: N) => MaybePromise<SqlPreCommand | undefined>) | undefined,
+        removeOld: ((key: string, o: O) => MaybePromise<SqlPreCommand | undefined>) | undefined,
+        mergeBoth: ((key: string, n: N, o: O) => MaybePromise<SqlPreCommand | undefined>) | undefined,
+    ): Promise<SqlPreCommand | undefined> {
         replacements.askForReplacements(
             new Set(oldDictionary.keys()),
             new Set(newDictionary.keys()),
@@ -112,7 +116,28 @@ export class Synchronizer {
 
         const repOldDictionary = replacements.applyReplacementsToOld(oldDictionary, replacementsKey);
 
-        return Synchronizer.synchronizeScript(spacing, newDictionary, repOldDictionary, createNew, removeOld, mergeBoth);
+        return Synchronizer.synchronizeScriptAsync(spacing, newDictionary, repOldDictionary, createNew, removeOld, mergeBoth);
+    }
+
+    // synchronizeScript for callbacks that may be async — the data-row syncs, whose DELETE runs the
+    // PreDeleteSqlSync handlers (which may read the database first). Keys are visited in the same order.
+    static async synchronizeScriptAsync<K, N, O>(
+        spacing: Spacing,
+        newDictionary: Map<K, N>,
+        oldDictionary: Map<K, O>,
+        createNew: ((key: K, n: N) => MaybePromise<SqlPreCommand | undefined>) | undefined,
+        removeOld: ((key: K, o: O) => MaybePromise<SqlPreCommand | undefined>) | undefined,
+        mergeBoth: ((key: K, n: N, o: O) => MaybePromise<SqlPreCommand | undefined>) | undefined,
+    ): Promise<SqlPreCommand | undefined> {
+        const list: (SqlPreCommand | undefined)[] = [];
+        for (const key of new Set<K>([...newDictionary.keys(), ...oldDictionary.keys()])) {
+            const newVal = newDictionary.get(key);
+            const oldVal = oldDictionary.get(key);
+            list.push(newVal === undefined ? await removeOld?.(key, oldVal!)
+                : oldVal === undefined ? await createNew?.(key, newVal)
+                    : await mergeBoth?.(key, newVal, oldVal));
+        }
+        return combineCommands(spacing, list);
     }
 
     // Port of Signum's Synchronizer.UseOldTableName. While a synchronization script is being GENERATED the

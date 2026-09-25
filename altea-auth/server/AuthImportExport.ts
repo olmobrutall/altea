@@ -281,7 +281,7 @@ export namespace AuthImportExport {
                     if (interactive) {
                         if (!await SafeConsole.ask(`Delete role '${role}' from the database?`))
                             return undefined;
-                        return SqlPreCommand.combine(Spacing.Simple, deleteInheritedBy(role), deleteSqlSyncGraph(role));
+                        return SqlPreCommand.combine(Spacing.Simple, deleteInheritedBy(role), await deleteSqlSyncGraph(role));
                     }
 
                     const roleLite = role.toLite() as Lite<RoleEntity>;
@@ -357,7 +357,7 @@ export namespace AuthImportExport {
                         return undefined;
 
                     if (interactive) {
-                        const removed = combineCommands(Spacing.Simple, role.inheritsFrom.map(i => deleteSqlSyncGraph(i)));
+                        const removed = combineCommands(Spacing.Simple, await Promise.all(role.inheritsFrom.map(i => deleteSqlSyncGraph(i))));
                         role.inheritsFrom = should.map(s => RoleEntity_InheritsFrom.create({ inheritsFrom: s }));
                         return SqlPreCommand.combine(Spacing.Simple, updateSqlSync(table, role), removed, insertOwnedRowsSqlSync(role));
                     }
