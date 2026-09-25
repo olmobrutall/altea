@@ -53,7 +53,7 @@ three shipping presets, and the one place that gets both node types and the DOM 
   `PropertyRoute`. `@entity("SharedPart")` is the exception: several owners, so it stands alone.
 - **MLists are gone.** A collection is a plain `T[]` of `@part` row entities (or scalars on a row's
   `@valueField`). `@id` / `@order` / `@backReference` are markers, not columns; the save cascade fills the
-  back reference and the row order.
+  back reference and the row order from the array position, so do not set them yourself.
 - **Do NOT initialize a field to its type's default.** `strictPropertyInitialization` is off, so a field
   needs no initializer. Write `order: int;`, `token: QueryTokenEmbedded | null;`, `parts: X[];`. Keep only
   initializers that carry a real business value (`port = 25`, `creationDate = Clock.now`).
@@ -70,8 +70,13 @@ three shipping presets, and the one place that gets both node types and the DOM 
 - **`Type<T>` is the one entity-type handle, and it is a constructor** — abstract-tolerant, so an abstract
   base is a valid handle. `TypeReference` is the one value-type descriptor (`.typeName`, `.array`, `.lite`,
   `.kind`, `.getEnum()`, `.typeInfos()`).
-- **No compat accessors.** `entity.constructor` (not `.Type`), `lite.entityType` (a ctor, not a string),
-  `entity.isDirty()` (snapshot-based).
+- **Prefer `getType()` / `Type<T>` over `.constructor` / `Function`.** `entity.getType()` is typed
+  `Type<this>` (and translatable in a query); `.constructor` is a bare `Function` that needs a cast. Take a
+  `Type<T>` parameter, not a `Function`.
+- **Prefer `lite.retrieve()` over `retrieve(lite.entityType, lite.id)`.**
+- **Prefer `SomeEntity.create({ … })` over `new SomeEntity()` + field assignments.** `create` also seeds
+  the mixin defaults, which `new` skips.
+- **No compat accessors.** `lite.entityType` (a ctor, not a string), `entity.isDirty()` (snapshot-based).
 - **Model rules are decorators**: `@bindParent` (the owner, in a WeakMap, verified on read), `@isReadOnly`
   (field or class; `undefined` means "no opinion"), `@validate` plus the validators in `data/validators`.
   They run on BOTH tiers, so a rule holds for an entity the client just constructed.
