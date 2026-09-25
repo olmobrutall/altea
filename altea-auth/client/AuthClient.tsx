@@ -13,18 +13,17 @@ import { TypeAllowedBasic, PropertyAllowed } from "../data/Rules";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 
 // Signum's `PropertyRoute.member.minPropertyAllowed` / `maxPropertyAllowed`, on the route itself:
-// `UserEntity.propertyRoute(u => u.mixin(UserCareerMixin).careerPaths).propertyAllowed?.max`. See
+// `UserEntity.propertyRoute(u => u.mixin(UserCareerMixin).careerPaths).propertyAllowed()?.max`. See
 // AuthClient.propertyAllowed; undefined when the role cannot read the route's root type.
 declare module "@altea/altea/data/propertyRoute" {
     interface PropertyRoute {
-        readonly propertyAllowed: { min: PropertyAllowed; max: PropertyAllowed } | undefined;
+        propertyAllowed(): { min: PropertyAllowed; max: PropertyAllowed } | undefined;
     }
 }
 
-Object.defineProperty(PropertyRoute.prototype, "propertyAllowed", {
-    get(this: PropertyRoute) { return AuthClient.propertyAllowed(this.rootType, this.propertyString()); },
-    configurable: true,
-});
+PropertyRoute.prototype.propertyAllowed = function (this: PropertyRoute) {
+    return AuthClient.propertyAllowed(this.rootType, this.propertyString());
+};
 
 // Port of Signum.Authorization's AuthClient.tsx — see port/Auth.md.
 //
