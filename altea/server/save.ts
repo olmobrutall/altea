@@ -20,7 +20,9 @@ import {
     FieldEmbedded,
     FieldEntityArray,
 } from './schema/field';
-import { SqlPreCommand, SqlPreCommandSimple, Spacing, type SqlParameter } from './sync/sqlPreCommand';
+import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandPostgresDoBlock, Spacing, type SqlParameter } from './sync/sqlPreCommand';
+import { table as tableQuery } from './table';
+import type { Quoted } from 'quote-transformer/quoted';
 
 // Low-level, single-row persistence: the SQL that writes ONE entity's row. The
 // graph orchestration (ordering, cascade of owned child rows, change detection,
@@ -191,10 +193,17 @@ VALUES (${values});`, namedParameters(assignments));
 //
 // `isModifiedSelf()` rather than `isDirty()`: the question is whether THIS row drifted, exactly as
 // Signum's `Modified` is the entity's own state and not its graph's.
-export function updateSqlSync(table: Table, entity: Entity): SqlPreCommandSimple | undefined {
+//
+// `where` (Signum's `where` lambda) finds the row by a natural key instead of by its id, which differs
+// between databases — see declarePrimaryKeyVariable.
+export function updateSqlSync<T extends Entity>(table: Table, entity: T, where?: Quoted<(e: T) => boolean>, comment?: string): SqlPreCommand | undefined {
     if (!entity.isModifiedSelf())
         return undefined;
-    return buildUpdate(table, collectAssignments(table, entity), entity.id);
+    const assignments = collectAssignments(table, entity);
+    if (where == null)
+        return buildUpdate(table, assignments, entity.id).addComment(comment);
+    return declarePrimaryKeyVariable(table, entity, where, id =>
+        [buildUpdate(table, assignments, entity.id, undefined, id).addComment(comment)]);
 }
 
 // DELETE the row WHERE id = entity.id, preceded by whatever the type's PreDeleteSqlSync handlers
@@ -202,14 +211,41 @@ export function updateSqlSync(table: Table, entity: Entity): SqlPreCommandSimple
 // So a module can cascade-delete rows that reference this one before it goes (e.g. OperationLogic
 // clearing OperationLogEntity rows for a removed TypeEntity). Returns just the DELETE when no
 // handler is registered (combine collapses the undefined pre-command).
-export async function deleteSqlSync(table: Table, entity: Entity): Promise<SqlPreCommand | undefined> {
+export async function deleteSqlSync<T extends Entity>(table: Table, entity: T, where?: Quoted<(e: T) => boolean>, comment?: string): Promise<SqlPreCommand | undefined> {
     const sb = Connector.current().sqlBuilder;
     const idCol = sb.sqlEscape(table.primaryKey.column.name);
     const pre = await Connector.current().schema.entityEvents(entity.getType()).onPreDeleteSqlSync(entity);
-    const main = new SqlPreCommandSimple(
-        `DELETE FROM ${sb.objectName(table.name)} WHERE ${idCol} = ${placeholder(sb.isPostgres, 0)};`,
-        [{ name: "p0", value: entity.id }]);
-    return SqlPreCommand.combine(Spacing.Simple, pre, main);
+    if (where == null) {
+        const main = new SqlPreCommandSimple(
+            `DELETE FROM ${sb.objectName(table.name)} WHERE ${idCol} = ${placeholder(sb.isPostgres, 0)};`,
+            [{ name: "p0", value: entity.id }]).addComment(comment);
+        return SqlPreCommand.combine(Spacing.Simple, pre, main);
+    }
+    return declarePrimaryKeyVariable(table, entity, where, id => [
+        pre,
+        new SqlPreCommandSimple(`DELETE FROM ${sb.objectName(table.name)} WHERE ${idCol} = ${id};`).addComment(comment),
+    ]);
+}
+
+// Signum's DeclarePrimaryKeyVariable + BlockIfNecessary: a script variable holding the id of the row
+// `where` finds, asserted not null, then `body` (which refers to the row through that variable).
+function declarePrimaryKeyVariable<T extends Entity>(table: Table, entity: T, where: Quoted<(e: T) => boolean>,
+    body: (id: string) => (SqlPreCommand | undefined)[]): SqlPreCommand {
+    const sb = Connector.current().sqlBuilder;
+    const select = tableQuery(entity.getType() as Type<T>).filter(where).map(e => e.id).getMainSqlCommand()
+        .plainSql().split(/\r?\n/).map(l => l.trim()).join(" ");
+    const variable = (sb.isPostgres ? "" : "@") + table.name.name + "_id_" + (++syncVariableCounter);
+    const type = sb.getColumnType(table.primaryKey.column);
+    const notFound = `${entity.constructor.name} not found`.replace(/'/g, "''");
+    if (sb.isPostgres)
+        return new SqlPreCommandPostgresDoBlock([`${variable} ${type} := (${select})`], SqlPreCommand.combine(Spacing.Simple,
+            new SqlPreCommandSimple(`IF ${variable} IS NULL THEN RAISE EXCEPTION '${notFound}'; END IF;`),
+            ...body(variable))!);
+    // One leaf: the variable only lives for the batch.
+    return new SqlPreCommandSimple(SqlPreCommand.combine(Spacing.Simple,
+        new SqlPreCommandSimple(`DECLARE ${variable} ${type} = (${select});`),
+        new SqlPreCommandSimple(`IF ${variable} IS NULL THROW 50000, '${notFound}', 1;`),
+        ...body(variable))!.plainSql());
 }
 
 // ---- Synchronization SQL for an entity WITH its owned rows ------------------
@@ -539,6 +575,7 @@ function buildUpdate(
     assignments: ColumnValue[],
     id: PrimaryKey,
     concurrency?: { column: IColumn; value: unknown },
+    idSql?: string,
 ): SqlPreCommandSimple {
     const sb = Connector.current().sqlBuilder;
     const tableName = sb.objectName(table.name);
@@ -552,8 +589,8 @@ function buildUpdate(
         .map((a, i) => `  ${sb.sqlEscape(a.column.name)} = ${placeholder(sb.isPostgres, i)}`)
         .join(',\n');
 
-    const params = namedParameters(assignments, { value: id });
-    let where = `${idCol} = ${placeholder(sb.isPostgres, assignments.length)}`;
+    const params = namedParameters(assignments, idSql == null ? { value: id } : undefined);
+    let where = `${idCol} = ${idSql ?? placeholder(sb.isPostgres, assignments.length)}`;
     if (concurrency != null) {
         where += ` AND ${sb.sqlEscape(concurrency.column.name)} = ${placeholder(sb.isPostgres, assignments.length + 1)}`;
         params.push({ name: `p${assignments.length + 1}`, value: concurrency.value });

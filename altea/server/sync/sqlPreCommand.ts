@@ -201,6 +201,37 @@ export class SqlPreCommandConcat extends SqlPreCommand {
     }
 }
 
+// Signum's SqlPreCommandPostgresDoBlock: `DO $sync$ DECLARE …; BEGIN … END $sync$;`. A DO block cannot
+// contain another, so a nested one is flattened into it, its declarations hoisted (Signum's SimplifyNested).
+export class SqlPreCommandPostgresDoBlock extends SqlPreCommand {
+    constructor(
+        public readonly declarations: string[],
+        public readonly body: SqlPreCommand,
+    ) {
+        super();
+    }
+
+    leaves(): SqlPreCommandSimple[] {
+        return [new SqlPreCommandSimple(this.plainSql())];
+    }
+
+    plainSql(): string {
+        const declarations = [...this.declarations];
+        const body = flattenDoBlocks(this.body, declarations);
+        return `DO $sync$\nDECLARE\n${declarations.map(d => `  ${d};`).join("\n")}\nBEGIN\n${body}\nEND $sync$;`;
+    }
+}
+
+function flattenDoBlocks(command: SqlPreCommand, declarations: string[]): string {
+    if (command instanceof SqlPreCommandPostgresDoBlock) {
+        declarations.push(...command.declarations);
+        return flattenDoBlocks(command.body, declarations);
+    }
+    if (command instanceof SqlPreCommandConcat)
+        return command.commands.map(c => flattenDoBlocks(c, declarations)).join(separatorFor(command.spacing));
+    return command.plainSql();
+}
+
 // Convenience: combine an array of (possibly undefined) commands with a spacing.
 export function combineCommands(spacing: Spacing, commands: (SqlPreCommand | undefined)[]): SqlPreCommand | undefined {
     return SqlPreCommand.combine(spacing, ...commands);

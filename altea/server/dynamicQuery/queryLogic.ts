@@ -221,14 +221,15 @@ async function synchronizeQueries(replacements: Replacements): Promise<SqlPreCom
         should,
         currentByKey,
         (_k, s) => insertSqlSyncGenerated(table, s),
-        (_k, c) => deleteSqlSync(table, c),
+        (_k, c) => deleteSqlSync(table, c, q => q.key == c.key),
         (_k, s, c) => {
+            const originalKey = c.key;
             // Matched (possibly through a RENAME): write the registered key onto the RETRIEVED row, which
             // keeps its persisted id — every stored Lite<QueryEntity> (a UserQuery's `query`, a toolbar
             // element's content) points at it. updateSqlSync returns undefined unless the key drifted, so an
             // unchanged query contributes nothing and a RENAMED one gets its key column written.
             copyRowFields(c, s);
-            return updateSqlSync(table, c);
+            return updateSqlSync(table, c, q => q.key == originalKey);
         },
     );
 }

@@ -218,12 +218,13 @@ async function synchronizeSemiSymbols<T extends SemiSymbol>(
         should,
         current,
         (_k, s) => insertSqlSyncGenerated(semiTable, s as Entity),
-        (_k, c) => deleteSqlSync(semiTable, c as Entity),
+        (_k, c) => deleteSqlSync(semiTable, c, s => s.key == c.key),
         (_k, s, c) => {
+            const originalKey = c.key;
             // Matched by key: the persisted row KEEPS its id (an FK target across the database) and takes
             // the declared key + name.
             copyRowFields(c as Entity, s as Entity);
-            return updateSqlSync(semiTable, c as Entity);
+            return updateSqlSync(semiTable, c, s => s.key == originalKey, originalKey ?? undefined);
         },
     );
 }

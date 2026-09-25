@@ -46,7 +46,7 @@ import { SqlPreCommand, SqlPreCommandSimple, Spacing } from "./sync/sqlPreComman
 // and `load()` re-reads, under a running process). Every reader instead awaits `caches()` and, when it has
 // synchronous work to do — a query visitor, the Retriever's per-row projector, the save path's
 // discriminator — carries the resolved {@link TypeCaches} into it. Generation needs no ids at all
-// (`bootstrapMetas` gives the insert order); `schema.initialize()` still loads the caches eagerly, which is
+// (`generateSchemaTypes` gives the insert order); `schema.initialize()` still loads the caches eagerly, which is
 // where a database that does not match the model says so. Divergences vs Signum are limited to this module
 // (and the identity-vs-seeded PK toggle in SchemaBuilder).
 
@@ -257,7 +257,7 @@ function projectCaches(schema: Schema, rows: TypeEntity[]): TypeCaches {
 // against re-entrancy: `TypeLogic.isLoading` is set (buildCaches), so the LINQ provider does NOT await
 // `ready()` for this query — and TypeEntity has no @implementedByAll column, so binding/materialising it
 // needs no type↔id lookup. Returns EMPTY when the table doesn't exist yet (a fresh DB before generation,
-// or an offline / fake connector): generation only needs `bootstrapMetas` (insert order), never typeToId,
+// or an offline / fake connector): generation only needs `generateSchemaTypes` (insert order), never typeToId,
 // and a later `load()` fills the real ids once the table is populated.
 async function loadTypeEntities(schema: Schema): Promise<TypeEntity[]> {
     const table = schema.tryTable(TypeEntity as never);
@@ -350,11 +350,9 @@ function typedTables(schema: Schema): [Type<Entity>, Table][] {
     return entries;
 }
 
-// The deterministic bootstrap metadata: one entry per {@link typedTables} ctor, sorted by ctor name.
-// Generation seeds the rows in this same order so the DB-assigned identity ids match the bootstrap
-// 1..N numbering.
-type TypeMeta = { tableName: string; cleanName: string; package: string | null; className: string; isPart: boolean };
-function bootstrapMetas(schema: Schema): TypeMeta[] {
+// The "should" TypeEntity rows (Signum's GenerateSchemaTypes): one per {@link typedTables} ctor, sorted
+// by ctor name, id-less — the identity PK is DB-assigned.
+function generateSchemaTypes(schema: Schema): TypeEntity[] {
     const entries = typedTables(schema);
     entries.sort((a, b) => (a[0].name < b[0].name ? -1 : a[0].name > b[0].name ? 1 : 0));
     // Signum's `TableName = SimplifyTableName(tab.Name).ToString()` — the FULL ObjectName, so the
@@ -364,7 +362,7 @@ function bootstrapMetas(schema: Schema): TypeMeta[] {
     // read as a different table from Signum's `public.application_configuration`, which is exactly the
     // rename a Southwind sync used to offer.
     const sqlBuilder = Connector.current().sqlBuilder;
-    return entries.map(([ctor, table]) => ({
+    return entries.map(([ctor, table]) => TypeEntity.create({
         tableName: sqlBuilder.qualifiedName(table.name),
         cleanName: cleanTypeName(ctor),
         package: packageOf(ctor),
@@ -406,19 +404,6 @@ function packageOf(ctor: Type<BaseEntity> | ViewType<View>): string | null {
     return getLocation(classNameOf(ctor))?.packageName ?? null;
 }
 
-// A TypeEntity carrying the given metadata — the "should" row, id-less: generation and the sync's
-// createNew both INSERT it without an id (the identity PK is DB-assigned), and the sync's mergeBoth
-// copies its fields onto the RETRIEVED row rather than re-building one around the persisted id.
-function typeEntityFromMeta(m: TypeMeta): TypeEntity {
-    const te = new TypeEntity();
-    te.tableName = m.tableName;
-    te.cleanName = m.cleanName;
-    te.package = m.package;
-    te.className = m.className;
-    te.isPart = m.isPart;
-    return te;
-}
-
 // Generation step (Signum's TypeLogic.Schema_Generating): INSERT one row per entity type into
 // the TypeEntity table, in the deterministic sorted order, WITHOUT an id (the identity PK is
 // DB-assigned — insertSqlSyncGenerated omits it). Per-row statements (not one multi-row VALUES)
@@ -428,7 +413,7 @@ function generateTypeEntities(schema: Schema): SqlPreCommand | undefined {
     const table = schema.tryTable(TypeEntity as never);
     if (table == null)
         return undefined;
-    const cmds = bootstrapMetas(schema).map(m => insertSqlSyncGenerated(table, typeEntityFromMeta(m)));
+    const cmds = generateSchemaTypes(schema).map(te => insertSqlSyncGenerated(table, te));
     return SqlPreCommand.combine(Spacing.Simple, ...cmds);
 }
 
@@ -449,7 +434,7 @@ async function synchronizeTypes(replacements: Replacements): Promise<SqlPreComma
     // `should` and `current` are both dictionaries of TypeEntity ENTITIES keyed by physical table name
     // (Signum's `Dictionary<string, TypeEntity>`) — the entity is the unit of comparison, so there is no
     // record shape restating its columns.
-    const should = bootstrapMetas(schema).map(m => typeEntityFromMeta(m)).toMap(te => te.tableName);
+    const should = generateSchemaTypes(schema).toMap(te => te.tableName);
 
     // Read the current rows as ENTITIES through an ordinary LINQ query — Administrator.tryRetrieveAll
     // temporarily points the in-memory Table at the name the database still uses (a rename learned this
@@ -493,8 +478,11 @@ async function synchronizeTypes(replacements: Replacements): Promise<SqlPreComma
         should,
         currentByTable,
         (_k, s) => insertSqlSyncGenerated(table, s),
-        (_k, c) => deleteSqlSync(table, c),
+        // Found by clean name, not by id: the ids differ between databases (Signum does the same).
+        (_k, c) => deleteSqlSync(table, c, t => t.cleanName == c.cleanName),
         (_k, s, c) => {
+            const originalCleanName = c.cleanName;
+            const originalFullName = c.namespace != null ? `${c.namespace}.${c.className}` : c.className;
             // Matched (possibly through a RENAME): write the model metadata onto the RETRIEVED row, which
             // KEEPS its persisted id — that id is the @implementedByAll discriminator stored across the
             // whole database, so it is never re-assigned. updateSqlSync returns undefined when nothing drifted.
@@ -511,7 +499,7 @@ async function synchronizeTypes(replacements: Replacements): Promise<SqlPreComma
             // ones back; and the FIRST sync that introduces the column cannot read it at all, so this
             // whole step is commented out of that script — run the sync TWICE and apply the second.)
             copyRowFields(c, s);
-            return updateSqlSync(table, c);
+            return updateSqlSync(table, c, t => t.cleanName == originalCleanName, originalFullName);
         },
     );
 }

@@ -171,12 +171,13 @@ export namespace SkillCodeLogic {
             shouldRowsForSync(),
             current,
             (_k, e) => insertSqlSyncGenerated(table, e),
-            (_k, c) => deleteSqlSync(table, c),
+            (_k, c) => deleteSqlSync(table, c, s => s.className == c.className),
             (_k, e, c) => {
+                const oldClassName = c.className;
                 // Matched (possibly through a RENAME): keep the persisted id, since every
                 // SkillCustomization.skillCode FK points at it.
                 copyRowFields(c, e);
-                return updateSqlSync(table, c);
+                return updateSqlSync(table, c, s => s.className == oldClassName);
             },
         );
     }

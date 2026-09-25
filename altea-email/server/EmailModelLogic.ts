@@ -323,13 +323,14 @@ async function synchronizeEmailModels(replacements: Replacements): Promise<SqlPr
         EmailModelLogic.shouldRowsForSync(),
         current,
         (_k, e) => insertSqlSyncGenerated(table, e), // new model: DB assigns the id
-        (_k, c) => deleteSqlSync(table, c),
+        (_k, c) => deleteSqlSync(table, c, m => m.className == c.className),
         (_k, e, c) => {
+            const oldClassName = c.className;
             // Matched (possibly through a RENAME): write the declared name onto the RETRIEVED row, which
             // keeps its persisted id — every EmailTemplate.model FK points at it. updateSqlSync returns
             // undefined unless the row actually drifted.
             copyRowFields(c, e);
-            return updateSqlSync(table, c);
+            return updateSqlSync(table, c, m => m.className == oldClassName);
         },
     );
 }

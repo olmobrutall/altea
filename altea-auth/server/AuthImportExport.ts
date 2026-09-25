@@ -316,7 +316,7 @@ export namespace AuthImportExport {
                     role.description = x.Description ?? null;
                     role.isTrivialMerge = false;
                     if (interactive)
-                        return updateSqlSync(table, role)?.addComment(oldName);
+                        return updateSqlSync(table, role, r => r.name == oldName, oldName);
                     if (role.isDirty()) {
                         console.log("Updated:" + role.toString());
                         await role.save();
@@ -372,9 +372,10 @@ export namespace AuthImportExport {
                 const name = AuthLogic.calculateTrivialMergeName(tr.inheritsFrom.map(i => i.inheritsFrom));
                 if (tr.name === name)
                     continue;
+                const oldName = tr.name;
                 tr.name = name;
                 if (interactive)
-                    trivialMerges.push(updateSqlSync(table, tr));
+                    trivialMerges.push(updateSqlSync(table, tr, r => r.name == oldName));
                 else
                     await tr.save();
             }

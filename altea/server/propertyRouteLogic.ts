@@ -312,7 +312,7 @@ async function deleteRoutesOfType(schema: Schema, type: TypeEntity): Promise<Sql
 
     const deletes: (SqlPreCommand | undefined)[] = [];
     for (const r of rows)
-        deletes.push(await deleteSqlSync(prTable, r));
+        deletes.push(await deleteSqlSync(prTable, r, p => p.rootType.cleanName == type.cleanName && p.path == r.path));
     return SqlPreCommand.combine(Spacing.Simple, ...deletes);
 }
 
@@ -370,13 +370,14 @@ async function synchronizeProperties(replacements: Replacements): Promise<SqlPre
                 shouldPaths,
                 currentPaths,
                 undefined,
-                (_path, c) => deleteSqlSync(prTable, c),
+                (_path, c) => deleteSqlSync(prTable, c, p => p.rootType.cleanName == cleanName && p.path == c.path),
                 (path, _s, c) => {
+                    const originalPath = c.path;
                     // Matched, possibly through a RENAME: write the model's path onto the RETRIEVED row,
                     // which keeps its persisted id — every stored FK points at it. updateSqlSync returns
                     // undefined unless the path actually drifted.
                     c.path = path;
-                    return updateSqlSync(prTable, c);
+                    return updateSqlSync(prTable, c, p => p.rootType.cleanName == cleanName && p.path == originalPath);
                 },
             ),
     );

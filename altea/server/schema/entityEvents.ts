@@ -5,103 +5,40 @@ import type { LambdaExpression } from '../linq/expressions';
 import type { RuntimeType } from '../runtimeTypes';
 import type { FilterQueryArgs } from './filterQueryArgs';
 
-// Port of Signum's EntityEvents<T> (Engine/Schema/EntityEvents.cs): the per-entity-type hook
-// surface the engine fires as it interacts with a type (save, retrieve, delete, unsafe DML,
-// bulk insert). Held per-schema in a Map keyed by the entity ctor and reached via
-// `Schema.entityEvents(ctor)`, the analogue of Signum's `Schema.EntityEvents<T>()`. A module
-// registers handlers in its `start()` by pushing onto the relevant array (Signum's `+=`).
-//
-// Firing order mirrors Signum: the "Pre*" hooks fire in REVERSE registration order
-// (GetInvocationListTyped().Reverse() — a later registrant runs first), the plain notifications
-// (Saving / Saved / Retrieved) fire in registration order.
-//
-// altea divergences (documented, faithful where the infrastructure exists):
-//  - Signum's PreSaving/Saved carry a PreSavingContext / SavedEventArgs; altea passes just the
-//    entity (+ `wasNew` on Saved), since the graph-regeneration/replacement context those carry
-//    has no altea analogue.
-//  - the unsafe-DML hooks (PreUnsafeDelete/Update/Insert) are pre-execution async callbacks
-//    receiving the source Query, NOT Signum's IDisposable-returning scopes: a handler runs its
-//    own work (e.g. cascade-delete children) before the operation. The dispose-after phase is
-//    not ported (no consumer needs it); PreUnsafeInsert's constructor-REWRITING is, since
-//    @altea/altea-isolation needs it to stamp a set-based insert.
-//  - `queryFilter` IS ported (Signum's FilterQuery, row-level query security) — see below.
-//  - `additionalBindings` IS ported (Signum's RegisterBinding / AdditionalBindings) — see below — as a
-//    general per-row computed value folded into the retrieval SELECT (its original Signum use is MList /
-//    VirtualMList binding; altea has no MList, so its first consumer is DB-only TypeConditions). NOT ported
-//    (no altea infrastructure yet): CacheController (no caching module), AlternativeRetrieve (custom
-//    retrieval). Add them here + at their engine path when that infrastructure lands.
+// Signum's EntityEvents<T>, reached via `schema.entityEvents(ctor)`. Register by pushing onto an array.
+// "Pre*" handlers run in reverse registration order, the rest in order. Every handler may be async.
 
-// Handler signatures (Signum's event delegate types). Each may be async — a handler that has to read the
-// database (Signum's PreDeleteSqlSync checks `query.Any()` before emitting a DELETE) returns a promise, and the
-// events await it.
-export type PreDeleteSqlSyncHandler<T extends Entity> = (entity: T) => SqlPreCommand | undefined | Promise<SqlPreCommand | undefined>;
-export type PreSavingHandler<T extends Entity> = (entity: T) => void | Promise<void>;
-export type SavingHandler<T extends Entity> = (entity: T) => void | Promise<void>;
-// Signum's SavedEventArgs. `wasModified` is Signum's too, and as there it is true for every row that is
-// saved at all: an entity whose graph was not modified is not written, so no Saved fires for it.
-export interface SavedArgs { readonly wasNew: boolean; readonly wasModified: boolean; }
-// Awaited by the saver, still inside the transaction, so a handler may read and write the database.
-export type SavedHandler<T extends Entity> = (entity: T, args: SavedArgs) => void | Promise<void>;
-export type RetrievedHandler<T extends Entity> = (entity: T) => void | Promise<void>;
-export type PreUnsafeDeleteHandler<T extends Entity> = (query: Query<T>) => void | Promise<void>;
-export type PreUnsafeUpdateHandler<T extends Entity> = (query: Query<T>) => void | Promise<void>;
-// Signum's PreUnsafeInsert: `(query, constructor, entityQuery) => constructor`. A handler may return a
-// REPLACEMENT constructor lambda — that is how a module folds a value into every set-based INSERT of T
-// (@altea/altea-isolation stamps the current isolation onto it) — or nothing to leave it as declared. An
-// async handler may return one too; the rewrites chain, each seeing the previous one's result.
-export type PreUnsafeInsertHandler<T extends Entity> =
-    (query: Query<T>, constructor: LambdaExpression) => LambdaExpression | void | Promise<LambdaExpression | void>;
-export type PreBulkInsertHandler = () => void | Promise<void>;
-// Signum's FilterQuery: contribute a boolean predicate (a LambdaExpression over the entity `elementType`)
-// that the LINQ binder splices as a WHERE onto EVERY query of T — Database.retrieve, dynamic queries,
-// navigations — so row-level security applies uniformly. SYNCHRONOUS, because the binder is — but not
-// therefore starved: a handler that needs cached data DEMANDS it (`stableValue`, server/stablePromise.ts),
-// and the region around the bind loads it and binds again. Returns undefined for "no restriction".
+// Signum's FilterQuery: a WHERE the binder adds to every query of T. Synchronous; undefined = no filter.
 export type QueryFilterHandler = (ctx: {
     ctor: Type<Entity>;
     elementType: RuntimeType;
-    // Signum's `FilterQueryArgs` — the query this filter is being spliced into. A filter that only asks
-    // "what may this role read" ignores it; one whose answer depends on what the CALLER already filtered by
-    // needs it (see FilterQueryArgs). Undefined only where a filter is being built outside a translation.
     args: FilterQueryArgs | undefined;
 }) => LambdaExpression | undefined;
 
-// Signum's RegisterBinding / AdditionalBindings: a value the binder folds into the retrieval SELECT of T
-// (bound against the retrieved entity's own columns — no source navigation) and the projector stamps onto
-// each materialised instance, without it being a mapped field. `valueLambda` is `(e) => <value>` over the
-// element type; `set` writes the projected value onto the instance. See QueryBinder.withAdditionalBindings
-// (attaches on the root + reference-completion retrieval paths, NEVER on DML) and TranslatorBuilder's
-// projector (calls `set`). Returns nothing — registration is by pushing onto `additionalBindings`.
+// Signum's RegisterBinding: a value folded into the retrieval SELECT of T and set on each instance.
 export interface AdditionalBindingSpec<T extends Entity> {
     readonly valueLambda: LambdaExpression;
     readonly set: (entity: T, value: unknown) => void;
 }
 
 export class EntityEvents<T extends Entity> {
-    // Signum's `event Func<T, SqlPreCommand?> PreDeleteSqlSync` — contribute SQL that must run
-    // BEFORE a row of T is deleted by a synchronization script (see save.ts deleteSqlSync).
-    readonly preDeleteSqlSync: PreDeleteSqlSyncHandler<T>[] = [];
-    // Before validation (Signum's PreSaving).
-    readonly preSaving: PreSavingHandler<T>[] = [];
-    // After validation, before the DB write (Signum's Saving).
-    readonly saving: SavingHandler<T>[] = [];
-    // After the DB write, inside the transaction (Signum's Saved).
-    readonly saved: SavedHandler<T>[] = [];
-    // After an entity is materialised and fully populated (Signum's Retrieved).
-    readonly retrieved: RetrievedHandler<T>[] = [];
-    // Before a set-based (unsafe) DELETE / UPDATE / INSERT of T executes (Signum's PreUnsafe*).
-    readonly preUnsafeDelete: PreUnsafeDeleteHandler<T>[] = [];
-    readonly preUnsafeUpdate: PreUnsafeUpdateHandler<T>[] = [];
-    readonly preUnsafeInsert: PreUnsafeInsertHandler<T>[] = [];
-    // Before a bulk-copy of T (Signum's PreBulkInsert; altea has no MList table, so no arg).
-    readonly preBulkInsert: PreBulkInsertHandler[] = [];
-    // Row-level query filter (Signum's FilterQuery) — a WHERE the binder adds to every query of T.
+    // SQL to run before a sync script deletes a row of T (see save.ts deleteSqlSync).
+    readonly preDeleteSqlSync: ((entity: T) => SqlPreCommand | undefined | Promise<SqlPreCommand | undefined>)[] = [];
+    // Before validation.
+    readonly preSaving: ((entity: T) => void | Promise<void>)[] = [];
+    // After validation, before the write.
+    readonly saving: ((entity: T) => void | Promise<void>)[] = [];
+    // After the write, inside the transaction.
+    readonly saved: ((entity: T, args: { readonly wasNew: boolean; readonly wasModified: boolean }) => void | Promise<void>)[] = [];
+    readonly retrieved: ((entity: T) => void | Promise<void>)[] = [];
+    readonly preUnsafeDelete: ((query: Query<T>) => void | Promise<void>)[] = [];
+    readonly preUnsafeUpdate: ((query: Query<T>) => void | Promise<void>)[] = [];
+    // May return a replacement constructor lambda (e.g. altea-isolation stamps the isolation).
+    readonly preUnsafeInsert: ((query: Query<T>, constructor: LambdaExpression) => LambdaExpression | void | Promise<LambdaExpression | void>)[] = [];
+    readonly preBulkInsert: (() => void | Promise<void>)[] = [];
     readonly queryFilter: QueryFilterHandler[] = [];
-    // Per-row values folded into the retrieval SELECT (Signum's RegisterBinding / AdditionalBindings).
     readonly additionalBindings: AdditionalBindingSpec<T>[] = [];
 
-    // Combine every PreDeleteSqlSync handler's SQL (Signum's OnPreDeleteSqlSync) — reverse
-    // registration order, Spacing.Simple; undefined when nothing is registered.
     async onPreDeleteSqlSync(entity: T): Promise<SqlPreCommand | undefined> {
         if (this.preDeleteSqlSync.length === 0)
             return undefined;
@@ -121,7 +58,7 @@ export class EntityEvents<T extends Entity> {
             await h(entity);
     }
 
-    async onSaved(entity: T, args: SavedArgs): Promise<void> {
+    async onSaved(entity: T, args: { readonly wasNew: boolean; readonly wasModified: boolean }): Promise<void> {
         for (const h of this.saved)
             await h(entity, args);
     }
@@ -131,8 +68,6 @@ export class EntityEvents<T extends Entity> {
             await h(entity);
     }
 
-    // The unsafe-DML pre-hooks run every handler (reverse order), awaiting async ones, before the
-    // command executes — so a handler can e.g. cascade-delete dependent rows first.
     async onPreUnsafeDelete(query: Query<T>): Promise<void> {
         for (const h of [...this.preUnsafeDelete].reverse())
             await h(query);
@@ -143,8 +78,7 @@ export class EntityEvents<T extends Entity> {
             await h(query);
     }
 
-    // Returns the constructor lambda to actually insert with: each handler sees the previous one's result,
-    // so the rewrites compose (Signum threads the same `constructor` through its invocation list).
+    // The rewrites chain: each handler sees the previous one's result.
     async onPreUnsafeInsert(query: Query<T>, constructor: LambdaExpression): Promise<LambdaExpression> {
         let current = constructor;
         for (const h of [...this.preUnsafeInsert].reverse())

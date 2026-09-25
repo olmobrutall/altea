@@ -268,10 +268,11 @@ async function synchronizeSMSModels(replacements: Replacements): Promise<SqlPreC
         SMSModelLogic.shouldRowsForSync(),
         current,
         (_k, e) => insertSqlSyncGenerated(t, e),
-        (_k, c) => deleteSqlSync(t, c),
+        (_k, c) => deleteSqlSync(t, c, m => m.fullClassName == c.fullClassName),
         (_k, e, c) => {
+            const oldClassName = c.fullClassName;
             copyRowFields(c, e);
-            return updateSqlSync(t, c);
+            return updateSqlSync(t, c, m => m.fullClassName == oldClassName, oldClassName);
         },
     );
 }

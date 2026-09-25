@@ -24,6 +24,7 @@ import { CommandSimplifier } from "./linq/visitors/CommandSimplifier";
 import { ProjectionExpression, CommandExpression, CommandAggregateExpression } from "./linq/expressions.sql";
 import { buildTranslateResult } from "./linq/translatorBuilder";
 import { QueryFormatter } from "./linq/queryFormatter";
+import { SqlPreCommandSimple } from "./sync/sqlPreCommand";
 import { TypeLogic, type TypeCaches } from "./typeLogic";
 import type { Schema } from "./schema/schema";
 import { setQuerySourceFactory } from "./schema/filterQueryArgs";
@@ -396,6 +397,12 @@ class MyQueryTranslator implements IQueryTranslator {
         const projection = this.bind(query.expression);
         const { sql, parameters } = QueryFormatter.format(projection.select, connector.isPostgres);
         return parameters.length ? `${sql}\n-- parameters: ${JSON.stringify(parameters)}` : sql;
+    }
+
+    getMainSqlCommand(query: Query<any>): SqlPreCommandSimple {
+        const connector = Connector.current();
+        const { sql, parameters } = QueryFormatter.format(this.bind(query.expression).select, connector.isPostgres);
+        return new SqlPreCommandSimple(sql, parameters.map((value, i) => ({ name: `p${i}`, value })));
     }
 }
 

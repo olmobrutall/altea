@@ -5,6 +5,7 @@ import type { IQuery, IOrderedQuery } from "../data/iquery";
 import { Connector } from "./connection/connector";
 import { CallExpression, ConstantExpression, Expression, LambdaExpression, type MethodExpander, PropertyExpression } from "./linq/expressions";
 import type { EntityEvents } from "./schema/entityEvents";
+import type { SqlPreCommandSimple } from "./sync/sqlPreCommand";
 import { ArrayType, LiteralType as SimpleType, ClassType, RuntimeType, FunctionType, ObjectType, type QuotedFunction, quotedFunction, type LambdaTypeResolver, type ResultTypeResolver } from "./runtimeTypes";
 import { toInt, toLong, inSql } from "../data/basics";
 import { SystemTime } from "./systemTime";
@@ -102,6 +103,7 @@ export interface IQueryTranslator {
     // command tree and runs it, returning the affected row count.
     executeCommand(t: Expression): Promise<number>;
     getQueryTextForDebug(t: Query<any>): string
+    getMainSqlCommand(t: Query<any>): SqlPreCommandSimple;
 }
 
 // Lite-model / entity eager-load hints for `.expandLite()` / `.expandEntity()`
@@ -171,6 +173,11 @@ export class Query<T> implements IQuery<T> {
 
     queryTextForDebug(): string {
         return this.translator.getQueryTextForDebug(this);
+    }
+
+    // Signum's DbQueryProvider.GetMainSqlCommand: the SELECT as a command, not executed (no row filters).
+    getMainSqlCommand(): SqlPreCommandSimple {
+        return this.translator.getMainSqlCommand(this);
     }
 
     @lambdaTypeForParam(0, ot => [(ot as ArrayType).elementType])

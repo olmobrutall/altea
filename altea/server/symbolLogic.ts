@@ -305,13 +305,14 @@ async function synchronizeSymbols(replacements: Replacements, ctor: Type<Symbol>
         should,
         current,
         (_k, s) => insertSqlSyncGenerated(table, s), // new symbol: no id, DB assigns
-        (_k, c) => deleteSqlSync(table, c),
+        (_k, c) => deleteSqlSync(table, c, s => s.key == c.key),
         (_k, s, c) => {
+            const originalKey = c.key;
             // Matched by key (possibly through a RENAME): copy the DECLARED values onto the RETRIEVED row —
             // which KEEPS its persisted id, an FK target across the database, never re-assigned — and let
             // updateSqlSync decide: it returns undefined unless the row actually drifted.
             copyRowFields(c, s);
-            return updateSqlSync(table, c as Entity);
+            return updateSqlSync(table, c, s => s.key == originalKey, originalKey);
         },
     );
 }
