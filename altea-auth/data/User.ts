@@ -1,6 +1,7 @@
 import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { Lite } from "@altea/altea/data/lite";
+import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
+import type { PrimaryKey } from "@altea/altea/data/entity";
 import { entity, column, uniqueIndex, quoted, serialize } from "@altea/altea/data/decorators";
 import { stringLengthValidator, emailValidator, validate } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
@@ -21,9 +22,8 @@ import { Enum } from "@altea/altea/data/enum";
 //  - `byte[]? PasswordHash [DbType(Size=128)]` → a `Uint8Array | null` binary column (the "Blob" value
 //    type → bytea / varbinary(128)); server code works in Buffers (a Buffer IS a Uint8Array). @serialize(false)
 //    so it never reaches the client.
-//  - `UserTypeCondition` (a TypeConditionSymbol) and `UserLiteModel` land with the authorization /
-//    client phases respectively (TypeConditionSymbol is an authorization type; UserLiteModel needs the
-//    client custom-lite wiring).
+//  - `UserTypeCondition` lands with the authorization phase (TypeConditionSymbol is an authorization type).
+//  - Signum's `UserLiteModel` is the `UserLite` custom lite below.
 //  - `UserEntity.current()` / `currentExternalId()` answer on BOTH TIERS, where Signum's read UserHolder;
 //    altea declares them here as `current()` / `currentExternalId()` and they answer on BOTH tiers, through
 //    the injected `CurrentUser` provider (data/security). Same for `RoleEntity.current()`.
@@ -130,6 +130,27 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
         return CurrentUser.claim<string>("ExternalId");
     }
 }
+
+/**
+ * The default lite of a user (Signum's UserLiteModel): its user name, its external id — what a directory
+ * module needs for the profile photo of a user it only has the lite of — and an app's `photoSuffix`. An
+ * app fills the suffix by overriding the registration (`registerCustomLite(UserEntity, UserLite, …, true,
+ * true)`).
+ */
+export class UserLite extends LiteImp<UserEntity> {
+    constructor(id: PrimaryKey, toStr: string, readonly userName: string, readonly externalId: string | null, readonly photoSuffix: string | null) {
+        super(id, UserEntity, toStr);
+    }
+    static isCompatible(json: Record<string, unknown>): boolean {
+        return typeof json.userName === "string";
+    }
+    static fromJson(json: Record<string, unknown>): Lite<UserEntity> {
+        return new UserLite(json.id as PrimaryKey, (json.toStr as string) ?? "", json.userName as string,
+            (json.externalId as string | null) ?? null, (json.photoSuffix as string | null) ?? null);
+    }
+}
+
+registerCustomLite(UserEntity, UserLite, u => new UserLite(u.id, u.toString(), u.userName, u.externalId, null), true);
 
 // A framework-declared
 // TypeConditionSymbol. `DeactivatedUsers` scopes a role to only the deactivated user rows; its predicate

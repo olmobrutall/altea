@@ -224,6 +224,10 @@ const customLiteRegistry = new Map<Function, CustomLiteRegistration[]>();
  * e.toString(), e.firstName, …)` — into projected columns so a query returns the typed custom
  * lite too, not just a plain {@link LiteImp}. Keep the body translatable (columns + `@quoted`
  * navigations), like a `@quoted` toString.
+ *
+ * `isOverride` (Signum's `RegisterLiteModelConstructor(…, isOverride: true)`) replaces the registration of the
+ * same class — how an app fills a framework lite differently (ReNew's user lite carries the practice).
+ * Without it, registering a class twice for the same type throws.
  */
 
 export function registerCustomLite<T extends Entity>(
@@ -231,9 +235,15 @@ export function registerCustomLite<T extends Entity>(
     liteClass: CustomLiteClass,
     fromEntity: Quoted<(entity: T) => Lite<T>>,
     isDefault = false,
+    isOverride = false,
 ): void {
     const ctor = entityType;
-    const arr = customLiteRegistry.get(ctor) ?? [];
+    let arr = customLiteRegistry.get(ctor) ?? [];
+    if (arr.some(r => r.liteClass === liteClass)) {
+        if (!isOverride)
+            throw new Error(`The custom lite ${(liteClass as unknown as Function).name} is already registered for ${ctor.name}; pass isOverride to replace it`);
+        arr = arr.filter(r => r.liteClass !== liteClass);
+    }
     arr.push({ liteClass, fromEntity: fromEntity as unknown as Quoted<(entity: Entity) => Lite<Entity>>, isDefault });
     customLiteRegistry.set(ctor, arr);
 }

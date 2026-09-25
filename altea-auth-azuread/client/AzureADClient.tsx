@@ -8,7 +8,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { SearchMessage } from "@altea/altea/data/uiMessages";
 import type { ResultRow } from "@altea/altea/data/dynamicQuery/queryRequest";
 import type SearchControlLoaded from "@altea/altea/client/SearchControl/SearchControlLoaded";
-import { UserEntity } from "@altea/altea-auth/data/User";
+import { UserEntity, UserLite } from "@altea/altea-auth/data/User";
 import { ActiveDirectoryMessage } from "@altea/altea-auth/data/BaseAD";
 import { ActiveDirectoryClient } from "@altea/altea-auth/client/admin/ActiveDirectoryClient";
 import * as ProfilePhoto from "@altea/altea-auth/client/public/ProfilePhoto";
@@ -25,9 +25,8 @@ import { ActiveDirectoryGroupsRowModel, ActiveDirectoryUsersRowModel } from "../
 //  - `Navigator.addSettings(new EntitySettings(T, view))` / `Finder.addSettings({ queryName, … })` →
 //    `cb.configure(T).withView(…).withQuerySettings(…)` (see ClientBuilder). The two directory queries are
 //    named by their ROW MODEL, not by an enum member (see data/ActiveDirectoryQueries.ts).
-//  - the photo provider can only answer for a FULL UserEntity: it needs the user's Entra object id, and
-//    altea's Lite carries no lite MODEL to hold it (see ProfilePhoto's header). A Lite therefore falls back
-//    to the initials circle.
+//  - the photo provider needs the user's Entra object id: a UserEntity or its default lite (UserLite, Signum's
+//    UserLiteModel) carries it; any other lite falls back to the initials circle.
 //  - `ChangeLogClient.registerChangeLogModule` has no altea counterpart.
 
 export namespace AzureADClient {
@@ -63,11 +62,8 @@ export namespace AzureADClient {
 
         if (options.profilePhotos) {
             ProfilePhoto.urlProviders().push((u, size) => {
-                // See the header: only a loaded UserEntity carries the external id.
-                if (u instanceof Lite)
-                    return null;
-
-                const oid = u.externalId;
+                // A loaded UserEntity or its default lite (UserLite) carries the external id; a plain lite does not.
+                const oid = u instanceof UserLite ? u.externalId : u instanceof Lite ? null : u.externalId;
                 if (oid == null)
                     return null;
 

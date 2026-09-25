@@ -16,9 +16,9 @@ import "./ProfilePhoto.css";
 // It lives here (not in a directory module) because it is the shared host both @altea/altea-auth-azuread
 // and @altea/altea-auth-windowsad register into.
 //
-// There is NO lite-model entity, so a Lite carries just its id and toString: a provider that needs the
-// external id (Azure AD's object id) can only answer for a FULL UserEntity and returns null for a Lite,
-// which the UserCircle fallback then covers. A provider keyed on the user NAME (Windows AD's
+// A user's default lite is a UserLite (Signum's UserLiteModel), which carries the external id (Azure AD's
+// object id) a provider may need; a provider returns null for a lite without it, which the UserCircle
+// fallback then covers. A provider keyed on the user NAME (Windows AD's
 // thumbnailPhoto route) works for both, since a UserEntity's toString IS its userName.
 
 export type ProfilePhotoUrlProvider =
