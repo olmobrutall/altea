@@ -149,8 +149,7 @@ export namespace EmailPackageLogic {
                 if (lites.length === 0)
                     throw new Error(EmailMessageMessage.NoSuitableRecipientsWereFound.niceToString());
 
-                const pack = new EmailPackageEntity();
-                pack.name = tryGetArg(args, String as never) as string ?? null;
+                const pack = EmailPackageEntity.create({ name: tryGetArg(args, String as never) as string ?? null });
                 await pack.save();
 
                 for (const m of await retrieveFromListOfLite(lites))
@@ -175,9 +174,7 @@ export namespace EmailPackageLogic {
         await pack.save();
 
         for (const t of targets) {
-            const line = new PackageLineEntity();
-            line.package = pack.toLite();
-            line.target = t;
+            const line = PackageLineEntity.create({ package: pack.toLite(), target: t });
             await line.save();
         }
 

@@ -32,13 +32,14 @@ export function registerUserChartDashboardParts(): void {
             canWriteFilters: true,
         }],
         clone: p => {
-            const c = new UserChartPartEntity();
-            c.userChart = p.userChart;
-            c.showData = p.showData;
-            c.allowChangeShowData = p.allowChangeShowData;
-            c.createNew = p.createNew;
-            c.autoRefresh = p.autoRefresh;
-            c.minHeight = p.minHeight;
+            const c = UserChartPartEntity.create({
+                userChart: p.userChart,
+                showData: p.showData,
+                allowChangeShowData: p.allowChangeShowData,
+                createNew: p.createNew,
+                autoRefresh: p.autoRefresh,
+                minHeight: p.minHeight,
+            });
             return c;
         },
         toXml: (p, ctx) => {
@@ -78,9 +79,10 @@ export function registerUserChartDashboardParts(): void {
         clone: p => {
             const c = new CombinedUserChartPartEntity();
             c.userCharts = (p.userCharts ?? []).map(e => {
-                const row = new CombinedUserChartPartEntity_UserChart();
-                row.userChart = e.userChart;
-                row.rowOrder = e.rowOrder;
+                const row = CombinedUserChartPartEntity_UserChart.create({
+                    userChart: e.userChart,
+                    rowOrder: e.rowOrder,
+                });
                 return row;
             });
             c.showData = p.showData;
@@ -107,9 +109,10 @@ export function registerUserChartDashboardParts(): void {
             p.useSameScale = bool(x[A + "UseSameScale"]);
             p.minHeight = x[A + "MinHeight"] == null ? null : (Number(x[A + "MinHeight"]) as int);
             p.userCharts = list(x["UserChart"]).map((e, i) => {
-                const row = new CombinedUserChartPartEntity_UserChart();
-                row.rowOrder = i as int;
-                row.userChart = ctx.getEntity(String(e[A + "Guid"])) as UserChartEntity;
+                const row = CombinedUserChartPartEntity_UserChart.create({
+                    rowOrder: i as int,
+                    userChart: ctx.getEntity(String(e[A + "Guid"])) as UserChartEntity,
+                });
                 return row;
             });
         },

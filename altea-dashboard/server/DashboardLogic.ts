@@ -293,12 +293,13 @@ export namespace DashboardLogic {
     // ---- Clone (Signum's DashboardEntity.Clone + PanelPartEmbedded.Clone + IPartEntity.Clone) --------
 
     export function cloneDashboard(db: DashboardEntity): DashboardEntity {
-        const clone = new DashboardEntity();
-        clone.entityType = db.entityType;
-        clone.embeddedInEntity = db.embeddedInEntity;
-        clone.owner = db.owner;
-        clone.dashboardPriority = db.dashboardPriority;
-        clone.autoRefreshPeriod = db.autoRefreshPeriod;
+        const clone = DashboardEntity.create({
+            entityType: db.entityType,
+            embeddedInEntity: db.embeddedInEntity,
+            owner: db.owner,
+            dashboardPriority: db.dashboardPriority,
+            autoRefreshPeriod: db.autoRefreshPeriod,
+        });
         clone.displayName = `Clone ${db.displayName}`;
         clone.hideDisplayName = db.hideDisplayName;
         clone.combineSimilarRows = db.combineSimilarRows;
@@ -313,18 +314,19 @@ export namespace DashboardLogic {
     }
 
     function clonePart(part: DashboardEntity_Part): DashboardEntity_Part {
-        const p = new DashboardEntity_Part();
-        p.title = part.title;
-        p.hideTitle = part.hideTitle;
-        p.tooltip = part.tooltip;
-        p.row = part.row;
-        p.startColumn = part.startColumn;
-        p.columns = part.columns;
-        p.interactionGroup = part.interactionGroup;
-        p.iconName = part.iconName;
-        p.iconColor = part.iconColor;
-        p.titleColor = part.titleColor;
-        p.customColor = part.customColor;
+        const p = DashboardEntity_Part.create({
+            title: part.title,
+            hideTitle: part.hideTitle,
+            tooltip: part.tooltip,
+            row: part.row,
+            startColumn: part.startColumn,
+            columns: part.columns,
+            interactionGroup: part.interactionGroup,
+            iconName: part.iconName,
+            iconColor: part.iconColor,
+            titleColor: part.titleColor,
+            customColor: part.customColor,
+        });
         // `guid` is intentionally left fresh (Signum's comment: a clone is a new instance).
         p.content = partConfigForEntity(part.content).clone(part.content);
         return p;

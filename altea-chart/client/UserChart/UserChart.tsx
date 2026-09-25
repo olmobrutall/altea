@@ -99,12 +99,13 @@ export default function UserChart(p: { ctx: TypeContext<UserChartEntity> }): Rea
 // are resolved client-side (TokenCompleter) and the columns synchronized against the chart script (as
 // Signum's ChartScript setter did).
 async function buildEditableRequest(uc: UserChartEntity): Promise<ChartRequestModel> {
-    const cr = new ChartRequestModel();
-    cr.queryKey = uc.query.key;
-    cr.chartScript = uc.chartScript;
-    cr.maxRows = uc.maxRows;
-    cr.chartTimeSeries = uc.chartTimeSeries; // shared — ChartBuilder's time-machine toggle edits it in place
-    cr.filterOptions = []; // ChartBuilder does not touch filters (the chart filters editor is deferred)
+    const cr = ChartRequestModel.create({
+        queryKey: uc.query.key,
+        chartScript: uc.chartScript,
+        maxRows: uc.maxRows,
+        chartTimeSeries: uc.chartTimeSeries, // shared — ChartBuilder's time-machine toggle edits it in place
+        filterOptions: [], // ChartBuilder does not touch filters (the chart filters editor is deferred)
+    });
 
     const canTimeSeries = uc.chartTimeSeries != null ? SubTokensOptions.CanTimeSeries : 0;
     const colOptions = SubTokensOptions.CanElement | SubTokensOptions.CanAggregate | canTimeSeries;

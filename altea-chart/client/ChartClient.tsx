@@ -525,13 +525,14 @@ export namespace ChartClient {
   export function cloneChartTimeSeries(ts: ChartTimeSeriesEmbedded | null | undefined): ChartTimeSeriesEmbedded | null {
     if (!ts)
       return null;
-    const clone = new ChartTimeSeriesEmbedded();
-    clone.timeSeriesStep = ts.timeSeriesStep;
-    clone.timeSeriesUnit = ts.timeSeriesUnit;
-    clone.startDate = ts.startDate;
-    clone.endDate = ts.endDate;
-    clone.timeSeriesMaxRowsPerStep = ts.timeSeriesMaxRowsPerStep;
-    clone.splitQueries = ts.splitQueries;
+    const clone = ChartTimeSeriesEmbedded.create({
+        timeSeriesStep: ts.timeSeriesStep,
+        timeSeriesUnit: ts.timeSeriesUnit,
+        startDate: ts.startDate,
+        endDate: ts.endDate,
+        timeSeriesMaxRowsPerStep: ts.timeSeriesMaxRowsPerStep,
+        splitQueries: ts.splitQueries,
+    });
     return clone;
   }
 
@@ -651,14 +652,15 @@ export namespace ChartClient {
             var cs = query.script == undefined ? scripts.first() :
               scripts.filter(cs => cs.symbol.key.tryAfter(".") == query.script).single();
 
-            const chartRequest = new ChartRequestModel();
-            chartRequest.chartScript = cs.symbol;
-            chartRequest.maxRows = query.maxRows == "null" ? null : toInt(query.maxRows ? Number(query.maxRows) : DefaultMaxRows);
-            chartRequest.queryKey = queryName;
-            chartRequest.filterOptions = fos.map(fo => completer.toFilterOptionParsed(fo, SubTokensOptions.CanElement | SubTokensOptions.CanAnyAll | SubTokensOptions.CanAggregate | tsOpt));
-            chartRequest.columns = cols;
-            chartRequest.parameters = decodeParameters(query);
-            chartRequest.chartTimeSeries = ts;
+            const chartRequest = ChartRequestModel.create({
+                chartScript: cs.symbol,
+                maxRows: query.maxRows == "null" ? null : toInt(query.maxRows ? Number(query.maxRows) : DefaultMaxRows),
+                queryKey: queryName,
+                filterOptions: fos.map(fo => completer.toFilterOptionParsed(fo, SubTokensOptions.CanElement | SubTokensOptions.CanAnyAll | SubTokensOptions.CanAggregate | tsOpt)),
+                columns: cols,
+                parameters: decodeParameters(query),
+                chartTimeSeries: ts,
+            });
 
             synchronizeColumns(chartRequest, cs);
 
@@ -689,8 +691,7 @@ export namespace ChartClient {
 
         const col = new ChartColumnEmbedded();
         if (token) {
-          const qte = new QueryTokenEmbedded();
-          qte.tokenString = token;
+          const qte = QueryTokenEmbedded.create({ tokenString: token });
           col.token = qte;
         }
         col.orderByType = order == null ? null : (order.charAt(order.length - 1) == "A" ? OrderType.Ascending : OrderType.Descending);
@@ -703,9 +704,10 @@ export namespace ChartClient {
 
     export function decodeParameters(query: any): ChartParameterEmbedded[] {
       return valuesInOrder(query, "param").map(p => {
-        const cp = new ChartParameterEmbedded();
-        cp.name = unscapeTildes(p.value.before("~")) ?? "";
-        cp.value = unscapeTildes(p.value.after("~")) ?? null;
+        const cp = ChartParameterEmbedded.create({
+            name: unscapeTildes(p.value.before("~")) ?? "",
+            value: unscapeTildes(p.value.after("~")) ?? null,
+        });
         return cp;
       });
     }
@@ -713,13 +715,14 @@ export namespace ChartClient {
     export function decodeTimeSeries(query: any): ChartTimeSeriesEmbedded | null {
       if (!query.timeSeriesUnit)
         return null;
-      const ts = new ChartTimeSeriesEmbedded();
-      ts.startDate = query.systemTimeStartDate;
-      ts.endDate = query.systemTimeEndDate;
-      ts.timeSeriesUnit = query.timeSeriesUnit;
-      ts.timeSeriesStep = query.timeSeriesStep ? toInt(parseInt(query.timeSeriesStep)) : null;
-      ts.timeSeriesMaxRowsPerStep = query.timeSeriesMaxRowsPerStep ? toInt(parseInt(query.timeSeriesMaxRowsPerStep)) : null;
-      ts.splitQueries = query.splitQueries != null && query.splitQueries != false;
+      const ts = ChartTimeSeriesEmbedded.create({
+          startDate: query.systemTimeStartDate,
+          endDate: query.systemTimeEndDate,
+          timeSeriesUnit: query.timeSeriesUnit,
+          timeSeriesStep: query.timeSeriesStep ? toInt(parseInt(query.timeSeriesStep)) : null,
+          timeSeriesMaxRowsPerStep: query.timeSeriesMaxRowsPerStep ? toInt(parseInt(query.timeSeriesMaxRowsPerStep)) : null,
+          splitQueries: query.splitQueries != null && query.splitQueries != false,
+      });
       return ts;
     }
   }

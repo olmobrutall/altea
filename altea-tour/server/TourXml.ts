@@ -118,14 +118,15 @@ function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlCo
     tour.showCloseButton = xml[A + "ShowCloseButton"] == null || xml[A + "ShowCloseButton"] === true || xml[A + "ShowCloseButton"] === "true";
 
     tour.steps = asArray(xml["TourStep"]).map((sx, i) => {
-        const s = new TourStepEntity();
-        s.rowOrder = toInt(i);
-        s.title = String(sx[A + "Title"] ?? "");
-        s.side = sx[A + "Side"] == null ? null : Enum.toValue(PopoverSide, String(sx[A + "Side"]) as never);
-        s.align = sx[A + "Align"] == null ? null : Enum.toValue(PopoverAlign, String(sx[A + "Align"]) as never);
-        s.click = sx[A + "Click"] == null ? null : Enum.toValue(ClickTrigger, String(sx[A + "Click"]) as never);
-        s.description = String(sx["Description"] ?? "");
-        s.cssSteps = asArray(sx["CssStep"]).map((cx, j) => cssStepFromXml(cx, j, ctx, rootType));
+        const s = TourStepEntity.create({
+            rowOrder: toInt(i),
+            title: String(sx[A + "Title"] ?? ""),
+            side: sx[A + "Side"] == null ? null : Enum.toValue(PopoverSide, String(sx[A + "Side"]) as never),
+            align: sx[A + "Align"] == null ? null : Enum.toValue(PopoverAlign, String(sx[A + "Align"]) as never),
+            click: sx[A + "Click"] == null ? null : Enum.toValue(ClickTrigger, String(sx[A + "Click"]) as never),
+            description: String(sx["Description"] ?? ""),
+            cssSteps: asArray(sx["CssStep"]).map((cx, j) => cssStepFromXml(cx, j, ctx, rootType)),
+        });
         return s;
     });
 }
@@ -144,10 +145,11 @@ function triggerRootType(trigger: Lite<Entity>, ctx: IFromXmlContext): TypeEntit
 }
 
 function cssStepFromXml(cx: Record<string, unknown>, order: number, ctx: IFromXmlContext, rootType: TypeEntity | null): CssStepEntity {
-    const cs = new CssStepEntity();
-    cs.rowOrder = toInt(order);
-    cs.type = Enum.toValue(CssStepType, String(cx[A + "Type"]) as never);
-    cs.cssSelector = cx[A + "CssSelector"] == null ? null : String(cx[A + "CssSelector"]);
+    const cs = CssStepEntity.create({
+        rowOrder: toInt(order),
+        type: Enum.toValue(CssStepType, String(cx[A + "Type"]) as never),
+        cssSelector: cx[A + "CssSelector"] == null ? null : String(cx[A + "CssSelector"]),
+    });
     cs.property = cx[A + "Property"] == null || rootType == null ? null
         : PropertyRouteLogic.propertyRouteEntitySync(rootType, String(cx[A + "Property"]));
     cs.dashboardPart = cx[A + "DashboardPart"] == null ? null : String(cx[A + "DashboardPart"]);

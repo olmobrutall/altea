@@ -118,10 +118,11 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
         });
 
     ot.orders = list(asRecord(xml["Orders"])?.["Orden"]).map((x, i) => {
-        const o = new OfficeTemplateEntity_Order();
-        o.rowOrder = toInt(i);
-        o.token = token(str(x[A + "Token"])!);
-        o.orderType = Enum.toValue(OrderType, str(x[A + "OrderType"]) as never);
+        const o = OfficeTemplateEntity_Order.create({
+            rowOrder: toInt(i),
+            token: token(str(x[A + "Token"])!),
+            orderType: Enum.toValue(OrderType, str(x[A + "OrderType"]) as never),
+        });
         return o;
     });
 

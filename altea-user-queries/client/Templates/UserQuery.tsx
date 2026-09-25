@@ -225,9 +225,10 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
 
 // Seed a summary (aggregate) token from the column's own token — Signum's QueryTokenEmbedded.New(token).
 function seedSummaryToken(columnToken: QueryTokenEmbedded | null): QueryTokenEmbedded {
-    const t = new QueryTokenEmbedded();
-    t.tokenString = columnToken?.tokenString ?? "";
-    t.token = columnToken?.token ?? null;
+    const t = QueryTokenEmbedded.create({
+        tokenString: columnToken?.tokenString ?? "",
+        token: columnToken?.token ?? null,
+    });
     return t;
 }
 

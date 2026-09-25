@@ -36,20 +36,17 @@ describe("implicit NotNullValidator", () => {
     });
 
     test('"" counts as not set', () => {
-        const a = new ArtistEntity();
-        a.name = "";
+        const a = ArtistEntity.create({ name: "" });
         assert.ok(entityIntegrityCheck(a, "Saving")?.errors["name"] != null, "empty string should fail NotNull");
     });
 
     test("a set value passes", () => {
-        const a = new ArtistEntity();
-        a.name = "Michael";
+        const a = ArtistEntity.create({ name: "Michael" });
         assert.equal(entityIntegrityCheck(a, "Saving")?.errors["name"], undefined);
     });
 
     test("value types & enums ARE required in TS (divergence from Signum); nullable & arrays are not", () => {
-        const a = new ArtistEntity();
-        a.name = "x";
+        const a = ArtistEntity.create({ name: "x" });
         const ic = entityIntegrityCheck(a, "Saving");
         assert.ok(ic?.errors["dead"] != null, "non-nullable boolean should be required");
         assert.ok(ic?.errors["sex"] != null, "non-nullable enum should be required");

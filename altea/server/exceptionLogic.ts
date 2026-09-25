@@ -186,9 +186,7 @@ export namespace ExceptionLogic {
             return existing;
 
         const err = error instanceof Error ? error : undefined;
-        const entity = new ExceptionEntity();
-        entity.creationDate = Clock.now;
-        entity.exceptionType = err ? err.name : "Error";
+        const entity = ExceptionEntity.create({ creationDate: Clock.now, exceptionType: err ? err.name : "Error" });
         setMessage(entity, err ? (err.message ?? "") : String(error));
         setStackTrace(entity, flattenStack(err));
         entity.threadId = 0 as int; // Node is single-threaded; kept for Signum parity.
@@ -206,9 +204,10 @@ export namespace ExceptionLogic {
 
     // Signum's ExceptionEntity(ClientErrorModel) ctor + LogException: log a client-reported error.
     export async function logClientError(model: ClientErrorModel): Promise<ExceptionEntity> {
-        const entity = new ExceptionEntity();
-        entity.creationDate = Clock.now;
-        entity.exceptionType = [model.errorType, model.name].filter(Boolean).join("/");
+        const entity = ExceptionEntity.create({
+            creationDate: Clock.now,
+            exceptionType: [model.errorType, model.name].filter(Boolean).join("/"),
+        });
         setMessage(entity, model.message);
         setStackTrace(entity, model.stack);
         entity.requestUrl = model.url;

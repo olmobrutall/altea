@@ -92,8 +92,7 @@ export namespace DashboardClient {
 
         // A new dashboard belongs to whoever creates it (Signum's registerConstructor).
         Constructor.registerConstructor(DashboardEntity, () => {
-            const db = new DashboardEntity();
-            db.owner = AppContext.currentUser?.toLite() ?? null;
+            const db = DashboardEntity.create({ owner: AppContext.currentUser?.toLite() ?? null });
             return db;
         });
 

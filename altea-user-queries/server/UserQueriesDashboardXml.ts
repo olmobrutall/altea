@@ -26,13 +26,14 @@ export function registerUserQueryDashboardParts(): void {
         type: UserQueryPartEntity,
         elementName: "UserQueryPart",
         clone: p => {
-            const c = new UserQueryPartEntity();
-            c.userQuery = p.userQuery;
-            c.autoUpdate = p.autoUpdate;
-            c.allowSelection = p.allowSelection;
-            c.showFooter = p.showFooter;
-            c.createNew = p.createNew;
-            c.allowMaxHeight = p.allowMaxHeight;
+            const c = UserQueryPartEntity.create({
+                userQuery: p.userQuery,
+                autoUpdate: p.autoUpdate,
+                allowSelection: p.allowSelection,
+                showFooter: p.showFooter,
+                createNew: p.createNew,
+                allowMaxHeight: p.allowMaxHeight,
+            });
             return c;
         },
         toXml: (p, ctx) => {
@@ -79,10 +80,11 @@ export function registerUserQueryDashboardParts(): void {
         clone: p => {
             const c = new ValueUserQueryListPartEntity();
             c.userQueries = (p.userQueries ?? []).map(e => {
-                const row = new ValueUserQueryListPartEntity_UserQuery();
-                row.label = e.label;
-                row.userQuery = e.userQuery;
-                row.href = e.href;
+                const row = ValueUserQueryListPartEntity_UserQuery.create({
+                    label: e.label,
+                    userQuery: e.userQuery,
+                    href: e.href,
+                });
                 return row;
             });
             return c;
@@ -97,10 +99,11 @@ export function registerUserQueryDashboardParts(): void {
         }),
         fromXml: (p, x, ctx) => {
             p.userQueries = list(x["ValueUserQueryElement"]).map(e => {
-                const row = new ValueUserQueryListPartEntity_UserQuery();
-                row.label = str(e[A + "Label"]) ?? null;
-                row.href = str(e[A + "Href"]) ?? null;
-                row.userQuery = ctx.getEntity(str(e[A + "UserQuery"])!) as UserQueryEntity;
+                const row = ValueUserQueryListPartEntity_UserQuery.create({
+                    label: str(e[A + "Label"]) ?? null,
+                    href: str(e[A + "Href"]) ?? null,
+                    userQuery: ctx.getEntity(str(e[A + "UserQuery"])!) as UserQueryEntity,
+                });
                 return row;
             });
         },
@@ -110,13 +113,14 @@ export function registerUserQueryDashboardParts(): void {
         type: BigValuePartEntity,
         elementName: "BigValuePart",
         clone: p => {
-            const c = new BigValuePartEntity();
-            c.valueToken = p.valueToken;
-            c.userQuery = p.userQuery;
-            c.customBigValue = p.customBigValue;
-            c.navigate = p.navigate;
-            c.customUrl = p.customUrl;
-            c.isClickable = p.isClickable;
+            const c = BigValuePartEntity.create({
+                valueToken: p.valueToken,
+                userQuery: p.userQuery,
+                customBigValue: p.customBigValue,
+                navigate: p.navigate,
+                customUrl: p.customUrl,
+                isClickable: p.isClickable,
+            });
             return c;
         },
         toXml: (p, ctx) => {
@@ -145,8 +149,7 @@ export function registerUserQueryDashboardParts(): void {
 // ---- small helpers (mirrors UserQueriesXml.server.ts) ---------------------------------------------------
 
 function token(tokenString: string): QueryTokenEmbedded {
-    const t = new QueryTokenEmbedded();
-    t.tokenString = tokenString;
+    const t = QueryTokenEmbedded.create({ tokenString });
     return t;
 }
 

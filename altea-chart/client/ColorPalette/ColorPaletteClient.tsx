@@ -44,9 +44,10 @@ export namespace ColorPaletteClient {
 
         // Default a new palette to seed 0 + the first color scheme (Signum's registerConstructor).
         Constructor.registerConstructor(ColorPaletteEntity, props => {
-            const e = new ColorPaletteEntity();
-            e.seed = toInt(0);
-            e.categoryName = Dic.getKeys(ColorUtils.colorSchemes).first();
+            const e = ColorPaletteEntity.create({
+                seed: toInt(0),
+                categoryName: Dic.getKeys(ColorUtils.colorSchemes).first(),
+            });
             return Object.assign(e, props);
         });
 

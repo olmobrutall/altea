@@ -136,10 +136,11 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
         });
 
     et.orders = list(asRecord(xml["Orders"])?.["Orden"]).map((x, i) => {
-        const o = new EmailTemplateEntity_Order();
-        o.rowOrder = toInt(i);
-        o.token = token(str(x[A + "Token"])!);
-        o.orderType = Enum.toValue(OrderType, str(x[A + "OrderType"]) as never);
+        const o = EmailTemplateEntity_Order.create({
+            rowOrder: toInt(i),
+            token: token(str(x[A + "Token"])!),
+            orderType: Enum.toValue(OrderType, str(x[A + "OrderType"]) as never),
+        });
         return o;
     });
 
@@ -165,10 +166,11 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
 
     const cultures = await CultureInfoLogic.lookup();
     et.messages = list(asRecord(xml["Messages"])?.["Message"]).map((x, i) => {
-        const m = new EmailTemplateEntity_Message();
-        m.cultureInfo = cultures.get(str(x[A + "CultureInfo"])!).toLite();
-        m.subject = str(x[A + "Subject"]) ?? "";
-        m.text = str(x["#text"]) ?? "";
+        const m = EmailTemplateEntity_Message.create({
+            cultureInfo: cultures.get(str(x[A + "CultureInfo"])!).toLite(),
+            subject: str(x[A + "Subject"]) ?? "",
+            text: str(x["#text"]) ?? "",
+        });
         return m;
     });
 
@@ -211,10 +213,11 @@ async function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string,
     emt.name = str(xml[A + "Name"])!;
     const cultures = await CultureInfoLogic.lookup();
     emt.messages = list(asRecord(xml["Messages"])?.["Message"]).map((x, i) => {
-        const m = new EmailMasterTemplateEntity_Message();
-        m.rowOrder = toInt(i);
-        m.cultureInfo = cultures.get(str(x[A + "CultureInfo"])!).toLite();
-        m.text = str(x["#text"]) ?? "";
+        const m = EmailMasterTemplateEntity_Message.create({
+            rowOrder: toInt(i),
+            cultureInfo: cultures.get(str(x[A + "CultureInfo"])!).toLite(),
+            text: str(x["#text"]) ?? "",
+        });
         return m;
     });
     emt.attachments = readAttachments(xml["Attachments"]).map((a, i) =>
@@ -292,10 +295,11 @@ function readAttachments(xml: unknown): IAttachmentGeneratorEntity[] {
     const result: IAttachmentGeneratorEntity[] = [];
 
     for (const x of list(container["ImageAttachment"])) {
-        const a = new ImageAttachmentEntity();
-        a.fileName = str(x[A + "FileName"]) ?? null;
-        a.contentId = str(x[A + "ContentId"])!;
-        a.type = enumOr(EmailAttachmentType, str(x[A + "Type"]), EmailAttachmentType.Attachment);
+        const a = ImageAttachmentEntity.create({
+            fileName: str(x[A + "FileName"]) ?? null,
+            contentId: str(x[A + "ContentId"])!,
+            type: enumOr(EmailAttachmentType, str(x[A + "Type"]), EmailAttachmentType.Attachment),
+        });
         const file = asRecord(x["File"]);
         if (file != undefined) {
             a.file.fileName = str(file[A + "FileName"]) ?? "";
@@ -305,11 +309,12 @@ function readAttachments(xml: unknown): IAttachmentGeneratorEntity[] {
     }
 
     for (const x of list(container["FileTokenAttachment"])) {
-        const a = new FileTokenAttachmentEntity();
-        a.fileName = str(x[A + "FileName"]) ?? null;
-        a.contentId = str(x[A + "ContentId"]) ?? null;
-        a.type = enumOr(EmailAttachmentType, str(x[A + "Type"]), EmailAttachmentType.Attachment);
-        a.fileToken = token(str(x[A + "FileToken"])!);
+        const a = FileTokenAttachmentEntity.create({
+            fileName: str(x[A + "FileName"]) ?? null,
+            contentId: str(x[A + "ContentId"]) ?? null,
+            type: enumOr(EmailAttachmentType, str(x[A + "Type"]), EmailAttachmentType.Attachment),
+            fileToken: token(str(x[A + "FileToken"])!),
+        });
         result.push(a);
     }
 
@@ -317,8 +322,7 @@ function readAttachments(xml: unknown): IAttachmentGeneratorEntity[] {
 }
 
 function token(tokenString: string): QueryTokenEmbedded {
-    const qte = new QueryTokenEmbedded();
-    qte.tokenString = tokenString;
+    const qte = QueryTokenEmbedded.create({ tokenString });
     return qte;
 }
 

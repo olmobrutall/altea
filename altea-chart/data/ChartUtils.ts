@@ -98,11 +98,12 @@ export function synchronizeColumns(chartScript: ChartScript, chart: IChartBase):
                 cp.scriptParameter = sp;
                 chart.parameters.push(cp);
             } else {
-                const created = new ChartParameterEmbedded();
-                created.name = sp.name;
-                created.parentChart = chart;
-                created.scriptParameter = sp;
-                created.value = sp.valueDefinition.getDefaultValue(sp.getToken(chart));
+                const created = ChartParameterEmbedded.create({
+                    name: sp.name,
+                    parentChart: chart,
+                    scriptParameter: sp,
+                    value: sp.valueDefinition.getDefaultValue(sp.getToken(chart)),
+                });
                 chart.parameters.push(created);
             }
         }

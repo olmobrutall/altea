@@ -121,11 +121,12 @@ export namespace UserChartClient {
         // Build the ChartRequestModel that runs a UserChart. altea resolves tokens + coerces values
         // client-side (Finder.TokenCompleter), then synchronizes the chart columns against the ChartScript.
         export async function toChartRequest(uc: UserChartEntity, entity?: Lite<Entity>): Promise<ChartRequestModel> {
-            const cr = new ChartRequestModel();
-            cr.queryKey = uc.query.key;
-            cr.chartScript = uc.chartScript;
-            cr.maxRows = uc.maxRows;
-            cr.chartTimeSeries = uc.chartTimeSeries == null ? null : cloneTimeSeries(uc.chartTimeSeries);
+            const cr = ChartRequestModel.create({
+                queryKey: uc.query.key,
+                chartScript: uc.chartScript,
+                maxRows: uc.maxRows,
+                chartTimeSeries: uc.chartTimeSeries == null ? null : cloneTimeSeries(uc.chartTimeSeries),
+            });
 
             const canTimeSeries = uc.chartTimeSeries != null ? SubTokensOptions.CanTimeSeries : 0;
             const colOptions = SubTokensOptions.CanElement | SubTokensOptions.CanAggregate | canTimeSeries;
@@ -169,22 +170,20 @@ export namespace UserChartClient {
     // value objects), and the filters flattened to UserChartEntity_Filter rows (values stringified). altea does
     // the filter stringify client-side (no server round-trip), mirroring UserQueryMenu.createUserQuery.
     export async function createUserChart(cr: ChartRequestModel): Promise<UserChartEntity> {
-        const uc = new UserChartEntity();
-        uc.query = await API.queryEntity(cr.queryKey);
-        uc.owner = AppContext.currentUser?.toLite() ?? null;
-        uc.chartScript = cr.chartScript;
-        uc.maxRows = cr.maxRows;
-        uc.chartTimeSeries = cr.chartTimeSeries == null ? null : cloneTimeSeries(cr.chartTimeSeries);
-        uc.filters = filterOptionsParsedToChartEmbedded(cr.filterOptions ?? []);
+        const uc = UserChartEntity.create({
+            query: await API.queryEntity(cr.queryKey),
+            owner: AppContext.currentUser?.toLite() ?? null,
+            chartScript: cr.chartScript,
+            maxRows: cr.maxRows,
+            chartTimeSeries: cr.chartTimeSeries == null ? null : cloneTimeSeries(cr.chartTimeSeries),
+            filters: filterOptionsParsedToChartEmbedded(cr.filterOptions ?? []),
+        });
         uc.columns = (cr.columns ?? []).map((c, i) => {
-            const row = new UserChartEntity_Column();
-            row.element = copyChartColumn(c);
-            row.rowOrder = toInt(i);
+            const row = UserChartEntity_Column.create({ element: copyChartColumn(c), rowOrder: toInt(i) });
             return row;
         });
         uc.parameters = (cr.parameters ?? []).map(p => {
-            const row = new UserChartEntity_Parameter();
-            row.element = toChartParameter(p);
+            const row = UserChartEntity_Parameter.create({ element: toChartParameter(p) });
             return row;
         });
         uc.customDrilldowns = [];
@@ -197,15 +196,14 @@ export namespace UserChartClient {
 // A standalone copy of a ChartColumnEmbedded for a new UserChart (like toChartColumn but the token is already
 // resolved, so no completer). The resolved `.token` (client-only, @serialize(false)) rides along harmlessly.
 function copyChartColumn(c: ChartColumnEmbedded): ChartColumnEmbedded {
-    const col = new ChartColumnEmbedded();
-    col.displayName = c.displayName;
-    col.format = c.format;
-    col.orderByIndex = c.orderByIndex;
-    col.orderByType = c.orderByType;
+    const col = ChartColumnEmbedded.create({
+        displayName: c.displayName,
+        format: c.format,
+        orderByIndex: c.orderByIndex,
+        orderByType: c.orderByType,
+    });
     if (c.token?.tokenString) {
-        const t = new QueryTokenEmbedded();
-        t.tokenString = c.token.tokenString;
-        t.token = c.token.token;
+        const t = QueryTokenEmbedded.create({ tokenString: c.token.tokenString, token: c.token.token });
         col.token = t;
     }
     return col;
@@ -216,10 +214,11 @@ function copyChartColumn(c: ChartColumnEmbedded): ChartColumnEmbedded {
 function filterOptionsParsedToChartEmbedded(filters: FilterOptionParsed[]): UserChartEntity_Filter[] {
     const rows: UserChartEntity_Filter[] = [];
     function push(fo: FilterOptionParsed, indent: number): void {
-        const row = new UserChartEntity_Filter();
-        row.indentation = toInt(indent);
-        row.pinned = fo.pinned ? toPinnedEmbedded(fo.pinned) : null;
-        row.dashboardBehaviour = fo.dashboardBehaviour == null ? null : Enum.toValue(DashboardBehaviour, fo.dashboardBehaviour);
+        const row = UserChartEntity_Filter.create({
+            indentation: toInt(indent),
+            pinned: fo.pinned ? toPinnedEmbedded(fo.pinned) : null,
+            dashboardBehaviour: fo.dashboardBehaviour == null ? null : Enum.toValue(DashboardBehaviour, fo.dashboardBehaviour),
+        });
         if (isFilterGroup(fo)) {
             row.isGroup = true;
             row.groupOperation = fo.groupOperation == null ? null : Enum.toValue(FilterGroupOperation, fo.groupOperation);
@@ -243,53 +242,53 @@ function filterOptionsParsedToChartEmbedded(filters: FilterOptionParsed[]): User
 }
 
 function toTokenEmbedded(token: QueryToken): QueryTokenEmbedded {
-    const t = new QueryTokenEmbedded();
-    t.tokenString = token.fullKey();
-    t.token = token;
+    const t = QueryTokenEmbedded.create({ tokenString: token.fullKey(), token });
     return t;
 }
 
 function toPinnedEmbedded(p: PinnedFilterParsed): PinnedQueryFilterEmbedded {
-    const e = new PinnedQueryFilterEmbedded();
-    e.label = p.label ?? null;
-    e.column = (p.column ?? null) as PinnedQueryFilterEmbedded["column"];
-    e.colSpan = (p.colSpan ?? null) as PinnedQueryFilterEmbedded["colSpan"];
-    e.row = (p.row ?? null) as PinnedQueryFilterEmbedded["row"];
-    e.active = Enum.toValue(PinnedFilterActive, p.active ?? "Always");
-    e.splitValue = p.splitValue ?? false;
+    const e = PinnedQueryFilterEmbedded.create({
+        label: p.label ?? null,
+        column: (p.column ?? null) as PinnedQueryFilterEmbedded["column"],
+        colSpan: (p.colSpan ?? null) as PinnedQueryFilterEmbedded["colSpan"],
+        row: (p.row ?? null) as PinnedQueryFilterEmbedded["row"],
+        active: Enum.toValue(PinnedFilterActive, p.active ?? "Always"),
+        splitValue: p.splitValue ?? false,
+    });
     return e;
 }
 
 function cloneTimeSeries(ts: ChartTimeSeriesEmbedded): ChartTimeSeriesEmbedded {
-    const e = new ChartTimeSeriesEmbedded();
-    e.startDate = ts.startDate;
-    e.endDate = ts.endDate;
-    e.timeSeriesUnit = ts.timeSeriesUnit;
-    e.timeSeriesStep = ts.timeSeriesStep;
-    e.timeSeriesMaxRowsPerStep = ts.timeSeriesMaxRowsPerStep;
-    e.splitQueries = ts.splitQueries;
+    const e = ChartTimeSeriesEmbedded.create({
+        startDate: ts.startDate,
+        endDate: ts.endDate,
+        timeSeriesUnit: ts.timeSeriesUnit,
+        timeSeriesStep: ts.timeSeriesStep,
+        timeSeriesMaxRowsPerStep: ts.timeSeriesMaxRowsPerStep,
+        splitQueries: ts.splitQueries,
+    });
     return e;
 }
 
 function toChartColumn(c: ChartColumnEmbedded, completer: Finder.TokenCompleter, subTokenOptions: SubTokensOptions): ChartColumnEmbedded {
-    const col = new ChartColumnEmbedded();
-    col.displayName = c.displayName;
-    col.format = c.format;
-    col.orderByIndex = c.orderByIndex;
-    col.orderByType = c.orderByType;
+    const col = ChartColumnEmbedded.create({
+        displayName: c.displayName,
+        format: c.format,
+        orderByIndex: c.orderByIndex,
+        orderByType: c.orderByType,
+    });
     if (c.token?.tokenString) {
-        const t = new QueryTokenEmbedded();
-        t.tokenString = c.token.tokenString;
-        t.token = completer.get(c.token.tokenString, subTokenOptions);
+        const t = QueryTokenEmbedded.create({
+            tokenString: c.token.tokenString,
+            token: completer.get(c.token.tokenString, subTokenOptions),
+        });
         col.token = t;
     }
     return col;
 }
 
 function toChartParameter(p: ChartParameterEmbedded): ChartParameterEmbedded {
-    const cp = new ChartParameterEmbedded();
-    cp.name = p.name;
-    cp.value = p.value;
+    const cp = ChartParameterEmbedded.create({ name: p.name, value: p.value });
     return cp;
 }
 

@@ -108,12 +108,13 @@ export default function ChartBuilder(p: ChartBuilderProps): React.JSX.Element {
 
             if (e.target.checked) {
               if (!chart.chartTimeSeries) {
-                const ts = new ChartTimeSeriesEmbedded();
-                ts.timeSeriesStep = toInt(1);
-                ts.timeSeriesUnit = TimeSeriesUnit.Month;
-                ts.startDate = Temporal.Now.plainDateISO().with({ month: 1, day: 1 }).toString();
-                ts.endDate = Temporal.Now.plainDateISO().toString();
-                ts.splitQueries = true;
+                const ts = ChartTimeSeriesEmbedded.create({
+                    timeSeriesStep: toInt(1),
+                    timeSeriesUnit: TimeSeriesUnit.Month,
+                    startDate: Temporal.Now.plainDateISO().with({ month: 1, day: 1 }).toString(),
+                    endDate: Temporal.Now.plainDateISO().toString(),
+                    splitQueries: true,
+                });
                 chart.chartTimeSeries = ts;
               }
             } else {

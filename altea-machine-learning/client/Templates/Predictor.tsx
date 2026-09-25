@@ -159,13 +159,12 @@ export default function Predictor(
                 .map(c => c.token?.token)
                 .filter((t): t is QueryToken => t != null && !t.isAggregate());
 
-        const sq = new PredictorSubQueryEntity();
-        sq.query = mq.query;
-        sq.filters = [];
+        const sq = PredictorSubQueryEntity.create({ query: mq.query, filters: [] });
         sq.columns = tokens.map(t => {
-            const col = new PredictorSubQueryEntity_Column();
-            col.usage = PredictorSubQueryColumnUsage.ParentKey;
-            col.token = Object.assign(new QueryTokenEmbedded(), { token: t, tokenString: t.fullKey() });
+            const col = PredictorSubQueryEntity_Column.create({
+                usage: PredictorSubQueryColumnUsage.ParentKey,
+                token: Object.assign(new QueryTokenEmbedded(), { token: t, tokenString: t.fullKey() }),
+            });
             return col;
         });
         return sq;

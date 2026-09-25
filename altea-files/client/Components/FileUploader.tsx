@@ -128,9 +128,7 @@ export async function toFile(
     const bytes = new Uint8Array(await file.arrayBuffer());
 
     if (options.kind === "FileEmbedded") {
-        const fe = new FileEmbedded();
-        fe.fileName = file.name;
-        fe.binaryFile = bytes;
+        const fe = FileEmbedded.create({ fileName: file.name, binaryFile: bytes });
         return fe;
     }
 
@@ -139,19 +137,18 @@ export async function toFile(
     // reachable graph in dependency order, so assigning this to a field persists it and fills its id, and
     // the server computes its hash in FileLogic's preSaving.
     if (options.kind === "FileEntity") {
-        const fe = new FileEntity();
-        fe.fileName = file.name;
-        fe.binaryFile = bytes;
+        const fe = FileEntity.create({ fileName: file.name, binaryFile: bytes });
         return fe;
     }
 
     if (options.fileType == null)
         throw new Error("FileUploader: a FilePathEmbedded needs a `fileType` (the store its bytes go to)");
 
-    const fpe = new FilePathEmbedded();
-    fpe.fileName = file.name;
-    fpe.binaryFile = bytes;
-    fpe.fileType = options.fileType;
+    const fpe = FilePathEmbedded.create({
+        fileName: file.name,
+        binaryFile: bytes,
+        fileType: options.fileType,
+    });
     fpe.prepareForSave(); // length + the forced extension; the SERVER fills hash + suffix
     return fpe;
 }

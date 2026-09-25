@@ -178,9 +178,7 @@ let queryEntitiesByKey = new Map<string, QueryEntity>();
 // it without an id (the identity PK is DB-assigned), and the sync's mergeBoth copies its key onto the
 // RETRIEVED row instead of re-building one around the persisted id.
 function queryEntityFromKey(key: string): QueryEntity {
-    const qe = new QueryEntity();
-    qe.isNew = true;
-    qe.key = key;
+    const qe = QueryEntity.create({ isNew: true, key });
     return qe;
 }
 

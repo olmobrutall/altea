@@ -27,9 +27,7 @@ describe.skipIf(!hasDb)("SqlSyncWhere", () => {
     });
 
     txTest("DeleteByCleanNameThrowsWhenMissing", async () => {
-        const te = new TypeEntity();
-        te.cleanName = "DoesNotExist";
-        te.id = -1 as never;
+        const te = TypeEntity.create({ cleanName: "DoesNotExist", id: -1 as never });
         const cmd = (await deleteSqlSync(Connector.current().schema.table(TypeEntity), te, t => t.cleanName == te.cleanName))!;
         await assert.rejects(() => Connector.current().executeNonQuery(cmd.plainSql()), /not found/);
     });

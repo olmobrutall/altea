@@ -172,13 +172,14 @@ function fillFilter(f: UserQueryEntity_Filter, x: Record<string, unknown>): void
 }
 
 function pinnedFromXml(x: Record<string, unknown>): PinnedQueryFilterEmbedded {
-    const p = new PinnedQueryFilterEmbedded();
-    p.label = str(x[A + "Label"]) ?? null;
-    p.column = x[A + "Column"] != null ? (Number(x[A + "Column"]) as int) : null;
-    p.colSpan = x[A + "ColSpan"] != null ? (Number(x[A + "ColSpan"]) as int) : null;
-    p.row = x[A + "Row"] != null ? (Number(x[A + "Row"]) as int) : null;
-    p.active = toEnum(PinnedFilterActive, str(x[A + "Active"]) ?? "Always");
-    p.splitValue = bool(x[A + "SplitValue"]);
+    const p = PinnedQueryFilterEmbedded.create({
+        label: str(x[A + "Label"]) ?? null,
+        column: x[A + "Column"] != null ? (Number(x[A + "Column"]) as int) : null,
+        colSpan: x[A + "ColSpan"] != null ? (Number(x[A + "ColSpan"]) as int) : null,
+        row: x[A + "Row"] != null ? (Number(x[A + "Row"]) as int) : null,
+        active: toEnum(PinnedFilterActive, str(x[A + "Active"]) ?? "Always"),
+        splitValue: bool(x[A + "SplitValue"]),
+    });
     return p;
 }
 
@@ -192,15 +193,15 @@ function fillColumn(c: UserQueryEntity_Column, x: Record<string, unknown>): void
 }
 
 function orderFromXml(x: Record<string, unknown>): UserQueryEntity_Order {
-    const o = new UserQueryEntity_Order();
-    o.token = token(str(x[A + "Token"])!);
-    o.orderType = toEnum(OrderType, str(x[A + "OrderType"]) ?? "Ascending");
+    const o = UserQueryEntity_Order.create({
+        token: token(str(x[A + "Token"])!),
+        orderType: toEnum(OrderType, str(x[A + "OrderType"]) ?? "Ascending"),
+    });
     return o;
 }
 
 function systemTimeFromXml(x: Record<string, unknown>): SystemTimeEmbedded {
-    const st = new SystemTimeEmbedded();
-    st.mode = toEnum(SystemTimeMode, str(x[A + "Mode"]) ?? "AsOf");
+    const st = SystemTimeEmbedded.create({ mode: toEnum(SystemTimeMode, str(x[A + "Mode"]) ?? "AsOf") });
     // The date EXPRESSION strings, as Signum writes them — a UserAssets file round-trips unchanged.
     st.startDate = str(x[A + "StartDate"]) ?? null;
     st.endDate = str(x[A + "EndDate"]) ?? null;
@@ -217,8 +218,7 @@ function systemTimeFromXml(x: Record<string, unknown>): SystemTimeEmbedded {
 // ---- small helpers -------------------------------------------------------------------------------------
 
 function token(tokenString: string): QueryTokenEmbedded {
-    const t = new QueryTokenEmbedded();
-    t.tokenString = tokenString;
+    const t = QueryTokenEmbedded.create({ tokenString });
     return t;
 }
 

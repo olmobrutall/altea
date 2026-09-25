@@ -196,9 +196,10 @@ async function optionXml(op: ToolbarSwitcherEntity_Option, ctx: IToXmlContext): 
 }
 
 function optionFromXml(x: Record<string, unknown>, ctx: IFromXmlContext): ToolbarSwitcherEntity_Option {
-    const op = new ToolbarSwitcherEntity_Option();
-    op.iconName = str(x[A + "IconName"]) ?? null;
-    op.iconColor = str(x[A + "IconColor"]) ?? null;
+    const op = ToolbarSwitcherEntity_Option.create({
+        iconName: str(x[A + "IconName"]) ?? null,
+        iconColor: str(x[A + "IconColor"]) ?? null,
+    });
     const guid = str(x[A + "ToolbarMenu"])!;
     op.toolbarMenu = ctx.getEntity(guid).toLite() as Lite<ToolbarMenuEntity>;
     return op;

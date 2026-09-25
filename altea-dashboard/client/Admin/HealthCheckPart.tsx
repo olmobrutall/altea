@@ -34,11 +34,12 @@ export default function HealthCheckPart(p: PartEditorProps<HealthCheckPartEntity
                                 ErrorModal.showErrorModal(new Error(DashboardPartsMessage.ClipboardDataIsNotCompatibleWithHealthCheckData.niceToString()));
                                 return;
                             }
-                            const item = new HealthCheckPartEntity_Item();
-                            item.title = data[0];
-                            item.checkURL = data[1];
-                            item.navigateURL = data[2];
-                            item.rowOrder = toInt(ctx.value.items?.length ?? 0);
+                            const item = HealthCheckPartEntity_Item.create({
+                                title: data[0],
+                                checkURL: data[1],
+                                navigateURL: data[2],
+                                rowOrder: toInt(ctx.value.items?.length ?? 0),
+                            });
                             (ctx.value.items ??= []).push(item);
                             forceUpdate();
                         }}>

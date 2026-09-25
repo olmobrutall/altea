@@ -106,19 +106,17 @@ async function buildRequest(queryName: string, search: string): Promise<ChartReq
   const valueToken = await Finder.parseSingleToken(queryName, "Count", opts);
 
   const mkCol = (t: QueryToken): ChartColumnEmbedded => {
-    const qte = new QueryTokenEmbedded();
-    qte.tokenString = t.fullKey();
-    qte.token = t;
-    const col = new ChartColumnEmbedded();
-    col.token = qte;
+    const qte = QueryTokenEmbedded.create({ tokenString: t.fullKey(), token: t });
+    const col = ChartColumnEmbedded.create({ token: qte });
     return col;
   };
 
-  const cr = new ChartRequestModel();
-  cr.queryKey = queryName;
-  cr.chartScript = D3ChartScript.Columns;
-  cr.filterOptions = [];
-  cr.columns = [mkCol(keyToken), mkCol(valueToken)];
+  const cr = ChartRequestModel.create({
+      queryKey: queryName,
+      chartScript: D3ChartScript.Columns,
+      filterOptions: [],
+      columns: [mkCol(keyToken), mkCol(valueToken)],
+  });
 
   const cs = await ChartClient.getChartScript(D3ChartScript.Columns);
   ChartClient.synchronizeColumns(cr, cs);

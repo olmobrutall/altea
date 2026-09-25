@@ -122,8 +122,7 @@ function fromXml(uc: UserChartEntity, xml: Record<string, unknown>, ctx: IFromXm
     uc.columns = syncRows(uc.columns ?? [], arr(xml["Columns"], "Column"), () => new UserChartEntity_Column(),
         (row, x) => { row.element = columnFromXml(x); });
     uc.parameters = arr(xml["Parameters"], "Parameter").map(x => {
-        const row = new UserChartEntity_Parameter();
-        row.element = parameterFromXml(x);
+        const row = UserChartEntity_Parameter.create({ element: parameterFromXml(x) });
         return row;
     });
     uc.customDrilldowns = arr(xml["CustomDrilldowns"], "CustomDrilldown").map(d => {
@@ -154,39 +153,38 @@ function fillFilter(f: UserChartEntity_Filter, x: Record<string, unknown>): void
 }
 
 function pinnedFromXml(x: Record<string, unknown>): PinnedQueryFilterEmbedded {
-    const p = new PinnedQueryFilterEmbedded();
-    p.label = str(x[A + "Label"]) ?? null;
-    p.column = x[A + "Column"] != null ? (Number(x[A + "Column"]) as int) : null;
-    p.colSpan = x[A + "ColSpan"] != null ? (Number(x[A + "ColSpan"]) as int) : null;
-    p.row = x[A + "Row"] != null ? (Number(x[A + "Row"]) as int) : null;
-    p.active = toEnum(PinnedFilterActive, str(x[A + "Active"]) ?? "Always");
-    p.splitValue = bool(x[A + "SplitValue"]);
+    const p = PinnedQueryFilterEmbedded.create({
+        label: str(x[A + "Label"]) ?? null,
+        column: x[A + "Column"] != null ? (Number(x[A + "Column"]) as int) : null,
+        colSpan: x[A + "ColSpan"] != null ? (Number(x[A + "ColSpan"]) as int) : null,
+        row: x[A + "Row"] != null ? (Number(x[A + "Row"]) as int) : null,
+        active: toEnum(PinnedFilterActive, str(x[A + "Active"]) ?? "Always"),
+        splitValue: bool(x[A + "SplitValue"]),
+    });
     return p;
 }
 
 function columnFromXml(x: Record<string, unknown>): ChartColumnEmbedded {
-    const c = new ChartColumnEmbedded();
-    c.token = x[A + "Token"] != null ? token(str(x[A + "Token"])!) : null;
-    c.displayName = str(x[A + "DisplayName"]) ?? null;
-    c.format = str(x[A + "Format"]) ?? null;
-    c.orderByIndex = x[A + "OrderByIndex"] != null ? (Number(x[A + "OrderByIndex"]) as int) : null;
+    const c = ChartColumnEmbedded.create({
+        token: x[A + "Token"] != null ? token(str(x[A + "Token"])!) : null,
+        displayName: str(x[A + "DisplayName"]) ?? null,
+        format: str(x[A + "Format"]) ?? null,
+        orderByIndex: x[A + "OrderByIndex"] != null ? (Number(x[A + "OrderByIndex"]) as int) : null,
+    });
     const orderByType = str(x[A + "OrderByType"]);
     c.orderByType = orderByType == null ? null : toEnum(OrderType, orderByType);
     return c;
 }
 
 function parameterFromXml(x: Record<string, unknown>): ChartParameterEmbedded {
-    const p = new ChartParameterEmbedded();
-    p.name = str(x[A + "Name"]) ?? "";
-    p.value = str(x[A + "Value"]) ?? null;
+    const p = ChartParameterEmbedded.create({ name: str(x[A + "Name"]) ?? "", value: str(x[A + "Value"]) ?? null });
     return p;
 }
 
 // ---- small helpers -------------------------------------------------------------------------------------
 
 function token(tokenString: string): QueryTokenEmbedded {
-    const t = new QueryTokenEmbedded();
-    t.tokenString = tokenString;
+    const t = QueryTokenEmbedded.create({ tokenString });
     return t;
 }
 

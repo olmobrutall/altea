@@ -274,20 +274,19 @@ function smartDateSeed(value: unknown): string {
 }
 
 function toTokenEmbedded(token: QueryToken): QueryTokenEmbedded {
-    const t = new QueryTokenEmbedded();
-    t.tokenString = token.fullKey();
-    t.token = token;
+    const t = QueryTokenEmbedded.create({ tokenString: token.fullKey(), token });
     return t;
 }
 
 function toPinnedEmbedded(p: PinnedFilterParsed): PinnedQueryFilterEmbedded {
-    const e = new PinnedQueryFilterEmbedded();
-    e.label = p.label ?? null;
-    e.column = (p.column ?? null) as PinnedQueryFilterEmbedded["column"];
-    e.colSpan = (p.colSpan ?? null) as PinnedQueryFilterEmbedded["colSpan"];
-    e.row = (p.row ?? null) as PinnedQueryFilterEmbedded["row"];
-    e.active = Enum.toValue(PinnedFilterActive, p.active ?? "Always");
-    e.splitValue = p.splitValue ?? false;
+    const e = PinnedQueryFilterEmbedded.create({
+        label: p.label ?? null,
+        column: (p.column ?? null) as PinnedQueryFilterEmbedded["column"],
+        colSpan: (p.colSpan ?? null) as PinnedQueryFilterEmbedded["colSpan"],
+        row: (p.row ?? null) as PinnedQueryFilterEmbedded["row"],
+        active: Enum.toValue(PinnedFilterActive, p.active ?? "Always"),
+        splitValue: p.splitValue ?? false,
+    });
     return e;
 }
 

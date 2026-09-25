@@ -163,10 +163,11 @@ function tokenEquivalenceGroupFromXml(x: Record<string, unknown>, ctx: IFromXmlC
     const interactionGroup = str(x[A + "InteractionGroup"]);
     gr.interactionGroup = interactionGroup == null ? null : toEnum(InteractionGroup, interactionGroup);
     gr.tokenEquivalences = list(x["TokenEquivalence"]).map((te, i) => {
-        const row = new DashboardEntity_TokenEquivalenceGroup_Query();
-        row.rowOrder = i as int;
-        row.query = ctx.getQuery(str(te[A + "Query"])!);
-        row.token = token(str(te[A + "Token"])!);
+        const row = DashboardEntity_TokenEquivalenceGroup_Query.create({
+            rowOrder: i as int,
+            query: ctx.getQuery(str(te[A + "Query"])!),
+            token: token(str(te[A + "Token"])!),
+        });
         return row;
     });
     return gr;
@@ -180,9 +181,7 @@ export function registerBasePartsXml(): void {
         type: TextPartEntity,
         elementName: "TextPart",
         clone: p => {
-            const c = new TextPartEntity();
-            c.textContent = p.textContent;
-            c.textPartType = p.textPartType;
+            const c = TextPartEntity.create({ textContent: p.textContent, textPartType: p.textPartType });
             return c;
         },
         toXml: p => ({
@@ -199,10 +198,11 @@ export function registerBasePartsXml(): void {
         type: ImagePartEntity,
         elementName: "ImagePart",
         clone: p => {
-            const c = new ImagePartEntity();
-            c.imageSrcContent = p.imageSrcContent;
-            c.clickActionURL = p.clickActionURL;
-            c.altText = p.altText;
+            const c = ImagePartEntity.create({
+                imageSrcContent: p.imageSrcContent,
+                clickActionURL: p.clickActionURL,
+                altText: p.altText,
+            });
             return c;
         },
         toXml: p => {
@@ -222,8 +222,7 @@ export function registerBasePartsXml(): void {
         type: SeparatorPartEntity,
         elementName: "SeparatorPart",
         clone: p => {
-            const c = new SeparatorPartEntity();
-            c.title = p.title;
+            const c = SeparatorPartEntity.create({ title: p.title });
             return c;
         },
         toXml: p => p.title == null ? {} : { [A + "Title"]: p.title },
@@ -236,11 +235,12 @@ export function registerBasePartsXml(): void {
         clone: p => {
             const c = new HealthCheckPartEntity();
             c.items = (p.items ?? []).map(i => {
-                const item = new HealthCheckPartEntity_Item();
-                item.title = i.title;
-                item.checkURL = i.checkURL;
-                item.navigateURL = i.navigateURL;
-                item.rowOrder = i.rowOrder;
+                const item = HealthCheckPartEntity_Item.create({
+                    title: i.title,
+                    checkURL: i.checkURL,
+                    navigateURL: i.navigateURL,
+                    rowOrder: i.rowOrder,
+                });
                 return item;
             });
             return c;
@@ -254,11 +254,12 @@ export function registerBasePartsXml(): void {
         }),
         fromXml: (p, x) => {
             p.items = list(x["HealthCheckElement"]).map((i, index) => {
-                const item = new HealthCheckPartEntity_Item();
-                item.rowOrder = index as int;
-                item.title = str(i[A + "Title"]) ?? "";
-                item.checkURL = str(i[A + "CheckURL"]) ?? "";
-                item.navigateURL = str(i[A + "NavigateURL"]) ?? "";
+                const item = HealthCheckPartEntity_Item.create({
+                    rowOrder: index as int,
+                    title: str(i[A + "Title"]) ?? "",
+                    checkURL: str(i[A + "CheckURL"]) ?? "",
+                    navigateURL: str(i[A + "NavigateURL"]) ?? "",
+                });
                 return item;
             });
         },
@@ -285,8 +286,7 @@ export function registerBasePartsXml(): void {
         type: ToolbarMenuPartEntity,
         elementName: "ToolbarPart",
         clone: p => {
-            const c = new ToolbarMenuPartEntity();
-            c.toolbarMenu = p.toolbarMenu;
+            const c = ToolbarMenuPartEntity.create({ toolbarMenu: p.toolbarMenu });
             return c;
         },
         // The field is a LITE (Signum's shape) while `include` takes the entity — so the menu is retrieved
@@ -301,8 +301,7 @@ export function registerBasePartsXml(): void {
 // ---- small helpers (mirrors UserQueriesXml.server.ts) ---------------------------------------------------
 
 function token(tokenString: string): QueryTokenEmbedded {
-    const t = new QueryTokenEmbedded();
-    t.tokenString = tokenString;
+    const t = QueryTokenEmbedded.create({ tokenString });
     return t;
 }
 

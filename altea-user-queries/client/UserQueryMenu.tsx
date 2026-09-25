@@ -154,10 +154,11 @@ export default function UserQueryMenu(p: UserQueryMenuProps): React.JSX.Element 
         const fop = sc.props.findOptions;
         const fo = Finder.toFindOptions(fop, sc.props.queryToken, sc.props.defaultIncudeDefaultFilters);
 
-        const uq = new UserQueryEntity();
-        uq.query = await UserQueriesClient.API.queryEntity(fop.queryKey);
-        uq.displayName = "";
-        uq.groupResults = fop.groupResults;
+        const uq = UserQueryEntity.create({
+            query: await UserQueriesClient.API.queryEntity(fop.queryKey),
+            displayName: "",
+            groupResults: fop.groupResults,
+        });
         // The rows this owner holds are its OWN @part type (the shared editor is generic — see FilterBuilderEmbedded).
         uq.filters = filterOptionsParsedToEmbedded(fop.filterOptions, UserQueryEntity_Filter) as UserQueryEntity_Filter[];
         uq.includeDefaultFilters = fo.includeDefaultFilters ?? null;
@@ -400,33 +401,32 @@ export namespace UserQueryMerger {
 }
 
 function tokenEmbedded(token: { fullKey(): string }): QueryTokenEmbedded {
-    const t = new QueryTokenEmbedded();
-    t.tokenString = token.fullKey();
-    t.token = token as QueryTokenEmbedded["token"];
+    const t = QueryTokenEmbedded.create({ tokenString: token.fullKey(), token: token as QueryTokenEmbedded["token"] });
     return t;
 }
 
 function toColumnEmbedded(c: ColumnOptionParsed): UserQueryEntity_Column {
-    const col = new UserQueryEntity_Column();
-    col.token = tokenEmbedded(c.token!);
-    col.displayName = (c.displayName as string | undefined) ?? null;
-    col.summaryToken = c.summaryToken ? tokenEmbedded(c.summaryToken) : null;
-    col.hiddenColumn = c.hiddenColumn ?? false;
+    const col = UserQueryEntity_Column.create({
+        token: tokenEmbedded(c.token!),
+        displayName: (c.displayName as string | undefined) ?? null,
+        summaryToken: c.summaryToken ? tokenEmbedded(c.summaryToken) : null,
+        hiddenColumn: c.hiddenColumn ?? false,
+    });
     // FindOptions carries member-name strings; the entity enum fields are int-FK ordinals (Enum.toValue).
     col.combineRows = c.combineRows == null ? null : Enum.toValue(CombineRows, c.combineRows);
     return col;
 }
 
 function toOrderEmbedded(o: OrderOptionParsed): UserQueryEntity_Order {
-    const ord = new UserQueryEntity_Order();
-    ord.token = tokenEmbedded(o.token);
-    ord.orderType = Enum.toValue(OrderType, o.orderType);
+    const ord = UserQueryEntity_Order.create({
+        token: tokenEmbedded(o.token),
+        orderType: Enum.toValue(OrderType, o.orderType),
+    });
     return ord;
 }
 
 function toSystemTimeEmbedded(st: SystemTime): SystemTimeEmbedded {
-    const e = new SystemTimeEmbedded();
-    e.mode = Enum.toValue(SystemTimeMode, st.mode);
+    const e = SystemTimeEmbedded.create({ mode: Enum.toValue(SystemTimeMode, st.mode) });
     // Both sides hold the date EXPRESSION string Signum stores (see SystemTimeEmbedded) — no parse.
     e.startDate = st.startDate ?? null;
     e.endDate = st.endDate ?? null;

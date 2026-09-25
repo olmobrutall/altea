@@ -93,8 +93,7 @@ describe.skipIf(!hasDb)("UnsafeUpdateTest", () => {
     // Database.Query<AlbumEntity>().UnsafeUpdate().Set(a => a.BonusTrack, a => song).Execute();
     // Assert.False(Any(a => a.BonusTrack == null)); Assert.Equal("Mana Mana", Select(a => a.BonusTrack.Try(b => b.Name)).Distinct().SingleEx());
     txTest("UpdateEfie", async () => {
-        const song = new SongEmbedded();
-        song.name = "Mana Mana";
+        const song = SongEmbedded.create({ name: "Mana Mana" });
         const count = await table(AlbumEntity).executeUpdate(a => ({ bonusTrack: song }));
         assert.ok(count > 0);
         assert.equal(await table(AlbumEntity).some(a => a.bonusTrack == null), false);
@@ -113,8 +112,7 @@ describe.skipIf(!hasDb)("UnsafeUpdateTest", () => {
     // Database.Query<AlbumEntity>().UnsafeUpdate().Set(a => a.BonusTrack, a => (int)a.Id % 2 == 0 ? song : null).Execute();
     // Assert.True(All(a => (int)a.Id % 2 == 0 ? a.BonusTrack.Try(b => b.Name) == "Mana Mana" : a.BonusTrack.Try(b => b.Name) == null));
     txTest("UpdateEfieConditional", async () => {
-        const song = new SongEmbedded();
-        song.name = "Mana Mana";
+        const song = SongEmbedded.create({ name: "Mana Mana" });
         const count = await table(AlbumEntity)
             .executeUpdate(a => ({ bonusTrack: (a.id as number) % 2 == 0 ? song : null }));
         assert.ok(count > 0);

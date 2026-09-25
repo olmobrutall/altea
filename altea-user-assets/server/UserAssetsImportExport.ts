@@ -202,16 +202,16 @@ export namespace UserAssetsImporter {
 
     export async function preview(content: string): Promise<UserAssetPreviewModel> {
         const parsed = parse(content);
-        const model = new UserAssetPreviewModel();
-        model.lines = [];
+        const model = UserAssetPreviewModel.create({ lines: [] });
 
         for (const { elementName, obj } of parsed) {
             const cfg = registry.get(elementName);
             const guid = String(obj[ATTR + "Guid"] ?? obj["Guid"] ?? "");
-            const line = new UserAssetPreviewLineEmbedded();
-            line.type = elementName;
-            line.guid = guid as UserAssetPreviewLineEmbedded["guid"];
-            line.text = String(obj[ATTR + "DisplayName"] ?? obj[ATTR + "Name"] ?? guid);
+            const line = UserAssetPreviewLineEmbedded.create({
+                type: elementName,
+                guid: guid as UserAssetPreviewLineEmbedded["guid"],
+                text: String(obj[ATTR + "DisplayName"] ?? obj[ATTR + "Name"] ?? guid),
+            });
 
             if (cfg == null) {
                 line.action = EntityAction.New;

@@ -66,9 +66,7 @@ export default function QueryTokenEmbeddedBuilder(p: QueryTokenEmbeddedBuilderPr
         if (newToken == null) {
             p.ctx.value = null;
         } else {
-            const embedded = new QueryTokenEmbedded();
-            embedded.tokenString = newToken.fullKey();
-            embedded.token = newToken;
+            const embedded = QueryTokenEmbedded.create({ tokenString: newToken.fullKey(), token: newToken });
             p.ctx.value = embedded;
         }
         setResolved(undefined);
