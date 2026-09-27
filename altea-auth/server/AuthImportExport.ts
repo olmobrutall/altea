@@ -153,9 +153,13 @@ export namespace AuthImportExport {
             nameToType,
             typeToEntity: ctor => caches.tryTypeToEntity(ctor)!,
             typeConditions: new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [s.key, s])),
-            noteSkipped: (kind, resource) => {
-                const line = `-- Skipped ${kind} ${resource} (not found)`;
-                if (!skipped.includes(line)) skipped.push(line);
+            noteSkipped: (kind, resource, reason) => {
+                const line = `-- Skipped ${kind} ${resource} (${reason ?? "not found"})`;
+                if (skipped.includes(line))
+                    return;
+                skipped.push(line);
+                if (reason != null)
+                    SafeConsole.writeLineColor(Color.yellow, `Ignoring ${kind} rule for ${resource}: ${reason}`);
             },
         };
 
@@ -219,7 +223,7 @@ export namespace AuthImportExport {
         })]));
 
         for (const ri of roleInfos)
-            roles.get(ri.name)!.inheritsFrom = ri.subRoles.map(r => RoleEntity_InheritsFrom.create({ inheritsFrom: getOrThrow(roles, r).toLite() }));
+            roles.get(ri.name)!.inheritsFrom = ri.subRoles.map(r => RoleEntity_InheritsFrom.create({ inheritsFrom: getOrThrow(roles, r).toLite(true) }));
 
         // Signum saves the list as one graph; here each role goes once the roles it contains have ids.
         const pending = [...roleInfos];

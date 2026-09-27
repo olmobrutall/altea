@@ -1,7 +1,7 @@
 import { stringLengthValidator } from './validators';
 import { Entity } from './entity';
 import { setDefaultDatabaseSchema } from './reflection';
-import { entity, legacyForceNullable, quoted, uniqueIndex } from './decorators';
+import { entity, legacyForceNullable, legacyPropertyRoute, quoted, uniqueIndex } from './decorators';
 import { msg } from './utils/localization';
 
 // Port of Signum's TypeEntity (Signum/Basics/Type.cs): the system table that maps
@@ -88,6 +88,12 @@ export class TypeEntity extends Entity {
     @quoted
     toString(): string {
         return this.cleanName;
+    }
+
+    /** Signum's FullClassName — a PROPERTY there, hence its stored route. */
+    @legacyPropertyRoute
+    @quoted fullClassName(): string {
+        return this.namespace + "." + this.className;
     }
 }
 

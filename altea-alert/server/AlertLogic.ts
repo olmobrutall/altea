@@ -2,6 +2,7 @@ import "@altea/altea/server"; // installs save()/toLite()
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
+import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import type { FluentInclude } from "@altea/altea/server/schema/fluentInclude";
 import { table } from "@altea/altea/server/table";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
@@ -91,6 +92,11 @@ export namespace AlertLogic {
         sb.include(AlertEntity)
             .withStateMachine(a => a.state, registerAlertOperations)
             .withQuery();
+
+        // LEGACY MODE: Signum's Title / Text are PROPERTIES of the alert (replaced in its logic, as altea
+        // computes them here), so a Signum database has a route for each and property rules may point at them.
+        if (sb.settings.legacyMode)
+            PropertyRouteLogic.extraSyncRoutes.push(ctor => ctor === AlertEntity ? ["Title", "Text"] : []);
 
         // Signum's `Attended` / `NotAttended` / `Alerted` / `Future` / `CurrentState` are
         // `[AutoExpressionField]` PROPERTIES, so they are ordinary routes there and appear in every token

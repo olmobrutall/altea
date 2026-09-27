@@ -28,7 +28,7 @@ import {
 } from "../data/Rules";
 import { BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { WithConditions, ConditionRule, evaluateConditions, sliceValue, adjustShape } from "./WithConditions";
-import { section, groupByRole, attrs, conditionsXml, parseEnum, sectionRows, syncRulesScript, conditionedRules, conditionSymbols, typeReplacementKey, type AuthImportCtx } from "./AuthRulesXml";
+import { section, groupByRole, attrs, conditionsXml, parseEnum, sectionRows, syncRulesScript, conditionedRules, isLegacyPartRule, conditionSymbols, typeReplacementKey, type AuthImportCtx } from "./AuthRulesXml";
 import type { AuthExportCtx } from "./AuthLogic";
 import { setSerializationAuth, type PropertyAccess } from "@altea/altea/data/serializer/graphSerializers";
 import { Serializer } from "@altea/altea/data/serializer";
@@ -279,7 +279,8 @@ export namespace PropertyAuthLogic {
     }
 
     async function loadRules(): Promise<Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>> {
-        const rows = await table(RulePropertyEntity).toArray() as RulePropertyEntity[];
+        const caches = await TypeLogic.caches();
+        const rows = (await table(RulePropertyEntity).toArray() as RulePropertyEntity[]).filter(r => !isLegacyPartRule(r.resource.rootType.id, caches));
         const symbolById = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s] as const));
         const map = new Map<string, Map<PrimaryKey | string, WithConditions<PropertyAllowed>>>();
         for (const row of rows) {
@@ -644,7 +645,9 @@ export namespace PropertyAuthLogic {
             const ctor = ctx.nameToType.get(ctx.replacements.apply(typeReplacementKey, typeName));
             if (ctor == null)
                 continue;
-            const paths = new Set(authRoutes(ctor).map(r => r.propertyString()));
+            // modelPaths, not authRoutes: a legacy database's rules also name the routes the model cannot
+            // generate (`@legacyPropertyRoute`), and a Signum application still reads them.
+            const paths = PropertyRouteLogic.modelPaths(ctor, false);
             ctx.replacements.askForReplacements(properties, paths, propertiesReplacementKey(ctor));
             routesByType.set(ctor, paths);
         }
@@ -656,13 +659,17 @@ export namespace PropertyAuthLogic {
             rootName: "Properties",
             elementName: "Property",
             resourceName: PropertyRouteEntity.niceName(),
-            stored: await table(RulePropertyEntity).toArray() as RulePropertyEntity[],
+            stored: (await table(RulePropertyEntity).toArray() as RulePropertyEntity[]).filter(r => !isLegacyPartRule(r.resource.rootType.id, caches)),
             storedKey: r => (caches.idToEntity(r.resource.rootType.id)?.cleanName ?? String(r.resource.rootType.id)) + "|" + r.resource.path,
             // A PropertyRouteEntity row is demand-populated: one no rule named yet is SAVED here, as Signum does.
             toResource: async s => {
                 const pp = split(s);
                 const typeName = ctx.replacements.apply(typeReplacementKey, pp.type);
                 const ctor = ctx.nameToType.get(typeName);
+                if (isPartType(ctor as Function | undefined)) {
+                    ctx.noteSkipped("Property", s, "a @part in altea: its owner's rules govern it");
+                    return undefined;
+                }
                 const path = ctor == null ? undefined : ctx.replacements.apply(propertiesReplacementKey(ctor), pp.property);
                 if (ctor == null || path == null || !routesByType.get(ctor)!.has(path)) {
                     ctx.noteSkipped("Property", s);

@@ -1,7 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, ModelEntity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
-import { part, implementedByAll, column, uniqueIndex } from "@altea/altea/data/decorators";
+import { part, implementedByAll, column, uniqueIndex, legacyPropertyRoute, quoted } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, ValidationMessage, notNullValidator } from "@altea/altea/data/validators";
 import { msg } from "@altea/altea/data/utils/localization";
 import { type int } from "@altea/altea/data/basics";
@@ -65,6 +65,12 @@ export abstract class TreeEntity extends Entity {
     @notNullValidator({ disabled: env => env !== "Saving" })
     @stringLengthValidator({ min: 3, max: 1024, disabled: env => env !== "Saving" })
     route: string;
+
+    /** Signum's RouteToString (its Route is a SqlHierarchyId) — a PROPERTY there, hence its stored route. */
+    @legacyPropertyRoute
+    @quoted routeToString(): string {
+        return this.route;
+    }
 
     /**
      * The parent's route, or `"/"` for a root. Signum keeps this too (its `Route` setter writes it), and

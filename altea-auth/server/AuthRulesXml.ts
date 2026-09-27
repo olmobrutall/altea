@@ -7,6 +7,8 @@ import type { TypeEntity } from "@altea/altea/data/typeEntity";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { updateSqlSync, insertSqlSyncGraph, deleteSqlSyncGraph, insertOwnedRowsSqlSync } from "@altea/altea/server/save";
 import { TypeConditionSymbol, type RuleEntity } from "../data/Rules";
+import { isPartType, usingLegacyPropertyPaths } from "@altea/altea/data/propertyRoute";
+import type { TypeCaches } from "@altea/altea/server/typeLogic";
 
 // Shared helpers for the AuthRules XML import/export, used by each dimension's `exportXml` / `importXml`
 // — see port/Auth.md. The per-dimension logics own their section's
@@ -87,6 +89,15 @@ export function conditionsXml(
         }));
 }
 
+/**
+ * LEGACY MODE: a Signum database holds rules for types altea models as `@part`, which are governed by their
+ * owner here. They are left alone — neither loaded into the rules cache nor touched by an import — because
+ * the Signum application sharing the database still reads them.
+ */
+export function isLegacyPartRule(typeId: PrimaryKey, caches: TypeCaches): boolean {
+    return usingLegacyPropertyPaths() && isPartType(caches.tryGetType(typeId));
+}
+
 // ---- Import ------------------------------------------------------------------------------------
 
 // The parsed shapes (XMLParser with attributeNamePrefix "", every element name in `isArray`).
@@ -110,8 +121,9 @@ export interface AuthImportCtx {
     typeToEntity(ctor: Type<Entity>): TypeEntity;
     /** The TypeConditionSymbols, by key. */
     typeConditions: Map<string, TypeConditionSymbol>;
-    /** A file row dropped because its resource no longer resolves — listed as a `-- Skipped` line. */
-    noteSkipped(kind: string, resource: string): void;
+    /** A file row dropped (its resource no longer resolves, or `reason`) — listed as a `-- Skipped` line; a
+     *  `reason` is also warned about in the console. */
+    noteSkipped(kind: string, resource: string, reason?: string): void;
 }
 
 /** The `<Role>` blocks of one section (`root.Element(rootName).Elements("Role")`). */

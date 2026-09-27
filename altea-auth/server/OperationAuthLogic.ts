@@ -1,4 +1,5 @@
 import "@altea/altea/server"; // Entity.save()/delete()
+import { isPartType } from "@altea/altea/data/propertyRoute";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // withQuery
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import { ResetLazy } from "@altea/altea/server/resetLazy";
@@ -19,7 +20,7 @@ import {
     RuleTypeEntity, RulePermissionEntity, TypeAllowedBasic, typeAllowedUI, typeAllowedDB,
 } from "../data/Rules";
 import { TypeAuthLogic } from "./TypeAuthLogic";
-import { section, groupByRole, attrs, conditionsXml, parseEnum, sectionRows, syncRulesScript, conditionedRules, conditionSymbols, typeReplacementKey, type AuthImportCtx } from "./AuthRulesXml";
+import { section, groupByRole, attrs, conditionsXml, parseEnum, sectionRows, syncRulesScript, conditionedRules, isLegacyPartRule, conditionSymbols, typeReplacementKey, type AuthImportCtx } from "./AuthRulesXml";
 import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
 import type { AuthExportCtx } from "./AuthLogic";
 import { WithConditions, ConditionRule, evaluateConditions, sliceValue, adjustShape, maxBound } from "./WithConditions";
@@ -280,7 +281,8 @@ export namespace OperationAuthLogic {
     }
 
     async function loadRules(): Promise<Map<string, Map<PrimaryKey | string, WithConditions<OperationAllowed>>>> {
-        const rows = await table(RuleOperationEntity).toArray() as RuleOperationEntity[];
+        const caches = await TypeLogic.caches();
+        const rows = (await table(RuleOperationEntity).toArray() as RuleOperationEntity[]).filter(r => !isLegacyPartRule(r.type.id, caches));
         const symbolById = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s]));
         const map = new Map<string, Map<PrimaryKey | string, WithConditions<OperationAllowed>>>();
         for (const row of rows) {
@@ -465,12 +467,16 @@ export namespace OperationAuthLogic {
             rootName: "Operations",
             elementName: "Operation",
             resourceName: "Operation Type",
-            stored: await table(RuleOperationEntity).toArray() as RuleOperationEntity[],
+            stored: (await table(RuleOperationEntity).toArray() as RuleOperationEntity[]).filter(r => !isLegacyPartRule(r.type.id, caches)),
             storedKey: r => (opKey.get(String(r.operation.id)) ?? String(r.operation.id)) + "/" + (caches.idToEntity(r.type.id)?.cleanName ?? String(r.type.id)),
             toResource: s => {
                 const operation = symbols.get(ctx.replacements.apply(operationReplacementKey, s.slice(0, s.indexOf("/"))));
                 const typeName = ctx.replacements.apply(typeReplacementKey, s.slice(s.indexOf("/") + 1));
                 const type = ctx.nameToType.get(typeName);
+                if (isPartType(type as Function | undefined)) {
+                    ctx.noteSkipped("Operation", s, "a @part in altea: its owner's rules govern it");
+                    return undefined;
+                }
                 if (operation == null || type == null || !OperationLogic.operationsForType(type).some(o => o.key === operation.key)) {
                     ctx.noteSkipped("Operation", s);
                     return undefined;

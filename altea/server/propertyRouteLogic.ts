@@ -177,7 +177,10 @@ export namespace PropertyRouteLogic {
         // the question to a different type than the row actually stores.
         const ctor = resolveCtor(rootType);
         PropertyRoute.root(ctor).assertNotPartRoot("A stored property route");
-        PropertyRoute.parse(ctor, path);
+        // A path an `extraSyncRoutes` handler declares (a `@legacyPropertyRoute`) is a stored row the model
+        // cannot parse.
+        if (!extraSyncRoutes.some(handler => [...handler(ctor)].includes(path)))
+            PropertyRoute.parse(ctor, path);
         return PropertyRouteEntity.create({ rootType, path });
     }
 

@@ -1,6 +1,7 @@
 import "@altea/altea/server"; // Entity.save()/delete()
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // withQuery
 import { SchemaBuilder } from "@altea/altea/server/schema";
+import { isPartType } from "@altea/altea/data/propertyRoute";
 import { ResetLazy } from "@altea/altea/server/resetLazy";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
@@ -37,7 +38,7 @@ import { mergeTypeConditions } from "./TypeConditionMerger";
 import { buildAuthFilter, authFilterLambda, rebasePartFilter, conditionValueLambda } from "./TypeConditionAlgebra";
 import { FilterQueryArgs, findQuerySources, querySourceCtor } from "@altea/altea/server/schema/filterQueryArgs";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
-import { section, groupByRole, attrs, conditionsXml, parseEnum, sectionRows, syncRulesScript, conditionedRules, conditionSymbols, typeReplacementKey, typeConditionReplacementKey, type AuthImportCtx } from "./AuthRulesXml";
+import { section, groupByRole, attrs, conditionsXml, parseEnum, sectionRows, syncRulesScript, conditionedRules, isLegacyPartRule, conditionSymbols, typeReplacementKey, typeConditionReplacementKey, type AuthImportCtx } from "./AuthRulesXml";
 import { SafeConsole } from "@altea/altea/server/safeConsole";
 import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
 import type { AuthExportCtx } from "./AuthLogic";
@@ -439,7 +440,8 @@ export namespace TypeAuthLogic {
 
     // Build the raw per-role rules from the DB (the GlobalLazy factory — caching/invalidation is the lazy's job).
     async function loadRules(): Promise<Map<string, Map<PrimaryKey, WithConditions<TypeAllowed>>>> {
-        const rows = await table(RuleTypeEntity).toArray() as RuleTypeEntity[];
+        const caches = await TypeLogic.caches();
+        const rows = (await table(RuleTypeEntity).toArray() as RuleTypeEntity[]).filter(r => !isLegacyPartRule(r.resource.id, caches));
         // id -> the shared (interned) TypeConditionSymbol, to resolve each condition row's Lite reference.
         const symbolById = new Map((await SymbolLogic.cache(TypeConditionSymbol)).symbols().map(s => [String(s.id), s]));
         const map = new Map<string, Map<PrimaryKey, WithConditions<TypeAllowed>>>();
@@ -749,12 +751,16 @@ export namespace TypeAuthLogic {
             rootName: "Types",
             elementName: "Type",
             resourceName: TypeEntity.niceName(),
-            stored: await table(RuleTypeEntity).toArray() as RuleTypeEntity[],
+            stored: (await table(RuleTypeEntity).toArray() as RuleTypeEntity[]).filter(r => !isLegacyPartRule(r.resource.id, caches)),
             storedKey: r => caches.idToEntity(r.resource.id)?.cleanName ?? String(r.resource.id),
             toResource: s => {
                 const name = ctx.replacements.apply(typeReplacementKey, s);
                 if (!ctx.nameToType.has(name)) {
                     ctx.noteSkipped("Type", s);
+                    return undefined;
+                }
+                if (isPartType(ctx.nameToType.get(name) as Function | undefined)) {
+                    ctx.noteSkipped("Type", s, "a @part in altea: its owner's rules govern it");
                     return undefined;
                 }
                 return name;

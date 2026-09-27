@@ -9,8 +9,10 @@ import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { TypeAuthLogic } from "@altea/altea-auth/server/TypeAuthLogic";
 import { AuthImportExport, InvalidRoleGraphException } from "@altea/altea-auth/server/AuthImportExport";
-import { RuleTypeEntity, TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
-import { SampleEntity } from "../data/sample";
+import { RuleTypeEntity, TypeAllowed, TypeAllowedBasic } from "@altea/altea-auth/data/Rules";
+import { TypeEntity } from "@altea/altea/data/typeEntity";
+import { setLegacyPropertyPaths } from "@altea/altea/data/propertyRoute";
+import { SampleEntity, SamplePanelEntity } from "../data/sample";
 import { start, hasDb, asRole, role, Roles, resetAuthCaches } from "./setup";
 
 // Import / Export of AuthRules, against the seeded
@@ -145,6 +147,42 @@ describe.skipIf(hasDb ? false : "set ALTEA_AUTH_TEST_DB (and run gen) to enable"
             await deleteSalesSampleTypeRule();
             const script = await AuthImportExport.importRulesScript(withGhost, false, noRename);
             assert.match(script!.plainSql(), /-- Skipped Type Ghost \(not found\)/);
+        });
+    });
+
+    // A Signum file carries rules for types altea models as @part — governed by their owner here — so they
+    // are read and dropped with a warning, conditions and all, instead of asking about each condition.
+    test("a rule for a @part type is skipped with a warning", async () => {
+        const salesTypes = roleBlock(xml, "Types", "AuthTest_Sales")!;
+        const withPart = xml.replace(salesTypes, salesTypes.replace("</Role>",
+            "<Type Resource=\"SamplePanel\" Allowed=\"None\"><Condition Name=\"NoSuchCondition\" Allowed=\"Read\"/></Type></Role>"));
+        await Transaction.noCommit(async () => {
+            await deleteSalesSampleTypeRule();
+            const script = await AuthImportExport.importRulesScript(withPart, false, noRename);
+            assert.match(script!.plainSql(), /-- Skipped Type SamplePanel \(a @part in altea: its owner's rules govern it\)/);
+        });
+    });
+
+    // LEGACY MODE: a stored rule for a @part type is the Signum application's, so the import leaves it alone;
+    // in normal mode it is stale and removed like any rule the file does not list.
+    test("a stored rule for a @part type survives the import only in legacy mode", async () => {
+        const panelId = (await TypeLogic.caches()).typeToId(SamplePanelEntity);
+        const importDeletes = async (): Promise<boolean> =>
+            /-- Type SamplePanel for AuthTest_Sales/.test((await AuthImportExport.importRulesScript(xml, false, noRename))?.plainSql() ?? "");
+        await Transaction.noCommit(async () => {
+            await RuleTypeEntity.create({
+                role: sales.toLite(),
+                resource: TypeEntity.newLite(panelId, "SamplePanel"),
+                fallback: TypeAllowed.Read,
+                conditionRules: [],
+            }).save();
+            assert.equal(await importDeletes(), true, "normal mode: deleted");
+            setLegacyPropertyPaths(true);
+            try {
+                assert.equal(await importDeletes(), false, "legacy mode: left alone");
+            } finally {
+                setLegacyPropertyPaths(false);
+            }
         });
     });
 
