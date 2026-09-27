@@ -2,6 +2,7 @@ import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import { table } from "@altea/altea/server/table";
 import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
+import { isGraphModified } from "@altea/altea/data/changes";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
@@ -18,7 +19,8 @@ import {
 // produced / parsed with fast-xml-parser, attributes prefixed "@_" for the builder and read back as bare
 // keys by the parser.
 //
-// The preview is New / Different / Identical (TODO: the lite-conflict / custom-resolution machinery).
+// The preview is New / Different / Identical, decided like Signum's PreviewContext by applying the XML to
+// the loaded asset and asking isGraphModified (TODO: the lite-conflict / custom-resolution machinery).
 // Referenced queries and types are resolved by KEY at import rather than included; dependent USER ASSETS
 // (a chart's CustomDrilldowns) ARE included recursively through ctx.include.
 
@@ -200,30 +202,51 @@ export namespace UserAssetsImporter {
 
     // ---- Preview -------------------------------------------------------------------------------------
 
+    /**
+     * Signum's PreviewContext: every asset is loaded (or created), the XML is applied to it IN MEMORY, and
+     * the action is derived from the result — New when there was no row, Different when anything in its
+     * graph is now modified against the snapshot taken at load, Identical otherwise. Nothing is saved.
+     * Only Different lines default to override; an Identical one is left alone by the import.
+     */
     export async function preview(content: string): Promise<UserAssetPreviewModel> {
-        const parsed = parse(content);
+        const parsedByGuid = parseByGuid(content);
         const model = UserAssetPreviewModel.create({ lines: [] });
 
-        for (const { elementName, obj } of parsed) {
-            const cfg = registry.get(elementName);
-            const guid = String(obj[ATTR + "Guid"] ?? obj["Guid"] ?? "");
-            const line = UserAssetPreviewLineEmbedded.create({
-                type: elementName,
-                guid: guid as UserAssetPreviewLineEmbedded["guid"],
-                text: String(obj[ATTR + "DisplayName"] ?? obj[ATTR + "Name"] ?? guid),
-            });
-
-            if (cfg == null) {
-                line.action = EntityAction.New;
-                line.overrideEntity = false;
-                model.lines.push(line);
+        const materialized = new Map<string, IUserAssetEntity>();
+        const isNew = new Set<string>();
+        for (const [guid, p] of parsedByGuid) {
+            const cfg = registry.get(p.elementName);
+            if (cfg == null)
                 continue;
-            }
-
             const existing = await cfg.load(guid);
-            line.action = existing == null ? EntityAction.New : EntityAction.Different;
-            line.overrideEntity = existing != null; // default: override existing (admin can untick)
-            model.lines.push(line);
+            const entity = existing ?? cfg.create();
+            if (existing == null) {
+                entity.id = guid;
+                isNew.add(guid);
+            }
+            materialized.set(guid, entity);
+        }
+
+        const ctx = await fromXmlContext(true, materialized);
+        for (const [guid, p] of parsedByGuid) {
+            const entity = materialized.get(guid);
+            if (entity != null)
+                await registry.get(p.elementName)!.fromXml(entity, p.obj, ctx);
+        }
+
+        for (const [guid, p] of parsedByGuid) {
+            const entity = materialized.get(guid);
+            const action = entity == null || isNew.has(guid) ? EntityAction.New :
+                isGraphModified(entity) ? EntityAction.Different :
+                EntityAction.Identical;
+
+            model.lines.push(UserAssetPreviewLineEmbedded.create({
+                type: p.elementName,
+                guid: guid as UserAssetPreviewLineEmbedded["guid"],
+                text: String(p.obj[ATTR + "DisplayName"] ?? p.obj[ATTR + "Name"] ?? guid),
+                action,
+                overrideEntity: action === EntityAction.Different,
+            }));
         }
 
         return model;
@@ -232,19 +255,50 @@ export namespace UserAssetsImporter {
     // ---- Import --------------------------------------------------------------------------------------
 
     export async function importAssets(content: string, model: UserAssetPreviewModel): Promise<void> {
-        const parsed = parse(content);
+        const parsedByGuid = parseByGuid(content);
+        // Signum's ImporterContext: an existing asset is rewritten only when its preview line is Different
+        // AND ticked — an Identical one (or one missing from the model) is kept as it is.
         const overrideByGuid = new Map<string, boolean>();
         for (const l of model.lines)
-            overrideByGuid.set(String(l.guid), l.overrideEntity);
+            if (l.action === EntityAction.Different)
+                overrideByGuid.set(String(l.guid), l.overrideEntity);
 
         // Materialize every asset first (so cross-references by guid resolve), then save.
         const materialized = new Map<string, IUserAssetEntity>();
-        const parsedByGuid = new Map<string, { elementName: string; obj: Record<string, unknown> }>();
-        for (const p of parsed)
-            parsedByGuid.set(String(p.obj[ATTR + "Guid"] ?? p.obj["Guid"] ?? ""), p);
+        const toWrite = new Set<string>();
+        for (const [guid, p] of parsedByGuid) {
+            const cfg = registry.get(p.elementName);
+            if (cfg == null)
+                continue;
+            const existing = await cfg.load(guid);
+            if (existing != null && overrideByGuid.get(guid) !== true) {
+                materialized.set(guid, existing); // keep the DB one for cross-refs, don't overwrite
+                continue;
+            }
+            const entity = existing ?? cfg.create();
+            // Set the uuid PK to the incoming identity so a re-import overwrites the same row across DBs
+            // (the asset's identity IS its uuid primary key).
+            entity.id = guid;
+            materialized.set(guid, entity);
+            toWrite.add(guid);
+        }
 
-        const ctx: IFromXmlContext = {
-            isPreview: false,
+        const ctx = await fromXmlContext(false, materialized);
+
+        // Second pass: fill (now that all instances exist for cross-refs) and save.
+        for (const [guid, p] of parsedByGuid) {
+            if (!toWrite.has(guid))
+                continue;
+            const cfg = registry.get(p.elementName)!;
+            const entity = materialized.get(guid)!;
+            await cfg.fromXml(entity, p.obj, ctx);
+            await cfg.save(entity);
+        }
+    }
+
+    async function fromXmlContext(isPreview: boolean, materialized: Map<string, IUserAssetEntity>): Promise<IFromXmlContext> {
+        return {
+            isPreview,
             typeCaches: await TypeLogic.caches(),
             symbols: await SymbolLogic.allCaches(),
             getQuery: queryKey => getQueryByKey(queryKey),
@@ -258,41 +312,19 @@ export namespace UserAssetsImporter {
             },
             parseLite: liteKey => parseLiteKey(liteKey),
         };
-
-        for (const [guid, p] of parsedByGuid) {
-            const cfg = registry.get(p.elementName);
-            if (cfg == null)
-                continue;
-            const existing = await cfg.load(guid);
-            if (existing != null && overrideByGuid.get(guid) === false) {
-                materialized.set(guid, existing); // keep the DB one for cross-refs, don't overwrite
-                continue;
-            }
-            const entity = existing ?? cfg.create();
-            // Set the uuid PK to the incoming identity so a re-import overwrites the same row across DBs
-            // (the asset's identity IS its uuid primary key).
-            entity.id = guid;
-            materialized.set(guid, entity);
-        }
-
-        // Second pass: fill (now that all instances exist for cross-refs) and save.
-        for (const [guid, p] of parsedByGuid) {
-            const cfg = registry.get(p.elementName);
-            if (cfg == null)
-                continue;
-            if (overrideByGuid.get(guid) === false && (await cfg.load(guid)) != null)
-                continue;
-            const entity = materialized.get(guid)!;
-            await cfg.fromXml(entity, p.obj, ctx);
-            await cfg.save(entity);
-        }
     }
 }
 
 // ---- helpers -------------------------------------------------------------------------------------------
 
 function parse(content: string): { elementName: string; obj: Record<string, unknown> }[] {
-    const parser = new XMLParser({ attributeNamePrefix: ATTR, ignoreAttributes: false, isArray: () => true });
+    // Every ELEMENT is an array (a single child reads like many), but an ATTRIBUTE stays a scalar: wrapped
+    // as `["true"]` it passes String()/Number() but fails every `v === "true"` check, and each boolean
+    // attribute silently imported as false.
+    const parser = new XMLParser({
+        attributeNamePrefix: ATTR, ignoreAttributes: false,
+        isArray: (_name, _jpath, _isLeafNode, isAttribute) => !isAttribute,
+    });
     const root = parser.parse(content) as Record<string, unknown>;
     const entities = ((root["Entities"] as unknown[])?.[0] ?? {}) as Record<string, unknown>;
     const result: { elementName: string; obj: Record<string, unknown> }[] = [];
@@ -303,6 +335,13 @@ function parse(content: string): { elementName: string; obj: Record<string, unkn
             result.push({ elementName, obj });
     }
     return result;
+}
+
+function parseByGuid(content: string): Map<string, { elementName: string; obj: Record<string, unknown> }> {
+    const parsedByGuid = new Map<string, { elementName: string; obj: Record<string, unknown> }>();
+    for (const p of parse(content))
+        parsedByGuid.set(String(p.obj[ATTR + "Guid"] ?? p.obj["Guid"] ?? ""), p);
+    return parsedByGuid;
 }
 
 function getQueryByKey(queryKey: string): QueryEntity {

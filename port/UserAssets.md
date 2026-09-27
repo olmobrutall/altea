@@ -24,7 +24,10 @@ fast-xml-parser (the library altea-auth's AuthRules XML already uses), attribute
 builder and read back as bare keys.
 
 Not ported: the advanced lite-conflict / custom-resolution machinery (`LiteConflicts`,
-`CustomResolution`) — the preview is New / Different / Identical. Referenced queries and types are resolved
+`CustomResolution`) — the preview is New / Different / Identical. As in Signum's `PreviewContext`, the
+preview applies `fromXml` to the loaded asset in memory and asks `isGraphModified` (Signum's
+`GraphExplorer ... Modified != Clean`): only Different lines default to override, and the import rewrites an
+existing asset only when its line is Different and ticked. Referenced queries and types are resolved
 by KEY at import rather than included; dependent user assets (a chart's CustomDrilldowns) ARE included
 recursively through `ctx.include`.
 

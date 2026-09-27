@@ -140,7 +140,8 @@ function fromXml(uq: UserQueryEntity, xml: Record<string, unknown>, ctx: IFromXm
 
     uq.filters = syncRows(uq.filters ?? [], arr(xml["Filters"], "Filter"), () => new UserQueryEntity_Filter(), fillFilter);
     uq.columns = syncRows(uq.columns ?? [], arr(xml["Columns"], "Column"), () => new UserQueryEntity_Column(), fillColumn);
-    uq.orders = arr(xml["Orders"], "Orden").map(orderFromXml);
+    // No Guid per order (an int-PK row): syncRows matches by position, as Signum's Orders.Synchronize does.
+    uq.orders = syncRows(uq.orders ?? [], arr(xml["Orders"], "Orden"), () => new UserQueryEntity_Order(), fillOrder);
     uq.customDrilldowns = arr(xml["CustomDrilldowns"], "CustomDrilldown").map(d => {
         const row = new UserQueryEntity_CustomDrilldown();
         const guid = str((d as Record<string, unknown>)["#text"] ?? d);
@@ -192,12 +193,9 @@ function fillColumn(c: UserQueryEntity_Column, x: Record<string, unknown>): void
     c.combineRows = combineRows == null ? null : toEnum(CombineRows, combineRows);
 }
 
-function orderFromXml(x: Record<string, unknown>): UserQueryEntity_Order {
-    const o = UserQueryEntity_Order.create({
-        token: token(str(x[A + "Token"])!),
-        orderType: toEnum(OrderType, str(x[A + "OrderType"]) ?? "Ascending"),
-    });
-    return o;
+function fillOrder(o: UserQueryEntity_Order, x: Record<string, unknown>): void {
+    o.token = token(str(x[A + "Token"])!);
+    o.orderType = toEnum(OrderType, str(x[A + "OrderType"]) ?? "Ascending");
 }
 
 function systemTimeFromXml(x: Record<string, unknown>): SystemTimeEmbedded {
