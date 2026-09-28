@@ -333,6 +333,7 @@ export function baseTypeOfFieldInfo(fi: FieldInfo): RuntimeType {
         // reflection — the transformer keeps "Decimal" a value typeName with no `type: () => Decimal`
         // thunk (VALUE_TYPE_NAMES) — so it resolves here by name, not via getFunction().
         case "Decimal": return LiteralType.decimal;
+        case "BigInt": return LiteralType.bigint;
         case "String": return LiteralType.string;
         case "Boolean": return LiteralType.boolean;
         case "PlainDateTime": return new TemporalType("dateTime");
@@ -972,6 +973,8 @@ export class ConstantExpression extends Expression {
             return LiteralType.null;
         if (typeof value === "number")
             return LiteralType.number;
+        if (typeof value === "bigint")
+            return LiteralType.bigint;
         if (typeof value === "string")
             return LiteralType.string;
         if (typeof value === "boolean")

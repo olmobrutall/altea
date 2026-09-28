@@ -957,6 +957,8 @@ function transformerFactory(program, pluginConfig, { ts, addDiagnostic }) {
             return "Number";
         if (node.kind == ts.SyntaxKind.StringKeyword)
             return "String";
+        if (node.kind == ts.SyntaxKind.BigIntKeyword)
+            return "BigInt";
         if (ts.isTypeReferenceNode(node)) {
             const n = cleanTypeName(node.typeName) ?? null;
             // A binary field (Signum's byte[]) is a `Uint8Array` (isomorphic; a Node `Buffer` is one) → the

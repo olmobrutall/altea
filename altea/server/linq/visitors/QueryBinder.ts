@@ -808,7 +808,7 @@ export class QueryBinder extends ExpressionVisitor {
         // Signum auto-fills the optimistic-concurrency column with 0 on INSERT when
         // the projection didn't set it.
         if (table.ticks != null && !assignments.some(a => a.column === table.ticks!.column.name))
-            assignments.push(new ColumnAssignment(table.ticks.column.name, new SqlConstantExpression(0, LiteralType.number)));
+            assignments.push(new ColumnAssignment(table.ticks.column.name, new SqlConstantExpression(0n, LiteralType.bigint)));
 
         return new CommandAggregateExpression([new InsertSelectExpression(table, pr.select, assignments, true)]);
     }
@@ -3873,6 +3873,7 @@ export class QueryBinder extends ExpressionVisitor {
             // `LiteralType.decimal` branch (which exists for exactly this and says so).
             // `baseTypeOfFieldInfo` — the sibling mapping altea-cache reads — has always had this case.
             case "Decimal": return LiteralType.decimal;
+            case "BigInt": return LiteralType.bigint;
             case "Boolean": return LiteralType.boolean;
             case "PlainDateTime": return new TemporalType("dateTime");
             case "PlainDate": return new TemporalType("date");

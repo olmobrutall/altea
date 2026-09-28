@@ -158,7 +158,7 @@ function ctorIsEmbedded(ctor: Function): ctor is Type<EmbeddedEntity> {
 // The two-level field walk (own + inherited + mixin) now lives in data/reflection as `eachFieldInfo`,
 // where every reader of a mixin's fields shares it — this file had the only copy.
 import {
-    ValueSerializer, TemporalSerializer, DecimalSerializer, DateSerializer, BlobSerializer, EnumSerializer, ArraySerializer,
+    ValueSerializer, TemporalSerializer, DecimalSerializer, BigIntSerializer, DateSerializer, BlobSerializer, EnumSerializer, ArraySerializer,
 } from './leafSerializers';
 
 // Resolve a wire discriminator (`$lite` / `$type`) back to its constructor. Reverse of `cleanTypeName`,
@@ -400,7 +400,8 @@ class EntitySerializer extends ModifiableSerializer {
             const o: Record<string, unknown> = {};
             if (writeType) o.$type = cleanTypeName(entity.getType());
             o.id = entity.id ?? null;
-            if (entity.ticks != null) o.ticks = entity.ticks;
+            // A string: JSON has no bigint, and a JSON number would round it (see Entity.ticks).
+            if (entity.ticks != null) o.ticks = entity.ticks.toString();
             o.toStr = entity.toString();
             if (isModifiedSelf(entity)) o.modified = true;
             // A (re-rooted) entity computes its OWN property-auth metadata (per Signum's IRootEntity step).
@@ -484,7 +485,7 @@ class EntitySerializer extends ModifiableSerializer {
         const inst = newInstance(this.ctor as Type<Entity>);
         inst.id = id;
         inst.isNew = false;
-        if (j.ticks != null) inst.ticks = j.ticks as number;
+        if (j.ticks != null) inst.ticks = BigInt(j.ticks as string | number);
         dc.idMap.set(key, inst);
         this.applyFields(inst, j, dc);
         this.recover(inst, slot);
@@ -563,6 +564,7 @@ class DynamicSerializer implements JsonSerializer {
         if (value instanceof EmbeddedEntity || value instanceof ModelEntity) return factory.forEmbedded(value.getType()).toJson(value, sc, true);
         if (isTemporal(value)) return (value as { toString(): string }).toString();
         if (value instanceof Decimal) return value.toString();
+        if (typeof value === 'bigint') return value.toString();
         if (value instanceof Date) return value.toISOString();
         if (Array.isArray(value)) return value.map(v => this.toJson(v, sc));
         if (typeof value === 'object') {
@@ -678,6 +680,7 @@ class SerializerFactory {
 
         if (fi.typeName != null && TEMPORAL_TYPE_NAMES.has(fi.typeName)) return new TemporalSerializer(fi.typeName);
         if (fi.typeName === 'Decimal') return DecimalSerializer;
+        if (fi.typeName === 'BigInt') return BigIntSerializer;
         if (fi.typeName === 'Date') return DateSerializer;
         if (fi.typeName === 'Blob') return BlobSerializer;   // Uint8Array ⇄ base64
         if (fi.typeName != null) return ValueSerializer;   // Number / String / Boolean

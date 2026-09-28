@@ -29,10 +29,13 @@ export class LiteralType extends RuntimeType {
     // read back into a `Decimal` object. Still a scalar, so ordering/comparison/aggregates treat it like
     // a number.
     static readonly decimal: LiteralType = new LiteralType("decimal");
+    // A JS `bigint` (Signum's `long` where it must be EXACT past 2^53 — the ticks column). Distinct from
+    // `number` so a read materialises as a bigint and a bound value is typed `bigint` in SQL.
+    static readonly bigint: LiteralType = new LiteralType("bigint");
     static readonly string: LiteralType = new LiteralType("string");
     static readonly null: LiteralType = new LiteralType("null");
 
-    constructor(public readonly typeName: "boolean" | "number" | "decimal" | "string" | "null") {
+    constructor(public readonly typeName: "boolean" | "number" | "decimal" | "bigint" | "string" | "null") {
         super()
     }
 }

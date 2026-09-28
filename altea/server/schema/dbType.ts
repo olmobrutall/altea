@@ -113,6 +113,7 @@ export function defaultDbType(typeName: string, kind: string | undefined): Abstr
         // Temporal.PlainDateTime / PlainDate / Instant instead. The SchemaBuilder
         // raises a clear error if a Date-typed field is included.
         case 'Decimal': return new AbstractDbType('decimal', 'numeric');
+        case 'BigInt': return new AbstractDbType('bigint', 'int8');
         // Temporal.* — keyed by the rightmost name the transformer emits.
         case 'PlainDate': return new AbstractDbType('date', 'date');
         case 'PlainTime': return new AbstractDbType('time', 'time');

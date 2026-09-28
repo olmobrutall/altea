@@ -8,11 +8,11 @@
 // Public API: the `Serializer` namespace — `Serializer.stringify(obj)` / `Serializer.parse(json)`.
 //
 // Wire shapes (clean type names as the `$type`/`$lite` discriminators):
-//   entity    { "$type": "Album", "id": 1, "ticks": 3, "toStr": "…", "modified": true, …fields }
+//   entity    { "$type": "Album", "id": 1, "ticks": "639259539010097581", "toStr": "…", "modified": true, …fields }
 //   embedded  { "$type": "SongEmbedded", …fields }                       (no id/ticks/toStr)
 //   lite      { "$lite": "Artist", "id": 7, "toStr": "…", …custom fields, "entity"?: {…} }
 //   collection  plain array of part-entity objects (@backReference/@rowOrder recovered on read)
-//   enum        member-name string;  Temporal.*/Decimal  string;  number/string/bool  as-is
+//   enum        member-name string;  Temporal.*/Decimal/bigint (ticks included)  string;  number/string/bool  as-is
 //
 // writeTypes: "Always" writes every discriminator; "Auto" writes them only for roots and
 // @implementedBy(All) references (everything else is inferred from the field's serializer).

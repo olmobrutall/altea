@@ -336,7 +336,9 @@ export class QueryFormatter extends DbExpressionVisitor {
         // constant across values, so the plan still caches. SQL Server infers parameter types
         // from context, so it needs none. Integers use the narrowest type that fits (so an
         // int4 column's index stays usable); non-integers use float.
-        if (this.isPostgres && typeof e.value === "number") {
+        if (this.isPostgres && typeof e.value === "bigint") {
+            this.append(`CAST(${placeholder} AS bigint)`);
+        } else if (this.isPostgres && typeof e.value === "number") {
             const castType = !Number.isInteger(e.value) ? "float"
                 : (e.value >= -2147483648 && e.value <= 2147483647) ? "integer" : "bigint";
             this.append(`CAST(${placeholder} AS ${castType})`);

@@ -175,7 +175,7 @@ function getQuoteConverter(tsInstance, typeChecker) {
                 whenFalse
             ]);
         }
-        if (ts.isStringLiteral(node) || ts.isNumericLiteral(node) ||
+        if (ts.isStringLiteral(node) || ts.isNumericLiteral(node) || ts.isBigIntLiteral(node) ||
             node.kind == ts.SyntaxKind.TrueKeyword ||
             node.kind == ts.SyntaxKind.FalseKeyword ||
             node.kind == ts.SyntaxKind.NullKeyword ||

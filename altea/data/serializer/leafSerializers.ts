@@ -23,6 +23,13 @@ export const DecimalSerializer: JsonSerializer = {
     fromJson: j => new Decimal(j as Decimal.Value),
 };
 
+// A `bigint` field travels as its decimal STRING: JSON has no bigint (JSON.stringify throws on one) and a
+// JSON number would round it past 2^53.
+export const BigIntSerializer: JsonSerializer = {
+    toJson: v => v == null ? null : (v as bigint).toString(),
+    fromJson: j => j == null ? j : BigInt(j as string | number),
+};
+
 export const DateSerializer: JsonSerializer = {
     toJson: v => (v as Date).toISOString(),
     fromJson: j => new Date(j as string),

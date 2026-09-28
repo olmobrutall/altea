@@ -86,7 +86,7 @@ export interface FieldOptions {
 // switch on, while enum names and name-only @implementedBy interface names — which also land in
 // `typeName` — stay assignable. The int-vs-double precision lives in `subTypeName`.
 export type TypeName =
-    | "String" | "Number" | "Boolean" | "Decimal" | "Guid" | "Blob"
+    | "String" | "Number" | "Boolean" | "Decimal" | "BigInt" | "Guid" | "Blob"
     | "PlainDate" | "PlainDateTime" | "PlainTime" | "Duration" | "Instant" | "ZonedDateTime"
     | (string & {});
 
@@ -134,6 +134,7 @@ function valueTypeConstructor(typeName: string | undefined): Function | undefine
         case "Number": return Number;
         case "Boolean": return Boolean;
         case "Decimal": return Decimal;
+        case "BigInt": return BigInt;
         case "PlainDate": return Temporal.PlainDate;
         case "PlainDateTime": return Temporal.PlainDateTime;
         case "PlainTime": return Temporal.PlainTime;

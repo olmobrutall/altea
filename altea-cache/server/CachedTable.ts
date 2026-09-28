@@ -8,7 +8,7 @@ import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { baseTypeOfFieldInfo } from "@altea/altea/server/linq/expressions";
 import { sqlEscape } from "@altea/altea/server/linq/sqlEscape";
-import { denormalizeDecimal, denormalizeTemporal, denormalizeVector } from "@altea/altea/server/normalizeScalar";
+import { denormalizeBigInt, denormalizeDecimal, denormalizeTemporal, denormalizeVector } from "@altea/altea/server/normalizeScalar";
 import { LiteralType, TemporalType, VectorType } from "@altea/altea/server/runtimeTypes";
 import type { IColumn } from "@altea/altea/server/schema/column";
 import type { EntityField } from "@altea/altea/server/schema/field";
@@ -102,6 +102,8 @@ function converterFor(fi: FieldInfo | undefined): (value: unknown) => unknown {
         return v => denormalizeVector(v);
     if (rt === LiteralType.decimal)
         return v => denormalizeDecimal(v);
+    if (rt === LiteralType.bigint)
+        return v => denormalizeBigInt(v);
     if (rt === LiteralType.boolean)
         return v => v == null ? null : !!v;
     return v => v;

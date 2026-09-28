@@ -69,6 +69,17 @@ export function denormalizeDecimal(value: unknown): Decimal | null {
     return new Decimal(value as Decimal.Value);
 }
 
+// Materialise a bigint column read into an exact `bigint`. The Postgres pool parses int8 to a number only
+// while it is a safe integer (else to a bigint), SQL Server hands bigint back as a string; `BigInt(...)` is
+// exact for all three. Idempotent for an already-bigint value.
+export function denormalizeBigInt(value: unknown): bigint | null {
+    if (value == null)
+        return null;
+    if (typeof value === "bigint")
+        return value;
+    return BigInt(value as number | string);
+}
+
 // Materialise a `vector(N)` column read into a Vector. Both pgvector and SQL Server's VECTOR return
 // the `[1,2,3]` text literal (Postgres keeps it as text; SQL Server via the driver), which
 // Vector.parse turns back into a Vector. Idempotent for an already-Vector value.

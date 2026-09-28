@@ -71,6 +71,7 @@ export function tryGetFilterType(type: TypeReference): FilterTypeKeys | undefine
         case "Guid": return "Guid";
         case "Decimal": return "Decimal";
         case "Number": return type.subTypeName === "decimal" ? "Decimal" : "Integer";
+        case "BigInt": return "Integer";
         case "PlainDate":
         case "PlainDateTime": return "DateTime";
         case "Duration":

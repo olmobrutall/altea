@@ -7,7 +7,7 @@ import { Clock, TimeZoneMode } from '../../data/utils/clock';
 
 // Postgres returns int8 (bigint — the type of COUNT(*), SUM(int), and Ticks) as a
 // string to avoid precision loss past 2^53. altea treats these as JS numbers, so a
-// per-pool parser coerces OID 20 (int8) → Number; everything else keeps pg's default
+// per-pool parser coerces OID 20 (int8) → Number (a bigint past 2^53, see parseInt8); everything else keeps pg's default
 // parser. Notably numeric/OID 1700 STAYS a string: a `Decimal` (decimal.js) field is
 // materialised from that exact string (see denormalizeDecimal), so no precision is lost.
 // int4 ids are unaffected (already numbers).
@@ -19,10 +19,20 @@ const PG_TEMPORAL_OIDS = new Set([1082, 1083, 1114, 1184, 1186]);
 
 const identityParser = (value: string | null) => value;
 
+// int8 → a number while it is a safe integer (COUNT(*), SUM(int), an int8 id), else an exact bigint — a
+// `Number(...)` past 2^53 silently rounds (a Signum ticks value, ~6.4e17, loses its last digits). A bigint
+// column materialises as bigint either way (see denormalizeBigInt).
+function parseInt8(value: string | null): number | bigint | null {
+    if (value == null)
+        return null;
+    const n = Number(value);
+    return Number.isSafeInteger(n) ? n : BigInt(value);
+}
+
 const ALTEA_PG_TYPES = {
     getTypeParser(oid: number, format?: unknown): unknown {
         if (oid === 20)
-            return (value: string | null) => (value == null ? null : Number(value));
+            return parseInt8;
         if (PG_TEMPORAL_OIDS.has(oid))
             return identityParser;
         return (pgTypes.getTypeParser as (oid: number, format?: unknown) => unknown)(oid, format);
