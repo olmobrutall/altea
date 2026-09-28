@@ -325,15 +325,14 @@ function buildFilterTree(
 }
 
 // Recover a filter value from its stored string form (altea has no server value converter here). The special
-// expressions "[CurrentEntity]" / "[CurrentUser]" resolve to the entity the UserChart is scoped to and the
-// logged-in user; everything else goes through FilterValueString.parseFilterValue by filterType.
+// expression "[CurrentEntity]" resolves to the entity the UserChart is scoped to; everything else — "[CurrentUser]"
+// included — goes through FilterValueString.parseFilterValue by filterType.
 function parseValue(
     valueString: string | null, filterType: FilterTypeKeys | undefined, typeName: string | undefined,
     entity: Lite<Entity> | undefined,
 ): unknown {
     if (valueString == null) return undefined;
     if (valueString === "[CurrentEntity]") return entity;
-    if (valueString === "[CurrentUser]") return AppContext.currentUser?.toLite();
     return parseFilterValue(valueString, filterType, typeName);
 }
 

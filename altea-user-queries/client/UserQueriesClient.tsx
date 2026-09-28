@@ -23,6 +23,7 @@ import {
 } from "@altea/altea/data/dynamicQueries";
 import { UserQueryEntity, UserQueryLite, UserQueryEntity_Filter } from "../data/UserQuery";
 import type { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
+import { CurrentUserConverter } from "@altea/altea-user-assets/data/FilterValueConverters/CurrentUserConverter";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import { SearchControlLoaded } from "@altea/altea/client/SearchControl/SearchControlLoaded";
 import UserQueryMenu from "./UserQueryMenu";
@@ -248,17 +249,23 @@ function toPinned(p: PinnedQueryFilterEmbedded | null): FilterConditionOption["p
 // Recover a filter value from its stored string form (altea has no server value converter here). Lists use
 // "|"; a "PascalType;id" segment whose type resolves is a Lite; else bool / number / raw string. The special
 // expressions "[CurrentEntity]" / "[CurrentUser]" (authored via FilterBuilderEmbedded's value↔expression
-// toggle) are resolved client-side here — to the entity the UserQuery is scoped to, and the logged-in user.
+// toggle) are resolved client-side — to the entity the UserQuery is scoped to, and (with any member path,
+// "[CurrentUser][UserCareerMixin].OrganizationalUnit") the logged-in user via CurrentUserConverter.
 function parseValue(valueString: string | null, entity: Lite<Entity> | undefined): unknown {
     if (valueString == null) return undefined;
     if (valueString === "[CurrentEntity]") return entity;
-    if (valueString === "[CurrentUser]") return AppContext.currentUser?.toLite();
     if (valueString.includes("|"))
         return valueString.split("|").map(s => parseScalar(s.trim()));
     return parseScalar(valueString);
 }
 
 function parseScalar(s: string): unknown {
+    const currentUser = CurrentUserConverter.tryParseExpression(s, { filterType: undefined });
+    if (currentUser != null) {
+        if (!currentUser.ok)
+            throw new Error(currentUser.error);
+        return currentUser.value;
+    }
     const semi = s.indexOf(";");
     if (semi > 0 && /^[A-Z]\w*$/.test(s.slice(0, semi)) && tryGetTypeInfo(s.slice(0, semi)) != null) {
         try { return Lite.parse(s); } catch { /* fall through */ }

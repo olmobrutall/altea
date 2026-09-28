@@ -62,8 +62,8 @@ RETRIEVE. altea's client resolves a token locally from `tokenString` (`Finder.To
 
 `FilterValueString` is the value↔string half of Signum's server-side `FilterValueConverter`, moved into the
 DATA layer because both tiers need it — the SearchControl editors on the client, `QueryFilterUtils` on the
-server. Still passed through unchanged as raw strings: the `[CurrentEntity]` / `[CurrentUser]` special
-expressions (each caller resolves them against its own context — see below).
+server. Still passed through unchanged as a raw string: the `[CurrentEntity]` special expression (each
+caller resolves it against its own context — see below).
 
 ## The filter-value converters
 
@@ -81,11 +81,19 @@ position. It is what makes a saved query mean "since the start of this month" ra
 date, and Southwind's own `UserAssets.xml` stores exactly two spellings of it: `yyyy/mm/01 00:00:00` on
 three month-axis charts and `-1/mm/dd 00:00:00` on "Evolution By Employee".
 
-`CurrentEntityConverter` / `CurrentUserConverter` are NOT ported. Both read an ambient "the entity this is
-being rendered for" / "the logged-in user" out of a thread variable, and the callers that need them already
-resolve the two strings themselves against a context this package cannot see (`UserChartClient.parseValue`
-against the chart's scope entity and `AppContext.currentUser`). Porting them means giving altea that
-ambient context first.
+`CurrentUserConverter` is ported, with Signum's `SimpleMemberEvaluator` (`[Mixin]`, `(Type)`, field or
+parameterless method, an entity result becoming its lite). Bare `[CurrentUser]` is the ambient
+`CurrentUser` lite, on both tiers. A member path needs the whole user entity, which Signum retrieves
+synchronously; altea cannot, so `CurrentUserConverter.getCurrentUserEntity` is installed only where one is
+held — the client, from `AppContext.currentUser` — and on the server a member path is an error. In legacy
+mode a member also matches with its first letter lower-cased, so Signum's `.OrganizationalUnit` finds the
+ported `organizationalUnit`. It does not turn the current user's lite back into `[CurrentUser]` on
+toString, for the same reason as the smart date below.
+
+`CurrentEntityConverter` is NOT ported. It reads an ambient "the entity this is being rendered for" out of
+a thread variable, and the callers that need it already resolve the string themselves against a context
+this package cannot see (`UserChartClient.parseValue` against the chart's scope entity). Porting it means
+giving altea that ambient context first.
 
 ### Divergences
 

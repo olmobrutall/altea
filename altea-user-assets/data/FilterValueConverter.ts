@@ -3,6 +3,7 @@ import {
 } from "./FilterValueConverters/IFilterValueConverter";
 import { SmartDateTimeFilterValueConverter } from "./FilterValueConverters/SmartDateTimeFilterValueConverter";
 import { LiteFilterValueConverter } from "./FilterValueConverters/LiteFilterValueConverter";
+import { CurrentUserConverter } from "./FilterValueConverters/CurrentUserConverter";
 
 export type { FilterValueResult, FilterValueTarget, IFilterValueConverter };
 
@@ -10,11 +11,10 @@ export type { FilterValueResult, FilterValueTarget, IFilterValueConverter };
 // rules that translate a filter value to and from the string a user asset stores, each answering "not
 // mine" (null) until one claims the value. Signum's `SpecificConverters`.
 //
-// Two of Signum's four are here. `CurrentEntityConverter` and `CurrentUserConverter` are not: they read an
-// ambient "the entity this is being rendered for" / "the logged-in user", which each CALLER already
-// supplies differently (UserChartClient resolves "[CurrentEntity]" against the chart's scope entity and
-// "[CurrentUser]" against AppContext) — porting them properly means an ambient context this package does
-// not have. Still deferred; see port/UserAssets.md.
+// Three of Signum's four are here. `CurrentEntityConverter` is not: it reads an ambient "the entity this is
+// being rendered for", which each CALLER already supplies differently (UserChartClient resolves
+// "[CurrentEntity]" against the chart's scope entity) — porting it means an ambient context this package
+// does not have. Still deferred; see port/UserAssets.md.
 //
 // The plain primitive fallback is NOT here but in FilterValueString, which is the façade the two tiers
 // call — this file is only the rules and the loop, exactly as Signum splits them.
@@ -22,6 +22,7 @@ export namespace FilterValueConverter {
 
     /** Tried in order. An application may insert its own rule (Signum's list is public too). */
     export const specificConverters: IFilterValueConverter[] = [
+        CurrentUserConverter,
         SmartDateTimeFilterValueConverter,
         LiteFilterValueConverter,
     ];

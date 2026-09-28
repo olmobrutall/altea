@@ -9,10 +9,10 @@ import { FilterValueConverter } from "./FilterValueConverter";
 // translate a single scalar between the two, given the token's FilterType.
 //
 // The FAÇADE only: the rules themselves are the converter list in FilterValueConverter (Signum's
-// `SpecificConverters`) — a RELATIVE date ("yyyy/mm/01 00:00:00"), an entity reference ("Order;42") — and
-// what remains here is Signum's own fallback, the plain primitive parse. The `[CurrentEntity]` /
-// `[CurrentUser]` expressions are still passed through unchanged as raw strings (each caller resolves
-// them against its own context).
+// `SpecificConverters`) — the current user ("[CurrentUser].Member"), a RELATIVE date ("yyyy/mm/01 00:00:00"),
+// an entity reference ("Order;42") — and what remains here is Signum's own fallback, the plain primitive
+// parse. `[CurrentEntity]` is still passed through unchanged as a raw string (each caller resolves it
+// against its own context).
 
 /**
  * Parse a stored string into the typed filter value for the given FilterType.

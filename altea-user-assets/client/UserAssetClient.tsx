@@ -8,6 +8,8 @@ import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkC
 import { UserAssetMessage, UserAssetPermission, UserAssetPreviewModel, type IUserAssetEntity } from "../data/UserAssets";
 import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
+import * as AppContext from "@altea/altea/client/AppContext";
+import { CurrentUserConverter } from "../data/FilterValueConverters/CurrentUserConverter";
 
 // The export / import trigger surface: the XML export quick-link, the import route, the
 // "!ImportUserAssets" omnibox entry and the export/import HTTP API. Tokens and filter values are resolved
@@ -20,6 +22,9 @@ export namespace UserAssetClient {
         if (started)
             return;
         started = true;
+        // The client holds the whole logged-in user, so "[CurrentUser].Member" paths resolve here.
+        CurrentUserConverter.getCurrentUserEntity = () => AppContext.currentUser;
+
         routes.push({ path: "/userAssets/import", element: <ImportComponent onImport={() => import("./ImportAssetsPage")} /> });
 
         registerSpecialAction({
