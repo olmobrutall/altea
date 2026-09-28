@@ -1,5 +1,5 @@
 // The parts of a token's fullKey (Signum's QueryUtils.SplitRegex): split on "." except inside "[…]", so an
-// indexer key that is free text — `[Skill].[Node.js]` — stays one part. Every place that takes a stored or
+// indexer key that is free text — `[Tag].[Node.js]` — stays one part. Every place that takes a stored or
 // wire token string apart goes through this, so the server parser, the client resolver and the stored-token
 // synchronizer cannot disagree about where a part ends.
 const tokenSeparator = /(?<!\[[^\]]*)\.(?![^\[]*\])/;

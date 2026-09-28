@@ -631,7 +631,7 @@ export abstract class QueryToken {
     }
 
     // Signum's EntityProperties: one EntityPropertyToken per queryable field of `type`, then the fields of
-    // its mixins — FLAT, as Signum's (`User.OrganizationalUnit`, no mixin step in the key; the route
+    // its mixins — FLAT, as Signum's (`User.Department`, no mixin step in the key; the route
     // carries it). Pure bookkeeping fields (noSerialize) are excluded.
     //
     // `id` / `ticks` are excluded ONLY for an ENTITY, where they are the base class's: `id` is added

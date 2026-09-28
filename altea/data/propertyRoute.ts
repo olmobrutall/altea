@@ -737,7 +737,7 @@ function splitRoute(propertyString: string): string[] {
 }
 
 // Signum's `Type.propertyRouteAssert(a => a.x)` / `tryPropertyRoute`: a route rooted at this type, from an INLINE
-// property lambda (`UserEntity.propertyRoute(u => u.mixin(UserCareerMixin).careerPaths)`). Installed here rather
+// property lambda (`UserEntity.propertyRoute(u => u.mixin(UserContactMixin).phoneNumbers)`). Installed here rather
 // than in ./entity, which this module imports (see the note on stepInto there).
 declare module "./entity" {
     namespace BaseEntity {

@@ -226,7 +226,7 @@ const customLiteRegistry = new Map<Type<Entity>, CustomLiteRegistration[]>();
  * navigations), like a `@quoted` toString.
  *
  * `isOverride` (Signum's `RegisterLiteModelConstructor(…, isOverride: true)`) replaces the registration of the
- * same class — how an app fills a framework lite differently (ReNew's user lite carries the practice).
+ * same class — how an app fills a framework lite differently (e.g. a user lite that also carries the user's department).
  * Without it, registering a class twice for the same type throws.
  */
 

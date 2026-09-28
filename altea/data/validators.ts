@@ -1187,13 +1187,13 @@ function comparisonName(comparison: ComparisonType): string {
 // `@validate`, as Signum's is from PropertyValidation:
 //
 //     @entity("Main", "Transactional")
-//     @validate<RoleAssignmentEntity>((ra, fi) => roleAssignmentStates.validate(ra, fi))
-//     export class RoleAssignmentEntity extends Entity { … }
+//     @validate<ProjectEntity>((p, fi) => projectStates.validate(p, fi))
+//     export class ProjectEntity extends Entity { … }
 //
-//     export const roleAssignmentStates = new StateValidator(RoleAssignmentEntity,
-//         a => a.status,                       "fromDate",  "toDate")
-//         .add(RoleAssignmentStatus.Interested, false,       false   )
-//         .add(RoleAssignmentStatus.Assigned,   true,        null    );
+//     export const projectStates = new StateValidator(ProjectEntity,
+//         p => p.status,                "fromDate",  "toDate")
+//         .add(ProjectStatus.Proposed, false,       false   )
+//         .add(ProjectStatus.Started,  true,        null    );
 //
 // Laid out as a TABLE: a column per property, a row per state.
 //

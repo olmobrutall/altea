@@ -10,7 +10,7 @@ import { Temporal } from "@altea/altea/data/basics";
 import { getTypeInfo } from "@altea/altea/data/reflection";
 
 // Signum's StateValidator: per state, whether each listed property is necessary (true), not allowed
-// (false) or either (null). The shape is ReNew's RoleAssignment, whose dates follow its status.
+// (false) or either (null). The shape is an assignment whose dates follow its status.
 
 @entity("Main", "Transactional")
 @validate<AssignmentSample>((as, field) => assignmentStates.validate(as, field))

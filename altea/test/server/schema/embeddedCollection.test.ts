@@ -275,7 +275,7 @@ describe("an MList row table's schema", () => {
 //
 // A mixin is flattened onto its owner's row just like an embedded, so a collection it declares belongs to
 // the OWNER entity: the rows point back at it. Signum's route steps through the mixin WITHOUT adding a
-// name — ReNew's UserEntity + [UserCareerMixin].CareerPaths is `auth.user_career_paths` — and a filtered
+// name — UserEntity + [UserContactMixin].PhoneNumbers is `auth.user_phone_numbers` — and a filtered
 // index over the row's embedded element walks into it (`r.element.tag != null`).
 
 @entity("Main", "Master")

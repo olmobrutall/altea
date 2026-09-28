@@ -3349,7 +3349,7 @@ export class QueryBinder extends ExpressionVisitor {
         this.currentTableHint = undefined;
 
         // The additional bindings are built with the table as the current source, so one that navigates a
-        // reference (a condition over `u.practice.entity`) has a source to attach its join to.
+        // reference (a condition over `u.department.entity`) has a source to attach its join to.
         const entity = this.runWithSource(tableExpr, () => this.withAdditionalBindings(this.createEntityExpression(table, tableAlias)));
         const selectAlias = this.aliasGenerator.nextSelectAlias();
         const pc = this.projectColumns(entity, selectAlias);

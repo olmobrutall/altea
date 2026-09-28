@@ -48,7 +48,7 @@ export namespace QueryLogic {
     // QueryUtils.SubToken over a QueryDescription). An empty string ⇒ the root token itself. A
     // registered query supplies its own root; otherwise an entity-ctor queryName roots a plain
     // RootToken (so navigation works for any entity, not only explicitly registered queries).
-    // The parts come from splitTokenKey, which keeps a "." inside an indexer key ("[Skill].[Node.js]").
+    // The parts come from splitTokenKey, which keeps a "." inside an indexer key ("[Tag].[Node.js]").
     export function getToken(queryName: QueryName, tokenString: string, options: SubTokensOptions): QueryToken {
         // An unregistered type still navigates: its own RootToken. (Before QueryName narrowed to a
         // Type this needed a guard, because a string name had no type to root on.)

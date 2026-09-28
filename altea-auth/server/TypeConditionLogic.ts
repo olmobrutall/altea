@@ -534,7 +534,7 @@ inConditionSf.__methodExpander = (instance, args) => {
 EntityClass.prototype.inCondition = inCondition;
 
 // The value of a sub-expression the query builder already knows: a captured constant, or a member of one
-// (`RenewTypeCondition.MyPractice` arrives as `<the namespace object>.MyPractice`).
+// (`MyTypeCondition.OwnDepartment` arrives as `<the namespace object>.OwnDepartment`).
 function constantValue(e: Expression): unknown {
     if (e instanceof ConstantExpression)
         return e.value;

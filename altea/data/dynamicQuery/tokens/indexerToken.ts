@@ -5,7 +5,7 @@ import { QueryToken, SubTokensOptions } from "./queryToken";
 
 // Port of Signum's IndexerContainerToken + ExtensionWithParameterToken (DynamicQuery/Tokens): a registered
 // expression with a PARAMETER (`QueryLogic.expressions.registerWithParameter`), shown as a container token
-// `[Skill]` whose children `[Skill].[Java]` are one per key the registration lists at runtime, each
+// `[Tag]` whose children `[Tag].[Urgent]` are one per key the registration lists at runtime, each
 // evaluating the expression with that key.
 //
 // The keys are dynamic (a cache, a table), which is what a static metadata blob cannot carry: the
@@ -17,7 +17,7 @@ import { QueryToken, SubTokensOptions } from "./queryToken";
 
 /** The serializable half of a registration with a parameter (Signum's ExtensionWithParameterInfo). */
 export interface IndexerInfo {
-    /** The container's key without brackets — `Skill` for `[Skill]`. */
+    /** The container's key without brackets — `Tag` for `[Tag]`. */
     readonly prefix: string;
     readonly niceName: () => string;
     /** The expression's result type — what every child token is. */

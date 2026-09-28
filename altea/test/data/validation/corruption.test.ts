@@ -12,7 +12,7 @@ import { Temporal } from "@altea/altea/data/basics";
 
 // Signum's CorruptMixin + Corruption: a corrupt entity is checked tolerantly — a rule written
 // `if (Corruption.strict())` stands down — and stops being corrupt once a save finds it valid. The shape is
-// ReNew's UserTraining, whose start date is required only when strict.
+// a training record whose start date is required only when strict.
 
 @entity("Main", "Transactional")
 @mixin(() => [CorruptMixin])

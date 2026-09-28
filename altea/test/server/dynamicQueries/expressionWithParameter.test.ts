@@ -27,7 +27,7 @@ QueryLogic.expressions.registerWithParameter(ArtistEntity, Sex,
     () => Enum.values(Sex) as unknown as Sex[],
     { prefix: "IsSex", niceName: () => "Is sex" });
 
-// An ENTITY key (ReNew's `[Skill].[Java]`): the keys come from a list warmed before use, as a cache's would.
+// An ENTITY key (`[Tag].[Urgent]`): the keys come from a list warmed before use, as a cache's would.
 let artists: ArtistEntity[] = [];
 QueryLogic.expressions.registerWithParameter(ArtistEntity, ArtistEntity,
     (a: ArtistEntity, other: ArtistEntity) => a.is(other),

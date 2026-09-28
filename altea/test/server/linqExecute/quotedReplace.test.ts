@@ -6,8 +6,8 @@ import { withQuoted } from "@altea/altea/data/decorators";
 import { hasDb, start } from "../setup";
 import { ArtistEntity } from "../../data/music";
 
-// Signum's `As.ReplaceExpression`: an application replaces a framework type's @quoted member (ReNew
-// makes UserEntity.toString "FirstName LastName"). In altea that is assigning a new `withQuoted` function
+// Signum's `As.ReplaceExpression`: an application replaces a framework type's @quoted member (e.g.
+// UserEntity.toString as "FirstName LastName"). In altea that is assigning a new `withQuoted` function
 // to the prototype — the in-memory body and the query expression are both read off the prototype when
 // they are used, so the replacement has to reach every place a quoted member is consumed.
 

@@ -26,8 +26,8 @@ function isPart(ctor: Type<Entity>): boolean {
 //
 // A Part with a @backReference (a collection row, including a virtual collection's standalone rows) names its
 // owner itself: the edge comes from that back-reference, and a forward reference to the row from ANY other
-// entity is a plain reference, not a second owner (e.g. a career step pointing at the skill group its career
-// path owns).
+// entity is a plain reference, not a second owner (e.g. an order line pointing at the shipment row its order
+// owns).
 export function partEdges(schema: Schema): PartEdge[] {
     const edges: PartEdge[] = [];
 

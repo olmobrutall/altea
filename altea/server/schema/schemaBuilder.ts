@@ -207,7 +207,7 @@ function mlistRowOwner(type: Type<Entity>): { owner: Type<Entity>; members: stri
 /**
  * A collection declared on a MIXIN of the owner: its rows point back at the OWNER entity (a mixin has no id
  * of its own), and Signum's route steps through the mixin without adding a name — UserEntity +
- * [UserCareerMixin].CareerPaths is `user_career_paths`, not `user_user_career_mixin_career_paths`.
+ * [UserContactMixin].PhoneNumbers is `user_phone_numbers`, not `user_user_contact_mixin_phone_numbers`.
  */
 function mixinCollectionRoute(owner: Type<Entity>, type: Type<Entity>): string[] | undefined {
     for (const mixin of MixinDeclarations.getMixins(owner)) {

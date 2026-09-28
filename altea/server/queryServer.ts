@@ -73,7 +73,7 @@ export namespace QueryServer {
             });
 
         // POST /api/query/indexerTokens/:queryKey — the children of an expression-with-parameter container
-        // (`[Skill]` → `[Skill].[Java]`, …): the one kind of sub-token the metadata blob cannot enumerate,
+        // (`[Tag]` → `[Tag].[Urgent]`, …): the one kind of sub-token the metadata blob cannot enumerate,
         // because its keys are listed at runtime. Signum's /api/query/subTokens, narrowed to that case.
         ws.post("/api/query/indexerTokens/:queryKey",
             { params: CustomType<{ queryKey: string }>(), req: CustomType<{ token: string }>(), res: CustomType<ServerTokenJson[]>() },

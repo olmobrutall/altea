@@ -12,6 +12,9 @@ React UI kit, modelled on Signum Framework.
   port narrative and belongs in [`port/`](port/README.md).
 - Respect the existing folder and module structure: code is organized by feature/module, not by technical
   concern. `altea/` holds ~50 reusable vertical modules, each with data / client / server halves.
+- altea is APPLICATION-AGNOSTIC: no comment, example or test names a consuming application or its domain
+  (its entities, mixins, type conditions, data). Illustrate with neutral names (`Order`, `Department`,
+  `[Tag].[Urgent]`) or with the test fixtures' own (`Artist`, `Album`); Signum's own names are fine.
 - Messages shown to a user MUST be localized — a `msg(...)` entry in the module's message container, with
   the translations in that package's own `translations/*.xml`.
 

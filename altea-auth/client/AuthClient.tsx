@@ -14,7 +14,7 @@ import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import type { Type, Entity, BaseEntity } from "@altea/altea/data/entity";
 
 // Signum's `PropertyRoute.member.minPropertyAllowed` / `maxPropertyAllowed`, on the route itself:
-// `UserEntity.propertyRoute(u => u.mixin(UserCareerMixin).careerPaths).propertyAllowed()?.max`. See
+// `UserEntity.propertyRoute(u => u.mixin(UserContactMixin).phoneNumbers).propertyAllowed()?.max`. See
 // AuthClient.propertyAllowed; undefined when the role cannot read the route's root type.
 declare module "@altea/altea/data/propertyRoute" {
     interface PropertyRoute {

@@ -150,7 +150,7 @@ framework type's expression — is assigning a new `withQuoted` function to the 
 
 ```ts
 UserEntity.prototype.toString = withQuoted(function (this: UserEntity): string {
-    return this.mixin(UserCareerMixin).firstName + " " + this.mixin(UserCareerMixin).lastName;
+    return this.mixin(UserContactMixin).firstName + " " + this.mixin(UserContactMixin).lastName;
 });
 ```
 
@@ -303,7 +303,7 @@ Registering it as a query TOKEN is `.withExpressionTo(p => p.lines())` on the in
 Signum's `WithExpressionWithParameter` / `Expressions.RegisterWithParameter` — a `[Prefix]` token whose
 children are listed at runtime — is `.withExpressionWithParameter(keyType, (e, k) => …, getKeys, Message)`
 (or `QueryLogic.expressions.registerWithParameter`). The prefix is the message's member name and a child's
-key is the parameter's `toString()`, as in Signum, so `Entity.[Skill].[Java]` becomes `[Skill].[Java]`.
+key is the parameter's `toString()`, as in Signum, so `Entity.[Tag].[Urgent]` becomes `[Tag].[Urgent]`.
 `getKeys` is synchronous: read a cache warmed at start-up. The client lists the children through
 `/api/query/indexerTokens`.
 

@@ -246,7 +246,7 @@ function postgresName(name: string): string { return `"${assertPlainName(name)}"
 
 // Signum's Administrator.MoveAllForeignKeys: point every foreign key that references `from` at `to`
 // instead, in every table of the schema (collection rows included). What it is for is deleting a row that
-// others still point at — ReNew moves a deleted user's history onto its "Deleted" system user. `shouldMove`
+// others still point at — e.g. moving a deleted user's history onto a "Deleted" system user. `shouldMove`
 // narrows it to some columns.
 export async function moveAllForeignKeys<T extends Entity>(
     from: Lite<T>, to: Lite<T>, shouldMove?: (table: Table, column: IColumn) => boolean,
