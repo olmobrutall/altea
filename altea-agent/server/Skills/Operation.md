@@ -22,7 +22,7 @@ altea's wire format uses two discriminators:
 {
   "$type": "Book",
   "id": 101,
-  "ticks": 3,
+  "ticks": "639259539010097581",
   "toStr": "Refactoring Recipes",
   "title": "Refactoring Recipes",
   "isbn": "978-1-23456-789-0",
@@ -40,7 +40,7 @@ altea's wire format uses two discriminators:
 ### Key rules
 
 * Member names are **camelCase**; the `$type` / `$lite` values are the PascalCase clean type name.
-* `ticks` must be preserved on an existing entity — it is the optimistic-concurrency stamp, and dropping it makes your save overwrite someone else's.
+* `ticks` must be preserved on an existing entity, exactly as received (a string: it is too large for a JSON number) — it is the optimistic-concurrency stamp, and dropping it makes your save overwrite someone else's.
 * A NEW entity omits `id` (and `ticks`).
 * **A collection is a plain ARRAY.** There is no row wrapper: a collection of values is an array of values, and a collection of rows is an array of objects with their own `$type` (and an `id` for an existing row, omitted for a new one). This differs from other frameworks that wrap each item in `{ rowId, element }` — do not do that here.
 * You do not need to set any `modified` flag: the server compares the entity you send against the stored one.

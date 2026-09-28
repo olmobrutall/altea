@@ -110,7 +110,7 @@ describe.skipIf(!hasDb)("UnsafeInsertTest", () => {
     txTest("InsertDistinct", async () => {
         const before = await table(CountryEntity).count();
         const value = await table(LabelEntity).map(a => a.country).distinct()
-            .executeInsert(CountryEntity, c => ({ name: "Clone of " + c.name, ticks: 0 }));
+            .executeInsert(CountryEntity, c => ({ name: "Clone of " + c.name, ticks: 0n }));
         assert.ok(value > 0);
         assert.equal(await table(CountryEntity).count(), before + value);
     });

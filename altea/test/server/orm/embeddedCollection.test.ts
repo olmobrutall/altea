@@ -138,13 +138,13 @@ describe("EmbeddedCollectionSerialization", () => {
 
     test("a collection element inside an embedded recovers a back reference to the ENTITY", () => {
         const config = ConfigEntity.create({ embeddedConfig: null });
-        config.id = 7 as any; config.isNew = false; config.ticks = 1;
+        config.id = 7 as any; config.isNew = false; config.ticks = 1n;
         cleanModified(config);
 
         const json = {
             $type: "Config",
             id: 7,
-            ticks: 1,
+            ticks: "1",
             embeddedConfig: {
                 defaultLabel: null,
                 // no `config` key: the back reference is omitted on the wire and recovered here

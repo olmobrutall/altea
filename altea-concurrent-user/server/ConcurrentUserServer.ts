@@ -83,7 +83,7 @@ export namespace ConcurrentUserServer {
         CacheLogic.registerBroadcastReceiver(Method_EntitySaved, arg =>
             notifyEntitySaved(new Map(arg.split("/").map(a => {
                 const [key, ticks] = [a.slice(0, a.indexOf("|")), a.slice(a.indexOf("|") + 1)];
-                return [key, ticks === "" ? null : Number(ticks)] as const;
+                return [key, ticks === "" ? null : BigInt(ticks)] as const;
             }))));
     }
 
@@ -230,7 +230,7 @@ export namespace ConcurrentUserServer {
             broadcast.send(Method_ConcurrentUsersChanged, chunk.join("/"));
     }
 
-    function broadcastEntitySaved(newTicks: Map<string, number | null>): void {
+    function broadcastEntitySaved(newTicks: Map<string, bigint | null>): void {
         const broadcast = CacheLogic.serverBroadcast;
         if (broadcast == null)
             return;
@@ -243,7 +243,7 @@ export namespace ConcurrentUserServer {
             hub?.sendToGroup(liteKey, "ConcurrentUsersChanged");
     }
 
-    function notifyEntitySaved(newTicks: Map<string, number | null>): void {
+    function notifyEntitySaved(newTicks: Map<string, bigint | null>): void {
         for (const [liteKey, ticks] of newTicks)
             hub?.sendToGroup(liteKey, "EntitySaved", liteKey, ticks?.toString() ?? null);
     }
@@ -263,7 +263,7 @@ export namespace ConcurrentUserServer {
             const ids = await query.map(a => a.id).toArray();
             if (ids.length === 0)
                 return;
-            const map = new Map<string, number | null>();
+            const map = new Map<string, bigint | null>();
             for (const id of ids)
                 map.set((type as unknown as { newLite(id: unknown, toStr?: string): Lite<Entity> }).newLite(id, "").key(), null);
             notifyEntitySavedOnCommit(map);
@@ -274,15 +274,15 @@ export namespace ConcurrentUserServer {
      * Accumulate in the transaction's user data and push ONCE, after the real commit. Pushing inside the
      * transaction would tell every open tab to reload a version that a rollback then un-does.
      */
-    function notifyEntitySavedOnCommit(newTicks: Map<string, number | null>): void {
+    function notifyEntitySavedOnCommit(newTicks: Map<string, bigint | null>): void {
         const userData = Transaction.topParentUserData() as Record<string, unknown>;
-        let accumulated = userData[savedEntitiesKey] as Map<string, number | null> | undefined;
+        let accumulated = userData[savedEntitiesKey] as Map<string, bigint | null> | undefined;
         if (accumulated == undefined) {
             userData[savedEntitiesKey] = accumulated = new Map();
             // Registered ONCE per transaction: a closure has no delegate identity to dedupe on, so the
             // guard is this first-time branch.
             Transaction.postRealCommit(data => {
-                const saved = (data as Record<string, unknown>)[savedEntitiesKey] as Map<string, number | null> | undefined;
+                const saved = (data as Record<string, unknown>)[savedEntitiesKey] as Map<string, bigint | null> | undefined;
                 if (saved == undefined || saved.size === 0)
                     return;
                 broadcastEntitySaved(saved);

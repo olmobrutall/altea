@@ -6,6 +6,7 @@ import { referenceKey, forEachField } from '../data/changes';
 import { Lite } from '../data/lite';
 import { Connector } from './connection/connector';
 import { normalizeScalar } from './normalizeScalar';
+import { Clock } from '../data/utils/clock';
 import type { IColumn } from './schema/column';
 import type { Table } from './schema/table';
 import {
@@ -73,6 +74,13 @@ export async function insertEntityRows(entities: Entity[], forbiddens?: Forbidde
     const generated = entities[0].id == null;
     const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
 
+    // Signum's `entity.Ticks = Clock.Now.Ticks` before the INSERT.
+    if (table.ticks != null) {
+        const ticks = clockTicks();
+        for (const e of entities)
+            e.ticks = ticks;
+    }
+
     const rows = entities.map((e, i) => {
         const a = collectAssignments(table, e, forbiddens?.[i] ?? NO_FORBIDDEN, typeCaches);
         return generated ? a : [{ column: table.primaryKey.column, value: e.id }, ...a];
@@ -98,18 +106,25 @@ export async function insertEntityRows(entities: Entity[], forbiddens?: Forbidde
         await buildInsertMany(table, rows, false).executeNonQuery();
     }
 
-    // The rows were written with ticks = 0 (collectAssignments), so the in-memory
-    // concurrency token starts there too.
-    for (const e of entities) {
-        if (table.ticks != null)
-            e.ticks = 0;
+    for (const e of entities)
         e.isNew = false;
-    }
 }
 
+/**
+ * Signum's `Clock.Now.Ticks`: the .NET `DateTime.Ticks` of the clock's wall time — 100 ns units since
+ * 0001-01-01. The concurrency stamp a save writes, so a row stays comparable with one a Signum application
+ * saved (~6.4e17, past 2^53, hence a bigint).
+ */
+export function clockTicks(): bigint {
+    return DOTNET_EPOCH_TICKS + Clock.now.toZonedDateTime("UTC").epochNanoseconds / 100n;
+}
+
+/** `DateTime(1970, 1, 1).Ticks`. */
+const DOTNET_EPOCH_TICKS = 621355968000000000n;
+
 // UPDATEs an existing entity in place. Enforces optimistic concurrency when the
-// table has a ticks column: the row is written with ticks = old + 1 guarded by
-// `WHERE id = ? AND ticks = old`, so a row modified or deleted by someone else
+// table has a ticks column: the row is written with fresh ticks (Signum's Clock.Now.Ticks)
+// guarded by `WHERE id = ? AND ticks = old`, so a row modified or deleted by someone else
 // since this entity was retrieved matches zero rows and raises ConcurrencyException.
 export async function updateEntityRow(entity: Entity, forbidden: Forbidden = NO_FORBIDDEN): Promise<void> {
     const connector = Connector.current();
@@ -122,8 +137,11 @@ export async function updateEntityRow(entity: Entity, forbidden: Forbidden = NO_
         return;
     }
 
-    const oldTicks = entity.ticks ?? 0;
-    const newTicks = oldTicks + 1;
+    const oldTicks = entity.ticks ?? 0n;
+    // Always MOVES, unlike Signum's: a pinned test clock, or two saves within the clock's resolution,
+    // would otherwise write the stamp back unchanged and a concurrent writer would go unnoticed.
+    const now = clockTicks();
+    const newTicks = now > oldTicks ? now : oldTicks + 1n;
     for (const a of assignments)
         if (a.column === table.ticks.column) a.value = newTicks;
 
@@ -411,7 +429,7 @@ function pushFieldValues(field: Field, value: unknown, out: ColumnValue[], forbi
 
     // FieldTicks / FieldEnum extend FieldValue, so test them first.
     if (field instanceof FieldTicks) {
-        out.push({ column: field.column, value: value ?? 0 });
+        out.push({ column: field.column, value: value ?? 0n });
         return;
     }
     if (field instanceof FieldEnum) {

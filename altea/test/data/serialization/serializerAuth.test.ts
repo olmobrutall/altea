@@ -21,7 +21,7 @@ const { stringify: serialize, parse: deserialize } = Serializer;
 
 function makeArtist(id: number, name: string): ArtistEntity {
     const a = ArtistEntity.create({ name, dead: false, sex: Sex.Male, status: null, lastAward: null, friends: [] });
-    a.id = id; a.isNew = false; a.ticks = 1;
+    a.id = id; a.isNew = false; a.ticks = 1n;
     cleanModified(a);
     return a;
 }

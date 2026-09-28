@@ -248,7 +248,9 @@ export abstract class Entity extends BaseEntity {
     // @column(false) so it is never a column / never enters change tracking; @serialize(false)
     // so it stays off the wire (it is derived from id == null on each end).
     @column(false) @serialize(false) isNew: boolean = true;
-    ticks: number;
+    // The optimistic-concurrency stamp — Signum's `long Ticks`, a .NET DateTime tick count (~6.4e17), so a
+    // bigint: a number would round it and every UPDATE guard would miss. A string on the wire.
+    ticks: bigint;
 
     /**
      * Builds a {@link Lite} pointing to this entity. Uses the
