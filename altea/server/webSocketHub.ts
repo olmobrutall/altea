@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
+import { rejectUpgradeIfNotInitialized } from "./filters/initializeGate";
 
 // NEW in altea — the substitute for ASP.NET **SignalR**, which Signum uses for its server→client push
 // (Signum.ConcurrentUser's `ConcurrentUserHub`, and Alerts/Workflow notifications). Node has no SignalR
@@ -232,6 +233,9 @@ export function attachHubs(server: { on(event: "upgrade", listener: (req: Incomi
             // Not ours: leave the socket to whatever else listens for `upgrade` (vite's HMR proxy, …).
             return;
         }
+        // Ours, but the database is not initialized yet (see filters/initializeGate): 503, the client reconnects.
+        if (rejectUpgradeIfNotInitialized(req, socket))
+            return;
         wss.handleUpgrade(req, socket, head, ws => hub.accept(ws, req));
     });
 }

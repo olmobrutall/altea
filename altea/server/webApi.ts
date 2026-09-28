@@ -21,6 +21,7 @@ import type { IntegrityCheck } from "../data/validation";
 import { attachHubs, type WebSocketHub } from "./webSocketHub";
 import { composeFilters, type RequestFilter, type RequestFilterContext } from "./filters/requestFilter";
 import { useUserScope } from "./filters/userScope";
+import { useInitializeGate } from "./filters/initializeGate";
 import { authorizationFilter, serializationAuthFilter } from "./filters/authorizationFilter";
 import { cultureFilter } from "./filters/cultureFilter";
 import { heavyProfilerFilter, timeTrackerFilter } from "./filters/profilerFilter";
@@ -146,7 +147,10 @@ export const defaultFilters: readonly RequestFilter[] = [
 
 export class WebBuilder {
     constructor(public readonly app: Express) {
-        // FIRST, before any module can register anything: Express runs middleware in registration order, so
+        // The database initialization gate (Signum's SignumInitializeFilterAttribute), outside even the user
+        // scope, because authenticating a request already reads the database — see filters/initializeGate.
+        useInitializeGate(app);
+        // Then, before any module can register anything: Express runs middleware in registration order, so
         // mounting the user scope later would leave every route registered before it without a user — see
         // filters/userScope.
         useUserScope(app);
