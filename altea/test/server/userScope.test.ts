@@ -46,7 +46,8 @@ describe("the per-request user scope", () => {
 
         ws.get("/api/early", { allowAnonymous: true }, async () => { });
 
-        assert.equal(mounted.length, 1, "the constructor mounts exactly one middleware");
+        // The initialize gate (filters/initializeGate), then the user scope — both before any route.
+        assert.equal(mounted.length, 2, "the constructor mounts the initialize gate and the user scope");
         assert.deepEqual(routes, ["/api/early"]);
     });
 
@@ -62,7 +63,7 @@ describe("the per-request user scope", () => {
         const someone = { userName: "System", claims: {} } as unknown as UserWithClaims;
         setAuthenticateRequest(async () => someone);
 
-        assert.equal(await userSeenBy(mounted[0]), someone);
+        assert.equal(await userSeenBy(mounted[1]), someone);
     });
 
     test("with no authenticator the request proceeds with no user", async () => {
@@ -72,6 +73,6 @@ describe("the per-request user scope", () => {
 
         setAuthenticateRequest(async () => undefined);
 
-        assert.equal(await userSeenBy(mounted[0]), undefined);
+        assert.equal(await userSeenBy(mounted[1]), undefined);
     });
 });
