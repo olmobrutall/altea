@@ -7,23 +7,19 @@ import { ajaxGet } from "@altea/altea/client/Services";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
 import type {
-    FindOptions, FindOptionsParsed, FilterOption, FilterConditionOption, FilterGroupOption, ColumnOption, OrderOption,
+    FindOptions, FindOptionsParsed, ColumnOption, OrderOption,
 } from "@altea/altea/client/FindOptions";
-import { isFilterGroup } from "@altea/altea/client/FindOptions";
+import { SubTokensOptions } from "@altea/altea/client/QueryToken";
 import type { Pagination, SystemTime } from "@altea/altea/data/dynamicQuery/queryRequest";
 import type { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import type { QueryEntity } from "@altea/altea/data/queryEntity";
-import { tryGetTypeInfo } from "@altea/altea/client/Reflection";
 import { Enum } from "@altea/altea/data/enum";
 import {
     RefreshMode, ColumnOptionsMode, PaginationMode, OrderType, CombineRows,
-    FilterGroupOperation, FilterOperation, SystemTimeMode, SystemTimeJoinMode, TimeSeriesUnit,
-    PinnedFilterActive,
+    SystemTimeMode, SystemTimeJoinMode, TimeSeriesUnit,
 } from "@altea/altea/data/dynamicQueries";
-import { UserQueryEntity, UserQueryLite, UserQueryEntity_Filter } from "../data/UserQuery";
-import type { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
-import { CurrentUserConverter } from "@altea/altea-user-assets/data/FilterValueConverters/CurrentUserConverter";
+import { UserQueryEntity, UserQueryLite } from "../data/UserQuery";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import { SearchControlLoaded } from "@altea/altea/client/SearchControl/SearchControlLoaded";
 import UserQueryMenu from "./UserQueryMenu";
@@ -33,9 +29,8 @@ import UserQueryToolbarConfig from "./UserQueryToolbarConfig";
 
 // Port of Signum's Signum.UserQueries/UserQueryClient.tsx. Registers the UserQuery entity view, the
 // /userQuery page, and the quick-links to run a saved query. altea divergences:
-//  - No server parseFilters/stringifyFilters round-trip: `Converter.toFindOptions` builds the FindOptions
-//    directly from the stored (flat, indentation-based) filter rows — altea resolves tokens + values on the
-//    client (SearchControl.parseFindOptions). Filter values are recovered from their string form here.
+//  - The filters go through UserAssetClient.parseFilters as in Signum, but that resolves tokens + values on
+//    the CLIENT rather than on a server round-trip.
 //  - The custom-lite carries the display fields directly (UserQueryLite), so the menu/quick-links read
 //    `(uq as UserQueryLite).hideQuickLink`, not Signum's `uq.model`.
 //  - Omnibox / ContextualItems / CustomDrilldown wiring is deferred (missing modules); the Dashboard parts
@@ -129,7 +124,12 @@ export namespace UserQueriesClient {
             // Enum fields are stored as int-FK ordinals (see UserQuery.ts / dynamicQueries); FindOptions
             // wants the member-name string, so normalise every enum read with Enum.toName. Temporal dates
             // cross the wire as their ISO string.
-            fo.filterOptions = buildFilterTree(uq.filters ?? [], 0, entity);
+            // Signum's UserAssetClient.API.parseFilters, with `entity` as what "[CurrentEntity]" means.
+            const canAggregate = uq.groupResults ? SubTokensOptions.CanAggregate : 0;
+            const canTimeSeries = uq.systemTime != null && Enum.toName(SystemTimeMode, uq.systemTime.mode) === "TimeSeries" ? SubTokensOptions.CanTimeSeries : 0;
+            const filters = await UserAssetClient.parseFilters(await Finder.getQueryRoot(uq.query.key), uq.filters ?? [],
+                SubTokensOptions.CanAnyAll | SubTokensOptions.CanElement | canAggregate | canTimeSeries, { entity });
+            fo.filterOptions = Finder.toFilterOptions(filters);
             fo.includeDefaultFilters = uq.includeDefaultFilters ?? undefined;
             fo.columnOptionsMode = Enum.toName(ColumnOptionsMode, uq.columnsMode);
             fo.columnOptions = (uq.columns ?? []).map(c => ({
@@ -162,8 +162,6 @@ export namespace UserQueriesClient {
                 splitQueries: uq.systemTime.splitQueries ?? undefined,
             } as SystemTime;
 
-            // `entity` (the CurrentEntity a quick-link scopes to) is applied by the caller via the URL /
-            // extraOptions; the stored [CurrentEntity] filter value passes through unchanged.
             return fo;
         }
 
@@ -207,75 +205,6 @@ export namespace UserQueriesClient {
     }
 }
 
-// ---- helpers ---------------------------------------------------------------------------------------
-
-// Reconstruct the nested filter tree from the flat, indentation-tagged stored rows (Signum's groupWhen on
-// `indentation`): each run starts at an element whose indentation === `indent`; deeper rows are its children.
-function buildFilterTree(filters: UserQueryEntity_Filter[], indent: number, entity: Lite<Entity> | undefined): FilterOption[] {
-    const runs = groupWhen(filters, f => f.indentation === indent);
-    return runs.map(run => {
-        const head = run[0];
-        const children = run.slice(1);
-        if (head.isGroup) {
-            return {
-                token: head.token?.tokenString,
-                groupOperation: Enum.toName(FilterGroupOperation, head.groupOperation!),
-                filters: buildFilterTree(children, indent + 1, entity),
-                pinned: toPinned(head.pinned),
-                value: parseValue(head.valueString, entity),
-            } as FilterGroupOption;
-        }
-        return {
-            token: head.token!.tokenString,
-            operation: head.operation == null ? "EqualTo" : Enum.toName(FilterOperation, head.operation),
-            value: parseValue(head.valueString, entity),
-            pinned: toPinned(head.pinned),
-        } as FilterConditionOption;
-    });
-}
-
-function toPinned(p: PinnedQueryFilterEmbedded | null): FilterConditionOption["pinned"] {
-    if (p == null) return undefined;
-    return {
-        label: p.label ?? undefined,
-        column: p.column ?? undefined,
-        colSpan: p.colSpan ?? undefined,
-        row: p.row ?? undefined,
-        active: Enum.toName(PinnedFilterActive, p.active),
-        splitValue: p.splitValue,
-    };
-}
-
-// Recover a filter value from its stored string form (altea has no server value converter here). Lists use
-// "|"; a "PascalType;id" segment whose type resolves is a Lite; else bool / number / raw string. The special
-// expressions "[CurrentEntity]" / "[CurrentUser]" (authored via FilterBuilderEmbedded's value↔expression
-// toggle) are resolved client-side — to the entity the UserQuery is scoped to, and (with any member path,
-// "[CurrentUser][UserCareerMixin].OrganizationalUnit") the logged-in user via CurrentUserConverter.
-function parseValue(valueString: string | null, entity: Lite<Entity> | undefined): unknown {
-    if (valueString == null) return undefined;
-    if (valueString === "[CurrentEntity]") return entity;
-    if (valueString.includes("|"))
-        return valueString.split("|").map(s => parseScalar(s.trim()));
-    return parseScalar(valueString);
-}
-
-function parseScalar(s: string): unknown {
-    const currentUser = CurrentUserConverter.tryParseExpression(s, { filterType: undefined });
-    if (currentUser != null) {
-        if (!currentUser.ok)
-            throw new Error(currentUser.error);
-        return currentUser.value;
-    }
-    const semi = s.indexOf(";");
-    if (semi > 0 && /^[A-Z]\w*$/.test(s.slice(0, semi)) && tryGetTypeInfo(s.slice(0, semi)) != null) {
-        try { return Lite.parse(s); } catch { /* fall through */ }
-    }
-    if (s === "true") return true;
-    if (s === "false") return false;
-    if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
-    return s;
-}
-
 // Signum's SearchControlLoaded module augmentation: the toolbar's "show user query" opt-in flag, plus
 // `getCurrentUserQuery` — "which saved query is this search control currently showing?", which other
 // modules read to decorate it (@altea/altea-tour hangs the tour button off a user query with it).
@@ -302,17 +231,3 @@ SearchControlLoaded.prototype.getCurrentUserQuery = function (this: SearchContro
         return undefined; // a stale / hand-edited url param
     }
 };
-
-function groupWhen<T>(list: T[], isGroupStart: (t: T) => boolean): T[][] {
-    const result: T[][] = [];
-    let current: T[] | null = null;
-    for (const item of list) {
-        if (isGroupStart(item)) {
-            current = [item];
-            result.push(current);
-        } else if (current != null) {
-            current.push(item);
-        }
-    }
-    return result;
-}

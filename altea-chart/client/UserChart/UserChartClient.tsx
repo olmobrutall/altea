@@ -6,23 +6,11 @@ import { ajaxGet } from "@altea/altea/client/Services";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import { Finder } from "@altea/altea/client/Finder";
 import { SubTokensOptions } from "@altea/altea/client/QueryToken";
-import type { QueryToken } from "@altea/altea/client/QueryToken";
 import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
-import type {
-    FilterOptionParsed, FilterConditionOptionParsed, FilterGroupOptionParsed, PinnedFilterParsed,
-} from "@altea/altea/client/FindOptions";
-import { isFilterGroup } from "@altea/altea/client/FindOptions";
 import { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
 import type { QueryEntity } from "@altea/altea/data/queryEntity";
-import { type int, toInt } from "@altea/altea/data/basics";
-import type { FilterTypeKeys } from "@altea/altea/data/dynamicQueries";
-import {
-    PinnedFilterActive, FilterGroupOperation, FilterOperation, DashboardBehaviour,
-} from "@altea/altea/data/dynamicQueries";
-import { Enum } from "@altea/altea/data/enum";
-import { parseFilterValue, stringifyFilterValue } from "@altea/altea-user-assets/data/FilterValueString";
-import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
+import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import { ChartRequestModel, ChartTimeSeriesEmbedded } from "../../data/ChartRequest";
 import { ChartColumnEmbedded } from "../../data/ChartColumn";
@@ -40,9 +28,8 @@ import UserChartToolbarConfig from "./UserChartToolbarConfig";
 // /userChart page, and the quick-links to run a saved chart. The direct analogue of UserQueriesClient.
 //
 // altea divergences:
-//  - No server parseFilters/stringifyFilters round-trip: `Converter.toChartRequest` builds the
-//    ChartRequestModel directly from the stored (flat, indentation-based) filter rows — altea resolves
-//    tokens + values on the client (Finder.TokenCompleter), exactly as FilterBuilderEmbedded / UserQuery do.
+//  - The filters go through UserAssetClient.parseFilters / stringifyFilters as in Signum, but those resolve
+//    tokens + values on the CLIENT (Finder.TokenCompleter) rather than on a server round-trip.
 //  - The custom-lite carries the display fields directly (UserChartLite), so quick-links read
 //    `(uc as UserChartLite).hideQuickLink`, not Signum's `uc.model`.
 //  - Signum reaches the chart page via ChartClient.Encoder.chartPathPromise (a URL round-trip of the whole
@@ -136,13 +123,11 @@ export namespace UserChartClient {
             const completer = new Finder.TokenCompleter(rootToken);
             for (const c of uc.columns ?? [])
                 if (c.element.token?.tokenString) completer.request(c.element.token.tokenString);
-            for (const f of uc.filters ?? [])
-                if (f.token?.tokenString) completer.request(f.token.tokenString);
             await completer.finished();
 
             cr.columns = (uc.columns ?? []).map(c => toChartColumn(c.element, completer, colOptions));
             cr.parameters = (uc.parameters ?? []).map(p => toChartParameter(p.element));
-            cr.filterOptions = buildFilterTree(uc.filters ?? [], 0, completer, filterOptions, entity);
+            cr.filterOptions = await UserAssetClient.parseFilters(rootToken, uc.filters ?? [], filterOptions, { entity });
 
             const cs = await ChartClient.getChartScript(cr.chartScript);
             ChartClient.synchronizeColumns(cr, cs);
@@ -176,7 +161,7 @@ export namespace UserChartClient {
             chartScript: cr.chartScript,
             maxRows: cr.maxRows,
             chartTimeSeries: cr.chartTimeSeries == null ? null : cloneTimeSeries(cr.chartTimeSeries),
-            filters: filterOptionsParsedToChartEmbedded(cr.filterOptions ?? []),
+            filters: UserAssetClient.stringifyFilters(cr.filterOptions ?? [], UserChartEntity_Filter),
         });
         uc.columns = (cr.columns ?? []).map(c => {
             const row = UserChartEntity_Column.create({ element: copyChartColumn(c) });
@@ -207,55 +192,6 @@ function copyChartColumn(c: ChartColumnEmbedded): ChartColumnEmbedded {
         col.token = t;
     }
     return col;
-}
-
-// Flatten a parsed filter tree into the stored, indentation-tagged UserChartEntity_Filter rows (mirrors
-// altea-user-queries' filterOptionsParsedToEmbedded, but for the chart-owned filter row + the chart enums).
-function filterOptionsParsedToChartEmbedded(filters: FilterOptionParsed[]): UserChartEntity_Filter[] {
-    const rows: UserChartEntity_Filter[] = [];
-    function push(fo: FilterOptionParsed, indent: number): void {
-        const row = UserChartEntity_Filter.create({
-            indentation: toInt(indent),
-            pinned: fo.pinned ? toPinnedEmbedded(fo.pinned) : null,
-            dashboardBehaviour: fo.dashboardBehaviour == null ? null : Enum.toValue(DashboardBehaviour, fo.dashboardBehaviour),
-        });
-        if (isFilterGroup(fo)) {
-            row.isGroup = true;
-            row.groupOperation = fo.groupOperation == null ? null : Enum.toValue(FilterGroupOperation, fo.groupOperation);
-            row.token = fo.token ? toTokenEmbedded(fo.token) : null;
-            row.valueString = Array.isArray(fo.value) && fo.token
-                ? fo.value.map(v => stringifyFilterValue(v, fo.token!.filterType)).join("|")
-                : (fo.value != null ? String(fo.value) : null);
-            rows.push(row);
-            fo.filters.forEach(f => push(f, indent + 1));
-        } else {
-            row.token = fo.token ? toTokenEmbedded(fo.token) : null;
-            row.operation = fo.operation == null ? null : Enum.toValue(FilterOperation, fo.operation);
-            row.valueString = Array.isArray(fo.value) && fo.token
-                ? fo.value.map(v => stringifyFilterValue(v, fo.token!.filterType)).join("|")
-                : stringifyFilterValue(fo.value, fo.token?.filterType);
-            rows.push(row);
-        }
-    }
-    filters.forEach(fo => push(fo, 0));
-    return rows;
-}
-
-function toTokenEmbedded(token: QueryToken): QueryTokenEmbedded {
-    const t = QueryTokenEmbedded.create({ tokenString: token.fullKey(), token });
-    return t;
-}
-
-function toPinnedEmbedded(p: PinnedFilterParsed): PinnedQueryFilterEmbedded {
-    const e = PinnedQueryFilterEmbedded.create({
-        label: p.label ?? null,
-        column: (p.column ?? null) as PinnedQueryFilterEmbedded["column"],
-        colSpan: (p.colSpan ?? null) as PinnedQueryFilterEmbedded["colSpan"],
-        row: (p.row ?? null) as PinnedQueryFilterEmbedded["row"],
-        active: Enum.toValue(PinnedFilterActive, p.active ?? "Always"),
-        splitValue: p.splitValue ?? false,
-    });
-    return e;
 }
 
 function cloneTimeSeries(ts: ChartTimeSeriesEmbedded): ChartTimeSeriesEmbedded {
@@ -290,73 +226,4 @@ function toChartColumn(c: ChartColumnEmbedded, completer: Finder.TokenCompleter,
 function toChartParameter(p: ChartParameterEmbedded): ChartParameterEmbedded {
     const cp = ChartParameterEmbedded.create({ name: p.name, value: p.value });
     return cp;
-}
-
-// Reconstruct the parsed filter tree from the flat, indentation-tagged stored rows (Signum's groupWhen on
-// `indentation`), resolving each token client-side. Mirrors FilterBuilderEmbedded.toFilterOptionParsed.
-function buildFilterTree(
-    filters: UserChartEntity_Filter[], indent: number, completer: Finder.TokenCompleter,
-    subTokenOptions: SubTokensOptions, entity: Lite<Entity> | undefined,
-): FilterOptionParsed[] {
-    return groupWhen(filters, f => f.indentation === indent).map(run => {
-        const head = run[0];
-        const children = run.slice(1);
-        const token = head.token ? completer.get(head.token.tokenString, subTokenOptions) : undefined;
-        if (head.isGroup) {
-            return {
-                token,
-                groupOperation: Enum.toName(FilterGroupOperation, head.groupOperation!),
-                filters: buildFilterTree(children, indent + 1, completer, subTokenOptions, entity),
-                value: parseValue(head.valueString, token?.filterType, token?.type.typeName, entity),
-                frozen: false,
-                pinned: head.pinned ? toPinnedParsed(head.pinned) : undefined,
-                dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviour, head.dashboardBehaviour),
-            } as FilterGroupOptionParsed;
-        }
-        return {
-            token,
-            operation: head.operation == null ? "EqualTo" : Enum.toName(FilterOperation, head.operation),
-            value: parseValue(head.valueString, token?.filterType, token?.type.typeName, entity),
-            frozen: false,
-            pinned: head.pinned ? toPinnedParsed(head.pinned) : undefined,
-            dashboardBehaviour: head.dashboardBehaviour == null ? undefined : Enum.toName(DashboardBehaviour, head.dashboardBehaviour),
-        } as FilterConditionOptionParsed;
-    });
-}
-
-// Recover a filter value from its stored string form (altea has no server value converter here). The special
-// expression "[CurrentEntity]" resolves to the entity the UserChart is scoped to; everything else — "[CurrentUser]"
-// included — goes through FilterValueString.parseFilterValue by filterType.
-function parseValue(
-    valueString: string | null, filterType: FilterTypeKeys | undefined, typeName: string | undefined,
-    entity: Lite<Entity> | undefined,
-): unknown {
-    if (valueString == null) return undefined;
-    if (valueString === "[CurrentEntity]") return entity;
-    return parseFilterValue(valueString, filterType, typeName);
-}
-
-function toPinnedParsed(p: PinnedQueryFilterEmbedded): PinnedFilterParsed {
-    return {
-        label: p.label || undefined,
-        column: p.column ?? undefined,
-        colSpan: p.colSpan ?? undefined,
-        row: p.row ?? undefined,
-        active: Enum.toName(PinnedFilterActive, p.active),
-        splitValue: p.splitValue || undefined,
-    };
-}
-
-function groupWhen<T>(list: T[], isGroupStart: (t: T) => boolean): T[][] {
-    const result: T[][] = [];
-    let current: T[] | null = null;
-    for (const item of list) {
-        if (isGroupStart(item)) {
-            current = [item];
-            result.push(current);
-        } else if (current != null) {
-            current.push(item);
-        }
-    }
-    return result;
 }

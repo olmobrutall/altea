@@ -62,8 +62,10 @@ RETRIEVE. altea's client resolves a token locally from `tokenString` (`Finder.To
 
 `FilterValueString` is the value↔string half of Signum's server-side `FilterValueConverter`, moved into the
 DATA layer because both tiers need it — the SearchControl editors on the client, `QueryFilterUtils` on the
-server. Still passed through unchanged as a raw string: the `[CurrentEntity]` special expression (each
-caller resolves it against its own context — see below).
+server. What turns a whole stored filter TREE into the live one is `UserAssetClient.parseFilters` /
+`stringifyFilters` on the client (Signum's `UserAssetClient.API.parseFilters` / `stringifyFilters`, local
+here because tokens resolve client-side) — shared by user queries, user charts and the filter editor — and
+`QueryFilterUtils` on the server.
 
 ## The filter-value converters
 
@@ -73,7 +75,7 @@ different every time the asset runs. Signum keeps one ordered list of rules for 
 `data/FilterValueConverter.ts` over `data/FilterValueConverters/`, with `FilterValueString` reduced to the
 façade the two tiers call — the loop plus Signum's own primitive fallback.
 
-Two of Signum's four rules are here. `LiteFilterValueConverter` is the entity reference (`"Order;42"`) that
+All four of Signum's rules are here, in Signum's order. `LiteFilterValueConverter` is the entity reference (`"Order;42"`) that
 was inlined in `FilterValueString` before the family existed, and `SmartDateTimeFilterValueConverter` is the
 relative date: `yyyy/mm/dd hh:mm:ss` where each part is its own PATTERN ("whatever it is now"), a `+n` /
 `-n` shift, or a literal — plus `max` and a weekday (`mon`…`sun`, optionally `+n` / `-n`) in the day
@@ -81,19 +83,23 @@ position. It is what makes a saved query mean "since the start of this month" ra
 date, and Southwind's own `UserAssets.xml` stores exactly two spellings of it: `yyyy/mm/01 00:00:00` on
 three month-axis charts and `-1/mm/dd 00:00:00` on "Evolution By Employee".
 
-`CurrentUserConverter` is ported, with Signum's `SimpleMemberEvaluator` (`[Mixin]`, `(Type)`, field or
+`CurrentEntityConverter` and `CurrentUserConverter` share Signum's `SimpleMemberEvaluator` (`[Mixin]`, `(Type)`, field or
 parameterless method, an entity result becoming its lite). Bare `[CurrentUser]` is the ambient
 `CurrentUser` lite, on both tiers. A member path needs the whole user entity, which Signum retrieves
 synchronously; altea cannot, so `CurrentUserConverter.getCurrentUserEntity` is installed only where one is
 held — the client, from `AppContext.currentUser` — and on the server a member path is an error. In legacy
-mode a member also matches with its first letter lower-cased, so Signum's `.OrganizationalUnit` finds the
-ported `organizationalUnit`. It does not turn the current user's lite back into `[CurrentUser]` on
+mode a member also matches with its first letter lower-cased, so Signum's `.Department` finds the
+ported `department`. It does not turn the current user's lite back into `[CurrentUser]` on
 toString, for the same reason as the smart date below.
 
-`CurrentEntityConverter` is NOT ported. It reads an ambient "the entity this is being rendered for" out of
-a thread variable, and the callers that need it already resolve the string themselves against a context
-this package cannot see (`UserChartClient.parseValue` against the chart's scope entity). Porting it means
-giving altea that ambient context first.
+`[CurrentEntity]` is the entity the asset is RUN FOR (a quick-link's, a dashboard's), an ambient value as
+in Signum: `CurrentEntityConverter.withCurrentEntity(entity, fn)` over a context variable, which
+`parseFilters` wraps around its (synchronous) parse. It may be a thin lite — enough for the bare form; a
+member path needs the entity itself. Outside a scope it is no value.
+
+A filter EDITOR must not resolve either expression — there is no entity, and saving would freeze the
+resolved value — so `parseFilters(…, { keepExpressions: true })` keeps any `isFilterValueExpression` string
+as typed, which is what Signum's editor gets by binding the raw `valueString`.
 
 ### Divergences
 

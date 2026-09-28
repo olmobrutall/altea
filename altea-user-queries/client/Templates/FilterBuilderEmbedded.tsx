@@ -5,26 +5,22 @@ import { Binding } from "@altea/altea/client/binding";
 import { Finder } from "@altea/altea/client/Finder";
 import FilterBuilder, { type RenderValueContext } from "@altea/altea/client/SearchControl/FilterBuilder";
 import {
-    type FilterOptionParsed, type FilterConditionOptionParsed, type FilterGroupOptionParsed,
-    type PinnedFilterParsed, isFilterGroup, isList, isPair,
+    type FilterOptionParsed, type FilterConditionOptionParsed, isFilterGroup, isList, isPair,
 } from "@altea/altea/client/FindOptions";
 import { QueryToken, SubTokensOptions } from "@altea/altea/client/QueryToken";
-import { Enum } from "@altea/altea/data/enum";
-import {
-    FilterOperation, FilterGroupOperation, DashboardBehaviour, PinnedFilterActive,
-} from "@altea/altea/data/dynamicQueries";
 import type { HeaderType } from "@altea/altea/client/Lines/GroupHeader";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { useAPI, useForceUpdate } from "@altea/altea/client/Hooks";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { Temporal } from "@altea/altea/data/basics";
-import { parseFilterValue, stringifyFilterValue } from "@altea/altea-user-assets/data/FilterValueString";
+import { isFilterValueExpression } from "@altea/altea-user-assets/data/FilterValueString";
 import { FilterValueConverter } from "@altea/altea-user-assets/data/FilterValueConverter";
 import {
-    isSmartDateTimeExpression, smartDateTimeExpression, smartDateTimeFormat,
+    smartDateTimeExpression, smartDateTimeFormat,
 } from "@altea/altea-user-assets/data/FilterValueConverters/SmartDateTimeFilterValueConverter";
 import { UserAssetQueryMessage } from "@altea/altea-user-assets/data/UserAssets";
-import { QueryTokenEmbedded, PinnedQueryFilterEmbedded, QueryFilterBaseEntity, QueryFilterPinnedBaseEntity } from "@altea/altea-user-assets/data/Queries";
+import { QueryFilterBaseEntity } from "@altea/altea-user-assets/data/Queries";
+import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient";
 import { UserQueryEntity_Filter } from "../../data/UserQuery";
 
 // Port of Signum's Signum.UserAssets/Templates/FilterBuilderEmbedded.tsx — the editor that binds a
@@ -33,8 +29,9 @@ import { UserQueryEntity_Filter } from "../../data/UserQuery";
 //  - altea's FilterBuilder takes the ROOT queryToken (no QueryDescription DTO) and renders filter VALUES
 //    natively, so Signum's `renderValue` expression-toggle is one plain text box rather than a typed
 //    editor per type. A SMART DATE is converted (FilterValueConverters/SmartDateTime…); [CurrentEntity] /
-//    [CurrentUser] still round-trip as raw strings, resolved by whoever runs the asset.
-//  - values are converted to/from their stored string form by filterType (FilterValueString), lists on "|".
+//    [CurrentUser] are resolved by the converter list when the asset runs (the editor has no entity).
+//  - values are converted to/from their stored string form by UserAssetClient.parseFilters / stringifyFilters,
+//    the conversion every user asset shares.
 //  - the ctx takes the SHARED `QueryFilterBaseEntity[]` rather than one owner's row type: every stored query
 //    definition owns its OWN @part filter rows (a part row has exactly one owner in altea), and they all
 //    subclass QueryFilterBaseEntity — so this one editor drives a UserQuery's, a UserChart's and an
@@ -53,7 +50,8 @@ export function FilterBuilderEmbedded(p: FilterBuilderEmbeddedProps): React.JSX.
     const forceUpdate = useForceUpdate();
     const rootToken = useAPI(() => Finder.getQueryRoot(p.queryKey), [p.queryKey]);
     const filterOptions = useAPI(
-        () => rootToken == null ? Promise.resolve(null) : toFilterOptionParsed(rootToken, p.ctx.value, p.subTokenOptions),
+        // Expressions stay the text the user typed: this EDITS the rows, it does not run them.
+        () => rootToken == null ? Promise.resolve(null) : UserAssetClient.parseFilters(rootToken, p.ctx.value, p.subTokenOptions, { keepExpressions: true }),
         [rootToken, p.ctx.value, p.subTokenOptions]);
 
     function handleFiltersChanged(newFilters: FilterOptionParsed[]): void {
@@ -68,7 +66,7 @@ export function FilterBuilderEmbedded(p: FilterBuilderEmbeddedProps): React.JSX.
     // Signum's FilterBuilderEmbedded.handleRenderValue: a single-value condition can hold either a concrete
     // value OR an EXPRESSION string ("[CurrentEntity]", "[CurrentUser]", a relative date). Wrap altea's
     // native value editor with a value↔expression toggle; groups and list/pair conditions keep the native
-    // editor (no toggle). The expressions are resolved when the UserQuery runs (UserQueriesClient.Converter).
+    // editor (no toggle). The expressions are resolved when the asset runs (UserAssetClient.parseFilters).
     function handleRenderValue(rvc: RenderValueContext): React.ReactElement {
         const f = rvc.filter;
         const ctx = new TypeContext<unknown>(undefined,
@@ -113,8 +111,7 @@ function ValueOrExpression(props: { rvc: RenderValueContext; ffc: Finder.FilterF
     const forceUpdate = useForceUpdate();
     // Expression mode when the stored value is one of the "[…]" expressions or a SMART DATE — the two
     // things a stored filter can hold that are not the value itself.
-    const [expression, setExpression] = React.useState<boolean>(
-        () => typeof f.value === "string" && (f.value.startsWith("[") || isSmartDateTimeExpression(f.value)));
+    const [expression, setExpression] = React.useState<boolean>(() => isFilterValueExpression(f.value));
 
     function toggle(): void {
         if (expression) {
@@ -170,97 +167,21 @@ function ValueOrExpression(props: { rvc: RenderValueContext; ffc: Finder.FilterF
 // EXPORTED because a stored definition's filters are also what its PREVIEW runs: a caller that wants to
 // open a SearchControl over "the query as this definition has it" needs exactly this conversion, and
 // Signum exports its own (`FilterBuilderEmbedded.toFilterOptionParsed`) for the same reason —
-// altea-machine-learning's predictor designer is the first such caller.
-export async function toFilterOptionParsed(
+// altea-machine-learning's predictor designer is the first such caller. The conversion itself is the one
+// every user asset shares, UserAssetClient.parseFilters.
+export function toFilterOptionParsed(
     rootToken: QueryToken, allFilters: QueryFilterBaseEntity[], subTokenOptions: SubTokensOptions,
 ): Promise<FilterOptionParsed[]> {
-    const completer = new Finder.TokenCompleter(rootToken);
-    for (const f of allFilters)
-        if (f.token?.tokenString)
-            completer.request(f.token.tokenString);
-    await completer.finished();
-
-    /**
-     * The PINNED half of a stored row, for an owner that has one. An owner whose filters cannot be pinned
-     * (a predictor's training population — see QueryFilterPinnedBaseEntity) carries neither member, and
-     * its parsed filter gets neither.
-     */
-    function pinnedParsed(row: QueryFilterBaseEntity): Pick<FilterConditionOptionParsed, "pinned" | "dashboardBehaviour"> {
-        if (!(row instanceof QueryFilterPinnedBaseEntity))
-            return {};
-
-        return {
-            pinned: row.pinned ? toPinnedParsed(row.pinned) : undefined,
-            dashboardBehaviour: row.dashboardBehaviour == null ? undefined
-                : Enum.toName(DashboardBehaviour, row.dashboardBehaviour),
-        };
-    }
-
-    function build(filters: QueryFilterBaseEntity[], indent: number): FilterOptionParsed[] {
-        return groupWhen(filters, f => f.indentation === indent).map(run => {
-            const head = run[0];
-            const children = run.slice(1);
-            if (!head.isGroup) {
-                const token = head.token ? completer.get(head.token.tokenString, subTokenOptions) : undefined;
-                return {
-                    token,
-                    operation: head.operation == null ? "EqualTo" : Enum.toName(FilterOperation, head.operation),
-                    value: parseFilterValue(head.valueString, token?.filterType, token?.type.typeName),
-                    frozen: false,
-                    ...pinnedParsed(head),
-                } as FilterConditionOptionParsed;
-            }
-            return {
-                token: head.token ? completer.get(head.token.tokenString, subTokenOptions) : undefined,
-                groupOperation: Enum.toName(FilterGroupOperation, head.groupOperation!),
-                filters: build(children, indent + 1),
-                value: head.valueString ?? undefined,
-                frozen: false,
-                ...pinnedParsed(head),
-            } as FilterGroupOptionParsed;
-        });
-    }
-
-    return build(allFilters, 0);
+    return UserAssetClient.parseFilters(rootToken, allFilters, subTokenOptions);
 }
 
-// Flatten a parsed filter tree into the stored, indentation-tagged rows (Signum's pushFilter loop). Shared
-// by the FilterBuilderEmbedded editor and UserQueryMenu's create/apply-changes.
+// Flatten a parsed filter tree into the stored, indentation-tagged rows (UserAssetClient.stringifyFilters).
+// Shared by the FilterBuilderEmbedded editor and UserQueryMenu's create/apply-changes.
 export function filterOptionsParsedToEmbedded(
     filters: FilterOptionParsed[],
     rowConstructor: new () => QueryFilterBaseEntity = UserQueryEntity_Filter,
 ): QueryFilterBaseEntity[] {
-    const rows: QueryFilterBaseEntity[] = [];
-    function push(fo: FilterOptionParsed, indent: number): void {
-        const row = new rowConstructor();
-        row.indentation = indent as QueryFilterBaseEntity["indentation"];
-        // An owner that cannot pin (a predictor's training population) has neither member, and a parsed
-        // filter for it never carries either — its editor does not offer them.
-        if (row instanceof QueryFilterPinnedBaseEntity) {
-            row.pinned = fo.pinned ? toPinnedEmbedded(fo.pinned) : null;
-            // FindOptions carries member-name strings; the embedded enum fields are int-FK ordinals.
-            row.dashboardBehaviour = fo.dashboardBehaviour == null ? null : Enum.toValue(DashboardBehaviour, fo.dashboardBehaviour);
-        }
-        if (isFilterGroup(fo)) {
-            row.isGroup = true;
-            row.groupOperation = fo.groupOperation == null ? null : Enum.toValue(FilterGroupOperation, fo.groupOperation);
-            row.token = fo.token ? toTokenEmbedded(fo.token) : null;
-            row.valueString = Array.isArray(fo.value) && fo.token
-                ? fo.value.map(v => stringifyFilterValue(v, fo.token!.filterType)).join("|")
-                : (fo.value != null ? String(fo.value) : null);
-            rows.push(row);
-            fo.filters.forEach(f => push(f, indent + 1));
-        } else {
-            row.token = fo.token ? toTokenEmbedded(fo.token) : null;
-            row.operation = fo.operation == null ? null : Enum.toValue(FilterOperation, fo.operation);
-            row.valueString = Array.isArray(fo.value) && fo.token
-                ? fo.value.map(v => stringifyFilterValue(v, fo.token!.filterType)).join("|")
-                : stringifyFilterValue(fo.value, fo.token?.filterType);
-            rows.push(row);
-        }
-    }
-    filters.forEach(fo => push(fo, 0));
-    return rows;
+    return UserAssetClient.stringifyFilters(filters, rowConstructor);
 }
 
 /** What the expression box starts with for a DATE token: the value it held, written relative to now.
@@ -271,48 +192,6 @@ function smartDateSeed(value: unknown): string {
     } catch {
         return smartDateTimeExpression(Clock.now);
     }
-}
-
-function toTokenEmbedded(token: QueryToken): QueryTokenEmbedded {
-    const t = QueryTokenEmbedded.create({ tokenString: token.fullKey(), token });
-    return t;
-}
-
-function toPinnedEmbedded(p: PinnedFilterParsed): PinnedQueryFilterEmbedded {
-    const e = PinnedQueryFilterEmbedded.create({
-        label: p.label ?? null,
-        column: (p.column ?? null) as PinnedQueryFilterEmbedded["column"],
-        colSpan: (p.colSpan ?? null) as PinnedQueryFilterEmbedded["colSpan"],
-        row: (p.row ?? null) as PinnedQueryFilterEmbedded["row"],
-        active: Enum.toValue(PinnedFilterActive, p.active ?? "Always"),
-        splitValue: p.splitValue ?? false,
-    });
-    return e;
-}
-
-function toPinnedParsed(p: PinnedQueryFilterEmbedded): PinnedFilterParsed {
-    return {
-        label: p.label || undefined,
-        column: p.column ?? undefined,
-        colSpan: p.colSpan ?? undefined,
-        row: p.row ?? undefined,
-        active: Enum.toName(PinnedFilterActive, p.active),
-        splitValue: p.splitValue || undefined,
-    };
-}
-
-function groupWhen<T>(list: T[], isGroupStart: (t: T) => boolean): T[][] {
-    const result: T[][] = [];
-    let current: T[] | null = null;
-    for (const item of list) {
-        if (isGroupStart(item)) {
-            current = [item];
-            result.push(current);
-        } else if (current != null) {
-            current.push(item);
-        }
-    }
-    return result;
 }
 
 /** The concrete `@part` row type the bound collection holds (see the header). Read off the field's own
