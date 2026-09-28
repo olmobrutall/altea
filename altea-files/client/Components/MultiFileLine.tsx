@@ -243,7 +243,7 @@ export const MultiFileLine: <R extends BaseEntity>(props: MultiFileLineProps<R>)
                                                             file={file}
                                                             containerEntity={container}
                                                             propertyRoute={propertyRoute}
-                                                            rowId={(rowCtx.value as Partial<Entity>).id ?? undefined}
+                                                            rowId={(rowCtx.value as BaseEntity as Entity)?.id ?? undefined}
                                                             showFileIcon={p.showFileIcon ?? true}
                                                             download={p.download ?? "ViewOrSave"}
                                                             htmlAttributes={{ className: classes(rowCtx.formControlClass, "file-control") }} />
