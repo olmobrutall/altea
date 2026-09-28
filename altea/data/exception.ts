@@ -1,6 +1,6 @@
 import { Entity } from "./entity";
 import { Lite } from "./lite";
-import { entity, column, forceNotNullable, implementedBy, ticksColumn } from "./decorators";
+import { entity, column, forceNotNullable, implementedBy, versionColumn, legacyColumnName } from "./decorators";
 import { MAX_SIZE } from "./reflection";
 import { Temporal, type int } from "./basics";
 import { BigStringEmbedded } from "./bigString";
@@ -35,7 +35,7 @@ export enum ExceptionOrigin {
 @entity("System", "Transactional")
 // Signum's [TicksColumn(false)] — the engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.
-@ticksColumn(false)
+@versionColumn(false)
 export class ExceptionEntity extends Entity {
     creationDate: Temporal.PlainDateTime;
 
@@ -62,8 +62,10 @@ export class ExceptionEntity extends Entity {
     @column({ size: 100 })
     environment: string | null = null;
 
+    // Signum's `Version` (the application's), renamed because `version` is every entity's concurrency stamp.
     @column({ size: 100 })
-    version: string | null = null;
+    @legacyColumnName("Version")
+    applicationVersion: string | null = null;
 
     @column({ size: 300 })
     userAgent: string | null = null;

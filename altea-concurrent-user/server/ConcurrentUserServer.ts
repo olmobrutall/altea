@@ -254,10 +254,10 @@ export namespace ConcurrentUserServer {
         const ee = schema.entityEvents(type);
 
         ee.saved.push(entity => {
-            notifyEntitySavedOnCommit(new Map([[entity.toLite().key(), entity.ticks ?? null]]));
+            notifyEntitySavedOnCommit(new Map([[entity.toLite().key(), entity.version ?? null]]));
         });
 
-        // A set-based delete never materialises its rows, so read the keys first. `ticks: null` is the
+        // A set-based delete never materialises its rows, so read the keys first. `version: null` is the
         // "gone" marker — the client's stale check fires on any change.
         ee.preUnsafeDelete.push(async query => {
             const ids = await query.map(a => a.id).toArray();

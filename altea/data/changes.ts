@@ -34,7 +34,7 @@ import { MixinDeclarations } from './mixinDeclarations';
 //                          identifies the row. A collection is *owned*
 //                          by its entity (Signum's MList semantics), so adding,
 //                          removing or reordering elements makes the OWNER
-//                          self-modified — its row is then re-saved and its `ticks`
+//                          self-modified — its row is then re-saved and its `version`
 //                          bumped, so a concurrent edit to the same entity's
 //                          collection is caught by optimistic concurrency. (New
 //                          elements have a null id; the list is re-baselined with
@@ -48,8 +48,8 @@ import { MixinDeclarations } from './mixinDeclarations';
 // ids here does not affect the generated SQL.
 
 // Base/infrastructure fields that are not user data and must never participate in
-// the diff (id/ticks are server-assigned; isNew/_snapshot are bookkeeping).
-const RESERVED_FIELDS = new Set(['id', 'ticks', 'isNew', '_snapshot']);
+// the diff (id/version are server-assigned; isNew/_snapshot are bookkeeping).
+const RESERVED_FIELDS = new Set(['id', 'version', 'isNew', '_snapshot']);
 
 // Visits every persistent field of a modifiable — its own reflected fields plus,
 // for entities, the fields contributed by each registered mixin (mixin fields are

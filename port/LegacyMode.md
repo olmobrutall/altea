@@ -46,7 +46,7 @@ rule, unconditionally; see `cleanTypeName` in `data/registration`.
 
 | # | Rule | Where |
 | --- | --- | --- |
-| 11 | A `@part` that stands in for a real Signum ENTITY gets its Ticks stamp BACK — a dashboard part's content, an email service, a scheduler rule, a virtual-MList child — because their tables have one there. An MList ROW still has none: it is not an entity in Signum at all. Which is which is DERIVED, never declared. | `completeTable` |
+| 11 | A `@part` that stands in for a real Signum ENTITY gets its Ticks stamp BACK — a dashboard part's content, an email service, a scheduler rule, a virtual-MList child — because their tables have one there. An MList ROW still has none: it is not an entity in Signum at all. Which is which is DERIVED, never declared. The stamp itself is Signum's too: the column is `Ticks` and a save writes .NET `DateTime.Ticks` (`FieldVersion.dotNetTicks`), where outside legacy mode it is `Version`, 0 on insert and +1 per save. Leaving legacy mode, `sync` offers the rename; declining it drops `Ticks` and every row restarts from 0. | `completeTable`, `save.nextVersion` |
 | 12 | An MList table has no ToStr column. | `completeTable` |
 | 13 | An MList row gets no `basics.type` row — Signum has no entity there, and Signum's own synchronizer DELETES rows it does not recognise, so the two applications would take turns adding and removing them. | `TypeLogic.typedTables` |
 | 14 | An MList row gets no `basics.query` row, for the same reason. | `FluentInclude.withQuery` |

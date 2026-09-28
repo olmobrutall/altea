@@ -1,6 +1,6 @@
 import { Entity } from './entity';
 import { reflect } from './reflection';
-import { uniqueIndex, quoted, ticksColumn, isReadOnly } from './decorators';
+import { uniqueIndex, quoted, versionColumn, isReadOnly } from './decorators';
 import { stringLengthValidator } from './validators';
 import { Localization } from './utils/localization';
 import type { Type } from "./entity";
@@ -24,7 +24,7 @@ import type { Type } from "./entity";
 //    symbol's reflection info on a row retrieved from the database. altea resolves a display name from the
 //    metadata blob by key (see niceToString), so none of it is needed.
 @reflect
-@ticksColumn(false)
+@versionColumn(false)
 export abstract class SemiSymbol extends Entity {
 
     // Signum's SemiSymbol.Key ([UniqueIndex], [StringLengthValidator(3, 200)]) — NULLABLE, unlike a

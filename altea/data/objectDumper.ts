@@ -129,14 +129,14 @@ class DumpVisitor {
 
         if (this.seen.has(o)) {
             if (o instanceof Entity)
-                this.append(`(${o.isNew ? "IsNew" : String(o.id)}${o.ticks ? ", ticks: " + o.ticks : ""})`);
+                this.append(`(${o.isNew ? "IsNew" : String(o.id)}${o.version ? ", ticks: " + o.version : ""})`);
             this.append(` /* [ALREADY] ${safeToString(o)} */`);
             return;
         }
         this.seen.add(o);
 
         if (o instanceof Entity) {
-            this.append(`(${o.isNew ? "IsNew" : String(o.id)}${o.ticks ? ", ticks: " + o.ticks : ""})`);
+            this.append(`(${o.isNew ? "IsNew" : String(o.id)}${o.version ? ", ticks: " + o.version : ""})`);
             this.append(` /* ${safeToString(o)} ${avoidDumpEntity ? "[DUMP AS LITE]" : ""} */`);
             if (avoidDumpEntity)
                 return;
@@ -153,7 +153,7 @@ class DumpVisitor {
 
         for (const fi of fields) {
             // `id` / `ticks` already appear in the header (Signum's IsIdOrTicks).
-            if (fi.name === "id" || fi.name === "ticks")
+            if (fi.name === "id" || fi.name === "version")
                 continue;
             // Pure bookkeeping (`isNew`, `_snapshot`) is never interesting.
             if (fi.noSerialize === true)

@@ -51,8 +51,14 @@ export class FieldValue extends Field {
     }
 }
 
-// Optimistic-concurrency token (maps Entity.ticks).
-export class FieldTicks extends FieldValue { }
+// Optimistic-concurrency token (maps Entity.version). `dotNetTicks` (LEGACY MODE): the column is Signum's
+// `Ticks` and a save writes .NET DateTime ticks, as a Signum application does; otherwise it is a counter,
+// 0 on insert and +1 per save.
+export class FieldVersion extends FieldValue {
+    constructor(column: ValueColumn, public readonly dotNetTicks: boolean) {
+        super(column);
+    }
+}
 
 // FK to a single concrete entity table. The column carries the reference target
 // and whether the property is a Lite<T> (vs a full entity reference).

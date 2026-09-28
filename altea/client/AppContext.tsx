@@ -57,7 +57,7 @@ export function setCurrentUser(user: IUserEntity | undefined): void {
     // "has this row changed" stamp, and it catches everything a field-by-field check would have to
     // enumerate — a role reassignment above all, which must reach the listeners because the metadata blob
     // is role-filtered.
-    && currentUser.ticks === user.ticks;
+    && currentUser.version === user.version;
   currentUser = user;
   currentUserWithClaims = user == null ? undefined : new UserWithClaims(user);
   // Only notify on a REAL change. A periodic token refresh re-fetches the SAME user at the SAME version,

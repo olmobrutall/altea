@@ -74,7 +74,7 @@ export function Workflow(p: WorkflowProps): React.JSX.Element {
                 setIssues(pair.issues);
             });
         }
-    }, [p.ctx.value.id, p.ctx.value.ticks]);
+    }, [p.ctx.value.id, p.ctx.value.version]);
 
     React.useImperativeHandle(p.ref, () => ({
         workflowState,

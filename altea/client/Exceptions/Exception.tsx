@@ -25,7 +25,7 @@ export default function Exception(p: { ctx: TypeContext<ExceptionEntity> }): Rea
         <div className="col-sm-6">
           <AutoLine ctx={sc.subCtx(f => f.environment)} />
           <AutoLine ctx={sc.subCtx(f => f.creationDate)} />
-          <AutoLine ctx={sc.subCtx(f => f.version)} />
+          <AutoLine ctx={sc.subCtx(f => f.applicationVersion)} />
           <AutoLine ctx={sc.subCtx(f => f.threadId)} />
           <AutoLine ctx={sc.subCtx(f => f.machineName)} />
           <AutoLine ctx={sc.subCtx(f => f.applicationName)} />

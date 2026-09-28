@@ -23,7 +23,7 @@ import {
 import {
     Field,
     FieldPrimaryKey,
-    FieldTicks,
+    FieldVersion,
     FieldValue,
     FieldEnum,
     FieldReference,
@@ -54,8 +54,8 @@ import type { WebBuilder } from '../webApi';
 import { GlobalLazy, GlobalLazyManager } from '../globalLazy';
 import { Connector } from '../connection/connector';
 
-// Entity base fields handled specially (id, ticks) or excluded from the schema.
-const RESERVED_FIELDS = new Set(['id', 'ticks', 'isNew', '_snapshot']);
+// Entity base fields handled specially (id, version) or excluded from the schema.
+const RESERVED_FIELDS = new Set(['id', 'version', 'isNew', '_snapshot']);
 
 function isEntityCtor(t: unknown): t is Type<Entity> {
     return typeof t === 'function' && (t === Entity || (t as { prototype?: unknown }).prototype instanceof Entity);
@@ -383,7 +383,7 @@ function getSqlSize(fi: FieldInfo | undefined, dbType: AbstractDbType, isPostgre
 export class SchemaSettings {
     schemaName: SchemaName = defaultSchemaName;
     primaryKeyDbType: AbstractDbType = new AbstractDbType('int', 'int4');
-    ticksDbType: AbstractDbType = new AbstractDbType('bigint', 'int8');
+    versionDbType: AbstractDbType = new AbstractDbType('bigint', 'int8');
     // Drives dialect-specific physical naming (snake_case for Postgres). Set from
     // the bound connector before the schema is built.
     isPostgres = false;
@@ -818,20 +818,20 @@ export class SchemaBuilder {
             throw new Error(`Type '${rawTypeName(type)}' has no reflection metadata. Is it decorated with @entity?`);
 
         // EnumEntity<T> tables mirror Signum: a non-identity int PK (the row id is
-        // the enum's underlying value, supplied at seed time) and no ticks column.
-        // The TypeEntity system table shares the seeded treatment for ticks/ToStr
+        // the enum's underlying value, supplied at seed time) and no version column.
+        // The TypeEntity system table shares the seeded treatment for version/ToStr
         // (Signum's [TicksColumn(false)]) but NOT for the PK — see isIdentity below.
         const isEnumEntity = isEnumEntityType(type);
         // Seeded tables (framework-managed, not user CRUD): every @entity("SystemString") — the symbol
         // tables (OperationSymbol, …) + TypeEntity — plus the enum tables (an intrinsic base with no
-        // per-type decorator). They get no ticks / ToStr column.
+        // per-type decorator). They get no version / ToStr column.
         const isSeeded = isEnumEntity || typeInfo.entityKind === "SystemString";
 
-        // Whether the table carries a concurrency stamp. A Ticks column earns its place where a row is
+        // Whether the table carries a concurrency stamp. A Version column earns its place where a row is
         // edited by PEOPLE, one at a time — so a `@part` row has none by DEFAULT: it is reached and saved
         // through its owner, whose own stamp guards the aggregate, and it is never edited on its own.
         // (That is also why Signum's MList table, which a part row usually stands in for, has none.)
-        // A SEEDED table (symbols, enum tables) has none either. `@ticksColumn(true|false)` overrides the
+        // A SEEDED table (symbols, enum tables) has none either. `@versionColumn(true|false)` overrides the
         // default in either direction — see the decorator for who uses which.
         //
         // LEGACY MODE gives one BACK to the parts Signum modelled as real ENTITIES — a dashboard part's
@@ -841,15 +841,15 @@ export class SchemaBuilder {
         // a type that has its own table. See mlistRowOwner.
         const isMListRow = mlistRowOwner(type) != null;
         table.isMListRow = isMListRow;
-        const partWithoutTicks = typeInfo.entityKind === "Part" && (isMListRow || !this.settings.legacyMode);
-        const hasTicks = typeInfo.ticksColumn ?? !(isSeeded || partWithoutTicks);
+        const partWithoutVersion = typeInfo.entityKind === "Part" && (isMListRow || !this.settings.legacyMode);
+        const hasVersion = typeInfo.versionColumn ?? !(isSeeded || partWithoutVersion);
         // Externally-supplied (non-identity) ids: the enum tables (id = the enum value) and any @entity
         // declared `{ identity: false }` (Signum's [PrimaryKey(IdentityBehaviour=false)] — the Symbols,
         // whose ids SymbolLogic assigns/seeds). TypeEntity keeps a real identity PK (generation inserts
         // without ids; TypeLogic.load reads them back), so it does NOT set identity:false.
         const isExternalId = isEnumEntity || typeInfo.identity === false;
 
-        // Primary key + ticks first, so FK columns can read the PK db type.
+        // Primary key + version first, so FK columns can read the PK db type.
         const idInfo = typeInfo.fields['id'] ?? new FieldInfo('id');
         const pkType = idInfo.columnOptions?.primaryKey;
         const pkDbType = pkType != null ? primaryKeyDbType(pkType) : this.settings.primaryKeyDbType;
@@ -867,11 +867,16 @@ export class SchemaBuilder {
         table.primaryKey = pk;
         table.fields['id'] = new EntityField(idInfo, pk, makeGetter('id'));
 
-        if (hasTicks) {
-            const ticksInfo = typeInfo.fields['ticks'] ?? new FieldInfo('ticks');
-            const ticks = new FieldTicks(new ValueColumn(this.idiomatic('Ticks'), this.settings.ticksDbType, IsNullable.No));
-            table.ticks = ticks;
-            table.fields['ticks'] = new EntityField(ticksInfo, ticks, makeGetter('ticks'));
+        if (hasVersion) {
+            // LEGACY MODE keeps Signum's `Ticks` column and its DateTime-ticks values, so a Signum application
+            // sharing the database still reads a stamp it understands. Leaving legacy mode, `sync` offers the
+            // rename to `Version`; declining it drops `Ticks` and starts the new counter from 0.
+            const legacy = this.settings.legacyMode;
+            const versionInfo = typeInfo.fields['version'] ?? new FieldInfo('version');
+            const version = new FieldVersion(
+                new ValueColumn(this.idiomatic(legacy ? 'Ticks' : 'Version'), this.settings.versionDbType, IsNullable.No), legacy);
+            table.version = version;
+            table.fields['version'] = new EntityField(versionInfo, version, makeGetter('version'));
         }
 
         const preName = NameSequence.void();
@@ -921,7 +926,7 @@ export class SchemaBuilder {
         // in queries instead and needs no column. Enum tables use their `name` column;
         // the TypeEntity system table keeps the inherited default (no ToStr column).
         // LEGACY MODE: an MList table has no ToStr in Signum either — it is not an entity there, so it has
-        // nothing to display. (Unlike the Ticks rule above, this is naming-shaped rather than structural:
+        // nothing to display. (Unlike the version rule above, this is naming-shaped rather than structural:
         // altea's row IS an entity and its display string is real, so it is only dropped when the schema is
         // being made to look like Signum's.)
         if (!isSeeded && !(this.settings.legacyMode && mlistRowOwner(type) != null)) {
@@ -1341,7 +1346,7 @@ export class SchemaBuilder {
      * EVERY field a FieldInfo describes passes through here — a value, an embedded (whose members are then
      * prefixed with it), a reference's `<Field>ID`, an enum's, and each `@implementedBy` /
      * `@implementedByAll` implementation column. Only the fixed columns have no FieldInfo to route
-     * (`ID` / `Ticks` / `ToStr` / the @systemVersioned period ones); {@link idiomatic} is the hook that
+     * (`ID` / `Version` (`Ticks`) / `ToStr` / the @systemVersioned period ones); {@link idiomatic} is the hook that
      * covers those.
      *
      * Signum's counterpart is `GenerateFieldName(PropertyRoute, KindOfField)`, which BUNDLES three things:
@@ -1442,7 +1447,7 @@ export class SchemaBuilder {
      *
      * OVERRIDE POINT for a whole-schema naming convention, and the only one that sees EVERY column: the
      * value/embedded names {@link columnName} produced, the `<Field>ID…` of every reference kind, and the
-     * fixed `ID` / `Ticks` / `ToStr` / @systemVersioned period columns, which no FieldInfo covers. (Signum's
+     * fixed `ID` / `Version` (`Ticks`) / `ToStr` / @systemVersioned period columns, which no FieldInfo covers. (Signum's
      * `Idiomatic` is public but NOT virtual — making this overridable is an altea addition.)
      */
     protected idiomatic(logical: string): string {

@@ -13,7 +13,7 @@ import {
     Field,
     FieldValue,
     FieldEnum,
-    FieldTicks,
+    FieldVersion,
     FieldPrimaryKey,
     FieldReference,
     FieldImplementedBy,
@@ -32,7 +32,7 @@ import type { Quoted } from 'quote-transformer/quoted';
 // the entity's Table in that connector's schema, and emit parameterized,
 // dialect-aware SQL (RETURNING vs OUTPUT for the new id).
 //
-// Scope (matches the schema model): value/enum/ticks columns, single & embedded
+// Scope (matches the schema model): value/enum/version columns, single & embedded
 // references, and @implementedBy. @implementedByAll writes its id but can only
 // approximate the type discriminator as the clean type *name* (there is no Type
 // table yet to map it to an int). Child arrays (@backReference) carry no columns of
@@ -74,11 +74,11 @@ export async function insertEntityRows(entities: Entity[], forbiddens?: Forbidde
     const generated = entities[0].id == null;
     const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
 
-    // Signum's `entity.Ticks = Clock.Now.Ticks` before the INSERT.
-    if (table.ticks != null) {
-        const ticks = clockTicks();
+    // A new row's version: 0, or in legacy mode Signum's `entity.Ticks = Clock.Now.Ticks`.
+    if (table.version != null) {
+        const initial = table.version.dotNetTicks ? clockTicks() : 0n;
         for (const e of entities)
-            e.ticks = ticks;
+            e.version = initial;
     }
 
     const rows = entities.map((e, i) => {
@@ -112,8 +112,8 @@ export async function insertEntityRows(entities: Entity[], forbiddens?: Forbidde
 
 /**
  * Signum's `Clock.Now.Ticks`: the .NET `DateTime.Ticks` of the clock's wall time — 100 ns units since
- * 0001-01-01. The concurrency stamp a save writes, so a row stays comparable with one a Signum application
- * saved (~6.4e17, past 2^53, hence a bigint).
+ * 0001-01-01. The version a LEGACY-mode save writes, so a row stays comparable with one a Signum
+ * application saved (~6.4e17, past 2^53, hence a bigint).
  */
 export function clockTicks(): bigint {
     return DOTNET_EPOCH_TICKS + Clock.now.toZonedDateTime("UTC").epochNanoseconds / 100n;
@@ -123,37 +123,45 @@ export function clockTicks(): bigint {
 const DOTNET_EPOCH_TICKS = 621355968000000000n;
 
 // UPDATEs an existing entity in place. Enforces optimistic concurrency when the
-// table has a ticks column: the row is written with fresh ticks (Signum's Clock.Now.Ticks)
-// guarded by `WHERE id = ? AND ticks = old`, so a row modified or deleted by someone else
-// since this entity was retrieved matches zero rows and raises ConcurrencyException.
+// table has a version column: the row is written with the next version (old + 1; in legacy
+// mode Signum's Clock.Now.Ticks) guarded by `WHERE id = ? AND version = old`, so a row
+// modified or deleted by someone else since this entity was retrieved matches zero rows and
+// raises ConcurrencyException.
 export async function updateEntityRow(entity: Entity, forbidden: Forbidden = NO_FORBIDDEN): Promise<void> {
     const connector = Connector.current();
     const table = connector.schema.table(entity.getType());
     const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
     const assignments = collectAssignments(table, entity, forbidden, typeCaches);
 
-    if (table.ticks == null) {
+    if (table.version == null) {
         await buildUpdate(table, assignments, entity.id).executeNonQuery();
         return;
     }
 
-    const oldTicks = entity.ticks ?? 0n;
-    // Always MOVES, unlike Signum's: a pinned test clock, or two saves within the clock's resolution,
-    // would otherwise write the stamp back unchanged and a concurrent writer would go unnoticed.
-    const now = clockTicks();
-    const newTicks = now > oldTicks ? now : oldTicks + 1n;
+    const oldVersion = entity.version ?? 0n;
+    const newVersion = nextVersion(table.version, oldVersion);
     for (const a of assignments)
-        if (a.column === table.ticks.column) a.value = newTicks;
+        if (a.column === table.version.column) a.value = newVersion;
 
     const affected = await buildUpdate(table, assignments, entity.id, {
-        column: table.ticks.column,
-        value: oldTicks,
+        column: table.version.column,
+        value: oldVersion,
     }).executeNonQuery();
 
     if (affected === 0)
         throw new ConcurrencyException(entity);
 
-    entity.ticks = newTicks;
+    entity.version = newVersion;
+}
+
+function nextVersion(field: FieldVersion, old: bigint): bigint {
+    if (!field.dotNetTicks)
+        return old + 1n;
+
+    // Always MOVES, unlike Signum's: a pinned test clock, or two saves within the clock's resolution,
+    // would otherwise write the stamp back unchanged and a concurrent writer would go unnoticed.
+    const now = clockTicks();
+    return now > old ? now : old + 1n;
 }
 
 // Raised when an UPDATE's optimistic-concurrency guard matches no row — the entity
@@ -201,7 +209,7 @@ VALUES (${values});`, namedParameters(assignments));
 }
 
 // UPDATE all non-PK columns (incl mixins) of the row WHERE id = entity.id. No optimistic
-// concurrency (enum tables have no ticks).
+// concurrency (enum tables have no version).
 //
 // Returns UNDEFINED for a CLEAN entity — Signum's Table.UpdateSqlSync bails out on
 // `entity.Modified == ModifiedState.Clean`, so a synchronizer's mergeBoth can just copy the expected
@@ -427,8 +435,8 @@ function pushFieldValues(field: Field, value: unknown, out: ColumnValue[], forbi
     if (field instanceof FieldEntityArray)
         return;
 
-    // FieldTicks / FieldEnum extend FieldValue, so test them first.
-    if (field instanceof FieldTicks) {
+    // FieldVersion / FieldEnum extend FieldValue, so test them first.
+    if (field instanceof FieldVersion) {
         out.push({ column: field.column, value: value ?? 0n });
         return;
     }

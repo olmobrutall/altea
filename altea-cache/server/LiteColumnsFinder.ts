@@ -166,7 +166,7 @@ class LiteColumnsFinder extends ExpressionVisitor {
         // Only a primary key / value / ticks / reference field IS a column. A reference
         // is accepted as the raw FK column — reading the id is fine, navigating INTO it is not (above).
         if (field instanceof FieldPrimaryKey) { this.found.add(field.column); return; }
-        // FieldEnum extends FieldReference, FieldTicks extends FieldValue — both are single columns.
+        // FieldEnum extends FieldReference, FieldVersion extends FieldValue — both are single columns.
         if (field instanceof FieldEnum) { this.found.add(field.column); return; }
         if (field instanceof FieldValue) { this.found.add(field.column); return; }
         // A reference read as a whole (`e.city` passed to the lite, never navigated) is its FK column — the

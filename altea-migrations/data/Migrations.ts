@@ -1,7 +1,7 @@
 import { setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, uniqueIndex, quoted, ticksColumn, legacyClassName, legacyPropertyRoute } from "@altea/altea/data/decorators";
+import { entity, uniqueIndex, quoted, versionColumn, legacyClassName, legacyPropertyRoute } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Temporal } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -18,7 +18,7 @@ import { ExceptionEntity } from "@altea/altea/data/exception";
 @entity("System", "Transactional")
 // The engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.
-@ticksColumn(false)
+@versionColumn(false)
 export class SqlMigrationEntity extends Entity {
     @uniqueIndex
     @stringLengthValidator({ max: 200 })
@@ -33,7 +33,7 @@ export class SqlMigrationEntity extends Entity {
 @entity("System", "Transactional")
 // The engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.
-@ticksColumn(false)
+@versionColumn(false)
 // LEGACY MODE: Signum calls this class `CSharpMigrationEntity` — the steps are C# there. Only the NAMES
 // differ; the two columns are the same, so an application pointed at a Signum database reads and writes
 // the rows it already has, and `basics.type` keeps the class name a Signum application synchronizes back.
@@ -52,7 +52,7 @@ export class TypeScriptMigrationEntity extends Entity {
 @entity("System", "Transactional")
 // The engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.
-@ticksColumn(false)
+@versionColumn(false)
 export class LoadMethodLogEntity extends Entity {
     @stringLengthValidator({ min: 3, max: 400 })
     methodName: string | null;

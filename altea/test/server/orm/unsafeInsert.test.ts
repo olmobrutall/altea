@@ -33,7 +33,7 @@ describe.skipIf(!hasDb)("UnsafeInsertTest", () => {
         const before = await table(AlbumEntity).count();
         const value = await table(AlbumEntity).executeInsert(AlbumEntity, a => ({
             author: a.author, bonusTrack: a.bonusTrack, label: a.label,
-            name: a.name + "copy", state: a.state, year: a.year, ticks: a.ticks,
+            name: a.name + "copy", state: a.state, year: a.year, version: a.version,
         }));
         assert.ok(value > 0);
         assert.equal(await table(AlbumEntity).count(), before + value);
@@ -44,7 +44,7 @@ describe.skipIf(!hasDb)("UnsafeInsertTest", () => {
         const before = await table(AlbumEntity).count();
         const value = await table(AlbumEntity)
             .map(a => ({ author: a.author, bonusTrack: a.bonusTrack, label: a.label,
-                name: a.name + "copy", state: a.state, year: a.year, ticks: a.ticks }))
+                name: a.name + "copy", state: a.state, year: a.year, version: a.version }))
             .executeInsert(AlbumEntity, a => a);
         assert.ok(value > 0);
         assert.equal(await table(AlbumEntity).count(), before + value);
@@ -56,7 +56,7 @@ describe.skipIf(!hasDb)("UnsafeInsertTest", () => {
         const value = await table(AlbumEntity).executeInsert(AlbumEntity, a => ({
             author: a.author, bonusTrack: a.bonusTrack, label: a.label,
             name: a.name + "copy", state: a.state, year: a.year,
-            ticks: a.ticks, id: (a.id as number) + 100,
+            version: a.version, id: (a.id as number) + 100,
         }));
         assert.ok(value > 0);
         assert.equal(await table(AlbumEntity).count(), before + value);
@@ -100,7 +100,7 @@ describe.skipIf(!hasDb)("UnsafeInsertTest", () => {
         const value = await table(AlbumEntity).executeInsert(AlbumEntity, a => ({
             author: a.author, bonusTrack: a.bonusTrack,
             label: table(LabelEntity).single(l => l.is(a.label)).$v,
-            name: a.name + "copy", state: a.state, year: a.year, ticks: a.ticks,
+            name: a.name + "copy", state: a.state, year: a.year, version: a.version,
         }));
         assert.ok(value > 0);
         assert.equal(await table(AlbumEntity).count(), before + value);
@@ -110,7 +110,7 @@ describe.skipIf(!hasDb)("UnsafeInsertTest", () => {
     txTest("InsertDistinct", async () => {
         const before = await table(CountryEntity).count();
         const value = await table(LabelEntity).map(a => a.country).distinct()
-            .executeInsert(CountryEntity, c => ({ name: "Clone of " + c.name, ticks: 0n }));
+            .executeInsert(CountryEntity, c => ({ name: "Clone of " + c.name, version: 0n }));
         assert.ok(value > 0);
         assert.equal(await table(CountryEntity).count(), before + value);
     });

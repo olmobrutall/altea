@@ -3,7 +3,7 @@ import { Metadata } from "@altea/altea/data/metadata";
 import { EmbeddedEntity } from "@altea/altea/data/entity";
 import { ImmutableEntity } from "@altea/altea/data/immutableEntity";
 import { Symbol } from "@altea/altea/data/symbol";
-import { column, entity, format, ticksColumn } from "@altea/altea/data/decorators";
+import { column, entity, format, versionColumn } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, notNullValidator } from "@altea/altea/data/validators";
 import { type long, toLong } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -61,7 +61,7 @@ export class FileEmbedded extends EmbeddedEntity {
 @entity("SharedPart", "Transactional")
 // An immutable row cannot be concurrently edited, so a stamp would guard
 // nothing. (A SharedPart would otherwise get one — it is reached by reference, not through one owner.)
-@ticksColumn(false)
+@versionColumn(false)
 export class FileEntity extends ImmutableEntity {
     // 254, where FileEmbedded's is 200 — both are the lengths a Signum database's columns have.
     @stringLengthValidator({ min: 3, max: 254 })

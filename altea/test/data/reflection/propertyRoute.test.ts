@@ -205,7 +205,7 @@ describe("PropertyRoute — @part references", () => {
         const paths = PropertyRoute.generateRoutes(AlbumEntity, true).map(r => r.propertyString());
         for (const noise of ["songs/id", "songs/ticks", "songs/album", "songs/order"])
             assert.ok(!paths.includes(noise), `${noise} in ${paths.join(", ")}`);
-        assert.ok(paths.includes("id") && paths.includes("ticks"), paths.join(", "));   // …at the root they are
+        assert.ok(paths.includes("id") && paths.includes("version"), paths.join(", "));   // …at the root they are
     });
 
     // The enforcement point is the CONSTRUCTOR: a part root cannot be built at all, so there is no way
@@ -406,7 +406,7 @@ describe("PropertyRoute — generateRoutes and casts", () => {
 
     test("ON: the part's BOOKKEEPING is skipped, as for a part reached by continuation", () => {
         const on = paths(true);
-        for (const bookkeeping of ["id", "ticks"])
+        for (const bookkeeping of ["id", "version"])
             assert.ok(!on.includes("panels/content.(CastProbeTextPart)." + bookkeeping), on.join(", "));
     });
 

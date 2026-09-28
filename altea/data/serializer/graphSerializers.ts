@@ -400,8 +400,8 @@ class EntitySerializer extends ModifiableSerializer {
             const o: Record<string, unknown> = {};
             if (writeType) o.$type = cleanTypeName(entity.getType());
             o.id = entity.id ?? null;
-            // A string: JSON has no bigint, and a JSON number would round it (see Entity.ticks).
-            if (entity.ticks != null) o.ticks = entity.ticks.toString();
+            // A string: JSON has no bigint, and a JSON number would round it (see Entity.version).
+            if (entity.version != null) o.version = entity.version.toString();
             o.toStr = entity.toString();
             if (isModifiedSelf(entity)) o.modified = true;
             // A (re-rooted) entity computes its OWN property-auth metadata (per Signum's IRootEntity step).
@@ -485,7 +485,7 @@ class EntitySerializer extends ModifiableSerializer {
         const inst = newInstance(this.ctor as Type<Entity>);
         inst.id = id;
         inst.isNew = false;
-        if (j.ticks != null) inst.ticks = BigInt(j.ticks as string | number);
+        if (j.version != null) inst.version = BigInt(j.version as string | number);
         dc.idMap.set(key, inst);
         this.applyFields(inst, j, dc);
         this.recover(inst, slot);
@@ -596,7 +596,7 @@ class DynamicSerializer implements JsonSerializer {
 
 // ---- Factory ---------------------------------------------------------------
 
-const EXCLUDED_FIELD_NAMES = new Set(['id', 'ticks']);   // serialized specially by EntitySerializer
+const EXCLUDED_FIELD_NAMES = new Set(['id', 'version']);   // serialized specially by EntitySerializer
 
 class SerializerFactory {
     private readonly entityCache = new Map<Type<Entity>, EntitySerializer>();

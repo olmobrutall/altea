@@ -1,7 +1,7 @@
 import { Entity } from "./entity";
 import type { IQuery } from "./iquery";
 import { Lite } from "./lite";
-import { column, entity, format, implementedBy, implementedByAll, legacyPropertyRoute, quoted, serialize, ticksColumn } from "./decorators";
+import { column, entity, format, implementedBy, implementedByAll, legacyPropertyRoute, quoted, serialize, versionColumn } from "./decorators";
 import { setDatabaseSchema } from "./reflection";
 import { Temporal } from "./basics";
 import { OperationSymbol } from "./operations";
@@ -31,7 +31,7 @@ import type { IUserEntity } from "./security";
 @entity("System", "Transactional")
 // Signum's [TicksColumn(false)] — the engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.
-@ticksColumn(false)
+@versionColumn(false)
 export class OperationLogEntity extends Entity {
     // Signum's [ImplementedByAll] Lite<IEntity>? Target — the entity the operation ran on.
     @implementedByAll

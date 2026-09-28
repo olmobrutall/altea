@@ -163,9 +163,9 @@ export namespace ExcelImporter {
                 try {
                     const entity = await applyGroup(pq, model, plan, group, res);
                     if (entity != null) {
-                        const ticksBefore = entity.ticks;
+                        const ticksBefore = entity.version;
                         await Operations.execute(entity, saveOperation as ExecuteSymbol<Entity>);
-                        if (res.action === "Updated" && ticksBefore === entity.ticks)
+                        if (res.action === "Updated" && ticksBefore === entity.version)
                             res.action = "NoChanges";
                         res.entity = entity.toLite();
                     }
@@ -198,9 +198,9 @@ export namespace ExcelImporter {
                 try {
                     const entity = await applyGroup(pq, model, plan, group, res);
                     if (entity != null) {
-                        const ticksBefore = entity.ticks;
+                        const ticksBefore = entity.version;
                         await Operations.execute(entity, saveOperation as ExecuteSymbol<Entity>);
-                        if (res.action === "Updated" && ticksBefore === entity.ticks)
+                        if (res.action === "Updated" && ticksBefore === entity.version)
                             res.action = "NoChanges";
                         res.entity = entity.toLite();
                     }

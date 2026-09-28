@@ -1,7 +1,7 @@
 import type { Quoted } from 'quote-transformer/quoted';
 import type { Type, Entity, View, ViewType } from '../../data/entity';
 import { ObjectName } from './objectName';
-import { EntityField, FieldPrimaryKey, FieldTicks, FieldMixin, FieldEmbedded } from './field';
+import { EntityField, FieldPrimaryKey, FieldVersion, FieldMixin, FieldEmbedded } from './field';
 import type { IColumn } from './column';
 import type { IndexBlock } from './tableIndex';
 import { TableIndex, multiUniqueIndexes } from './tableIndex';
@@ -10,7 +10,7 @@ import { getIndexWhere } from './indexWhere';
 import type { SystemVersionedInfo } from './systemVersioned';
 
 // In-memory description of one entity's table. `fields` holds the reflected
-// entity fields (incl. id/ticks); `columns` is the flattened physical layout
+// entity fields (incl. id/version); `columns` is the flattened physical layout
 // built by generateColumns().
 export class Table {
     name: ObjectName;
@@ -18,9 +18,9 @@ export class Table {
     mixins: { [typeName: string]: FieldMixin } = {};
     columns: { [name: string]: IColumn } = {};
     primaryKey!: FieldPrimaryKey;
-    ticks?: FieldTicks;
+    version?: FieldVersion;
     // True for a raw database view (Signum's ITable.IsView) built by ViewBuilder —
-    // no ticks/toStr, raw column names, an explicit @viewPrimaryKey. Generation
+    // no version/toStr, raw column names, an explicit @viewPrimaryKey. Generation
     // (CREATE TABLE / FK / enum seeding) skips views.
     isView = false;
     // The dialect of the schema this table belongs to (set by SchemaBuilder from

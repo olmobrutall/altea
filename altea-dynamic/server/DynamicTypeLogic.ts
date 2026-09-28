@@ -460,10 +460,10 @@ export class DynamicTypeCodeGenerator {
         }
 
         if (def.ticks != null) {
-            // `@ticksColumn` takes the FLAG only, for the same reason as the primary key (Signum's
+            // `@versionColumn` takes the FLAG only, for the same reason as the primary key (Signum's
             // [TicksColumn] also takes a name and a type).
-            this.imports.add("@altea/altea/data/decorators", "ticksColumn");
-            result.push(`ticksColumn(${def.ticks.hasTicks === true})`);
+            this.imports.add("@altea/altea/data/decorators", "versionColumn");
+            result.push(`versionColumn(${def.ticks.hasTicks === true})`);
         }
 
         return result;

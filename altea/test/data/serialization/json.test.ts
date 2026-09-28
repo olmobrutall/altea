@@ -25,7 +25,7 @@ function parse(json: string): any {
 // A freshly built, id-stamped existing artist with a clean baseline snapshot.
 function makeArtist(id: number, name: string): ArtistEntity {
     const a = ArtistEntity.create({ name, dead: false, sex: Sex.Male, status: null, lastAward: null, friends: [] });
-    a.id = id; a.isNew = false; a.ticks = 1n;
+    a.id = id; a.isNew = false; a.version = 1n;
     cleanModified(a);
     return a;
 }
@@ -34,14 +34,14 @@ describe("EntityJson", () => {
 
     test("scalars, enums, idempotency (Auto)", () => {
         const a = ArtistEntity.create({ name: "Michael", dead: true, sex: Sex.Female, status: Status.Married, lastAward: null, friends: [] });
-        a.id = 1; a.isNew = false; a.ticks = 5n;
+        a.id = 1; a.isNew = false; a.version = 5n;
         cleanModified(a);
 
         const json = serialize(a);
         const o = parse(json);
         assert.equal(o.$type, "Artist");
         assert.equal(o.id, 1);
-        assert.equal(o.ticks, "5");             // bigint → string (exact past 2^53)
+        assert.equal(o.version, "5");             // bigint → string (exact past 2^53)
         assert.equal(o.sex, "Female");          // enum → member name
         assert.equal(o.status, "Married");
         assert.equal(o.dead, true);
@@ -54,7 +54,7 @@ describe("EntityJson", () => {
         assert.equal(b.status, Status.Married);
         assert.equal(b.dead, true);
         assert.equal(b.id, 1);
-        assert.equal(b.ticks, 5n);
+        assert.equal(b.version, 5n);
         assert.equal(isModifiedSelf(b), false); // no `modified` ⇒ clean sentinel
 
         assert.equal(serialize(b), json);       // idempotent
@@ -62,7 +62,7 @@ describe("EntityJson", () => {
 
     test("Temporal, @implementedByAll reference, mixin fields", () => {
         const usa = CountryEntity.create({ name: "USA" });
-        usa.id = 10; usa.isNew = false; usa.ticks = 0n; cleanModified(usa);
+        usa.id = 10; usa.isNew = false; usa.version = 0n; cleanModified(usa);
 
         const note = NoteWithDateEntity.create({
             title: "hello", text: "body",
@@ -73,7 +73,7 @@ describe("EntityJson", () => {
             releaseDate: null,
         });
         (note as any).colaborators = [];          // ColaboratorsMixin field (not on the entity's own type)
-        note.id = "11111111-1111-1111-1111-111111111111"; note.isNew = false; note.ticks = 0n;
+        note.id = "11111111-1111-1111-1111-111111111111"; note.isNew = false; note.version = 0n;
         cleanModified(note);
 
         const json = serialize(note);
@@ -101,7 +101,7 @@ describe("EntityJson", () => {
         // (the declared base `Lite<Entity>` isn't a persistable type). Regression for the field serializer
         // taking the declared base as the "expected" ctor and omitting $lite.
         const usa = CountryEntity.create({ name: "USA" });
-        usa.id = 10; usa.isNew = false; usa.ticks = 0n; cleanModified(usa);
+        usa.id = 10; usa.isNew = false; usa.version = 0n; cleanModified(usa);
 
         const note = NoteWithDateEntity.create({
             title: "hello", text: "body",
@@ -112,7 +112,7 @@ describe("EntityJson", () => {
             releaseDate: null,
         });
         (note as any).colaborators = [];
-        note.id = "22222222-2222-2222-2222-222222222222"; note.isNew = false; note.ticks = 0n;
+        note.id = "22222222-2222-2222-2222-222222222222"; note.isNew = false; note.version = 0n;
         cleanModified(note);
 
         const o = parse(serialize(note));
@@ -229,7 +229,7 @@ describe("EntityJson", () => {
             songs: [], bonusTrack: SongEmbedded.create({ name: "bt", duration: null, seconds: toInt(200), index: toInt(0) }),
             state: AlbumState.Saved,
         });
-        album.id = 3; album.isNew = false; album.ticks = 0n;
+        album.id = 3; album.isNew = false; album.version = 0n;
         const s1 = AlbumEntity_Song.create({ name: "s1", duration: null, seconds: toInt(100), index: toInt(0) });
         const s2 = AlbumEntity_Song.create({ name: "s2", duration: Temporal.Duration.from("PT3M"), seconds: toInt(180), index: toInt(0) });
         album.songs = [s1, s2];
@@ -305,7 +305,7 @@ describe("EntityJson", () => {
         // modified ⇒ overlay onto the resolved original (identity preserved)
         const original = makeArtist(7, "Orig");
         const incoming = ArtistEntity.create({ name: "New", dead: false, sex: Sex.Male, status: null, lastAward: null, friends: [] });
-        incoming.id = 7; incoming.isNew = false; incoming.ticks = 1n;   // no cleanModified ⇒ modified:true
+        incoming.id = 7; incoming.isNew = false; incoming.version = 1n;   // no cleanModified ⇒ modified:true
         const resolve = (t: string, id: PrimaryKey) => (t === "Artist" && id === 7 ? original : undefined);
 
         const applied = deserialize(serialize(incoming), { resolve }) as ArtistEntity;

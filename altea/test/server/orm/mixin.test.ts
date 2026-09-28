@@ -26,7 +26,7 @@ class UndeclaredMixin extends MixinEntity {
 
 function makeCountry(id: number, name: string): CountryEntity {
     const c = CountryEntity.create({ name });
-    c.id = id; c.isNew = false; c.ticks = 0n; cleanModified(c);
+    c.id = id; c.isNew = false; c.version = 0n; cleanModified(c);
     return c;
 }
 
@@ -76,7 +76,7 @@ describe("Mixin (in memory)", () => {
     // self-modified (their columns are folded into the owner's row image).
     test("editing a mixin field marks the owner self-modified", () => {
         const note = makeNote();
-        note.id = "11111111-1111-1111-1111-111111111111"; note.isNew = false; note.ticks = 0n;
+        note.id = "11111111-1111-1111-1111-111111111111"; note.isNew = false; note.version = 0n;
         cleanModified(note);
         assert.equal(isModifiedSelf(note), false);
         assert.equal(isGraphModified(note), false);

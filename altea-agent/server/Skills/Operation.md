@@ -22,7 +22,7 @@ altea's wire format uses two discriminators:
 {
   "$type": "Book",
   "id": 101,
-  "ticks": "639259539010097581",
+  "version": "3",
   "toStr": "Refactoring Recipes",
   "title": "Refactoring Recipes",
   "isbn": "978-1-23456-789-0",
@@ -40,8 +40,8 @@ altea's wire format uses two discriminators:
 ### Key rules
 
 * Member names are **camelCase**; the `$type` / `$lite` values are the PascalCase clean type name.
-* `ticks` must be preserved on an existing entity, exactly as received (a string: it is too large for a JSON number) — it is the optimistic-concurrency stamp, and dropping it makes your save overwrite someone else's.
-* A NEW entity omits `id` (and `ticks`).
+* `version` must be preserved on an existing entity, exactly as received (a string: in a legacy database it is too large for a JSON number) — it is the optimistic-concurrency stamp, and dropping it makes your save overwrite someone else's.
+* A NEW entity omits `id` (and `version`).
 * **A collection is a plain ARRAY.** There is no row wrapper: a collection of values is an array of values, and a collection of rows is an array of objects with their own `$type` (and an `id` for an existing row, omitted for a new one). This differs from other frameworks that wrap each item in `{ rowId, element }` — do not do that here.
 * You do not need to set any `modified` flag: the server compares the entity you send against the stored one.
 * `toStr` is server-generated; send it back unchanged if you have it, and omit it on a new entity.
@@ -50,7 +50,7 @@ altea's wire format uses two discriminators:
 
 1. Call `GetTypeInfo` for the target type (and for any related type you have to fill in).
 2. Get the entity with `RetrieveEntity`, which returns exactly the JSON shape to send back.
-3. Change only what you mean to change, keeping `$type`, `id` and `ticks`.
+3. Change only what you mean to change, keeping `$type`, `id` and `version`.
 4. Execute with `Operation_Execute`, or create first with `Operation_Construct` / `Operation_ConstructFrom`.
 
 The `entityJson` argument of every operation tool is the entity as a JSON **string**.
