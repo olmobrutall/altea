@@ -167,14 +167,9 @@ function contentFromXml(content: string | undefined, ctx: IFromXmlContext): Lite
     if (isGuid(content))
         return ctx.getEntity(content).toLite() as Lite<Entity>;
 
-    // `IFromXmlContext` exposes only the throwing
-    // `getQuery`, so the "not a query key" case is recovered from the throw before falling through to the
-    // permission lookup (and finally to the "Content not found" error).
-    try {
-        return ctx.getQuery(content).toLite() as Lite<Entity>;
-    } catch {
-        // not a registered query key — try a permission below
-    }
+    const query = ctx.tryGetQuery(content);
+    if (query != null)
+        return query.toLite() as Lite<Entity>;
 
     const permission = ctx.symbols.tryToSymbol(PermissionSymbol, content);
     if (permission != null)

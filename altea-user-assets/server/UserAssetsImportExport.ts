@@ -103,6 +103,9 @@ export interface IFromXmlContext {
      *  trigger or any other symbol by key. */
     readonly symbols: SymbolCaches;
     getQuery(queryKey: string): QueryEntity;
+    /** Like `getQuery`, but `undefined` for a key that is not a registered query (e.g. a polymorphic
+     *  reference that may instead be a permission). */
+    tryGetQuery(queryKey: string): QueryEntity | undefined;
     getType(cleanName: string): Lite<TypeEntity>;
     tryGetType(cleanName: string): Lite<TypeEntity> | undefined;
     /** The already-materialized asset for a guid referenced elsewhere in the same file. */
@@ -302,6 +305,7 @@ export namespace UserAssetsImporter {
             typeCaches: await TypeLogic.caches(),
             symbols: await SymbolLogic.allCaches(),
             getQuery: queryKey => getQueryByKey(queryKey),
+            tryGetQuery: queryKey => tryGetQueryByKey(queryKey),
             getType: cleanName => getTypeByCleanName(cleanName, true)!,
             tryGetType: cleanName => getTypeByCleanName(cleanName, false),
             getEntity: guid => {
@@ -344,10 +348,14 @@ function parseByGuid(content: string): Map<string, { elementName: string; obj: R
     return parsedByGuid;
 }
 
-function getQueryByKey(queryKey: string): QueryEntity {
+function tryGetQueryByKey(queryKey: string): QueryEntity | undefined {
     // Resolved from the QueryEntity cache would be ideal; a direct fetch keeps this self-contained.
     // (Synchronous on purpose — callers already run inside the async import.)
-    const q = queryEntityCache.get(queryKey) ?? queryEntityCache.get(currentCleanName(queryKey));
+    return queryEntityCache.get(queryKey) ?? queryEntityCache.get(currentCleanName(queryKey));
+}
+
+function getQueryByKey(queryKey: string): QueryEntity {
+    const q = tryGetQueryByKey(queryKey);
     if (q == null)
         throw new Error(`UserAssets import: query '${queryKey}' is not registered in this database`);
     return q;
