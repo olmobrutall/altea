@@ -2,6 +2,7 @@ import { setDefinedQueries } from "./Reflection";
 import { Metadata } from "../data/metadata";
 import type { MetadataBlob, MetadataBlobWire } from "../data/metadata";
 import { allDeclaredSymbols, cleanTypeName, resolveType } from "../data/registration";
+import { ajaxGet } from "./Services";
 
 // Client consumer of the server reflection metadata (Signum's ReflectionServer/reloadTypes). altea ships
 // the entity SHAPE at compile time (@reflect stamps TypeInfo/FieldInfo onto constructors), so this only
@@ -19,25 +20,19 @@ export type { MetadataBlob, MetadataBlobWire };
 // something from the blob at load time (rather than read it on demand) pushes one here.
 export const applyMetadataHooks: ((meta: MetadataBlob) => void)[] = [];
 
-// Extra request headers for the metadata fetch (Signum ships the blob role-filtered; altea attaches the
-// bearer token here so the server sees the current user). An auth module sets this; undefined → none.
-// Kept as a seam so this core module needn't depend on the auth client.
-export let extraHeaders: (() => Record<string, string>) | undefined;
-export function setExtraHeaders(fn: (() => Record<string, string>) | undefined): void { extraHeaders = fn; }
-
-// The culture of the blob currently applied. A RELOAD (a role change, say) must not silently drop the
-// user's chosen culture back to the server default — every caller other than the culture picker itself is
-// asking for "the same blob, freshly" — so this is the default for `culture`. Undefined only before the
-// first load, where sending no culture is right: the SERVER's default is the answer, not the client's.
+// The culture of the blob currently applied, sent back as `?culture=` — a CACHE BUSTER only, as in Signum's
+// reloadTypes: the server builds the blob for the request's own culture (cookie → user → Accept-Language →
+// default) and ignores the parameter. Undefined before the first load.
 let currentCulture: string | undefined;
 
 export async function loadReflectionMetadata(options?: { culture?: string }): Promise<MetadataBlob> {
     const culture = options?.culture ?? currentCulture;
     const url = "/api/reflection/metadata" + (culture ? `?culture=${encodeURIComponent(culture)}` : "");
-    const resp = await fetch(url, { headers: { Accept: "application/json", ...(extraHeaders?.() ?? {}) }, cache: "no-cache" });
-    if (!resp.ok)
-        throw new Error(`GET ${url} → ${resp.status} ${resp.statusText}`);
-    const wire = await resp.json() as MetadataBlobWire;
+    // `ajaxGet`, like Signum's reloadTypes: the bearer token (so the blob is ROLE-filtered), the error funnel
+    // and the rest of the ajax filters come with it. Plain JSON, so no Serializer revival; and `no-cache`
+    // rather than ajax's `no-store`, so the browser revalidates with the server's ETag and a boot that
+    // changed nothing gets a 304.
+    const wire = await ajaxGet<MetadataBlobWire>({ url, avoidDeserialize: true, cache: "no-cache" });
     currentCulture = wire.culture;
     return applyMetadata(wire);
 }

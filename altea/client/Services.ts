@@ -7,7 +7,6 @@
 //     Serializer.stringify by the entity API layer (Navigator/EntitiesAPI, Phase 2) — this file
 //     keeps Signum's generic JSON.stringify/JSON.parse for plain DTO/query payloads.
 import { Dic } from '../data/globals';
-import { CultureInfo } from '../data/utils/cultureInfo';
 import { toAbsoluteUrl } from './AppContext';
 import * as AppContext from './AppContext';
 import { Serializer } from '../data/serializer';
@@ -54,16 +53,10 @@ export interface AjaxOptions {
 
 // Decode a response body: Serializer.parse (real class graph) by default, generic JSON.parse when opted
 // out. Empty body → null (matches Signum's ajax helpers).
-// Every call carries the culture the UI is CURRENTLY rendered in, so the server resolves its own labels
-// (a registered expression's niceName, a validation or exception message) in the same language the page is
-// in — Signum gets this from ASP.NET request localization reading a culture cookie. A bare locale tag, not
-// a weighted Accept-Language list: this is the app's applied culture, not a browser preference, and the
-// server ignores anything it has no translations for. (CultureInfo is imported for the value, not the
-// module's side effects — it is the same store ReflectionClient points at when a blob is applied.)
-function currentCultureHeader(): string {
-  return CultureInfo.currentUICulture();
-}
-
+//
+// No `Accept-Language` is set here, as in Signum: the browser sends its own, and the server resolves the
+// request's culture from the `language` cookie → the user's culture → that header → its default (see
+// server/filters/cultureFilter) — the same chain that chose the culture of the metadata blob.
 function parseResponse<T>(text: string, options: AjaxOptions): T | null {
   if (!text.length)
     return null;
@@ -82,7 +75,6 @@ export function ajaxGetRaw(options: AjaxOptions): Promise<Response> {
 
     const headers = Dic.simplify({
       'Accept': 'application/json',
-      'Accept-Language': currentCultureHeader(),
       ...options.headers
     } as any);
 
@@ -110,7 +102,6 @@ export function ajaxPostRaw(options: AjaxOptions, data: any): Promise<Response> 
     const headers = {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
-      'Accept-Language': currentCultureHeader(),
       ...options.headers
     } as any;
 
@@ -144,7 +135,6 @@ export function ajaxPostUpload<T>(options: AjaxOptions, blob: Blob): Promise<T> 
     const headers = Dic.simplify({
       'Accept': 'application/json',
       'Content-Type': "application/octet-stream",
-      'Accept-Language': currentCultureHeader(),
       ...options.headers
     } as any);
 

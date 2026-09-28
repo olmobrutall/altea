@@ -11,8 +11,8 @@ import { CultureInfo } from '../data/utils/cultureInfo';
 //     nothing translated is not a culture worth offering;
 //   - the CHOICE lives in the BROWSER, not in a per-user server row: localStorage is what the client
 //     boots from, and the `language` COOKIE is the half the server can see (Signum writes that same
-//     cookie, but server-side from `setCurrentCulture`). Ordinary calls also carry `Accept-Language`
-//     (client/Services), which is the third step of the server's chain — see server/filters/cultureFilter.
+//     cookie, but server-side from `setCurrentCulture`). Otherwise the browser's own `Accept-Language`
+//     decides, the third step of the server's chain — see server/filters/cultureFilter.
 //   - the display name comes from `Intl.DisplayNames`, not a stored `nativeName` column.
 export namespace CultureClient {
 
@@ -65,8 +65,8 @@ export namespace CultureClient {
 
     /**
      * Write a remembered choice back to the cookie, because that is the only one of the two the server can
-     * see: the boot metadata fetch carries no `Accept-Language`, and `?culture=` is a cache buster the
-     * server ignores. Without this a browser that chose a language BEFORE the cookie existed — or one
+     * see: the browser's `Accept-Language` is its own preference, not the choice, and `?culture=` is a
+     * cache buster the server ignores. Without this a browser that chose a language BEFORE the cookie existed — or one
      * whose cookie was cleared while localStorage survived — would render the remembered language while
      * every server-produced string came back in the default one.
      */
@@ -80,8 +80,8 @@ export namespace CultureClient {
      * The cookie the SERVER reads to decide what language a request runs in (the culture filter's `requestCulture`,
      * Signum's `language` cookie — same name, same contract).
      *
-     * localStorage is what the client boots from, but the server cannot see it, and the metadata fetch
-     * carries no `Accept-Language` — so without this the server would answer every request in the process
+     * localStorage is what the client boots from, but the server cannot see it, and the browser's
+     * `Accept-Language` is not the choice — so without this the server would answer every request in the process
      * default while the UI rendered in the chosen language. Signum writes this cookie server-side from
      * `setCurrentCulture`; altea has no such endpoint because the choice is client-owned, so the client
      * writes it. Not HttpOnly on purpose: it is a display preference, and boot reads it back.

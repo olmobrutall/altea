@@ -2,7 +2,7 @@ import * as React from "react";
 import type { RouteObject } from "react-router";
 import { ajaxGet, ajaxPost, ServiceError, AuthTokenFilter, SessionSharing, type AjaxOptions } from "@altea/altea/client/Services";
 import * as AppContext from "@altea/altea/client/AppContext";
-import { loadReflectionMetadata, setExtraHeaders } from "@altea/altea/client/ReflectionClient";
+import { loadReflectionMetadata } from "@altea/altea/client/ReflectionClient";
 import { setAccessTokenFactory } from "@altea/altea/client/useWebSocket";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import { Metadata } from "@altea/altea/data/metadata";
@@ -366,15 +366,10 @@ AuthTokenFilter.addAuthToken = AuthClient.addAuthToken;
 
 // A WebSocket cannot carry the `Authorization` header, so a hub connection authenticates with its first
 // frame instead (see altea/client/useWebSocket.tsx). Same token, same lifetime — installed here so core's
-// socket layer stays auth-agnostic, exactly like `setExtraHeaders` below.
+// socket layer stays auth-agnostic, exactly like `AuthTokenFilter.addAuthToken` above. (The metadata blob
+// needs nothing extra: it is an ordinary `ajaxGet`, so the token above makes it ROLE-filtered — which is
+// why it is refetched per credential change.)
 setAccessTokenFactory(() => AuthClient.getAuthToken() ?? undefined);
-
-// Attach the bearer token to the reflection-metadata fetch so the server ships the ROLE-FILTERED blob
-// — which is why it is refetched per credential change.
-setExtraHeaders(() => {
-    const token = AuthClient.getAuthToken();
-    return token ? { [AuthClient.Options.AuthHeader]: "Bearer " + token } : {};
-});
 
 // On any credential change (login / logout / switch user), refetch the (now role-appropriate) metadata
 // blob and re-render — so the visible query/type set matches the new role.

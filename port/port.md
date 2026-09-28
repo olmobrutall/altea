@@ -1168,7 +1168,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     the HOST calls after `listen` — an upgrade handler needs the server, not the Express app;
   - a browser WebSocket cannot send `Authorization`, so a connection AUTHENTICATES with its first frame
     (`$authenticate`), validated through the same authenticator chain an HTTP request uses. The token comes
-    from `setAccessTokenFactory`, which altea-auth installs beside `setExtraHeaders`. Frames that arrive
+    from `setAccessTokenFactory`, which altea-auth installs beside `AuthTokenFilter.addAuthToken`. Frames that arrive
     before authentication resolves are QUEUED, not dropped.
   `altea-concurrent-user` is its first consumer; it also trusts the socket's OWN user rather than the
   `userKey` the client passes (Signum trusts the argument), so a tab cannot register presence as someone

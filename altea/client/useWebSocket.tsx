@@ -35,7 +35,7 @@ const authenticateMethod = "$authenticate";
 
 // SignalR's `IHttpConnectionOptions.accessTokenFactory`, as a module-level seam: core stays
 // auth-agnostic, and the auth module installs one (`setAccessTokenFactory(AuthClient.getAuthToken)`)
-// exactly as it installs `setExtraHeaders` for the metadata fetch. Read on every (re)connect, so a
+// exactly as it installs `AuthTokenFilter.addAuthToken` for ajax. Read on every (re)connect, so a
 // refreshed token is picked up without touching the hook.
 let _accessTokenFactory: (() => string | undefined) | undefined;
 export function setAccessTokenFactory(factory: (() => string | undefined) | undefined): void {
