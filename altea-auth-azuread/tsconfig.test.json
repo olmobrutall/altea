@@ -1,0 +1,19 @@
+{
+  // TEST layer — DB-FREE. The configuration's validation: which user flows each Azure product takes, and
+  // the id formats.
+  "extends": "../altea/presets/server.json",
+  "compilerOptions": {
+    // Cleared: the shipping layers block each other's subpaths behind the altea-client /
+    // altea-server export conditions, but a test host deliberately spans both tiers.
+    "customConditions": [],
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "../altea/tsconfig.data.json" },
+    { "path": "../altea/tsconfig.server.json" }
+  ]
+}

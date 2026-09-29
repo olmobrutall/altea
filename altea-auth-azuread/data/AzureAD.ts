@@ -1,6 +1,6 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { part, backReference, implementedBy, niceName } from "@altea/altea/data/decorators";
-import { noRepeatValidator, stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
+import { noRepeatValidator, stringLengthValidator, uuidValidator, validate, ValidationMessage, StateValidator } from "@altea/altea/data/validators";
 import type { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
 import { type uuid } from "@altea/altea/data/basics";
@@ -14,11 +14,7 @@ import { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 // altea divergences, documented inline:
 //  - `Guid ApplicationID / DirectoryID` are `string` (a uuid) rather than a Guid value type: they are only
 //    ever formatted into URLs and compared to the token's `aud`, and altea's Guid support is a PK/column
-//    concern. `@validate` keeps them well-formed.
-//  - the per-type × per-field required/forbidden MATRIX (a `StateValidator` in Signum,
-//    required/forbidden MATRIX) becomes explicit `@validate` rules — altea has no StateValidator, and
-//    three rows long) is short enough to read directly. It is reproduced verbatim
-//    in `stateRule` below, so a future Signum change is easy to re-apply.
+//    concern. `@uuidValidator` keeps them well-formed.
 //  - `ToAzureADConfigTS(scopes)` → `toClientConfig(scopes?)`, and the DTO is served by an anonymous endpoint
 //    instead of being injected into Index.cshtml (altea has no server-rendered page — see
 //    AzureADAuthenticationServer).
@@ -34,6 +30,27 @@ export enum AzureADType {
 }
 
 @reflect
+@validate<AzureADConfigurationEmbedded>((c, fi) => {
+    // Signum's PropertyValidation: nothing is checked while the directory is off.
+    if (!c.enabled)
+        return null;
+
+    // The B2C row is "either SignInSignUp_UserFlow or SignIn_UserFlow".
+    if (c.type === AzureADType.B2C && fi.name === "signInSignUp_UserFlow" && !hasText(c.signInSignUp_UserFlow) && !hasText(c.signIn_UserFlow))
+        return ValidationMessage.Either0Or1ShouldBeSet.niceToString(
+            fi.niceToString(), AzureADConfigurationEmbedded.nicePropertyName("signIn_UserFlow"));
+
+    if (c.type === AzureADType.ExternalID) {
+        // The tenant name is a b2clogin/ciamlogin DOMAIN, not a bare name…
+        if (fi.name === "tenantName" && hasText(c.tenantName) && !c.tenantName!.includes("."))
+            return ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "b2clogin domain");
+        // …and the flow is an absolute URL (the CIAM authority), not a flow name.
+        if (fi.name === "signInSignUp_UserFlow" && hasText(c.signInSignUp_UserFlow) && !/^https?:\/\//i.test(c.signInSignUp_UserFlow!))
+            return ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "URL");
+    }
+
+    return azureADStates.validate(c, fi);
+})
 export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     enabled: boolean = false;
 
@@ -48,59 +65,29 @@ export class AzureADConfigurationEmbedded extends BaseADConfigurationEmbedded {
     // what is optional, and a directory that is configured at all has to be configured properly. The
     // columns are nullable because the embedded is.
     @niceName("Application (client) ID")
-    @validate<AzureADConfigurationEmbedded>((c, fi) =>
-        c.enabled && !isUuid(c.applicationID) ? ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "Guid") : null)
+    @uuidValidator()
     applicationID: uuid;
 
     @niceName("Directory (tenant) ID")
-    @validate<AzureADConfigurationEmbedded>((c, fi) =>
-        c.enabled && !isUuid(c.directoryID) ? ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "Guid") : null)
+    @uuidValidator()
     directoryID: uuid;
 
-    @stringLengthValidator({ max: 100 })
-    @validate<AzureADConfigurationEmbedded>((c, fi) => {
-        const state = stateRule(c, "tenantName");
-        if (state != null)
-            return state;
-        // For ExternalID the tenant name must be a b2clogin/ciamlogin DOMAIN, not a bare name.
-        if (c.enabled && c.type === AzureADType.ExternalID && hasText(c.tenantName) && !c.tenantName!.includes("."))
-            return ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "b2clogin domain");
-        return null;
-    })
     @stringLengthValidator({ max: 100 })
     tenantName: string | null = null;
 
     @stringLengthValidator({ max: 300 })
-    @validate<AzureADConfigurationEmbedded>((c, fi) => {
-        // The B2C row is "either SignInSignUp_UserFlow or SignIn_UserFlow".
-        if (c.enabled && c.type === AzureADType.B2C && !hasText(c.signInSignUp_UserFlow) && !hasText(c.signIn_UserFlow))
-            return ValidationMessage.Either0Or1ShouldBeSet.niceToString(
-                fi.niceToString(), AzureADConfigurationEmbedded.nicePropertyName("signIn_UserFlow"));
-        const state = stateRule(c, "signInSignUp_UserFlow");
-        if (state != null)
-            return state;
-        // For ExternalID it is an absolute URL (the CIAM authority), not a flow name.
-        if (c.enabled && c.type === AzureADType.ExternalID && hasText(c.signInSignUp_UserFlow) && !/^https?:\/\//i.test(c.signInSignUp_UserFlow!))
-            return ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "URL");
-        return null;
-    })
-    @stringLengthValidator({ max: 300 })
     signInSignUp_UserFlow: string | null = null;
 
     @stringLengthValidator({ max: 300 })
-    @validate<AzureADConfigurationEmbedded>(c => stateRule(c, "signIn_UserFlow"))
     signIn_UserFlow: string | null = null;
 
     @stringLengthValidator({ max: 300 })
-    @validate<AzureADConfigurationEmbedded>(c => stateRule(c, "signUp_UserFlow"))
     signUp_UserFlow: string | null = null;
 
     @stringLengthValidator({ max: 300 })
-    @validate<AzureADConfigurationEmbedded>(c => stateRule(c, "editProfile_UserFlow"))
     editProfile_UserFlow: string | null = null;
 
     @stringLengthValidator({ max: 300 })
-    @validate<AzureADConfigurationEmbedded>(c => stateRule(c, "resetPassword_UserFlow"))
     resetPassword_UserFlow: string | null = null;
 
     /** Only needed for Microsoft Graph (directory queries, photos, the deactivate-users task) — NOT for
@@ -186,66 +173,16 @@ export class AzureADRoleMappingEntity extends RoleMappingEntity {
     @backReference @implementedBy(() => []) configuration: Lite<Entity>;
 }
 
-/**
- * The required/forbidden matrix, verbatim from Signum's StateValidator table:
- *
- * ```
- *                      tenantName  signInSignUp  signIn  signUp  editProfile  resetPassword
- *   AzureAD            false       false         false   false   false        false
- *   B2C                true        null (either) null    null    null         null
- *   ExternalID         true        true          false   false   false        false
- * ```
- *
- * `true` = must be set, `false` = must NOT be set, `null` = no rule. Only checked while `enabled`.
- */
-const stateMatrix: Record<AzureADType, Partial<Record<StateField, boolean | null>>> = {
-    [AzureADType.AzureAD]: {
-        tenantName: false, signInSignUp_UserFlow: false, signIn_UserFlow: false,
-        signUp_UserFlow: false, editProfile_UserFlow: false, resetPassword_UserFlow: false,
-    },
-    [AzureADType.B2C]: {
-        tenantName: true, signInSignUp_UserFlow: null, signIn_UserFlow: null,
-        signUp_UserFlow: null, editProfile_UserFlow: null, resetPassword_UserFlow: null,
-    },
-    [AzureADType.ExternalID]: {
-        tenantName: true, signInSignUp_UserFlow: true, signIn_UserFlow: false,
-        signUp_UserFlow: false, editProfile_UserFlow: false, resetPassword_UserFlow: false,
-    },
-};
-
-type StateField = "tenantName" | "signInSignUp_UserFlow" | "signIn_UserFlow"
-    | "signUp_UserFlow" | "editProfile_UserFlow" | "resetPassword_UserFlow";
-
-function stateRule(c: AzureADConfigurationEmbedded, field: StateField): string | null {
-    if (!c.enabled)
-        return null;
-
-    const required = stateMatrix[c.type]?.[field];
-    if (required == null)
-        return null;
-
-    const set = hasText(c[field]);
-    if (required && !set)
-        return ValidationMessage._0IsNotSet.niceToString(niceFieldName(field));
-    if (!required && set)
-        return ValidationMessage._0ShouldBeNull.niceToString(niceFieldName(field));
-
-    return null;
-}
-
-// The field's REGISTERED nice name (translated, and honouring the @niceName overrides above), not the
-// TS identifier de-camel-cased: the sentence it is spliced into is localized, so the name must be too.
-function niceFieldName(field: StateField): string {
-    return AzureADConfigurationEmbedded.nicePropertyName(field);
-}
+// Which user flows each Azure product takes (Signum's StateValidator table). The B2C sign-in row is "either
+// of the two", checked above.
+export const azureADStates = new StateValidator(AzureADConfigurationEmbedded,
+    c => c.type,            "tenantName", "signInSignUp_UserFlow", "signIn_UserFlow", "signUp_UserFlow", "editProfile_UserFlow", "resetPassword_UserFlow")
+    .add(AzureADType.AzureAD,    false,        false,                   false,             false,             false,                  false                   )
+    .add(AzureADType.B2C,        true,         null,                    null,              null,              null,                   null                    )
+    .add(AzureADType.ExternalID, true,         true,                    false,             false,             false,                  false                   );
 
 function hasText(s: string | null | undefined): boolean {
     return s != null && s.trim() !== "";
-}
-
-const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function isUuid(s: string | null | undefined): boolean {
-    return s != null && uuidRegex.test(s);
 }
 
 /** What the browser needs for the MSAL flow. */

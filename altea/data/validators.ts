@@ -764,6 +764,22 @@ export class EmailValidator extends RegexValidator {
     get formatName(): string { return "e-Mail"; }
 }
 
+// --- UuidValidator ---
+//
+// NEW in altea: a `uuid` is a string here, where Signum's `Guid` is a value type the parser already
+// guarantees, so the format is checked instead. Like every format check, an unset value is not its
+// business — whether one is required is the field's nullability.
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function uuidValidator(options: ValidatorOptions = {}) {
+    return (target: object, propertyKey: string | symbol) => addValidator(target, propertyKey, new UuidValidator(), options);
+}
+
+export class UuidValidator extends RegexValidator {
+    constructor() { super([uuidRegex]); }
+    get formatName(): string { return "Guid"; }
+}
+
 // --- AlphanumericOnlyValidator ---
 
 // DIVERGES from Signum twice. Its regex is the unanchored `[A-Za-z0-9]`, which asks for an alphanumeric
