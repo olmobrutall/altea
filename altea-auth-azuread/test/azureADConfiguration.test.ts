@@ -3,15 +3,14 @@ import assert from "node:assert/strict";
 import "@altea/altea/data/globals";
 import type { uuid } from "@altea/altea/data/basics";
 import { entityIntegrityCheck } from "@altea/altea/data/validation";
+import { UuidValidator } from "@altea/altea/data/validators";
 import { AzureADConfigurationEmbedded, AzureADType } from "@altea/altea-auth-azuread/data/AzureAD";
 
 // The configuration's validation, as Signum's PropertyValidation + StateValidator: the ids are always
 // Guids, and which user flows a product takes is only checked while the directory is enabled.
 
-const emptyGuid = "00000000-0000-0000-0000-000000000000" as uuid;
-
 function config(values: Partial<AzureADConfigurationEmbedded>): AzureADConfigurationEmbedded {
-    return AzureADConfigurationEmbedded.create({ applicationID: emptyGuid, directoryID: emptyGuid, roleMapping: [], ...values });
+    return AzureADConfigurationEmbedded.create({ applicationID: UuidValidator.emptyGuid, directoryID: UuidValidator.emptyGuid, roleMapping: [], ...values });
 }
 
 function error(c: AzureADConfigurationEmbedded, field: keyof AzureADConfigurationEmbedded & string): string | null {

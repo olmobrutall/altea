@@ -5,7 +5,7 @@ import type { Quoted } from 'quote-transformer/quoted';
 import type { FieldInfo, IntegrityCheckEnvironment, FieldInfoOf, PropertyValidationRule } from './reflection';
 import type { BaseEntity } from './entity';
 import { msg } from './utils/localization';
-import { Decimal, Temporal } from './basics';
+import { Decimal, Temporal, type uuid } from './basics';
 import { DateTimePrecision, getPrecision, getTimePrecision } from './globals/dateTimeExtensions';
 import { Clock } from './utils/clock';
 import { Enum } from './enum';
@@ -776,6 +776,9 @@ export function uuidValidator(options: ValidatorOptions = {}) {
 }
 
 export class UuidValidator extends RegexValidator {
+    /** .NET's `Guid.Empty` — a valid Guid that means "none yet" (a required id not configured). */
+    static readonly emptyGuid = "00000000-0000-0000-0000-000000000000" as uuid;
+
     constructor() { super([uuidRegex]); }
     get formatName(): string { return "Guid"; }
 }
