@@ -36,6 +36,10 @@ export class EntityEvents<T extends Entity> {
     // May return a replacement constructor lambda (e.g. altea-isolation stamps the isolation).
     readonly preUnsafeInsert: ((query: Query<T>, constructor: LambdaExpression) => LambdaExpression | void | Promise<LambdaExpression | void>)[] = [];
     readonly preBulkInsert: (() => void | Promise<void>)[] = [];
+    // Rows of T are being written — by a save, or by a set-based DELETE / UPDATE / INSERT (a bulk insert
+    // counts as an insert). For whoever only needs to know THAT T changed (a cache), not what or how;
+    // runs after the matching specific event.
+    readonly changed: ((method: EntityChangeMethod) => void | Promise<void>)[] = [];
     readonly queryFilter: QueryFilterHandler[] = [];
     readonly additionalBindings: AdditionalBindingSpec<T>[] = [];
 
@@ -61,6 +65,12 @@ export class EntityEvents<T extends Entity> {
     async onSaved(entity: T, args: { readonly wasNew: boolean; readonly wasModified: boolean }): Promise<void> {
         for (const h of this.saved)
             await h(entity, args);
+        await this.onChanged("save");
+    }
+
+    async onChanged(method: EntityChangeMethod): Promise<void> {
+        for (const h of this.changed)
+            await h(method);
     }
 
     async onRetrieved(entity: T): Promise<void> {
@@ -71,11 +81,13 @@ export class EntityEvents<T extends Entity> {
     async onPreUnsafeDelete(query: Query<T>): Promise<void> {
         for (const h of [...this.preUnsafeDelete].reverse())
             await h(query);
+        await this.onChanged("executeDelete");
     }
 
     async onPreUnsafeUpdate(query: Query<T>): Promise<void> {
         for (const h of [...this.preUnsafeUpdate].reverse())
             await h(query);
+        await this.onChanged("executeUpdate");
     }
 
     // The rewrites chain: each handler sees the previous one's result.
@@ -83,11 +95,16 @@ export class EntityEvents<T extends Entity> {
         let current = constructor;
         for (const h of [...this.preUnsafeInsert].reverse())
             current = (await h(query, current)) ?? current;
+        await this.onChanged("executeInsert");
         return current;
     }
 
     async onPreBulkInsert(): Promise<void> {
         for (const h of [...this.preBulkInsert].reverse())
             await h();
+        await this.onChanged("executeInsert");
     }
 }
+
+/** How rows of an entity type are being written (see EntityEvents.changed). */
+export type EntityChangeMethod = "save" | "executeDelete" | "executeInsert" | "executeUpdate";

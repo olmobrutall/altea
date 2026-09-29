@@ -63,6 +63,8 @@ export interface ICoreTransaction {
 // connections), so this uses node's AsyncLocalStorage directly, matching
 // connector.ts rather than the browser/server-agnostic Statics abstraction.
 const currents = new AsyncLocalStorage<Map<Connector, ICoreTransaction>>();
+// True inside a noCommit scope (Transaction.inTestTransaction).
+const testTransaction = new AsyncLocalStorage<boolean>();
 
 // Used by Connector.executeNonQuery/executeQuery to route a statement onto the
 // active transaction's connection (or undefined → use a pooled connection).
@@ -383,8 +385,11 @@ export class Transaction {
 
         let committed = false;
         let result: T;
+        // A noCommit scope is Signum's test transaction for everything inside it (see inTestTransaction).
+        const runScoped = <R>(f: () => Promise<R>): Promise<R> =>
+            opts?.rollbackOnly ? testTransaction.run(true, f) : f();
         try {
-            result = await currents.run(map, async () => {
+            result = await runScoped(() => currents.run(map, async () => {
                 const value = await fn();
                 if (opts?.rollbackOnly) {
                     // noCommit: discard all work, but treat it as success — the
@@ -399,7 +404,7 @@ export class Transaction {
                 await core.commit();
                 committed = true;
                 return value;
-            });
+            }));
         } catch (error) {
             if (!committed) {
                 // Don't let a rollback failure mask the original error.
@@ -418,6 +423,14 @@ export class Transaction {
     }
 
     // ---- Ambient state / hooks ----------------------------------------------
+
+    /**
+     * Signum's `Transaction.InTestTransaction`: inside a {@link noCommit} scope, which never commits — so
+     * work deferred to {@link postRealCommit} (a cache reset) never runs, and has to happen eagerly instead.
+     */
+    static get inTestTransaction(): boolean {
+        return testTransaction.getStore() === true;
+    }
 
     // Whether a transaction is currently active for the given connector.
     static hasTransaction(connector: Connector = Connector.current()): boolean {

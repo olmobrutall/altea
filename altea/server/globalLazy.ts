@@ -14,10 +14,6 @@ import type { SchemaBuilder } from "./schema/schemaBuilder";
 //
 // altea divergences:
 //  - the lazy's factory is ASYNC (see ResetLazy), so `loadAll` returns a promise;
-//  - the base manager's invalidation is EAGER (it resets as the write happens) AND again at
-//    `Transaction.PostRealCommit`, where Signum does only the latter: the eager reset stops the writing
-//    transaction from being served the old value, and — since the factory reloads from COMMITTED state
-//    (`Transaction.forceNew`) — the commit reset drops whatever was loaded in between;
 //  - Signum's `InvalidateWith.UseBaseImplementation` is ported (altea-cache honours it the same way).
 
 // Signum's `InvalidateWith` struct: the entity types whose changes invalidate a global lazy.
@@ -44,32 +40,23 @@ export class GlobalLazyManager {
     attachInvalidations(sb: SchemaBuilder, invalidateWith: InvalidateWith, invalidate: () => void): void {
         this.used = true;
 
-        // Mirror Signum's SchemaBuilder.AttachInvalidations<T>: reset on save AND on every set-based DML
-        // path — DELETE (Query.executeDelete → onPreUnsafeDelete), UPDATE, INSERT, and bulk-insert. Without
-        // the delete hook, deleting a row via the operation/`Database.deleteList` path (which routes through
-        // `executeDelete`, firing `preUnsafeDelete` only — never `saved`) would leave the cache stale until
-        // the process restarts. altea divergences from Signum: (1) we hook `saved` (post-write, in-txn)
-        // rather than Signum's graph-modified `Saving`; (2) the reset is EAGER (see the note above); (3) the
-        // dependent-table fan-out (Signum's AttachInvalidationsDependant over `DependentTables()`) is not
-        // ported — a cache that navigates to related types must list those types in `invalidateWith`.
+        // Signum's SchemaBuilder.AttachInvalidations<T>: on a save AND on every set-based write (DELETE,
+        // UPDATE, INSERT, bulk insert) — all of which raise EntityEvents.changed. The reset waits for the
+        // REAL commit: the factory reads committed state (`Transaction.forceNew`), so resetting any earlier
+        // would let a load in between cache the value from before the write. A test transaction never
+        // commits, so there it resets now and again on rollback.
         //
-        // The eager reset alone is NOT enough: the factory reads COMMITTED state, so a load between the write
-        // and its commit (a `saved` hook warming the lazy, or any read later in the same transaction) caches
-        // the value from BEFORE the write, and nothing would reset it again. So it is reset once more when
-        // the transaction really commits — Signum's PostRealCommit.
-        const invalidateNowAndOnCommit = (): void => {
-            invalidate();
-            if (Transaction.hasTransaction())
-                Transaction.postRealCommit(() => invalidate());
+        // Not ported: the dependent-table fan-out (Signum's AttachInvalidationsDependant over
+        // `DependentTables()`) — a cache that navigates to related types must list them in `invalidateWith`.
+        const onChanged = (): void => {
+            if (Transaction.inTestTransaction) {
+                invalidate();
+                Transaction.rolledback(() => invalidate());
+            }
+            Transaction.postRealCommit(() => invalidate());
         };
-        for (const t of invalidateWith.invalidateWith) {
-            const ee = sb.schema.entityEvents(t);
-            ee.saved.push(invalidateNowAndOnCommit);
-            ee.preUnsafeDelete.push(invalidateNowAndOnCommit);
-            ee.preUnsafeUpdate.push(invalidateNowAndOnCommit);
-            ee.preUnsafeInsert.push(invalidateNowAndOnCommit);
-            ee.preBulkInsert.push(invalidateNowAndOnCommit);
-        }
+        for (const t of invalidateWith.invalidateWith)
+            sb.schema.entityEvents(t).changed.push(onChanged);
     }
 
     // Signum's GlobalLazyManager.OnLoad — a no-op in the base implementation.
