@@ -1,6 +1,6 @@
 import { field } from "@altea/altea/data/reflection";
 import { Entity, type PrimaryKey } from "@altea/altea/data/entity";
-import { entity, versionColumn } from "@altea/altea/data/decorators";
+import { entity, rowVersionColumn } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { Lite } from "@altea/altea/data/lite";
 import { Temporal } from "@altea/altea/data/basics";
@@ -26,7 +26,7 @@ import { UserEntity } from "./User";
 
 @entity("System", "Transactional")
 // Engine-written rows, never edited by a person, so no concurrency stamp.
-@versionColumn(false)
+@rowVersionColumn(false)
 export class UserTicketEntity extends Entity {
     user: Lite<UserEntity>;
 

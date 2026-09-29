@@ -257,18 +257,18 @@ export function tableName(name: string) {
 //   everything else  →  a version, unless a SEEDED table (symbols, enum tables) or marked below.
 //
 // The decorator overrides either default in either direction:
-//   @versionColumn(false)  logs and engine-written rows: ExceptionEntity, OperationLogEntity, ProcessEntity,
+//   @rowVersionColumn(false)  logs and engine-written rows: ExceptionEntity, OperationLogEntity, ProcessEntity,
 //                        PackageLineEntity, the migration rows, SemiSymbol.
-//   @versionColumn(true)   a `@part` that IS edited on its own — Signum models it as a real entity with its
+//   @rowVersionColumn(true)   a `@part` that IS edited on its own — Signum models it as a real entity with its
 //                        own table (a dashboard part's content, an email service, a scheduler rule, a
 //                        virtual-MList child), so it keeps a stamp.
 //
 // It is INHERITED, unlike every other class-level flag here (see getOrCreateTypeInfo): it says what KIND
 // of table this is, which is true of every subclass — one declaration on SemiSymbol reaches every note
 // type, alert type and agent, exactly as Signum's inherited attribute does.
-export function versionColumn(enabled: boolean) {
+export function rowVersionColumn(enabled: boolean) {
     return function (target: Type<Entity>): void {
-        getOrCreateTypeInfo(target).versionColumn = enabled;
+        getOrCreateTypeInfo(target).rowVersionColumn = enabled;
     };
 }
 

@@ -43,9 +43,9 @@ export namespace TimeMachineLogic {
             const entity = await SystemTime.override(new SystemTime.AsOf(lastVersion), () =>
                 Database.retrieve(type, id));
 
-            const ticks = await table(type).filter(a => a.id == id).map(a => a.version).single();
+            const ticks = await table(type).filter(a => a.id == id).map(a => a.rowVersion).single();
 
-            entity.version = ticks;
+            entity.rowVersion = ticks;
             setSelfModified(entity);
             await entity.save();
 

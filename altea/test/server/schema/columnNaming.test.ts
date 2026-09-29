@@ -101,16 +101,16 @@ describe("column naming", () => {
         assert.ok(!cols.includes("ShipTo_City"), cols.join(", "));
     });
 
-    test("the concurrency stamp is Version, a counter; in legacy mode Signum's Ticks, .NET DateTime ticks", () => {
+    test("the concurrency stamp is RowVersion, a counter; in legacy mode Signum's Ticks, .NET DateTime ticks", () => {
         const table = new SchemaBuilder().include(NameTarget).table;
-        assert.ok(Object.keys(table.columns).includes("Version"));
-        assert.equal(table.version!.dotNetTicks, false);
+        assert.ok(Object.keys(table.columns).includes("RowVersion"));
+        assert.equal(table.rowVersion!.dotNetTicks, false);
 
         const legacy = new SchemaBuilder();
         legacy.settings.legacyMode = true;
         const legacyTable = legacy.include(NameTarget).table;
         assert.ok(Object.keys(legacyTable.columns).includes("Ticks"));
-        assert.equal(legacyTable.version!.dotNetTicks, true);
+        assert.equal(legacyTable.rowVersion!.dotNetTicks, true);
     });
 
     test("a polymorphic reference cannot be named by @column({ columnName })", () => {
@@ -126,7 +126,7 @@ describe("column naming", () => {
         assert.ok(cols.includes("target_id"), cols.join(", "));
         assert.ok(cols.includes("address_city"), cols.join(", "));
         assert.ok(cols.includes("id"), cols.join(", "));
-        assert.ok(cols.includes("version"), cols.join(", "));
+        assert.ok(cols.includes("row_version"), cols.join(", "));
         // an explicit name is NOT re-spelled: a hand-picked column name is not altea's to change
         assert.ok(cols.includes("LegacyRef"), cols.join(", "));
     });
@@ -144,7 +144,7 @@ describe("column naming", () => {
         assert.ok(cols.includes("zAddress_zCity"), cols.join(", ")); // embedded + its member
         assert.ok(columnsOf(NamePoly, new Prefixed()).includes("zWhoID_NameTarget"));
         // the fixed columns have no FieldInfo, so they are `idiomatic`'s business, not this hook's
-        assert.ok(cols.includes("ID") && cols.includes("Version"), cols.join(", "));
+        assert.ok(cols.includes("ID") && cols.includes("RowVersion"), cols.join(", "));
     });
 
     test("idiomatic is the override point that also covers the fixed columns", () => {
@@ -156,6 +156,6 @@ describe("column naming", () => {
         const cols = columnsOf(NameOrder, new Loud());
         assert.ok(cols.includes("SHIPNAME"), cols.join(", "));
         assert.ok(cols.includes("TARGETID"), cols.join(", "));
-        assert.ok(cols.includes("VERSION"), cols.join(", "));
+        assert.ok(cols.includes("ROWVERSION"), cols.join(", "));
     });
 });

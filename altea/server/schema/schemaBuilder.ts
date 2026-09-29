@@ -23,7 +23,7 @@ import {
 import {
     Field,
     FieldPrimaryKey,
-    FieldVersion,
+    FieldRowVersion,
     FieldValue,
     FieldEnum,
     FieldReference,
@@ -54,8 +54,8 @@ import type { WebBuilder } from '../webApi';
 import { GlobalLazy, GlobalLazyManager } from '../globalLazy';
 import { Connector } from '../connection/connector';
 
-// Entity base fields handled specially (id, version) or excluded from the schema.
-const RESERVED_FIELDS = new Set(['id', 'version', 'isNew', '_snapshot']);
+// Entity base fields handled specially (id, rowVersion) or excluded from the schema.
+const RESERVED_FIELDS = new Set(['id', 'rowVersion', 'isNew', '_snapshot']);
 
 function isEntityCtor(t: unknown): t is Type<Entity> {
     return typeof t === 'function' && (t === Entity || (t as { prototype?: unknown }).prototype instanceof Entity);
@@ -383,7 +383,7 @@ function getSqlSize(fi: FieldInfo | undefined, dbType: AbstractDbType, isPostgre
 export class SchemaSettings {
     schemaName: SchemaName = defaultSchemaName;
     primaryKeyDbType: AbstractDbType = new AbstractDbType('int', 'int4');
-    versionDbType: AbstractDbType = new AbstractDbType('bigint', 'int8');
+    rowVersionDbType: AbstractDbType = new AbstractDbType('bigint', 'int8');
     // Drives dialect-specific physical naming (snake_case for Postgres). Set from
     // the bound connector before the schema is built.
     isPostgres = false;
@@ -831,7 +831,7 @@ export class SchemaBuilder {
         // edited by PEOPLE, one at a time — so a `@part` row has none by DEFAULT: it is reached and saved
         // through its owner, whose own stamp guards the aggregate, and it is never edited on its own.
         // (That is also why Signum's MList table, which a part row usually stands in for, has none.)
-        // A SEEDED table (symbols, enum tables) has none either. `@versionColumn(true|false)` overrides the
+        // A SEEDED table (symbols, enum tables) has none either. `@rowVersionColumn(true|false)` overrides the
         // default in either direction — see the decorator for who uses which.
         //
         // LEGACY MODE gives one BACK to the parts Signum modelled as real ENTITIES — a dashboard part's
@@ -842,7 +842,7 @@ export class SchemaBuilder {
         const isMListRow = mlistRowOwner(type) != null;
         table.isMListRow = isMListRow;
         const partWithoutVersion = typeInfo.entityKind === "Part" && (isMListRow || !this.settings.legacyMode);
-        const hasVersion = typeInfo.versionColumn ?? !(isSeeded || partWithoutVersion);
+        const hasVersion = typeInfo.rowVersionColumn ?? !(isSeeded || partWithoutVersion);
         // Externally-supplied (non-identity) ids: the enum tables (id = the enum value) and any @entity
         // declared `{ identity: false }` (Signum's [PrimaryKey(IdentityBehaviour=false)] — the Symbols,
         // whose ids SymbolLogic assigns/seeds). TypeEntity keeps a real identity PK (generation inserts
@@ -870,13 +870,13 @@ export class SchemaBuilder {
         if (hasVersion) {
             // LEGACY MODE keeps Signum's `Ticks` column and its DateTime-ticks values, so a Signum application
             // sharing the database still reads a stamp it understands. Leaving legacy mode, `sync` offers the
-            // rename to `Version`; declining it drops `Ticks` and starts the new counter from 0.
+            // rename to `RowVersion`; declining it drops `Ticks` and starts the new counter from 0.
             const legacy = this.settings.legacyMode;
-            const versionInfo = typeInfo.fields['version'] ?? new FieldInfo('version');
-            const version = new FieldVersion(
-                new ValueColumn(this.idiomatic(legacy ? 'Ticks' : 'Version'), this.settings.versionDbType, IsNullable.No), legacy);
-            table.version = version;
-            table.fields['version'] = new EntityField(versionInfo, version, makeGetter('version'));
+            const rowVersionInfo = typeInfo.fields['rowVersion'] ?? new FieldInfo('rowVersion');
+            const version = new FieldRowVersion(
+                new ValueColumn(this.idiomatic(legacy ? 'Ticks' : 'RowVersion'), this.settings.rowVersionDbType, IsNullable.No), legacy);
+            table.rowVersion = version;
+            table.fields['rowVersion'] = new EntityField(rowVersionInfo, version, makeGetter('rowVersion'));
         }
 
         const preName = NameSequence.void();

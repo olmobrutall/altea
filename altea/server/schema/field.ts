@@ -51,10 +51,10 @@ export class FieldValue extends Field {
     }
 }
 
-// Optimistic-concurrency token (maps Entity.version). `dotNetTicks` (LEGACY MODE): the column is Signum's
-// `Ticks` and a save writes .NET DateTime ticks, as a Signum application does; otherwise it is a counter,
+// Optimistic-concurrency token (maps Entity.rowVersion). `dotNetTicks` (LEGACY MODE): the column is Signum's
+// `Ticks` and a save writes .NET DateTime ticks, as a Signum application does; otherwise it is a RowVersion counter,
 // 0 on insert and +1 per save.
-export class FieldVersion extends FieldValue {
+export class FieldRowVersion extends FieldValue {
     constructor(column: ValueColumn, public readonly dotNetTicks: boolean) {
         super(column);
     }

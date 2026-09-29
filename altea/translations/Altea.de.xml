@@ -238,7 +238,7 @@
     <Member Name="UserAgent" Description="User agent" />
     <Member Name="UserHostAddress" Description="Benutzer Hostadresse" />
     <Member Name="UserHostName" Description="Benutzer Hostname" />
-    <Member Name="ApplicationVersion" Description="Version" />
+    <Member Name="Version" Description="Version" />
   </Type>
   <Type Name="ExceptionOrigin" Description="Ausnahme Ursprung">
     <Member Name="Backend" Description="Backend" />

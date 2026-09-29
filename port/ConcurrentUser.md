@@ -7,7 +7,7 @@ Source: `old/Framework/Extensions/Signum.ConcurrentUser/`
 Live presence on an open entity: who else has it open, whether they are typing, and whether the copy on
 screen is already stale. Every open entity is a GROUP named by its lite key; a tab joins on mount and
 leaves on unmount, and presence rows make the membership queryable. Two pushes go the other way —
-`ConcurrentUsersChanged` (someone joined / left / started typing) and `EntitySaved` (the row's `version`
+`ConcurrentUsersChanged` (someone joined / left / started typing) and `EntitySaved` (the row's `rowVersion`
 moved, so your copy is stale).
 
 ## SignalR → altea's WebSocket hub
@@ -78,7 +78,7 @@ Node has no SignalR server, so core grew `altea/server/webSocketHub.ts` + `altea
   commit — pushing inside the transaction would tell every open tab to reload a version a rollback then
   un-does. Registered ONCE per transaction; Signum re-subscribes a static handler and relies on delegate
   identity to dedupe, and a closure has no such identity, so the guard is a first-time branch.
-- a **set-based delete** never materialises its rows, so the keys are read first; `version: null` is the
+- a **set-based delete** never materialises its rows, so the keys are read first; `rowVersion: null` is the
   "gone" marker, and the client's stale check fires on any change.
 - **`OnDisconnectedAsync`**: a closed tab leaves its rows behind, so drop them all and tell the groups they
   were in. The hub has already emptied `conn.groups` by then, so the notification targets are read from the

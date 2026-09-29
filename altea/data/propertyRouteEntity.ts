@@ -1,6 +1,6 @@
 import { Entity } from './entity';
 import { field } from './reflection';
-import { entity, quoted, versionColumn, uniqueIndex } from './decorators';
+import { entity, quoted, rowVersionColumn, uniqueIndex } from './decorators';
 import { stringLengthValidator } from './validators';
 import { msg } from './utils/localization';
 import { TypeEntity } from './typeEntity';
@@ -29,7 +29,7 @@ import { resolveModifiableType } from './registration';
 @entity("System", "Master")
 // Signum's [TicksColumn(false)]: the rows are written only by generation and by the synchronizer, never by
 // two people at once, so a concurrency stamp would be a column with no reader.
-@versionColumn(false)
+@rowVersionColumn(false)
 // Signum's `.WithUniqueIndex(p => new { p.Path, p.RootType })`, in that member order.
 @uniqueIndex((p: PropertyRouteEntity) => [p.path, p.rootType])
 export class PropertyRouteEntity extends Entity {

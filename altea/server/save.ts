@@ -13,7 +13,7 @@ import {
     Field,
     FieldValue,
     FieldEnum,
-    FieldVersion,
+    FieldRowVersion,
     FieldPrimaryKey,
     FieldReference,
     FieldImplementedBy,
@@ -75,10 +75,10 @@ export async function insertEntityRows(entities: Entity[], forbiddens?: Forbidde
     const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
 
     // A new row's version: 0, or in legacy mode Signum's `entity.Ticks = Clock.Now.Ticks`.
-    if (table.version != null) {
-        const initial = table.version.dotNetTicks ? clockTicks() : 0n;
+    if (table.rowVersion != null) {
+        const initial = table.rowVersion.dotNetTicks ? clockTicks() : 0n;
         for (const e of entities)
-            e.version = initial;
+            e.rowVersion = initial;
     }
 
     const rows = entities.map((e, i) => {
@@ -133,28 +133,28 @@ export async function updateEntityRow(entity: Entity, forbidden: Forbidden = NO_
     const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
     const assignments = collectAssignments(table, entity, forbidden, typeCaches);
 
-    if (table.version == null) {
+    if (table.rowVersion == null) {
         await buildUpdate(table, assignments, entity.id).executeNonQuery();
         return;
     }
 
-    const oldVersion = entity.version ?? 0n;
-    const newVersion = nextVersion(table.version, oldVersion);
+    const oldVersion = entity.rowVersion ?? 0n;
+    const newVersion = nextVersion(table.rowVersion, oldVersion);
     for (const a of assignments)
-        if (a.column === table.version.column) a.value = newVersion;
+        if (a.column === table.rowVersion.column) a.value = newVersion;
 
     const affected = await buildUpdate(table, assignments, entity.id, {
-        column: table.version.column,
+        column: table.rowVersion.column,
         value: oldVersion,
     }).executeNonQuery();
 
     if (affected === 0)
         throw new ConcurrencyException(entity);
 
-    entity.version = newVersion;
+    entity.rowVersion = newVersion;
 }
 
-function nextVersion(field: FieldVersion, old: bigint): bigint {
+function nextVersion(field: FieldRowVersion, old: bigint): bigint {
     if (!field.dotNetTicks)
         return old + 1n;
 
@@ -435,8 +435,8 @@ function pushFieldValues(field: Field, value: unknown, out: ColumnValue[], forbi
     if (field instanceof FieldEntityArray)
         return;
 
-    // FieldVersion / FieldEnum extend FieldValue, so test them first.
-    if (field instanceof FieldVersion) {
+    // FieldRowVersion / FieldEnum extend FieldValue, so test them first.
+    if (field instanceof FieldRowVersion) {
         out.push({ column: field.column, value: value ?? 0n });
         return;
     }

@@ -517,7 +517,7 @@ export function PropertyPart(p: PropertyPartProps): React.ReactElement | null {
   // `@backReference` / `@rowOrder` are filled by the save cascade, and a `@serialize(false)` field is
   // bookkeeping, not a property.
   const subMembers = Dic.getValues(p.parentRoute.subMembers())
-    .filter(fi => !fi.noSerialize && !fi.isBackReference && !fi.isRowOrder && fi.name != "id" && fi.name != "version");
+    .filter(fi => !fi.noSerialize && !fi.isBackReference && !fi.isRowOrder && fi.name != "id" && fi.name != "rowVersion");
 
   if (subMembers.length == 0)
     return null;

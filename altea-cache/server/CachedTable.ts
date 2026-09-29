@@ -230,7 +230,7 @@ export class CachedTable<T extends Entity> extends CachedTableBase {
         const f = ef.field;
         const name = ef.fieldInfo.name;
 
-        // FieldEnum / FieldVersion extend FieldReference / FieldValue — test the specific ones first.
+        // FieldEnum / FieldRowVersion extend FieldReference / FieldValue — test the specific ones first.
         // An enum column holds the enum's underlying NUMBER, which is also what the field holds in
         // memory on the server (see the EnumSerializer: the wire carries the member name, the instance
         // the value), so it needs no conversion — exactly what the projector does.

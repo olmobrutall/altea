@@ -1,6 +1,6 @@
 import { field } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, quoted, versionColumn, uniqueIndex } from "@altea/altea/data/decorators";
+import { entity, quoted, rowVersionColumn, uniqueIndex } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 
 // Port of Signum.UserAssets' TokenMigrations/TokenMigrationEntity.cs — see port/UserAssets.md.
@@ -16,7 +16,7 @@ import { stringLengthValidator } from "@altea/altea/data/validators";
 
 @entity("System", "Transactional")
 // Written once by the runner, never edited by a person.
-@versionColumn(false)
+@rowVersionColumn(false)
 export class TokenMigrationEntity extends Entity {
     @uniqueIndex
     @stringLengthValidator({ max: 200 })

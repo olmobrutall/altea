@@ -193,9 +193,9 @@ export namespace Navigator {
   export async function reloadFrameIfNecessary(frame: EntityFrame): Promise<void> {
 
     var entity = frame.pack.entity;
-    if (entity instanceof Entity && entity.id && entity.version != null) {
+    if (entity instanceof Entity && entity.id && entity.rowVersion != null) {
       var newPack = await API.fetchEntityPack(entity.toLite());
-      if (newPack.entity.version != entity.version)
+      if (newPack.entity.rowVersion != entity.rowVersion)
         frame.onReload(newPack);
     }
   }

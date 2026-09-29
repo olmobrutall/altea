@@ -23,19 +23,19 @@ import {
 
 function makeArtist(id: number, name: string, sex: Sex): ArtistEntity {
     const a = ArtistEntity.create({ name, dead: false, sex, status: null, lastAward: null, friends: [] });
-    a.id = id; a.isNew = false; a.version = 0n; cleanModified(a);
+    a.id = id; a.isNew = false; a.rowVersion = 0n; cleanModified(a);
     return a;
 }
 
 function makeBand(id: number, name: string): BandEntity {
     const b = BandEntity.create({ name, members: [], lastAward: null, otherAwards: [] });
-    b.id = id; b.isNew = false; b.version = 0n; cleanModified(b);
+    b.id = id; b.isNew = false; b.rowVersion = 0n; cleanModified(b);
     return b;
 }
 
 function makeGrammy(id: number): GrammyAwardEntity {
     const g = GrammyAwardEntity.create({ year: toInt(2000), category: "Rock", result: AwardResult.Won });
-    g.id = id; g.isNew = false; g.version = 0n; cleanModified(g);
+    g.id = id; g.isNew = false; g.rowVersion = 0n; cleanModified(g);
     return g;
 }
 
@@ -100,7 +100,7 @@ describe("CustomLite (JSON)", () => {
             award: makeGrammy(30).toLite(),
             year: toInt(1990), order: toInt(0), points: [],
         });
-        nom.id = 40; nom.isNew = false; nom.version = 0n; cleanModified(nom);
+        nom.id = 40; nom.isNew = false; nom.rowVersion = 0n; cleanModified(nom);
 
         const back = deserialize(serialize(nom)) as AwardNominationEntity;
         assert.ok(back.author instanceof BandLite);
@@ -111,7 +111,7 @@ describe("CustomLite (JSON)", () => {
             award: makeGrammy(31).toLite(),
             year: toInt(1995), order: toInt(0), points: [],
         });
-        nom2.id = 41; nom2.isNew = false; nom2.version = 0n; cleanModified(nom2);
+        nom2.id = 41; nom2.isNew = false; nom2.rowVersion = 0n; cleanModified(nom2);
 
         const back2 = deserialize(serialize(nom2)) as AwardNominationEntity;
         assert.ok(back2.author instanceof ArtistLite);
@@ -126,7 +126,7 @@ describe("CustomLite (JSON)", () => {
             award: makeGrammy(30).toLite(),
             year: toInt(1990), order: toInt(0), points: [],
         });
-        nom.id = 42; nom.isNew = false; nom.version = 0n; cleanModified(nom);
+        nom.id = 42; nom.isNew = false; nom.rowVersion = 0n; cleanModified(nom);
 
         const wire = JSON.parse(serialize(nom));
         assert.equal(wire.author.$lite, "Band");

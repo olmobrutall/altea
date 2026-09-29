@@ -649,7 +649,7 @@ export abstract class QueryToken {
         const isEntityType = (type as Function) === Entity || type.prototype instanceof Entity;
         const out: QueryToken[] = [];
         for (const fi of Object.values(ti.fields)) {
-            if (fi.noSerialize || (isEntityType && (fi.name === "id" || fi.name === "version")))
+            if (fi.noSerialize || (isEntityType && (fi.name === "id" || fi.name === "rowVersion")))
                 continue;
             out.push(tokenFactories!.entityProperty(this, fi, base.add(fi.name)));
         }

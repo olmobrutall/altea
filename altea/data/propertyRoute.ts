@@ -443,7 +443,7 @@ export class PropertyRoute {
             // COLUMN kept off the wire (the user's password hash) still is one, and Signum has a route for it.
             if (fi.noSerialize && fi.notMapped)
                 continue;
-            if (insidePart && (fi.isBackReference || fi.isRowOrder || name === "id" || name === "version"))
+            if (insidePart && (fi.isBackReference || fi.isRowOrder || name === "id" || name === "rowVersion"))
                 continue;
             const pr = this.add(name);
             result.push(pr);

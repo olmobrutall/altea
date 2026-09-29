@@ -1,7 +1,7 @@
 import { reflect, init } from "@altea/altea/data/reflection";
 import { Entity, MixinEntity, type Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, versionColumn } from "@altea/altea/data/decorators";
+import { entity, rowVersionColumn } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import type { ConstructSymbol, FromMany } from "@altea/altea/data/operations";
 import type { IQuery } from "@altea/altea/data/iquery";
@@ -27,7 +27,7 @@ import { EmailMessageEntity, EmailMessageState } from "./EmailMessage";
 @entity("System", "Transactional")
 // Signum's [TicksColumn(false)] — the engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.
-@versionColumn(false)
+@rowVersionColumn(false)
 export class EmailPackageEntity extends Entity implements IProcessDataEntity {
 
     @stringLengthValidator({ max: 200 })

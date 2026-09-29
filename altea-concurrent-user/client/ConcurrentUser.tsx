@@ -30,12 +30,12 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
     const currentUser = AuthClient.currentUser();
     const userKey = currentUser ? currentUser.toLite().key() : "";
 
-    const [entityTicks, setEntityTicks] = React.useState<{ version: string; lite?: Lite<Entity> }>(
-        () => ({ version: String(p.entity.version), lite: p.entity.isNew ? undefined : p.entity.toLite() }));
+    const [entityTicks, setEntityTicks] = React.useState<{ rowVersion: string; lite?: Lite<Entity> }>(
+        () => ({ rowVersion: String(p.entity.rowVersion), lite: p.entity.isNew ? undefined : p.entity.toLite() }));
     const forceUpdate = useForceUpdate();
 
     React.useEffect(() => {
-        setEntityTicks({ version: String(p.entity.version), lite: p.entity.isNew ? undefined : p.entity.toLite() });
+        setEntityTicks({ rowVersion: String(p.entity.rowVersion), lite: p.entity.isNew ? undefined : p.entity.toLite() });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [entityKey]);
 
@@ -64,7 +64,7 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
         const handler = setInterval(updateModified, 1000);
         return () => clearInterval(handler);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [conn, p.entity, entityTicks.version]);
+    }, [conn, p.entity, entityTicks.rowVersion]);
 
     const [concurrentUserVersion, updateConcurrentUsers] = useVersion();
 
@@ -73,14 +73,14 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
 
     useWebSocketCallback(conn, "EntitySaved", (liteK: string, newTicks: string) => {
         if (entityTicks.lite && liteK === entityTicks.lite.key())
-            setEntityTicks({ lite: entityTicks.lite, version: newTicks });
+            setEntityTicks({ lite: entityTicks.lite, rowVersion: newTicks });
     }, [entityTicks.lite?.key()]);
 
     useWebSocketCallback(conn, "ConcurrentUsersChanged", () => updateConcurrentUsers(), []);
 
     // Someone else saved while this tab was idle: offer a reload (and warn if it costs local edits).
     React.useEffect(() => {
-        if (!p.isExecuting && entityTicks.lite && entityTicks.lite.is(p.entity) && entityTicks.version !== String(p.entity.version)) {
+        if (!p.isExecuting && entityTicks.lite && entityTicks.lite.is(p.entity) && entityTicks.rowVersion !== String(p.entity.rowVersion)) {
             void MessageModal.show({
                 title: ConcurrentUserMessage.DatabaseChangesDetected.niceToString(),
                 style: "warning",
@@ -104,7 +104,7 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
             }).then(b => { if (b === "yes") p.onReload(); });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [entityTicks, p.entity.version, p.isExecuting]);
+    }, [entityTicks, p.entity.rowVersion, p.isExecuting]);
 
     if (window.__disableWebSockets)
         return <FontAwesomeIcon icon="triangle-exclamation" color="#ddd" title={window.__disableWebSockets} />;
@@ -117,7 +117,7 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
     if (p.entity.isNew || entityTicks.lite == undefined || !entityTicks.lite.is(p.entity))
         return null;
 
-    const isStale = entityTicks.version !== String(p.entity.version);
+    const isStale = entityTicks.rowVersion !== String(p.entity.rowVersion);
 
     return (
         <OverlayTrigger

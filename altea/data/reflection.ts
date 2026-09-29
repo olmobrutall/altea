@@ -276,7 +276,7 @@ export class TypeReference {
  */
 export type MemberOf<T> = Exclude<
     Extract<{ [K in keyof T]: T[K] extends Function ? never : K }[keyof T], string>,
-    "id" | "version" | "isNew" | "_snapshot">;
+    "id" | "rowVersion" | "isNew" | "_snapshot">;
 
 /**
  * A {@link FieldInfo} whose `name` is narrowed to `T`'s members — the second argument every model RULE
@@ -675,7 +675,7 @@ export class FieldInfo extends TypeReference {
         // so validating it is pointless. In TypeScript that guarantee does not exist — a non-nullable
         // `number` / `boolean` / enum / `PlainDate` field is `undefined` on a freshly-constructed entity —
         // so altea requires EVERY non-nullable field, value types included. The DB-generated framework
-        // fields (id / version / isNew / _snapshot) are never reached: forEachField (the validation driver)
+        // fields (id / rowVersion / isNew / _snapshot) are never reached: forEachField (the validation driver)
         // skips them via RESERVED_FIELDS, and the client only validates fields a Line actually binds.
         return true;
     }
@@ -764,10 +764,10 @@ export class TypeInfo {
     // this type — its element is a standalone Entity, so the table is named after the ENTITY and
     // legacyCollectionTableName must stand down. Like legacyTableName, read ONLY under legacyMode.
     legacyWasVirtualMList?: boolean;
-    // `@versionColumn(true|false)` (Signum's [TicksColumn]): whether the table carries a concurrency stamp.
+    // `@rowVersionColumn(true|false)` (Signum's [TicksColumn]): whether the table carries a concurrency stamp.
     // Undefined means the DEFAULT, which depends on the kind — a `@part` row has none, anything else has
     // one. See the decorator.
-    versionColumn?: boolean;
+    rowVersionColumn?: boolean;
     // Set by class-level @index / @uniqueIndex(e => [e.a, e.b]): composite indexes declared
     // by column-selector lambdas. Stored as the @quoted selectors; the SchemaBuilder resolves the
     // covered fields → columns by reading each captured AST (accessedFields), like `where`.
@@ -923,12 +923,12 @@ export function getOrCreateTypeInfo(target: object): TypeInfo {
     created.ctor = ctor;
     if (inherited != null) {
         Object.assign(created.fields, inherited.fields);
-        // `@versionColumn(false)` is inherited, unlike every other class-level flag here. It describes what
+        // `@rowVersionColumn(false)` is inherited, unlike every other class-level flag here. It describes what
         // KIND of table this is — one the engine writes rather than a person edits — and that is true of
         // every subclass of a base that says it (Signum's [TicksColumn] is inherited for the same reason:
         // SemiSymbol declares it once and every note type / alert type / agent gets it).
-        if (inherited.versionColumn !== undefined)
-            created.versionColumn = inherited.versionColumn;
+        if (inherited.rowVersionColumn !== undefined)
+            created.rowVersionColumn = inherited.rowVersionColumn;
     }
 
     Object.defineProperty(ctor, typeInfoKey, { value: created, configurable: true, writable: true, enumerable: false });

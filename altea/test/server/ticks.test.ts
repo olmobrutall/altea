@@ -10,7 +10,7 @@ import { LiteralType } from "@altea/altea/server/runtimeTypes";
 
 // The concurrency stamp is a bigint: in legacy mode it is Signum's `Clock.Now.Ticks`, a .NET tick count past
 // 2^53, so it must be generated, read back and bound without rounding.
-describe("version stamp", () => {
+describe("rowVersion", () => {
 
     test("clockTicks is .NET DateTime.Ticks of the clock's wall time", () => {
         using _ = Clock.overrideNow(Temporal.PlainDateTime.from("2000-01-01T00:00:00"));

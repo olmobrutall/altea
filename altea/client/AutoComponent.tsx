@@ -11,7 +11,7 @@ import { Dic } from "../data/globals";
 // Infrastructure fields altea's TypeInfo.fields carries but which are not user-facing properties (unlike
 // Signum, whose subMembers omits them): the PK, the new/concurrency flags, and any "_"-prefixed internal
 // (e.g. _snapshot, the change-tracking cache).
-const SKIP_MEMBERS = new Set(["id", "isNew", "version"]);
+const SKIP_MEMBERS = new Set(["id", "isNew", "rowVersion"]);
 
 export default function AutoComponent({ ctx }: { ctx: TypeContext<any>; viewName?: string }): React.ReactNode {
     const members = ctx.propertyRoute!.subMembers();

@@ -807,8 +807,8 @@ export class QueryBinder extends ExpressionVisitor {
 
         // Signum auto-fills the optimistic-concurrency column with 0 on INSERT when
         // the projection didn't set it.
-        if (table.version != null && !assignments.some(a => a.column === table.version!.column.name))
-            assignments.push(new ColumnAssignment(table.version.column.name, new SqlConstantExpression(0n, LiteralType.bigint)));
+        if (table.rowVersion != null && !assignments.some(a => a.column === table.rowVersion!.column.name))
+            assignments.push(new ColumnAssignment(table.rowVersion.column.name, new SqlConstantExpression(0n, LiteralType.bigint)));
 
         return new CommandAggregateExpression([new InsertSelectExpression(table, pr.select, assignments, true)]);
     }
@@ -3764,7 +3764,7 @@ export class QueryBinder extends ExpressionVisitor {
             return new ColumnExpression(type, alias, f.column.name);
         }
 
-        if (f instanceof FieldValue) // includes FieldVersion
+        if (f instanceof FieldValue) // includes FieldRowVersion
             return new ColumnExpression(this.valueType(ef.fieldInfo), alias, f.column.name);
 
         if (f instanceof FieldReference) {
