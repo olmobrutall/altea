@@ -14,10 +14,10 @@ import type { SchemaBuilder } from "./schema/schemaBuilder";
 //
 // altea divergences:
 //  - the lazy's factory is ASYNC (see ResetLazy), so `loadAll` returns a promise;
-//  - the base manager's invalidation is EAGER (it resets as the write happens) where Signum defers to
-//    `Transaction.PostRealCommit`. That is a deliberate, pre-existing altea choice: the factory reloads
-//    from COMMITTED state (`Transaction.forceNew`), so a rolled-back write only costs a harmless extra
-//    reload — and an eager reset can never leave a stale value behind if the commit hook is missed;
+//  - the base manager's invalidation is EAGER (it resets as the write happens) AND again at
+//    `Transaction.PostRealCommit`, where Signum does only the latter: the eager reset stops the writing
+//    transaction from being served the old value, and — since the factory reloads from COMMITTED state
+//    (`Transaction.forceNew`) — the commit reset drops whatever was loaded in between;
 //  - Signum's `InvalidateWith.UseBaseImplementation` is ported (altea-cache honours it the same way).
 
 // Signum's `InvalidateWith` struct: the entity types whose changes invalidate a global lazy.
@@ -52,13 +52,23 @@ export class GlobalLazyManager {
         // rather than Signum's graph-modified `Saving`; (2) the reset is EAGER (see the note above); (3) the
         // dependent-table fan-out (Signum's AttachInvalidationsDependant over `DependentTables()`) is not
         // ported — a cache that navigates to related types must list those types in `invalidateWith`.
+        //
+        // The eager reset alone is NOT enough: the factory reads COMMITTED state, so a load between the write
+        // and its commit (a `saved` hook warming the lazy, or any read later in the same transaction) caches
+        // the value from BEFORE the write, and nothing would reset it again. So it is reset once more when
+        // the transaction really commits — Signum's PostRealCommit.
+        const invalidateNowAndOnCommit = (): void => {
+            invalidate();
+            if (Transaction.hasTransaction())
+                Transaction.postRealCommit(() => invalidate());
+        };
         for (const t of invalidateWith.invalidateWith) {
             const ee = sb.schema.entityEvents(t);
-            ee.saved.push(invalidate);
-            ee.preUnsafeDelete.push(invalidate);
-            ee.preUnsafeUpdate.push(invalidate);
-            ee.preUnsafeInsert.push(invalidate);
-            ee.preBulkInsert.push(invalidate);
+            ee.saved.push(invalidateNowAndOnCommit);
+            ee.preUnsafeDelete.push(invalidateNowAndOnCommit);
+            ee.preUnsafeUpdate.push(invalidateNowAndOnCommit);
+            ee.preUnsafeInsert.push(invalidateNowAndOnCommit);
+            ee.preBulkInsert.push(invalidateNowAndOnCommit);
         }
     }
 
