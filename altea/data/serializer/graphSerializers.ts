@@ -292,7 +292,7 @@ abstract class ModifiableSerializer implements JsonSerializer {
             // The field's translation for the current UI culture (see setTranslatedFieldProvider). The
             // route is needed, so this can only fire where one was computed — which is the case whenever
             // the field belongs to an entity or one of its embeddeds.
-            if (_translatedField != null && sc.translationOwner != null && fieldRoute != null) {
+            if (_translatedField != null && !sc.avoidTranslations && sc.translationOwner != null && fieldRoute != null) {
                 const translated = _translatedField(sc.translationOwner, fieldRoute);
                 if (translated != null)
                     o[entry.name + "_translated"] = translated;
@@ -702,8 +702,20 @@ export const Serializer = {
      * JSON string. Discriminators follow `options.writeTypes` (default "Auto").
      */
     stringify(obj: unknown, options?: SerializeOptions): string {
-        const sc: SerializationContext = { writeTypes: options?.writeTypes ?? 'Auto', path: new Set(), authContext: options?.authContext };
-        return JSON.stringify(factory.dynamic.toJson(obj, sc, true));
+        const sc: SerializationContext = {
+            writeTypes: options?.writeTypes ?? 'Auto', path: new Set(), authContext: options?.authContext,
+            avoidTranslations: options?.avoidTranslations,
+        };
+        return JSON.stringify(factory.dynamic.toJson(obj, sc, true), null, options?.indent);
+    },
+
+    /**
+     * The entity as a person reads or diffs it — what the diff log stores and the time machine compares
+     * (Signum's ObjectDumper). Indented, so a line diff shows the change; free of the current culture's
+     * translations and of property auth (no `authContext`), so it depends only on the entity.
+     */
+    dump(obj: unknown): string {
+        return Serializer.stringify(obj, { indent: 2, avoidTranslations: true });
     },
 
     /**

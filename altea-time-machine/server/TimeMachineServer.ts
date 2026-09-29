@@ -5,7 +5,7 @@ import { SystemTime } from "@altea/altea/server/systemTime";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Entity } from "@altea/altea/data/entity";
 import { Temporal } from "@altea/altea/data/basics";
-import { ObjectDumper } from "@altea/altea/data/objectDumper";
+import { Serializer } from "@altea/altea/data/serializer";
 
 // The ONE route the Time Machine page calls: "give me this row as it was at that instant, plus its dump".
 //
@@ -22,7 +22,7 @@ import { ObjectDumper } from "@altea/altea/data/objectDumper";
 // Port of Signum.TimeMachine's TimeMachineController.cs — see port/TimeMachine.md.
 export namespace TimeMachineServer {
 
-    /** One version of a row, plus the ObjectDumper text of it. */
+    /** One version of a row, plus its dump (Serializer.dump). */
     export interface EntityDump {
         entity: Entity;
         dump: string;
@@ -42,7 +42,7 @@ export namespace TimeMachineServer {
                     SystemTime.override(new SystemTime.AsOf(parseAsOf(asOf)), () =>
                         Database.retrieve(type, type.parseId(id))));
 
-                return res.jsonTyped({ entity, dump: ObjectDumper.dump(entity) } satisfies EntityDump);
+                return res.jsonTyped({ entity, dump: Serializer.dump(entity) } satisfies EntityDump);
             });
     }
 }

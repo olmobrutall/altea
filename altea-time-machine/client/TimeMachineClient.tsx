@@ -94,7 +94,7 @@ export namespace TimeMachineClient {
         });
     }
 
-    /** One version of a row plus its ObjectDumper text. */
+    /** One version of a row plus its dump (Serializer.dump). */
     export interface EntityDump {
         entity: Entity;
         dump: string;

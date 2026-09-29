@@ -11,7 +11,7 @@
 //
 // Signum keeps `parentEntity` as a private field, which it can afford because its converter walks
 // properties one by one. An own property here would have to be kept out of the wire, out of the snapshot
-// diff (or every entity with a parent reads back dirty), out of ObjectDumper and out of every
+// diff (or every entity with a parent reads back dirty), and out of every
 // `JSON.stringify` in a test — and it makes the graph cyclic. The WeakMap costs a lookup and has none of
 // that; altea-eval already solved this exact problem the same way, and this replaces its private copy.
 //

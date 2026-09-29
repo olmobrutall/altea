@@ -34,7 +34,7 @@ import { TimeMachineClient } from './TimeMachineClient';
 //   • "UI differences": the newer version rendered by the ordinary entity view, with the older one on the
 //     TypeContext's `previousVersion`, which is what makes core's `getTimeMachineIcon` mark each changed
 //     line (see altea/client/Lines/TimeMachineIcon);
-//   • "Data differences": the two ObjectDumper texts through altea-diff-log's DiffDocument — the same
+//   • "Data differences": the two dumps (Serializer.dump) through altea-diff-log's DiffDocument — the same
 //     component and the same dump format the operation log uses.
 //
 // Port of Signum.TimeMachine's TimeMachinePage.tsx — see port/TimeMachine.md.
@@ -194,7 +194,7 @@ export function RenderEntityVersion(p: VersionPairProps & { currentDate?: string
     );
 }
 
-/** The "Data differences" tab: the two ObjectDumper texts through altea-diff-log's DiffDocument. */
+/** The "Data differences" tab: the two dumps (Serializer.dump) through altea-diff-log's DiffDocument. */
 export function DiffEntityVersion(p: VersionPairProps): React.JSX.Element {
     const pair = useVersionPair(p);
 

@@ -178,12 +178,11 @@ export function DiffMixinTabs(p: { ctx: TypeContext<OperationLogEntity> }): Reac
 }
 
 /**
- * Collapse an EXPANDED lite (`x = new LiteImp<T>(…) { Entity = new T(…) { … } }`) down to
- * `{ Entity = /* Loaded *\/ }`, so a diff shows the change and not the whole loaded graph.
+ * Collapse an EXPANDED lite down to a marker, so a diff shows the change and not the whole loaded graph.
  *
- * The regex is unchanged from Signum's because ObjectDumper keeps the same output format on purpose — the
- * `new LiteImp<` marker and the brace/indent shape are the contract, and they are what makes a dump
- * comparable across the two frameworks.
+ * A dump is the entity serialized (Serializer.dump), where a loaded lite is `{ "$lite": …, "entity": {…} }`.
+ * A LEGACY database also holds dumps Signum's ObjectDumper wrote (`x = new LiteImp<T>(…) { Entity = … }`),
+ * which keep Signum's regex.
  */
 const liteImpRegex = /^(?<space> *)(?<prop>\w[\w\d_]+) = new LiteImp</;
 
@@ -192,10 +191,39 @@ export function simplifyDump(text: string | null | undefined, simplifyFatLites: 
     if (text == null)
         return null;
 
-    const lines = text.replace(/\r/g, "").split("\n");
-
     if (!simplifyFatLites)
-        return lines.join("\n");
+        return text.replace(/\r/g, "");
+
+    const json = tryParseJson(text);
+    if (json !== undefined)
+        return JSON.stringify(collapseLoadedLites(json), null, 2);
+
+    return simplifySignumDump(text);
+}
+
+function tryParseJson(text: string): unknown {
+    if (!/^\s*[[{]/.test(text))
+        return undefined;
+    try {
+        return JSON.parse(text);
+    } catch {
+        return undefined;
+    }
+}
+
+function collapseLoadedLites(value: unknown): unknown {
+    if (Array.isArray(value))
+        return value.map(collapseLoadedLites);
+    if (value == null || typeof value !== "object")
+        return value;
+    const o = value as Record<string, unknown>;
+    if ("$lite" in o && o["entity"] != null)
+        return { ...o, entity: "/* Loaded */" };
+    return Object.fromEntries(Object.entries(o).map(([k, v]) => [k, collapseLoadedLites(v)]));
+}
+
+function simplifySignumDump(text: string): string {
+    const lines = text.replace(/\r/g, "").split("\n");
 
     for (let i = 0; i < lines.length; i++) {
         const current = lines[i]!;

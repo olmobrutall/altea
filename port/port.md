@@ -635,7 +635,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     reference is a `Lite` the SAVE cascade fills, so it is empty exactly when a rule needs it — while the
     graph is being edited, and while the owner may still be new. A field rather than a WeakMap was
     rejected because an own property would have to be kept out of the wire, out of the snapshot diff (or
-    every entity with a parent reads back dirty), out of ObjectDumper and out of every `JSON.stringify` in
+    every entity with a parent reads back dirty), and out of every `JSON.stringify` in
     a test, and it makes the graph cyclic.
     - **the read VERIFIES.** The slot records the member it was bound under and `tryGetParentEntity`
       checks the owner still holds this child there, so a child that was MOVED or REMOVED answers
@@ -1004,9 +1004,8 @@ Known structural divergences from Signum (this is what "fix" means — don't por
   broadcast. Full ledger: **[altea/port/Cache.md](altea/port/Cache.md)**.
 
 - **The diff log is TWO core seams plus a mixin.** altea-diff-log stores the before/after dumps of an
-  operation on the operation log itself, which needed `ObjectDumper` (`data/objectDumper`, keeping Signum's
-  C#-flavoured output VERBATIM — that shape is the contract `simplifyDump`'s regex reads, and what makes a
-  dump comparable across the two frameworks) and `OperationLogic.surroundOperation` — a before-handler
+  operation on the operation log itself — a dump is the entity serialized (`Serializer.dump`), no
+  ObjectDumper — and needed `OperationLogic.surroundOperation`: a before-handler
   returning an AFTER callback, which still runs when the operation threw. Note the MIXIN's two consequences:
   the fields are FLATTENED onto `operation_log` (`initial_state_text`, …), but a client PropertyRoute still
   needs the mixin STEP (`subCtx(a => a.mixin(DiffLogMixin))`), because a route models the mixin even where

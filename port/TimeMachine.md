@@ -41,8 +41,8 @@ route, one page, the quick link, and two restore functions an application calls 
   retrieve path, whose type-READ gate would otherwise re-check rules the quick link already checked; and a
   history row may reference rows the current user cannot read today. The page itself is gated by
   `TimeMachinePermission.ShowTimeMachine`.
-- `Schema.ForceCultureInfo` is not needed — altea's ObjectDumper formats invariantly by construction
-  (Temporal → ISO, Decimal → `toString`), the same reason altea-diff-log gives.
+- `Schema.ForceCultureInfo` is not needed — the dump is the entity serialized (`Serializer.dump`), which
+  is culture-free (Temporal → ISO, Decimal → `toString`), the same reason altea-diff-log gives.
 - `ReflectionServer.RegisterLike(typeof(TimeMachineMessage), …)` has no counterpart: altea ships ONE
   metadata blob and a message container is included by being registered, with no per-container visibility
   predicate to attach.

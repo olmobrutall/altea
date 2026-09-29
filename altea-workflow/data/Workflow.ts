@@ -117,7 +117,7 @@ export class WorkflowEntity extends Entity implements IUserAssetEntity {
     /**
      * REDUNDANT — only for diff logging. Signum marks it `[InTypeScript(false), AvoidDump]`; the
      * counterparts are `@serialize(false)` (the designer round-trips the diagram through WorkflowModel, so
-     * the client never needs this second copy) and `ObjectDumper.avoidDump`, registered in WorkflowLogic.
+     * the client never needs this second copy), which also keeps it out of the diff log's dump.
      */
     @serialize(false)
     fullDiagramXml: WorkflowXmlEmbedded | null;

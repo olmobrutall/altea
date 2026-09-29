@@ -9,13 +9,11 @@ before the operation, dump the target after it, store both on the operation log.
 
 ## What it needed from core
 
-- **`ObjectDumper`** (`data/objectDumper`). It keeps Signum's C#-flavoured output VERBATIM —
-  `new OrderEntity(10248) { … }`, `new LiteImp<CustomerEntity>(5, "Acme")`, 3-space indent — because that
-  shape is the contract `simplifyDump`'s regex reads, and it is what makes a dump comparable across the two
-  frameworks. `[AvoidDump]` / `[AvoidDumpEntity]` become `ObjectDumper.avoidDump` / `avoidDumpEntity` Sets
-  keyed `"TypeName.fieldName"`. `Schema.ForceCultureInfo` is unnecessary: the dumper formats invariantly by
-  construction (Temporal → ISO, Decimal → `toString`). Mixins are not a separate branch, since altea
-  inlines them.
+- **No ObjectDumper: a dump is the entity SERIALIZED** (`Serializer.dump` — indented JSON, without the
+  current culture's translations and without property auth, so it depends only on the entity). What
+  Signum's `[AvoidDump]` kept out is kept out by `@serialize(false)`. `Schema.ForceCultureInfo` is
+  unnecessary: the serializer is culture-free (Temporal → ISO, Decimal → `toString`). A LEGACY database
+  still holds dumps in Signum's format, which `simplifyDump` keeps reading with Signum's regex.
 - **`OperationLogic.surroundOperation`** — Signum's `SurroundOperation` event returns an `IDisposable`;
   altea's is a before-handler returning an AFTER callback, which still runs when the operation threw.
 
@@ -56,8 +54,8 @@ before the operation, dump the target after it, store both on the operation log.
   rest of the module. Signum writes the margin label as two literals AROUND the NumberBox ("Show only" …
   "lines arround each change"); the message has a `{0}` placeholder instead and the box is rendered AT it,
   so a translation can put the number where its own grammar wants it.
-- Signum's `simplify` checkbox and its `simplifyDump` regex are kept VERBATIM — the regex matches the dump
-  format, which ObjectDumper preserves on purpose.
+- Signum's `simplify` checkbox is kept; `simplifyDump` collapses a loaded lite's `entity` in a JSON dump,
+  and keeps Signum's regex for a Signum-format one.
 
 ## The type condition IS ported
 

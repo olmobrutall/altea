@@ -5,7 +5,7 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
 import { OperationLogEntity } from "@altea/altea/data/operationLog";
-import { ObjectDumper } from "@altea/altea/data/objectDumper";
+import { Serializer } from "@altea/altea/data/serializer";
 import { DiffLogMixin } from "../data/DiffLog";
 
 // The two routes that let the OperationLog view walk the chain: "the log before this one on the same
@@ -103,7 +103,7 @@ export namespace DiffLogServer {
     async function dumpCurrent(target: Lite<Entity>): Promise<string | null> {
         try {
             const entity = await ExecutionMode.global(() => target.retrieve());
-            return ObjectDumper.dump(entity);
+            return Serializer.dump(entity);
         } catch {
             // A failed retrieve is the existence check, in one query.
             return null;

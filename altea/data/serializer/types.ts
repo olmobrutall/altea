@@ -18,6 +18,11 @@ export interface SerializeOptions {
      *  `resolveSerializationAuthContext`) and read SYNCHRONOUSLY by the auth `access` during the walk — so
      *  a concurrent rule invalidation can't null it out mid-serialization. Opaque to the codec. */
     authContext?: unknown;
+    /** Pretty-print with this many spaces (JSON.stringify's `space`) — for a dump a person reads or diffs. */
+    indent?: number;
+    /** Leave out the `<field>_translated` values (see setTranslatedFieldProvider), which depend on the
+     *  current UI culture — for a dump that must not change with who produced it. */
+    avoidTranslations?: boolean;
 }
 
 export interface DeserializeOptions {
@@ -50,6 +55,7 @@ export interface SerializationContext {
     // looked up against (see setTranslatedFieldProvider). Re-rooted at each entity, so a `@part` child
     // row resolves its own translations; an embedded keeps its owner's, matching its route.
     translationOwner?: Entity;
+    avoidTranslations?: boolean;
 }
 
 export interface DeserializationContext {

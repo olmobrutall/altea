@@ -7,7 +7,7 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Entity } from "@altea/altea/data/entity";
 
 import { BigStringEmbedded } from "@altea/altea/data/bigString";
-import { ObjectDumper } from "@altea/altea/data/objectDumper";
+import { Serializer } from "@altea/altea/data/serializer";
 import { OperationLogEntity } from "@altea/altea/data/operationLog";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import { FilterQueryArgs } from "@altea/altea/server/schema/filterQueryArgs";
@@ -95,7 +95,7 @@ export namespace DiffLogLogic {
                 entity = await retrieveFresh(entity);
 
             mixin.initialState = new BigStringEmbedded();
-            mixin.initialState.text = ObjectDumper.dump(entity);
+            mixin.initialState.text = Serializer.dump(entity);
         } else {
             mixin.initialState = new BigStringEmbedded();
         }
@@ -107,7 +107,7 @@ export namespace DiffLogLogic {
 
             if (target != null && shouldLog(target, operationKey) && ctx.operation.operationType !== OperationType.Delete) {
                 mixin.finalState = new BigStringEmbedded();
-                mixin.finalState.text = ObjectDumper.dump(target);
+                mixin.finalState.text = Serializer.dump(target);
             } else {
                 mixin.finalState = new BigStringEmbedded();
             }

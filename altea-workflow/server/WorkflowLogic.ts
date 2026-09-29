@@ -8,7 +8,6 @@ import { table } from "@altea/altea/server/table";
 import type { IQuery } from "@altea/altea/data/iquery";
 import { Operations } from "@altea/altea/server/operationLogic";
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
-import { ObjectDumper } from "@altea/altea/data/objectDumper";
 import { withQuoted } from "@altea/altea/data/decorators";
 import { Enum } from "@altea/altea/data/enum";
 import { Lite } from "@altea/altea/data/lite";
@@ -378,12 +377,6 @@ export namespace WorkflowLogic {
 
         // The shared user-asset infrastructure (the permission + the import/export HTTP surface).
         UserAssetLogic.start(sb);
-
-        // The redundant full-diagram copy is only for the diff log to compare — never worth dumping.
-        ObjectDumper.avoidDump.add("WorkflowEntity.fullDiagramXml");
-        for (const t of ["WorkflowPoolEntity", "WorkflowLaneEntity", "WorkflowActivityEntity",
-            "WorkflowEventEntity", "WorkflowGatewayEntity", "WorkflowConnectionEntity"])
-            ObjectDumper.avoidDump.add(t + ".xml");
 
         // ---- The workflow itself ------------------------------------------------------------------
 
