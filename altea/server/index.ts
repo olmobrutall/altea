@@ -118,6 +118,24 @@ Entity.prototype.save = async function (this: Entity): Promise<Entity> {
     return this;
 };
 
+declare global {
+    interface Array<T> {
+        // Signum's `IEnumerable<T>.SaveList()`. Saves every entity in the array as ONE graph in one
+        // transaction, which is not the same as saving them one by one: the Saver builds the dependency
+        // graph over the WHOLE set and topologically orders the writes itself (breaking reference cycles
+        // through its feedback-edge set), so a list whose members point at each other needs no ordering
+        // from the caller — and new rows of one table are batched into a single multi-row INSERT.
+        //
+        // Returns the array so calls chain, as `Entity.save` returns the entity.
+        saveList<E extends Entity>(this: E[]): Promise<E[]>;
+    }
+}
+
+Array.prototype.saveList = async function <E extends Entity>(this: E[]): Promise<E[]> {
+    await Saver.save(this);
+    return this;
+};
+
 // Polymorphic combine hints (Signum's CombineUnion/CombineCase). Identity at runtime
 // — the combine strategy only matters in a query, where the binder reads it off the
 // call and swaps the @implementedBy reference's strategy (see QueryBinder). The

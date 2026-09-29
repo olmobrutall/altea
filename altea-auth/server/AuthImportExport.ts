@@ -1,5 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { XMLParser, XMLBuilder } from "fast-xml-parser";
+import "@altea/altea/data/globals"; // Array.prototype.toMap
+import "@altea/altea/server"; // Array.prototype.saveList (installed with the entity extension methods)
 import type { Lite } from "@altea/altea/data/lite";
 import { table } from "@altea/altea/server/table";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
@@ -215,27 +217,22 @@ export namespace AuthImportExport {
             description: x.Description ?? null,
         }));
 
-        const roles = new Map(roleInfos.map(a => [a.name, RoleEntity.create({
+        // `toMap` is Signum's `ToDictionary`, refusal of a repeated key included: two `<Role>` elements
+        // with one name is a broken file, and it used to be a silent last-one-wins.
+        const roles = roleInfos.toMap(a => a.name, a => RoleEntity.create({
             name: a.name,
             mergeStrategy: a.mergeStrategy,
             isTrivialMerge: a.isTrivialMerge,
             description: a.description,
-        })]));
+        }));
 
         for (const ri of roleInfos)
-            roles.get(ri.name)!.inheritsFrom = ri.subRoles.map(r => RoleEntity_InheritsFrom.create({ inheritsFrom: getOrThrow(roles, r).toLite(true) }));
+            getOrThrow(roles, ri.name).inheritsFrom = ri.subRoles.map(r => RoleEntity_InheritsFrom.create({ inheritsFrom: getOrThrow(roles, r).toLite(true) }));
 
-        // Signum saves the list as one graph; here each role goes once the roles it contains have ids.
-        const pending = [...roleInfos];
-        while (pending.length > 0) {
-            const ready = pending.filter(ri => ri.subRoles.every(s => !getOrThrow(roles, s).isNew));
-            if (ready.length === 0)
-                throw new Error(`The roles ${pending.map(p => p.name).join(", ")} contain each other`);
-            for (const ri of ready) {
-                await roles.get(ri.name)!.save();
-                pending.splice(pending.indexOf(ri), 1);
-            }
-        }
+        // Signum's `roles.Values.SaveList()`, and for the same reason: the whole set is ONE graph, so the
+        // Saver orders the writes. Each `inheritsFrom` row holds a fat lite at the role it names, which is
+        // the dependency the topological sort reads — the caller never has to walk the hierarchy itself.
+        await [...roles.values()].saveList();
     }
 
     /**

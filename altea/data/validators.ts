@@ -991,9 +991,17 @@ function comparisonKey(element: unknown): string {
     if (element == null)
         return 'null';
 
-    const asLite = element as { entityType?: { name?: string }; id?: unknown; key?: () => string };
-    if (typeof asLite.key === 'function' && asLite.entityType != null)
+    const asLite = element as { entityType?: { name?: string }; id?: unknown; key?: () => string; entityOrNull?: object | null };
+    if (typeof asLite.key === 'function' && asLite.entityType != null) {
+        // A FAT lite at a not-yet-saved entity has no id, so `key()` is the same string — "Role;undefined" —
+        // for every one of them, and a collection of them would read as all-repeats. `Lite.is` already
+        // compares those by the referenced entity's reference (Signum's Lite.Is does the same); this keeps
+        // the validator's key in step with it. Signum's own AuthLogic.LoadRoles is exactly this shape: a
+        // role's InheritsFrom holds fat lites at sibling roles that the one SaveList has not written yet.
+        if (asLite.id == null && asLite.entityOrNull != null)
+            return 'ref:' + (referenceIds.get(asLite.entityOrNull) ?? setReferenceId(asLite.entityOrNull));
         return 'lite:' + asLite.key();
+    }
 
     const asEntity = element as { toLite?: () => { key(): string }; idOrNull?: unknown; id?: unknown };
     if (typeof asEntity.toLite === 'function' && asEntity.id != null)
