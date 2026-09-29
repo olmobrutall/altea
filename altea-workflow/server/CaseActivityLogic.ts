@@ -236,7 +236,7 @@ export namespace CaseActivityLogic {
             .withQuery();
 
         sb.include(CaseActivityEntity)
-            .withStateMachine(ca => ca.getState(), registerCaseActivityOperations)
+            .withStateMachine(ca => ca.state(), registerCaseActivityOperations)
             .withExpressionFrom(WorkflowActivityEntity, c => c.caseActivities())
             .withExpressionFrom(WorkflowEventEntity, c => c.caseActivities())
             .withExpressionFrom(CaseEntity, c => c.caseActivities())

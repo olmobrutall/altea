@@ -29,9 +29,9 @@ import { Enum } from "@altea/altea/data/enum";
 //
 // altea divergences:
 //  - `State` is a C# PROPERTY with an `[ExpressionField]` twin there, so it can be both queried and read
-//    in memory (and it answers `New` for an unsaved entity, which no SQL expression could). altea splits the
-//    two explicitly: `state()` is the `@quoted` DB-translatable expression, and `getState()` adds the `New`
-//    case for the operation state machine. See the members.
+//    in memory (and it answers `New` for an unsaved entity, which no SQL expression could). altea keeps it
+//    ONE member: `@quoted(<function expression>)` is the `[ExpressionField]` analogue — the expression
+//    written out because the body diverges from it. See the member.
 //  - `Duration` stays a `double?` of MINUTES (an average-able number, not a Duration).
 //  - it is computed in a schema `preSaving` event, since there is no entity-level
 //    PreSaving OVERRIDE — the hook is a schema event list (`entityEvents(T).preSaving`) — so the same body is
@@ -125,21 +125,25 @@ export class CaseActivityEntity extends Entity {
     }
 
     /**
-     * The state as the DATABASE sees it. `@quoted`, so it is both a query token
-     * (registered in CaseActivityLogic) and the in-memory answer for a saved activity.
+     * Signum's `State` property, both halves of it. The BODY answers for an unsaved activity —
+     * `New`, which is not a stored state and which no SQL expression could produce — while the
+     * expression handed to `@quoted` is `StateExpression`, the one Signum's
+     * `[ExpressionField("StateExpression")]` points at.
+     *
+     * Written out rather than quoted from the body for exactly that reason. It is what the operation
+     * state machine selects (`g.GetState`), and that selector is not only CALLED: it is lowered to
+     * SQL by the contextual can-execute `GROUP BY` (operationLogic.distinctStates), by the
+     * `[Operations]` query token (tokenExpressions) and by @altea/altea-map's operation map. A member
+     * with no quoted tree is invisible to all three.
      */
     @legacyPropertyRoute
-    @quoted
-    state(): CaseActivityState {
+    @quoted(function (this: CaseActivityEntity): CaseActivityState {
         return this.doneDate != null ? CaseActivityState.Done : CaseActivityState.Pending;
-    }
-
-    /**
-     * The stored states plus `New` for an unsaved activity. Not `@quoted` — "is this row
-     * saved" has no SQL translation. This is what the operation state machine reads (`g.GetState`).
-     */
-    getState(): CaseActivityState {
-        return this.isNew ? CaseActivityState.New : this.state();
+    })
+    state(): CaseActivityState {
+        if (this.isNew)
+            return CaseActivityState.New;
+        return this.doneDate != null ? CaseActivityState.Done : CaseActivityState.Pending;
     }
 
     @quoted
