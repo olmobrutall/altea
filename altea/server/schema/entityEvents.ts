@@ -65,7 +65,7 @@ export class EntityEvents<T extends Entity> {
     async onSaved(entity: T, args: { readonly wasNew: boolean; readonly wasModified: boolean }): Promise<void> {
         for (const h of this.saved)
             await h(entity, args);
-        await this.onChanged("save");
+        await this.onChanged("saved");
     }
 
     async onChanged(method: EntityChangeMethod): Promise<void> {
@@ -107,4 +107,4 @@ export class EntityEvents<T extends Entity> {
 }
 
 /** How rows of an entity type are being written (see EntityEvents.changed). */
-export type EntityChangeMethod = "save" | "executeDelete" | "executeInsert" | "executeUpdate";
+export type EntityChangeMethod = "saved" | "executeDelete" | "executeInsert" | "executeUpdate";
