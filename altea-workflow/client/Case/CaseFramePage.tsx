@@ -17,6 +17,7 @@ import { ErrorBoundary } from "@altea/altea/client/Components";
 import { AutoFocus } from "@altea/altea/client/Components/AutoFocus";
 import { FunctionalAdapter } from "@altea/altea/client/Modals";
 import { useForceUpdate, useStateWithPromise } from "@altea/altea/client/Hooks";
+import { Serializer } from "@altea/altea/data/serializer";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import type { Entity } from "@altea/altea/data/entity";
 import { Enum } from "@altea/altea/data/enum";
@@ -118,7 +119,7 @@ function CaseFramePage(): React.JSX.Element {
         callback?: () => void): void {
         void setState({
             pack,
-            lastActivity: JSON.stringify(pack.activity),
+            lastActivity: Serializer.dump(pack.activity),
             getComponent,
             refreshCount: state ? state.refreshCount + 1 : 0,
         }).then(callback);

@@ -90,7 +90,7 @@ export default function FramePage(): React.ReactElement {
   function setPack(pack: EntityPack<Entity>, view: { viewName?: string, getComponent: (ctx: TypeContext<Entity>) => React.ReactElement }, createNew?: () => Promise<EntityPack<Entity> | undefined>) {
     return setState({
       pack,
-      lastEntity: pack == state?.pack ? state?.lastEntity : JSON.stringify(pack.entity),
+      lastEntity: pack == state?.pack ? state?.lastEntity : Serializer.dump(pack.entity),
       getComponent: view.getComponent,
       viewName: view.viewName,
       createNew: createNew,
@@ -420,7 +420,7 @@ export default function FramePage(): React.ReactElement {
 
 export function useLooseChanges(pair?: { entity: BaseEntity, lastEntity: string }): void {
 
-  let blocker = useBlocker(() => pair != null && JSON.stringify(pair.entity) != pair.lastEntity);
+  let blocker = useBlocker(() => pair != null && Serializer.dump(pair.entity) != pair.lastEntity);
 
   React.useEffect(() => {
     if (blocker.state === "blocked") {

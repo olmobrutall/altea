@@ -22,6 +22,7 @@ import { ModalHeaderButtons } from "@altea/altea/client/Components/ModalHeaderBu
 import { AutoFocus } from "@altea/altea/client/Components/AutoFocus";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { useForceUpdate, useStateWithPromise } from "@altea/altea/client/Hooks";
+import { Serializer } from "@altea/altea/data/serializer";
 import { JavascriptMessage, FrameMessage, SaveChangesMessage } from "@altea/altea/data/uiMessages";
 import { isGraphModified } from "@altea/altea/data/changes";
 import type { Entity } from "@altea/altea/data/entity";
@@ -90,7 +91,7 @@ export function CaseFrameModal(p: CaseFrameModalProps): React.JSX.Element {
         callback?: () => void): void {
         void setState({
             pack,
-            lastActivity: JSON.stringify(pack.activity),
+            lastActivity: Serializer.dump(pack.activity),
             getComponent,
             refreshCount: state ? state.refreshCount + 1 : 0,
         }).then(callback);

@@ -23,6 +23,7 @@ import type { EntityPack } from '../../data/entityPack'
 import { JavascriptMessage, FrameMessage, SaveChangesMessage } from '../../data/uiMessages'
 import { isEntityPack } from '../../data/entityPack'
 import { isGraphModified } from '../../data/changes'
+import { Serializer } from '../../data/serializer'
 import { GraphExplorer, tryGetTypeInfo, getTypeName as reflectGetTypeName, entityInfo } from '../Reflection'
 import { PropertyRoute, isPartType } from '../../data/propertyRoute'
 import { ReadonlyBinding } from '../binding'
@@ -128,7 +129,7 @@ export function FrameModal<T extends BaseEntity>(p: FrameModalProps<T>): React.J
   function setPack(pack: EntityPack<T>, getComponent: (ctx: TypeContext<T>) => React.ReactElement, callback?: () => void) {
     setState({
       pack,
-      lastEntity: pack == state?.pack ? state?.lastEntity : JSON.stringify(pack.entity),
+      lastEntity: pack == state?.pack ? state?.lastEntity : Serializer.dump(pack.entity),
       getComponent,
       refreshCount: state ? state.refreshCount + 1 : 0
     }).then(callback);
@@ -476,5 +477,5 @@ export function computeHasChanges(state: HasChangesState, entityComponent: React
 
   const entity = state.pack.entity;
 
-  return isGraphModified(entity) && JSON.stringify(entity) != state.lastEntity;
+  return isGraphModified(entity) && Serializer.dump(entity) != state.lastEntity;
 }
