@@ -3,7 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Symbol } from "@altea/altea/data/symbol";
 import { column, entity, implementedBy, implementedByAll, format, legacyPropertyRoute, quoted, rowVersionColumn } from "@altea/altea/data/decorators";
-import { stringLengthValidator, validate, dateTimePrecisionValidator, DateTimePrecision, numberBetweenValidator } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, dateTimePrecisionValidator, DateTimePrecision, numberBetweenValidator, StateValidator } from "@altea/altea/data/validators";
 import { Temporal, Decimal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -57,6 +57,7 @@ export enum ProcessState {
 // The engine writes these rows, never a person editing one, so there is
 // nothing for a concurrency stamp to protect.
 @rowVersionColumn(false)
+@validate<ProcessEntity>((p, fi) => processStates.validate(p, fi))
 export class ProcessEntity extends Entity {
 
     /** "not pinned to a machine", so any host may take it. */
@@ -175,6 +176,19 @@ export class ProcessEntity extends Entity {
         }
     }
 }
+
+// Which dates and markers a process carries in each state.
+export const processStates = new StateValidator(ProcessEntity,
+    p => p.state,             "plannedDate", "cancelationDate", "queuedDate", "executionStart", "executionEnd", "suspendDate", "progress", "status", "exceptionDate", "exception", "machineName", "applicationName")
+    .add(ProcessState.Created,    false,         false,             false,        false,            false,          false,         false,      false,    false,           false,       null,          null             )
+    .add(ProcessState.Planned,    true,          null,              null,         null,             false,          null,          null,       null,     null,            null,        null,          null             )
+    .add(ProcessState.Canceled,   null,          true,              null,         null,             false,          null,          null,       null,     null,            null,        null,          null             )
+    .add(ProcessState.Queued,     null,          null,              true,         false,            false,          false,         false,      false,    false,           false,       null,          null             )
+    .add(ProcessState.Executing,  null,          null,              true,         true,             false,          false,         true,       null,     false,           false,       true,          true             )
+    .add(ProcessState.Suspending, null,          null,              true,         true,             false,          true,          true,       null,     false,           false,       true,          true             )
+    .add(ProcessState.Suspended,  null,          null,              true,         true,             false,          true,          true,       null,     false,           false,       null,          null             )
+    .add(ProcessState.Finished,   null,          null,              true,         true,             true,           false,         false,      null,     false,           false,       null,          null             )
+    .add(ProcessState.Error,      null,          null,              null,         null,             null,           null,          null,       null,     true,            true,        null,          null             );
 
 /** One element a process failed on, so the run continues past it and
  *  the failures stay individually inspectable. */

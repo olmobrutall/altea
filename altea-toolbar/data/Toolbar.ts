@@ -5,7 +5,7 @@ import {
     entity, part, primaryKey, backReference, rowOrder, implementedBy, uniqueIndex, format, unit, quoted,
     legacyColumnName,
 } from "@altea/altea/data/decorators";
-import { stringLengthValidator, validate, noRepeatValidator } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, noRepeatValidator, StateValidator } from "@altea/altea/data/validators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
 import { Enum } from "@altea/altea/data/enum";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -33,8 +33,7 @@ import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-as
 // type: the common members live on the ABSTRACT `ToolbarElementBaseEntity` (no table) and each owner has a
 // concrete row. Client code that treats both uniformly types against the base.
 //
-// The per-state must-be-set / must-be-null rules are explicit `@validate`s below, keeping Signum's message
-// keys (they are what a shipped translation file is keyed by). `getSubToolbars()` drives the cycle check on save. XML lives in server/ToolbarXml.ts, so the
+// The per-type must-be-set / must-be-null rules are Signum's StateValidator (`toolbarElementStates`). `getSubToolbars()` drives the cycle check on save. XML lives in server/ToolbarXml.ts, so the
 // entities stay isomorphic.
 
 // ---- Enums ---------------------------------------------------------------------------------------------
@@ -81,23 +80,20 @@ export interface IToolbarEntity extends Entity {
 // (`@reflect`, not `@entity`) — only the two concrete row types below get tables, the same idiom as
 // altea-auth's RuleEntity base.
 @reflect
+@validate<ToolbarElementBaseEntity>((e, fi) => toolbarElementStates.validate(e, fi))
 export abstract class ToolbarElementBaseEntity extends Entity {
 
     type: ToolbarElementType = ToolbarElementType.Item;
 
     // For an Item / a Header, a label is mandatory when there is no content
-    // to take the label FROM. A Divider carries none of the four.
-    @validate<ToolbarElementBaseEntity>(e => isDivider(e)
-        ? mustBeNull(e.label, ToolbarMessage.ADividerHasNoLabelIconContentOrUrl)
-        : !e.label && e.content == null && isLabelledType(e)
+    // to take the label FROM. (A Divider carries none of the four — toolbarElementStates.)
+    @validate<ToolbarElementBaseEntity>(e => !e.label && e.content == null && isLabelledType(e)
             ? ToolbarMessage._0IsMandatoryWhen1IsNotSet.niceToString(
                 ToolbarMessage.Label.niceToString(), ToolbarMessage.Content.niceToString())
             : null)
     @stringLengthValidator({ min: 1, max: 100 })
     label: string | null;
 
-    @validate<ToolbarElementBaseEntity>(e => isDivider(e)
-        ? mustBeNull(e.iconName, ToolbarMessage.ADividerHasNoLabelIconContentOrUrl) : null)
     @stringLengthValidator({ min: 3, max: 100 })
     iconName: string | null;
 
@@ -116,8 +112,6 @@ export abstract class ToolbarElementBaseEntity extends Entity {
     // NOTE: the two concrete row types below INHERIT this one FieldInfo (altea's reflection seeds a
     // subclass's fields with the base's field objects), so ONE `overrideImplementedBy` on this base covers
     // both tables.
-    @validate<ToolbarElementBaseEntity>(e => isDivider(e)
-        ? mustBeNull(e.content, ToolbarMessage.ADividerHasNoLabelIconContentOrUrl) : null)
     @implementedBy(() => [QueryEntity, PermissionSymbol, ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity])
     content: Lite<Entity> | null;
 
@@ -127,9 +121,7 @@ export abstract class ToolbarElementBaseEntity extends Entity {
     //
     // An Item / ExtraIcon needs a url when it has no content to
     // navigate to.
-    @validate<ToolbarElementBaseEntity>(e => isDivider(e)
-        ? mustBeNull(e.url, ToolbarMessage.ADividerHasNoLabelIconContentOrUrl)
-        : e.url ? validateUrl(e.url)
+    @validate<ToolbarElementBaseEntity>(e => e.url ? validateUrl(e.url)
             : e.content == null && isNavigableType(e)
                 ? ToolbarMessage._0IsMandatoryWhen1IsNotSet.niceToString(
                     ToolbarMessage.Url.niceToString(), ToolbarMessage.Content.niceToString())
@@ -306,14 +298,13 @@ export namespace ToolbarSwitcherOperation {
 
 // ---- Validation helpers --------------------------------------------------------------------------------
 
-function isDivider(e: ToolbarElementBaseEntity): boolean {
-    return Enum.toName(ToolbarElementType, e.type) === "Divider";
-}
-
-/** For a Divider the member must NOT be set. */
-function mustBeNull(value: unknown, message: { niceToString(): string }): string | null {
-    return value == null || value === "" ? null : message.niceToString();
-}
+// A Divider carries none of the four; the other types are checked per member above.
+export const toolbarElementStates = new StateValidator(ToolbarElementBaseEntity,
+    e => e.type,                       "content", "url", "iconName", "label")
+    .add(ToolbarElementType.Divider,     false,     false, false,      false  )
+    .add(ToolbarElementType.Header,      null,      null,  null,       null   )
+    .add(ToolbarElementType.Item,        null,      null,  null,       null   )
+    .add(ToolbarElementType.ExtraIcon,   null,      null,  null,       null   );
 
 /** Label is mandatory-when-no-content for an Item / a Header. */
 function isLabelledType(e: ToolbarElementBaseEntity): boolean {
@@ -384,7 +375,6 @@ export const ToolbarMessage = {
     ShowTogether: msg("Show together"),
     // altea-only:
     _0IsMandatoryWhen1IsNotSet: msg("{0} is mandatory when {1} is not set"),
-    ADividerHasNoLabelIconContentOrUrl: msg("A divider has no label, icon, content or url"),
     AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds: msg("Auto refresh period must be greater than or equal to 10 seconds"),
     InvalidUrl0: msg("Invalid url: {0}"),
     Label: msg("Label"),

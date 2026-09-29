@@ -6,7 +6,7 @@ import {
     legacyTableName,
     legacyColumnName,
 } from "@altea/altea/data/decorators";
-import { stringLengthValidator, validate, noRepeatValidator } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, noRepeatValidator, StateValidator } from "@altea/altea/data/validators";
 import { Lite } from "@altea/altea/data/lite";
 import { type float, type int, toInt, Temporal, type long, toLong } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -37,8 +37,6 @@ import { splitTokenKey } from "@altea/altea/data/dynamicQuery/tokens/tokenKey";
 //    against the predictor's output columns, and `ParseData`) take it as an argument instead.
 //  - `IPredictorAlgorithmSettings` is a TS INTERFACE, so `algorithmSettings` is `@implementedBy` over the
 //    concrete settings entities — the app widens it, as it does for the mail services.
-//  - `StateValidator` (Signum's table-driven per-state required/forbidden matrix) becomes per-field
-//    `@validate`, the translation @altea/altea-email already made for the same construct.
 //  - `QueryDescription` is gone, so `ParseData` — which existed to resolve each stored token against it —
 //    has no counterpart at all: a token is resolved where it is USED (PredictorLogicQuery), and its
 //    staleness is discovered rather than precomputed (the call the token-migration port documents).
@@ -282,6 +280,7 @@ export class PredictorMainQueryEmbedded extends EmbeddedEntity {
  */
 @part
 @legacyTableName("PredictorSubQueryColumns")
+@validate<PredictorSubQueryEntity_Column>((c, fi) => subQueryColumnStates.validate(c, fi))
 export class PredictorSubQueryEntity_Column extends Entity {
     @backReference subQuery: Lite<PredictorSubQueryEntity>;
     @legacyColumnName("Order")
@@ -291,14 +290,8 @@ export class PredictorSubQueryEntity_Column extends Entity {
 
     token: QueryTokenEmbedded;
 
-    // An encoding and a null handling are required for Input/Output and
-    // FORBIDDEN for ParentKey/SplitBy — those two are structural, not data to feed a network.
-    @validate<PredictorSubQueryEntity_Column>(c => isDataUsage(c.usage) === (c.encoding == null)
-        ? PredictorMessage.EncodingIsRequiredForInputAndOutputColumnsOnly.niceToString() : null)
     encoding: PredictorColumnEncodingSymbol | null;
 
-    @validate<PredictorSubQueryEntity_Column>(c => isDataUsage(c.usage) === (c.nullHandling == null)
-        ? PredictorMessage.NullHandlingIsRequiredForInputAndOutputColumnsOnly.niceToString() : null)
     nullHandling: PredictorColumnNullHandling | null;
 
     clone(): PredictorSubQueryEntity_Column {
@@ -322,9 +315,14 @@ export class PredictorSubQueryEntity_Column extends Entity {
 }
 
 /** Whether a sub-query column carries DATA (so it needs an encoding) or STRUCTURE (so it must not). */
-export function isDataUsage(usage: PredictorSubQueryColumnUsage): boolean {
-    return usage === PredictorSubQueryColumnUsage.Input || usage === PredictorSubQueryColumnUsage.Output;
-}
+// An encoding and a null handling are what a column FEEDS the network with, so only Input/Output have them;
+// ParentKey / SplitBy are structural.
+export const subQueryColumnStates = new StateValidator(PredictorSubQueryEntity_Column,
+    c => c.usage,                             "encoding", "nullHandling")
+    .add(PredictorSubQueryColumnUsage.Input,     true,       true          )
+    .add(PredictorSubQueryColumnUsage.Output,    true,       true          )
+    .add(PredictorSubQueryColumnUsage.SplitBy,   false,      false         )
+    .add(PredictorSubQueryColumnUsage.ParentKey, false,      false         );
 
 @part
 @legacyTableName("PredictorSubQueryFilters")
@@ -572,9 +570,6 @@ export const PredictorMessage = {
     Training: msg("Training…"),
     Saving: msg("Saving…"),
     Done: msg(),
-    // The two rules Signum expresses in its StateValidator table (see the column).
-    EncodingIsRequiredForInputAndOutputColumnsOnly: msg("Encoding is required for Input and Output columns, and forbidden for the rest"),
-    NullHandlingIsRequiredForInputAndOutputColumnsOnly: msg("Null handling is required for Input and Output columns, and forbidden for the rest"),
     NoOutputColumn: msg("The predictor has no Output column"),
     _0NotSuportedFor1: msg("{0} not supported for {1}"),
     NoInputColumn: msg("The predictor has no Input column"),

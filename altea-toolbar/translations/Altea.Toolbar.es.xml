@@ -63,7 +63,6 @@
   <Type Name="ToolbarMessage">
     <Member Name="_0CyclesHaveBeenFoundInTheToolbarDueToTheRelationships" Description="Se han encontrado {0} ciclos en la barra de herramientas debido a las relaciones:" />
     <Member Name="_0IsMandatoryWhen1IsNotSet" Description="{0} es obligatorio si {1} no está establecido" />
-    <Member Name="ADividerHasNoLabelIconContentOrUrl" Description="Un separador no tiene etiqueta, icono, contenido ni URL" />
     <Member Name="AutoRefreshPeriodMustBeGreaterThanOrEqualTo10Seconds" Description="El periodo de actualización automática debe ser de al menos 10 segundos" />
     <Member Name="Content" Description="Contenido" />
     <Member Name="ExtraIconCanNotComeAfterDivider" Description="Un icono adicional no puede ir después de un separador" />

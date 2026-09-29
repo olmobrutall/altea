@@ -3,7 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { entity, part, implementedByAll, backReference, column, format, quoted } from "@altea/altea/data/decorators";
 import {
-    stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType, ValidationMessage,
+    stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType, StateValidator,
 } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt, type uuid } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -23,8 +23,6 @@ import { Enum } from "@altea/altea/data/enum";
 // altea divergences, documented inline:
 //  - `MList<EmailRecipientEmbedded> Recipients` / `MList<EmailAttachmentEmbedded> Attachments` become this
 //    owner's `@part` ROWS (the recipient row reuses the shared EmailRecipientBaseEntity — see Email.ts).
-//  - `StateValidator` (Signum's table of which fields may be set in which state) becomes per-field
-//    `@validate` checks against `state` — the same rules, expressed one field at a time.
 //  - `CalculateHash` uses SHA-1 in Signum; the hash is only a de-duplication key, and the isomorphic layer
 //    has no crypto, so the SERVER fills `bodyHash` on save (EmailLogic's PreSaving hook) and this entity
 //    only exposes the string that gets hashed.
@@ -82,6 +80,7 @@ export class EmailMessageEntity_Attachment extends Entity {
 
 // Signum's EmailMessageEntity.
 @entity("Main", "Transactional")
+@validate<EmailMessageEntity>((m, fi) => emailMessageStates.validate(m, fi))
 export class EmailMessageEntity extends Entity {
     /** Signum's [CountIsValidator(ComparisonType.GreaterThan, 0)] — a message with no recipients cannot be
      *  sent. GreaterThan 0 also makes the recipients line MANDATORY in the editor. */
@@ -124,21 +123,8 @@ export class EmailMessageEntity extends Entity {
     isBodyHtml: boolean;
 
     /** Set when a send attempt threw; goes with state SentException. */
-    //
-    // The two rules below are the columns of Signum's `StateValidator<EmailMessageEntity,
-    // EmailMessageState>` that altea keeps, and they now say what that validator says
-    // (`_0IsNotAllowedOnState1`). Both used to return the raw literal `"{0} should be empty"`, which
-    // reached the user with the `{0}` still in it, and in English either way.
-    @validate<EmailMessageEntity>((m, fi) =>
-        m.exception != null && m.state !== EmailMessageState.SentException && m.state !== EmailMessageState.ReceptionNotified
-            ? ValidationMessage._0IsNotAllowedOnState1.niceToString(fi.niceToString(), niceState(m.state)) : null)
     exception: Lite<ExceptionEntity> | null;
 
-    // Reported on `state` rather than on `sent`, because the state is the member the user can still
-    // change: a message has a "sent at" only once it has reached one of the sent states.
-    @validate<EmailMessageEntity>(m => stateAllowsSent(m.state) || m.sent == null ? null
-        : ValidationMessage._0IsNotAllowedOnState1.niceToString(
-            EmailMessageEntity.nicePropertyName("sent"), niceState(m.state)))
     state: EmailMessageState;
 
     /** Signum's UniqueIdentifier — a stable id the reception side matches a reply against. */
@@ -164,16 +150,17 @@ export class EmailMessageEntity extends Entity {
     }
 }
 
-/** The state as the user sees it — a state field holds the numeric ordinal in memory. */
-function niceState(state: EmailMessageState): string {
-    return Enum.niceName(EmailMessageState, Enum.toName(EmailMessageState, state)!);
-}
-
-function stateAllowsSent(state: EmailMessageState): boolean {
-    return state === EmailMessageState.Sent
-        || state === EmailMessageState.SentException
-        || state === EmailMessageState.ReceptionNotified;
-}
+export const emailMessageStates = new StateValidator(EmailMessageEntity,
+    m => m.state,                              "exception", "sent", "receptionNotified")
+    .add(EmailMessageState.Created,             false,       false,  false              )
+    .add(EmailMessageState.Draft,               false,       false,  false              )
+    .add(EmailMessageState.ReadyToSend,         false,       false,  false              )
+    .add(EmailMessageState.RecruitedForSending, false,       false,  false              )
+    .add(EmailMessageState.Sent,                false,       true,   false              )
+    .add(EmailMessageState.SentException,       true,        null,   false              )
+    .add(EmailMessageState.ReceptionNotified,   true,        true,   true               )
+    .add(EmailMessageState.Received,            false,       false,  false              )
+    .add(EmailMessageState.Outdated,            false,       false,  false              );
 
 export namespace EmailMessageOperation {
     export const Save: ExecuteSymbol<EmailMessageEntity> = init();

@@ -3,8 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { IQuery } from "@altea/altea/data/iquery";
 import { column, entity, implementedBy, quoted } from "@altea/altea/data/decorators";
-import { validate, stringLengthValidator, ValidationMessage } from "@altea/altea/data/validators";
-import { Enum } from "@altea/altea/data/enum";
+import { validate, stringLengthValidator, StateValidator } from "@altea/altea/data/validators";
 import { registerEnum } from "@altea/altea/data/registration";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -24,6 +23,7 @@ import type { SimpleTaskSymbol } from "@altea/altea-scheduler/data/Scheduler";
 //
 // Port of Signum.Printing's PrintLine.cs + PrintPackages.cs — see port/Printing.md.
 @entity("System", "Transactional")
+@validate<PrintLineEntity>((p, fi) => printLineStates.validate(p, fi))
 export class PrintLineEntity extends Entity {
     creationDate: Temporal.PlainDateTime = Clock.now;
 
@@ -33,36 +33,14 @@ export class PrintLineEntity extends Entity {
 
     file: FilePathEmbedded;
 
-    // The two columns of Signum's `StateValidator<PrintLineEntity, PrintLineState>` (PrintLine.cs),
-    // wearing the sentences that validator produces: `_0IsNecessaryOnState1` when the state demands a
-    // value that is absent, `_0IsNotAllowedOnState1` when it forbids one that is there. Both used to be
-    // raw English, which is the one thing a user-visible string may not be.
-    @validate<PrintLineEntity>((p, fi) => p.state === PrintLineState.Enqueued && p.package == null
-        ? ValidationMessage._0IsNecessaryOnState1.niceToString(fi.niceToString(), niceState(p.state))
-        : (p.state === PrintLineState.NewTest || p.state === PrintLineState.ReadyToPrint) && p.package != null
-            ? ValidationMessage._0IsNotAllowedOnState1.niceToString(fi.niceToString(), niceState(p.state))
-            : null)
     package: Lite<PrintPackageEntity> | null;
 
-    @validate<PrintLineEntity>((p, fi) => {
-        const printed = p.state === PrintLineState.Printed || p.state === PrintLineState.PrintedAndDeleted;
-        return printed && p.printedOn == null
-            ? ValidationMessage._0IsNecessaryOnState1.niceToString(fi.niceToString(), niceState(p.state))
-            : !printed && p.printedOn != null
-                ? ValidationMessage._0IsNotAllowedOnState1.niceToString(fi.niceToString(), niceState(p.state))
-                : null;
-    })
     printedOn: Temporal.PlainDateTime | null;
 
     @implementedBy(() => [])
     referred: Lite<Entity> | null;
 
     state: PrintLineState;
-}
-
-/** The state as the user sees it — a state field holds the numeric ordinal in memory. */
-function niceState(state: PrintLineState): string {
-    return Enum.niceName(PrintLineState, Enum.toName(PrintLineState, state)!);
 }
 
 export enum PrintLineState {
@@ -75,6 +53,16 @@ export enum PrintLineState {
     PrintedAndDeleted,
 }
 registerEnum(PrintLineState);
+
+export const printLineStates = new StateValidator(PrintLineEntity,
+    p => p.state,                           "printedOn", "package")
+    .add(PrintLineState.NewTest,             false,       false    )
+    .add(PrintLineState.ReadyToPrint,        false,       false    )
+    .add(PrintLineState.Enqueued,            false,       true     )
+    .add(PrintLineState.Printed,             true,        null     )
+    .add(PrintLineState.Error,               false,       null     )
+    .add(PrintLineState.Cancelled,           false,       null     )
+    .add(PrintLineState.PrintedAndDeleted,   true,        null     );
 
 export namespace PrintLineOperation {
     export const CreateTest: ConstructSymbol<PrintLineEntity> = init();

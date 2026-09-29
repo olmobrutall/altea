@@ -182,12 +182,10 @@
     <Member Name="DownloadCsv" Description="Descargar CSV" />
     <Member Name="DownloadTsv" Description="Descargar TSV" />
     <Member Name="DownloadTsvMetadata" Description="Descargar metadatos TSV" />
-    <Member Name="EncodingIsRequiredForInputAndOutputColumnsOnly" Description="La codificación es obligatoria para las columnas de entrada y salida, y no se permite en el resto" />
     <Member Name="NoInputColumn" Description="El predictor no tiene ninguna columna de entrada" />
     <Member Name="NoOutputColumn" Description="El predictor no tiene ninguna columna de salida" />
     <Member Name="NoPublicationsForQuery0Registered" Description="No hay publicaciones registradas para la consulta {0}" />
     <Member Name="NoPublicationsProcessRegisteredFor0" Description="Ningún proceso de publicaciones registrado para {0}" />
-    <Member Name="NullHandlingIsRequiredForInputAndOutputColumnsOnly" Description="El tratamiento de nulos es obligatorio para las columnas de entrada y salida, y no se permite en el resto" />
     <Member Name="OpenTensorflowProjector" Description="Abrir proyector tensorflow" />
     <Member Name="Predict" Description="Predecir" />
     <Member Name="PredictorIsPublishedUntrainAnyway" Description="Predictor se ha publicado. ¿Desentrenar de todos modos?" />

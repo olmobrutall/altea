@@ -4,7 +4,7 @@ import { Lite } from "@altea/altea/data/lite";
 import {
     entity, part, implementedBy, uniqueIndex, backReference, format, quoted, column,
 } from "@altea/altea/data/decorators";
-import { stringLengthValidator, validate, noRepeatValidator } from "@altea/altea/data/validators";
+import { stringLengthValidator, validate, noRepeatValidator, StateValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ExecuteSymbol, ConstructSymbol, From } from "@altea/altea/data/operations";
@@ -108,19 +108,14 @@ export class SmtpNetworkDeliveryEmbedded extends EmbeddedEntity {
 
 // Signum's SmtpEmailServiceEntity — sending over SMTP (a network host, or a pickup directory).
 @part
+@validate<SmtpEmailServiceEntity>((s, fi) => smtpStates.validate(s, fi))
 export class SmtpEmailServiceEntity extends EmailServiceEntity {
     deliveryFormat: SmtpDeliveryFormat;
 
     deliveryMethod: SmtpDeliveryMethod;
 
-    /** Signum's StateValidator over DeliveryMethod: Network needs `network`, SpecifiedPickupDirectory needs
-     *  `pickupDirectoryLocation`, PickupDirectoryFromIis needs neither. */
-    @validate<SmtpEmailServiceEntity>(s =>
-        s.deliveryMethod === SmtpDeliveryMethod.Network && s.network == null ? "{0} is not set" : null)
     network: SmtpNetworkDeliveryEmbedded | null;
 
-    @validate<SmtpEmailServiceEntity>(s =>
-        s.deliveryMethod === SmtpDeliveryMethod.SpecifiedPickupDirectory && s.pickupDirectoryLocation == null ? "{0} is not set" : null)
     @stringLengthValidator({ min: 3, max: 300 })
     pickupDirectoryLocation: string | null;
 
@@ -133,6 +128,12 @@ export class SmtpEmailServiceEntity extends EmailServiceEntity {
         });
     }
 }
+
+export const smtpStates = new StateValidator(SmtpEmailServiceEntity,
+    s => s.deliveryMethod,                          "network", "pickupDirectoryLocation")
+    .add(SmtpDeliveryMethod.Network,                  true,      null                     )
+    .add(SmtpDeliveryMethod.SpecifiedPickupDirectory, null,      true                     )
+    .add(SmtpDeliveryMethod.PickupDirectoryFromIis,   null,      null                     );
 
 // Signum's `MList<EmailRecipientEmbedded> AdditionalRecipients`, as this owner's @part row (see Email.ts).
 @part

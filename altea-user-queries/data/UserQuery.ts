@@ -5,7 +5,7 @@ import {
     backReference, entity, part, implementedBy, primaryKey, quoted, rowOrder, translatable, valueField,
     legacyColumnName,
 } from "@altea/altea/data/decorators";
-import { validate, noRepeatValidator, stringLengthValidator, numberIsValidator, ComparisonType, ValidationMessage } from "@altea/altea/data/validators";
+import { validate, noRepeatValidator, stringLengthValidator, numberIsValidator, ComparisonType, ValidationMessage, StateValidator } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
 import {
@@ -127,6 +127,7 @@ export class UserQueryEntity_CustomDrilldown extends Entity {
 
 // Signum's SystemTimeEmbedded (UserQueryEntity.cs). The optional system-versioned / time-series window.
 @reflect
+@validate<SystemTimeEmbedded>((s, fi) => systemTimeStates.validate(s, fi))
 export class SystemTimeEmbedded extends EmbeddedEntity {
     mode: SystemTimeMode = SystemTimeMode.AsOf;
     // Signum's `string?` with [StringLengthValidator(Max = 100)] — a date EXPRESSION, not a date: its
@@ -163,6 +164,15 @@ export class SystemTimeEmbedded extends EmbeddedEntity {
         });
     }
 }
+
+// Which members each mode reads.
+export const systemTimeStates = new StateValidator(SystemTimeEmbedded,
+    s => s.mode,                   "startDate", "endDate", "joinMode", "timeSeriesUnit", "timeSeriesStep", "timeSeriesMaxRowsPerStep")
+    .add(SystemTimeMode.AsOf,        true,        false,     false,      false,            false,            false                     )
+    .add(SystemTimeMode.Between,     true,        true,      true,       false,            false,            false                     )
+    .add(SystemTimeMode.ContainedIn, true,        true,      true,       false,            false,            false                     )
+    .add(SystemTimeMode.All,         false,       false,     true,       false,            false,            false                     )
+    .add(SystemTimeMode.TimeSeries,  true,        true,      false,      true,             true,             true                      );
 
 // Signum's HealthCheckConditionEmbedded (UserQueryEntity.cs). A "{count} {op} {value}" threshold.
 @reflect

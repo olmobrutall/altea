@@ -182,12 +182,10 @@
     <Member Name="DownloadCsv" Description="CSV herunterladen" />
     <Member Name="DownloadTsv" Description="TSV herunterladen" />
     <Member Name="DownloadTsvMetadata" Description="TSV-Metadaten herunterladen" />
-    <Member Name="EncodingIsRequiredForInputAndOutputColumnsOnly" Description="Die Kodierung ist für Eingabe- und Ausgabespalten erforderlich und für alle übrigen unzulässig" />
     <Member Name="NoInputColumn" Description="Der Prädiktor hat keine Eingabespalte" />
     <Member Name="NoOutputColumn" Description="Der Prädiktor hat keine Ausgabespalte" />
     <Member Name="NoPublicationsForQuery0Registered" Description="Für die Abfrage {0} sind keine Veröffentlichungen registriert" />
     <Member Name="NoPublicationsProcessRegisteredFor0" Description="Für {0} ist kein Veröffentlichungsprozess registriert" />
-    <Member Name="NullHandlingIsRequiredForInputAndOutputColumnsOnly" Description="Die Behandlung von Nullwerten ist für Eingabe- und Ausgabespalten erforderlich und für alle übrigen unzulässig" />
     <Member Name="OpenTensorflowProjector" Description="Tensorflow-Projektor öffnen" />
     <Member Name="Predict" Description="Vorhersagen" />
     <Member Name="PredictorIsPublishedUntrainAnyway" Description="Der Prädiktor ist veröffentlicht. Training trotzdem zurücksetzen?" />
