@@ -69,19 +69,20 @@ export namespace UserQueriesClient {
             )));
 
         // Preview quick-link on a UserQuery itself (Signum's "preview").
-        QuickLinkClient.registerQuickLink(UserQueryEntity, new QuickLinkAction(
-            "preview", () => "Preview", async ctx => {
-                const uq = await Navigator.API.fetch(ctx.lite as Lite<UserQueryEntity>);
-                if (uq == null)
-                    return;
-                if (uq.entityType == null) {
-                    const url = await getUserQueryUrl(uq);
-                    window.open(AppContext.toAbsoluteUrl(url));
-                }
-                // else: scoping to a chosen entity needs Finder.find (a stub in altea) — deferred.
-            },
-            { icon: "eye", iconColor: "blue", color: "info" },
-        ));
+        cb.configure(UserQueryEntity)
+            .withQuickLink(new QuickLinkAction(
+                "preview", () => "Preview", async ctx => {
+                    const uq = await Navigator.API.fetch(ctx.lite as Lite<UserQueryEntity>);
+                    if (uq == null)
+                        return;
+                    if (uq.entityType == null) {
+                        const url = await getUserQueryUrl(uq);
+                        window.open(AppContext.toAbsoluteUrl(url));
+                    }
+                    // else: scoping to a chosen entity needs Finder.find (a stub in altea) — deferred.
+                },
+                { icon: "eye", iconColor: "blue", color: "info" },
+            ));
 
         // The three UserQuery DASHBOARD parts (Signum registered their views + renderers inline here; altea
         // keeps them in one module so the @altea/altea-dashboard dependency is visible in a single place).

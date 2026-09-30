@@ -75,17 +75,18 @@ export namespace UserChartClient {
             )));
 
         // Preview quick-link on a UserChart itself (Signum's "preview").
-        QuickLinkClient.registerQuickLink(UserChartEntity, new QuickLinkAction(
-            "preview", () => "Preview", async ctx => {
-                const uc = await Navigator.API.fetch(ctx.lite as Lite<UserChartEntity>);
-                if (uc == null)
-                    return;
-                if (uc.entityType == null)
-                    window.open(AppContext.toAbsoluteUrl(userChartUrl(uc.toLite())));
-                // else: scoping to a chosen entity needs Finder.find (a stub in altea) — deferred.
-            },
-            { icon: "eye", iconColor: "blue", color: "info" },
-        ));
+        cb.configure(UserChartEntity)
+            .withQuickLink(new QuickLinkAction(
+                "preview", () => "Preview", async ctx => {
+                    const uc = await Navigator.API.fetch(ctx.lite as Lite<UserChartEntity>);
+                    if (uc == null)
+                        return;
+                    if (uc.entityType == null)
+                        window.open(AppContext.toAbsoluteUrl(userChartUrl(uc.toLite())));
+                    // else: scoping to a chosen entity needs Finder.find (a stub in altea) — deferred.
+                },
+                { icon: "eye", iconColor: "blue", color: "info" },
+            ));
 
         // The UserChart DASHBOARD part (Signum registered its view + renderer inline here; altea keeps it in
         // one module so the @altea/altea-dashboard dependency is visible in a single place).

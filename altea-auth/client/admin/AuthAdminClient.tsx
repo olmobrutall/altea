@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ajaxGet, ajaxPost, ajaxGetRaw, saveFile } from "@altea/altea/client/Services";
 import { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
-import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
+import { QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
 import { tryGetTypeMetadata, tryGetTypeInfo } from "@altea/altea/client/Reflection";
 import { Metadata } from "@altea/altea/data/metadata";
 import { PropertyRoute, PropertyRouteType } from "@altea/altea/data/propertyRoute";
@@ -173,20 +173,22 @@ export namespace AuthAdminClient {
             Finder.onNoResultMessage().push(queryAuditorNoResultMessage);
 
             cb.configure(TypeRulePack).withView(() => import("./TypeRulePackControl"));
-            QuickLinkClient.registerQuickLink(RoleEntity, new QuickLinkAction("types",
-                () => AuthAdminMessage.TypeRules.niceToString(),
-                ctx => void API.fetchTypeRulePack(ctx.lite.id!).then(pack =>
-                    Navigator.view(pack, { buttons: "close", title: AuthAdminMessage.TypeRules.niceToString() + " — " + ctx.lite.toString() })),
-                { icon: "shield-halved", iconColor: "red", color: "danger", group: null }));
+            cb.configure(RoleEntity)
+                .withQuickLink(new QuickLinkAction("types",
+                    () => AuthAdminMessage.TypeRules.niceToString(),
+                    ctx => void API.fetchTypeRulePack(ctx.lite.id!).then(pack =>
+                        Navigator.view(pack, { buttons: "close", title: AuthAdminMessage.TypeRules.niceToString() + " — " + ctx.lite.toString() })),
+                    { icon: "shield-halved", iconColor: "red", color: "danger", group: null }));
         }
 
         if (Options.permissions) {
             cb.configure(PermissionRulePack).withView(() => import("./PermissionRulePackControl"));
-            QuickLinkClient.registerQuickLink(RoleEntity, new QuickLinkAction("permissions",
-                () => AuthAdminMessage.PermissionRules.niceToString(),
-                ctx => void API.fetchPermissionRulePack(ctx.lite.id!).then(pack =>
-                    Navigator.view(pack, { buttons: "close", title: AuthAdminMessage.PermissionRules.niceToString() + " — " + ctx.lite.toString() })),
-                { icon: "shield-halved", iconColor: "orange", color: "warning", group: null }));
+            cb.configure(RoleEntity)
+                .withQuickLink(new QuickLinkAction("permissions",
+                    () => AuthAdminMessage.PermissionRules.niceToString(),
+                    ctx => void API.fetchPermissionRulePack(ctx.lite.id!).then(pack =>
+                        Navigator.view(pack, { buttons: "close", title: AuthAdminMessage.PermissionRules.niceToString() + " — " + ctx.lite.toString() })),
+                    { icon: "shield-halved", iconColor: "orange", color: "warning", group: null }));
         }
 
         // Operation / Query / Property rules are PER-TYPE, and are NOT reached from a Role

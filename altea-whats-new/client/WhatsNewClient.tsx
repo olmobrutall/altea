@@ -2,7 +2,7 @@ import * as React from "react";
 import { ajaxGet, ajaxPost } from "@altea/altea/client/Services";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
-import { QuickLinkClient, QuickLinkLink } from "@altea/altea/client/QuickLinkClient";
+import { QuickLinkLink } from "@altea/altea/client/QuickLinkClient";
 import type { Lite } from "@altea/altea/data/lite";
 import * as AppContext from "@altea/altea/client/AppContext";
 
@@ -51,10 +51,11 @@ export namespace WhatsNewClient {
                 ],
             }));
 
-        QuickLinkClient.registerQuickLink(WhatsNewEntity, new QuickLinkLink("Preview",
-            () => WhatsNewMessage.Preview.niceToString(),
-            ctx => "/newspage/" + ctx.lite.id,
-            { icon: "newspaper", iconColor: "purple" }));
+        cb.configure(WhatsNewEntity)
+            .withQuickLink(new QuickLinkLink("Preview",
+                () => WhatsNewMessage.Preview.niceToString(),
+                ctx => "/newspage/" + ctx.lite.id,
+                { icon: "newspaper", iconColor: "purple" }));
     }
 
     export namespace API {

@@ -6,7 +6,7 @@ import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { QueryString } from "@altea/altea/client/QueryString";
-import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
+import { QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
 import { onWidgets, type WidgetContext } from "@altea/altea/client/Frames/Widgets";
 import { tasks } from "@altea/altea/client/Lines/LineBase";
 import { tryGetTypeInfo, getTypeName, type PseudoType } from "@altea/altea/client/Reflection";
@@ -76,18 +76,19 @@ export namespace HelpClient {
         tasks().push(taskHelpIcon);
 
         for (const type of [TypeHelpEntity, NamespaceHelpEntity, AppendixHelpEntity, QueryHelpEntity])
-            registerExportLink(type);
+            registerExportLink(cb, type);
     }
 
-    function registerExportLink(type: typeof TypeHelpEntity | typeof NamespaceHelpEntity | typeof AppendixHelpEntity | typeof QueryHelpEntity): void {
-        QuickLinkClient.registerQuickLink(type as never,
-            new QuickLinkAction("HelpExportAsZip", () => HelpMessage.ExportAsZip.niceToString(),
-                ctx => exportHelpEntities(ctx.lites), {
-                allowsMultiple: true,
-                iconColor: "#FCAE25",
-                icon: "file-code",
-                isVisible: () => Promise.resolve(AuthClient.isPermissionAuthorized(HelpPermissions.ExportHelp)),
-            }));
+    function registerExportLink(cb: ClientBuilder, type: typeof TypeHelpEntity | typeof NamespaceHelpEntity | typeof AppendixHelpEntity | typeof QueryHelpEntity): void {
+        cb.configure(type as never)
+            .withQuickLink(
+                new QuickLinkAction("HelpExportAsZip", () => HelpMessage.ExportAsZip.niceToString(),
+                    ctx => exportHelpEntities(ctx.lites), {
+                    allowsMultiple: true,
+                    iconColor: "#FCAE25",
+                    icon: "file-code",
+                    isVisible: () => Promise.resolve(AuthClient.isPermissionAuthorized(HelpPermissions.ExportHelp)),
+                }));
     }
 
     /** Signum's `taskHelpIcon` — every Line asks, and only a documented property answers. */
