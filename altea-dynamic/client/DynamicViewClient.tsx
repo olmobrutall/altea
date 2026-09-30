@@ -4,7 +4,6 @@ import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { ViewPromise, type ViewOverride } from "@altea/altea/client/EntitySettings";
 import type { ViewReplacer } from "@altea/altea/client/Frames/ReactVisitor";
-import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import { Entity, type BaseEntity } from "@altea/altea/data/entity";
@@ -44,20 +43,28 @@ export namespace DynamicViewClient {
 
     export function start(cb: ClientBuilder): void {
 
+        // Any write invalidates what the dispatcher has cached, so the next navigation reflects the edit
+        // without a reload.
+        const invalidateCaches = { commonOnClick: (oc: { defaultClick: () => Promise<void> }) => { cleanCaches(); return oc.defaultClick(); } };
+
         cb.configure(DynamicViewEntity).withView(() => import("./View/DynamicView")).withQuerySettings(token => ({
             defaultColumns: [
                 token(a => a.id),
                 token(a => a.viewName),
                 token(a => a.entityType),
             ],
-        }));
+        }))
+            .withEntityOperation(DynamicViewOperation.Save, invalidateCaches)
+            .withEntityOperation(DynamicViewOperation.Delete, invalidateCaches);
 
         cb.configure(DynamicViewSelectorEntity).withView(() => import("./View/DynamicViewSelector")).withQuerySettings(token => ({
             defaultColumns: [
                 token(a => a.id),
                 token(a => a.entityType),
             ],
-        }));
+        }))
+            .withEntityOperation(DynamicViewSelectorOperation.Save, invalidateCaches)
+            .withEntityOperation(DynamicViewSelectorOperation.Delete, invalidateCaches);
 
         cb.configure(DynamicViewOverrideEntity).withView(() => import("./View/DynamicViewOverride")).withQuerySettings(token => ({
             defaultColumns: [
@@ -65,18 +72,9 @@ export namespace DynamicViewClient {
                 token(a => a.entityType),
                 token(a => a.viewName),
             ],
-        }));
-
-        // Any write to a view / selector / override invalidates what the dispatcher has cached, so the next
-        // navigation reflects the edit without a reload (Signum wires the same four operations).
-        Operations.addSettings(
-            ...[
-                DynamicViewOperation.Save, DynamicViewOperation.Delete,
-                DynamicViewSelectorOperation.Save, DynamicViewSelectorOperation.Delete,
-                DynamicViewOverrideOperation.Save, DynamicViewOverrideOperation.Delete,
-            ].map(op => new EntityOperationSettings(op as never, {
-                commonOnClick: oc => { cleanCaches(); return oc.defaultClick(); },
-            })));
+        }))
+            .withEntityOperation(DynamicViewOverrideOperation.Save, invalidateCaches)
+            .withEntityOperation(DynamicViewOverrideOperation.Delete, invalidateCaches);
 
         Navigator.setViewDispatcher(new DynamicViewViewDispatcher());
     }

@@ -1,6 +1,5 @@
 import { Navigator } from "@altea/altea/client/Navigator";
 import { isNotPart } from "@altea/altea/data/reflection";
-import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
 import { QuickLinkClient, QuickLinkExplore } from "@altea/altea/client/QuickLinkClient";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { NoteEntity, NoteTypeSymbol, NoteOperation } from "../data/Notes";
@@ -31,7 +30,17 @@ export namespace NotesClient {
                     token(n => n.text),
                     token(n => n.target),
                 ],
-            }));
+            }))
+            // `From<Entity>` puts the button on every type, so visibility is per type (Signum's
+            // couldHaveNotes); a note is about a part row's owner, never the row.
+            .withConstructFromOperation(NoteOperation.CreateNoteFromEntity, {
+                isVisibleForType: isNotPart,
+                isVisible: ctx => couldHaveNotes(ctx.entity.constructor.name),
+                icon: "note-sticky",
+                iconColor: "#0e4f8c",
+                color: "info",
+                contextual: { isVisible: ctx => couldHaveNotes(ctx.context.lites[0]!.entityType.name) },
+            });
 
         cb.configure(NoteTypeSymbol)
             .withQuerySettings(token => ({
@@ -41,18 +50,6 @@ export namespace NotesClient {
                     token(t => t.key),
                 ],
             }));
-
-        // "Write a note about this entity" — the button lives on the SOURCE type, so its visibility is
-        // per type (Signum's couldHaveNotes). Registered on `Entity`, so a part row inherits it too; a
-        // note is about its owner (`isVisibleForType`).
-        Operations.addSettings(new EntityOperationSettings(NoteOperation.CreateNoteFromEntity, {
-            isVisibleForType: isNotPart,
-            isVisible: ctx => couldHaveNotes(ctx.entity.constructor.name),
-            icon: "note-sticky",
-            iconColor: "#0e4f8c",
-            color: "info",
-            contextual: { isVisible: ctx => couldHaveNotes(ctx.context.lites[0]!.entityType.name) },
-        }));
 
         if (Navigator.isViewable(NoteEntity))
             QuickLinkClient.registerGlobalQuickLink(entityType => Promise.resolve([

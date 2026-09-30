@@ -1,9 +1,18 @@
 import { type RouteObject } from 'react-router';
-import { BaseEntity, type Type } from '../data/entity';
+import { BaseEntity, Entity, type Type } from '../data/entity';
+import type { EntityPack } from '../data/entityPack';
+import type { PropertyRoute } from '../data/propertyRoute';
+import type {
+  ExecuteSymbol, DeleteSymbol, ConstructSymbol, Simple, From, FromMany,
+} from '../data/operations';
 import { Navigator } from './Navigator';
+import { Constructor } from './Constructor';
 import { Finder } from './Finder';
-import { Operations } from './Operations';
-import { QuickLinkClient } from './QuickLinkClient';
+import {
+  Operations, EntityOperationSettings, ConstructorOperationSettings, ContextualOperationSettings,
+  type EntityOperationOptions, type ConstructorOperationOptions, type ContextualOperationOptions,
+} from './Operations';
+import { QuickLinkClient, type QuickLink } from './QuickLinkClient';
 import { ExceptionClient } from './Exceptions/ExceptionClient';
 import { TypeEntityClient } from './TypeEntityClient';
 import { EntitySettings, type EntitySettingsOptions, type ViewModule } from './EntitySettings';
@@ -90,6 +99,63 @@ export class EntityClientBuilder<T extends BaseEntity> {
   withQuerySettings(builder?: (token: TokenFunction<T>) => Partial<Finder.QuerySettings>): this {
     const settings = builder ? builder(createTokenFunction<T>(new QueryTokenString(""))) : {};
     Finder.addSettings({ queryName: this.type, ...settings } as Finder.QuerySettings);
+    return this;
+  }
+
+  /** How a NEW `T` is built client-side — its default values (Signum's `Constructor.registerConstructor`).
+   * Not an operation: it runs before anything reaches the server. */
+  withConstructor(
+    constructor: (props?: Partial<T>, pr?: PropertyRoute) => T | Promise<T | EntityPack<T> | undefined>,
+    options?: { override?: boolean }): this {
+    Constructor.registerConstructor(this.type, constructor, options);
+    return this;
+  }
+
+  // ---- operations -----------------------------------------------------------------------------------
+  //
+  // One method per operation KIND, because the kind cannot be recovered at runtime: the `Simple` /
+  // `From` / `FromMany` markers are erased, and the metadata carrying `operationType` loads after every
+  // module's `start(cb)`. Picking the wrong settings class crashes far from the call, so the symbol's
+  // static type picks it here.
+  //
+  // `T` is the type that OWNS the operation (the server's `sb.include(T)`) — for the construct kinds the
+  // one PRODUCED, not the source. The source is inferred as `S`, so `eoc.entity` is typed without a cast.
+  //
+  // `contextual` / `contextualFromMany` / `cell` stay nested options: they are read off the owning
+  // EntityOperationSettings, never looked up in the registry.
+
+  withConstructorOperation(
+    operation: ConstructSymbol<T & Entity, Simple>,
+    options: ConstructorOperationOptions<T & Entity>): this {
+    Operations.addSettings(new ConstructorOperationSettings<T & Entity>(operation, options));
+    return this;
+  }
+
+  /** `options` is typed on the SOURCE `S`, where the button sits. */
+  withConstructFromOperation<S extends Entity>(
+    operation: ConstructSymbol<T & Entity, From<S>>,
+    options: EntityOperationOptions<S>): this {
+    Operations.addSettings(new EntityOperationSettings<S>(operation as ConstructSymbol<Entity, From<S>>, options));
+    return this;
+  }
+
+  /** Lives only in the search control's contextual menu, so this is its whole registration. */
+  withContextualOperation<S extends Entity>(
+    operation: ConstructSymbol<T & Entity, FromMany<S>>,
+    options: ContextualOperationOptions<S>): this {
+    Operations.addSettings(new ContextualOperationSettings<S>(operation as ConstructSymbol<Entity, FromMany<S>>, options));
+    return this;
+  }
+
+  withEntityOperation(
+    operation: ExecuteSymbol<T & Entity> | DeleteSymbol<T & Entity>,
+    options: EntityOperationOptions<T & Entity>): this {
+    Operations.addSettings(new EntityOperationSettings<T & Entity>(operation, options));
+    return this;
+  }
+
+  withQuickLink(quickLink: QuickLink<T & Entity>): this {
+    QuickLinkClient.registerQuickLink(this.type as Type<T & Entity>, quickLink);
     return this;
   }
 }

@@ -8,7 +8,7 @@ import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { Finder } from "@altea/altea/client/Finder";
 import { Constructor } from "@altea/altea/client/Constructor";
-import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
+import { Operations } from "@altea/altea/client/Operations";
 import { QuickLinkClient, QuickLinkExplore } from "@altea/altea/client/QuickLinkClient";
 import { onContextualItems, type ContextualItemsContext, type MenuItemBlock } from "@altea/altea/client/SearchControl/ContextualItems";
 import { Entity, type BaseEntity, type Type } from "@altea/altea/data/entity";
@@ -102,6 +102,10 @@ export namespace MailingClient {
                     token(t => t.query),
                     token(t => t.model),
                 ],
+            }))
+            // A new template starts with one message in the server's default culture.
+            .withConstructor(async () => EmailTemplateEntity.create({
+                messages: [EmailTemplateEntity_Message.create({ cultureInfo: (await API.getDefaultCulture()).toLite() })],
             }));
 
         cb.configure(EmailMasterTemplateEntity)
@@ -112,6 +116,11 @@ export namespace MailingClient {
                     token(t => t.name),
                     token(t => t.isDefault),
                 ],
+            }))
+            .withConstructor(async () => EmailMasterTemplateEntity.create({
+                messages: [EmailMasterTemplateEntity_Message.create({
+                    cultureInfo: (await API.getDefaultCulture()).toLite(), text: defaultMasterTemplateText,
+                })],
             }));
 
         cb.configure(EmailSenderConfigurationEntity)
@@ -140,54 +149,40 @@ export namespace MailingClient {
         cb.configure(SmtpEmailServiceEntity).withView(() => import("./SenderServices/SmtpEmailService"));
         cb.configure(SmtpNetworkDeliveryEmbedded).withView(() => import("./SenderServices/SmtpNetworkDelivery"));
 
-        // A NEW template starts with one message in the server's default culture (Signum's constructor).
-        Constructor.registerConstructor(EmailTemplateEntity, async () => {
-            const cultureInfo = (await API.getDefaultCulture()).toLite();
-            return EmailTemplateEntity.create({
-                messages: [EmailTemplateEntity_Message.create({ cultureInfo })],
-            });
-        });
-
-        Constructor.registerConstructor(EmailMasterTemplateEntity, async () => {
-            const cultureInfo = (await API.getDefaultCulture()).toLite();
-            return EmailMasterTemplateEntity.create({
-                messages: [EmailMasterTemplateEntity_Message.create({ cultureInfo, text: defaultMasterTemplateText })],
-            });
-        });
-
         // "Create an email from this template": what the button must gather first depends on the template's
         // MODEL — an entity-shaped model needs a row picked in a finder, a model with its own editor needs
         // that editor opened (Signum's onClick, minus the isTypeEntity fast path it derived from reflection).
-        Operations.addSettings(new EntityOperationSettings(EmailMessageOperation.CreateEmailFromTemplate, {
-            onClick: async ctx => {
-                const template = ctx.entity as EmailTemplateEntity;
-                const constructorType = template.model != null ? await API.getConstructorType(template.model) : undefined;
+        // Mirrors EmailLogic's registerEmailMessageOperations.
+        cb.configure(EmailMessageEntity)
+            .withConstructFromOperation(EmailMessageOperation.CreateEmailFromTemplate, {
+                onClick: async ctx => {
+                    const template = ctx.entity;
+                    const constructorType = template.model != null ? await API.getConstructorType(template.model) : undefined;
 
-                if (constructorType == undefined) {
-                    if (template.query == null)
-                        return await ctx.defaultClick();
+                    if (constructorType == undefined) {
+                        if (template.query == null)
+                            return await ctx.defaultClick();
 
-                    const lite = await Finder.find({ queryName: template.query.key });
-                    if (lite == null)
-                        return;
+                        const lite = await Finder.find({ queryName: template.query.key });
+                        if (lite == null)
+                            return;
 
-                    return await ctx.defaultClick(await Navigator.API.fetch(lite));
-                }
+                        return await ctx.defaultClick(await Navigator.API.fetch(lite));
+                    }
 
-                const setting = settings[constructorType];
-                const model = setting?.createFromTemplate != undefined
-                    ? await setting.createFromTemplate(template)
-                    : await Constructor.construct(constructorType).then(e => e && Navigator.view(e));
+                    const setting = settings[constructorType];
+                    const model = setting?.createFromTemplate != undefined
+                        ? await setting.createFromTemplate(template)
+                        : await Constructor.construct(constructorType).then(e => e && Navigator.view(e));
 
-                if (model != null)
-                    return await ctx.defaultClick(model);
-            },
-        }));
-
-        Operations.addSettings(new EntityOperationSettings(EmailMessageOperation.ReadyToSend, {
-            contextual: { isVisible: () => true },
-            contextualFromMany: { isVisible: () => true },
-        }));
+                    if (model != null)
+                        return await ctx.defaultClick(model);
+                },
+            })
+            .withEntityOperation(EmailMessageOperation.ReadyToSend, {
+                contextual: { isVisible: () => true },
+                contextualFromMany: { isVisible: () => true },
+            });
 
         if (options.contextual)
             onContextualItems().push(getEmailTemplates);

@@ -7,7 +7,7 @@ import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { Finder } from "@altea/altea/client/Finder";
-import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
+import { Operations } from "@altea/altea/client/Operations";
 import { QueryString } from "@altea/altea/client/QueryString";
 import { LiteAutocompleteConfig } from "@altea/altea/client/Lines/AutoCompleteConfig";
 import SearchControlLoaded from "@altea/altea/client/SearchControl/SearchControlLoaded";
@@ -56,20 +56,16 @@ export namespace TreeClient {
 
         OmniboxClient.registerProvider(new TreeOmniboxProvider());
 
-        Operations.addSettings(
+        cb.configure(TreeEntity)
             // Both "add" operations only make sense from a LIST (the tree itself, or a search control) —
             // never from an open entity's button bar.
-            new EntityOperationSettings(TreeOperation.CreateChild, {
+            .withConstructFromOperation(TreeOperation.CreateChild, {
                 contextual: { isVisible: ctx => ctx.context.container instanceof SearchControlLoaded },
-            }),
-            new EntityOperationSettings(TreeOperation.CreateNextSibling, {
+            })
+            .withConstructFromOperation(TreeOperation.CreateNextSibling, {
                 contextual: { isVisible: ctx => ctx.context.container instanceof SearchControlLoaded },
-            }),
-            new EntityOperationSettings(TreeOperation.Move, {
-                onClick: ctx => moveModal(ctx.entity.toLite()).then(m => m && ctx.defaultClick(m)),
-                contextual: { onClick: ctx => moveModal(ctx.context.lites[0]).then(m => m && ctx.defaultClick(m)) },
-            }),
-            new EntityOperationSettings(TreeOperation.Copy, {
+            })
+            .withConstructFromOperation(TreeOperation.Copy, {
                 onClick: ctx => copyModal(ctx.entity.toLite()).then(m => {
                     if (m) {
                         ctx.onConstructFromSuccess = () => { Operations.notifySuccess(); return Promise.resolve(); };
@@ -92,8 +88,11 @@ export namespace TreeClient {
                         }
                     }),
                 },
-            }),
-        );
+            })
+            .withEntityOperation(TreeOperation.Move, {
+                onClick: ctx => moveModal(ctx.entity.toLite()).then(m => m && ctx.defaultClick(m)),
+                contextual: { onClick: ctx => moveModal(ctx.context.lites[0]).then(m => m && ctx.defaultClick(m)) },
+            });
 
         // The "tree" button on a tree type's search control.
         Finder.ButtonBarQuery.onButtonBarElements().push(ctx => {

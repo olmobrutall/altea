@@ -2,7 +2,6 @@ import * as React from 'react'
 import { ajaxGet } from '@altea/altea/client/Services'
 import type { ClientBuilder } from '@altea/altea/client/ClientBuilder'
 import { Navigator } from '@altea/altea/client/Navigator'
-import { Constructor } from '@altea/altea/client/Constructor'
 import { Finder } from '@altea/altea/client/Finder'
 import { Dic } from '@altea/altea/data/globals'
 import { PropertyRoute } from '@altea/altea/data/propertyRoute'
@@ -36,20 +35,17 @@ export namespace ColorPaletteClient {
     export function start(cb: ClientBuilder): void {
         // The ColorPalette editor.
         cb.configure(ColorPaletteEntity)
-            .withView(() => import('./ColorPalette'));
+            .withView(() => import('./ColorPalette'))
+            // Seed 0 + the first color scheme.
+            .withConstructor(props => ColorPaletteEntity.create({
+                seed: toInt(0),
+                categoryName: Dic.getKeys(ColorUtils.colorSchemes).first(),
+                ...props,
+            }));
 
         // Show the base color scheme as a swatch in the CategoryName search-result cell.
         Finder.registerPropertyFormatter(PropertyRoute.root(ColorPaletteEntity).addLambda(a => a.categoryName),
             new Finder.CellFormatter((cat: string) => cat ? <span><ColorScheme colorScheme={cat} />{cat}</span> : undefined, true));
-
-        // Default a new palette to seed 0 + the first color scheme (Signum's registerConstructor).
-        Constructor.registerConstructor(ColorPaletteEntity, props => {
-            const e = ColorPaletteEntity.create({
-                seed: toInt(0),
-                categoryName: Dic.getKeys(ColorUtils.colorSchemes).first(),
-            });
-            return Object.assign(e, props);
-        });
 
         // Any palette change invalidates the client cache.
         Navigator.registerEntityChanged(ColorPaletteEntity, () => Dic.clear(colorPalette));

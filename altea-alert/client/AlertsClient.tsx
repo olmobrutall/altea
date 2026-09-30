@@ -4,10 +4,10 @@ import { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { Finder } from "@altea/altea/client/Finder";
 import type { QueryTokenString } from "@altea/altea/client/QueryTokenString";
-import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
 import EntityLink from "@altea/altea/client/SearchControl/EntityLink";
 import { QuickLinkClient, QuickLinkExplore } from "@altea/altea/client/QuickLinkClient";
 import SelectorModal from "@altea/altea/client/SelectorModal";
+import AutoLineModal from "@altea/altea/client/AutoLineModal";
 import { ajaxGet } from "@altea/altea/client/Services";
 import { Entity } from "@altea/altea/data/entity";
 import { isNotPart } from "@altea/altea/data/reflection";
@@ -18,7 +18,6 @@ import { Clock } from "@altea/altea/data/utils/clock";
 import {
     AlertEntity, AlertMessage, AlertOperation, AlertTypeSymbol, DelayOption, SendNotificationEmailTaskEntity,
 } from "../data/Alert";
-import { DelayModal } from "./DelayModal";
 
 // Port of Signum.Alerts' AlertsClient.tsx — the module's client registration, plus the two things the views
 // and the dropdown share: `getTitle` (the alert-type fallback) and `format` (the placeholder expansion).
@@ -28,8 +27,6 @@ import { DelayModal } from "./DelayModal";
 //    also what registers the type on the client (altea has no generated registration file).
 //  - luxon → `Temporal`; Signum's `DateTime.local().plus({minutes: 5})` is `Temporal.Now.plainDateTimeISO()
 //    .add({ minutes: 5 })`.
-//  - `AutoLineModal.show({ type: … })` has no altea counterpart (see CLAUDE.md), so the "Custom" delay asks
-//    through a small local modal — the accommodation altea-workflow makes for its own date prompts.
 //  - the AlertType VIEW is gone with the SemiSymbol (an alert type is code-declared — see data/Alert.ts).
 export namespace AlertsClient {
 
@@ -70,32 +67,28 @@ export namespace AlertsClient {
                 // KEYED BY the resolved token's `fullKey()`, which is PascalCase — this is a plain string
                 // because an object key is one, so it does not follow a rename the way the tokens above do.
                 formatters: { "TextField": textCellFormatter() },
-            }));
+            }))
+            // `From<Entity>` puts the button on every type, so visibility is per type (Signum's
+            // couldHaveAlerts); an alert is about a part row's owner, never the row.
+            .withConstructFromOperation(AlertOperation.CreateAlertFromEntity, {
+                isVisibleForType: isNotPart,
+                isVisible: ctx => showAlerts(ctx.entity.constructor.name, "CreateAlert"),
+                icon: "bell",
+                iconColor: "darkorange",
+                color: "warning",
+                contextual: { isVisible: ctx => showAlerts(ctx.context.lites[0]!.entityType.name, "CreateAlert") },
+            })
+            .withEntityOperation(AlertOperation.Attend, { hideOnCanExecute: true })
+            .withEntityOperation(AlertOperation.Unattend, { hideOnCanExecute: true })
+            // Delay asks WHEN first, then runs with that date as the operation's argument.
+            .withEntityOperation(AlertOperation.Delay, {
+                hideOnCanExecute: true,
+                commonOnClick: eoc => chooseDate().then(d => d && eoc.defaultClick(d.toString())),
+                contextualFromMany: { onClick: coc => chooseDate().then(d => d && coc.defaultClick(d.toString())) },
+            });
 
         cb.configure(SendNotificationEmailTaskEntity)
             .withView(() => import("./Templates/SendNotificationEmailTask"));
-
-        // "Create an alert about this entity" — the button lives on the SOURCE type, so its visibility is
-        // per type (Signum's couldHaveAlerts). Registered on `Entity`, so a part row inherits it too; an
-        // alert is about its owner (`isVisibleForType`).
-        Operations.addSettings(new EntityOperationSettings(AlertOperation.CreateAlertFromEntity, {
-            isVisibleForType: isNotPart,
-            isVisible: ctx => showAlerts(ctx.entity.constructor.name, "CreateAlert"),
-            icon: "bell",
-            iconColor: "darkorange",
-            color: "warning",
-            contextual: { isVisible: ctx => showAlerts(ctx.context.lites[0]!.entityType.name, "CreateAlert") },
-        }));
-
-        Operations.addSettings(new EntityOperationSettings(AlertOperation.Attend, { hideOnCanExecute: true }));
-        Operations.addSettings(new EntityOperationSettings(AlertOperation.Unattend, { hideOnCanExecute: true }));
-
-        // Delay asks WHEN first, then runs with that date as the operation's argument.
-        Operations.addSettings(new EntityOperationSettings(AlertOperation.Delay, {
-            hideOnCanExecute: true,
-            commonOnClick: eoc => chooseDate().then(d => d && eoc.defaultClick(d.toString())),
-            contextualFromMany: { onClick: coc => chooseDate().then(d => d && coc.defaultClick(d.toString())) },
-        }));
 
         // "The alerts about this entity", on every type that opts in (Signum's registerGlobalQuickLink).
         QuickLinkClient.registerGlobalQuickLink(entityType => Promise.resolve([
@@ -159,7 +152,11 @@ export namespace AlertsClient {
                 case "_1Hour": return now.add({ hours: 1 });
                 case "_2Hours": return now.add({ hours: 2 });
                 case "_1Day": return now.add({ days: 1 });
-                case "Custom": return DelayModal.show(now);
+                case "Custom": return AutoLineModal.show<Temporal.PlainDateTime>({
+                    title: AlertMessage.CustomDelay.niceToString(),
+                    propertyRoute: AlertEntity.propertyRoute(a => a.alertDate),
+                    initialValue: now,
+                });
                 default: throw new Error("Unexpected " + val);
             }
         });

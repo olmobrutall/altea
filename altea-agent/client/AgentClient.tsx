@@ -1,6 +1,5 @@
 import * as React from "react";
 import { ajaxGet } from "@altea/altea/client/Services";
-import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import type { SkillCodeInfo, SkillPropertyMeta } from "../data/ChatbotProtocol";
@@ -41,7 +40,11 @@ export namespace AgentClient {
                     token(a => a.skillCode),
                     token(a => a.shortDescription),
                 ],
-            }));
+            }))
+            // Driven by the Agent view's own "create the overlay" control, not a toolbar entry.
+            .withConstructFromOperation(SkillCustomizationOperation.CreateFromAgent, {
+                isVisible: () => false,
+            });
 
         cb.configure(SkillCustomizationEntity_Property).withQuerySettings();
         cb.configure(SkillCustomizationEntity_SubSkill).withQuerySettings();
@@ -55,12 +58,6 @@ export namespace AgentClient {
                     token(a => a.skillCustomization),
                 ],
             }));
-
-        // The construct-from is driven by the Agent view's own "create the overlay" button, not by a
-        // toolbar entry (Signum hides it the same way).
-        Operations.addSettings(new EntityOperationSettings(SkillCustomizationOperation.CreateFromAgent, {
-            isVisible: () => false,
-        }));
 
         LanguageModelClient.start(cb);
     }

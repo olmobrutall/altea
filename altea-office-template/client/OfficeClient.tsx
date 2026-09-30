@@ -6,7 +6,6 @@ import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { Finder } from "@altea/altea/client/Finder";
 import { Constructor } from "@altea/altea/client/Constructor";
-import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
 import { ButtonBarManager } from "@altea/altea/client/Frames/ButtonBar";
 import type { ButtonsContext, ButtonBarElement } from "@altea/altea/client/TypeContext";
 import { onContextualItems, type ContextualItemsContext, type MenuItemBlock } from "@altea/altea/client/SearchControl/ContextualItems";
@@ -132,34 +131,35 @@ export namespace OfficeClient {
          * The operation itself is UI-only server-side (it throws): the bytes come back from the route, so
          * the click ends in a file download rather than a re-render.
          */
-        Operations.addSettings(new EntityOperationSettings(OfficeTemplateOperation.CreateOfficeReport, {
-            onClick: async ctx => {
-                const entity = ctx.entity as OfficeTemplateEntity;
-                const template = entity.toLite();
-                const constructorType = entity.model != null
-                    ? await API.getConstructorType(entity.model)
-                    : undefined;
+        cb.configure(OfficeTemplateEntity)
+            .withEntityOperation(OfficeTemplateOperation.CreateOfficeReport, {
+                onClick: async ctx => {
+                    const entity = ctx.entity as OfficeTemplateEntity;
+                    const template = entity.toLite();
+                    const constructorType = entity.model != null
+                        ? await API.getConstructorType(entity.model)
+                        : undefined;
 
-                if (constructorType == undefined || tryGetTypeInfo(constructorType) != null) {
-                    if (entity.query == null)
-                        throw new Error(`The template '${entity.name}' has neither a query nor a model`);
+                    if (constructorType == undefined || tryGetTypeInfo(constructorType) != null) {
+                        if (entity.query == null)
+                            throw new Error(`The template '${entity.name}' has neither a query nor a model`);
 
-                    const lite = await Finder.find({ queryName: entity.query.key });
-                    if (lite == null)
-                        return;
+                        const lite = await Finder.find({ queryName: entity.query.key });
+                        if (lite == null)
+                            return;
 
-                    return await createAndDownloadReport({ template, lite });
-                }
+                        return await createAndDownloadReport({ template, lite });
+                    }
 
-                const setting = settings[constructorType];
-                const model = setting?.createFromTemplate != undefined
-                    ? await setting.createFromTemplate(entity)
-                    : await Constructor.construct(constructorType).then(e => e && Navigator.view(e));
+                    const setting = settings[constructorType];
+                    const model = setting?.createFromTemplate != undefined
+                        ? await setting.createFromTemplate(entity)
+                        : await Constructor.construct(constructorType).then(e => e && Navigator.view(e));
 
-                if (model != null)
-                    await createAndDownloadReport({ template, entity: model });
-            },
-        }));
+                    if (model != null)
+                        await createAndDownloadReport({ template, entity: model });
+                },
+            });
 
         if (options.contextual)
             onContextualItems().push(getOfficeTemplates);

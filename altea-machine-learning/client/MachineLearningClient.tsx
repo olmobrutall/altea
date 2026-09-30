@@ -2,17 +2,15 @@ import * as React from "react";
 import type { RouteObject } from "react-router";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
-import { Constructor } from "@altea/altea/client/Constructor";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { Finder } from "@altea/altea/client/Finder";
-import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
 import { ajaxGet, ajaxPost } from "@altea/altea/client/Services";
-import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
+import { QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
 import { toNumberFormat } from "@altea/altea/client/numberFormat";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { Lite } from "@altea/altea/data/lite";
-import type { Entity } from "@altea/altea/data/entity";
+import { Entity } from "@altea/altea/data/entity";
 import { toInt } from "@altea/altea/data/basics";
 import {
     NeuralNetworkActivation, NeuralNetworkEvalFunction, NeuralNetworkInitializer, NeuralNetworkSettingsEntity,
@@ -98,7 +96,32 @@ export namespace MachineLearningClient {
                     token(a => a.state),
                     token(a => a.publication),
                 ],
-            }));
+            }))
+            // Without its two embedded rows the designer opens with nothing to bind its lines to.
+            .withConstructor(props => PredictorEntity.create({
+                mainQuery: PredictorMainQueryEmbedded.create({}),
+                settings: PredictorSettingsEmbedded.create({}),
+                state: PredictorState.Draft,
+                ...props,
+            }))
+            // The training operations are all hidden unless they can run — a Draft predictor should not
+            // show "Stop training".
+            .withEntityOperation(PredictorOperation.Train, { hideOnCanExecute: true })
+            .withEntityOperation(PredictorOperation.StopTraining, { hideOnCanExecute: true })
+            .withEntityOperation(PredictorOperation.CancelTraining, { hideOnCanExecute: true })
+            .withEntityOperation(PredictorOperation.Untrain, {
+                hideOnCanExecute: true,
+                // Untraining a PUBLISHED predictor takes the live model away from whatever depends on it,
+                // so it asks first.
+                confirmMessage: eoc => eoc.entity.publication != null
+                    ? PredictorMessage.PredictorIsPublishedUntrainAnyway.niceToString() : undefined,
+            })
+            .withEntityOperation(PredictorOperation.Publish, { hideOnCanExecute: true });
+
+        // Constructs whatever `onPublicate` returns, so the symbol's result is the bare `Entity`. Declaring
+        // it as ProcessEntity would let this fold into the chain above.
+        cb.configure(Entity)
+            .withConstructFromOperation(PredictorOperation.AfterPublishProcess, { hideOnCanExecute: true, group: null });
 
         cb.configure(PredictorSubQueryEntity).withView(() => import("./Templates/PredictorSubQuery"));
         cb.configure(NeuralNetworkSettingsEntity).withView(() => import("./Templates/NeuralNetworkSettings"));
@@ -135,36 +158,10 @@ export namespace MachineLearningClient {
         registerLossFormatter("lossValidation", "#7B241C");
         registerLossFormatter("accuracyValidation", "#D98880");
 
-        // The training operations are all hidden unless they can run — a Draft predictor should not show
-        // "Stop training".
-        Operations.addSettings(
-            new EntityOperationSettings(PredictorOperation.Train, { hideOnCanExecute: true }),
-            new EntityOperationSettings(PredictorOperation.StopTraining, { hideOnCanExecute: true }),
-            new EntityOperationSettings(PredictorOperation.CancelTraining, { hideOnCanExecute: true }),
-            new EntityOperationSettings(PredictorOperation.Untrain, {
-                hideOnCanExecute: true,
-                // Untraining a PUBLISHED predictor takes the live model away from whatever depends on it,
-                // so it asks first.
-                confirmMessage: eoc => eoc.entity.publication != null
-                    ? PredictorMessage.PredictorIsPublishedUntrainAnyway.niceToString() : undefined,
-            }),
-            new EntityOperationSettings(PredictorOperation.Publish, { hideOnCanExecute: true }),
-            new EntityOperationSettings(PredictorOperation.AfterPublishProcess, { hideOnCanExecute: true, group: null }),
-        );
-
         routes.push({
             path: "/machineLearning/predict/:predictorId",
             element: <ImportComponent onImport={() => import("./Templates/PredictPage")} />,
         });
-
-        // A new predictor needs its two embedded rows, or
-        // the designer opens with nothing to bind its lines to.
-        Constructor.registerConstructor(PredictorEntity, props => PredictorEntity.create({
-            mainQuery: PredictorMainQueryEmbedded.create({}),
-            settings: PredictorSettingsEmbedded.create({}),
-            state: PredictorState.Draft,
-            ...props,
-        }));
 
         // The one algorithm the module ships, with Signum's own defaults — a REGRESSION with no hidden
         // layer, which is the configuration most likely to train at all on a first attempt.
@@ -192,9 +189,10 @@ export namespace MachineLearningClient {
             <ImportComponent onImport={() => import("./Templates/SimpleResultButton")} componentProps={{ ctx }} />);
 
         // "Predict about this row" — offered on a trained predictor.
-        QuickLinkClient.registerQuickLink(PredictorEntity, new QuickLinkAction(
-            "Predict", () => PredictorMessage.Predict.niceToString(),
-            ctx => Promise.resolve(`/machineLearning/predict/${ctx.lite.id}`)));
+        cb.configure(PredictorEntity)
+            .withQuickLink(new QuickLinkAction(
+                "Predict", () => PredictorMessage.Predict.niceToString(),
+                ctx => Promise.resolve(`/machineLearning/predict/${ctx.lite.id}`)));
     }
 
     function registerLossFormatter(member: string, color: string): void {

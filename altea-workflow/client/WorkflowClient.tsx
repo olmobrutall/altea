@@ -13,9 +13,9 @@ import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import { FunctionalAdapter } from "@altea/altea/client/Modals";
 import MessageModal from "@altea/altea/client/Modals/MessageModal";
 import SelectorModal from "@altea/altea/client/SelectorModal";
-import { QuickLinkClient, QuickLinkAction, QuickLinkLink } from "@altea/altea/client/QuickLinkClient";
+import { QuickLinkAction, QuickLinkLink } from "@altea/altea/client/QuickLinkClient";
 import {
-    Operations, EntityOperationSettings, EntityOperationContext, ContextualOperationContext,
+    Operations, EntityOperationContext, ContextualOperationContext,
 } from "@altea/altea/client/Operations";
 import { EntityOperations, OperationButton } from "@altea/altea/client/Operations/EntityOperations";
 import { ContextualOperations } from "@altea/altea/client/Operations/ContextualOperations";
@@ -35,6 +35,8 @@ import { Enum } from "@altea/altea/data/enum";
 import { cleanTypeName } from "@altea/altea/data/registration";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import { Temporal, toInt } from "@altea/altea/data/basics";
+import { TypeReference } from "@altea/altea/data/reflection";
+import AutoLineModal from "@altea/altea/client/AutoLineModal";
 import type { ExecuteSymbol } from "@altea/altea/data/operations";
 import type { TypeEntity } from "@altea/altea/data/typeEntity";
 import { UserEntity } from "@altea/altea-auth/data/User";
@@ -73,7 +75,6 @@ import type {
 } from "../data/WorkflowDtos";
 import ActivityWithRemarksComponent from "./Case/ActivityWithRemarks";
 import InboxFilter from "./Case/InboxFilter";
-import ExpirationDateModal from "./Workflow/ExpirationDateModal";
 import WorkflowToolbarConfig from "./WorkflowToolbarConfig";
 import WorkflowToolbarMenuConfig from "./WorkflowToolbarMenuConfig";
 import type { WorkflowHandle } from "./Workflow/Workflow";
@@ -199,21 +200,23 @@ export namespace WorkflowClient {
         });
 
         // ---- Quick links -------------------------------------------------------------------------------
-        QuickLinkClient.registerQuickLink(CaseActivityEntity,
-            new QuickLinkAction("caseFlow", () => WorkflowActivityMessage.CaseFlow.niceToString(), ctx => {
-                void API.fetchCaseFlowPack(ctx.lite)
-                    .then(result => Navigator.view(result.pack.entity,
-                        { extraProps: { workflowActivity: result.workflowActivity } }))
-                    .then(() => ctx.contextualContext && ctx.contextualContext.markRows({}));
-            }, {
-                isVisible: AuthClient.isPermissionAuthorized(WorkflowPermission.ViewCaseFlow),
-                icon: "shuffle",
-                iconColor: "green",
-            }));
+        cb.configure(CaseActivityEntity)
+            .withQuickLink(
+                new QuickLinkAction("caseFlow", () => WorkflowActivityMessage.CaseFlow.niceToString(), ctx => {
+                    void API.fetchCaseFlowPack(ctx.lite)
+                        .then(result => Navigator.view(result.pack.entity,
+                            { extraProps: { workflowActivity: result.workflowActivity } }))
+                        .then(() => ctx.contextualContext && ctx.contextualContext.markRows({}));
+                }, {
+                    isVisible: AuthClient.isPermissionAuthorized(WorkflowPermission.ViewCaseFlow),
+                    icon: "shuffle",
+                    iconColor: "green",
+                }));
 
-        QuickLinkClient.registerQuickLink(WorkflowEntity,
-            new QuickLinkLink("bam", () => WorkflowActivityMonitorMessage.WorkflowActivityMonitor.niceToString(),
-                ctx => workflowActivityMonitorUrl(ctx.lite), { icon: "gauge", iconColor: "green" }));
+        cb.configure(WorkflowEntity)
+            .withQuickLink(
+                new QuickLinkLink("bam", () => WorkflowActivityMonitorMessage.WorkflowActivityMonitor.niceToString(),
+                    ctx => workflowActivityMonitorUrl(ctx.lite), { icon: "gauge", iconColor: "green" }));
 
         // ---- Finder settings ---------------------------------------------------------------------------
         // Built with the TYPED token builder rather than written as literals. These used to be camelCase
@@ -333,18 +336,20 @@ export namespace WorkflowClient {
         hide(WorkflowConnectionEntity);
 
         // ---- Constructors ------------------------------------------------------------------------------
-        Constructor.registerConstructor(TimeSpanEmbedded,
-            () => TimeSpanEmbedded.create({ days: toInt(0), hours: toInt(0), minutes: toInt(0), seconds: toInt(0) }));
-        Constructor.registerConstructor(WorkflowEntity, props => WorkflowEntity.create({
-            mainEntityStrategies: [mainEntityStrategyRow(WorkflowMainEntityStrategy.CreateNew)],
-            ...props,
-        }));
-        Constructor.registerConstructor(WorkflowTimerEmbedded, props => Constructor.construct(TimeSpanEmbedded)
-            .then(ts => ts && WorkflowTimerEmbedded.create({ duration: ts, ...props })));
+        cb.configure(TimeSpanEmbedded)
+            .withConstructor(() => TimeSpanEmbedded.create({ days: toInt(0), hours: toInt(0), minutes: toInt(0), seconds: toInt(0) }));
+        cb.configure(WorkflowEntity)
+            .withConstructor(props => WorkflowEntity.create({
+                mainEntityStrategies: [mainEntityStrategyRow(WorkflowMainEntityStrategy.CreateNew)],
+                ...props,
+            }));
+        cb.configure(WorkflowTimerEmbedded)
+            .withConstructor(props => Constructor.construct(TimeSpanEmbedded)
+                .then(ts => ts && WorkflowTimerEmbedded.create({ duration: ts, ...props })));
 
         // ---- Operations --------------------------------------------------------------------------------
-        registerCaseOperations();
-        registerWorkflowOperations();
+        registerCaseOperations(cb);
+        registerWorkflowOperations(cb);
     }
 
     /** Builds the @part row a workflow's `mainEntityStrategies` collection holds. */
@@ -369,247 +374,248 @@ export namespace WorkflowClient {
         }).then(u => u === "cancel" || u == null ? undefined : u === "yes");
     }
 
-    function registerCaseOperations(): void {
+    function registerCaseOperations(cb: ClientBuilder): void {
 
-        Operations.addSettings(new EntityOperationSettings(CaseNotificationOperation.SetRemarks,
-            { isVisible: () => false }));
+        // One chain per owning type, as the server groups them.
 
-        Operations.addSettings(new EntityOperationSettings(
-            CaseNotificationOperation.CreateCaseNotificationFromCaseActivity, {
-            onClick: eoc => {
-                eoc.onConstructFromSuccess = () => { Operations.notifySuccess(); return Promise.resolve(); };
-                return Finder.find(UserEntity).then(u => u && eoc.defaultClick(u));
-            },
-        }));
+        // ---- CaseNotification --------------------------------------------------------------------------
+        cb.configure(CaseNotificationEntity)
+            .withConstructFromOperation(CaseNotificationOperation.CreateCaseNotificationFromCaseActivity, {
+                onClick: eoc => {
+                    eoc.onConstructFromSuccess = () => { Operations.notifySuccess(); return Promise.resolve(); };
+                    return Finder.find(UserEntity).then(u => u && eoc.defaultClick(u));
+                },
+            })
+            .withEntityOperation(CaseNotificationOperation.SetRemarks, { isVisible: () => false });
 
-        Operations.addSettings(new EntityOperationSettings(CaseOperation.Delete, {
-            commonOnClick: oc => oc.getEntity().then(e => askDeleteMainEntity(e.mainEntity))
-                .then(u => u == undefined ? undefined : oc.defaultClick(u)),
-            contextualFromMany: {
-                onClick: coc => askDeleteMainEntity().then(u => u == undefined ? undefined : coc.defaultClick(u)),
-            },
-        }));
+        // ---- Case --------------------------------------------------------------------------------------
+        cb.configure(CaseEntity)
+            // Named CaseActivityOperation, but it produces a Case (see WorkflowEventTaskLogic).
+            .withConstructFromOperation(CaseActivityOperation.CreateCaseFromWorkflowEventTask, { isVisible: () => false })
+            .withEntityOperation(CaseOperation.SetTags, { isVisible: () => false })
+            .withEntityOperation(CaseOperation.Delete, {
+                commonOnClick: oc => oc.getEntity().then(e => askDeleteMainEntity(e.mainEntity))
+                    .then(u => u == undefined ? undefined : oc.defaultClick(u)),
+                contextualFromMany: {
+                    onClick: coc => askDeleteMainEntity().then(u => u == undefined ? undefined : coc.defaultClick(u)),
+                },
+            });
 
-        Operations.addSettings(new EntityOperationSettings(CaseOperation.SetTags, { isVisible: () => false }));
-
-        Operations.addSettings(new EntityOperationSettings(CaseActivityOperation.Delete, {
-            hideOnCanExecute: true,
-            isVisible: () => false,
-            commonOnClick: oc => oc.getEntity().then(e => askDeleteMainEntity(e.case.mainEntity))
-                .then(u => u == undefined ? undefined : oc.defaultClick(u)),
-            contextualFromMany: {
-                onClick: coc => askDeleteMainEntity().then(u => u == undefined ? undefined : coc.defaultClick(u)),
-            },
-        }));
-
-        Operations.addSettings(new EntityOperationSettings(CaseActivityOperation.Register, {
-            hideOnCanExecute: true,
-            color: "primary",
-            onClick: eoc => executeCaseActivity(eoc, e => e.defaultClick()),
-        }));
-
-        Operations.addSettings(new EntityOperationSettings(CaseActivityOperation.Jump, {
-            icon: "share",
-            iconColor: "blue",
-            hideOnCanExecute: true,
-            onClick: eoc => executeCaseActivity(eoc, eoc => {
-                eoc.onExecuteSuccess = pack => {
-                    Operations.notifySuccess();
-                    eoc.frame.onClose!(pack);
-                    Navigator.raiseEntityChanged(pack.entity);
-                    return Promise.resolve();
-                };
-                return getWorkflowJumpSelector((eoc.entity.workflowActivity as WorkflowActivityEntity).toLite())
-                    .then(dest => dest && eoc.defaultClick(dest));
-            }),
-            contextual: {
-                isVisible: () => true,
-                onClick: coc => Navigator.API.fetch(coc.context.lites[0])
-                    .then(ca => getWorkflowJumpSelector((ca.workflowActivity as WorkflowActivityEntity).toLite()))
-                    .then(dest => dest && coc.defaultClick(dest)),
-            },
-        }));
-
-        Operations.addSettings(new EntityOperationSettings(CaseActivityOperation.FreeJump, {
-            icon: "share-from-square",
-            color: "danger",
-            iconColor: "#800080",
-            hideOnCanExecute: true,
-            onClick: eoc => executeCaseActivity(eoc, eoc => {
-                eoc.onExecuteSuccess = async pack => {
-                    Operations.notifySuccess();
-                    eoc.frame.onClose!(pack);
-                    Navigator.raiseEntityChanged(pack.entity);
-                };
-                return getWorkflowFreeJump(eoc.entity.case.workflow)
-                    .then(dest => dest && eoc.defaultClick(dest));
-            }),
-            contextual: {
-                isVisible: () => true,
-                onClick: coc => Navigator.API.fetch(coc.context.lites[0])
-                    .then(ca => getWorkflowFreeJump(ca.case.workflow))
-                    .then(dest => dest && coc.defaultClick(dest)),
-            },
-        }));
-
-        Operations.addSettings(new EntityOperationSettings(CaseActivityOperation.Timer, { isVisible: () => false }));
-        Operations.addSettings(new EntityOperationSettings(CaseActivityOperation.MarkAsUnread, {
-            color: "dark",
-            hideOnCanExecute: true,
-            isVisible: () => false,
-            contextual: { isVisible: () => true },
-        }));
-        Operations.addSettings(new EntityOperationSettings(CaseActivityOperation.ScriptExecute, { isVisible: () => false }));
-        Operations.addSettings(new EntityOperationSettings(CaseActivityOperation.ScriptFailureJump, { isVisible: () => false }));
-        Operations.addSettings(new EntityOperationSettings(CaseActivityOperation.ScriptScheduleRetry, { isVisible: () => false }));
-        Operations.addSettings(new EntityOperationSettings(CaseActivityOperation.CreateCaseActivityFromWorkflow, { isVisible: () => false }));
-        Operations.addSettings(new EntityOperationSettings(CaseActivityOperation.CreateCaseFromWorkflowEventTask, { isVisible: () => false }));
-
-        Operations.addSettings(new EntityOperationSettings(CaseActivityOperation.Next, {
-            hideOnCanExecute: true,
-            color: "primary",
-            onClick: eoc => executeCaseActivity(eoc, executeAndClose),
-            createButton: (eoc, group) => {
-                const wa = eoc.entity.workflowActivity as WorkflowActivityEntity;
-                const s = eoc.settings;
-                if (wa.type === WorkflowActivityType.Task) {
-                    return [{
-                        order: s?.order ?? 0,
-                        shortcut: e => eoc.onKeyDown(e),
-                        button: wa.customNextButton == null
-                            ? <OperationButton eoc={eoc} group={group} />
-                            : <OperationButton eoc={eoc} group={group}
-                                color={buttonColor(wa.customNextButton.style)}
-                                onOperationClick={async () => {
-                                    const custom = registeredOnClick[wa.name]?.[wa.customNextButton!.name];
-                                    if (custom)
-                                        await custom.onClick(eoc);
-                                    else
-                                        eoc.frame.execute(() => eoc.defaultClick(wa.customNextButton!.name));
-                                }}>{wa.customNextButton.name} </OperationButton>,
-                    }];
-                }
-                else if (wa.type === WorkflowActivityType.Decision) {
-                    return wa.decisionOptions.map(row => ({
-                        order: s?.order ?? 0,
-                        shortcut: undefined,
-                        button: <OperationButton eoc={eoc} group={group}
-                            color={buttonColor(row.option.style)}
-                            onOperationClick={async () => {
-
-                                const custom = registeredOnClick[wa.name]?.[row.option.name];
-                                if (custom) {
-                                    await custom.onClick(eoc);
-                                    return;
-                                }
-
-                                if (row.option.withConfirmation) {
-                                    const answer = await MessageModal.show({
-                                        title: WorkflowActivityMessage.Confirmation.niceToString(),
-                                        message: WorkflowActivityMessage.AreYouSureYouWantToExecute0
-                                            .niceToString(row.option.name),
-                                        buttons: "yes_no",
-                                        style: "warning",
-                                    });
-
-                                    if (answer !== "yes")
-                                        return;
-                                }
-
-                                eoc.frame.execute(() => eoc.defaultClick(row.option.name));
-                            }}>
-                            {row.option.name}
-                        </OperationButton>,
-                    }));
-                }
-                else
-                    return [];
-            },
-            contextual: {
-                settersConfig: () => "NoDialog",
-                isVisible: () => true,
-                createMenuItems: coc => {
-                    const wa = coc.pack!.entity.workflowActivity as WorkflowActivityEntity;
+        // ---- CaseActivity ------------------------------------------------------------------------------
+        cb.configure(CaseActivityEntity)
+            .withConstructFromOperation(CaseActivityOperation.CreateCaseActivityFromWorkflow, { isVisible: () => false })
+            .withEntityOperation(CaseActivityOperation.Register, {
+                hideOnCanExecute: true,
+                color: "primary",
+                onClick: eoc => executeCaseActivity(eoc, e => e.defaultClick()),
+            })
+            .withEntityOperation(CaseActivityOperation.Jump, {
+                icon: "share",
+                iconColor: "blue",
+                hideOnCanExecute: true,
+                onClick: eoc => executeCaseActivity(eoc, eoc => {
+                    eoc.onExecuteSuccess = pack => {
+                        Operations.notifySuccess();
+                        eoc.frame.onClose!(pack);
+                        Navigator.raiseEntityChanged(pack.entity);
+                        return Promise.resolve();
+                    };
+                    return getWorkflowJumpSelector((eoc.entity.workflowActivity as WorkflowActivityEntity).toLite())
+                        .then(dest => dest && eoc.defaultClick(dest));
+                }),
+                contextual: {
+                    isVisible: () => true,
+                    onClick: coc => Navigator.API.fetch(coc.context.lites[0])
+                        .then(ca => getWorkflowJumpSelector((ca.workflowActivity as WorkflowActivityEntity).toLite()))
+                        .then(dest => dest && coc.defaultClick(dest)),
+                },
+            })
+            .withEntityOperation(CaseActivityOperation.FreeJump, {
+                icon: "share-from-square",
+                color: "danger",
+                iconColor: "#800080",
+                hideOnCanExecute: true,
+                onClick: eoc => executeCaseActivity(eoc, eoc => {
+                    eoc.onExecuteSuccess = async pack => {
+                        Operations.notifySuccess();
+                        eoc.frame.onClose!(pack);
+                        Navigator.raiseEntityChanged(pack.entity);
+                    };
+                    return getWorkflowFreeJump(eoc.entity.case.workflow)
+                        .then(dest => dest && eoc.defaultClick(dest));
+                }),
+                contextual: {
+                    isVisible: () => true,
+                    onClick: coc => Navigator.API.fetch(coc.context.lites[0])
+                        .then(ca => getWorkflowFreeJump(ca.case.workflow))
+                        .then(dest => dest && coc.defaultClick(dest)),
+                },
+            })
+            .withEntityOperation(CaseActivityOperation.Timer, { isVisible: () => false })
+            .withEntityOperation(CaseActivityOperation.MarkAsUnread, {
+                color: "dark",
+                hideOnCanExecute: true,
+                isVisible: () => false,
+                contextual: { isVisible: () => true },
+            })
+            .withEntityOperation(CaseActivityOperation.ScriptExecute, { isVisible: () => false })
+            .withEntityOperation(CaseActivityOperation.ScriptFailureJump, { isVisible: () => false })
+            .withEntityOperation(CaseActivityOperation.ScriptScheduleRetry, { isVisible: () => false })
+            .withEntityOperation(CaseActivityOperation.Next, {
+                hideOnCanExecute: true,
+                color: "primary",
+                onClick: eoc => executeCaseActivity(eoc, executeAndClose),
+                createButton: (eoc, group) => {
+                    const wa = eoc.entity.workflowActivity as WorkflowActivityEntity;
+                    const s = eoc.settings;
                     if (wa.type === WorkflowActivityType.Task) {
-                        return [wa.customNextButton == null
-                            ? <ContextualOperations.OperationMenuItem coc={coc} />
-                            : <ContextualOperations.OperationMenuItem coc={coc}
-                                color={buttonColor(wa.customNextButton.style)}>
-                                {wa.customNextButton.name}
-                            </ContextualOperations.OperationMenuItem>];
+                        return [{
+                            order: s?.order ?? 0,
+                            shortcut: e => eoc.onKeyDown(e),
+                            button: wa.customNextButton == null
+                                ? <OperationButton eoc={eoc} group={group} />
+                                : <OperationButton eoc={eoc} group={group}
+                                    color={buttonColor(wa.customNextButton.style)}
+                                    onOperationClick={async () => {
+                                        const custom = registeredOnClick[wa.name]?.[wa.customNextButton!.name];
+                                        if (custom)
+                                            await custom.onClick(eoc);
+                                        else
+                                            eoc.frame.execute(() => eoc.defaultClick(wa.customNextButton!.name));
+                                    }}>{wa.customNextButton.name} </OperationButton>,
+                        }];
                     }
                     else if (wa.type === WorkflowActivityType.Decision) {
-                        return wa.decisionOptions.map((row, i) =>
-                            <ContextualOperations.OperationMenuItem key={i} coc={coc}
-                                onOperationClick={() => coc.defaultClick(row.option.name)}
-                                color={buttonColor(row.option.style)}>
+                        return wa.decisionOptions.map(row => ({
+                            order: s?.order ?? 0,
+                            shortcut: undefined,
+                            button: <OperationButton eoc={eoc} group={group}
+                                color={buttonColor(row.option.style)}
+                                onOperationClick={async () => {
+
+                                    const custom = registeredOnClick[wa.name]?.[row.option.name];
+                                    if (custom) {
+                                        await custom.onClick(eoc);
+                                        return;
+                                    }
+
+                                    if (row.option.withConfirmation) {
+                                        const answer = await MessageModal.show({
+                                            title: WorkflowActivityMessage.Confirmation.niceToString(),
+                                            message: WorkflowActivityMessage.AreYouSureYouWantToExecute0
+                                                .niceToString(row.option.name),
+                                            buttons: "yes_no",
+                                            style: "warning",
+                                        });
+
+                                        if (answer !== "yes")
+                                            return;
+                                    }
+
+                                    eoc.frame.execute(() => eoc.defaultClick(row.option.name));
+                                }}>
                                 {row.option.name}
-                            </ContextualOperations.OperationMenuItem>);
+                            </OperationButton>,
+                        }));
                     }
                     else
                         return [];
                 },
-            },
-            contextualFromMany: {
-                isVisible: () => true,
-                color: "primary",
-                createMenuItems: coc => [<CaseActivitiyOperations caseActivities={coc.context.lites} coc={coc} />],
-                settersConfig: () => "NoDialog",
-            },
-        }));
-
-        Operations.addSettings(new EntityOperationSettings(CaseActivityOperation.Undo, {
-            hideOnCanExecute: true,
-            color: "danger",
-            onClick: eoc => executeCaseActivity(eoc, executeAndClose),
-            contextual: { isVisible: () => true },
-            contextualFromMany: { isVisible: () => true, color: "danger" },
-        }));
-
-        Operations.addSettings(new EntityOperationSettings(CaseActivityOperation.ResetToCaseActivity, {
-            isVisible: () => false,
-            contextual: {
-                isVisible: () => true,
-                color: "warning",
-                icon: "rotate-left",
-                confirmMessage: () => CaseActivityMessage
-                    .AreYouSureYouWantToResetTheCaseBackToTheSelectedActivity.niceToString(),
-            },
-            contextualFromMany: { isVisible: () => false },
-        }));
+                contextual: {
+                    settersConfig: () => "NoDialog",
+                    isVisible: () => true,
+                    createMenuItems: coc => {
+                        const wa = coc.pack!.entity.workflowActivity as WorkflowActivityEntity;
+                        if (wa.type === WorkflowActivityType.Task) {
+                            return [wa.customNextButton == null
+                                ? <ContextualOperations.OperationMenuItem coc={coc} />
+                                : <ContextualOperations.OperationMenuItem coc={coc}
+                                    color={buttonColor(wa.customNextButton.style)}>
+                                    {wa.customNextButton.name}
+                                </ContextualOperations.OperationMenuItem>];
+                        }
+                        else if (wa.type === WorkflowActivityType.Decision) {
+                            return wa.decisionOptions.map((row, i) =>
+                                <ContextualOperations.OperationMenuItem key={i} coc={coc}
+                                    onOperationClick={() => coc.defaultClick(row.option.name)}
+                                    color={buttonColor(row.option.style)}>
+                                    {row.option.name}
+                                </ContextualOperations.OperationMenuItem>);
+                        }
+                        else
+                            return [];
+                    },
+                },
+                contextualFromMany: {
+                    isVisible: () => true,
+                    color: "primary",
+                    createMenuItems: coc => [<CaseActivitiyOperations caseActivities={coc.context.lites} coc={coc} />],
+                    settersConfig: () => "NoDialog",
+                },
+            })
+            .withEntityOperation(CaseActivityOperation.Undo, {
+                hideOnCanExecute: true,
+                color: "danger",
+                onClick: eoc => executeCaseActivity(eoc, executeAndClose),
+                contextual: { isVisible: () => true },
+                contextualFromMany: { isVisible: () => true, color: "danger" },
+            })
+            .withEntityOperation(CaseActivityOperation.ResetToCaseActivity, {
+                isVisible: () => false,
+                contextual: {
+                    isVisible: () => true,
+                    color: "warning",
+                    icon: "rotate-left",
+                    confirmMessage: () => CaseActivityMessage
+                        .AreYouSureYouWantToResetTheCaseBackToTheSelectedActivity.niceToString(),
+                },
+                contextualFromMany: { isVisible: () => false },
+            })
+            .withEntityOperation(CaseActivityOperation.Delete, {
+                hideOnCanExecute: true,
+                isVisible: () => false,
+                commonOnClick: oc => oc.getEntity().then(e => askDeleteMainEntity(e.case.mainEntity))
+                    .then(u => u == undefined ? undefined : oc.defaultClick(u)),
+                contextualFromMany: {
+                    onClick: coc => askDeleteMainEntity().then(u => u == undefined ? undefined : coc.defaultClick(u)),
+                },
+            });
     }
 
-    function registerWorkflowOperations(): void {
+    function registerWorkflowOperations(cb: ClientBuilder): void {
 
-        Operations.addSettings(new EntityOperationSettings(WorkflowOperation.Save,
-            { color: "primary", onClick: executeWorkflowSave, alternatives: () => [] }));
-        Operations.addSettings(new EntityOperationSettings(WorkflowOperation.Delete,
-            { contextualFromMany: { isVisible: () => false } }));
-        Operations.addSettings(new EntityOperationSettings(WorkflowOperation.Activate, {
-            contextual: { icon: "heart-pulse", iconColor: "red" },
-            contextualFromMany: { icon: "heart-pulse", iconColor: "red" },
-        }));
-        Operations.addSettings(new EntityOperationSettings(WorkflowOperation.Deactivate, {
-            onClick: eoc => chooseWorkflowExpirationDate([eoc.entity.toLite()])
-                .then(val => !val ? undefined : eoc.defaultClick(val)),
-            contextual: {
-                onClick: coc => chooseWorkflowExpirationDate(coc.context.lites)
-                    .then(val => !val ? undefined : coc.defaultClick(val)),
-                icon: ["far", "heart"],
-                iconColor: "gray",
-            },
-            contextualFromMany: {
-                onClick: coc => chooseWorkflowExpirationDate(coc.context.lites)
-                    .then(val => !val ? undefined : coc.defaultClick(val)),
-                icon: ["far", "heart"],
-                iconColor: "gray",
-            },
-        }));
+        cb.configure(WorkflowEntity)
+            .withEntityOperation(WorkflowOperation.Save,
+                { color: "primary", onClick: executeWorkflowSave, alternatives: () => [] })
+            .withEntityOperation(WorkflowOperation.Activate, {
+                contextual: { icon: "heart-pulse", iconColor: "red" },
+                contextualFromMany: { icon: "heart-pulse", iconColor: "red" },
+            })
+            .withEntityOperation(WorkflowOperation.Deactivate, {
+                onClick: eoc => chooseWorkflowExpirationDate([eoc.entity.toLite()])
+                    .then(val => !val ? undefined : eoc.defaultClick(val)),
+                contextual: {
+                    onClick: coc => chooseWorkflowExpirationDate(coc.context.lites)
+                        .then(val => !val ? undefined : coc.defaultClick(val)),
+                    icon: ["far", "heart"],
+                    iconColor: "gray",
+                },
+                contextualFromMany: {
+                    onClick: coc => chooseWorkflowExpirationDate(coc.context.lites)
+                        .then(val => !val ? undefined : coc.defaultClick(val)),
+                    icon: ["far", "heart"],
+                    iconColor: "gray",
+                },
+            })
+            .withEntityOperation(WorkflowOperation.Delete,
+                { contextualFromMany: { isVisible: () => false } });
     }
 
     function chooseWorkflowExpirationDate(workflows: Lite<WorkflowEntity>[]):
         Promise<Temporal.PlainDateTime | undefined> {
-        return ExpirationDateModal.show({
+        return AutoLineModal.show<Temporal.PlainDateTime>({
+            type: new TypeReference({ typeName: "PlainDateTime" }),
+            modalSize: "md",
             title: WorkflowMessage.DeactivateWorkflow.niceToString(),
             message:
                 <div>

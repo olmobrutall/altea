@@ -4,7 +4,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { Finder } from "@altea/altea/client/Finder";
-import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { ajaxGetRaw } from "@altea/altea/client/Services";
 import { Serializer } from "@altea/altea/data/serializer";
@@ -25,7 +24,6 @@ import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkC
 import { onEmbeddedWidgets, type EmbeddedWidget, type EmbeddedWidgetPosition } from "@altea/altea/client/Frames/Widgets";
 import { useAPI } from "@altea/altea/client/Hooks";
 import type { EntityFrame } from "@altea/altea/client/TypeContext";
-import { Constructor } from "@altea/altea/client/Constructor";
 import type { Entity, BaseEntity, Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { Enum } from "@altea/altea/data/enum";
@@ -90,17 +88,18 @@ export namespace DashboardClient {
         UserAssetClient.start(cb.routes);
         UserAssetClient.registerExportAssertLink(DashboardEntity);
 
-        // A new dashboard belongs to whoever creates it (Signum's registerConstructor).
-        Constructor.registerConstructor(DashboardEntity, () => {
-            const db = DashboardEntity.create({ owner: AppContext.currentUser?.toLite() ?? null });
-            return db;
-        });
-
         cb.configure(DashboardEntity)
             .withView(() => import("./Admin/Dashboard"))
             .withQuerySettings(token => ({
                 defaultOrders: [{ token: token(d => d.dashboardPriority), orderType: "Descending" }],
-            }));
+            }))
+            // A new dashboard belongs to whoever creates it.
+            .withConstructor(() => DashboardEntity.create({ owner: AppContext.currentUser?.toLite() ?? null }))
+            // Clone shows up as a normal constructor button; the Save/Delete ones are the framework defaults.
+            .withConstructFromOperation(DashboardOperation.Clone, {
+                icon: "clone",
+                color: "info",
+            });
 
         // The toolbar config for an element pointing at a Dashboard (Signum registered it from here too).
         // Registering into the toolbar's config registry is INERT when the toolbar module is not started.
@@ -157,12 +156,6 @@ export namespace DashboardClient {
             withPanel: () => false,
         });
 
-        // Clone shows up as a normal constructor button; the Save/Delete ones are the framework defaults.
-        Operations.addSettings(new EntityOperationSettings(DashboardOperation.Clone, {
-            icon: "clone",
-            color: "info",
-        }));
-
         // Signum's onEmbeddedWidgets: an entity-scoped dashboard renders INSIDE the entity's view (Top /
         // Bottom / Tab). Signum read them off the entity PACK, so the server decided per entity whether to
         // attach any at all. altea's EntityPack has no extension bag, so instead the client learns ONCE at
@@ -203,22 +196,23 @@ export namespace DashboardClient {
             )));
 
         // Preview quick-link on a Dashboard itself (Signum's "preview").
-        QuickLinkClient.registerQuickLink(DashboardEntity, new QuickLinkAction(
-            "preview", () => DashboardMessage.Preview.niceToString(), async (ctx, e) => {
-                const db = await Navigator.API.fetch(ctx.lite as Lite<DashboardEntity>);
-                if (db == null)
-                    return;
-                if (db.entityType == null)
-                    AppContext.pushOrOpenInTab(dashboardUrl(ctx.lite as Lite<DashboardEntity>), e);
-                else {
-                    // Entity-scoped: pick the entity to preview it over (Signum used Finder.find + the type).
-                    const entity = await Finder.find({ queryName: db.entityType.toString() });
-                    if (entity)
-                        AppContext.pushOrOpenInTab(dashboardUrl(ctx.lite as Lite<DashboardEntity>, entity), e);
-                }
-            },
-            { group: null, icon: "eye", iconColor: "blue", color: "info" },
-        ));
+        cb.configure(DashboardEntity)
+            .withQuickLink(new QuickLinkAction(
+                "preview", () => DashboardMessage.Preview.niceToString(), async (ctx, e) => {
+                    const db = await Navigator.API.fetch(ctx.lite as Lite<DashboardEntity>);
+                    if (db == null)
+                        return;
+                    if (db.entityType == null)
+                        AppContext.pushOrOpenInTab(dashboardUrl(ctx.lite as Lite<DashboardEntity>), e);
+                    else {
+                        // Entity-scoped: pick the entity to preview it over (Signum used Finder.find + the type).
+                        const entity = await Finder.find({ queryName: db.entityType.toString() });
+                        if (entity)
+                            AppContext.pushOrOpenInTab(dashboardUrl(ctx.lite as Lite<DashboardEntity>, entity), e);
+                    }
+                },
+                { group: null, icon: "eye", iconColor: "blue", color: "info" },
+            ));
 
         GlobalVariables.set("UserName", () => AppContext.currentUser?.toString() ?? "");
         GlobalVariables.set("UserGreeting", () => {

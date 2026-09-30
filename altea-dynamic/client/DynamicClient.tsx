@@ -5,7 +5,6 @@ import type { DynamicCompilationStatus } from "../data/DynamicPanel";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { DynamicCSSOverrideEntity } from "../data/DynamicCSSOverride";
 import { DynamicRenameEntity, DynamicSqlMigrationEntity } from "../data/DynamicSqlMigration";
-import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
 import MessageModal from "@altea/altea/client/Modals/MessageModal";
 import { DynamicTypeEntity, DynamicTypeOperation, DynamicTypeMessage } from "../data/DynamicType";
 import { DynamicMixinConnectionEntity } from "../data/DynamicMixinConnection";
@@ -92,7 +91,23 @@ export namespace DynamicClient {
                     token(a => a.typeName),
                     token(a => a.baseType),
                 ],
-            }));
+            }))
+            // A saved type does nothing until the server restarts, so Save points at the dynamic panel.
+            .withEntityOperation(DynamicTypeOperation.Save, {
+                onClick: async eoc => {
+                    await eoc.defaultClick();
+
+                    if (eoc.entity.typeName != null)
+                        await MessageModal.show({
+                            title: DynamicTypeMessage.TypeSaved.niceToString(),
+                            message: DynamicTypeMessage.DynamicType0SucessfullySavedGoToDynamicPanelNow
+                                .niceToString(eoc.entity.typeName),
+                            buttons: "ok",
+                            style: "success",
+                            icon: "success",
+                        });
+                },
+            });
 
         cb.configure(DynamicMixinConnectionEntity)
             .withView(() => import("./Type/DynamicMixinConnection"))
@@ -154,26 +169,6 @@ export namespace DynamicClient {
                     token(a => a.isDisabled),
                 ],
             }));
-
-        // The Save override opens a modal offering the dynamic panel, because a
-        // saved type does nothing until the server restarts. The same message is kept, and the operation
-        // needs no override: the view writes its JSON on every edit (see Type/DynamicType), so an ordinary
-        // Save carries the definition.
-        Operations.addSettings(new EntityOperationSettings(DynamicTypeOperation.Save, {
-            onClick: async eoc => {
-                await eoc.defaultClick();
-
-                if (eoc.entity.typeName != null)
-                    await MessageModal.show({
-                        title: DynamicTypeMessage.TypeSaved.niceToString(),
-                        message: DynamicTypeMessage.DynamicType0SucessfullySavedGoToDynamicPanelNow
-                            .niceToString(eoc.entity.typeName),
-                        buttons: "ok",
-                        style: "success",
-                        icon: "success",
-                    });
-            },
-        }));
 
         registerDynamicPanelSearch(DynamicTypeEntity.typeName, [
             { token: "typeName", type: "Text" },

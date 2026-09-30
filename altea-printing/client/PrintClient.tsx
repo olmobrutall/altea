@@ -1,7 +1,6 @@
 import * as React from "react";
 import { ajaxGet, ajaxPost } from "@altea/altea/client/Services";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
-import { Operations, EntityOperationSettings } from "@altea/altea/client/Operations";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import type { FileTypeSymbol } from "@altea/altea-files/data/Files";
 import type { ProcessEntity } from "@altea/altea-processes/data/Processes";
@@ -31,7 +30,9 @@ export namespace PrintClient {
                     token(l => l.printedOn),
                     token(l => l.referred),
                 ],
-            }));
+            }))
+            // A test line is saved once, then it is an ordinary queued line.
+            .withEntityOperation(PrintLineOperation.SaveTest, { hideOnCanExecute: true });
 
         cb.configure(PrintPackageEntity)
             .withView(() => import("./Templates/PrintPackage"))
@@ -41,10 +42,6 @@ export namespace PrintClient {
                     token(p => p.name),
                 ],
             }));
-
-        // Hide SaveTest once it cannot execute: a test line is saved once and then it is an ordinary
-        // queued line.
-        Operations.addSettings(new EntityOperationSettings(PrintLineOperation.SaveTest, { hideOnCanExecute: true }));
 
         registerSpecialAction({
             key: "PrintPanel",
