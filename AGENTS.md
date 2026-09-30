@@ -7,9 +7,13 @@ React UI kit, modelled on Signum Framework.
 ## General guidance
 
 - Follow altea's conventions for entities, queries, operations and React components — they are below.
-- Comment density: enough to bind at the point of edit, no more. The test is *"would this still be true
-  and useful if the Signum sources were deleted?"* — yes, keep it inline in one to three lines; no, it is
-  port narrative and belongs in [`port/`](port/README.md).
+- **Be very conservative writing comments.** The default is none: code, types and names should carry the
+  meaning. Comment only what the code cannot say — a non-obvious *why*, a constraint that bites from far
+  away, a deliberate divergence. Never restate what the next line does, never explain a design in prose
+  that its signature already states, and never narrate a change or the reasoning that led to it.
+  One or two lines; if it needs a paragraph it belongs in [`port/`](port/README.md).
+  The test is *"would this still be true and useful if the Signum sources were deleted?"*
+  When editing, leave fewer comments than you found — trim the ones a reader no longer needs.
 - Respect the existing folder and module structure: code is organized by feature/module, not by technical
   concern. `altea/` holds ~50 reusable vertical modules, each with data / client / server halves.
 - altea is APPLICATION-AGNOSTIC: no comment, example or test names a consuming application or its domain
