@@ -22,9 +22,6 @@ import { DynamicViewMessage } from "../../data/DynamicView";
 //
 // altea divergences, documented inline:
 //  - `LinkButton` (a Signum Basics component) → a plain bootstrap `btn btn-link`.
-//  - `AutoLineModal.show({ customComponent: TextAreaLine, … })`, which Signum uses purely as a
-//    "here is some text, copy it" dialog, → a local `CopyTextModal` (altea has no AutoLineModal; the
-//    html-editor port made the same call for its link dialog).
 //  - `CollapsableTypeHelp` is NOT ported: it embeds `TypeHelpComponent`, an interactive
 //    type-tree browser that belongs to the unported Roslyn half. What it was FOR — discovering what you can
 //    write in an expression — is covered by the two help dropdowns that do port (`ModulesHelp`, `PropsHelp`)

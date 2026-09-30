@@ -6,12 +6,13 @@ import { HtmlEditorButton } from "../../HtmlEditorButtons";
 import type { HtmlEditorController } from "../../HtmlEditorController";
 import { formatLink } from "../../Utils/format";
 import { $findMatchingParent } from "../../Utils/node";
-import EditLinkModal from "./EditLinkModal";
+import AutoLineModal from "@altea/altea/client/AutoLineModal";
+import { TypeReference } from "@altea/altea/data/reflection";
+import EditLinkField from "./EditLinkField";
 import { restoreSelection, sanitizeUrl, validateUrl } from "./helper";
 
 // Port of Signum.HtmlEditor's Extensions/LinkExtension/ToolbarLinkButton.tsx.
 //
-// altea divergence: the url prompt is `EditLinkModal` rather than `AutoLineModal` with a custom component
 // (see that file). The three-way result is what the flow needs: undefined = cancelled (do nothing),
 // "" = unlink, anything else = set that url.
 export default function ToolbarLinkButton({ controller }: { controller: HtmlEditorController }): React.ReactNode {
@@ -46,7 +47,14 @@ export default function ToolbarLinkButton({ controller }: { controller: HtmlEdit
         if (!selection)
             return;
 
-        const url = await EditLinkModal.show(initialUrl);
+        const url = await AutoLineModal.show<string>({
+            title: HtmlEditorMessage.Hyperlink.niceToString(),
+            message: "",
+            initialValue: initialUrl,
+            type: new TypeReference({ typeName: "String" }),
+            allowEmptyValue: true,
+            customComponent: p => <EditLinkField {...p} />,
+        });
 
         if (url === undefined)
             return; // cancelled

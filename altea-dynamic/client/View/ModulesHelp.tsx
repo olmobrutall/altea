@@ -14,7 +14,6 @@ import { DynamicViewMessage } from "../../data/DynamicView";
 //    have are gone: `moment` / `numbro` / `luxon` (→ `Temporal`), `TreeClient`, `WorkflowClient`. The keys
 //    come from `globalModules`, so a module without a snippet still appears with an empty body — the same
 //    behaviour Signum has for its own empty entries.
-//  - `AutoLineModal` → the local `CopyTextModal` (see its header).
 //  - Signum's `clientCode` variant documents the DynamicClient module (JavaScript executed at boot), which
 //    is not ported; the parameter is gone with it.
 export function ModulesHelp(p: { cleanName: string }): React.JSX.Element {

@@ -24,7 +24,6 @@ import { DynamicViewMessage, type DynamicViewSelectorEntity } from "../../data/D
 // altea divergences:
 //  - `TypeHelpComponent` (the right-hand type browser) is not ported — it belongs to Signum.Eval; the
 //    `modules` dropdown covers the discoverability it provided (see Designer.tsx).
-//  - `AutoLineModal` used as a copy-this-text dialog → the local `CopyTextModal`.
 //  - `entityType.className` → `entityType.cleanName` (altea's TypeEntity has no separate className column in
 //    the sense Signum uses here; the clean name is what a snippet needs).
 //  - `dvs.modified = true` is dropped: altea tracks modification against a snapshot.

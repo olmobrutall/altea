@@ -33,7 +33,6 @@ import type { Type, BaseEntity } from "@altea/altea/data/entity";
 //  - the right-hand `TypeHelpComponent` pane, its member context menu, the `TypeHelpButtonBarComponent` and
 //    the "Expressions" dropdown are NOT ported: all four are TypeHelp (`TypeHelpClient.API.typeHelp`
 //    is a SERVER call into the Roslyn half). The `modules` dropdown and the view-name dropdown remain.
-//  - `AutoLineModal` used as a copy-this-text dialog → the local `CopyTextModal`.
 //  - `entityType.className` → `cleanName`; `dvo.modified = true` is dropped (snapshot-based tracking).
 
 interface DynamicViewOverrideComponentProps {

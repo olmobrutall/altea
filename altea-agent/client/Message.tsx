@@ -5,14 +5,12 @@ import { classes } from "@altea/altea/data/globals";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { ChatbotMessage, ChatMessageEntity, ChatMessageEntity_ToolCall, ChatMessageRole, UserFeedback } from "../data/ChatSession";
 import { ChatbotClient } from "./ChatbotClient";
-import FeedbackModal from "./FeedbackModal";
+import AutoLineModal from "@altea/altea/client/AutoLineModal";
 
 // Port of Signum.Agent's Message.tsx — one conversation turn, per role, plus the collapsible tool blocks and
 // the thumbs-up/down feedback.
 //
 // altea divergences:
-//  - `AutoLineModal.show({ propertyRoute, … })` is not ported (altea has no AutoLineModal), so the negative
-//    feedback note is captured by the small `FeedbackModal` in this module.
 //  - `p.msg.toolCalls` is a plain array of `@part` rows (altea has no MList), so `.map(tc => tc.element)`
 //    collapses to `.map(tc => tc)`.
 //  - `getToString(x)` → `x.toString()`.
@@ -91,7 +89,13 @@ export function AssistantMessage(p: { msg: ChatMessageEntity; sendToolResponse: 
     }
 
     async function openFeedbackModal(): Promise<void> {
-        const newMessage = await FeedbackModal.show(p.msg.userFeedbackMessage ?? "");
+        const newMessage = await AutoLineModal.show<string>({
+            propertyRoute: ChatMessageEntity.propertyRoute(a => a.userFeedbackMessage),
+            initialValue: p.msg.userFeedbackMessage ?? "",
+            title: ChatbotMessage.ProvideFeedback.niceToString(),
+            message: ChatbotMessage.WhatWentWrong.niceToString(),
+            modalSize: "md",
+        });
         if (newMessage === undefined)
             return;
 

@@ -2,7 +2,9 @@ import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { classes } from "@altea/altea/data/globals/helpers";
 import { Operations } from "@altea/altea/client/Operations";
-import RemarksModal from "./RemarksModal";
+import AutoLineModal from "@altea/altea/client/AutoLineModal";
+import { TextAreaLine } from "@altea/altea/client/Lines/TextAreaLine";
+import { TypeReference } from "@altea/altea/data/reflection";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { CaseActivityMessage } from "../../data/CaseActivity";
 import type { ActivityWithRemarks } from "../../data/CaseActivity";
@@ -12,8 +14,7 @@ import InlineCaseTags from "./InlineCaseTags";
 // Port of Signum.Workflow's Case/ActivityWithRemarks.tsx — the Inbox's "Activity" cell: the activity's name,
 // a personal-remarks button, and the case's tags.
 //
-// The remarks prompt is a local RemarksModal (there is no AutoLineModal). Signum also
-// shows an ALERT count (a bell linking to the user's alerts on this activity);
+// Signum shows an ALERT count (a bell linking to the user's alerts on this activity);
 // this module does not depend on @altea/altea-alert, so the DTO has no `alerts` and the bell is gone. The tags
 // arrive empty from the Inbox query (see CaseActivityLogic's header), so InlineCaseTags fetches them.
 
@@ -24,7 +25,9 @@ export default function ActivityWithRemarksComponent(p: { data: ActivityWithRema
     React.useEffect(() => setRemarks(p.data.remarks), [p.data.remarks]);
 
     function handleRemarksClick(): void {
-        void RemarksModal.show({
+        void AutoLineModal.show<string>({
+            type: new TypeReference({ typeName: "String" }),
+            customComponent: props => <TextAreaLine {...props} />,
             title: CaseNotificationEntity.nicePropertyName(a => a.remarks),
             message: CaseActivityMessage.PersonalRemarksForThisNotification.niceToString(),
             initialValue: remarks,

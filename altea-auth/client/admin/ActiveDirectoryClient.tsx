@@ -1,13 +1,12 @@
 import * as React from "react";
-import { Modal } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ajaxGet, ajaxPost } from "@altea/altea/client/Services";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { Finder } from "@altea/altea/client/Finder";
-import { openModal, type IModalProps } from "@altea/altea/client/Modals";
+import AutoLineModal from "@altea/altea/client/AutoLineModal";
+import { TypeReference } from "@altea/altea/data/reflection";
 import MessageModal from "@altea/altea/client/Modals/MessageModal";
 import SelectorModal from "@altea/altea/client/SelectorModal";
-import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import { AuthClient } from "../AuthClient";
 import type { Lite } from "@altea/altea/data/lite";
 import type { FindOptionsParsed } from "@altea/altea/client/FindOptions";
@@ -86,7 +85,9 @@ export namespace ActiveDirectoryClient {
                 order: -1,
                 button: <button className="btn btn-info ms-2"
                     onClick={() => {
-                        void SearchTextModal.show({
+                        void AutoLineModal.show<string>({
+                            type: new TypeReference({ typeName: "String" }),
+                            modalSize: "md",
                             title: <><FontAwesomeIcon aria-hidden={true} icon="address-book" /> {UserADMessage.FindInActiveDirectory.niceToString()}</>,
                             label: UserADMessage.NameOrEmail.niceToString(),
                             initialValue: search ?? "",
@@ -154,59 +155,5 @@ export namespace ActiveDirectoryClient {
         jobTitle: string;
         upn: string;
         externalId: string | null;
-    }
-}
-
-// ---- SearchTextModal ------------------------------------------------------------------------------------
-//
-// A one-input prompt, carried here rather than pulled in: there is no AutoLineModal, and adding one for a
-// single free-text prompt would be a much bigger surface than the prompt itself. One labelled input; Enter
-// or OK resolves the typed string, Escape or Cancel resolves undefined.
-
-interface SearchTextModalProps extends IModalProps<string | undefined> {
-    title: React.ReactNode;
-    label: string;
-    initialValue: string;
-}
-
-function SearchTextModalComponent(p: SearchTextModalProps): React.ReactElement {
-    const [show, setShow] = React.useState(true);
-    const [value, setValue] = React.useState(p.initialValue);
-    const answer = React.useRef<string | undefined>(undefined);
-
-    function handleOk(): void {
-        answer.current = value;
-        setShow(false);
-    }
-
-    return (
-        <Modal show={show} onExited={() => p.onExited!(answer.current)} onHide={() => setShow(false)} size="lg">
-            <div className="modal-header">
-                <h5 className="modal-title">{p.title}</h5>
-                <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={() => setShow(false)} />
-            </div>
-            <div className="modal-body">
-                <form onSubmit={e => { e.preventDefault(); handleOk(); }}>
-                    <label className="form-label" htmlFor="adSearchText">{p.label}</label>
-                    <input id="adSearchText" type="text" className="form-control" autoFocus
-                        value={value} onChange={e => setValue(e.currentTarget.value)} />
-                </form>
-            </div>
-            <div className="modal-footer">
-                <button className="btn btn-primary sf-entity-button" onClick={handleOk} disabled={!value}>
-                    {JavascriptMessage.ok.niceToString()}
-                </button>
-                <button className="btn btn-light sf-entity-button" onClick={() => setShow(false)}>
-                    {JavascriptMessage.cancel.niceToString()}
-                </button>
-            </div>
-        </Modal>
-    );
-}
-
-export namespace SearchTextModal {
-    export function show(options: { title: React.ReactNode; label: string; initialValue: string }): Promise<string | undefined> {
-        return openModal<string | undefined>(<SearchTextModalComponent
-            title={options.title} label={options.label} initialValue={options.initialValue} />);
     }
 }

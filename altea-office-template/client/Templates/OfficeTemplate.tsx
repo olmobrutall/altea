@@ -11,7 +11,9 @@ import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { EntityCombo } from "@altea/altea/client/Lines/EntityCombo";
 import { EntityTable } from "@altea/altea/client/Lines/EntityTable";
 import { FileLine } from "@altea/altea-files/client/Components/FileLine";
-import MessageModal from "@altea/altea/client/Modals/MessageModal";
+import AutoLineModal from "@altea/altea/client/AutoLineModal";
+import { TextAreaLine } from "@altea/altea/client/Lines/TextAreaLine";
+import { TypeReference } from "@altea/altea/data/reflection";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { Navigator } from "@altea/altea/client/Navigator";
@@ -162,11 +164,7 @@ export function UserQueryTemplateButton(p: { queryKey: string }): React.JSX.Elem
         });
 }
 
-/**
- * Signum shows the generated code in an AutoLineModal wrapping a TextAreaLine, which the author copies out.
- * altea has no AutoLineModal, so the code is shown in a MessageModal — selectable, with the instruction
- * above it. The author still copies it into the shape's alternative text; only the chrome differs.
- */
+/** The author copies the generated code into the shape's alternative text. */
 function renderWidgetButton(text: React.ReactElement, getCode: () => Promise<string | undefined>): React.JSX.Element {
     return (
         <button className="btn btn-tertiary btn-sm sf-button" type="button"
@@ -174,17 +172,12 @@ function renderWidgetButton(text: React.ReactElement, getCode: () => Promise<str
                 if (code == null)
                     return;
 
-                await MessageModal.show({
-                    buttons: "ok",
-                    icon: "info",
-                    style: "info",
+                await AutoLineModal.show({
+                    type: new TypeReference({ typeName: "String" }),
+                    customComponent: p => <TextAreaLine {...p} />,
+                    initialValue: code,
                     title: OfficeTemplateMessage.SelectTheSourceOfDataForYourTableOrChart.niceToString(),
-                    message: (
-                        <div>
-                            <p>{OfficeTemplateMessage.WriteThisKeyAsTileInTheAlternativeTextOfYourTableOrChart.niceToString()}</p>
-                            <pre className="user-select-all">{code}</pre>
-                        </div>
-                    ),
+                    message: OfficeTemplateMessage.WriteThisKeyAsTileInTheAlternativeTextOfYourTableOrChart.niceToString(),
                 });
             })}>
             {text}
