@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="CachedQueryEntity" Description="Cached-Abfrage">
+  <Type Name="CachedQueryEntity" Description="Zwischengespeicherte Abfrage">
     <Member Name="CreationDate" Description="Erstellungsdatum" />
     <Member Name="Dashboard" Description="Dashboard" />
     <Member Name="File" Description="Datei" />
@@ -17,12 +17,12 @@
   <Type Name="CachedQueryFileType">
     <Member Name="CachedQuery" Description="Cached-Abfrage" />
   </Type>
-  <Type Name="CacheQueryConfigurationEmbedded" Description="Konfiguration der Cached-Abfrage">
+  <Type Name="CacheQueryConfigurationEmbedded" Description="Konfiguration der zwischengespeicherten Abfrage">
     <Member Name="AutoRegenerateWhenOlderThan" Description="Automatisch regenerieren, wenn älter als" />
     <Member Name="MaxRows" Description="Max. Zeilen" />
     <Member Name="TimeoutForQueries" Description="Timeout für Abfragen" />
   </Type>
-  <Type Name="CustomPartEntity" Description="Custom Teil">
+  <Type Name="CustomPartEntity" Description="Benutzerdefinierter Teil">
     <Member Name="CustomPartName" Description="Benutzerdefinierter Teilename" />
   </Type>
   <Type Name="DashboardEmbedededInEntity" Description="Dashboard eingebettet in">
@@ -126,7 +126,7 @@
     <Member Name="GoodMorning" Description="Guten Morgen" />
     <Member Name="GoodNight" Description="Gute Nacht" />
   </Type>
-  <Type Name="HealthCheckPartEntity" Description="Teil Gesundheitskontrolle">
+  <Type Name="HealthCheckPartEntity" Description="Health-Check-Teil">
     <Member Name="Items" Description="Artikel" />
   </Type>
   <Type Name="HealthCheckPartEntity_Item" Description="Health-Check-Element">
@@ -150,7 +150,7 @@
     <Member Name="Group7" Description="Gruppe 7" />
     <Member Name="Group8" Description="Gruppe 8" />
   </Type>
-  <Type Name="SeparatorPartEntity" Description="Trennzeichenteil">
+  <Type Name="SeparatorPartEntity" Description="Trennerteil">
     <Member Name="Title" Description="Titel" />
   </Type>
   <Type Name="TextPartEntity" Description="Textteil">
@@ -162,7 +162,7 @@
     <Member Name="Markdown" Description="Markdown" />
     <Member Name="Text" Description="Text" />
   </Type>
-  <Type Name="ToolbarMenuPartEntity" Description="Menübereich Symbolleiste">
+  <Type Name="ToolbarMenuPartEntity" Description="Toolbar-Menü-Teil">
     <Member Name="ToolbarMenu" Description="Toolbar-Menü" />
   </Type>
 </Translations>

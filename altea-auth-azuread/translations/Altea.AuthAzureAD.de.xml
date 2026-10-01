@@ -38,7 +38,7 @@
   <Type Name="AuthADFileType">
     <Member Name="CachedProfilePhoto" Description="Zwischengespeichertes Profilfoto" />
   </Type>
-  <Type Name="AzureADConfigurationEmbedded" Description="Azure AD configuration">
+  <Type Name="AzureADConfigurationEmbedded" Description="Azure-AD-Konfiguration">
     <Member Name="ApplicationID" Description="Application (client) ID" />
     <Member Name="ClientSecret" Description="Client Secret Value" />
     <Member Name="DirectoryID" Description="Directory (tenant) ID" />
@@ -63,12 +63,12 @@
   <Type Name="AzureADTask">
     <Member Name="DeactivateUsers" Description="Benutzer deaktivieren" />
   </Type>
-  <Type Name="AzureADType" Description="Azure AD type">
+  <Type Name="AzureADType" Description="Azure-AD-Typ">
     <Member Name="AzureAD" Description="Azure AD" />
     <Member Name="B2C" Description="B 2 C" />
     <Member Name="ExternalID" Description="Externe ID" />
   </Type>
-  <Type Name="CachedProfilePhotoEntity" Description="zwischengespeicherte Profilfoto" PluralDescription="zwischengespeicherte Profilfotos" Gender="n">
+  <Type Name="CachedProfilePhotoEntity" Description="Zwischengespeichertes Profilfoto" PluralDescription="Zwischengespeicherte Profilfotos" Gender="n">
     <Member Name="CreationDate" Description="Erstellungsdatum" />
     <Member Name="InvalidationDate" Description="Datum der Ungültigkeit" />
     <Member Name="Photo" Description="Foto" />

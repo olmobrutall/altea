@@ -417,7 +417,7 @@
   </Type>
   <Type Name="WorkflowEventTaskActionEval" Description="Evaluar acción de tarea de evento de flujo de trabajo" />
   <Type Name="WorkflowEventTaskConditionEval" Description="Evaluar condición de tarea de evento de flujo de trabajo" />
-  <Type Name="WorkflowEventTaskConditionResultEntity" Description="Resultado de condición de tarea de evento de flujo">
+  <Type Name="WorkflowEventTaskConditionResultEntity" Description="Resultado de condición de tarea de evento de flujo de trabajo">
     <Member Name="CreationDate" Description="Fecha de creación" />
     <Member Name="Result" Description="Resultado" />
     <Member Name="WorkflowEventTask" Description="Tarea de evento de flujo de trabajo" />
@@ -506,7 +506,7 @@
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="WorkflowMainEntityStrategy" Description="Estrategia de flujo de trabajo de la entidad principal">
+  <Type Name="WorkflowMainEntityStrategy" Description="Estrategia de la entidad principal del flujo de trabajo">
     <Member Name="Clone" Description="Clon" />
     <Member Name="CreateNew" Description="Crear nuevo" />
     <Member Name="SelectByUser" Description="Seleccionar por el usuario" />
@@ -553,7 +553,7 @@
     <Member Name="ViewWorkflowPanel" Description="Ver panel de flujo de trabajo" />
     <Member Name="WorkflowToolbarMenu" Description="Menú de flujos de trabajo en la barra de herramientas" />
   </Type>
-  <Type Name="WorkflowPoolEntity" Description="Grupo de flujo de trabajo">
+  <Type Name="WorkflowPoolEntity" Description="Pool de flujo de trabajo" PluralDescription="Pools de flujo de trabajo">
     <Member Name="BpmnElementId" Description="Id de elemento BPMN" />
     <Member Name="Name" Description="Nombre" />
     <Member Name="Workflow" Description="Flujo de trabajo" />
@@ -566,7 +566,7 @@
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="WorkflowReplacementItemEmbedded" Description="Artículo de reemplazo de flujo de trabajo">
+  <Type Name="WorkflowReplacementItemEmbedded" Description="Elemento de reemplazo de flujo de trabajo">
     <Member Name="NewNode" Description="Nuevo nodo" />
     <Member Name="OldNode" Description="Nodo antiguo" />
     <Member Name="SubWorkflow" Description="Sub flujo de trabajo" />

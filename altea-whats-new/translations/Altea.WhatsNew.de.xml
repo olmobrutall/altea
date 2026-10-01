@@ -17,7 +17,7 @@
     <Member Name="WhatsNewAttachmentFileType" Description="Was ist neu Anhang dateityp" />
     <Member Name="WhatsNewPreviewFileType" Description="Was ist neu Vorschau dateityp" />
   </Type>
-  <Type Name="WhatsNewLogEntity" Description="Was ist neu" Gender="n">
+  <Type Name="WhatsNewLogEntity" Description="Was-ist-neu-Protokoll" PluralDescription="Was-ist-neu-Protokolle" Gender="n">
     <Member Name="ReadOn" Description="Gelesen am" />
     <Member Name="User" Description="Benutzer" />
     <Member Name="WhatsNew" Description="Was ist neu?" />
@@ -59,7 +59,7 @@
     <Member Name="Save" Description="Speichern" />
     <Member Name="Unpublish" Description="Unveröffentlichen" />
   </Type>
-  <Type Name="WhatsNewState" Description="Neuer Zustand">
+  <Type Name="WhatsNewState" Description="Was-ist-neu-Status">
     <Member Name="Draft" Description="Entwurf " />
     <Member Name="Publish" Description="Veröffentlichen" />
   </Type>

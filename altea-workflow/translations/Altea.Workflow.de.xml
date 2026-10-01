@@ -18,7 +18,7 @@
     <Member Name="Success" Description="Erfolg" />
     <Member Name="Warning" Description="Warnung" />
   </Type>
-  <Type Name="BpmnEntityPairEmbedded" Description="Bpmn Entitätenpaar">
+  <Type Name="BpmnEntityPairEmbedded" Description="BPMN-Entitätspaar">
     <Member Name="BpmnElementId" Description="Bpmn Elemente Id" />
     <Member Name="Model" Description="Modell" />
   </Type>
@@ -41,7 +41,7 @@
     <Member Name="StartDate" Description="Startdatum" />
     <Member Name="WorkflowActivity" Description="Workflow-Aktivität" />
   </Type>
-  <Type Name="CaseActivityExecutedTimerEntity" Description="Fall Aktivität ausgeführt Timer" Gender="m">
+  <Type Name="CaseActivityExecutedTimerEntity" Description="Ausgeführter Timer der Fall-Aktivität" PluralDescription="Ausgeführte Timer der Fall-Aktivität" Gender="m">
     <Member Name="BoundaryEvent" Description="Boundary-Ereignis" />
     <Member Name="CaseActivity" Description="Fall-Aktivität" />
     <Member Name="CreationDate" Description="Erstellungsdatum" />
@@ -101,7 +101,7 @@
   <Type Name="CaseActivityProcessAlgorithm">
     <Member Name="Timeout" Description="Timeout" />
   </Type>
-  <Type Name="CaseActivityState" Description="Vorgangsaktivität Zustand">
+  <Type Name="CaseActivityState" Description="Status der Fall-Aktivität">
     <Member Name="Done" Description="Abgeschlossen" />
     <Member Name="New" Description="Neu" />
     <Member Name="Pending" Description="Ausstehend" />
@@ -128,7 +128,7 @@
     <Member Name="DoYouWAntToAlsoDeleteTheMainEntity0" Description="Möchten Sie auch die Hauptentität löschen: {0}" />
     <Member Name="SetTags" Description="Setze Tags" />
   </Type>
-  <Type Name="CaseNotificationEntity" Description="Fall Benachrichtigung">
+  <Type Name="CaseNotificationEntity" Description="Fall-Benachrichtigung">
     <Member Name="Actor" Description="Akteur" />
     <Member Name="CaseActivity" Description="Fall-Aktivität" />
     <Member Name="Remarks" Description="Bemerkungen" />
@@ -140,7 +140,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="SetRemarks" Description="Bemerkungen hinzufügen" />
   </Type>
-  <Type Name="CaseNotificationState" Description="Fall Benachrichtigungszustand">
+  <Type Name="CaseNotificationState" Description="Status der Fall-Benachrichtigung">
     <Member Name="Done" Description="Abgeschlossen" />
     <Member Name="DoneByOther" Description="Durch anderen abgeschlossen" />
     <Member Name="InProgress" Description="In Bearbeitung" />
@@ -153,17 +153,17 @@
     <Member Name="Reactivate" Description="Reaktivieren" />
     <Member Name="SetTags" Description="Setze Tags" />
   </Type>
-  <Type Name="CaseTagEntity" Description="Case-Tag" PluralDescription="Case-Tags" Gender="n">
+  <Type Name="CaseTagEntity" Description="Fall-Tag" PluralDescription="Fall-Tags" Gender="n">
     <Member Name="Case" Description="Vorgang" />
     <Member Name="CreatedBy" Description="Erstellt von" />
     <Member Name="CreationDate" Description="Erstellungsdatum" />
     <Member Name="TagType" Description="Tagtyp" />
   </Type>
-  <Type Name="CaseTagsModel" Description="Vorgangstags">
+  <Type Name="CaseTagsModel" Description="Fall-Tags">
     <Member Name="CaseTags" Description="Vorgangstags" />
     <Member Name="OldCaseTags" Description="Alter Vorgangstag" />
   </Type>
-  <Type Name="CaseTagTypeEntity" Description="Gehäusetyp" PluralDescription="Gehäusetypen">
+  <Type Name="CaseTagTypeEntity" Description="Fall-Tag-Typ" PluralDescription="Fall-Tag-Typen" Gender="m">
     <Member Name="Color" Description="Farbe" />
     <Member Name="Name" Description="Name" />
   </Type>
@@ -176,13 +176,13 @@
     <Member Name="Normal" Description="Normal" />
     <Member Name="ScriptException" Description="Skriptausnahme" />
   </Type>
-  <Type Name="DateFilterRange" Description="Datumsbereichs filtern">
+  <Type Name="DateFilterRange" Description="Datumsbereichsfilter">
     <Member Name="All" Description="Alle" />
     <Member Name="CurrentYear" Description="Dieses Jahr" />
     <Member Name="LastMonth" Description="Letzten Monat" />
     <Member Name="LastWeek" Description="Letzte Woche" />
   </Type>
-  <Type Name="DoneType" Description="Fertigstellungstypen">
+  <Type Name="DoneType" Description="Fertigstellungstyp">
     <Member Name="Jump" Description="Springen" />
     <Member Name="Next" Description="Nächstes" />
     <Member Name="Recompose" Description="Neu zusammensetzen" />
@@ -190,7 +190,7 @@
     <Member Name="ScriptSuccess" Description="Skript-Erfolgreich" />
     <Member Name="Timeout" Description="Timeout" />
   </Type>
-  <Type Name="InboxFilterModel" Description="Posteingangs-filter">
+  <Type Name="InboxFilterModel" Description="Posteingangsfilter">
     <Member Name="FromDate" Description="Vom Datum" />
     <Member Name="Range" Description="Bereich" />
     <Member Name="States" Description="Status" />
@@ -225,7 +225,7 @@
     <Member Name="ProcessIdentifier" Description="Prozess Indentifikator" />
     <Member Name="RetryCount" Description="Wiederholungszähler" />
   </Type>
-  <Type Name="SubEntitiesEval" Description="Untereinheiten eval" />
+  <Type Name="SubEntitiesEval" Description="Auswertung der Unterentitäten" />
   <Type Name="SubWorkflowEmbedded" Description="Sub-Workflow">
     <Member Name="SubEntitiesEval" Description="Untereinheiten eval" />
     <Member Name="Workflow" Description="Workflow" />
@@ -241,7 +241,7 @@
     <Member Name="ConditionChangesToTrue" Description="Bedingung wechselt auf wahr" />
     <Member Name="ConditionIsTrue" Description="Bedingung ist wahr" />
   </Type>
-  <Type Name="ViewNamePropEmbedded" Description="View name prop">
+  <Type Name="ViewNamePropEmbedded" Description="Eigenschaft des Ansichtsnamens">
     <Member Name="Expression" Description="Ausdruck" />
     <Member Name="Name" Description="Name" />
   </Type>
@@ -250,7 +250,7 @@
     <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
     <Member Name="Name" Description="Name" />
   </Type>
-  <Type Name="WorkflowActionEval" Description="Workflow-Aktion eval" />
+  <Type Name="WorkflowActionEval" Description="Auswertung der Workflow-Aktion" />
   <Type Name="WorkflowActionOperation">
     <Member Name="Clone" Description="Klonen" />
     <Member Name="Delete" Description="Löschen" />
@@ -340,13 +340,13 @@
     <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
     <Member Name="Name" Description="Name" />
   </Type>
-  <Type Name="WorkflowConditionEval" Description="Auswertung der Arbeitsablaufbedingung" />
+  <Type Name="WorkflowConditionEval" Description="Auswertung der Workflow-Bedingung" />
   <Type Name="WorkflowConditionOperation">
     <Member Name="Clone" Description="Klonen" />
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="WorkflowConfigurationEmbedded" Description="Konfiguration des Arbeitsablaufs">
+  <Type Name="WorkflowConfigurationEmbedded" Description="Workflow-Konfiguration">
     <Member Name="AvoidExecutingScriptsOlderThan" Description="Skripte nicht ausführen, die älter sind als" />
     <Member Name="ChunkSizeRunningScripts" Description="Blockgröße der laufenden Skripte" />
     <Member Name="ScriptRunnerPeriod" Description="Intervall des Skript-Ausführers" />
@@ -401,7 +401,7 @@
     <Member Name="Type" Description="Typ" />
     <Member Name="Xml" Description="XML" />
   </Type>
-  <Type Name="WorkflowEventModel" Description="Workflow-event">
+  <Type Name="WorkflowEventModel" Description="Workflow-Ereignis">
     <Member Name="BpmnElementId" Description="BPMN-Element-Id" />
     <Member Name="DecisionOptionName" Description="Name der Entscheidungsoption" />
     <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
@@ -415,14 +415,14 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="WorkflowEventTaskActionEval" Description="Auswertung der Aktion der Ereignisaufgabe" />
-  <Type Name="WorkflowEventTaskConditionEval" Description="Auswertung der Bedingung der Ereignisaufgabe" />
-  <Type Name="WorkflowEventTaskConditionResultEntity" Description="Ergebnis der Bedingung der Ereignisaufgabe">
+  <Type Name="WorkflowEventTaskActionEval" Description="Auswertung der Ereignisaufgaben-Aktion" />
+  <Type Name="WorkflowEventTaskConditionEval" Description="Auswertung der Ereignisaufgaben-Bedingung" />
+  <Type Name="WorkflowEventTaskConditionResultEntity" Description="Ergebnis der Ereignisaufgaben-Bedingung" PluralDescription="Ergebnisse der Ereignisaufgaben-Bedingung" Gender="n">
     <Member Name="CreationDate" Description="Erstellungsdatum" />
     <Member Name="Result" Description="Ergebnis" />
     <Member Name="WorkflowEventTask" Description="Ereignisaufgabe des Arbeitsablaufs" />
   </Type>
-  <Type Name="WorkflowEventTaskEntity" Description="Ereignisaufgabe des Arbeitsablaufs" PluralDescription="Ereignisaufgaben des Arbeitsablaufs" Gender="f">
+  <Type Name="WorkflowEventTaskEntity" Description="Workflow-Ereignisaufgabe">
     <Member Name="Action" Description="Aktion" />
     <Member Name="Condition" Description="Bedingung" />
     <Member Name="Event" Description="Ereignis" />
@@ -430,7 +430,7 @@
     <Member Name="TriggeredOn" Description="Ausgelöst bei" />
     <Member Name="Workflow" Description="Workflow" />
   </Type>
-  <Type Name="WorkflowEventTaskModel" Description="Ereignisaufgabe des Arbeitsablaufs">
+  <Type Name="WorkflowEventTaskModel" Description="Workflow-Ereignisaufgabe">
     <Member Name="Action" Description="Aktion" />
     <Member Name="Condition" Description="Bedingung" />
     <Member Name="Rule" Description="Regel" />
@@ -441,7 +441,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="WorkflowEventType" Description="Workflow-Event-Typ">
+  <Type Name="WorkflowEventType" Description="Workflow-Ereignistyp">
     <Member Name="BoundaryForkTimer" Description="Randzeitgeber (Verzweigung)" />
     <Member Name="BoundaryInterruptingTimer" Description="Randzeitgeber (unterbrechend)" />
     <Member Name="Finish" Description="Abschließen" />
@@ -461,7 +461,7 @@
     <Member Name="Type" Description="Typ" />
     <Member Name="Xml" Description="XML" />
   </Type>
-  <Type Name="WorkflowGatewayModel" Description="Workflow-gateway">
+  <Type Name="WorkflowGatewayModel" Description="Workflow-Gateway">
     <Member Name="Direction" Description="Richtung" />
     <Member Name="Name" Description="Name" />
     <Member Name="Type" Description="Typ" />
@@ -475,12 +475,12 @@
     <Member Name="Inclusive" Description="Inklusive" />
     <Member Name="Parallel" Description="Parallel" />
   </Type>
-  <Type Name="WorkflowIssueType" Description="Art des Arbeitsablaufproblems">
+  <Type Name="WorkflowIssueType" Description="Workflow-Problemtyp">
     <Member Name="Error" Description="Fehler" />
     <Member Name="Warning" Description="Warnung" />
   </Type>
-  <Type Name="WorkflowLaneActorsEval" Description="Auswertung der Akteure der Bahn" />
-  <Type Name="WorkflowLaneEntity" Description="Workflowstrasse">
+  <Type Name="WorkflowLaneActorsEval" Description="Auswertung der Akteure der Workflow-Bahn" />
+  <Type Name="WorkflowLaneEntity" Description="Workflow-Bahn" PluralDescription="Workflow-Bahnen" Gender="f">
     <Member Name="Actors" Description="Akteur" />
     <Member Name="ActorsEval" Description="Auswertung der Akteure" />
     <Member Name="BpmnElementId" Description="BPMN-Element-Id" />
@@ -494,7 +494,7 @@
     <Member Name="Actor" Description="Akteur" />
     <Member Name="Lane" Description="Fahrbahn" />
   </Type>
-  <Type Name="WorkflowLaneModel" Description="Workflowstrasse">
+  <Type Name="WorkflowLaneModel" Description="Workflow-Bahn">
     <Member Name="Actors" Description="Akteur" />
     <Member Name="ActorsEval" Description="Auswertung der Akteure" />
     <Member Name="CombineActorAndActorEvalWhenContinuing" Description="Akteur und Akteursauswertung beim Fortsetzen kombinieren" />
@@ -506,7 +506,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="WorkflowMainEntityStrategy" Description="Arbeitsablauf Hauptentitäten Strategie">
+  <Type Name="WorkflowMainEntityStrategy" Description="Strategie für die Hauptentität des Workflows">
     <Member Name="Clone" Description="Klonen" />
     <Member Name="CreateNew" Description="Erstelle neue" />
     <Member Name="SelectByUser" Description="Auswahl durch Benutzer" />
@@ -559,14 +559,14 @@
     <Member Name="Workflow" Description="Workflow" />
     <Member Name="Xml" Description="XML" />
   </Type>
-  <Type Name="WorkflowPoolModel" Description="Workflow-pool">
+  <Type Name="WorkflowPoolModel" Description="Workflow-Pool">
     <Member Name="Name" Description="Name" />
   </Type>
   <Type Name="WorkflowPoolOperation">
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="WorkflowReplacementItemEmbedded" Description="Arbeitsablaufs Austauschposition">
+  <Type Name="WorkflowReplacementItemEmbedded" Description="Workflow-Ersatzposition">
     <Member Name="NewNode" Description="Neuer Knoten" />
     <Member Name="OldNode" Description="Alter Knoten" />
     <Member Name="SubWorkflow" Description="Unter Arbeitsablauf" />
@@ -575,12 +575,12 @@
     <Member Name="NewTasks" Description="Neue Aufgaben" />
     <Member Name="Replacements" Description="Ersatz" />
   </Type>
-  <Type Name="WorkflowScriptEntity" Description="Skript des Arbeitsablaufs" PluralDescription="Skripte des Arbeitsablaufs" Gender="n">
+  <Type Name="WorkflowScriptEntity" Description="Workflow-Skript" PluralDescription="Workflow-Skripte" Gender="n">
     <Member Name="Eval" Description="Auswertung" />
     <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
     <Member Name="Name" Description="Name" />
   </Type>
-  <Type Name="WorkflowScriptEval" Description="Auswertung des Arbeitsablaufskripts">
+  <Type Name="WorkflowScriptEval" Description="Auswertung des Workflow-Skripts">
     <Member Name="CustomTypes" Description="Benutzerdefinierte Typen" />
   </Type>
   <Type Name="WorkflowScriptOperation">
@@ -588,29 +588,29 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="WorkflowScriptPartEmbedded" Description="Workflow-Skript Teil">
+  <Type Name="WorkflowScriptPartEmbedded" Description="Workflow-Skript-Teil">
     <Member Name="RetryStrategy" Description="Wiederholungsstrategie" />
     <Member Name="Script" Description="Skript" />
   </Type>
-  <Type Name="WorkflowScriptRetryStrategyEntity" Description="Wiederholungsstrategie des Arbeitsablaufskripts" PluralDescription="Wiederholungsstrategien des Arbeitsablaufskripts" Gender="f">
+  <Type Name="WorkflowScriptRetryStrategyEntity" Description="Wiederholungsstrategie des Workflow-Skripts" PluralDescription="Wiederholungsstrategien des Workflow-Skripts" Gender="f">
     <Member Name="Rule" Description="Regel" />
   </Type>
   <Type Name="WorkflowScriptRetryStrategyOperation">
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="WorkflowTimerConditionEntity" Description="Zeitgeberbedingung des Arbeitsablaufs" PluralDescription="Zeitgeberbedingungen des Arbeitsablaufs" Gender="f">
+  <Type Name="WorkflowTimerConditionEntity" Description="Workflow-Zeitgeberbedingung">
     <Member Name="Eval" Description="Auswertung" />
     <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
     <Member Name="Name" Description="Name" />
   </Type>
-  <Type Name="WorkflowTimerConditionEval" Description="Auswertung der Zeitgeberbedingung" />
+  <Type Name="WorkflowTimerConditionEval" Description="Auswertung der Workflow-Zeitgeberbedingung" />
   <Type Name="WorkflowTimerConditionOperation">
     <Member Name="Clone" Description="Klonen" />
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="WorkflowTimerEmbedded" Description="Zeitgeber des Arbeitsablaufs">
+  <Type Name="WorkflowTimerEmbedded" Description="Workflow-Zeitgeber">
     <Member Name="AvoidExecuteConditionByTimer" Description="Bedingung nicht durch den Zeitgeber auswerten" />
     <Member Name="Condition" Description="Bedingung" />
     <Member Name="Duration" Description="Dauer" />
@@ -662,7 +662,7 @@
     <Member Name="TheFollowingTasksAreGoingToBeDeleted" Description="Folgende Aufgaben werden gelöscht:" />
     <Member Name="TimerOrConditionalStartEventsCanNotGoToJoinGateways" Description="Timer- oder bedingte Startereignisse können nicht zu Gateways beitreten" />
   </Type>
-  <Type Name="WorkflowXmlEmbedded" Description="Arbeitsablauf XML">
+  <Type Name="WorkflowXmlEmbedded" Description="Workflow-XML">
     <Member Name="DiagramXml" Description="Diagram XML" />
   </Type>
 </Translations>

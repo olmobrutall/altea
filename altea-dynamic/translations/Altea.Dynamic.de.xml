@@ -11,7 +11,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="DynamicBaseType" Description="Dynamische Basistyp">
+  <Type Name="DynamicBaseType" Description="Dynamischer Basistyp">
     <Member Name="EmbeddedEntity" Description="Eingebettete Entität" />
     <Member Name="Entity" Description="Entität" />
     <Member Name="MixinEntity" Description="Mixin Entität" />
@@ -40,7 +40,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="DynamicExpressionTranslation" Description="Dynamischer Ausdruck Übersetzung">
+  <Type Name="DynamicExpressionTranslation" Description="Übersetzung des dynamischen Ausdrucks">
     <Member Name="NoTranslation" Description="Keine Übersetzung" />
     <Member Name="ReuseTranslationOfReturnType" Description="Übersetzung des Rückgabetyps wiederverwenden" />
     <Member Name="TranslateExpressionName" Description="Ausdrucksnamen übersetzen" />
@@ -48,7 +48,7 @@
   <Type Name="DynamicIsolationMixin">
     <Member Name="IsolationStrategy" Description="Isolationsstrategie" />
   </Type>
-  <Type Name="DynamicMixinConnectionEntity" Description="Dynamische mixinverbindung" PluralDescription="Dynamischen mixinverbindungen">
+  <Type Name="DynamicMixinConnectionEntity" Description="Dynamische Mixin-Verbindung">
     <Member Name="EntityType" Description="Entitätstyp" />
     <Member Name="MixinName" Description="Name des Mixins" />
   </Type>
@@ -65,7 +65,7 @@
     <Member Name="OldName" Description="Alter Name" />
     <Member Name="ReplacementKey" Description="Ersatzschlüssel" />
   </Type>
-  <Type Name="DynamicSqlMigrationEntity" Description="Dynamische Sql-migration" PluralDescription="Dynamischen Sql-migrationen">
+  <Type Name="DynamicSqlMigrationEntity" Description="Dynamische SQL-Migration">
     <Member Name="Comment" Description="Kommentar" />
     <Member Name="CreatedBy" Description="Erstellt von" />
     <Member Name="CreationDate" Description="Erstellungsdatum" />
@@ -84,17 +84,17 @@
     <Member Name="Execute" Description="Ausführen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="DynamicTypeConditionEntity" Description="Dynamischer Typenzustand" PluralDescription="Dynamische Typenzustände" Gender="m">
+  <Type Name="DynamicTypeConditionEntity" Description="Dynamische Typbedingung">
     <Member Name="EntityType" Description="Entitätstyp" />
     <Member Name="Eval" Description="Auswertung" />
     <Member Name="SymbolName" Description="Symbolname" />
   </Type>
-  <Type Name="DynamicTypeConditionEval" Description="Dynamische Typ-Bedingung Auswertung" />
+  <Type Name="DynamicTypeConditionEval" Description="Auswertung der dynamischen Typbedingung" />
   <Type Name="DynamicTypeConditionOperation">
     <Member Name="Clone" Description="Klonen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="DynamicTypeConditionSymbolEntity" Description="Dynamisches Typzustandssymbol" PluralDescription="Dynamische Typzustandssymbole" Gender="n">
+  <Type Name="DynamicTypeConditionSymbolEntity" Description="Dynamisches Typbedingungssymbol" PluralDescription="Dynamische Typbedingungssymbole" Gender="n">
     <Member Name="Name" Description="Name" />
   </Type>
   <Type Name="DynamicTypeConditionSymbolOperation">
@@ -125,7 +125,7 @@
     <Member Name="Name" Description="Name" />
     <Member Name="SubEntity" Description="Unterentität" />
   </Type>
-  <Type Name="DynamicValidationEval" Description="Dynamische Validierung auswerten" />
+  <Type Name="DynamicValidationEval" Description="Auswertung der dynamischen Validierung" />
   <Type Name="DynamicValidationOperation">
     <Member Name="Clone" Description="Klonen" />
     <Member Name="Delete" Description="Löschen" />
@@ -177,7 +177,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="DynamicViewSelectorEntity" Description="Dynamische Ansichten-Selektor" PluralDescription="Dynamischen Ansichten-Selektoren">
+  <Type Name="DynamicViewSelectorEntity" Description="Dynamischer Ansichtsselektor" PluralDescription="Dynamische Ansichtsselektoren">
     <Member Name="EntityType" Description="Entitätstyp" />
     <Member Name="Script" Description="Skript" />
   </Type>

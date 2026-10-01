@@ -5,7 +5,7 @@
     <Member Name="RestLog" Description="Rest-Protokoll" />
     <Member Name="Value" Description="Wert" />
   </Type>
-  <Type Name="RestApiKeyEntity" Description="Rest-API-Schlüssel" Gender="m">
+  <Type Name="RestApiKeyEntity" Description="REST-API-Schlüssel" Gender="m">
     <Member Name="ApiKey" Description="API-Schlüssel" />
     <Member Name="User" Description="Benutzer" />
   </Type>
@@ -16,7 +16,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="RestLogEntity" Description="Rest-Protokoll" PluralDescription="Rest-Protokolle" Gender="n">
+  <Type Name="RestLogEntity" Description="REST-Protokoll" PluralDescription="REST-Protokolle" Gender="n">
     <Member Name="Action" Description="Aktion" />
     <Member Name="AllowReplay" Description="Wiedergabe erlauben" />
     <Member Name="ApplicationName" Description="Anwendungsname" />
@@ -47,7 +47,7 @@
     <Member Name="Replay" Description="Erneut abspielen" />
     <Member Name="ReplayNotAllowedForThisRestLog" Description="Das erneute Abspielen ist für dieses REST-Protokoll nicht erlaubt" />
   </Type>
-  <Type Name="RestLogReplayState" Description="Restlog Wiederholungszustand">
+  <Type Name="RestLogReplayState" Description="Wiederholungszustand des REST-Protokolls">
     <Member Name="NoChanges" Description="Keine Änderungen" />
     <Member Name="WithChanges" Description="Mit Änderungen" />
   </Type>

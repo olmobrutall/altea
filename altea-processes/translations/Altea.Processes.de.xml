@@ -29,7 +29,7 @@
     <Member Name="Result" Description="Ergebnis" />
     <Member Name="Target" Description="Ziel" />
   </Type>
-  <Type Name="PackageOperationEntity" Description="Paket-Operation">
+  <Type Name="PackageOperationEntity" Description="Paketoperation">
     <Member Name="Operation" Description="Operation" />
   </Type>
   <Type Name="PackageOperationLastProcessRowModel" Description="Letzter Prozess der Paketoperation">
@@ -44,7 +44,7 @@
   <Type Name="PackageOperationProcess">
     <Member Name="PackageOperation" Description="Paket-Operation" />
   </Type>
-  <Type Name="ProcessAlgorithmSymbol" Description="Prozess-Algorithmus" PluralDescription="Prozess-Algorithmen" Gender="m" />
+  <Type Name="ProcessAlgorithmSymbol" Description="Prozessalgorithmus" PluralDescription="Prozessalgorithmen" Gender="m" />
   <Type Name="ProcessEntity" Description="Prozess" PluralDescription="Prozesse" Gender="m">
     <Member Name="Algorithm" Description="Algorithmus" />
     <Member Name="ApplicationName" Description="Anwendungsname" />

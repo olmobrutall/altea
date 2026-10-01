@@ -79,7 +79,7 @@
     <Member Name="TranslateCode" Description="Code übersetzen" />
     <Member Name="TranslateInstances" Description="Instanzen übersetzen" />
   </Type>
-  <Type Name="TranslationReplacementEntity" Description="Übersetzungersatz" PluralDescription="Übersetzungersätze" Gender="m">
+  <Type Name="TranslationReplacementEntity" Description="Übersetzungsersatz" PluralDescription="Übersetzungsersätze" Gender="m">
     <Member Name="CultureInfo" Description="Sprache" />
     <Member Name="RightTranslation" Description="Richtige Übersetzung" />
     <Member Name="WrongTranslation" Description="Falsche Übersetzung" />

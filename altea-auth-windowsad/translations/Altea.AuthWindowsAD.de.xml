@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="WindowsADConfigurationEmbedded" Description="Active Directory-Konfiguration">
+  <Type Name="WindowsADConfigurationEmbedded" Description="Windows-AD-Konfiguration">
     <Member Name="BaseDN" Description="Basis-DN" />
     <Member Name="DirectoryRegistry_Password" Description="Passwort der Verzeichnisregistrierung" />
     <Member Name="DirectoryRegistry_Username" Description="Benutzername der Verzeichnisregistrierung" />
@@ -17,7 +17,7 @@
     <Member Name="TheUser0IsConnectedToActiveDirectoryAndCanNotHaveALocalPasswordSet" Description="Der Benutzer {0} ist mit Active Directory verbunden und kann kein lokales Passwort festlegen" />
     <Member Name="WindowsIntegratedAuthenticationIsNotConfiguredOnThisHost" Description="Die integrierte Windows-Authentifizierung ist auf diesem Host nicht konfiguriert" />
   </Type>
-  <Type Name="WindowsADRoleMappingEntity" Description="Rollenzuordnung">
+  <Type Name="WindowsADRoleMappingEntity" Description="Windows-AD-Rollenzuordnung">
     <Member Name="Configuration" Description="Konfiguration" />
   </Type>
   <Type Name="WindowsADTask">

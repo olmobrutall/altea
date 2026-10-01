@@ -32,7 +32,7 @@
     <Member Name="ViewFile" Description="Datei anzeigen" />
     <Member Name="WriteHere" Description="Hier schreiben" />
   </Type>
-  <Type Name="FilePathEmbedded" Description="Eingebettete Datei-Pfad">
+  <Type Name="FilePathEmbedded" Description="Eingebetteter Dateipfad">
     <Member Name="BinaryFile" Description="Binärdatei" />
     <Member Name="EntityId" Description="EntityId" />
     <Member Name="FileLength" Description="Dateilänge" />

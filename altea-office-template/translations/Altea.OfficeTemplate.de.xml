@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="CollectionElementEmbedded" Description="Collection-Element">
+  <Type Name="CollectionElementEmbedded" Description="Sammlungselement">
     <Member Name="CollectionElement" Description="Collection-Element" />
     <Member Name="MatchByColumn" Description="Übereinstimmung nach Spalte" />
   </Type>
@@ -21,7 +21,7 @@
     <Member Name="ImportFromExcel" Description="Import aus Excel" />
     <Member Name="PlainExcel" Description="Einfaches Excel" />
   </Type>
-  <Type Name="ExcelReportEntity" Description="Excel Bericht" PluralDescription="Excel Berichte" Gender="m">
+  <Type Name="ExcelReportEntity" Description="Excel-Bericht" PluralDescription="Excel-Berichte" Gender="m">
     <Member Name="DisplayName" Description="Berichtname" />
     <Member Name="File" Description="Datei" />
     <Member Name="Query" Description="Abfrage" />
@@ -30,7 +30,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="ImportExcelMode" Description="Excel-Modus importieren">
+  <Type Name="ImportExcelMode" Description="Excel-Importmodus">
     <Member Name="Insert" Description="Insert" />
     <Member Name="InsertOrUpdate" Description="Insert or update" />
     <Member Name="Update" Description="Update" />
@@ -120,5 +120,5 @@
   <Type Name="OfficeTemplatePermission">
     <Member Name="GenerateReport" Description="Bericht erzeugen" />
   </Type>
-  <Type Name="OfficeTransformerSymbol" Description="Office-Transformator" />
+  <Type Name="OfficeTransformerSymbol" Description="Office-Transformer" Gender="m" />
 </Translations>

@@ -13,7 +13,7 @@
     <Member Name="AutomaticUpgradeOfProperties" Description="Automatische Aktualisierung von Eigenschaften" />
     <Member Name="AutomaticUpgradeOfQueries" Description="Automatische Aktualisierung von Abfragen" />
   </Type>
-  <Type Name="BigStringEmbedded" Description="Große Saite">
+  <Type Name="BigStringEmbedded" Description="Langer Text">
     <Member Name="Text" Description="Text" />
   </Type>
   <Type Name="BooleanEnum" Description="Boolescher Wert">
@@ -42,7 +42,7 @@
     <Member Name="SeeMoreChangeLogEntries" Description="Weitere Einträge im Änderungsprotokoll anzeigen" />
     <Member Name="ThereIsNotAnyNewChangesFrom0" Description="Es gibt keine neuen Änderungen von {0}" />
   </Type>
-  <Type Name="ChangeLogViewLogEntity" Description="Change-Log Ansichtsprotokoll" PluralDescription="Change-Log Ansichtsprotokolle" Gender="n">
+  <Type Name="ChangeLogViewLogEntity" Description="Changelog-Anzeigeprotokoll" PluralDescription="Change-Log Ansichtsprotokolle" Gender="n">
     <Member Name="LastDate" Description="Letzter Termin" />
     <Member Name="User" Description="Benutzer" />
   </Type>
@@ -77,7 +77,7 @@
     <Member Name="No0Found" Description="Keine(n) {0} gefunden" />
     <Member Name="Or" Description=" oder " />
   </Type>
-  <Type Name="CollectionToArrayType" Description="Sammlung als Text">
+  <Type Name="CollectionToArrayType" Description="Sammlung-zu-Array-Typ">
     <Member Name="SeparatedByComma" Description="Getrennt durch Komma" />
     <Member Name="SeparatedByCommaDistinct" Description="Getrennt durch Komma (Distinct)" />
     <Member Name="SeparatedByNewLine" Description="Getrennt durch neue Zeile" />
@@ -146,13 +146,13 @@
     <Member Name="Minutes" Description="Minuten" />
     <Member Name="Seconds" Description="Sekunden" />
   </Type>
-  <Type Name="DeleteLogParametersEmbedded" Description="Lösche log Parameter">
+  <Type Name="DeleteLogParametersEmbedded" Description="Parameter zum Löschen der Protokolle">
     <Member Name="ChunkSize" Description="Chunk-Größe" />
     <Member Name="DeleteLogs" Description="Protokolle löschen" />
     <Member Name="MaxChunks" Description="Max Chunks" />
     <Member Name="PauseTime" Description="Pausenzeit" />
   </Type>
-  <Type Name="DeleteLogsTypeOverridesEmbedded" Description="Lösche Log Typen overrides">
+  <Type Name="DeleteLogsTypeOverridesEmbedded" Description="Typüberschreibung beim Löschen der Protokolle">
     <Member Name="DeleteLogsOlderThan" Description="Löschen von Protokollen, die älter als" />
     <Member Name="DeleteLogsWithExceptionsOlderThan" Description="Löschen von Protokollen mit Ausnahmen, die älter als" />
     <Member Name="Parameters" Description="Parameter" />
@@ -240,7 +240,7 @@
     <Member Name="UserHostName" Description="Benutzer Hostname" />
     <Member Name="Version" Description="Version" />
   </Type>
-  <Type Name="ExceptionOrigin" Description="Ausnahme Ursprung">
+  <Type Name="ExceptionOrigin" Description="Ursprung der Ausnahme">
     <Member Name="Backend" Description="Backend" />
     <Member Name="Frontend" Description="Frontend" />
   </Type>
@@ -279,7 +279,7 @@
     <Member Name="Using0YouCanGroupAFewFiltersTogether" Description="Mit {0} können Sie einige Filter gruppieren, so dass nur eine Bedingung erfüllt sein muss. Innerhalb eines {1} können Sie eine verschachtelte {2} erstellen und so weiter. " />
     <Member Name="Value" Description="Wert" />
   </Type>
-  <Type Name="FilterGroupOperation" Description="Filtergruppeoperation">
+  <Type Name="FilterGroupOperation" Description="Filtergruppenoperation">
     <Member Name="And" Description="Und" />
     <Member Name="Or" Description="Oder" />
   </Type>
@@ -425,8 +425,8 @@
     <Member Name="Firsts" Description="Erste" />
     <Member Name="Paginate" Description="Seiten" />
   </Type>
-  <Type Name="PermissionSymbol" Description="Erlaubnis" PluralDescription="Erlaubnisse" Gender="f" />
-  <Type Name="PinnedFilterActive" Description="Vorgewahlter Filter aktiv">
+  <Type Name="PermissionSymbol" Description="Berechtigung" PluralDescription="Erlaubnisse" />
+  <Type Name="PinnedFilterActive" Description="Angehefteter Filter aktiv">
     <Member Name="Always" Description="Immer" />
     <Member Name="Checkbox_Checked" Description="Kontrollkästchen (aktiviert)" />
     <Member Name="Checkbox_Unchecked" Description="Kontrollkästchen (deaktiviert)" />
@@ -434,7 +434,7 @@
     <Member Name="NotCheckbox_Unchecked" Description="Nicht Kontrollkästchen (deaktiviert)" />
     <Member Name="WhenHasValue" Description="Wenn er einen Wert hat" />
   </Type>
-  <Type Name="PropertyOperation" Description="Eigenschaftsvorgang">
+  <Type Name="PropertyOperation" Description="Eigenschaftsoperation">
     <Member Name="AddElement" Description="Element hinzufügen" />
     <Member Name="AddNewElement" Description="Neues Element hinzufügen" />
     <Member Name="ChangeElements" Description="Elemente ändern" />

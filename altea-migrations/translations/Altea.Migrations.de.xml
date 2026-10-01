@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="LoadMethodLogEntity" Description="Load-Methode Protokoll" Gender="n">
+  <Type Name="LoadMethodLogEntity" Description="Protokoll der Lademethode" PluralDescription="Protokolle der Lademethode" Gender="n">
     <Member Name="ClassName" Description="Klassen Name" />
     <Member Name="Description" Description="Beschreibung" />
     <Member Name="End" Description="Ende" />
@@ -28,7 +28,7 @@
     <Member Name="Comment" Description="Kommentar" />
     <Member Name="VersionNumber" Description="Versionsnummer" />
   </Type>
-  <Type Name="TypeScriptMigrationEntity" Description="C-sharp-Migration">
+  <Type Name="TypeScriptMigrationEntity" Description="TypeScript-Migration">
     <Member Name="ExecutionDate" Description="Ausführungsdatum" />
     <Member Name="UniqueName" Description="Einzigartiger Name" />
   </Type>

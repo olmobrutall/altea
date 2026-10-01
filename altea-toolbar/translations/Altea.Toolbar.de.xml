@@ -13,7 +13,7 @@
     <Member Name="No0FoundIn1" Description="Kein {0} in {1} gefunden" />
     <Member Name="NotAllowedToCreate0In1" Description="Es ist nicht erlaubt, {0} in {1} zu erstellen" />
   </Type>
-  <Type Name="ToolbarElementBaseEntity" Description="Toolbar-element">
+  <Type Name="ToolbarElementBaseEntity" Description="Toolbar-Element-Basis">
     <Member Name="AutoRefreshPeriod" Description="Autoaktualisierungszeitraum" />
     <Member Name="Content" Description="Inhalt" />
     <Member Name="IconColor" Description="Symbolfarbe" />
@@ -37,7 +37,7 @@
     <Member Name="Owner" Description="Eigentümer" />
     <Member Name="Priority" Description="Priorität" />
   </Type>
-  <Type Name="ToolbarEntity_Element" Description="Toolbar-element">
+  <Type Name="ToolbarEntity_Element" Description="Toolbar-Element">
     <Member Name="Toolbar" Description="Symbolleiste" />
   </Type>
   <Type Name="ToolbarLocation" Description="Toolbar-Position">
@@ -51,7 +51,7 @@
     <Member Name="Name" Description="Name" />
     <Member Name="Owner" Description="Eigentümer" />
   </Type>
-  <Type Name="ToolbarMenuEntity_Element" Description="Menüelement der Symbolleiste">
+  <Type Name="ToolbarMenuEntity_Element" Description="Toolbar-Menü-Element">
     <Member Name="AutoSelect" Description="Automatisch auswählen" />
     <Member Name="ToolbarMenu" Description="Toolbar-Menü" />
     <Member Name="WithEntity" Description="Mit Entität" />

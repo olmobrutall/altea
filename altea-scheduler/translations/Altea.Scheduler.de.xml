@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="DeleteLogsTaskEntity" Description="Protokolle löschen Task" PluralDescription="Protokolle löschen Tasks" Gender="f">
+  <Type Name="DeleteLogsTaskEntity" Description="Aufgabe zum Löschen der Protokolle" PluralDescription="Aufgaben zum Löschen der Protokolle">
     <Member Name="Parameters" Description="Parameter" />
   </Type>
   <Type Name="DeleteLogsTaskOperation">
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="HolidayCalendarEntity" Description="Ferienkalender" Gender="m">
+  <Type Name="HolidayCalendarEntity" Description="Feiertagskalender" Gender="m">
     <Member Name="CountryCode" Description="Landescode" />
     <Member Name="FromYear" Description="Ab Jahr" />
     <Member Name="Holidays" Description="Ferien" />
@@ -38,7 +38,7 @@
   <Type Name="ITaskOperation">
     <Member Name="ExecuteSync" Description="Sync ausführen" />
   </Type>
-  <Type Name="ScheduledTaskEntity" Description="Geplante Task" PluralDescription="Geplanten Tasks" Gender="f">
+  <Type Name="ScheduledTaskEntity" Description="Geplante Aufgabe">
     <Member Name="ApplicationName" Description="Anwendungsname" />
     <Member Name="MachineName" Description="Computername" />
     <Member Name="Rule" Description="Regel" />
@@ -46,7 +46,7 @@
     <Member Name="Task" Description="Task" />
     <Member Name="User" Description="Benutzer" />
   </Type>
-  <Type Name="ScheduledTaskLogEntity" Description="Geplantes Task-Protokoll" PluralDescription="Geplante Task-Protokolle" Gender="n">
+  <Type Name="ScheduledTaskLogEntity" Description="Protokoll der geplanten Aufgabe" PluralDescription="Protokolle der geplanten Aufgabe" Gender="n">
     <Member Name="ApplicationName" Description="Anwendungsname" />
     <Member Name="EndTime" Description="Endzeit" />
     <Member Name="Exception" Description="Ausnahme" />
@@ -118,16 +118,16 @@
   <Type Name="SchedulerPermission">
     <Member Name="ViewSchedulerPanel" Description="Schedulersteuerung anzeigen" />
   </Type>
-  <Type Name="SchedulerTaskExceptionLineEntity" Description="Geplantes Task Ausnahmezeile">
+  <Type Name="SchedulerTaskExceptionLineEntity" Description="Ausnahmezeile der geplanten Aufgabe" PluralDescription="Ausnahmezeilen der geplanten Aufgabe">
     <Member Name="ElementInfo" Description="Elementinfo" />
     <Member Name="Exception" Description="Ausnahme" />
     <Member Name="SchedulerTaskLog" Description="Geplantes Task-Protokoll" />
   </Type>
-  <Type Name="ScheduleRuleMinutelyEntity" Description="Schedule-Regel minütlich">
+  <Type Name="ScheduleRuleMinutelyEntity" Description="Minütliche Zeitplanregel">
     <Member Name="EachMinutes" Description="Alle Minuten" />
     <Member Name="StartingOn" Description="Beginnend am" />
   </Type>
-  <Type Name="ScheduleRuleMonthsEntity" Description="Schedule-Regel monatlich">
+  <Type Name="ScheduleRuleMonthsEntity" Description="Monatliche Zeitplanregel">
     <Member Name="April" Description="April" />
     <Member Name="August" Description="August" />
     <Member Name="December" Description="Dezember" />
@@ -142,7 +142,7 @@
     <Member Name="September" Description="September" />
     <Member Name="StartingOn" Description="Beginnend am" />
   </Type>
-  <Type Name="ScheduleRuleWeekDaysEntity" Description="Schedule-Regel Wochentage">
+  <Type Name="ScheduleRuleWeekDaysEntity" Description="Wochentags-Zeitplanregel">
     <Member Name="Calendar" Description="Kalender" />
     <Member Name="Friday" Description="Freitag" />
     <Member Name="Holiday" Description="Feiertag" />
@@ -154,5 +154,5 @@
     <Member Name="Tuesday" Description="Dienstag" />
     <Member Name="Wednesday" Description="Mittwoch" />
   </Type>
-  <Type Name="SimpleTaskSymbol" Description="Einfache Task" PluralDescription="Einfache Tasks" Gender="f" />
+  <Type Name="SimpleTaskSymbol" Description="Einfache Aufgabe" />
 </Translations>

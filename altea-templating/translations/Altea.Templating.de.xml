@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="ModelConverterSymbol" Description="Modell-Konverter" Gender="m" />
+  <Type Name="ModelConverterSymbol" Description="Modellkonverter" Gender="m" />
   <Type Name="MultiEntityModel" Description="Multi-Entität">
     <Member Name="Entities" Description="Entitäten" />
   </Type>
@@ -13,7 +13,7 @@
   <Type Name="QueryModelMessage">
     <Member Name="ConfigureYourQueryAndPressSearchBeforeOk" Description="Konfigurieren Sie Ihre Abfrage und klicken Sie auf [suchen] vor Sie [Ok] drücken." />
   </Type>
-  <Type Name="TemplateApplicableEval" Description="Vorlage für eval" />
+  <Type Name="TemplateApplicableEval" Description="Auswertung der Vorlagenanwendbarkeit" />
   <Type Name="TemplateMessage">
     <Member Name="CopyToClipboard" Description="In die Zwischenablage kopieren: Strg+C, ESC" />
     <Member Name="Template" Description="Vorlage" />

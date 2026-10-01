@@ -145,7 +145,7 @@
     <Member Name="WeHaveSentYouAnEmailToResetYourPassword" Description="Wir haben Ihnen eine E-Mail mit einem Link geschickt, mit dem Sie Ihr Passwort zurücksetzen können." />
     <Member Name="YouMustChangeYourPasswordBeforeContinuing" Description="Sie müssen Ihr Passwort ändern, bevor Sie fortfahren" />
   </Type>
-  <Type Name="MergeStrategy" Description="Zusammenführstrategie">
+  <Type Name="MergeStrategy" Description="Zusammenführungsstrategie">
     <Member Name="Intersection" Description="Schnittmenge" />
     <Member Name="Union" Description="Vereinigungsmenge" />
   </Type>
@@ -154,7 +154,7 @@
     <Member Name="DBOnly" Description="Nur DB" />
     <Member Name="None" Description="Keine" />
   </Type>
-  <Type Name="OperationAllowedRule" Description="Erlaubte Operationsregel">
+  <Type Name="OperationAllowedRule" Description="Regel für erlaubte Operationen">
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="AllowedBase" Description="Base erlaubt" />
     <Member Name="Coerced" Description="Gezwungen" />
@@ -164,7 +164,7 @@
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="TypeConditions" Description="Typbedingungen" />
   </Type>
-  <Type Name="OperationRulePack" Description="Operationsregelpack">
+  <Type Name="OperationRulePack" Description="Operationsregelpaket">
     <Member Name="AvailableConditions" Description="Verfügbare Bedingungen" />
     <Member Name="AvailableTypeConditions" Description="Verfügbare Typenbedingungen" />
     <Member Name="Role" Description="Rolle" />
@@ -176,12 +176,12 @@
     <Member Name="ConditionRules" Description="Bedingungsregeln" />
     <Member Name="Fallback" Description="Fallback" />
   </Type>
-  <Type Name="PermissionAllowedRule" Description="Erlaubte Berechtigungsregel">
+  <Type Name="PermissionAllowedRule" Description="Regel für erlaubte Berechtigungen">
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="AllowedBase" Description="Base erlaubt" />
     <Member Name="Resource" Description="Ressource" />
   </Type>
-  <Type Name="PermissionRulePack" Description="Berechtigungregelpack">
+  <Type Name="PermissionRulePack" Description="Berechtigungsregelpaket">
     <Member Name="Role" Description="Rolle" />
     <Member Name="Rules" Description="Regeln" />
     <Member Name="Strategy" Description="Strategie" />
@@ -191,7 +191,7 @@
     <Member Name="Read" Description="Lesen" />
     <Member Name="Write" Description="Schreiben" />
   </Type>
-  <Type Name="PropertyAllowedRule" Description="Erlaubte Eigenschaftenregel">
+  <Type Name="PropertyAllowedRule" Description="Regel für erlaubte Eigenschaften">
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="AllowedBase" Description="Base erlaubt" />
     <Member Name="Coerced" Description="Gezwungen" />
@@ -202,7 +202,7 @@
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="TypeConditions" Description="Typbedingungen" />
   </Type>
-  <Type Name="PropertyRulePack" Description="Eigenschaftsregelpack">
+  <Type Name="PropertyRulePack" Description="Eigenschaftsregelpaket">
     <Member Name="AvailableConditions" Description="Verfügbare Bedingungen" />
     <Member Name="AvailableTypeConditions" Description="Verfügbare Typenbedingungen" />
     <Member Name="Role" Description="Rolle" />
@@ -219,13 +219,13 @@
     <Member Name="EmbeddedOnly" Description="Nur eingebettet" />
     <Member Name="None" Description="Keine" />
   </Type>
-  <Type Name="QueryAllowedRule" Description="Erlaubte Abfrageregel">
+  <Type Name="QueryAllowedRule" Description="Regel für erlaubte Abfragen">
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="AllowedBase" Description="Base erlaubt" />
     <Member Name="Coerced" Description="Gezwungen" />
     <Member Name="Resource" Description="Ressource" />
   </Type>
-  <Type Name="QueryRulePack" Description="Abfrageregelpack">
+  <Type Name="QueryRulePack" Description="Abfrageregelpaket">
     <Member Name="Role" Description="Rolle" />
     <Member Name="Rules" Description="Regeln" />
     <Member Name="Strategy" Description="Strategie" />
@@ -258,7 +258,7 @@
   <Type Name="RuleEntity" Description="Regel" PluralDescription="Regeln" Gender="f">
     <Member Name="Role" Description="Rolle" />
   </Type>
-  <Type Name="RuleOperationConditionEntity" Description="Operationregel-Bedingung">
+  <Type Name="RuleOperationConditionEntity" Description="Operationsregel-Bedingung">
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="Conditions" Description="Bedingungen" />
     <Member Name="RuleOperation" Description="Operationsregel" />
@@ -277,7 +277,7 @@
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="Resource" Description="Ressource" />
   </Type>
-  <Type Name="RulePropertyConditionEntity" Description="Rule-Eigenschaft-Bedingung">
+  <Type Name="RulePropertyConditionEntity" Description="Eigenschaftsregel-Bedingung">
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="Conditions" Description="Bedingungen" />
     <Member Name="RuleProperty" Description="Eigenschaftsregel" />
@@ -295,7 +295,7 @@
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="Resource" Description="Ressource" />
   </Type>
-  <Type Name="RuleTypeConditionEntity" Description="Regeltypbedingung">
+  <Type Name="RuleTypeConditionEntity" Description="Typregel-Bedingung">
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="Conditions" Description="Bedingungen" />
     <Member Name="RuleType" Description="Typregel" />
@@ -331,7 +331,7 @@
     <Member Name="Read" Description="Lesen" />
     <Member Name="Write" Description="Schreiben" />
   </Type>
-  <Type Name="TypeAllowedRule" Description="Typ Regel erlaubt">
+  <Type Name="TypeAllowedRule" Description="Regel für erlaubte Typen">
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="AllowedBase" Description="Base erlaubt" />
     <Member Name="AvailableConditions" Description="Verfügbare Bedingungen" />
@@ -346,7 +346,7 @@
     <Member Name="TypeConditions" Description="Typbedingungen" />
   </Type>
   <Type Name="TypeConditionSymbol" Description="Typbedingung" />
-  <Type Name="TypeRulePack" Description="Typregelpack">
+  <Type Name="TypeRulePack" Description="Typregelpaket">
     <Member Name="Role" Description="Rolle" />
     <Member Name="Rules" Description="Regeln" />
     <Member Name="Strategy" Description="Strategie" />

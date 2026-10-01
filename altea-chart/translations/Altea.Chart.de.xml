@@ -211,7 +211,7 @@
     <Member Name="YSort" Description="Y-Sortieren" />
     <Member Name="Zoom" Description="Zoom" />
   </Type>
-  <Type Name="ChartParameterEmbedded" Description="Diagramm-parameter">
+  <Type Name="ChartParameterEmbedded" Description="Diagrammparameter">
     <Member Name="Name" Description="Name" />
     <Member Name="Value" Description="Wert" />
   </Type>
@@ -259,7 +259,7 @@
     <Member Name="QueryKey" Description="Abfrageschlüssel" />
   </Type>
   <Type Name="ChartScriptSymbol" Description="Diagrammskript" Gender="n" />
-  <Type Name="ChartTimeSeriesEmbedded" Description="Zeitreihen in Diagrammen">
+  <Type Name="ChartTimeSeriesEmbedded" Description="Zeitreihe im Diagramm">
     <Member Name="EndDate" Description="Enddatum" />
     <Member Name="SplitQueries" Description="Geteilte Abfragen" />
     <Member Name="StartDate" Description="Startdatum" />
@@ -365,7 +365,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="UserChartPartEntity" Description="Benutzerdiagramm Teil">
+  <Type Name="UserChartPartEntity" Description="Benutzerdiagrammteil">
     <Member Name="AllowChangeShowData" Description="Änderungsdaten anzeigen lassen" />
     <Member Name="AutoRefresh" Description="Automatische Aktualisierung" />
     <Member Name="CreateNew" Description="Neue erstellen" />

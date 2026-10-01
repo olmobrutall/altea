@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="AppendixHelpEntity" Description="Anlagehilfe">
+  <Type Name="AppendixHelpEntity" Description="Anhang-Hilfe">
     <Member Name="Culture" Description="Kultur" />
     <Member Name="Description" Description="Beschreibung" />
     <Member Name="Title" Description="Titel" />
@@ -159,7 +159,7 @@
     <Member Name="Info" Description="Info" />
     <Member Name="Query" Description="Abfrage" />
   </Type>
-  <Type Name="QueryHelpEntity_Column" Description="Abfrage Spaltenhilfe">
+  <Type Name="QueryHelpEntity_Column" Description="Spaltenhilfe der Abfrage">
     <Member Name="ColumnName" Description="Spaltenname" />
     <Member Name="Description" Description="Beschreibung" />
     <Member Name="Info" Description="Info" />

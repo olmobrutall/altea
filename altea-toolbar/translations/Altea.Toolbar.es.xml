@@ -45,7 +45,7 @@
     <Member Name="Side" Description="Lado" />
     <Member Name="Top" Description="Arriba" />
   </Type>
-  <Type Name="ToolbarMenuEntity" Description="Menú barra de herramientas" Gender="m">
+  <Type Name="ToolbarMenuEntity" Description="Menú de la barra de herramientas" Gender="m">
     <Member Name="Elements" Description="Elementos" />
     <Member Name="EntityType" Description="Tipo de entidad" />
     <Member Name="Name" Description="Nombre" />

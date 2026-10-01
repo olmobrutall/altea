@@ -17,7 +17,7 @@
     <Member Name="EmailOwner" Description="E-Mail-Besitzer" />
     <Member Name="InvalidEmail" Description="Ungültige e-Mail" />
   </Type>
-  <Type Name="EmailAddressSource" Description="E-Mail-Adresse Quelle">
+  <Type Name="EmailAddressSource" Description="Quelle der E-Mail-Adresse">
     <Member Name="CurrentUser" Description="Aktueller Benutzer" />
     <Member Name="HardcodedAddress" Description="Festgelegte Adresse" />
     <Member Name="QueryToken" Description="Abfrage-Token" />
@@ -40,10 +40,10 @@
   <Type Name="EmailFileType">
     <Member Name="Attachment" Description="Anhang" />
   </Type>
-  <Type Name="EmailFromEmbedded" Description="E-Mail von">
+  <Type Name="EmailFromEmbedded" Description="E-Mail-Absender">
     <Member Name="AzureUserId" Description="Azure-Benutzer-ID" />
   </Type>
-  <Type Name="EmailMasterTemplateEntity" Description="Master E-Mail-Vorlage">
+  <Type Name="EmailMasterTemplateEntity" Description="E-Mail-Master-Vorlage">
     <Member Name="Attachments" Description="Anhänge" />
     <Member Name="IsDefault" Description="Ist Standard" />
     <Member Name="Messages" Description="Nachrichten" />
@@ -53,7 +53,7 @@
     <Member Name="Attachment" Description="Anhang" />
     <Member Name="MasterTemplate" Description="Hauptvorlage" />
   </Type>
-  <Type Name="EmailMasterTemplateEntity_Message" Description="Nachricht E-Mail-Vorlage">
+  <Type Name="EmailMasterTemplateEntity_Message" Description="Nachricht der E-Mail-Master-Vorlage">
     <Member Name="CultureInfo" Description="Sprache" />
     <Member Name="MasterTemplate" Description="Hauptvorlage" />
     <Member Name="Text" Description="Text" />
@@ -64,7 +64,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="EmailMessageEntity" Description="E-Mail Nachricht" PluralDescription="E-Mail Nachrichten" Gender="f">
+  <Type Name="EmailMessageEntity" Description="E-Mail-Nachricht" PluralDescription="E-Mail-Nachrichten" Gender="f">
     <Member Name="Attachments" Description="Anhänge" />
     <Member Name="Body" Description="Körper" />
     <Member Name="BodyHash" Description="Körper-hash" />
@@ -128,7 +128,7 @@
     <Member Name="CreateEmailsSendAsync" Description="E-Mails erstellen und async senden" />
     <Member Name="SendEmails" Description="E-Mails senden" />
   </Type>
-  <Type Name="EmailMessageState" Description="E-Mailstatus">
+  <Type Name="EmailMessageState" Description="Status der E-Mail-Nachricht">
     <Member Name="Created" Description="Erstellt" />
     <Member Name="Draft" Description="Entwurf " />
     <Member Name="Outdated" Description="Veraltet" />
@@ -163,7 +163,7 @@
     <Member Name="ReceiveEmails" Description="E-Mails empfangen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="EmailReceptionEntity" Description="E-Mail-Rezeption" PluralDescription="E-Mail-Empfänge">
+  <Type Name="EmailReceptionEntity" Description="E-Mail-Empfang" PluralDescription="E-Mail-Empfänge" Gender="m">
     <Member Name="EmailReceptionConfiguration" Description="Konfiguration des E-Mail-Empfangs" />
     <Member Name="EndDate" Description="Enddatum" />
     <Member Name="Exception" Description="Ausnahme" />
@@ -196,12 +196,12 @@
     <Member Name="InvalidEmail" Description="Ungültige e-Mail" />
     <Member Name="Kind" Description="Art" />
   </Type>
-  <Type Name="EmailRecipientKind" Description="E-Mailempfängertyp">
+  <Type Name="EmailRecipientKind" Description="E-Mail-Empfängertyp">
     <Member Name="Bcc" Description="BCC" />
     <Member Name="Cc" Description="CC" />
     <Member Name="To" Description="An" />
   </Type>
-  <Type Name="EmailSenderConfigurationEntity" Description="Konfiguration E-Mail-Absender" PluralDescription="Konfigurationen E-Mail-Absender" Gender="m">
+  <Type Name="EmailSenderConfigurationEntity" Description="Konfiguration des E-Mail-Absenders" PluralDescription="Konfigurationen des E-Mail-Absenders" Gender="f">
     <Member Name="AdditionalRecipients" Description="Zusätzliche Empfänger" />
     <Member Name="DefaultFrom" Description="Standard von" />
     <Member Name="Name" Description="Name" />
@@ -242,7 +242,7 @@
   <Type Name="EmailTemplateEntity_Filter" Description="Filter">
     <Member Name="EmailTemplate" Description="E-Mail Vorlage" />
   </Type>
-  <Type Name="EmailTemplateEntity_Message" Description="Nachricht E-Mail-Vorlage">
+  <Type Name="EmailTemplateEntity_Message" Description="Nachricht der E-Mail-Vorlage">
     <Member Name="CultureInfo" Description="Kulturinfo" />
     <Member Name="EmailTemplate" Description="E-Mail Vorlage" />
     <Member Name="Subject" Description="Betreff" />
@@ -263,7 +263,7 @@
     <Member Name="WhenMany" Description="Wenn viele" />
     <Member Name="WhenNone" Description="Wenn keine" />
   </Type>
-  <Type Name="EmailTemplateFromEmbedded" Description="E-Mail Vorlage Von">
+  <Type Name="EmailTemplateFromEmbedded" Description="Absender der E-Mail-Vorlage">
     <Member Name="AddressSource" Description="Quelle der Adresse" />
     <Member Name="AzureUserId" Description="Azure-Benutzer-ID" />
     <Member Name="DisplayName" Description="Anzeigename" />
@@ -301,19 +301,19 @@
     <Member Name="InsertMessageContent" Description="Inhalt der Nachricht einfügen" />
     <Member Name="Language" Description="Sprache" />
   </Type>
-  <Type Name="FileTokenAttachmentEntity" Description="File-Token-Anhang">
+  <Type Name="FileTokenAttachmentEntity" Description="Datei-Token-Anhang">
     <Member Name="ContentId" Description="Inhalts-ID" />
     <Member Name="FileName" Description="Dateiname" />
     <Member Name="FileToken" Description="Datei-Token" />
     <Member Name="Type" Description="Typ" />
   </Type>
-  <Type Name="ImageAttachmentEntity" Description="Bild-Anhang" PluralDescription="Bild-Anhänge" Gender="m">
+  <Type Name="ImageAttachmentEntity" Description="Bildanhang" PluralDescription="Bild-Anhänge" Gender="m">
     <Member Name="ContentId" Description="Content-id" />
     <Member Name="File" Description="Datei" />
     <Member Name="FileName" Description="Dateiname" />
     <Member Name="Type" Description="Typ" />
   </Type>
-  <Type Name="SendEmailTaskEntity" Description="E-Mail Senden Aufgabe">
+  <Type Name="SendEmailTaskEntity" Description="E-Mail-Aufgabe">
     <Member Name="EmailTemplate" Description="E-Mail Vorlage" />
     <Member Name="ModelConverter" Description="Modell-Konverter" />
     <Member Name="Name" Description="Name" />
@@ -349,20 +349,20 @@
     <Member Name="UseDefaultCredentials" Description="Verwenden der Standardanmeldeinformationen" />
     <Member Name="Username" Description="Benutzername" />
   </Type>
-  <Type Name="WhenManyFromBehaviour" Description="Verhalten Wenn viele Von">
+  <Type Name="WhenManyFromBehaviour" Description="Verhalten bei mehreren Absendern">
     <Member Name="FistResult" Description="Erstes Ergebnis" />
     <Member Name="SplitMessages" Description="Geteilte Nachrichten" />
   </Type>
-  <Type Name="WhenManyRecipientsBehaviour" Description="Verhalten Wenn viele Empfänger">
+  <Type Name="WhenManyRecipientsBehaviour" Description="Verhalten bei mehreren Empfängern">
     <Member Name="KeepOneMessageWithManyRecipients" Description="Eine Nachricht mit vielen Empfängern" />
     <Member Name="SplitMessages" Description="Geteilte Nachrichten" />
   </Type>
-  <Type Name="WhenNoneFromBehaviour" Description="Verhalten Wenn keine Von">
+  <Type Name="WhenNoneFromBehaviour" Description="Verhalten ohne Absender">
     <Member Name="DefaultFrom" Description="Standard Von" />
     <Member Name="NoMessage" Description="Keine Nachricht" />
     <Member Name="ThrowException" Description="Ausnahme werfen" />
   </Type>
-  <Type Name="WhenNoneRecipientsBehaviour" Description="Verhalten Wenn kein Empfänger">
+  <Type Name="WhenNoneRecipientsBehaviour" Description="Verhalten ohne Empfänger">
     <Member Name="NoMessage" Description="Keine Nachricht" />
     <Member Name="NoRecipients" Description="Keine Empfänger" />
     <Member Name="ThrowException" Description="Ausnahme werfen" />

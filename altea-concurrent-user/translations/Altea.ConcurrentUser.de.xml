@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="ConcurrentUserEntity" Description="gleichzeitige Benutzer" PluralDescription="Gleichzeitige Benutzer" Gender="m">
+  <Type Name="ConcurrentUserEntity" Description="Gleichzeitiger Benutzer" PluralDescription="Gleichzeitige Benutzer" Gender="m">
     <Member Name="ConnectionID" Description="Verbindungs-ID" />
     <Member Name="IsModified" Description="Ist modifiziert" />
     <Member Name="StartTime" Description="Startzeit" />

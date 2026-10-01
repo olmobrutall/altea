@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="AlertCurrentState" Description="aktueller Status der Benachrichtigung">
+  <Type Name="AlertCurrentState" Description="Aktueller Status der Benachrichtigung">
     <Member Name="Alerted" Description="Gewarnte" />
     <Member Name="Attended" Description="Erledigte" />
     <Member Name="Future" Description="Zukünftige" />
@@ -85,12 +85,12 @@
     <Member Name="_5Mins" Description="5 Minuten" />
     <Member Name="Custom" Description="Benutzerdefiniert" />
   </Type>
-  <Type Name="SendAlertTypeBehavior" Description="Verhalten des Alarm Typs Senden">
+  <Type Name="SendAlertTypeBehavior" Description="Verhalten beim Senden des Benachrichtigungstyps">
     <Member Name="All" Description="Alle" />
     <Member Name="Exclude" Description="Ausschließen" />
     <Member Name="Include" Description="Einschließen " />
   </Type>
-  <Type Name="SendNotificationEmailTaskEntity" Description="Benachrichtigung per E-Mail senden Task" Gender="f">
+  <Type Name="SendNotificationEmailTaskEntity" Description="Benachrichtigungs-E-Mail-Aufgabe">
     <Member Name="AlertTypes" Description="Alert-Typen" />
     <Member Name="IgnoreNotificationsOlderThan" Description="Benachrichtigungen ignorieren, die älter sind als" />
     <Member Name="SendBehavior" Description="Senden-Verhalten" />

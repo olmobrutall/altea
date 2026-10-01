@@ -5,7 +5,7 @@
     <Member Name="InteractionGroup" Description="Interaktionsgruppe" />
     <Member Name="None" Description="Nichts" />
   </Type>
-  <Type Name="BigValuePartEntity" Description="Große-Wert-teil">
+  <Type Name="BigValuePartEntity" Description="Großwert-Teil">
     <Member Name="CustomBigValue" Description="Benutzerdefinierter großer Wert" />
     <Member Name="CustomUrl" Description="Benutzerdefinierte URL" />
     <Member Name="IsClickable" Description="Ist anklickbar" />
@@ -13,11 +13,11 @@
     <Member Name="UserQuery" Description="Benutzer-Abfrage" />
     <Member Name="ValueToken" Description="Wert-Token" />
   </Type>
-  <Type Name="HealthCheckConditionEmbedded" Description="Health check Zustand">
+  <Type Name="HealthCheckConditionEmbedded" Description="Health-Check-Bedingung">
     <Member Name="Operation" Description="Operation" />
     <Member Name="Value" Description="Wert" />
   </Type>
-  <Type Name="HealthCheckEmbedded" Description="Health check">
+  <Type Name="HealthCheckEmbedded" Description="Health-Check">
     <Member Name="DegradedWhen" Description="Eingeschränkt, wenn" />
     <Member Name="FailWhen" Description="Fehler, wenn" />
   </Type>
@@ -31,7 +31,7 @@
     <Member Name="TimeSeriesStep" Description="Zeitreihenschritt" />
     <Member Name="TimeSeriesUnit" Description="Einheit Zeitreihen" />
   </Type>
-  <Type Name="UserQueryEntity" Description="Benutzer-Abfrage">
+  <Type Name="UserQueryEntity" Description="Benutzerabfrage">
     <Member Name="AppendFilters" Description="Filters anfügen" />
     <Member Name="Columns" Description="Spalten" />
     <Member Name="ColumnsMode" Description="Spalten-Modus" />
@@ -93,7 +93,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="UserQueryPartEntity" Description="Benutzerabfrage Teil">
+  <Type Name="UserQueryPartEntity" Description="Benutzerabfrageteil">
     <Member Name="AllowMaxHeight" Description="Maximale Höhe zulassen" />
     <Member Name="AllowSelection" Description="Auswahl zulassen" />
     <Member Name="AutoUpdate" Description="Automatische Aktualisierung" />
@@ -108,7 +108,7 @@
   <Type Name="UserQueryPermission">
     <Member Name="ViewUserQuery" Description="Benutzer-Abfrage anzeigen" />
   </Type>
-  <Type Name="ValueUserQueryListPartEntity" Description="Wert Benutzerabfrage Listen Teil">
+  <Type Name="ValueUserQueryListPartEntity" Description="Wertelistenteil für Benutzerabfragen">
     <Member Name="UserQueries" Description="Benutzer-Abfragen" />
   </Type>
   <Type Name="ValueUserQueryListPartEntity_UserQuery" Description="Benutzerabfrage">

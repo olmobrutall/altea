@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="EntityAction" Description="Entity-Aktion">
+  <Type Name="EntityAction" Description="Entitätsaktion">
     <Member Name="Different" Description="Verschiedene" />
     <Member Name="Identical" Description="Identische" />
     <Member Name="New" Description="Neu" />
   </Type>
-  <Type Name="PinnedQueryFilterEmbedded" Description="Vorgewahlter Abfragefilter">
+  <Type Name="PinnedQueryFilterEmbedded" Description="Angehefteter Abfragefilter">
     <Member Name="Active" Description="Aktiv" />
     <Member Name="ColSpan" Description="ColSpan" />
     <Member Name="Column" Description="Spalte" />
@@ -21,11 +21,11 @@
     <Member Name="Token" Description="Token" />
     <Member Name="ValueString" Description="Wert String" />
   </Type>
-  <Type Name="QueryFilterPinnedBaseEntity" Description="Angehefteter Abfragefilter" PluralDescription="Angeheftete Abfragefilter" Gender="m">
+  <Type Name="QueryFilterPinnedBaseEntity" Description="Basis für angehefteten Abfragefilter" PluralDescription="Basen für angehefteten Abfragefilter" Gender="f">
     <Member Name="DashboardBehaviour" Description="Dashboard-Verhalten" />
     <Member Name="Pinned" Description="Angeheftet" />
   </Type>
-  <Type Name="QueryTokenEmbedded" Description="Abfrage Token">
+  <Type Name="QueryTokenEmbedded" Description="Abfrage-Token">
     <Member Name="TokenString" Description="Token string" />
   </Type>
   <Type Name="TokenMigrationEntity" Description="Token-Migration">
@@ -52,7 +52,7 @@
   <Type Name="UserAssetPermission">
     <Member Name="UserAssetsToXML" Description="Benutzer-Assets in XML" />
   </Type>
-  <Type Name="UserAssetPreviewLineEmbedded" Description="Benutzer-Asset-Vorschau-Linie">
+  <Type Name="UserAssetPreviewLineEmbedded" Description="Benutzer-Asset-Vorschauzeile">
     <Member Name="Action" Description="Aktion" />
     <Member Name="Guid" Description="Guid" />
     <Member Name="OverrideEntity" Description="Entität überschreiben" />
