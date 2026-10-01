@@ -73,8 +73,8 @@
     <Member Name="OfficeTemplate" Description="Office-Vorlage" />
     <Member Name="OverrideModel" Description="Modell überschreiben" />
   </Type>
-  <Type Name="OfficeConverterSymbol" Description="Office-Konverter" />
-  <Type Name="OfficeModelEntity" Description="Office-Modell">
+  <Type Name="OfficeConverterSymbol" Description="Office-Konverter" Gender="m" />
+  <Type Name="OfficeModelEntity" Description="Office-Modell" PluralDescription="Office-Modelle" Gender="n">
     <Member Name="ClassName" Description="Klassenname" />
   </Type>
   <Type Name="OfficeTemplateEntity" Description="Office-Vorlage">

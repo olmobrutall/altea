@@ -381,6 +381,7 @@
   </Type>
   <Type Name="WorkflowEntity" Description="Workflow" Gender="m">
     <Member Name="ExpirationDate" Description="Verfallsdatum" />
+    <Member Name="FullDiagramXml" Description="Vollständiges Diagramm-XML" />
     <Member Name="MainEntityStrategies" Description="Hauptentität-Strategien" />
     <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
     <Member Name="Name" Description="Name" />
@@ -389,7 +390,7 @@
     <Member Name="Strategy" Description="Strategie" />
     <Member Name="Workflow" Description="Workflow" />
   </Type>
-  <Type Name="WorkflowEventEntity" Description="Workflow-event">
+  <Type Name="WorkflowEventEntity" Description="Workflow-Ereignis" PluralDescription="Workflow-Ereignisse" Gender="n">
     <Member Name="BoundaryOf" Description="Rand von" />
     <Member Name="BpmnElementId" Description="BPMN-Element-Id" />
     <Member Name="DecisionOptionName" Description="Name der Entscheidungsoption" />
@@ -421,7 +422,7 @@
     <Member Name="Result" Description="Ergebnis" />
     <Member Name="WorkflowEventTask" Description="Ereignisaufgabe des Arbeitsablaufs" />
   </Type>
-  <Type Name="WorkflowEventTaskEntity" Description="Ereignisaufgabe des Arbeitsablaufs">
+  <Type Name="WorkflowEventTaskEntity" Description="Ereignisaufgabe des Arbeitsablaufs" PluralDescription="Ereignisaufgaben des Arbeitsablaufs" Gender="f">
     <Member Name="Action" Description="Aktion" />
     <Member Name="Condition" Description="Bedingung" />
     <Member Name="Event" Description="Ereignis" />
@@ -452,7 +453,7 @@
     <Member Name="Join" Description="Verbinden" />
     <Member Name="Split" Description="Aufteilen" />
   </Type>
-  <Type Name="WorkflowGatewayEntity" Description="Workflow-gateway">
+  <Type Name="WorkflowGatewayEntity" Description="Workflow-Gateway" PluralDescription="Workflow-Gateways" Gender="n">
     <Member Name="BpmnElementId" Description="BPMN-Element-Id" />
     <Member Name="Direction" Description="Richtung" />
     <Member Name="Lane" Description="Fahrbahn" />
@@ -552,7 +553,7 @@
     <Member Name="ViewWorkflowPanel" Description="Workflow-Panel anzeigen" />
     <Member Name="WorkflowToolbarMenu" Description="Arbeitsablauf-Menü in der Symbolleiste" />
   </Type>
-  <Type Name="WorkflowPoolEntity" Description="Workflow-pool">
+  <Type Name="WorkflowPoolEntity" Description="Workflow-Pool" PluralDescription="Workflow-Pools" Gender="m">
     <Member Name="BpmnElementId" Description="BPMN-Element-Id" />
     <Member Name="Name" Description="Name" />
     <Member Name="Workflow" Description="Workflow" />
@@ -565,7 +566,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="WorkflowReplacementItemEmbedded" Description="Arbeitsablaufs Austauschposition ">
+  <Type Name="WorkflowReplacementItemEmbedded" Description="Arbeitsablaufs Austauschposition">
     <Member Name="NewNode" Description="Neuer Knoten" />
     <Member Name="OldNode" Description="Alter Knoten" />
     <Member Name="SubWorkflow" Description="Unter Arbeitsablauf" />
@@ -574,7 +575,7 @@
     <Member Name="NewTasks" Description="Neue Aufgaben" />
     <Member Name="Replacements" Description="Ersatz" />
   </Type>
-  <Type Name="WorkflowScriptEntity" Description="Skript des Arbeitsablaufs">
+  <Type Name="WorkflowScriptEntity" Description="Skript des Arbeitsablaufs" PluralDescription="Skripte des Arbeitsablaufs" Gender="n">
     <Member Name="Eval" Description="Auswertung" />
     <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
     <Member Name="Name" Description="Name" />
@@ -591,14 +592,14 @@
     <Member Name="RetryStrategy" Description="Wiederholungsstrategie" />
     <Member Name="Script" Description="Skript" />
   </Type>
-  <Type Name="WorkflowScriptRetryStrategyEntity" Description="Wiederholungsstrategie des Arbeitsablaufskripts">
+  <Type Name="WorkflowScriptRetryStrategyEntity" Description="Wiederholungsstrategie des Arbeitsablaufskripts" PluralDescription="Wiederholungsstrategien des Arbeitsablaufskripts" Gender="f">
     <Member Name="Rule" Description="Regel" />
   </Type>
   <Type Name="WorkflowScriptRetryStrategyOperation">
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="WorkflowTimerConditionEntity" Description="Zeitgeberbedingung des Arbeitsablaufs">
+  <Type Name="WorkflowTimerConditionEntity" Description="Zeitgeberbedingung des Arbeitsablaufs" PluralDescription="Zeitgeberbedingungen des Arbeitsablaufs" Gender="f">
     <Member Name="Eval" Description="Auswertung" />
     <Member Name="MainEntityType" Description="Haupt-Entitätstyp" />
     <Member Name="Name" Description="Name" />

@@ -9,7 +9,7 @@
     <Member Name="SecurityEnabled" Description="Sicherheit aktiviert" />
     <Member Name="Visibility" Description="Sichtbarkeit" />
   </Type>
-  <Type Name="ActiveDirectoryUsersRowModel" Description="Active-Directory-Benutzer">
+  <Type Name="ActiveDirectoryUsersRowModel" Description="Active-Directory-Benutzer" Gender="m">
     <Member Name="AccountEnabled" Description="Konto aktiviert" />
     <Member Name="CompanyName" Description="Firmenname" />
     <Member Name="CreationType" Description="Erstellungsart" />

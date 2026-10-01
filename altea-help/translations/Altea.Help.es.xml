@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="AppendixHelpEntity" Description="Ayuda apéndice ">
+  <Type Name="AppendixHelpEntity" Description="Ayuda apéndice">
     <Member Name="Culture" Description="Cultura" />
     <Member Name="Description" Description="Descripción" />
     <Member Name="Title" Description="Título" />
@@ -152,7 +152,7 @@
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Salvar" />
   </Type>
-  <Type Name="QueryHelpEntity" Description="Ayuda consulta ">
+  <Type Name="QueryHelpEntity" Description="Ayuda consulta">
     <Member Name="Columns" Description="Columnas" />
     <Member Name="Culture" Description="Cultura" />
     <Member Name="Description" Description="Descripción" />

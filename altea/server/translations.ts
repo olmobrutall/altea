@@ -50,11 +50,13 @@ export function parseSignumTranslations(xml: string): Record<string, TypeMetadat
 /**
  * An EMPTY attribute is not a translation — it is the marker for one that is still owed.
  *
- * `TranslationStubs` writes `Description=""` for every name the sync reports as outstanding, so the file
- * can be handed to someone with the type, its siblings and the English in front of them. It is careful to
- * stub only the description for exactly this reason ("`Gender=""` would suppress the derivation for
- * good"), and the sync itself reads `""` as missing on the way back in — `isTypeCompleted` and
- * `memberConflict` both do.
+ * `TranslationStubs` writes an empty attribute for every name the sync reports as outstanding — the
+ * description, the plural and the gender alike — so the file can be handed to someone with the type, its
+ * siblings and the English in front of them. The sync reads `""` as missing on the way back in
+ * (`isTypeCompleted` and `memberConflict` both do), so a stub is work still owed, never an answer.
+ *
+ * `Gender=""` does suppress the `detectGender` derivation, which is the price of being able to ask for a
+ * gender German cannot derive; the type simply keeps reading as incomplete until someone fills it.
  *
  * The RUNTIME did not. `!= null` let the empty string through, and `??` in `tryMemberNiceName` /
  * `typeDescription` does not catch `""`, so a stubbed member resolved to the EMPTY STRING instead of

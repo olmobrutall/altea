@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="DynamicApiEntity" Description="Dynamische API">
+  <Type Name="DynamicApiEntity" Description="Dynamische API" PluralDescription="Dynamische APIs" Gender="f">
     <Member Name="Eval" Description="Auswertung" />
     <Member Name="IsDisabled" Description="Ist deaktiviert" />
     <Member Name="Name" Description="Name" />
@@ -26,7 +26,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="DynamicExpressionEntity" Description="Dynamischen Ausdruck" PluralDescription="Dynamischen Ausdrücke">
+  <Type Name="DynamicExpressionEntity" Description="Dynamischer Ausdruck" PluralDescription="Dynamische Ausdrücke" Gender="m">
     <Member Name="Body" Description="Körper" />
     <Member Name="Format" Description="Format" />
     <Member Name="FromType" Description="Vom Typ" />
@@ -59,7 +59,7 @@
   <Type Name="DynamicPanelPermission">
     <Member Name="RestartApplication" Description="Anwendung neu starten" />
   </Type>
-  <Type Name="DynamicRenameEntity" Description="Dynamisches umbenennen" PluralDescription="Dynamische umbenennungen">
+  <Type Name="DynamicRenameEntity" Description="Dynamische Umbenennung">
     <Member Name="CreationDate" Description="Erstellungsdatum" />
     <Member Name="NewName" Description="Neuer Name" />
     <Member Name="OldName" Description="Alter Name" />
@@ -84,7 +84,7 @@
     <Member Name="Execute" Description="Ausführen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="DynamicTypeConditionEntity" Description="Dynamischer Typenzustand" PluralDescription="Dynamische Typenzustände">
+  <Type Name="DynamicTypeConditionEntity" Description="Dynamischer Typenzustand" PluralDescription="Dynamische Typenzustände" Gender="m">
     <Member Name="EntityType" Description="Entitätstyp" />
     <Member Name="Eval" Description="Auswertung" />
     <Member Name="SymbolName" Description="Symbolname" />
@@ -94,13 +94,13 @@
     <Member Name="Clone" Description="Klonen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="DynamicTypeConditionSymbolEntity" Description="Dynamisches Typenzustands Symbol" PluralDescription="Dynamische Typenzustands Symbole">
+  <Type Name="DynamicTypeConditionSymbolEntity" Description="Dynamisches Typzustandssymbol" PluralDescription="Dynamische Typzustandssymbole" Gender="n">
     <Member Name="Name" Description="Name" />
   </Type>
   <Type Name="DynamicTypeConditionSymbolOperation">
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="DynamicTypeEntity" Description="Dynamische Typ" PluralDescription="Dynamischen Typen">
+  <Type Name="DynamicTypeEntity" Description="Dynamischer Typ" PluralDescription="Dynamische Typen" Gender="m">
     <Member Name="BaseType" Description="Basistyp" />
     <Member Name="TypeDefinition" Description="Typendefinition" />
     <Member Name="TypeName" Description="Typname" />
@@ -168,7 +168,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="DynamicViewOverrideEntity" Description="Dynamische Ansicht überschreiben">
+  <Type Name="DynamicViewOverrideEntity" Description="Dynamische Ansichtsüberschreibung">
     <Member Name="EntityType" Description="Entitätstyp" />
     <Member Name="Script" Description="Skript" />
     <Member Name="ViewName" Description="Ansichtsname" />

@@ -10,7 +10,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="HelpImageEntity" Description="Hilfebild" PluralDescription="Hilfe-Bilder" Gender="n">
+  <Type Name="HelpImageEntity" Description="Hilfebild">
     <Member Name="CreationDate" Description="Erstellungsdatum" />
     <Member Name="File" Description="Datei" />
     <Member Name="Target" Description="Ziel" />

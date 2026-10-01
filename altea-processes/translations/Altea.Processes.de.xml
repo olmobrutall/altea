@@ -5,7 +5,7 @@
     <Member Name="Name" Description="Name" />
     <Member Name="OperationArguments" Description="Operationsargumente" />
   </Type>
-  <Type Name="PackageLastProcessRowModel" Description="Letzter Prozess des Pakets">
+  <Type Name="PackageLastProcessRowModel" Description="Letzter Prozess des Pakets" PluralDescription="Letzte Prozesse des Pakets" Gender="m">
     <Member Name="Entity" Description="Entität" />
     <Member Name="Id" Description="Id" />
     <Member Name="LastProcess" Description="Letzter Prozess" />

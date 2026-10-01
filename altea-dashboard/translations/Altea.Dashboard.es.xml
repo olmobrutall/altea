@@ -55,10 +55,12 @@
     <Member Name="Content" Description="Contenido" />
     <Member Name="CustomColor" Description="Color personalizado" />
     <Member Name="Dashboard" Description="Panel" />
+    <Member Name="DefaultOpen" Description="Abierto por defecto" />
     <Member Name="HideTitle" Description="Ocultar el título" />
     <Member Name="IconColor" Description="Color de icono" />
     <Member Name="IconName" Description="Nombre de icono" />
     <Member Name="InteractionGroup" Description="Grupo de interacción" />
+    <Member Name="IsOpen" Description="Está abierto" />
     <Member Name="Row" Description="Fila" />
     <Member Name="StartColumn" Description="Columna Inicio" />
     <Member Name="Title" Description="Título" />
@@ -89,11 +91,11 @@
     <Member Name="DashboardDN_TitleMustBeSpecifiedFor0" Description="Se debe especificar el título para {0}" />
     <Member Name="DuplicatedTokens0" Description="Tokens duplicados: {0}" />
     <Member Name="Edit" Description="Editar" />
-    <Member Name="MoreInformation" Description="Más información" />
     <Member Name="ForPerformanceReasonsThisDashboardMayShowOutdatedInformation" Description="Por motivos de rendimiento, este panel puede mostrar información desactualizada" />
     <Member Name="IncompatibleEntityType" Description="Tipo de entidad incompatible" />
     <Member Name="InteractiveDashboard" Description="Panel interactivo" />
     <Member Name="LasUpdateWasOn0" Description="La última actualización fue el {0}" />
+    <Member Name="MoreInformation" Description="Más información" />
     <Member Name="NotFilteringBy0" Description="Sin filtrar por {0}" />
     <Member Name="Part0IsTooLarge" Description="Parte {0} es demasiado grande" />
     <Member Name="Part0OverlapsWith1" Description="Parte {0} se superpone con {1}" />

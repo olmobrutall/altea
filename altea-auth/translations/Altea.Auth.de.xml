@@ -71,6 +71,10 @@
     <Member Name="TheQueryDoesNotEnsureThatYouCanRead0" Description="Die Abfrage stellt nicht sicher, dass Sie lesen {0} können. " />
     <Member Name="UnableToDetermineIfYouCanRead0" Description="Es kann nicht festgestellt werden, ob Sie {0} lesen können" />
   </Type>
+  <Type Name="AuthTokenConfigurationEmbedded" Description="Konfiguration des Authentifizierungstokens">
+    <Member Name="RefreshAnyTokenPreviousTo" Description="Alle Token erneuern, die älter sind als" />
+    <Member Name="RefreshTokenEvery" Description="Token erneuern alle" />
+  </Type>
   <Type Name="BaseADConfigurationEmbedded" Description="Basis-AD-Konfiguration">
     <Member Name="AllowMatchUsersBySimpleUserName" Description="Benutzer nach einfachem Benutzernamen zuordnen" />
     <Member Name="AutoCreateUsers" Description="Benutzer automatisch erstellen" />
@@ -79,6 +83,8 @@
   </Type>
   <Type Name="ConditionRuleModel" Description="Bedingungsregel">
     <Member Name="Allowed" Description="Erlaubt" />
+    <Member Name="OperationsSummary" Description="Zusammenfassung der Operationen" />
+    <Member Name="PropertiesSummary" Description="Zusammenfassung der Eigenschaften" />
     <Member Name="TypeConditions" Description="Typbedingungen" />
   </Type>
   <Type Name="DimensionSummaryModel" Description="Zusammenfassung der Dimension">
@@ -189,6 +195,7 @@
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="AllowedBase" Description="Base erlaubt" />
     <Member Name="Coerced" Description="Gezwungen" />
+    <Member Name="Part" Description="Teil" />
     <Member Name="Path" Description="Pfad" />
   </Type>
   <Type Name="PropertyConditionRuleModel" Description="Bedingungsregel für Eigenschaften">
@@ -248,7 +255,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="RuleEntity" Description="Regel">
+  <Type Name="RuleEntity" Description="Regel" PluralDescription="Regeln" Gender="f">
     <Member Name="Role" Description="Rolle" />
   </Type>
   <Type Name="RuleOperationConditionEntity" Description="Operationregel-Bedingung">
@@ -270,7 +277,7 @@
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="Resource" Description="Ressource" />
   </Type>
-  <Type Name="RulePropertyConditionEntity" Description="Rule-Eigenschaft-Bedingung " PluralDescription="Rule-Eigenschaft-Bedingungen" Gender="f">
+  <Type Name="RulePropertyConditionEntity" Description="Rule-Eigenschaft-Bedingung">
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="Conditions" Description="Bedingungen" />
     <Member Name="RuleProperty" Description="Eigenschaftsregel" />
@@ -288,7 +295,7 @@
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="Resource" Description="Ressource" />
   </Type>
-  <Type Name="RuleTypeConditionEntity" Description="Regeltypbedingung" PluralDescription="Bedingungen für Regeltypen">
+  <Type Name="RuleTypeConditionEntity" Description="Regeltypbedingung">
     <Member Name="Allowed" Description="Erlaubt" />
     <Member Name="Conditions" Description="Bedingungen" />
     <Member Name="RuleType" Description="Typregel" />
@@ -359,6 +366,7 @@
     <Member Name="ExternalId" Description="Externe ID" />
     <Member Name="LoginFailedCounter" Description="fehlgeschlagener Login-Zähler" />
     <Member Name="MustChangePassword" Description="Passwort muss geändert werden" />
+    <Member Name="PasswordHash" Description="Passwort-Hash" />
     <Member Name="PasswordIsChanging" Description="Passwort wird geändert" />
     <Member Name="Role" Description="Rolle" />
     <Member Name="State" Description="Status" />

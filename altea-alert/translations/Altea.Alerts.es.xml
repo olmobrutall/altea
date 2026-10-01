@@ -58,9 +58,6 @@
     <Member Name="YouDoNotHaveAnyActiveAlert" Description="No tiene ninguna alerta activa" />
     <Member Name="YouHaveSomePendingAlerts" Description="Tienes algunas alertas pendientes:" />
   </Type>
-  <Type Name="AlertNotificationMail" Description="Correo de notificación de alertas">
-    <Member Name="Alerts" Description="Alertas" />
-  </Type>
   <Type Name="AlertOperation">
     <Member Name="Attend" Description="Atender" />
     <Member Name="Create" Description="Crear" />

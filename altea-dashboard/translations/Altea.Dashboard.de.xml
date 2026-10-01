@@ -22,7 +22,7 @@
     <Member Name="MaxRows" Description="Max. Zeilen" />
     <Member Name="TimeoutForQueries" Description="Timeout für Abfragen" />
   </Type>
-  <Type Name="CustomPartEntity" Description="Custom Teil" Gender="m">
+  <Type Name="CustomPartEntity" Description="Custom Teil">
     <Member Name="CustomPartName" Description="Benutzerdefinierter Teilename" />
   </Type>
   <Type Name="DashboardEmbedededInEntity" Description="Dashboard eingebettet in">
@@ -55,10 +55,12 @@
     <Member Name="Content" Description="Inhalt" />
     <Member Name="CustomColor" Description="Benutzerdefinierte Farbe" />
     <Member Name="Dashboard" Description="Dashboard" />
+    <Member Name="DefaultOpen" Description="Standardmäßig geöffnet" />
     <Member Name="HideTitle" Description="Titel ausblenden" />
     <Member Name="IconColor" Description="Symbolfarbe" />
     <Member Name="IconName" Description="Symbolname" />
     <Member Name="InteractionGroup" Description="Interaktionsgruppe" />
+    <Member Name="IsOpen" Description="Ist geöffnet" />
     <Member Name="Row" Description="Zeile" />
     <Member Name="StartColumn" Description="Spalte Start" />
     <Member Name="Title" Description="Titel" />
@@ -89,11 +91,11 @@
     <Member Name="DashboardDN_TitleMustBeSpecifiedFor0" Description="Titel muss angegeben werden für {0}" />
     <Member Name="DuplicatedTokens0" Description="Doppelte Token: {0}" />
     <Member Name="Edit" Description="Bearbeiten" />
-    <Member Name="MoreInformation" Description="Weitere Informationen" />
     <Member Name="ForPerformanceReasonsThisDashboardMayShowOutdatedInformation" Description="Aus Leistungsgründen kann dieses Dashboard veraltete Informationen anzeigen" />
     <Member Name="IncompatibleEntityType" Description="Inkompatibler Entitätstyp" />
     <Member Name="InteractiveDashboard" Description="Interaktives Dashboard" />
     <Member Name="LasUpdateWasOn0" Description="Die letzte Aktualisierung erfolgte am {0}" />
+    <Member Name="MoreInformation" Description="Weitere Informationen" />
     <Member Name="NotFilteringBy0" Description="Nicht filtern nach {0}" />
     <Member Name="Part0IsTooLarge" Description="Teil {0} ist zu groß" />
     <Member Name="Part0OverlapsWith1" Description="Teil {0} überschneidet sich mit {1}" />
@@ -124,7 +126,7 @@
     <Member Name="GoodMorning" Description="Guten Morgen" />
     <Member Name="GoodNight" Description="Gute Nacht" />
   </Type>
-  <Type Name="HealthCheckPartEntity" Description="Teil Gesundheitskontrolle" PluralDescription="Teile der Gesundheitskontrolle" Gender="m">
+  <Type Name="HealthCheckPartEntity" Description="Teil Gesundheitskontrolle">
     <Member Name="Items" Description="Artikel" />
   </Type>
   <Type Name="HealthCheckPartEntity_Item" Description="Health-Check-Element">
@@ -133,7 +135,7 @@
     <Member Name="NavigateURL" Description="Navigations-URL" />
     <Member Name="Title" Description="Titel" />
   </Type>
-  <Type Name="ImagePartEntity" Description="Bildteil" PluralDescription="Bildteile" Gender="m">
+  <Type Name="ImagePartEntity" Description="Bildteil">
     <Member Name="AltText" Description="Alt-Text" />
     <Member Name="ClickActionURL" Description="Aktions-URL" />
     <Member Name="ImageSrcContent" Description="Bild src Inhalt" />
@@ -148,10 +150,10 @@
     <Member Name="Group7" Description="Gruppe 7" />
     <Member Name="Group8" Description="Gruppe 8" />
   </Type>
-  <Type Name="SeparatorPartEntity" Description="Trennzeichenteil" PluralDescription="Separatorteile" Gender="n">
+  <Type Name="SeparatorPartEntity" Description="Trennzeichenteil">
     <Member Name="Title" Description="Titel" />
   </Type>
-  <Type Name="TextPartEntity" Description="Textteil" PluralDescription="Textteile" Gender="m">
+  <Type Name="TextPartEntity" Description="Textteil">
     <Member Name="TextContent" Description="Textinhalt" />
     <Member Name="TextPartType" Description="Typ des Textteils" />
   </Type>
@@ -160,7 +162,7 @@
     <Member Name="Markdown" Description="Markdown" />
     <Member Name="Text" Description="Text" />
   </Type>
-  <Type Name="ToolbarMenuPartEntity" Description="Menübereich Symbolleiste" PluralDescription="Menüteile der Symbolleiste" Gender="m">
+  <Type Name="ToolbarMenuPartEntity" Description="Menübereich Symbolleiste">
     <Member Name="ToolbarMenu" Description="Toolbar-Menü" />
   </Type>
 </Translations>

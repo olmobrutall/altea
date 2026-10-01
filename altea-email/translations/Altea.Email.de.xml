@@ -188,8 +188,8 @@
   <Type Name="EmailReceptionMixin">
     <Member Name="ReceptionInfo" Description="Empfangsinfo" />
   </Type>
-  <Type Name="EmailReceptionServiceEntity" Description="E-Mail-Empfangsdienst" PluralDescription="E-Mail-Empfangsdienste" Gender="m" />
-  <Type Name="EmailRecipientBaseEntity" Description="Empfänger">
+  <Type Name="EmailReceptionServiceEntity" Description="E-Mail-Empfangsdienst" />
+  <Type Name="EmailRecipientBaseEntity" Description="Empfänger" Gender="m">
     <Member Name="DisplayName" Description="Anzeigename" />
     <Member Name="EmailAddress" Description="E-Mail-Adresse" />
     <Member Name="EmailOwner" Description="E-Mail-Besitzer" />
@@ -217,7 +217,7 @@
     <Member Name="Clone" Description="Klonen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="EmailServiceEntity" Description="E-Mail-Dienst" PluralDescription="E-Mail-Dienste" Gender="m" />
+  <Type Name="EmailServiceEntity" Description="E-Mail-Dienst" />
   <Type Name="EmailTemplateEntity" Description="E-Mail-Vorlage">
     <Member Name="Applicable" Description="Anwendbar" />
     <Member Name="Attachments" Description="Anlagen" />
@@ -301,7 +301,7 @@
     <Member Name="InsertMessageContent" Description="Inhalt der Nachricht einfügen" />
     <Member Name="Language" Description="Sprache" />
   </Type>
-  <Type Name="FileTokenAttachmentEntity" Description="File-Token-Anhang" PluralDescription="Datei-Token-Anhänge" Gender="m">
+  <Type Name="FileTokenAttachmentEntity" Description="File-Token-Anhang">
     <Member Name="ContentId" Description="Inhalts-ID" />
     <Member Name="FileName" Description="Dateiname" />
     <Member Name="FileToken" Description="Datei-Token" />
@@ -333,7 +333,7 @@
     <Member Name="PickupDirectoryFromIis" Description="Abholverzeichnis von IIS" />
     <Member Name="SpecifiedPickupDirectory" Description="Angegebenes Abholverzeichnis" />
   </Type>
-  <Type Name="SmtpEmailServiceEntity" Description="SMTP-E-Mail-Dienst" PluralDescription="SMTP-E-Mail-Dienste" Gender="m">
+  <Type Name="SmtpEmailServiceEntity" Description="SMTP-E-Mail-Dienst">
     <Member Name="DeliveryFormat" Description="Delivery format" />
     <Member Name="DeliveryMethod" Description="Delivery method" />
     <Member Name="Network" Description="Netzwerk" />
@@ -349,7 +349,7 @@
     <Member Name="UseDefaultCredentials" Description="Verwenden der Standardanmeldeinformationen" />
     <Member Name="Username" Description="Benutzername" />
   </Type>
-  <Type Name="WhenManyFromBehaviour" Description="Verhalten Wenn viele Von ">
+  <Type Name="WhenManyFromBehaviour" Description="Verhalten Wenn viele Von">
     <Member Name="FistResult" Description="Erstes Ergebnis" />
     <Member Name="SplitMessages" Description="Geteilte Nachrichten" />
   </Type>
@@ -357,7 +357,7 @@
     <Member Name="KeepOneMessageWithManyRecipients" Description="Eine Nachricht mit vielen Empfängern" />
     <Member Name="SplitMessages" Description="Geteilte Nachrichten" />
   </Type>
-  <Type Name="WhenNoneFromBehaviour" Description="Verhalten Wenn keine Von ">
+  <Type Name="WhenNoneFromBehaviour" Description="Verhalten Wenn keine Von">
     <Member Name="DefaultFrom" Description="Standard Von" />
     <Member Name="NoMessage" Description="Keine Nachricht" />
     <Member Name="ThrowException" Description="Ausnahme werfen" />

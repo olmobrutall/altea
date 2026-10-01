@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
-  <Type Name="MicrosoftGraphEmailServiceEntity" Description="Microsoft Graph-E-Mail-Dienst" PluralDescription="Microsoft Graph-E-Mail-Dienste" Gender="m">
+  <Type Name="MicrosoftGraphEmailServiceEntity" Description="Microsoft Graph-E-Mail-Dienst">
     <Member Name="Azure_ApplicationID" Description="Azure Application (client) ID" />
     <Member Name="Azure_ClientSecret" Description="Azure Client Secret Value" />
     <Member Name="Azure_DirectoryID" Description="&amp;#x9;Azure Directory (tenant) ID" />
@@ -64,7 +64,7 @@
     <Member Name="User" Description="Benutzer" />
     <Member Name="WebLink" Description="Weblink" />
   </Type>
-  <Type Name="RemoteEmailMessageRowModel" Description="Entfernte E-Mail-Nachricht">
+  <Type Name="RemoteEmailMessageRowModel" Description="Entfernte E-Mail-Nachricht" PluralDescription="Entfernte E-Mail-Nachrichten" Gender="f">
     <Member Name="Categories" Description="Kategorien" />
     <Member Name="CreatedDateTime" Description="Erstellungsdatum" />
     <Member Name="Entity" Description="Entität" />

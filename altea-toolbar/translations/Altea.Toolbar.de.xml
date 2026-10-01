@@ -2,8 +2,8 @@
 <Translations>
   <Type Name="LayoutMessage">
     <Member Name="JumpToMainContent" Description="Zum Hauptinhalt springen" />
-    <Member Name="SelectA0_G" Description="Wählen Sie [m:ein|f:eine|n:ein] {0} aus" />
     <Member Name="MainNavigation" Description="Hauptnavigation" />
+    <Member Name="SelectA0_G" Description="Wählen Sie [m:ein|f:eine|n:ein] {0} aus" />
   </Type>
   <Type Name="ShowCount" Description="Anzahl anzeigen">
     <Member Name="Always" Description="Immer" />

@@ -108,7 +108,7 @@
   <Type Name="UserQueryPermission">
     <Member Name="ViewUserQuery" Description="Ver consultas de usuario" />
   </Type>
-  <Type Name="ValueUserQueryListPartEntity" Description="Parte de valor de lista de consulta de usuario" Gender="f">
+  <Type Name="ValueUserQueryListPartEntity" Description="Parte de valor de lista de consulta de usuario">
     <Member Name="UserQueries" Description="Consultas de usuario" />
   </Type>
   <Type Name="ValueUserQueryListPartEntity_UserQuery" Description="Consulta de usuario">

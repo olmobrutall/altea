@@ -82,7 +82,7 @@
     <Member Name="MultiRegression" Description="Mehrfachregression" />
     <Member Name="Regression" Description="Regression" />
   </Type>
-  <Type Name="PredictorAlgorithmSymbol" Description="Prädiktor-Algorithmus" />
+  <Type Name="PredictorAlgorithmSymbol" Description="Prädiktor-Algorithmus" PluralDescription="Prädiktor-Algorithmen" Gender="m" />
   <Type Name="PredictorClassificationMetricsEmbedded" Description="Klassifikationsmetriken">
     <Member Name="MissCount" Description="Anzahl Fehlklassifikationen" />
     <Member Name="MissRate" Description="Fehlklassifikationsrate" />
@@ -151,7 +151,7 @@
   <Type Name="PredictorEntity_Filter" Description="Prädiktorfilter">
     <Member Name="Predictor" Description="Prädiktor" />
   </Type>
-  <Type Name="PredictorEpochProgressEntity" Description="Epochenfortschritt">
+  <Type Name="PredictorEpochProgressEntity" Description="Epochenfortschritt" PluralDescription="Epochenfortschritte" Gender="m">
     <Member Name="AccuracyTraining" Description="Genauigkeit (Training)" />
     <Member Name="AccuracyValidation" Description="Genauigkeit (Validierung)" />
     <Member Name="CreationDate" Description="Erstellungsdatum" />
@@ -231,7 +231,7 @@
     <Member Name="MeanSquaredError" Description="Mittlerer quadratischer Fehler" />
     <Member Name="RootMeanSquareError" Description="Wurzel des mittleren quadratischen Fehlers" />
   </Type>
-  <Type Name="PredictorResultSaverSymbol" Description="Prädiktor-Ergebnisspeicher" />
+  <Type Name="PredictorResultSaverSymbol" Description="Prädiktor-Ergebnisspeicher" Gender="m" />
   <Type Name="PredictorSettingsEmbedded" Description="Prädiktoreinstellungen">
     <Member Name="Seed" Description="Seed" />
     <Member Name="TestPercentage" Description="Testanteil" />
@@ -269,7 +269,7 @@
   <Type Name="PredictorSubQueryEntity_Filter" Description="Filter der Unterabfrage">
     <Member Name="SubQuery" Description="Unterabfrage" />
   </Type>
-  <Type Name="PredictSimpleResultEntity" Description="Einfaches Vorhersageergebnis">
+  <Type Name="PredictSimpleResultEntity" Description="Einfaches Vorhersageergebnis" PluralDescription="Einfache Vorhersageergebnisse" Gender="n">
     <Member Name="Key0" Description="Schlüssel 0" />
     <Member Name="Key1" Description="Schlüssel 1" />
     <Member Name="Key2" Description="Schlüssel 2" />

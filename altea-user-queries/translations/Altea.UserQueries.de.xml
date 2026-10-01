@@ -5,7 +5,7 @@
     <Member Name="InteractionGroup" Description="Interaktionsgruppe" />
     <Member Name="None" Description="Nichts" />
   </Type>
-  <Type Name="BigValuePartEntity" Description="Große-Wert-teil" Gender="m">
+  <Type Name="BigValuePartEntity" Description="Große-Wert-teil">
     <Member Name="CustomBigValue" Description="Benutzerdefinierter großer Wert" />
     <Member Name="CustomUrl" Description="Benutzerdefinierte URL" />
     <Member Name="IsClickable" Description="Ist anklickbar" />
@@ -93,7 +93,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="UserQueryPartEntity" Description="Benutzerabfrage Teil" PluralDescription="Benutzerabfrage Teilen" Gender="n">
+  <Type Name="UserQueryPartEntity" Description="Benutzerabfrage Teil">
     <Member Name="AllowMaxHeight" Description="Maximale Höhe zulassen" />
     <Member Name="AllowSelection" Description="Auswahl zulassen" />
     <Member Name="AutoUpdate" Description="Automatische Aktualisierung" />
@@ -108,7 +108,7 @@
   <Type Name="UserQueryPermission">
     <Member Name="ViewUserQuery" Description="Benutzer-Abfrage anzeigen" />
   </Type>
-  <Type Name="ValueUserQueryListPartEntity" Description="Wert Benutzerabfrage Listen Teil" PluralDescription="Wert Benutzerabfrage Listen Teilen" Gender="n">
+  <Type Name="ValueUserQueryListPartEntity" Description="Wert Benutzerabfrage Listen Teil">
     <Member Name="UserQueries" Description="Benutzer-Abfragen" />
   </Type>
   <Type Name="ValueUserQueryListPartEntity_UserQuery" Description="Benutzerabfrage">

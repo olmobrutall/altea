@@ -13,15 +13,17 @@
     <Member Name="Row" Description="Zeile" />
     <Member Name="SplitValue" Description="Wert aufteilen" />
   </Type>
-  <Type Name="QueryFilterBaseEntity" Description="Abfragefilter">
-    <Member Name="DashboardBehaviour" Description="Dashboard-Verhalten" />
+  <Type Name="QueryFilterBaseEntity" Description="Abfragefilter" Gender="m">
     <Member Name="GroupOperation" Description="Gruppenoperation" />
     <Member Name="Indentation" Description="Einrückung" />
     <Member Name="IsGroup" Description="Ist Gruppe" />
     <Member Name="Operation" Description="Betrieb" />
-    <Member Name="Pinned" Description="Vorgewahlter " />
     <Member Name="Token" Description="Token" />
     <Member Name="ValueString" Description="Wert String" />
+  </Type>
+  <Type Name="QueryFilterPinnedBaseEntity" Description="Angehefteter Abfragefilter" PluralDescription="Angeheftete Abfragefilter" Gender="m">
+    <Member Name="DashboardBehaviour" Description="Dashboard-Verhalten" />
+    <Member Name="Pinned" Description="Angeheftet" />
   </Type>
   <Type Name="QueryTokenEmbedded" Description="Abfrage Token">
     <Member Name="TokenString" Description="Token string" />

@@ -11,7 +11,7 @@
     <Member Name="Exchange2016" Description="Exchange 2016" />
     <Member Name="V2015_10_05" Description="V2015_10_05" />
   </Type>
-  <Type Name="ExchangeWebServiceEmailServiceEntity" Description="Exchange-Webdienstes-E-Mail-Dienst " Gender="m">
+  <Type Name="ExchangeWebServiceEmailServiceEntity" Description="Exchange-Webdienstes-E-Mail-Dienst">
     <Member Name="ExchangeVersion" Description="Exchange-Version" />
     <Member Name="NewPassword" Description="Neues Passwort" />
     <Member Name="Password" Description="Passwort" />

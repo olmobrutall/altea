@@ -171,12 +171,12 @@
   </Type>
   <Type Name="Entity" Description="Entidad">
     <Member Name="Id" Description="Id" />
-    <Member Name="Ticks" Description="Ticks" />
+    <Member Name="RowVersion" Description="Versión de fila" />
   </Type>
   <Type Name="EntityControlMessage">
-    <Member Name="Actions" Description="Acciones" />
     <Member Name="_0Characters" Description="{0} carácter[es]" />
     <Member Name="_0CharactersRemaining" Description="{0} carácter(es) restante(s)" />
+    <Member Name="Actions" Description="Acciones" />
     <Member Name="Add" Description="Añadir..." />
     <Member Name="Added" Description="Añadido" />
     <Member Name="Changed" Description="Modificado" />

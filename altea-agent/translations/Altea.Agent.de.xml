@@ -3,7 +3,7 @@
   <Type Name="AgentOperation">
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="AgentSymbol" Description="Agent">
+  <Type Name="AgentSymbol" Description="Agent" PluralDescription="Agenten" Gender="m">
     <Member Name="SkillCustomization" Description="Anpassung der Fähigkeit" />
   </Type>
   <Type Name="ChatbotConfigurationEmbedded" Description="Chatbot-Konfiguration">
@@ -15,7 +15,7 @@
     <Member Name="OllamaUrl" Description="Ollama-URL" />
     <Member Name="OpenAIAPIKey" Description="OpenAI-API-Schlüssel" />
   </Type>
-  <Type Name="ChatbotLanguageModelEntity" Description="Sprachmodell des Chatbots">
+  <Type Name="ChatbotLanguageModelEntity" Description="Sprachmodell des Chatbots" PluralDescription="Sprachmodelle des Chatbots" Gender="n">
     <Member Name="IsDefault" Description="Ist Standard" />
     <Member Name="MaxTokens" Description="Max. Token" />
     <Member Name="Model" Description="Modell" />
@@ -52,7 +52,7 @@
   <Type Name="ChatbotPermission">
     <Member Name="UseChatbot" Description="Chatbot verwenden" />
   </Type>
-  <Type Name="ChatMessageEntity" Description="Chat-Nachricht">
+  <Type Name="ChatMessageEntity" Description="Chat-Nachricht" PluralDescription="Chat-Nachrichten" Gender="f">
     <Member Name="CachedInputTokens" Description="Zwischengespeicherte Eingabetoken" />
     <Member Name="ChatSession" Description="Chat-Sitzung" />
     <Member Name="Content" Description="Inhalt" />
@@ -106,7 +106,7 @@
     <Member Name="ConversationSumarizer" Description="Zusammenfassung der Unterhaltung" />
     <Member Name="QuestionSummarizer" Description="Zusammenfassung der Frage" />
   </Type>
-  <Type Name="EmbeddingsLanguageModelEntity" Description="Sprachmodell für Embeddings">
+  <Type Name="EmbeddingsLanguageModelEntity" Description="Sprachmodell für Embeddings" PluralDescription="Sprachmodelle für Embeddings" Gender="n">
     <Member Name="Dimensions" Description="Dimensionen" />
     <Member Name="IsDefault" Description="Ist Standard" />
     <Member Name="Model" Description="Modell" />
@@ -126,7 +126,7 @@
     <Member Name="Ollama" Description="Ollama" />
     <Member Name="OpenAI" Description="OpenAI" />
   </Type>
-  <Type Name="LanguageModelProviderSymbol" Description="Anbieter des Sprachmodells" />
+  <Type Name="LanguageModelProviderSymbol" Description="Anbieter des Sprachmodells" Gender="m" />
   <Type Name="SkillActivation" Description="Aktivierung der Fähigkeit">
     <Member Name="Eager" Description="Sofort" />
     <Member Name="Lazy" Description="Bei Bedarf" />

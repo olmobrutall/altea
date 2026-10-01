@@ -142,7 +142,7 @@
     <Member Name="September" Description="September" />
     <Member Name="StartingOn" Description="Beginnend am" />
   </Type>
-  <Type Name="ScheduleRuleWeekDaysEntity" Description="Schedule-Regel Wochentage" PluralDescription="Schedule-Regeln Wochentage">
+  <Type Name="ScheduleRuleWeekDaysEntity" Description="Schedule-Regel Wochentage">
     <Member Name="Calendar" Description="Kalender" />
     <Member Name="Friday" Description="Freitag" />
     <Member Name="Holiday" Description="Feiertag" />

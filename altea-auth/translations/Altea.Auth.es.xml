@@ -71,6 +71,10 @@
     <Member Name="TheQueryDoesNotEnsureThatYouCanRead0" Description="La consulta no garantiza que pueda leer {0}." />
     <Member Name="UnableToDetermineIfYouCanRead0" Description="No se puede determinar si puede leer {0}" />
   </Type>
+  <Type Name="AuthTokenConfigurationEmbedded" Description="Configuración del token de autenticación">
+    <Member Name="RefreshAnyTokenPreviousTo" Description="Refrescar cualquier token anterior a" />
+    <Member Name="RefreshTokenEvery" Description="Refrescar el token cada" />
+  </Type>
   <Type Name="BaseADConfigurationEmbedded" Description="Configuración de Active Directory">
     <Member Name="AllowMatchUsersBySimpleUserName" Description="Asociar usuarios por nombre de usuario simple" />
     <Member Name="AutoCreateUsers" Description="Crear usuarios automáticamente" />
@@ -79,6 +83,8 @@
   </Type>
   <Type Name="ConditionRuleModel" Description="Regla de condición">
     <Member Name="Allowed" Description="Permitido" />
+    <Member Name="OperationsSummary" Description="Resumen de operaciones" />
+    <Member Name="PropertiesSummary" Description="Resumen de propiedades" />
     <Member Name="TypeConditions" Description="Condiciones de tipo" />
   </Type>
   <Type Name="DimensionSummaryModel" Description="Resumen de la dimensión">
@@ -189,6 +195,7 @@
     <Member Name="Allowed" Description="Permitido" />
     <Member Name="AllowedBase" Description="Permitido base" />
     <Member Name="Coerced" Description="Forzado" />
+    <Member Name="Part" Description="Parte" />
     <Member Name="Path" Description="Ruta" />
   </Type>
   <Type Name="PropertyConditionRuleModel" Description="Regla de condición de propiedad">
@@ -359,6 +366,7 @@
     <Member Name="ExternalId" Description="Id externo" />
     <Member Name="LoginFailedCounter" Description="Contador de inicios de sesión fallidos" />
     <Member Name="MustChangePassword" Description="Debe cambiar la contraseña" />
+    <Member Name="PasswordHash" Description="Hash de la contraseña" />
     <Member Name="PasswordIsChanging" Description="La contraseña se está cambiando" />
     <Member Name="Role" Description="Rol" />
     <Member Name="State" Description="Estado" />

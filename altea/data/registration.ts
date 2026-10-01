@@ -347,6 +347,42 @@ export function setDefaultMemberDescription(name: string, member: string, descri
     orCreateDefaultDescription(name).members[member] = description;
 }
 
+/**
+ * Signum's `[DescriptionOptions]` — WHICH of the four labels a type has, as opposed to what they say.
+ *
+ * Signum puts the attribute on the base classes (`Entity` is `All`, `ModifiableEntity` is
+ * `Description | Members`, `MixinEntity` is `Members`) and lets any class override it. altea derives the
+ * same answer from the class's SHAPE instead — see altea-translations' `descriptionOptionsOf`, which is
+ * those base attributes written out as branches — so the bases need no declaration. This is the override
+ * half: the one type the shape gets wrong.
+ *
+ * Only the keys given are overridden; the rest stay as the shape decided. Reach for it when a label the
+ * default withholds is genuinely read (a `@part` row that does appear somewhere counted or inflected), or
+ * when one it grants is read by nothing — the sync asks for exactly what is declared here, so a label
+ * nobody reads is a translator waiting on a word for no reason.
+ *
+ * It governs what is ASKED FOR, never what is shown: a label the UI requests anyway still resolves,
+ * through its translation and then the humanised identifier, exactly as before.
+ */
+export interface DescriptionOptionsOverride {
+    hasDescription?: boolean;
+    hasPluralDescription?: boolean;
+    hasGender?: boolean;
+    hasMembers?: boolean;
+}
+
+const descriptionOptionOverrides = new Map<string, DescriptionOptionsOverride>();
+
+/** Record a type's `@descriptionOptions` override. Merges, so repeated calls compose. */
+export function setDescriptionOptions(name: string, options: DescriptionOptionsOverride): void {
+    descriptionOptionOverrides.set(name, { ...descriptionOptionOverrides.get(name), ...options });
+}
+
+/** The `@descriptionOptions` override declared on this type ITSELF, or undefined. */
+export function getDescriptionOptions(name: string): DescriptionOptionsOverride | undefined {
+    return descriptionOptionOverrides.get(name);
+}
+
 // The code-declared defaults for a type/container name, or undefined. Read by DescriptionManager as the
 // fallback below any loaded translation.
 export function getDefaultDescription(name: string): DefaultDescription | undefined {

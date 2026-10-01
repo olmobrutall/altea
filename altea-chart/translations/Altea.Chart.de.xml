@@ -288,7 +288,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="CombinedUserChartPartEntity" Description="Kombinierter Benutzerdiagrammteil" Gender="m">
+  <Type Name="CombinedUserChartPartEntity" Description="Kombinierter Benutzerdiagrammteil">
     <Member Name="AllowChangeShowData" Description="Daten anzeigen ändern lassen" />
     <Member Name="CombinePinnedFiltersWithSameLabel" Description="Kombinieren Vorgewahlter Filter Bezeichnung" />
     <Member Name="MinHeight" Description="Min height" />
@@ -330,7 +330,7 @@
   <Type Name="SvgMapsChartScript">
     <Member Name="SvgMap" Description="Svg-Karte" />
   </Type>
-  <Type Name="UserChartEntity" Description="Benutzerdiagramm" PluralDescription="Benutzerdiagramme" Gender="f">
+  <Type Name="UserChartEntity" Description="Benutzerdiagramm" PluralDescription="Benutzerdiagramme" Gender="n">
     <Member Name="ChartScript" Description="Diagrammskript" />
     <Member Name="ChartTimeSeries" Description="Zeitreihen in Diagrammen" />
     <Member Name="Columns" Description="Spalten" />
@@ -365,7 +365,7 @@
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
   </Type>
-  <Type Name="UserChartPartEntity" Description="Benutzerdiagramm Teil" PluralDescription="Benutzerdiagramm Teilen" Gender="n">
+  <Type Name="UserChartPartEntity" Description="Benutzerdiagramm Teil">
     <Member Name="AllowChangeShowData" Description="Änderungsdaten anzeigen lassen" />
     <Member Name="AutoRefresh" Description="Automatische Aktualisierung" />
     <Member Name="CreateNew" Description="Neue erstellen" />

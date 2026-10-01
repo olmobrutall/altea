@@ -365,7 +365,7 @@
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
   </Type>
-  <Type Name="UserChartPartEntity" Description="Parte gráfico de usuario ">
+  <Type Name="UserChartPartEntity" Description="Parte gráfico de usuario">
     <Member Name="AllowChangeShowData" Description="Permitir cambio de datos mostrados" />
     <Member Name="AutoRefresh" Description="Actualización automática" />
     <Member Name="CreateNew" Description="Crear nuevo" />

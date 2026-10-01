@@ -2,13 +2,13 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFile
 import { join } from "node:path";
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import { EmbeddedEntity, Entity, MixinEntity, ModelEntity, View } from "@altea/altea/data/entity";
-import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { PropertyRoute, isPartType } from "@altea/altea/data/propertyRoute";
 import { tryGetTypeInfo } from "@altea/altea/data/reflection";
 import { Localization, type LocalizableMessage } from "@altea/altea/data/utils/localization";
 import { pluralize, detectGender, determinersFor } from "@altea/altea/data/utils/naturalLanguage";
 import {
     getRegisteredTypes, getRegisteredEnums, getRegisteredObjects, getLocation, getPackageCulture,
-    allDeclaredSymbols, getDefaultDescription,
+    allDeclaredSymbols, getDefaultDescription, getDescriptionOptions, type DescriptionOptionsOverride,
     isModifiableType,
 } from "@altea/altea/data/registration";
 
@@ -175,7 +175,52 @@ export function defaultCultureOf(packageName: string): string {
 // Which of the four labels a reflected class has. Signum keeps this on the base classes, as an
 // INHERITED `[DescriptionOptions]`, and the branches below are those bases one for one — except for
 // the MODEL, the single case altea widens.
+//
+// A class may override the answer with core's `@descriptionOptions`, which is the rest of Signum's
+// attribute: the per-type half, for the type the SHAPE gets wrong. It is applied last, and inherited the
+// way the attribute is — see {@link overriddenOptions}.
 function descriptionOptionsOf(ctor: Type<BaseEntity>): DescriptionOptions {
+    return { ...structuralOptionsOf(ctor), ...overriddenOptions(ctor) };
+}
+
+/**
+ * The `@descriptionOptions` in effect for `ctor`: its own, over any its bases declare.
+ *
+ * Signum's attribute is INHERITED — that is how `Entity` hands `All` to every entity in the first place —
+ * so a declaration on an abstract base has to reach its subclasses here too, and a subclass's own
+ * declaration has to win over it. Walking the prototype chain leaf-last is both at once.
+ */
+function overriddenOptions(ctor: Type<BaseEntity>): DescriptionOptionsOverride {
+    const chain: DescriptionOptionsOverride[] = [];
+    for (let c: Function | undefined = ctor; c != undefined && c.name !== ""; c = Object.getPrototypeOf(c) as Function | undefined) {
+        const own = getDescriptionOptions(c.name);
+        if (own != undefined)
+            chain.unshift(own);
+    }
+    return Object.assign({}, ...chain) as DescriptionOptionsOverride;
+}
+
+function structuralOptionsOf(ctor: Type<BaseEntity>): DescriptionOptions {
+
+    // A `@part` ROW is Signum's owned `EmbeddedEntity` / `MList` element, so it gets the EMBEDDED options
+    // — named, never counted, never inflected — even though altea gives it a table and therefore a class
+    // that extends `Entity`.
+    //
+    // This is the same reasoning `isPartType` is written on ("in Signum a part is not an entity at all"),
+    // and the same correction the MODEL branch below already makes: a part is reached through the entity
+    // that owns it, has no page, no search page and no query root, and is never preceded by a determiner.
+    // The one place its name surfaces is a singular — a query token's type tooltip — which is exactly
+    // `hasDescription`.
+    //
+    // Leaving it on the `Entity` branch put 40-odd owned rows on the sync page waiting for a gender, in
+    // German nearly all of them: `HolidayCalendarEntity_Holiday`, five `UserChartEntity_*`, four
+    // `Email*_Attachment`. The runtime falls back to `detectGender` over the nice name for the rare
+    // consumer that asks (`typeNiceGender`), which is what these types resolved to anyway.
+    //
+    // `SharedPart` is NOT a part here, exactly as in `isPartType`: more than one owner means it is reached
+    // as an ordinary reference, and it keeps the full set.
+    if (isPartType(ctor))
+        return { hasDescription: true, hasPluralDescription: false, hasGender: false, hasMembers: true };
 
     // Signum's `[DescriptionOptions(All)]` on `Entity`.
     if (isOrExtends(ctor, Entity))
@@ -510,11 +555,16 @@ function lastSegment(path: string): string {
 export interface ExportOptions {
     /**
      * Write an entry whose text is the EMPTY STRING instead of leaving it out — the placeholder mode
-     * TranslationStubs uses, so every untranslated name becomes a `Description=""` an editor can find.
+     * TranslationStubs uses, so every untranslated name becomes an empty attribute an editor can find.
      *
      * Empty is not a translation: `isTypeCompleted` and `memberConflict` both treat "" as missing, so a
      * stubbed file still reports exactly the same work on the sync page. Off for an ordinary save, which
      * must keep leaving untranslated names out.
+     *
+     * It applies to all THREE type-level attributes, not only the description. A derived plural or gender
+     * is still omitted — the point of the derivation is that the file does not carry it — but one the
+     * stubber emptied on purpose is written, because a gender German cannot derive has no other way of
+     * being asked for. See TranslationStubs for why that trade is worth making.
      */
     keepEmpty?: boolean;
 }
@@ -542,22 +592,40 @@ export function exportXml(pkg: LocalizedPackage, options: ExportOptions = {}): v
             .sort((a, b) => a[0].localeCompare(b[0]))
             .map(([name, description]) => ({ Name: name, Description: description! }));
 
-        const description = lt.description ?? "";
+        // A type-level label is a NOUN PHRASE, so surrounding whitespace in one is always a slip — eight
+        // of them arrived through the sync page, where a machine translator returns "Ayuda consulta " and
+        // the suggestion is saved as offered. Trimming on the way out heals them on the next save of any
+        // kind, and keeps a space out of the nice name a page renders.
+        //
+        // MEMBERS are deliberately NOT trimmed: there the space is load-bearing. `And` is `" und "` and
+        // `Or` is `" oder "` because the filter builder concatenates them between terms, and altea-help
+        // writes whole sentences in fragments — `" automatisch vom System"`, `" (fakultativ)"`. Trimming
+        // those would silently run the words together.
+        const description = (lt.description ?? "").trim();
         // A stub has no text to write attributes FROM, so under keepEmpty a type is kept for its members
-        // alone, and its `Description=""` is written when the stubber asked for one (description === "").
+        // alone, and an attribute the stubber emptied is written out as the placeholder it asked for.
+        //
+        // The three are distinguished by `undefined` vs `""`: nothing to say versus a slot waiting to be
+        // filled. Only the stubber ever produces the second, and only under keepEmpty, so an ordinary
+        // save is unchanged.
         const stubbedDescription = keepEmpty && lt.description === "";
-        const plural = (lt.pluralDescription ?? "") === "" || (description !== "" && lt.pluralDescription === pluralize(description, pkg.culture))
-            ? "" : lt.pluralDescription!;
-        const gender = (lt.gender ?? "") === "" || (description !== "" && lt.gender === detectGender(description, pkg.culture))
-            ? "" : lt.gender!;
+        const stubbedPlural = keepEmpty && lt.pluralDescription === "";
+        const stubbedGender = keepEmpty && lt.gender === "";
+        const pluralText = (lt.pluralDescription ?? "").trim();
+        const genderText = (lt.gender ?? "").trim();
+        const plural = pluralText === "" || (description !== "" && pluralText === pluralize(description, pkg.culture))
+            ? "" : pluralText;
+        const gender = genderText === "" || (description !== "" && genderText === detectGender(description, pkg.culture))
+            ? "" : genderText;
 
-        if (description === "" && !stubbedDescription && plural === "" && gender === "" && memberNodes.length === 0)
+        const stubbed = stubbedDescription || stubbedPlural || stubbedGender;
+        if (description === "" && plural === "" && gender === "" && !stubbed && memberNodes.length === 0)
             continue;
 
         const node: Record<string, unknown> = { Name: lt.typeName };
         if (description !== "" || stubbedDescription) node.Description = description;
-        if (plural !== "") node.PluralDescription = plural;
-        if (gender !== "") node.Gender = gender;
+        if (plural !== "" || stubbedPlural) node.PluralDescription = plural;
+        if (gender !== "" || stubbedGender) node.Gender = gender;
         if (memberNodes.length > 0) node.Member = memberNodes;
         typeNodes.push(node);
     }

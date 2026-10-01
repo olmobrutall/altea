@@ -6,7 +6,7 @@ import type { Type, Entity, View, ViewType } from "./entity";
 import type { CustomLiteClass } from './lite';
 import type { ExLambda, Quoted } from 'quote-transformer/quoted';
 import { accessedFields, memberPath } from './accessedFields';
-import { declareLegacyCleanName, declareLegacyClassName } from './registration';
+import { declareLegacyCleanName, declareLegacyClassName, setDescriptionOptions, type DescriptionOptionsOverride } from './registration';
 import type { BaseEntity } from "./entity";
 
 export type { ColumnOptions, TranslatableRouteType } from './reflection';
@@ -615,6 +615,25 @@ export function niceName(text: string): ClassDecorator & PropertyDecorator {
 export function nicePluralName(text: string): ClassDecorator {
     return ((target: Function): void => {
         setDefaultTypeDescription(target.name, { pluralDescription: text });
+    }) as ClassDecorator;
+}
+
+// Class decorator: Signum's `[DescriptionOptions]` — WHICH of the four labels this type has, where the
+// structural default (altea-translations' `descriptionOptionsOf`) gets it wrong:
+//
+//     @descriptionOptions({ hasPluralDescription: true, hasGender: true })
+//     @part class InvoiceEntity_Line extends Entity { … }
+//
+// Only the keys given are overridden. INHERITED by subclasses, as Signum's attribute is — which is also
+// how a whole family is pinned at once, by declaring it on their abstract base.
+//
+// It decides what the translation sync ASKS FOR, not what the UI shows: a label nothing declares still
+// resolves through its translation and then the humanised identifier. So turning one OFF does not blank
+// it — it stops a translator being asked for a word nothing reads (see `@niceName` / `@gender` for what
+// the labels SAY).
+export function descriptionOptions(options: DescriptionOptionsOverride): ClassDecorator {
+    return ((target: Function): void => {
+        setDescriptionOptions(target.name, options);
     }) as ClassDecorator;
 }
 

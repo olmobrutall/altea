@@ -14,14 +14,16 @@
     <Member Name="SplitValue" Description="Dividir el valor" />
   </Type>
   <Type Name="QueryFilterBaseEntity" Description="Filtro de consulta">
-    <Member Name="DashboardBehaviour" Description="Comportamiento en el panel" />
     <Member Name="GroupOperation" Description="Operación de grupo" />
     <Member Name="Indentation" Description="Sangría" />
     <Member Name="IsGroup" Description="Es grupo" />
     <Member Name="Operation" Description="Operación" />
-    <Member Name="Pinned" Description="Fijado" />
     <Member Name="Token" Description="Token" />
     <Member Name="ValueString" Description="Valor cadena" />
+  </Type>
+  <Type Name="QueryFilterPinnedBaseEntity" Description="Filtro de consulta fijado" PluralDescription="Filtros de consulta fijados">
+    <Member Name="DashboardBehaviour" Description="Comportamiento en el panel" />
+    <Member Name="Pinned" Description="Fijado" />
   </Type>
   <Type Name="QueryTokenEmbedded" Description="Token de consulta">
     <Member Name="TokenString" Description="Cadena del token" />

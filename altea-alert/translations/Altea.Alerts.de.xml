@@ -58,9 +58,6 @@
     <Member Name="YouDoNotHaveAnyActiveAlert" Description="Sie haben keine aktive Benachrichtigung" />
     <Member Name="YouHaveSomePendingAlerts" Description="Sie haben einige ausstehende Benachrichtigungen:" />
   </Type>
-  <Type Name="AlertNotificationMail" Description="Benachrichtigungs-E-Mail">
-    <Member Name="Alerts" Description="Benachrichtigungen" />
-  </Type>
   <Type Name="AlertOperation">
     <Member Name="Attend" Description="Erledigen" />
     <Member Name="Create" Description="Erstellen" />

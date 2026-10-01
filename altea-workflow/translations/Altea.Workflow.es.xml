@@ -381,6 +381,7 @@
   </Type>
   <Type Name="WorkflowEntity" Description="Flujo de trabajo">
     <Member Name="ExpirationDate" Description="Fecha de vencimiento" />
+    <Member Name="FullDiagramXml" Description="XML completo del diagrama" />
     <Member Name="MainEntityStrategies" Description="Estrategias principales de entidad" />
     <Member Name="MainEntityType" Description="Tipo de entidad principal" />
     <Member Name="Name" Description="Nombre" />
