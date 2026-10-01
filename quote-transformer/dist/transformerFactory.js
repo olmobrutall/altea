@@ -1032,10 +1032,19 @@ function transformerFactory(program, pluginConfig, { ts, addDiagnostic }) {
             // every collection. Emit `= []` instead — but ONLY when the field declares no initializer of
             // its own, so an explicit default (`x: T[] = something`) is never clobbered. Runs only here,
             // inside the @reflect/@entity injection path, so plain (non-reflected) classes are untouched.
+            //
+            // Auto-seed a non-nullable `boolean` the same way, for the same reason. A C# `bool` is a value
+            // type, so a freshly `new`'d entity already carries `false` and Signum never had to think about
+            // it; in TypeScript the field is `undefined`, and a checkbox cannot render that any differently
+            // from `false` — so a new entity showed unchecked boxes and then failed its OWN implicit NotNull
+            // validation ("Group results is not set") on a value the user could not see was missing. Emit
+            // `= false`. `boolean | null` and `boolean?` are left alone: there the third state is declared,
+            // so it is the author's.
             const resolved = resolveElementType(member.type, false);
-            const initializer = (resolved?.array === true && member.initializer == null)
-                ? ts.factory.createArrayLiteralExpression([], false)
-                : member.initializer;
+            const initializer = member.initializer != null ? member.initializer :
+                resolved?.array === true ? ts.factory.createArrayLiteralExpression([], false) :
+                    (resolved?.typeName === "Boolean" && resolved.nullable !== true && member.questionToken == null) ? ts.factory.createFalse() :
+                        undefined;
             return ts.factory.updatePropertyDeclaration(member, newModifiers, member.name, member.questionToken ?? member.exclamationToken, member.type, initializer);
         });
         return ts.factory.updateClassDeclaration(node, node.modifiers, node.name, node.typeParameters, node.heritageClauses, newMembers);

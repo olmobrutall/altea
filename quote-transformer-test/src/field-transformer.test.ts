@@ -93,6 +93,32 @@ registerType(EmployeeEntity, "EmployeeEntity", __fileInfo);`
         );
     });
 
+    test('auto-seeds non-nullable booleans in @entity classes', () => {
+        assertFieldTransform(
+            `@entity
+class TemplateEntity {
+    groupResults!: boolean;
+    disableAuthorization!: boolean;
+    sendEmail: boolean = true;
+    archived?: boolean;
+    obsolete!: boolean | null;
+    flags!: boolean[];
+    @field(false) raw!: boolean;
+}`,
+            `@entity
+class TemplateEntity {
+    @field({ typeName: "Boolean" }) groupResults!: boolean = false;
+    @field({ typeName: "Boolean" }) disableAuthorization!: boolean = false;
+    @field({ typeName: "Boolean" }) sendEmail: boolean = true;
+    @field({ typeName: "Boolean" }) archived?: boolean;
+    @field({ typeName: "Boolean", nullable: true }) obsolete!: boolean | null;
+    @field({ typeName: "Boolean", array: true }) flags!: boolean[] = [];
+    @field(false) raw!: boolean;
+}
+registerType(TemplateEntity, "TemplateEntity", __fileInfo);`
+        );
+    });
+
     test('field decorator resolves primitive type aliases to typeName + name', () => {
         assertFieldTransform(
             `type int = number;
