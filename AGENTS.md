@@ -148,6 +148,11 @@ string there.
   right editor from it.
 - Rule sets live in `client/FinderRules.tsx`, not inline in `Finder.tsx` (the editors import Lines, and
   Lines import Finder).
+- **`Navigator` refuses an anonymous boot graph.** Its module body throws when evaluated with no logged-in
+  user, because importing it pulls in the whole entity-navigation stack (Finder, Operations, every Line)
+  and an app's public surface must not pay for it. A module an app shell imports STATICALLY may not reach
+  it — load it with `React.lazy` / a dynamic `import()` behind a `currentUser != null` render, as
+  `LoginDropdown` does for its profile handler.
 
 ## Localization
 

@@ -280,9 +280,14 @@ export namespace GraphExplorer {
       modelStates.delete(entity);
       return;
     }
+    // The separator is ALWAYS written, as Signum's walker does: a context's prefix is
+    // `parent.prefix + binding.suffix` and a member's suffix already starts with a dot, so a frameless
+    // root (TypeContext.root, prefix "") makes ".eMail" — which a bare "eMail" key would never match.
+    const prefix = initialPrefix ?? "";
     const prefixed: ModelState = {};
     for (const key of Object.keys(modelState)) {
-      const full = initialPrefix ? (key ? initialPrefix + "." + key : initialPrefix) : key;
+      // The empty key is an entity-LEVEL error: it belongs to the root context, which is the prefix.
+      const full = key ? prefix + "." + key : prefix;
       prefixed[full] = modelState[key];
     }
     modelStates.set(entity, prefixed);

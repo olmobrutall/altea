@@ -2,7 +2,6 @@ import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Nav, NavDropdown } from "react-bootstrap";
 import * as AppContext from "@altea/altea/client/AppContext";
-import { Navigator } from "@altea/altea/client/Navigator";
 import { LoginAuthMessage } from "../../data/AuthMessages";
 import { UserEntity } from "../../data/User";
 import { AuthClient } from "../AuthClient";
@@ -33,9 +32,11 @@ function LoginDropdown(p: {
     const suv = p.switchUserVisible ?? true;
     const pv = p.profileVisible ?? true;
 
+    // Navigator on demand, not imported: this dropdown renders the logged-out "Login" link, so it is in
+    // the app shell's static graph, which Navigator's guard forbids.
     function handleProfileClick(): void {
-        void Navigator.API.fetchEntityPack(user!.toLite())
-            .then(pack => Navigator.view(pack))
+        void import("@altea/altea/client/Navigator")
+            .then(({ Navigator }) => Navigator.API.fetchEntityPack(user!.toLite()).then(pack => Navigator.view(pack)))
             .then(u => u && AuthClient.API.fetchCurrentUser(true).then(nu => AuthClient.setCurrentUser(nu)));
     }
 

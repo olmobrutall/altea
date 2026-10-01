@@ -36,7 +36,9 @@ export function ValidationErrors(p: { entity: BaseEntity, prefix: string, ref?: 
         key={key}
         style={{ cursor: "pointer", whiteSpace: "pre-wrap" }}
         onClick={() => handleOnClick(key)}
-        title={key.after(p.prefix + ".")}>
+        // `tryAfter`, not `after`: `after` THROWS when the separator is absent, which happens for an
+        // entity-level error (the key IS the prefix) and on a frameless page (prefix "").
+        title={key.tryAfter(p.prefix + ".") ?? key}>
         {value}
       </li>)}
     </ul>

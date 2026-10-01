@@ -79,10 +79,20 @@ import { object } from "prop-types";
 import { clearSpecialActions } from "./OmniboxSpecialAction";
 import { ContextualItemsContext, MenuItemBlock } from "./SearchControl/ContextualItems";
 
-// ALTEA: currentUser lives in AppContext (not yet ported) — the anonymous-user guard is deferred.
-if (!window.__allowNavigatorWithoutUser && (currentUser == null || getToString(currentUser) == "Anonymous"))
-  throw new Error("To improve intial performance, no dependency to any module that depends on Navigator should be taken for anonymous user. Review your dependencies or write var __allowNavigatorWithoutUser = true in Index.cshtml to disable this check.");
 ===== */
+
+const ANONYMOUS_USER_NAME = "Anonymous";
+
+// Signum's anonymous-user guard: importing Navigator pulls in the whole entity-navigation stack (Finder,
+// Operations, every Line), so nothing in an app shell's STATIC graph may reach it — load it lazily, behind
+// a logged-in user. Read at import time, so it asks "was this in the boot graph?".
+// altea divergences: `typeof window` first (altea also server-renders); index.html, not Index.cshtml;
+// `currentUser.toString()` (altea has no free getToString).
+if (typeof window !== "undefined" &&
+  !window.__allowNavigatorWithoutUser &&
+  (AppContext.currentUser == null || AppContext.currentUser.toString() == ANONYMOUS_USER_NAME))
+  throw new Error("To improve initial performance, no dependency to any module that depends on Navigator should be taken for an anonymous user. " +
+    "Review your dependencies (load them lazily, behind a logged-in user) or write window.__allowNavigatorWithoutUser = true in index.html to disable this check.");
 
 // altea: Navigator's per-user client state slice. Signum keeps `entitySettings` as a module-level var
 // reset through `AppContext.clearSettingsActions`; altea stores it in `AppContext.clientState` (see
