@@ -139,7 +139,13 @@ function EntryListPath({ width, entries }: { width: number, entries: ProfilerCli
             {data.map((v, i) => {
                 const isPH = v.kind.startsWith("Web.API") && v.additionalData != null && v.additionalData.includes("/api/profilerHeavy/");
                 return (<g className="entry" data-full-key={v.fullIndex} key={v.fullIndex} role="button" tabIndex={0} cursor="pointer" opacity={isPH ? 0.5 : undefined}
-                    onClick={e => handleOnClick(e, v)}>
+                    onClick={e => handleOnClick(e, v)}
+                    onKeyDown={e => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            (e.currentTarget as Element).dispatchEvent(new MouseEvent("click", { bubbles: true })); // the same drill-down the mouse gets
+                        }
+                    }}>
                     <rect className="left-background" x={0} y={y(i)} width={labelWidth} height={entryHeight} fill="#ddd" stroke="#fff" />
                     <text className="label label-left" y={y(i)} dy={fontPadding + fontSize} fill="#000">{v.kind + " " + v.additionalData}</text>
                     <rect className="right-background" x={labelWidth} y={y(i)} width={width - labelWidth} height={entryHeight} fill="#fff" stroke="#ddd" />

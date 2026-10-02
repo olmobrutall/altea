@@ -56,10 +56,15 @@ export const DateTimeLine: (props: DateTimeLineProps) => React.ReactNode | null 
 
   const isLabelVisible = p.ctx.formGroupStyle !== "SrOnly";
   var ariaAtts = p.ctx.readOnly ? c.baseAriaAttributes() : c.extendedAriaAttributes();
-  if (!isLabelVisible) {
+  var htmlAtts = c.props.valueHtmlAttributes;
+  // An aria-label the CALL SITE spelled out wins over the label: a visible label such as a bare "to" says
+  // nothing about which range it ends, and ariaAtts is spread after valueHtmlAttributes.
+  const explicitAriaLabel = htmlAtts?.["aria-label"];
+  if (explicitAriaLabel)
+    ariaAtts = { ...ariaAtts, "aria-label": explicitAriaLabel };
+  else if (!isLabelVisible) {
     ariaAtts = { ...ariaAtts, "aria-label": ariaLabelOf(p.label, p.ctx) };
   }
-  var htmlAtts = c.props.valueHtmlAttributes;
   var mergedHtmlReadOnly = { ...htmlAtts, ...ariaAtts };
 
   const helpText = p.helpText && (typeof p.helpText == "function" ? p.helpText(c) : p.helpText);
@@ -112,6 +117,12 @@ export const DateTimeLine: (props: DateTimeLineProps) => React.ReactNode | null 
             // back on the visible label either: react-widgets renames the id it is given to "<id>_input",
             // so the <label for> FormGroup rendered points at nothing.
             inputProps={{ ...htmlAttributes, ...ariaAtts } as any}
+            // ...except aria-describedby: react-widgets sets it on the input AFTER spreading inputProps,
+            // from its own prop, so the one in inputProps was overwritten with undefined — an invalid date
+            // was announced as invalid without its message, and the help text was lost the same way.
+            aria-describedby={ariaAtts["aria-describedby"]}
+            // The same for aria-labelledby: a field named by labels elsewhere on the page lost its name.
+            aria-labelledby={(htmlAttributes as React.AriaAttributes)["aria-labelledby"]}
             placeholder={htmlAttributes.placeholder}
             min={p.minDate}
             max={p.maxDate}

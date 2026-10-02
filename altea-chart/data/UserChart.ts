@@ -3,9 +3,9 @@ import { Entity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
     backReference, entity, part, implementedBy, primaryKey, quoted, rowOrder, valueField,
-    legacyColumnName,
+    legacyColumnName, unit,
 } from "@altea/altea/data/decorators";
-import { noRepeatValidator, stringLengthValidator } from "@altea/altea/data/validators";
+import { ComparisonType, noRepeatValidator, numberIsValidator, stringLengthValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { FilterOperation, FilterGroupOperation, DashboardBehaviour } from "@altea/altea/data/dynamicQueries";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
@@ -141,6 +141,10 @@ export class UserChartEntity extends Entity implements IUserAssetEntity, IHasEnt
     includeDefaultFilters: boolean | null;
 
     maxRows: int | null;
+
+    @unit("px")
+    @numberIsValidator(ComparisonType.GreaterThan, 0)
+    minHeight: int | null;
 
     chartTimeSeries: ChartTimeSeriesEmbedded | null;
 

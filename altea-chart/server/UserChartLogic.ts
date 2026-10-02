@@ -121,6 +121,7 @@ export namespace UserChartLogic {
             displayName: `Clone ${uc.displayName}`,
             includeDefaultFilters: uc.includeDefaultFilters,
             maxRows: uc.maxRows,
+            minHeight: uc.minHeight,
             chartTimeSeries: uc.chartTimeSeries?.clone() ?? null,
             chartScript: uc.chartScript,
             columns: uc.columns.map(c => c.clone()),

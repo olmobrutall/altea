@@ -104,9 +104,14 @@ export default function renderBubbleplot({ data, width, height, parameters, load
   var aggregateColumns: ChartColumn<any>[] = data.columns.entity ? [data.columns.entity] :
     [keyColumn, horizontalColumn, verticalColumn].filter(cn => cn != undefined).filter(a => a.token && a.token instanceof AggregateToken)
 
-  var titleMessage = (aggregateColumns.length != 0) ?
-    ChartMessage._0Of1_2Per3.niceToString(ChartClient.symbolNiceName(D3ChartScript.Bubbleplot), getQueryNiceName(chartRequest.queryKey), keyColumns.map(cn => cn.title).join(", "), aggregateColumns.map(cn => cn.title).join(", ")) :
-    ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Bubbleplot), getQueryNiceName(chartRequest.queryKey), keyColumns.map(cn => cn.title).join(", "));
+  // UNGROUPED both lists above are the entity column, whose title is empty, so the chart was named
+  // "... of <query>: per". Named after the columns it DRAWS; keyColumns stays as it is for the row keys.
+  var titleColumns = (data.columns.entity ? [keyColumn, horizontalColumn, verticalColumn] : keyColumns).filter(cn => cn?.title);
+  var titleAggregates = (data.columns.entity ? [] : aggregateColumns).filter(cn => cn?.title);
+
+  var titleMessage = (titleAggregates.length != 0) ?
+    ChartMessage._0Of1_2Per3.niceToString(ChartClient.symbolNiceName(D3ChartScript.Bubbleplot), getQueryNiceName(chartRequest.queryKey), titleColumns.map(cn => cn.title).join(", "), titleAggregates.map(cn => cn.title).join(", ")) :
+    ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Bubbleplot), getQueryNiceName(chartRequest.queryKey), titleColumns.map(cn => cn.title).join(", "));
 
   return (
     <svg direction="ltr" width={width} height={height} role="group"
@@ -130,7 +135,7 @@ export default function renderBubbleplot({ data, width, height, parameters, load
               onKeyDown={e => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  (onclick as any)?.(e);
+                  (e.currentTarget as Element).dispatchEvent(new MouseEvent("click", { bubbles: true })); // the same drill-down the mouse gets
                 }
               }}
               onClick={e => onDrillDown(r, e)}

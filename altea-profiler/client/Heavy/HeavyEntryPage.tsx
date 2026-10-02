@@ -210,6 +210,12 @@ export function HeavyProfilerDetailsD3(p: HeavyProfilerDetailsD3Props): React.JS
                 {filteredData.map(d =>
                     <g className="entry" data-key={d.fullIndex} key={d.fullIndex} role="button" tabIndex={0} cursor="pointer"
                         onClick={e => handleOnClick(e, d)}
+                        onKeyDown={e => {
+                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                (e.currentTarget as Element).dispatchEvent(new MouseEvent("click", { bubbles: true })); // the same drill-down the mouse gets
+                            }
+                        }}
                         onDoubleClick={() => setMinMax(resetZoom(d))}>
                         <rect className="shape"
                             y={y(getDepth(d))}

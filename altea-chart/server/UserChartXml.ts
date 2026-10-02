@@ -46,6 +46,7 @@ async function toXml(uc: UserChartEntity, ctx: IToXmlContext): Promise<Record<st
     if (uc.includeDefaultFilters != null) o[A + "IncludeDefaultFilters"] = uc.includeDefaultFilters;
     o[A + "ChartScript"] = uc.chartScript.key;
     if (uc.maxRows != null) o[A + "MaxRows"] = uc.maxRows;
+    if (uc.minHeight != null) o[A + "MinHeight"] = uc.minHeight;
 
     if (uc.filters?.length) o["Filters"] = { Filter: uc.filters.map(filterXml) };
     o["Columns"] = { Column: (uc.columns ?? []).map(c => ({ ...rowGuid(c), ...columnXml(c.element) })) };
@@ -117,6 +118,7 @@ function fromXml(uc: UserChartEntity, xml: Record<string, unknown>, ctx: IFromXm
     uc.includeDefaultFilters = xml[A + "IncludeDefaultFilters"] != null ? bool(xml[A + "IncludeDefaultFilters"]) : null;
     uc.chartScript = resolveChartScript(str(xml[A + "ChartScript"])!);
     uc.maxRows = xml[A + "MaxRows"] != null ? (Number(xml[A + "MaxRows"]) as int) : null;
+    uc.minHeight = xml[A + "MinHeight"] != null ? (Number(xml[A + "MinHeight"]) as int) : null;
 
     uc.filters = syncRows(uc.filters ?? [], arr(xml["Filters"], "Filter"), () => new UserChartEntity_Filter(), fillFilter);
     uc.columns = syncRows(uc.columns ?? [], arr(xml["Columns"], "Column"), () => new UserChartEntity_Column(),

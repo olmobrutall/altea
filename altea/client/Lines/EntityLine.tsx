@@ -215,7 +215,7 @@ export const EntityLine: <V extends BaseEntity | Lite<Entity> | null>(props: Ent
       var ac = p.autocomplete;
 
       if (ac == null || ctx.readOnly) {
-        var fcr = <FormControlReadonly id={inputId} ctx={ctx} className={classes(ctx.formControlClass, "sf-entity-autocomplete", c.mandatoryClass)}>{ctx.value && Navigator.renderLiteOrEntity(ctx.value)}</FormControlReadonly>;
+        var fcr = <FormControlReadonly id={inputId} ctx={ctx} htmlAttributes={readonlyAriaAttributes()} className={classes(ctx.formControlClass, "sf-entity-autocomplete", c.mandatoryClass)}>{ctx.value && Navigator.renderLiteOrEntity(ctx.value)}</FormControlReadonly>;
         return renderInput ? renderInput(fcr) : fcr;
       }
 
@@ -252,7 +252,7 @@ export const EntityLine: <V extends BaseEntity | Lite<Entity> | null>(props: Ent
             (value as BaseEntity | Lite<Entity>).toString();
 
       if (p.ctx.readOnly)
-        return <FormControlReadonly id={inputId} ctx={p.ctx}>{str}</FormControlReadonly>
+        return <FormControlReadonly id={inputId} ctx={p.ctx} htmlAttributes={readonlyAriaAttributes()}>{str}</FormControlReadonly>
 
       if (p.view && !p.avoidLink) {
         return (
@@ -270,6 +270,15 @@ export const EntityLine: <V extends BaseEntity | Lite<Entity> | null>(props: Ent
           </span>
         );
       }
+    }
+
+    // The read-only control got none of the line's aria attributes, so an invalid one — an empty required
+    // reference the user cannot fill in on this form — showed the red border and the summary entry, but
+    // neither said it was invalid nor read the message when it had the focus. The BASE set plus
+    // aria-invalid, not the extended one: an empty value renders a div with role="group", on which
+    // aria-required is not allowed.
+    function readonlyAriaAttributes(): React.HTMLAttributes<any> {
+      return { ...c.baseAriaAttributes(), "aria-invalid": c.getError() ? true : undefined };
     }
 
     function setLinkOrSpan(linkOrSpan?: HTMLElement | null) {

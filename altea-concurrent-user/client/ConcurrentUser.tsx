@@ -131,7 +131,7 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
 
                         {otherUsers.map((a, i) =>
                             <div key={i} className="d-flex align-items-center">
-                                <SmallProfilePhoto user={a.user} className="me-2" /> {a.user.toString()}
+                                <SmallProfilePhoto user={a.user} className="me-2" decorative /> {a.user.toString()}
                                 <small className="ms-1 text-muted">({toRelative(a.startTime)})</small>
                                 {a.isModified && <FontAwesomeIcon role="img" icon="pen-to-square" color="#FFAA44"
                                     title={ConcurrentUserMessage.CurrentlyEditing.niceToString()} style={{ marginLeft: "10px" }} />}

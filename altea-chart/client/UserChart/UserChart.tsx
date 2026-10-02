@@ -1,6 +1,7 @@
 import * as React from "react";
 import { TypeContext } from "@altea/altea/client/TypeContext";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
+import { NumberLine } from "@altea/altea/client/Lines/NumberLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { CheckboxLine } from "@altea/altea/client/Lines/CheckboxLine";
 import { FormGroup } from "@altea/altea/client/Lines/FormGroup";
@@ -18,6 +19,7 @@ import {
     UserChartEntity, UserChartEntity_Column, UserChartEntity_Parameter,
 } from "../../data/UserChart";
 import ChartBuilder from "../Templates/ChartBuilder";
+import ReactChart from "../D3Scripts/Components/ReactChart";
 
 // Port of Signum's Signum.Chart/UserChart/UserChart.tsx (the UserChart editor). Signum's UserChartEntity IS
 // an IChartBase, so it hands itself straight to <ChartBuilder>. altea's UserChartEntity CANNOT be an
@@ -75,6 +77,8 @@ export default function UserChart(p: { ctx: TypeContext<UserChartEntity> }): Rea
                         <div className="row mt-2 mb-2">
                             <div className="col-sm-6">
                                 <AutoLine ctx={ctx.subCtx(e => e.includeDefaultFilters, { labelColumns: 4 })} />
+                                <NumberLine ctx={ctx.subCtx(e => e.minHeight, { labelColumns: 4 })}
+                                    valueHtmlAttributes={{ placeholder: ReactChart.Options.defaultMinHeight.toString() }} />
                                 {/* EXTENSION POINT: customDrilldowns (EntityStrip) + "Used by" (Toolbar/Dashboard
                                     SearchValueLines) are deferred until those altea modules land. */}
                             </div>

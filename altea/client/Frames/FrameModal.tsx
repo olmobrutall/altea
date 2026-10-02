@@ -316,10 +316,13 @@ export function FrameModal<T extends BaseEntity>(p: FrameModalProps<T>): React.J
       dialogClassName={classes(settings?.modalDialogClass, settings?.modalMaxWidth ? "modal-max-width" : undefined)}
       enforceFocus={settings?.enforceFocusInModal ?? true}
       fullscreen={settings?.modalFullScreen ? true : undefined}
-      aria-labelledby={titleId}
+      // A screen reader names a dialog ONCE, when the focus enters it — before the pack has loaded, while the
+      // title still reads "Loading...". Until then it is named from what is already known (a lite's toStr,
+      // else the type); once loaded, from the title as before.
+      {...(state?.pack ? { "aria-labelledby": titleId } : { "aria-label": initialName(p.entityOrPack, p.title) })}
     >
-      <ModalHeaderButtons titleId={titleId} onClose={p.buttons == "close" ? handleCancelClicked : undefined} stickyHeader={settings?.stickyHeader}>
-        <FrameModalTitle pack={state?.pack} pr={p.propertyRoute} title={p.title} subTitle={p.subTitle} getViewPromise={p.getViewPromise as any} widgets={wc && renderWidgets(wc, settings?.stickyHeader)} />
+      <ModalHeaderButtons headingInChildren onClose={p.buttons == "close" ? handleCancelClicked : undefined} stickyHeader={settings?.stickyHeader}>
+        <FrameModalTitle titleId={titleId} pack={state?.pack} pr={p.propertyRoute} title={p.title} subTitle={p.subTitle} getViewPromise={p.getViewPromise as any} widgets={wc && renderWidgets(wc, settings?.stickyHeader)} />
       </ModalHeaderButtons>
       {state && renderBody(state)}
       {p.buttons == "ok_cancel" && <ModalFooterButtons
@@ -362,6 +365,15 @@ export function FrameModal<T extends BaseEntity>(p: FrameModalProps<T>): React.J
 
 const FrameModalEx = FrameModal;
 
+function initialName(entityOrPack: Lite<Entity> | BaseEntity | EntityPack<BaseEntity>, title: React.ReactNode | undefined): string {
+  if (typeof title == "string" && title)
+    return title;
+
+  const known = (isEntityPack(entityOrPack) ? entityOrPack.entity : entityOrPack).toString();
+
+  return known || tryGetTypeInfo(getTypeName(entityOrPack))?.getNiceName() || JavascriptMessage.loading.niceToString();
+}
+
 function getTypeName(entityOrPack: Lite<Entity> | BaseEntity | EntityPack<BaseEntity>): string {
   return isEntityPack(entityOrPack) ? reflectGetTypeName(entityOrPack.entity) : reflectGetTypeName(entityOrPack);
 }
@@ -388,12 +400,15 @@ export namespace FrameModalManager {
   }
 }
 
-export function FrameModalTitle({ pack, pr, title, subTitle, widgets, getViewPromise }: {
-  pack?: EntityPack<BaseEntity>, pr?: PropertyRoute, title: React.ReactNode, subTitle?: React.ReactNode | null, widgets: React.ReactNode, getViewPromise?: (e: BaseEntity) => (undefined | string | ViewPromise<BaseEntity>);
+// Only the entity title is the heading, and so the dialog's name (aria-labelledby titleId): the whole header
+// used to be one <h1>, so every widget button in it was part of the heading and of the name. The expand link,
+// the type sub-title and the widgets sit next to it; h1.sf-modal-heading keeps the old size.
+export function FrameModalTitle({ titleId, pack, pr, title, subTitle, widgets, getViewPromise }: {
+  titleId?: string, pack?: EntityPack<BaseEntity>, pr?: PropertyRoute, title: React.ReactNode, subTitle?: React.ReactNode | null, widgets: React.ReactNode, getViewPromise?: (e: BaseEntity) => (undefined | string | ViewPromise<BaseEntity>);
 }): React.ReactElement {
 
   if (!pack)
-    return <span className="sf-entity-title">{JavascriptMessage.loading.niceToString()}</span>;
+    return <h1 className="sf-modal-heading" id={titleId}><span className="sf-entity-title">{JavascriptMessage.loading.niceToString()}</span></h1>;
 
   const entity = pack.entity;
 
@@ -406,9 +421,10 @@ export function FrameModalTitle({ pack, pr, title, subTitle, widgets, getViewPro
   }
 
   return (
-    <div>
+    // With no title the sub-title block is what names the dialog, as the whole header did before.
+    <div id={title == null ? titleId : undefined}>
       {title != null && <>
-        <span className="sf-entity-title">{title}</span>&nbsp;
+        <h1 className="sf-modal-heading" id={titleId}><span className="sf-entity-title">{title}</span></h1>&nbsp;
         {renderExpandLink(pack.entity)}
       </>
       }

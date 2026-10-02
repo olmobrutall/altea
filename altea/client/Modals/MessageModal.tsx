@@ -180,15 +180,19 @@ function MessageModal(p: MessageModalProps): React.ReactElement {
   // accessible name, so it was announced as just "dialog". useId because dialogs here are opened nested,
   // so a fixed id could appear twice in the document.
   const titleId = React.useId();
+  const messageId = React.useId();
   return (
     <Modal show={show} onExited={handleOnExited} backdrop={p.shouldSelect ? 'static' : undefined}
       dialogClassName={classes("message-modal", p.size && "modal-" + p.size, p.additionalDialogClassName)}
       aria-labelledby={titleId}
+      // A TEXT message is the dialog's description, read with its name when it opens. Not a message built
+      // from components, which can hold controls to fill in.
+      aria-describedby={typeof p.message == "string" ? messageId : undefined}
       onHide={handleCancelClicked} autoFocus={true}>
       <div className={classes("modal-header", dialogHeaderClass(p.style))}>
         {renderTitle()}
       </div>
-      <div className="modal-body">
+      <div className="modal-body" id={messageId}>
         {
           typeof p.message == "string" ? p.message.split("\n").map((line, i) => <p key={i}>{line}</p>) :
             typeof p.message == "function" ? p.message({ handleButtonClicked }) :

@@ -86,7 +86,7 @@ export function FileUploader(p: FileUploaderProps): React.JSX.Element {
         <div className={classes("sf-upload btn btn-tertiary", p.buttonCss)}>
             <FontAwesomeIcon aria-hidden={true} icon="upload" className="me-1" />
             {FileMessage.SelectFile.niceToString()}
-            <input type="file" accept={p.accept} multiple={p.multiple}
+            <input type="file" accept={p.accept} multiple={p.multiple} aria-label={FileMessage.SelectFile.niceToString()}
                 onChange={e => {
                     const input = e.currentTarget;
                     void loadAll(input.files).then(() => { input.value = ""; });

@@ -297,7 +297,9 @@ export function AlertGroupToast(p: {
 
     const lastExpandedAlert = alerts.filter((_a, i) => i < showAlerts).lastOrNull();
     const totalExpandedHeight = alerts.filter((_a, i) => i < showAlerts).sum(a => a.height ?? 0);
-    const textStyle: React.CSSProperties = { color: "var(--alert-muted)", fontSize: "0.8rem", fontWeight: "bold" };
+    // max(…, --sf-small-text-min): an app that offers a high-contrast mode raises that variable, which lifts
+    // the small print to a readable floor and leaves anything already larger alone. Unset by default.
+    const textStyle: React.CSSProperties = { color: "var(--alert-muted)", fontSize: "max(0.8rem, var(--sf-small-text-min, 0rem))", fontWeight: "bold" };
 
     return (
         <div className="sf-alert-group pb-2" style={p.style} ref={htmlRef}>

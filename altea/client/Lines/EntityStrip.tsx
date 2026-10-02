@@ -208,6 +208,11 @@ export function EntityStrip<R extends BaseEntity>(props: EntityStripProps<R>): R
         inputAttrs={{
           className: classes(p.ctx.formControlClass, "sf-entity-autocomplete", c.mandatoryClass),
           placeholder: EntityControlMessage.Add.niceToString(),
+          // The visible label points at the strip's <ul>, which cannot be labelled, and the line's aria
+          // attributes were computed but never reached the input: the field was read without its name, and
+          // a required or invalid strip said neither.
+          "aria-label": ariaLabelOf(p.label, p.ctx),
+          ...ariaAtts,
           onPaste: p.paste == false ? undefined : handleOnPaste,
           ...p.inputAttributes
         }}

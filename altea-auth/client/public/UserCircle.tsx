@@ -40,7 +40,8 @@ export default function UserCircle(p: { user: Lite<UserEntity>; className?: stri
                 backgroundColor: color,
             }}
             role="img"
-            aria-label={`${name} icon`}
+            // Named by the title ALONE. With aria-label="<name> icon" as well, the title became the
+            // description and the name was read twice, plus a hard-coded English "icon".
             title={name}>
             {getUserInitials(p.user)}
         </span>

@@ -59,6 +59,10 @@ export function GroupHeader(p: {
 
   const titleId = React.useId();
 
+  // aria-readonly is a property of a WIDGET (a checkbox, a text box), not of a group: on role="group" it is
+  // not allowed at all. The options are read-only in themselves.
+  const { "aria-readonly": _readonly, ...groupAriaAttributes } = p.ariaAttributes ?? {};
+
   if (p.avoidFieldSet) {
 
     // Only a real heading opens a level for what follows it; "lead" renders a <p> and the fieldset branch
@@ -69,7 +73,7 @@ export function GroupHeader(p: {
     return (
       <div className={p.className} {...p.htmlAttributes}
         role={p.role}
-        {...(p.role ? p.ariaAttributes : undefined)}
+        {...(p.role ? groupAriaAttributes : undefined)}
         aria-labelledby={p.role && hasTitle ? titleId : undefined}>
         {hasTitle && <Title type={p.avoidFieldSet as HeaderType} id={titleId}>{p.label}{p.labelIcon} {p.buttons}</Title>}
         {rendersHeading ? <NextHeadingLevel>{p.children}</NextHeadingLevel> : p.children}

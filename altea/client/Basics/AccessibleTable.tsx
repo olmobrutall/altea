@@ -69,12 +69,49 @@ export function AccessibleTable({
 
   const enhancedChildren = enhanceChildren(children);
 
+  // Roving tabindex, the keyboard pattern of role="grid": the table is ONE tab stop, on the cell focused last,
+  // and the arrow keys (AccessibleRow) move inside it. The cells render tabIndex -1 and the one 0 is set on the
+  // DOM here, so React never has to know which cell it is.
+  const tableRef = React.useRef<HTMLTableElement>(null);
+
+  // This table's own keyboard cells, not a nested table's, and not the headers focusHeader leaves out.
+  function ownCells(table: HTMLTableElement): HTMLTableCellElement[] {
+    return Array.from(table.querySelectorAll<HTMLTableCellElement>(":scope > * > tr > [data-roving-cell]"));
+  }
+
+  React.useLayoutEffect(() => {
+    const table = tableRef.current;
+    if (!table)
+      return;
+
+    const cells = ownCells(table);
+    const stops = cells.filter(c => c.tabIndex == 0);
+    if (stops.length == 1)
+      return;
+
+    stops.slice(1).forEach(c => c.tabIndex = -1);
+    if (stops.length == 0 && cells.length > 0)
+      cells[0].tabIndex = 0;
+  });
+
+  // The focused cell becomes the table's tab stop, so Tab leaves the table and Shift+Tab comes back to it.
+  function handleFocus(e: React.FocusEvent<HTMLTableElement>) {
+    const table = tableRef.current;
+    const cell = e.target as HTMLElement;
+    if (table && cell.hasAttribute("data-roving-cell") && cell.closest("table") === table)
+      ownCells(table).forEach(c => c.tabIndex = c === cell ? 0 : -1);
+
+    rest.onFocus?.(e);
+  }
+
   return (
     <table
+      ref={tableRef}
       role={tableRole}
       aria-label={ariaLabel}
       aria-multiselectable={`${multiselectable ? "true" : "false"}`}
-      {...rest}>
+      {...rest}
+      onFocus={handleFocus}>
       {AccessibleTable.Options.ariaLabelAsCaption && <caption>{ariaLabel}</caption>}
       {enhancedChildren}
     </table>
@@ -114,6 +151,12 @@ interface WCAGRowProps extends React.HTMLAttributes<HTMLTableRowElement> {
   tableRole?: TableRole
 }
 
+// A cell the arrow keys reach renders tabIndex -1 and the data-roving-cell marker; AccessibleTable turns
+// exactly one of them into the table's tab stop. Any other cell stays -1: focusable by script, not by Tab.
+function keyboardCell(focusable: boolean): { tabIndex: number, "data-roving-cell"?: "" } {
+  return focusable ? { tabIndex: -1, "data-roving-cell": "" } : { tabIndex: -1 };
+}
+
 export function AccessibleRow({ focusCells = true, focusHeader = false, sectionType = "tbody", mapCustomComponents, children, tableRole = "grid", ...rest }: WCAGRowProps): React.ReactElement {
 
   function enhanceHeaderCell(
@@ -122,7 +165,7 @@ export function AccessibleRow({ focusCells = true, focusHeader = false, sectionT
     return React.cloneElement(th, {
       role: !tableRole ? "columnheader" : undefined,
       scope: th.props.scope || "col",
-      tabIndex: focusHeader ? 0 : -1,
+      ...keyboardCell(focusHeader),
     } as React.ThHTMLAttributes<HTMLTableCellElement>);
   }
 
@@ -133,7 +176,7 @@ export function AccessibleRow({ focusCells = true, focusHeader = false, sectionT
 
     const renderedChildren = React.Children.toArray(td.props.children)
       .filter(child => child !== "" && child !== null && child !== undefined);
-    const isEmptyCell = renderedChildren.length === 0; // needed for condinional rendering
+    const isEmptyCell = renderedChildren.length === 0;
 
     if (type == "th" && isEmptyCell)
       handleStructureError("tbody > th should always contain content", td);
@@ -142,15 +185,14 @@ export function AccessibleRow({ focusCells = true, focusHeader = false, sectionT
       return React.cloneElement(td, {
         role: "rowheader",
         scope: td.props.scope || "row",
-        tabIndex: focusCells ? 0 : -1,
+        ...keyboardCell(focusCells),
       } as React.ThHTMLAttributes<HTMLTableCellElement>);
 
+    // An empty data cell stays EMPTY: a screen reader announces it as blank by itself, in the reader's own
+    // language.
     return React.cloneElement(td, {
       role: (tableRole) ? undefined : "gridcell",
-      tabIndex: focusCells ? 0 : -1,
-      children: isEmptyCell
-        ? <span className="sr-only">Kein Eintrag in diesem Feld</span>
-        : td.props.children
+      ...keyboardCell(focusCells),
     } as React.TdHTMLAttributes<HTMLTableCellElement>);
   }
 

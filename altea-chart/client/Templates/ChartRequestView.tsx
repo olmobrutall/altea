@@ -3,6 +3,7 @@ import { Tab, Tabs } from 'react-bootstrap'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { classes, Dic } from '@altea/altea/data/globals/index'
 import { Finder } from '@altea/altea/client/Finder'
+import { Navigator } from '@altea/altea/client/Navigator'
 import { TypeContext } from '@altea/altea/client/TypeContext'
 import { getQueryNiceName, GraphExplorer } from '@altea/altea/client/Reflection'
 import FilterBuilder from '@altea/altea/client/SearchControl/FilterBuilder'
@@ -57,6 +58,9 @@ export default function ChartRequestView(p: ChartRequestViewProps): React.JSX.El
 
   const cr = p.chartRequest;
   const queryRoot = useAPI(() => Finder.getQueryRoot(cr.queryKey), [cr.queryKey]);
+  // minHeight lives on the stored UserChart, not on the request, so the preview has to fetch it to show the
+  // same height the dashboard part will.
+  const userChartEntity = useAPI(() => p.userChart ? Navigator.API.fetch(p.userChart) : Promise.resolve(undefined), [p.userChart], { avoidReset: true });
 
   React.useEffect(() => {
     if (p.searchOnLoad && queryRoot != null)
@@ -149,7 +153,7 @@ export default function ChartRequestView(p: ChartRequestViewProps): React.JSX.El
       <div className="sf-chart-tab-container">
         <Tabs id="chartResultTabs" key={showChartSettings + ""}>
           <Tab eventKey="chart" title={ChartMessage.Chart.niceToString()}>
-            <ChartRenderer chartRequest={cr} loading={loading} data={validResult?.chartResult.chartTable} minHeight={null} />
+            <ChartRenderer chartRequest={cr} loading={loading} data={validResult?.chartResult.chartTable} minHeight={userChartEntity?.minHeight ?? null} />
           </Tab>
         </Tabs>
       </div>

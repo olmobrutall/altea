@@ -121,14 +121,17 @@ export default function BigValuePart(p: PanelPartContentProps<BigValuePartEntity
             <>
                 <div className="dashboard-flex">
                     <div className="left">
-                        <h3>
+                        {/* The VALUE is not a heading: as an h3 before the part's own h2 below, every big
+                            value put a bare number into the heading list and a level out of order. The class
+                            keeps its size. */}
+                        <p className="h3">
                             <SearchValue ref={vsc} findOptions={foExpanded} isLink={false} isBadge={false} deps={[...p.deps ?? [], version]}
                                 onValueChange={forceUpdate}
                                 onInitialValueLoaded={forceUpdate}
                                 valueToken={p.content.valueToken?.tokenString}
                                 onRender={custom?.value == null ? undefined : () => custom?.value}
                             />
-                        </h3>
+                        </p>
                     </div>
                     <div className="right">
                         {icon && <FontAwesomeIcon role="img" icon={icon} color={p.partEmbedded.iconColor ?? undefined} size="2x" />}

@@ -100,6 +100,23 @@ export namespace HolidayCalendarLogic {
         await calendar.save();
     }
 
+    /** The date `workingDays` working days after `date` — weekends and, with a calendar, its holidays skipped. */
+    export function addWorkingDays(date: Temporal.PlainDate, workingDays: number, calendar: HolidayCalendarEntity | null): Temporal.PlainDate {
+        while (workingDays > 0) {
+            date = date.add({ days: 1 });
+
+            if (date.dayOfWeek == 6 || date.dayOfWeek == 7)
+                continue;
+
+            if (calendar != null && calendar.isHoliday(date))
+                continue;
+
+            workingDays--;
+        }
+
+        return date;
+    }
+
     export async function getCountries(): Promise<string[]> {
         const countries = await nagerGet<{ countryCode: string; name: string }[]>("AvailableCountries");
         return countries.map(c => c.countryCode);

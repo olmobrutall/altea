@@ -33,7 +33,7 @@ function ReactChart(p: ReactChartProps): React.JSX.Element {
 
   const memo = React.useMemo(() => new MemoRepository(), [p.chartRequest, p.chartRequest.chartScript]);
 
-  const { size, setContainer } = useSize({ deps: p.sizeDeps });
+  const { size, setContainer } = useSize({ deps: [...(p.sizeDeps ?? []), p.minHeight] });
 
   // ChartTooltip needs the container ELEMENT (to delegate its pointer handlers and to measure against),
   // while useSize hands out a callback ref — so keep both and feed them from one callback.
@@ -44,7 +44,7 @@ function ReactChart(p: ReactChartProps): React.JSX.Element {
   }, [setContainer]);
 
   return (
-    <div className={classes("sf-chart-container", isSimple ? "sf-chart-animable" : "")} style={{ minHeight: (p.minHeight ?? 300) + "px" }} ref={setRefs} onClick={p.onBackgroundClick}>
+    <div className={classes("sf-chart-container", isSimple ? "sf-chart-animable" : "")} style={{ minHeight: (p.minHeight ?? ReactChart.Options.defaultMinHeight) + "px" }} ref={setRefs} onClick={p.onBackgroundClick}>
       <ChartTooltip containerRef={containerRef} />
       {size &&
         p.onRenderChart({
@@ -66,7 +66,7 @@ function ReactChart(p: ReactChartProps): React.JSX.Element {
 }
 
 namespace ReactChart {
-  export const Options = { maxRowsForAnimation: 500 };
+  export const Options = { maxRowsForAnimation: 500, defaultMinHeight: 300 };
 }
 
 export default ReactChart;

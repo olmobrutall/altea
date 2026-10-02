@@ -522,8 +522,10 @@ export namespace QueryTokenSynchronizer {
         for (let t: QueryToken | undefined = newToken; t != null; t = t.parent)
             tokenChain.unshift(t);
 
-        const oldParts = splitToken(oldTokenString);
-        const newParts = splitToken(newToken.fullKey());
+        const allOldParts = splitToken(oldTokenString);
+        const allNewParts = splitToken(newToken.fullKey());
+        const oldParts = [...allOldParts];
+        const newParts = [...allNewParts];
 
         let pos = -1;
         while (oldParts.length > 0 && newParts.length > 0 && oldParts[0] === newParts[0]) {
@@ -531,10 +533,21 @@ export namespace QueryTokenSynchronizer {
             newParts.shift();
             pos++;
         }
-        while (oldParts.length > 0 && newParts.length > 0
+        // At least ONE part on each side: an empty key (a pure insertion, e.g. a cast interposed after an
+        // implementedBy generalization) or an empty value (a pure removal) cannot be resolved later, so the
+        // rename is anchored on a shared part.
+        while (oldParts.length > 1 && newParts.length > 1
             && oldParts[oldParts.length - 1] === newParts[newParts.length - 1]) {
             oldParts.pop();
             newParts.pop();
+        }
+
+        // The PREFIX loop can still empty one side when the old token is a prefix of the new one (or the
+        // other way round), with no shared suffix left to anchor on: give back the last shared prefix part.
+        if ((oldParts.length === 0) !== (newParts.length === 0) && pos >= 0) {
+            oldParts.unshift(allOldParts[pos]!);
+            newParts.unshift(allNewParts[pos]!);
+            pos--;
         }
 
         if (pos === -1)

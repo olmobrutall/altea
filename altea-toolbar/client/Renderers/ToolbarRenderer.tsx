@@ -20,6 +20,7 @@ import { TypeReference } from "@altea/altea/data/reflection";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { useAPI, useDocumentEvent, useUpdatedRef, useAPIWithReload, useForceUpdate } from "@altea/altea/client/Hooks";
 import { parseIcon } from "@altea/altea/client/Components/IconHelpers";
+import { ErrorBoundary } from "@altea/altea/client/Components";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { LayoutMessage, ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarMessage } from "../../data/Toolbar";
 import type { ToolbarResponse } from "../../data/ToolbarResponse";
@@ -234,13 +235,32 @@ export function inferActive(r: ToolbarResponse<any>, location: Location, query: 
 /** One response → its rendered nav item (a divider, a menu, a switcher, a url
  *  link, a config-rendered item, or a bare header). */
 export function renderNavItem(res: ToolbarResponse<any>, key: string | number, ctx: ToolbarContext, selectedEntity: Lite<Entity> | null): React.JSX.Element {
+    // Each item gets its OWN boundary, so one broken element only replaces itself and the rest of the
+    // toolbar keeps working.
+    return (
+        <ErrorBoundary key={key} deps={[res]} fallback={error => (
+            <li className="nav-item text-danger px-3 py-1" role="alert" title={error?.stack}>
+                <FontAwesomeIcon aria-hidden={true} icon="triangle-exclamation" className="me-1" />
+                <small>{error?.message ?? error?.name}</small>
+            </li>
+        )}>
+            <NavItem res={res} ctx={ctx} selectedEntity={selectedEntity} />
+        </ErrorBoundary>
+    );
+}
+
+function NavItem(p: { res: ToolbarResponse<any>, ctx: ToolbarContext, selectedEntity: Lite<Entity> | null }): React.JSX.Element {
+    return renderNavItemUnsafe(p.res, 0, p.ctx, p.selectedEntity);
+}
+
+function renderNavItemUnsafe(res: ToolbarResponse<any>, key: string | number, ctx: ToolbarContext, selectedEntity: Lite<Entity> | null): React.JSX.Element {
 
     switch (res.type) {
         case "Divider":
             // Wrapped in an <li>: these are rendered into the sidebar's <ul>, where an <hr> is not a
             // permitted child. A list with a stray child can be announced with the wrong item count, or
             // lose its list semantics altogether. The <hr> keeps its own separator role inside.
-            return <li key={key}><hr style={{ margin: "10px 0 5px 0px" }} /></li>;
+            return <li key={key} className="nav-item-divider"><hr style={{ margin: "10px 0 5px 0px" }} /></li>;
         case "Header":
         case "Item":
             if (res.content?.entityType === ToolbarMenuEntity) {
@@ -501,6 +521,30 @@ function ToolbarMenuItemsEntityType(p: { response: ToolbarResponse<ToolbarMenuEn
             });
     }, [selEntityRef.current]);
 
+    // The selected entity may be DELETED while it is selected — from its own configuration page, typically.
+    // Keeping it left the switcher on "<type> <id> not found" and every entity-bound item pointing at it, so
+    // it is checked again whenever an entity of its type changes. A deleted one is unselected, and when the
+    // page shown is one of this menu's entity pages, the menu's page WITHOUT an entity is opened instead —
+    // the same as clearing the switcher by hand.
+    Navigator.useEntityChanged([entityType], () => {
+        const current = selEntityRef.current;
+        if (!current)
+            return;
+
+        const onEntityPage = Boolean(active?.menuWithEntity) && active!.menuWithEntity!.menu.content?.is(p.response.content) == true &&
+            active!.menuWithEntity!.entity.is(current);
+
+        Finder.fetchLites({ queryName: entityType, filterOptions: [{ token: "Entity", operation: "EqualTo", value: current }], count: 1 })
+            .then(lites => {
+                if (lites.length > 0 || !current.is(selEntityRef.current))
+                    return;
+
+                setSelectedEntity(null);
+                if (onEntityPage)
+                    handleSelect(undefined);
+            });
+    }, [active, p.response]);
+
     function handleSelect(e: React.SyntheticEvent | undefined): void {
 
         forceUpdate();
@@ -537,7 +581,10 @@ function ToolbarMenuItemsEntityType(p: { response: ToolbarResponse<ToolbarMenuEn
                     <div style={{ width: "100%" }}>
                         <EntityLine ctx={ctx} view={false} mandatory="warning"
                             inputAttributes={{ placeholder: LayoutMessage.SelectA0_G.niceToString(ti.getNiceName()) }}
-                            onChange={e => handleSelect(e?.originalEvent)} create={false} createOnFind={false} formGroupStyle="SrOnly" />
+                            onChange={e => handleSelect(e?.originalEvent)} create={false} createOnFind={false} formGroupStyle="SrOnly"
+                            // The SrOnly label was empty (this ctx has no property route to take it from), so
+                            // the field was named only by its placeholder, which is gone once an entity is chosen.
+                            label={ti.getNiceName()} />
                     </div>
                     {renderExtraIcons(p.response.extraIcons, p.ctx, selEntityRef.current ?? p.selectedEntity)}
                 </Nav.Item>
@@ -705,11 +752,13 @@ export function ToolbarNavItem(p: { title: string | undefined, content?: Lite<En
                     {p.title}
                     {p.isExternalLink && <FontAwesomeIcon aria-hidden={true} icon="arrow-up-right-from-square" transform="shrink-5 up-3" />}
                 </span>
-                {p.extraIcons}
                 {/* Hover-only visual tooltip repeating the label of the collapsed sidebar. Left exposed it
                     doubled the accessible name ("Dashboard Dashboard") whenever it was shown. */}
                 <div aria-hidden={true} className={classes("nav-item-float", p.isGroup && "nav-item-group")}>{p.title}</div>
             </Nav.Link>
+            {/* BESIDE the link, not inside it: the extra icons are buttons, and a button inside the link's
+                role="button" is invalid nesting that assistive technology cannot reach. */}
+            {p.extraIcons}
         </li>
     );
 }
@@ -733,20 +782,32 @@ export function renderExtraIcons(extraIcons: ToolbarResponse<any>[] | undefined,
     if (extraIcons == null)
         return undefined;
 
+    // The button shows only an icon (and maybe a count), so without this text it has no accessible name.
+    // Visually hidden rather than aria-label, so a count inside the icon is still read out after the name.
+    function srName(ei: ToolbarResponse<any>) {
+        const name = ei.label || ei.content?.toString();
+        return name ? <span className="visually-hidden">{name}</span> : undefined;
+    }
+
     return (<>
         {extraIcons?.map((ei, i) => {
 
             if (ei.url) {
                 return <button type="button" className={classes("btn btn-sm border-0 py-0 m-0 sf-extra-icon", isActive(ctx.active, ei, selectedEntity) && "active")} key={i}
                     onClick={e => { e.stopPropagation(); linkClick(ei, selectedEntity, e, ctx); }}>
+                    {srName(ei)}
                     {ToolbarConfig.coloredIcon(parseIcon(ei.iconName!), ei.iconColor)}
                 </button>;
             }
 
+            // Neither url nor content (the content is not visible to this user, say): nothing to navigate to.
+            if (ei.content == null)
+                return null;
+
             const config = ToolbarClient.getConfig(ei);
             if (config == null) {
                 return <span key={i} className="text-danger sf-extra-icon">
-                    {ToolbarMessage.ToolbarConfigNotRegistered0.niceToString(cleanTypeName(ei.content!.entityType))}
+                    {ToolbarMessage.ToolbarConfigNotRegistered0.niceToString(cleanTypeName(ei.content.entityType))}
                 </span>;
             }
             else {
@@ -758,7 +819,7 @@ export function renderExtraIcons(extraIcons: ToolbarResponse<any>[] | undefined,
                     if (ctx.onAutoClose && !(e.ctrlKey || (e as React.MouseEvent<any>).button == 1))
                         ctx.onAutoClose();
 
-                }} >{config.getIcon(ei, selectedEntity)}</button>;
+                }} >{srName(ei)}{config.getIcon(ei, selectedEntity)}</button>;
             }
 
         })}

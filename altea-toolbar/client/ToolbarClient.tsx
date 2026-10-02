@@ -74,7 +74,10 @@ export namespace ToolbarClient {
     }
 
     export function getConfig(res: ToolbarResponse<any>): ToolbarConfig<any> | null {
-        return configs()[cleanTypeName(res.content!.entityType)]?.filter(c => c.isApplicableTo(res)).singleOrNull();
+        if (res.content == null)
+            return null;
+
+        return configs()[cleanTypeName(res.content.entityType)]?.filter(c => c.isApplicableTo(res)).singleOrNull();
     }
 
     /**

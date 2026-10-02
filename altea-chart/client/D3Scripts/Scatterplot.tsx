@@ -98,9 +98,15 @@ export default function renderScatterplot({ data, width, height, parameters, loa
   var aggregateColumns: ChartColumn<any>[] = data.columns.entity ? [data.columns.entity] :
     [keyColumn, horizontalColumn, verticalColumn, horizontalColumn2, verticalColumn2].filter(cn => cn != undefined).filter(a => a.token && a.token instanceof AggregateToken)
 
-  var titleMessage = (aggregateColumns.length != 0) ?
-    ChartMessage._0Of1_2Per3.niceToString(ChartClient.symbolNiceName(D3ChartScript.Scatterplot), getQueryNiceName(chartRequest.queryKey), keyColumns.map(cn => cn.title).join(", "), aggregateColumns.map(cn => cn.title).join(", ")) :
-    ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Scatterplot), getQueryNiceName(chartRequest.queryKey), keyColumns.map(cn => cn.title).join(", "));
+  // UNGROUPED (one row per entity) both lists above are the entity column, whose title is empty, so the chart
+  // was named "Scatterplot of <query>: per" — nothing about what it plots. The title then names the columns it
+  // DRAWS; keyColumns stays as it is for the row keys.
+  var titleColumns = (data.columns.entity ? [keyColumn, horizontalColumn, verticalColumn] : keyColumns).filter(cn => cn?.title);
+  var titleAggregates = (data.columns.entity ? [] : aggregateColumns).filter(cn => cn?.title);
+
+  var titleMessage = (titleAggregates.length != 0) ?
+    ChartMessage._0Of1_2Per3.niceToString(ChartClient.symbolNiceName(D3ChartScript.Scatterplot), getQueryNiceName(chartRequest.queryKey), titleColumns.map(cn => cn.title).join(", "), titleAggregates.map(cn => cn.title).join(", ")) :
+    ChartMessage._0Of1_2.niceToString(ChartClient.symbolNiceName(D3ChartScript.Scatterplot), getQueryNiceName(chartRequest.queryKey), titleColumns.map(cn => cn.title).join(", "));
   return (
     <>
       <svg direction="ltr" width={width} height={height} role="group"
@@ -228,7 +234,7 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
               onKeyDown={e => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  (onclick as any)?.(e);
+                  (e.currentTarget as Element).dispatchEvent(new MouseEvent("click", { bubbles: true })); // the same drill-down the mouse gets
                 }
               }}
               {...shapeTitleText(pointTitle(r, titleColumns))}>
@@ -257,7 +263,7 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
           onKeyDown={e => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              (onclick as any)?.(e);
+              (e.currentTarget as Element).dispatchEvent(new MouseEvent("click", { bubbles: true })); // the same drill-down the mouse gets
             }
           }} />
         <circle className="shape sf-transition"
@@ -274,7 +280,7 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
           onKeyDown={e => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              (onclick as any)?.(e);
+              (e.currentTarget as Element).dispatchEvent(new MouseEvent("click", { bubbles: true })); // the same drill-down the mouse gets
             }
           }}/>
         <circle className="shape sf-transition"
@@ -291,7 +297,7 @@ function SvgScatterplot({ data, keyColumns, xRule, yRule, initialLoad, y, x,
           onKeyDown={e => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              (onclick as any)?.(e);
+              (e.currentTarget as Element).dispatchEvent(new MouseEvent("click", { bubbles: true })); // the same drill-down the mouse gets
             }
           }} />
       </g>)}

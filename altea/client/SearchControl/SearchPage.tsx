@@ -59,7 +59,9 @@ function SearchPage(): React.ReactElement {
   }
 
   if (!Finder.isFindable(fo.queryName, true))
-    return <div id="divSearchPage"><h3 className="text-danger">Query “{params.queryName}” is not allowed</h3></div>;
+    // The page's title, so an h1 as on the page below: as an h3 a user without access to the query got a
+    // page with no h1 at all, and heading navigation started at level 3. The h3 class keeps the look.
+    return <div id="divSearchPage"><h1 className="text-danger h3">Query “{params.queryName}” is not allowed</h1></div>;
 
   const qs = Finder.getSettings(fo.queryName);
   return (

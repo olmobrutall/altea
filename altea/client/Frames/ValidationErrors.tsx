@@ -12,6 +12,11 @@ export interface ValidationErrorsHandle {
   forceUpdate(): void;
 }
 
+const entryStyle: React.CSSProperties = {
+  cursor: "pointer", whiteSpace: "pre-wrap", textAlign: "start",
+  background: "none", border: 0, padding: 0, color: "inherit", font: "inherit",
+};
+
 export function ValidationErrors(p: { entity: BaseEntity, prefix: string, ref?: React.Ref<ValidationErrorsHandle> }): React.JSX.Element | null {
 
   const forceUpdate = useForceUpdate();
@@ -32,14 +37,17 @@ export function ValidationErrors(p: { entity: BaseEntity, prefix: string, ref?: 
   return (
     <div role="alert">
     <ul className="validaton-summary alert alert-danger">
+      {/* A button INSIDE each entry, because the click on the <li> that jumps to the field could not be
+          reached from the keyboard. Inside, not role="button" on the <li>: that would end the list, as the
+          role="alert" note above explains. It looks like the text it replaces — only the focus ring shows. */}
       {Dic.map(modelState, (key, value) => <li
         key={key}
-        style={{ cursor: "pointer", whiteSpace: "pre-wrap" }}
-        onClick={() => handleOnClick(key)}
         // `tryAfter`, not `after`: `after` THROWS when the separator is absent, which happens for an
         // entity-level error (the key IS the prefix) and on a frameless page (prefix "").
         title={key.tryAfter(p.prefix + ".") ?? key}>
-        {value}
+        <button type="button" style={entryStyle} onClick={() => handleOnClick(key)}>
+          {value}
+        </button>
       </li>)}
     </ul>
     </div>

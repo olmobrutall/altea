@@ -84,7 +84,26 @@ function HtmlEditor({
     return (
         <div
             title={error}
-            onClick={() => controller.editor?.focus()}
+            onClick={e => {
+                // Lexical's editor.focus() only sets the editor's own SELECTION; it never focuses the
+                // contenteditable. That selection reaches the DOM only once the reconciler can resolve a DOM
+                // node for it, and in an EMPTY editor there is nothing to resolve, so the focus never
+                // arrives. The box is routinely taller than the editable area, so a click into the empty
+                // space below it left the focus on the nearest focusable ancestor while the typing went
+                // nowhere. Focus the editable here, starting at the end when the click landed below it.
+                const editable = controller.editableElement;
+                if (controller.readOnly || !editable || !controller.editor)
+                    return;
+
+                if (editable.contains(e.target as Node)) {
+                    controller.editor.focus();
+                    return;
+                }
+
+                const below = e.clientY > editable.getBoundingClientRect().bottom;
+                controller.editor.focus(undefined, { defaultSelection: below ? "rootEnd" : "rootStart" });
+                editable.focus({ preventScroll: true });
+            }}
             {...htmlAttributes}
             className={classes(
                 "sf-html-editor",

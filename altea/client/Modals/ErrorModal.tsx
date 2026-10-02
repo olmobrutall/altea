@@ -30,6 +30,7 @@ const ErrorModal: {
   const [show, setShow] = React.useState(true);
   // Names the dialog through aria-labelledby below; unique per instance since dialogs can be nested here.
   const titleId = React.useId();
+  const messageId = React.useId();
 
   function handleOnExited() {
     p.onExited!(undefined);
@@ -50,7 +51,9 @@ const ErrorModal: {
 
   return (
     <Modal show={show} onExited={handleOnExited} onHide={handleCloseClicked} size="lg" dialogClassName="error-modal"
-      aria-labelledby={titleId}>
+      aria-labelledby={titleId}
+      // The error itself, read with the dialog's name when it opens rather than only its title.
+      aria-describedby={messageId}>
       {/* The header carried role="dialog" of its own, so a single dialog reported the role twice and the
           inner one wrapped only the heading. The <Modal> above is the dialog; this is just its header. */}
       <div className="modal-header dialog-header-error">
@@ -65,7 +68,7 @@ const ErrorModal: {
         <button type="button" className="btn-close" data-dismiss="modal" aria-label={JavascriptMessage.Close.niceToString()} onClick={handleCloseClicked} />
       </div>
 
-      <div className="modal-body">
+      <div className="modal-body" id={messageId}>
         {se ? ErrorModalOptions.renderServiceMessage(se) :
           ve ? ErrorModalOptions.renderValidationMessage(ve) :
             ese ? ErrorModalOptions.renderExternalServiceMessage(ese) :

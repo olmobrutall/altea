@@ -3,6 +3,7 @@ import * as React from 'react'
 
 interface ErrorBoundaryProps {
   deps?: unknown[];
+  fallback?: (error: Error | undefined, info: React.ErrorInfo | undefined) => React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -28,6 +29,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   override render(): React.ReactElement {
     if (this.state.error || this.state.info) {
+
+      if (this.props.fallback)
+        return (this.props.fallback(this.state.error, this.state.info) ?? null) as React.ReactElement;
 
       function normalizeStack(error: Error) {
         if (!error.stack) return '';

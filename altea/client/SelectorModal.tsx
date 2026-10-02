@@ -34,6 +34,7 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
   const selectedValue = React.useRef<any>(undefined);
   // Unique per instance: a selector dialog is opened nested with search and frame dialogs.
   const titleId = React.useId();
+  const messageId = React.useId();
 
   function handleButtonClicked(val: any) {
     selectedValue.current = val;
@@ -85,7 +86,9 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
     // reference to a heading that was never rendered would be a dangling one.
     <Modal size={p.size || "sm" as any} show={show} onExited={handleOnExited}
       className="sf-selector-modal" dialogClassName={p.dialogClassName} onHide={handleCancelClicked}
-      aria-labelledby={p.title ? titleId : undefined}>
+      aria-labelledby={p.title ? titleId : undefined}
+      // The question the buttons answer, read with the dialog's name when it opens.
+      aria-describedby={p.message ? messageId : undefined}>
       <div className="modal-header">
         {p.title &&
           <h1 className="modal-title h4" id={titleId}>
@@ -98,7 +101,7 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
 
       <div className="modal-body">
         <div>
-          {p.message && (typeof p.message == "string" ? <p>{p.message}</p> : p.message)}
+          {p.message && (typeof p.message == "string" ? <p id={messageId}>{p.message}</p> : <div id={messageId}>{p.message}</div>)}
 
           <div className="row">
             {groups

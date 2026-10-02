@@ -146,8 +146,21 @@
 }
 
 @media (max-width: 768px) {
+    /* Wrapped, not cut: overflow: hidden lost the end of a long link at 400% zoom, with no ellipsis to show
+       that anything was missing. */
     .sf-quicklinks {
         max-width: 300px;
-        overflow: hidden;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        text-align: start;
     }
+}
+
+/* The frame modal's heading is only the entity title (FrameModalTitle), inside the .modal-title block that
+   still sets the size. Inherit that size, inline, so the <h1> looks like the span it replaced. */
+h1.sf-modal-heading {
+    font: inherit;
+    color: inherit;
+    margin: 0;
+    display: inline;
 }

@@ -341,6 +341,7 @@
     <Member Name="HideQuickLink" Description="Ocultar quick link" />
     <Member Name="IncludeDefaultFilters" Description="Incluir filtros predeterminados" />
     <Member Name="MaxRows" Description="Filas máximas" />
+    <Member Name="MinHeight" Description="Altura mínima" />
     <Member Name="Owner" Description="Propietario" />
     <Member Name="Parameters" Description="Parámetros" />
     <Member Name="Query" Description="Consulta" />

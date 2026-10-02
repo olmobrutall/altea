@@ -93,6 +93,8 @@ export function GlobalModalContainer(): React.DetailedReactHTMLElement<{
   }, []);
 
   function hanldleKeyDown(e: KeyboardEvent) {
+    keepTabInTopmostDialog(e);
+
     if (modalInstances.length) {
       e.openedModals = true;
       var topMost = modalInstances[modalInstances.length - 1];
@@ -104,6 +106,49 @@ export function GlobalModalContainer(): React.DetailedReactHTMLElement<{
   }
 
   return React.createElement("div", { className: "sf-modal-container", id: "modal-container" }, ...modals);
+}
+
+const tabbableSelector = "a[href], area[href], button, input:not([type=hidden]), select, textarea, iframe, summary, [tabindex], [contenteditable]:not([contenteditable=false])";
+
+/**
+ * Keeps Tab inside the topmost open dialog: from its last control Tab wraps to its first, and Shift+Tab from
+ * the first to the last. react-bootstrap's enforceFocus only pulls the focus back AFTER it has left — through
+ * the browser's toolbar onto the page behind — so the modal does not actually hold it.
+ * Found from the DOM, so it covers every Bootstrap modal, not only the ones opened through openModal. A control
+ * that handles Tab itself (an editor, an autocomplete) and prevents the default is left alone.
+ */
+function keepTabInTopmostDialog(e: KeyboardEvent) {
+  if (e.key !== "Tab" || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey)
+    return;
+
+  const dialogs = document.querySelectorAll<HTMLElement>(".modal.show");
+  const dialog = dialogs[dialogs.length - 1];
+  if (dialog == null)
+    return;
+
+  const tabbables = Array.from(dialog.querySelectorAll<HTMLElement>(tabbableSelector))
+    .filter(el => el.tabIndex >= 0 && !(el as HTMLButtonElement).disabled && (el.checkVisibility?.({ visibilityProperty: true }) ?? el.offsetParent != null));
+
+  if (tabbables.length == 0) {
+    e.preventDefault();
+    dialog.focus();
+    return;
+  }
+
+  const first = tabbables[0];
+  const last = tabbables[tabbables.length - 1];
+  const active = document.activeElement as HTMLElement | null;
+
+  if (active == null || !dialog.contains(active)) {
+    e.preventDefault();
+    (e.shiftKey ? last : first).focus();
+  } else if (!e.shiftKey && active === last) {
+    e.preventDefault();
+    first.focus();
+  } else if (e.shiftKey && (active === first || active === dialog)) {
+    e.preventDefault();
+    last.focus();
+  }
 }
 
 export function openModal<T>(modal: React.ReactElement<IModalProps<T>>): Promise<T> {

@@ -71,7 +71,7 @@ function CollapsableBlock({ r }: { r: ToolbarResponse<any> }): React.JSX.Element
     );
 }
 
-function ToolbarIconButton({ tr }: { tr: ToolbarResponse<any> }): React.JSX.Element {
+function ToolbarIconButton({ tr }: { tr: ToolbarResponse<any> }): React.JSX.Element | null {
 
     if (tr.elements && tr.elements.length > 0) {
         return (
@@ -106,11 +106,14 @@ function ToolbarIconButton({ tr }: { tr: ToolbarResponse<any> }): React.JSX.Elem
         );
     }
 
+    if (tr.content == null)
+        return null;
+
     const config = ToolbarClient.getConfig(tr);
     if (config == null)
         return (
             <div className="card toolbar-card text-danger">
-                {ToolbarMessage.ToolbarConfigNotRegistered0.niceToString(tr.content!.entityType.name)}
+                {ToolbarMessage.ToolbarConfigNotRegistered0.niceToString(tr.content.entityType.name)}
             </div>
         );
 

@@ -105,18 +105,18 @@ export function ThemeModeSelector(p: { onSetMode?: (theme: "dark" | "light") => 
 
     return (
         // The icon is the only visible content of the toggle, so without this the toggle has no accessible
-        // name at all — and it has to say what the button DOES, not just repeat the mode.
-        //
-        // DIVERGENCE from Signum, which passes the name as the icon's `title` and lets the <svg> carry it:
-        // this FontAwesome build renders the icon aria-hidden with no <title> whatever is passed, so that
-        // name never reaches the DOM. A visually hidden span names the anchor from its own CONTENT, which
-        // does not depend on the icon library at all. `aria-label` on the NavDropdown is no use either:
-        // react-bootstrap puts unknown props on the wrapping <div>, not on the toggle.
+        // name at all — and it has to say what the button DOES, not just repeat the mode. A visually hidden
+        // span names the anchor from its own CONTENT, which does not depend on the icon library; the wrapper's
+        // `title` keeps the tooltip without the name being read a second time as the graphic's. `aria-label`
+        // on the NavDropdown is no use: react-bootstrap puts unknown props on the wrapping <div>, not on the
+        // toggle.
         <NavDropdown id="changeTheme" className="sf-theme-mode-dropdown" data-theme-mode={mode}
-            title={<>
-                <FontAwesomeIcon aria-hidden={true} icon={ICONS[mode]} />
-                <span className="visually-hidden">{ThemeModeMessage.Theme.niceToString() + ": " + LABELS[mode].niceToString()}</span>
-            </>}>
+            title={
+                <span title={ThemeModeMessage.Theme.niceToString() + ": " + LABELS[mode].niceToString()}>
+                    <FontAwesomeIcon aria-hidden={true} icon={ICONS[mode]} />
+                    <span className="visually-hidden">{ThemeModeMessage.Theme.niceToString() + ": " + LABELS[mode].niceToString()}</span>
+                </span>
+            }>
             {THEME_MODES.map(m =>
                 <NavDropdown.Item key={m} data-theme-mode={m} {...dropdownActive(mode === m)} onClick={() => setMode(m)}>
                     <FontAwesomeIcon aria-hidden={true} icon={ICONS[m]} className="me-2" />

@@ -1,6 +1,6 @@
 import type { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToken";
 import { FilterOperationKeys } from "@altea/altea/server/dynamicQuery/requests";
-import type { ResultRow } from "@altea/altea/server/dynamicQuery/resultTable";
+import { ResultTable, type ResultRow } from "@altea/altea/server/dynamicQuery/resultTable";
 import {
     ValueProviderBase, TokenValueProvider, parseConstant, type TemplateParameters,
 } from "./ValueProviders";
@@ -176,6 +176,9 @@ export class ConditionCompare extends ConditionBase {
             return obj;
         if (typeof obj === "string")
             return obj !== "";
+        // A whole query result: true when it found something, so `@if[Query]` reads as "are there any".
+        if (obj instanceof ResultTable)
+            return obj.rows.length > 0;
         return true;
     }
 

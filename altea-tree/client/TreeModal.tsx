@@ -54,8 +54,10 @@ function TreeModal(p: TreeModalProps): React.JSX.Element {
     const titleId = React.useId();
     return (
         <Modal size="lg" onHide={handleCancelClicked} show={show} onExited={handleOnExited} aria-labelledby={titleId}>
-            <ModalHeaderButtons titleId={titleId} onClose={handleCancelClicked}>
-                <span className="sf-entity-title">{p.title ?? getTypeInfo(p.treeOptions.typeName).getNicePluralName()}</span>
+            {/* The heading holds the TITLE only, not the fullscreen button beside it, whose label was
+                otherwise part of the dialog's name (as in SearchModal and FrameModalTitle). */}
+            <ModalHeaderButtons headingInChildren onClose={handleCancelClicked}>
+                <h1 className="sf-modal-heading" id={titleId}><span className="sf-entity-title">{p.title ?? getTypeInfo(p.treeOptions.typeName).getNicePluralName()}</span></h1>
                 &nbsp;
                 <LinkButton className="sf-popup-fullscreen"
                     title={FrameMessage.Fullscreen.niceToString()}
