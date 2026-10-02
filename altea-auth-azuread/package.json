@@ -31,7 +31,7 @@
     "@altea/altea-auth": "workspace:*",
     "@altea/altea-files": "workspace:*",
     "@altea/altea-scheduler": "workspace:*",
-    "@azure/msal-browser": "^4.0.0",
+    "@azure/msal-browser": "^5.23.0",
     "jose": "^6.1.0",
     "quote-transformer": "workspace:*"
   }

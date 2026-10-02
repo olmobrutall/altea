@@ -1,5 +1,6 @@
 import * as React from "react";
 import * as msal from "@azure/msal-browser";
+import { broadcastResponseToMainFrame } from "@azure/msal-browser/redirect-bridge";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { ajaxGet, ajaxPost } from "@altea/altea/client/Services";
 import { classes } from "@altea/altea/data/globals";
@@ -21,10 +22,8 @@ import type { AzureADClientConfig } from "../data/AzureAD";
 //    .getAzureADConfig` remains the override seam.
 //  - There is no "register me before autoLogin" guard to lean on; the
 //    ordering requirement is documented on `registerAzureADAuthenticator` instead.
-//  - `(newClient as any).browserStorage.setInteractionInProgress(false)` reaches into MSAL's
-//    private storage because a CANCELLED logout leaves an "interaction in progress" flag that blocks the
-//    next login until cookies are cleared. MSAL v4 exposes no supported way to clear it either, so the
-//    same reach-in is kept, isolated in `clearInteractionInProgress` with this note.
+//  - MSAL 5 lands the popup on `redirectUri`, so the app's entry point must call `handlePopupResponse`
+//    FIRST and stop when it returns true — that document is the popup, not the application.
 
 export namespace AzureADAuthenticator {
 
@@ -37,7 +36,7 @@ export namespace AzureADAuthenticator {
         },
     };
 
-    let currentMsalClient: msal.PublicClientApplication | null = null;
+    let currentMsalClient: msal.IPublicClientApplication | null = null;
 
     /**
      * Call from MainPublic BEFORE `AuthClient.autoLogin`, and
@@ -74,7 +73,7 @@ export namespace AzureADAuthenticator {
         AuthClient.authenticators.push(loginWithAzureADSilent);
     }
 
-    async function getMsalClient(config: AzureADClientConfig): Promise<msal.PublicClientApplication> {
+    async function getMsalClient(config: AzureADClientConfig): Promise<msal.IPublicClientApplication> {
         const msalConfig: msal.Configuration = {
             auth: {
                 clientId: config.applicationId,
@@ -83,7 +82,9 @@ export namespace AzureADAuthenticator {
             },
             cache: {
                 cacheLocation: "localStorage",
-                storeAuthStateInCookie: true,
+            },
+            system: {
+                popupBridgeTimeout: 15 * 60 * 1000, // the default 60s is too short for a B2C sign-up or MFA
             },
         };
 
@@ -93,10 +94,45 @@ export namespace AzureADAuthenticator {
         else if (config.type === "ExternalID")
             msalConfig.auth.knownAuthorities = [config.tenantName!];
 
-        // MSAL v3+ requires initialize() before any request.
-        const client = new msal.PublicClientApplication(msalConfig);
-        await client.initialize();
-        return client;
+        // Builds the client AND initializes it, which MSAL v3+ requires before any request.
+        return msal.createStandardPublicClientApplication(msalConfig);
+    }
+
+    /** MSAL 5 does not notice when the user CLOSES the popup: it keeps waiting until `popupBridgeTimeout`. */
+    function onPopupClosed(client: msal.IPublicClientApplication, onClosed: () => void): () => void {
+        let interval: number | undefined;
+        const callbackId = client.addEventCallback(msg => {
+            const popup = (msg.payload as msal.PopupEvent | null)?.popupWindow;
+            if (popup)
+                interval = window.setInterval(() => { if (popup.closed) { stop(); onClosed(); } }, 500);
+        }, [msal.EventType.POPUP_OPENED]);
+
+        function stop(): void {
+            window.clearInterval(interval);
+            if (callbackId)
+                client.removeEventCallback(callbackId);
+        }
+
+        return stop;
+    }
+
+    /**
+     * MSAL 5 lands `loginPopup` / `logoutPopup` on `redirectUri` INSIDE the popup, and that page has to
+     * hand the response back to the main window, which then closes the popup. So the application's entry
+     * point calls this FIRST and starts nothing when it returns true — that document is the popup.
+     */
+    export async function handlePopupResponse(): Promise<boolean> {
+        const hasState = (str: string): boolean => str.length > 1 && new URLSearchParams(str.substring(1)).has("state");
+        if (!hasState(window.location.hash) && !hasState(window.location.search))
+            return false;
+
+        try {
+            await broadcastResponseToMainFrame();
+            return true;
+        } catch (e) {
+            console.log(e); // a `state` in the url that is not an MSAL response
+            return false;
+        }
     }
 
     export type B2C_UserFlows = "signInSignUp_UserFlow" | "signIn_UserFlow" | "signUp_UserFlow"
@@ -124,15 +160,21 @@ export namespace AzureADAuthenticator {
         ctx.setLoading(adVariant);
 
         const config = Options.getAzureADConfig(adVariant)!;
-        const newClient = await getMsalClient(config);
-        clearInteractionInProgress(newClient);
+        let stopWatchingPopup: (() => void) | undefined;
 
         try {
+            const newClient = await getMsalClient(config);
+
+            stopWatchingPopup = onPopupClosed(newClient, () => ctx.setLoading(undefined));
+
             const authResult = await newClient.loginPopup({
                 scopes: config.scopes,
                 // Shift / Alt forces the account chooser.
                 prompt: e?.shiftKey || e?.altKey ? "select_account" : undefined,
                 authority: getAuthority(config, b2cUserFlow),
+                // Without this, a CANCELLED logout leaves MSAL's "interaction in progress" flag set and
+                // every later login fails until the user clears cookies and local storage.
+                overrideInteractionInProgress: true,
             });
 
             setMsalAccount(authResult.account.username, adVariant);
@@ -150,9 +192,13 @@ export namespace AzureADAuthenticator {
             AuthClient.setCurrentUser(loginResponse.userEntity, /* avoidReRender */ true);
             AuthClient.Options.onLogin();
         } catch (e) {
+            // The user closed the popup and started a NEW login; that one now owns ctx.loading.
+            if (e instanceof msal.BrowserAuthError && e.errorCode == "interaction_in_progress_cancelled")
+                return;
+
             ctx.setLoading(undefined);
 
-            if (e instanceof msal.BrowserAuthError && (e.errorCode == "user_login_error" || e.errorCode == "user_cancelled"))
+            if (e instanceof msal.BrowserAuthError && e.errorCode == "user_cancelled")
                 return;
 
             // AADB2C90091: the user cancelled the B2C flow. AADB2C90118: they asked to reset the password.
@@ -165,6 +211,8 @@ export namespace AzureADAuthenticator {
             }
 
             void ErrorModal.showErrorModal(e, () => signOut());
+        } finally {
+            stopWatchingPopup?.();
         }
     }
 
@@ -197,14 +245,14 @@ export namespace AzureADAuthenticator {
 
         async function runResetPasswordFlow(adVariant: string): Promise<void> {
             const config = Options.getAzureADConfig(adVariant)!;
-            const newClient = await getMsalClient(config);
 
             try {
-                clearInteractionInProgress(newClient);
+                const newClient = await getMsalClient(config);
 
                 await newClient.loginPopup({
                     scopes: config.scopes,
                     authority: getAuthority(config, "resetPassword_UserFlow"),
+                    overrideInteractionInProgress: true,
                 });
 
                 await MessageModal.show({
@@ -214,7 +262,8 @@ export namespace AzureADAuthenticator {
                 });
             } catch (e) {
                 if (e instanceof msal.InteractionRequiredAuthError ||
-                    (e instanceof msal.BrowserAuthError && (e.errorCode == "user_login_error" || e.errorCode == "user_cancelled")))
+                    (e instanceof msal.BrowserAuthError &&
+                        (e.errorCode == "user_cancelled" || e.errorCode == "interaction_in_progress_cancelled")))
                     return;
 
                 void ErrorModal.showErrorModal(e, () => signOut());
@@ -236,12 +285,16 @@ export namespace AzureADAuthenticator {
         if (config == null)
             return undefined;
 
-        const newClient = await getMsalClient(config);
-
         try {
+            const newClient = await getMsalClient(config);
+
+            const ai = newClient.getAccount({ username: account });
+            if (!ai)
+                return undefined;
+
             const tokenResponse = await newClient.acquireTokenSilent({
                 scopes: config.scopes,
-                account: newClient.getAccountByUsername(account) ?? undefined,
+                account: ai,
                 authority: getAuthority(config),
             });
 
@@ -250,7 +303,7 @@ export namespace AzureADAuthenticator {
                 { adVariant, throwErrors: false });
         } catch (e) {
             if (e instanceof msal.InteractionRequiredAuthError ||
-                (e instanceof msal.BrowserAuthError && (e.errorCode == "user_login_error" || e.errorCode == "user_cancelled")))
+                (e instanceof msal.BrowserAuthError && e.errorCode == "user_cancelled"))
                 return undefined;
 
             console.log(e);
@@ -273,7 +326,7 @@ export namespace AzureADAuthenticator {
         if (!account || !currentMsalClient)
             return null;
 
-        return currentMsalClient.getAccountByUsername(account) ?? undefined;
+        return currentMsalClient.getAccount({ username: account }) ?? undefined;
     }
 
     export function getCurrentADVariant(): string | null {
@@ -318,21 +371,6 @@ export namespace AzureADAuthenticator {
             currentMsalClient.setActiveAccount(null);
             currentMsalClient = null;
             cleanMsalAccount();
-        }
-    }
-
-    /**
-     * A CANCELLED logout popup
-     * leaves MSAL's "interaction in progress" flag set, and every later login then fails until the user
-     * clears cookies and local storage. MSAL exposes no supported way to reset it, so the private reach-in
-     * is kept — but isolated here, and tolerant of the internals moving.
-     */
-    function clearInteractionInProgress(client: msal.PublicClientApplication): void {
-        try {
-            (client as { browserStorage?: { setInteractionInProgress(v: boolean): void } })
-                .browserStorage?.setInteractionInProgress(false);
-        } catch {
-            // A newer MSAL that renamed or removed it: nothing to clear, and nothing worth failing over.
         }
     }
 
