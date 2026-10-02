@@ -5,6 +5,7 @@ import type { ExceptionEntity } from "../../data/exception";
 import { IntegrityCheckException } from "../../data/validation";
 import { EntityNotFoundException, UnauthorizedAccessException, AuthenticationException } from "../exceptions";
 import { UserHolder } from "../userHolder";
+import { isCanceled } from "../cancellation";
 
 // Port of Signum's SignumExceptionFilterAttribute + HttpError (old/Framework/Signum/API/Filters/
 // SignumExceptionFilterAttribute.cs), as Express error-handling middleware. Signum's attribute runs
@@ -69,6 +70,13 @@ function toHttpError(error: unknown, exceptionId: string | null, includeDetails:
 // Register the terminal JSON error handler on the Express app (Signum's SignumServer wiring).
 export function useExceptionFilter(ws: WebBuilder): void {
     ws.app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+        // A cancelled read has no one left to answer: the socket the client abandoned is gone, so writing
+        // a 500 to it would be a body nobody reads and a log row nobody wants (shouldLogException already
+        // excludes the error by name). Close the response and stop.
+        if (isCanceled(err)) {
+            res.end();
+            return;
+        }
         // If the response already started streaming, defer to Express's default handler.
         if (res.headersSent) {
             next(err);

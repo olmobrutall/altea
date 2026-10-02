@@ -2508,3 +2508,45 @@ Known structural divergences from Signum (this is what "fix" means — don't por
   NOT ported: `Signum.Toolbar/Subs/SubFramePage.tsx` (the sub-entity frame page is not ported — see
   `SubPageMessage` in `@altea/altea-toolbar`, kept to mark the deferral) and `CaseFlowViewerComponent`'s
   `dropdownActive` (altea's case-flow viewer has no colour menu).
+
+- **Request cancellation: Signum's `CancellationToken`, as an `AbortSignal` passed the same way.** Signum's read
+  controllers take a trailing `CancellationToken token` (`QueryController.ExecuteQuery`, `QueryValue`,
+  `FindLiteLike`) and thread it to `SqlCommand.ExecuteReaderAsync`, where ADO.NET sends the server a real
+  cancel. altea keeps the SHAPE — an optional trailing argument, never an ambient scope — and changes what
+  it reaches:
+  - **The token is produced by a filter, not by the framework.** Express has no `HttpContext.RequestAborted`,
+    so `filters/cancellationFilter` makes one: `res.on("close")` with `writableEnded` still false is what
+    separates a client that went away from the ordinary close at the end of every response. Outermost in
+    `defaultFilters`.
+  - **It arrives as `req.cancellation`, NOT `req.signal`.** node's own `IncomingMessage` already defines
+    `signal` — a read-only getter whose controller aborts on the REQUEST's close, which is not the same
+    event — so assigning over it throws on every request.
+  - **Two halves, and the second one is the point.** `Connector.executeQuery` checks the signal before the
+    round trip — which stops a query's LATER statements, and a dynamic query is rarely one statement (eager
+    children, the main SELECT, lazy MLists, the stub-completion batches) — and then hands the signal to the
+    `ConnectionHandle`, which cancels the statement already in flight. That is where Signum's token ends up
+    too (`SqlCommand.ExecuteReaderAsync`); the two dialects reach it differently:
+    - **Postgres has no per-query cancel**, so the SERVER is asked to abort the connection's backend:
+      `pg_cancel_backend(pid)` (the pid is `PoolClient.processID`, which is real but absent from
+      `@types/pg`) on a short-lived connection of its own. NOT one from the pool — the backends worth
+      cancelling are the ones holding pool clients, so asking the pool could queue behind the very
+      statement being stopped. Because it names a BACKEND and not a statement, a cancel that arrives late
+      would hit whatever that connection runs next, so a connection a cancel was sent on is DESTROYED
+      rather than released (`release(true)`).
+    - **SQL Server's is per-request** (`Request.cancel()`, an attention packet on the same connection):
+      no window, nothing to discard.
+    - **The driver reports its own cancel as an ordinary error** (SQLSTATE 57014, `ECANCEL`), so
+      `Connector.executeQuery` re-reads the signal in its catch and reports the cancellation instead.
+      Gated on the signal deliberately: PostgreSQL gives a `statement_timeout` the SAME 57014, and
+      converting that blindly would file every timeout as a cancellation — unlogged, and invisible.
+    - Reads only. `executeNonQuery` and `bulkInsert` take no signal, so a write cannot be half-abandoned
+      by a user navigating away.
+  - **Threaded explicitly the whole way**, `queryServer` → `DynamicQueryContainer` → `DynamicQueryCore` →
+    `DQueryable` → `TranslateResult` → the connector. The one place it rides on an object instead is the
+    `Retriever`: the completion passes are reached THROUGH it (`retrieveListImpl` is handed nothing else),
+    so one field threads every follow-up round trip a projected row provokes. Still explicit — no
+    AsyncLocalStorage, deliberately: an ambient token would reach write paths too.
+  - **A cancelled read is not an error to report.** `exceptionFilter` ends the response without a body (the
+    socket is gone) and writes no `ExceptionEntity` — `shouldLogException` already excluded the name.
+  - NOT threaded: `Query<T>`'s fluent API, and therefore `Retriever.liteListImpl` (the lite display-string
+    pass). It would mean a trailing argument on twenty methods for the last round trip of a read.

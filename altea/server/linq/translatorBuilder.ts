@@ -58,12 +58,12 @@ export class TranslateResult {
         private readonly lazyChildren: readonly ChildPlan[],
     ) { }
 
-    async execute(): Promise<unknown> {
+    async execute(signal?: AbortSignal): Promise<unknown> {
         // The snapshot the projector resolves @implementedByAll discriminators against, taken ONCE here so
         // every row of this query agrees. Skipped while the caches are loading — that query is
         // `table(TypeEntity)`, which has no discriminator to resolve.
         const connector = Connector.current();
-        const retriever = new Retriever(TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema));
+        const retriever = new Retriever(TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema), signal);
         const result = await this.executeInto(retriever);
         // Batch-complete any referenced rows left as id-only stubs (IBA/cycle/AvoidExpand),
         // then the projected instances are fully loaded — Signum's Retriever.CompleteAll.
@@ -77,7 +77,8 @@ export class TranslateResult {
 
     // Read and project this query's rows into the given retriever's identity map, without
     // creating a new retriever or running completion (the caller's completeAll drives it).
-    // Used both by execute() and by the batch retrieve in Retriever.completeAll.
+    // Used both by execute() and by the batch retrieve in Retriever.completeAll. Cancellation rides on the
+    // retriever, so a completion batch is as abortable as the query that provoked it.
     async executeInto(retriever: Retriever): Promise<unknown> {
         const connector = Connector.current();
         const lookups: Lookups = new Map();
@@ -87,7 +88,7 @@ export class TranslateResult {
         // EagerProjections): an explicitly projected collection has no entity to defer
         // into, so it is prefilled into a lookup the projector reads.
         for (const child of this.eagerChildren) {
-            const childRows = await connector.executeQuery(child.sql, child.parameters);
+            const childRows = await connector.executeQuery(child.sql, child.parameters, retriever.signal);
             const map = new Map<string, unknown[]>();
             childRows.forEach((r, i) => {
                 const kv = projectRow(child.kvProjector, r, i, child.sql, child.projectorSource, retriever, lookups, requests) as { k: unknown; v: unknown };
@@ -101,7 +102,7 @@ export class TranslateResult {
 
         // Main query. For each entity MList it materialises, the projector places an empty
         // array in the entity and registers it in `requests` under the parent key.
-        const rows = await connector.executeQuery(this.sql, this.parameters);
+        const rows = await connector.executeQuery(this.sql, this.parameters, retriever.signal);
         const list = rows.map((r, i) => projectRow(this.projector, r, i, this.sql, this.projectorSource, retriever, lookups, requests));
 
         // Lazy child projections after the main query, shallowest-first (Signum's
@@ -115,7 +116,7 @@ export class TranslateResult {
             if (req == null || req.size === 0)
                 continue;
             filledAny = true;
-            const childRows = await connector.executeQuery(child.sql, child.parameters);
+            const childRows = await connector.executeQuery(child.sql, child.parameters, retriever.signal);
             const grouped = new Map<string, unknown[]>();
             childRows.forEach((r, i) => {
                 const kv = projectRow(child.kvProjector, r, i, child.sql, child.projectorSource, retriever, lookups, requests) as { k: unknown; v: unknown };

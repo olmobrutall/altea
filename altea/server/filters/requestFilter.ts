@@ -40,6 +40,12 @@ export interface RequestFilterContext {
      * must not change how THIS request serializes.
      */
     authContext?: unknown;
+    /**
+     * Aborted when the client goes away before the response is finished — Signum's
+     * `HttpContext.RequestAborted`, filled by {@link cancellationFilter}. Reaches a handler as
+     * `req.cancellation`, and travels onward only where a call site passes it explicitly.
+     */
+    signal?: AbortSignal;
 }
 
 /** Wrap the rest of the pipeline. Await `next()` exactly once; whatever you hold stays held across it. */

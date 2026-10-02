@@ -6,6 +6,7 @@ import { SqlBuilder } from '../sync/sqlBuilder';
 import type { SqlPreCommand, SqlPreCommandSimple } from '../sync/sqlPreCommand';
 import { currentCoreTransaction } from './transaction';
 import { HeavyProfiler } from '../profiler/heavyProfiler';
+import { throwIfCanceled } from '../cancellation';
 
 // Ambient holder for the active connector. Connectors are server-only, so this
 // uses node's AsyncLocalStorage directly rather than the browser/server-agnostic
@@ -66,7 +67,10 @@ export interface ConnectionHandle {
     rollbackToSavePoint(name: string): Promise<void>;
     // Runs a statement on this pinned connection.
     executeNonQuery(sql: string, parameters?: unknown[]): Promise<number>;
-    executeQuery(sql: string, parameters?: unknown[]): Promise<unknown[]>;
+    // `signal`, when given, cancels the statement IN FLIGHT — the driver's own cancel (Signum reaches
+    // the same thing by handing the token to `SqlCommand.ExecuteReaderAsync`). What the statement then
+    // rejects with is the driver's business; `Connector.executeQuery` reports it as the cancellation.
+    executeQuery(sql: string, parameters?: unknown[], signal?: AbortSignal): Promise<unknown[]>;
     // Bulk-copies rows into `destinationTable` using the driver's native bulk API
     // (SqlBulkCopy on SQL Server, COPY FROM STDIN on Postgres). `columns` describes the
     // target columns (name + dbType, in the same order as each row's values); `rows` are
@@ -240,9 +244,24 @@ export abstract class Connector {
     }
 
     // Runs a query and returns its rows.
-    executeQuery(sql: string, parameters: unknown[] = []): Promise<unknown[]> {
-        return this.withLogging(sql, parameters, () =>
-            this.ensureConnection(handle => handle.executeQuery(sql, parameters)));
+    //
+    // Cancellation (server/cancellation) is checked here, before the round trip — this is the one place
+    // every read passes through — and the signal then goes ON to the handle, which cancels the statement
+    // in flight. Reads only: executeNonQuery and bulkInsert take no signal, so a write cannot be
+    // half-abandoned. `async` is load-bearing: a cancelled read must REJECT, not throw synchronously at
+    // the call site.
+    async executeQuery(sql: string, parameters: unknown[] = [], signal?: AbortSignal): Promise<unknown[]> {
+        throwIfCanceled(signal);
+        try {
+            return await this.withLogging(sql, parameters, () =>
+                this.ensureConnection(handle => handle.executeQuery(sql, parameters, signal)));
+        } catch (e) {
+            // A cancel we asked for comes BACK as an ordinary driver error (57014 on Postgres, ECANCEL on
+            // SQL Server). Report it as the cancellation it is — but only when we actually asked: an
+            // unsolicited query_canceled is a statement_timeout, and that must keep its own identity.
+            throwIfCanceled(signal);
+            throw e;
+        }
     }
 
     // Bulk-copies rows into a table on the current connection (joining the active

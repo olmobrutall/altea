@@ -45,7 +45,11 @@ export class Retriever {
     // its discriminators against ONE generation of ids, and a projector cannot silently depend on somebody
     // having warmed a cache. `undefined` only inside the caches' own load (the `table(TypeEntity)` query),
     // which has no @implementedByAll column to resolve — `types()` says so if that ever changes.
-    constructor(private readonly typeCaches: TypeCaches | undefined) { }
+    //
+    // `signal` is the cancellation token of the read that opened this retriever (server/cancellation). It
+    // rides on the retriever because the completion passes are reached THROUGH it — `retrieveListImpl` is
+    // handed nothing else — so one field threads every follow-up round trip a projected row provokes.
+    constructor(private readonly typeCaches: TypeCaches | undefined, readonly signal?: AbortSignal) { }
 
     private types(): TypeCaches {
         if (this.typeCaches == null)

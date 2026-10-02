@@ -68,7 +68,10 @@ export namespace QueryServer {
                 const request = parseQueryRequest(wire);
                 // Query authorization (Signum's AssertQueryAllowed, fullScreen:false → blocks only None).
                 await QueryLogic.assertQueryAllowedHook?.(request.queryName, false);
-                const rt = await QueryLogic.queries.executeQueryAsync(request);
+                // `req.cancellation` is Signum's trailing `CancellationToken` parameter: a SearchControl
+                // aborts its fetch on every keystroke that changes a filter, and without this the superseded
+                // run keeps querying to the end for a response nobody will read.
+                const rt = await QueryLogic.queries.executeQueryAsync(request, req.cancellation);
                 res.jsonTyped(toWireResultTable(rt, wire));
             });
 
@@ -104,7 +107,7 @@ export namespace QueryServer {
                 // Count = execute with the filters and no display columns, then size the result. (A true
                 // SQL COUNT(*) would avoid materialising rows; fine for the small reference-count queries.)
                 const request = new QueryRequest(queryName, filters, [], [], new Pagination.All(), false);
-                const rt = await QueryLogic.queries.executeQueryAsync(request);
+                const rt = await QueryLogic.queries.executeQueryAsync(request, req.cancellation);
                 res.jsonTyped(rt.rows.length);
             });
     }

@@ -1,4 +1,4 @@
-import { Pool, types as pgTypes } from 'pg';
+import { Client, Pool, types as pgTypes } from 'pg';
 import type { PoolConfig, PoolClient } from 'pg';
 import { from as copyFrom } from 'pg-copy-streams';
 import type { Schema } from '../schema/schema';
@@ -89,7 +89,16 @@ function pgIsolation(isolation: IsolationLevel): string {
 // A pg client checked out of the pool and pinned for a Transaction's lifetime.
 // Savepoint names are validated by the caller (Transaction.namedSavePoint).
 class PostgresConnectionHandle implements ConnectionHandle {
-    constructor(private readonly client: PoolClient) {}
+    // Set once a cancel has been SENT on this connection. `pg_cancel_backend` names a BACKEND, not a
+    // statement, so a cancel that arrives after its target already finished would abort whatever that
+    // backend runs next — which, for a pooled connection, is somebody else's query. The connection is
+    // therefore destroyed instead of returned to the pool (see dispose).
+    private canceled = false;
+
+    constructor(
+        private readonly client: PoolClient,
+        private readonly cancelBackend: (processId: number) => void,
+    ) {}
 
     async beginTransaction(isolation?: IsolationLevel): Promise<void> {
         await this.client.query(isolation != null ? `BEGIN ISOLATION LEVEL ${pgIsolation(isolation)}` : 'BEGIN');
@@ -116,9 +125,25 @@ class PostgresConnectionHandle implements ConnectionHandle {
         return res.rowCount ?? 0;
     }
 
-    async executeQuery(sql: string, parameters: unknown[] = []): Promise<unknown[]> {
-        const res = await this.client.query(sql, parameters);
-        return res.rows;
+    // `signal` cancels the statement IN FLIGHT: pg has no per-query cancel, so the server is asked to
+    // abort this connection's backend. The statement then rejects with SQLSTATE 57014, which
+    // Connector.executeQuery turns back into the cancellation.
+    async executeQuery(sql: string, parameters: unknown[] = [], signal?: AbortSignal): Promise<unknown[]> {
+        const processId = (this.client as { processID?: number | null }).processID;
+        if (signal == undefined || processId == null)
+            return (await this.client.query(sql, parameters)).rows;
+
+        const onAbort = (): void => {
+            this.canceled = true;
+            this.cancelBackend(processId);
+        };
+        signal.addEventListener("abort", onAbort, { once: true });
+        try {
+            return (await this.client.query(sql, parameters)).rows;
+        } finally {
+            // Narrows the window in which a cancel could outlive its statement; it cannot close it.
+            signal.removeEventListener("abort", onAbort);
+        }
     }
 
     // COPY … FROM STDIN in the default TEXT format. Values arrive already normalised
@@ -138,7 +163,7 @@ class PostgresConnectionHandle implements ConnectionHandle {
     }
 
     async dispose(): Promise<void> {
-        this.client.release();
+        this.client.release(this.canceled);
     }
 }
 
@@ -280,10 +305,34 @@ export class PostgresConnector extends Connector {
 
     async openConnection(): Promise<ConnectionHandle> {
         try {
-            return new PostgresConnectionHandle(await this.getPool().connect());
+            return new PostgresConnectionHandle(await this.getPool().connect(), pid => this.cancelBackend(pid));
         } catch (err) {
             throw this.connectionError(err);
         }
+    }
+
+    /**
+     * Ask the server to abort whatever backend `processId` is running — the in-flight half of request
+     * cancellation (server/cancellation).
+     *
+     * On its OWN short-lived connection, never one from the pool: the backends worth cancelling are the
+     * ones holding pool clients, so asking the pool for a client could queue behind the very statement
+     * this is trying to stop. Fire-and-forget, because nobody is waiting on it — a cancel that does not
+     * arrive leaves a slow query running, which is what would have happened anyway.
+     */
+    private cancelBackend(processId: number): void {
+        const base = typeof this.config === 'string' ? { connectionString: this.config } : this.config;
+        const client = new Client(base);
+        void (async () => {
+            try {
+                await client.connect();
+                await client.query('SELECT pg_cancel_backend($1)', [processId]);
+            } catch (err) {
+                console.warn(`[postgres] could not cancel backend ${processId} (${(err as Error)?.message ?? err})`);
+            } finally {
+                await client.end().catch(() => undefined);
+            }
+        })();
     }
 
     protected connectionTarget(): string {

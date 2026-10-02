@@ -23,6 +23,7 @@ import { composeFilters, type RequestFilter, type RequestFilterContext } from ".
 import { useUserScope } from "./filters/userScope";
 import { useInitializeGate } from "./filters/initializeGate";
 import { authorizationFilter, serializationAuthFilter } from "./filters/authorizationFilter";
+import { cancellationFilter } from "./filters/cancellationFilter";
 import { cultureFilter } from "./filters/cultureFilter";
 import { heavyProfilerFilter, timeTrackerFilter } from "./filters/profilerFilter";
 
@@ -93,7 +94,11 @@ type ReqBody<D extends RouteDef> = D["req"] extends Ref<any> ? RefType<D["req"]>
 type ResBody<D extends RouteDef> = D["res"] extends Ref<any> ? RefType<D["res"]> : never;
 type ParamsOf<D extends RouteDef> = D["params"] extends Ref<any> ? RefType<D["params"]> : Request["params"];
 
-export type TypedRequest<B, P> = Omit<Request, "params"> & { params: P; jsonTyped(): Promise<B> };
+// `cancellation` is this request's cancellation token (Signum's `CancellationToken` controller
+// parameter), filled by the cancellationFilter; pass it on to make a read abortable — see
+// server/cancellation. NOT `signal`: node's own IncomingMessage already owns that name, as a read-only
+// getter over a signal that also fires when a request merely finishes reading.
+export type TypedRequest<B, P> = Omit<Request, "params"> & { params: P; cancellation: AbortSignal | undefined; jsonTyped(): Promise<B> };
 export type TypedResponse<R> = Response & {
     jsonTyped(obj: R): void;
     modelState(ic: IntegrityCheck): void;
@@ -138,6 +143,7 @@ const rawBody = express.text({ type: "*/*", limit: "16mb" });
  * construction; altea-auth fills its `setAuthenticateRequest` seam, and the authorization seam in here.
  */
 export const defaultFilters: readonly RequestFilter[] = [
+    cancellationFilter,
     heavyProfilerFilter,
     timeTrackerFilter,
     authorizationFilter,
@@ -202,6 +208,9 @@ export class WebBuilder {
 
         // The chain is FIXED once the route is registered, so fold it here rather than per request.
         const runPipeline = composeFilters(this.filters, async ctx => {
+            // Handed over on `req` rather than as a third handler parameter, so a handler that ignores
+            // cancellation keeps the signature it already has.
+            (ctx.req as { cancellation?: AbortSignal }).cancellation = ctx.signal;
             await (handler as (r: Request, s: Response) => unknown)(ctx.req, ctx.res);
         });
 

@@ -118,11 +118,22 @@ class SqlServerConnectionHandle implements ConnectionHandle {
         return (res.rowsAffected ?? []).reduce((a, b) => a + b, 0);
     }
 
-    async executeQuery(sql: string, parameters: unknown[] = []): Promise<unknown[]> {
+    // `signal` cancels the statement IN FLIGHT. Unlike Postgres this is per-REQUEST (an attention packet
+    // on the same connection), so there is no window in which the cancel could reach somebody else's
+    // statement and nothing to discard afterwards.
+    async executeQuery(sql: string, parameters: unknown[] = [], signal?: AbortSignal): Promise<unknown[]> {
         const req = this.request();
         parameters.forEach((p, i) => req.input(`p${i}`, p));
-        const res = await req.query(sql);
-        return res.recordset ?? [];
+        if (signal == undefined)
+            return (await req.query(sql)).recordset ?? [];
+
+        const onAbort = (): void => req.cancel();
+        signal.addEventListener("abort", onAbort, { once: true });
+        try {
+            return (await req.query(sql)).recordset ?? [];
+        } finally {
+            signal.removeEventListener("abort", onAbort);
+        }
     }
 
     // SqlBulkCopy via mssql's Table + request.bulk. The request is bound to the active

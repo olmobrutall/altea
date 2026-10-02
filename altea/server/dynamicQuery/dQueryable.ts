@@ -262,33 +262,33 @@ export class DQueryable {
         return bindAndOptimize(this.countCall(), connector.schema, connector.isPostgres, true,
             loadedTypeCaches(connector.schema), /* rowFilters */ false);
     }
-    async countAsync(): Promise<number> {
+    async countAsync(signal?: AbortSignal): Promise<number> {
         const connector = Connector.current();
         const projection = await bindOptimizeSecured(this.countCall(), connector.schema, connector.isPostgres, /* alreadySimplified */ true);
-        return await buildTranslateResult(projection, connector.isPostgres).execute() as number;
+        return await buildTranslateResult(projection, connector.isPostgres).execute(signal) as number;
     }
 
     // Execute the built query and return the raw projected rows. Binds via the LINQ provider's
     // bindOptimizeSecured so row-level security is applied — the dynamic-query layer stays unaware of it.
-    async executeAsync(): Promise<unknown[]> {
+    async executeAsync(signal?: AbortSignal): Promise<unknown[]> {
         const connector = Connector.current();
         const projection = await bindOptimizeSecured(this.query, connector.schema, connector.isPostgres, /* alreadySimplified */ true);
-        return await buildTranslateResult(projection, connector.isPostgres).execute() as unknown[];
+        return await buildTranslateResult(projection, connector.isPostgres).execute(signal) as unknown[];
     }
 
     // Materialise into the in-memory arm (Signum's DQueryable.ToDEnumerable): execute the query and
     // wrap the rows + context so they can be combined (Concat) / re-ordered / paginated in memory.
-    async toDEnumerable(): Promise<DEnumerable> {
-        return new DEnumerable(await this.executeAsync(), this.context);
+    async toDEnumerable(signal?: AbortSignal): Promise<DEnumerable> {
+        return new DEnumerable(await this.executeAsync(signal), this.context);
     }
 
     // SQL-side pagination (Signum's TryPaginate on DQueryable): apply TOP / OFFSET-FETCH to the query,
     // execute the single page, and get the total via a separate COUNT — skipping the COUNT when the
     // returned page is short (we've reached the end). Returns a materialised DEnumerableCount.
     // Note: no OrderAlsoByKeys yet (stable tie-break for pagination) — see TODO.md.
-    async tryPaginateAsync(pagination: Pagination): Promise<DEnumerableCount> {
+    async tryPaginateAsync(pagination: Pagination, signal?: AbortSignal): Promise<DEnumerableCount> {
         if (pagination instanceof Pagination.Firsts) {
-            const rows = await this.top(pagination.topElements).executeAsync();
+            const rows = await this.top(pagination.topElements).executeAsync(signal);
             return new DEnumerableCount(rows, this.context, undefined);
         }
         if (pagination instanceof Pagination.Paginate) {
@@ -297,13 +297,13 @@ export class DQueryable {
             let dq: DQueryable = this;
             if (pagination.currentPage !== 1)
                 dq = dq.skip(offset);
-            const rows = await dq.top(size).executeAsync();
+            const rows = await dq.top(size).executeAsync(signal);
             // A short page means the end was reached, so total = offset + page; else run the COUNT.
-            const total = rows.length < size ? offset + rows.length : await this.countAsync();
+            const total = rows.length < size ? offset + rows.length : await this.countAsync(signal);
             return new DEnumerableCount(rows, this.context, total);
         }
         // All: execute everything; total is the row count.
-        const all = await this.executeAsync();
+        const all = await this.executeAsync(signal);
         return new DEnumerableCount(all, this.context, all.length);
     }
 
@@ -341,13 +341,13 @@ export class DQueryable {
     // then SQL-side pagination. `forConcat` (Signum's forConcat flag) SKIPS pagination — the caller
     // concatenates several sources first and paginates the combined result (cf. CustomersLogic's
     // Person + Company union); the returned count is just this source's materialised row count.
-    async allQueryOperationsAsync(request: QueryRequest, forConcat = false): Promise<DEnumerableCount> {
+    async allQueryOperationsAsync(request: QueryRequest, forConcat = false, signal?: AbortSignal): Promise<DEnumerableCount> {
         const dq = this.buildQueryOperations(request);
         if (forConcat) {
-            const de = await dq.toDEnumerable();
+            const de = await dq.toDEnumerable(signal);
             return new DEnumerableCount(de.collection, de.context, de.collection.length);
         }
-        return await dq.tryPaginateAsync(request.pagination);
+        return await dq.tryPaginateAsync(request.pagination, signal);
     }
 }
 

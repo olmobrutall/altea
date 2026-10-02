@@ -79,7 +79,7 @@ export class DynamicQueryContainer {
      * is what makes a history query return past row versions instead of the current ones. Applied here, in
      * the container, so EVERY core (auto, manual, custom) honours it.
      */
-    async executeQueryAsync(request: QueryRequest): Promise<ResultTable> {
+    async executeQueryAsync(request: QueryRequest, signal?: AbortSignal): Promise<ResultTable> {
         const core = this.getCore(request.queryName);
         // A `SmartSearch` filter carries PROSE; the vector a `Distance` token measures against comes from
         // an embeddings model, over the network. Resolved here — before anything builds an expression —
@@ -87,8 +87,8 @@ export class DynamicQueryContainer {
         // SystemTime scope below, so every core gets it. No SmartSearch filter ⇒ no work, no seam call.
         await SmartSearchLogic.resolveEmbeddings(request.filters);
         const run = (): Promise<ResultTable> => request.systemTime == undefined
-            ? core.executeQueryAsync(request)
-            : SystemTime.override(request.systemTime, () => core.executeQueryAsync(request));
+            ? core.executeQueryAsync(request, signal)
+            : SystemTime.override(request.systemTime, () => core.executeQueryAsync(request, signal));
 
         if (this.queryExecuted.length === 0)
             return await run();

@@ -15,7 +15,9 @@ export interface DynamicQueryCore {
     // The reflected shape type (the query's row): a full entity for auto queries, a ModelEntity for
     // custom projections. The token tree roots on it (key "").
     getRootType(): Type<BaseEntity>;
-    executeQueryAsync(request: QueryRequest): Promise<ResultTable>;
+    // `signal` is the caller's cancellation token (Signum's trailing `CancellationToken`). Optional on
+    // both sides: a core that ignores it simply runs to completion, as every core did before.
+    executeQueryAsync(request: QueryRequest, signal?: AbortSignal): Promise<ResultTable>;
 }
 
 // The concrete entity/model ctor behind a query's element type.
@@ -51,11 +53,11 @@ export class AutoDynamicQueryCore implements DynamicQueryCore {
 
     // Signum's ExecuteQueryAsync: seed the context off the query (the row root "") → AllQuery
     // Operations → ToResultTable.
-    async executeQueryAsync(request: QueryRequest): Promise<ResultTable> {
+    async executeQueryAsync(request: QueryRequest, signal?: AbortSignal): Promise<ResultTable> {
         this.addEntityColumn(request);
         // Row-level security (EntityEvents.queryFilter) is applied by the LINQ binder for EVERY query — a
         // dynamic query's `table(T)` source is filtered there too — so nothing extra is needed here.
-        const result = await this.getQuery().toDQueryable().allQueryOperationsAsync(request);
+        const result = await this.getQuery().toDQueryable().allQueryOperationsAsync(request, false, signal);
         const resultTable = result.toResultTable(request.columns, request.pagination);
         // A `MatchSnippet` column selected the TEXT; the excerpt around the searched words is computed
         // here, over the fetched rows (Signum computes it in the LINQ projector, equally in-process).
@@ -93,18 +95,18 @@ export function addRowEntityColumn(request: QueryRequest, rootType: Type<BaseEnt
 export class ManualDynamicQueryCore implements DynamicQueryCore {
     constructor(
         private readonly rootType: Type<BaseEntity>,
-        private readonly executor: (request: QueryRequest) => Promise<ResultTable>,
+        private readonly executor: (request: QueryRequest, signal?: AbortSignal) => Promise<ResultTable>,
     ) { }
 
     getRootType(): Type<BaseEntity> {
         return this.rootType;
     }
 
-    executeQueryAsync(request: QueryRequest): Promise<ResultTable> {
+    executeQueryAsync(request: QueryRequest, signal?: AbortSignal): Promise<ResultTable> {
         // The same implicit "Entity" column an auto query gets: a manual executor projects whatever
         // `request.columns` names, so a hand-written union (eastwind's CustomerRowModel over Person +
         // Company) becomes navigable without knowing anything about it.
         addRowEntityColumn(request, this.rootType);
-        return this.executor(request);
+        return this.executor(request, signal);
     }
 }
