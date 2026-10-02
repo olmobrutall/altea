@@ -4,7 +4,7 @@ import { Binding } from "@altea/altea/client/binding";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import MessageModal from "@altea/altea/client/Modals/MessageModal";
 import { EntityControlMessage } from "@altea/altea/data/uiMessages";
-import TypeScriptCodeMirror from "@altea/altea-codemirror/client/TypeScriptCodeMirror";
+import TypeScriptMonaco from "@altea/altea-monaco/client/TypeScriptMonaco";
 import ValueComponent, { type DynamicTypeDesignContext } from "./ValueComponent";
 import { PropertyRepeaterComponent } from "./PropertyRepeaterComponent";
 import {
@@ -28,7 +28,7 @@ import {
 //    counterpart for the same reason: nothing on the server consumes them.
 //  - the operations tab edits BODIES ONLY, as Signum's does; here the four
 //    blocks are TypeScript and their signatures name what the generator actually emits.
-//  - `CSharpExpressionCodeMirror` becomes `ExpressionCodeMirror` over TypeScript.
+//  - `CSharpExpressionCodeMirror` becomes `ExpressionEditor` over TypeScript.
 //  - `TypeHelpComponent` / the "property template" modal are not ported (TypeHelp is not — the honest
 //    equivalent is editor IntelliSense over the same `.d.ts`).
 
@@ -172,7 +172,7 @@ export function DynamicTypeDefinitionComponent(p: DynamicTypeDefinitionComponent
                                             options={def.properties.filter(a => a.isMList == null).map(a => a.name)} />
                                     </div>
                                     <div className="col-sm-6">
-                                        <ExpressionCodeMirror dc={p.dc} title="Where"
+                                        <ExpressionEditor dc={p.dc} title="Where"
                                             signature={"(e: " + typeName + ") =>"}
                                             binding={Binding.create(item, i => i.where)} />
                                     </div>
@@ -180,7 +180,7 @@ export function DynamicTypeDefinitionComponent(p: DynamicTypeDefinitionComponent
 
                     <fieldset>
                         <legend>toString expression</legend>
-                        <ExpressionCodeMirror dc={p.dc} signature={"(this: " + typeName + ") =>"}
+                        <ExpressionEditor dc={p.dc} signature={"(this: " + typeName + ") =>"}
                             binding={Binding.create(def, d => d.toStringExpression)} />
                     </fieldset>
                 </Tab>
@@ -198,10 +198,10 @@ export function DynamicTypeDefinitionComponent(p: DynamicTypeDefinitionComponent
                             onCreate={() => ({ execute: "", canExecute: undefined })}
                             renderContent={item =>
                                 <div>
-                                    <ExpressionCodeMirror dc={p.dc} title="CanExecute"
+                                    <ExpressionEditor dc={p.dc} title="CanExecute"
                                         signature={"(e: " + typeName + ") => string | null"}
                                         binding={Binding.create(item, i => i.canExecute)} />
-                                    <ExpressionCodeMirror dc={p.dc} title="Execute"
+                                    <ExpressionEditor dc={p.dc} title="Execute"
                                         signature={"(e: " + typeName + ", args) =>"}
                                         binding={Binding.create(item, i => i.execute)} />
                                 </div>} />
@@ -210,10 +210,10 @@ export function DynamicTypeDefinitionComponent(p: DynamicTypeDefinitionComponent
                             onCreate={() => ({ delete: "", canDelete: undefined })}
                             renderContent={item =>
                                 <div>
-                                    <ExpressionCodeMirror dc={p.dc} title="CanDelete"
+                                    <ExpressionEditor dc={p.dc} title="CanDelete"
                                         signature={"(e: " + typeName + ") => string | null"}
                                         binding={Binding.create(item, i => i.canDelete)} />
-                                    <ExpressionCodeMirror dc={p.dc} title="Delete"
+                                    <ExpressionEditor dc={p.dc} title="Delete"
                                         signature={"(e: " + typeName + ", args) =>"}
                                         binding={Binding.create(item, i => i.delete)} />
                                 </div>} />
@@ -221,17 +221,17 @@ export function DynamicTypeDefinitionComponent(p: DynamicTypeDefinitionComponent
                         <OptionalFieldset title="Create" dc={p.dc} binding={Binding.create(def, d => d.operationCreate)}
                             onCreate={() => ({ construct: "" })}
                             renderContent={item =>
-                                <ExpressionCodeMirror dc={p.dc} title="Construct" signature="(args) =>"
+                                <ExpressionEditor dc={p.dc} title="Construct" signature="(args) =>"
                                     binding={Binding.create(item, i => i.construct)} />} />
 
                         <OptionalFieldset title="Clone" dc={p.dc} binding={Binding.create(def, d => d.operationClone)}
                             onCreate={() => ({ construct: "", canConstruct: undefined })}
                             renderContent={item =>
                                 <div>
-                                    <ExpressionCodeMirror dc={p.dc} title="CanConstruct"
+                                    <ExpressionEditor dc={p.dc} title="CanConstruct"
                                         signature={"(e: " + typeName + ") => string | null"}
                                         binding={Binding.create(item, i => i.canConstruct)} />
-                                    <ExpressionCodeMirror dc={p.dc} title="Construct"
+                                    <ExpressionEditor dc={p.dc} title="Construct"
                                         signature={"(e: " + typeName + ", args) =>"}
                                         binding={Binding.create(item, i => i.construct)} />
                                 </div>} />
@@ -270,7 +270,7 @@ export function CustomCodeTab(p: {
                     renderContent={item =>
                         <div>
                             <small className="text-muted">{b.hint}</small>
-                            <ExpressionCodeMirror dc={p.dc} binding={Binding.create(item, i => i.code)} />
+                            <ExpressionEditor dc={p.dc} binding={Binding.create(item, i => i.code)} />
                         </div>} />)}
         </div>
     );
@@ -308,7 +308,7 @@ export function OptionalFieldset<T>(p: {
 }
 
 /** Signum's CSharpExpressionCodeMirror, over TypeScript. */
-export function ExpressionCodeMirror(p: {
+export function ExpressionEditor(p: {
     dc: DynamicTypeDesignContext;
     binding: Binding<string | undefined>;
     title?: string;
@@ -319,7 +319,8 @@ export function ExpressionCodeMirror(p: {
             {p.title != null && <small className="d-block">{p.title}</small>}
             {p.signature != null && <pre className="mb-1"><small>{p.signature}</small></pre>}
             <div className="code-container">
-                <TypeScriptCodeMirror code={p.binding.getValue() ?? ""}
+                {/* A FRAGMENT: an expression body, with nothing declaring the names in it. */}
+                <TypeScriptMonaco code={p.binding.getValue() ?? ""} semanticDiagnostics={false}
                     onChange={code => { p.binding.setValue(code); p.dc.refreshView(); }} />
             </div>
         </div>

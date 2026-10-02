@@ -3,7 +3,7 @@ import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EnumLine } from "@altea/altea/client/Lines/EnumLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
-import TypeScriptCodeMirror from "@altea/altea-codemirror/client/TypeScriptCodeMirror";
+import TypeScriptMonaco from "@altea/altea-monaco/client/TypeScriptMonaco";
 import type { DynamicExpressionEntity } from "../../data/DynamicExpression";
 
 // Port of Signum.Dynamic's Expression/DynamicExpression.tsx — the editor for a query expression defined
@@ -39,7 +39,9 @@ export default function DynamicExpressionComponent(p: { ctx: TypeContext<Dynamic
             <div className="mt-3">
                 <pre className="mb-1"><small>{signature}</small></pre>
                 <div className="code-container">
-                    <TypeScriptCodeMirror code={ctx.value.body ?? ""} onChange={handleCodeChange} />
+                    {/* A FRAGMENT: an expression body, with nothing declaring the names in it. */}
+                    <TypeScriptMonaco code={ctx.value.body ?? ""} semanticDiagnostics={false}
+                        onChange={handleCodeChange} />
                 </div>
             </div>
         </div>

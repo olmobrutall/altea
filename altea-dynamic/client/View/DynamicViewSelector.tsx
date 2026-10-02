@@ -11,7 +11,7 @@ import { isModifiableType, resolveType } from "@altea/altea/data/registration";
 import { Navigator } from "@altea/altea/client/Navigator";
 import MessageModal from "@altea/altea/client/Modals/MessageModal";
 import { useAPI, useForceUpdate } from "@altea/altea/client/Hooks";
-import JavascriptCodeMirror from "@altea/altea-codemirror/client/JavascriptCodeMirror";
+import JavascriptMonaco from "@altea/altea-monaco/client/JavascriptMonaco";
 import { DynamicViewClient } from "../DynamicViewClient";
 import { ModulesHelp } from "./ModulesHelp";
 import { CopyTextModal } from "./CopyTextModal";
@@ -157,7 +157,7 @@ export default function DynamicViewSelectorComponent(p: { ctx: TypeContext<Dynam
                         <ModulesHelp cleanName={cleanName} />{") =>"}
                     </div>
                 </pre>
-                <JavascriptCodeMirror code={ctx.value.script ?? ""} onChange={handleCodeChange} />
+                <JavascriptMonaco code={ctx.value.script ?? ""} onChange={handleCodeChange} />
                 {syntaxError && <div className="alert alert-danger">{syntaxError}</div>}
             </div>
         );

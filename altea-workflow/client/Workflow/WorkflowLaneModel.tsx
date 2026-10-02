@@ -46,8 +46,9 @@ export default function WorkflowLaneModelComponent(p: { ctx: TypeContext<Workflo
                 ? <EntityDetail ctx={ctx.subCtx(wc => wc.actorsEval)} onChange={handleFixBooleans}
                     onCreate={() => Promise.resolve(WorkflowLaneActorsEval.create({ script: "return [e.yourProperty];" }))}
                     getComponent={ectx => <EvalLine ctx={ectx}
-                        signature={`function evaluate(e: ${ctx.value.mainEntityType!.className}, `
-                            + `ctx: WorkflowTransitionContext): Promise<Lite<Entity>[]>`} />} />
+                        parameters={`e: ${ctx.value.mainEntityType!.className} | null, `
+                            + `ctx: WorkflowTransitionContext`}
+                        returnType="Lite<Entity>[]" isAsync />} />
                 : <div className="alert alert-warning">
                     {WorkflowMessage.ToUse0YouSouldSetTheWorkflow1.niceToString(
                         ctx.niceName(e => e.actorsEval), ctx.niceName(e => e.mainEntityType))}

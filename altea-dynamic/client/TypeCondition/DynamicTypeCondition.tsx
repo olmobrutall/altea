@@ -25,7 +25,7 @@ export default function DynamicTypeConditionComponent(p: { ctx: TypeContext<Dyna
             <EntityLine ctx={ctx.subCtx(a => a.entityType)} onChange={forceUpdate} />
 
             <EvalLine ctx={ctx.subCtx(a => a.eval)}
-                signature={"(e: " + entityTypeName + ") => boolean"} />
+                parameters={"e: " + entityTypeName} returnType="boolean" />
         </div>
     );
 }

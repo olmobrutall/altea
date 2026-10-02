@@ -293,12 +293,12 @@ export namespace EmailTemplateLogic {
     // ---- applicability / visibility ---------------------------------------------------------------------
 
     /** Signum's `template.IsApplicable(entity)` — the stored script, compiled on first use. */
-    export function isApplicable(template: EmailTemplateEntity, entity: Entity | null): boolean {
+    export async function isApplicable(template: EmailTemplateEntity, entity: Entity | null): Promise<boolean> {
         if (template.applicable == null)
             return true;
 
         try {
-            return template.applicable.algorithm(entity);
+            return await template.applicable.invoke(entity);
         } catch (e) {
             throw new Error(`Error evaluating Applicable for EmailTemplate '${template.name}' with entity '${String(entity)}': ${(e as Error).message}`);
         }
@@ -331,7 +331,11 @@ export namespace EmailTemplateLogic {
         visibleOn: EmailTemplateVisibleOn,
     ): Promise<Lite<EmailTemplateEntity>[]> {
         const all = await emailTemplatesLazy.value();
-        const candidates = all.filter(t => t.query?.key === queryKey && isVisible(t, visibleOn) && isApplicable(t, entity));
+        // `isApplicable` compiles a stored script, so it is async and the filter is a loop.
+        const candidates: EmailTemplateEntity[] = [];
+        for (const t of all)
+            if (t.query?.key === queryKey && isVisible(t, visibleOn) && await isApplicable(t, entity))
+                candidates.push(t);
         const visible = await EmailLogic.filterVisible(candidates);
         return visible.map(t => t.toLite());
     }

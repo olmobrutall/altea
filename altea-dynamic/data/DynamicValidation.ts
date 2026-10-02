@@ -63,11 +63,10 @@ export class DynamicValidationEntity extends Entity {
 
 @reflect
 export class DynamicValidationEval extends EvalEmbedded<IDynamicValidationEvaluator> {
-    protected override compile(): CompilationResult<IDynamicValidationEvaluator> {
+    protected override compile(): Promise<CompilationResult<IDynamicValidationEvaluator>> {
         const entityTypeName = this.owner(DynamicValidationEntity).entityType.className;
 
         return this.wrap({
-            importTypes: [entityTypeName, "FieldInfo"],
             parameters: `e: ${entityTypeName}, fi: FieldInfo`,
             returnType: "string | null",
         });

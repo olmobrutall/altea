@@ -35,11 +35,10 @@ export class WorkflowActionEntity extends Entity implements IUserAssetEntity {
 /** The script run while taking a connection. */
 @reflect
 export class WorkflowActionEval extends EvalEmbedded<IWorkflowActionExecutor> {
-    protected override compile(): CompilationResult<IWorkflowActionExecutor> {
+    protected override compile(): Promise<CompilationResult<IWorkflowActionExecutor>> {
         const mainEntityType = this.owner(WorkflowActionEntity).mainEntityType.className;
 
         return this.wrap({
-            importTypes: [mainEntityType, "WorkflowTransitionContext"],
             parameters: `e: ${mainEntityType}, ctx: WorkflowTransitionContext`,
             returnType: "void",
             isAsync: true,

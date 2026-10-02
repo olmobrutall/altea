@@ -54,11 +54,10 @@ export class WorkflowScriptEval extends EvalEmbedded<IWorkflowScriptExecutor> {
     @stringLengthValidator({ multiLine: true })
     customTypes: string | null = null;
 
-    protected override compile(): CompilationResult<IWorkflowScriptExecutor> {
+    protected override compile(): Promise<CompilationResult<IWorkflowScriptExecutor>> {
         const mainEntityType = this.owner(WorkflowScriptEntity).mainEntityType.className;
 
         return this.wrap({
-            importTypes: [mainEntityType, "WorkflowScriptContext"],
             parameters: `e: ${mainEntityType}, ctx: WorkflowScriptContext`,
             returnType: "void",
             isAsync: true,

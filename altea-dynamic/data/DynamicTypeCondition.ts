@@ -67,11 +67,10 @@ export class DynamicTypeConditionEntity extends Entity {
 /** Signum's DynamicTypeConditionEval. */
 @reflect
 export class DynamicTypeConditionEval extends EvalEmbedded<IDynamicTypeConditionEvaluator> {
-    protected override compile(): CompilationResult<IDynamicTypeConditionEvaluator> {
+    protected override compile(): Promise<CompilationResult<IDynamicTypeConditionEvaluator>> {
         const entityTypeName = this.owner(DynamicTypeConditionEntity).entityType.className;
 
         return this.wrap({
-            importTypes: [entityTypeName],
             parameters: `e: ${entityTypeName}`,
             returnType: "boolean",
         });

@@ -9,7 +9,7 @@ import { EntityRepeater } from "@altea/altea/client/Lines/EntityRepeater";
 import { EntityTable } from "@altea/altea/client/Lines/EntityTable";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
-import HtmlCodeMirror from "@altea/altea-codemirror/client/HtmlCodeMirror";
+import HtmlMonaco from "@altea/altea-monaco/client/HtmlMonaco";
 import { EmailMessageEntity, EmailMessageState } from "../../data/EmailMessage";
 import { EmailTemplateMessage } from "../../data/EmailTemplate";
 import IFrameRenderer from "./IframeRenderer";
@@ -18,7 +18,7 @@ import { replaceCidImagesOfMessage, useObjectUrls } from "./CidImages";
 // Port of Signum.Mailing's Templates/EmailMessage.tsx — the produced message: read-only unless it is still
 // Created / Draft.
 //
-// An HTML body is edited in <HtmlCodeMirror/> (altea-codemirror), a plain body in <TextAreaLine/>, with the
+// An HTML body is edited in <HtmlMonaco/> (altea-monaco), a plain body in <TextAreaLine/>, with the
 // live <IFrameRenderer/> preview below — as in Signum.
 export default function EmailMessage(p: { ctx: TypeContext<EmailMessageEntity> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
@@ -67,7 +67,7 @@ export default function EmailMessage(p: { ctx: TypeContext<EmailMessageEntity> }
                 <CheckboxLine ctx={ctx.subCtx(f => f.isBodyHtml)} inlineCheckbox onChange={forceUpdate} />
                 {ctx.value.isBodyHtml
                     ? <div className="code-container">
-                        <HtmlCodeMirror ctx={ctx.subCtx(f => f.body.text)} onChange={forceUpdate} />
+                        <HtmlMonaco ctx={ctx.subCtx(f => f.body.text)} onChange={forceUpdate} />
                     </div>
                     : <TextAreaLine ctx={ctx.subCtx(f => f.body.text)} formGroupStyle="SrOnly"
                         valueHtmlAttributes={{ style: { height: "180px" } }} onChange={forceUpdate} />}

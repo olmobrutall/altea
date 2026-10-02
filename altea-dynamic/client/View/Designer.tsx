@@ -7,7 +7,7 @@ import type { Binding } from "@altea/altea/client/binding";
 import { Typeahead } from "@altea/altea/client/Components";
 import { ModalFooterButtons, ModalHeaderButtons } from "@altea/altea/client/Components/ModalHeaderButtons";
 import { openModal, type IModalProps } from "@altea/altea/client/Modals";
-import JavascriptCodeMirror from "@altea/altea-codemirror/client/JavascriptCodeMirror";
+import JavascriptMonaco from "@altea/altea-monaco/client/JavascriptMonaco";
 import type { Expression, DesignerNode } from "./NodeUtils";
 import type { BaseNode } from "./Nodes";
 import * as NodeUtils from "./NodeUtils";
@@ -170,7 +170,7 @@ export function ExpressionOrValueComponent(p: ExpressionOrValueProps): React.JSX
                         <PropsHelp node={dn} />{", locals) =>"}
                     </div>
                 </pre>
-                <JavascriptCodeMirror
+                <JavascriptMonaco
                     code={expression.__code__}
                     onChange={newCode => { expression.__code__ = newCode; p.dn.context.refreshView(); }} />
             </div>

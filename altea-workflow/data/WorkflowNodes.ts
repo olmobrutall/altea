@@ -200,14 +200,13 @@ export class WorkflowLaneEntity extends Entity implements IWorkflowObjectEntity,
  */
 @reflect
 export class WorkflowLaneActorsEval extends EvalEmbedded<IWorkflowLaneActorsEvaluator> {
-    protected override compile(): CompilationResult<IWorkflowLaneActorsEvaluator> {
+    protected override compile(): Promise<CompilationResult<IWorkflowLaneActorsEvaluator>> {
         const owner = this.owner(Entity);
         const mainEntityType = owner instanceof WorkflowLaneEntity
             ? owner.pool.workflow.mainEntityType.className
             : (owner as unknown as WorkflowLaneModel).mainEntityType.className;
 
         return this.wrap({
-            importTypes: [mainEntityType, "WorkflowTransitionContext", "Lite", "Entity"],
             parameters: `e: ${mainEntityType} | null, ctx: WorkflowTransitionContext`,
             returnType: "Lite<Entity>[]",
             isAsync: true,
@@ -337,13 +336,12 @@ export class WorkflowScriptPartEmbedded extends EmbeddedEntity {
  */
 @reflect
 export class SubEntitiesEval extends EvalEmbedded<ISubEntitiesEvaluator> {
-    protected override compile(): CompilationResult<ISubEntitiesEvaluator> {
+    protected override compile(): Promise<CompilationResult<ISubEntitiesEvaluator>> {
         const activity = this.owner(WorkflowActivityEntity);
         const mainEntityType = activity.lane.pool.workflow.mainEntityType.className;
         const subEntityType = activity.subWorkflow!.workflow.mainEntityType.className;
 
         return this.wrap({
-            importTypes: [mainEntityType, subEntityType, "WorkflowTransitionContext"],
             parameters: `e: ${mainEntityType}, ctx: WorkflowTransitionContext`,
             returnType: `${subEntityType}[]`,
             isAsync: true,

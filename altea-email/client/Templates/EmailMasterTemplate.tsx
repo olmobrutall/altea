@@ -9,7 +9,7 @@ import { useForceUpdate } from "@altea/altea/client/Hooks";
 import {
     EmailMasterTemplateEntity, EmailMasterTemplateEntity_Message, EmailTemplateMessage, EmailTemplateViewMessage,
 } from "../../data/EmailTemplate";
-import HtmlCodeMirror from "@altea/altea-codemirror/client/HtmlCodeMirror";
+import HtmlMonaco from "@altea/altea-monaco/client/HtmlMonaco";
 import IFrameRenderer from "./IframeRenderer";
 import { replaceCidImages, useObjectUrls } from "./CidImages";
 
@@ -62,7 +62,7 @@ export function EmailMasterTemplateMessageComponent(p: {
         <div className="sf-email-template-message">
             <AutoLine ctx={ec.subCtx(e => e.cultureInfo)} label={EmailTemplateViewMessage.Language.niceToString()}
                 onChange={p.invalidate} />
-            <HtmlCodeMirror ctx={ec.subCtx(e => e.text)}
+            <HtmlMonaco ctx={ec.subCtx(e => e.text)}
                 onChange={() => { if (showPreview) forceUpdate(); }} />
             <br />
             <button type="button" className="btn btn-link p-0" onClick={() => setShowPreview(!showPreview)}>

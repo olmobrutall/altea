@@ -21,7 +21,7 @@ export function EventTaskConditionLine(p: { ctx: TypeContext<WorkflowEventTaskCo
     return (
         <EntityDetail ctx={p.ctx} remove={false}
             onCreate={() => Promise.resolve(WorkflowEventTaskConditionEval.create({ script: "" }))}
-            getComponent={ectx => <EvalLine ctx={ectx} signature="function evaluate(): Promise<boolean>" />} />
+            getComponent={ectx => <EvalLine ctx={ectx} parameters="" returnType="boolean" isAsync />} />
     );
 }
 
@@ -31,6 +31,6 @@ export function EventTaskActionLine(p: { ctx: TypeContext<WorkflowEventTaskActio
         <EntityDetail ctx={p.ctx} remove={false}
             onCreate={() => Promise.resolve(WorkflowEventTaskActionEval.create({ script: "" }))}
             getComponent={ectx => <EvalLine ctx={ectx}
-                signature="function evaluate(): Promise<ICaseMainEntity[]>" />} />
+                parameters="" returnType="ICaseMainEntity[]" isAsync />} />
     );
 }

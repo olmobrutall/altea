@@ -61,9 +61,8 @@ export class DynamicApiEntity extends Entity {
 
 @reflect
 export class DynamicApiEval extends EvalEmbedded<IDynamicApiEvaluator> {
-    protected override compile(): CompilationResult<IDynamicApiEvaluator> {
+    protected override compile(): Promise<CompilationResult<IDynamicApiEvaluator>> {
         return this.wrap({
-            importTypes: ["WebBuilder"],
             parameters: "ws: WebBuilder",
             returnType: "void",
         });

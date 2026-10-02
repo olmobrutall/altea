@@ -49,7 +49,7 @@ export default function DynamicValidationComponent(p: { ctx: TypeContext<Dynamic
             <CheckboxLine ctx={ctx.subCtx(a => a.isDisabled)} onChange={forceUpdate} />
 
             <EvalLine ctx={ctx.subCtx(a => a.eval)}
-                signature={"(e: " + entityTypeName + ", fi: FieldInfo) => string | null"} />
+                parameters={"e: " + entityTypeName + ", fi: FieldInfo"} returnType="string | null" />
         </div>
     );
 }

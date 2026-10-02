@@ -21,7 +21,8 @@ export default function DynamicApiComponent(p: { ctx: TypeContext<DynamicApiEnti
             <AutoLine ctx={ctx.subCtx(a => a.name)} />
             <CheckboxLine ctx={ctx.subCtx(a => a.isDisabled)} onChange={forceUpdate} />
 
-            <EvalLine ctx={ctx.subCtx(a => a.eval)} signature="(ws: WebBuilder) => void" height={400} />
+            <EvalLine ctx={ctx.subCtx(a => a.eval)} parameters="ws: WebBuilder" returnType="void"
+                height={400} />
         </div>
     );
 }

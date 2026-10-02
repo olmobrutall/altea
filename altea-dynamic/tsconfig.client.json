@@ -6,7 +6,7 @@
     { "path": "../altea/tsconfig.client.json" },
     { "path": "../altea-auth/tsconfig.client.json" },
     { "path": "../altea-tree/tsconfig.client.json" },
-    { "path": "../altea-codemirror/tsconfig.client.json" },
+    { "path": "../altea-monaco/tsconfig.client.json" },
     { "path": "../altea-files/tsconfig.client.json" },
     { "path": "../altea-eval/tsconfig.client.json" },
     { "path": "../altea-isolation/tsconfig.client.json" }

@@ -16,7 +16,7 @@ import { SubTokensOptions } from "@altea/altea/client/QueryToken";
 import { ValidationMessage } from "@altea/altea/data/validators";
 import type { QueryEntity } from "@altea/altea/data/queryEntity";
 import TemplateControls from "@altea/altea-templating/client/TemplateControls";
-import HtmlCodeMirror from "@altea/altea-codemirror/client/HtmlCodeMirror";
+import HtmlMonaco from "@altea/altea-monaco/client/HtmlMonaco";
 import HtmlEditorLine from "@altea/altea-html-editor/client/HtmlEditorLine";
 import QueryTokenEmbeddedBuilder from "@altea/altea-user-assets/client/Templates/QueryTokenEmbeddedBuilder";
 import FilterBuilderEmbedded from "@altea/altea-user-queries/client/Templates/FilterBuilderEmbedded";
@@ -35,7 +35,7 @@ import { replaceCidImages, useObjectUrls } from "./CidImages";
 //
 // altea divergences, documented inline:
 //  - The three body editors are Signum's three: PlainText a plain <TextAreaLine/>, HtmlComplex a
-//    <HtmlCodeMirror/> (altea-codemirror), HtmlSimple the WYSIWYG <HtmlEditorLine/> (altea-html-editor —
+//    <HtmlMonaco/> (altea-monaco), HtmlSimple the WYSIWYG <HtmlEditorLine/> (altea-html-editor —
 //    the Lexical surface, same as Signum's). Signum passes the raw `Binding`; altea's LINE wrapper takes
 //    the TypeContext instead, which is what gives the field its label slot and validation styling.
 //    Like Signum it passes NO extensions, so the default set applies — and that set has no link support,
@@ -72,7 +72,8 @@ export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity>
                         <EntityDetail ctx={ctx3.subCtx(e => e.applicable)} onChange={forceUpdate}
                             onCreate={() => Promise.resolve(TemplateApplicableEval.create({ script: "" }))}
                             helpText={EmailTemplateApplicableHelp}
-                            getComponent={actx => <EvalLine ctx={actx} signature={applicableSignature(ctx.value)} />} />
+                            getComponent={actx => <EvalLine ctx={actx}
+                                parameters={applicableParameters(ctx.value)} returnType="boolean" />} />
                     </Tab>
                     <Tab eventKey="recipients" title={ctx.niceName(a => a.recipients)}>
                         <EntityDetail ctx={ecXs.subCtx(e => e.from)} onChange={forceUpdate}
@@ -152,9 +153,9 @@ export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity>
 const EmailTemplateApplicableHelp = "A script that decides whether this template applies to a given entity. Leave it unset to apply always.";
 
 /** The signature the server generates for this template's applicable eval (see TemplateApplicableEval). */
-function applicableSignature(template: EmailTemplateEntity): string {
+function applicableParameters(template: EmailTemplateEntity): string {
     const ctor = template.query == null ? undefined : resolveType(template.query.key);
-    return `function evaluate(e: ${ctor?.name ?? "Entity"} | null): boolean`;
+    return `e: ${ctor?.name ?? "Entity"} | null`;
 }
 
 function EmailTemplateFrom(p: { ctx: TypeContext<EmailTemplateFromEmbedded>; query: QueryEntity | null }): React.JSX.Element {
@@ -281,7 +282,7 @@ export function EmailTemplateMessageComponent(p: EmailTemplateMessageComponentPr
                         valueHtmlAttributes={{ className: "sf-email-htmlbody" }} />
                     : p.messageFormat === EmailMessageFormat.HtmlSimple
                         ? <HtmlEditorLine ctx={ec.subCtx(e => e.text, { formGroupStyle: "SrOnly" })} />
-                        : <HtmlCodeMirror ctx={ec.subCtx(e => e.text)}
+                        : <HtmlMonaco ctx={ec.subCtx(e => e.text)}
                             onChange={() => { if (showPreview) forceUpdate(); }} />}
                 <br />
                 {p.messageFormat === EmailMessageFormat.HtmlComplex &&

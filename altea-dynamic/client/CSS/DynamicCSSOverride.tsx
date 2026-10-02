@@ -3,7 +3,7 @@ import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { CheckboxLine } from "@altea/altea/client/Lines/CheckboxLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
-import CSSCodeMirror from "@altea/altea-codemirror/client/CSSCodeMirror";
+import CssMonaco from "@altea/altea-monaco/client/CssMonaco";
 import type { DynamicCSSOverrideEntity } from "../../data/DynamicCSSOverride";
 
 // Port of Signum.Dynamic's CSS/DynamicCSSOverride.tsx — verbatim, plus the `isDisabled` checkbox: Signum
@@ -25,7 +25,7 @@ export default function DynamicCSSOverrideComponent(p: { ctx: TypeContext<Dynami
             <CheckboxLine ctx={ctx.subCtx(dt => dt.isDisabled)} onChange={forceUpdate} />
             <br />
             <div className="code-container">
-                <CSSCodeMirror script={ctx.value.script ?? ""} onChange={handleCodeChange} />
+                <CssMonaco script={ctx.value.script ?? ""} onChange={handleCodeChange} />
             </div>
         </div>
     );

@@ -303,8 +303,8 @@ function DecompositionComponent(p: { ctx: TypeContext<SubWorkflowEmbedded>; main
             <EntityLine ctx={ctx.subCtx(a => a.workflow)} onChange={() => forceUpdate()} />
             {ctx.value.workflow &&
                 <EvalLine ctx={ctx.subCtx(a => a.subEntitiesEval)}
-                    signature={`function evaluate(e: ${p.mainEntityType.className}, ctx: WorkflowTransitionContext)`
-                        + `: Promise<${ctx.value.workflow.mainEntityType.className}[]>`} />}
+                    parameters={`e: ${p.mainEntityType.className}, ctx: WorkflowTransitionContext`}
+                    returnType={`${ctx.value.workflow.mainEntityType.className}[]`} isAsync />}
         </fieldset>
     );
 }

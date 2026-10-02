@@ -181,7 +181,7 @@ export namespace DynamicValidationLogic {
             const validation = candidate.validation;
             using _ = HeavyProfiler.logNoStackTrace("DynamicValidation", () => validation.name);
             try {
-                const result = validation.eval.algorithm(entity, fi);
+                const result = await validation.eval.invoke(entity, fi);
                 if (result != null)
                     return result;
             } catch (e) {

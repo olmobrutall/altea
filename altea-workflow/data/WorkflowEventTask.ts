@@ -104,7 +104,7 @@ export class WorkflowEventTaskModel extends ModelEntity {
  */
 @reflect
 export class WorkflowEventTaskConditionEval extends EvalEmbedded<IWorkflowEventTaskConditionEvaluator> {
-    protected override compile(): CompilationResult<IWorkflowEventTaskConditionEvaluator> {
+    protected override compile(): Promise<CompilationResult<IWorkflowEventTaskConditionEvaluator>> {
         return this.wrap({ parameters: "", returnType: "boolean", isAsync: true });
     }
 }
@@ -118,11 +118,10 @@ export class WorkflowEventTaskConditionEval extends EvalEmbedded<IWorkflowEventT
  */
 @reflect
 export class WorkflowEventTaskActionEval extends EvalEmbedded<IWorkflowEventTaskActionEvaluator> {
-    protected override compile(): CompilationResult<IWorkflowEventTaskActionEvaluator> {
+    protected override compile(): Promise<CompilationResult<IWorkflowEventTaskActionEvaluator>> {
         // UNTYPED, as the generated `CreateCase(ICaseMainEntity)` is: the task only holds a
         // `Lite<WorkflowEntity>`, so neither tier can name the sub-workflow's main entity type here.
         return this.wrap({
-            importTypes: ["ICaseMainEntity"],
             parameters: "",
             returnType: "ICaseMainEntity[]",
             isAsync: true,

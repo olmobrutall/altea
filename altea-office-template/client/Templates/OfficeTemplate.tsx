@@ -117,7 +117,8 @@ export default function OfficeTemplate(p: { ctx: TypeContext<OfficeTemplateEntit
                 <Tab eventKey="applicable" title={ctx.niceName(a => a.applicable)}>
                     <EntityDetail ctx={ctx4.subCtx(f => f.applicable)} onChange={forceUpdate}
                         onCreate={() => Promise.resolve(TemplateApplicableEval.create({ script: "" }))}
-                        getComponent={actx => <EvalLine ctx={actx} signature={applicableSignature(ctx.value)} />} />
+                        getComponent={actx => <EvalLine ctx={actx}
+                            parameters={applicableParameters(ctx.value)} returnType="boolean" />} />
                 </Tab>
             </Tabs>
         </div>
@@ -186,7 +187,7 @@ function renderWidgetButton(text: React.ReactElement, getCode: () => Promise<str
 }
 
 /** The signature the server generates for this template's applicable eval (see TemplateApplicableEval). */
-function applicableSignature(template: OfficeTemplateEntity): string {
+function applicableParameters(template: OfficeTemplateEntity): string {
     const ctor = template.query == null ? undefined : resolveType(template.query.key);
-    return `function evaluate(e: ${ctor?.name ?? "Entity"} | null): boolean`;
+    return `e: ${ctor?.name ?? "Entity"} | null`;
 }

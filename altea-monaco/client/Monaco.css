@@ -1,0 +1,47 @@
+/* The editor host. A border, so it reads as a field like every other line on the form. */
+.altea-monaco {
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    overflow: hidden;
+}
+
+/*
+ * The generated wrapper around a stored script: present, readable, and visibly not yours to edit.
+ *
+ * A BAND, not a fade. Dimming the text alone said "this is less important", which is the wrong message —
+ * the signature is what the script is written against, and an author needs to read it. What it has to say
+ * instead is "this is not the part you are editing", and a change of GROUND says that at a glance, where a
+ * change of opacity only makes the text harder to read.
+ *
+ * Grey at low alpha rather than a theme colour: it sits on Monaco's own background, which is dark or light
+ * depending on the app's theme, and a neutral overlay is legible against both.
+ */
+.altea-monaco-fence {
+    background-color: rgba(128, 128, 128, 0.17);
+}
+
+/* The gutter half of the same band, so it runs the full width instead of stopping at the line numbers. */
+.altea-monaco-fence-margin {
+    background-color: rgba(128, 128, 128, 0.17);
+}
+
+/* What stands in while Monaco's chunk loads — the same text, so the line does not jump when it arrives. */
+.altea-monaco-loading {
+    margin: 0;
+    padding: 0.5em;
+    opacity: 0.6;
+    font-size: 13px;
+}
+
+
+/*
+ * Monaco's overflowing widgets — the completion list, the hover, the parameter hints — hoisted out of the
+ * editor so its height and its `overflow: hidden` cannot cut them off. Above a Bootstrap modal, because an
+ * eval is often edited inside one.
+ */
+.altea-monaco-overflow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2000;
+}

@@ -215,17 +215,17 @@ export namespace OfficeTemplateLogic {
 
         const out: Lite<OfficeTemplateEntity>[] = [];
         for (const t of candidates)
-            if (isVisible(t, visibleOn) && isApplicable(t, entity))
+            if (isVisible(t, visibleOn) && await isApplicable(t, entity))
                 out.push(t.toLite());
         return out;
     }
 
     /** The stored script, or "always" when unset. */
-    export function isApplicable(t: OfficeTemplateEntity, entity: Entity | null): boolean {
+    export async function isApplicable(t: OfficeTemplateEntity, entity: Entity | null): Promise<boolean> {
         if (t.applicable == null)
             return true;
         try {
-            return t.applicable.algorithm(entity);
+            return await t.applicable.invoke(entity);
         } catch (e) {
             throw new Error(
                 `Error evaluating Applicable for OfficeTemplate '${t.name}' with entity '${entity}': ${(e as Error).message}`);
@@ -298,7 +298,11 @@ export namespace OfficeTemplateLogic {
 
         const culture = getCultureInfo?.(entity) ?? CultureInfo.currentUICulture();
         const parent = CultureInfo.currentUICulture().split("-")[0];
-        const candidates = templates.filter(t => isApplicable(t, entity));
+        // `isApplicable` compiles a stored script, so it is async and the filter is a loop.
+        const candidates: OfficeTemplateEntity[] = [];
+        for (const t of templates)
+            if (await isApplicable(t, entity))
+                candidates.push(t);
         const inCulture = (name: string): OfficeTemplateEntity | undefined => {
             const found = candidates.filter(t => cultureNameOf(t.culture) === name);
             if (found.length > 1)

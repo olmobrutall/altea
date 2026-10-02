@@ -42,7 +42,8 @@ export default function WorkflowTimerCondition(p: { ctx: TypeContext<WorkflowTim
                 find={false} />
             {cleanName != null && ctx.value.eval != null &&
                 <EvalLine ctx={ctx.subCtx(d => d.eval)}
-                    signature={`function evaluate(ca: CaseActivityEntity, e: ${cleanName}, now: Temporal.PlainDateTime): Promise<boolean>`} />}
+                    parameters={`ca: CaseActivityEntity, e: ${cleanName}, now: Temporal.PlainDateTime`}
+                    returnType="boolean" isAsync />}
         </div>
     );
 }

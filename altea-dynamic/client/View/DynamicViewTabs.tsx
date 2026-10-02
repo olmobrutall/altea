@@ -3,7 +3,7 @@ import { Tabs, Tab } from "react-bootstrap";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityTable } from "@altea/altea/client/Lines/EntityTable";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
-import JavascriptCodeMirror from "@altea/altea-codemirror/client/JavascriptCodeMirror";
+import JavascriptMonaco from "@altea/altea-monaco/client/JavascriptMonaco";
 import type { DesignerNode } from "./NodeUtils";
 import type { BaseNode } from "./Nodes";
 import { DynamicViewTree } from "./DynamicViewTree";
@@ -43,7 +43,7 @@ export function DynamicViewTabs(
                             <PropsHelp node={rootNode} />{") =>"}
                         </div>
                     </pre>
-                    <JavascriptCodeMirror code={ctx.value.locals ?? ""}
+                    <JavascriptMonaco code={ctx.value.locals ?? ""}
                         onChange={newCode => { ctx.value.locals = newCode; handleChange(); }} />
                 </div>
             </Tab>

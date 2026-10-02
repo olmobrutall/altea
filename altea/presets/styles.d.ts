@@ -13,6 +13,12 @@
 // be the only way; the preset-relative include is what replaces the 18 of them.
 declare module "*.css";
 declare module "*.scss";
+// Vite's worker import (`import w from "x?worker"`): the bundler builds the module as a worker and
+// hands back a constructor. Monaco needs one per language service (see @altea/altea-monaco).
+declare module "*?worker" {
+    const WorkerConstructor: new () => Worker;
+    export default WorkerConstructor;
+}
 declare module "*.xml?raw" {
     const content: string;
     export default content;

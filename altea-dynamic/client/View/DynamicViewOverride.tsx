@@ -13,7 +13,7 @@ import { ViewReplacer } from "@altea/altea/client/Frames/ReactVisitor";
 import { ErrorBoundary } from "@altea/altea/client/Components";
 import MessageModal from "@altea/altea/client/Modals/MessageModal";
 import { useForceUpdate, useAPI } from "@altea/altea/client/Hooks";
-import JavascriptCodeMirror from "@altea/altea-codemirror/client/JavascriptCodeMirror";
+import JavascriptMonaco from "@altea/altea-monaco/client/JavascriptMonaco";
 import { DynamicViewClient } from "../DynamicViewClient";
 import { ModulesHelp } from "./ModulesHelp";
 import { CopyTextModal } from "./CopyTextModal";
@@ -166,7 +166,7 @@ export default function DynamicViewOverrideComponent(p: DynamicViewOverrideCompo
                         <ModulesHelp cleanName={cleanName} />{") =>"}
                     </div>
                 </pre>
-                <JavascriptCodeMirror code={ctx.value.script ?? ""} onChange={handleCodeChange} />
+                <JavascriptMonaco code={ctx.value.script ?? ""} onChange={handleCodeChange} />
                 {syntaxError && <div className="alert alert-danger">{syntaxError}</div>}
             </div>
         );

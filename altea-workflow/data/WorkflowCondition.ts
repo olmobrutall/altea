@@ -39,11 +39,10 @@ export class WorkflowConditionEntity extends Entity implements IUserAssetEntity 
 /** The script behind "may this connection be taken?". */
 @reflect
 export class WorkflowConditionEval extends EvalEmbedded<IWorkflowConditionEvaluator> {
-    protected override compile(): CompilationResult<IWorkflowConditionEvaluator> {
+    protected override compile(): Promise<CompilationResult<IWorkflowConditionEvaluator>> {
         const mainEntityType = this.owner(WorkflowConditionEntity).mainEntityType.className;
 
         return this.wrap({
-            importTypes: [mainEntityType, "WorkflowTransitionContext"],
             parameters: `e: ${mainEntityType}, ctx: WorkflowTransitionContext`,
             returnType: "boolean",
             isAsync: true,

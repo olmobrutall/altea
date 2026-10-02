@@ -2,7 +2,7 @@ import * as React from "react";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
-import SqlCodeMirror from "@altea/altea-codemirror/client/SqlCodeMirror";
+import SqlMonaco from "@altea/altea-monaco/client/SqlMonaco";
 import type { DynamicSqlMigrationEntity } from "../../data/DynamicSqlMigration";
 
 // Port of Signum.Dynamic's Type/DynamicSqlMigration.tsx — verbatim: the who/when fields read-only, the
@@ -35,7 +35,7 @@ export default function DynamicSqlMigrationComponent(p: { ctx: TypeContext<Dynam
 
             <AutoLine ctx={ctx.subCtx(sm => sm.comment)} readOnly={executed} />
             <div className="code-container">
-                <SqlCodeMirror script={ctx.value.script ?? ""} onChange={handleScriptChange} isReadOnly={executed} />
+                <SqlMonaco script={ctx.value.script ?? ""} onChange={handleScriptChange} isReadOnly={executed} />
             </div>
         </div>
     );

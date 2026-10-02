@@ -320,7 +320,10 @@ export namespace EmailLogic {
     export async function getCurrentTemplate(modelEntity: { className: string; id: unknown }, entity: Entity | null): Promise<EmailTemplateEntity> {
         const all = await EmailTemplateLogic.emailTemplatesLazy.value();
         const candidates = await filterVisible(all.filter(t => t.model != null && String(t.model.id) === String(modelEntity.id)));
-        const applicable = candidates.filter(t => EmailTemplateLogic.isApplicable(t, entity));
+        const applicable: EmailTemplateEntity[] = [];
+        for (const t of candidates)
+            if (await EmailTemplateLogic.isApplicable(t, entity))
+                applicable.push(t);
 
         if (applicable.length === 1)
             return applicable[0];

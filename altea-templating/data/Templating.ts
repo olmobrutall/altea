@@ -43,7 +43,7 @@ export class ModelConverterSymbol extends Symbol {
  */
 @reflect
 export class TemplateApplicableEval extends EvalEmbedded<ITemplateApplicable> {
-    protected override compile(): CompilationResult<ITemplateApplicable> {
+    protected override compile(): Promise<CompilationResult<ITemplateApplicable>> {
         // The query KEY of an entity query IS the clean type name, and `resolveType` is isomorphic — so
         // the ctor, and with it the class name the generated import needs, comes straight off the
         // registry with no server call.
@@ -52,7 +52,6 @@ export class TemplateApplicableEval extends EvalEmbedded<ITemplateApplicable> {
         const entityTypeName = entityCtor?.name ?? "Entity";
 
         return this.wrap({
-            importTypes: [entityTypeName],
             parameters: `e: ${entityTypeName} | null`,
             returnType: "boolean",
         });

@@ -28,7 +28,6 @@
   "dependencies": {
     "@altea/altea": "workspace:*",
     "@altea/altea-auth": "workspace:*",
-    "@altea/altea-codemirror": "workspace:*",
     "@altea/altea-files": "workspace:*",
     "@altea/altea-html-editor": "workspace:*",
     "@altea/altea-scheduler": "workspace:*",
@@ -38,7 +37,8 @@
     "@altea/altea-user-queries": "workspace:*",
     "nodemailer": "^7.0.0",
     "quote-transformer": "workspace:*",
-    "@altea/altea-processes": "workspace:*"
+    "@altea/altea-processes": "workspace:*",
+    "@altea/altea-monaco": "workspace:*"
   },
   "devDependencies": {
     "@types/nodemailer": "^7.0.0"

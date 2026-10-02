@@ -38,11 +38,10 @@ export class WorkflowTimerConditionEntity extends Entity implements IUserAssetEn
  */
 @reflect
 export class WorkflowTimerConditionEval extends EvalEmbedded<IWorkflowTimerConditionEvaluator> {
-    protected override compile(): CompilationResult<IWorkflowTimerConditionEvaluator> {
+    protected override compile(): Promise<CompilationResult<IWorkflowTimerConditionEvaluator>> {
         const mainEntityType = this.owner(WorkflowTimerConditionEntity).mainEntityType.className;
 
         return this.wrap({
-            importTypes: [mainEntityType, "CaseActivityEntity", "Temporal"],
             parameters: `ca: CaseActivityEntity, e: ${mainEntityType}, now: Temporal.PlainDateTime`,
             returnType: "boolean",
             isAsync: true,

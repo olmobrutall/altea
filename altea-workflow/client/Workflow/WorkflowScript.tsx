@@ -42,7 +42,8 @@ export default function WorkflowScript(p: { ctx: TypeContext<WorkflowScriptEntit
                 find={false} />
             {cleanName != null && ctx.value.eval != null &&
                 <EvalLine ctx={ctx.subCtx(d => d.eval)}
-                    signature={`function evaluate(e: ${cleanName}, ctx: WorkflowScriptContext): Promise<void>`} />}
+                    parameters={`e: ${cleanName}, ctx: WorkflowScriptContext`}
+                    returnType="void" isAsync />}
         </div>
     );
 }

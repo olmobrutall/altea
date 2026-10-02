@@ -223,14 +223,14 @@ export namespace WorkflowLogic {
         ctx: WorkflowTransitionContext): Promise<boolean> {
         const entity = mapGet(await conditions.value(), wc.key(), "WorkflowCondition");
         using _prof = HeavyProfiler.log("WorkflowCondition", () => entity.name);
-        return await entity.eval.algorithm(mainEntity, ctx);
+        return await entity.eval.invoke(mainEntity, ctx);
     }
 
     export async function executeAction(wa: Lite<WorkflowActionEntity>, mainEntity: ICaseMainEntity,
         ctx: WorkflowTransitionContext): Promise<void> {
         const entity = mapGet(await actions.value(), wa.key(), "WorkflowAction");
         using _prof = HeavyProfiler.log("WorkflowAction", () => entity.name);
-        await entity.eval.algorithm(mainEntity, ctx);
+        await entity.eval.invoke(mainEntity, ctx);
     }
 
     export async function evaluateTimerCondition(wc: Lite<WorkflowTimerConditionEntity>, ca: CaseActivityEntity,
@@ -238,32 +238,32 @@ export namespace WorkflowLogic {
         const entity = mapGet(await timerConditions.value(), wc.key(), "WorkflowTimerCondition");
         using _prof = HeavyProfiler.log("WorkflowTimerCondition", () => entity.name);
         // The generated wrapper takes (ca, e, now) — the main entity is handed over already cast.
-        return await entity.eval.algorithm(ca, ca.case.mainEntity, now);
+        return await entity.eval.invoke(ca, ca.case.mainEntity, now);
     }
 
     export async function executeScript(ws: Lite<WorkflowScriptEntity>, mainEntity: ICaseMainEntity,
         ctx: WorkflowScriptContext): Promise<void> {
         const entity = mapGet(await scripts.value(), ws.key(), "WorkflowScript");
         using _prof = HeavyProfiler.log("WorkflowScript", () => entity.name);
-        await entity.eval.algorithm(mainEntity, ctx);
+        await entity.eval.invoke(mainEntity, ctx);
     }
 
     export async function evaluateLaneActors(actorsEval: WorkflowLaneActorsEval,
         mainEntity: ICaseMainEntity | null, ctx: WorkflowTransitionContext): Promise<Lite<Entity>[]> {
-        return await actorsEval.algorithm(mainEntity, ctx);
+        return await actorsEval.invoke(mainEntity, ctx);
     }
 
     export async function evaluateSubEntities(subEntitiesEval: SubEntitiesEval, mainEntity: ICaseMainEntity,
         ctx: WorkflowTransitionContext): Promise<ICaseMainEntity[]> {
-        return await subEntitiesEval.algorithm(mainEntity, ctx);
+        return await subEntitiesEval.invoke(mainEntity, ctx);
     }
 
     export async function evaluateEventTaskCondition(condition: WorkflowEventTaskConditionEval): Promise<boolean> {
-        return await condition.algorithm();
+        return await condition.invoke();
     }
 
     export async function evaluateEventTaskAction(action: WorkflowEventTaskActionEval): Promise<ICaseMainEntity[]> {
-        return await action.algorithm();
+        return await action.invoke();
     }
 
     // ---- The graph cache ---------------------------------------------------------------------------
@@ -561,9 +561,10 @@ export namespace WorkflowLogic {
      * the evaluator function types, the case, and the case activity.
      */
     function registerEvalModules(): void {
-        EvalLogic.registerModule("@altea/altea-workflow/data/WorkflowEval", workflowEvalModule);
-        EvalLogic.registerModule("@altea/altea-workflow/data/Case", caseModule, { typeNames: ["ICaseMainEntity"] });
-        EvalLogic.registerModule("@altea/altea-workflow/data/CaseActivity", caseActivityModule);
+        EvalLogic.configureImports(i => i
+            .lazy("@altea/altea-workflow/data/WorkflowEval", "*", { value: workflowEvalModule })
+            .lazy("@altea/altea-workflow/data/Case", "*", { value: caseModule })
+            .lazy("@altea/altea-workflow/data/CaseActivity", "*", { value: caseActivityModule }));
     }
 
     /**

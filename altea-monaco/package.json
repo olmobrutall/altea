@@ -1,18 +1,13 @@
 {
-  "name": "@altea/altea-eval",
+  "name": "@altea/altea-monaco",
   "version": "0.0.1",
-  "description": "Scripts stored in the database, type-checked and compiled at runtime (ported from Signum.Eval)",
+  "description": "Monaco-based code editors",
   "type": "module",
   "exports": {
     "./client/*": {
       "altea-server": null,
       "types": "./dist/client/*.d.ts",
       "default": "./dist/client/*.js"
-    },
-    "./server/*": {
-      "altea-client": null,
-      "types": "./dist/server/*.d.ts",
-      "default": "./dist/server/*.js"
     },
     "./*": {
       "types": "./dist/*.d.ts",
@@ -27,9 +22,7 @@
   "license": "MIT",
   "dependencies": {
     "@altea/altea": "workspace:*",
-    "@altea/altea-auth": "workspace:*",
-    "quote-transformer": "workspace:*",
-    "typescript": "*",
-    "@altea/altea-monaco": "workspace:*"
+    "monaco-editor": "^0.54.0",
+    "quote-transformer": "workspace:*"
   }
 }

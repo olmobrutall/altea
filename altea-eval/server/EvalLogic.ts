@@ -1,23 +1,22 @@
-import { FluentInclude } from "@altea/altea/server/schema/fluentInclude";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
-import { forEachField } from "@altea/altea/data/changes";
-import { Entity, EmbeddedEntity } from "@altea/altea/data/entity";
-import { EvalEmbedded } from "../data/Eval";
+import { Entity } from "@altea/altea/data/entity";
+import { EvalImports } from "../data/EvalImports";
 import { EvalPanelPermission } from "../data/EvalPanelPermission";
 import { EvalCompiler, type EvalCompilerOptions } from "./EvalCompiler";
 import { EvalServer } from "./EvalServer";
-import { frameworkModules, frameworkPreamble } from "./EvalFrameworkModules";
+import { frameworkImports } from "./EvalFrameworkModules";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
-// The module's registration plus the two registries a stored script depends on: what it may IMPORT
-// (`registerModule`) and what every generated wrapper gets for free (`addPreamble`).
+// The module's registration, plus the one registry a stored script depends on: WHAT IT MAY REACH
+// (`configureImports`, over data/EvalImports).
 //
-// The module SEEDS ITS OWN framework surface (see EvalFrameworkModules); an application registers only its
-// entity domains, and a module outside the framework registers its own from its own `Logic.start`
-// (altea-workflow does).
+// The module SEEDS ITS OWN framework surface (see EvalFrameworkModules); an application contributes only
+// what only it can know, and a module outside the framework contributes its own from its own
+// `Logic.start` (altea-workflow does). The order of those calls is the RESOLUTION order when two modules
+// export the same name, so the framework's own names win by being first.
 //
-// `invalidate()` clears the code-keyed compilation cache: a registered module changing can change what an
-// already-compiled script means.
+// A configuration change clears the code-keyed compilation cache: a module joining can change what an
+// already-compiled — or already-failed — script means.
 //
 // Port of Signum.Eval's EvalLogic.cs — see port/Eval.md.
 
@@ -26,8 +25,8 @@ export namespace EvalLogic {
     let started = false;
 
     /**
-     * Registers the ViewDynamicPanel permission and mounts the eval-errors
-     * endpoint. `compilerOptions.baseDirectory` is the APP's directory — see EvalCompilerOptions.
+     * Registers the ViewDynamicPanel permission and mounts the eval-errors endpoint.
+     * `compilerOptions.baseDirectory` is the APP's directory — see EvalCompilerOptions.
      */
     export function start(sb: SchemaBuilder, compilerOptions: EvalCompilerOptions): void {
         if (started)
@@ -37,9 +36,7 @@ export namespace EvalLogic {
         EvalCompiler.configure(compilerOptions);
         EvalCompiler.install();
 
-        // The framework's own surface, seeded here (see EvalFrameworkModules).
-        registerModules(frameworkModules);
-        addPreamble(...frameworkPreamble);
+        configureImports(frameworkImports);
 
         PermissionLogic.registerPermissions(EvalPanelPermission.ViewDynamicPanel);
 
@@ -54,32 +51,24 @@ export namespace EvalLogic {
     // ---- What a stored script may reach ------------------------------------------------------------------
 
     /**
-     * Allow `specifier` in stored scripts. The `value` is the already-imported module — the app imports it
-     * normally and hands it over, which is what makes the allow-list REAL: an unregistered import cannot be
-     * resolved at run time even if it type-checks.
+     * Derive the configuration every eval gets:
      *
-     * `typesPath` is only needed when TypeScript cannot find the types on its own — in practice for the APP's
-     * own modules, since an app is not installed as a package.
+     * ```ts
+     * EvalLogic.configureImports(i => i
+     *     .eager("@altea/altea-auth/server/AuthLogic", ["AuthLogic"], { value: authLogic })
+     *     .fromSchema({ packages: ["eastwind"] }));
+     * ```
+     *
+     * A single eval KIND that needs something different does not come through here: it passes its own
+     * `EvalImports` to `wrap({ evalImports })`, usually built as `EvalLogic.imports().extend(...)`.
      */
-    export function registerModule(specifier: string, value: unknown,
-        options?: { typesPath?: string; typeNames?: string[] }): void {
-
-        EvalCompiler.registerModule(specifier, value, options);
+    export function configureImports(configure: (imports: EvalImports) => EvalImports): void {
+        EvalCompiler.configureImports(configure);
     }
 
-    export function registerModules(entries: Record<string, unknown>): void {
-        for (const [specifier, value] of Object.entries(entries))
-            EvalCompiler.registerModule(specifier, value);
-    }
-
-    /** Import lines prepended to every generated eval. */
-    export function addPreamble(...importLines: string[]): void {
-        EvalEmbedded.preamble = [...EvalEmbedded.preamble, ...importLines];
-        EvalCompiler.invalidate();
-    }
-
-    export function preamble(): readonly string[] {
-        return EvalEmbedded.preamble;
+    /** The configuration as it currently stands — the base an eval kind derives its own from. */
+    export function imports(): EvalImports {
+        return EvalCompiler.imports();
     }
 
     /** Drop every cached compilation. */
@@ -101,4 +90,3 @@ export namespace EvalLogic {
         evalSources.push({ name, load });
     }
 }
-
