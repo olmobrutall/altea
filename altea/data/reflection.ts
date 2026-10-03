@@ -1092,7 +1092,7 @@ const dateTimePrecisionFormat: Record<DateTimePrecisionKeys, string> = {
 // quote-transformer rewrites it to @field({ typeName: ... }) before emit, so
 // reaching this overload at runtime means the transform never ran.
 export function field(target: object, propertyKey: string | symbol): void;
-export function field(options: FieldOptions | false): (target: object, propertyKey: string | symbol) => void;
+export function field(options: FieldOptions | false): (target: object, propertyKey: string | symbol, descriptor?: PropertyDescriptor) => void;
 export function field(arg1: unknown, arg2?: unknown): unknown {
     // Bare @field reached runtime (called directly as a property decorator).
     if (typeof arg2 === 'string' || typeof arg2 === 'symbol')
@@ -1107,8 +1107,18 @@ export function field(arg1: unknown, arg2?: unknown): unknown {
 
     const options = arg1 as FieldOptions;
 
-    return function (target: object, propertyKey: string | symbol): void {
+    return function (target: object, propertyKey: string | symbol, descriptor?: PropertyDescriptor): void {
         const key = String(propertyKey);
+
+        // A Blob field (a Uint8Array) must be declared `accessor binaryFile: Uint8Array = …`, which puts a
+        // NON-ENUMERABLE getter/setter on the prototype instead of an own property per instance. Code that
+        // walks an object's keys then skips the bytes instead of visiting one key per byte: React's DEV
+        // prop diff (Performance Tracks) froze a save for seconds over a 600 KB file, and `Dic.equals` /
+        // DevTools previews have the same shape. Reading and writing the field by name — the serializer,
+        // change tracking, the ORM — is unaffected. Legacy decorators pass a descriptor only to an accessor.
+        if (options.typeName === "Blob" && descriptor?.get == null)
+            throw new Error(`${(target as { constructor: Function }).constructor.name}.${key} is a Blob (Uint8Array) field: declare it as \`accessor ${key}: Uint8Array …\` so its bytes stay out of every key walk (React's dev prop diff froze saves over a file).`);
+
         const typeInfo = getOrCreateTypeInfo(target);
         const fi = getOrCreateFieldInfo(typeInfo, key);
         fi.typeName = options.typeName;

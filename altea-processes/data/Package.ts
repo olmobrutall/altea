@@ -32,7 +32,7 @@ export class PackageEntity extends Entity implements IProcessDataEntity {
 
     /** The arguments the process needs beyond its lines, written and read
      *  by `setOperationArgs` / `getOperationArgs` below. */
-    operationArguments: Uint8Array | null = null;
+    accessor operationArguments: Uint8Array | null = null;
 
     @stringLengthValidator({ max: 1000, multiLine: true })
     configString: string | null;

@@ -56,7 +56,7 @@ export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity
     // stored hash for an existing user (see AuthLogic.server.ts) so an admin edit doesn't wipe it.
     @serialize(false)
     @column({ size: 128 })
-    passwordHash: Uint8Array | null = null;
+    accessor passwordHash: Uint8Array | null = null;
 
     // A transient flag (not a column). Its presence when saving
     // means a password change was started but not completed.
