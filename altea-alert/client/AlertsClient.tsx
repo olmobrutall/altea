@@ -142,7 +142,7 @@ export namespace AlertsClient {
             if (val == null)
                 return undefined;
 
-            // The delay is STORED, so it has to be in the clock's frame (UTC by default) — not the
+            // The delay is STORED, so it has to be in the clock's frame (which may be UTC) — not the
             // browser's local time, which would land the alert hours off.
             const now = Clock.now;
             switch (val) {

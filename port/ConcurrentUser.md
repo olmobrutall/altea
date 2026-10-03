@@ -53,7 +53,7 @@ Node has no SignalR server, so core grew `altea/server/webSocketHub.ts` + `altea
   typing it as one would hand the widget a string that fails only later, when the widget calls a Temporal
   method on it.
 - **`toRelative` measures against `Clock.now`, NOT `Temporal.Now`.** `startTime` is a wall clock with no
-  zone, written server-side by `Clock.now`, whose `TimeZoneMode` defaults to UTC. Comparing it against the
+  zone, written server-side by `Clock.now`, whose `TimeZoneMode` may be UTC. Comparing it against the
   BROWSER's local wall clock offsets every duration by the browser's UTC offset — which read as "2 hours
   ago" for a row created seconds earlier. `Clock` is isomorphic, so reading it on both sides keeps them in
   the same frame whichever mode the app picks. (luxon's `DateTime.fromISO(x).toRelative()` →

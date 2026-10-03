@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import "@altea/altea/client/context.browser";
 import "@altea/altea/data/globals";
 import { Temporal } from "@altea/altea/data/basics";
-import { Clock } from "@altea/altea/data/utils/clock";
+import { Clock, TimeZoneMode } from "@altea/altea/data/utils/clock";
 import { parseDateFilterValue } from "@altea/altea/client/FindOptions";
 import { dateValueToDate, dateToDateValue, trimDateToFormat } from "@altea/altea/client/Lines/ReactWidgetsLocalizer";
 
@@ -38,12 +38,18 @@ describe("date filter values", () => {
 describe("the picker boundary", () => {
 
   test("a UTC datetime is shown and typed in the viewer's zone", () => {
-    Clock.withTimeZone("Europe/Berlin", () => {
-      const stored = Temporal.PlainDateTime.from("2024-07-01T10:00:00");
-      const shown = dateValueToDate(stored);
-      assert.equal(shown.getHours(), 12); // CEST, +02:00
-      assert.equal(String(dateToDateValue(shown, false)), "2024-07-01T10:00:00");
-    });
+    const old = Clock.mode;
+    Clock.mode = TimeZoneMode.Utc;
+    try {
+      Clock.withTimeZone("Europe/Berlin", () => {
+        const stored = Temporal.PlainDateTime.from("2024-07-01T10:00:00");
+        const shown = dateValueToDate(stored);
+        assert.equal(shown.getHours(), 12); // CEST, +02:00
+        assert.equal(String(dateToDateValue(shown, false)), "2024-07-01T10:00:00");
+      });
+    } finally {
+      Clock.mode = old;
+    }
   });
 
   test("a calendar day never shifts", () => {
