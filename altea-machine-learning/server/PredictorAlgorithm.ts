@@ -109,7 +109,7 @@ export class PredictorColumnSubQuery extends PredictorColumnBase {
     get nullHandling(): PredictorColumnNullHandling {
         return this.predictorSubQueryColumn.nullHandling!;
     }
-    get encoding(): PredictorColumnEncodingSymbol { return this.predictorSubQueryColumn.encoding!; }
+    get encoding(): PredictorColumnEncodingSymbol { return this.predictorSubQueryColumn.encoding; }
 
     toString(): string { return `${this.subQuery.name}.${this.resolvedToken.fullKey()} [${this.keys.join(", ")}]`; }
 }

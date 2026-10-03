@@ -290,7 +290,7 @@ export class PredictorSubQueryEntity_Column extends Entity {
 
     token: QueryTokenEmbedded;
 
-    encoding: PredictorColumnEncodingSymbol | null;
+    encoding: PredictorColumnEncodingSymbol;
 
     nullHandling: PredictorColumnNullHandling | null;
 

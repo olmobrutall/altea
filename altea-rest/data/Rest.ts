@@ -60,6 +60,7 @@ export class RestLogEntity extends Entity {
     httpMethod: string | null = null;
 
     /** The request PATH (no query string — that is `queryString` below, one row per parameter). */
+    @column({ size: MAX_SIZE })
     url: string;
 
     startDate: Temporal.PlainDateTime;
@@ -153,8 +154,10 @@ export class QueryStringValueEntity extends Entity {
     @legacyColumnName("Order")
     @rowOrder rowOrder: int;
 
+    @column({ size: MAX_SIZE })
     key: string;
 
+    @column({ size: MAX_SIZE })
     value: string | null = null;
 
     toString(): string {

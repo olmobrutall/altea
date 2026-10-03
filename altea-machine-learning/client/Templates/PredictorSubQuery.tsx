@@ -80,7 +80,7 @@ export default function PredictorSubQuery(p: PredictorSubQueryProps): React.JSX.
         if (isInputOutput(col.usage))
             initializeColumn(col, col.token?.token);
         else {
-            col.encoding = null;
+            col.encoding = null!;
             col.nullHandling = null;
         }
         forceUpdate();
