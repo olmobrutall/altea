@@ -2,7 +2,7 @@ import * as React from 'react'
 import { Tab, Tabs } from 'react-bootstrap'
 import { useAPIWithReload } from '@altea/altea/client/Hooks'
 import { CacheMessage } from '../data/CacheMessage'
-import type { CacheStateTS, CacheTableTS } from '../data/CacheState'
+import type { CacheState, CacheTable } from '../data/CacheState'
 import { CacheClient } from './CacheClient'
 
 // Port of Signum.Caching's CacheStatisticsPage.tsx — see port/Cache.md.
@@ -52,7 +52,7 @@ export default function CacheStatisticsPage(): React.JSX.Element {
         </div>
     );
 
-    function renderTables(state: CacheStateTS): React.JSX.Element {
+    function renderTables(state: CacheState): React.JSX.Element {
         return (
             <table className="table table-sm" aria-label={CacheMessage.TableStats.niceToString()}>
                 <thead>
@@ -74,7 +74,7 @@ export default function CacheStatisticsPage(): React.JSX.Element {
     }
 
     // One row per table, its sub-tables indented and progressively faded.
-    function renderTableRows(table: CacheTableTS, depth: number): React.JSX.Element[] {
+    function renderTableRows(table: CacheTable, depth: number): React.JSX.Element[] {
         const opacity = depth === 0 ? 1 : depth === 1 ? .7 : depth === 2 ? .5 : depth === 3 ? .4 : .3;
         const rows = [
             <tr key={`${depth}-${table.tableName}-${table.typeName}`} style={{ opacity }}>
@@ -97,7 +97,7 @@ export default function CacheStatisticsPage(): React.JSX.Element {
         return rows;
     }
 
-    function renderLazies(state: CacheStateTS): React.JSX.Element {
+    function renderLazies(state: CacheState): React.JSX.Element {
         return (
             <table className="table table-sm" aria-label={CacheMessage.LazyStats.niceToString()}>
                 <thead>

@@ -108,7 +108,7 @@ export const TemplateTokenMessage = {
 
 /** The wire shape of GET /api/templating/getGlobalVariables: the `@[g:Key]` variables a template may
  *  read, with the type name each yields. */
-export interface GlobalVariableTS {
+export interface GlobalVariableInfo {
     key: string;
     typeName: string;
     isCollection: boolean;

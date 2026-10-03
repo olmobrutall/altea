@@ -1,6 +1,6 @@
 import { ajaxGet } from "@altea/altea/client/Services";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
-import { ModelConverterSymbol, QueryModel, type GlobalVariableTS } from "../data/Templating";
+import { ModelConverterSymbol, QueryModel, type GlobalVariableInfo } from "../data/Templating";
 
 // The templating module's own client registration, so a consumer only has to call
 // `TemplatingClient.start(cb)` — see port/Templating.md.
@@ -32,7 +32,7 @@ export namespace TemplatingClient {
 
     export namespace API {
         /** The `@[g:Key]` variables the server has registered. */
-        export function getGlobalVariables(signal?: AbortSignal): Promise<GlobalVariableTS[]> {
+        export function getGlobalVariables(signal?: AbortSignal): Promise<GlobalVariableInfo[]> {
             return ajaxGet({ url: "/api/templating/getGlobalVariables", signal });
         }
     }

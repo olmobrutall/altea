@@ -5,9 +5,12 @@ import { Lite } from "@altea/altea/data/lite";
 import { PropertyRouteTranslationLogic } from "@altea/altea/server/propertyRouteTranslation";
 import type { TranslatableRouteType } from "@altea/altea/data/reflection";
 import { MatchTranslatedInstances, TranslatedSummaryState } from "../data/Translation";
+import type {
+    TranslatedTypeSummary, TranslationRecordInfo, TranslatedInstanceViewInfo, TranslatedInstanceViewType,
+    PropertyRouteConflict, PropertyChange, TypeInstancesChanges, FileUpload,
+} from "../data/TranslationDtos";
 import { TranslatedInstanceLogic } from "./TranslatedInstanceLogic";
 import { TranslationLogic } from "./TranslationLogic";
-import type { AutomaticTranslation } from "./TranslationSynchronizer";
 import type { Type } from "@altea/altea/data/entity";
 
 // Port of Signum.Translation's Instances/TranslatedInstanceController.cs — the INSTANCE half's HTTP
@@ -20,78 +23,17 @@ import type { Type } from "@altea/altea/data/entity";
 //    type; here a posted record is already (lite, route).
 export namespace TranslatedInstanceServer {
 
-    export interface TranslationRecordTS {
-        culture: string;
-        propertyRoute: string;
-        lite: Lite<Entity>;
-        originalText: string;
-        translatedText: string;
-    }
-
-    export interface TranslatedPairViewTS {
-        originalText: string;
-        newText: string | null;
-        translatedText: string;
-    }
-
-    export interface TranslatedInstanceViewTS {
-        lite: Lite<Entity>;
-        /** route → the row's CURRENT text. */
-        master: Record<string, string | null>;
-        /** route → culture → what is stored for it. */
-        translations: Record<string, Record<string, TranslatedPairViewTS>>;
-    }
-
-    export interface TranslatedInstanceViewTypeTS {
-        typeName: string;
-        masterCulture: string;
-        routes: Record<string, TranslatableRouteType>;
-        instances: TranslatedInstanceViewTS[];
-    }
-
-    export interface PropertyRouteConflictTS {
-        oldOriginal?: string;
-        oldTranslation?: string;
-        original: string;
-        automaticTranslations: AutomaticTranslation[];
-    }
-
-    export interface PropertyChangeTS {
-        translatedText?: string;
-        support: Record<string, PropertyRouteConflictTS>;
-    }
-
-    export interface InstanceChangesTS {
-        instance: Lite<Entity>;
-        routeConflicts: Record<string, PropertyChangeTS>;
-    }
-
-    export interface TypeInstancesChangesTS {
-        typeName: string;
-        masterCulture: string;
-        routes: Record<string, TranslatableRouteType>;
-        totalInstances: number;
-        instances: InstanceChangesTS[];
-        deletedTranslations: number;
-    }
-
-    export interface FileUpload {
-        fileName: string;
-        /** base64, as the browser's FileReader produces it. */
-        content: string;
-    }
-
     export function start(ws: WebBuilder): void {
 
         ws.get("/api/translatedInstance",
-            { res: CustomType<TranslatedInstanceLogic.TranslatedTypeSummary[]>() },
+            { res: CustomType<TranslatedTypeSummary[]>() },
             async (req, res) => {
                 const applyFilter = req.query["applyFilter"] !== "false";
                 res.jsonTyped(await TranslatedInstanceLogic.translationInstancesStatus(applyFilter));
             });
 
         ws.get("/api/translatedInstance/view/:type",
-            { params: CustomType<{ type: string }>(), res: CustomType<TranslatedInstanceViewTypeTS>() },
+            { params: CustomType<{ type: string }>(), res: CustomType<TranslatedInstanceViewType>() },
             async (req, res) => {
                 const { type: typeName } = req.params;
                 const culture = optional(req.query["culture"]);
@@ -101,7 +43,7 @@ export namespace TranslatedInstanceServer {
             });
 
         ws.get("/api/translatedInstance/sync/:type",
-            { params: CustomType<{ type: string }>(), res: CustomType<TypeInstancesChangesTS>() },
+            { params: CustomType<{ type: string }>(), res: CustomType<TypeInstancesChanges>() },
             async (req, res) => {
                 const { type: typeName } = req.params;
                 const culture = String(req.query["culture"] ?? "");
@@ -110,7 +52,7 @@ export namespace TranslatedInstanceServer {
             });
 
         ws.post("/api/translatedInstance/save/:type",
-            { params: CustomType<{ type: string }>(), req: CustomType<TranslationRecordTS[]>() },
+            { params: CustomType<{ type: string }>(), req: CustomType<TranslationRecordInfo[]>() },
             async (req, res) => {
                 const { type: typeName } = req.params;
                 const isSync = req.query["isSync"] === "true";
@@ -180,7 +122,7 @@ export namespace TranslatedInstanceServer {
     // ---- implementations --------------------------------------------------------------------------------
 
     /** Signum's `View` — every instance's current text side by side with what each culture has for it. */
-    async function view(typeName: string, culture: string | undefined, filter: string, applyFilter: boolean): Promise<TranslatedInstanceViewTypeTS> {
+    async function view(typeName: string, culture: string | undefined, filter: string, applyFilter: boolean): Promise<TranslatedInstanceViewType> {
         const type = Entity.resolveType(typeName);
         const master = await TranslatedInstanceLogic.masterValues(type, applyFilter);
         const support = culture == undefined
@@ -204,7 +146,7 @@ export namespace TranslatedInstanceServer {
             return false;
         };
 
-        const byInstance = new Map<string, TranslatedInstanceViewTS>();
+        const byInstance = new Map<string, TranslatedInstanceViewInfo>();
         for (const v of master) {
             if (!matches(v.lite, v.route, v.text))
                 continue;
@@ -236,7 +178,7 @@ export namespace TranslatedInstanceServer {
     }
 
     /** Signum's `Sync` — cleans first (Signum does too), then the diff with the machine suggestions. */
-    async function sync(typeName: string, culture: string, applyFilter: boolean): Promise<TypeInstancesChangesTS> {
+    async function sync(typeName: string, culture: string, applyFilter: boolean): Promise<TypeInstancesChanges> {
         const type = Entity.resolveType(typeName);
         const deletedTranslations = await TranslatedInstanceLogic.cleanTranslations(type);
 
@@ -258,8 +200,8 @@ export namespace TranslatedInstanceServer {
                             oldOriginal: rc.oldOriginal,
                             oldTranslation: rc.oldTranslation,
                             automaticTranslations: rc.automaticTranslations,
-                        } satisfies PropertyRouteConflictTS])),
-                    } satisfies PropertyChangeTS])),
+                        } satisfies PropertyRouteConflict])),
+                    } satisfies PropertyChange])),
             })),
         };
     }

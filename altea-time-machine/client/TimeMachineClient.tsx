@@ -17,6 +17,7 @@ import { Temporal } from '@altea/altea/data/basics';
 import { EntityControlMessage, JavascriptMessage } from '@altea/altea/data/uiMessages';
 import { AuthClient } from '@altea/altea-auth/client/AuthClient';
 import { TimeMachineMessage, TimeMachinePermission } from '../data/TimeMachine';
+import type { EntityDump } from '../data/TimeMachineDtos';
 
 // The module's client registration: the quick link onto every system-versioned entity, the "Time Machine"
 // toggle in every SearchControl's menu, the page route, and the three search-result formatters that mark a
@@ -92,12 +93,6 @@ export namespace TimeMachineClient {
             formatter: () => new Finder.CellFormatter((cell: Lite<Entity> | undefined) =>
                 cell == null ? undefined : <TimeMachineLink lite={cell} />, true),
         });
-    }
-
-    /** One version of a row plus its dump (Serializer.dump). */
-    export interface EntityDump {
-        entity: Entity;
-        dump: string;
     }
 
     export namespace API {

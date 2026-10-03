@@ -1,6 +1,7 @@
 import {
-    ADAuthorizer, type DirectoryGroup, type ExternalUser, type IAutoCreateUserContext, type IDirectoryInviter,
+    ADAuthorizer, type DirectoryGroup, type IAutoCreateUserContext, type IDirectoryInviter,
 } from "@altea/altea-auth/server/ADAuthorizer";
+import type { ExternalUser } from "@altea/altea-auth/data/AuthDtos";
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { UserEntity, UserState } from "@altea/altea-auth/data/User";
 import { LoginAuthMessage } from "@altea/altea-auth/data/AuthMessages";

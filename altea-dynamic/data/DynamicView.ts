@@ -181,6 +181,17 @@ export namespace DynamicViewOverrideOperation {
     export const Delete: DeleteSymbol<DynamicViewOverrideEntity> = init();
 }
 
+/** A registered query with a column pointing AT a type, offered by the designer as a ready-made SearchControl. */
+export interface SuggestedFindOptions {
+    queryKey: string;
+    parentToken: string;
+}
+
+export interface DynamicViewProps {
+    name: string;
+    type: string;
+}
+
 // ---- messages -----------------------------------------------------------------------------------------
 
 export const DynamicViewMessage = {

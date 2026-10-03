@@ -1,18 +1,18 @@
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { ajaxGet, ajaxPost, ajaxPostRaw, saveFile, type WebApiHttpError } from "@altea/altea/client/Services";
+import { ajaxGet, ajaxPost, ajaxPostRaw, saveFile } from "@altea/altea/client/Services";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Finder } from "@altea/altea/client/Finder";
 import { QueryString } from "@altea/altea/client/QueryString";
 import type { TypeInfo } from "@altea/altea/client/Reflection";
 import type { QueryRequest } from "@altea/altea/data/dynamicQuery/queryRequest";
-import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 import { ChartClient } from "@altea/altea-chart/client/ChartClient";
 import { ChartPermission } from "@altea/altea-chart/data/ChartPermissions";
 import { ExcelMessage, ExcelPermission, ImportExcelModel } from "../data/Excel";
 import { ExcelReportEntity } from "../data/excel/ExcelReport";
+import type { ExcelReportRequest, ImportFromExcelRequest, ImportResult } from "../data/OfficeTemplateDtos";
 import ExcelMenu from "./ExcelMenu";
 import { ImportExcelProgressModal } from "./ImportExcelProgressModal";
 
@@ -110,7 +110,7 @@ export namespace ExcelClient {
         /** Run one, save the .xlsx it answers with. */
         export function generateExcelReport(request: QueryRequest, excelReport: Lite<ExcelReportEntity>): void {
             void ajaxPostRaw({ url: "/api/excel/excelReport/" + request.queryKey },
-                { queryRequest: request, excelReport })
+                { queryRequest: request, excelReport } satisfies ExcelReportRequest)
                 .then(response => saveFile(response));
         }
 
@@ -126,30 +126,6 @@ export namespace ExcelClient {
                 () => ajaxPostRaw({ url: "/api/excel/import/" + qr.queryKey, signal: abortController.signal },
                     { importModel: model, queryRequest: qr } satisfies ImportFromExcelRequest));
         }
-    }
-
-    /** The wire shapes of the
-     *  import route (the results arrive one per NDJSON line, see ImportExcelProgressModal). */
-    export interface ImportFromExcelRequest {
-        importModel: ImportExcelModel;
-        queryRequest: QueryRequest;
-    }
-
-    export interface ImportResult {
-        totalRows: number;
-        rowIndex: string;
-        entity?: Lite<Entity>;
-        action: ImportActionKeys;
-        error?: string;
-    }
-
-    export type ImportActionKeys = "Updated" | "Inserted" | "NoChanges";
-
-    /** NEW here — see ExcelImportLogic's ImportErrorLine: the last line of a
-     *  stream that failed after it had already started, carrying the HttpError a failure BEFORE the first
-     *  line would have come back as. ImportExcelProgressModal raises it as a ServiceError. */
-    export interface ImportErrorLine {
-        importError: WebApiHttpError;
     }
 
     export interface ImportFromExcelReport {

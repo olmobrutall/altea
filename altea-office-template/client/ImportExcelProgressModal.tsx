@@ -9,6 +9,7 @@ import type { TypeInfo } from "@altea/altea/client/Reflection";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import { ImportFromExcelMessage } from "../data/Excel";
 import { ExcelClient } from "./ExcelClient";
+import type { ImportErrorLine, ImportResult } from "../data/OfficeTemplateDtos";
 
 // Port of Signum.Excel's ImportExcelProgressModal.tsx — the row-by-row progress of an import, read off the
 // NDJSON the /api/excel/import route streams (one ImportResult per line, see ExcelImportLogic).
@@ -26,7 +27,7 @@ export function ImportExcelProgressModal(p: ImportExcelProgressModalProps): Reac
 
     const [show, setShow] = React.useState(true);
     const forceUpdate = useForceUpdate();
-    const importResultsRef = React.useRef([] as ExcelClient.ImportResult[]);
+    const importResultsRef = React.useRef([] as ImportResult[]);
     const errorRef = React.useRef(null as any);
 
     const [requestStarted, setRequestStarted] = React.useState<boolean>(false);
@@ -36,17 +37,17 @@ export function ImportExcelProgressModal(p: ImportExcelProgressModalProps): Reac
         setRequestStarted(true);
         const resp = await p.makeRequest();
 
-        const generator = jsonObjectStream<ExcelClient.ImportResult | ExcelClient.ImportErrorLine>(resp.body!.getReader());
+        const generator = jsonObjectStream<ImportResult | ImportErrorLine>(resp.body!.getReader());
         for await (const val of generator) {
             // A failure the server could no longer report as a STATUS, because it had already begun
             // streaming (ExcelImportLogic). Raising it as a ServiceError puts it exactly where a failure
             // before the first line lands — `errorRef` → the report's `error` → the ErrorModal — so the
             // caller has one error path, not two.
-            const errorLine = (val as ExcelClient.ImportErrorLine).importError;
+            const errorLine = (val as ImportErrorLine).importError;
             if (errorLine != null)
                 throw new ServiceError(errorLine);
 
-            importResultsRef.current.push(val as ExcelClient.ImportResult);
+            importResultsRef.current.push(val as ImportResult);
             forceUpdate();
         }
     }

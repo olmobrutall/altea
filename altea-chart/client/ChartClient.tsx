@@ -32,7 +32,7 @@ import { QueryString } from '@altea/altea/client/QueryString';
 import { toNumberFormat } from '@altea/altea/client/numberFormat';
 import * as DataChartUtils from '../data/ChartUtils';
 import { ChartColumnType } from '../data/ChartScriptColumn';
-import type { ChartParameterType, SpecialParameterType } from '../data/ChartScriptParameter';
+import type { ChartScriptInfo, ChartScriptParameterInfo, EnumValueListInfo, NumberIntervalInfo, ScalaInfo, SpecialParameterInfo, StringValueInfo } from '../data/ChartDtos';
 import { ChartColumnEmbedded } from '../data/ChartColumn';
 import { ChartParameterEmbedded } from '../data/ChartParameter';
 import type { IChartBase } from '../data/ChartRequest';
@@ -147,58 +147,7 @@ export namespace ChartClient {
     }
   }
 
-  // ---- Client ChartScript DTO (the shape shipped from /api/chart/scripts; see ChartServer.server) --------
-
-  export interface ChartScript {
-    symbol: ChartScriptSymbol;
-    icon: string | null;
-    columns: ChartScriptColumn[];
-    parameterGroups: ChartScriptParameterGroup[];
-  }
-
-  export interface ChartScriptColumn {
-    name: string;
-    displayName: string;
-    isOptional: boolean;
-    columnType: ChartColumnType;
-  }
-
-  export interface ChartScriptParameterGroup {
-    name: string | null;
-    parameters: ChartScriptParameter[];
-  }
-
-  export interface ChartScriptParameter {
-    name: string;
-    displayName: string;
-    columnIndex: number | null;
-    type: ChartParameterType;
-    valueDefinition: NumberInterval | EnumValueList | StringValue | SpecialParameter | Scala | null;
-  }
-
-  export interface NumberInterval {
-    defaultValue: number | null;
-    minValue: number | null;
-    maxValue: number | null;
-  }
-
-  export interface SpecialParameter {
-    specialParameterType: SpecialParameterType;
-  }
-
-  export interface Scala {
-    standardScalas: Record<string, ChartColumnType | null>;
-    custom: boolean;
-  }
-
-  // altea divergence: Signum's client EnumValueList `extends Array<string>`; the wire sends `{ values }`.
-  export interface EnumValueList {
-    values: string[];
-  }
-
-  export interface StringValue {
-    defaultValue: string;
-  }
+  export type ChartScript = Omit<ChartScriptInfo, "symbol" | "symbolId"> & { symbol: ChartScriptSymbol };
 
   // ---- Script catalog ------------------------------------------------------------------------------------
 
@@ -403,14 +352,14 @@ export namespace ChartClient {
     });
   }
 
-  function isValidParameterValue(value: string | null | undefined, scriptParameter: ChartScriptParameter, relatedColumn: QueryToken | null | undefined): boolean {
+  function isValidParameterValue(value: string | null | undefined, scriptParameter: ChartScriptParameterInfo, relatedColumn: QueryToken | null | undefined): boolean {
 
     switch (scriptParameter.type) {
-      case "Enum": return (scriptParameter.valueDefinition as EnumValueList).values.some(a => a == value);
+      case "Enum": return (scriptParameter.valueDefinition as EnumValueListInfo).values.some(a => a == value);
       case "Number": return !isNaN(parseFloat(value!));
       case "String": return true;
       case "Special": {
-        const specialParameterType = (scriptParameter.valueDefinition as SpecialParameter).specialParameterType;
+        const specialParameterType = (scriptParameter.valueDefinition as SpecialParameterInfo).specialParameterType;
         switch (specialParameterType) {
           case "ColorCategory": return value != null && colorSchemes[value] != null;
           case "ColorInterpolate": return value != null && getColorInterpolation(value) != null;
@@ -418,7 +367,7 @@ export namespace ChartClient {
         }
       }
       case "Scala": {
-        const standardScalas = (scriptParameter.valueDefinition as Scala).standardScalas;
+        const standardScalas = (scriptParameter.valueDefinition as ScalaInfo).standardScalas;
         if (relatedColumn && value && standardScalas[value]) {
           var cct = standardScalas[value];
           if (cct && !isChartColumnType(relatedColumn, cct))
@@ -438,13 +387,13 @@ export namespace ChartClient {
     }
   }
 
-  export function defaultParameterValue(scriptParameter: ChartScriptParameter, relatedColumn: QueryToken | null | undefined): string {
+  export function defaultParameterValue(scriptParameter: ChartScriptParameterInfo, relatedColumn: QueryToken | null | undefined): string {
     switch (scriptParameter.type) {
-      case "Enum": return (scriptParameter.valueDefinition as EnumValueList).values.first();
-      case "Number": return (scriptParameter.valueDefinition as NumberInterval).defaultValue?.toString() ?? "";
-      case "String": return (scriptParameter.valueDefinition as StringValue).defaultValue?.toString();
+      case "Enum": return (scriptParameter.valueDefinition as EnumValueListInfo).values.first();
+      case "Number": return (scriptParameter.valueDefinition as NumberIntervalInfo).defaultValue?.toString() ?? "";
+      case "String": return (scriptParameter.valueDefinition as StringValueInfo).defaultValue?.toString();
       case "Special": {
-        const specialParameterType = (scriptParameter.valueDefinition as SpecialParameter).specialParameterType;
+        const specialParameterType = (scriptParameter.valueDefinition as SpecialParameterInfo).specialParameterType;
         switch (specialParameterType) {
           case "ColorCategory": return Dic.getKeys(colorSchemes)[0];
           case "ColorInterpolate": return Dic.getKeys(colorInterpolators)[0];
@@ -452,7 +401,7 @@ export namespace ChartClient {
         }
       }
       case "Scala": {
-        const scala = scriptParameter.valueDefinition as Scala;
+        const scala = scriptParameter.valueDefinition as ScalaInfo;
         return Object.entries(scala.standardScalas).filter(([key, value]) => value == undefined || relatedColumn == undefined || isChartColumnType(relatedColumn, value)).first()[0];
       }
       default: throw new Error("Unexpected parameter type");
@@ -1023,7 +972,7 @@ export namespace ChartClient {
     }
 
     export function fetchScripts(): Promise<ChartScript[]> {
-      return ajaxGet<(Omit<ChartScript, "symbol"> & { symbol: string, symbolId: number })[]>({
+      return ajaxGet<ChartScriptInfo[]>({
         url: "/api/chart/scripts"
       }).then(scripts => scripts.map(s => {
         const symbol = symbolsByKey()[s.symbol];

@@ -11,6 +11,7 @@ import { tryGetTypeInfo } from "@altea/altea/client/Reflection";
 import { classes, Dic } from "@altea/altea/data/globals";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import { TranslationMessage, TranslatedSummaryState, MatchTranslatedInstances } from "../../data/Translation";
+import type { FileUpload, TranslatedTypeSummary } from "../../data/TranslationDtos";
 import { TranslatedInstanceClient } from "../TranslatedInstanceClient";
 import "../Translation.css";
 
@@ -29,7 +30,7 @@ export default function TranslatedInstanceStatus(): React.JSX.Element {
         const reader = new FileReader();
         reader.onload = () => {
             const content = String(reader.result).after("base64,");
-            const file: TranslatedInstanceClient.API.FileUpload = { content, fileName: f.name };
+            const file: FileUpload = { content, fileName: f.name };
             setFileVer(v => v + 1);
 
             // chooseEnum yields the member NAME; the API takes the ordinal (altea enums are numeric).
@@ -68,7 +69,7 @@ export default function TranslatedInstanceStatus(): React.JSX.Element {
 }
 
 function TranslationTable(p: {
-    result: TranslatedInstanceClient.TranslatedTypeSummary[];
+    result: TranslatedTypeSummary[];
     onRefreshView: () => void;
     applyFilter: boolean;
 }): React.JSX.Element {

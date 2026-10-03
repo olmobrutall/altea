@@ -5,6 +5,7 @@ import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { Dic } from "@altea/altea/data/globals";
 import { TranslationMessage } from "../../data/Translation";
+import type { LocalizableTypeInfo, LocalizedTypeInfo, LocalizedMember, PackageResult } from "../../data/TranslationDtos";
 import { TranslationClient } from "../TranslationClient";
 
 // Port of Signum.Translation's Code/TranslationTypeTable.tsx — one table per TYPE, with a row per culture
@@ -18,14 +19,14 @@ import { TranslationClient } from "../TranslationClient";
 // altea divergences: none of substance; `KeyNames` becomes the plain `e.key` strings.
 
 export function TranslationTypeTable(p: {
-    type: TranslationClient.LocalizableType;
-    result: TranslationClient.PackageResult;
+    type: LocalizableTypeInfo;
+    result: PackageResult;
     currentCulture: string | undefined;
 }): React.JSX.Element {
 
     const { type, result } = p;
 
-    function editCulture(loc: TranslationClient.LocalizedType): boolean {
+    function editCulture(loc: LocalizedTypeInfo): boolean {
         return p.currentCulture == undefined || p.currentCulture === loc.culture;
     }
 
@@ -80,9 +81,9 @@ export function TranslationTypeTable(p: {
 }
 
 export function TranslationMember(p: {
-    type: TranslationClient.LocalizableType;
-    loc: TranslationClient.LocalizedType;
-    member: TranslationClient.LocalizedMember;
+    type: LocalizableTypeInfo;
+    loc: LocalizedTypeInfo;
+    member: LocalizedMember;
     edit: boolean;
 }): React.JSX.Element {
 
@@ -140,10 +141,10 @@ export function initialElementIf(condition: boolean): React.JSX.Element[] {
 }
 
 export function TranslationTypeDescription(p: {
-    type: TranslationClient.LocalizableType;
-    loc: TranslationClient.LocalizedType;
+    type: LocalizableTypeInfo;
+    loc: LocalizedTypeInfo;
     edit: boolean;
-    result: TranslationClient.PackageResult;
+    result: PackageResult;
 }): React.JSX.Element {
 
     const { type, loc, edit } = p;

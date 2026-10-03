@@ -2,6 +2,7 @@ import * as React from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import * as AppContext from '@altea/altea/client/AppContext'
 import { ProfilerClient } from '../ProfilerClient'
+import type { HeavyProfilerEntryInfo } from '../../data/ProfilerDtos'
 import "./Profiler.css"
 import { useAPIWithReload, useInterval, useSize } from '@altea/altea/client/Hooks'
 import { useTitle } from '@altea/altea/client/AppContext'
@@ -106,7 +107,7 @@ export default function HeavyList(): React.JSX.Element {
     );
 }
 
-function EntryListPath({ width, entries }: { width: number, entries: ProfilerClient.HeavyProfilerEntry[] }) {
+function EntryListPath({ width, entries }: { width: number, entries: HeavyProfilerEntryInfo[] }) {
 
     const data = entries;
 
@@ -126,7 +127,7 @@ function EntryListPath({ width, entries }: { width: number, entries: ProfilerCli
 
     const entryHeight = y(1);
 
-    function handleOnClick(e: React.MouseEvent, v: ProfilerClient.HeavyProfilerEntry) {
+    function handleOnClick(e: React.MouseEvent, v: HeavyProfilerEntryInfo) {
         const url = "/profiler/heavy/entry/" + v.fullIndex;
         if (e.ctrlKey)
             window.open(AppContext.toAbsoluteUrl(url));

@@ -23,7 +23,7 @@ import {
     TranslatedInstanceEntity, TranslatedSummaryState, MatchTranslatedInstances,
 } from "../data/Translation";
 import type { ITranslator } from "./Translators";
-import type { AutomaticTranslation } from "./TranslationSynchronizer";
+import type { AutomaticTranslation, TranslatedTypeSummary } from "../data/TranslationDtos";
 
 // Port of Signum.Translation's Instances/TranslatedInstanceLogic.cs (+ TranslatedInstanceSynchronizer.cs) —
 // the storage, cache, status, sync and excel round-trip of PER-INSTANCE translations.
@@ -147,13 +147,6 @@ export namespace TranslatedInstanceLogic {
     }
 
     // ---- Status ------------------------------------------------------------------------------------
-
-    export interface TranslatedTypeSummary {
-        type: string;
-        culture: string;
-        isDefaultCulture: boolean;
-        state: TranslatedSummaryState | null;
-    }
 
     /** Signum's `TranslationInstancesStatus` — the grid on the instance status page. */
     export async function translationInstancesStatus(applyFilter = true): Promise<TranslatedTypeSummary[]> {

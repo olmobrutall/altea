@@ -9,6 +9,7 @@ import { mimeType } from "@altea/altea-files/server/FileTypeAlgorithm";
 import {
     RemoteAttachmentEmbedded, RemoteEmailFolderModel, RemoteEmailMessageModel,
 } from "../data/RemoteEmailMessage";
+import type { ChangeCategoriesRequest, EmailResult } from "../data/RemoteEmailDtos";
 import { RemoteEmailsLogic, type GraphAttachment, type GraphMailMessage } from "./RemoteEmailsLogic";
 
 // The six calls the remote
@@ -162,19 +163,6 @@ export namespace RemoteEmailsServer {
                         { categories: [...categories] });
                 });
             });
-    }
-
-    /** The categorise request body. */
-    export interface ChangeCategoriesRequest {
-        messageIds: string[];
-        categoriesToAdd: string[];
-        categoriesToRemove: string[];
-    }
-
-    /** One line of the NDJSON stream. */
-    export interface EmailResult {
-        id: string;
-        error?: string;
     }
 
     /**

@@ -15,6 +15,7 @@ import type { ContextualOperationSettings, EntityOperationSettings } from '../Op
 import type { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { Dropdown, OverlayTrigger, Tooltip } from "react-bootstrap";
 import { MultiPropertySetterModal } from "./MultiPropertySetter";
+import type { PropertySetter } from "../../data/operations";
 import type { BsColor } from "../Components";
 import SearchControlLoaded from "../SearchControl/SearchControlLoaded";
 import { CollectionMessage } from "../../data/dynamicQueries";
@@ -366,7 +367,7 @@ export namespace ContextualOperations {
         }
     }
 
-    function getSetters(coc: ContextualOperationContext<Entity>): Promise<Operations.API.PropertySetter[] | undefined> {
+    function getSetters(coc: ContextualOperationContext<Entity>): Promise<PropertySetter[] | undefined> {
 
         if (!coc.operationInfo.canBeModified)
             return Promise.resolve([]);

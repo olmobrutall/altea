@@ -13,6 +13,7 @@ import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import {
     TourEntity, TourStepEntity, ClickTrigger, PopoverAlign, PopoverSide, cssSelector,
 } from "../data/Tour";
+import type { TourDTO, TourStepDTO } from "../data/TourDtos";
 import { TourLogic } from "./TourLogic";
 import { TypeLogic } from "@altea/altea/server/typeLogic";
 
@@ -26,25 +27,6 @@ import { TypeLogic } from "@altea/altea/server/typeLogic";
 //
 // Port of Signum.Tour's TourController.cs — see port/Tour.md.
 export namespace TourServer {
-
-    /** What the player needs, with each step's selector already resolved. */
-    export interface TourDTO {
-        tour: Lite<TourEntity>;
-        forEntity: Lite<Entity>;
-        steps: TourStepDTO[];
-        showProgress: boolean;
-        animate: boolean;
-        showCloseButton: boolean;
-    }
-
-    export interface TourStepDTO {
-        cssSelector: string | null;
-        title: string;
-        description: string;
-        side: string | null;
-        align: string | null;
-        click: string | null;
-    }
 
     export function start(ws: WebBuilder): void {
 

@@ -1,6 +1,6 @@
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
 import { GlobalValueProvider } from "./ValueProviders";
-import type { GlobalVariableTS } from "../data/Templating";
+import type { GlobalVariableInfo } from "../data/Templating";
 
 // Port of Signum.Templating's TemplatingController.cs + TemplatingServer.cs — see port/Templating.md.
 //
@@ -16,9 +16,9 @@ export namespace TemplatingServer {
         started = true;
 
         ws.get("/api/templating/getGlobalVariables",
-            { res: CustomType<GlobalVariableTS[]>() },
+            { res: CustomType<GlobalVariableInfo[]>() },
             async (_req, res) => {
-                const result: GlobalVariableTS[] = [...GlobalValueProvider.globalVariables].map(([key, gv]) => ({
+                const result: GlobalVariableInfo[] = [...GlobalValueProvider.globalVariables].map(([key, gv]) => ({
                     key,
                     typeName: gv.type.getTypeName() ?? gv.type.typeName,
                     isCollection: gv.type.array === true,

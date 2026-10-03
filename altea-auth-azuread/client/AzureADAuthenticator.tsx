@@ -8,6 +8,7 @@ import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import MessageModal, { type MessageModalHandler } from "@altea/altea/client/Modals/MessageModal";
 import ErrorModal from "@altea/altea/client/Modals/ErrorModal";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
+import type { LoginResponse } from "@altea/altea-auth/data/AuthDtos";
 import { LoginOptions, type LoginContext } from "@altea/altea-auth/client/public/LoginPage";
 import { LoginAuthMessage, ResetPasswordB2CMessage } from "@altea/altea-auth/data/AuthMessages";
 import type { AzureADClientConfig } from "../data/AzureAD";
@@ -376,7 +377,7 @@ export namespace AzureADAuthenticator {
 
     export namespace API {
         export function loginWithAzureAD(jwt: string, accessToken: string, opts: { throwErrors: boolean; adVariant: string | null }):
-            Promise<AuthClient.API.LoginResponse | undefined> {
+            Promise<LoginResponse | undefined> {
             const query = `throwErrors=${opts.throwErrors}` + (opts.adVariant ? `&adVariant=${encodeURIComponent(opts.adVariant)}` : "");
             return ajaxPost({ url: "/api/auth/loginWithAzureAD?" + query, avoidAuthToken: true },
                 { idToken: jwt, accessToken });

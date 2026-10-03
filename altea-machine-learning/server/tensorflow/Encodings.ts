@@ -4,6 +4,7 @@ import {
     PredictorMessage, PredictorSubQueryEntity,
 } from "../../data/Predictor";
 import { NeuralNetworkSettingsEntity, PredictionType } from "../../data/NeuralNetworkSettings";
+import type { AlternativePrediction } from "../../data/PredictRequest";
 import { PredictorCodification, keyOfValue, type PredictorColumnBase } from "../PredictorAlgorithm";
 
 // Port of Signum.MachineLearning's TensorFlow/TensorFlowEncoding.cs — how a column's VALUES become the
@@ -32,11 +33,6 @@ export interface PredictionOptions {
     filteredCodifications?: PredictorCodification[];
     /** Return the top N values with their probabilities instead of just the best. */
     alternativeCount?: number;
-}
-
-export interface AlternativePrediction {
-    probability: number;
-    value: unknown;
 }
 
 export interface ITensorFlowEncoding {

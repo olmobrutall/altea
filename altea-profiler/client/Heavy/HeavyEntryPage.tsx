@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Link } from 'react-router'
 import * as AppContext from '@altea/altea/client/AppContext'
 import { ProfilerClient } from '../ProfilerClient'
+import type { HeavyProfilerEntryInfo, StackTrace } from '../../data/ProfilerDtos'
 import { useParams } from "react-router";
 import "./Profiler.css"
 import { useAPI, useSize, useAPIWithReload } from '@altea/altea/client/Hooks'
@@ -77,7 +78,7 @@ export default function HeavyEntry(): React.JSX.Element {
     );
 }
 
-export function StackFrameTable(p: { stackTrace: ProfilerClient.StackTraceTS[] }): React.JSX.Element {
+export function StackFrameTable(p: { stackTrace: StackTrace[] }): React.JSX.Element {
     if (!p.stackTrace || p.stackTrace.length === 0)
         return <span>{ProfilerMessage.NoStackTrace.niceToString()}</span>;
 
@@ -113,8 +114,8 @@ function lerp(min: number, ratio: number, max: number) {
 }
 
 interface HeavyProfilerDetailsD3Props {
-    entries: ProfilerClient.HeavyProfilerEntry[];
-    selected: ProfilerClient.HeavyProfilerEntry;
+    entries: HeavyProfilerEntryInfo[];
+    selected: HeavyProfilerEntryInfo;
     asyncDepth: boolean;
 }
 
@@ -129,7 +130,7 @@ export function HeavyProfilerDetailsD3(p: HeavyProfilerDetailsD3Props): React.JS
 
     const chartContainer = React.useRef<HTMLDivElement | null>(null);
 
-    function resetZoom(current: ProfilerClient.HeavyProfilerEntry): MinMax {
+    function resetZoom(current: HeavyProfilerEntryInfo): MinMax {
         return ({
             min: lerp(current.beforeStart, -0.1, current.end),
             max: lerp(current.beforeStart, 1.1, current.end)
@@ -165,8 +166,8 @@ export function HeavyProfilerDetailsD3(p: HeavyProfilerDetailsD3Props): React.JS
     const data = p.entries;
 
     const getDepth = p.asyncDepth ?
-        (e: ProfilerClient.HeavyProfilerEntry) => e.asyncDepth :
-        (e: ProfilerClient.HeavyProfilerEntry) => e.depth;
+        (e: HeavyProfilerEntryInfo) => e.asyncDepth :
+        (e: HeavyProfilerEntryInfo) => e.depth;
 
     const fontSize = 12;
     const fontPadding = 3;
@@ -195,7 +196,7 @@ export function HeavyProfilerDetailsD3(p: HeavyProfilerDetailsD3Props): React.JS
 
         const filteredData = data.filter(a => a.end > min && a.beforeStart < maxV && (x(a.end) - x(a.beforeStart)) > 1);
 
-        function handleOnClick(e: React.MouseEvent<SVGGElement>, d: ProfilerClient.HeavyProfilerEntry) {
+        function handleOnClick(e: React.MouseEvent<SVGGElement>, d: HeavyProfilerEntryInfo) {
             if (d == p.selected)
                 return;
             const url = "/profiler/heavy/entry/" + d.fullIndex;

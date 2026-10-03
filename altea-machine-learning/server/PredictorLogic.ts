@@ -26,6 +26,7 @@ import {
     PredictorColumnUsage, TensorFlowPredictorAlgorithm, PredictorClassificationMetricsEmbedded,
     DefaultColumnEncodings, PredictorMainQueryEmbedded, PredictorMetricsEmbedded,
     PredictorEntity_Filter, PredictorSubQueryEntity_Filter, PredictorColumnEncodingSymbol,
+    type TrainingProgress,
 } from "../data/Predictor";
 import { NeuralNetworkSettingsEntity, validateOutputActivation } from "../data/NeuralNetworkSettings";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
@@ -33,7 +34,6 @@ import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { QueryFilterBaseEntity, QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import {
     PredictorTrainingContext, TrainingCancelledError, type IPredictorAlgorithm, type IPredictorResultSaver,
-    type TrainingProgress,
 } from "./PredictorAlgorithm";
 import { PredictorLogicQuery } from "./PredictorLogicQuery";
 import { PredictorCodificationLogic } from "./PredictorCodificationLogic";

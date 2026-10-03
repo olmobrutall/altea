@@ -8,9 +8,9 @@ import type { Entity } from "@altea/altea/data/entity";
 import { Lite as LiteClass } from "@altea/altea/data/lite";
 import {
     PredictorEntity, PredictorEpochProgressEntity, PredictorPublicationSymbol, PredictorState,
+    type EpochProgressRow, type TrainingProgress, type PredictorBackendInfo,
 } from "../data/Predictor";
 import type { PredictRequestModel } from "../data/PredictRequest";
-import type { EpochProgressRow, TrainingProgress } from "./PredictorAlgorithm";
 import { PredictRequestBuilder } from "./PredictRequestBuilder";
 import { PredictorLogic } from "./PredictorLogic";
 import { PredictorPredictLogic } from "./PredictorPredictLogic";
@@ -139,7 +139,7 @@ export namespace PredictorServer {
         // Which tfjs backend the server is actually using — see the predictor's header on why that is
         // worth surfacing rather than assuming.
         ws.get("/api/predictor/backend",
-            { res: CustomType<{ backend: string; native: boolean }>() },
+            { res: CustomType<PredictorBackendInfo>() },
             async (_req, res) => {
                 const backend = await TensorFlowNeuralNetworkPredictor.currentBackend();
                 res.jsonTyped({ backend, native: backend === "tensorflow" });

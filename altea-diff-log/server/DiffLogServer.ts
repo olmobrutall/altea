@@ -7,6 +7,7 @@ import type { Entity } from "@altea/altea/data/entity";
 import { OperationLogEntity } from "@altea/altea/data/operationLog";
 import { Serializer } from "@altea/altea/data/serializer";
 import { DiffLogMixin } from "../data/DiffLog";
+import type { PreviousLog, NextLog } from "../data/DiffLogDtos";
 
 // The two routes that let the OperationLog view walk the chain: "the log before this one on the same
 // target" and "the log after it, or the entity's CURRENT state when this is the last log".
@@ -16,16 +17,6 @@ import { DiffLogMixin } from "../data/DiffLog";
 //
 // Port of Signum.DiffLog's DiffLogController.cs — see port/DiffLog.md.
 export namespace DiffLogServer {
-
-    export interface PreviousLog {
-        operationLog: Lite<OperationLogEntity>;
-        dump: string | null;
-    }
-
-    export interface NextLog {
-        operationLog?: Lite<OperationLogEntity>;
-        dump: string | null;
-    }
 
     export function start(ws: WebBuilder): void {
 

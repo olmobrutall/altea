@@ -3,6 +3,7 @@ import { useLocation } from "react-router";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { ajaxGet, ajaxPost } from "@altea/altea/client/Services";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
+import type { LoginResponse } from "@altea/altea-auth/data/AuthDtos";
 import { LoginOptions, type LoginContext } from "@altea/altea-auth/client/public/LoginPage";
 import { OpenIDMessage, type OpenIDClientConfig, type OpenIDEndpoints } from "../data/OpenID";
 
@@ -138,7 +139,7 @@ export namespace OpenIDAuthenticator {
 
     export namespace API {
         export function loginWithOpenID(code: string, redirectUri: string, opts: { throwErrors: boolean }):
-            Promise<AuthClient.API.LoginResponse | undefined> {
+            Promise<LoginResponse | undefined> {
             return ajaxPost({
                 url: `/api/auth/loginWithOpenID?throwErrors=${opts.throwErrors}`,
                 avoidAuthToken: true,

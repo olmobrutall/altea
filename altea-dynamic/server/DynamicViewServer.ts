@@ -1,6 +1,8 @@
 import "@altea/altea/server";
 import { WebBuilder, CustomType } from "@altea/altea/server/webApi";
-import type { DynamicViewEntity, DynamicViewOverrideEntity, DynamicViewSelectorEntity } from "../data/DynamicView";
+import type {
+    DynamicViewEntity, DynamicViewOverrideEntity, DynamicViewSelectorEntity, DynamicViewProps, SuggestedFindOptions,
+} from "../data/DynamicView";
 import { DynamicViewLogic } from "./DynamicViewLogic";
 
 // Port of Signum.Dynamic's Views/DynamicViewController.cs — the six GETs the client's ViewDispatcher reads
@@ -12,11 +14,6 @@ import { DynamicViewLogic } from "./DynamicViewLogic";
 //    a KeyNotFound, because the dispatcher asks for views it is not sure exist.
 //  - the `viewName` query-string parameter is read off `req.query` (Signum's model binder does it by name).
 export namespace DynamicViewServer {
-
-    export interface DynamicViewProps {
-        name: string;
-        type: string;
-    }
 
     export function start(ws: WebBuilder): void {
 
@@ -65,7 +62,7 @@ export namespace DynamicViewServer {
             });
 
         ws.get("/api/dynamic/suggestedFindOptions/:typeName",
-            { params: CustomType<{ typeName: string }>(), res: CustomType<DynamicViewLogic.SuggestedFindOptions[]>() },
+            { params: CustomType<{ typeName: string }>(), res: CustomType<SuggestedFindOptions[]>() },
             async (req, res) => {
                 res.jsonTyped(await DynamicViewLogic.getSuggestedFindOptions(req.params.typeName));
             });

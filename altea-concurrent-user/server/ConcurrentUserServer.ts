@@ -16,6 +16,7 @@ import { AuthTokenServer } from "@altea/altea-auth/server/AuthTokenServer";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { CacheLogic } from "@altea/altea-cache/server/CacheLogic";
 import { ConcurrentUserEntity } from "../data/ConcurrentUser";
+import type { ConcurrentUserResponse } from "../data/ConcurrentUserDtos";
 import { ConcurrentUserLogic } from "./ConcurrentUserLogic";
 
 // The whole server surface, in one file because the hub, the push and the query are one mechanism.
@@ -297,18 +298,4 @@ export namespace ConcurrentUserServer {
         for (let i = 0; i < items.length; i += size)
             yield items.slice(i, i + size);
     }
-}
-
-/**
- * The shape the widget renders.
- *
- * `startTime` is an ISO STRING, not a Temporal. A DTO crosses the wire as an untyped `CustomType`, so the
- * serializer has no field metadata to revive a Temporal from; typing it as one would hand the widget a
- * string that fails only later, when the widget calls a Temporal method on it.
- */
-export interface ConcurrentUserResponse {
-    user: Lite<UserEntity>;
-    startTime: string;
-    connectionID: string;
-    isModified: boolean;
 }

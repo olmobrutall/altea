@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { ProfilerClient } from '../ProfilerClient'
+import type { TimeTrackerEntryInfo, TimeTrackerTimeInfo } from '../../data/ProfilerDtos'
 import "./Times.css"
 import { Tab, Tabs } from 'react-bootstrap';
 import { useAPIWithReload } from '@altea/altea/client/Hooks';
@@ -68,7 +69,7 @@ function mix(from: RGB, to: RGB, f: number): string {
     return `rgb(${c(0)}, ${c(1)}, ${c(2)})`;
 }
 
-function TimesBars({ times }: { times: ProfilerClient.TimeTrackerEntry[] }) {
+function TimesBars({ times }: { times: TimeTrackerEntryInfo[] }) {
 
     function formatMilis(milis: number) {
         return <span>{nf.format(milis)} ms</span>;
@@ -79,7 +80,7 @@ function TimesBars({ times }: { times: ProfilerClient.TimeTrackerEntry[] }) {
     const maxTotal = times.map(a => a.totalDuration).max()!;
     const ratio = maxWidth / (maxDuration || 1);
 
-    function drawLineRowDiv(label: string, time: ProfilerClient.TimeTrackerTime, className: string) {
+    function drawLineRowDiv(label: string, time: TimeTrackerTimeInfo, className: string) {
         if (!time) return null;
         return (
             <div className="stat-row" key={label}>
@@ -133,7 +134,7 @@ function TimesBars({ times }: { times: ProfilerClient.TimeTrackerEntry[] }) {
     );
 }
 
-function TimesTable({ times }: { times: ProfilerClient.TimeTrackerEntry[] }) {
+function TimesTable({ times }: { times: TimeTrackerEntryInfo[] }) {
 
     const blue: RGB = [41, 128, 185];
     const red: RGB = [192, 57, 43];
@@ -148,7 +149,7 @@ function TimesTable({ times }: { times: ProfilerClient.TimeTrackerEntry[] }) {
         totalDuration: times.max(a => a.totalDuration)!,
     };
 
-    function cell(time: ProfilerClient.TimeTrackerTime | undefined) {
+    function cell(time: TimeTrackerTimeInfo | undefined) {
         if (time == null)
             return <td>{TimeMessage.NoDuration.niceToString()}</td>;
         return (

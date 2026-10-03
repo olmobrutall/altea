@@ -13,6 +13,7 @@ import { Dic } from "@altea/altea/data/globals";
 import { DiffDocumentSimple } from "@altea/altea-diff-log/client/Templates/DiffDocument";
 import "@altea/altea-diff-log/client/Templates/DiffLog.css";
 import { TranslationMessage } from "../../data/Translation";
+import type { PropertyChange, TranslationRecordInfo, TypeInstancesChanges } from "../../data/TranslationDtos";
 import { TranslatedInstanceClient } from "../TranslatedInstanceClient";
 import { TranslatedHtmlEditor, TranslatedHtmlViewer } from "./TranslatedHtml";
 import { initialElementIf, onEscapeToText } from "../Code/TranslationTypeTable";
@@ -61,7 +62,7 @@ export default function TranslatedInstanceSync(): React.JSX.Element {
                         culture,
                         originalText: change.support[result!.masterCulture]?.original ?? "",
                         translatedText: change.translatedText,
-                    } satisfies TranslatedInstanceClient.TranslationRecord;
+                    } satisfies TranslationRecordInfo;
                 })
                 .notNull());
 
@@ -132,8 +133,8 @@ export default function TranslatedInstanceSync(): React.JSX.Element {
 
 function SyncPropertyRows(p: {
     route: string;
-    conflict: TranslatedInstanceClient.PropertyChange;
-    data: TranslatedInstanceClient.TypeInstancesChanges;
+    conflict: PropertyChange;
+    data: TypeInstancesChanges;
     currentCulture: string;
 }): React.JSX.Element {
 
@@ -200,7 +201,7 @@ function SyncPropertyRows(p: {
 }
 
 export function TranslationProperty(p: {
-    property: TranslatedInstanceClient.PropertyChange;
+    property: PropertyChange;
     isHtml?: boolean;
     richEdit?: boolean;
     avoidCombo?: boolean;

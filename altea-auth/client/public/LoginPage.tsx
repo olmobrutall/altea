@@ -8,6 +8,7 @@ import * as AppContext from "@altea/altea/client/AppContext";
 import { QueryString } from "@altea/altea/client/QueryString";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { LoginAuthMessage } from "../../data/AuthMessages";
+import type { LoginRequest } from "../../data/AuthDtos";
 import { AuthClient } from "../AuthClient";
 
 // Port of Signum.Authorization's Login/LoginPage.tsx. Divergences: helper imports come from
@@ -75,7 +76,7 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
     function handleSubmit(e: React.FormEvent<HTMLFormElement>): void {
         e.preventDefault();
 
-        const request: AuthClient.API.LoginRequest = {
+        const request: LoginRequest = {
             userName: userName.current!.value,
             password: passwordIsUsername ? userName.current!.value : password.current!.value,
             rememberMe: rememberMe.current ? rememberMe.current.checked : undefined,

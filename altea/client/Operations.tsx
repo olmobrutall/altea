@@ -33,13 +33,16 @@ import SearchControlLoaded from "./SearchControl/SearchControlLoaded";
 import * as ContextualItems from './SearchControl/ContextualItems';
 import type { ContextualItemsContext, ContextualMenuItem } from './SearchControl/ContextualItems';
 import { ajaxPost, ajaxPostRaw } from './Services';
-import type { WebApiHttpError } from './Services';
-import type { FilterOperationKeys } from "../data/dynamicQueries";
+import type { HttpError } from '../data/exception';
 import { Entity } from '../data/entity';
 import type { EntityPack } from '../data/entityPack';
 import type { Lite } from '../data/lite';
 import { EngineMessage, JavascriptMessage, OperationMessage } from '../data/uiMessages';
-import type { ConstructSymbol, From, FromMany, Simple, DeleteSymbol, ExecuteSymbol, OperationSymbol, PropertyOperationKeys } from '../data/operations';
+import type {
+  ConstructSymbol, From, FromMany, Simple, DeleteSymbol, ExecuteSymbol, OperationSymbol, PropertySetter,
+  EntityOperationRequest, LiteOperationRequest, ConstructOperationRequest, MultiOperationRequest,
+  StateCanExecuteRequest, StateCanExecuteResponse,
+} from '../data/operations';
 import type { ButtonBarElement, ButtonsContext, EntityFrame, IOperationVisible, TypeContext } from './TypeContext';
 import * as AppContext from './AppContext';
 
@@ -296,7 +299,7 @@ export namespace Operations {
   export namespace API {
 
     export function construct<T extends Entity>(type: string | Type<T>, operationKey: string | ConstructSymbol<T, Simple>, ...args: any[]): Promise<EntityPack<T> | undefined> {
-      return ajaxPost({ url: "/api/operation/construct/" + getOperationKey(operationKey) }, { args, type: getTypeName(type) });
+      return ajaxPost({ url: "/api/operation/construct/" + getOperationKey(operationKey) }, { args, type: getTypeName(type) } satisfies ConstructOperationRequest);
     }
 
     export function constructFromEntity<T extends Entity, F extends Entity>(entity: F, operationKey: string | ConstructSymbol<T, From<F>>, ...args: any[]): Promise<EntityPack<T> | undefined> {
@@ -392,7 +395,7 @@ export namespace Operations {
       max?: number;
       position?: number;
       result?: T;
-      error?: WebApiHttpError;
+      error?: HttpError;
       isFinished: boolean;
     }
 
@@ -413,49 +416,8 @@ export namespace Operations {
       abortController?: AbortController;
     }
 
-    export interface MultiOperationRequest {
-      type?: string;
-      lites: Lite<Entity>[];
-      args: any[];
-
-      setters?: PropertySetter[]
-    }
-
-    export interface PropertySetter {
-      property: string;
-      operation?: PropertyOperationKeys;
-      filterOperation?: FilterOperationKeys;
-      value?: any;
-      entityType?: string;
-      predicate?: PropertySetter[];
-      setters?: PropertySetter[];
-    }
-
-    export interface ConstructOperationRequest {
-      type?: string;
-      args: any[];
-    }
-
-    export interface EntityOperationRequest {
-      entity: Entity;
-      type?: string;
-      args: any[];
-    }
-
-    export interface LiteOperationRequest {
-      lite: Lite<Entity>;
-      type?: string;
-      args: any[];
-    }
-
-
-    export function stateCanExecutes<T extends Entity>(lites: Lite<T>[], operationKeys: string[]): Promise<CanExecutesResponse> {
-      return ajaxPost({ url: "/api/operation/stateCanExecutes" }, { lites, operationKeys });
-    }
-
-    export interface CanExecutesResponse {
-      canExecutes: { [operationKey: string]: string };
-      isReadOnly?: boolean;
+    export function stateCanExecutes<T extends Entity>(lites: Lite<T>[], operationKeys: string[]): Promise<StateCanExecuteResponse> {
+      return ajaxPost({ url: "/api/operation/stateCanExecutes" }, { lites, operationKeys } satisfies StateCanExecuteRequest);
     }
   }
 }

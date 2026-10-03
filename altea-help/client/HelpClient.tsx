@@ -23,7 +23,7 @@ import {
     AppendixHelpEntity, NamespaceHelpEntity, QueryHelpEntity, TypeHelpEntity,
     HelpMessage, HelpPermissions, HelpLinkPrefix,
     type HelpFileUpload, type HelpImportPreviewModel, type HelpImportReportModel,
-    type HelpIndexTS, type HelpSearchResponse, type NamespaceHelpTS,
+    type HelpIndex, type HelpSearchResponse, type NamespaceHelpInfo,
 } from "../data/Help";
 import HelpOmniboxProvider from "./HelpOmniboxProvider";
 import { HelpIcon, HelpWidget } from "./HelpWidget";
@@ -157,11 +157,11 @@ export namespace HelpClient {
 
     export namespace API {
 
-        export function index(): Promise<HelpIndexTS> {
+        export function index(): Promise<HelpIndex> {
             return ajaxGet({ url: "/api/help/index" });
         }
 
-        export function namespaceHelp(namespace: string): Promise<NamespaceHelpTS> {
+        export function namespaceHelp(namespace: string): Promise<NamespaceHelpInfo> {
             return ajaxGet({ url: "/api/help/namespace?" + QueryString.stringify({ namespace }) });
         }
 

@@ -51,6 +51,11 @@ once a module carries substantial UI or server code, as every framework package 
 `altea-playwright`). A package's `test/` is its own fourth layer (`tsconfig.test.json`), excluded from the
 three shipping presets, and the one place that gets both node types and the DOM lib.
 
+**A wire DTO is declared ONCE, in `data/`** (`data/<Module>Dtos.ts`), and both tiers `import type` it —
+never a server copy plus a hand-written client copy. No `TS` suffix; when the clean name collides with a
+class or model, suffix `Info` (`ChartScriptInfo`). A client type that adds computed members extends or
+derives from the DTO instead of restating it.
+
 ## The entity model
 
 - **Entities are plain field bags.** No property getters, no setters. `@reflect` + `@entity(kind, data)` on

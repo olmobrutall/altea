@@ -3,9 +3,8 @@ import { ajaxGet } from "@altea/altea/client/Services";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { onWidgets } from "@altea/altea/client/Frames/Widgets";
 import { Entity } from "@altea/altea/data/entity";
-import { Lite } from "@altea/altea/data/lite";
 import { tryGetTypeInfo } from "@altea/altea/data/reflection";
-import type { UserEntity } from "@altea/altea-auth/data/User";
+import type { ConcurrentUserResponse } from "../data/ConcurrentUserDtos";
 import ConcurrentUser from "./ConcurrentUser";
 
 // Registers the frame widget and the one API call.
@@ -39,12 +38,5 @@ export namespace ConcurrentUserClient {
         export function getUsers(key: string): Promise<ConcurrentUserResponse[]> {
             return ajaxGet({ url: "/api/concurrentUser/getUsers/" + encodeURIComponent(key) });
         }
-    }
-
-    export interface ConcurrentUserResponse {
-        user: Lite<UserEntity>;
-        startTime: string; // ISO — see the server DTO note
-        connectionID: string;
-        isModified: boolean;
     }
 }

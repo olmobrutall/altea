@@ -7,11 +7,11 @@ import { table } from "@altea/altea/server/table";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { parseQueryRequest } from "@altea/altea/server/queryServer";
 import type { QueryRequest } from "@altea/altea/server/dynamicQuery/requests";
-import type { QueryRequest as WireQueryRequest } from "@altea/altea/data/dynamicQuery/queryRequest";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
 import { getKey } from "@altea/altea/data/dynamicQuery/queryUtils";
 import type { Lite } from "@altea/altea/data/lite";
 import { ExcelReportEntity, ExcelReportOperation, extensionError } from "../../data/excel/ExcelReport";
+import type { ExcelReportRequest } from "../../data/OfficeTemplateDtos";
 import { ExcelReportGenerator } from "./ExcelReportGenerator";
 
 // Port of the EXCEL-REPORT half of Signum.Excel's ExcelLogic.cs + the two ExcelController actions that
@@ -116,12 +116,6 @@ export namespace ExcelReportLogic {
                     .send(Buffer.from(bytes));
             });
     }
-}
-
-/** The report to run, and the search that feeds it. */
-export interface ExcelReportRequest {
-    queryRequest: WireQueryRequest;
-    excelReport: Lite<ExcelReportEntity>;
 }
 
 /** The `yyyyMMdd-HHmmss` suffix. */

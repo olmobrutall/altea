@@ -33,6 +33,7 @@ import {
     RecipientEmbedded, RemoteEmailFolderModel, RemoteEmailMessageMessage, RemoteEmailMessageModel,
     RemoteEmailMessageRowModel,
 } from "../../data/RemoteEmailMessage";
+import type { ChangeCategoriesRequest } from "../../data/RemoteEmailDtos";
 import RemoteEmailPopover from "./RemoteEmailPopover";
 import { FolderLine } from "./FolderLine";
 import { MultiMessageProgressModal } from "./MultiMessageProgressModal";
@@ -406,19 +407,6 @@ export namespace RemoteEmailsClient {
                 () => ajaxPostRaw({ url: `/api/remoteEmail/${userId}/changeCategories`, signal: abortController.signal }, request));
         }
     }
-}
-
-/** The categorise request body, as the client sends it. */
-export interface ChangeCategoriesRequest {
-    messageIds: string[];
-    categoriesToAdd: string[];
-    categoriesToRemove: string[];
-}
-
-/** One line of the bulk actions' NDJSON response. */
-export interface EmailResult {
-    id: string;
-    error?: string;
 }
 
 /**

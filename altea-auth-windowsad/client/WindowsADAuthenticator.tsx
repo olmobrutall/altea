@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ajaxPost } from "@altea/altea/client/Services";
 import MessageModal from "@altea/altea/client/Modals/MessageModal";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
+import type { LoginResponse } from "@altea/altea-auth/data/AuthDtos";
 import { LoginOptions } from "@altea/altea-auth/client/public/LoginPage";
 import { WindowsADMessage } from "../data/WindowsAD";
 
@@ -47,7 +48,7 @@ export namespace WindowsADAuthenticator {
     }
 
     export namespace API {
-        export function loginWindowsAuthentication(throwError: boolean): Promise<AuthClient.API.LoginResponse | undefined> {
+        export function loginWindowsAuthentication(throwError: boolean): Promise<LoginResponse | undefined> {
             return ajaxPost({
                 url: `/api/auth/loginWindowsAuthentication?throwError=${throwError}`,
                 avoidAuthToken: true,

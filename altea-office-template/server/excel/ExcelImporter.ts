@@ -25,6 +25,7 @@ import type { OperationSymbol } from "@altea/altea/data/operations";
 import { PropertyAllowed } from "@altea/altea-auth/data/Rules";
 import { PropertyAuthLogic } from "@altea/altea-auth/server/PropertyAuthLogic";
 import { ImportExcelMode, ImportFromExcelMessage, type ImportExcelModel } from "../../data/Excel";
+import type { ImportResult } from "../../data/OfficeTemplateDtos";
 import { readSheet, cellReference, fromExcelDate, fromExcelNumber, fromExcelTime, type ExcelRow } from "./ExcelReader";
 
 // Port of Signum.Excel's ImporterFromExcel.cs — see port/OfficeTemplate.md.
@@ -44,18 +45,6 @@ import { readSheet, cellReference, fromExcelDate, fromExcelNumber, fromExcelTime
 //
 // `model.identityInsert` only decides whether the Id column MAY be assigned: the save path already writes
 // an explicit PK whenever a NEW entity carries an id.
-
-/** A string union: the value goes to the client as-is. */
-export type ImportActionKeys = "Inserted" | "Updated" | "NoChanges";
-
-/** One row's outcome, streamed to the client as it happens. */
-export interface ImportResult {
-    totalRows: number;
-    action: ImportActionKeys;
-    rowIndex: number;
-    entity?: Lite<Entity> | null;
-    error?: string | null;
-}
 
 export interface ParsedQueryForImport {
     mainType: Type<Entity>;

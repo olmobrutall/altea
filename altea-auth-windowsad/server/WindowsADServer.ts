@@ -8,6 +8,7 @@ import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { AuthServer } from "@altea/altea-auth/server/AuthServer";
 import { AuthTokenServer } from "@altea/altea-auth/server/AuthTokenServer";
 import { UserState, type UserEntity } from "@altea/altea-auth/data/User";
+import type { LoginResponse } from "@altea/altea-auth/data/AuthDtos";
 import { LoginAuthMessage } from "@altea/altea-auth/data/AuthMessages";
 import { WindowsADMessage } from "../data/WindowsAD";
 import { DirectoryServiceContext, WindowsADAuthorizer } from "./WindowsADAuthorizer";
@@ -48,7 +49,6 @@ export interface NegotiatedIdentity {
     sid: string | null;
 }
 
-interface LoginResponse { authenticationType: string; token: string; userEntity: UserEntity }
 
 interface ResLike {
     setHeader(name: string, value: string): void;

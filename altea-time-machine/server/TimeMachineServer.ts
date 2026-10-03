@@ -6,6 +6,7 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { Entity } from "@altea/altea/data/entity";
 import { Temporal } from "@altea/altea/data/basics";
 import { Serializer } from "@altea/altea/data/serializer";
+import type { EntityDump } from "../data/TimeMachineDtos";
 
 // The ONE route the Time Machine page calls: "give me this row as it was at that instant, plus its dump".
 //
@@ -21,12 +22,6 @@ import { Serializer } from "@altea/altea/data/serializer";
 //
 // Port of Signum.TimeMachine's TimeMachineController.cs — see port/TimeMachine.md.
 export namespace TimeMachineServer {
-
-    /** One version of a row, plus its dump (Serializer.dump). */
-    export interface EntityDump {
-        entity: Entity;
-        dump: string;
-    }
 
     export function start(ws: WebBuilder): void {
 

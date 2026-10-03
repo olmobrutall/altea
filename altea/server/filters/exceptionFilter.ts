@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { WebBuilder } from "../webApi";
 import { ExceptionLogic } from "../exceptionLogic";
-import type { ExceptionEntity } from "../../data/exception";
+import type { ExceptionEntity, HttpError } from "../../data/exception";
 import { IntegrityCheckException } from "../../data/validation";
 import { EntityNotFoundException, UnauthorizedAccessException, AuthenticationException } from "../exceptions";
 import { UserHolder } from "../userHolder";
@@ -14,20 +14,9 @@ import { isCanceled } from "../cancellation";
 // `useDefaultErrorHandler` that emitted a bare `{ error }`).
 //
 // On any unhandled error it: (1) logs an ExceptionEntity (ExceptionLogic.logException, enriched with
-// request context), then (2) writes an `HttpError` JSON — the exact shape the client's
-// Services.ThrowErrorFilter parses into a `ServiceError` (WebApiHttpError): exceptionType /
-// exceptionMessage / stackTrace / exceptionId / innerException. `exceptionId` is the saved row's id,
+// request context), then (2) writes an `HttpError` JSON (data/exception), which the client's
+// Services.ThrowErrorFilter parses into a `ServiceError`. `exceptionId` is the saved row's id,
 // so the ErrorModal can surface (and, once wired, link to) the persisted exception.
-
-// The client's WebApiHttpError (altea/client/Services.ts).
-export interface HttpError {
-    exceptionType: string;
-    exceptionMessage: string | null;
-    stackTrace: string | null;
-    exceptionId: string | null;
-    model?: unknown;
-    innerException: HttpError | null;
-}
 
 // Signum's HttpError.IncludeErrorDetails / SignumExceptionFilterAttribute.ShouldLogException — kept as
 // mutable hooks so a host can suppress stack traces in production or skip logging for some errors.

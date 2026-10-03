@@ -12,6 +12,7 @@ import { UserAssetClient } from "@altea/altea-user-assets/client/UserAssetClient
 import { DashboardClient } from "@altea/altea-dashboard/client/DashboardClient";
 import "@altea/altea-user-queries/client/UserQueriesClient"; // augments SearchControlLoaded with getCurrentUserQuery
 import { TourEntity, TourStepEntity } from "../data/Tour";
+import type { TourDTO } from "../data/TourDtos";
 import { TourButton } from "./TourComponent";
 
 // The module's client registration. Where the tour button appears:
@@ -111,24 +112,4 @@ export namespace TourClient {
             return typeEntity(typeName).then(te => te == null ? null : te.toLite());
         }
     }
-}
-
-/** The flattened, selector-resolved tour the player consumes. */
-export interface TourDTO {
-    tour: Lite<TourEntity>;
-    forEntity: Lite<Entity>;
-    steps: TourStepDTO[];
-    showProgress: boolean;
-    animate: boolean;
-    showCloseButton: boolean;
-}
-
-export interface TourStepDTO {
-    cssSelector: string | null;
-    title: string;
-    description: string;
-    side: string | null;
-    align: string | null;
-    /** The ClickTrigger member NAME ("OnLoad" / "OnNext") — the server sends `Enum.toName`. */
-    click: string | null;
 }

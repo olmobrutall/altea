@@ -3,6 +3,7 @@ import { AuthServer } from "@altea/altea-auth/server/AuthServer";
 import { AuthTokenServer } from "@altea/altea-auth/server/AuthTokenServer";
 import { LoginAuthMessage } from "@altea/altea-auth/data/AuthMessages";
 import type { UserEntity } from "@altea/altea-auth/data/User";
+import type { LoginResponse } from "@altea/altea-auth/data/AuthDtos";
 import { ResetPasswordMessage } from "../data/ResetPassword";
 import { ResetPasswordRequestLogic } from "./ResetPasswordRequestLogic";
 
@@ -17,7 +18,6 @@ import { ResetPasswordRequestLogic } from "./ResetPasswordRequestLogic";
 interface ForgotPasswordRequest { email?: string }
 interface ForgotPasswordResponse { success: boolean; message: string; title?: string }
 interface ResetPasswordRequestBody { code?: string; newPassword?: string }
-interface LoginResponse { authenticationType: string; token: string; userEntity: UserEntity }
 
 interface ResLike { status(code: number): { json(body: unknown): void } }
 

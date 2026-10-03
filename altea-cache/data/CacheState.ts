@@ -5,7 +5,7 @@
 
 // One cached table's statistics. `count` is null while the table has not been loaded yet — the panel
 // shows "Not loaded" rather than 0, since 0 is also a legitimate row count.
-export interface CacheTableTS {
+export interface CacheTable {
     tableName: string;
     typeName: string;
     count: number | null;
@@ -13,14 +13,14 @@ export interface CacheTableTS {
     invalidations: number;
     loads: number;
     sumLoadTime: string;
-    subTables?: CacheTableTS[];
+    subTables?: CacheTable[];
     // ALTEA ADDITION: the columns a TRIMMED semi-cached lite table holds. "Only the display columns of only
     // the referenced rows" is the guarantee that keeps a cached Master type from dragging a Transactional
     // one into memory, so the panel shows it rather than leaving it to be trusted.
     columns?: string[];
 }
 
-export interface ResetLazyStatsTS {
+export interface ResetLazyStats {
     typeName: string;
     hits: number;
     invalidations: number;
@@ -30,12 +30,12 @@ export interface ResetLazyStatsTS {
 
 // The whole panel payload. `sqlDependency` is ALWAYS false — there are no query notifications to lean on
 // (see port/Cache.md) — and is kept only so the panel reads the same as Signum's.
-export interface CacheStateTS {
+export interface CacheState {
     isEnabled: boolean;
     sqlDependency: boolean;
     serverBroadcast: string | null;
-    tables: CacheTableTS[];
-    lazies: ResetLazyStatsTS[];
+    tables: CacheTable[];
+    lazies: ResetLazyStats[];
 }
 
 // The bodies of the two ANONYMOUS broadcast endpoints. They carry a shared secret, because they are

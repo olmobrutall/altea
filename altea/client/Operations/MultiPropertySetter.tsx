@@ -49,7 +49,7 @@ import { PropertyRoute, PropertyRouteType } from '../../data/propertyRoute'
 import { cleanTypeName, resolveCleanType, resolveEntityType } from '../../data/registration'
 import { tryGetFilterType } from '../../data/dynamicQuery/queryUtils'
 import { PropertyOperation } from '../../data/operations'
-import type { PropertyOperationKeys } from '../../data/operations'
+import type { PropertyOperationKeys, PropertySetter } from '../../data/operations'
 import { FilterOperation } from '../../data/dynamicQueries'
 import type { FilterOperationKeys } from '../../data/dynamicQueries'
 import { EntityControlMessage, JavascriptMessage, OperationMessage, SearchMessage } from '../../data/uiMessages'
@@ -77,7 +77,7 @@ interface MultiPropertySetterModalProps extends IModalProps<boolean | undefined>
   typeInfo: TypeInfo;
   lites: Lite<Entity>[];
   operationInfo: OperationMetadata;
-  setters: Operations.API.PropertySetter[];
+  setters: PropertySetter[];
 }
 
 export function MultiPropertySetterModal(p: MultiPropertySetterModalProps): React.ReactElement {
@@ -134,19 +134,19 @@ export function MultiPropertySetterModal(p: MultiPropertySetterModalProps): Reac
     </Modal>
   );
 
-  function isValid(setter: Operations.API.PropertySetter) {
+  function isValid(setter: PropertySetter) {
     return setter.property != null;
   }
 }
 
 export namespace MultiPropertySetterModal {
-  export function show(typeInfo: TypeInfo, lites: Lite<Entity>[], operationInfo: OperationMetadata, setters?: Operations.API.PropertySetter[]): Promise<Operations.API.PropertySetter[] | undefined> {
-    var settersOrDefault = setters ?? [{ property: null!, operation: null! } as Operations.API.PropertySetter];
+  export function show(typeInfo: TypeInfo, lites: Lite<Entity>[], operationInfo: OperationMetadata, setters?: PropertySetter[]): Promise<PropertySetter[] | undefined> {
+    var settersOrDefault = setters ?? [{ property: null!, operation: null! } as PropertySetter];
     return openModal<boolean | undefined>(<MultiPropertySetterModal typeInfo={typeInfo} lites={lites} operationInfo={operationInfo} setters={settersOrDefault} />).then(a => a ? settersOrDefault : undefined);
   };
 }
 
-export function MultiPropertySetter({ root, setters, onChange, isPredicate }: { root: PropertyRoute, setters: Operations.API.PropertySetter[], isPredicate: boolean, onChange: () => void }): React.ReactElement {
+export function MultiPropertySetter({ root, setters, onChange, isPredicate }: { root: PropertyRoute, setters: PropertySetter[], isPredicate: boolean, onChange: () => void }): React.ReactElement {
 
   function handleNewPropertySetter(e: React.MouseEvent) {
     e.preventDefault();
@@ -154,7 +154,7 @@ export function MultiPropertySetter({ root, setters, onChange, isPredicate }: { 
     onChange();
   }
 
-  function handleDeletePropertySetter(ps: Operations.API.PropertySetter) {
+  function handleDeletePropertySetter(ps: PropertySetter) {
     setters.remove(ps);
     onChange();
   }
@@ -231,8 +231,8 @@ export function getPropertyOperations(type: TypeReference): PropertyOperationKey
 
 export interface PropertySetterComponentProps {
   root: PropertyRoute;
-  setter: Operations.API.PropertySetter;
-  onDeleteSetter: (pi: Operations.API.PropertySetter) => void;
+  setter: PropertySetter;
+  onDeleteSetter: (pi: PropertySetter) => void;
   isPredicate: boolean;
   onSetterChanged: () => void;
 }
@@ -279,7 +279,7 @@ export function PropertySetterComponent(p: PropertySetterComponentProps): React.
     s.filterOperation = fOperation;
   }
 
-  function fixOperation(s: Operations.API.PropertySetter, pr: PropertyRoute | null | undefined): Promise<void> {
+  function fixOperation(s: PropertySetter, pr: PropertyRoute | null | undefined): Promise<void> {
 
     s.value = undefined;
     s.predicate = s.operation && showPredicate(s.operation) ? [] : undefined;

@@ -21,7 +21,7 @@ import {
     PredictorMessage, PredictorOperation, PredictorPublicationSymbol, PredictorResultSaverSymbol,
     PredictorSettingsEmbedded, PredictorSimpleResultSaver, PredictorState, PredictorSubQueryEntity,
     PredictSimpleResultEntity, TensorFlowPredictorAlgorithm,
-    type EpochProgressRow, type TrainingProgress,
+    type EpochProgressRow, type TrainingProgress, type PredictorBackendInfo,
 } from "../data/Predictor";
 import type { PredictRequestModel } from "../data/PredictRequest";
 
@@ -236,7 +236,7 @@ export namespace MachineLearningClient {
         }
 
         /** Which tfjs backend the server is on — shown in the designer (see the engine's header). */
-        export function backend(): Promise<{ backend: string; native: boolean }> {
+        export function backend(): Promise<PredictorBackendInfo> {
             return ajaxGet({ url: "/api/predictor/backend" });
         }
     }

@@ -8,6 +8,7 @@ import { UserEntity, UserState } from "../data/User";
 import { RoleEntity } from "../data/Role";
 import { LoginAuthMessage } from "../data/AuthMessages";
 import { BaseADConfigurationEmbedded, ActiveDirectoryAuthorizerMessage } from "../data/BaseAD";
+import type { ExternalUser } from "../data/AuthDtos";
 import { AuthLogic, type ICustomAuthorizer } from "./AuthLogic";
 
 // The directory-authorizer BASE — see port/AuthDirectory.md.
@@ -31,16 +32,6 @@ import { AuthLogic, type ICustomAuthorizer } from "./AuthLogic";
 //  - `user.CultureInfo = CultureServer.InferUserCulture(...)` is omitted: altea has no CultureInfoEntity
 //    on the user (see data/User.ts), and the user's culture lives in the BROWSER (see CLAUDE.md).
 //  - `new Transaction()` becomes `Transaction.create` (join-or-open — the same semantics).
-
-/** One hit from a directory search. */
-export interface ExternalUser {
-    displayName: string;
-    /** userPrincipalName / the directory's login name. */
-    upn: string;
-    jobTitle: string;
-    /** The directory's stable identifier — an Entra object id, a Windows SID, an OIDC "sub". */
-    externalId: string | null;
-}
 
 /** An authorizer that can also SEARCH the directory and import a user. */
 export interface IDirectoryInviter {

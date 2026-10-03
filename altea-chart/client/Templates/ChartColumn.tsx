@@ -12,6 +12,7 @@ import type { IChartBase } from '../../data/ChartRequest'
 import { ChartClient } from '../ChartClient'
 import { ColorPaletteClient } from '../ColorPalette/ColorPaletteClient'
 import { ColorPaletteEntity } from '../../data/ColorPalette'
+import type { ChartScriptColumnInfo } from '../../data/ChartDtos'
 import { Navigator } from '@altea/altea/client/Navigator'
 import { JavascriptMessage } from '@altea/altea/data/uiMessages'
 import { cleanTypeName } from '@altea/altea/data/registration'
@@ -33,7 +34,7 @@ import '@altea/altea/data/globals/stringExtensions'
 export interface ChartColumnProps {
   ctx: TypeContext<ChartColumnEmbedded>;
   columnIndex: number;
-  scriptColumn: ChartClient.ChartScriptColumn;
+  scriptColumn: ChartScriptColumnInfo;
   chartScript: ChartClient.ChartScript;
   chartBase: IChartBase;
   queryKey: string;

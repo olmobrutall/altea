@@ -6,6 +6,9 @@ import { TimeTracker } from "@altea/altea/server/profiler/timeTracker";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import type { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { ProfilerPermission } from "../data/ProfilerPermission";
+import type {
+    HeavyProfilerEntryInfo, HeavyProfilerUpload, StackTrace, TimeTrackerEntryInfo, TimeTrackerTimeInfo,
+} from "../data/ProfilerDtos";
 
 // Port of Signum's ProfilerHeavyController + ProfilerTimesController (Signum.Profiler). The HTTP surface
 // the ProfilerClient admin pages call: enable/disable + read the HeavyProfiler span tree (with the
@@ -40,34 +43,34 @@ export namespace ProfilerServer {
         // Root entries (no children) — the Heavy list page's flame rows. Optionally hides the profiler's
         // own /api/profilerHeavy/* requests (Signum's ignoreProfilerHeavyEntries).
         ws.get("/api/profilerHeavy/entries",
-            { res: CustomType<HeavyProfilerEntryTS[]>() },
+            { res: CustomType<HeavyProfilerEntryInfo[]>() },
             async (req, res) => {
                 await assertAuthorized(ProfilerPermission.ViewHeavyProfiler);
                 const ignore = (req as Request).query["ignoreProfilerHeavyEntries"] === "true";
                 const now = perfNow();
-                const result: HeavyProfilerEntryTS[] = [];
+                const result: HeavyProfilerEntryInfo[] = [];
                 for (const e of HeavyProfiler.entries) {
                     if (ignore && e.kind.startsWith("Web.API") && e.additionalData != null && e.additionalData.includes("/api/profilerHeavy/"))
                         continue;
-                    result.push(toEntryTS(e, false, now));
+                    result.push(toEntryInfo(e, false, now));
                 }
                 res.json(result);
             });
 
         // The full sub-tree of one entry, flattened with the async-depth layout (Signum's Details + Fill).
         ws.get("/api/profilerHeavy/details/:fullIndex",
-            { params: CustomType<{ fullIndex: string }>(), res: CustomType<HeavyProfilerEntryTS[]>() },
+            { params: CustomType<{ fullIndex: string }>(), res: CustomType<HeavyProfilerEntryInfo[]>() },
             async (req, res) => {
                 await assertAuthorized(ProfilerPermission.ViewHeavyProfiler);
                 const entry = HeavyProfiler.find(req.params.fullIndex);
-                const result: HeavyProfilerEntryTS[] = [];
+                const result: HeavyProfilerEntryInfo[] = [];
                 fill(result, entry, 0, perfNow());
                 res.json(result);
             });
 
         // The stack frames captured for one entry (Signum's StackTrace).
         ws.get("/api/profilerHeavy/stackTrace/:fullIndex",
-            { params: CustomType<{ fullIndex: string }>(), res: CustomType<StackTraceTS[] | null>() },
+            { params: CustomType<{ fullIndex: string }>(), res: CustomType<StackTrace[] | null>() },
             async (req, res) => {
                 await assertAuthorized(ProfilerPermission.ViewHeavyProfiler);
                 const e = HeavyProfiler.find(req.params.fullIndex);
@@ -88,10 +91,10 @@ export namespace ProfilerServer {
 
         // Upload a previously-exported XML to merge & compare (Signum's Upload + ImportXml, rebaseTime).
         ws.post("/api/profilerHeavy/upload",
-            { req: CustomType<{ fileName: string; content: string }>() },
+            { req: CustomType<HeavyProfilerUpload>() },
             async (req, res) => {
                 await assertAuthorized(ProfilerPermission.ViewHeavyProfiler);
-                const file = JSON.parse((req as Request).body) as { fileName: string; content: string };
+                const file = JSON.parse((req as Request).body) as HeavyProfilerUpload;
                 // The client sends the file's base64 data-URL tail; decode to the raw XML text.
                 const xml = Buffer.from(file.content, "base64").toString("utf8");
                 HeavyProfiler.importXml(xml, /*rebaseTime*/ true);
@@ -107,10 +110,10 @@ export namespace ProfilerServer {
         });
 
         ws.get("/api/profilerTimes/times",
-            { res: CustomType<TimeTrackerEntryTS[]>() },
+            { res: CustomType<TimeTrackerEntryInfo[]>() },
             async (_req, res) => {
                 await assertAuthorized(ProfilerPermission.ViewTimeTracker);
-                res.json([...TimeTracker.identifiedElapseds.values()].map(toTimeEntryTS));
+                res.json([...TimeTracker.identifiedElapseds.values()].map(toTimeEntryInfo));
             });
     }
 }
@@ -127,22 +130,7 @@ function perfNow(): number {
 
 // ---- HeavyProfilerEntry → wire DTO (Signum's HeavyProfofilerEntryTS) ---------------------------
 
-interface HeavyProfilerEntryTS {
-    beforeStart: number;
-    start: number;
-    end: number;
-    totalMax: number;
-    elapsed: string;
-    kind: string;
-    color: string;
-    depth: number;
-    asyncDepth: number;
-    additionalData: string | undefined;
-    fullIndex: string;
-    isFinished: boolean;
-}
-
-function toEntryTS(e: HeavyProfilerEntry, fullAdditionalData: boolean, now: number): HeavyProfilerEntryTS {
+function toEntryInfo(e: HeavyProfilerEntry, fullAdditionalData: boolean, now: number): HeavyProfilerEntryInfo {
     const end = e.end ?? now;
     return {
         beforeStart: e.beforeStart,
@@ -163,10 +151,10 @@ function toEntryTS(e: HeavyProfilerEntry, fullAdditionalData: boolean, now: numb
 // Signum's HeavyProfofilerEntryTS.Fill — flattens the sub-tree while computing an "async depth": a child
 // that overlaps in time with an earlier sibling is stacked below it (a lane), so concurrent spans don't
 // draw on top of each other. Returns the max async depth used by this sub-tree.
-function fill(result: HeavyProfilerEntryTS[], entry: HeavyProfilerEntry, asyncDepth: number, now: number): number {
-    const entryTS = toEntryTS(entry, true, now);
-    entryTS.asyncDepth = asyncDepth;
-    result.push(entryTS);
+function fill(result: HeavyProfilerEntryInfo[], entry: HeavyProfilerEntry, asyncDepth: number, now: number): number {
+    const flat = toEntryInfo(entry, true, now);
+    flat.asyncDepth = asyncDepth;
+    result.push(flat);
 
     if (entry.entries == null)
         return asyncDepth;
@@ -183,8 +171,8 @@ function fill(result: HeavyProfilerEntryTS[], entry: HeavyProfilerEntry, asyncDe
         const childTotalMax = result[result.length - 1].totalMax;
         entryInfos.set(e, { asyncDepth: newAsyncDepth, totalMax: childTotalMax });
 
-        if (childTotalMax > entryTS.totalMax)
-            entryTS.totalMax = childTotalMax;
+        if (childTotalMax > flat.totalMax)
+            flat.totalMax = childTotalMax;
     }
 
     return Math.max(...[...entryInfos.values()].map(a => a.asyncDepth));
@@ -195,18 +183,9 @@ function overlapsAsync(entry: HeavyProfilerEntry, entryTotalMax: number, other: 
     return !(entryTotalMax <= other.beforeStart || otherEnd <= entry.beforeStart);
 }
 
-// ---- Stack trace DTO (Signum's StackTraceTS) --------------------------------------------------
+// ---- Stack trace DTO (Signum's StackTrace) --------------------------------------------------
 
-interface StackTraceTS {
-    color: string | undefined;
-    namespace: string;
-    type: string | undefined;
-    method: string;
-    fileName: string | undefined;
-    lineNumber: number;
-}
-
-function stackTraceOf(e: HeavyProfilerEntry): StackTraceTS[] | null {
+function stackTraceOf(e: HeavyProfilerEntry): StackTrace[] | null {
     const frames = e.externalStackTrace ?? (e.stackTrace != null ? parseStackTrace(e.stackTrace) : undefined);
     if (frames == null)
         return null;
@@ -222,27 +201,8 @@ function stackTraceOf(e: HeavyProfilerEntry): StackTraceTS[] | null {
 
 // ---- TimeTracker → wire DTO -------------------------------------------------------------------
 
-interface TimeTrackerTimeTS {
-    duration: number;
-    date: string;
-    url: string | undefined;
-    user: string | undefined;
-}
-
-interface TimeTrackerEntryTS {
-    identifier: string;
-    count: number;
-    averageDuration: number;
-    totalDuration: number;
-    max: TimeTrackerTimeTS;
-    max2: TimeTrackerTimeTS | undefined;
-    max3: TimeTrackerTimeTS | undefined;
-    min: TimeTrackerTimeTS;
-    last: TimeTrackerTimeTS;
-}
-
-function toTimeEntryTS(e: import("@altea/altea/server/profiler/timeTracker").TimeTrackerEntry): TimeTrackerEntryTS {
-    const t = (x: { duration: number; date: Date; url: string | undefined; user: unknown } | undefined): TimeTrackerTimeTS | undefined =>
+function toTimeEntryInfo(e: import("@altea/altea/server/profiler/timeTracker").TimeTrackerEntry): TimeTrackerEntryInfo {
+    const t = (x: { duration: number; date: Date; url: string | undefined; user: unknown } | undefined): TimeTrackerTimeInfo | undefined =>
         x == null ? undefined : { duration: x.duration, date: x.date.toISOString(), url: x.url, user: x.user == null ? undefined : String(x.user) };
     return {
         identifier: e.identifier,

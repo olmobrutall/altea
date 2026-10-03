@@ -36,21 +36,10 @@ import type { TypeReference } from "../data/reflection";
 import { resolveEntityType } from "../data/registration";
 import { Enum } from "../data/enum";
 import { tryGetFilterType } from "../data/dynamicQuery/queryUtils";
-import type { PropertyOperationKeys } from "../data/operations";
+import type { PropertySetter } from "../data/operations";
 import type { FilterOperationKeys } from "../data/dynamicQueries";
 import { propertyWriteAccess, serializationAuthMetadata, resolveSerializationAuthContext } from "../data/serializer";
 import { UnauthorizedAccessException } from "./exceptions";
-
-/** Signum's `OperationController.PropertySetter`. Mirrors client `Operations.API.PropertySetter`. */
-export interface PropertySetter {
-    property: string;
-    operation?: PropertyOperationKeys;
-    filterOperation?: FilterOperationKeys;
-    value?: unknown;
-    entityType?: string;
-    predicate?: PropertySetter[];
-    setters?: PropertySetter[];
-}
 
 export namespace MultiSetter {
 

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ajaxPost } from "@altea/altea/client/Services";
 import { loadMonaco, type Monaco } from "@altea/altea-monaco/client/monaco";
+import type { DeclarationFile, DeclarationsRequest, IntelliSenseResponse } from "../data/EvalDtos";
 
 // The editor's half of the module configuration.
 //
@@ -20,15 +21,6 @@ import { loadMonaco, type Monaco } from "@altea/altea-monaco/client/monaco";
 
 const intelliSenseRoute = "/api/eval/intelliSense";
 const declarationsRoute = "/api/eval/declarations";
-
-interface DeclarationFile { path: string; content: string }
-
-interface IntelliSenseResponse {
-    eagerLines: string[];
-    names: [string, string][];
-    root: string;
-    declarations: DeclarationFile[];
-}
 
 export interface EvalIntelliSense {
     /** The import lines every script gets, shown above the author's own text. */
@@ -99,7 +91,7 @@ async function build(): Promise<EvalIntelliSense> {
                 requested.add(s);
 
             register(await ajaxPost<DeclarationFile[]>({ url: declarationsRoute },
-                { specifiers: wanted, have: [...loaded] }));
+                { specifiers: wanted, have: [...loaded] } satisfies DeclarationsRequest));
         },
 
         unresolvedNames: uri => unresolvedNames(monaco, uri),

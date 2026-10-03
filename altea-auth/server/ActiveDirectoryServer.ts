@@ -5,7 +5,8 @@ import { UserEntity } from "../data/User";
 import { ActiveDirectoryPermission } from "../data/BaseAD";
 import { PermissionAuthLogic } from "./PermissionAuthLogic";
 import { AuthLogic } from "./AuthLogic";
-import { isDirectoryInviter, type ExternalUser, type IDirectoryInviter } from "./ADAuthorizer";
+import { isDirectoryInviter, type IDirectoryInviter } from "./ADAuthorizer";
+import type { ExternalUser } from "../data/AuthDtos";
 
 // Port of Signum.Authorization's BaseAD/ActiveDirectoryController.cs — see port/AuthDirectory.md.
 // the two routes behind the "invite a user from the directory" UI. Provider-agnostic: they delegate to

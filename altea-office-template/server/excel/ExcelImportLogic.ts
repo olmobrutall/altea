@@ -11,8 +11,9 @@ import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
 import { parseQueryRequest } from "@altea/altea/server/queryServer";
 import type { QueryRequest as WireQueryRequest } from "@altea/altea/data/dynamicQuery/queryRequest";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
-import { logAndBuildHttpError, type HttpError } from "@altea/altea/server/filters/exceptionFilter";
-import { ExcelPermission, type ImportExcelModel } from "../../data/Excel";
+import { logAndBuildHttpError } from "@altea/altea/server/filters/exceptionFilter";
+import { ExcelPermission } from "../../data/Excel";
+import type { ImportErrorLine, ImportFromExcelRequest } from "../../data/OfficeTemplateDtos";
 import { ExcelImporter } from "./ExcelImporter";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
@@ -30,21 +31,6 @@ import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 //    advances row by row instead of at the end — but the headers are flushed by the FIRST LINE, never
 //    before, so a failure with nothing yet written is still a plain HTTP error (see the route), and one
 //    after that travels as an ImportErrorLine.
-
-interface ImportFromExcelRequest {
-    importModel: ImportExcelModel;
-    queryRequest: WireQueryRequest;
-}
-
-/**
- * NEW here: the last line of a stream that failed after it had already
- * started. It is an `HttpError`, the same one the exception filter writes as a body, so the client can
- * raise it as the `ServiceError` every other failed call produces. Distinguishable from an ImportResult
- * by the single member — a result has none of it.
- */
-export interface ImportErrorLine {
-    importError: HttpError;
-}
 
 export namespace ExcelImportLogic {
 

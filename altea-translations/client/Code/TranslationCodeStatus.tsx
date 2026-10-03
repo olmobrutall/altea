@@ -9,6 +9,7 @@ import MessageModal from "@altea/altea/client/Modals/MessageModal";
 import { classes, Dic } from "@altea/altea/data/globals";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import { TranslationMessage, TranslatedSummaryState } from "../../data/Translation";
+import type { TranslationFileStatus } from "../../data/TranslationDtos";
 import { TranslationClient, encodePackage } from "../TranslationClient";
 import "../Translation.css";
 
@@ -27,7 +28,7 @@ export default function TranslationCodeStatus(): React.JSX.Element {
     );
 }
 
-function TranslationTable(p: { result: TranslationClient.TranslationFileStatus[]; onRefreshView: () => void }): React.JSX.Element {
+function TranslationTable(p: { result: TranslationFileStatus[]; onRefreshView: () => void }): React.JSX.Element {
     const [onlyNeutral, setOnlyNeutral] = React.useState(true);
 
     const tree = p.result.groupBy(a => a.package)

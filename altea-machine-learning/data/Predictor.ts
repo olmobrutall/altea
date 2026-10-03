@@ -603,3 +603,9 @@ export type EpochProgressRow = [
     lossTraining: number | null, accuracyTraining: number | null,
     lossValidation: number | null, accuracyValidation: number | null,
 ];
+
+/** What `/api/predictor/backend` answers: the tfjs backend the server trains on. */
+export interface PredictorBackendInfo {
+    backend: string;
+    native: boolean;
+}

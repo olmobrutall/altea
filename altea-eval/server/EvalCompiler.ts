@@ -5,6 +5,7 @@ import quoteTransformerModule from "quote-transformer";
 import { HeavyProfiler } from "@altea/altea/server/profiler/heavyProfiler";
 import { EvalEmbedded, EvalMessage, type CompilationResult, type IEvalCompiler } from "../data/Eval";
 import { EvalImports, type ModuleImport } from "../data/EvalImports";
+import type { ClientConfiguration, DeclarationFile } from "../data/EvalDtos";
 import { EvalModuleRegistry, type ResolvedImports } from "./EvalModuleRegistry";
 
 /**
@@ -562,13 +563,6 @@ export namespace EvalCompiler {
     // ---- Declarations for the editor ---------------------------------------------------------------------
 
     /** What the EDITOR needs to resolve a name the same way the compiler does. */
-    export interface ClientConfiguration {
-        /** The import lines every script gets, which the editor must show above the author's own text. */
-        eagerLines: readonly string[];
-        /** Identifier -> module, so the editor can write the same implicit import the compiler would. */
-        names: readonly (readonly [string, string])[];
-    }
-
     /**
      * The lazy half as DATA. The editor runs the same implicit-import pass as the compiler — it has to, or
      * it would underline a name the server resolves perfectly well — and this is the map it runs it over.
@@ -586,9 +580,6 @@ export namespace EvalCompiler {
             names: [...resolved.byName].map(([name, m]) => [name, m.specifier] as const),
         };
     }
-
-    /** One `.d.ts` the editor needs, at the path the editor must serve it from. */
-    export interface DeclarationFile { path: string; content: string }
 
     /**
      * Every `.d.ts` the editor needs in order to check a script against `specifiers` — the TRANSITIVE
