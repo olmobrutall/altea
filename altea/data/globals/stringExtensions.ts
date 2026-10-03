@@ -38,8 +38,6 @@ declare global {
 
     firstUpper(this: string): string;
     firstLower(this: string,): string;
-
-    repeat(this: string, n: number): string;
   }
 }
 
@@ -78,7 +76,7 @@ String.prototype.reverse = function (this: string) {
 }
 
 String.prototype.replicate = function (this: string, times: number) {
-  return this.repeat(times);
+  return this.repeat(Math.max(0, times)); // native repeat throws on a negative count
 }
 
 String.prototype.formatWith = function () {
@@ -286,11 +284,4 @@ String.prototype.firstUpper = function () {
 
 String.prototype.firstLower = function () {
   return this[0].toLowerCase() + this.substring(1);
-};
-
-String.prototype.repeat = function (this: string, n: number) {
-  let result = "";
-  for (let i = 0; i < n; i++)
-    result += this;
-  return result;
 };
