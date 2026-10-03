@@ -1,4 +1,9 @@
 import * as React from 'react';
+import { Dic } from '../data/globals';
+
+// A class component reaches the whole fiber tree (`_reactInternals`), so a deep `Dic.equals` — every line's
+// memo `propEquals` compares `ctx`, whose frame holds the view component — must stop at one, not walk it.
+Dic.skipClasses.push(React.Component);
 
 // Ported from Signum.React/AppContext.tsx — MINIMAL SLICE.
 // Only `toAbsoluteUrl` is needed by the first migrated files (Services). The rest of
