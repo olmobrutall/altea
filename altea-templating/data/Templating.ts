@@ -21,8 +21,8 @@ import type { FilterRequest, OrderRequest, Pagination } from "@altea/altea/data/
 // through @altea/altea-eval. Its parameter is typed from the owning template's QUERY (its single entity
 // implementation), which is why the eval reads its OWNER — see `compile()` below.
 
-/** What a TemplateApplicableEval compiles to. */
-export type ITemplateApplicable = (entity: Entity | null) => boolean;
+/** What a TemplateApplicableEval compiles to. Async, so a script can `await` a query or a retrieve. */
+export type ITemplateApplicable = (entity: Entity | null) => boolean | Promise<boolean>;
 
 /** A template that is defined over a registered query. */
 export interface IContainsQuery extends Entity {
@@ -54,6 +54,7 @@ export class TemplateApplicableEval extends EvalEmbedded<ITemplateApplicable> {
         return this.wrap({
             parameters: `e: ${entityTypeName} | null`,
             returnType: "boolean",
+            isAsync: true,
         });
     }
 }

@@ -118,7 +118,7 @@ export default function OfficeTemplate(p: { ctx: TypeContext<OfficeTemplateEntit
                     <EntityDetail ctx={ctx4.subCtx(f => f.applicable)} onChange={forceUpdate}
                         onCreate={() => Promise.resolve(TemplateApplicableEval.create({ script: "" }))}
                         getComponent={actx => <EvalLine ctx={actx}
-                            parameters={applicableParameters(ctx.value)} returnType="boolean" />} />
+                            parameters={applicableParameters(ctx.value)} returnType="boolean" isAsync />} />
                 </Tab>
             </Tabs>
         </div>

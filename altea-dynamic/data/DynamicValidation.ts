@@ -34,8 +34,12 @@ import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eva
  *
  * The evaluator's signature. An eval's
  * validation environment already passes the FieldInfo, which is the same information typed.
+ *
+ * ASYNC, so a script can `await` a lookup (a retrieve, a uniqueness query). Its only caller,
+ * DynamicValidationLogic.dynamicValidation, is an async static validator, so it runs on the awaited server
+ * paths only.
  */
-export type IDynamicValidationEvaluator = (e: Entity, fi: FieldInfo) => string | null;
+export type IDynamicValidationEvaluator = (e: Entity, fi: FieldInfo) => string | null | Promise<string | null>;
 
 @entity("Shared", "Master")
 export class DynamicValidationEntity extends Entity {
@@ -69,6 +73,7 @@ export class DynamicValidationEval extends EvalEmbedded<IDynamicValidationEvalua
         return this.wrap({
             parameters: `e: ${entityTypeName}, fi: FieldInfo`,
             returnType: "string | null",
+            isAsync: true,
         });
     }
 }

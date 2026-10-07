@@ -73,7 +73,7 @@ export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity>
                             onCreate={() => Promise.resolve(TemplateApplicableEval.create({ script: "" }))}
                             helpText={EmailTemplateApplicableHelp}
                             getComponent={actx => <EvalLine ctx={actx}
-                                parameters={applicableParameters(ctx.value)} returnType="boolean" />} />
+                                parameters={applicableParameters(ctx.value)} returnType="boolean" isAsync />} />
                     </Tab>
                     <Tab eventKey="recipients" title={ctx.niceName(a => a.recipients)}>
                         <EntityDetail ctx={ecXs.subCtx(e => e.from)} onChange={forceUpdate}
