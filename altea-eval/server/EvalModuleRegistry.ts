@@ -71,6 +71,8 @@ export namespace EvalModuleRegistry {
             if (m.eager) {
                 if (names.length > 0)
                     eagerLines.push(`import { ${names.join(", ")} } from "${m.specifier}";`);
+                else if (m.names !== "*")
+                    eagerLines.push(`import "${m.specifier}";`);     // no names: imported for its side effect
                 continue;
             }
 

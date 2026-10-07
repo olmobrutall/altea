@@ -21,6 +21,11 @@ export interface ClientConfiguration {
     names: readonly (readonly [string, string])[];
 }
 
+/** Which configuration the editor wants: the base one, or a named profile (EvalLogic.registerImportsProfile). */
+export interface IntelliSenseRequest {
+    profile?: string;
+}
+
 /** What the editor is handed before it can check anything. */
 export interface IntelliSenseResponse extends ClientConfiguration {
     /** The directory the editor must pretend the script lives in, so relative imports resolve. */
@@ -29,6 +34,7 @@ export interface IntelliSenseResponse extends ClientConfiguration {
 }
 
 export interface DeclarationsRequest {
+    profile?: string;
     specifiers: string[];
     /** Declaration paths the editor already holds, so a second module costs only what it adds. */
     have: string[];

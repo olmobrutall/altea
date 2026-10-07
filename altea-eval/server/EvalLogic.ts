@@ -76,6 +76,39 @@ export namespace EvalLogic {
         EvalCompiler.invalidate();
     }
 
+    // ---- Import PROFILES ------------------------------------------------------------------------------
+
+    const profiles = new Map<string, { derive: (base: EvalImports) => EvalImports; base?: EvalImports; result?: EvalImports }>();
+
+    /**
+     * A named configuration derived from the base one, for code that is not an eval script but is checked
+     * and imported the same way — a dynamic type's modules need the decorators no script does. The editor
+     * asks for it by name (`/api/eval/intelliSense` with `profile`).
+     *
+     * Derived again only when the base changes: an EvalImports is resolved once per IDENTITY, and the
+     * resolution is the expensive part.
+     */
+    export function registerImportsProfile(name: string, derive: (base: EvalImports) => EvalImports): void {
+        profiles.set(name, { derive });
+    }
+
+    /** A profile's configuration, or the base one for no profile. */
+    export function importsFor(profile: string | undefined): EvalImports {
+        if (profile == null)
+            return EvalCompiler.imports();
+
+        const p = profiles.get(profile);
+        if (p == null)
+            throw new Error(`No eval imports profile '${profile}' is registered`);
+
+        const base = EvalCompiler.imports();
+        if (p.base !== base || p.result == null) {
+            p.base = base;
+            p.result = p.derive(base);
+        }
+        return p.result;
+    }
+
     // ---- The "check evals" registry ----------------------------------------------------------------------
 
     /**

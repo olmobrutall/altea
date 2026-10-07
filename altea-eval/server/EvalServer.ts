@@ -9,8 +9,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { EvalPanelPermission } from "../data/EvalPanelPermission";
 import { EvalLogic } from "./EvalLogic";
 import { EvalCompiler } from "./EvalCompiler";
-import { EvalEmbedded } from "../data/Eval";
-import type { DeclarationFile, DeclarationsRequest, EvalEntityError, IntelliSenseResponse } from "../data/EvalDtos";
+import type { DeclarationFile, DeclarationsRequest, EvalEntityError, IntelliSenseRequest, IntelliSenseResponse } from "../data/EvalDtos";
 
 // "Which stored scripts no longer compile?" ONE call checks everything, because the registry is a list of
 // server-side loaders (see EvalLogic.evalSources), and the response says which source each failure came
@@ -42,14 +41,15 @@ export namespace EvalServer {
         // author workflow conditions. Nothing here reads data.
 
         ws.post("/api/eval/intelliSense",
-            { res: CustomType<IntelliSenseResponse>() },
-            async (_req, res) => {
-                const configuration = EvalCompiler.clientConfiguration(EvalEmbedded.defaultImports);
+            { req: CustomType<IntelliSenseRequest>(), res: CustomType<IntelliSenseResponse>() },
+            async (req, res) => {
+                const request = (await req.jsonTyped()) as IntelliSenseRequest | undefined;
+                const imports = EvalLogic.importsFor(request?.profile);
+                const configuration = EvalCompiler.clientConfiguration(imports);
                 res.jsonTyped({
                     ...configuration,
                     root: EvalCompiler.CLIENT_ROOT,
-                    declarations: EvalCompiler.declarationsFor(EvalEmbedded.defaultImports,
-                        eagerSpecifiers(configuration.eagerLines)),
+                    declarations: EvalCompiler.declarationsFor(imports, eagerSpecifiers(configuration.eagerLines)),
                 });
             });
 
@@ -57,7 +57,7 @@ export namespace EvalServer {
             { req: CustomType<DeclarationsRequest>(), res: CustomType<DeclarationFile[]>() },
             async (req, res) => {
                 const request = (await req.jsonTyped()) as DeclarationsRequest | undefined;
-                res.jsonTyped(EvalCompiler.declarationsFor(EvalEmbedded.defaultImports,
+                res.jsonTyped(EvalCompiler.declarationsFor(EvalLogic.importsFor(request?.profile),
                     request?.specifiers ?? [], new Set(request?.have ?? [])));
             });
     }
@@ -65,7 +65,7 @@ export namespace EvalServer {
     /** The specifiers of the eager import lines — which is what their declarations have to be built from. */
     function eagerSpecifiers(eagerLines: readonly string[]): string[] {
         return eagerLines
-            .map(line => /from\s+"([^"]+)"/.exec(line)?.[1])
+            .map(line => /(?:from|import)\s+"([^"]+)"/.exec(line)?.[1])
             .filter((s): s is string => s != null);
     }
 
