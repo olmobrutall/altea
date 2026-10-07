@@ -20,12 +20,20 @@ export type { MetadataBlob, MetadataBlobWire };
 // something from the blob at load time (rather than read it on demand) pushes one here.
 export const applyMetadataHooks: ((meta: MetadataBlob) => void)[] = [];
 
+// Pre-load hooks: run (awaited) BEFORE the blob is fetched, on every load. For whatever must REGISTER types
+// first — the blob is applied by type name, and its symbol ids are stamped onto declared symbols, so a type
+// that arrives later gets neither (altea-dynamic's runtime-loaded types).
+export const beforeLoadMetadataHooks: (() => Promise<void>)[] = [];
+
 // The culture of the blob currently applied, sent back as `?culture=` — a CACHE BUSTER only, as in Signum's
 // reloadTypes: the server builds the blob for the request's own culture (cookie → user → Accept-Language →
 // default) and ignores the parameter. Undefined before the first load.
 let currentCulture: string | undefined;
 
 export async function loadReflectionMetadata(options?: { culture?: string }): Promise<MetadataBlob> {
+    for (const hook of beforeLoadMetadataHooks)
+        await hook();
+
     const culture = options?.culture ?? currentCulture;
     const url = "/api/reflection/metadata" + (culture ? `?culture=${encodeURIComponent(culture)}` : "");
     // `ajaxGet`, like Signum's reloadTypes: the bearer token (so the blob is ROLE-filtered), the error funnel
