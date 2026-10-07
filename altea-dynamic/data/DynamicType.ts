@@ -1,37 +1,19 @@
 import { init, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { column, entity, quoted } from "@altea/altea/data/decorators";
-import { stringLengthValidator, ValidationMessage, validate, ComparisonType, type StringCaseKeys } from "@altea/altea/data/validators";
+import { stringLengthValidator, ValidationMessage, validate } from "@altea/altea/data/validators";
 import { registerEnum } from "@altea/altea/data/registration";
 import { msg } from "@altea/altea/data/utils/localization";
 import type { ConstructSymbol, From, ExecuteSymbol, DeleteSymbol } from "@altea/altea/data/operations";
 
-// Port of Signum.Dynamic's Types/DynamicType.cs — a TYPE defined from inside the running application: its
-// name, its base, its properties and their validators, its operations, and any hand-written code to splice
-// in. `DynamicTypeLogic` turns one of these rows into generated TypeScript, which
-// `DynamicCodeCompiler` compiles with the quote-transformer applied and loads (see that file).
+// A TYPE defined from inside the running application, stored as its SOURCE: a DATA module (the entity, and
+// any `@part` rows, embeddeds, models and enums it needs) and a SERVER module (its `<Name>Logic`: the
+// include, the operations, the queries). DynamicCodeCompiler compiles both with the quote-transformer
+// applied and loads them at startup; imports are added the way an eval script gets them (the "DynamicType"
+// import profile), so the source names `Entity`, `OrderEntity` or `stringLengthValidator` and nothing else.
 //
-// The definition is stored as JSON in one column, exactly as Signum stores it, and for the same reason: it
-// is a document with optional parts and nested shapes, not a table. So everything below the entity is a
-// plain interface — never a `@part` row — and `getDefinition()` / `setDefinition()` are the accessors.
-//
-// altea divergences:
-//  - `DynamicValidator` is a DISCRIMINATED UNION on `type` rather than a class hierarchy behind a
-//    hand-written `JsonConverter`. TypeScript narrows it for free, so Signum's converter, its
-//    `GetDynamicValidatorType` switch and its `ExtraArguments()` overrides collapse into one generator
-//    function (DynamicTypeLogic.validatorDecorator).
-//  - a property's `type` is the ALTEA type expression's base name (`"string"`, `"int"`, `"OrderEntity"`,
-//    `"Temporal.PlainDate"`), with `isLite` / `isMList` / `isNullable` refining it, as in Signum. The
-//    generator composes the final annotation AND the import, which it can do without a `using` list
-//    because `getLocation(typeName)` already knows which module declares a registered type — the
-//    `__fileInfo` the transformer stamps.
-//  - `IdentifierValidator(IdentifierType.PascalAscii)` has no altea counterpart, so the same rule is a
-//    `@validate` on the two places Signum applies it (the type name, and each property name inside
-//    the definition).
-//  - `DynamicTypeMessage.TheEntityShouldBeSynchronizedToApplyMixins` is kept and so is
-//    `ServerRestartedWithErrorsInDynamicCode…`: altea restarts for the same reason Signum does — a schema
-//    is built once at startup, so a new type takes part only after a restart, and its TABLE only after a
-//    `sync`.
+// The rules a parser is needed for — exactly one real entity, named after the row — are checked on the
+// SERVER (DynamicTypeLogic), which is where the TypeScript compiler is.
 
 export enum DynamicBaseType {
     Entity,
@@ -42,212 +24,45 @@ export enum DynamicBaseType {
 export type DynamicBaseTypeKeys = keyof typeof DynamicBaseType;
 registerEnum(DynamicBaseType);
 
-// These two live INSIDE the JSON definition, never in a column, so they are the member NAMES — which is
-// what Signum stores (its `JsonStringEnumConverter` writes `"isNullable": "No"`). A numeric altea enum
-// would have been wrong twice over: a stored definition would no longer round-trip with Signum, and the
-// editor would show a bare `2` where the author wrote "No". `DynamicBaseType` above IS a column on the
-// entity, so it stays a real altea enum.
-export type IsNullable = "Yes" | "OnlyInMemory" | "No";
-export const IsNullableValues: IsNullable[] = ["Yes", "OnlyInMemory", "No"];
+/** The eval import profile a type's source resolves its names through — on both tiers. */
+export const DynamicTypeImportsProfile = "DynamicType";
 
-export type DynamicUniqueIndex = "No" | "Yes" | "YesAllowNull";
-export const DynamicUniqueIndexValues: DynamicUniqueIndex[] = ["No", "Yes", "YesAllowNull"];
-
-// ---- the stored definition (JSON, not tables) -----------------------------------------------------------
-
-export interface DynamicTypePrimaryKeyDefinition {
-    name?: string;
-    type?: string;
-    identity?: boolean;
-}
-
-export interface DynamicTypeTicksDefinition {
-    hasTicks?: boolean;
-    name?: string;
-    type?: string;
-}
-
-/**
- * How a COLLECTION property is stored — Signum's DynamicTypeBackMListDefinition, member for member.
- *
- * altea has no MList, so this describes the `@part` ROW type the generator emits: its table name, whether
- * the order is preserved (a `@rowOrder` column) and what the back reference is called. Signum's
- * `TableName` / `PreserveOrder` / `OrderName` / `BackReferenceName` keep their names, since they mean the
- * same things on the row table altea generates.
- */
-export interface DynamicTypeBackMListDefinition {
-    tableName?: string;
-    preserveOrder?: boolean;
-    orderName?: string;
-    backReferenceName?: string;
-}
-
-export interface MultiColumnUniqueIndex {
-    fields: string[];
-    where?: string;
-}
-
-/** A block of hand-written code spliced into the generated module. */
-export interface DynamicTypeCustomCode {
-    code: string;
-}
-
-export interface OperationConstruct { construct: string }
-export interface OperationExecute { canExecute?: string; execute: string }
-export interface OperationDelete { canDelete?: string; delete: string }
-export interface OperationConstructFrom { canConstruct?: string; construct: string }
-
-/**
- * One validator on one property.
- *
- * A discriminated union, where Signum has a class hierarchy plus a JsonConverter. The member names are
- * Signum's so a stored definition round-trips between the two frameworks.
- */
-export type DynamicValidator =
-    | { type: "NotNull"; disabled?: boolean }
-    | {
-        type: "StringLength"; multiLine?: boolean; min?: number; max?: number;
-        allowLeadingSpaces?: boolean; allowTrailingSpaces?: boolean;
-    }
-    | { type: "Decimals"; decimalPlaces: number }
-    | { type: "NumberIs"; comparisonType: ComparisonType; number: number }
-    | { type: "CountIs"; comparisonType: ComparisonType; number: number }
-    | { type: "NumberBetween"; min: number; max: number }
-    // The member names of the real `StringCase` enum (Uppercase / Lowercase), which is what Signum's C#
-    // enum serializes to as well. Signum's own editor offers "UpperCase" / "LowerCase" instead and gets
-    // away with it because System.Text.Json matches an enum member case-insensitively;
-    // `DynamicTypeLogic.getValidatorDecorator` does the same, so a definition written by either editor
-    // still generates.
-    | { type: "StringCase"; textCase: StringCaseKeys }
-    // A validator with no arguments of its own (URL, EMail, Telephone,
-    // NoRepeat…). The name is the decorator's, minus the "Validator" suffix.
-    | { type: string; [extra: string]: unknown };
-
-export interface DynamicProperty {
-    /** Stable identity across renames, and what a rename is recorded against. */
-    uid: string;
-    name: string;
-    columnName?: string;
-    /** The base type: `"string"`, `"int"`, `"boolean"`, `"Temporal.PlainDate"`, `"OrderEntity"`, … */
-    type: string;
-    columnType?: string;
-    isNullable: IsNullable;
-    uniqueIndex: DynamicUniqueIndex;
-    isLite?: boolean;
-    /** Present when the property is a COLLECTION — see DynamicTypeBackMListDefinition. */
-    isMList?: DynamicTypeBackMListDefinition;
-    size?: number;
-    scale?: number;
-    unit?: string;
-    format?: string;
-    notifyChanges?: boolean;
-    validators?: DynamicValidator[];
-    /** Verbatim decorators to add to the FIELD. */
-    customFieldAttributes?: string;
-    /** Verbatim decorators to add to the PROPERTY. */
-    customPropertyAttributes?: string;
-}
-
-export interface DynamicTypeDefinition {
-    entityKind?: string;
-    entityData?: string;
-    tableName?: string;
-    primaryKey?: DynamicTypePrimaryKeyDefinition;
-    ticks?: DynamicTypeTicksDefinition;
-    properties: DynamicProperty[];
-    operationCreate?: OperationConstruct;
-    operationSave?: OperationExecute;
-    operationDelete?: OperationDelete;
-    operationClone?: OperationConstructFrom;
-    customInheritance?: DynamicTypeCustomCode;
-    customEntityMembers?: DynamicTypeCustomCode;
-    customStartCode?: DynamicTypeCustomCode;
-    customLogicMembers?: DynamicTypeCustomCode;
-    customTypes?: DynamicTypeCustomCode;
-    customBeforeSchema?: DynamicTypeCustomCode;
-    queryFields: string[];
-    multiColumnUniqueIndex?: MultiColumnUniqueIndex;
-    /** The body of the `@quoted toString()`. */
-    toStringExpression?: string;
-}
-
-/** Signum's `IdentifierValidatorAttribute.PascalAscii`, for which there is no validator here. */
+/** A class name: PascalCase ASCII. */
 export const PascalAscii = /^[A-Z][a-zA-Z0-9]*$/;
 
-// ---- the entity ----------------------------------------------------------------------------------------
+/** `Pizza` + Entity → `PizzaEntity`: the class the data module must declare. */
+export function typeNameWithSuffix(typeName: string, baseType: DynamicBaseType): string {
+    return typeName + (
+        baseType === DynamicBaseType.MixinEntity ? "Mixin" :
+            baseType === DynamicBaseType.EmbeddedEntity ? "Embedded" :
+                baseType === DynamicBaseType.ModelEntity ? "Model" : "Entity");
+}
+
+/** The namespace the server module must export, with its `start(sb)`. */
+export function logicName(typeName: string): string {
+    return typeName + "Logic";
+}
 
 @entity("Main", "Master")
 export class DynamicTypeEntity extends Entity {
 
     baseType: DynamicBaseType = DynamicBaseType.Entity;
 
-    // A unique index plus the PascalAscii check. The index is declared in the logic layer
-    // (altea declares indexes on the include, not as a decorator).
-    @stringLengthValidator({ min: 3, max: 100 })
+    // Also a unique index, declared on the include (DynamicTypeLogic).
     @validate<DynamicTypeEntity>((e, fi) => PascalAscii.test(e.typeName) ? null
         : ValidationMessage._0DoesNotHaveAValid1Format.niceToString(fi.niceToString(), "PascalAscii"))
     @stringLengthValidator({ min: 3, max: 100 })
     typeName: string;
 
-    /**
-     * The definition, as JSON, in one unbounded text column.
-     *
-     * `customValidation` re-checks every PROPERTY name, which is the second place Signum applies its
-     * identifier rule — a definition naming a property `order line` would generate source that does not
-     * compile, and the author should hear that here rather than from the compiler.
-     */
-    @stringLengthValidator({ min: 3, multiLine: true })
-    @validate<DynamicTypeEntity>(e => {
-        let def: DynamicTypeDefinition;
-        try {
-            def = JSON.parse(e.typeDefinition) as DynamicTypeDefinition;
-        } catch (err) {
-            return (err as Error).message;
-        }
-
-        const bad = (def.properties ?? [])
-            .filter(prop => prop.name != null && prop.name !== "" && !PascalAscii.test(prop.name))
-            // Signum spells this one `_0DoesNotHaveAValid1IdentifierFormat` (DynamicType.cs) — the member
-            // NAME is the subject, so it is quoted, where the field-level rule above names a field.
-            .map(prop => ValidationMessage._0DoesNotHaveAValid1IdentifierFormat.niceToString(prop.name, "PascalAscii"));
-
-        // Signum throws this from DynamicTypeOperation.Save (DynamicTypeLogic.cs). It is a VALIDATION
-        // here, on the member it is about: two properties differing only in case generate two members
-        // that collide, and the author should hear it while editing rather than from the compiler.
-        // Case-INSENSITIVE, as Signum groups by `a.Name.ToLower()`.
-        const byLower = new Map<string, string>();
-        const repeated: string[] = [];
-        for (const prop of def.properties ?? []) {
-            if (prop.name == null || prop.name === "")
-                continue;
-            const key = prop.name.toLowerCase();
-            if (byLower.has(key))
-                repeated.push(byLower.get(key)!);
-            else
-                byLower.set(key, prop.name);
-        }
-        if (repeated.length > 0)
-            bad.push(ValidationMessage._0HasSomeRepeatedElements1.niceToString(e.typeName, repeated.join(", ")));
-
-        return bad.length === 0 ? null : bad.join("\n");
-    })
-    // Signum's [DbType(Size = int.MaxValue)] — a whole type definition, as JSON. Said outright, because
-    // a string column with no size takes the per-provider default of 200 (SchemaSettings.defaultSize*).
+    /** The data module: the one entity (see the header) and whatever it needs. */
+    @stringLengthValidator({ min: 1, multiLine: true })
     @column({ size: MAX_SIZE })
-    typeDefinition: string;
+    dataCode: string;
 
-    /**
-     * The parsed definition. Signum caches it in an `[Ignore]` field and clears it when TypeDefinition is
-     * set; altea parses on demand — the row is read at startup and edited by one person at a time, so the
-     * cache bought nothing and an invalidation hook is a thing to get wrong.
-     */
-    getDefinition(): DynamicTypeDefinition {
-        return JSON.parse(this.typeDefinition) as DynamicTypeDefinition;
-    }
-
-    setDefinition(definition: DynamicTypeDefinition): void {
-        this.typeDefinition = JSON.stringify(definition, undefined, 2);
-    }
+    /** The server module: `export namespace <Name>Logic { export function start(sb) … }`. Empty for a type with no logic. */
+    @stringLengthValidator({ multiLine: true })
+    @column({ size: MAX_SIZE })
+    serverCode: string | null;
 
     @quoted
     override toString(): string {
@@ -268,7 +83,55 @@ export const DynamicTypeMessage = {
         msg("DynamicType '{0}' successfully saved. Go to DynamicPanel now?"),
     ServerRestartedWithErrorsInDynamicCodeFixErrorsAndRestartAgain:
         msg("Server restarted with errors in dynamic code. Fix errors and restart again."),
-    RemoveSaveOperation: msg("Remove Save Operation?"),
     TheEntityShouldBeSynchronizedToApplyMixins:
         msg("The entity should be synchronized to apply mixins"),
+    TheDataModuleMustDeclare0: msg("The data module must declare the exported class '{0}'"),
+    TheDataModuleDeclaresMoreThanOneEntity0: msg("The data module may declare only one entity that is not a part, but declares {0}"),
+    _0MustBeAnEntity: msg("'{0}' must be an @entity that is not a part"),
+    TheServerModuleMustExport0: msg("The server module must export a namespace '{0}' with a function start(sb)"),
+    AnEntityNeedsAServerModule: msg("An entity needs a server module, which includes it in the schema"),
+    Data: msg("Data"),
+    Server: msg("Server"),
+};
+
+/** The recipe panel beside the source (client/Type/DynamicTypeRecipes). */
+export const DynamicTypeRecipeMessage = {
+    PlaceTheCursorOnAClassOrAField: msg("Place the cursor on a class or a field to edit it here."),
+    Field: msg("Field"),
+    Class: msg("Class"),
+    Name: msg("Name"),
+    Type: msg("Type"),
+    Nullable: msg("Nullable"),
+    Lite: msg("Lite"),
+    UniqueIndex: msg("Unique index"),
+    BackReference: msg("Back reference"),
+    ValueField: msg("Value field"),
+    Unit: msg("Unit"),
+    Format: msg("Format"),
+    Validators: msg("Validators"),
+    AddValidator: msg("Add validator…"),
+    AddField: msg("Add field"),
+    Add: msg("Add"),
+    Remove: msg("Remove"),
+    DoesNotApplyTo0: msg("Does not apply to {0}"),
+    AddCollection: msg("Add collection"),
+    ElementType: msg("Element type"),
+    PreserveOrder: msg("Preserve order"),
+    AddToString: msg("Add toString"),
+    Operations: msg("Operations"),
+    Registered: msg("Registered"),
+    Register: msg("Register"),
+    AddOperation: msg("Add operation"),
+    Kind: msg("Kind"),
+    TheServerModuleHasNo0: msg("The server module has no {0}"),
+    PlaceTheCursorInside0: msg("Place the cursor inside {0} to edit the operations here."),
+    EditOperations: msg("Edit operations"),
+    AddOperations: msg("Add operations"),
+    LiteHelp: msg("A Lite reference holds only the id and the toString of the entity: it is not loaded with this one, and it is retrieved when needed. Recommended for references to other entities."),
+    ConvertToCollection: msg("Convert to a collection"),
+    ValueKind: msg("Value"),
+    EntityKind: msg("Entity"),
+    EmbeddedKind: msg("Embedded"),
+    EnumKind: msg("Enum"),
+    ModelKind: msg("Model"),
 };

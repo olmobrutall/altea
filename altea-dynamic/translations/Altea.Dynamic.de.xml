@@ -59,12 +59,6 @@
   <Type Name="DynamicPanelPermission">
     <Member Name="RestartApplication" Description="Anwendung neu starten" />
   </Type>
-  <Type Name="DynamicRenameEntity" Description="Dynamische Umbenennung">
-    <Member Name="CreationDate" Description="Erstellungsdatum" />
-    <Member Name="NewName" Description="Neuer Name" />
-    <Member Name="OldName" Description="Alter Name" />
-    <Member Name="ReplacementKey" Description="Ersatzschlüssel" />
-  </Type>
   <Type Name="DynamicSqlMigrationEntity" Description="Dynamische SQL-Migration">
     <Member Name="Comment" Description="Kommentar" />
     <Member Name="CreatedBy" Description="Erstellt von" />
@@ -102,14 +96,21 @@
   </Type>
   <Type Name="DynamicTypeEntity" Description="Dynamischer Typ" PluralDescription="Dynamische Typen" Gender="m">
     <Member Name="BaseType" Description="Basistyp" />
-    <Member Name="TypeDefinition" Description="Typendefinition" />
+    <Member Name="DataCode" Description="Datencode" />
+    <Member Name="ServerCode" Description="Servercode" />
     <Member Name="TypeName" Description="Typname" />
   </Type>
   <Type Name="DynamicTypeMessage">
+    <Member Name="_0MustBeAnEntity" Description="'{0}' muss eine @entity sein, die kein Teil ist" />
+    <Member Name="AnEntityNeedsAServerModule" Description="Eine Entität braucht ein Servermodul, das sie in das Schema aufnimmt" />
+    <Member Name="Data" Description="Daten" />
     <Member Name="DynamicType0SucessfullySavedGoToDynamicPanelNow" Description="DynamicType &quot;{0}&quot; erfolgreich gespeichert. Zum DynamicPanel wechseln?" />
-    <Member Name="RemoveSaveOperation" Description="Speichervorgang entfernen?" />
+    <Member Name="Server" Description="Server" />
     <Member Name="ServerRestartedWithErrorsInDynamicCodeFixErrorsAndRestartAgain" Description="Server hat mit Fehlern im dynamischen Code neu gestartet. Beheben Sie die Fehler, und starten Sie nochmals neu." />
+    <Member Name="TheDataModuleDeclaresMoreThanOneEntity0" Description="Das Datenmodul darf nur eine Entität deklarieren, die kein Teil ist, deklariert aber {0}" />
+    <Member Name="TheDataModuleMustDeclare0" Description="Das Datenmodul muss die exportierte Klasse '{0}' deklarieren" />
     <Member Name="TheEntityShouldBeSynchronizedToApplyMixins" Description="Um Mixis anwenden zu können sollte die Entität synchronisiert werden." />
+    <Member Name="TheServerModuleMustExport0" Description="Das Servermodul muss einen Namespace '{0}' mit einer Funktion start(sb) exportieren" />
     <Member Name="TypeSaved" Description="Typ gespeichert" />
   </Type>
   <Type Name="DynamicTypeOperation">
@@ -117,6 +118,46 @@
     <Member Name="Create" Description="Erstellen" />
     <Member Name="Delete" Description="Löschen" />
     <Member Name="Save" Description="Speichern" />
+  </Type>
+  <Type Name="DynamicTypeRecipeMessage">
+    <Member Name="Add" Description="Hinzufügen" />
+    <Member Name="AddCollection" Description="Sammlung hinzufügen" />
+    <Member Name="AddField" Description="Feld hinzufügen" />
+    <Member Name="AddOperation" Description="Operation hinzufügen" />
+    <Member Name="AddOperations" Description="Operationen hinzufügen" />
+    <Member Name="AddToString" Description="toString hinzufügen" />
+    <Member Name="AddValidator" Description="Validator hinzufügen…" />
+    <Member Name="BackReference" Description="Rückverweis" />
+    <Member Name="Class" Description="Klasse" />
+    <Member Name="ConvertToCollection" Description="In eine Sammlung umwandeln" />
+    <Member Name="DoesNotApplyTo0" Description="Gilt nicht für {0}" />
+    <Member Name="EditOperations" Description="Operationen bearbeiten" />
+    <Member Name="ElementType" Description="Elementtyp" />
+    <Member Name="EmbeddedKind" Description="Eingebettet" />
+    <Member Name="EntityKind" Description="Entität" />
+    <Member Name="EnumKind" Description="Aufzählung" />
+    <Member Name="Field" Description="Feld" />
+    <Member Name="Format" Description="Format" />
+    <Member Name="Kind" Description="Art" />
+    <Member Name="Lite" Description="Lite" />
+    <Member Name="LiteHelp" Description="Eine Lite-Referenz enthält nur die Id und den toString der Entität: Sie wird nicht mit dieser geladen und bei Bedarf abgerufen. Empfohlen für Referenzen auf andere Entitäten." />
+    <Member Name="ModelKind" Description="Modell" />
+    <Member Name="Name" Description="Name" />
+    <Member Name="Nullable" Description="Nullable" />
+    <Member Name="Operations" Description="Operationen" />
+    <Member Name="PlaceTheCursorInside0" Description="Setzen Sie den Cursor in {0}, um die Operationen hier zu bearbeiten." />
+    <Member Name="PlaceTheCursorOnAClassOrAField" Description="Setzen Sie den Cursor auf eine Klasse oder ein Feld, um es hier zu bearbeiten." />
+    <Member Name="PreserveOrder" Description="Reihenfolge beibehalten" />
+    <Member Name="Register" Description="Registrieren" />
+    <Member Name="Registered" Description="Registriert" />
+    <Member Name="Remove" Description="Entfernen" />
+    <Member Name="TheServerModuleHasNo0" Description="Das Servermodul hat kein {0}" />
+    <Member Name="Type" Description="Typ" />
+    <Member Name="UniqueIndex" Description="Eindeutiger Index" />
+    <Member Name="Unit" Description="Einheit" />
+    <Member Name="Validators" Description="Validatoren" />
+    <Member Name="ValueField" Description="Wertfeld" />
+    <Member Name="ValueKind" Description="Wert" />
   </Type>
   <Type Name="DynamicValidationEntity" Description="Dynamische Validierung">
     <Member Name="EntityType" Description="Entitätstyp" />

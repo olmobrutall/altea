@@ -45,7 +45,7 @@ export class DynamicExpressionEntity extends Entity {
     @stringLengthValidator({ min: 3, max: 100 })
     fromType: string;
 
-    /** What it returns — a type expression the generator writes verbatim, e.g. `"decimal"`, `"IQuery<OrderEntity>"`. */
+    /** What it returns — a type expression the generator writes verbatim, e.g. `"Decimal"`, `"IQuery<OrderEntity>"`. */
     @stringLengthValidator({ min: 3, max: 100 })
     returnType: string;
 
@@ -63,7 +63,7 @@ export class DynamicExpressionEntity extends Entity {
 
     @quoted
     override toString(): string {
-        return this.returnType + " " + this.name + "(" + this.fromType + " e)";
+        return this.name + "(e: " + this.fromType + "): " + this.returnType;
     }
 }
 

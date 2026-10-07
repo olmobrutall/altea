@@ -1,10 +1,16 @@
 import * as React from "react";
-import { ajaxGet } from "@altea/altea/client/Services";
+import { ajaxGet, ajaxPost } from "@altea/altea/client/Services";
+import * as AppContext from "@altea/altea/client/AppContext";
+import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
+import { AuthClient } from "@altea/altea-auth/client/AuthClient";
+import { EvalPanelPermission } from "@altea/altea-eval/data/EvalPanelPermission";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
-import type { DynamicCompilationStatus } from "../data/DynamicPanel";
+import type { DynamicCompilationStatus, DynamicCompileResult } from "../data/DynamicPanel";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { DynamicCSSOverrideEntity } from "../data/DynamicCSSOverride";
-import { DynamicRenameEntity, DynamicSqlMigrationEntity } from "../data/DynamicSqlMigration";
+import { DynamicSqlMigrationCommand, DynamicSqlMigrationEntity, DynamicSqlMigrationMessage, DynamicSqlMigrationOperation } from "../data/DynamicSqlMigration";
+import { DynamicClientModules } from "./DynamicClientModules";
+import WebConsoleModal from "@altea/altea/client/WebConsole/WebConsoleModal";
 import MessageModal from "@altea/altea/client/Modals/MessageModal";
 import { DynamicTypeEntity, DynamicTypeOperation, DynamicTypeMessage } from "../data/DynamicType";
 import { DynamicMixinConnectionEntity } from "../data/DynamicMixinConnection";
@@ -29,6 +35,9 @@ export namespace DynamicClient {
 
     export function start(cb: ClientBuilder): void {
 
+        // The dynamic types themselves, before the reflection blob that is applied to them.
+        DynamicClientModules.start();
+
         cb.configure(DynamicCSSOverrideEntity)
             .withView(() => import("./CSS/DynamicCSSOverride"))
             .withQuerySettings(token => ({
@@ -50,26 +59,24 @@ export namespace DynamicClient {
                     token(a => a.executedBy),
                     token(a => a.comment),
                 ],
-            }));
-
-        // A rename row is read-only in the UI (Signum shows it as a SearchControl on the panel and offers
-        // no editor): it is a record of something that already happened.
-        cb.configure(DynamicRenameEntity)
-            .withQuerySettings(token => ({
-                defaultColumns: [
-                    token(a => a.id),
-                    token(a => a.creationDate),
-                    token(a => a.replacementKey),
-                    token(a => a.oldName),
-                    token(a => a.newName),
-                ],
-            }));
-
-        registerDynamicPanelSearch(DynamicRenameEntity.typeName, [
-            { token: "replacementKey", type: "Text" },
-            { token: "oldName", type: "Text" },
-            { token: "newName", type: "Text" },
-        ]);
+            }))
+            // The script is generated in a web console, so the synchronizer can ask its rename questions.
+            .withConstructorOperation(DynamicSqlMigrationOperation.Create, {
+                onConstruct: async coc => {
+                    const answer = await WebConsoleModal.show(DynamicSqlMigrationEntity.niceName(), DynamicSqlMigrationCommand.Generate);
+                    if (answer == null)
+                        return undefined;
+                    if (answer.result == null) {
+                        await MessageModal.show({
+                            title: DynamicSqlMigrationEntity.niceName(),
+                            message: DynamicSqlMigrationMessage.TheSchemaIsAlreadyUpToDate.niceToString(),
+                            buttons: "ok",
+                        });
+                        return undefined;
+                    }
+                    return coc.defaultConstruct(answer.result);
+                },
+            });
 
         registerDynamicPanelSearch(DynamicCSSOverrideEntity.typeName, [
             { token: "name", type: "Text" },
@@ -94,18 +101,27 @@ export namespace DynamicClient {
             }))
             // A saved type does nothing until the server restarts, so Save points at the dynamic panel.
             .withEntityOperation(DynamicTypeOperation.Save, {
-                onClick: async eoc => {
-                    await eoc.defaultClick();
+                onClick: eoc => {
+                    // Only once the save SUCCEEDED: a rejected save (a source rule) returns normally too.
+                    eoc.onExecuteSuccess = async pack => {
+                        await eoc.onExecuteSuccess_Default(pack);
 
-                    if (eoc.entity.typeName != null)
-                        await MessageModal.show({
+                        if (!AuthClient.isPermissionAuthorized(EvalPanelPermission.ViewDynamicPanel))
+                            return;
+
+                        const answer = await MessageModal.show({
                             title: DynamicTypeMessage.TypeSaved.niceToString(),
                             message: DynamicTypeMessage.DynamicType0SucessfullySavedGoToDynamicPanelNow
-                                .niceToString(eoc.entity.typeName),
-                            buttons: "ok",
+                                .niceToString(pack.entity.typeName),
+                            buttons: "yes_no",
                             style: "success",
                             icon: "success",
                         });
+
+                        if (answer === "yes")
+                            AppContext.navigate("/dynamic/panel?step=compile");
+                    };
+                    return eoc.defaultClick();
                 },
             });
 
@@ -172,7 +188,8 @@ export namespace DynamicClient {
 
         registerDynamicPanelSearch(DynamicTypeEntity.typeName, [
             { token: "typeName", type: "Text" },
-            { token: "typeDefinition", type: "JSon" },
+            { token: "dataCode", type: "Code" },
+            { token: "serverCode", type: "Code" },
         ]);
 
         registerDynamicPanelSearch(DynamicExpressionEntity.typeName, [
@@ -200,11 +217,17 @@ export namespace DynamicClient {
             path: "/dynamic/panel",
             element: <ImportComponent onImport={() => import("./DynamicPanelPage")} />,
         });
+
+        registerSpecialAction({
+            key: "DynamicPanel",
+            allowed: () => AuthClient.isPermissionAuthorized(EvalPanelPermission.ViewDynamicPanel),
+            onClick: () => Promise.resolve("/dynamic/panel"),
+        });
     }
 
     // ---- the panel search registry (see the header) -----------------------------------------------------
 
-    export type DynamicPanelSearchType = "Text" | "Code" | "JSon";
+    export type DynamicPanelSearchType = "Text" | "Code";
 
     export interface DynamicPanelSearchColumn {
         token: string;
@@ -244,9 +267,18 @@ export namespace DynamicClient {
             return ajaxGet({ url: "/api/dynamic/cssOverrides" });
         }
 
-        /** Did the dynamic code compile, and if not why — what the panel is for. */
+        /** What this process loaded, whether that failed, and what a restart would change. */
         export function compilationStatus(): Promise<DynamicCompilationStatus> {
             return ajaxGet({ url: "/api/dynamic/compilationStatus" });
+        }
+
+        /** Compile the definitions as they are now, without loading them. */
+        export function compile(): Promise<DynamicCompileResult> {
+            return ajaxPost({ url: "/api/dynamic/compile" }, undefined);
+        }
+
+        export function restartServer(): Promise<void> {
+            return ajaxPost({ url: "/api/dynamic/restartServer", avoidDeserialize: true }, undefined);
         }
     }
 }

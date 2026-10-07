@@ -11,17 +11,17 @@ import { PascalAscii } from "./DynamicType";
 // CONDITION written from the running application: a named condition on a type, plus the script that decides
 // whether one entity satisfies it.
 //
-// Like DynamicValidation this is an EVAL and not generated code (Signum's is too): the script is asked about
-// an entity in hand.
+// Unlike DynamicValidation, the condition that RUNS is GENERATED code, as in Signum: the script is spliced
+// as the body of `e => …` in `TypeConditionLogic.register(...)` (see DynamicTypeConditionLogic), so the
+// quote transformer stamps an expression tree for it and the condition narrows every query of the type as a
+// WHERE, besides guarding saves and single-entity reads. The `eval` below only lets the editor compile and
+// check the script when the row is saved.
+//
+// Which is why this eval stays SYNC, unlike DynamicValidation's and TemplateApplicable's: the spliced lambda
+// must translate to SQL, and an `await` in it cannot — an async eval would accept a script that then breaks
+// the generated module.
 //
 // altea divergences:
-//  - **the IN-MEMORY half only.** altea enforces a TypeCondition two ways: as an in-memory predicate (which
-//    this script is) and, where one is registered, as a QUERY FILTER spliced into every query of the type.
-//    A script cannot become a query filter — that needs an expression tree, and a compiled function has
-//    none — so a dynamic condition is registered with `TypeConditionLogic.register` (in-memory) and NOT
-//    `registerCompile`. Consequence, and it is the important one: a dynamic type condition guards SAVES and
-//    single-entity reads, but does not narrow a search. Signum has exactly the same limitation for exactly
-//    the same reason.
 //  - `DynamicTypeConditionSymbolEntity` is a plain ENTITY here as it is in Signum — note it is not an
 //    altea `Symbol` / `SemiSymbol`, because the name is invented by a user at runtime and no code declares
 //    it. That is what Signum's separate table is for too.

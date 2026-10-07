@@ -59,12 +59,6 @@
   <Type Name="DynamicPanelPermission">
     <Member Name="RestartApplication" Description="Reiniciar aplicación" />
   </Type>
-  <Type Name="DynamicRenameEntity" Description="Cambio de nombre dinámico" PluralDescription="Cambios de nombre dinámicos">
-    <Member Name="CreationDate" Description="Fecha de creación" />
-    <Member Name="NewName" Description="Nuevo nombre" />
-    <Member Name="OldName" Description="Nombre antiguo" />
-    <Member Name="ReplacementKey" Description="Clave de reemplazo" />
-  </Type>
   <Type Name="DynamicSqlMigrationEntity" Description="Migración dinámica de SQL" PluralDescription="Migraciones dinámicas de SQL">
     <Member Name="Comment" Description="Comentario" />
     <Member Name="CreatedBy" Description="Creado por" />
@@ -102,14 +96,21 @@
   </Type>
   <Type Name="DynamicTypeEntity" Description="Tipo dinámico" PluralDescription="Tipos dinámicos">
     <Member Name="BaseType" Description="Tipo base" />
-    <Member Name="TypeDefinition" Description="Definición de tipo" />
+    <Member Name="DataCode" Description="Código de datos" />
+    <Member Name="ServerCode" Description="Código de servidor" />
     <Member Name="TypeName" Description="Nombre de tipo" />
   </Type>
   <Type Name="DynamicTypeMessage">
+    <Member Name="_0MustBeAnEntity" Description="'{0}' debe ser una @entity que no sea una parte" />
+    <Member Name="AnEntityNeedsAServerModule" Description="Una entidad necesita un módulo de servidor, que la incluye en el esquema" />
+    <Member Name="Data" Description="Datos" />
     <Member Name="DynamicType0SucessfullySavedGoToDynamicPanelNow" Description="El tipo dinámico '{0}' se guardó correctamente. Navegar al Panel dinámico ahora?" />
-    <Member Name="RemoveSaveOperation" Description="Eliminar la operación de Guardar?" />
+    <Member Name="Server" Description="Servidor" />
     <Member Name="ServerRestartedWithErrorsInDynamicCodeFixErrorsAndRestartAgain" Description="Servidor reiniciado con errores en el código dinámico. Corrija los errores y reinicie de nuevo." />
+    <Member Name="TheDataModuleDeclaresMoreThanOneEntity0" Description="El módulo de datos solo puede declarar una entidad que no sea una parte, pero declara {0}" />
+    <Member Name="TheDataModuleMustDeclare0" Description="El módulo de datos debe declarar la clase exportada '{0}'" />
     <Member Name="TheEntityShouldBeSynchronizedToApplyMixins" Description="La entidad debe sincronizarse para aplicar mixins" />
+    <Member Name="TheServerModuleMustExport0" Description="El módulo de servidor debe exportar un namespace '{0}' con una función start(sb)" />
     <Member Name="TypeSaved" Description="Tipo guardado" />
   </Type>
   <Type Name="DynamicTypeOperation">
@@ -117,6 +118,46 @@
     <Member Name="Create" Description="Crear" />
     <Member Name="Delete" Description="Eliminar" />
     <Member Name="Save" Description="Guardar" />
+  </Type>
+  <Type Name="DynamicTypeRecipeMessage">
+    <Member Name="Add" Description="Añadir" />
+    <Member Name="AddCollection" Description="Añadir colección" />
+    <Member Name="AddField" Description="Añadir campo" />
+    <Member Name="AddOperation" Description="Añadir operación" />
+    <Member Name="AddOperations" Description="Añadir operaciones" />
+    <Member Name="AddToString" Description="Añadir toString" />
+    <Member Name="AddValidator" Description="Añadir validador…" />
+    <Member Name="BackReference" Description="Referencia al propietario" />
+    <Member Name="Class" Description="Clase" />
+    <Member Name="ConvertToCollection" Description="Convertir en una colección" />
+    <Member Name="DoesNotApplyTo0" Description="No se aplica a {0}" />
+    <Member Name="EditOperations" Description="Editar operaciones" />
+    <Member Name="ElementType" Description="Tipo de elemento" />
+    <Member Name="EmbeddedKind" Description="Embebido" />
+    <Member Name="EntityKind" Description="Entidad" />
+    <Member Name="EnumKind" Description="Enumerado" />
+    <Member Name="Field" Description="Campo" />
+    <Member Name="Format" Description="Formato" />
+    <Member Name="Kind" Description="Tipo" />
+    <Member Name="Lite" Description="Lite" />
+    <Member Name="LiteHelp" Description="Una referencia Lite guarda solo el id y el toString de la entidad: no se carga junto con esta, y se recupera cuando hace falta. Recomendado para referencias a otras entidades." />
+    <Member Name="ModelKind" Description="Modelo" />
+    <Member Name="Name" Description="Nombre" />
+    <Member Name="Nullable" Description="Anulable" />
+    <Member Name="Operations" Description="Operaciones" />
+    <Member Name="PlaceTheCursorInside0" Description="Sitúe el cursor dentro de {0} para editar aquí las operaciones." />
+    <Member Name="PlaceTheCursorOnAClassOrAField" Description="Coloque el cursor en una clase o un campo para editarlo aquí." />
+    <Member Name="PreserveOrder" Description="Conservar el orden" />
+    <Member Name="Register" Description="Registrar" />
+    <Member Name="Registered" Description="Registrada" />
+    <Member Name="Remove" Description="Quitar" />
+    <Member Name="TheServerModuleHasNo0" Description="El módulo de servidor no tiene {0}" />
+    <Member Name="Type" Description="Tipo" />
+    <Member Name="UniqueIndex" Description="Índice único" />
+    <Member Name="Unit" Description="Unidad" />
+    <Member Name="Validators" Description="Validadores" />
+    <Member Name="ValueField" Description="Campo de valor" />
+    <Member Name="ValueKind" Description="Valor" />
   </Type>
   <Type Name="DynamicValidationEntity" Description="Validación dinámica">
     <Member Name="EntityType" Description="Tipo de entidad" />
