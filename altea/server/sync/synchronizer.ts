@@ -1,8 +1,8 @@
-import * as fs from 'node:fs';
 import { SqlPreCommand, Spacing, combineCommands } from './sqlPreCommand';
 import { StringDistance, ChoiceType } from './stringDistance';
 import { ObjectName, SchemaName } from '../schema/objectName';
 import type { Table } from '../schema/table';
+import { SafeConsole, type IAbstractConsole } from '../safeConsole';
 
 // Port of Signum's Engine/Sync/Synchronizer.cs — the generic dictionary 3-way merge that
 // drives every diff in SchemaSynchronizer (createNew / removeOld / mergeBoth per key), plus
@@ -109,7 +109,7 @@ export class Synchronizer {
         removeOld: ((key: string, o: O) => MaybePromise<SqlPreCommand | undefined>) | undefined,
         mergeBoth: ((key: string, n: N, o: O) => MaybePromise<SqlPreCommand | undefined>) | undefined,
     ): Promise<SqlPreCommand | undefined> {
-        replacements.askForReplacements(
+        await replacements.askForReplacements(
             new Set(oldDictionary.keys()),
             new Set(newDictionary.keys()),
             replacementsKey);
@@ -239,6 +239,8 @@ export class Replacements {
 
     interactive = true;
     schemaOnly = false;
+    /** Where a rename question is asked — the CURRENT console (SafeConsole.runWith) unless set. */
+    console: IAbstractConsole | undefined;
     replaceDatabaseName: string | null = null;
 
     // Non-interactive answer hooks (Signum's AutoReplacement / GlobalAutoReplacement /
@@ -304,7 +306,7 @@ export class Replacements {
     // For the names that are old-only vs new-only, learn the old->new renames: match already
     // recorded ones, then rank the rest by Levenshtein distance and ask (or auto-answer).
     // Faithful to Signum's AskForReplacements.
-    askForReplacements(oldKeys: Set<string>, newKeys: Set<string>, replacementsKey: string): void {
+    async askForReplacements(oldKeys: Set<string>, newKeys: Set<string>, replacementsKey: string): Promise<void> {
         let oldOnly = [...oldKeys].filter(k => !newKeys.has(k));
         let newOnly = [...newKeys].filter(k => !oldKeys.has(k));
 
@@ -338,7 +340,7 @@ export class Replacements {
 
             const alternatives = [...oldDist[1]].sort((a, b) => a[1] - b[1]).map(a => a[0]);
 
-            const selection = this.selectInteractiveInternal(oldDist[0], alternatives, replacementsKey, this.interactive, alwaysNoRename);
+            const selection = await this.selectInteractiveInternal(oldDist[0], alternatives, replacementsKey, this.interactive, alwaysNoRename);
 
             oldOnly = oldOnly.filter(a => a !== selection.oldValue);
             distances.delete(selection.oldValue);
@@ -359,7 +361,7 @@ export class Replacements {
 
     // Single-value variant (Signum's public SelectInteractive) — returns the matching new
     // value for one old value, recording the choice. Used by the enum-row sync.
-    selectInteractive(oldValue: string, newValues: string[], replacementsKey: string, sd: StringDistance): string | null {
+    async selectInteractive(oldValue: string, newValues: string[], replacementsKey: string, sd: StringDistance): Promise<string | null> {
         if (newValues.includes(oldValue))
             return oldValue;
 
@@ -370,7 +372,7 @@ export class Replacements {
         const dic = new Map<string, number>(newValues.map(a => [a, distance(sd, oldValue, a)]));
 
         const temp = { value: false };
-        const sel = this.selectInteractiveInternal(
+        const sel = await this.selectInteractiveInternal(
             oldValue,
             [...dic].sort((a, b) => a[1] - b[1]).map(a => a[0]),
             replacementsKey,
@@ -383,22 +385,24 @@ export class Replacements {
         return sel.newValue;
     }
 
-    // The interactive core (Signum's SelectInteractive with `ref alwaysNoRename`). Consults
-    // the auto-replacement hook first; otherwise prompts on the console (synchronous stdin).
-    private selectInteractiveInternal(
+    // The interactive core (Signum's SelectInteractive with `ref alwaysNoRename`). Consults the
+    // auto-replacement hook first; otherwise asks the console (see `console`).
+    private async selectInteractiveInternal(
         oldValue: string,
         newValues: string[],
         replacementsKey: string,
         interactive: boolean,
         alwaysNoRename: { value: boolean },
-    ): Selection {
+    ): Promise<Selection> {
+        const console = this.console ?? SafeConsole.current();
+
         const auto = this.autoReplacement ?? Replacements.globalAutoReplacement;
         if (auto != null) {
             const selection = auto({ replacementKey: replacementsKey, oldValue, newValues });
             if (selection != null) {
-                console.log('AutoReplacement:');
-                console.log(' OLD ' + selection.oldValue);
-                console.log(' NEW ' + selection.newValue);
+                console.writeLine('AutoReplacement:');
+                console.writeLine(' OLD ' + selection.oldValue);
+                console.writeLine(' NEW ' + selection.newValue);
                 return selection;
             }
         }
@@ -409,41 +413,15 @@ export class Replacements {
         if (alwaysNoRename.value)
             return { oldValue, newValue: null };
 
-        console.log();
-        console.log(`   '${oldValue}' has been renamed in ${replacementsKey}?`);
+        const answer = await console.selectValue(`   '${oldValue}' has been renamed in ${replacementsKey}?`, newValues,
+            { allowNone: true, noneLabel: `No rename, '${oldValue}' was removed`, allowAlways: true });
 
-        for (;;) {
-            let i = 0;
-            for (const v of newValues) {
-                console.log(`${String(i).padStart(2)}: ${v}${i === 0 ? ' (hit [Enter])' : ''}`);
-                i++;
-            }
-            console.log(` n: No rename, '${oldValue}' was removed`);
-            console.log(` n!: Always no rename`);
+        if (answer.always)
+            alwaysNoRename.value = true;
 
-            const answer = (readLineSync() ?? 'n').toLowerCase();
-
-            let response: Selection | undefined;
-            if (answer === 'n')
-                response = { oldValue, newValue: null };
-            else if (answer === 'n!') {
-                alwaysNoRename.value = true;
-                response = { oldValue, newValue: null };
-            } else if (answer === '')
-                response = { oldValue, newValue: newValues[0] };
-            else {
-                const option = Number.parseInt(answer, 10);
-                if (Number.isInteger(option) && option >= 0 && option < newValues.length)
-                    response = { oldValue, newValue: newValues[option] };
-            }
-
-            if (response != null) {
-                Replacements.responseRecorder?.(replacementsKey, response.oldValue, response.newValue);
-                return response;
-            }
-
-            console.log('Error');
-        }
+        const response: Selection = { oldValue, newValue: answer.value };
+        Replacements.responseRecorder?.(replacementsKey, response.oldValue, response.newValue);
+        return response;
     }
 
     concretizeObjectName(objectName: ObjectName): string {
@@ -490,24 +468,3 @@ function minBy<T>(items: T[], selector: (t: T) => number): T | undefined {
     return best;
 }
 
-// Synchronous console line read (blocks the event loop). Keeps askForReplacements
-// synchronous like the C#, instead of forcing the whole synchronizer async through
-// readline. Returns null on EOF. Divergence: Signum uses Console.ReadLine directly.
-export function readLineSync(): string | null {
-    const buffer = Buffer.alloc(1);
-    let line = '';
-    for (;;) {
-        let bytes: number;
-        try {
-            bytes = fs.readSync(0, buffer, 0, 1, null);
-        } catch {
-            return line.length > 0 ? line : null;
-        }
-        if (bytes === 0)
-            return line.length > 0 ? line : null;
-        const ch = buffer.toString('utf8', 0, 1);
-        if (ch === '\n')
-            return line.replace(/\r$/, '');
-        line += ch;
-    }
-}

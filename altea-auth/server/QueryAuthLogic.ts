@@ -333,7 +333,7 @@ export namespace QueryAuthLogic {
         // Signum's QueryLogic.QueryNames: the registered queries (a row whose query is gone is not one).
         const queries = (await table(QueryEntity).toArray() as QueryEntity[]).filter(q => QueryLogic.tryGetQueryNameByKey(q.key) != null);
         const byKey = new Map(queries.map(q => [q.key, q]));
-        ctx.replacements.askForReplacements(
+        await ctx.replacements.askForReplacements(
             new Set(sectionRows(auth, "Queries", "Query").map(p => p.Resource)),
             new Set(byKey.keys()),
             replacementKey);

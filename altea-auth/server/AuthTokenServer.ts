@@ -13,6 +13,7 @@ import { LoginAuthMessage } from "../data/AuthMessages";
 import { AuthTokenConfigurationEmbedded } from "../data/AuthToken";
 import { encodeHash } from "./AuthLogic";
 import { Clock } from "@altea/altea/data/utils/clock";
+import { Transaction } from "@altea/altea/server/connection/transaction";
 
 // Port of Signum.Authorization's AuthToken/AuthTokensServer.cs — see port/Auth.md.
 //
@@ -78,6 +79,31 @@ export namespace AuthTokenServer {
     export const authenticators: Authenticator[] = [];
 
     let cryptoKey: Buffer | null = null;
+
+    /**
+     * The user a WebSocket's first-frame token stands for — the SAME authenticator chain an HTTP request
+     * runs, fed a request that carries only that token. A browser WebSocket cannot send `Authorization`,
+     * and a token in the query string would end up in proxy logs, so the token rides the first frame
+     * (server/webSocketHub) and every hub that needs a user resolves it here.
+     */
+    export async function authenticateSocketToken(token: string | undefined): Promise<UserWithClaims> {
+        if (token == null || token === "")
+            throw new Error("No authentication token");
+
+        const request = {
+            header: (name: string) => name.toLowerCase() === "authorization" ? `Bearer ${token}` : undefined,
+            hasQuery: () => false,
+            query: () => [],
+        };
+        const response = { setHeader: () => { /* a socket cannot carry New_Token; the next ajax refreshes */ } };
+
+        for (const authenticator of authenticators) {
+            const user = await Transaction.forceNew(() => authenticator(request as never, response as never));
+            if (user != null)
+                return user;
+        }
+        throw new Error("The token did not resolve to a user");
+    }
 
     /**
      * @param encryptionKey  what the token is SIGNED with. From the environment, not the configuration

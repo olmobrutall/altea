@@ -95,26 +95,7 @@ export namespace ConcurrentUserServer {
 
         // A browser WebSocket cannot send `Authorization`, so the token rides the first frame and is
         // validated through the SAME authenticator chain an HTTP request uses (see webSocketHub.ts).
-        h.authenticate = async token => {
-            if (token == null || token === "")
-                throw new Error("ConcurrentUserHub: no authentication token");
-
-            const fakeReq = {
-                header: (name: string) => name.toLowerCase() === "authorization" ? `Bearer ${token}` : undefined,
-                hasQuery: () => false,
-                // A WebSocket upgrade carries no query string here — the token is the first FRAME, so no
-                // authenticator in the chain can authenticate on a query parameter over this transport.
-                query: () => [],
-            };
-            const fakeRes = { setHeader: () => { /* a socket cannot carry New_Token; the next ajax refreshes */ } };
-
-            for (const authenticator of AuthTokenServer.authenticators) {
-                const user = await Transaction.forceNew(() => authenticator(fakeReq, fakeRes));
-                if (user != null)
-                    return user;
-            }
-            throw new Error("ConcurrentUserHub: the token did not resolve to a user");
-        };
+        h.authenticate = token => AuthTokenServer.authenticateSocketToken(token);
 
         h.onError = (e, context) => {
             // Log it, don't lose it. The write needs its own transaction (a failed hub method may have

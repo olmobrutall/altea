@@ -15,6 +15,7 @@ import {
     IncorrectUsernameException, IncorrectPasswordException, UserLockedException,
 } from "./AuthLogic";
 import { AuthTokenServer } from "./AuthTokenServer";
+import { WebConsoleServer } from "@altea/altea/server/webConsole";
 import type { AuthTokenConfigurationEmbedded } from "../data/AuthToken";
 import type { LoginRequest, ChangePasswordRequest, LoginResponse } from "../data/AuthDtos";
 import { AuthReflectionServer } from "./AuthReflection";
@@ -75,6 +76,8 @@ export namespace AuthServer {
             console.warn("[auth] AUTH_TOKEN_KEY not set — using an insecure dev fallback. Set it in the environment.");
         }
         AuthTokenServer.start(key, getConfiguration);
+        // The web console's socket runs its commands as the user its token names.
+        WebConsoleServer.authenticate = AuthTokenServer.authenticateSocketToken;
         // Who each request is. The SCOPE is already mounted (the WebBuilder constructor does it, before any
         // module runs); this names the user inside it. See filters/userScope.
         installAuthenticator();
