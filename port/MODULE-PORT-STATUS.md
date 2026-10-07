@@ -28,7 +28,7 @@ LOC = `.cs` + `.ts` + `.tsx` lines still in `old/`, as a rough size signal only.
 | Signum.Chart | `altea-chart` | 19 chart types; Google Maps chart scripts skipped (Southwind disables them too) |
 | Signum.CodeMirror | `altea-codemirror` | CM5 → CM6; client-only; adds `MarkdownCodeMirror` |
 | Signum.ConcurrentUser | `altea-concurrent-user` | SignalR → the core WebSocket hub |
-| Signum.Dashboard | `altea-dashboard` | `CachedQueryEntity` + `RegenerateCachedQueries` deferred |
+| Signum.Dashboard | `altea-dashboard` | |
 | Signum.DiffLog | `altea-diff-log` | `registerWhenAlreadyFilteringBy` + the auditor-token registry unported |
 | Signum.Eval | `altea-eval` | `EvalEmbedded<F>` = stored TypeScript; TypeHelp + the EvalPanel page unported |
 | Signum.Files | `altea-files` | |

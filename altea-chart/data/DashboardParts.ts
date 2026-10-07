@@ -16,7 +16,6 @@ import { UserChartEntity } from "./UserChart";
 // entityOverrides.data.ts).
 //
 // altea divergences, documented inline:
-//  - `IsQueryCached` is NOT ported (CachedQuery needs Signum.Files — see the dashboard's data header).
 //  - `RequiresTitle` stays an entity member; `Clone`/`ToXml`/`FromXml` live in the server part registry
 //    (server/ChartDashboardXml.server.ts).
 //  - Signum's `MList<CombinedUserChartElementEmbedded>` → per-owner `@part` rows (no MList in altea).

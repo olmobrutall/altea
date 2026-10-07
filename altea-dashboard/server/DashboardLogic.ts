@@ -31,9 +31,6 @@ import { DashboardPermission } from "../data/Dashboard";
 // HTTP surface.
 //
 // altea divergences, documented inline:
-//  - Signum's `Polymorphic<Func<IPartEntity, …, CachedQueryDefinition>>` + CachedQueryEntity +
-//    RegenerateCachedQueries + the SchedulerLogic task are DEFERRED (they need Signum.Files' FilePathEmbedded
-//    and Signum.Scheduler, neither ported). The dashboard always queries LIVE.
 //  - Signum's `PartNames` dictionary (XML element name → part type) becomes a richer PART REGISTRY here:
 //    each part type registers its XML (de)serializer AND its clone, because altea keeps `IPartEntity.Clone/
 //    ToXml/FromXml` off the isomorphic entity. Other modules register their parts from their own Logic.start
@@ -140,7 +137,7 @@ export namespace DashboardLogic {
             .withOperations(registerDashboardOperations)
             .withQuery();
 
-        // Signum's DashboardGraph: Save / Delete / Clone (RegenerateCachedQueries is deferred).
+        // Signum's DashboardGraph: Save / Delete / Clone (RegenerateCachedQueries is registered by CachedQueryLogic).
 
         // The base parts Signum registers in DashboardLogic.Start's PartNames block.
         registerBasePartsXml();

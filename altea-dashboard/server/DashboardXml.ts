@@ -1,5 +1,5 @@
 import { table } from "@altea/altea/server/table";
-import { type int, type uuid } from "@altea/altea/data/basics";
+import { type int, type uuid, toInt } from "@altea/altea/data/basics";
 import { Enum } from "@altea/altea/data/enum";
 import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
@@ -7,7 +7,7 @@ import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { newGuid } from "@altea/altea-user-assets/data/UserAssets";
 import {
     DashboardEntity, DashboardEntity_Part, DashboardEntity_TokenEquivalenceGroup, DashboardEntity_TokenEquivalenceGroup_Query,
-    InteractionGroup, DashboardEmbedededInEntity, type IPartEntity,
+    InteractionGroup, DashboardEmbedededInEntity, CacheQueryConfigurationEmbedded, type IPartEntity,
 } from "../data/Dashboard";
 import {
     TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity,
@@ -22,8 +22,8 @@ import { DashboardLogic } from "./DashboardLogic";
 // UserAssetsImporter, and each part type registers with DashboardLogic's part registry. The XML shape
 // (element / attribute names) is preserved for round-trip compatibility with Signum's AuthRules-style files.
 //
-// altea divergences: `CacheQueryConfiguration` is not written (deferred with CachedQuery); the `Guid`
-// attribute of the dashboard itself is written by the exporter (the uuid PK IS the identity).
+// altea divergence: the `Guid` attribute of the dashboard itself is written by the exporter (the uuid PK IS
+// the identity).
 
 const A = "@_"; // fast-xml-parser attribute prefix
 
@@ -54,6 +54,13 @@ async function toXml(db: DashboardEntity, ctx: IToXmlContext): Promise<Record<st
     if (db.hideQuickLink) o[A + "HideQuickLink"] = true;
     if (db.showTitleAsBreadcrumb) o[A + "ShowTitleAsBreadcrumb"] = true;
     if (db.autoRefreshPeriod != null) o[A + "AutoRefreshPeriod"] = db.autoRefreshPeriod;
+
+    const cqc = db.cacheQueryConfiguration;
+    if (cqc != null) {
+        const c: Record<string, unknown> = { [A + "TimeoutForQueries"]: cqc.timeoutForQueries, [A + "MaxRows"]: cqc.maxRows };
+        if (cqc.autoRegenerateWhenOlderThan != null) c[A + "AutoRegenerateWhenOlderThan"] = cqc.autoRegenerateWhenOlderThan;
+        o["CacheQueryConfiguration"] = [c];
+    }
 
     const parts: Record<string, unknown>[] = [];
     for (const p of db.parts ?? [])
@@ -121,11 +128,26 @@ function fromXml(db: DashboardEntity, xml: Record<string, unknown>, ctx: IFromXm
     db.hideQuickLink = bool(xml[A + "HideQuickLink"]);
     db.showTitleAsBreadcrumb = bool(xml[A + "ShowTitleAsBreadcrumb"]);
     db.autoRefreshPeriod = num(xml[A + "AutoRefreshPeriod"]);
+    db.cacheQueryConfiguration = cacheQueryConfigurationFromXml(db.cacheQueryConfiguration, xml["CacheQueryConfiguration"]);
 
     db.parts = syncRows(db.parts ?? [], arr(xml["Parts"], "Part"), () => new DashboardEntity_Part(),
         (p, x) => fillPart(p, x, ctx));
     db.tokenEquivalencesGroups = arr(xml["TokenEquivalencesGroups"], "TokenEquivalenceGroup")
         .map(x => tokenEquivalenceGroupFromXml(x, ctx));
+}
+
+// Signum's CacheQueryConfigurationEmbedded.FromXml via CreateOrAssignEmbedded: an existing embedded is
+// updated in place, and a missing element clears it.
+function cacheQueryConfigurationFromXml(current: CacheQueryConfigurationEmbedded | null, element: unknown): CacheQueryConfigurationEmbedded | null {
+    if (element == null)
+        return null;
+
+    const x = firstElem(element);
+    const cqc = current ?? new CacheQueryConfigurationEmbedded();
+    cqc.timeoutForQueries = num(x[A + "TimeoutForQueries"]) ?? toInt(5 * 60);
+    cqc.maxRows = num(x[A + "MaxRows"]) ?? toInt(1000 * 1000);
+    cqc.autoRegenerateWhenOlderThan = num(x[A + "AutoRegenerateWhenOlderThan"]);
+    return cqc;
 }
 
 // Signum's PanelPartEmbedded.FromXml (+ DashboardLogic.GetPart for the content element).

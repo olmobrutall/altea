@@ -10,9 +10,6 @@ import { UserChartEntity } from "../data/UserChart";
 // `sb.Schema.WhenIncluded<DashboardEntity>`. altea keeps XML off the isomorphic entities, so the part
 // registers here with @altea/altea-dashboard's part registry (element name preserved for round-trip
 // compatibility with Signum-exported dashboards).
-//
-// altea divergence: the `IsQueryCached` attributes are neither written nor read (CachedQuery is not ported —
-// see data/DashboardParts.ts).
 
 const A = "@_";
 
@@ -46,6 +43,7 @@ export function registerUserChartDashboardParts(): void {
             const x: Record<string, unknown> = { [A + "UserChart"]: ctx.include(p.userChart) };
             if (p.showData) x[A + "ShowData"] = true;
             if (p.allowChangeShowData) x[A + "AllowChangeShowData"] = true;
+            if (p.isQueryCached) x[A + "IsQueryCached"] = true;
             if (p.createNew) x[A + "CreateNew"] = true;
             if (p.autoRefresh) x[A + "AutoRefresh"] = true;
             if (p.minHeight != null) x[A + "MinHeight"] = p.minHeight;
@@ -55,6 +53,7 @@ export function registerUserChartDashboardParts(): void {
             p.userChart = ctx.getEntity(String(x[A + "UserChart"])) as UserChartEntity;
             p.showData = bool(x[A + "ShowData"]);
             p.allowChangeShowData = bool(x[A + "AllowChangeShowData"]);
+            p.isQueryCached = bool(x[A + "IsQueryCached"]);
             p.createNew = bool(x[A + "CreateNew"]);
             p.autoRefresh = bool(x[A + "AutoRefresh"]);
             p.minHeight = x[A + "MinHeight"] == null ? null : (Number(x[A + "MinHeight"]) as int);
@@ -62,7 +61,7 @@ export function registerUserChartDashboardParts(): void {
     });
 
     // Signum's CombinedUserChartPartEntity.ToXml/FromXml: the options as attributes + one <UserChart Guid="…"/>
-    // child per combined chart (Signum also wrote each element's IsQueryCached — not ported).
+    // child per combined chart, carrying that chart's IsQueryCached.
     DashboardLogic.registerPart<CombinedUserChartPartEntity>({
         type: CombinedUserChartPartEntity,
         elementName: "CombinedUserChartPart",
@@ -98,7 +97,11 @@ export function registerUserChartDashboardParts(): void {
             if (p.combinePinnedFiltersWithSameLabel) x[A + "CombinePinnedFiltersWithSameLabel"] = true;
             if (p.useSameScale) x[A + "UseSameScale"] = true;
             if (p.minHeight != null) x[A + "MinHeight"] = p.minHeight;
-            x["UserChart"] = (p.userCharts ?? []).map(e => ({ [A + "Guid"]: ctx.include(e.userChart) }));
+            x["UserChart"] = (p.userCharts ?? []).map(e => {
+                const c: Record<string, unknown> = { [A + "Guid"]: ctx.include(e.userChart) };
+                if (e.isQueryCached) c[A + "IsQueryCached"] = true;
+                return c;
+            });
             return x;
         },
         fromXml: (p, x, ctx) => {
@@ -110,6 +113,7 @@ export function registerUserChartDashboardParts(): void {
             p.userCharts = list(x["UserChart"]).map(e => {
                 const row = CombinedUserChartPartEntity_UserChart.create({
                     userChart: ctx.getEntity(String(e[A + "Guid"])) as UserChartEntity,
+                    isQueryCached: bool(e[A + "IsQueryCached"]),
                 });
                 return row;
             });

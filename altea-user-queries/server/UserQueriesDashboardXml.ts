@@ -15,8 +15,6 @@ import { UserQueryEntity } from "../data/UserQuery";
 // inside `sb.Schema.WhenIncluded<DashboardEntity>`. altea keeps XML off the isomorphic entities, so each part
 // registers here with @altea/altea-dashboard's part registry (element names preserved for round-trip
 // compatibility with Signum-exported dashboards).
-//
-// altea divergence: the `IsQueryCached` attributes are neither written nor read (CachedQuery is deferred).
 
 const A = "@_";
 
@@ -41,6 +39,7 @@ export function registerUserQueryDashboardParts(): void {
             x[A + "AllowSelection"] = p.allowSelection;
             if (p.showFooter) x[A + "ShowFooter"] = true;
             if (p.createNew) x[A + "CreateNew"] = true;
+            if (p.isQueryCached) x[A + "IsQueryCached"] = true;
             if (p.allowMaxHeight) x[A + "AllowMaxHeight"] = true;
             const autoUpdate = Enum.toName(AutoUpdate, p.autoUpdate);
             if (autoUpdate !== "None") x[A + "AutoUpdate"] = autoUpdate;
@@ -59,6 +58,7 @@ export function registerUserQueryDashboardParts(): void {
             p.allowSelection = x[A + "AllowSelection"] == null ? true : bool(x[A + "AllowSelection"]);
             p.showFooter = bool(x[A + "ShowFooter"]);
             p.createNew = bool(x[A + "CreateNew"]);
+            p.isQueryCached = bool(x[A + "IsQueryCached"]);
             p.allowMaxHeight = bool(x[A + "AllowMaxHeight"]);
             p.autoUpdate = toEnum(AutoUpdate, str(x[A + "AutoUpdate"]) ?? "None");
         },
@@ -94,6 +94,7 @@ export function registerUserQueryDashboardParts(): void {
                 const x: Record<string, unknown> = { [A + "UserQuery"]: ctx.include(e.userQuery) };
                 if (e.label != null) x[A + "Label"] = e.label;
                 if (e.href != null) x[A + "Href"] = e.href;
+                if (e.isQueryCached) x[A + "IsQueryCached"] = true;
                 return x;
             }),
         }),
@@ -102,6 +103,7 @@ export function registerUserQueryDashboardParts(): void {
                 const row = ValueUserQueryListPartEntity_UserQuery.create({
                     label: str(e[A + "Label"]) ?? null,
                     href: str(e[A + "Href"]) ?? null,
+                    isQueryCached: bool(e[A + "IsQueryCached"]),
                     userQuery: ctx.getEntity(str(e[A + "UserQuery"])!) as UserQueryEntity,
                 });
                 return row;

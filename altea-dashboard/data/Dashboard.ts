@@ -37,10 +37,6 @@ import { TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEn
 //  - Signum's property SETTERS / ChildPropertyChanged / ChildCollectionChanged bookkeeping (clearing
 //    EmbeddedInEntity when EntityType is cleared, re-notifying Row/Column) is handled in the editor
 //    (altea entities are plain field bags with no change notification).
-//  - DEFERRED with their missing extensions: `CacheQueryConfiguration` + CachedQueryEntity +
-//    RegenerateCachedQueries (Signum.Files' FilePathEmbedded + Signum.Scheduler), `ITaskEntity`
-//    (Scheduler) and the Omnibox provider. The per-part `isQueryCached` flags go with them.
-//    (ToolbarMenuPartEntity was deferred with Signum.Toolbar and landed with it — see ./Parts.)
 
 // ---- Enums (declared here so they auto-register with the entities that reference them) -----------------
 

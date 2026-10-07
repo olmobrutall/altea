@@ -19,8 +19,6 @@ import { UserQueryEntity } from "./UserQuery";
 //
 // altea divergences, documented inline:
 //  - Signum's `MList<ValueUserQueryElementEmbedded>` → per-owner `@part` rows (no MList in altea).
-//  - The `IsQueryCached` flags are NOT ported: CachedQuery needs Signum.Files' FilePathEmbedded +
-//    Signum.Scheduler, so altea's dashboard always queries live (see @altea/altea-dashboard's data header).
 //  - `RequiresTitle` stays an entity member (the title validation is isomorphic); `Clone`/`ToXml`/`FromXml`
 //    live in the server-side part registry — see server/UserQueriesDashboardXml.server.ts.
 //  - Signum's `PropertyValidation`s on BigValuePart cross-check the OWNING dashboard's entityType through
