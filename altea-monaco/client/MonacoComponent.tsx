@@ -23,18 +23,32 @@ import "./Monaco.css";
 //
 // Caught, and then CLIPPED rather than refused — an edit that merely spanned the fences is re-applied to
 // the body alone. Select everything and paste, and the script is replaced inside a wrapper that survives.
+//
+// A fence part may be HIDDEN: still in the model, so the type checker and completion see it, but not drawn
+// (Monaco's `setHiddenAreas`, what its own folding uses — not in the public typings). That is how the
+// imports and declarations a script is checked against stay out of sight while the lines the author should
+// read — the signature, the closing brace — stay visible. An error on a hidden line would otherwise be
+// invisible, so those are listed under the editor.
+
+/** One run of fixed lines around the editable region; `hidden` keeps it in the model but out of sight. */
+export interface FencePart {
+    text: string;
+    hidden?: boolean;
+}
+
+export type Fence = string | readonly FencePart[];
 
 export interface MonacoProps {
     /** The editable text — the only part `onChange` reports and the only part the user can touch. */
     value: string;
     onChange?: (value: string) => void;
-    /** Fixed text shown ABOVE the editable region, dimmed and uneditable. */
-    header?: string;
-    /** Fixed text shown BELOW it, same. */
-    footer?: string;
+    /** Fixed text ABOVE the editable region, banded and uneditable. */
+    header?: Fence;
+    /** Fixed text BELOW it, same. */
+    footer?: Fence;
     language?: string;
     readOnly?: boolean;
-    /** CSS height. A number is pixels; the default grows with the content up to a point. */
+    /** CSS height. A number is pixels; the default follows the content, between a few lines and ~25 lines. */
     height?: number | string;
     /**
      * The model's file name. Distinct per editor, so the TypeScript worker keeps two scripts apart — two
@@ -63,6 +77,11 @@ export interface MonacoProps {
      * because this package carries no translations of its own.
      */
     fenceHint?: string;
+    /**
+     * The labels of a small link that reveals the hidden parts and hides them again. Supplied by the caller,
+     * like `fenceHint`; without it there is no link.
+     */
+    hiddenToggle?: { show: string; hide: string };
     /** Run once the editor exists, for anything this component does not wrap. */
     onMount?: (editor: MonacoEditor, monaco: Monaco) => void;
 }
@@ -80,6 +99,16 @@ export function MonacoComponent(p: MonacoProps): React.JSX.Element {
     const [monaco, setMonaco] = React.useState<Monaco | null>(null);
     const editorRef = React.useRef<MonacoEditor | null>(null);
     const isDark = useBootstrapTheme();
+    const [contentHeight, setContentHeight] = React.useState<number | undefined>(undefined);
+    const [hiddenErrors, setHiddenErrors] = React.useState<readonly string[]>([]);
+    const [showHidden, setShowHidden] = React.useState(false);
+
+    const header = normalizeFence(p.header);
+    const footer = normalizeFence(p.footer);
+    const headerKey = header.text + "\u0000" + header.hidden.join();
+    const footerKey = footer.text + "\u0000" + footer.hidden.join();
+    // How many header lines the MODEL currently has — what a caret is shifted by when that changes.
+    const appliedHeaderLines = React.useRef(header.hidden.length);
 
     // The props the Monaco callbacks read. They are registered once, against an editor that outlives any
     // one render, so they must not close over a stale render's props.
@@ -96,6 +125,9 @@ export function MonacoComponent(p: MonacoProps): React.JSX.Element {
         const uri = monaco.Uri.parse(latest.current.path ?? `inmemory://altea/${nextModelId++}.ts`);
         const model = monaco.editor.createModel(header + latest.current.value + footer,
             latest.current.language ?? "typescript", uri);
+        // LF, always. A model created from EMPTY text takes the platform's default (CRLF on Windows), and then
+        // `getValue()` never starts with a "\n"-joined header: the guard below "repairs" every change, forever.
+        model.setEOL(monaco.editor.EndOfLineSequence.LF);
 
         const editor = monaco.editor.create(container.current, {
             model,
@@ -118,6 +150,9 @@ export function MonacoComponent(p: MonacoProps): React.JSX.Element {
             overflowWidgetsDomNode: overflowWidgets(),
         });
         editorRef.current = editor;
+
+        setContentHeight(editor.getContentHeight());
+        const sizeSubscription = editor.onDidContentSizeChange(e => setContentHeight(e.contentHeight));
 
         // ---- The guard ---------------------------------------------------------------------------------
         //
@@ -191,6 +226,7 @@ export function MonacoComponent(p: MonacoProps): React.JSX.Element {
 
         return () => {
             subscription.dispose();
+            sizeSubscription.dispose();
             editor.dispose();
             model.dispose();
             editorRef.current = null;
@@ -208,14 +244,79 @@ export function MonacoComponent(p: MonacoProps): React.JSX.Element {
             return;
 
         const model = editor.getModel();
-        const { header, footer } = fences(p);
-        const next = header + p.value + footer;
+        const f = fences(p);
+        const next = f.header + p.value + f.footer;
         if (model == null || model.getValue() === next)
             return;
 
+        // The caret, relative to the SCRIPT: a header that grows or shrinks (a discovered import, a wrapper
+        // that changes once the script is no longer blank) must not leave it on a fence line.
+        const shift = header.hidden.length - appliedHeaderLines.current;
+        // Kept with or without focus: a change made from OUTSIDE the editor (a recipe panel beside it) must
+        // not move the caret the panel follows.
+        const selections = editor.getSelections();
+
         // `pushEditOperations` rather than `setValue`, so the undo stack survives.
         model.pushEditOperations([], [{ range: model.getFullModelRange(), text: next }], () => null);
-    }, [monaco, p.value, p.header, p.footer]);
+        appliedHeaderLines.current = header.hidden.length;
+
+        if (selections != null)
+            editor.setSelections(selections.map(s => new monaco.Selection(
+                s.selectionStartLineNumber + shift, s.selectionStartColumn, s.positionLineNumber + shift, s.positionColumn)));
+    }, [monaco, p.value, headerKey, footerKey]);
+
+    // Hide the hidden parts, and number the SCRIPT's lines from 1 (a fence line gets no number). Re-applied
+    // whenever the text changes, because replacing the whole model (above, or the guard's repair) drops them.
+    React.useEffect(() => {
+        const editor = editorRef.current;
+        const model = editor?.getModel();
+        if (monaco == null || editor == null || model == null)
+            return;
+
+        const total = model.getLineCount();
+        const flags = showHidden ? [] : hiddenLineFlags(latest.current, total);
+        const ranges: import("monaco-editor").IRange[] = [];
+        for (let line = 1; line <= total; line++) {
+            if (!flags[line - 1])
+                continue;
+            const start = line;
+            while (line < total && flags[line])
+                line++;
+            ranges.push(new monaco.Range(start, 1, line, 1));
+        }
+        (editor as unknown as HiddenAreasEditor).setHiddenAreas(ranges, HIDDEN_AREAS_SOURCE);
+        // Hiding or revealing lines changes the content height without raising onDidContentSizeChange.
+        setContentHeight(editor.getContentHeight());
+
+        const headerLines = header.hidden.length;
+        const footerLines = footer.hidden.length;
+        editor.updateOptions({
+            lineNumbers: headerLines === 0 && footerLines === 0 ? "on"
+                : n => n <= headerLines || n > total - footerLines ? "" : String(n - headerLines),
+        });
+    }, [monaco, p.value, headerKey, footerKey, showHidden]);
+
+    // An error on a hidden line (a misspelt type in a declaration the author cannot see) is listed below.
+    React.useEffect(() => {
+        const model = editorRef.current?.getModel();
+        if (monaco == null || model == null)
+            return;
+
+        const collect = (): void => {
+            const flags = hiddenLineFlags(latest.current, model.getLineCount());
+            const next = monaco.editor.getModelMarkers({ resource: model.uri })
+                .filter(m => m.severity === monaco.MarkerSeverity.Error && flags[m.startLineNumber - 1])
+                .map(m => `${m.message} — ${model.getLineContent(m.startLineNumber).trim()}`);
+            setHiddenErrors(previous => previous.join("\n") === next.join("\n") ? previous : next);
+        };
+
+        collect();
+        const subscription = monaco.editor.onDidChangeMarkers(uris => {
+            if (uris.some(u => u.toString() === model.uri.toString()))
+                collect();
+        });
+        return () => subscription.dispose();
+    }, [monaco, headerKey, footerKey]);
 
     React.useEffect(() => {
         editorRef.current?.updateOptions({ readOnly: p.readOnly });
@@ -232,8 +333,8 @@ export function MonacoComponent(p: MonacoProps): React.JSX.Element {
         if (monaco == null || model == null)
             return;
 
-        const headerLines = lineCount(p.header);
-        const footerLines = lineCount(p.footer);
+        const headerLines = header.hidden.length;
+        const footerLines = footer.hidden.length;
         const total = model.getLineCount();
         const fenced = (from: number, to: number): import("monaco-editor").editor.IModelDeltaDecoration => ({
             range: new monaco.Range(from, 1, to, 1),
@@ -254,7 +355,7 @@ export function MonacoComponent(p: MonacoProps): React.JSX.Element {
         ];
         const collection = editor!.createDecorationsCollection(decorations);
         return () => collection.clear();
-    }, [monaco, p.header, p.footer, p.value, p.fenceHint]);
+    }, [monaco, headerKey, footerKey, p.value, p.fenceHint]);
 
     // A fragment's own language service has nothing to check it against — see `semanticDiagnostics`.
     React.useEffect(() => {
@@ -286,7 +387,7 @@ export function MonacoComponent(p: MonacoProps): React.JSX.Element {
         if (monaco == null || model == null)
             return;
 
-        const offset = lineCount(p.header);
+        const offset = header.hidden.length;
         monaco.editor.setModelMarkers(model, MARKER_OWNER, (p.markers ?? []).map(m => {
             const line = Math.min(Math.max(m.line + offset, 1), model.getLineCount());
             return {
@@ -300,14 +401,34 @@ export function MonacoComponent(p: MonacoProps): React.JSX.Element {
                     : monaco.MarkerSeverity.Error,
             };
         }));
-    }, [monaco, p.markers, p.header]);
+    }, [monaco, p.markers, headerKey]);
 
-    const height = typeof p.height === "number" ? `${p.height}px` : p.height ?? "14em";
+    const hasHidden = header.hidden.some(h => h) || footer.hidden.some(h => h);
+
+    const height = typeof p.height === "number" ? `${p.height}px`
+        // +2: the host's border, which the content height does not include.
+        : p.height ?? (contentHeight == null ? "14em" : `${Math.min(Math.max(contentHeight, MIN_HEIGHT), MAX_HEIGHT) + 2}px`);
+
+    // Re-laid out NOW rather than on automaticLayout's next resize observation, which a page not being
+    // painted (a background tab) never delivers.
+    React.useLayoutEffect(() => { editorRef.current?.layout(); }, [height]);
 
     return (
-        <div className="altea-monaco" style={{ height }} ref={container}>
-            {monaco == null && <pre className="altea-monaco-loading">{p.header}{p.value}{p.footer}</pre>}
-        </div>
+        <>
+            <div className="altea-monaco" style={{ height }} ref={container}>
+                {monaco == null && <pre className="altea-monaco-loading">{visibleText(p.header)}{p.value}{visibleText(p.footer, true)}</pre>}
+            </div>
+            {hasHidden && p.hiddenToggle != null &&
+                <div className="altea-monaco-toggle">
+                    <button type="button" className="btn btn-link btn-sm p-0" onClick={() => setShowHidden(!showHidden)}>
+                        {showHidden ? p.hiddenToggle.hide : p.hiddenToggle.show}
+                    </button>
+                </div>}
+            {!showHidden && hiddenErrors.length > 0 &&
+                <ul className="altea-monaco-hidden-errors">
+                    {hiddenErrors.map((e, i) => <li key={i}>{e}</li>)}
+                </ul>}
+        </>
     );
 }
 
@@ -316,15 +437,48 @@ export function MonacoComponent(p: MonacoProps): React.JSX.Element {
  * — so the editable region is exactly what lies between, with no boundary newline of its own to lose.
  */
 function fences(p: Pick<MonacoProps, "header" | "footer">): { header: string; footer: string } {
+    const header = normalizeFence(p.header).text;
+    const footer = normalizeFence(p.footer).text;
     return {
-        header: p.header == null || p.header === "" ? "" : p.header + "\n",
-        footer: p.footer == null || p.footer === "" ? "" : "\n" + p.footer,
+        header: header === "" ? "" : header + "\n",
+        footer: footer === "" ? "" : "\n" + footer,
     };
 }
 
-function lineCount(text: string | undefined): number {
-    return text == null || text === "" ? 0 : text.split("\n").length;
+/** A fence as text, plus one `hidden` flag per line of it. */
+function normalizeFence(fence: Fence | undefined): { text: string; hidden: boolean[] } {
+    const parts: readonly FencePart[] = fence == null ? [] : typeof fence === "string" ? [{ text: fence }] : fence;
+    const text = parts.map(part => part.text).join("\n");
+    if (text === "")
+        return { text, hidden: [] };
+    return { text, hidden: parts.flatMap(part => part.text.split("\n").map(() => part.hidden === true)) };
 }
+
+/** Which model lines (0-based) are hidden: the hidden header lines, then the hidden footer lines. */
+function hiddenLineFlags(p: Pick<MonacoProps, "header" | "footer">, total: number): boolean[] {
+    const flags = new Array<boolean>(total).fill(false);
+    const header = normalizeFence(p.header).hidden;
+    const footer = normalizeFence(p.footer).hidden;
+    header.forEach((h, i) => { if (i < total) flags[i] = h; });
+    footer.forEach((h, i) => { const line = total - footer.length + i; if (line >= 0) flags[line] = h; });
+    return flags;
+}
+
+/** What the placeholder shows while Monaco loads: the visible fence lines only. */
+function visibleText(fence: Fence | undefined, isFooter = false): string {
+    const parts = fence == null ? [] : typeof fence === "string" ? [{ text: fence }] : fence;
+    const visible = parts.filter(part => part.hidden !== true).map(part => part.text).join("\n");
+    return visible === "" ? "" : isFooter ? "\n" + visible : visible + "\n";
+}
+
+/** `setHiddenAreas` exists on every code editor but is not in Monaco's public typings. */
+interface HiddenAreasEditor {
+    setHiddenAreas(ranges: import("monaco-editor").IRange[], source?: unknown): void;
+}
+
+const HIDDEN_AREAS_SOURCE = "altea-fence";
+const MIN_HEIGHT = 60;
+const MAX_HEIGHT = 480;
 
 /**
  * Where Monaco puts a widget that does not fit inside the editor. ONE for the whole page, appended to the

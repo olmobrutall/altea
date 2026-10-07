@@ -1,5 +1,6 @@
 import * as React from "react";
-import { MonacoComponent, type MonacoMarker } from "./MonacoComponent";
+import { MonacoComponent, type Fence, type MonacoMarker, type MonacoEditor } from "./MonacoComponent";
+import type { Monaco } from "./monaco";
 
 // The TypeScript flavour, and the direct replacement for altea-codemirror's `TypeScriptCodeMirror`
 // wherever a stored SCRIPT is edited (@altea/altea-eval).
@@ -11,10 +12,10 @@ import { MonacoComponent, type MonacoMarker } from "./MonacoComponent";
 export interface TypeScriptMonacoProps {
     code: string;
     onChange?: (code: string) => void;
-    /** Shown above the editable region, dimmed and uneditable: the generated imports and signature. */
-    header?: string;
-    /** Shown below it, same: the closing brace. */
-    footer?: string;
+    /** Shown above the editable region, banded and uneditable; a `hidden` part is in the model only. */
+    header?: Fence;
+    /** Shown below it, same. */
+    footer?: Fence;
     isReadOnly?: boolean;
     height?: number | string;
     path?: string;
@@ -23,6 +24,10 @@ export interface TypeScriptMonacoProps {
     semanticDiagnostics?: boolean;
     /** Shown on hover over the uneditable region. */
     fenceHint?: string;
+    /** Labels of the link revealing the hidden parts — see `MonacoProps.hiddenToggle`. */
+    hiddenToggle?: { show: string; hide: string };
+    /** Run once the editor exists — see `MonacoProps.onMount`. */
+    onMount?: (editor: MonacoEditor, monaco: Monaco) => void;
 }
 
 export default function TypeScriptMonaco(p: TypeScriptMonacoProps): React.JSX.Element {
@@ -37,6 +42,8 @@ export default function TypeScriptMonaco(p: TypeScriptMonacoProps): React.JSX.El
             markers={p.markers}
             semanticDiagnostics={p.semanticDiagnostics}
             fenceHint={p.fenceHint}
+            hiddenToggle={p.hiddenToggle}
+            onMount={p.onMount}
             onChange={p.onChange} />
     );
 }
