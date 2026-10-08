@@ -291,7 +291,7 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
 
   async defaultCreate(pr: PropertyRoute): Promise<Aprox<V> | undefined> {
 
-    var typeName = await EntityBaseController.chooseType(this.props.ctx.memberType!, t => this.props.create /*Hack?*/ || Navigator.isCreable(cleanTypeName(t.ctor!), { customComponent: !!this.props.getComponent || !!this.props.getViewPromise, isEmbedded: pr.fieldInfo != null && pr.fieldInfo.is(EmbeddedEntity) }));
+    var typeName = await EntityBaseController.chooseType(this.props.ctx.memberType!, t => this.props.create /*Hack?*/ || Navigator.isCreable(cleanTypeName(t.ctor!), { customComponent: !!this.props.getComponent || !!this.props.getViewPromise, isEmbedded: pr.type.is(EmbeddedEntity) }));
 
     if (typeName == null)
       return undefined;
