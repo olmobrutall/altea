@@ -632,7 +632,10 @@ export abstract class QueryToken {
 
     // Signum's EntityProperties: one EntityPropertyToken per queryable field of `type`, then the fields of
     // its mixins — FLAT, as Signum's (`User.Department`, no mixin step in the key; the route
-    // carries it). Pure bookkeeping fields (noSerialize) are excluded.
+    // carries it). Pure bookkeeping fields (noSerialize) are excluded, and so are `@column(false)` fields:
+    // with no column there is nothing to select (Signum's `[Ignore]` is likewise not queryable). Signum's
+    // `[QueryableProperty]` opt-back-in is not ported — its use is the virtual MList, which in altea is a
+    // mapped `@part` collection.
     //
     // `id` / `ticks` are excluded ONLY for an ENTITY, where they are the base class's: `id` is added
     // back by subTokensBase as the synthetic idPropertyToken (typed from the real @primaryKey), and
@@ -649,14 +652,14 @@ export abstract class QueryToken {
         const isEntityType = (type as Function) === Entity || type.prototype instanceof Entity;
         const out: QueryToken[] = [];
         for (const fi of Object.values(ti.fields)) {
-            if (fi.noSerialize || (isEntityType && (fi.name === "id" || fi.name === "rowVersion")))
+            if (fi.noSerialize || fi.notMapped || (isEntityType && (fi.name === "id" || fi.name === "rowVersion")))
                 continue;
             out.push(tokenFactories!.entityProperty(this, fi, base.add(fi.name)));
         }
         for (const mixin of MixinDeclarations.getMixins(type)) {
             const mixinRoute = base.addMixin(mixin.name);
             for (const fi of Object.values(tryGetTypeInfo(mixin)?.fields ?? {}))
-                if (!fi.noSerialize)
+                if (!fi.noSerialize && !fi.notMapped)
                     out.push(tokenFactories!.entityProperty(this, fi, mixinRoute.add(fi.name)));
         }
         return out;
