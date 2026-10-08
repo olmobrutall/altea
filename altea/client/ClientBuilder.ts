@@ -1,3 +1,8 @@
+// The browser context storage (Statics.newContextVariable), installed by the framework rather than by each
+// app's entry point: every client bootstraps through ClientBuilder, and the shared data/ layer (Clock's
+// time-zone override behind DateTimeLine, corruptMixin, …) creates context variables that otherwise threw
+// "No context storage registered" on the client.
+import './context.browser';
 import { type RouteObject } from 'react-router';
 import { BaseEntity, Entity, type Type } from '../data/entity';
 import type { EntityPack } from '../data/entityPack';
@@ -56,7 +61,7 @@ export class ClientBuilder {
     // Framework exception UI (Signum's ExceptionClient.start): registers the ExceptionEntity view the
     // ErrorModal links to. In the framework init (not per-app) since the framework's ErrorModal depends
     // on it. Also registers ExceptionEntity's client TypeInfo (fixes "No TypeInfo for 'exception'").
-    ExceptionClient.start();
+    ExceptionClient.start(this);
     // The type table's query settings — chiefly the pinned filter that keeps `@part` rows out of the
     // picker `EntityBase.chooseType` opens for an `@implementedByAll` reference. Here rather than in the
     // app's MainAdmin (where CultureInfoClient / SystemEventLogClient live) because it is a default on a

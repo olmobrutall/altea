@@ -17,11 +17,12 @@ import { table } from "./table";
 import type { Query } from "./query";
 import "./dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { Clock } from "../data/utils/clock";
+import { UserHolder } from "./userHolder";
 
 // Port of Signum's ExceptionLogic (old/Framework/Signum/Basics/ExceptionLogic.cs), trimmed to the
 // pieces eastwind needs: schema registration, the `logException` extension that builds, fills and
 // persists an ExceptionEntity, and the log-cleanup registry + runner below. Deferred (as in Signum but
-// not needed yet): OnExceptionLogged event, per-environment overrides, and the User/auth wiring.
+// not needed yet): OnExceptionLogged event and per-environment overrides.
 //
 // The engine ownership is the same as Signum: an error anywhere on the server is turned into a row
 // here by the API exception filter (exceptionFilter.ts, Signum's SignumExceptionFilterAttribute).
@@ -194,6 +195,9 @@ export namespace ExceptionLogic {
         entity.applicationName = process.env["ALTEA_APP_NAME"] ?? "eastwind";
         entity.environment = process.env["NODE_ENV"] ?? "Default";
         entity.origin = ExceptionOrigin.Backend;
+        // Signum's ExceptionEntity ctor stamps UserHolder.Current here, not in the request filter: errors
+        // logged outside a request's exception filter (scheduled tasks, processes, …) need it too.
+        entity.user = UserHolder.currentUserLite();
 
         // Stash on the Error so a later HttpError(error) reuses this row / id.
         if (error != null && typeof error === "object")
@@ -215,6 +219,9 @@ export namespace ExceptionLogic {
         entity.machineName = safe(() => hostname());
         entity.applicationName = process.env["ALTEA_APP_NAME"] ?? "eastwind";
         entity.origin = ExceptionOrigin.Frontend;
+        // The route is allowAnonymous, but the client posts with its token, so the request scope still
+        // names the user when there is one.
+        entity.user = UserHolder.currentUserLite();
         try {
             await Saver.save([entity]);
         } catch (saveError) {

@@ -6,7 +6,6 @@ import { ajaxGet, ajaxPost, ValidationError } from "@altea/altea/client/Services
 import { QueryString } from "@altea/altea/client/QueryString";
 import { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
-import { EntitySettings } from "@altea/altea/client/EntitySettings";
 import { Finder } from "@altea/altea/client/Finder";
 import { Constructor } from "@altea/altea/client/Constructor";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
@@ -306,26 +305,22 @@ export namespace WorkflowClient {
         cb.configure(WorkflowEventTaskEntity).withView(() => import("./Workflow/WorkflowEventTask"));
         cb.configure(WorkflowScriptRetryStrategyEntity).withView(() => import("./Workflow/WorkflowScriptRetryStrategy"));
 
-        cb.configure(WorkflowConditionEntity).withView(() => import("./Workflow/WorkflowCondition"));
-        Navigator.getOrAddSettings(WorkflowConditionEntity).modalSize = "xl";
-        cb.configure(WorkflowActionEntity).withView(() => import("./Workflow/WorkflowAction"));
-        Navigator.getOrAddSettings(WorkflowActionEntity).modalSize = "xl";
-        cb.configure(WorkflowLaneModel).withView(() => import("./Workflow/WorkflowLaneModel"));
-        Navigator.getOrAddSettings(WorkflowLaneModel).modalSize = "xl";
+        cb.configure(WorkflowConditionEntity).withView(() => import("./Workflow/WorkflowCondition"), { modalSize: "xl" });
+        cb.configure(WorkflowActionEntity).withView(() => import("./Workflow/WorkflowAction"), { modalSize: "xl" });
+        cb.configure(WorkflowLaneModel).withView(() => import("./Workflow/WorkflowLaneModel"), { modalSize: "xl" });
 
         // The designer is a PAGE, never a popup (its BPMN canvas needs the room).
-        cb.configure(WorkflowEntity).withView(() => import("./Workflow/Workflow"));
-        Navigator.getOrAddSettings(WorkflowEntity).avoidPopup = true;
+        cb.configure(WorkflowEntity).withView(() => import("./Workflow/Workflow"), { avoidPopup: true });
 
-        // A case activity is opened by its own page/modal, not the generic frame.
-        Navigator.addSettings(new EntitySettings(CaseActivityEntity, undefined, {
+        // A case activity is opened by its own page/modal, not the generic frame — so no view module.
+        cb.configure(CaseActivityEntity).withSettings({
             onNavigateRoute: (typeName, id) => "/workflow/activity/" + id,
             onView: (entityOrPack, viewOptions) => viewCase(
                 (entityOrPack as EntityPack<CaseActivityEntity>).entity
                     ? (entityOrPack as EntityPack<CaseActivityEntity>).entity
                     : entityOrPack as CaseActivityEntity,
                 viewOptions),
-        }) as unknown as EntitySettings);
+        });
 
         // The workflow nodes are only ever seen through the designer.
         hide(WorkflowPoolEntity);
