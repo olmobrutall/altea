@@ -51,7 +51,7 @@ import { RootToken } from '../data/dynamicQuery/tokens/rootToken';
 import { parentTokenKey } from '../data/dynamicQuery/tokens/tokenKey';
 import { JavascriptMessage, SearchMessage } from '../data/uiMessages';
 import Notify, { type NotifyOptions } from './Frames/Notify';
-import { QueryTokenString, type Anonymous } from './QueryTokenString';
+import { QueryTokenString } from './QueryTokenString';
 
 import { FilterOperation, PinnedFilterActive } from '../data/dynamicQueries'; // numeric companions, for wire-ordinal encode/decode
 import type { FilterOperationKeys, FilterGroupOperationKeys, PinnedFilterActiveKeys, FilterTypeKeys, PaginationModeKeys, OrderTypeKeys } from '../data/dynamicQueries';
@@ -277,8 +277,8 @@ export namespace Finder {
   }
 
   export function pinnedSearchFilter(): FilterGroupOption;
-  export function pinnedSearchFilter<T extends Entity>(type: Type<T>, ...tokens: ((t: QueryTokenString<Anonymous<T>>) => (QueryTokenString<any> | FilterConditionOption))[]): FilterGroupOption;
-  export function pinnedSearchFilter<T extends Entity>(type?: Type<T>, ...tokens: ((t: QueryTokenString<Anonymous<T>>) => (QueryTokenString<any> | FilterConditionOption))[]): FilterGroupOption {
+  export function pinnedSearchFilter<T extends Entity>(type: Type<T>, ...tokens: ((t: QueryTokenString<T>) => (QueryTokenString<any> | FilterConditionOption))[]): FilterGroupOption;
+  export function pinnedSearchFilter<T extends Entity>(type?: Type<T>, ...tokens: ((t: QueryTokenString<T>) => (QueryTokenString<any> | FilterConditionOption))[]): FilterGroupOption {
     if (type == null)
       return filterGroupSearch();
 
@@ -286,7 +286,7 @@ export namespace Finder {
       groupOperation: "Or",
       pinned: { splitValue: true },
       filters: tokens.map(t => {
-        var res = t(new QueryTokenString<Anonymous<T>>("")); // altea: Type<T> (bare ctor) carries no statics; token() ignores `this` and just news up a root QueryTokenString
+        var res = t(new QueryTokenString<T>("")); // altea: Type<T> (bare ctor) carries no statics; token() ignores `this` and just news up a root QueryTokenString
 
         if (res instanceof QueryTokenString)
           return { token: res, operation: "Contains" } as FilterConditionOption;
