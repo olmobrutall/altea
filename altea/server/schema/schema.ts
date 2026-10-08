@@ -55,6 +55,9 @@ export class Schema {
         return Connector.current().schema;
     }
 
+    /** Signum's Schema.Version: the application's version, set by its starter and stamped on every logged exception. */
+    version: string | undefined;
+
     readonly tables = new Map<Type<Entity>, Table>();
     readonly nameToType = new Map<string, Type<Entity>>();
     readonly typeToName = new Map<Type<Entity>, string>();

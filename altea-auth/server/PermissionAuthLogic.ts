@@ -72,7 +72,7 @@ export namespace PermissionAuthLogic {
             return;
         started = true;
         // The authorization module's
-        // own four.
+        // own five.
         PermissionLogic.registerContainer(BasicPermission);
 
         // The PermissionSymbol table, which CORE owns — it holds the REGISTERED permissions, not every

@@ -195,6 +195,7 @@ export namespace ExceptionLogic {
         entity.applicationName = process.env["ALTEA_APP_NAME"] ?? "eastwind";
         entity.environment = process.env["NODE_ENV"] ?? "Default";
         entity.origin = ExceptionOrigin.Backend;
+        entity.version = safe(() => Connector.current().schema.version);
         // Signum's ExceptionEntity ctor stamps UserHolder.Current here, not in the request filter: errors
         // logged outside a request's exception filter (scheduled tasks, processes, …) need it too.
         entity.user = UserHolder.currentUserLite();
@@ -207,7 +208,7 @@ export namespace ExceptionLogic {
     }
 
     // Signum's ExceptionEntity(ClientErrorModel) ctor + LogException: log a client-reported error.
-    export async function logClientError(model: ClientErrorModel): Promise<ExceptionEntity> {
+    export async function logClientError(model: ClientErrorModel, completeContext?: (e: ExceptionEntity) => void): Promise<ExceptionEntity> {
         const entity = ExceptionEntity.create({
             creationDate: Clock.now,
             exceptionType: [model.errorType, model.name].filter(Boolean).join("/"),
@@ -219,9 +220,11 @@ export namespace ExceptionLogic {
         entity.machineName = safe(() => hostname());
         entity.applicationName = process.env["ALTEA_APP_NAME"] ?? "eastwind";
         entity.origin = ExceptionOrigin.Frontend;
+        entity.version = safe(() => Connector.current().schema.version);
         // The route is allowAnonymous, but the client posts with its token, so the request scope still
         // names the user when there is one.
         entity.user = UserHolder.currentUserLite();
+        completeContext?.(entity);
         try {
             await Saver.save([entity]);
         } catch (saveError) {

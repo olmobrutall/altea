@@ -7,7 +7,8 @@ import { setAccessTokenFactory } from "@altea/altea/client/useWebSocket";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import { Metadata } from "@altea/altea/data/metadata";
 import type { UserEntity } from "../data/User";
-import type { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
+import { BasicPermission, type PermissionSymbol } from "@altea/altea/data/permissionSymbol";
+import { ErrorModalOptions } from "@altea/altea/client/Modals/ErrorModal";
 import { AuthMessage } from "../data/AuthMessages";
 import { TypeAllowedBasic, PropertyAllowed } from "../data/Rules";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
@@ -70,6 +71,7 @@ export namespace AuthClient {
     // password are available even when no user is logged in and the full/admin bundle isn't loaded.
     export function startPublic(routes: RouteObject[], options?: { userTicket?: boolean; notifyLogout?: boolean }): void {
         Options.userTicket = options?.userTicket ?? false;
+        ErrorModalOptions.isExceptionViewable = () => isPermissionAuthorized(BasicPermission.ViewErrorDetails);
 
         routes.push({ path: "/auth/login", element: <ImportComponent onImport={() => import("./public/LoginPage")} /> });
         routes.push({ path: "/auth/changePassword", element: <ImportComponent onImport={() => import("./public/ChangePasswordPage")} /> });

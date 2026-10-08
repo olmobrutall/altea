@@ -27,4 +27,6 @@ export namespace BasicPermission {
     export const AutomaticUpgradeOfProperties: PermissionSymbol = init();
     export const AutomaticUpgradeOfQueries: PermissionSymbol = init();
     export const AutomaticUpgradeOfOperations: PermissionSymbol = init();
+    /** Stack traces and the link to the logged exception, in the error dialog and in server error responses. */
+    export const ViewErrorDetails: PermissionSymbol = init();
 }
