@@ -1,15 +1,22 @@
 import type { IconProp, IconName, IconPrefix } from "@fortawesome/fontawesome-svg-core";
 
-// altea stand-in for Signum's `@framework/Components/IconTypeahead` (parseIcon / fallbackIcon) — altea has
-// no IconTypeahead component (icon names are typed into a plain text box), but the STORED format is the same
-// as Signum's: either a bare icon name ("gauge") or a "<prefix> <name>" pair ("regular circle-check",
-// "fas gauge"). The app registers the full free solid + regular sets (eastwind's MainPublic does
-// `library.add(fas, far)`), so a resolved name renders.
+// The non-React half of Signum's `@framework/Components/IconTypeahead` (parseIcon / fallbackIcon); the picker
+// itself is ./IconTypeahead. The STORED format is Signum's: a bare icon name ("gauge"), or a "<prefix> <name>"
+// pair — what the picker writes is the long form ("fa-regular fa-bell", "fa-brands fa-github"), and the short
+// forms ("regular circle-check", "fas gauge") are read too. The app registers the full free solid + regular
+// sets (eastwind's MainPublic does `library.add(fas, far)`), so a resolved name renders.
 //
 // Lives in the FRAMEWORK client (as Signum's IconTypeahead does) because every module that stores an icon
 // name needs it: altea-dashboard (panel/part icons), altea-toolbar (element icons), altea-user-queries.
 
-const prefixes: Record<string, IconPrefix> = {
+/** The short prefix for each spelling of a family ("fa-solid" / "solid" / "fas"). */
+export const prefixes: Record<string, IconPrefix> = {
+    "fa-solid": "fas",
+    "fa-regular": "far",
+    "fa-brands": "fab",
+    "fa-light": "fal",
+    "fa-duotone": "fad",
+    "fa-thin": "fat",
     solid: "fas",
     fas: "fas",
     regular: "far",
@@ -24,23 +31,27 @@ const prefixes: Record<string, IconPrefix> = {
     fat: "fat",
 };
 
-/** Signum's parseIcon: the stored icon string → a FontAwesome IconProp (undefined when empty / "_"). */
+/** Signum's parseIcon: the stored icon string → a FontAwesome IconProp (undefined when empty, "_" or "none"). */
 export function parseIcon(iconName: string | null | undefined): IconProp | undefined {
     if (iconName == null)
         return undefined;
 
     const text = iconName.trim();
-    if (text == "" || text == "_")
+    if (text == "" || text == "_" || text == "none")
         return undefined;
 
     const parts = text.split(/\s+/);
     if (parts.length >= 2) {
         const prefix = prefixes[parts[0].toLowerCase()];
         if (prefix != null)
-            return [prefix, parts.slice(1).join(" ") as IconName];
+            return [prefix, stripFa(parts.slice(1).join(" ")) as IconName];
     }
 
-    return text as IconName;
+    return stripFa(text) as IconName;
+}
+
+function stripFa(name: string): string {
+    return name.startsWith("fa-") ? name.substring(3) : name;
 }
 
 /** Signum's fallbackIcon: render SOMETHING even when the stored name is not in the loaded icon library. */

@@ -2,14 +2,13 @@ import * as React from "react";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
-import { TextBoxLine } from "@altea/altea/client/Lines/TextBoxLine";
+import { IconTypeaheadLine } from "@altea/altea/client/Components/IconTypeahead";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import type { ToolbarSwitcherEntity_Option } from "../../data/Toolbar";
 
 // Port of Signum.Toolbar's Templates/ToolbarSwitcherOption.tsx — see port/Toolbar.md.
 //
-// One switcher option's detail editor. `IconTypeaheadLine` is a `TextBoxLine` (identical stored format) and
-// the menu reference is an `EntityLine`, both as elsewhere in this module.
+// One switcher option's detail editor. The menu reference is an `EntityLine`, as elsewhere in this module.
 
 export default function ToolbarSwitcherOption(p: { ctx: TypeContext<ToolbarSwitcherEntity_Option> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
@@ -22,7 +21,7 @@ export default function ToolbarSwitcherOption(p: { ctx: TypeContext<ToolbarSwitc
             <EntityLine ctx={ctx.subCtx(f => f.toolbarMenu)} />
             <div className="row">
                 <div className="col-sm-6">
-                    <TextBoxLine ctx={ctx4.subCtx(t => t.iconName)} onChange={() => forceUpdate()} />
+                    <IconTypeaheadLine ctx={ctx4.subCtx(t => t.iconName)} onChange={() => forceUpdate()} />
                     <AutoLine ctx={ctx4.subCtx(t => t.iconColor)} onChange={() => forceUpdate()} />
                 </div>
             </div>

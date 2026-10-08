@@ -101,8 +101,6 @@ round-trips.
   prop is gone — the entity picker binds through a `TypeContext` built from the type's PropertyRoute. For
   the same reason an `@implementedBy` Lite belongs to `EntityLine` rather than `AutoLine`, which is what
   the switcher's `owner` uses.
-- **`IconTypeaheadLine` → a plain `TextBoxLine`**, the substitution the dashboard editor already made: the
-  stored format is identical (`IconHelpers.parseIcon`).
 - `a.modified = true` (a manual dirty flag) is dropped: dirtiness is tracked by snapshot.
 - `isExternalLink` compares against `AppContext.baseName`, where Signum reads `window.__baseName`.
 

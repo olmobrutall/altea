@@ -5,6 +5,7 @@ import { cleanTypeName } from "@altea/altea/data/registration";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
+import { IconTypeaheadLine } from "@altea/altea/client/Components/IconTypeahead";
 import { TextBoxLine } from "@altea/altea/client/Lines/TextBoxLine";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { parseIcon } from "@altea/altea/client/Components/IconHelpers";
@@ -19,9 +20,6 @@ import { ToolbarCount } from "../QueryToolbarConfig";
 //
 // The per-element detail editor (the row's "view" popup): what it points at, its icon / color / label, and
 // the count + popup options a query-ish content unlocks.
-//
-// `IconTypeaheadLine` is a plain `TextBoxLine` here — the stored format is identical
-// (`IconHelpers.parseIcon`), the same substitution the dashboard editor made.
 
 export default function ToolbarElement(p: { ctx: TypeContext<ToolbarElementBaseEntity> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
@@ -68,7 +66,7 @@ export default function ToolbarElement(p: { ctx: TypeContext<ToolbarElementBaseE
             {type != "Divider" &&
                 <div className="row">
                     <div className="col-sm-5">
-                        <TextBoxLine ctx={ctx4.subCtx(t => t.iconName)} onChange={() => forceUpdate()} />
+                        <IconTypeaheadLine ctx={ctx4.subCtx(t => t.iconName)} onChange={() => forceUpdate()} />
                         <AutoLine ctx={ctx4.subCtx(t => t.iconColor)} onChange={() => forceUpdate()} />
                         {isQueryish && <AutoLine ctx={ctx4.subCtx(a => a.showCount)} onChange={() => forceUpdate()} />}
                     </div>

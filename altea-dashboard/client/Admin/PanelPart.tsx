@@ -1,6 +1,7 @@
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { ColorLine, TextBoxLine } from "@altea/altea/client/Lines/TextBoxLine";
+import { ColorLine } from "@altea/altea/client/Lines/TextBoxLine";
+import { IconTypeaheadLine } from "@altea/altea/client/Components/IconTypeahead";
 import { TextAreaLine } from "@altea/altea/client/Lines/TextAreaLine";
 import { EnumLine } from "@altea/altea/client/Lines/EnumLine";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
@@ -12,9 +13,7 @@ import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelp
 // Port of Signum's Signum.Dashboard/Admin/PanelPart.tsx — the part CHROME modal (icon / colors / interaction
 // group / tooltip) opened from the grid cell's icon button.
 //
-// altea divergences: the icon name is a plain text box (Signum's IconTypeaheadLine has no altea port — the
-// stored format is identical, see IconHelpers.parseIcon), and the tooltip is a multi-line TEXT box instead of
-// Signum's HtmlEditorLine (Signum.HtmlEditor is not ported) — the stored HTML still renders as HTML.
+// altea divergence: the tooltip is a multi-line TEXT box instead of Signum's HtmlEditorLine (Signum.HtmlEditor is not ported) — the stored HTML still renders as HTML.
 
 const interactionColors = ["#DFFF00", "#FFBF00", "#FF7F50", "#DE3163", "#9FE2BF", "#40E0D0", "#6495ED", "#CCCCFF"];
 
@@ -41,7 +40,7 @@ export default function PanelPart(p: { ctx: TypeContext<DashboardEntity_Part> })
                 </div>
             )}
 
-            <TextBoxLine ctx={settingsCtx.subCtx(pp => pp.iconName)} onChange={() => forceUpdate()} />
+            <IconTypeaheadLine ctx={settingsCtx.subCtx(pp => pp.iconName)} onChange={() => forceUpdate()} />
 
             <div className="row">
                 <div className="col-sm-4">
