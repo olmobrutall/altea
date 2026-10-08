@@ -165,6 +165,14 @@ export class TypeReference {
         if (init != null) Object.assign(this, init);
     }
 
+    /** The same type accepting null — e.g. a filter value, which may always be left empty whatever its column requires. */
+    asNullable(): TypeReference {
+        if (this.isNullable)
+            return this;
+        const { typeName, subTypeName, type, implementations, lite, array } = this;
+        return new TypeReference({ typeName, subTypeName, type, implementations, lite, array, isNullable: true });
+    }
+
     // The referenced entity/embedded *constructor* — `type()` when it resolves to a class. undefined
     // for value types, enums, and name-only @implementedBy interface references (which have no thunk;
     // their concrete targets are reached via {@link is}/`implementations`). Was the free `fieldType`.
