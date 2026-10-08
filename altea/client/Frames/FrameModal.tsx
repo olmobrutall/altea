@@ -444,7 +444,9 @@ export function FrameModalTitle({ titleId, pack, pr, title, subTitle, widgets, g
 
     const ti = tryGetTypeInfo(entity);
 
-    if (ti == undefined || !Navigator.isViewable(ti.ctor! as any)) //Embedded
+    // The link opens the entity's own page, so it asks what a search does: an embedded or a `@part`
+    // ("IsLine") is only ever viewed from its owner.
+    if (ti == undefined || !Navigator.isViewable(ti.ctor! as any, { isSearch: "main" }))
       return undefined;
 
     return (

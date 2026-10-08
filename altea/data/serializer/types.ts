@@ -23,6 +23,10 @@ export interface SerializeOptions {
     /** Leave out the `<field>_translated` values (see setTranslatedFieldProvider), which depend on the
      *  current UI culture — for a dump that must not change with who produced it. */
     avoidTranslations?: boolean;
+    /** A `@part` at the ROOT is written as it is inside its owner's collection: without its `@backReference`
+     *  and `@rowOrder`. Its back reference is a fat lite to the owner, whose collection holds the part again,
+     *  so a part serialized on its own is otherwise always a cycle. The caller restores the two fields. */
+    detachedPart?: boolean;
 }
 
 export interface DeserializeOptions {

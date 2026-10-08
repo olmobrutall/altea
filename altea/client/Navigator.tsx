@@ -24,6 +24,7 @@ import type { EntityFrame } from './TypeContext';
 import { useAPI, useAPIWithReload, useForceUpdate } from './Hooks';
 import type { APIHookOptions } from './Hooks';
 import { Serializer } from '../data/serializer';
+import { getSnapshot } from '../data/changes';
 // Staged Navigator activation (entity-nav): the FULL EntitySettings/ViewPromise live in ./EntitySettings
 // (view-override machinery stubbed). Navigator's earlier MINIMAL inline EntitySettings is replaced by this.
 import { EntitySettings } from './EntitySettings';
@@ -34,7 +35,7 @@ import { Constructor } from './Constructor';
 import { TextHighlighter } from './Components/Typeahead';
 import { IsByAll } from './Reflection';
 import { TypeInfo, TypeReference } from '../data/reflection';
-import type { PropertyRoute } from '../data/propertyRoute';
+import { isPartType, type PropertyRoute } from '../data/propertyRoute';
 import { EmbeddedEntity } from '../data/entity';
 import { cleanTypeName } from '../data/registration';
 import { softCast } from '../data/globals';
@@ -194,7 +195,9 @@ export namespace Navigator {
     if (entity == undefined)
       return API.fetchEntityPack(entityOrEntityPack as Lite<T & Entity>);
 
-    if (!(entity instanceof Entity))
+    // A `@part` is altea's MList element: like an embedded it has no pack of its own (and posting it alone
+    // would drag its owner along through the back reference).
+    if (!(entity instanceof Entity) || isPartType(entity.constructor))
       return Promise.resolve({ entity: cloneEntity(entity), canExecute: {} });
 
     return API.fetchEntityPackEntity(entity as T & Entity).then(ep => ({ ...ep, entity: cloneEntity(entity) }));
@@ -211,8 +214,22 @@ export namespace Navigator {
   }
 
   // ALTEA: clone via the Serializer (JSON.parse/stringify would drop the class + $type).
+  // A `@part` is cloned detached from its owner (see SerializeOptions.detachedPart), and the clone gets the
+  // original's back reference and row order back — the same owner instance, not a copy of it.
   function cloneEntity(obj: any): any {
-    return Serializer.parse(Serializer.stringify(obj));
+    if (!(obj instanceof Entity && isPartType(obj.constructor)))
+      return Serializer.parse(Serializer.stringify(obj));
+
+    const clone = Serializer.parse(Serializer.stringify(obj, { detachedPart: true })) as any;
+    const ti = tryGetTypeInfo(obj.constructor)!;
+    for (const fi of [ti.backReferenceField, ti.rowOrderField])
+      if (fi != null)
+        clone[fi.name] = (obj as any)[fi.name];
+    // The parse took its clean snapshot without them — re-take it, as the collection path's `recover` does
+    // before snapshotting, or the restored fields would read as an edit.
+    if (clone._snapshot !== true)
+      clone._snapshot = getSnapshot(clone);
+    return clone;
   }
 
   // ===== ACTIVE: fetch a single lite into state (uses ported API + Hooks). =====
@@ -721,7 +738,10 @@ export namespace Navigator {
       case "System": return "Always";
       case "Relational": return "Never";
       case "String": return "IsSearch";
-      case "Shared": case "Main": case "Part": case "SharedPart": return "Always";
+      case "Shared": case "Main": case "SharedPart": return "Always";
+      // A `@part` is altea's MList element: viewed from its owner's line, never on its own from a search
+      // (nor expanded to a page of its own — see FrameModal's renderExpandLink).
+      case "Part": return "IsLine";
       default: return "Never";
     }
   }
