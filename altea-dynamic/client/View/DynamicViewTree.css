@@ -44,21 +44,6 @@ span.place-holder {
     user-select: none;
 }
 
-.tree-label.tree-selected {
-    color: var(--bs-body-color);
-    background-color: var(--bs-primary);
-}
-
-.tree-label.tree-error {
-    color: var(--bs-body-color);
-    background-color: var(--bs-danger);
-}
-
-.tree-label.tree-selected.tree-error {
-    color: var(--bs-body-color);
-    background-color: var(--bs-danger);
-}
-
 .tree-icon {
     cursor:pointer;
     width:12px;

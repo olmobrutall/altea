@@ -825,7 +825,7 @@ class TreeNodeControl extends React.Component<TreeNodeControlProps> {
                             {this.renderIcon(node.nodeState)}
 
                             <span className={classes("tree-label",
-                                node === tv.state.selectedNode && "tree-selected",
+                                node === tv.state.selectedNode && "tree-selected text-bg-primary",
                                 node.disabled && "tree-disabled")}
                                 onDoubleClick={e => tv.handleNodeTextDoubleClick(node, e)}
                                 onClick={() => tv.handleNodeTextClick(node)}

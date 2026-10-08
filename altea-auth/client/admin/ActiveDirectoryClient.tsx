@@ -79,6 +79,13 @@ export namespace ActiveDirectoryClient {
             if (ctx.findOptions.queryKey != UserEntity.typeName || !canInviteUsers)
                 return undefined;
 
+            // Like Signum: only where the search control may create users (importing one IS creating it),
+            // unless `extraOptions.avoidFindInActiveDirectory` says otherwise either way.
+            const create = ctx.searchControl.props.create;
+            const canCreate = typeof create == "function" ? create(ctx.findOptions) : create;
+            if ((ctx.searchControl.props.extraOptions?.avoidFindInActiveDirectory as boolean | undefined) ?? !canCreate)
+                return undefined;
+
             const search = getSearch(ctx.findOptions);
 
             return {

@@ -35,10 +35,18 @@ export namespace ActiveDirectoryServer {
         // server-computed answer is served as one boolean the client reads once at start-up. (An
         // unauthorized client that ignores it still gets a 403 from the two routes below — the gate that
         // actually matters is on the SERVER.)
+        //
+        // It is also false while no directory is configured / enabled (an authorizer that is not an
+        // `IDirectoryInviter`, or one whose configuration is empty): the permission alone would show the
+        // invite button on every installation, including those that never set up a directory.
         ws.get("/api/activeDirectory/canInviteUsers",
             { res: CustomType<boolean>() },
             async (_req, res) => {
-                res.jsonTyped(await PermissionAuthLogic.isAuthorized(ActiveDirectoryPermission.InviteUsersFromAD));
+                const authorizer = AuthLogic.authorizer;
+                res.jsonTyped(
+                    isDirectoryInviter(authorizer) &&
+                    await PermissionAuthLogic.isAuthorized(ActiveDirectoryPermission.InviteUsersFromAD) &&
+                    await authorizer.isDirectoryConfigured());
             });
 
         // GET /api/findADUsers?subString=…&count=… — search the directory.
