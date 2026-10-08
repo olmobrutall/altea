@@ -47,6 +47,11 @@ describe("implicit NotNullValidator", () => {
 
     test("value types & enums ARE required in TS (divergence from Signum); nullable & arrays are not", () => {
         const a = ArtistEntity.create({ name: "x" });
+        // quote-transformer seeds a non-nullable boolean with `= false` (as a C# bool), so a new entity
+        // already has it set; it is still required once cleared.
+        assert.equal(a.dead, false, "non-nullable boolean is seeded with false");
+        assert.equal(entityIntegrityCheck(a, "Saving")?.errors["dead"], undefined);
+        a.dead = undefined as any;
         const ic = entityIntegrityCheck(a, "Saving");
         assert.ok(ic?.errors["dead"] != null, "non-nullable boolean should be required");
         assert.ok(ic?.errors["sex"] != null, "non-nullable enum should be required");
