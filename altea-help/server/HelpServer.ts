@@ -17,7 +17,7 @@ import {
     TypeHelpEntity, TypeHelpOperation,
     HelpPermissions,
     type HelpFileUpload, type HelpImportPreviewModel, type HelpImportReportModel,
-    type HelpIndexTS, type HelpSearchResponse, type NamespaceHelpTS,
+    type HelpIndex, type HelpSearchResponse, type NamespaceHelpInfo,
 } from "../data/Help";
 import { HelpLogic } from "./HelpLogic";
 import { HelpSearch } from "./HelpSearch";
@@ -42,7 +42,7 @@ export namespace HelpServer {
     export function start(ws: WebBuilder): void {
 
         ws.get("/api/help/index",
-            { res: CustomType<HelpIndexTS>() },
+            { res: CustomType<HelpIndex>() },
             async (_req, res) => {
                 await assertView();
 
@@ -65,11 +65,11 @@ export namespace HelpServer {
                             }),
                         })),
                     appendices: appendices.map(a => ({ uniqueName: a.uniqueName, title: a.title })),
-                } satisfies HelpIndexTS);
+                } satisfies HelpIndex);
             });
 
         ws.get("/api/help/namespace",
-            { res: CustomType<NamespaceHelpTS>() },
+            { res: CustomType<NamespaceHelpInfo>() },
             async (req, res) => {
                 await assertView();
 
@@ -86,7 +86,7 @@ export namespace HelpServer {
                         const clean = cleanOf(t);
                         return { cleanName: clean, hasEntity: types.get(clean)?.dbEntity != undefined };
                     }),
-                } satisfies NamespaceHelpTS);
+                } satisfies NamespaceHelpInfo);
             });
 
         ws.post("/api/help/saveNamespace",

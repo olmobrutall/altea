@@ -10,6 +10,7 @@ import type { ResultRow } from "@altea/altea/data/dynamicQuery/queryRequest";
 import type SearchControlLoaded from "@altea/altea/client/SearchControl/SearchControlLoaded";
 import { UserEntity, UserLite } from "@altea/altea-auth/data/User";
 import { ActiveDirectoryMessage } from "@altea/altea-auth/data/BaseAD";
+import type { ExternalUser } from "@altea/altea-auth/data/AuthDtos";
 import { ActiveDirectoryClient } from "@altea/altea-auth/client/admin/ActiveDirectoryClient";
 import * as ProfilePhoto from "@altea/altea-auth/client/public/ProfilePhoto";
 import { AzureADConfigurationEmbedded } from "../data/AzureAD";
@@ -189,7 +190,7 @@ export namespace AzureADClient {
     }
 
     /** Read an ExternalUser out of a picked result row (the invite-a-user flow). */
-    export function toExternalUser(row: ResultRow, scl: SearchControlLoaded): ActiveDirectoryClient.ExternalUser {
+    export function toExternalUser(row: ResultRow, scl: SearchControlLoaded): ExternalUser {
         const columns = scl.state.resultTable!.columns;
         return {
             displayName: row.columns[columns.indexOf("displayName")] as string,

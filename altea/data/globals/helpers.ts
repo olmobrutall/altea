@@ -8,7 +8,9 @@ export function softCast<T>(val: T): T {
 
 export namespace Dic {
 
-  var simplesTypes = ["number", "boolean", "string"];
+  // Every primitive: one left out falls through to the key walk, where it has no keys, so ANY two compare
+  // equal (1n and 2n did — an int64 field / rowVersion is a bigint).
+  var simplesTypes = ["number", "boolean", "string", "bigint", "symbol"];
   export const skipClasses: Function[] = [];
 
   export function equals<V>(objA: V, objB: V, deep: boolean, depth = 0, visited: any[] = []): boolean {
@@ -25,6 +27,18 @@ export namespace Dic {
 
     if (objA instanceof Date && objB instanceof Date)
       return objA.valueOf() === objB.valueOf();
+
+    // Temporal keeps its fields in internal slots — no own keys — so the key walk below would call ANY two
+    // PlainDates of the same type equal. Compare what they denote instead.
+    if (isTemporal(objA) || isTemporal(objB))
+      return isTemporal(objA) && isTemporal(objB) &&
+        Object.getPrototypeOf(objA) === Object.getPrototypeOf(objB) && String(objA) === String(objB);
+
+    // A binary field (a file's `binaryFile`) is a Uint8Array of maybe megabytes, and is replaced (a new
+    // upload), never edited in place: compared by REFERENCE, which `===` above already did. Walked through
+    // getKeys it built one string key per byte, once per memoized line's propEquals.
+    if (ArrayBuffer.isView(objA) || ArrayBuffer.isView(objB))
+      return false;
 
     if (Array.isArray(objA) !== Array.isArray(objB))
       return false;
@@ -60,6 +74,10 @@ export namespace Dic {
       return false;
 
     return akeys.every(k => equals((objA as any)[k], (objB as any)[k], deep, depth + 1, visited));
+  }
+
+  export function isTemporal(v: unknown): boolean {
+    return typeof v === "object" && v != null && Object.prototype.toString.call(v).startsWith("[object Temporal.");
   }
 
   export function assign<O extends P, P extends {}>(obj: O, other: P | undefined): void {

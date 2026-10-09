@@ -7,6 +7,8 @@ import { ReadonlyBinding, createBinding, getLambdaMembers, getFieldMembers, Bind
 import type { IBinding, LambdaMember } from './binding'
 import type { Quoted } from 'quote-transformer/quoted'
 import { BaseEntity } from '../data/entity'
+import { Dic } from '../data/globals'
+import { Decimal } from '../data/basics'
 import type { Entity, ModelEntity, Type } from '../data/entity'
 import type { EntityPack } from '../data/entityPack'
 import type { ModelState } from '../data/validation'
@@ -301,6 +303,116 @@ function rootRouteOrType(ctor: Type<BaseEntity>): PropertyRoute | TypeReference 
   return isPartType(ctor) ? new TypeReference({ type: () => ctor }) : PropertyRoute.root(ctor);
 }
 
+// ---- TypeContext.equals helpers -------------------------------------------------------------------
+
+interface BindingAnswers { error?: { value: string | undefined }; readOnly?: { value: boolean }; }
+
+// What each binding last answered a render. Keyed by the binding, not the context: the line renders through
+// `ctx.subCtx(styleOptions)`, a different context sharing the same binding as the one in its props.
+const bindingAnswers = new WeakMap<IBinding<any>, BindingAnswers>();
+
+function answers(binding: IBinding<any>): BindingAnswers {
+  let a = bindingAnswers.get(binding);
+  if (a == null)
+    bindingAnswers.set(binding, a = {});
+  return a;
+}
+
+function sameAnswers(prev: TypeContext<unknown>, next: TypeContext<unknown>): boolean {
+  if (prev.binding == null)
+    return true;
+
+  const a = bindingAnswers.get(prev.binding);
+  if (a == null)
+    return true;
+
+  // Asked through `next`, which records its own answers for the comparison after this one.
+  return (a.error == null || a.error.value === next.error) &&
+    (a.readOnly == null || a.readOnly.value === next.bindingIsReadonly);
+}
+
+function bindingEquals(prev: IBinding<any> | undefined, next: IBinding<any> | undefined): boolean {
+  if (prev === next)
+    return true;
+
+  if (prev instanceof Binding && next instanceof Binding)
+    return prev.parentObject === next.parentObject &&
+      prev.member === next.member &&
+      prev.suffix === next.suffix &&
+      prev.forceError === next.forceError &&
+      valueEquals(prev.initialValue, next.initialValue);
+
+  if (prev instanceof ReadonlyBinding && next instanceof ReadonlyBinding)
+    return prev.value === next.value && prev.suffix === next.suffix;
+
+  return false; // a binding we know nothing about: re-render rather than guess.
+}
+
+// A field VALUE: primitives (bigint included) and identities by `===`; the immutable value types — Date,
+// Temporal, decimal.js — by what they denote (a new instance per assignment is the norm).
+function valueEquals(a: unknown, b: unknown): boolean {
+  if (a === b)
+    return true;
+
+  if (a instanceof Date && b instanceof Date)
+    return a.valueOf() === b.valueOf();
+
+  // A decimal field holds a decimal.js object, and NumberLine stores a NEW one on every edit.
+  if (a instanceof Decimal && b instanceof Decimal)
+    return a.eq(b);
+
+  return Dic.isTemporal(a) && Dic.isTemporal(b) &&
+    Object.getPrototypeOf(a) === Object.getPrototypeOf(b) && String(a) === String(b);
+}
+
+
+function routeEquals(a: PropertyRoute | undefined, b: PropertyRoute | undefined): boolean {
+  return a === b || (a != null && b != null && a.toString() === b.toString());
+}
+
+function typeReferenceEquals(a: TypeReference | undefined, b: TypeReference | undefined): boolean {
+  return a === b || (a != null && b != null &&
+    a.typeName === b.typeName && a.subTypeName === b.subTypeName &&
+    a.lite === b.lite && a.array === b.array && a.isNullable === b.isNullable &&
+    a.type?.() === b.type?.() &&
+    Dic.equals(a.implementations, b.implementations, true));
+}
+
+function previousVersionEquals(a: TypeContext<unknown>["previousVersion"], b: TypeContext<unknown>["previousVersion"]): boolean {
+  return a === b || (a != null && b != null && a.value === b.value && a.oldIndex === b.oldIndex && a.isMoved === b.isMoved);
+}
+
+// Style options hold primitives, small literals a view writes inline (`labelColumns: { sm: 4 }`) and the
+// frame, which FramePage rebuilds on every render around the same pack (down to its `frameComponent:
+// { forceUpdate, type }`). Plain objects are compared a few levels down; anything with a class (an entity,
+// a component) only by reference, and the pack's entity is one — a reload is a different frame.
+function styleOptionsEqual(a: object | undefined, b: object | undefined): boolean {
+  return shallowEquals(a, b, 3);
+}
+
+function shallowEquals(a: unknown, b: unknown, depth: number): boolean {
+  if (a === b)
+    return true;
+
+  if (typeof a === "function" && typeof b === "function")
+    return true;
+
+  if (depth == 0 || !isPlain(a) || !isPlain(b) || Array.isArray(a) !== Array.isArray(b))
+    return false;
+
+  const ak = Object.keys(a), bk = Object.keys(b);
+  return ak.length === bk.length && ak.every(k => Object.prototype.hasOwnProperty.call(b, k) &&
+    shallowEquals((a as any)[k], (b as any)[k], depth - 1));
+}
+
+function isPlain(v: unknown): v is object {
+  if (typeof v !== "object" || v == null)
+    return false;
+
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === Array.prototype || proto === null;
+}
+
 export class TypeContext<T> extends StyleContext {
 
   propertyRoute: PropertyRoute | undefined; /*Because of optional TypeInfo*/
@@ -334,10 +446,17 @@ export class TypeContext<T> extends StyleContext {
     // how a server-only validator (disabled on the "Client" phase, so the live check stays silent)
     // still reddens its field, not only the summary.
     const live = this.binding.getError();
-    if (live)
-      return live;
-    const root = this.rootEntity();
-    return root ? GraphExplorer.peekModelState(root)?.[this.prefix] : undefined;
+    const root = live ? undefined : this.rootEntity();
+    const error = live || (root ? GraphExplorer.peekModelState(root)?.[this.prefix] : undefined);
+    answers(this.binding).error = { value: error };
+    return error;
+  }
+
+  /** The binding's own read-only rule (`@isReadOnly`, which may read OTHER fields), remembered for {@link TypeContext.equals}. */
+  get bindingIsReadonly(): boolean {
+    const readOnly = this.binding.getIsReadonly();
+    answers(this.binding).readOnly = { value: readOnly };
+    return readOnly;
   }
 
   set error(val: string | undefined) {
@@ -359,6 +478,49 @@ export class TypeContext<T> extends StyleContext {
     // MListElementBinding. Read the numeric member, else inherit from the parent context.
     const member = (this.binding as Binding<any> | undefined)?.member;
     return typeof member === "number" ? member : (this.parent as TypeContext<any>)?.index;
+  }
+
+  /**
+   * Whether a memoized line given `prev` would render the same as one given `next` — the `ctx` half of
+   * LineBaseController.propEquals. A view builds a NEW context for every line on every render, so `===`
+   * says nothing; this compares what the line can actually see, level by level up the parent chain:
+   *
+   * - **The target, by REFERENCE.** A context is a handle the line WRITES through, not just data to show.
+   *   After a reload the new entity graph can be deep-equal to the old one; a line that skipped that render
+   *   would keep a binding to the dead object and type into nothing. So `parentObject` / `value` are never
+   *   walked, and the cost no longer grows with the entity (a 600 KB file used to be walked per line).
+   * - **The value, by VALUE.** Entities are mutated in place, so the target being the same object proves
+   *   nothing about the field. The binding snapshots it at construction (`initialValue`): an edit made
+   *   elsewhere (an onChange, an operation) shows up as a different snapshot.
+   * - **What the line derived LIVE.** `ctx.error` (validators + the server's ModelState) and the binding's
+   *   `@isReadOnly` rule can change through OTHER fields. Whatever the previous render was told is asked
+   *   again; a different answer re-renders.
+   *
+   * Style options are compared shallowly (a view writes `{ labelColumns: { sm: 4 } }` inline); functions
+   * count as equal, as `Dic.equals` always has (inline handlers would otherwise defeat the memo).
+   */
+  static equals(prev: StyleContext | undefined, next: StyleContext | undefined): boolean {
+    if (prev === next)
+      return true;
+
+    if (prev == null || next == null || Object.getPrototypeOf(prev) !== Object.getPrototypeOf(next))
+      return false;
+
+    if (!styleOptionsEqual(prev.styleOptions, next.styleOptions))
+      return false;
+
+    if (prev instanceof TypeContext) {
+      const n = next as TypeContext<unknown>;
+      if (prev.prefix !== n.prefix ||
+        !routeEquals(prev.propertyRoute, n.propertyRoute) ||
+        !typeReferenceEquals(prev.typeReference, n.typeReference) ||
+        !previousVersionEquals(prev.previousVersion, n.previousVersion) ||
+        !bindingEquals(prev.binding, n.binding) ||
+        !sameAnswers(prev, n))
+        return false;
+    }
+
+    return TypeContext.equals(prev.parent, next.parent);
   }
 
   static root<T extends BaseEntity>(value: T, styleOptions?: StyleOptions, parent?: StyleContext): TypeContext<T> {

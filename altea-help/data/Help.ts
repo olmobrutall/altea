@@ -603,15 +603,15 @@ export interface HelpSearchResponse {
     results: HelpSearchResult[];
 }
 
-// ---- the index / namespace wire DTOs (Signum's HelpIndexTS & friends) ----------------------------
+// ---- the index / namespace wire DTOs (Signum's HelpIndex & friends) ----------------------------
 
-export interface HelpIndexTS {
+export interface HelpIndex {
     culture: CultureInfoEntity;
-    namespaces: NamespaceItemTS[];
-    appendices: AppendiceItemTS[];
+    namespaces: NamespaceItem[];
+    appendices: AppendiceItem[];
 }
 
-export interface NamespaceItemTS {
+export interface NamespaceItem {
     namespace: string;
     /** The owning PACKAGE — the first grouping level of the index page (Signum's assembly-ish "module"). */
     module?: string;
@@ -625,12 +625,12 @@ export interface EntityItem {
     hasEntity?: boolean;
 }
 
-export interface AppendiceItemTS {
+export interface AppendiceItem {
     title: string;
     uniqueName: string;
 }
 
-export interface NamespaceHelpTS {
+export interface NamespaceHelpInfo {
     namespace: string;
     title: string;
     description?: string | null;

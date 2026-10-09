@@ -736,11 +736,11 @@ export namespace TypeAuthLogic {
 
     async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<SqlPreCommand | undefined> {
         const rows = sectionRows(auth, "Types", "Type");
-        ctx.replacements.askForReplacements(
+        await ctx.replacements.askForReplacements(
             new Set(rows.map(x => x.Resource)),
             new Set([...ctx.nameToType].filter(([, ctor]) => !isEnumEntityType(ctor)).map(([name]) => name)),
             typeReplacementKey);
-        ctx.replacements.askForReplacements(
+        await ctx.replacements.askForReplacements(
             new Set(rows.flatMap(x => (x.Condition ?? []).flatMap(c => c.Name.split(",").map(n => n.trim()).filter(Boolean)))),
             new Set(ctx.typeConditions.keys()),
             typeConditionReplacementKey);

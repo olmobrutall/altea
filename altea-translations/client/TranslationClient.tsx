@@ -4,7 +4,8 @@ import { ajaxGet, ajaxPost, ajaxGetRaw } from "@altea/altea/client/Services";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
-import { TranslationPermission, TranslationReplacementEntity, type TranslatedSummaryState } from "../data/Translation";
+import { TranslationPermission, TranslationReplacementEntity } from "../data/Translation";
+import type { TranslationFileStatus, FolderSyncStats, PackageResult } from "../data/TranslationDtos";
 
 // Port of Signum.Translation's TranslationClient.tsx — the CODE half's client registration: the four
 // pages and the calls behind them.
@@ -91,68 +92,6 @@ export namespace TranslationClient {
             .filter(([, v]) => v != undefined)
             .map(([k, v]) => `${k}=${encodeURIComponent(v!)}`)
             .join("&");
-    }
-
-    // ---- The DTOs (mirroring server/TranslationServer) ------------------------------------------------
-
-    export interface FolderSyncStats {
-        folder: string;
-        types: number;
-        translations: number;
-    }
-
-    export interface TranslationFileStatus {
-        package: string;
-        culture: string;
-        isDefault: boolean;
-        status: TranslatedSummaryState;
-    }
-
-    export interface PackageResult {
-        totalTypes: number;
-        cultures: Record<string, { name: string; pronoms: { gender: string; singular: string; plural: string }[] }>;
-        types: Record<string, LocalizableType>;
-    }
-
-    export interface LocalizableType {
-        type: string;
-        folder: string;
-        hasMembers: boolean;
-        hasGender: boolean;
-        hasDescription: boolean;
-        hasPluralDescription: boolean;
-        cultures: Record<string, LocalizedType>;
-    }
-
-    export interface LocalizedType {
-        culture: string;
-        typeDescription?: LocalizedDescription;
-        members: Record<string, LocalizedMember>;
-    }
-
-    export interface LocalizedDescription {
-        gender?: string;
-        description?: string;
-        pluralDescription?: string;
-        automaticTranslations?: AutomaticTypeTranslation[];
-    }
-
-    export interface AutomaticTypeTranslation {
-        translatorName: string;
-        gender?: string;
-        singular: string;
-        plural?: string;
-    }
-
-    export interface LocalizedMember {
-        name: string;
-        description?: string;
-        automaticTranslations?: AutomaticTranslation[];
-    }
-
-    export interface AutomaticTranslation {
-        translatorName: string;
-        text: string;
     }
 }
 

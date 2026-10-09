@@ -451,11 +451,11 @@ export namespace OperationAuthLogic {
         const symbols = new Map((await SymbolLogic.cache(OperationSymbol)).symbols().map(s => [s.key, s]));
         // Signum's `Operation.Key/Type`.
         const allResources = new Set(sectionRows(auth, "Operations", "Operation").map(p => p.Resource));
-        ctx.replacements.askForReplacements(
+        await ctx.replacements.askForReplacements(
             new Set([...allResources].map(a => a.includes("/") ? a.slice(0, a.indexOf("/")) : a)),
             new Set(symbols.keys()),
             operationReplacementKey);
-        ctx.replacements.askForReplacements(
+        await ctx.replacements.askForReplacements(
             new Set([...allResources].map(a => a.slice(a.indexOf("/") + 1))),
             new Set(ctx.nameToType.keys()),
             typeReplacementKey);

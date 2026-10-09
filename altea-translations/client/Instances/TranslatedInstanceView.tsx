@@ -14,6 +14,7 @@ import { Dic } from "@altea/altea/data/globals";
 import { DiffDocumentSimple } from "@altea/altea-diff-log/client/Templates/DiffDocument";
 import "@altea/altea-diff-log/client/Templates/DiffLog.css";
 import { TranslationMessage } from "../../data/Translation";
+import type { TranslatedInstanceViewInfo, TranslatedInstanceViewType, TranslationRecordInfo } from "../../data/TranslationDtos";
 import { TranslatedInstanceClient } from "../TranslatedInstanceClient";
 import { TranslatedHtmlEditor, TranslatedHtmlViewer } from "./TranslatedHtml";
 import { TranslateSearchBox } from "../Code/TranslationCodeView";
@@ -62,7 +63,7 @@ export default function TranslatedInstanceView(): React.JSX.Element {
                         culture: c,
                         originalText: ins.translations[route][c].newText ?? ins.translations[route][c].originalText,
                         translatedText: ins.translations[route][c].translatedText,
-                    } satisfies TranslatedInstanceClient.TranslationRecord))));
+                    } satisfies TranslationRecordInfo))));
 
         void lock(() => TranslatedInstanceClient.API.saveTranslatedInstanceData(records, type, false, culture)
             .then(() => { reload(); Operations.notifySuccess(); }));
@@ -107,8 +108,8 @@ export default function TranslatedInstanceView(): React.JSX.Element {
 }
 
 function TranslatedInstance(p: {
-    ins: TranslatedInstanceClient.TranslatedInstanceView;
-    data: TranslatedInstanceClient.TranslatedInstanceViewType;
+    ins: TranslatedInstanceViewInfo;
+    data: TranslatedInstanceViewType;
     cultures: string[];
     currentCulture?: string;
 }): React.JSX.Element {
@@ -135,8 +136,8 @@ function TranslatedInstance(p: {
 
 function TranslatedInstanceProperty(p: {
     route: string;
-    ins: TranslatedInstanceClient.TranslatedInstanceView;
-    data: TranslatedInstanceClient.TranslatedInstanceViewType;
+    ins: TranslatedInstanceViewInfo;
+    data: TranslatedInstanceViewType;
     cultures: string[];
     currentCulture?: string;
 }): React.JSX.Element {

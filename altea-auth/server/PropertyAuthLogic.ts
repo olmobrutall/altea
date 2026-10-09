@@ -648,7 +648,7 @@ export namespace PropertyAuthLogic {
             // modelPaths, not authRoutes: a legacy database's rules also name the routes the model cannot
             // generate (`@legacyPropertyRoute`), and a Signum application still reads them.
             const paths = PropertyRouteLogic.modelPaths(ctor, false);
-            ctx.replacements.askForReplacements(properties, paths, propertiesReplacementKey(ctor));
+            await ctx.replacements.askForReplacements(properties, paths, propertiesReplacementKey(ctor));
             routesByType.set(ctor, paths);
         }
 

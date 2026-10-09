@@ -945,4 +945,13 @@
     <Member Name="Help" Description="Ayuda" />
   </Type>
   <Type Name="VisualTipSymbol" Description="Consejo visual" />
+  <Type Name="WebConsoleMessage">
+    <Member Name="Always" Description="Aplicar la misma respuesta a las preguntas restantes" />
+    <Member Name="Answer" Description="Responder" />
+    <Member Name="Connecting" Description="Conectando…" />
+    <Member Name="Failed" Description="Fallido" />
+    <Member Name="Finished" Description="Terminado" />
+    <Member Name="Running" Description="Ejecutando…" />
+    <Member Name="WaitingForAnswer" Description="Esperando su respuesta" />
+  </Type>
 </Translations>

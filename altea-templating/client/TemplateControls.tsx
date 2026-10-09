@@ -3,7 +3,7 @@ import QueryTokenBuilder from "@altea/altea/client/SearchControl/QueryTokenBuild
 import MessageModal from "@altea/altea/client/Modals/MessageModal";
 import { useAPI } from "@altea/altea/client/Hooks";
 import { QueryToken, SubTokensOptions } from "@altea/altea/client/QueryToken";
-import { TemplateMessage, TemplateTokenMessage, type GlobalVariableTS } from "../data/Templating";
+import { TemplateMessage, TemplateTokenMessage, type GlobalVariableInfo } from "../data/Templating";
 import { TemplatingClient } from "./TemplatingClient";
 
 // Port of Signum.Templating's TemplateControls.tsx — see port/Templating.md.
@@ -20,7 +20,7 @@ export interface TemplateControlsProps {
 
 type CurrentToken =
     | { type: "Query"; token?: QueryToken }
-    | { type: "Global"; expression?: GlobalVariableTS };
+    | { type: "Global"; expression?: GlobalVariableInfo };
 
 export default function TemplateControls(p: TemplateControlsProps): React.JSX.Element {
 
@@ -118,7 +118,7 @@ export default function TemplateControls(p: TemplateControlsProps): React.JSX.El
     );
 }
 
-function GlobalVariables(p: { onTokenChange: (newToken: GlobalVariableTS | undefined) => void; selected: GlobalVariableTS | undefined }): React.JSX.Element {
+function GlobalVariables(p: { onTokenChange: (newToken: GlobalVariableInfo | undefined) => void; selected: GlobalVariableInfo | undefined }): React.JSX.Element {
 
     const variableList = useAPI(() => TemplatingClient.API.getGlobalVariables(), []);
 

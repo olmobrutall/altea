@@ -2,7 +2,7 @@ import * as React from 'react'
 import { ajaxGet, ajaxPost } from '@altea/altea/client/Services'
 import { ImportComponent } from '@altea/altea/client/ImportComponent'
 import type { ClientBuilder } from '@altea/altea/client/ClientBuilder'
-import type { CacheStateTS } from '../data/CacheState'
+import type { CacheState } from '../data/CacheState'
 import { registerSpecialAction } from '@altea/altea/client/OmniboxSpecialAction'
 import { AuthClient } from '@altea/altea-auth/client/AuthClient'
 import { CachePermission } from '../data/CachePermission'
@@ -30,7 +30,7 @@ export namespace CacheClient {
     }
 
     export namespace API {
-        export function view(): Promise<CacheStateTS> {
+        export function view(): Promise<CacheState> {
             return ajaxGet({ url: "/api/cache/view", avoidDeserialize: true });
         }
 

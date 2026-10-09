@@ -15,6 +15,7 @@ import {
     DynamicViewEntity, DynamicViewEntity_Prop, DynamicViewOperation,
     DynamicViewOverrideEntity, DynamicViewOverrideOperation,
     DynamicViewSelectorEntity, DynamicViewSelectorOperation,
+    type SuggestedFindOptions,
 } from "../data/DynamicView";
 import { DynamicViewServer } from "./DynamicViewServer";
 
@@ -116,11 +117,6 @@ export namespace DynamicViewLogic {
     }
 
     // ---- suggested find options ----------------------------------------------------------------------
-
-    export interface SuggestedFindOptions {
-        queryKey: string;
-        parentToken: string;
-    }
 
     /**
      * "Which registered queries have a column pointing AT this type", so the designer can offer a

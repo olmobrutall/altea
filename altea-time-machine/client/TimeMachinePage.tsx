@@ -24,6 +24,7 @@ import { JavascriptMessage } from '@altea/altea/data/uiMessages';
 import '@altea/altea/data/operationLog'; // declares Entity.previousOperationLog()
 import { DiffDocument } from '@altea/altea-diff-log/client/Templates/DiffDocument';
 import { TimeMachineMessage } from '../data/TimeMachine';
+import type { EntityDump } from '../data/TimeMachineDtos';
 import { TimeMachineClient } from './TimeMachineClient';
 
 // The page (and the two modal wrappers) that lists a row's versions and diffs two of them.
@@ -163,11 +164,11 @@ export function TimeMachine(p: { lite: Lite<Entity>; isModal?: boolean }): React
 }
 
 interface VersionPairProps {
-    previous?: () => Promise<TimeMachineClient.EntityDump>;
-    current: () => Promise<TimeMachineClient.EntityDump>;
+    previous?: () => Promise<EntityDump>;
+    current: () => Promise<EntityDump>;
 }
 
-function useVersionPair(p: VersionPairProps): { curr: TimeMachineClient.EntityDump; prev: TimeMachineClient.EntityDump | null } | undefined {
+function useVersionPair(p: VersionPairProps): { curr: EntityDump; prev: EntityDump | null } | undefined {
     return useAPI(async () => {
         const curr = p.current();
         const prev = p.previous == null ? Promise.resolve(null) : p.previous();
@@ -210,13 +211,13 @@ export function DiffEntityVersion(p: VersionPairProps): React.JSX.Element {
 export function TimeMachineTabs(p: { lite: Lite<Entity>; versionDatesUTC: string[] }): React.JSX.Element | null {
 
     // One memoised fetcher per version date, kept across renders so switching tabs does not re-fetch.
-    const refs = React.useRef<{ [versionDateUTC: string]: () => Promise<TimeMachineClient.EntityDump> }>({});
+    const refs = React.useRef<{ [versionDateUTC: string]: () => Promise<EntityDump> }>({});
 
     if (p.versionDatesUTC == null || p.versionDatesUTC.length < 1)
         return null;
 
-    function memoized(dateUtc: string): () => Promise<TimeMachineClient.EntityDump> {
-        let memo: Promise<TimeMachineClient.EntityDump>;
+    function memoized(dateUtc: string): () => Promise<EntityDump> {
+        let memo: Promise<EntityDump>;
         return () => (memo ??= TimeMachineClient.API.getEntityDump(p.lite, dateUtc));
     }
 

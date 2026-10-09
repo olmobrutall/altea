@@ -18,7 +18,7 @@ export function toRelativeTime(date: Temporal.PlainDateTime | null | undefined):
     if (date == null)
         return "";
 
-    // `Clock.now`, not `Temporal.Now`: a stored PlainDateTime is in the CLOCK's frame (UTC by default,
+    // `Clock.now`, not `Temporal.Now`: a stored PlainDateTime is in the CLOCK's frame (local or UTC,
     // Signum's TimeZoneMode), and Clock lives in the isomorphic data layer so both tiers read the same mode.
     const minutes = Math.round(date.since(Clock.now).total({ unit: "minutes" }));
     const format = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });

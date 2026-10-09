@@ -45,3 +45,20 @@
     left: 0;
     z-index: 2000;
 }
+
+/* Errors on HIDDEN fence lines (a declaration the author cannot see), listed under the editor instead. */
+.altea-monaco-hidden-errors {
+    margin: 0.25em 0 0;
+    padding-left: 1.25em;
+    font-size: 0.85em;
+    color: var(--bs-danger-text-emphasis);
+}
+
+/* The show / hide link for the hidden fence parts: small, right-aligned, out of the way. */
+.altea-monaco-toggle {
+    text-align: right;
+    line-height: 1;
+}
+.altea-monaco-toggle .btn {
+    font-size: 0.8em;
+}

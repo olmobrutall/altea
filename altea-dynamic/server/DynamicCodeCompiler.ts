@@ -3,6 +3,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
+import type { CompileError, DynamicClientModule } from "../data/DynamicPanel";
 
 // Port of Signum.Dynamic's `DynamicLogic.CompileDynamicCode` — the half that turns GENERATED SOURCE into
 // live types.
@@ -52,6 +53,8 @@ export interface GeneratedModule {
     fileName: string;
     /** The TypeScript source, as generated. */
     content: string;
+    /** A DATA module: the browser loads it too (DynamicClientModules), so its types exist on the client. */
+    client?: boolean;
 }
 
 export interface DynamicCodeCompilerOptions {
@@ -83,14 +86,15 @@ export interface DynamicCodeCompilerOptions {
     compilerOptions?: ts.CompilerOptions;
 }
 
-export interface CompileError {
-    /** The generated file, relative to the code-gen directory. */
-    fileName: string;
-    /** 1-based, as an author reads it. */
-    line: number;
-    message: string;
-    /** The offending source line, quoted, as under each Roslyn diagnostic. */
-    sourceLine: string;
+export type { CompileError };
+
+export interface CompileOptions {
+    /**
+     * Where a name the source uses WITHOUT importing it comes from — a specifier relative to the code-gen
+     * directory, or undefined to leave it unresolved. Hand-written source (a DynamicType's modules) relies on
+     * it; generated source imports everything itself and needs none.
+     */
+    implicitImports?: (name: string, fileName: string) => string | undefined;
 }
 
 export interface DynamicCompilationResult {
@@ -106,6 +110,8 @@ export interface DynamicCompilationResult {
      * through reflection. A module's exports are the same thing, already in hand and typed.
      */
     modules: Map<string, Record<string, unknown>>;
+    /** The `client` modules, compiled exactly as loaded here and re-emitted as CommonJS for the browser. */
+    clientModules: DynamicClientModule[];
 }
 
 export namespace DynamicCodeCompiler {
@@ -173,73 +179,31 @@ export namespace DynamicCodeCompiler {
      * Nothing is loaded unless EVERY module compiled — a half-registered schema is worse than none, and it
      * is what Signum's all-or-nothing assembly load gives.
      */
-    export async function compileAndLoad(modules: GeneratedModule[]): Promise<DynamicCompilationResult> {
+    export async function compileAndLoad(modules: GeneratedModule[], compileOptions?: CompileOptions): Promise<DynamicCompilationResult> {
         assertConfigured();
 
         const dir = options!.codeGenDirectory;
         fs.mkdirSync(dir, { recursive: true });
 
-        // 1. WRITE, for the reason Signum has a CodeGen folder: the source is the thing an author
-        //    reads when a generated type misbehaves.
+        // 1. COMPILE, with the quote-transformer in the emit pipeline.
+        const { errors, emitted, sources } = compileInMemory(modules, compileOptions);
+
+        // 2. WRITE, for the reason Signum has a CodeGen folder: the source is the thing an author reads when
+        //    a generated type misbehaves. Written as COMPILED — with the imports the implicit pass added — so
+        //    a line a diagnostic names is the line in the file.
         const written: string[] = [];
-        const contents = new Map<string, string>();
-        for (const m of modules) {
+        for (const m of sources) {
             const abs = path.join(dir, m.fileName);
             fs.mkdirSync(path.dirname(abs), { recursive: true });
             fs.writeFileSync(abs, m.content, "utf8");
             written.push(m.fileName);
-            contents.set(toTsPath(abs), m.content);
         }
 
         const loaded = new Map<string, Record<string, unknown>>();
-
-        if (modules.length === 0)
-            return { errors: [], written, modules: loaded };
-
-        // 2. COMPILE, with the quote-transformer in the emit pipeline.
-        const settings: ts.CompilerOptions = {
-            ...defaultCompilerOptions(),
-            ...options!.compilerOptions,
-            // ESM, as the real build emits — see the header on why this is not interchangeable.
-            module: ts.ModuleKind.ESNext,
-            noEmit: false,
-        };
-
-        const rootNames = [...contents.keys()];
-        const program = ts.createProgram({
-            rootNames,
-            options: settings,
-            host: createHost(settings, contents),
-        });
-
-        const errors: CompileError[] = [];
-        for (const rootName of rootNames) {
-            const source = program.getSourceFile(rootName);
-            if (source == null) {
-                errors.push({ fileName: relative(rootName), line: 0, message: "Could not read the generated file", sourceLine: "" });
-                continue;
-            }
-            errors.push(...diagnosticsOf(program, source));
-        }
-
         if (errors.length > 0)
-            return { errors, written, modules: loaded };
+            return { errors, written, modules: loaded, clientModules: [] };
 
-        // 3. EMIT + LOAD, in the order the caller gave — a generated type may reference an earlier one.
-        const emitted = new Map<string, string>();
-        for (const rootName of rootNames) {
-            const source = program.getSourceFile(rootName)!;
-            const result = program.emit(source, (fileName, text) => { emitted.set(toTsPath(fileName), text); },
-                undefined, false, transformers(program));
-
-            errors.push(...result.diagnostics
-                .filter(d => d.category === ts.DiagnosticCategory.Error)
-                .map(d => toCompileError(d, contents)));
-        }
-
-        if (errors.length > 0)
-            return { errors, written, modules: loaded };
-
+        // 3. LOAD, in the order the caller gave — a generated type may reference an earlier one.
         try {
             for (const [jsPath, text] of emitted) {
                 fs.writeFileSync(jsPath, text, "utf8");
@@ -254,7 +218,210 @@ export namespace DynamicCodeCompiler {
             });
         }
 
-        return { errors, written, modules: loaded };
+        return { errors, written, modules: loaded, clientModules: errors.length > 0 ? [] : toClientModules(modules, emitted) };
+    }
+
+    /**
+     * The browser has no module loader for code that arrives at run time, and the modules it would import
+     * are inside a bundle, not addressable by specifier. CommonJS turns every import into a `require` call,
+     * which the client answers from what it already has (client/DynamicClientModules). The input is the JS
+     * the server loaded — quote-transformed once, so both tiers run the same code.
+     */
+    function toClientModules(modules: GeneratedModule[], emitted: Map<string, string>): DynamicClientModule[] {
+        const client = new Set(modules.filter(m => m.client).map(m => m.fileName));
+        const result: DynamicClientModule[] = [];
+        for (const [jsPath, text] of emitted) {
+            const fileName = relative(jsPath).replace(/.js$/, ".ts");
+            if (!client.has(fileName))
+                continue;
+            const code = ts.transpileModule(text, {
+                fileName: jsPath,
+                compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, allowJs: true },
+            }).outputText;
+            result.push({ fileName, code });
+        }
+        return result;
+    }
+
+    /**
+     * Compile without writing or loading anything — Signum's in-memory "Check": what a restart WOULD
+     * report, asked of the running process, which keeps the modules it loaded at startup.
+     */
+    export function check(modules: GeneratedModule[], compileOptions?: CompileOptions): { errors: CompileError[]; sources: GeneratedModule[] } {
+        assertConfigured();
+        const { errors, sources } = compileInMemory(modules, compileOptions);
+        return { errors, sources };
+    }
+
+    /**
+     * Type-check, then emit with the transformer — into memory, keyed by the `.js` path beside each source.
+     * `sources` are the modules as compiled: with whatever imports the implicit pass wrote.
+     */
+    function compileInMemory(modules: GeneratedModule[], compileOptions: CompileOptions | undefined):
+        { errors: CompileError[]; emitted: Map<string, string>; sources: GeneratedModule[] } {
+
+        const emitted = new Map<string, string>();
+        if (modules.length === 0)
+            return { errors: [], emitted, sources: [] };
+
+        const pathOf = (m: GeneratedModule): string => toTsPath(path.join(options!.codeGenDirectory, m.fileName));
+        let contents = new Map<string, string>(modules.map(m => [pathOf(m), m.content]));
+
+        const settings: ts.CompilerOptions = {
+            ...defaultCompilerOptions(),
+            ...options!.compilerOptions,
+            // ESM, as the real build emits — see the header on why this is not interchangeable.
+            module: ts.ModuleKind.ESNext,
+            noEmit: false,
+        };
+
+        const rootNames = [...contents.keys()];
+        const build = (): ts.Program => ts.createProgram({ rootNames, options: settings, host: createHost(settings, contents) });
+
+        let program = build();
+        if (compileOptions?.implicitImports != null) {
+            const added = addImplicitImports(program, rootNames, contents, compileOptions.implicitImports);
+            if (added != null) {
+                contents = added;
+                program = build();
+                const typed = markTypeOnlyImports(program, rootNames, contents);
+                if (typed != null) {
+                    contents = typed;
+                    program = build();
+                }
+            }
+        }
+
+        const sources = modules.map(m => ({ fileName: m.fileName, content: contents.get(pathOf(m)) ?? m.content }));
+
+        const errors: CompileError[] = [];
+        for (const rootName of rootNames) {
+            const source = program.getSourceFile(rootName);
+            if (source == null) {
+                errors.push({ fileName: relative(rootName), line: 0, message: "Could not read the generated file", sourceLine: "" });
+                continue;
+            }
+            errors.push(...diagnosticsOf(program, source));
+        }
+
+        if (errors.length > 0)
+            return { errors, emitted, sources };
+
+        for (const rootName of rootNames) {
+            const source = program.getSourceFile(rootName)!;
+            let result: ts.EmitResult;
+            try {
+                result = program.emit(source, (fileName, text) => { emitted.set(toTsPath(fileName), text); },
+                    undefined, false, transformers(program));
+            } catch (e) {
+                // The quote-transformer THROWS on a misuse it detects (two registration decorators…).
+                errors.push({ fileName: relative(rootName), line: 0, sourceLine: "", message: e instanceof Error ? e.message : String(e) });
+                continue;
+            }
+
+            errors.push(...result.diagnostics
+                .filter(d => d.category === ts.DiagnosticCategory.Error)
+                .map(d => toCompileError(d, contents)));
+        }
+
+        return { errors, emitted, sources };
+    }
+
+    // ---- The implicit-import pass --------------------------------------------------------------------------
+    //
+    // The same idea as @altea/altea-eval's: source names `Entity` or `OrderEntity` without importing it, and
+    // the compiler asks TypeScript which names it could not resolve and writes the import for each. Asking
+    // TypeScript ("cannot find name X") rather than scanning is what makes it right in every position — a
+    // type argument, a decorator, a heritage clause.
+
+    /** "Cannot find name", the same with a suggestion, and "cannot find namespace" (`Temporal.PlainDate`). */
+    const unresolvedCodes = new Set([2304, 2552, 2503]);
+
+    /** The contents with the missing imports prepended, or null when nothing was missing. */
+    function addImplicitImports(program: ts.Program, rootNames: readonly string[], contents: Map<string, string>,
+        resolve: (name: string, fileName: string) => string | undefined): Map<string, string> | null {
+
+        const next = new Map(contents);
+        let changed = false;
+
+        for (const rootName of rootNames) {
+            const source = program.getSourceFile(rootName);
+            if (source == null)
+                continue;
+
+            const fileName = relative(rootName);
+            const bySpecifier = new Map<string, Set<string>>();
+            for (const d of program.getSemanticDiagnostics(source)) {
+                if (!unresolvedCodes.has(d.code) || d.start == null || d.length == null)
+                    continue;
+                const name = source.text.substr(d.start, d.length);
+                const specifier = resolve(name, fileName);
+                if (specifier == null)
+                    continue;
+                let names = bySpecifier.get(specifier);
+                if (names == null)
+                    bySpecifier.set(specifier, names = new Set());
+                names.add(name);
+            }
+
+            if (bySpecifier.size === 0)
+                continue;
+
+            const lines = [...bySpecifier]
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([specifier, names]) => `import { ${[...names].sort().join(", ")} } from "${specifier}";`);
+            next.set(rootName, lines.join("\n") + "\n" + source.text);
+            changed = true;
+        }
+
+        return changed ? next : null;
+    }
+
+    /**
+     * Re-write as `import { type X }` every added name that has no RUNTIME value (`int`, `ExecuteSymbol`).
+     * Not cosmetic: under the ESM emit such an import survives into the JavaScript, and the module then fails
+     * to LOAD on an export that does not exist. Returns null when every import is a value.
+     */
+    function markTypeOnlyImports(program: ts.Program, rootNames: readonly string[], contents: Map<string, string>): Map<string, string> | null {
+        const checker = program.getTypeChecker();
+        const next = new Map(contents);
+        let changed = false;
+
+        for (const rootName of rootNames) {
+            const source = program.getSourceFile(rootName);
+            if (source == null)
+                continue;
+
+            let text = source.text;
+            // Right to left, so an edit does not move the positions of the ones still to make.
+            const edits: number[] = [];
+            for (const statement of source.statements) {
+                if (!ts.isImportDeclaration(statement))
+                    break;          // the added imports come first
+                const bindings = statement.importClause?.namedBindings;
+                if (bindings == null || !ts.isNamedImports(bindings))
+                    continue;
+                for (const element of bindings.elements) {
+                    if (element.isTypeOnly)
+                        continue;
+                    const symbol = checker.getSymbolAtLocation(element.name);
+                    if (symbol == null)
+                        continue;
+                    const target = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+                    if ((target.flags & ts.SymbolFlags.Value) === 0)
+                        edits.push(element.getStart(source));
+                }
+            }
+
+            if (edits.length === 0)
+                continue;
+            for (const position of edits.sort((a, b) => b - a))
+                text = text.slice(0, position) + "type " + text.slice(position);
+            next.set(rootName, text);
+            changed = true;
+        }
+
+        return changed ? next : null;
     }
 
     /**
@@ -307,7 +474,7 @@ export namespace DynamicCodeCompiler {
     function createHost(settings: ts.CompilerOptions, contents: Map<string, string>): ts.CompilerHost {
         const base = ts.createCompilerHost(settings, true);
 
-        return {
+        const host: ts.CompilerHost = {
             ...base,
             getSourceFile: (fileName, languageVersion, onError, shouldCreate) => {
                 const own = contents.get(toTsPath(fileName));
@@ -328,9 +495,12 @@ export namespace DynamicCodeCompiler {
             getCurrentDirectory: () => toTsPath(options!.codeGenDirectory),
             // Emit is captured by the writeFile passed to program.emit, never by the host.
             writeFile: () => { /* see compileAndLoad */ },
+            // THIS host, not `base`: a sibling generated module (`./Pizza`) exists only in `contents`
+            // when `check` compiles without writing.
             resolveModuleNameLiterals: (literals, containingFile, redirected, compilerOptions) =>
-                literals.map(l => resolveOne(l.text, containingFile, compilerOptions, base, redirected)),
+                literals.map(l => resolveOne(l.text, containingFile, compilerOptions, host, redirected)),
         };
+        return host;
     }
 
     function resolveOne(specifier: string, containingFile: string, compilerOptions: ts.CompilerOptions,
@@ -415,8 +585,12 @@ export namespace DynamicCodeCompiler {
      * otherwise serve the first version for the life of the process. (Signum restarts instead, which is
      * also what altea does for a schema change — this only matters for a compile that is retried.)
      */
+    // The plain URL, which is what one generated module importing another (`./Pizza`) resolves to. A
+    // cache-busting query made it a SECOND module instance: two PizzaEntity classes, the schema holding one
+    // and the deserializer resolving the other ("not registered in TypeLogic" on save). A process loads
+    // its dynamic code once; new code means a restart.
     async function loadModule(jsPath: string): Promise<Record<string, unknown>> {
-        const url = pathToFileURL(jsPath).href + "?v=" + Date.now();
+        const url = pathToFileURL(jsPath).href;
         return await import(url) as Record<string, unknown>;
     }
 }

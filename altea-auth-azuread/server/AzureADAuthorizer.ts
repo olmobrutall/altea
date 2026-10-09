@@ -1,7 +1,8 @@
 import type { JWTPayload } from "jose";
 import {
-    ADAuthorizer, type DirectoryGroup, type ExternalUser, type IAutoCreateUserContext, type IDirectoryInviter,
+    ADAuthorizer, type DirectoryGroup, type IAutoCreateUserContext, type IDirectoryInviter,
 } from "@altea/altea-auth/server/ADAuthorizer";
+import type { ExternalUser } from "@altea/altea-auth/data/AuthDtos";
 import type { UserEntity } from "@altea/altea-auth/data/User";
 import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { AzureADConfigurationEmbedded, AzureADType } from "../data/AzureAD";

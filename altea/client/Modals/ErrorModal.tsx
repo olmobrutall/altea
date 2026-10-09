@@ -359,7 +359,7 @@ export namespace ErrorModalOptions {
 
   export function preferPreFormated(se: ServiceError): boolean {
     // Signum's `se.httpError.exceptionType.contains(...)`. Guard against a missing exceptionType:
-    // although WebApiHttpError types it non-nullable, a malformed/legacy error response can omit it,
+    // although HttpError types it non-nullable, a malformed/legacy error response can omit it,
     // and `undefined.includes(...)` would throw inside render and crash the whole modal.
     return se.httpError.exceptionType?.includes("FieldReaderException") ?? false;
   }

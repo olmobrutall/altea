@@ -19,7 +19,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { AuthLogic } from "@altea/altea-auth/server/AuthLogic";
 import { UserEntity, UserOperation, UserState } from "@altea/altea-auth/data/User";
 import { ActiveDirectoryPermission } from "@altea/altea-auth/data/BaseAD";
-import type { ExternalUser } from "@altea/altea-auth/server/ADAuthorizer";
+import type { ExternalUser } from "@altea/altea-auth/data/AuthDtos";
 import { SimpleTaskLogic } from "@altea/altea-scheduler/server/SimpleTaskLogic";
 import { Operations } from "@altea/altea/server/operationLogic";
 import { AzureADConfigurationEmbedded, AzureADTask } from "../data/AzureAD";

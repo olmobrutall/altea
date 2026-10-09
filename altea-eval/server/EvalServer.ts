@@ -6,24 +6,16 @@ import { bindParentsOwn } from "@altea/altea/data/parentEntity";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { Entity } from "@altea/altea/data/entity";
-import { Lite } from "@altea/altea/data/lite";
 import { EvalPanelPermission } from "../data/EvalPanelPermission";
 import { EvalLogic } from "./EvalLogic";
 import { EvalCompiler } from "./EvalCompiler";
-import { EvalEmbedded } from "../data/Eval";
+import type { DeclarationFile, DeclarationsRequest, EvalEntityError, IntelliSenseRequest, IntelliSenseResponse } from "../data/EvalDtos";
 
 // "Which stored scripts no longer compile?" ONE call checks everything, because the registry is a list of
 // server-side loaders (see EvalLogic.evalSources), and the response says which source each failure came
 // from.
 //
 // Port of Signum.Eval's EvalPanelController.cs — see port/Eval.md.
-
-/** One failing script: the entity, the error, and which registered source it came from. */
-export interface EvalEntityError {
-    source: string;
-    lite: Lite<Entity>;
-    error: string;
-}
 
 export namespace EvalServer {
 
@@ -49,43 +41,31 @@ export namespace EvalServer {
         // author workflow conditions. Nothing here reads data.
 
         ws.post("/api/eval/intelliSense",
-            { res: CustomType<IntelliSenseResponse>() },
-            async (_req, res) => {
-                const configuration = EvalCompiler.clientConfiguration(EvalEmbedded.defaultImports);
+            { req: CustomType<IntelliSenseRequest>(), res: CustomType<IntelliSenseResponse>() },
+            async (req, res) => {
+                const request = (await req.jsonTyped()) as IntelliSenseRequest | undefined;
+                const imports = EvalLogic.importsFor(request?.profile);
+                const configuration = EvalCompiler.clientConfiguration(imports);
                 res.jsonTyped({
                     ...configuration,
                     root: EvalCompiler.CLIENT_ROOT,
-                    declarations: EvalCompiler.declarationsFor(EvalEmbedded.defaultImports,
-                        eagerSpecifiers(configuration.eagerLines)),
+                    declarations: EvalCompiler.declarationsFor(imports, eagerSpecifiers(configuration.eagerLines)),
                 });
             });
 
         ws.post("/api/eval/declarations",
-            { req: CustomType<DeclarationsRequest>(), res: CustomType<EvalCompiler.DeclarationFile[]>() },
+            { req: CustomType<DeclarationsRequest>(), res: CustomType<DeclarationFile[]>() },
             async (req, res) => {
                 const request = (await req.jsonTyped()) as DeclarationsRequest | undefined;
-                res.jsonTyped(EvalCompiler.declarationsFor(EvalEmbedded.defaultImports,
+                res.jsonTyped(EvalCompiler.declarationsFor(EvalLogic.importsFor(request?.profile),
                     request?.specifiers ?? [], new Set(request?.have ?? [])));
             });
-    }
-
-    /** What the editor is handed before it can check anything. */
-    export interface IntelliSenseResponse extends EvalCompiler.ClientConfiguration {
-        /** The directory the editor must pretend the script lives in, so relative imports resolve. */
-        root: string;
-        declarations: EvalCompiler.DeclarationFile[];
-    }
-
-    export interface DeclarationsRequest {
-        specifiers: string[];
-        /** Declaration paths the editor already holds, so a second module costs only what it adds. */
-        have: string[];
     }
 
     /** The specifiers of the eager import lines — which is what their declarations have to be built from. */
     function eagerSpecifiers(eagerLines: readonly string[]): string[] {
         return eagerLines
-            .map(line => /from\s+"([^"]+)"/.exec(line)?.[1])
+            .map(line => /(?:from|import)\s+"([^"]+)"/.exec(line)?.[1])
             .filter((s): s is string => s != null);
     }
 

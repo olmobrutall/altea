@@ -11,6 +11,7 @@ import { AuthClient } from "../AuthClient";
 import type { Lite } from "@altea/altea/data/lite";
 import type { FindOptionsParsed } from "@altea/altea/client/FindOptions";
 import { UserEntity } from "../../data/User";
+import type { ExternalUser } from "../../data/AuthDtos";
 import { UserADMessage } from "../../data/BaseAD";
 
 // Port of Signum.Authorization's BaseAD/ActiveDirectoryClient.tsx — see port/AuthDirectory.md.
@@ -154,13 +155,5 @@ export namespace ActiveDirectoryClient {
         export function createADUser(model: ExternalUser): Promise<Lite<UserEntity>> {
             return ajaxPost({ url: "/api/createADUser" }, model);
         }
-    }
-
-    /** The wire shape of altea-auth's server-side `ExternalUser`. */
-    export interface ExternalUser {
-        displayName: string;
-        jobTitle: string;
-        upn: string;
-        externalId: string | null;
     }
 }

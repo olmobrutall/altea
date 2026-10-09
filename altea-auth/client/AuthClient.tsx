@@ -7,6 +7,7 @@ import { setAccessTokenFactory } from "@altea/altea/client/useWebSocket";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import { Metadata } from "@altea/altea/data/metadata";
 import type { UserEntity } from "../data/User";
+import type { AuthenticationType, LoginRequest, LoginResponse, ChangePasswordRequest } from "../data/AuthDtos";
 import { BasicPermission, type PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { ErrorModalOptions } from "@altea/altea/client/Modals/ErrorModal";
 import { AuthMessage } from "../data/AuthMessages";
@@ -297,12 +298,6 @@ export namespace AuthClient {
         });
     }
 
-    // Every `authenticationType` a login route can answer with. Three are not in Signum's TS union:
-    // "relogin" (/api/auth/relogin), "openID" (@altea/altea-auth-openid) and "adRegistry" (a Windows AD
-    // LDAP bind — its WindowsADAuthorizer returns that one too, it just never reached the union there).
-    export type AuthenticationType = "database" | "resetPassword" | "changePassword" | "api-key"
-        | "azureAD" | "cookie" | "windows" | "relogin" | "openID" | "adRegistry";
-
     // It lives HERE rather than in core's client, because permissions are an authorization concept and
     // the value it reads is stamped by this module (server/AuthReflection) onto the permission
     // container's own metadata entry — see the FieldMetadata expansion in ../data/Rules. ABSENT means
@@ -322,10 +317,6 @@ export namespace AuthClient {
     }
 
     export namespace API {
-        export interface LoginRequest { userName: string; password: string; rememberMe?: boolean; }
-        export interface LoginResponse { authenticationType: AuthenticationType; message?: string; token: string; userEntity: UserEntity; }
-        export interface ChangePasswordRequest { oldPassword: string; newPassword: string; }
-
         // login is sent WITHOUT the auth token (a stale token must not make the login request itself 403).
         export function login(loginRequest: LoginRequest): Promise<LoginResponse> {
             return ajaxPost({ url: "/api/auth/login", avoidAuthToken: true }, loginRequest);

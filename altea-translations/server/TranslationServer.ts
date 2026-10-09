@@ -5,13 +5,17 @@ import { reloadTranslationsForCulture } from "@altea/altea/server/translations";
 import { pluralize, detectGender, determinersFor } from "@altea/altea/data/utils/naturalLanguage";
 import type { Gender } from "@altea/altea/data/utils/naturalLanguage";
 import { TranslatedSummaryState } from "../data/Translation";
+import type {
+    TranslationFileStatus, Culture, LocalizedMember, LocalizedTypeInfo, LocalizableTypeInfo, PackageResult,
+    FolderSyncStats,
+} from "../data/TranslationDtos";
 import {
     importXml, exportXml, localizablePackages, defaultCultureOf, translationFileExists, translationFilePath,
     fileBaseOf, type LocalizedPackage,
 } from "./LocalizedPackage";
 import {
     getMergeChanges, getPackageChanges, folderSyncStats,
-    type LocalizedTypeChanges, type AutomaticTranslation, type AutomaticTypeTranslation,
+    type LocalizedTypeChanges,
 } from "./TranslationSynchronizer";
 import { TranslatedInstanceLogic } from "./TranslatedInstanceLogic";
 import { TranslationLogic } from "./TranslationLogic";
@@ -24,61 +28,6 @@ import { TranslationLogic } from "./TranslationLogic";
 // second grouping level is the declaring FOLDER rather than a C# namespace — so `syncStats` and the
 // `folder` query parameter replace `namespace`.
 export namespace TranslationServer {
-
-    // ---- The DTOs the pages consume (Signum's *TS classes) -------------------------------------------
-
-    export interface TranslationFileStatus {
-        package: string;
-        culture: string;
-        isDefault: boolean;
-        status: TranslatedSummaryState;
-    }
-
-    export interface CultureTS {
-        name: string;
-        pronoms: { gender: string; singular: string; plural: string }[];
-    }
-
-    export interface LocalizedDescriptionTS {
-        gender?: string;
-        description?: string;
-        pluralDescription?: string;
-        automaticTranslations?: AutomaticTypeTranslation[];
-    }
-
-    export interface LocalizedMemberTS {
-        name: string;
-        description?: string;
-        automaticTranslations?: AutomaticTranslation[];
-    }
-
-    export interface LocalizedTypeTS {
-        culture: string;
-        typeDescription?: LocalizedDescriptionTS;
-        members: Record<string, LocalizedMemberTS>;
-    }
-
-    export interface LocalizableTypeTS {
-        type: string;
-        folder: string;
-        hasMembers: boolean;
-        hasGender: boolean;
-        hasDescription: boolean;
-        hasPluralDescription: boolean;
-        cultures: Record<string, LocalizedTypeTS>;
-    }
-
-    export interface PackageResultTS {
-        totalTypes: number;
-        cultures: Record<string, CultureTS>;
-        types: Record<string, LocalizableTypeTS>;
-    }
-
-    export interface FolderSyncStatsTS {
-        folder: string;
-        types: number;
-        translations: number;
-    }
 
     export function start(ws: WebBuilder): void {
 
@@ -105,7 +54,7 @@ export namespace TranslationServer {
 
         // ---- view (read every culture, optionally filtered) --------------------------------------------
         ws.get("/api/translation/retrieve",
-            { res: CustomType<PackageResultTS>() },
+            { res: CustomType<PackageResult>() },
             async (req, res) => {
                 const packageName = String(req.query["package"] ?? "");
                 const culture = req.query["culture"] == undefined || req.query["culture"] === ""
@@ -116,7 +65,7 @@ export namespace TranslationServer {
 
         // ---- sync (what is missing + suggestions) ------------------------------------------------------
         ws.post("/api/translation/sync",
-            { res: CustomType<PackageResultTS>() },
+            { res: CustomType<PackageResult>() },
             async (req, res) => {
                 const packageName = String(req.query["package"] ?? "");
                 const culture = String(req.query["culture"] ?? "");
@@ -126,7 +75,7 @@ export namespace TranslationServer {
             });
 
         ws.get("/api/translation/syncStats",
-            { res: CustomType<FolderSyncStatsTS[]>() },
+            { res: CustomType<FolderSyncStats[]>() },
             async (req, res) => {
                 const packageName = String(req.query["package"] ?? "");
                 const culture = String(req.query["culture"] ?? "");
@@ -137,7 +86,7 @@ export namespace TranslationServer {
 
         // ---- save (write the XML files back) -----------------------------------------------------------
         ws.post("/api/translation/save",
-            { req: CustomType<PackageResultTS>() },
+            { req: CustomType<PackageResult>() },
             async (req, res) => {
                 const packageName = String(req.query["package"] ?? "");
                 const culture = req.query["culture"] == undefined || req.query["culture"] === ""
@@ -214,13 +163,13 @@ export namespace TranslationServer {
     }
 
     /** Signum's `Retrieve` — every culture side by side, for reading and hand-editing. */
-    export async function retrieve(packageName: string, culture: string | undefined, filter: string): Promise<PackageResultTS> {
+    export async function retrieve(packageName: string, culture: string | undefined, filter: string): Promise<PackageResult> {
         const defaultCulture = defaultCultureOf(packageName);
         const cultures = (await TranslatedInstanceLogic.currentCultures())
             .filter(c => c === defaultCulture || c === culture || translationFileExists(packageName, c));
 
         const packages = cultures.map(c => importXml(packageName, c));
-        const types: Record<string, LocalizableTypeTS> = {};
+        const types: Record<string, LocalizableTypeInfo> = {};
 
         for (const pkg of packages)
             for (const lt of pkg.types.values()) {
@@ -241,23 +190,23 @@ export namespace TranslationServer {
                         pluralDescription: lt.pluralDescription,
                     },
                     members: Object.fromEntries([...lt.members].map(([name, description]) =>
-                        [name, { name, description } satisfies LocalizedMemberTS])),
+                        [name, { name, description } satisfies LocalizedMember])),
                 };
             }
 
         return {
             totalTypes: Object.keys(types).length,
-            cultures: culturesTS(cultures),
+            cultures: toCultures(cultures),
             types: filter === "" ? sortByKey(types) : sortByKey(applyFilter(types, filter)),
         };
     }
 
     // Signum's filter: a type matches by NAME or by any of its descriptions; otherwise the type is kept
     // with only its MATCHING members.
-    function applyFilter(types: Record<string, LocalizableTypeTS>, filter: string): Record<string, LocalizableTypeTS> {
+    function applyFilter(types: Record<string, LocalizableTypeInfo>, filter: string): Record<string, LocalizableTypeInfo> {
         const f = filter.toLowerCase();
         const contains = (s: string | undefined): boolean => s != undefined && s.toLowerCase().includes(f);
-        const result: Record<string, LocalizableTypeTS> = {};
+        const result: Record<string, LocalizableTypeInfo> = {};
 
         for (const [name, t] of Object.entries(types)) {
             const typeMatches = contains(t.type)
@@ -273,7 +222,7 @@ export namespace TranslationServer {
             if (matching.length === 0)
                 continue;
 
-            const narrowed: LocalizableTypeTS = { ...t, cultures: {} };
+            const narrowed: LocalizableTypeInfo = { ...t, cultures: {} };
             for (const [c, lt] of Object.entries(t.cultures))
                 narrowed.cultures[c] = { ...lt, members: Object.fromEntries(matching.filter(m => lt.members[m] != undefined).map(m => [m, lt.members[m]])) };
             result[name] = narrowed;
@@ -282,7 +231,7 @@ export namespace TranslationServer {
     }
 
     /** Signum's `Sync` — what is missing in one culture, with the machine suggestions attached. */
-    export async function sync(packageName: string, culture: string, folder: string | undefined): Promise<PackageResultTS> {
+    export async function sync(packageName: string, culture: string, folder: string | undefined): Promise<PackageResult> {
         const defaultCulture = defaultCultureOf(packageName);
         const cultures = (await TranslatedInstanceLogic.currentCultures())
             .filter(c => c === defaultCulture || c === culture || translationFileExists(packageName, c));
@@ -294,7 +243,7 @@ export namespace TranslationServer {
 
         const { types: changes, totalTypes } = await getPackageChanges(TranslationLogic.translators, target, master, support, folder);
 
-        const types: Record<string, LocalizableTypeTS> = {};
+        const types: Record<string, LocalizableTypeInfo> = {};
         for (const t of changes)
             types[t.type.typeName] = {
                 type: t.type.typeName,
@@ -306,12 +255,12 @@ export namespace TranslationServer {
                 cultures: Object.fromEntries(cultures.map(c => [c, localizedTypeOf(t, c, c === culture)])),
             };
 
-        return { totalTypes, cultures: culturesTS(cultures), types: sortByKey(types) };
+        return { totalTypes, cultures: toCultures(cultures), types: sortByKey(types) };
     }
 
     // Signum's `GetLocalizedType`: for the TARGET culture, pre-fill from the suggestions when they AGREE
     // (`DisctincOnly`); for a source culture, show what it has.
-    function localizedTypeOf(t: LocalizedTypeChanges, culture: string, isTarget: boolean): LocalizedTypeTS {
+    function localizedTypeOf(t: LocalizedTypeChanges, culture: string, isTarget: boolean): LocalizedTypeInfo {
         const tc = t.typeConflict?.get(culture);
         const allTypeSuggestions = [...(t.typeConflict?.values() ?? [])].flatMap(a => a.automaticTranslations);
 
@@ -343,7 +292,7 @@ export namespace TranslationServer {
                         name: member,
                         description: mc?.original ?? (isTarget ? distinctOnly(all.map(a => a.text)) : undefined),
                         automaticTranslations: mc?.automaticTranslations,
-                    } satisfies LocalizedMemberTS];
+                    } satisfies LocalizedMember];
                 })),
         };
     }
@@ -357,7 +306,7 @@ export namespace TranslationServer {
     }
 
     /** Signum's `SaveTypes` — overlay what the page posted onto each culture's file and write it back. */
-    export function saveTypes(packageName: string, culture: string | undefined, result: PackageResultTS): void {
+    export function saveTypes(packageName: string, culture: string | undefined, result: PackageResult): void {
         const written: string[] = [];
         for (const cult of Object.keys(result.cultures)) {
             if (culture != undefined && culture !== cult)
@@ -444,11 +393,11 @@ export namespace TranslationServer {
         }
     }
 
-    function culturesTS(cultures: string[]): Record<string, CultureTS> {
+    function toCultures(cultures: string[]): Record<string, Culture> {
         return Object.fromEntries(cultures.map(name => [name, {
             name,
             pronoms: determinersFor(name).map(d => ({ gender: d.gender as Gender as string, singular: d.singular, plural: d.plural })),
-        } satisfies CultureTS]));
+        } satisfies Culture]));
     }
 
     function sortByKey<T>(o: Record<string, T>): Record<string, T> {

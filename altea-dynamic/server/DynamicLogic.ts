@@ -7,7 +7,7 @@ import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { ExceptionEntity } from "@altea/altea/data/exception";
 import { SafeConsole } from "@altea/altea/server/safeConsole";
 import chalk from "chalk";
-import { DynamicPanelPermission } from "../data/DynamicPanel";
+import { DynamicPanelPermission, type CompileError, type DynamicPendingChange } from "../data/DynamicPanel";
 import { EvalPanelPermission } from "@altea/altea-eval/data/EvalPanelPermission";
 import { DynamicPanelServer } from "./DynamicPanelServer";
 import { DynamicViewLogic } from "./DynamicViewLogic";
@@ -20,7 +20,7 @@ import { DynamicTypeConditionLogic } from "./DynamicTypeConditionLogic";
 import { DynamicMixinConnectionLogic } from "./DynamicMixinConnectionLogic";
 import { DynamicApiLogic } from "./DynamicApiLogic";
 import { DynamicIsolationLogic } from "./DynamicIsolationLogic";
-import { DynamicCodeCompiler, type GeneratedModule, type DynamicCompilationResult } from "./DynamicCodeCompiler";
+import { DynamicCodeCompiler, type CompileOptions, type GeneratedModule, type DynamicCompilationResult } from "./DynamicCodeCompiler";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 
 // Port of Signum.Dynamic's DynamicLogic.cs — the module's ENTRY POINT: which features are started, in what
@@ -92,6 +92,21 @@ export namespace DynamicLogic {
 
     export let onApplicationServerRestarted: (() => void) | undefined;
 
+    /** How the compile resolves a name hand-written source uses without importing it (DynamicType's modules). */
+    let compileOptions: (() => Promise<CompileOptions>) | undefined;
+
+    /**
+     * How this host restarts — set by the APP, because only it knows what brings the process back (a
+     * supervisor, a container restart policy, pm2). Left undefined, the panel offers no restart button:
+     * a button that only killed the process would be a trap.
+     */
+    export let restartApplication: (() => void) | undefined;
+
+    /** The generated files, as LOADED by this process — what {@link pendingChanges} compares against. */
+    let loadedContents: Map<string, string> | undefined;
+
+    export const startedAt: Date = new Date();
+
     /** The code-gen directory, or null when the app never configured the compiled half. */
     export function codeGenDirectoryOrNull(): string | null {
         return DynamicCodeCompiler.isConfigured() ? DynamicCodeCompiler.codeGenDirectory() : null;
@@ -144,6 +159,7 @@ export namespace DynamicLogic {
         if (options?.types ?? true) {
             DynamicTypeLogic.start(sb);
             codeFileGenerators.push(async () => DynamicTypeLogic.getCodeFiles(await DynamicTypeLogic.getTypes()));
+            compileOptions = async () => DynamicTypeLogic.compileOptions(await DynamicTypeLogic.getTypes());
             starterWriters.push(async () => ({
                 lines: DynamicTypeLogic.writeDynamicStarter(await DynamicTypeLogic.getTypes()),
             }));
@@ -211,27 +227,10 @@ export namespace DynamicLogic {
             return; // the app did not opt into the compiled half
 
         try {
-            const modules: GeneratedModule[] = [];
-            for (const generator of codeFileGenerators)
-                modules.push(...await generator());
-
-            // The starter is one more generated MODULE, whose exports are handed straight back (Signum
-            // finds its CodeGenStarter by searching the assembly's types).
-            const starterLines: string[] = [];
-            const starterImports: Array<{ module: string; name: string }> = [];
-            for (const writer of starterWriters) {
-                const { imports, lines } = await writer();
-                starterLines.push(...lines);
-                starterImports.push(...imports ?? []);
-            }
-
-            modules.push({
-                fileName: codeGenStarterFile,
-                content: starterCode(modules, starterImports, starterLines),
-            });
-
-            const result = await DynamicCodeCompiler.compileAndLoad(modules);
+            const modules = await generateModules();
+            const result = await DynamicCodeCompiler.compileAndLoad(modules, await compileOptions?.());
             lastCompilation = result;
+            loadedContents = new Map(modules.map(m => [m.fileName, m.content]));
 
             if (result.errors.length > 0) {
                 codeGenError = new Error("Dynamic code did not compile:\n"
@@ -245,6 +244,64 @@ export namespace DynamicLogic {
                 + (e instanceof Error ? e.message : String(e)));
             codeGenErrorKind = "read";
         }
+    }
+
+    /** Every generated module for the definitions as they are NOW in the database. */
+    export async function generateModules(): Promise<GeneratedModule[]> {
+        const modules: GeneratedModule[] = [];
+        for (const generator of codeFileGenerators)
+            modules.push(...await generator());
+
+        // The starter is one more generated MODULE, whose exports are handed straight back (Signum
+        // finds its CodeGenStarter by searching the assembly's types).
+        const starterLines: string[] = [];
+        const starterImports: Array<{ module: string; name: string }> = [];
+        for (const writer of starterWriters) {
+            const { imports, lines } = await writer();
+            starterLines.push(...lines);
+            starterImports.push(...imports ?? []);
+        }
+
+        modules.push({
+            fileName: codeGenStarterFile,
+            content: starterCode(modules, starterImports, starterLines),
+        });
+
+        return modules;
+    }
+
+    /** Compile the current definitions without loading them — Signum's panel "Compile". */
+    export async function checkDynamicCode(): Promise<{ errors: CompileError[]; modules: GeneratedModule[] }> {
+        const modules = await generateModules();
+        const { errors, sources } = DynamicCodeCompiler.check(modules, await compileOptions?.());
+        return { errors, modules: sources };
+    }
+
+    /**
+     * What a restart would change: the generated files that differ from the ones this process loaded.
+     * Exact where Signum compares timestamps (last change vs. last compile), so saving a definition
+     * without changing it, or changing it back, does not ask for a restart.
+     */
+    export async function pendingChanges(): Promise<DynamicPendingChange[]> {
+        if (!DynamicCodeCompiler.isConfigured())
+            return [];
+
+        const now = new Map((await generateModules()).map(m => [m.fileName, m.content]));
+        const before = loadedContents ?? new Map<string, string>();
+
+        const result: DynamicPendingChange[] = [];
+        for (const [fileName, content] of now) {
+            const old = before.get(fileName);
+            if (old == null)
+                result.push({ fileName, change: "Added" });
+            else if (old !== content)
+                result.push({ fileName, change: "Modified" });
+        }
+        for (const fileName of before.keys())
+            if (!now.has(fileName))
+                result.push({ fileName, change: "Removed" });
+
+        return result;
     }
 
     /** The generated `CodeGenStarter` module: import every generated logic and call its `start(sb)`. */

@@ -2,6 +2,7 @@ import { ajaxGet } from "@altea/altea/client/Services";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { QueryString } from "@altea/altea/client/QueryString";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
+import type { LoginResponse } from "@altea/altea-auth/data/AuthDtos";
 import { RestApiKeyEntity } from "../data/Rest";
 
 // The key's editor, plus the boot-time authenticator that turns a `?apiKey=` in the address bar into a
@@ -50,7 +51,7 @@ export namespace RestApiKeyClient {
         }
 
         /** `avoidAuthToken`: the key IS the credential — a stale bearer token must not shadow it. */
-        export function loginFromApiKey(apiKey: string): Promise<AuthClient.API.LoginResponse> {
+        export function loginFromApiKey(apiKey: string): Promise<LoginResponse> {
             return ajaxGet({
                 url: "/api/auth/loginFromApiKey?" + QueryString.stringify({ apiKey }),
                 avoidAuthToken: true,

@@ -9,6 +9,7 @@ import { AuthServer } from "@altea/altea-auth/server/AuthServer";
 import { AuthTokenServer } from "@altea/altea-auth/server/AuthTokenServer";
 import { OpenIdConnect, type OAuthTokenResponse } from "@altea/altea-auth/server/OpenIdConnect";
 import type { UserEntity } from "@altea/altea-auth/data/User";
+import type { LoginResponse } from "@altea/altea-auth/data/AuthDtos";
 import type { OpenIDClientConfig, OpenIDEndpoints } from "../data/OpenID";
 import { OpenIDConfigurationEmbedded } from "../data/OpenID";
 import { OpenIDAuthorizer, OpenIDClaimsContext } from "./OpenIDAuthorizer";
@@ -28,7 +29,6 @@ import { OpenIDAuthorizer, OpenIDClaimsContext } from "./OpenIDAuthorizer";
 // See port/AuthDirectory.md.
 
 interface LoginWithOpenIDRequest { code?: string; redirectUri?: string }
-interface LoginResponse { authenticationType: string; token: string; userEntity: UserEntity }
 /** The one anonymous boot payload: null when OpenID is off or not configured. */
 export type OpenIDClientSettings = (OpenIDClientConfig & OpenIDEndpoints) | null;
 

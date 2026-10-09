@@ -5,6 +5,7 @@ import type { ClientBuilder } from '@altea/altea/client/ClientBuilder'
 import { registerSpecialAction } from '@altea/altea/client/OmniboxSpecialAction'
 import { AuthClient } from '@altea/altea-auth/client/AuthClient'
 import { ProfilerPermission } from '../data/ProfilerPermission'
+import type { HeavyProfilerEntryInfo, HeavyProfilerUpload, StackTrace, TimeTrackerEntryInfo } from '../data/ProfilerDtos'
 
 // Port of Signum's ProfilerClient (Signum.Profiler/ProfilerClient.tsx). Registers the three admin routes,
 // the two omnibox entries reaching them, and the typed HTTP client the pages call.
@@ -51,15 +52,15 @@ export namespace ProfilerClient {
                 return ajaxPost({ url: "/api/profilerHeavy/clear", avoidDeserialize: true }, undefined);
             }
 
-            export function entries(ignoreProfilerHeavyEntries: boolean): Promise<HeavyProfilerEntry[]> {
+            export function entries(ignoreProfilerHeavyEntries: boolean): Promise<HeavyProfilerEntryInfo[]> {
                 return ajaxGet({ url: "/api/profilerHeavy/entries?ignoreProfilerHeavyEntries=" + ignoreProfilerHeavyEntries, avoidDeserialize: true });
             }
 
-            export function details(key: string): Promise<HeavyProfilerEntry[]> {
+            export function details(key: string): Promise<HeavyProfilerEntryInfo[]> {
                 return ajaxGet({ url: "/api/profilerHeavy/details/" + key, avoidDeserialize: true });
             }
 
-            export function stackTrace(key: string): Promise<StackTraceTS[]> {
+            export function stackTrace(key: string): Promise<StackTrace[] | null> {
                 return ajaxGet({ url: "/api/profilerHeavy/stackTrace/" + key, avoidDeserialize: true });
             }
 
@@ -68,7 +69,7 @@ export namespace ProfilerClient {
                     .then(response => saveFile(response));
             }
 
-            export function upload(file: { fileName: string; content: string }): Promise<void> {
+            export function upload(file: HeavyProfilerUpload): Promise<void> {
                 return ajaxPost({ url: "/api/profilerHeavy/upload", avoidSerialize: true, avoidDeserialize: true }, file);
             }
         }
@@ -78,54 +79,9 @@ export namespace ProfilerClient {
                 return ajaxPost({ url: "/api/profilerTimes/clear", avoidDeserialize: true }, undefined);
             }
 
-            export function fetchInfo(): Promise<TimeTrackerEntry[]> {
+            export function fetchInfo(): Promise<TimeTrackerEntryInfo[]> {
                 return ajaxGet({ url: "/api/profilerTimes/times", avoidDeserialize: true });
             }
         }
-    }
-
-    export interface StackTraceTS {
-        color: string;
-        fileName: string;
-        lineNumber: number;
-        method: string;
-        type: string;
-        namespace: string;
-    }
-
-    export interface HeavyProfilerEntry {
-        beforeStart: number;
-        start: number;
-        end: number;
-        totalMax: number;
-        elapsed: string;
-        isFinished: boolean;
-        kind: string;
-        color: string;
-        depth: number;
-        asyncDepth: number;
-        additionalData: string;
-        fullIndex: string;
-    }
-
-    export interface TimeTrackerTime {
-        duration: number;
-        date: string;
-        url: string;
-        user: string;
-    }
-
-    export interface TimeTrackerEntry {
-        identifier: string;
-        count: number;
-        averageDuration: number;
-        totalDuration: number;
-
-        max: TimeTrackerTime;
-        max2?: TimeTrackerTime;
-        max3?: TimeTrackerTime;
-
-        min: TimeTrackerTime;
-        last: TimeTrackerTime;
     }
 }

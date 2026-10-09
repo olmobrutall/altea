@@ -7,6 +7,7 @@ import { AuthTokenServer, type Authenticator } from "@altea/altea-auth/server/Au
 import { UserHolder } from "@altea/altea/server/userHolder";
 import { UserWithClaims } from "@altea/altea/data/security";
 import { UserEntity } from "@altea/altea-auth/data/User";
+import type { LoginResponse } from "@altea/altea-auth/data/AuthDtos";
 import { RestApiKeyEntity } from "../data/Rest";
 import { RestApiKeyLogic } from "./RestApiKeyLogic";
 
@@ -91,7 +92,7 @@ export namespace RestApiKeyServer {
         // because the request carries no token yet — the gate must not reject it before the
         // authenticator's user is read back here.
         ws.get("/api/auth/loginFromApiKey",
-            { res: CustomType<LoginFromApiKeyResponse>(), allowAnonymous: true },
+            { res: CustomType<LoginResponse>(), allowAnonymous: true },
             async (_req, res) => {
                 const current = UserHolder.current()?.user;
                 if (current == null)
@@ -104,12 +105,5 @@ export namespace RestApiKeyServer {
 
                 res.jsonTyped({ userEntity: user, token: AuthTokenServer.createToken(user), authenticationType: "api-key" });
             });
-    }
-
-    /** altea-auth's `LoginResponse` shape, declared here so this module needn't import the client's. */
-    export interface LoginFromApiKeyResponse {
-        userEntity: UserEntity;
-        token: string;
-        authenticationType: string;
     }
 }

@@ -17,6 +17,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import ChartTimeSeries from './ChartTimeSeries'
 import { ChartTimeSeriesEmbedded } from '../../data/ChartRequest'
 import type { IChartBase } from '../../data/ChartRequest'
+import type { ChartScriptParameterInfo, EnumValueListInfo, ScalaInfo, SpecialParameterInfo } from '../../data/ChartDtos'
 import { EnumLine } from '@altea/altea/client/Lines/EnumLine'
 import type { EnumLineProps, OptionItem } from '@altea/altea/client/Lines/EnumLine'
 import { NumberLine, NumberBox, isDecimalKey } from '@altea/altea/client/Lines/NumberLine'
@@ -270,10 +271,10 @@ export function ColumnParameters(props: {
   );
 }
 
-function ParameterValueLine({ ctx, scriptParameter, chart, onRedraw }: { ctx: TypeContext<ChartParameterEmbedded>, scriptParameter: ChartClient.ChartScriptParameter, onRedraw?: () => void, chart: IChartBase }) {
+function ParameterValueLine({ ctx, scriptParameter, chart, onRedraw }: { ctx: TypeContext<ChartParameterEmbedded>, scriptParameter: ChartScriptParameterInfo, onRedraw?: () => void, chart: IChartBase }) {
 
   if (scriptParameter.type == "Special") {
-    var sp = scriptParameter.valueDefinition as ChartClient.SpecialParameter;
+    var sp = scriptParameter.valueDefinition as SpecialParameterInfo;
 
     if (sp.specialParameterType == "ColorCategory") {
       return (
@@ -331,7 +332,7 @@ function ParameterValueLine({ ctx, scriptParameter, chart, onRedraw }: { ctx: Ty
       label: scriptParameter.displayName!,
     };
 
-    const values = (scriptParameter.valueDefinition as ChartClient.EnumValueList).values;
+    const values = (scriptParameter.valueDefinition as EnumValueListInfo).values;
 
     if (values.length <= 1)
       el.ctx.styleOptions.readOnly = true;
@@ -356,7 +357,7 @@ function ParameterValueLine({ ctx, scriptParameter, chart, onRedraw }: { ctx: Ty
   }
 }
 
-export function Scala(p: { ctx: TypeContext<ChartParameterEmbedded>, scriptParameter: ChartClient.ChartScriptParameter, onRedraw?: () => void, chart: IChartBase }): React.ReactElement {
+export function Scala(p: { ctx: TypeContext<ChartParameterEmbedded>, scriptParameter: ChartScriptParameterInfo, onRedraw?: () => void, chart: IChartBase }): React.ReactElement {
 
 
   const { ctx, scriptParameter, onRedraw, chart } = p;
@@ -364,7 +365,7 @@ export function Scala(p: { ctx: TypeContext<ChartParameterEmbedded>, scriptParam
   const token = scriptParameter.columnIndex == undefined ? undefined :
     chart.columns[scriptParameter.columnIndex].token?.token;
 
-  const scala = p.scriptParameter.valueDefinition as ChartClient.Scala;
+  const scala = p.scriptParameter.valueDefinition as ScalaInfo;
 
   const compatible = Object.entries(scala.standardScalas).filter(([value, columnType]) => columnType == undefined || token == undefined || ChartClient.isChartColumnType(token, columnType))
     .map(([value, columnType]) => value);

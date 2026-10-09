@@ -22,6 +22,7 @@ import {
     OfficeConverterSymbol, OfficeModelEntity, OfficeTemplateEntity, OfficeTemplateOperation,
     OfficeTemplateVisibleOn, OfficeTransformerSymbol,
 } from "../data/OfficeTemplate";
+import type { CreateOfficeReportRequest, GetOfficeTemplatesRequest } from "../data/OfficeTemplateDtos";
 import OfficeEntityMenu from "./OfficeEntityMenu";
 import OfficeSearchMenu from "./OfficeSearchMenu";
 
@@ -258,22 +259,12 @@ export namespace OfficeClient {
      * Signum's callers each do `API.createAndDownloadReport(...).then(r => r && saveFile(r))`; folding the
      * `saveFile` in here means no call site can forget it and leave the user staring at nothing.
      */
-    export async function createAndDownloadReport(request: API.CreateOfficeReportRequest): Promise<void> {
+    export async function createAndDownloadReport(request: CreateOfficeReportRequest): Promise<void> {
         const response = await API.createAndDownloadReport(request);
         await saveFile(response);
     }
 
     export namespace API {
-
-        export interface CreateOfficeReportRequest {
-            template: Lite<OfficeTemplateEntity>;
-            lite?: Lite<Entity> | null;
-            entity?: BaseEntity | null;
-        }
-
-        export interface GetOfficeTemplatesRequest {
-            lite: Lite<Entity> | null;
-        }
 
         /** The RAW response — the caller streams it to a file (see OfficeClient.createAndDownloadReport). */
         export function createAndDownloadReport(request: CreateOfficeReportRequest): Promise<Response> {

@@ -8,7 +8,7 @@ import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandWithHistory, Spacing }
 import type { SqlBuilder } from './sqlBuilder';
 import type { Schema } from '../schema/schema';
 import type { Replacements } from './synchronizer';
-import { readLineSync } from './synchronizer';
+import { SafeConsole } from '../safeConsole';
 import { isNullableToBool } from '../schema/dbType';
 
 // Port of Signum's PrimaryKeyUpdater (old/Framework/Signum/Engine/Sync/PrimaryKeyUpdater.cs). When an
@@ -107,8 +107,8 @@ export class PrimaryKeyUpdater {
     // rows pointing at THAT entity must be re-pointed. altea's ImplementedByAllIdColumn is type-keyed (no
     // per-target referenceTable), so — like Signum — we scope by joining the type discriminator to the
     // migrated entity's TypeEntity row (matched by table name).
-    updateImplementedByAll(migratedTable: Table, oldTableName: ObjectName, newIdCol: IColumn, oldPkDbType: AbstractDbType, oldIdColName: string,
-        replacements: Replacements): SqlPreCommand | undefined {
+    async updateImplementedByAll(migratedTable: Table, oldTableName: ObjectName, newIdCol: IColumn, oldPkDbType: AbstractDbType, oldIdColName: string,
+        replacements: Replacements): Promise<SqlPreCommand | undefined> {
         if (this.typeTable == null || this.typeIdCol == null || this.typeTableNameCol == null)
             return undefined;
 
@@ -126,18 +126,18 @@ export class PrimaryKeyUpdater {
             if (ibaOldId == null || ibaNewId == null || ibaOldId === ibaNewId)
                 continue;
 
-            commands.push(this.updateIBAOne(migratedTable, oldTableName, newIdCol, oldIdColName, holder, typeCol, ibaOldId, ibaNewId, replacements));
+            commands.push(await this.updateIBAOne(migratedTable, oldTableName, newIdCol, oldIdColName, holder, typeCol, ibaOldId, ibaNewId, replacements));
             if (holder.systemVersioned != null)
-                commands.push(this.updateIBAOne(migratedTable, oldTableName, newIdCol, oldIdColName, holder, typeCol, ibaOldId, ibaNewId, replacements, holder.systemVersioned.historyTableName));
+                commands.push(await this.updateIBAOne(migratedTable, oldTableName, newIdCol, oldIdColName, holder, typeCol, ibaOldId, ibaNewId, replacements, holder.systemVersioned.historyTableName));
         }
         return SqlPreCommand.combine(Spacing.Double, ...commands);
     }
 
-    private updateIBAOne(
+    private async updateIBAOne(
         migratedTable: Table, oldTableName: ObjectName, newIdCol: IColumn, oldIdColName: string,
         holder: Table, typeCol: ImplementedByAllTypeColumn, ibaOldId: IColumn, ibaNewId: IColumn,
         replacements: Replacements, holderHistory?: ObjectName,
-    ): SqlPreCommand | undefined {
+    ): Promise<SqlPreCommand | undefined> {
         const holderName = holderHistory ?? holder.name;
         const typeName = this.tbl(this.typeTable!.name);
         const oldTableLit = oldTableName.name.replace(/'/g, "''");
@@ -161,7 +161,7 @@ export class PrimaryKeyUpdater {
             `JOIN ${typeName} ty ON ty.${this.esc(this.typeIdCol!)} = tgt.${this.esc(typeCol.name)} AND ty.${this.esc(this.typeTableNameCol!)} = '${oldTableLit}';`;
         return SqlPreCommand.combine(Spacing.Double,
             new SqlPreCommandSimple(sql),
-            this.fixUnmatched(holderName, typeCol, ibaOldId, oldTableName, replacements));
+            await this.fixUnmatched(holderName, typeCol, ibaOldId, oldTableName, replacements));
     }
 
     /**
@@ -182,8 +182,8 @@ export class PrimaryKeyUpdater {
      * NOT in altea before now: the earlier port of the PK migration stopped at the remap, so an unmatched
      * row kept an id of the old type and the first read of it threw.
      */
-    private fixUnmatched(holderName: ObjectName, typeCol: ImplementedByAllTypeColumn, ibaOldId: IColumn,
-        oldTableName: ObjectName, replacements: Replacements): SqlPreCommand {
+    private async fixUnmatched(holderName: ObjectName, typeCol: ImplementedByAllTypeColumn, ibaOldId: IColumn,
+        oldTableName: ObjectName, replacements: Replacements): Promise<SqlPreCommand> {
 
         const typeName = this.tbl(this.typeTable!.name);
         const oldTableLit = oldTableName.name.replace(/'/g, "''");
@@ -192,7 +192,7 @@ export class PrimaryKeyUpdater {
             `  AND ty.${this.esc(this.typeTableNameCol!)} = '${oldTableLit}'\n` +
             `  AND tgt.${this.esc(ibaOldId.name)} IS NOT NULL`;
 
-        if (!isNullableToBool(typeCol.nullable) && this.askDeleteUnmatched(holderName, typeCol, oldTableName, replacements)) {
+        if (!isNullableToBool(typeCol.nullable) && await this.askDeleteUnmatched(holderName, typeCol, oldTableName, replacements)) {
             const comment =
                 `-- The target no longer exists, so the remap above could not reach this row, and ` +
                 `${holderName.name}.${typeCol.name} cannot be null: the row is deleted\n`;
@@ -214,31 +214,31 @@ export class PrimaryKeyUpdater {
      *  reviewed before it is run. */
     private deleteUnmatchedIBARows?: boolean;
 
+    /** The questions asked so far, chained: several references may be migrated at once, and the answers
+     *  must come one after another — the second may already be settled by an "always". */
+    private asking: Promise<unknown> = Promise.resolve();
+
     private askDeleteUnmatched(holderName: ObjectName, typeCol: ImplementedByAllTypeColumn,
-        oldTableName: ObjectName, replacements: Replacements): boolean {
+        oldTableName: ObjectName, replacements: Replacements): Promise<boolean> {
 
-        if (!replacements.interactive)
-            return true;
-
-        if (this.deleteUnmatchedIBARows != null)
-            return this.deleteUnmatchedIBARows;
-
-        console.log();
-        console.log(`Delete the rows of ${holderName} that point to a ${oldTableName} that no longer exists?`);
-        console.log(`(${holderName.name}.${typeCol.name} is not nullable, so they cannot be emptied instead)`);
-        console.log(` y: yes    y!: yes, always    n: no, clear the id instead    n!: no, always`);
-
-        for (; ;) {
-            const answer = (readLineSync() ?? "y").trim().toLowerCase();
-            if (answer === "y" || answer === "")
+        const next = this.asking.then(async () => {
+            if (!replacements.interactive)
                 return true;
-            if (answer === "y!")
-                return this.deleteUnmatchedIBARows = true;
-            if (answer === "n")
-                return false;
-            if (answer === "n!")
-                return this.deleteUnmatchedIBARows = false;
-        }
+
+            if (this.deleteUnmatchedIBARows != null)
+                return this.deleteUnmatchedIBARows;
+
+            const console = replacements.console ?? SafeConsole.current();
+            const answer = await console.askAlways(
+                `Delete the rows of ${holderName} that point to a ${oldTableName} that no longer exists?\n` +
+                `(${holderName.name}.${typeCol.name} is not nullable, so they cannot be emptied instead — "no" clears the id)`,
+                true);
+            if (answer.always)
+                this.deleteUnmatchedIBARows = answer.yes;
+            return answer.yes;
+        });
+        this.asking = next;
+        return next;
     }
 
     // ---- system-versioned history rows (Signum's UpdateHistoryTable) ---------

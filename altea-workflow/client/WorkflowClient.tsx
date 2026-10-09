@@ -36,7 +36,7 @@ import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import { Temporal, toInt } from "@altea/altea/data/basics";
 import { TypeReference } from "@altea/altea/data/reflection";
 import AutoLineModal from "@altea/altea/client/AutoLineModal";
-import type { ExecuteSymbol } from "@altea/altea/data/operations";
+import type { ExecuteSymbol, EntityOperationRequest } from "@altea/altea/data/operations";
 import type { TypeEntity } from "@altea/altea/data/typeEntity";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
@@ -1049,7 +1049,7 @@ export namespace WorkflowClient {
                 entity: entity,
                 operationKey: WorkflowOperation.Save.key,
                 args: [model, replacementModel],
-            } as Operations.API.EntityOperationRequest);
+            } as EntityOperationRequest);
         }
 
         export function findMainEntityType(request: { subString: string, count: number }, signal?: AbortSignal):

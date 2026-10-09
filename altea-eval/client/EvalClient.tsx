@@ -1,7 +1,6 @@
 import { ajaxPost } from "@altea/altea/client/Services";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
-import type { Entity } from "@altea/altea/data/entity";
-import type { Lite } from "@altea/altea/data/lite";
+import type { EvalEntityError } from "../data/EvalDtos";
 
 // The client half: the eval-errors API. The PANEL page and its omnibox action belong to
 // @altea/altea-dynamic, which owns the admin pages, so this module only exposes the endpoint they call —
@@ -13,13 +12,6 @@ export namespace EvalClient {
 
     export function start(_cb: ClientBuilder): void {
         // Nothing to register yet — see the header.
-    }
-
-    /** One failing script: the entity, the error, and which registered source it came from. */
-    export interface EvalEntityError {
-        source: string;
-        lite: Lite<Entity>;
-        error: string;
     }
 
     export namespace API {

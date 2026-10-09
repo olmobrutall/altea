@@ -6,6 +6,7 @@ import { TypeLogic } from "@altea/altea/server/typeLogic";
 import { isEnumEntityType, getBoundEnum, enumEntityMembers } from "@altea/altea/data/enumEntity";
 import { ChartPermission } from "../data/ChartPermissions";
 import type { ColorPaletteEntity } from "../data/ColorPalette";
+import type { ColorPaletteInfo } from "../data/ChartDtos";
 import { ColorPaletteLogic } from "./ColorPaletteLogic";
 
 // Port of Signum's ColorPaletteController (Signum.Chart/ColorPalette/ColorPaletteController.cs) — the
@@ -14,20 +15,10 @@ import { ColorPaletteLogic } from "./ColorPaletteLogic";
 // ChartPermission.ViewCharting, matching UserChartServer). Returns the palette DTO, or JSON null when the
 // type has no palette.
 
-// Signum's `ColorPaletteTS` DTO. SpecificColors is a map keyed by the enum MEMBER NAME (for an enum type)
-// or the entity ID string (for an entity type) — see the controller's `EnumEntity.Extract` branch.
-export interface ColorPaletteTS {
-    lite: Lite<ColorPaletteEntity>;
-    typeName: string;
-    categoryName: string;
-    seed: number;
-    specificColors: { [key: string]: string };
-}
-
 export namespace ColorPaletteServer {
     export function start(ws: WebBuilder): void {
         ws.get("/api/colorPalette/:typeName",
-            { params: CustomType<{ typeName: string }>(), res: CustomType<ColorPaletteTS | null>() },
+            { params: CustomType<{ typeName: string }>(), res: CustomType<ColorPaletteInfo | null>() },
             async (req, res) => {
                 await assertAuthorized();
 

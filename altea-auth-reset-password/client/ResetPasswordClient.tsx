@@ -5,6 +5,7 @@ import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import { ajaxPost } from "@altea/altea/client/Services";
 import { LoginAuthMessage } from "@altea/altea-auth/data/AuthMessages";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
+import type { LoginResponse } from "@altea/altea-auth/data/AuthDtos";
 import { LoginOptions } from "@altea/altea-auth/client/public/LoginPage";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { ResetPasswordRequestEntity } from "../data/ResetPassword";
@@ -56,7 +57,7 @@ export namespace ResetPasswordClient {
             return ajaxPost({ url: "/api/auth/forgotPasswordEmail", avoidAuthToken: true }, request);
         }
 
-        export function resetPassword(request: ResetPasswordRequest): Promise<AuthClient.API.LoginResponse> {
+        export function resetPassword(request: ResetPasswordRequest): Promise<LoginResponse> {
             return ajaxPost({ url: "/api/auth/resetPassword", avoidAuthToken: true }, request);
         }
 

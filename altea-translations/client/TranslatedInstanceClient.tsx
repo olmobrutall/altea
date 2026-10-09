@@ -10,17 +10,16 @@ import { TextBoxLineController } from "@altea/altea/client/Lines/TextBoxLine";
 import { TextAreaLineController } from "@altea/altea/client/Lines/TextAreaLine";
 import { PropertyRouteType } from "@altea/altea/data/propertyRoute";
 import type { Binding } from "@altea/altea/client/binding";
-import type { TranslatableRouteType } from "@altea/altea/data/reflection";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { classes } from "@altea/altea/data/globals";
 import { Entity } from "@altea/altea/data/entity";
-import type { Lite } from "@altea/altea/data/lite";
 import { getTypeName } from "@altea/altea/client/Reflection";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
-import {
-    TranslationPermission, TranslationMessage, TranslatedSummaryState, MatchTranslatedInstances,
-} from "../data/Translation";
+import { TranslationPermission, TranslationMessage, MatchTranslatedInstances } from "../data/Translation";
+import type {
+    TranslatedTypeSummary, TranslationRecordInfo, TranslatedInstanceViewType, TypeInstancesChanges, FileUpload,
+} from "../data/TranslationDtos";
 
 // Port of Signum.Translation's TranslatedInstanceClient.tsx — the INSTANCE half's client registration:
 // the three pages, the calls behind them, and the little "language" button every @translatable Line grows.
@@ -125,11 +124,6 @@ export namespace TranslatedInstanceClient {
                 .then(response => saveFile(response));
         }
 
-        export interface FileUpload {
-            fileName: string;
-            content: string;
-        }
-
         export function uploadFile(request: FileUpload, mode: MatchTranslatedInstances): Promise<void> {
             return ajaxPost({ url: `/api/translatedInstance/uploadFile?${q({ mode: MatchTranslatedInstances[mode] })}` }, request);
         }
@@ -150,7 +144,7 @@ export namespace TranslatedInstanceClient {
             return ajaxGet({ url: `/api/translatedInstance/autoTranslateAll?${q({ culture })}` });
         }
 
-        export function saveTranslatedInstanceData(records: TranslationRecord[], type: string, isSync: boolean, culture?: string): Promise<void> {
+        export function saveTranslatedInstanceData(records: TranslationRecordInfo[], type: string, isSync: boolean, culture?: string): Promise<void> {
             return ajaxPost({ url: `/api/translatedInstance/save/${type}?${q({ isSync, culture })}` }, records);
         }
     }
@@ -160,67 +154,5 @@ export namespace TranslatedInstanceClient {
             .filter(([, v]) => v != undefined)
             .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
             .join("&");
-    }
-
-    // ---- The DTOs (mirroring server/TranslatedInstanceServer) -----------------------------------------
-
-    export interface TranslationRecord {
-        culture: string;
-        propertyRoute: string;
-        lite: Lite<Entity>;
-        originalText: string;
-        translatedText: string;
-    }
-
-    export interface TranslatedTypeSummary {
-        type: string;
-        culture: string;
-        isDefaultCulture: boolean;
-        state: TranslatedSummaryState | null;
-    }
-
-    export interface TypeInstancesChanges {
-        typeName: string;
-        masterCulture: string;
-        routes: Record<string, TranslatableRouteType>;
-        totalInstances: number;
-        instances: InstanceChange[];
-        deletedTranslations: number;
-    }
-
-    export interface InstanceChange {
-        instance: Lite<Entity>;
-        routeConflicts: Record<string, PropertyChange>;
-    }
-
-    export interface PropertyChange {
-        translatedText?: string;
-        support: Record<string, PropertyRouteConflict>;
-    }
-
-    export interface PropertyRouteConflict {
-        oldOriginal?: string;
-        oldTranslation?: string;
-        original: string;
-        automaticTranslations: { translatorName: string; text: string }[];
-    }
-
-    export interface TranslatedInstanceViewType {
-        typeName: string;
-        masterCulture: string;
-        routes: Record<string, TranslatableRouteType>;
-        instances: TranslatedInstanceView[];
-    }
-
-    export interface TranslatedInstanceView {
-        lite: Lite<Entity>;
-        master: Record<string, string | null>;
-        translations: Record<string, Record<string, TranslatedPairView>>;
-    }
-
-    export interface TranslatedPairView {
-        translatedText: string;
-        newText: string | null;
-        originalText: string;
     }
 }

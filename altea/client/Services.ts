@@ -12,6 +12,7 @@ import * as AppContext from './AppContext';
 import { Serializer } from '../data/serializer';
 import type { ModelEntity } from '../data/entity';
 import type { ModelState } from '../data/validation';
+import type { HttpError } from '../data/exception';
 
 export interface AjaxOptions {
   url: string;
@@ -297,12 +298,12 @@ export namespace ThrowErrorFilter {
               });
             }
 
-            if (response.status == 400 && !(obj as WebApiHttpError).exceptionType)
+            if (response.status == 400 && !(obj as HttpError).exceptionType)
               throw new ValidationError(obj as ModelState);
-            else if ((obj as WebApiHttpError).model)
-              throw new ModelRequestedError((obj as WebApiHttpError).model!);
+            else if ((obj as HttpError).model)
+              throw new ModelRequestedError((obj as HttpError).model!);
             else
-              throw new ServiceError(obj as WebApiHttpError);
+              throw new ServiceError(obj as HttpError);
 
           }
           else
@@ -390,7 +391,7 @@ export function b64toBlob(b64Data: string, contentType: string = "", sliceSize =
 
 export class ServiceError {
   constructor(
-    public httpError: WebApiHttpError) {
+    public httpError: HttpError) {
   }
 
   get defaultIcon(): "lock" | "trash" | "clone" | "exclamation-triangle" {
@@ -430,14 +431,6 @@ export class ExternalServiceError {
   }
 }
 
-export interface WebApiHttpError {
-  exceptionType: string;
-  exceptionMessage: string | null;
-  stackTrace: string | null;
-  exceptionId: string | null;
-  model?: ModelEntity;
-  innerException: WebApiHttpError | null;
-}
 
 export class ValidationError {
   modelState: ModelState;

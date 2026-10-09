@@ -653,7 +653,8 @@ export function gender(value: Gender): ClassDecorator {
 // ones, which are absent from the DB but still on the wire), so `@serialize(true)` / bare
 // `@serialize()` is only ever needed to override an inherited `@serialize(false)`.
 export function serialize(value: boolean = true) {
-    return function (target: object, propertyKey: string | symbol): void {
+    // `_descriptor`: also usable on an `accessor` (Blob) field — see column().
+    return function (target: object, propertyKey: string | symbol, _descriptor?: PropertyDescriptor): void {
         getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).noSerialize = !value;
     };
 }
@@ -760,7 +761,9 @@ export function translatable(arg1: unknown, arg2?: string | symbol): unknown {
 // see the type) and is still serialized to JSON unless also marked `@serialize(false)`. Lives in
 // entities/ (the entity model owns its column annotations); the schema layer re-exports it.
 export function column(options: ColumnOptions | false = {}) {
-    return function (target: object, propertyKey: string | symbol) {
+    // `_descriptor`: also usable on an `accessor` field (a Blob field is one — see field()), which the
+    // runtime decorates with three arguments.
+    return function (target: object, propertyKey: string | symbol, _descriptor?: PropertyDescriptor) {
         const key = String(propertyKey);
         const typeInfo = getOrCreateTypeInfo(target);
         const existing = getOrCreateFieldInfo(typeInfo, key);

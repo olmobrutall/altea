@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ajaxPost } from "@altea/altea/client/Services";
 import { loadMonaco, type Monaco } from "@altea/altea-monaco/client/monaco";
+import type { DeclarationFile, DeclarationsRequest, IntelliSenseRequest, IntelliSenseResponse } from "../data/EvalDtos";
 
 // The editor's half of the module configuration.
 //
@@ -21,20 +22,13 @@ import { loadMonaco, type Monaco } from "@altea/altea-monaco/client/monaco";
 const intelliSenseRoute = "/api/eval/intelliSense";
 const declarationsRoute = "/api/eval/declarations";
 
-interface DeclarationFile { path: string; content: string }
-
-interface IntelliSenseResponse {
-    eagerLines: string[];
-    names: [string, string][];
-    root: string;
-    declarations: DeclarationFile[];
-}
-
 export interface EvalIntelliSense {
     /** The import lines every script gets, shown above the author's own text. */
     readonly eagerLines: readonly string[];
     /** The module that provides a name, or undefined when nothing does. */
     specifierFor(name: string): string | undefined;
+    /** Every name the configuration resolves — what a picker of types can offer. */
+    readonly names: readonly string[];
     /**
      * Load the declarations for these modules, if they are not loaded already. Resolves once the editor
      * can check against them.
@@ -44,22 +38,31 @@ export interface EvalIntelliSense {
     unresolvedNames(uri: string): Promise<string[]>;
 }
 
-let loading: Promise<EvalIntelliSense> | undefined;
+const loading = new Map<string, Promise<EvalIntelliSense>>();
 
-/** Loaded ONCE per page: the map is the same for every editor, and so are the declarations. */
-export function loadIntelliSense(): Promise<EvalIntelliSense> {
-    return loading ??= build();
+/** Declaration PATHS the editor already holds — shared by every profile, since the files are the same. */
+const loaded = new Set<string>();
+/** Module specifiers already asked for. */
+const requested = new Set<string>();
+
+/**
+ * Loaded ONCE per page and profile: the map is the same for every editor of a profile, and the
+ * declarations for every profile. No profile is the base configuration (EvalLogic.registerImportsProfile).
+ */
+export function loadIntelliSense(profile?: string): Promise<EvalIntelliSense> {
+    let result = loading.get(profile ?? "");
+    if (result == null)
+        loading.set(profile ?? "", result = build(profile));
+    return result;
 }
 
-async function build(): Promise<EvalIntelliSense> {
+async function build(profile: string | undefined): Promise<EvalIntelliSense> {
     const [monaco, response] = await Promise.all([
         loadMonaco(),
-        ajaxPost<IntelliSenseResponse>({ url: intelliSenseRoute }, {}),
+        ajaxPost<IntelliSenseResponse>({ url: intelliSenseRoute }, { profile } satisfies IntelliSenseRequest),
     ]);
 
     const names = new Map(response.names);
-    const loaded = new Set<string>();           // declaration PATHS the editor already holds
-    const requested = new Set<string>();        // module specifiers already asked for
 
     function register(declarations: readonly DeclarationFile[]): void {
         for (const file of declarations) {
@@ -72,7 +75,7 @@ async function build(): Promise<EvalIntelliSense> {
 
     register(response.declarations);
     for (const line of response.eagerLines) {
-        const specifier = /from\s+"([^"]+)"/.exec(line)?.[1];
+        const specifier = /(?:from|import)\s+"([^"]+)"/.exec(line)?.[1];
         if (specifier != null)
             requested.add(specifier);
     }
@@ -90,6 +93,8 @@ async function build(): Promise<EvalIntelliSense> {
 
         specifierFor: name => names.get(name),
 
+        names: [...names.keys()],
+
         async load(specifiers) {
             const wanted = specifiers.filter(s => !requested.has(s));
             if (wanted.length === 0)
@@ -99,7 +104,7 @@ async function build(): Promise<EvalIntelliSense> {
                 requested.add(s);
 
             register(await ajaxPost<DeclarationFile[]>({ url: declarationsRoute },
-                { specifiers: wanted, have: [...loaded] }));
+                { profile, specifiers: wanted, have: [...loaded] } satisfies DeclarationsRequest));
         },
 
         unresolvedNames: uri => unresolvedNames(monaco, uri),
@@ -141,14 +146,14 @@ async function unresolvedNames(monaco: Monaco, uri: string): Promise<string[]> {
  * IntelliSense in the meantime rather than waiting, since half a megabyte of declarations is no reason to
  * stare at an empty box.
  */
-export function useEvalIntelliSense(): EvalIntelliSense | null {
+export function useEvalIntelliSense(profile?: string): EvalIntelliSense | null {
     const [value, setValue] = React.useState<EvalIntelliSense | null>(null);
 
     React.useEffect(() => {
         let alive = true;
-        void loadIntelliSense().then(is => { if (alive) setValue(is); });
+        void loadIntelliSense(profile).then(is => { if (alive) setValue(is); });
         return () => { alive = false; };
-    }, []);
+    }, [profile]);
 
     return value;
 }

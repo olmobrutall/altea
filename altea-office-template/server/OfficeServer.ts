@@ -1,7 +1,8 @@
 import { WebBuilder, CustomType, attachmentDisposition } from "@altea/altea/server/webApi";
-import { Entity } from "@altea/altea/data/entity";
+import type { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { OfficeModelEntity, OfficeTemplateVisibleOn, type OfficeTemplateEntity } from "../data/OfficeTemplate";
+import type { CreateOfficeReportRequest, GetOfficeTemplatesRequest } from "../data/OfficeTemplateDtos";
 import { OfficeModelLogic } from "./OfficeModelLogic";
 import { OfficeTemplateLogic } from "./OfficeTemplateLogic";
 import { cleanTypeName } from "@altea/altea/data/registration";
@@ -17,12 +18,6 @@ import { cleanTypeName } from "@altea/altea/data/registration";
 //    unnecessary: altea ships ONE reflection blob at boot.
 //  - `MimeMapping.GetFileStreamResult` → the same `Content-Disposition` + typed `send` that
 //    @altea/altea-files' download routes use.
-
-interface CreateOfficeReportRequest {
-    template: Lite<OfficeTemplateEntity>;
-    lite?: Lite<Entity> | null;
-    entity?: Entity | null;
-}
 
 export namespace OfficeServer {
     let started = false;
@@ -47,7 +42,7 @@ export namespace OfficeServer {
 
                 const template = await OfficeTemplateLogic.getFromCache(body.template);
 
-                const entity = body.entity ?? (body.lite == null
+                const entity = (body.entity as Entity | null | undefined) ?? (body.lite == null
                     ? null
                     : await body.lite.retrieve());
 
@@ -73,7 +68,7 @@ export namespace OfficeServer {
 
         // The templates a contextual menu / a query button should offer.
         ws.post("/api/office/officeTemplates",
-            { req: CustomType<{ lite: Lite<Entity> | null }>(), res: CustomType<Lite<OfficeTemplateEntity>[]>() },
+            { req: CustomType<GetOfficeTemplatesRequest>(), res: CustomType<Lite<OfficeTemplateEntity>[]>() },
             async (req, res) => {
                 const queryKey = String(req.query["queryKey"] ?? "");
                 const visibleOn = visibleOnOf(String(req.query["visibleOn"] ?? "Single"));

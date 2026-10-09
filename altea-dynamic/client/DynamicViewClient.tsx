@@ -20,6 +20,7 @@ import {
     DynamicViewEntity, DynamicViewMessage, DynamicViewOperation,
     DynamicViewOverrideEntity, DynamicViewOverrideOperation,
     DynamicViewSelectorEntity, DynamicViewSelectorOperation,
+    type DynamicViewProps, type SuggestedFindOptions,
 } from "../data/DynamicView";
 
 // Port of Signum.Dynamic's DynamicViewClient.tsx — where the module PLUGS IN: it installs a ViewDispatcher
@@ -395,15 +396,5 @@ export namespace DynamicViewClient {
         export function getSuggestedFindOptions(typeName: string): Promise<SuggestedFindOptions[]> {
             return ajaxGet({ url: `/api/dynamic/suggestedFindOptions/${typeName}` });
         }
-    }
-
-    export interface SuggestedFindOptions {
-        queryKey: string;
-        parentToken: string;
-    }
-
-    export interface DynamicViewProps {
-        name: string;
-        type: string;
     }
 }

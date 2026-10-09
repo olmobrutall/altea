@@ -7,11 +7,11 @@ import { Dic } from '@altea/altea/data/globals'
 import { PropertyRoute } from '@altea/altea/data/propertyRoute'
 import { cleanTypeName } from '@altea/altea/data/registration'
 import type { TypeInfo } from '@altea/altea/data/reflection'
-import type { Lite } from '@altea/altea/data/lite'
 import { toInt } from '@altea/altea/data/basics'
 import * as ColorUtils from './ColorUtils'
 import { getColorInterpolation } from './ColorUtils'
 import { ColorPaletteEntity } from '../../data/ColorPalette'
+import type { ColorPaletteInfo } from '../../data/ChartDtos'
 import '@altea/altea/data/globals/arrayExtensions'
 
 // Port of Signum.Chart/ColorPalette/ColorPaletteClient.tsx. The two swatch components (ColorScheme /
@@ -51,13 +51,7 @@ export namespace ColorPaletteClient {
         Navigator.registerEntityChanged(ColorPaletteEntity, () => Dic.clear(colorPalette));
     }
 
-    export interface ColorPalette {
-        lite: Lite<ColorPaletteEntity>;
-        typeName: string;
-        categoryName: string;
-        seed: number;
-        specificColors: { [key: string]: string };
-
+    export interface ColorPalette extends ColorPaletteInfo {
         cachedColors: { [key: string]: string };
         palette: ReadonlyArray<string>;
         getColor(key: string): string;
@@ -80,14 +74,11 @@ export namespace ColorPaletteClient {
             if (pal == null)
                 return pal;
 
-            pal.cachedColors = {};
-            pal.palette = ColorUtils.colorSchemes[pal.categoryName];
-
-            if (pal.palette == null)
+            const palette = ColorUtils.colorSchemes[pal.categoryName];
+            if (palette == null)
                 throw new Error("Invalid ColorPalette categoryName: " + pal.categoryName);
 
-            pal.getColor = paletteGetColor;
-            return pal;
+            return { ...pal, cachedColors: {}, palette, getColor: paletteGetColor };
         }).catch((e: unknown) => {
             // Never cache a REJECTED promise: a transient failure (e.g. a request that raced the API host's
             // warmup and 404'd before the route was mounted) would otherwise permanently disable this type's
@@ -129,8 +120,8 @@ export namespace ColorPaletteClient {
     }
 
     export namespace API {
-        export function colorPalette(typeName: string): Promise<ColorPalette | null> {
-            return ajaxGet({ url: `/api/colorPalette/${typeName}` });
+        export function colorPalette(typeName: string): Promise<ColorPaletteInfo | null> {
+            return ajaxGet<ColorPaletteInfo | null>({ url: `/api/colorPalette/${typeName}` });
         }
     }
 }

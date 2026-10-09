@@ -29,6 +29,16 @@ import { msg } from "@altea/altea/data/utils/localization";
 // SERIALIZED, which is the point: `binaryFile` carries an upload client → server, and the routing trio
 // carries the file's ADDRESS server → client. The C# property SETTERS (fileName forcing an extension;
 // binaryFile computing hash + fileLength) run in `prepareForSave`, called by the server's save hook.
+//
+// Every `binaryFile` is declared `accessor`, which the framework requires of any Uint8Array (Blob) field —
+// `field()` refuses one that is not. An ordinary class field is an OWN, ENUMERABLE property, so anything that
+// walks an object's keys walks the file one key per byte. React 19's dev build does exactly that after
+// every commit: it diffs each re-rendered component's old and new props with `for…in` for its Performance
+// Tracks, and a component taking the entity as a prop listed a 600 KB file byte by byte, holding a save's
+// frame locked for 7–19 s. An `accessor` is a non-enumerable getter/setter on the prototype backed by a
+// private slot, so key walks (`for…in`, `Object.keys`, `Dic.equals`, console previews) never reach the bytes,
+// while everything that reads the field BY NAME — reflection, the serializer, change tracking, `create()`,
+// the ORM — is unaffected. One consequence: an object spread or `Object.keys` copy of a file DROPS the bytes.
 
 // Names a STORE + policy (where files go, size/type limits).
 // The algorithm behind each symbol is registered server-side (FileTypeLogic.register).
@@ -42,7 +52,8 @@ export class FileEmbedded extends EmbeddedEntity {
     @stringLengthValidator({ min: 3, max: 200 })
     fileName: string = "";
 
-    binaryFile: Uint8Array = new Uint8Array(0);
+    // `accessor`: keeps the bytes out of every key walk (React's dev prop diff froze saves) — see the top of this file.
+    accessor binaryFile: Uint8Array = new Uint8Array(0);
 
     toString(): string {
         return `${this.fileName} - ${toComputerSize(this.binaryFile?.length ?? 0)}`;
@@ -75,7 +86,8 @@ export class FileEntity extends ImmutableEntity {
     @notNullValidator({ disabled: env => env !== "Saving" })
     hash: string;
 
-    binaryFile: Uint8Array = new Uint8Array(0);
+    // `accessor`: keeps the bytes out of every key walk (React's dev prop diff froze saves) — see the top of this file.
+    accessor binaryFile: Uint8Array = new Uint8Array(0);
 
     /** The server's save hook (FileLogic) calls this with the computed hash. */
     prepareForSave(hash: string): void {
@@ -132,8 +144,9 @@ export class FilePathEmbedded extends EmbeddedEntity {
 
     // NOT a column (the bytes live in the store), but it IS serialized
     // so a client upload can carry them to the server, which writes them and clears this.
+    // `accessor`: keeps the bytes out of every key walk (React's dev prop diff froze saves) — see the top of this file.
     @column(false)
-    binaryFile: Uint8Array | null = null;
+    accessor binaryFile: Uint8Array | null = null;
 
     /** Derive length + hash from the bytes and force an extension — what a C# property setter would do.
      *  Called by the server save hook and by any code that fills `binaryFile` by hand; `hash` comes from the

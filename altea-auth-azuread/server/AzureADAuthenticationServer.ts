@@ -13,6 +13,7 @@ import { AuthTokenServer } from "@altea/altea-auth/server/AuthTokenServer";
 import { OpenIdConnect } from "@altea/altea-auth/server/OpenIdConnect";
 import { ActiveDirectoryPermission } from "@altea/altea-auth/data/BaseAD";
 import type { UserEntity } from "@altea/altea-auth/data/User";
+import type { LoginResponse } from "@altea/altea-auth/data/AuthDtos";
 import { table } from "@altea/altea/server/table";
 import { ADGroupEntity, ADGroupOperation, type ADGroupRequest } from "../data/ADGroup";
 import { Operations } from "@altea/altea/server/operationLogic";
@@ -39,7 +40,6 @@ import { toAzureSize } from "../data/CachedProfilePhoto";
 //  - `Response.GetTypedHeaders().CacheControl = …` → an explicit `Cache-Control` header.
 
 interface LoginWithAzureADRequest { idToken?: string; accessToken?: string }
-interface LoginResponse { authenticationType: string; token: string; userEntity: UserEntity }
 
 interface ResLike {
     setHeader(name: string, value: string): void;

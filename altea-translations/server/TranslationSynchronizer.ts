@@ -1,4 +1,5 @@
 import { getDeterminer, tryGetGenderFromDeterminer, type Gender } from "@altea/altea/data/utils/naturalLanguage";
+import type { AutomaticTranslation, AutomaticTypeTranslation, FolderSyncStats } from "../data/TranslationDtos";
 import type { ITranslator } from "./Translators";
 import { isTypeCompleted, type LocalizedPackage, type LocalizedType } from "./LocalizedPackage";
 
@@ -18,18 +19,6 @@ import { isTypeCompleted, type LocalizedPackage, type LocalizedType } from "./Lo
 //    and rides on altea's own naturalLanguage helpers (getDeterminer / tryGetGenderFromDeterminer, the
 //    second one added to core for this) instead of NaturalLanguageTools.
 
-export interface AutomaticTranslation {
-    translatorName: string;
-    text: string;
-}
-
-export interface AutomaticTypeTranslation {
-    translatorName: string;
-    gender?: string;
-    singular: string;
-    plural?: string;
-}
-
 export interface TypeNameConflict {
     original: LocalizedType;
     automaticTranslations: AutomaticTypeTranslation[];
@@ -46,12 +35,6 @@ export interface LocalizedTypeChanges {
     typeConflict?: Map<string, TypeNameConflict>;
     /** member → culture → what that culture has. */
     memberConflicts: Map<string, Map<string, MemberNameConflict>>;
-}
-
-export interface FolderSyncStats {
-    folder: string;
-    types: number;
-    translations: number;
 }
 
 /** Signum's `MaxTotalSyncCharacters` — one sync page is capped, so a translator bill stays bounded. */

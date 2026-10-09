@@ -8,7 +8,7 @@ import { EntityControlMessage, JavascriptMessage, OperationMessage } from "@alte
 import { softCast } from "@altea/altea/data/globals";
 import ErrorModal from "@altea/altea/client/Modals/ErrorModal";
 import { RemoteEmailMessageMessage } from "../../data/RemoteEmailMessage";
-import type { EmailResult } from "./RemoteEmailsClient";
+import type { EmailResult } from "../../data/RemoteEmailDtos";
 
 // The progress dialog for a bulk action over remote messages, fed by the route's NDJSON stream (one line
 // per message, see RemoteEmailsServer).

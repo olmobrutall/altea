@@ -1,4 +1,4 @@
-import { Entity } from "./entity";
+import { Entity, type ModelEntity } from "./entity";
 import { Lite } from "./lite";
 import { entity, column, forceNotNullable, implementedBy, rowVersionColumn, index } from "./decorators";
 import { MAX_SIZE } from "./reflection";
@@ -122,4 +122,14 @@ export class ExceptionEntity extends Entity {
     toString(): string {
         return `${this.exceptionType}: ${this.exceptionMessage ?? ""}`.slice(0, 200);
     }
+}
+
+/** The JSON body of a failed request (Signum's HttpError). */
+export interface HttpError {
+    exceptionType: string;
+    exceptionMessage: string | null;
+    stackTrace: string | null;
+    exceptionId: string | null;
+    model?: ModelEntity;
+    innerException: HttpError | null;
 }

@@ -4,7 +4,7 @@ import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
 import { GlobalLazy } from "@altea/altea/server/globalLazy";
 import type { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { CachePermission } from "../data/CachePermission";
-import type { CacheStateTS, CacheTableTS, InvalidateAllRequest, InvalidateTableRequest, ResetLazyStatsTS } from "../data/CacheState";
+import type { CacheState, CacheTable, InvalidateAllRequest, InvalidateTableRequest, ResetLazyStats } from "../data/CacheState";
 import { CacheLogic } from "./CacheLogic";
 import { CachedTableLite, type CachedTableBase } from "./CachedTable";
 import { SimpleHttpBroadcast } from "./Broadcast/SimpleHttpBroadcast";
@@ -16,7 +16,7 @@ import { SimpleHttpBroadcast } from "./Broadcast/SimpleHttpBroadcast";
 export namespace CacheServer {
     export function start(ws: WebBuilder): void {
         // GET /api/cache/view — the whole panel payload.
-        ws.get("/api/cache/view", { res: CustomType<CacheStateTS>() }, async (_req, res) => {
+        ws.get("/api/cache/view", { res: CustomType<CacheState>() }, async (_req, res) => {
             await assertAuthorized(CachePermission.ViewCache);
             res.json({
                 isEnabled: !CacheLogic.globallyDisabled,
@@ -24,8 +24,8 @@ export namespace CacheServer {
                 // Always false — kept so the panel reads like Signum's.
                 sqlDependency: false,
                 serverBroadcast: CacheLogic.serverBroadcast?.toString() ?? null,
-                tables: CacheLogic.statistics().map(toTableTS),
-                lazies: GlobalLazy.statistics().map(toLazyTS),
+                tables: CacheLogic.statistics().map(toCacheTable),
+                lazies: GlobalLazy.statistics().map(toResetLazyStats),
             });
         });
 
@@ -81,7 +81,7 @@ async function assertAuthorized(permission: PermissionSymbol): Promise<void> {
         throw new UnauthorizedAccessException(`Not authorized for '${permission.key}'`);
 }
 
-function toTableTS(ct: CachedTableBase): CacheTableTS {
+function toCacheTable(ct: CachedTableBase): CacheTable {
     return {
         tableName: ct.table.name.name,
         typeName: ct.typeName,
@@ -90,12 +90,12 @@ function toTableTS(ct: CachedTableBase): CacheTableTS {
         invalidations: ct.invalidations,
         loads: ct.loads,
         sumLoadTime: niceTime(ct.sumLoadTime),
-        subTables: ct.subTables.length === 0 ? undefined : ct.subTables.map(toTableTS),
+        subTables: ct.subTables.length === 0 ? undefined : ct.subTables.map(toCacheTable),
         columns: ct instanceof CachedTableLite ? ct.cachedColumnNames : undefined,
     };
 }
 
-function toLazyTS(lazy: { name?: string, hits: number, invalidations: number, loads: number, sumLoadTime: number }): ResetLazyStatsTS {
+function toResetLazyStats(lazy: { name?: string, hits: number, invalidations: number, loads: number, sumLoadTime: number }): ResetLazyStats {
     return {
         typeName: lazy.name ?? "?",
         hits: lazy.hits,

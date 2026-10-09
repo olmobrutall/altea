@@ -19,16 +19,13 @@ import { assertGraphIntegrityAsync } from "./graphExplorer";
 import { Transaction } from "./connection/transaction";
 import { ExceptionLogic } from "./exceptionLogic";
 import { WebBuilder, CustomType } from "./webApi";
-import { MultiSetter, type PropertySetter } from "./multiSetter";
+import { MultiSetter } from "./multiSetter";
+import type {
+    PropertySetter, EntityOperationRequest, LiteOperationRequest, ConstructOperationRequest, MultiOperationRequest,
+    StateCanExecuteRequest, StateCanExecuteResponse,
+} from "../data/operations";
 import { PropertyRoute } from "../data/propertyRoute";
 
-interface EntityOperationRequest { entity: Entity; args?: unknown[]; }
-interface LiteOperationRequest { lite: Lite<Entity>; args?: unknown[]; }
-interface ConstructOperationRequest { type: string; args?: unknown[]; }
-interface MultiOperationRequest { lites: Lite<Entity>[]; args?: unknown[]; setters?: PropertySetter[]; }
-/** Signum's StateCanExecuteRequest / StateCanExecuteResponse (OperationController.cs). */
-interface StateCanExecuteRequest { lites: Lite<Entity>[]; operationKeys: string[]; }
-interface StateCanExecuteResponse { canExecutes: Record<string, string>; isReadOnly: boolean; }
 
 export namespace OperationServer {
 

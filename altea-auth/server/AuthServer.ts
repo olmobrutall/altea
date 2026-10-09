@@ -15,7 +15,9 @@ import {
     IncorrectUsernameException, IncorrectPasswordException, UserLockedException,
 } from "./AuthLogic";
 import { AuthTokenServer } from "./AuthTokenServer";
+import { WebConsoleServer } from "@altea/altea/server/webConsole";
 import type { AuthTokenConfigurationEmbedded } from "../data/AuthToken";
+import type { LoginRequest, ChangePasswordRequest, LoginResponse } from "../data/AuthDtos";
 import { AuthReflectionServer } from "./AuthReflection";
 import { AuthAdminServer } from "./AuthAdminServer";
 import { ActiveDirectoryServer } from "./ActiveDirectoryServer";
@@ -40,10 +42,6 @@ import { SessionLogLogic } from "./SessionLogLogic";
 //     client-error reporting are the anonymous opt-outs.
 // A configured AnonymousUser (AuthLogic.anonymousUserName) still counts as "authenticated" for the gate.
 // Seams left as no-ops: OnUserPreLogin. (rememberMe → UserTicketServer, SessionLog → SessionLogLogic.)
-
-interface LoginRequest { userName?: string; password?: string; rememberMe?: boolean; }
-interface ChangePasswordRequest { oldPassword?: string; newPassword?: string; }
-interface LoginResponse { authenticationType: string; token: string; userEntity: UserEntity; }
 
 // Minimal Express request/response shapes — altea-auth does not depend on @types/express, so the
 // middleware types the raw Express objects structurally (a supertype of Express's Request/Response,
@@ -78,6 +76,8 @@ export namespace AuthServer {
             console.warn("[auth] AUTH_TOKEN_KEY not set — using an insecure dev fallback. Set it in the environment.");
         }
         AuthTokenServer.start(key, getConfiguration);
+        // The web console's socket runs its commands as the user its token names.
+        WebConsoleServer.authenticate = AuthTokenServer.authenticateSocketToken;
         // Who each request is. The SCOPE is already mounted (the WebBuilder constructor does it, before any
         // module runs); this names the user inside it. See filters/userScope.
         installAuthenticator();

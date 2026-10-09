@@ -186,8 +186,8 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
  * "3 minutes ago", over the DTO's ISO string.
  *
  * "Now" comes from `Clock.now`, NOT `Temporal.Now.plainDateTimeISO()`: `startTime` is a wall clock with no
- * zone, written server-side by `Clock.now`, whose `TimeZoneMode` defaults to UTC. Comparing it against the
- * BROWSER's local wall clock offsets every duration by the browser's UTC offset — which read as "2 hours
+ * zone, written server-side by `Clock.now`, whose `TimeZoneMode` may be UTC. Comparing it against the
+ * BROWSER's local wall clock then offsets every duration by the browser's UTC offset — which read as "2 hours
  * ago" for a row created seconds earlier. `Clock` is isomorphic, so reading it here keeps both sides in the
  * same frame whichever mode the app picks.
  */

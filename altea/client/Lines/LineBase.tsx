@@ -4,7 +4,7 @@
 //   - verbatimModuleSyntax: type-only imports marked.
 import * as React from 'react'
 import { classes, Dic } from '../../data/globals'
-import { type TypeContext, type StyleOptions } from '../TypeContext'
+import { TypeContext, type StyleOptions } from '../TypeContext'
 import type { FieldInfo } from '../../data/reflection'
 import { ValidationMessage } from '../../data/validators'
 import { PropertyRouteType } from '../../data/propertyRoute'
@@ -62,7 +62,15 @@ export class LineBaseController<P extends LineBaseProps<V>, V> {
     if (next.labelIcon || prev.labelIcon)
       return false;
 
-    if (Dic.equals(prev, next, true))
+    // The context is compared by what the line can see (TypeContext.equals), never by walking the entity
+    // it points to; the remaining props (label elements, style options, …) are small and stay deep.
+    const { ctx: prevCtx, ...prevRest } = prev;
+    const { ctx: nextCtx, ...nextRest } = next;
+
+    if (!TypeContext.equals(prevCtx, nextCtx))
+      return false;
+
+    if (Dic.equals(prevRest, nextRest, true))
       return true; //For Debugging
 
     return false;
@@ -318,7 +326,7 @@ export function taskSetReadOnlyProperty(lineBase: LineBaseController<LineBasePro
 defaultTasks.push(taskSetReadOnly);
 export function taskSetReadOnly(lineBase: LineBaseController<LineBaseProps, unknown>, state: LineBaseProps): void {
   if (state.ctx.styleOptions.readOnly === undefined && !state.ctx.readOnly &&
-    state.ctx.binding.getIsReadonly()) {
+    state.ctx.bindingIsReadonly) {
     state.ctx.readOnly = true;
   }
 }

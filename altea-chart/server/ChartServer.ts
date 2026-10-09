@@ -9,6 +9,7 @@ import {
     NumberInterval, EnumValueList, StringValue, SpecialParameter, Scala,
 } from "../data/ChartScriptParameter";
 import { ChartScriptLogic } from "./ChartScriptLogic";
+import type { ChartScriptInfo, ChartScriptColumnInfo, ChartScriptParameterInfo } from "../data/ChartDtos";
 
 // Port of the web surface of Signum.Chart/ChartServer.cs + ChartController.cs. The single endpoint the
 // client needs at boot: GET /api/chart/scripts → the whole chart-script catalog as JSON.
@@ -22,37 +23,7 @@ import { ChartScriptLogic } from "./ChartScriptLogic";
 //    client's FindOptions, not on the model.
 //  - UserChart / EntityPack `userCharts` extension is deferred with UserChart (task #5).
 
-// ---- Wire DTOs (the shape shipped to the client; ChartClient mirrors these) -----------------------------
-
-export interface ChartScriptColumnTS {
-    name: string;
-    displayName: string;
-    isOptional: boolean;
-    columnType: number; // ChartColumnType flags value
-}
-
-export interface ChartScriptParameterTS {
-    name: string;
-    displayName: string;
-    columnIndex: number | null;
-    type: string; // ChartParameterType
-    valueDefinition: unknown;
-}
-
-export interface ChartScriptParameterGroupTS {
-    name: string | null;
-    parameters: ChartScriptParameterTS[];
-}
-
-export interface ChartScriptTS {
-    symbol: string; // ChartScriptSymbol.key
-    symbolId: number; // ChartScriptSymbol.id — see chartScriptTS below (a saved UserChart references it)
-    icon: string | null;
-    columns: ChartScriptColumnTS[];
-    parameterGroups: ChartScriptParameterGroupTS[];
-}
-
-function valueDefinitionTS(vd: IChartParameterValueDefinition): unknown {
+function toValueDefinitionInfo(vd: IChartParameterValueDefinition): ChartScriptParameterInfo["valueDefinition"] {
     if (vd instanceof NumberInterval) return { defaultValue: vd.defaultValue, minValue: vd.minValue, maxValue: vd.maxValue };
     if (vd instanceof EnumValueList) return { values: vd.values };
     if (vd instanceof StringValue) return { defaultValue: vd.defaultValue };
@@ -63,21 +34,21 @@ function valueDefinitionTS(vd: IChartParameterValueDefinition): unknown {
     return null;
 }
 
-function columnTS(c: ChartScriptColumn): ChartScriptColumnTS {
+function toColumnInfo(c: ChartScriptColumn): ChartScriptColumnInfo {
     return { name: c.name, displayName: c.getDisplayName(), isOptional: c.isOptional, columnType: c.columnType };
 }
 
-function parameterTS(p: ChartScriptParameter): ChartScriptParameterTS {
+function toParameterInfo(p: ChartScriptParameter): ChartScriptParameterInfo {
     return {
         name: p.name,
         displayName: p.getDisplayName(),
         columnIndex: p.columnIndex,
         type: p.type,
-        valueDefinition: valueDefinitionTS(p.valueDefinition),
+        valueDefinition: toValueDefinitionInfo(p.valueDefinition),
     };
 }
 
-function chartScriptTS(cs: ChartScript): ChartScriptTS {
+function toChartScriptInfo(cs: ChartScript): ChartScriptInfo {
     return {
         symbol: cs.symbol.key,
         // The symbol's DB id travels with it: the client resolves the wire key back to its declared
@@ -86,10 +57,10 @@ function chartScriptTS(cs: ChartScript): ChartScriptTS {
         // `key`). Mirrors what SymbolLogic does server-side — stamp the id onto the shared init() instance.
         symbolId: cs.symbol.id as number,
         icon: cs.icon,
-        columns: cs.columns.map(columnTS),
+        columns: cs.columns.map(toColumnInfo),
         parameterGroups: cs.parameterGroups.map(g => ({
             name: g.getDisplayName?.() ?? null,
-            parameters: g.parameters.map(parameterTS),
+            parameters: g.parameters.map(toParameterInfo),
         })),
     };
 }
@@ -98,12 +69,12 @@ export namespace ChartServer {
     export function start(ws: WebBuilder): void {
         // Signum's ChartController.ChartScripts — the whole catalog. Assert ViewCharting (charting is gated).
         ws.get("/api/chart/scripts",
-            { res: CustomType<ChartScriptTS[]>() },
+            { res: CustomType<ChartScriptInfo[]>() },
             async (_req, res) => {
                 if (!(await PermissionLogic.isAuthorized(ChartPermission.ViewCharting)))
                     throw new UnauthorizedAccessException(`Not authorized for '${ChartPermission.ViewCharting.key}'`);
 
-                res.json([...ChartScriptLogic.scripts.values()].map(chartScriptTS));
+                res.json([...ChartScriptLogic.scripts.values()].map(toChartScriptInfo));
             });
     }
 }

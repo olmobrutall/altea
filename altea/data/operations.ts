@@ -1,4 +1,6 @@
 import type { Entity } from './entity';
+import type { Lite } from './lite';
+import type { FilterOperationKeys } from './dynamicQueries';
 import { OperationSymbol } from './operationSymbol';
 import { registerEnum } from './registration';
 
@@ -63,3 +65,23 @@ export type PropertyOperationKeys = keyof typeof PropertyOperation;
 // Rewritten by the quote-transformer to `registerEnum(PropertyOperationEnum, "PropertyOperation",
 // __fileInfo)`, so `Enum.niceName` resolves the translated member names the shipped XMLs already carry.
 registerEnum(PropertyOperation);
+
+// The /api/operation/* wire DTOs.
+
+/** Signum's `OperationController.PropertySetter`. */
+export interface PropertySetter {
+    property: string;
+    operation?: PropertyOperationKeys;
+    filterOperation?: FilterOperationKeys;
+    value?: unknown;
+    entityType?: string;
+    predicate?: PropertySetter[];
+    setters?: PropertySetter[];
+}
+
+export interface EntityOperationRequest { entity: Entity; args?: unknown[]; }
+export interface LiteOperationRequest { lite: Lite<Entity>; args?: unknown[]; }
+export interface ConstructOperationRequest { type: string; args?: unknown[]; }
+export interface MultiOperationRequest { lites: Lite<Entity>[]; args?: unknown[]; setters?: PropertySetter[]; }
+export interface StateCanExecuteRequest { lites: Lite<Entity>[]; operationKeys: string[]; }
+export interface StateCanExecuteResponse { canExecutes: Record<string, string>; isReadOnly: boolean; }

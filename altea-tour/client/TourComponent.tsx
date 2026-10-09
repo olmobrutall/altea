@@ -16,7 +16,7 @@ import { Symbol } from "@altea/altea/data/symbol";
 import { TourTriggerSymbol } from "@altea/altea/data/tourTrigger";
 import { TourEntity, TourMessage } from "../data/Tour";
 import { TourClient } from "./TourClient";
-import type { TourDTO } from "./TourClient";
+import type { TourDTO } from "../data/TourDtos";
 
 // The button that offers / replays a tour, and the driver.js wrapper that plays it. driver.js is pinned to
 // ^1.3.1 → 1.3.6 so the popover behaviour is the one the steps were authored against.

@@ -1,9 +1,9 @@
 import { ajaxGet } from "@altea/altea/client/Services";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
-import type { Lite } from "@altea/altea/data/lite";
 import { OperationLogEntity } from "@altea/altea/data/operationLog";
 import { AuthAdminClient } from "@altea/altea-auth/client/admin/AuthAdminClient";
 import { OperationLogTypeCondition } from "../data/DiffLog";
+import type { PreviousLog, NextLog } from "../data/DiffLogDtos";
 
 // Registers the OperationLog view (which is what makes the diff tabs appear) and the two chain-walking
 // calls.
@@ -43,15 +43,5 @@ export namespace DiffLogClient {
         export function getNextOperationLog(id: string | number): Promise<NextLog> {
             return ajaxGet({ url: "/api/diffLog/next/" + id });
         }
-    }
-
-    export interface PreviousLog {
-        operationLog: Lite<OperationLogEntity>;
-        dump: string | null;
-    }
-
-    export interface NextLog {
-        operationLog?: Lite<OperationLogEntity>;
-        dump: string | null;
     }
 }

@@ -2,14 +2,16 @@ import { Temporal } from "../basics";
 import { Statics, type IContextVariable } from "./context";
 
 // How the clock reads the wall time (Signum's TimeZoneMode). Apps that store UTC in the
-// database use `Utc`; apps that store local time use `Local`.
+// database use `Utc`; apps that store local time use `Local`. `Local` is the default, as in Signum
+// (its first member, and what an app gets by never setting it — Southwind never does), so a Signum
+// database opened in legacy mode keeps its `timestamp` columns and the wall times already in them.
 //
 // The mode is what gives a stored `Temporal.PlainDateTime` its meaning: every datetime field
 // (`OperationLogEntity.start`, `ScheduledTaskLogEntity.endTime`, …) is a wall time in the CLOCK's frame —
 // UTC under `Utc`, the server's zone under `Local`. It also decides the Postgres column type
 // (`timestamptz` / `timestamp`, see dbType.ts) and, on the client, whether a value is shifted to the
 // viewer's zone for display (`toUserInterface`).
-export enum TimeZoneMode { Utc, Local }
+export enum TimeZoneMode { Local, Utc }
 
 // Signum's Clock.OverrideTimeZone: a SESSION variable, so each request can render server-side text
 // (e-mails, Excel, templates) in its user's zone. Created on first use because the context storage is
@@ -29,8 +31,9 @@ function timeZoneOverride(): IContextVariable<string> {
 // partial-evaluates `Clock.Now` to a DateTime constant.
 export const Clock = {
     // Whether `now`/`today` read UTC or the machine's local time. Global (per Signum). The client receives
-    // the server's value with the reflection metadata.
-    mode: TimeZoneMode.Utc as TimeZoneMode,
+    // the server's value with the reflection metadata. An app that wants `Utc` sets it at startup, before
+    // the schema is built: it decides the Postgres column type (dbType.ts) and session zone (postgresConnector.ts).
+    mode: TimeZoneMode.Local as TimeZoneMode,
 
     // A pinned value that overrides the wall clock, for deterministic tests. Usually set
     // through `overrideNow` (scoped) but can be assigned/cleared directly.

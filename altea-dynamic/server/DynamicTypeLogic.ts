@@ -1,5 +1,6 @@
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import "@altea/altea/server/fluentOperations"; // FluentInclude.withOperations
+import ts from "typescript";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { Administrator } from "@altea/altea/server/administrator";
@@ -7,60 +8,31 @@ import { Connector } from "@altea/altea/server/connection/connector";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { StartParameters } from "@altea/altea/data/utils/startParameters";
 import { getLocation } from "@altea/altea/data/registration";
-import { Enum } from "@altea/altea/data/enum";
-import { StringCase } from "@altea/altea/data/validators";
+import { globalValidators, type FieldInfo } from "@altea/altea/data/reflection";
+import { EvalLogic } from "@altea/altea-eval/server/EvalLogic";
+import { EvalCompiler } from "@altea/altea-eval/server/EvalCompiler";
 import {
-    DynamicTypeEntity, DynamicTypeOperation, DynamicBaseType,
-    type DynamicTypeDefinition, type DynamicProperty, type DynamicValidator,
+    DynamicTypeEntity, DynamicTypeOperation, DynamicBaseType, DynamicTypeMessage, DynamicTypeImportsProfile, typeNameWithSuffix, logicName,
 } from "../data/DynamicType";
-import { DynamicCodeCompiler, type GeneratedModule } from "./DynamicCodeCompiler";
+import { DynamicCodeCompiler, type CompileOptions, type GeneratedModule } from "./DynamicCodeCompiler";
 
-// Port of Signum.Dynamic's Types/DynamicTypeLogic.cs — the CODE GENERATOR: one DynamicType row becomes two
-// generated modules, an ENTITY and a LOGIC, exactly as Signum generates `X.cs` and `XLogic.cs`.
+// A DynamicType row IS its source (see data/DynamicType): `<Name>.ts` is the data module verbatim and
+// `<Name>Logic.ts` the server module. What this adds around them:
 //
-// The shape of the port is Signum's: two generator classes with the same names and the same methods in the
-// same order, so a change upstream is easy to re-apply. What differs is what the generated code SAYS,
-// because the target language and the framework's own idioms differ:
-//
-//  - a C# `using` list becomes an IMPORT MAP, and it needs no configuration: a registered type already
-//    knows the module that declares it, because the quote-transformer stamped `__fileInfo` on it, so
-//    `getLocation("OrderEntity")` yields `@altea/altea-…/data/Order` (or `eastwind/app/orders/Order.data` for
-//    an app type). Signum's `EvalLogic.Namespaces` has no counterpart at all.
-//  - a `namespace` block becomes a MODULE. Nothing is nested, so Signum's `.Indent(4)` bookkeeping goes.
-//  - `[EntityKind(EntityKind.Main, EntityData.Master)]` → `@entity("Main", "Master")`, and each attribute
-//    becomes its own decorator line rather than being packed into one `[…, …]` group (Signum chunks them
-//    at 100 characters; a decorator per line is what altea's own code looks like and what a diff wants).
-//  - a backing field + `Get`/`Set` property pair becomes ONE plain property. altea tracks changes with a
-//    SNAPSHOT, not with setters, so there is nothing for a setter to notify — which also retires
-//    `NotifyChanges` / `[BindParent]` (see the property generator).
-//  - **an operation symbol is written `init()`**, not spelled out. Signum must write
-//    `OperationSymbol.Execute<XEntity>(typeof(XOperation), "Save")` because C# cannot see the member name;
-//    altea's generated code writes `export const Save: ExecuteSymbol<XEntity> = init()` and the
-//    quote-transformer fills in the key `"XOperation.Save"` on the way through — so the generated source
-//    reads exactly like hand-written source. This is the clearest illustration of why the transformer has
-//    to be in the emit pipeline.
-//  - **`MList<T>` becomes a generated `@part` ROW type plus a `T[]` property**, which is the one place the
-//    generator does structurally more work than Signum's. altea has no MList: a collection of values or
-//    lites is child ROWS carrying a `@valueField`, and Signum's `DynamicTypeBackMListDefinition`
-//    (TableName / PreserveOrder / OrderName / BackReferenceName) describes that row table one-for-one.
-//  - `ToStringExpression` becomes a `@quoted toString()`; Signum's static `Expression<Func<…>>` field plus
-//    `[ExpressionField]` plus an `Evaluate(this)` body are all one decorator here.
-//  - Signum's `RegisterComplexQuery` + `ColumnDisplayName` + `GetAlreadyTranslatedExpressions` /
-//    `GetFormattedExpressions` are NOT ported: they exist to give a computed query column a translated
-//    caption through a generated `enum CodeGenQueryXMessage`, and altea resolves a column caption from the
-//    field's own `@niceName` (there is no QueryDescription to hang a ColumnDisplayName on). A query field
-//    that is a plain member is emitted in `withQuery`; a computed one is emitted as a `@quoted` member,
-//    which is how altea spells a registered expression, and its caption follows from that member.
-//  - `IsTreeEntity` is kept and means the same thing (a definition whose custom inheritance mentions
-//    TreeEntity is registered by @altea/altea-tree's own `withTree`, so this generator writes no
-//    operations for it), but Signum's `TreeOperation.CreateRoot` branch is left out: the tree module owns
-//    those and generated code should not re-register them.
-
-/** Where a generated type's table goes if the definition does not say. */
-export let getTableName: (dt: DynamicTypeEntity, def: DynamicTypeDefinition) => string =
-    (dt, _def) => "codegen." + dt.typeName;
+//  - the RULES that need a parser (one real entity, named after the row; the logic namespace), checked on
+//    save through `globalValidators` so they land on the field like any other validation;
+//  - the IMPORTS: the source names what it uses and the compile writes the imports, resolving each name
+//    through the "DynamicType" import profile — the eval configuration plus the decorators and operation
+//    symbols a type declaration needs. The editor runs the same pass over the same profile.
 
 export namespace DynamicTypeLogic {
+
+
+    /** What a server module needs in scope that no NAME brings in: the fluent `include` surface. */
+    const serverModulePrelude = [
+        `import "@altea/altea/server/fluentOperations";`,
+        `import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";`,
+    ];
 
     export function start(sb: SchemaBuilder): void {
         if (sb.alreadyDefined(start))
@@ -71,81 +43,137 @@ export namespace DynamicTypeLogic {
             .withQuery()
             .withOperations(op => {
                 op.withConstruct(DynamicTypeOperation.Create, {
-                    construct: () => DynamicTypeEntity.create({
-                        baseType: DynamicBaseType.Entity,
-                        typeDefinition: JSON.stringify(emptyDefinition(), undefined, 2),
-                    }),
+                    construct: () => DynamicTypeEntity.create({ baseType: DynamicBaseType.Entity }),
                 });
 
                 op.withConstructFrom(DynamicTypeEntity, DynamicTypeOperation.Clone, {
-                    construct: e => {
-                        // The NAME is left empty on a clone (two types cannot share one); the definition
-                        // is copied verbatim.
-                        const result = DynamicTypeEntity.create({ baseType: e.baseType });
-                        result.setDefinition(e.getDefinition());
-                        return result;
-                    },
+                    // The NAME is left empty (two types cannot share one); the source is copied verbatim.
+                    construct: e => DynamicTypeEntity.create({ baseType: e.baseType, dataCode: e.dataCode, serverCode: e.serverCode }),
                 });
 
                 // `canBeNew`: the first save of a type is the point.
                 op.withSave(DynamicTypeOperation.Save, { canBeNew: true });
                 op.withDelete(DynamicTypeOperation.Delete);
             });
+
+        globalValidators.push(validateSource);
+
+        EvalLogic.registerImportsProfile(DynamicTypeImportsProfile, base => base
+            .lazy("@altea/altea/data/decorators", "*")
+            .lazy("@altea/altea/data/operations", "*")
+            .lazy("@altea/altea/server/schema", ["SchemaBuilder"])
+            .eager("@altea/altea/server/fluentOperations", [])
+            .eager("@altea/altea/server/dynamicQuery/fluentIncludeQuery", []));
     }
 
-    /** The definition a freshly constructed type starts from. */
-    export function emptyDefinition(): DynamicTypeDefinition {
-        return { entityKind: "Main", entityData: "Transactional", properties: [], queryFields: [] };
+    // ---- The source rules ------------------------------------------------------------------------------
+
+    function validateSource(entity: unknown, fi: FieldInfo): string | null {
+        if (!(entity instanceof DynamicTypeEntity) || isBlank(entity.typeName))
+            return null;
+
+        if (fi.name === "dataCode")
+            return isBlank(entity.dataCode) ? null : dataModuleError(entity);
+
+        if (fi.name === "serverCode")
+            return serverModuleError(entity);
+
+        return null;
     }
 
     /**
-     * Every DynamicType row.
-     *
-     * Read with `ExecutionMode.global()` and TOLERATING both a missing table and a type-cache MISMATCH,
-     * because this runs while the schema is being BUILT — which makes both expected rather than faults:
-     *
-     *  - before the first `sync` the table does not exist;
-     *  - the read needs TypeLogic's type↔id caches, and building those compares the database's `type` rows
-     *    against the schema's types. At this moment the schema deliberately does NOT yet contain the
-     *    dynamic types — generating them is what this read is for — so every one of them looks "Extra" and
-     *    would throw. `withIgnoredDatabaseMismatches` is the seam for exactly this ("the schema is BEING
-     *    brought up to date, so a mismatch is expected, not a fault"), and it is what the terminal's own
-     *    create / sync path uses. The real check still runs at `schema.initialize()`, after the dynamic
-     *    types have been included.
-     *
-     * Signum needs none of this: its type cache is built in `Schema.Initialize`, and a plain
-     * `Database.Query` during `Start` does not consult it. It does globally disable the entity CACHE,
-     * which is unnecessary here: caching a type nobody has generated yet cannot have happened.
+     * The data module declares the exported class `<Name><Suffix>`; for an ENTITY type that class is the
+     * module's ONE real entity (an `@entity` that is not a part) — `@part` rows, embeddeds, models and enums
+     * may sit beside it in any number. Any other base type declares no real entity at all.
      */
+    function dataModuleError(e: DynamicTypeEntity): string | null {
+        const source = ts.createSourceFile("data.ts", e.dataCode, ts.ScriptTarget.Latest, true);
+        const classes = source.statements.filter(ts.isClassDeclaration);
+
+        const expected = typeNameWithSuffix(e.typeName, e.baseType);
+        const main = classes.find(c => c.name?.text === expected);
+        if (main == null || !isExported(main))
+            return DynamicTypeMessage.TheDataModuleMustDeclare0.niceToString(expected);
+
+        const entities = classes.filter(isRealEntity);
+        if (e.baseType !== DynamicBaseType.Entity)
+            return entities.length === 0 ? null
+                : DynamicTypeMessage.TheDataModuleDeclaresMoreThanOneEntity0.niceToString(names(entities));
+
+        if (!entities.includes(main))
+            return DynamicTypeMessage._0MustBeAnEntity.niceToString(expected);
+
+        return entities.length === 1 ? null
+            : DynamicTypeMessage.TheDataModuleDeclaresMoreThanOneEntity0.niceToString(names(entities));
+    }
+
+    /** `export namespace <Name>Logic { export function start(sb) … }` — what the generated starter calls. */
+    function serverModuleError(e: DynamicTypeEntity): string | null {
+        if (isBlank(e.serverCode))
+            return e.baseType === DynamicBaseType.Entity ? DynamicTypeMessage.AnEntityNeedsAServerModule.niceToString() : null;
+
+        const name = logicName(e.typeName);
+        const source = ts.createSourceFile("server.ts", e.serverCode!, ts.ScriptTarget.Latest, true);
+        const ns = source.statements.find((s): s is ts.ModuleDeclaration =>
+            ts.isModuleDeclaration(s) && s.name.getText(source) === name && isExported(s));
+        const hasStart = ns?.body != null && ts.isModuleBlock(ns.body) && ns.body.statements.some(s =>
+            ts.isFunctionDeclaration(s) && s.name?.text === "start" && isExported(s));
+
+        return hasStart ? null : DynamicTypeMessage.TheServerModuleMustExport0.niceToString(name);
+    }
+
+    function isExported(node: ts.Node): boolean {
+        return ts.canHaveModifiers(node) && (ts.getModifiers(node) ?? []).some(m => m.kind === ts.SyntaxKind.ExportKeyword);
+    }
+
+    /** `@entity(…)` whose kind is not a part, and no `@part`. */
+    function isRealEntity(c: ts.ClassDeclaration): boolean {
+        let isEntity = false;
+        for (const d of ts.getDecorators(c) ?? []) {
+            const call = ts.isCallExpression(d.expression) ? d.expression : undefined;
+            const callee = call?.expression ?? d.expression;
+            const name = ts.isIdentifier(callee) ? callee.text : undefined;
+            if (name === "part")
+                return false;
+            if (name === "entity") {
+                const kind = call?.arguments[0];
+                if (kind != null && ts.isStringLiteral(kind) && (kind.text === "Part" || kind.text === "SharedPart"))
+                    return false;
+                isEntity = true;
+            }
+        }
+        return isEntity;
+    }
+
+    function names(classes: readonly ts.ClassDeclaration[]): string {
+        return classes.map(c => c.name?.text ?? "?").join(", ");
+    }
+
+    // ---- Reading the rows ------------------------------------------------------------------------------
+
     /**
-     * What a generator needs to know about one DynamicType row.
+     * One DynamicType row, as the code-gen reads it.
      *
-     * A PROJECTION, not the entity, and that is load-bearing rather than an optimisation: an optional
-     * MIXIN may add columns to `dynamic_type` (@altea/altea-dynamic's own DynamicIsolationMixin does), and
-     * those columns do not exist until the `sync` that follows the app declaring the mixin. Reading the
-     * whole entity therefore fails with "column dt.isolation_strategy does not exist" at the exact moment
-     * the definitions are needed to BUILD the schema — and a schema built without them scripts every
-     * dynamic table as a DROP. Selecting only the four columns that are always there removes that hazard
-     * permanently: the core generation can never depend on a column an optional module added.
-     *
-     * A generator that wants a mixin's field reads it ITSELF, tolerantly — see
-     * DynamicIsolationLogic.strategies.
+     * A PROJECTION, not the entity, and that is load-bearing: an optional MIXIN may add columns to
+     * `dynamic_type` (DynamicIsolationMixin does), and those do not exist until the `sync` after the app
+     * declares it. Reading the whole entity would fail at the exact moment the types are needed to BUILD the
+     * schema — and a schema built without them scripts every dynamic table as a DROP.
      */
     export interface DynamicTypeInfo {
         typeName: string;
         baseType: DynamicBaseType;
-        /** The stored JSON. Parsed by {@link definitionOf}, as the entity's `getDefinition` would. */
-        typeDefinition: string;
+        dataCode: string;
+        serverCode: string | null;
     }
 
-    /** The parsed definition of a projected row (the entity's `getDefinition`, off the projection). */
-    export function definitionOf(info: DynamicTypeInfo): DynamicTypeDefinition {
-        return JSON.parse(info.typeDefinition) as DynamicTypeDefinition;
-    }
-
+    /**
+     * Every DynamicType row, read with `ExecutionMode.global()` and tolerating a missing table and a
+     * type-cache MISMATCH: this runs while the schema is being BUILT, before the dynamic types are in it, so
+     * the database's `type` rows for them look "Extra" — `withIgnoredDatabaseMismatches` is the seam for
+     * exactly that. The real check still runs at `schema.initialize()`.
+     */
     export async function getTypes(): Promise<DynamicTypeInfo[]> {
-        // The TABLE, not the type: `existsTable` reads `table.name`, and a type the schema does not know
-        // has no table at all — which is the case on the very first boot of a fresh database.
+        // The TABLE, not the type: on the very first boot of a fresh database there is none.
         const t = Connector.current().schema.tryTable(DynamicTypeEntity);
         if (t == null || !await Administrator.existsTable(t))
             return [];
@@ -156,782 +184,105 @@ export namespace DynamicTypeLogic {
                     .map(dt => ({
                         typeName: dt.typeName,
                         baseType: dt.baseType,
-                        typeDefinition: dt.typeDefinition,
+                        dataCode: dt.dataCode,
+                        serverCode: dt.serverCode,
                     }))
                     .toArray()));
 
         return result;
     }
 
-    /** The lines the generated starter calls, one per type. */
+    // ---- The code files ------------------------------------------------------------------------------
+
+    /** The lines the generated starter calls: one per type with a server module. */
     export function writeDynamicStarter(types: DynamicTypeInfo[]): string[] {
-        return types.map(t => `${t.typeName}Logic.start(sb);`);
+        return types.filter(t => !isBlank(t.serverCode)).map(t => `${logicName(t.typeName)}.start(sb);`);
     }
 
-    /** Two modules per type, plus the shared before-schema module. */
+    /** The data module verbatim, and the server module after the imports no name brings in. */
     export function getCodeFiles(types: DynamicTypeInfo[]): GeneratedModule[] {
-        const result: GeneratedModule[] = [];
-
-        for (const dt of types) {
-            const def = definitionOf(dt);
-            result.push({
-                fileName: dt.typeName + ".ts",
-                content: new DynamicTypeCodeGenerator(dt.typeName, dt.baseType, def).getFileCode(),
-            });
-        }
-
-        for (const dt of types) {
-            const def = definitionOf(dt);
-            result.push({
-                fileName: dt.typeName + "Logic.ts",
-                content: new DynamicTypeLogicGenerator(dt.typeName, dt.baseType, def).getFileCode(),
-            });
-        }
-
-        const beforeSchema = types.map(t => definitionOf(t).customBeforeSchema).filter(c => c != null);
-        result.push({
-            fileName: "CodeGenBeforeSchema.ts",
-            content: new DynamicBeforeSchemaGenerator(beforeSchema.map(c => c!)).getFileCode(),
-        });
-
-        return result;
-    }
-
-    /** What the client's editor previews for a property. */
-    export function propertyType(property: DynamicProperty): string {
-        return new DynamicTypeCodeGenerator("", DynamicBaseType.Entity, emptyDefinition())
-            .getPropertyType(property);
-    }
-}
-
-// ---- imports -------------------------------------------------------------------------------------------
-
-/**
- * The import block a generated module needs, in place of a C# `using` list.
- *
- * The point of the class is that a caller never states a specifier for a TYPE: `type(name)` looks the type
- * up in the reflection registry and reads the module off the `__fileInfo` the transformer stamped, which
- * is the same mechanism @altea/altea-map and @altea/altea-help use to group a type by its owning package.
- */
-class Imports {
-    private readonly map = new Map<string, Set<string>>();
-    /** Names that exist ONLY as types — see `addTypeOnly`. */
-    private readonly typeOnly = new Set<string>();
-    /** Modules imported for their SIDE EFFECT alone — see `addSideEffect`. */
-    private readonly sideEffect = new Set<string>();
-
-    add(specifier: string, ...names: string[]): void {
-        const set = this.map.get(specifier) ?? new Set<string>();
-        for (const n of names)
-            set.add(n);
-        this.map.set(specifier, set);
+        return types.flatMap(t => [
+            { fileName: t.typeName + ".ts", content: t.dataCode, client: true },
+            ...isBlank(t.serverCode) ? [] : [{
+                fileName: logicName(t.typeName) + ".ts",
+                content: [...serverModulePrelude, "", t.serverCode!].join("\n"),
+            }],
+        ]);
     }
 
     /**
-     * Import names that are TYPES, emitted with an inline `type` modifier.
-     *
-     * Not cosmetic: an interface or type alias imported as a value type-checks fine (TypeScript elides it)
-     * and then throws at LOAD time under ESM, because the module really does not export a runtime `int`
-     * or `ExecuteSymbol`. The emit here is ESM (see DynamicCodeCompiler), so this is the difference
-     * between a generated module that loads and one that does not.
+     * How the compile resolves a name the source uses without importing it: another dynamic type's export
+     * (its data module, by relative path), else the import profile — a framework module by its package
+     * specifier, an application type by where reflection says it was declared.
      */
-    addTypeOnly(specifier: string, ...names: string[]): void {
-        this.add(specifier, ...names);
-        for (const n of names)
-            this.typeOnly.add(n);
+    export function compileOptions(types: DynamicTypeInfo[]): CompileOptions {
+        const own = new Map<string, string>();
+        for (const t of types)
+            for (const name of exportedNames(t.dataCode))
+                own.set(name, "./" + t.typeName);
+
+        const profile = profileNames();
+
+        return {
+            implicitImports: (name, fileName) => {
+                const local = own.get(name);
+                if (local != null)
+                    return local === "./" + fileName.replace(/\.ts$/, "") ? undefined : local;
+
+                const specifier = profile.get(name);
+                if (specifier == null)
+                    return undefined;
+                if (!specifier.startsWith("."))
+                    return specifier;
+
+                // The profile names an application module relative to the APP; the code-gen directory
+                // reaches it by its own path.
+                const location = getLocation(name);
+                return location == null ? undefined : DynamicCodeCompiler.specifierFor(location.packageName, location.fileName);
+            },
+        };
     }
 
-    /**
-     * Import a module for its SIDE EFFECT — `import "…";` with no names.
-     *
-     * altea's fluent surfaces are prototype augmentations (`withSave`, `withQuery`), so a module that
-     * calls one must import the file that installs it, exactly as hand-written logic modules do.
-     */
-    addSideEffect(specifier: string): void {
-        this.sideEffect.add(specifier);
-        if (!this.map.has(specifier))
-            this.map.set(specifier, new Set<string>());
-    }
-
-    /**
-     * Import a registered TYPE by name and return the name to write.
-     *
-     * An unregistered name is written as-is and imported from nowhere, which is deliberate: it is either a
-     * primitive the generator handles elsewhere, or a type the author's own custom code imports.
-     */
-    type(name: string): string {
-        // A generic like `Lite<OrderEntity>` never reaches here — the caller composes those.
-        const location = getLocation(name);
-        if (location != null)
-            this.add(specifierOf(location.packageName, location.fileName), name);
-
-        return name;
-    }
-
-    toCode(): string {
-        return [...this.map.entries()]
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([specifier, names]) => {
-                if (names.size === 0 && this.sideEffect.has(specifier))
-                    return `import "${specifier}";`;
-
-                const rendered = [...names].sort()
-                    .map(n => (this.typeOnly.has(n) ? "type " : "") + n)
-                    .join(", ");
-                return `import { ${rendered} } from "${specifier}";`;
-            })
-            .join("\n");
-    }
-}
-
-/** `@altea/altea-dashboard` + `data/CachedQuery.ts` → `@altea/altea-dashboard/data/CachedQuery`. */
-function specifierOf(packageName: string, fileName: string): string {
-    return packageName + "/" + fileName.replace(/\.tsx?$/, "");
-}
-
-// ---- the ENTITY module ---------------------------------------------------------------------------------
-
-export class DynamicTypeCodeGenerator {
-
-    readonly imports = new Imports();
-    readonly isTreeEntity: boolean;
-
-    constructor(
-        readonly typeName: string,
-        readonly baseType: DynamicBaseType,
-        readonly def: DynamicTypeDefinition,
-    ) {
-        this.isTreeEntity = def?.customInheritance?.code?.includes("TreeEntity") === true;
-    }
-
-    getFileCode(): string {
-        // The BODY is generated first: writing it is what discovers the imports.
-        const body = this.getEntityCode();
-        const operations = this.baseType === DynamicBaseType.Entity ? this.getEntityOperation() : null;
-
-        const parts = [
-            "// GENERATED by @altea/altea-dynamic (DynamicTypeLogic). Edited here, it is overwritten on the",
-            "// next compile — change the DynamicType row instead.",
-            "",
-            this.imports.toCode(),
-            "",
-            body,
-        ];
-
-        if (operations != null)
-            parts.push("", operations);
-
-        if (this.def.customTypes != null)
-            parts.push("", this.def.customTypes.code);
-
-        return parts.join("\n") + "\n";
-    }
-
-    getEntityCode(): string {
-        const lines: string[] = [];
-
-        // `reflect` lives in reflection; the decorators module carries the rest.
-        this.imports.add("@altea/altea/data/reflection", "reflect");
-        lines.push("@reflect");
-        for (const decorator of this.getEntityDecorators())
-            lines.push("@" + decorator);
-
-        lines.push(`export class ${this.getTypeNameWithSuffix()} extends ${this.getEntityBaseClass()} {`);
-
-        for (const prop of this.def.properties) {
-            const written = this.writeProperty(prop);
-            if (written !== "")
-                lines.push(indent(written, 4), "");
-        }
-
-        if (this.def.customEntityMembers != null)
-            lines.push(indent(this.def.customEntityMembers.code, 4), "");
-
-        const toString = this.getToString();
-        if (toString != null)
-            lines.push(indent(toString, 4));
-
-        lines.push("}");
-
-        // Every `@part` ROW type a collection property needs (altea's stand-in for an MList table).
-        const rows = this.def.properties
-            .filter(p => p.isMList != null)
-            .map(p => this.writeMListRow(p));
-
-        return [...lines, ...(rows.length === 0 ? [] : ["", ...rows])].join("\n");
-    }
-
-    /**
-     * The symbols are `init()`, and the transformer supplies each key — see the header. The two
-     * `requiresSaveOperation` assertions are Signum's verbatim: a kind that requires a Save and does not
-     * declare one (or the reverse) is a definition error, and hearing it here beats hearing it from the
-     * schema builder.
-     */
-    getEntityOperation(): string | null {
-        if (this.isTreeEntity)
-            return null;
-
-        const def = this.def;
-        if (def.operationCreate == null && def.operationSave == null
-            && def.operationDelete == null && def.operationClone == null)
-            return null;
-
-        const t = this.typeName;
-        const lines = [`export namespace ${t}Operation {`];
-
-        this.imports.add("@altea/altea/data/reflection", "init");
-
-        if (def.operationCreate != null) {
-            this.imports.addTypeOnly("@altea/altea/data/operations", "ConstructSymbol");
-            lines.push(`    export const Create: ConstructSymbol<${t}Entity> = init();`);
-        }
-
-        const requiresSave = requiresSaveOperation(def.entityKind);
-        if (def.operationSave != null && !requiresSave)
-            throw new Error(`DynamicType '${t}' defines Save but has entityKind = '${def.entityKind}'`);
-        if (def.operationSave == null && requiresSave)
-            throw new Error(`DynamicType '${t}' does not define Save but has entityKind = '${def.entityKind}'`);
-
-        if (def.operationSave != null) {
-            this.imports.addTypeOnly("@altea/altea/data/operations", "ExecuteSymbol");
-            lines.push(`    export const Save: ExecuteSymbol<${t}Entity> = init();`);
-        }
-
-        if (def.operationDelete != null) {
-            this.imports.addTypeOnly("@altea/altea/data/operations", "DeleteSymbol");
-            lines.push(`    export const Delete: DeleteSymbol<${t}Entity> = init();`);
-        }
-
-        if (def.operationClone != null) {
-            this.imports.addTypeOnly("@altea/altea/data/operations", "ConstructSymbol", "From");
-            lines.push(`    export const Clone: ConstructSymbol<${t}Entity, From<${t}Entity>> = init();`);
-        }
-
-        lines.push("}");
-        return lines.join("\n");
-    }
-
-    private getEntityBaseClass(): string {
-        if (this.def.customInheritance != null)
-            return this.def.customInheritance.code;
-
-        const name = DynamicBaseType[this.baseType] as keyof typeof DynamicBaseType;
-        this.imports.add("@altea/altea/data/entity", name);
-        return name;
-    }
-
-    /** One `@quoted` decorator, where Signum writes a static expression field. */
-    getToString(): string | null {
-        if (this.def.toStringExpression == null)
-            return null;
-
-        this.imports.add("@altea/altea/data/decorators", "quoted");
-        return `@quoted\noverride toString(): string {\n    return ${this.def.toStringExpression};\n}`;
-    }
-
-    getTypeNameWithSuffix(): string {
-        return this.typeName + (
-            this.baseType === DynamicBaseType.MixinEntity ? "Mixin" :
-                this.baseType === DynamicBaseType.EmbeddedEntity ? "Embedded" :
-                    this.baseType === DynamicBaseType.ModelEntity ? "Model" : "Entity");
-    }
-
-    /** The CLASS-level decorators, one per line. */
-    private getEntityDecorators(): string[] {
-        const result: string[] = [];
-        const def = this.def;
-
-        if (this.baseType !== DynamicBaseType.Entity)
+    /** Identifier -> specifier for the whole profile: its lazy names and the names its eager lines import. */
+    function profileNames(): Map<string, string> {
+        const result = new Map<string, string>();
+        if (!EvalLogic.isStarted())
             return result;
 
-        this.imports.add("@altea/altea/data/decorators", "entity");
-        result.push(`entity(${literal(def.entityKind)}, ${literal(def.entityData)})`);
-
-        if (def.tableName != null && def.tableName !== "") {
-            this.imports.add("@altea/altea/data/decorators", "tableName");
-            result.push(`tableName(${literal(def.tableName)})`);
+        const configuration = EvalCompiler.clientConfiguration(EvalLogic.importsFor(DynamicTypeImportsProfile));
+        for (const line of configuration.eagerLines) {
+            const match = /^import \{ (.*) \} from "([^"]+)";$/.exec(line);
+            if (match != null)
+                for (const name of match[1].split(",").map(n => n.trim()))
+                    result.set(name, match[2]);
         }
-
-        if (def.primaryKey != null) {
-            // altea's `@primaryKey` takes the TYPE only; a primary key's column name and its identity are
-            // schema-wide settings (SchemaSettings), not per-type options as in Signum's [PrimaryKey].
-            this.imports.add("@altea/altea/data/decorators", "primaryKey");
-            result.push(`primaryKey(${literal(def.primaryKey.type ?? "int")})`);
-        }
-
-        if (def.ticks != null) {
-            // `@rowVersionColumn` takes the FLAG only, for the same reason as the primary key (Signum's
-            // [TicksColumn] also takes a name and a type).
-            this.imports.add("@altea/altea/data/decorators", "rowVersionColumn");
-            result.push(`rowVersionColumn(${def.ticks.hasTicks === true})`);
-        }
-
+        for (const [name, specifier] of configuration.names)
+            if (!result.has(name))
+                result.set(name, specifier);
         return result;
     }
 
-    /**
-     * ONE plain property, where Signum writes a backing field and a Get/Set pair.
-     *
-     * A collection is a `T[]` of the generated row type; it needs NO initializer, because the transformer
-     * seeds a reflected array with `[]` (see CLAUDE.md on not restating defaults).
-     */
-    writeProperty(property: DynamicProperty): string {
-        if (property.name == null || property.name === "")
-            return "";
-
-        const type = this.getPropertyType(property);
-        const decorators = this.getPropertyDecorators(property);
-
-        return [...decorators.map(d => "@" + d), `${property.name}: ${type};`].join("\n");
-    }
-
-    /**
-     * The `@part` row type behind a collection property — the stand-in for Signum's MList table.
-     *
-     * `@backReference` points at the owner and `@rowOrder` preserves the order, which is exactly what
-     * Signum's MList table stores; a collection of VALUES or LITES carries the element on a `@valueField`,
-     * the shape used wherever Signum has an MList of a non-embedded (see CLAUDE.md).
-     */
-    writeMListRow(property: DynamicProperty): string {
-        const mlist = property.isMList!;
-        const rowType = this.rowTypeName(property);
-        const element = this.elementType(property);
-
-        this.imports.add("@altea/altea/data/reflection", "reflect");
-        this.imports.add("@altea/altea/data/decorators", "part", "backReference");
-        this.imports.add("@altea/altea/data/entity", "Entity");
-
-        const lines = ["@reflect", "@part"];
-
-        if (mlist.tableName != null && mlist.tableName !== "") {
-            this.imports.add("@altea/altea/data/decorators", "tableName");
-            lines.push(`@tableName(${literal(mlist.tableName)})`);
-        }
-
-        lines.push(`export class ${rowType} extends Entity {`);
-        lines.push(`    @backReference`);
-        lines.push(`    ${mlist.backReferenceName ?? camel(this.getTypeNameWithSuffix())}: ${this.getTypeNameWithSuffix()};`);
-        lines.push("");
-
-        if (mlist.preserveOrder === true) {
-            this.imports.add("@altea/altea/data/decorators", "rowOrder");
-            this.imports.addTypeOnly("@altea/altea/data/basics", "int");
-            lines.push(`    @rowOrder ${mlist.orderName ?? "order"}: int;`);
-            lines.push("");
-        }
-
-        // The ELEMENT. An embedded element is an ordinary member; anything else is the row's value column.
-        if (!isEmbeddedLike(property.type) || property.isLite === true) {
-            this.imports.add("@altea/altea/data/decorators", "valueField");
-            lines.push(`    @valueField`);
-        }
-        lines.push(`    element: ${element};`);
-        lines.push("}");
-
-        return lines.join("\n");
-    }
-
-    rowTypeName(property: DynamicProperty): string {
-        return `${this.getTypeNameWithSuffix()}_${cap(property.name)}`;
-    }
-
-    /** The element type of a collection, without the array. */
-    elementType(property: DynamicProperty): string {
-        const base = this.simplifyType(property.type);
-        if (property.isLite === true) {
-            this.imports.add("@altea/altea/data/lite", "Lite");
-            return `Lite<${base}>`;
-        }
-        return base;
-    }
-
-    /** The PROPERTY-level decorators (validators, unit, format). */
-    private getPropertyDecorators(property: DynamicProperty): string[] {
+    /** The names a module exports at its top level. */
+    export function exportedNames(code: string): string[] {
+        const source = ts.createSourceFile("module.ts", code, ts.ScriptTarget.Latest, true);
         const result: string[] = [];
-
-        for (const v of property.validators ?? [])
-            result.push(this.getValidatorDecorator(v));
-
-        // Every non-nullable field gets an IMPLICIT NotNull, so an explicit one is needed only for the
-        // OnlyInMemory case — where the TypeScript type IS nullable but the column is not.
-        if (property.isNullable === "OnlyInMemory"
-            && !(property.validators ?? []).some(v => v.type === "NotNull"))
-            result.push(this.getValidatorDecorator({ type: "NotNull" }));
-
-        if (property.unit != null) {
-            this.imports.add("@altea/altea/data/decorators", "unit");
-            result.push(`unit(${literal(property.unit)})`);
+        for (const s of source.statements) {
+            if (!isExported(s))
+                continue;
+            if ((ts.isClassDeclaration(s) || ts.isEnumDeclaration(s) || ts.isFunctionDeclaration(s) || ts.isInterfaceDeclaration(s)
+                || ts.isTypeAliasDeclaration(s)) && s.name != null)
+                result.push(s.name.text);
+            else if (ts.isModuleDeclaration(s))
+                result.push(s.name.getText(source));
+            else if (ts.isVariableStatement(s))
+                for (const d of s.declarationList.declarations)
+                    if (ts.isIdentifier(d.name))
+                        result.push(d.name.text);
         }
-
-        if (property.format != null) {
-            this.imports.add("@altea/altea/data/decorators", "format");
-            result.push(`format(${literal(property.format)})`);
-        }
-
-        // `NotifyChanges` → `[BindParent]` has NO counterpart: changes are tracked by comparing against a
-        // SNAPSHOT of the whole graph, so a child needs no parent pointer to report one.
-
-        if (property.customPropertyAttributes != null && property.customPropertyAttributes !== "")
-            result.push(property.customPropertyAttributes);
-
-        result.push(...this.getFieldDecorators(property));
         return result;
     }
-
-    /**
-     * One function where Signum has a class per validator plus an `ExtraArguments()` override, because a
-     * discriminated union carries its own arguments — everything but `type` IS the option bag, which is
-     * also exactly the shape altea's validator decorators take.
-     */
-    getValidatorDecorator(v: DynamicValidator): string {
-        const name = camel(v.type) + "Validator";
-        this.imports.add("@altea/altea/data/validators", name);
-
-        const { type: _ignored, ...options } = v as Record<string, unknown>;
-        const entries = Object.entries(options).filter(([, value]) => value != null);
-
-        // A validator decorator takes an OPTIONS object, except the two whose first arguments are
-        // genuinely positional (Signum's are all positional).
-        if (v.type === "NumberIs" || v.type === "CountIs") {
-            const o = v as { comparisonType: unknown; number: unknown };
-            return `${name}(${literal(o.comparisonType)}, ${literal(o.number)})`;
-        }
-
-        // `stringCaseValidator` takes the ENUM, not a name, so the decorator has to name the member — and
-        // the stored definition holds a string. Matched case-insensitively, because Signum's own editor
-        // writes "UpperCase"/"LowerCase" against a C# enum spelled Uppercase/Lowercase, which its JSON
-        // binding accepts regardless of case; a definition written there must still generate here.
-        if (v.type === "StringCase") {
-            const stored = String((v as { textCase?: unknown }).textCase ?? "");
-            const member = Enum.values(StringCase).find(m => m.toLowerCase() === stored.toLowerCase());
-            if (member == null)
-                throw new Error(`Unknown StringCase '${stored}' (expected ${Enum.values(StringCase).join(" or ")})`);
-            this.imports.add("@altea/altea/data/validators", "StringCase");
-            return `${name}(StringCase.${member})`;
-        }
-
-        if (entries.length === 0)
-            return `${name}()`;
-
-        return `${name}({ ${entries.map(([k, value]) => `${k}: ${literal(value)}`).join(", ")} })`;
-    }
-
-    /** The COLUMN-level decorators. */
-    private getFieldDecorators(property: DynamicProperty): string[] {
-        const result: string[] = [];
-        const column: string[] = [];
-
-        if (property.isNullable === "OnlyInMemory") {
-            // `@forceNullable` spells the INVERSE of Signum's [ForceNotNullable], so a column that is NOT
-            // NULL while the member is nullable is expressed by the column option.
-            column.push("nullable: false");
-        }
-
-        if (property.columnName != null && property.columnName !== "")
-            column.push(`columnName: ${literal(property.columnName)}`);
-
-        if (property.size != null)
-            column.push(`size: ${literal(property.size)}`);
-
-        if (property.scale != null)
-            column.push(`scale: ${literal(property.scale)}`);
-
-        if (property.columnType != null && property.columnType !== "") {
-            // Signum decides between SqlDbType and a user-defined type name; both dialects' names are carried
-            // spellings, and a generated definition names one column type, so it goes to both.
-            column.push(`sqlDbType: ${literal(property.columnType)}`);
-            column.push(`pgDbType: ${literal(property.columnType)}`);
-        }
-
-        if (column.length > 0) {
-            this.imports.add("@altea/altea/data/decorators", "column");
-            result.push(`column({ ${column.join(", ")} })`);
-        }
-
-        if (property.uniqueIndex !== "No") {
-            // Signum treats Yes and YesAllowNull the same here (both emit [UniqueIndex]); the
-            // field-level `@uniqueIndex` likewise, since "allow null" is the column's own nullability.
-            this.imports.add("@altea/altea/data/decorators", "uniqueIndex");
-            result.push("uniqueIndex");
-        }
-
-        if (property.customFieldAttributes != null && property.customFieldAttributes !== "")
-            result.push(property.customFieldAttributes);
-
-        return result;
-    }
-
-    getPropertyType(property: DynamicProperty): string {
-        if (property.type == null || property.type === "")
-            return "";
-
-        let result = this.simplifyType(property.type);
-
-        if (property.isLite === true) {
-            this.imports.add("@altea/altea/data/lite", "Lite");
-            result = `Lite<${result}>`;
-        }
-
-        if (property.isMList != null)
-            return `${this.rowTypeName(property)}[]`;
-
-        const isNullable = property.isNullable === "Yes"
-            || property.isNullable === "OnlyInMemory";
-
-        // TypeScript spells an optional value `T | null`, where C# writes `T?`.
-        return result + (isNullable ? " | null" : "");
-    }
-
-    /**
-     * Signum's SimplifyType drops a namespace already in the `using` list. Here it maps a
-     * declared type name onto the TypeScript one and records the import it needs.
-     */
-    simplifyType(type: string): string {
-        switch (type) {
-            case "bool": case "boolean": return "boolean";
-            case "string": return "string";
-            case "double": case "float": case "number": return "number";
-            case "int": case "long": case "decimal":
-                this.imports.addTypeOnly("@altea/altea/data/basics", type);
-                return type;
-            case "Guid": case "uuid":
-                return "string";
-            case "DateTime": case "PlainDateTime":
-            case "DateOnly": case "PlainDate":
-            case "TimeOnly": case "PlainTime":
-            case "TimeSpan": case "Duration": {
-                this.imports.add("@altea/altea/data/basics", "Temporal");
-                const name = type === "DateTime" ? "PlainDateTime"
-                    : type === "DateOnly" ? "PlainDate"
-                        : type === "TimeOnly" ? "PlainTime"
-                            : type === "TimeSpan" ? "Duration" : type;
-                return `Temporal.${name}`;
-            }
-            case "byte[]": case "Blob": case "Uint8Array":
-                return "Uint8Array";
-            default:
-                // An entity / embedded / enum declared somewhere in the application: the registry knows
-                // where, so the import writes itself.
-                return this.imports.type(type);
-        }
-    }
 }
 
-// ---- the LOGIC module ----------------------------------------------------------------------------------
-
-export class DynamicTypeLogicGenerator {
-
-    readonly imports = new Imports();
-    readonly isTreeEntity: boolean;
-
-    constructor(
-        readonly typeName: string,
-        readonly baseType: DynamicBaseType,
-        readonly def: DynamicTypeDefinition,
-    ) {
-        this.isTreeEntity = def?.customInheritance?.code?.includes("TreeEntity") === true;
-    }
-
-    getFileCode(): string {
-        const body = this.getStartBody();
-
-        const parts = [
-            "// GENERATED by @altea/altea-dynamic (DynamicTypeLogic). Edited here, it is overwritten on the",
-            "// next compile — change the DynamicType row instead.",
-            "",
-            this.imports.toCode(),
-            "",
-            `export namespace ${this.typeName}Logic {`,
-            "",
-            "    export function start(sb: SchemaBuilder): void {",
-            "        if (sb.alreadyDefined(start))",
-            "            return;",
-            "",
-            indent(body, 8),
-            "    }",
-        ];
-
-        if (this.def.customLogicMembers != null)
-            parts.push("", indent(this.def.customLogicMembers.code, 4));
-
-        parts.push("}");
-        return parts.join("\n") + "\n";
-    }
-
-    private getStartBody(): string {
-        const lines: string[] = [];
-
-        this.imports.addTypeOnly("@altea/altea/server/schema", "SchemaBuilder");
-
-        if (this.baseType === DynamicBaseType.Entity)
-            lines.push(this.getInclude());
-
-        if (this.def.customStartCode != null)
-            lines.push(this.def.customStartCode.code);
-
-        if (this.baseType === DynamicBaseType.Entity) {
-            const complex = this.registerComplexOperations();
-            if (complex != null)
-                lines.push("", complex);
-        }
-
-        return lines.length === 0 ? "// nothing to register" : lines.join("\n");
-    }
-
-    /** The fluent `sb.include(X)…` chain. */
-    private getInclude(): string {
-        const t = this.typeName;
-        this.imports.addSideEffect("@altea/altea/server/fluentOperations");
-        this.imports.addSideEffect("@altea/altea/server/dynamicQuery/fluentIncludeQuery");
-
-        const entityModule = "./" + t;
-        this.imports.add(entityModule, `${t}Entity`);
-
-        const lines = [`sb.include(${t}Entity)`];
-
-        if (!this.isTreeEntity) {
-            // A DEFAULT body only. An operation whose body the author wrote is registered below, in
-            // registerComplexOperations, the split Signum makes too.
-            if (this.def.operationSave != null && isBlank(this.def.operationSave.execute)) {
-                this.imports.add(entityModule, `${t}Operation`);
-                lines.push(`    .withSave(${t}Operation.Save)`);
-            }
-
-            if (this.def.operationDelete != null && isBlank(this.def.operationDelete.delete)) {
-                this.imports.add(entityModule, `${t}Operation`);
-                lines.push(`    .withDelete(${t}Operation.Delete)`);
-            }
-        }
-
-        const mcui = this.def.multiColumnUniqueIndex;
-        if (mcui != null) {
-            const fields = mcui.fields.map(f => `e.${f}`).join(", ");
-            lines.push(`    .withUniqueIndex(e => [${fields}]${mcui.where != null && mcui.where !== "" ? `, e => ${mcui.where}` : ""})`);
-        }
-
-        // Signum's `WithQuery(() => e => new { … })` defines the query's COLUMNS on the server. The
-        // server `withQuery()` takes none: a query's shape is the ENTITY (AutoDynamicQueryCore), and which
-        // columns a search shows by default is a CLIENT setting (`withQuerySettings`). So `queryFields`
-        // does not belong here — it is emitted by the generated CLIENT module, which is also the only tier
-        // that can name a token. See DynamicTypeClient.
-        lines.push(`    .withQuery()`);
-
-        return lines.join("\n") + ";";
-    }
-
-    /**
-     * The operations whose bodies the author wrote.
-     *
-     * They go on the SAME include (`sb.include` is idempotent, so reaching it again costs nothing), which
-     * is how operations are declared at all. Signum's `Graph<X>.Construct…Register(replace: true)` has no
-     * counterpart here because nothing registered them first.
-     */
-    private registerComplexOperations(): string | null {
-        const t = this.typeName;
-        const def = this.def;
-        const ops: string[] = [];
-
-        const create = def.operationCreate?.construct?.trim();
-        if (create != null && create !== "")
-            ops.push(`    op.withConstruct(${t}Operation.Create, {\n        construct: args => {\n${indent(create, 12)}\n        },\n    });`);
-
-        const save = def.operationSave?.execute?.trim();
-        if (save != null && save !== "") {
-            const canExecute = def.operationSave!.canExecute?.trim();
-            ops.push(`    op.withSave(${t}Operation.Save, {\n`
-                + (canExecute == null || canExecute === "" ? "" : `        canExecute: e => {\n${indent(canExecute, 12)}\n        },\n`)
-                + `        execute: (e, args) => {\n${indent(save, 12)}\n        },\n    });`);
-        }
-
-        const del = def.operationDelete?.delete?.trim();
-        if (del != null && del !== "") {
-            const canDelete = def.operationDelete!.canDelete?.trim();
-            ops.push(`    op.withDelete(${t}Operation.Delete, {\n`
-                + (canDelete == null || canDelete === "" ? "" : `        canDelete: e => {\n${indent(canDelete, 12)}\n        },\n`)
-                + `        delete: (e, args) => {\n${indent(del, 12)}\n        },\n    });`);
-        }
-
-        const clone = def.operationClone?.construct?.trim();
-        if (clone != null && clone !== "") {
-            const canConstruct = def.operationClone!.canConstruct?.trim();
-            ops.push(`    op.withConstructFrom(${t}Entity, ${t}Operation.Clone, {\n`
-                + (canConstruct == null || canConstruct === "" ? "" : `        canConstruct: e => {\n${indent(canConstruct, 12)}\n        },\n`)
-                + `        construct: (e, args) => {\n${indent(clone, 12)}\n        },\n    });`);
-        }
-
-        if (ops.length === 0)
-            return null;
-
-        this.imports.add("./" + t, `${t}Entity`, `${t}Operation`);
-        return [`sb.include(${t}Entity).withOperations(op => {`, ...ops, "});"].join("\n");
-    }
-}
-
-// ---- the before-schema module --------------------------------------------------------------------------
-
-/** Every definition's `customBeforeSchema`, in one module. */
-export class DynamicBeforeSchemaGenerator {
-
-    constructor(readonly beforeSchema: { code: string }[]) { }
-
-    getFileCode(): string {
-        const bodies = this.beforeSchema.map(c => indent(c.code, 8)).join("\n\n");
-
-        return [
-            "// GENERATED by @altea/altea-dynamic (DynamicTypeLogic).",
-            "",
-            "export namespace CodeGenBeforeSchema {",
-            "",
-            "    export function start(): void {",
-            bodies === "" ? "        // nothing to run" : bodies,
-            "    }",
-            "}",
-            "",
-        ].join("\n");
-    }
-}
-
-// ---- helpers -------------------------------------------------------------------------------------------
-
-/**
- * Which kinds must declare a Save.
- *
- * The list is Signum's — a Main / Shared / String / SystemString entity is saved through an operation, and
- * a Part / Relational one is saved through its owner.
- */
-function requiresSaveOperation(entityKind: string | undefined): boolean {
-    switch (entityKind) {
-        case "Main":
-        case "Shared":
-        case "String":
-            return true;
-        default:
-            return false;
-    }
-}
-
-function literal(value: unknown): string {
-    return JSON.stringify(value ?? null);
-}
-
-function indent(text: string, spaces: number): string {
-    const pad = " ".repeat(spaces);
-    return text.split("\n").map(l => l.trim() === "" ? l : pad + l).join("\n");
-}
-
-function cap(s: string): string {
-    return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
-}
-
-function camel(s: string): string {
-    return s.length === 0 ? s : s[0].toLowerCase() + s.slice(1);
-}
-
-function isBlank(s: string | undefined): boolean {
+function isBlank(s: string | null | undefined): boolean {
     return s == null || s.trim() === "";
-}
-
-/** Whether a type name denotes something stored INSIDE its owner's row rather than referenced. */
-function isEmbeddedLike(typeName: string): boolean {
-    return typeName.endsWith("Embedded") || typeName.endsWith("Mixin");
 }

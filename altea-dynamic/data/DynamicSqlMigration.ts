@@ -15,11 +15,10 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 // when. No compiler is involved: the script is SQL text.
 //
 // altea divergences:
-//  - `DynamicRenameEntity` is ported and `Create` uses it, but nothing WRITES a rename row automatically:
-//    in Signum the dynamic-TYPE editor does, and that editor needs Roslyn (see DynamicLogic.server.ts), so
-//    here a rename is recorded by hand or through `DynamicSqlMigrationLogic.addDynamicRename`. The overlap with @altea/altea-migrations is deliberate and narrow: that package OWNS the
-//    versioned migration history and the runners; this one is "see and apply the pending schema diff from
-//    the browser", and it records its executions here rather than there.
+//  - No DynamicRenameEntity: the script is generated through the web console, so the synchronizer ASKS its
+//    rename questions in the browser instead of replaying renames recorded by the type editor. The overlap
+//    with @altea/altea-migrations is deliberate and narrow: that package OWNS the versioned migration
+//    history and the runners; this one is "see and apply the pending schema diff from the browser".
 //  - `DynamicSqlMigrationMessage.PreventingGenerationNewScript…` is kept but can no longer trigger: it
 //    guarded against generating a script while the dynamic C# failed to compile.
 @entity("Main", "Transactional")
@@ -55,33 +54,11 @@ export class DynamicSqlMigrationEntity extends Entity {
     }
 }
 
-// Signum's DynamicRenameEntity (same file there). One recorded rename — "under THIS replacement key,
-// `oldName` became `newName`" — which the next generated migration uses to ANSWER the synchronizer's
-// rename questions instead of asking them (see DynamicSqlMigrationLogic.autoReplacement).
-//
-// In Signum the rows are written by the dynamic-TYPE editor, which needs Roslyn and does not port; here
-// they are written by hand (or by `DynamicSqlMigrationLogic.addDynamicRename`) — which is the point, since
-// a rename recorded once is then applied by every later `sync` of that database without a prompt.
-@entity("Main", "Transactional")
-export class DynamicRenameEntity extends Entity {
-
-    creationDate: Temporal.PlainDateTime = Clock.now;
-
-    /** The synchronizer bucket the rename belongs to: `Tables`, `Columns:<table>`, `Enums:<table>`. */
-    @stringLengthValidator({ max: 200 })
-    replacementKey: string;
-
-    @stringLengthValidator({ max: 200 })
-    oldName: string;
-
-    @stringLengthValidator({ max: 200 })
-    newName: string;
-
-    @quoted
-    override toString(): string {
-        return this.replacementKey + ": " + this.oldName + " -> " + this.newName;
-    }
-}
+/** The web console commands (core server/webConsole.ts) this module registers. */
+export const DynamicSqlMigrationCommand = {
+    /** The pending schema diff, its rename questions asked in the browser; returns the SQL, or null. */
+    Generate: "DynamicSqlMigration.Generate",
+};
 
 export namespace DynamicSqlMigrationOperation {
     export const Create: ConstructSymbol<DynamicSqlMigrationEntity> = init();

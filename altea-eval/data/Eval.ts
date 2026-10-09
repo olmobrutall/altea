@@ -288,6 +288,8 @@ export const EvalMessage = {
     TheWrapperIsGeneratedEditTheScriptBetweenTheBraces:
         msg("This wrapper is generated from the configuration and the signature. Edit the script between the braces."),
     InTheGeneratedWrapper0: msg("In the generated wrapper: {0}"),
+    ShowGeneratedCode: msg("Show generated code"),
+    HideGeneratedCode: msg("Hide generated code"),
     TheModule0IsNotAllowed1:
         msg("The module '{0}' is not allowed in a script. Allowed modules: {1}"),
 };

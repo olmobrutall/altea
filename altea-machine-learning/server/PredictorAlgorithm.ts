@@ -4,7 +4,7 @@ import type { QueryToken } from "@altea/altea/data/dynamicQuery/tokens/queryToke
 import { type int, toInt, type long, toLong } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import {
-    type EpochProgressRow, type TrainingProgress,
+    type EpochProgressRow,
     PredictorEntity, PredictorEntity_Column, PredictorSubQueryEntity, PredictorSubQueryEntity_Column,
     PredictorColumnEncodingSymbol, PredictorColumnNullHandling, PredictorColumnUsage, PredictorEpochProgressEntity,
     PredictorState, toPredictorColumnUsage,
@@ -28,8 +28,6 @@ import {
 //    string. Same reason altea-workflow keys its graphs by lite key.
 //  - Signum's `PredictorColumnBase.ColumnModel` (a slot for the algorithm's own per-column state) is kept
 //    as `columnModel`, because the encodings use it to carry their fitted statistics.
-
-export type { EpochProgressRow, TrainingProgress };
 
 export class EpochProgress {
     constructor(
@@ -111,7 +109,7 @@ export class PredictorColumnSubQuery extends PredictorColumnBase {
     get nullHandling(): PredictorColumnNullHandling {
         return this.predictorSubQueryColumn.nullHandling!;
     }
-    get encoding(): PredictorColumnEncodingSymbol { return this.predictorSubQueryColumn.encoding!; }
+    get encoding(): PredictorColumnEncodingSymbol { return this.predictorSubQueryColumn.encoding; }
 
     toString(): string { return `${this.subQuery.name}.${this.resolvedToken.fullKey()} [${this.keys.join(", ")}]`; }
 }

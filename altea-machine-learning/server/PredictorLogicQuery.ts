@@ -103,7 +103,7 @@ export namespace PredictorLogicQuery {
                     const values = [...sq.groupedValues.values()]
                         .map(byKey => byKey.get(splitKey)?.[positionOf(sq, valueIndex)])
                         .filter(v => v !== undefined);
-                    codifications.push(...algorithm.generateCodifications(col.encoding!, values, subCol));
+                    codifications.push(...algorithm.generateCodifications(col.encoding, values, subCol));
                 }
             }
         }

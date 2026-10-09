@@ -109,7 +109,7 @@ export namespace AuthImportExport {
         let rolesDic = new Map([...graph.rolesByKey.values()].filter(r => !r.isTrivialMerge).map(r => [r.name, r.toLite() as Lite<RoleEntity>]));
         const rolesXml = new Map(roles.filter(x => x.IsTrivialMerge == null || !parseBool(x.IsTrivialMerge)).map(x => [x.Name, x]));
 
-        replacements.askForReplacements(new Set(rolesXml.keys()), new Set(rolesDic.keys()), rolesReplacementKey);
+        await replacements.askForReplacements(new Set(rolesXml.keys()), new Set(rolesDic.keys()), rolesReplacementKey);
         rolesDic = replacements.applyReplacementsToNew(rolesDic, rolesReplacementKey);
 
         try {
@@ -256,7 +256,7 @@ export namespace AuthImportExport {
         replacements.interactive = interactive;
         replacements.autoReplacement = autoReplacement;
 
-        replacements.askForReplacements(new Set(rolesDic.keys()), new Set(rolesXml.keys()), rolesReplacementKey);
+        await replacements.askForReplacements(new Set(rolesDic.keys()), new Set(rolesXml.keys()), rolesReplacementKey);
         rolesDic = replacements.applyReplacementsToOld(rolesDic, rolesReplacementKey);
 
         {

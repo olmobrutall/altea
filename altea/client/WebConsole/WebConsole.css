@@ -1,0 +1,40 @@
+.sf-web-console {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.sf-web-console-log {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    font-family: var(--bs-font-monospace);
+    font-size: .8125rem;
+    padding: .5rem .75rem;
+    border-radius: var(--bs-border-radius);
+    max-height: 60vh;
+    min-height: 8rem;
+    overflow: auto;
+}
+
+.sf-web-console-line {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.sf-web-console-question {
+    border: 1px solid var(--bs-primary);
+    border-radius: var(--bs-border-radius);
+    padding: .75rem;
+}
+
+.sf-wc-white { color: #ffffff; }
+.sf-wc-gray { color: #8a8a8a; }
+.sf-wc-green { color: #4ec94e; }
+.sf-wc-darkGreen { color: #2e9e2e; }
+.sf-wc-yellow { color: #f5e663; }
+.sf-wc-darkYellow { color: #c9a227; }
+.sf-wc-red { color: #f25757; }
+.sf-wc-darkRed { color: #c23b3b; }
+.sf-wc-magenta { color: #e070e0; }
+.sf-wc-blue { color: #5c9cf5; }
+.sf-wc-cyan { color: #4fd6e0; }

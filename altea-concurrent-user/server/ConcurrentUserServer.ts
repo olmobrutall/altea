@@ -16,6 +16,7 @@ import { AuthTokenServer } from "@altea/altea-auth/server/AuthTokenServer";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { CacheLogic } from "@altea/altea-cache/server/CacheLogic";
 import { ConcurrentUserEntity } from "../data/ConcurrentUser";
+import type { ConcurrentUserResponse } from "../data/ConcurrentUserDtos";
 import { ConcurrentUserLogic } from "./ConcurrentUserLogic";
 
 // The whole server surface, in one file because the hub, the push and the query are one mechanism.
@@ -94,26 +95,7 @@ export namespace ConcurrentUserServer {
 
         // A browser WebSocket cannot send `Authorization`, so the token rides the first frame and is
         // validated through the SAME authenticator chain an HTTP request uses (see webSocketHub.ts).
-        h.authenticate = async token => {
-            if (token == null || token === "")
-                throw new Error("ConcurrentUserHub: no authentication token");
-
-            const fakeReq = {
-                header: (name: string) => name.toLowerCase() === "authorization" ? `Bearer ${token}` : undefined,
-                hasQuery: () => false,
-                // A WebSocket upgrade carries no query string here — the token is the first FRAME, so no
-                // authenticator in the chain can authenticate on a query parameter over this transport.
-                query: () => [],
-            };
-            const fakeRes = { setHeader: () => { /* a socket cannot carry New_Token; the next ajax refreshes */ } };
-
-            for (const authenticator of AuthTokenServer.authenticators) {
-                const user = await Transaction.forceNew(() => authenticator(fakeReq, fakeRes));
-                if (user != null)
-                    return user;
-            }
-            throw new Error("ConcurrentUserHub: the token did not resolve to a user");
-        };
+        h.authenticate = token => AuthTokenServer.authenticateSocketToken(token);
 
         h.onError = (e, context) => {
             // Log it, don't lose it. The write needs its own transaction (a failed hub method may have
@@ -297,18 +279,4 @@ export namespace ConcurrentUserServer {
         for (let i = 0; i < items.length; i += size)
             yield items.slice(i, i + size);
     }
-}
-
-/**
- * The shape the widget renders.
- *
- * `startTime` is an ISO STRING, not a Temporal. A DTO crosses the wire as an untyped `CustomType`, so the
- * serializer has no field metadata to revive a Temporal from; typing it as one would hand the widget a
- * string that fails only later, when the widget calls a Temporal method on it.
- */
-export interface ConcurrentUserResponse {
-    user: Lite<UserEntity>;
-    startTime: string;
-    connectionID: string;
-    isModified: boolean;
 }

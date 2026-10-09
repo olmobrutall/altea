@@ -135,7 +135,7 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
         else replacements.set(Replacements.keyTables, moveMap);
     }
 
-    replacements.askForReplacements(new Set(databaseTables.keys()), new Set(modelTables.keys()), Replacements.keyTables);
+    await replacements.askForReplacements(new Set(databaseTables.keys()), new Set(modelTables.keys()), Replacements.keyTables);
     // Record the INVERSE table-rename map (model-new-name → old-DB-name) — Signum's KeyTablesInverse,
     // read by Synchronizer.useOldTableName so a later step (enum/symbol seeding) reads current rows from the
     // table's pre-rename name (the RENAME DDL is only in the script being generated, not yet applied).
@@ -155,7 +155,7 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
         if (diff == null)
             continue;
         const key = Replacements.keyColumnsForTable(tn);
-        replacements.askForReplacements(new Set(Object.keys(diff.columns)), new Set(Object.keys(tab.columns)), key);
+        await replacements.askForReplacements(new Set(Object.keys(diff.columns)), new Set(Object.keys(tab.columns)), key);
         diff.columns = applyColumnReplacements(diff.columns, replacements, key);
     }
 
@@ -200,7 +200,8 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
 
     // The data-migration UPDATEs (populated during the tables pass) run AFTER the new columns exist; the
     // `_old` column drops run after those (Signum's delayedUpdatesFks / delayedDrops).
-    const delayedUpdatesFks: (SqlPreCommand | undefined)[] = [];
+    // Promises among them: migrating an implementedByAll reference may ASK (PrimaryKeyUpdater).
+    const delayedUpdatesFks: (SqlPreCommand | undefined | Promise<SqlPreCommand | undefined>)[] = [];
     const delayedDrops: (SqlPreCommand | undefined)[] = [];
     const pkUpdater = new PrimaryKeyUpdater(isPostgres, sqlBuilder, modelTables, schema);
 
@@ -562,7 +563,7 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
     // and indexes, do the table/column work (add the new columns, drop+recreate the PK), THEN migrate the
     // data (re-point every FK/IBA/history reference from `_old`), drop the `_old` columns, and finally
     // re-add the foreign keys (on the new column type) and indexes.
-    const delayedFkUpdates = SqlPreCommand.combine(Spacing.Double, ...delayedUpdatesFks);
+    const delayedFkUpdates = SqlPreCommand.combine(Spacing.Double, ...await Promise.all(delayedUpdatesFks));
     const delayedColumnDrops = SqlPreCommand.combine(Spacing.Simple, ...delayedDrops);
     return SqlPreCommand.combine(Spacing.Triple, preRename, dropForeignKeys, dropIndices, dropFullTextCatalogs, tables, historyTables, delayedHistory, delayedFkUpdates, delayedColumnDrops, versioningTriggers, createFullTextCatalogs, addForeignKeys, addIndices, dropSchemas);
 }
@@ -837,7 +838,7 @@ export async function synchronizeEnumsScript(replacements: Replacements): Promis
 
             // Ask which removed member each new member renames (by name), then re-key current by the new name.
             const key = Replacements.keyEnumsForTable(table.name.name);
-            replacements.askForReplacements(new Set(currentByName.keys()), new Set(shouldByName.keys()), key);
+            await replacements.askForReplacements(new Set(currentByName.keys()), new Set(shouldByName.keys()), key);
             const current = replacements.applyReplacementsToOld(currentByName, key);
 
             // Signum's TEMP-ID pass. A member whose id CHANGED cannot simply be re-inserted at its new

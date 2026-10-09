@@ -106,8 +106,8 @@ so a change upstream is easy to re-apply. What differs is the output:
   The clearest illustration of why the transformer belongs in the emit.
 - **`MList<T>` becomes a generated `@part` ROW type plus a `T[]`** — the one place this generator does
   structurally more work than Signum's. A collection of values or lites is child rows carrying a
-  `@valueField`, and `DynamicTypeBackMListDefinition` (TableName / PreserveOrder / OrderName /
-  BackReferenceName) describes that row table one for one.
+  `@valueField`; `DynamicCollectionDefinition` (tableName / preserveOrder / orderName / backReferenceName)
+  describes that row table.
 - `ToStringExpression` becomes a `@quoted toString()` — one decorator where Signum has a static
   `Expression<Func<…>>` field plus `[ExpressionField]` plus an `Evaluate(this)` body.
 - `IsTreeEntity` means the same thing, but Signum's `TreeOperation.CreateRoot` branch is left out:
@@ -121,18 +121,18 @@ a display name on — so Signum's generated caption enum, `RegisterComplexQuery`
 CLIENT default columns, because the server's `withQuery()` takes no projection — so the designer's query
 tab lists member NAMES, not `e.Id`-style projection lines.
 
-## The stored definition round-trips with Signum
+## The stored definition is altea's, not Signum's
 
-`isNullable` / `uniqueIndex` inside the JSON are the member NAMES, as Signum's `JsonStringEnumConverter`
-writes them; the `DynamicValidator` union's member names are Signum's for the same reason. A numeric altea
-enum would have been wrong twice over — the definition would stop round-tripping, and the JSON column is
-not a reflected field anyway. Only `DynamicBaseType`, which IS a real column, is an altea enum.
-
-`StringCase` is the one member name Signum itself is inconsistent about: its C# enum is `Uppercase` /
-`Lowercase`, its editor offers `"UpperCase"` / `"LowerCase"`, and the two only meet because
-`JsonStringEnumConverter` matches case-insensitively. altea's editor writes the enum's real member names,
-and `getValidatorDecorator` resolves what it reads case-insensitively — so a definition authored in either
-framework, with either spelling, still generates.
+A definition does NOT round-trip with Signum, deliberately: every C#/.NET name was replaced by altea's own,
+and nothing reads a Signum-written definition. A property's `type` is the TypeScript type it is declared
+with (`int`, `Decimal`, `uuid`, `Temporal.PlainDate`, `Uint8Array` — not `decimal`, `Guid`, `DateOnly`,
+`byte[]`); a validator's `type` is its decorator's name (`stringLength` → `@stringLengthValidator`), and
+`comparisonType` / `textCase` are the altea enums' member names. `isMList` is `collection`,
+`customFieldAttributes` + `customPropertyAttributes` are one `customDecorators` (TypeScript has no
+field/property split), `uniqueIndex` is a boolean (`YesAllowNull` meant the same as `Yes`), `primaryKey` is
+the `PrimaryKeyType` `@primaryKey` takes and `ticks` is `rowVersion` — the column name and identity Signum
+also stored are schema-wide settings here. `NotifyChanges` is gone (see above). Binary members generate as
+`accessor`, as every altea `Uint8Array` is.
 
 ## `DynamicMixinConnectionEntity.entityType` is a PLAIN reference
 

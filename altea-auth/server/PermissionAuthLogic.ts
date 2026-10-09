@@ -114,7 +114,7 @@ export namespace PermissionAuthLogic {
     async function importXml(auth: Record<string, unknown>, ctx: AuthImportCtx): Promise<SqlPreCommand | undefined> {
         const replacementKey = "AuthRules:PermissionSymbol";
         const symbols = new Map((await SymbolLogic.cache(PermissionSymbol)).symbols().map(s => [s.key, s]));
-        ctx.replacements.askForReplacements(
+        await ctx.replacements.askForReplacements(
             new Set(sectionRows(auth, "Permissions", "Permission").map(p => p.Resource)),
             new Set(symbols.keys()),
             replacementKey);

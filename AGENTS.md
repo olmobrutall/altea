@@ -51,6 +51,11 @@ once a module carries substantial UI or server code, as every framework package 
 `altea-playwright`). A package's `test/` is its own fourth layer (`tsconfig.test.json`), excluded from the
 three shipping presets, and the one place that gets both node types and the DOM lib.
 
+**A wire DTO is declared ONCE, in `data/`** (`data/<Module>Dtos.ts`), and both tiers `import type` it —
+never a server copy plus a hand-written client copy. No `TS` suffix; when the clean name collides with a
+class or model, suffix `Info` (`ChartScriptInfo`). A client type that adds computed members extends or
+derives from the DTO instead of restating it.
+
 ## The entity model
 
 - **Entities are plain field bags.** No property getters, no setters. `@reflect` + `@entity(kind, data)` on
@@ -72,7 +77,7 @@ three shipping presets, and the one place that gets both node types and the DOM 
 - **Dates are `Temporal`** — `PlainDate` / `PlainDateTime` / `PlainTime` / `Duration`. Temporal has no
   relational operators, so a comparison inside a query is written
   `Temporal.PlainDateTime.compare(a, b) < 0`, which is the form the provider translates. A stored
-  `PlainDateTime` is in `Clock.mode`'s frame (UTC by default, `timestamptz` on Postgres); anything a user
+  `PlainDateTime` is in `Clock.mode`'s frame (machine-local by default as in Signum, `timestamp`; UTC → `timestamptz` on Postgres); anything a user
   SEES or TYPES crosses `Clock.toUserInterface` / `fromUserInterface`.
 - **`Type<T>` is the one entity-type handle, and it is a constructor** — abstract-tolerant, so an abstract
   base is a valid handle. `TypeReference` is the one value-type descriptor (`.typeName`, `.array`, `.lite`,

@@ -8,18 +8,25 @@ import { denormalizeTemporal } from "@altea/altea/server/normalizeScalar";
 import { hasDb, start } from "../setup";
 import { NoteWithDateEntity } from "../../data/note";
 
-// A UTC clock (the default) stores a PlainDateTime as `timestamptz` on Postgres, as Signum's
-// Schema.TimeZoneMode does, with the session pinned to UTC so every conversion happens in the clock's frame.
+// A UTC clock stores a PlainDateTime as `timestamptz` on Postgres, as Signum's Schema.TimeZoneMode does,
+// with the session pinned to UTC so every conversion happens in the clock's frame. A local clock (the
+// default, as in Signum) stores `timestamp` and leaves the session zone alone.
 
 describe("Clock user-interface conversion", () => {
     const utc = Temporal.PlainDateTime.from("2024-07-01T10:00:00");
 
     test("Utc shifts to the user's zone and back", () => {
-        Clock.withTimeZone("Europe/Berlin", () => {
-            const ui = Clock.toUserInterface(utc);
-            assert.equal(ui.toString(), "2024-07-01T12:00:00"); // CEST, +02:00
-            assert.equal(Clock.fromUserInterface(ui).toString(), utc.toString());
-        });
+        const old = Clock.mode;
+        Clock.mode = TimeZoneMode.Utc;
+        try {
+            Clock.withTimeZone("Europe/Berlin", () => {
+                const ui = Clock.toUserInterface(utc);
+                assert.equal(ui.toString(), "2024-07-01T12:00:00"); // CEST, +02:00
+                assert.equal(Clock.fromUserInterface(ui).toString(), utc.toString());
+            });
+        } finally {
+            Clock.mode = old;
+        }
     });
 
     test("Local leaves the value alone", () => {
@@ -45,23 +52,26 @@ describe("timestamptz text", () => {
     });
 });
 
-describe.skipIf(!hasDb)("UTC clock on the database", () => {
+describe.skipIf(!hasDb)("Clock mode on the database", () => {
     beforeAll(async () => { await start(); });
 
-    test("the column is timestamptz and the session is UTC (Postgres)", async ({ skip }) => {
+    test("the column type and session zone follow the clock mode (Postgres)", async ({ skip }) => {
         const connector = Connector.current();
         if (!connector.isPostgres)
             skip();
 
-        const [zone] = await connector.executeQuery("SHOW TimeZone") as { TimeZone: string }[];
-        assert.equal(zone.TimeZone, "UTC");
+        const utc = Clock.mode === TimeZoneMode.Utc;
+        if (utc) {
+            const [zone] = await connector.executeQuery("SHOW TimeZone") as { TimeZone: string }[];
+            assert.equal(zone.TimeZone, "UTC");
+        }
 
         const [column] = await connector.executeQuery(
             "SELECT data_type FROM information_schema.columns WHERE table_name = 'note_with_date' AND column_name = 'creation_time'") as { data_type: string }[];
-        assert.equal(column.data_type, "timestamp with time zone");
+        assert.equal(column.data_type, utc ? "timestamp with time zone" : "timestamp without time zone");
     });
 
-    test("a stored value round-trips, filters and extracts in UTC", async () => {
+    test("a stored value round-trips, filters and extracts in the clock's frame", async () => {
         const june25 = Temporal.PlainDateTime.from("2009-06-25T00:00:00");
 
         const notes = await table(NoteWithDateEntity)

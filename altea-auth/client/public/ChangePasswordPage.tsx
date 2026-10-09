@@ -6,6 +6,7 @@ import { ValidationError } from "@altea/altea/client/Services";
 import { useStateWithPromise } from "@altea/altea/client/Hooks";
 import { QueryString } from "@altea/altea/client/QueryString";
 import { LoginAuthMessage } from "../../data/AuthMessages";
+import type { ChangePasswordRequest } from "../../data/AuthDtos";
 import { AuthClient } from "../AuthClient";
 
 // Port of Signum.Authorization's Login/ChangePasswordPage.tsx. The ModelState is ONE string per field,
@@ -36,7 +37,7 @@ export default function ChangePasswordPage(): React.JSX.Element {
         if (passValidation?.level === "error")
             return;
 
-        const request: AuthClient.API.ChangePasswordRequest = {
+        const request: ChangePasswordRequest = {
             oldPassword: oldPassword.current!.value,
             newPassword: newPassword.current!.value,
         };
