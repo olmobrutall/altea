@@ -183,6 +183,8 @@ export abstract class EvalEmbedded<F extends EvalFunction> extends EmbeddedEntit
         imports?: string[];
         /** Verbatim declarations above the signature — types generated from the eval's own data. */
         declarations?: string[];
+        /** The script is the BODY of a quoted lambda, which is the default export — see {@link EvalWrapperOptions}. */
+        quotedExpression?: boolean;
         /**
          * What this eval kind may reach. Defaults to {@link EvalEmbedded.defaultImports} — an eval kind
          * overrides it when its scripts need more (or less) than everything else's.
@@ -194,7 +196,7 @@ export abstract class EvalEmbedded<F extends EvalFunction> extends EmbeddedEntit
             return Promise.resolve({ compilationErrors: EvalMessage.NoCompilerIsConfigured.niceToString() });
 
         const script = this.script.trim();
-        const statements = script.includes(";") || script.includes("\n") ? script : `return ${script};`;
+        const statements = !options.quotedExpression && isExpressionScript(script) ? `return ${script};` : script;
         const { imports: hoisted, at: hoistedAt, body } = hoistImports(statements);
 
         const header = [
@@ -202,11 +204,10 @@ export abstract class EvalEmbedded<F extends EvalFunction> extends EmbeddedEntit
             ...hoisted,
             "",
             ...(options.declarations ?? []),
-            `export default ${options.isAsync ? "async " : ""}function evaluate(${options.parameters}): `
-                + (options.isAsync ? `Promise<Awaited<${options.returnType}>>` : options.returnType) + " {",
+            evalOpeningLine(options),
         ];
 
-        const code = [...header, body, "}", ""].join("\n");
+        const code = [...header, body, evalClosingLine(options), ""].join("\n");
         return compiler.compile<F>(code, header.length,
             options.evalImports ?? EvalEmbedded.defaultImports, hoistedAt);
     }
@@ -242,6 +243,37 @@ export abstract class EvalEmbedded<F extends EvalFunction> extends EmbeddedEntit
             throw new Error(EvalMessage.TheOwnerOf0HasNotBeenBound.niceToString(this.constructor.name));
         return owner;
     }
+}
+
+export interface EvalWrapperOptions {
+    parameters: string;
+    returnType: string;
+    isAsync?: boolean;
+    /**
+     * The script is the body of a lambda handed to `withQuoted`, so the default export carries its expression
+     * tree — a script that is translated (to SQL) rather than run:
+     * `export default withQuoted((current: X): number | null =>` / script / `);`.
+     */
+    quotedExpression?: boolean;
+}
+
+/** The generated line above the script — the same on the server (`wrap`) and in the editor (EvalLine). */
+export function evalOpeningLine(o: EvalWrapperOptions): string {
+    if (o.quotedExpression)
+        return `export default withQuoted((${o.parameters}): ${o.returnType} =>`;
+    return `export default ${o.isAsync ? "async " : ""}function evaluate(${o.parameters}): `
+        + (o.isAsync ? `Promise<Awaited<${o.returnType}>>` : o.returnType) + " {";
+}
+
+/** The generated line below the script. */
+export function evalClosingLine(o: EvalWrapperOptions): string {
+    return o.quotedExpression ? ");" : "}";
+}
+
+/** A one-line script with no `;` is an EXPRESSION, which the wrapper returns. The editor applies the same rule. */
+export function isExpressionScript(script: string): boolean {
+    const trimmed = script.trim();
+    return !trimmed.includes(";") && !trimmed.includes("\n");
 }
 
 /**

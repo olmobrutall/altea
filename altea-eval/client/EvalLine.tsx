@@ -4,7 +4,7 @@ import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import type { MonacoMarker } from "@altea/altea-monaco/client/MonacoComponent";
 import { EvalMonaco } from "./EvalMonaco";
-import { EvalMessage, type EvalEmbedded, type EvalFunction } from "../data/Eval";
+import { EvalMessage, isExpressionScript, evalOpeningLine, evalClosingLine, type EvalEmbedded, type EvalFunction } from "../data/Eval";
 
 // One line for the whole editor sandwich: the generated IMPORTS and SIGNATURE above, the script, the
 // closing brace below — so the author sees the whole function even though only the body is stored. ONE
@@ -39,6 +39,8 @@ export interface EvalLineProps<F extends EvalFunction> {
     isAsync?: boolean;
     /** The same declarations the eval's `compile()` hands `EvalEmbedded.wrap`. */
     declarations?: string[];
+    /** The script is the body of a quoted lambda — see `EvalWrapperOptions.quotedExpression`. */
+    quotedExpression?: boolean;
     label?: React.ReactNode;
     height?: number;
 }
@@ -55,12 +57,20 @@ export function EvalLine<F extends EvalFunction>(p: EvalLineProps<F>): React.JSX
 
     const markers = React.useMemo(() => errorMarkers(scriptCtx.error), [scriptCtx.error]);
 
+    const script = ctx.value.script ?? "";
+    // What `EvalEmbedded.wrap` does to an expression, on lines of their own: the fences are whole lines.
+    const expression = !p.quotedExpression && script.trim() !== "" && isExpressionScript(script);
+
     return (
         <FormGroup ctx={ctx} label={p.label ?? scriptCtx.niceName()} error={scriptCtx.error}>
             {() => (
-                <EvalMonaco code={ctx.value.script ?? ""}
-                    header={[...p.declarations?.length ? [{ text: p.declarations.join("\n") }] : [], { text: signature(p) + " {" }]}
-                    footer={[{ text: "}" }]}
+                <EvalMonaco code={script}
+                    header={[
+                        ...p.declarations?.length ? [{ text: p.declarations.join("\n") }] : [],
+                        { text: evalOpeningLine(p) },
+                        ...expression ? [{ text: "return (", hidden: true }] : [],
+                    ]}
+                    footer={[...expression ? [{ text: ");", hidden: true }] : [], { text: evalClosingLine(p) }]}
                     subject={ctx.value}
                     isReadOnly={ctx.readOnly}
                     height={p.height}
@@ -83,15 +93,5 @@ function errorMarkers(error: string | undefined): MonacoMarker[] {
 
     return [...error.matchAll(/^\s*Line (\d+): (.*)$/gm)]
         .map(m => ({ line: Number(m[1]), message: m[2] }));
-}
-
-/**
- * The generated function's opening line — character for character what `EvalEmbedded.wrap` emits on the
- * server, which is the point: the author is looking at the real wrapper, and anything they write is
- * checked against it rather than against a plausible-looking stand-in.
- */
-function signature(p: { parameters: string; returnType: string; isAsync?: boolean }): string {
-    return `export default ${p.isAsync ? "async " : ""}function evaluate(${p.parameters}): `
-        + (p.isAsync ? `Promise<Awaited<${p.returnType}>>` : p.returnType);
 }
 
