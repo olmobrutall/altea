@@ -82,7 +82,9 @@ export function RenderEntity<V extends BaseEntity | Lite<Entity> | null>(p: Rend
   // the route of the entity that owns it (PropertyRoute.assertNotPartRoot). Re-rooting there would key
   // every line's auth lookup, `data-property-path` and metadata read under the row type, while the rules
   // and the routes table now spell the same member through the owner, as Signum does.
-  const pr = !ti || isPartType(ti.ctor) ? ctx.propertyRoute : PropertyRoute.root(ti.ctor!);
+  const pr = !ti ? ctx.propertyRoute :
+    isPartType(ti.ctor) ? ctx.propertyRoute?.continueAsPart(ti.ctor!) :
+      PropertyRoute.root(ti.ctor!);
 
   const prefix = ctx.propertyRoute!.type.lite ? ctx.prefix + ".entity" : ctx.prefix;
   const frame: EntityFrame<BaseEntity> = {

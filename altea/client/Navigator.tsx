@@ -714,6 +714,9 @@ export namespace Navigator {
     const entity = isEntityPack(typeOrEntity) ? typeOrEntity : typeOrEntity instanceof Lite ? typeOrEntity : undefined;
     const typeName = isEntityPack(typeOrEntity) ? getTypeName(typeOrEntity.entity) :
       typeOrEntity instanceof Lite ? getTypeName(typeOrEntity) : getTypeName(typeOrEntity as PseudoType);
+    // A `@part` is opened through its owner's route, which a lite (a search cell, a related column) does not carry.
+    if (typeOrEntity instanceof Lite && isPartType(typeOrEntity.entityType))
+      return false;
     if (!checkFlag(typeIsViewable(typeName, options?.isEmbedded), options?.isSearch == "main"))
       return false;
     if (!(options?.customComponent || hasDefaultView(typeName)))

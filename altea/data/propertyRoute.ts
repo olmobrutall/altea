@@ -333,6 +333,14 @@ export class PropertyRoute {
         return new PropertyRoute(PropertyRouteType.Cast, this, undefined, undefined, undefined, ctor);
     }
 
+    /**
+     * The route a `@part` value of this reference continues: this one when the reference already names
+     * exactly `ctor`, a {@link addCast} step when it is polymorphic (`@implementedBy` several parts).
+     */
+    continueAsPart(ctor: Type<Entity>): PropertyRoute {
+        return this.getImplementations().only() === ctor ? this : this.addCast(ctor);
+    }
+
     // Navigate into a mixin declared on the owner (Signum's mixin route step). `mixinName` is the
     // mixin class name — from `a.mixin(SomeMixin)` in a Quoted lambda (getLambdaMembers) or the
     // subCtx(Type) overload. altea keeps mixin fields flat on the entity, but the route still models
