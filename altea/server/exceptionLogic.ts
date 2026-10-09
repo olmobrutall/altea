@@ -36,7 +36,8 @@ export namespace ExceptionLogic {
     export function start(sb: SchemaBuilder): void {
         // Signum: sb.Include<ExceptionEntity>() + WithQuery(...). altea's WithQuery is parameterless.
         // Signum's `.WithIndex(a => a.CreationDate)` — the exception page is browsed newest-first.
-        sb.include(ExceptionEntity).withIndex(a => a.creationDate).withQuery();
+        sb.include(ExceptionEntity)
+            .withQuery();
     }
 
     // ---- Log cleanup ------------------------------------------------------------------------------------
