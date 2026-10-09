@@ -27,6 +27,8 @@
   <Type Name="AuthAdminMessage">
     <Member Name="_0InDB" Description="{0} (nur in DB)" />
     <Member Name="_0InUI" Description="{0} (im UI)" />
+    <Member Name="_0CyclesHaveBeenFoundInTheGraphOfRolesDueToTheRelationships" Description="Im Rollengraph wurden {0} Zyklen aufgrund folgender Beziehungen gefunden:" />
+    <Member Name="Role0InheritsFromTrivialMergeRole1" Description="Rolle {0} erbt von der trivialen Zusammenführungsrolle {1}" />
     <Member Name="AddCondition" Description="Bedingung hinzufügen" />
     <Member Name="Allow" Description="Erlauben" />
     <Member Name="Allowed" Description="Erlaubt" />

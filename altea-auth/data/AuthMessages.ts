@@ -108,6 +108,8 @@ export const AuthAdminMessage = {
     Uncheck: msg(),
     _0InDB: msg("{0} in DB"),
     _0InUI: msg("{0} in UI"),
+    _0CyclesHaveBeenFoundInTheGraphOfRolesDueToTheRelationships: msg("{0} cycles have been found in the graph of roles due to the relationships:"),
+    Role0InheritsFromTrivialMergeRole1: msg("Role {0} inherits from trivial merge role {1}"),
     Save: msg("Save"),
     ResetChanges: msg("Reset changes"),
     /** Why a property route is not readable — the reason PropertyRoute.isAllowed() returns. */

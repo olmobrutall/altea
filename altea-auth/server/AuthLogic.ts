@@ -16,9 +16,10 @@ import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { ResetLazy } from "@altea/altea/server/resetLazy";
 import { ReflectionServer } from "@altea/altea/server/reflectionServer";
 import { codify } from "@altea/altea/server/sync/stringHash";
+import { CollectionMessage } from "@altea/altea/data/dynamicQueries";
 import { UserEntity, UserState, UserOperation } from "../data/User";
 import { RoleEntity, RoleEntity_InheritsFrom, RoleOperation, MergeStrategy } from "../data/Role";
-import { UserMessage, LoginAuthMessage } from "../data/AuthMessages";
+import { UserMessage, LoginAuthMessage, AuthAdminMessage } from "../data/AuthMessages";
 import type { AuthImportCtx } from "./AuthRulesXml";
 import type { SqlPreCommand } from "@altea/altea/server/sync/sqlPreCommand";
 // NOTE: AuthServer imports back from AuthLogic — a runtime-only cycle (both sides use the other only
@@ -139,6 +140,8 @@ export namespace AuthLogic {
             .withSave(RoleOperation.Save)
             .withDelete(RoleOperation.Delete)
             .withQuery();
+
+        sb.schema.entityEvents(RoleEntity).saving.push(roleSaving);
 
         sb.include(UserEntity)
             // The deactivation sweep filters on it.
@@ -411,6 +414,60 @@ const importerList: AuthXmlImporter[] = [];
 // in ExecutionMode.global.
 let roleGraphLazy: ResetLazy<RoleGraph>;
 let anonymousUserLazy: ResetLazy<UserEntity>;
+
+// Signum's Schema_Saving. Its EntityCache(ForceNew) + AddFullGraph(role) is the map below with `role` put
+// over its stored row; the trivial dependants are read from the stored rows, as Signum's query reads them.
+// No IsGraphModified on a plain array, so the cycle check always runs.
+async function roleSaving(role: RoleEntity): Promise<void> {
+    if (!role.isNew) {
+        const storedRoles = await ExecutionMode.global(() => table(RoleEntity).toArray()) as RoleEntity[];
+        const rolesByKey = new Map<string, RoleEntity>(storedRoles.map(r => [r.toLite().key(), r]));
+        rolesByKey.set(role.toLite().key(), role);
+        const allRoles = [...rolesByKey.values()];
+
+        const problems = DirectedGraph.generate<string>(rolesByKey.keys(),
+            key => rolesByKey.get(key)!.inheritsFrom.map(row => row.inheritsFrom.key())).feedbackEdgeSet().edges;
+        if (problems.length > 0)
+            throw new Error(AuthAdminMessage._0CyclesHaveBeenFoundInTheGraphOfRolesDueToTheRelationships.niceToString(problems.length) + "\n" +
+                problems.map(e => `${rolesByKey.get(e.from)!.name} -> ${rolesByKey.get(e.to)!.name}`).join("\n"));
+
+        const problems2 = allRoles.flatMap(r => r.inheritsFrom
+            .filter(inh => rolesByKey.get(inh.inheritsFrom.key())?.isTrivialMerge)
+            .map(inh => ({ r, inh: inh.inheritsFrom })));
+        if (problems2.length > 0)
+            throw new Error([...problems2.groupToMap(a => a.r, a => a.inh)]
+                .map(([r, gr]) => AuthAdminMessage.Role0InheritsFromTrivialMergeRole1.niceToString(r, gr.map(inh => inh.toString()).joinComma(CollectionMessage.And.niceToString())))
+                .join("\n"));
+
+        if (!role.isTrivialMerge) {
+            const trivialDependant = storedRoles.filter(a => a.isTrivialMerge && a.inheritsFrom.some(i => i.inheritsFrom.is(role.toLite())));
+
+            if (trivialDependant.length > 0) {
+                if (role.name !== await role.inDB(a => a.name)) {
+                    for (const item of trivialDependant) {
+                        const replaced = item.inheritsFrom.map(r => r.inheritsFrom.is(role.toLite()) ? role.toLite() : r.inheritsFrom);
+
+                        const newName = AuthLogic.calculateTrivialMergeName(replaced);
+
+                        const itemId = item.id;
+                        await table(RoleEntity).filter(a => a.id == itemId).executeUpdate(() => ({ name: newName }));
+                    }
+                }
+            }
+        }
+    }
+    else {
+        if (role.inheritsFrom.length > 0) {
+            const problems: Lite<RoleEntity>[] = [];
+            for (const a of role.inheritsFrom)
+                if (a.inheritsFrom.entityOrNull?.isTrivialMerge ?? await a.inheritsFrom.inDB(r => r.isTrivialMerge))
+                    problems.push(a.inheritsFrom);
+
+            if (problems.length > 0)
+                throw new Error(AuthAdminMessage.Role0InheritsFromTrivialMergeRole1.niceToString(role, problems.map(p => p.toString()).joinComma(CollectionMessage.And.niceToString())));
+        }
+    }
+}
 
 async function loadRoleGraph(): Promise<RoleGraph> {
     const roles = await table(RoleEntity).toArray() as RoleEntity[];
