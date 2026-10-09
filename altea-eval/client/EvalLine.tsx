@@ -51,6 +51,8 @@ export interface EvalLineProps<F extends EvalFunction> {
     returnType: string;
     /** `async`, when the script may `await`. */
     isAsync?: boolean;
+    /** The same declarations the eval's `compile()` hands `EvalEmbedded.wrap`. */
+    declarations?: string[];
     label?: React.ReactNode;
     height?: number;
 }
@@ -81,8 +83,8 @@ export function EvalLine<F extends EvalFunction>(p: EvalLineProps<F>): React.JSX
     React.useEffect(() => setImplicit([]), [subject]);
 
     const header = React.useMemo(
-        () => buildHeader(intelliSense, implicit, signature(p)),
-        [intelliSense, implicit, p.parameters, p.returnType, p.isAsync]);
+        () => buildHeader(intelliSense, implicit, [...(p.declarations ?? []), signature(p)].join("\n")),
+        [intelliSense, implicit, p.parameters, p.returnType, p.isAsync, p.declarations?.join("\n")]);
 
     // The same implicit-import pass the server runs, against the model the author is typing into. Debounced
     // because it costs a round trip to the worker, and a declaration fetch when it finds something.

@@ -181,6 +181,8 @@ export abstract class EvalEmbedded<F extends EvalFunction> extends EmbeddedEntit
         isAsync?: boolean;
         /** Verbatim import lines, for the rare case the configuration cannot say it. */
         imports?: string[];
+        /** Verbatim declarations above the signature — types generated from the eval's own data. */
+        declarations?: string[];
         /**
          * What this eval kind may reach. Defaults to {@link EvalEmbedded.defaultImports} — an eval kind
          * overrides it when its scripts need more (or less) than everything else's.
@@ -199,6 +201,7 @@ export abstract class EvalEmbedded<F extends EvalFunction> extends EmbeddedEntit
             ...(options.imports ?? []),
             ...hoisted,
             "",
+            ...(options.declarations ?? []),
             `export default ${options.isAsync ? "async " : ""}function evaluate(${options.parameters}): `
                 + (options.isAsync ? `Promise<Awaited<${options.returnType}>>` : options.returnType) + " {",
         ];

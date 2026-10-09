@@ -15,8 +15,8 @@ import type { EvalImports } from "../data/EvalImports";
 // script can reasonably need. A module OUTSIDE the framework contributes its own from its own
 // `Logic.start` (altea-workflow does), and the APP contributes only what only it can know.
 //
-// EAGER is kept to four lines on purpose. They are the vocabulary nearly every script uses — a decimal, a
-// query, an operation, the current user — and an eager name is in scope in EVERY script, so a long eager
+// EAGER is kept to two lines on purpose. They are the vocabulary nearly every script uses — a decimal, a
+// query — and an eager name is in scope in EVERY script, so a long eager
 // list is a long list of names an author cannot use for anything else. Everything else is LAZY: the name
 // is importable, and the import is written for the author when a script actually says it.
 //
@@ -30,8 +30,6 @@ export function frameworkImports(imports: EvalImports): EvalImports {
         // ---- Eager: in scope in every script -------------------------------------------------------------
         .eager("@altea/altea/data/basics", ["Decimal", "Temporal", "toInt"], { value: basics })
         .eager("@altea/altea/server/table", ["table"], { value: table })
-        .eager("@altea/altea/server/operationLogic", ["Operations"], { value: operationLogic })
-        .eager("@altea/altea/server/userHolder", ["UserHolder"], { value: userHolder })
 
         // ---- Lazy: importable by name, loaded only when a script names one -------------------------------
         .lazy("@altea/altea/data/basics", "*", { value: basics })
