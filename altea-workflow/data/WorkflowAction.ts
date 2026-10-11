@@ -7,6 +7,8 @@ import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { type IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
 import type { IWorkflowActionExecutor } from "./WorkflowEval";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
+import { CodeSyncMixin } from "@altea/altea-user-assets/data/AssetSync";
 
 // Port of Signum.Workflow's WorkflowAction.cs — a NAMED side effect run while taking a connection.
 // Same two divergences as WorkflowCondition.ts: `Eval` is a TypeScript script compiled by
@@ -14,6 +16,7 @@ import type { IWorkflowActionExecutor } from "./WorkflowEval";
 
 @primaryKey("uuid")
 @entity("Shared", "Master")
+@mixin(() => [CodeSyncMixin])
 export class WorkflowActionEntity extends Entity implements IUserAssetEntity {
 
     @uniqueIndex

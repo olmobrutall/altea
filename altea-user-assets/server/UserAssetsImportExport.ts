@@ -87,15 +87,42 @@ export function rowGuid(row: Entity): Record<string, unknown> {
 
 // ---- The (de)serialization context APIs ---------------------------------------------------------------
 
+/**
+ * Where an asset's binaries (a template document, an image attachment) go. A serializer never writes
+ * base64 itself: `write` returns what to spread onto the element, and `read` takes that element back.
+ * The one-file export inlines base64 (`#text`); a sync folder writes a sidecar file and a `Path`.
+ */
+export interface BinaryStore {
+    write(fileName: string, bytes: Uint8Array): Record<string, unknown>;
+    read(element: Record<string, unknown>): Uint8Array;
+}
+
+export const inlineBinaryStore: BinaryStore = {
+    write: (_fileName, bytes) => ({ "#text": Buffer.from(bytes).toString("base64") }),
+    read: element => {
+        if (element[ATTR + "Path"] != null)
+            throw new Error(`The binary '${String(element[ATTR + "Path"])}' is a sidecar file of a sync folder; `
+                + "import it through the asset sync, not as a single XML file.");
+        return new Uint8Array(Buffer.from(textOf(element["#text"]), "base64"));
+    },
+};
+
+function textOf(value: unknown): string {
+    const v = Array.isArray(value) ? value[0] : value;
+    return v == null ? "" : String(v);
+}
+
 export interface IToXmlContext {
     /** Add an asset to the export set (recursively) and return its guid. */
     include(entity: IUserAssetEntity): string;
     /** Retrieve the full entity behind a lite (for reading fields into the XML). */
     retrieveLite<T extends Entity>(lite: Lite<T>): Promise<T>;
+    readonly binary: BinaryStore;
 }
 
 export interface IFromXmlContext {
     readonly isPreview: boolean;
+    readonly binary: BinaryStore;
     /** The type↔id snapshot for this import, resolved once at its async boundary — a `fromXml` is
      *  synchronous and may need to resolve a stored type id back to its row. */
     readonly typeCaches: TypeCaches;
@@ -148,7 +175,11 @@ export namespace UserAssetsImporter {
         return c;
     }
 
-    function configForEntity(entity: IUserAssetEntity): UserAssetTypeConfig {
+    export function configs(): UserAssetTypeConfig[] {
+        return [...registry.values()];
+    }
+
+    export function configForEntity(entity: IUserAssetEntity): UserAssetTypeConfig {
         // The registered elementName equals the entity's clean type name; entities carry their ctor name.
         const name = entity.constructor.name.replace(/Entity$/, "");
         const direct = registry.get(name) ?? registry.get(entity.constructor.name);
@@ -177,6 +208,7 @@ export namespace UserAssetsImporter {
                 return guid;
             },
             retrieveLite: lite => lite.retrieve(),
+            binary: inlineBinaryStore,
         };
 
         for (const e of entities)
@@ -199,6 +231,31 @@ export namespace UserAssetsImporter {
             (byName[name] ??= []).push(obj);
         }
 
+        return build(byName);
+    }
+
+    /**
+     * ONE asset, alone in its file. A referenced asset is written as its Guid and handed to `reference`
+     * instead of being included, because in a sync folder it lives in a file of its own.
+     */
+    export async function toAssetXml(entity: IUserAssetEntity, binary: BinaryStore,
+        reference: (referenced: IUserAssetEntity) => void): Promise<string> {
+        const cfg = configForEntity(entity);
+        const ctx: IToXmlContext = {
+            include(referenced) {
+                if (referenced !== entity)
+                    reference(referenced);
+                return String(referenced.id);
+            },
+            retrieveLite: lite => lite.retrieve(),
+            binary,
+        };
+        const obj = await cfg.toXml(entity, ctx);
+        obj[ATTR + "Guid"] = String(entity.id);
+        return build({ [cfg.elementName]: [obj] });
+    }
+
+    function build(byName: Record<string, Record<string, unknown>[]>): string {
         const builder = new XMLBuilder({ attributeNamePrefix: ATTR, ignoreAttributes: false, format: true, suppressEmptyNode: true });
         return builder.build({ Entities: byName });
     }
@@ -299,9 +356,10 @@ export namespace UserAssetsImporter {
         }
     }
 
-    async function fromXmlContext(isPreview: boolean, materialized: Map<string, IUserAssetEntity>): Promise<IFromXmlContext> {
+    export async function fromXmlContext(isPreview: boolean, materialized: Map<string, IUserAssetEntity>): Promise<IFromXmlContext> {
         return {
             isPreview,
+            binary: inlineBinaryStore,
             typeCaches: await TypeLogic.caches(),
             symbols: await SymbolLogic.allCaches(),
             getQuery: queryKey => getQueryByKey(queryKey),
@@ -321,7 +379,13 @@ export namespace UserAssetsImporter {
 
 // ---- helpers -------------------------------------------------------------------------------------------
 
-function parse(content: string): { elementName: string; obj: Record<string, unknown> }[] {
+export interface ParsedAsset {
+    elementName: string;
+    guid: string;
+    obj: Record<string, unknown>;
+}
+
+export function parseAssets(content: string): ParsedAsset[] {
     // Every ELEMENT is an array (a single child reads like many), but an ATTRIBUTE stays a scalar: wrapped
     // as `["true"]` it passes String()/Number() but fails every `v === "true"` check, and each boolean
     // attribute silently imported as false.
@@ -331,20 +395,20 @@ function parse(content: string): { elementName: string; obj: Record<string, unkn
     });
     const root = parser.parse(content) as Record<string, unknown>;
     const entities = ((root["Entities"] as unknown[])?.[0] ?? {}) as Record<string, unknown>;
-    const result: { elementName: string; obj: Record<string, unknown> }[] = [];
+    const result: ParsedAsset[] = [];
     for (const [elementName, list] of Object.entries(entities)) {
         if (elementName.startsWith(ATTR))
             continue;
         for (const obj of list as Record<string, unknown>[])
-            result.push({ elementName, obj });
+            result.push({ elementName, guid: String(obj[ATTR + "Guid"] ?? obj["Guid"] ?? ""), obj });
     }
     return result;
 }
 
 function parseByGuid(content: string): Map<string, { elementName: string; obj: Record<string, unknown> }> {
     const parsedByGuid = new Map<string, { elementName: string; obj: Record<string, unknown> }>();
-    for (const p of parse(content))
-        parsedByGuid.set(String(p.obj[ATTR + "Guid"] ?? p.obj["Guid"] ?? ""), p);
+    for (const p of parseAssets(content))
+        parsedByGuid.set(p.guid, p);
     return parsedByGuid;
 }
 

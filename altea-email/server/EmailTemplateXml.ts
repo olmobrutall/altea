@@ -5,7 +5,7 @@ import {
     FilterOperation, FilterGroupOperation, OrderType, DashboardBehaviour,
 } from "@altea/altea/data/dynamicQueries";
 import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
-import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
+import type { IToXmlContext, IFromXmlContext, BinaryStore } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
 import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
@@ -89,7 +89,7 @@ async function templateToXml(et: EmailTemplateEntity, ctx: IToXmlContext): Promi
         })),
     };
 
-    if (et.attachments.length) o["Attachments"] = attachmentsXml(et.attachments.map(r => r.attachment));
+    if (et.attachments.length) o["Attachments"] = attachmentsXml(et.attachments.map(r => r.attachment), ctx.binary);
 
     o["Messages"] = {
         Message: et.messages.map(m => ({
@@ -172,7 +172,7 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
         return m;
     });
 
-    et.attachments = readAttachments(xml["Attachments"]).map(a =>
+    et.attachments = readAttachments(xml["Attachments"], ctx.binary).map(a =>
         EmailTemplateEntity_Attachment.create({ attachment: a }));
 
     // Signum's `Applicable = element.Element("Applicable")?.Let(app => new TemplateApplicableEval { Script =
@@ -197,17 +197,17 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
 
 // ---- EmailMasterTemplate -------------------------------------------------------------------------------
 
-function masterToXml(emt: EmailMasterTemplateEntity, _ctx: IToXmlContext): Record<string, unknown> {
+function masterToXml(emt: EmailMasterTemplateEntity, ctx: IToXmlContext): Record<string, unknown> {
     const o: Record<string, unknown> = {};
     o[A + "Name"] = emt.name ?? "";
     o["Messages"] = {
         Message: emt.messages.map(m => ({ [A + "CultureInfo"]: cultureNameOf(m.cultureInfo), "#text": m.text })),
     };
-    if (emt.attachments.length) o["Attachments"] = attachmentsXml(emt.attachments.map(r => r.attachment));
+    if (emt.attachments.length) o["Attachments"] = attachmentsXml(emt.attachments.map(r => r.attachment), ctx.binary);
     return o;
 }
 
-async function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string, unknown>, _ctx: IFromXmlContext): Promise<void> {
+async function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): Promise<void> {
     emt.name = str(xml[A + "Name"])!;
     const cultures = await CultureInfoLogic.lookup();
     emt.messages = list(asRecord(xml["Messages"])?.["Message"]).map(x => {
@@ -217,7 +217,7 @@ async function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string,
         });
         return m;
     });
-    emt.attachments = readAttachments(xml["Attachments"]).map(a =>
+    emt.attachments = readAttachments(xml["Attachments"], ctx.binary).map(a =>
         EmailMasterTemplateEntity_Attachment.create({ attachment: a }));
 }
 
@@ -260,7 +260,7 @@ function orderXml(o: EmailTemplateEntity_Order): Record<string, unknown> {
 }
 
 /** Signum's AttachmentFromXmlExtensions: an attachment element is named after its TYPE. */
-function attachmentsXml(attachments: readonly IAttachmentGeneratorEntity[]): Record<string, unknown> {
+function attachmentsXml(attachments: readonly IAttachmentGeneratorEntity[], binary: BinaryStore): Record<string, unknown> {
     const result: Record<string, unknown[]> = {};
     for (const a of attachments) {
         if (a instanceof ImageAttachmentEntity) {
@@ -268,7 +268,7 @@ function attachmentsXml(attachments: readonly IAttachmentGeneratorEntity[]): Rec
                 ...(a.fileName != null ? { [A + "FileName"]: a.fileName } : {}),
                 [A + "ContentId"]: a.contentId,
                 [A + "Type"]: Enum.toName(EmailAttachmentType, a.type),
-                File: { [A + "FileName"]: a.file.fileName, "#text": Buffer.from(a.file.binaryFile).toString("base64") },
+                File: { [A + "FileName"]: a.file.fileName, ...binary.write(a.file.fileName, a.file.binaryFile) },
             });
         } else if (a instanceof FileTokenAttachmentEntity) {
             (result["FileTokenAttachment"] ??= []).push({
@@ -284,7 +284,7 @@ function attachmentsXml(attachments: readonly IAttachmentGeneratorEntity[]): Rec
     return result;
 }
 
-function readAttachments(xml: unknown): IAttachmentGeneratorEntity[] {
+function readAttachments(xml: unknown, binary: BinaryStore): IAttachmentGeneratorEntity[] {
     const container = asRecord(xml);
     if (container == undefined)
         return [];
@@ -300,7 +300,7 @@ function readAttachments(xml: unknown): IAttachmentGeneratorEntity[] {
         const file = asRecord(x["File"]);
         if (file != undefined) {
             a.file.fileName = str(file[A + "FileName"]) ?? "";
-            a.file.binaryFile = new Uint8Array(Buffer.from(str(file["#text"]) ?? "", "base64"));
+            a.file.binaryFile = binary.read(file);
         }
         result.push(a);
     }
@@ -323,8 +323,10 @@ function token(tokenString: string): QueryTokenEmbedded {
     return qte;
 }
 
+// The parser wraps every element in an array, a single child included.
 function asRecord(value: unknown): Record<string, unknown> | undefined {
-    return value != null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+    const v = Array.isArray(value) ? value[0] : value;
+    return v != null && typeof v === "object" ? v as Record<string, unknown> : undefined;
 }
 
 function list(value: unknown): Record<string, unknown>[] {

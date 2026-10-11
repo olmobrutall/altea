@@ -16,6 +16,8 @@ import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
+import { CodeSyncMixin } from "@altea/altea-user-assets/data/AssetSync";
 
 // Port of Signum.Toolbar's Toolbar.cs + ToolbarSwitcher.cs — see port/Toolbar.md.
 //
@@ -173,6 +175,7 @@ export class ToolbarMenuEntity_Element extends ToolbarElementBaseEntity {
 
 @primaryKey("uuid")
 @entity("Main", "Master")
+@mixin(() => [CodeSyncMixin])
 export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarEntity {
 
     // AssertImplementedBy(User, Role) in logic. Whose toolbar this is
@@ -206,6 +209,7 @@ export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarE
 // an entity type (then the menu shows an entity picker and its elements split into with-/without-entity).
 @primaryKey("uuid")
 @entity("Shared", "Master")
+@mixin(() => [CodeSyncMixin])
 export class ToolbarMenuEntity extends Entity implements IUserAssetEntity, IHasEntityType, IToolbarEntity {
 
     @implementedBy(() => [UserEntity, RoleEntity])
@@ -234,6 +238,7 @@ export class ToolbarMenuEntity extends Entity implements IUserAssetEntity, IHasE
 // ToolbarMenus (a dropdown; the picked menu's elements render below it).
 @primaryKey("uuid")
 @entity("Shared", "Master")
+@mixin(() => [CodeSyncMixin])
 export class ToolbarSwitcherEntity extends Entity implements IUserAssetEntity, IToolbarEntity {
 
     // UNIQUE here only — Toolbar and ToolbarMenu names are not, in either framework.

@@ -19,6 +19,8 @@ import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
 import { TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity, ToolbarMenuPartEntity } from "./Parts";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
+import { CodeSyncMixin } from "@altea/altea-user-assets/data/AssetSync";
 
 // Port of Signum's Signum.Dashboard/DashboardEntity.cs + PanelPart.cs. A Dashboard is a user-authored,
 // XML-portable grid of PARTS (a saved query in a SearchControl, a chart, a big value, free text, …) laid out
@@ -237,6 +239,7 @@ export class CacheQueryConfigurationEmbedded extends EmbeddedEntity {
 
 @primaryKey("uuid")
 @entity("Main", "Master")
+@mixin(() => [CodeSyncMixin])
 export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEntityType {
 
     // Signum's `Lite<TypeEntity>? EntityType` — the entity type this dashboard is a quick-link / embedded

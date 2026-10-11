@@ -1,5 +1,26 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
+  <Type Name="CodeSyncMessage">
+    <Member Name="_0References1WhichHasNoSyncFolder" Description="{0} verweist auf {1}, das keinen Synchronisierungsordner hat" />
+    <Member Name="APersonalAssetInASyncFolderWillBeOwnedByTheSameUserInEveryEnvironment" Description="Ein persönliches Asset in einem Synchronisierungsordner gehört in jeder Umgebung demselben Benutzer, der dort möglicherweise nicht existiert." />
+    <Member Name="ControlledByCode" Description="Durch Code gesteuert" />
+    <Member Name="DownloadZip" Description="Zip herunterladen" />
+    <Member Name="InSyncWithCode" Description="Mit dem Code synchron" />
+    <Member Name="ModifiedInTheDatabase" Description="In der Datenbank geändert" />
+    <Member Name="NoFileForThisAssetIn0" Description="Für dieses Asset gibt es keine Datei in {0}" />
+    <Member Name="TheAssetHasNoSyncFolder" Description="Das Asset hat keinen Synchronisierungsordner" />
+  </Type>
+  <Type Name="CodeSyncMixin">
+    <Member Name="CodeSyncState" Description="Synchronisierungsstatus" />
+    <Member Name="SyncFolder" Description="Synchronisierungsordner" />
+  </Type>
+  <Type Name="CodeSyncOperation">
+    <Member Name="DiscardDbChanges" Description="Datenbankänderungen verwerfen" />
+  </Type>
+  <Type Name="CodeSyncState" Description="Synchronisierungsstatus">
+    <Member Name="InSync" Description="Synchron" />
+    <Member Name="ModifiedInDb" Description="In der Datenbank geändert" />
+  </Type>
   <Type Name="EntityAction" Description="Entitätsaktion">
     <Member Name="Different" Description="Verschiedene" />
     <Member Name="Identical" Description="Identische" />
@@ -27,6 +48,13 @@
   </Type>
   <Type Name="QueryTokenEmbedded" Description="Abfrage-Token">
     <Member Name="TokenString" Description="Token string" />
+  </Type>
+  <Type Name="SyncFolderEntity" Description="Synchronisierungsordner" PluralDescription="Synchronisierungsordner" Gender="m">
+    <Member Name="Name" Description="Name" />
+  </Type>
+  <Type Name="SyncFolderOperation">
+    <Member Name="Save" Description="Speichern" />
+    <Member Name="SyncFromCode" Description="Aus dem Code synchronisieren" />
   </Type>
   <Type Name="TokenMigrationEntity" Description="Token-Migration">
     <Member Name="Comment" Description="Kommentar" />

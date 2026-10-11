@@ -34,9 +34,9 @@ import { OfficeModelLogic } from "./OfficeModelLogic";
 //  - `Applicable` was a C# SCRIPT element in Signum; the TemplateApplicableSymbol's KEY is exported
 //    instead. A file carrying a script imports with the predicate left unset — the template then applies
 //    to everything, which is the safe reading (the same call EmailTemplateXml made).
-//  - `Template` is a `Lite<FileEntity>` Signum resolves through the export SET; the bytes are written
-//    base64 INSIDE the element instead — which is what Signum's FileEntity element holds anyway, so a
-//    file round-trips.
+//  - `Template` is a `Lite<FileEntity>` Signum resolves through the export SET; the bytes go through
+//    `ctx.binary` instead — base64 inside the element in a one-file export (what Signum's FileEntity
+//    element holds anyway, so a file round-trips), a sidecar file in a sync folder.
 //  - An enum attribute keeps the member NAME (`Enum.toName`); the in-memory value is the ORDINAL.
 
 const A = "@_"; // fast-xml-parser attribute prefix
@@ -52,7 +52,7 @@ export function registerOfficeTemplateXml(): void {
     });
 }
 
-function templateToXml(ot: OfficeTemplateEntity, _ctx: IToXmlContext): Record<string, unknown> {
+function templateToXml(ot: OfficeTemplateEntity, ctx: IToXmlContext): Record<string, unknown> {
     const o: Record<string, unknown> = {};
     o[A + "Name"] = ot.name;
     o[A + "DisableAuthorization"] = ot.disableAuthorization;
@@ -72,7 +72,7 @@ function templateToXml(ot: OfficeTemplateEntity, _ctx: IToXmlContext): Record<st
     // The template document itself.
     if (ot.template != null) o["Template"] = {
         [A + "FileName"]: ot.template.fileName,
-        "#text": base64Of(ot.template.binaryFile),
+        ...ctx.binary.write(ot.template.fileName, ot.template.binaryFile ?? new Uint8Array()),
     };
 
     return o;
@@ -135,7 +135,7 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
     if (template != undefined) {
         ot.template = FileEntity.create({
             fileName: str(template[A + "FileName"]) ?? "template.docx",
-            binaryFile: bytesOf(str(template["#text"]) ?? ""),
+            binaryFile: ctx.binary.read(template),
         });
     }
 }
@@ -177,18 +177,10 @@ function symbolOr<T extends { key: string }>(ctor: new () => T, key: string | un
     return symbol;
 }
 
-function base64Of(bytes: Uint8Array | null | undefined): string {
-    return bytes == null ? "" : Buffer.from(bytes).toString("base64");
-}
-
-function bytesOf(base64: string): Uint8Array {
-    return new Uint8Array(Buffer.from(base64, "base64"));
-}
-
+// The parser wraps every element in an array, a single child included.
 function asRecord(value: unknown): Record<string, unknown> | undefined {
-    return typeof value === "object" && value != null && !Array.isArray(value)
-        ? value as Record<string, unknown>
-        : undefined;
+    const v = Array.isArray(value) ? value[0] : value;
+    return typeof v === "object" && v != null ? v as Record<string, unknown> : undefined;
 }
 
 function list(value: unknown): Record<string, unknown>[] {

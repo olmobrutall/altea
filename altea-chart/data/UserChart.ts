@@ -20,6 +20,8 @@ import { ChartScriptSymbol } from "./ChartScript";
 import { ChartColumnEmbedded } from "./ChartColumn";
 import { ChartParameterEmbedded } from "./ChartParameter";
 import { ChartTimeSeriesEmbedded } from "./ChartRequest";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
+import { CodeSyncMixin } from "@altea/altea-user-assets/data/AssetSync";
 
 // Port of Signum's Signum.Chart/UserChart/UserChart.cs (UserChartEntity). A UserChart is a user-authored,
 // saved chart definition (a chart script + column/parameter bindings + filters) over a registered query,
@@ -122,6 +124,7 @@ export class UserChartEntity_CustomDrilldown extends Entity {
 // is a bare marker. IHasEntityType carries the `entityType` quick-link scope.
 @primaryKey("uuid")
 @entity("Main", "Master")
+@mixin(() => [CodeSyncMixin])
 export class UserChartEntity extends Entity implements IUserAssetEntity, IHasEntityType {
     query: QueryEntity;
 
