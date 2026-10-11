@@ -1,7 +1,7 @@
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { IconProp } from "@fortawesome/fontawesome-svg-core";
-import type { Entity } from "@altea/altea/data/entity";
+import type { BaseEntity, Entity, Type } from "@altea/altea/data/entity";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import type { TypeInfo } from "@altea/altea/data/reflection";
 import { cleanTypeName } from "@altea/altea/data/registration";
@@ -97,13 +97,11 @@ export function ToolbarElementTable<R extends ToolbarElementBaseEntity>({ ctx, e
 
     return (
         <EntityTable ctx={ctx} view
-            filterRows={withEntity == undefined ? undefined : ctxs => ctxs.filter(a => (a.value as unknown as ToolbarMenuEntity_Element).withEntity === withEntity)}
-            // The row ctor comes from the collection's own PropertyRoute, so a Toolbar gets a
-            // ToolbarEntity_Element and a ToolbarMenu a ToolbarMenuEntity_Element.
-            onCreate={pr => Constructor.construct(pr.fieldInfo!.getFunction()!.name, {
+            filterRows={withEntity == undefined ? undefined : ctxs => ctxs.filter(a => (a.value as ToolbarElementBaseEntity as ToolbarMenuEntity_Element).withEntity === withEntity)}
+            onCreate={pr => Constructor.construct(pr.type.getFunction() as Type<ToolbarElementBaseEntity>, {
                 type: ToolbarElementType.Item,
-                withEntity,
-            }) as Promise<R | undefined>}
+                ...(withEntity == undefined ? {} : { withEntity }),
+            }, pr) as Promise<R | undefined>}
             columns={[
                 {
                     header: "Icon",

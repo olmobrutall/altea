@@ -186,6 +186,13 @@ export default function transformerFactory(program: ts.Program, pluginConfig: Pl
       return contextualType != null && isQuotedLikeType(contextualType);
     }
 
+    // A lambda RETURNED from a function declared to return a Quoted — e.g. a stored script whose generated
+    // wrapper is `function evaluate(): Quoted<…> { return a => …; }`.
+    if (ts.isReturnStatement(node.parent) && node.parent.expression === node) {
+      const contextualType = typeChecker.getContextualType(node);
+      return contextualType != null && isQuotedLikeType(contextualType);
+    }
+
     return false;
   }
 

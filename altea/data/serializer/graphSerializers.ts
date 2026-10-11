@@ -706,7 +706,10 @@ export const Serializer = {
             writeTypes: options?.writeTypes ?? 'Auto', path: new Set(), authContext: options?.authContext,
             avoidTranslations: options?.avoidTranslations,
         };
-        return JSON.stringify(factory.dynamic.toJson(obj, sc, true), null, options?.indent);
+        const json = options?.detachedPart && obj instanceof Entity && isPartType(obj.constructor)
+            ? factory.forEntity(obj.getType()).toJson(obj, sc, true, /* parented */ true)
+            : factory.dynamic.toJson(obj, sc, true);
+        return JSON.stringify(json, null, options?.indent);
     },
 
     /**

@@ -111,6 +111,30 @@ describe('quote-transformer', () => {
         );
     });
 
+    test('returned from a function declared to return a Quoted', () => {
+        assertSimpleTransform(
+            `function f(): Quoted<(a: number) => number> {
+    return (a: number) => a + 1;
+}`,
+            `function f(): Quoted<(a: number) => number> {
+    return Object.assign((a: number) => a + 1, {
+        __quoted: () => ((a: ExParam) => ["=>", [a], ["+", a, ["c", 1]]])(["p", "a"])
+    });
+}`
+        );
+    });
+
+    test('returned from a function NOT declared to return a Quoted is not transformed', () => {
+        assertSimpleTransform(
+            `function f(): (a: number) => number {
+    return (a: number) => a + 1;
+}`,
+            `function f(): (a: number) => number {
+    return (a: number) => a + 1;
+}`
+        );
+    });
+
     test('ternary', () => {
         assertSimpleTransform(
             `test((a: number) => a > 0 ? a : -a);`,

@@ -1,5 +1,5 @@
 import type { Quoted } from "quote-transformer/quoted";
-import { QueryTokenString, tokenSequence, type Anonymous } from "@altea/altea/data/dynamicQuery/queryTokenString";
+import { QueryTokenString, tokenSequence } from "@altea/altea/data/dynamicQuery/queryTokenString";
 import { Enum } from "@altea/altea/data/enum";
 import { Entity, type BaseEntity, type Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
@@ -20,7 +20,7 @@ import { FilterOperation, OrderType, type FilterOperationKeys, type OrderTypeKey
  * The lambda goes through the same `tokenSequence` the application's own `Type.token(…)` uses, so a test
  * and the client produce the identical string — PascalCase and rootless (`ShipAddress.City`).
  */
-export type TokenOf<T, S = unknown> = Quoted<(t: Anonymous<T>) => S> | QueryTokenString<S>;
+export type TokenOf<T, S = unknown> = Quoted<(t: T) => S> | QueryTokenString<S>;
 
 /** The token string behind {@link TokenOf} — what the DOM carries as `data-full-token` / `data-column-name`. */
 export function tokenString<T>(token: TokenOf<T>): string {

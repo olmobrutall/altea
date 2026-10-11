@@ -652,7 +652,7 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
 
     // Carry the token's TypeReference so altea's Lines (AutoLine dispatches on ctx.memberType) know what
     // editor to render for the value. A group may have no unifying token → undefined (handled by rules).
-    const ctx = new TypeContext<any>(undefined, { formGroupStyle: "None", readOnly: readOnly, formSize: "xs" }, f.token?.type, Binding.create(f, a => a.value));
+    const ctx = new TypeContext<any>(undefined, { formGroupStyle: "None", readOnly: readOnly, formSize: "xs" }, f.token?.type.asNullable(), Binding.create(f, a => a.value));
 
     // label: the context is built with formGroupStyle "None", so no <label> is rendered and this is what
     // gives the value editor its name. It is the word the filter designer's own help text uses.
@@ -904,7 +904,7 @@ export function FilterConditionComponent(p: FilterConditionComponentProps): Reac
 
     // Carry the token's TypeReference so altea's Lines (AutoLine dispatches on ctx.memberType) know what
     // editor to render for the value (text/number/date/enum/entity picker).
-    const ctx = new TypeContext<any>(undefined, { formGroupStyle: "None", readOnly: readOnly, formSize: "xs" }, f.token?.type, Binding.create(f, a => a.value));
+    const ctx = new TypeContext<any>(undefined, { formGroupStyle: "None", readOnly: readOnly, formSize: "xs" }, f.token?.type.asNullable(), Binding.create(f, a => a.value));
 
     // label: see the filter group's value editor above — formGroupStyle "None" renders no <label>, so this
     // is what names the control.

@@ -249,9 +249,13 @@ export function FrameModal<T extends BaseEntity>(p: FrameModalProps<T>): React.J
 
   // A `@part` continues the route it was opened FROM rather than re-rooting (PropertyRoute.isPartType),
   // so its lines keep looking their rules up under the owner — the one spelling they are stored under.
-  const pr = typeInfo && !isPartType(typeInfo.ctor) ? PropertyRoute.root(typeInfo.ctor!) : p.propertyRoute;
+  const partCtor = typeInfo?.ctor;
+  const pr = typeInfo && !isPartType(partCtor) ? PropertyRoute.root(typeInfo.ctor!) :
+    isPartType(partCtor) ? p.propertyRoute?.continueAsPart(partCtor) : p.propertyRoute;
   if (!pr)
-    throw new Error(`No TypeInfo for "${typeName}" found, if is an EmbeddedEntity set the propertyRoute explicitly`);
+    throw new Error(typeInfo
+      ? `"${typeName}" is an embedded entity or a @part: it can only be opened from its owner, with the owner's propertyRoute`
+      : `No TypeInfo for "${typeName}" found`);
 
   if (state) {
     frame = {
@@ -444,7 +448,9 @@ export function FrameModalTitle({ titleId, pack, pr, title, subTitle, widgets, g
 
     const ti = tryGetTypeInfo(entity);
 
-    if (ti == undefined || !Navigator.isViewable(ti.ctor! as any)) //Embedded
+    // The link opens the entity's own page, so it asks what a search does: an embedded or a `@part`
+    // ("IsLine") is only ever viewed from its owner.
+    if (ti == undefined || !Navigator.isViewable(ti.ctor! as any, { isSearch: "main" }))
       return undefined;
 
     return (

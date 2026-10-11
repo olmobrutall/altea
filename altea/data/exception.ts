@@ -1,6 +1,6 @@
 import { Entity, type ModelEntity } from "./entity";
 import { Lite } from "./lite";
-import { entity, column, forceNotNullable, implementedBy, rowVersionColumn } from "./decorators";
+import { entity, column, forceNotNullable, implementedBy, rowVersionColumn, index } from "./decorators";
 import { MAX_SIZE } from "./reflection";
 import { Temporal, type int } from "./basics";
 import { BigStringEmbedded } from "./bigString";
@@ -37,6 +37,7 @@ export enum ExceptionOrigin {
 // nothing for a concurrency stamp to protect.
 @rowVersionColumn(false)
 export class ExceptionEntity extends Entity {
+    @index
     creationDate: Temporal.PlainDateTime;
 
     // Signum's `[ForceNotNullable, DbType(Size = 100)] string?` — built up in pieces, so the field is
@@ -55,6 +56,7 @@ export class ExceptionEntity extends Entity {
 
     // Signum's `[BindParent] BigStringEmbedded StackTrace` — a non-null embedded whose `text` is nullable.
     stackTrace: BigStringEmbedded = new BigStringEmbedded();
+    @index
     stackTraceHash: int = 0 as int;
 
     threadId: int = 0 as int;

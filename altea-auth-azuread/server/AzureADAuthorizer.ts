@@ -138,6 +138,11 @@ export class AzureADAuthorizer extends ADAuthorizer<AzureADConfigurationEmbedded
 
     // ---- IDirectoryInviter (the "find a user in the directory and import them" flow) ------------------
 
+    async isDirectoryConfigured(): Promise<boolean> {
+        const config = await this.getConfig();
+        return config != null && config.enabled;
+    }
+
     findUser(subString: string, count: number, signal?: AbortSignal): Promise<ExternalUser[]> {
         return AzureADLogic.findActiveDirectoryUsers(subString, count, signal);
     }

@@ -7,7 +7,7 @@
 // user queries, and a test arranges a search the same way the SearchControl does. Signum has it in its
 // React project alone, which is why its own test suites address a column by string.
 
-import type { Entity, BaseEntity, MixinEntity, Type } from '../entity';
+import type { Entity, MixinEntity, Type } from '../entity';
 import type { Lite } from '../lite';
 import type { FilterOperationKeys, OrderTypeKeys, FilterGroupOperationKeys } from '../dynamicQueries';
 import { getLambdaMembers } from '../lambdaMembers';
@@ -182,20 +182,12 @@ export type FilterValue<T> =
   T extends Entity ? Lite<T> | T | null | undefined :
   T | null | undefined;
 
-/** The query row for `T`: the entity's columns, plus the `Entity` column (Signum's Anonymous<T>). */
-export type Anonymous<T> = T & {
-  /** Represents the 'Entity' column in the query selector. */
-  entity: T;
-};
-
-type AnonymousOf<T> = T extends BaseEntity ? Anonymous<T> : T;
-
 /** A {@link QueryTokenString} factory scoped to `T`, provided by `Type.findOptions` and anchored filter groups. */
 export interface TokenFunction<T> {
   /** `token()` — the token this factory is rooted at (the entity, or the collection element after any()/all()/element()). */
   (): QueryTokenString<T>;
   /** `token(a => a.name)` — navigates the entity graph; the accessed property path becomes the token. */
-  <S>(lambdaToColumn: Quoted<(v: AnonymousOf<T>) => S>): QueryTokenString<TokenValue<S>>;
+  <S>(lambdaToColumn: Quoted<(v: T) => S>): QueryTokenString<TokenValue<S>>;
   /** `token<V>("Key")` — escape hatch for a query-only column with no entity-graph home. */
   <S = unknown>(columnName: string): QueryTokenString<S>;
 }

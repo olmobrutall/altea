@@ -27,6 +27,8 @@
   <Type Name="AuthAdminMessage">
     <Member Name="_0InDB" Description="{0} (en BD solamente)" />
     <Member Name="_0InUI" Description="{0} (en IU)" />
+    <Member Name="_0CyclesHaveBeenFoundInTheGraphOfRolesDueToTheRelationships" Description="Se han encontrado {0} ciclos en el grafo de roles debido a las relaciones:" />
+    <Member Name="Role0InheritsFromTrivialMergeRole1" Description="El rol {0} hereda del rol de fusión trivial {1}" />
     <Member Name="AddCondition" Description="Añadir condición" />
     <Member Name="Allow" Description="Permitir" />
     <Member Name="Allowed" Description="Permitido" />

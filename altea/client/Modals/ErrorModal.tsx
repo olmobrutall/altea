@@ -14,6 +14,7 @@ import "./DialogModals.css"
 import { Modal } from 'react-bootstrap';
 import MessageModal from './MessageModal';
 import { LinkButton } from '../Basics/LinkButton';
+import { useAPI } from '../Hooks';
 
 //http://codepen.io/m-e-conroy/pen/ALsdF
 interface ErrorModalProps extends Modals.IModalProps<undefined> {
@@ -84,7 +85,7 @@ const ErrorModal: {
 
   function renderTitle(e: any) {
     return (
-      <span><FontAwesomeIcon aria-hidden={true} icon="triangle-exclamation" /> Error </span>
+      <span><FontAwesomeIcon aria-hidden={true} icon="triangle-exclamation" /> Error <ClientExceptionId error={e} /></span>
     );
   }
 
@@ -92,11 +93,7 @@ const ErrorModal: {
     return (
       <span>
         <FontAwesomeIcon aria-hidden={true} icon={se.defaultIcon} />&nbsp; <span>{se.httpError.exceptionType}</span>
-        {se.httpError.exceptionId && <span>({
-          ErrorModalOptions.isExceptionViewable() ?
-            <Link to={ErrorModalOptions.getExceptionUrl(se.httpError.exceptionId!)!}>{se.httpError.exceptionId}</Link> :
-            <strong>{se.httpError.exceptionId}</strong>
-        })</span>}
+        {se.httpError.exceptionId && <ExceptionId exceptionId={se.httpError.exceptionId} />}
       </span>
     );
   }
@@ -122,18 +119,41 @@ const ErrorModal: {
 
 export default ErrorModal;
 
-var lastError: { model: ClientErrorModel, date: Date } | undefined;
+function ExceptionId(p: { exceptionId: string }): React.ReactElement {
+  return (
+    <span>({
+      ErrorModalOptions.isExceptionViewable() ?
+        <Link to={ErrorModalOptions.getExceptionUrl(p.exceptionId)!}>{p.exceptionId}</Link> :
+        <strong>{p.exceptionId}</strong>
+    })</span>
+  );
+}
+
+function ClientExceptionId(p: { error: any }): React.ReactElement | null {
+  const exceptionId = useAPI(() => p.error != null && typeof p.error == "object" ? clientExceptionIds.get(p.error) ?? null : null, [p.error]);
+  return exceptionId ? <ExceptionId exceptionId={exceptionId} /> : null;
+}
+
+var lastError: { model: ClientErrorModel, date: Date, exceptionId: Promise<string | null> } | undefined;
+
+const clientExceptionIds = new WeakMap<object, Promise<string | null>>();
 
 function logError(error: Error) {
+  const exceptionId = registerClientError(error);
+  if (exceptionId != null && error != null && typeof error == "object")
+    clientExceptionIds.set(error, exceptionId);
+}
+
+function registerClientError(error: Error): Promise<string | null> | undefined {
 
   if (error instanceof ServiceError || error instanceof ValidationError)
-    return;
+    return undefined;
 
   if (error instanceof DOMException && error.name == "AbortError")
-    return;
+    return undefined;
 
   var errorModel = ClientErrorModel.create({
-    url: (error as any)?.url,
+    url: window.location.href,
     errorType: (error as Object).constructor.name,
     message: error.message || error.toString(),
     stack: error.stack ?? null,
@@ -151,15 +171,17 @@ function logError(error: Error) {
       lastError.model.errorType == errorModel.errorType &&
       ((date.valueOf() - lastError.date.valueOf()) / 1000) < 10
     ) {
-      return;
+      return lastError.exceptionId;
     }
   }
 
-  lastError = { model: errorModel, date: date };
-  ajaxPost({ url: "/api/registerClientError" }, errorModel)
+  const exceptionId = ajaxPost<string | null>({ url: "/api/registerClientError" }, errorModel)
     .catch(e => {
       console.error("Unable to save client-side error:", error, e);
+      return null;
     });
+  lastError = { model: errorModel, date: date, exceptionId };
+  return exceptionId;
 }
 
 ErrorModal.register = () => {
@@ -306,28 +328,34 @@ export function RenderValidationMessageDefault(p: { error: ValidationError }): R
 }
 
 export function RenderMessageDefault(p: { error: any }): React.ReactElement {
+  const [showDetails, setShowDetails] = React.useState(false);
+
+  function handleShowStackTrace(e: React.MouseEvent<any>) {
+    e.preventDefault();
+    setShowDetails(!showDetails);
+  }
+
   const e = p.error;
   return (
     <div>
       {textDanger(e.message ? e.message : e.toString())}
+      {e.stack && ErrorModalOptions.isExceptionViewable() &&
+        <div>
+          <LinkButton title={undefined} onClick={handleShowStackTrace}>StackTrace</LinkButton>
+          {showDetails && <pre>{e.stack}</pre>}
+        </div>}
     </div>
   );
 }
 
 export namespace ErrorModalOptions {
-  // Signum's ExceptionClient wires these to Navigator (getExceptionUrl → the ExceptionEntity view
-  // route; isExceptionViewable → Navigator.isViewable(ExceptionEntity), i.e. the current user may see
-  // exceptions). eastwind has no auth yet, so isExceptionViewable is true in this dev build — which is
-  // what makes the modal reveal the StackTrace toggle + link the exceptionId to the saved row.
-  // TODO(auth): gate isExceptionViewable on an exception-view permission once altea-auth is wired, so
-  // stack traces are not exposed to unauthorized users in production.
   export function getExceptionUrl(exceptionId: number | string): string | undefined {
     return `/view/exception/${exceptionId}`;
   }
 
-  export function isExceptionViewable(): boolean {
-    return true;
-  }
+  /** Reveals the StackTrace toggle and links the exception id. altea-auth gates it on
+   *  `BasicPermission.ViewErrorDetails`; with no authorization module everything is shown. */
+  export let isExceptionViewable: () => boolean = () => true;
 
   export function preferPreFormated(se: ServiceError): boolean {
     // Signum's `se.httpError.exceptionType.contains(...)`. Guard against a missing exceptionType:

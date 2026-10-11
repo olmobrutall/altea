@@ -1,3 +1,8 @@
+// The browser context storage (Statics.newContextVariable), installed by the framework rather than by each
+// app's entry point: every client bootstraps through ClientBuilder, and the shared data/ layer (Clock's
+// time-zone override behind DateTimeLine, corruptMixin, …) creates context variables that otherwise threw
+// "No context storage registered" on the client.
+import './context.browser';
 import { type RouteObject } from 'react-router';
 import { BaseEntity, Entity, type Type } from '../data/entity';
 import type { EntityPack } from '../data/entityPack';
@@ -16,6 +21,7 @@ import { QuickLinkClient, type QuickLink } from './QuickLinkClient';
 import { ExceptionClient } from './Exceptions/ExceptionClient';
 import { TypeEntityClient } from './TypeEntityClient';
 import { EntitySettings, type EntitySettingsOptions, type ViewModule } from './EntitySettings';
+import { Dic } from '../data/globals';
 import { QueryTokenString, createTokenFunction, type TokenFunction } from './QueryTokenString';
 
 // The client-side mirror of the server's SchemaBuilder (see eastwind/app/starter.server.ts). Where the
@@ -55,7 +61,7 @@ export class ClientBuilder {
     // Framework exception UI (Signum's ExceptionClient.start): registers the ExceptionEntity view the
     // ErrorModal links to. In the framework init (not per-app) since the framework's ErrorModal depends
     // on it. Also registers ExceptionEntity's client TypeInfo (fixes "No TypeInfo for 'exception'").
-    ExceptionClient.start();
+    ExceptionClient.start(this);
     // The type table's query settings — chiefly the pinned filter that keeps `@part` rows out of the
     // picker `EntityBase.chooseType` opens for an `@implementedByAll` reference. Here rather than in the
     // app's MainAdmin (where CultureInfoClient / SystemEventLogClient live) because it is a default on a
@@ -77,8 +83,9 @@ export class ClientBuilder {
 export class EntityClientBuilder<T extends BaseEntity> {
   constructor(private type: Type<T>) {}
 
-  /** Register the entity's view module with Navigator (Signum's
-   * `Navigator.addSettings(new EntitySettings(Type, getViewModule, options))`). */
+  /** DECLARE the entity's settings with its view module (Signum's
+   * `Navigator.addSettings(new EntitySettings(Type, getViewModule, options))`). Throws if the entity's
+   * settings already exist — a second declaration is a mistake. To adjust them later, use {@link addSettings}. */
   withView(getViewModule: (entity: T) => Promise<ViewModule<T>>, options?: EntitySettingsOptions<T>): this {
     // EntitySettings is invariant on its entity type (getViewPromise), so EntitySettings<T> for a
     // generic T isn't structurally assignable to the registry's EntitySettings<BaseEntity>. The cast is
@@ -87,18 +94,41 @@ export class EntityClientBuilder<T extends BaseEntity> {
     return this;
   }
 
-  /** Register the entity's settings with NO view module (Signum's `new EntitySettings(Type, undefined, options)`):
-   * it is viewed through the auto-generated AutoComponent, or not at all (`isViewable: "Never"`). */
+  /** DECLARE the entity's settings with NO view module (Signum's `new EntitySettings(Type, undefined, options)`):
+   * it is viewed through the auto-generated AutoComponent, or not at all (`isViewable: "Never"`). Throws
+   * like {@link withView}. */
   withSettings(options?: EntitySettingsOptions<T>): this {
     Navigator.addSettings(new EntitySettings(this.type, undefined, options) as unknown as EntitySettings<BaseEntity>);
     return this;
   }
 
-  /** Register Finder query settings (Signum's `Finder.addSettings({ queryName, ... })`). `queryName`
-   * defaults to the configured type; the builder may override it in its returned object. */
+  /** MERGE `options` into the entity's settings, creating them if missing (Signum's
+   * `Navigator.getOrAddSettings(Type)` + assignments) — for a module adjusting an entity another module
+   * declared. Never throws; but it must run AFTER that declaration, or the declaration finds the entry
+   * this created and throws. */
+  addSettings(options: EntitySettingsOptions<T>): this {
+    const { namedViews, ...rest } = options;
+    const es = Navigator.getOrAddSettings(this.type);
+    Dic.assign(es, rest);
+    namedViews?.forEach(nv => es.registerNamedView(nv));
+    return this;
+  }
+
+  /** DECLARE Finder query settings (Signum's `Finder.addSettings({ queryName, ... })`); throws if the query's
+   * settings already exist. `queryName` defaults to the configured type; the builder may override it in its
+   * returned object. To adjust them later, use {@link addQuerySettings}. */
   withQuerySettings(builder?: (token: TokenFunction<T>) => Partial<Finder.QuerySettings>): this {
     const settings = builder ? builder(createTokenFunction<T>(new QueryTokenString(""))) : {};
     Finder.addSettings({ queryName: this.type, ...settings } as Finder.QuerySettings);
+    return this;
+  }
+
+  /** MERGE into the query settings of the configured type, creating them if missing (Signum's
+   * `Finder.getOrAddSettings(Type)` + assignments) — for a module adjusting a query another module declared.
+   * Never throws; but it must run AFTER that declaration, as {@link addSettings} must. The query is always
+   * the configured type's own: `queryName` is not a setting here. */
+  addQuerySettings(builder: (token: TokenFunction<T>) => Partial<Omit<Finder.QuerySettings, "queryName">>): this {
+    Dic.assign(Finder.getOrAddSettings(this.type), builder(createTokenFunction<T>(new QueryTokenString(""))));
     return this;
   }
 

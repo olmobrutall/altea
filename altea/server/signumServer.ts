@@ -1,9 +1,10 @@
-import { WebBuilder } from "./webApi";
+import { WebBuilder, CustomType } from "./webApi";
 import { EntitiesServer } from "./entitiesServer";
 import { QueryServer } from "./queryServer";
 import { OperationServer } from "./operationServer";
 import { ReflectionServer } from "./reflectionServer";
 import { ExceptionLogic } from "./exceptionLogic";
+import { fillClientErrorContext } from "./filters/exceptionFilter";
 import { ClientErrorModel } from "../data/clientError";
 import { VisualTipServer } from "./visualTipServer";
 import { ChangeLogServer } from "./changeLogServer";
@@ -31,12 +32,12 @@ export namespace SignumServer {
         ChangeLogServer.start(ws);
 
         // Signum's ExceptionController.RegisterClientError: the client's unhandled-error logger POSTs a
-        // ClientErrorModel here; log it as a Frontend ExceptionEntity. 204 (fire-and-forget).
-        ws.post("/api/registerClientError", { req: ClientErrorModel, allowAnonymous: true },
+        // ClientErrorModel here; log it as a Frontend ExceptionEntity and answer its id for the ErrorModal.
+        ws.post("/api/registerClientError", { req: ClientErrorModel, res: CustomType<string | null>(), allowAnonymous: true },
             async (req, res) => {
                 const model = await req.jsonTyped() as ClientErrorModel;
-                await ExceptionLogic.logClientError(model);
-                res.status(204).end();
+                const entity = await ExceptionLogic.logClientError(model, e => fillClientErrorContext(e, req));
+                res.jsonTyped(entity.id != null ? String(entity.id) : null);
             });
 
         // TODO (Phase 2): per-type DB reflection (typeEntity/enumEntities), query description.

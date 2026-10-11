@@ -17,11 +17,12 @@ import { table } from "./table";
 import type { Query } from "./query";
 import "./dynamicQuery/fluentIncludeQuery"; // FluentInclude.withQuery
 import { Clock } from "../data/utils/clock";
+import { UserHolder } from "./userHolder";
 
 // Port of Signum's ExceptionLogic (old/Framework/Signum/Basics/ExceptionLogic.cs), trimmed to the
 // pieces eastwind needs: schema registration, the `logException` extension that builds, fills and
 // persists an ExceptionEntity, and the log-cleanup registry + runner below. Deferred (as in Signum but
-// not needed yet): OnExceptionLogged event, per-environment overrides, and the User/auth wiring.
+// not needed yet): OnExceptionLogged event and per-environment overrides.
 //
 // The engine ownership is the same as Signum: an error anywhere on the server is turned into a row
 // here by the API exception filter (exceptionFilter.ts, Signum's SignumExceptionFilterAttribute).
@@ -35,7 +36,8 @@ export namespace ExceptionLogic {
     export function start(sb: SchemaBuilder): void {
         // Signum: sb.Include<ExceptionEntity>() + WithQuery(...). altea's WithQuery is parameterless.
         // Signum's `.WithIndex(a => a.CreationDate)` — the exception page is browsed newest-first.
-        sb.include(ExceptionEntity).withIndex(a => a.creationDate).withQuery();
+        sb.include(ExceptionEntity)
+            .withQuery();
     }
 
     // ---- Log cleanup ------------------------------------------------------------------------------------
@@ -194,6 +196,10 @@ export namespace ExceptionLogic {
         entity.applicationName = process.env["ALTEA_APP_NAME"] ?? "eastwind";
         entity.environment = process.env["NODE_ENV"] ?? "Default";
         entity.origin = ExceptionOrigin.Backend;
+        entity.version = safe(() => Connector.current().schema.version);
+        // Signum's ExceptionEntity ctor stamps UserHolder.Current here, not in the request filter: errors
+        // logged outside a request's exception filter (scheduled tasks, processes, …) need it too.
+        entity.user = UserHolder.currentUserLite();
 
         // Stash on the Error so a later HttpError(error) reuses this row / id.
         if (error != null && typeof error === "object")
@@ -203,7 +209,7 @@ export namespace ExceptionLogic {
     }
 
     // Signum's ExceptionEntity(ClientErrorModel) ctor + LogException: log a client-reported error.
-    export async function logClientError(model: ClientErrorModel): Promise<ExceptionEntity> {
+    export async function logClientError(model: ClientErrorModel, completeContext?: (e: ExceptionEntity) => void): Promise<ExceptionEntity> {
         const entity = ExceptionEntity.create({
             creationDate: Clock.now,
             exceptionType: [model.errorType, model.name].filter(Boolean).join("/"),
@@ -215,6 +221,11 @@ export namespace ExceptionLogic {
         entity.machineName = safe(() => hostname());
         entity.applicationName = process.env["ALTEA_APP_NAME"] ?? "eastwind";
         entity.origin = ExceptionOrigin.Frontend;
+        entity.version = safe(() => Connector.current().schema.version);
+        // The route is allowAnonymous, but the client posts with its token, so the request scope still
+        // names the user when there is one.
+        entity.user = UserHolder.currentUserLite();
+        completeContext?.(entity);
         try {
             await Saver.save([entity]);
         } catch (saveError) {

@@ -37,6 +37,7 @@ import { getRegisteredTypes, cleanTypeName } from "@altea/altea/data/registratio
 import { tryGetTypeInfo, getOperationInfos } from "@altea/altea/client/Reflection";
 import { Binding } from "@altea/altea/client/binding";
 import { parseIcon } from "@altea/altea/client/Components/IconHelpers";
+import { IconTypeahead } from "@altea/altea/client/Components/IconTypeahead";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { Navigator } from "@altea/altea/client/Navigator";
 import type { ViewPromise } from "@altea/altea/client/EntitySettings";
@@ -1637,9 +1638,8 @@ NodeUtils.register<ButtonNode>({
                 options={["primary", "secondary", "success", "danger", "warning", "info", "light", "dark"] as BsColor[]} />
             <ExpressionOrValueComponent dn={dn} binding={Binding.create(dn.node, n => n.size)} type="string" defaultValue={null}
                 options={["lg", "md", "sm", "xs"] as BsSize[]} />
-{/* Signum offers an IconTypeahead here; there is no icon picker, so the icon is typed as text
-                (e.g. "gear", "fas fa-gear") — parseIcon accepts the same strings either way. */}
-            <ExpressionOrValueComponent dn={dn} binding={Binding.create(dn.node, n => n.icon)} type="string" defaultValue={null} />
+            <ExpressionOrValueComponent dn={dn} binding={Binding.create(dn.node, n => n.icon)} type="string" defaultValue={null}
+                onRenderValue={(val, e) => <IconTypeahead icon={val as string | null | undefined} formControlClass="form-control form-control-xs" onChange={newIcon => e.updateValue(newIcon)} />} />
             <ExpressionOrValueComponent dn={dn} binding={Binding.create(dn.node, n => n.iconColor)} type="string" defaultValue={null}
                 onRenderValue={(val, e) => <input type="color" value={val as string | undefined}
                     className="form-control form-control-xs" onChange={ev => e.updateValue(ev.currentTarget.value)} />} />

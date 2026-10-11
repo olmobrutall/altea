@@ -1,14 +1,14 @@
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { ColorLine, TextBoxLine } from "@altea/altea/client/Lines/TextBoxLine";
+import { ColorLine } from "@altea/altea/client/Lines/TextBoxLine";
+import { IconTypeaheadLine } from "@altea/altea/client/Components/IconTypeahead";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useForceUpdate } from "@altea/altea/client/Hooks";
 import { DashboardEntity, DashboardEntity_Part } from "../../data/Dashboard";
 import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelpers";
 
 // Port of Signum's Signum.Dashboard/Admin/PanelIcon.tsx — the small icon/colour modal opened from the
-// dashboard title (and reused for a part). altea divergence: the icon name is a plain text box (no
-// IconTypeaheadLine port) — the stored format is the same, see IconHelpers.parseIcon.
+// dashboard title (and reused for a part).
 
 export default function PanelIcon(p: { ctx: TypeContext<DashboardEntity | DashboardEntity_Part> }): React.JSX.Element {
     const forceUpdate = useForceUpdate();
@@ -27,7 +27,7 @@ export default function PanelIcon(p: { ctx: TypeContext<DashboardEntity | Dashbo
                         style={{ color: value.iconColor ?? undefined, fontSize: "25px" }} />
                     &nbsp;<span style={{ color: titleColor ?? undefined }}>{title}</span>
                 </div>}
-            <TextBoxLine ctx={ctx.subCtx(t => t.iconName)} onChange={() => forceUpdate()} />
+            <IconTypeaheadLine ctx={ctx.subCtx(t => t.iconName)} onChange={() => forceUpdate()} />
             <ColorLine ctx={ctx.subCtx(t => t.iconColor)} onChange={() => forceUpdate()} />
             <ColorLine ctx={ctx.subCtx(t => t.titleColor)} onChange={() => forceUpdate()} />
         </div>

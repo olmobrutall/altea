@@ -35,6 +35,9 @@ import { AuthLogic, type ICustomAuthorizer } from "./AuthLogic";
 
 /** An authorizer that can also SEARCH the directory and import a user. */
 export interface IDirectoryInviter {
+    /** Whether the directory is configured (and enabled) enough to be searched — the invite UI hides itself
+     *  otherwise, even for a role that holds `InviteUsersFromAD`. */
+    isDirectoryConfigured(): Promise<boolean>;
     findUser(subString: string, count: number, signal?: AbortSignal): Promise<ExternalUser[]>;
     createFromExternalUser(user: ExternalUser): Promise<UserEntity>;
 }
@@ -57,7 +60,8 @@ export interface DirectoryGroup {
 
 export function isDirectoryInviter(value: unknown): value is IDirectoryInviter {
     const v = value as Partial<IDirectoryInviter> | null;
-    return v != null && typeof v.findUser === "function" && typeof v.createFromExternalUser === "function";
+    return v != null && typeof v.isDirectoryConfigured === "function" && typeof v.findUser === "function"
+        && typeof v.createFromExternalUser === "function";
 }
 
 /**

@@ -6,6 +6,8 @@ import { IntegrityCheckException } from "../../data/validation";
 import { EntityNotFoundException, UnauthorizedAccessException, AuthenticationException } from "../exceptions";
 import { UserHolder } from "../userHolder";
 import { isCanceled } from "../cancellation";
+import { PermissionLogic } from "../permissionLogic";
+import { BasicPermission } from "../../data/permissionSymbol";
 
 // Port of Signum's SignumExceptionFilterAttribute + HttpError (old/Framework/Signum/API/Filters/
 // SignumExceptionFilterAttribute.cs), as Express error-handling middleware. Signum's attribute runs
@@ -20,7 +22,8 @@ import { isCanceled } from "../cancellation";
 
 // Signum's HttpError.IncludeErrorDetails / SignumExceptionFilterAttribute.ShouldLogException — kept as
 // mutable hooks so a host can suppress stack traces in production or skip logging for some errors.
-export let includeErrorDetails: (e: unknown) => boolean = () => true;
+export let includeErrorDetails: (e: unknown) => boolean | Promise<boolean> =
+    () => PermissionLogic.isAuthorized(BasicPermission.ViewErrorDetails).catch(() => false);
 export let shouldLogException: (e: unknown) => boolean =
     e => !(e instanceof Error && (e.name === "AbortError" || e.name === "OperationCanceledException"));
 
@@ -75,7 +78,7 @@ export function useExceptionFilter(ws: WebBuilder): void {
             console.error("exceptionFilter: error handler itself failed:", e);
             if (!res.headersSent)
                 res.status(500).type("application/json").send(JSON.stringify(
-                    toHttpError(err, null, true)));
+                    toHttpError(err, null, false)));
         });
     });
 }
@@ -113,7 +116,7 @@ export async function logAndBuildHttpError(error: unknown, req?: Request): Promi
         exceptionId = exLog.id != null ? String(exLog.id) : null;
     }
 
-    return toHttpError(error, exceptionId, includeErrorDetails(error));
+    return toHttpError(error, exceptionId, await includeErrorDetails(error));
 }
 
 // Signum's SignumExceptionFilterAttribute.LogException `completeContext`: fill the request-derived
@@ -133,6 +136,19 @@ function fillContext(e: ExceptionEntity, req: Request): void {
     });
     e.form.text = tryStr(undefined, () => typeof req.body === "string" ? req.body
         : req.body != null ? JSON.stringify(req.body) : "");
+
+    for (const apply of applyMixins) {
+        try { apply(e, req); } catch { /* an exception log must not fail while logging an exception */ }
+    }
+}
+
+/** The request-derived fields of a client-reported error: the request is the report's POST, so its URL is
+ *  the page the client sent (or the referer), not the API route. */
+export function fillClientErrorContext(e: ExceptionEntity, req: Request): void {
+    e.userAgent = tryStr(300, () => header(req, "user-agent"));
+    e.userHostAddress = tryStr(100, () => req.ip ?? null);
+    e.urlReferer = tryStr(undefined, () => header(req, "referer"));
+    e.requestUrl ??= e.urlReferer;
 
     for (const apply of applyMixins) {
         try { apply(e, req); } catch { /* an exception log must not fail while logging an exception */ }

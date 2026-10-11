@@ -120,6 +120,11 @@ export class WindowsADAuthorizer extends ADAuthorizer<WindowsADConfigurationEmbe
 
     // ---- IDirectoryInviter -----------------------------------------------------------------------------
 
+    async isDirectoryConfigured(): Promise<boolean> {
+        const config = await this.getConfig();
+        return config != null && config.domainName != null && config.domainName.trim() !== "";
+    }
+
     findUser(subString: string, count: number): Promise<ExternalUser[]> {
         return WindowsADLogic.searchUser(subString, count);
     }

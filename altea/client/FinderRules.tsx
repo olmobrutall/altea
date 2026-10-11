@@ -381,7 +381,7 @@ export function initQuickFilterRules(): Finder.QuickFilterRule[] {
 // Lite element renders an EntityLine). Add appends a null slot; remove drops the index.
 function FilterMultiValue({ f, ffc }: { f: FilterConditionOptionParsed; ffc: Finder.FilterFormatterContext }): React.ReactElement {
   const forceUpdate = useForceUpdate();
-  const tokenType = f.token!.type;
+  const tokenType = f.token!.type.asNullable();
   const readOnly = ffc.ctx.readOnly;
 
   const array: any[] = Array.isArray(f.value) ? f.value : (f.value = []);
@@ -673,7 +673,7 @@ export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
         if (!Array.isArray(fc.value))
           fc.value = [null, null];
 
-        const tokenType = fc.token!.type;
+        const tokenType = fc.token!.type.asNullable();
         const minCtx = new TypeContext<DateValue | null>(undefined, { readOnly: fc.frozen }, tokenType, new Binding<any>(fc.value, 0));
         const maxCtx = new TypeContext<DateValue | null>(undefined, { readOnly: fc.frozen }, tokenType, new Binding<any>(fc.value, 1));
 

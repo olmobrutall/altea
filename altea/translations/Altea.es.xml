@@ -12,6 +12,7 @@
     <Member Name="AutomaticUpgradeOfOperations" Description="Actualización automática de las operaciones" />
     <Member Name="AutomaticUpgradeOfProperties" Description="Actualización automática de propiedades" />
     <Member Name="AutomaticUpgradeOfQueries" Description="Actualización automática de las consultas" />
+    <Member Name="ViewErrorDetails" Description="Ver detalles de errores" />
   </Type>
   <Type Name="BigStringEmbedded" Description="Texto grande">
     <Member Name="Text" Description="Texto" />

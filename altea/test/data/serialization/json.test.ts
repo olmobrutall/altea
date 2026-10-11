@@ -255,6 +255,26 @@ describe("EntityJson", () => {
         assert.equal(serialize(a2), json);                         // idempotent
     });
 
+    test("a part at the root: a cycle through its back reference, unless detachedPart", () => {
+        const album = AlbumEntity.create({
+            name: "Alb", year: toInt(2000), author: makeArtist(2, "A"), songs: [], bonusTrack: null,
+            state: AlbumState.Saved,
+        });
+        const s1 = AlbumEntity_Song.create({ name: "s1", duration: null, seconds: toInt(100), index: toInt(0) });
+        album.songs = [s1];
+        s1.album = album.toLite(true);                             // what deserializing the owner gives it
+
+        assert.throws(() => Serializer.stringify(s1), /Cycle detected/);
+
+        const o = JSON.parse(Serializer.stringify(s1, { detachedPart: true }));
+        assert.equal(o.$type, "Album_Song");
+        assert.equal(o.album, undefined);
+        assert.equal(o.rowOrder, undefined);
+        assert.equal(o.name, "s1");
+        // Only a part at the ROOT: the owner itself serializes as before.
+        assert.equal(Serializer.stringify(album, { detachedPart: true }), Serializer.stringify(album));
+    });
+
     test("writeTypes Always vs Auto", () => {
         const artist = makeArtist(2, "A");
         const album = AlbumEntity.create({
