@@ -10,6 +10,7 @@ import { Lite } from "@altea/altea/data/lite";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IFromXmlContext, IToXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
+import { str, bool, num, list, arr, A } from "@altea/altea-user-assets/server/XmlUtils";
 import {
     WorkflowEntity, WorkflowEntity_MainEntityStrategy, WorkflowMainEntityStrategy, WorkflowOperation,
     WorkflowXmlEmbedded, type IWorkflowNodeEntity,
@@ -58,8 +59,6 @@ import { CaseActivityLogic } from "./CaseActivityLogic";
 //    engine has no custom-resolution channel (it decides New / Different / Identical only), so such an import
 //    THROWS with the offending activities named. The designer's own save path (which does have the
 //    replacement dialog — see WorkflowLogic.previewChanges) is unaffected.
-
-const A = "@_"; // fast-xml-parser attribute prefix
 
 // ---- The five simple assets ----------------------------------------------------------------------------
 //
@@ -525,14 +524,14 @@ function setLane(l: WorkflowLaneEntity, x: Record<string, unknown>, pools: Map<s
     l.name = str(x["Name"])!;
     l.pool = mapGet(pools, str(x["Pool"])!, "Pool");
 
-    const actorKeys = elements(x["Actors"], "Actor").map(a => str(a["#text"]) ?? String(a)).filter(k => k !== "");
+    const actorKeys = arr(x["Actors"], "Actor").map(a => str(a["#text"]) ?? String(a)).filter(k => k !== "");
     l.actors = actorKeys.map(k => ctx.parseLite(k)).notNull()
         .map(lite => WorkflowLaneEntity_Actor.create({ actor: lite }));
 
     const actorsScript = str(x["ActorsEval"]);
     l.actorsEval = actorsScript == undefined ? null : WorkflowLaneActorsEval.create({ script: actorsScript });
-    l.useActorEvalForStart = bool(x["UseActorEvalForStart"]) ?? false;
-    l.combineActorAndActorEvalWhenContinuing = bool(x["CombineActorAndActorEvalWhenContinuing"]) ?? false;
+    l.useActorEvalForStart = bool(x["UseActorEvalForStart"]);
+    l.combineActorAndActorEvalWhenContinuing = bool(x["CombineActorAndActorEvalWhenContinuing"]);
     setDiagramXml(l, x);
 }
 
@@ -542,16 +541,16 @@ async function setActivity(a: WorkflowActivityEntity, x: Record<string, unknown>
     a.name = str(x["Name"])!;
     a.type = Enum.toValue(WorkflowActivityType, str(x["Type"])! as never) as WorkflowActivityType;
     a.comments = str(x["Comments"]) ?? null;
-    a.requiresOpen = bool(x["RequiresOpen"]) ?? false;
+    a.requiresOpen = bool(x["RequiresOpen"]);
     a.estimatedDuration = num(x["EstimatedDuration"]) ?? null;
     a.viewName = str(x["ViewName"]) ?? null;
 
-    a.viewNameProps = elements(x["ViewNameProps"], "ViewNameProp").map(p =>
+    a.viewNameProps = arr(x["ViewNameProps"], "ViewNameProp").map(p =>
         WorkflowActivityEntity_ViewNameProp.create({
             prop: ViewNamePropEmbedded.create({ name: str(p["Name"])!, expression: str(p["#text"]) ?? null }),
         }));
 
-    a.decisionOptions = elements(x["DecisionOptions"], "DecisionOption").map(d =>
+    a.decisionOptions = arr(x["DecisionOptions"], "DecisionOption").map(d =>
         WorkflowActivityEntity_DecisionOption.create({ option: buttonOptionFromXml(d) }));
 
     a.customNextButton = x["CustomNextButton"] == null ? null
@@ -590,7 +589,7 @@ function setEvent(e: WorkflowEventEntity, x: Record<string, unknown>, lanes: Map
             : timeSpanFromXml(timer["Duration"] as Record<string, unknown>),
         condition: timer["Condition"] == null ? null
             : (ctx.getEntity(str(timer["Condition"])!) as WorkflowTimerConditionEntity).toLite(),
-        avoidExecuteConditionByTimer: bool(timer["AvoidExecuteConditionByTimer"]) ?? false,
+        avoidExecuteConditionByTimer: bool(timer["AvoidExecuteConditionByTimer"]),
     });
 
     e.boundaryOf = x["BoundaryOf"] == null ? null
@@ -629,7 +628,7 @@ async function applyEventTaskModel(e: WorkflowEventEntity, x: Record<string, unk
         return;
 
     const model = WorkflowEventTaskModel.create({
-        suspended: bool(m["Suspended"]) ?? false,
+        suspended: bool(m["Suspended"]),
         triggeredOn: Enum.toValue(TriggeredOn, str(m["TriggeredOn"])! as never) as TriggeredOn,
         rule: m["Rule"] == null ? null : ctx.getEntity(str(m["Rule"])!) as never,
         condition: str(m["Condition"]) == undefined ? null
@@ -645,7 +644,7 @@ function buttonOptionFromXml(x: Record<string, unknown>): ButtonOptionEmbedded {
     return ButtonOptionEmbedded.create({
         name: str(x["Name"])!,
         style: Enum.toValue(BootstrapStyle, str(x["Style"])! as never) as BootstrapStyle,
-        withConfirmation: bool(x["WithConfirmation"]) ?? false,
+        withConfirmation: bool(x["WithConfirmation"]),
     });
 }
 
@@ -675,34 +674,7 @@ function setDiagramXml(entity: { xml: WorkflowXmlEmbedded }, x: Record<string, u
 // ---- fast-xml-parser helpers ---------------------------------------------------------------------------
 
 function byBpmnId(value: unknown): Map<string, Record<string, unknown>> {
-    return new Map(asArray(value).map(x => [str(x["BpmnElementId"])!, x]));
-}
-
-function asArray(value: unknown): Record<string, unknown>[] {
-    if (value == null)
-        return [];
-    return (Array.isArray(value) ? value : [value]) as Record<string, unknown>[];
-}
-
-function elements(container: unknown, name: string): Record<string, unknown>[] {
-    if (container == null)
-        return [];
-    const inner = (container as Record<string, unknown>)[name];
-    return asArray(inner);
-}
-
-function str(value: unknown): string | undefined {
-    return value == null ? undefined : String(value);
-}
-
-function num(value: unknown): number | undefined {
-    return value == null ? undefined : Number(value);
-}
-
-function bool(value: unknown): boolean | undefined {
-    if (value == null)
-        return undefined;
-    return value === true || String(value).toLowerCase() === "true";
+    return new Map(list(value).map(x => [str(x["BpmnElementId"])!, x]));
 }
 
 function mapGet<V>(map: Map<string, V>, key: string, what: string): V {

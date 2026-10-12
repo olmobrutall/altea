@@ -3,7 +3,7 @@ import { type int, type uuid, toInt } from "@altea/altea/data/basics";
 import { Enum } from "@altea/altea/data/enum";
 import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
-import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
+import { str, bool, integer, toEnum, first, list, arr, token, A } from "@altea/altea-user-assets/server/XmlUtils";
 import { newGuid } from "@altea/altea-user-assets/data/UserAssets";
 import {
     DashboardEntity, DashboardEntity_Part, DashboardEntity_TokenEquivalenceGroup, DashboardEntity_TokenEquivalenceGroup_Query,
@@ -24,8 +24,6 @@ import { DashboardLogic } from "./DashboardLogic";
 //
 // altea divergence: the `Guid` attribute of the dashboard itself is written by the exporter (the uuid PK IS
 // the identity).
-
-const A = "@_"; // fast-xml-parser attribute prefix
 
 export function registerDashboardXml(): void {
     UserAssetsImporter.register<DashboardEntity>({
@@ -117,7 +115,7 @@ function fromXml(db: DashboardEntity, xml: Record<string, unknown>, ctx: IFromXm
     db.entityType = xml[A + "EntityType"] != null ? ctx.getType(str(xml[A + "EntityType"])!) : null;
     db.owner = xml[A + "Owner"] != null ? (ctx.parseLite(str(xml[A + "Owner"])!) ?? null) : null;
     db.hideDisplayName = bool(xml[A + "HideDisplayName"]);
-    db.dashboardPriority = num(xml[A + "DashboardPriority"]);
+    db.dashboardPriority = integer(xml[A + "DashboardPriority"]);
     const embeddedInEntity = str(xml[A + "EmbeddedInEntity"]);
     db.embeddedInEntity = embeddedInEntity == null ? null : toEnum(DashboardEmbedededInEntity, embeddedInEntity);
     db.combineSimilarRows = bool(xml[A + "CombineSimilarRows"]);
@@ -127,7 +125,7 @@ function fromXml(db: DashboardEntity, xml: Record<string, unknown>, ctx: IFromXm
     db.key = str(xml[A + "Key"]) ?? null;
     db.hideQuickLink = bool(xml[A + "HideQuickLink"]);
     db.showTitleAsBreadcrumb = bool(xml[A + "ShowTitleAsBreadcrumb"]);
-    db.autoRefreshPeriod = num(xml[A + "AutoRefreshPeriod"]);
+    db.autoRefreshPeriod = integer(xml[A + "AutoRefreshPeriod"]);
     db.cacheQueryConfiguration = cacheQueryConfigurationFromXml(db.cacheQueryConfiguration, xml["CacheQueryConfiguration"]);
 
     db.parts = syncRows(db.parts ?? [], arr(xml["Parts"], "Part"), () => new DashboardEntity_Part(),
@@ -142,19 +140,19 @@ function cacheQueryConfigurationFromXml(current: CacheQueryConfigurationEmbedded
     if (element == null)
         return null;
 
-    const x = firstElem(element);
+    const x = first(element)!;
     const cqc = current ?? new CacheQueryConfigurationEmbedded();
-    cqc.timeoutForQueries = num(x[A + "TimeoutForQueries"]) ?? toInt(5 * 60);
-    cqc.maxRows = num(x[A + "MaxRows"]) ?? toInt(1000 * 1000);
-    cqc.autoRegenerateWhenOlderThan = num(x[A + "AutoRegenerateWhenOlderThan"]);
+    cqc.timeoutForQueries = integer(x[A + "TimeoutForQueries"]) ?? toInt(5 * 60);
+    cqc.maxRows = integer(x[A + "MaxRows"]) ?? toInt(1000 * 1000);
+    cqc.autoRegenerateWhenOlderThan = integer(x[A + "AutoRegenerateWhenOlderThan"]);
     return cqc;
 }
 
 // Signum's PanelPartEmbedded.FromXml (+ DashboardLogic.GetPart for the content element).
 function fillPart(p: DashboardEntity_Part, x: Record<string, unknown>, ctx: IFromXmlContext): void {
-    p.row = (num(x[A + "Row"]) ?? 0) as int;
-    p.startColumn = (num(x[A + "StartColumn"]) ?? 0) as int;
-    p.columns = (num(x[A + "Columns"]) ?? 12) as int;
+    p.row = (integer(x[A + "Row"]) ?? 0) as int;
+    p.startColumn = (integer(x[A + "StartColumn"]) ?? 0) as int;
+    p.columns = (integer(x[A + "Columns"]) ?? 12) as int;
     p.title = str(x[A + "Title"]) ?? null;
     p.hideTitle = bool(x[A + "HideTitle"]);
     p.tooltip = str(x[A + "Tooltip"]) ?? null;
@@ -176,7 +174,7 @@ function fillPart(p: DashboardEntity_Part, x: Record<string, unknown>, ctx: IFro
 
     const config = DashboardLogic.partConfigForElement(contentEntry[0]);
     const content = new (config.type as new () => IPartEntity)();
-    config.fromXml(content, firstElem(contentEntry[1]), ctx);
+    config.fromXml(content, first(contentEntry[1])!, ctx);
     p.content = content;
 }
 
@@ -318,35 +316,3 @@ export function registerBasePartsXml(): void {
 }
 
 // ---- small helpers (mirrors UserQueriesXml.server.ts) ---------------------------------------------------
-
-function token(tokenString: string): QueryTokenEmbedded {
-    const t = QueryTokenEmbedded.create({ tokenString });
-    return t;
-}
-
-function toEnum<E extends Record<string, string | number>>(e: E, name: string): number {
-    return Enum.toValue(e, name as Extract<keyof E, string>);
-}
-
-function str(v: unknown): string | undefined {
-    return v == null ? undefined : String(v);
-}
-function bool(v: unknown): boolean {
-    return v === true || v === "true" || v === "True";
-}
-function num(v: unknown): int | null {
-    return v == null ? null : (Number(v) as int);
-}
-// A parsed element with isArray:()=>true is always an array; take the first.
-function firstElem(v: unknown): Record<string, unknown> {
-    return (Array.isArray(v) ? v[0] : v) as Record<string, unknown>;
-}
-// Read the child list `childName` out of a wrapper element `wrapper` (both parsed as arrays).
-function arr(wrapper: unknown, childName: string): Record<string, unknown>[] {
-    if (wrapper == null) return [];
-    const w = firstElem(wrapper);
-    return list(w?.[childName]);
-}
-function list(v: unknown): Record<string, unknown>[] {
-    return (Array.isArray(v) ? v : v != null ? [v] : []) as Record<string, unknown>[];
-}

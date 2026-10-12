@@ -11,6 +11,7 @@ import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TourTriggerSymbol } from "@altea/altea/data/tourTrigger";
 import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
+import { list, A } from "@altea/altea-user-assets/server/XmlUtils";
 import {
     TourEntity, TourStepEntity, CssStepEntity, CssStepType, ClickTrigger, PopoverAlign, PopoverSide,
 } from "../data/Tour";
@@ -26,8 +27,6 @@ import {
 // `@implementedBy(QueryEntity)` only, matching what the tour editor can actually pick.
 //
 // See port/Tour.md.
-
-const A = "@_"; // fast-xml-parser attribute prefix
 
 export namespace TourXml {
 
@@ -116,14 +115,14 @@ function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlCo
     tour.animate = xml[A + "Animate"] == null || xml[A + "Animate"] === true || xml[A + "Animate"] === "true";
     tour.showCloseButton = xml[A + "ShowCloseButton"] == null || xml[A + "ShowCloseButton"] === true || xml[A + "ShowCloseButton"] === "true";
 
-    tour.steps = asArray(xml["TourStep"]).map(sx => {
+    tour.steps = list(xml["TourStep"]).map(sx => {
         const s = TourStepEntity.create({
             title: String(sx[A + "Title"] ?? ""),
             side: sx[A + "Side"] == null ? null : Enum.toValue(PopoverSide, String(sx[A + "Side"]) as never),
             align: sx[A + "Align"] == null ? null : Enum.toValue(PopoverAlign, String(sx[A + "Align"]) as never),
             click: sx[A + "Click"] == null ? null : Enum.toValue(ClickTrigger, String(sx[A + "Click"]) as never),
             description: String(sx["Description"] ?? ""),
-            cssSteps: asArray(sx["CssStep"]).map(cx => cssStepFromXml(cx, ctx, rootType)),
+            cssSteps: list(sx["CssStep"]).map(cx => cssStepFromXml(cx, ctx, rootType)),
         });
         return s;
     });
@@ -176,9 +175,4 @@ function triggerFromXml(value: string, ctx: IFromXmlContext): Lite<Entity> {
         return symbol.toLite();
 
     throw new Error(`Trigger '${value}' not found`);
-}
-
-function asArray(value: unknown): Record<string, unknown>[] {
-    if (value == null) return [];
-    return (Array.isArray(value) ? value : [value]) as Record<string, unknown>[];
 }

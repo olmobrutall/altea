@@ -7,6 +7,7 @@ import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
+import { str, bool, toEnum, arr, A } from "@altea/altea-user-assets/server/XmlUtils";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { type int } from "@altea/altea/data/basics";
 import {
@@ -28,8 +29,6 @@ import {
 //
 // The `Content` attribute is POLYMORPHIC: a QUERY key, a PERMISSION key, or the GUID of an included user
 // asset. That three-way discrimination is preserved — guid first, then query, then permission.
-
-const A = "@_"; // fast-xml-parser attribute prefix
 
 export function registerToolbarXml(): void {
 
@@ -211,31 +210,4 @@ function parseOwner(xml: Record<string, unknown>, ctx: IFromXmlContext): Lite<En
 const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isGuid(text: string): boolean {
     return guidRegex.test(text);
-}
-
-// Enum.toValue expects the narrow member-NAME union; XML gives a plain string, so widen here (an unknown
-// member throws inside Enum.toValue — the right behaviour for a malformed import).
-function toEnum<E extends Record<string, string | number>>(e: E, name: string): number {
-    return Enum.toValue(e, name as Extract<keyof E, string>);
-}
-
-function str(v: unknown): string | undefined {
-    return v == null ? undefined : String(v);
-}
-
-function bool(v: unknown): boolean {
-    return v === true || v === "true" || v === "True";
-}
-
-// A parsed element with isArray:()=>true is always an array; take the first.
-function firstElem(v: unknown): Record<string, unknown> {
-    return (Array.isArray(v) ? v[0] : v) as Record<string, unknown>;
-}
-
-// Read the child list `childName` out of a wrapper element (both parsed as arrays).
-function arr(wrapper: unknown, childName: string): Record<string, unknown>[] {
-    if (wrapper == null) return [];
-    const w = firstElem(wrapper);
-    const list = w?.[childName];
-    return (Array.isArray(list) ? list : list != null ? [list] : []) as Record<string, unknown>[];
 }

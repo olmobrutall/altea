@@ -94,6 +94,7 @@ function valueSnapshot(value: unknown): unknown {
     if (value instanceof Lite || value instanceof Entity) return referenceKey(value);
     if (value instanceof EmbeddedEntity) return getSnapshot(value); // inline, no identity
     if (value instanceof Date) return value.getTime();
+    if (value instanceof Uint8Array) return bytesSnapshot(value);
     if (typeof value === 'object') return String(value); // Temporal.* / Decimal / etc.
     return value; // primitives, including enum numbers
 }
@@ -107,8 +108,17 @@ function elementSnapshot(value: unknown): unknown {
     if (value instanceof Lite || value instanceof Entity) return referenceKey(value)?.[1] ?? null;
     if (value instanceof EmbeddedEntity) return getSnapshot(value); // inline, no identity
     if (value instanceof Date) return value.getTime();
+    if (value instanceof Uint8Array) return bytesSnapshot(value);
     if (typeof value === 'object') return String(value); // Temporal.* / Decimal / etc.
     return value; // primitives, including enum numbers
+}
+
+// A blob compares BY CONTENT. Not `String(value)`: the database driver hands a blob back as a Node
+// `Buffer`, whose toString DECODES the bytes as text, while a plain Uint8Array (a deserialized or freshly
+// read one) joins them as numbers — so equal bytes snapshotted differently and a reloaded blob always read
+// as modified. The TypedArray join is the same for both (a Buffer is a Uint8Array).
+function bytesSnapshot(value: Uint8Array): string {
+    return Uint8Array.prototype.join.call(value, ',');
 }
 
 /**

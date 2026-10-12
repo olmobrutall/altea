@@ -8,7 +8,8 @@ import {
 } from "@altea/altea/data/dynamicQueries";
 import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
-import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
+import { str, bool, toEnum, first, arr, token, A } from "@altea/altea-user-assets/server/XmlUtils";
+import { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import {
     UserQueryEntity, UserQueryEntity_Filter, UserQueryEntity_Column, UserQueryEntity_Order,
     UserQueryEntity_CustomDrilldown, SystemTimeEmbedded,
@@ -17,8 +18,6 @@ import {
 // Port of Signum's UserQueryEntity.ToXml / FromXml (UserQueryEntity.cs). altea keeps this OFF the isomorphic
 // entity (System.Xml is server-only) — it registers a (de)serializer with UserAssetsImporter. The XML shape
 // (element/attribute names, the Spanish "Orden" order element) is preserved for round-trip compatibility.
-
-const A = "@_"; // fast-xml-parser attribute prefix
 
 export function registerUserQueryXml(): void {
     UserAssetsImporter.register<UserQueryEntity>({
@@ -150,7 +149,7 @@ function fromXml(uq: UserQueryEntity, xml: Record<string, unknown>, ctx: IFromXm
     });
 
     const st = xml["SystemTime"];
-    uq.systemTime = st != null ? systemTimeFromXml(firstElem(st)) : null;
+    uq.systemTime = st != null ? systemTimeFromXml(first(st)!) : null;
 }
 
 function fillFilter(f: UserQueryEntity_Filter, x: Record<string, unknown>): void {
@@ -169,7 +168,7 @@ function fillFilter(f: UserQueryEntity_Filter, x: Record<string, unknown>): void
     const dashboardBehaviour = str(x[A + "DashboardBehaviour"]);
     f.dashboardBehaviour = dashboardBehaviour == null ? null : toEnum(DashboardBehaviour, dashboardBehaviour);
     const p = x["Pinned"];
-    f.pinned = p != null ? pinnedFromXml(firstElem(p)) : null;
+    f.pinned = p != null ? pinnedFromXml(first(p)!) : null;
 }
 
 function pinnedFromXml(x: Record<string, unknown>): PinnedQueryFilterEmbedded {
@@ -215,36 +214,7 @@ function systemTimeFromXml(x: Record<string, unknown>): SystemTimeEmbedded {
 
 // ---- small helpers -------------------------------------------------------------------------------------
 
-function token(tokenString: string): QueryTokenEmbedded {
-    const t = QueryTokenEmbedded.create({ tokenString });
-    return t;
-}
-
 // Signum's legacy "Replace" → "ReplaceAll" remap; returns the enum ordinal for the int-FK column.
 function normalizeColumnsMode(v: string | undefined): ColumnOptionsMode {
     return toEnum(ColumnOptionsMode, (v === "Replace" ? "ReplaceAll" : v) ?? "Add");
-}
-
-// Enum.toValue expects the narrow member-NAME union; XML gives us a plain string, so widen the arg here
-// (an unknown member throws inside Enum.toValue, which is the right behaviour for a malformed import).
-function toEnum<E extends Record<string, string | number>>(e: E, name: string): number {
-    return Enum.toValue(e, name as Extract<keyof E, string>);
-}
-
-function str(v: unknown): string | undefined {
-    return v == null ? undefined : String(v);
-}
-function bool(v: unknown): boolean {
-    return v === true || v === "true" || v === "True";
-}
-// A parsed element with isArray:()=>true is always an array; take the first.
-function firstElem(v: unknown): Record<string, unknown> {
-    return (Array.isArray(v) ? v[0] : v) as Record<string, unknown>;
-}
-// Read the child list `childName` out of a wrapper element `wrapper` (both parsed as arrays).
-function arr(wrapper: unknown, childName: string): Record<string, unknown>[] {
-    if (wrapper == null) return [];
-    const w = firstElem(wrapper);
-    const list = w?.[childName];
-    return (Array.isArray(list) ? list : list != null ? [list] : []) as Record<string, unknown>[];
 }

@@ -22,6 +22,7 @@ import {
 } from "../data/AssetSync";
 import { UserAssetsImporter, parseAssets, warmUserAssetCaches, type UserAssetTypeConfig } from "./UserAssetsImportExport";
 import { AssetSyncFiles, safeFileName, type AssetExport, type AssetFile } from "./AssetSyncFiles";
+import { sameBytes } from "./XmlUtils";
 
 // User-asset CODE SYNC — see port/UserAssetCodeSync.md.
 
@@ -417,8 +418,4 @@ function sameXml(a: unknown, b: unknown): boolean {
         return a != null && b != null && String(a) === String(b);
     const ak = Object.keys(a), bk = Object.keys(b);
     return ak.length === bk.length && ak.every(k => sameXml((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
-}
-
-function sameBytes(a: Uint8Array | undefined, b: Uint8Array): boolean {
-    return a != undefined && a.length === b.length && a.every((x, i) => x === b[i]);
 }
