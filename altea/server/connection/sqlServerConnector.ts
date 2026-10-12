@@ -296,6 +296,10 @@ export class SqlServerConnector extends Connector {
             : `${this.config.replace(/;\s*$/, "")};Database=${databaseName}`;
     }
 
+    override async hasTables(): Promise<boolean> {
+        return (await this.executeQuery("SELECT TOP 1 1 AS x FROM sys.tables")).length > 0;
+    }
+
     // Drops all procedures, views, FK constraints, tables and non-system schemas,
     // in dependency-safe order. Ported from Signum's
     // SqlConnectorScripts.RemoveAllScript (temporal/partition/full-text steps are

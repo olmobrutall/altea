@@ -13,6 +13,7 @@ import type { IColumn } from "./schema/column";
 import type { Lite } from "../data/lite";
 import { Transaction } from "./connection/transaction";
 import { SqlPreCommand, SqlPreCommandSimple } from "./sync/sqlPreCommand";
+import { Color, SafeConsole } from "./safeConsole";
 
 // Signum's `Administrator.AfterSynchronize` event — fires at the end of a schema synchronize, after
 // the script (if any) has been written, with the file name and the `Replacements` the sync collected.
@@ -102,6 +103,38 @@ export const Administrator = {
             () => Administrator.postgresTools.createDatabase(dbName, { fromTemplate: template }));
         // The pool was closed to switch away; the next statement opens a fresh one on the new database.
         await connector.closeConnection();
+    },
+
+    /**
+     * Signum's `Administrator.CleanDatabase` — drop everything in the current database, but only after the
+     * user has CONFIRMED it by typing the database's name, so a connection string pointed at the wrong
+     * database does not cost its data. An empty database (no tables) is cleaned without asking.
+     *
+     * Returns false, having changed nothing, when the name typed does not match. With nobody to answer (a
+     * non-interactive console) it throws instead, unless `force` — which skips the question altogether,
+     * for scripts and CI that mean it.
+     */
+    async cleanDatabase(options?: { force?: boolean }): Promise<boolean> {
+        const connector = Connector.current();
+        const databaseName = connector.databaseName();
+
+        if (!options?.force && await connector.hasTables()) {
+            if (!SafeConsole.isInteractive())
+                throw new Error(`Refusing to clean the database '${databaseName}' without confirmation:`
+                    + ` the console is not interactive. Pass --force to clean it anyway.`);
+
+            SafeConsole.writeLineColor(Color.red, `Are you sure you want to delete all the data in the database '${databaseName}'?`);
+            const answer = await SafeConsole.askString("Confirm by writing the name of the database: ");
+            if (answer.toLowerCase() !== databaseName.toLowerCase()) {
+                SafeConsole.writeLine("Wrong name. No changes were made.");
+                SafeConsole.writeLine();
+                return false;
+            }
+        }
+
+        SafeConsole.writeLine(`Cleaning database '${databaseName}'...`);
+        await connector.cleanDatabase();
+        return true;
     },
 
     /** SQL Server database snapshots (Signum's `Administrator.Snapshots`). */
