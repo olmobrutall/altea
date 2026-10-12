@@ -396,6 +396,15 @@ export abstract class Connector {
         throw new Error(`${this.constructor.name} names no database (it has no connection string).`);
     }
 
+    /**
+     * Whether the database holds any user table — Signum's `Connector.HasTables()`. What
+     * `Administrator.cleanDatabase` checks before insisting on a confirmation: an empty database has
+     * nothing to lose.
+     */
+    hasTables(): Promise<boolean> {
+        throw new Error(`${this.constructor.name} cannot tell whether its database has tables.`);
+    }
+
     /** Rewrite the configuration to name another database on the same server. */
     protected setDatabaseName(_databaseName: string): void {
         throw new Error(`${this.constructor.name} cannot be pointed at another database.`);

@@ -372,6 +372,11 @@ export class PostgresConnector extends Connector {
         }
     }
 
+    override async hasTables(): Promise<boolean> {
+        return (await this.executeQuery("SELECT 1 AS x FROM pg_catalog.pg_tables"
+            + " WHERE schemaname NOT IN ('pg_catalog', 'information_schema') LIMIT 1")).length > 0;
+    }
+
     // Drops every view, table, sequence, extension and function in all
     // non-system schemas, plus owned non-default schemas. Ported from Signum's
     // PostgreSqlConnectorScripts.RemoveAllScript (the ExecuteAs role handling is
