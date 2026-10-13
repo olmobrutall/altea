@@ -79,6 +79,11 @@ export abstract class Lite<out T extends Entity> {
         return cleanTypeName(this.entityType) + ";" + this.id;
     }
 
+    /** "CleanType;id;toStr" (Signum's `KeyLong`): the key, readable. The toStr is the unescaped rest. */
+    keyLong(): string {
+        return this.key() + ";" + this.toString();
+    }
+
     /** Builds a thin lite from its "CleanType;id" key (Signum's free `parseLite`). */
     static parse(key: string): Lite<Entity> {
         const [type, id] = key.split(";");
