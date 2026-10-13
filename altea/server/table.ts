@@ -192,10 +192,9 @@ export function bindAndOptimize(expression: Expression, schema: Schema, isPostgr
 }
 
 /**
- * Whatever type↔id snapshot the schema currently has loaded, for an INSPECTION bind — a SQL dump, an
- * offline test — which never executes what it binds. A bind whose SQL will RUN takes the snapshot its async
- * boundary resolved instead (bindOptimizeSecured does), so that one query cannot straddle two generations
- * of ids; this peek makes the difference visible at the call site rather than hiding it in a default.
+ * Whatever type↔id snapshot the schema currently has loaded. Read ONCE per bind attempt, so one query cannot
+ * straddle two generations of ids; when it is `undefined` and the query has a discriminator, `requireTypeId`
+ * asks the enclosing `withPromisesLoaded` region to load it and bind again.
  */
 export function loadedTypeCaches(schema: Schema): TypeCaches | undefined {
     return schema.typeCaches.valueOrUndefined;
@@ -204,10 +203,6 @@ export function loadedTypeCaches(schema: Schema): TypeCaches | undefined {
 // LINQ-provider translate with row-level security applied: THE entry point every EXECUTING path goes
 // through. A row filter resolves what it needs itself, from inside the bind — see the region below.
 export async function bindOptimizeSecured(expression: Expression, schema: Schema, isPostgres: boolean, alreadySimplified = false): Promise<ProjectionExpression> {
-    // Resolve the type↔id caches ONCE (async) at this boundary — undefined only if we're inside the
-    // caches' own load (re-entrant `table(TypeEntity)`), where no discriminator arises. `ready()` also
-    // warms the box for the downstream sync readers (optimiser visitors, Retriever).
-    const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(schema);
     // SIMPLIFIED ONCE, outside the region: every attempt then binds the SAME tree, so a filter that keys
     // per-query work on a table-source node (the auditor verdicts) sees the same node each time and its
     // promise is stable. Re-simplifying per attempt would mint new nodes and never converge.
@@ -216,9 +211,9 @@ export async function bindOptimizeSecured(expression: Expression, schema: Schema
     // read a cache — through `.$v`, or by demanding it outright (stableValue). A cold one announces itself
     // by throwing; the region loads exactly that one and binds again (binding is pure — a fresh QueryBinder
     // per call, all of its state instance-local). Nothing has to be warmed in advance, and nothing no query
-    // asked for is ever loaded.
+    // asked for is ever loaded — the type↔id caches included (see requireTypeId).
     return await withPromisesLoaded(() =>
-        bindAndOptimize(simplified, schema, isPostgres, /* alreadySimplified */ true, typeCaches));
+        bindAndOptimize(simplified, schema, isPostgres, /* alreadySimplified */ true, loadedTypeCaches(schema)));
 }
 
 // Binds `table(ctor).filter(e => ids.includes(e.id))` — the shared shape behind both the
@@ -243,10 +238,9 @@ function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[], typeCach
 // so the id-only stubs it left behind get populated in place.
 Retriever.retrieveListImpl = async (ctor: Type<Entity>, ids: PrimaryKey[], retriever: Retriever): Promise<void> => {
     const connector = Connector.current();
-    const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
     // The row filters this bind applies are the same ones a query carries, so the same on-demand cache
     // loading applies — only the (pure) bind is inside the region, never the retriever it feeds.
-    const projection = await withPromisesLoaded(() => retrieveByIdsProjection(ctor, ids, typeCaches));
+    const projection = await withPromisesLoaded(() => retrieveByIdsProjection(ctor, ids, loadedTypeCaches(connector.schema)));
     await buildTranslateResult(projection, connector.isPostgres).executeInto(retriever);
 };
 
@@ -298,8 +292,7 @@ export async function retrieveEntitiesByIds<T extends Entity>(ctor: Type<T>, ids
     if (ids.length === 0)
         return [];
     const connector = Connector.current();
-    const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
-    const projection = await withPromisesLoaded(() => retrieveByIdsProjection(ctor, ids, typeCaches));
+    const projection = await withPromisesLoaded(() => retrieveByIdsProjection(ctor, ids, loadedTypeCaches(connector.schema)));
     return await buildTranslateResult(projection, connector.isPostgres).execute() as T[];
 }
 
@@ -331,8 +324,7 @@ class MyQueryTranslator implements IQueryTranslator {
         // "SQL" spans (bindAndOptimize / connector.withLogging) hang under it.
         using _prof = HeavyProfiler.log("DBQuery", () => expression.toString());
         const connector = Connector.current();
-        // Row-level security + the type↔id snapshot are both resolved (async) inside bindOptimizeSecured,
-        // which also warms the caches box for the downstream sync readers (optimiser visitors, Retriever).
+        // Row-level security + the type↔id snapshot are both resolved (on demand) inside bindOptimizeSecured.
         const projection = await bindOptimizeSecured(expression, connector.schema, connector.isPostgres);
         const tr = buildTranslateResult(projection, connector.isPostgres);
         return tr.execute();
@@ -344,7 +336,6 @@ class MyQueryTranslator implements IQueryTranslator {
     async executeCommand(expression: Expression): Promise<number> {
         using _prof = HeavyProfiler.log("DBQuery", () => expression.toString());
         const connector = Connector.current();
-        const typeCaches = TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema);
         // Row-level security applies to the SELECT that feeds an unsafe UPDATE/DELETE too: you may only
         // touch rows you can see, so this binds with the filters on, exactly like a query.
         //
@@ -354,7 +345,7 @@ class MyQueryTranslator implements IQueryTranslator {
         // re-runnable — the optimise/execute loop below is not, and by then every cache it needs is loaded.
         const simplified = OverloadingSimplifier.simplify(expression);
         const { command, aliases } = await withPromisesLoaded(() => {
-            const binder = new QueryBinder(connector.schema, connector.isPostgres, typeCaches);
+            const binder = new QueryBinder(connector.schema, connector.isPostgres, loadedTypeCaches(connector.schema));
             // The alias generator travels with the command: the sub-command simplifier below mints more
             // aliases into the same namespace, so it must be THIS bind generator, not a fresh one.
             return { command: binder.bindCommand(simplified), aliases: binder.aliases };
