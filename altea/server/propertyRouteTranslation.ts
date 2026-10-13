@@ -50,8 +50,10 @@ export namespace PropertyRouteTranslationLogic {
             return;
 
         sb.schema.schemaCompleted.push(schema => {
+            // With the casts: a part's content (`parts/content.(TextPart).textContent`) is translated under
+            // the route the serializer reaches it by.
             for (const type of schema.tables.keys())
-                for (const route of PropertyRoute.generateRoutes(type)) {
+                for (const route of PropertyRoute.generateRoutes(type, false, true)) {
                     const fi = route.fieldInfo;
                     if (fi == undefined || fi.translatable == undefined || fi.translatable === false)
                         continue;
@@ -120,6 +122,25 @@ export namespace PropertyRouteTranslationLogic {
     export let translatedFieldFunc: (lite: Lite<Entity>, route: PropertyRoute, fallback: string | null) => string | null =
         (_lite, _route, fallback) => fallback;
 
+    /**
+     * Every culture's CURRENT (non-stale against `currentValue`) translation of one field of one instance,
+     * read inside the caller's transaction, so what it just saved is included. For the user-asset XML,
+     * which carries an asset's translations; the default, with the storage module absent, finds none.
+     */
+    export let loadInstanceTranslations: () => Promise<InstanceTranslationLookup> =
+        async () => ({ get: () => new Map() });
+
+    /**
+     * Replace the translations of one field of one instance: cultures absent from `texts` are deleted.
+     * `rootType` owns `route`: for a field of a `@part` row it is the OWNER (`steps/title` of a tour),
+     * while `lite` is the row.
+     */
+    export let saveInstanceTranslations: (lite: Lite<Entity>, rootType: Type<Entity>, route: string, originalText: string | null,
+        texts: ReadonlyMap<string, string>) => Promise<void> = async () => { };
+
+    /** Raised by the storage module after translations of these instances were saved or deleted. */
+    export const instanceTranslationsChanged: ((instances: Lite<Entity>[]) => void | Promise<void>)[] = [];
+
     /** Signum's `TranslatedField(lite, route, fallbackString)`. */
     export function translatedField(lite: Lite<Entity>, route: PropertyRoute, fallback: string | null): string | null {
         return translatedFieldFunc(lite, route, fallback);
@@ -140,4 +161,9 @@ export namespace PropertyRouteTranslationLogic {
             return translatedFieldFunc(entity.toLite(), route, null);
         });
     }
+}
+
+/** culture → text, for one (instance, route). */
+export interface InstanceTranslationLookup {
+    get(lite: Lite<Entity>, route: string, currentValue: string | null): Map<string, string>;
 }

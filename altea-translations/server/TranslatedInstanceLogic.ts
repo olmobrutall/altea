@@ -6,7 +6,7 @@ import { table } from "@altea/altea/server/table";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
-import { PropertyRouteTranslationLogic } from "@altea/altea/server/propertyRouteTranslation";
+import { PropertyRouteTranslationLogic, type InstanceTranslationLookup } from "@altea/altea/server/propertyRouteTranslation";
 import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { Entity, type Type } from "@altea/altea/data/entity";
@@ -119,8 +119,68 @@ export namespace TranslatedInstanceLogic {
             return fallback;
         };
 
+        // The user-asset XML carries an asset's translations; it reads and writes them through these.
+        PropertyRouteTranslationLogic.loadInstanceTranslations = loadInstanceTranslations;
+        PropertyRouteTranslationLogic.saveInstanceTranslations = saveInstanceTranslations;
+        sb.schema.entityEvents(TranslatedInstanceEntity).saved.push(ti => raiseChanged([ti.instance]));
+        sb.schema.entityEvents(TranslatedInstanceEntity).preUnsafeDelete.push(async query =>
+            raiseChanged(await query.map(ti => ti.instance).toArray() as Lite<Entity>[]));
+
         PropertyRouteTranslationLogic.installSerializerHook();
         PropertyRouteTranslationLogic.isActivated = true;
+    }
+
+    // From the TABLE, not the cache: the caller may have just saved some in its own transaction.
+    async function loadInstanceTranslations(): Promise<InstanceTranslationLookup> {
+        const byKey = new Map<InstanceKey, TranslatedInstanceEntity[]>();
+        for (const ti of await table(TranslatedInstanceEntity).toArray() as TranslatedInstanceEntity[]) {
+            const key = instanceKey(ti.instance, ti.propertyRoute.path);
+            (byKey.get(key) ?? byKey.set(key, []).get(key)!).push(ti);
+        }
+        return {
+            get: (lite, route, currentValue) => new Map((byKey.get(instanceKey(lite, route)) ?? [])
+                .filter(ti => currentValue != null && normalize(ti.originalText) === normalize(currentValue))
+                .map(ti => [ti.culture.name, ti.translatedText])),
+        };
+    }
+
+    async function saveInstanceTranslations(lite: Lite<Entity>, rootType: Type<Entity>, route: string, originalText: string | null,
+        texts: ReadonlyMap<string, string>): Promise<void> {
+        await Transaction.create(async () => {
+            const existing = (await table(TranslatedInstanceEntity).filter(ti => ti.instance.is(lite)).toArray() as TranslatedInstanceEntity[])
+                .filter(ti => ti.propertyRoute.path === route);
+
+            for (const ti of existing) {
+                const text = originalText == null ? undefined : texts.get(ti.culture.name);
+                if (text == undefined || text === "")
+                    await ti.delete();
+                else if (ti.translatedText !== text || ti.originalText !== originalText) {
+                    ti.translatedText = text;
+                    ti.originalText = originalText!;
+                    await ti.save();
+                }
+            }
+
+            if (originalText == null)
+                return;
+            const missing = [...texts].filter(([culture, text]) => text !== "" && !existing.some(ti => ti.culture.name === culture));
+            if (missing.length == 0)
+                return;
+            const propertyRoute = PropertyRouteLogic.propertyRouteEntitySync(typeEntityOf(rootType, await TypeLogic.caches()), route);
+            for (const [culture, text] of missing)
+                await TranslatedInstanceEntity.create({
+                    culture: await CultureInfoLogic.getCulture(culture),
+                    instance: lite,
+                    propertyRoute,
+                    originalText,
+                    translatedText: text,
+                }).save();
+        });
+    }
+
+    async function raiseChanged(instances: Lite<Entity>[]): Promise<void> {
+        for (const handler of PropertyRouteTranslationLogic.instanceTranslationsChanged)
+            await handler(instances);
     }
 
     /** Warm the sync snapshot after `schema.initialize()` (the pattern CultureInfoLogic uses). */
