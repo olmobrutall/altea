@@ -76,6 +76,49 @@ signal: it is a Node build/runtime switch, and a test or staging server need not
   files are written, an asset with a sync folder may only reference assets that also have one (any
   folder), and a save that breaks the rule fails.
 
+## Translations
+
+An asset's per-instance translations travel in its XML, in a sync folder AND in the one-file export, next
+to the field they translate:
+
+```xml
+<UserQuery DisplayName="Next orders" DisplayName_de="Nächste Bestellungen" DisplayName_es="Próximos pedidos" …>
+<TourStep Title="Create an order" Title_de="Bestellung erstellen">
+  <Description>Click here…</Description>
+  <Description_de>Klicken Sie hier…</Description_de>
+</TourStep>
+```
+
+- The serializers say which fields carry them, with `writeAttributeWithTranslations` /
+  `writeElementWithTranslations` and `readAttributeWithTranslations` / `readElementWithTranslations`
+  (altea-user-assets/server/TranslationXml.ts): `(x, "DisplayName", uq, u => u.displayName, ctx)`. The entity
+  passed is the instance — the asset, a row, a part's content — and the lambda is the field, so an embedded
+  one reads `f => f.pinned!.label` on its row. A field written as an element (multi-line) gets element
+  translations, because a newline in an attribute does not survive a conformant XML parser.
+- Only CURRENT translations are written, in the cultures that have one: a stale translation (made against an
+  older text) is not exported.
+- Reading REPLACES the field's translations: a culture absent from the file is deleted. They are saved after
+  the asset (a new row has no id before) and they are part of the comparison, so a changed translation makes
+  the asset differ.
+- A row's field is translated under the route its OWNER registers — `steps/title` of a tour, with the step as
+  the instance — which is the route the serializer shows it by. A part's content is reached through a cast
+  route (`parts/content.(TextPart).textContent`), which core now registers as translatable too.
+- The storage is altea-translations, which cannot be a dependency of altea-user-assets (it depends on
+  altea-office-template, which depends on it). So it is reached through core's `PropertyRouteTranslationLogic`
+  seam: `loadInstanceTranslations` (read inside the caller's transaction, so what it just saved is
+  included), `saveInstanceTranslations`, and the `instanceTranslationsChanged` event. Without the module, the
+  helpers read and write the plain field.
+- A translation saved in the UI rewrites its asset's file where files are written (a row's translation
+  reaches its asset through the `@backReference`, or a resolver like the dashboard's for a part's content),
+  but does NOT set `keepOnSync`: on a server, it reaches the code (zip) or the next sync replaces it.
+- The file is written just before the commit, once per asset per transaction, so the children and the
+  translations saved after the asset are in it.
+
+Translatable today: UserQuery `displayName`, `createTitle`, column `displayName`; pinned-filter `label`
+(user queries, charts); UserChart `displayName`, column `displayName`; Dashboard `displayName`, part
+`title`, `tooltip`, text part `textContent`; Toolbar / ToolbarMenu / ToolbarSwitcher `name`, element
+`label`; TourStep `title`, `description`.
+
 ## The comparison
 
 "Identical" means **applying the file would not change the row**. The file is applied, with the current
