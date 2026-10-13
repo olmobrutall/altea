@@ -9,6 +9,9 @@ import {
 import { UserAssetsImporter, syncRows, rowGuid, positionalRows } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import { str, bool, toEnum, first, arr, token, A } from "@altea/altea-user-assets/server/XmlUtils";
+import {
+    readAttributeWithTranslations, writeAttributeWithTranslations,
+} from "@altea/altea-user-assets/server/TranslationXml";
 import { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import {
     UserQueryEntity, UserQueryEntity_Filter, UserQueryEntity_Column, UserQueryEntity_Order,
@@ -32,7 +35,8 @@ export function registerUserQueryXml(): void {
 
 async function toXml(uq: UserQueryEntity, ctx: IToXmlContext): Promise<Record<string, unknown>> {
     const o: Record<string, unknown> = {};
-    o[A + "DisplayName"] = uq.displayName;
+    writeAttributeWithTranslations(o, "DisplayName", uq, u => u.displayName, ctx);
+    writeAttributeWithTranslations(o, "CreateTitle", uq, u => u.createTitle, ctx);
     o[A + "Query"] = uq.query.key;
     if (uq.entityType != null) o[A + "EntityType"] = (await ctx.retrieveLite(uq.entityType)).cleanName;
     if (uq.owner != null) o[A + "Owner"] = uq.owner.key();
@@ -48,8 +52,8 @@ async function toXml(uq: UserQueryEntity, ctx: IToXmlContext): Promise<Record<st
     if (uq.paginationMode != null) o[A + "PaginationMode"] = Enum.toName(PaginationMode, uq.paginationMode);
     o[A + "ColumnsMode"] = Enum.toName(ColumnOptionsMode, uq.columnsMode);
 
-    if (uq.filters?.length) o["Filters"] = { Filter: uq.filters.map(filterXml) };
-    if (uq.columns?.length) o["Columns"] = { Column: uq.columns.map(columnXml) };
+    if (uq.filters?.length) o["Filters"] = { Filter: uq.filters.map(f => filterXml(f, ctx)) };
+    if (uq.columns?.length) o["Columns"] = { Column: uq.columns.map(c => columnXml(c, ctx)) };
     if (uq.orders?.length) o["Orders"] = { Orden: uq.orders.map(orderXml) };
     if (uq.systemTime != null) o["SystemTime"] = systemTimeXml(uq.systemTime);
 
@@ -64,7 +68,7 @@ async function toXml(uq: UserQueryEntity, ctx: IToXmlContext): Promise<Record<st
     return o;
 }
 
-function filterXml(f: UserQueryEntity_Filter): Record<string, unknown> {
+function filterXml(f: UserQueryEntity_Filter, ctx: IToXmlContext): Record<string, unknown> {
     const x: Record<string, unknown> = { ...rowGuid(f) };
     x[A + "Indentation"] = f.indentation;
     if (f.isGroup) {
@@ -76,13 +80,13 @@ function filterXml(f: UserQueryEntity_Filter): Record<string, unknown> {
         if (f.valueString != null) x[A + "Value"] = f.valueString;
     }
     if (f.dashboardBehaviour != null) x[A + "DashboardBehaviour"] = Enum.toName(DashboardBehaviour, f.dashboardBehaviour);
-    if (f.pinned != null) x["Pinned"] = pinnedXml(f.pinned);
+    if (f.pinned != null) x["Pinned"] = pinnedXml(f, f.pinned, ctx);
     return x;
 }
 
-function pinnedXml(p: PinnedQueryFilterEmbedded): Record<string, unknown> {
+function pinnedXml(f: UserQueryEntity_Filter, p: PinnedQueryFilterEmbedded, ctx: IToXmlContext): Record<string, unknown> {
     const x: Record<string, unknown> = {};
-    if (p.label != null) x[A + "Label"] = p.label;
+    writeAttributeWithTranslations(x, "Label", f, r => r.pinned!.label, ctx);
     if (p.column != null) x[A + "Column"] = p.column;
     if (p.colSpan != null) x[A + "ColSpan"] = p.colSpan;
     if (p.row != null) x[A + "Row"] = p.row;
@@ -92,11 +96,11 @@ function pinnedXml(p: PinnedQueryFilterEmbedded): Record<string, unknown> {
     return x;
 }
 
-function columnXml(c: UserQueryEntity_Column): Record<string, unknown> {
+function columnXml(c: UserQueryEntity_Column, ctx: IToXmlContext): Record<string, unknown> {
     const x: Record<string, unknown> = { ...rowGuid(c) };
     x[A + "Token"] = c.token.tokenString;
     if (c.summaryToken != null) x[A + "SummaryToken"] = c.summaryToken.tokenString;
-    if (c.displayName != null) x[A + "DisplayName"] = c.displayName;
+    writeAttributeWithTranslations(x, "DisplayName", c, r => r.displayName, ctx);
     if (c.hiddenColumn) x[A + "HiddenColumn"] = true;
     if (c.combineRows != null) x[A + "CombineRows"] = Enum.toName(CombineRows, c.combineRows);
     return x;
@@ -122,7 +126,8 @@ function systemTimeXml(st: SystemTimeEmbedded): Record<string, unknown> {
 
 function fromXml(uq: UserQueryEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): void {
     uq.query = ctx.getQuery(str(xml[A + "Query"])!);
-    uq.displayName = str(xml[A + "DisplayName"]) ?? "";
+    uq.displayName = readAttributeWithTranslations(xml, "DisplayName", uq, u => u.displayName, ctx) ?? "";
+    uq.createTitle = readAttributeWithTranslations(xml, "CreateTitle", uq, u => u.createTitle, ctx);
     uq.entityType = xml[A + "EntityType"] != null ? ctx.getType(str(xml[A + "EntityType"])!) : null;
     uq.owner = xml[A + "Owner"] != null ? (ctx.parseLite(str(xml[A + "Owner"])!) ?? null) : null;
     uq.hideQuickLink = bool(xml[A + "HideQuickLink"]);
@@ -137,8 +142,8 @@ function fromXml(uq: UserQueryEntity, xml: Record<string, unknown>, ctx: IFromXm
     uq.paginationMode = paginationMode == null ? null : toEnum(PaginationMode, paginationMode);
     uq.columnsMode = normalizeColumnsMode(str(xml[A + "ColumnsMode"]));
 
-    uq.filters = syncRows(uq.filters ?? [], arr(xml["Filters"], "Filter"), () => new UserQueryEntity_Filter(), fillFilter);
-    uq.columns = syncRows(uq.columns ?? [], arr(xml["Columns"], "Column"), () => new UserQueryEntity_Column(), fillColumn);
+    uq.filters = syncRows(uq.filters ?? [], arr(xml["Filters"], "Filter"), () => new UserQueryEntity_Filter(), (f, x) => fillFilter(f, x, ctx));
+    uq.columns = syncRows(uq.columns ?? [], arr(xml["Columns"], "Column"), () => new UserQueryEntity_Column(), (c, x) => fillColumn(c, x, ctx));
     // No Guid per order (an int-PK row): syncRows matches by position, as Signum's Orders.Synchronize does.
     uq.orders = syncRows(uq.orders ?? [], arr(xml["Orders"], "Orden"), () => new UserQueryEntity_Order(), fillOrder);
     uq.customDrilldowns = positionalRows(uq.customDrilldowns, arr(xml["CustomDrilldowns"], "CustomDrilldown"),
@@ -149,7 +154,7 @@ function fromXml(uq: UserQueryEntity, xml: Record<string, unknown>, ctx: IFromXm
     uq.systemTime = st != null ? systemTimeFromXml(first(st)!) : null;
 }
 
-function fillFilter(f: UserQueryEntity_Filter, x: Record<string, unknown>): void {
+function fillFilter(f: UserQueryEntity_Filter, x: Record<string, unknown>, ctx: IFromXmlContext): void {
     f.indentation = (Number(x[A + "Indentation"] ?? 0) as int);
     f.isGroup = x[A + "GroupOperation"] != null;
     if (f.isGroup) {
@@ -166,6 +171,8 @@ function fillFilter(f: UserQueryEntity_Filter, x: Record<string, unknown>): void
     f.dashboardBehaviour = dashboardBehaviour == null ? null : toEnum(DashboardBehaviour, dashboardBehaviour);
     const p = x["Pinned"];
     f.pinned = p != null ? pinnedFromXml(first(p)!) : null;
+    if (f.pinned != null)
+        f.pinned.label = readAttributeWithTranslations(first(p)!, "Label", f, r => r.pinned!.label, ctx);
 }
 
 function pinnedFromXml(x: Record<string, unknown>): PinnedQueryFilterEmbedded {
@@ -180,10 +187,10 @@ function pinnedFromXml(x: Record<string, unknown>): PinnedQueryFilterEmbedded {
     return p;
 }
 
-function fillColumn(c: UserQueryEntity_Column, x: Record<string, unknown>): void {
+function fillColumn(c: UserQueryEntity_Column, x: Record<string, unknown>, ctx: IFromXmlContext): void {
     c.token = token(str(x[A + "Token"])!);
     c.summaryToken = x[A + "SummaryToken"] != null ? token(str(x[A + "SummaryToken"])!) : null;
-    c.displayName = str(x[A + "DisplayName"]) ?? null;
+    c.displayName = readAttributeWithTranslations(x, "DisplayName", c, r => r.displayName, ctx);
     c.hiddenColumn = bool(x[A + "HiddenColumn"]);
     const combineRows = str(x[A + "CombineRows"]);
     c.combineRows = combineRows == null ? null : toEnum(CombineRows, combineRows);

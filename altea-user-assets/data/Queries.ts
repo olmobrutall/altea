@@ -1,6 +1,6 @@
 import { reflect, setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { EmbeddedEntity, Entity } from "@altea/altea/data/entity";
-import { legacyColumnName, column, serialize, rowOrder } from "@altea/altea/data/decorators";
+import { legacyColumnName, column, serialize, rowOrder, translatable } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, ValidationMessage } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import {
@@ -52,6 +52,7 @@ export class QueryTokenEmbedded extends EmbeddedEntity {
 @reflect
 export class PinnedQueryFilterEmbedded extends EmbeddedEntity {
     @stringLengthValidator({ max: 100 })
+    @translatable
     label: string | null;
 
     column: int | null;

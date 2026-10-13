@@ -1,4 +1,5 @@
 import { reflect, field } from "@altea/altea/data/reflection";
+import { translatable } from "@altea/altea/data/decorators";
 import { EmbeddedEntity } from "@altea/altea/data/entity";
 import { validate, ValidationMessage, numberIsValidator, ComparisonType } from "@altea/altea/data/validators";
 import { type int } from "@altea/altea/data/basics";
@@ -46,6 +47,7 @@ export class ChartColumnEmbedded extends EmbeddedEntity {
     token: QueryTokenEmbedded | null;
 
     // Signum's `[Translatable] string? DisplayName`.
+    @translatable
     displayName: string | null;
 
     format: string | null;

@@ -4,6 +4,7 @@ import { Lite } from "@altea/altea/data/lite";
 import {
     entity, part, primaryKey, backReference, rowOrder, implementedBy, uniqueIndex, format, unit, quoted,
     legacyColumnName,
+    translatable,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, noRepeatValidator, StateValidator } from "@altea/altea/data/validators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
@@ -94,6 +95,7 @@ export abstract class ToolbarElementBaseEntity extends Entity {
                 ToolbarMessage.Label.niceToString(), ToolbarMessage.Content.niceToString())
             : null)
     @stringLengthValidator({ min: 1, max: 100 })
+    @translatable
     label: string | null;
 
     @stringLengthValidator({ min: 3, max: 100 })
@@ -184,6 +186,7 @@ export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarE
     owner: Lite<Entity> | null;
 
     @stringLengthValidator({ max: 100 })
+    @translatable
     name: string;
 
     location: ToolbarLocation = ToolbarLocation.Side;
@@ -216,6 +219,7 @@ export class ToolbarMenuEntity extends Entity implements IUserAssetEntity, IHasE
     owner: Lite<Entity> | null;
 
     @stringLengthValidator({ max: 100 })
+    @translatable
     name: string;
 
     @validate<ToolbarMenuEntity>(t => validateElements(t.elements))
@@ -244,6 +248,7 @@ export class ToolbarSwitcherEntity extends Entity implements IUserAssetEntity, I
     // UNIQUE here only — Toolbar and ToolbarMenu names are not, in either framework.
     @uniqueIndex
     @stringLengthValidator({ max: 100 })
+    @translatable
     name: string;
 
     @implementedBy(() => [UserEntity, RoleEntity])

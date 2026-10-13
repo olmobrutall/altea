@@ -71,6 +71,7 @@ export class UserQueryEntity_Column extends Entity {
     @rowOrder rowOrder: int;
 
     token: QueryTokenEmbedded;
+    @translatable
     displayName: string | null;
     summaryToken: QueryTokenEmbedded | null;
     hiddenColumn: boolean = false;

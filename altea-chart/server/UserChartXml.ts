@@ -8,6 +8,9 @@ import {
 import { UserAssetsImporter, syncRows, rowGuid, positionalRows } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import { str, bool, toEnum, first, arr, token, A } from "@altea/altea-user-assets/server/XmlUtils";
+import {
+    readAttributeWithTranslations, writeAttributeWithTranslations,
+} from "@altea/altea-user-assets/server/TranslationXml";
 import { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import {
@@ -37,7 +40,7 @@ export function registerUserChartXml(): void {
 
 async function toXml(uc: UserChartEntity, ctx: IToXmlContext): Promise<Record<string, unknown>> {
     const o: Record<string, unknown> = {};
-    o[A + "DisplayName"] = uc.displayName;
+    writeAttributeWithTranslations(o, "DisplayName", uc, u => u.displayName, ctx);
     o[A + "Query"] = uc.query.key;
     if (uc.entityType != null) o[A + "EntityType"] = (await ctx.retrieveLite(uc.entityType)).cleanName;
     o[A + "HideQuickLink"] = uc.hideQuickLink;
@@ -47,8 +50,8 @@ async function toXml(uc: UserChartEntity, ctx: IToXmlContext): Promise<Record<st
     if (uc.maxRows != null) o[A + "MaxRows"] = uc.maxRows;
     if (uc.minHeight != null) o[A + "MinHeight"] = uc.minHeight;
 
-    if (uc.filters?.length) o["Filters"] = { Filter: uc.filters.map(filterXml) };
-    o["Columns"] = { Column: (uc.columns ?? []).map(c => ({ ...rowGuid(c), ...columnXml(c.element) })) };
+    if (uc.filters?.length) o["Filters"] = { Filter: uc.filters.map(f => filterXml(f, ctx)) };
+    o["Columns"] = { Column: (uc.columns ?? []).map(c => ({ ...rowGuid(c), ...columnXml(c, ctx) })) };
     if (uc.parameters?.length) o["Parameters"] = { Parameter: uc.parameters.map(p => parameterXml(p.element)) };
 
     if (uc.customDrilldowns?.length) {
@@ -62,7 +65,7 @@ async function toXml(uc: UserChartEntity, ctx: IToXmlContext): Promise<Record<st
     return o;
 }
 
-function filterXml(f: UserChartEntity_Filter): Record<string, unknown> {
+function filterXml(f: UserChartEntity_Filter, ctx: IToXmlContext): Record<string, unknown> {
     const x: Record<string, unknown> = { ...rowGuid(f) };
     x[A + "Indentation"] = f.indentation;
     if (f.isGroup) {
@@ -74,13 +77,13 @@ function filterXml(f: UserChartEntity_Filter): Record<string, unknown> {
         if (f.valueString != null) x[A + "Value"] = f.valueString;
     }
     if (f.dashboardBehaviour != null) x[A + "DashboardBehaviour"] = Enum.toName(DashboardBehaviour, f.dashboardBehaviour);
-    if (f.pinned != null) x["Pinned"] = pinnedXml(f.pinned);
+    if (f.pinned != null) x["Pinned"] = pinnedXml(f, f.pinned, ctx);
     return x;
 }
 
-function pinnedXml(p: PinnedQueryFilterEmbedded): Record<string, unknown> {
+function pinnedXml(f: UserChartEntity_Filter, p: PinnedQueryFilterEmbedded, ctx: IToXmlContext): Record<string, unknown> {
     const x: Record<string, unknown> = {};
-    if (p.label != null) x[A + "Label"] = p.label;
+    writeAttributeWithTranslations(x, "Label", f, r => r.pinned!.label, ctx);
     if (p.column != null) x[A + "Column"] = p.column;
     if (p.colSpan != null) x[A + "ColSpan"] = p.colSpan;
     if (p.row != null) x[A + "Row"] = p.row;
@@ -90,10 +93,11 @@ function pinnedXml(p: PinnedQueryFilterEmbedded): Record<string, unknown> {
     return x;
 }
 
-function columnXml(c: ChartColumnEmbedded): Record<string, unknown> {
+function columnXml(row: UserChartEntity_Column, ctx: IToXmlContext): Record<string, unknown> {
+    const c = row.element;
     const x: Record<string, unknown> = {};
     if (c.token != null) x[A + "Token"] = c.token.tokenString;
-    if (c.displayName != null) x[A + "DisplayName"] = c.displayName;
+    writeAttributeWithTranslations(x, "DisplayName", row, r => r.element.displayName, ctx);
     if (c.format != null) x[A + "Format"] = c.format;
     if (c.orderByIndex != null) x[A + "OrderByIndex"] = c.orderByIndex;
     if (c.orderByType != null) x[A + "OrderByType"] = Enum.toName(OrderType, c.orderByType);
@@ -109,7 +113,7 @@ function parameterXml(p: ChartParameterEmbedded): Record<string, unknown> {
 // ---- FromXml -------------------------------------------------------------------------------------------
 
 function fromXml(uc: UserChartEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): void {
-    uc.displayName = str(xml[A + "DisplayName"]) ?? "";
+    uc.displayName = readAttributeWithTranslations(xml, "DisplayName", uc, u => u.displayName, ctx) ?? "";
     uc.query = ctx.getQuery(str(xml[A + "Query"])!);
     uc.entityType = xml[A + "EntityType"] != null ? ctx.getType(str(xml[A + "EntityType"])!) : null;
     uc.hideQuickLink = bool(xml[A + "HideQuickLink"]);
@@ -121,9 +125,11 @@ function fromXml(uc: UserChartEntity, xml: Record<string, unknown>, ctx: IFromXm
     uc.maxRows = xml[A + "MaxRows"] != null ? (Number(xml[A + "MaxRows"]) as int) : null;
     uc.minHeight = xml[A + "MinHeight"] != null ? (Number(xml[A + "MinHeight"]) as int) : null;
 
-    uc.filters = syncRows(uc.filters ?? [], arr(xml["Filters"], "Filter"), () => new UserChartEntity_Filter(), fillFilter);
-    uc.columns = syncRows(uc.columns ?? [], arr(xml["Columns"], "Column"), () => new UserChartEntity_Column(),
-        (row, x) => { row.element = columnFromXml(x); });
+    uc.filters = syncRows(uc.filters ?? [], arr(xml["Filters"], "Filter"), () => new UserChartEntity_Filter(), (f, x) => fillFilter(f, x, ctx));
+    uc.columns = syncRows(uc.columns ?? [], arr(xml["Columns"], "Column"), () => new UserChartEntity_Column(), (row, x) => {
+        row.element = columnFromXml(x);
+        row.element.displayName = readAttributeWithTranslations(x, "DisplayName", row, r => r.element.displayName, ctx);
+    });
     uc.parameters = positionalRows(uc.parameters, arr(xml["Parameters"], "Parameter"), () => new UserChartEntity_Parameter(),
         (row, x) => { row.element = parameterFromXml(x); });
     uc.customDrilldowns = positionalRows(uc.customDrilldowns, arr(xml["CustomDrilldowns"], "CustomDrilldown"),
@@ -131,7 +137,7 @@ function fromXml(uc: UserChartEntity, xml: Record<string, unknown>, ctx: IFromXm
         (row, d) => { row.drilldown = (ctx.getEntity(str(d["#text"] ?? d)!) as UserQueryEntity).toLite(); });
 }
 
-function fillFilter(f: UserChartEntity_Filter, x: Record<string, unknown>): void {
+function fillFilter(f: UserChartEntity_Filter, x: Record<string, unknown>, ctx: IFromXmlContext): void {
     f.indentation = (Number(x[A + "Indentation"] ?? 0) as int);
     f.isGroup = x[A + "GroupOperation"] != null;
     if (f.isGroup) {
@@ -148,6 +154,8 @@ function fillFilter(f: UserChartEntity_Filter, x: Record<string, unknown>): void
     f.dashboardBehaviour = dashboardBehaviour == null ? null : toEnum(DashboardBehaviour, dashboardBehaviour);
     const p = x["Pinned"];
     f.pinned = p != null ? pinnedFromXml(first(p)!) : null;
+    if (f.pinned != null)
+        f.pinned.label = readAttributeWithTranslations(first(p)!, "Label", f, r => r.pinned!.label, ctx);
 }
 
 function pinnedFromXml(x: Record<string, unknown>): PinnedQueryFilterEmbedded {

@@ -4,6 +4,7 @@ import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
     backReference, entity, part, implementedBy, primaryKey, quoted, rowOrder, valueField,
     legacyColumnName, unit,
+    translatable,
 } from "@altea/altea/data/decorators";
 import { ComparisonType, noRepeatValidator, numberIsValidator, stringLengthValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
@@ -139,6 +140,7 @@ export class UserChartEntity extends Entity implements IUserAssetEntity, IHasEnt
     owner: Lite<Entity> | null;
 
     @stringLengthValidator({ min: 3, max: 200 })
+    @translatable
     displayName: string;
 
     includeDefaultFilters: boolean | null;

@@ -9,7 +9,10 @@ import type { Entity } from "@altea/altea/data/entity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TourTriggerSymbol } from "@altea/altea/data/tourTrigger";
-import { UserAssetsImporter } from "@altea/altea-user-assets/server/UserAssetsImportExport";
+import { UserAssetsImporter, positionalRows } from "@altea/altea-user-assets/server/UserAssetsImportExport";
+import {
+    readAttributeWithTranslations, readElementWithTranslations, writeAttributeWithTranslations, writeElementWithTranslations,
+} from "@altea/altea-user-assets/server/TranslationXml";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import { list, A } from "@altea/altea-user-assets/server/XmlUtils";
 import {
@@ -71,11 +74,11 @@ async function triggerToXml(trigger: Lite<Entity>, ctx: IToXmlContext): Promise<
 
 async function stepToXml(s: TourStepEntity, ctx: IToXmlContext): Promise<Record<string, unknown>> {
     const o: Record<string, unknown> = {};
-    if (s.title != null) o[A + "Title"] = s.title;
+    writeAttributeWithTranslations(o, "Title", s, t => t.title, ctx);
     if (s.side != null) o[A + "Side"] = Enum.toName(PopoverSide, s.side);
     if (s.align != null) o[A + "Align"] = Enum.toName(PopoverAlign, s.align);
     if (s.click != null) o[A + "Click"] = Enum.toName(ClickTrigger, s.click);
-    if (s.description != null) o["Description"] = s.description;
+    writeElementWithTranslations(o, "Description", s, t => t.description, ctx);
 
     const cssSteps: Record<string, unknown>[] = [];
     for (const cs of s.cssSteps)
@@ -115,16 +118,14 @@ function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlCo
     tour.animate = xml[A + "Animate"] == null || xml[A + "Animate"] === true || xml[A + "Animate"] === "true";
     tour.showCloseButton = xml[A + "ShowCloseButton"] == null || xml[A + "ShowCloseButton"] === true || xml[A + "ShowCloseButton"] === "true";
 
-    tour.steps = list(xml["TourStep"]).map(sx => {
-        const s = TourStepEntity.create({
-            title: String(sx[A + "Title"] ?? ""),
-            side: sx[A + "Side"] == null ? null : Enum.toValue(PopoverSide, String(sx[A + "Side"]) as never),
-            align: sx[A + "Align"] == null ? null : Enum.toValue(PopoverAlign, String(sx[A + "Align"]) as never),
-            click: sx[A + "Click"] == null ? null : Enum.toValue(ClickTrigger, String(sx[A + "Click"]) as never),
-            description: String(sx["Description"] ?? ""),
-            cssSteps: list(sx["CssStep"]).map(cx => cssStepFromXml(cx, ctx, rootType)),
-        });
-        return s;
+    tour.steps = positionalRows(tour.steps, list(xml["TourStep"]), () => TourStepEntity.create({}), (s, sx) => {
+        s.title = readAttributeWithTranslations(sx, "Title", s, t => t.title, ctx) ?? "";
+        s.side = sx[A + "Side"] == null ? null : Enum.toValue(PopoverSide, String(sx[A + "Side"]) as never);
+        s.align = sx[A + "Align"] == null ? null : Enum.toValue(PopoverAlign, String(sx[A + "Align"]) as never);
+        s.click = sx[A + "Click"] == null ? null : Enum.toValue(ClickTrigger, String(sx[A + "Click"]) as never);
+        s.description = readElementWithTranslations(sx, "Description", s, t => t.description, ctx) ?? "";
+        s.cssSteps = positionalRows(s.cssSteps, list(sx["CssStep"]), () => CssStepEntity.create({}),
+            (cs, cx) => fillCssStep(cs, cx, ctx, rootType));
     });
 }
 
@@ -141,11 +142,9 @@ function triggerRootType(trigger: Lite<Entity>, ctx: IFromXmlContext): TypeEntit
     return null;
 }
 
-function cssStepFromXml(cx: Record<string, unknown>, ctx: IFromXmlContext, rootType: TypeEntity | null): CssStepEntity {
-    const cs = CssStepEntity.create({
-        type: Enum.toValue(CssStepType, String(cx[A + "Type"]) as never),
-        cssSelector: cx[A + "CssSelector"] == null ? null : String(cx[A + "CssSelector"]),
-    });
+function fillCssStep(cs: CssStepEntity, cx: Record<string, unknown>, ctx: IFromXmlContext, rootType: TypeEntity | null): void {
+    cs.type = Enum.toValue(CssStepType, String(cx[A + "Type"]) as never);
+    cs.cssSelector = cx[A + "CssSelector"] == null ? null : String(cx[A + "CssSelector"]);
     cs.property = cx[A + "Property"] == null || rootType == null ? null
         : PropertyRouteLogic.propertyRouteEntitySync(rootType, String(cx[A + "Property"]));
     cs.dashboardPart = cx[A + "DashboardPart"] == null ? null : String(cx[A + "DashboardPart"]);
@@ -155,8 +154,6 @@ function cssStepFromXml(cx: Record<string, unknown>, ctx: IFromXmlContext, rootT
     cs.toolbarContent = content == null ? null
         : content.includes("|") ? ctx.getEntity(content.substring(content.indexOf("|") + 1)).toLite()
             : ctx.getQuery(content).toLite();
-
-    return cs;
 }
 
 function triggerFromXml(value: string, ctx: IFromXmlContext): Lite<Entity> {

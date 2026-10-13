@@ -4,6 +4,10 @@ import { Enum } from "@altea/altea/data/enum";
 import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import { str, bool, integer, toEnum, first, list, arr, token, A } from "@altea/altea-user-assets/server/XmlUtils";
+import {
+    readAttributeWithTranslations, writeAttributeWithTranslations,
+} from "@altea/altea-user-assets/server/TranslationXml";
+import { AssetSyncLogic } from "@altea/altea-user-assets/server/AssetSyncLogic";
 import { newGuid } from "@altea/altea-user-assets/data/UserAssets";
 import {
     DashboardEntity, DashboardEntity_Part, DashboardEntity_TokenEquivalenceGroup, DashboardEntity_TokenEquivalenceGroup_Query,
@@ -38,7 +42,7 @@ export function registerDashboardXml(): void {
 
 async function toXml(db: DashboardEntity, ctx: IToXmlContext): Promise<Record<string, unknown>> {
     const o: Record<string, unknown> = {};
-    o[A + "DisplayName"] = db.displayName;
+    writeAttributeWithTranslations(o, "DisplayName", db, d => d.displayName, ctx);
     if (db.entityType != null) o[A + "EntityType"] = (await ctx.retrieveLite(db.entityType)).cleanName;
     if (db.owner != null) o[A + "Owner"] = db.owner.key();
     if (db.hideDisplayName) o[A + "HideDisplayName"] = true;
@@ -80,9 +84,9 @@ async function partToXml(p: DashboardEntity_Part, ctx: IToXmlContext): Promise<R
     x[A + "Row"] = p.row;
     x[A + "StartColumn"] = p.startColumn;
     x[A + "Columns"] = p.columns;
-    if (p.title != null) x[A + "Title"] = p.title;
+    writeAttributeWithTranslations(x, "Title", p, r => r.title, ctx);
     if (p.hideTitle) x[A + "HideTitle"] = true;
-    if (p.tooltip != null) x[A + "Tooltip"] = p.tooltip;
+    writeAttributeWithTranslations(x, "Tooltip", p, r => r.tooltip, ctx);
     if (p.iconName != null) x[A + "IconName"] = p.iconName;
     if (p.iconColor != null) x[A + "IconColor"] = p.iconColor;
     if (p.titleColor != null) x[A + "TitleColor"] = p.titleColor;
@@ -111,7 +115,7 @@ function tokenEquivalenceGroupToXml(gr: DashboardEntity_TokenEquivalenceGroup): 
 // ---- FromXml -------------------------------------------------------------------------------------------
 
 function fromXml(db: DashboardEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): void {
-    db.displayName = str(xml[A + "DisplayName"]) ?? "";
+    db.displayName = readAttributeWithTranslations(xml, "DisplayName", db, d => d.displayName, ctx) ?? "";
     db.entityType = xml[A + "EntityType"] != null ? ctx.getType(str(xml[A + "EntityType"])!) : null;
     db.owner = xml[A + "Owner"] != null ? (ctx.parseLite(str(xml[A + "Owner"])!) ?? null) : null;
     db.hideDisplayName = bool(xml[A + "HideDisplayName"]);
@@ -153,9 +157,9 @@ function fillPart(p: DashboardEntity_Part, x: Record<string, unknown>, ctx: IFro
     p.row = (integer(x[A + "Row"]) ?? 0) as int;
     p.startColumn = (integer(x[A + "StartColumn"]) ?? 0) as int;
     p.columns = (integer(x[A + "Columns"]) ?? 12) as int;
-    p.title = str(x[A + "Title"]) ?? null;
+    p.title = readAttributeWithTranslations(x, "Title", p, r => r.title, ctx);
     p.hideTitle = bool(x[A + "HideTitle"]);
-    p.tooltip = str(x[A + "Tooltip"]) ?? null;
+    p.tooltip = readAttributeWithTranslations(x, "Tooltip", p, r => r.tooltip, ctx);
     p.iconName = str(x[A + "IconName"]) ?? null;
     p.iconColor = str(x[A + "IconColor"]) ?? null;
     // Signum's legacy `UseIconColorForTitle` → TitleColor remap, preserved.
@@ -198,6 +202,10 @@ function tokenEquivalenceGroupFromXml(x: Record<string, unknown>, ctx: IFromXmlC
 
 export function registerBasePartsXml(): void {
 
+    // A part's content has no back reference: the part row that shows it is its owner.
+    AssetSyncLogic.registerOwnerResolver(TextPartEntity, async lite =>
+        await table(DashboardEntity_Part).filter(p => p.content.is(lite)).map(p => p.toLite()).singleOrNull() ?? undefined);
+
     DashboardLogic.registerPart<TextPartEntity>({
         type: TextPartEntity,
         elementName: "TextPart",
@@ -205,12 +213,15 @@ export function registerBasePartsXml(): void {
             const c = TextPartEntity.create({ textContent: p.textContent, textPartType: p.textPartType });
             return c;
         },
-        toXml: p => ({
-            [A + "TextContent"]: p.textContent ?? "",
-            [A + "TextPartType"]: Enum.toName(TextPartType, p.textPartType),
-        }),
-        fromXml: (p, x) => {
-            p.textContent = str(x[A + "TextContent"]) ?? null;
+        toXml: (p, ctx) => {
+            const x: Record<string, unknown> = {};
+            writeAttributeWithTranslations(x, "TextContent", p, t => t.textContent, ctx);
+            x[A + "TextContent"] ??= "";
+            x[A + "TextPartType"] = Enum.toName(TextPartType, p.textPartType);
+            return x;
+        },
+        fromXml: (p, x, ctx) => {
+            p.textContent = readAttributeWithTranslations(x, "TextContent", p, t => t.textContent, ctx);
             p.textPartType = toEnum(TextPartType, str(x[A + "TextPartType"]) ?? "Text");
         },
     });

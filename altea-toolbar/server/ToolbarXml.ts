@@ -8,6 +8,9 @@ import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { UserAssetsImporter, syncRows, rowGuid, referencedGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import { str, bool, toEnum, arr, A } from "@altea/altea-user-assets/server/XmlUtils";
+import {
+    readAttributeWithTranslations, writeAttributeWithTranslations,
+} from "@altea/altea-user-assets/server/TranslationXml";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { type int } from "@altea/altea/data/basics";
 import {
@@ -40,7 +43,7 @@ export function registerToolbarXml(): void {
         toXml: async (tb, ctx) => {
             const o: Record<string, unknown> = {};
             o[A + "Guid"] = String(tb.id);
-            o[A + "Name"] = tb.name;
+            writeAttributeWithTranslations(o, "Name", tb, t => t.name, ctx);
             o[A + "Location"] = Enum.toName(ToolbarLocation, tb.location);
             if (tb.owner != null) o[A + "Owner"] = tb.owner.key();
             if (tb.priority != null) o[A + "Priority"] = String(tb.priority);
@@ -48,7 +51,7 @@ export function registerToolbarXml(): void {
             return o;
         },
         fromXml: (tb, xml, ctx) => {
-            tb.name = str(xml[A + "Name"]) ?? "";
+            tb.name = readAttributeWithTranslations(xml, "Name", tb, t => t.name, ctx) ?? "";
             tb.location = toEnum(ToolbarLocation, str(xml[A + "Location"]) ?? "Side");
             tb.owner = parseOwner(xml, ctx);
             tb.priority = xml[A + "Priority"] != null ? (Number(xml[A + "Priority"]) as int) : null;
@@ -65,14 +68,14 @@ export function registerToolbarXml(): void {
         toXml: async (tm, ctx) => {
             const o: Record<string, unknown> = {};
             o[A + "Guid"] = String(tm.id);
-            o[A + "Name"] = tm.name;
+            writeAttributeWithTranslations(o, "Name", tm, t => t.name, ctx);
             if (tm.entityType != null) o[A + "EntityType"] = (await ctx.retrieveLite(tm.entityType)).cleanName;
             if (tm.owner != null) o[A + "Owner"] = tm.owner.key();
             o["Elements"] = { ToolbarElement: await Promise.all((tm.elements ?? []).map(e => menuElementXml(e, ctx))) };
             return o;
         },
         fromXml: (tm, xml, ctx) => {
-            tm.name = str(xml[A + "Name"]) ?? "";
+            tm.name = readAttributeWithTranslations(xml, "Name", tm, t => t.name, ctx) ?? "";
             const entityType = str(xml[A + "EntityType"]);
             tm.entityType = entityType == null ? null : ctx.getType(entityType);
             tm.owner = parseOwner(xml, ctx);
@@ -89,13 +92,13 @@ export function registerToolbarXml(): void {
         toXml: async (ts, ctx) => {
             const o: Record<string, unknown> = {};
             o[A + "Guid"] = String(ts.id);
-            o[A + "Name"] = ts.name;
+            writeAttributeWithTranslations(o, "Name", ts, t => t.name, ctx);
             if (ts.owner != null) o[A + "Owner"] = ts.owner.key();
             o["Options"] = { ToolbarSwitcherOption: await Promise.all((ts.options ?? []).map(op => optionXml(op, ctx))) };
             return o;
         },
         fromXml: (ts, xml, ctx) => {
-            ts.name = str(xml[A + "Name"]) ?? "";
+            ts.name = readAttributeWithTranslations(xml, "Name", ts, t => t.name, ctx) ?? "";
             ts.owner = parseOwner(xml, ctx);
             ts.options = arr(xml["Options"], "ToolbarSwitcherOption").map(x => optionFromXml(x, ctx));
         },
@@ -107,7 +110,7 @@ export function registerToolbarXml(): void {
 async function elementXml(e: ToolbarElementBaseEntity, ctx: IToXmlContext): Promise<Record<string, unknown>> {
     const x: Record<string, unknown> = { ...rowGuid(e) };
     x[A + "Type"] = Enum.toName(ToolbarElementType, e.type);
-    if (e.label) x[A + "Label"] = e.label;
+    if (e.label) writeAttributeWithTranslations(x, "Label", e, r => r.label, ctx);
     if (e.iconName) x[A + "IconName"] = e.iconName;
     if (e.iconColor) x[A + "IconColor"] = e.iconColor;
     if (e.showCount != null) x[A + "ShowCount"] = Enum.toName(ShowCount, e.showCount);
@@ -140,7 +143,7 @@ async function contentXml(content: Lite<Entity>, ctx: IToXmlContext): Promise<st
 
 function elementFromXml<T extends ToolbarElementBaseEntity>(e: T, x: Record<string, unknown>, ctx: IFromXmlContext): T {
     e.type = toEnum(ToolbarElementType, str(x[A + "Type"]) ?? "Item");
-    e.label = str(x[A + "Label"]) ?? null;
+    e.label = readAttributeWithTranslations(x, "Label", e, r => r.label, ctx);
     const showCount = str(x[A + "ShowCount"]);
     e.showCount = showCount == null ? null : toEnum(ShowCount, showCount);
     e.iconName = str(x[A + "IconName"]) ?? null;

@@ -4,7 +4,7 @@
 import { setDefaultDatabaseSchema, MAX_SIZE } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { legacyColumnName, part, backReference, rowOrder, quoted } from "@altea/altea/data/decorators";
+import { legacyColumnName, part, backReference, rowOrder, quoted, translatable } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -38,6 +38,7 @@ export enum TextPartType {
 export class TextPartEntity extends Entity implements IPartEntity {
     // Signum's [StringLengthValidator(Min = 1, MultiLine = true), Translatable] — unbounded text column.
     @stringLengthValidator({ min: 1 })
+    @translatable
     textContent: string | null;
 
     textPartType: TextPartType = TextPartType.Text;
