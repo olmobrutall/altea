@@ -9,6 +9,7 @@ import {
 } from "../data/DashboardParts";
 import { UserQueryEntity } from "../data/UserQuery";
 import { str, bool, toEnum, list, token, A } from "@altea/altea-user-assets/server/XmlUtils";
+import { positionalRows } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 
 // Port of the ToXml / FromXml / Clone members Signum declares ON the UserQuery dashboard part entities
 // (Signum.UserQueries/UserQueryEntity.cs), plus the `PartNames` entries its UserQueryLogic.Start registered
@@ -97,14 +98,11 @@ export function registerUserQueryDashboardParts(): void {
             }),
         }),
         fromXml: (p, x, ctx) => {
-            p.userQueries = list(x["ValueUserQueryElement"]).map(e => {
-                const row = ValueUserQueryListPartEntity_UserQuery.create({
-                    label: str(e[A + "Label"]) ?? null,
-                    href: str(e[A + "Href"]) ?? null,
-                    isQueryCached: bool(e[A + "IsQueryCached"]),
-                    userQuery: ctx.getEntity(str(e[A + "UserQuery"])!) as UserQueryEntity,
-                });
-                return row;
+            p.userQueries = positionalRows(p.userQueries, list(x["ValueUserQueryElement"]), () => new ValueUserQueryListPartEntity_UserQuery(), (row, e) => {
+                row.label = str(e[A + "Label"]) ?? null;
+                row.href = str(e[A + "Href"]) ?? null;
+                row.isQueryCached = bool(e[A + "IsQueryCached"]);
+                row.userQuery = ctx.getEntity(str(e[A + "UserQuery"])!) as UserQueryEntity;
             });
         },
     });

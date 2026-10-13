@@ -5,6 +5,7 @@ import { type int } from "@altea/altea/data/basics";
 import { CombinedUserChartPartEntity_UserChart, CombinedUserChartPartEntity, UserChartPartEntity } from "../data/DashboardParts";
 import { UserChartEntity } from "../data/UserChart";
 import { bool, list, A } from "@altea/altea-user-assets/server/XmlUtils";
+import { positionalRows } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 
 // Port of the ToXml / FromXml / Clone members Signum declares ON UserChartPartEntity (Signum.Chart/UserChart/
 // UserChart.cs) plus the `PartNames` entry its UserChartLogic registered inside
@@ -109,12 +110,10 @@ export function registerUserChartDashboardParts(): void {
             p.combinePinnedFiltersWithSameLabel = bool(x[A + "CombinePinnedFiltersWithSameLabel"]);
             p.useSameScale = bool(x[A + "UseSameScale"]);
             p.minHeight = x[A + "MinHeight"] == null ? null : (Number(x[A + "MinHeight"]) as int);
-            p.userCharts = list(x["UserChart"]).map(e => {
-                const row = CombinedUserChartPartEntity_UserChart.create({
-                    userChart: ctx.getEntity(String(e[A + "Guid"])) as UserChartEntity,
-                    isQueryCached: bool(e[A + "IsQueryCached"]),
-                });
-                return row;
+            // The row's `Guid` attribute names the CHART, not the row, so the rows match by position.
+            p.userCharts = positionalRows(p.userCharts, list(x["UserChart"]), () => new CombinedUserChartPartEntity_UserChart(), (row, e) => {
+                row.userChart = ctx.getEntity(String(e[A + "Guid"])) as UserChartEntity;
+                row.isQueryCached = bool(e[A + "IsQueryCached"]);
             });
         },
     });

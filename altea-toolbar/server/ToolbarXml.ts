@@ -5,7 +5,7 @@ import { Enum } from "@altea/altea/data/enum";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
-import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
+import { UserAssetsImporter, syncRows, rowGuid, referencedGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import { str, bool, toEnum, arr, A } from "@altea/altea-user-assets/server/XmlUtils";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
@@ -24,11 +24,11 @@ import {
 // round-trips.
 //
 // The `Guid` attribute of each ROOT is its `id` — the uuid primary key, which IS the asset's portable
-// identity — so `ctx.include(x)` returns exactly that. The ELEMENT rows keep their own `guid` attribute,
+// identity — and `ctx.include(x)` returns the reference to it (`UserQuery;<guid>`). The ELEMENT rows keep their own `guid` attribute,
 // which is likewise their primary key, and `syncRows` matches them BY IT rather than by position.
 //
-// The `Content` attribute is POLYMORPHIC: a QUERY key, a PERMISSION key, or the GUID of an included user
-// asset. That three-way discrimination is preserved — guid first, then query, then permission.
+// The `Content` attribute is POLYMORPHIC: a QUERY key, a PERMISSION key, or a reference to an included user
+// asset (`UserQuery;<guid>`, or the bare guid older files hold). Read in that order: asset, query, permission.
 
 export function registerToolbarXml(): void {
 
@@ -126,7 +126,7 @@ async function menuElementXml(e: ToolbarMenuEntity_Element, ctx: IToXmlContext):
     return x;
 }
 
-/** The polymorphic `Content` attribute: a query's KEY, a permission's KEY, or the GUID of an included
+/** The polymorphic `Content` attribute: a query's KEY, a permission's KEY, or a reference to an included
  *  user asset (the asset is exported alongside — `ctx.include`). */
 async function contentXml(content: Lite<Entity>, ctx: IToXmlContext): Promise<string> {
     if (content.entityType === QueryEntity)
@@ -158,12 +158,12 @@ function menuElementFromXml(e: ToolbarMenuEntity_Element, x: Record<string, unkn
     e.autoSelect = bool(x[A + "AutoSelect"]);
 }
 
-/** The inverse of `contentXml`: try a guid, then a query, then a permission. */
+/** The inverse of `contentXml`: try an asset reference, then a query, then a permission. */
 function contentFromXml(content: string | undefined, ctx: IFromXmlContext): Lite<Entity> | null {
     if (!content)
         return null;
 
-    if (isGuid(content))
+    if (referencedGuid(content) != undefined)
         return ctx.getEntity(content).toLite() as Lite<Entity>;
 
     const query = ctx.tryGetQuery(content);
@@ -181,8 +181,7 @@ function contentFromXml(content: string | undefined, ctx: IFromXmlContext): Lite
 
 async function optionXml(op: ToolbarSwitcherEntity_Option, ctx: IToXmlContext): Promise<Record<string, unknown>> {
     const x: Record<string, unknown> = {};
-    // The referenced menu rides along in the same file, keyed by guid
-    // (== the menu's uuid id in altea). The FULL entity is needed: the exporter recurses into it.
+    // The referenced menu rides along in the same file. The FULL entity is needed: the exporter recurses into it.
     x[A + "ToolbarMenu"] = ctx.include(await ctx.retrieveLite(op.toolbarMenu));
     if (op.iconName) x[A + "IconName"] = op.iconName;
     if (op.iconColor) x[A + "IconColor"] = op.iconColor;
@@ -194,8 +193,7 @@ function optionFromXml(x: Record<string, unknown>, ctx: IFromXmlContext): Toolba
         iconName: str(x[A + "IconName"]) ?? null,
         iconColor: str(x[A + "IconColor"]) ?? null,
     });
-    const guid = str(x[A + "ToolbarMenu"])!;
-    op.toolbarMenu = ctx.getEntity(guid).toLite() as Lite<ToolbarMenuEntity>;
+    op.toolbarMenu = ctx.getEntity(str(x[A + "ToolbarMenu"])!).toLite() as Lite<ToolbarMenuEntity>;
     return op;
 }
 
@@ -207,7 +205,3 @@ function parseOwner(xml: Record<string, unknown>, ctx: IFromXmlContext): Lite<En
     return owner == null ? null : (ctx.parseLite(owner) ?? null);
 }
 
-const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function isGuid(text: string): boolean {
-    return guidRegex.test(text);
-}

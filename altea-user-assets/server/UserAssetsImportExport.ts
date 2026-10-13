@@ -1,7 +1,7 @@
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import { table } from "@altea/altea/server/table";
 import type { Entity } from "@altea/altea/data/entity";
-import type { Lite } from "@altea/altea/data/lite";
+import { Lite } from "@altea/altea/data/lite";
 import { isGraphModified } from "@altea/altea/data/changes";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
@@ -80,6 +80,41 @@ export function syncRows<T extends Entity>(
     });
 }
 
+/**
+ * Match a collection's rows to the XML by POSITION, reusing the existing ones, for rows that carry no id of
+ * their own in the XML. Rebuilding them instead would report every import as a change: a new row is modified.
+ */
+export function positionalRows<T extends Entity>(
+    current: T[] | null | undefined,
+    elements: Record<string, unknown>[],
+    create: () => T,
+    fill: (row: T, xml: Record<string, unknown>, index: number) => void,
+): T[] {
+    return elements.map((x, i) => {
+        const row = current?.[i] ?? create();
+        fill(row, x, i);
+        return row;
+    });
+}
+
+/**
+ * How one asset references another in the XML: its LONG lite key, `UserQuery;<guid>;Next Orders`. The type
+ * and the name make a reference readable in a file and in a diff, at the price of redundancy; the Guid alone
+ * is the identity, so `Type;<guid>` and a bare Guid — what older files hold — are read too (see
+ * {@link referencedGuid}). A renamed asset leaves the name stale in the files that reference it until they
+ * are written again, which changes nothing they mean.
+ */
+export function assetReference(asset: IUserAssetEntity | Lite<Entity>): string {
+    return asset instanceof Lite ? asset.keyLong() : `${cleanTypeName(asset.getType())};${String(asset.id)};${asset.toString()}`;
+}
+
+const referenceRegex = /^(?:[A-Za-z_][A-Za-z0-9_]*;)?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:;[\s\S]*)?$/i;
+
+/** The Guid of an asset reference (`Type;<guid>;toStr`, `Type;<guid>` or a bare `<guid>`); `undefined` when it is not one. */
+export function referencedGuid(text: string): string | undefined {
+    return referenceRegex.exec(text)?.[1];
+}
+
 /** The `Guid` attribute a row of a `@primaryKey("uuid")` collection writes — see {@link syncRows}. */
 export function rowGuid(row: Entity): Record<string, unknown> {
     return row.id == null ? {} : { [ATTR + "Guid"]: String(row.id) };
@@ -113,7 +148,7 @@ function textOf(value: unknown): string {
 }
 
 export interface IToXmlContext {
-    /** Add an asset to the export set (recursively) and return its guid. */
+    /** Add an asset to the export set (recursively) and return the reference to write — see {@link assetReference}. */
     include(entity: IUserAssetEntity): string;
     /** Retrieve the full entity behind a lite (for reading fields into the XML). */
     retrieveLite<T extends Entity>(lite: Lite<T>): Promise<T>;
@@ -135,8 +170,8 @@ export interface IFromXmlContext {
     tryGetQuery(queryKey: string): QueryEntity | undefined;
     getType(cleanName: string): Lite<TypeEntity>;
     tryGetType(cleanName: string): Lite<TypeEntity> | undefined;
-    /** The already-materialized asset for a guid referenced elsewhere in the same file. */
-    getEntity(guid: string): IUserAssetEntity;
+    /** The already-materialized asset a reference names — see {@link assetReference}. */
+    getEntity(reference: string): IUserAssetEntity;
     /** Parse a stored lite key back to a Lite — best-effort. */
     parseLite(liteKey: string): Lite<Entity> | undefined;
 }
@@ -205,7 +240,7 @@ export namespace UserAssetsImporter {
                     elements.set(guid, { name: "", obj: {} }); // placeholder to break cycles
                     pending.push(entity);
                 }
-                return guid;
+                return assetReference(entity);
             },
             retrieveLite: lite => lite.retrieve(),
             binary: inlineBinaryStore,
@@ -235,8 +270,9 @@ export namespace UserAssetsImporter {
     }
 
     /**
-     * ONE asset, alone in its file. A referenced asset is written as its Guid and handed to `reference`
-     * instead of being included, because in a sync folder it lives in a file of its own.
+     * ONE asset, alone in its file and its ROOT element (no `<Entities>`). A referenced asset is written as
+     * its Guid and handed to `reference` instead of being included, because in a sync folder it lives in a
+     * file of its own.
      */
     export async function toAssetXml(entity: IUserAssetEntity, binary: BinaryStore,
         reference: (referenced: IUserAssetEntity) => void): Promise<string> {
@@ -245,19 +281,24 @@ export namespace UserAssetsImporter {
             include(referenced) {
                 if (referenced !== entity)
                     reference(referenced);
-                return String(referenced.id);
+                return assetReference(referenced);
             },
             retrieveLite: lite => lite.retrieve(),
             binary,
         };
         const obj = await cfg.toXml(entity, ctx);
         obj[ATTR + "Guid"] = String(entity.id);
-        return build({ [cfg.elementName]: [obj] });
+        return xmlBuilder().build({ [cfg.elementName]: obj });
     }
 
     function build(byName: Record<string, Record<string, unknown>[]>): string {
-        const builder = new XMLBuilder({ attributeNamePrefix: ATTR, ignoreAttributes: false, format: true, suppressEmptyNode: true });
-        return builder.build({ Entities: byName });
+        return xmlBuilder().build({ Entities: byName });
+    }
+
+    function xmlBuilder(): XMLBuilder {
+        // suppressBooleanAttributes is ON by default and writes a `true` attribute with no value
+        // (`IsQueryCached`), which is not XML and read back as absent.
+        return new XMLBuilder({ attributeNamePrefix: ATTR, ignoreAttributes: false, format: true, suppressEmptyNode: true, suppressBooleanAttributes: false });
     }
 
     // ---- Preview -------------------------------------------------------------------------------------
@@ -366,10 +407,10 @@ export namespace UserAssetsImporter {
             tryGetQuery: queryKey => tryGetQueryByKey(queryKey),
             getType: cleanName => getTypeByCleanName(cleanName, true)!,
             tryGetType: cleanName => getTypeByCleanName(cleanName, false),
-            getEntity: guid => {
-                const e = materialized.get(guid);
+            getEntity: reference => {
+                const e = materialized.get(referencedGuid(reference) ?? reference);
                 if (e == null)
-                    throw new Error(`UserAssets import: referenced asset '${guid}' not found in file`);
+                    throw new Error(`UserAssets import: referenced asset '${reference}' not found in file`);
                 return e;
             },
             parseLite: liteKey => parseLiteKey(liteKey),
@@ -389,12 +430,16 @@ export function parseAssets(content: string): ParsedAsset[] {
     // Every ELEMENT is an array (a single child reads like many), but an ATTRIBUTE stays a scalar: wrapped
     // as `["true"]` it passes String()/Number() but fails every `v === "true"` check, and each boolean
     // attribute silently imported as false.
+    // allowBooleanAttributes: files exported before the builder fix carry a bare `IsQueryCached`.
     const parser = new XMLParser({
-        attributeNamePrefix: ATTR, ignoreAttributes: false,
+        attributeNamePrefix: ATTR, ignoreAttributes: false, allowBooleanAttributes: true,
         isArray: (_name, _jpath, _isLeafNode, isAttribute) => !isAttribute,
     });
     const root = parser.parse(content) as Record<string, unknown>;
-    const entities = ((root["Entities"] as unknown[])?.[0] ?? {}) as Record<string, unknown>;
+    // A one-file export wraps its assets in <Entities>; a sync-folder file IS its one asset element.
+    const entities = root["Entities"] != null
+        ? ((root["Entities"] as unknown[])[0] ?? {}) as Record<string, unknown>
+        : Object.fromEntries(Object.entries(root).filter(([name]) => !name.startsWith("?")));
     const result: ParsedAsset[] = [];
     for (const [elementName, list] of Object.entries(entities)) {
         if (elementName.startsWith(ATTR))

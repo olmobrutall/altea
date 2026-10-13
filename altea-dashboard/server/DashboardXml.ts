@@ -172,10 +172,12 @@ function fillPart(p: DashboardEntity_Part, x: Record<string, unknown>, ctx: IFro
     if (contentEntry == null)
         throw new Error(`Dashboard import: part '${String(p.id)}' has no content element`);
 
+    // The existing content is reused when the part keeps its type, so an unchanged part is not a change.
     const config = DashboardLogic.partConfigForElement(contentEntry[0]);
-    const content = new (config.type as new () => IPartEntity)();
+    const content = p.content instanceof config.type ? p.content : new (config.type as new () => IPartEntity)();
     config.fromXml(content, first(contentEntry[1])!, ctx);
-    p.content = content;
+    if (p.content !== content)
+        p.content = content;
 }
 
 function tokenEquivalenceGroupFromXml(x: Record<string, unknown>, ctx: IFromXmlContext): DashboardEntity_TokenEquivalenceGroup {

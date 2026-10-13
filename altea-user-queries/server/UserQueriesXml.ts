@@ -6,7 +6,7 @@ import {
     TimeSeriesUnit, FilterGroupOperation, FilterOperation, DashboardBehaviour, CombineRows,
     OrderType, PinnedFilterActive,
 } from "@altea/altea/data/dynamicQueries";
-import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
+import { UserAssetsImporter, syncRows, rowGuid, positionalRows } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import { str, bool, toEnum, first, arr, token, A } from "@altea/altea-user-assets/server/XmlUtils";
 import { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
@@ -141,12 +141,9 @@ function fromXml(uq: UserQueryEntity, xml: Record<string, unknown>, ctx: IFromXm
     uq.columns = syncRows(uq.columns ?? [], arr(xml["Columns"], "Column"), () => new UserQueryEntity_Column(), fillColumn);
     // No Guid per order (an int-PK row): syncRows matches by position, as Signum's Orders.Synchronize does.
     uq.orders = syncRows(uq.orders ?? [], arr(xml["Orders"], "Orden"), () => new UserQueryEntity_Order(), fillOrder);
-    uq.customDrilldowns = arr(xml["CustomDrilldowns"], "CustomDrilldown").map(d => {
-        const row = new UserQueryEntity_CustomDrilldown();
-        const guid = str((d as Record<string, unknown>)["#text"] ?? d);
-        row.drilldown = (ctx.getEntity(guid!) as UserQueryEntity).toLite();
-        return row;
-    });
+    uq.customDrilldowns = positionalRows(uq.customDrilldowns, arr(xml["CustomDrilldowns"], "CustomDrilldown"),
+        () => new UserQueryEntity_CustomDrilldown(),
+        (row, d) => { row.drilldown = (ctx.getEntity(str(d["#text"] ?? d)!) as UserQueryEntity).toLite(); });
 
     const st = xml["SystemTime"];
     uq.systemTime = st != null ? systemTimeFromXml(first(st)!) : null;

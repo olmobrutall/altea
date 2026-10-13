@@ -5,7 +5,7 @@ import { Enum } from "@altea/altea/data/enum";
 import {
     FilterGroupOperation, FilterOperation, DashboardBehaviour, PinnedFilterActive,
 } from "@altea/altea/data/dynamicQueries";
-import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
+import { UserAssetsImporter, syncRows, rowGuid, positionalRows } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import { str, bool, toEnum, first, arr, token, A } from "@altea/altea-user-assets/server/XmlUtils";
 import { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
@@ -115,23 +115,20 @@ function fromXml(uc: UserChartEntity, xml: Record<string, unknown>, ctx: IFromXm
     uc.hideQuickLink = bool(xml[A + "HideQuickLink"]);
     uc.owner = xml[A + "Owner"] != null ? (ctx.parseLite(str(xml[A + "Owner"])!) ?? null) : null;
     uc.includeDefaultFilters = xml[A + "IncludeDefaultFilters"] != null ? bool(xml[A + "IncludeDefaultFilters"]) : null;
-    uc.chartScript = resolveChartScript(str(xml[A + "ChartScript"])!);
+    const chartScript = str(xml[A + "ChartScript"])!;
+    if (uc.chartScript?.key !== chartScript)
+        uc.chartScript = ctx.symbols.tryToSymbol(ChartScriptSymbol, chartScript) ?? resolveChartScript(chartScript);
     uc.maxRows = xml[A + "MaxRows"] != null ? (Number(xml[A + "MaxRows"]) as int) : null;
     uc.minHeight = xml[A + "MinHeight"] != null ? (Number(xml[A + "MinHeight"]) as int) : null;
 
     uc.filters = syncRows(uc.filters ?? [], arr(xml["Filters"], "Filter"), () => new UserChartEntity_Filter(), fillFilter);
     uc.columns = syncRows(uc.columns ?? [], arr(xml["Columns"], "Column"), () => new UserChartEntity_Column(),
         (row, x) => { row.element = columnFromXml(x); });
-    uc.parameters = arr(xml["Parameters"], "Parameter").map(x => {
-        const row = UserChartEntity_Parameter.create({ element: parameterFromXml(x) });
-        return row;
-    });
-    uc.customDrilldowns = arr(xml["CustomDrilldowns"], "CustomDrilldown").map(d => {
-        const row = new UserChartEntity_CustomDrilldown();
-        const guid = str((d as Record<string, unknown>)["#text"] ?? d);
-        row.drilldown = (ctx.getEntity(guid!) as UserQueryEntity).toLite();
-        return row;
-    });
+    uc.parameters = positionalRows(uc.parameters, arr(xml["Parameters"], "Parameter"), () => new UserChartEntity_Parameter(),
+        (row, x) => { row.element = parameterFromXml(x); });
+    uc.customDrilldowns = positionalRows(uc.customDrilldowns, arr(xml["CustomDrilldowns"], "CustomDrilldown"),
+        () => new UserChartEntity_CustomDrilldown(),
+        (row, d) => { row.drilldown = (ctx.getEntity(str(d["#text"] ?? d)!) as UserQueryEntity).toLite(); });
 }
 
 function fillFilter(f: UserChartEntity_Filter, x: Record<string, unknown>): void {
