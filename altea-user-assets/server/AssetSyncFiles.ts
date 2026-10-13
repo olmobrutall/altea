@@ -78,6 +78,11 @@ export class AssetSyncFiles {
         };
     }
 
+    readXml(folder: string, baseName: string): string | null {
+        const file = this.inside(path.join(this.root, folder), baseName + ".xml");
+        return fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null;
+    }
+
     readSidecar(folder: string, rel: string): Uint8Array | undefined {
         const file = this.inside(path.join(this.root, folder), rel);
         return fs.existsSync(file) ? new Uint8Array(fs.readFileSync(file)) : undefined;
@@ -150,4 +155,39 @@ export function safeFileName(name: string): string {
 function withSuffix(fileName: string, i: number): string {
     const dot = fileName.lastIndexOf(".");
     return dot <= 0 ? `${fileName} (${i})` : `${fileName.slice(0, dot)} (${i})${fileName.slice(dot)}`;
+}
+
+/** A downloaded folder zip read as the same assets a folder holds: `<folder>/<name>.<Type>.xml` + sidecars. */
+export class ZipAssets {
+    readonly assets: AssetFile[] = [];
+
+    constructor(private readonly entries: Record<string, Uint8Array>) {
+        const decoder = new TextDecoder();
+        for (const [entry, bytes] of Object.entries(entries)) {
+            const m = entry.match(/^([^/]+)\/([^/]+)\.xml$/);
+            if (m == null)
+                continue;
+            const parsed = parseAssets(decoder.decode(bytes));
+            if (parsed.length !== 1)
+                throw new Error(`${entry}: a sync folder file holds exactly one asset, found ${parsed.length}`);
+            this.assets.push({ ...parsed[0]!, folder: m[1]!, baseName: m[2]! });
+        }
+    }
+
+    reader(folder: string): BinaryStore {
+        return {
+            write: () => { throw new Error("A reader does not write"); },
+            read: element => {
+                const rel = element[ATTR + "Path"];
+                if (rel == null) {
+                    const t = element["#text"];
+                    return new Uint8Array(Buffer.from(String((Array.isArray(t) ? t[0] : t) ?? ""), "base64"));
+                }
+                const bytes = this.entries[`${folder}/${String(rel)}`];
+                if (bytes == undefined)
+                    throw new Error(`The zip has no '${folder}/${String(rel)}'`);
+                return bytes;
+            },
+        };
+    }
 }

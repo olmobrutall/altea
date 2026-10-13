@@ -3,23 +3,44 @@
   <Type Name="CodeSyncMessage">
     <Member Name="_0References1WhichHasNoSyncFolder" Description="{0} verweist auf {1}, das keinen Synchronisierungsordner hat" />
     <Member Name="APersonalAssetInASyncFolderWillBeOwnedByTheSameUserInEveryEnvironment" Description="Ein persönliches Asset in einem Synchronisierungsordner gehört in jeder Umgebung demselben Benutzer, der dort möglicherweise nicht existiert." />
+    <Member Name="ApplyFile" Description="Datei anwenden" />
+    <Member Name="AssetSync" Description="Asset-Synchronisierung" />
+    <Member Name="ChangesHereAreNotWrittenToFiles" Description="Änderungen hier werden nicht in Dateien geschrieben: Laden Sie das Zip des Ordners herunter, um sie in den Code zu übernehmen." />
     <Member Name="ControlledByCode" Description="Durch Code gesteuert" />
+    <Member Name="Created" Description="Erstellt" />
+    <Member Name="Database" Description="Datenbank" />
+    <Member Name="Deleted" Description="Gelöscht" />
+    <Member Name="DiffersFromCode" Description="Weicht vom Code ab" />
     <Member Name="DownloadZip" Description="Zip herunterladen" />
-    <Member Name="InSyncWithCode" Description="Mit dem Code synchron" />
-    <Member Name="ModifiedInTheDatabase" Description="In der Datenbank geändert" />
+    <Member Name="File" Description="Datei" />
+    <Member Name="FilesAreNotWrittenHere" Description="Hier werden keine Dateien geschrieben (AUTO_SAVE_ASSET_FILES ist aus)" />
+    <Member Name="Identical" Description="Identisch mit dem Code" />
+    <Member Name="KeepOnSync" Description="Bei Synchronisierung beibehalten" />
+    <Member Name="KeepThroughTheNextSync" Description="Bei der nächsten Synchronisierung beibehalten" />
+    <Member Name="Kept" Description="Beibehalten" />
+    <Member Name="KeptOnTheNextSync" Description="wird bei der nächsten Synchronisierung beibehalten" />
     <Member Name="NoFileForThisAssetIn0" Description="Für dieses Asset gibt es keine Datei in {0}" />
+    <Member Name="NoLongerKept" Description="Nicht mehr beibehalten (identisch mit dem Code)" />
+    <Member Name="NotInCode" Description="Nicht im Code" />
+    <Member Name="NotInTheDatabase" Description="Nicht in der Datenbank" />
+    <Member Name="RewriteFiles" Description="Dateien neu schreiben" />
+    <Member Name="Rewritten" Description="Neu geschrieben" />
+    <Member Name="ShowDifferences" Description="Unterschiede anzeigen" />
+    <Member Name="SyncFromCode" Description="Aus dem Code synchronisieren" />
     <Member Name="TheAssetHasNoSyncFolder" Description="Das Asset hat keinen Synchronisierungsordner" />
+    <Member Name="Unchanged" Description="Unverändert" />
+    <Member Name="Updated" Description="Aktualisiert" />
+    <Member Name="WillBeCreatedOnTheNextSync" Description="wird bei der nächsten Synchronisierung erstellt" />
+    <Member Name="WillBeDeletedOnTheNextSync" Description="wird bei der nächsten Synchronisierung gelöscht" />
+    <Member Name="WillBeOverwrittenOnTheNextSync" Description="wird bei der nächsten Synchronisierung überschrieben" />
+    <Member Name="WriteFile" Description="Datei schreiben" />
   </Type>
   <Type Name="CodeSyncMixin">
-    <Member Name="CodeSyncState" Description="Synchronisierungsstatus" />
+    <Member Name="KeepOnSync" Description="Bei Synchronisierung beibehalten" />
     <Member Name="SyncFolder" Description="Synchronisierungsordner" />
   </Type>
   <Type Name="CodeSyncOperation">
     <Member Name="DiscardDbChanges" Description="Datenbankänderungen verwerfen" />
-  </Type>
-  <Type Name="CodeSyncState" Description="Synchronisierungsstatus">
-    <Member Name="InSync" Description="Synchron" />
-    <Member Name="ModifiedInDb" Description="In der Datenbank geändert" />
   </Type>
   <Type Name="EntityAction" Description="Entitätsaktion">
     <Member Name="Different" Description="Verschiedene" />

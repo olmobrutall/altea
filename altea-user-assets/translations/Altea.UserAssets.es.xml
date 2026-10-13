@@ -3,23 +3,44 @@
   <Type Name="CodeSyncMessage">
     <Member Name="_0References1WhichHasNoSyncFolder" Description="{0} hace referencia a {1}, que no tiene carpeta de sincronización" />
     <Member Name="APersonalAssetInASyncFolderWillBeOwnedByTheSameUserInEveryEnvironment" Description="Un recurso personal en una carpeta de sincronización pertenecerá al mismo usuario en todos los entornos, donde puede que ese usuario no exista." />
+    <Member Name="ApplyFile" Description="Aplicar fichero" />
+    <Member Name="AssetSync" Description="Sincronización de recursos" />
+    <Member Name="ChangesHereAreNotWrittenToFiles" Description="Los cambios aquí no se escriben en ficheros: descarga el zip de la carpeta para llevarlos al código." />
     <Member Name="ControlledByCode" Description="Controlado por código" />
+    <Member Name="Created" Description="Creados" />
+    <Member Name="Database" Description="Base de datos" />
+    <Member Name="Deleted" Description="Borrados" />
+    <Member Name="DiffersFromCode" Description="Difiere del código" />
     <Member Name="DownloadZip" Description="Descargar zip" />
-    <Member Name="InSyncWithCode" Description="Sincronizado con el código" />
-    <Member Name="ModifiedInTheDatabase" Description="Modificado en la base de datos" />
+    <Member Name="File" Description="Fichero" />
+    <Member Name="FilesAreNotWrittenHere" Description="Aquí no se escriben ficheros (AUTO_SAVE_ASSET_FILES está desactivado)" />
+    <Member Name="Identical" Description="Idéntico al código" />
+    <Member Name="KeepOnSync" Description="Conservar al sincronizar" />
+    <Member Name="KeepThroughTheNextSync" Description="Conservar en la próxima sincronización" />
+    <Member Name="Kept" Description="Conservados" />
+    <Member Name="KeptOnTheNextSync" Description="se conservará en la próxima sincronización" />
     <Member Name="NoFileForThisAssetIn0" Description="No hay ningún fichero para este recurso en {0}" />
+    <Member Name="NoLongerKept" Description="Ya no se conservan (idénticos al código)" />
+    <Member Name="NotInCode" Description="No está en el código" />
+    <Member Name="NotInTheDatabase" Description="No está en la base de datos" />
+    <Member Name="RewriteFiles" Description="Reescribir ficheros" />
+    <Member Name="Rewritten" Description="Reescritos" />
+    <Member Name="ShowDifferences" Description="Mostrar diferencias" />
+    <Member Name="SyncFromCode" Description="Sincronizar desde el código" />
     <Member Name="TheAssetHasNoSyncFolder" Description="El recurso no tiene carpeta de sincronización" />
+    <Member Name="Unchanged" Description="Sin cambios" />
+    <Member Name="Updated" Description="Actualizados" />
+    <Member Name="WillBeCreatedOnTheNextSync" Description="se creará en la próxima sincronización" />
+    <Member Name="WillBeDeletedOnTheNextSync" Description="se borrará en la próxima sincronización" />
+    <Member Name="WillBeOverwrittenOnTheNextSync" Description="se sobrescribirá en la próxima sincronización" />
+    <Member Name="WriteFile" Description="Escribir fichero" />
   </Type>
   <Type Name="CodeSyncMixin">
-    <Member Name="CodeSyncState" Description="Estado de sincronización" />
+    <Member Name="KeepOnSync" Description="Conservar al sincronizar" />
     <Member Name="SyncFolder" Description="Carpeta de sincronización" />
   </Type>
   <Type Name="CodeSyncOperation">
     <Member Name="DiscardDbChanges" Description="Descartar los cambios de la base de datos" />
-  </Type>
-  <Type Name="CodeSyncState" Description="Estado de sincronización">
-    <Member Name="InSync" Description="Sincronizado" />
-    <Member Name="ModifiedInDb" Description="Modificado en la base de datos" />
   </Type>
   <Type Name="EntityAction" Description="Acción de la entidad">
     <Member Name="Different" Description="Diferentes" />
