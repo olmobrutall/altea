@@ -28,7 +28,7 @@ import { DashboardLogic } from "./DashboardLogic";
 export function registerDashboardXml(): void {
     UserAssetsImporter.register<DashboardEntity>({
         elementName: "Dashboard",
-        create: () => new DashboardEntity(),
+        create: () => DashboardEntity.create({}),
         load: async guid => (await table(DashboardEntity).filter(d => d.id == guid).toArray() as DashboardEntity[])[0],
         save: async db => { await db.save(); },
         toXml,

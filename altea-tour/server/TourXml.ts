@@ -33,7 +33,7 @@ export namespace TourXml {
     export function start(): void {
         UserAssetsImporter.register<TourEntity>({
             elementName: "Tour",
-            create: () => new TourEntity(),
+            create: () => TourEntity.create({}),
             load: async guid => (await table(TourEntity).filter(t => t.id == guid).toArray())[0],
             save: async t => { await t.save(); },
             toXml,

@@ -22,7 +22,7 @@ import {
 export function registerUserQueryXml(): void {
     UserAssetsImporter.register<UserQueryEntity>({
         elementName: "UserQuery",
-        create: () => new UserQueryEntity(),
+        create: () => UserQueryEntity.create({}),
         load: async guid => (await table(UserQueryEntity).filter(u => u.id == guid).toArray() as UserQueryEntity[])[0],
         save: async uq => { await uq.save(); },
         toXml,

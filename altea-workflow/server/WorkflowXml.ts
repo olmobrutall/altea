@@ -70,7 +70,7 @@ export function registerWorkflowXml(): void {
 
     UserAssetsImporter.register<WorkflowConditionEntity>({
         elementName: "WorkflowCondition",
-        create: () => new WorkflowConditionEntity(),
+        create: () => WorkflowConditionEntity.create({}),
         load: async guid => (await table(WorkflowConditionEntity).filter(a => a.id == guid).toArray())[0],
         save: async e => { await Operations.execute(e, WorkflowConditionOperation.Save); },
         toXml: e => evaluatorToXml(e.name, e.mainEntityType, e.eval),
@@ -82,7 +82,7 @@ export function registerWorkflowXml(): void {
 
     UserAssetsImporter.register<WorkflowActionEntity>({
         elementName: "WorkflowAction",
-        create: () => new WorkflowActionEntity(),
+        create: () => WorkflowActionEntity.create({}),
         load: async guid => (await table(WorkflowActionEntity).filter(a => a.id == guid).toArray())[0],
         save: async e => { await Operations.execute(e, WorkflowActionOperation.Save); },
         toXml: e => evaluatorToXml(e.name, e.mainEntityType, e.eval),
@@ -94,7 +94,7 @@ export function registerWorkflowXml(): void {
 
     UserAssetsImporter.register<WorkflowTimerConditionEntity>({
         elementName: "WorkflowTimerCondition",
-        create: () => new WorkflowTimerConditionEntity(),
+        create: () => WorkflowTimerConditionEntity.create({}),
         load: async guid => (await table(WorkflowTimerConditionEntity).filter(a => a.id == guid).toArray())[0],
         save: async e => { await Operations.execute(e, WorkflowTimerConditionOperation.Save); },
         toXml: e => evaluatorToXml(e.name, e.mainEntityType, e.eval),
@@ -106,7 +106,7 @@ export function registerWorkflowXml(): void {
 
     UserAssetsImporter.register<WorkflowScriptEntity>({
         elementName: "WorkflowScript",
-        create: () => new WorkflowScriptEntity(),
+        create: () => WorkflowScriptEntity.create({}),
         load: async guid => (await table(WorkflowScriptEntity).filter(a => a.id == guid).toArray())[0],
         save: async e => { await Operations.execute(e, WorkflowScriptOperation.Save); },
         toXml: e => evaluatorToXml(e.name, e.mainEntityType, e.eval),
@@ -118,7 +118,7 @@ export function registerWorkflowXml(): void {
 
     UserAssetsImporter.register<WorkflowScriptRetryStrategyEntity>({
         elementName: "WorkflowScriptRetryStrategy",
-        create: () => new WorkflowScriptRetryStrategyEntity(),
+        create: () => WorkflowScriptRetryStrategyEntity.create({}),
         load: async guid => (await table(WorkflowScriptRetryStrategyEntity).filter(a => a.id == guid).toArray())[0],
         save: async e => { await Operations.execute(e, WorkflowScriptRetryStrategyOperation.Save); },
         toXml: e => ({ [A + "Rule"]: e.rule }),
@@ -167,7 +167,7 @@ function assertNoScript(xml: Record<string, unknown>, elementName: string): void
 function registerWorkflowAsset(): void {
     UserAssetsImporter.register<WorkflowEntity>({
         elementName: "Workflow",
-        create: () => new WorkflowEntity(),
+        create: () => WorkflowEntity.create({}),
         load: async guid => (await table(WorkflowEntity).filter(a => a.id == guid).toArray())[0],
         save: async w => { await Operations.execute(w, WorkflowOperation.Save); },
         toXml: workflowToXml,

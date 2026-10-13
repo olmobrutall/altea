@@ -42,7 +42,7 @@ import { EmailModelLogic } from "./EmailModelLogic";
 export function registerEmailTemplateXml(): void {
     UserAssetsImporter.register<EmailTemplateEntity>({
         elementName: "EmailTemplate",
-        create: () => new EmailTemplateEntity(),
+        create: () => EmailTemplateEntity.create({}),
         load: async guid => (await table(EmailTemplateEntity).filter(t => t.id == guid).toArray() as EmailTemplateEntity[])[0],
         save: async t => { await t.save(); },
         toXml: templateToXml,
@@ -53,7 +53,7 @@ export function registerEmailTemplateXml(): void {
 export function registerEmailMasterTemplateXml(): void {
     UserAssetsImporter.register<EmailMasterTemplateEntity>({
         elementName: "EmailMasterTemplate",
-        create: () => new EmailMasterTemplateEntity(),
+        create: () => EmailMasterTemplateEntity.create({}),
         load: async guid => (await table(EmailMasterTemplateEntity).filter(t => t.id == guid).toArray() as EmailMasterTemplateEntity[])[0],
         save: async t => { await t.save(); },
         toXml: masterToXml,

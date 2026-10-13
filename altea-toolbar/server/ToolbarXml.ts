@@ -34,7 +34,7 @@ export function registerToolbarXml(): void {
 
     UserAssetsImporter.register<ToolbarEntity>({
         elementName: "Toolbar",
-        create: () => new ToolbarEntity(),
+        create: () => ToolbarEntity.create({}),
         load: async guid => (await table(ToolbarEntity).filter(t => t.id == guid).toArray() as ToolbarEntity[])[0],
         save: async tb => { await tb.save(); },
         toXml: async (tb, ctx) => {
@@ -59,7 +59,7 @@ export function registerToolbarXml(): void {
 
     UserAssetsImporter.register<ToolbarMenuEntity>({
         elementName: "ToolbarMenu",
-        create: () => new ToolbarMenuEntity(),
+        create: () => ToolbarMenuEntity.create({}),
         load: async guid => (await table(ToolbarMenuEntity).filter(t => t.id == guid).toArray() as ToolbarMenuEntity[])[0],
         save: async tm => { await tm.save(); },
         toXml: async (tm, ctx) => {
@@ -83,7 +83,7 @@ export function registerToolbarXml(): void {
 
     UserAssetsImporter.register<ToolbarSwitcherEntity>({
         elementName: "ToolbarSwitcher",
-        create: () => new ToolbarSwitcherEntity(),
+        create: () => ToolbarSwitcherEntity.create({}),
         load: async guid => (await table(ToolbarSwitcherEntity).filter(t => t.id == guid).toArray() as ToolbarSwitcherEntity[])[0],
         save: async ts => { await ts.save(); },
         toXml: async (ts, ctx) => {

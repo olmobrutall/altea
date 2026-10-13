@@ -44,7 +44,7 @@ import { OfficeModelLogic } from "./OfficeModelLogic";
 export function registerOfficeTemplateXml(): void {
     UserAssetsImporter.register<OfficeTemplateEntity>({
         elementName: "OfficeTemplate",
-        create: () => new OfficeTemplateEntity(),
+        create: () => OfficeTemplateEntity.create({}),
         load: async guid => (await table(OfficeTemplateEntity).filter(t => t.id == guid).toArray() as OfficeTemplateEntity[])[0],
         save: async t => { await t.save(); },
         toXml: templateToXml,

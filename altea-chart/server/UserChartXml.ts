@@ -27,7 +27,7 @@ import { ChartScriptSymbol, D3ChartScript, HtmlChartScript, SvgMapsChartScript, 
 export function registerUserChartXml(): void {
     UserAssetsImporter.register<UserChartEntity>({
         elementName: "UserChart",
-        create: () => new UserChartEntity(),
+        create: () => UserChartEntity.create({}),
         load: async guid => (await table(UserChartEntity).filter(u => u.id == guid).toArray() as UserChartEntity[])[0],
         save: async uc => { await uc.save(); },
         toXml,
