@@ -9,6 +9,8 @@ import { Graph } from "@altea/altea/server/graph";
 import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
+import { getTypeInfo } from "@altea/altea/data/reflection";
+import { PropertyRouteTranslationLogic, type InstanceTranslationLookup } from "@altea/altea/server/propertyRouteTranslation";
 import { cleanModified, isGraphModified } from "@altea/altea/data/changes";
 import { Statics, type IContextVariable } from "@altea/altea/data/utils/context";
 import { Entity, type Type } from "@altea/altea/data/entity";
@@ -24,6 +26,7 @@ import {
 } from "./UserAssetsImportExport";
 import { AssetSyncFiles, ZipAssets, safeFileName, type AssetExport, type AssetFile } from "./AssetSyncFiles";
 import { AssetSyncServer } from "./AssetSyncServer";
+import { TranslationQueue } from "./TranslationXml";
 
 // User-asset CODE SYNC — see port/UserAssetCodeSync.md.
 
@@ -45,6 +48,8 @@ interface AssetSource {
     assets: AssetFile[];
     reader(folder: string): BinaryStore;
 }
+
+const pendingWritesKey = "assetSync.pendingWrites";
 
 let syncingVar: IContextVariable<boolean> | undefined;
 function syncing(): IContextVariable<boolean> {
@@ -92,6 +97,18 @@ export namespace AssetSyncLogic {
 
         sb.schema.schemaCompleted.push(registerAssetTypes);
 
+        // A translation edited in the UI is part of its asset's file, so the file is rewritten; it is NOT
+        // kept on sync — like an upload, it reaches the code or the next sync replaces it.
+        PropertyRouteTranslationLogic.instanceTranslationsChanged.push(async instances => {
+            if (!writeFiles || syncing().getValue() === true)
+                return;
+            for (const lite of instances) {
+                const owner = await ownerAsset(lite);
+                if (owner != undefined)
+                    writeOnCommit(owner.id, owner.config);
+            }
+        });
+
         if (sb.webBuilder)
             AssetSyncServer.start(sb.webBuilder);
     }
@@ -124,7 +141,7 @@ export namespace AssetSyncLogic {
                     return;
                 await cascadeFolderChange(entity as IUserAssetEntity);
                 if (writeFiles)
-                    await writeOnCommit(entity as IUserAssetEntity, config);
+                    writeOnCommit(String(entity.id), config, entity as IUserAssetEntity);
             });
             events.preUnsafeDelete.push(async query => {
                 if (!writeFiles || syncing().getValue() === true)
@@ -168,24 +185,39 @@ export namespace AssetSyncLogic {
 
     // After the write, so every row of the asset already has its id when it is exported. The file goes in
     // just before the commit: one that cannot be written rolls the save back.
-    async function writeOnCommit(entity: IUserAssetEntity, config: UserAssetTypeConfig): Promise<void> {
-        const guid = String(entity.id);
-        const folderLite = entity.mixin(CodeSyncMixin).syncFolder;
-        if (folderLite == null) {
-            Transaction.preRealCommit(() => files.remove(guid));
-            return;
+    /**
+     * Written once per asset per transaction, just before the commit: by then the asset's children and
+     * its translations, saved after it, are in. `entity` undefined means "reload it" (a translation edit).
+     */
+    function writeOnCommit(guid: string, config: UserAssetTypeConfig, entity?: IUserAssetEntity): void {
+        const userData = Transaction.userData();
+        let pending = userData[pendingWritesKey] as Map<string, { config: UserAssetTypeConfig; entity?: IUserAssetEntity }> | undefined;
+        if (pending == undefined) {
+            userData[pendingWritesKey] = pending = new Map();
+            const writes = pending;
+            Transaction.preRealCommit(async () => {
+                const translations = await PropertyRouteTranslationLogic.loadInstanceTranslations();
+                for (const [id, w] of writes) {
+                    const asset = w.entity ?? await w.config.load(id);
+                    const folderLite = asset?.mixin(CodeSyncMixin).syncFolder;
+                    if (asset == undefined || folderLite == null) {
+                        files.remove(id);
+                        continue;
+                    }
+                    const folder = (await folderLite.retrieve()).name;
+                    const baseName = files.baseNameFor(folder, id, asset.toString(), w.config.elementName);
+                    files.write(id, folder, baseName, await exportAsset(asset, baseName, true, translations));
+                }
+            });
         }
-
-        const folder = (await folderLite.retrieve()).name;
-        const baseName = files.baseNameFor(folder, guid, entity.toString(), config.elementName);
-        const exported = await exportAsset(entity, baseName, true);
-        Transaction.preRealCommit(() => files.write(guid, folder, baseName, exported));
+        if (entity != undefined || !pending.has(guid))
+            pending.set(guid, { config, entity });
     }
 
-    async function exportAsset(entity: IUserAssetEntity, baseName: string, strict: boolean): Promise<AssetExport> {
+    async function exportAsset(entity: IUserAssetEntity, baseName: string, strict: boolean, translations?: InstanceTranslationLookup): Promise<AssetExport> {
         const sidecars = new Map<string, Uint8Array>();
         const referenced: unknown[] = [];
-        const xml = await UserAssetsImporter.toAssetXml(entity, AssetSyncFiles.writer(baseName, sidecars), r => referenced.push(r));
+        const xml = await UserAssetsImporter.toAssetXml(entity, AssetSyncFiles.writer(baseName, sidecars), r => referenced.push(r), translations);
         if (strict)
             for (const r of await syncableAssets(referenced))
                 if (r.mixin(CodeSyncMixin).syncFolder == null)
@@ -210,6 +242,35 @@ export namespace AssetSyncLogic {
                 result.set(`${e.getType().name};${String(e.id)}`, e as IUserAssetEntity);
         }
         return [...result.values()];
+    }
+
+    // ---- From a row (a translated instance) to its asset ------------------------------------------------
+
+    const ownerResolvers = new Map<Type<Entity>, (lite: Lite<Entity>) => Promise<Lite<Entity> | undefined>>();
+
+    /** For a part with no `@backReference` to follow (a dashboard part's content): who holds it. */
+    export function registerOwnerResolver<T extends Entity>(type: Type<T>, owner: (lite: Lite<T>) => Promise<Lite<Entity> | undefined>): void {
+        ownerResolvers.set(type, owner as (lite: Lite<Entity>) => Promise<Lite<Entity> | undefined>);
+    }
+
+    async function ownerAsset(lite: Lite<Entity>): Promise<{ id: string; config: UserAssetTypeConfig } | undefined> {
+        let current: Lite<Entity> | undefined = lite;
+        while (current != undefined) {
+            const type: Type<Entity> = current.entityType;
+            const synced = syncedTypes.find(t => t.type === type);
+            if (synced != undefined)
+                return { id: String(current.id), config: synced.config };
+            const resolver = ownerResolvers.get(type);
+            if (resolver != undefined) {
+                current = await resolver(current);
+                continue;
+            }
+            const back = getTypeInfo(type)?.backReferenceField;
+            if (back == null)
+                return undefined;
+            current = (await current.retrieve() as unknown as Record<string, Lite<Entity> | undefined>)[back.name];
+        }
+        return undefined;
     }
 
     // ---- A container's folder moves its children ------------------------------------------------------
@@ -267,8 +328,9 @@ export namespace AssetSyncLogic {
         const copy = await config.load(guid);
         if (copy == undefined)
             return true;
-        await config.fromXml(copy, file.obj, { ...ctx, binary: source.reader(file.folder) });
-        return isGraphModified(copy);
+        const translations = new TranslationQueue();
+        await config.fromXml(copy, file.obj, { ...ctx, binary: source.reader(file.folder), translations });
+        return isGraphModified(copy) || await translations.differs();
     }
 
     /**
@@ -428,6 +490,7 @@ export namespace AssetSyncLogic {
                 s.bucket.push(s.label);
             }
 
+            await ctx.translations.save();
             await removeMissing(source.assets, present, scope, opts.folders == undefined, report);
         }));
 
@@ -452,6 +515,7 @@ export namespace AssetSyncLogic {
             await config.fromXml(entity, file.obj, { ...ctx, binary: source.reader(file.folder) });
             stamp(entity.mixin(CodeSyncMixin), folders.get(file.folder)!, false);
             await config.save(entity);
+            await ctx.translations.save();
         }));
     }
 
@@ -557,13 +621,17 @@ export namespace AssetSyncLogic {
         const r = await loadAny(guid);
         if (r == undefined)
             throw new Error(`No asset ${guid}`);
-        await syncing().withValue(true, () => Transaction.create(async () => {
-            await writeOnCommit(r.row, r.config);
-            if (r.row.mixin(CodeSyncMixin).keepOnSync) {
+        const folderLite = r.row.mixin(CodeSyncMixin).syncFolder;
+        if (folderLite == null)
+            throw new Error(CodeSyncMessage.TheAssetHasNoSyncFolder.niceToString());
+        const folder = (await folderLite.retrieve()).name;
+        const baseName = files.baseNameFor(folder, guid, r.row.toString(), r.config.elementName);
+        files.write(guid, folder, baseName, await exportAsset(r.row, baseName, true));
+        if (r.row.mixin(CodeSyncMixin).keepOnSync)
+            await syncing().withValue(true, async () => {
                 r.row.mixin(CodeSyncMixin).keepOnSync = false;
                 await r.config.save(r.row);
-            }
-        }));
+            });
     }
 
     /** Re-export every asset IDENTICAL to its file, so the files take the current XML format. */
@@ -675,12 +743,13 @@ export namespace AssetSyncLogic {
                 }
             }
 
-            for (const s of toSave) {
+            for (const s of toSave)
                 if (s.entity.isNew || isGraphModified(s.entity))
                     await s.config.save(s.entity);
-                if (writeFiles)
-                    await writeOnCommit(s.entity, s.config);
-            }
+            await ctx.translations.save();
+            if (writeFiles)
+                for (const s of toSave)
+                    writeOnCommit(String(s.entity.id), s.config, s.entity);
         }));
     }
 

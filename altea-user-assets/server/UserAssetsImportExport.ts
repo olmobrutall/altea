@@ -2,6 +2,8 @@ import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import { table } from "@altea/altea/server/table";
 import type { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
+import { PropertyRouteTranslationLogic, type InstanceTranslationLookup } from "@altea/altea/server/propertyRouteTranslation";
+import { TranslationQueue } from "./TranslationXml";
 import { isGraphModified } from "@altea/altea/data/changes";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
@@ -153,11 +155,15 @@ export interface IToXmlContext {
     /** Retrieve the full entity behind a lite (for reading fields into the XML). */
     retrieveLite<T extends Entity>(lite: Lite<T>): Promise<T>;
     readonly binary: BinaryStore;
+    /** The current translations, for writeAttributeWithTranslations / writeElementWithTranslations. */
+    readonly translations: InstanceTranslationLookup;
 }
 
 export interface IFromXmlContext {
     readonly isPreview: boolean;
     readonly binary: BinaryStore;
+    /** What readAttributeWithTranslations / readElementWithTranslations read, saved after the assets. */
+    readonly translations: TranslationQueue;
     /** The type↔id snapshot for this import, resolved once at its async boundary — a `fromXml` is
      *  synchronous and may need to resolve a stored type id back to its row. */
     readonly typeCaches: TypeCaches;
@@ -244,6 +250,7 @@ export namespace UserAssetsImporter {
             },
             retrieveLite: lite => lite.retrieve(),
             binary: inlineBinaryStore,
+            translations: await PropertyRouteTranslationLogic.loadInstanceTranslations(),
         };
 
         for (const e of entities)
@@ -275,7 +282,7 @@ export namespace UserAssetsImporter {
      * file of its own.
      */
     export async function toAssetXml(entity: IUserAssetEntity, binary: BinaryStore,
-        reference: (referenced: IUserAssetEntity) => void): Promise<string> {
+        reference: (referenced: IUserAssetEntity) => void, translations?: InstanceTranslationLookup): Promise<string> {
         const cfg = configForEntity(entity);
         const ctx: IToXmlContext = {
             include(referenced) {
@@ -285,6 +292,7 @@ export namespace UserAssetsImporter {
             },
             retrieveLite: lite => lite.retrieve(),
             binary,
+            translations: translations ?? await PropertyRouteTranslationLogic.loadInstanceTranslations(),
         };
         const obj = await cfg.toXml(entity, ctx);
         obj[ATTR + "Guid"] = String(entity.id);
@@ -329,16 +337,20 @@ export namespace UserAssetsImporter {
         }
 
         const ctx = await fromXmlContext(true, materialized);
+        const translations = new Map<string, TranslationQueue>();
         for (const [guid, p] of parsedByGuid) {
             const entity = materialized.get(guid);
-            if (entity != null)
-                await registry.get(p.elementName)!.fromXml(entity, p.obj, ctx);
+            if (entity != null) {
+                const queue = new TranslationQueue();
+                translations.set(guid, queue);
+                await registry.get(p.elementName)!.fromXml(entity, p.obj, { ...ctx, translations: queue });
+            }
         }
 
         for (const [guid, p] of parsedByGuid) {
             const entity = materialized.get(guid);
             const action = entity == null || isNew.has(guid) ? EntityAction.New :
-                isGraphModified(entity) ? EntityAction.Different :
+                isGraphModified(entity) || await translations.get(guid)!.differs() ? EntityAction.Different :
                 EntityAction.Identical;
 
             model.lines.push(UserAssetPreviewLineEmbedded.create({
@@ -395,12 +407,14 @@ export namespace UserAssetsImporter {
             await cfg.fromXml(entity, p.obj, ctx);
             await cfg.save(entity);
         }
+        await ctx.translations.save();
     }
 
     export async function fromXmlContext(isPreview: boolean, materialized: Map<string, IUserAssetEntity>): Promise<IFromXmlContext> {
         return {
             isPreview,
             binary: inlineBinaryStore,
+            translations: new TranslationQueue(),
             typeCaches: await TypeLogic.caches(),
             symbols: await SymbolLogic.allCaches(),
             getQuery: queryKey => getQueryByKey(queryKey),
