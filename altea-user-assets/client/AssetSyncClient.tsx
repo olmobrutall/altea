@@ -1,15 +1,17 @@
 import * as React from "react";
+import type { IconProp } from "@fortawesome/fontawesome-svg-core";
 import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { ajaxGet, ajaxGetRaw, ajaxPost, saveFile } from "@altea/altea/client/Services";
-import { onEmbeddedWidgets } from "@altea/altea/client/Frames/Widgets";
+import { ButtonBarManager } from "@altea/altea/client/Frames/ButtonBar";
+import { Navigator } from "@altea/altea/client/Navigator";
 import { ImportComponent } from "@altea/altea/client/ImportComponent";
 import { QuickLinkClient, QuickLinkAction } from "@altea/altea/client/QuickLinkClient";
 import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
 import * as AppContext from "@altea/altea/client/AppContext";
-import type { TypeContext } from "@altea/altea/client/TypeContext";
+import { TypeContext } from "@altea/altea/client/TypeContext";
 import { AuthClient } from "@altea/altea-auth/client/AuthClient";
 import { UserAssetPermission, UserAssetPreviewModel } from "../data/UserAssets";
 import { CodeSyncMessage, CodeSyncMixin, SyncFolderEntity } from "../data/AssetSync";
@@ -35,16 +37,13 @@ export namespace AssetSyncClient {
             onClick: () => Promise.resolve("/assetSync"),
         });
 
-        onEmbeddedWidgets().push(wc => {
-            const entity = wc.ctx.value as Entity;
+        // The LAST thing in the button bar, pushed right (CodeSyncWidget's ms-auto).
+        ButtonBarManager.onButtonBarRender().push(bc => {
+            const entity = bc.pack.entity as Entity;
             if (!MixinDeclarations.isDeclared(entity.getType(), CodeSyncMixin))
                 return undefined;
-            return [{
-                position: "Top",
-                eventKey: "codeSync",
-                title: CodeSyncMessage.ControlledByCode.niceToString(),
-                embeddedWidget: <CodeSyncWidget ctx={wc.ctx as TypeContext<Entity>} />,
-            }];
+            const ctx = TypeContext.root(entity, { readOnly: Navigator.isReadOnly(bc.pack) || undefined });
+            return [{ order: Number.MAX_SAFE_INTEGER, button: <CodeSyncWidget ctx={ctx} /> }];
         });
 
         QuickLinkClient.registerQuickLink(SyncFolderEntity, new QuickLinkAction(
@@ -63,16 +62,16 @@ export namespace AssetSyncClient {
     }
 
     /** "Differs from code — will be overwritten on the next sync": the comparison plus what the flag makes of it. */
-    export function describe(comparison: AssetComparison, keepOnSync: boolean): { text: string; color: string } {
+    export function describe(comparison: AssetComparison, keepOnSync: boolean): { text: string; color: string; icon: IconProp } {
         const consequence = keepOnSync ? CodeSyncMessage.KeptOnTheNextSync.niceToString()
             : comparison === "NotInCode" ? CodeSyncMessage.WillBeDeletedOnTheNextSync.niceToString()
             : comparison === "NotInDatabase" ? CodeSyncMessage.WillBeCreatedOnTheNextSync.niceToString()
             : CodeSyncMessage.WillBeOverwrittenOnTheNextSync.niceToString();
         switch (comparison) {
-            case "Identical": return { text: CodeSyncMessage.Identical.niceToString(), color: "success" };
-            case "DiffersFromCode": return { text: `${CodeSyncMessage.DiffersFromCode.niceToString()} — ${consequence}`, color: keepOnSync ? "info" : "warning" };
-            case "NotInCode": return { text: `${CodeSyncMessage.NotInCode.niceToString()} — ${consequence}`, color: keepOnSync ? "info" : "danger" };
-            case "NotInDatabase": return { text: `${CodeSyncMessage.NotInTheDatabase.niceToString()} — ${consequence}`, color: "secondary" };
+            case "Identical": return { text: CodeSyncMessage.Identical.niceToString(), color: "success", icon: "circle-check" };
+            case "DiffersFromCode": return { text: `${CodeSyncMessage.DiffersFromCode.niceToString()} — ${consequence}`, color: keepOnSync ? "info" : "warning", icon: keepOnSync ? "lock" : "triangle-exclamation" };
+            case "NotInCode": return { text: `${CodeSyncMessage.NotInCode.niceToString()} — ${consequence}`, color: keepOnSync ? "info" : "danger", icon: keepOnSync ? "lock" : "file-circle-xmark" };
+            case "NotInDatabase": return { text: `${CodeSyncMessage.NotInTheDatabase.niceToString()} — ${consequence}`, color: "secondary", icon: "file-circle-plus" };
         }
     }
 
