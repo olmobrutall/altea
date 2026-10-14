@@ -121,10 +121,8 @@ export namespace Constructor {
     const ctor = resolveType(typeName);
     if (ctor == null)
       throw new Error(`Cannot construct '${typeName}': type not registered`);
-    const e = new (ctor as new () => BaseEntity)();
-    if (props)
-      Object.assign(e, props);
-    return e;
+    // `create`, not `new`: only the factory seeds the mixin fields' defaults.
+    return BaseEntity.create.call(ctor as new () => BaseEntity, props ?? {});
   }
 
   function asPromise<T>(valueOrPromise: T | Promise<T>) {
