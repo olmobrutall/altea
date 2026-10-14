@@ -14,10 +14,11 @@ import { OperationLogic } from "@altea/altea/server/operationLogic";
 import { preSaveGates } from "@altea/altea/server/saver";
 import { postRetrieveGates } from "@altea/altea/server/linq/Retriever";
 import { readTypeGates } from "@altea/altea/server/Database";
-import { UnauthorizedAccessException } from "@altea/altea/server/exceptions";
+import { EntityNotFoundException, UnauthorizedAccessException } from "@altea/altea/server/exceptions";
+import type { QueryFilterHandler } from "@altea/altea/server/schema/entityEvents";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { cleanTypeName, getLocation } from "@altea/altea/data/registration";
-import type { Lite } from "@altea/altea/data/lite";
+import { Lite } from "@altea/altea/data/lite";
 import { Entity } from "@altea/altea/data/entity";
 import type { PrimaryKey, Type } from "@altea/altea/data/entity";
 import { toInt } from "@altea/altea/data/basics";
@@ -191,7 +192,7 @@ export namespace TypeAuthLogic {
         OperationLogic.onAnyReadonly(anySelectedReadonly);
         sb.schema.initializing.push(() => {
             for (const ctor of TypeConditionLogic.types())
-                sb.schema.entityEvents(ctor as Type<Entity>).queryFilter.push(authQueryFilterHook);
+                sb.schema.entityEvents(ctor as Type<Entity>).queryFilter.push(authQueryFilter);
             // Derive part → root ownership (structural — throws on a forbidden multi-owner Part).
             partRootCtor = computePartRoots(sb.schema);
             // Standalone-part row security: for each back-reference Part whose ROOT is conditioned, install a
@@ -224,9 +225,14 @@ export namespace TypeAuthLogic {
                     // fillTypeConditions instead (see TypeConditionLogic).
                     if (TypeConditionLogic.isQueryAuditor(ctor, tc))
                         continue;
+                    // A condition with an ASYNC twin can also be answered for a row the cache serves; a
+                    // DB-only one cannot, which is what keeps its type out of the cache (CacheLogic).
+                    const asyncTwin = TypeConditionLogic.getAsyncInMemoryCondition(ctor, tc);
                     specs.push({
                         valueLambda: conditionValueLambda(ctor, elementType, tc),
                         set: (e, v) => TypeConditionLogic.setCached(e as Entity, tc, v === true || v === 1),
+                        setInMemory: asyncTwin == null ? undefined
+                            : async e => TypeConditionLogic.setCached(e as Entity, tc, await asyncTwin(e)),
                     });
                 }
             }
@@ -336,13 +342,47 @@ export namespace TypeAuthLogic {
             ctx.elementType);
     }
 
+    // The same Read filter for ONE instance — a row the cache serves, which no WHERE filtered (Signum's
+    // FilterQueryResult.InMemoryFunction). `isAllowedFor` is the per-instance evaluator the save gate uses.
+    const authQueryFilter: QueryFilterHandler = Object.assign(authQueryFilterHook, {
+        inMemory: () => {
+            const rk = AuthLogic.currentRoleKey();
+            if (rk == null || !AuthLogic.isEnabled())
+                return undefined;
+            return (e: Entity) => isAllowedFor(e, TypeAllowedBasic.Read, true, rk);
+        },
+    });
+
     // Standalone-part row filter (installed per back-reference Part in `start`): rebase the ROOT owner's
     // Read filter onto the Part by navigating the back-reference `chain` up to the root, so a direct
     // `table(Part)` query is restricted exactly as the root is. SYNCHRONOUS, like authQueryFilterHook —
     // reads the same async-resolved ConditionsByType for the ROOT's id. No root entry (auth off / no role)
     // or the root reduces to "all" → no filter.
-    function partAuthQueryFilterHook(rootCtor: Type<Entity>, chain: readonly string[]) {
-        return (ctx: { ctor: Type<Entity>; elementType: RuntimeType; args: FilterQueryArgs | undefined }): LambdaExpression | undefined => {
+    function partAuthQueryFilterHook(rootCtor: Type<Entity>, chain: readonly string[]): QueryFilterHandler {
+        // In memory: walk the same back-reference chain up to the root and ask the root's own question. A
+        // root the role cannot read at all is not found when retrieved, which answers the same way.
+        const inMemory = (): ((part: Entity) => Promise<boolean>) | undefined => {
+            const rk = AuthLogic.currentRoleKey();
+            if (rk == null || !AuthLogic.isEnabled() || TypeConditionLogic.conditionsFor(rootCtor).length === 0)
+                return undefined;
+            return async part => {
+                let current: unknown = part;
+                for (const field of chain) {
+                    const next = (current as Record<string, unknown>)[field];
+                    if (next == null)
+                        return false;
+                    try {
+                        current = next instanceof Lite ? await next.retrieve() : next;
+                    } catch (e) {
+                        if (e instanceof EntityNotFoundException)
+                            return false;
+                        throw e;
+                    }
+                }
+                return isAllowedFor(current as Entity, TypeAllowedBasic.Read, true, rk);
+            };
+        };
+        return Object.assign((ctx: { ctor: Type<Entity>; elementType: RuntimeType; args: FilterQueryArgs | undefined }): LambdaExpression | undefined => {
             const rk = AuthLogic.currentRoleKey();
             if (rk == null || !AuthLogic.isEnabled())
                 return undefined;
@@ -358,7 +398,7 @@ export namespace TypeAuthLogic {
             const rootFilter = buildAuthFilter(rootCtor, new ClassType(rootCtor),
                 rules.getAllowed(rootTypeId, caches, rk), TypeAllowedBasic.Read, true, undefined);
             return rebasePartFilter(rootFilter, ctx.elementType, chain);
-        };
+        }, { inMemory });
     }
 
     // Write gate, per instance: block saving a row that a type CONDITION

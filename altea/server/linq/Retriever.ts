@@ -4,7 +4,7 @@ import { bindParentsOwn } from '../../data/parentEntity';
 import { Lite, LiteImp } from "../../data/lite";
 import type { TypeCaches } from "../typeLogic";
 import { Connector } from "../connection/connector";
-import { getCacheController } from "../cache";
+import { getCacheController, type CacheController } from "../cache";
 
 // Post-retrieve authorization seam (Signum's `EntityEventsGlobal.Retrieved`). Each gate gets the full set
 // of freshly-materialised entities AFTER a query completes and may `throw` (e.g. UnauthorizedAccessException)
@@ -85,6 +85,24 @@ export class Retriever {
         return e;
     }
 
+    // A throwaway retriever over the same type caches and cancellation — for an instance built only to read
+    // something off it (the cache's lite display string), which must NOT join this retriever's populated
+    // set: that would run Retrieved handlers and the read gates on a row the caller never asked for.
+    scratch(): Retriever {
+        return new Retriever(this.typeCaches, this.signal);
+    }
+
+    // Instances the CACHE filled. No SELECT carried their additional bindings, so `postRetrieved` computes
+    // them in memory (Signum's CachedTable.Complete → `SetInMemory`).
+    private readonly fromCache = new Set<Entity>();
+
+    entityFromCache(ctor: Type<Entity>, id: PrimaryKey, cc: CacheController): Entity | null {
+        return this.entity(ctor, id, e => {
+            cc.complete(e, this);
+            this.fromCache.add(e);
+        });
+    }
+
     // A raw view row. Unlike `entity`, view rows are NEVER routed through the identity map:
     // a view's representative primary key can be non-unique (altea collapses a composite
     // @viewPrimaryKey — e.g. the EmployeeTerritories junction's (EmployeeID, TerritoryID) —
@@ -139,6 +157,8 @@ export class Retriever {
         // part row. `populated` is the whole materialised set, so one level per instance covers the graph.
         for (const e of this.populated)
             bindParentsOwn(e);
+        for (const e of this.fromCache)
+            await schema.entityEvents(e.getType()).setAdditionalBindingsInMemory(e);
         for (const e of this.populated)
             await schema.entityEvents(e.getType()).onRetrieved(e);
         // A Retrieved handler may DERIVE an in-memory value from what was just read — Signum.Files stamps a
@@ -188,7 +208,7 @@ export class Retriever {
             const cc = await getCacheController(ctor);
             if (cc != null) {
                 for (const stub of stubs)
-                    this.entity(ctor, (stub as any).id as PrimaryKey, e => cc.complete(e, this));
+                    this.entityFromCache(ctor, (stub as any).id as PrimaryKey, cc);
                 continue;
             }
 

@@ -75,11 +75,15 @@ export namespace CacheLogic {
     }
 
     let started = false;
+    let builder: SchemaBuilder | undefined;
+    // Every type a global lazy is invalidated by — cached at schemaCompleted (Signum's TryCacheTable).
+    const lazyTypes = new Set<Type<Entity>>();
 
     export function start(sb: SchemaBuilder, options?: { serverBroadcast?: IServerBroadcast }): void {
         if (sb.alreadyDefined(start))
             return;
         started = true;
+        builder = sb;
 
         // A global lazy over CACHED types is invalidated by the cache's own events from now on — which
         // includes an invalidation BROADCAST from another process, something the base (local save/DML)
@@ -213,36 +217,48 @@ export namespace CacheLogic {
     // ---- Schema completed --------------------------------------------------------------------------
 
     function schemaCompleted(schema: Schema): void {
+        // Signum's TryCacheTable from `AttachInvalidations`: every type a global lazy is invalidated by is
+        // cached — whole if Master, its lites only if Transactional (cacheTable decides). Done HERE, not
+        // when the lazy registers, because a lazy may name a type its module has not included yet.
+        for (const t of lazyTypes)
+            if (schema.tryTable(t) != null)
+                tryCacheTable(builder!, t);
+
         // Every cached type's completer, once every table (and every other cached table) exists.
         for (const controller of controllers.values())
             controller?.cachedTable.buildCompleter();
 
-        // The cache serves rows without running the query a condition lives in, so a cached read would
-        // bypass it. A DB-evaluated TypeCondition arrives as an `additionalBindings` registration — a
-        // value the binder folds into the retrieval SELECT — which the cached path cannot compute. FAIL
-        // LOUDLY at startup rather than silently under-filtering.
-        const withBindings = [...controllers.entries()]
-            .filter(([t, c]) => c != null && schema.entityEvents(t).additionalBindings.length > 0)
-            .map(([t]) => t.name);
+        // Signum's check: a cached row is served without the query its TypeConditions live in, so each of
+        // them must be answerable from the instance (`TypeAuthLogic` then filters the cached row in memory,
+        // and fills an async one through its additional binding). FAIL at startup, naming every condition.
+        const missingInMemory = [...controllers.entries()]
+            .filter(([, c]) => c != null)
+            .map(([t]) => ({ t, tcs: TypeConditionLogic.conditionsFor(t).filter(tc => !TypeConditionLogic.hasInMemoryCondition(t, tc)) }))
+            .filter(a => a.tcs.length > 0);
+        if (missingInMemory.length > 0)
+            throw new Error("The following types are cached, but do not have in-memory TypeConditions defined:\n" +
+                missingInMemory.map(a => ` * ${a.t.name}: ${a.tcs.map(tc => tc.key).join(", ")}`).join("\n"));
 
-        if (withBindings.length > 0)
-            throw new Error(
-                `These types are cached but carry additional bindings (typically a DB-evaluated TypeCondition), which the cache cannot compute: ` +
-                `${withBindings.join(", ")}. Register the condition with an in-memory evaluator, or do not cache the type.`);
+        // The row filters and additional bindings are installed while INITIALIZING (TypeAuthLogic does it
+        // there, once every condition is registered), which is after this — so they are checked as the LAST
+        // initializing step: every one on a cached type needs its in-memory half, or a cached row would
+        // escape a WHERE / miss a value the SELECT carries.
+        schema.initializing.push(s => assertInMemoryHalves(s));
+    }
 
-        // ROW-LEVEL SECURITY, enforced ONLY through `queryFilter` — a WHERE the LINQ binder splices into
-        // every query. The cached path issues no query, so a cached read of a conditioned type would
-        // return rows the role must not see. Until a per-row retrieve gate exists, caching such a type is
-        // refused outright:
-        // silently under-filtering is not an acceptable failure mode.
-        const conditioned = [...controllers.entries()]
-            .filter(([t, c]) => c != null && TypeConditionLogic.conditionsFor(t).length > 0)
-            .map(([t]) => t.name);
-
-        if (conditioned.length > 0)
-            throw new Error(
-                `These types are cached but have row-level TypeConditions, which altea enforces as a query filter — a cached read would ` +
-                `bypass it: ${conditioned.join(", ")}. Do not cache a type with TypeConditions.`);
+    function assertInMemoryHalves(schema: Schema): void {
+        const problems: string[] = [];
+        for (const [t, c] of controllers) {
+            if (c == null)
+                continue;
+            const ev = schema.entityEvents(t);
+            if (ev.queryFilter.some(h => h.inMemory == null))
+                problems.push(` * ${t.name}: a queryFilter without an in-memory implementation`);
+            if (ev.additionalBindings.some(b => b.setInMemory == null))
+                problems.push(` * ${t.name}: an additional binding (typically a DB-only TypeCondition) without an in-memory implementation`);
+        }
+        if (problems.length > 0)
+            throw new Error("The following types are cached, but a cached row could not be filtered / completed in memory:\n" + problems.join("\n"));
     }
 
     // ---- The per-type controller -------------------------------------------------------------------
@@ -317,9 +333,12 @@ export namespace CacheLogic {
             if (!this.cachedTable.exists(id))
                 return null;
             // altea has no lite MODEL to compute against the raw row (see CachedTable's header): the row
-            // is materialised through the retriever and reduced by the type's own `toLite`, so a custom
-            // lite (`registerCustomLite`) comes out exactly as a query would build it.
-            const entity = retriever.entity(this.type, id, e => this.complete(e as T, retriever)) as T;
+            // is materialised and reduced by the type's own `toLite`, so a custom lite
+            // (`registerCustomLite`) comes out exactly as a query would build it. In a SCRATCH retriever:
+            // the caller asked for a lite, and an entity in its own retriever would be treated as retrieved
+            // — the type-read gate would deny a role that may see the name but not read the type.
+            const scratch = retriever.scratch();
+            const entity = scratch.entity(this.type, id, e => this.complete(e as T, scratch)) as T;
             return entity.toLite() as Lite<T>;
         }
 
@@ -591,13 +610,12 @@ export namespace CacheLogic {
             for (const t of invalidateWith.invalidateWith) {
                 const controller = controllers.get(t);
                 if (controller == null) {
-                    // NOT cached, and deliberately NOT force-cached: declaring
-                    // `sb.globalLazy(…, { invalidateWith: [X] })` must not silently start holding X's
-                    // whole table in memory — in this very repo that would have cached UserQuery,
-                    // Dashboard and the Toolbar entities, all of which carry row-level TypeConditions a
-                    // cached read cannot honour (see schemaCompleted). The lazy keeps the base (local
-                    // event) wiring AND is registered for the broadcast, so an invalidation from ANOTHER
-                    // process still resets it.
+                    // Not cached YET: Signum's TryCacheTable happens at schemaCompleted (see there), once
+                    // the type is surely included. Until then — and for a Transactional type, which only
+                    // becomes semi — the lazy keeps the base (local event) wiring AND is registered for the
+                    // broadcast, so an invalidation from ANOTHER process still resets it. That wiring stays
+                    // right once the type IS cached: the cache invalidates on the same local events.
+                    lazyTypes.add(t);
                     super.attachInvalidations(sb, { invalidateWith: [t] }, invalidate);
                     const list = lazyInvalidatorsByType.get(t);
                     if (list != null) list.push(invalidate); else lazyInvalidatorsByType.set(t, [invalidate]);

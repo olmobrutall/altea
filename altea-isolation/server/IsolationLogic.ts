@@ -5,6 +5,7 @@ import "@altea/altea/server/fluentOperations";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import type { Schema } from "@altea/altea/server/schema/schema";
 import type { Query } from "@altea/altea/server/query";
+import type { QueryFilterContext } from "@altea/altea/server/schema/entityEvents";
 import { table } from "@altea/altea/server/table";
 import { Entity, type Type } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
@@ -211,12 +212,20 @@ export namespace IsolationLogic {
         }
 
         // Inside an isolation you see only YOUR isolation row.
-        schema.entityEvents(IsolationEntity).queryFilter.push(ctx => {
+        schema.entityEvents(IsolationEntity).queryFilter.push(Object.assign((ctx: QueryFilterContext) => {
             const curr = current();
             if (curr == null || ExecutionMode.isInGlobal())
                 return undefined;
             return lambdaOf(isolationRowPredicate(curr), ctx.elementType);
-        });
+        }, {
+            // The same filter for a row the cache serves (Signum's InMemoryFunction).
+            inMemory: () => {
+                const curr = current();
+                if (curr == null || ExecutionMode.isInGlobal())
+                    return undefined;
+                return (e: Entity) => e.toLite().is(curr);
+            },
+        }));
     }
 
     // Enum tables, symbol tables and IsolationEntity itself are exempt from the assertion. An enum
@@ -267,12 +276,23 @@ export namespace IsolationLogic {
     // The WHERE the binder splices onto every query of T. Synchronous,
     // like every queryFilter hook — it reads the ambient isolation, never the database.
     function registerFilterQuery(schema: Schema, ctor: Type<Entity>, strategy: IsolationStrategy): void {
-        schema.entityEvents(ctor).queryFilter.push(ctx => {
+        schema.entityEvents(ctor).queryFilter.push(Object.assign((ctx: QueryFilterContext) => {
             const curr = current();
             if (curr == null || ExecutionMode.isInGlobal())
                 return undefined;
             return lambdaOf(strategy === "Isolated" ? isolatedPredicate(curr) : optionalPredicate(curr), ctx.elementType);
-        });
+        }, {
+            // The same predicates for a row the cache serves (Signum's InMemoryFunction).
+            inMemory: () => {
+                const curr = current();
+                if (curr == null || ExecutionMode.isInGlobal())
+                    return undefined;
+                return (e: Entity) => {
+                    const own = Isolation.tryIsolation(e);
+                    return own == null ? strategy !== "Isolated" : own.is(curr);
+                };
+            },
+        }));
 
         // A set-based INSERT builds its rows from a projection, so it never
         // goes through the save pipeline and would leave the column null. The constructor lambda is

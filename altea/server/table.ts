@@ -282,13 +282,25 @@ export async function retrieveEntitiesFromCache<T extends Entity>(
     for (const id of ids) {
         if (!controller.exists(id))
             continue;
-        const e = retriever.entity(ctor, id, e2 => controller.complete(e2, retriever));
+        const e = retriever.entityFromCache(ctor, id, controller);
         if (e != null)
             result.push(e as T);
     }
     await retriever.completeAll();
     await retriever.postRetrieved();
-    return result;
+
+    // The query filter, in memory (Signum's `GetInMemoryFilter` in Database.Retrieve): no WHERE ran, so a
+    // row it would have hidden is dropped here — the caller sees it as missing, as from the database. Only
+    // the REQUESTED rows, as in Signum: a full-entity reference the cache completes along the way is not
+    // filtered (the SQL completion in retrieveListImpl does carry the WHERE — a known gap, shared with Signum).
+    const events = connector.schema.entityEvents(ctor);
+    if (events.queryFilter.length === 0)
+        return result;
+    const allowed: T[] = [];
+    for (const e of result)
+        if (await events.isAllowedInMemory(ctor as Type<Entity>, e))
+            allowed.push(e);
+    return allowed;
 }
 
 // Materialise the `ctor` rows whose id is in `ids` (a single `WHERE id IN (…)` query) as a

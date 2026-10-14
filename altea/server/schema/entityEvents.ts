@@ -9,16 +9,28 @@ import type { FilterQueryArgs } from './filterQueryArgs';
 // "Pre*" handlers run in reverse registration order, the rest in order. Every handler may be async.
 
 // Signum's FilterQuery: a WHERE the binder adds to every query of T. Synchronous; undefined = no filter.
-export type QueryFilterHandler = (ctx: {
+//
+// `inMemory` is Signum's `FilterQueryResult.InMemoryFunction`: the same filter for ONE instance, for a row
+// that no query read — one the CACHE serves (`Database.retrieve` of a cached type). Undefined (the result)
+// = no filter. A handler WITHOUT it cannot be applied to a cached row, so altea-cache refuses to cache its
+// type rather than serve rows the WHERE would have hidden.
+export interface QueryFilterContext {
     ctor: Type<Entity>;
     elementType: RuntimeType;
     args: FilterQueryArgs | undefined;
-}) => LambdaExpression | undefined;
+}
+
+export type QueryFilterHandler = ((ctx: QueryFilterContext) => LambdaExpression | undefined) & {
+    inMemory?: (ctx: { ctor: Type<Entity> }) => ((entity: Entity) => boolean | Promise<boolean>) | undefined;
+};
 
 // Signum's RegisterBinding: a value folded into the retrieval SELECT of T and set on each instance.
+// `setInMemory` is Signum's `SetInMemory`: the same value computed from the instance, for a row the CACHE
+// serves (there is no SELECT to fold it into). Without it the type cannot be cached.
 export interface AdditionalBindingSpec<T extends Entity> {
     readonly valueLambda: LambdaExpression;
     readonly set: (entity: T, value: unknown) => void;
+    readonly setInMemory?: (entity: T) => void | Promise<void>;
 }
 
 export class EntityEvents<T extends Entity> {
@@ -71,6 +83,28 @@ export class EntityEvents<T extends Entity> {
     async onChanged(method: EntityChangeMethod): Promise<void> {
         for (const h of this.changed)
             await h(method);
+    }
+
+    /** Every queryFilter's in-memory half, applied to ONE instance (Signum's `GetInMemoryFilter`). Throws
+     *  for a handler that has none — a caller reaching here has a row no WHERE filtered. */
+    async isAllowedInMemory(ctor: Type<Entity>, entity: T): Promise<boolean> {
+        for (const h of this.queryFilter) {
+            if (h.inMemory == null)
+                throw new Error(`A queryFilter of ${ctor.name} has no in-memory implementation, so a row read without a query cannot be filtered`);
+            const f = h.inMemory({ ctor });
+            if (f != null && !(await f(entity)))
+                return false;
+        }
+        return true;
+    }
+
+    /** Every additional binding's in-memory half (Signum's `SetInMemory`), for a row the cache served. */
+    async setAdditionalBindingsInMemory(entity: T): Promise<void> {
+        for (const b of this.additionalBindings) {
+            if (b.setInMemory == null)
+                throw new Error(`An additional binding of ${entity.constructor.name} has no in-memory implementation, so a cached row cannot carry it`);
+            await b.setInMemory(entity);
+        }
     }
 
     async onRetrieved(entity: T): Promise<void> {

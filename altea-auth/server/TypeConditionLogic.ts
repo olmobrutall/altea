@@ -322,6 +322,21 @@ export namespace TypeConditionLogic {
         return info.inMemoryCondition != null && !info.inMemoryIsAsync;
     }
 
+    /**
+     * Signum's `HasInMemoryCondition`: whether the condition can be answered from the instance at all —
+     * synchronously, or by an async twin (`fillTypeConditions` pre-computes those). What a CACHED type
+     * requires of every condition, since a row the cache serves has no query to fold a DB-only one into.
+     */
+    export function hasInMemoryCondition(ctor: Type<Entity>, typeCondition: TypeConditionSymbol): boolean {
+        const info = infoOrThrow(ctor, typeCondition);
+        return info.inMemoryCondition != null || info.asyncInMemoryCondition != null;
+    }
+
+    /** The async per-instance predicate (an async twin or an auditor's), when the condition has one. */
+    export function getAsyncInMemoryCondition(ctor: Type<Entity>, typeCondition: TypeConditionSymbol): ((e: BaseEntity) => Promise<boolean>) | undefined {
+        return asyncPerInstance(infoOrThrow(ctor, typeCondition));
+    }
+
     export function getInMemoryCondition<T extends Entity>(ctor: Type<T>, typeCondition: TypeConditionSymbol): ((e: T) => boolean) | undefined {
         const info = infoOrThrow(ctor, typeCondition);
         return info.inMemoryIsAsync ? undefined : info.inMemoryCondition as ((e: T) => boolean) | undefined;
