@@ -39,6 +39,16 @@
     --text-display-6: calc(1.375rem + 1.5vw);
     --text-display-7: 1.5rem;
 
+    --animate-fade-in: sf-fade-in .15s linear;
+    --animate-fade-out: sf-fade-out .15s linear forwards;
+    --animate-modal-in: sf-modal-in .3s ease-out;
+    --animate-modal-out: sf-modal-out .15s linear forwards;
+
+    @keyframes sf-fade-in { from { opacity: 0; } }
+    @keyframes sf-fade-out { to { opacity: 0; } }
+    @keyframes sf-modal-in { from { opacity: 0; transform: translateY(-50px); } }
+    @keyframes sf-modal-out { to { opacity: 0; transform: translateY(-25px); } }
+
     /* The three steps the class map translates Bootstrap's shadow-sm / shadow / shadow-lg to. */
     --shadow-xs: 0 .125rem .25rem rgb(0 0 0 / .075);
     --shadow-md: 0 .5rem 1rem rgb(0 0 0 / .15);

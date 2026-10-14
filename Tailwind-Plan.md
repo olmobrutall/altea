@@ -49,7 +49,7 @@ review as any generated code.
 ## Principles
 
 1. **altea owns the wrappers; packages never import Radix or shadcn files directly.** Every module
-   imports from `@altea/altea/client/ui`. One place for a primitive to change; the 28 packages take no
+   imports from `@altea/altea/client/ui/<Component>`. One place for a primitive to change; the 28 packages take no
    new dependency.
 2. **Keep the react-bootstrap SHAPE where it is cheap.** altea's `Modal` (`show` / `onHide` /
    `onExited` / `size` / `Modal.Header` / `Body` / `Footer`) and `Tabs` + `Tab eventKey title` keep the
@@ -132,7 +132,7 @@ light and dark before the next starts. Each is its own commit(s) in `altea`, wit
 - Exit (met): eight pages × light/dark screenshot-diffed against the Bootstrap baseline — pixel-identical
   except the animated help-tip pulse.
 
-### Phase 1 — altea `ui` kit
+### Phase 1 — altea `ui` kit ✅
 Generate and adapt, in `client/ui/`: `Button` (+ `buttonVariants` for `<a>`/`<Link>` that look like
 buttons; variants primary, secondary, tertiary, outline, link, destructive, success, warning, info, light;
 sizes xs/sm/md/lg/icon — `xs` is altea's), `Modal` (Dialog), `Dropdown`/`DropdownButton`
@@ -160,10 +160,26 @@ The ones that need real design:
     `sf-range-*` (the last four exist already in `Lines.css`).
 - **`DateTimePicker`** = `Input` (culture-aware parse/format of what is typed) + `Popover` with the
   `Calendar` + an optional time field (`PlainTime`, step from the property's format). The parsing and
-  formatting that today lives in `ReactWidgetsLocalizer.tsx` moves to one Temporal helper; there is no
-  `Date` anywhere in it.
+  formatting that lived in `ReactWidgetsLocalizer.tsx` moved to `client/ui/dateFormat.ts`; no `Date` in
+  its API.
 
-Exit: a dev-only `/ui-kit` route with every component in both modes and every palette.
+Exit (met): `/ui-kit` (dev only, `UiKitClient`) shows every component in both modes; verified in the browser —
+Combobox local + server search with keyboard pick, typed dates in the culture's order (and an impossible one
+flagged), calendar arrow / PageDown navigation, nested modals with Escape, static backdrop, `onExited`
+once per close and focus back on the opener, Tabs mount-on-enter. Palettes arrive in Phase 4.
+
+What it turned up, for the phases after it:
+- **No preflight means the browser's own `<button>` / `<input>` borders stay.** A kit control that should
+  have none says `border-0`; once preflight is on (Phase 5) those become redundant, not wrong.
+- **`Lines.css` gives every `.border` a 10px padding** (Signum's), so Tailwind's `border` inherits it. The kit
+  writes `border-1` (same 1px) until Phase 2 moves that padding to the views that want it.
+- Legacy stylesheets that restate a Bootstrap utility with `!important` (`Tertiary.css`'s `.bg-tertiary`)
+  override the Tailwind utility of the same name — layers reverse for important declarations. Delete them
+  as the token utilities take over.
+- Radix restores focus only to its own `Trigger`; altea opens modals from code, so `Modal` remembers the
+  focused element itself (read during render — by the first effect Radix has already moved the focus).
+- Intl formats only `Date`s under the Temporal polyfill, so `dateFormat.ts` converts at that one call; the
+  components take and give Temporal values only.
 
 ### Phase 2 — core `altea/altea/client` (32 react-bootstrap files + react-widgets)
 - **`StyleContext` first**: its getters return the semantic classes of the class map
