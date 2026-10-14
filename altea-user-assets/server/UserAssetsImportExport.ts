@@ -164,8 +164,8 @@ export interface IFromXmlContext {
     readonly binary: BinaryStore;
     /** What readAttributeWithTranslations / readElementWithTranslations read, saved after the assets. */
     readonly translations: TranslationQueue;
-    /** The type↔id snapshot for this import, resolved once at its async boundary — a `fromXml` is
-     *  synchronous and may need to resolve a stored type id back to its row. */
+    /** The type↔id snapshot for this import, resolved once up front so a `fromXml` can resolve a stored
+     *  type id back to its row without awaiting — e.g. inside a `syncRows` / `positionalRows` fill. */
     readonly typeCaches: TypeCaches;
     /** Every symbol type's cache, likewise resolved once: an XML reference can name a permission, a tour
      *  trigger or any other symbol by key. */
@@ -191,7 +191,6 @@ export interface UserAssetTypeConfig<T extends IUserAssetEntity = IUserAssetEnti
     create(): T;
     /** Serialize the entity to an XML-object (attrs prefixed "@_", nested elements as objects/arrays). */
     toXml(entity: T, ctx: IToXmlContext): Record<string, unknown> | Promise<Record<string, unknown>>;
-    /** Fill the entity from a parsed XML-object. */
     /** Fill the entity from a parsed XML-object. MAY be async: resolving a reference (a model registry
      *  row, a symbol) can need the database, and the import loop awaits — doing it fire-and-forget would
      *  race the save that follows. */

@@ -77,8 +77,8 @@ every other altea user asset does — and the element/attribute names are preser
 file round-trips.
 
 `Property` is written as the route's PATH and resolved back through
-`PropertyRouteLogic.propertyRouteEntitySync` — the sync form of Signum's
-`ctx.GetPropertyRoute(typeEntity, path)`, since `fromXml` cannot await. Same file format either way.
+`PropertyRouteLogic.toPropertyRouteEntity(rootType, path)` — Signum's `ctx.GetPropertyRoute(typeEntity, path)`,
+resolved up front once per distinct path. Same file format either way.
 
 **A `ToolbarContent` pointing at a PermissionSymbol is not supported**: altea's `CssStepEntity` declares
 `@implementedBy(QueryEntity)` only, matching what the tour editor can actually pick.

@@ -212,6 +212,7 @@ export namespace HelpExportImport {
                 // is also what keeps a renamed property from resurrecting as a stray row.
                 const validRoutes = new Set(HelpLogic.publicRoutes(ctor).map(pr => pr.propertyString()));
                 const byRoute = new Map(t.properties.map(p => [p.property.path, p]));
+                const routes = new Map((await PropertyRouteLogic.retrieveOrGenerateProperties(t.type)).map(pr => [pr.path, pr]));
                 for (const item of arrayOf(root, "Properties", "Property")) {
                     const name = String(item["Name"] ?? "");
                     if (!validRoutes.has(name))
@@ -222,7 +223,7 @@ export namespace HelpExportImport {
                     else
                         t.properties.push(TypeHelpEntity_Property.create({
                             typeHelp: t,
-                            property: PropertyRouteLogic.propertyRouteEntitySync(t.type, name),
+                            property: routes.get(name) ?? await PropertyRouteLogic.toPropertyRouteEntity(t.type, name),
                             description: textOf(item[TEXT]),
                         }));
                 }

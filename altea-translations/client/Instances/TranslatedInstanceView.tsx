@@ -8,6 +8,7 @@ import TextArea from "@altea/altea/client/Components/TextArea";
 import EntityLink from "@altea/altea/client/SearchControl/EntityLink";
 import { useAPIWithReload, useForceUpdate, useLock } from "@altea/altea/client/Hooks";
 import { useTitle } from "@altea/altea/client/AppContext";
+import { useLoseChangesSnapshot } from "@altea/altea/client/Frames/FramePage";
 import { CultureClient } from "@altea/altea/client/CultureClient";
 import { useAPI } from "@altea/altea/client/Hooks";
 import { Dic } from "@altea/altea/data/globals";
@@ -51,6 +52,8 @@ export default function TranslatedInstanceView(): React.JSX.Element {
         culture ?? TranslationMessage.AllLanguages.niceToString());
     useTitle(message);
 
+    const markSaved = useLoseChangesSnapshot(result);
+
     function handleSave(e: React.FormEvent): void {
         e.preventDefault();
         const records = result!.instances.flatMap(ins =>
@@ -66,7 +69,7 @@ export default function TranslatedInstanceView(): React.JSX.Element {
                     } satisfies TranslationRecordInfo))));
 
         void lock(() => TranslatedInstanceClient.API.saveTranslatedInstanceData(records, type, false, culture)
-            .then(() => { reload(); Operations.notifySuccess(); }));
+            .then(() => { markSaved(); reload(); Operations.notifySuccess(); }));
     }
 
     const otherCultures = (cultures == undefined ? [] : Object.keys(cultures.cultures))

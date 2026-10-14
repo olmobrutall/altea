@@ -114,7 +114,7 @@ function tokenEquivalenceGroupToXml(gr: DashboardEntity_TokenEquivalenceGroup): 
 
 // ---- FromXml -------------------------------------------------------------------------------------------
 
-function fromXml(db: DashboardEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): void {
+async function fromXml(db: DashboardEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): Promise<void> {
     db.displayName = readAttributeWithTranslations(xml, "DisplayName", db, d => d.displayName, ctx) ?? "";
     db.entityType = xml[A + "EntityType"] != null ? ctx.getType(str(xml[A + "EntityType"])!) : null;
     db.owner = xml[A + "Owner"] != null ? (ctx.parseLite(str(xml[A + "Owner"])!) ?? null) : null;
@@ -132,8 +132,13 @@ function fromXml(db: DashboardEntity, xml: Record<string, unknown>, ctx: IFromXm
     db.autoRefreshPeriod = integer(xml[A + "AutoRefreshPeriod"]);
     db.cacheQueryConfiguration = cacheQueryConfigurationFromXml(db.cacheQueryConfiguration, xml["CacheQueryConfiguration"]);
 
+    // A part type's fromXml MAY be async (the registry allows it), but syncRows fills synchronously: the
+    // content fills are queued and awaited in order once the rows exist, before the import saves.
+    const contentFills: (() => void | Promise<void>)[] = [];
     db.parts = syncRows(db.parts ?? [], arr(xml["Parts"], "Part"), () => new DashboardEntity_Part(),
-        (p, x) => fillPart(p, x, ctx));
+        (p, x) => fillPart(p, x, ctx, contentFills));
+    for (const fill of contentFills)
+        await fill();
     db.tokenEquivalencesGroups = arr(xml["TokenEquivalencesGroups"], "TokenEquivalenceGroup")
         .map(x => tokenEquivalenceGroupFromXml(x, ctx));
 }
@@ -153,7 +158,8 @@ function cacheQueryConfigurationFromXml(current: CacheQueryConfigurationEmbedded
 }
 
 // Signum's PanelPartEmbedded.FromXml (+ DashboardLogic.GetPart for the content element).
-function fillPart(p: DashboardEntity_Part, x: Record<string, unknown>, ctx: IFromXmlContext): void {
+function fillPart(p: DashboardEntity_Part, x: Record<string, unknown>, ctx: IFromXmlContext,
+    contentFills: (() => void | Promise<void>)[]): void {
     p.row = (integer(x[A + "Row"]) ?? 0) as int;
     p.startColumn = (integer(x[A + "StartColumn"]) ?? 0) as int;
     p.columns = (integer(x[A + "Columns"]) ?? 12) as int;
@@ -179,7 +185,8 @@ function fillPart(p: DashboardEntity_Part, x: Record<string, unknown>, ctx: IFro
     // The existing content is reused when the part keeps its type, so an unchanged part is not a change.
     const config = DashboardLogic.partConfigForElement(contentEntry[0]);
     const content = p.content instanceof config.type ? p.content : new (config.type as new () => IPartEntity)();
-    config.fromXml(content, first(contentEntry[1])!, ctx);
+    const contentXml = first(contentEntry[1])!;
+    contentFills.push(() => config.fromXml(content, contentXml, ctx));
     if (p.content !== content)
         p.content = content;
 }

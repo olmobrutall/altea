@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 import { Operations } from "@altea/altea/client/Operations";
 import { useAPIWithReload } from "@altea/altea/client/Hooks";
 import { useTitle } from "@altea/altea/client/AppContext";
+import { useLoseChangesSnapshot } from "@altea/altea/client/Frames/FramePage";
 import { Dic } from "@altea/altea/data/globals";
 import { TranslationMessage } from "../../data/Translation";
 import { TranslationClient, encodePackage, decodePackage } from "../TranslationClient";
@@ -27,9 +28,12 @@ export default function TranslationCodeSync(): React.JSX.Element {
 
     useTitle(message);
 
+    // The machine suggestions arrive pre-filled: only what you change after loading counts.
+    const markSaved = useLoseChangesSnapshot(result);
+
     function handleSave(): void {
         void TranslationClient.API.save(packageName, culture, result!)
-            .then(() => Operations.notifySuccess())
+            .then(() => { markSaved(); Operations.notifySuccess(); })
             .then(() => reload());
     }
 

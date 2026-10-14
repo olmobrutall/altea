@@ -419,8 +419,47 @@ export default function FramePage(): React.ReactElement {
 
 
 export function useLooseChanges(pair?: { entity: BaseEntity, lastEntity: string }): void {
+  useLoseChangesBlocker(() => pair != null && Serializer.dump(pair.entity) != pair.lastEntity);
+}
 
-  let blocker = useBlocker(() => pair != null && Serializer.dump(pair.entity) != pair.lastEntity);
+/**
+ * The lose-changes guard for a page that is NOT an entity frame (a sync / translation grid): asks before a
+ * router navigation AND before the tab is closed or reloaded, whenever `hasChanges()` says so. Read at the
+ * moment of leaving, so it may inspect mutable state.
+ */
+export function useLoseChangesGuard(hasChanges: () => boolean): void {
+  useLoseChangesBlocker(hasChanges);
+
+  const hasChangesRef = useUpdatedRef(hasChanges);
+  useWindowEvent("beforeunload", e => {
+    if (hasChangesRef.current()) {
+      e.preventDefault(); // If you prevent default behavior in Mozilla Firefox prompt will always be shown
+      e.returnValue = '';   // Chrome requires returnValue to be set
+    }
+  }, []);
+}
+
+/**
+ * {@link useLoseChangesGuard} for a page that edits a loaded DTO IN PLACE: it has changes when the value
+ * no longer serializes as it did when it was loaded (a new value — a reload — is a new baseline) or last
+ * saved. Call the returned function once a save succeeds.
+ */
+export function useLoseChangesSnapshot(value: unknown): () => void {
+  const valueRef = useUpdatedRef(value);
+  const snapshot = React.useRef<{ value: unknown, json: string } | undefined>(undefined);
+  if (snapshot.current?.value !== value)
+    snapshot.current = { value, json: JSON.stringify(value) };
+
+  useLoseChangesGuard(() => valueRef.current != undefined && JSON.stringify(valueRef.current) !== snapshot.current?.json);
+
+  return React.useCallback(() => {
+    snapshot.current = { value: valueRef.current, json: JSON.stringify(valueRef.current) };
+  }, []);
+}
+
+function useLoseChangesBlocker(hasChanges: () => boolean): void {
+
+  let blocker = useBlocker(hasChanges);
 
   React.useEffect(() => {
     if (blocker.state === "blocked") {

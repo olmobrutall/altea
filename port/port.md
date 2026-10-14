@@ -129,7 +129,7 @@ Known structural divergences from Signum (this is what "fix" means — don't por
       in normal mode and the pre-cast one in legacy). `TypeEntity.isPart` has its own three in
       `altea/test/server/schema/typeEntityIsPart.test.ts`.
     - `assertNotPartRoot()` remains what a STORAGE boundary asks, since a route can arrive from anywhere:
-      `toPropertyRouteEntity` / `propertyRouteEntitySync` refuse one, and `PropertyRouteLogic.modelPaths` /
+      `toPropertyRouteEntity` (both forms) refuses one, and `PropertyRouteLogic.modelPaths` /
       the property-auth enumeration answer NOTHING for a part.
     - **the consumers that used to re-root at a part now continue the owner's route**, which is also where
       the rules are stored: EntityTable resolves its columns against the owner's element route, RenderEntity
@@ -431,9 +431,12 @@ Known structural divergences from Signum (this is what "fix" means — don't por
       serialized, so there is nothing to gate. The row is preserved for the DATABASE's sake, and for the
       Signum deployment that may still be reading it. Only the type's OWN members: an expression on an
       EMBEDDED would be a dotted route, which no case needs yet.
-  - `propertyRouteEntitySync` is the sync counterpart the XML importers need (`fromXml` cannot await), and
-    it VALIDATES the path where Signum's `IFromXmlContext.GetPropertyRoute` scans generated routes — so a
-    file naming a route that does not exist says which file is wrong.
+  - `toPropertyRouteEntity(rootType, path)` is also Signum's `IFromXmlContext.GetPropertyRoute`, and it
+    VALIDATES the path where Signum scans generated routes — so a file naming a route that does not exist
+    says which file is wrong. Like Signum, every lookup QUERIES in the current transaction (the cache only
+    when a cache module serves the table): the `properties` lazy reloads in an independent transaction and
+    cannot see a row the caller just inserted, so two consumers of one route in one save would each get a
+    NEW row and the unique index rejects the second. The serializer hook is the only sync reader (snapshot).
   - `PropertyRouteProductionCleanup` is not ported: it exists for databases whose migrations only fixed the
     routes known in dev, and altea's answer to an unparseable row is the synchronizer that removes it.
   - **altea-dynamic gains a cascade Signum lacks.** Signum registers the PropertyRouteEntity

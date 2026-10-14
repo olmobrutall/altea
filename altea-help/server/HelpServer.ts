@@ -136,7 +136,7 @@ export namespace HelpServer {
                 const type = Entity.resolveType(cleanName);
 
                 const th = await HelpLogic.getTypeHelp(type);
-                return res.jsonTyped(HelpLogic.typeEntity(th));
+                return res.jsonTyped(await HelpLogic.typeEntity(th));
             });
 
         ws.post("/api/help/saveType",

@@ -8,6 +8,7 @@ import { Synchronizer, type Replacements } from "./sync/synchronizer";
 import { SqlPreCommand, Spacing } from "./sync/sqlPreCommand";
 import { deleteSqlSync, updateSqlSync } from "./save";
 import { Connector } from "./connection/connector";
+import { tryGetCacheController } from "./cache";
 import { PropertyRouteEntity } from "../data/propertyRouteEntity";
 import { TypeEntity } from "../data/typeEntity";
 import { PropertyRoute, isPartType, storedMemberName } from "../data/propertyRoute";
@@ -144,44 +145,36 @@ export namespace PropertyRouteLogic {
      * Signum's `PropertyRoute.ToPropertyRouteEntity()` extension: the persisted row for this route, or a
      * NEW unsaved one when the route has never been referenced. Returning an unsaved row rather than
      * throwing is what makes the table demand-populated — the caller saves it as part of its own graph.
-     */
-    export async function toPropertyRouteEntity(route: PropertyRoute): Promise<PropertyRouteEntity> {
-        route.assertNotPartRoot("A stored property route");
-        const rootType = route.rootType.toTypeEntity();
-        const path = route.propertyString();
-
-        const prev = await tryGetPropertyRouteEntity(rootType, path);
-        if (prev != undefined)
-            return prev;
-
-        return PropertyRouteEntity.create({ rootType, path });
-    }
-
-    /**
-     * The SYNCHRONOUS counterpart of {@link toPropertyRouteEntity}, off the sync snapshot (see the header) —
-     * for the callers that cannot await: the XML importers, which run inside a sync `fromXml`.
      *
-     * Same contract: the persisted row, or a NEW unsaved one the caller's save then creates. It is also
-     * Signum's `IFromXmlContext.GetPropertyRoute(typeEntity, path)`, minus the `SingleEx` scan — Signum
-     * generates every route of the type and picks the matching one, which answers the same thing except
-     * that a path naming no real route comes back as a row there and undefined-shaped nonsense here; so
-     * this VALIDATES the path instead, and says which file is wrong.
+     * The `(rootType, path)` form is also Signum's `IFromXmlContext.GetPropertyRoute(typeEntity, path)`,
+     * minus the `SingleEx` scan over every generated route: it VALIDATES the path instead, so a file naming
+     * a route that does not exist says so rather than coming back as a row.
+     *
+     * Like Signum, the lookup is a QUERY in the current transaction unless a cache module serves the
+     * table. The `properties` lazy reloads in an independent transaction, so it cannot see a row this
+     * transaction inserted and has not committed — reading it would hand the second consumer of the same
+     * route in one save a second NEW row, which the unique index rejects.
      */
-    export function propertyRouteEntitySync(rootType: TypeEntity, path: string): PropertyRouteEntity {
-        const found = syncSnapshot.get(rootType.cleanName)?.get(path);
-        if (found != undefined)
-            return found;
+    export async function toPropertyRouteEntity(route: PropertyRoute): Promise<PropertyRouteEntity>;
+    export async function toPropertyRouteEntity(rootType: TypeEntity, path: string): Promise<PropertyRouteEntity>;
+    export async function toPropertyRouteEntity(routeOrType: PropertyRoute | TypeEntity, maybePath?: string): Promise<PropertyRouteEntity> {
+        let rootType: TypeEntity;
+        let path: string;
+        if (routeOrType instanceof PropertyRoute) {
+            routeOrType.assertNotPartRoot("A stored property route");
+            rootType = routeOrType.rootType.toTypeEntity();
+            path = routeOrType.propertyString();
+        } else {
+            rootType = routeOrType;
+            path = maybePath!;
+            assertStorableRoute(rootType, path);
+        }
 
-        // Not referenced yet: check the path really is a route of the type before minting a row for it.
-        // The ROOT is asserted rather than the parsed route's, because a path that re-roots would move
-        // the question to a different type than the row actually stores.
-        const ctor = resolveCtor(rootType);
-        PropertyRoute.root(ctor).assertNotPartRoot("A stored property route");
-        // A path an `extraSyncRoutes` handler declares (a `@legacyPropertyRoute`) is a stored row the model
-        // cannot parse.
-        if (!extraSyncRoutes.some(handler => [...handler(ctor)].includes(path)))
-            PropertyRoute.parse(ctor, path);
-        return PropertyRouteEntity.create({ rootType, path });
+        const prev = tryGetCacheController(PropertyRouteEntity)?.enabled === true
+            ? await tryGetPropertyRouteEntity(rootType, path)
+            : await table(PropertyRouteEntity).filter(p => p.rootType.is(rootType) && p.path === path).singleOrNull() ?? undefined;
+
+        return prev ?? PropertyRouteEntity.create({ rootType, path });
     }
 
     /**
@@ -243,14 +236,16 @@ export namespace PropertyRouteLogic {
 
     /**
      * Signum's `RetrieveOrGenerateProperties`: every route of the type, each as its PERSISTED row where one
-     * exists and a fresh unsaved one otherwise — what a property-rule editor binds to.
+     * exists and a fresh unsaved one otherwise — what a property-rule editor binds to. A QUERY in the
+     * current transaction, as in Signum, for the reason {@link toPropertyRouteEntity} gives.
      */
     export async function retrieveOrGenerateProperties(rootType: TypeEntity): Promise<PropertyRouteEntity[]> {
         const ctor = resolveCtor(rootType);
-        const retrieved = (await properties.value()).get(rootType.cleanName);
+        const retrieved = new Map((await table(PropertyRouteEntity).filter(p => p.rootType.is(rootType)).toArray() as PropertyRouteEntity[])
+            .map(pr => [pr.path, pr]));
 
         return generateProperties(ctor, rootType, false)
-            .map(should => retrieved?.get(should.path) ?? should);
+            .map(should => retrieved.get(should.path) ?? should);
     }
 }
 
@@ -277,6 +272,18 @@ export function declaredLegacyRoutes(ctor: Type<BaseEntity>): string[] {
 
 // The SYNC mirror of PropertyRouteLogic.properties (see the header): cleanName → path → row.
 let syncSnapshot = new Map<string, Map<string, PropertyRouteEntity>>();
+
+// A path given as a string must really be a route of the type before a row is created for it. The ROOT is
+// asserted rather than the parsed route's, because a path that re-roots would move the question to a
+// different type than the row actually stores.
+function assertStorableRoute(rootType: TypeEntity, path: string): void {
+    const ctor = resolveCtor(rootType);
+    PropertyRoute.root(ctor).assertNotPartRoot("A stored property route");
+    // A path an `extraSyncRoutes` handler declares (a `@legacyPropertyRoute`) is a stored row the model
+    // cannot parse.
+    if (!PropertyRouteLogic.extraSyncRoutes.some(handler => [...handler(ctor)].includes(path)))
+        PropertyRoute.parse(ctor, path);
+}
 
 async function warmUp(): Promise<void> {
     try {

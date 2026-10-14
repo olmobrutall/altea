@@ -8,6 +8,7 @@ import TextArea from "@altea/altea/client/Components/TextArea";
 import EntityLink from "@altea/altea/client/SearchControl/EntityLink";
 import { useAPIWithReload, useForceUpdate, useLock } from "@altea/altea/client/Hooks";
 import { useTitle } from "@altea/altea/client/AppContext";
+import { useLoseChangesSnapshot } from "@altea/altea/client/Frames/FramePage";
 import { tryGetTypeInfo } from "@altea/altea/client/Reflection";
 import { Dic } from "@altea/altea/data/globals";
 import { DiffDocumentSimple } from "@altea/altea-diff-log/client/Templates/DiffDocument";
@@ -48,6 +49,8 @@ export default function TranslatedInstanceSync(): React.JSX.Element {
             ? ` [${result.instances.length}/${result.totalInstances}]` : "");
     useTitle(message);
 
+    const markSaved = useLoseChangesSnapshot(result);
+
     function handleSave(e: React.FormEvent): void {
         e.preventDefault();
         const records = result!.instances.flatMap(ins =>
@@ -67,7 +70,7 @@ export default function TranslatedInstanceSync(): React.JSX.Element {
                 .notNull());
 
         void lock(() => TranslatedInstanceClient.API.saveTranslatedInstanceData(records, type, true, culture)
-            .then(() => { reload(); Operations.notifySuccess(); }));
+            .then(() => { markSaved(); reload(); Operations.notifySuccess(); }));
     }
 
     const filterToggle = (

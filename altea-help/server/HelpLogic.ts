@@ -483,7 +483,7 @@ export namespace HelpLogic {
     }
 
     /** The TypeHelpEntity a page edits: the stored row, or a fresh one with the generated info filled in. */
-    export function typeEntity(th: TypeHelp): TypeHelpEntity {
+    export async function typeEntity(th: TypeHelp): Promise<TypeHelpEntity> {
         const result = th.dbEntity ?? TypeHelpEntity.create({
             culture: th.culture,
             type: th.type.toTypeEntity(),
@@ -496,18 +496,22 @@ export namespace HelpLogic {
         // ones), so the page can offer an editor for each; the ones with no description are dropped again
         // on save (see HelpServer.saveType).
         const storedProps = new Map(result.properties.map(p => [p.property.path, p]));
-        result.properties = th.properties
-            .filter(ph => ph.propertyRoute.isAllowed() == null)
-            .map(ph => {
-                const existing = storedProps.get(ph.propertyRoute.propertyString());
-                const row = existing ?? TypeHelpEntity_Property.create({
-                    typeHelp: result,
-                    property: PropertyRouteLogic.propertyRouteEntitySync(
-                        th.type.toTypeEntity(), ph.propertyRoute.propertyString()),
-                });
-                row.info = ph.info;
-                return row;
+        // Signum's BaseHelp: the type's routes in ONE query, each its persisted row or a fresh one.
+        const typeEntity = th.type.toTypeEntity();
+        const routes = new Map((await PropertyRouteLogic.retrieveOrGenerateProperties(typeEntity)).map(pr => [pr.path, pr]));
+        const properties: TypeHelpEntity_Property[] = [];
+        for (const ph of th.properties) {
+            if (ph.propertyRoute.isAllowed() != null)
+                continue;
+            const path = ph.propertyRoute.propertyString();
+            const row = storedProps.get(path) ?? TypeHelpEntity_Property.create({
+                typeHelp: result,
+                property: routes.get(path) ?? await PropertyRouteLogic.toPropertyRouteEntity(typeEntity, path),
             });
+            row.info = ph.info;
+            properties.push(row);
+        }
+        result.properties = properties;
 
         const storedOpers = new Map(result.operations.map(o => [o.operation.key, o]));
         result.operations = th.operations.map(oh => {

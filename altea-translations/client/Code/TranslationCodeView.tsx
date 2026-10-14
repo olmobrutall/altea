@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Operations } from "@altea/altea/client/Operations";
 import { useAPI } from "@altea/altea/client/Hooks";
 import { useTitle } from "@altea/altea/client/AppContext";
+import { useLoseChangesSnapshot } from "@altea/altea/client/Frames/FramePage";
 import { Dic } from "@altea/altea/data/globals";
 import { TranslationMessage } from "../../data/Translation";
 import { TranslationClient, decodePackage } from "../TranslationClient";
@@ -31,9 +32,11 @@ export default function TranslationCodeView(): React.JSX.Element {
 
     useTitle(message);
 
+    const markSaved = useLoseChangesSnapshot(result);
+
     function handleSave(e: React.FormEvent): void {
         e.preventDefault();
-        void TranslationClient.API.save(packageName, culture ?? "", result!).then(() => Operations.notifySuccess());
+        void TranslationClient.API.save(packageName, culture ?? "", result!).then(() => { markSaved(); Operations.notifySuccess(); });
     }
 
     return (

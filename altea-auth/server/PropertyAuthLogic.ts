@@ -588,7 +588,7 @@ export namespace PropertyAuthLogic {
             // basics.property_route demand-populated (see PropertyRouteLogic).
             const rp = existing ?? RulePropertyEntity.create({
                 role: roleLite,
-                resource: PropertyRouteLogic.propertyRouteEntitySync(typeEntity, r.path),
+                resource: await PropertyRouteLogic.toPropertyRouteEntity(typeEntity, r.path),
             });
             rp.fallback = coerced.fallback;
             rp.conditionRules = coerced.conditionRules.map(cr => RulePropertyConditionEntity.create({
@@ -677,7 +677,7 @@ export namespace PropertyAuthLogic {
                 }
                 const key = typeName + "|" + path;
                 if (!routes.has(key)) {
-                    const route = PropertyRouteLogic.propertyRouteEntitySync(ctx.typeToEntity(ctor), path);
+                    const route = await PropertyRouteLogic.toPropertyRouteEntity(ctx.typeToEntity(ctor), path);
                     if (route.isNew)
                         await route.save();
                     routes.set(key, route);

@@ -7,6 +7,7 @@ import { Enum } from "@altea/altea/data/enum";
 import { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
+import type { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import { QueryEntity } from "@altea/altea/data/queryEntity";
 import { TourTriggerSymbol } from "@altea/altea/data/tourTrigger";
 import { UserAssetsImporter, positionalRows } from "@altea/altea-user-assets/server/UserAssetsImportExport";
@@ -23,8 +24,8 @@ import {
 // other altea user asset does — and the element/attribute names are preserved, so a Tour file exported by
 // either framework imports into the other.
 //
-// `Property` is written as the route's PATH and resolved back through
-// `PropertyRouteLogic.propertyRouteEntitySync`, the SYNC form, since `fromXml` cannot await.
+// `Property` is written as the route's PATH and resolved back through `PropertyRouteLogic.toPropertyRouteEntity`
+// — up front, once per distinct path, because `positionalRows` fills the rows synchronously.
 //
 // A `ToolbarContent` pointing at a PermissionSymbol is not supported: `CssStepEntity` declares
 // `@implementedBy(QueryEntity)` only, matching what the tour editor can actually pick.
@@ -107,13 +108,19 @@ async function toolbarContentToXml(lite: Lite<Entity>, ctx: IToXmlContext): Prom
     return `${cleanName}|${lite.id}`;
 }
 
-function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): void {
+async function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): Promise<void> {
     tour.trigger = triggerFromXml(String(xml[A + "Trigger"]), ctx);
 
     // The same ladder in reverse: a "Property" step's route is rooted at the
     // trigger's type — given directly by a Lite<TypeEntity> trigger, or by the type a TourTriggerSymbol is
     // registered for. Any other trigger (a dashboard, a user query) offers no property steps, hence null.
     const rootType = triggerRootType(tour.trigger, ctx);
+    const routes = new Map<string, PropertyRouteEntity>();
+    if (rootType != null)
+        for (const sx of list(xml["TourStep"]))
+            for (const cx of list(sx["CssStep"]))
+                if (cx[A + "Property"] != null && !routes.has(String(cx[A + "Property"])))
+                    routes.set(String(cx[A + "Property"]), await PropertyRouteLogic.toPropertyRouteEntity(rootType, String(cx[A + "Property"])));
     tour.showProgress = xml[A + "ShowProgress"] === true || xml[A + "ShowProgress"] === "true";
     tour.animate = xml[A + "Animate"] == null || xml[A + "Animate"] === true || xml[A + "Animate"] === "true";
     tour.showCloseButton = xml[A + "ShowCloseButton"] == null || xml[A + "ShowCloseButton"] === true || xml[A + "ShowCloseButton"] === "true";
@@ -125,7 +132,7 @@ function fromXml(tour: TourEntity, xml: Record<string, unknown>, ctx: IFromXmlCo
         s.click = sx[A + "Click"] == null ? null : Enum.toValue(ClickTrigger, String(sx[A + "Click"]) as never);
         s.description = readElementWithTranslations(sx, "Description", s, t => t.description, ctx) ?? "";
         s.cssSteps = positionalRows(s.cssSteps, list(sx["CssStep"]), () => CssStepEntity.create({}),
-            (cs, cx) => fillCssStep(cs, cx, ctx, rootType));
+            (cs, cx) => fillCssStep(cs, cx, ctx, routes));
     });
 }
 
@@ -142,11 +149,10 @@ function triggerRootType(trigger: Lite<Entity>, ctx: IFromXmlContext): TypeEntit
     return null;
 }
 
-function fillCssStep(cs: CssStepEntity, cx: Record<string, unknown>, ctx: IFromXmlContext, rootType: TypeEntity | null): void {
+function fillCssStep(cs: CssStepEntity, cx: Record<string, unknown>, ctx: IFromXmlContext, routes: Map<string, PropertyRouteEntity>): void {
     cs.type = Enum.toValue(CssStepType, String(cx[A + "Type"]) as never);
     cs.cssSelector = cx[A + "CssSelector"] == null ? null : String(cx[A + "CssSelector"]);
-    cs.property = cx[A + "Property"] == null || rootType == null ? null
-        : PropertyRouteLogic.propertyRouteEntitySync(rootType, String(cx[A + "Property"]));
+    cs.property = cx[A + "Property"] == null ? null : routes.get(String(cx[A + "Property"])) ?? null;
     cs.dashboardPart = cx[A + "DashboardPart"] == null ? null : String(cx[A + "DashboardPart"]);
     cs.tableColumn = cx[A + "TableColumn"] == null ? null : String(cx[A + "TableColumn"]);
 

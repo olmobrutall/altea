@@ -166,7 +166,7 @@ export namespace TranslatedInstanceLogic {
             const missing = [...texts].filter(([culture, text]) => text !== "" && !existing.some(ti => ti.culture.name === culture));
             if (missing.length == 0)
                 return;
-            const propertyRoute = PropertyRouteLogic.propertyRouteEntitySync(typeEntityOf(rootType, await TypeLogic.caches()), route);
+            const propertyRoute = await PropertyRouteLogic.toPropertyRouteEntity(typeEntityOf(rootType, await TypeLogic.caches()), route);
             for (const [culture, text] of missing)
                 await TranslatedInstanceEntity.create({
                     culture: await CultureInfoLogic.getCulture(culture),
@@ -513,6 +513,16 @@ export namespace TranslatedInstanceLogic {
         await Transaction.create(async () => {
             const typeLite = typeEntityOf(type, await TypeLogic.caches());
 
+            // Signum's: every distinct route resolved ONCE and the new ones saved up front, so all the
+            // records of one route — every part row of a collection, every culture — point at one row.
+            const routes = new Map<string, PropertyRouteEntity>();
+            for (const n of should.values())
+                if (!routes.has(n.route))
+                    routes.set(n.route, await PropertyRouteLogic.toPropertyRouteEntity(typeLite, n.route));
+            for (const pr of routes.values())
+                if (pr.isNew)
+                    await pr.save();
+
             for (const [key, n] of should) {
                 const existing = current.get(key);
                 if (existing == undefined) {
@@ -521,7 +531,7 @@ export namespace TranslatedInstanceLogic {
                     await TranslatedInstanceEntity.create({
                         culture: (await CultureInfoLogic.getCulture(n.culture)),
                         instance: n.instance,
-                        propertyRoute: PropertyRouteLogic.propertyRouteEntitySync(typeLite, n.route),
+                        propertyRoute: routes.get(n.route)!,
                         originalText: n.originalText,
                         translatedText: n.translatedText,
                     }).save();
