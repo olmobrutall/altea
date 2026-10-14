@@ -602,6 +602,10 @@ class DbExpressionNominator extends DbExpressionVisitor {
                 return args.length === 0 ? this.sqlFunction(LiteralType.string, this.isPostgres ? "reverse" : "REVERSE", source) : undefined;
             case "string.replicate":
                 return args.length === 1 ? this.sqlFunction(LiteralType.string, this.isPostgres ? "repeat" : "REPLICATE", source, this.asSqlLiteral(args[0])) : undefined;
+            // Signum's string.Replace, which replaces EVERY occurrence: so `replaceAll`, never JS's
+            // first-match `replace`.
+            case "string.replaceAll":
+                return args.length === 2 ? this.sqlFunction(LiteralType.string, this.isPostgres ? "replace" : "REPLACE", source, args[0], args[1]) : undefined;
             // StringExtensions.Before/After/BeforeLast/AfterLast + Try* — all lower the
             // same way (Signum's TryBeforeAfter): in SQL the non-Try variants also yield
             // NULL when the separator is absent.

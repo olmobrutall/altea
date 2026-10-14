@@ -399,6 +399,7 @@ const wellKnownResultTypes: Readonly<Record<string, RuntimeType>> = {
     "string.end": LiteralType.string,
     "string.reverse": LiteralType.string,
     "string.replicate": LiteralType.string,
+    "string.replaceAll": LiteralType.string,
     "string.etc": LiteralType.string,
     // StringExtensions.Before/After/BeforeLast/AfterLast + the Try* variants — the
     // substring before/after the first/last occurrence of a separator (NULL if absent).

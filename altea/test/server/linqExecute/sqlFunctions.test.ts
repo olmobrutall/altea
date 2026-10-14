@@ -63,6 +63,7 @@ describe.skipIf(!hasDb)("SqlFunctionsTest", () => {
         assert.ok((await table(ArtistEntity).map(a => a.name.end(2)).toArray()).every(s => s.length <= 2));
         assert.ok((await table(ArtistEntity).map(a => a.name.reverse()).toArray()).length > 0);
         assert.ok((await table(ArtistEntity).map(a => a.name.replicate(2)).toArray()).length > 0);
+        assert.ok((await table(ArtistEntity).map(a => a.name.replaceAll("a", "")).toArray()).every(s => !s.includes("a")));
     });
 
     // Assert.True(Query<AlbumEntity>().Any(a => a.Author.CombineUnion().Name.Contains("Jackson")))
