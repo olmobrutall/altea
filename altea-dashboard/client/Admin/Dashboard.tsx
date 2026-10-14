@@ -29,6 +29,7 @@ import {
 import { DashboardClient } from "../DashboardClient";
 import { EntityGridItem, type EntityGridItemProps, EntityGridRepeater } from "./EntityGridRepeater";
 import { parseIcon, fallbackIcon } from "@altea/altea/client/Components/IconHelpers";
+import { Color } from "@altea/altea/client/Basics/Color";
 import "../Dashboard.css";
 
 // Port of Signum's Signum.Dashboard/Admin/Dashboard.tsx — the dashboard EDITOR: the header fields, the
@@ -265,7 +266,10 @@ export function DashboardPart(p: {
                                 helpText={smallMode ? hideTitleCheckbox : undefined} />}
                         {tc.value.interactionGroup != null && (
                             <div className="mt-1">
-                                <span className="badge" style={{ backgroundColor: interactionColors[tc.value.interactionGroup as number] }}>
+                                <span className="badge" style={{
+                                    backgroundColor: interactionColors[tc.value.interactionGroup as number],
+                                    color: Color.parse(interactionColors[tc.value.interactionGroup as number]).opositePole().toString(),
+                                }}>
                                     {Enum.niceName(InteractionGroup, tc.value.interactionGroup)}
                                 </span>
                             </div>
