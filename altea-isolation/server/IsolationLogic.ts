@@ -20,7 +20,6 @@ import { EnumEntity } from "@altea/altea/data/enumEntity";
 import { Symbol as EntitySymbol } from "@altea/altea/data/symbol";
 import { NotNullValidator } from "@altea/altea/data/validators";
 import type { ResetLazy } from "@altea/altea/server/resetLazy";
-import { TableIndex } from "@altea/altea/server/schema/tableIndex";
 import { FieldImplementedBy, FieldReference } from "@altea/altea/server/schema/field";
 import {
     Isolation, IsolationEntity, IsolationMessage, IsolationMixin, IsolationOperation,
@@ -205,7 +204,6 @@ export namespace IsolationLogic {
             if (strategy === "None")
                 continue;
             registerFilterQuery(schema, ctor as Type<Entity>, strategy);
-            attachIsolationToUniqueIndexes(schema, ctor as Type<Entity>);
             registerPreSaving(schema, ctor as Type<Entity>);
             registerRequiredValidator(ctor as Type<Entity>, strategy);
         }
@@ -365,33 +363,6 @@ export namespace IsolationLogic {
 
         // The implicit `NotNullValidator` IS the check — its message is `_0IsNotSet`.
         fi.validators.push(new NotNullValidator());
-    }
-
-    // ---- unique indexes -----------------------------------------------------------------------------
-
-    /**
-     * A unique index on an isolated table is unique PER ISOLATION — two
-     * tenants may each have their own "Default" row. Applied at `schemaCompleted`, which is where the
-     * applies it too (GenerateAllIndexes).
-     *
-     * There is no per-index opt-out: altea's TableIndex has no such option
-     * and nothing in the workspace would set it.
-     */
-    function attachIsolationToUniqueIndexes(schema: Schema, ctor: Type<Entity>): void {
-        const tab = schema.tryTable(ctor);
-        if (tab == null)
-            return;
-
-        const columns = tab.columnsFromFields([isolationField]);
-        if (columns.length === 0)
-            return;
-
-        tab.indexes = tab.indexes.map(ix => {
-            if (!ix.unique || ix.columns.some(c => columns.includes(c)))
-                return ix;
-            return new TableIndex(tab, [...ix.columns, ...columns],
-                { unique: true, includeColumns: ix.includeColumns, where: ix.where });
-        });
     }
 
     // ---- the helpers a caller uses -------------------------------------------------------------------

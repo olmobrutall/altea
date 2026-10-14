@@ -20,16 +20,35 @@ export class TableIndex {
     // The filtered (partial) index's WHERE clause, already rendered to SQL (Signum's
     // TableIndex.Where). Undefined for a full index.
     where?: string;
+    // Signum's TableIndex.AvoidAttachToUniqueIndexes: the @attachToUniqueIndexes columns are not appended.
+    avoidAttachToUniqueIndexes?: boolean;
 
     constructor(
         public readonly table: Table,
         public readonly columns: IColumn[],
-        options?: { unique?: boolean; includeColumns?: IColumn[]; where?: string },
+        options?: { unique?: boolean; includeColumns?: IColumn[]; where?: string; avoidAttachToUniqueIndexes?: boolean },
     ) {
         this.unique = options?.unique ?? false;
         this.includeColumns = options?.includeColumns;
         this.where = options?.where;
+        this.avoidAttachToUniqueIndexes = options?.avoidAttachToUniqueIndexes;
     }
+}
+
+/**
+ * Signum's `Table.GeneratAllIndexes` attach step: the columns of every `@attachToUniqueIndexes` field (own
+ * or mixin) are appended to each unique index of the table that does not avoid it, keeping its filter.
+ */
+export function attachToUniqueIndexes(indexes: TableIndex[], attached: IColumn[]): TableIndex[] {
+    if (attached.length === 0 || !indexes.some(ix => ix.unique))
+        return indexes;
+
+    return indexes.map(ix => {
+        if (!ix.unique || ix.avoidAttachToUniqueIndexes)
+            return ix;
+        return new TableIndex(ix.table, [...new Set([...ix.columns, ...attached])],
+            { unique: true, includeColumns: ix.includeColumns, where: ix.where });
+    });
 }
 
 // One field's contribution to a composite index: the FIELD it came from and the columns it owns
@@ -120,16 +139,17 @@ export function multiUniqueIndexes(
  * That is a different shape from `multiUniqueIndexes`, which expands a CLASS-level composite index
  * into the cartesian product of its blocks; this one is a single field.
  */
-export function generateUniqueIndexes(table: Table, field: Field, columns: IColumn[]): TableIndex[] {
+export function generateUniqueIndexes(table: Table, field: Field, columns: IColumn[], avoidAttachToUniqueIndexes?: boolean): TableIndex[] {
     if (field instanceof FieldImplementedBy)
         return field.implementationColumns.map(imp => new TableIndex(table, [imp], {
             unique: true,
             where: imp.nullable === IsNullable.No
                 ? undefined
                 : `${sqlEscape(imp.name, table.isPostgres)} IS NOT NULL`,
+            avoidAttachToUniqueIndexes,
         }));
 
-    return [new TableIndex(table, columns, { unique: true, where: indexWhereIsNull(field, false, table) })];
+    return [new TableIndex(table, columns, { unique: true, where: indexWhereIsNull(field, false, table), avoidAttachToUniqueIndexes })];
 }
 
 // ---- Full-text index (Signum's FullTextTableIndex) ------------------------------------------

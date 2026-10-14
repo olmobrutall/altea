@@ -2,7 +2,7 @@ import { init } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import type { PrimaryKey } from "@altea/altea/data/entity";
-import { entity, column, uniqueIndex, quoted, serialize } from "@altea/altea/data/decorators";
+import { entity, column, uniqueIndex, avoidAttachToUniqueIndexes, quoted, serialize } from "@altea/altea/data/decorators";
 import { stringLengthValidator, emailValidator, validate } from "@altea/altea/data/validators";
 import { Temporal, type int, toInt } from "@altea/altea/data/basics";
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol } from "@altea/altea/data/operations";
@@ -43,7 +43,7 @@ Enum.markAsNotMapped(UserState, UserState.New);
 
 @entity("Main", "Transactional")
 export class UserEntity extends Entity implements IUserEntity, IEmailOwnerEntity {
-    @uniqueIndex
+    @uniqueIndex @avoidAttachToUniqueIndexes
     @stringLengthValidator({ min: 2, max: 100 })
     userName: string;
 

@@ -376,6 +376,12 @@ export class FieldInfo extends TypeReference {
     // column (non-)unique index on this field's column. Consumed by SchemaBuilder.
     index?: boolean;
     uniqueIndex?: boolean;
+    // Set by @avoidAttachToUniqueIndexes (Signum's [UniqueIndex(AvoidAttachToUniqueIndexes = true)]):
+    // this field's unique index does not take the table's @attachToUniqueIndexes columns.
+    avoidAttachToUniqueIndexes?: boolean;
+    // Set by @attachToUniqueIndexes (Signum's [AttachToUniqueIndexes]): this field's columns are
+    // appended to every other unique index of the table.
+    attachToUniqueIndexes?: boolean;
     // Set when this field's column is covered by a class-level @fullTextIndex (Signum's
     // Schema.HasFullTextIndex(route), shipped on the member as MemberInfo.HasFullTextIndex).
     // Drives the client's full-text filter operations and the Rank sub-token. Computed by the

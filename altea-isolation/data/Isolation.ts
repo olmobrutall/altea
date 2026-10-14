@@ -1,7 +1,7 @@
 import { reflect, init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity, MixinEntity, type Type } from "@altea/altea/data/entity";
 import { MixinDeclarations } from "@altea/altea/data/mixinDeclarations";
-import { entity, quoted, uniqueIndex } from "@altea/altea/data/decorators";
+import { attachToUniqueIndexes, entity, quoted, uniqueIndex } from "@altea/altea/data/decorators";
 import { stringLengthValidator } from "@altea/altea/data/validators";
 import type { Lite } from "@altea/altea/data/lite";
 import type { ExecuteSymbol } from "@altea/altea/data/operations";
@@ -57,11 +57,12 @@ export const IsolationMessage = {
  * every new row instead, and the client's widget reads the picked isolation from `IsolationClient` rather
  * than from the field.
  *
- * The unique-index rewrite and the required rule have no decorators here; both are applied
- * from `IsolationLogic.start` instead, on the one type that needs them — see there.
+ * The required rule has no decorator here; it is applied from `IsolationLogic.start` instead, on the
+ * one type that needs it — see there.
  */
 @reflect
 export class IsolationMixin extends MixinEntity {
+    @attachToUniqueIndexes
     isolation: Lite<IsolationEntity> | null;
 }
 

@@ -102,6 +102,7 @@ the prefix stays singular even where the namespace is plural.
 | `[DefaultFileType(nameof(XFileType.Y))]` | `@defaultFileType(() => XFileType.Y)` (altea-files): the store's limits come from its registered algorithm |
 | `static StateValidator<E, S> v = new(e => e.State, e => e.A, e => e.B) { { S.X, true, null } }` + `PropertyValidation` | `const v = new StateValidator(E, e => e.state, "a", "b").add(S.X, true, null)` after the class, called from `@validate<E>((e, fi) => v.validate(e, fi))` on it |
 | `[UniqueIndex]`, `[TableName]`, `[ColumnName]` | `@uniqueIndex`, `@column({...})` |
+| `[AttachToUniqueIndexes]` / `[UniqueIndex(AvoidAttachToUniqueIndexes = true)]` | `@attachToUniqueIndexes` / `@uniqueIndex @avoidAttachToUniqueIndexes` |
 | `Lite<T>` | `Lite<T>` |
 | `[LiteModel(typeof(XLiteModel))]` | a **custom lite** — see below. There is no `LiteModel` entity |
 | `enum OrderState { … }` | `export const OrderState = { New: 0, … }` + `type OrderStateKeys = keyof typeof OrderState`; the wire value is the **member NAME**, so compare with `"Shipped"` |
