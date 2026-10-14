@@ -130,10 +130,14 @@ export namespace TranslatedInstanceLogic {
         PropertyRouteTranslationLogic.isActivated = true;
     }
 
-    // From the TABLE, not the cache: the caller may have just saved some in its own transaction.
-    async function loadInstanceTranslations(): Promise<InstanceTranslationLookup> {
+    // From the TABLE, not the cache: the caller may have just saved some in its own transaction — unless it
+    // says it is read-only (`cached`), when the localization cache answers the same with no query.
+    async function loadInstanceTranslations(options?: { cached?: boolean }): Promise<InstanceTranslationLookup> {
         const byKey = new Map<InstanceKey, TranslatedInstanceEntity[]>();
-        for (const ti of await table(TranslatedInstanceEntity).toArray() as TranslatedInstanceEntity[]) {
+        const rows = options?.cached
+            ? [...(await localizationCache.value()).values()].flatMap(byInstance => [...byInstance.values()])
+            : await table(TranslatedInstanceEntity).toArray() as TranslatedInstanceEntity[];
+        for (const ti of rows) {
             const key = instanceKey(ti.instance, ti.propertyRoute.path);
             (byKey.get(key) ?? byKey.set(key, []).get(key)!).push(ti);
         }

@@ -103,7 +103,22 @@ interface StatusRowProps {
 }
 
 function StatusRow(p: StatusRowProps): React.JSX.Element {
-    const l = p.line;
+    // The listing leaves the comparison of an asset with a file AND a row to this row's own request, so
+    // every row resolves at the same time instead of the whole folder waiting for the slowest.
+    const compared = useAPI(() => p.line.comparison != null ? Promise.resolve(p.line) : AssetSyncClient.API.statusOf(p.line.type, p.line.guid), [p.line]);
+    if (compared === null) // gone since the listing (deleted, or its file removed)
+        return <></>;
+    const l = compared ?? p.line;
+    if (l.comparison == null)
+        return (
+            <tr>
+                <td>{l.folder}</td>
+                <td>{l.type}</td>
+                <td><a href={`/view/${l.type}/${l.guid}`}>{l.name}</a></td>
+                <td><span className="spinner-border spinner-border-sm text-secondary" role="status" /></td>
+                <td /><td />
+            </tr>
+        );
     const d = AssetSyncClient.describe(l.comparison, l.keepOnSync);
     const inDb = l.comparison !== "NotInDatabase";
     const inCode = l.comparison !== "NotInCode";

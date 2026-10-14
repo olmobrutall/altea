@@ -127,7 +127,11 @@ export namespace PropertyRouteTranslationLogic {
      * read inside the caller's transaction, so what it just saved is included. For the user-asset XML,
      * which carries an asset's translations; the default, with the storage module absent, finds none.
      */
-    export let loadInstanceTranslations: () => Promise<InstanceTranslationLookup> =
+    //
+    // `cached`: read the storage module's cache instead of the table — for a READ-ONLY caller (a comparison)
+    // that has written nothing in its own transaction, so committed state is all it needs. The table read
+    // completes every translated instance's display string, a query per type, on every call.
+    export let loadInstanceTranslations: (options?: { cached?: boolean }) => Promise<InstanceTranslationLookup> =
         async () => ({ get: () => new Map() });
 
     /**

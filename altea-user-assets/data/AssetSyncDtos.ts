@@ -11,7 +11,9 @@ export interface AssetSyncStatus {
     guid: uuid;
     name: string;
     folder: string;
-    comparison: AssetComparison;
+    /** `null` in the folder listing for an asset with both a file and a row: comparing them is the costly
+     *  part, so it is asked per asset (`/api/assetSync/status/:guid`). */
+    comparison: AssetComparison | null;
     keepOnSync: boolean;
 }
 

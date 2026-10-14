@@ -84,8 +84,9 @@ export namespace AssetSyncClient {
             return ajaxGet({ url: "/api/assetSync/status" + (folder ? "?folder=" + encodeURIComponent(folder) : "") });
         }
 
-        export function statusOf(guid: string): Promise<AssetSyncStatus | null> {
-            return ajaxGet({ url: "/api/assetSync/status/" + guid });
+        /** One asset's line, always compared. */
+        export function statusOf(type: string, guid: string): Promise<(AssetSyncStatus & { comparison: AssetComparison }) | null> {
+            return ajaxGet({ url: `/api/assetSync/status/${type}/${guid}` });
         }
 
         export function diff(guid: string): Promise<AssetSyncDiff> {

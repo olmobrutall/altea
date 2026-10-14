@@ -62,6 +62,28 @@ export class AssetSyncFiles {
         return this.#index!.get(guid);
     }
 
+    /** Every file's guid and element name, off the index — the type is the `<name>.<Type>` suffix, so no
+     *  file is parsed. */
+    entries(): { guid: string; elementName: string }[] {
+        if (this.#index == undefined)
+            this.scan();
+        return [...this.#index!].map(([guid, at]) => ({ guid, elementName: at.baseName.slice(at.baseName.lastIndexOf(".") + 1) }));
+    }
+
+    /** The ONE file holding `guid`, parsed — rescanning once if the index points at a file that has moved. */
+    read(guid: string): AssetFile | undefined {
+        for (const rescan of [false, true]) {
+            if (rescan)
+                this.scan();
+            const at = this.locate(guid);
+            const xml = at == undefined ? null : this.readXml(at.folder, at.baseName);
+            const asset = xml == null ? undefined : parseAssets(xml).find(a => a.guid === guid);
+            if (asset != undefined)
+                return { ...asset, folder: at!.folder, baseName: at!.baseName };
+        }
+        return undefined;
+    }
+
     /** Reads a `Path` relative to the asset's folder; an inline `#text` still reads as base64. */
     reader(folder: string): BinaryStore {
         const dir = path.join(this.root, folder);

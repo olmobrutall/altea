@@ -141,11 +141,11 @@ export class TranslationQueue {
             await PropertyRouteTranslationLogic.saveInstanceTranslations(i.entity.toLite(), i.route.rootType, i.route.path, i.original, i.texts);
     }
 
-    /** Whether saving would change what the database has. */
+    /** Whether saving would change what the database has. Read-only, so from the translations cache. */
     async differs(): Promise<boolean> {
         if (this.items.length == 0)
             return false;
-        const current = await PropertyRouteTranslationLogic.loadInstanceTranslations();
+        const current = await PropertyRouteTranslationLogic.loadInstanceTranslations({ cached: true });
         return this.items.some(i => i.entity.isNew
             || !sameTexts(current.get(i.entity.toLite(), i.route.path, i.original), i.original == null ? new Map() : i.texts));
     }

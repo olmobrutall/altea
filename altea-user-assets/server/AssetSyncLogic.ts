@@ -3,6 +3,9 @@ import "@altea/altea/server/fluentOperations";
 import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import { unzipSync, zipSync } from "fflate";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
+import { retrieve } from "@altea/altea/server/Database";
+import { EntityNotFoundException } from "@altea/altea/server/exceptions";
 import type { Schema } from "@altea/altea/server/schema/schema";
 import { table } from "@altea/altea/server/table";
 import { Graph } from "@altea/altea/server/graph";
@@ -61,6 +64,10 @@ export namespace AssetSyncLogic {
     let writeFiles = false;
     let files: AssetSyncFiles;
     let syncedTypes: SyncedType[] = [];
+    let builder: SchemaBuilder | undefined;
+    // Every synced row's id → its element name: what a comparison stubs a bare-guid reference with. Read once
+    // (one query per synced type) and kept until a synced row changes, instead of on every comparison.
+    let syncedIds: ResetLazy<Map<string, string>> | undefined;
 
     export function isStarted(): boolean {
         return root != undefined;
@@ -76,6 +83,7 @@ export namespace AssetSyncLogic {
             return;
 
         root = opts.root;
+        builder = sb;
         writeFiles = opts.writeFiles ?? process.env["AUTO_SAVE_ASSET_FILES"] === "true";
         files = new AssetSyncFiles(opts.root);
 
@@ -127,6 +135,14 @@ export namespace AssetSyncLogic {
                 const config = configs.find(c => c.create().getType() === type);
                 return config == undefined ? [] : [{ type: type as Type<Entity>, config }];
             });
+
+        syncedIds = builder!.globalLazy(async () => {
+            const result = new Map<string, string>();
+            for (const { type, config } of syncedTypes)
+                for (const id of await table(type).filter(e => e.mixin(CodeSyncMixin).syncFolder != null).map(e => e.id).toArray())
+                    result.set(String(id), config.elementName);
+            return result;
+        }, { invalidateWith: syncedTypes.map(t => t.type), name: "AssetSync synced ids" });
 
         for (const { type, config } of syncedTypes) {
             const events = schema.entityEvents(type);
@@ -325,7 +341,7 @@ export namespace AssetSyncLogic {
      */
     async function differsFromFile(guid: string, file: AssetFile, ctx: IFromXmlContext, source: AssetSource): Promise<boolean> {
         const config = UserAssetsImporter.configFor(file.elementName);
-        const copy = await config.load(guid);
+        const copy = await loadRow(config, guid);
         if (copy == undefined)
             return true;
         const translations = new TranslationQueue();
@@ -337,7 +353,7 @@ export namespace AssetSyncLogic {
      * The import context for a COMPARISON: a referenced asset resolves to an identity-only stub, clean and not
      * new, so the comparison walks no further than the asset itself and is not affected by what else changes.
      */
-    async function comparisonContext(sources: AssetFile[]): Promise<IFromXmlContext> {
+    async function comparisonContext(fileEntries: { guid: string; elementName: string }[]): Promise<IFromXmlContext> {
         const stubs = new Map<string, IUserAssetEntity>();
         const stub = (config: UserAssetTypeConfig, id: unknown): void => {
             const s = config.create();
@@ -346,10 +362,9 @@ export namespace AssetSyncLogic {
             cleanModified(s);
             stubs.set(String(id), s);
         };
-        for (const { type, config } of syncedTypes)
-            for (const id of await table(type).filter(e => e.mixin(CodeSyncMixin).syncFolder != null).map(e => e.id).toArray())
-                stub(config, id);
-        for (const f of sources)
+        for (const [id, elementName] of await syncedIds!.value())
+            stub(UserAssetsImporter.configFor(elementName), id);
+        for (const f of fileEntries)
             if (!stubs.has(f.guid))
                 stub(UserAssetsImporter.configFor(f.elementName), f.guid);
         return await UserAssetsImporter.fromXmlContext(true, stubs);
@@ -359,40 +374,33 @@ export namespace AssetSyncLogic {
         return { assets: files.scan(), reader: folder => files.reader(folder) };
     }
 
-    /** Every file and every synced row, with how they compare. */
+    /**
+     * Every file and every synced row — WITHOUT comparing the ones on both sides (`comparison: null`): that
+     * applies the file onto a copy of the row, which is the expensive part, so it is {@link statusOf}, asked
+     * per asset (the panel asks for all of them at once). Only a row with no file is known here (NotInCode).
+     */
     export async function status(folder?: string): Promise<AssetSyncStatus[]> {
         assertStarted();
-        await warmUserAssetCaches();
-        const source = folderSource();
-        const ctx = await comparisonContext(source.assets);
         const folderNames = await folderNamesById();
         const result: AssetSyncStatus[] = [];
 
-        const rows = new Map<string, { row: IUserAssetEntity; config: UserAssetTypeConfig }>();
+        const rows = new Map<string, { type: string; name: string; folder: string; keepOnSync: boolean }>();
         for (const { type, config } of syncedTypes)
-            for (const row of await table(type).filter(e => e.mixin(CodeSyncMixin).syncFolder != null).toArray() as IUserAssetEntity[])
-                rows.set(String(row.id), { row, config });
+            for (const r of await table(type).filter(e => e.mixin(CodeSyncMixin).syncFolder != null)
+                .map(e => ({ lite: e.toLite(), syncFolder: e.mixin(CodeSyncMixin).syncFolder, keepOnSync: e.mixin(CodeSyncMixin).keepOnSync }))
+                .toArray())
+                rows.set(String(r.lite.id), { type: config.elementName, name: r.lite.toString(), folder: folderNames.get(String(r.syncFolder!.id))!, keepOnSync: r.keepOnSync });
 
-        for (const file of source.assets) {
-            if (folder != undefined && file.folder !== folder)
-                continue;
-            const r = rows.get(file.guid) ?? await loadAny(file.guid, file.elementName);
+        for (const file of files.scan()) {
+            const r = rows.get(file.guid);
             rows.delete(file.guid);
-            if (r == undefined) {
-                result.push(line(file.elementName, file.guid, file.baseName.replace(/\.[^.]+$/, ""), file.folder, "NotInDatabase", false));
-                continue;
-            }
-            const m = r.row.mixin(CodeSyncMixin);
-            const moved = folderNames.get(String(m.syncFolder?.id)) !== file.folder;
-            const differs = moved || await differsFromFile(file.guid, file, ctx, source);
-            result.push(line(file.elementName, file.guid, r.row.toString(), file.folder, differs ? "DiffersFromCode" : "Identical", m.keepOnSync));
+            if (folder == undefined || file.folder === folder)
+                result.push(line(file.elementName, file.guid, r?.name ?? file.baseName.replace(/\.[^.]+$/, ""), file.folder, null, r?.keepOnSync ?? false));
         }
 
-        for (const { row, config } of rows.values()) {
-            const rowFolder = folderNames.get(String(row.mixin(CodeSyncMixin).syncFolder!.id))!;
-            if (folder == undefined || rowFolder === folder)
-                result.push(line(config.elementName, String(row.id), row.toString(), rowFolder, "NotInCode", row.mixin(CodeSyncMixin).keepOnSync));
-        }
+        for (const [guid, r] of rows)
+            if (folder == undefined || r.folder === folder)
+                result.push(line(r.type, guid, r.name, r.folder, "NotInCode", r.keepOnSync));
 
         return result.sort((a, b) => a.folder.localeCompare(b.folder) || a.type.localeCompare(b.type) || a.name.localeCompare(b.name));
     }
@@ -401,12 +409,35 @@ export namespace AssetSyncLogic {
         return { type, guid: guid as uuid, name, folder, comparison, keepOnSync };
     }
 
-    export async function statusOf(guid: string): Promise<AssetSyncStatus | null> {
-        const r = await loadAny(guid);
-        if (r == undefined || r.row.mixin(CodeSyncMixin).syncFolder == null)
-            return null;
-        const folder = (await r.row.mixin(CodeSyncMixin).syncFolder!.retrieve()).name;
-        return (await status(folder)).find(s => s.guid === guid) ?? null;
+    /** ONE asset's line, compared: its file (if any) applied onto a copy of its row (if any). The caller
+     *  names the TYPE, so the row is one lookup — from the cache, for a cached type — not a probe per type. */
+    export async function statusOf(elementName: string, guid: string): Promise<AssetSyncStatus | null> {
+        assertStarted();
+        const synced = syncedTypes.find(t => t.config.elementName === elementName);
+        if (synced == undefined)
+            throw new Error(`'${elementName}' is not a synced asset type`);
+        const file = files.read(guid);
+        const row = await loadRow(synced.config, guid);
+        const r = row == undefined ? undefined : { row, config: synced.config };
+        const m = r?.row.mixin(CodeSyncMixin);
+        if (file == undefined) {
+            if (r == undefined || m!.syncFolder == null)
+                return null;
+            const folder = (await m!.syncFolder.retrieve()).name;
+            return line(r.config.elementName, guid, r.row.toString(), folder, "NotInCode", m!.keepOnSync);
+        }
+
+        if (r == undefined)
+            return line(file.elementName, guid, file.baseName.replace(/\.[^.]+$/, ""), file.folder, "NotInDatabase", false);
+
+        const moved = m!.syncFolder == null || (await m!.syncFolder.retrieve()).name !== file.folder;
+        let differs = moved;
+        if (!differs) {
+            await warmUserAssetCaches();
+            const ctx = await comparisonContext(files.entries());
+            differs = await differsFromFile(guid, file, ctx, { assets: [file], reader: folder => files.reader(folder) });
+        }
+        return line(file.elementName, guid, r.row.toString(), file.folder, differs ? "DiffersFromCode" : "Identical", m!.keepOnSync);
     }
 
     export async function diff(guid: string): Promise<AssetSyncDiff> {
@@ -551,6 +582,21 @@ export namespace AssetSyncLogic {
 
     async function folderNamesById(): Promise<Map<string, string>> {
         return new Map((await table(SyncFolderEntity).toArray() as SyncFolderEntity[]).map(f => [String(f.id), f.name]));
+    }
+
+    // One asset's row, through `Database.retrieve` — served from memory for a cached type (every synced type is
+    // master data a lazy watches, so in practice all of them), where `config.load` is always a query.
+    async function loadRow(config: UserAssetTypeConfig, guid: string): Promise<IUserAssetEntity | undefined> {
+        const synced = syncedTypes.find(t => t.config === config);
+        if (synced == undefined)
+            return await config.load(guid);
+        try {
+            return await retrieve(synced.type, guid as Entity["id"]) as unknown as IUserAssetEntity;
+        } catch (e) {
+            if (e instanceof EntityNotFoundException)
+                return undefined;
+            throw e;
+        }
     }
 
     async function loadAny(guid: string, elementName?: string): Promise<{ row: IUserAssetEntity; config: UserAssetTypeConfig } | undefined> {

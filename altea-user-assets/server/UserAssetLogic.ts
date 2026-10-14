@@ -1,5 +1,6 @@
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { UserAssetServer } from "./UserAssetServer";
+import { registerUserAssetCaches } from "./UserAssetsImportExport";
 import "../data/UserAssets"; // seed UserAssetPermission.UserAssetsToXML (transformer init → PermissionSymbol set)
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { UserAssetPermission } from "../data/UserAssets";
@@ -17,6 +18,7 @@ export namespace UserAssetLogic {
         // permission plus the export/import surface it gates, so an app using user assets WITHOUT token
         // migrations can still grant it.
         PermissionLogic.registerPermissions(UserAssetPermission.UserAssetsToXML);
+        registerUserAssetCaches(sb);
 
         if (sb.webBuilder)
             UserAssetServer.start(sb.webBuilder);

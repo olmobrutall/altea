@@ -1,5 +1,7 @@
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import { table } from "@altea/altea/server/table";
+import type { SchemaBuilder } from "@altea/altea/server/schema/schemaBuilder";
+import type { ResetLazy } from "@altea/altea/server/resetLazy";
 import type { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import { PropertyRouteTranslationLogic, type InstanceTranslationLookup } from "@altea/altea/server/propertyRouteTranslation";
@@ -510,15 +512,31 @@ function parseLiteKey(liteKey: string): Lite<Entity> | undefined {
     return undefined;
 }
 
-// Small caches warmed at import time (populated by warmCaches before an import/preview runs).
-const queryEntityCache = new Map<string, QueryEntity>();
-const typeEntityCache = new Map<string, TypeEntity>();
+// Small caches the SYNCHRONOUS `fromXml` resolves query keys / type names through, made current by
+// `warmUserAssetCaches` at each import's async boundary. Replaced whole, never cleared and refilled: requests
+// run this concurrently (the sync panel asks for every asset's status at once).
+let queryEntityCache = new Map<string, QueryEntity>();
+let typeEntityCache = new Map<string, TypeEntity>();
+
+interface EntityCaches { queries: Map<string, QueryEntity>; types: Map<string, TypeEntity> }
+
+async function loadEntityCaches(): Promise<EntityCaches> {
+    return {
+        queries: new Map((await table(QueryEntity).toArray() as QueryEntity[]).map(q => [q.key, q])),
+        types: new Map((await table(TypeEntity).toArray() as TypeEntity[]).map(t => [t.cleanName, t])),
+    };
+}
+
+// Read once and kept until a query or type row changes (UserAssetLogic.start registers it); without it every
+// import re-reads both tables.
+let entityCachesLazy: ResetLazy<EntityCaches> | undefined;
+
+export function registerUserAssetCaches(sb: SchemaBuilder): void {
+    entityCachesLazy = sb.globalLazy(loadEntityCaches, { invalidateWith: [QueryEntity, TypeEntity], name: "UserAssets query / type entities" });
+}
 
 export async function warmUserAssetCaches(): Promise<void> {
-    queryEntityCache.clear();
-    typeEntityCache.clear();
-    for (const q of await table(QueryEntity).toArray() as QueryEntity[])
-        queryEntityCache.set(q.key, q);
-    for (const t of await table(TypeEntity).toArray() as TypeEntity[])
-        typeEntityCache.set(t.cleanName, t);
+    const caches = entityCachesLazy != null ? await entityCachesLazy.value() : await loadEntityCaches();
+    queryEntityCache = caches.queries;
+    typeEntityCache = caches.types;
 }

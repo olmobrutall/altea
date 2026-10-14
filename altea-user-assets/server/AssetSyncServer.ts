@@ -29,9 +29,9 @@ export namespace AssetSyncServer {
             res.json(await AssetSyncLogic.status(folder));
         });
 
-        ws.get("/api/assetSync/status/:guid", { params: CustomType<{ guid: string }>() }, async (req, res) => {
+        ws.get("/api/assetSync/status/:type/:guid", { params: CustomType<{ type: string; guid: string }>() }, async (req, res) => {
             await assertAuthorized();
-            res.json(await AssetSyncLogic.statusOf(req.params.guid));
+            res.json(await AssetSyncLogic.statusOf(req.params.type, req.params.guid));
         });
 
         ws.get("/api/assetSync/diff/:guid", { params: CustomType<{ guid: string }>() }, async (req, res) => {

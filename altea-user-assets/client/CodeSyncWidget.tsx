@@ -5,6 +5,7 @@ import type { Entity } from "@altea/altea/data/entity";
 import type { Lite } from "@altea/altea/data/lite";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { EntityCombo } from "@altea/altea/client/Lines/EntityCombo";
+import { getTypeName } from "@altea/altea/client/Reflection";
 import { useAPI, useForceUpdate } from "@altea/altea/client/Hooks";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { CodeSyncMessage, CodeSyncMixin } from "../data/AssetSync";
@@ -26,7 +27,7 @@ export function CodeSyncWidget(p: CodeSyncWidgetProps): React.JSX.Element {
 
     const info = useAPI(() => AssetSyncClient.API.info(), []);
     // Computed on the server from the file, so it is re-asked whenever the row was saved again.
-    const status = useAPI(() => entity.isNew ? null : AssetSyncClient.API.statusOf(String(entity.id)), [entity.id, entity.rowVersion]);
+    const status = useAPI(() => entity.isNew ? null : AssetSyncClient.API.statusOf(getTypeName(entity), String(entity.id)), [entity.id, entity.rowVersion]);
     const described = status == null ? undefined : AssetSyncClient.describe(status.comparison, status.keepOnSync);
 
     const title = described == undefined ? undefined : [
