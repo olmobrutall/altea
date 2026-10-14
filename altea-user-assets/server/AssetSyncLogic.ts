@@ -284,7 +284,10 @@ export namespace AssetSyncLogic {
             const back = getTypeInfo(type)?.backReferenceField;
             if (back == null)
                 return undefined;
-            current = (await current.retrieve() as unknown as Record<string, Lite<Entity> | undefined>)[back.name];
+            // A row already deleted (an orphaned translation being cleaned) has no asset left to rewrite.
+            const id = current.id;
+            const row = (await table(type).filter(e => e.id == id).toArray())[0] as unknown as Record<string, Lite<Entity> | undefined> | undefined;
+            current = row?.[back.name];
         }
         return undefined;
     }
