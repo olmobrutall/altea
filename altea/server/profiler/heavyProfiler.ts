@@ -446,9 +446,20 @@ export interface SqlProfileReference {
 // ---- Helpers -------------------------------------------------------------------------------
 
 // Capture the current call stack minus the profiler frames (createEntry/createNewTracer/log).
+// V8 keeps only `Error.stackTraceLimit` frames (10 by default), and about half of those are the profiler's and
+// the connector's own — the application's `async` callers, which are what the stack is for, were cut off. Raised
+// for this capture only, which runs only while profiling.
+const profilerStackTraceLimit = 60;
+
 function captureStackTrace(): string {
     const err = { stack: "" };
-    Error.captureStackTrace(err as Error, HeavyProfiler.createEntry);
+    const limit = Error.stackTraceLimit;
+    Error.stackTraceLimit = profilerStackTraceLimit;
+    try {
+        Error.captureStackTrace(err as Error, HeavyProfiler.createEntry);
+    } finally {
+        Error.stackTraceLimit = limit;
+    }
     return err.stack;
 }
 

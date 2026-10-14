@@ -335,7 +335,10 @@ class MyQueryTranslator implements IQueryTranslator {
         // which also warms the caches box for the downstream sync readers (optimiser visitors, Retriever).
         const projection = await bindOptimizeSecured(expression, connector.schema, connector.isPostgres);
         const tr = buildTranslateResult(projection, connector.isPostgres);
-        return tr.execute();
+        // AWAITED, not returned: `using` disposes the DBQuery span when this function exits, so a bare
+        // `return tr.execute()` closed it before the SQL ran — and dropped this frame (and every caller's)
+        // from the async stack the profiler captures under it.
+        return await tr.execute();
     }
 
     // Bulk-DML pipeline: bind to a CommandExpression, run the same optimiser tier as
