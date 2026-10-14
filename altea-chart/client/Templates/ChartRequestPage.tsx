@@ -71,10 +71,10 @@ export default function ChartRequestPage(): React.JSX.Element {
   }
 
   if (cr == null)
-    return <div className="m-3">Loading chart…</div>;
+    return <div className="m-4">Loading chart…</div>;
 
   return (
-    <div className="m-3">
+    <div className="m-4">
       <ChartRequestView chartRequest={cr} userChart={userChart} searchOnLoad onChange={handleChange} />
     </div>
   );

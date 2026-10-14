@@ -40,11 +40,11 @@ export function RightCaretDropdown({
             <Dropdown.Toggle
                 variant="tertiary"
                 disabled={disabled}
-                className="d-flex align-items-center"
+                className="flex items-center"
                 style={{ width: "100%" }}
             >
                 {selected?.icon}
-                <span className="flex-grow-1 mx-2">
+                <span className="grow mx-2">
                     {selected ? selected.label : placeholder || "Select..."}
                 </span>
             </Dropdown.Toggle>

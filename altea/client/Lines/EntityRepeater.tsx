@@ -140,7 +140,7 @@ export function EntityRepeaterElement<R extends BaseEntity>({ ctx, getComponent,
         {(onRemove || move || drag || itemExtraButtons || title) &&
           <legend>
             {/* A span, not a div: a <legend> takes phrasing content only. d-flex is unchanged. */}
-            <span className="d-flex">
+            <span className="flex">
               {onRemove && <LinkButton className={classes("sf-line-button", "sf-remove")}
                 onClick={onRemove}
                 title={ctx.titleLabels ? EntityControlMessage.Remove.niceToString() : undefined}>

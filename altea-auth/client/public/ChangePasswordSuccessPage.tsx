@@ -7,7 +7,7 @@ export default function ChangePasswordSuccessPage(): React.JSX.Element {
         <div className="container sf-change-password-success">
             <div className="row">
                 <div className="col-md-6 offset-md-3">
-                    <h1 className="sf-entity-title h2">{LoginAuthMessage.PasswordChanged.niceToString()}</h1>
+                    <h1 className="sf-entity-title text-h2 font-medium">{LoginAuthMessage.PasswordChanged.niceToString()}</h1>
                     <p>{LoginAuthMessage.PasswordHasBeenChangedSuccessfully.niceToString()}</p>
                 </div>
             </div>

@@ -146,7 +146,7 @@ export default function NeuralNetworkSettings(p: { ctx: TypeContext<NeuralNetwor
             {/* The prediction type drives which losses are legal, and picking an illegal pair is only
                 caught on Save — so say it here, where the choice is made. */}
             {isClassificationType(ctx.value.predictionType) !== isClassificationLoss(ctx.value.lossFunction) &&
-                <div className="alert alert-warning mt-2 py-1 px-2 small">
+                <div className="alert alert-warning mt-2 py-1 px-2 text-[.875em]">
                     {Enum.niceName(PredictionType, ctx.value.predictionType)}
                     {" — "}
                     {Enum.niceName(NeuralNetworkEvalFunction, ctx.value.lossFunction)}

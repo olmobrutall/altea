@@ -91,18 +91,18 @@ function AuthClosureModal(p: AuthClosureModalProps): React.JSX.Element {
     return (
         <Modal size="lg" show={show} onExited={() => p.onExited!(undefined)} onHide={() => setShow(false)} className="sf-frame-modal">
             <div className="modal-header">
-                <h1 className="modal-title h5">{KIND_LABEL[p.kind]} — {typeHeading(packs[0])} / {p.roleStr}</h1>
+                <h1 className="modal-title text-h5 font-medium">{KIND_LABEL[p.kind]} — {typeHeading(packs[0])} / {p.roleStr}</h1>
                 <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={() => setShow(false)} />
             </div>
             <div className="modal-body">
                 {ownerSets.length > 0 &&
-                    <div className="mb-3 d-flex align-items-center gap-2">
-                        <span className="text-muted small">Type conditions</span>
+                    <div className="mb-4 flex items-center gap-2">
+                        <span className="text-muted-foreground text-[.875em]">Type conditions</span>
                         <SliceSelector available={ownerSets} slice={slice} onChange={setSlice} />
                     </div>}
                 {sections.map((pk, i) => (
-                    <div key={pk.type.toString()} className={i > 0 ? "mt-4" : undefined}>
-                        <h6 className="text-muted">{typeHeading(pk)}</h6>
+                    <div key={pk.type.toString()} className={i > 0 ? "mt-6" : undefined}>
+                        <h6 className="text-muted-foreground">{typeHeading(pk)}</h6>
                         {renderTable(p.kind, pk, p.readOnly, markDirty, slice)}
                     </div>
                 ))}

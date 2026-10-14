@@ -55,7 +55,7 @@ export class ValueBaseController<T extends ValueBaseProps<V>, V> extends LineBas
 
     if (vertical) {
       return (
-        <div className="d-flex">
+        <div className="flex">
           {getTimeMachineIcon({ ctx: this.props.ctx })}
           {this.props.extraButtonsBefore && <div className={this.props.ctx.inputGroupVerticalClass("before")}>{this.props.extraButtonsBefore(this)}</div>}
           {input}

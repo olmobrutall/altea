@@ -111,7 +111,7 @@ export function DoublePassword(p: {
                             onChange={handlePasswordChange}
                             onBlur={handlePasswordBlur} />
                         {passValidation && <span className={classes("help-block",
-                            passValidation.level === "error" ? "text-danger" : "text-warning")}>{passValidation.message}</span>}
+                            passValidation.level === "error" ? "text-destructive" : "text-warning")}>{passValidation.message}</span>}
                     </>
                 )}
             </FormGroup>

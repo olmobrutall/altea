@@ -97,7 +97,7 @@ export default function Dashboard(p: { ctx: TypeContext<DashboardEntity> }): Rea
             <div>
                 <EntityLine ctx={ctx.subCtx(cp => cp.owner)} create={false} />
                 <AutoLine ctx={ctx.subCtx(cp => cp.displayName)}
-                    helpText={<div className="d-flex">
+                    helpText={<div className="flex">
                         {icon && <div className="mx-2">
                             <FontAwesomeIcon icon={fallbackIcon(icon)} style={{ color: ctx.value.iconColor ?? undefined, fontSize: "25px", cursor: "pointer" }}
                                 onClick={() => selectIcon(ctx).then(a => {
@@ -115,7 +115,7 @@ export default function Dashboard(p: { ctx: TypeContext<DashboardEntity> }): Rea
                 <div className="row">
                     <div className="col-sm-8">
                         <EntityLine ctx={ctx.subCtx(cp => cp.entityType)} onChange={handleEntityTypeChange} labelColumns={3}
-                            helpText={ctx.value.entityType && <div className="d-flex gap-3">
+                            helpText={ctx.value.entityType && <div className="flex gap-4">
                                 <CheckboxLine ctx={ctx.subCtx(e => e.hideQuickLink)} inlineCheckbox />
                                 <CheckboxLine ctx={ctx.subCtx(e => e.showTitleAsBreadcrumb)} inlineCheckbox />
                             </div>}
@@ -128,18 +128,18 @@ export default function Dashboard(p: { ctx: TypeContext<DashboardEntity> }): Rea
 
                 <CollapsableCard header={UserAssetMessage.Advanced.niceToString()} size="xs">
                     <div className="row">
-                        <div className="col-sm-3 pt-3">
+                        <div className="col-sm-3 pt-4">
                             <NumberLine ctx={ctxBasic.subCtx(cp => cp.dashboardPriority)} />
                             <AutoLine ctx={ctxBasic.subCtx(cp => cp.autoRefreshPeriod)} />
                         </div>
-                        <div className="col-sm-3 pt-3">
+                        <div className="col-sm-3 pt-4">
                             <TextBoxLine ctx={ctxBasic.subCtx(cp => cp.key)} />
                         </div>
                     </div>
                 </CollapsableCard>
             </div>
 
-            <Tabs id={ctxBasic.getUniqueId("tabs")} className="mt-3">
+            <Tabs id={ctxBasic.getUniqueId("tabs")} className="mt-4">
                 <Tab title={ctxBasic.niceName(a => a.parts)} eventKey="parts">
                     <CheckboxLine ctx={ctxBasic.subCtx(cp => cp.combineSimilarRows)} inlineCheckbox={true} />
                     <div className="sf-dashboard-admin">
@@ -171,7 +171,7 @@ export default function Dashboard(p: { ctx: TypeContext<DashboardEntity> }): Rea
                                 },
                             ]} />
                             {allQueryKeys.length > 0 &&
-                                <span className="text-muted small">{allQueryKeys.join(", ")}</span>}
+                                <span className="text-muted-foreground text-[.875em]">{allQueryKeys.join(", ")}</span>}
                         </div>
                     } />
                 </Tab>
@@ -249,7 +249,7 @@ export function DashboardPart(p: {
 
         return (
             <div>
-                <div className="d-flex">
+                <div className="flex">
                     {icon && <div className="mx-2">
                         <button type="button" style={{ background: "none", border: "none", padding: 0 }}
                             aria-label={DashboardMessage.SelectIcon.niceToString()}

@@ -206,7 +206,7 @@ function AlertDropdownImp(props: { keepRingingFor: number }): React.JSX.Element 
                     className={classes("sf-bell", ringing && "ringing", isOpen && "open",
                         countResult != null && countResult.numAlerts > 0 && "active")} />
                 {countResult != null && countResult.numAlerts > 0 &&
-                    <span className="badge text-bg-danger badge-pill sf-alerts-badge">{countResult.numAlerts}</span>}
+                    <span className="badge bg-destructive text-destructive-foreground badge-pill sf-alerts-badge">{countResult.numAlerts}</span>}
             </button>
 
             {isOpen && <div className="sf-alerts-toasts mt-2" ref={divRef} style={{
@@ -239,9 +239,9 @@ function AlertDropdownImp(props: { keepRingingFor: number }): React.JSX.Element 
 
                         {showGroups < alertGroups.filter(a => !a.removing).length &&
                             <div style={{ transform: `translateY(${stackedHeight}px)`, transition: "transform 0.4s ease" }}>
-                                <Toast className="w-100 my-2">
+                                <Toast className="w-full my-2">
                                     <Toast.Body style={{ textAlign: "center" }}>
-                                        <button type="button" className="btn btn-link btn-sm text-muted fw-bold"
+                                        <button type="button" className="btn btn-link btn-sm text-muted-foreground font-bold"
                                             onClick={() => setShowGroups(showGroups + MaxNumberOfGroups)}>
                                             {AlertMessage.Show0GroupsMore1Remaining.niceToString(MaxNumberOfGroups,
                                                 alertGroups.filter(a => !a.removing).length - showGroups)}
@@ -251,7 +251,7 @@ function AlertDropdownImp(props: { keepRingingFor: number }): React.JSX.Element 
                             </div>}
 
                         <div style={{ transform: `translateY(${stackedHeight}px)`, transition: "transform 0.4s ease" }}>
-                            <Toast className="w-100 mt-2">
+                            <Toast className="w-full mt-2">
                                 <Toast.Body style={{ textAlign: "center" }}>
                                     <Link onClick={() => setIsOpen(false)}
                                         to={Finder.findOptionsPath(AlertEntity.findOptions(token => ({
@@ -303,7 +303,7 @@ export function AlertGroupToast(p: {
 
     return (
         <div className="sf-alert-group pb-2" style={p.style} ref={htmlRef}>
-            <div className="p-2 d-flex" style={{ position: "relative" }}>
+            <div className="p-2 flex" style={{ position: "relative" }}>
                 <span style={textStyle}>
                     {groupTarget
                         ? `${groupTarget.toString()} (${p.group.alerts.length})`
@@ -359,7 +359,7 @@ export function AlertGroupToast(p: {
 
             {showAlerts < p.group.alerts.filter(a => !a.removing).length && showAlerts > 1 &&
                 <div style={{ position: "relative", textAlign: "center", marginTop: "-10px" }}>
-                    <button type="button" className="btn btn-link btn-sm text-decoration-underline"
+                    <button type="button" className="btn btn-link btn-sm underline"
                         onClick={() => setShowAlerts(showAlerts + MaxNumberOfAlerts)}>
                         {AlertMessage.Show0AlertsMore.niceToString(MaxNumberOfAlerts)}
                     </button>
@@ -390,7 +390,7 @@ export function AlertToast(p: {
     }, [p.alert, p.expanded, wasExpanded]);
 
     return (
-        <Toast ref={htmlRef} onClose={() => p.onClose(p.alert)} className={classes(p.className, "w-100")} style={p.style}>
+        <Toast ref={htmlRef} onClose={() => p.onClose(p.alert)} className={classes(p.className, "w-full")} style={p.style}>
             <Toast.Header>
                 {icon && <span className="me-2">{icon}</span>}
                 <strong className="me-auto">{AlertsClient.getTitle(alert.titleField, alert.alertType)}</strong>

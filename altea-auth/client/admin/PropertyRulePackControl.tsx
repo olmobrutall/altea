@@ -81,8 +81,8 @@ export default function PropertyRulePackControl({ ctx, initialTypeConditions, re
                 <AutoLine ctx={ctx.subCtx(f => f.strategy)} readOnly={true} />
             </div>
             {ctx.value.availableTypeConditions.length > 0 &&
-                <div className="mb-2 d-flex align-items-center gap-2">
-                    <span className="text-muted small">Type conditions</span>
+                <div className="mb-2 flex items-center gap-2">
+                    <span className="text-muted-foreground text-[.875em]">Type conditions</span>
                     <SliceSelector available={ctx.value.availableTypeConditions} slice={slice} onChange={setSlice} />
                 </div>}
             <PropertyRulesTable pack={ctx.value} readOnly={ctx.readOnly} markDirty={markDirty} slice={slice} />
@@ -112,7 +112,7 @@ export function PropertyRulesTable({ pack, readOnly, markDirty, slice }: { pack:
         <>
             {groups.map((g, i) =>
                 <React.Fragment key={g.part ?? ""}>
-                    {g.part != null && <h6 className={i > 0 ? "text-muted mt-4" : "text-muted"}>{tryGetTypeInfo(g.part)?.getNiceName() ?? g.part}</h6>}
+                    {g.part != null && <h6 className={i > 0 ? "text-muted-foreground mt-6" : "text-muted-foreground"}>{tryGetTypeInfo(g.part)?.getNiceName() ?? g.part}</h6>}
                     <PropertyRulesGroupTable rules={g.rules} readOnly={readOnly} markDirty={markDirty} slice={slice} />
                 </React.Fragment>)}
         </>

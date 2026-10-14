@@ -16,11 +16,11 @@ export default function CacheStatisticsPage(): React.JSX.Element {
     const [state, reloadState] = useAPIWithReload(() => CacheClient.API.view(), [], { avoidReset: true });
 
     if (state == null)
-        return <div className="m-3"><h1 className="h2">{CacheMessage.Loading.niceToString()}…</h1></div>;
+        return <div className="m-4"><h1 className="text-h2 font-medium">{CacheMessage.Loading.niceToString()}…</h1></div>;
 
     return (
-        <div className="m-3">
-            <h1 className="h2">{CacheMessage.CacheStatistics.niceToString()}</h1>
+        <div className="m-4">
+            <h1 className="text-h2 font-medium">{CacheMessage.CacheStatistics.niceToString()}</h1>
             <div className="btn-toolbar gap-2">
                 {state.isEnabled
                     ? <button type="button" onClick={() => void CacheClient.API.disable().then(() => reloadState())}
@@ -82,7 +82,7 @@ export default function CacheStatisticsPage(): React.JSX.Element {
                     {" → ".repeat(depth) + table.tableName}
                     {/* A trimmed lite table holds only the display columns — show which, since that is the
                         guarantee that keeps a Transactional type out of memory. */}
-                    {table.columns != null && <small className="text-body-secondary"> ({table.columns.join(", ")})</small>}
+                    {table.columns != null && <small className="text-muted-foreground"> ({table.columns.join(", ")})</small>}
                 </td>
                 <td>{table.typeName}</td>
                 <td>{table.count != null ? table.count.toString() : `-- ${CacheMessage.NotLoaded.niceToString()} --`}</td>

@@ -170,7 +170,7 @@ function MessageModal(p: MessageModalProps): React.ReactElement {
     }, [p.autoFocusonTitle]);
 
     return (
-      <h1 ref={titleRef} id={titleId} tabIndex={0} className="modal-title h5">
+      <h1 ref={titleRef} id={titleId} tabIndex={0} className="modal-title text-h5 font-medium">
         {iconSpan}{iconSpan && <span>&nbsp;&nbsp;</span>}{p.title}
       </h1>
     );

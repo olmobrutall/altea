@@ -659,7 +659,7 @@ export default function renderPivotTable({ data, width, height, parameters, load
   const empty: (RowGroup | undefined)[] = [undefined];
 
   return (
-    <div className="table-responsive" style={{ maxWidth: width }}>
+    <div className="overflow-x-auto" style={{ maxWidth: width }}>
       <table className="table table-bordered pivot-table">
         <thead>
           <tr>

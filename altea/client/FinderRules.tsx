@@ -393,8 +393,8 @@ function FilterMultiValue({ f, ffc }: { f: FilterConditionOptionParsed; ffc: Fin
           {array.map((_, i) => {
             const ectx = new TypeContext<any>(ffc.ctx, { formGroupStyle: "None", readOnly }, tokenType, new Binding(array, i));
             return (
-              <div key={i} className="d-flex align-items-center mb-1">
-                <div className="flex-grow-1">
+              <div key={i} className="flex items-center mb-1">
+                <div className="grow">
                   <AutoLine ctx={ectx} onChange={() => ffc.handleValueChange(f)} />
                 </div>
                 {!readOnly &&
@@ -484,7 +484,7 @@ export function ComplexConditionSyntax(p: { filterOperation: FilterOperationKeys
       <Popover.Body>
         {p.filterOperation === "SmartSearch"
           ? <div>{SearchMessage.SmartSearchDescription.niceToString()}</div>
-          : <ul className="ps-3">
+          : <ul className="ps-4">
             {help.examples.map((a, i) => <li key={i} style={{ whiteSpace: "nowrap" }}><code>{a}</code></li>)}
           </ul>}
       </Popover.Body>
@@ -753,7 +753,7 @@ export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
         if (hasMixedListOperations(fg))
           return (
             <OverlayTrigger overlay={<Tooltip id="tooltip-mixed-operations">{SearchMessage.FilterGroupInvalidMixedOperations.niceToString()}</Tooltip>}>
-              <span className="text-danger">{SearchMessage.Error.niceToString()} <FontAwesomeIcon aria-hidden={true} icon="circle-info" /></span>
+              <span className="text-destructive">{SearchMessage.Error.niceToString()} <FontAwesomeIcon aria-hidden={true} icon="circle-info" /></span>
             </OverlayTrigger>
           );
 

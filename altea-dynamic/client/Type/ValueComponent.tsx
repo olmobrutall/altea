@@ -95,7 +95,7 @@ export default function ValueComponent(p: ValueComponentProps): React.JSX.Elemen
 
     if (p.hideLabel === true) {
         return (
-            <div className="row align-items-center">
+            <div className="row items-center">
                 <div className="col-auto">
                     {renderValue(value)}
                 </div>

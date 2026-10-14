@@ -41,9 +41,9 @@ export default function AssetSyncPanel(): React.JSX.Element {
 
     return (
         <div>
-            <h2 className="display-6">{CodeSyncMessage.AssetSync.niceToString()}</h2>
+            <h2 className="text-display-6 font-light">{CodeSyncMessage.AssetSync.niceToString()}</h2>
 
-            <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <div className="flex flex-wrap items-center gap-2 mb-4">
                 <select className="form-select" style={{ maxWidth: "15rem" }} value={folder} onChange={e => setFolder(e.currentTarget.value)}>
                     <option value="">*</option>
                     {info?.folders.map(f => <option key={f} value={f}>{f}</option>)}
@@ -115,7 +115,7 @@ function StatusRow(p: StatusRowProps): React.JSX.Element {
                 <td>{l.folder}</td>
                 <td>{l.type}</td>
                 <td><a href={`/view/${l.type}/${l.guid}`}>{l.name}</a></td>
-                <td><span className="spinner-border spinner-border-sm text-secondary" role="status" /></td>
+                <td><span className="spinner-border spinner-border-sm text-muted-foreground" role="status" /></td>
                 <td /><td />
             </tr>
         );

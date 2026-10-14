@@ -79,13 +79,13 @@ export function DeleteErrorModal(p: DeleteErrorModalProps): React.ReactElement {
 
       <Modal.Body>
         {loading ? (
-          <div className="d-flex align-items-center gap-2">
+          <div className="flex items-center gap-2">
             <Spinner animation="border" size="sm" />
             <span>{JavascriptMessage.loading.niceToString()}</span>
           </div>
         ) : hasReferences ? (
           <>
-            <p className="mb-3">
+            <p className="mb-4">
               {CascadeDeleteMessage.TheFollowingEntitiesStillReference0RemoveThemBeforeDeleting
                 .niceToString(p.lite.toString() || entityTypeName)}
             </p>
@@ -102,27 +102,27 @@ export function DeleteErrorModal(p: DeleteErrorModalProps): React.ReactElement {
             </div>
           </>
         ) : (
-          <div className="d-flex align-items-center gap-2 text-success">
+          <div className="flex items-center gap-2 text-success">
             <FontAwesomeIcon icon="circle-check" />
             <span>{CascadeDeleteMessage.NoReferencesFoundYouCanNowDeleteThisEntity.niceToString()}</span>
           </div>
         )}
 
         {p.serviceError && hasReferences && (
-          <div className="mt-3">
+          <div className="mt-4">
             <button
-              className="btn btn-link btn-sm p-0 text-muted"
+              className="btn btn-link btn-sm p-0 text-muted-foreground"
               onClick={() => setShowDetails(v => !v)}
             >
               <FontAwesomeIcon icon={showDetails ? "chevron-up" : "chevron-down"} className="me-1" />
               {CascadeDeleteMessage.ErrorDetails.niceToString()}
             </button>
             {showDetails && (
-              <div className="mt-2 p-2 bg-body-tertiary border rounded small font-monospace">
-                <div className="text-danger fw-bold mb-1">{p.serviceError.httpError.exceptionType}</div>
+              <div className="mt-2 p-2 bg-muted border rounded-md text-[.875em] font-mono">
+                <div className="text-destructive font-bold mb-1">{p.serviceError.httpError.exceptionType}</div>
                 <div className="mb-2">{p.serviceError.httpError.exceptionMessage}</div>
                 {p.serviceError.httpError.stackTrace && (
-                  <pre className="mb-0 text-muted" style={{ whiteSpace: 'pre-wrap', fontSize: 'max(0.75rem, var(--sf-small-text-min, 0rem))' }}>
+                  <pre className="mb-0 text-muted-foreground" style={{ whiteSpace: 'pre-wrap', fontSize: 'max(0.75rem, var(--sf-small-text-min, 0rem))' }}>
                     {p.serviceError.httpError.stackTrace}
                   </pre>
                 )}
@@ -178,8 +178,8 @@ function ReferenceRow({ dto, targetLite, onExplored, version }: ReferenceRowProp
   };
 
   return (
-    <div className="list-group-item d-flex align-items-center gap-2 py-2">
-      <div className="flex-grow-1 d-flex align-items-center gap-1">
+    <div className="list-group-item flex items-center gap-2 py-2">
+      <div className="grow flex items-center gap-1">
         {isFindable ? (
           <SearchValue
             findOptions={findOptions}
@@ -187,18 +187,18 @@ function ReferenceRow({ dto, targetLite, onExplored, version }: ReferenceRowProp
             deps={[version]}
             onRender={(value, vsc) => {
               if (value === undefined)
-                return <span className="badge text-bg-secondary">…</span>;
+                return <span className="badge bg-secondary text-secondary-foreground">…</span>;
 
               const count = (value as number) ?? 0;
               const hidden = Math.max(0, dto.count - count);
               return (
                 <>
-                  <LinkButton title={undefined} className="text-decoration-none" onClick={vsc.handleClick}>
-                    <span className="badge text-bg-secondary me-1">{count}</span>
+                  <LinkButton title={undefined} className="no-underline" onClick={vsc.handleClick}>
+                    <span className="badge bg-secondary text-secondary-foreground me-1">{count}</span>
                     {niceName}
                   </LinkButton>
                   {hidden > 0 && (
-                    <span className="text-muted small">
+                    <span className="text-muted-foreground text-[.875em]">
                       ({CascadeDeleteMessage._0MoreNotVisibleForYou.niceToString(hidden)})
                     </span>
                   )}
@@ -211,8 +211,8 @@ function ReferenceRow({ dto, targetLite, onExplored, version }: ReferenceRowProp
         )}
       </div>
       <div>
-        <span className="text-muted small me-1">{CascadeDeleteMessage.ReferencedVia.niceToString()}</span>
-        <code className="small">{dto.propertyRoute}</code>
+        <span className="text-muted-foreground text-[.875em] me-1">{CascadeDeleteMessage.ReferencedVia.niceToString()}</span>
+        <code className="text-[.875em]">{dto.propertyRoute}</code>
       </div>
     </div>
   );

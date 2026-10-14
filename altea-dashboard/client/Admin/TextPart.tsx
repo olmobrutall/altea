@@ -55,7 +55,7 @@ export default function TextPart(p: PartEditorProps<TextPartEntity>): React.JSX.
                         </LinkButton> : null}
                 </div>
             </div>
-            <div className="form-inline">
+            <div className="flex flex-wrap items-center gap-2">
                 {isPreview ? preview() : editor()}
             </div>
         </div>

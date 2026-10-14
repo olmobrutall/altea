@@ -61,7 +61,7 @@ export interface AutoLineFactoryRule {
 // TODO(port): the entity/collection lines (EntityLine/Combo/Detail/Strip/Table/Repeater/CheckboxList/
 // MultiSelect, MultiValueLine) are not ported yet — placeholder until they land.
 function notPorted(what: string): (p: AutoLineProps) => React.ReactElement {
-  return () => <span className="text-danger">TODO(port): AutoLine → {what} not ported yet</span>;
+  return () => <span className="text-destructive">TODO(port): AutoLine → {what} not ported yet</span>;
 }
 
 export namespace AutoLine {
@@ -157,6 +157,6 @@ export namespace AutoLine {
     if (fi.typeName == "Duration" || fi.typeName == "PlainTime")
       return p => <TimeLine {...p} />;
 
-    return () => <span className="text-danger">Not supported type {fi.getTypeName() ?? fi.typeName} by AutoLine</span>;
+    return () => <span className="text-destructive">Not supported type {fi.getTypeName() ?? fi.typeName} by AutoLine</span>;
   }
 }

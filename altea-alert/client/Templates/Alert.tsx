@@ -52,7 +52,7 @@ export default function Alert(p: { ctx: TypeContext<AlertEntity> }): React.JSX.E
                     {() => <div style={{ whiteSpace: "pre-wrap" }}>
                         {AlertsClient.format(ctx.value.textField || ctx.value.textFromAlertType || "", ctx.value)}
                         <br />
-                        <button type="button" className="btn btn-link btn-sm p-0 text-muted"
+                        <button type="button" className="btn btn-link btn-sm p-0 text-muted-foreground"
                             onClick={() => setEdit(true)}>Edit</button>
                     </div>}
                 </FormGroup>

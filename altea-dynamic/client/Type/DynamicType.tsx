@@ -135,7 +135,7 @@ function SourceEditor(p: { error: string | undefined; children: React.ReactNode 
     return (
         <div className="mt-2">
             {p.children}
-            {p.error != null && <div className="text-danger small mt-1" style={{ whiteSpace: "pre-wrap" }}>{p.error}</div>}
+            {p.error != null && <div className="text-destructive text-[.875em] mt-1" style={{ whiteSpace: "pre-wrap" }}>{p.error}</div>}
         </div>
     );
 }

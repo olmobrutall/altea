@@ -43,7 +43,7 @@ export function SystemMessage(p: { msg: ChatMessageEntity }): React.ReactElement
     const [isOpen, setIsOpen] = React.useState(false);
 
     return (
-        <div className="mb-2 justify-content-start">
+        <div className="mb-2 justify-start">
             <a className="chat-internal" href="#" onClick={e => { e.preventDefault(); setIsOpen(!isOpen); }}>
                 <FontAwesomeIcon icon="book" /> {ChatbotMessage.InitialInstruction.niceToString()}
             </a>
@@ -106,7 +106,7 @@ export function AssistantMessage(p: { msg: ChatMessageEntity; sendToolResponse: 
     }
 
     return (
-        <div className="mb-2 justify-content-start">
+        <div className="mb-2 justify-start">
             {p.msg.reasoningContent && <div className="chat-reasoning mt-1">
                 <a className="chat-internal" href="#" onClick={e => { e.preventDefault(); setIsReasoningOpen(!isReasoningOpen); }}>
                     <FontAwesomeIcon icon="brain" /> {ChatbotMessage.Reasoning.niceToString()}
@@ -165,7 +165,7 @@ function ToolCall(p: { toolCall: ChatMessageEntity_ToolCall; sendToolResponse: S
     }
 
     return (
-        <div className="mb-2 justify-content-start">
+        <div className="mb-2 justify-start">
             <a className="chat-internal" href="#" onClick={e => { e.preventDefault(); setIsOpen(!isOpen); }}>
                 <FontAwesomeIcon icon="hammer" /> {p.toolCall.toolId}
                 {p.toolCall._response?.exception && <FontAwesomeIcon icon="bug" color="red" />}
@@ -197,7 +197,7 @@ export function ToolResponseBlock(p: { msg: ChatMessageEntity }): React.ReactEle
                 </button>}</h4>
             <div className="chat-bubble tool-response">
                 {p.msg.exception
-                    ? <pre className="text-danger">{p.msg.exception.toString()}</pre>
+                    ? <pre className="text-destructive">{p.msg.exception.toString()}</pre>
                     : <MarkdownOrJson content={p.msg.content} formatJson={formatJson} />}
             </div>
         </div>
@@ -206,7 +206,7 @@ export function ToolResponseBlock(p: { msg: ChatMessageEntity }): React.ReactEle
 
 export function MarkdownOrJson(p: { content: string | null | undefined; formatJson?: boolean }): React.JSX.Element {
     if (!p.content)
-        return <span className="text-muted">{String(p.content)}</span>;
+        return <span className="text-muted-foreground">{String(p.content)}</span>;
 
     if (looksLikeJson(p.content))
         return <FormatJson code={p.content} formatJson={p.formatJson ?? true} className="mb-0" />;
@@ -261,7 +261,7 @@ export function ToolMessage(p: { msg: ChatMessageEntity }): React.ReactElement {
     const [isOpen, setIsOpen] = React.useState(false);
 
     return (
-        <div className="mb-2 justify-content-start">
+        <div className="mb-2 justify-start">
             <a className="chat-internal" href="#" onClick={e => { e.preventDefault(); setIsOpen(!isOpen); }}>
                 <FontAwesomeIcon icon="hammer" className="red" /> Response {p.msg.toolID}
             </a>
@@ -272,7 +272,7 @@ export function ToolMessage(p: { msg: ChatMessageEntity }): React.ReactElement {
 
 export function UserMessage(p: { msg: ChatMessageEntity }): React.ReactElement {
     return (
-        <div className="mb-2 d-flex justify-content-end">
+        <div className="mb-2 flex justify-end">
             <div className="chat-bubble user">
                 <React.Suspense fallback={null}>
                     {ChatbotClient.Options.renderMarkdown(p.msg.content ?? "")}

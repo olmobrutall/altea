@@ -45,7 +45,7 @@ export class WhatsNewImageHandler implements ImageHandlerBase {
                 fileName: info.fileName ?? "image.png",
                 binaryFile: base64ToBytes(info.binaryFile),
             });
-            return <FileImage file={file} alt={info.fileName ?? ""} className="mw-100 whatsnew-image" />;
+            return <FileImage file={file} alt={info.fileName ?? ""} className="max-w-full whatsnew-image" />;
         }
 
         if (info.imageId != undefined) {
@@ -54,7 +54,7 @@ export class WhatsNewImageHandler implements ImageHandlerBase {
                 fileName: info.fileName ?? "image.png",
             });
             file.setRouting(WhatsNewEntity_Attachment.name, info.imageId, "file");
-            return <FileImage file={file} alt={info.fileName ?? ""} className="mw-100 whatsnew-image" />;
+            return <FileImage file={file} alt={info.fileName ?? ""} className="max-w-full whatsnew-image" />;
         }
 
         return <div className="alert alert-danger">{JSON.stringify(info)}</div>;

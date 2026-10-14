@@ -76,7 +76,7 @@ export function ImportExcelProgressModal(p: ImportExcelProgressModalProps): Reac
     return (
         <Modal show={show} className="message-modal" backdrop="static" onExited={handleOnExited} aria-labelledby={titleId}>
             <div className="modal-header">
-                <h1 id={titleId} className="modal-title h5">
+                <h1 id={titleId} className="modal-title text-h5 font-medium">
                     {ImportFromExcelMessage.Importing0.niceToString(p.typeInfo.getNicePluralName())}
                 </h1>
                 <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={handleCancelClicked} />
@@ -88,7 +88,7 @@ export function ImportExcelProgressModal(p: ImportExcelProgressModalProps): Reac
                     : <ProgressBar min={0} max={totalRows} now={importResultsRef.current.length}
                         label={`[${importResultsRef.current.length}/${totalRows}]`} key={2} />}
                 {errors.length > 0 &&
-                    <p className="text-danger">
+                    <p className="text-destructive">
                         {ImportFromExcelMessage._0Errors.niceToString().forGenderAndNumber(errors.length).formatHtml(<strong>{errors.length}</strong>)}
                     </p>}
             </div>

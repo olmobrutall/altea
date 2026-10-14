@@ -46,8 +46,8 @@ export default function TranslatedInstanceStatus(): React.JSX.Element {
 
     return (
         <div>
-            <h1 className="h2">{TranslationMessage.InstanceTranslations.niceToString()}</h1>
-            <label className="d-block mb-2 text-end">
+            <h1 className="text-h2 font-medium">{TranslationMessage.InstanceTranslations.niceToString()}</h1>
+            <label className="block mb-2 text-end">
                 <input type="checkbox" checked={applyFilter} onChange={e => setApplyFilter(e.currentTarget.checked)} />
                 {" "}{TranslationMessage.OnlyRecommendedInstances.niceToString()}
             </label>

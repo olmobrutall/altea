@@ -75,11 +75,11 @@ export default function HeavyList(): React.JSX.Element {
     const { size, setContainer } = useSize();
 
     if (entries == undefined)
-        return <h1 className="display-6 h3">{HeavyProfilerMessage.HeavyProfilerLoading.niceToString()}</h1>;
+        return <h1 className="text-display-6 font-light">{HeavyProfilerMessage.HeavyProfilerLoading.niceToString()}</h1>;
 
     return (
         <div>
-            <h1 className="display-6 h2">{HeavyProfilerMessage.HeavyProfiler.niceToString()}</h1>
+            <h1 className="text-display-6 font-light">{HeavyProfilerMessage.HeavyProfiler.niceToString()}</h1>
             <br />
             <div className="btn-toolbar" style={{ float: "right" }}>
                 <input key={fileVer} type="file" className="form-control" onChange={handleInputChange} style={{ display: "inline", float: "left", width: "inherit" }} />
@@ -99,7 +99,7 @@ export default function HeavyList(): React.JSX.Element {
             <p className="help-block">{HeavyProfilerMessage.UploadPreviousRunsToComparePerformance.niceToString()}</p>
             <p className="help-block">{HeavyProfilerMessage.EnableTheProfilerWithTheDebuggerWith0AndSaveTheResultsWith1.niceToString("HeavyProfiler.setEnabled(true)", "HeavyProfiler.exportXml()")}</p>
             <br />
-            <h2 className="h3">{HeavyProfilerMessage.Entries.niceToString()}</h2>
+            <h2 className="text-h3 font-medium">{HeavyProfilerMessage.Entries.niceToString()}</h2>
             <div className="sf-profiler-chart" ref={setContainer}>
                 {size && <EntryListPath entries={entries} width={size.width} />}
             </div>

@@ -74,7 +74,7 @@ export function MultiMessageProgressModal(p: MultiMessageProgressModalProps): Re
                     : <ProgressBar min={0} max={p.messages.length} now={messageResultRef.current.length}
                         label={`[${messageResultRef.current.length}/${p.messages.length}]`} key={2} />}
                 {errors.length > 0 &&
-                    <p className="text-danger">
+                    <p className="text-destructive">
                         {OperationMessage._0Errors.niceToString().forGenderAndNumber(errors.length)
                             .formatHtml(<strong>{errors.length}</strong>)}
                     </p>}

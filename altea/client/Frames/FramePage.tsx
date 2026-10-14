@@ -390,7 +390,7 @@ export default function FramePage(): React.ReactElement {
   function renderTitle() {
 
     if (!state)
-      return <h1 className="display-6 sf-entity-title h3">{JavascriptMessage.loading.niceToString()}</h1>;
+      return <h1 className="text-display-6 font-light sf-entity-title">{JavascriptMessage.loading.niceToString()}</h1>;
 
     const entity = state.pack.entity;
     const title = Navigator.renderEntity(entity);
@@ -401,13 +401,13 @@ export default function FramePage(): React.ReactElement {
       // The sub-title and the widgets are a BLOCK of their own, which a heading is not allowed to contain.
       // The heading keeps the entity title alone — which is also what should name the page — and the block
       // becomes its sibling, with the wrapper carrying the framing the h1 used to.
-      <div className={classes("border-bottom pb-3 mb-2", settings?.stickyHeader && "sf-sticky-header")}>
-        <h1 className="h4 mb-0">
+      <div className={classes("border-b pb-4 mb-2", settings?.stickyHeader && "sf-sticky-header")}>
+        <h1 className="text-h4 font-medium mb-0">
           {title && <span className="sf-entity-title">{title}</span>}
         </h1>
         {(subTitle || widgets) &&
           <div className="sf-entity-sub-title mt-2">
-            {subTitle && <small className="sf-type-nice-name text-muted"> {subTitle}</small>}
+            {subTitle && <small className="sf-type-nice-name text-muted-foreground"> {subTitle}</small>}
             {widgets}
             <br />
           </div>

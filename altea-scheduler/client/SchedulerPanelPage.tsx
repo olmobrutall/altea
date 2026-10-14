@@ -31,13 +31,13 @@ export default function SchedulerPanelPage(): React.JSX.Element {
     useTitle("Scheduler Task Runner");
 
     if (state == null)
-        return <h1 className="display-6 h2">{ScheduledTaskMessage.SchedulePanel.niceToString()} (…)</h1>;
+        return <h1 className="text-display-6 font-light">{ScheduledTaskMessage.SchedulePanel.niceToString()} (…)</h1>;
 
     const s = state;
 
     return (
         <div>
-            <h1 className="display-6 h2">
+            <h1 className="text-display-6 font-light">
                 <FontAwesomeIcon aria-hidden={true} icon="clock" className="me-2" />
                 {ScheduledTaskMessage.SchedulePanel.niceToString()}
                 <FontAwesomeIcon aria-hidden={true} icon="sync" className="ms-2"
@@ -55,7 +55,7 @@ export default function SchedulerPanelPage(): React.JSX.Element {
                 </button>
             </div>
 
-            <div className="mt-3">
+            <div className="mt-4">
                 {ScheduledTaskMessage.State.niceToString()}: <strong>
                     {s.running
                         ? <span style={{ color: "green" }}>{ScheduledTaskMessage.Running.niceToString()}</span>
@@ -83,10 +83,10 @@ export default function SchedulerPanelPage(): React.JSX.Element {
             <InMemoryQueue queue={s.queue} onReload={reloadState} />
             <RunningTasks runningTasks={s.runningTask} onReload={reloadState} />
 
-            <h2 className="h4 mt-4">{ScheduledTaskEntity.niceName()}</h2>
+            <h2 className="text-h4 font-medium mt-6">{ScheduledTaskEntity.niceName()}</h2>
             <SearchControl findOptions={{ queryName: ScheduledTaskEntity, pagination: { elementsPerPage: 10, mode: "Firsts" } }} />
 
-            <h2 className="h4 mt-4">{ScheduledTaskLogEntity.niceName()}</h2>
+            <h2 className="text-h4 font-medium mt-6">{ScheduledTaskLogEntity.niceName()}</h2>
             <SearchControl findOptions={{
                 queryName: ScheduledTaskLogEntity,
                 orderOptions: [{ token: ScheduledTaskLogEntity.token(l => l.startTime), orderType: "Descending" }],
@@ -98,8 +98,8 @@ export default function SchedulerPanelPage(): React.JSX.Element {
 
 function InMemoryQueue(p: { queue: SchedulerItemState[]; onReload: () => void }): React.JSX.Element {
     return (
-        <div className="mt-4">
-            <h2 className="h4">{ScheduledTaskMessage.InMemoryQueue.niceToString()}</h2>
+        <div className="mt-6">
+            <h2 className="text-h4 font-medium">{ScheduledTaskMessage.InMemoryQueue.niceToString()}</h2>
             {p.queue.length === 0
                 ? <p> -- {ScheduledTaskMessage.ThereIsNoActiveScheduledTask.niceToString()} -- </p>
                 : <AccessibleTable aria-label={ScheduledTaskMessage.InMemoryQueue.niceToString()}
@@ -132,8 +132,8 @@ function RunningTasks(p: { runningTasks: SchedulerRunningTaskState[]; onReload: 
     }
 
     return (
-        <div className="mt-4">
-            <h2 className="h4">{ScheduledTaskMessage.RunningTasks.niceToString()}</h2>
+        <div className="mt-6">
+            <h2 className="text-h4 font-medium">{ScheduledTaskMessage.RunningTasks.niceToString()}</h2>
             {p.runningTasks.length === 0
                 ? <p> -- {ScheduledTaskMessage.ThereAreNoTasksRunning.niceToString()} -- </p>
                 : <AccessibleTable aria-label={ScheduledTaskMessage.RunningTasks.niceToString()}

@@ -36,15 +36,15 @@ export default function HelpSearchPage(): React.JSX.Element {
 
     return (
         <div className="container">
-            <h1 className="display-6">
+            <h1 className="text-display-6 font-light">
                 <Link to={HelpClient.Urls.indexUrl()}>{HelpMessage.Help.niceToString()}</Link>
                 {" > "}
                 {HelpSearchMessage.Search.niceToString()}
             </h1>
 
-            <form className="row g-2 align-items-center mb-4" onSubmit={onSubmit} role="search">
+            <form className="row g-2 items-center mb-6" onSubmit={onSubmit} role="search">
                 <div className="col-auto">
-                    <label className="visually-hidden" htmlFor="helpSearchText">{HelpMessage.SearchText.niceToString()}</label>
+                    <label className="sr-only" htmlFor="helpSearchText">{HelpMessage.SearchText.niceToString()}</label>
                     <input id="helpSearchText"
                         type="search"
                         className="form-control"
@@ -62,7 +62,7 @@ export default function HelpSearchPage(): React.JSX.Element {
             {query.trim() !== "" && response == undefined && <span>{JavascriptMessage.loading.niceToString()}</span>}
 
             {response && <>
-                <p className="text-muted">
+                <p className="text-muted-foreground">
                     {HelpSearchMessage._0ResultsFor1In2.niceToString(response.results.length, `"${response.query}"`, response.elapsedMs)}
                 </p>
 

@@ -694,7 +694,7 @@ export class TreeViewer extends React.Component<TreeViewerProps, TreeViewerState
                 {this.props.showToolbar && <><br />{this.renderToolbar()}<br /></>}
                 {!this.props.showToolbar && this.props.showExpandCollapseButtons && this.renderExpandCollapseButtons()}
 
-                <div className="tree-container sf-scroll-table-container table-responsive">
+                <div className="tree-container sf-scroll-table-container overflow-x-auto">
                     <table className="sf-search-results table table-hover table-sm">
                         <thead>{this.renderHeaders(visibleColumns)}</thead>
                         <tbody>
@@ -825,7 +825,7 @@ class TreeNodeControl extends React.Component<TreeNodeControlProps> {
                             {this.renderIcon(node.nodeState)}
 
                             <span className={classes("tree-label",
-                                node === tv.state.selectedNode && "tree-selected text-bg-primary",
+                                node === tv.state.selectedNode && "tree-selected bg-primary text-primary-foreground",
                                 node.disabled && "tree-disabled")}
                                 onDoubleClick={e => tv.handleNodeTextDoubleClick(node, e)}
                                 onClick={() => tv.handleNodeTextClick(node)}

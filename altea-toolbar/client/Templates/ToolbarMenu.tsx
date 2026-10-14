@@ -33,7 +33,7 @@ export default function ToolbarMenu(p: { ctx: TypeContext<ToolbarMenuEntity> }):
             {!ctx.value.isNew && <CollapsableCard header={UserAssetMessage.Advanced.niceToString()} size="xs">
 
                 <div>
-                    <h2 className="mt-3 h5">{UserAssetMessage.UsedBy.niceToString()}</h2>
+                    <h2 className="mt-4 text-h5 font-medium">{UserAssetMessage.UsedBy.niceToString()}</h2>
                     <div className="row">
                         <div className="col-sm-6">
                             <SearchValueLine ctx={ctx4} findOptions={ToolbarMenuEntity.findOptions(token => ({ filterOptions: [token(a => a.elements).any().append(a => a.content).filter("EqualTo", ctx.value)] }))} />

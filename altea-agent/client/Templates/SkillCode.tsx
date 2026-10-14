@@ -33,22 +33,22 @@ export function SkillCodeView(p: { info: SkillCodeInfo }): React.JSX.Element {
     return (
         <div className="skill-code-view">
             {p.info.defaultShortDescription && (
-                <p className="text-muted fst-italic">{p.info.defaultShortDescription}</p>
+                <p className="text-muted-foreground italic">{p.info.defaultShortDescription}</p>
             )}
-            <div className="border rounded p-2 small">
+            <div className="border rounded-md p-2 text-[.875em]">
                 <ChatMarkdown content={p.info.defaultInstructions} />
             </div>
             {p.info.properties.length > 0 && (
                 <div className="mt-2">
-                    <strong className="small">Properties</strong>
-                    <table className="table table-sm table-borderless small mb-1">
+                    <strong className="text-[.875em]">Properties</strong>
+                    <table className="table table-sm table-borderless text-[.875em] mb-1">
                         <tbody>
                             {p.info.properties.map((prop, i) => (
                                 <tr key={i}>
-                                    <td className="fw-semibold text-nowrap">{prop.propertyName}</td>
-                                    <td className="text-muted text-nowrap">{prop.propertyType}</td>
-                                    <td>{prop.defaultValue ?? <span className="text-muted fst-italic">null</span>}</td>
-                                    {prop.valueHint && <td className="text-muted fst-italic">{prop.valueHint}</td>}
+                                    <td className="font-semibold text-nowrap">{prop.propertyName}</td>
+                                    <td className="text-muted-foreground text-nowrap">{prop.propertyType}</td>
+                                    <td>{prop.defaultValue ?? <span className="text-muted-foreground italic">null</span>}</td>
+                                    {prop.valueHint && <td className="text-muted-foreground italic">{prop.valueHint}</td>}
                                 </tr>
                             ))}
                         </tbody>
@@ -58,13 +58,13 @@ export function SkillCodeView(p: { info: SkillCodeInfo }): React.JSX.Element {
             <ToolsView tools={p.info.tools} />
             {p.info.subSkills.length > 0 && (
                 <div className="mt-2">
-                    <strong className="small d-block mb-1">Sub Skills</strong>
-                    <table className="table table-sm table-borderless small mb-0">
+                    <strong className="text-[.875em] block mb-1">Sub Skills</strong>
+                    <table className="table table-sm table-borderless text-[.875em] mb-0">
                         <tbody>
                             {p.info.subSkills.map((ss, i) => (
                                 <tr key={i}>
                                     <td className="text-nowrap pe-2"><SubSkillLink subSkill={ss} /></td>
-                                    <td className="text-muted text-nowrap">{Enum.niceName(SkillActivation, ss.activation)}</td>
+                                    <td className="text-muted-foreground text-nowrap">{Enum.niceName(SkillActivation, ss.activation)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -81,20 +81,20 @@ export function ToolsView(p: { tools: ToolInfo[] }): React.JSX.Element | null {
 
     return (
         <div className="mt-2">
-            <strong className="small">Tools</strong>
+            <strong className="text-[.875em]">Tools</strong>
             {p.tools.map((tool, i) => (
-                <div key={i} className="border rounded px-2 py-1 mb-1 small font-monospace">
-                    <span className="fw-semibold text-primary">{tool.mcpName}</span>
-                    <span className="text-muted">(</span>
+                <div key={i} className="border rounded-md px-2 py-1 mb-1 text-[.875em] font-mono">
+                    <span className="font-semibold text-primary">{tool.mcpName}</span>
+                    <span className="text-muted-foreground">(</span>
                     {tool.parameters.map((param, j) => (
                         <span key={j}>
-                            {j > 0 && <span className="text-muted">, </span>}
-                            <span className={param.isRequired ? "" : "text-muted"}>{param.name}</span>
-                            <span className="text-muted">: {param.type}</span>
+                            {j > 0 && <span className="text-muted-foreground">, </span>}
+                            <span className={param.isRequired ? "" : "text-muted-foreground"}>{param.name}</span>
+                            <span className="text-muted-foreground">: {param.type}</span>
                         </span>
                     ))}
-                    <span className="text-muted">): {tool.returnType}</span>
-                    {tool.description && <div className="text-muted fst-italic fw-normal">{tool.description}</div>}
+                    <span className="text-muted-foreground">): {tool.returnType}</span>
+                    {tool.description && <div className="text-muted-foreground italic font-normal">{tool.description}</div>}
                 </div>
             ))}
         </div>
@@ -103,7 +103,7 @@ export function ToolsView(p: { tools: ToolInfo[] }): React.JSX.Element | null {
 
 function SubSkillLink(p: { subSkill: SubSkillInfo }): React.JSX.Element {
     return (
-        <a href="#" className="text-decoration-none"
+        <a href="#" className="no-underline"
             onClick={e => { e.preventDefault(); void SubSkillModal.show(p.subSkill); }}>
             {p.subSkill.className}
         </a>

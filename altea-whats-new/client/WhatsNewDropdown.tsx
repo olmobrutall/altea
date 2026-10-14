@@ -101,7 +101,7 @@ function WhatsNewDropdownImp(): React.JSX.Element {
                 <FontAwesomeIcon aria-hidden={true} icon="bullhorn"
                     className={classes("sf-newspaper", isOpen && "open", countResult && countResult.numWhatsNews > 0 && "active")} />
                 {countResult && countResult.numWhatsNews > 0 &&
-                    <span className="badge bg-danger badge-pill sf-news-badge">{countResult.numWhatsNews}</span>}
+                    <span className="badge bg-destructive badge-pill sf-news-badge">{countResult.numWhatsNews}</span>}
             </button>
             {isOpen && <div className="sf-news-toasts mt-2" ref={divRef}
                 style={{ backdropFilter: "blur(10px)", transition: "transform .4s ease" }}>

@@ -120,7 +120,7 @@ export function EntityStrip<R extends BaseEntity>(props: EntityStripProps<R>): R
           <>
             {c.getMListItemContext(p.ctx).groupBy(a => p.groupElementsBy!(a.value)).map((gr, i) =>
               <div className={classes("mb-2")} key={i} >
-                <small className="text-muted">{p.renderGroupTitle != undefined ? p.renderGroupTitle(gr.key, i) : gr.key}</small>
+                <small className="text-muted-foreground">{p.renderGroupTitle != undefined ? p.renderGroupTitle(gr.key, i) : gr.key}</small>
                 <ul className={classes("sf-strip", p.vertical ? "sf-strip-vertical" : "sf-strip-horizontal", p.ctx.labelClass)}>
                   {gr.elements.map((mlec, i) => renderElement(mlec, i))}
                 </ul>
@@ -314,11 +314,11 @@ export function EntityStripElement<R extends BaseEntity>(p: EntityStripElementPr
         {hasIcon && p.iconStart && <span style={{ marginRight: "5px", whiteSpace: "nowrap" }}>{removeIcon()}&nbsp;{dragIcon()}{p.move?.renderMoveUp()}{p.move?.renderMoveDown()}</span>}
         {
           p.onView ?
-            <a href={url} className={classes("sf-strip-link", htmlAttributes?.className ?? "text-body")} onClick={p.onView} {...htmlAttributes}>
+            <a href={url} className={classes("sf-strip-link", htmlAttributes?.className ?? "text-foreground")} onClick={p.onView} {...htmlAttributes}>
               {toStr}
             </a>
             :
-            <span className={classes("sf-strip-link", htmlAttributes?.className ?? "text-body")} {...htmlAttributes}>
+            <span className={classes("sf-strip-link", htmlAttributes?.className ?? "text-foreground")} {...htmlAttributes}>
               {toStr}
             </span>
         }

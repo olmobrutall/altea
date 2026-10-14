@@ -115,15 +115,15 @@ export default function CombinedUserChartPart(p: PanelPartContentProps<CombinedU
 
     function renderError(e: unknown, key: number): React.JSX.Element {
         if (e instanceof ServiceError)
-            return <div key={key}>{e.httpError.exceptionMessage && <p className="text-danger">{e.httpError.exceptionMessage}</p>}</div>;
+            return <div key={key}>{e.httpError.exceptionMessage && <p className="text-destructive">{e.httpError.exceptionMessage}</p>}</div>;
 
-        return <p className="text-danger" key={key}>{(e as Error)?.message ?? String(e)}</p>;
+        return <p className="text-destructive" key={key}>{(e as Error)?.message ?? String(e)}</p>;
     }
 
     if (infos.some(a => a.error != null)) {
         return (
             <div>
-                <h1 className="h4">Error!</h1>
+                <h1 className="text-h4 font-medium">Error!</h1>
                 {infos.filter(m => m.error != null).map((m, i) => renderError(m.error, i))}
             </div>
         );

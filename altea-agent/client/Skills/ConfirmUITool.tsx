@@ -27,7 +27,7 @@ function ConfirmWidget(p: {
             <div className="chat-bubble bot">
                 <strong>{p.payload.title}</strong>
                 <p className="mb-2"><ChatMarkdown content={p.payload.message} /></p>
-                <div className="d-flex gap-2 flex-wrap">
+                <div className="flex gap-2 flex-wrap">
                     {p.payload.buttons.map(label => (
                         <button key={label} type="button"
                             className={`btn btn-sm ${answeredLabel === label ? "btn-primary" : "btn-outline-primary"}`}

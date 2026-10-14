@@ -193,7 +193,7 @@ function SearchModal(p: SearchModalProps): React.ReactElement {
         </LinkButton>
         {p.message && <>
           <br />
-          <small className="sf-type-nice-name text-muted"> {p.message}</small>
+          <small className="sf-type-nice-name text-muted-foreground"> {p.message}</small>
         </>
         }
       </ModalHeaderButtons>

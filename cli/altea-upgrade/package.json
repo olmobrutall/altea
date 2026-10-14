@@ -19,6 +19,7 @@
   "author": "Olmo del Corral",
   "license": "MIT",
   "dependencies": {
-    "@altea/altea-cli-utils": "workspace:*"
+    "@altea/altea-cli-utils": "workspace:*",
+    "typescript": "^6.0.3"
   }
 }

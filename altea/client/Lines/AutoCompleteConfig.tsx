@@ -455,7 +455,7 @@ export function TypeBadge(p: { entity: Lite<Entity> | BaseEntity }): React.React
   });
 
   if (niceName == null)
-    return <span className="text-danger">Embedded?</span>;
+    return <span className="text-destructive">Embedded?</span>;
 
   return <span ref={ref} className="sf-type-badge ms-1" aria-hidden={repeated ? true : undefined}>{niceName}</span>;
 }

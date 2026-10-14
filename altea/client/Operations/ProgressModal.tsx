@@ -79,7 +79,7 @@ export function ProgressModal<T>(p: ProgressModalProps<T>): React.ReactElement {
   return (
     <Modal show={show} className="message-modal" backdrop="static" onExited={handleOnExited} aria-labelledby={titleId}>
       <div className="modal-header">
-        <h1 id={titleId} className="modal-title h5">{p.options.title}</h1>
+        <h1 id={titleId} className="modal-title text-h5 font-medium">{p.options.title}</h1>
         <button type="button" className="btn-close" data-dismiss="modal" aria-label={EntityControlMessage.Close.niceToString()} onClick={handleCancelClicked} />
       </div>
       <div className="modal-body">
@@ -96,7 +96,7 @@ export function ProgressModal<T>(p: ProgressModalProps<T>): React.ReactElement {
       </div>
       {p.options.showCloseWarningMessage &&
         <div className="modal-footer">
-          <small className="text-muted">{OperationMessage.ClosingThisModalOrBrowserTabWillCancelTheOperation.niceToString()}</small>
+          <small className="text-muted-foreground">{OperationMessage.ClosingThisModalOrBrowserTabWillCancelTheOperation.niceToString()}</small>
           <button type="button" className="btn btn-tertiary sf-entity-button sf-close-button" onClick={handleCancelClicked}>
             {JavascriptMessage.cancel.niceToString()}
           </button>

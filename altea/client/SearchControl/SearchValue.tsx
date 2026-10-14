@@ -296,10 +296,10 @@ function SearchValue(p: SearchValueProps): React.ReactNode | null {
 
       p.isBadge == false ? "" :
         "badge badge-pill " +
-        (p.isBadge == "MoreThanZero" && (value == 0 || value == null) ? "text-bg-tertiary":
+        (p.isBadge == "MoreThanZero" && (value == 0 || value == null) ? "bg-tertiary text-tertiary-foreground":
           p.badgeColor && typeof p.badgeColor == "function" ? "text-bg-" + p.badgeColor(value) :
             p.badgeColor ? "text-bg-" + p.badgeColor :
-              "text-bg-secondary"),
+              "bg-secondary text-secondary-foreground"),
 
       p.customClass && typeof p.customClass == "function" ? p.customClass(value) : p.customClass
     );

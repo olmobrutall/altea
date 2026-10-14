@@ -94,8 +94,8 @@ export function Workflow(p: WorkflowProps): React.JSX.Element {
 
         return (
             <div>
-                <span className="display-7">{WorkflowMessage.WorkflowIssues.niceToString()}&nbsp;</span>
-                {errorCount > 0 && <FontAwesomeIcon icon="circle-xmark" className="text-danger me-1" />}
+                <span className="text-display-7 font-light">{WorkflowMessage.WorkflowIssues.niceToString()}&nbsp;</span>
+                {errorCount > 0 && <FontAwesomeIcon icon="circle-xmark" className="text-destructive me-1" />}
                 {errorCount > 0 && errorCount}
                 {warningCount > 0 && <FontAwesomeIcon icon="triangle-exclamation" className="text-warning me-1" />}
                 {warningCount > 0 && warningCount}
@@ -125,7 +125,7 @@ export function Workflow(p: WorkflowProps): React.JSX.Element {
                         : issues.orderBy(a => a.type).map((issue, i) =>
                             <li key={i}>
                                 {issue.type === WorkflowIssueType.Error
-                                    ? <FontAwesomeIcon icon="circle-xmark" className="text-danger me-1" />
+                                    ? <FontAwesomeIcon icon="circle-xmark" className="text-destructive me-1" />
                                     : <FontAwesomeIcon icon="triangle-exclamation" className="text-warning me-1" />}
 
                                 {issue.bpmnElementId && <span className="me-1">(in <LinkButton title={undefined}
@@ -158,7 +158,7 @@ export function Workflow(p: WorkflowProps): React.JSX.Element {
     return (
         <div>
             <CollapsableCard
-                header={<span className="display-7">{WorkflowMessage.WorkflowProperties.niceToString()}</span>}
+                header={<span className="text-display-7 font-light">{WorkflowMessage.WorkflowProperties.niceToString()}</span>}
                 cardStyle={{ background: "info" }}
                 headerStyle={{ text: "light" }}
                 bodyStyle={{ background: "light" }}

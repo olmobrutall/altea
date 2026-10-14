@@ -39,7 +39,7 @@ export default function ChatbotLanguageModel(p: { ctx: TypeContext<ChatbotLangua
                 </div>
                 <div className="col-sm-6">
                     <fieldset className="mt-0">
-                        <legend className="fs-6 fw-semibold">Pricing</legend>
+                        <legend className="text-(length:--text-h6) font-semibold">Pricing</legend>
                         <AutoLine ctx={ctx6.subCtx(n => n.pricePerInputToken)} />
                         <AutoLine ctx={ctx6.subCtx(n => n.pricePerCachedInputToken)} />
                         <AutoLine ctx={ctx6.subCtx(n => n.pricePerOutputToken)} />

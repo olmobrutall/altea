@@ -36,7 +36,7 @@ export function ImageModal(p: ImageModalProps): React.JSX.Element {
         <Modal onHide={() => setShow(false)} show={show} className="message-modal" size="xl"
             onExited={() => p.onExited!(undefined)} aria-labelledby={titleId}>
             <div className="modal-header">
-                <h1 id={titleId} className="modal-title h4">
+                <h1 id={titleId} className="modal-title text-h4 font-medium">
                     {p.title ?? p.file.fileName}
                 </h1>
                 <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()}

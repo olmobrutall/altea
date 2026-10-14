@@ -146,8 +146,8 @@ function ValueOrExpression(props: { rvc: RenderValueContext; ffc: Finder.FilterF
     );
 
     return (
-        <div className="d-flex align-items-center gap-1">
-            <div className="flex-grow-1">
+        <div className="flex items-center gap-1">
+            <div className="grow">
                 {expression
                     ? <input type="text" className={"form-control form-control-xs" + (error != null ? " is-invalid" : "")}
                         readOnly={rvc.readonly}
@@ -155,7 +155,7 @@ function ValueOrExpression(props: { rvc: RenderValueContext; ffc: Finder.FilterF
                         value={(f.value as string | null) ?? ""}
                         onChange={e => { f.value = e.currentTarget.value; forceUpdate(); rvc.handleValueChange(); }} />
                     : Finder.renderFilterValue(f, ffc)}
-                {error != null && <div className="invalid-feedback d-block">{error}</div>}
+                {error != null && <div className="invalid-feedback block">{error}</div>}
             </div>
             {toggleButton}
         </div>

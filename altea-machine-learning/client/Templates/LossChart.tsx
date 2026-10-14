@@ -26,7 +26,7 @@ export function LossChart(p: { rows: EpochProgressRow[]; height?: number }): Rea
     const pad = { top: 12, right: 12, bottom: 28, left: 48 };
 
     if (p.rows.length === 0)
-        return <div className="text-muted small">No epochs recorded yet.</div>;
+        return <div className="text-muted-foreground text-[.875em]">No epochs recorded yet.</div>;
 
     const epochs = p.rows.map(r => r[2]);
     const series: Series[] = [
@@ -87,7 +87,7 @@ export function LossChart(p: { rows: EpochProgressRow[]; height?: number }): Rea
                 ))}
             </svg>
 
-            <div className="d-flex flex-wrap gap-3 small">
+            <div className="flex flex-wrap gap-4 text-[.875em]">
                 {series.map(s => (
                     <span key={s.label}>
                         <span style={{

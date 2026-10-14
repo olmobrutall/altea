@@ -142,8 +142,8 @@ function Notify(): React.ReactElement {
           </span>
         )}
       </div>
-      <span className="visually-hidden" role="status">{isError ? null : liveText}</span>
-      <span className="visually-hidden" role="alert">{isError ? liveText : null}</span>
+      <span className="sr-only" role="status">{isError ? null : liveText}</span>
+      <span className="sr-only" role="alert">{isError ? liveText : null}</span>
     </div>
   );
 }

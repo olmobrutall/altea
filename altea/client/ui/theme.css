@@ -1,0 +1,193 @@
+/* altea's Tailwind theme. An application's ONE Tailwind entry imports this and adds an `@source` for its
+   own code — two entries would each emit every utility. See Tailwind-Plan.md. */
+
+/* `legacy` holds Bootstrap and every stylesheet not yet written for Tailwind (the build wraps them; see
+   vite.mjs), so anything Tailwind- or `sf-`-styled wins over it whatever the specificity. An APPLICATION's
+   own unlayered CSS beats every layer: that is how an app restyles the framework. */
+@layer legacy, theme, base, components, utilities;
+
+/* No preflight while Bootstrap's reboot is loaded — two resets fight. */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@source "../../../*/client/**/*.{ts,tsx}";
+
+/* Bootstrap COMPONENT classes that are also Tailwind utilities with another meaning. Tailwind would
+   generate them for every place Bootstrap uses them (`collapse` → visibility: collapse). */
+@source not inline("collapse container table");
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+@theme {
+    --breakpoint-sm: 576px;
+    --breakpoint-md: 768px;
+    --breakpoint-lg: 992px;
+    --breakpoint-xl: 1200px;
+    --breakpoint-2xl: 1400px;
+
+    --text-h1: calc(1.375rem + 1.5vw);
+    --text-h2: calc(1.325rem + .9vw);
+    --text-h3: calc(1.3rem + .6vw);
+    --text-h4: calc(1.275rem + .3vw);
+    --text-h5: 1.25rem;
+    --text-h6: 1rem;
+    --text-display-1: calc(1.625rem + 4.5vw);
+    --text-display-2: calc(1.575rem + 3.9vw);
+    --text-display-3: calc(1.525rem + 3.3vw);
+    --text-display-4: calc(1.475rem + 2.7vw);
+    --text-display-5: calc(1.425rem + 2.1vw);
+    --text-display-6: calc(1.375rem + 1.5vw);
+    --text-display-7: 1.5rem;
+
+    /* The three steps the class map translates Bootstrap's shadow-sm / shadow / shadow-lg to. */
+    --shadow-xs: 0 .125rem .25rem rgb(0 0 0 / .075);
+    --shadow-md: 0 .5rem 1rem rgb(0 0 0 / .15);
+    --shadow-xl: 0 1rem 3rem rgb(0 0 0 / .175);
+
+    --text-h1--line-height: 1.2;
+    --text-h2--line-height: 1.2;
+    --text-h3--line-height: 1.2;
+    --text-h4--line-height: 1.2;
+    --text-h5--line-height: 1.2;
+    --text-h6--line-height: 1.2;
+    --text-display-1--line-height: 1.2;
+    --text-display-2--line-height: 1.2;
+    --text-display-3--line-height: 1.2;
+    --text-display-4--line-height: 1.2;
+    --text-display-5--line-height: 1.2;
+    --text-display-6--line-height: 1.2;
+    --text-display-7--line-height: 1.2;
+}
+
+@media (min-width: 1200px) {
+    :root {
+        --text-h1: 2.5rem;
+        --text-h2: 2rem;
+        --text-h3: 1.75rem;
+        --text-h4: 1.5rem;
+        --text-display-1: 5rem;
+        --text-display-2: 4.5rem;
+        --text-display-3: 4rem;
+        --text-display-4: 3.5rem;
+        --text-display-5: 3rem;
+        --text-display-6: 2.5rem;
+    }
+}
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-tertiary: var(--tertiary);
+    --color-tertiary-foreground: var(--tertiary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-info: var(--info);
+    --color-info-foreground: var(--info-foreground);
+    --color-light: var(--light);
+    --color-light-foreground: var(--light-foreground);
+    --color-dark: var(--dark);
+    --color-dark-foreground: var(--dark-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+}
+
+/* The default palette: Bootstrap 5.3's own colours, so nothing changes until a palette is picked.
+   A palette is a `[data-palette=<name>]` block redefining these, per mode. */
+:root,
+[data-theme=light] {
+    --background: #fff;
+    --foreground: #212529;
+    --card: #fff;
+    --card-foreground: #212529;
+    --popover: #fff;
+    --popover-foreground: #212529;
+    --primary: #0d6efd;
+    --primary-foreground: #fff;
+    --secondary: #6c757d;
+    --secondary-foreground: #fff;
+    --tertiary: #f8f9fa;
+    --tertiary-foreground: #212529;
+    --muted: #e9ecef;
+    --muted-foreground: rgb(33 37 41 / .75);
+    --accent: #e9ecef;
+    --accent-foreground: #212529;
+    --destructive: #dc3545;
+    --destructive-foreground: #fff;
+    --success: #198754;
+    --success-foreground: #fff;
+    --warning: #ffc107;
+    --warning-foreground: #000;
+    --info: #0dcaf0;
+    --info-foreground: #000;
+    --light: #f8f9fa;
+    --light-foreground: #000;
+    --dark: #212529;
+    --dark-foreground: #fff;
+    --border: #dee2e6;
+    --input: #dee2e6;
+    --ring: rgb(13 110 253 / .25);
+}
+
+[data-theme=dark] {
+    color-scheme: dark;
+    --background: #212529;
+    --foreground: #dee2e6;
+    --card: #212529;
+    --card-foreground: #dee2e6;
+    --popover: #212529;
+    --popover-foreground: #dee2e6;
+    --secondary: #6c757d;
+    --secondary-foreground: #fff;
+    --tertiary: #2b3035;
+    --tertiary-foreground: #dee2e6;
+    --muted: #343a40;
+    --muted-foreground: rgb(222 226 230 / .75);
+    --accent: #343a40;
+    --accent-foreground: #dee2e6;
+    --border: #495057;
+    --input: #495057;
+}
+
+@layer legacy {
+    *, ::before, ::after {
+        border-color: var(--border);
+    }
+}
+
+/* Bootstrap reads these, and so do stylesheets not yet migrated: pointing them at the tokens is what gives
+   migrated and unmigrated parts one palette. Bootstrap's `-rgb` triplets cannot be derived from a colour
+   and stay Bootstrap's until it is gone. */
+@layer base {
+    :root,
+    [data-theme] {
+        --bs-body-bg: var(--background);
+        --bs-body-color: var(--foreground);
+        --bs-border-color: var(--border);
+        --bs-secondary-bg: var(--muted);
+        --bs-tertiary-bg: var(--tertiary);
+        --bs-secondary-color: var(--muted-foreground);
+        --bs-primary: var(--primary);
+        --bs-secondary: var(--secondary);
+        --bs-success: var(--success);
+        --bs-danger: var(--destructive);
+        --bs-warning: var(--warning);
+        --bs-info: var(--info);
+    }
+}

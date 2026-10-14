@@ -73,7 +73,7 @@ export default function TourStep(p: {
     return (
         <div>
             <AutoLine ctx={sc.subCtx(a => a.title)} onChange={p.invalidate} />
-            <div className="mt-3">
+            <div className="mt-4">
                 <FormGroup ctx={ctx} label={TourMessage.FinalCSSSelector.niceToString()}>
                     {id => <>
                         <div className="mb-2">
@@ -107,7 +107,7 @@ export default function TourStep(p: {
                 </FormGroup>
             </div>
 
-            <div className="row mt-4 mb-2">
+            <div className="row mt-6 mb-2">
                 <div className="col-sm-10 offset-sm-2">
                     <div className="row">
                         <div className="col-sm-4">
@@ -133,7 +133,7 @@ export default function TourStep(p: {
         switch (cctx.value.type) {
             case CssStepType.CSSSelector:
                 return <TextBoxLine ctx={cctx.subCtx(a => a.cssSelector)} onChange={forceUpdate}
-                    valueHtmlAttributes={{ className: "font-monospace", placeholder: "#someId div.some-class" }} />;
+                    valueHtmlAttributes={{ className: "font-mono", placeholder: "#someId div.some-class" }} />;
 
             case CssStepType.Property:
                 return p.rootType == null ? null

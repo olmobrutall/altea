@@ -81,7 +81,7 @@ export function renderContextualItems(ctx: ContextualItemsContext<Entity>): Prom
 
       if ("error" in block) {
         items.push(
-          <Dropdown className="text-danger" onClick={() => console.error(block.error)}>
+          <Dropdown className="text-destructive" onClick={() => console.error(block.error)}>
             Error in {block.func.name}
           </Dropdown >
         );

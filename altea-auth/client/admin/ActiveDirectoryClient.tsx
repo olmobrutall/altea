@@ -133,7 +133,7 @@ export namespace ActiveDirectoryClient {
                     buttonDisplay: u => <div style={{ display: "flex", flexDirection: "column" }}>
                         <strong>{u.displayName}</strong>
                         <pre className="mb-0">{u.upn}</pre>
-                        {u.jobTitle && <span className="text-muted">{u.jobTitle}</span>}
+                        {u.jobTitle && <span className="text-muted-foreground">{u.jobTitle}</span>}
                     </div>,
                 })
                     .then(eu => eu ? API.createADUser(eu) : undefined);

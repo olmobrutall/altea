@@ -58,7 +58,7 @@ const ErrorModal: {
       {/* The header carried role="dialog" of its own, so a single dialog reported the role twice and the
           inner one wrapped only the heading. The <Modal> above is the dialog; this is just its header. */}
       <div className="modal-header dialog-header-error">
-        <h1 className="modal-title h5" id={titleId}>
+        <h1 className="modal-title text-h5 font-medium" id={titleId}>
           {
             se ? renderServiceTitle(se) :
               ve ? renderValidationTitle(ve) :
@@ -271,7 +271,7 @@ ErrorModal.showErrorModal = (error: any, beforeOkClicked?: ()=> Promise<void>): 
 function textDanger(message: string | null | undefined): React.ReactNode {
 
   if (typeof message == "string")
-    return message.split("\n").map((s, i) => <p key={i} className="text-danger">{s}</p>);
+    return message.split("\n").map((s, i) => <p key={i} className="text-destructive">{s}</p>);
 
   return message;
 }

@@ -326,7 +326,7 @@ export function DynamicViewNode(p: DynamicViewNodeProps): React.JSX.Element {
 
     const selected = sn != null && dn.node === sn.node;
     const className = classes("tree-label", selected && "tree-selected", error && "tree-error",
-        error ? "text-bg-danger" : selected && "text-bg-primary");
+        error ? "bg-destructive text-destructive-foreground" : selected && "bg-primary text-primary-foreground");
 
     return (
         <li>

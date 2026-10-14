@@ -124,8 +124,8 @@ export function WebConsoleView(p: WebConsoleViewProps): React.ReactElement {
             {current != null && status.kind == "running" &&
                 <QuestionForm key={current.id} question={current} onAnswer={(v, echo) => answer(current, v, echo)} />}
 
-            <div className="sf-web-console-status d-flex align-items-center gap-2">
-                {status.kind == "connecting" && <span className="text-muted">{WebConsoleMessage.Connecting.niceToString()}</span>}
+            <div className="sf-web-console-status flex items-center gap-2">
+                {status.kind == "connecting" && <span className="text-muted-foreground">{WebConsoleMessage.Connecting.niceToString()}</span>}
                 {status.kind == "running" && <>
                     <span className="spinner-border spinner-border-sm" role="status" />
                     <span>{current != null ? WebConsoleMessage.WaitingForAnswer.niceToString() : WebConsoleMessage.Running.niceToString()}</span>
@@ -134,7 +134,7 @@ export function WebConsoleView(p: WebConsoleViewProps): React.ReactElement {
                     </button>
                 </>}
                 {status.kind == "finished" && <span className="text-success">{WebConsoleMessage.Finished.niceToString()}</span>}
-                {status.kind == "failed" && <span className="text-danger">{WebConsoleMessage.Failed.niceToString()}: {status.message}</span>}
+                {status.kind == "failed" && <span className="text-destructive">{WebConsoleMessage.Failed.niceToString()}: {status.message}</span>}
             </div>
         </div>
     );
@@ -159,19 +159,19 @@ function QuestionForm(p: { question: WebConsoleQuestion; onAnswer: (value: WebCo
 
     return (
         <div className="sf-web-console-question">
-            <div className="fw-semibold mb-2" style={{ whiteSpace: "pre-wrap" }}>{q.question}</div>
+            <div className="font-semibold mb-2" style={{ whiteSpace: "pre-wrap" }}>{q.question}</div>
             {(() => {
                 switch (q.kind) {
                     case "yesNo":
                         return (
-                            <div className="d-flex gap-2">
+                            <div className="flex gap-2">
                                 <button type="button" className="btn btn-sm btn-primary" onClick={() => p.onAnswer(true, yes)}>{yes}</button>
                                 <button type="button" className="btn btn-sm btn-secondary" autoFocus onClick={() => p.onAnswer(false, no)}>{no}</button>
                             </div>
                         );
                     case "yesNoAlways":
                         return (
-                            <div className="d-flex gap-2 align-items-center">
+                            <div className="flex gap-2 items-center">
                                 <button type="button" className={q.defaultYes ? "btn btn-sm btn-primary" : "btn btn-sm btn-outline-primary"} autoFocus={q.defaultYes}
                                     onClick={() => p.onAnswer({ yes: true, always }, echoAlways(yes))}>{yes}</button>
                                 <button type="button" className={!q.defaultYes ? "btn btn-sm btn-primary" : "btn btn-sm btn-outline-primary"} autoFocus={!q.defaultYes}
@@ -181,7 +181,7 @@ function QuestionForm(p: { question: WebConsoleQuestion; onAnswer: (value: WebCo
                         );
                     case "options":
                         return (
-                            <div className="d-flex gap-2 flex-wrap">
+                            <div className="flex gap-2 flex-wrap">
                                 {q.options.map((o, i) => (
                                     <button key={o} type="button" className={i == 0 ? "btn btn-sm btn-primary" : "btn btn-sm btn-outline-primary"} autoFocus={i == 0}
                                         onClick={() => p.onAnswer(o, o)}>{o}</button>
@@ -190,7 +190,7 @@ function QuestionForm(p: { question: WebConsoleQuestion; onAnswer: (value: WebCo
                         );
                     case "text":
                         return (
-                            <form className="d-flex gap-2" onSubmit={e => { e.preventDefault(); p.onAnswer(text, text); }}>
+                            <form className="flex gap-2" onSubmit={e => { e.preventDefault(); p.onAnswer(text, text); }}>
                                 <input type="text" className="form-control form-control-sm" autoFocus value={text} onChange={e => setText(e.currentTarget.value)} />
                                 <button type="submit" className="btn btn-sm btn-primary">{WebConsoleMessage.Answer.niceToString()}</button>
                             </form>
@@ -206,7 +206,7 @@ function QuestionForm(p: { question: WebConsoleQuestion; onAnswer: (value: WebCo
                                         </button>
                                     ))}
                                     {q.allowNone &&
-                                        <button type="button" className="list-group-item list-group-item-action py-1 text-muted fst-italic"
+                                        <button type="button" className="list-group-item list-group-item-action py-1 text-muted-foreground italic"
                                             onClick={() => p.onAnswer({ value: null, always: q.allowAlways && always }, echoAlways(q.noneLabel ?? "-"))}>
                                             {q.noneLabel ?? "-"}
                                         </button>}

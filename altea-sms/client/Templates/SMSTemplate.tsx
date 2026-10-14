@@ -87,7 +87,7 @@ export function SMSTemplateMessageComponent(p: SMSTemplateMessageComponentProps)
                 <AutoLine ctx={ec.subCtx(a => a.message)} onChange={forceUpdate}
                     formGroupStyle="SrOnly" formGroupHtmlAttributes={{ className: "pt-2" }}
                     helpText={
-                        <span className={remaining == null ? "" : remaining < 0 ? "text-danger" : remaining < 20 ? "text-warning" : "text-success"}>
+                        <span className={remaining == null ? "" : remaining < 0 ? "text-destructive" : remaining < 20 ? "text-warning" : "text-success"}>
                             {SMSTemplateMessage._0CharactersRemainingBeforeReplacements.niceToString(remaining == null ? "…" : String(remaining))}
                         </span>} />
             </div>

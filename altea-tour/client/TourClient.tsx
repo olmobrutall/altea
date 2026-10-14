@@ -67,7 +67,7 @@ export namespace TourClient {
 
             return {
                 button: (
-                    <span className="d-inline-flex align-items-center mx-2">
+                    <span className="inline-flex items-center mx-2">
                         <TourButton trigger={uq} />
                     </span>
                 ),

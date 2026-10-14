@@ -41,7 +41,7 @@ export default function Exception(p: { ctx: TypeContext<ExceptionEntity> }): Rea
       </div>
       <AutoLine ctx={ctx.subCtx(f => f.requestUrl)} />
       <AutoLine ctx={ctx.subCtx(f => f.urlReferer)} />
-      <div className="h3" style={{ color: "rgb(139, 0, 0)" }}>{ctx.value.exceptionType} <small>(HResult = {ctx.value.hResult})</small></div>
+      <div className="text-h3 font-medium" style={{ color: "rgb(139, 0, 0)" }}>{ctx.value.exceptionType} <small>(HResult = {ctx.value.hResult})</small></div>
 
       <pre style={{ whiteSpace: "pre-wrap" }}><code>{ctx.value.exceptionMessage}</code></pre>
 

@@ -119,20 +119,20 @@ export default function ResetPassword(): React.JSX.Element {
                         <h2 className="sf-entity-title">{LoginAuthMessage.ChangePassword.niceToString()}</h2>
                         <p>{LoginAuthMessage.NewPassword.niceToString()}</p>
 
-                        <div className={classes("form-group mb-3", error("newPassword") && "has-error")}>
+                        <div className={classes("form-group mb-4", error("newPassword") && "has-error")}>
                             <input type="password" className="form-control" id="newPassword" ref={newPassword}
                                 autoComplete="new-password" onBlur={validateNewPassword}
                                 placeholder={LoginAuthMessage.EnterTheNewPassword.niceToString()} />
-                            {error("newPassword") && <span className="help-block text-danger">{error("newPassword")}</span>}
+                            {error("newPassword") && <span className="help-block text-destructive">{error("newPassword")}</span>}
                         </div>
-                        <div className={classes("form-group mb-3", error("newPassword2") && "has-error")}>
+                        <div className={classes("form-group mb-4", error("newPassword2") && "has-error")}>
                             <input type="password" className="form-control" id="newPassword2" ref={newPassword2}
                                 autoComplete="new-password" onBlur={validateNewPassword}
                                 placeholder={LoginAuthMessage.ConfirmNewPassword.niceToString()} />
-                            {error("newPassword2") && <span className="help-block text-danger">{error("newPassword2")}</span>}
+                            {error("newPassword2") && <span className="help-block text-destructive">{error("newPassword2")}</span>}
                         </div>
 
-                        <div className="d-flex">
+                        <div className="flex">
                             <button type="submit" className="btn btn-primary" id="changePassword">
                                 {LoginAuthMessage.ChangePassword.niceToString()}
                             </button>

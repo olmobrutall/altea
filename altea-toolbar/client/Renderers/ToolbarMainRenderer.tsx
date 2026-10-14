@@ -78,7 +78,7 @@ function ToolbarIconButton({ tr }: { tr: ToolbarResponse<any> }): React.JSX.Elem
             <LinkButton
                 title={undefined} onClick={e => { ToolbarMainModal.show(tr); }}>
                 <div className="card toolbar-card">
-                    <div className="card-img-top" style={{ fontSize: "60px" }}>
+                    <div className="rounded-t-md w-full" style={{ fontSize: "60px" }}>
                         {ToolbarConfig.coloredIcon(parseIcon(tr.iconName), tr.iconColor)}
                     </div>
                     <div className="card-body">
@@ -95,7 +95,7 @@ function ToolbarIconButton({ tr }: { tr: ToolbarResponse<any> }): React.JSX.Elem
             <LinkButton
                 title={undefined} onMouseDown={e => { AppContext.pushOrOpenInTab(tr.url!, e); }}>
                 <div className="card toolbar-card">
-                    <div className="card-img-top" style={{ fontSize: "60px" }}>
+                    <div className="rounded-t-md w-full" style={{ fontSize: "60px" }}>
                         {ToolbarConfig.coloredIcon(parseIcon(tr.iconName), tr.iconColor)}
                     </div>
                     <div className="card-body">
@@ -112,7 +112,7 @@ function ToolbarIconButton({ tr }: { tr: ToolbarResponse<any> }): React.JSX.Elem
     const config = ToolbarClient.getConfig(tr);
     if (config == null)
         return (
-            <div className="card toolbar-card text-danger">
+            <div className="card toolbar-card text-destructive">
                 {ToolbarMessage.ToolbarConfigNotRegistered0.niceToString(tr.content.entityType.name)}
             </div>
         );
@@ -120,7 +120,7 @@ function ToolbarIconButton({ tr }: { tr: ToolbarResponse<any> }): React.JSX.Elem
     return (
         <LinkButton title={undefined} onMouseDown={e => { config.handleNavigateClick(e, tr, null); }}>
             <div className="card toolbar-card">
-                <div className="card-img-top" style={{ fontSize: "60px" }}>
+                <div className="rounded-t-md w-full" style={{ fontSize: "60px" }}>
                     {config.getIcon(tr, null)}
                 </div>
                 <div className="card-body">

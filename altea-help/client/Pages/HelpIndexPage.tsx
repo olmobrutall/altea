@@ -24,14 +24,14 @@ export default function HelpIndexPage(): React.JSX.Element {
 
     return (
         <div className="container">
-            <h1 className="display-5">
+            <h1 className="text-display-5 font-light">
                 {HelpMessage.Help.niceToString()}
-                {index && <small className="ms-5 text-muted display-7">({index.culture.englishName})</small>}
+                {index && <small className="ms-12 text-muted-foreground text-display-7 font-light">({index.culture.englishName})</small>}
             </h1>
 
             {index && <div>
-                <div className="my-4 ms-4">
-                    <h2 className="display-6">
+                <div className="my-6 ms-6">
+                    <h2 className="text-display-6 font-light">
                         {HelpMessage.Appendices.niceToString()}
                         {Navigator.isCreable(AppendixHelpEntity, { customComponent: true, isSearch: true }) &&
                             <Link to={HelpClient.Urls.appendixUrl(null)} style={{ fontSize: "20px" }}>
@@ -41,16 +41,16 @@ export default function HelpIndexPage(): React.JSX.Element {
                     <ul className="responsive-columns">
                         {index.appendices.map(ap =>
                             <li key={ap.uniqueName}>
-                                <h4 className="display-7">
-                                    <Link to={HelpClient.Urls.appendixUrl(ap.uniqueName)} className="fw-bold">{ap.title}</Link>
+                                <h4 className="text-display-7 font-light">
+                                    <Link to={HelpClient.Urls.appendixUrl(ap.uniqueName)} className="font-bold">{ap.title}</Link>
                                 </h4>
                             </li>)}
                     </ul>
                 </div>
 
                 {index.namespaces.groupBy(a => a.module ?? "—").orderBy(gr => gr.key).map(gr =>
-                    <div key={gr.key} className="my-4 ms-4">
-                        <h2 className="display-6">{gr.key}</h2>
+                    <div key={gr.key} className="my-6 ms-6">
+                        <h2 className="text-display-6 font-light">{gr.key}</h2>
                         <ul className="responsive-columns">
                             {gr.elements.orderBy(a => a.namespace).map(nh => {
                                 // The namespace tail below its module: "@altea/altea-auth/data" → "data".
@@ -59,9 +59,9 @@ export default function HelpIndexPage(): React.JSX.Element {
                                     : undefined;
 
                                 return (
-                                    <li className="mb-4" key={nh.namespace}>
-                                        <h3 className="display-7 h4">
-                                            <Link to={HelpClient.Urls.namespaceUrl(nh.namespace)} className={nh.hasEntity ? "fw-bold" : undefined}>
+                                    <li className="mb-6" key={nh.namespace}>
+                                        <h3 className="text-display-7 font-light">
+                                            <Link to={HelpClient.Urls.namespaceUrl(nh.namespace)} className={nh.hasEntity ? "font-bold" : undefined}>
                                                 {nh.title}
                                             </Link>
                                             {tail && <small> {HelpMessage.In0.niceToString(tail)}</small>}
@@ -69,7 +69,7 @@ export default function HelpIndexPage(): React.JSX.Element {
                                         <ul>
                                             {nh.allowedTypes.map(ei =>
                                                 <li key={ei.cleanName}>
-                                                    <Link to={HelpClient.Urls.typeUrl(ei.cleanName)} className={ei.hasEntity ? "fw-bold" : undefined}>
+                                                    <Link to={HelpClient.Urls.typeUrl(ei.cleanName)} className={ei.hasEntity ? "font-bold" : undefined}>
                                                         {tryGetTypeInfo(ei.cleanName)?.getNiceName() ?? ei.cleanName}
                                                     </Link>
                                                 </li>)}

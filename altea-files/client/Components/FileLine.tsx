@@ -112,7 +112,7 @@ export function FileLine<V extends FilePathEmbedded | FileEmbedded | FileEntity 
                             p.onFileLoaded?.(f);
                         }} />)
                 : (
-                    <div className={classes("d-flex align-items-center", c.getErrorClass())}>
+                    <div className={classes("flex items-center", c.getErrorClass())}>
                         <FileDownloader
                             file={file}
                             containerEntity={c.container()}

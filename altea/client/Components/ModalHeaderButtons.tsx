@@ -39,11 +39,11 @@ export function ModalHeaderButtons(p: ModalHeaderButtonsProps): React.ReactEleme
     <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={p.onClose} />
 
   return (
-    <div className={classes("modal-header align-items-start", p.stickyHeader && "sf-sticky-header")} {...p.htmlAttributes} >
+    <div className={classes("modal-header items-start", p.stickyHeader && "sf-sticky-header")} {...p.htmlAttributes} >
       {p.closeBeforeTitle && close}
       {p.headingInChildren ?
-        <div className="modal-title h4">{p.children}</div> :
-        <h1 className="modal-title h4" id={p.titleId}>
+        <div className="modal-title text-h4 font-medium">{p.children}</div> :
+        <h1 className="modal-title text-h4 font-medium" id={p.titleId}>
           {p.children}
         </h1>}
       {!p.closeBeforeTitle && close}
@@ -70,7 +70,7 @@ export function ModalFooterButtons(p: ModalFooterButtonsProps): React.ReactEleme
       {/* Only when there is something to put in it. Most footers pass no children, which left an empty
           <h1> in every such dialog — a blank entry in the heading list, and one at level 1. */}
       {p.children &&
-        <h1 className="modal-title h4" >
+        <h1 className="modal-title text-h4 font-medium" >
           {p.children}
         </h1>}
       {(p.onCancel || p.onOk) &&

@@ -18,8 +18,20 @@ Every row has a **Kind**:
 | **M** | depends on context — decide by hand | reports |
 | **X** | delete, nothing replaces it | rewrites |
 
-The tables are the codemod's input: keep the four-column shape (`Bootstrap | Replacement | Kind | Notes`),
-one Bootstrap class or pattern per row, replacement classes separated by spaces, components in `<…>`.
+The tables are the codemod's input (`altea-upgrade/tailwind/ClassMap.ts`), so their shape is a format:
+
+- Four columns, `Bootstrap | Replacement | Kind | Notes`. Only tables with that header are read.
+- A cell holds one or more backticked items separated by ` / `; the replacement and kind cells pair with
+  them by position (or hold one item for all). A replacement is space-separated classes, `<Component>`, or
+  `—` for nothing.
+- `{a,b,c}` and `{1..12}` expand; the n-th group of the replacement pairs with the n-th group of the
+  Bootstrap item, alternative by alternative. `{colour}` expands over the colour table, and the
+  replacement names its column with `{token}` or `{text-token}`. A `{bp}` item is skipped — the
+  breakpoint rule below covers it.
+- An item without braces wins over one a pattern expanded to the same class.
+- Where two Bootstrap classes on one element set the same property, Bootstrap's CSS order decided; the
+  codemod keeps that answer. Today one case: `display-*` or `lead` beside `h1`…`h6` (Signum's
+  `display-6 h2`) is a display size, so the heading class is dropped.
 
 **Why S and not U for some rows.** A Bootstrap COMPONENT class (`form-control`, `input-group`, `table`,
 `btn-toolbar`, `form-group`) names a thing an application may want to restyle across every screen. Exploded
@@ -45,33 +57,24 @@ altea's theme sets Tailwind's breakpoints to Bootstrap's widths, so a translated
 did before. Examples: `d-md-none` → `md:hidden`, `text-lg-end` → `lg:text-end`, `mb-sm-0` → `sm:mb-0`,
 `col-md-6` → `md:col-span-6`.
 
-### Spacing scale `{n}`
+## Spacing
 
-Bootstrap's spacer steps are NOT Tailwind's numbers. Always translate through this table — `me-3` is
-`me-4`, not `me-3`.
+Bootstrap's spacer steps are NOT Tailwind's numbers — `me-3` is `me-4`, not `me-3`:
 
-| Bootstrap `{n}` | 0 | 1 | 2 | 3 | 4 | 5 | auto |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| size | 0 | .25rem | .5rem | 1rem | 1.5rem | 3rem | auto |
-| Tailwind `{n}` | `0` | `1` | `2` | `4` | `6` | `12` | `auto` |
+| Bootstrap step | 0 | 1 | 2 | 3 | 4 | 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| size | 0 | .25rem | .5rem | 1rem | 1.5rem | 3rem |
+| Tailwind step | `0` | `1` | `2` | `4` | `6` | `12` |
 
-Negative margins (`mt-n2`, Bootstrap with `$enable-negative-margins`) → `-mt-2`.
+Sides stay logical (`ms` / `me` / `ps` / `pe`), so RTL keeps working.
 
-### Spacing sides `{s}` — logical, so RTL keeps working
-
-| Bootstrap | Tailwind | | Bootstrap | Tailwind |
-| --- | --- | --- | --- | --- |
-| `m-{n}` | `m-{n}` | | `p-{n}` | `p-{n}` |
-| `mt-{n}` | `mt-{n}` | | `pt-{n}` | `pt-{n}` |
-| `mb-{n}` | `mb-{n}` | | `pb-{n}` | `pb-{n}` |
-| `ms-{n}` | `ms-{n}` | | `ps-{n}` | `ps-{n}` |
-| `me-{n}` | `me-{n}` | | `pe-{n}` | `pe-{n}` |
-| `mx-{n}` | `mx-{n}` | | `px-{n}` | `px-{n}` |
-| `my-{n}` | `my-{n}` | | `py-{n}` | `py-{n}` |
-| `gap-{n}` | `gap-{n}` | | `row-gap-{n}` / `column-gap-{n}` | `gap-y-{n}` / `gap-x-{n}` |
-
-(`{n}` always through the scale above.) **Beware `pe-none` / `pe-auto`** — in Bootstrap that is
-`pointer-events`, not padding-end: see *Interaction*.
+| Bootstrap | Replacement | Kind | Notes |
+| --- | --- | --- | --- |
+| `m{,t,b,s,e,x,y}-{0,1,2,3,4,5,auto}` | `m{,t,b,s,e,x,y}-{0,1,2,4,6,12,auto}` | U | |
+| `m{,t,b,s,e,x,y}-n{1,2,3,4,5}` | `-m{,t,b,s,e,x,y}-{1,2,4,6,12}` | U | negative margins (`$enable-negative-margins`) |
+| `p{,t,b,s,e,x,y}-{0,1,2,3,4,5}` | `p{,t,b,s,e,x,y}-{0,1,2,4,6,12}` | U | `pe-none` / `pe-auto` are NOT padding: see *Interaction* |
+| `gap-{0,1,2,3,4,5}` | `gap-{0,1,2,4,6,12}` | U | |
+| `row-gap-{0,1,2,3,4,5}` / `column-gap-{0,1,2,3,4,5}` | `gap-y-{0,1,2,4,6,12}` / `gap-x-{0,1,2,4,6,12}` | U | |
 
 ## Layout and grid
 
@@ -81,15 +84,15 @@ Negative margins (`mt-n2`, Bootstrap with `$enable-negative-margins`) → `-mt-2
 | `container-fluid` | `w-full px-4` | U | |
 | `container-{bp}` | `sf-container-{bp}` | S | |
 | `row` | `sf-row` | S | 12-column grid with the `--sf-gutter` column gap; a child with no `col-span-*` spans 12 |
-| `row` whose children are all `col` / `col-auto` | `flex flex-wrap gap-x-(--sf-gutter)` | M | equal-width columns are a flex row, not a grid |
+| `row` whose children are all col / col-auto | `flex flex-wrap gap-x-(--sf-gutter)` | M | equal-width columns are a flex row, not a grid |
 | `col-{1..12}` | `col-span-{1..12}` | U | inside `sf-row` |
 | `col-{bp}-{1..12}` | `{bp}:col-span-{1..12}` | U | below `{bp}` it spans 12, as in Bootstrap |
 | `col` | `flex-1 min-w-0` | M | only valid in a flex row (see above) |
 | `col-{bp}` | `{bp}:flex-1 min-w-0` | M | |
 | `col-auto` | `flex-none` | M | in a flex row; in `sf-row` use `col-span-*` or move to flex |
-| `offset-{bp}-{n}` | `{bp}:col-start-{n+1}` | U | |
-| `g-{n}` / `gx-{n}` / `gy-{n}` | `gap-{n}` / `gap-x-{n}` / `gap-y-{n}` | U | on the `sf-row`; drops the negative-margin gutter model |
-| `row-cols-{bp}-{n}` | `{bp}:grid-cols-{n}` | U | the row becomes `grid grid-cols-1 …` |
+| `offset-{1..11}` | `col-start-{2..12}` | U | with a breakpoint: `offset-md-2` → `md:col-start-3` |
+| `g-{0,1,2,3,4,5}` / `gx-{0,1,2,3,4,5}` / `gy-{0,1,2,3,4,5}` | `gap-{0,1,2,4,6,12}` / `gap-x-{0,1,2,4,6,12}` / `gap-y-{0,1,2,4,6,12}` | U | on the `sf-row`; drops the negative-margin gutter model |
+| `row-cols-{1..6}` | `grid-cols-{1..6}` | U | the row becomes a grid |
 | `hstack` | `flex flex-row items-center` | U | |
 | `vstack` | `flex flex-col` | U | |
 | `vr` | `self-stretch w-px bg-border` | U | |
@@ -113,8 +116,8 @@ Negative margins (`mt-n2`, Bootstrap with `$enable-negative-margins`) → `-mt-2
 | `flex-shrink-1` / `flex-shrink-0` | `shrink` / `shrink-0` | U | |
 | `justify-content-{start,end,center,between,around,evenly}` | `justify-{start,end,center,between,around,evenly}` | U | |
 | `align-items-{start,end,center,baseline,stretch}` | `items-{start,end,center,baseline,stretch}` | U | |
-| `align-self-{…}` | `self-{…}` | U | |
-| `align-content-{…}` | `content-{…}` | U | |
+| `align-self-{start,end,center,baseline,stretch,auto}` | `self-{start,end,center,baseline,stretch,auto}` | U | |
+| `align-content-{start,end,center,between,around,stretch}` | `content-{start,end,center,between,around,stretch}` | U | |
 | `align-{baseline,top,middle,bottom,text-top,text-bottom}` | `align-{baseline,top,middle,bottom,text-top,text-bottom}` | U | vertical-align |
 | `order-{0..5}` / `order-first` / `order-last` | `order-{0..5}` / `order-first` / `order-last` | U | |
 | `float-start` / `float-end` / `float-none` | `float-start` / `float-end` / `float-none` | U | logical |
@@ -130,15 +133,15 @@ Negative margins (`mt-n2`, Bootstrap with `$enable-negative-margins`) → `-mt-2
 | `vw-100` / `vh-100` | `w-screen` / `h-screen` | U | |
 | `min-vw-100` / `min-vh-100` | `min-w-screen` / `min-h-screen` | U | |
 | `position-{static,relative,absolute,fixed,sticky}` | `{static,relative,absolute,fixed,sticky}` | U | |
-| `top-{0,50,100}` / `bottom-…` | `top-{0,1/2,full}` / `bottom-…` | U | |
-| `start-{0,50,100}` / `end-…` | `start-{0,1/2,full}` / `end-…` | U | logical |
+| `top-{0,50,100}` / `bottom-{0,50,100}` | `top-{0,1/2,full}` / `bottom-{0,1/2,full}` | U | |
+| `start-{0,50,100}` / `end-{0,50,100}` | `start-{0,1/2,full}` / `end-{0,1/2,full}` | U | logical |
 | `translate-middle` | `-translate-1/2` | U | |
 | `translate-middle-x` / `-y` | `-translate-x-1/2` / `-translate-y-1/2` | U | |
 | `fixed-top` | `fixed inset-x-0 top-0 z-30` | U | |
 | `fixed-bottom` | `fixed inset-x-0 bottom-0 z-30` | U | |
-| `sticky-top` / `sticky-{bp}-top` | `sticky top-0 z-20` / `{bp}:sticky {bp}:top-0 z-20` | U | |
+| `sticky-top` | `sticky top-0 z-20` | U | `sticky-md-top` → `md:sticky md:top-0 md:z-20` |
 | `overflow-{auto,hidden,visible,scroll}` | `overflow-{auto,hidden,visible,scroll}` | U | |
-| `overflow-x-auto` / `overflow-y-auto` | same | U | |
+| `overflow-x-auto` / `overflow-y-auto` | `overflow-x-auto` / `overflow-y-auto` | U | |
 | `object-fit-{contain,cover,fill,none,scale}` | `object-{contain,cover,fill,none,scale-down}` | U | |
 | `ratio ratio-16x9` / `ratio-4x3` / `ratio-1x1` | `aspect-video` / `aspect-4/3` / `aspect-square` | U | |
 | `z-{0,1,2,3}` | `z-{0,10,20,30}` | U | |
@@ -150,11 +153,11 @@ sizes, so these are exact rather than nearest-Tailwind-step.
 
 | Bootstrap | Replacement | Kind | Notes |
 | --- | --- | --- | --- |
-| `h1` … `h6` (as a class) | `text-h1 font-medium leading-tight` … `text-h6 …` | U | the ELEMENTS keep their look via altea's `@layer base` |
-| `fs-1` … `fs-6` | `text-h1` … `text-h6` | U | |
-| `display-1` … `display-6` | `text-display-1 font-light leading-tight` … | U | |
-| `display-7` | `text-display-7 font-light leading-tight` | U | altea's own step |
-| `lead` | `text-xl font-light` | U | |
+| `h{1,2,3,4,5,6}` (as a class) | `text-h{1,2,3,4,5,6} font-medium` | U | the ELEMENTS keep their look via altea's `@layer base` |
+| `fs-{1,2,3,4,5,6}` | `text-(length:--text-h{1,2,3,4,5,6})` | U | size only, like Bootstrap's `fs-*` |
+| `display-{1,2,3,4,5,6}` | `text-display-{1,2,3,4,5,6} font-light` | U | |
+| `display-7` | `text-display-7 font-light` | U | altea's own step |
+| `lead` | `text-[1.25rem] font-light` | U | size only: Bootstrap's `.lead` keeps the inherited line-height |
 | `small` | `text-[.875em]` | U | relative, as in Bootstrap |
 | `fw-bold` / `fw-bolder` | `font-bold` / `font-extrabold` | U | |
 | `fw-semibold` / `fw-medium` | `font-semibold` / `font-medium` | U | |
@@ -167,10 +170,10 @@ sizes, so these are exact rather than nearest-Tailwind-step.
 | `text-truncate` | `truncate` | U | |
 | `text-break` | `break-words` | U | |
 | `text-lowercase` / `text-uppercase` / `text-capitalize` | `lowercase` / `uppercase` / `capitalize` | U | |
-| `text-decoration-none` / `-underline` / `-line-through` | `no-underline` / `underline` / `line-through` | U | |
+| `text-decoration-{none,underline,line-through}` | `{no-underline,underline,line-through}` | U | |
 | `user-select-none` / `user-select-all` | `select-none` / `select-all` | U | |
 | `list-unstyled` | `list-none ps-0` | U | |
-| `list-inline` / `list-inline-item` | `flex flex-wrap gap-2 list-none ps-0` / *(drop)* | U / X | |
+| `list-inline` / `list-inline-item` | `flex flex-wrap gap-2 list-none ps-0` / — | U / X | |
 | `initialism` | `text-[90%] uppercase` | U | |
 | `blockquote` | `sf-blockquote` | S | |
 | `mark` | `bg-warning/30` | U | |
@@ -180,29 +183,32 @@ sizes, so these are exact rather than nearest-Tailwind-step.
 Bootstrap theme colour → altea token. Tokens come from the active palette and mode; never hard-code a
 Tailwind palette colour (`blue-500`) where a token exists.
 
-| Bootstrap colour | Token |
-| --- | --- |
-| `primary` | `primary` |
-| `secondary` | `secondary` (as background) / `muted-foreground` (as text) |
-| `success` | `success` |
-| `danger` | `destructive` |
-| `warning` | `warning` |
-| `info` | `info` |
-| `light` | `muted` |
-| `dark` | `foreground` |
-| `body` | `foreground` (text) / `background` (bg) |
-| `body-secondary` / `body-tertiary` | `muted-foreground` |
-| `body-emphasis` | `foreground` |
-| `white` / `black` | `white` / `black` |
+| Bootstrap colour | `{token}` (background, border) | `{text-token}` (text) |
+| --- | --- | --- |
+| `primary` | `primary` | `primary` |
+| `secondary` | `secondary` | `muted-foreground` |
+| `tertiary` | `tertiary` | `tertiary-foreground` |
+| `success` | `success` | `success` |
+| `danger` | `destructive` | `destructive` |
+| `warning` | `warning` | `warning` |
+| `info` | `info` | `info` |
+| `light` | `light` | `light` |
+| `dark` | `dark` | `dark` |
+| `body` | `background` | `foreground` |
+| `body-secondary` | `muted` | `muted-foreground` |
+| `body-tertiary` | `tertiary` | `muted-foreground` |
+| `body-emphasis` | `background` | `foreground` |
+| `white` | `white` | `white` |
+| `black` | `black` | `black` |
 
 | Bootstrap | Replacement | Kind | Notes |
 | --- | --- | --- | --- |
-| `text-{colour}` | `text-{token}` | U | `text-danger` → `text-destructive` |
+| `text-{colour}` | `text-{text-token}` | U | `text-danger` → `text-destructive` |
 | `text-muted` | `text-muted-foreground` | U | |
 | `text-reset` | `text-inherit` | U | |
-| `text-{colour}-emphasis` | `text-{token}` | U | |
+| `text-{colour}-emphasis` | `text-{text-token}` | U | |
 | `text-opacity-{25,50,75}` | `text-{token}/{25,50,75}` | M | needs the colour of the sibling `text-*` |
-| `bg-{colour}` | `bg-{token}` | U | `bg-light` → `bg-muted` |
+| `bg-{colour}` | `bg-{token}` | U | |
 | `bg-{colour}-subtle` | `bg-{token}/10` | U | |
 | `bg-body` | `bg-background` | U | |
 | `bg-body-secondary` / `bg-body-tertiary` | `bg-muted` | U | |
@@ -210,7 +216,7 @@ Tailwind palette colour (`blue-500`) where a token exists.
 | `bg-opacity-{10,25,50,75}` | `bg-{token}/{10,25,50,75}` | M | |
 | `bg-gradient` | — | X | |
 | `text-bg-{colour}` | `bg-{token} text-{token}-foreground` | U | |
-| `link-{colour}` | `text-{token} hover:underline` | U | |
+| `link-{colour}` | `text-{text-token} hover:underline` | U | |
 | `link-body-emphasis` | `text-foreground hover:underline` | U | |
 
 ## Borders, radius, shadow
@@ -224,13 +230,13 @@ Tailwind v4's `border` defaults to `currentColor`; altea's base layer sets every
 | `border-0` | `border-0` | U | |
 | `border-top` / `border-bottom` | `border-t` / `border-b` | U | |
 | `border-start` / `border-end` | `border-s` / `border-e` | U | logical |
-| `border-{side}-0` | `border-{t,b,s,e}-0` | U | |
-| `border-{1..5}` | `border` / `border-2` / `border-[3px]` / `border-4` / `border-[5px]` | U | width |
+| `border-{top,bottom,start,end}-0` | `border-{t,b,s,e}-0` | U | |
+| `border-{1,2,3,4,5}` | `border{,-2,-[3px],-4,-[5px]}` | U | width |
 | `border-{colour}` | `border-{token}` | U | |
 | `border-{colour}-subtle` | `border-{token}/30` | U | |
 | `rounded` | `rounded-md` | U | .375rem |
 | `rounded-0` | `rounded-none` | U | |
-| `rounded-1` / `-2` / `-3` / `-4` / `-5` | `rounded-sm` / `rounded-md` / `rounded-lg` / `rounded-2xl` / `rounded-4xl` | U | |
+| `rounded-{1,2,3,4,5}` | `rounded-{sm,md,lg,2xl,4xl}` | U | |
 | `rounded-circle` / `rounded-pill` | `rounded-full` | U | |
 | `rounded-{top,bottom,start,end}` | `rounded-{t,b,s,e}-md` | U | logical |
 | `shadow-sm` / `shadow` / `shadow-lg` | `shadow-xs` / `shadow-md` / `shadow-xl` | U | nearest |

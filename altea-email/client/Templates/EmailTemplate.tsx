@@ -66,7 +66,7 @@ export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity>
                     && ctx.value.recipients.length === 0
                     && ctx.value.messages.length === 0} />
 
-            <div className="mb-4">
+            <div className="mb-6">
                 <Tabs id={ctx.prefix + "tabs"}>
                     <Tab eventKey="applicable" title={ctx.niceName(a => a.applicable)}>
                         <EntityDetail ctx={ctx3.subCtx(e => e.applicable)} onChange={forceUpdate}
@@ -80,7 +80,7 @@ export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity>
                             onCreate={() => Promise.resolve(EmailTemplateFromEmbedded.create({}))}
                             getComponent={fctx => <EmailTemplateFrom ctx={fctx} query={ctx.value.query} />} />
 
-                        <h3 className="text-muted h5">{ecXs.niceName(s => s.recipients)}</h3>
+                        <h3 className="text-muted-foreground text-h5 font-medium">{ecXs.niceName(s => s.recipients)}</h3>
                         <EntityRepeater ctx={ecXs.subCtx(s => s.recipients)} avoidFieldSet onChange={forceUpdate}
                             onCreate={() => Promise.resolve(EmailTemplateEntity_Recipient.create({}))}
                             getComponent={rctx => <EmailTemplateRecipient ctx={rctx} query={ctx.value.query} />} />
@@ -128,7 +128,7 @@ export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity>
                 </Tabs>
             </div>
 
-            <div className="row mb-3">
+            <div className="row mb-4">
                 <div className="col-sm-6">
                     <AutoLine ctx={ctx3.subCtx(e => e.messageFormat, { labelColumns: 4 })} onChange={forceUpdate} />
                 </div>
@@ -216,7 +216,7 @@ function AddressBody(p: {
     return (
         <>
             {sc.value.addressSource === EmailAddressSource.QueryToken && (p.query == null
-                ? <p className="text-danger">{ValidationMessage._0IsNotSet.niceToString(nicePropertyNameOf("query"))}</p>
+                ? <p className="text-destructive">{ValidationMessage._0IsNotSet.niceToString(nicePropertyNameOf("query"))}</p>
                 : <div>
                     <QueryTokenEmbeddedBuilder
                         ctx={sc.subCtx(a => a.token)}

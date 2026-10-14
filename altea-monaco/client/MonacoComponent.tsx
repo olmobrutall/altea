@@ -506,7 +506,7 @@ const MARKER_OWNER = "altea";
  * altea-codemirror's hook of the same name reads only <body>, and so is always light.
  */
 function isDarkTheme(): boolean {
-    return (document.documentElement.dataset.bsTheme ?? document.body.dataset.bsTheme) === "dark";
+    return (document.documentElement.dataset.theme ?? document.documentElement.dataset.bsTheme ?? document.body.dataset.bsTheme) === "dark";
 }
 
 /** Re-rendered whenever that theme changes. */
@@ -518,7 +518,7 @@ export function useBootstrapTheme(): boolean {
         // Bootstrap 5 puts the attribute on <html>; a per-section override puts it on an element below.
         // Both are watched, because either is where the app may have set it.
         for (const target of [document.documentElement, document.body])
-            observer.observe(target, { attributes: true, attributeFilter: ["data-bs-theme"] });
+            observer.observe(target, { attributes: true, attributeFilter: ["data-theme", "data-bs-theme"] });
         return () => observer.disconnect();
     }, []);
 

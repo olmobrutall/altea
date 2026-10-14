@@ -391,8 +391,8 @@ export default function ChatbotModal(p: { onClose: () => void }): React.ReactEle
 
     return (
         <div className="chat-modal">
-            <div className="d-flex justify-content-between p-2 border-bottom">
-                <div className="d-flex gap-2">
+            <div className="flex justify-between p-2 border-b">
+                <div className="flex gap-2">
                     <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleOpenSession}>
                         {ChatbotMessage.OpenSession.niceToString()}
                     </button>
@@ -404,13 +404,13 @@ export default function ChatbotModal(p: { onClose: () => void }): React.ReactEle
                 <button type="button" className="btn-close" aria-label="Close" onClick={p.onClose} />
             </div>
 
-            <h4 className="px-3 pt-2">
+            <h4 className="px-4 pt-2">
                 <React.Suspense fallback={null}>
                     {currentSessionRef.current && ChatbotClient.Options.renderMarkdown(currentSessionRef.current.toString())}
                 </React.Suspense>
             </h4>
 
-            <div className="chat-history flex-grow-1 p-3 pt-0" ref={scrollRef}>
+            <div className="chat-history grow p-4 pt-0" ref={scrollRef}>
                 {messagesRef.current?.map((a, i) =>
                     <Message key={a.msg.id ?? `live-${i}`} msg={a.msg} toolResponses={a.toolResponses}
                         sendToolResponse={sendToolResponseInteractive} />)}
@@ -419,14 +419,14 @@ export default function ChatbotModal(p: { onClose: () => void }): React.ReactEle
             </div>
 
             {showRecoverBar ? (
-                <div className="alert alert-warning d-flex align-items-center justify-content-between m-2 mb-2">
+                <div className="alert alert-warning flex items-center justify-between m-2 mb-2">
                     <span>{ChatbotMessage.SessionInterruptedDoYouWantToRecover.niceToString()}</span>
-                    <button type="button" className="btn btn-warning btn-sm ms-3" onClick={handleRecover} disabled={isLoadingRef.current}>
+                    <button type="button" className="btn btn-warning btn-sm ms-4" onClick={handleRecover} disabled={isLoadingRef.current}>
                         {ChatbotMessage.Recover.niceToString()}
                     </button>
                 </div>
             ) : (
-                <div className="p-2 border-top d-flex align-items-center">
+                <div className="p-2 border-t flex items-center">
                     <textarea className="form-control me-2" rows={2}
                         placeholder={waitingForWidget
                             ? ChatbotMessage.AnswerAbovePlease.niceToString()
@@ -441,7 +441,7 @@ export default function ChatbotModal(p: { onClose: () => void }): React.ReactEle
                             }
                         }} />
                     {isLoadingRef.current ? (
-                        <button type="button" className="btn btn-tertiary text-danger" onClick={handleStop} title="Stop">
+                        <button type="button" className="btn btn-tertiary text-destructive" onClick={handleStop} title="Stop">
                             <FontAwesomeIcon icon={faStop} />
                         </button>
                     ) : (

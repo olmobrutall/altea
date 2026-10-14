@@ -168,7 +168,7 @@ export function ChartColumn(p: ChartColumnProps): React.JSX.Element {
           </span>
           <LinkButton
             title={undefined}
-            className={classes("sf-chart-token-config-trigger", numParameters > 0 && ctx.value.token != null && "fw-bold")}
+            className={classes("sf-chart-token-config-trigger", numParameters > 0 && ctx.value.token != null && "font-bold")}
             onClick={handleExpanded}
             onKeyDown={e => {
               if (e.key === "Enter" || e.key === " ") {

@@ -95,7 +95,7 @@ function AutoLineModal(p: AutoLineModalProps): React.ReactElement {
     <Modal size={(options.modalSize ?? "lg") as any} show={show} aria-labelledby={titleId}
       onExited={() => p.onExited!(selectedValue.current)} onHide={handleCancelClicked}>
       <div className="modal-header">
-        <h1 id={titleId} className="modal-title h5">
+        <h1 id={titleId} className="modal-title text-h5 font-medium">
           {title ?? fieldInfo?.niceToString() ?? SelectorMessage.ChooseAValue.niceToString()}
         </h1>
         <button type="button" className="btn-close" data-dismiss="modal"
@@ -110,7 +110,7 @@ function AutoLineModal(p: AutoLineModalProps): React.ReactElement {
               <AutoLine {...alp} />
             </React.Suspense>}
         </AutoFocus>
-        {error != null && <p className="text-danger">{error}</p>}
+        {error != null && <p className="text-destructive">{error}</p>}
       </div>
       <div className="modal-footer">
         <button type="button" ref={btnOkRef} className="btn btn-primary sf-entity-button sf-ok-button"

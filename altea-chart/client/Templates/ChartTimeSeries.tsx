@@ -118,7 +118,7 @@ export default function ChartTimeSeries(p: { chartTimeSeries: ChartTimeSeriesEmb
     // altea divergence: dates are plain ISO strings, edited as raw text and written back verbatim (no
     // DateTimePicker / UserAssetClient.API.parseDate branch — see the file-header note).
     return (
-      <div className="d-flex ms-1">
+      <div className="flex ms-1">
         {field == "startDate" ? "Min" : "Max"}
         <div className="rw-widget-xs ms-1">
           <input type="text" defaultValue={ts[field] ?? ""}
@@ -135,7 +135,7 @@ export default function ChartTimeSeries(p: { chartTimeSeries: ChartTimeSeriesEmb
   return (
     <div className={classes("sf-system-time-editor", "alert alert-primary")}>
       <span>Time series</span>
-      <span className="ms-2 d-flex">{formatParts(QueryTokenDateMessage.Every01.niceToString(), renderTimeSerieStep(), renderTimeSeriesUnit())}</span>
+      <span className="ms-2 flex">{formatParts(QueryTokenDateMessage.Every01.niceToString(), renderTimeSerieStep(), renderTimeSeriesUnit())}</span>
       {renderDateTime("startDate")}
       {renderDateTime("endDate")}
       <TotalNumStepsAndRows chartTimeSeries={ts} chartBase={p.chartBase} onChange={p.onChange} />
@@ -191,14 +191,14 @@ function TotalNumStepsAndRows(p: { chartTimeSeries: ChartTimeSeriesEmbedded, cha
   return (
     <span className="ms-1">
       {formatParts(QueryTokenDateMessage._0Steps1Rows2TotalRowsAprox.niceToString(),
-        <strong className={steps > 1000 ? "text-danger" : undefined}>{formatter.format(steps)}</strong>,
+        <strong className={steps > 1000 ? "text-destructive" : undefined}>{formatter.format(steps)}</strong>,
         <NumberBox validateKey={isNumberKey} value={st.timeSeriesMaxRowsPerStep} format={formatter} onChange={e => { st.timeSeriesMaxRowsPerStep = e == null ? toInt(10) : toInt(Number(e)); p.onChange(); }}
           htmlAttributes={{
             className: classes("form-control form-control-xs ms-1", st.timeSeriesMaxRowsPerStep == null && "sf-mandatory"),
             style: { width: "40px", display: "inline-block" }
           }}
         />,
-        <strong className={st.timeSeriesMaxRowsPerStep != null && steps * st.timeSeriesMaxRowsPerStep > 1000 ? "text-danger" : undefined}>
+        <strong className={st.timeSeriesMaxRowsPerStep != null && steps * st.timeSeriesMaxRowsPerStep > 1000 ? "text-destructive" : undefined}>
           {st.timeSeriesMaxRowsPerStep == null ? "" : formatter.format(steps * st.timeSeriesMaxRowsPerStep)}
         </strong>
       )}

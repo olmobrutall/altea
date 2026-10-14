@@ -259,7 +259,7 @@ export function CaseFrameModal(p: CaseFrameModalProps): React.JSX.Element {
                     <span className="sf-entity-title">{p.title || Navigator.renderEntity(pack.activity)}</span>&nbsp;
                     {renderExpandLink()}
                     <div className="sf-entity-sub-title">
-                        <small className="sf-type-nice-name text-muted">
+                        <small className="sf-type-nice-name text-muted-foreground">
                             {Navigator.getTypeSubTitle(pack.activity, undefined)}
                         </small>
                         {renderWidgets(wc, settings?.stickyHeader)}

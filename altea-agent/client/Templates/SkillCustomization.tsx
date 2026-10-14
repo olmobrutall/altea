@@ -79,7 +79,7 @@ export default function SkillCustomization(p: { ctx: TypeContext<SkillCustomizat
                 {
                     property: e => e.skill,
                     template: ectx => (
-                        <div className="d-flex align-items-center gap-1">
+                        <div className="flex items-center gap-1">
                             <EntityLine ctx={ectx.subCtx(e => e.skill)} />
                             {ectx.value.skill instanceof SkillCodeEntity &&
                                 <button type="button" className="btn btn-sm btn-link p-0"
@@ -125,9 +125,9 @@ function InstructionsField(p: {
     const ctx = p.ctx;
 
     return (
-        <div className="mb-3">
-            <div className="d-flex justify-content-between align-items-center">
-                <strong className="small">{ctx.niceName(e => e.instructions)}</strong>
+        <div className="mb-4">
+            <div className="flex justify-between items-center">
+                <strong className="text-[.875em]">{ctx.niceName(e => e.instructions)}</strong>
                 <div>
                     {p.info &&
                         <button type="button" className="btn btn-sm btn-link"

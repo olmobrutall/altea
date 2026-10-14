@@ -36,7 +36,7 @@ export default function DynamicExpressionComponent(p: { ctx: TypeContext<Dynamic
             <AutoLine ctx={ctx.subCtx(a => a.unit)} />
             <EnumLine ctx={ctx.subCtx(a => a.translation)} />
 
-            <div className="mt-3">
+            <div className="mt-4">
                 <pre className="mb-1"><small>{signature}</small></pre>
                 <div className="code-container">
                     {/* A FRAGMENT: an expression body, with nothing declaring the names in it. */}

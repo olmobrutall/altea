@@ -174,7 +174,7 @@ export function OpenIDSignIn({ ctx, buttonContent }: { ctx: LoginContext; button
     }
 
     return (
-        <div className="row mt-4">
+        <div className="row mt-6">
             <div className="col-md-6 offset-md-3">
                 <button type="button"
                     className={`btn btn-primary w-100${ctx.loading != null ? " disabled" : ""}`}

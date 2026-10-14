@@ -877,7 +877,7 @@ export namespace WorkflowClient {
         return Finder.find(WorkflowActivityEntity.findOptions(token => ({
             filterOptions: [token(w => w.lane.pool.workflow).filter("EqualTo", workflow)],
         })), {
-            message: <span className="text-danger">
+            message: <span className="text-destructive">
                 FreeJump is an unrestricted but dangerous operation! If you don&apos;t know what you&apos;re
                 doing... don&apos;t do it!
             </span>,

@@ -77,7 +77,7 @@ export default function ImportHelpPage(): React.JSX.Element {
 
     return (
         <div className="container">
-            <h1 className="h2">{HelpMessage.ImportHelpContentsFromZipFile.niceToString()}</h1>
+            <h1 className="text-h2 font-medium">{HelpMessage.ImportHelpContentsFromZipFile.niceToString()}</h1>
             <br />
 
             {report && <Report report={report} lastImported={lastImported} />}
@@ -93,15 +93,15 @@ export default function ImportHelpPage(): React.JSX.Element {
 
 function FileInput({ fileVer, onChange }: { fileVer: number; onChange: (e: React.FormEvent<HTMLInputElement>) => void }): React.JSX.Element {
     return (
-        <div className="mb-3">
+        <div className="mb-4">
             <div className="btn-toolbar">
-                <input key={fileVer} type="file" id="fileUpload" accept=".zip" onChange={onChange} className="d-none" />
+                <input key={fileVer} type="file" id="fileUpload" accept=".zip" onChange={onChange} className="hidden" />
                 <label htmlFor="fileUpload" className="btn btn-info">
                     <FontAwesomeIcon icon="folder-open" className="me-2" aria-hidden={true} />
                     {HelpMessage.ChooseZIPFile.niceToString()}
                 </label>
             </div>
-            <small className="text-muted">
+            <small className="text-muted-foreground">
                 {HelpMessage.SelectTheZIPFileWithTheHelpContentsThatYouWantToImport.niceToString()}
             </small>
         </div>
@@ -173,9 +173,9 @@ function Preview({ model, file, onImport, onChange }: {
                 </tbody>
             </AccessibleTable>
 
-            <div className="alert alert-secondary d-flex align-items-center" role="alert">
+            <div className="alert alert-secondary flex items-center" role="alert">
                 <FontAwesomeIcon icon="file" className="me-2" aria-hidden={true} />
-                <div className="text-muted">
+                <div className="text-muted-foreground">
                     <strong>{HelpMessage.SelectedFile.niceToString()}:</strong> {file?.fileName} ({fileSizeMB} MB)
                 </div>
             </div>
@@ -195,12 +195,12 @@ function Report({ report, lastImported }: { report: HelpImportReportModel; lastI
 
     return (
         <div>
-            <div className={classes("alert d-flex align-items-center", hasErrors ? "alert-warning" : "alert-success")} role="alert">
+            <div className={classes("alert flex items-center", hasErrors ? "alert-warning" : "alert-success")} role="alert">
                 <FontAwesomeIcon icon="circle-check" className="me-2" aria-hidden={true} />
                 <div><strong>{lastImported}</strong> {message}</div>
             </div>
 
-            <h3 className="h3">{HelpMessage.ImportReport.niceToString()}</h3>
+            <h3 className="text-h3 font-medium">{HelpMessage.ImportReport.niceToString()}</h3>
 
             <AccessibleTable
                 aria-label={HelpMessage.ImportReport.niceToString()}

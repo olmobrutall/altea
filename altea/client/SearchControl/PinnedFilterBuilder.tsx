@@ -95,7 +95,7 @@ export default function PinnedFilterBuilder(p: PinnedFilterBuilderProps): React.
                   var error = cellPinned.some(a => a.pinned?.colSpan != null && a.pinned?.colSpan <= 0)
                     || hiddenColumns.includes(c);
 
-                  return (<div key={j} className={classes("col-sm-" + (bsBase * colSpan), error && "border-danger")}>
+                  return (<div key={j} className={classes("col-sm-" + (bsBase * colSpan), error && "border-destructive")}>
                     {cellPinned.map((f, i) => <div key={i} className={f == p.highlightFilter ? "sf-filter-highlight" : undefined}>{renderValue(f, i == 0 && !allCheckBox)}</div>)}
                   </div>
                   );
@@ -127,7 +127,7 @@ export default function PinnedFilterBuilder(p: PinnedFilterBuilderProps): React.
 
     if (f.pinned && (isCheckBox(f.pinned.active))) {
       return (
-        <div className={classes("checkbox", isFirst && "mt-4")}>
+        <div className={classes("checkbox", isFirst && "mt-6")}>
           <label>
             <input type="checkbox" className="form-check-input me-1" checked={f.pinned.active == "Checkbox_Checked" || f.pinned.active == "NotCheckbox_Checked"} readOnly={readOnly} onChange={() => {
               f.pinned!.active =

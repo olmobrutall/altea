@@ -57,12 +57,12 @@ export default function DashboardPage(): React.JSX.Element {
     return (
         <div className="sf-dashboard-page">
 
-            {!dashboard ? <h1 className="display-6 h2"><span>{JavascriptMessage.loading.niceToString()}</span></h1> :
-                <div className="d-flex">
+            {!dashboard ? <h1 className="text-display-6 font-light"><span>{JavascriptMessage.loading.niceToString()}</span></h1> :
+                <div className="flex">
                     <div>
                         {entityKey ?
                             <div>
-                                {!entity ? <h1 className="h3">{JavascriptMessage.loading.niceToString()}</h1> :
+                                {!entity ? <h1 className="text-h3 font-medium">{JavascriptMessage.loading.niceToString()}</h1> :
                                     dashboard.showTitleAsBreadcrumb ?
                                         <h4 className="sf-breadcrumb-title">
                                             <EntityLink lite={entity.toLite()} inPlaceNavigation />
@@ -70,19 +70,19 @@ export default function DashboardPage(): React.JSX.Element {
                                             {DashboardClient.Options.customTitle(dashboard)}
                                         </h4> :
                                         <>
-                                            <h1 tabIndex={0} className="h3">
-                                                <span className="display-6">{entity.toString()}</span>
+                                            <h1 tabIndex={0} className="text-h3 font-medium">
+                                                <span className="text-display-6 font-light">{entity.toString()}</span>
                                                 {Navigator.isViewable({ entity: entity, canExecute: {} }) &&
                                                     // The icon is aria-hidden and there is no text, so
                                                     // this link had no accessible name at all and was
                                                     // announced as a bare "link".
-                                                    <Link className="display-6 ms-2" to={Navigator.navigateRoute(entity)}
+                                                    <Link className="text-display-6 font-light ms-2" to={Navigator.navigateRoute(entity)}
                                                         aria-label={EntityControlMessage.Navigate.niceToString()}>
                                                         <FontAwesomeIcon aria-hidden={true} icon="up-right-from-square" />
                                                     </Link>
                                                 }
                                             </h1>
-                                            <h2 className="display-7 h4">{DashboardClient.Options.customTitle(dashboard)}</h2>
+                                            <h2 className="text-display-7 font-light">{DashboardClient.Options.customTitle(dashboard)}</h2>
                                         </>
                                 }
                             </div> :
@@ -92,13 +92,13 @@ export default function DashboardPage(): React.JSX.Element {
                             // — the page would then have no level-1 heading to navigate to at all — so the
                             // name it is configured to hide is kept for assistive technology only.
                             dashboard.hideDisplayName ?
-                                <h1 className="visually-hidden">{dashboard.displayName}</h1> :
-                                <h1 className="display-6 h3">{DashboardClient.Options.customTitle(dashboard)}</h1>
+                                <h1 className="sr-only">{dashboard.displayName}</h1> :
+                                <h1 className="text-display-6 font-light">{DashboardClient.Options.customTitle(dashboard)}</h1>
                         }
                     </div>
                     <div className="ms-auto">
                         {(dashboardWithQueries?.cachedQueries.length ?? 0) > 0 &&
-                            <span className="mx-4" title={DashboardMessage.ForPerformanceReasonsThisDashboardMayShowOutdatedInformation.niceToString()
+                            <span className="mx-6" title={DashboardMessage.ForPerformanceReasonsThisDashboardMayShowOutdatedInformation.niceToString()
                                 + "\n" + DashboardMessage.LasUpdateWasOn0.niceToString(
                                     dashboardWithQueries!.cachedQueries[0].creationDate.toLocaleString())}>
                                 <FontAwesomeIcon aria-hidden={true} icon="clock-rotate-left" />
@@ -126,7 +126,7 @@ export function HelpIcon(): React.JSX.Element {
         <Popover id="popover-basic" style={{ "--bs-popover-max-width": "unset" } as React.CSSProperties}>
             <Popover.Header as="h3">{DashboardMessage.InteractiveDashboard.niceToString()}</Popover.Header>
             <Popover.Body>
-                <ul className="ps-3">
+                <ul className="ps-4">
                     <li style={{ whiteSpace: "nowrap" }}>{DashboardMessage.CLickInOneChartToFilterInTheOthers.niceToString()}</li>
                     <li style={{ whiteSpace: "nowrap" }}>{DashboardMessage.CtrlClickToFilterByMultipleElements.niceToString()}</li>
                     <li style={{ whiteSpace: "nowrap" }}>{DashboardMessage.AltClickToOpenResultsInAModalWindow.niceToString()}</li>

@@ -54,7 +54,7 @@ export function DiffDocument(p: { first: string; second: string }): React.JSX.El
                         {DiffLogMessage.TheTwoStringsAreTooBig01AndCouldFreezeYourBrowser.niceToString(
                             `${formatter.format(p.first.length)} ch.`, `${formatter.format(p.second.length)} ch.`)}
                         <br />
-                        <button type="button" className="btn btn-sm btn-warning mt-3" onClick={() => setForce(true)}>
+                        <button type="button" className="btn btn-sm btn-warning mt-4" onClick={() => setForce(true)}>
                             {DiffLogMessage.TryAnyway.niceToString()}
                         </button>
                     </div>

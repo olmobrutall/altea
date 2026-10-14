@@ -54,9 +54,9 @@ export default function ImportAssetsPage(): React.JSX.Element {
 
     return (
         <div>
-            <h2 className="display-6">{UserAssetMessage.ImportUserAssets.niceToString()}</h2>
-            <p className="text-muted">{UserAssetMessage.SelectTheXmlFileWithTheUserAssetsThatYouWantToImport.niceToString()}</p>
-            <input type="file" accept=".xml,.zip" className="form-control mb-3" style={{ maxWidth: "30rem" }} onChange={handleFile} />
+            <h2 className="text-display-6 font-light">{UserAssetMessage.ImportUserAssets.niceToString()}</h2>
+            <p className="text-muted-foreground">{UserAssetMessage.SelectTheXmlFileWithTheUserAssetsThatYouWantToImport.niceToString()}</p>
+            <input type="file" accept=".xml,.zip" className="form-control mb-4" style={{ maxWidth: "30rem" }} onChange={handleFile} />
 
             {model != null &&
                 <table className="table table-sm">

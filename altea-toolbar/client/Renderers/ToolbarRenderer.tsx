@@ -239,7 +239,7 @@ export function renderNavItem(res: ToolbarResponse<any>, key: string | number, c
     // toolbar keeps working.
     return (
         <ErrorBoundary key={key} deps={[res]} fallback={error => (
-            <li className="nav-item text-danger px-3 py-1" role="alert" title={error?.stack}>
+            <li className="nav-item text-destructive px-4 py-1" role="alert" title={error?.stack}>
                 <FontAwesomeIcon aria-hidden={true} icon="triangle-exclamation" className="me-1" />
                 <small>{error?.message ?? error?.name}</small>
             </li>
@@ -292,7 +292,7 @@ function renderNavItemUnsafe(res: ToolbarResponse<any>, key: string | number, ct
                     // as="li": these render into the sidebar's <ul>, where Nav.Item's default <div> is not
                     // a permitted child. A misconfiguration path, but it is the one a screen reader meets
                     // on a broken toolbar, and a stray child can cost the list its semantics entirely.
-                    return <Nav.Item as="li" className="text-danger">
+                    return <Nav.Item as="li" className="text-destructive">
                         {ToolbarMessage.ToolbarConfigNotRegistered0.niceToString(cleanTypeName(res.content.entityType))}
                     </Nav.Item>;
 
@@ -577,7 +577,7 @@ function ToolbarMenuItemsEntityType(p: { response: ToolbarResponse<ToolbarMenuEn
                 toolbar's <ul> alongside real <li> items. A <ul> may only contain <li>, which breaks both
                 the parsing of the list and the count assistive technology announces for it. */}
             {entityType && (
-                <Nav.Item as="li" title={ti.getNiceName()} className="d-flex mx-2 mb-2">
+                <Nav.Item as="li" title={ti.getNiceName()} className="flex mx-2 mb-2">
                     <div style={{ width: "100%" }}>
                         <EntityLine ctx={ctx} view={false} mandatory="warning"
                             inputAttributes={{ placeholder: LayoutMessage.SelectA0_G.niceToString(ti.getNiceName()) }}
@@ -715,7 +715,7 @@ function ToolbarSwitcher(p: { response: ToolbarResponse<ToolbarSwitcherEntity>, 
                     of <ul>. */}
                 <Nav.Item as="li"
                     data-toolbar-content={liteKeyOrQuery(p.response.content)}
-                    title={title} className="d-flex mb-2">
+                    title={title} className="flex mb-2">
                     {icon}
                     <RightCaretDropdown
                         options={options}
@@ -741,10 +741,10 @@ function ToolbarSwitcher(p: { response: ToolbarResponse<ToolbarSwitcherEntity>, 
 export function ToolbarNavItem(p: { title: string | undefined, content?: Lite<Entity>, active?: boolean, isExternalLink?: boolean, isGroup?: boolean, extraIcons?: React.ReactElement, onClick: (e: React.MouseEvent) => void, icon?: React.ReactNode, onAutoCloseExtraIcons?: () => void }): React.JSX.Element {
 
     return (
-        <li className="nav-item d-flex">
+        <li className="nav-item flex">
             {/* Nav.Link's `active` only adds a class, so which item is the current page was conveyed by
                 colour alone and never announced. aria-current says it. */}
-            <Nav.Link title={p.title} onClick={p.onClick} onAuxClick={p.onClick} active={p.active} className="d-flex w-100"
+            <Nav.Link title={p.title} onClick={p.onClick} onAuxClick={p.onClick} active={p.active} className="flex w-full"
                 aria-current={p.active ? "page" : undefined}
                 data-toolbar-content={liteKeyOrQuery(p.content)}>
                 <div>{p.icon}</div>
@@ -786,7 +786,7 @@ export function renderExtraIcons(extraIcons: ToolbarResponse<any>[] | undefined,
     // Visually hidden rather than aria-label, so a count inside the icon is still read out after the name.
     function srName(ei: ToolbarResponse<any>) {
         const name = ei.label || ei.content?.toString();
-        return name ? <span className="visually-hidden">{name}</span> : undefined;
+        return name ? <span className="sr-only">{name}</span> : undefined;
     }
 
     return (<>
@@ -806,7 +806,7 @@ export function renderExtraIcons(extraIcons: ToolbarResponse<any>[] | undefined,
 
             const config = ToolbarClient.getConfig(ei);
             if (config == null) {
-                return <span key={i} className="text-danger sf-extra-icon">
+                return <span key={i} className="text-destructive sf-extra-icon">
                     {ToolbarMessage.ToolbarConfigNotRegistered0.niceToString(cleanTypeName(ei.content.entityType))}
                 </span>;
             }

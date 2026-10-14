@@ -79,12 +79,12 @@ export default function TranslatedInstanceView(): React.JSX.Element {
     return (
         <div>
             <div className="mb-2">
-                <h1 className="h2">
+                <h1 className="text-h2 font-medium">
                     <Link to="/translatedInstance/status">{TranslationMessage.InstanceTranslations.niceToString()}</Link>
                     {" > "}{message}
                 </h1>
                 <TranslateSearchBox filter={filter ?? ""} setFilter={setFilter} />
-                <label style={{ float: "right" }} className="ms-3">
+                <label style={{ float: "right" }} className="ms-4">
                     <input type="checkbox" checked={applyFilter} onChange={e => setApplyFilter(e.currentTarget.checked)} />
                     {" "}{TranslationMessage.OnlyRecommendedInstances.niceToString()}
                 </label>
@@ -168,7 +168,7 @@ function TranslatedInstanceProperty(p: {
             <th>
                 {route}
                 {isHtml &&
-                    <LinkButton className="ms-2 fw-normal" title={TranslationMessage.Edit.niceToString()} onClick={() => setRich(!rich)}>
+                    <LinkButton className="ms-2 font-normal" title={TranslationMessage.Edit.niceToString()} onClick={() => setRich(!rich)}>
                         <FontAwesomeIcon aria-hidden={true} icon={showRich ? "code" : "align-left"} />
                     </LinkButton>}
             </th>

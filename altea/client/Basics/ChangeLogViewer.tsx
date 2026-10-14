@@ -73,7 +73,7 @@ export default function ChangeLogViewer(): React.ReactElement | null {
             onClick={() => { void handleOpen(); }}>
             <FontAwesomeIcon icon="circle-info" />
             {unread > 0 && (
-                <span className="badge text-bg-info badge-pill sf-change-log-badge">{unread}</span>
+                <span className="badge bg-info text-info-foreground badge-pill sf-change-log-badge">{unread}</span>
             )}
         </LinkButton>
     );
@@ -92,7 +92,7 @@ function ShowLogs(p: { logs: ChangeItem[]; lastDate: Temporal.PlainDateTime | un
                 const isNew = isAfter(gr.key, p.lastDate);
                 return (
                     <section key={gr.key} aria-labelledby={`deployed-${gr.key}`}>
-                        <h2 className="h3" id={`deployed-${gr.key}`}>
+                        <h2 className="text-h3 font-medium" id={`deployed-${gr.key}`}>
                             <time dateTime={gr.key} title={ChangeLogMessage.DeployedOn0.niceToString(gr.key)}>
                                 {isNew ? <strong>{gr.key}</strong> : gr.key}
                             </time>
@@ -101,7 +101,7 @@ function ShowLogs(p: { logs: ChangeItem[]; lastDate: Temporal.PlainDateTime | un
                             {gr.elements
                                 .flatMap(e => e.changeLog.map((line: string) => ({ module: e.module, implDate: e.implDate, line })))
                                 .map((a, i) => (
-                                    <li className="ms-5 pb-1" key={i} tabIndex={0} role="article"
+                                    <li className="ms-12 pb-1" key={i} tabIndex={0} role="article"
                                         aria-label={ChangeLogMessage._0ImplementedOn1WithFollowingChanges2
                                             .niceToString(a.module, a.implDate, a.line)}>
                                         <strong><samp>{a.module} &gt; </samp></strong>

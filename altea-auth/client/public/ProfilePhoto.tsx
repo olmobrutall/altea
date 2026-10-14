@@ -56,7 +56,7 @@ export default function ProfilePhoto(p: { user: UserEntity; size: number }): Rea
     const name = p.user.toString();
 
     return (
-        <div className="user-profile-photo align-items-center d-flex justify-content-center"
+        <div className="user-profile-photo items-center flex justify-center"
             style={{ width: `${p.size}px`, height: `${p.size}px`, borderColor: !url ? color : undefined }}>
             {!url
                 ? <FontAwesomeIcon role="img" icon="user" size={iconSize as never} color={color} />

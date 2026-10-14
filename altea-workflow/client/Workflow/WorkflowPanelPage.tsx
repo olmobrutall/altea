@@ -22,7 +22,7 @@ import { WorkflowClient } from "../WorkflowClient";
 export default function WorkflowPanelPage(): React.JSX.Element {
     return (
         <div>
-            <h2 className="display-6"><FontAwesomeIcon icon={["fas", "shuffle"]} /> Workflow Panel</h2>
+            <h2 className="text-display-6 font-light"><FontAwesomeIcon icon={["fas", "shuffle"]} /> Workflow Panel</h2>
 
             <Tabs id="workflowTabs">
                 <Tab title="Script Runner" eventKey="scriptRunner">
@@ -60,7 +60,7 @@ export function WorkflowScriptRunnerTab(): React.JSX.Element {
     return (
         <div>
             <h4>{title}</h4>
-            <div className="btn-toolbar mt-3">
+            <div className="btn-toolbar mt-4">
                 <button className={classes("sf-button btn", state.running ? "btn-success disabled" : "btn-outline-success")}
                     onClick={!state.running ? () => void WorkflowClient.API.start().then(() => reloadState()) : undefined}>
                     <FontAwesomeIcon icon="play" /> Start

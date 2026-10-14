@@ -29,9 +29,9 @@ export default function HealthCheckPart(p: PanelPartContentProps<HealthCheckPart
         </span>;
 
     return (
-        <div className="my-3">
-            <h2 className="h5" style={{ color: part.titleColor ?? undefined }}>{title}</h2>
-            <div className="d-flex flex-wrap">
+        <div className="my-4">
+            <h2 className="text-h5 font-medium" style={{ color: part.titleColor ?? undefined }}>{title}</h2>
+            <div className="flex flex-wrap">
                 {(p.content.items ?? []).map((le, i) => <HealthCheckElement key={i} element={le} />)}
             </div>
         </div>
@@ -78,7 +78,7 @@ function HealthCheckElement(p: { element: HealthCheckPartEntity_Item }): React.J
             : data.result.description;
 
     return (
-        <div className="d-flex position-relative justify-content-center align-items-center mx-2 my-2 rounded"
+        <div className="flex relative justify-center items-center mx-2 my-2 rounded-md"
             title={message ?? undefined}
             style={{
                 cursor: p.element.navigateURL ? "pointer" : undefined,
@@ -92,8 +92,8 @@ function HealthCheckElement(p: { element: HealthCheckPartEntity_Item }): React.J
                 if (p.element.navigateURL)
                     window.open(AppContext.toAbsoluteUrl(p.element.navigateURL));
             }}>
-            <span className="position-absolute top-0 end-0 me-1 mt-1">
-                <FontAwesomeIcon aria-hidden={true} className="fs-2" color={foreColor} icon={
+            <span className="absolute top-0 end-0 me-1 mt-1">
+                <FontAwesomeIcon aria-hidden={true} className="text-(length:--text-h2)" color={foreColor} icon={
                     data == null ? "hourglass-start" :
                         "error" in data ? "link-slash" :
                             data.result.status == "Healthy" ? (data.result.description == "Disabled" ? "circle" : "circle-check") :

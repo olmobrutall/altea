@@ -86,7 +86,7 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
                             ctx.value.entityType ? ctx.value.entityType.toString() : UserQueryMessage.TheSelected0.niceToString(ctx.niceName(a => a.entityType)))}
                         {ctx.value.entityType && <br />}
                         {ctx.value.entityType && <span>{UserQueryMessage.Use0ToFilterCurrentEntity.niceToString("")}<code style={{ display: "inline" }}><strong>{CurrentEntityKey}</strong></code></span>}
-                        {ctx.value.entityType && <div className="d-flex gap-3">
+                        {ctx.value.entityType && <div className="flex gap-4">
                             <CheckboxLine ctx={ctx.subCtx(e => e.hideQuickLink)} inlineCheckbox />
                             <CheckboxLine ctx={ctx.subCtx(e => e.showTitleAsBreadcrumb)} inlineCheckbox />
                         </div>}
@@ -113,16 +113,16 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
                 </div>
             </div>
 
-            <h2 className="d-inline-block h4">
+            <h2 className="inline-block text-h4 font-medium">
                 <CheckboxLine ctx={ctx4.subCtx(e => e.groupResults)} onChange={() => forceUpdate()} inlineCheckbox="block" formSize="lg" />
             </h2>
 
             <div className="my-2">
-                <h2 className="h4">{ctx.niceName(a => a.filters)}</h2>
-                <div className="ms-3">
+                <h2 className="text-h4 font-medium">{ctx.niceName(a => a.filters)}</h2>
+                <div className="ms-4">
                     <AutoLine ctx={ctxxs.subCtx(e => e.includeDefaultFilters)} valueColumns={4} />
                     {/* altea divergence: a "Show preview" toggle (default OFF) that runs the query-so-far. */}
-                    <label className="d-flex align-items-center gap-2 mb-2" style={{ cursor: "pointer" }}>
+                    <label className="flex items-center gap-2 mb-2" style={{ cursor: "pointer" }}>
                         <input type="checkbox" className="form-check-input mt-0" checked={showPreview} onChange={() => setShowPreview(!showPreview)} />
                         {UserQueryMessage.Preview.niceToString()}
                     </label>
@@ -136,8 +136,8 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
             </div>
 
             <div className="my-2">
-                <h2 className="h4">{ctx.niceName(a => a.columns)}</h2>
-                <div className="ms-3">
+                <h2 className="text-h4 font-medium">{ctx.niceName(a => a.columns)}</h2>
+                <div className="ms-4">
                     <AutoLine ctx={ctxxs.subCtx(e => e.columnsMode)} valueColumns={4} />
                     <EntityTable ctx={ctxxs.subCtx(e => e.columns)} avoidFieldSet columns={[
                         {
@@ -149,14 +149,14 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
                                         queryKey={query.key}
                                         onTokenChanged={() => { cctx.value.summaryToken = null; row.forceUpdate(); }}
                                         subTokenOptions={columnSubTokens} />
-                                    <div className="d-flex">
+                                    <div className="flex">
                                         <label className="col-form-label col-form-label-xs me-2" style={{ minWidth: "140px" }}>
                                             <input type="checkbox" className="form-check-input" disabled={cctx.value.token == null || cctx.readOnly}
                                                 checked={cctx.value.summaryToken != null}
                                                 onChange={() => { cctx.value.summaryToken = cctx.value.summaryToken == null ? seedSummaryToken(cctx.value.token) : null; row.forceUpdate(); }} />
                                             {" "}{SearchMessage.SummaryHeader.niceToString()}
                                         </label>
-                                        <div className="flex-grow-1">
+                                        <div className="grow">
                                             {cctx.value.summaryToken &&
                                                 <QueryTokenEmbeddedBuilder
                                                     ctx={cctx.subCtx(a => a.summaryToken, { formGroupStyle: "SrOnly" })}
@@ -184,8 +184,8 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
             </div>
 
             <div className="my-2">
-                <h2 className="h4">{ctx.niceName(a => a.orders)}</h2>
-                <div className="ms-3">
+                <h2 className="text-h4 font-medium">{ctx.niceName(a => a.orders)}</h2>
+                <div className="ms-4">
                     <EntityTable ctx={ctxxs.subCtx(e => e.orders)} avoidFieldSet columns={[
                         {
                             property: a => a.token,
@@ -200,9 +200,9 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
                 </div>
             </div>
 
-            <div className="my-4">
-                <h3 className="h5">{UserQueryMessage.Pagination.niceToString()}</h3>
-                <div className="ms-3 row">
+            <div className="my-6">
+                <h3 className="text-h5 font-medium">{UserQueryMessage.Pagination.niceToString()}</h3>
+                <div className="ms-4 row">
                     <div className="col-sm-6"><AutoLine ctx={ctxxs.subCtx(e => e.paginationMode, { labelColumns: { sm: 4 } })} formGroupStyle="Basic" /></div>
                     <div className="col-sm-6"><AutoLine ctx={ctxxs.subCtx(e => e.elementsPerPage, { labelColumns: { sm: 4 } })} formGroupStyle="Basic" /></div>
                 </div>
@@ -238,7 +238,7 @@ function FilterPreview(p: { uq: UserQueryEntity }): React.JSX.Element | null {
     if (!fo)
         return null;
     return (
-        <div className="border rounded p-2 my-2">
+        <div className="border rounded-md p-2 my-2">
             <SearchControl findOptions={fo} tag="UserQueryPreview" searchOnLoad={true}
                 avoidChangeUrl={true} hideFullScreenButton={true} showBarExtension={false} />
         </div>
@@ -291,15 +291,15 @@ function HealthCondition(p: { ctx: TypeContext<HealthCheckConditionEmbedded | nu
     const forceUpdate = useForceUpdate();
     const ctx = p.ctx.subCtx({ formGroupStyle: "None", formSize: "xs" }) as TypeContext<HealthCheckConditionEmbedded>;
     return (
-        <label className="d-flex flex-row align-items-center gap-2">
+        <label className="flex flex-row items-center gap-2">
             <input type="checkbox" checked={p.ctx.value != null} className="form-check-input me-2"
                 onChange={() => { p.ctx.value = p.ctx.value == null ? new HealthCheckConditionEmbedded() : null; forceUpdate(); }} />
             {p.ctx.value == null ? p.ctx.niceName() :
-                <span style={{ backgroundColor: p.color }} className="d-flex flex-row align-items-center gap-2 p-2">
+                <span style={{ backgroundColor: p.color }} className="flex flex-row items-center gap-2 p-2">
                     <strong>{ctx.niceName()}</strong>
                     {p.queryNiceName}
-                    <EnumLine ctx={ctx.subCtx(a => a.operation)} formGroupHtmlAttributes={{ className: "d-inline-block" }} />
-                    <NumberLine ctx={ctx.subCtx(a => a.value)} formGroupHtmlAttributes={{ className: "d-inline-block" }} />
+                    <EnumLine ctx={ctx.subCtx(a => a.operation)} formGroupHtmlAttributes={{ className: "inline-block" }} />
+                    <NumberLine ctx={ctx.subCtx(a => a.value)} formGroupHtmlAttributes={{ className: "inline-block" }} />
                 </span>}
         </label>
     );

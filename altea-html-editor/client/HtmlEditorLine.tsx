@@ -35,7 +35,7 @@ export default function HtmlEditorLine({
         <FormGroup ctx={ctx} labelIcon={p.labelIcon}>
             {() => (
                 <ErrorBoundary>
-                    <div className="d-flex">
+                    <div className="flex">
                         {extraButtonsBefore && (
                             <div className={ctx.inputGroupVerticalClass("before")}>
                                 {extraButtonsBefore()}

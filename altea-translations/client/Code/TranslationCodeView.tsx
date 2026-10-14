@@ -41,7 +41,7 @@ export default function TranslationCodeView(): React.JSX.Element {
 
     return (
         <div>
-            <h1 className="h2">
+            <h1 className="text-h2 font-medium">
                 <Link to="/translation/status">{TranslationMessage.CodeTranslations.niceToString()}</Link>
                 {" > "}{message}
             </h1>

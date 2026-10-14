@@ -53,7 +53,7 @@ function SaveChangesModal(p: SaveChangesModalProps): React.ReactElement {
       aria-describedby={messageId}
       onHide={handleCancelClicked} autoFocus={true}>
       <div className={classes("modal-header", "dialog-header-wait")}>
-        <h1 id={titleId} className="modal-title h5">
+        <h1 id={titleId} className="modal-title text-h5 font-medium">
           {SaveChangesMessage.ThereAreChanges.niceToString()}
         </h1>
       </div>

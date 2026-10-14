@@ -38,7 +38,7 @@ export default function UserChartPage(): React.JSX.Element | null {
         return null;
 
     return (
-        <div className="m-3">
+        <div className="m-4">
             <ChartRequestView chartRequest={cr} searchOnLoad />
         </div>
     );

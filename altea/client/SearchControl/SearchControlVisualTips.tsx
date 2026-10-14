@@ -368,7 +368,7 @@ export function LearnMoreAboutFieldExpressions(p: {
                 {FieldExpressionMessage.LearnMoreAboutFieldExpressions.niceToString()}
             </LinkButton>
 
-            {p.expanded && <div className="ms-4">
+            {p.expanded && <div className="ms-6">
                 <div className="my-2">
                     {FieldExpressionMessage.YouCanNavigateDatabaseRelationshipsByContinuingTheExpressionWithMoreItems.niceToString()}
                 </div>

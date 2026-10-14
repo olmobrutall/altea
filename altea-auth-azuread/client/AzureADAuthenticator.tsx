@@ -415,7 +415,7 @@ export function AzureB2CSignIn({ ctx, adVariant = "default" }: { ctx: LoginConte
 
     if (hasSignInFlow && hasSignUpFlow) {
         return (
-            <div className="row mt-4">
+            <div className="row mt-6">
                 <div className="col-md-6 offset-md-3">
                     <div className="hstack">
                         <button type="button" className={classes("btn btn-secondary me-2", ctx.loading != null && "disabled")}
@@ -433,7 +433,7 @@ export function AzureB2CSignIn({ ctx, adVariant = "default" }: { ctx: LoginConte
     }
 
     return (
-        <div className="row mt-4">
+        <div className="row mt-6">
             <div className="col-md-6 offset-md-3">
                 <button type="button" className={classes("btn btn-primary", ctx.loading != null && "disabled")}
                     onClick={e => { void AzureADAuthenticator.signIn(ctx, adVariant, undefined, e); }}>

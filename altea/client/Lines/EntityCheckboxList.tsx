@@ -239,7 +239,7 @@ export function EntityCheckboxListSelect<R extends BaseEntity>(props: EntityChec
     return p.groupElementsBy == undefined ? fixedData.map((row, i) => renderRow(row, i)) :
       <>
         {fixedData.groupBy(p.groupElementsBy, p.groupStringify).map((gr, i) => <div className={classes("mb-2")} key={i} >
-          <small className="text-muted">{p.renderGroupTitle != undefined ? p.renderGroupTitle(gr.key, i) : gr.key!.toString()}</small>
+          <small className="text-muted-foreground">{p.renderGroupTitle != undefined ? p.renderGroupTitle(gr.key, i) : gr.key!.toString()}</small>
           {gr.elements.map((mle, j) => renderRow(mle, j))}
         </div>)}
       </>;

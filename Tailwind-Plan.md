@@ -82,17 +82,28 @@ review as any generated code.
 
 Bootstrap and Tailwind live side by side until Phase 5 — a big bang over 450 files is not reviewable.
 
-- Bootstrap is imported into a cascade **layer** declared before Tailwind's:
-  `@layer bootstrap, theme, base, components, utilities;` — so a Tailwind utility or an `sf-*` component
-  rule wins over Bootstrap at equal specificity, and a migrated component is never fought by the old CSS.
+- Every stylesheet not written for Tailwind — Bootstrap, react-widgets, Font Awesome, altea's own CSS
+  until it is migrated — is wrapped by the build (`alteaLegacyCssLayer` in `@altea/altea/vite.mjs`) into a
+  `legacy` cascade layer declared first: `@layer legacy, theme, base, components, utilities;`. A Tailwind
+  utility or an `sf-*` component rule then wins whatever the specificity, while the legacy sheets keep
+  their old order and specificity among themselves.
+- **Bootstrap's utilities lose `!important`** inside that layer. An important declaration in an EARLIER
+  layer beats every later one, so `.mb-4 { margin-bottom: 1.5rem !important }` would override Tailwind's
+  `mb-4` (1rem).
+- **A class name can only mean one thing**, and `mb-3`, `p-4`, `gap-3`, `shadow`, `rounded` … mean
+  different sizes in the two systems. So the utility half of the class map is applied in Phase 0, not
+  Phase 5: once every `mb-3` in the source has become `mb-4`, Tailwind owns the utility names and the
+  `ui` kit can use them freely.
+- Font Awesome injects its stylesheet at runtime, outside every layer, where it beat altea's icon rules;
+  `@altea/altea/client/ui/fontAwesome` turns that off and imports the stylesheet through the build.
+- A UTF-8 BOM at the start of a stylesheet becomes part of the first selector once wrapped; the plugin
+  strips it.
 - Tailwind **preflight is off** until Bootstrap is removed (reboot already normalises; two resets fight).
   When preflight comes on, altea's `@layer base` restores what it strips that views rely on: `h1`–`h6`
   sizes, `small`, `hr`, list bullets inside `sf-markdown`/HTML content, link colour.
-- **Name collisions** — Tailwind generates a class for every candidate string it finds in source, so
-  Bootstrap class strings that are also Tailwind utilities would get Tailwind CSS too: `collapse`
-  (`visibility: collapse`!), `container`, `table`, `border`, `rounded`, `shadow`, `visible`, `invisible`,
-  `small`, `pe-none`/`pe-auto` (padding in Tailwind, pointer-events in Bootstrap). Excluded with
-  `@source not inline(...)` until the files using them are migrated.
+- **Component-class collisions** — Tailwind generates a class for every candidate string in the source,
+  so the Bootstrap COMPONENT classes that are also Tailwind utilities (`collapse` → `visibility: collapse`,
+  `container`, `table`) are excluded with `@source not inline(...)` until the files using them are migrated.
 - `--bs-*` variables are re-pointed at the shadcn tokens in the bridge stylesheet, so migrated and
   unmigrated parts share one palette and one dark mode from Phase 0 on.
 - Dynamically built class names (`StyleContext` label/value columns) are made visible to the scanner with
@@ -105,7 +116,7 @@ No `tw:` prefix: the end state has no Bootstrap, and a prefix would mean a secon
 Each phase builds (`tspc -b`), runs the Playwright suite against `stack local`, and gets a browser pass in
 light and dark before the next starts. Each is its own commit(s) in `altea`, with a bump in eastwind.
 
-### Phase 0 — Plumbing
+### Phase 0 — Plumbing and the utility sweep ✅
 - Add `tailwindcss`, `@tailwindcss/vite`, `radix-ui`, `class-variance-authority`, `clsx`,
   `tailwind-merge`, `cmdk` to `@altea/altea`; `@tailwindcss/vite` in `eastwind/vite.client.config.ts`.
 - `altea/altea/client/ui/theme.css`: layer order, token set (light + dark), `@custom-variant dark`,
@@ -114,7 +125,12 @@ light and dark before the next starts. Each is its own commit(s) in `altea`, wit
 - `components.json` so `shadcn add` writes into `altea/altea/client/ui/`; `cn()` in `client/ui/utils.ts`.
 - `data-bs-theme` → `data-theme` (ThemeModeSelector, Layout, Monaco observer), still stamping
   `data-bs-theme` until Phase 5.
-- Exit: app looks identical; a shadcn `Button` renders correctly in both modes.
+- The utility sweep: `altea-upgrade/tailwind` (`ClassMap` reads Tailwind-ClassMap.md, `ClassSweep`
+  rewrites class contexts with the TypeScript parser) applied the U / X rows outside *Layout and grid* to
+  every altea package and eastwind: 1 436 classes in 180 files. Applications get the same through
+  `Upgrade_20261014_TailwindUtilities`.
+- Exit (met): eight pages × light/dark screenshot-diffed against the Bootstrap baseline — pixel-identical
+  except the animated help-tip pulse.
 
 ### Phase 1 — altea `ui` kit
 Generate and adapt, in `client/ui/`: `Button` (+ `buttonVariants` for `<a>`/`<Link>` that look like
@@ -180,11 +196,10 @@ into `@layer components`, off `--bs-*`. `Sidebar.css` / toolbar get their `--sf-
   persistence) is altea's; the palettes are the app's. Works offline, applies in build and dev alike.
 - Public catalog, `site.css`, `main.client.ts` imports.
 
-### Phase 5 — class sweep and removal
-- Codemod (ts-morph over JSX string literals, `classes(...)` / `cn(...)` arguments and template
-  literals) driven by `Tailwind-ClassMap.md`: applies the `U` and `S` rows, rewrites breakpoint infixes,
-  and REPORTS every `C` / `M` hit and every class it could not map. Ships as an `altea-upgrade` step so
-  applications run the same translation.
+### Phase 5 — component-class sweep and removal
+- The Phase 0 codemod, now with the `S` rows and *Layout and grid*: the semantic classes and the grid
+  (once `sf-row` and the rest are defined), as a second `altea-upgrade` step. It REPORTS every `C` / `M`
+  hit, every built class name (`"text-" + color`) and every class it could not map.
 - Remove `bootstrap`, `react-bootstrap`, `react-widgets-up` from both `package.json`s; drop the Bootstrap
   layer, the `--bs-*` bridge, the collision blocklist; turn preflight on (+ altea's base restorations);
   remove `data-bs-theme`.

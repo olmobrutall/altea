@@ -25,7 +25,7 @@ export default function HealthCheckPart(p: PartEditorProps<HealthCheckPartEntity
                         <FontAwesomeIcon icon="plus" className="sf-create" />&nbsp;{EntityControlMessage.Create.niceToString()}
                     </LinkButton>
 
-                    <LinkButton title={undefined} className="sf-line-button sf-create ms-4"
+                    <LinkButton title={undefined} className="sf-line-button sf-create ms-6"
                         onClick={async () => {
                             const clipboard = await navigator.clipboard.readText();
                             const data = clipboard.split("$#$");

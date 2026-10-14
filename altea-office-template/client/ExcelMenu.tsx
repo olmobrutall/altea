@@ -98,7 +98,7 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
         <span>
             <FontAwesomeIcon aria-hidden={true} icon="file-excel" />
             {p.searchControl.props.largeToolbarButtons === true
-                ? <span className="d-none d-sm-inline">{" " + ExcelMessage.ExportToExcel.niceToString()}</span>
+                ? <span className="hidden sm:inline">{" " + ExcelMessage.ExportToExcel.niceToString()}</span>
                 : undefined}
         </span>
     );

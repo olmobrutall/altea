@@ -54,7 +54,7 @@ export default function ForgotPasswordEmailPage(): React.JSX.Element {
                 <div className="row">
                     <div className="col-md-6 offset-md-3 forgot-password-success">
                         {title
-                            ? <><h1 className="sf-entity-title h2">{title}</h1><p>{message}</p></>
+                            ? <><h1 className="sf-entity-title text-h2 font-medium">{title}</h1><p>{message}</p></>
                             : <h2 className="sf-entity-title">{message}</h2>}
                     </div>
                 </div>
@@ -67,15 +67,15 @@ export default function ForgotPasswordEmailPage(): React.JSX.Element {
             <div className="row">
                 <div className="col-md-6 offset-md-3">
                     <form onSubmit={e => { void handleSubmit(e); }}>
-                        <h1 className="sf-entity-title h2">{LoginAuthMessage.IForgotMyPassword.niceToString()}</h1>
+                        <h1 className="sf-entity-title text-h2 font-medium">{LoginAuthMessage.IForgotMyPassword.niceToString()}</h1>
                         <p>{LoginAuthMessage.GiveUsYourUserEmailToResetYourPassword.niceToString()}</p>
 
-                        <div className={classes("form-group mb-3", error("email") && "has-error")}>
+                        <div className={classes("form-group mb-4", error("email") && "has-error")}>
                             <input type="email" className="form-control" id="email" ref={email} autoFocus
                                 autoComplete="email" onBlur={validateEmail}
                                 placeholder={LoginAuthMessage.EnterYourUserEmail.niceToString()} />
-                            {error("email") && <span className="help-block text-danger">{error("email")}</span>}
-                            {message && <div className="form-text text-danger">{message}</div>}
+                            {error("email") && <span className="help-block text-destructive">{error("email")}</span>}
+                            {message && <div className="form-text text-destructive">{message}</div>}
                         </div>
 
                         <button type="submit" className="btn btn-primary" id="changePasswordRequest">

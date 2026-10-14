@@ -42,7 +42,7 @@ export default function LoginPage(): React.JSX.Element {
         <div className="container sf-login-page">
             <div className="row">
                 <div className="col-md-6 offset-md-3">
-                    <h1 className="sf-entity-title h2">{AuthClient.currentUser() ? LoginAuthMessage.SwitchUser.niceToString() : LoginAuthMessage.Login.niceToString()}</h1>
+                    <h1 className="sf-entity-title text-h2 font-medium">{AuthClient.currentUser() ? LoginAuthMessage.SwitchUser.niceToString() : LoginAuthMessage.Login.niceToString()}</h1>
                 </div>
             </div>
             {showLoginForm && <LoginForm ctx={ctx} />}
@@ -116,36 +116,36 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
     }
 
     return (
-        <form onSubmit={handleSubmit} className="mb-4">
+        <form onSubmit={handleSubmit} className="mb-6">
             <div className="row">
                 <div className="col-md-6 offset-md-3">
                     <p>{passwordIsUsername
-                        ? <span className="text-warning-emphasis">Development mode: enter a user name — it is sent as the password too.</span>
+                        ? <span className="text-warning">Development mode: enter a user name — it is sent as the password too.</span>
                         : LoginAuthMessage.EnterYourUserNameAndPassword.niceToString()}</p>
                     <hr />
                 </div>
             </div>
             <div className="row">
                 <div className="col-md-6 offset-md-3">
-                    <div className={classes("form-group mb-3", error("userName") && "has-error")}>
+                    <div className={classes("form-group mb-4", error("userName") && "has-error")}>
                         <label className="sr-only" htmlFor="userName">{LoginOptions.usernameLabel()}</label>
-                        <div className="input-group mb-2 mr-sm-2 mb-sm-0">
+                        <div className="input-group mb-2 mr-sm-2 sm:mb-0">
                             <div className="input-group-text"><FontAwesomeIcon aria-hidden={true} icon="user" style={{ width: "16px" }} /></div>
                             <input type="text" className="form-control" id="userName" autoComplete="username" ref={userName} placeholder={LoginOptions.usernameLabel()} disabled={p.ctx.loading != null} />
                         </div>
-                        {error("userName") && <span className="help-block text-danger">{error("userName")}</span>}
+                        {error("userName") && <span className="help-block text-destructive">{error("userName")}</span>}
                     </div>
                 </div>
             </div>
             {!passwordIsUsername && <div className="row">
                 <div className="col-md-6 offset-md-3">
-                    <div className={classes("form-group mb-3", error("password") && "has-error")}>
+                    <div className={classes("form-group mb-4", error("password") && "has-error")}>
                         <label className="sr-only" htmlFor="password">{LoginAuthMessage.Password.niceToString()}</label>
-                        <div className="input-group mb-2 mr-sm-2 mb-sm-0">
+                        <div className="input-group mb-2 mr-sm-2 sm:mb-0">
                             <div className="input-group-text"><FontAwesomeIcon aria-hidden={true} icon="key" style={{ width: "16px" }} /></div>
                             <input ref={password} type="password" name="password" className="form-control" id="password" autoComplete="current-password" placeholder={LoginAuthMessage.Password.niceToString()} disabled={p.ctx.loading != null} />
                         </div>
-                        {error("password") && <span className="help-block text-danger">{error("password")}</span>}
+                        {error("password") && <span className="help-block text-destructive">{error("password")}</span>}
                     </div>
                 </div>
             </div>}
@@ -155,7 +155,7 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
                 nothing: the server ignores rememberMe when UserTicketLogic was never started. */}
             {AuthClient.Options.userTicket && <div className="row">
                 <div className="col-md-6 offset-md-3">
-                    <div className="form-check mb-2 mr-sm-2 mb-sm-0">
+                    <div className="form-check mb-2 mr-sm-2 sm:mb-0">
                         <input ref={rememberMe} name="remember" id="rememberMe" className="form-check-input" type="checkbox" disabled={p.ctx.loading != null} />
                         <label className="sf-remember-me form-check-label" htmlFor="rememberMe">{LoginAuthMessage.RememberMe.niceToString()}</label>
                     </div>
@@ -171,7 +171,7 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
                         &nbsp;
                         {p.ctx.loading == "password" ? JavascriptMessage.loading.niceToString() : AuthClient.currentUser() ? LoginAuthMessage.SwitchUser.niceToString() : LoginAuthMessage.Login.niceToString()}
                     </button>
-                    {error("login") && <span className="help-block text-danger ms-2">{error("login")}</span>}
+                    {error("login") && <span className="help-block text-destructive ms-2">{error("login")}</span>}
                     {!p.ctx.loading && LoginOptions.resetPasswordControl()}
                 </div>
             </div>

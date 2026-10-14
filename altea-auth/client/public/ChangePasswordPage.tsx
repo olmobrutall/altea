@@ -109,8 +109,8 @@ export default function ChangePasswordPage(): React.JSX.Element {
         <div className="container sf-reset-password">
             <div className="row">
                 <div className="col-md-6 offset-md-3">
-                    <form onSubmit={handleSubmit} className="w-100">
-                        <h1 className="sf-entity-title h2">{LoginAuthMessage.ChangePassword.niceToString()}</h1>
+                    <form onSubmit={handleSubmit} className="w-full">
+                        <h1 className="sf-entity-title text-h2 font-medium">{LoginAuthMessage.ChangePassword.niceToString()}</h1>
                         {mustChangePassword && (
                             <div className="alert alert-warning" role="alert">
                                 <strong>{LoginAuthMessage.PasswordMustBeChanged.niceToString()}</strong>
@@ -122,22 +122,22 @@ export default function ChangePasswordPage(): React.JSX.Element {
                             <label className="col-form-label col-form-label-sm">{LoginAuthMessage.CurrentPassword.niceToString()}</label>
                             <div>
                                 <input type="password" className="form-control form-control-sm" id="currentPassword" ref={oldPassword} onBlur={handleOldPasswordBlur} autoComplete="old-password" />
-                                {error("oldPassword") && <span className="help-block text-danger">{error("oldPassword")}</span>}
+                                {error("oldPassword") && <span className="help-block text-destructive">{error("oldPassword")}</span>}
                             </div>
                         </div>
                         <div className={classes("form-group form-group-sm", error("newPassword") && "has-error")}>
                             <label className="col-form-label col-form-label-sm">{LoginAuthMessage.EnterTheNewPassword.niceToString()}</label>
                             <div>
                                 <input type="password" className={classes("form-control form-control-sm", passValidation && "is-invalid")} id="newPassword" ref={newPassword} onChange={handlePasswordChange} onBlur={handlePasswordBlur} autoComplete="new-password" />
-                                {passValidation && <span className={classes("help-block", passValidation.level === "error" ? "text-danger" : "text-warning")}>{passValidation.message}</span>}
-                                {error("newPassword") && <span className="help-block text-danger">{error("newPassword")}</span>}
+                                {passValidation && <span className={classes("help-block", passValidation.level === "error" ? "text-destructive" : "text-warning")}>{passValidation.message}</span>}
+                                {error("newPassword") && <span className="help-block text-destructive">{error("newPassword")}</span>}
                             </div>
                         </div>
                         <div className={classes("form-group form-group-sm", error("newPassword2") && "has-error")}>
                             <label className="col-form-label col-form-label-sm">{LoginAuthMessage.ConfirmNewPassword.niceToString()}</label>
                             <div>
                                 <input type="password" className="form-control form-control-sm" id="newPassword2" ref={newPassword2} onBlur={handlePasswordBlur} autoComplete="new-password" />
-                                {error("newPassword2") && <span className="help-block text-danger">{error("newPassword2")}</span>}
+                                {error("newPassword2") && <span className="help-block text-destructive">{error("newPassword2")}</span>}
                             </div>
                         </div>
                         <button type="submit" className="btn btn-primary mt-2" id="changePassword">{LoginAuthMessage.ChangePassword.niceToString()}</button>

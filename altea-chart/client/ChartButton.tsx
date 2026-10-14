@@ -36,7 +36,7 @@ export default function ChartButton(p: ChartButtonProps): React.JSX.Element {
     }
 
     const label = sc.props.largeToolbarButtons == true
-        ? <span className="d-none d-sm-inline">{" " + ChartMessage.Chart.niceToString()}</span>
+        ? <span className="hidden sm:inline">{" " + ChartMessage.Chart.niceToString()}</span>
         : undefined;
 
     return (

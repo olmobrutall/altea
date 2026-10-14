@@ -29,13 +29,13 @@ export default function ProcessPanelPage(): React.JSX.Element {
     useTitle("Process Runner");
 
     if (state == null)
-        return <h1 className="display-6 h2">{ProcessMessage.ProcessLogicStateLoading.niceToString()}</h1>;
+        return <h1 className="text-display-6 font-light">{ProcessMessage.ProcessLogicStateLoading.niceToString()}</h1>;
 
     const s = state;
 
     return (
         <div>
-            <h1 className="display-6 h2">
+            <h1 className="text-display-6 font-light">
                 <FontAwesomeIcon aria-hidden={true} icon="gears" className="me-2" />
                 {ProcessMessage.ProcessPanel.niceToString()}
                 <FontAwesomeIcon aria-hidden={true} icon="sync" className="ms-2"
@@ -53,7 +53,7 @@ export default function ProcessPanelPage(): React.JSX.Element {
                 </button>
             </div>
 
-            <div className="mt-3">
+            <div className="mt-4">
                 {ProcessMessage.State.niceToString()}: <strong>
                     {s.running
                         ? <span style={{ color: "green" }}>{ProcessMessage.Running.niceToString()}</span>
@@ -80,12 +80,12 @@ export default function ProcessPanelPage(): React.JSX.Element {
                 machineName={s.machineName} onReload={reloadState} />
 
             {s.log != null &&
-                <div className="mt-4">
-                    <h2 className="h4">Runner log</h2>
-                    <pre className="small">{s.log}</pre>
+                <div className="mt-6">
+                    <h2 className="text-h4 font-medium">Runner log</h2>
+                    <pre className="text-[.875em]">{s.log}</pre>
                 </div>}
 
-            <h2 className="h4 mt-4">{ProcessMessage.LatestProcesses.niceToString()}</h2>
+            <h2 className="text-h4 font-medium mt-6">{ProcessMessage.LatestProcesses.niceToString()}</h2>
             <SearchControl findOptions={{
                 queryName: ProcessEntity,
                 orderOptions: [{ token: ProcessEntity.token(p => p.creationDate), orderType: "Descending" }],
@@ -102,8 +102,8 @@ function ExecutingProcesses(p: {
     onReload: () => void;
 }): React.JSX.Element {
     return (
-        <div className="mt-4">
-            <h2 className="h4">
+        <div className="mt-6">
+            <h2 className="text-h4 font-medium">
                 {ProcessMessage._0ProcessesExcecutingIn1_2.niceToString(p.executing.length, p.machineName, p.total)}
             </h2>
             {p.executing.length === 0
@@ -139,7 +139,7 @@ function ProgressBar(p: { fraction: string | null }): React.JSX.Element {
     const percent = p.fraction == null ? null : Math.round(Number(p.fraction) * 100);
 
     if (percent == null)
-        return <span className="text-muted">—</span>;
+        return <span className="text-muted-foreground">—</span>;
 
     return (
         <div className="progress" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>

@@ -39,5 +39,5 @@ export function getEntityTypeHelpText(
     if (dashboardEntityTypeName != null && selectedEntityTypeName == null)
         return <span className="text-warning">{DashboardMessage.NotFilteringBy0.niceToString(dashboardEntityTypeName)}</span>;
 
-    return <span className="text-danger">{DashboardMessage.IncompatibleEntityType.niceToString()}</span>;
+    return <span className="text-destructive">{DashboardMessage.IncompatibleEntityType.niceToString()}</span>;
 }

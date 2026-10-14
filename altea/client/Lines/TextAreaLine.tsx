@@ -94,7 +94,7 @@ export const TextAreaLine: (props: TextAreaLineProps) => React.ReactNode | null
   var cc = c.props.charCounter == null ? null :
     c.props.charCounter == true && c.props.valueHtmlAttributes?.maxLength ? <ChartCounter myRef={ccRef}>{v => {
       var rem = c.props.valueHtmlAttributes!.maxLength! - v;
-      return <><strong className={rem <= 0 ? "text-danger" : undefined}>{rem}</strong> characters remaining</>;
+      return <><strong className={rem <= 0 ? "text-destructive" : undefined}>{rem}</strong> characters remaining</>;
     }}</ChartCounter> :
 
       c.props.charCounter == true ? <ChartCounter myRef={ccRef}>{v => <><strong>{v}</strong> characters</>}</ChartCounter> :

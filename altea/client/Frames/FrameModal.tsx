@@ -434,7 +434,7 @@ export function FrameModalTitle({ titleId, pack, pr, title, subTitle, widgets, g
       }
       {(subTitle || widgets) &&
         <div className="sf-entity-sub-title">
-          {subTitle && <small className="sf-type-nice-name text-muted"> {subTitle}</small>}
+          {subTitle && <small className="sf-type-nice-name text-muted-foreground"> {subTitle}</small>}
           {widgets}
         </div>
       }

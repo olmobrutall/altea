@@ -75,7 +75,7 @@ export function PredictView(p: PredictViewProps): React.JSX.Element {
     const sctx = React.useMemo(() => new StyleContext(undefined, {}), []);
 
     if (tokens == null)
-        return <div className="mt-3">…</div>;
+        return <div className="mt-4">…</div>;
 
     const inputs = predict.columns.filter(c => c.usage === PredictorColumnUsage.Input);
     const outputs = predict.columns.filter(c => c.usage === PredictorColumnUsage.Output);
@@ -84,7 +84,7 @@ export function PredictView(p: PredictViewProps): React.JSX.Element {
         <div>
             <h4>
                 {predict.predictor.toString()}{" "}
-                <small className="text-muted">
+                <small className="text-muted-foreground">
                     {PredictorEntity.niceName()} {predict.predictor.id}{" "}
                     (<a href={Navigator.navigateRoute(predict.predictor)} target="_blank" rel="noreferrer">
                         {PredictorMessage.Predict.niceToString()}
@@ -173,7 +173,7 @@ export function AlternativesCheckBox(
 
     const val = p.binding.getValue();
     return (
-        <label className="d-flex align-items-center gap-2">
+        <label className="flex items-center gap-2">
             <input type="checkbox" className="form-check-input mt-0"
                 checked={val != null} onChange={() => setValue(val == null ? 5 : null)} />
             Show
@@ -199,7 +199,7 @@ export function PredictLine(p: PredictLineProps): React.JSX.Element {
 
     function renderValue(): React.ReactNode {
         if (token == null)
-            return <span className="text-danger">?</span>;
+            return <span className="text-destructive">?</span>;
 
         if (p.usage === "Input") {
             const ctx = new TypeContext<unknown>(p.sctx, undefined, token.type, p.binding);

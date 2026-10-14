@@ -25,12 +25,12 @@ export default function AllNewsPage(): React.JSX.Element {
 
     return (
         <div>
-            <h1 className="h2">
+            <h1 className="text-h2 font-medium">
                 {WhatsNewMessage.YourNews.niceToString()}{" "}
                 <span className="sf-news-notify-badge"
                     style={{ marginTop: "6px", marginLeft: "3px", fontSize: "12px" }}>{news.length}</span>
             </h1>
-            <div className="mt-3">
+            <div className="mt-4">
                 <div style={{ display: "flex", flexFlow: "wrap" }}>
                     {published.map(wn => <WhatsNewCard key={wn.whatsNew.id} news={wn} />)}
                 </div>
@@ -57,7 +57,7 @@ export function WhatsNewCard(p: { news: WhatsNewFull }): React.JSX.Element {
                         </div>
                     </Link>}
                 <div className="card-body pt-2">
-                    <h2 className="card-title h5">{whatsnew.title}</h2>
+                    <h2 className="card-title text-h5 font-medium">{whatsnew.title}</h2>
                     <small><HtmlViewer text={htmlSubstring(whatsnew.description, 300)} /></small>
                     <br />
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -68,7 +68,7 @@ export function WhatsNewCard(p: { news: WhatsNewFull }): React.JSX.Element {
                     {whatsnew.attachments > 0 &&
                         <div>
                             <hr />
-                            <h3 className="h5">
+                            <h3 className="text-h5 font-medium">
                                 {WhatsNewMessage.Downloads.niceToString()} ({whatsnew.attachments})
                             </h3>
                         </div>}

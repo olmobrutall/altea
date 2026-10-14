@@ -42,9 +42,9 @@ export default function UserQueryPage(): React.JSX.Element | null {
 
     return (
         <div id="divSearchPage" className="sf-search-page">
-            <h1 className="display-6 sf-query-title h3 d-flex align-items-center">
+            <h1 className="text-display-6 font-light sf-query-title flex items-center">
                 <span>{getQueryNiceName(fo.queryName)}</span>
-                <small className="sf-type-nice-name text-muted ms-2">- {currentUserQuery.displayName}</small>
+                <small className="sf-type-nice-name text-muted-foreground ms-2">- {currentUserQuery.displayName}</small>
             </h1>
 
             <SearchControl

@@ -71,7 +71,7 @@ export function ButtonBar(p: ButtonBarProps): React.JSX.Element {
   }));
 
   return (
-    <div className={classes("btn-toolbar", "sf-button-bar", p.align == "right" ? "justify-content-end" : undefined)}>
+    <div className={classes("btn-toolbar", "sf-button-bar", p.align == "right" ? "justify-end" : undefined)}>
       {!qualifiedOperations && ButtonBarManager.showSearch(getTypeName(p.pack.entity), Dic.getKeys(p.pack.canExecute)) && renderSearch()}
       {/* Keyed here rather than by each producer: this used to be `cloneElement(<div/>, undefined, ...buttons)`,
           which passes them as varargs and needs no keys, and mapping to an ARRAY does. */}
@@ -81,9 +81,9 @@ export function ButtonBar(p: ButtonBarProps): React.JSX.Element {
 
   function renderSearch() {
     return (
-      <div className="btn-toolbar-search mb-2 w-100">
+      <div className="btn-toolbar-search mb-2 w-full">
         <AutoFocus>
-          <label className="label-xs d-inline-flex align-items-center gap-2">
+          <label className="label-xs inline-flex items-center gap-2">
             <span>{SearchMessage.Search.niceToString()}</span>
             <input type="text" className="form-control form-control-xs" value={text} onChange={e => {
               setText(e.currentTarget.value);

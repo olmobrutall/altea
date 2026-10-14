@@ -89,7 +89,7 @@ export default function OperationMapPage(): React.JSX.Element | null {
     function renderFilter(): React.JSX.Element {
         return (
             <div className="container">
-                <div className="row align-items-center">
+                <div className="row items-center">
                     <div className="col-auto">
                         <label htmlFor="color"> {MapMessage.Color.niceToString()}</label>
                     </div>

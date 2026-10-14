@@ -54,11 +54,11 @@ export default function DynamicPanelPage(): React.JSX.Element {
 
     return (
         <div>
-            <h2 className="display-6 h3">{DynamicPanelMessage.DynamicPanel.niceToString()}</h2>
+            <h2 className="text-display-6 font-light">{DynamicPanelMessage.DynamicPanel.niceToString()}</h2>
 
             {status == null ? <p>{JavascriptMessage.loading.niceToString()}</p> : <StatusAlert status={status} />}
 
-            <Tabs activeKey={step} id="dynamicPanelTabs" className="mt-3" mountOnEnter
+            <Tabs activeKey={step} id="dynamicPanelTabs" className="mt-4" mountOnEnter
                 onSelect={k => AppContext.navigate("/dynamic/panel?step=" + k, { replace: true })}>
                 <Tab eventKey="search" title={DynamicPanelMessage.Search.niceToString()}>
                     <SearchStep />
@@ -76,7 +76,7 @@ export default function DynamicPanelPage(): React.JSX.Element {
                     <CheckEvalsStep />
                 </Tab>
                 <Tab eventKey="refreshClients" title={DynamicPanelMessage.RefreshClients.niceToString()}>
-                    <p className="mt-3">{DynamicPanelMessage.YouNeedToRefreshManually.niceToString()}</p>
+                    <p className="mt-4">{DynamicPanelMessage.YouNeedToRefreshManually.niceToString()}</p>
                     <button type="button" className="btn btn-warning" onClick={() => window.location.reload()}>
                         {DynamicPanelMessage.RefreshThisClient.niceToString()}
                     </button>
@@ -158,7 +158,7 @@ function CompileStep(p: { status: DynamicCompilationStatus }): React.JSX.Element
     const file = error == null ? undefined : result?.files.find(f => f.fileName === error.fileName);
 
     return (
-        <div className="mt-3">
+        <div className="mt-4">
             <div className="row">
                 <div className="col-sm-6">
                     <SearchValueLine ctx={ctx} findOptions={{ queryName: DynamicTypeEntity }} />
@@ -175,7 +175,7 @@ function CompileStep(p: { status: DynamicCompilationStatus }): React.JSX.Element
                         <details>
                             <summary>
                                 {DynamicPanelMessage._0GeneratedFiles.niceToString(p.status.written.length)}
-                                <small className="text-muted ms-2">{p.status.codeGenDirectory}</small>
+                                <small className="text-muted-foreground ms-2">{p.status.codeGenDirectory}</small>
                             </summary>
                             <ul className="mt-2">
                                 {p.status.written.map(f => <li key={f}><code>{f}</code></li>)}
@@ -191,7 +191,7 @@ function CompileStep(p: { status: DynamicCompilationStatus }): React.JSX.Element
             </button>
 
             {result &&
-                <div className="mt-3">
+                <div className="mt-4">
                     <div className={classes("alert", result.errors.length === 0 ? "alert-success" : "alert-danger")}>
                         <strong>{DynamicPanelMessage._0Errors.niceToString(result.errors.length)}</strong>{" "}
                         {result.errors.length === 0
@@ -214,7 +214,7 @@ function CompileStep(p: { status: DynamicCompilationStatus }): React.JSX.Element
                                         className={classes(i === selected && "table-active")}>
                                         <td><code>{e.fileName}</code></td>
                                         <td>{e.line}</td>
-                                        <td className="text-danger">
+                                        <td className="text-destructive">
                                             {e.message}
                                             {e.sourceLine.trim() !== "" && <pre className="mb-0 mt-1"><small>{e.sourceLine.trim()}</small></pre>}
                                         </td>
@@ -263,7 +263,7 @@ function RestartStep(p: { status: DynamicCompilationStatus; onRestarted: () => v
 
     if (restartingSince != null)
         return (
-            <div className="progress mt-3" style={{ height: "2em" }}>
+            <div className="progress mt-4" style={{ height: "2em" }}>
                 <div className="progress-bar progress-bar-striped progress-bar-animated bg-warning" style={{ width: "100%" }}>
                     {DynamicPanelMessage.Restarting0s.niceToString(seconds)}
                 </div>
@@ -271,7 +271,7 @@ function RestartStep(p: { status: DynamicCompilationStatus; onRestarted: () => v
         );
 
     return (
-        <div className="mt-3">
+        <div className="mt-4">
             {p.status.canRestart ?
                 AuthClient.isPermissionAuthorized(DynamicPanelPermission.RestartApplication) &&
                 <button type="button" className="btn btn-danger" onClick={() => void handleRestart()}>
@@ -280,7 +280,7 @@ function RestartStep(p: { status: DynamicCompilationStatus; onRestarted: () => v
                 </button> :
                 <div className="alert alert-secondary">{DynamicPanelMessage.RestartNotAvailable.niceToString()}</div>}
 
-            <p className="mt-3 text-muted">{DynamicPanelMessage.AfterRestartSynchronize.niceToString()}</p>
+            <p className="mt-4 text-muted-foreground">{DynamicPanelMessage.AfterRestartSynchronize.niceToString()}</p>
         </div>
     );
 }
@@ -289,7 +289,7 @@ function RestartStep(p: { status: DynamicCompilationStatus; onRestarted: () => v
 
 function MigrationsStep(): React.JSX.Element {
     return (
-        <div className="mt-3">
+        <div className="mt-4">
             <h5>{DynamicSqlMigrationEntity.nicePluralName()}</h5>
             <SearchControl findOptions={{ queryName: DynamicSqlMigrationEntity }} />
         </div>
@@ -303,9 +303,9 @@ function SearchStep(): React.JSX.Element {
     const ctx = React.useMemo(() => new StyleContext(undefined, { labelColumns: 3 }), []);
 
     return (
-        <div className="row mt-3">
+        <div className="row mt-4">
             <div className="col-sm-6">
-                <div className="input-group mb-3">
+                <div className="input-group mb-4">
                     <span className="input-group-text"><FontAwesomeIcon aria-hidden={true} icon="magnifying-glass" /></span>
                     <input type="text" className="form-control" value={search} onChange={e => setSearch(e.currentTarget.value)} />
                 </div>
@@ -338,21 +338,21 @@ function CheckEvalsStep(): React.JSX.Element {
     }
 
     return (
-        <div className="mt-3">
+        <div className="mt-4">
             <button type="button" className="btn btn-success" disabled={state === "loading"} onClick={() => void handleRefresh()}>
                 <FontAwesomeIcon aria-hidden={true} icon="arrows-rotate" spin={state === "loading"} />{" "}
                 {DynamicPanelMessage.RefreshAll.niceToString()}
             </button>
 
             {Array.isArray(state) && (state.length === 0 ?
-                <div className="alert alert-success mt-3">{DynamicPanelMessage.NoErrorsFound.niceToString()}</div> :
-                <table className="table table-sm mt-3">
+                <div className="alert alert-success mt-4">{DynamicPanelMessage.NoErrorsFound.niceToString()}</div> :
+                <table className="table table-sm mt-4">
                     <tbody>
                         {state.map((e, i) =>
                             <tr key={i}>
-                                <td><small className="text-muted">{e.source}</small></td>
+                                <td><small className="text-muted-foreground">{e.source}</small></td>
                                 <td><EntityLink lite={e.lite} /></td>
-                                <td className="text-danger"><pre className="mb-0" style={{ whiteSpace: "pre-wrap" }}>{e.error}</pre></td>
+                                <td className="text-destructive"><pre className="mb-0" style={{ whiteSpace: "pre-wrap" }}>{e.error}</pre></td>
                             </tr>)}
                     </tbody>
                 </table>)}

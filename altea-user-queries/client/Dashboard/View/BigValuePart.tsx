@@ -124,7 +124,7 @@ export default function BigValuePart(p: PanelPartContentProps<BigValuePartEntity
                         {/* The VALUE is not a heading: as an h3 before the part's own h2 below, every big
                             value put a bare number into the heading list and a level out of order. The class
                             keeps its size. */}
-                        <p className="h3">
+                        <p className="text-h3 font-medium">
                             <SearchValue ref={vsc} findOptions={foExpanded} isLink={false} isBadge={false} deps={[...p.deps ?? [], version]}
                                 onValueChange={forceUpdate}
                                 onInitialValueLoaded={forceUpdate}
@@ -137,7 +137,7 @@ export default function BigValuePart(p: PanelPartContentProps<BigValuePartEntity
                         {icon && <FontAwesomeIcon role="img" icon={icon} color={p.partEmbedded.iconColor ?? undefined} size="2x" />}
                     </div>
                 </div>
-                <h2 className="medium h3">
+                <h2 className="medium text-h3 font-medium">
                     {custom?.message ?? (p.partEmbedded.title || p.content.userQuery?.displayName || p.content.valueToken?.tokenString)}
                     {tooltipHtml && <DashboardTooltipIcon tooltipHtml={tooltipHtml} className="ms-2" iconClassName="sf-tooltip-icon" />}
                 </h2>
@@ -151,7 +151,7 @@ export default function BigValuePart(p: PanelPartContentProps<BigValuePartEntity
     };
 
     return (
-        <div className={classes("card", "border-tertiary shadow-sm mb-3 w-100", "o-hidden")}
+        <div className={classes("card", "border-tertiary shadow-xs mb-4 w-full", "o-hidden")}
             style={{
                 backgroundColor: customColor ?? undefined,
                 color: customColor ? getContrastingTextColor(customColor) : "var(--bs-body-color)",
@@ -159,7 +159,7 @@ export default function BigValuePart(p: PanelPartContentProps<BigValuePartEntity
             {clickable ? (
                 <button type="button"
                     onClick={e => { if (p.content.navigate) handleNavigate(e); else vsc.current!.handleClick(e); }}
-                    className="card-body border-0 bg-transparent text-start w-100"
+                    className="card-body border-0 bg-transparent text-start w-full"
                     style={bodyStyle}>
                     {renderCardContent()}
                 </button>

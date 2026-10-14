@@ -36,7 +36,7 @@ export function FormGroup(p: FormGroupProps): React.ReactElement {
   // Hidden rather than shown: the red styling and the validation summary already cover the sighted case,
   // and putting it inline would restyle every invalid field in the application.
   const errorMessage = error &&
-    <span id={tCtx.getUniqueId("error")} className="visually-hidden">{error}</span>;
+    <span id={tCtx.getUniqueId("error")} className="sr-only">{error}</span>;
 
   if (ctx.formGroupStyle == "None") {
     const c = p.children?.(controlId);
@@ -52,7 +52,7 @@ export function FormGroup(p: FormGroupProps): React.ReactElement {
   const requiredIndicator = (tCtx.propertyRoute?.fieldInfo && !tCtx.propertyRoute.fieldInfo.isNullable) && !p.ariaAttributes?.['aria-readonly'];
 
   const labelClasses = classes(
-    ctx.formGroupStyle == "SrOnly" && "visually-hidden",
+    ctx.formGroupStyle == "SrOnly" && "sr-only",
     ctx.formGroupStyle == "LabelColumns" && ctx.labelColumnsCss,
     ctx.formGroupStyle == "LabelColumns" ? ctx.colFormLabelClass : ctx.labelClass,
   );
@@ -103,20 +103,20 @@ export function FormGroup(p: FormGroupProps): React.ReactElement {
       className={classes(p.htmlAttributes?.className, formGroupClasses)}
       {...errorAtts}>
       {(ctx.formGroupStyle == "Basic" || ctx.formGroupStyle == "LabelColumns" || ctx.formGroupStyle == "SrOnly") && label}
-      {p.helpTextOnTop && ctx.formGroupStyle != "LabelColumns" && <small className="form-text d-block">{p.helpTextOnTop}</small>}
+      {p.helpTextOnTop && ctx.formGroupStyle != "LabelColumns" && <small className="form-text block">{p.helpTextOnTop}</small>}
       {
         ctx.formGroupStyle != "LabelColumns" ? p.children?.(controlId) :
           (
             <div className={ctx.valueColumnsCss} >
-              {p.helpTextOnTop && ctx.formGroupStyle == "LabelColumns" && <small className="form-text d-block">{p.helpTextOnTop}</small>}
+              {p.helpTextOnTop && ctx.formGroupStyle == "LabelColumns" && <small className="form-text block">{p.helpTextOnTop}</small>}
               {p.children?.(controlId)}
               {/* The other half of the same reference: the help text carries the id aria-describedby names. */}
-              {p.helpText && ctx.formGroupStyle == "LabelColumns" && <small id={tCtx.getUniqueId("help")} className="form-text d-block">{p.helpText}</small>}
+              {p.helpText && ctx.formGroupStyle == "LabelColumns" && <small id={tCtx.getUniqueId("help")} className="form-text block">{p.helpText}</small>}
             </div>
           )
       }
       {(ctx.formGroupStyle == "BasicDown" || ctx.formGroupStyle == "FloatingLabel") && label}
-      {p.helpText && ctx.formGroupStyle != "LabelColumns" && <small id={tCtx.getUniqueId("help")} className="form-text d-block">{p.helpText}</small>}
+      {p.helpText && ctx.formGroupStyle != "LabelColumns" && <small id={tCtx.getUniqueId("help")} className="form-text block">{p.helpText}</small>}
       {errorMessage}
     </div>
   );

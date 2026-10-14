@@ -133,7 +133,7 @@ export function DateTimeRange(p: DateTimeRangeProps): React.ReactElement | null 
     return (
       <FormGroup ctx={p.mainCtx} label={p.label} labelHtmlAttributes={p.labelHtmlAttributes} htmlAttributes={p.formGroupHtmlAttributes}>
         {() => (
-          <div className="d-flex gap-2">
+          <div className="flex gap-2">
             {renderPart(p.min, true, undefined, maxAsDate)}
             {renderPart(p.max, true, minAsDate, undefined)}
           </div>

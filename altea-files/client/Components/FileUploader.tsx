@@ -111,7 +111,7 @@ export function FileUploader(p: FileUploaderProps): React.JSX.Element {
                     </div> :
                     selectButton
             }
-            {errors.map((e, i) => <p key={i} className="text-danger">{e}</p>)}
+            {errors.map((e, i) => <p key={i} className="text-destructive">{e}</p>)}
         </div>
     );
 }

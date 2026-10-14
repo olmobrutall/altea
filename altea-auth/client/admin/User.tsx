@@ -26,8 +26,8 @@ export default function User(p: { ctx: TypeContext<UserEntity> }): React.JSX.Ele
     return (
         <div>
             <div className="row">
-                <div className="col-sm-3 d-flex">
-                    <div className="mx-auto mt-3">
+                <div className="col-sm-3 flex">
+                    <div className="mx-auto mt-4">
                         <ProfilePhoto user={ctx.value} size={150} />
                     </div>
                 </div>

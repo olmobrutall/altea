@@ -49,7 +49,7 @@ export const CheckboxLine: (props: CheckboxLineProps) => React.ReactNode | null 
             className={classes(c.props.valueHtmlAttributes?.className, "form-check-input")}
           />
           {" "}{p.label}{requiredIndicator && <span aria-hidden="true" className="required-indicator">*</span>}{p.labelIcon && " "}{p.labelIcon}
-          {p.helpText && <small className="d-block form-text text-muted">{helpText}</small>}
+          {p.helpText && <small className="block form-text text-muted-foreground">{helpText}</small>}
         </label>
       );
     }

@@ -42,16 +42,16 @@ export default function PredictPage(): React.JSX.Element {
     }, [predictorId, entityKey]);
 
     if (data == null)
-        return <div className="container mt-3">…</div>;
+        return <div className="container mt-4">…</div>;
 
     const settings = data.predictor.algorithmSettings;
     const isClassification = settings instanceof NeuralNetworkSettingsEntity
         && settings.predictionType === PredictionType.Classification;
 
     return (
-        <div className="container mt-3">
-            <h2 className="h4">{PredictorMessage.Predict.niceToString()}</h2>
-            {data.entity && <p className="text-muted">
+        <div className="container mt-4">
+            <h2 className="text-h4 font-medium">{PredictorMessage.Predict.niceToString()}</h2>
+            {data.entity && <p className="text-muted-foreground">
                 <a href={Navigator.navigateRoute(data.entity)} target="_blank" rel="noreferrer">
                     {data.entity.toString()}
                 </a>

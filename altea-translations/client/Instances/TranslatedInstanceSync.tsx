@@ -74,7 +74,7 @@ export default function TranslatedInstanceSync(): React.JSX.Element {
     }
 
     const filterToggle = (
-        <label className="d-block mb-2 text-end">
+        <label className="block mb-2 text-end">
             <input type="checkbox" checked={applyFilter} onChange={e => setApplyFilter(e.currentTarget.checked)} />
             {" "}{TranslationMessage.OnlyRecommendedInstances.niceToString()}
         </label>
@@ -88,7 +88,7 @@ export default function TranslatedInstanceSync(): React.JSX.Element {
         return (
             <div>
                 <div className="mb-2">
-                    <h1 className="h2">{TranslationMessage._0AlreadySynchronized.niceToString(typeNiceName)}</h1>
+                    <h1 className="text-h2 font-medium">{TranslationMessage._0AlreadySynchronized.niceToString(typeNiceName)}</h1>
                 </div>
                 {filterToggle}
                 {deleted}
@@ -99,7 +99,7 @@ export default function TranslatedInstanceSync(): React.JSX.Element {
     return (
         <div>
             <div className="mb-2">
-                <h1 className="h2">
+                <h1 className="text-h2 font-medium">
                     <Link to="/translatedInstance/status">{TranslationMessage.InstanceTranslations.niceToString()}</Link>
                     {" > "}{message}
                 </h1>
@@ -155,7 +155,7 @@ function SyncPropertyRows(p: {
 
     function toggleButton(value: boolean, setValue: (v: boolean) => void): React.ReactElement {
         return (
-            <LinkButton className="me-1 fw-normal" title={value ? "show code" : "show preview"} onClick={() => setValue(!value)}>
+            <LinkButton className="me-1 font-normal" title={value ? "show code" : "show preview"} onClick={() => setValue(!value)}>
                 <FontAwesomeIcon aria-hidden={true} icon={value ? "code" : "eye"} />
             </LinkButton>
         );

@@ -23,11 +23,11 @@ export default function TimesPage(): React.JSX.Element {
     }
 
     if (times == undefined)
-        return <h1 className="h3">{TimeMessage.TimesLoading.niceToString()}</h1>;
+        return <h1 className="text-h3 font-medium">{TimeMessage.TimesLoading.niceToString()}</h1>;
 
     return (
         <div>
-            <h1 className="display-6 h3">{TimeMessage.Times.niceToString()}</h1>
+            <h1 className="text-display-6 font-light">{TimeMessage.Times.niceToString()}</h1>
             <div className="btn-toolbar">
                 <button type="button" onClick={() => reloadTimes()} className="btn btn-tertiary">{TimeMessage.Reload.niceToString()}</button>
                 <button type="button" onClick={handleClear} className="btn btn-warning">{TimeMessage.Clear.niceToString()}</button>

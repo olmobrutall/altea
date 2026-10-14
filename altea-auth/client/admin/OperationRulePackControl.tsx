@@ -79,8 +79,8 @@ export default function OperationRulePackControl({ ctx, initialTypeConditions, r
                 <AutoLine ctx={ctx.subCtx(f => f.strategy)} readOnly={true} />
             </div>
             {ctx.value.availableTypeConditions.length > 0 &&
-                <div className="mb-2 d-flex align-items-center gap-2">
-                    <span className="text-muted small">Type conditions</span>
+                <div className="mb-2 flex items-center gap-2">
+                    <span className="text-muted-foreground text-[.875em]">Type conditions</span>
                     <SliceSelector available={ctx.value.availableTypeConditions} slice={slice} onChange={setSlice} />
                 </div>}
             <OperationRulesTable pack={ctx.value} readOnly={ctx.readOnly} markDirty={markDirty} slice={slice} />

@@ -87,6 +87,7 @@ export function ThemeModeSelector(p: { onSetMode?: (theme: "dark" | "light") => 
     const theme = useAuto(mode);
 
     React.useEffect(() => {
+        document.documentElement.dataset.theme = theme;
         document.documentElement.dataset.bsTheme = theme;
         p.onSetMode?.(theme);
     }, [theme]);
@@ -114,7 +115,7 @@ export function ThemeModeSelector(p: { onSetMode?: (theme: "dark" | "light") => 
             title={
                 <span title={ThemeModeMessage.Theme.niceToString() + ": " + LABELS[mode].niceToString()}>
                     <FontAwesomeIcon aria-hidden={true} icon={ICONS[mode]} />
-                    <span className="visually-hidden">{ThemeModeMessage.Theme.niceToString() + ": " + LABELS[mode].niceToString()}</span>
+                    <span className="sr-only">{ThemeModeMessage.Theme.niceToString() + ": " + LABELS[mode].niceToString()}</span>
                 </span>
             }>
             {THEME_MODES.map(m =>

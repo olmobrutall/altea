@@ -27,18 +27,18 @@ export default function AsyncEmailSenderPage(): React.JSX.Element {
     }, [tick]);
 
     if (state == null)
-        return <h1 className="display-6 h2">AsyncEmailSender state (loading…)</h1>;
+        return <h1 className="text-display-6 font-light">AsyncEmailSender state (loading…)</h1>;
 
     const s = state;
 
     return (
         <div>
-            <h1 className="display-6 h2">
+            <h1 className="text-display-6 font-light">
                 <FontAwesomeIcon aria-hidden={true} icon="envelopes-bulk" className="me-2" />
                 AsyncEmailSender
             </h1>
 
-            <div className="btn-toolbar mt-3">
+            <div className="btn-toolbar mt-4">
                 <button type="button" className={classes("sf-button btn", s.running ? "btn-success disabled" : "btn-outline-success")}
                     onClick={s.running ? undefined : () => void MailingClient.API.start().then(() => reloadState())}>
                     <FontAwesomeIcon aria-hidden={true} icon="play" className="me-1" />Start
@@ -49,7 +49,7 @@ export default function AsyncEmailSenderPage(): React.JSX.Element {
                 </button>
             </div>
 
-            <div className="mt-3">
+            <div className="mt-4">
                 State: <strong>
                     {s.running
                         ? <span style={{ color: "green" }}> RUNNING </span>
@@ -77,7 +77,7 @@ export default function AsyncEmailSenderPage(): React.JSX.Element {
             </div>
 
             <br />
-            <h2 className="h4">{EmailMessageEntity.nicePluralName()}</h2>
+            <h2 className="text-h4 font-medium">{EmailMessageEntity.nicePluralName()}</h2>
             <SearchControl findOptions={EmailMessageEntity.findOptions(token => ({
                 orderOptions: [{ token: token(e => e.creationDate), orderType: "Descending" }],
                 pagination: { mode: "Firsts", elementsPerPage: 10 },

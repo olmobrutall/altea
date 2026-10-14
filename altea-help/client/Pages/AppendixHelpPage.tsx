@@ -34,13 +34,13 @@ export default function AppendixHelpPage(): React.JSX.Element {
     useTitle(HelpMessage.Help.niceToString() + (appendix ? " > " + appendix.title : ""));
 
     if (appendix == null)
-        return <div className="container"><h1 className="display-6">{JavascriptMessage.loading.niceToString()}</h1></div>;
+        return <div className="container"><h1 className="text-display-6 font-light">{JavascriptMessage.loading.niceToString()}</h1></div>;
 
     const ctx = TypeContext.root(appendix, { readOnly: Navigator.isReadOnly(AppendixHelpEntity) });
 
     return (
         <div className="container">
-            <h1 className="display-6">
+            <h1 className="text-display-6 font-light">
                 <Link to={HelpClient.Urls.indexUrl()}>{HelpMessage.Help.niceToString()}</Link>
                 {" > "}
                 <EditableText ctx={ctx.subCtx(a => a.title, { formSize: "lg" })}
@@ -52,7 +52,7 @@ export default function AppendixHelpPage(): React.JSX.Element {
                             ctx.value.uniqueName = (ctx.value.title ?? "").replace(/[^a-zA-Z0-9]/g, "");
                         forceUpdate();
                     }} />
-                <small className="ms-5 text-muted display-7">({ctx.value.culture.englishName})</small>
+                <small className="ms-12 text-muted-foreground text-display-7 font-light">({ctx.value.culture.englishName})</small>
             </h1>
 
             <div className={classes("mb-2", "shortcut-container")}>
@@ -65,7 +65,7 @@ export default function AppendixHelpPage(): React.JSX.Element {
 
             <EditableHtml ctx={ctx.subCtx(a => a.description)} onChange={forceUpdate} defaultEditable={appendix.isNew} />
 
-            <div className={classes("btn-toolbar", "sf-button-bar", "mt-4")}>
+            <div className={classes("btn-toolbar", "sf-button-bar", "mt-6")}>
                 <SaveButton ctx={ctx} onSuccess={() => ctx.value.isNew
                     ? AppContext.navigate(HelpClient.Urls.appendixUrl(ctx.value.uniqueName))
                     : reload()} />
@@ -121,7 +121,7 @@ function DeleteButton({ ctx }: { ctx: TypeContext<AppendixHelpEntity> }): React.
     }
 
     return (
-        <button type="button" className="btn btn-danger ms-4" onClick={onClick}>
+        <button type="button" className="btn btn-danger ms-6" onClick={onClick}>
             <FontAwesomeIcon aria-hidden={true} icon="trash" /> {oi.niceName}
         </button>
     );

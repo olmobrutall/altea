@@ -119,7 +119,7 @@ export function VisualTipIcon(p: VisualTipIconProps): React.JSX.Element {
                 ref={buttonRef}
                 type="button"
                 style={{ border: "none", background: "transparent" }}
-                className={classes("sf-line-button align-self-center", unread && "sf-beat", p.className)}
+                className={classes("sf-line-button self-center", unread && "sf-beat", p.className)}
                 title={VisualTipMessage.Help.niceToString()}
                 onClick={() => {
                     // Recorded on the first click, and only when it is not already read. `consumed == null`

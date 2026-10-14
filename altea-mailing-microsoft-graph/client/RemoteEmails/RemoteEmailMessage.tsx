@@ -23,7 +23,7 @@ export default function RemoteEmailMessage(p: { ctx: TypeContext<RemoteEmailMess
 
     return (
         <div>
-            <div className="row mb-3">
+            <div className="row mb-4">
                 <div className="col-sm-2">
                     <FontAwesomeIcon icon={["far", "envelope"]} style={{
                         color: "#d6d6d6",
@@ -40,7 +40,7 @@ export default function RemoteEmailMessage(p: { ctx: TypeContext<RemoteEmailMess
                 </div>
             </div>
 
-            <div className="row mb-3">
+            <div className="row mb-4">
                 <div className="col-sm-8">
                     <EntityLine ctx={ctx.subCtx(f => f.from)} labelColumns={3} />
                     <EntityStrip ctx={ctx.subCtx(f => f.toRecipients)} labelColumns={3} />

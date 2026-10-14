@@ -64,7 +64,7 @@ export const EntityDetail: <V extends BaseEntity | Lite<Entity> | null>(props: E
 
   if (p.avoidFieldSet)
     return (
-      <div className={classes("sf-entity-line-details", c.getErrorClass(), c.mandatoryClass, p.ctx.value && "mb-4")}
+      <div className={classes("sf-entity-line-details", c.getErrorClass(), c.mandatoryClass, p.ctx.value && "mb-6")}
         {...{ ...c.baseHtmlAttributes(), ...EntityBaseController.entityHtmlAttributes(p.ctx.value), ...p.formGroupHtmlAttributes, ...c.errorAttributes() }}>
         {getTimeMachineIcon({ ctx: p.ctx})}
         {showAsCheckBox ?
@@ -80,7 +80,7 @@ export const EntityDetail: <V extends BaseEntity | Lite<Entity> | null>(props: E
             {renderButtons()}
           </Title>
         }
-        <div className="ms-4 mt-2" {...p.avoidFieldSetHtmlAttributes}>
+        <div className="ms-6 mt-2" {...p.avoidFieldSetHtmlAttributes}>
           <RenderEntity ctx={p.ctx} getComponent={p.getComponent} getViewPromise={p.getViewPromise} onEntityLoaded={p.onEntityLoaded} />
         </div>
       </div>
@@ -91,7 +91,7 @@ export const EntityDetail: <V extends BaseEntity | Lite<Entity> | null>(props: E
       {getTimeMachineIcon({ ctx: p.ctx, translateY:"150%" })}
       <fieldset className={classes("sf-entity-line-details", c.getErrorClass(), c.mandatoryClass)}
         {...{ ...c.baseHtmlAttributes(), ...EntityBaseController.entityHtmlAttributes(p.ctx.value), ...p.formGroupHtmlAttributes, ...c.errorAttributes() }}>
-        <legend className="lead">
+        <legend className="text-[1.25rem] font-light">
           {showAsCheckBox ?
             <label>
               {renderCheckBox()}
@@ -101,7 +101,7 @@ export const EntityDetail: <V extends BaseEntity | Lite<Entity> | null>(props: E
             :
             // A span, not a div: a <legend> takes phrasing content only. d-block keeps the full-width box
             // renderButtons' float-end needs.
-            <span className="d-block">
+            <span className="block">
               <span>{p.label} {renderType()}</span>
               {renderButtons()}
             </span>

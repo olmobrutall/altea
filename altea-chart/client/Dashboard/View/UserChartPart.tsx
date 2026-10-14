@@ -126,9 +126,9 @@ export default function UserChartPart(p: PanelPartContentProps<UserChartPartEnti
 
     function renderError(e: unknown): React.JSX.Element {
         if (e instanceof ServiceError)
-            return <div>{e.httpError.exceptionMessage && <p className="text-danger">{e.httpError.exceptionMessage}</p>}</div>;
+            return <div>{e.httpError.exceptionMessage && <p className="text-destructive">{e.httpError.exceptionMessage}</p>}</div>;
 
-        return <p className="text-danger">{(e as Error)?.message ?? String(e)}</p>;
+        return <p className="text-destructive">{(e as Error)?.message ?? String(e)}</p>;
     }
 
     if (!chartRequest || !queryToken)
@@ -140,7 +140,7 @@ export default function UserChartPart(p: PanelPartContentProps<UserChartPartEnti
     if (resultOrError?.error) {
         return (
             <div>
-                <h1 className="h4">Error!</h1>
+                <h1 className="text-h4 font-medium">Error!</h1>
                 {renderError(resultOrError.error)}
             </div>
         );
@@ -153,7 +153,7 @@ export default function UserChartPart(p: PanelPartContentProps<UserChartPartEnti
     const result = resultOrError?.result;
 
     return (
-        <div className="d-flex flex-column flex-grow-1">
+        <div className="flex flex-col grow">
             <PinnedFilterBuilder queryToken={queryToken} filterOptions={chartRequest.filterOptions}
                 onFiltersChanged={(_fops, avoidSearch) => !avoidSearch && reloadQuery()}
                 pinnedFilterVisible={fop => fop.dashboardBehaviour == null} extraSmall={true} />
@@ -166,7 +166,7 @@ export default function UserChartPart(p: PanelPartContentProps<UserChartPartEnti
                     {" "}{getTypeInfo(UserChartPartEntity)?.fields["showData"]?.niceToString()}
                 </label>}
             {result != null && chartRequest.maxRows == result.resultTable.rows.length ?
-                <p className="text-danger">{ChartMessage.QueryResultReachedMaxRows0.niceToString(result.resultTable.rows.length)}</p> : undefined}
+                <p className="text-destructive">{ChartMessage.QueryResultReachedMaxRows0.niceToString(result.resultTable.rows.length)}</p> : undefined}
             {showData ?
                 (!result ? <span>{JavascriptMessage.loading.niceToString()}</span> :
                     <ChartTableComponent

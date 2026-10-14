@@ -268,13 +268,13 @@ export default function FilterBuilder(p: FilterBuilderProps): React.ReactElement
   var showDashboardBehaviour = showPinnedFiltersOptions && (p.showDashboardBehaviour ?? true);
   return (
     <>
-      <GroupHeader label={p.title} avoidFieldSet={p.avoidFieldSet} fieldsetClassName="my-3 p-3 pb-1 bg-body rounded shadow-sm border-0">
-        <div className="sf-filters-list table-responsive" style={{ overflowX: "visible" }}>
+      <GroupHeader label={p.title} avoidFieldSet={p.avoidFieldSet} fieldsetClassName="my-4 p-4 pb-1 bg-background rounded-md shadow-xs border-0">
+        <div className="sf-filters-list overflow-x-auto" style={{ overflowX: "visible" }}>
           <table className="table-sm">
             <thead>
               <tr>
                 <th className="ps-0">
-                  <div className="d-flex">
+                  <div className="flex">
                     {!p.readOnly && p.filterOptions.length > 0 &&
                       <LinkButton title={StyleContext.default.titleLabels ? SearchMessage.DeleteAllFilter.niceToString() : undefined}
                         className="sf-line-button sf-remove sf-remove-filter-icon"
@@ -337,13 +337,13 @@ export default function FilterBuilder(p: FilterBuilderProps): React.ReactElement
                       <FontAwesomeIcon aria-hidden={true} icon="plus" className="sf-create me-1" />{SearchMessage.AddFilter.niceToString()}
                     </LinkButton>
                     <LinkButton title={StyleContext.default.titleLabels ? SearchMessage.AddOrGroup.niceToString() : undefined}
-                      className="sf-line-button sf-create sf-create-group ms-3"
+                      className="sf-line-button sf-create sf-create-group ms-4"
                       onClick={e => handlerNewFilter(e, true)}>
                       <FontAwesomeIcon aria-hidden={true} icon="plus" className="sf-create me-1" />{SearchMessage.AddOrGroup.niceToString()}
                     </LinkButton>
 
                     {p.showPinnedFiltersOptionsButton && <LinkButton title={StyleContext.default.titleLabels ? SearchMessage.EditPinnedFilters.niceToString() : undefined}
-                      className="sf-line-button ms-3"
+                      className="sf-line-button ms-4"
                       onClick={e => { setShowPinnedFiltersOptions(!showPinnedFiltersOptions); }}>
                       <FontAwesomeIcon aria-hidden={true} color="orange" icon={[showPinnedFiltersOptions ? "fas" : "far", "pen-to-square"]} className="me-1" />{SearchMessage.EditPinnedFilters.niceToString()}
                     </LinkButton>
@@ -356,8 +356,8 @@ export default function FilterBuilder(p: FilterBuilderProps): React.ReactElement
         </div>
       </GroupHeader>
 
-      {showPinnedFiltersOptions && !p.avoidPreview && <div className="mb-3">
-        <h1 className="lead ms-2 mb-0 h4">Preview</h1>
+      {showPinnedFiltersOptions && !p.avoidPreview && <div className="mb-4">
+        <h1 className="text-[1.25rem] font-light ms-2 mb-0">Preview</h1>
         <PinnedFilterBuilder queryToken={p.queryToken} filterOptions={p.filterOptions} onFiltersChanged={handleFilterChanged} highlightFilter={highlightFilter} showGrid={true} />
       </div>
       }
@@ -516,7 +516,7 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
         onMouseLeave={() => p.setHighlightFilter?.(undefined)}
       >
         <td style={{ paddingLeft: paddingLeft }} colSpan={2}>
-          <div className="d-flex">
+          <div className="flex">
             <LinkButton href={!readOnly ? "#" : undefined}
               className={classes("sf-line-button sf-remove sf-remove-filter-icon", readOnly && "disabled")}
               title={StyleContext.default.titleLabels ? SearchMessage.DeleteFilter.niceToString() : undefined}
@@ -534,8 +534,8 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
               <FontAwesomeIcon aria-hidden={true} icon="bars" />
             </LinkButton>
 
-            <div className="align-items-center d-flex">
-              <select className="form-select form-select-xs sf-group-selector fw-bold me-2 w-auto" value={fg.groupOperation as any} disabled={readOnly} onChange={handleChangeOperation}>
+            <div className="items-center flex">
+              <select className="form-select form-select-xs sf-group-selector font-bold me-2 w-auto" value={fg.groupOperation as any} disabled={readOnly} onChange={handleChangeOperation}>
                 {Enum.values(FilterGroupOperation).map((ft, i) => <option key={i} value={ft as any}>{ft == "Or" ? SearchMessage.OrGroup.niceToString() : SearchMessage.AndGroup.niceToString()}</option>)}
               </select>
               <small style={{ whiteSpace: "nowrap" }}>
@@ -631,7 +631,7 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
             </LinkButton>
 
             <LinkButton title={StyleContext.default.titleLabels ? (p.filterGroup.groupOperation == "And" ? SearchMessage.AddOrGroup.niceToString() : SearchMessage.AddAndGroup.niceToString()) : undefined}
-              className="sf-line-button sf-create ms-3"
+              className="sf-line-button sf-create ms-4"
               onClick={e => handlerNewFilter(e, true)}>
               <FontAwesomeIcon icon="plus" className="sf-create" />&nbsp;{p.filterGroup.groupOperation == "And" ? SearchMessage.AddOrGroup.niceToString() : SearchMessage.AddAndGroup.niceToString()}
             </LinkButton>
@@ -824,7 +824,7 @@ export function FilterConditionComponent(p: FilterConditionComponentProps): Reac
         onMouseLeave={() => p.setHighlightFilter?.(undefined)}
       >
         <td style={{ paddingLeft: (25 * p.level) }}>
-          <div className="d-flex">
+          <div className="flex">
             <LinkButton href={!readOnly ? "#" : undefined} title={StyleContext.default.titleLabels ? SearchMessage.DeleteFilter.niceToString() : undefined}
               className={classes("sf-line-button sf-remove sf-remove-filter-icon", readOnly && "disabled")}
               onClick={!readOnly ? handleDeleteFilter : undefined}>
@@ -861,7 +861,7 @@ export function FilterConditionComponent(p: FilterConditionComponentProps): Reac
         </td>
 
         <td className="sf-filter-value">
-          {p.disableValue ? <small className="text-muted">{SearchMessage.ParentValue.niceToString()}</small> :
+          {p.disableValue ? <small className="text-muted-foreground">{SearchMessage.ParentValue.niceToString()}</small> :
             f.token && f.token.filterType && f.operation && renderValue()}
         </td>
         {p.showPinnedFiltersOptions &&

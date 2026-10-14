@@ -224,7 +224,7 @@ export default function UserQueryMenu(p: UserQueryMenuProps): React.JSX.Element 
             <Dropdown.Toggle id={toggleId} variant="tertiary">
                 <span title={currentToStr}>
                     <FontAwesomeIcon icon="rectangle-list" />
-                    {large && <>&nbsp;<span className="d-none d-sm-inline">
+                    {large && <>&nbsp;<span className="hidden sm:inline">
                         {currentToStr ? <strong>{currentToStr}</strong> : UserQueryEntity.nicePluralName()}
                     </span></>}
                 </span>

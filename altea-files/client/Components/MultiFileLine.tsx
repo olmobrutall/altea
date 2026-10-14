@@ -271,7 +271,7 @@ export const MultiFileLine: <R extends BaseEntity>(props: MultiFileLineProps<R>)
                                             buttonCss={p.ctx.buttonClass}
                                             fileDropCssClass={c.mandatoryClass ?? undefined}
                                             divHtmlAttributes={{ className: "sf-file-line-new" }} /> :
-                                        <button type="button" className="btn btn-link p-0 ms-3 sf-line-button sf-create"
+                                        <button type="button" className="btn btn-link p-0 ms-4 sf-line-button sf-create"
                                             onClick={() => c.setForceShowUploader(true)}>
                                             {FileMessage.AddMoreFiles.niceToString()}
                                         </button>

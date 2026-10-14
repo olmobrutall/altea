@@ -9,7 +9,7 @@ export default function ImagePart(p: PartEditorProps<ImagePartEntity>): React.JS
     const ctx = p.ctx.subCtx({ formGroupStyle: "SrOnly", placeholderLabels: true });
 
     return (
-        <div className="form-inline">
+        <div className="flex flex-wrap items-center gap-2">
             <AutoLine ctx={ctx.subCtx(c => c.imageSrcContent)} />
             <AutoLine ctx={ctx.subCtx(c => c.clickActionURL)} />
             <AutoLine ctx={ctx.subCtx(c => c.altText)} />

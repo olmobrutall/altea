@@ -21,14 +21,14 @@ export default function TranslationCodeSyncFolders(): React.JSX.Element {
     if (result?.length === 0)
         return (
             <div>
-                <h1 className="h2">{TranslationMessage._0AlreadySynchronized.niceToString(packageName)}</h1>
+                <h1 className="text-h2 font-medium">{TranslationMessage._0AlreadySynchronized.niceToString(packageName)}</h1>
                 <Link to="/translation/status">{TranslationMessage.BackToTranslationStatus.niceToString()}</Link>
             </div>
         );
 
     return (
         <div>
-            <h1 className="h2">
+            <h1 className="text-h2 font-medium">
                 <Link to="/translation/status">{TranslationMessage.CodeTranslations.niceToString()}</Link>
                 {" > "}
                 {TranslationMessage.Synchronize0In1.niceToString(packageName, culture)}

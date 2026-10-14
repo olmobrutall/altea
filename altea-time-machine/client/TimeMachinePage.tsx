@@ -56,7 +56,7 @@ export default function TimeMachinePage(): React.JSX.Element {
     }, [params.type, params.id]);
 
     if (lite == undefined)
-        return <h1 className="h4"><span className="display-6">{JavascriptMessage.loading.niceToString()}</span></h1>;
+        return <h1 className="text-h4 font-medium"><span className="text-display-6 font-light">{JavascriptMessage.loading.niceToString()}</span></h1>;
 
     return <TimeMachine lite={lite} />;
 }
@@ -110,8 +110,8 @@ export function TimeMachine(p: { lite: Lite<Entity>; isModal?: boolean }): React
 
     return (
         <div>
-            {!p.isModal && <h1 className="h4">
-                <span className="display-5">{TimeMachineMessage.TimeMachine.niceToString()}</span>
+            {!p.isModal && <h1 className="text-h4 font-medium">
+                <span className="text-display-5 font-light">{TimeMachineMessage.TimeMachine.niceToString()}</span>
                 <br />
                 <small className="sf-type-nice-name">
                     <EntityLink lite={p.lite}>
@@ -122,7 +122,7 @@ export function TimeMachine(p: { lite: Lite<Entity>; isModal?: boolean }): React
                 <br />
             </h1>}
 
-            <h2 className="h5">{TimeMachineMessage.AllVersions.niceToString()}</h2>
+            <h2 className="text-h5 font-medium">{TimeMachineMessage.AllVersions.niceToString()}</h2>
             <SearchControl ref={searchControl} findOptions={{
                 queryName: p.lite.entityType,
                 // Tokens are rootless, so the row is addressed by its id — which under `systemTime: All`
@@ -181,7 +181,7 @@ export function RenderEntityVersion(p: VersionPairProps & { currentDate?: string
     const pair = useVersionPair(p);
 
     if (pair === undefined)
-        return <h1 className="h3">{JavascriptMessage.loading.niceToString()}</h1>;
+        return <h1 className="text-h3 font-medium">{JavascriptMessage.loading.niceToString()}</h1>;
 
     const ctx = TypeContext.root(pair.curr.entity, { readOnly: true });
 
@@ -200,7 +200,7 @@ export function DiffEntityVersion(p: VersionPairProps): React.JSX.Element {
     const pair = useVersionPair(p);
 
     if (pair === undefined)
-        return <h1 className="h3">{JavascriptMessage.loading.niceToString()}</h1>;
+        return <h1 className="text-h3 font-medium">{JavascriptMessage.loading.niceToString()}</h1>;
 
     if (pair.prev == null)
         return <pre>{pair.curr.dump}</pre>;
@@ -268,8 +268,8 @@ export function TimeMachineModal(p: TimeMachineModalProps): React.JSX.Element {
     return (
         <Modal onHide={() => setShow(false)} show={show} className="message-modal" onExited={() => p.onExited!(undefined)} size="xl">
             <div className="modal-header">
-                <h1 className="h4">
-                    <span className="display-5">{TimeMachineMessage.TimeMachine.niceToString()}</span>
+                <h1 className="text-h4 font-medium">
+                    <span className="text-display-5 font-light">{TimeMachineMessage.TimeMachine.niceToString()}</span>
                     <br />
                     <small className="sf-type-nice-name">
                         <span style={{ color: "#aaa" }}>{p.lite.toString()}</span>
@@ -301,7 +301,7 @@ export function TimeMachineCompareModal(p: TimeMachineCompareModalProps): React.
     return (
         <Modal onHide={() => setShow(false)} show={show} className="message-modal" onExited={() => p.onExited!(undefined)} size="xl">
             <div className="modal-header">
-                <h1 className="modal-title h5">{TimeMachineMessage.CompareVersions.niceToString()}</h1>
+                <h1 className="modal-title text-h5 font-medium">{TimeMachineMessage.CompareVersions.niceToString()}</h1>
                 <button type="button" className="btn-close" aria-label="Close" onClick={() => setShow(false)} />
             </div>
             <div className="modal-body">

@@ -129,7 +129,7 @@ export default function SchemaMapPage(): React.JSX.Element | null {
     function renderFilter(): React.JSX.Element {
         return (
             <div className="container">
-                <div className="row align-items-center">
+                <div className="row items-center">
                     <div className="col-auto">
                         <label htmlFor="filter"> {MapMessage.Filter.niceToString()}</label>&nbsp;
                     </div>

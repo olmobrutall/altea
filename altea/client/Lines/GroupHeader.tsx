@@ -19,18 +19,32 @@ export function NextHeadingLevel(p: { children: React.ReactNode }): React.ReactE
 export function Title(p: { children: React.ReactNode, type: HeaderType, id?: string }): React.ReactElement {
 
   if (p.type == "lead")
-    return <p className={classes("mt-3", "lead")} id={p.id}>{p.children}</p>;
+    return <p className={classes("mt-4", "text-[1.25rem] font-light")} id={p.id}>{p.children}</p>;
 
-  // HeaderType used to pick the ELEMENT, so a form whose title is an <h1> jumped straight to the <h5> its
-  // sections wanted to look like, and a screen reader reading the heading list saw four levels missing.
-  // The level now comes from how deep the section actually is, and the requested type becomes the
-  // Bootstrap size CLASS — which is what keeps the size identical: Bootstrap's _type.scss declares .hN as
-  // @extend hN, so a stylesheet rule written for the element already applies to the class.
+  // The ELEMENT comes from how deep the section is (so the heading list has no missing levels); the
+  // requested type only picks the size.
   const level = React.useContext(HeadingLevelContext);
   const ElementType = ("h" + level) as "h1";
 
-  return <ElementType className={classes("mt-3", p.type)} id={p.id}>{p.children}</ElementType>;
+  return <ElementType className={classes("mt-4", headerTypeClasses[p.type])} id={p.id}>{p.children}</ElementType>;
 }
+
+const headerTypeClasses: Record<Exclude<HeaderType, "lead">, string> = {
+  "h1": "text-h1 font-medium",
+  "h2": "text-h2 font-medium",
+  "h3": "text-h3 font-medium",
+  "h4": "text-h4 font-medium",
+  "h5": "text-h5 font-medium",
+  "h6": "text-h6 font-medium",
+  "display-1": "text-display-1 font-light",
+  "display-2": "text-display-2 font-light",
+  "display-3": "text-display-3 font-light",
+  "display-4": "text-display-4 font-light",
+  "display-5": "text-display-5 font-light",
+  "display-6": "text-display-6 font-light",
+  "display-7": "text-display-7 font-light",
+};
+
 
 export function GroupHeader(p: {
   label?: React.ReactNode;
@@ -86,7 +100,7 @@ export function GroupHeader(p: {
       {(p.label || p.labelIcon || p.buttons) && < legend >
         {/* A span, not a div: a <legend> takes phrasing content only. d-block keeps the full-width box the
             float-end buttons need. */}
-        <span className="d-block">
+        <span className="block">
           <span>{p.label}{p.labelIcon}</span>
           {p.buttons}
         </span>

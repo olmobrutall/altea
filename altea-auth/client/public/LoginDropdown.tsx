@@ -47,7 +47,7 @@ function LoginDropdown(p: {
             className="sf-login-dropdown"
             id="sfLoginDropdown"
             title={
-                <span className="d-inline-flex align-items-center">
+                <span className="inline-flex items-center">
                     {p.renderIcon ? p.renderIcon(user) : LoginDropdown.customLoginIcon(user)}
                     &nbsp;
                     {p.renderName ? p.renderName(user) : user.toString()}

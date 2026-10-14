@@ -34,7 +34,7 @@ export namespace BigValueClient {
         const cm = customBigValues[typeName]?.[messageName];
         if (cm == null)
             return {
-                message: <span className="text-danger">No CustomMessage {messageName} registered for {typeName}</span>,
+                message: <span className="text-destructive">No CustomMessage {messageName} registered for {typeName}</span>,
             };
 
         return {

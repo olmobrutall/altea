@@ -102,7 +102,7 @@ export default function ChartBuilder(p: ChartBuilderProps): React.JSX.Element {
   const tis = queryRoot?.type.typeInfos() ?? [];
 
   return (<>
-    {(qs?.allowSystemTime ?? tis.some(a => a.systemVersioned != null)) && <div className='d-flex align-items-center mb-3' style={{ minHeight: 34 }}>
+    {(qs?.allowSystemTime ?? tis.some(a => a.systemVersioned != null)) && <div className='flex items-center mb-4' style={{ minHeight: 34 }}>
       <label>
         <input className='me-1' type={'checkbox'} defaultChecked={chart.chartTimeSeries != null}
           onChange={e => {
@@ -131,9 +131,9 @@ export default function ChartBuilder(p: ChartBuilderProps): React.JSX.Element {
     </div>}
     <div className="row sf-chart-builder gx-2">
       <div className="col-lg-2">
-        <div className="sf-chart-type card bg-body rounded shadow-sm border-0 p-2">
+        <div className="sf-chart-type card bg-background rounded-md shadow-xs border-0 p-2">
           <div className="card-header" style={{ backgroundColor: "inherit" }}>
-            <h2 className="mb-3 card-title h6">{ChartMessage.ChartType.niceToString()}</h2>
+            <h2 className="mb-4 card-title text-h6 font-medium">{ChartMessage.ChartType.niceToString()}</h2>
           </div>
           <div className="card-body">
             {chartScripts?.map((cs, i) =>
@@ -149,14 +149,14 @@ export default function ChartBuilder(p: ChartBuilderProps): React.JSX.Element {
               </button>)}
           </div>
           <div className="card-body">
-            <NumberLine ctx={p.ctx.subCtx(a => a.maxRows, { formGroupStyle: "Basic", formSize: "xs" })} valueHtmlAttributes={{ className: p.maxRowsReached ? "text-danger fw-bold" : undefined }} />
+            <NumberLine ctx={p.ctx.subCtx(a => a.maxRows, { formGroupStyle: "Basic", formSize: "xs" })} valueHtmlAttributes={{ className: p.maxRowsReached ? "text-destructive font-bold" : undefined }} />
           </div>
         </div>
       </div >
       <div className="col-lg-10">
-        <div className="sf-chart-tokens card bg-body rounded shadow-sm border-0 p-2">
+        <div className="sf-chart-tokens card bg-background rounded-md shadow-xs border-0 p-2">
           <div className="card-header" style={{ backgroundColor: "inherit" }}>
-            <h2 className="mb-3 card-title h6">{ChartMessage.ChartSettings.niceToString()}</h2>
+            <h2 className="mb-4 card-title text-h6 font-medium">{ChartMessage.ChartSettings.niceToString()}</h2>
           </div>
           <div>
             <div className="card-body">
@@ -216,7 +216,7 @@ export function Parameters(props: {
           .filter(a => a.columnIndex == null)
           .map((sp, j) => props.parameterDic[sp.name] ?
             <ParameterValueLine key={sp.name} ctx={props.parameterDic[sp.name]} scriptParameter={sp} chart={props.chart} onRedraw={props.onRedraw} /> :
-            <p key={sp.name} className="text-danger">{sp.name} ({sp.displayName})</p>)}
+            <p key={sp.name} className="text-destructive">{sp.name} ({sp.displayName})</p>)}
       </div>
     );
 
@@ -224,7 +224,7 @@ export function Parameters(props: {
     return null;
 
   return (
-    <fieldset className="sf-chart-parameters bg-body rounded shadow-sm border-0 my-1 p-2">
+    <fieldset className="sf-chart-parameters bg-background rounded-md shadow-xs border-0 my-1 p-2">
       <div className="row">
         {groups}
       </div>
@@ -253,7 +253,7 @@ export function ColumnParameters(props: {
               <div className={"col-sm-3"} key={sp.name}>
                 {props.parameterDic[sp.name] ?
                   <ParameterValueLine key={sp.name} ctx={props.parameterDic[sp.name]} scriptParameter={sp} chart={props.chart} onRedraw={props.onRedraw} /> :
-                  <p key={sp.name} className="text-danger">{sp.name} ({sp.displayName})</p>
+                  <p key={sp.name} className="text-destructive">{sp.name} ({sp.displayName})</p>
                 }
               </div>
             )}

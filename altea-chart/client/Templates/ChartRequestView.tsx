@@ -114,7 +114,7 @@ export default function ChartRequestView(p: ChartRequestViewProps): React.JSX.El
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
-      <h1 className="h2">
+      <h1 className="text-h2 font-medium">
         <span className="sf-entity-title">{getQueryNiceName(cr.queryKey)}</span>
       </h1>
       <div>
@@ -140,7 +140,7 @@ export default function ChartRequestView(p: ChartRequestViewProps): React.JSX.El
           />}
       </div>
       <ValidationErrors entity={cr} prefix="" />
-      <div className="sf-query-button-bar btn-toolbar gap-2 my-2 bg-body rounded shadow-sm p-2">
+      <div className="sf-query-button-bar btn-toolbar gap-2 my-2 bg-background rounded-md shadow-xs p-2">
         <button
           className={classes("sf-query-button btn", showChartSettings && "active", "btn-tertiary")}
           onClick={() => setShowChartSettings(!showChartSettings)}

@@ -384,7 +384,7 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                                     </tr>,
                                     ...rule.allowed.conditionRules.map((cr, i) => (
                                         <tr key={String(rule.resource.id) + "_c" + i} className="table-active">
-                                            <td className="ps-4">
+                                            <td className="ps-6">
                                                 {/* Read-only keeps the PLACEHOLDER (as the type row above does), so the condition
                                                     label stays in the same column instead of shifting left. */}
                                                 {ctx.readOnly

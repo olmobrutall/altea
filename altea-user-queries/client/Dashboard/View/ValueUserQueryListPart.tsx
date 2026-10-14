@@ -60,7 +60,7 @@ export function ValueUserQueryElement(p: ValueUserQueryElementProps): React.JSX.
         <div>
             <FormGroup ctx={ctx} label={ctx.value.label ?? getQueryNiceName(foExpanded.queryName)}>
                 {() =>
-                    <div className="row align-items-center">
+                    <div className="row items-center">
                         <div className="col-auto">
                             <span>{ctx.value.label ?? getQueryNiceName(foExpanded.queryName)}</span>
                         </div>

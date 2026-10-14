@@ -32,7 +32,7 @@ export default function NewsPage(): React.JSX.Element {
                     <FontAwesomeIcon aria-hidden={true} icon="angles-left" /> {WhatsNewMessage.BackToOverview.niceToString()}
                 </Link>
                 {!Navigator.isReadOnly(WhatsNewEntity) &&
-                    <small className="ms-2 lead">
+                    <small className="ms-2 text-[1.25rem] font-light">
                         <EntityLink role="button" lite={whatsnew.whatsNew} onNavigated={() => setRefreshValue(a => a + 1)}>
                             <FontAwesomeIcon aria-hidden={true} icon="pen-to-square"
                                 title={WhatsNewMessage.Preview.niceToString()} />
@@ -45,7 +45,7 @@ export default function NewsPage(): React.JSX.Element {
                     <img src={AppContext.toAbsoluteUrl("/api/whatsnew/previewPicture/" + whatsnew.whatsNew.id)}
                         className="headerpicture headerpicture-shadow" alt={whatsnew.whatsNew.toString()} />}
                 <article className="news pt-2">
-                    <h1 className="news-title h3">
+                    <h1 className="news-title text-h3 font-medium">
                         {whatsnew.title}{" "}
                         {!Navigator.isReadOnly(WhatsNewEntity) && whatsnew.status === "Draft" &&
                             <small style={{ color: "var(--bs-danger)" }}>{whatsnew.status}</small>}

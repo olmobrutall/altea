@@ -23,7 +23,7 @@ export default function FileTokenAttachment(p: { ctx: TypeContext<FileTokenAttac
             </div>
             <div className="col-sm-6">
                 {template?.query == null
-                    ? <p className="text-danger">{ValidationMessage._0IsNotSet.niceToString(nicePropertyNameOf("query"))}</p>
+                    ? <p className="text-destructive">{ValidationMessage._0IsNotSet.niceToString(nicePropertyNameOf("query"))}</p>
                     : <QueryTokenEmbeddedBuilder
                         ctx={sc.subCtx(a => a.fileToken)}
                         queryKey={template.query.key}

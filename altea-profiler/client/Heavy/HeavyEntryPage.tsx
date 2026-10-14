@@ -32,12 +32,12 @@ export default function HeavyEntry(): React.JSX.Element {
     useTitle("Heavy Profiler > Entry " + index);
 
     if (entries == undefined)
-        return <h1 className="display-6 h3"><Link to="/profiler/heavy">{ProfilerMessage.HeavyProfiler.niceToString()}</Link> {">"} {ProfilerMessage.Entry0Loading.niceToString(index)}</h1>;
+        return <h1 className="text-display-6 font-light"><Link to="/profiler/heavy">{ProfilerMessage.HeavyProfiler.niceToString()}</Link> {">"} {ProfilerMessage.Entry0Loading.niceToString(index)}</h1>;
 
     const current = entries.filter(a => a.fullIndex == params.selectedIndex).single();
     return (
         <div>
-            <h1 className="display-6 h2"><Link to="/profiler/heavy">{ProfilerMessage.HeavyProfiler.niceToString()}</Link> {">"} {ProfilerMessage.Entry0_.niceToString(index)}</h1>
+            <h1 className="text-display-6 font-light"><Link to="/profiler/heavy">{ProfilerMessage.HeavyProfiler.niceToString()}</Link> {">"} {ProfilerMessage.Entry0_.niceToString(index)}</h1>
             <label><input type="checkbox" className="form-check-input" checked={asyncDepth} onChange={a => setAsyncDepth(a.currentTarget.checked)} />{ProfilerMessage.AsyncStack.niceToString()}</label>
             <br />
             {entries && <HeavyProfilerDetailsD3 entries={entries} selected={current} asyncDepth={asyncDepth} />}
@@ -66,10 +66,10 @@ export default function HeavyEntry(): React.JSX.Element {
                 </tbody>
             </AccessibleTable>
             <br />
-            <h2 className="h3">{ProfilerMessage.AdditionalData.niceToString()}</h2>
+            <h2 className="text-h3 font-medium">{ProfilerMessage.AdditionalData.niceToString()}</h2>
             <pre style={{ maxWidth: "1000px", overflowY: "scroll" }}><code>{current.additionalData}</code></pre>
             <br />
-            <h2 className="h3">{ProfilerMessage.StackTrace.niceToString()}</h2>
+            <h2 className="text-h3 font-medium">{ProfilerMessage.StackTrace.niceToString()}</h2>
             {
                 stackTrace == undefined ? <span>{ProfilerMessage.NoStackTrace.niceToString()}</span> :
                     <StackFrameTable stackTrace={stackTrace} />

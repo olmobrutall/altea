@@ -28,7 +28,7 @@ function WebConsoleModal(p: WebConsoleModalProps): React.ReactElement {
         <Modal show={show} size="xl" onHide={() => close(undefined)} onExited={() => p.onExited!(answer.current)}
             aria-labelledby={titleId} backdrop="static">
             <div className="modal-header">
-                <h1 id={titleId} className="modal-title h5">{p.title}</h1>
+                <h1 id={titleId} className="modal-title text-h5 font-medium">{p.title}</h1>
                 <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={() => close(undefined)} />
             </div>
             <div className="modal-body">

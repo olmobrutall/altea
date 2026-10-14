@@ -24,7 +24,7 @@ export default function IsolationDropdown(): React.JSX.Element | null {
 
     return (
         <NavDropdown id="isolationDropdown" data-current-isolation={current?.id}
-            title={current ? current.toString() : <strong className="text-danger">{IsolationMessage.GlobalMode.niceToString()}</strong>}
+            title={current ? current.toString() : <strong className="text-destructive">{IsolationMessage.GlobalMode.niceToString()}</strong>}
             className="sf-isolation-dropdown">
             <NavDropdown.Item data-isolation="" disabled={current == undefined} onClick={e => handleSelect(e, undefined)}>
                 {IsolationMessage.GlobalMode.niceToString()}

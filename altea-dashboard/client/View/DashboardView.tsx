@@ -113,7 +113,7 @@ export default function DashboardView(p: {
     return (
         <div className={p.embedded ? "sf-dashboard-view-embedded" : undefined}>
             {p.hideEditButton != true &&
-                <div className="d-flex flex-row-reverse align-items-center m-1">
+                <div className="flex flex-row-reverse items-center m-1">
                     {DashboardClient.onDashboardPageActions().map((fn, i) => <React.Fragment key={i}>{fn(p.dashboard)}</React.Fragment>)}
                     {!Navigator.isReadOnly(DashboardEntity) &&
                         <Link className="sf-hide" style={{ textDecoration: "none" }} to={Navigator.navigateRoute(p.dashboard)} title={DashboardMessage.Edit.niceToString()}>
@@ -315,11 +315,11 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
         // A titled panel is a REGION named by its own title. A heading alone is only found by someone going
         // looking for it; a landmark is announced on the way in, which is what tells a screen reader user
         // that they have moved from one panel of the dashboard to another.
-        <div className={classes("card", !part.customColor && "border-tertiary", "shadow-sm", "mb-4")}
+        <div className={classes("card", !part.customColor && "border-tertiary", "shadow-xs", "mb-6")}
             role={titleText ? "region" : undefined} aria-labelledby={titleText ? titleId : undefined}
             style={{ flex: (p.flex && showContent) ? 1 : undefined }}>
             {title &&
-                <div className={classes("card-header fw-bold", "sf-show-hover", "d-flex")}
+                <div className={classes("card-header font-bold", "sf-show-hover", "flex")}
                     style={{
                         backgroundColor: part.customColor ?? undefined,
                         color: part.customColor ? getContrastingTextColor(part.customColor) : undefined,
@@ -338,7 +338,7 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
                         `text-bg-tertiary` is Bootstrap's combined helper: it pairs the tertiary surface
                         with `--bs-body-color`, which follows the theme. */}
                     {
-                        dashboardFilter && <span className="badge text-bg-tertiary border ms-2 sf-filter-pill">
+                        dashboardFilter && <span className="badge bg-tertiary text-tertiary-foreground border ms-2 sf-filter-pill">
                             {dashboardFilter.rows.length} {DashboardMessage.RowsSelected.niceToString().forGenderAndNumber(dashboardFilter.rows.length)}
                             <button type="button" aria-label={DashboardMessage.Close.niceToString()} className="btn-close" onClick={handleClearFilter} />
                         </span>
@@ -361,7 +361,7 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
                 </div>
             }
             {showContent &&
-                <div data-part-content={partContentKey} className="card-body py-2 px-3 d-flex flex-column">
+                <div data-part-content={partContentKey} className="card-body py-2 px-4 flex flex-col">
                     <ErrorBoundary>
                         {React.createElement(state.component, contentProps)}
                     </ErrorBoundary>

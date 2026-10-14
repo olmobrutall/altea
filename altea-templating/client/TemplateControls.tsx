@@ -43,8 +43,8 @@ export default function TemplateControls(p: TemplateControlsProps): React.JSX.El
                 void MessageModal.show({
                     title: TemplateMessage.Template.niceToString(),
                     message: <div>
-                        <pre className="user-select-all"><code>{snippet}</code></pre>
-                        <p className="text-muted">{TemplateMessage.CopyToClipboard.niceToString()}</p>
+                        <pre className="select-all"><code>{snippet}</code></pre>
+                        <p className="text-muted-foreground">{TemplateMessage.CopyToClipboard.niceToString()}</p>
                     </div>,
                     buttons: "ok",
                     shouldSelect: true,
@@ -85,7 +85,7 @@ export default function TemplateControls(p: TemplateControlsProps): React.JSX.El
     const ct = currentToken;
 
     return (
-        <div className="d-flex">
+        <div className="flex">
             <select className="form-select form-select-sm w-auto" value={ct.type}
                 onChange={e => setCurrentToken({ type: e.currentTarget.value as "Query" | "Global" })}>
                 {p.queryKey && <option value="Query">Query</option>}

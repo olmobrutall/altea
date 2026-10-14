@@ -644,7 +644,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
         {p.showHeader == true && fo.groupResults && !p.avoidGroupByMessage && <GroupByMessage findOptions={fo} mainType={this.entityColumn().type} />}
         {p.showHeader == true && fo.systemTime && <SystemTimeEditor findOptions={fo} queryToken={qt} onChanged={() => this.forceUpdate()} />}
 
-        <div className={p.avoidTableFooterContainer ? undefined : "sf-table-footer-container my-3 p-3 pb-1 bg-body rounded shadow-sm"}>
+        <div className={p.avoidTableFooterContainer ? undefined : "sf-table-footer-container my-4 p-4 pb-1 bg-background rounded-md shadow-xs"}>
           {p.showHeader == true && !p.largeToolbarButtons && this.renderToolBar()}
           {this.state.isMobile == true && this.state.viewMode == "Mobile" ? this.renderMobile() :
             <>
@@ -657,7 +657,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
                   close={this.handleColumnClose} />
               }
               <div ref={d => { this.containerDiv = d; }}
-                className="sf-scroll-table-container table-responsive"
+                className="sf-scroll-table-container overflow-x-auto"
                 style={{ maxHeight: this.props.maxResultsHeight }}>
                 {/* A plain data table, NOT role="grid". role="grid" promises the ARIA grid keyboard model
                     — one tab stop for the whole widget and arrow keys between cells — which this control
@@ -767,9 +767,9 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
       {
         order: -3,
-        button: <button type="button" className={classes("sf-query-button sf-search btn ms-2", changesExpected ? (isManualOrAll ? "btn-danger" : "btn-primary") : (isManualOrAll ? "border-danger text-danger" : "border-primary text-primary"))}
+        button: <button type="button" className={classes("sf-query-button sf-search btn ms-2", changesExpected ? (isManualOrAll ? "btn-danger" : "btn-primary") : (isManualOrAll ? "border-destructive text-destructive" : "border-primary text-primary"))}
           onClick={this.handleSearchClick} title={changesExpected ? SearchMessage.Search.niceToString() : SearchMessage.Refresh.niceToString()} >
-          <FontAwesomeIcon aria-hidden={true} icon={changesExpected ? "magnifying-glass" : "refresh"} />{changesExpected && <span className="d-none d-sm-inline ms-1">{SearchMessage.Search.niceToString()}</span>}
+          <FontAwesomeIcon aria-hidden={true} icon={changesExpected ? "magnifying-glass" : "refresh"} />{changesExpected && <span className="hidden sm:inline ms-1">{SearchMessage.Search.niceToString()}</span>}
         </button>
       },
 
@@ -778,7 +778,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
       (p.create == true || typeof p.create == "function" && p.create(this.props.findOptions)) && !this.props.ctx?.frame?.currentDate && {
         order: -2,
         button: <button className={classes("btn ", p.createButtonClass ?? "btn-tertiary")} title={titleLabels ? this.createTitle() : undefined} onClick={this.handleCreate}>
-          <FontAwesomeIcon aria-hidden={true} icon="plus" className="sf-create" /><span className="d-none d-sm-inline ms-1">{this.createTitle()}</span>
+          <FontAwesomeIcon aria-hidden={true} icon="plus" className="sf-create" /><span className="hidden sm:inline ms-1">{this.createTitle()}</span>
         </button>
       },
 
@@ -810,7 +810,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
       .map(a => a as ButtonBarElement);
 
     return (
-      <div className={classes("sf-query-button-bar d-flex justify-content-between", !this.props.largeToolbarButtons ? "btn-toolbar-small pb-2" : "my-3 py-2 px-3 bg-body rounded shadow-sm")}>
+      <div className={classes("sf-query-button-bar flex justify-between", !this.props.largeToolbarButtons ? "btn-toolbar-small pb-2" : "my-4 py-2 px-4 bg-background rounded-md shadow-xs")}>
         {React.createElement("div", { className: "btn-toolbar" }, ...leftButtons.map(a => a.button))}
         {React.createElement("div", { className: "btn-toolbar", style: { justifyContent: "flex-end" } }, ...rightButtons.map(a => a.button))}
       </div>
@@ -1011,7 +1011,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
       return null;
 
     const title = <>
-      <span className="d-none d-sm-inline">{JavascriptMessage.Selected.niceToString()}</span>
+      <span className="hidden sm:inline">{JavascriptMessage.Selected.niceToString()}</span>
       {" (" + this.state.selectedRows!.length + ")"}
     </>;
 
@@ -1698,7 +1698,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
       return (
         <div className={formatter.cellClass}>
-          <span className="text-muted me-1">{prefix}</span>
+          <span className="text-muted-foreground me-1">{prefix}</span>
 
           {formatter.formatter(val, {
             columns: rt.columns,
@@ -1741,7 +1741,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
         {this.props.allowSelection && <th scope="col" className="sf-small-column sf-th-selection">
           {this.props.allowSelection == true ?
             <input type="checkbox" aria-label={SearchMessage.SelectAllResults.niceToString()} className="form-check-input" id={this.getUniqueId("cbSelectAll")} onChange={this.handleToggleAll} checked={this.allSelected()} /> :
-            <span className="visually-hidden">{EntityControlMessage.Selected.niceToString()}</span>
+            <span className="sr-only">{EntityControlMessage.Selected.niceToString()}</span>
           }
         </th>
         }
@@ -1749,7 +1749,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
             cells had no column name to be announced with. When nothing is configured a visually hidden one
             is supplied, keeping the column as narrow as before. */}
         {(this.props.view || this.props.findOptions.groupResults) && <th scope="col" className="sf-small-column sf-th-entity" data-column-name="Entity">
-          {Finder.Options.entityColumnHeader() || <span className="visually-hidden">{EntityControlMessage.View.niceToString()}</span>}
+          {Finder.Options.entityColumnHeader() || <span className="sr-only">{EntityControlMessage.View.niceToString()}</span>}
         </th>}
         {visibleColumns.map(({ column: co, cellFormatter, columnIndex: i }) =>
           // tabIndex: the header is operable — it sorts on click and opens the column menu on the context
@@ -1797,7 +1797,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
             onDragEnter={e => this.handlerHeaderDragOver(e, i)}
             onDrop={this.handleHeaderDrop}>
             {getSummary(co.summaryToken)}
-            <div className="d-flex" style={{ alignItems: "center" }}>
+            <div className="flex" style={{ alignItems: "center" }}>
               {this.orderIcon(co)}
               {
                 co.token?.fullKey() == QueryTokenString.timeSeries.token ? <span>
@@ -2116,7 +2116,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
     return c.resultIndex == -1 || c.cellFormatter == undefined ? undefined :
       c.hasToArray != null ? SearchControlLoaded.joinNodes((getRowValue(fctx.row, c.resultIndex) as unknown[]).map(v => c.cellFormatter!.formatter(v, fctx, c)),
-        c.hasToArray.key == "SeparatedByComma" || c.hasToArray.key == "SeparatedByCommaDistinct" ? <span className="text-muted">, </span> : <br />, SearchControlLoaded.maxToArrayElements) :
+        c.hasToArray.key == "SeparatedByComma" || c.hasToArray.key == "SeparatedByCommaDistinct" ? <span className="text-muted-foreground">, </span> : <br />, SearchControlLoaded.maxToArrayElements) :
         c.cellFormatter.formatter(getRowValue(fctx.row, c.resultIndex), fctx, c);
   }
 
@@ -2145,7 +2145,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     const resultTable = this.state.resultTable;
     if (!resultTable) {
       if (this.props.findOptions.pagination.mode === "All" && this.props.showFooter)
-        return <tr tabIndex={0}><td colSpan={columnsCount} className="text-danger">{SearchMessage.ToPreventPerformanceIssuesAutomaticSearchIsDisabledCheckYourFiltersAndThenClickSearchButton.niceToString()}</td></tr>;
+        return <tr tabIndex={0}><td colSpan={columnsCount} className="text-destructive">{SearchMessage.ToPreventPerformanceIssuesAutomaticSearchIsDisabledCheckYourFiltersAndThenClickSearchButton.niceToString()}</td></tr>;
 
       return <tr tabIndex={0}><td colSpan={columnsCount}>{JavascriptMessage.searchForResults.niceToString()}</td></tr>;
     }
@@ -2177,7 +2177,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
       const markClassName = mark?.status === "Success" ? "sf-entity-ctxmenu-success" :
         mark?.status === "Warning" ? "sf-row-warning" :
           mark?.status === "Error" ? "sf-row-danger" :
-            mark?.status === "Muted" ? "text-muted" :
+            mark?.status === "Muted" ? "text-muted-foreground" :
               undefined;
 
       const selected = this.state.selectedRows?.includes(row);
@@ -2335,7 +2335,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     const resultTable = this.state.resultTable;
     if (!resultTable) {
       if (this.props.findOptions.pagination.mode == "All" && this.props.showFooter)
-        return <div className="text-danger">{SearchMessage.ToPreventPerformanceIssuesAutomaticSearchIsDisabledCheckYourFiltersAndThenClickSearchButton.niceToString()}</div>;
+        return <div className="text-destructive">{SearchMessage.ToPreventPerformanceIssuesAutomaticSearchIsDisabledCheckYourFiltersAndThenClickSearchButton.niceToString()}</div>;
 
       return <div>{JavascriptMessage.searchForResults.niceToString()}</div>;
     }

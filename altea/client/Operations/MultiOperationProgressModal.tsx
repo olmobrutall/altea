@@ -89,7 +89,7 @@ export function MultiOperationProgressModal(p: MultiOperationProgressModalProps)
           <ProgressBar min={0} max={p.lites.length} now={operationResultsRef.current.length}
             label={`[${operationResultsRef.current.length}/${p.lites.length}]`} key={2} />
         }
-        {errors.length > 0 && <p className="text-danger">{OperationMessage._0Errors.niceToString().forGenderAndNumber(errors.length).formatHtml(<strong>{errors.length}</strong>)}</p>}
+        {errors.length > 0 && <p className="text-destructive">{OperationMessage._0Errors.niceToString().forGenderAndNumber(errors.length).formatHtml(<strong>{errors.length}</strong>)}</p>}
 
       </div>
       <div className="modal-footer">

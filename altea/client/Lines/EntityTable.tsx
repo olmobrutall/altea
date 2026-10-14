@@ -307,8 +307,8 @@ export function EntityTable<R extends BaseEntity, RS>(props: EntityTableProps<R,
     return (
       <div ref={c.containerDiv}
         className={classes(
-          p.scrollable ? "sf-scroll-table-container position-relative" /*Fix chrome double scroll bar (in div and in page)*/ : undefined,
-          p.responsive && "table-responsive")}
+          p.scrollable ? "sf-scroll-table-container relative" /*Fix chrome double scroll bar (in div and in page)*/ : undefined,
+          p.responsive && "overflow-x-auto")}
         style={{ maxHeight: p.scrollable ? p.maxResultsHeight : undefined }}>
         <table className={classes("table table-sm sf-table", p.tableClasses, c.mandatoryClass)} >
           {
@@ -321,7 +321,7 @@ export function EntityTable<R extends BaseEntity, RS>(props: EntityTableProps<R,
                 {/* The column of row buttons had an empty header, so its cells had no column name to be
                     announced with. Visually hidden, so the column stays as narrow as it was. */}
                 {firstColumnVisible && <th style={{ width: "0%" }} {...p.firstColumnHtmlAttributes}>
-                  <span className="visually-hidden">{EntityControlMessage.Actions.niceToString()}</span>
+                  <span className="sr-only">{EntityControlMessage.Actions.niceToString()}</span>
                 </th>}
                 {
                   cleanColumns.map((col, i) => <th key={i} {...col.headerHtmlAttributes}>
@@ -364,7 +364,7 @@ export function EntityTable<R extends BaseEntity, RS>(props: EntityTableProps<R,
                       {(p.find && p.findAsLink) && (typeof p.findAsLink == "function" ? p.findAsLink(c) :
                         <LinkButton
                           title={ctx.titleLabels ? EntityControlMessage.Find.niceToString() : undefined}
-                          className="sf-line-button sf-find me-3"
+                          className="sf-line-button sf-find me-4"
                           tabIndex={0}
                           onClick={c.handleFindClick}>
                           <span className="me-1">{EntityBaseController.getFindIcon()}</span>{p.findMessage ?? EntityControlMessage.Find.niceToString()}

@@ -29,11 +29,11 @@ export default function PanelPart(p: { ctx: TypeContext<DashboardEntity_Part> })
     return (
         <div>
             {icon && (
-                <div className="mb-3 p-3 border rounded bg-tertiary">
-                    <div className="d-flex align-items-center">
+                <div className="mb-4 p-4 border rounded-md bg-tertiary">
+                    <div className="flex items-center">
                         <FontAwesomeIcon aria-hidden={true} icon={fallbackIcon(icon)}
                             style={{ color: ctx.value.iconColor ?? undefined, fontSize: "40px" }} />
-                        <span className="ms-3" style={{ color: titleColor ?? undefined, fontSize: "18px", fontWeight: 500 }}>
+                        <span className="ms-4" style={{ color: titleColor ?? undefined, fontSize: "18px", fontWeight: 500 }}>
                             {title}
                         </span>
                     </div>

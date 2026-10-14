@@ -91,7 +91,7 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
       aria-describedby={p.message ? messageId : undefined}>
       <div className="modal-header">
         {p.title &&
-          <h1 className="modal-title h4" id={titleId}>
+          <h1 className="modal-title text-h4 font-medium" id={titleId}>
             {p.title}
           </h1>
         }
@@ -106,7 +106,7 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
           <div className="row">
             {groups
               .map(gr => <div className="col-sm" key={gr.key}>
-                {gr.key && (p.renderGroup == null ? <h2 className="lead h4">{gr.key}</h2> : p.renderGroup!(gr.key))}
+                {gr.key && (p.renderGroup == null ? <h2 className="text-[1.25rem] font-light">{gr.key}</h2> : p.renderGroup!(gr.key))}
                 {gr.elements.map((o, i) =>
                   p.multiSelect ?
                     <label className="m-2" style={{ display: "block", userSelect: "none" }} onDoubleClick={e => { e.preventDefault(); handleDoubleClickClicked(o.value); }} key={i}>

@@ -58,7 +58,7 @@ export default function TypeHelpPage(): React.JSX.Element {
         + " > " + (tryGetTypeInfo(cleanName)?.getNiceName() ?? cleanName));
 
     if (typeHelp == null || typeHelp.type.cleanName !== cleanName)
-        return <div className="container"><h1 className="display-6">{JavascriptMessage.loading.niceToString()}</h1></div>;
+        return <div className="container"><h1 className="text-display-6 font-light">{JavascriptMessage.loading.niceToString()}</h1></div>;
 
     const ctx = TypeContext.root(typeHelp, { readOnly: Navigator.isReadOnly(TypeHelpEntity) });
 
@@ -76,13 +76,13 @@ export default function TypeHelpPage(): React.JSX.Element {
 
     return (
         <div className="container">
-            <h1 className="display-6">
+            <h1 className="text-display-6 font-light">
                 <Link to={HelpClient.Urls.indexUrl()}>{HelpMessage.Help.niceToString()}</Link>
                 {" > "}
                 {namespaceHelp && <Link to={HelpClient.Urls.namespaceUrl(namespaceHelp.namespace)}>{namespaceHelp.title}</Link>}
                 {" > "}
                 {tryGetTypeInfo(cleanName)?.getNiceName() ?? cleanName}
-                <small className="ms-5 text-muted display-7">({ctx.value.culture.englishName})</small>
+                <small className="ms-12 text-muted-foreground text-display-7 font-light">({ctx.value.culture.englishName})</small>
             </h1>
 
             <div className="shortcut-container">
@@ -95,14 +95,14 @@ export default function TypeHelpPage(): React.JSX.Element {
                 defaultEditable={typeHelp.isNew}
                 onChange={forceUpdate} />
 
-            <h2 className="display-6">{ctx.niceName(a => a.properties)}</h2>
+            <h2 className="text-display-6 font-light">{ctx.niceName(a => a.properties)}</h2>
             <dl className="row">
                 {propertyTree.map(node =>
                     <PropertyLine key={node.value.pr.propertyString()} node={node} cleanName={cleanName} onChange={forceUpdate} hash={hash} />)}
             </dl>
 
             {ctx.value.operations.length > 0 && <>
-                <h2 className="display-6">{ctx.niceName(a => a.operations)}</h2>
+                <h2 className="text-display-6 font-light">{ctx.niceName(a => a.operations)}</h2>
                 <dl className="row">
                     {mlistItemContext(ctx.subCtx(th => th.operations)).map(octx =>
                         <OperationLine key={octx.value.operation.key} ctx={octx} cleanName={cleanName} onChange={forceUpdate} hash={hash} />)}
@@ -110,12 +110,12 @@ export default function TypeHelpPage(): React.JSX.Element {
             </>}
 
             {ctx.value.queries.length > 0 && <>
-                <h2 className="display-6">{ctx.niceName(a => a.queries)}</h2>
+                <h2 className="text-display-6 font-light">{ctx.niceName(a => a.queries)}</h2>
                 {mlistItemContext(ctx.subCtx(th => th.queries)).map(qctx =>
                     <QueryBlock key={qctx.value.query.key} ctx={qctx} onChange={forceUpdate} hash={hash} />)}
             </>}
 
-            <div className={classes("btn-toolbar", "sf-button-bar", "mt-4")}>
+            <div className={classes("btn-toolbar", "sf-button-bar", "mt-6")}>
                 <SaveButton ctx={ctx} onSuccess={reload} />
             </div>
         </div>
@@ -161,7 +161,7 @@ function SubPropertiesCollapse({ node, cleanName, onChange, hash }: {
         <>
             <div className="row mb-2">
                 <button type="button"
-                    className="col-sm-9 offset-sm-3 lead border-0 bg-transparent text-start"
+                    className="col-sm-9 offset-sm-3 text-[1.25rem] font-light border-0 bg-transparent text-start"
                     onClick={() => setOpen(!open)}
                     aria-expanded={open}>
                     <FontAwesomeIcon aria-hidden={true} icon={open ? "chevron-down" : "chevron-right"} />
@@ -170,7 +170,7 @@ function SubPropertiesCollapse({ node, cleanName, onChange, hash }: {
             </div>
 
             <Collapse in={open}>
-                <dl className="row ms-4">
+                <dl className="row ms-6">
                     {open && node.children.map(n =>
                         <PropertyLine key={n.value.pr.propertyString()} node={n} cleanName={cleanName} onChange={onChange} hash={hash} />)}
                 </dl>
@@ -214,7 +214,7 @@ function QueryBlock({ ctx, onChange, hash }: {
         <>
             <div className={classes("row", "mb-2", "shortcut-container", id === hash && "sf-target")} id={id}>
                 <div className="col-sm-9 offset-sm-3">
-                    <button type="button" className="lead border-0 bg-transparent" onClick={() => setOpen(!open)} aria-expanded={open}>
+                    <button type="button" className="text-[1.25rem] font-light border-0 bg-transparent" onClick={() => setOpen(!open)} aria-expanded={open}>
                         <FontAwesomeIcon aria-hidden={true} icon={open ? "chevron-down" : "chevron-right"} />
                         {" "}{ctx.value.query.toString()}
                     </button>
@@ -229,7 +229,7 @@ function QueryBlock({ ctx, onChange, hash }: {
                 </div>
             </div>
             <Collapse in={open}>
-                <dl className="row ms-4">
+                <dl className="row ms-6">
                     {mlistItemContext(ctx.subCtx(q => q.columns)).map(cctx =>
                         <QueryColumnLine key={cctx.value.columnName} ctx={cctx} onChange={onChange} />)}
                 </dl>

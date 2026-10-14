@@ -25,7 +25,7 @@ export default function Role(p: { ctx: TypeContext<RoleEntity> }): React.JSX.Ele
             <TextAreaLine ctx={ctx.subCtx(r => r.description)} />
 
             {!ctx.value.isNew && <>
-                <h4 className="lead mt-4">Referenced by</h4>
+                <h4 className="text-[1.25rem] font-light mt-6">Referenced by</h4>
                 <SearchValueLine ctx={ctx} findOptions={UserEntity.findOptions(token => ({
                     filterOptions: [token(u => u.role).filter("EqualTo", ctx.value)],
                 }))} />

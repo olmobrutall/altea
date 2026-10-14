@@ -90,7 +90,7 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
                         <p>{ConcurrentUserMessage.DoYouWantToReloadIt.niceToString()}</p>
                         {isModified.current &&
                             <>
-                                <p className="text-danger">
+                                <p className="text-destructive">
                                     {ConcurrentUserMessage.WarningYouWillLostYourCurrentChanges.niceToString()}
                                 </p>
                                 <p>
@@ -130,16 +130,16 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
                     <Popover.Body>
 
                         {otherUsers.map((a, i) =>
-                            <div key={i} className="d-flex align-items-center">
+                            <div key={i} className="flex items-center">
                                 <SmallProfilePhoto user={a.user} className="me-2" decorative /> {a.user.toString()}
-                                <small className="ms-1 text-muted">({toRelative(a.startTime)})</small>
+                                <small className="ms-1 text-muted-foreground">({toRelative(a.startTime)})</small>
                                 {a.isModified && <FontAwesomeIcon role="img" icon="pen-to-square" color="#FFAA44"
                                     title={ConcurrentUserMessage.CurrentlyEditing.niceToString()} style={{ marginLeft: "10px" }} />}
                             </div>)}
 
                         {isModified.current
                             ? (isStale
-                                ? <div className="mt-3">
+                                ? <div className="mt-4">
                                     <small>
                                         {ConcurrentUserMessage.YouHaveLocalChangesBut0HasAlreadyBeenSavedInTheDatabaseYouWillNotBeAbleToSaveChanges
                                             .niceToString().formatHtml(<strong>{p.entity.toString()}</strong>)}
@@ -148,16 +148,16 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
                                     </small>
                                 </div>
                                 : otherUsers.some(u => u.isModified)
-                                    ? <div className="mt-3">
+                                    ? <div className="mt-4">
                                         <small>{ConcurrentUserMessage.LooksLikeYouAreNotTheOnlyOneCurrentlyModifiying0OnlyTheFirstOneWillBeAbleToSaveChanges
                                             .niceToString().formatHtml(<strong>{p.entity.toString()}</strong>)}</small>
                                     </div>
-                                    : <div className="mt-3">
+                                    : <div className="mt-4">
                                         <small>{ConcurrentUserMessage.YouHaveLocalChangesIn0ThatIsCurrentlyOpenByOtherUsersSoFarNoOneElseHasMadeModifications
                                             .niceToString().formatHtml(<strong>{p.entity.toString()}</strong>)}</small>
                                     </div>)
                             : isStale
-                                ? <div className="mt-3">
+                                ? <div className="mt-4">
                                     <small>
                                         {ConcurrentUserMessage.ThisIsNotTheLatestVersionOf0.niceToString().formatHtml(<strong>{p.entity.toString()}</strong>)}
                                         <button type="button" className="btn btn-primary btn-sm" onClick={p.onReload}>
@@ -174,7 +174,7 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
                 title={window.__disableWebSockets ?? undefined}>
                 <FontAwesomeIcon icon={otherUsers.length === 1 ? "user" : otherUsers.length === 2 ? "user-group" : "users"}
                     color={isStale ? "#E4032E" : otherUsers.some(u => u.isModified) ? "#FFAA44" : "#6BB700"} />
-                <strong className="ms-1 me-3" style={{ userSelect: "none" }}>
+                <strong className="ms-1 me-4" style={{ userSelect: "none" }}>
                     {otherUsers.length} {otherUsers.length === 1 ? UserEntity.niceName() : UserEntity.nicePluralName()}
                 </strong>
             </div>

@@ -222,7 +222,7 @@ export function EntityGridRepeater<R extends BaseEntity & IGridEntity>(props: En
             <legend>
                 {/* A span, not a div: a <legend> takes phrasing content only. d-block keeps the full-width
                     box the float-end buttons need. */}
-                <span className="d-block">
+                <span className="block">
                     <span>{p.label}</span>
                     <span className="float-end ms-2">
                         {p.extraButtonsBefore && p.extraButtonsBefore(c)}
@@ -293,7 +293,7 @@ export function EntityGridItem(p: EntityGridItemProps): React.JSX.Element {
     const smallMode = size != null && size.width < 500;
 
     return (
-        <div className={classes("card", "shadow-sm")} ref={setContainer}>
+        <div className={classes("card", "shadow-xs")} ref={setContainer}>
             <div className={classes("card-header", style != "customColor" && ("bg-" + style))}
                 style={{ backgroundColor: p.customColor ?? undefined }}
                 draggable={!!p.onTitleDragStart}

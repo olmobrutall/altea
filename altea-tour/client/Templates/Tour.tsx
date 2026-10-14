@@ -62,7 +62,7 @@ export default function Tour(p: { ctx: TypeContext<TourEntity> }): React.JSX.Ele
                     rootType={rootType} dashboard={dashboard ?? null} userQuery={userQuery ?? null} />}
                 getTitle={sctx => sctx.value.title || ""} />
 
-            <div className="row mt-4">
+            <div className="row mt-6">
                 <div className="col-sm-4">
                     <CheckboxLine ctx={ctx.subCtx(a => a.showProgress)} inlineCheckbox={true} />
                 </div>

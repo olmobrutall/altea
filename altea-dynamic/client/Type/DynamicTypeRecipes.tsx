@@ -134,11 +134,11 @@ export function DynamicTypeRecipes(p: DynamicTypeRecipesProps): React.JSX.Elemen
 
     if (p.side === "server")
         return inside(start)
-            ? <div className="small">{operations}</div>
+            ? <div className="text-[.875em]">{operations}</div>
             : <Hint text={M.PlaceTheCursorInside0.niceToString(p.typeName + "Logic.start")} />;
 
     if (inside(operationsBlock))
-        return <div className="small">{operations}</div>;
+        return <div className="text-[.875em]">{operations}</div>;
 
     const member = context?.member?.kind === "property" ? context.member : undefined;
     const cls = context?.class;
@@ -148,13 +148,13 @@ export function DynamicTypeRecipes(p: DynamicTypeRecipesProps): React.JSX.Elemen
 
     if (member != null)
         return (
-            <div className="small">
-                <div className="h6 mb-2">
+            <div className="text-[.875em]">
+                <div className="text-h6 font-medium mb-2">
                     <a href="#" onClick={e => { e.preventDefault(); goTo(p.dataEditor, cls.nameSpan.start); }}>
                         {M.Class.niceToString()}: <code>{cls.name}</code>
                     </a>
                 </div>
-                <div className="ms-3">
+                <div className="ms-4">
                     <FieldRecipe key={cls.name + "." + member.name} cls={cls} member={member}
                         knownTypes={knownTypes} apply={applyData} rename={rename}
                         removeDecorator={d => removeDecorator(p.dataEditor, d)} />
@@ -174,7 +174,7 @@ export namespace ${container} {
     }
 
     return (
-        <div className="small">
+        <div className="text-[.875em]">
             <ClassRecipe cls={cls} knownTypes={knownTypes} apply={applyData} />
             {cls.name === p.typeName + "Entity" && (operationsBlock != null
                 ? <a href="#" onClick={e => { e.preventDefault(); goTo(p.dataEditor, operationsBlock.bodyStart); }}>
@@ -188,7 +188,7 @@ export namespace ${container} {
 }
 
 function Hint(p: { text: string }): React.JSX.Element {
-    return <div className="text-muted small p-2">{p.text}</div>;
+    return <div className="text-muted-foreground text-[.875em] p-2">{p.text}</div>;
 }
 
 /** Put the cursor at `offset` and the focus in the editor — which moves the recipes along with it. */
@@ -358,8 +358,8 @@ function FieldRecipe(p: {
     }
 
     return (
-        <fieldset className="mb-3">
-            <legend className="h6">{M.Field.niceToString()}: <code>{m.name}</code></legend>
+        <fieldset className="mb-4">
+            <legend className="text-h6 font-medium">{M.Field.niceToString()}: <code>{m.name}</code></legend>
 
             <Row label={M.Name.niceToString()}>
                 <CommitInput value={m.name} onCommit={v => { if (/^[A-Za-z_$][\w$]*$/.test(v)) void p.rename(m.nameSpan.start, v); }} />
@@ -416,9 +416,9 @@ function FieldRecipe(p: {
                         </>}
                 </>}
 
-            <div className="mt-2 fw-semibold">{M.Validators.niceToString()}</div>
+            <div className="mt-2 font-semibold">{M.Validators.niceToString()}</div>
             {validators.map(v =>
-                <div key={v.name + v.start} className="d-flex align-items-center gap-1 mb-1">
+                <div key={v.name + v.start} className="flex items-center gap-1 mb-1">
                     <code className={classes("text-nowrap", !applies(v.name) && "text-warning")}
                         title={applies(v.name) ? undefined : M.DoesNotApplyTo0.niceToString(shape?.base ?? m.typeText ?? "")}>
                         {!applies(v.name) && <FontAwesomeIcon aria-hidden={true} icon="triangle-exclamation" className="me-1" />}
@@ -426,7 +426,7 @@ function FieldRecipe(p: {
                     </code>
                     {v.argsSpan != null &&
                         <CommitInput value={v.argsText ?? ""} onCommit={text => p.apply([{ span: v.argsSpan!, text }])} />}
-                    <button type="button" className="btn btn-sm btn-link text-danger p-0 ms-auto" title={M.Remove.niceToString()}
+                    <button type="button" className="btn btn-sm btn-link text-destructive p-0 ms-auto" title={M.Remove.niceToString()}
                         onClick={() => p.apply([p.removeDecorator(v)])}>
                         <FontAwesomeIcon aria-hidden={true} icon="xmark" />
                     </button>
@@ -485,8 +485,8 @@ function ClassRecipe(p: { cls: ClassInfo; knownTypes: KnownType[]; apply: (edits
     }
 
     return (
-        <fieldset className="mb-3">
-            <legend className="h6">{M.Class.niceToString()}: <code>{cls.name}</code></legend>
+        <fieldset className="mb-4">
+            <legend className="text-h6 font-medium">{M.Class.niceToString()}: <code>{cls.name}</code></legend>
             <AddMemberForm title={M.AddField.niceToString()} typeLabel={M.Type.niceToString()} initialType="string"
                 knownTypes={p.knownTypes} onAdd={(name, type) => addField(name, type)} />
             <AddMemberForm title={M.AddCollection.niceToString()} typeLabel={M.ElementType.niceToString()} initialType="string"
@@ -524,7 +524,7 @@ function AddMemberForm(p: {
 
     return (
         <div className="mb-2">
-            <div className="fw-semibold mb-1">{p.title}</div>
+            <div className="font-semibold mb-1">{p.title}</div>
             <Row label={M.Name.niceToString()}>
                 <input ref={nameInput} className="form-control form-control-sm" value={name} onChange={e => setName(e.currentTarget.value)} />
             </Row>
@@ -639,11 +639,11 @@ function OperationsRecipe(p: {
     }
 
     return (
-        <fieldset className="mb-3">
-            <legend className="h6">{M.Operations.niceToString()}: <code>{container}</code></legend>
+        <fieldset className="mb-4">
+            <legend className="text-h6 font-medium">{M.Operations.niceToString()}: <code>{container}</code></legend>
             {operations.map(o =>
-                <div key={o.name} className="d-flex align-items-center gap-2 mb-1">
-                    <code>{o.name}</code><span className="text-muted">{o.kind}</span>
+                <div key={o.name} className="flex items-center gap-2 mb-1">
+                    <code>{o.name}</code><span className="text-muted-foreground">{o.kind}</span>
                     {o.registered
                         ? <span className="ms-auto text-success"><FontAwesomeIcon aria-hidden={true} icon="check" /> {M.Registered.niceToString()}</span>
                         : start != null &&
@@ -654,7 +654,7 @@ function OperationsRecipe(p: {
                 </div>)}
             {start == null && <div className="text-warning mb-1">{M.TheServerModuleHasNo0.niceToString(p.typeName + "Logic.start")}</div>}
 
-            <div className="fw-semibold mt-2 mb-1">{M.AddOperation.niceToString()}</div>
+            <div className="font-semibold mt-2 mb-1">{M.AddOperation.niceToString()}</div>
             <Row label={M.Kind.niceToString()}>
                 <select className="form-select form-select-sm" value={kind} onChange={e => setKind(e.currentTarget.value as OperationKind)}>
                     {operationKinds.map(k => <option key={k} value={k}>{k}</option>)}
@@ -791,9 +791,9 @@ function TypeInput(p: { value: string; knownTypes: KnownType[]; onChange?: (text
             renderItem={(item, highlighter: TextHighlighter) => {
                 const t = item as KnownType;
                 return (
-                    <span className="d-flex gap-3">
+                    <span className="flex gap-4">
                         <span>{highlighter.highlight(t.name)}</span>
-                        <small className="text-muted ms-auto">{kindLabels[t.kind]()}</small>
+                        <small className="text-muted-foreground ms-auto">{kindLabels[t.kind]()}</small>
                     </span>
                 );
             }}
@@ -823,16 +823,16 @@ function stringArg(d: DecoratorInfo | undefined): string {
 
 function Row(p: { label: string; children: React.ReactNode }): React.JSX.Element {
     return (
-        <div className="row g-1 align-items-center mb-1">
+        <div className="row g-1 items-center mb-1">
             <label className="col-4 col-form-label col-form-label-sm">{p.label}</label>
-            <div className="col-8 d-flex gap-2 align-items-center flex-wrap">{p.children}</div>
+            <div className="col-8 flex gap-2 items-center flex-wrap">{p.children}</div>
         </div>
     );
 }
 
 function Check(p: { label: string; checked: boolean; onChange: (value: boolean) => void }): React.JSX.Element {
     return (
-        <label className="form-check-label d-flex align-items-center gap-1">
+        <label className="form-check-label flex items-center gap-1">
             <input type="checkbox" className="form-check-input m-0" checked={p.checked} onChange={e => p.onChange(e.currentTarget.checked)} />
             {p.label}
         </label>

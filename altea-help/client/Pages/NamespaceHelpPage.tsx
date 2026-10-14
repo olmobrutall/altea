@@ -32,30 +32,30 @@ export default function NamespaceHelpPage(): React.JSX.Element {
     useTitle(HelpMessage.Help.niceToString() + (nh ? " > " + nh.title : ""));
 
     if (nh == null)
-        return <div className="container"><h1 className="display-6">{JavascriptMessage.loading.niceToString()}</h1></div>;
+        return <div className="container"><h1 className="text-display-6 font-light">{JavascriptMessage.loading.niceToString()}</h1></div>;
 
     const ctx = TypeContext.root(nh.entity, { readOnly: Navigator.isReadOnly(NamespaceHelpEntity) });
 
     return (
         <div className="container">
             <div className={classes("mb-2", "shortcut-container")}>
-                <h1 className="display-6">
+                <h1 className="text-display-6 font-light">
                     <Link to={HelpClient.Urls.indexUrl()}>{HelpMessage.Help.niceToString()}</Link>
                     {" > "}
                     <EditableText ctx={ctx.subCtx(a => a.title, { formSize: "lg" })} defaultText={nh.title} onChange={forceUpdate} />
-                    <small className="ms-5 text-muted display-7">({ctx.value.culture.englishName})</small>
+                    <small className="ms-12 text-muted-foreground text-display-7 font-light">({ctx.value.culture.englishName})</small>
                 </h1>
                 <Shortcut text={`[n:${ctx.value.name}]`} />
             </div>
 
             <EditableHtml ctx={ctx.subCtx(a => a.description)} onChange={forceUpdate} />
 
-            <div className={classes("btn-toolbar", "sf-button-bar", "mt-4")}>
+            <div className={classes("btn-toolbar", "sf-button-bar", "mt-6")}>
                 {ctx.value.isDirty() && <SaveButton ctx={ctx} onSuccess={reload} />}
             </div>
 
-            <h2 className="display-7 mt-4">{HelpMessage.Types.niceToString()}</h2>
-            <ul className="mt-4">
+            <h2 className="text-display-7 font-light mt-6">{HelpMessage.Types.niceToString()}</h2>
+            <ul className="mt-6">
                 {nh.allowedTypes.map(t =>
                     <li key={t.cleanName}>
                         <Link to={HelpClient.Urls.typeUrl(t.cleanName)}>
