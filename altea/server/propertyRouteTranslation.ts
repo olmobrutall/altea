@@ -18,13 +18,10 @@ import type { BaseEntity } from "../data/entity";
 // absent every call falls through to the fallback string, so a consumer needs no null checks.
 //
 // altea divergences from Signum's file:
-//  - **no rowId, and no MList routes.** Signum keys a translation by (root instance, route THROUGH an
-//    MList, rowId), because an MList row is not an entity. altea has no MList: a collection is `@part`
-//    child ENTITIES, each with its own id and its own PropertyRoute root — so a translatable field on a
-//    collection row is keyed by that ROW's lite, and `PropertyRoute.generateRoutes` never descends into
-//    one anyway. The whole `RowId` column, its PropertyValidation, the MList primary-key parsing and the
-//    `"route;rowId"` composite key collapse. (An EMBEDDED's fields keep the owner's dotted route, as in
-//    Signum.)
+//  - **no rowId.** Signum keys a translation by (root instance, route THROUGH an MList, rowId), because an
+//    MList row is not an entity. altea's collection rows are `@part` ENTITIES with their own lite, so a
+//    field on a row is keyed by (ROW lite, the OWNER's route — `steps/title`): the `RowId` column, its
+//    PropertyValidation and the `"route;rowId"` composite key collapse.
 //  - **the QUERY form is not ported.** Signum swaps in a `TranslatedFieldExpression` so a query can
 //    SELECT the translated text; that needs `As.ReplaceExpression`, which altea has no counterpart for
 //    (the quote-transformer stamps expression trees at BUILD time — see CLAUDE.md on withQuoted). The

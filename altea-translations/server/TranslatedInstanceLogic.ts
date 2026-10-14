@@ -11,7 +11,7 @@ import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
 import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { Entity, type Type } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { PropertyRoute, PropertyRouteType } from "@altea/altea/data/propertyRoute";
 import { PropertyRouteLogic } from "@altea/altea/server/propertyRouteLogic";
 import { PropertyRouteEntity } from "@altea/altea/data/propertyRouteEntity";
 import { Connector } from "@altea/altea/server/connection/connector";
@@ -29,11 +29,10 @@ import type { AutomaticTranslation, TranslatedTypeSummary } from "../data/Transl
 // the storage, cache, status, sync and excel round-trip of PER-INSTANCE translations.
 //
 // The one structural divergence, which simplifies most of this file, is that **there is no rowId**: altea
-// has no MList, so a collection row is an ENTITY with its own lite and its own PropertyRoute root. A
-// translation is therefore keyed by (culture, instance lite, route string) and nothing else — Signum's
-// `LocalizedInstanceKey` triple, its MList primary-key parsing, the `"route;rowId"` composite key and the
-// whole `RemoveTranslationsForMissingRowIds` branch all collapse. See core's PropertyRouteTranslationLogic
-// for the full note.
+// has no MList, so a collection row is an ENTITY with its own lite. A translation is keyed by (culture,
+// instance lite, route string) — the row's lite plus the OWNER's route (`steps/title`) — and Signum's
+// MList primary-key parsing, the `"route;rowId"` composite key and the whole
+// `RemoveTranslationsForMissingRowIds` branch collapse.
 //
 // Other divergences:
 //  - the lazy is ASYNC (altea's ResetLazy), so every reader awaits; `translatedFieldFunc` — which is SYNC,
@@ -269,8 +268,7 @@ export namespace TranslatedInstanceLogic {
      * keyed the same way the cache is. This is the "what should be translated" side of every comparison.
      *
      * Signum builds one query per route (a per-route lambda + an MList query); altea reads the ROWS once
-     * and walks their routes in memory, because a `@part` collection is a separate type with its own pass
-     * and an embedded's value is already on the loaded row.
+     * and walks their routes in memory, since the `@part` rows load with their owner.
      */
     export async function fromEntities(type: Type<Entity>, applyFilter = false): Promise<Map<InstanceKey, string | null>> {
         const result = new Map<InstanceKey, string | null>();
@@ -280,7 +278,8 @@ export namespace TranslatedInstanceLogic {
     }
 
     export async function masterValues(type: Type<Entity>, applyFilter = false): Promise<MasterValue[]> {
-        const routes = [...PropertyRouteTranslationLogic.routesOf(type).keys()];
+        const routes = [...PropertyRouteTranslationLogic.routesOf(type).keys()]
+            .map(path => ({ path, steps: routeSteps(PropertyRoute.parse(type, path)) }));
         if (routes.length === 0)
             return [];
 
@@ -291,23 +290,53 @@ export namespace TranslatedInstanceLogic {
         for (const row of rows) {
             if (filter != undefined && !filter(row))
                 continue;
-            const lite = row.toLite();
-            for (const route of routes)
-                result.push({ lite, route, text: readRoute(row, route) });
+            for (const { path, steps } of routes)
+                for (const { owner, value } of walkRoute(row, steps))
+                    result.push({ lite: owner.toLite(), route: path, text: typeof value === "string" ? value : null });
         }
         return result;
     }
 
-    // Walk a dotted route on a loaded row. Only value and embedded steps occur — a translatable route never
-    // crosses an entity reference (PropertyRoute.generateRoutes re-roots there).
-    function readRoute(row: Entity, route: string): string | null {
-        let current: unknown = row;
-        for (const step of route.split(".")) {
-            if (current == null)
-                return null;
-            current = (current as Record<string, unknown>)[step];
+    function routeSteps(route: PropertyRoute): PropertyRoute[] {
+        const steps: PropertyRoute[] = [];
+        for (let r: PropertyRoute | undefined = route; r != undefined && r.propertyRouteType !== PropertyRouteType.Root; r = r.parent)
+            steps.unshift(r);
+        return steps;
+    }
+
+    interface RouteValue { owner: Entity; value: unknown }
+
+    // One value per collection row reached, owned by the innermost ENTITY on the way (the root, a `@part`
+    // row, a part's content) — the instance the serializer shows the translation on.
+    function walkRoute(root: Entity, steps: PropertyRoute[]): RouteValue[] {
+        let current: RouteValue[] = [{ owner: root, value: root }];
+        for (const step of steps) {
+            const next: RouteValue[] = [];
+            for (const c of current) {
+                if (c.value == null)
+                    continue;
+                switch (step.propertyRouteType) {
+                    case PropertyRouteType.FieldOrProperty:
+                        next.push({ owner: c.owner, value: (c.value as Record<string, unknown>)[step.fieldInfo!.name] });
+                        break;
+                    case PropertyRouteType.MListItems:
+                        for (const item of c.value as unknown[])
+                            next.push({ owner: c.owner, value: item });
+                        break;
+                    case PropertyRouteType.Cast:
+                        if (c.value instanceof (step.type.getFunction() as Type<Entity>))
+                            next.push(c);
+                        break;
+                    case PropertyRouteType.Mixin:
+                        next.push(c); // a mixin's fields are inlined on its owner
+                        break;
+                    default:
+                        throw new Error(`Unexpected '${step.propertyRouteType}' step in translatable route '${step.toString()}'`);
+                }
+            }
+            current = next.map(c => c.value instanceof Entity ? { owner: c.value, value: c.value } : c);
         }
-        return typeof current === "string" ? current : null;
+        return current;
     }
 
     /** Signum's `TranslationsForType` — the stored translations of one type, for one culture (or all). */
@@ -698,6 +727,3 @@ function typeEntityOf(type: Type<Entity>, caches: TypeCaches): TypeEntity {
         throw new Error(`No TypeEntity row for '${type.name}'`);
     return te;
 }
-
-// Referenced only so PropertyRoute's module is loaded for the route walk above.
-void PropertyRoute;
