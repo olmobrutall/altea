@@ -73,11 +73,20 @@ export class UserWithClaims {
  */
 export namespace CurrentUser {
     let provider: () => UserWithClaims | undefined = () => undefined;
+    let authoritative = false;
 
     /** Install this tier's source. Called once, at module load, by the server's UserHolder / the client's
-     *  AppContext — never by application code. */
-    export function setProvider(p: () => UserWithClaims | undefined): void {
+     *  AppContext — never by application code.
+     *
+     *  The SERVER's is `authoritative`: a server process can load client modules too (a server-rendered
+     *  page imports a component that imports AppContext), and the client's provider replacing it would make
+     *  every server-side `RoleEntity.current()` null — authorization reading "no role" process-wide. So once
+     *  the server's is installed a non-authoritative one is ignored, whichever module loads first. */
+    export function setProvider(p: () => UserWithClaims | undefined, options?: { authoritative?: boolean }): void {
+        if (authoritative && !options?.authoritative)
+            return;
         provider = p;
+        authoritative = options?.authoritative === true;
     }
 
     /** Signum's `UserHolder.Current`: the current user + claims, or undefined outside any login. */

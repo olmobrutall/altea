@@ -60,5 +60,6 @@ export namespace UserHolder {
 // The SERVER's half of the isomorphic `CurrentUser` accessor (data/security): every `UserEntity.current()`
 // / `RoleEntity.current()` / app `EmployeeEntity.current()` on this tier resolves through the request scope
 // above. Installed at module load — the data layer declares the accessors, each tier says where the user
-// comes from.
-CurrentUser.setProvider(() => UserHolder.current());
+// comes from. Authoritative: a client module this process also loads (server-rendered pages import client
+// components) must not replace it.
+CurrentUser.setProvider(() => UserHolder.current(), { authoritative: true });
