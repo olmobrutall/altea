@@ -1,0 +1,212 @@
+# Bootstrap → Tailwind + shadcn/ui
+
+Replace **bootstrap**, **react-bootstrap** and **react-widgets-up** with **Tailwind CSS v4** and
+**shadcn/ui** (Radix primitives) across altea and eastwind. Branch `tailwind` in both repos.
+
+The class-by-class translation every package (and every application ported from Signum) follows is
+**[`Tailwind-ClassMap.md`](Tailwind-ClassMap.md)**. It is also the input of the Phase 5 codemod.
+
+## Where we start (measured 2026-10-14)
+
+| | |
+| --- | --- |
+| react-bootstrap | **110 files** in 28 packages (32 in core `altea/`, 12 `altea-dynamic`, 9 `altea-workflow`, 7 `altea-auth`, …, 2 eastwind) |
+| components used | `Modal` 27, `Tabs`/`Tab` 27, `Dropdown` 27, `Button` 16, `OverlayTrigger`+`Tooltip`/`Popover` 14, `DropdownButton` 10, `NavDropdown` 5, `ProgressBar` 4, `Overlay` 3, `Collapse` 3, `Toast` 2, `Nav` 2, `ButtonGroup` 2, `Spinner`, `FormCheck` |
+| react-widgets-up | **15 files**: `DropdownList`, `Combobox`, `Multiselect`, `DatePicker`, `Calendar`, `Localization` + `IntlLocalizer` (core Lines, `QueryTokenBuilder`, `MultiPropertySetter`, `ChartTimeSeries`, 3 Playwright proxies) |
+| Bootstrap classes in JSX | 432 files with `className`; most common `btn*`, `row`/`col-sm-*`, `d-flex`, spacing, `text-muted`/`text-danger`, `alert-*`, `form-control`/`form-select`/`form-check`, `card*`, `input-group*`, `modal-*`, `table-sm` |
+| Class chokepoint | `StyleContext` (`TypeContext.ts`) hands out `formGroupClass`, `formControlClass`, `formSelectClass`, `inputGroupClass`, `colFormLabelClass`, `buttonClass`, `rwWidgetClass` per `formSize` — most Line markup gets its classes from there, not from literals |
+| CSS | ~5 100 lines in ~45 `.css` files; **40** reference `var(--bs-*)`. Biggest: `Lines.css` 852, `Sidebar.css` 538, `Search.css` 474 |
+| Bootstrap-shaped PUBLIC API | `BsColumns` / `labelColumns` / `valueColumns` on `StyleOptions` (48 files outside core), `BsSize` on modals/Finder/Navigator, `variant="…"` on buttons |
+| Theming | `data-bs-theme` on `<html>` (`ThemeModeSelector`), Monaco observes it; eastwind's Bootswatch picker loads full Bootstrap builds from a CDN |
+| Tests | Playwright proxies select `.modal` (31), `.dropdown-menu`, `.nav-tabs`/`.nav-link`, `.form-control`, `.rw-popup-container`, `.rw-dropdown-list-value` |
+
+## Decisions
+
+| | Decision |
+| --- | --- |
+| Palette picker | Bundled **token palettes** (no CDN). A palette is ~40 CSS variables per mode; a handful of them is a few KB. |
+| Calendar | **Our own, on Temporal** — no `react-day-picker`, no `date-fns`. |
+| Notify / Toast | `Notify` is altea's own status banner (Loading… / saved / error, ~27 callers through `Notify.singleton`) — **kept**, restyled as `sf-notify`. react-bootstrap `Toast` is used only in `AlertDropdown`, as list cards, not toasts → `Card`. No toast library. |
+| Spacing direction | **Logical** (`ms-*` / `me-*` / `ps-*` / `pe-*`, `text-start`/`end`, `float-start`/`end`) — Tailwind v4 has them, RTL keeps working. |
+| Breakpoints | Tailwind's are **overridden to Bootstrap's** (`sm` 576, `md` 768, `lg` 992, `xl` 1200, `2xl` 1400), so no layout shifts while classes are translated. |
+| Framework restyling | **Semantic `sf-*` classes** for everything an application may want to restyle (see below). |
+
+## Target stack
+
+| Piece | Choice | Licence |
+| --- | --- | --- |
+| CSS | `tailwindcss` v4 + `@tailwindcss/vite` (CSS-first config, no `tailwind.config.js`) | MIT |
+| Components | shadcn/ui, **copied in** (not a dependency) to `altea/altea/client/ui/` | MIT |
+| Primitives | `radix-ui` (Dialog, DropdownMenu, Tabs, Tooltip, Popover, Select, Collapsible, Checkbox, Switch, Progress) | MIT |
+| Helpers | `class-variance-authority`, `clsx`, `tailwind-merge` → one `cn()` | MIT |
+| Combobox / multiselect | `cmdk` (shadcn `Command`) inside `Popover` | MIT |
+| Calendar / date-time | altea's own, Temporal + `Intl` | — |
+| Icons | **keep Font Awesome** | — |
+
+All MIT; nothing GPL/AGPL. shadcn code becomes ours once copied, so it gets the same security and licence
+review as any generated code.
+
+## Principles
+
+1. **altea owns the wrappers; packages never import Radix or shadcn files directly.** Every module
+   imports from `@altea/altea/client/ui`. One place for a primitive to change; the 28 packages take no
+   new dependency.
+2. **Keep the react-bootstrap SHAPE where it is cheap.** altea's `Modal` (`show` / `onHide` /
+   `onExited` / `size` / `Modal.Header` / `Body` / `Footer`) and `Tabs` + `Tab eventKey title` keep the
+   props 27 files each already use — most of those become an import swap.
+3. **Replace Bootstrap-named API with neutral names.** `BsSize` → `ModalSize`, `BsColumns` →
+   `LabelLayout` (`{ sm?: 1..12, md?: …, lg?: … }`, same shape, neutral name). Deprecated aliases for one
+   cycle + an `altea-upgrade` step to rewrite them.
+4. **The framework is restyled through semantic classes and tokens, not by forking components.**
+   - Every framework region an application may want to restyle carries an `sf-*` class: the frame
+     (`sf-frame`, `sf-entity-title`, `sf-button-bar`), Lines (`sf-form-group`, `sf-form-control`,
+     `sf-line-button`, `sf-entity-line`, `sf-repeater-element`, …), the search control (`sf-search-control`,
+     `sf-table`, `sf-filter-builder`), the shell (`sf-navbar`, `sf-sidebar`, `sf-toolbar-*`), notify,
+     modals. Many exist already (they are also the Playwright hooks); the class map adds the ones that
+     replace Bootstrap's component classes (`form-group`, `form-control`, `input-group`, `table`, `btn-toolbar`, …).
+   - They are defined in CSS with `@apply` (or plain declarations where `@apply` would be longer),
+     **inside `@layer components`**. An application's own stylesheet is UNLAYERED, so any app rule beats
+     any framework rule regardless of specificity — no `!important`, no selector wars.
+   - Region-level knobs are CSS variables (`--sf-sidebar-bg`, `--sf-sidebar-width`, `--sf-frame-bg`,
+     `--sf-navbar-bg`, `--sf-gutter`, …) on top of the shadcn token set, so a palette or an app can retune a
+     region without touching selectors.
+   - Ad-hoc layout in a view (`d-flex me-2`) becomes inline utilities (`flex me-2`); it is not a theming
+     surface.
+   - Package CSS files that use `@apply` start with `@reference "@altea/altea/client/ui/theme.css";`.
+5. **One theming switch.** `data-theme="light|dark"` and `data-palette="<name>"` on `<html>`, a Tailwind
+   `@custom-variant dark`. Colours are the shadcn token set (`--background`, `--foreground`, `--primary`,
+   `--secondary`, `--muted`, `--accent`, `--border`, `--input`, `--ring`, `--destructive`) plus altea's
+   `--success`, `--warning`, `--info`, `--tertiary`, each with its `-foreground`.
+
+## Coexistence while migrating
+
+Bootstrap and Tailwind live side by side until Phase 5 — a big bang over 450 files is not reviewable.
+
+- Bootstrap is imported into a cascade **layer** declared before Tailwind's:
+  `@layer bootstrap, theme, base, components, utilities;` — so a Tailwind utility or an `sf-*` component
+  rule wins over Bootstrap at equal specificity, and a migrated component is never fought by the old CSS.
+- Tailwind **preflight is off** until Bootstrap is removed (reboot already normalises; two resets fight).
+  When preflight comes on, altea's `@layer base` restores what it strips that views rely on: `h1`–`h6`
+  sizes, `small`, `hr`, list bullets inside `sf-markdown`/HTML content, link colour.
+- **Name collisions** — Tailwind generates a class for every candidate string it finds in source, so
+  Bootstrap class strings that are also Tailwind utilities would get Tailwind CSS too: `collapse`
+  (`visibility: collapse`!), `container`, `table`, `border`, `rounded`, `shadow`, `visible`, `invisible`,
+  `small`, `pe-none`/`pe-auto` (padding in Tailwind, pointer-events in Bootstrap). Excluded with
+  `@source not inline(...)` until the files using them are migrated.
+- `--bs-*` variables are re-pointed at the shadcn tokens in the bridge stylesheet, so migrated and
+  unmigrated parts share one palette and one dark mode from Phase 0 on.
+- Dynamically built class names (`StyleContext` label/value columns) are made visible to the scanner with
+  `@source inline("{,sm:,md:,lg:,xl:}col-span-{1..12}")`.
+
+No `tw:` prefix: the end state has no Bootstrap, and a prefix would mean a second rewrite of every class.
+
+## Phases
+
+Each phase builds (`tspc -b`), runs the Playwright suite against `stack local`, and gets a browser pass in
+light and dark before the next starts. Each is its own commit(s) in `altea`, with a bump in eastwind.
+
+### Phase 0 — Plumbing
+- Add `tailwindcss`, `@tailwindcss/vite`, `radix-ui`, `class-variance-authority`, `clsx`,
+  `tailwind-merge`, `cmdk` to `@altea/altea`; `@tailwindcss/vite` in `eastwind/vite.client.config.ts`.
+- `altea/altea/client/ui/theme.css`: layer order, token set (light + dark), `@custom-variant dark`,
+  breakpoints, the `--bs-*` bridge, the Bootstrap layer, collision blocklist, `@source` globs over every
+  `altea-*/client` and the app. `client/ui/semantic.css`: the `sf-*` component layer (filled per phase).
+- `components.json` so `shadcn add` writes into `altea/altea/client/ui/`; `cn()` in `client/ui/utils.ts`.
+- `data-bs-theme` → `data-theme` (ThemeModeSelector, Layout, Monaco observer), still stamping
+  `data-bs-theme` until Phase 5.
+- Exit: app looks identical; a shadcn `Button` renders correctly in both modes.
+
+### Phase 1 — altea `ui` kit
+Generate and adapt, in `client/ui/`: `Button` (+ `buttonVariants` for `<a>`/`<Link>` that look like
+buttons; variants primary, secondary, tertiary, outline, link, destructive, success, warning, info, light;
+sizes xs/sm/md/lg/icon — `xs` is altea's), `Modal` (Dialog), `Dropdown`/`DropdownButton`
+(DropdownMenu), `Tabs`/`Tab`, `Tooltip` (+ an `OverlayTrigger`-shaped `WithTooltip`), `Popover`,
+`Collapsible`, `Progress`, `Spinner`, `Badge`, `Alert`, `Card`, `Input`, `Textarea`, `Select`, `Checkbox`,
+`Switch`, `InputGroup`, `Table`, `Command`, `Combobox`, `MultiCombobox`, `Skeleton`.
+
+The ones that need real design:
+- **`Modal`** keeps altea's promise-based `openModal` contract: `onExited` fires AFTER the close
+  animation (Radix has none → `onAnimationEnd` on the content once `data-state=closed`). Stacked modals
+  (FrameModal over SearchModal over FrameModal) need correct focus trapping and z-order — verified against
+  the real Frame stack before anything else moves.
+- **`Tabs`** keeps the mount-on-enter / unmount-on-exit semantics entity views rely on.
+- **`Calendar`** (Temporal, ours):
+  - month grid from `Temporal.PlainDate` (`with({ day: 1 })`, `dayOfWeek`, `daysInMonth`); first day of
+    week from `Intl.Locale#getWeekInfo()` with a per-culture fallback; day / month names from
+    `Intl.DateTimeFormat` in the current culture.
+  - views month → year → decade (react-widgets' century view is dropped unless a caller needs it).
+  - `min` / `max`, `value`, `onChange`, and a `renderDay(date) → { className?, title?, content? }` hook,
+    which is what `DateTimeRange` and `ChartTimeSeries` use today (today / weekend / holiday / range
+    start / between / end).
+  - WAI-ARIA grid: roving tabindex, arrows, PageUp/PageDown (month), Shift+PageUp/Down (year),
+    Home/End, Enter/Space; labelled by the visible month heading.
+  - semantic classes `sf-calendar`, `sf-calendar-day`, `sf-today`, `sf-weekend`, `sf-holiday`,
+    `sf-range-*` (the last four exist already in `Lines.css`).
+- **`DateTimePicker`** = `Input` (culture-aware parse/format of what is typed) + `Popover` with the
+  `Calendar` + an optional time field (`PlainTime`, step from the property's format). The parsing and
+  formatting that today lives in `ReactWidgetsLocalizer.tsx` moves to one Temporal helper; there is no
+  `Date` anywhere in it.
+
+Exit: a dev-only `/ui-kit` route with every component in both modes and every palette.
+
+### Phase 2 — core `altea/altea/client` (32 react-bootstrap files + react-widgets)
+- **`StyleContext` first**: its getters return the semantic classes of the class map
+  (`sf-form-control sf-form-control-sm`, …), which migrates most Line markup in one change; `rwWidgetClass`
+  goes; `BsColumns` → `LabelLayout`, LabelColumns layout = `grid grid-cols-12` + `col-span-*`.
+- Modals stack (`Modals.tsx`, `FrameModal`, `SearchModal`, `SelectorModal`, `MessageModal`, `ErrorModal`,
+  `AutoLineModal`), `ContextMenu`, `Notify`, Operations buttons, `SearchControl` toolbar / dropdowns /
+  pagination, `FilterBuilder`, `QueryTokenBuilder`.
+- **react-widgets out**: `EnumLine` / `DropdownListSearch` / `QueryTokenBuilder` → `Select` or
+  `Combobox`; `EntityCombo` → `Combobox` (async); `EntityMultiSelect` → `MultiCombobox`;
+  `DateTimeLine` / `DateTimeRange` → `DateTimePicker` / `Calendar`; `ReactWidgetsLocalizer.tsx` deleted;
+  react-widgets messages in `uiMessages.ts` → altea `msg(...)` entries (+ translations).
+- `Lines.css`, `Search.css`, `Frames.css`, `Modals.css`, `FilterBuilder.css`, … → `@layer components`,
+  off `--bs-*`, `@apply` where it is shorter.
+- Playwright proxies move to role / `data-*` selectors (`[role=dialog]`, `[role=tab]`, `[role=listbox]`,
+  `[role=option]`) — not to the new library's class names, so the next swap does not break them.
+- Exit: every Line type, the search page and the modal stack verified in the browser; full e2e green.
+
+### Phase 3 — modules (78 files, mechanical)
+Dependency order, one commit per package: auth → user-assets / user-queries → chart → dashboard →
+toolbar → templating / email / office-template → workflow → dynamic → the rest (1–3 files each).
+`altea-alert` `Toast` → `Card`. `altea-chart`'s `ChartTimeSeries` → the shared `Calendar`. Package CSS
+into `@layer components`, off `--bs-*`. `Sidebar.css` / toolbar get their `--sf-sidebar-*` knobs.
+
+### Phase 4 — eastwind
+- `Layout.tsx` navbar (`NavDropdown`, navbar classes) → `sf-navbar` + `Dropdown`.
+- `ThemeSelector` → **palette picker** over bundled palettes, e.g. `default` (neutral/blue), `ocean`,
+  `forest`, `rose`, `amber`, `violet` — each a light + dark token block under
+  `[data-palette=<name>]`, in one `palettes.css`. The MECHANISM (`data-palette`, the token contract,
+  persistence) is altea's; the palettes are the app's. Works offline, applies in build and dev alike.
+- Public catalog, `site.css`, `main.client.ts` imports.
+
+### Phase 5 — class sweep and removal
+- Codemod (ts-morph over JSX string literals, `classes(...)` / `cn(...)` arguments and template
+  literals) driven by `Tailwind-ClassMap.md`: applies the `U` and `S` rows, rewrites breakpoint infixes,
+  and REPORTS every `C` / `M` hit and every class it could not map. Ships as an `altea-upgrade` step so
+  applications run the same translation.
+- Remove `bootstrap`, `react-bootstrap`, `react-widgets-up` from both `package.json`s; drop the Bootstrap
+  layer, the `--bs-*` bridge, the collision blocklist; turn preflight on (+ altea's base restorations);
+  remove `data-bs-theme`.
+- Gate: no `react-bootstrap`, `react-widgets`, `--bs-`, `data-bs-` left in source.
+- Delete the deprecated `BsSize` / `BsColumns` aliases after the `altea-upgrade` step ships.
+
+### Phase 6 — docs
+`altea/AGENTS.md` (UI line + a "Styling" section: `ui` kit, tokens, semantic classes vs utilities, how
+an app restyles a region), `port/` ledger entry, `eastwind/AGENTS.md` palette notes.
+
+## Risks
+
+| Risk | Mitigation |
+| --- | --- |
+| Modal stack behaviour (focus, z-order, `onExited` ordering) differs under Radix | built and tested against the real Frame stack in Phase 1, before anything else moves |
+| Own calendar: accessibility and culture edge cases | ARIA grid spec above; e2e through `DateTimeLineProxy`; test cultures with Sunday/Monday/Saturday week starts and non-Gregorian-looking formats |
+| Bundle on the anonymous boot graph | Radix is per-primitive; compare the `MainPublic` chunk before/after Phase 4 |
+| Monaco, Lexical HTML editor, d3 charts read Bootstrap colours | moved to the token set in Phase 3; Monaco keeps observing the theme attribute |
+| Downstream apps on `BsSize` / `BsColumns` / `variant` / Bootstrap classes | deprecated aliases for one cycle + the `altea-upgrade` codemod step |
+| Visual regressions nobody notices | per-phase browser pass in both modes; Playwright screenshot baseline taken at Phase 0 |
+
+## Size
+
+Phases 0–1 are the design work; 2 is the hardest (Lines + modal stack + react-widgets + calendar); 3 and
+5 are large but mechanical. ~450 files in total, almost all in the `altea` submodule.
