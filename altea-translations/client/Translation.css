@@ -11,8 +11,10 @@
 }
 
 
+/* DIVERGENCE from Signum's `margin: 20px`: every table.st is also a Bootstrap `.table` (width: 100%),
+   so a horizontal margin pushes it 40px past its container and the page scrolls sideways. */
 table.st {
-    margin: 20px;
+    margin: 20px 0;
     text-align: left;
 }
 
