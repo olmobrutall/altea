@@ -82,6 +82,14 @@ export async function waitValue<T>(get: () => Promise<T | null | undefined>, des
 // ---- Modal capture -------------------------------------------------------------------------------------
 
 /**
+ * An open modal, narrowed by `extra` (an attribute filter, a descendant): altea's (`.sf-modal`, a Radix
+ * dialog) or a react-bootstrap one a package still renders.
+ */
+export function openModal(extra: string = ""): string {
+    return `.sf-modal[data-state=open]${extra}, .modal.fade.show${extra}`;
+}
+
+/**
  * Signum's `CaptureOnClickAsync`: click something that OPENS A MODAL and return a locator bound to THAT
  * modal.
  *
@@ -97,28 +105,27 @@ export async function captureOnClick(button: Locator): Promise<Locator> {
 
 /** As {@link captureOnClick}, for an action that is not a plain click (Signum's CaptureModalAsync). */
 export async function captureModal(page: Page, action: () => Promise<void>): Promise<Locator> {
-    const maxIndex = () => page.evaluate(() => {
+    const maxIndex = () => page.evaluate(sel => {
         let max = 0;
-        document.querySelectorAll(".modal.fade.show[data-capture-index]")
+        document.querySelectorAll(sel)
             .forEach(el => { max = Math.max(max, parseInt(el.getAttribute("data-capture-index")!, 10)); });
         return max;
-    });
+    }, openModal("[data-capture-index]"));
 
     const before = await maxIndex();
 
     await action();
 
     // The new modal is the visible one this test has not stamped yet.
-    await page.waitForSelector(".modal.fade.show:not([data-capture-index])", { timeout: defaultTimeout });
+    await page.waitForSelector(openModal(":not([data-capture-index])"), { timeout: defaultTimeout });
 
     const nextIndex = Math.max(before, await maxIndex()) + 1;
 
-    await page.evaluate(index => {
-        document.querySelector(".modal.fade.show:not([data-capture-index])")
-            ?.setAttribute("data-capture-index", String(index));
-    }, nextIndex);
+    await page.evaluate(([index, sel]) => {
+        document.querySelector(sel)?.setAttribute("data-capture-index", String(index));
+    }, [nextIndex, openModal(":not([data-capture-index])")] as const);
 
-    return page.locator(`.modal.fade.show[data-capture-index='${nextIndex}']`);
+    return page.locator(openModal(`[data-capture-index='${nextIndex}']`));
 }
 
 // ---- Change tracking -----------------------------------------------------------------------------------

@@ -181,22 +181,45 @@ What it turned up, for the phases after it:
 - Intl formats only `Date`s under the Temporal polyfill, so `dateFormat.ts` converts at that one call; the
   components take and give Temporal values only.
 
-### Phase 2 — core `altea/altea/client` (32 react-bootstrap files + react-widgets)
-- **`StyleContext` first**: its getters return the semantic classes of the class map
-  (`sf-form-control sf-form-control-sm`, …), which migrates most Line markup in one change; `rwWidgetClass`
-  goes; `BsColumns` → `LabelLayout`, LabelColumns layout = `grid grid-cols-12` + `col-span-*`.
-- Modals stack (`Modals.tsx`, `FrameModal`, `SearchModal`, `SelectorModal`, `MessageModal`, `ErrorModal`,
-  `AutoLineModal`), `ContextMenu`, `Notify`, Operations buttons, `SearchControl` toolbar / dropdowns /
-  pagination, `FilterBuilder`, `QueryTokenBuilder`.
-- **react-widgets out**: `EnumLine` / `DropdownListSearch` / `QueryTokenBuilder` → `Select` or
-  `Combobox`; `EntityCombo` → `Combobox` (async); `EntityMultiSelect` → `MultiCombobox`;
-  `DateTimeLine` / `DateTimeRange` → `DateTimePicker` / `Calendar`; `ReactWidgetsLocalizer.tsx` deleted;
-  react-widgets messages in `uiMessages.ts` → altea `msg(...)` entries (+ translations).
-- `Lines.css`, `Search.css`, `Frames.css`, `Modals.css`, `FilterBuilder.css`, … → `@layer components`,
-  off `--bs-*`, `@apply` where it is shorter.
-- Playwright proxies move to role / `data-*` selectors (`[role=dialog]`, `[role=tab]`, `[role=listbox]`,
-  `[role=option]`) — not to the new library's class names, so the next swap does not break them.
-- Exit: every Line type, the search page and the modal stack verified in the browser; full e2e green.
+### Phase 2 — core `altea/altea/client` ✅
+The core client imports neither react-bootstrap nor react-widgets any more. In five commits:
+
+- **2a — semantic form classes.** `client/ui/semantic.css` holds Bootstrap 5.3's form and input-group rules
+  renamed to `sf-*` and pointed at the tokens; the *Forms* section of the class map is applied in every
+  package (TSX and CSS selectors; `Upgrade_20261015_TailwindFormClasses` for applications). `StyleContext`
+  hands out the semantic classes; `BsColumns` → `LabelLayout` (alias kept), LabelColumns on a 12-column grid
+  (`sf-form-group-columns` + `col-span-*`, safelisted in theme.css).
+- **2b — modal stack** on `ui/Modal`; the parts are `sf-modal-*` (Bootstrap's metrics) in every package, so
+  they also style the react-bootstrap modals other packages still render.
+- **2c — react-widgets out**: EntityCombo / EnumLine / EntityMultiSelect / QueryTokenBuilder /
+  MultiPropertySetter on the ui Combobox (free-text EnumLine: `<input list>`), DateTimeLine / DateTimeRange on
+  DateTimePicker with a Temporal calendar API. The kit's form controls wear the semantic classes too.
+  `ReactWidgetsLocalizer` stays, re-exporting `ui/dateFormat`, until altea-chart migrates.
+- **2d — the rest**: Tabs (`sf-tab-*`), menus (`sf-dropdown-*`), overlays, buttons. react-bootstrap's
+  `<Button variant>` became `BootstrapButton` — the same `btn btn-*` markup — so the buttons' look moves in one
+  later step instead of piecemeal.
+- **2e — Playwright proxies** on semantic and ARIA selectors (`openModal()`, `[role=tablist] [role=tab]` +
+  `aria-selected`, `[role=combobox]`, `[cmdk-item]`), each also matching what a not-yet-migrated package renders.
+
+Verified: pages within 1–2px of the Bootstrap baseline (grid rounding, the date button); Playwright scenarios
+for the modal stack, date entry, filter tokens, context menus, operation and toolbar menus, theme picker.
+**Not run: the e2e suite** — it rewinds the local database to the test snapshot.
+
+What it turned up:
+- **Items cross menu boundaries.** Packages hand react-bootstrap `Dropdown.Item`s to core menus (contextual
+  items), and core items (quick links) appear in both a button menu and the context menu. So menus that
+  render other code's items are plain semantic panels (`MenuPanel`, arrow keys included), and a kit
+  `DropdownItem` renders as a plain item when it is not inside a Radix menu.
+- **The semantic form rules live in `legacy` for now**, imported right after Bootstrap: altea's own
+  `Lines.css` still adjusts those classes and must keep winning. They move to `components` with Bootstrap's
+  removal.
+- `ReactVisitor` and `ui/Tabs` recognise tabs by shape and name, since views still contain react-bootstrap
+  `<Tab>`s.
+- A stylesheet whose COMMENT mentions `@layer` was mistaken for a Tailwind file and left unlayered; the
+  plugin now ignores comments.
+- Left for later phases: the `rw-*` rules in `Lines.css` (altea-chart), `.btn` styling, the `Notify` restyle,
+  `--bs-*` in the core stylesheets, `Lines.css`'s `.border { padding }`, the hidden "selected rows" menu
+  (not exercised: the option is off in eastwind).
 
 ### Phase 3 — modules (78 files, mechanical)
 Dependency order, one commit per package: auth → user-assets / user-queries → chart → dashboard →

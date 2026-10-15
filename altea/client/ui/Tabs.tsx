@@ -61,6 +61,7 @@ export function Tabs(p: TabsProps): React.ReactElement {
                 {tabs.map(t =>
                     <TabsPrimitive.Trigger key={String(t.props.eventKey)} value={String(t.props.eventKey)} disabled={t.props.disabled}
                         id={p.id ? `${p.id}-tab-${t.props.eventKey}` : undefined}
+                        data-event-key={String(t.props.eventKey)}
                         className={cn("sf-tab", t.props.tabClassName)}>
                         {t.props.title}
                     </TabsPrimitive.Trigger>)}

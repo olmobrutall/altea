@@ -4,7 +4,7 @@ import { waitVisible } from "../PlaywrightExtensions";
 import { editorText, editorValue } from "../tokens";
 
 // Port of Signum.Playwright's LineProxies/EnumLineProxy.cs (EnumLine.tsx): either a plain `<select>` or the
-// react-widgets dropdown, depending on how the line was configured — the proxy handles both, as Signum does.
+// ui Combobox (a line rendering its items itself) — the proxy handles both, as Signum does.
 //
 // altea divergence: the DOM holds the enum's NUMBER (`value={toStr(oi.value)}`, `data-value={ctx.value}` —
 // EnumLine.tsx), where Signum's holds the member name. Either way a test should speak in enum VALUES
@@ -14,27 +14,28 @@ export class EnumLineProxy<S = unknown> extends BaseLineProxy {
 
     /**
      * The editable `<select>`, or — when the line is READ-ONLY — the input altea renders instead
-     * (`FormControlReadonly`: an `<input readonly class="form-control" data-value=…>`, or the plain-text
+     * (`FormControlReadonly`: an `<input readonly class="sf-form-control" data-value=…>`, or the plain-text
      * variant). Signum's proxy names only the select, because its readonly rendering keeps the same tag.
      */
     get select(): Locator {
-        return this.element.locator("select.form-select, select.form-control,"
-            + " input.form-control[data-value], input.form-control-plaintext, .form-control-plaintext").first();
+        return this.element.locator("select.sf-form-select, select.sf-form-control,"
+            + " input.sf-form-control[data-value], input.sf-form-control-plaintext, .sf-form-control-plaintext").first();
     }
 
-    get widget(): Locator { return this.element.locator("div.rw-dropdown-list").first(); }
+    get widget(): Locator { return this.element.locator("[role=combobox]").first(); }
 
     /** The enum value (or its member name — both spellings reach the same option). */
     async setValue(value: S | null): Promise<void> {
         const strValue = value == null ? "" : editorText(value, this.route);
 
         if (await this.widget.count() > 0) {
-            const popup = this.widget.locator(".rw-popup-container");
+            // The list is portaled to the body, outside the line.
+            const popup = this.element.page().locator("[cmdk-list]");
             if (!await popup.isVisible()) {
-                await this.widget.locator(".rw-dropdown-list-value").click();
+                await this.widget.click();
                 await waitVisible(popup);
             }
-            await popup.locator(`[data-value='${strValue}']`).click();
+            await popup.locator(`[cmdk-item]:has([data-value='${strValue}'])`).click();
             return;
         }
 

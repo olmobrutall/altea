@@ -52,7 +52,7 @@ export class EntityLineProxy<S = unknown> extends EntityBaseProxy<S> {
     }
 
     override async isReadonly(): Promise<boolean> {
-        return await this.element.locator(".form-control[readonly]").count() > 0
+        return await this.element.locator(".sf-form-control[readonly]").count() > 0
             && await this.element.locator("a.sf-create, a.sf-find, a.sf-remove").count() === 0;
     }
 }

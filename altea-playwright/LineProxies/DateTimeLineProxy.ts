@@ -2,7 +2,7 @@ import type { Locator } from "playwright";
 import { BaseLineProxy } from "./BaseLineProxy";
 import type { DateMember } from "../Frames/LineContainer";
 
-// Port of Signum.Playwright's LineProxies/DateTimeLineProxy.cs (DateTimeLine.tsx, a react-widgets picker).
+// Port of Signum.Playwright's LineProxies/DateTimeLineProxy.cs (DateTimeLine.tsx, the ui DateTimePicker).
 //
 // altea divergence: the value is a `Temporal` ISO string (`2026-08-22`, `2026-08-22T10:30`), not a .NET
 // DateTime — so this proxy takes and returns the STRING the input holds, which is also what a test asserting
@@ -12,7 +12,7 @@ export class DateTimeLineProxy<S extends DateMember = DateMember> extends BaseLi
     /** The editable input inside the picker; `sf-readonly-date` is the read-only rendering. */
     get input(): Locator {
         return this.element
-            .locator("div.rw-date-picker input[type=text], input.sf-readonly-date, div.sf-readonly-date")
+            .locator(".sf-date-time-picker input, input.sf-readonly-date, div.sf-readonly-date")
             .first();
     }
 
@@ -24,7 +24,7 @@ export class DateTimeLineProxy<S extends DateMember = DateMember> extends BaseLi
         const text = value == null ? "" : String(value);
         if (text !== "") {
             await input.fill(text);
-            // react-widgets parses on blur / Enter; Signum presses Enter for the same reason.
+            // The picker parses on blur / Enter; Signum presses Enter for the same reason.
             await input.press("Enter");
         }
     }

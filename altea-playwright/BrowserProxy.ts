@@ -2,7 +2,7 @@ import type { Locator, Page } from "playwright";
 import { Lite } from "@altea/altea/data/lite";
 import { Entity, type BaseEntity, type PrimaryKey, type Type } from "@altea/altea/data/entity";
 import type { QueryName } from "@altea/altea/data/dynamicQuery/queryUtils";
-import { isPresent, scope, waitFor, waitNotPresent, waitVisible, type Scope } from "./PlaywrightExtensions";
+import { isPresent, scope, waitFor, waitNotPresent, waitVisible, openModal, type Scope } from "./PlaywrightExtensions";
 import { cleanNameOf, queryKeyOf } from "./tokens";
 import { SearchPageProxy } from "./Search/SearchPageProxy";
 import { FramePageProxy } from "./Frames/FramePageProxy";
@@ -127,7 +127,7 @@ export class BrowserProxy {
 
     /** Wait until every modal is gone — handy between test steps. */
     async waitNoModals(): Promise<void> {
-        await waitNotPresent(this.page.locator(".modal.fade.show"));
+        await waitNotPresent(this.page.locator(openModal()));
     }
 }
 

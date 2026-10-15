@@ -76,7 +76,7 @@ export class SearchControlProxy<T extends BaseEntity> {
 
     /** Signum's `WaitContextMenuAsync` — the menu a right-click on a cell / header opened. */
     async waitContextMenu(): Promise<Locator> {
-        const menu = this.page.locator(".sf-context-menu .dropdown-menu");
+        const menu = this.page.locator(".sf-context-menu .sf-dropdown-menu");
         await waitVisible(menu);
         return menu;
     }

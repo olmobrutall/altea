@@ -15,10 +15,10 @@ export class ModalProxy {
      *  the re-render of the line that opened it). Wired by the proxy that opened it. */
     disposing: ((okPressed: boolean) => Promise<void>) | undefined;
 
-    get header(): Locator { return this.modal.locator(".modal-header"); }
-    get title(): Locator { return this.modal.locator(".modal-title"); }
-    get body(): Locator { return this.modal.locator(".modal-body"); }
-    get closeButton(): Locator { return this.modal.locator(".modal-header button.btn-close").first(); }
+    get header(): Locator { return this.modal.locator(".sf-modal-header"); }
+    get title(): Locator { return this.modal.locator(".sf-modal-title"); }
+    get body(): Locator { return this.modal.locator(".sf-modal-body"); }
+    get closeButton(): Locator { return this.modal.locator(".sf-modal-header :is(button.btn-close, .sf-close-button)").first(); }
 
     titleText(): Promise<string> { return this.title.innerText(); }
     bodyText(): Promise<string> { return this.body.innerText(); }
@@ -68,7 +68,7 @@ export class SelectorModalProxy extends ModalProxy {
 /** Signum's ErrorModalProxy — the exception dialog. */
 export class ErrorModalProxy extends ModalProxy {
 
-    get errorText(): Locator { return this.modal.locator(".error-modal, .modal-body").first(); }
+    get errorText(): Locator { return this.modal.locator(".error-modal, .sf-modal-body").first(); }
 
     static async is(modal: Locator): Promise<boolean> {
         return await isPresent(modal.locator(".error-modal"));

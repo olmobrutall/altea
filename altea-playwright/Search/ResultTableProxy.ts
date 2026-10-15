@@ -88,7 +88,7 @@ export class ResultTableProxy<T extends BaseEntity> {
     /** Signum's `RemoveColumnAsync`. */
     async removeColumn(token: TokenOf<T>): Promise<void> {
         await this.headerCell(token).click({ button: "right" });
-        const menu = this.element.page().locator(".sf-context-menu .dropdown-menu");
+        const menu = this.element.page().locator(".sf-context-menu .sf-dropdown-menu");
         await waitVisible(menu);
         await menu.locator(".sf-remove-header, .sf-remove").first().click();
     }

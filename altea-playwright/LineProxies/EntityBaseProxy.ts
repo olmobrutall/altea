@@ -114,7 +114,7 @@ export abstract class EntityBaseProxy<S = unknown> extends BaseLineProxy {
         await input.fill("");
         await input.pressSequentially(text, { delay: 30 });
 
-        const list = container.locator(".typeahead.dropdown-menu, .dropdown-menu.typeahead").first();
+        const list = container.locator(".typeahead").first();
         await waitVisible(list);
 
         let item = list.locator("[data-entity-key]");
@@ -130,13 +130,13 @@ export abstract class EntityBaseProxy<S = unknown> extends BaseLineProxy {
         await input.fill("");
         await input.pressSequentially(lite.toString() ?? String(lite.id), { delay: 30 });
 
-        const list = container.locator(".typeahead.dropdown-menu, .dropdown-menu.typeahead").first();
+        const list = container.locator(".typeahead").first();
         await waitVisible(list);
         await list.locator(`[data-entity-key='${lite.key()}']`).first().click();
     }
 
     override async isReadonly(): Promise<boolean> {
-        return await this.element.locator(".form-control[readonly]").count() > 0
+        return await this.element.locator(".sf-form-control[readonly]").count() > 0
             || !await isPresent(this.buttonBar.locator("a.sf-create, a.sf-find, a.sf-remove"));
     }
 }

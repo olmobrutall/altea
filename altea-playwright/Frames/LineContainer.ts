@@ -228,15 +228,13 @@ export class LineContainer<T extends BaseEntity> {
     // ---- Tabs --------------------------------------------------------------------------------------
 
     /**
-     * Signum's `SelectTabAsync(eventKey)` — click a react-bootstrap tab and wait for it to be active.
-     *
-     * No `.nav-item` step: react-bootstrap renders a Tab's link directly under `.nav-tabs` unless it is
-     * given a Nav.Item of its own, and a tab strip built that way matched nothing at all.
+     * Signum's `SelectTabAsync(eventKey)` — click a tab and wait for it to be active. By ARIA role, which the
+     * ui Tabs and a react-bootstrap strip both render; the key is `data-event-key` / `data-rr-ui-event-key`.
      */
     async selectTab(eventKey: string): Promise<this> {
-        const tab = this.element.locator(`.nav-tabs .nav-link[data-rr-ui-event-key='${eventKey}']`);
+        const tab = this.element.locator(`[role=tab]:is([data-event-key='${eventKey}'], [data-rr-ui-event-key='${eventKey}'])`);
         await tab.click();
-        await waitVisible(this.element.locator(".nav-tabs .nav-link.active"));
+        await waitVisible(this.element.locator(`[role=tab][aria-selected=true]:is([data-event-key='${eventKey}'], [data-rr-ui-event-key='${eventKey}'])`));
         return this;
     }
 }

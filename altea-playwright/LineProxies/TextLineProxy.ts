@@ -5,7 +5,7 @@ import { BaseLineProxy } from "./BaseLineProxy";
 // Port of Signum.Playwright's LineProxies/TextLineProxy.cs (TextBase.tsx's three faces) + TextAreaLineProxy.
 export abstract class TextBaseLineProxy extends BaseLineProxy {
 
-    get input(): Locator { return this.element.locator(".form-control, .form-control-readonly").first(); }
+    get input(): Locator { return this.element.locator(".sf-form-control, .form-control-readonly").first(); }
 
     override async getValueUntyped(): Promise<unknown> { return await this.getValue(); }
     override async setValueUntyped(value: unknown): Promise<void> { await this.setValue(value as string | null); }
@@ -29,7 +29,7 @@ export abstract class TextBaseLineProxy extends BaseLineProxy {
         const input = this.input;
         await input.waitFor({ state: "attached" });
         return await input.evaluate(e =>
-            e.classList.contains("readonly") || e.classList.contains("form-control-plaintext")
+            e.classList.contains("readonly") || e.classList.contains("sf-form-control-plaintext")
             || e.hasAttribute("readonly") || (e as HTMLInputElement).disabled);
     }
 }

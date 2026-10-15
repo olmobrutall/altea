@@ -1,7 +1,7 @@
 import type { Locator } from "playwright";
 import { PropertyRoute } from "@altea/altea/data/propertyRoute";
 import type { BaseEntity, Type } from "@altea/altea/data/entity";
-import { isPresent, waitNotPresent, waitVisible, type AsyncScoped } from "../PlaywrightExtensions";
+import { isPresent, openModal, waitNotPresent, waitVisible, type AsyncScoped } from "../PlaywrightExtensions";
 import { EntityButtonContainer } from "./EntityButtonContainer";
 import { LineContainer } from "./LineContainer";
 import { MessageModalProxy } from "../ModalProxies/ModalProxy";
@@ -49,8 +49,8 @@ export class FrameModalProxy<T extends BaseEntity> extends EntityButtonContainer
     override get element(): Locator { return this.modal; }
 
     get okButton(): Locator { return this.modal.locator(".sf-entity-button.sf-ok-button, .sf-ok-button").first(); }
-    get closeButton(): Locator { return this.modal.locator(".modal-header button.btn-close").first(); }
-    get title(): Locator { return this.modal.locator(".modal-title").first(); }
+    get closeButton(): Locator { return this.modal.locator(".sf-modal-header :is(button.btn-close, .sf-close-button)").first(); }
+    get title(): Locator { return this.modal.locator(".sf-modal-title").first(); }
 
     /** Accept the modal and wait for it to go away. */
     async ok(): Promise<void> {
@@ -80,7 +80,7 @@ export class FrameModalProxy<T extends BaseEntity> extends EntityButtonContainer
 
                     // Signum: a "discard your changes?" confirmation answers NO — the scope is unwinding,
                     // not saving.
-                    const message = this.modal.page().locator(".modal.fade.show .message-modal").last();
+                    const message = this.modal.page().locator(openModal(" .message-modal")).last();
                     if (await isPresent(message))
                         await new MessageModalProxy(message.locator("xpath=ancestor::div[contains(@class,'modal')][1]"))
                             .click("no").catch(() => { /* it may have closed on its own */ });

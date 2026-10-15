@@ -6,11 +6,11 @@ import { EntityBaseProxy, type EntityOf } from "./EntityBaseProxy";
 import { waitChanges } from "../PlaywrightExtensions";
 
 // Port of Signum.Playwright's LineProxies/EntityComboProxy.cs (EntityCombo.tsx) — the `<select>` a
-// low-population type gets, or the react-widgets list when the combo was configured with one.
+// low-population type gets, or the ui Combobox when the combo renders its items itself.
 export class EntityComboProxy<S = unknown> extends EntityBaseProxy<S> {
 
     get combo(): Locator { return this.element.locator("select").first(); }
-    get dropdownListInput(): Locator { return this.element.locator(".rw-dropdown-list-input").first(); }
+    get dropdownListInput(): Locator { return this.element.locator("[role=combobox]").first(); }
 
     /** Signum's `GetLiteValueAsync` — what the combo currently has selected. */
     async getValue(): Promise<Lite<EntityOf<S> & Entity> | null> {
