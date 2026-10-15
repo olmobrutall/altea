@@ -56,14 +56,13 @@ export class TranslateResult {
         // needed. See LINQ-Plan.md.
         private readonly eagerChildren: readonly ChildPlan[],
         private readonly lazyChildren: readonly ChildPlan[],
+        // Whether a projector resolves an @implementedByAll discriminator, the only thing that needs the
+        // type↔id caches — so a query without one (every query synchronization runs) never loads them.
+        private readonly readsTypeIds: boolean,
     ) { }
 
     async execute(signal?: AbortSignal): Promise<unknown> {
-        // The snapshot the projector resolves @implementedByAll discriminators against, taken ONCE here so
-        // every row of this query agrees. Skipped while the caches are loading — that query is
-        // `table(TypeEntity)`, which has no discriminator to resolve.
-        const connector = Connector.current();
-        const retriever = new Retriever(TypeLogic.isLoading ? undefined : await TypeLogic.caches(connector.schema), signal);
+        const retriever = new Retriever(undefined, signal);
         const result = await this.executeInto(retriever);
         // Batch-complete any referenced rows left as id-only stubs (IBA/cycle/AvoidExpand),
         // then the projected instances are fully loaded — Signum's Retriever.CompleteAll.
@@ -81,6 +80,9 @@ export class TranslateResult {
     // retriever, so a completion batch is as abortable as the query that provoked it.
     async executeInto(retriever: Retriever): Promise<unknown> {
         const connector = Connector.current();
+        // Skipped while the caches are loading — that query is `table(TypeEntity)`, which has no discriminator.
+        if (this.readsTypeIds && !TypeLogic.isLoading)
+            retriever.useTypeCaches(await TypeLogic.caches(connector.schema));
         const lookups: Lookups = new Map();
         const requests: Requests = new Map();
 
@@ -154,17 +156,19 @@ function projectRow(project: CompiledProjector, row: any, rowIndex: number, sql:
 }
 
 export function buildTranslateResult(projection: ProjectionExpression, isPostgres: boolean): TranslateResult {
+    let readsTypeIds = false;
     const build = (cp: ChildProjectionExpression): ChildPlan => {
         const { sql, parameters } = QueryFormatter.format(cp.projection.select, isPostgres);
-        const { project, source } = compileProjector(cp.projection.projector);
-        return { token: cp.token, sql, parameters, kvProjector: project, projectorSource: source };
+        const compiled = compileProjector(cp.projection.projector);
+        readsTypeIds ||= compiled.readsTypeIds;
+        return { token: cp.token, sql, parameters, kvProjector: compiled.project, projectorSource: compiled.source };
     };
     const eagerChildren = gatherChildProjections(projection.projector, false).map(build);
     const lazyChildren = gatherChildProjections(projection.projector, true).map(build);
     const { sql, parameters } = QueryFormatter.format(projection.select, isPostgres);
-    const { project, source } = compileProjector(projection.projector);
-    return new TranslateResult(sql, parameters, project, source,
-        projection.uniqueFunction, eagerChildren, lazyChildren);
+    const compiled = compileProjector(projection.projector);
+    return new TranslateResult(sql, parameters, compiled.project, compiled.source,
+        projection.uniqueFunction, eagerChildren, lazyChildren, readsTypeIds || compiled.readsTypeIds);
 }
 
 // Collects the ChildProjectionExpressions of one kind. Eager (isLazyMList false) are
@@ -197,13 +201,13 @@ function ctorOf(type: RuntimeType): new () => any {
 // Generates a `(row, consts, retriever, lookups) => value` body and closes it over
 // the captured constants/ctors. Entity/embedded/lite nodes emit Retriever calls;
 // a ChildProjection reads its grouped slice out of `lookups`.
-function compileProjector(projector: Expression): { project: CompiledProjector; source: string } {
+function compileProjector(projector: Expression): { project: CompiledProjector; source: string; readsTypeIds: boolean } {
     const builder = new ProjectionBuilder();
     const body = "return " + builder.build(projector) + ";";
     const fn = new Function("row", "consts", "retriever", "lookups", "requests", body) as
         (row: any, consts: unknown[], retriever: Retriever, lookups: Lookups, requests: Requests) => unknown;
     const project = (row: any, retriever: Retriever, lookups: Lookups, requests: Requests) => fn(row, builder.consts, retriever, lookups, requests);
-    return { project, source: body };
+    return { project, source: body, readsTypeIds: builder.readsTypeIds };
 }
 
 // Normalises a raw SQL Server DATEPART(weekday) value to the ISO day-of-week (Mon=1..Sun=7)
@@ -229,6 +233,7 @@ function lazyRequestArray(requests: Requests, token: LookupToken, keyStr: string
 
 class ProjectionBuilder extends DbExpressionVisitor {
     readonly consts: unknown[] = [];
+    readsTypeIds = false;
     private readonly stack: string[] = [];
 
     build(expression: Expression): string {
@@ -365,6 +370,7 @@ class ProjectionBuilder extends DbExpressionVisitor {
             const idCode = this.ibaIdCode(ref);
             this.visit(ref.typeId.typeColumn);
             const typeCode = this.pop();
+            this.readsTypeIds = true;
             this.stack.push(`retriever.liteImplementedByAll(${idCode}, ${typeCode}, ${toStrCode})`);
             return e;
         }
@@ -436,6 +442,7 @@ class ProjectionBuilder extends DbExpressionVisitor {
         if (typeId instanceof TypeImplementedByAllExpression) {
             this.visit(typeId.typeColumn);
             const typeCode = this.pop();
+            this.readsTypeIds = true;
             this.stack.push(`retriever.liteImplementedByAll(${idCode}, ${typeCode}, ${toStrCode})`);
             return e;
         }
@@ -468,6 +475,7 @@ class ProjectionBuilder extends DbExpressionVisitor {
         const idCode = this.ibaIdCode(e);
         this.visit(e.typeId.typeColumn);
         const typeCode = this.pop();
+        this.readsTypeIds = true;
         this.stack.push(`retriever.implementedByAll(${idCode}, ${typeCode})`);
         return e;
     }
@@ -499,6 +507,7 @@ class ProjectionBuilder extends DbExpressionVisitor {
     override visitTypeImplementedByAll(e: TypeImplementedByAllExpression): Expression {
         this.visit(e.typeColumn);
         const typeCode = this.pop();
+        this.readsTypeIds = true;
         this.stack.push(`retriever.type(${typeCode})`);
         return e;
     }
