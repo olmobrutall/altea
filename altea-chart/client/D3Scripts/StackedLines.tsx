@@ -133,7 +133,7 @@ export default function renderStackedLines({ data, width, height, parameters, lo
         transform={translate(xRule.start('content') + bw / 2, yRule.end('content'))}>
         {/* Separating stroke, as on the pie: stacked areas share an edge, and adjacent palette colours
             are not guaranteed to differ in luminance. */}
-        <path className="shape sf-transition" fill={colorByKey[s.key] ?? color(s.key)} stroke="var(--bs-body-bg)" strokeWidth={1} shapeRendering="initial" d={area(s)!} transform={(initialLoad ? scale(1, 0) : scale(1, 1))}
+        <path className="shape sf-transition" fill={colorByKey[s.key] ?? color(s.key)} stroke="var(--background)" strokeWidth={1} shapeRendering="initial" d={area(s)!} transform={(initialLoad ? scale(1, 0) : scale(1, 1))}
           {...shapeTitleText(columnsByKey[s.key].niceName!)}>
         </path>
       </g>)}
@@ -163,7 +163,7 @@ export default function renderStackedLines({ data, width, height, parameters, lo
                   transform={translate(getX(v)! - rectRadious, -y(v[1])!)}
                   width={2 * rectRadious}
                   fillOpacity={active == true ? undefined : .2}
-                  fill={active == true ? "var(--bs-body-color)" : colorByKey[s.key] ?? color(s.key)}
+                  fill={active == true ? "var(--foreground)" : colorByKey[s.key] ?? color(s.key)}
                   height={y(v[1])! - y(v[0])!}
                   onClick={e => onDrillDown(row.rowClick, e)}
                   role="button"
@@ -181,9 +181,9 @@ export default function renderStackedLines({ data, width, height, parameters, lo
                 {(bw > 15 || hasHorizontalScale) && parseFloat(parameters["NumberOpacity"]) > 0 &&
                   <TextRectangle className="number-label sf-transition"
                     rectangleAtts={{
-                      fill: active == true ? "var(--bs-body-color)" : colorByKey[s.key] ?? color(s.key),
+                      fill: active == true ? "var(--foreground)" : colorByKey[s.key] ?? color(s.key),
                       opacity: active == false ? .5 : parameters["NumberOpacity"],
-                      stroke: active == true ? "var(--bs-body-color)" : "none",
+                      stroke: active == true ? "var(--foreground)" : "none",
                       strokeWidth: active == true ? 2 : undefined,
                       className: "hover-target"
                     }}

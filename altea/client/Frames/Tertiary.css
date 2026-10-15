@@ -3,18 +3,18 @@
    background / border / text colours are Tailwind utilities over the `--tertiary` token. */
 
 .btn.btn-tertiary {
-    --bs-btn-color: var(--bs-body-color);
-    --bs-btn-bg: var(--bs-tertiary-bg);
-    --bs-btn-border-color: var(--bs-tertiary-bg);
-    --bs-btn-hover-color: var(--bs-body-color);
-    --bs-btn-hover-bg: color-mix(in srgb, var(--bs-tertiary-bg) 90%, var(--bs-body-color));
-    --bs-btn-hover-border-color: color-mix(in srgb, var(--bs-tertiary-bg) 90%, var(--bs-body-color));
+    --bs-btn-color: var(--foreground);
+    --bs-btn-bg: var(--tertiary);
+    --bs-btn-border-color: var(--tertiary);
+    --bs-btn-hover-color: var(--foreground);
+    --bs-btn-hover-bg: color-mix(in srgb, var(--tertiary) 90%, var(--foreground));
+    --bs-btn-hover-border-color: color-mix(in srgb, var(--tertiary) 90%, var(--foreground));
     --bs-btn-focus-shadow-rgb: var(--bs-tertiary-bg-rgb, 108,117,125);
-    --bs-btn-active-color: var(--bs-body-color);
-    --bs-btn-active-bg: color-mix(in srgb, var(--bs-tertiary-bg) 80%, var(--bs-body-color));
-    --bs-btn-active-border-color: color-mix(in srgb, var(--bs-tertiary-bg) 80%, var(--bs-body-color));
-    --bs-btn-disabled-color: var(--bs-body-color);
-    --bs-btn-disabled-bg: var(--bs-tertiary-bg);
-    --bs-btn-disabled-border-color: var(--bs-tertiary-bg);
+    --bs-btn-active-color: var(--foreground);
+    --bs-btn-active-bg: color-mix(in srgb, var(--tertiary) 80%, var(--foreground));
+    --bs-btn-active-border-color: color-mix(in srgb, var(--tertiary) 80%, var(--foreground));
+    --bs-btn-disabled-color: var(--foreground);
+    --bs-btn-disabled-bg: var(--tertiary);
+    --bs-btn-disabled-border-color: var(--tertiary);
 }
 

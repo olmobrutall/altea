@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Button } from "react-bootstrap";
+import { BootstrapButton } from "@altea/altea/client/Operations/EntityOperations";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import * as AppContext from "@altea/altea/client/AppContext";
 import type SearchControlLoaded from "@altea/altea/client/SearchControl/SearchControlLoaded";
@@ -37,8 +37,8 @@ export default function TreeButton(p: TreeButtonProps): React.JSX.Element {
     const label = p.searchControl.props.largeToolbarButtons === true ? " " + TreeMessage.Tree.niceToString() : undefined;
 
     return (
-        <Button onClick={handleClick} variant="light" title={TreeMessage.Tree.niceToString()}>
+        <BootstrapButton onClick={handleClick} variant="light" title={TreeMessage.Tree.niceToString()}>
             <FontAwesomeIcon icon="sitemap" />&nbsp;{label}
-        </Button>
+        </BootstrapButton>
     );
 }

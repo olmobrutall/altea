@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Dropdown } from "react-bootstrap";
+import { DropdownItem } from "@altea/altea/client/ui/Dropdown";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ajaxGet, ajaxPost } from "@altea/altea/client/Services";
 import { CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
@@ -246,10 +246,10 @@ export namespace MailingClient {
             return {
                 header: EmailTemplateEntity.nicePluralName(),
                 menuItems: templates.map(et => (
-                    <Dropdown.Item key={et.key()} onClick={() => void handleMenuClick(et, ctx)}>
+                    <DropdownItem key={et.key()} onClick={() => void handleMenuClick(et, ctx)}>
                         <FontAwesomeIcon aria-hidden={true} icon="envelope" className="icon" />
                         {et.toString()}
-                    </Dropdown.Item>
+                    </DropdownItem>
                 )),
             } satisfies MenuItemBlock;
         });

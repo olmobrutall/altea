@@ -1,6 +1,7 @@
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Dropdown } from "react-bootstrap";
+import { Dropdown, DropdownContent, DropdownItem, DropdownSeparator, DropdownTrigger } from "@altea/altea/client/ui/Dropdown";
+import { BootstrapButton } from "@altea/altea/client/Operations/EntityOperations";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { classes } from "@altea/altea/data/globals";
 import { JavascriptMessage, SaveChangesMessage } from "@altea/altea/data/uiMessages";
@@ -198,11 +199,11 @@ function DynamicViewDesigner(p: DynamicViewDesignerProps): React.JSX.Element {
         });
     }
 
-    function handleOnToggle(): void {
-        if (!isDropdownOpen && !viewNames)
+    function handleOnToggle(open: boolean): void {
+        if (open && !viewNames)
             void DynamicViewClient.API.getDynamicViewNames(p.typeName).then(vn => setViewNames(vn));
 
-        setIsDropdownOpen(!isDropdownOpen);
+        setIsDropdownOpen(open);
     }
 
     function handleShowCode(): void {
@@ -219,23 +220,24 @@ function DynamicViewDesigner(p: DynamicViewDesignerProps): React.JSX.Element {
                         {operations[DynamicViewOperation.Save.key]!.niceName}
                     </button>}
                 <button type="button" className="btn btn-success" onClick={handleShowCode}>Show code</button>
-                <Dropdown onToggle={handleOnToggle} show={isDropdownOpen}>
-                    <Dropdown.Toggle id="bg-nested-dropdown" size="sm">
-                        {" … "}
-                    </Dropdown.Toggle>
-                    <Dropdown.Menu>
+                <Dropdown open={isDropdownOpen} onOpenChange={handleOnToggle}>
+                    <DropdownTrigger asChild>
+                        <BootstrapButton id="bg-nested-dropdown" size="sm" className="dropdown-toggle">
+                            {" … "}
+                        </BootstrapButton>
+                    </DropdownTrigger>
+                    <DropdownContent>
                         {operations[DynamicViewOperation.Create.key] &&
-                            <Dropdown.Item onClick={handleCreate}>{operations[DynamicViewOperation.Create.key]!.niceName}</Dropdown.Item>}
+                            <DropdownItem onClick={handleCreate}>{operations[DynamicViewOperation.Create.key]!.niceName}</DropdownItem>}
                         {operations[DynamicViewOperation.Clone.key] && !p.dynamicView.isNew &&
-                            <Dropdown.Item onClick={handleClone}>{operations[DynamicViewOperation.Clone.key]!.niceName}</Dropdown.Item>}
-                        {viewNames && viewNames.length > 0 && <Dropdown.Divider />}
+                            <DropdownItem onClick={handleClone}>{operations[DynamicViewOperation.Clone.key]!.niceName}</DropdownItem>}
+                        {viewNames && viewNames.length > 0 && <DropdownSeparator />}
                         {viewNames?.map(vn =>
-                            <Dropdown.Item key={vn}
-                                className={classes("sf-dynamic-view", vn === p.dynamicView.viewName && "active")}
+                            <DropdownItem key={vn} className="sf-dynamic-view" active={vn === p.dynamicView.viewName}
                                 onClick={() => handleChangeView(vn)}>
                                 {vn}
-                            </Dropdown.Item>)}
-                    </Dropdown.Menu>
+                            </DropdownItem>)}
+                    </DropdownContent>
                 </Dropdown>
             </div>
         );

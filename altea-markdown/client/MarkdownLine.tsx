@@ -1,7 +1,7 @@
 import * as React from "react";
 import type { Options } from "react-markdown";
 import Markdown from "react-markdown";
-import { OverlayTrigger, Popover } from "react-bootstrap";
+import { Popover, PopoverContent, PopoverTrigger } from "@altea/altea/client/ui/Tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ErrorBoundary } from "@altea/altea/client/Components/ErrorBoundary";
 import { FormGroup } from "@altea/altea/client/Lines/FormGroup";
@@ -48,25 +48,23 @@ export function MarkdownLine({ ctx, markdownOption, readOnly, label, valueHtmlAt
     }, [ctx.readOnly]);
 
     const markdownHelp = (
-        <OverlayTrigger trigger="click" placement="top" rootClose overlay={
-            <Popover id="markdown-syntax-popover">
-                <Popover.Header>Markdown Syntax</Popover.Header>
-                <Popover.Body>
-                    <table className="table table-sm table-borderless mb-0" style={{ fontSize: "0.8em" }}>
-                        <tbody>
-                            {syntaxRows.map(s => <tr key={s}>
-                                <td><code>{s}</code></td>
-                                <td><Markdown components={compactComponents}>{s}</Markdown></td>
-                            </tr>)}
-                        </tbody>
-                    </table>
-                </Popover.Body>
-            </Popover>
-        }>
-            <span className="ms-1 me-1" style={{ cursor: "pointer", color: "var(--bs-secondary)" }}>
-                <FontAwesomeIcon aria-hidden={true} icon={["fab", "markdown"]} />
-            </span>
-        </OverlayTrigger>
+        <Popover>
+            <PopoverTrigger asChild>
+                <span className="ms-1 me-1" style={{ cursor: "pointer", color: "var(--secondary)" }}>
+                    <FontAwesomeIcon aria-hidden={true} icon={["fab", "markdown"]} />
+                </span>
+            </PopoverTrigger>
+            <PopoverContent id="markdown-syntax-popover" side="top" title="Markdown Syntax">
+                <table className="table table-sm table-borderless mb-0" style={{ fontSize: "0.8em" }}>
+                    <tbody>
+                        {syntaxRows.map(s => <tr key={s}>
+                            <td><code>{s}</code></td>
+                            <td><Markdown components={compactComponents}>{s}</Markdown></td>
+                        </tr>)}
+                    </tbody>
+                </table>
+            </PopoverContent>
+        </Popover>
     );
 
     const toggle = (

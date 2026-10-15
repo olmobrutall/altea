@@ -143,7 +143,7 @@ function SvgMap({ data, parameters, onDrillDown, width, height, chartRequest, da
           elem.removeAttribute("stroke-width");
 
         if (active)
-          elem.setAttribute("stroke", "var(--bs-body-color)");
+          elem.setAttribute("stroke", "var(--foreground)");
         else if (strokeColor)
           elem.setAttribute("stroke", strokeColor);
         else

@@ -39,7 +39,7 @@ export default function Legend(p: LegendProps): React.JSX.Element | null {
             <rect className="color-rect" transform={translate(legendScale(i.toString())!, 0)}
               width={yRule.size('legend')}
               height={yRule.size('legend')}
-              stroke={p.isActive && p.isActive(s) == true ? "var(--bs-body-color)" : undefined}
+              stroke={p.isActive && p.isActive(s) == true ? "var(--foreground)" : undefined}
               strokeWidth={p.isActive && p.isActive(s) == true ? 3 : undefined}
               fill={s.color ?? color(s.key)} />
             {(textWidth > 30) && <TextEllipsis transform={translate(legendScale(i.toString())! + legendMargin, yRule.size('legend') / 2 + 1)}

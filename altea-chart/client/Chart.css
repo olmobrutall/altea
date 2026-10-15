@@ -59,19 +59,19 @@
 }
 
 .sf-chart-img-equiv {
-    background-color: var(--bs-info-bg-subtle);
+    background-color: var(--info-subtle);
 }
 
 .sf-chart-img-curr {
-    background-color: var(--bs-primary-bg-subtle) !important;
+    background-color: var(--primary-subtle) !important;
 }
 
 .sf-chart-img-curr.edited {
-    background-color: var(--bs-warning-bg-subtle);
+    background-color: var(--warning-subtle);
 }
 
 .sf-chart-token-config td {
-    border-top: 1px dashed var(--bs-border-color) !important;
+    border-top: 1px dashed var(--border) !important;
 }
 
 .sf-chart-token-config-trigger {
@@ -122,7 +122,7 @@ body.rtl .sf-chart-token .sf-query-token {
 .sf-chart-color-box {
     width: 16px;
     height: 16px;
-    border: 2px solid var(--bs-border-color);
+    border: 2px solid var(--border);
 }
 
 .sf-chart-color-input.sf-form-control {
@@ -134,7 +134,7 @@ body.rtl .sf-chart-token .sf-query-token {
 }
 
 .exceptionLine {
-    background-color: var(--bs-danger-bg-subtle);
+    background-color: var(--destructive-subtle);
 }
 
 .sf-chart-animable .sf-transition {
@@ -148,19 +148,19 @@ body.rtl .sf-chart-token .sf-query-token {
 text.sf-initial-message {
     font-size: 25px;
     text-anchor: middle;
-    stroke: var(--bs-secondary-color);
+    stroke: var(--muted-foreground);
     stroke-width: 1px;
     font-weight: bold;
-    fill: var(--bs-body-bg);
+    fill: var(--background);
 }
 
 .sf-chart-mini-icon {
     cursor: pointer;
-    color: var(--bs-secondary-color);
+    color: var(--muted-foreground);
 }
 
 .sf-chart-mini-icon:hover {
-    color: var(--bs-secondary-color);
+    color: var(--muted-foreground);
 }
 
 .sf-chart-tab-container,
@@ -187,5 +187,5 @@ line.y-line,
 line.x-key-line-group,
 line.y-tick,
 line.x-key-tick {
-    stroke: var(--bs-border-color);
+    stroke: var(--border);
 }

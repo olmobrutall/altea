@@ -1,6 +1,7 @@
 import "@altea/altea/data/globals/stringExtensions";
 import * as React from "react";
-import { Button, Tab, Tabs } from "react-bootstrap";
+import { Tab, Tabs } from "@altea/altea/client/ui/Tabs";
+import { BootstrapButton } from "@altea/altea/client/Operations/EntityOperations";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
@@ -59,10 +60,10 @@ export default function RestLog(p: { ctx: TypeContext<RestLogEntity> }): React.J
                             onChange={e => setReplayUrl(e.currentTarget.value)} />
                     </div>
                     <div className="col-sm-2">
-                        <Button variant="info"
+                        <BootstrapButton variant="info"
                             onClick={() => RestClient.API.replayRestLog(String(ctx.value.id), replayUrl).then(setReplayResult)}>
                             {RestLogMessage.Replay.niceToString()}
-                        </Button>
+                        </BootstrapButton>
                     </div>
                 </div>}
 

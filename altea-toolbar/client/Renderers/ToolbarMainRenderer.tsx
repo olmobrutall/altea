@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Collapse, Modal } from "react-bootstrap";
+import { Modal } from "@altea/altea/client/ui/Modal";
+import { Collapsible, CollapsibleContent } from "@altea/altea/client/ui/Tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import "@altea/altea/data/globals/arrayExtensions";
 import * as AppContext from "@altea/altea/client/AppContext";
@@ -62,11 +63,11 @@ function CollapsableBlock({ r }: { r: ToolbarResponse<any> }): React.JSX.Element
             <h4>
                 <LinkButton title={undefined} onClick={e => { e.preventDefault(); setIsOpen(!isOpen); }}><FontAwesomeIcon aria-hidden icon={isOpen ? "chevron-down" : "chevron-right"} /> {r.label ?? r.content!.toString()}</LinkButton>
             </h4>
-            <Collapse in={isOpen}>
-                <div>
+            <Collapsible open={isOpen}>
+                <CollapsibleContent>
                     <ToolbarMainRendererPrivate response={r} />
-                </div>
-            </Collapse>
+                </CollapsibleContent>
+            </Collapsible>
         </div>
     );
 }

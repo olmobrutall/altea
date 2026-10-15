@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Dropdown, DropdownButton } from "react-bootstrap";
+import { DropdownButton, DropdownItem } from "@altea/altea/client/ui/Dropdown";
 import { classes } from "@altea/altea/data/globals";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { TypeContext } from "@altea/altea/client/TypeContext";
@@ -138,7 +138,7 @@ export default function DynamicViewSelectorComponent(p: { ctx: TypeContext<Dynam
         return (
             <DropdownButton variant="success" title="View Names" id="views_dropdown">
                 {allViewNames().map((vn, i) =>
-                    <Dropdown.Item key={i} onClick={() => void CopyTextModal.show("View Name", `"${vn}"`)}>{vn}</Dropdown.Item>)}
+                    <DropdownItem key={i} onClick={() => void CopyTextModal.show("View Name", `"${vn}"`)}>{vn}</DropdownItem>)}
             </DropdownButton>
         );
     }

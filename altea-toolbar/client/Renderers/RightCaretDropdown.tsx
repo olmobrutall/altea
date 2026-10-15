@@ -1,5 +1,6 @@
 import React from "react";
-import Dropdown from "react-bootstrap/Dropdown";
+import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from "@altea/altea/client/ui/Dropdown";
+import { BootstrapButton } from "@altea/altea/client/Operations/EntityOperations";
 import { Breakpoints, useBreakpoint } from "@altea/altea/client/Hooks";
 import type { ToolbarResponse } from "../../data/ToolbarResponse";
 import { liteKeyOrQuery } from "./ToolbarRenderer";
@@ -36,34 +37,41 @@ export function RightCaretDropdown({
     const isMobile = useBreakpoint() <= Breakpoints.sm;
 
     return (
-        <Dropdown style={{ width: "100%" }} drop={isMobile ? "down" : "end"}>
-            <Dropdown.Toggle
-                variant="tertiary"
-                disabled={disabled}
-                className="flex items-center"
-                style={{ width: "100%" }}
-            >
-                {selected?.icon}
-                <span className="grow mx-2">
-                    {selected ? selected.label : placeholder || "Select..."}
-                </span>
-            </Dropdown.Toggle>
-            <Dropdown.Menu className="menu-right-of-caret" align="start">
-                {options.map((opt, idx) => (
-                    <Dropdown.Item
-                        key={idx}
-                        onClick={e => onChange(opt.value, e)}
-                        className="switcher-item"
-                        active={opt.value === value}
-                        title={opt.label}
-                        aria-label={opt.label}
-                        data-toolbar-content={liteKeyOrQuery(opt.value.content)}
+        <div style={{ width: "100%" }}>
+            <Dropdown>
+                <DropdownTrigger asChild>
+                    <BootstrapButton
+                        variant="tertiary"
+                        disabled={disabled}
+                        className="dropdown-toggle flex items-center"
+                        style={{ width: "100%" }}
                     >
-                        <div className="switcher-item-icon">{opt.icon}</div>
-                        <small>{opt.label}</small>
-                    </Dropdown.Item>
-                ))}
-            </Dropdown.Menu>
-        </Dropdown>
+                        {selected?.icon}
+                        <span className="grow mx-2">
+                            {selected ? selected.label : placeholder || "Select..."}
+                        </span>
+                    </BootstrapButton>
+                </DropdownTrigger>
+                {/* RightCaretDropdown.css styles react-bootstrap's `.dropdown-menu.menu-right-of-caret.show`,
+                    which the kit menu does not carry: the 3-column grid is restated here. */}
+                <DropdownContent side={isMobile ? "bottom" : "right"} align="start"
+                    className="menu-right-of-caret grid grid-cols-3 min-w-[280px] max-w-[400px] p-4 max-sm:min-w-0 max-sm:max-w-none">
+                    {options.map((opt, idx) => (
+                        <DropdownItem
+                            key={idx}
+                            onClick={e => onChange(opt.value, e)}
+                            className="switcher-item"
+                            active={opt.value === value}
+                            title={opt.label}
+                            aria-label={opt.label}
+                            data-toolbar-content={liteKeyOrQuery(opt.value.content)}
+                        >
+                            <div className="switcher-item-icon">{opt.icon}</div>
+                            <small>{opt.label}</small>
+                        </DropdownItem>
+                    ))}
+                </DropdownContent>
+            </Dropdown>
+        </div>
     );
 }

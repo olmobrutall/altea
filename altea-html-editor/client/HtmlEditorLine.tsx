@@ -44,7 +44,7 @@ export default function HtmlEditorLine({
                         <div
                             className={classes("html-editor-line", p.mandatory && !ctx.value && "sf-mandatory")}
                             style={{
-                                backgroundColor: (readOnly ?? ctx.readOnly) ? "var(--bs-secondary-bg)" : undefined,
+                                backgroundColor: (readOnly ?? ctx.readOnly) ? "var(--muted)" : undefined,
                                 flexGrow: 1,
                                 ...p.htmlAttributes?.style,
                             }}

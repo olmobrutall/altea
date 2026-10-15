@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Modal } from "react-bootstrap";
+import { Modal } from "@altea/altea/client/ui/Modal";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useAPI, useForceUpdate } from "@altea/altea/client/Hooks";

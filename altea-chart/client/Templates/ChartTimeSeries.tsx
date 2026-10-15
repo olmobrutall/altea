@@ -1,5 +1,6 @@
 import * as React from 'react'
-import { FormCheck } from 'react-bootstrap'
+import { Checkbox } from '@altea/altea/client/ui/Checkbox'
+import { Label } from '@altea/altea/client/ui/Input'
 import { Temporal } from '@altea/altea/data/basics'
 import { toInt } from '@altea/altea/data/basics'
 import type { int } from '@altea/altea/data/basics'
@@ -140,13 +141,14 @@ export default function ChartTimeSeries(p: { chartTimeSeries: ChartTimeSeriesEmb
       {renderDateTime("endDate")}
       <TotalNumStepsAndRows chartTimeSeries={ts} chartBase={p.chartBase} onChange={p.onChange} />
 
-      <FormCheck
-        className="ms-2"
-        checked={ts.splitQueries}
-        onChange={e => { ts.splitQueries = e.currentTarget.checked; p.onChange(); }}
-        label={QueryTokenDateMessage.SplitQueries.niceToString()}
-        id={`split-queries`}
-      />
+      <div className="ms-2 flex items-center gap-2">
+        <Checkbox
+          id={`split-queries`}
+          checked={ts.splitQueries}
+          onCheckedChange={checked => { ts.splitQueries = checked; p.onChange(); }}
+        />
+        <Label htmlFor={`split-queries`} className="m-0">{QueryTokenDateMessage.SplitQueries.niceToString()}</Label>
+      </div>
     </div>
   );
 }

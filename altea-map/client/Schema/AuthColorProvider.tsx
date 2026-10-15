@@ -62,10 +62,10 @@ function gradient(name: string): React.JSX.Element {
 /** The band colour for one `TypeAllowedBasic` member name. "Error" is Signum's un-mergeable marker. */
 function color(band: string): string {
     switch (band) {
-        case TypeAllowedBasic[TypeAllowedBasic.Write]: return "var(--bs-green)";
-        case TypeAllowedBasic[TypeAllowedBasic.Read]: return "var(--bs-yellow)";
-        case TypeAllowedBasic[TypeAllowedBasic.None]: return "var(--bs-red)";
-        case "Error": return "var(--bs-magenta)";
-        default: return "var(--bs-body-color)";
+        case TypeAllowedBasic[TypeAllowedBasic.Write]: return "#198754";
+        case TypeAllowedBasic[TypeAllowedBasic.Read]: return "#ffc107";
+        case TypeAllowedBasic[TypeAllowedBasic.None]: return "#dc3545";
+        case "Error": return "magenta";
+        default: return "var(--foreground)";
     }
 }

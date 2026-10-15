@@ -1,23 +1,23 @@
 /* Ported verbatim from Signum.HtmlEditor (HtmlEditor.css). */
 .sf-html-editor {
     box-sizing: border-box;
-    border: 1px solid var(--bs-border-color);
+    border: 1px solid var(--border);
     cursor: text;
     padding: 16px;
     border-radius: 2px;
-    box-shadow: inset 0px 1px 4px -3px var(--bs-box-shadow);
+    box-shadow: inset 0px 1px 4px -3px 0 .5rem 1rem rgb(0 0 0 / .15);
     position: relative;
 }
     .sf-html-editor.read-only {
-        background: var(--bs-secondary-bg);
+        background: var(--muted);
     }
 
     .sf-html-editor:not(.read-only) {
-        background: var(--bs-body-bg);
+        background: var(--background);
     }
 
     .sf-html-editor:has([contenteditable="true"]) {
-        background: var(--bs-body-bg);
+        background: var(--background);
     }
 
     .sf-html-editor .DraftEditor-root {
@@ -28,11 +28,11 @@
         min-height: 140px;
         padding: 0 10px;
         outline: 0;
-        /*background: var(--bs-body-bg);*/
+        /*background: var(--background);*/
     }
 
 .sf-html-editor-placeholder {
-    color: var(--bs-secondary-color);
+    color: var(--muted-foreground);
     position: absolute;
     font-size: small;
     top: 40px;
@@ -40,7 +40,7 @@
 }
 
 .sf-draft-toolbar {
-    border: 1px solid var(--bs-border-color);
+    border: 1px solid var(--border);
     border-radius: 2px;
     z-index: 2;
     box-sizing: border-box;
@@ -48,7 +48,7 @@
     margin-left: -17px;
     margin-right: -17px;
     margin-bottom: 7px;
-    background: var(--bs-secondary-bg);
+    background: var(--muted);
 }
 
 .sf-draft-button-wrapper {
@@ -57,7 +57,7 @@
 
 .sf-draft-button {
     background: none;
-    color: var(--bs-secondary-color);
+    color: var(--muted-foreground);
     border: 0;
     vertical-align: bottom;
     height: 30px;
@@ -67,29 +67,29 @@
 }
 
     .sf-draft-button svg {
-        fill: var(--bs-secondary-color);
+        fill: var(--muted-foreground);
     }
 
     .sf-draft-button:hover,
     .draft-button:focus {
-        background: var(--bs-secondary-bg-subtle);
+        background: var(--secondary-subtle);
         outline: 0;
     }
 
     .sf-draft-button.sf-draft-active {
-        background-color: var(--bs-secondary-bg-subtle);
-        color: var(--bs-secondary-color);
+        background-color: var(--secondary-subtle);
+        color: var(--muted-foreground);
     }
 
         .sf-draft-button.sf-draft-active:hover,
         .sf-draft-button.sf-draft-active:focus {
-            background-color: var(--bs-secondary-bg-subtle);
-            color: var(--bs-secondary-color);
+            background-color: var(--secondary-subtle);
+            color: var(--muted-foreground);
         }
 
 .sf-html-separator {
     display: inline-block;
-    border-right: 1px solid var(--bs-border-color);
+    border-right: 1px solid var(--border);
     height: 24px;
     margin: 0 0.5em;
 }
@@ -102,7 +102,7 @@
 
 .sf-html-editor blockquote {
     margin: 0 0 1rem 0;
-    border-left: 4px solid var(--bs-border-color);
+    border-left: 4px solid var(--border);
     padding-left: 10px;
     margin-block-end: 0px;
 }
@@ -118,12 +118,13 @@
 
     .sf-html-editor.small-mode .public-DraftEditor-content {
         min-height: 50px;
-        /*background: var(--bs-body-bg);*/
+        /*background: var(--background);*/
     }
 
 .sf-html-editor .public-DraftStyleDefault-pre {
     font-size: initial;
-    background: var(--bs-body-bg-subtle);
+    /* Signum read --bs-body-bg-subtle here, a variable of its own Bootstrap build that vanilla 5.3 lacks: it has always rendered transparent. */
+    background: transparent;
     padding: 10px;
 }
 
@@ -154,12 +155,12 @@
 
 .sf-html-editor .text-code {
     font-family: Menlo, Consolas, Monaco, monospace;
-    color: var(--bs-secondary-color);
+    color: var(--muted-foreground);
 }
 
 .sf-html-editor .code-block {
-    color: var(--bs-secondary-color);
-    background-color: var(--bs-body-bg-subtle);
+    color: var(--muted-foreground);
+    background-color: transparent;
     font-family: Menlo, Consolas, Monaco, monospace;
     display: block;
     padding: 8px 8px 8px 52px;
@@ -176,47 +177,47 @@
     .sf-html-editor .code-block:before {
         content: attr(data-gutter);
         position: absolute;
-        background-color: var(--bs-body-bg-subtle);
+        background-color: transparent;
         left: 0;
         top: 0;
-        border-right: 1px solid var(--bs-border-color);
+        border-right: 1px solid var(--border);
         padding: 8px;
-        color: var(--bs-secondary-color);
+        color: var(--muted-foreground);
         white-space: pre-wrap;
         text-align: right;
         min-width: 25px;
     }
 
 .sf-html-editor .code-token-attr {
-    color: var(--bs-primary);
+    color: var(--primary);
 }
 
 .sf-html-editor .code-token-function {
-    color: var(--bs-danger);
+    color: var(--destructive);
 }
 
 .sf-html-editor .code-token-property {
-    color: var(--bs-info);
+    color: var(--info);
 }
 
 .sf-html-editor .code-token-selector {
-    color: var(--bs-success);
+    color: var(--success);
 }
 
 .sf-html-editor .code-token-comment {
-    color: var(--bs-secondary-color);
+    color: var(--muted-foreground);
 }
 
 .sf-html-editor .code-token-operator {
-    color: var(--bs-warning);
+    color: var(--warning);
 }
 
 .sf-html-editor .code-token-variable {
-    color: var(--bs-orange, var(--bs-warning));
+    color: #fd7e14;
 }
 
 .sf-html-editor .code-token-punctuation {
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }
 
 .html-viewer .sf-html-editor {
@@ -236,8 +237,8 @@
 }
 
 .sf-html-editor:focus-within {
-    color: var(--bs-body-color);
-    background-color: var(--bs-body-bg);
+    color: var(--foreground);
+    background-color: var(--background);
     border-color: rgb(127.5, 184, 201.5);
     outline: 0;
     box-shadow: 0 0 0 0.25rem rgba(0, 113, 148, 0.25);

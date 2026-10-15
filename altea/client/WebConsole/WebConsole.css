@@ -7,10 +7,10 @@
 .sf-web-console-log {
     background: #1e1e1e;
     color: #d4d4d4;
-    font-family: var(--bs-font-monospace);
+    font-family: var(--font-mono, monospace);
     font-size: .8125rem;
     padding: .5rem .75rem;
-    border-radius: var(--bs-border-radius);
+    border-radius: .375rem;
     max-height: 60vh;
     min-height: 8rem;
     overflow: auto;
@@ -22,8 +22,8 @@
 }
 
 .sf-web-console-question {
-    border: 1px solid var(--bs-primary);
-    border-radius: var(--bs-border-radius);
+    border: 1px solid var(--primary);
+    border-radius: .375rem;
     padding: .75rem;
 }
 

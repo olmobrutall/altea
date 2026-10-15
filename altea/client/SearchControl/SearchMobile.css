@@ -1,18 +1,18 @@
 ﻿.row-container {
-    border: 1px solid var(--bs-border-color);
+    border: 1px solid var(--border);
     margin-bottom: 4px;
 }
 
 .row-data {
     padding: 4px 8px;
-    background-color: var(--bs-body-bg);
-    color: var(--bs-body-color);
+    background-color: var(--background);
+    color: var(--foreground);
 }
 
 .row-title {
     font-weight: bold;
     margin-right: 5px;
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }
 
 .row-selection {
@@ -20,8 +20,8 @@
 }
 
 .row-data.row-header {
-    background-color: var(--bs-secondary-bg);
-    color: var(--bs-body-color);
+    background-color: var(--muted);
+    color: var(--foreground);
 }
 
 .row-mark-icon {

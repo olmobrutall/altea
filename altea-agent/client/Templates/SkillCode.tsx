@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Modal } from "react-bootstrap";
+import { Modal } from "@altea/altea/client/ui/Modal";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { useAPI } from "@altea/altea/client/Hooks";
 import { openModal, type IModalProps } from "@altea/altea/client/Modals";

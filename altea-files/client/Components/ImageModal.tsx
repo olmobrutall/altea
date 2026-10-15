@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Modal } from "react-bootstrap";
+import { Modal } from "@altea/altea/client/ui/Modal";
 import type { Entity } from "@altea/altea/data/entity";
 import { openModal, type IModalProps } from "@altea/altea/client/Modals";
 import { ajaxGetRaw } from "@altea/altea/client/Services";

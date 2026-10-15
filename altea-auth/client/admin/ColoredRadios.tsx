@@ -26,7 +26,7 @@ export function ColorRadio(p: ColorRadioProps): React.JSX.Element {
             role="radio"
             onClick={e => { if (!p.readOnly) p.onClicked(e); }}
             className={classes("sf-auth-chooser", p.readOnly && "sf-not-allowed")}
-            style={{ color: p.checked ? p.color : "var(--bs-secondary-color)", cursor: p.readOnly ? "not-allowed" : "pointer", fontSize: "1.1rem", textDecoration: "none" }}>
+            style={{ color: p.checked ? p.color : "var(--muted-foreground)", cursor: p.readOnly ? "not-allowed" : "pointer", fontSize: "1.1rem", textDecoration: "none" }}>
             <FontAwesomeIcon aria-hidden={true} icon={p.icon ?? ["far", (p.checked ? "circle-dot" : "circle")]} />
         </LinkButton>
     );
@@ -38,7 +38,7 @@ export function GrayCheckbox(p: { checked: boolean; onUnchecked: () => void; rea
             className={classes("sf-auth-checkbox", p.readOnly && "sf-not-allowed")}
             role="checkbox"
             aria-checked={p.checked}
-            style={{ color: "var(--bs-secondary-color)", cursor: p.checked && !p.readOnly ? "pointer" : "default" }}
+            style={{ color: "var(--muted-foreground)", cursor: p.checked && !p.readOnly ? "pointer" : "default" }}
             onClick={p.checked && !p.readOnly ? p.onUnchecked : undefined}>
             <FontAwesomeIcon role="img" icon={["far", p.checked ? "square-check" : "square"]}
                 title={p.checked ? AuthAdminMessage.Uncheck.niceToString() : AuthAdminMessage.Check.niceToString()} />

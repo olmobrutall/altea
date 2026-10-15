@@ -1,7 +1,7 @@
 /* The editor host. A border, so it reads as a field like every other line on the form. */
 .altea-monaco {
-    border: 1px solid var(--bs-border-color);
-    border-radius: var(--bs-border-radius);
+    border: 1px solid var(--border);
+    border-radius: .375rem;
     overflow: hidden;
 }
 
@@ -51,7 +51,7 @@
     margin: 0.25em 0 0;
     padding-left: 1.25em;
     font-size: 0.85em;
-    color: var(--bs-danger-text-emphasis);
+    color: var(--destructive-subtle-foreground);
 }
 
 /* The show / hide link for the hidden fence parts: small, right-aligned, out of the way. */

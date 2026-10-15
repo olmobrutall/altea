@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Modal, Button } from "react-bootstrap";
+import { Modal } from "@altea/altea/client/ui/Modal";
+import { BootstrapButton } from "@altea/altea/client/Operations/EntityOperations";
 import { openModal, type IModalProps } from "@altea/altea/client/Modals";
 import { tryGetTypeInfo } from "@altea/altea/client/Reflection";
 import { Operations } from "@altea/altea/client/Operations";
@@ -108,10 +109,10 @@ function AuthClosureModal(p: AuthClosureModalProps): React.JSX.Element {
                 ))}
             </div>
             <div className="sf-modal-footer">
-                <Button variant="primary" disabled={!dirty.current || p.readOnly || saving.current} onClick={handleSave}>
+                <BootstrapButton variant="primary" disabled={!dirty.current || p.readOnly || saving.current} onClick={handleSave}>
                     {AuthAdminMessage.Save.niceToString()}
-                </Button>
-                <Button variant="secondary" onClick={() => setShow(false)}>{JavascriptMessage.Close.niceToString()}</Button>
+                </BootstrapButton>
+                <BootstrapButton variant="secondary" onClick={() => setShow(false)}>{JavascriptMessage.Close.niceToString()}</BootstrapButton>
             </div>
         </Modal>
     );

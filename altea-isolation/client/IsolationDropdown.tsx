@@ -1,5 +1,5 @@
 import * as React from "react";
-import { NavDropdown } from "react-bootstrap";
+import { Dropdown, DropdownContent, DropdownItem, DropdownSeparator, DropdownTrigger } from "@altea/altea/client/ui/Dropdown";
 import { useAPI } from "@altea/altea/client/Hooks";
 import type { Lite } from "@altea/altea/data/lite";
 import { IsolationMessage, type IsolationEntity } from "../data/Isolation";
@@ -23,17 +23,24 @@ export default function IsolationDropdown(): React.JSX.Element | null {
     }
 
     return (
-        <NavDropdown id="isolationDropdown" data-current-isolation={current?.id}
-            title={current ? current.toString() : <strong className="text-destructive">{IsolationMessage.GlobalMode.niceToString()}</strong>}
-            className="sf-isolation-dropdown">
-            <NavDropdown.Item data-isolation="" disabled={current == undefined} onClick={e => handleSelect(e, undefined)}>
-                {IsolationMessage.GlobalMode.niceToString()}
-            </NavDropdown.Item>
-            <NavDropdown.Divider />
-            {isolations.map((iso, i) =>
-                <NavDropdown.Item key={i} data-isolation={iso.key()} disabled={iso.is(current ?? null)} onClick={e => handleSelect(e, iso)}>
-                    {iso.toString()}
-                </NavDropdown.Item>)}
-        </NavDropdown>
+        <div data-current-isolation={current?.id} className="nav-item dropdown sf-isolation-dropdown">
+            <Dropdown>
+                <DropdownTrigger asChild>
+                    <button type="button" id="isolationDropdown" className="nav-link dropdown-toggle">
+                        {current ? current.toString() : <strong className="text-destructive">{IsolationMessage.GlobalMode.niceToString()}</strong>}
+                    </button>
+                </DropdownTrigger>
+                <DropdownContent>
+                    <DropdownItem data-isolation="" disabled={current == undefined} onClick={e => handleSelect(e, undefined)}>
+                        {IsolationMessage.GlobalMode.niceToString()}
+                    </DropdownItem>
+                    <DropdownSeparator />
+                    {isolations.map((iso, i) =>
+                        <DropdownItem key={i} data-isolation={iso.key()} disabled={iso.is(current ?? null)} onClick={e => handleSelect(e, iso)}>
+                            {iso.toString()}
+                        </DropdownItem>)}
+                </DropdownContent>
+            </Dropdown>
+        </div>
     );
 }

@@ -48,7 +48,7 @@ export default function NewsPage(): React.JSX.Element {
                     <h1 className="news-title text-h3 font-medium">
                         {whatsnew.title}{" "}
                         {!Navigator.isReadOnly(WhatsNewEntity) && whatsnew.status === "Draft" &&
-                            <small style={{ color: "var(--bs-danger)" }}>{whatsnew.status}</small>}
+                            <small style={{ color: "var(--destructive)" }}>{whatsnew.status}</small>}
                     </h1>
                     <HtmlViewer text={whatsnew.description} />
                 </article>

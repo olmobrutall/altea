@@ -3,7 +3,7 @@
     --qt-exotic: #7D7D7D;
     --qt-collection: #CE6700;
     --qt-main-entity: #2B78AF;
-    --qt-value: var(--bs-body-color) !important; /* using Bootstrap’s body text color */
+    --qt-value: var(--foreground) !important; /* using Bootstrap’s body text color */
     --qt-date: #5100A1;
     --qt-time: #9956db;
     --qt-enum: #800046;
@@ -14,7 +14,7 @@
 
 [data-bs-theme=dark] {
     --qt-keyword: #4e4eff;
-    --qt-value: var(--bs-body-color) !important; /*should not be necessary...*/
+    --qt-value: var(--foreground) !important; /*should not be necessary...*/
     --qt-date: #942cfb;
     --qt-enum: #c7006d;
     --qt-time: #b871ff;
@@ -40,13 +40,13 @@
     align-content: flex-start;
 }
 /* .sf-query-button {
-  background-color: var(--bs-secondary-bg);
-  color: var(--bs-body-color);
+  background-color: var(--muted);
+  color: var(--foreground);
 } */
 
 .sf-query-button-bar button:focus-visible {
-    color: var(--bs-body-color);
-    background-color: var(--bs-body-bg);
+    color: var(--foreground);
+    background-color: var(--background);
     border-color: rgb(127.5, 184, 201.5);
     outline: 0;
     box-shadow: 0 0 0 0.25rem rgba(0, 113, 148, 0.25);
@@ -72,15 +72,15 @@ div.sf-search-results.sf-row-view div.row-container {
 }
 
 table.sf-search-results > tbody > tr.sf-row-danger {
-    --bs-table-bg: var(--bs-danger) !important;
-    --bs-table-color: var(--bs-white) !important;
-    --bs-table-hover-bg: var(--bs-danger) !important;
-    --bs-table-hover-color: var(--bs-white) !important;
+    --bs-table-bg: var(--destructive) !important;
+    --bs-table-color: #fff !important;
+    --bs-table-hover-bg: var(--destructive) !important;
+    --bs-table-hover-color: #fff !important;
 }
 
 table.sf-search-results > tbody > tr.sf-row-warning {
-    --bs-table-bg: var(--bs-warning) !important;
-    --bs-table-hover-bg: var(--bs-warning) !important;
+    --bs-table-bg: var(--warning) !important;
+    --bs-table-hover-bg: var(--warning) !important;
 }
 
 table.sf-search-results > tbody > tr > td > * {
@@ -103,28 +103,28 @@ table.sf-search-results > tbody > tr > td > a {
 /*Drag and drop*/
 
 .drag-left {
-    box-shadow: inset 3px 0 0 var(--bs-border-color) !important;
+    box-shadow: inset 3px 0 0 var(--border) !important;
 }
 
 .drag-right {
-    box-shadow: inset -3px 0 0 var(--bs-border-color) !important;
+    box-shadow: inset -3px 0 0 var(--border) !important;
 }
 
 .drag-top {
-    box-shadow: inset 0 3px 0 var(--bs-border-color) !important;
+    box-shadow: inset 0 3px 0 var(--border) !important;
 }
 
 .drag-bottom {
-    box-shadow: inset 0 -3px 0 var(--bs-border-color) !important;
+    box-shadow: inset 0 -3px 0 var(--border) !important;
 }
 
 tr.drag-top td {
-    box-shadow: inset var(--bs-border-color) 0px 3px 0px 0px !important;
+    box-shadow: inset var(--border) 0px 3px 0px 0px !important;
 }
 
 
 tr.drag-bottom td {
-    box-shadow: inset var(--bs-border-color) 0px -3px 0px 0px !important;
+    box-shadow: inset var(--border) 0px -3px 0px 0px !important;
 }
 
 .sf-dragging {
@@ -132,13 +132,13 @@ tr.drag-bottom td {
 }
 
 .sf-hidden-column {
-    color: var(--bs-secondary);
+    color: var(--secondary);
 }
 
 .sf-search-results > thead > tr > th {
-    box-shadow: inset 1px 1px 0 var(--bs-border-color), inset -1px -1px 0 var(--bs-border-color);
+    box-shadow: inset 1px 1px 0 var(--border), inset -1px -1px 0 var(--border);
     cursor: pointer;
-    background-color: var(--bs-tertiary-bg);
+    background-color: var(--tertiary);
     position: sticky;
     z-index: 5; /*prevnting overrided cell to render inside header*/
     top: 0; /* Don't forget this, required for the stickiness */
@@ -190,16 +190,16 @@ tr.drag-bottom td {
 }
 
 .sf-column-editor {
-    background-color: var(--bs-warning-bg-subtle);
-    color: var(--bs-body-color);
+    background-color: var(--warning-subtle);
+    color: var(--foreground);
     padding: 8px;
     border-radius: 4px;
 }
 
     .sf-column-editor.error,
     .sf-column-editor .error {
-        background-color: var(--bs-danger-bg-subtle);
-        color: var(--bs-danger);
+        background-color: var(--destructive-subtle);
+        color: var(--destructive);
     }
 
 .sf-system-time-editor {
@@ -213,14 +213,14 @@ tr.drag-bottom td {
 }
 
 table.sf-search-results th.sf-current-column {
-    background-color: var(--bs-warning-bg-subtle);
-    border-bottom: 2px solid var(--bs-border-color);
+    background-color: var(--warning-subtle);
+    border-bottom: 2px solid var(--border);
 }
 
     table.sf-search-results th.sf-current-column.error,
     table.sf-search-results th.error {
-        background-color: var(--bs-danger-bg-subtle);
-        border-bottom: 2px solid var(--bs-danger);
+        background-color: var(--destructive-subtle);
+        border-bottom: 2px solid var(--destructive);
     }
 
 .text-cell {
@@ -269,7 +269,7 @@ table.sf-search-results th.sf-current-column {
 
 .caret.caret-reversed {
     border-top-width: 0;
-    border-bottom: 4px solid var(--bs-border-color);
+    border-bottom: 4px solid var(--border);
 }
 
 /* SORTER */
@@ -319,14 +319,14 @@ table.sf-search-results th.sf-current-column {
 }
 
 .tooltip.error-tooltip .tooltip-inner {
-    background-color: var(--bs-danger-bg-subtle);
-    color: var(--bs-danger);
+    background-color: var(--destructive-subtle);
+    color: var(--destructive);
     max-width: initial;
     text-align: initial;
 }
 
 .tooltip.error-tooltip .tooltip-arrow {
-    border-bottom-color: var(--bs-danger-bg-subtle);
+    border-bottom-color: var(--destructive-subtle);
 }
 
 /*  Search Popup */
@@ -363,13 +363,13 @@ th.sf-th-selection > input[type=checkbox] {
 
 
 span.guid {
-    color: var(--bs-secondary);
+    color: var(--secondary);
     white-space: nowrap;
 }
 
 .dropdown-item.active span.guid,
 .sf-dropdown-item.active span.guid {
-    color: var(--bs-primary);
+    color: var(--primary);
 }
 
 bdi.date {
@@ -378,27 +378,27 @@ bdi.date {
 
     bdi.date.date-start,
     bdi.date.date-end {
-        color: var(--bs-secondary);
+        color: var(--secondary);
     }
 
     bdi.date.date-created {
-        color: var(--bs-success);
+        color: var(--success);
     }
 
     bdi.date.date-removed {
-        color: var(--bs-danger);
+        color: var(--destructive);
     }
 
 /* sf-entity-ctxmenu-success */
 tr.sf-entity-ctxmenu-success {
-    border-left: 3px solid var(--bs-success);
+    border-left: 3px solid var(--success);
 }
 
 .sf-th-entity {
 }
 
 span.sf-search-entity-error {
-    border: 1px solid var(--bs-danger);
+    border: 1px solid var(--destructive);
     padding: 1px;
 }
 
@@ -428,18 +428,18 @@ ul.sf-context-menu li a:not([disabled]) {
 }
 
 /* [data-intent=keyboard] */ .rw-list-option.rw-state-focus:not(.rw-state-selected) {
-    background-color: var(--bs-body-bg);
-    border-color: var(--bs-secondary-bg);
+    background-color: var(--background);
+    border-color: var(--muted);
 }
 
 .sf-hide-group-button {
     font-weight: bold;
-    color: var(--bs-secondary);
+    color: var(--secondary);
 }
 
 .sf-show-group-button {
     font-weight: bold;
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }
 
 select.sf-pagination-mode, select.sf-elements-per-page {
@@ -447,29 +447,29 @@ select.sf-pagination-mode, select.sf-elements-per-page {
 }
 
 .sf-filter-highlight {
-    box-shadow: 0 1px 4px 0 var(--bs-warning-bg-subtle), 0 1px 20px 0 var(--bs-warning-bg-subtle);
+    box-shadow: 0 1px 4px 0 var(--warning-subtle), 0 1px 20px 0 var(--warning-subtle);
 }
 
 a.sf-shy-link:not(:hover) {
     text-decoration: none;
-    color: var(--bs-tertiary-text);
+    color: inherit; /* a shy link reads as the text around it until hovered */
 }
 
 table.sf-search-results > tbody > tr.sf-row-selected {
-    --bs-table-bg: var(--bs-primary-bg-subtle);
-    --bs-table-color: var(--bs-body-color);
+    --bs-table-bg: var(--primary-subtle);
+    --bs-table-color: var(--foreground);
 }
 
 .sf-rule {
-    background-color: var(--bs-secondary-bg);
+    background-color: var(--muted);
     border-radius: 4px;
 }
 
 .sf-rule-item {
     height: 16px;
-    background-color: var(--bs-secondary-bg-subtle);
+    background-color: var(--secondary-subtle);
     border-radius: 4px;
     font-size: 12px;
     text-align: center;
-    color: var(--bs-secondary);
+    color: var(--secondary);
 }

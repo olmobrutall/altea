@@ -16,7 +16,7 @@
 }
 
 .colorIcon {
-    color: var(--bs-body-color);
+    color: var(--foreground);
     padding: 2px;
     margin: 0 2px;
 }
@@ -38,7 +38,7 @@
     }
 
     .colorIcon.gray {
-        background: var(--bs-secondary-bg);
+        background: var(--muted);
     }
 
 .nav-tabs > li.linkTab > a:hover {

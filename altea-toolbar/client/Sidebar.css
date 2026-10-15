@@ -1,14 +1,14 @@
 :root {
-    --sidebar-principal: var(--bs-secondary-color);
-    --sidebar-accent: var(--bs-emphasis-color);
+    --sidebar-principal: var(--muted-foreground);
+    --sidebar-accent: var(--emphasis);
     --sidebar-width: 250px;
-    --sidebar-highlight: var(--bs-secondary-bg);
+    --sidebar-highlight: var(--muted);
 }
 
 :root,
 [data-bs-theme="dark"] {
-  --sidebar-principal: var(--bs-secondary-color);
-  --sidebar-accent: var(--bs-emphasis-color);
+  --sidebar-principal: var(--muted-foreground);
+  --sidebar-accent: var(--emphasis);
 }
 
 .sidebar-container {
@@ -25,9 +25,9 @@
 
 
 .sidebar {
-  border-right: 1px solid var(--bs-border-color);
-  background-color: var(--bs-body-bg);
-  color: var(--bs-body-color);
+  border-right: 1px solid var(--border);
+  background-color: var(--background);
+  color: var(--foreground);
   z-index: 1000;
   overflow: hidden;
   overflow-y: auto;
@@ -101,7 +101,8 @@
 }
 
 .sidebar-inner {
-  background-color: var(--bs-body-bg-subtle);
+  /* Signum read --bs-body-bg-subtle here, a variable of its own Bootstrap build that vanilla 5.3 lacks: it has always rendered transparent. */
+  background-color: transparent;
 }
 
 /* The <li> around the divider's <hr> would otherwise add a full line-height of empty space. */
@@ -117,8 +118,8 @@
 }
 
 .sidebar-inner .nav-item .nav-link.active {
-  border-left: 4px solid var(--bs-primary);
-  background-color: var(--bs-secondary-bg);
+  border-left: 4px solid var(--primary);
+  background-color: var(--muted);
   color: var(--sidebar-accent);
   font-weight: bold;
 }
@@ -130,14 +131,14 @@
 }
 
 .sidebar-inner .nav-item .sf-extra-icon.active {
-  background-color: var(--bs-secondary-bg);
+  background-color: var(--muted);
 }
 
 /* The extra icon is a .btn with no colour variant, so Bootstrap's .btn:focus-visible sets outline: 0 and a
    box-shadow built from --bs-btn-focus-shadow-rgb, which only the variants define: the focus was invisible.
    The same ring the nav link beside it draws. */
 .sidebar-inner .nav-item .sf-extra-icon:focus-visible {
-  box-shadow: 0 0 0 .25rem var(--bs-focus-ring-color);
+  box-shadow: 0 0 0 .25rem var(--ring);
 }
 
 .sidebar-inner .nav-item .sf-extra-icon.active > svg.icon {
@@ -145,7 +146,7 @@
 }
 
 .sidebar-inner .nav-item .sf-extra-icon:hover {
-  background-color: var(--bs-secondary-bg-subtle);
+  background-color: var(--secondary-subtle);
 }
 
 .sidebar-inner .nav-item .sf-extra-icon:hover > svg.icon {
@@ -157,7 +158,7 @@
     } */
 
 .sidebar-inner .nav-item .nav-link.active {
-  background-color: var(--bs-secondary-bg);
+  background-color: var(--muted);
 }
 
 .sidebar-inner .nav-item .nav-link.active > svg.icon {
@@ -187,13 +188,13 @@
 }
 
 .sidebar-inner .nav-item .nav-link:hover {
-  border-color: var(--bs-primary);
-  background-color: var(--bs-secondary-bg-subtle);
-  color: var(--bs-emphasis-color);
+  border-color: var(--primary);
+  background-color: var(--secondary-subtle);
+  color: var(--emphasis);
 }
 
 .sidebar-inner .nav-item .nav-link:hover {
-  background-color: var(--bs-secondary-bg);
+  background-color: var(--muted);
 }
 
 .sidebar-inner .nav-item .nav-link:hover > svg.icon {
@@ -268,11 +269,11 @@
   }
 
   body:not(.rtl) .sidebar {
-    border-right: 1px solid var(--bs-gray-400);
+    border-right: 1px solid #ced4da;
   }
 
   body.rtl .sidebar {
-    border-left: 1px solid var(--bs-gray-400);
+    border-left: 1px solid #ced4da;
   }
 
   .sidebar {
@@ -358,22 +359,22 @@
 .main-toolbar {
   display: flex;
   vertical-align: middle;
-  border-bottom: 1px solid var(--bs-border-color);
+  border-bottom: 1px solid var(--border);
   align-items: center;
-  /*background-color: var(--bs-body-bg);*/
+  /*background-color: var(--background);*/
   flex-wrap: nowrap;
-  /* background: var(--bs-body-bg); */
+  /* background: var(--background); */
 }
 
 .main-toolbar > div > input {
   border: 0;
-  background-color: var(--bs-body-bg);
+  background-color: var(--background);
   transition: background 200ms;
-  color: var(--bs-body-color);
+  color: var(--foreground);
 }
 
 .main-toolbar > div > input:hover {
-  background: var(--bs-secondary-bg-subtle);
+  background: var(--secondary-subtle);
 }
 
 .main-toolbar .dropdown-menu.show {
@@ -387,7 +388,7 @@
 }
 
 .navbar-light .navbar-toggler {
-  border-color: var(--bs-border-color);
+  border-color: var(--border);
 }
 
 .navbar-toggler-icon {
@@ -424,7 +425,7 @@
 }
 
 .sidebar-container .sidebar {
-  border-right: 1px solid var(--bs-border-color) !important;
+  border-right: 1px solid var(--border) !important;
 }
 
 .main-sidebar-button {
@@ -449,7 +450,7 @@
 .sidebar-nav .nav-item-header span {
   margin-right: 25px;
   margin-left: 23px;
-  color: var(--bs-secondary-color);
+  color: var(--muted-foreground);
   font-weight: bold;
 }
 
@@ -479,13 +480,13 @@
 .sidebar-nav.narrow .nav-item-header .nav-item-float {
   position: fixed;
   left: 69px;
-  background-color: var(--bs-secondary-bg);
+  background-color: var(--muted);
   padding: 5px 20px;
   border-radius: 6px;
   transform: translateY(-4px);
-  box-shadow: 2px 2px 6px var(--bs-border-color-translucent);
+  box-shadow: 2px 2px 6px var(--border-translucent);
   font-weight: bold;
-  border-left: 4px solid var(--bs-primary);
+  border-left: 4px solid var(--primary);
   z-index: 0;
 }
 
@@ -500,7 +501,7 @@
   height: 8px;
   margin-top: 10px;
   margin-left: 0px;
-  background: var(--bs-tertiary-bg);
+  background: var(--tertiary);
   overflow: hidden;
   padding-left: 50px;
 }
@@ -534,5 +535,5 @@ body.sidebar-resizing .sidebar {
 }
 
     .sidebar-resizer:hover {
-        background-color: var(--bs-border-color);
+        background-color: var(--border);
     }

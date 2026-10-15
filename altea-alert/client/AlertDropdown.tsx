@@ -1,14 +1,14 @@
 import * as React from "react";
 import { Link } from "react-router";
-import { Toast } from "react-bootstrap";
-import { useRootClose } from "@restart/ui";
+import { Card, CardContent, CardHeader } from "@altea/altea/client/ui/Card";
+import { CloseButton } from "@altea/altea/client/ui/Alert";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { toRelativeTime } from "@altea/altea/client/Basics/RelativeTime";
 import { Finder } from "@altea/altea/client/Finder";
 import { Operations } from "@altea/altea/client/Operations";
 import MessageModal from "@altea/altea/client/Modals/MessageModal";
-import { useAPIWithReload, useForceUpdate, useThrottle, useUpdatedRef } from "@altea/altea/client/Hooks";
+import { useAPIWithReload, useForceUpdate, useThrottle, useUpdatedRef, useCloseOnOutsideClick } from "@altea/altea/client/Hooks";
 import { useWebSocketConnection, useWebSocketGroup, useWebSocketCallback } from "@altea/altea/client/useWebSocket";
 import { classes } from "@altea/altea/data/globals";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
@@ -35,6 +35,9 @@ import "./AlertDropdown.css";
 //  - Signum's `window.__disableSignalR` escape hatch has no counterpart here; the hook simply reconnects.
 const MaxNumberOfAlerts = 3;
 const MaxNumberOfGroups = 3;
+
+/** The toasts' look these cards replace: see-through, the page blurred behind. */
+const toastCard = "bg-background/85 backdrop-blur-[5px]";
 
 export default function AlertDropdown(props: { keepRingingFor?: number }): React.JSX.Element | null {
     if (!Navigator.isViewable(AlertEntity))
@@ -184,7 +187,8 @@ function AlertDropdownImp(props: { keepRingingFor: number }): React.JSX.Element 
     }
 
     const divRef = React.useRef<HTMLDivElement>(null);
-    useRootClose(divRef as never, () => setIsOpen(false), { disabled: !isOpen });
+    const toggleRef = React.useRef<HTMLButtonElement>(null);
+    useCloseOnOutsideClick([divRef, toggleRef], () => setIsOpen(false), isOpen);
 
     const visibleGroups = (alertGroups ?? []).orderByDescending(a => a.maxDate).filter((_gr, i) => i < showGroups);
     const stackedHeight = visibleGroups.sum(a => a.removing ? 0 : a.totalHeight ?? 0);
@@ -198,7 +202,7 @@ function AlertDropdownImp(props: { keepRingingFor: number }): React.JSX.Element 
                 the real description is aria-hidden — so the button announced as just "32, button". The
                 description the icon already computes belongs on the button itself, along with whether the
                 panel it toggles is open. */}
-            <button className="nav-link sf-bell-container" onClick={() => setIsOpen(!isOpen)}
+            <button ref={toggleRef} className="nav-link sf-bell-container" onClick={() => setIsOpen(!isOpen)}
                 aria-label={alertsLabel} aria-expanded={isOpen}
                 style={{ border: 0, backgroundColor: "var(--alert-bg)" }}>
                 <FontAwesomeIcon aria-hidden icon="bell"
@@ -215,10 +219,10 @@ function AlertDropdownImp(props: { keepRingingFor: number }): React.JSX.Element 
                 height: (stackedHeight + (showGroups < (alertGroups ?? []).length ? 60 : 0) + 60) + "px",
             }}>
                 {alertGroups == null
-                    ? <Toast><Toast.Body>{JavascriptMessage.loading.niceToString()}</Toast.Body></Toast>
+                    ? <Card className={toastCard}><CardContent className="p-3">{JavascriptMessage.loading.niceToString()}</CardContent></Card>
                     : <>
                         {alertGroups.length === 0 &&
-                            <Toast><Toast.Body>{AlertMessage.YouDoNotHaveAnyActiveAlert.niceToString()}</Toast.Body></Toast>}
+                            <Card className={toastCard}><CardContent className="p-3">{AlertMessage.YouDoNotHaveAnyActiveAlert.niceToString()}</CardContent></Card>}
 
                         <div style={{ position: "relative" }}>
                             {visibleGroups.map((gr, i) =>
@@ -239,20 +243,20 @@ function AlertDropdownImp(props: { keepRingingFor: number }): React.JSX.Element 
 
                         {showGroups < alertGroups.filter(a => !a.removing).length &&
                             <div style={{ transform: `translateY(${stackedHeight}px)`, transition: "transform 0.4s ease" }}>
-                                <Toast className="w-full my-2">
-                                    <Toast.Body style={{ textAlign: "center" }}>
+                                <Card className={classes(toastCard, "w-full my-2")}>
+                                    <CardContent style={{ textAlign: "center" }}>
                                         <button type="button" className="btn btn-link btn-sm text-muted-foreground font-bold"
                                             onClick={() => setShowGroups(showGroups + MaxNumberOfGroups)}>
                                             {AlertMessage.Show0GroupsMore1Remaining.niceToString(MaxNumberOfGroups,
                                                 alertGroups.filter(a => !a.removing).length - showGroups)}
                                         </button>
-                                    </Toast.Body>
-                                </Toast>
+                                    </CardContent>
+                                </Card>
                             </div>}
 
                         <div style={{ transform: `translateY(${stackedHeight}px)`, transition: "transform 0.4s ease" }}>
-                            <Toast className="w-full mt-2">
-                                <Toast.Body style={{ textAlign: "center" }}>
+                            <Card className={classes(toastCard, "w-full mt-2")}>
+                                <CardContent style={{ textAlign: "center" }}>
                                     <Link onClick={() => setIsOpen(false)}
                                         to={Finder.findOptionsPath(AlertEntity.findOptions(token => ({
                                             filterOptions: [
@@ -264,8 +268,8 @@ function AlertDropdownImp(props: { keepRingingFor: number }): React.JSX.Element 
                                         })))}>
                                         {AlertMessage.AllMyAlerts.niceToString()}
                                     </Link>
-                                </Toast.Body>
-                            </Toast>
+                                </CardContent>
+                            </Card>
                         </div>
                     </>}
             </div>}
@@ -389,14 +393,18 @@ export function AlertToast(p: {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [p.alert, p.expanded, wasExpanded]);
 
+    // The measured box is a wrapper, since the kit Card takes no ref; react-bootstrap's Toast.Header carried
+    // the close button itself.
     return (
-        <Toast ref={htmlRef} onClose={() => p.onClose(p.alert)} className={classes(p.className, "w-full")} style={p.style}>
-            <Toast.Header>
+        <div ref={htmlRef} className={classes(p.className, "w-full")} style={p.style}>
+          <Card className={classes(toastCard, "w-full")}>
+            <CardHeader className="flex items-center px-3 py-2">
                 {icon && <span className="me-2">{icon}</span>}
                 <strong className="me-auto">{AlertsClient.getTitle(alert.titleField, alert.alertType)}</strong>
                 <small>{toRelativeTime(alert.alertDate)}</small>
-            </Toast.Header>
-            <Toast.Body style={{
+                <CloseButton className="ms-2" onClick={() => p.onClose(p.alert)} />
+            </CardHeader>
+            <CardContent className="p-3" style={{
                 whiteSpace: "pre-wrap",
                 opacity: p.expanded ? undefined : 0,
                 transition: "transform .4s ease",
@@ -410,8 +418,9 @@ export function AlertToast(p: {
                         {AlertsClient.format(alert.textField || alert.textFromAlertType || "", alert, p.refresh)}
                     </div>
                 </div>
-            </Toast.Body>
-        </Toast>
+            </CardContent>
+          </Card>
+        </div>
     );
 }
 

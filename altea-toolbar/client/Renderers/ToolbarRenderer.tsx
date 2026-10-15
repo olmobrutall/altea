@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useLocation, type Location } from "react-router";
-import { Nav } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import "@altea/altea/data/globals/arrayExtensions";
 import "@altea/altea/data/globals/stringExtensions";
@@ -289,12 +288,12 @@ function renderNavItemUnsafe(res: ToolbarResponse<any>, key: string | number, ct
             if (res.content) {
                 const config = ToolbarClient.getConfig(res);
                 if (!config)
-                    // as="li": these render into the sidebar's <ul>, where Nav.Item's default <div> is not
+                    // An <li>: these render into the sidebar's <ul>, where any other element is not
                     // a permitted child. A misconfiguration path, but it is the one a screen reader meets
                     // on a broken toolbar, and a stray child can cost the list its semantics entirely.
-                    return <Nav.Item as="li" className="text-destructive">
+                    return <li className="nav-item text-destructive">
                         {ToolbarMessage.ToolbarConfigNotRegistered0.niceToString(cleanTypeName(res.content.entityType))}
-                    </Nav.Item>;
+                    </li>;
 
                 return config.getMenuItem(res, key, ctx, selectedEntity);
             }
@@ -310,7 +309,7 @@ function renderNavItemUnsafe(res: ToolbarResponse<any>, key: string | number, ct
                 );
             }
 
-            return <Nav.Item as="li" key={key} style={{ color: "red" }}>{ToolbarMessage.NoContentOrUrlFound.niceToString()}</Nav.Item>;
+            return <li className="nav-item" key={key} style={{ color: "red" }}>{ToolbarMessage.NoContentOrUrlFound.niceToString()}</li>;
 
         default:
             throw new Error("Unexpected " + res.type);
@@ -573,11 +572,11 @@ function ToolbarMenuItemsEntityType(p: { response: ToolbarResponse<ToolbarMenuEn
 
     return (
         <>
-            {/* as="li" below: Nav.Item renders a <div> by default, and this sits directly inside the
-                toolbar's <ul> alongside real <li> items. A <ul> may only contain <li>, which breaks both
-                the parsing of the list and the count assistive technology announces for it. */}
+            {/* An <li> below: this sits directly inside the toolbar's <ul> alongside real <li> items.
+                A <ul> may only contain <li>, and anything else breaks both the parsing of the list and
+                the count assistive technology announces for it. */}
             {entityType && (
-                <Nav.Item as="li" title={ti.getNiceName()} className="flex mx-2 mb-2">
+                <li title={ti.getNiceName()} className="nav-item flex mx-2 mb-2">
                     <div style={{ width: "100%" }}>
                         <EntityLine ctx={ctx} view={false} mandatory="warning"
                             inputAttributes={{ placeholder: LayoutMessage.SelectA0_G.niceToString(ti.getNiceName()) }}
@@ -587,7 +586,7 @@ function ToolbarMenuItemsEntityType(p: { response: ToolbarResponse<ToolbarMenuEn
                             label={ti.getNiceName()} />
                     </div>
                     {renderExtraIcons(p.response.extraIcons, p.ctx, selEntityRef.current ?? p.selectedEntity)}
-                </Nav.Item>
+                </li>
             )}
             {selEntityRef.current ?
                 simplifyForEntity(p.response.elements!.filter(sr => sr.withEntity), selEntityRef.current, hiddenGuids ?? undefined).map((sr, i) => renderNavItem(sr, i, p.ctx, selEntityRef.current ?? p.selectedEntity)) :
@@ -711,11 +710,10 @@ function ToolbarSwitcher(p: { response: ToolbarResponse<ToolbarSwitcherEntity>, 
     return (
         <li>
             <ul>
-                {/* as="li": see the sibling case above — Nav.Item's default <div> is not a permitted child
-                    of <ul>. */}
-                <Nav.Item as="li"
+                {/* An <li>: see the sibling case above — nothing else is a permitted child of <ul>. */}
+                <li
                     data-toolbar-content={liteKeyOrQuery(p.response.content)}
-                    title={title} className="flex mb-2">
+                    title={title} className="nav-item flex mb-2">
                     {icon}
                     <RightCaretDropdown
                         options={options}
@@ -724,7 +722,7 @@ function ToolbarSwitcher(p: { response: ToolbarResponse<ToolbarSwitcherEntity>, 
                         placeholder={title}
                         disabled={false} />
                     {renderExtraIcons(p.response.extraIcons, p.ctx, p.selectedEntity)}
-                </Nav.Item>
+                </li>
 
                 {selectedOption &&
                     <li>
@@ -742,9 +740,12 @@ export function ToolbarNavItem(p: { title: string | undefined, content?: Lite<En
 
     return (
         <li className="nav-item flex">
-            {/* Nav.Link's `active` only adds a class, so which item is the current page was conveyed by
-                colour alone and never announced. aria-current says it. */}
-            <Nav.Link title={p.title} onClick={p.onClick} onAuxClick={p.onClick} active={p.active} className="flex w-full"
+            {/* `active` only adds a class, so which item is the current page was conveyed by colour alone
+                and never announced. aria-current says it. An href-less <a role="button">, as react-bootstrap's
+                Nav.Link rendered it: Enter / Space activate it like a button. */}
+            <a role="button" tabIndex={0} title={p.title} onClick={p.onClick} onAuxClick={p.onClick}
+                onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
+                className={classes("nav-link flex w-full", p.active && "active")}
                 aria-current={p.active ? "page" : undefined}
                 data-toolbar-content={liteKeyOrQuery(p.content)}>
                 <div>{p.icon}</div>
@@ -755,7 +756,7 @@ export function ToolbarNavItem(p: { title: string | undefined, content?: Lite<En
                 {/* Hover-only visual tooltip repeating the label of the collapsed sidebar. Left exposed it
                     doubled the accessible name ("Dashboard Dashboard") whenever it was shown. */}
                 <div aria-hidden={true} className={classes("nav-item-float", p.isGroup && "nav-item-group")}>{p.title}</div>
-            </Nav.Link>
+            </a>
             {/* BESIDE the link, not inside it: the extra icons are buttons, and a button inside the link's
                 role="button" is invalid nesting that assistive technology cannot reach. */}
             {p.extraIcons}

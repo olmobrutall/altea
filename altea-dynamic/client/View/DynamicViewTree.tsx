@@ -1,6 +1,6 @@
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Dropdown } from "react-bootstrap";
+import { MenuDivider, MenuItem } from "@altea/altea/client/ui/Dropdown";
 import { classes } from "@altea/altea/data/globals";
 import ContextMenu, { getMouseEventPosition, type ContextMenuPosition } from "@altea/altea/client/SearchControl/ContextMenu";
 import * as NodeUtils from "./NodeUtils";
@@ -132,16 +132,16 @@ export function DynamicViewTree(p: DynamicViewTreeProps): React.JSX.Element {
 
         return (
             <ContextMenu position={cm.position} onHide={() => setContextualMenu(undefined)} itemsCount={cn.children?.length ?? 0}>
-                {no.isContainer && <Dropdown.Item onClick={handleAddChildren}><FontAwesomeIcon icon="arrow-right" />&nbsp; {DynamicViewMessage.AddChild.niceToString()}</Dropdown.Item>}
-                {!isRoot && <Dropdown.Item onClick={handleAddSibling}><FontAwesomeIcon icon="arrow-down" />&nbsp; {DynamicViewMessage.AddSibling.niceToString()}</Dropdown.Item>}
+                {no.isContainer && <MenuItem onClick={handleAddChildren}><FontAwesomeIcon icon="arrow-right" />&nbsp; {DynamicViewMessage.AddChild.niceToString()}</MenuItem>}
+                {!isRoot && <MenuItem onClick={handleAddSibling}><FontAwesomeIcon icon="arrow-down" />&nbsp; {DynamicViewMessage.AddSibling.niceToString()}</MenuItem>}
 
-                {no.isContainer && <Dropdown.Divider />}
+                {no.isContainer && <MenuDivider />}
 
-                {no.isContainer && (cn.children?.length ?? 0) === 0 && dn.route && <Dropdown.Item onClick={handleGenerateChildren}><FontAwesomeIcon icon="bolt" />&nbsp; {DynamicViewMessage.GenerateChildren.niceToString()}</Dropdown.Item>}
-                {no.isContainer && (cn.children?.length ?? 0) > 0 && <Dropdown.Item onClick={handleClearChildren}><FontAwesomeIcon icon="trash" />&nbsp; {DynamicViewMessage.ClearChildren.niceToString()}</Dropdown.Item>}
+                {no.isContainer && (cn.children?.length ?? 0) === 0 && dn.route && <MenuItem onClick={handleGenerateChildren}><FontAwesomeIcon icon="bolt" />&nbsp; {DynamicViewMessage.GenerateChildren.niceToString()}</MenuItem>}
+                {no.isContainer && (cn.children?.length ?? 0) > 0 && <MenuItem onClick={handleClearChildren}><FontAwesomeIcon icon="trash" />&nbsp; {DynamicViewMessage.ClearChildren.niceToString()}</MenuItem>}
 
-                {!isRoot && <Dropdown.Divider />}
-                {!isRoot && <Dropdown.Item onClick={handleRemove}><FontAwesomeIcon icon="xmark" />&nbsp; {DynamicViewMessage.Remove.niceToString()}</Dropdown.Item>}
+                {!isRoot && <MenuDivider />}
+                {!isRoot && <MenuItem onClick={handleRemove}><FontAwesomeIcon icon="xmark" />&nbsp; {DynamicViewMessage.Remove.niceToString()}</MenuItem>}
             </ContextMenu>
         );
     }
@@ -303,9 +303,9 @@ export function DynamicViewNode(p: DynamicViewNodeProps): React.JSX.Element {
         if (over && dn.node === over.dn.node) {
 
             const color =
-                over.error === "Error" ? "var(--bs-danger-bg-subtle)"
-                    : over.error === "Warning" ? "var(--bs-warning-bg-subtle)"
-                        : "var(--bs-success-bg-subtle)";
+                over.error === "Error" ? "var(--destructive-subtle)"
+                    : over.error === "Warning" ? "var(--warning-subtle)"
+                        : "var(--success-subtle)";
 
             if (over.position === "Top")
                 return { borderTop: "2px dashed " + color };

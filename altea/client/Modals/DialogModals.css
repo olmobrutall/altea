@@ -1,43 +1,41 @@
-/* Ported from Signum.React/Modals/DialogModals.css. altea divergence: Signum's rules read
-   `var(--bs-danger-subtle)` etc., a variable defined by Signum/Southwind's own custom Bootstrap SCSS.
-   altea uses vanilla Bootstrap 5.3, whose subtle-background variables are named `--bs-<color>-bg-subtle`
-   (there is no plain `--bs-<color>-subtle`), so the header tints resolved to empty → transparent (no red
-   header). Point them at the real Bootstrap 5.3 tokens. */
+/* Ported from Signum.React/Modals/DialogModals.css. Signum's rules read `var(--bs-danger-subtle)` etc., a variable
+   defined by Signum/Southwind's own Bootstrap SCSS that vanilla Bootstrap 5.3 does not have (the header tints
+   resolved to nothing). They read altea's subtle tokens instead. */
 .dialog-header-error {
-    background-color: var(--bs-danger-bg-subtle);
-    color: var(--bs-body-color);
+    background-color: var(--destructive-subtle);
+    color: var(--foreground);
 }
 
 .dialog-header-error a {
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }
 
 
 .dialog-header-warning {
-    background-color: var(--bs-warning-bg-subtle);
-    color: var(--bs-body-color);
+    background-color: var(--warning-subtle);
+    color: var(--foreground);
 }
 
 .dialog-header-warning a {
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }
 
 
 .dialog-header-info {
-    background-color: var(--bs-info-bg-subtle);
-    color: var(--bs-body-color);
+    background-color: var(--info-subtle);
+    color: var(--foreground);
 }
 
 .dialog-header-info a {
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }
 
 
 .dialog-header-success {
-    background-color: var(--bs-success-bg-subtle);
-    color: var(--bs-body-color);
+    background-color: var(--success-subtle);
+    color: var(--foreground);
 }
 
 .dialog-header-success a {
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }

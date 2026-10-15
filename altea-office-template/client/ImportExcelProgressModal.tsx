@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Modal, ProgressBar } from "react-bootstrap";
+import { Modal } from "@altea/altea/client/ui/Modal";
+import { Progress } from "@altea/altea/client/ui/Progress";
 import { useForceUpdate, useThrottle } from "@altea/altea/client/Hooks";
 import { type IModalProps, openModal } from "@altea/altea/client/Modals";
 import { jsonObjectStream } from "@altea/altea/client/Operations/jsonObjectStream";
@@ -84,8 +85,8 @@ export function ImportExcelProgressModal(p: ImportExcelProgressModalProps): Reac
             <div className="sf-modal-body">
                 <p><strong>{totalRows}</strong> {totalRows === 1 ? p.typeInfo.getNiceName() : p.typeInfo.getNicePluralName()}</p>
                 {importResultsRef.current.length === 0 && oldRequestStarted
-                    ? <ProgressBar now={100} variant="info" animated striped key={1} />
-                    : <ProgressBar min={0} max={totalRows} now={importResultsRef.current.length}
+                    ? <Progress value={100} variant="info" animated striped key={1} />
+                    : <Progress min={0} max={totalRows} value={importResultsRef.current.length}
                         label={`[${importResultsRef.current.length}/${totalRows}]`} key={2} />}
                 {errors.length > 0 &&
                     <p className="text-destructive">

@@ -9,35 +9,35 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 export function getResotreDefaultColumnsIcon(): React.ReactElement {
   return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
-    <FontAwesomeIcon aria-hidden={true} icon="rotate-left" transform="shrink-4 up-8 right-8" color="var(--bs-body-color)" />
+    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--muted-foreground)" />
+    <FontAwesomeIcon aria-hidden={true} icon="rotate-left" transform="shrink-4 up-8 right-8" color="var(--foreground)" />
   </span>
 }
 
 export function getGroupByThisColumnIcon(): React.ReactElement {
   return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
-    <FontAwesomeIcon aria-hidden={true} icon={["fas", "layer-group"]} transform="shrink-3 up-8 right-8" color="var(--bs-cyan)" />
+    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--muted-foreground)" />
+    <FontAwesomeIcon aria-hidden={true} icon={["fas", "layer-group"]} transform="shrink-3 up-8 right-8" color="#0dcaf0" />
   </span>
 }
 
 export function getRemoveOtherColumns(): React.ReactElement {
   return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
-    <FontAwesomeIcon aria-hidden={true} icon="remove" transform="shrink-4 up-8 right-8" color="var(--bs-body-color)" />
+    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--muted-foreground)" />
+    <FontAwesomeIcon aria-hidden={true} icon="remove" transform="shrink-4 up-8 right-8" color="var(--foreground)" />
   </span>
 }
 
 export function getRemoveColumnIcon(): React.ReactElement {
   return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
-    <FontAwesomeIcon aria-hidden={true} icon={["fas", "square-xmark"]} transform="shrink-3 up-8 right-8" color="var(--bs-danger)" />
+    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--muted-foreground)" />
+    <FontAwesomeIcon aria-hidden={true} icon={["fas", "square-xmark"]} transform="shrink-3 up-8 right-8" color="var(--destructive)" />
   </span>
 }
 
 export function getEditAllColumnsIcon(): React.ReactElement {
   return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
+    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--muted-foreground)" />
   </span>
 }
 
@@ -50,33 +50,33 @@ export function getTimeMachineIcon(): React.ReactElement {
 // lines up.
 export function getMoveColumnLeftIcon(): React.ReactElement {
   return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="arrow-left" color="var(--bs-body-color)" />
+    <FontAwesomeIcon aria-hidden={true} icon="arrow-left" color="var(--foreground)" />
   </span>
 }
 
 export function getMoveColumnRightIcon(): React.ReactElement {
   return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="arrow-right" color="var(--bs-body-color)" />
+    <FontAwesomeIcon aria-hidden={true} icon="arrow-right" color="var(--foreground)" />
   </span>
 }
 
 export function getEditColumnIcon(): React.ReactElement {
   return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
-    <FontAwesomeIcon aria-hidden={true} icon={["fas", "square-pen"]} transform="shrink-3 up-8 right-8" color="var(--bs-orange)" />
+    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--muted-foreground)" />
+    <FontAwesomeIcon aria-hidden={true} icon={["fas", "square-pen"]} transform="shrink-3 up-8 right-8" color="#fd7e14" />
   </span>
 }
 
 export function getInsertColumnIcon(): React.ReactElement {
   return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--bs-secondary-color)" />
-    <FontAwesomeIcon aria-hidden={true} icon={["fas", "square-plus"]} transform="shrink-3 up-8 right-8" color="var(--bs-success)" />
+    <FontAwesomeIcon aria-hidden={true} icon="table-columns" transform="left-2" color="var(--muted-foreground)" />
+    <FontAwesomeIcon aria-hidden={true} icon={["fas", "square-plus"]} transform="shrink-3 up-8 right-8" color="var(--success)" />
   </span>
 }
 
 export function getAddFilterIcon(): React.ReactElement {
   return <span className="fa-layers fa-fw icon">
-    <FontAwesomeIcon aria-hidden={true} icon="filter" transform="left-2" color="var(--bs-secondary-color)" />
-    <FontAwesomeIcon aria-hidden={true} icon={["fas", "square-plus"]} transform="shrink-3 up-8 right-8" color="var(--bs-blue)" />
+    <FontAwesomeIcon aria-hidden={true} icon="filter" transform="left-2" color="var(--muted-foreground)" />
+    <FontAwesomeIcon aria-hidden={true} icon={["fas", "square-plus"]} transform="shrink-3 up-8 right-8" color="#0d6efd" />
   </span>
 }

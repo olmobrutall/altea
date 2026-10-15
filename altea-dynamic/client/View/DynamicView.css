@@ -6,8 +6,8 @@
 }
 
 div.design-left {
-    background-color: var(--bs-secondary-bg);
-    border: 1px solid var(--bs-border-color);
+    background-color: var(--muted);
+    border: 1px solid var(--border);
     padding: 2px;
 }
 
@@ -24,11 +24,11 @@ div.design-content {
 }
 
 span.design-changed {
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }
 
 span.design-default {
-    color: var(--bs-secondary-text);
+    color: var(--muted-foreground);
 }
 
 .design-open-icon {
@@ -62,7 +62,7 @@ span.design-default {
 
 .formula {
     margin-right: 5px;
-    color: var(--bs-secondary-text);
+    color: var(--muted-foreground);
 }
 
 input[type=checkbox].design-check-box {
@@ -70,11 +70,11 @@ input[type=checkbox].design-check-box {
 }
 
 .formula:hover {
-    color: var(--bs-secondary-text);
+    color: var(--muted-foreground);
 }
 
 .formula.active {
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }
 
 .filter-options .table {
@@ -98,7 +98,7 @@ ul.expression-list a.sf-remove {
 
 
 .design-help-button {
-    background: var(--bs-secondary-bg);
+    background: var(--muted);
     padding: 5px;
     margin: -5px;
 }

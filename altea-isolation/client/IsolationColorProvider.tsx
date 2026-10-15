@@ -6,10 +6,10 @@ import type { ClientColorProvider } from "@altea/altea-map/client/Schema/ClientC
 export default function getIsolationProviders(): ClientColorProvider[] {
     return [{
         name: "isolation",
-        getFill: t => t.extra["isolation"] == undefined ? "var(--bs-body-bg)" :
-            t.extra["isolation"] == "Isolated" ? "var(--bs-pink)" :
-                t.extra["isolation"] == "Optional" ? "var(--bs-indigo)" :
-                    t.extra["isolation"] == "None" ? "var(--bs-cyan)" : "var(--bs-body-color)",
+        getFill: t => t.extra["isolation"] == undefined ? "var(--background)" :
+            t.extra["isolation"] == "Isolated" ? "#d63384" :
+                t.extra["isolation"] == "Optional" ? "#6610f2" :
+                    t.extra["isolation"] == "None" ? "#0dcaf0" : "var(--foreground)",
         getTooltip: t => (t.extra["isolation"] as string | undefined) ?? "",
     }];
 }

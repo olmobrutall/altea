@@ -1,5 +1,5 @@
 table.pivot-table th {
-    background: var(--bs-tertiary-bg);
+    background: var(--tertiary);
 }
 
 .pivot-table a {
@@ -7,12 +7,12 @@ table.pivot-table th {
 }
 
 .pivot-table a:hover {
-    color: var(--bs-link-hover-color);
+    color: var(--link-hover);
 }
 
 .pivot-table tr:hover td,
 .pivot-table tr:hover th:not([rowspan]) {
-    border-bottom: 1px solid var(--bs-border-color);
+    border-bottom: 1px solid var(--border);
 }
 
 

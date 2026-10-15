@@ -147,14 +147,14 @@ export default function BigValuePart(p: PanelPartContentProps<BigValuePartEntity
 
     const bodyStyle: React.CSSProperties = {
         backgroundColor: customColor ?? undefined,
-        color: p.partEmbedded.titleColor ?? (customColor ? getContrastingTextColor(customColor) : "var(--bs-body-color)"),
+        color: p.partEmbedded.titleColor ?? (customColor ? getContrastingTextColor(customColor) : "var(--foreground)"),
     };
 
     return (
         <div className={classes("card", "border-tertiary shadow-xs mb-4 w-full", "o-hidden")}
             style={{
                 backgroundColor: customColor ?? undefined,
-                color: customColor ? getContrastingTextColor(customColor) : "var(--bs-body-color)",
+                color: customColor ? getContrastingTextColor(customColor) : "var(--foreground)",
             }}>
             {clickable ? (
                 <button type="button"

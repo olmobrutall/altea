@@ -29,21 +29,21 @@
         }
 
         #sfNotify span.notify.loading {
-            background-color: var(--bs-info-bg-subtle);
-            color: var(--bs-info-text-emphasis);
+            background-color: var(--info-subtle);
+            color: var(--info-subtle-foreground);
         }
 
         #sfNotify span.notify.error {
-            background-color: var(--bs-danger-bg-subtle);
-            color: var(--bs-danger-emphasis);
+            background-color: var(--destructive-subtle);
+            color: var(--destructive-subtle-foreground);
         }
 
         #sfNotify span.notify.warning {
-            background-color: var(--bs-warning-bg-subtle);
-            color: var(--bs-warning-text-emphasis);
+            background-color: var(--warning-subtle);
+            color: var(--warning-subtle-foreground);
         }
 
         #sfNotify span.notify.success {
-            background-color: var(--bs-success-bg-subtle);
-            color: var(--bs-success-text-emphasis);
+            background-color: var(--success-subtle);
+            color: var(--success-subtle-foreground);
         }

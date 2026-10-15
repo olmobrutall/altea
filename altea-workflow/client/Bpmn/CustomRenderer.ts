@@ -37,9 +37,9 @@ export class CustomRenderer extends BpmnRenderer {
         if (ct != null && ct !== ConnectionType.Normal)
             result.style.setProperty("stroke",
                 ct === ConnectionType.Jump ? "blue" :
-                    ct === ConnectionType.ScriptException ? "var(--bs-magenta)" :
+                    ct === ConnectionType.ScriptException ? "magenta" :
                         ct === ConnectionType.Decision && ds != null
-                            ? (bootstrapStyleToColor[ds] ?? "var(--bs-body-color)")
+                            ? (bootstrapStyleToColor[ds] ?? "var(--foreground)")
                             : "gray");
 
         return result;

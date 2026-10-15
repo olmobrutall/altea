@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Button } from "react-bootstrap";
+import { BootstrapButton } from "@altea/altea/client/Operations/EntityOperations";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { TypeContext } from "@altea/altea/client/TypeContext";
@@ -185,9 +185,9 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
         // `modified` flag, not a graph diff.
         const hasChanges = dirty.current;
         return [
-            { button: <Button type="button" variant="primary" disabled={!hasChanges || ctx.readOnly} onClick={() => handleSaveClick(bc)}>{AuthAdminMessage.Save.niceToString()}</Button> },
-            { button: <Button type="button" variant="warning" disabled={!hasChanges || ctx.readOnly} onClick={() => handleResetClick(bc)}>{AuthAdminMessage.ResetChanges.niceToString()}</Button> },
-            { button: <Button type="button" variant="info" disabled={hasChanges} onClick={() => handleSwitchToClick(bc)}>{AuthAdminMessage.SwitchTo.niceToString()}</Button> },
+            { button: <BootstrapButton type="button" variant="primary" disabled={!hasChanges || ctx.readOnly} onClick={() => handleSaveClick(bc)}>{AuthAdminMessage.Save.niceToString()}</BootstrapButton> },
+            { button: <BootstrapButton type="button" variant="warning" disabled={!hasChanges || ctx.readOnly} onClick={() => handleResetClick(bc)}>{AuthAdminMessage.ResetChanges.niceToString()}</BootstrapButton> },
+            { button: <BootstrapButton type="button" variant="info" disabled={hasChanges} onClick={() => handleSwitchToClick(bc)}>{AuthAdminMessage.SwitchTo.niceToString()}</BootstrapButton> },
         ];
     }
     // `entityHasChanges`: the frame's "you will lose changes" check asks THIS rather than diffing the pack,

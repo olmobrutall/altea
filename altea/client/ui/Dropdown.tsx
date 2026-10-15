@@ -19,8 +19,9 @@ export function DropdownTrigger({ asChild, children, nativeButton, ...props }: D
     return <Menu.Trigger {...props} {...renderChild(asChild, children, nativeButton)} />;
 }
 
-/** Laid out as a row so an icon and its text sit together; the look is the semantic .sf-dropdown-item. */
-const item = "relative flex items-center gap-2 select-none";
+/** The look is the semantic .sf-dropdown-item: a BLOCK, as Bootstrap's was, so an icon and its text keep the
+ *  spacing every ported item gives them itself (`me-2`, a space, `&nbsp;`). A flex row would drop a plain space. */
+const item = "relative select-none";
 
 export interface DropdownContentProps extends React.HTMLAttributes<HTMLDivElement> {
     side?: "top" | "right" | "bottom" | "left";
@@ -74,7 +75,7 @@ export function DropdownSeparator({ className }: { className?: string }): React.
 
 export function DropdownSubTrigger({ className, children, ...props }: Omit<React.ComponentProps<typeof Menu.SubmenuTrigger>, "className"> & { className?: string }): React.ReactElement {
     return (
-        <Menu.SubmenuTrigger className={cn("sf-dropdown-item", item, className)} {...props}>
+        <Menu.SubmenuTrigger className={cn("sf-dropdown-item", item, "flex items-center gap-2", className)} {...props}>
             {children}
             <FontAwesomeIcon icon="chevron-right" className="ms-auto text-[.7em] rtl:rotate-180" aria-hidden={true} />
         </Menu.SubmenuTrigger>

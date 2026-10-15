@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Dropdown } from "react-bootstrap";
+import { Dropdown, DropdownContent, DropdownItem, DropdownSeparator, DropdownTrigger } from "@altea/altea/client/ui/Dropdown";
+import { BootstrapButton } from "@altea/altea/client/Operations/EntityOperations";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import SelectorModal from "@altea/altea/client/SelectorModal";
 import "@altea/altea/client/AppContext"; // String.prototype.formatHtml
@@ -50,12 +51,12 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
 
     const queryKey = p.searchControl.props.findOptions.queryKey;
 
-    function handleToggle(): void {
+    function handleOpenChange(open: boolean): void {
         // The reports are fetched the first time the menu opens, not on every render of the search page.
-        if (!isOpen && excelReports == undefined && p.excelReport)
+        if (open && excelReports == undefined && p.excelReport)
             void reloadExcelReports();
 
-        setIsOpen(!isOpen);
+        setIsOpen(open);
     }
 
     async function reloadExcelReports(): Promise<void> {
@@ -119,40 +120,42 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
         && getOperationInfos(ExcelReportEntity).some(oi => oi.key === ExcelReportOperation.Save.key);
 
     return (
-        <Dropdown show={isOpen} onToggle={handleToggle} title={ExcelMessage.ExportToExcel.niceToString()}>
-            <Dropdown.Toggle id={toggleId} variant="tertiary">
-                {label}
-            </Dropdown.Toggle>
-            <Dropdown.Menu>
+        <Dropdown open={isOpen} onOpenChange={handleOpenChange}>
+            <DropdownTrigger asChild>
+                <BootstrapButton id={toggleId} variant="tertiary" className="dropdown-toggle" title={ExcelMessage.ExportToExcel.niceToString()}>
+                    {label}
+                </BootstrapButton>
+            </DropdownTrigger>
+            <DropdownContent>
                 {withDividers([
                     p.plainExcel &&
-                        <Dropdown.Item key="plain" onClick={() => void handlePlainExcel()}>
+                        <DropdownItem key="plain" onClick={() => void handlePlainExcel()}>
                             <FontAwesomeIcon aria-hidden={true} icon="file-excel" className="me-2" />
                             {ExcelMessage.ExportToExcel.niceToString()}
-                        </Dropdown.Item>,
+                        </DropdownItem>,
                     p.importFromExcel &&
-                        <Dropdown.Item key="import" onClick={() => void handleImportFromExcel()}>
+                        <DropdownItem key="import" onClick={() => void handleImportFromExcel()}>
                             <FontAwesomeIcon aria-hidden={true} icon="file-excel" className="me-2" />
                             {ImportFromExcelMessage.ImportFromExcel.niceToString()}
-                        </Dropdown.Item>,
+                        </DropdownItem>,
                     p.excelReport && withDividers([
                         excelReports?.map((report, i) =>
-                            <Dropdown.Item key={"report" + i} onClick={() => void handleExcelReport(report)}>
+                            <DropdownItem key={"report" + i} onClick={() => void handleExcelReport(report)}>
                                 {report.toString()}
-                            </Dropdown.Item>) ?? [],
+                            </DropdownItem>) ?? [],
                         canAdminister ? [
-                            <Dropdown.Item key="administer" onClick={() => void handleAdminister()}>
+                            <DropdownItem key="administer" onClick={() => void handleAdminister()}>
                                 <FontAwesomeIcon aria-hidden={true} icon="magnifying-glass" className="me-2" />
                                 {ExcelMessage.Administer.niceToString()}
-                            </Dropdown.Item>,
-                            <Dropdown.Item key="create" onClick={() => void handleCreate()}>
+                            </DropdownItem>,
+                            <DropdownItem key="create" onClick={() => void handleCreate()}>
                                 <FontAwesomeIcon aria-hidden={true} icon="plus" className="me-2" />
                                 {ExcelMessage.CreateNew.niceToString()}
-                            </Dropdown.Item>,
+                            </DropdownItem>,
                         ] : [],
                     ]),
                 ])}
-            </Dropdown.Menu>
+            </DropdownContent>
         </Dropdown>
     );
 }
@@ -173,7 +176,7 @@ function withDividers(
             continue;
 
         if (result.length > 0)
-            result.push(<Dropdown.Divider key={"divider" + result.length} />);
+            result.push(<DropdownSeparator key={"divider" + result.length} />);
 
         if (Array.isArray(section))
             result.push(...section);

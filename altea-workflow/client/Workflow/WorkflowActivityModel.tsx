@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Button } from "react-bootstrap";
+import { BootstrapButton } from "@altea/altea/client/Operations/EntityOperations";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { EntityDetail } from "@altea/altea/client/Lines/EntityDetail";
@@ -209,7 +209,7 @@ export default function WorkflowActivityModelComponent(
                                     </select>
                                 </div>
                                 <div className="col-sm-6">
-                                    <Button variant="success" size="sm" onClick={handleCheckView}>Check View …</Button>
+                                    <BootstrapButton variant="success" size="sm" onClick={handleCheckView}>Check View …</BootstrapButton>
                                 </div>
                             </div>}
                         </FormGroup>

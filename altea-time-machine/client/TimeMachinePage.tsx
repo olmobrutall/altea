@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useParams } from 'react-router';
-import { Tabs, Tab, Modal } from 'react-bootstrap';
+import { Tab, Tabs } from '@altea/altea/client/ui/Tabs';
+import { Modal } from '@altea/altea/client/ui/Modal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { RenderEntity } from '@altea/altea/client/Lines/RenderEntity';
 import { TypeContext } from '@altea/altea/client/TypeContext';

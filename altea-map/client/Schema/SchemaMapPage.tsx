@@ -2,7 +2,7 @@ import "@altea/altea/data/globals/arrayExtensions";
 import "@altea/altea/data/globals/stringExtensions";
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { OverlayTrigger, Popover } from "react-bootstrap";
+import { Popover, PopoverContent, PopoverTrigger } from "@altea/altea/client/ui/Tooltip";
 import { useLocation, type Location } from "react-router";
 import { Dic } from "@altea/altea/data/globals/helpers";
 import * as AppContext from "@altea/altea/client/AppContext";
@@ -156,24 +156,18 @@ export default function SchemaMapPage(): React.JSX.Element | null {
                         </select>
                     </div>
                     <div className="col-auto">
-                        <OverlayTrigger
-                            trigger="click"
-                            rootClose
-                            placement="bottom-end"
-                            overlay={
-                                <Popover id="schemaMapHelpPopover">
-                                    <Popover.Header as="h3">{MapMessage.Help.niceToString()}</Popover.Header>
-                                    <Popover.Body>
-                                        <div>{MapMessage.HelpClick.niceToString()}</div>
-                                        <div className="mt-1">{MapMessage.HelpShiftClick.niceToString()}</div>
-                                        <div className="mt-1">{MapMessage.HelpCtrlClick.niceToString()}</div>
-                                    </Popover.Body>
-                                </Popover>
-                            }>
-                            <LinkButton title={MapMessage.Help.niceToString()} id="sfMapHelp" className="me-2">
-                                <FontAwesomeIcon aria-hidden={true} icon="circle-question" />
-                            </LinkButton>
-                        </OverlayTrigger>
+                        <Popover>
+                            <PopoverTrigger asChild nativeButton={false}>
+                                <LinkButton title={MapMessage.Help.niceToString()} id="sfMapHelp" className="me-2">
+                                    <FontAwesomeIcon aria-hidden={true} icon="circle-question" />
+                                </LinkButton>
+                            </PopoverTrigger>
+                            <PopoverContent id="schemaMapHelpPopover" side="bottom" align="end" title={MapMessage.Help.niceToString()}>
+                                <div>{MapMessage.HelpClick.niceToString()}</div>
+                                <div className="mt-1">{MapMessage.HelpShiftClick.niceToString()}</div>
+                                <div className="mt-1">{MapMessage.HelpCtrlClick.niceToString()}</div>
+                            </PopoverContent>
+                        </Popover>
                         <LinkButton title={FrameMessage.Fullscreen.niceToString()} id="sfFullScreen" className="sf-popup-fullscreen" onClick={handleFullscreenClick}>
                             <FontAwesomeIcon aria-hidden={true} icon="up-right-from-square" />
                         </LinkButton>
@@ -283,7 +277,7 @@ export function SchemaMapRenderer(p: SchemaMapRendererProps): React.JSX.Element 
     }
 
     return (
-        <div id="map" style={{ backgroundColor: "var(--bs-transparent)", width: "100%", height: p.height + "px" }}>
+        <div id="map" style={{ backgroundColor: "transparent", width: "100%", height: p.height + "px" }}>
             <svg id="svgMap" ref={svgRef}>
                 <defs>
                     <marker id="normal_arrow" viewBox="0 -5 10 10" refX="10" refY="0" markerWidth="10" markerHeight="10" orient="auto">

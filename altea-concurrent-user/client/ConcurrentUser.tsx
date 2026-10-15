@@ -1,5 +1,5 @@
 import * as React from "react";
-import { OverlayTrigger, Popover } from "react-bootstrap";
+import { Popover, PopoverContent, PopoverTrigger } from "@altea/altea/client/ui/Tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
@@ -120,65 +120,58 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
     const isStale = entityTicks.rowVersion !== String(p.entity.rowVersion);
 
     return (
-        <OverlayTrigger
-            trigger="click"
-            onToggle={() => forceUpdate()}
-            placement="bottom-end"
-            overlay={
-                <Popover>
-                    <Popover.Header as="h3">{ConcurrentUserMessage.ConcurrentUsers.niceToString()}</Popover.Header>
-                    <Popover.Body>
+        <Popover onOpenChange={() => forceUpdate()}>
+            <PopoverTrigger asChild>
+                <div className={classes("sf-pointer", isModified.current ? "blinking" : undefined)}
+                    title={window.__disableWebSockets ?? undefined}>
+                    <FontAwesomeIcon icon={otherUsers.length === 1 ? "user" : otherUsers.length === 2 ? "user-group" : "users"}
+                        color={isStale ? "#E4032E" : otherUsers.some(u => u.isModified) ? "#FFAA44" : "#6BB700"} />
+                    <strong className="ms-1 me-4" style={{ userSelect: "none" }}>
+                        {otherUsers.length} {otherUsers.length === 1 ? UserEntity.niceName() : UserEntity.nicePluralName()}
+                    </strong>
+                </div>
+            </PopoverTrigger>
+            <PopoverContent side="bottom" align="end" title={ConcurrentUserMessage.ConcurrentUsers.niceToString()}>
+                {otherUsers.map((a, i) =>
+                    <div key={i} className="flex items-center">
+                        <SmallProfilePhoto user={a.user} className="me-2" decorative /> {a.user.toString()}
+                        <small className="ms-1 text-muted-foreground">({toRelative(a.startTime)})</small>
+                        {a.isModified && <FontAwesomeIcon role="img" icon="pen-to-square" color="#FFAA44"
+                            title={ConcurrentUserMessage.CurrentlyEditing.niceToString()} style={{ marginLeft: "10px" }} />}
+                    </div>)}
 
-                        {otherUsers.map((a, i) =>
-                            <div key={i} className="flex items-center">
-                                <SmallProfilePhoto user={a.user} className="me-2" decorative /> {a.user.toString()}
-                                <small className="ms-1 text-muted-foreground">({toRelative(a.startTime)})</small>
-                                {a.isModified && <FontAwesomeIcon role="img" icon="pen-to-square" color="#FFAA44"
-                                    title={ConcurrentUserMessage.CurrentlyEditing.niceToString()} style={{ marginLeft: "10px" }} />}
-                            </div>)}
-
-                        {isModified.current
-                            ? (isStale
-                                ? <div className="mt-4">
-                                    <small>
-                                        {ConcurrentUserMessage.YouHaveLocalChangesBut0HasAlreadyBeenSavedInTheDatabaseYouWillNotBeAbleToSaveChanges
-                                            .niceToString().formatHtml(<strong>{p.entity.toString()}</strong>)}
-                                        {ConcurrentUserMessage.ConsiderOpening0InANewTabAndApplyYourChangesManually
-                                            .niceToString().formatHtml(<a href={Navigator.navigateRoute(p.entity)} target="_blank" rel="noreferrer">{p.entity.toString()}</a>)}
-                                    </small>
-                                </div>
-                                : otherUsers.some(u => u.isModified)
-                                    ? <div className="mt-4">
-                                        <small>{ConcurrentUserMessage.LooksLikeYouAreNotTheOnlyOneCurrentlyModifiying0OnlyTheFirstOneWillBeAbleToSaveChanges
-                                            .niceToString().formatHtml(<strong>{p.entity.toString()}</strong>)}</small>
-                                    </div>
-                                    : <div className="mt-4">
-                                        <small>{ConcurrentUserMessage.YouHaveLocalChangesIn0ThatIsCurrentlyOpenByOtherUsersSoFarNoOneElseHasMadeModifications
-                                            .niceToString().formatHtml(<strong>{p.entity.toString()}</strong>)}</small>
-                                    </div>)
-                            : isStale
-                                ? <div className="mt-4">
-                                    <small>
-                                        {ConcurrentUserMessage.ThisIsNotTheLatestVersionOf0.niceToString().formatHtml(<strong>{p.entity.toString()}</strong>)}
-                                        <button type="button" className="btn btn-primary btn-sm" onClick={p.onReload}>
-                                            {ConcurrentUserMessage.ReloadIt.niceToString()}
-                                        </button>
-                                    </small>
-                                </div>
-                                : null
-                        }
-                    </Popover.Body>
-                </Popover>
-            }>
-            <div className={classes("sf-pointer", isModified.current ? "blinking" : undefined)}
-                title={window.__disableWebSockets ?? undefined}>
-                <FontAwesomeIcon icon={otherUsers.length === 1 ? "user" : otherUsers.length === 2 ? "user-group" : "users"}
-                    color={isStale ? "#E4032E" : otherUsers.some(u => u.isModified) ? "#FFAA44" : "#6BB700"} />
-                <strong className="ms-1 me-4" style={{ userSelect: "none" }}>
-                    {otherUsers.length} {otherUsers.length === 1 ? UserEntity.niceName() : UserEntity.nicePluralName()}
-                </strong>
-            </div>
-        </OverlayTrigger>
+                {isModified.current
+                    ? (isStale
+                        ? <div className="mt-4">
+                            <small>
+                                {ConcurrentUserMessage.YouHaveLocalChangesBut0HasAlreadyBeenSavedInTheDatabaseYouWillNotBeAbleToSaveChanges
+                                    .niceToString().formatHtml(<strong>{p.entity.toString()}</strong>)}
+                                {ConcurrentUserMessage.ConsiderOpening0InANewTabAndApplyYourChangesManually
+                                    .niceToString().formatHtml(<a href={Navigator.navigateRoute(p.entity)} target="_blank" rel="noreferrer">{p.entity.toString()}</a>)}
+                            </small>
+                        </div>
+                        : otherUsers.some(u => u.isModified)
+                            ? <div className="mt-4">
+                                <small>{ConcurrentUserMessage.LooksLikeYouAreNotTheOnlyOneCurrentlyModifiying0OnlyTheFirstOneWillBeAbleToSaveChanges
+                                    .niceToString().formatHtml(<strong>{p.entity.toString()}</strong>)}</small>
+                            </div>
+                            : <div className="mt-4">
+                                <small>{ConcurrentUserMessage.YouHaveLocalChangesIn0ThatIsCurrentlyOpenByOtherUsersSoFarNoOneElseHasMadeModifications
+                                    .niceToString().formatHtml(<strong>{p.entity.toString()}</strong>)}</small>
+                            </div>)
+                    : isStale
+                        ? <div className="mt-4">
+                            <small>
+                                {ConcurrentUserMessage.ThisIsNotTheLatestVersionOf0.niceToString().formatHtml(<strong>{p.entity.toString()}</strong>)}
+                                <button type="button" className="btn btn-primary btn-sm" onClick={p.onReload}>
+                                    {ConcurrentUserMessage.ReloadIt.niceToString()}
+                                </button>
+                            </small>
+                        </div>
+                        : null
+                }
+            </PopoverContent>
+        </Popover>
     );
 }
 

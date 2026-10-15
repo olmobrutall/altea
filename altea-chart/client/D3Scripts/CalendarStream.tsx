@@ -248,7 +248,7 @@ export function CalendarYear({ year, rules, rowByDate, width, height, onDrillDow
               <g className="hover-group" key={d.toISOString()}>
                 <rect
                   className="sf-transition hover-target"
-                  stroke={active == true ? "var(--bs-body-color)" : "#ccc"}
+                  stroke={active == true ? "var(--foreground)" : "#ccc"}
                   fill={"transparent"}
                   width={cellSize}
                   height={cellSize}
@@ -264,7 +264,7 @@ export function CalendarYear({ year, rules, rowByDate, width, height, onDrillDow
                 <rect
                   className="sf-transition hover-target"
                   opacity={active == false ? .5 : undefined}
-                  stroke={active == true ? "var(--bs-body-color)" : "#ccc"}
+                  stroke={active == true ? "var(--foreground)" : "#ccc"}
                   strokeWidth={active == true ? 2 : undefined}
                   fill={initialLoad ? "transparent" : color(r)}
                   width={cellSize}

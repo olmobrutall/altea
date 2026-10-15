@@ -192,8 +192,8 @@ export default function renderPunchcard({ data, width, height, parameters, loadi
       className:"punch sf-transition hover-target",
       shapeRendering: "initial",
       fillOpacity: fillOpacity(r),
-      fill: color == null ? (parameters["FillColor"] ?? 'var(--bs-body-color)') : color(colorColumn!.getValue(r)),
-      stroke: detector?.(r) == true ? "var(--bs-body-color)" :  parameters["StrokeColor"] ?? (color == null ? 'var(--bs-body-color)' : color(colorColumn!.getValue(r))),
+      fill: color == null ? (parameters["FillColor"] ?? 'var(--foreground)') : color(colorColumn!.getValue(r)),
+      stroke: detector?.(r) == true ? "var(--foreground)" :  parameters["StrokeColor"] ?? (color == null ? 'var(--foreground)' : color(colorColumn!.getValue(r))),
       strokeWidth: parameters["StrokeWidth"],
       strokeOpacity: (opacity != null ? opacity(opacityColumn!.getValue(r)) : 1)
     }));
@@ -213,7 +213,7 @@ export default function renderPunchcard({ data, width, height, parameters, loadi
         className: "punch-inner sf-transition",
         shapeRendering: "initial",
         fillOpacity: fillOpacity(r),
-        fill: parameters["InnerFillColor"] ?? 'var(--bs-body-color)'
+        fill: parameters["InnerFillColor"] ?? 'var(--foreground)'
       })
     );
 

@@ -1,8 +1,8 @@
 /* Port of Signum.Help's Help.css, verbatim. */
 
 .import-preview .row-selected {
-  --bs-table-bg: var(--bs-primary-bg-subtle);
-  --bs-table-color: var(--bs-body-color);
+  --bs-table-bg: var(--primary-subtle);
+  --bs-table-color: var(--foreground);
 }
 
 .import-preview .no-change {
@@ -19,20 +19,20 @@ ul.responsive-columns > li {
 }
 
 .sf-edit-container:hover .sf-edit-button {
-  color: var(--bs-secondary-text);
+  color: var(--muted-foreground);
 }
 
 .sf-edit-button {
-  color: var(--bs-body-color);
+  color: var(--foreground);
   font-size: 16px;
 }
 
 .sf-edit-button:hover {
-  color: var(--bs-secondary-text) !important;
+  color: var(--muted-foreground) !important;
 }
 
 .sf-edit-button.active {
-  color: var(--bs-secondary-text) !important;
+  color: var(--muted-foreground) !important;
 }
 
 .sf-edit-button.block {
@@ -70,7 +70,7 @@ ul.responsive-columns > li {
 
 @keyframes target-fade {
   from {
-    background-color: var(--bs-danger);
+    background-color: var(--destructive);
   }
 
   to {

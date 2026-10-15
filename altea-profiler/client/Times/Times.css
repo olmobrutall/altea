@@ -1,5 +1,5 @@
 .st-tt-entry {
-    border-bottom: 1px solid var(--bs-border-color);
+    border-bottom: 1px solid var(--border);
     list-style: none;
 }
 
@@ -8,7 +8,7 @@
 }
 
 .st-tt-entry .numTimes {
-    color: var(--bs-secondary);
+    color: var(--secondary);
 }
 
 .st-tt-entry .max,
@@ -24,27 +24,27 @@
 }
 
 .st-tt-entry .max {
-    background: var(--bs-danger);
+    background: var(--destructive);
 }
 
 .st-tt-entry .med {
-    background: var(--bs-warning);
+    background: var(--warning);
 }
 
 .st-tt-entry .min {
-    background: var(--bs-warning-subtle);
+    background: var(--warning-subtle);
 }
 
 .st-tt-entry .last {
-    background: var(--bs-info);
+    background: var(--info);
 }
 
 .st-tt-entry .sum {
-    background: var(--bs-info-subtle);
+    background: var(--info-subtle);
 }
 
 .leftBorder {
-    border-left: 1px solid var(--bs-border-color);
+    border-left: 1px solid var(--border);
 }
 
 #st-tt-entrys {
@@ -57,7 +57,7 @@
 
 
 .sf-tt-entityName {
-    color: var(--bs-secondary);
+    color: var(--secondary);
     font-weight: bold;
 }
 

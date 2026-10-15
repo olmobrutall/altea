@@ -1,6 +1,7 @@
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Modal, Dropdown, DropdownButton } from "react-bootstrap";
+import { Modal } from "@altea/altea/client/ui/Modal";
+import { DropdownButton, DropdownItem } from "@altea/altea/client/ui/Dropdown";
 import { classes, Dic } from "@altea/altea/data/globals";
 import { Finder } from "@altea/altea/client/Finder";
 import type { Binding } from "@altea/altea/client/binding";
@@ -391,8 +392,8 @@ export function PropsHelp(p: { node: DesignerNode<BaseNode> }): React.JSX.Elemen
     return (
         <DropdownButton id="props_help_dropdown" variant="success" size={"sm"} title={DynamicViewMessage.PropsHelp.niceToString()}>
             {Dic.map(p.node.context.propTypes, (name, typeName) =>
-                <Dropdown.Item style={{ paddingTop: "0", paddingBottom: "0" }} key={name}
-                    onClick={() => handlePropsClick(name)}>{name}: {typeName}</Dropdown.Item>)}
+                <DropdownItem style={{ paddingTop: "0", paddingBottom: "0" }} key={name}
+                    onClick={() => handlePropsClick(name)}>{name}: {typeName}</DropdownItem>)}
         </DropdownButton>
     );
 }

@@ -39,14 +39,14 @@
     max-width: 16rem;
 
     padding: .375rem .625rem;
-    border: 1px solid color-mix(in srgb, var(--bs-border-color) 50%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
     border-radius: .5rem;
-    background: var(--bs-body-bg);
+    background: var(--background);
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, .1), 0 8px 10px -6px rgba(0, 0, 0, .1);
 
     font-size: .75rem;
     line-height: 1rem;
-    color: var(--bs-body-color);
+    color: var(--foreground);
     text-align: start;
     /* The card is an overlay on an SVG, which does not inherit the page's text rendering. */
     white-space: nowrap;
@@ -115,14 +115,14 @@
 }
 
 .sf-chart-tooltip-label {
-    color: var(--bs-secondary-color);
+    color: var(--muted-foreground);
 }
 
 /* Pushed to the right edge of the row, so a column of values lines up under itself. */
 .sf-chart-tooltip-value {
     margin-left: auto;
-    font-family: var(--bs-font-monospace);
+    font-family: var(--font-mono, monospace);
     font-weight: 500;
     font-variant-numeric: tabular-nums;
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }

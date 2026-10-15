@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Modal, ProgressBar } from "react-bootstrap";
+import { Modal } from "@altea/altea/client/ui/Modal";
+import { Progress } from "@altea/altea/client/ui/Progress";
 import { openModal, type IModalProps } from "@altea/altea/client/Modals";
 import type { Operations } from "@altea/altea/client/Operations";
 import { jsonObjectStream } from "@altea/altea/client/Operations/jsonObjectStream";
@@ -70,8 +71,8 @@ export function MultiMessageProgressModal(p: MultiMessageProgressModalProps): Re
             <div className="sf-modal-body">
                 <p><strong>{p.messages.length}</strong> {RemoteEmailMessageMessage.Messages.niceToString()}</p>
                 {messageResultRef.current.length === 0 && oldRequestStarted
-                    ? <ProgressBar now={100} variant="info" animated striped key={1} />
-                    : <ProgressBar min={0} max={p.messages.length} now={messageResultRef.current.length}
+                    ? <Progress value={100} variant="info" animated striped key={1} />
+                    : <Progress min={0} max={p.messages.length} value={messageResultRef.current.length}
                         label={`[${messageResultRef.current.length}/${p.messages.length}]`} key={2} />}
                 {errors.length > 0 &&
                     <p className="text-destructive">

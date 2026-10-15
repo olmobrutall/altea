@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Tabs, Tab } from "react-bootstrap";
+import { Tabs, Tab } from "@altea/altea/client/ui/Tabs";
 import { EntityDetail } from "@altea/altea/client/Lines/EntityDetail";
 import { resolveType } from "@altea/altea/data/registration";
 import { TemplateApplicableEval } from "@altea/altea-templating/data/Templating";

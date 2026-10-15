@@ -136,7 +136,7 @@ export default function renderStackedColumns({ data, width, height, parameters, 
               <rect className="shape sf-transition hover-target"
                 transform={translate(x(keyColumn.getKey(r.data.rowValue))! + bandMargin, -y(r[1])!) + (initialLoad ? scale(1, 0) : scale(1, 1))}
                 opacity={active == false ? .5 : undefined}
-                stroke="var(--bs-body-bg)"
+                stroke="var(--background)"
                 strokeWidth={1}
                 fill={colorByKey[s.key] ?? color(s.key)}
                 width={x.bandwidth() - bandMargin * 2}
@@ -197,7 +197,7 @@ export default function renderStackedColumns({ data, width, height, parameters, 
                   fontWeight={active == true ? "bold" : undefined}
                   transform={translate(x(key)! + x.bandwidth() / 2, 0) + rotate(-90)}
                   dominantBaseline="middle"
-                  fill="var(--bs-body-color)"
+                  fill="var(--foreground)"
                   shapeRendering="geometricPrecision"
                   textAnchor="end">
                   {keyColumn.getNiceName(k)}

@@ -121,6 +121,27 @@
     --color-ring: var(--ring);
     --color-link: var(--link);
     --color-link-hover: var(--link-hover);
+    --color-primary-subtle: var(--primary-subtle);
+    --color-primary-subtle-foreground: var(--primary-subtle-foreground);
+    --color-primary-subtle-border: var(--primary-subtle-border);
+    --color-secondary-subtle: var(--secondary-subtle);
+    --color-secondary-subtle-foreground: var(--secondary-subtle-foreground);
+    --color-secondary-subtle-border: var(--secondary-subtle-border);
+    --color-success-subtle: var(--success-subtle);
+    --color-success-subtle-foreground: var(--success-subtle-foreground);
+    --color-success-subtle-border: var(--success-subtle-border);
+    --color-destructive-subtle: var(--destructive-subtle);
+    --color-destructive-subtle-foreground: var(--destructive-subtle-foreground);
+    --color-destructive-subtle-border: var(--destructive-subtle-border);
+    --color-warning-subtle: var(--warning-subtle);
+    --color-warning-subtle-foreground: var(--warning-subtle-foreground);
+    --color-warning-subtle-border: var(--warning-subtle-border);
+    --color-info-subtle: var(--info-subtle);
+    --color-info-subtle-foreground: var(--info-subtle-foreground);
+    --color-info-subtle-border: var(--info-subtle-border);
+    --color-emphasis: var(--emphasis);
+    --color-faint-foreground: var(--faint-foreground);
+    --color-border-translucent: var(--border-translucent);
 }
 
 /* The default palette: Bootstrap 5.3's own colours, so nothing changes until a palette is picked.
@@ -160,6 +181,29 @@
     --ring: rgb(13 110 253 / .25);
     --link: #0d6efd;
     --link-hover: #0a58ca;
+    /* A tinted surface for a colour (an alert, a highlighted row), its text, and its border. */
+    --primary-subtle: #cfe2ff;
+    --primary-subtle-foreground: #052c65;
+    --primary-subtle-border: #9ec5fe;
+    --secondary-subtle: #e2e3e5;
+    --secondary-subtle-foreground: #2b2f32;
+    --secondary-subtle-border: #c4c8cb;
+    --success-subtle: #d1e7dd;
+    --success-subtle-foreground: #0a3622;
+    --success-subtle-border: #a3cfbb;
+    --destructive-subtle: #f8d7da;
+    --destructive-subtle-foreground: #58151c;
+    --destructive-subtle-border: #f1aeb5;
+    --warning-subtle: #fff3cd;
+    --warning-subtle-foreground: #664d03;
+    --warning-subtle-border: #ffe69c;
+    --info-subtle: #cff4fc;
+    --info-subtle-foreground: #055160;
+    --info-subtle-border: #9eeaf9;
+    /* Text stronger than the foreground; text fainter than muted; a border that works on any surface. */
+    --emphasis: #000;
+    --faint-foreground: rgb(33 37 41 / .5);
+    --border-translucent: rgb(0 0 0 / .175);
 }
 
 [data-theme=dark] {
@@ -182,6 +226,27 @@
     --input: #495057;
     --link: #6ea8fe;
     --link-hover: #8bb9fe;
+    --primary-subtle: #031633;
+    --primary-subtle-foreground: #6ea8fe;
+    --primary-subtle-border: #084298;
+    --secondary-subtle: #161719;
+    --secondary-subtle-foreground: #a7acb1;
+    --secondary-subtle-border: #41464b;
+    --success-subtle: #051b11;
+    --success-subtle-foreground: #75b798;
+    --success-subtle-border: #0f5132;
+    --destructive-subtle: #2c0b0e;
+    --destructive-subtle-foreground: #ea868f;
+    --destructive-subtle-border: #842029;
+    --warning-subtle: #332701;
+    --warning-subtle-foreground: #ffda6a;
+    --warning-subtle-border: #997404;
+    --info-subtle: #032830;
+    --info-subtle-foreground: #6edff6;
+    --info-subtle-border: #087990;
+    --emphasis: #fff;
+    --faint-foreground: rgb(222 226 230 / .5);
+    --border-translucent: rgb(255 255 255 / .15);
 }
 
 @layer legacy {

@@ -75,7 +75,7 @@ export function TourButton(p: { trigger: PseudoType | Symbol | Lite<Entity>; cla
             <LinkButton className={classes("sf-pointer nav-link", p.className)} onClick={handleClickOrEdit} title={title}>
                 <span className={classes("fa-layers fa-fw icon", !hasViewed && "fa-beat")}>
                     <FontAwesomeIcon aria-hidden={true} icon={faBiking} transform="flip-h" />
-                    {canEdit && <FontAwesomeIcon aria-hidden={true} icon={["fas", "circle-arrow-right"]} transform="shrink-7 down-4 left-6" color="var(--bs-info)" />}
+                    {canEdit && <FontAwesomeIcon aria-hidden={true} icon={["fas", "circle-arrow-right"]} transform="shrink-7 down-4 left-6" color="var(--info)" />}
                 </span>
             </LinkButton>
             {tourRunId > 0 && <TourComponent key={tourRunId} tour={tour} autoStart={true} />}
@@ -100,8 +100,8 @@ function CreateTourButton(p: { trigger: PseudoType | Symbol | Lite<Entity>; clas
             onClick={() => void handleCreate()}
             title={TourMessage.CreateTour.niceToString()}>
             <span className="fa-layers fa-fw icon">
-                <FontAwesomeIcon aria-hidden={true} icon={faBiking} transform="flip-h" color="var(--bs-secondary)" />
-                <FontAwesomeIcon aria-hidden={true} icon={["fas", "circle-plus"]} transform="shrink-7 down-4 left-6" color="var(--bs-success)" />
+                <FontAwesomeIcon aria-hidden={true} icon={faBiking} transform="flip-h" color="var(--secondary)" />
+                <FontAwesomeIcon aria-hidden={true} icon={["fas", "circle-plus"]} transform="shrink-7 down-4 left-6" color="var(--success)" />
             </span>
         </LinkButton>
     );

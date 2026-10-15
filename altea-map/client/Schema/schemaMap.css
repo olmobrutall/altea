@@ -34,7 +34,7 @@ path.link {
 text.node {
     text-anchor: middle;
     cursor: default;
-    fill: var(--bs-body-color);
+    fill: var(--foreground);
 }
 
 text.node.Entity {

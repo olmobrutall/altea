@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Tab, Tabs } from "react-bootstrap";
+import { Tab, Tabs } from "@altea/altea/client/ui/Tabs";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { CheckboxLine } from "@altea/altea/client/Lines/CheckboxLine";

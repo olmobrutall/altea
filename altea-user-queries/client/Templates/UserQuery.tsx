@@ -216,8 +216,8 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
                 onChange={() => forceUpdate()}
                 getComponent={hcctx =>
                     <div>
-                        <HealthCondition ctx={hcctx.subCtx(a => a.failWhen)} color="var(--bs-danger-bg-subtle)" queryNiceName={getQueryNiceName(query.key)} />
-                        <HealthCondition ctx={hcctx.subCtx(a => a.degradedWhen)} color="var(--bs-warning-bg-subtle)" queryNiceName={getQueryNiceName(query.key)} />
+                        <HealthCondition ctx={hcctx.subCtx(a => a.failWhen)} color="var(--destructive-subtle)" queryNiceName={getQueryNiceName(query.key)} />
+                        <HealthCondition ctx={hcctx.subCtx(a => a.degradedWhen)} color="var(--warning-subtle)" queryNiceName={getQueryNiceName(query.key)} />
                     </div>} />
         </div>
     );

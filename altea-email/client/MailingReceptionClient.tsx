@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Tab } from "react-bootstrap";
+import { Tab } from "@altea/altea/client/ui/Tabs";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";

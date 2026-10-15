@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Button } from "react-bootstrap";
+import { BootstrapButton } from "@altea/altea/client/Operations/EntityOperations";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EnumCheckboxList } from "@altea/altea/client/Lines/EnumCheckboxList";
 import CollapsableCard from "@altea/altea/client/Components/CollapsableCard";
@@ -59,9 +59,9 @@ export default class InboxFilter extends React.Component<{ ctx: TypeContext<Inbo
                                 <AutoLine ctx={ctx4.subCtx(o => o.toDate)} />
                             </div>
                             <div className="col-sm-1">
-                                <Button variant="warning" className="btn" onClick={this.handleOnClearFiltersClick}>
+                                <BootstrapButton variant="warning" onClick={this.handleOnClearFiltersClick}>
                                     {InboxMessage.Clear.niceToString()}
-                                </Button>
+                                </BootstrapButton>
                             </div>
                         </div>
                     </div>

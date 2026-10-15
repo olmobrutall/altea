@@ -114,7 +114,7 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               width={nodeWidth(d)}
               height={nodeHeight(d)}
               fill={parentColumn!.getColor(d.data.folder) ?? folderColor!(d.data.folder)}
-              stroke={active == true ? "var(--bs-body-color)" : "var(--bs-body-bg)"}
+              stroke={active == true ? "var(--foreground)" : "var(--background)"}
               strokeWidth={active == true ? 3 : 1}
               onClick={e => onDrillDown({ c2: (d.data as Folder).folder }, e)}
               cursor="pointer"
@@ -134,7 +134,7 @@ export default function renderTreeMap({ data, width, height, parameters, loading
               width={nodeWidth(d)}
               height={nodeHeight(d)}
               fill={color(d.data)!}
-              stroke={active == true ? "var(--bs-body-color)" : "var(--bs-body-bg)"}
+              stroke={active == true ? "var(--foreground)" : "var(--background)"}
               strokeWidth={active == true ? 3 : 1}
               onClick={e => onDrillDown(d.data as ChartRow, e)}
               cursor="pointer"

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Link, useLocation, useParams } from "react-router";
-import { OverlayTrigger, Popover } from "react-bootstrap";
+import { Popover, PopoverContent, PopoverTrigger } from "@altea/altea/client/ui/Tooltip";
 import { Lite } from "@altea/altea/data/lite";
 import type { Entity } from "@altea/altea/data/entity";
 import { EntityControlMessage, JavascriptMessage } from "@altea/altea/data/uiMessages";
@@ -122,24 +122,21 @@ export default function DashboardPage(): React.JSX.Element {
 }
 
 export function HelpIcon(): React.JSX.Element {
-    const popover = (
-        <Popover id="popover-basic" style={{ "--bs-popover-max-width": "unset" } as React.CSSProperties}>
-            <Popover.Header as="h3">{DashboardMessage.InteractiveDashboard.niceToString()}</Popover.Header>
-            <Popover.Body>
+    return (
+        <Popover>
+            <PopoverTrigger asChild nativeButton={false} openOnHover delay={0}>
+                <LinkButton className="mx-2" title={undefined}>
+                    <FontAwesomeIcon icon="gamepad" className="me-1" />{DashboardMessage.InteractiveDashboard.niceToString()}
+                </LinkButton>
+            </PopoverTrigger>
+            <PopoverContent id="popover-basic" side="bottom" align="start" autoFocus={false} className="max-w-none"
+                title={DashboardMessage.InteractiveDashboard.niceToString()}>
                 <ul className="ps-4">
                     <li style={{ whiteSpace: "nowrap" }}>{DashboardMessage.CLickInOneChartToFilterInTheOthers.niceToString()}</li>
                     <li style={{ whiteSpace: "nowrap" }}>{DashboardMessage.CtrlClickToFilterByMultipleElements.niceToString()}</li>
                     <li style={{ whiteSpace: "nowrap" }}>{DashboardMessage.AltClickToOpenResultsInAModalWindow.niceToString()}</li>
                 </ul>
-            </Popover.Body>
+            </PopoverContent>
         </Popover>
-    );
-
-    return (
-        <OverlayTrigger trigger={["hover", "focus"]} placement="bottom-start" overlay={popover}>
-            <LinkButton className="mx-2" title={undefined}>
-                <FontAwesomeIcon icon="gamepad" className="me-1" />{DashboardMessage.InteractiveDashboard.niceToString()}
-            </LinkButton>
-        </OverlayTrigger>
     );
 }

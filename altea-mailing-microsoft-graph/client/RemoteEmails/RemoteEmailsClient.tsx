@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Dropdown } from "react-bootstrap";
+import { DropdownItem } from "@altea/altea/client/ui/Dropdown";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
 import { Navigator } from "@altea/altea/client/Navigator";
@@ -276,7 +276,7 @@ export namespace RemoteEmailsClient {
         return {
             header: RemoteEmailMessageMessage.Messages.niceToString(),
             menuItems: [
-                <Dropdown.Item key="move" onClick={async () => {
+                <DropdownItem key="move" onClick={async () => {
                     const folder = await selectFolder(userId);
                     if (folder == null)
                         return;
@@ -285,9 +285,9 @@ export namespace RemoteEmailsClient {
                 }}>
                     <FontAwesomeIcon aria-hidden={true} icon="folder-tree" className="icon" color="blue" />
                     {RemoteEmailMessageMessage.Move.niceToString()}
-                </Dropdown.Item>,
+                </DropdownItem>,
 
-                <Dropdown.Item key="addCategory" onClick={async () => {
+                <DropdownItem key="addCategory" onClick={async () => {
                     const categories = await API.getRemoteCategories(userId);
                     const category = await SelectorModal.chooseElement(categories,
                         { title: RemoteEmailMessageMessage.AddCategory.niceToString() });
@@ -300,9 +300,9 @@ export namespace RemoteEmailsClient {
                 }}>
                     <FontAwesomeIcon aria-hidden={true} icon="tag" className="icon" color="green" />
                     {RemoteEmailMessageMessage.AddCategory.niceToString()}
-                </Dropdown.Item>,
+                </DropdownItem>,
 
-                <Dropdown.Item key="removeCategory" onClick={async () => {
+                <DropdownItem key="removeCategory" onClick={async () => {
                     const categories = await API.getRemoteCategories(userId);
                     const category = await SelectorModal.chooseElement(categories,
                         { title: RemoteEmailMessageMessage.RemoveCategory.niceToString() });
@@ -315,9 +315,9 @@ export namespace RemoteEmailsClient {
                 }}>
                     <FontAwesomeIcon aria-hidden={true} icon="tag" className="icon" color="orange" />
                     {RemoteEmailMessageMessage.RemoveCategory.niceToString()}
-                </Dropdown.Item>,
+                </DropdownItem>,
 
-                <Dropdown.Item key="delete" onClick={async () => {
+                <DropdownItem key="delete" onClick={async () => {
                     if (!await confirmDelete(messageIds.length))
                         return;
 
@@ -325,7 +325,7 @@ export namespace RemoteEmailsClient {
                 }}>
                     <FontAwesomeIcon aria-hidden={true} icon="trash" className="icon" color="red" />
                     {RemoteEmailMessageMessage.Delete.niceToString()}
-                </Dropdown.Item>,
+                </DropdownItem>,
             ],
         };
     }

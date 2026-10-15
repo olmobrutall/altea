@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Tabs, Tab } from "react-bootstrap";
+import { Tabs, Tab } from "@altea/altea/client/ui/Tabs";
 import "@altea/altea/client/EntityTypeApi"; // installs Type.findOptions / token
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";

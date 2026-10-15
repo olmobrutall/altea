@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Tab, Tabs } from 'react-bootstrap'
+import { Tab, Tabs } from '@altea/altea/client/ui/Tabs'
 import { useAPIWithReload } from '@altea/altea/client/Hooks'
 import { CacheMessage } from '../data/CacheMessage'
 import type { CacheState, CacheTable } from '../data/CacheState'
@@ -24,15 +24,15 @@ export default function CacheStatisticsPage(): React.JSX.Element {
             <div className="btn-toolbar gap-2">
                 {state.isEnabled
                     ? <button type="button" onClick={() => void CacheClient.API.disable().then(() => reloadState())}
-                        className="sf-button btn btn-tertiary" style={{ color: "var(--bs-danger)" }}>
+                        className="sf-button btn btn-tertiary" style={{ color: "var(--destructive)" }}>
                         {CacheMessage.Disable.niceToString()}
                     </button>
                     : <button type="button" onClick={() => void CacheClient.API.enable().then(() => reloadState())}
-                        className="sf-button btn btn-tertiary" style={{ color: "var(--bs-success)" }}>
+                        className="sf-button btn btn-tertiary" style={{ color: "var(--success)" }}>
                         {CacheMessage.Enable.niceToString()}
                     </button>}
                 <button type="button" onClick={() => void CacheClient.API.clear().then(() => reloadState())}
-                    className="sf-button btn btn-tertiary" style={{ color: "var(--bs-primary)" }}>
+                    className="sf-button btn btn-tertiary" style={{ color: "var(--primary)" }}>
                     {CacheMessage.Clear.niceToString()}
                 </button>
             </div>

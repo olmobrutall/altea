@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Dropdown, DropdownButton } from "react-bootstrap";
+import { DropdownButton, DropdownItem } from "@altea/altea/client/ui/Dropdown";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
 import { FormGroup } from "@altea/altea/client/Lines/FormGroup";
 import { TypeContext, type EntityFrame } from "@altea/altea/client/TypeContext";
@@ -147,7 +147,7 @@ export default function DynamicViewOverrideComponent(p: DynamicViewOverrideCompo
         return (
             <DropdownButton variant="success" title="View Names" id="view_dropdown">
                 {viewNames!.map((vn, i) =>
-                    <Dropdown.Item key={i} onClick={() => handleViewNameClick(vn)}>{vn}</Dropdown.Item>)}
+                    <DropdownItem key={i} onClick={() => handleViewNameClick(vn)}>{vn}</DropdownItem>)}
             </DropdownButton>
         );
     }

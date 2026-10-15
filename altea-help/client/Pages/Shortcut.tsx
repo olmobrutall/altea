@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Overlay, Tooltip } from "react-bootstrap";
+import { Popover, PopoverAnchor, PopoverContent } from "@altea/altea/client/ui/Tooltip";
 import { useInterval } from "@altea/altea/client/Hooks";
 import { FrameMessage } from "@altea/altea/data/uiMessages";
 import { HelpMessage } from "../../data/Help";
@@ -13,7 +13,6 @@ import { HelpMessage } from "../../data/Help";
 // the no-clipboard case, so the hook order changes with the environment. The check moves below the hooks.
 export function Shortcut(p: { text: string }): React.JSX.Element {
 
-    const linkRef = React.useRef<HTMLElement>(null);
     const [showTooltip, setShowTooltip] = React.useState(false);
     const elapsed = useInterval(showTooltip ? 1000 : null, 0, d => d + 1);
 
@@ -33,12 +32,18 @@ export function Shortcut(p: { text: string }): React.JSX.Element {
 
     return (
         <span>
-            <code className="shortcut" ref={linkRef} onClick={handleCopy} title={HelpMessage.CopyLinkToken.niceToString()}>
-                {p.text}
-            </code>
-            <Overlay target={linkRef.current} show={showTooltip} placement="bottom">
-                <Tooltip>{FrameMessage.Copied.niceToString()}</Tooltip>
-            </Overlay>
+            {/* A popover styled as a tooltip (as core's CopyButton): it is opened by the copy, not by hover. */}
+            <Popover open={showTooltip}>
+                <PopoverAnchor>
+                    <code className="shortcut" onClick={handleCopy} title={HelpMessage.CopyLinkToken.niceToString()}>
+                        {p.text}
+                    </code>
+                </PopoverAnchor>
+                <PopoverContent side="bottom" sideOffset={4} role="status" autoFocus={false}
+                    className="w-auto rounded-md border-0 bg-dark px-2 py-1 text-sm text-dark-foreground shadow-none">
+                    {FrameMessage.Copied.niceToString()}
+                </PopoverContent>
+            </Popover>
         </span>
     );
 }

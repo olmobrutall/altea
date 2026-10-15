@@ -11,17 +11,17 @@
 
 /* The row-condition + / − icons (add / remove condition) — muted gray, like Signum. */
 .sf-condition-icon {
-    color: var(--bs-secondary);
+    color: var(--secondary);
     text-decoration: none;
 }
 .sf-condition-icon:hover {
-    color: var(--bs-secondary-color, var(--bs-secondary));
+    color: var(--muted-foreground, var(--secondary));
     text-decoration: none;
 }
 
 /* A placeholder where a row has no condition + icon (keeps the type name aligned). */
 .sf-placeholder-icon {
-    color: var(--bs-secondary);
+    color: var(--secondary);
     opacity: .4;
 }
 
@@ -37,18 +37,18 @@
 
 /* Master-data types: highlight the Write cell yellow (Signum's .sf-master). */
 .sf-master {
-    background: var(--bs-warning-border-subtle) !important;
+    background: var(--warning-subtle-border) !important;
 }
 
 /* The single-letter entity-data badge (e.g. "M" for Master) next to the type name. */
 .sf-entity-data {
-    color: var(--bs-secondary);
+    color: var(--secondary);
     font-weight: 600;
 }
 
 /* An annotation for a type that owns Part entities (its drill-ins stack owner + parts). */
 .sf-owned-parts {
-    color: var(--bs-info);
+    color: var(--info);
     font-size: smaller;
     white-space: nowrap;
 }
@@ -56,6 +56,6 @@
 /* Package group header row (Signum's namespace group). */
 .sf-auth-rules tr.sf-auth-namespace td {
     padding-top: 14px;
-    border-bottom: 1px solid var(--bs-border-color);
-    color: var(--bs-secondary);
+    border-bottom: 1px solid var(--border);
+    color: var(--secondary);
 }

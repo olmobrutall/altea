@@ -47,7 +47,7 @@ export function YScaleTicks({ xRule, yRule, valueColumn, y, format }:
         {yTicks.map(t => <line key={t} className="y-tick sf-transition"
           transform={translate(0, -y(t)!)}
           x2={xRule.size('ticks')}
-          stroke="var(--bs-body-color)" />)}
+          stroke="var(--foreground)" />)}
       </g>
 
       <g className="y-label-group" transform={translate(xRule.end('labels'), yRule.end('content'))}>
@@ -81,7 +81,7 @@ export function YScaleTicksEnd({ xRule, yRule, valueColumn, y, format }: { xRule
         {yTicks.map(t => <line key={t} className="y-tick sf-transition"
           transform={translate(0, -y(t)!)}
           x2={xRule.size('ticks2')}
-          stroke="var(--bs-body-color)" />)}
+          stroke="var(--foreground)" />)}
       </g>
 
       <g className="y-label-group" transform={translate(xRule.end('labels2'), yRule.end('content'))}>
@@ -122,7 +122,7 @@ export function XScaleTicks({ xRule, yRule, valueColumn, x, format }: { xRule: R
         {xTicks.map(t => <line key={t} className="x-tick-group sf-transition"
           transform={translate(x(t)!, 0)}
           y2={yRule.size('ticks')}
-          stroke="var(--bs-body-color)" />)}
+          stroke="var(--foreground)" />)}
       </g>
 
       <g className="x-label-group" transform={translate(xRule.start('content'), yRule.end('labels'))}>
@@ -170,7 +170,7 @@ export function XKeyTicks({ xRule, yRule, keyValues, keyColumn, x, showLines, on
           opacity={isActive?.(t) == false ? 0.5 : undefined}
           transform={translate(x(keyColumn.getKey(t))!, 0)}
           y2={(keyInOrder.indexOf(t) % 2) * yRule.size('labels') / 2}
-          stroke="var(--bs-body-color)" />)}
+          stroke="var(--foreground)" />)}
       </g>
       {
         (bandwith * 2) > 60 &&
@@ -228,7 +228,7 @@ export function YKeyTicks({ xRule, yRule, keyValues, keyColumn, y, showLabels, s
           opacity={isActive?.(t) == false ? 0.5 : undefined}
           transform={translate(0, -y(keyColumn.getKey(t))!)}
           x2={xRule.size('ticks')}
-          stroke="var(--bs-body-color)" />)}
+          stroke="var(--foreground)" />)}
       </g>
       {showLabels && y.bandwidth() > 15 &&
         <g className="y-label" transform={translate(xRule.end('labels'), yRule.end('content') - (y.bandwidth() / 2))}>

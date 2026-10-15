@@ -33,7 +33,7 @@ export function FullscreenComponent(p: FullscreenComponentProps): React.ReactEle
     <div className="sf-fullscreen-component" style={!isFullScreen ? { display: "flex", flex: 1 } : ({
       display: "flex",
       position: "fixed",
-      background: "var(--bs-body-bg)",
+      background: "var(--background)",
       top: 0,
       left: 0,
       right: 0,

@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Modal, Tab, Tabs } from "react-bootstrap";
+import { Modal } from "@altea/altea/client/ui/Modal";
+import { Tab, Tabs } from "@altea/altea/client/ui/Tabs";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { openModal } from "@altea/altea/client/Modals";
 import type { IModalProps } from "@altea/altea/client/Modals";
@@ -55,7 +56,7 @@ function CaseActivityStatsModal(p: CaseActivityStatsModalProps): React.JSX.Eleme
                                 title={a.doneDate == null
                                     ? CaseActivityMessage.Pending.niceToString()
                                     : <span>{a.doneBy?.toString()} {Enum.niceName(DoneType, a.doneType!)}{" "}
-                                        <mark>({a.doneDate})</mark></span> as never}>
+                                        <mark>({a.doneDate})</mark></span>}>
                                 <CaseActivityStatsComponent stats={a} caseEntity={p.case} />
                             </Tab>)}
                     </Tabs>}

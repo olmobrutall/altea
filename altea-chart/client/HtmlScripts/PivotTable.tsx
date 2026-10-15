@@ -506,10 +506,10 @@ export default function renderPivotTable({ data, width, height, parameters, load
     const link = (p.gor == null || style == null || style.showAggregateValues == false) ? null : <LinkButton title={undefined} onClick={e => handleNumberClick(e)}>{cellFormatter(multiVal ??= sumValue(p.gor))}</LinkButton>;
 
     var color =
-      p.isSummary == 4 ? "rgba(var(--bs-secondary-rgb),0.4)" :
-        p.isSummary == 3 ? "rgba(var(--bs-secondary-rgb),0.3)" :
-          p.isSummary == 2 ? "rgba(var(--bs-secondary-rgb),0.2)" :
-            p.isSummary == 1 ? "rgba(var(--bs-secondary-rgb),0.1)" :
+      p.isSummary == 4 ? "color-mix(in srgb, var(--secondary) 40%, transparent)" :
+        p.isSummary == 3 ? "color-mix(in srgb, var(--secondary) 30%, transparent)" :
+          p.isSummary == 2 ? "color-mix(in srgb, var(--secondary) 20%, transparent)" :
+            p.isSummary == 1 ? "color-mix(in srgb, var(--secondary) 10%, transparent)" :
               style && style.background && style.background(gr?.value, firstValue(multiVal ??= sumValue(p.gor)));
 
 
@@ -530,7 +530,7 @@ export default function renderPivotTable({ data, width, height, parameters, load
     let cssStyle: React.CSSProperties | undefined = style && {
       backgroundColor: color,
       color:
-        p.isSummary != null ? "var(--bs-secondary-rgb)" :
+        p.isSummary != null ? "var(--secondary)" :
           color != null ? Color.parse(color).lerp(0.5, Color.parse(color).opositePole()).toString() : undefined,
       paddingLeft: p.indent ? (p.indent * 30) + "px" : undefined,
       textAlign: p.indent != undefined ? "left" : "center",
@@ -543,7 +543,7 @@ export default function renderPivotTable({ data, width, height, parameters, load
       var active = detector((p.filters ?? gr?.getFilters(true))!.toObject(a => a.col.name, a => a.val) as ChartRow);
       cssStyle = {
         ...cssStyle,
-        color: active ? "var(--bs-body-color)" : cssStyle?.color,
+        color: active ? "var(--foreground)" : cssStyle?.color,
         opacity: !active ? .5 : cssStyle?.opacity,
         fontWeight: active ? "bold" : cssStyle?.fontWeight
       };

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { OverlayTrigger, Popover } from "react-bootstrap";
+import { Popover, PopoverContent, PopoverTrigger } from "@altea/altea/client/ui/Tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { useAPI } from "@altea/altea/client/Hooks";
@@ -89,38 +89,31 @@ export function HelpIcon(p: { ctx: TypeContext<unknown>; typeHelp?: TypeHelpEnti
  */
 function HelpIconPopover(p: { description: string; url: string }): React.JSX.Element {
 
-    const bodyRef = React.useRef<HTMLDivElement>(null);
     const jumpId = "popover-viewmore-help-jump";
 
-    const popover = (
-        <Popover id="popover-help" role="dialog" tabIndex={-1} aria-labelledby="popover-header" aria-describedby="popover-body">
-            <Popover.Header as="h3" id="popover-header">{HelpMessage.Help.niceToString()}</Popover.Header>
-
-            <a href={`#${jumpId}`} style={{ position: "absolute", left: "-9999px" }}>
-                {HelpMessage.JumpToViewMore.niceToString()}
-            </a>
-
-            <Popover.Body id="popover-body" role="document" ref={bodyRef}>
-                <HtmlViewer text={p.description} />
-                <br />
-                <a id={jumpId} href={AppContext.toAbsoluteUrl(p.url)} target="_blank" rel="noreferrer">
-                    {HelpMessage.ViewMore.niceToString()}
-                </a>
-            </Popover.Body>
-        </Popover>
-    );
-
+    // The kit popover is a role="dialog" that takes the focus when it opens (react-bootstrap needed an
+    // onEntered focus call), and closes on Escape / an outside click (rootClose).
     return (
-        <OverlayTrigger
-            trigger="click"
-            rootClose
-            placement="right"
-            overlay={popover}
-            onEntered={() => bodyRef.current?.parentElement?.focus()}>
-            <LinkButton onClick={() => { }} className="ms-1 sf-help-button" title={HelpMessage.Help.niceToString()}>
-                <FontAwesomeIcon aria-hidden={true} icon="circle-question" />
-            </LinkButton>
-        </OverlayTrigger>
+        <Popover>
+            <PopoverTrigger asChild nativeButton={false}>
+                <LinkButton onClick={() => { }} className="ms-1 sf-help-button" title={HelpMessage.Help.niceToString()}>
+                    <FontAwesomeIcon aria-hidden={true} icon="circle-question" />
+                </LinkButton>
+            </PopoverTrigger>
+            <PopoverContent id="popover-help" side="right" aria-labelledby="popover-header" aria-describedby="popover-body"
+                title={<h3 id="popover-header" className="m-0 text-base">{HelpMessage.Help.niceToString()}</h3>}>
+                <a href={`#${jumpId}`} style={{ position: "absolute", left: "-9999px" }}>
+                    {HelpMessage.JumpToViewMore.niceToString()}
+                </a>
+                <div id="popover-body" role="document">
+                    <HtmlViewer text={p.description} />
+                    <br />
+                    <a id={jumpId} href={AppContext.toAbsoluteUrl(p.url)} target="_blank" rel="noreferrer">
+                        {HelpMessage.ViewMore.niceToString()}
+                    </a>
+                </div>
+            </PopoverContent>
+        </Popover>
     );
 }
 

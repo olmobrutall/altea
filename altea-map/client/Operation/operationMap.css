@@ -20,7 +20,7 @@ text.state {
     text-anchor: middle;
     cursor: default;
     font-size: 16px;
-    fill: var(--bs-body-color);
+    fill: var(--foreground);
 }
 
 rect.operation {
@@ -32,7 +32,7 @@ text.operation {
     text-anchor: middle;
     cursor: default;
     font-size: 12px;
-    fill: var(--bs-body-color);
+    fill: var(--foreground);
 }
 
 path.link {

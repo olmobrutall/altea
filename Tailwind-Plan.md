@@ -240,11 +240,45 @@ before any module depends on it. The wrappers kept their props, so no caller cha
   master merge), the UI kit's form controls, page screenshots (chrome unchanged). The browser e2e was not
   re-run: it restores the database under the running API.
 
-### Phase 3 — modules (78 files, mechanical)
+### Phase 3 — modules (78 files, mechanical) — components ✅, palette ✅, layers / knobs pending
 Dependency order, one commit per package: auth → user-assets / user-queries → chart → dashboard →
 toolbar → templating / email / office-template → workflow → dynamic → the rest (1–3 files each).
 `altea-alert` `Toast` → `Card`. `altea-chart`'s `ChartTimeSeries` → the shared `Calendar`. Package CSS
 into `@layer components`, off `--bs-*`. `Sidebar.css` / toolbar get their `--sf-sidebar-*` knobs.
+
+Done (one commit instead of one per package: the recipe was the same everywhere):
+- **No package imports react-bootstrap, react-widgets or `@restart/ui`.** 78 files in 26 packages, by the
+  component table of the class map; react-bootstrap `Button` → `BootstrapButton` (same `btn` markup) as in
+  the core. Toasts (alert bell, what's-new) are `Card`s keeping the see-through look; `ChartTimeSeries` only
+  had a `FormCheck` → `Checkbox`. `useRootClose` → core `useCloseOnOutsideClick` (`Hooks.ts`).
+- **Off the `--bs-*` palette everywhere** (≈ 510 reads, CSS and TSX, core included). New tokens with
+  Bootstrap's exact light/dark values: `--<colour>-subtle` / `-subtle-foreground` / `-subtle-border` for the
+  six colours (Bootstrap's `-bg-subtle` / `-text-emphasis` / `-border-subtle`), `--emphasis`,
+  `--faint-foreground` (`tertiary-color`), `--border-translucent`. Constants (named hues, border width /
+  radius, the box shadow) became literals: Tailwind does not emit theme variables nothing uses. What is left
+  is Bootstrap COMPONENT variables (`--bs-btn-*`, `--bs-table-*`, `--bs-dropdown-*`, …), which go with the
+  components in Phase 5.
+- Kit menu items are BLOCKS again (Bootstrap's layout): as flex rows with a gap, every ported icon's own
+  `me-2` doubled and a plain space between icon and text vanished.
+
+What it turned up:
+- **~13 `--bs-*` names never existed in vanilla Bootstrap 5.3** — 5.3-alpha names (`--bs-secondary-text`,
+  `--bs-tertiary-text`, `--bs-primary-text`) and Signum's own SCSS (`--bs-danger-subtle`, `--bs-warning-dark`,
+  `--bs-body-bg-subtle`, `--bs-magenta`, `--bs-transparent`). They rendered as nothing. Where the meaning is
+  unambiguous they now get it (help / tree / dynamic / what's-new secondary text, the profiler's tinted bars,
+  error-dialog emphasis); where they decide a whole surface (`body-bg-subtle` → the sidebar, the HTML editor
+  toolbar) they stay `transparent`, as they have always rendered; `a.sf-shy-link` keeps `inherit`.
+- `PivotTable` wrote `color: var(--bs-secondary-rgb)` — a triplet, not a colour, so it was ignored.
+- What's-new's new outside-click hook closed the panel in the same click that opened it (React runs the
+  effect while that click still bubbles): the toggle is part of the "inside".
+
+Verified: full build; page screenshots against the same data — identical but for anti-aliasing and the
+help-tip pulse; modal / menu / Lines scenarios; the migrated module UIs (login dropdown, user-query and
+Excel menus, alert bell, what's-new, dashboard); browser e2e. Not exercised in a browser: per-property help
+popovers (no help text in the data), the dynamic view designer, BPMN designer, profiler, map, isolation.
+
+Left for this phase: package CSS into `@layer components`, the `--sf-sidebar-*` knobs, `RightCaretDropdown`'s
+mobile "flow inline" mode (the kit menu is portalled, so it floats below the toggle on mobile now).
 
 ### Phase 4 — eastwind
 - `Layout.tsx` navbar (`NavDropdown`, navbar classes) → `sf-navbar` + `Dropdown`.

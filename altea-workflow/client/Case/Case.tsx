@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Tab, Tabs, Tooltip, OverlayTrigger } from "react-bootstrap";
+import { Tab, Tabs } from "@altea/altea/client/ui/Tabs";
+import { WithTooltip } from "@altea/altea/client/ui/Tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { classes } from "@altea/altea/data/globals/helpers";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
@@ -162,16 +163,14 @@ function CaseActivityStatsButtonComponent(p: CaseActivityButtonBaseProps): React
     const enabled = sc.state.selectedRows && sc.state.selectedRows.length === 1;
 
     return (
-        <OverlayTrigger overlay={<Tooltip placement="top" key="tooltip" id="caseStatsTooltip">
-            {WorkflowActivityMessage.OpenCaseActivityStats.niceToString()}
-        </Tooltip>}>
+        <WithTooltip side="top" tooltip={WorkflowActivityMessage.OpenCaseActivityStats.niceToString()}>
             <div>
                 <a className={classes("sf-line-button btn btn-light", enabled ? undefined : "disabled")}
                     onClick={() => handleOnClick(sc.state.selectedRows![0])}>
                     <FontAwesomeIcon icon="list" />
                 </a>
             </div>
-        </OverlayTrigger>
+        </WithTooltip>
     );
 }
 
@@ -197,15 +196,13 @@ function WorkflowActivityLocateButtonComponent(
 
     const enabled = sc.state.selectedRows && sc.state.selectedRows.length === 1;
     return (
-        <OverlayTrigger overlay={<Tooltip placement="top" id="activityLocatorPopupt">
-            {WorkflowActivityMessage.LocateWorkflowActivityInDiagram.niceToString()}
-        </Tooltip>}>
+        <WithTooltip side="top" tooltip={WorkflowActivityMessage.LocateWorkflowActivityInDiagram.niceToString()}>
             <div>
                 <a className={classes("sf-line-button btn btn-light", enabled ? undefined : "disabled")}
                     onClick={() => handleOnClick(sc.state.selectedRows![0])}>
                     <FontAwesomeIcon icon="location-pin" />
                 </a>
             </div>
-        </OverlayTrigger>
+        </WithTooltip>
     );
 }

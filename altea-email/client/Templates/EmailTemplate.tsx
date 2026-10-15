@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Tabs, Tab } from "react-bootstrap";
+import { Tabs, Tab } from "@altea/altea/client/ui/Tabs";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { CheckboxLine } from "@altea/altea/client/Lines/CheckboxLine";
 import { TextAreaLine } from "@altea/altea/client/Lines/TextAreaLine";

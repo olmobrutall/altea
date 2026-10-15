@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Tab, Tabs } from "react-bootstrap";
+import { Tab, Tabs } from "@altea/altea/client/ui/Tabs";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EnumLine } from "@altea/altea/client/Lines/EnumLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";

@@ -508,7 +508,7 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
       <tr className={classes("sf-filter-group",
         p.dragDrop.draggingFilter == fg && "sf-dragging",
         rowDropClass)}
-        style={{ backgroundColor: "var(--bs-secondary-bg)" }}
+        style={{ backgroundColor: "var(--muted)" }}
         onDragEnter={e => handleDragOverHeader(e)}
         onDragOver={e => handleDragOverHeader(e)}
         onDrop={p.dragDrop.onDrop}

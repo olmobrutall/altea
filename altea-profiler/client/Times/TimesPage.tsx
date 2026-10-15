@@ -2,7 +2,7 @@ import * as React from 'react'
 import { ProfilerClient } from '../ProfilerClient'
 import type { TimeTrackerEntryInfo, TimeTrackerTimeInfo } from '../../data/ProfilerDtos'
 import "./Times.css"
-import { Tab, Tabs } from 'react-bootstrap';
+import { Tab, Tabs } from '@altea/altea/client/ui/Tabs';
 import { useAPIWithReload } from '@altea/altea/client/Hooks';
 import { useTitle } from '@altea/altea/client/AppContext';
 import { toNumberFormat } from '@altea/altea/client/numberFormat';

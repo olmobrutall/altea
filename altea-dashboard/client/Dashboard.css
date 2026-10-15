@@ -1,22 +1,22 @@
 ﻿.rule {
-    background-color: var(--bs-secondary-bg);
+    background-color: var(--muted);
     border-radius: 4px;
 }
 
 .ruleItem {
     height: 16px;
-    background-color: var(--bs-secondary-bg-subtle);
+    background-color: var(--secondary-subtle);
     border-radius: 4px;
 }
 
 .sf-dashboard-view-embedded {
-    background: var(--bs-tertiary-bg);
+    background: var(--tertiary);
     margin: -10px -1em -16px -1em;
     padding: 1em;
 }
 
 .sf-dashboard-page {
-    background: var(--bs-tertiary-bg);
+    background: var(--tertiary);
     margin: -8px -12px;
     padding: 20px;
     height: 100%;
@@ -28,7 +28,7 @@
 }
 
 .sf-dashboard-view .card-header a {
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }
 
 .sf-grid-element .card {
@@ -37,9 +37,9 @@
 
 .sf-grid-element .card-header {
     cursor: move;
-    color: var(--bs-body-color) !important;
-    border-color: var(--bs-border-color) !important;
-    background-color: var(--bs-body-bg) !important;
+    color: var(--foreground) !important;
+    border-color: var(--border) !important;
+    background-color: var(--background) !important;
 }
 
 .sf-rightHandle {
@@ -49,8 +49,8 @@
     cursor: e-resize;
     top: 6px;
     bottom: 6px;
-    border-left: 1px solid var(--bs-border-color);
-    border-right: 1px solid var(--bs-border-color);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
     position: absolute;
     display: block;
 }
@@ -62,19 +62,19 @@
     cursor: e-resize;
     top: 6px;
     bottom: 6px;
-    border-left: 1px solid var(--bs-border-color);
-    border-right: 1px solid var(--bs-border-color);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
     position: absolute;
     display: block;
 }
 
 
 .sf-dragging .separator-row {
-    background-color: var(--bs-light);
+    background-color: var(--light);
 }
 
     .sf-dragging .separator-row.sf-over {
-        background-color: var(--bs-tertiary-color);
+        background-color: var(--faint-foreground);
     }
 
 .separator-row {
@@ -96,7 +96,7 @@ div.row-control-panel {
 }*/
 
 .sf-hide:not(:hover) {
-    color: var(--bs-secondary-color);
+    color: var(--muted-foreground);
     opacity: .3;
 }
 
@@ -116,12 +116,6 @@ div.row-control-panel {
     z-index: 10000;
 }
 
-.dashboard-tooltip-content .tooltip-inner {
-    max-width: 350px;
-    text-align: left;
-    word-wrap: break-word;
-    white-space: normal;
-}
 
 .huge {
     font-size: xx-large;

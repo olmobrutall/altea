@@ -1,13 +1,12 @@
 import * as React from "react";
 import { Link } from "react-router";
-import { Toast } from "react-bootstrap";
-import { useRootClose } from "@restart/ui";
+import { Card, CardContent, CardHeader } from "@altea/altea/client/ui/Card";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { toRelativeTimeISO } from "@altea/altea/client/Basics/RelativeTime";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
-import { useAPIWithReload, useForceUpdate, useUpdatedRef } from "@altea/altea/client/Hooks";
+import { useAPIWithReload, useCloseOnOutsideClick, useForceUpdate, useUpdatedRef } from "@altea/altea/client/Hooks";
 import { classes } from "@altea/altea/data/globals";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
 import { Temporal } from "@altea/altea/data/basics";
@@ -25,6 +24,9 @@ import "./WhatsNewDropdown.css";
 //
 // Port of Signum.WhatsNew's Dropdown/WhatsNewDropdown.tsx — see port/WhatsNew.md.
 const MaxNumberOfNews = 3;
+
+/** The toasts' see-through look: 85% of the background, the page blurred behind. */
+const newsCard = "bg-background/85 backdrop-blur-[5px]";
 
 export default function WhatsNewDropdown(): React.JSX.Element | null {
     if (!Navigator.isViewable(WhatsNewEntity))
@@ -91,42 +93,43 @@ function WhatsNewDropdownImp(): React.JSX.Element {
         : [...whatsNew].sort((a, b) => b.creationDate.localeCompare(a.creationDate));
 
     const divRef = React.useRef<HTMLDivElement>(null);
-    useRootClose(divRef as never, () => setIsOpen(false), { disabled: !isOpen });
+    const toggleRef = React.useRef<HTMLButtonElement>(null);
+    useCloseOnOutsideClick([divRef, toggleRef], () => setIsOpen(false), isOpen);
 
     return (
         <>
-            <button className="nav-link sf-news-container" onClick={handleOnToggle}
-                style={{ border: 0, backgroundColor: "var(--bs-transparent)" }}
+            <button ref={toggleRef} className="nav-link sf-news-container" onClick={handleOnToggle}
+                style={{ border: 0, backgroundColor: "transparent" }}
                 title={WhatsNewEntity.nicePluralName()}>
                 <FontAwesomeIcon aria-hidden={true} icon="bullhorn"
                     className={classes("sf-newspaper", isOpen && "open", countResult && countResult.numWhatsNews > 0 && "active")} />
                 {countResult && countResult.numWhatsNews > 0 &&
                     <span className="badge bg-destructive badge-pill sf-news-badge">{countResult.numWhatsNews}</span>}
             </button>
-            {isOpen && <div className="sf-news-toasts mt-2" ref={divRef}
+            {isOpen && <div className="sf-news-toasts mt-2 flex flex-col gap-1" ref={divRef}
                 style={{ backdropFilter: "blur(10px)", transition: "transform .4s ease" }}>
-                {newsInOrder == null ? <Toast><Toast.Body>{JavascriptMessage.loading.niceToString()}</Toast.Body></Toast> :
+                {newsInOrder == null ? <Card className={newsCard}><CardContent className="p-3">{JavascriptMessage.loading.niceToString()}</CardContent></Card> :
                     <>
                         {newsInOrder.length === 0 &&
-                            <Toast><Toast.Body>{WhatsNewMessage.YouDoNotHaveAnyUnreadNews.niceToString()}</Toast.Body></Toast>}
+                            <Card className={newsCard}><CardContent className="p-3">{WhatsNewMessage.YouDoNotHaveAnyUnreadNews.niceToString()}</CardContent></Card>}
 
                         {newsInOrder.filter((_, i) => i < MaxNumberOfNews)
                             .map(a => <WhatsNewToast key={a.whatsNew.id} whatsnew={a}
                                 onClose={handleOnCloseNews} setIsOpen={setIsOpen} />)}
 
                         {newsInOrder.length > MaxNumberOfNews &&
-                            <Toast onClose={() => handleOnCloseNews([...whatsNew!])}>
-                                <Toast.Header>
+                            <Card className={newsCard}>
+                                <NewsCardHeader onClose={() => handleOnCloseNews([...whatsNew!])}>
                                     <small>{WhatsNewMessage.CloseAll.niceToString()}</small>
-                                </Toast.Header>
-                            </Toast>}
+                                </NewsCardHeader>
+                            </Card>}
 
-                        <Toast>
-                            <Toast.Body style={{ textAlign: "center" }}>
-                                <LinkButton title={undefined} style={{ color: "var(--bs-primary)" }}
+                        <Card className={newsCard}>
+                            <CardContent className="p-3" style={{ textAlign: "center" }}>
+                                <LinkButton title={undefined} style={{ color: "var(--primary)" }}
                                     onClick={handleClickAll}>{WhatsNewMessage.AllMyNews.niceToString()}</LinkButton>
-                            </Toast.Body>
-                        </Toast>
+                            </CardContent>
+                        </Card>
                     </>}
             </div>}
         </>
@@ -150,16 +153,16 @@ export function WhatsNewToast(p: {
     }
 
     return (
-        <Toast onClose={() => p.onClose([p.whatsnew])} className={p.className} aria-atomic={true}>
-            <Toast.Header closeLabel={WhatsNewMessage.Close0WhatsNew.niceToString(p.whatsnew.title)}>
+        <Card className={classes(newsCard, p.className)} role="alert" aria-live="assertive" aria-atomic={true}>
+            <NewsCardHeader onClose={() => p.onClose([p.whatsnew])} closeLabel={WhatsNewMessage.Close0WhatsNew.niceToString(p.whatsnew.title)}>
                 <strong className="me-auto" role="heading" aria-level={3}>
                     {p.whatsnew.title}{" "}
                     {!Navigator.isReadOnly(WhatsNewEntity) && p.whatsnew.status === "Draft" &&
-                        <small style={{ color: "var(--bs-danger)" }}>{p.whatsnew.status}</small>}
+                        <small style={{ color: "var(--destructive)" }}>{p.whatsnew.status}</small>}
                 </strong>
                 <small>{toRelativeTimeISO(p.whatsnew.creationDate)}</small>
-            </Toast.Header>
-            <Toast.Body style={{ whiteSpace: "pre-wrap" }}>
+            </NewsCardHeader>
+            <CardContent className="p-3" style={{ whiteSpace: "pre-wrap" }}>
                 <Link to={newsUrl} onClick={openIt}
                     aria-label={`${p.whatsnew.title} – ${WhatsNewMessage.ReadFurther.niceToString()}`}
                     style={{ display: "inline-block", maxWidth: "10vw", marginLeft: 10 }}>
@@ -172,8 +175,19 @@ export function WhatsNewToast(p: {
                 <Link to={newsUrl} onClick={openIt} aria-label={WhatsNewMessage.ReadFurther.niceToString()}>
                     {WhatsNewMessage.ReadFurther.niceToString()}
                 </Link>
-            </Toast.Body>
-        </Toast>
+            </CardContent>
+        </Card>
+    );
+}
+
+/** What react-bootstrap's `Toast.Header` was: the header row with its close button at the end. */
+function NewsCardHeader(p: { onClose: () => void, closeLabel?: string, children?: React.ReactNode }): React.JSX.Element {
+    return (
+        <CardHeader className="flex items-center px-3 py-2">
+            {p.children}
+            <button type="button" className="btn-close ms-3" aria-label={p.closeLabel ?? JavascriptMessage.Close.niceToString()}
+                onClick={p.onClose} />
+        </CardHeader>
     );
 }
 

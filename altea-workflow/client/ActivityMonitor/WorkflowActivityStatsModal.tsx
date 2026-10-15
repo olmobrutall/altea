@@ -1,6 +1,6 @@
 import "@altea/altea/data/globals/stringExtensions";
 import * as React from "react";
-import { Modal } from "react-bootstrap";
+import { Modal } from "@altea/altea/client/ui/Modal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { openModal } from "@altea/altea/client/Modals";
 import type { IModalProps } from "@altea/altea/client/Modals";

@@ -335,8 +335,8 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
                     {/* DIVERGENCE (a Signum BUG, fixed rather than mirrored): Signum writes the pill
                         `bg-tertiary text-dark`, and `text-dark` is the FIXED `--bs-dark-rgb` (33,37,41) —
                         the dark theme's own card-header background, so the pill was invisible there.
-                        `text-bg-tertiary` is Bootstrap's combined helper: it pairs the tertiary surface
-                        with `--bs-body-color`, which follows the theme. */}
+                        `text-tertiary-foreground` is the text colour paired with the tertiary surface, and
+                        it follows the theme. */}
                     {
                         dashboardFilter && <span className="badge bg-tertiary text-tertiary-foreground border ms-2 sf-filter-pill">
                             {dashboardFilter.rows.length} {DashboardMessage.RowsSelected.niceToString().forGenderAndNumber(dashboardFilter.rows.length)}

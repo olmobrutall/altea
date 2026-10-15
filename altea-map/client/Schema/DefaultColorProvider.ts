@@ -36,14 +36,14 @@ export default function getDefaultProviders(info: SchemaMapInfo): ClientColorPro
 
     const entityKind: ClientColorProvider = {
         name: "entityKind",
-        getFill: t => entityKindColors[t.entityKind ?? ""] ?? "var(--bs-body-color)",
+        getFill: t => entityKindColors[t.entityKind ?? ""] ?? "var(--foreground)",
         getTooltip: t => t.entityKind ?? "",
     };
 
     const entityData: ClientColorProvider = {
         name: "entityData",
         getFill: t => t.entityData == "Master" ? "#2ca02c" :
-            t.entityData == "Transactional" ? "#d62728" : "var(--bs-body-color)",
+            t.entityData == "Transactional" ? "#d62728" : "var(--foreground)",
         getTooltip: t => t.entityData ?? "",
     };
 

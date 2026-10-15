@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Dropdown } from "react-bootstrap";
+import { Dropdown, DropdownContent, DropdownItem, DropdownSeparator, DropdownTrigger } from "@altea/altea/client/ui/Dropdown";
+import { BootstrapButton } from "@altea/altea/client/Operations/EntityOperations";
 import { useLocation } from "react-router";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Finder } from "@altea/altea/client/Finder";
@@ -220,39 +221,41 @@ export default function UserQueryMenu(p: UserQueryMenuProps): React.JSX.Element 
     const large = p.searchControl.props.largeToolbarButtons == true;
 
     return (
-        <Dropdown onToggle={handleToggle} show={isOpen}>
-            <Dropdown.Toggle id={toggleId} variant="tertiary">
+        <Dropdown onOpenChange={handleToggle} open={isOpen}>
+            <DropdownTrigger asChild>
+              <BootstrapButton id={toggleId} variant="tertiary" className="dropdown-toggle">
                 <span title={currentToStr}>
                     <FontAwesomeIcon icon="rectangle-list" />
                     {large && <>&nbsp;<span className="hidden sm:inline">
                         {currentToStr ? <strong>{currentToStr}</strong> : UserQueryEntity.nicePluralName()}
                     </span></>}
                 </span>
-            </Dropdown.Toggle>
-            <Dropdown.Menu>
+              </BootstrapButton>
+            </DropdownTrigger>
+            <DropdownContent>
                 <div style={{ maxHeight: "300px", overflowX: "auto" }}>
                     {userQueries?.map((uq, i) =>
-                        <Dropdown.Item key={i} active={currentUserQuery != null && uq.key() === currentUserQuery.key()} onClick={() => applyUserQueryToSearchControl(uq)}>
+                        <DropdownItem key={i} active={currentUserQuery != null && uq.key() === currentUserQuery.key()} onClick={() => applyUserQueryToSearchControl(uq)}>
                             {uq.toString()}
-                        </Dropdown.Item>)}
+                        </DropdownItem>)}
                 </div>
-                {userQueries && userQueries.length > 0 && <Dropdown.Divider />}
+                {userQueries && userQueries.length > 0 && <DropdownSeparator />}
                 {p.searchControl.props.allowChangeColumns &&
-                    <Dropdown.Item onClick={handleBackToDefault}>
+                    <DropdownItem onClick={handleBackToDefault}>
                         <FontAwesomeIcon icon="arrow-rotate-left" className="me-2" />{UserQueryMessage.BackToDefault.niceToString()}
-                    </Dropdown.Item>}
+                    </DropdownItem>}
                 {currentUserQuery &&
-                    <Dropdown.Item onClick={handleApplyChanges}>
+                    <DropdownItem onClick={handleApplyChanges}>
                         <FontAwesomeIcon icon="share-from-square" className="me-2" />{UserQueryMessage.ApplyChanges.niceToString()}
-                    </Dropdown.Item>}
+                    </DropdownItem>}
                 {currentUserQuery &&
-                    <Dropdown.Item onClick={handleEdit}>
+                    <DropdownItem onClick={handleEdit}>
                         <FontAwesomeIcon icon="pen-to-square" className="me-2" />{UserQueryMessage.Edit.niceToString()}
-                    </Dropdown.Item>}
-                <Dropdown.Item onClick={handleCreateUserQuery}>
+                    </DropdownItem>}
+                <DropdownItem onClick={handleCreateUserQuery}>
                     <FontAwesomeIcon icon="plus" className="me-2" />{UserQueryMessage.CreateNew.niceToString()}
-                </Dropdown.Item>
-            </Dropdown.Menu>
+                </DropdownItem>
+            </DropdownContent>
         </Dropdown>
     );
 }

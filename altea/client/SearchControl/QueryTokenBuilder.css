@@ -12,9 +12,9 @@
 
 
 /* .dropdown-toggle-split {
-    background-color: var(--bs-secondary-bg);
-    color: var(--bs-body-color);
-    border-color: var(--bs-secondary-bg);
+    background-color: var(--muted);
+    color: var(--foreground);
+    border-color: var(--muted);
 } */
 
 .sf-userquery-dropdown {
@@ -27,30 +27,30 @@
 
 /* No height of its own: it stretches to the field beside it, whatever that field's size. */
 .sf-query-token-plus {
-    border: 1px solid var(--bs-border-color);
+    border: 1px solid var(--border);
     padding: 0px 5px;
     font-size: 0.875em;
     line-height: 1;
 }
 
 .sf-query-token-plus:hover {
-    border: 1px solid var(--bs-border-color);
+    border: 1px solid var(--border);
 }
 
 .has-error .sf-query-token-part .rw-dropdownlist {
-    border: 1px solid var(--bs-danger);
-    background-color: var(--bs-danger-bg-subtle);
-    color: var(--bs-danger);
+    border: 1px solid var(--destructive);
+    background-color: var(--destructive-subtle);
+    color: var(--destructive);
 }
 
 .sf-prefix-btn {
-    border: 1px solid var(--bs-border-color);
+    border: 1px solid var(--border);
     padding: 0px 5px;
     line-height: 1;
 }
 
 .sf-prefix-btn:hover {
-    border: 1px solid var(--bs-border-color);
+    border: 1px solid var(--border);
 }
 
 /* altea divergence (not in Signum): a @backReference reached under a collection operator (Element/Any/

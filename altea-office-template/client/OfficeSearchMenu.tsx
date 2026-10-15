@@ -1,5 +1,5 @@
 import * as React from "react";
-import { DropdownButton, Dropdown } from "react-bootstrap";
+import { DropdownButton, DropdownItem } from "@altea/altea/client/ui/Dropdown";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { useAPI } from "@altea/altea/client/Hooks";
@@ -61,9 +61,9 @@ export default function OfficeSearchMenu(p: OfficeSearchMenuProps): React.JSX.El
     return (
         <DropdownButton id="officeTemplateDropDown" variant="light" className="sf-office-dropdown" title={label}>
             {templates.map((ot, i) =>
-                <Dropdown.Item key={i} onClick={() => void handleClick(ot)}>
+                <DropdownItem key={i} onClick={() => void handleClick(ot)}>
                     {ot.toString()}
-                </Dropdown.Item>)}
+                </DropdownItem>)}
         </DropdownButton>
     );
 }

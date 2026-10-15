@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useLocation } from "react-router";
-import { Tab, Tabs } from "react-bootstrap";
+import { Tab, Tabs } from "@altea/altea/client/ui/Tabs";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { useTitle } from "@altea/altea/client/AppContext";

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Tabs, Tab } from "react-bootstrap";
+import { Tabs, Tab } from "@altea/altea/client/ui/Tabs";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import type { TypeContext } from "@altea/altea/client/TypeContext";
 import SearchControl from "@altea/altea/client/SearchControl/SearchControl";

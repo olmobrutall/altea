@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Tab, Tabs, Button } from "react-bootstrap";
+import { Tab, Tabs } from "@altea/altea/client/ui/Tabs";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { AutoLine } from "@altea/altea/client/Lines/AutoLine";
 import { EntityLine } from "@altea/altea/client/Lines/EntityLine";
@@ -43,7 +43,7 @@ import { Navigator } from "@altea/altea/client/Navigator";
 import type { ViewPromise } from "@altea/altea/client/EntitySettings";
 import { TypeContext, type ButtonBarElement } from "@altea/altea/client/TypeContext";
 import { EntityOperationContext } from "@altea/altea/client/Operations";
-import { OperationButton } from "@altea/altea/client/Operations/EntityOperations";
+import { BootstrapButton, OperationButton } from "@altea/altea/client/Operations/EntityOperations";
 import { SubTokensOptions } from "@altea/altea/client/QueryToken";
 import { useAPI } from "@altea/altea/client/Hooks";
 import type { BsColor, BsSize } from "@altea/altea/client/Components";
@@ -1601,17 +1601,19 @@ NodeUtils.register<ButtonNode>({
             );
         }
 
+        // react-bootstrap's Button `active` was the `active` class plus aria-pressed.
+        const active = NodeUtils.evaluateAndValidate(dn, ctx, dn.node, n => n.active, NodeUtils.isBooleanOrNull);
         return (
-            <Button
-                active={NodeUtils.evaluateAndValidate(dn, ctx, dn.node, n => n.active, NodeUtils.isBooleanOrNull)}
+            <BootstrapButton
+                aria-pressed={active ?? undefined}
                 disabled={NodeUtils.evaluateAndValidate(dn, ctx, dn.node, n => n.disabled, NodeUtils.isBooleanOrNull)}
                 onClick={NodeUtils.evaluateAndValidate(dn, ctx, dn.node, n => n.onClick, NodeUtils.isFunctionOrNull)}
-                className={NodeUtils.evaluateAndValidate(dn, ctx, dn.node, n => n.className, NodeUtils.isStringOrNull)}
+                className={classes(NodeUtils.evaluateAndValidate(dn, ctx, dn.node, n => n.className, NodeUtils.isStringOrNull), active && "active")}
                 variant={NodeUtils.evaluateAndValidate(dn, ctx, dn.node, n => n.color, NodeUtils.isStringOrNull) as BsColor}
                 size={NodeUtils.evaluateAndValidate(dn, ctx, dn.node, n => n.size, NodeUtils.isStringOrNull) as BsSize as never}
             >
                 {children}
-            </Button>
+            </BootstrapButton>
         );
     },
     renderDesigner: dn => {

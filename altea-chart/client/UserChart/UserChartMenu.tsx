@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Dropdown } from "react-bootstrap";
+import { Dropdown, DropdownContent, DropdownItem, DropdownSeparator, DropdownTrigger } from "@altea/altea/client/ui/Dropdown";
+import { BootstrapButton } from "@altea/altea/client/Operations/EntityOperations";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { Lite } from "@altea/altea/data/lite";
@@ -74,26 +75,28 @@ export default function UserChartMenu(p: UserChartMenuProps): React.JSX.Element 
     const label = crv.userChart ? crv.userChart.toString() : UserChartEntity.nicePluralName();
 
     return (
-        <Dropdown onToggle={() => setIsOpen(!isOpen)} show={isOpen}>
-            <Dropdown.Toggle id={toggleId} variant="tertiary">
-                <span><FontAwesomeIcon icon="chart-bar" />&nbsp;{label}</span>
-            </Dropdown.Toggle>
-            <Dropdown.Menu>
+        <Dropdown onOpenChange={open => setIsOpen(open)} open={isOpen}>
+            <DropdownTrigger asChild>
+              <BootstrapButton id={toggleId} variant="tertiary" className="dropdown-toggle">
+                  <span><FontAwesomeIcon icon="chart-bar" />&nbsp;{label}</span>
+              </BootstrapButton>
+            </DropdownTrigger>
+            <DropdownContent>
                 <div style={{ maxHeight: "300px", overflowX: "auto" }}>
                     {userCharts?.map((uc, i) =>
-                        <Dropdown.Item key={i} active={crv.userChart != null && uc.key() === crv.userChart.key()} onClick={() => handleSelect(uc)}>
+                        <DropdownItem key={i} active={crv.userChart != null && uc.key() === crv.userChart.key()} onClick={() => handleSelect(uc)}>
                             {uc.toString()}
-                        </Dropdown.Item>)}
+                        </DropdownItem>)}
                 </div>
-                {Boolean(userCharts?.length) && <Dropdown.Divider />}
+                {Boolean(userCharts?.length) && <DropdownSeparator />}
                 {crv.userChart &&
-                    <Dropdown.Item onClick={handleEdit}>
+                    <DropdownItem onClick={handleEdit}>
                         <FontAwesomeIcon icon="pen-to-square" className="me-2" />{ChartMessage.Edit.niceToString()}
-                    </Dropdown.Item>}
-                <Dropdown.Item onClick={handleCreate}>
+                    </DropdownItem>}
+                <DropdownItem onClick={handleCreate}>
                     <FontAwesomeIcon icon="plus" className="me-2" />{ChartMessage.CreateNew.niceToString()}
-                </Dropdown.Item>
-            </Dropdown.Menu>
+                </DropdownItem>
+            </DropdownContent>
         </Dropdown>
     );
 }

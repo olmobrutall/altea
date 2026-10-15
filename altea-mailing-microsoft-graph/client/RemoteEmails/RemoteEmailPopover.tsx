@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Popover, OverlayTrigger } from "react-bootstrap";
+import { Popover, PopoverAnchor, PopoverContent } from "@altea/altea/client/ui/Tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useAPI } from "@altea/altea/client/Hooks";
 import { JavascriptMessage } from "@altea/altea/data/uiMessages";
@@ -19,25 +19,22 @@ export default function RemoteEmailPopover(p: {
 }): React.JSX.Element {
 
     const [show, setShow] = React.useState(false);
-    const ref = React.useRef(null);
 
-    const popover = (
-        <Popover id="remote-email-popover" style={{ "--bs-popover-max-width": "unset" } as React.CSSProperties}
-            onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
-            <Popover.Header as="h3">{p.subject}</Popover.Header>
-            <Popover.Body>
-                <RemoteEmailSnippet user={p.user} remoteEmailId={p.remoteEmailId} />
-            </Popover.Body>
-        </Popover>
-    );
-
+    // Opened by hover, not by a click: the icon is only an anchor, and the popup keeps itself open while
+    // the pointer is over it.
     return (
-        <OverlayTrigger show={show} placement="right" overlay={popover}>
-            <span ref={ref} onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
-                <FontAwesomeIcon aria-hidden={true} className="me-1"
-                    icon={p.isRead ? ["far", "envelope-open"] : ["far", "envelope"]} />
-            </span>
-        </OverlayTrigger>
+        <Popover open={show}>
+            <PopoverAnchor>
+                <span onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+                    <FontAwesomeIcon aria-hidden={true} className="me-1"
+                        icon={p.isRead ? ["far", "envelope-open"] : ["far", "envelope"]} />
+                </span>
+            </PopoverAnchor>
+            <PopoverContent id="remote-email-popover" side="right" autoFocus={false} className="max-w-none" title={p.subject}
+                onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+                <RemoteEmailSnippet user={p.user} remoteEmailId={p.remoteEmailId} />
+            </PopoverContent>
+        </Popover>
     );
 }
 

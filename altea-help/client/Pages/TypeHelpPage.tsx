@@ -1,7 +1,7 @@
 import "@altea/altea/data/globals/arrayExtensions";
 import * as React from "react";
 import { Link, useParams } from "react-router";
-import { Collapse } from "react-bootstrap";
+import { Collapsible, CollapsibleContent } from "@altea/altea/client/ui/Tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { useTitle } from "@altea/altea/client/AppContext";
@@ -169,12 +169,12 @@ function SubPropertiesCollapse({ node, cleanName, onChange, hash }: {
                 </button>
             </div>
 
-            <Collapse in={open}>
-                <dl className="row ms-6">
+            <Collapsible open={open}>
+                <CollapsibleContent render={<dl />} className="row ms-6">
                     {open && node.children.map(n =>
                         <PropertyLine key={n.value.pr.propertyString()} node={n} cleanName={cleanName} onChange={onChange} hash={hash} />)}
-                </dl>
-            </Collapse>
+                </CollapsibleContent>
+            </Collapsible>
         </>
     );
 }
@@ -228,12 +228,12 @@ function QueryBlock({ ctx, onChange, hash }: {
                     <EditableHtml ctx={ctx.subCtx(a => a.description)} onChange={onChange} />
                 </div>
             </div>
-            <Collapse in={open}>
-                <dl className="row ms-6">
+            <Collapsible open={open}>
+                <CollapsibleContent render={<dl />} className="row ms-6">
                     {mlistItemContext(ctx.subCtx(q => q.columns)).map(cctx =>
                         <QueryColumnLine key={cctx.value.columnName} ctx={cctx} onChange={onChange} />)}
-                </dl>
-            </Collapse>
+                </CollapsibleContent>
+            </Collapsible>
         </>
     );
 }

@@ -8,7 +8,7 @@
 .sf-page-container {
     display: flex;
     flex-direction: column;
-    background: var(--bs-tertiary-bg);
+    background: var(--tertiary);
 }
 
 .sf-page-container > main {
@@ -22,11 +22,11 @@
    the whole modal is white-on-white. */
 .sf-modal-body,
 .sf-modal-footer {
-    background: var(--bs-tertiary-bg);
+    background: var(--tertiary);
 }
 
 .sf-modal-header {
-    background: var(--bs-secondary-bg);
+    background: var(--muted);
 }
 
 @media (min-width: 768px) {
@@ -56,9 +56,9 @@
 .sf-chooser-button {
     width: 100%;
     margin-bottom: 6px;
-    color: var(--bs-body-color);
-    background-color: var(--bs-body-bg);
-    border-color: var(--bs-border-color);
+    color: var(--foreground);
+    background-color: var(--background);
+    border-color: var(--border);
 }
 
 .sf-main-control {

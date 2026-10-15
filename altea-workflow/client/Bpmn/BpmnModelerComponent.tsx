@@ -2,7 +2,7 @@ import "@altea/altea/data/globals/stringExtensions";
 import "@altea/altea/data/globals/arrayExtensions";
 import * as React from "react";
 import Modeler from "bpmn-js/lib/Modeler";
-import { Button } from "react-bootstrap";
+import { BootstrapButton } from "@altea/altea/client/Operations/EntityOperations";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { Lite } from "@altea/altea/data/lite";
@@ -484,12 +484,12 @@ export default class BpmnModelerComponent extends React.Component<BpmnModelerCom
     override render(): React.JSX.Element {
         return (
             <div>
-                <Button variant="secondary" style={{ marginLeft: "10px" }} onClick={this.handleZoomClick}>
+                <BootstrapButton variant="secondary" style={{ marginLeft: "10px" }} onClick={this.handleZoomClick}>
                     {WorkflowMessage.ResetZoom.niceToString()}
-                </Button>
-                <Button variant="secondary" style={{ marginLeft: "10px" }} onClick={this.handleSaveSvgClick}>
+                </BootstrapButton>
+                <BootstrapButton variant="secondary" style={{ marginLeft: "10px" }} onClick={this.handleSaveSvgClick}>
                     <FontAwesomeIcon icon="image" title={WorkflowMessage.SaveAsSVG.niceToString()} />
-                </Button>
+                </BootstrapButton>
                 <div ref={this.setDiv} />
             </div>
         );

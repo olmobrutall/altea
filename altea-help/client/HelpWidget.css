@@ -1,7 +1,7 @@
 /* Port of Signum.Help's HelpWidget.css, verbatim. */
 
 .sf-help-button {
-  color: var(--bs-secondary-text);
+  color: var(--muted-foreground);
   font-size: 16px;
   display: inline-block;
   margin-top: -2px;
@@ -9,7 +9,7 @@
 }
 
 .sf-help-button.active {
-  color: var(--bs-primary-subtle);
+  color: var(--primary-subtle);
 }
 
 .sf-help-button:hover {

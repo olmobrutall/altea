@@ -1,5 +1,5 @@
 import * as React from "react";
-import { DropdownButton, Dropdown } from "react-bootstrap";
+import { DropdownButton, DropdownItem } from "@altea/altea/client/ui/Dropdown";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Navigator } from "@altea/altea/client/Navigator";
 import { useAPI } from "@altea/altea/client/Hooks";
@@ -53,9 +53,9 @@ export default function MailingMenu(p: MailingMenuProps): React.JSX.Element | nu
     return (
         <DropdownButton id="mailingDropDown" variant="light" className="sf-mailing-dropdown" title={label}>
             {emailTemplates.map((et, i) =>
-                <Dropdown.Item key={i} onClick={() => void handleClick(et)}>
+                <DropdownItem key={i} onClick={() => void handleClick(et)}>
                     {et.toString()}
-                </Dropdown.Item>)}
+                </DropdownItem>)}
         </DropdownButton>
     );
 }

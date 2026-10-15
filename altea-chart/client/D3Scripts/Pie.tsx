@@ -87,7 +87,7 @@ export default function renderPie({ data, width, height, parameters, loading, on
                 // colours far below 3:1 — so two neighbouring slices can be impossible to tell apart. A
                 // stroke in the page background separates them whatever the fill colours turn out to be,
                 // which no choice of palette can guarantee on its own.
-                stroke={active == true ? "var(--bs-body-color)" : "var(--bs-body-bg)"}
+                stroke={active == true ? "var(--foreground)" : "var(--background)"}
                 strokeWidth={active == true ? 3 : 1}
                 transform={initialLoad ? scale(0, 0) : scale(1, 1)}
                 fill={sliceColor}

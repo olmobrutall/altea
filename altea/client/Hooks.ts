@@ -415,3 +415,29 @@ export function useBreakpoint(): number {
 
   return breakpointRef.current;
 }
+
+/** A click outside `refs`, or Escape, closes a hand-rolled panel — what `@restart/ui`'s useRootClose did
+ *  (a react-bootstrap dependency, going with it). The toggle belongs in `refs`: React runs this effect while
+ *  the click that opened the panel is still bubbling, so the document would otherwise see that same click
+ *  and close it. */
+export function useCloseOnOutsideClick(refs: React.RefObject<HTMLElement | null>[], onClose: () => void, enabled: boolean): void {
+  const onCloseRef = useUpdatedRef(onClose);
+  React.useEffect(() => {
+      if (!enabled)
+          return;
+      function handleClick(e: MouseEvent): void {
+          if (!refs.some(r => r.current?.contains(e.target as Node)))
+              onCloseRef.current();
+      }
+      function handleKey(e: KeyboardEvent): void {
+          if (e.key === "Escape")
+              onCloseRef.current();
+      }
+      document.addEventListener("click", handleClick);
+      document.addEventListener("keyup", handleKey);
+      return () => {
+          document.removeEventListener("click", handleClick);
+          document.removeEventListener("keyup", handleKey);
+      };
+  }, [enabled]);
+}

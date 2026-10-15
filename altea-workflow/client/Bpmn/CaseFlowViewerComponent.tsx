@@ -1,6 +1,7 @@
 import "@altea/altea/data/globals/arrayExtensions";
 import * as React from "react";
-import { Button, Dropdown, DropdownButton } from "react-bootstrap";
+import { BootstrapButton } from "@altea/altea/client/Operations/EntityOperations";
+import { DropdownButton, DropdownItem } from "@altea/altea/client/ui/Dropdown";
 import NavigatedViewer from "bpmn-js/lib/NavigatedViewer";
 import searchPad from "bpmn-js/lib/features/search";
 import { JavascriptMessage, SearchMessage } from "@altea/altea/data/uiMessages";
@@ -151,18 +152,18 @@ export default class CaseFlowViewerComponent
         return (
             <div>
                 <div className="btn-toolbar">
-                    <Button variant="light" onClick={() => this.resetZoom()}>
+                    <BootstrapButton variant="light" onClick={() => this.resetZoom()}>
                         {WorkflowMessage.ResetZoom.niceToString()}
-                    </Button>
+                    </BootstrapButton>
                     <DropdownButton id="colorMenu" variant="light"
                         title={WorkflowMessage.Color.niceToString() + Enum.niceName(CaseFlowColor, this.state.caseFlowColor)}>
                         {this.menuItem(CaseFlowColor.CaseMaxDuration)}
                         {this.menuItem(CaseFlowColor.AverageDuration)}
                         {this.menuItem(CaseFlowColor.EstimatedDuration)}
                     </DropdownButton>
-                    <Button variant="light" onClick={this.handleSearchClick}>
+                    <BootstrapButton variant="light" onClick={this.handleSearchClick}>
                         {SearchMessage.Search.niceToString()}
-                    </Button>
+                    </BootstrapButton>
                 </div>
                 <div ref={de => { this.divArea = de!; }} />
             </div>
@@ -171,9 +172,9 @@ export default class CaseFlowViewerComponent
 
     menuItem(color: CaseFlowColor): React.JSX.Element {
         return (
-            <Dropdown.Item onClick={() => this.handleChangeColor(color)} active={this.state.caseFlowColor === color}>
+            <DropdownItem onClick={() => this.handleChangeColor(color)} active={this.state.caseFlowColor === color}>
                 {Enum.niceName(CaseFlowColor, color)}
-            </Dropdown.Item>
+            </DropdownItem>
         );
     }
 }

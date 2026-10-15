@@ -32,7 +32,7 @@ input[type=checkbox].sf-form-control {
 .sf-form-control[readonly] {
     overflow: auto;
     scrollbar-width: none;
-    background-color: var(--bs-secondary-bg);
+    background-color: var(--muted);
     opacity: 1;
 }
 
@@ -43,7 +43,7 @@ input[type=checkbox].sf-form-control {
 }
 
 .sf-form-control.readonly {
-    background-color: var(--bs-secondary-bg);
+    background-color: var(--muted);
 }
 
 .sf-form-control.readonly.readonly-textarea {
@@ -85,7 +85,7 @@ input[type=checkbox].sf-form-control {
 
 .sf-entity-line-entity,
 .sf-entity-line-entity:focus {
-    background-color: var(--bs-secondary-bg);
+    background-color: var(--muted);
     overflow: hidden;
 }
 
@@ -111,10 +111,10 @@ input[type=checkbox].sf-form-control {
 }
 
 li.sf-strip-element {
-    border: 1px solid var(--bs-border-color);
+    border: 1px solid var(--border);
     border-radius: 3px;
-    background-color: var(--bs-secondary-bg);
-    border: 1px solid var(--bs-border-color);
+    background-color: var(--muted);
+    border: 1px solid var(--border);
     padding: 2px 5px;
 }
 
@@ -125,16 +125,16 @@ li.sf-strip-element {
 }*/
 .sf-line-button {
     cursor: pointer;
-    color: var(--bs-secondary-color);
+    color: var(--muted-foreground);
     text-decoration: none;
 }
 
 .sf-line-button.sf-input-group-text {
-    color: var(--bs-secondary-color);
+    color: var(--muted-foreground);
 }
 
 .sf-line-button:hover {
-    color: var(--bs-secondary-color);
+    color: var(--muted-foreground);
 }
 
 .sf-line-button:not(.sf-input-group-text) {
@@ -208,7 +208,7 @@ li.sf-strip-element {
 
 /*legends*/
 fieldset {
-    border: 1px solid var(--bs-border-color);
+    border: 1px solid var(--border);
     padding: 10px;
     border-radius: 4px;
     margin: 10px 0px;
@@ -235,7 +235,7 @@ fieldset>legend>input[type=checkbox] {
 }
 
 .border {
-    border: 1px solid var(--bs-border-color);
+    border: 1px solid var(--border);
     padding: 10px;
     border-radius: 4px;
 }
@@ -310,11 +310,11 @@ ul.nav-tabs,
 /*Accordion*/
 
 .sf-accordion-element.drag-top>h2>button {
-    box-shadow: inset var(--bs-border-color) 0px 3px 0px 0px !important;
+    box-shadow: inset var(--border) 0px 3px 0px 0px !important;
 }
 
 .sf-accordion-element.drag-bottom>h2>button {
-    box-shadow: inset var(--bs-border-color) 0px -3px 0px 0px !important;
+    box-shadow: inset var(--border) 0px -3px 0px 0px !important;
 }
 
 /*.sf-accordion-element {
@@ -327,31 +327,31 @@ ul.nav-tabs,
 
 /*buton colors*/
 .sf-default:not(.disabled):hover {
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }
 
 .sf-create:not(.disabled):hover {
-    color: var(--bs-success);
+    color: var(--success);
 }
 
 .sf-remove:not(.disabled):hover {
-    color: var(--bs-danger);
+    color: var(--destructive);
 }
 
 .sf-find:not(.disabled):hover {
-    color: var(--bs-warning);
+    color: var(--warning);
 }
 
 .sf-view:not(.disabled):hover {
-    color: var(--bs-primary);
+    color: var(--primary);
 }
 
 .sf-extra:not(.disabled):hover {
-    color: var(--bs-purple);
+    color: #6f42c1;
 }
 
 .sf-move:not(.disabled):hover {
-    color: var(--bs-info);
+    color: var(--info);
     cursor: move;
 }
 
@@ -360,11 +360,11 @@ ul.nav-tabs,
 }
 
 a.sf-move:focus {
-    border: 2px solid var(--bs-border-color);
+    border: 2px solid var(--border);
 }
 
 .sf-paste:not(.disabled):hover {
-    color: var(--bs-warning);
+    color: var(--warning);
 }
 
 body.rtl .sf-form-group.row>label {
@@ -376,18 +376,18 @@ body.rtl .sf-form-group.row>label {
 /* Emulating Bootstrap 3 Validation*/
 .has-error,
 .has-error div.rw-widget-picker.rw-widget-container {
-    border-color: var(--bs-danger) !important;
+    border-color: var(--destructive) !important;
 }
 
 .has-error label {
-    color: var(--bs-danger);
+    color: var(--destructive);
 }
 
 .has-error input,
 .has-error textarea,
 .has-error select,
 .has-error .sf-form-control {
-    border-color: var(--bs-danger);
+    border-color: var(--destructive);
 }
 
 .sf-form-group {
@@ -399,7 +399,7 @@ body.rtl .sf-form-group.row>label {
 }
 
 .sf-form-group .sf-form-group label {
-    color: var(--bs-secondary);
+    color: var(--secondary);
     font-size: 12px;
     margin-bottom: 0px;
 }
@@ -440,8 +440,8 @@ input[type=checkbox].sf-form-control-xs {
 }
 
 /*.rw-widget-input{
-    background-color: var(--bs-body-bg);
-    color: var(--bs-body-color);
+    background-color: var(--background);
+    color: var(--foreground);
 }*/
 .sf-form-control-xs .rw-widget-input,
 .rw-widget-xs .rw-widget-input {
@@ -449,18 +449,18 @@ input[type=checkbox].sf-form-control-xs {
     font-size: 0.875em;
 }
 /*.rw-calendar-header {
-    background-color: var(--bs-body-bg);
-    color: var(--bs-body-color);
+    background-color: var(--background);
+    color: var(--foreground);
 }
 .rw-calendar-transition {
-    background-color: var(--bs-body-bg);
-    color: var(--bs-body-color);
+    background-color: var(--background);
+    color: var(--foreground);
 }
 .rw-cell{
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }
 .rw-cell:hover{
-    background-color: var(--bs-primary);
+    background-color: var(--primary);
 }
 */
 .rw-dropdown-list-input {
@@ -517,7 +517,7 @@ input[type=checkbox].sf-form-control-xs {
 /*form sm (adjustments)*/
 
 .rw-popup {
-    background: var(--bs-body-bg);
+    background: var(--background);
 }
 
 .sf-form-label-sm {
@@ -526,19 +526,19 @@ input[type=checkbox].sf-form-control-xs {
 }
 /*
 .rw-list-option, .rw-list-option-create {
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }
 
 .rw-picker-btn {
-    color: var(--bs-body-color);
-    background-color: var(--bs-secondary-bg);
+    color: var(--foreground);
+    background-color: var(--muted);
 }
 .rw-picker-btn:hover {
-    color: var(--bs-body-color);
-    background-color: var(--bs-secondary-bg-subtle);
+    color: var(--foreground);
+    background-color: var(--secondary-subtle);
 }
 .rw-picker-caret {
-    color: var(--bs-body-color);
+    color: var(--foreground);
 }*/
 
 .rw-widget-sm .rw-multiselect-input {
@@ -568,7 +568,7 @@ input[type=checkbox].sf-form-control-xs {
 }
 
 /*.rw-widget-picker {
-    border: var(--bs-border-width) solid var(--bs-border-color);
+    border: 1px solid var(--border);
 }
 */
 
@@ -579,11 +579,11 @@ input[type=checkbox].sf-form-control-xs {
 }
 
 .sf-form-control-md { /*required for read-only ones*/
-    min-height: calc(1.5em + 0.75rem + calc(var(--bs-border-width) * 2));
+    min-height: calc(1.5em + 0.75rem + calc(1px * 2));
 }
 
 .sf-form-control-xs { /*required for read-only ones*/
-    min-height: calc(1.5em + 1px + calc(var(--bs-border-width) * 2));
+    min-height: calc(1.5em + 1px + calc(1px * 2));
 }
 
 .sf-form-control-sm .rw-widget-picker {
@@ -616,9 +616,9 @@ table .sf-form-group.sf-form-group-sm {
     height: calc(2.7rem + 2px);
 }
 /* .form-select{
-    background-color: var(--bs-body-bg) !important;
-    color: var(--bs-body-color) !important;
-    border-color: 1px solid var(--bs-border-color) !important;
+    background-color: var(--background) !important;
+    color: var(--foreground) !important;
+    border-color: 1px solid var(--border) !important;
 }    */
 
 .sf-form-floating.sf-form-group-sm>label {
@@ -655,7 +655,7 @@ ul.dropdown-menu>li>a.disabled {
     display: block;
     margin-top: 0px;
     margin-bottom: 0px;
-    color: var(--bs-secondary-color);
+    color: var(--muted-foreground);
 }
 
 .item-group {
@@ -688,37 +688,37 @@ table.sf-multi-value>tbody>tr>td {
 
 
 .sf-type-badge {
-    border: 1px solid var(--bs-border-color);
-    color: var(--bs-secondary-color);
+    border: 1px solid var(--border);
+    color: var(--muted-foreground);
     display: inline-block;
     padding: 0.2em 0.4em 0.2em 0.4em;
     font-size: 11px;
     font-weight: 700;
     line-height: 1;
     border-radius: 0.25rem;
-    background-color: var(--bs-secondary-bg);
+    background-color: var(--muted);
 }
 
 body.rtl .sf-mandatory,
 body.rtl .sf-mandatory-widget .rw-input {
-    border-right: 2px solid var(--bs-danger);
+    border-right: 2px solid var(--destructive);
 }
 
 body:not(.rtl) .sf-mandatory,
 body:not(.rtl) .sf-mandatory-widget .rw-input,
 body:not(.rtl) .sf-mandatory-widget .rw-widget-input {
-    border-left: 2px solid var(--bs-danger);
+    border-left: 2px solid var(--destructive);
 }
 
 body.rtl .sf-mandatory-warning,
 body.rtl .sf-mandatory-warning-widget .rw-input {
-    border-right: 2px solid var(--bs-warning);
+    border-right: 2px solid var(--warning);
 }
 
 body:not(.rtl) .sf-mandatory-warning,
 body:not(.rtl) .sf-mandatory-warning-widget .rw-input,
 body:not(.rtl) .sf-mandatory-warning-widget .rw-widget-input {
-    border-left: 2px solid var(--bs-warning);
+    border-left: 2px solid var(--warning);
 }
 
 .sf-no-padding {
@@ -789,24 +789,24 @@ body:not(.rtl) .sf-mandatory-warning-widget .rw-widget-input {
     }
 
     .btn.sf-input-group-text {
-        background: var(--bs-tertiary-bg);
-        border: var(--bs-border-width) solid var(--bs-border-color);
+        background: var(--tertiary);
+        border: 1px solid var(--border);
     }
 
 :root, [data-bs-theme=dark] {
-    --rw-widget-color: var(--bs-body-color);
-    --rw-widget-border-color: var(--bs-border-color);
-    --rw-widget-hover-bg: var(--bs-secondary-bg);
-    --rw-picker-btn-active-bg: var(--bs-border-color);
-    --rw-btn-active-bg: var(--bs-border-color);
-    --rw-input-color: var(--bs-body-color);
-    --rw-input-bg: var(--bs-body-bg);
-    --rw-input-disabled-bg: var(--bs-secondary-bg);
-    --rw-input-disabled-border-color: var(--bs-border-color);
-    --rw-bg: var(--bs-body-bg);
-    --rw-widget-bg: var(--bs-body-bg);
-    --rw-multiselect-tag-bg: var(--bs-body-bg);
-    --rw-multiselect-tag-border-color: var(--bs-border-color);
+    --rw-widget-color: var(--foreground);
+    --rw-widget-border-color: var(--border);
+    --rw-widget-hover-bg: var(--muted);
+    --rw-picker-btn-active-bg: var(--border);
+    --rw-btn-active-bg: var(--border);
+    --rw-input-color: var(--foreground);
+    --rw-input-bg: var(--background);
+    --rw-input-disabled-bg: var(--muted);
+    --rw-input-disabled-border-color: var(--border);
+    --rw-bg: var(--background);
+    --rw-widget-bg: var(--background);
+    --rw-multiselect-tag-bg: var(--background);
+    --rw-multiselect-tag-border-color: var(--border);
     /*repeat*/
     --rw-input-border-color: var(--rw-widget-border-color);
     --rw-input-addon-border-color: var(--rw-input-border-color);

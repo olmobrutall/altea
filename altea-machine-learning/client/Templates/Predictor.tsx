@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Tab, Tabs } from "react-bootstrap";
+import { Tab, Tabs } from "@altea/altea/client/ui/Tabs";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { TypeContext } from "@altea/altea/client/TypeContext";
 import type { BaseEntity } from "@altea/altea/data/entity";

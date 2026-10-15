@@ -1,6 +1,8 @@
 import "@altea/altea/data/globals/arrayExtensions";
 import * as React from "react";
-import { Dropdown, OverlayTrigger, Tooltip } from "react-bootstrap";
+import { Dropdown, DropdownContent, DropdownItem, DropdownLabel, DropdownSeparator, DropdownTrigger } from "@altea/altea/client/ui/Dropdown";
+import { WithTooltip } from "@altea/altea/client/ui/Tooltip";
+import { BootstrapButton } from "@altea/altea/client/Operations/EntityOperations";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { Navigator } from "@altea/altea/client/Navigator";
@@ -397,32 +399,32 @@ export class TreeViewer extends React.Component<TreeViewerProps, TreeViewerState
 
         const menuItems = [
             Navigator.isViewable(type, { isSearch: "main" }) &&
-            <Dropdown.Item onClick={this.handleView}>
+            <DropdownItem onClick={this.handleView}>
                 <FontAwesomeIcon icon="arrow-right" />&nbsp;{EntityControlMessage.View.niceToString()}
-            </Dropdown.Item>,
+            </DropdownItem>,
 
             has(TreeOperation.CreateChild.key) &&
-            <Dropdown.Item onClick={this.handleAddChildren}>
+            <DropdownItem onClick={this.handleAddChildren}>
                 <FontAwesomeIcon icon="square-caret-right" />&nbsp;{TreeViewerMessage.AddChild.niceToString()}
-            </Dropdown.Item>,
+            </DropdownItem>,
 
             has(TreeOperation.CreateNextSibling.key) &&
-            <Dropdown.Item onClick={this.handleAddSibling}>
+            <DropdownItem onClick={this.handleAddSibling}>
                 <FontAwesomeIcon icon="square-caret-down" />&nbsp;{TreeViewerMessage.AddSibling.niceToString()}
-            </Dropdown.Item>,
+            </DropdownItem>,
 
-            <Dropdown.Item onClick={this.handleCopyClick}>
+            <DropdownItem onClick={this.handleCopyClick}>
                 <FontAwesomeIcon icon="copy" />&nbsp;{SearchMessage.Copy.niceToString()}
-            </Dropdown.Item>,
+            </DropdownItem>,
         ].filter(a => a !== false) as ContextualMenuItem[];
 
         if (this.state.currentMenuItems == undefined) {
-            menuItems.push(<Dropdown.Header>{JavascriptMessage.loading.niceToString()}</Dropdown.Header>);
+            menuItems.push(<DropdownLabel>{JavascriptMessage.loading.niceToString()}</DropdownLabel>);
             return menuItems;
         }
 
         if (menuItems.length && this.state.currentMenuItems.length)
-            menuItems.push(<Dropdown.Divider />);
+            menuItems.push(<DropdownSeparator />);
 
         const filter = this.state.contextualMenu?.filter;
         const filtered = filter
@@ -632,15 +634,17 @@ export class TreeViewer extends React.Component<TreeViewerProps, TreeViewerState
                         <FontAwesomeIcon icon="star" />&nbsp;{TreeViewerMessage.AddRoot.niceToString()}
                     </button>}
 
-                <Dropdown onToggle={this.handleSelectedToggle} show={s.isSelectOpen}>
-                    <Dropdown.Toggle id="selectedButton" className="sf-query-button sf-tm-selected" disabled={selected == undefined} variant="light">
+                <Dropdown onOpenChange={this.handleSelectedToggle} open={s.isSelectOpen}>
+                    <DropdownTrigger asChild>
+                      <BootstrapButton id="selectedButton" className="sf-query-button sf-tm-selected dropdown-toggle" disabled={selected == undefined} variant="light">
                         {`${JavascriptMessage.Selected.niceToString()} (${selected ? selected.lite.toString() : TreeViewerMessage.None.niceToString()})`}
-                    </Dropdown.Toggle>
-                    <Dropdown.Menu>
+                      </BootstrapButton>
+                    </DropdownTrigger>
+                    <DropdownContent>
                         {menuItems.length === 0
-                            ? <Dropdown.Item className="sf-search-ctxitem-no-results">{JavascriptMessage.noActionsFound.niceToString()}</Dropdown.Item>
+                            ? <DropdownItem className="sf-search-ctxitem-no-results">{JavascriptMessage.noActionsFound.niceToString()}</DropdownItem>
                             : menuItems.map((mi, i) => React.cloneElement((mi as SearchableMenuItem).menu ?? mi as React.ReactElement, { key: i }))}
-                    </Dropdown.Menu>
+                    </DropdownContent>
                 </Dropdown>
 
                 <button className="btn btn-light" onClick={this.handleExplore}>
@@ -831,9 +835,9 @@ class TreeNodeControl extends React.Component<TreeNodeControlProps> {
                                 onClick={() => tv.handleNodeTextClick(node)}
                                 onContextMenu={tv.props.showContextMenu !== false ? e => tv.handleNodeTextContextMenu(node, e) : undefined}>
                                 {node.fullName !== node.name
-                                    ? <OverlayTrigger overlay={<Tooltip id={`tree-${node.lite.key()}`}><span>{node.fullName}</span></Tooltip>}>
+                                    ? <WithTooltip tooltip={node.fullName}>
                                         <span>{node.name}</span>
-                                    </OverlayTrigger>
+                                    </WithTooltip>
                                     : node.name}
                             </span>
                         </div>

@@ -108,7 +108,7 @@ export function ToolbarElementTable<R extends ToolbarElementBaseEntity>({ ctx, e
                     headerHtmlAttributes: { style: { width: "5%" } },
                     template: ctx => {
                         const icon = parseIcon(ctx.value.iconName);
-                        const bgColor = (ctx.value.iconColor && ctx.value.iconColor.toLowerCase() == "var(--bs-body-bg)" ? "var(--bs-body-color)" : undefined);
+                        const bgColor = (ctx.value.iconColor && ctx.value.iconColor.toLowerCase() == "var(--background)" ? "var(--foreground)" : undefined);
                         return icon && <div>
                             <FontAwesomeIcon icon={fallbackIcon(icon)} style={{ backgroundColor: bgColor, color: ctx.value.iconColor ?? undefined, fontSize: "25px" }} />
                             {ctx.value.showCount && <ToolbarCount showCount={showCountName(ctx.value)} num={showCountName(ctx.value) == "Always" ? 0 : 1} />}

@@ -63,7 +63,7 @@ export function WhatsNewCard(p: { news: WhatsNewFull }): React.JSX.Element {
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                         <Link to={newsUrl}>{WhatsNewMessage.ReadFurther.niceToString()}</Link>
                         {!Navigator.isReadOnly(WhatsNewEntity) && whatsnew.status === "Draft" &&
-                            <small style={{ color: "var(--bs-danger)" }}>{whatsnew.status}</small>}
+                            <small style={{ color: "var(--destructive)" }}>{whatsnew.status}</small>}
                     </div>
                     {whatsnew.attachments > 0 &&
                         <div>

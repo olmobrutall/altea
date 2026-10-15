@@ -1,8 +1,4 @@
-﻿.sf-news-toasts .toast {
-    backdrop-filter: blur(5px);
-}
-
-/* The host, so the badge below can hang off it: a nav item is a flex child, and without `flex-shrink: 0`
+﻿/* The host, so the badge below can hang off it: a nav item is a flex child, and without `flex-shrink: 0`
    a crowded navbar squeezes it narrower than its own content. */
 .sf-news-container {
     position: relative;
@@ -31,10 +27,6 @@
     min-width: 350px;
 }
 
-.sf-news-toasts .toast:not(:last-child) {
-    margin-bottom: 0.25rem;
-}
-
 .sf-news-signature {
     display: block;
     text-align: right;
@@ -49,13 +41,13 @@
 .sf-bell {}
 
 .sf-bell.open {
-    color: var(--bs-secondary-text)
+    color: var(--muted-foreground)
 }
 
 .sf-bell.active {
-    color: var(--bs-warning)
+    color: var(--warning)
 }
 
 .sf-bell.active.open {
-    color: var(--bs-warning-dark)
+    color: var(--warning-subtle-foreground)
 }

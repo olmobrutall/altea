@@ -1,5 +1,5 @@
 import * as React from "react";
-import { DropdownButton, Dropdown } from "react-bootstrap";
+import { DropdownButton, DropdownItem } from "@altea/altea/client/ui/Dropdown";
 import { Dic } from "@altea/altea/data/globals";
 import { globalModules } from "./GlobalModules";
 import { CopyTextModal } from "./CopyTextModal";
@@ -31,8 +31,8 @@ export function ModulesHelp(p: { cleanName: string }): React.JSX.Element {
         <DropdownButton id="modules_help_dropdown" variant="success" size="sm"
             title={DynamicViewMessage.ModulesHelp.niceToString()}>
             {names.map(name =>
-                <Dropdown.Item style={{ paddingTop: "0", paddingBottom: "0" }} key={name}
-                    onClick={() => handleModuleClick(name)}>{name}</Dropdown.Item>)}
+                <DropdownItem style={{ paddingTop: "0", paddingBottom: "0" }} key={name}
+                    onClick={() => handleModuleClick(name)}>{name}</DropdownItem>)}
         </DropdownButton>
     );
 }

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Dropdown } from "react-bootstrap";
+import { DropdownItem } from "@altea/altea/client/ui/Dropdown";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ajaxPost, ajaxPostRaw, saveFile } from "@altea/altea/client/Services";
 import type { ClientBuilder } from "@altea/altea/client/ClientBuilder";
@@ -222,10 +222,10 @@ export namespace OfficeClient {
             return {
                 header: OfficeTemplateEntity.nicePluralName(),
                 menuItems: templates.map(ot => (
-                    <Dropdown.Item key={ot.key()} onClick={() => void handleMenuClick(ot, ctx)}>
+                    <DropdownItem key={ot.key()} onClick={() => void handleMenuClick(ot, ctx)}>
                         <FontAwesomeIcon aria-hidden={true} icon="file-word" className="icon" />
                         {ot.toString()}
-                    </Dropdown.Item>
+                    </DropdownItem>
                 )),
             } satisfies MenuItemBlock;
         });

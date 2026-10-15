@@ -18,16 +18,16 @@
 }
 
 .headerpicture-shadow {
-    border: thin solid var(--bs-border-color);
+    border: thin solid var(--border);
     padding: 10px;
-    box-shadow: 0 5px 5px 0 var(--bs-box-shadow);
+    box-shadow: 0 5px 5px 0 0 .5rem 1rem rgb(0 0 0 / .15);
     transition: box-shadow 0.3s
 }
 
 .whatsnew-image {
-    border: thin solid var(--bs-border-color);
+    border: thin solid var(--border);
     padding: 10px;
-    box-shadow: 0 5px 5px 0 var(--bs-box-shadow);
+    box-shadow: 0 5px 5px 0 0 .5rem 1rem rgb(0 0 0 / .15);
     transition: box-shadow 0.3s;
     max-width: 90% !important;
 }

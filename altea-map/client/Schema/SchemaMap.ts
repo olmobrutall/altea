@@ -65,7 +65,7 @@ export class SchemaMapD3 {
             .enter().append<SVGPathElement>("path")
             .attr("class", "link")
             .style("stroke-dasharray", d => d.isBackReference ? "4 4" : d.lite ? "2, 2" : null)
-            .style("stroke", "var(--bs-body-color)")
+            .style("stroke", "var(--foreground)")
             .attr("marker-end", d => "url(#" + (d.lite ? "lite_arrow" : "normal_arrow") + ")")
             .attr("marker-start", d => d.isBackReference ? "url(#back_reference_arrow)" : null);
 

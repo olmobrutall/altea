@@ -1,6 +1,6 @@
 import * as React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Nav, NavDropdown } from "react-bootstrap";
+import { Dropdown, DropdownContent, DropdownItem, DropdownSeparator, DropdownTrigger } from "@altea/altea/client/ui/Dropdown";
 import * as AppContext from "@altea/altea/client/AppContext";
 import { LoginAuthMessage } from "../../data/AuthMessages";
 import { UserEntity } from "../../data/User";
@@ -22,10 +22,10 @@ function LoginDropdown(p: {
 
     if (!user)
         return (
-            <Nav.Link className="sf-login" onClick={() => AppContext.navigate("/auth/login")}>
+            <button type="button" className="nav-link sf-login" onClick={() => AppContext.navigate("/auth/login")}>
                 {LoginDropdown.customLoginIcon(user)}
                 <span> {LoginAuthMessage.Login.niceToString()}</span>
-            </Nav.Link>
+            </button>
         );
 
     const cpv = p.changePasswordVisible ?? true;
@@ -43,39 +43,41 @@ function LoginDropdown(p: {
     const extraButtons = p.extraMenuItems && p.extraMenuItems(user);
 
     return (
-        <NavDropdown
-            className="sf-login-dropdown"
-            id="sfLoginDropdown"
-            title={
+        <div className="nav-item dropdown sf-login-dropdown">
+          <Dropdown>
+            <DropdownTrigger asChild>
+              <button type="button" id="sfLoginDropdown" className="nav-link dropdown-toggle">
                 <span className="inline-flex items-center">
                     {p.renderIcon ? p.renderIcon(user) : LoginDropdown.customLoginIcon(user)}
                     &nbsp;
                     {p.renderName ? p.renderName(user) : user.toString()}
                 </span>
-            }
-            align="end"
-        >
+              </button>
+            </DropdownTrigger>
+            <DropdownContent align="end">
             {pv && (
-                <NavDropdown.Item id="sf-auth-profile" onClick={handleProfileClick}>
+                <DropdownItem id="sf-auth-profile" onClick={handleProfileClick}>
                     <FontAwesomeIcon aria-hidden={true} icon="user-pen" className="fa-fw me-2" /> {LoginAuthMessage.MyProfile.niceToString()}
-                </NavDropdown.Item>
+                </DropdownItem>
             )}
             {cpv && (
-                <NavDropdown.Item onClick={() => AppContext.navigate("/auth/changePassword")}>
+                <DropdownItem onClick={() => AppContext.navigate("/auth/changePassword")}>
                     <FontAwesomeIcon aria-hidden={true} icon="key" className="fa-fw me-2" /> {LoginAuthMessage.ChangePassword.niceToString()}
-                </NavDropdown.Item>
+                </DropdownItem>
             )}
             {extraButtons}
-            {(cpv || pv || extraButtons) && <NavDropdown.Divider />}
+            {(cpv || pv || extraButtons) && <DropdownSeparator />}
             {suv && (
-                <NavDropdown.Item onClick={() => AppContext.navigate("/auth/login")}>
+                <DropdownItem onClick={() => AppContext.navigate("/auth/login")}>
                     <FontAwesomeIcon aria-hidden={true} icon="user-group" className="me-2" /> {LoginAuthMessage.SwitchUser.niceToString()}
-                </NavDropdown.Item>
+                </DropdownItem>
             )}
-            <NavDropdown.Item id="sf-auth-logout" onClick={() => AuthClient.logout()}>
+            <DropdownItem id="sf-auth-logout" onClick={() => AuthClient.logout()}>
                 <FontAwesomeIcon icon="right-from-bracket" aria-hidden={true} className="fa-fw me-2" /> {LoginAuthMessage.Logout.niceToString()}
-            </NavDropdown.Item>
-        </NavDropdown>
+            </DropdownItem>
+            </DropdownContent>
+          </Dropdown>
+        </div>
     );
 }
 
