@@ -293,13 +293,39 @@ Then the layers and the knobs:
 - Still open: `RightCaretDropdown`'s mobile "flow inline" mode (the kit menu is portalled, so it floats below the
   toggle on mobile).
 
-### Phase 4 — eastwind
+### Phase 4 — eastwind ✅
 - `Layout.tsx` navbar (`NavDropdown`, navbar classes) → `sf-navbar` + `Dropdown`.
 - `ThemeSelector` → **palette picker** over bundled palettes, e.g. `default` (neutral/blue), `ocean`,
   `forest`, `rose`, `amber`, `violet` — each a light + dark token block under
   `[data-palette=<name>]`, in one `palettes.css`. The MECHANISM (`data-palette`, the token contract,
   persistence) is altea's; the palettes are the app's. Works offline, applies in build and dev alike.
 - Public catalog, `site.css`, `main.client.ts` imports.
+
+Done:
+- **Navbar**: `sf-navbar` / `sf-navbar-brand` / `sf-navbar-nav` in `semantic.css` (Bootstrap's `navbar
+  navbar-expand` metrics) with knobs `--sf-navbar-bg`, `-border`, `-link`, `-link-hover`, `-link-active`,
+  `-brand`. The links inside stay `nav-link` until Phase 5. Without `navbar-brand`, Sidebar.css's Signum
+  brand rule no longer misfires, so eastwind's reset shrank to the toggle gap.
+- **Palettes**: altea `Components/PaletteSelector` (`data-palette` on the root, remembered as `sf-palette`, a
+  palette with a `mode` moves the mode picker through `change-theme-mode`); eastwind's `palettes.css`
+  (ocean, forest, rose, amber, violet: the primary family, links and ring, per mode) and `ThemeSelector` as a
+  list. index.html stamps `data-palette` before painting. The Bootswatch CDN loader is gone.
+- **Tokens moved into `@layer theme`**: unlayered, theme.css's token blocks beat every layer, an app's palette
+  included.
+- **Bootstrap literals a palette could not reach**, re-pointed in theme.css's bridge: `btn-primary` /
+  `btn-outline-primary` (hover / active as Bootstrap's 15% / 20% darker `color-mix`, which reproduces
+  `#0b5ed7` / `#0a58ca` exactly), pagination, `form-check-input`; in semantic.css plain links (a variable swap,
+  as Bootstrap's) and the range thumbs.
+- eastwind imports neither react-bootstrap nor react-widgets (ApplicationConfiguration's tabs, the
+  react-widgets stylesheet and localization provider).
+- Kit tabs: the active tab is `--emphasis`, Bootstrap's colour (it was `--foreground`).
+
+Verified: page screenshots against the old build — identical but for the changed home-page text and the
+help-tip pulse; the public catalog identical; the palette picker (pick, reload, dark mode, reset; primary
+buttons, checkbox and links follow); modal / menu / Lines / module scenarios.
+
+Found on the way: `tspc -b` reported eastwind's client project "up to date" while `dist/app` held stale
+output; `tspc -b tsconfig.client.json --force` rebuilt it.
 
 ### Phase 5 — component-class sweep and removal
 - The Phase 0 codemod, now with the `S` rows and *Layout and grid*: the semantic classes and the grid

@@ -146,108 +146,111 @@
 }
 
 /* The default palette: Bootstrap 5.3's own colours, so nothing changes until a palette is picked.
-   A palette is a `[data-palette=<name>]` block redefining these, per mode. */
-:root,
-[data-theme=light] {
-    --background: #fff;
-    --foreground: #212529;
-    --card: #fff;
-    --card-foreground: #212529;
-    --popover: #fff;
-    --popover-foreground: #212529;
-    --primary: #0d6efd;
-    --primary-foreground: #fff;
-    --secondary: #6c757d;
-    --secondary-foreground: #fff;
-    --tertiary: #f8f9fa;
-    --tertiary-foreground: #212529;
-    --muted: #e9ecef;
-    --muted-foreground: rgb(33 37 41 / .75);
-    --accent: #e9ecef;
-    --accent-foreground: #212529;
-    --destructive: #dc3545;
-    --destructive-foreground: #fff;
-    --success: #198754;
-    --success-foreground: #fff;
-    --warning: #ffc107;
-    --warning-foreground: #000;
-    --info: #0dcaf0;
-    --info-foreground: #000;
-    --light: #f8f9fa;
-    --light-foreground: #000;
-    --dark: #212529;
-    --dark-foreground: #fff;
-    --border: #dee2e6;
-    --input: #dee2e6;
-    --ring: rgb(13 110 253 / .25);
-    --link: #0d6efd;
-    --link-hover: #0a58ca;
-    /* A tinted surface for a colour (an alert, a highlighted row), its text, and its border. */
-    --primary-subtle: #cfe2ff;
-    --primary-subtle-foreground: #052c65;
-    --primary-subtle-border: #9ec5fe;
-    --secondary-subtle: #e2e3e5;
-    --secondary-subtle-foreground: #2b2f32;
-    --secondary-subtle-border: #c4c8cb;
-    --success-subtle: #d1e7dd;
-    --success-subtle-foreground: #0a3622;
-    --success-subtle-border: #a3cfbb;
-    --destructive-subtle: #f8d7da;
-    --destructive-subtle-foreground: #58151c;
-    --destructive-subtle-border: #f1aeb5;
-    --warning-subtle: #fff3cd;
-    --warning-subtle-foreground: #664d03;
-    --warning-subtle-border: #ffe69c;
-    --info-subtle: #cff4fc;
-    --info-subtle-foreground: #055160;
-    --info-subtle-border: #9eeaf9;
-    /* Text stronger than the foreground; text fainter than muted; a border that works on any surface. */
-    --emphasis: #000;
-    --faint-foreground: rgb(33 37 41 / .5);
-    --border-translucent: rgb(0 0 0 / .175);
-}
+   A palette is a `[data-palette=<name>]` block redefining these, per mode. They sit in the `theme`
+   layer, so an application's own CSS (the `app` layer) redefines any of them, a palette included. */
+@layer theme {
+    :root,
+    [data-theme=light] {
+        --background: #fff;
+        --foreground: #212529;
+        --card: #fff;
+        --card-foreground: #212529;
+        --popover: #fff;
+        --popover-foreground: #212529;
+        --primary: #0d6efd;
+        --primary-foreground: #fff;
+        --secondary: #6c757d;
+        --secondary-foreground: #fff;
+        --tertiary: #f8f9fa;
+        --tertiary-foreground: #212529;
+        --muted: #e9ecef;
+        --muted-foreground: rgb(33 37 41 / .75);
+        --accent: #e9ecef;
+        --accent-foreground: #212529;
+        --destructive: #dc3545;
+        --destructive-foreground: #fff;
+        --success: #198754;
+        --success-foreground: #fff;
+        --warning: #ffc107;
+        --warning-foreground: #000;
+        --info: #0dcaf0;
+        --info-foreground: #000;
+        --light: #f8f9fa;
+        --light-foreground: #000;
+        --dark: #212529;
+        --dark-foreground: #fff;
+        --border: #dee2e6;
+        --input: #dee2e6;
+        --ring: rgb(13 110 253 / .25);
+        --link: #0d6efd;
+        --link-hover: #0a58ca;
+        /* A tinted surface for a colour (an alert, a highlighted row), its text, and its border. */
+        --primary-subtle: #cfe2ff;
+        --primary-subtle-foreground: #052c65;
+        --primary-subtle-border: #9ec5fe;
+        --secondary-subtle: #e2e3e5;
+        --secondary-subtle-foreground: #2b2f32;
+        --secondary-subtle-border: #c4c8cb;
+        --success-subtle: #d1e7dd;
+        --success-subtle-foreground: #0a3622;
+        --success-subtle-border: #a3cfbb;
+        --destructive-subtle: #f8d7da;
+        --destructive-subtle-foreground: #58151c;
+        --destructive-subtle-border: #f1aeb5;
+        --warning-subtle: #fff3cd;
+        --warning-subtle-foreground: #664d03;
+        --warning-subtle-border: #ffe69c;
+        --info-subtle: #cff4fc;
+        --info-subtle-foreground: #055160;
+        --info-subtle-border: #9eeaf9;
+        /* Text stronger than the foreground; text fainter than muted; a border that works on any surface. */
+        --emphasis: #000;
+        --faint-foreground: rgb(33 37 41 / .5);
+        --border-translucent: rgb(0 0 0 / .175);
+    }
 
-[data-theme=dark] {
-    color-scheme: dark;
-    --background: #212529;
-    --foreground: #dee2e6;
-    --card: #212529;
-    --card-foreground: #dee2e6;
-    --popover: #212529;
-    --popover-foreground: #dee2e6;
-    --secondary: #6c757d;
-    --secondary-foreground: #fff;
-    --tertiary: #2b3035;
-    --tertiary-foreground: #dee2e6;
-    --muted: #343a40;
-    --muted-foreground: rgb(222 226 230 / .75);
-    --accent: #343a40;
-    --accent-foreground: #dee2e6;
-    --border: #495057;
-    --input: #495057;
-    --link: #6ea8fe;
-    --link-hover: #8bb9fe;
-    --primary-subtle: #031633;
-    --primary-subtle-foreground: #6ea8fe;
-    --primary-subtle-border: #084298;
-    --secondary-subtle: #161719;
-    --secondary-subtle-foreground: #a7acb1;
-    --secondary-subtle-border: #41464b;
-    --success-subtle: #051b11;
-    --success-subtle-foreground: #75b798;
-    --success-subtle-border: #0f5132;
-    --destructive-subtle: #2c0b0e;
-    --destructive-subtle-foreground: #ea868f;
-    --destructive-subtle-border: #842029;
-    --warning-subtle: #332701;
-    --warning-subtle-foreground: #ffda6a;
-    --warning-subtle-border: #997404;
-    --info-subtle: #032830;
-    --info-subtle-foreground: #6edff6;
-    --info-subtle-border: #087990;
-    --emphasis: #fff;
-    --faint-foreground: rgb(222 226 230 / .5);
-    --border-translucent: rgb(255 255 255 / .15);
+    [data-theme=dark] {
+        color-scheme: dark;
+        --background: #212529;
+        --foreground: #dee2e6;
+        --card: #212529;
+        --card-foreground: #dee2e6;
+        --popover: #212529;
+        --popover-foreground: #dee2e6;
+        --secondary: #6c757d;
+        --secondary-foreground: #fff;
+        --tertiary: #2b3035;
+        --tertiary-foreground: #dee2e6;
+        --muted: #343a40;
+        --muted-foreground: rgb(222 226 230 / .75);
+        --accent: #343a40;
+        --accent-foreground: #dee2e6;
+        --border: #495057;
+        --input: #495057;
+        --link: #6ea8fe;
+        --link-hover: #8bb9fe;
+        --primary-subtle: #031633;
+        --primary-subtle-foreground: #6ea8fe;
+        --primary-subtle-border: #084298;
+        --secondary-subtle: #161719;
+        --secondary-subtle-foreground: #a7acb1;
+        --secondary-subtle-border: #41464b;
+        --success-subtle: #051b11;
+        --success-subtle-foreground: #75b798;
+        --success-subtle-border: #0f5132;
+        --destructive-subtle: #2c0b0e;
+        --destructive-subtle-foreground: #ea868f;
+        --destructive-subtle-border: #842029;
+        --warning-subtle: #332701;
+        --warning-subtle-foreground: #ffda6a;
+        --warning-subtle-border: #997404;
+        --info-subtle: #032830;
+        --info-subtle-foreground: #6edff6;
+        --info-subtle-border: #087990;
+        --emphasis: #fff;
+        --faint-foreground: rgb(222 226 230 / .5);
+        --border-translucent: rgb(255 255 255 / .15);
+    }
 }
 
 @layer legacy {
@@ -274,5 +277,53 @@
         --bs-danger: var(--destructive);
         --bs-warning: var(--warning);
         --bs-info: var(--info);
+    }
+
+    /* Bootstrap compiles the primary button and pagination colours in as literals, so a palette would not reach
+       them. Hover and active are Bootstrap's own shades: 15% and 20% darker. */
+    .btn-primary {
+        --bs-btn-bg: var(--primary);
+        --bs-btn-border-color: var(--primary);
+        --bs-btn-color: var(--primary-foreground);
+        --bs-btn-hover-color: var(--primary-foreground);
+        --bs-btn-hover-bg: color-mix(in srgb, var(--primary) 85%, #000);
+        --bs-btn-hover-border-color: color-mix(in srgb, var(--primary) 80%, #000);
+        --bs-btn-active-color: var(--primary-foreground);
+        --bs-btn-active-bg: color-mix(in srgb, var(--primary) 80%, #000);
+        --bs-btn-active-border-color: color-mix(in srgb, var(--primary) 75%, #000);
+        --bs-btn-disabled-color: var(--primary-foreground);
+        --bs-btn-disabled-bg: var(--primary);
+        --bs-btn-disabled-border-color: var(--primary);
+    }
+
+    .btn-outline-primary {
+        --bs-btn-color: var(--primary);
+        --bs-btn-border-color: var(--primary);
+        --bs-btn-hover-color: var(--primary-foreground);
+        --bs-btn-hover-bg: var(--primary);
+        --bs-btn-hover-border-color: var(--primary);
+        --bs-btn-active-color: var(--primary-foreground);
+        --bs-btn-active-bg: var(--primary);
+        --bs-btn-active-border-color: var(--primary);
+        --bs-btn-disabled-color: var(--primary);
+        --bs-btn-disabled-border-color: var(--primary);
+    }
+
+    .pagination {
+        --bs-pagination-active-bg: var(--primary);
+        --bs-pagination-active-border-color: var(--primary);
+        --bs-pagination-active-color: var(--primary-foreground);
+    }
+
+    /* Bootstrap's checkbox (CheckboxLine): literal colours too. The focus border is primary half-mixed with white. */
+    .form-check-input:checked,
+    .form-check-input[type=checkbox]:indeterminate {
+        background-color: var(--primary);
+        border-color: var(--primary);
+    }
+
+    .form-check-input:focus {
+        border-color: color-mix(in srgb, var(--primary) 50%, #fff);
+        box-shadow: 0 0 0 .25rem var(--ring);
     }
 }

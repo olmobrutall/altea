@@ -362,7 +362,7 @@
 .main-toolbar {
   display: flex;
   vertical-align: middle;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--sf-navbar-border);
   align-items: center;
   /*background-color: var(--background);*/
   flex-wrap: nowrap;

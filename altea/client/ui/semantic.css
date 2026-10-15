@@ -376,7 +376,7 @@ textarea.sf-form-control-lg {
   margin-top: -0.25rem;
   -webkit-appearance: none;
   appearance: none;
-  background-color: #0d6efd;
+  background-color: var(--primary);
   border: 0;
   border-radius: 1rem;
   -webkit-transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
@@ -384,7 +384,7 @@ textarea.sf-form-control-lg {
 }
 
 .sf-form-range::-webkit-slider-thumb:active {
-  background-color: #b6d4fe;
+  background-color: color-mix(in srgb, var(--primary) 30%, #fff);
 }
 
 .sf-form-range::-webkit-slider-runnable-track {
@@ -402,7 +402,7 @@ textarea.sf-form-control-lg {
   height: 1rem;
   -moz-appearance: none;
   appearance: none;
-  background-color: #0d6efd;
+  background-color: var(--primary);
   border: 0;
   border-radius: 1rem;
   -moz-transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
@@ -410,7 +410,7 @@ textarea.sf-form-control-lg {
 }
 
 .sf-form-range::-moz-range-thumb:active {
-  background-color: #b6d4fe;
+  background-color: color-mix(in srgb, var(--primary) 30%, #fff);
 }
 
 .sf-form-range::-moz-range-track {
@@ -851,7 +851,7 @@ textarea.sf-form-control.is-invalid {
 }
 
 .sf-tabs-tabs .sf-tab[data-active] {
-  color: var(--foreground);
+  color: var(--emphasis);
   background-color: var(--background);
   border-color: var(--border) var(--border) var(--background);
 }
@@ -952,4 +952,74 @@ textarea.sf-form-control.is-invalid {
   font-size: .875rem;
   color: var(--muted-foreground);
   white-space: nowrap;
+}
+
+/* The app shell's navbar (Bootstrap 5.3's `navbar navbar-expand` metrics). An application restyles it through
+   the knobs, in its own CSS. The links inside are still Bootstrap's `nav-link`s until Phase 5. */
+:root {
+  --sf-navbar-bg: var(--background);
+  --sf-navbar-border: var(--border);
+  --sf-navbar-link: color-mix(in srgb, var(--emphasis) 65%, transparent);
+  --sf-navbar-link-hover: color-mix(in srgb, var(--emphasis) 80%, transparent);
+  --sf-navbar-link-active: var(--emphasis);   /* the current item, or the one whose menu is open */
+  --sf-navbar-brand: var(--emphasis);
+}
+
+.sf-navbar {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  padding: .5rem 0;
+  background-color: var(--sf-navbar-bg);
+  border-bottom: 1px solid var(--sf-navbar-border);
+}
+
+.sf-navbar-brand {
+  padding: .3125rem 0;
+  margin-inline-end: 1rem;
+  font-size: 1.25rem;
+  color: var(--sf-navbar-brand);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.sf-navbar-brand:hover,
+.sf-navbar-brand:focus {
+  color: var(--sf-navbar-brand);
+}
+
+.sf-navbar-nav {
+  display: flex;
+  flex-direction: row;
+  padding-left: 0;
+  margin-bottom: 0;
+  list-style: none;
+}
+
+.sf-navbar-nav .nav-link {
+  padding: .5rem;
+  color: var(--sf-navbar-link);
+}
+
+.sf-navbar-nav .nav-link:hover,
+.sf-navbar-nav .nav-link:focus {
+  color: var(--sf-navbar-link-hover);
+}
+
+.sf-navbar-nav .nav-link.active,
+.sf-navbar-nav .nav-link.show,
+.sf-navbar-nav .nav-link[data-popup-open] {
+  color: var(--sf-navbar-link-active);
+}
+
+/* Links (Bootstrap 5.3's `a`, which reads an RGB triplet a palette cannot reach). The hover colour swaps a
+   variable, as Bootstrap's does, so a class that colours a link (`.nav-link`, `.btn`) still wins on hover. */
+a {
+  color: var(--sf-link-color, var(--link));
+}
+
+a:hover {
+  --sf-link-color: var(--link-hover);
 }
