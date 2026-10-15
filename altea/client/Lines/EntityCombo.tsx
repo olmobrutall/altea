@@ -5,14 +5,12 @@
 //     Entity; getToString(x, f?)→comboToString (f = liteToString applied to the resolved entity;
 //     altea's toLite can't carry a custom toString, so getLite drops it — see TODO).
 //   - ResultRow/ResultTable come from entities/dynamicQuery/queryRequest (wire DTOs).
-//   - the DropdownList (onRenderItem) branch gets its localization from the app-wide
-//     <ReactWidgetsLocalization> around the router; the plain <select> branch needs none. Data loads
+//   - the onRenderItem branch is the ui Combobox; the plain <select> branch is native. Data loads
 //     via the active Finder query APIs (getResultTable / defaultNoColumnsAllRows).
 import * as React from 'react'
 import { BaseEntity, Entity } from '../../data/entity'
 import { Lite } from '../../data/lite'
 import { Finder } from '../Finder'
-import { useDropdownListSearchLabel } from '../Components/DropdownListSearch'
 import type { FindOptions } from '../FindOptions'
 import type { ResultRow, ResultTable } from '../../data/dynamicQuery/queryRequest'
 import type { TypeContext } from '../TypeContext'
@@ -25,7 +23,7 @@ import { FormControlReadonly } from './FormControlReadonly'
 import { classes } from '../../data/globals'
 import { genericMemo, useController } from './LineBase'
 import { useMounted } from '../Hooks'
-import { DropdownList } from 'react-widgets-up'
+import { Combobox } from '../ui/Combobox'
 import { getTimeMachineIcon } from './TimeMachineIcon'
 import { TextHighlighter } from '../Components/Typeahead'
 
@@ -229,11 +227,6 @@ export function EntityComboSelect<V extends Entity | Lite<Entity> | null>(p: Ent
 
   const [loadData, setLoadData] = React.useState<boolean>(!p.delayLoadData);
 
-  // Only the onRenderItem branch below renders a DropdownList, but this is a hook, so it is called
-  // unconditionally. The widget's own typeahead input has no name of its own — see
-  // useDropdownListSearchLabel — and the field's name is what labels the combo beside it.
-  const searchLabel = useDropdownListSearchLabel(p.ctx.propertyRoute?.fieldInfo?.niceToString());
-
   const selectRef = React.useRef<HTMLSelectElement>(null);
   const mounted = useMounted();
 
@@ -290,18 +283,19 @@ export function EntityComboSelect<V extends Entity | Lite<Entity> | null>(p: Ent
 
   if (p.onRenderItem) {
     return (
-      <DropdownList<ResultRow>
-        {...searchLabel}
-        className={classes(ctx.formControlClass, p.mandatoryClass)} data={getOptionRows()}
-        onChange={(row, e) => p.onChange(e.originalEvent, (row?.entity as AsLite<V>) ?? null)}
+      <Combobox<ResultRow>
+        id={p.id}
+        size={ctx.formSize}
+        className={classes(p.mandatoryClass)}
+        aria-label={p.ctx.propertyRoute?.fieldInfo?.niceToString()}
+        options={getOptionRows()}
+        getKey={row => row?.entity ? row.entity.key() : "__null"}
+        getLabel={row => row?.entity ? comboToString(row.entity, p.liteToString) : (p.nullPlaceHolder ?? " - ")}
+        onChange={row => p.onChange(undefined, (row?.entity as AsLite<V>) ?? null)}
         value={getResultRow(lite)}
         title={comboToString(lite)}
-        filter={(e, query) => {
-          var toStr = comboToString((e as ResultRow).entity).toLowerCase();
-          return query.toLowerCase().split(' ').every(part => toStr.includes(part));
-        }}
-        renderValue={a => p.onRenderItem!(a.item?.entity == null ? undefined : a.item, "Value")}
-        renderListItem={a => p.onRenderItem!(a.item?.entity == null ? undefined : a.item, "ListItem", a.searchTerm)}
+        renderValue={row => p.onRenderItem!(row?.entity == null ? undefined : row, "Value")}
+        renderItem={(row, query) => p.onRenderItem!(row?.entity == null ? undefined : row, "ListItem", query)}
       />
     );
   } else {

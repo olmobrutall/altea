@@ -100,16 +100,6 @@ export class StyleContext {
     }
   }
 
-  get rwWidgetClass(): string | undefined {
-    switch (this.formSize) {
-      case "xs": return "rw-widget-xs";
-      case "sm": return "rw-widget-sm";
-      case "md": return "";
-      case "lg": return "rw-widget-lg";
-      default: throw new Error("Unexpected formSize " + this.formSize);
-    }
-  }
-
   get inputGroupClass(): string | undefined {
     switch (this.formSize) {
       case "xs": return "sf-input-group sf-input-group-xs";

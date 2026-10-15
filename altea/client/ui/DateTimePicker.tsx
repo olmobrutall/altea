@@ -5,7 +5,7 @@ import { Clock } from "../../data/utils/clock";
 import { ReactWidgetsMessage } from "../../data/uiMessages";
 import { Calendar, type DayRender } from "./Calendar";
 import { dateTimePlaceholder, formatDateValue, parseDateText, type DateValue } from "./dateFormat";
-import { Input, InputGroup, formControlSizes, type FormSize } from "./Input";
+import { Input, InputGroup, type FormSize } from "./Input";
 import { Popover, PopoverAnchor, PopoverContent } from "./Tooltip";
 import { cn } from "./utils";
 
@@ -19,6 +19,14 @@ export interface DateTimePickerProps {
     min?: Temporal.PlainDate;
     max?: Temporal.PlainDate;
     renderDay?: (date: Temporal.PlainDate) => DayRender | undefined;
+    /** A PlainDateTime field whose format shows no time can hide the time box. Default: by type. */
+    showTime?: boolean;
+    /** `"year"`: the value is a month (its first day). */
+    minView?: "month" | "year";
+    /** Where the calendar opens relative to the field. */
+    align?: "start" | "end";
+    title?: string;
+    autoFocus?: boolean;
     size?: FormSize;
     disabled?: boolean;
     readOnly?: boolean;
@@ -65,13 +73,13 @@ export function DateTimePicker(p: DateTimePickerProps): React.ReactElement {
     function pickDay(d: Temporal.PlainDate): void {
         setText(null);
         setInvalid(false);
-        if (p.type === "PlainDate")
-            p.onChange(d);
+        if (p.type === "PlainDate" || !showTime)
+            p.onChange(p.type === "PlainDate" ? d : Clock.fromUserInterface(d.toPlainDateTime()));
         else {
             const time = uiValue instanceof Temporal.PlainDateTime ? uiValue.toPlainTime() : Temporal.PlainTime.from("00:00");
             p.onChange(Clock.fromUserInterface(d.toPlainDateTime(time)));
         }
-        if (p.type === "PlainDate") {
+        if (p.type === "PlainDate" || !showTime) {
             setOpen(false);
             inputRef.current?.focus();
         }
@@ -85,13 +93,14 @@ export function DateTimePicker(p: DateTimePickerProps): React.ReactElement {
     }
 
     const editable = !p.disabled && !p.readOnly;
+    const showTime = p.showTime ?? p.type === "PlainDateTime";
     const showSeconds = p.format.second != null || p.format.timeStyle === "medium" || p.format.timeStyle === "long";
 
     return (
         <Popover open={open && editable} onOpenChange={setOpen}>
             <PopoverAnchor asChild>
                 <InputGroup size={size} className={cn("sf-date-time-picker", p.className)}>
-                    <Input ref={inputRef} id={p.id} size={size} className={p.inputClassName}
+                    <Input ref={inputRef} id={p.id} size={size} className={p.inputClassName} title={p.title} autoFocus={p.autoFocus}
                         value={text ?? shown}
                         placeholder={p.placeholder ?? dateTimePlaceholder(p.format)}
                         disabled={p.disabled} readOnly={p.readOnly}
@@ -106,17 +115,17 @@ export function DateTimePicker(p: DateTimePickerProps): React.ReactElement {
                     {editable &&
                         <button type="button" tabIndex={-1} aria-label={ReactWidgetsMessage.DateButton.niceToString()} title={ReactWidgetsMessage.DateButton.niceToString()}
                             onClick={() => setOpen(!open)}
-                            className={cn("sf-date-button inline-flex cursor-pointer items-center border-1 border-input bg-muted text-foreground hover:bg-accent", formControlSizes[size])}>
-                            <FontAwesomeIcon icon={["far", "calendar"]} aria-hidden={true} />
+                            className="sf-date-button sf-input-group-text cursor-pointer bg-background hover:bg-accent">
+                            <FontAwesomeIcon icon="calendar-days" aria-hidden={true} />
                         </button>}
                 </InputGroup>
             </PopoverAnchor>
-            <PopoverContent align="start" className="w-auto max-w-none border-0 bg-transparent p-0 shadow-none"
+            <PopoverContent align={p.align ?? "start"} className="w-auto max-w-none border-0 bg-transparent p-0 shadow-none"
                 onOpenAutoFocus={e => e.preventDefault()}>
                 <div className="rounded-md bg-popover shadow-md">
-                    <Calendar value={day} onChange={pickDay} min={p.min} max={p.max} renderDay={p.renderDay} autoFocus
-                        className={p.type === "PlainDateTime" ? "rounded-b-none border-b-0" : undefined} />
-                    {p.type === "PlainDateTime" &&
+                    <Calendar value={day} onChange={pickDay} min={p.min} max={p.max} renderDay={p.renderDay} minView={p.minView} autoFocus
+                        className={showTime ? "rounded-b-none border-b-0" : undefined} />
+                    {showTime &&
                         <div className="rounded-b-md border-1 border-t-0 bg-popover px-2 pb-2">
                             <Input type="time" size="sm" step={showSeconds ? 1 : 60}
                                 aria-label={p["aria-label"]}

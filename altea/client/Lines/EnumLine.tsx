@@ -5,11 +5,9 @@ import { ariaLabelOf } from "./ariaLabel";
 //     object via resolveEnum(typeName). Member LABELS come from `Enum.niceName`, the resolver behind
 //     Signum's `member.niceName` (loaded translation → setNiceName → humanised PascalCase).
 //   - type is a FieldInfo: .name→.typeName, .isNotNullable→!.isNullable; boolean typeName is "Boolean".
-//   - DropdownList/Combobox (react-widgets) take their localizers and message strings from the
-//     app-wide <ReactWidgetsLocalization> around the router. A plain <select> needs none.
+//   - a custom-rendered list is the ui Combobox, free text (ComboBoxText) an <input list> + <datalist>.
 import * as React from 'react'
-import { DropdownList, Combobox } from 'react-widgets-up'
-import { useDropdownListSearchLabel } from '../Components/DropdownListSearch'
+import { Combobox } from '../ui/Combobox'
 import { Dic, classes } from '../../data/globals'
 import { Enum } from '../../data/enum'
 import { BooleanEnum } from '../../data/uiMessages'
@@ -70,9 +68,6 @@ function internalDropDownList<V extends string | number | boolean | null>(c: Enu
   var optionItems = getOptionsItems(c);
   const p = c.props;
 
-  // The aria-label in valueHtmlAttributes never arrives: DropdownListInput destructures the props it knows
-  // and drops the rest. This is what actually names the widget and the typeahead input it builds itself.
-  const searchLabel = useDropdownListSearchLabel(typeof p.label == "string" ? p.label : p.ctx.propertyRoute?.fieldInfo?.niceToString());
   if (p.ctx.memberType!.isNullable || p.ctx.value == undefined)
     optionItems = [{ value: null, label: p.emptyLabel ?? " - " }].concat(optionItems);
 
@@ -118,10 +113,10 @@ function internalDropDownList<V extends string | number | boolean | null>(c: Enu
   if (c.props.onRenderDropDownListItem) {
     var oi = optionItems.singleOrNull(a => a.value == p.ctx.value) ?? {
       value: p.ctx.value,
-      label: p.ctx.value,
+      label: toStr(p.ctx.value),
     };
 
-    function renderElement({ item }: any) {
+    function renderElement(item: OptionItem) {
       var result = c.props.onRenderDropDownListItem!(item) as React.ReactElement;
       return React.cloneElement(result, { 'data-value': item.value } as any);
     }
@@ -129,33 +124,19 @@ function internalDropDownList<V extends string | number | boolean | null>(c: Enu
     return (
       <FormGroup ctx={p.ctx} error={p.error} label={p.label} labelIcon={p.labelIcon} helpText={helpText} helpTextOnTop={helpTextOnTop} htmlAttributes={{ ...c.baseHtmlAttributes(), ...p.formGroupHtmlAttributes }} labelHtmlAttributes={p.labelHtmlAttributes} ariaAttributes={ariaAtts}>
         {inputId => c.withItemGroup(
-          <DropdownList<OptionItem> {...searchLabel} className={classes(c.props.valueHtmlAttributes?.className, p.ctx.formControlClass, c.mandatoryClass, "p-0")} data={optionItems}
+          <Combobox<OptionItem>
             id={inputId}
-            onChange={(oe, md) => c.setValue(oe.value, md.originalEvent)}
+            size={p.ctx.formSize}
+            search={false}
+            className={classes(c.props.valueHtmlAttributes?.className, c.mandatoryClass)}
+            options={optionItems}
+            getKey={oi => oi.value == null ? "__null" : toStr(oi.value)}
+            getLabel={oi => oi.label}
+            onChange={oi => c.setValue(oi?.value ?? null)}
             value={oi}
-            autoComplete="off"
-            dataKey="value"
-            textField="label"
-            renderValue={renderElement}
-            renderListItem={renderElement}
             title={niceValue}
-            inputProps={{
-              value: oi?.label ?? "",
-              role: "combobox",
-              "aria-haspopup": "listbox",
-              "aria-expanded": false,
-              "aria-controls": `${inputId}_listbox`,
-              // `ariaLabelOf`, like the two sibling branches: a `label` prop may be a React ELEMENT, and
-              // `String(element)` reaches the DOM as "[object Object]" (see ariaLabel.ts). It also
-              // replaces a hardcoded German "Auswahl" that was the fallback here — the property's own
-              // nice name is both localized and more specific.
-              "aria-label": ariaLabelOf(p.label, p.ctx)
-            }}
-            listProps={{
-              role: "listbox",
-              id: `${inputId}_listbox`,
-            }}
-            {...(p.valueHtmlAttributes as any)}
+            renderItem={renderElement}
+            aria-label={ariaLabelOf(p.label, p.ctx)}
           />
           )
         }
@@ -237,25 +218,24 @@ function internalComboBoxText<V extends string | number | boolean | null>(c: Enu
   const helpText = p.helpText && (typeof p.helpText == "function" ? p.helpText(c) : p.helpText);
   const helpTextOnTop = p.helpTextOnTop && (typeof p.helpTextOnTop == "function" ? p.helpTextOnTop(c) : p.helpTextOnTop);
 
-  var renderItem = c.props.onRenderDropDownListItem ? (a: any) => c.props.onRenderDropDownListItem!(a.item) : undefined;
-
   return (
     <FormGroup ctx={p.ctx} error={p.error} label={p.label} labelIcon={p.labelIcon} helpText={helpText} helpTextOnTop={helpTextOnTop} htmlAttributes={{ ...c.baseHtmlAttributes(), ...p.formGroupHtmlAttributes }} labelHtmlAttributes={p.labelHtmlAttributes} ariaAttributes={ariaAtts}>
       {inputId => c.withItemGroup(
-        <Combobox<OptionItem>
-          id={inputId}
-          className={classes(c.props.valueHtmlAttributes?.className, p.ctx.formControlClass, c.mandatoryClass)} data={optionItems}
-          onChange={(e: string | OptionItem, md) => {
-            c.setValue((e == null ? null : typeof e == "string" ? e : e.value) as V, md.originalEvent);
-          }}
-          value={p.ctx.value}
-          dataKey="value"
-          textField="label"
-          focusFirstItem
-          autoSelectMatches
-          renderListItem={renderItem}
-          {...(p.valueHtmlAttributes as any)}
-        />
+        <>
+          <input id={inputId} type="text" list={inputId + "_options"} autoComplete="off"
+            {...ariaAtts}
+            {...c.props.valueHtmlAttributes}
+            className={classes(c.props.valueHtmlAttributes?.className, p.ctx.formControlClass, c.mandatoryClass)}
+            value={optionItems.singleOrNull(a => a.value == p.ctx.value)?.label ?? toStr(p.ctx.value)}
+            onChange={e => {
+              const text = e.currentTarget.value;
+              const item = optionItems.singleOrNull(a => a.label == text);
+              c.setValue((item ? item.value : text === "" ? null : text) as V, e);
+            }} />
+          <datalist id={inputId + "_options"}>
+            {optionItems.filter(oi => oi.value != null).map((oi, i) => <option key={i} value={oi.label} />)}
+          </datalist>
+        </>
       )
       }
     </FormGroup>

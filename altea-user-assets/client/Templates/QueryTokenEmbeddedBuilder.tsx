@@ -76,7 +76,7 @@ export default function QueryTokenEmbeddedBuilder(p: QueryTokenEmbeddedBuilderPr
     }
 
     const tokenBuilder = (
-        <div className={p.ctx.rwWidgetClass}>
+        <div>
             <QueryTokenBuilder
                 queryToken={qte?.token ?? resolved}
                 onTokenChange={handleTokenChanged}

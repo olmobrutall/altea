@@ -22,6 +22,8 @@ export interface CalendarProps {
     defaultMonth?: Temporal.PlainYearMonth;
     /** The coarsest view the user can zoom out to. */
     maxView?: View;
+    /** `"year"`: a month is the answer — picking one calls onChange with its first day. */
+    minView?: "month" | "year";
     /** Shows a Today button under the grid. */
     showToday?: boolean;
     today?: Temporal.PlainDate;
@@ -38,7 +40,8 @@ const cmp = Temporal.PlainDate.compare;
 export function Calendar(p: CalendarProps): React.ReactElement {
     const today = p.today ?? Temporal.Now.plainDateISO();
     const week = React.useMemo(() => weekInfo(p.locale), [p.locale]);
-    const [view, setView] = React.useState<View>("month");
+    const minView = p.minView ?? "month";
+    const [view, setView] = React.useState<View>(minView);
     const [focused, setFocused] = React.useState<Temporal.PlainDate>(() =>
         clamp(p.value ?? p.defaultMonth?.toPlainDate({ day: 1 }) ?? today, p.min, p.max));
     const gridRef = React.useRef<HTMLTableElement>(null);
@@ -95,6 +98,7 @@ export function Calendar(p: CalendarProps): React.ReactElement {
             case " ":
                 e.preventDefault();
                 if (view === "month") select(focused);
+                else if (view === "year" && minView === "year") p.onChange?.(focused.with({ day: 1 }));
                 else setView(view === "decade" ? "year" : "month");
                 return;
             default: return;
@@ -133,7 +137,10 @@ export function Calendar(p: CalendarProps): React.ReactElement {
                     label={d => fmt({ month: "short" }, d)} fullLabel={d => fmt({ month: "long", year: "numeric" }, d)}
                     isFocused={d => d.month === focused.month} isSelected={d => p.value?.year === d.year && p.value.month === d.month}
                     isCurrent={d => today.year === d.year && today.month === d.month} disabled={d => isDisabled(d, "year")}
-                    onPick={d => { setFocused(clamp(focused.with({ month: d.month }), p.min, p.max)); setView("month"); }} />}
+                    onPick={d => {
+                        if (minView === "year") { setFocused(d); p.onChange?.(d); }
+                        else { setFocused(clamp(focused.with({ month: d.month }), p.min, p.max)); setView("month"); }
+                    }} />}
                 {view === "decade" && <CellGrid cells={Array.from({ length: 12 }, (_, i) => focused.with({ year: decadeStart(focused) - 1 + i, month: 1, day: 1 }))}
                     label={d => String(d.year)} fullLabel={d => String(d.year)}
                     isFocused={d => d.year === focused.year} isSelected={d => p.value?.year === d.year}

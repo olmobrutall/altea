@@ -3,27 +3,27 @@
 // each constrained by the other and the in-range days highlighted.
 //
 // altea fixes vs Signum:
-//   - luxon → no date library: values are Temporal.PlainDate / PlainDateTime; the calendar day key is the JS Date's local
-//     "YYYY-MM-DD" and range membership is a plain string compare on the date part.
+//   - luxon → Temporal: values are Temporal.PlainDate / PlainDateTime; range membership compares the
+//     calendar days (a PlainDateTime by its day in the user's frame).
 //   - DateTimeLine reads its type from `ctx.memberType` (Signum passed an explicit `type=` prop), so the
 //     part ctx must already carry the date TypeReference; DateRangePartProps drops `type`.
-//   - day styling flows through altea's `renderDayAndTitle` (RenderDayAndTitle) hook, not
-//     `calendarProps.renderDay` — we wrap the base renderer and keep its holiday titles.
+//   - day styling flows through altea's `renderDayAndTitle` (RenderDayAndTitle) hook — we wrap the base
+//     renderer and keep its holiday titles.
 import * as React from 'react';
-import type { CalendarProps } from 'react-widgets-up/Calendar';
-import type { RenderDayProp } from 'react-widgets-up/Month';
 import { StyleContext, TypeContext } from '../TypeContext';
 import { DateTimeLine, DateTimeLineOptions, type RenderDayAndTitle } from './DateTimeLine';
-import { dateValueToDate, type DateValue } from './ReactWidgetsLocalizer';
+import { Temporal } from '../../data/basics';
+import { Clock } from '../../data/utils/clock';
+import { classes } from '../../data/globals';
+import type { DateValue } from '../ui/dateFormat';
 import { FormGroup } from './FormGroup';
 import type { ChangeEvent } from './LineBase';
 
 export interface DateRangePartProps {
   ctx: TypeContext<DateValue | null>;
   format?: string;
-  minDate?: Date;
-  maxDate?: Date;
-  calendarProps?: Partial<CalendarProps>;
+  minDate?: Temporal.PlainDate;
+  maxDate?: Temporal.PlainDate;
   calendarAlignEnd?: boolean;
   onChange?: (e: ChangeEvent) => void;
   valueHtmlAttributes?: React.AllHTMLAttributes<any>;
@@ -43,48 +43,35 @@ export interface DateTimeRangeProps {
   formGroupHtmlAttributes?: React.HTMLAttributes<any>;
 }
 
-function earlierDate(a: Date | undefined, b: Date | undefined): Date | undefined {
+const cmp = Temporal.PlainDate.compare;
+
+function earlierDate(a: Temporal.PlainDate | undefined, b: Temporal.PlainDate | undefined): Temporal.PlainDate | undefined {
   if (a == null) return b;
   if (b == null) return a;
-  return a < b ? a : b;
+  return cmp(a, b) < 0 ? a : b;
 }
 
-function laterDate(a: Date | undefined, b: Date | undefined): Date | undefined {
+function laterDate(a: Temporal.PlainDate | undefined, b: Temporal.PlainDate | undefined): Temporal.PlainDate | undefined {
   if (a == null) return b;
   if (b == null) return a;
-  return a > b ? a : b;
+  return cmp(a, b) > 0 ? a : b;
 }
 
-// The date-part ("YYYY-MM-DD") of a JS Date in LOCAL time — the same basis dateValueToDate builds Dates on,
-// so a calendar day compares equal to the range endpoints regardless of time component.
-function jsDateToIsoDate(date: Date): string {
-  const y = date.getFullYear().toString().padStart(4, "0");
-  const m = (date.getMonth() + 1).toString().padStart(2, "0");
-  const d = date.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${d}`;
+function dayOf(value: DateValue | null | undefined): Temporal.PlainDate | undefined {
+  return value == null ? undefined : value instanceof Temporal.PlainDate ? value : Clock.toUserInterface(value).toPlainDate();
 }
 
-// Wrap the base RenderDayAndTitle: keep its holiday title, but decorate the day cell with the range
-// classes (sf-range-start / -end / -between) when it falls on/inside [minIso, maxIso].
-function makeRangeRenderDayAndTitle(base: RenderDayAndTitle, minIso: string | null, maxIso: string | null): RenderDayAndTitle {
-  const renderDay: RenderDayProp = ({ date, label }) => {
-    const iso = jsDateToIsoDate(date);
-
-    const isStart = minIso != null && iso === minIso;
-    const isEnd = maxIso != null && iso === maxIso;
-    const isBetween = minIso != null && maxIso != null && iso > minIso && iso < maxIso;
-
-    const inner = base.renderDay({ date, label });
-
+// Wrap the base RenderDayAndTitle: keep its holiday title, but mark the day cell with the range classes
+// (sf-range-start / -end / -between) when it falls on/inside [min, max].
+function makeRangeRenderDayAndTitle(base: RenderDayAndTitle, min: Temporal.PlainDate | undefined, max: Temporal.PlainDate | undefined): RenderDayAndTitle {
+  const renderDay = (date: Temporal.PlainDate) => {
+    const inner = base.renderDay(date);
+    const isStart = min != null && cmp(date, min) === 0;
+    const isEnd = max != null && cmp(date, max) === 0;
+    const isBetween = min != null && max != null && cmp(date, min) > 0 && cmp(date, max) < 0;
     if (!isStart && !isEnd && !isBetween)
       return inner;
-
-    const cls = isStart && isEnd ? "sf-range-start sf-range-end"
-      : isStart ? "sf-range-start"
-        : isEnd ? "sf-range-end"
-          : "sf-range-between";
-
-    return <span className={cls}>{inner}</span>;
+    return { ...inner, className: classes(inner?.className, isStart && "sf-range-start", isEnd && "sf-range-end", isBetween && "sf-range-between") };
   };
 
   return { renderDay, getHolidayTitle: base.getHolidayTitle };
@@ -94,15 +81,12 @@ export function DateTimeRange(p: DateTimeRangeProps): React.ReactElement | null 
 
   const base = DateTimeLineOptions.Options.useRenderDay();
 
-  const minIso = p.min.ctx.value ? jsDateToIsoDate(dateValueToDate(p.min.ctx.value)) : null;
-  const maxIso = p.max.ctx.value ? jsDateToIsoDate(dateValueToDate(p.max.ctx.value)) : null;
+  const minDay = dayOf(p.min.ctx.value);
+  const maxDay = dayOf(p.max.ctx.value);
 
-  const minAsDate = p.min.ctx.value ? dateValueToDate(p.min.ctx.value) : undefined;
-  const maxAsDate = p.max.ctx.value ? dateValueToDate(p.max.ctx.value) : undefined;
+  const rangeRenderDay = makeRangeRenderDayAndTitle(base, minDay, maxDay);
 
-  const rangeRenderDay = makeRangeRenderDayAndTitle(base, minIso, maxIso);
-
-  function renderPart(part: DateRangePartProps, srOnly: boolean, constraintMinDate: Date | undefined, constraintMaxDate: Date | undefined): React.ReactElement {
+  function renderPart(part: DateRangePartProps, srOnly: boolean, constraintMinDate: Temporal.PlainDate | undefined, constraintMaxDate: Temporal.PlainDate | undefined): React.ReactElement {
     const ctx = srOnly ? part.ctx.subCtx({ formGroupStyle: "SrOnly" }) : part.ctx;
 
     // merge caller constraints with range constraints — be maximally restrictive
@@ -115,7 +99,6 @@ export function DateTimeRange(p: DateTimeRangeProps): React.ReactElement | null 
         format={part.format}
         minDate={effectiveMinDate}
         maxDate={effectiveMaxDate}
-        calendarProps={part.calendarProps}
         renderDayAndTitle={rangeRenderDay}
         calendarAlignEnd={part.calendarAlignEnd}
         onChange={part.onChange}
@@ -134,8 +117,8 @@ export function DateTimeRange(p: DateTimeRangeProps): React.ReactElement | null 
       <FormGroup ctx={p.mainCtx} label={p.label} labelHtmlAttributes={p.labelHtmlAttributes} htmlAttributes={p.formGroupHtmlAttributes}>
         {() => (
           <div className="flex gap-2">
-            {renderPart(p.min, true, undefined, maxAsDate)}
-            {renderPart(p.max, true, minAsDate, undefined)}
+            {renderPart(p.min, true, undefined, maxDay)}
+            {renderPart(p.max, true, minDay, undefined)}
           </div>
         )}
       </FormGroup>
@@ -144,8 +127,8 @@ export function DateTimeRange(p: DateTimeRangeProps): React.ReactElement | null 
 
   return (
     <>
-      {renderPart(p.min, false, undefined, maxAsDate)}
-      {renderPart(p.max, false, minAsDate, undefined)}
+      {renderPart(p.min, false, undefined, maxDay)}
+      {renderPart(p.max, false, minDay, undefined)}
     </>
   );
 }

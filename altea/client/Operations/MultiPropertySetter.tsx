@@ -21,23 +21,10 @@
 //     `optionItems`, which maps each member NAME to the ordinal a bound enum field actually holds.
 //   - `getNiceTypeName` is not re-declared: altea already routes that job through
 //     `Finder.getTypeNiceName` (see SearchControl/ColumnEditor's header).
-//   - the property DropdownList takes react-widgets own strings from the app-wide
-//     <ReactWidgetsLocalization> around the router.
-//
-// TWO DIVERGENCES worth knowing:
-//   1. A setter's `property` path never crosses an ORDINARY entity reference. altea's `PropertyRoute.add`
-//      RE-ROOTS at the referenced concrete type (Signum's AddImp), so "supplier.companyName" is not a
-//      representable route string — the prefix is lost. Nothing is given up: such a reference is edited
-//      through `ModifyEntity` / `CreateNewEntity`, whose nested setters are rooted at the referenced
-//      type, which is the same mechanism a collection already uses. It MAY cross a `@part`, which
-//      continues the route instead of re-rooting — which is exactly what Signum's own PropertyPart meant
-//      to allow and got wrong (`ti.entityKind == "Part" || ti?.entityKind != "SharedPart"` — true for
-//      BOTH branches it meant to admit), so a Part could not be drilled into there either.
-//   2. MList is gone, so a collection's element is a `@part` row ENTITY, never an embedded — Signum's
-//      `isCollection && (isEmbedded || isPart(name))` collapses to "the element is a part entity".
+//   - the property picker is the ui Combobox (Signum's react-widgets DropdownList).
 import * as React from 'react'
 import { Modal } from '../ui/Modal';
-import { DropdownList } from 'react-widgets-up'
+import { Combobox } from '../ui/Combobox'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { Dic, classes } from '../../data/globals'
 import { Enum } from '../../data/enum'
@@ -68,7 +55,6 @@ import { EnumLine } from '../Lines/EnumLine'
 import { EntityLine } from '../Lines/EntityLine'
 import { EntityCombo } from '../Lines/EntityCombo'
 import type { Operations } from '../Operations'
-import { useDropdownListSearchLabel } from '../Components/DropdownListSearch';
 import { FilterFieldMessage } from '../../data/searchHelpMessages';
 import './MultiPropertySetter.css';
 
@@ -498,10 +484,6 @@ interface PropertyPartProps {
 
 export function PropertyPart(p: PropertyPartProps): React.ReactElement | null {
 
-  // Before the early returns below, because it is a hook. The widget's own typeahead input has no name of
-  // its own — see useDropdownListSearchLabel — and this picker chooses a FIELD to set.
-  const searchLabel = useDropdownListSearchLabel(FilterFieldMessage.Field.niceToString());
-
   if (p.parentRoute.propertyRouteType != PropertyRouteType.Mixin &&
     p.parentRoute.propertyRouteType != PropertyRouteType.Root) {
     const tr = p.parentRoute.type;
@@ -524,16 +506,17 @@ export function PropertyPart(p: PropertyPartProps): React.ReactElement | null {
 
   return (
     <div className="sf-property-part" onKeyUp={handleKeyUp} onKeyDown={handleKeyUp}>
-      <DropdownList
-        {...searchLabel}
-        filter="contains"
-        data={subMembers}
+      <Combobox<MemberInfo>
+        size="sm"
+        className="w-auto min-w-[8rem]"
+        aria-label={FilterFieldMessage.Field.niceToString()}
+        options={subMembers}
         value={p.selectedRoute?.fieldInfo}
-        onChange={value => handleOnChange(value as MemberInfo)}
-        dataKey={(item: unknown) => (item as MemberInfo | null)?.name}
-        textField={(item: unknown) => (item as MemberInfo | null)?.niceToString() ?? ""}
-        renderValue={a => <PropertyItem item={a.item as MemberInfo | null} />}
-        renderListItem={a => <PropertyItemOptional item={a.item as MemberInfo | null} />}
+        onChange={value => value && handleOnChange(value)}
+        getKey={item => item.name}
+        getLabel={item => item.niceToString()}
+        renderValue={item => <PropertyItem item={item} />}
+        renderItem={item => <PropertyItemOptional item={item} />}
         defaultOpen={p.defaultOpen}
       />
     </div>

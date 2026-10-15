@@ -2,7 +2,7 @@ import * as React from "react";
 import { Select as SelectPrimitive } from "radix-ui";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { cn } from "./utils";
-import { formControlBase, formControlSizes, type FormSize } from "./Input";
+import { formSelectClass, type FormSize } from "./Input";
 
 export interface SelectOption<T extends string = string> {
     value: T;
@@ -30,11 +30,8 @@ export function Select<T extends string = string>(p: SelectProps<T>): React.Reac
     return (
         <SelectPrimitive.Root value={p.value ?? undefined} onValueChange={v => p.onChange(v as T)} disabled={p.disabled}>
             <SelectPrimitive.Trigger id={p.id} aria-label={p["aria-label"]} aria-labelledby={p["aria-labelledby"]} aria-invalid={p["aria-invalid"]}
-                className={cn("sf-form-select", formControlBase, formControlSizes[size], "flex items-center justify-between gap-2 text-start cursor-pointer data-[placeholder]:text-muted-foreground", p.className)}>
-                <span className="truncate"><SelectPrimitive.Value placeholder={p.placeholder} /></span>
-                <SelectPrimitive.Icon asChild>
-                    <FontAwesomeIcon icon="chevron-down" className="text-[.75em] opacity-60" aria-hidden={true} />
-                </SelectPrimitive.Icon>
+                className={cn(formSelectClass(size), "text-start cursor-pointer data-[placeholder]:text-muted-foreground", p.className)}>
+                <span className="block truncate"><SelectPrimitive.Value placeholder={p.placeholder} /></span>
             </SelectPrimitive.Trigger>
             <SelectPrimitive.Portal>
                 <SelectPrimitive.Content position="popper" sideOffset={2}

@@ -784,3 +784,15 @@ textarea.sf-form-control.is-invalid {
 .sf-modal-footer > * {
   margin: .25rem;
 }
+
+/* A control marked invalid for assistive technology looks invalid too. */
+.sf-form-control[aria-invalid=true],
+.sf-form-select[aria-invalid=true] {
+  border-color: var(--destructive);
+}
+
+.sf-form-control[aria-invalid=true]:focus,
+.sf-form-select[aria-invalid=true]:focus {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 .25rem color-mix(in srgb, var(--destructive) 25%, transparent);
+}

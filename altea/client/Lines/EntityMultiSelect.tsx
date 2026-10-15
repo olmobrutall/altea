@@ -1,18 +1,15 @@
 // Ported from Signum.React/Lines/EntityMultiSelect.tsx onto altea's EntityListBase. A VALUE line
-// (super(true)): a react-widgets Multiselect over the @valueField's option lites; the stored list is
-// R[] of rows, each wrapping one selected value. altea fixes: no MList/isMListElement — the widget's
-// `value` items are ROWS (BaseEntity) and its `data` items are option ResultRows, disambiguated by
-// `instanceof BaseEntity`; select maps each to its value lite and diffs against the current rows
+// (super(true)): a ui MultiCombobox over the @valueField's option lites; the stored list is R[] of rows,
+// each wrapping one selected value. altea fixes: no MList/isMListElement — the selected rows are shown
+// as option ResultRows; select maps each to its value lite and diffs against the current rows
 // (`addValue` for new, `removeElement` for deselected). showType keys off the @valueField's type.
-// The widget OWN strings (tag label, remove, "no items in this list") come from ReactWidgetsLocalizer
-// through the app-wide <ReactWidgetsLocalization> around the router, not react-widgets defaults.
 import * as React from 'react'
 import type { ResultRow, ResultTable } from '../../data/dynamicQuery/queryRequest'
 import { BaseEntity, Entity } from '../../data/entity'
 import { Lite } from '../../data/lite'
 import { EntityListBaseController, type EntityListBaseProps } from './EntityListBase'
 import { Navigator } from '../Navigator'
-import { Multiselect } from 'react-widgets-up'
+import { MultiCombobox } from '../ui/Combobox'
 import { useController } from './LineBase'
 import type { FindOptions } from '../FindOptions'
 import { Finder } from '../Finder'
@@ -125,21 +122,22 @@ export function EntityMultiSelect<R extends BaseEntity>(props: EntityMultiSelect
       helpText={helpText}
       helpTextOnTop={helpTextOnTop}
       htmlAttributes={{ ...c.baseHtmlAttributes(), ...p.formGroupHtmlAttributes }}>
-      {inputId => <div className={classes(p.ctx.rwWidgetClass, c.mandatoryClass ? c.mandatoryClass + "-widget" : undefined)}>
-        <Multiselect<any>
+      {inputId =>
+        <MultiCombobox<ResultRow>
           id={inputId}
-          readOnly={p.ctx.readOnly}
-          dataKey={(item: any) => item instanceof BaseEntity ? getLite(c.getElementValue(item as R)).key() : (item as ResultRow).entity!.key()}
-          textField="name"
-          value={p.ctx.value}
-          data={optionsRows as any}
-          onChange={(value: any[]) => c.handleOnSelect(value.map(e => e instanceof BaseEntity ? (c.getElementValue(e as R) as Lite<Entity> | Entity) : (e as ResultRow).entity!))}
-          renderListItem={({ item }: { item: any }) => p.onRenderItem ? p.onRenderItem(item as ResultRow) : Navigator.renderLite((item as ResultRow).entity!)}
-          renderTagValue={({ item }: { item: any }) => item instanceof BaseEntity ? Navigator.renderLite(getLite(c.getElementValue(item as R))) :
-            p.onRenderItem ? p.onRenderItem(item as ResultRow) : Navigator.renderLite((item as ResultRow).entity!)
-          }
-        />
-      </div>}
+          size={p.ctx.formSize}
+          disabled={p.ctx.readOnly}
+          className={classes(c.mandatoryClass)}
+          options={optionsRows}
+          value={p.ctx.value.map(row => {
+            const lite = getLite(c.getElementValue(row));
+            return optionsRows.singleOrNull(o => isLiteEqual(o.entity, lite)) ?? { entity: lite } as ResultRow;
+          })}
+          getKey={r => r.entity!.key()}
+          getLabel={r => r.entity!.toString()}
+          renderItem={r => p.onRenderItem ? p.onRenderItem(r) : Navigator.renderLite(r.entity!)}
+          onChange={rows => c.handleOnSelect(rows.map(r => r.entity!))}
+        />}
     </FormGroup>
   );
 

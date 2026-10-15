@@ -113,7 +113,7 @@ export default function UiKitPage(): React.ReactElement {
                         <div key={s}>
                             <Label htmlFor={"input-" + s}>Input {s}</Label>
                             <InputGroup size={s}>
-                                <InputGroupText size={s}>@</InputGroupText>
+                                <InputGroupText>@</InputGroupText>
                                 <Input id={"input-" + s} size={s} placeholder="user name" readOnly={compact} />
                                 <Button size={s} variant="secondary">Go</Button>
                             </InputGroup>
