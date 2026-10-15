@@ -1290,9 +1290,9 @@ export class QueryBinder extends ExpressionVisitor {
         }
 
         // entity.toLite() → a Lite over that reference (Signum's BindToLite). Works
-        // over a typed reference or a polymorphic IB/IBA one.
+        // over a typed reference or a polymorphic IB/IBA one. `toLite(model)` carries its own toStr.
         if (methodName === "toLite" && (source instanceof EntityExpression || source instanceof ImplementedByExpression || source instanceof ImplementedByAllExpression))
-            return new LiteReferenceExpression(new LiteType(source.type), source, undefined);
+            return new LiteReferenceExpression(new LiteType(source.type), source, args.length === 1 && args[0]!.type === LiteralType.string ? this.visit(args[0]!) : undefined);
         if (methodName === "toLite" && source instanceof LiteReferenceExpression)
             return source;
         // toLite() on a captured constant entity → a constant Lite (Signum's Clean

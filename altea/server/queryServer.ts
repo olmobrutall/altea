@@ -13,6 +13,7 @@ import { QueryEntity } from "../data/queryEntity";
 import { Temporal, Decimal } from "../data/basics";
 import { Enum } from "../data/enum";
 import { SubTokensOptionsAll, IndexerContainerToken } from "../data/dynamicQuery/tokens";
+import { AggregateToken } from "../data/dynamicQuery/tokens/aggregateToken";
 import { serializeServerToken, type ServerTokenJson } from "../data/dynamicQuery/tokenSerializer";
 import type { QueryName } from "../data/dynamicQuery/queryUtils";
 import type { QueryToken } from "../data/dynamicQuery/tokens";
@@ -90,25 +91,46 @@ export namespace QueryServer {
                 res.jsonTyped(container.subTokens(SubTokensOptionsAll).map(serializeServerToken));
             });
 
-        // POST /api/query/queryValue/:queryKey — a scalar value for a query (Signum's
-        // QueryController.QueryValue): with no `valueToken` it is the row COUNT (what SearchValue /
-        // SearchValueLine request), the count used for "N users in this role" badges. A `valueToken`
-        // aggregate (Sum/Min/Max of a column) is not wired yet — it needs the aggregate-token executor.
+        // POST /api/query/queryValue/:queryKey — a value for a query (Signum's QueryController.QueryValue /
+        // AutoDynamicQueryCore.ExecuteQueryValue): with no `valueToken` the row COUNT (what SearchValue /
+        // SearchValueLine request by default); with a plain token its value — the single row's, or every
+        // row's when `multipleValues`. An AGGREGATE `valueToken` (Sum/Min/Max of a column) is not wired yet:
+        // it needs the aggregate-token executor.
         ws.post("/api/query/queryValue/:queryKey",
             { params: CustomType<{ queryKey: string }>(), req: CustomType<WireQueryValueRequest>(), res: CustomType<unknown>() },
             async (req, res) => {
                 const wire = await req.jsonTyped() as WireQueryValueRequest;
-                if (wire.valueToken != undefined && wire.valueToken !== "Count")
-                    throw new Error(`queryValue with valueToken '${wire.valueToken}' is not supported yet (only Count).`);
                 const queryName = resolveQueryName(wire.queryKey);
                 await QueryLogic.assertQueryAllowedHook?.(queryName, false);
                 const token = (s: string): QueryToken => QueryLogic.getToken(queryName, s, SubTokensOptionsAll);
                 const filters = (wire.filters ?? []).map(f => parseFilter(token, f));
-                // Count = execute with the filters and no display columns, then size the result. (A true
-                // SQL COUNT(*) would avoid materialising rows; fine for the small reference-count queries.)
-                const request = new QueryRequest(queryName, filters, [], [], new Pagination.All(), false);
+
+                if (wire.valueToken == undefined || wire.valueToken === "Count") {
+                    // Count = execute with the filters and no display columns, then size the result. (A true
+                    // SQL COUNT(*) would avoid materialising rows; fine for the small reference-count queries.)
+                    const request = new QueryRequest(queryName, filters, [], [], new Pagination.All(), false);
+                    const rt = await QueryLogic.queries.executeQueryAsync(request, req.cancellation);
+                    res.jsonTyped(rt.rows.length);
+                    return;
+                }
+
+                const valueToken = token(wire.valueToken);
+                if (valueToken instanceof AggregateToken)
+                    throw new Error(`queryValue with the aggregate '${wire.valueToken}' is not supported yet.`);
+
+                const request = new QueryRequest(queryName, filters, [], [new Column(valueToken)], new Pagination.All(), false);
                 const rt = await QueryLogic.queries.executeQueryAsync(request, req.cancellation);
-                res.jsonTyped(rt.rows.length);
+                const column = rt.columns.find(c => c.token.fullKey() === valueToken.fullKey())!;
+                const values = rt.rows.map(row => liteify(column.values[row.index]));
+
+                if (wire.multipleValues) {
+                    res.jsonTyped(values);
+                    return;
+                }
+
+                if (values.length > 1)
+                    throw new Error(`queryValue '${wire.valueToken}' found ${values.length} rows, expected at most one.`);
+                res.jsonTyped(values[0] ?? null);
             });
     }
 }
