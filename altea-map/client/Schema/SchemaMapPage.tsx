@@ -128,34 +128,34 @@ export default function SchemaMapPage(): React.JSX.Element | null {
 
     function renderFilter(): React.JSX.Element {
         return (
-            <div className="container">
-                <div className="row items-center">
-                    <div className="col-auto">
+            <div className="sf-container">
+                <div className="flex flex-wrap items-center gap-x-6">
+                    <div className="flex-none">
                         <label htmlFor="filter"> {MapMessage.Filter.niceToString()}</label>&nbsp;
                     </div>
-                    <div className="col-auto">
+                    <div className="flex-none">
                         <input type="text" className="sf-form-control sf-form-control-sm" id="filter" placeholder="type or package" value={filter} onChange={e => setFilter(e.currentTarget.value)} />
                     </div>
-                    <div className="col-auto">
+                    <div className="flex-none">
                         <label htmlFor="color"> {MapMessage.Color.niceToString()}</label>&nbsp;
                     </div>
-                    <div className="col-auto">
+                    <div className="flex-none">
                         <select className="sf-form-select sf-form-select-sm" id="color" value={color} onChange={e => setColor(e.currentTarget.value)}>
                             {schemaInfo?.providers.map((a, i) =>
                                 <option key={i} value={a.name}>{a.niceName}</option>)}
                         </select>
                     </div>
-                    <div className="col-auto">
+                    <div className="flex-none">
                         <label htmlFor="showItems"> {MapMessage.Show.niceToString()}</label>&nbsp;
                     </div>
-                    <div className="col-auto">
+                    <div className="flex-none">
                         <select className="sf-form-select sf-form-select-sm" id="showItems" value={showRelations} onChange={e => setShowRelations(e.currentTarget.value as RelationFilterMode)}>
                             <option value="All">{MapMessage.All.niceToString()}</option>
                             <option value="Selected">{MapMessage.Selected.niceToString()}</option>
                             <option value="SelectedAndNeighbors">{MapMessage.SelectedAndNeighbors.niceToString()}</option>
                         </select>
                     </div>
-                    <div className="col-auto">
+                    <div className="flex-none">
                         <Popover>
                             <PopoverTrigger asChild nativeButton={false}>
                                 <LinkButton title={MapMessage.Help.niceToString()} id="sfMapHelp" className="me-2">

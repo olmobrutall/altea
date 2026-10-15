@@ -53,14 +53,11 @@ export default function DashboardView(p: {
                             .groupBy(c => (c.value.row as number).toString())
                             .orderBy(gr => Number(gr.key))
                             .map(gr =>
-                                <div className="row row-control-panel" key={"row" + gr.key}>
-                                    {gr.elements.orderBy(c => c.value.startColumn as number).map((c, j, list) => {
-
-                                        const prev = j == 0 ? undefined : list[j - 1].value;
-                                        const offset = (c.value.startColumn as number) - (prev ? ((prev.startColumn as number) + (prev.columns as number)) : 0);
-
+                                <div className="sf-row row-control-panel" key={"row" + gr.key}>
+                                    {gr.elements.orderBy(c => c.value.startColumn as number).map((c, j) => {
+                                        // A grid cell placed by its own start column (Bootstrap's offsets were relative to the previous part).
                                         return (
-                                            <div key={j} className={`col-sm-${c.value.columns} offset-sm-${offset}`}>
+                                            <div key={j} className={`sm:col-start-${(c.value.startColumn as number) + 1} sm:col-span-${c.value.columns}`}>
                                                 <PanelPart ctx={c} entity={p.entity}
                                                     dashboardController={dashboardController} reload={p.reload} cachedQueries={p.cachedQueries} deps={p.deps} />
                                             </div>
@@ -92,12 +89,10 @@ export default function DashboardView(p: {
         return (
             <div className="sf-dashboard-view">
                 {combinedRows.map((r, i) =>
-                    <div className="row row-control-panel" key={"row" + i}>
-                        {r.columns.orderBy(c => c.startColumn).map((c, j, list) => {
-                            const last = j == 0 ? undefined : list[j - 1];
-                            const offset = c.startColumn - (last ? (last.startColumn + last.columnWidth) : 0);
+                    <div className="sf-row row-control-panel" key={"row" + i}>
+                        {r.columns.orderBy(c => c.startColumn).map((c, j) => {
                             return (
-                                <div key={j} className={`col-sm-${c.columnWidth} offset-sm-${offset}`} style={{ display: "flex", flexDirection: "column" }}>
+                                <div key={j} className={`sm:col-start-${c.startColumn + 1} sm:col-span-${c.columnWidth}`} style={{ display: "flex", flexDirection: "column" }}>
                                     {c.parts.map((pctx, k) =>
                                         <PanelPart key={k} ctx={pctx} entity={p.entity} dashboardController={dashboardController} cachedQueries={p.cachedQueries}
                                             reload={p.reload} deps={p.deps} flex />)}
@@ -315,11 +310,11 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
         // A titled panel is a REGION named by its own title. A heading alone is only found by someone going
         // looking for it; a landmark is announced on the way in, which is what tells a screen reader user
         // that they have moved from one panel of the dashboard to another.
-        <div className={classes("card", !part.customColor && "border-tertiary", "shadow-xs", "mb-6")}
+        <div className={classes("sf-card", !part.customColor && "border-tertiary", "shadow-xs", "mb-6")}
             role={titleText ? "region" : undefined} aria-labelledby={titleText ? titleId : undefined}
             style={{ flex: (p.flex && showContent) ? 1 : undefined }}>
             {title &&
-                <div className={classes("card-header font-bold", "sf-show-hover", "flex")}
+                <div className={classes("sf-card-header font-bold", "sf-show-hover", "flex")}
                     style={{
                         backgroundColor: part.customColor ?? undefined,
                         color: part.customColor ? getContrastingTextColor(part.customColor) : undefined,
@@ -338,9 +333,9 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
                         `text-tertiary-foreground` is the text colour paired with the tertiary surface, and
                         it follows the theme. */}
                     {
-                        dashboardFilter && <span className="badge bg-tertiary text-tertiary-foreground border ms-2 sf-filter-pill">
+                        dashboardFilter && <span className="sf-badge bg-tertiary text-tertiary-foreground border ms-2 sf-filter-pill">
                             {dashboardFilter.rows.length} {DashboardMessage.RowsSelected.niceToString().forGenderAndNumber(dashboardFilter.rows.length)}
-                            <button type="button" aria-label={DashboardMessage.Close.niceToString()} className="btn-close" onClick={handleClearFilter} />
+                            <button type="button" aria-label={DashboardMessage.Close.niceToString()} className="sf-btn-close" onClick={handleClearFilter} />
                         </span>
                     }
 
@@ -361,7 +356,7 @@ export function PanelPart(p: PanelPartProps): React.JSX.Element | null {
                 </div>
             }
             {showContent &&
-                <div data-part-content={partContentKey} className="card-body py-2 px-4 flex flex-col">
+                <div data-part-content={partContentKey} className="sf-card-body py-2 px-4 flex flex-col">
                     <ErrorBoundary>
                         {React.createElement(state.component, contentProps)}
                     </ErrorBoundary>

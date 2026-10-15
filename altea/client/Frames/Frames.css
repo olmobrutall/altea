@@ -76,10 +76,10 @@
 /* Space out buttons in a btn-toolbar (Signum's Frames.css). Used by bare `.btn-toolbar`s such as the
    SaveChangesModal / MessageModal footers. altea divergence: the frame's own ButtonBar (`.sf-button-bar`)
    uses `gap` for its spacing, so exclude it here to avoid doubling the margins. */
-.btn-toolbar:not(.sf-button-bar) > .btn,
-.btn-toolbar:not(.sf-button-bar) > .btn-group,
-.btn-toolbar:not(.sf-button-bar) > .sf-input-group,
-.btn-toolbar:not(.sf-button-bar) > .dropdown {
+.sf-btn-toolbar:not(.sf-button-bar) > .sf-btn,
+.sf-btn-toolbar:not(.sf-button-bar) > .sf-btn-group,
+.sf-btn-toolbar:not(.sf-button-bar) > .sf-input-group,
+.sf-btn-toolbar:not(.sf-button-bar) > .sf-dropdown {
     margin-bottom: 3px;
     margin-right: 5px;
 }

@@ -38,7 +38,7 @@ export default function TranslationCodeSyncFolders(): React.JSX.Element {
                 : (
                     <AccessibleTable
                         aria-label={`${TranslationMessage.Folder.niceToString()} / ${TranslationMessage.NewTranslations.niceToString()}`}
-                        className="st table">
+                        className="st sf-table">
                         <thead>
                             <tr>
                                 <th>{TranslationMessage.Folder.niceToString()}</th>

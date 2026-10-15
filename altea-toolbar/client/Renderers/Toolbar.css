@@ -2,7 +2,7 @@
     width: 100%;
     text-align: center;
     height: 100%;
-    padding-top: var(--bs-card-spacer-y);
+    padding-top: var(--sf-card-spacer-y);
 }
 
 .toolbar-card-container {
@@ -10,7 +10,7 @@
     padding: 1rem;
 }
 
-.nav.navbar-nav .nav-link .nav-item-float {
+.sf-nav.sf-navbar-nav .sf-nav-link .nav-item-float {
     display: none;
 }
 

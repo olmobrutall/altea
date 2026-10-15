@@ -101,11 +101,11 @@ export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity>
                             <span style={{ fontWeight: ctx.value.groupResults || ctx.value.filters.length > 0 || ctx.value.orders.length > 0 ? "bold" : undefined }}>
                                 {ctx.niceName(a => a.query)}
                             </span>}>
-                            <div className="row">
-                                <div className="col-sm-4">
+                            <div className="sf-row">
+                                <div className="sm:col-span-4">
                                     <CheckboxLine ctx={ctx3.subCtx(e => e.disableAuthorization)} inlineCheckbox />
                                 </div>
-                                <div className="col-sm-4">
+                                <div className="sm:col-span-4">
                                     <CheckboxLine ctx={ctx3.subCtx(e => e.groupResults)} inlineCheckbox onChange={forceUpdate} />
                                 </div>
                             </div>
@@ -128,11 +128,11 @@ export default function EmailTemplate(p: { ctx: TypeContext<EmailTemplateEntity>
                 </Tabs>
             </div>
 
-            <div className="row mb-4">
-                <div className="col-sm-6">
+            <div className="sf-row mb-4">
+                <div className="sm:col-span-6">
                     <AutoLine ctx={ctx3.subCtx(e => e.messageFormat, { labelColumns: 4 })} onChange={forceUpdate} />
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     <CheckboxLine ctx={ctx3.subCtx(e => e.editableMessage)} inlineCheckbox />
                 </div>
             </div>
@@ -163,18 +163,18 @@ function EmailTemplateFrom(p: { ctx: TypeContext<EmailTemplateFromEmbedded>; que
     const forceUpdate = useForceUpdate();
 
     return (
-        <div className="row">
-            <div className="col-sm-2">
+        <div className="sf-row">
+            <div className="sm:col-span-2">
                 <FormGroup label={nicePropertyNameOf("from")} ctx={sc}>
                     {() => <span className={sc.formControlClass}>{nicePropertyNameOf("from")}</span>}
                 </FormGroup>
             </div>
-            <div className="col-sm-2">
+            <div className="sm:col-span-2">
                 <AutoLine ctx={sc.subCtx(a => a.addressSource)} onChange={() => {
                     sc.value.token = null; sc.value.emailAddress = null; sc.value.displayName = null; forceUpdate();
                 }} />
             </div>
-            <div className="col-sm-8">
+            <div className="sm:col-span-8">
                 <AddressBody ctx={sc} query={p.query} onChange={forceUpdate} extraHardcoded={
                     <AutoLine ctx={sc.subCtx(c => c.azureUserId)} onChange={forceUpdate} />} />
             </div>
@@ -187,16 +187,16 @@ function EmailTemplateRecipient(p: { ctx: TypeContext<EmailTemplateEntity_Recipi
     const forceUpdate = useForceUpdate();
 
     return (
-        <div className="row">
-            <div className="col-sm-2">
+        <div className="sf-row">
+            <div className="sm:col-span-2">
                 <AutoLine ctx={sc.subCtx(a => a.kind)} />
             </div>
-            <div className="col-sm-2">
+            <div className="sm:col-span-2">
                 <AutoLine ctx={sc.subCtx(a => a.addressSource)} onChange={() => {
                     sc.value.token = null; sc.value.emailAddress = null; sc.value.displayName = null; forceUpdate();
                 }} />
             </div>
-            <div className="col-sm-8">
+            <div className="sm:col-span-8">
                 <AddressBody ctx={sc} query={p.query} onChange={forceUpdate} />
             </div>
         </div>
@@ -223,22 +223,22 @@ function AddressBody(p: {
                         queryKey={p.query.key}
                         subTokenOptions={SubTokensOptions.CanElement}
                         onTokenChanged={p.onChange} />
-                    <div className="row">
-                        <div className="col-sm-6">
+                    <div className="sf-row">
+                        <div className="sm:col-span-6">
                             <AutoLine ctx={sc.subCtx(c => (c as EmailTemplateEntity_Recipient).whenNone)} />
                         </div>
-                        <div className="col-sm-6">
+                        <div className="sm:col-span-6">
                             <AutoLine ctx={sc.subCtx(c => (c as EmailTemplateEntity_Recipient).whenMany)} />
                         </div>
                     </div>
                 </div>)}
 
-            {sc.value.addressSource === EmailAddressSource.HardcodedAddress && <div className="row">
-                <div className="col-sm-6">
+            {sc.value.addressSource === EmailAddressSource.HardcodedAddress && <div className="sf-row">
+                <div className="sm:col-span-6">
                     <AutoLine ctx={sc.subCtx(c => c.emailAddress)} onChange={p.onChange} />
                     {p.extraHardcoded}
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     <AutoLine ctx={sc.subCtx(c => c.displayName)} onChange={p.onChange} />
                 </div>
             </div>}
@@ -286,7 +286,7 @@ export function EmailTemplateMessageComponent(p: EmailTemplateMessageComponentPr
                             onChange={() => { if (showPreview) forceUpdate(); }} />}
                 <br />
                 {p.messageFormat === EmailMessageFormat.HtmlComplex &&
-                    <button type="button" className="btn btn-link p-0" onClick={e => { e.preventDefault(); setShowPreview(!showPreview); }}>
+                    <button type="button" className="sf-btn sf-btn-link p-0" onClick={e => { e.preventDefault(); setShowPreview(!showPreview); }}>
                         {showPreview
                             ? EmailTemplateMessage.HidePreview.niceToString()
                             : EmailTemplateMessage.ShowPreview.niceToString()}

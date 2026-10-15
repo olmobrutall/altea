@@ -193,9 +193,9 @@ NodeUtils.register<ColumnNode>({
     renderTreeNode: NodeUtils.treeNodeKind,
     renderCode: (node, cc) => {
         const className = node.offset == null
-            ? bindExpr(column => "col-sm-" + String(column), node.width)
+            ? bindExpr(column => "sm:col-span-" + String(column), node.width)
             : bindExpr((column, offset) =>
-                classes("col-sm-" + String(column), offset != undefined && "col-sm-offset-" + String(offset)),
+                classes("sm:col-span-" + String(column), offset != undefined && "sm:col-start-" + String(Number(offset) + 1)),
                 node.width, node.offset);
 
         return cc.elementCodeWithChildrenSubCtx("div", withClassNameEx(node.htmlAttributes, className as ExpressionOrValue<string>), node);
@@ -203,7 +203,7 @@ NodeUtils.register<ColumnNode>({
     render: (dn, parentCtx) => {
         const column = NodeUtils.evaluateAndValidate(dn, parentCtx, dn.node, n => n.width, NodeUtils.isNumber);
         const offset = NodeUtils.evaluateAndValidate(dn, parentCtx, dn.node, n => n.offset, NodeUtils.isNumberOrNull);
-        const className = classes("col-sm-" + String(column), offset != undefined && "col-sm-offset-" + String(offset));
+        const className = classes("sm:col-span-" + String(column), offset != undefined && "sm:col-start-" + String(offset + 1));
 
         return NodeUtils.withChildrensSubCtx(dn, parentCtx,
             <div {...withClassName(toHtmlAttributes(dn, parentCtx, dn.node.htmlAttributes), className)} />);

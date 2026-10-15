@@ -25,12 +25,12 @@ export default function EmailConfiguration(p: { ctx: TypeContext<EmailConfigurat
 
             <fieldset>
                 <legend>Async</legend>
-                <div className="row">
-                    <div className="col-sm-6">
+                <div className="sf-row">
+                    <div className="sm:col-span-6">
                         <AutoLine ctx={ac.subCtx(ca => ca.avoidSendingEmailsOlderThan)} />
                         <AutoLine ctx={ac.subCtx(ca => ca.chunkSizeSendingEmails)} />
                     </div>
-                    <div className="col-sm-6">
+                    <div className="sm:col-span-6">
                         <AutoLine ctx={ac.subCtx(ca => ca.maxEmailSendRetries)} />
                         <AutoLine ctx={ac.subCtx(ca => ca.asyncSenderPeriod)} />
                     </div>

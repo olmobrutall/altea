@@ -21,8 +21,8 @@ export default function Exception(p: { ctx: TypeContext<ExceptionEntity> }): Rea
   const sc = p.ctx.subCtx({ labelColumns: { sm: 4 } });
   return (
     <div>
-      <div className="row">
-        <div className="col-sm-6">
+      <div className="sf-row">
+        <div className="sm:col-span-6">
           <AutoLine ctx={sc.subCtx(f => f.environment)} />
           <AutoLine ctx={sc.subCtx(f => f.creationDate)} />
           <AutoLine ctx={sc.subCtx(f => f.version)} />
@@ -30,7 +30,7 @@ export default function Exception(p: { ctx: TypeContext<ExceptionEntity> }): Rea
           <AutoLine ctx={sc.subCtx(f => f.machineName)} />
           <AutoLine ctx={sc.subCtx(f => f.applicationName)} />
         </div>
-        <div className="col-sm-6">
+        <div className="sm:col-span-6">
           <AutoLine ctx={sc.subCtx(f => f.actionName)} />
           <AutoLine ctx={sc.subCtx(f => f.controllerName)} />
           <AutoLine ctx={sc.subCtx(f => f.userHostAddress)} />
@@ -94,7 +94,7 @@ export function FormatJson(p: { code: string | undefined | null }): React.ReactE
 
   return (
     <div>
-      <button className={classes("btn btn-sm btn-tertiary", formatJson && "active")} onClick={() => setFormatJson(!formatJson)}>
+      <button className={classes("sf-btn sf-btn-sm sf-btn-tertiary", formatJson && "active")} onClick={() => setFormatJson(!formatJson)}>
         <FontAwesomeIcon aria-hidden={true} icon="code" /> Format JSON
       </button>
       <pre style={{ whiteSpace: "pre-wrap" }}>

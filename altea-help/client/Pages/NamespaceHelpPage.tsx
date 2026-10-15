@@ -32,12 +32,12 @@ export default function NamespaceHelpPage(): React.JSX.Element {
     useTitle(HelpMessage.Help.niceToString() + (nh ? " > " + nh.title : ""));
 
     if (nh == null)
-        return <div className="container"><h1 className="text-display-6 font-light">{JavascriptMessage.loading.niceToString()}</h1></div>;
+        return <div className="sf-container"><h1 className="text-display-6 font-light">{JavascriptMessage.loading.niceToString()}</h1></div>;
 
     const ctx = TypeContext.root(nh.entity, { readOnly: Navigator.isReadOnly(NamespaceHelpEntity) });
 
     return (
-        <div className="container">
+        <div className="sf-container">
             <div className={classes("mb-2", "shortcut-container")}>
                 <h1 className="text-display-6 font-light">
                     <Link to={HelpClient.Urls.indexUrl()}>{HelpMessage.Help.niceToString()}</Link>
@@ -50,7 +50,7 @@ export default function NamespaceHelpPage(): React.JSX.Element {
 
             <EditableHtml ctx={ctx.subCtx(a => a.description)} onChange={forceUpdate} />
 
-            <div className={classes("btn-toolbar", "sf-button-bar", "mt-6")}>
+            <div className={classes("sf-btn-toolbar", "sf-button-bar", "mt-6")}>
                 {ctx.value.isDirty() && <SaveButton ctx={ctx} onSuccess={reload} />}
             </div>
 
@@ -83,7 +83,7 @@ function SaveButton({ ctx, onSuccess }: { ctx: TypeContext<NamespaceHelpEntity>;
     }
 
     return (
-        <button type="button" className="btn btn-primary" onClick={onClick}>
+        <button type="button" className="sf-btn sf-btn-primary" onClick={onClick}>
             <FontAwesomeIcon aria-hidden={true} icon="floppy-disk" /> {oi.niceName}
         </button>
     );

@@ -25,7 +25,7 @@ function ShowCodeModal(p: ShowCodeModalProps): React.JSX.Element {
             className="sf-selector-modal">
             <div className="sf-modal-header">
                 <h5 className="sf-modal-title">{p.typeName + "Component code"}</h5>
-                <button type="button" className="btn-close" aria-label="Close" onClick={() => setShow(false)} />
+                <button type="button" className="sf-btn-close" aria-label="Close" onClick={() => setShow(false)} />
             </div>
             <div className="sf-modal-body">
                 <pre>

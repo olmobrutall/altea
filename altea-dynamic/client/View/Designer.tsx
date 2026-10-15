@@ -205,7 +205,7 @@ export function ExpressionOrValueComponent(p: ExpressionOrValueProps): React.JSX
             <div>
                 <label className="sf-form-label-xs">
                     {expressionIcon}
-                    <input className="design-check-box form-check-input"
+                    <input className="design-check-box sf-form-check-input"
                         type="checkbox"
                         checked={value == undefined ? p.defaultValue as boolean : value as boolean}
                         onChange={handleChangeCheckbox} />
@@ -217,9 +217,9 @@ export function ExpressionOrValueComponent(p: ExpressionOrValueProps): React.JSX
 
     if (p.hideLabel)
         return (
-            <div className="row gx-1">
-                <div className="col-auto">{expressionIcon}</div>
-                <div className="col-auto">
+            <div className="flex flex-wrap gap-x-1">
+                <div className="flex-none">{expressionIcon}</div>
+                <div className="flex-none">
                     {expr ? renderExpression(expr, p.dn) : renderValue(value as string | undefined)}
                 </div>
             </div>
@@ -268,7 +268,7 @@ export function NullableCheckBox(p: NullableCheckBoxProps): React.JSX.Element {
     }
 
     return (
-        <button type="button" className="btn btn-link p-0" onClick={handleClick}>
+        <button type="button" className="sf-btn sf-btn-link p-0" onClick={handleClick}>
             <FontAwesomeIcon icon={getIcon()} className={getClass()} />
             {" "}
             {p.label}
@@ -333,7 +333,7 @@ export function DynamicViewInspector(p: { selectedNode?: DesignerNode<BaseNode> 
                 {sn.node.kind}
                 {sn.route && <small> ({Finder.getTypeNiceName(sn.route.type)})</small>}
             </h4>
-            {error && <div className="alert alert-danger">{error}</div>}
+            {error && <div className="sf-alert sf-alert-danger">{error}</div>}
             {NodeUtils.renderDesigner(sn)}
         </div>);
 }

@@ -107,16 +107,16 @@ export default function TourStep(p: {
                 </FormGroup>
             </div>
 
-            <div className="row mt-6 mb-2">
-                <div className="col-sm-10 offset-sm-2">
-                    <div className="row">
-                        <div className="col-sm-4">
+            <div className="sf-row mt-6 mb-2">
+                <div className="sm:col-span-10 sm:col-start-3">
+                    <div className="sf-row">
+                        <div className="sm:col-span-4">
                             <AutoLine ctx={sc4.subCtx(a => a.side)} onChange={handleSideChange} mandatory />
                         </div>
-                        <div className="col-sm-4">
+                        <div className="sm:col-span-4">
                             <AutoLine ctx={sc4.subCtx(a => a.align)} />
                         </div>
-                        <div className="col-sm-4">
+                        <div className="sm:col-span-4">
                             <EnumLine ctx={sc4.subCtx(a => a.click)} onChange={forceUpdate} />
                         </div>
                     </div>

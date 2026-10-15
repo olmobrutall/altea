@@ -9,17 +9,17 @@ export default function TimeSpan(p: { ctx: TypeContext<TimeSpanEmbedded> }): Rea
     const sc = p.ctx.subCtx({ formGroupStyle: "BasicDown" });
 
     return (
-        <div className="row">
-            <div className="col-sm-3">
+        <div className="sf-row">
+            <div className="sm:col-span-3">
                 <AutoLine ctx={sc.subCtx(n => n.days)} />
             </div>
-            <div className="col-sm-3">
+            <div className="sm:col-span-3">
                 <AutoLine ctx={sc.subCtx(n => n.hours)} />
             </div>
-            <div className="col-sm-3">
+            <div className="sm:col-span-3">
                 <AutoLine ctx={sc.subCtx(n => n.minutes)} />
             </div>
-            <div className="col-sm-3">
+            <div className="sm:col-span-3">
                 <AutoLine ctx={sc.subCtx(n => n.seconds)} />
             </div>
         </div>

@@ -77,9 +77,9 @@ export function LoginWithWindowsButton(): React.JSX.Element {
     }
 
     return (
-        <div className="row mt-2">
-            <div className="col-md-6 offset-md-3">
-                <button type="button" onClick={handleClick} className="btn btn-info">
+        <div className="sf-row mt-2">
+            <div className="md:col-span-6 md:col-start-4">
+                <button type="button" onClick={handleClick} className="sf-btn sf-btn-info">
                     <FontAwesomeIcon aria-hidden={true} icon={["fab", "windows"]} />{" "}
                     {WindowsADMessage.LoginWithWindowsUser.niceToString()}
                 </button>

@@ -96,7 +96,7 @@ function MessageModal(p: MessageModalProps): React.ReactElement {
 
     const htmlAtts = p.buttonHtmlAttributes && p.buttonHtmlAttributes(res);
 
-    const baseButtonClass = classes("btn", p.buttonClass ? p.buttonClass(res) : (res == 'yes' || res == 'ok' ? "btn-primary" : "btn-secondary"), `sf-close-button sf-${res}-button ms-1`)
+    const baseButtonClass = classes("sf-btn", p.buttonClass ? p.buttonClass(res) : (res == 'yes' || res == 'ok' ? "sf-btn-primary" : "sf-btn-secondary"), `sf-close-button sf-${res}-button ms-1`)
 
     return (
       <button
@@ -119,10 +119,10 @@ function MessageModal(p: MessageModalProps): React.ReactElement {
     switch (buttons) {
       case "ok": return getButton('ok');
       case "cancel": return getButton('cancel');
-      case "ok_cancel": return (<div className="btn-toolbar"> {getButton('ok')} {getButton('cancel')} </div>);
-      case "yes_no": return (<div className="btn-toolbar"> {getButton('yes')} {getButton('no')} </div>);
-      case "yes_cancel": return (<div className="btn-toolbar"> {getButton('yes')} {getButton('cancel')} </div>);
-      case "yes_no_cancel": return (<div className="btn-toolbar"> {getButton('yes')} {getButton('no')} {getButton('cancel')} </div>);
+      case "ok_cancel": return (<div className="sf-btn-toolbar"> {getButton('ok')} {getButton('cancel')} </div>);
+      case "yes_no": return (<div className="sf-btn-toolbar"> {getButton('yes')} {getButton('no')} </div>);
+      case "yes_cancel": return (<div className="sf-btn-toolbar"> {getButton('yes')} {getButton('cancel')} </div>);
+      case "yes_no_cancel": return (<div className="sf-btn-toolbar"> {getButton('yes')} {getButton('no')} {getButton('cancel')} </div>);
     }
   }
 

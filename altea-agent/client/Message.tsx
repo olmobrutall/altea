@@ -127,19 +127,19 @@ export function AssistantMessage(p: { msg: ChatMessageEntity; sendToolResponse: 
             {isFinalized && p.msg.toolCalls.length === 0 && (
                 <div className="chat-feedback-buttons">
                     <button type="button"
-                        className={classes("btn btn-link btn-sm chat-feedback-btn",
+                        className={classes("sf-btn sf-btn-link sf-btn-sm chat-feedback-btn",
                             p.msg.userFeedback === UserFeedback.Positive ? "chat-feedback-active-positive" : undefined)}
                         onClick={handleThumbsUp} title="Good response">
                         <FontAwesomeIcon icon="thumbs-up" />
                     </button>
                     <button type="button"
-                        className={classes("btn btn-link btn-sm chat-feedback-btn",
+                        className={classes("sf-btn sf-btn-link sf-btn-sm chat-feedback-btn",
                             p.msg.userFeedback === UserFeedback.Negative ? "chat-feedback-active-negative" : undefined)}
                         onClick={handleThumbsDown} title="Bad response">
                         <FontAwesomeIcon icon="thumbs-down" />
                     </button>
                     {p.msg.userFeedback === UserFeedback.Negative && (
-                        <button type="button" className="btn btn-link btn-sm chat-feedback-btn chat-feedback-edit"
+                        <button type="button" className="sf-btn sf-btn-link sf-btn-sm chat-feedback-btn chat-feedback-edit"
                             onClick={openFeedbackModal} title={ChatbotMessage.ProvideFeedback.niceToString()}>
                             <FontAwesomeIcon icon="pen" />
                         </button>
@@ -173,7 +173,7 @@ function ToolCall(p: { toolCall: ChatMessageEntity_ToolCall; sendToolResponse: S
             {isOpen &&
                 <div>
                     <h4 className="chatbot-request">Request {isJson && !formatJson &&
-                        <button type="button" className="btn btn-sm btn-link" onClick={() => setFormatJson(!formatJson)}>
+                        <button type="button" className="sf-btn sf-btn-sm sf-btn-link" onClick={() => setFormatJson(!formatJson)}>
                             <FontAwesomeIcon icon="code" /> Format JSON
                         </button>}</h4>
                     <div className="chat-bubble tool-request">
@@ -192,7 +192,7 @@ export function ToolResponseBlock(p: { msg: ChatMessageEntity }): React.ReactEle
     return (
         <div>
             <h4 className="chatbot-response">Response {isJson && !formatJson &&
-                <button type="button" className="btn btn-sm btn-link" onClick={() => setFormatJson(!formatJson)}>
+                <button type="button" className="sf-btn sf-btn-sm sf-btn-link" onClick={() => setFormatJson(!formatJson)}>
                     <FontAwesomeIcon icon="code" /> Format JSON
                 </button>}</h4>
             <div className="chat-bubble tool-response">

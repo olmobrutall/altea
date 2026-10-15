@@ -49,7 +49,7 @@ export function TranslationTypeTable(p: {
     return (
         <AccessibleTable
             aria-label={TranslationMessage.TranslationsOverview.niceToString()}
-            className="table st"
+            className="sf-table st"
             mapCustomComponents={new Map<React.JSXElementConstructor<any>, string>([
                 [TranslationTypeDescription as React.JSXElementConstructor<any>, "tr"],
                 [RenderMembers as React.JSXElementConstructor<any>, "tr"],

@@ -163,8 +163,8 @@ export function Workflow(p: WorkflowProps): React.JSX.Element {
                 headerStyle={{ text: "light" }}
                 bodyStyle={{ background: "light" }}
                 defaultOpen={ctx.value.isNew}>
-                <div className="row">
-                    <div className="col-sm-6">
+                <div className="sf-row">
+                    <div className="sm:col-span-6">
                         <AutoLine ctx={ctx.subCtx(d => d.name)} />
                         <EntityLine ctx={ctx.subCtx(d => d.mainEntityType)}
                             autocomplete={new LiteAutocompleteConfig((signal, str) =>
@@ -173,7 +173,7 @@ export function Workflow(p: WorkflowProps): React.JSX.Element {
                             onRemove={handleMainEntityTypeChange} />
                         <AutoLine ctx={ctx.subCtx(d => d.expirationDate)} />
                     </div>
-                    <div className="col-sm-6">
+                    <div className="sm:col-span-6">
                         <MainEntityStrategyCheckboxList ctx={ctx} />
                     </div>
                 </div>
@@ -228,7 +228,7 @@ function MainEntityStrategyCheckboxList(p: { ctx: TypeContext<WorkflowEntity> })
                     const value = Enum.toValue(WorkflowMainEntityStrategy, name);
                     return (
                         <label className="sf-checkbox-element" key={name}>
-                            <input type="checkbox" className="form-check-input" disabled={readOnly}
+                            <input type="checkbox" className="sf-form-check-input" disabled={readOnly}
                                 checked={rows.some(r => r.strategy === value)}
                                 onChange={() => handleToggle(value)} />
                             &nbsp;<span>{Enum.niceName(WorkflowMainEntityStrategy, value)}</span>

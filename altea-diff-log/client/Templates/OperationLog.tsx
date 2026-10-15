@@ -33,14 +33,14 @@ export default function OperationLog(p: { ctx: TypeContext<OperationLogEntity> }
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     <EntityLine ctx={ctx6.subCtx(f => f.target)} />
                     <EntityLine ctx={ctx6.subCtx(f => f.operation)} />
                     <EntityLine ctx={ctx6.subCtx(f => f.origin)} />
                     <EntityLine ctx={ctx6.subCtx(f => f.user)} />
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     <AutoLine ctx={ctx6.subCtx(f => f.start)} />
                     <AutoLine ctx={ctx6.subCtx(f => f.end)} />
                     <EntityLine ctx={ctx6.subCtx(f => f.exception)} />
@@ -110,7 +110,7 @@ export function DiffMixinTabs(p: { ctx: TypeContext<OperationLogEntity> }): Reac
     return (
         <div>
             <label>
-                <input type="checkbox" className="form-check-input" checked={simplify}
+                <input type="checkbox" className="sf-form-check-input" checked={simplify}
                     onChange={e => setSimplify(e.currentTarget.checked)} />
                 <span className="mx-2">{DiffLogMessage.SimplifyChanges.niceToString()}</span>
             </label>

@@ -36,7 +36,7 @@ export function ModalHeaderButtons(p: ModalHeaderButtonsProps): React.ReactEleme
 
   // Localized: the literal "Close" was announced in English whatever the interface language.
   var close = p.onClose &&
-    <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={p.onClose} />
+    <button type="button" className="sf-btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={p.onClose} />
 
   return (
     <div className={classes("sf-modal-header items-start", p.stickyHeader && "sf-sticky-header")} {...p.htmlAttributes} >
@@ -74,10 +74,10 @@ export function ModalFooterButtons(p: ModalFooterButtonsProps): React.ReactEleme
           {p.children}
         </h1>}
       {(p.onCancel || p.onOk) &&
-        <div className="btn-toolbar" style={{ flexWrap: "nowrap" }}>
+        <div className="sf-btn-toolbar" style={{ flexWrap: "nowrap" }}>
           {p.onOk && <button
             type="button"
-            className={classes("btn", "btn-" + (p.okButtonProps?.color ?? "primary"), "sf-entity-button sf-close-button sf-ok-button", p.okButtonProps?.classes)}
+            className={classes("sf-btn", "sf-btn-" + (p.okButtonProps?.color ?? "primary"), "sf-entity-button sf-close-button sf-ok-button", p.okButtonProps?.classes)}
             disabled={p.okDisabled}
             aria-disabled={p.okDisabled}
             onClick={p.onOk}>
@@ -86,7 +86,7 @@ export function ModalFooterButtons(p: ModalFooterButtonsProps): React.ReactEleme
           }
           {p.onCancel && <button
             type="button"
-            className={classes("btn", "btn-" + (p.cancelButtonProps?.color ?? "light"), "sf-entity-button sf-close-button sf-cancel-button", p.cancelButtonProps?.classes)}
+            className={classes("sf-btn", "sf-btn-" + (p.cancelButtonProps?.color ?? "light"), "sf-entity-button sf-close-button sf-cancel-button", p.cancelButtonProps?.classes)}
             onClick={p.onCancel}>
             {renderButton(JavascriptMessage.cancel.niceToString(), p.cancelButtonProps)}
           </button>

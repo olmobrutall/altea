@@ -140,14 +140,14 @@ export default function ChartRequestView(p: ChartRequestViewProps): React.JSX.El
           />}
       </div>
       <ValidationErrors entity={cr} prefix="" />
-      <div className="sf-query-button-bar btn-toolbar gap-2 my-2 bg-background rounded-md shadow-xs p-2">
+      <div className="sf-query-button-bar sf-btn-toolbar gap-2 my-2 bg-background rounded-md shadow-xs p-2">
         <button
-          className={classes("sf-query-button btn", showChartSettings && "active", "btn-tertiary")}
+          className={classes("sf-query-button sf-btn", showChartSettings && "active", "sf-btn-tertiary")}
           onClick={() => setShowChartSettings(!showChartSettings)}
           title={showChartSettings ? ChartMessage.HideChartSettings.niceToString() : ChartMessage.ShowChartSettings.niceToString()}>
           <FontAwesomeIcon aria-hidden={true} icon="sliders" />
         </button>
-        <button type="submit" className="sf-query-button sf-chart-draw btn btn-primary" onClick={handleDraw}>{ChartMessage.DrawChart.niceToString()}</button>
+        <button type="submit" className="sf-query-button sf-chart-draw sf-btn sf-btn-primary" onClick={handleDraw}>{ChartMessage.DrawChart.niceToString()}</button>
         {buttonBarElements.map((e, i) => <React.Fragment key={i}>{e}</React.Fragment>)}
       </div>
       <div className="sf-chart-tab-container">

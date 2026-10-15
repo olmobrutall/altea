@@ -10,7 +10,3 @@
     }
 }
 
-/* react-bootstrap modals still being migrated: their backdrop on the modals' own level, so a stacked one dims the one below. */
-.modal-backdrop {
-    --bs-backdrop-zindex: 1055;
-}

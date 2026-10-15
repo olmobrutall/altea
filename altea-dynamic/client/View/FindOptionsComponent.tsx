@@ -139,15 +139,15 @@ export function FindOptionsLine(p: FindOptionsLineProps): React.JSX.Element {
             <div>
                 {fo
                     ? <div>
-                        <button type="button" className="btn btn-link p-0" onClick={handleView}>{getDescription(fo)}</button>
+                        <button type="button" className="sf-btn sf-btn-link p-0" onClick={handleView}>{getDescription(fo)}</button>
                         {" "}
-                        <button type="button" className={classes("btn btn-link p-0", "sf-line-button", "sf-remove")}
+                        <button type="button" className={classes("sf-btn sf-btn-link p-0", "sf-line-button", "sf-remove")}
                             onClick={handleRemove}
                             title={EntityControlMessage.Remove.niceToString()}>
                             <FontAwesomeIcon icon="xmark" />
                         </button>
                     </div>
-                    : <button type="button" className="btn btn-link p-0 sf-line-button sf-create"
+                    : <button type="button" className="sf-btn sf-btn-link p-0 sf-line-button sf-create"
                         title={EntityControlMessage.Create.niceToString()}
                         onClick={handleCreate}>
                         <FontAwesomeIcon icon="plus" className="sf-create sf-create-label" />{EntityControlMessage.Create.niceToString()}
@@ -314,10 +314,10 @@ export function QueryKeyLine(p: { queryKey: string | undefined; label: string; o
             <div style={{ position: "relative" }}>
                 {p.queryKey
                     ? <div className="sf-input-group">
-                        <span className="sf-form-control btn-light sf-entity-line-entity">
+                        <span className="sf-form-control sf-btn-light sf-entity-line-entity">
                             {p.queryKey}
                         </span>
-                        <button type="button" className={classes("btn btn-light", "sf-line-button", "sf-remove")}
+                        <button type="button" className={classes("sf-btn sf-btn-light", "sf-line-button", "sf-remove")}
                             onClick={() => p.onChange(undefined)}
                             title={EntityControlMessage.Remove.niceToString()}>
                             <FontAwesomeIcon icon="xmark" />
@@ -422,19 +422,19 @@ abstract class BaseOptionsComponent<T> extends React.Component<BaseOptionsCompon
 
     renderButtons(index: number): React.JSX.Element {
         return (<div className="item-group">
-            <button type="button" className={classes("btn btn-link p-0", "sf-line-button", "sf-remove")}
+            <button type="button" className={classes("sf-btn sf-btn-link p-0", "sf-line-button", "sf-remove")}
                 onClick={() => this.handleOnRemove(index)}
                 title={EntityControlMessage.Remove.niceToString()}>
                 <FontAwesomeIcon icon="xmark" />
             </button>
 
-            <button type="button" className={classes("btn btn-link p-0", "sf-line-button", "move-up")}
+            <button type="button" className={classes("sf-btn sf-btn-link p-0", "sf-line-button", "move-up")}
                 onClick={() => this.handleOnMoveUp(index)}
                 title={EntityControlMessage.MoveUp.niceToString()}>
                 <FontAwesomeIcon icon="chevron-up" />
             </button>
 
-            <button type="button" className={classes("btn btn-link p-0", "sf-line-button", "move-down")}
+            <button type="button" className={classes("sf-btn sf-btn-link p-0", "sf-line-button", "move-down")}
                 onClick={() => this.handleOnMoveDown(index)}
                 title={EntityControlMessage.MoveDown.niceToString()}>
                 <FontAwesomeIcon icon="chevron-down" />
@@ -454,7 +454,7 @@ abstract class BaseOptionsComponent<T> extends React.Component<BaseOptionsCompon
 
         return (<fieldset className="sf-table-field">
             <legend>{this.renderTitle()}</legend>
-            <table className="table table-sm code-container">
+            <table className="sf-table sf-table-sm code-container">
                 <thead>
                     {this.renderHeader()}
                 </thead>
@@ -463,7 +463,7 @@ abstract class BaseOptionsComponent<T> extends React.Component<BaseOptionsCompon
                     <tr>
                         <td colSpan={this.getNumColumns()}>
                             <button type="button" title={EntityControlMessage.Create.niceToString()}
-                                className="btn btn-link p-0 sf-line-button sf-create"
+                                className="sf-btn sf-btn-link p-0 sf-line-button sf-create"
                                 onClick={this.handleCreateClick}>
                                 <FontAwesomeIcon icon="plus" className="sf-create" />&nbsp;{EntityControlMessage.Create.niceToString()}
                             </button>

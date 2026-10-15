@@ -17,7 +17,7 @@ export default function CaseFromSenderInfo(p: { current: CaseActivityEntity }): 
     return (
         <div>
             {c.previous == null || (prev != null && prev.doneType == null) ? null :
-                <div className="alert alert-info case-alert">
+                <div className="sf-alert sf-alert-info case-alert">
                     {prev == null
                         ? JavascriptMessage.loading.niceToString()
                         : CaseActivityMessage.From0On1.niceToString().formatHtml(
@@ -25,7 +25,7 @@ export default function CaseFromSenderInfo(p: { current: CaseActivityEntity }): 
                             <strong>{prev.doneDate?.toString()}</strong>)}
                 </div>}
             {prev?.note &&
-                <div className="alert alert-warning case-alert">
+                <div className="sf-alert sf-alert-warning case-alert">
                     <strong>{CaseActivityEntity.nicePropertyName(a => a.note)}:</strong>
                     {prev.note.includes("\n") ? "\n" : null}
                     {prev.note}

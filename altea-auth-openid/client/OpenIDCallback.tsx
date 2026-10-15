@@ -58,7 +58,7 @@ export default function OpenIDCallback(): React.JSX.Element {
     return (
         <div className="flex justify-center items-center" style={{ height: "100vh" }}>
             {error == null
-                ? <div className="spinner-border text-primary" role="status">
+                ? <div className="sf-spinner-border text-primary" role="status">
                     <span className="sr-only">Signing in…</span>
                 </div>
                 : <div className="text-destructive" role="alert">{error}</div>}

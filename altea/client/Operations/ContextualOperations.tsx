@@ -20,6 +20,7 @@ import type { PropertySetter } from "../../data/operations";
 import type { BsColor } from "../Components";
 import SearchControlLoaded from "../SearchControl/SearchControlLoaded";
 import { CollectionMessage } from "../../data/dynamicQueries";
+import { colorClass } from "../Components";
 
 
 export namespace ContextualOperations {
@@ -233,7 +234,7 @@ export namespace ContextualOperations {
                 aria-disabled={disabled}
                 style={{ pointerEvents: "initial" }}
                 data-operation={coc.operationInfo.key}
-                className={classes(disabled && "disabled", color && !disabled ? "text-" + color : undefined)}>
+                className={classes(disabled && "disabled", !disabled ? colorClass("text", color) : undefined)}>
                 {icon ? (React.isValidElement(icon) ? icon : <FontAwesomeIcon aria-hidden={true} icon={icon} className="fa-fw icon" color={iconColor} />) :
                     color ? <span className={classes("icon", "empty-icon")}></span> : undefined}
                 {text}

@@ -129,13 +129,13 @@ export default function ChartBuilder(p: ChartBuilderProps): React.JSX.Element {
       </label>
       {chart.chartTimeSeries && <ChartTimeSeries chartTimeSeries={chart.chartTimeSeries} chartBase={p.ctx.value} onChange={handleOnRedraw} />}
     </div>}
-    <div className="row sf-chart-builder gx-2">
-      <div className="col-lg-2">
-        <div className="sf-chart-type card bg-background rounded-md shadow-xs border-0 p-2">
-          <div className="card-header" style={{ backgroundColor: "inherit" }}>
-            <h2 className="mb-4 card-title text-h6 font-medium">{ChartMessage.ChartType.niceToString()}</h2>
+    <div className="sf-row sf-chart-builder gap-x-2">
+      <div className="lg:col-span-2">
+        <div className="sf-chart-type sf-card bg-background rounded-md shadow-xs border-0 p-2">
+          <div className="sf-card-header" style={{ backgroundColor: "inherit" }}>
+            <h2 className="mb-4 sf-card-title text-h6 font-medium">{ChartMessage.ChartType.niceToString()}</h2>
           </div>
-          <div className="card-body">
+          <div className="sf-card-body">
             {chartScripts?.map((cs, i) =>
               <button
                 key={i}
@@ -148,19 +148,19 @@ export default function ChartBuilder(p: ChartBuilderProps): React.JSX.Element {
                 {cs.icon ? <img src={cs.icon} alt={ChartClient.symbolNiceName(cs.symbol)} /> : ChartClient.symbolNiceName(cs.symbol)}
               </button>)}
           </div>
-          <div className="card-body">
+          <div className="sf-card-body">
             <NumberLine ctx={p.ctx.subCtx(a => a.maxRows, { formGroupStyle: "Basic", formSize: "xs" })} valueHtmlAttributes={{ className: p.maxRowsReached ? "text-destructive font-bold" : undefined }} />
           </div>
         </div>
       </div >
-      <div className="col-lg-10">
-        <div className="sf-chart-tokens card bg-background rounded-md shadow-xs border-0 p-2">
-          <div className="card-header" style={{ backgroundColor: "inherit" }}>
-            <h2 className="mb-4 card-title text-h6 font-medium">{ChartMessage.ChartSettings.niceToString()}</h2>
+      <div className="lg:col-span-10">
+        <div className="sf-chart-tokens sf-card bg-background rounded-md shadow-xs border-0 p-2">
+          <div className="sf-card-header" style={{ backgroundColor: "inherit" }}>
+            <h2 className="mb-4 sf-card-title text-h6 font-medium">{ChartMessage.ChartSettings.niceToString()}</h2>
           </div>
           <div>
-            <div className="card-body">
-              <table className="table table-borderless" style={{ marginBottom: "-1px" }}>
+            <div className="sf-card-body">
+              <table className="sf-table sf-table-borderless" style={{ marginBottom: "-1px" }}>
                 <thead>
                   <tr>
                     <th className="sf-chart-token-narrow">
@@ -210,7 +210,7 @@ export function Parameters(props: {
   var groups = props.chartScript.parameterGroups
     .filter(gr => gr.parameters.some(param => param.columnIndex == null))
     .map((gr, i) =>
-      <div className={"col-sm-2"} key={i} >
+      <div className={"sm:col-span-2"} key={i} >
         {gr.name && < span style={{ color: "gray", textDecoration: "underline" }}>{gr.name}</span>}
         {gr.parameters
           .filter(a => a.columnIndex == null)
@@ -225,7 +225,7 @@ export function Parameters(props: {
 
   return (
     <fieldset className="sf-chart-parameters bg-background rounded-md shadow-xs border-0 my-1 p-2">
-      <div className="row">
+      <div className="sf-row">
         {groups}
       </div>
     </fieldset>
@@ -246,11 +246,11 @@ export function ColumnParameters(props: {
     .map((gr, i) =>
       <div key={i} >
         {gr.name && < div style={{ color: "gray", textDecoration: "underline" }}>{gr.name}</div>}
-        <div className="row">
+        <div className="sf-row">
           {gr.parameters
             .filter(a => a.columnIndex == props.columnIndex)
             .map((sp, j) =>
-              <div className={"col-sm-3"} key={sp.name}>
+              <div className={"sm:col-span-3"} key={sp.name}>
                 {props.parameterDic[sp.name] ?
                   <ParameterValueLine key={sp.name} ctx={props.parameterDic[sp.name]} scriptParameter={sp} chart={props.chart} onRedraw={props.onRedraw} /> :
                   <p key={sp.name} className="text-destructive">{sp.name} ({sp.displayName})</p>
@@ -405,11 +405,11 @@ export function Scala(p: { ctx: TypeContext<ChartParameterEmbedded>, scriptParam
         }
       </FormGroup>
 
-      {ctx.value.value?.includes("...") && < div className="row">
-        <div className="col-sm-6">
+      {ctx.value.value?.includes("...") && < div className="sf-row">
+        <div className="sm:col-span-6">
           {numberLine(ctx.value.value.before("..."), newValue => (newValue?.toString() ?? "") + "..." + ctx.value.value!.after("..."), "Min " + (token?.niceName() ?? ""))}
         </div>
-        <div className="col-sm-6">
+        <div className="sm:col-span-6">
           {numberLine(ctx.value.value.after("..."), newValue => ctx.value.value!.before("...") + "..." + (newValue?.toString() ?? ""), "Max " + (token?.niceName() ?? ""))}
         </div>
       </div>

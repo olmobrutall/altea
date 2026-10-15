@@ -198,11 +198,11 @@ export function PaginationComponent(p: PaginationComponentProps): React.ReactEle
   const { first, last } = getFirstLast();
 
   return (
-    <ul className="pagination">
+    <ul className="sf-pagination">
       {addPageLink("First", 1, "«", "First", currentPage == 1 ? "disabled" : undefined)}
-      {first != 1 && <li className="page-item disabled"><span className="page-link">…</span></li>}
+      {first != 1 && <li className="sf-page-item disabled"><span className="sf-page-link">…</span></li>}
       {Array.range(first, last + 1).map(page => addPageLink(page.toString(), page, page.toString(), page.toString(), page == currentPage ? "active" : undefined))}
-      {last != totalPages && <li className="page-item disabled"><span className="page-link">…</span></li>}
+      {last != totalPages && <li className="sf-page-item disabled"><span className="sf-page-link">…</span></li>}
       {addPageLink("Last", totalPages, "»", "Last", currentPage == totalPages ? "disabled" : undefined)}
     </ul>
   );
@@ -231,11 +231,11 @@ export function PaginationComponent(p: PaginationComponentProps): React.ReactEle
 
   function addPageLink(key: string, page: number, text: string, ariaLabel: string, mode?: "active" | "disabled") {
     return (
-      <li className={classes("page-item", mode)} key={key} >
+      <li className={classes("sf-page-item", mode)} key={key} >
         {
           mode != undefined ?
-            <span className="page-link">{text}</span> :
-            <LinkButton title={undefined} className="page-link" onClick={e => handlePageClicked(e, page)}>
+            <span className="sf-page-link">{text}</span> :
+            <LinkButton title={undefined} className="sf-page-link" onClick={e => handlePageClicked(e, page)}>
               {text}
             </LinkButton>
         }

@@ -54,30 +54,30 @@ export default function ToolbarElement(p: { ctx: TypeContext<ToolbarElementBaseE
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-5">
+            <div className="sf-row">
+                <div className="sm:col-span-5">
                     <AutoLine ctx={ctx4.subCtx(t => t.type)} onChange={handleTypeChanges} />
                 </div>
-                <div className="col-sm-5 offset-sm-1">
+                <div className="sm:col-span-5 sm:col-start-2">
                     {type != "Divider" && <EntityLine ctx={ctx2.subCtx(t => t.content)} onChange={handleContentChange} />}
                 </div>
             </div>
 
             {type != "Divider" &&
-                <div className="row">
-                    <div className="col-sm-5">
+                <div className="sf-row">
+                    <div className="sm:col-span-5">
                         <IconTypeaheadLine ctx={ctx4.subCtx(t => t.iconName)} onChange={() => forceUpdate()} />
                         <AutoLine ctx={ctx4.subCtx(t => t.iconColor)} onChange={() => forceUpdate()} />
                         {isQueryish && <AutoLine ctx={ctx4.subCtx(a => a.showCount)} onChange={() => forceUpdate()} />}
                     </div>
-                    <div className="col-sm-1">
+                    <div className="sm:col-span-1">
                         {icon && <div style={{ marginTop: "17px" }}>
                             <FontAwesomeIcon icon={icon} style={{ backgroundColor: bgColor, color: ctx4.value.iconColor || undefined, fontSize: "25px" }} />
                             {ctx.value.showCount && <ToolbarCount showCount={showCountName(ctx.value)} num={showCountName(ctx.value) == "Always" ? 0 : 1} />}
                         </div>
                         }
                     </div>
-                    <div className="col-sm-5">
+                    <div className="sm:col-span-5">
                         <TextBoxLine ctx={ctx2.subCtx(t => t.label)} valueHtmlAttributes={{ placeholder: content?.toString() || undefined }} />
                         {(type == "Header" || type == "Item") && (content == null || content.entityType === PermissionSymbol) && <AutoLine ctx={ctx2.subCtx(t => t.url)} />}
                         {isQueryish &&

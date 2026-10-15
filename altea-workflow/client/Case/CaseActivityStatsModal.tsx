@@ -45,7 +45,7 @@ function CaseActivityStatsModal(p: CaseActivityStatsModalProps): React.JSX.Eleme
                     {stats.first().workflowActivity.toString()} ({stats.length}{" "}
                     {stats.length === 1 ? CaseActivityEntity.niceName() : CaseActivityEntity.nicePluralName()})
                 </h5>
-                <button type="button" className="btn-close" aria-label="Close" onClick={() => setShow(false)} />
+                <button type="button" className="sf-btn-close" aria-label="Close" onClick={() => setShow(false)} />
             </div>
             <div className="sf-modal-body">
                 {stats.length === 1
@@ -62,7 +62,7 @@ function CaseActivityStatsModal(p: CaseActivityStatsModalProps): React.JSX.Eleme
                     </Tabs>}
             </div>
             <div className="sf-modal-footer">
-                <button className="btn btn-primary sf-entity-button sf-ok-button" onClick={() => setShow(false)}>
+                <button className="sf-btn sf-btn-primary sf-entity-button sf-ok-button" onClick={() => setShow(false)}>
                     {JavascriptMessage.ok.niceToString()}
                 </button>
             </div>
@@ -108,7 +108,7 @@ export function CaseActivityStatsComponent(p: { caseEntity: CaseEntity; stats: C
     function renderSubWorkflowExtra(): React.ReactNode {
         return (
             <FormGroup ctx={ctx}>
-                {() => <button className="btn btn-light" onClick={() => {
+                {() => <button className="sf-btn sf-btn-light" onClick={() => {
                     void Finder.find(CaseEntity.findOptions(token => ({
                         filterOptions: [
                             token(e => e.parentCase).filter("EqualTo", p.caseEntity, { frozen: true }),

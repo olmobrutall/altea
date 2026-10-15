@@ -200,15 +200,15 @@ export default function WorkflowActivityModelComponent(
                 <div>
                     {ctx.value.mainEntityType ? <>
                         <FormGroup ctx={ctx.subCtx(d => d.viewName)} label={ctx.niceName(d => d.viewName)}>
-                            {inputId => <div className="row">
-                                <div className="col-sm-6">
+                            {inputId => <div className="sf-row">
+                                <div className="sm:col-span-6">
                                     <select id={inputId} value={ctx.value.viewName ?? ""}
                                         className="sf-form-select sf-form-select-sm" onChange={handleViewNameChange}>
                                         <option value="">{" - "}</option>
                                         {(viewNames ?? []).map((v, i) => <option key={i} value={v}>{v}</option>)}
                                     </select>
                                 </div>
-                                <div className="col-sm-6">
+                                <div className="sm:col-span-6">
                                     <BootstrapButton variant="success" size="sm" onClick={handleCheckView}>Check View …</BootstrapButton>
                                 </div>
                             </div>}
@@ -231,7 +231,7 @@ export default function WorkflowActivityModelComponent(
                                 ]} />}
                         </FormGroup>
                     </>
-                        : <div className="alert alert-warning">
+                        : <div className="sf-alert sf-alert-warning">
                             {WorkflowMessage.ToUse0YouSouldSetTheWorkflow1.niceToString(
                                 ctx.niceName(e => e.viewName), ctx.niceName(e => e.mainEntityType))}
                         </div>}
@@ -246,7 +246,7 @@ export default function WorkflowActivityModelComponent(
 
                     {ctx.value.workflow
                         ? <EntityRepeater ctx={ctx.subCtx(a => a.boundaryTimers)} readOnly={false} />
-                        : <div className="alert alert-warning">
+                        : <div className="sf-alert sf-alert-warning">
                             {WorkflowMessage.ToUse0YouSouldSaveWorkflow.niceToString(ctx.niceName(e => e.boundaryTimers))}
                         </div>}
 
@@ -262,7 +262,7 @@ export default function WorkflowActivityModelComponent(
             {ctx.value.script != null
                 ? ctx.value.workflow
                     ? <ScriptComponent ctx={ctx.subCtx(a => a.script!)} mainEntityType={ctx.value.mainEntityType} />
-                    : <div className="alert alert-warning">
+                    : <div className="sf-alert sf-alert-warning">
                         {WorkflowMessage.ToUse0YouSouldSaveWorkflow.niceToString(ctx.niceName(e => e.script))}
                     </div>
                 : undefined}
@@ -271,7 +271,7 @@ export default function WorkflowActivityModelComponent(
                 ? ctx.value.mainEntityType
                     ? <DecompositionComponent ctx={ctx.subCtx(a => a.subWorkflow!)}
                         mainEntityType={ctx.value.mainEntityType} />
-                    : <div className="alert alert-warning">
+                    : <div className="sf-alert sf-alert-warning">
                         {WorkflowMessage.ToUse0YouSouldSetTheWorkflow1.niceToString(
                             ctx.niceName(e => e.subWorkflow), ctx.niceName(e => e.mainEntityType))}
                     </div>

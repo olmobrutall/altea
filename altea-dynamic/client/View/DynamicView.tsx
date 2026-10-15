@@ -62,7 +62,7 @@ export default class DynamicViewEntityComponent
     renderButtons(_bc: ButtonsContext): ButtonBarElement[] {
         return [
             {
-                button: <button key="showCode" type="button" className="btn btn-success float-end"
+                button: <button key="showCode" type="button" className="sf-btn sf-btn-success float-end"
                     disabled={!this.state.rootNode} onClick={this.handleShowCode}>Show code</button>,
             },
         ];

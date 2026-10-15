@@ -106,36 +106,36 @@ export default function NeuralNetworkSettings(p: { ctx: TypeContext<NeuralNetwor
                 { property: a => a.initializer, headerHtmlAttributes: { style: { width: "33%" } } },
             ]} />
             <div>
-                <div className="row">
-                    <div className="col-sm-4">
+                <div className="sf-row">
+                    <div className="sm:col-span-4">
                         {renderCount(ctxb, PredictorColumnUsage.Output)}
                     </div>
-                    <div className="col-sm-4">
+                    <div className="sm:col-span-4">
                         <AutoLine ctx={ctxb.subCtx(a => a.outputActivation)} />
                     </div>
-                    <div className="col-sm-4">
+                    <div className="sm:col-span-4">
                         <AutoLine ctx={ctxb.subCtx(a => a.outputInitializer)} />
                     </div>
                 </div>
-                <div className="row">
-                    <div className="col-sm-4" />
-                    <div className="col-sm-4">
+                <div className="sf-row">
+                    <div className="sm:col-span-4" />
+                    <div className="sm:col-span-4">
                         <AutoLine ctx={ctxb.subCtx(a => a.lossFunction)} />
                     </div>
-                    <div className="col-sm-4">
+                    <div className="sm:col-span-4">
                         <AutoLine ctx={ctxb.subCtx(a => a.evalErrorFunction)} />
                     </div>
                 </div>
             </div>
             <hr />
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     <AutoLine ctx={ctx8.subCtx(a => a.optimizer)} onChange={handleOptimizerChange} />
                     <AutoLine ctx={ctx8.subCtx(a => a.learningRate)} />
                     <AutoLine ctx={ctx8.subCtx(a => a.learningEpsilon)} />
                     <AutoLine ctx={ctx8.subCtx(a => a.device)} />
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     <AutoLine ctx={ctx8.subCtx(a => a.minibatchSize)} />
                     <AutoLine ctx={ctx8.subCtx(a => a.numMinibatches)} />
                     <AutoLine ctx={ctx8.subCtx(a => a.bestResultFromLast)} />
@@ -146,7 +146,7 @@ export default function NeuralNetworkSettings(p: { ctx: TypeContext<NeuralNetwor
             {/* The prediction type drives which losses are legal, and picking an illegal pair is only
                 caught on Save — so say it here, where the choice is made. */}
             {isClassificationType(ctx.value.predictionType) !== isClassificationLoss(ctx.value.lossFunction) &&
-                <div className="alert alert-warning mt-2 py-1 px-2 text-[.875em]">
+                <div className="sf-alert sf-alert-warning mt-2 py-1 px-2 text-[.875em]">
                     {Enum.niceName(PredictionType, ctx.value.predictionType)}
                     {" — "}
                     {Enum.niceName(NeuralNetworkEvalFunction, ctx.value.lossFunction)}

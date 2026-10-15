@@ -21,8 +21,8 @@ export default function ChatbotLanguageModel(p: { ctx: TypeContext<ChatbotLangua
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     <AutoLine ctx={ctx4.subCtx(n => n.isDefault)} />
                     <EntityCombo ctx={ctx4.subCtx(n => n.provider)} onChange={() => {
                         ctx.value.model = null!;
@@ -37,7 +37,7 @@ export default function ChatbotLanguageModel(p: { ctx: TypeContext<ChatbotLangua
                     <AutoLine ctx={ctx4.subCtx(n => n.temperature)} />
                     <AutoLine ctx={ctx4.subCtx(n => n.maxTokens)} />
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     <fieldset className="mt-0">
                         <legend className="text-(length:--text-h6) font-semibold">Pricing</legend>
                         <AutoLine ctx={ctx6.subCtx(n => n.pricePerInputToken)} />

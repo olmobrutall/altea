@@ -49,7 +49,7 @@ export class FrameModalProxy<T extends BaseEntity> extends EntityButtonContainer
     override get element(): Locator { return this.modal; }
 
     get okButton(): Locator { return this.modal.locator(".sf-entity-button.sf-ok-button, .sf-ok-button").first(); }
-    get closeButton(): Locator { return this.modal.locator(".sf-modal-header :is(button.btn-close, .sf-close-button)").first(); }
+    get closeButton(): Locator { return this.modal.locator(".sf-modal-header :is(button.sf-btn-close, .sf-close-button)").first(); }
     get title(): Locator { return this.modal.locator(".sf-modal-title").first(); }
 
     /** Accept the modal and wait for it to go away. */

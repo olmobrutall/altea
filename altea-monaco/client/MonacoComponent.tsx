@@ -420,7 +420,7 @@ export function MonacoComponent(p: MonacoProps): React.JSX.Element {
             </div>
             {hasHidden && p.hiddenToggle != null &&
                 <div className="altea-monaco-toggle">
-                    <button type="button" className="btn btn-link btn-sm p-0" onClick={() => setShowHidden(!showHidden)}>
+                    <button type="button" className="sf-btn sf-btn-link sf-btn-sm p-0" onClick={() => setShowHidden(!showHidden)}>
                         {showHidden ? p.hiddenToggle.hide : p.hiddenToggle.show}
                     </button>
                 </div>}
@@ -506,7 +506,7 @@ const MARKER_OWNER = "altea";
  * altea-codemirror's hook of the same name reads only <body>, and so is always light.
  */
 function isDarkTheme(): boolean {
-    return (document.documentElement.dataset.theme ?? document.documentElement.dataset.bsTheme ?? document.body.dataset.bsTheme) === "dark";
+    return (document.documentElement.dataset.theme ?? document.body.dataset.theme) === "dark";
 }
 
 /** Re-rendered whenever that theme changes. */
@@ -518,7 +518,7 @@ export function useBootstrapTheme(): boolean {
         // Bootstrap 5 puts the attribute on <html>; a per-section override puts it on an element below.
         // Both are watched, because either is where the app may have set it.
         for (const target of [document.documentElement, document.body])
-            observer.observe(target, { attributes: true, attributeFilter: ["data-theme", "data-bs-theme"] });
+            observer.observe(target, { attributes: true, attributeFilter: ["data-theme"] });
         return () => observer.disconnect();
     }, []);
 

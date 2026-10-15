@@ -327,7 +327,7 @@ buttons, checkbox and links follow); modal / menu / Lines / module scenarios.
 Found on the way: `tspc -b` reported eastwind's client project "up to date" while `dist/app` held stale
 output; `tspc -b tsconfig.client.json --force` rebuilt it.
 
-### Phase 5 — component-class sweep and removal
+### Phase 5 — component-class sweep and removal ✅
 - The Phase 0 codemod, now with the `S` rows and *Layout and grid*: the semantic classes and the grid
   (once `sf-row` and the rest are defined), as a second `altea-upgrade` step. It REPORTS every `C` / `M`
   hit, every built class name (`"text-" + color`) and every class it could not map.
@@ -336,6 +336,42 @@ output; `tspc -b tsconfig.client.json --force` rebuilt it.
   remove `data-bs-theme`.
 - Gate: no `react-bootstrap`, `react-widgets`, `--bs-`, `data-bs-` left in source.
 - Delete the deprecated `BsSize` / `BsColumns` aliases after the `altea-upgrade` step ships.
+
+Done — Bootstrap, react-bootstrap and react-widgets-up are gone, and the eight reference pages render
+PIXEL-IDENTICAL to the Bootstrap build in both modes; a computed-style diff of every element on ~30 module pages
+differs only in the colour of zero-width borders and live profiler timings. Two decisions changed on the way:
+
+- **Buttons, alerts, cards, badges, tables, nav links, pagination, spinners, progress, the Bootstrap checkbox and
+  the dropdown caret are SEMANTIC classes, not kit components** (the class map's C rows became S). ~780 call sites
+  would otherwise have needed hand conversion, and `sf-btn sf-btn-danger` is exactly the abstract, restylable name
+  the design asked for. `ui/components.css` is GENERATED from Bootstrap 5.3.8's own CSS (MIT): the rules renamed
+  `.btn` → `.sf-btn`, its component variables renamed `--bs-btn-*` → `--sf-btn-*` (per-component knobs), its
+  palette variables pointed at the tokens, and every literal variant colour rewritten as the `color-mix()` of the
+  variant's token that reproduces it exactly (`#0b5ed7` = primary 85% + black) — so palettes reach every component.
+  The kit's `Button` / `ButtonGroup` render the same classes; `BootstrapButton` too.
+- **Bootstrap's reboot replaces Tailwind's preflight** (`ui/reboot.css`, generated the same way): every view is
+  written against its element defaults (heading margins, paragraph spacing), which preflight would zero.
+
+Also:
+- **The grid** is a 12-column CSS grid (`sf-row` + `col-span-*`). With the gutter as the column gap it lays out
+  exactly like Bootstrap's flex row with negative margins: n columns are n(W+g)/12 − g wide, starting at
+  m(W+g)/12. Rows of `col-auto` / `col` columns became flex rows by hand (7); the dashboard places parts by
+  `col-start` (it stores the start column) instead of relative offsets.
+- **A `semantic` layer** (`legacy, theme, base, semantic, components, app, utilities`): with semantic.css in
+  `components` beside the package CSS, `.sf-navbar-nav .sf-nav-link` outranked Sidebar.css's `.main-sidebar-button`
+  by specificity — the layer is what kept the package CSS winning before.
+- **The reboot sits in `legacy`**, where Bootstrap's was: in `base` its `svg { vertical-align: middle }` outranked
+  Font Awesome's `.svg-inline--fa` and moved every icon.
+- Built colour classes go through `colorClass(kind, color)` (Components.tsx: `danger` → `destructive`,
+  `text-bg-*` → `bg-* text-*-foreground`), safelisted in theme.css with the built `col-span` / `col-start`.
+- New tokens: `--code`, `--highlight` (per mode, as Bootstrap's).
+- `container-fluid` is `px-3` (half the 1.5rem gutter), not the class map's old `px-4`.
+- `Upgrade_20261016_TailwindComponents` does all of it for an application and reports the hand work.
+
+Found on the way: **re-running the utility (U) rows on migrated code is destructive** — `mb-4` is a Bootstrap AND a
+Tailwind class (1338 such words in the code base), so a second pass turns Tailwind's `mb-4` into `mb-6`. Phase 5
+ran only the S / X rows plus the grid's U rows, and the upgrade step does the same. The `BsSize` / `BsColumns`
+aliases stay one more cycle, for applications that have not run the upgrade.
 
 ### Phase 6 — docs
 `altea/AGENTS.md` (UI line + a "Styling" section: `ui` kit, tokens, semantic classes vs utilities, how

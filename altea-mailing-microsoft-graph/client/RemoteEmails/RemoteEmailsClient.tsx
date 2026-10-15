@@ -188,7 +188,7 @@ export namespace RemoteEmailsClient {
 
         return [
             {
-                button: <button className={classes("btn", "btn-info")} title={RemoteEmailMessageMessage.Move.niceToString()}
+                button: <button className={classes("sf-btn", "sf-btn-info")} title={RemoteEmailMessageMessage.Move.niceToString()}
                     onClick={async () => {
                         const folder = await selectFolder(userId);
                         if (folder == null)
@@ -201,7 +201,7 @@ export namespace RemoteEmailsClient {
                 </button>,
             },
             {
-                button: <button className={classes("btn", "btn-success")} title={RemoteEmailMessageMessage.AddCategory.niceToString()}
+                button: <button className={classes("sf-btn", "sf-btn-success")} title={RemoteEmailMessageMessage.AddCategory.niceToString()}
                     onClick={async () => {
                         const categories = await API.getRemoteCategories(userId);
                         const category = await SelectorModal.chooseElement(categories,
@@ -217,7 +217,7 @@ export namespace RemoteEmailsClient {
                 </button>,
             },
             {
-                button: <button className={classes("btn", "btn-warning")} title={RemoteEmailMessageMessage.RemoveCategory.niceToString()}
+                button: <button className={classes("sf-btn", "sf-btn-warning")} title={RemoteEmailMessageMessage.RemoveCategory.niceToString()}
                     onClick={async () => {
                         // Only the categories this message actually has — `forceShow` so a single one still asks.
                         const category = await SelectorModal.chooseElement(message.categories,
@@ -233,7 +233,7 @@ export namespace RemoteEmailsClient {
                 </button>,
             },
             {
-                button: <button className={classes("btn", "btn-danger")} title={RemoteEmailMessageMessage.Delete.niceToString()}
+                button: <button className={classes("sf-btn", "sf-btn-danger")} title={RemoteEmailMessageMessage.Delete.niceToString()}
                     onClick={async () => {
                         if (!await confirmDelete(1))
                             return;

@@ -225,7 +225,7 @@ export function EntityCheckboxListSelect<R extends BaseEntity>(props: EntityChec
       return (
         <label className="sf-checkbox-element" key={i}>
           <input type="checkbox"
-            className="form-check-input"
+            className="sf-form-check-input"
             checked={ectx != null}
             disabled={p.ctx.readOnly}
             name={row.entity!.key()}

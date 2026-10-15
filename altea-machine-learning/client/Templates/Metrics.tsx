@@ -18,12 +18,12 @@ export function MetricsPanel(p: { ctx: TypeContext<PredictorMetricsEmbedded>; ti
     const ctx = p.ctx.subCtx({ readOnly: true, formGroupStyle: "SrOnly" });
 
     return (
-        <div className="col-sm-6">
+        <div className="sm:col-span-6">
             <fieldset>
                 <legend>{p.title}</legend>
-                <div className="row">
-                    <div className="col-sm-6"><AutoLine ctx={ctx.subCtx(a => a.loss)} /></div>
-                    <div className="col-sm-6"><AutoLine ctx={ctx.subCtx(a => a.accuracy)} /></div>
+                <div className="sf-row">
+                    <div className="sm:col-span-6"><AutoLine ctx={ctx.subCtx(a => a.loss)} /></div>
+                    <div className="sm:col-span-6"><AutoLine ctx={ctx.subCtx(a => a.accuracy)} /></div>
                 </div>
             </fieldset>
         </div>
@@ -42,7 +42,7 @@ export function ClassificationMetricsPanel(
     const ctx = p.ctx.subCtx({ readOnly: true });
 
     return (
-        <div className="col-sm-6">
+        <div className="sm:col-span-6">
             <fieldset>
                 <legend>{p.title}</legend>
                 <AutoLine ctx={ctx.subCtx(a => a.totalCount)} />
@@ -66,7 +66,7 @@ export function RegressionMetricsPanel(
     const ctx = p.ctx.subCtx({ readOnly: true });
 
     return (
-        <div className="col-sm-6">
+        <div className="sm:col-span-6">
             <fieldset>
                 <legend>{p.title}</legend>
                 <AutoLine ctx={ctx.subCtx(a => a.meanError)} />

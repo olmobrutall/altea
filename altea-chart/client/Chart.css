@@ -2,7 +2,7 @@
     margin-bottom: 4px;
 }
 
-.sf-chart-type>.card-body {
+.sf-chart-type>.sf-card-body {
     padding: 10px;
 }
 
@@ -15,24 +15,24 @@
     margin-bottom: 6px;
 }
 
-.sf-chart-tokens>.card-body {
+.sf-chart-tokens>.sf-card-body {
     padding: 0px
 }
 
-.sf-chart-tokens table.table {
+.sf-chart-tokens table.sf-table {
     width: auto;
 }
 
-.sf-chart-tokens table.table>thead>tr>th {
+.sf-chart-tokens table.sf-table>thead>tr>th {
     border-top: 0px;
 }
 
-.sf-chart-tokens table.table>tbody>tr>th {
+.sf-chart-tokens table.sf-table>tbody>tr>th {
     text-align: right
 }
 
-.sf-chart-tokens table.table td,
-.sf-chart-tokens table.table th {
+.sf-chart-tokens table.sf-table td,
+.sf-chart-tokens table.sf-table th {
     vertical-align: middle;
 }
 

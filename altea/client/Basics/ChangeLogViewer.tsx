@@ -68,12 +68,12 @@ export default function ChangeLogViewer(): React.ReactElement | null {
     return (
         <LinkButton title={ConnectionMessage.VersionInfo.niceToString()}
             ref={triggerRef}
-            className="sf-pointer nav-link sf-change-log-container"
+            className="sf-pointer sf-nav-link sf-change-log-container"
             aria-haspopup="dialog"
             onClick={() => { void handleOpen(); }}>
             <FontAwesomeIcon icon="circle-info" />
             {unread > 0 && (
-                <span className="badge bg-info text-info-foreground badge-pill sf-change-log-badge">{unread}</span>
+                <span className="sf-badge bg-info text-info-foreground sf-change-log-badge">{unread}</span>
             )}
         </LinkButton>
     );
@@ -114,7 +114,7 @@ function ShowLogs(p: { logs: ChangeItem[]; lastDate: Temporal.PlainDateTime | un
             })}
 
             {byDate.length > seeMore && (
-                <button type="button" className="btn btn-link p-0"
+                <button type="button" className="sf-btn sf-btn-link p-0"
                     onClick={() => setSeeMore(prev => prev + 2)}
                     aria-label={ChangeLogMessage.SeeMoreChangeLogEntries.niceToString()}>
                     {ChangeLogMessage.SeeMore.niceToString()}

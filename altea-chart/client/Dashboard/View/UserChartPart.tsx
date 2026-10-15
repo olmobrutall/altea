@@ -159,7 +159,7 @@ export default function UserChartPart(p: PanelPartContentProps<UserChartPartEnti
                 pinnedFilterVisible={fop => fop.dashboardBehaviour == null} extraSmall={true} />
             {p.content.allowChangeShowData &&
                 <label>
-                    <input type="checkbox" className="form-check-input" checked={showData}
+                    <input type="checkbox" className="sf-form-check-input" checked={showData}
                         onChange={e => setShowData(e.currentTarget.checked)} />
                     {/* Signum's `UserChartPartEntity.nicePropertyName(a => a.showData)`; altea reads the
                         localized field name off the TypeInfo (no such static). */}

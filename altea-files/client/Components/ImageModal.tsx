@@ -39,7 +39,7 @@ export function ImageModal(p: ImageModalProps): React.JSX.Element {
                 <h1 id={titleId} className="sf-modal-title text-h4 font-medium">
                     {p.title ?? p.file.fileName}
                 </h1>
-                <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()}
+                <button type="button" className="sf-btn-close" aria-label={JavascriptMessage.Close.niceToString()}
                     onClick={() => setShow(false)} />
             </div>
             <div className="sf-modal-body">

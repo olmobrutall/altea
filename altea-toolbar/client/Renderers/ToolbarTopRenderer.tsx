@@ -53,7 +53,7 @@ export default function ToolbarTopRenderer(): React.ReactElement | null {
     };
 
     return (
-        <div className={classes("nav navbar-nav")}>
+        <div className={classes("sf-nav sf-navbar-nav")}>
             {response && response.elements && response.elements.map((res: ToolbarResponse<any>, i: number) => renderNavItem(res, i, ctx, null))}
         </div>
     );

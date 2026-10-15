@@ -58,9 +58,9 @@ export default function PinnedFilterBuilder(p: PinnedFilterBuilderProps): React.
       maxColumns == 6 ? 2 :
         1;
 
-  var grid = <div className="row sf-rule">
+  var grid = <div className="sf-row sf-rule">
     {Array.range(0, 12).map(i =>
-      <div className="col-sm-1" key={i}>
+      <div className="sm:col-span-1" key={i}>
         <div className="sf-rule-item" >Col {i}</div>
       </div>
     )}
@@ -83,7 +83,7 @@ export default function PinnedFilterBuilder(p: PinnedFilterBuilderProps): React.
             const allCheckBox = rowPinned.every(a => isCheckBox(a.pinned?.active));
 
             return (
-              <div key={i} className={classes("row", p.showGrid && "py-2")}>
+              <div key={i} className={classes("sf-row", p.showGrid && "py-2")}>
                 {Array.range(0, maxColumns).map((c, j) => {
                   var cellPinned = rowPinned.filter(a => (a.pinned!.column ?? 0) == c);
                   if (hiddenColumns.includes(c) && cellPinned.length == 0)
@@ -95,7 +95,7 @@ export default function PinnedFilterBuilder(p: PinnedFilterBuilderProps): React.
                   var error = cellPinned.some(a => a.pinned?.colSpan != null && a.pinned?.colSpan <= 0)
                     || hiddenColumns.includes(c);
 
-                  return (<div key={j} className={classes("col-sm-" + (bsBase * colSpan), error && "border-destructive")}>
+                  return (<div key={j} className={classes("sm:col-span-" + (bsBase * colSpan), error && "border-destructive")}>
                     {cellPinned.map((f, i) => <div key={i} className={f == p.highlightFilter ? "sf-filter-highlight" : undefined}>{renderValue(f, i == 0 && !allCheckBox)}</div>)}
                   </div>
                   );
@@ -112,7 +112,7 @@ export default function PinnedFilterBuilder(p: PinnedFilterBuilderProps): React.
       </div>
 
       {p.showSearchButton &&
-        <button className={classes("sf-query-button sf-search btn btn-primary")} onClick={() => p.onSearch && p.onSearch()} title={SearchMessage.Enter.niceToString()}>
+        <button className={classes("sf-query-button sf-search sf-btn sf-btn-primary")} onClick={() => p.onSearch && p.onSearch()} title={SearchMessage.Enter.niceToString()}>
           <FontAwesomeIcon aria-hidden={true} icon={"magnifying-glass"} />&nbsp;{SearchMessage.Search.niceToString()}
         </button>}
 
@@ -129,7 +129,7 @@ export default function PinnedFilterBuilder(p: PinnedFilterBuilderProps): React.
       return (
         <div className={classes("checkbox", isFirst && "mt-6")}>
           <label>
-            <input type="checkbox" className="form-check-input me-1" checked={f.pinned.active == "Checkbox_Checked" || f.pinned.active == "NotCheckbox_Checked"} readOnly={readOnly} onChange={() => {
+            <input type="checkbox" className="sf-form-check-input me-1" checked={f.pinned.active == "Checkbox_Checked" || f.pinned.active == "NotCheckbox_Checked"} readOnly={readOnly} onChange={() => {
               f.pinned!.active =
                 f.pinned!.active == "Checkbox_Checked" ? "Checkbox_Unchecked" :
                   f.pinned!.active == "Checkbox_Unchecked" ? "Checkbox_Checked" :

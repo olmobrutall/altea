@@ -23,8 +23,8 @@ export default function RemoteEmailMessage(p: { ctx: TypeContext<RemoteEmailMess
 
     return (
         <div>
-            <div className="row mb-4">
-                <div className="col-sm-2">
+            <div className="sf-row mb-4">
+                <div className="sm:col-span-2">
                     <FontAwesomeIcon icon={["far", "envelope"]} style={{
                         color: "#d6d6d6",
                         transform: "translate(-23px, -22px) rotate(12deg)",
@@ -32,22 +32,22 @@ export default function RemoteEmailMessage(p: { ctx: TypeContext<RemoteEmailMess
                         position: "absolute",
                     }} />
                 </div>
-                <div className="col-sm-4" />
-                <div className="col-sm-6">
+                <div className="sm:col-span-4" />
+                <div className="sm:col-span-6">
                     <EntityLine ctx={ctx.subCtx(f => f.user)} labelColumns={3}
                         helpText={ctx.value.webLink == null ? undefined
                             : <a href={ctx.value.webLink} target="_blank" rel="noreferrer">Outlook Web</a>} />
                 </div>
             </div>
 
-            <div className="row mb-4">
-                <div className="col-sm-8">
+            <div className="sf-row mb-4">
+                <div className="sm:col-span-8">
                     <EntityLine ctx={ctx.subCtx(f => f.from)} labelColumns={3} />
                     <EntityStrip ctx={ctx.subCtx(f => f.toRecipients)} labelColumns={3} />
                     <EntityStrip ctx={ctx.subCtx(f => f.ccRecipients)} labelColumns={3} hideIfNull />
                     <EntityStrip ctx={ctx.subCtx(f => f.bccRecipients)} labelColumns={3} hideIfNull />
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     <AutoLine ctx={ctx.subCtx(f => f.sentDateTime)} labelColumns={6} />
                     <AutoLine ctx={ctx.subCtx(f => f.receivedDateTime)} labelColumns={6} />
                     <CategoriesLine ctx={ctx} />
@@ -86,8 +86,8 @@ function CategoriesLine(p: { ctx: TypeContext<RemoteEmailMessageModel> }): React
 
     return (
         <div className={ctx.formGroupClass}>
-            <label className="sf-col-form-label col-sm-3">{ctx.niceName(a => a.categories)}</label>
-            <div className="col-sm-9">
+            <label className="sf-col-form-label sm:col-span-3">{ctx.niceName(a => a.categories)}</label>
+            <div className="sm:col-span-9">
                 <span className="sf-form-control-plaintext">{ctx.value.categories.join(", ")}</span>
             </div>
         </div>

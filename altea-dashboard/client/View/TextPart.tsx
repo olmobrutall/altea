@@ -27,8 +27,8 @@ export default function TextPart(p: PanelPartContentProps<TextPartEntity>): Reac
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-12">
+            <div className="sf-row">
+                <div className="sm:col-span-12">
                     {type == "Markdown" ? <Markdown components={{ a: LinkRenderer }}>{p.content.textContent}</Markdown> :
                         type == "HTML" && p.content.textContent != null ? <HtmlViewer text={p.content.textContent} /> :
                             <span>{p.content.textContent}</span>}

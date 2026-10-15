@@ -63,7 +63,7 @@ export default function PermissionRulePackControl({ ctx, ref }: { ctx: TypeConte
                 <EntityLine ctx={ctx.subCtx(f => f.role)} readOnly={true} />
                 <AutoLine ctx={ctx.subCtx(f => f.strategy)} readOnly={true} />
             </div>
-            <table className="table table-sm table-hover sf-auth-rules" style={{ maxWidth: "40rem" }}>
+            <table className="sf-table sf-table-sm sf-table-hover sf-auth-rules" style={{ maxWidth: "40rem" }}>
                 <thead>
                     <tr>
                         <th>Permission</th>

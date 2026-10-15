@@ -74,15 +74,15 @@ export default function ImportExcel(p: {
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-4">
+            <div className="sf-row">
+                <div className="sm:col-span-4">
                     <EnumLine ctx={ctx.subCtx(f => f.operationKey)}
                         optionItems={getSaveOperations(p.ctx.value.typeName, ctx.value.mode)
                             .map(a => softCast<OptionItem>({ value: a.key, label: a.niceName }))}
                     />
                     <CheckboxLine ctx={ctx.subCtx(f => f.transactional)} inlineCheckbox="block" />
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     <AutoLine ctx={ctx.subCtx(f => f.mode)} onChange={() => {
                         if (ctx.value.mode === ImportExcelMode.Insert && ctx.value.collections.length === 0)
                             ctx.value.matchByColumn = null;
@@ -102,7 +102,7 @@ export default function ImportExcel(p: {
                     {(ctx.value.mode === ImportExcelMode.Insert || ctx.value.mode === ImportExcelMode.InsertOrUpdate) &&
                         <CheckboxLine ctx={ctx.subCtx(f => f.identityInsert)} inlineCheckbox="block" />}
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     {(ctx.value.mode === ImportExcelMode.Update || ctx.value.mode === ImportExcelMode.InsertOrUpdate || ctx.value.collections.length > 0) &&
                         <EnumLine ctx={ctx.subCtx(f => f.matchByColumn)} mandatory
                             optionItems={p.fop.columnOptions.filter(a => a.token != null && !a.token.hasElement())
@@ -124,7 +124,7 @@ export default function ImportExcel(p: {
 
             <FileLine ctx={ctx.subCtx(f => f.excelFile)} />
 
-            <button type="button" className="btn btn-xs btn-info" onClick={handlePlainExcelForImport}>
+            <button type="button" className="sf-btn sf-btn-xs sf-btn-info" onClick={handlePlainExcelForImport}>
                 <FontAwesomeIcon aria-hidden={true} icon="download" /> {ImportFromExcelMessage.DownloadTemplate.niceToString()}
             </button>
         </div>

@@ -13,14 +13,14 @@ export default function SMSMessage(p: { ctx: TypeContext<SMSMessageEntity> }): R
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     <AutoLine ctx={ctx4.subCtx(a => a.from)} readOnly={!isCreated} />
                     <AutoLine ctx={ctx4.subCtx(a => a.destinationNumber)} readOnly={!isCreated} />
                     <AutoLine ctx={ctx4.subCtx(a => a.certified)} readOnly={!isCreated} />
                     <EntityLine ctx={ctx4.subCtx(a => a.referred)} readOnly={true} />
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     <AutoLine ctx={ctx4.subCtx(a => a.messageID)} readOnly={true} />
                     <EntityLine ctx={ctx4.subCtx(a => a.template)} readOnly={true} />
                     {!isCreated &&

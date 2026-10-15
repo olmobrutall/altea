@@ -12,13 +12,13 @@ export default function HolidayCalendar(p: { ctx: TypeContext<HolidayCalendarEnt
         <div>
             <AutoLine ctx={ctx.subCtx(c => c.name)} />
             <AutoLine ctx={ctx.subCtx(c => c.isDefault)} />
-            <div className="row">
-                <div className="col-sm-6"><AutoLine ctx={ctx.subCtx(c => c.fromYear)} /></div>
-                <div className="col-sm-6"><AutoLine ctx={ctx.subCtx(c => c.toYear)} /></div>
+            <div className="sf-row">
+                <div className="sm:col-span-6"><AutoLine ctx={ctx.subCtx(c => c.fromYear)} /></div>
+                <div className="sm:col-span-6"><AutoLine ctx={ctx.subCtx(c => c.toYear)} /></div>
             </div>
-            <div className="row">
-                <div className="col-sm-6"><AutoLine ctx={ctx.subCtx(c => c.countryCode)} /></div>
-                <div className="col-sm-6"><AutoLine ctx={ctx.subCtx(c => c.subDivisionCode)} /></div>
+            <div className="sf-row">
+                <div className="sm:col-span-6"><AutoLine ctx={ctx.subCtx(c => c.countryCode)} /></div>
+                <div className="sm:col-span-6"><AutoLine ctx={ctx.subCtx(c => c.subDivisionCode)} /></div>
             </div>
             <EntityTable ctx={ctx.subCtx(c => c.holidays)} columns={[
                 { property: h => h.date },

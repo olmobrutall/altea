@@ -44,7 +44,7 @@ function ToolbarMainRendererPrivate({ response }: { response: ToolbarResponse<an
                     {gr.key && gr.key.type == "Divider" && <hr />}
                     {gr.key && gr.key.type == "Header" && gr.key.content?.entityType === ToolbarMenuEntity && <CollapsableBlock r={gr.key} />}
                     {gr.key && gr.key.type == "Header" && gr.key.content?.entityType !== ToolbarMenuEntity && <h4>{gr.key.label ?? gr.key.content!.toString()}</h4>}
-                    {gr.elements.length > 0 && <div className="row">
+                    {gr.elements.length > 0 && <div className="sf-row">
                         {gr.elements.map((tr, j) => <div key={j} className="toolbar-card-container">
                             <ToolbarIconButton tr={tr} />
                         </div>)}
@@ -78,12 +78,12 @@ function ToolbarIconButton({ tr }: { tr: ToolbarResponse<any> }): React.JSX.Elem
         return (
             <LinkButton
                 title={undefined} onClick={e => { ToolbarMainModal.show(tr); }}>
-                <div className="card toolbar-card">
+                <div className="sf-card toolbar-card">
                     <div className="rounded-t-md w-full" style={{ fontSize: "60px" }}>
                         {ToolbarConfig.coloredIcon(parseIcon(tr.iconName), tr.iconColor)}
                     </div>
-                    <div className="card-body">
-                        <h5 className="card-title">{tr.label ?? tr.content!.toString()}</h5>
+                    <div className="sf-card-body">
+                        <h5 className="sf-card-title">{tr.label ?? tr.content!.toString()}</h5>
                     </div>
                 </div>
             </LinkButton>
@@ -95,12 +95,12 @@ function ToolbarIconButton({ tr }: { tr: ToolbarResponse<any> }): React.JSX.Elem
         return (
             <LinkButton
                 title={undefined} onMouseDown={e => { AppContext.pushOrOpenInTab(tr.url!, e); }}>
-                <div className="card toolbar-card">
+                <div className="sf-card toolbar-card">
                     <div className="rounded-t-md w-full" style={{ fontSize: "60px" }}>
                         {ToolbarConfig.coloredIcon(parseIcon(tr.iconName), tr.iconColor)}
                     </div>
-                    <div className="card-body">
-                        <h5 className="card-title">{tr.label}</h5>
+                    <div className="sf-card-body">
+                        <h5 className="sf-card-title">{tr.label}</h5>
                     </div>
                 </div>
             </LinkButton>
@@ -113,19 +113,19 @@ function ToolbarIconButton({ tr }: { tr: ToolbarResponse<any> }): React.JSX.Elem
     const config = ToolbarClient.getConfig(tr);
     if (config == null)
         return (
-            <div className="card toolbar-card text-destructive">
+            <div className="sf-card toolbar-card text-destructive">
                 {ToolbarMessage.ToolbarConfigNotRegistered0.niceToString(tr.content.entityType.name)}
             </div>
         );
 
     return (
         <LinkButton title={undefined} onMouseDown={e => { config.handleNavigateClick(e, tr, null); }}>
-            <div className="card toolbar-card">
+            <div className="sf-card toolbar-card">
                 <div className="rounded-t-md w-full" style={{ fontSize: "60px" }}>
                     {config.getIcon(tr, null)}
                 </div>
-                <div className="card-body">
-                    <h5 className="card-title">{tr.label}</h5>
+                <div className="sf-card-body">
+                    <h5 className="sf-card-title">{tr.label}</h5>
                 </div>
             </div>
         </LinkButton>
@@ -152,7 +152,7 @@ function ToolbarMainModal(p: ToolbarMainModalProps): React.ReactElement {
         <Modal onHide={handleCloseClicked} show={show} className="message-modal" onExited={handleOnExited} size="xl">
             <div className="sf-modal-header">
                 <h5 className="sf-modal-title">{p.tr.label ?? p.tr.content!.toString()}</h5>
-                <button type="button" className="btn-close" data-dismiss="modal" aria-label="Close" onClick={handleCloseClicked} />
+                <button type="button" className="sf-btn-close" data-dismiss="modal" aria-label="Close" onClick={handleCloseClicked} />
             </div>
             <div className="sf-modal-body">
                 <ToolbarMainRendererPrivate response={p.tr} />

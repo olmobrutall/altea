@@ -7,7 +7,7 @@
     --sf-diff-info: #DDD;
 }
 
-[data-bs-theme=dark] {
+[data-theme=dark] {
     --sf-diff-removed-light: rgb(149 0 0);
     --sf-diff-removed: rgb(243 0 0);
     --sf-diff-added-light: #005f00;

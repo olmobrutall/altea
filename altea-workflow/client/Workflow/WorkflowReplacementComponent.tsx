@@ -21,7 +21,7 @@ export default function WorkflowReplacementComponent(
     return (
         <div>
             {ctx.value.replacements.length > 0 &&
-                <table className="table">
+                <table className="sf-table">
                     <thead>
                         <tr>
                             <th>{WorkflowReplacementModel.nicePropertyName(a => a.replacements[0].oldNode)}</th>

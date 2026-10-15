@@ -35,7 +35,7 @@ export function DiffDocument(p: { first: string; second: string }): React.JSX.El
         <div>
             <div>
                 <label>
-                    <input type="checkbox" className="form-check-input"
+                    <input type="checkbox" className="sf-form-check-input"
                         checked={margin != null}
                         onChange={() => setMargin(margin == null ? DiffDocument.Options.defaultMarginLines : null)} />
                     <span className="mx-2">{marginLabelBefore}</span>
@@ -50,11 +50,11 @@ export function DiffDocument(p: { first: string; second: string }): React.JSX.El
             </div>
             <div>
                 {tooBig && !force
-                    ? <div className="alert alert-warning mt-2" role="alert">
+                    ? <div className="sf-alert sf-alert-warning mt-2" role="alert">
                         {DiffLogMessage.TheTwoStringsAreTooBig01AndCouldFreezeYourBrowser.niceToString(
                             `${formatter.format(p.first.length)} ch.`, `${formatter.format(p.second.length)} ch.`)}
                         <br />
-                        <button type="button" className="btn btn-sm btn-warning mt-4" onClick={() => setForce(true)}>
+                        <button type="button" className="sf-btn sf-btn-sm sf-btn-warning mt-4" onClick={() => setForce(true)}>
                             {DiffLogMessage.TryAnyway.niceToString()}
                         </button>
                     </div>

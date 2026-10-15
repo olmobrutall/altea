@@ -102,7 +102,7 @@ export default function TranslatedInstanceView(): React.JSX.Element {
                         {result.instances.map(ins =>
                             <TranslatedInstance key={ins.lite.key()} ins={ins} data={result}
                                 cultures={culture != undefined ? [culture] : otherCultures} currentCulture={culture} />)}
-                        <input type="submit" value={TranslationMessage.Save.niceToString()} className="btn btn-primary mt-2"
+                        <input type="submit" value={TranslationMessage.Save.niceToString()} className="sf-btn sf-btn-primary mt-2"
                             onClick={handleSave} disabled={isLocked} />
                     </div>
                 ))}
@@ -119,7 +119,7 @@ function TranslatedInstance(p: {
     return (
         <AccessibleTable
             aria-label={TranslationMessage.TranslationsOverview.niceToString()}
-            className="table st"
+            className="sf-table st"
             mapCustomComponents={new Map<React.JSXElementConstructor<any>, string>([[TranslatedInstanceProperty as React.JSXElementConstructor<any>, "tr"]])}
             multiselectable={false}>
             <thead>

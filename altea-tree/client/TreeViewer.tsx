@@ -450,7 +450,7 @@ export class TreeViewer extends React.Component<TreeViewerProps, TreeViewerState
             <ContextMenu id="table-context-menu" position={cm.position} onHide={this.handleContextOnHide} itemsCount={menuItems.length}>
                 {cm.showSearchBox &&
                     <input type="search"
-                        className="sf-form-control sf-form-control-sm dropdown-item"
+                        className="sf-form-control sf-form-control-sm sf-dropdown-item"
                         value={cm.filter ?? ""}
                         placeholder={SearchMessage.Search.niceToString()}
                         onChange={e => this.setState({ contextualMenu: { ...cm, filter: e.currentTarget.value } })} />}
@@ -612,31 +612,31 @@ export class TreeViewer extends React.Component<TreeViewerProps, TreeViewerState
         const type = this.props.treeOptions.typeName;
 
         return (
-            <div className="btn-toolbar">
-                <a className={classes("sf-query-button", "sf-filters-header", "btn", "btn-light", s.showFilters && "active")}
+            <div className="sf-btn-toolbar">
+                <a className={classes("sf-query-button", "sf-filters-header", "sf-btn", "sf-btn-light", s.showFilters && "active")}
                     onClick={this.handleToggleFilters}
                     title={SearchMessage.Filters.niceToString()}>
                     <FontAwesomeIcon icon="filter" />
                 </a>
-                <button className="btn btn-primary" onClick={this.handleSearchSubmit}>{TreeViewerMessage.Search.niceToString()}</button>
+                <button className="sf-btn sf-btn-primary" onClick={this.handleSearchSubmit}>{TreeViewerMessage.Search.niceToString()}</button>
 
                 {this.props.showExpandCollapseButtons && <>
-                    <button className="btn btn-light" onClick={this.handleExpandAll} disabled={s.treeNodes == undefined}>
+                    <button className="sf-btn sf-btn-light" onClick={this.handleExpandAll} disabled={s.treeNodes == undefined}>
                         {TreeViewerMessage.ExpandAll.niceToString()}
                     </button>
-                    <button className="btn btn-light" onClick={this.handleCollapseAll} disabled={s.treeNodes == undefined}>
+                    <button className="sf-btn sf-btn-light" onClick={this.handleCollapseAll} disabled={s.treeNodes == undefined}>
                         {TreeViewerMessage.CollapseAll.niceToString()}
                     </button>
                 </>}
 
                 {getOperationInfos(type).some(o => o.key === TreeOperation.CreateRoot.key) &&
-                    <button className="btn btn-light" onClick={this.handleAddRoot} disabled={s.treeNodes == undefined}>
+                    <button className="sf-btn sf-btn-light" onClick={this.handleAddRoot} disabled={s.treeNodes == undefined}>
                         <FontAwesomeIcon icon="star" />&nbsp;{TreeViewerMessage.AddRoot.niceToString()}
                     </button>}
 
                 <Dropdown onOpenChange={this.handleSelectedToggle} open={s.isSelectOpen}>
                     <DropdownTrigger asChild>
-                      <BootstrapButton id="selectedButton" className="sf-query-button sf-tm-selected dropdown-toggle" disabled={selected == undefined} variant="light">
+                      <BootstrapButton id="selectedButton" className="sf-query-button sf-tm-selected sf-dropdown-toggle" disabled={selected == undefined} variant="light">
                         {`${JavascriptMessage.Selected.niceToString()} (${selected ? selected.lite.toString() : TreeViewerMessage.None.niceToString()})`}
                       </BootstrapButton>
                     </DropdownTrigger>
@@ -647,7 +647,7 @@ export class TreeViewer extends React.Component<TreeViewerProps, TreeViewerState
                     </DropdownContent>
                 </Dropdown>
 
-                <button className="btn btn-light" onClick={this.handleExplore}>
+                <button className="sf-btn sf-btn-light" onClick={this.handleExplore}>
                     <FontAwesomeIcon icon="magnifying-glass" />&nbsp;{TreeMessage.ListView.niceToString()}
                 </button>
             </div>
@@ -658,11 +658,11 @@ export class TreeViewer extends React.Component<TreeViewerProps, TreeViewerState
         const disabled = this.state.treeNodes == undefined;
 
         return (
-            <div className="btn-toolbar">
-                <button className="btn btn-sm btn-light" onClick={this.handleExpandAll} disabled={disabled} title={TreeViewerMessage.ExpandAll.niceToString()}>
+            <div className="sf-btn-toolbar">
+                <button className="sf-btn sf-btn-sm sf-btn-light" onClick={this.handleExpandAll} disabled={disabled} title={TreeViewerMessage.ExpandAll.niceToString()}>
                     <FontAwesomeIcon icon="plus" />
                 </button>
-                <button className="btn btn-sm btn-light" onClick={this.handleCollapseAll} disabled={disabled} title={TreeViewerMessage.CollapseAll.niceToString()}>
+                <button className="sf-btn sf-btn-sm sf-btn-light" onClick={this.handleCollapseAll} disabled={disabled} title={TreeViewerMessage.CollapseAll.niceToString()}>
                     <FontAwesomeIcon icon="minus" />
                 </button>
             </div>
@@ -699,7 +699,7 @@ export class TreeViewer extends React.Component<TreeViewerProps, TreeViewerState
                 {!this.props.showToolbar && this.props.showExpandCollapseButtons && this.renderExpandCollapseButtons()}
 
                 <div className="tree-container sf-scroll-table-container overflow-x-auto">
-                    <table className="sf-search-results table table-hover table-sm">
+                    <table className="sf-search-results sf-table sf-table-hover sf-table-sm">
                         <thead>{this.renderHeaders(visibleColumns)}</thead>
                         <tbody>
                             {this.state.treeNodes == undefined

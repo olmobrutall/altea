@@ -35,7 +35,7 @@ export default function PredictSimpleResult(
             return [{
                 order: 10000,
                 button: (
-                    <button className="btn btn-info" onClick={handleClick}>
+                    <button className="sf-btn sf-btn-info" onClick={handleClick}>
                         <FontAwesomeIcon icon={["far", "lightbulb"]} />&nbsp;{PredictorMessage.Predict.niceToString()}
                     </button>
                 ),

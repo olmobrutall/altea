@@ -54,13 +54,13 @@ export default function OfficeTemplate(p: { ctx: TypeContext<OfficeTemplateEntit
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     <AutoLine ctx={ctx4.subCtx(f => f.name)} />
                     <EntityLine ctx={ctx4.subCtx(f => f.query)} onChange={forceUpdate} />
                     <EntityCombo ctx={ctx4.subCtx(f => f.model)} />
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     <EntityCombo ctx={ctx4.subCtx(f => f.officeTransformer)} />
                     <EntityCombo ctx={ctx4.subCtx(f => f.officeConverter)} />
                     <AutoLine ctx={ctx4.subCtx(f => f.culture)} />
@@ -72,13 +72,13 @@ export default function OfficeTemplate(p: { ctx: TypeContext<OfficeTemplateEntit
                 <Tab eventKey="template" title={ctx.niceName(a => a.template)}>
                     <AutoLine ctx={ctx.subCtx(f => f.fileName)} />
 
-                    <div className="card form-xs" style={{ marginTop: "10px", marginBottom: "10px" }}>
-                        <div className="card-header" style={{ padding: "5px" }}>
+                    <div className="sf-card form-xs" style={{ marginTop: "10px", marginBottom: "10px" }}>
+                        <div className="sf-card-header" style={{ padding: "5px" }}>
                             <TemplateControls
                                 queryKey={queryKey}
                                 forHtml={false}
                                 widgetButtons={
-                                    <div className="btn-group" style={{ marginLeft: "auto" }}>
+                                    <div className="sf-btn-group" style={{ marginLeft: "auto" }}>
                                         {tryGetTypeInfo(UserChartEntity) != null && queryKey != null &&
                                             <UserChartTemplateButton queryKey={queryKey} />}
                                         {tryGetTypeInfo(UserQueryEntity) != null && queryKey != null &&
@@ -168,7 +168,7 @@ export function UserQueryTemplateButton(p: { queryKey: string }): React.JSX.Elem
 /** The author copies the generated code into the shape's alternative text. */
 function renderWidgetButton(text: React.ReactElement, getCode: () => Promise<string | undefined>): React.JSX.Element {
     return (
-        <button className="btn btn-tertiary btn-sm sf-button" type="button"
+        <button className="sf-btn sf-btn-tertiary sf-btn-sm sf-button" type="button"
             onClick={() => void getCode().then(async code => {
                 if (code == null)
                     return;

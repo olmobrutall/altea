@@ -19,52 +19,52 @@ export default function ChatMessage(p: { ctx: TypeContext<ChatMessageEntity> }):
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-4">
+            <div className="sf-row">
+                <div className="sm:col-span-4">
                     <EntityLine ctx={ctx4.subCtx(n => n.chatSession)} />
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     <AutoLine ctx={ctx4.subCtx(n => n.creationDate)} />
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     <AutoLine ctx={ctx4.subCtx(n => n.role)} />
                 </div>
             </div>
 
-            <div className="row">
-                <div className="col-sm-4">
+            <div className="sf-row">
+                <div className="sm:col-span-4">
                     <AutoLine ctx={ctx4.subCtx(n => n.languageModel)} />
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     <AutoLine ctx={ctx4.subCtx(n => n.duration)} />
                 </div>
             </div>
 
-            <div className="row">
-                <div className="col-sm-3">
+            <div className="sf-row">
+                <div className="sm:col-span-3">
                     <NumberLine ctx={ctx4.subCtx(n => n.inputTokens)} />
                 </div>
-                <div className="col-sm-3">
+                <div className="sm:col-span-3">
                     <NumberLine ctx={ctx4.subCtx(n => n.cachedInputTokens)} />
                 </div>
-                <div className="col-sm-3">
+                <div className="sm:col-span-3">
                     <NumberLine ctx={ctx4.subCtx(n => n.outputTokens)} />
                 </div>
-                <div className="col-sm-3">
+                <div className="sm:col-span-3">
                     <NumberLine ctx={ctx4.subCtx(n => n.reasoningOutputTokens)} />
                 </div>
             </div>
 
             {ctx.value.role === ChatMessageRole.Tool ? (
                 <>
-                    <div className="row">
-                        <div className="col-sm-3">
+                    <div className="sf-row">
+                        <div className="sm:col-span-3">
                             <AutoLine ctx={ctx4.subCtx(n => n.toolCallID)} />
                         </div>
-                        <div className="col-sm-3">
+                        <div className="sm:col-span-3">
                             <AutoLine ctx={ctx4.subCtx(n => n.toolID)} />
                         </div>
-                        <div className="col-sm-6">
+                        <div className="sm:col-span-6">
                             <EntityLine ctx={ctx4.subCtx(n => n.exception)} />
                         </div>
                     </div>
@@ -90,12 +90,12 @@ export default function ChatMessage(p: { ctx: TypeContext<ChatMessageEntity> }):
 
                     {ctx.value.role === ChatMessageRole.Assistant
                         && (ctx.value.userFeedback != null || ctx.value.userFeedbackMessage != null) && (
-                            <div className="row mt-2">
-                                <div className="col-sm-3">
+                            <div className="sf-row mt-2">
+                                <div className="sm:col-span-3">
                                     <AutoLine ctx={ctx4.subCtx(n => n.userFeedback)} />
                                 </div>
                                 {ctx.value.userFeedback === UserFeedback.Negative && (
-                                    <div className="col-sm-9">
+                                    <div className="sm:col-span-9">
                                         <AutoLine ctx={ctx4.subCtx(n => n.userFeedbackMessage)} />
                                     </div>
                                 )}

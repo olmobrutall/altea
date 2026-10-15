@@ -9,15 +9,14 @@ import type { LocalizableMessage } from "../../data/utils/localization";
 import { dropdownActive } from "./DropdownActive";
 
 // Port of Signum's ThemeModeSelector (React/Components/ThemeModeSelector.tsx) — the navbar light / dark /
-// auto picker. "auto" follows the OS through `prefers-color-scheme`; the choice is remembered, and bootstrap
-// 5.3 does the rest through `data-bs-theme` (altea's own CSS hangs its dark rules off the same attribute:
-// Lines.css, Search.css, Sidebar.css, DiffLog.css).
+// auto picker. "auto" follows the OS through `prefers-color-scheme`; the choice is remembered, and the
+// `data-theme` attribute does the rest: theme.css's dark tokens and altea's own dark rules hang off it.
 //
 // Divergences from Signum:
-//  - `data-bs-theme` is stamped on the ROOT element, where Signum stamps <body>. It is bootstrap's own
-//    documented place for it, and it is the one an app's pre-React markup can already carry — eastwind's
+//  - `data-theme` is stamped on the ROOT element, where Signum stamps <body> (Signum's attribute is
+//    `data-bs-theme`, Bootstrap's). It is the one an app's pre-React markup can already carry — eastwind's
 //    index.html sets it from this same localStorage key before the bundle loads, so the loading splash comes
-//    up in the right theme and there is no light flash. Descendant selectors like `[data-bs-theme=dark] .x`
+//    up in the right theme and there is no light flash. Descendant selectors like `[data-theme=dark] .x`
 //    match from either element, so nothing else changes.
 //  - the SELECTED mode is persisted, not the resolved one. Signum writes `finalMode` ("dark" / "light"), so
 //    picking "auto" stores whichever the OS happened to be and the choice is gone on the next load — "auto"
@@ -88,7 +87,6 @@ export function ThemeModeSelector(p: { onSetMode?: (theme: "dark" | "light") => 
 
     React.useEffect(() => {
         document.documentElement.dataset.theme = theme;
-        document.documentElement.dataset.bsTheme = theme;
         p.onSetMode?.(theme);
     }, [theme]);
 
@@ -111,10 +109,10 @@ export function ThemeModeSelector(p: { onSetMode?: (theme: "dark" | "light") => 
         // `title` keeps the tooltip without the name being read a second time as the graphic's. `aria-label`
         // on the NavDropdown is no use: react-bootstrap puts unknown props on the wrapping <div>, not on the
         // toggle.
-        <div className="nav-item dropdown sf-theme-mode-dropdown" data-theme-mode={mode}>
+        <div className="sf-nav-item sf-dropdown sf-theme-mode-dropdown" data-theme-mode={mode}>
           <Dropdown>
             <DropdownTrigger asChild>
-              <button type="button" id="changeTheme" className="nav-link dropdown-toggle">
+              <button type="button" id="changeTheme" className="sf-nav-link sf-dropdown-toggle">
                 <span title={ThemeModeMessage.Theme.niceToString() + ": " + LABELS[mode].niceToString()}>
                     <FontAwesomeIcon aria-hidden={true} icon={ICONS[mode]} />
                     <span className="sr-only">{ThemeModeMessage.Theme.niceToString() + ": " + LABELS[mode].niceToString()}</span>

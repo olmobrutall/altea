@@ -29,21 +29,21 @@ export default function RestLog(p: { ctx: TypeContext<RestLogEntity> }): React.J
             <EntityLine ctx={ctx.subCtx(f => f.user)} />
             <AutoLine ctx={ctx.subCtx(f => f.url)} unit={ctx.value.httpMethod ?? undefined} />
 
-            <div className="row">
-                <div className="col-sm-6"><AutoLine ctx={ctx4.subCtx(f => f.controller)} /></div>
-                <div className="col-sm-6"><AutoLine ctx={ctx4.subCtx(f => f.controllerName)} /></div>
+            <div className="sf-row">
+                <div className="sm:col-span-6"><AutoLine ctx={ctx4.subCtx(f => f.controller)} /></div>
+                <div className="sm:col-span-6"><AutoLine ctx={ctx4.subCtx(f => f.controllerName)} /></div>
             </div>
-            <div className="row">
-                <div className="col-sm-6"><AutoLine ctx={ctx4.subCtx(f => f.action)} /></div>
-                <div className="col-sm-6"><AutoLine ctx={ctx4.subCtx(f => f.machineName)} /></div>
+            <div className="sf-row">
+                <div className="sm:col-span-6"><AutoLine ctx={ctx4.subCtx(f => f.action)} /></div>
+                <div className="sm:col-span-6"><AutoLine ctx={ctx4.subCtx(f => f.machineName)} /></div>
             </div>
-            <div className="row">
-                <div className="col-sm-6"><AutoLine ctx={ctx4.subCtx(f => f.applicationName)} /></div>
-                <div className="col-sm-6"><AutoLine ctx={ctx4.subCtx(f => f.userHostAddress)} /></div>
+            <div className="sf-row">
+                <div className="sm:col-span-6"><AutoLine ctx={ctx4.subCtx(f => f.applicationName)} /></div>
+                <div className="sm:col-span-6"><AutoLine ctx={ctx4.subCtx(f => f.userHostAddress)} /></div>
             </div>
-            <div className="row">
-                <div className="col-sm-6"><AutoLine ctx={ctx4.subCtx(f => f.userHostName)} /></div>
-                <div className="col-sm-6"><AutoLine ctx={ctx4.subCtx(f => f.referrer)} /></div>
+            <div className="sf-row">
+                <div className="sm:col-span-6"><AutoLine ctx={ctx4.subCtx(f => f.userHostName)} /></div>
+                <div className="sm:col-span-6"><AutoLine ctx={ctx4.subCtx(f => f.referrer)} /></div>
             </div>
 
             <EntityLine ctx={ctx.subCtx(f => f.exception)} />
@@ -54,12 +54,12 @@ export default function RestLog(p: { ctx: TypeContext<RestLogEntity> }): React.J
             <EntityTable ctx={ctx.subCtx(f => f.queryString)} avoidFieldSet />
 
             {ctx.value.allowReplay &&
-                <div className="row mt-2">
-                    <div className="col-sm-10">
+                <div className="sf-row mt-2">
+                    <div className="sm:col-span-10">
                         <input type="text" className="sf-form-control" value={replayUrl}
                             onChange={e => setReplayUrl(e.currentTarget.value)} />
                     </div>
-                    <div className="col-sm-2">
+                    <div className="sm:col-span-2">
                         <BootstrapButton variant="info"
                             onClick={() => RestClient.API.replayRestLog(String(ctx.value.id), replayUrl).then(setReplayResult)}>
                             {RestLogMessage.Replay.niceToString()}

@@ -55,8 +55,8 @@ export default function SkillCustomization(p: { ctx: TypeContext<SkillCustomizat
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     <EntityCombo ctx={ctx4.subCtx(e => e.skillCode)} onChange={() => {
                         ctx.value.shortDescription = null;
                         ctx.value.instructions = null;
@@ -64,7 +64,7 @@ export default function SkillCustomization(p: { ctx: TypeContext<SkillCustomizat
                         forceUpdate();
                     }} />
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     <TextBoxLine ctx={ctx4.subCtx(e => e.shortDescription)}
                         helpText={skillCodeInfo && ctx.value.shortDescription == null
                             ? `Default: ${skillCodeInfo.defaultShortDescription}`
@@ -82,7 +82,7 @@ export default function SkillCustomization(p: { ctx: TypeContext<SkillCustomizat
                         <div className="flex items-center gap-1">
                             <EntityLine ctx={ectx.subCtx(e => e.skill)} />
                             {ectx.value.skill instanceof SkillCodeEntity &&
-                                <button type="button" className="btn btn-sm btn-link p-0"
+                                <button type="button" className="sf-btn sf-btn-sm sf-btn-link p-0"
                                     title={SkillCustomizationEntity.niceName()}
                                     onClick={() => void handleConvertToSkillCustomization(ectx)}>
                                     Customize
@@ -130,13 +130,13 @@ function InstructionsField(p: {
                 <strong className="text-[.875em]">{ctx.niceName(e => e.instructions)}</strong>
                 <div>
                     {p.info &&
-                        <button type="button" className="btn btn-sm btn-link"
+                        <button type="button" className="sf-btn sf-btn-sm sf-btn-link"
                             title={showDiff ? "Show editor" : "Show diff with default"}
                             onClick={() => setShowDiff(v => !v)}>
                             {showDiff ? "Show Editor" : "Show Diff"}
                         </button>}
                     {p.info && !ctx.readOnly &&
-                        <button type="button" className="btn btn-sm btn-link"
+                        <button type="button" className="sf-btn sf-btn-sm sf-btn-link"
                             title="Replace the instructions with the skill's code default"
                             onClick={() => { ctx.value.instructions = p.info!.defaultInstructions; forceUpdate(); }}>
                             Reset to default

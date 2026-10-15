@@ -142,7 +142,7 @@ export default function CombinedUserChartPart(p: PanelPartContentProps<CombinedU
             )}
             {p.content.allowChangeShowData &&
                 <label>
-                    <input type="checkbox" className="form-check-input" checked={showData}
+                    <input type="checkbox" className="sf-form-check-input" checked={showData}
                         onChange={e => setShowData(e.currentTarget.checked)} />
                     {" "}{getTypeInfo(CombinedUserChartPartEntity)?.fields["showData"]?.niceToString()}
                 </label>}

@@ -93,18 +93,18 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
                     </div>
                 } />
 
-            <div className="row">
-                <div className="offset-sm-2 col-sm-10">
+            <div className="sf-row">
+                <div className="sm:col-start-3 sm:col-span-10">
                     <CollapsableCard header={UserAssetMessage.Advanced.niceToString()} size="xs">
-                        <div className="row mt-2 mb-2">
-                            <div className="col-sm-6">
+                        <div className="sf-row mt-2 mb-2">
+                            <div className="sm:col-span-6">
                                 <AutoLine ctx={ctx4.subCtx(e => e.appendFilters)} readOnly={ctx.value.entityType != null || undefined} onChange={() => forceUpdate()}
                                     helpText={UserQueryMessage.MakesThe0AvailableForCustomDrilldownsAndInContextualMenuWhenGrouping0.niceToString(UserQueryEntity.niceName(), query?.key)} />
                                 <AutoLine ctx={ctx4.subCtx(e => e.refreshMode)} />
                                 {/* EXTENSION POINT: customDrilldowns (Signum's EntityStrip) is deferred — altea
                                     has no EntityStrip yet, and CustomDrilldowns targets other UserQueries. */}
                             </div>
-                            <div className="col-sm-6">
+                            <div className="sm:col-span-6">
                                 {/* EXTENSION POINT: "Used by" (Signum's Toolbar / ToolbarMenu / Dashboard
                                     SearchValueLines) is deferred until the Toolbar & Dashboard modules land. */}
                             </div>
@@ -123,7 +123,7 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
                     <AutoLine ctx={ctxxs.subCtx(e => e.includeDefaultFilters)} valueColumns={4} />
                     {/* altea divergence: a "Show preview" toggle (default OFF) that runs the query-so-far. */}
                     <label className="flex items-center gap-2 mb-2" style={{ cursor: "pointer" }}>
-                        <input type="checkbox" className="form-check-input mt-0" checked={showPreview} onChange={() => setShowPreview(!showPreview)} />
+                        <input type="checkbox" className="sf-form-check-input mt-0" checked={showPreview} onChange={() => setShowPreview(!showPreview)} />
                         {UserQueryMessage.Preview.niceToString()}
                     </label>
                     <FilterBuilderEmbedded ctx={ctxxs.subCtx(e => e.filters)}
@@ -151,7 +151,7 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
                                         subTokenOptions={columnSubTokens} />
                                     <div className="flex">
                                         <label className="sf-col-form-label sf-col-form-label-xs me-2" style={{ minWidth: "140px" }}>
-                                            <input type="checkbox" className="form-check-input" disabled={cctx.value.token == null || cctx.readOnly}
+                                            <input type="checkbox" className="sf-form-check-input" disabled={cctx.value.token == null || cctx.readOnly}
                                                 checked={cctx.value.summaryToken != null}
                                                 onChange={() => { cctx.value.summaryToken = cctx.value.summaryToken == null ? seedSummaryToken(cctx.value.token) : null; row.forceUpdate(); }} />
                                             {" "}{SearchMessage.SummaryHeader.niceToString()}
@@ -202,9 +202,9 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
 
             <div className="my-6">
                 <h3 className="text-h5 font-medium">{UserQueryMessage.Pagination.niceToString()}</h3>
-                <div className="ms-4 row">
-                    <div className="col-sm-6"><AutoLine ctx={ctxxs.subCtx(e => e.paginationMode, { labelColumns: { sm: 4 } })} formGroupStyle="Basic" /></div>
-                    <div className="col-sm-6"><AutoLine ctx={ctxxs.subCtx(e => e.elementsPerPage, { labelColumns: { sm: 4 } })} formGroupStyle="Basic" /></div>
+                <div className="ms-4 sf-row">
+                    <div className="sm:col-span-6"><AutoLine ctx={ctxxs.subCtx(e => e.paginationMode, { labelColumns: { sm: 4 } })} formGroupStyle="Basic" /></div>
+                    <div className="sm:col-span-6"><AutoLine ctx={ctxxs.subCtx(e => e.elementsPerPage, { labelColumns: { sm: 4 } })} formGroupStyle="Basic" /></div>
                 </div>
             </div>
 
@@ -251,8 +251,8 @@ function SystemTime(p: { ctx: TypeContext<SystemTimeEmbedded> }): React.JSX.Elem
     const mode = Enum.toName(SystemTimeMode, ctx.value.mode);
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-3">
+            <div className="sf-row">
+                <div className="sm:col-span-3">
                     <AutoLine ctx={ctx.subCtx(e => e.mode)} onChange={() => {
                         const m = Enum.toName(SystemTimeMode, ctx.value.mode);
                         ctx.value.startDate = m === "All" ? null : ctx.value.startDate;
@@ -265,21 +265,21 @@ function SystemTime(p: { ctx: TypeContext<SystemTimeEmbedded> }): React.JSX.Elem
                         forceUpdate();
                     }} />
                 </div>
-                <div className="col-sm-3">
+                <div className="sm:col-span-3">
                     {mode === "All" ? null : <AutoLine ctx={ctx.subCtx(e => e.startDate)} label={mode === "AsOf" ? UserQueryMessage.Date.niceToString() : undefined} mandatory />}
                 </div>
-                <div className="col-sm-3">
+                <div className="sm:col-span-3">
                     {(mode === "All" || mode === "AsOf") ? null : <AutoLine ctx={ctx.subCtx(e => e.endDate)} mandatory />}
                 </div>
-                <div className="col-sm-3">
+                <div className="sm:col-span-3">
                     {(mode === "AsOf" || mode === "TimeSeries") ? null : <AutoLine ctx={ctx.subCtx(e => e.joinMode)} mandatory />}
                 </div>
             </div>
             {mode === "TimeSeries" &&
-                <div className="row">
-                    <div className="col-sm-3"><AutoLine ctx={ctx.subCtx(e => e.timeSeriesStep)} mandatory /></div>
-                    <div className="col-sm-3"><AutoLine ctx={ctx.subCtx(e => e.timeSeriesUnit)} mandatory /></div>
-                    <div className="col-sm-3"><AutoLine ctx={ctx.subCtx(e => e.timeSeriesMaxRowsPerStep)} mandatory /></div>
+                <div className="sf-row">
+                    <div className="sm:col-span-3"><AutoLine ctx={ctx.subCtx(e => e.timeSeriesStep)} mandatory /></div>
+                    <div className="sm:col-span-3"><AutoLine ctx={ctx.subCtx(e => e.timeSeriesUnit)} mandatory /></div>
+                    <div className="sm:col-span-3"><AutoLine ctx={ctx.subCtx(e => e.timeSeriesMaxRowsPerStep)} mandatory /></div>
                 </div>}
         </div>
     );
@@ -292,7 +292,7 @@ function HealthCondition(p: { ctx: TypeContext<HealthCheckConditionEmbedded | nu
     const ctx = p.ctx.subCtx({ formGroupStyle: "None", formSize: "xs" }) as TypeContext<HealthCheckConditionEmbedded>;
     return (
         <label className="flex flex-row items-center gap-2">
-            <input type="checkbox" checked={p.ctx.value != null} className="form-check-input me-2"
+            <input type="checkbox" checked={p.ctx.value != null} className="sf-form-check-input me-2"
                 onChange={() => { p.ctx.value = p.ctx.value == null ? new HealthCheckConditionEmbedded() : null; forceUpdate(); }} />
             {p.ctx.value == null ? p.ctx.niceName() :
                 <span style={{ backgroundColor: p.color }} className="flex flex-row items-center gap-2 p-2">

@@ -95,7 +95,7 @@ export namespace TranslatedInstanceClient {
         const root = p.ctx.tryFindRootEntity();
 
         return (
-            <LinkButton className={classes("sf-line-button sf-view", "btn sf-input-group-text", "sf-translate-button")}
+            <LinkButton className={classes("sf-line-button sf-view", "sf-btn sf-input-group-text", "sf-translate-button")}
                 title={TranslationMessage.ThisFieldIsTranslatable.niceToString()}
                 onClick={() => {
                     const entity = root?.value as Entity | undefined;

@@ -75,7 +75,7 @@ export function TimeMachine(p: { lite: Lite<Entity>; isModal?: boolean }): React
     function renderCheckBox(sc: SearchControlLoaded, row: ResultRow, rowIndex: number): React.ReactElement {
         const checked = Boolean(sc.state.selectedRows?.includes(row));
         return (
-            <input type="radio" className={classes("form-check-input",
+            <input type="radio" className={classes("sf-form-check-input",
                 checked && sc.state.selectedRows!.maxBy(a => a.columns[colIndex!])! != row && "bg-secondary border-secondary")}
                 checked={checked} onChange={() => { }} onClick={e => {
                     if (e.ctrlKey) {
@@ -276,7 +276,7 @@ export function TimeMachineModal(p: TimeMachineModalProps): React.JSX.Element {
                         <span style={{ color: "#aaa" }}>{p.lite.toString()}</span>
                     </small>
                 </h1>
-                <button type="button" className="btn-close" aria-label="Close" onClick={() => setShow(false)} />
+                <button type="button" className="sf-btn-close" aria-label="Close" onClick={() => setShow(false)} />
             </div>
             <div className="sf-modal-body">
                 <TimeMachine lite={p.lite} isModal={true} />
@@ -303,7 +303,7 @@ export function TimeMachineCompareModal(p: TimeMachineCompareModalProps): React.
         <Modal onHide={() => setShow(false)} show={show} className="message-modal" onExited={() => p.onExited!(undefined)} size="xl">
             <div className="sf-modal-header">
                 <h1 className="sf-modal-title text-h5 font-medium">{TimeMachineMessage.CompareVersions.niceToString()}</h1>
-                <button type="button" className="btn-close" aria-label="Close" onClick={() => setShow(false)} />
+                <button type="button" className="sf-btn-close" aria-label="Close" onClick={() => setShow(false)} />
             </div>
             <div className="sf-modal-body">
                 <TimeMachineTabs lite={p.lite} versionDatesUTC={p.versionDatesUTC} />

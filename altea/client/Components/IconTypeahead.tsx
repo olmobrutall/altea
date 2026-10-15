@@ -157,8 +157,8 @@ export function IconTypeahead(p: IconTypeaheadProps): React.ReactElement {
   const defaultPrefix = prefixAliases[config.styleDefault] ?? config.styleDefault;
 
   return (
-    <div className="row g-2">
-      <div className="col-sm-7">
+    <div className="sf-row gap-2">
+      <div className="sm:col-span-7">
         <Typeahead
           value={currentIcon ?? ""}
           inputAttrs={{ className: classes(p.formControlClass, "sf-entity-autocomplete"), placeholder: p.placeholder, ...p.inputAttrs }}
@@ -169,7 +169,7 @@ export function IconTypeahead(p: IconTypeaheadProps): React.ReactElement {
           minLength={0}
         />
       </div>
-      <div className="col-sm-5">
+      <div className="sm:col-span-5">
         <select className={p.formControlClass?.replaceAll("control", "select")}
           value={currentPrefix && (toLongPrefix(currentPrefix) ?? currentPrefix)}
           disabled={p.inputAttrs?.disabled || !(p.icon && (hasDefault || prefixes != null && prefixes.length > 1))}

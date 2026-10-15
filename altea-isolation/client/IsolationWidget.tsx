@@ -28,7 +28,7 @@ export function IsolationWidget(p: IsolationWidgetProps): React.JSX.Element | nu
         : Isolation.tryIsolation(asEntity);
 
     return (
-        <strong className="badge btn-tertiary" style={{ display: "flex" }}>
+        <strong className="sf-badge sf-btn-tertiary" style={{ display: "flex" }}>
             {isolation == null ? IsolationMessage.GlobalEntity.niceToString() : isolation.toString()}
         </strong>
     );

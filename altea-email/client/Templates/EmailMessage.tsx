@@ -30,24 +30,24 @@ export default function EmailMessage(p: { ctx: TypeContext<EmailMessageEntity> }
             <Tab title={EmailMessageEntity.niceName()} eventKey="mainTab">
                 <fieldset>
                     <legend>{EmailMessageEntity.niceName()}</legend>
-                    <div className="row">
-                        <div className="col-sm-2">
+                    <div className="sf-row">
+                        <div className="sm:col-span-2">
                             <AutoLine ctx={ctx.subCtx(f => f.state)} />
                             <AutoLine ctx={ctx.subCtx(f => f.creationDate)} />
                         </div>
-                        <div className="col-sm-2">
+                        <div className="sm:col-span-2">
                             <AutoLine ctx={ctx.subCtx(f => f.sent)} hideIfNull />
                             <AutoLine ctx={ctx.subCtx(f => f.receptionNotified)} hideIfNull />
                         </div>
-                        <div className="col-sm-2">
+                        <div className="sm:col-span-2">
                             <AutoLine ctx={ctx.subCtx(f => f.uniqueIdentifier)} />
                             <AutoLine ctx={ctx.subCtx(f => f.bodyHash)} hideIfNull />
                         </div>
-                        <div className="col-sm-2">
+                        <div className="sm:col-span-2">
                             <EntityLine ctx={ctx.subCtx(f => f.sentBy)} hideIfNull />
                             <EntityLine ctx={ctx.subCtx(f => f.exception)} hideIfNull />
                         </div>
-                        <div className="col-sm-4">
+                        <div className="sm:col-span-4">
                             <EntityLine ctx={ctx.subCtx(f => f.target, { labelColumns: 2 })} />
                             <EntityLine ctx={ctx.subCtx(f => f.template)} />
                         </div>
@@ -95,7 +95,7 @@ function EmailMessageBodyPreview(p: { ctx: TypeContext<EmailMessageEntity> }): R
     return (
         <div className="sf-email-template-message">
             <br />
-            <button type="button" className="btn btn-link p-0" onClick={() => setShowPreview(!showPreview)}>
+            <button type="button" className="sf-btn sf-btn-link p-0" onClick={() => setShowPreview(!showPreview)}>
                 {showPreview ? EmailTemplateMessage.HidePreview.niceToString() : EmailTemplateMessage.ShowPreview.niceToString()}
             </button>
             {showPreview && <IFrameRenderer style={{ width: "100%", height: "800px" }} html={p.ctx.value.body.text}

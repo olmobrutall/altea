@@ -16,12 +16,12 @@ export default function FileTokenAttachment(p: { ctx: TypeContext<FileTokenAttac
     const template = p.ctx.findParent(EmailTemplateEntity);
 
     return (
-        <div className="row">
-            <div className="col-sm-6">
+        <div className="sf-row">
+            <div className="sm:col-span-6">
                 <AutoLine ctx={sc.subCtx(c => c.type)} />
                 <AutoLine ctx={sc.subCtx(c => c.contentId)} />
             </div>
-            <div className="col-sm-6">
+            <div className="sm:col-span-6">
                 {template?.query == null
                     ? <p className="text-destructive">{ValidationMessage._0IsNotSet.niceToString(nicePropertyNameOf("query"))}</p>
                     : <QueryTokenEmbeddedBuilder

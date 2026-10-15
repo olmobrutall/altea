@@ -194,7 +194,7 @@ function SearchControl(p: SearchControlProps): React.JSX.Element | null {
 
   if (typeof fop == "string") {
     return (
-      <div className="alert alert-danger" role="alert">
+      <div className="sf-alert sf-alert-danger" role="alert">
         <strong>Error in SearchControl ({getQueryKey(p.findOptions.queryName)}): </strong>
         {fop}
       </div>

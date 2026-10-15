@@ -1,8 +1,8 @@
 /* Port of Signum.Help's Help.css, verbatim. */
 
 .import-preview .row-selected {
-  --bs-table-bg: var(--primary-subtle);
-  --bs-table-color: var(--foreground);
+  --sf-table-bg: var(--primary-subtle);
+  --sf-table-color: var(--foreground);
 }
 
 .import-preview .no-change {

@@ -29,7 +29,7 @@ export default function GroupByMessage(p: { findOptions: FindOptionsParsed, main
   const message = ValidationMessage.EachRowRepresentsAGroupOf0WithSame1.niceToString().formatHtml(getQueryNiceName(fo.queryKey),
     tokens.map(a => <strong>{a.niceName()}</strong>).joinCommaHtml(CollectionMessage.And.niceToString()));
   return (
-    <div className="sf-search-message alert alert-info">
+    <div className="sf-search-message sf-alert sf-alert-info">
       {"Ʃ"}&nbsp;{message}
       <VisualTipIcon visualTip={SearchVisualTip.GroupHelp} content={() => <GroupHelp />} />
     </div>

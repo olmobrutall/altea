@@ -30,7 +30,7 @@ function ConfirmWidget(p: {
                 <div className="flex gap-2 flex-wrap">
                     {p.payload.buttons.map(label => (
                         <button key={label} type="button"
-                            className={`btn btn-sm ${answeredLabel === label ? "btn-primary" : "btn-outline-primary"}`}
+                            className={`sf-btn sf-btn-sm ${answeredLabel === label ? "btn-primary" : "btn-outline-primary"}`}
                             onClick={() => p.onConfirm(label)}
                             disabled={answeredLabel !== null}>
                             {label}

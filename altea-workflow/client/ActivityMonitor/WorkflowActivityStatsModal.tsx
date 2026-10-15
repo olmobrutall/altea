@@ -60,7 +60,7 @@ function WorkflowActivityStatsModal(p: WorkflowActivityStatsModalProps): React.J
     function renderSubWorkflowExtra(): React.ReactNode {
         return (
             <FormGroup ctx={ctx}>
-                {() => <button className="btn btn-default" onClick={e => {
+                {() => <button className="sf-btn " onClick={e => {
                     e.preventDefault();
                     void Navigator.API.fetch(stats.workflowActivity).then(wa =>
                         window.open(toAbsoluteUrl(WorkflowClient.workflowActivityMonitorUrl(
@@ -96,7 +96,7 @@ function WorkflowActivityStatsModal(p: WorkflowActivityStatsModalProps): React.J
                 </div>
             </div>
             <div className="sf-modal-footer">
-                <button className="btn btn-primary sf-entity-button sf-ok-button" onClick={() => setShow(false)}>
+                <button className="sf-btn sf-btn-primary sf-entity-button sf-ok-button" onClick={() => setShow(false)}>
                     {JavascriptMessage.ok.niceToString()}
                 </button>
             </div>

@@ -2,19 +2,19 @@
    toolbar's filter dropdown, "Create new …", fullscreen), which Bootstrap 5.3 does not have. The tertiary
    background / border / text colours are Tailwind utilities over the `--tertiary` token. */
 
-.btn.btn-tertiary {
-    --bs-btn-color: var(--foreground);
-    --bs-btn-bg: var(--tertiary);
-    --bs-btn-border-color: var(--tertiary);
-    --bs-btn-hover-color: var(--foreground);
-    --bs-btn-hover-bg: color-mix(in srgb, var(--tertiary) 90%, var(--foreground));
-    --bs-btn-hover-border-color: color-mix(in srgb, var(--tertiary) 90%, var(--foreground));
-    --bs-btn-focus-shadow-rgb: var(--bs-tertiary-bg-rgb, 108,117,125);
-    --bs-btn-active-color: var(--foreground);
-    --bs-btn-active-bg: color-mix(in srgb, var(--tertiary) 80%, var(--foreground));
-    --bs-btn-active-border-color: color-mix(in srgb, var(--tertiary) 80%, var(--foreground));
-    --bs-btn-disabled-color: var(--foreground);
-    --bs-btn-disabled-bg: var(--tertiary);
-    --bs-btn-disabled-border-color: var(--tertiary);
+.sf-btn.sf-btn-tertiary {
+    --sf-btn-color: var(--foreground);
+    --sf-btn-bg: var(--tertiary);
+    --sf-btn-border-color: var(--tertiary);
+    --sf-btn-hover-color: var(--foreground);
+    --sf-btn-hover-bg: color-mix(in srgb, var(--tertiary) 90%, var(--foreground));
+    --sf-btn-hover-border-color: color-mix(in srgb, var(--tertiary) 90%, var(--foreground));
+    --sf-btn-focus-shadow-color: var(--tertiary);
+    --sf-btn-active-color: var(--foreground);
+    --sf-btn-active-bg: color-mix(in srgb, var(--tertiary) 80%, var(--foreground));
+    --sf-btn-active-border-color: color-mix(in srgb, var(--tertiary) 80%, var(--foreground));
+    --sf-btn-disabled-color: var(--foreground);
+    --sf-btn-disabled-bg: var(--tertiary);
+    --sf-btn-disabled-border-color: var(--tertiary);
 }
 

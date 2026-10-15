@@ -142,7 +142,7 @@ function PropertyRulesGroupTable({ rules, readOnly, markDirty, slice }: { rules:
         // stacks one table per type (owner + parts), the Property / Write / Read / None / Overridden columns
         // line up vertically instead of each table auto-sizing to its own property-name lengths.
         // The Property column takes whatever width is left; the radio columns are fixed.
-        <table className="table table-sm table-hover sf-auth-rules" style={{ width: "100%", tableLayout: "fixed" }}>
+        <table className="sf-table sf-table-sm sf-table-hover sf-auth-rules" style={{ width: "100%", tableLayout: "fixed" }}>
             <colgroup>
                 <col />
                 {LEVELS.map(l => <col key={l.value} style={{ width: "5.5rem" }} />)}

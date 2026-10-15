@@ -10,10 +10,10 @@ export default function DeleteLogsTask(p: { ctx: TypeContext<DeleteLogsTaskEntit
     const ctx = p.ctx.subCtx(t => t.parameters).subCtx({ labelColumns: { sm: 3 } });
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-4"><AutoLine ctx={ctx.subCtx(c => c.chunkSize)} /></div>
-                <div className="col-sm-4"><AutoLine ctx={ctx.subCtx(c => c.maxChunks)} /></div>
-                <div className="col-sm-4"><AutoLine ctx={ctx.subCtx(c => c.pauseTime)} /></div>
+            <div className="sf-row">
+                <div className="sm:col-span-4"><AutoLine ctx={ctx.subCtx(c => c.chunkSize)} /></div>
+                <div className="sm:col-span-4"><AutoLine ctx={ctx.subCtx(c => c.maxChunks)} /></div>
+                <div className="sm:col-span-4"><AutoLine ctx={ctx.subCtx(c => c.pauseTime)} /></div>
             </div>
             <EntityTable ctx={ctx.subCtx(c => c.deleteLogs)} columns={[
                 { property: o => o.type },

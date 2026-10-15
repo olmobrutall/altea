@@ -60,11 +60,11 @@ export function ValueUserQueryElement(p: ValueUserQueryElementProps): React.JSX.
         <div>
             <FormGroup ctx={ctx} label={ctx.value.label ?? getQueryNiceName(foExpanded.queryName)}>
                 {() =>
-                    <div className="row items-center">
-                        <div className="col-auto">
+                    <div className="flex flex-wrap items-center gap-x-6">
+                        <div className="flex-none">
                             <span>{ctx.value.label ?? getQueryNiceName(foExpanded.queryName)}</span>
                         </div>
-                        <div className="col-auto">
+                        <div className="flex-none">
                             <SearchValueLine ctx={ctx2} findOptions={foExpanded}
                                 customRequest={p.cachedQuery && ((qr, fop, token) =>
                                     p.cachedQuery!.then(cq => executeQueryValueCached(qr, fop, token, cq)))} />

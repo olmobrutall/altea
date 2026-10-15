@@ -80,7 +80,7 @@ export function ImportExcelProgressModal(p: ImportExcelProgressModalProps): Reac
                 <h1 id={titleId} className="sf-modal-title text-h5 font-medium">
                     {ImportFromExcelMessage.Importing0.niceToString(p.typeInfo.getNicePluralName())}
                 </h1>
-                <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={handleCancelClicked} />
+                <button type="button" className="sf-btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={handleCancelClicked} />
             </div>
             <div className="sf-modal-body">
                 <p><strong>{totalRows}</strong> {totalRows === 1 ? p.typeInfo.getNiceName() : p.typeInfo.getNicePluralName()}</p>
@@ -94,7 +94,7 @@ export function ImportExcelProgressModal(p: ImportExcelProgressModalProps): Reac
                     </p>}
             </div>
             <div className="sf-modal-footer">
-                <button type="button" className="btn btn-tertiary sf-entity-button sf-close-button" onClick={handleCancelClicked}>
+                <button type="button" className="sf-btn sf-btn-tertiary sf-entity-button sf-close-button" onClick={handleCancelClicked}>
                     {JavascriptMessage.cancel.niceToString()}
                 </button>
             </div>

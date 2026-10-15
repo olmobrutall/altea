@@ -16,7 +16,7 @@ export default function ChatMarkdown(p: { content: string }): React.JSX.Element 
 }
 
 function renderTable({ children, ...props }: React.PropsWithChildren<React.TableHTMLAttributes<HTMLTableElement>>): React.ReactNode {
-    return <table className="table table-sm table-bordered" {...props}>{children}</table>;
+    return <table className="sf-table sf-table-sm sf-table-bordered" {...props}>{children}</table>;
 }
 
 export function renderLink({ href, children, ...props }: React.PropsWithChildren<React.AnchorHTMLAttributes<HTMLAnchorElement>>): React.ReactNode {

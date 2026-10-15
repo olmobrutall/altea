@@ -29,7 +29,7 @@ export default function WorkflowPanelPage(): React.JSX.Element {
                     <WorkflowScriptRunnerTab />
                 </Tab>
                 <Tab title="Timers" eventKey="timers">
-                    <LinkButton title={undefined} className="sf-button btn btn-link"
+                    <LinkButton title={undefined} className="sf-button sf-btn sf-btn-link"
                         onClick={() => { window.open(AppContext.toAbsoluteUrl("/scheduler/view")); }}>
                         Open Scheduler Panel
                     </LinkButton>
@@ -60,12 +60,12 @@ export function WorkflowScriptRunnerTab(): React.JSX.Element {
     return (
         <div>
             <h4>{title}</h4>
-            <div className="btn-toolbar mt-4">
-                <button className={classes("sf-button btn", state.running ? "btn-success disabled" : "btn-outline-success")}
+            <div className="sf-btn-toolbar mt-4">
+                <button className={classes("sf-button sf-btn", state.running ? "sf-btn-success disabled" : "sf-btn-outline-success")}
                     onClick={!state.running ? () => void WorkflowClient.API.start().then(() => reloadState()) : undefined}>
                     <FontAwesomeIcon icon="play" /> Start
                 </button>
-                <button className={classes("sf-button btn", !state.running ? "btn-danger disabled" : "btn-outline-danger")}
+                <button className={classes("sf-button sf-btn", !state.running ? "sf-btn-danger disabled" : "sf-btn-outline-danger")}
                     onClick={state.running ? () => void WorkflowClient.API.stop().then(() => reloadState()) : undefined}>
                     <FontAwesomeIcon icon="stop" /> Stop
                 </button>

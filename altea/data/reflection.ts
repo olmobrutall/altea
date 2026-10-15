@@ -1086,7 +1086,7 @@ export function defaultFormat(tr: (Pick<TypeReference, 'typeName' | 'subTypeName
 // patterns built from the current culture (`ShortDatePattern + " HH"`, and the long time pattern with
 // "ss" → "ss.fff"). altea's date layer is Intl-options-based, not pattern-based — its format vocabulary
 // is the standard specifiers alone — so the two custom cases get altea-only specifiers of their own,
-// mapped in client/Lines/ReactWidgetsLocalizer's toDateFormatOptions next to the standard ones. The
+// mapped in client/ui/dateFormat's toDateFormatOptions next to the standard ones. The
 // culture stays where Intl keeps it instead of being baked into a pattern here.
 const dateTimePrecisionFormat: Record<DateTimePrecisionKeys, string> = {
     Days: "d",

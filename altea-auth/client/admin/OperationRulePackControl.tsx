@@ -116,7 +116,7 @@ export function OperationRulesTable({ pack, readOnly, markDirty, slice }: { pack
     };
 
     return (
-        <table className="table table-sm table-hover sf-auth-rules" style={{ maxWidth: "40rem" }}>
+        <table className="sf-table sf-table-sm sf-table-hover sf-auth-rules" style={{ maxWidth: "40rem" }}>
             <thead>
                 <tr>
                     <th>Operation</th>

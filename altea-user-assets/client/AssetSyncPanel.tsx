@@ -7,6 +7,7 @@ import { CodeSyncMessage, SyncFolderEntity } from "../data/AssetSync";
 import { UserAssetMessage } from "../data/UserAssets";
 import type { AssetSyncDiff, AssetSyncReport, AssetSyncStatus } from "../data/AssetSyncDtos";
 import { AssetSyncClient } from "./AssetSyncClient";
+import { colorClass } from "@altea/altea/client/Components";
 
 // Every synced asset and every asset file, with how they compare — always computed, never stored — and
 // what the next sync will do with each. See port/UserAssetCodeSync.md.
@@ -48,23 +49,23 @@ export default function AssetSyncPanel(): React.JSX.Element {
                     <option value="">*</option>
                     {info?.folders.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
-                <button className="btn btn-primary" disabled={busy}
+                <button className="sf-btn sf-btn-primary" disabled={busy}
                     onClick={() => run(() => AssetSyncClient.API.sync(folder ? [folder] : undefined), setReport)}>
                     {CodeSyncMessage.SyncFromCode.niceToString()}
                 </button>
                 {info?.writeFiles &&
-                    <button className="btn btn-tertiary" disabled={busy}
+                    <button className="sf-btn sf-btn-tertiary" disabled={busy}
                         onClick={() => run(() => AssetSyncClient.API.rewriteFiles(), setReport)}>
                         {CodeSyncMessage.RewriteFiles.niceToString()}
                     </button>}
-                <a className="btn btn-tertiary" href="/userAssets/import">{UserAssetMessage.ImportUserAssets.niceToString()}</a>
+                <a className="sf-btn sf-btn-tertiary" href="/userAssets/import">{UserAssetMessage.ImportUserAssets.niceToString()}</a>
                 {info != undefined && !info.writeFiles &&
                     <span className="sf-form-text">{CodeSyncMessage.ChangesHereAreNotWrittenToFiles.niceToString()}</span>}
             </div>
 
             {report != null && <ReportView report={report} onClose={() => setReport(null)} />}
 
-            <table className="table table-sm align-middle">
+            <table className="sf-table sf-table-sm align-middle">
                 <thead>
                     <tr>
                         <th>{SyncFolderEntity.niceName()}</th>
@@ -115,7 +116,7 @@ function StatusRow(p: StatusRowProps): React.JSX.Element {
                 <td>{l.folder}</td>
                 <td>{l.type}</td>
                 <td><a href={`/view/${l.type}/${l.guid}`}>{l.name}</a></td>
-                <td><span className="spinner-border spinner-border-sm text-muted-foreground" role="status" /></td>
+                <td><span className="sf-spinner-border sf-spinner-border-sm text-muted-foreground" role="status" /></td>
                 <td /><td />
             </tr>
         );
@@ -127,16 +128,16 @@ function StatusRow(p: StatusRowProps): React.JSX.Element {
             <td>{l.folder}</td>
             <td>{l.type}</td>
             <td>{inDb ? <a href={`/view/${l.type}/${l.guid}`}>{l.name}</a> : l.name}</td>
-            <td><span className={`badge text-bg-${d.color}`}>{d.text}</span></td>
-            <td>{inDb && <input type="checkbox" className="form-check-input" checked={l.keepOnSync} disabled={p.busy}
+            <td><span className={`sf-badge ${colorClass("text-bg", d.color)}`}>{d.text}</span></td>
+            <td>{inDb && <input type="checkbox" className="sf-form-check-input" checked={l.keepOnSync} disabled={p.busy}
                 onChange={e => p.onKeep(e.currentTarget.checked)} />}</td>
             <td className="text-nowrap">
                 {l.comparison !== "Identical" &&
-                    <button className="btn btn-sm btn-link" onClick={p.onToggleDiff}>{CodeSyncMessage.ShowDifferences.niceToString()}</button>}
+                    <button className="sf-btn sf-btn-sm sf-btn-link" onClick={p.onToggleDiff}>{CodeSyncMessage.ShowDifferences.niceToString()}</button>}
                 {inCode && l.comparison !== "Identical" &&
-                    <button className="btn btn-sm btn-tertiary" disabled={p.busy} onClick={p.onApplyFile}>{CodeSyncMessage.ApplyFile.niceToString()}</button>}
+                    <button className="sf-btn sf-btn-sm sf-btn-tertiary" disabled={p.busy} onClick={p.onApplyFile}>{CodeSyncMessage.ApplyFile.niceToString()}</button>}
                 {p.writeFiles && inDb && l.comparison !== "Identical" &&
-                    <button className="btn btn-sm btn-tertiary ms-1" disabled={p.busy} onClick={p.onWriteFile}>{CodeSyncMessage.WriteFile.niceToString()}</button>}
+                    <button className="sf-btn sf-btn-sm sf-btn-tertiary ms-1" disabled={p.busy} onClick={p.onWriteFile}>{CodeSyncMessage.WriteFile.niceToString()}</button>}
             </td>
         </tr>
     );
@@ -166,8 +167,8 @@ const reportLabels: Record<keyof AssetSyncReport | "rewritten", () => string> = 
 function ReportView(p: { report: AssetSyncReport | string[]; onClose: () => void }): React.JSX.Element {
     const entries = (Array.isArray(p.report) ? [["rewritten", p.report]] : Object.entries(p.report)) as [keyof typeof reportLabels, string[]][];
     return (
-        <div className="alert alert-info">
-            <button type="button" className="btn-close float-end" onClick={p.onClose} />
+        <div className="sf-alert sf-alert-info">
+            <button type="button" className="sf-btn-close float-end" onClick={p.onClose} />
             {entries.map(([k, v]) => <div key={k}>
                 <strong>{reportLabels[k]()}</strong>: {v.length}
                 {v.length > 0 && <ul className="mb-1">{v.map(x => <li key={x}>{x}</li>)}</ul>}

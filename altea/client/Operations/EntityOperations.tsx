@@ -20,6 +20,7 @@ import type { IconProp } from "@fortawesome/fontawesome-svg-core";
 import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from "../ui/Dropdown";
 import { WithTooltip } from "../ui/Tooltip";
 import type { BsColor } from "../Components";
+import { colorClass } from "../Components";
 
 export namespace EntityOperations {
   export const Options = {
@@ -330,14 +331,15 @@ export type OutlineBsColor =
   | 'outline-dark'
   | 'outline-light';
 
-/** What react-bootstrap's Button took, rendered as the same `btn btn-<variant>` markup. */
+/** What react-bootstrap's Button took (`variant`: a Bootstrap colour, `outline-<colour>`, `link`, `tertiary`), rendered as
+ *  altea's semantic button: `sf-btn sf-btn-<variant>` (ui/components.css). */
 export interface BootstrapButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: string;
   size?: "sm" | "lg";
 }
 
 export function BootstrapButton({ variant = "primary", size, className, type = "button", ...props }: BootstrapButtonProps & { ref?: React.Ref<HTMLButtonElement> }): React.ReactElement {
-  return <button type={type} className={classes("btn", variant && "btn-" + variant, size && "btn-" + size, className)} {...props} />;
+  return <button type={type} className={classes("sf-btn", variant && "sf-btn-" + variant, size && "sf-btn-" + size, className)} {...props} />;
 }
 
 /** react-bootstrap's DropdownButton: a `btn` that opens a menu of DropdownItems. */
@@ -345,7 +347,7 @@ function ButtonGroupMenu(p: { title: React.ReactNode, variant: string, id?: stri
   return (
     <Dropdown>
       <DropdownTrigger asChild>
-        <BootstrapButton variant={p.variant} id={p.id} data-key={p["data-key"]} className="dropdown-toggle">{p.title}</BootstrapButton>
+        <BootstrapButton variant={p.variant} id={p.id} data-key={p["data-key"]} className="sf-dropdown-toggle">{p.title}</BootstrapButton>
       </DropdownTrigger>
       <DropdownContent>{p.children}</DropdownContent>
     </Dropdown>
@@ -420,7 +422,7 @@ export function OperationButton({ group, onOperationClick, canExecute, eoc: eocO
         {...props as any}
         aria-disabled={disabled || undefined}
         title={props.title ?? (main?.keyboardShortcut && Operations.getShortcutToString(main.keyboardShortcut))}
-        className={classes(disabled ? "disabled sf-pointer-events" : undefined, main?.classes, (main.color ? "text-" + main.color : undefined))}
+        className={classes(disabled ? "disabled sf-pointer-events" : undefined, main?.classes, colorClass("text", main.color))}
         onClick={disabled ? undefined : e => { eoc.event = e; main.onClick(eoc); }}
         data-operation={eoc.operationInfo.key}>
         {props.children ?? EntityOperations.withIcon(main.text, main.icon, main.iconColor, main.iconAlign)}
@@ -473,13 +475,13 @@ export function OperationButton({ group, onOperationClick, canExecute, eoc: eocO
   if (buttonAlternatives.length) {
     button =
       (
-        <div className="btn-group"
+        <div className="sf-btn-group"
           key="buttonGroup">
           {button}
           {buttonAlternatives.map((aos, i) =>
             <BootstrapButton key={i}
               variant={(outline ? ("outline-" + (color ?? main.color)) as OutlineBsColor : (color ?? main.color))}
-              className={classes("dropdown-toggle-split px-1", disabled ? "disabled" : undefined, aos.classes)}
+              className={classes("sf-dropdown-toggle-split px-1", disabled ? "disabled" : undefined, aos.classes)}
               aria-disabled={disabled ? true : undefined}
               onClick={() => aos.onClick(eoc)}
               title={aos.text + (aos.keyboardShortcut ? (" (" + Operations.getShortcutToString(aos.keyboardShortcut) + ")") : "")}>
@@ -495,11 +497,11 @@ export function OperationButton({ group, onOperationClick, canExecute, eoc: eocO
     return button;
 
   return (
-    <div className="btn-group" role="group">
+    <div className="sf-btn-group" role="group">
       {button}
       <Dropdown>
         <DropdownTrigger asChild>
-          <BootstrapButton id={eoc.operationInfo.key + "_split"} className="dropdown-toggle dropdown-toggle-split"
+          <BootstrapButton id={eoc.operationInfo.key + "_split"} className="sf-dropdown-toggle sf-dropdown-toggle-split"
             aria-label={SearchMessage.Operations.niceToString()} />
         </DropdownTrigger>
         <DropdownContent align="start">
@@ -514,7 +516,7 @@ export function OperationButton({ group, onOperationClick, canExecute, eoc: eocO
 
     return (
       <DropdownItem
-        className={classes(aos.classes, aos.color && "text-" + aos.color)}
+        className={classes(aos.classes, colorClass("text", aos.color))}
         key={aos.name}
         title={aos.keyboardShortcut && Operations.getShortcutToString(aos.keyboardShortcut)}
         onClick={() => aos.onClick(eoc!)}

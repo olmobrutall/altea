@@ -325,7 +325,7 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                     title="+term / -term (the last matching term decides), * = all, !overriden, !conditions"
                     value={filter} onChange={e => setFilter(e.currentTarget.value)} />
             </div>
-            <table className="table table-sm table-hover sf-auth-rules" style={{ maxWidth: "44rem" }}
+            <table className="sf-table sf-table-sm sf-table-hover sf-auth-rules" style={{ maxWidth: "44rem" }}
                 aria-label={AuthAdminMessage.TypePermissionOverview.niceToString()}>
                 <thead>
                     <tr>
@@ -383,7 +383,7 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
                                             </td>)}
                                     </tr>,
                                     ...rule.allowed.conditionRules.map((cr, i) => (
-                                        <tr key={String(rule.resource.id) + "_c" + i} className="table-active">
+                                        <tr key={String(rule.resource.id) + "_c" + i} className="sf-table-active">
                                             <td className="ps-6">
                                                 {/* Read-only keeps the PLACEHOLDER (as the type row above does), so the condition
                                                     label stays in the same column instead of shifting left. */}

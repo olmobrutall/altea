@@ -77,7 +77,7 @@ export default function DynamicPanelPage(): React.JSX.Element {
                 </Tab>
                 <Tab eventKey="refreshClients" title={DynamicPanelMessage.RefreshClients.niceToString()}>
                     <p className="mt-4">{DynamicPanelMessage.YouNeedToRefreshManually.niceToString()}</p>
-                    <button type="button" className="btn btn-warning" onClick={() => window.location.reload()}>
+                    <button type="button" className="sf-btn sf-btn-warning" onClick={() => window.location.reload()}>
                         {DynamicPanelMessage.RefreshThisClient.niceToString()}
                     </button>
                 </Tab>
@@ -90,7 +90,7 @@ function StatusAlert(p: { status: DynamicCompilationStatus }): React.JSX.Element
     return (
         <>
             {p.status.databaseMismatches.length > 0 &&
-                <div className="alert alert-warning">
+                <div className="sf-alert sf-alert-warning">
                     <h5>
                         <FontAwesomeIcon aria-hidden={true} icon="database" />{" "}
                         {DynamicPanelMessage.TheDatabaseDoesNotMatchTheCode.niceToString()}
@@ -107,11 +107,11 @@ function CompilationAlert(p: { status: DynamicCompilationStatus }): React.JSX.El
     const s = p.status;
 
     if (s.codeGenDirectory == null)
-        return <div className="alert alert-secondary">{DynamicPanelMessage.NotConfigured.niceToString()}</div>;
+        return <div className="sf-alert sf-alert-secondary">{DynamicPanelMessage.NotConfigured.niceToString()}</div>;
 
     if (s.error != null)
         return (
-            <div className="alert alert-danger">
+            <div className="sf-alert sf-alert-danger">
                 <h5>
                     <FontAwesomeIcon aria-hidden={true} icon="triangle-exclamation" />{" "}
                     {DynamicPanelMessage.TheServerIsRunningWithoutItsDynamicTypes.niceToString()}
@@ -122,7 +122,7 @@ function CompilationAlert(p: { status: DynamicCompilationStatus }): React.JSX.El
         );
 
     return (
-        <div className={classes("alert", s.pending.length > 0 ? "alert-warning" : "alert-success")}>
+        <div className={classes("sf-alert", s.pending.length > 0 ? "sf-alert-warning" : "sf-alert-success")}>
             <FontAwesomeIcon aria-hidden={true} icon={s.pending.length > 0 ? "triangle-exclamation" : "check"} />{" "}
             {DynamicPanelMessage.DynamicCodeCompiledAndLoaded.niceToString()}{" "}
             {s.pending.length === 0 ? DynamicPanelMessage.NoChangesSinceTheServerStarted.niceToString() :
@@ -159,8 +159,8 @@ function CompileStep(p: { status: DynamicCompilationStatus }): React.JSX.Element
 
     return (
         <div className="mt-4">
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     <SearchValueLine ctx={ctx} findOptions={{ queryName: DynamicTypeEntity }} />
                     <SearchValueLine ctx={ctx} findOptions={{ queryName: DynamicExpressionEntity }} />
                     <SearchValueLine ctx={ctx} findOptions={{ queryName: DynamicTypeConditionEntity }} />
@@ -170,7 +170,7 @@ function CompileStep(p: { status: DynamicCompilationStatus }): React.JSX.Element
                     <SearchValueLine ctx={ctx} findOptions={{ queryName: DynamicViewEntity }} />
                     <SearchValueLine ctx={ctx} findOptions={{ queryName: DynamicCSSOverrideEntity }} />
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     {p.status.written.length > 0 &&
                         <details>
                             <summary>
@@ -184,7 +184,7 @@ function CompileStep(p: { status: DynamicCompilationStatus }): React.JSX.Element
                 </div>
             </div>
 
-            <button type="button" className="btn btn-success mt-2" disabled={compiling || p.status.codeGenDirectory == null}
+            <button type="button" className="sf-btn sf-btn-success mt-2" disabled={compiling || p.status.codeGenDirectory == null}
                 onClick={() => void handleCompile()}>
                 <FontAwesomeIcon aria-hidden={true} icon={compiling ? "arrows-rotate" : "gears"} spin={compiling} />{" "}
                 {DynamicPanelMessage.Compile.niceToString()}
@@ -192,7 +192,7 @@ function CompileStep(p: { status: DynamicCompilationStatus }): React.JSX.Element
 
             {result &&
                 <div className="mt-4">
-                    <div className={classes("alert", result.errors.length === 0 ? "alert-success" : "alert-danger")}>
+                    <div className={classes("sf-alert", result.errors.length === 0 ? "sf-alert-success" : "sf-alert-danger")}>
                         <strong>{DynamicPanelMessage._0Errors.niceToString(result.errors.length)}</strong>{" "}
                         {result.errors.length === 0
                             ? DynamicPanelMessage.TheDynamicCodeCompiledSuccessfully.niceToString()
@@ -200,7 +200,7 @@ function CompileStep(p: { status: DynamicCompilationStatus }): React.JSX.Element
                     </div>
 
                     {result.errors.length > 0 &&
-                        <table className="table table-sm table-hover">
+                        <table className="sf-table sf-table-sm sf-table-hover">
                             <thead>
                                 <tr>
                                     <th>{DynamicPanelMessage.File.niceToString()}</th>
@@ -211,7 +211,7 @@ function CompileStep(p: { status: DynamicCompilationStatus }): React.JSX.Element
                             <tbody>
                                 {result.errors.map((e, i) =>
                                     <tr key={i} onClick={() => setSelected(i)} style={{ cursor: "pointer" }}
-                                        className={classes(i === selected && "table-active")}>
+                                        className={classes(i === selected && "sf-table-active")}>
                                         <td><code>{e.fileName}</code></td>
                                         <td>{e.line}</td>
                                         <td className="text-destructive">
@@ -263,8 +263,8 @@ function RestartStep(p: { status: DynamicCompilationStatus; onRestarted: () => v
 
     if (restartingSince != null)
         return (
-            <div className="progress mt-4" style={{ height: "2em" }}>
-                <div className="progress-bar progress-bar-striped progress-bar-animated bg-warning" style={{ width: "100%" }}>
+            <div className="sf-progress mt-4" style={{ height: "2em" }}>
+                <div className="sf-progress-bar sf-progress-bar-striped sf-progress-bar-animated bg-warning" style={{ width: "100%" }}>
                     {DynamicPanelMessage.Restarting0s.niceToString(seconds)}
                 </div>
             </div>
@@ -274,11 +274,11 @@ function RestartStep(p: { status: DynamicCompilationStatus; onRestarted: () => v
         <div className="mt-4">
             {p.status.canRestart ?
                 AuthClient.isPermissionAuthorized(DynamicPanelPermission.RestartApplication) &&
-                <button type="button" className="btn btn-danger" onClick={() => void handleRestart()}>
+                <button type="button" className="sf-btn sf-btn-danger" onClick={() => void handleRestart()}>
                     <FontAwesomeIcon aria-hidden={true} icon="power-off" />{" "}
                     {DynamicPanelMessage.RestartServerApplication.niceToString()}
                 </button> :
-                <div className="alert alert-secondary">{DynamicPanelMessage.RestartNotAvailable.niceToString()}</div>}
+                <div className="sf-alert sf-alert-secondary">{DynamicPanelMessage.RestartNotAvailable.niceToString()}</div>}
 
             <p className="mt-4 text-muted-foreground">{DynamicPanelMessage.AfterRestartSynchronize.niceToString()}</p>
         </div>
@@ -303,8 +303,8 @@ function SearchStep(): React.JSX.Element {
     const ctx = React.useMemo(() => new StyleContext(undefined, { labelColumns: 3 }), []);
 
     return (
-        <div className="row mt-4">
-            <div className="col-sm-6">
+        <div className="sf-row mt-4">
+            <div className="sm:col-span-6">
                 <div className="sf-input-group mb-4">
                     <span className="sf-input-group-text"><FontAwesomeIcon aria-hidden={true} icon="magnifying-glass" /></span>
                     <input type="text" className="sf-form-control" value={search} onChange={e => setSearch(e.currentTarget.value)} />
@@ -339,14 +339,14 @@ function CheckEvalsStep(): React.JSX.Element {
 
     return (
         <div className="mt-4">
-            <button type="button" className="btn btn-success" disabled={state === "loading"} onClick={() => void handleRefresh()}>
+            <button type="button" className="sf-btn sf-btn-success" disabled={state === "loading"} onClick={() => void handleRefresh()}>
                 <FontAwesomeIcon aria-hidden={true} icon="arrows-rotate" spin={state === "loading"} />{" "}
                 {DynamicPanelMessage.RefreshAll.niceToString()}
             </button>
 
             {Array.isArray(state) && (state.length === 0 ?
-                <div className="alert alert-success mt-4">{DynamicPanelMessage.NoErrorsFound.niceToString()}</div> :
-                <table className="table table-sm mt-4">
+                <div className="sf-alert sf-alert-success mt-4">{DynamicPanelMessage.NoErrorsFound.niceToString()}</div> :
+                <table className="sf-table sf-table-sm mt-4">
                     <tbody>
                         {state.map((e, i) =>
                             <tr key={i}>

@@ -35,15 +35,15 @@ export default function HelpSearchPage(): React.JSX.Element {
     }
 
     return (
-        <div className="container">
+        <div className="sf-container">
             <h1 className="text-display-6 font-light">
                 <Link to={HelpClient.Urls.indexUrl()}>{HelpMessage.Help.niceToString()}</Link>
                 {" > "}
                 {HelpSearchMessage.Search.niceToString()}
             </h1>
 
-            <form className="row g-2 items-center mb-6" onSubmit={onSubmit} role="search">
-                <div className="col-auto">
+            <form className="flex flex-wrap gap-2 items-center mb-6" onSubmit={onSubmit} role="search">
+                <div className="flex-none">
                     <label className="sr-only" htmlFor="helpSearchText">{HelpMessage.SearchText.niceToString()}</label>
                     <input id="helpSearchText"
                         type="search"
@@ -52,8 +52,8 @@ export default function HelpSearchPage(): React.JSX.Element {
                         value={text}
                         onChange={e => setText(e.currentTarget.value)} />
                 </div>
-                <div className="col-auto">
-                    <button type="submit" className="btn btn-primary">
+                <div className="flex-none">
+                    <button type="submit" className="sf-btn sf-btn-primary">
                         <FontAwesomeIcon aria-hidden={true} icon="magnifying-glass" /> {HelpSearchMessage.Search.niceToString()}
                     </button>
                 </div>
@@ -67,8 +67,8 @@ export default function HelpSearchPage(): React.JSX.Element {
                 </p>
 
                 {response.results.length === 0
-                    ? <div className="alert alert-secondary">{HelpSearchMessage.NoResults.niceToString()}</div>
-                    : <dl className="row">
+                    ? <div className="sf-alert sf-alert-secondary">{HelpSearchMessage.NoResults.niceToString()}</div>
+                    : <dl className="sf-row">
                         {response.results.map((r, i) => <ResultLine key={i} result={r} />)}
                     </dl>}
             </>}
@@ -91,11 +91,11 @@ function ResultLine({ result }: { result: HelpSearchResult }): React.JSX.Element
 
     return (
         <>
-            <dt className="col-sm-3 text-end">
+            <dt className="sm:col-span-3 text-end">
                 <FontAwesomeIcon icon={badge.icon} color={badge.color} className="me-2" aria-hidden={true} />
                 <Link to={urlOf(result)}>{result.title}</Link>
             </dt>
-            <dd className={classes("col-sm-9", result.isDescription && "sf-info")}>
+            <dd className={classes("sm:col-span-9", result.isDescription && "sf-info")}>
                 {result.description}
             </dd>
         </>

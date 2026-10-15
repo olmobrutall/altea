@@ -19,8 +19,8 @@ export default function ToolbarSwitcherOption(p: { ctx: TypeContext<ToolbarSwitc
     return (
         <div>
             <EntityLine ctx={ctx.subCtx(f => f.toolbarMenu)} />
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     <IconTypeaheadLine ctx={ctx4.subCtx(t => t.iconName)} onChange={() => forceUpdate()} />
                     <AutoLine ctx={ctx4.subCtx(t => t.iconColor)} onChange={() => forceUpdate()} />
                 </div>

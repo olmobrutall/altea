@@ -15,7 +15,7 @@ export default function CustomPart(p: PanelPartContentProps<CustomPartEntity>): 
 
     if (!cpr)
         return (
-            <div className="alert alert-danger" role="alert">
+            <div className="sf-alert sf-alert-danger" role="alert">
                 No renderer for <code>{typeName ?? "global"}</code> with name <code>{p.content.customPartName}</code> registered in <code>DashboardClient.Options.customPartRenderers</code>
             </div>
         );

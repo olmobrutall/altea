@@ -123,7 +123,7 @@ export const MultiValueLine: <R extends BaseEntity>(props: MultiValueLineProps<R
         helpTextOnTop={helpTextOnTop}
         labelHtmlAttributes={p.labelHtmlAttributes}>
         {inputId => <>
-          <div className="row">
+          <div className="sf-row">
             {
               c.getMListItemContext(p.ctx.subCtx({ formGroupStyle: "None" })).map((mlec, i) => {
                 return (

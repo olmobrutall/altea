@@ -30,6 +30,7 @@ import { toAbsoluteUrl } from '../AppContext'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { TimeMachineColors } from '../Lines/TimeMachineIcon'
 import { LinkButton } from '../Basics/LinkButton'
+import { colorClass } from "../Components";
 
 export interface SearchValueProps {
   ref?: React.Ref<SearchValueController>;
@@ -227,7 +228,7 @@ function SearchValue(p: SearchValueProps): React.ReactNode | null {
     var errorMessage = Finder.validateNewEntities(findOptions);
     if (errorMessage) {
       return (
-        <div className="alert alert-danger" role="alert" >
+        <div className="sf-alert sf-alert-danger" role="alert" >
           <strong>Error in SearchValue ({getQueryKey(findOptions.queryName)}): </strong>
           {errorMessage}
         </div>
@@ -282,7 +283,7 @@ function SearchValue(p: SearchValueProps): React.ReactNode | null {
           </div>
         );
       } else {
-        return <div className="alert alert-danger">Not implemented</div>
+        return <div className="sf-alert sf-alert-danger">Not implemented</div>
       }
     }
 
@@ -295,10 +296,10 @@ function SearchValue(p: SearchValueProps): React.ReactNode | null {
       p.formControlClass && isMultiLine() && "sf-multi-line",
 
       p.isBadge == false ? "" :
-        "badge badge-pill " +
+        "sf-badge " +
         (p.isBadge == "MoreThanZero" && (value == 0 || value == null) ? "bg-tertiary text-tertiary-foreground":
-          p.badgeColor && typeof p.badgeColor == "function" ? "text-bg-" + p.badgeColor(value) :
-            p.badgeColor ? "text-bg-" + p.badgeColor :
+          p.badgeColor && typeof p.badgeColor == "function" ? colorClass("text-bg", p.badgeColor(value)) :
+            p.badgeColor ? colorClass("text-bg", p.badgeColor) :
               "bg-secondary text-secondary-foreground"),
 
       p.customClass && typeof p.customClass == "function" ? p.customClass(value) : p.customClass

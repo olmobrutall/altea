@@ -106,13 +106,13 @@ export default function ChangePasswordPage(): React.JSX.Element {
     }
 
     return (
-        <div className="container sf-reset-password">
-            <div className="row">
-                <div className="col-md-6 offset-md-3">
+        <div className="sf-container sf-reset-password">
+            <div className="sf-row">
+                <div className="md:col-span-6 md:col-start-4">
                     <form onSubmit={handleSubmit} className="w-full">
                         <h1 className="sf-entity-title text-h2 font-medium">{LoginAuthMessage.ChangePassword.niceToString()}</h1>
                         {mustChangePassword && (
-                            <div className="alert alert-warning" role="alert">
+                            <div className="sf-alert sf-alert-warning" role="alert">
                                 <strong>{LoginAuthMessage.PasswordMustBeChanged.niceToString()}</strong>
                                 <p className="mb-0">{LoginAuthMessage.YouMustChangeYourPasswordBeforeContinuing.niceToString()}</p>
                             </div>
@@ -140,7 +140,7 @@ export default function ChangePasswordPage(): React.JSX.Element {
                                 {error("newPassword2") && <span className="help-block text-destructive">{error("newPassword2")}</span>}
                             </div>
                         </div>
-                        <button type="submit" className="btn btn-primary mt-2" id="changePassword">{LoginAuthMessage.ChangePassword.niceToString()}</button>
+                        <button type="submit" className="sf-btn sf-btn-primary mt-2" id="changePassword">{LoginAuthMessage.ChangePassword.niceToString()}</button>
                     </form>
                 </div>
             </div>

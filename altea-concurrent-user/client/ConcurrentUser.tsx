@@ -163,7 +163,7 @@ export default function ConcurrentUser(p: { entity: Entity; isExecuting: boolean
                         ? <div className="mt-4">
                             <small>
                                 {ConcurrentUserMessage.ThisIsNotTheLatestVersionOf0.niceToString().formatHtml(<strong>{p.entity.toString()}</strong>)}
-                                <button type="button" className="btn btn-primary btn-sm" onClick={p.onReload}>
+                                <button type="button" className="sf-btn sf-btn-primary sf-btn-sm" onClick={p.onReload}>
                                     {ConcurrentUserMessage.ReloadIt.niceToString()}
                                 </button>
                             </small>

@@ -29,11 +29,11 @@ export default function WorkflowConnectionModelComponent(
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     <AutoLine ctx={ctx.subCtx(e => e.name)} />
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     <AutoLine ctx={ctx.subCtx(e => e.type)}
                         onChange={() => { ctx.value.decisionOptionName = null; forceUpdate(); }} />
                 </div>
@@ -50,15 +50,15 @@ export default function WorkflowConnectionModelComponent(
                         </select>}
                 </FormGroup>}
 
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     {ctx.value.needCondition
                         ? ctx.value.mainEntityType
                             ? <EntityLine ctx={ctx.subCtx(e => e.condition)}
                                 findOptions={WorkflowConditionEntity.findOptions(token => ({
                                     filterOptions: [token(e => e.mainEntityType).filter("EqualTo", ctx.value.mainEntityType)],
                                 }))} />
-                            : <div className="alert alert-warning">
+                            : <div className="sf-alert sf-alert-warning">
                                 {WorkflowMessage.ToUse0YouSouldSetTheWorkflow1.niceToString(
                                     ctx.niceName(e => e.condition), ctx.niceName(e => e.mainEntityType))}
                             </div>
@@ -67,13 +67,13 @@ export default function WorkflowConnectionModelComponent(
                         <AutoLine ctx={ctx.subCtx(e => e.order)}
                             helpText={WorkflowMessage.EvaluationOrderOfTheConnectionForIfElse.niceToString()} />}
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     {ctx.value.mainEntityType
                         ? <EntityLine ctx={ctx.subCtx(e => e.action)}
                             findOptions={WorkflowActionEntity.findOptions(token => ({
                                 filterOptions: [token(e => e.mainEntityType).filter("EqualTo", ctx.value.mainEntityType)],
                             }))} />
-                        : <div className="alert alert-warning">
+                        : <div className="sf-alert sf-alert-warning">
                             {WorkflowMessage.ToUse0YouSouldSetTheWorkflow1.niceToString(
                                 ctx.niceName(e => e.action), ctx.niceName(e => e.mainEntityType))}
                         </div>}

@@ -202,7 +202,7 @@ function AlertDropdownImp(props: { keepRingingFor: number }): React.JSX.Element 
                 the real description is aria-hidden — so the button announced as just "32, button". The
                 description the icon already computes belongs on the button itself, along with whether the
                 panel it toggles is open. */}
-            <button ref={toggleRef} className="nav-link sf-bell-container" onClick={() => setIsOpen(!isOpen)}
+            <button ref={toggleRef} className="sf-nav-link sf-bell-container" onClick={() => setIsOpen(!isOpen)}
                 aria-label={alertsLabel} aria-expanded={isOpen}
                 style={{ border: 0, backgroundColor: "var(--alert-bg)" }}>
                 <FontAwesomeIcon aria-hidden icon="bell"
@@ -210,7 +210,7 @@ function AlertDropdownImp(props: { keepRingingFor: number }): React.JSX.Element 
                     className={classes("sf-bell", ringing && "ringing", isOpen && "open",
                         countResult != null && countResult.numAlerts > 0 && "active")} />
                 {countResult != null && countResult.numAlerts > 0 &&
-                    <span className="badge bg-destructive text-destructive-foreground badge-pill sf-alerts-badge">{countResult.numAlerts}</span>}
+                    <span className="sf-badge bg-destructive text-destructive-foreground sf-alerts-badge">{countResult.numAlerts}</span>}
             </button>
 
             {isOpen && <div className="sf-alerts-toasts mt-2" ref={divRef} style={{
@@ -245,7 +245,7 @@ function AlertDropdownImp(props: { keepRingingFor: number }): React.JSX.Element 
                             <div style={{ transform: `translateY(${stackedHeight}px)`, transition: "transform 0.4s ease" }}>
                                 <Card className={classes(toastCard, "w-full my-2")}>
                                     <CardContent style={{ textAlign: "center" }}>
-                                        <button type="button" className="btn btn-link btn-sm text-muted-foreground font-bold"
+                                        <button type="button" className="sf-btn sf-btn-link sf-btn-sm text-muted-foreground font-bold"
                                             onClick={() => setShowGroups(showGroups + MaxNumberOfGroups)}>
                                             {AlertMessage.Show0GroupsMore1Remaining.niceToString(MaxNumberOfGroups,
                                                 alertGroups.filter(a => !a.removing).length - showGroups)}
@@ -315,12 +315,12 @@ export function AlertGroupToast(p: {
                 </span>
 
                 {alerts.length > 1 && <>
-                    <button type="button" className="ms-auto me-2 btn btn-link btn-sm" style={textStyle}
+                    <button type="button" className="ms-auto me-2 sf-btn sf-btn-link sf-btn-sm" style={textStyle}
                         onClick={() => setShowAlerts(showAlerts === 1 ? 1 + MaxNumberOfAlerts : 1)}
                         aria-expanded={showAlerts !== 1}>
                         {showAlerts === 1 ? AlertMessage.Expand.niceToString() : AlertMessage.Collapse.niceToString()}
                     </button>
-                    <button type="button" className="btn btn-link btn-sm" style={{ whiteSpace: "nowrap", ...textStyle }}
+                    <button type="button" className="sf-btn sf-btn-link sf-btn-sm" style={{ whiteSpace: "nowrap", ...textStyle }}
                         onClick={() => p.onClose(p.group)}>
                         {AlertMessage.CloseAll.niceToString()}
                     </button>
@@ -363,7 +363,7 @@ export function AlertGroupToast(p: {
 
             {showAlerts < p.group.alerts.filter(a => !a.removing).length && showAlerts > 1 &&
                 <div style={{ position: "relative", textAlign: "center", marginTop: "-10px" }}>
-                    <button type="button" className="btn btn-link btn-sm underline"
+                    <button type="button" className="sf-btn sf-btn-link sf-btn-sm underline"
                         onClick={() => setShowAlerts(showAlerts + MaxNumberOfAlerts)}>
                         {AlertMessage.Show0AlertsMore.niceToString(MaxNumberOfAlerts)}
                     </button>
@@ -410,11 +410,11 @@ export function AlertToast(p: {
                 transition: "transform .4s ease",
                 color: "var(--alert-text)",
             }}>
-                <div className="row">
-                    <div className="col-sm-1">
+                <div className="sf-row">
+                    <div className="sm:col-span-1">
                         {alert.createdBy && <SmallProfilePhoto user={alert.createdBy as Lite<UserEntity>} />}
                     </div>
-                    <div className="col-sm-11" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div className="sm:col-span-11" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
                         {AlertsClient.format(alert.textField || alert.textFromAlertType || "", alert, p.refresh)}
                     </div>
                 </div>

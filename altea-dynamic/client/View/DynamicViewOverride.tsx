@@ -124,7 +124,7 @@ export default function DynamicViewOverrideComponent(p: DynamicViewOverrideCompo
     function renderExampleEntity(cleanName: string): React.ReactNode {
         const ctor = resolveType(cleanName);
         if (ctor == undefined || !isModifiableType(ctor))
-            return <div className="alert alert-warning">Type '{cleanName}' is not registered on the client</div>;
+            return <div className="sf-alert sf-alert-warning">Type '{cleanName}' is not registered on the client</div>;
 
         const exampleCtx = new TypeContext<Entity | null>(
             undefined, undefined, PropertyRoute.root(ctor), Binding.create(exampleEntityRef, s => s.current));
@@ -157,7 +157,7 @@ export default function DynamicViewOverrideComponent(p: DynamicViewOverrideCompo
         const cleanName = ctx.value.entityType.cleanName;
         return (
             <div className="code-container">
-                <div className="btn-toolbar btn-toolbar-small">
+                <div className="sf-btn-toolbar sf-btn-toolbar sf-btn-toolbar-sm">
                     {viewNames && renderViewNameButtons()}
                 </div>
                 <pre style={{ border: "0px", margin: "0px", overflow: "visible" }}>
@@ -167,7 +167,7 @@ export default function DynamicViewOverrideComponent(p: DynamicViewOverrideCompo
                     </div>
                 </pre>
                 <JavascriptMonaco code={ctx.value.script ?? ""} onChange={handleCodeChange} />
-                {syntaxError && <div className="alert alert-danger">{syntaxError}</div>}
+                {syntaxError && <div className="sf-alert sf-alert-danger">{syntaxError}</div>}
             </div>
         );
     }
@@ -202,8 +202,8 @@ export default function DynamicViewOverrideComponent(p: DynamicViewOverrideCompo
             {ctx.value.entityType &&
                 <div>
                     <br />
-                    <div className="row">
-                        <div className="col-sm-12">
+                    <div className="sf-row">
+                        <div className="sm:col-span-12">
                             {renderExampleEntity(ctx.value.entityType.cleanName)}
                             {renderEditor()}
                         </div>

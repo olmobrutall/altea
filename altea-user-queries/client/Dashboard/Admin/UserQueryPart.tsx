@@ -24,14 +24,14 @@ export default function UserQueryPart(p: PartEditorProps<UserQueryPartEntity>): 
                 })) : undefined}
                 helpText={getEntityTypeHelpText(dashboardEntityType?.toString(), ctx.value.userQuery?.entityType?.toString())}
                 onChange={forceUpdate} />
-            <div className="row">
-                <div className={p.smallMode ? "col-12" : "col-sm-5"}>
+            <div className="sf-row">
+                <div className={p.smallMode ? "col-span-12" : "sm:col-span-5"}>
                     <CheckboxLine ctx={ctx.subCtx(up => up.allowSelection)} inlineCheckbox="block" />
                     <CheckboxLine ctx={ctx.subCtx(up => up.showFooter)} inlineCheckbox="block" />
                     <CheckboxLine ctx={ctx.subCtx(up => up.createNew)} inlineCheckbox="block" />
                     <CheckboxLine ctx={ctx.subCtx(up => up.allowMaxHeight)} inlineCheckbox="block" />
                 </div>
-                <div className={p.smallMode ? "col-12" : "col-sm-7"}>
+                <div className={p.smallMode ? "col-span-12" : "sm:col-span-7"}>
                     <AutoLine ctx={ctx.subCtx(up => up.autoUpdate)} />
                 </div>
             </div>

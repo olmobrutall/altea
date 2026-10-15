@@ -660,7 +660,7 @@ export default function renderPivotTable({ data, width, height, parameters, load
 
   return (
     <div className="overflow-x-auto" style={{ maxWidth: width }}>
-      <table className="table table-bordered pivot-table">
+      <table className="sf-table sf-table-bordered pivot-table">
         <thead>
           <tr>
             <td scope="col" colSpan={verColSpan(0)} rowSpan={Math.max(1, horCols.length)} style={{ border: "0px" }}></td>

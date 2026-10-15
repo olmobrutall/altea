@@ -74,8 +74,8 @@ export default function DynamicTypeComponent(p: { ctx: TypeContext<DynamicTypeEn
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-8">
+            <div className="sf-row">
+                <div className="sm:col-span-8">
                     <EnumLine ctx={ctx.subCtx(e => e.baseType)} labelColumns={3} readOnly={!dt.isNew}
                         onChange={() => handleBaseTypeChange(baseTypeAtRender)} />
                     <AutoLine ctx={ctx.subCtx(e => e.typeName)} labelColumns={3} onChange={handleNameChange}
@@ -90,8 +90,8 @@ export default function DynamicTypeComponent(p: { ctx: TypeContext<DynamicTypeEn
 
             <Tabs defaultActiveKey="data" id="DynamicTypeSource" className="mt-2">
                 <Tab eventKey="data" title={DynamicTypeMessage.Data.niceToString()}>
-                    <div className="row">
-                        <div className="col-lg-8">
+                    <div className="sf-row">
+                        <div className="lg:col-span-8">
                             <SourceEditor error={dataCtx.error}>
                                 <EvalMonaco code={dt.dataCode ?? ""} header={[]} footer={[]} subject={dt}
                                     profile={DynamicTypeImportsProfile} path={`file:///eval/${dataModule}.ts`}
@@ -101,7 +101,7 @@ export default function DynamicTypeComponent(p: { ctx: TypeContext<DynamicTypeEn
                             </SourceEditor>
                         </div>
                         {!ctx.readOnly &&
-                            <div className="col-lg-4 mt-2">
+                            <div className="lg:col-span-4 mt-2">
                                 <DynamicTypeRecipes side="data" typeName={dt.typeName ?? ""} monaco={dataEditor?.monaco ?? null}
                                     dataEditor={dataEditor?.editor ?? null} serverEditor={serverEditor} />
                             </div>}
@@ -109,8 +109,8 @@ export default function DynamicTypeComponent(p: { ctx: TypeContext<DynamicTypeEn
                 </Tab>
                 {hasServer &&
                     <Tab eventKey="server" title={DynamicTypeMessage.Server.niceToString()}>
-                        <div className="row">
-                            <div className="col-lg-8">
+                        <div className="sf-row">
+                            <div className="lg:col-span-8">
                                 <SourceEditor error={serverCtx.error}>
                                     <EvalMonaco code={dt.serverCode ?? ""} header={[]} footer={[]} subject={dt}
                                         profile={DynamicTypeImportsProfile} extraNames={extraNames}
@@ -120,7 +120,7 @@ export default function DynamicTypeComponent(p: { ctx: TypeContext<DynamicTypeEn
                                 </SourceEditor>
                             </div>
                             {!ctx.readOnly &&
-                                <div className="col-lg-4 mt-2">
+                                <div className="lg:col-span-4 mt-2">
                                     <DynamicTypeRecipes side="server" typeName={dt.typeName ?? ""} monaco={dataEditor?.monaco ?? null}
                                         dataEditor={dataEditor?.editor ?? null} serverEditor={serverEditor} />
                                 </div>}

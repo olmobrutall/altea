@@ -18,7 +18,7 @@ export class ModalProxy {
     get header(): Locator { return this.modal.locator(".sf-modal-header"); }
     get title(): Locator { return this.modal.locator(".sf-modal-title"); }
     get body(): Locator { return this.modal.locator(".sf-modal-body"); }
-    get closeButton(): Locator { return this.modal.locator(".sf-modal-header :is(button.btn-close, .sf-close-button)").first(); }
+    get closeButton(): Locator { return this.modal.locator(".sf-modal-header :is(button.sf-btn-close, .sf-close-button)").first(); }
 
     titleText(): Promise<string> { return this.title.innerText(); }
     bodyText(): Promise<string> { return this.body.innerText(); }

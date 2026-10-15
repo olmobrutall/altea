@@ -74,8 +74,8 @@ export default function ColumnEditor(p: ColumnEditorProps): React.ReactElement {
   return (
     <div className={classes("sf-column-editor", tokenError && "error")}>
 
-      <div className="row">
-        <div className={showMore ? "col-sm-7" : "col-sm-11"}>
+      <div className="sf-row">
+        <div className={showMore ? "sm:col-span-7" : "sm:col-span-11"}>
 
           <div className="flex" title={!StyleContext.default.titleLabels ? undefined : tokenError}>
             <label className="sf-col-form-label sf-col-form-label-xs me-2 font-bold">{SearchMessage.ColumnField.niceToString()}</label>
@@ -97,7 +97,7 @@ export default function ColumnEditor(p: ColumnEditorProps): React.ReactElement {
           {showMore && <div className={classes("flex", summaryError ? "error" : undefined)}
             title={StyleContext.default.titleLabels ? summaryError : undefined}>
             <label className="sf-col-form-label sf-col-form-label-xs me-2">
-              <input type="checkbox" disabled={co.token == null} className="form-check-input me-2" checked={co.summaryToken != null} onChange={handleSummaryCheck} />
+              <input type="checkbox" disabled={co.token == null} className="sf-form-check-input me-2" checked={co.summaryToken != null} onChange={handleSummaryCheck} />
               {SearchMessage.SummaryHeader.niceToString()} (Ʃ)
             </label>
             <div className="rw-widget-xs">
@@ -112,7 +112,7 @@ export default function ColumnEditor(p: ColumnEditorProps): React.ReactElement {
           </div>}
         </div>
 
-        {showMore && <div className="col-sm-4">
+        {showMore && <div className="sm:col-span-4">
 
           <div className="flex">
             <label className="sf-col-form-label sf-col-form-label-xs me-2">{SearchMessage.DisplayName.niceToString()}</label>
@@ -137,8 +137,8 @@ export default function ColumnEditor(p: ColumnEditorProps): React.ReactElement {
         </div>
         }
 
-        <div className="col-sm-1">
-          <button type="button" className="btn-close float-end" aria-label={EntityControlMessage.Close.niceToString()} onClick={p.close} />
+        <div className="sm:col-span-1">
+          <button type="button" className="sf-btn-close float-end" aria-label={EntityControlMessage.Close.niceToString()} onClick={p.close} />
           <VisualTipIcon visualTip={SearchVisualTip.ColumnHelp} content={() => <ColumnHelp queryToken={p.queryToken} />} />
         </div>
       </div>

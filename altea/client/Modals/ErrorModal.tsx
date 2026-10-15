@@ -66,7 +66,7 @@ const ErrorModal: {
                   renderTitle(e)
           }
         </h1>
-        <button type="button" className="btn-close" data-dismiss="modal" aria-label={JavascriptMessage.Close.niceToString()} onClick={handleCloseClicked} />
+        <button type="button" className="sf-btn-close" data-dismiss="modal" aria-label={JavascriptMessage.Close.niceToString()} onClick={handleCloseClicked} />
       </div>
 
       <div className="sf-modal-body" id={messageId}>
@@ -77,7 +77,7 @@ const ErrorModal: {
       </div>
 
       <div className="sf-modal-footer">
-        <button className="btn btn-primary sf-close-button sf-ok-button" onClick={handleCloseClicked}>
+        <button className="sf-btn sf-btn-primary sf-close-button sf-ok-button" onClick={handleCloseClicked}>
           {JavascriptMessage.ok.niceToString()}</button>
       </div>
     </Modal>
@@ -257,7 +257,7 @@ ErrorModal.showErrorModal = (error: any, beforeOkClicked?: ()=> Promise<void>): 
       message:
         <div>
           {ConnectionMessage.ANewVersionHasJustBeenDeployedConsiderReload.niceToString()}&nbsp;
-          <button type="button" className="btn btn-warning" onClick={e => { e.preventDefault(); window.location.reload(); }} title={EntityControlMessage.Reload.niceToString()}>
+          <button type="button" className="sf-btn sf-btn-warning" onClick={e => { e.preventDefault(); window.location.reload(); }} title={EntityControlMessage.Reload.niceToString()}>
             <FontAwesomeIcon aria-hidden={true} icon="rotate" />
           </button>
         </div>,

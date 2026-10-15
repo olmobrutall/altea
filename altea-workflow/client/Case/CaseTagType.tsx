@@ -12,12 +12,12 @@ export default function CaseTagTypeComponent(p: { ctx: TypeContext<CaseTagTypeEn
     const ctx = p.ctx;
 
     return (
-        <div className="row">
-            <div className="col-sm-10">
+        <div className="sf-row">
+            <div className="sm:col-span-10">
                 <AutoLine ctx={ctx.subCtx(e => e.name)} onChange={() => forceUpdate()} />
                 <AutoLine ctx={ctx.subCtx(e => e.color)} onChange={() => forceUpdate()} />
             </div>
-            <div className="col-sm-2">
+            <div className="sm:col-span-2">
                 <Tag tag={ctx.value} />
             </div>
         </div>

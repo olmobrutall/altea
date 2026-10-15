@@ -31,7 +31,7 @@ export default function TemplateControls(p: TemplateControlsProps): React.JSX.El
     }, [p.queryKey]);
 
     function renderButton(text: string, canClick: string | undefined, buildPattern: (key: string) => string): React.JSX.Element {
-        return <input type="button" disabled={!!canClick} className="btn btn-tertiary btn-sm sf-button"
+        return <input type="button" disabled={!!canClick} className="sf-btn sf-btn-tertiary sf-btn-sm sf-button"
             title={canClick} value={text}
             onClick={() => {
                 const key = currentToken.type === "Query"
@@ -101,7 +101,7 @@ export default function TemplateControls(p: TemplateControlsProps): React.JSX.El
                     : <GlobalVariables selected={ct.expression}
                         onTokenChange={t => setCurrentToken({ type: "Global", expression: t ?? undefined })} />}
             </span>
-            <div className="btn-group" style={{ marginLeft: "10px" }}>
+            <div className="sf-btn-group" style={{ marginLeft: "10px" }}>
                 {renderButton(TemplateTokenMessage.Insert.niceToString(), canElement(), token => `@[${token}]`)}
                 {renderButton("if", canIf(), token => p.forHtml
                     ? `<!--@if[${token}]--> <!--@else--> <!--@endif-->`

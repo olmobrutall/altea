@@ -4,6 +4,7 @@ import type { BsColor } from '../Components'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import type { IconProp } from '@fortawesome/fontawesome-svg-core'
 import { CollapsableCardMessage } from '../../data/uiMessages'
+import { colorClass } from "../Components";
 
 // Copy-and-fix of Signum's Signum/React/Components/CollapsableCard.tsx. altea divergences: @framework
 // imports rehomed (`../Globals` → `../../data/globals`, `./Basic` BsColor → `../Components`,
@@ -32,9 +33,9 @@ interface CardStyle {
 
 function cardStyleClasses(style?: CardStyle) {
   return classes(
-    style?.text && "text-" + style.text,
-    style?.background && "bg-" + style.background,
-    style?.border && "border-" + style.border,
+    colorClass("text", style?.text),
+    colorClass("bg", style?.background),
+    colorClass("border", style?.border),
   )
 }
 
@@ -61,8 +62,8 @@ export default function CollapsableCard(p: CollapsableCardProps): React.ReactEle
   const [isOpen, setIsOpen] = isControlled(p);
   const collapsable = (p.collapsable == undefined || p.collapsable == true);
   return (
-    <div className={classes("card", cardStyleClasses(p.cardStyle), p.size && ("card-" + p.size))}>
-      <div className={classes("card-header", cardStyleClasses(p.headerStyle))} style={{ cursor: "pointer" }} onClick={collapsable ? e => setIsOpen(!isOpen, e) : undefined}>
+    <div className={classes("sf-card", cardStyleClasses(p.cardStyle), p.size && ("card-" + p.size))}>
+      <div className={classes("sf-card-header", cardStyleClasses(p.headerStyle))} style={{ cursor: "pointer" }} onClick={collapsable ? e => setIsOpen(!isOpen, e) : undefined}>
         {collapsable &&
           <button
             type="button"
@@ -79,7 +80,7 @@ export default function CollapsableCard(p: CollapsableCardProps): React.ReactEle
         {p.header}
       </div>
       <div hidden={!isOpen}>
-        <div className={classes("card-body", cardStyleClasses(p.bodyStyle))}>
+        <div className={classes("sf-card-body", cardStyleClasses(p.bodyStyle))}>
           {p.children}
         </div>
       </div>

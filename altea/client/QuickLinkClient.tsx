@@ -23,6 +23,7 @@ import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from './ui/D
 import type { BsColor } from './Components'
 import { registerManualSubTokens } from './SearchControl/QueryTokenBuilder'
 import { LinkButton } from './Basics/LinkButton'
+import { colorClass } from "./Components";
 
 // Faithful copy-and-fix of Signum.React/QuickLinkClient.tsx. altea divergences (all mechanical):
 //   - the type registry is keyed by the entity type NAME string (getTypeName(type)) — altea's
@@ -77,7 +78,7 @@ export namespace QuickLinkClient {
 
     if (!quickLink)
       return null
-    return (<LinkButton className={classes("badge badge-pill sf-quicklinks", "text-bg-" + quickLink.color)}
+    return (<LinkButton className={classes("sf-badge sf-quicklinks", colorClass("text-bg", quickLink.color))}
       title={StyleContext.default.titleLabels ? quickLink.text() : undefined}
       data-toggle="dropdown"
       onClick={e => { quickLink.handleClick({ lite: p.lite, lites: [p.lite] }, e); }}>
@@ -261,7 +262,7 @@ export function QuickLinkWidget(p: QuickLinkWidgetProps): React.ReactElement | n
           if (first.group == null)
             return (
               <LinkButton key={i}
-                className={classes("badge badge-pill sf-quicklinks", "text-bg-" + first.color)}
+                className={classes("sf-badge sf-quicklinks", colorClass("text-bg", first.color))}
                 title={StyleContext.default.titleLabels ? gr.elements[0].text() : undefined}
                 onClick={e => { first.handleClick(p.qlc, e); }}>
                 {first.icon && <FontAwesomeIcon aria-hidden={true} icon={first.icon} color={first.color ? undefined : first.iconColor} />}
@@ -320,7 +321,7 @@ function QuickLinkToggle({ title, content, badgeText, badgeColor, ref, ...rest }
     <LinkButton
       {...rest}
       ref={ref}
-      className={classes("badge badge-pill sf-quicklinks", "text-bg-" + badgeColor)}
+      className={classes("sf-badge sf-quicklinks", colorClass("text-bg", badgeColor))}
       aria-label={label}
       title={StyleContext.default.titleLabels ? label : undefined}>
       {content}

@@ -107,7 +107,7 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
     // With nothing to choose between, the menu IS the export button.
     if (p.plainExcel && !p.importFromExcel && !p.excelReport)
         return (
-            <button className="sf-query-button sf-search btn btn-tertiary" title={ExcelMessage.ExportToExcel.niceToString()}
+            <button className="sf-query-button sf-search sf-btn sf-btn-tertiary" title={ExcelMessage.ExportToExcel.niceToString()}
                 onClick={() => void handlePlainExcel()}>
                 {label}
             </button>
@@ -122,7 +122,7 @@ export default function ExcelMenu(p: ExcelMenuProps): React.JSX.Element {
     return (
         <Dropdown open={isOpen} onOpenChange={handleOpenChange}>
             <DropdownTrigger asChild>
-                <BootstrapButton id={toggleId} variant="tertiary" className="dropdown-toggle" title={ExcelMessage.ExportToExcel.niceToString()}>
+                <BootstrapButton id={toggleId} variant="tertiary" className="sf-dropdown-toggle" title={ExcelMessage.ExportToExcel.niceToString()}>
                     {label}
                 </BootstrapButton>
             </DropdownTrigger>

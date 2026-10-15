@@ -50,9 +50,9 @@ export default function ForgotPasswordEmailPage(): React.JSX.Element {
 
     if (success) {
         return (
-            <div className="container">
-                <div className="row">
-                    <div className="col-md-6 offset-md-3 forgot-password-success">
+            <div className="sf-container">
+                <div className="sf-row">
+                    <div className="md:col-span-6 md:col-start-4 forgot-password-success">
                         {title
                             ? <><h1 className="sf-entity-title text-h2 font-medium">{title}</h1><p>{message}</p></>
                             : <h2 className="sf-entity-title">{message}</h2>}
@@ -63,9 +63,9 @@ export default function ForgotPasswordEmailPage(): React.JSX.Element {
     }
 
     return (
-        <div className="container">
-            <div className="row">
-                <div className="col-md-6 offset-md-3">
+        <div className="sf-container">
+            <div className="sf-row">
+                <div className="md:col-span-6 md:col-start-4">
                     <form onSubmit={e => { void handleSubmit(e); }}>
                         <h1 className="sf-entity-title text-h2 font-medium">{LoginAuthMessage.IForgotMyPassword.niceToString()}</h1>
                         <p>{LoginAuthMessage.GiveUsYourUserEmailToResetYourPassword.niceToString()}</p>
@@ -78,7 +78,7 @@ export default function ForgotPasswordEmailPage(): React.JSX.Element {
                             {message && <div className="sf-form-text text-destructive">{message}</div>}
                         </div>
 
-                        <button type="submit" className="btn btn-primary" id="changePasswordRequest">
+                        <button type="submit" className="sf-btn sf-btn-primary" id="changePasswordRequest">
                             {LoginAuthMessage.SendEmail.niceToString()}
                         </button>
                     </form>

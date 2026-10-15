@@ -57,7 +57,7 @@ export class WhatsNewImageHandler implements ImageHandlerBase {
             return <FileImage file={file} alt={info.fileName ?? ""} className="max-w-full whatsnew-image" />;
         }
 
-        return <div className="alert alert-danger">{JSON.stringify(info)}</div>;
+        return <div className="sf-alert sf-alert-danger">{JSON.stringify(info)}</div>;
     }
 
     toElement(val: ImageInfo): HTMLElement | undefined {

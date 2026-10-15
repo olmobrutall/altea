@@ -151,7 +151,7 @@ export default class CaseFlowViewerComponent
     override render(): React.JSX.Element {
         return (
             <div>
-                <div className="btn-toolbar">
+                <div className="sf-btn-toolbar">
                     <BootstrapButton variant="light" onClick={() => this.resetZoom()}>
                         {WorkflowMessage.ResetZoom.niceToString()}
                     </BootstrapButton>

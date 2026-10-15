@@ -27,18 +27,18 @@ body.rtl .sf-pagination-right {
     text-align: left;
 }
 
-div.sf-pagination-right > ul.pagination {
+div.sf-pagination-right > ul.sf-pagination {
     display: inline-flex;
     padding: 0px;
     margin: 0px;
 }
 
-    div.sf-pagination-right > ul.pagination > li > a,
-    div.sf-pagination-right > ul.pagination > li > span {
+    div.sf-pagination-right > ul.sf-pagination > li > a,
+    div.sf-pagination-right > ul.sf-pagination > li > span {
         padding: 0px 6px;
     }
 
-    div.sf-pagination-right > ul.pagination > .disabled > a,
-    div.sf-pagination-right > ul.pagination > .disabled > span {
+    div.sf-pagination-right > ul.sf-pagination > .disabled > a,
+    div.sf-pagination-right > ul.sf-pagination > .disabled > span {
         cursor: default;
     }

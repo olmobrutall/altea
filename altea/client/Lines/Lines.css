@@ -4,7 +4,7 @@ input[type=radio] {
     height: 16px;
 }
 
-.form-check-input[type=radio] {
+.sf-form-check-input[type=radio] {
     border-radius: 50% !important;
 }
 
@@ -95,7 +95,7 @@ input[type=checkbox].sf-form-control {
 
 .sf-table {
     margin-bottom: 0;
-    --bs-table-bg: unset;
+    --sf-table-bg: unset;
 }
 
 .sf-tab-dropable {
@@ -161,24 +161,24 @@ li.sf-strip-element {
 
 
 /*Connections between buttons*/
-.sf-input-group-vertical>.btn:not(:last-child) {
+.sf-input-group-vertical>.sf-btn:not(:last-child) {
     border-bottom-right-radius: 0;
     border-bottom-left-radius: 0;
 }
 
-.sf-input-group-vertical>.btn:not(:first-child) {
+.sf-input-group-vertical>.sf-btn:not(:first-child) {
     border-top-right-radius: 0;
     border-top-left-radius: 0;
 }
 
 /*Connections to text area*/
 
-.sf-input-group-vertical.after>.btn {
+.sf-input-group-vertical.after>.sf-btn {
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
 }
 
-.sf-input-group-vertical.before>.btn {
+.sf-input-group-vertical.before>.sf-btn {
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
 }
@@ -186,19 +186,19 @@ li.sf-strip-element {
 /*Connections first and last button*/
 
 
-.sf-input-group-vertical.after>.btn:first-child:not(:last-child) {
+.sf-input-group-vertical.after>.sf-btn:first-child:not(:last-child) {
     border-bottom-right-radius: 0;
 }
 
-.sf-input-group-vertical.after>.btn:last-child:not(:first-child) {
+.sf-input-group-vertical.after>.sf-btn:last-child:not(:first-child) {
     border-top-right-radius: 0;
 }
 
-.sf-input-group-vertical.before>.btn:first-child:not(:last-child) {
+.sf-input-group-vertical.before>.sf-btn:first-child:not(:last-child) {
     border-bottom-left-radius: 0;
 }
 
-.sf-input-group-vertical.before>.btn:last-child:not(:first-child) {
+.sf-input-group-vertical.before>.sf-btn:last-child:not(:first-child) {
     border-top-left-radius: 0;
 }
 
@@ -367,7 +367,7 @@ a.sf-move:focus {
     color: var(--warning);
 }
 
-body.rtl .sf-form-group.row>label {
+body.rtl .sf-form-group.sf-row>label {
     text-align: end;
 }
 
@@ -419,7 +419,7 @@ input[type=checkbox].sf-form-control-xs {
 .sf-form-control-xs,
 .sf-input-group-xs>.sf-form-control,
 .sf-input-group-xs>.sf-input-group-text,
-.sf-input-group-xs>.btn {
+.sf-input-group-xs>.sf-btn {
     padding: 0.5px 5px;
     font-size: 0.875em;
     line-height: 1.5;
@@ -495,11 +495,11 @@ input[type=checkbox].sf-form-control-xs {
     min-height: 24px;
 }
 
-.sf-form-group :not(label):not(.sf-form-check) > .form-check-input {
+.sf-form-group :not(label):not(.sf-form-check) > .sf-form-check-input {
     margin-top: 0.5em;
 }
 
-.sf-form-group.sf-form-group-xs :not(label):not(.sf-form-check) > .form-check-input {
+.sf-form-group.sf-form-group-xs :not(label):not(.sf-form-check) > .sf-form-check-input {
     margin-top: 0.25em;
 }
 
@@ -507,8 +507,8 @@ input[type=checkbox].sf-form-control-xs {
     margin-bottom: 5px;
 }
 
-.btn-xs,
-.btn-group-xs>.btn {
+.sf-btn-xs,
+.btn-group-xs>.sf-btn {
     padding: 0rem 0.2rem;
     font-size: 0.875em;
     /*line-height: 1.5;*/
@@ -745,7 +745,7 @@ body:not(.rtl) .sf-mandatory-warning-widget .rw-widget-input {
     }
 }
 
-.table> :not(:first-child) {
+.sf-table> :not(:first-child) {
     border-top: initial;
 }
 
@@ -788,12 +788,12 @@ body:not(.rtl) .sf-mandatory-warning-widget .rw-widget-input {
         flex-grow: 1;
     }
 
-    .btn.sf-input-group-text {
+    .sf-btn.sf-input-group-text {
         background: var(--tertiary);
         border: 1px solid var(--border);
     }
 
-:root, [data-bs-theme=dark] {
+:root, [data-theme=dark] {
     --rw-widget-color: var(--foreground);
     --rw-widget-border-color: var(--border);
     --rw-widget-hover-bg: var(--muted);

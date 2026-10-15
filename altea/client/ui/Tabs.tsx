@@ -39,7 +39,7 @@ export interface TabsProps {
 
 /** react-bootstrap's `<Tabs><Tab eventKey title>…</Tab></Tabs>`, over Base UI Tabs. */
 export function Tabs(p: TabsProps): React.ReactElement {
-    // By shape, not by type: views and ReactVisitor still hand in react-bootstrap <Tab>s.
+    // By shape, not by type: a view may declare its own <Tab>-shaped element, and ReactVisitor rebuilds them.
     const tabs = React.Children.toArray(p.children)
         .filter((c): c is React.ReactElement<TabProps> => React.isValidElement(c) && (c.props as Partial<TabProps>).eventKey !== undefined);
 

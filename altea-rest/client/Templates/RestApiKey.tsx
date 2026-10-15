@@ -30,7 +30,7 @@ export default function RestApiKeyComponent(p: { ctx: TypeContext<RestApiKeyEnti
             <EntityLine ctx={ctx.subCtx(e => e.user)} />
             <TextBoxLine ctx={ctx.subCtx(e => e.apiKey)}
                 extraButtons={() =>
-                    <LinkButton className={classes("sf-line-button", "sf-view", "btn sf-input-group-text")}
+                    <LinkButton className={classes("sf-line-button", "sf-view", "sf-btn sf-input-group-text")}
                         title={RestApiKeyMessage.GenerateApiKey.niceToString()}
                         onClick={generateApiKey}>
                         <FontAwesomeIcon icon="key" />

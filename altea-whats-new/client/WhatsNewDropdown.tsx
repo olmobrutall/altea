@@ -98,13 +98,13 @@ function WhatsNewDropdownImp(): React.JSX.Element {
 
     return (
         <>
-            <button ref={toggleRef} className="nav-link sf-news-container" onClick={handleOnToggle}
+            <button ref={toggleRef} className="sf-nav-link sf-news-container" onClick={handleOnToggle}
                 style={{ border: 0, backgroundColor: "transparent" }}
                 title={WhatsNewEntity.nicePluralName()}>
                 <FontAwesomeIcon aria-hidden={true} icon="bullhorn"
                     className={classes("sf-newspaper", isOpen && "open", countResult && countResult.numWhatsNews > 0 && "active")} />
                 {countResult && countResult.numWhatsNews > 0 &&
-                    <span className="badge bg-destructive badge-pill sf-news-badge">{countResult.numWhatsNews}</span>}
+                    <span className="sf-badge bg-destructive sf-news-badge">{countResult.numWhatsNews}</span>}
             </button>
             {isOpen && <div className="sf-news-toasts mt-2 flex flex-col gap-1" ref={divRef}
                 style={{ backdropFilter: "blur(10px)", transition: "transform .4s ease" }}>
@@ -185,7 +185,7 @@ function NewsCardHeader(p: { onClose: () => void, closeLabel?: string, children?
     return (
         <CardHeader className="flex items-center px-3 py-2">
             {p.children}
-            <button type="button" className="btn-close ms-3" aria-label={p.closeLabel ?? JavascriptMessage.Close.niceToString()}
+            <button type="button" className="sf-btn-close ms-3" aria-label={p.closeLabel ?? JavascriptMessage.Close.niceToString()}
                 onClick={p.onClose} />
         </CardHeader>
     );

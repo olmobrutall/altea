@@ -5,7 +5,7 @@ import "@altea/altea/data/globals";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock, TimeZoneMode } from "@altea/altea/data/utils/clock";
 import { parseDateFilterValue } from "@altea/altea/client/FindOptions";
-import { dateValueToDate, dateToDateValue, trimDateToFormat } from "@altea/altea/client/Lines/ReactWidgetsLocalizer";
+import { dateValueToDate, dateToDateValue, trimDateToFormat } from "@altea/altea/client/ui/dateFormat";
 
 // A date field's value is a Temporal.PlainDate / PlainDateTime everywhere on the client — in an entity, and
 // in a filter — and the one conversion left is to the JS Date the picker needs, through the viewer's zone.

@@ -36,10 +36,10 @@ export default function CultureDropdown(p: { fullName?: boolean; isMobile?: bool
     : label(current);
 
   return (
-    <div data-culture={current} className="nav-item dropdown sf-culture-dropdown">
+    <div data-culture={current} className="sf-nav-item sf-dropdown sf-culture-dropdown">
       <Dropdown>
         <DropdownTrigger asChild>
-          <button type="button" className="nav-link dropdown-toggle" aria-label={currentLabel}>{title}</button>
+          <button type="button" className="sf-nav-link sf-dropdown-toggle" aria-label={currentLabel}>{title}</button>
         </DropdownTrigger>
         <DropdownContent align="end">
           {catalogue.cultures.map(c =>

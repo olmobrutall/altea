@@ -76,7 +76,7 @@ export default function ImportHelpPage(): React.JSX.Element {
     }
 
     return (
-        <div className="container">
+        <div className="sf-container">
             <h1 className="text-h2 font-medium">{HelpMessage.ImportHelpContentsFromZipFile.niceToString()}</h1>
             <br />
 
@@ -94,9 +94,9 @@ export default function ImportHelpPage(): React.JSX.Element {
 function FileInput({ fileVer, onChange }: { fileVer: number; onChange: (e: React.FormEvent<HTMLInputElement>) => void }): React.JSX.Element {
     return (
         <div className="mb-4">
-            <div className="btn-toolbar">
+            <div className="sf-btn-toolbar">
                 <input key={fileVer} type="file" id="fileUpload" accept=".zip" onChange={onChange} className="hidden" />
-                <label htmlFor="fileUpload" className="btn btn-info">
+                <label htmlFor="fileUpload" className="sf-btn sf-btn-info">
                     <FontAwesomeIcon icon="folder-open" className="me-2" aria-hidden={true} />
                     {HelpMessage.ChooseZIPFile.niceToString()}
                 </label>
@@ -139,7 +139,7 @@ function Preview({ model, file, onImport, onChange }: {
         <div>
             <AccessibleTable
                 aria-label={HelpMessage.HelpZipContents.niceToString()}
-                className="table import-preview"
+                className="sf-table import-preview"
                 multiselectable={false}>
                 <thead>
                     <tr>
@@ -165,7 +165,7 @@ function Preview({ model, file, onImport, onChange }: {
                                 {line.applyVisible() &&
                                     <input type="checkbox"
                                         aria-label={Enum.niceName(ImportAction, line.action)}
-                                        className="form-check-input"
+                                        className="sf-form-check-input"
                                         checked={line.apply === true}
                                         onChange={e => { line.apply = e.currentTarget.checked; onChange(); }} />}
                             </td>
@@ -173,14 +173,14 @@ function Preview({ model, file, onImport, onChange }: {
                 </tbody>
             </AccessibleTable>
 
-            <div className="alert alert-secondary flex items-center" role="alert">
+            <div className="sf-alert sf-alert-secondary flex items-center" role="alert">
                 <FontAwesomeIcon icon="file" className="me-2" aria-hidden={true} />
                 <div className="text-muted-foreground">
                     <strong>{HelpMessage.SelectedFile.niceToString()}:</strong> {file?.fileName} ({fileSizeMB} MB)
                 </div>
             </div>
 
-            <button onClick={onImport} className="btn btn-primary">
+            <button onClick={onImport} className="sf-btn sf-btn-primary">
                 <FontAwesomeIcon aria-hidden={true} icon="cloud-arrow-up" className="me-2" />
                 {HelpMessage.Import.niceToString()}
             </button>
@@ -195,7 +195,7 @@ function Report({ report, lastImported }: { report: HelpImportReportModel; lastI
 
     return (
         <div>
-            <div className={classes("alert flex items-center", hasErrors ? "alert-warning" : "alert-success")} role="alert">
+            <div className={classes("sf-alert flex items-center", hasErrors ? "sf-alert-warning" : "sf-alert-success")} role="alert">
                 <FontAwesomeIcon icon="circle-check" className="me-2" aria-hidden={true} />
                 <div><strong>{lastImported}</strong> {message}</div>
             </div>
@@ -204,7 +204,7 @@ function Report({ report, lastImported }: { report: HelpImportReportModel; lastI
 
             <AccessibleTable
                 aria-label={HelpMessage.ImportReport.niceToString()}
-                className="table"
+                className="sf-table"
                 multiselectable={false}>
                 <thead>
                     <tr>

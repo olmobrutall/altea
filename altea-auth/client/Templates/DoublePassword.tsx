@@ -91,7 +91,7 @@ export function DoublePassword(p: {
     if (!isOpen) {
         return (
             <FormGroup label={LoginAuthMessage.NewPassword.niceToString()} ctx={p.ctx}>
-                {() => <LinkButton title={undefined} className="btn btn-tertiary btn-sm" onClick={() => setIsOpen(true)}>
+                {() => <LinkButton title={undefined} className="sf-btn sf-btn-tertiary sf-btn-sm" onClick={() => setIsOpen(true)}>
                     <FontAwesomeIcon aria-hidden={true} icon="key" /> {LoginAuthMessage.ChangePassword.niceToString()}
                 </LinkButton>}
             </FormGroup>

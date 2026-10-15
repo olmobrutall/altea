@@ -77,7 +77,7 @@ export default function SimpleResultButton(p: { ctx: TypeContext<PredictorEntity
 
     return (
         <div>
-            <LinkButton title={undefined} className="btn btn-sm btn-info"
+            <LinkButton title={undefined} className="sf-btn sf-btn-sm sf-btn-info"
                 onClick={() => window.open(AppContext.toAbsoluteUrl(chartUrl()))}>
                 <FontAwesomeIcon icon="chart-line" />&nbsp;
                 {isOneHot ? "Confusion matrix" : "Regression scatterplot"}

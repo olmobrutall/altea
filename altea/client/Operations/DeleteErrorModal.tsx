@@ -90,7 +90,7 @@ export function DeleteErrorModal(p: DeleteErrorModalProps): React.ReactElement {
               {CascadeDeleteMessage.TheFollowingEntitiesStillReference0RemoveThemBeforeDeleting
                 .niceToString(p.lite.toString() || entityTypeName)}
             </p>
-            <div className="list-group">
+            <div className="sf-list-group">
               {references!.map(dto => (
                 <ReferenceRow
                   key={dto.typeName + "|" + dto.propertyRoute}
@@ -112,7 +112,7 @@ export function DeleteErrorModal(p: DeleteErrorModalProps): React.ReactElement {
         {p.serviceError && hasReferences && (
           <div className="mt-4">
             <button
-              className="btn btn-link btn-sm p-0 text-muted-foreground"
+              className="sf-btn sf-btn-link sf-btn-sm p-0 text-muted-foreground"
               onClick={() => setShowDetails(v => !v)}
             >
               <FontAwesomeIcon icon={showDetails ? "chevron-up" : "chevron-down"} className="me-1" />
@@ -134,12 +134,12 @@ export function DeleteErrorModal(p: DeleteErrorModalProps): React.ReactElement {
       </Modal.Body>
 
       <Modal.Footer>
-        <button className="btn btn-secondary" onClick={updateVersion} disabled={loading || deleting}>
+        <button className="sf-btn sf-btn-secondary" onClick={updateVersion} disabled={loading || deleting}>
           <FontAwesomeIcon icon="arrows-rotate" className="me-1" />
           {CascadeDeleteMessage.Refresh.niceToString()}
         </button>
         <button
-          className="btn btn-danger"
+          className="sf-btn sf-btn-danger"
           onClick={handleDelete}
           disabled={hasReferences || loading || deleting}
         >
@@ -148,7 +148,7 @@ export function DeleteErrorModal(p: DeleteErrorModalProps): React.ReactElement {
             : <><FontAwesomeIcon icon="trash" className="me-1" />{CascadeDeleteMessage.Delete.niceToString()}</>
           }
         </button>
-        <button className="btn btn-light" onClick={handleClose} disabled={deleting}>
+        <button className="sf-btn sf-btn-light" onClick={handleClose} disabled={deleting}>
           {JavascriptMessage.cancel.niceToString()}
         </button>
       </Modal.Footer>
@@ -179,7 +179,7 @@ function ReferenceRow({ dto, targetLite, onExplored, version }: ReferenceRowProp
   };
 
   return (
-    <div className="list-group-item flex items-center gap-2 py-2">
+    <div className="sf-list-group-item flex items-center gap-2 py-2">
       <div className="grow flex items-center gap-1">
         {isFindable ? (
           <SearchValue
@@ -188,14 +188,14 @@ function ReferenceRow({ dto, targetLite, onExplored, version }: ReferenceRowProp
             deps={[version]}
             onRender={(value, vsc) => {
               if (value === undefined)
-                return <span className="badge bg-secondary text-secondary-foreground">…</span>;
+                return <span className="sf-badge bg-secondary text-secondary-foreground">…</span>;
 
               const count = (value as number) ?? 0;
               const hidden = Math.max(0, dto.count - count);
               return (
                 <>
                   <LinkButton title={undefined} className="no-underline" onClick={vsc.handleClick}>
-                    <span className="badge bg-secondary text-secondary-foreground me-1">{count}</span>
+                    <span className="sf-badge bg-secondary text-secondary-foreground me-1">{count}</span>
                     {niceName}
                   </LinkButton>
                   {hidden > 0 && (
@@ -208,7 +208,7 @@ function ReferenceRow({ dto, targetLite, onExplored, version }: ReferenceRowProp
             }}
           />
         ) : (
-          <span className="badge bg-secondary">{dto.count} {niceName}</span>
+          <span className="sf-badge bg-secondary">{dto.count} {niceName}</span>
         )}
       </div>
       <div>

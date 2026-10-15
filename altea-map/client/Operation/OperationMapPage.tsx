@@ -88,18 +88,18 @@ export default function OperationMapPage(): React.JSX.Element | null {
 
     function renderFilter(): React.JSX.Element {
         return (
-            <div className="container">
-                <div className="row items-center">
-                    <div className="col-auto">
+            <div className="sf-container">
+                <div className="flex flex-wrap items-center gap-x-6">
+                    <div className="flex-none">
                         <label htmlFor="color"> {MapMessage.Color.niceToString()}</label>
                     </div>
-                    <div className="col-auto">
+                    <div className="flex-none">
                         <select className="sf-form-select sf-form-select-sm" id="color" value={color} onChange={e => setColor(e.currentTarget.value)}>
                             <option value="state">{MapMessage.StateColor.niceToString()}</option>
                             <option value="rows">{MapMessage.Rows.niceToString()}</option>
                         </select>
                     </div>
-                    <div className="col-auto">
+                    <div className="flex-none">
                         <span style={{ marginLeft: "10px" }}>
                             {MapMessage.Press0ToExploreEachTable.niceToString().formatHtml(<u>Ctrl + Click</u>)}
                         </span>

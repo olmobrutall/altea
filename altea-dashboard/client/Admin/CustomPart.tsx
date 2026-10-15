@@ -17,7 +17,7 @@ export default function CustomPart(p: PartEditorProps<CustomPartEntity>): React.
     return (
         <div>
             {registeredNames.length == 0 ?
-                <div className="alert alert-danger" role="alert">
+                <div className="sf-alert sf-alert-danger" role="alert">
                     No renderer for <code>{entityTypeName ?? "global"}</code> registered in <code>DashboardClient.Options.customPartRenderers</code>
                 </div> :
                 <EnumLine ctx={ctx.subCtx(cp => cp.customPartName)} optionItems={registeredNames} />

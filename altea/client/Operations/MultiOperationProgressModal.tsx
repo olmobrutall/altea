@@ -81,7 +81,7 @@ export function MultiOperationProgressModal(p: MultiOperationProgressModalProps)
           p.operation.operationType == "Delete" ? OperationMessage.Deleting.niceToString() :
             p.operation.operationType == "ConstructorFrom" ? p.operation.niceName :
               OperationMessage.Executing0.niceToString(p.operation.niceName)}</h5>
-        <button type="button" className="btn-close" data-dismiss="modal" aria-label={EntityControlMessage.Close.niceToString()} onClick={handleCancelClicked} />
+        <button type="button" className="sf-btn-close" data-dismiss="modal" aria-label={EntityControlMessage.Close.niceToString()} onClick={handleCancelClicked} />
       </div>
       <div className="sf-modal-body">
         <p><strong>{p.lites.length}</strong> {typeNiceName}</p>
@@ -94,7 +94,7 @@ export function MultiOperationProgressModal(p: MultiOperationProgressModalProps)
 
       </div>
       <div className="sf-modal-footer">
-        <button type="button" className="btn btn-tertiary sf-entity-button sf-close-button" onClick={handleCancelClicked}>
+        <button type="button" className="sf-btn sf-btn-tertiary sf-entity-button sf-close-button" onClick={handleCancelClicked}>
           {JavascriptMessage.cancel.niceToString()}
         </button>
       </div>

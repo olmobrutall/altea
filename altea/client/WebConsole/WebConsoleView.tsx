@@ -127,9 +127,9 @@ export function WebConsoleView(p: WebConsoleViewProps): React.ReactElement {
             <div className="sf-web-console-status flex items-center gap-2">
                 {status.kind == "connecting" && <span className="text-muted-foreground">{WebConsoleMessage.Connecting.niceToString()}</span>}
                 {status.kind == "running" && <>
-                    <span className="spinner-border spinner-border-sm" role="status" />
+                    <span className="sf-spinner-border sf-spinner-border-sm" role="status" />
                     <span>{current != null ? WebConsoleMessage.WaitingForAnswer.niceToString() : WebConsoleMessage.Running.niceToString()}</span>
-                    <button type="button" className="btn btn-sm btn-outline-secondary ms-auto" onClick={cancel}>
+                    <button type="button" className="sf-btn sf-btn-sm sf-btn-outline-secondary ms-auto" onClick={cancel}>
                         {JavascriptMessage.cancel.niceToString()}
                     </button>
                 </>}
@@ -150,7 +150,7 @@ function QuestionForm(p: { question: WebConsoleQuestion; onAnswer: (value: WebCo
 
     const alwaysCheck = (
         <label className="sf-form-check sf-form-check sf-form-check-inline ms-2 mb-0">
-            <input type="checkbox" className="form-check-input" checked={always} onChange={e => setAlways(e.currentTarget.checked)} />
+            <input type="checkbox" className="sf-form-check-input" checked={always} onChange={e => setAlways(e.currentTarget.checked)} />
             <span className="sf-form-check-label">{WebConsoleMessage.Always.niceToString()}</span>
         </label>
     );
@@ -165,16 +165,16 @@ function QuestionForm(p: { question: WebConsoleQuestion; onAnswer: (value: WebCo
                     case "yesNo":
                         return (
                             <div className="flex gap-2">
-                                <button type="button" className="btn btn-sm btn-primary" onClick={() => p.onAnswer(true, yes)}>{yes}</button>
-                                <button type="button" className="btn btn-sm btn-secondary" autoFocus onClick={() => p.onAnswer(false, no)}>{no}</button>
+                                <button type="button" className="sf-btn sf-btn-sm sf-btn-primary" onClick={() => p.onAnswer(true, yes)}>{yes}</button>
+                                <button type="button" className="sf-btn sf-btn-sm sf-btn-secondary" autoFocus onClick={() => p.onAnswer(false, no)}>{no}</button>
                             </div>
                         );
                     case "yesNoAlways":
                         return (
                             <div className="flex gap-2 items-center">
-                                <button type="button" className={q.defaultYes ? "btn btn-sm btn-primary" : "btn btn-sm btn-outline-primary"} autoFocus={q.defaultYes}
+                                <button type="button" className={q.defaultYes ? "sf-btn sf-btn-sm sf-btn-primary" : "sf-btn sf-btn-sm sf-btn-outline-primary"} autoFocus={q.defaultYes}
                                     onClick={() => p.onAnswer({ yes: true, always }, echoAlways(yes))}>{yes}</button>
-                                <button type="button" className={!q.defaultYes ? "btn btn-sm btn-primary" : "btn btn-sm btn-outline-primary"} autoFocus={!q.defaultYes}
+                                <button type="button" className={!q.defaultYes ? "sf-btn sf-btn-sm sf-btn-primary" : "sf-btn sf-btn-sm sf-btn-outline-primary"} autoFocus={!q.defaultYes}
                                     onClick={() => p.onAnswer({ yes: false, always }, echoAlways(no))}>{no}</button>
                                 {alwaysCheck}
                             </div>
@@ -183,7 +183,7 @@ function QuestionForm(p: { question: WebConsoleQuestion; onAnswer: (value: WebCo
                         return (
                             <div className="flex gap-2 flex-wrap">
                                 {q.options.map((o, i) => (
-                                    <button key={o} type="button" className={i == 0 ? "btn btn-sm btn-primary" : "btn btn-sm btn-outline-primary"} autoFocus={i == 0}
+                                    <button key={o} type="button" className={i == 0 ? "sf-btn sf-btn-sm sf-btn-primary" : "sf-btn sf-btn-sm sf-btn-outline-primary"} autoFocus={i == 0}
                                         onClick={() => p.onAnswer(o, o)}>{o}</button>
                                 ))}
                             </div>
@@ -192,21 +192,21 @@ function QuestionForm(p: { question: WebConsoleQuestion; onAnswer: (value: WebCo
                         return (
                             <form className="flex gap-2" onSubmit={e => { e.preventDefault(); p.onAnswer(text, text); }}>
                                 <input type="text" className="sf-form-control sf-form-control-sm" autoFocus value={text} onChange={e => setText(e.currentTarget.value)} />
-                                <button type="submit" className="btn btn-sm btn-primary">{WebConsoleMessage.Answer.niceToString()}</button>
+                                <button type="submit" className="sf-btn sf-btn-sm sf-btn-primary">{WebConsoleMessage.Answer.niceToString()}</button>
                             </form>
                         );
                     case "select":
                         return (
                             <div>
-                                <div className="list-group list-group-sm mb-2">
+                                <div className="sf-list-group sm:sf-list-group mb-2">
                                     {q.values.map((v, i) => (
-                                        <button key={v} type="button" className="list-group-item list-group-item-action py-1" autoFocus={i == 0}
+                                        <button key={v} type="button" className="sf-list-group-item list-group-item-action py-1" autoFocus={i == 0}
                                             onClick={() => p.onAnswer({ value: v, always: false }, v)}>
                                             <code>{v}</code>
                                         </button>
                                     ))}
                                     {q.allowNone &&
-                                        <button type="button" className="list-group-item list-group-item-action py-1 text-muted-foreground italic"
+                                        <button type="button" className="sf-list-group-item list-group-item-action py-1 text-muted-foreground italic"
                                             onClick={() => p.onAnswer({ value: null, always: q.allowAlways && always }, echoAlways(q.noneLabel ?? "-"))}>
                                             {q.noneLabel ?? "-"}
                                         </button>}

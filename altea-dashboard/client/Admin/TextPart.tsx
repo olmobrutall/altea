@@ -43,11 +43,11 @@ export default function TextPart(p: PartEditorProps<TextPartEntity>): React.JSX.
 
     return (
         <div>
-            <div className="row">
-                <div className={p.smallMode ? "col-12" : "col-sm-4"}>
+            <div className="sf-row">
+                <div className={p.smallMode ? "col-span-12" : "sm:col-span-4"}>
                     <AutoLine ctx={ctx.subCtx(s => s.textPartType)} onChange={() => forceUpdate()} />
                 </div>
-                <div className={p.smallMode ? "col-12" : "col-sm-4"}>
+                <div className={p.smallMode ? "col-span-12" : "sm:col-span-4"}>
                     {type == "Markdown" || type == "HTML" ?
                         <LinkButton title={undefined} onClick={() => setIsPreview(!isPreview)}>
                             <FontAwesomeIcon aria-hidden icon={isPreview ? "pen-to-square" : "eye"} className="me-1" />

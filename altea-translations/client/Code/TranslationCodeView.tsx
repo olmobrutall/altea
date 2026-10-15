@@ -54,7 +54,7 @@ export default function TranslationCodeView(): React.JSX.Element {
                     <div>
                         {Dic.getValues(result.types).map(type =>
                             <TranslationTypeTable key={type.type} type={type} result={result} currentCulture={culture} />)}
-                        <input type="submit" value={TranslationMessage.Save.niceToString()} className="btn btn-primary" onClick={handleSave} />
+                        <input type="submit" value={TranslationMessage.Save.niceToString()} className="sf-btn sf-btn-primary" onClick={handleSave} />
                     </div>
                 ))}
         </div>
@@ -70,7 +70,7 @@ export function TranslateSearchBox(p: { filter: string; setFilter: (newFilter: s
                 placeholder={TranslationMessage.Search.niceToString()}
                 aria-label={TranslationMessage.Search.niceToString()}
                 value={tmpFilter} onChange={e => setTmpFilter(e.currentTarget.value)} />
-            <button className="btn btn-tertiary" type="submit" title={TranslationMessage.Search.niceToString()}>
+            <button className="sf-btn sf-btn-tertiary" type="submit" title={TranslationMessage.Search.niceToString()}>
                 <FontAwesomeIcon aria-hidden={true} icon="magnifying-glass" />
             </button>
         </form>

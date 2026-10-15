@@ -123,7 +123,7 @@ export default function ChartTableComponent(p: ChartTableProps): React.JSX.Eleme
         <div className="sf-scroll-table-container">
             <FullscreenComponent onReload={p.onReload}>
                 {() => (
-                    <table className="sf-search-results table table-hover table-sm">
+                    <table className="sf-search-results sf-table sf-table-hover sf-table-sm">
                         <thead>
                             <tr>
                                 {hasEntity && <th></th>}

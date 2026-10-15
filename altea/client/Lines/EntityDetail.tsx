@@ -116,7 +116,7 @@ export const EntityDetail: <V extends BaseEntity | Lite<Entity> | null>(props: E
     const hasValue = !!p.ctx.value;
     var disabled = p.ctx.readOnly || (hasValue ? !p.remove : !p.create);
 
-    return <input type="checkbox" className="form-check-input me-1" checked={hasValue} disabled={disabled}
+    return <input type="checkbox" className="sf-form-check-input me-1" checked={hasValue} disabled={disabled}
       onChange={e => {
         e.preventDefault();
         e.stopPropagation();

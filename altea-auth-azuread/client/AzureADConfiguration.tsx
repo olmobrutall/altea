@@ -21,8 +21,8 @@ export default function AzureADConfiguration(p: { ctx: TypeContext<AzureADConfig
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-10 offset-sm-2">
+            <div className="sf-row">
+                <div className="sm:col-span-10 sm:col-start-3">
                     <CheckboxLine ctx={ctx.subCtx(n => n.enabled)} inlineCheckbox="block" onChange={forceUpdate} />
                 </div>
             </div>
@@ -65,28 +65,28 @@ export default function AzureADConfiguration(p: { ctx: TypeContext<AzureADConfig
             <AutoLine ctx={ctx.subCtx(n => n.clientSecret)}
                 helpText="Required for Microsoft Graph, not for Azure Log-in" />
 
-            <div className="row my-2">
-                <div className="col-sm-6">
+            <div className="sf-row my-2">
+                <div className="sm:col-span-6">
                     <CheckboxLine ctx={ctx.subCtx(n => n.allowMatchUsersBySimpleUserName)} inlineCheckbox="block" />
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     <CheckboxLine ctx={ctx.subCtx(n => n.useDelegatedPermission)} inlineCheckbox="block"
                         helpText="Request the current user's groups from Azure with their own access token" />
                 </div>
             </div>
 
-            <div className="row my-2">
-                <div className="col-sm-6">
+            <div className="sf-row my-2">
+                <div className="sm:col-span-6">
                     <CheckboxLine ctx={ctx.subCtx(n => n.autoUpdateUsers)} inlineCheckbox="block" onChange={forceUpdate} />
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     <CheckboxLine ctx={ctx.subCtx(n => n.autoCreateUsers)} inlineCheckbox="block" onChange={forceUpdate} />
                 </div>
             </div>
 
             {(ctx.value.autoCreateUsers || ctx.value.autoUpdateUsers) && <div>
-                <div className="row">
-                    <div className="col-sm-10 offset-sm-2">
+                <div className="sf-row">
+                    <div className="sm:col-span-10 sm:col-start-3">
                         <EntityTable ctx={ctx.subCtx(n => n.roleMapping)} avoidFieldSet="h3" />
                     </div>
                 </div>

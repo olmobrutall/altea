@@ -174,7 +174,7 @@ export function AlternativesCheckBox(
     const val = p.binding.getValue();
     return (
         <label className="flex items-center gap-2">
-            <input type="checkbox" className="form-check-input mt-0"
+            <input type="checkbox" className="sf-form-check-input mt-0"
                 checked={val != null} onChange={() => setValue(val == null ? 5 : null)} />
             Show
             <NumberBox value={val} onChange={n => setValue(n == null ? null : Number(n))} validateKey={isNumber} format={toNumberFormat("0")} />
@@ -295,7 +295,7 @@ export function PredictTable(p: PredictTableProps): React.JSX.Element {
         <div>
             <h4>{subQuery.toString()}</h4>
             <div style={{ maxHeight: "500px", overflowY: "auto", marginBottom: "10px" }}>
-                <table className="table table-sm">
+                <table className="sf-table sf-table-sm">
                     <thead>
                         <tr>
                             {columnHeaders.map((h, i) => {

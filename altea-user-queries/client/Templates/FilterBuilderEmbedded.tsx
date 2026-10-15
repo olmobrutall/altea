@@ -138,7 +138,7 @@ function ValueOrExpression(props: { rvc: RenderValueContext; ffc: Finder.FilterF
 
     const toggleButton = (
         <LinkButton
-            className="sf-line-button btn sf-input-group-text"
+            className="sf-line-button sf-btn sf-input-group-text"
             title={expression ? UserAssetQueryMessage.SwitchToValue.niceToString() : UserAssetQueryMessage.SwitchToExpression.niceToString()}
             onClick={() => { if (!rvc.readonly) toggle(); }}>
             <FontAwesomeIcon aria-hidden={true} icon="pen-to-square" />

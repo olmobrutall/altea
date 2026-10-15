@@ -184,15 +184,15 @@ export function ChartColumn(p: ChartColumnProps): React.JSX.Element {
         <td></td>
         <td colSpan={1}>
           <div>
-            <div className="row">
-              <div className="col-sm-3">
+            <div className="sf-row">
+              <div className="sm:col-span-3">
                 <TextBoxLine ctx={ctxBasic.subCtx(a => a.displayName)} valueHtmlAttributes={{ onBlur: p.onRedraw, placeholder: ctx.value.token?.token?.niceName() }} />
               </div>
-              <div className="col-sm-3">
+              <div className="sm:col-span-3">
                 <TextBoxLine ctx={ctxBasic.subCtx(a => a.format)} valueHtmlAttributes={{ onBlur: p.onRedraw, placeholder: ctx.value.token?.token?.format ?? undefined }} />
               </div>
               {getColorPalettes().map((t, i) =>
-                <div className="col-sm-3" key={i}>
+                <div className="sm:col-span-3" key={i}>
                   <ChartPaletteLink ctx={ctxBasic} cleanName={t.cleanName} niceName={t.niceName} refresh={forceUpdate} />
                 </div>)
               }

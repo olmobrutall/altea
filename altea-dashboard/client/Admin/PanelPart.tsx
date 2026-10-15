@@ -42,14 +42,14 @@ export default function PanelPart(p: { ctx: TypeContext<DashboardEntity_Part> })
 
             <IconTypeaheadLine ctx={settingsCtx.subCtx(pp => pp.iconName)} onChange={() => forceUpdate()} />
 
-            <div className="row">
-                <div className="col-sm-4">
+            <div className="sf-row">
+                <div className="sm:col-span-4">
                     <ColorLine ctx={settingsCtx.subCtx(pp => pp.iconColor)} onChange={() => forceUpdate()} />
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     <ColorLine ctx={settingsCtx.subCtx(pp => pp.titleColor)} onChange={() => forceUpdate()} />
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     <ColorLine ctx={settingsCtx.subCtx(pp => pp.customColor)} onChange={() => forceUpdate()} />
                 </div>
             </div>

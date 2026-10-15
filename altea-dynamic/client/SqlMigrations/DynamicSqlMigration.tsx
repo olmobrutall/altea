@@ -21,13 +21,13 @@ export default function DynamicSqlMigrationComponent(p: { ctx: TypeContext<Dynam
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     <AutoLine ctx={ctx4.subCtx(sm => sm.creationDate)} readOnly={true} />
                     <AutoLine ctx={ctx4.subCtx(sm => sm.executionDate)} readOnly={true} />
                 </div>
 
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     <EntityLine ctx={ctx4.subCtx(sm => sm.createdBy)} readOnly={true} />
                     <EntityLine ctx={ctx4.subCtx(sm => sm.executedBy)} readOnly={true} />
                 </div>

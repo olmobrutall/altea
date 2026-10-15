@@ -36,7 +36,7 @@ export function ValidationErrors(p: { entity: BaseEntity, prefix: string, ref?: 
   // the list stays a list.
   return (
     <div role="alert">
-    <ul className="validaton-summary alert alert-danger">
+    <ul className="validaton-summary sf-alert sf-alert-danger">
       {/* A button INSIDE each entry, because the click on the <li> that jumps to the field could not be
           reached from the keyboard. Inside, not role="button" on the <li>: that would end the list, as the
           role="alert" note above explains. It looks like the text it replaces — only the focus ring shows. */}

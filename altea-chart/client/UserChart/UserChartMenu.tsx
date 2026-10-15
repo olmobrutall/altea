@@ -77,7 +77,7 @@ export default function UserChartMenu(p: UserChartMenuProps): React.JSX.Element 
     return (
         <Dropdown onOpenChange={open => setIsOpen(open)} open={isOpen}>
             <DropdownTrigger asChild>
-              <BootstrapButton id={toggleId} variant="tertiary" className="dropdown-toggle">
+              <BootstrapButton id={toggleId} variant="tertiary" className="sf-dropdown-toggle">
                   <span><FontAwesomeIcon icon="chart-bar" />&nbsp;{label}</span>
               </BootstrapButton>
             </DropdownTrigger>

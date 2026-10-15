@@ -59,7 +59,7 @@ export default function ImportAssetsPage(): React.JSX.Element {
             <input type="file" accept=".xml,.zip" className="sf-form-control mb-4" style={{ maxWidth: "30rem" }} onChange={handleFile} />
 
             {model != null &&
-                <table className="table table-sm">
+                <table className="sf-table sf-table-sm">
                     <thead>
                         <tr><th>Type</th><th>{UserAssetMessage.ImportPreview.niceToString()}</th><th>Action</th><th>{UserAssetMessage.Import.niceToString()}</th></tr>
                     </thead>
@@ -80,13 +80,13 @@ export default function ImportAssetsPage(): React.JSX.Element {
 
             {model != null && zip != null && !done &&
                 <div className="sf-form-check mb-2">
-                    <input id="keepOnSync" type="checkbox" className="form-check-input" checked={keepOnSync} onChange={e => setKeepOnSync(e.currentTarget.checked)} />
+                    <input id="keepOnSync" type="checkbox" className="sf-form-check-input" checked={keepOnSync} onChange={e => setKeepOnSync(e.currentTarget.checked)} />
                     <label htmlFor="keepOnSync" className="sf-form-check-label">{CodeSyncMessage.KeepThroughTheNextSync.niceToString()}</label>
                 </div>}
 
             {model != null && !done &&
-                <button className="btn btn-primary" onClick={handleImport}>{UserAssetMessage.Import.niceToString()}</button>}
-            {done && <p className="alert alert-success">{UserAssetMessage.SucessfullyImported.niceToString()}</p>}
+                <button className="sf-btn sf-btn-primary" onClick={handleImport}>{UserAssetMessage.Import.niceToString()}</button>}
+            {done && <p className="sf-alert sf-alert-success">{UserAssetMessage.SucessfullyImported.niceToString()}</p>}
         </div>
     );
 }

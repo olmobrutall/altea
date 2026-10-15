@@ -83,7 +83,7 @@ export function FileUploader(p: FileUploaderProps): React.JSX.Element {
     // The real <input type="file"> sits transparently over the button (see Files.css) — no synthetic
     // .click(), so the button keeps native keyboard focus and the OS picker opens normally.
     const selectButton =
-        <div className={classes("sf-upload btn btn-tertiary", p.buttonCss)}>
+        <div className={classes("sf-upload sf-btn sf-btn-tertiary", p.buttonCss)}>
             <FontAwesomeIcon aria-hidden={true} icon="upload" className="me-1" />
             {FileMessage.SelectFile.niceToString()}
             <input type="file" accept={p.accept} multiple={p.multiple} aria-label={FileMessage.SelectFile.niceToString()}

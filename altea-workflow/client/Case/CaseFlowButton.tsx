@@ -10,7 +10,7 @@ import type { CaseActivityEntity } from "../../data/CaseActivity";
 
 export default function CaseFlowButton(p: { caseActivity: CaseActivityEntity }): React.JSX.Element {
     return (
-        <LinkButton title={undefined} className="btn btn-info btn-xs px-2"
+        <LinkButton title={undefined} className="sf-btn sf-btn-info sf-btn-xs px-2"
             onClick={() => void Navigator.view(p.caseActivity.case, { extraProps: { caseActivity: p.caseActivity } })}>
             <FontAwesomeIcon icon="shuffle" color="green" /> {WorkflowActivityMessage.CaseFlow.niceToString()}
         </LinkButton>

@@ -668,7 +668,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
                     claiming it, because a screen reader switches to focus mode inside a grid, which
                     suppresses the browse-mode table commands a plain <table> gets for free. */}
                 <table aria-label={this.createCaption()}
-                  className={classes("sf-search-results table table-hover table-sm", this.props.view && "sf-row-view")} onContextMenu={this.props.showContextMenu(this.props.findOptions) != false ? this.handleOnContextMenu : undefined}>
+                  className={classes("sf-search-results sf-table sf-table-hover sf-table-sm", this.props.view && "sf-row-view")} onContextMenu={this.props.showContextMenu(this.props.findOptions) != false ? this.handleOnContextMenu : undefined}>
                   {AccessibleTable.Options.ariaLabelAsCaption && <caption>{this.createCaption()}</caption>}
                   <thead>
                     {this.renderHeaders()}
@@ -769,7 +769,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
       {
         order: -3,
-        button: <button type="button" className={classes("sf-query-button sf-search btn ms-2", changesExpected ? (isManualOrAll ? "btn-danger" : "btn-primary") : (isManualOrAll ? "border-destructive text-destructive" : "border-primary text-primary"))}
+        button: <button type="button" className={classes("sf-query-button sf-search sf-btn ms-2", changesExpected ? (isManualOrAll ? "sf-btn-danger" : "sf-btn-primary") : (isManualOrAll ? "border-destructive text-destructive" : "border-primary text-primary"))}
           onClick={this.handleSearchClick} title={changesExpected ? SearchMessage.Search.niceToString() : SearchMessage.Refresh.niceToString()} >
           <FontAwesomeIcon aria-hidden={true} icon={changesExpected ? "magnifying-glass" : "refresh"} />{changesExpected && <span className="hidden sm:inline ms-1">{SearchMessage.Search.niceToString()}</span>}
         </button>
@@ -779,7 +779,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
       (p.create == true || typeof p.create == "function" && p.create(this.props.findOptions)) && !this.props.ctx?.frame?.currentDate && {
         order: -2,
-        button: <button className={classes("btn ", p.createButtonClass ?? "btn-tertiary")} title={titleLabels ? this.createTitle() : undefined} onClick={this.handleCreate}>
+        button: <button className={classes("sf-btn ", p.createButtonClass ?? "sf-btn-tertiary")} title={titleLabels ? this.createTitle() : undefined} onClick={this.handleCreate}>
           <FontAwesomeIcon aria-hidden={true} icon="plus" className="sf-create" /><span className="hidden sm:inline ms-1">{this.createTitle()}</span>
         </button>
       },
@@ -797,13 +797,13 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
       ...(this.props.hideButtonBar ? [] : rightButtonBarElements),
 
       !this.props.hideFullScreenButton && Finder.isFindable(p.findOptions.queryKey, true) && {
-        button: <button type="button" className="btn btn-tertiary" onClick={this.handleFullScreenClick} title={FrameMessage.Fullscreen.niceToString()}>
+        button: <button type="button" className="sf-btn sf-btn-tertiary" onClick={this.handleFullScreenClick} title={FrameMessage.Fullscreen.niceToString()}>
           <FontAwesomeIcon aria-hidden={true} icon="up-right-from-square" />
         </button>
       },
 
       this.state.isMobile == true && this.getMobileOptions(this.props.findOptions).showSwitchViewModesButton && {
-        button: <button type="button" className="btn btn-tertiary" onClick={this.handleViewModeClick} title={SearchMessage.SwitchViewMode.niceToString()}>
+        button: <button type="button" className="sf-btn sf-btn-tertiary" onClick={this.handleViewModeClick} title={SearchMessage.SwitchViewMode.niceToString()}>
           <FontAwesomeIcon aria-hidden={true} icon={this.state.viewMode == "Mobile" ? "desktop" : "mobile-alt"} />
         </button>
       }
@@ -812,9 +812,9 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
       .map(a => a as ButtonBarElement);
 
     return (
-      <div className={classes("sf-query-button-bar flex justify-between", !this.props.largeToolbarButtons ? "btn-toolbar-small pb-2" : "my-4 py-2 px-4 bg-background rounded-md shadow-xs")}>
-        {React.createElement("div", { className: "btn-toolbar" }, ...leftButtons.map(a => a.button))}
-        {React.createElement("div", { className: "btn-toolbar", style: { justifyContent: "flex-end" } }, ...rightButtons.map(a => a.button))}
+      <div className={classes("sf-query-button-bar flex justify-between", !this.props.largeToolbarButtons ? "sf-btn-toolbar sf-btn-toolbar-sm pb-2" : "my-4 py-2 px-4 bg-background rounded-md shadow-xs")}>
+        {React.createElement("div", { className: "sf-btn-toolbar" }, ...leftButtons.map(a => a.button))}
+        {React.createElement("div", { className: "sf-btn-toolbar", style: { justifyContent: "flex-end" } }, ...rightButtons.map(a => a.button))}
       </div>
     );
   }
@@ -1022,7 +1022,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
       button:
         <Popover open={this.state.isSelectOpen} onOpenChange={this.handleSelectedToggle}>
           <PopoverTrigger asChild disabled={this.state.selectedRows!.length == 0}>
-            <BootstrapButton id={this.getUniqueId("selectedButton")} title={SearchMessage.OperationsForSelectedElements.niceToString()} variant="light" className="sf-query-button sf-tm-selected ms-2 dropdown-toggle">
+            <BootstrapButton id={this.getUniqueId("selectedButton")} title={SearchMessage.OperationsForSelectedElements.niceToString()} variant="light" className="sf-query-button sf-tm-selected ms-2 sf-dropdown-toggle">
               {title}
             </BootstrapButton>
           </PopoverTrigger>
@@ -1030,7 +1030,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
             {/* The items come from the contextual-item providers (some built by other packages), so this is a
                 plain menu, not a Base UI one; picking an item closes it. */}
             <MenuPanel role="menu" className="static block"
-              onClick={e => { if ((e.target as HTMLElement).closest(".sf-dropdown-item:not(.disabled), .dropdown-item:not(.disabled)")) this.handleSelectedToggle(false); }}>
+              onClick={e => { if ((e.target as HTMLElement).closest(".sf-dropdown-item:not(.disabled)")) this.handleSelectedToggle(false); }}>
               {this.state.currentMenuPack == undefined ? <MenuItem className="sf-tm-selected-loading">{JavascriptMessage.loading.niceToString()}</MenuItem> :
                 this.state.currentMenuPack.items.length == 0 ? <MenuItem className="sf-search-ctxitem-no-results">{JavascriptMessage.noActionsFound.niceToString()}</MenuItem> :
                   this.state.currentMenuPack.items.map((e, i) => React.cloneElement((e as SearchableMenuItem).menu ?? e, { key: i }))}
@@ -1462,7 +1462,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
           <AutoFocus>
             <input
               type="search"
-              className="sf-form-control sf-form-control-sm dropdown-item"
+              className="sf-form-control sf-form-control-sm sf-dropdown-item"
               value={this.state?.contextualMenu?.filter}
               placeholder={SearchMessage.Search.niceToString()}
               onKeyDown={this.handleMenuFilterKeyDown}
@@ -1485,7 +1485,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
       e.preventDefault();
       e.stopPropagation();
 
-      var firstItem = document.querySelector("#table-context-menu a.dropdown-item:not(:has(input), .disabled)") as HTMLAnchorElement
+      var firstItem = document.querySelector("#table-context-menu .sf-dropdown-item:not(:has(input), .disabled)") as HTMLAnchorElement
       if (firstItem && typeof firstItem.focus === 'function')
         firstItem.focus();
     }
@@ -1749,7 +1749,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
             the column was announced as a blank one with every row. A hidden label names it instead. */}
         {this.props.allowSelection && <th scope="col" className="sf-small-column sf-th-selection">
           {this.props.allowSelection == true ?
-            <input type="checkbox" aria-label={SearchMessage.SelectAllResults.niceToString()} className="form-check-input" id={this.getUniqueId("cbSelectAll")} onChange={this.handleToggleAll} checked={this.allSelected()} /> :
+            <input type="checkbox" aria-label={SearchMessage.SelectAllResults.niceToString()} className="sf-form-check-input" id={this.getUniqueId("cbSelectAll")} onChange={this.handleToggleAll} checked={this.allSelected()} /> :
             <span className="sr-only">{EntityControlMessage.Selected.niceToString()}</span>
           }
         </th>
@@ -2258,7 +2258,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
               {this.props.selectionFormatter ? this.props.selectionFormatter(this, row, i) :
                 <input type={this.props.allowSelection == "single" ? "radio" : "checkbox"}
                   name={this.props.allowSelection == "single" ? `sf-td-selection-${this.props.findOptions.queryKey}` : undefined}
-                  className="sf-td-selection form-check-input"
+                  className="sf-td-selection sf-form-check-input"
                   checked={this.state.selectedRows!.includes(row)}
                   onChange={e => this.handleChecked(e, i)}
                   aria-label={SearchMessage.SelectRow0_.niceToString(i + 1)}
@@ -2374,7 +2374,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
               {this.props.allowSelection &&
                 <span className="row-selection">
                   {this.props.selectionFormatter ? this.props.selectionFormatter(this, row, i) :
-                    <input type={this.props.allowSelection == "single" ? "radio" : "checkbox"} name={this.props.allowSelection == "single" ? `sf-td-selection-${this.props.findOptions.queryKey}` : undefined} className="sf-td-selection form-check-input" checked={this.state.selectedRows!.includes(row)} onChange={e => this.handleChecked(e, i)} data-index={i} />}
+                    <input type={this.props.allowSelection == "single" ? "radio" : "checkbox"} name={this.props.allowSelection == "single" ? `sf-td-selection-${this.props.findOptions.queryKey}` : undefined} className="sf-td-selection sf-form-check-input" checked={this.state.selectedRows!.includes(row)} onChange={e => this.handleChecked(e, i)} data-index={i} />}
                 </span>
               }
 
@@ -2645,13 +2645,13 @@ function SearchControlEllipsisMenu(p: { sc: SearchControlLoaded, isHidden: boole
   }
 
   return (
-    <div className="btn-group" role="group" title={SearchMessage.Filters.niceToString()}>
+    <div className="sf-btn-group" role="group" title={SearchMessage.Filters.niceToString()}>
       <BootstrapButton variant="tertiary" className={classes("sf-filter-button", active && "active")} aria-pressed={active} aria-label={SearchMessage.Filters.niceToString()} onClick={e => p.sc.handleChangeFiltermode(active ? 'Simple' : 'Advanced')}>
         <FontAwesomeIcon aria-hidden={true} icon="filter" /> {activeFilters == 0 ? null : activeFilters}
       </BootstrapButton>
       <Dropdown>
         <DropdownTrigger asChild>
-          <BootstrapButton variant="tertiary" className="dropdown-toggle dropdown-toggle-split px-2" aria-label={SearchMessage.FilterTypeSelection.niceToString()} />
+          <BootstrapButton variant="tertiary" className="sf-dropdown-toggle sf-dropdown-toggle-split px-2" aria-label={SearchMessage.FilterTypeSelection.niceToString()} />
         </DropdownTrigger>
         <DropdownContent aria-label={SearchMessage.FilterMenu.niceToString()}>
         <DropdownItem data-key={("Simple" satisfies SearchControlFilterMode)} {...dropdownActive(filterMode == 'Simple')} onClick={e => p.sc.handleChangeFiltermode('Simple')} ><span className="me-2" style={{ visibility: filterMode != 'Simple' ? 'hidden' : undefined }} > <FontAwesomeIcon aria-hidden={true} icon="check" color="navy" /></span>{SearchMessage.SimpleFilters.niceToString()}</DropdownItem>

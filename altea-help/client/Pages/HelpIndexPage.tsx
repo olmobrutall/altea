@@ -23,7 +23,7 @@ export default function HelpIndexPage(): React.JSX.Element {
     const index = useAPI(() => HelpClient.API.index(), []);
 
     return (
-        <div className="container">
+        <div className="sf-container">
             <h1 className="text-display-5 font-light">
                 {HelpMessage.Help.niceToString()}
                 {index && <small className="ms-12 text-muted-foreground text-display-7 font-light">({index.culture.englishName})</small>}

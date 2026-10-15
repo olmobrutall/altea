@@ -69,7 +69,7 @@ export function StyleOptionsLine(p: StyleOptionsLineProps): React.JSX.Element {
             <label className="control-label sf-form-label-xs">
                 {renderMember(val)}
                 {val && " "}
-                {val && <button type="button" className={classes("btn btn-link p-0", "sf-line-button", "sf-remove")}
+                {val && <button type="button" className={classes("sf-btn sf-btn-link p-0", "sf-line-button", "sf-remove")}
                     onClick={handleRemove}
                     title={EntityControlMessage.Remove.niceToString()}>
                     <FontAwesomeIcon icon="xmark" />
@@ -77,10 +77,10 @@ export function StyleOptionsLine(p: StyleOptionsLineProps): React.JSX.Element {
             </label>
             <div>
                 {val
-                    ? <button type="button" className="btn btn-link p-0" onClick={handleView}>
+                    ? <button type="button" className="sf-btn sf-btn-link p-0" onClick={handleView}>
                         <pre style={{ padding: "0px", border: "none", color: "blue" }}>{getDescription(val)}</pre>
                     </button>
-                    : <button type="button" className="btn btn-link p-0 sf-line-button sf-create"
+                    : <button type="button" className="sf-btn sf-btn-link p-0 sf-line-button sf-create"
                         title={EntityControlMessage.Create.niceToString()}
                         onClick={handleCreate}>
                         <FontAwesomeIcon icon="plus" className="sf-create" />&nbsp;{EntityControlMessage.Create.niceToString()}

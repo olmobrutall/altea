@@ -94,7 +94,7 @@ export class ReactValidator extends ReactVisitor {
   override visitElement(element: React.ReactElement): React.ReactNode {
 
     if (!React.isValidElement(element))
-      return <div className="alert alert-danger">Invalid react element: {JSON.stringify(element)}</div>;
+      return <div className="sf-alert sf-alert-danger">Invalid react element: {JSON.stringify(element)}</div>;
 
     return super.visitElement(element);
   }
@@ -277,7 +277,7 @@ export class ViewReplacer<T extends BaseEntity> {
   }
 }
 
-// By shape and name: a view may still hold react-bootstrap's Tabs / Tab rather than the ui ones.
+// By shape and name: a view may hold its own Tabs / Tab-shaped elements rather than the ui ones.
 function isTabs(e: React.ReactElement): boolean {
   return e.type === Tabs || (typeof e.type == "function" && e.type.name == "Tabs");
 }

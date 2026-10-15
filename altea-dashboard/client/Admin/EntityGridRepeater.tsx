@@ -10,6 +10,7 @@ import { useController } from "@altea/altea/client/Lines/LineBase";
 import { LinkButton } from "@altea/altea/client/Basics/LinkButton";
 import { useSize } from "@altea/altea/client/Hooks";
 import type { IGridEntity } from "../../data/Dashboard";
+import { colorClass } from "@altea/altea/client/Components";
 
 // Port of Signum's Signum.Dashboard/Admin/EntityGridRepeater.tsx — the 12-column drag-and-drop grid line the
 // dashboard editor uses: drag a part's header to move it (within a row, or onto a row separator to re-row it),
@@ -209,7 +210,7 @@ export function EntityGridRepeater<R extends BaseEntity & IGridEntity>(props: En
 
     function renderSeparator(rowIndex: number): React.JSX.Element {
         return (
-            <div className={classes("row separator-row", c.drag?.currentRow == rowIndex ? "sf-over" : undefined)} key={"sep" + rowIndex}
+            <div className={classes("sf-row separator-row", c.drag?.currentRow == rowIndex ? "sf-over" : undefined)} key={"sep" + rowIndex}
                 onDragOver={e => c.handleRowDragOver(e, rowIndex)}
                 onDragEnter={e => c.handleRowDragOver(e, rowIndex)}
                 onDragLeave={() => c.handleRowDragLeave()}
@@ -232,9 +233,9 @@ export function EntityGridRepeater<R extends BaseEntity & IGridEntity>(props: En
                     </span>
                 </span>
             </legend>
-            <div className="row sf-rule">
+            <div className="sf-row sf-rule">
                 {Array.range(0, 12).map(i =>
-                    <div className="col-sm-1" key={i}>
+                    <div className="sm:col-span-1" key={i}>
                         <div className="sf-rule-item">Col {i}</div>
                     </div>
                 )}
@@ -247,7 +248,7 @@ export function EntityGridRepeater<R extends BaseEntity & IGridEntity>(props: En
                         .orderBy(gr => parseInt(gr.key))
                         .flatMap((gr, i, groups) => [
                             renderSeparator(parseInt(gr.key)),
-                            <div className="row items-row" key={"row" + gr.key} onDragOver={e => c.handleItemsRowDragOver(e, parseInt(gr.key))}>
+                            <div className="sf-row items-row" key={"row" + gr.key} onDragOver={e => c.handleItemsRowDragOver(e, parseInt(gr.key))}>
                                 {gr.elements.orderBy(ctx => ctx.value.startColumn as number).map((ctx, j, list) => {
                                     let item = p.getComponent!(ctx);
                                     item = React.cloneElement(item, {
@@ -257,11 +258,8 @@ export function EntityGridRepeater<R extends BaseEntity & IGridEntity>(props: En
                                         onRemove: ctx.readOnly || !p.remove ? undefined : (e: React.MouseEvent<any>) => c.handleRemoveElementClick(e, ctx.index!),
                                     } as EntityGridItemProps);
 
-                                    const last = j == 0 ? undefined : list[j - 1].value;
-                                    const offset = (ctx.value.startColumn as number) - (last ? ((last.startColumn as number) + (last.columns as number)) : 0);
-
                                     return (
-                                        <div key={j} className={`sf-grid-element col-sm-${ctx.value.columns} offset-sm-${offset}`}>
+                                        <div key={j} className={`sf-grid-element sm:col-start-${(ctx.value.startColumn as number) + 1} sm:col-span-${ctx.value.columns}`}>
                                             {item}
                                         </div>
                                     );
@@ -293,8 +291,8 @@ export function EntityGridItem(p: EntityGridItemProps): React.JSX.Element {
     const smallMode = size != null && size.width < 500;
 
     return (
-        <div className={classes("card", "shadow-xs")} ref={setContainer}>
-            <div className={classes("card-header", style != "customColor" && ("bg-" + style))}
+        <div className={classes("sf-card", "shadow-xs")} ref={setContainer}>
+            <div className={classes("sf-card-header", style != "customColor" && colorClass("bg", style))}
                 style={{ backgroundColor: p.customColor ?? undefined }}
                 draggable={!!p.onTitleDragStart}
                 onDragStart={p.onTitleDragStart}
@@ -307,7 +305,7 @@ export function EntityGridItem(p: EntityGridItemProps): React.JSX.Element {
                 }
                 {p.title?.(smallMode)}
             </div>
-            <div className="card-body">
+            <div className="sf-card-body">
                 {p.children?.(smallMode)}
             </div>
             {p.onResizerDragStart &&

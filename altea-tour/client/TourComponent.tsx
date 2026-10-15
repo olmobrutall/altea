@@ -72,7 +72,7 @@ export function TourButton(p: { trigger: PseudoType | Symbol | Lite<Entity>; cla
 
     return (
         <>
-            <LinkButton className={classes("sf-pointer nav-link", p.className)} onClick={handleClickOrEdit} title={title}>
+            <LinkButton className={classes("sf-pointer sf-nav-link", p.className)} onClick={handleClickOrEdit} title={title}>
                 <span className={classes("fa-layers fa-fw icon", !hasViewed && "fa-beat")}>
                     <FontAwesomeIcon aria-hidden={true} icon={faBiking} transform="flip-h" />
                     {canEdit && <FontAwesomeIcon aria-hidden={true} icon={["fas", "circle-arrow-right"]} transform="shrink-7 down-4 left-6" color="var(--info)" />}
@@ -96,7 +96,7 @@ function CreateTourButton(p: { trigger: PseudoType | Symbol | Lite<Entity>; clas
     }
 
     return (
-        <LinkButton className={classes("sf-pointer nav-link", p.className)}
+        <LinkButton className={classes("sf-pointer sf-nav-link", p.className)}
             onClick={() => void handleCreate()}
             title={TourMessage.CreateTour.niceToString()}>
             <span className="fa-layers fa-fw icon">

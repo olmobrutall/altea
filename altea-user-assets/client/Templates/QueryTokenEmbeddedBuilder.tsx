@@ -96,7 +96,7 @@ export default function QueryTokenEmbeddedBuilder(p: QueryTokenEmbeddedBuilderPr
                     <br />
                     {tokenBuilder}
                     <br />
-                    <p className="alert alert-danger">{error}</p>
+                    <p className="sf-alert sf-alert-danger">{error}</p>
                 </div>}
         </FormGroup>
     );

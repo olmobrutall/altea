@@ -109,7 +109,7 @@ export const EnumCheckboxList: <V extends string | number>(props: EnumCheckboxLi
                 {getTimeMachineCheckboxIcon({ newCtx: ectx, oldCtx: oldCtx, type: enumObj })}
                 <input type="checkbox"
                   id={controlId}
-                  className="form-check-input"
+                  className="sf-form-check-input"
                   checked={p.ctx.value.some(val2 => val2 == val)}
                   disabled={p.ctx.readOnly}
                   name={String(val)}

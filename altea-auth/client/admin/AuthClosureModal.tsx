@@ -93,7 +93,7 @@ function AuthClosureModal(p: AuthClosureModalProps): React.JSX.Element {
         <Modal size="lg" show={show} onExited={() => p.onExited!(undefined)} onHide={() => setShow(false)} className="sf-frame-modal">
             <div className="sf-modal-header">
                 <h1 className="sf-modal-title text-h5 font-medium">{KIND_LABEL[p.kind]} — {typeHeading(packs[0])} / {p.roleStr}</h1>
-                <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={() => setShow(false)} />
+                <button type="button" className="sf-btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={() => setShow(false)} />
             </div>
             <div className="sf-modal-body">
                 {ownerSets.length > 0 &&

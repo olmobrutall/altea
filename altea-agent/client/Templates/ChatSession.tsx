@@ -21,14 +21,14 @@ export default function ChatSession(p: { ctx: TypeContext<ChatSessionEntity> }):
         <div>
             <AutoLine ctx={ctx4.subCtx(n => n.title)} />
 
-            <div className="row">
-                <div className="col-sm-4">
+            <div className="sf-row">
+                <div className="sm:col-span-4">
                     <AutoLine ctx={ctx4.subCtx(n => n.languageModel)} />
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     <AutoLine ctx={ctx4.subCtx(n => n.user)} />
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     <AutoLine ctx={ctx4.subCtx(n => n.startDate)} />
                 </div>
             </div>

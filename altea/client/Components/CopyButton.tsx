@@ -43,7 +43,7 @@ export default function CopyButton(p: CopyButtonProps): React.ReactElement | nul
     <span className={p.className}>
       <Popover open={showTooltip}>
         <PopoverAnchor asChild>
-          <LinkButton ref={link} className="btn btn-sm btn-tertiary sf-pointer mx-1" onClick={handleCopy} title={p.title}>
+          <LinkButton ref={link} className="sf-btn sf-btn-sm sf-btn-tertiary sf-pointer mx-1" onClick={handleCopy} title={p.title}>
             {p.children}
           </LinkButton>
         </PopoverAnchor>

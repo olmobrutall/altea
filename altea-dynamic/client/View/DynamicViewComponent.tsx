@@ -214,15 +214,15 @@ function DynamicViewDesigner(p: DynamicViewDesignerProps): React.JSX.Element {
         const operations = Object.fromEntries(getOperationInfos(DynamicViewEntity).map(a => [a.key, a]));
 
         return (
-            <div className="btn-group btn-group-sm" role="group" style={{ marginBottom: "5px" }}>
+            <div className="sf-btn-group sf-btn-group-sm" role="group" style={{ marginBottom: "5px" }}>
                 {operations[DynamicViewOperation.Save.key] &&
-                    <button type="button" className="btn btn-primary" onClick={handleSave}>
+                    <button type="button" className="sf-btn sf-btn-primary" onClick={handleSave}>
                         {operations[DynamicViewOperation.Save.key]!.niceName}
                     </button>}
-                <button type="button" className="btn btn-success" onClick={handleShowCode}>Show code</button>
+                <button type="button" className="sf-btn sf-btn-success" onClick={handleShowCode}>Show code</button>
                 <Dropdown open={isDropdownOpen} onOpenChange={handleOnToggle}>
                     <DropdownTrigger asChild>
-                        <BootstrapButton id="bg-nested-dropdown" size="sm" className="dropdown-toggle">
+                        <BootstrapButton id="bg-nested-dropdown" size="sm" className="sf-dropdown-toggle">
                             {" … "}
                         </BootstrapButton>
                     </DropdownTrigger>
@@ -248,7 +248,7 @@ function DynamicViewDesigner(p: DynamicViewDesignerProps): React.JSX.Element {
 
     return (
         <div className="code-container">
-            <button type="button" className="btn-close" aria-label="Close" style={{ float: "right" }}
+            <button type="button" className="sf-btn-close" aria-label="Close" style={{ float: "right" }}
                 onClick={p.rootNode.context.onClose} />
             <h3>
                 <small>{Navigator.getTypeSubTitle(p.dynamicView, undefined)}</small>

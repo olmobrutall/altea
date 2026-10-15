@@ -111,7 +111,7 @@ export default function TranslatedInstanceSync(): React.JSX.Element {
                     {result.instances.map(ins =>
                         <AccessibleTable key={ins.instance.key()}
                             aria-label={TranslationMessage.TranslationsOverview.niceToString()}
-                            className="table st"
+                            className="sf-table st"
                             mapCustomComponents={new Map<React.JSXElementConstructor<any>, string>([[SyncPropertyRows as React.JSXElementConstructor<any>, "tr"]])}
                             multiselectable={false}
                             style={{ width: "100%", margin: "0px" }}>
@@ -127,7 +127,7 @@ export default function TranslatedInstanceSync(): React.JSX.Element {
                                         data={result} currentCulture={culture} />)}
                             </tbody>
                         </AccessibleTable>)}
-                    <input type="submit" value={TranslationMessage.Save.niceToString()} className="btn btn-primary mt-2"
+                    <input type="submit" value={TranslationMessage.Save.niceToString()} className="sf-btn sf-btn-primary mt-2"
                         onClick={handleSave} disabled={isLocked} />
                 </div>}
         </div>

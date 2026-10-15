@@ -25,14 +25,14 @@ export default function UserChartPart(p: PartEditorProps<UserChartPartEntity>): 
                 helpText={getEntityTypeHelpText(dashboardEntityType?.toString(), ctx.value.userChart?.entityType?.toString())}
                 onChange={forceUpdate} />
 
-            <div className="row">
-                <div className={p.smallMode ? "col-12" : "col-sm-6"}>
+            <div className="sf-row">
+                <div className={p.smallMode ? "col-span-12" : "sm:col-span-6"}>
                     <CheckboxLine ctx={ctx.subCtx(cp => cp.showData)} inlineCheckbox="block" />
                     <CheckboxLine ctx={ctx.subCtx(cp => cp.allowChangeShowData)} inlineCheckbox="block" />
                     <CheckboxLine ctx={ctx.subCtx(cp => cp.createNew)} inlineCheckbox="block" />
                     <CheckboxLine ctx={ctx.subCtx(cp => cp.autoRefresh)} inlineCheckbox="block" />
                 </div>
-                <div className={p.smallMode ? "col-12" : "col-sm-6"}>
+                <div className={p.smallMode ? "col-span-12" : "sm:col-span-6"}>
                     <AutoLine ctx={ctx.subCtx(cp => cp.minHeight)} formGroupStyle="Basic" />
                 </div>
             </div>

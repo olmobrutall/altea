@@ -112,8 +112,8 @@ export default function Dashboard(p: { ctx: TypeContext<DashboardEntity> }): Rea
                         <CheckboxLine ctx={ctx.subCtx(cp => cp.hideDisplayName)} inlineCheckbox />
                     </div>} />
 
-                <div className="row">
-                    <div className="col-sm-8">
+                <div className="sf-row">
+                    <div className="sm:col-span-8">
                         <EntityLine ctx={ctx.subCtx(cp => cp.entityType)} onChange={handleEntityTypeChange} labelColumns={3}
                             helpText={ctx.value.entityType && <div className="flex gap-4">
                                 <CheckboxLine ctx={ctx.subCtx(e => e.hideQuickLink)} inlineCheckbox />
@@ -121,18 +121,18 @@ export default function Dashboard(p: { ctx: TypeContext<DashboardEntity> }): Rea
                             </div>}
                         />
                     </div>
-                    {ctx.value.entityType && <div className="col-sm-4">
+                    {ctx.value.entityType && <div className="sm:col-span-4">
                         <AutoLine ctx={ctxLabel5.subCtx(f => f.embeddedInEntity)} />
                     </div>}
                 </div>
 
                 <CollapsableCard header={UserAssetMessage.Advanced.niceToString()} size="xs">
-                    <div className="row">
-                        <div className="col-sm-3 pt-4">
+                    <div className="sf-row">
+                        <div className="sm:col-span-3 pt-4">
                             <NumberLine ctx={ctxBasic.subCtx(cp => cp.dashboardPriority)} />
                             <AutoLine ctx={ctxBasic.subCtx(cp => cp.autoRefreshPeriod)} />
                         </div>
-                        <div className="col-sm-3 pt-4">
+                        <div className="sm:col-span-3 pt-4">
                             <TextBoxLine ctx={ctxBasic.subCtx(cp => cp.key)} />
                         </div>
                     </div>
@@ -266,7 +266,7 @@ export function DashboardPart(p: {
                                 helpText={smallMode ? hideTitleCheckbox : undefined} />}
                         {tc.value.interactionGroup != null && (
                             <div className="mt-1">
-                                <span className="badge" style={{
+                                <span className="sf-badge" style={{
                                     backgroundColor: interactionColors[tc.value.interactionGroup as number],
                                     color: Color.parse(interactionColors[tc.value.interactionGroup as number]).opositePole().toString(),
                                 }}>

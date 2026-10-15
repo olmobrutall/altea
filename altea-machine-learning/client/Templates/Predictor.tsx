@@ -38,6 +38,7 @@ import {
     ClassificationMetricsPanel, MetricsPanel, RegressionMetricsPanel,
 } from "./Metrics";
 import PredictorSubQuery from "./PredictorSubQuery";
+import { colorClass } from "@altea/altea/client/Components";
 
 // Port of Signum.MachineLearning's Templates/Predictor.tsx — the predictor DESIGNER.
 //
@@ -103,7 +104,7 @@ export default function Predictor(
             return [{
                 order: 10000,
                 button: (
-                    <button className="btn btn-info" onClick={() => void handlePredictClick()}>
+                    <button className="sf-btn sf-btn-info" onClick={() => void handlePredictClick()}>
                         <FontAwesomeIcon icon={["far", "lightbulb"]} />&nbsp;{PredictorMessage.Predict.niceToString()}
                     </button>
                 ),
@@ -218,13 +219,13 @@ export default function Predictor(
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     <AutoLine ctx={ctxxs4.subCtx(e => e.name)} readOnly={ctx.readOnly} />
                     <AutoLine ctx={ctxxs4.subCtx(e => e.state, { readOnly: true })} />
                     <EntityLine ctx={ctxxs4.subCtx(e => e.trainingException, { readOnly: true })} hideIfNull />
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     <EntityCombo ctx={ctxxs4.subCtx(f => f.algorithm)} onChange={handleAlgorithmChange} />
                     <EntityCombo ctx={ctxxs4.subCtx(f => f.resultSaver)} />
                     <EntityCombo ctx={ctxxs4.subCtx(f => f.publication)} readOnly />
@@ -303,7 +304,7 @@ export default function Predictor(
 
                 {p.state === PredictorState.Trained &&
                     <Tab eventKey="files" title={PredictorMessage.Results.niceToString()}>
-                        <div className="row">
+                        <div className="sf-row">
                             {p.resultTraining && p.resultValidation && <>
                                 <MetricsPanel ctx={ctx.subCtx(a => a.resultTraining!)} title={trainingTitle(ctx)} />
                                 <MetricsPanel ctx={ctx.subCtx(a => a.resultValidation!)} title={validationTitle(ctx)} />
@@ -394,9 +395,9 @@ export function ProgressBar(
     const percent = indeterminate ? 100 : Math.max(0, Math.min(100, p.value! * 100));
 
     return (
-        <div className="progress my-2" style={{ height: "1.5rem" }}>
+        <div className="sf-progress my-2" style={{ height: "1.5rem" }}>
             <div className={`progress-bar${indeterminate ? " progress-bar-striped progress-bar-animated" : ""}`
-                + (p.color ? ` bg-${p.color}` : "")}
+                + (p.color ? " " + colorClass("bg", p.color) : "")}
                 role="progressbar" style={{ width: `${percent}%` }}
                 aria-valuenow={indeterminate ? undefined : percent} aria-valuemin={0} aria-valuemax={100}>
                 {p.message}{!indeterminate && ` (${percent.toFixed(0)}%)`}

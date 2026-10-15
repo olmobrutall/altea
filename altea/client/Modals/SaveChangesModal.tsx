@@ -61,18 +61,18 @@ function SaveChangesModal(p: SaveChangesModalProps): React.ReactElement {
         {SaveChangesMessage.YoureTryingToCloseAnEntityWithChanges.niceToString()}
       </div>
       <div className="sf-modal-footer">
-        <div className="btn-toolbar">
+        <div className="sf-btn-toolbar">
           {p.eocs.map(eoc => <OperationButton key={eoc.operationInfo.key} eoc={eoc} avoidAlternatives onOperationClick={async () => handleButtonClicked(eoc)} />)}
           <button
             type="button"
-            className="btn btn-secondary sf-close-button sf-no-button"
+            className="sf-btn sf-btn-secondary sf-close-button sf-no-button"
             onClick={() => handleButtonClicked("loseChanges")}
             name="no">
             <FontAwesomeIcon aria-hidden={true} icon={"arrow-rotate-left"} />&nbsp;{SaveChangesMessage.LoseChanges.niceToString()}
           </button>
           <button
             type="button"
-            className="btn btn-secondary sf-close-button sf-cancel-button"
+            className="sf-btn sf-btn-secondary sf-close-button sf-cancel-button"
             onClick={() => handleButtonClicked("cancel")}
             name="cancel">
             {JavascriptMessage.cancel.niceToString()}

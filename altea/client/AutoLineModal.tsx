@@ -98,7 +98,7 @@ function AutoLineModal(p: AutoLineModalProps): React.ReactElement {
         <h1 id={titleId} className="sf-modal-title text-h5 font-medium">
           {title ?? fieldInfo?.niceToString() ?? SelectorMessage.ChooseAValue.niceToString()}
         </h1>
-        <button type="button" className="btn-close" data-dismiss="modal"
+        <button type="button" className="sf-btn-close" data-dismiss="modal"
           aria-label={JavascriptMessage.Close.niceToString()} onClick={handleCancelClicked} />
       </div>
       <div className="sf-modal-body"
@@ -113,11 +113,11 @@ function AutoLineModal(p: AutoLineModalProps): React.ReactElement {
         {error != null && <p className="text-destructive">{error}</p>}
       </div>
       <div className="sf-modal-footer">
-        <button type="button" ref={btnOkRef} className="btn btn-primary sf-entity-button sf-ok-button"
+        <button type="button" ref={btnOkRef} className="sf-btn sf-btn-primary sf-entity-button sf-ok-button"
           disabled={empty || error != null} aria-disabled={empty || error != null} onClick={handleOkClick}>
           {JavascriptMessage.ok.niceToString()}
         </button>
-        <button type="button" className="btn btn-light sf-entity-button sf-close-button"
+        <button type="button" className="sf-btn sf-btn-light sf-entity-button sf-close-button"
           onClick={handleCancelClicked}>
           {JavascriptMessage.cancel.niceToString()}
         </button>

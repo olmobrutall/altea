@@ -5,11 +5,11 @@ div.workflow-buttons {
     padding: 5px;
 }
 
-    div.workflow-buttons .btn-toolbar {
+    div.workflow-buttons .sf-btn-toolbar {
         margin-bottom: 0px;
     }
 
-    div.workflow-buttons .btn {
+    div.workflow-buttons .sf-btn {
         margin-right: 10px;
     }
 

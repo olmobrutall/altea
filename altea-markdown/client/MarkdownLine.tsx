@@ -55,7 +55,7 @@ export function MarkdownLine({ ctx, markdownOption, readOnly, label, valueHtmlAt
                 </span>
             </PopoverTrigger>
             <PopoverContent id="markdown-syntax-popover" side="top" title="Markdown Syntax">
-                <table className="table table-sm table-borderless mb-0" style={{ fontSize: "0.8em" }}>
+                <table className="sf-table sf-table-sm sf-table-borderless mb-0" style={{ fontSize: "0.8em" }}>
                     <tbody>
                         {syntaxRows.map(s => <tr key={s}>
                             <td><code>{s}</code></td>

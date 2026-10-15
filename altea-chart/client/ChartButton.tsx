@@ -40,7 +40,7 @@ export default function ChartButton(p: ChartButtonProps): React.JSX.Element {
         : undefined;
 
     return (
-        <button className="btn btn-tertiary" onMouseDown={handleClick} title={ChartMessage.Chart.niceToString()}>
+        <button className="sf-btn sf-btn-tertiary" onMouseDown={handleClick} title={ChartMessage.Chart.niceToString()}>
             <FontAwesomeIcon aria-hidden={true} icon="chart-bar" />&nbsp;{label}
         </button>
     );

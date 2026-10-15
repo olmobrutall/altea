@@ -28,8 +28,8 @@ export default function SMSTemplate(p: { ctx: TypeContext<SMSTemplateEntity> }):
     return (
         <div>
             <AutoLine ctx={p.ctx.subCtx(a => a.name)} />
-            <div className="row">
-                <div className="col-sm-8">
+            <div className="sf-row">
+                <div className="sm:col-span-8">
                     <AutoLine ctx={ctx.subCtx(a => a.isActive)} />
                     <EntityLine ctx={ctx.subCtx(a => a.query)} onChange={forceUpdate}
                         remove={ctx.value.messages.length > 0 || ctx.value.to != null} />
@@ -42,7 +42,7 @@ export default function SMSTemplate(p: { ctx: TypeContext<SMSTemplateEntity> }):
                             subTokenOptions={SubTokensOptions.CanElement}
                             helpText="Expression pointing to an SMSOwnerData" />}
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     <AutoLine ctx={ctx8.subCtx(a => a.messageLengthExceeded)} />
                     <AutoLine ctx={ctx8.subCtx(a => a.certified)} />
                     <AutoLine ctx={ctx8.subCtx(a => a.editableMessage)} />

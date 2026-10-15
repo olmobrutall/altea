@@ -65,7 +65,7 @@ export function MultiMessageProgressModal(p: MultiMessageProgressModalProps): Re
         <Modal show={show} className="message-modal" backdrop="static" onExited={handleOnExited}>
             <div className="sf-modal-header">
                 <h5 className="sf-modal-title">{p.title}</h5>
-                <button type="button" className="btn-close" data-dismiss="modal"
+                <button type="button" className="sf-btn-close" data-dismiss="modal"
                     aria-label={EntityControlMessage.Close.niceToString()} onClick={handleCancelClicked} />
             </div>
             <div className="sf-modal-body">
@@ -81,7 +81,7 @@ export function MultiMessageProgressModal(p: MultiMessageProgressModalProps): Re
                     </p>}
             </div>
             <div className="sf-modal-footer">
-                <button type="button" className="btn btn-tertiary sf-entity-button sf-close-button" onClick={handleCancelClicked}>
+                <button type="button" className="sf-btn sf-btn-tertiary sf-entity-button sf-close-button" onClick={handleCancelClicked}>
                     {JavascriptMessage.cancel.niceToString()}
                 </button>
             </div>

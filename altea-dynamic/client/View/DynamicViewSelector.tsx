@@ -94,9 +94,9 @@ export default function DynamicViewSelectorComponent(p: { ctx: TypeContext<Dynam
 
     function getTestAlertType(result: string | undefined): string {
         if (!result)
-            return "alert-danger";
+            return "sf-alert-danger";
 
-        return allViewNames().includes(result) ? "alert-success" : "alert-danger";
+        return allViewNames().includes(result) ? "sf-alert-success" : "sf-alert-danger";
     }
 
     function handleOnView(exampleEntity: Entity): Promise<Entity | undefined> {
@@ -106,7 +106,7 @@ export default function DynamicViewSelectorComponent(p: { ctx: TypeContext<Dynam
     function renderExampleEntity(typeName: string): React.ReactNode {
         const ctor = resolveType(typeName);
         if (ctor == undefined || !isModifiableType(ctor))
-            return <div className="alert alert-warning">Type '{typeName}' is not registered on the client</div>;
+            return <div className="sf-alert sf-alert-warning">Type '{typeName}' is not registered on the client</div>;
 
         const exampleCtx = new TypeContext<Entity | null>(
             undefined, undefined, PropertyRoute.root(ctor), Binding.create(exampleEntityRef, s => s.current));
@@ -125,9 +125,9 @@ export default function DynamicViewSelectorComponent(p: { ctx: TypeContext<Dynam
             <fieldset>
                 <legend>TEST</legend>
                 {renderExampleEntity(ctx.value.entityType.cleanName)}
-                {res?.type === "ERROR" && <div className="alert alert-danger">ERROR: {res.error}</div>}
+                {res?.type === "ERROR" && <div className="sf-alert sf-alert-danger">ERROR: {res.error}</div>}
                 {res?.type === "RESULT" &&
-                    <div className={classes("alert", getTestAlertType(res.result))}>
+                    <div className={classes("sf-alert", getTestAlertType(res.result))}>
                         RESULT: {res.result === undefined ? "undefined" : JSON.stringify(res.result)}
                     </div>}
             </fieldset>
@@ -148,7 +148,7 @@ export default function DynamicViewSelectorComponent(p: { ctx: TypeContext<Dynam
         const cleanName = ctx.value.entityType.cleanName;
         return (
             <div className="code-container">
-                <div className="btn-toolbar btn-toolbar-small">
+                <div className="sf-btn-toolbar sf-btn-toolbar sf-btn-toolbar-sm">
                     {renderViewNameButtons()}
                 </div>
                 <pre style={{ border: "0px", margin: "0px", overflow: "visible" }}>
@@ -158,7 +158,7 @@ export default function DynamicViewSelectorComponent(p: { ctx: TypeContext<Dynam
                     </div>
                 </pre>
                 <JavascriptMonaco code={ctx.value.script ?? ""} onChange={handleCodeChange} />
-                {syntaxError && <div className="alert alert-danger">{syntaxError}</div>}
+                {syntaxError && <div className="sf-alert sf-alert-danger">{syntaxError}</div>}
             </div>
         );
     }
@@ -172,8 +172,8 @@ export default function DynamicViewSelectorComponent(p: { ctx: TypeContext<Dynam
             {ctx.value.entityType &&
                 <div>
                     <br />
-                    <div className="row">
-                        <div className="col-sm-12">
+                    <div className="sf-row">
+                        <div className="sm:col-span-12">
                             {renderEditor()}
                             {renderTest()}
                         </div>

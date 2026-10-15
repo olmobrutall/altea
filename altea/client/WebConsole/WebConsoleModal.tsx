@@ -29,16 +29,16 @@ function WebConsoleModal(p: WebConsoleModalProps): React.ReactElement {
             aria-labelledby={titleId} backdrop="static">
             <div className="sf-modal-header">
                 <h1 id={titleId} className="sf-modal-title text-h5 font-medium">{p.title}</h1>
-                <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={() => close(undefined)} />
+                <button type="button" className="sf-btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={() => close(undefined)} />
             </div>
             <div className="sf-modal-body">
                 <WebConsoleView command={p.command} args={p.args} onFinished={result => setFinished({ result })} />
             </div>
             <div className="sf-modal-footer">
-                <button type="button" className="btn btn-primary" disabled={finished == null} onClick={() => close(finished)}>
+                <button type="button" className="sf-btn sf-btn-primary" disabled={finished == null} onClick={() => close(finished)}>
                     {JavascriptMessage.ok.niceToString()}
                 </button>
-                <button type="button" className="btn btn-secondary" onClick={() => close(undefined)}>
+                <button type="button" className="sf-btn sf-btn-secondary" onClick={() => close(undefined)}>
                     {JavascriptMessage.cancel.niceToString()}
                 </button>
             </div>

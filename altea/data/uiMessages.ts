@@ -440,9 +440,8 @@ registerEnum(BooleanEnum);
 Enum.setNiceName(BooleanEnum, "False", "No");
 Enum.setNiceName(BooleanEnum, "True", "Yes");
 
-// react-widgets (Signum's ReactWidgetsMessage) — the labels and aria strings the react-widgets-up
-// DropdownList / Combobox / Multiselect / DatePicker render on their own. They reach a widget through
-// the `messages` prop of <Localization>, assembled by `getMessages` in client/Lines/ReactWidgetsLocalizer.
+// Signum's ReactWidgetsMessage — the labels and aria strings of the pickers (the ui Combobox, MultiCombobox and
+// DateTimePicker, which replaced react-widgets). The Signum name stays, so translations port as they are.
 export const ReactWidgetsMessage = {
     CreateOption: msg("Create option"),
     CreateOption0: msg("Create option {0}"),

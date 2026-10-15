@@ -139,7 +139,7 @@ function ColumnsBuilder(p: {
     return (
         <fieldset className="form-xs">
             <legend>{p.title}</legend>
-            <table className="table table-sm">
+            <table className="sf-table sf-table-sm">
                 <tbody>
                     {p.columnOptions.map((co, i) =>
                         <tr key={i}>

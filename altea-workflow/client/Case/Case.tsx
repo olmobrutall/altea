@@ -72,13 +72,13 @@ export default function CaseComponent(p: CaseComponentProps): React.JSX.Element 
         <div>
             <div className="inline-tags"> <InlineCaseTags case={p.ctx.value.toLite()} /></div>
             <br />
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     <EntityLine ctx={ctx.subCtx(a => a.workflow)} view={!Navigator.isReadOnly(WorkflowEntity)} />
                     <EntityLine ctx={ctx.subCtx(a => a.parentCase)} />
                     <AutoLine ctx={ctx.subCtx(a => a.startDate)} />
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     <EntityLine ctx={ctx.subCtx(a => a.mainEntity)} view={false} />
                     <AutoLine ctx={ctx.subCtx(a => a.description)} />
                     <AutoLine ctx={ctx.subCtx(a => a.finishDate)} />
@@ -165,7 +165,7 @@ function CaseActivityStatsButtonComponent(p: CaseActivityButtonBaseProps): React
     return (
         <WithTooltip side="top" tooltip={WorkflowActivityMessage.OpenCaseActivityStats.niceToString()}>
             <div>
-                <a className={classes("sf-line-button btn btn-light", enabled ? undefined : "disabled")}
+                <a className={classes("sf-line-button sf-btn sf-btn-light", enabled ? undefined : "disabled")}
                     onClick={() => handleOnClick(sc.state.selectedRows![0])}>
                     <FontAwesomeIcon icon="list" />
                 </a>
@@ -198,7 +198,7 @@ function WorkflowActivityLocateButtonComponent(
     return (
         <WithTooltip side="top" tooltip={WorkflowActivityMessage.LocateWorkflowActivityInDiagram.niceToString()}>
             <div>
-                <a className={classes("sf-line-button btn btn-light", enabled ? undefined : "disabled")}
+                <a className={classes("sf-line-button sf-btn sf-btn-light", enabled ? undefined : "disabled")}
                     onClick={() => handleOnClick(sc.state.selectedRows![0])}>
                     <FontAwesomeIcon icon="location-pin" />
                 </a>

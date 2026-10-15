@@ -132,7 +132,7 @@ export default function SearchValueLine(p: SearchValueLineProps): React.JSX.Elem
   var errorMessage = Finder.validateNewEntities(fo);
   if (errorMessage) {
     return (
-      <div className="alert alert-danger" role="alert">
+      <div className="sf-alert sf-alert-danger" role="alert">
         <strong>Error in SearchValueLine ({getQueryKey(fo.queryName)}): </strong>
         {errorMessage}
       </div>
@@ -157,21 +157,21 @@ export default function SearchValueLine(p: SearchValueLineProps): React.JSX.Elem
 
   const value = svRef.current?.value;
   const find = value != undefined && (p.findButton ?? isQuery) &&
-    <LinkButton style={{ display: "flex", alignItems: "center" }} className={classes("sf-line-button sf-find", isFormControl ? "btn sf-input-group-text" : undefined)}
+    <LinkButton style={{ display: "flex", alignItems: "center" }} className={classes("sf-line-button sf-find", isFormControl ? "sf-btn sf-input-group-text" : undefined)}
       onClick={svRef.current!.handleClick}
       title={ctx.titleLabels ? SearchMessage.Search.niceToString() + " " + label : undefined}>
       {EntityBaseController.getFindIcon()}
     </LinkButton>;
   
   const create = !p.ctx.frame?.currentDate && (p.create == true || p.create == "ifNull" && value === null) &&
-    <LinkButton style={{ display: "flex", alignItems: "center" }} className={classes("sf-line-button sf-create", isFormControl ? "btn sf-input-group-text" : undefined)}
+    <LinkButton style={{ display: "flex", alignItems: "center" }} className={classes("sf-line-button sf-create", isFormControl ? "sf-btn sf-input-group-text" : undefined)}
       onClick={handleCreateClick}
       title={ctx.titleLabels ? EntityControlMessage.Create.niceToString() + " " + label : undefined}>
       {EntityBaseController.getCreateIcon()}
     </LinkButton>;
 
   const view = value != undefined && (p.viewEntityButton ?? ((value instanceof Lite) && Navigator.isViewable(getTypeName(value)))) &&
-    <LinkButton className={classes("sf-line-button sf-view", isFormControl ? "btn sf-input-group-text" : undefined)}
+    <LinkButton className={classes("sf-line-button sf-view", isFormControl ? "sf-btn sf-input-group-text" : undefined)}
       onClick={handleViewEntityClick}
       title={ctx.titleLabels ? EntityControlMessage.View.niceToString() + " " + label : undefined}>
       {EntityBaseController.getViewIcon()}

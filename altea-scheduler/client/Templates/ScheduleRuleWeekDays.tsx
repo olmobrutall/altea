@@ -10,21 +10,21 @@ export default function ScheduleRuleWeekDays(p: { ctx: TypeContext<ScheduleRuleW
     const ctx = p.ctx.subCtx({ formGroupStyle: "Basic" });
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-6"><AutoLine ctx={ctx.subCtx(r => r.startingOn)} /></div>
+            <div className="sf-row">
+                <div className="sm:col-span-6"><AutoLine ctx={ctx.subCtx(r => r.startingOn)} /></div>
             </div>
-            <div className="row">
-                <div className="col-sm-1"><AutoLine ctx={ctx.subCtx(r => r.monday)} /></div>
-                <div className="col-sm-1"><AutoLine ctx={ctx.subCtx(r => r.tuesday)} /></div>
-                <div className="col-sm-1"><AutoLine ctx={ctx.subCtx(r => r.wednesday)} /></div>
-                <div className="col-sm-1"><AutoLine ctx={ctx.subCtx(r => r.thursday)} /></div>
-                <div className="col-sm-1"><AutoLine ctx={ctx.subCtx(r => r.friday)} /></div>
-                <div className="col-sm-1"><AutoLine ctx={ctx.subCtx(r => r.saturday)} /></div>
-                <div className="col-sm-1"><AutoLine ctx={ctx.subCtx(r => r.sunday)} /></div>
+            <div className="sf-row">
+                <div className="sm:col-span-1"><AutoLine ctx={ctx.subCtx(r => r.monday)} /></div>
+                <div className="sm:col-span-1"><AutoLine ctx={ctx.subCtx(r => r.tuesday)} /></div>
+                <div className="sm:col-span-1"><AutoLine ctx={ctx.subCtx(r => r.wednesday)} /></div>
+                <div className="sm:col-span-1"><AutoLine ctx={ctx.subCtx(r => r.thursday)} /></div>
+                <div className="sm:col-span-1"><AutoLine ctx={ctx.subCtx(r => r.friday)} /></div>
+                <div className="sm:col-span-1"><AutoLine ctx={ctx.subCtx(r => r.saturday)} /></div>
+                <div className="sm:col-span-1"><AutoLine ctx={ctx.subCtx(r => r.sunday)} /></div>
             </div>
-            <div className="row">
-                <div className="col-sm-6"><EntityLine ctx={ctx.subCtx(r => r.calendar)} /></div>
-                <div className="col-sm-6"><AutoLine ctx={ctx.subCtx(r => r.holiday)} /></div>
+            <div className="sf-row">
+                <div className="sm:col-span-6"><EntityLine ctx={ctx.subCtx(r => r.calendar)} /></div>
+                <div className="sm:col-span-6"><AutoLine ctx={ctx.subCtx(r => r.holiday)} /></div>
             </div>
         </div>
     );

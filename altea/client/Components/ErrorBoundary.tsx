@@ -42,7 +42,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       }
 
       return (
-        <div className="alert alert-danger" role="alert">
+        <div className="sf-alert sf-alert-danger" role="alert">
           <h1 className="text-h2 font-medium">Error in rendering</h1>
           <p>
             <strong>{this.state.error?.name ?? "ERROR"}: </strong>

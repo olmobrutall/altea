@@ -44,12 +44,12 @@ export default function SchedulerPanelPage(): React.JSX.Element {
                     style={{ transform: `rotate(${rotation}deg)`, transition: "transform 0.5s ease-in-out", opacity: 0.5 }} />
             </h1>
 
-            <div className="btn-toolbar">
-                <button type="button" className={classes("sf-button btn", s.running ? "btn-success disabled" : "btn-outline-success")}
+            <div className="sf-btn-toolbar">
+                <button type="button" className={classes("sf-button sf-btn", s.running ? "sf-btn-success disabled" : "sf-btn-outline-success")}
                     onClick={s.running ? undefined : () => void SchedulerClient.API.start().then(() => reloadState())}>
                     <FontAwesomeIcon aria-hidden={true} icon="play" className="me-1" />{ScheduledTaskMessage.Start.niceToString()}
                 </button>
-                <button type="button" className={classes("sf-button btn", !s.running ? "btn-danger disabled" : "btn-outline-danger")}
+                <button type="button" className={classes("sf-button sf-btn", !s.running ? "sf-btn-danger disabled" : "sf-btn-outline-danger")}
                     onClick={!s.running ? undefined : () => void SchedulerClient.API.stop().then(() => reloadState())}>
                     <FontAwesomeIcon aria-hidden={true} icon="stop" className="me-1" />{ScheduledTaskMessage.Stop.niceToString()}
                 </button>
@@ -153,7 +153,7 @@ function RunningTasks(p: { runningTasks: SchedulerRunningTaskState[]; onReload: 
                                 <td>{item.startTime}</td>
                                 <td><pre className="mb-0">{item.remarks}</pre></td>
                                 <td>
-                                    <button type="button" className="btn btn-xs btn-danger"
+                                    <button type="button" className="sf-btn sf-btn-xs sf-btn-danger"
                                         onClick={e => handleCancel(e, item.schedulerTaskLog)}>
                                         {ScheduledTaskMessage.Cancel.niceToString()}
                                     </button>

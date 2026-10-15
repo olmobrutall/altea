@@ -1,24 +1,29 @@
 /* altea's Tailwind theme. An application's ONE Tailwind entry imports this and adds an `@source` for its
    own code — two entries would each emit every utility. See Tailwind-Plan.md. */
 
-/* `legacy` holds Bootstrap and the other libraries' stylesheets (the build wraps them; see vite.mjs), so anything
-   Tailwind- or `sf-`-styled wins over it whatever the specificity. `components` holds altea's packages' own CSS.
-   `app` holds the APPLICATION's own CSS: above every framework rule, which is how an app restyles the framework,
-   and still below the utilities, so a utility written on an element keeps winning (unlayered CSS would beat it). */
-@layer legacy, theme, base, components, app, utilities;
+/* The cascade layers, lowest first (the build puts each non-Tailwind stylesheet in one; see vite.mjs):
+   `legacy` the libraries' CSS (Font Awesome) and the reboot below; `semantic` altea's `sf-*` classes (semantic.css,
+   components.css); `components` altea's packages' own CSS, which adjusts those classes; `app` the APPLICATION's own CSS,
+   above every framework rule — that is how an app restyles the framework — and still below the utilities, so a
+   utility written on an element keeps winning (unlayered CSS would beat it). */
+@layer legacy, theme, base, semantic, components, app, utilities;
 
-/* No preflight while Bootstrap's reboot is loaded — two resets fight. */
+/* No Tailwind preflight: the element defaults are Bootstrap's reboot (reboot.css), which every view is written against.
+   It goes in `legacy` with the library stylesheets, where it sat beside Bootstrap: a library's class rule (Font Awesome's
+   `.svg-inline--fa`) still beats its element rules by specificity, as it always has. */
+@import "./reboot.css" layer(legacy);
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 
 @source "../../../*/client/**/*.{ts,tsx}";
 
-/* Bootstrap COMPONENT classes that are also Tailwind utilities with another meaning. Tailwind would
-   generate them for every place Bootstrap uses them (`collapse` → visibility: collapse). */
-@source not inline("collapse container table");
-
 /* StyleContext builds the LabelColumns spans from numbers, so the scanner cannot see them. */
 @source inline("{,sm:,md:,lg:}col-span-{1,2,3,4,5,6,7,8,9,10,11,12}");
+@source inline("{,sm:,md:,lg:}col-start-{1,2,3,4,5,6,7,8,9,10,11,12}");
+
+/* Colour classes built from a colour prop (Components.tsx `colorClass`). */
+@source inline("{text,bg,border}-{primary,secondary,tertiary,success,destructive,warning,info,light,dark}");
+@source inline("text-{primary,secondary,tertiary,success,destructive,warning,info,light,dark}-foreground");
 
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
@@ -205,6 +210,8 @@
         --info-subtle-border: #9eeaf9;
         /* Text stronger than the foreground; text fainter than muted; a border that works on any surface. */
         --emphasis: #000;
+        --code: #d63384;              /* inline code */
+        --highlight: #fff3cd;         /* <mark> */
         --faint-foreground: rgb(33 37 41 / .5);
         --border-translucent: rgb(0 0 0 / .175);
     }
@@ -248,6 +255,8 @@
         --info-subtle-foreground: #6edff6;
         --info-subtle-border: #087990;
         --emphasis: #fff;
+        --code: #e685b5;
+        --highlight: #664d03;
         --faint-foreground: rgb(222 226 230 / .5);
         --border-translucent: rgb(255 255 255 / .15);
     }
@@ -256,74 +265,5 @@
 @layer legacy {
     *, ::before, ::after {
         border-color: var(--border);
-    }
-}
-
-/* Bootstrap reads these, and so do stylesheets not yet migrated: pointing them at the tokens is what gives
-   migrated and unmigrated parts one palette. Bootstrap's `-rgb` triplets cannot be derived from a colour
-   and stay Bootstrap's until it is gone. */
-@layer base {
-    :root,
-    [data-theme] {
-        --bs-body-bg: var(--background);
-        --bs-body-color: var(--foreground);
-        --bs-border-color: var(--border);
-        --bs-secondary-bg: var(--muted);
-        --bs-tertiary-bg: var(--tertiary);
-        --bs-secondary-color: var(--muted-foreground);
-        --bs-primary: var(--primary);
-        --bs-secondary: var(--secondary);
-        --bs-success: var(--success);
-        --bs-danger: var(--destructive);
-        --bs-warning: var(--warning);
-        --bs-info: var(--info);
-    }
-
-    /* Bootstrap compiles the primary button and pagination colours in as literals, so a palette would not reach
-       them. Hover and active are Bootstrap's own shades: 15% and 20% darker. */
-    .btn-primary {
-        --bs-btn-bg: var(--primary);
-        --bs-btn-border-color: var(--primary);
-        --bs-btn-color: var(--primary-foreground);
-        --bs-btn-hover-color: var(--primary-foreground);
-        --bs-btn-hover-bg: color-mix(in srgb, var(--primary) 85%, #000);
-        --bs-btn-hover-border-color: color-mix(in srgb, var(--primary) 80%, #000);
-        --bs-btn-active-color: var(--primary-foreground);
-        --bs-btn-active-bg: color-mix(in srgb, var(--primary) 80%, #000);
-        --bs-btn-active-border-color: color-mix(in srgb, var(--primary) 75%, #000);
-        --bs-btn-disabled-color: var(--primary-foreground);
-        --bs-btn-disabled-bg: var(--primary);
-        --bs-btn-disabled-border-color: var(--primary);
-    }
-
-    .btn-outline-primary {
-        --bs-btn-color: var(--primary);
-        --bs-btn-border-color: var(--primary);
-        --bs-btn-hover-color: var(--primary-foreground);
-        --bs-btn-hover-bg: var(--primary);
-        --bs-btn-hover-border-color: var(--primary);
-        --bs-btn-active-color: var(--primary-foreground);
-        --bs-btn-active-bg: var(--primary);
-        --bs-btn-active-border-color: var(--primary);
-        --bs-btn-disabled-color: var(--primary);
-        --bs-btn-disabled-border-color: var(--primary);
-    }
-
-    .pagination {
-        --bs-pagination-active-bg: var(--primary);
-        --bs-pagination-active-border-color: var(--primary);
-        --bs-pagination-active-color: var(--primary-foreground);
-    }
-
-    /* Bootstrap's checkbox (CheckboxLine): literal colours too. The focus border is primary half-mixed with white. */
-    .form-check-input:checked,
-    .form-check-input[type=checkbox]:indeterminate {
-        background-color: var(--primary);
-        border-color: var(--primary);
-    }
-
-    .form-check-input:focus {
-        border-color: color-mix(in srgb, var(--primary) 50%, #fff);
-        box-shadow: 0 0 0 .25rem var(--ring);
     }
 }

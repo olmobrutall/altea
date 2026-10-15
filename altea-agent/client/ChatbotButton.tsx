@@ -14,7 +14,7 @@ export default function ChatbotButton(): React.ReactElement {
     return (
         <>
             {!showModal && <button type="button"
-                className="btn btn-primary chat-button shadow-xl rounded-full"
+                className="sf-btn sf-btn-primary chat-button shadow-xl rounded-full"
                 onClick={() => setShowModal(true)}
                 aria-label="Chat">
                 <FontAwesomeIcon icon={faComments} size="lg" />

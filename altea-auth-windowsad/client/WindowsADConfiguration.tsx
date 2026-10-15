@@ -30,14 +30,14 @@ export default function WindowsADConfiguration(p: { ctx: TypeContext<WindowsADCo
                 helpText="Required for directory lookups when the host process is not a domain member" />
             <AutoLine ctx={ctx.subCtx(n => n.directoryRegistry_Password)} />
 
-            <div className="row">
-                <div className="col-sm-4">
+            <div className="sf-row">
+                <div className="sm:col-span-4">
                     <CheckboxLine ctx={ctx.subCtx(n => n.allowMatchUsersBySimpleUserName)} inlineCheckbox="block" />
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     <CheckboxLine ctx={ctx.subCtx(n => n.autoUpdateUsers)} inlineCheckbox="block" onChange={forceUpdate} />
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     <CheckboxLine ctx={ctx.subCtx(n => n.autoCreateUsers)} inlineCheckbox="block" onChange={forceUpdate} />
                 </div>
             </div>

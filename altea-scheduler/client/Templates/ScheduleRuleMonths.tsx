@@ -11,11 +11,11 @@ export default function ScheduleRuleMonths(p: { ctx: TypeContext<ScheduleRuleMon
         "july", "august", "september", "october", "november", "december"] as const;
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-6"><AutoLine ctx={ctx.subCtx(r => r.startingOn)} /></div>
+            <div className="sf-row">
+                <div className="sm:col-span-6"><AutoLine ctx={ctx.subCtx(r => r.startingOn)} /></div>
             </div>
-            <div className="row">
-                {months.map(m => <div className="col-sm-2" key={m}><AutoLine ctx={ctx.subCtx(m)} /></div>)}
+            <div className="sf-row">
+                {months.map(m => <div className="sm:col-span-2" key={m}><AutoLine ctx={ctx.subCtx(m)} /></div>)}
             </div>
         </div>
     );

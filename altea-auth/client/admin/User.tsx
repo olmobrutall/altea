@@ -25,17 +25,17 @@ export default function User(p: { ctx: TypeContext<UserEntity> }): React.JSX.Ele
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-3 flex">
+            <div className="sf-row">
+                <div className="sm:col-span-3 flex">
                     <div className="mx-auto mt-4">
                         <ProfilePhoto user={ctx.value} size={150} />
                     </div>
                 </div>
-                <div className="col-sm-8">
+                <div className="sm:col-span-8">
                     <AutoLine ctx={ctx.subCtx(e => e.state, { readOnly: true })} />
                     <AutoLine ctx={ctx.subCtx(e => e.userName)} readOnly={userNameReadonly(ctx.value) ? true : undefined} />
-                    <div className="row">
-                        <div className="offset-sm-3 col-sm-9">
+                    <div className="sf-row">
+                        <div className="sm:col-start-4 sm:col-span-9">
                             <CheckboxLine ctx={ctx.subCtx(e => e.mustChangePassword)} inlineCheckbox />
                         </div>
                     </div>

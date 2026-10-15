@@ -310,7 +310,7 @@ export function EntityTable<R extends BaseEntity, RS>(props: EntityTableProps<R,
           p.scrollable ? "sf-scroll-table-container relative" /*Fix chrome double scroll bar (in div and in page)*/ : undefined,
           p.responsive && "overflow-x-auto")}
         style={{ maxHeight: p.scrollable ? p.maxResultsHeight : undefined }}>
-        <table className={classes("table table-sm sf-table", p.tableClasses, c.mandatoryClass)} >
+        <table className={classes("sf-table sf-table-sm sf-table", p.tableClasses, c.mandatoryClass)} >
           {
             !isEmpty &&
             <thead ref={c.thead}>

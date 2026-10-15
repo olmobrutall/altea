@@ -9,15 +9,15 @@ export default function EmailFrom(p: { ctx: TypeContext<EmailFromEmbedded> }): R
     const sc = p.ctx.subCtx({ placeholderLabels: true, formGroupStyle: "SrOnly" });
 
     return (
-        <div className="row">
-            <div className="col-sm-11 offset-sm-1">
+        <div className="sf-row">
+            <div className="sm:col-span-11 sm:col-start-2">
                 <EntityLine ctx={sc.subCtx(ea => ea.emailOwner)} />
             </div>
-            <div className="col-sm-5 offset-sm-1">
+            <div className="sm:col-span-5 sm:col-start-2">
                 <AutoLine ctx={sc.subCtx(c => c.emailAddress)} />
                 <AutoLine ctx={sc.subCtx(c => c.azureUserId)} />
             </div>
-            <div className="col-sm-6">
+            <div className="sm:col-span-6">
                 <AutoLine ctx={sc.subCtx(c => c.displayName)} />
             </div>
         </div>

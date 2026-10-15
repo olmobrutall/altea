@@ -49,7 +49,7 @@ export default function WorkflowLaneModelComponent(p: { ctx: TypeContext<Workflo
                         parameters={`e: ${ctx.value.mainEntityType!.className} | null, `
                             + `ctx: WorkflowTransitionContext`}
                         returnType="Lite<Entity>[]" isAsync />} />
-                : <div className="alert alert-warning">
+                : <div className="sf-alert sf-alert-warning">
                     {WorkflowMessage.ToUse0YouSouldSetTheWorkflow1.niceToString(
                         ctx.niceName(e => e.actorsEval), ctx.niceName(e => e.mainEntityType))}
                 </div>}

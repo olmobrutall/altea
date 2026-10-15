@@ -34,12 +34,12 @@ export default function ToolbarMenu(p: { ctx: TypeContext<ToolbarMenuEntity> }):
 
                 <div>
                     <h2 className="mt-4 text-h5 font-medium">{UserAssetMessage.UsedBy.niceToString()}</h2>
-                    <div className="row">
-                        <div className="col-sm-6">
+                    <div className="sf-row">
+                        <div className="sm:col-span-6">
                             <SearchValueLine ctx={ctx4} findOptions={ToolbarMenuEntity.findOptions(token => ({ filterOptions: [token(a => a.elements).any().append(a => a.content).filter("EqualTo", ctx.value)] }))} />
                             <SearchValueLine ctx={ctx4} findOptions={ToolbarEntity.findOptions(token => ({ filterOptions: [token(a => a.elements).any().append(a => a.content).filter("EqualTo", ctx.value)] }))} />
                         </div>
-                        <div className="col-sm-6">
+                        <div className="sm:col-span-6">
                             <SearchValueLine ctx={ctx4} findOptions={ToolbarSwitcherEntity.findOptions(token => ({ filterOptions: [token(a => a.options).any().append(a => a.toolbarMenu).filter("EqualTo", ctx.value)] }))} />
                         </div>
                     </div>

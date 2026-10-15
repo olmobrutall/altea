@@ -48,17 +48,17 @@ export default class InboxFilter extends React.Component<{ ctx: TypeContext<Inbo
                     headerStyle={{ text: "light" }}
                     bodyStyle={{ background: "light" }}>
                     <div className="sf-main-control">
-                        <div className="row">
-                            <div className="col-sm-3">
+                        <div className="sf-row">
+                            <div className="sm:col-span-3">
                                 <EnumCheckboxList ctx={ctx.subCtx(o => o.states)} columnCount={2}
                                     formGroupHtmlAttributes={{ style: { marginTop: -15, marginBottom: -15 } }} />
                             </div>
-                            <div className="col-sm-3">
+                            <div className="sm:col-span-3">
                                 <AutoLine ctx={ctx4.subCtx(o => o.range)} />
                                 <AutoLine ctx={ctx4.subCtx(o => o.fromDate)} />
                                 <AutoLine ctx={ctx4.subCtx(o => o.toDate)} />
                             </div>
-                            <div className="col-sm-1">
+                            <div className="sm:col-span-1">
                                 <BootstrapButton variant="warning" onClick={this.handleOnClearFiltersClick}>
                                     {InboxMessage.Clear.niceToString()}
                                 </BootstrapButton>

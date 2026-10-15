@@ -63,10 +63,10 @@ export function PaletteSelector(p: { palettes: Palette[], title?: string }): Rea
     const current = p.palettes.find(x => x.name === name) ?? p.palettes[0];
 
     return (
-        <div className="nav-item dropdown sf-palette-dropdown" data-palette={name}>
+        <div className="sf-nav-item sf-dropdown sf-palette-dropdown" data-palette={name}>
             <Dropdown>
                 <DropdownTrigger asChild>
-                    <button type="button" id="changePalette" className="nav-link dropdown-toggle" title={p.title}>
+                    <button type="button" id="changePalette" className="sf-nav-link sf-dropdown-toggle" title={p.title}>
                         <FontAwesomeIcon aria-hidden={true} icon="palette" /> {current?.label}
                     </button>
                 </DropdownTrigger>

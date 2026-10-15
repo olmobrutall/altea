@@ -95,7 +95,7 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
             {p.title}
           </h1>
         }
-        <button type="button" className="btn-close" data-dismiss="modal"
+        <button type="button" className="sf-btn-close" data-dismiss="modal"
           aria-label={JavascriptMessage.Close.niceToString()} onClick={handleCancelClicked} />
       </div>
 
@@ -103,21 +103,21 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
         <div>
           {p.message && (typeof p.message == "string" ? <p id={messageId}>{p.message}</p> : <div id={messageId}>{p.message}</div>)}
 
-          <div className="row">
+          <div className="flex flex-wrap gap-x-6">
             {groups
-              .map(gr => <div className="col-sm" key={gr.key}>
+              .map(gr => <div className="w-full sm:w-auto sm:flex-1 min-w-0" key={gr.key}>
                 {gr.key && (p.renderGroup == null ? <h2 className="text-[1.25rem] font-light">{gr.key}</h2> : p.renderGroup!(gr.key))}
                 {gr.elements.map((o, i) =>
                   p.multiSelect ?
                     <label className="m-2" style={{ display: "block", userSelect: "none" }} onDoubleClick={e => { e.preventDefault(); handleDoubleClickClicked(o.value); }} key={i}>
-                      <input type={p.multiSelect?.maxElements == 1 ? "radio" : "checkbox"} onChange={e => handleCheckboxOnChange(e, o.value)} className={"form-check-input"} name={o.displayName?.toString()!} checked={selectedItems.includes(o.value)} />
+                      <input type={p.multiSelect?.maxElements == 1 ? "radio" : "checkbox"} onChange={e => handleCheckboxOnChange(e, o.value)} className={"sf-form-check-input"} name={o.displayName?.toString()!} checked={selectedItems.includes(o.value)} />
                       {" "}{o.displayName}
                     </label> :
                     <button key={i} type="button" onClick={() => handleButtonClicked(o.value)} name={o.name}
                       // Keeps the first click from being swallowed: mousedown moved focus out of the
                       // button, the modal began to hide, and mouseup then landed on nothing.
                       onMouseDown={e => e.preventDefault()}
-                      className={"sf-chooser-button sf-close-button btn btn-tertiary"} >
+                      className={"sf-chooser-button sf-close-button sf-btn sf-btn-tertiary"} >
                       {o.displayName}
                     </button>)
                 }
@@ -129,7 +129,7 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
 
       {p.multiSelect && <div className="sf-modal-footer">
         <button type="button" onClick={() => handleOkClicked()}
-          className="btn btn-primary mt-2 sf-ok-button" disabled={
+          className="sf-btn sf-btn-primary mt-2 sf-ok-button" disabled={
             p.multiSelect.minElements != null && selectedItems.length < p.multiSelect.minElements ||
             p.multiSelect.maxElements != null && selectedItems.length > p.multiSelect.maxElements}>
           {JavascriptMessage.ok.niceToString()}

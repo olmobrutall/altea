@@ -21,18 +21,18 @@ export default function CacheStatisticsPage(): React.JSX.Element {
     return (
         <div className="m-4">
             <h1 className="text-h2 font-medium">{CacheMessage.CacheStatistics.niceToString()}</h1>
-            <div className="btn-toolbar gap-2">
+            <div className="sf-btn-toolbar gap-2">
                 {state.isEnabled
                     ? <button type="button" onClick={() => void CacheClient.API.disable().then(() => reloadState())}
-                        className="sf-button btn btn-tertiary" style={{ color: "var(--destructive)" }}>
+                        className="sf-button sf-btn sf-btn-tertiary" style={{ color: "var(--destructive)" }}>
                         {CacheMessage.Disable.niceToString()}
                     </button>
                     : <button type="button" onClick={() => void CacheClient.API.enable().then(() => reloadState())}
-                        className="sf-button btn btn-tertiary" style={{ color: "var(--success)" }}>
+                        className="sf-button sf-btn sf-btn-tertiary" style={{ color: "var(--success)" }}>
                         {CacheMessage.Enable.niceToString()}
                     </button>}
                 <button type="button" onClick={() => void CacheClient.API.clear().then(() => reloadState())}
-                    className="sf-button btn btn-tertiary" style={{ color: "var(--primary)" }}>
+                    className="sf-button sf-btn sf-btn-tertiary" style={{ color: "var(--primary)" }}>
                     {CacheMessage.Clear.niceToString()}
                 </button>
             </div>
@@ -54,7 +54,7 @@ export default function CacheStatisticsPage(): React.JSX.Element {
 
     function renderTables(state: CacheState): React.JSX.Element {
         return (
-            <table className="table table-sm" aria-label={CacheMessage.TableStats.niceToString()}>
+            <table className="sf-table sf-table-sm" aria-label={CacheMessage.TableStats.niceToString()}>
                 <thead>
                     <tr>
                         <th>{CacheMessage.Table.niceToString()}</th>
@@ -99,7 +99,7 @@ export default function CacheStatisticsPage(): React.JSX.Element {
 
     function renderLazies(state: CacheState): React.JSX.Element {
         return (
-            <table className="table table-sm" aria-label={CacheMessage.LazyStats.niceToString()}>
+            <table className="sf-table sf-table-sm" aria-label={CacheMessage.LazyStats.niceToString()}>
                 <thead>
                     <tr>
                         <th>{CacheMessage.Type.niceToString()}</th>

@@ -36,7 +36,7 @@ import { EntityLine } from "./Lines/EntityLine";
 import { EntityCombo } from "./Lines/EntityCombo";
 import { EntityStrip } from "./Lines/EntityStrip";
 import { DateTimeRange } from "./Lines/DateTimeRange";
-import type { DateValue } from "./Lines/ReactWidgetsLocalizer";
+import type { DateValue } from "./ui/dateFormat";
 import { FormGroup } from "./Lines/FormGroup";
 import { EntityBaseController } from "./Lines/EntityBase";
 import { LinkButton } from "./Basics/LinkButton";
@@ -212,7 +212,7 @@ export function initFormatRules(): Finder.FormatRule[] {
       // label it was announced as an anonymous "checkbox, checked" with no clue which column it belonged
       // to. The disabled state already conveys that it is not operable.
       formatter: col => new Finder.CellFormatter((cell: any, ctx, column) => cell == null ? "" :
-        <input type="checkbox" className="form-check-input" disabled={true} readOnly checked={Boolean(cell)}
+        <input type="checkbox" className="sf-form-check-input" disabled={true} readOnly checked={Boolean(cell)}
           aria-label={column?.column?.displayName ?? column?.column?.token?.niceName ?? col?.niceName} />, false, "centered-cell"),
     },
     // DateOnly / DateTime (filterType "DateTime"): parse the ISO string with the matching Temporal type
@@ -481,7 +481,7 @@ export function ComplexConditionSyntax(p: { filterOperation: FilterOperationKeys
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" className="sf-line-button sf-view btn sf-input-group-text">{help.icon}</button>
+        <button type="button" className="sf-line-button sf-view sf-btn sf-input-group-text">{help.icon}</button>
       </PopoverTrigger>
       <PopoverContent side="right" title={help.title} arrow>
       {p.filterOperation === "SmartSearch"

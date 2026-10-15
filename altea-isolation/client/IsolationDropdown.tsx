@@ -23,10 +23,10 @@ export default function IsolationDropdown(): React.JSX.Element | null {
     }
 
     return (
-        <div data-current-isolation={current?.id} className="nav-item dropdown sf-isolation-dropdown">
+        <div data-current-isolation={current?.id} className="sf-nav-item sf-dropdown sf-isolation-dropdown">
             <Dropdown>
                 <DropdownTrigger asChild>
-                    <button type="button" id="isolationDropdown" className="nav-link dropdown-toggle">
+                    <button type="button" id="isolationDropdown" className="sf-nav-link sf-dropdown-toggle">
                         {current ? current.toString() : <strong className="text-destructive">{IsolationMessage.GlobalMode.niceToString()}</strong>}
                     </button>
                 </DropdownTrigger>

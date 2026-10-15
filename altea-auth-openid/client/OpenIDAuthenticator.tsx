@@ -174,10 +174,10 @@ export function OpenIDSignIn({ ctx, buttonContent }: { ctx: LoginContext; button
     }
 
     return (
-        <div className="row mt-6">
-            <div className="col-md-6 offset-md-3">
+        <div className="sf-row mt-6">
+            <div className="md:col-span-6 md:col-start-4">
                 <button type="button"
-                    className={`btn btn-primary w-100${ctx.loading != null ? " disabled" : ""}`}
+                    className={`sf-btn sf-btn-primary w-100${ctx.loading != null ? " disabled" : ""}`}
                     onClick={handleClick}>
                     {buttonContent ?? OpenIDMessage.SignInWithOpenID.niceToString()}
                 </button>

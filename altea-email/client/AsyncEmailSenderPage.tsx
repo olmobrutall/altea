@@ -38,12 +38,12 @@ export default function AsyncEmailSenderPage(): React.JSX.Element {
                 AsyncEmailSender
             </h1>
 
-            <div className="btn-toolbar mt-4">
-                <button type="button" className={classes("sf-button btn", s.running ? "btn-success disabled" : "btn-outline-success")}
+            <div className="sf-btn-toolbar mt-4">
+                <button type="button" className={classes("sf-button sf-btn", s.running ? "sf-btn-success disabled" : "sf-btn-outline-success")}
                     onClick={s.running ? undefined : () => void MailingClient.API.start().then(() => reloadState())}>
                     <FontAwesomeIcon aria-hidden={true} icon="play" className="me-1" />Start
                 </button>
-                <button type="button" className={classes("sf-button btn", !s.running ? "btn-danger disabled" : "btn-outline-danger")}
+                <button type="button" className={classes("sf-button sf-btn", !s.running ? "sf-btn-danger disabled" : "sf-btn-outline-danger")}
                     onClick={!s.running ? undefined : () => void MailingClient.API.stop().then(() => reloadState())}>
                     <FontAwesomeIcon aria-hidden={true} icon="stop" className="me-1" />Stop
                 </button>

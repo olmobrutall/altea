@@ -81,18 +81,18 @@ export default function HeavyList(): React.JSX.Element {
         <div>
             <h1 className="text-display-6 font-light">{HeavyProfilerMessage.HeavyProfiler.niceToString()}</h1>
             <br />
-            <div className="btn-toolbar" style={{ float: "right" }}>
+            <div className="sf-btn-toolbar" style={{ float: "right" }}>
                 <input key={fileVer} type="file" className="sf-form-control" onChange={handleInputChange} style={{ display: "inline", float: "left", width: "inherit" }} />
-                <button type="button" onClick={handleUpload} className="btn btn-info" aria-disabled={!fileToUpload} disabled={!fileToUpload}><FontAwesomeIcon aria-hidden={true} icon="cloud-arrow-up" /> {HeavyProfilerMessage.Upload.niceToString()}</button>
+                <button type="button" onClick={handleUpload} className="sf-btn sf-btn-info" aria-disabled={!fileToUpload} disabled={!fileToUpload}><FontAwesomeIcon aria-hidden={true} icon="cloud-arrow-up" /> {HeavyProfilerMessage.Upload.niceToString()}</button>
             </div>
-            <div className="btn-toolbar">
-                <button type="button" className={classes("btn", enabled ? "btn-outline-danger" : "btn-tertiary")} onClick={() => handleSetEnabled(!enabled)}><FontAwesomeIcon icon={["fas", "circle"]} /> {HeavyProfilerMessage.Record.niceToString()}</button>
-                <button type="button" onClick={handleUpdate} className="btn btn-tertiary"><FontAwesomeIcon aria-hidden={true} icon="refresh" /> {HeavyProfilerMessage.Update.niceToString()}</button>
-                <button type="button" onClick={handleClear} className="btn btn-tertiary"><FontAwesomeIcon aria-hidden={true} icon="trash" /> {HeavyProfilerMessage.Clear.niceToString()}</button>
-                <button type="button" onClick={handleDownload} className="btn btn-tertiary btn-outline-info"><FontAwesomeIcon aria-hidden={true} icon="cloud-arrow-down" /> {HeavyProfilerMessage.Download.niceToString()}</button>
+            <div className="sf-btn-toolbar">
+                <button type="button" className={classes("sf-btn", enabled ? "sf-btn-outline-danger" : "sf-btn-tertiary")} onClick={() => handleSetEnabled(!enabled)}><FontAwesomeIcon icon={["fas", "circle"]} /> {HeavyProfilerMessage.Record.niceToString()}</button>
+                <button type="button" onClick={handleUpdate} className="sf-btn sf-btn-tertiary"><FontAwesomeIcon aria-hidden={true} icon="refresh" /> {HeavyProfilerMessage.Update.niceToString()}</button>
+                <button type="button" onClick={handleClear} className="sf-btn sf-btn-tertiary"><FontAwesomeIcon aria-hidden={true} icon="trash" /> {HeavyProfilerMessage.Clear.niceToString()}</button>
+                <button type="button" onClick={handleDownload} className="sf-btn sf-btn-tertiary sf-btn-outline-info"><FontAwesomeIcon aria-hidden={true} icon="cloud-arrow-down" /> {HeavyProfilerMessage.Download.niceToString()}</button>
             </div>
             <label>
-                <input type="checkbox" className="form-check-input me-1" checked={ignoreProfilerHeavyEntries} onChange={e => setIgnoreProfilerHeavyEntries(e.currentTarget.checked)} />
+                <input type="checkbox" className="sf-form-check-input me-1" checked={ignoreProfilerHeavyEntries} onChange={e => setIgnoreProfilerHeavyEntries(e.currentTarget.checked)} />
                 {HeavyProfilerMessage.IgnoreHeavyProfilerEntries.niceToString()}
             </label>
             <br />

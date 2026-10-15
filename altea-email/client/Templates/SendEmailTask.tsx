@@ -63,14 +63,14 @@ export default function SendEmailTask(p: { ctx: TypeContext<SendEmailTaskEntity>
             <EntityLine ctx={sc.subCtx(s => s.emailTemplate)} onChange={clearTargets}
                 helpText={target && ("Query: " + (target.queryKey ?? "null"))} />
 
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     {sc.value.emailTemplate && <EnumLine ctx={sc.subCtx(s => s.targetFrom)} onChange={clearTargets}
                         optionItems={target?.type == null
                             ? [EmailTemplateTargetFrom.NoTarget]
                             : [EmailTemplateTargetFrom.Unique, EmailTemplateTargetFrom.UserQuery]} />}
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     {target?.type && sc.value.targetFrom === EmailTemplateTargetFrom.UserQuery &&
                         <EntityLine ctx={sc.subCtx(s => s.targetsFromUserQuery)}
                             findOptions={UserQueryEntity.findOptions(token => ({

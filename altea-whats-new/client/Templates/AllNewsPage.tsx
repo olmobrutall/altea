@@ -45,7 +45,7 @@ export function WhatsNewCard(p: { news: WhatsNewFull }): React.JSX.Element {
 
     return (
         <div key={whatsnew.whatsNew.id} style={{ position: "relative", cursor: "pointer", margin: "10px" }}>
-            <div className="card news-shadow" style={{ width: "500px" }}>
+            <div className="sf-card news-shadow" style={{ width: "500px" }}>
                 {whatsnew.previewPicture &&
                     <Link to={newsUrl}
                         aria-label={`${whatsnew.title} – ${WhatsNewMessage.ReadFurther.niceToString()}`}
@@ -56,8 +56,8 @@ export function WhatsNewCard(p: { news: WhatsNewFull }): React.JSX.Element {
                                 style={{ width: "100%", height: "auto" }} />
                         </div>
                     </Link>}
-                <div className="card-body pt-2">
-                    <h2 className="card-title text-h5 font-medium">{whatsnew.title}</h2>
+                <div className="sf-card-body pt-2">
+                    <h2 className="sf-card-title text-h5 font-medium">{whatsnew.title}</h2>
                     <small><HtmlViewer text={htmlSubstring(whatsnew.description, 300)} /></small>
                     <br />
                     <div style={{ display: "flex", justifyContent: "space-between" }}>

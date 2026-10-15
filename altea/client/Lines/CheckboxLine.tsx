@@ -46,7 +46,7 @@ export const CheckboxLine: (props: CheckboxLineProps) => React.ReactNode | null 
         <label htmlFor={controlId} style={{ display: p.inlineCheckbox == "block" ? "block" : undefined, ...style }} {...otherAtts} className={classes(p.ctx.labelClass, c.getErrorClass(), className)}>
           {getTimeMachineIcon({ ctx: p.ctx })}
           <input type="checkbox" id={controlId} {...mergedHtml} checked={p.ctx.value || false} onChange={handleCheckboxOnChange} disabled={p.ctx.readOnly}
-            className={classes(c.props.valueHtmlAttributes?.className, "form-check-input")}
+            className={classes(c.props.valueHtmlAttributes?.className, "sf-form-check-input")}
           />
           {" "}{p.label}{requiredIndicator && <span aria-hidden="true" className="required-indicator">*</span>}{p.labelIcon && " "}{p.labelIcon}
           {p.helpText && <small className="block sf-form-text text-muted-foreground">{helpText}</small>}
@@ -60,7 +60,7 @@ export const CheckboxLine: (props: CheckboxLineProps) => React.ReactNode | null 
           {inputId => <>
             {getTimeMachineIcon({ ctx: p.ctx })}
             <input id={inputId} type="checkbox" {...c.props.valueHtmlAttributes} checked={p.ctx.value || false} onChange={handleCheckboxOnChange}
-              className={classes(c.props.valueHtmlAttributes?.className, "form-check-input")} disabled={p.ctx.readOnly} />
+              className={classes(c.props.valueHtmlAttributes?.className, "sf-form-check-input")} disabled={p.ctx.readOnly} />
           </>
           }
         </FormGroup>

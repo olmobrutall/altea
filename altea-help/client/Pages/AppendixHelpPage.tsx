@@ -34,12 +34,12 @@ export default function AppendixHelpPage(): React.JSX.Element {
     useTitle(HelpMessage.Help.niceToString() + (appendix ? " > " + appendix.title : ""));
 
     if (appendix == null)
-        return <div className="container"><h1 className="text-display-6 font-light">{JavascriptMessage.loading.niceToString()}</h1></div>;
+        return <div className="sf-container"><h1 className="text-display-6 font-light">{JavascriptMessage.loading.niceToString()}</h1></div>;
 
     const ctx = TypeContext.root(appendix, { readOnly: Navigator.isReadOnly(AppendixHelpEntity) });
 
     return (
-        <div className="container">
+        <div className="sf-container">
             <h1 className="text-display-6 font-light">
                 <Link to={HelpClient.Urls.indexUrl()}>{HelpMessage.Help.niceToString()}</Link>
                 {" > "}
@@ -65,7 +65,7 @@ export default function AppendixHelpPage(): React.JSX.Element {
 
             <EditableHtml ctx={ctx.subCtx(a => a.description)} onChange={forceUpdate} defaultEditable={appendix.isNew} />
 
-            <div className={classes("btn-toolbar", "sf-button-bar", "mt-6")}>
+            <div className={classes("sf-btn-toolbar", "sf-button-bar", "mt-6")}>
                 <SaveButton ctx={ctx} onSuccess={() => ctx.value.isNew
                     ? AppContext.navigate(HelpClient.Urls.appendixUrl(ctx.value.uniqueName))
                     : reload()} />
@@ -89,7 +89,7 @@ function SaveButton({ ctx, onSuccess }: { ctx: TypeContext<AppendixHelpEntity>; 
     }
 
     return (
-        <button type="button" className="btn btn-primary" onClick={onClick}>
+        <button type="button" className="sf-btn sf-btn-primary" onClick={onClick}>
             <FontAwesomeIcon aria-hidden={true} icon="floppy-disk" /> {oi.niceName}
         </button>
     );
@@ -121,7 +121,7 @@ function DeleteButton({ ctx }: { ctx: TypeContext<AppendixHelpEntity> }): React.
     }
 
     return (
-        <button type="button" className="btn btn-danger ms-6" onClick={onClick}>
+        <button type="button" className="sf-btn sf-btn-danger ms-6" onClick={onClick}>
             <FontAwesomeIcon aria-hidden={true} icon="trash" /> {oi.niceName}
         </button>
     );

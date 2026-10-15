@@ -93,7 +93,7 @@ export function MultiPropertySetterModal(p: MultiPropertySetterModalProps): Reac
     <Modal onHide={handleCancelClicked} show={show} className="message-modal" size="xl" onExited={handleOnExited} aria-labelledby={titleId}>
       <div className="sf-modal-header">
         <h1 id={titleId} className="sf-modal-title text-h5 font-medium">{OperationMessage.BulkModifications.niceToString()}</h1>
-        <button type="button" className="btn-close" data-dismiss="modal" aria-label={EntityControlMessage.Close.niceToString()} onClick={handleCancelClicked} />
+        <button type="button" className="sf-btn-close" data-dismiss="modal" aria-label={EntityControlMessage.Close.niceToString()} onClick={handleCancelClicked} />
       </div>
       <div className="sf-modal-body">
         <ErrorBoundary>
@@ -109,11 +109,11 @@ export function MultiPropertySetterModal(p: MultiPropertySetterModalProps): Reac
           )}
         </p>
         <br />
-        <button className="btn btn-primary sf-entity-button sf-ok-button"
+        <button className="sf-btn sf-btn-primary sf-entity-button sf-ok-button"
           disabled={p.setters.some(s => !isValid(s))} onClick={handleOkClicked}>
           {JavascriptMessage.ok.niceToString()}
         </button>
-        <button className="btn btn-tertiary sf-entity-button sf-close-button" onClick={handleCancelClicked}>
+        <button className="sf-btn sf-btn-tertiary sf-entity-button sf-close-button" onClick={handleCancelClicked}>
           {JavascriptMessage.cancel.niceToString()}
         </button>
       </div>
@@ -150,7 +150,7 @@ export function MultiPropertySetter({ root, setters, onChange, isPredicate }: { 
     OperationMessage.AddSetter.niceToString()
 
   return (
-    <table className="table-sm">
+    <table className="sf-table-sm">
       <thead>
         <tr>
           <th style={{ minWidth: "24px" }}></th>

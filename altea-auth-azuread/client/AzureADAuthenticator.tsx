@@ -397,8 +397,8 @@ export const MicrosoftSignInOptions = {
 export function MicrosoftSignIn({ ctx, adVariant = "default" }: { ctx: LoginContext; adVariant?: string }): React.JSX.Element {
     const label = LoginAuthMessage.SignInWithMicrosoft.niceToString();
     return (
-        <div className="row mt-2">
-            <div className="col-md-6 offset-md-3">
+        <div className="sf-row mt-2">
+            <div className="md:col-span-6 md:col-start-4">
                 <LinkButton title={label} className={ctx.loading != null ? "disabled" : undefined}
                     onClick={e => { void AzureADAuthenticator.signIn(ctx, adVariant, undefined, e); }}>
                     <img src={MicrosoftSignInOptions.iconUrl} alt={label} />
@@ -415,14 +415,14 @@ export function AzureB2CSignIn({ ctx, adVariant = "default" }: { ctx: LoginConte
 
     if (hasSignInFlow && hasSignUpFlow) {
         return (
-            <div className="row mt-6">
-                <div className="col-md-6 offset-md-3">
-                    <div className="hstack">
-                        <button type="button" className={classes("btn btn-secondary me-2", ctx.loading != null && "disabled")}
+            <div className="sf-row mt-6">
+                <div className="md:col-span-6 md:col-start-4">
+                    <div className="flex flex-row items-center">
+                        <button type="button" className={classes("sf-btn sf-btn-secondary me-2", ctx.loading != null && "disabled")}
                             onClick={e => { void AzureADAuthenticator.signIn(ctx, adVariant, "signIn_UserFlow", e); }}>
                             {LoginAuthMessage.SignInWithAzureB2C.niceToString()}
                         </button>
-                        <button type="button" className={classes("btn btn-primary", ctx.loading != null && "disabled")}
+                        <button type="button" className={classes("sf-btn sf-btn-primary", ctx.loading != null && "disabled")}
                             onClick={e => { void AzureADAuthenticator.signIn(ctx, adVariant, "signUp_UserFlow", e); }}>
                             {LoginAuthMessage.SignUpWithAzureB2C.niceToString()}
                         </button>
@@ -433,9 +433,9 @@ export function AzureB2CSignIn({ ctx, adVariant = "default" }: { ctx: LoginConte
     }
 
     return (
-        <div className="row mt-6">
-            <div className="col-md-6 offset-md-3">
-                <button type="button" className={classes("btn btn-primary", ctx.loading != null && "disabled")}
+        <div className="sf-row mt-6">
+            <div className="md:col-span-6 md:col-start-4">
+                <button type="button" className={classes("sf-btn sf-btn-primary", ctx.loading != null && "disabled")}
                     onClick={e => { void AzureADAuthenticator.signIn(ctx, adVariant, undefined, e); }}>
                     {LoginAuthMessage.LoginWithAzureB2C.niceToString()}
                 </button>

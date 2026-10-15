@@ -91,7 +91,7 @@ export namespace ActiveDirectoryClient {
 
             return {
                 order: -1,
-                button: <button className="btn btn-info ms-2"
+                button: <button className="sf-btn sf-btn-info ms-2"
                     onClick={() => {
                         void AutoLineModal.show<string>({
                             type: new TypeReference({ typeName: "String" }),

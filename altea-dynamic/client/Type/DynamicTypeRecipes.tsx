@@ -180,7 +180,7 @@ export namespace ${container} {
                 ? <a href="#" onClick={e => { e.preventDefault(); goTo(p.dataEditor, operationsBlock.bodyStart); }}>
                     <FontAwesomeIcon aria-hidden={true} icon="bolt" /> {M.EditOperations.niceToString()}
                 </a>
-                : <button type="button" className="btn btn-sm btn-outline-secondary" onClick={addOperationsBlock}>
+                : <button type="button" className="sf-btn sf-btn-sm sf-btn-outline-secondary" onClick={addOperationsBlock}>
                     <FontAwesomeIcon aria-hidden={true} icon="bolt" /> {M.AddOperations.niceToString()}
                 </button>)}
         </div>
@@ -426,7 +426,7 @@ function FieldRecipe(p: {
                     </code>
                     {v.argsSpan != null &&
                         <CommitInput value={v.argsText ?? ""} onCommit={text => p.apply([{ span: v.argsSpan!, text }])} />}
-                    <button type="button" className="btn btn-sm btn-link text-destructive p-0 ms-auto" title={M.Remove.niceToString()}
+                    <button type="button" className="sf-btn sf-btn-sm sf-btn-link text-destructive p-0 ms-auto" title={M.Remove.niceToString()}
                         onClick={() => p.apply([p.removeDecorator(v)])}>
                         <FontAwesomeIcon aria-hidden={true} icon="xmark" />
                     </button>
@@ -493,7 +493,7 @@ function ClassRecipe(p: { cls: ClassInfo; knownTypes: KnownType[]; apply: (edits
                 knownTypes={p.knownTypes} option={M.PreserveOrder.niceToString()}
                 onAdd={(name, type, preserveOrder) => addCollection(name, type, preserveOrder)} />
             {!hasToString && cls.baseText === "Entity" &&
-                <button type="button" className="btn btn-sm btn-outline-secondary mt-2" onClick={addToString}>
+                <button type="button" className="sf-btn sf-btn-sm sf-btn-outline-secondary mt-2" onClick={addToString}>
                     <FontAwesomeIcon aria-hidden={true} icon="plus" /> {M.AddToString.niceToString()}
                 </button>}
         </fieldset>
@@ -533,7 +533,7 @@ function AddMemberForm(p: {
             </Row>
             <Row label="">
                 {p.option != null && <Check label={p.option} checked={option} onChange={setOption} />}
-                <button type="button" className="btn btn-sm btn-primary ms-auto" disabled={name === ""} onClick={add}>
+                <button type="button" className="sf-btn sf-btn-sm sf-btn-primary ms-auto" disabled={name === ""} onClick={add}>
                     <FontAwesomeIcon aria-hidden={true} icon="plus" /> {M.Add.niceToString()}
                 </button>
             </Row>
@@ -647,7 +647,7 @@ function OperationsRecipe(p: {
                     {o.registered
                         ? <span className="ms-auto text-success"><FontAwesomeIcon aria-hidden={true} icon="check" /> {M.Registered.niceToString()}</span>
                         : start != null &&
-                        <button type="button" className="btn btn-sm btn-outline-primary ms-auto py-0"
+                        <button type="button" className="sf-btn sf-btn-sm sf-btn-outline-primary ms-auto py-0"
                             onClick={() => { const e = register(o.kind!, o.name); if (e != null) p.applyServer([e]); }}>
                             {M.Register.niceToString()}
                         </button>}
@@ -665,7 +665,7 @@ function OperationsRecipe(p: {
                     onChange={e => setName(e.currentTarget.value)} onKeyDown={e => { if (e.key === "Enter") add(); }} />
             </Row>
             <Row label="">
-                <button type="button" className="btn btn-sm btn-primary ms-auto" disabled={name === ""} onClick={add}>
+                <button type="button" className="sf-btn sf-btn-sm sf-btn-primary ms-auto" disabled={name === ""} onClick={add}>
                     <FontAwesomeIcon aria-hidden={true} icon="plus" /> {M.Add.niceToString()}
                 </button>
             </Row>
@@ -823,9 +823,9 @@ function stringArg(d: DecoratorInfo | undefined): string {
 
 function Row(p: { label: string; children: React.ReactNode }): React.JSX.Element {
     return (
-        <div className="row g-1 items-center mb-1">
-            <label className="col-4 sf-col-form-label sf-col-form-label-sm">{p.label}</label>
-            <div className="col-8 flex gap-2 items-center flex-wrap">{p.children}</div>
+        <div className="sf-row gap-1 items-center mb-1">
+            <label className="col-span-4 sf-col-form-label sf-col-form-label-sm">{p.label}</label>
+            <div className="col-span-8 flex gap-2 items-center flex-wrap">{p.children}</div>
         </div>
     );
 }
@@ -833,7 +833,7 @@ function Row(p: { label: string; children: React.ReactNode }): React.JSX.Element
 function Check(p: { label: string; checked: boolean; onChange: (value: boolean) => void }): React.JSX.Element {
     return (
         <label className="sf-form-check-label flex items-center gap-1">
-            <input type="checkbox" className="form-check-input m-0" checked={p.checked} onChange={e => p.onChange(e.currentTarget.checked)} />
+            <input type="checkbox" className="sf-form-check-input m-0" checked={p.checked} onChange={e => p.onChange(e.currentTarget.checked)} />
             {p.label}
         </label>
     );

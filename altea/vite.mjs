@@ -1,25 +1,22 @@
 // Vite plugins an altea application's client config uses.
 
-const LAYER_ORDER = "@layer legacy, theme, base, components, app, utilities;";
+const LAYER_ORDER = "@layer legacy, theme, base, semantic, components, app, utilities;";
 const TAILWIND_DIRECTIVE = /@(?:import\s+["']tailwindcss|reference|apply|theme|source|utility|custom-variant|layer)\b/;
 const LEADING_STATEMENT = /^\s*(?:@charset[^;]*;|@import[^;]*;|\/\*[\s\S]*?\*\/)/;
 // An altea package's own stylesheet, in the workspace or installed (`@altea/altea-x/client/…`).
 const ALTEA_PACKAGE_CSS = /[\\/]@?altea[\\/]altea(?:-[\w-]+)?[\\/](?:dist[\\/])?client[\\/]/;
-// Rules written against Bootstrap's own classes, kept beside Bootstrap until it is removed (Phase 5).
-const STAYS_LEGACY = /[\\/]ui[\\/]semantic\.css$/;
+// The semantic classes (and the component classes it imports): a layer of their own, under the packages' CSS.
+const SEMANTIC_CSS = /[\\/]ui[\\/]semantic\.css$/;
 
 /**
  * Layers every stylesheet that is not written for Tailwind (theme.css declares the order):
- *  - `legacy`: Bootstrap and the other libraries. A Tailwind utility or an `sf-*` rule always beats them; inside
+ *  - `legacy`: the libraries (Font Awesome). A Tailwind utility or an `sf-*` rule always beats them; inside
  *    the one layer they keep the order and specificity they had unlayered.
- *  - `components`: an altea package's own stylesheet. It beats Bootstrap whatever the specificity.
+ *  - `semantic`: `ui/semantic.css` and the `components.css` it imports — the `sf-*` classes. Above the libraries,
+ *    below the packages' own stylesheets, which adjust these classes and must keep winning.
+ *  - `components`: an altea package's own stylesheet. It beats a library's rule whatever the specificity.
  *  - `app`: the application's own stylesheets. They beat every framework rule — that is how an app restyles
  *    altea — and still lose to a utility written on the element.
- *
- * Bootstrap's utilities lose their `!important`: an important declaration in an EARLIER layer beats every
- * later one, so `.mb-4 { margin-bottom: 1.5rem !important }` would override Tailwind's `mb-4` on every
- * element the class sweep rewrote. Within `legacy`, the utilities come last in bootstrap.css and still
- * beat its components.
  */
 export function alteaLegacyCssLayer() {
     return {
@@ -35,10 +32,8 @@ export function alteaLegacyCssLayer() {
 
             // A BOM inside the layer block would become part of the first selector.
             let body = code.replace(/^﻿/, "");
-            if (/[\\/]bootstrap[\\/]dist[\\/]css[\\/]/.test(file))
-                body = body.replace(/\s*!important/g, "");
 
-            const layer = STAYS_LEGACY.test(file) ? "legacy"
+            const layer = SEMANTIC_CSS.test(file) ? "semantic"
                 : ALTEA_PACKAGE_CSS.test(file) ? "components"
                 : /[\\/]node_modules[\\/]/.test(file) ? "legacy"
                 : "app";

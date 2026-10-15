@@ -101,13 +101,13 @@ function MentionPlugin(p: { handler: MentionHandlerBase }): React.JSX.Element | 
                     return null;
 
                 return ReactDOM.createPortal(
-                    <ul className="mention-dropdown list-group">
+                    <ul className="mention-dropdown sf-list-group">
                         {options.map((option, i) => (
                             <li key={option.key}
                                 ref={option.setRefElement}
                                 role="option"
                                 aria-selected={i === selectedIndex}
-                                className={`list-group-item list-group-item-action${i === selectedIndex ? " active" : ""}`}
+                                className={`sf-list-group-item list-group-item-action${i === selectedIndex ? " active" : ""}`}
                                 onClick={() => selectOptionAndCleanUp(option)}
                                 onMouseEnter={() => setHighlightedIndex(i)}>
                                 {p.handler.renderOption

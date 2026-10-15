@@ -152,10 +152,10 @@ export class StyleContext {
 
   get buttonClass(): string | undefined {
     switch (this.formSize) {
-      case "xs": return "btn-xs";
-      case "sm": return "btn-sm";
+      case "xs": return "sf-btn-xs";
+      case "sm": return "sf-btn-sm";
       case "md": return undefined;
-      case "lg": return "btn-lg";
+      case "lg": return "sf-btn-lg";
       default: throw new Error("Unexpected formSize " + this.formSize);
     }
   }

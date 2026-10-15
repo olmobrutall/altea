@@ -238,7 +238,7 @@ export function renderNavItem(res: ToolbarResponse<any>, key: string | number, c
     // toolbar keeps working.
     return (
         <ErrorBoundary key={key} deps={[res]} fallback={error => (
-            <li className="nav-item text-destructive px-4 py-1" role="alert" title={error?.stack}>
+            <li className="sf-nav-item text-destructive px-4 py-1" role="alert" title={error?.stack}>
                 <FontAwesomeIcon aria-hidden={true} icon="triangle-exclamation" className="me-1" />
                 <small>{error?.message ?? error?.name}</small>
             </li>
@@ -291,7 +291,7 @@ function renderNavItemUnsafe(res: ToolbarResponse<any>, key: string | number, ct
                     // An <li>: these render into the sidebar's <ul>, where any other element is not
                     // a permitted child. A misconfiguration path, but it is the one a screen reader meets
                     // on a broken toolbar, and a stray child can cost the list its semantics entirely.
-                    return <li className="nav-item text-destructive">
+                    return <li className="sf-nav-item text-destructive">
                         {ToolbarMessage.ToolbarConfigNotRegistered0.niceToString(cleanTypeName(res.content.entityType))}
                     </li>;
 
@@ -309,7 +309,7 @@ function renderNavItemUnsafe(res: ToolbarResponse<any>, key: string | number, ct
                 );
             }
 
-            return <li className="nav-item" key={key} style={{ color: "red" }}>{ToolbarMessage.NoContentOrUrlFound.niceToString()}</li>;
+            return <li className="sf-nav-item" key={key} style={{ color: "red" }}>{ToolbarMessage.NoContentOrUrlFound.niceToString()}</li>;
 
         default:
             throw new Error("Unexpected " + res.type);
@@ -576,7 +576,7 @@ function ToolbarMenuItemsEntityType(p: { response: ToolbarResponse<ToolbarMenuEn
                 A <ul> may only contain <li>, and anything else breaks both the parsing of the list and
                 the count assistive technology announces for it. */}
             {entityType && (
-                <li title={ti.getNiceName()} className="nav-item flex mx-2 mb-2">
+                <li title={ti.getNiceName()} className="sf-nav-item flex mx-2 mb-2">
                     <div style={{ width: "100%" }}>
                         <EntityLine ctx={ctx} view={false} mandatory="warning"
                             inputAttributes={{ placeholder: LayoutMessage.SelectA0_G.niceToString(ti.getNiceName()) }}
@@ -713,7 +713,7 @@ function ToolbarSwitcher(p: { response: ToolbarResponse<ToolbarSwitcherEntity>, 
                 {/* An <li>: see the sibling case above — nothing else is a permitted child of <ul>. */}
                 <li
                     data-toolbar-content={liteKeyOrQuery(p.response.content)}
-                    title={title} className="nav-item flex mb-2">
+                    title={title} className="sf-nav-item flex mb-2">
                     {icon}
                     <RightCaretDropdown
                         options={options}
@@ -739,13 +739,13 @@ function ToolbarSwitcher(p: { response: ToolbarResponse<ToolbarSwitcherEntity>, 
 export function ToolbarNavItem(p: { title: string | undefined, content?: Lite<Entity>, active?: boolean, isExternalLink?: boolean, isGroup?: boolean, extraIcons?: React.ReactElement, onClick: (e: React.MouseEvent) => void, icon?: React.ReactNode, onAutoCloseExtraIcons?: () => void }): React.JSX.Element {
 
     return (
-        <li className="nav-item flex">
+        <li className="sf-nav-item flex">
             {/* `active` only adds a class, so which item is the current page was conveyed by colour alone
                 and never announced. aria-current says it. An href-less <a role="button">, as react-bootstrap's
                 Nav.Link rendered it: Enter / Space activate it like a button. */}
             <a role="button" tabIndex={0} title={p.title} onClick={p.onClick} onAuxClick={p.onClick}
                 onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
-                className={classes("nav-link flex w-full", p.active && "active")}
+                className={classes("sf-nav-link flex w-full", p.active && "active")}
                 aria-current={p.active ? "page" : undefined}
                 data-toolbar-content={liteKeyOrQuery(p.content)}>
                 <div>{p.icon}</div>
@@ -794,7 +794,7 @@ export function renderExtraIcons(extraIcons: ToolbarResponse<any>[] | undefined,
         {extraIcons?.map((ei, i) => {
 
             if (ei.url) {
-                return <button type="button" className={classes("btn btn-sm border-0 py-0 m-0 sf-extra-icon", isActive(ctx.active, ei, selectedEntity) && "active")} key={i}
+                return <button type="button" className={classes("sf-btn sf-btn-sm border-0 py-0 m-0 sf-extra-icon", isActive(ctx.active, ei, selectedEntity) && "active")} key={i}
                     onClick={e => { e.stopPropagation(); linkClick(ei, selectedEntity, e, ctx); }}>
                     {srName(ei)}
                     {ToolbarConfig.coloredIcon(parseIcon(ei.iconName!), ei.iconColor)}
@@ -813,7 +813,7 @@ export function renderExtraIcons(extraIcons: ToolbarResponse<any>[] | undefined,
             }
             else {
 
-                return <button type="button" className={classes("btn btn-sm border-0 py-0 m-0 sf-extra-icon", isActive(ctx.active, ei, selectedEntity) && "active")} key={i} onClick={e => {
+                return <button type="button" className={classes("sf-btn sf-btn-sm border-0 py-0 m-0 sf-extra-icon", isActive(ctx.active, ei, selectedEntity) && "active")} key={i} onClick={e => {
                     e.stopPropagation();
                     config!.handleNavigateClick(e, ei, selectedEntity);
 

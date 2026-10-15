@@ -42,12 +42,12 @@ export default function ProcessPanelPage(): React.JSX.Element {
                     style={{ transform: `rotate(${rotation}deg)`, transition: "transform 0.5s ease-in-out", opacity: 0.5 }} />
             </h1>
 
-            <div className="btn-toolbar">
-                <button type="button" className={classes("sf-button btn", s.running ? "btn-success disabled" : "btn-outline-success")}
+            <div className="sf-btn-toolbar">
+                <button type="button" className={classes("sf-button sf-btn", s.running ? "sf-btn-success disabled" : "sf-btn-outline-success")}
                     onClick={s.running ? undefined : () => void ProcessClient.API.start().then(() => reloadState())}>
                     <FontAwesomeIcon aria-hidden={true} icon="play" className="me-1" />{ProcessMessage.Start.niceToString()}
                 </button>
-                <button type="button" className={classes("sf-button btn", !s.running ? "btn-danger disabled" : "btn-outline-danger")}
+                <button type="button" className={classes("sf-button sf-btn", !s.running ? "sf-btn-danger disabled" : "sf-btn-outline-danger")}
                     onClick={!s.running ? undefined : () => void ProcessClient.API.stop().then(() => reloadState())}>
                     <FontAwesomeIcon aria-hidden={true} icon="stop" className="me-1" />{ProcessMessage.Stop.niceToString()}
                 </button>
@@ -142,8 +142,8 @@ function ProgressBar(p: { fraction: string | null }): React.JSX.Element {
         return <span className="text-muted-foreground">—</span>;
 
     return (
-        <div className="progress" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
-            <div className="progress-bar" style={{ width: `${percent}%` }}>{percent}%</div>
+        <div className="sf-progress" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+            <div className="sf-progress-bar" style={{ width: `${percent}%` }}>{percent}%</div>
         </div>
     );
 }

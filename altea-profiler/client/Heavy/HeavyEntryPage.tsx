@@ -38,13 +38,13 @@ export default function HeavyEntry(): React.JSX.Element {
     return (
         <div>
             <h1 className="text-display-6 font-light"><Link to="/profiler/heavy">{ProfilerMessage.HeavyProfiler.niceToString()}</Link> {">"} {ProfilerMessage.Entry0_.niceToString(index)}</h1>
-            <label><input type="checkbox" className="form-check-input" checked={asyncDepth} onChange={a => setAsyncDepth(a.currentTarget.checked)} />{ProfilerMessage.AsyncStack.niceToString()}</label>
+            <label><input type="checkbox" className="sf-form-check-input" checked={asyncDepth} onChange={a => setAsyncDepth(a.currentTarget.checked)} />{ProfilerMessage.AsyncStack.niceToString()}</label>
             <br />
             {entries && <HeavyProfilerDetailsD3 entries={entries} selected={current} asyncDepth={asyncDepth} />}
             <br />
             <AccessibleTable
                 aria-label={ProfilerMessage.HeavyProfiler.niceToString()}
-                className="table table-nonfluid"
+                className="sf-table table-nonfluid"
                 multiselectable={false}>
                 <tbody>
                     <tr>
@@ -57,9 +57,9 @@ export default function HeavyEntry(): React.JSX.Element {
                     </tr>
                     <tr>
                         <td colSpan={2}>
-                            <div className="btn-toolbar">
-                                <button type="button" onClick={handleDownload} className="btn btn-info">{ProfilerMessage.Download.niceToString()}</button>
-                                {!current.isFinished && <button type="button" onClick={() => reloadEntries()} className="btn btn-tertiary">{ProfilerMessage.Update.niceToString()}</button>}
+                            <div className="sf-btn-toolbar">
+                                <button type="button" onClick={handleDownload} className="sf-btn sf-btn-info">{ProfilerMessage.Download.niceToString()}</button>
+                                {!current.isFinished && <button type="button" onClick={() => reloadEntries()} className="sf-btn sf-btn-tertiary">{ProfilerMessage.Update.niceToString()}</button>}
                             </div>
                         </td>
                     </tr>
@@ -85,7 +85,7 @@ export function StackFrameTable(p: { stackTrace: StackTrace[] }): React.JSX.Elem
     return (
         <AccessibleTable
             aria-label={ProfilerMessage.StackTraceOverview.niceToString()}
-            className="table table-sm"
+            className="sf-table sf-table-sm"
             multiselectable={false}>
             <thead>
                 <tr>

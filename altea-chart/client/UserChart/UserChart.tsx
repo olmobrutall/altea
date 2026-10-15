@@ -71,11 +71,11 @@ export default function UserChart(p: { ctx: TypeContext<UserChartEntity> }): Rea
                     </div>
                 } />
 
-            <div className="row">
-                <div className="offset-sm-2 col-sm-10">
+            <div className="sf-row">
+                <div className="sm:col-start-3 sm:col-span-10">
                     <CollapsableCard header={UserAssetMessage.Advanced.niceToString()} size="xs">
-                        <div className="row mt-2 mb-2">
-                            <div className="col-sm-6">
+                        <div className="sf-row mt-2 mb-2">
+                            <div className="sm:col-span-6">
                                 <AutoLine ctx={ctx.subCtx(e => e.includeDefaultFilters, { labelColumns: 4 })} />
                                 <NumberLine ctx={ctx.subCtx(e => e.minHeight, { labelColumns: 4 })}
                                     valueHtmlAttributes={{ placeholder: ReactChart.Options.defaultMinHeight.toString() }} />

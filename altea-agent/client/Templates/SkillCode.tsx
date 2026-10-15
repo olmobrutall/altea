@@ -41,7 +41,7 @@ export function SkillCodeView(p: { info: SkillCodeInfo }): React.JSX.Element {
             {p.info.properties.length > 0 && (
                 <div className="mt-2">
                     <strong className="text-[.875em]">Properties</strong>
-                    <table className="table table-sm table-borderless text-[.875em] mb-1">
+                    <table className="sf-table sf-table-sm sf-table-borderless text-[.875em] mb-1">
                         <tbody>
                             {p.info.properties.map((prop, i) => (
                                 <tr key={i}>
@@ -59,7 +59,7 @@ export function SkillCodeView(p: { info: SkillCodeInfo }): React.JSX.Element {
             {p.info.subSkills.length > 0 && (
                 <div className="mt-2">
                     <strong className="text-[.875em] block mb-1">Sub Skills</strong>
-                    <table className="table table-sm table-borderless text-[.875em] mb-0">
+                    <table className="sf-table sf-table-sm sf-table-borderless text-[.875em] mb-0">
                         <tbody>
                             {p.info.subSkills.map((ss, i) => (
                                 <tr key={i}>

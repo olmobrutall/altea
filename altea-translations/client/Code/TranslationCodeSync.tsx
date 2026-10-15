@@ -48,7 +48,7 @@ export default function TranslationCodeSync(): React.JSX.Element {
                 <div>
                     {Dic.getValues(result.types).map(type =>
                         <TranslationTypeTable key={type.type} type={type} result={result} currentCulture={culture} />)}
-                    <button type="button" className="btn btn-primary" onClick={handleSave}>
+                    <button type="button" className="sf-btn sf-btn-primary" onClick={handleSave}>
                         {TranslationMessage.Save.niceToString()}
                     </button>
                 </div>}

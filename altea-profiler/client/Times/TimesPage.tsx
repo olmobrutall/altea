@@ -28,9 +28,9 @@ export default function TimesPage(): React.JSX.Element {
     return (
         <div>
             <h1 className="text-display-6 font-light">{TimeMessage.Times.niceToString()}</h1>
-            <div className="btn-toolbar">
-                <button type="button" onClick={() => reloadTimes()} className="btn btn-tertiary">{TimeMessage.Reload.niceToString()}</button>
-                <button type="button" onClick={handleClear} className="btn btn-warning">{TimeMessage.Clear.niceToString()}</button>
+            <div className="sf-btn-toolbar">
+                <button type="button" onClick={() => reloadTimes()} className="sf-btn sf-btn-tertiary">{TimeMessage.Reload.niceToString()}</button>
+                <button type="button" onClick={handleClear} className="sf-btn sf-btn-warning">{TimeMessage.Clear.niceToString()}</button>
             </div>
             <br />
             <Tabs id="timeMachineTabs">
@@ -96,7 +96,7 @@ function TimesBars({ times }: { times: TimeTrackerEntryInfo[] }) {
     return (
         <AccessibleTable
             aria-label={TimeMessage.TimesOverview.niceToString()}
-            className="table"
+            className="sf-table"
             multiselectable={false}>
             <tbody>
                 {times.orderByDescending(a => a.totalDuration).map((pair, i) =>
@@ -163,7 +163,7 @@ function TimesTable({ times }: { times: TimeTrackerEntryInfo[] }) {
     return (
         <AccessibleTable
             aria-label={TimeMessage.TimesOverview.niceToString()}
-            className="table table-nonfluid"
+            className="sf-table table-nonfluid"
             multiselectable={false}>
             <thead>
                 <tr>

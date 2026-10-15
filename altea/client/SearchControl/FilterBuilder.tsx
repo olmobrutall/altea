@@ -35,7 +35,7 @@ import { useForceUpdate, useForceUpdatePromise } from '../Hooks'
 import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from '../ui/Dropdown'
 import PinnedFilterBuilder from './PinnedFilterBuilder'
 import { Finder } from '../Finder'
-import { trimDateToFormat } from '../Lines/ReactWidgetsLocalizer'
+import { trimDateToFormat } from '../ui/dateFormat'
 import { Temporal } from '../../data/basics'
 import { isNumberKey, NumberBox } from '../Lines/NumberLine'
 import { VisualTipIcon } from '../Basics/VisualTipIcon';
@@ -270,7 +270,7 @@ export default function FilterBuilder(p: FilterBuilderProps): React.ReactElement
     <>
       <GroupHeader label={p.title} avoidFieldSet={p.avoidFieldSet} fieldsetClassName="my-4 p-4 pb-1 bg-background rounded-md shadow-xs border-0">
         <div className="sf-filters-list overflow-x-auto" style={{ overflowX: "visible" }}>
-          <table className="table-sm">
+          <table className="sf-table-sm">
             <thead>
               <tr>
                 <th className="ps-0">
@@ -564,7 +564,7 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
         <td>
           {p.showPinnedFiltersOptions &&
             <button
-              className={classes("btn", "btn-link", "btn-sm", "sf-user-filter", fg.pinned && "active")}
+              className={classes("sf-btn", "sf-btn-link", "sf-btn-sm", "sf-user-filter", fg.pinned && "active")}
               type="button"
               title={fg.pinned ? SearchMessage.UnpinFilter.niceToString() : SearchMessage.PinFilter.niceToString()}
               onClick={e => {
@@ -866,7 +866,7 @@ export function FilterConditionComponent(p: FilterConditionComponentProps): Reac
         </td>
         {p.showPinnedFiltersOptions &&
           <td>
-            {f.token && f.token.filterType && f.operation && !p.disableValue && <button className={classes("btn", "btn-link", "btn-sm", "sf-user-filter", f.pinned && "active")} onClick={e => {
+            {f.token && f.token.filterType && f.operation && !p.disableValue && <button className={classes("sf-btn", "sf-btn-link", "sf-btn-sm", "sf-user-filter", f.pinned && "active")} onClick={e => {
               f.pinned = f.pinned ? undefined : {};
               fixDashboardBehaviour(f);
               changeFilter();
@@ -964,7 +964,7 @@ export function PinnedFilterEditor(p: PinnedFilterEditorProps): React.ReactEleme
         {canSplitValue(p.fo) &&
           <input type="checkbox" checked={pinned.splitValue ?? false}
             readOnly={p.readonly}
-            className="form-check-input"
+            className="sf-form-check-input"
             onChange={e => { pinned.splitValue = e.currentTarget.checked; p.onChange() }}
             title={
               !canSplitValue(p.fo) ? undefined :
@@ -995,7 +995,7 @@ export function PinnedFilterEditor(p: PinnedFilterEditorProps): React.ReactEleme
     return (
       <Dropdown>
         <DropdownTrigger asChild disabled={p.readonly}>
-          <button type="button" className="btn btn-tertiary btn-xs dropdown-toggle px-1"
+          <button type="button" className="sf-btn sf-btn-tertiary sf-btn-xs sf-dropdown-toggle px-1"
             title={StyleContext.default.titleLabels ? title : undefined}>
             {Enum.niceName(PinnedFilterActive, value)}
           </button>
@@ -1017,7 +1017,7 @@ function DashboardBehaviourComponent(p: { filter: FilterOptionParsed, readonly: 
   return (
     <Dropdown>
       <DropdownTrigger asChild disabled={p.readonly}>
-      <button type="button" className={classes("btn btn-xs dropdown-toggle px-1", p.filter.dashboardBehaviour ? "btn-info text-light" : "btn-tertiary text-info")}
+      <button type="button" className={classes("sf-btn sf-btn-xs sf-dropdown-toggle px-1", p.filter.dashboardBehaviour ? "sf-btn-info text-light" : "sf-btn-tertiary text-info")}
         title={StyleContext.default.titleLabels ? "Behaviour of the filter when used inside of a Dashboard" : undefined}>
         {<FontAwesomeIcon aria-hidden={true} icon="gauge" className={classes("icon", p.filter.dashboardBehaviour ? "text-light" : "text-info")} />}{p.filter.dashboardBehaviour ? " " + Enum.niceName(DashboardBehaviour, p.filter.dashboardBehaviour) : ""}
       </button>

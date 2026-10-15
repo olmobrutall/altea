@@ -223,7 +223,7 @@ export default function UserQueryMenu(p: UserQueryMenuProps): React.JSX.Element 
     return (
         <Dropdown onOpenChange={handleToggle} open={isOpen}>
             <DropdownTrigger asChild>
-              <BootstrapButton id={toggleId} variant="tertiary" className="dropdown-toggle">
+              <BootstrapButton id={toggleId} variant="tertiary" className="sf-dropdown-toggle">
                 <span title={currentToStr}>
                     <FontAwesomeIcon icon="rectangle-list" />
                     {large && <>&nbsp;<span className="hidden sm:inline">

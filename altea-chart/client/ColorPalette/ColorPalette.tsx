@@ -114,11 +114,11 @@ export default function ColorPalette(p: { ctx: TypeContext<ColorPaletteEntity> }
 
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-4">
+            <div className="sf-row">
+                <div className="sm:col-span-4">
                     <EntityLine ctx={ctx4.subCtx(n => n.type)} readOnly={!ctx.value.isNew || ctx.value.specificColors.length > 0} onChange={forceUpdate} />
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     <EnumLine ctx={ctx4.subCtx(n => n.categoryName)} onChange={forceUpdate}
                         optionItems={Dic.getKeys(colorSchemes)}
                         onRenderDropDownListItem={oi => <div style={{ display: "flex", alignItems: "center", userSelect: "none" }}>
@@ -126,7 +126,7 @@ export default function ColorPalette(p: { ctx: TypeContext<ColorPaletteEntity> }
                             {oi.label}
                         </div>} />
                 </div>
-                <div className="col-sm-4">
+                <div className="sm:col-span-4">
                     <AutoLine ctx={ctx4.subCtx(n => n.seed)} />
                 </div>
             </div>
@@ -220,7 +220,7 @@ function ColorSelector(p: { ctx: TypeContext<string>, colors: string[] | null })
 
     function switchButton(): React.ReactElement {
         return (
-            <LinkButton className={classes("sf-line-button", "sf-find", "btn sf-input-group-text")}
+            <LinkButton className={classes("sf-line-button", "sf-find", "sf-btn sf-input-group-text")}
                 title={custom ? ColorPaletteMessage.ShowPalette.niceToString() : ColorPaletteMessage.ShowList.niceToString()}
                 onClick={() => setCustom(!custom)}>
                 <FontAwesomeIcon aria-hidden={true} icon={custom ? "palette" : "list"} />

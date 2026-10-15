@@ -43,7 +43,7 @@ export function RightCaretDropdown({
                     <BootstrapButton
                         variant="tertiary"
                         disabled={disabled}
-                        className="dropdown-toggle flex items-center"
+                        className="sf-dropdown-toggle flex items-center"
                         style={{ width: "100%" }}
                     >
                         {selected?.icon}

@@ -58,7 +58,7 @@ export default function TranslatedInstanceStatus(): React.JSX.Element {
                     : <TranslationTable result={result} onRefreshView={reload} applyFilter={applyFilter} />}
             {result != undefined && result.length > 0 &&
                 <div>
-                    <div className="btn-toolbar">
+                    <div className="sf-btn-toolbar">
                         <input key={fileVer} type="file" onChange={handleFile}
                             style={{ display: "inline", float: "left", width: "inherit" }} />
                     </div>
@@ -105,7 +105,7 @@ function TranslationTable(p: {
     }
 
     return (
-        <AccessibleTable aria-label={TranslationMessage.TranslationsOverview.niceToString()} className="table st" multiselectable={false}>
+        <AccessibleTable aria-label={TranslationMessage.TranslationsOverview.niceToString()} className="sf-table st" multiselectable={false}>
             <thead>
                 <tr>
                     <th>

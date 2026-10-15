@@ -58,7 +58,7 @@ export default function TypeHelpPage(): React.JSX.Element {
         + " > " + (tryGetTypeInfo(cleanName)?.getNiceName() ?? cleanName));
 
     if (typeHelp == null || typeHelp.type.cleanName !== cleanName)
-        return <div className="container"><h1 className="text-display-6 font-light">{JavascriptMessage.loading.niceToString()}</h1></div>;
+        return <div className="sf-container"><h1 className="text-display-6 font-light">{JavascriptMessage.loading.niceToString()}</h1></div>;
 
     const ctx = TypeContext.root(typeHelp, { readOnly: Navigator.isReadOnly(TypeHelpEntity) });
 
@@ -75,7 +75,7 @@ export default function TypeHelpPage(): React.JSX.Element {
         });
 
     return (
-        <div className="container">
+        <div className="sf-container">
             <h1 className="text-display-6 font-light">
                 <Link to={HelpClient.Urls.indexUrl()}>{HelpMessage.Help.niceToString()}</Link>
                 {" > "}
@@ -96,14 +96,14 @@ export default function TypeHelpPage(): React.JSX.Element {
                 onChange={forceUpdate} />
 
             <h2 className="text-display-6 font-light">{ctx.niceName(a => a.properties)}</h2>
-            <dl className="row">
+            <dl className="sf-row">
                 {propertyTree.map(node =>
                     <PropertyLine key={node.value.pr.propertyString()} node={node} cleanName={cleanName} onChange={forceUpdate} hash={hash} />)}
             </dl>
 
             {ctx.value.operations.length > 0 && <>
                 <h2 className="text-display-6 font-light">{ctx.niceName(a => a.operations)}</h2>
-                <dl className="row">
+                <dl className="sf-row">
                     {mlistItemContext(ctx.subCtx(th => th.operations)).map(octx =>
                         <OperationLine key={octx.value.operation.key} ctx={octx} cleanName={cleanName} onChange={forceUpdate} hash={hash} />)}
                 </dl>
@@ -115,7 +115,7 @@ export default function TypeHelpPage(): React.JSX.Element {
                     <QueryBlock key={qctx.value.query.key} ctx={qctx} onChange={forceUpdate} hash={hash} />)}
             </>}
 
-            <div className={classes("btn-toolbar", "sf-button-bar", "mt-6")}>
+            <div className={classes("sf-btn-toolbar", "sf-button-bar", "mt-6")}>
                 <SaveButton ctx={ctx} onSuccess={reload} />
             </div>
         </div>
@@ -133,17 +133,17 @@ function PropertyLine({ node, cleanName, onChange, hash }: {
 
     return (
         <>
-            <dt className={classes("col-sm-3", "shortcut-container", "text-end", hash === id && "sf-target")} id={id}>
+            <dt className={classes("sm:col-span-3", "shortcut-container", "text-end", hash === id && "sf-target")} id={id}>
                 {node.value.pr.fieldInfo?.niceToString() ?? node.value.pr.member}<br />
                 <Shortcut text={`[p:${cleanName}.${node.value.pr.propertyString()}]`} />
             </dt>
-            <dd className="col-sm-9">
+            <dd className="sm:col-span-9">
                 <span className="info">
                     <HtmlViewer htmlAttributes={{ className: "sf-info" }} text={node.value.ctx.value.info} />
                     <EditableHtml ctx={node.value.ctx.subCtx(a => a.description)} onChange={onChange} />
                 </span>
             </dd>
-            {node.children.length > 0 && <div className="col-sm-12">
+            {node.children.length > 0 && <div className="sm:col-span-12">
                 <SubPropertiesCollapse node={node} cleanName={cleanName} onChange={onChange} hash={hash} />
             </div>}
         </>
@@ -159,9 +159,9 @@ function SubPropertiesCollapse({ node, cleanName, onChange, hash }: {
 
     return (
         <>
-            <div className="row mb-2">
+            <div className="sf-row mb-2">
                 <button type="button"
-                    className="col-sm-9 offset-sm-3 text-[1.25rem] font-light border-0 bg-transparent text-start"
+                    className="sm:col-span-9 sm:col-start-4 text-[1.25rem] font-light border-0 bg-transparent text-start"
                     onClick={() => setOpen(!open)}
                     aria-expanded={open}>
                     <FontAwesomeIcon aria-hidden={true} icon={open ? "chevron-down" : "chevron-right"} />
@@ -170,7 +170,7 @@ function SubPropertiesCollapse({ node, cleanName, onChange, hash }: {
             </div>
 
             <Collapsible open={open}>
-                <CollapsibleContent render={<dl />} className="row ms-6">
+                <CollapsibleContent render={<dl />} className="sf-row ms-6">
                     {open && node.children.map(n =>
                         <PropertyLine key={n.value.pr.propertyString()} node={n} cleanName={cleanName} onChange={onChange} hash={hash} />)}
                 </CollapsibleContent>
@@ -188,11 +188,11 @@ function OperationLine({ ctx, cleanName, onChange, hash }: {
 
     return (
         <>
-            <dt className={classes("col-sm-3", "shortcut-container", "text-end", id === hash && "sf-target")} id={id}>
+            <dt className={classes("sm:col-span-3", "shortcut-container", "text-end", id === hash && "sf-target")} id={id}>
                 {oi?.niceName ?? ctx.value.operation.niceToString()}<br />
                 <Shortcut text={`[o:${ctx.value.operation.key}]`} />
             </dt>
-            <dd className="col-sm-9">
+            <dd className="sm:col-span-9">
                 <span className="info">
                     <HtmlViewer htmlAttributes={{ className: "sf-info" }} text={ctx.value.info} />
                     <EditableHtml ctx={ctx.subCtx(a => a.description)} onChange={onChange} />
@@ -212,8 +212,8 @@ function QueryBlock({ ctx, onChange, hash }: {
 
     return (
         <>
-            <div className={classes("row", "mb-2", "shortcut-container", id === hash && "sf-target")} id={id}>
-                <div className="col-sm-9 offset-sm-3">
+            <div className={classes("sf-row", "mb-2", "shortcut-container", id === hash && "sf-target")} id={id}>
+                <div className="sm:col-span-9 sm:col-start-4">
                     <button type="button" className="text-[1.25rem] font-light border-0 bg-transparent" onClick={() => setOpen(!open)} aria-expanded={open}>
                         <FontAwesomeIcon aria-hidden={true} icon={open ? "chevron-down" : "chevron-right"} />
                         {" "}{ctx.value.query.toString()}
@@ -229,7 +229,7 @@ function QueryBlock({ ctx, onChange, hash }: {
                 </div>
             </div>
             <Collapsible open={open}>
-                <CollapsibleContent render={<dl />} className="row ms-6">
+                <CollapsibleContent render={<dl />} className="sf-row ms-6">
                     {mlistItemContext(ctx.subCtx(q => q.columns)).map(cctx =>
                         <QueryColumnLine key={cctx.value.columnName} ctx={cctx} onChange={onChange} />)}
                 </CollapsibleContent>
@@ -243,8 +243,8 @@ function QueryColumnLine({ ctx, onChange }: {
 }): React.JSX.Element {
     return (
         <>
-            <dt className="col-sm-3 text-end">{ctx.value.niceName}<br /></dt>
-            <dd className="col-sm-9">
+            <dt className="sm:col-span-3 text-end">{ctx.value.niceName}<br /></dt>
+            <dd className="sm:col-span-9">
                 <span className="info">
                     <HtmlViewer htmlAttributes={{ className: "sf-info" }} text={ctx.value.info} />
                     <EditableHtml ctx={ctx.subCtx(a => a.description)} onChange={onChange} />
@@ -268,7 +268,7 @@ function SaveButton({ ctx, onSuccess }: { ctx: TypeContext<TypeHelpEntity>; onSu
     }
 
     return (
-        <button type="button" className="btn btn-primary" onClick={onClick}>
+        <button type="button" className="sf-btn sf-btn-primary" onClick={onClick}>
             <FontAwesomeIcon aria-hidden={true} icon="floppy-disk" /> {oi.niceName}
         </button>
     );

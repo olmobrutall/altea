@@ -35,13 +35,13 @@ export default function Toolbar(p: { ctx: TypeContext<ToolbarEntity> }): React.J
     const ctx3 = ctx.subCtx({ labelColumns: 3 });
     return (
         <div>
-            <div className="row">
-                <div className="col-sm-7">
+            <div className="sf-row">
+                <div className="sm:col-span-7">
                     <AutoLine ctx={ctx3.subCtx(f => f.name)} />
                     <EntityLine ctx={ctx3.subCtx(e => e.owner)} />
                 </div>
 
-                <div className="col-sm-5">
+                <div className="sm:col-span-5">
                     <AutoLine ctx={ctx3.subCtx(f => f.location)} />
                     <AutoLine ctx={ctx3.subCtx(e => e.priority)} />
                 </div>

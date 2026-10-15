@@ -111,7 +111,7 @@ export namespace AuthAdminClient {
                 // is authorized server-side either way.
                 extraButtons: () => !AuthClient.isPermissionAuthorized(BasicPermission.AdminRules) ? [] : [{
                     order: -1,
-                    button: <button type="button" className="btn btn-info" onClick={() => API.downloadAuthRules()}>
+                    button: <button type="button" className="sf-btn sf-btn-info" onClick={() => API.downloadAuthRules()}>
                         <FontAwesomeIcon aria-hidden={true} icon="download" /> {AuthAdminMessage.DownloadAuthRules.niceToString()}
                     </button>,
                 }],

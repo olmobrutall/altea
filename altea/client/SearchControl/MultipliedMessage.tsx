@@ -25,7 +25,7 @@ export default function MultipliedMessage(p: { findOptions: FindOptionsParsed, m
     tokens.map(a => <strong>{a.parent!.niceName()}</strong>).joinCommaHtml(CollectionMessage.And.niceToString()))
 
   return (
-    <div className="sf-search-message alert alert-warning">
+    <div className="sf-search-message sf-alert sf-alert-warning">
       <FontAwesomeIcon aria-hidden={true} icon="triangle-exclamation" />&nbsp;{message}
     </div>
   );

@@ -81,7 +81,7 @@ Sides stay logical (`ms` / `me` / `ps` / `pe`), so RTL keeps working.
 | Bootstrap | Replacement | Kind | Notes |
 | --- | --- | --- | --- |
 | `container` | `sf-container` | S | centred, max-width per breakpoint, side padding (Tailwind's own `container` has no padding / centring) |
-| `container-fluid` | `w-full px-4` | U | |
+| `container-fluid` | `w-full px-3` | U | Bootstrap pads it with half the 1.5rem gutter |
 | `container-{bp}` | `sf-container-{bp}` | S | |
 | `row` | `sf-row` | S | 12-column grid with the `--sf-gutter` column gap; a child with no `col-span-*` spans 12 |
 | `row` whose children are all col / col-auto | `flex flex-wrap gap-x-(--sf-gutter)` | M | equal-width columns are a flex row, not a grid |
@@ -200,7 +200,6 @@ Tailwind palette colour (`blue-500`) where a token exists.
 | `body-emphasis` | `background` | `foreground` |
 | `white` | `white` | `white` |
 | `black` | `black` | `black` |
-
 | Bootstrap | Replacement | Kind | Notes |
 | --- | --- | --- | --- |
 | `text-{colour}` | `text-{text-token}` | U | `text-danger` → `text-destructive` |
@@ -259,25 +258,21 @@ Tailwind v4's `border` defaults to `currentColor`; altea's base layer sets every
 
 ## Buttons
 
-Buttons are COMPONENTS. On an element that is not a `<Button>` (an `<a>`, a router `<Link>`), use
-`buttonVariants({ variant, size })` instead of a class string.
+Buttons are SEMANTIC classes (Phase 5): Bootstrap's own button CSS, renamed and on the tokens (`ui/components.css`),
+so markup that hand-writes `btn btn-primary` and the kit's `<Button variant="primary">` render the same rules,
+and an application restyles every button through `.sf-btn*` or the `--sf-btn-*` knobs.
 
 | Bootstrap | Replacement | Kind | Notes |
 | --- | --- | --- | --- |
-| `btn` | `<Button>` / `buttonVariants()` | C | |
-| `btn-primary` | `variant="primary"` | C | |
-| `btn-secondary` | `variant="secondary"` | C | |
-| `btn-tertiary` | `variant="tertiary"` | C | altea's |
-| `btn-success` / `btn-warning` / `btn-info` | `variant="success"` / `"warning"` / `"info"` | C | |
-| `btn-danger` | `variant="destructive"` | C | |
-| `btn-light` / `btn-default` | `variant="light"` | C | `btn-default` is Bootstrap 3, still found in ported Signum views |
-| `btn-dark` | `variant="dark"` | C | |
-| `btn-link` | `variant="link"` | C | |
-| `btn-outline-{colour}` | `variant="outline" tone="{token}"` | C | |
-| `btn-xs` / `btn-sm` / `btn-lg` | `size="xs"` / `"sm"` / `"lg"` | C | |
-| `btn-close` | `<CloseButton>` (`sf-close-button`) | C | |
-| `btn-group` | `<ButtonGroup>` (`sf-btn-group`) | C | |
-| `btn-group-vertical` | `<ButtonGroup orientation="vertical">` | C | |
+| `btn` | `sf-btn` | S | |
+| `btn-{primary,secondary,success,danger,warning,info,light,dark,link}` | `sf-btn-{primary,secondary,success,danger,warning,info,light,dark,link}` | S | the kit's `variant="destructive"` renders `sf-btn-danger` |
+| `btn-tertiary` | `sf-btn-tertiary` | S | altea's |
+| `btn-default` | — | X | Bootstrap 3, still found in ported Signum views; Bootstrap 5 has no rule for it, so it renders as a plain `btn` |
+| `btn-outline-{primary,secondary,success,danger,warning,info,light,dark}` | `sf-btn-outline-{primary,secondary,success,danger,warning,info,light,dark}` | S | |
+| `btn-xs` / `btn-sm` / `btn-lg` | `sf-btn-xs` / `sf-btn-sm` / `sf-btn-lg` | S | `btn-xs` is altea's (Lines.css) |
+| `btn-close` | `sf-btn-close` | S | the kit's `<CloseButton>` is `sf-close-button` |
+| `btn-group` / `btn-group-sm` / `btn-group-lg` | `sf-btn-group` / `sf-btn-group-sm` / `sf-btn-group-lg` | S | |
+| `btn-group-vertical` | `sf-btn-group-vertical` | S | |
 | `btn-toolbar` | `sf-btn-toolbar` | S | operation bars — an app retunes spacing in one place |
 | `btn-toolbar-small` | `sf-btn-toolbar sf-btn-toolbar-sm` | S | |
 | `btn-check` | `<Toggle>` / `<ToggleGroup>` | C | |
@@ -302,7 +297,7 @@ hand-written forms in views do. Every size modifier exists as `-xs`, `-sm`, `-lg
 | `form-select` | `sf-form-select` | S | native `<select>`; a filtering one is `<Combobox>` |
 | `form-select-{xs,sm,lg}` | `sf-form-select-{xs,sm,lg}` | S | |
 | `form-check` | `sf-form-check` | S | |
-| `form-check-input` | `<Checkbox>` / `<RadioGroupItem>` | C | |
+| `form-check-input` / `form-switch` | `sf-form-check-input` / `sf-form-switch` | S | the kit's `<Checkbox>` / `<Switch>` for new code |
 | `form-check-label` | `sf-form-check-label` | S | |
 | `form-check-inline` | `sf-form-check sf-form-check-inline` | S | |
 | `form-switch` | `<Switch>` | C | |
@@ -331,27 +326,25 @@ hand-written forms in views do. Every size modifier exists as `-xs`, `-sm`, `-lg
 | `table-{colour}` (row) | `bg-{token}/10` | U | |
 | `table-responsive` | `overflow-x-auto` | U | |
 | `table-container` / `table-valued` / `sticky-header` | `sf-table-container` / `sf-table-valued` / `sf-sticky-header` | S | altea's |
-| `card` | `<Card>` (`sf-card`) | C | |
-| `card-header` / `card-body` / `card-footer` | `<CardHeader>` / `<CardContent>` / `<CardFooter>` | C | |
-| `card-title` / `card-subtitle` / `card-text` | `<CardTitle>` / `<CardDescription>` / *(plain `<p>`)* | C | |
+| `card` | `sf-card` | S | the kit's `<Card>` renders the same class |
+| `card-{header,body,footer,title,subtitle,text,link}` | `sf-card-{header,body,footer,title,subtitle,text,link}` | S | |
 | `card-img-top` | `rounded-t-md w-full` | U | |
-| `alert` | `<Alert>` (`sf-alert`) | C | |
-| `alert-{colour}` | `variant="{token}"` | C | `alert-danger` → `variant="destructive"` |
-| `alert-dismissible` | `<Alert onClose>` | C | |
-| `alert-heading` / `alert-link` | `<AlertTitle>` / `font-semibold underline` | C / U | |
-| `badge` | `<Badge>` (`sf-badge`) | C | |
-| `badge` + `bg-{colour}` / `text-bg-{colour}` | `<Badge variant="{token}">` | C | |
-| `badge-pill` / `rounded-pill` on a badge | `<Badge className="rounded-full">` | C | `badge-pill` is Bootstrap 4 |
+| `alert` | `sf-alert` | S | |
+| `alert-{primary,secondary,success,danger,warning,info,light,dark}` | `sf-alert-{primary,secondary,success,danger,warning,info,light,dark}` | S | |
+| `alert-dismissible` | `sf-alert-dismissible` | S | |
+| `alert-heading` / `alert-link` | `sf-alert-heading` / `sf-alert-link` | S | |
+| `badge` | `sf-badge` | S | |
+| `badge-pill` | — | X | Bootstrap 4; Bootstrap 5 has no rule for it |
 | `list-group` | `sf-list-group` | S | |
 | `list-group-item` / `-action` / `-flush` | `sf-list-group-item` / `sf-list-group-item-action` / `sf-list-group-flush` | S | |
-| `progress` / `progress-bar` | `<Progress>` | C | |
-| `spinner-border` / `spinner-grow` | `<Spinner>` | C | |
+| `progress` / `progress-bar` / `progress-bar-striped` / `progress-bar-animated` | `sf-progress` / `sf-progress-bar` / `sf-progress-bar-striped` / `sf-progress-bar-animated` | S | the kit's `<Progress>` for new code |
+| `spinner-border` / `spinner-border-sm` | `sf-spinner-border` / `sf-spinner-border-sm` | S | the kit's `<Spinner>` for new code |
 | `placeholder` / `placeholder-glow` | `<Skeleton>` | C | |
 | `figure` / `figure-img` / `figure-caption` | `sf-figure` / `rounded-md` / `text-sm text-muted-foreground` | S / U / U | |
 | `img-fluid` | `max-w-full h-auto` | U | |
 | `img-thumbnail` | `max-w-full h-auto rounded-md border p-1 bg-background` | U | |
 | `breadcrumb` / `breadcrumb-item` | `<Breadcrumb>` | C | |
-| `pagination` / `page-item` / `page-link` | `<Pagination>` | C | |
+| `pagination` / `pagination-sm` / `page-item` / `page-link` | `sf-pagination` / `sf-pagination-sm` / `sf-page-item` / `sf-page-link` | S | |
 | `accordion*` | `<Accordion>` | C | |
 
 ## Navigation and overlays
@@ -362,11 +355,13 @@ rendered.
 | Bootstrap | Replacement | Kind | Notes |
 | --- | --- | --- | --- |
 | `nav nav-tabs` / `nav-pills` | `<Tabs>` / `<Tabs variant="pills">` | C | |
-| `nav-item` / `nav-link` / `tab-content` / `tab-pane` | — | C | owned by `<Tabs>` |
-| `nav` (plain link list) | `flex gap-2` | M | |
+| `nav-item` / `nav-link` | `sf-nav-item` / `sf-nav-link` | S | a sidebar or navbar link; inside `<Tabs>` the kit owns them |
+| `tab-content` / `tab-pane` | — | C | owned by `<Tabs>` |
+| `nav` | `sf-nav` | S | Bootstrap's plain link list |
 | `navbar` / `navbar-expand-*` | `sf-navbar` | S | the app shell; an app restyles it |
 | `navbar-brand` / `navbar-nav` / `navbar-text` / `navbar-toggler` / `navbar-collapse` | `sf-navbar-brand` / `sf-navbar-nav` / `sf-navbar-text` / `sf-navbar-toggler` / `sf-navbar-collapse` | S | |
-| `dropdown` / `dropdown-toggle` / `dropdown-menu` / `dropdown-item` / `dropdown-divider` / `dropdown-header` | `<Dropdown>` / `<DropdownTrigger>` / `<DropdownContent>` / `<DropdownItem>` / `<DropdownSeparator>` / `<DropdownLabel>` | C | |
+| `dropdown` / `dropdown-toggle` / `dropdown-toggle-split` | `sf-dropdown` / `sf-dropdown-toggle` / `sf-dropdown-toggle-split` | S | the caret on a menu's trigger |
+| `dropdown-menu` / `dropdown-item` / `dropdown-divider` / `dropdown-header` | `<DropdownContent>` / `<DropdownItem>` / `<DropdownSeparator>` / `<DropdownLabel>` | C | |
 | `modal` / `modal-dialog` / `modal-content` | `<Modal>` | C | |
 | `modal-header` / `modal-title` / `modal-body` / `modal-footer` | `<Modal.Header>` / `<Modal.Title>` / `<Modal.Body>` / `<Modal.Footer>` | C | each also carries `sf-modal-*` for restyling |
 | `modal-{sm,lg,xl,fullscreen}` | `size="{sm,lg,xl,fullscreen}"` | C | |

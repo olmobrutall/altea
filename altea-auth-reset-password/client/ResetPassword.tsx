@@ -87,9 +87,9 @@ export default function ResetPassword(): React.JSX.Element {
 
     if (successRequestNewLink) {
         return (
-            <div className="container sf-request-new-link">
-                <div className="row">
-                    <div className="col-md-6 offset-md-3">
+            <div className="sf-container sf-request-new-link">
+                <div className="sf-row">
+                    <div className="md:col-span-6 md:col-start-4">
                         <h2 className="sf-entity-title">{ResetPasswordAuthMessage.RequestNewLink.niceToString()}</h2>
                         <p>{ResetPasswordAuthMessage.NewLinkToResetPasswordHasBeenSentSuccessfully.niceToString()}</p>
                     </div>
@@ -100,9 +100,9 @@ export default function ResetPassword(): React.JSX.Element {
 
     if (success || code === "OK") {
         return (
-            <div className="container sf-reset-password">
-                <div className="row">
-                    <div className="col-md-6 offset-md-3">
+            <div className="sf-container sf-reset-password">
+                <div className="sf-row">
+                    <div className="md:col-span-6 md:col-start-4">
                         <h2 className="sf-entity-title">{LoginAuthMessage.PasswordChanged.niceToString()}</h2>
                         <p>{LoginAuthMessage.PasswordHasBeenChangedSuccessfully.niceToString()}</p>
                     </div>
@@ -112,9 +112,9 @@ export default function ResetPassword(): React.JSX.Element {
     }
 
     return (
-        <div className="container sf-reset-password">
-            <div className="row">
-                <div className="col-md-6 offset-md-3">
+        <div className="sf-container sf-reset-password">
+            <div className="sf-row">
+                <div className="md:col-span-6 md:col-start-4">
                     <form onSubmit={e => { void handleSubmit(e); }}>
                         <h2 className="sf-entity-title">{LoginAuthMessage.ChangePassword.niceToString()}</h2>
                         <p>{LoginAuthMessage.NewPassword.niceToString()}</p>
@@ -133,11 +133,11 @@ export default function ResetPassword(): React.JSX.Element {
                         </div>
 
                         <div className="flex">
-                            <button type="submit" className="btn btn-primary" id="changePassword">
+                            <button type="submit" className="sf-btn sf-btn-primary" id="changePassword">
                                 {LoginAuthMessage.ChangePassword.niceToString()}
                             </button>
                             {showRequestNewLink &&
-                                <button className="btn btn-secondary ms-auto" id="requestNewLink" onClick={handleRequestNewLinkClick}>
+                                <button className="sf-btn sf-btn-secondary ms-auto" id="requestNewLink" onClick={handleRequestNewLinkClick}>
                                     {ResetPasswordAuthMessage.RequestNewLink.niceToString()}
                                 </button>}
                         </div>

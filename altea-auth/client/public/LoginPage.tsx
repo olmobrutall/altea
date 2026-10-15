@@ -39,17 +39,17 @@ export default function LoginPage(): React.JSX.Element {
     const [showLoginForm, setShowLoginForm] = React.useState<boolean>(LoginOptions.showLoginForm == "yes");
 
     return (
-        <div className="container sf-login-page">
-            <div className="row">
-                <div className="col-md-6 offset-md-3">
+        <div className="sf-container sf-login-page">
+            <div className="sf-row">
+                <div className="md:col-span-6 md:col-start-4">
                     <h1 className="sf-entity-title text-h2 font-medium">{AuthClient.currentUser() ? LoginAuthMessage.SwitchUser.niceToString() : LoginAuthMessage.Login.niceToString()}</h1>
                 </div>
             </div>
             {showLoginForm && <LoginForm ctx={ctx} />}
             {LoginOptions.customLoginButtons && LoginOptions.customLoginButtons(ctx)}
             {LoginOptions.showLoginForm == "initially_not" && showLoginForm == false &&
-                <div className="row">
-                    <div className="col-md-6 offset-md-3 mt-2">
+                <div className="sf-row">
+                    <div className="md:col-span-6 md:col-start-4 mt-2">
                         <LinkButton title={undefined} className="ms-1" id="sf-show-login-form" onClick={() => setShowLoginForm(true)}>
                             {LoginAuthMessage.ShowLoginForm.niceToString()}
                         </LinkButton>
@@ -117,16 +117,16 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
 
     return (
         <form onSubmit={handleSubmit} className="mb-6">
-            <div className="row">
-                <div className="col-md-6 offset-md-3">
+            <div className="sf-row">
+                <div className="md:col-span-6 md:col-start-4">
                     <p>{passwordIsUsername
                         ? <span className="text-warning">Development mode: enter a user name — it is sent as the password too.</span>
                         : LoginAuthMessage.EnterYourUserNameAndPassword.niceToString()}</p>
                     <hr />
                 </div>
             </div>
-            <div className="row">
-                <div className="col-md-6 offset-md-3">
+            <div className="sf-row">
+                <div className="md:col-span-6 md:col-start-4">
                     <div className={classes("sf-form-group mb-4", error("userName") && "has-error")}>
                         <label className="sr-only" htmlFor="userName">{LoginOptions.usernameLabel()}</label>
                         <div className="sf-input-group mb-2 mr-sm-2 sm:mb-0">
@@ -137,8 +137,8 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
                     </div>
                 </div>
             </div>
-            {!passwordIsUsername && <div className="row">
-                <div className="col-md-6 offset-md-3">
+            {!passwordIsUsername && <div className="sf-row">
+                <div className="md:col-span-6 md:col-start-4">
                     <div className={classes("sf-form-group mb-4", error("password") && "has-error")}>
                         <label className="sr-only" htmlFor="password">{LoginAuthMessage.Password.niceToString()}</label>
                         <div className="sf-input-group mb-2 mr-sm-2 sm:mb-0">
@@ -153,18 +153,18 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
             {/* "Remember me" — shown only when the host started the UserTicket half
                 (AuthClient.startPublic({ userTicket: true })), because ticking it would otherwise do
                 nothing: the server ignores rememberMe when UserTicketLogic was never started. */}
-            {AuthClient.Options.userTicket && <div className="row">
-                <div className="col-md-6 offset-md-3">
+            {AuthClient.Options.userTicket && <div className="sf-row">
+                <div className="md:col-span-6 md:col-start-4">
                     <div className="sf-form-check mb-2 mr-sm-2 sm:mb-0">
-                        <input ref={rememberMe} name="remember" id="rememberMe" className="form-check-input" type="checkbox" disabled={p.ctx.loading != null} />
+                        <input ref={rememberMe} name="remember" id="rememberMe" className="sf-form-check-input" type="checkbox" disabled={p.ctx.loading != null} />
                         <label className="sf-remember-me sf-form-check-label" htmlFor="rememberMe">{LoginAuthMessage.RememberMe.niceToString()}</label>
                     </div>
                 </div>
             </div>}
 
-            <div className="row" style={{ paddingTop: "1rem" }}>
-                <div className="col-md-6 offset-md-3">
-                    <button type="submit" id="login" className="btn btn-success" disabled={p.ctx.loading != null}>
+            <div className="sf-row" style={{ paddingTop: "1rem" }}>
+                <div className="md:col-span-6 md:col-start-4">
+                    <button type="submit" id="login" className="sf-btn sf-btn-success" disabled={p.ctx.loading != null}>
                         {p.ctx.loading == "password"
                             ? <FontAwesomeIcon aria-hidden={true} icon="gear" className="fa-fw" style={{ fontSize: "larger" }} spin />
                             : <FontAwesomeIcon aria-hidden={true} icon="right-to-bracket" />}

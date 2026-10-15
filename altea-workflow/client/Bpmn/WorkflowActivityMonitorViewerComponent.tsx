@@ -117,14 +117,14 @@ export default class WorkflowActivityMonitorViewerComponent
     override render(): React.JSX.Element {
         return (
             <div>
-                <div className="btn-toolbar" style={{ marginBottom: "5px" }}>
-                    <button className="btn btn-primary" onClick={this.props.onDraw}>
+                <div className="sf-btn-toolbar" style={{ marginBottom: "5px" }}>
+                    <button className="sf-btn sf-btn-primary" onClick={this.props.onDraw}>
                         {WorkflowActivityMonitorMessage.Draw.niceToString()}
                     </button>
-                    <button className="btn btn-default" onClick={() => this.resetZoom()}>
+                    <button className="sf-btn " onClick={() => this.resetZoom()}>
                         {WorkflowActivityMonitorMessage.ResetZoom.niceToString()}
                     </button>
-                    <button className="btn btn-default" onClick={this.handleSearchClick}>
+                    <button className="sf-btn " onClick={this.handleSearchClick}>
                         {WorkflowActivityMonitorMessage.Find.niceToString()}
                     </button>
                 </div>

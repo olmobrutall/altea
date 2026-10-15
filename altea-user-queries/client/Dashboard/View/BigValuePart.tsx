@@ -151,7 +151,7 @@ export default function BigValuePart(p: PanelPartContentProps<BigValuePartEntity
     };
 
     return (
-        <div className={classes("card", "border-tertiary shadow-xs mb-4 w-full", "o-hidden")}
+        <div className={classes("sf-card", "border-tertiary shadow-xs mb-4 w-full", "o-hidden")}
             style={{
                 backgroundColor: customColor ?? undefined,
                 color: customColor ? getContrastingTextColor(customColor) : "var(--foreground)",
@@ -159,12 +159,12 @@ export default function BigValuePart(p: PanelPartContentProps<BigValuePartEntity
             {clickable ? (
                 <button type="button"
                     onClick={e => { if (p.content.navigate) handleNavigate(e); else vsc.current!.handleClick(e); }}
-                    className="card-body border-0 bg-transparent text-start w-full"
+                    className="sf-card-body border-0 bg-transparent text-start w-full"
                     style={bodyStyle}>
                     {renderCardContent()}
                 </button>
             ) : (
-                <div className="card-body" style={bodyStyle}>
+                <div className="sf-card-body" style={bodyStyle}>
                     {renderCardContent()}
                 </div>
             )}

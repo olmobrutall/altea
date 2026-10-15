@@ -65,7 +65,7 @@ export function EmailMasterTemplateMessageComponent(p: {
             <HtmlMonaco ctx={ec.subCtx(e => e.text)}
                 onChange={() => { if (showPreview) forceUpdate(); }} />
             <br />
-            <button type="button" className="btn btn-link p-0" onClick={() => setShowPreview(!showPreview)}>
+            <button type="button" className="sf-btn sf-btn-link p-0" onClick={() => setShowPreview(!showPreview)}>
                 {showPreview ? EmailTemplateMessage.HidePreview.niceToString() : EmailTemplateMessage.ShowPreview.niceToString()}
             </button>
             {showPreview && <IFrameRenderer style={{ width: "100%", minHeight: "800px" }} html={ec.value.text}

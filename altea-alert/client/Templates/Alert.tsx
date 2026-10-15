@@ -27,11 +27,11 @@ export default function Alert(p: { ctx: TypeContext<AlertEntity> }): React.JSX.E
                     <AutoLine ctx={ctx.subCtx(e => e.creationDate)} readOnly />
                 </div>}
 
-            <div className="row">
-                <div className="col-sm-6">
+            <div className="sf-row">
+                <div className="sm:col-span-6">
                     {ctx.value.target && <EntityLine ctx={ctx.subCtx(a => a.target)} readOnly labelColumns={4} />}
                 </div>
-                <div className="col-sm-6">
+                <div className="sm:col-span-6">
                     {ctx.value.linkTarget && <EntityLine ctx={ctx.subCtx(a => a.linkTarget)} readOnly labelColumns={4} />}
                     {ctx.value.groupTarget && <EntityLine ctx={ctx.subCtx(a => a.groupTarget)} readOnly labelColumns={4} />}
                 </div>
@@ -52,7 +52,7 @@ export default function Alert(p: { ctx: TypeContext<AlertEntity> }): React.JSX.E
                     {() => <div style={{ whiteSpace: "pre-wrap" }}>
                         {AlertsClient.format(ctx.value.textField || ctx.value.textFromAlertType || "", ctx.value)}
                         <br />
-                        <button type="button" className="btn btn-link btn-sm p-0 text-muted-foreground"
+                        <button type="button" className="sf-btn sf-btn-link sf-btn-sm p-0 text-muted-foreground"
                             onClick={() => setEdit(true)}>Edit</button>
                     </div>}
                 </FormGroup>

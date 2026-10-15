@@ -417,7 +417,7 @@ export function RenderWithViewOverrides(
         } catch (e) {
             resultWithErrors = (
                 <div>
-                    <div className="alert alert-danger">
+                    <div className="sf-alert sf-alert-danger">
                         <strong>Invalid Locals:</strong>
                         <br />
                         {(e as Error).message}
@@ -439,7 +439,7 @@ export function RenderWithViewOverrides(
         if (errors.length > 0)
             resultWithErrors = (
                 <div>
-                    <div className="alert alert-danger">
+                    <div className="sf-alert sf-alert-danger">
                         <strong>Invalid Props:</strong>
                         <ul>
                             {errors.map((e, i) => <li key={i}>{e}</li>)}
@@ -530,7 +530,7 @@ export function render(dn: DesignerNode<BaseNode>, parentCtx: TypeContext<BaseEn
 
         const error = validate(dn, parentCtx);
         if (error)
-            return <div className="alert alert-danger">{getErrorTitle(dn)} {error}</div>;
+            return <div className="sf-alert sf-alert-danger">{getErrorTitle(dn)} {error}</div>;
 
         const sn = dn.context.getSelectedNode();
 
@@ -543,7 +543,7 @@ export function render(dn: DesignerNode<BaseNode>, parentCtx: TypeContext<BaseEn
         return registeredNodes[dn.node.kind]!.render(dn, parentCtx);
 
     } catch (e) {
-        return <div className="alert alert-danger">{getErrorTitle(dn)}&nbsp;{(e as Error).message}</div>;
+        return <div className="sf-alert sf-alert-danger">{getErrorTitle(dn)}&nbsp;{(e as Error).message}</div>;
     }
 }
 

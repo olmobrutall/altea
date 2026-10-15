@@ -71,7 +71,7 @@ export default function ValueComponent(p: ValueComponentProps): React.JSX.Elemen
 
         if (p.type === "boolean") {
             return (
-                <input type="checkbox" onBlur={p.onBlur} className="form-check-input"
+                <input type="checkbox" onBlur={p.onBlur} className="sf-form-check-input"
                     checked={value === undefined ? p.defaultValue as boolean : value as boolean}
                     onChange={handleChangeCheckbox} />
             );
@@ -95,8 +95,8 @@ export default function ValueComponent(p: ValueComponentProps): React.JSX.Elemen
 
     if (p.hideLabel === true) {
         return (
-            <div className="row items-center">
-                <div className="col-auto">
+            <div className="flex flex-wrap items-center gap-x-6">
+                <div className="flex-none">
                     {renderValue(value)}
                 </div>
             </div>
@@ -106,11 +106,11 @@ export default function ValueComponent(p: ValueComponentProps): React.JSX.Elemen
     const lc = p.labelColumns;
 
     return (
-        <div className="sf-form-group sf-form-group-sm row" style={opacity}>
-            <label className={classes("sf-col-form-label sf-col-form-label-sm", p.labelClass, "col-sm-" + (lc == null ? 2 : lc))}>
+        <div className="sf-form-group sf-form-group-sm sf-row" style={opacity}>
+            <label className={classes("sf-col-form-label sf-col-form-label-sm", p.labelClass, "sm:col-span-" + (lc == null ? 2 : lc))}>
                 {p.binding.member}
             </label>
-            <div className={"col-sm-" + (lc == null ? 10 : 12 - lc)}>
+            <div className={"sm:col-span-" + (lc == null ? 10 : 12 - lc)}>
                 {renderValue(value)}
             </div>
         </div>

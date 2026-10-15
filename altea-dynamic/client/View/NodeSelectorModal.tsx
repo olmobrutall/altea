@@ -70,14 +70,14 @@ function NodeSelectorModal(p: IModalProps<NodeUtils.NodeOptions<BaseNode> | unde
                 {DynamicViewMessage.SelectATypeOfComponent.niceToString()}
             </ModalHeaderButtons>
             <div className="sf-modal-body">
-                <div className="row">
+                <div className="sf-row">
                     {columns.map((c, i) =>
-                        <div key={i} className={"col-sm-" + Math.floor(12 / columns.length)}>
+                        <div key={i} className={"sm:col-span-" + Math.floor(12 / columns.length)}>
                             {c.map(gr => <fieldset key={gr.key}>
                                 <legend>{gr.key}</legend>
                                 {gr.elements.map(n =>
                                     <button key={n.kind} type="button" onClick={() => handleButtonClicked(n)}
-                                        className="sf-chooser-button sf-close-button btn btn-light">
+                                        className="sf-chooser-button sf-close-button sf-btn sf-btn-light">
                                         {n.kind}
                                     </button>)}
                             </fieldset>)}

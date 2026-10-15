@@ -22,7 +22,7 @@ function LoginDropdown(p: {
 
     if (!user)
         return (
-            <button type="button" className="nav-link sf-login" onClick={() => AppContext.navigate("/auth/login")}>
+            <button type="button" className="sf-nav-link sf-login" onClick={() => AppContext.navigate("/auth/login")}>
                 {LoginDropdown.customLoginIcon(user)}
                 <span> {LoginAuthMessage.Login.niceToString()}</span>
             </button>
@@ -43,10 +43,10 @@ function LoginDropdown(p: {
     const extraButtons = p.extraMenuItems && p.extraMenuItems(user);
 
     return (
-        <div className="nav-item dropdown sf-login-dropdown">
+        <div className="sf-nav-item sf-dropdown sf-login-dropdown">
           <Dropdown>
             <DropdownTrigger asChild>
-              <button type="button" id="sfLoginDropdown" className="nav-link dropdown-toggle">
+              <button type="button" id="sfLoginDropdown" className="sf-nav-link sf-dropdown-toggle">
                 <span className="inline-flex items-center">
                     {p.renderIcon ? p.renderIcon(user) : LoginDropdown.customLoginIcon(user)}
                     &nbsp;
