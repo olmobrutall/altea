@@ -47,7 +47,7 @@ export default function CopyButton(p: CopyButtonProps): React.ReactElement | nul
             {p.children}
           </LinkButton>
         </PopoverAnchor>
-        <PopoverContent side="top" sideOffset={4} role="status" onOpenAutoFocus={e => e.preventDefault()}
+        <PopoverContent side="top" sideOffset={4} role="status" autoFocus={false}
           className="w-auto rounded-md border-0 bg-dark px-2 py-1 text-sm text-dark-foreground shadow-none">
           {FrameMessage.Copied.niceToString()}
         </PopoverContent>

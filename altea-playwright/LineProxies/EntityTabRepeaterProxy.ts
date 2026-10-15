@@ -14,12 +14,12 @@ export class EntityTabRepeaterProxy<S extends BaseEntity = BaseEntity> extends E
     /** Signum's `SelectTabAsync(index)` — show the nth element. */
     async selectTab(index: number): Promise<void> {
         await this.tabs.nth(index).click();
-        await waitVisible(this.element.locator(".sf-repeater-element[data-state=active]").first());
+        await waitVisible(this.element.locator(".sf-repeater-element:not([hidden])").first());
     }
 
     /** The lines of the ACTIVE element (only one pane is rendered at a time). */
     activeElement(): LineContainer<S> {
-        return new LineContainer<S>(this.element.locator(".sf-repeater-element[data-state=active]").first(), this.itemRoute);
+        return new LineContainer<S>(this.element.locator(".sf-repeater-element:not([hidden])").first(), this.itemRoute);
     }
 
     /** Signum's create + switch: add a tab and return the lines of the new (active) element. */

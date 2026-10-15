@@ -1,13 +1,10 @@
 import * as React from "react";
-import { Dialog } from "radix-ui";
+import { Dialog } from "@base-ui/react/dialog";
 import { CloseButton } from "./Alert";
 import { cn } from "./utils";
 
 /** `xs` is altea's BsSize; a modal treats it as `sm`. */
 export type ModalSize = "xs" | "sm" | "md" | "lg" | "xl" | "fullscreen";
-
-/** Long enough for the close animation; `onExited` waits for it. */
-const EXIT_DURATION = 160;
 
 const dialogSizes: Record<ModalSize, string> = {
     xs: "sm:max-w-[300px]",
@@ -41,68 +38,65 @@ export interface ModalProps {
 
 const ModalContext = React.createContext<{ onHide?: () => void }>({});
 
+/** The open modals, innermost last: Escape and the backdrop act on the top one only. altea opens modals as
+ * SIBLINGS (openModal), so Base UI does not see them as nested. */
+const openModals: object[] = [];
+
 function ModalRoot(p: ModalProps): React.ReactElement | null {
-    const [open, setOpen] = React.useState(p.show);
     const returnFocus = React.useRef<HTMLElement | null>(null);
-    const contentRef = React.useRef<HTMLDivElement>(null);
+    const popupRef = React.useRef<HTMLDivElement>(null);
     const wasShown = React.useRef(false);
-    // Read during render: by the time an effect runs, Radix has already moved the focus into the dialog.
+    const token = React.useRef({}).current;
+    // Read during render: by the first effect the focus has already moved into the dialog.
     if (p.show && !wasShown.current)
         returnFocus.current = document.activeElement as HTMLElement | null;
     wasShown.current = p.show;
-    const onExited = React.useRef(p.onExited);
-    onExited.current = p.onExited;
 
     React.useEffect(() => {
-        if (p.show) {
-            setOpen(true);
+        if (!p.show)
             return;
-        }
-        if (!open)
-            return;
-        setOpen(false);
-        const timer = window.setTimeout(() => onExited.current?.(), EXIT_DURATION);
-        return () => window.clearTimeout(timer);
+        openModals.push(token);
+        return () => { openModals.splice(openModals.indexOf(token), 1); };
     }, [p.show]);
 
     const isStatic = p.backdrop === "static";
     const size = p.size ?? "md";
 
+    function handleOpenChange(open: boolean, details: Dialog.Root.ChangeEventDetails): void {
+        if (open)
+            return;
+        const isTop = openModals[openModals.length - 1] === token;
+        if (details.reason === "escape-key" && (p.keyboard === false || !isTop))
+            return;
+        if (details.reason === "outside-press" && (isStatic || !isTop))
+            return;
+        if (details.reason === "focus-out")
+            return;
+        p.onHide?.();
+    }
+
     return (
         <ModalContext.Provider value={{ onHide: p.onHide }}>
-            <Dialog.Root open={open} modal={p.enforceFocus !== false} onOpenChange={o => { if (!o) p.onHide?.(); }}>
+            <Dialog.Root open={p.show} modal={p.enforceFocus !== false} onOpenChange={handleOpenChange}
+                onOpenChangeComplete={open => { if (!open) p.onExited?.(); }}>
                 <Dialog.Portal>
                     {p.backdrop !== false &&
-                        <Dialog.Overlay className="sf-modal-backdrop fixed inset-0 z-[1055] bg-black/50 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out motion-reduce:animate-none" />}
-                    <Dialog.Content
-                        {...(p["aria-labelledby"] ? { "aria-labelledby": p["aria-labelledby"] } : {})}
-                        aria-describedby={p["aria-describedby"]}
-                        onEscapeKeyDown={e => { if (p.keyboard === false) e.preventDefault(); }}
-                        ref={contentRef}
-                        onOpenAutoFocus={e => {
+                        <Dialog.Backdrop forceRender className="sf-modal-backdrop fixed inset-0 z-[1055] bg-black/50 data-[open]:animate-fade-in data-[closed]:animate-fade-out motion-reduce:animate-none" />}
+                    <Dialog.Viewport className={cn("sf-modal fixed inset-0 z-[1055] overflow-x-hidden overflow-y-auto outline-none", p.className)}>
+                        <Dialog.Popup ref={popupRef}
+                            {...(p["aria-labelledby"] ? { "aria-labelledby": p["aria-labelledby"] } : {})}
+                            aria-describedby={p["aria-describedby"]}
                             // react-bootstrap's behaviour: the dialog itself takes the focus, unless a control in it
-                            // already did (an autoFocus input).
-                            e.preventDefault();
-                            if (!contentRef.current?.contains(document.activeElement))
-                                contentRef.current?.focus();
-                        }}
-                        onCloseAutoFocus={e => {
-                            // Opened from code, not from a Radix Trigger: give the focus back to whatever had it.
-                            e.preventDefault();
-                            if (returnFocus.current?.isConnected)
-                                returnFocus.current.focus();
-                        }}
-                        onPointerDownOutside={e => e.preventDefault()}
-                        onInteractOutside={e => e.preventDefault()}
-                        onMouseDown={e => { if (e.target === e.currentTarget && !isStatic) p.onHide?.(); }}
-                        className={cn("sf-modal fixed inset-0 z-[1055] overflow-x-hidden overflow-y-auto outline-none",
-                            "data-[state=open]:animate-modal-in data-[state=closed]:animate-modal-out motion-reduce:animate-none", p.className)}>
-                        <div className={cn("sf-modal-dialog pointer-events-none relative mx-2 my-2 w-auto sm:mx-auto sm:my-7", "sf-modal-" + size, dialogSizes[size], p.dialogClassName)}>
+                            // already did (an autoFocus input); on close, the element that had it before gets it back.
+                            initialFocus={() => popupRef.current?.contains(document.activeElement) ? false : popupRef.current}
+                            finalFocus={() => returnFocus.current?.isConnected ? returnFocus.current : true}
+                            className={cn("sf-modal-dialog relative mx-2 my-2 w-auto outline-none sm:mx-auto sm:my-7", "sf-modal-" + size, dialogSizes[size],
+                                "data-[open]:animate-modal-in data-[closed]:animate-modal-out motion-reduce:animate-none", p.dialogClassName)}>
                             <div className={cn("sf-modal-content", size === "fullscreen" && "h-full rounded-none border-0", p.contentClassName)}>
                                 {p.children}
                             </div>
-                        </div>
-                    </Dialog.Content>
+                        </Dialog.Popup>
+                    </Dialog.Viewport>
                 </Dialog.Portal>
             </Dialog.Root>
         </ModalContext.Provider>

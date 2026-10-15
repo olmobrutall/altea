@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../ui/Tooltip";
 // altea divergences:
 //  - `visualTip` is a `VisualTipSymbol` rather than Signum's generated symbol object; the key is
 //    `symbol.key`, as everywhere in altea.
-//  - Signum's `AccessibleOverlay` survives as the effect below: the popover (a Radix dialog that takes
+//  - Signum's `AccessibleOverlay` survives as the effect below: the popover (a Base UI dialog that takes
 //    the focus and closes on Escape, giving it back to the button) is named by the tip's header and
 //    described by its body, which is marked `role="document"` because help content is long.
 

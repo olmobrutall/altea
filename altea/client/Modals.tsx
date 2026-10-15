@@ -121,7 +121,7 @@ function keepTabInTopmostDialog(e: KeyboardEvent) {
   if (e.key !== "Tab" || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey)
     return;
 
-  const dialogs = document.querySelectorAll<HTMLElement>(".sf-modal[data-state=open], .modal.show");
+  const dialogs = document.querySelectorAll<HTMLElement>(".sf-modal[data-open], .modal.show");
   const dialog = dialogs[dialogs.length - 1];
   if (dialog == null)
     return;

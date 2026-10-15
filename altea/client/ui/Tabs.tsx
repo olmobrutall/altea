@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Tabs as TabsPrimitive } from "radix-ui";
+import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import { cn } from "./utils";
 
 export type TabKey = string | number;
@@ -37,7 +37,7 @@ export interface TabsProps {
     children?: React.ReactNode;
 }
 
-/** react-bootstrap's `<Tabs><Tab eventKey title>…</Tab></Tabs>`, over Radix Tabs. */
+/** react-bootstrap's `<Tabs><Tab eventKey title>…</Tab></Tabs>`, over Base UI Tabs. */
 export function Tabs(p: TabsProps): React.ReactElement {
     // By shape, not by type: views and ReactVisitor still hand in react-bootstrap <Tab>s.
     const tabs = React.Children.toArray(p.children)
@@ -54,28 +54,28 @@ export function Tabs(p: TabsProps): React.ReactElement {
     const pills = p.variant === "pills";
 
     return (
-        <TabsPrimitive.Root id={p.id} value={active} activationMode="manual"
-            onValueChange={k => { setUncontrolled(k); p.onSelect?.(k); }}
+        <TabsPrimitive.Root id={p.id} value={active}
+            onValueChange={k => { setUncontrolled(String(k)); p.onSelect?.(String(k)); }}
             className={cn("sf-tabs", p.className)}>
-            <TabsPrimitive.List className={cn("sf-tab-list", pills ? "sf-tabs-pills" : "sf-tabs-tabs")}>
+            <TabsPrimitive.List activateOnFocus={false} className={cn("sf-tab-list", pills ? "sf-tabs-pills" : "sf-tabs-tabs")}>
                 {tabs.map(t =>
-                    <TabsPrimitive.Trigger key={String(t.props.eventKey)} value={String(t.props.eventKey)} disabled={t.props.disabled}
+                    <TabsPrimitive.Tab key={String(t.props.eventKey)} value={String(t.props.eventKey)} disabled={t.props.disabled}
                         id={p.id ? `${p.id}-tab-${t.props.eventKey}` : undefined}
                         data-event-key={String(t.props.eventKey)}
                         className={cn("sf-tab", t.props.tabClassName)}>
                         {t.props.title}
-                    </TabsPrimitive.Trigger>)}
+                    </TabsPrimitive.Tab>)}
             </TabsPrimitive.List>
             {tabs.map(t => {
                 const { eventKey, title, disabled, className, tabClassName, mountOnEnter, children, ...panelAttributes } = t.props;
                 const key = String(eventKey);
                 const rendered = p.unmountOnExit ? key === active : (p.mountOnEnter || mountOnEnter) ? visited.current.has(key) : true;
                 return (
-                    <TabsPrimitive.Content {...panelAttributes} key={key} value={key} forceMount={rendered ? true : undefined}
+                    <TabsPrimitive.Panel {...panelAttributes} key={key} value={key} keepMounted={rendered}
                         id={p.id ? `${p.id}-tabpane-${key}` : undefined}
-                        className={cn("sf-tab-pane outline-none data-[state=inactive]:hidden", className)}>
+                        className={cn("sf-tab-pane outline-none", className)}>
                         {rendered && children}
-                    </TabsPrimitive.Content>
+                    </TabsPrimitive.Panel>
                 );
             })}
         </TabsPrimitive.Root>

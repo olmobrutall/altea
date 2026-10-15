@@ -52,6 +52,7 @@
   "author": "Olmo del Corral",
   "license": "MIT",
   "dependencies": {
+    "@base-ui/react": "^1.9.0",
     "@fortawesome/fontawesome-svg-core": "^7.3.1",
     "@fortawesome/free-brands-svg-icons": "^7.3.1",
     "@fortawesome/free-regular-svg-icons": "^7.3.1",
@@ -69,7 +70,6 @@
     "pg": "^8.22.0",
     "pg-copy-streams": "^7.0.0",
     "quote-transformer": "workspace:*",
-    "radix-ui": "^1.8.1",
     "react": "^19.0.0",
     "react-bootstrap": "^2.10.10",
     "react-router": "^8.3.0",

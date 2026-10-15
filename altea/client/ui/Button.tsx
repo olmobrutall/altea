@@ -1,5 +1,4 @@
 import * as React from "react";
-import { Slot } from "radix-ui";
 import { cva } from "class-variance-authority";
 import { cn } from "./utils";
 
@@ -69,9 +68,12 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 export function Button({ className, variant, tone, size, asChild, type, ...props }: ButtonProps): React.ReactElement {
-    const Comp = asChild ? Slot.Root : "button";
-    return <Comp className={cn(buttonVariants({ variant, tone: variant === "outline" ? (tone ?? "primary") : null, size }), className)}
-        type={asChild ? undefined : (type ?? "button")} {...props} />;
+    const classes = cn(buttonVariants({ variant, tone: variant === "outline" ? (tone ?? "primary") : null, size }), className);
+    if (asChild && React.isValidElement<{ className?: string }>(props.children)) {
+        const { children, ...rest } = props;
+        return React.cloneElement(children as React.ReactElement<{ className?: string }>, { ...rest, className: cn(classes, (children as React.ReactElement<{ className?: string }>).props.className) });
+    }
+    return <button className={classes} type={type ?? "button"} {...props} />;
 }
 
 export function ButtonGroup({ className, orientation = "horizontal", ...props }: React.HTMLAttributes<HTMLDivElement> & { orientation?: "horizontal" | "vertical" }): React.ReactElement {

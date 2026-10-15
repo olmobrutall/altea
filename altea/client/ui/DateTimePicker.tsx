@@ -121,7 +121,7 @@ export function DateTimePicker(p: DateTimePickerProps): React.ReactElement {
                 </InputGroup>
             </PopoverAnchor>
             <PopoverContent align={p.align ?? "start"} className="w-auto max-w-none border-0 bg-transparent p-0 shadow-none"
-                onOpenAutoFocus={e => e.preventDefault()}>
+                autoFocus={false}>
                 <div className="rounded-md bg-popover shadow-md">
                     <Calendar value={day} onChange={pickDay} min={p.min} max={p.max} renderDay={p.renderDay} minView={p.minView} autoFocus
                         className={showTime ? "rounded-b-none border-b-0" : undefined} />

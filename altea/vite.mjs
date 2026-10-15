@@ -45,3 +45,18 @@ export function alteaLegacyCssLayer() {
         },
     };
 }
+
+/** Every Base UI entry point the `ui` kit imports. */
+const BASE_UI_ENTRIES = ["checkbox", "collapsible", "dialog", "menu", "popover", "progress", "radio", "radio-group", "select", "switch", "tabs", "tooltip"];
+
+/**
+ * Pre-bundles the kit's Base UI entry points at startup. Vite otherwise finds them only when a lazy
+ * chunk first imports one (the UI kit page, a dialog with a radio group), re-optimizes, and answers
+ * "504 Outdated Optimize Dep" until the page is reloaded — which altea also reports as a new deployment.
+ */
+export function alteaUiDeps() {
+    return {
+        name: "altea-ui-deps",
+        config: () => ({ optimizeDeps: { include: BASE_UI_ENTRIES.map(e => "@base-ui/react/" + e) } }),
+    };
+}

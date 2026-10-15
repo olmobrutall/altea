@@ -850,7 +850,7 @@ textarea.sf-form-control.is-invalid {
   border-color: var(--muted) var(--muted) var(--border);
 }
 
-.sf-tabs-tabs .sf-tab[data-state=active] {
+.sf-tabs-tabs .sf-tab[data-active] {
   color: var(--foreground);
   background-color: var(--background);
   border-color: var(--border) var(--border) var(--background);
@@ -860,7 +860,7 @@ textarea.sf-form-control.is-invalid {
   border-radius: .375rem;
 }
 
-.sf-tabs-pills .sf-tab[data-state=active] {
+.sf-tabs-pills .sf-tab[data-active] {
   color: var(--primary-foreground);
   background-color: var(--primary);
 }

@@ -1028,7 +1028,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
           </PopoverTrigger>
           <PopoverContent align="start" sideOffset={2} className="w-auto max-w-none border-0 bg-transparent p-0 shadow-none">
             {/* The items come from the contextual-item providers (some built by other packages), so this is a
-                plain menu, not a Radix one; picking an item closes it. */}
+                plain menu, not a Base UI one; picking an item closes it. */}
             <MenuPanel role="menu" className="static block"
               onClick={e => { if ((e.target as HTMLElement).closest(".sf-dropdown-item:not(.disabled), .dropdown-item:not(.disabled)")) this.handleSelectedToggle(false); }}>
               {this.state.currentMenuPack == undefined ? <MenuItem className="sf-tm-selected-loading">{JavascriptMessage.loading.niceToString()}</MenuItem> :

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Progress as ProgressPrimitive } from "radix-ui";
+import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
 import { JavascriptMessage } from "../../data/uiMessages";
 import { cn } from "./utils";
 
@@ -27,7 +27,8 @@ const variants = {
 export function Progress({ value, min = 0, max = 100, label, variant = "primary", striped, animated, className }: ProgressProps): React.ReactElement {
     const percent = value == null ? null : max === min ? 100 : (value - min) / (max - min) * 100;
     return (
-        <ProgressPrimitive.Root value={percent} className={cn("sf-progress relative flex h-4 overflow-hidden rounded-md bg-muted text-xs", className)}>
+        <ProgressPrimitive.Root value={percent} className={cn("sf-progress relative h-4 overflow-hidden rounded-md bg-muted text-xs", className)}>
+            <ProgressPrimitive.Track className="flex h-full w-full">
             <ProgressPrimitive.Indicator
                 className={cn("flex items-center justify-center overflow-hidden whitespace-nowrap transition-[width]", variants[variant],
                     (striped || animated || percent == null) && "bg-[linear-gradient(45deg,rgb(255_255_255/.15)_25%,transparent_25%,transparent_50%,rgb(255_255_255/.15)_50%,rgb(255_255_255/.15)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem]",
@@ -35,6 +36,7 @@ export function Progress({ value, min = 0, max = 100, label, variant = "primary"
                 style={{ width: percent == null ? "100%" : `${Math.max(0, Math.min(100, percent))}%` }}>
                 {label}
             </ProgressPrimitive.Indicator>
+            </ProgressPrimitive.Track>
         </ProgressPrimitive.Root>
     );
 }

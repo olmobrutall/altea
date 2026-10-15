@@ -21,8 +21,8 @@ export default class Upgrade_20261014_TailwindUtilities extends UpgradeBase {
 
         uctx.changeCodeFile("eastwind/vite.client.config.ts", file => {
             file.insertAfterFirstLine(l => l.includes(`from "@vitejs/plugin-react"`),
-                `import tailwindcss from "@tailwindcss/vite";\nimport { alteaLegacyCssLayer } from "@altea/altea/vite.mjs";`);
-            file.replace(/plugins: \[/, "plugins: [alteaLegacyCssLayer(), tailwindcss(), ");
+                `import tailwindcss from "@tailwindcss/vite";\nimport { alteaLegacyCssLayer, alteaUiDeps } from "@altea/altea/vite.mjs";`);
+            file.replace(/plugins: \[/, "plugins: [alteaLegacyCssLayer(), alteaUiDeps(), tailwindcss(), ");
         });
 
         uctx.createCodeFile("eastwind/app/tailwind.css",

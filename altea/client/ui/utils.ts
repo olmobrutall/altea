@@ -1,3 +1,4 @@
+import * as React from "react";
 import { clsx, type ClassValue } from "clsx";
 import { extendTailwindMerge } from "tailwind-merge";
 
@@ -15,4 +16,15 @@ const twMerge = extendTailwindMerge({
 /** Joins class lists and lets a later Tailwind class override an earlier conflicting one. */
 export function cn(...inputs: ClassValue[]): string {
     return twMerge(clsx(inputs));
+}
+
+/**
+ * The kit keeps Radix's `asChild` spelling; Base UI composes through `render`. A trigger rendered as
+ * something other than a <button> (a link, a span) tells Base UI so, or it adds button semantics twice.
+ */
+export function renderChild(asChild: boolean | undefined, children: React.ReactNode, nativeButton?: boolean): { render?: React.ReactElement, children?: React.ReactNode, nativeButton?: boolean } {
+    if (!asChild || !React.isValidElement(children))
+        return { children, nativeButton };
+    const type = children.type;
+    return { render: children, nativeButton: nativeButton ?? (typeof type !== "string" || type === "button") };
 }

@@ -275,7 +275,7 @@ export function QuickLinkWidget(p: QuickLinkWidgetProps): React.ReactElement | n
 
             return (
               <Dropdown key={i}>
-                <DropdownTrigger asChild>
+                <DropdownTrigger asChild nativeButton={false}>
                   <QuickLinkToggle
                     id={p.qlc.widgetContext!.frame.prefix + "_" + dd.name}
                     title={QuickLinkMessage.Quicklinks.niceToString()}

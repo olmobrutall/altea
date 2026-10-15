@@ -177,7 +177,7 @@ export default function UiKitPage(): React.ReactElement {
                     <span className="text-sm text-muted-foreground">onExited fired {exited}×</span>
                     <DropdownButton title="Dropdown" variant="secondary">
                         <DropdownLabel>Actions</DropdownLabel>
-                        <DropdownItem onSelect={() => { }}><FontAwesomeIcon icon="pen" /> Edit</DropdownItem>
+                        <DropdownItem onClick={() => { }}><FontAwesomeIcon icon="pen" /> Edit</DropdownItem>
                         <DropdownItem active>Current choice</DropdownItem>
                         <DropdownCheckboxItem checked={checked} onCheckedChange={setChecked}>Checked</DropdownCheckboxItem>
                         <DropdownSeparator />

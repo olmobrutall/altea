@@ -1,7 +1,7 @@
 # Bootstrap → Tailwind + shadcn/ui
 
 Replace **bootstrap**, **react-bootstrap** and **react-widgets-up** with **Tailwind CSS v4** and
-**shadcn/ui** (Radix primitives) across altea and eastwind. Branch `tailwind` in both repos.
+**shadcn/ui** (Base UI primitives) across altea and eastwind. Branch `tailwind` in both repos.
 
 The class-by-class translation every package (and every application ported from Signum) follows is
 **[`Tailwind-ClassMap.md`](Tailwind-ClassMap.md)**. It is also the input of the Phase 5 codemod.
@@ -37,7 +37,7 @@ The class-by-class translation every package (and every application ported from 
 | --- | --- | --- |
 | CSS | `tailwindcss` v4 + `@tailwindcss/vite` (CSS-first config, no `tailwind.config.js`) | MIT |
 | Components | shadcn/ui, **copied in** (not a dependency) to `altea/altea/client/ui/` | MIT |
-| Primitives | `radix-ui` (Dialog, DropdownMenu, Tabs, Tooltip, Popover, Select, Collapsible, Checkbox, Switch, Progress) | MIT |
+| Primitives | `@base-ui/react` (Dialog, Menu, Tabs, Tooltip, Popover, Select, Collapsible, Checkbox, Switch, Radio, Progress) — shadcn's default since July 2026; Radix until 2026-10-15 | MIT |
 | Helpers | `class-variance-authority`, `clsx`, `tailwind-merge` → one `cn()` | MIT |
 | Combobox / multiselect | `cmdk` (shadcn `Command`) inside `Popover` | MIT |
 | Calendar / date-time | altea's own, Temporal + `Intl` | — |
@@ -48,7 +48,7 @@ review as any generated code.
 
 ## Principles
 
-1. **altea owns the wrappers; packages never import Radix or shadcn files directly.** Every module
+1. **altea owns the wrappers; packages never import Base UI or shadcn files directly.** Every module
    imports from `@altea/altea/client/ui/<Component>`. One place for a primitive to change; the 28 packages take no
    new dependency.
 2. **Keep the react-bootstrap SHAPE where it is cheap.** altea's `Modal` (`show` / `onHide` /
@@ -220,6 +220,25 @@ What it turned up:
 - Left for later phases: the `rw-*` rules in `Lines.css` (altea-chart), `.btn` styling, the `Notify` restyle,
   `--bs-*` in the core stylesheets, `Lines.css`'s `.border { padding }`, the hidden "selected rows" menu
   (not exercised: the option is off in eastwind).
+
+### Phase 2b — primitives on Base UI instead of Radix ✅
+shadcn moved its default primitives to Base UI (`@base-ui/react`, MIT) in July 2026, so the kit followed
+before any module depends on it. The wrappers kept their props, so no caller changed except the ones below.
+- `asChild` stays the kit's spelling; `renderChild()` (`ui/utils.ts`) turns it into Base UI's `render`. A
+  trigger rendered as something other than a `<button>` needs `nativeButton={false}` (the quick-link badge
+  is an `<a>`).
+- State attributes: `data-state="open|active|checked"` → `data-open` / `data-active` / `data-checked`;
+  an inactive tab panel has `hidden`. CSS, `Modals.tsx` and the Playwright proxies follow.
+- Modal: Base UI reports WHY a dialog wants to close (`escape-key`, `outside-press`, …), so the
+  top-of-stack rule for sibling modals is one check in `onOpenChange`; `onExited` is
+  `onOpenChangeComplete(false)`, no animation timer. Focus handling (`initialFocus` / `finalFocus`) as before.
+- Popover width var `--radix-popover-trigger-width` → `--anchor-width`; `onOpenAutoFocus` →
+  `autoFocus={false}` on `PopoverContent`.
+- Vite discovered Base UI's entry points only when a LAZY chunk imported one, answered "504 Outdated
+  Optimize Dep", and altea reported that as a new deployment. `alteaUiDeps()` (`vite.mjs`) pre-bundles them.
+- Verified: the modal/menu/Lines scenarios, the selected-rows menu (shown only on touch devices since the
+  master merge), the UI kit's form controls, page screenshots (chrome unchanged). The browser e2e was not
+  re-run: it restores the database under the running API.
 
 ### Phase 3 — modules (78 files, mechanical)
 Dependency order, one commit per package: auth → user-assets / user-queries → chart → dashboard →

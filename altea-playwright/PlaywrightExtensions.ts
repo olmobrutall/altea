@@ -82,11 +82,11 @@ export async function waitValue<T>(get: () => Promise<T | null | undefined>, des
 // ---- Modal capture -------------------------------------------------------------------------------------
 
 /**
- * An open modal, narrowed by `extra` (an attribute filter, a descendant): altea's (`.sf-modal`, a Radix
+ * An open modal, narrowed by `extra` (an attribute filter, a descendant): altea's (`.sf-modal`, a Base UI
  * dialog) or a react-bootstrap one a package still renders.
  */
 export function openModal(extra: string = ""): string {
-    return `.sf-modal[data-state=open]${extra}, .modal.fade.show${extra}`;
+    return `.sf-modal[data-open]${extra}, .modal.fade.show${extra}`;
 }
 
 /**

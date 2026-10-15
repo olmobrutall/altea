@@ -1,77 +1,94 @@
 import * as React from "react";
-import { DropdownMenu as Menu } from "radix-ui";
+import { Menu } from "@base-ui/react/menu";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Button, type ButtonProps } from "./Button";
-import { cn } from "./utils";
+import { cn, renderChild } from "./utils";
 
 export const Dropdown: typeof Menu.Root = Menu.Root;
-
-/** True inside a Radix menu: an item built for one also works in a MenuPanel (the context menu), as a plain item. */
-const InRadixMenu = React.createContext(false);
-export const DropdownTrigger: typeof Menu.Trigger = Menu.Trigger;
 export const DropdownGroup: typeof Menu.Group = Menu.Group;
-export const DropdownSub: typeof Menu.Sub = Menu.Sub;
+export const DropdownSub: typeof Menu.SubmenuRoot = Menu.SubmenuRoot;
+
+/** True inside a menu: an item built for one also works in a MenuPanel (the context menu), as a plain item. */
+const InMenu = React.createContext(false);
+
+export interface DropdownTriggerProps extends Omit<React.ComponentProps<typeof Menu.Trigger>, "render"> {
+    asChild?: boolean;
+}
+
+export function DropdownTrigger({ asChild, children, nativeButton, ...props }: DropdownTriggerProps): React.ReactElement {
+    return <Menu.Trigger {...props} {...renderChild(asChild, children, nativeButton)} />;
+}
 
 /** Laid out as a row so an icon and its text sit together; the look is the semantic .sf-dropdown-item. */
 const item = "relative flex items-center gap-2 select-none";
 
-export function DropdownContent({ className, sideOffset = 2, align = "start", ...props }: React.ComponentProps<typeof Menu.Content>): React.ReactElement {
+export interface DropdownContentProps extends React.HTMLAttributes<HTMLDivElement> {
+    side?: "top" | "right" | "bottom" | "left";
+    align?: "start" | "center" | "end";
+    sideOffset?: number;
+}
+
+export function DropdownContent({ className, side = "bottom", sideOffset = 2, align = "start", ...props }: DropdownContentProps): React.ReactElement {
     return (
         <Menu.Portal>
-            <InRadixMenu.Provider value={true}>
-                <Menu.Content sideOffset={sideOffset} align={align}
-                    className={cn("sf-dropdown-menu static z-[1070] overflow-y-auto max-h-(--radix-dropdown-menu-content-available-height)", className)}
-                    {...props} />
-            </InRadixMenu.Provider>
+            <Menu.Positioner side={side} align={align} sideOffset={sideOffset} className="z-[1070]">
+                <InMenu.Provider value={true}>
+                    <Menu.Popup className={cn("sf-dropdown-menu static overflow-y-auto max-h-(--available-height) outline-none", className)} {...props} />
+                </InMenu.Provider>
+            </Menu.Positioner>
         </Menu.Portal>
     );
 }
 
-export interface DropdownItemProps extends React.ComponentProps<typeof Menu.Item> {
+export interface DropdownItemProps extends Omit<React.ComponentProps<typeof Menu.Item>, "className"> {
+    className?: string;
     /** The current choice of a picker-style menu. */
     active?: boolean;
 }
 
 export function DropdownItem({ className, active, ...props }: DropdownItemProps): React.ReactElement {
-    if (!React.useContext(InRadixMenu))
+    if (!React.useContext(InMenu))
         return <MenuItem className={className} active={active} {...props as React.ButtonHTMLAttributes<HTMLButtonElement>} />;
     return <Menu.Item aria-current={active || undefined} className={cn("sf-dropdown-item", item, active && "active", className)} {...props} />;
 }
 
-export function DropdownCheckboxItem({ className, children, ...props }: React.ComponentProps<typeof Menu.CheckboxItem>): React.ReactElement {
+export function DropdownCheckboxItem({ className, children, ...props }: Omit<React.ComponentProps<typeof Menu.CheckboxItem>, "className"> & { className?: string }): React.ReactElement {
     return (
         <Menu.CheckboxItem className={cn("sf-dropdown-item", item, "ps-8", className)} {...props}>
-            <Menu.ItemIndicator className="absolute start-2 inline-flex"><FontAwesomeIcon icon="check" aria-hidden={true} /></Menu.ItemIndicator>
+            <Menu.CheckboxItemIndicator className="absolute start-2 inline-flex"><FontAwesomeIcon icon="check" aria-hidden={true} /></Menu.CheckboxItemIndicator>
             {children}
         </Menu.CheckboxItem>
     );
 }
 
-export function DropdownLabel({ className, ...props }: React.ComponentProps<typeof Menu.Label>): React.ReactElement {
-    if (!React.useContext(InRadixMenu))
-        return <MenuHeader className={className} {...props as React.HTMLAttributes<HTMLHeadingElement>} />;
-    return <Menu.Label className={cn("sf-dropdown-header", className)} {...props} />;
+/** A heading among the items (Base UI ties its own label to a group, so this is plain markup). */
+export function DropdownLabel({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>): React.ReactElement {
+    return <MenuHeader className={className} {...props} />;
 }
 
-export function DropdownSeparator({ className, ...props }: React.ComponentProps<typeof Menu.Separator>): React.ReactElement {
-    if (!React.useContext(InRadixMenu))
+export function DropdownSeparator({ className }: { className?: string }): React.ReactElement {
+    if (!React.useContext(InMenu))
         return <MenuDivider className={className} />;
-    return <Menu.Separator className={cn("sf-dropdown-divider", className)} {...props} />;
+    return <Menu.Separator className={cn("sf-dropdown-divider", className)} />;
 }
 
-export function DropdownSubTrigger({ className, children, ...props }: React.ComponentProps<typeof Menu.SubTrigger>): React.ReactElement {
+export function DropdownSubTrigger({ className, children, ...props }: Omit<React.ComponentProps<typeof Menu.SubmenuTrigger>, "className"> & { className?: string }): React.ReactElement {
     return (
-        <Menu.SubTrigger className={cn("sf-dropdown-item", item, className)} {...props}>
+        <Menu.SubmenuTrigger className={cn("sf-dropdown-item", item, className)} {...props}>
             {children}
             <FontAwesomeIcon icon="chevron-right" className="ms-auto text-[.7em] rtl:rotate-180" aria-hidden={true} />
-        </Menu.SubTrigger>
+        </Menu.SubmenuTrigger>
     );
 }
 
-export function DropdownSubContent({ className, ...props }: React.ComponentProps<typeof Menu.SubContent>): React.ReactElement {
+export function DropdownSubContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>): React.ReactElement {
     return (
         <Menu.Portal>
-            <Menu.SubContent className={cn("sf-dropdown-menu static z-[1070]", className)} {...props} />
+            <Menu.Positioner side="right" align="start" className="z-[1070]">
+                <InMenu.Provider value={true}>
+                    <Menu.Popup className={cn("sf-dropdown-menu static outline-none", className)} {...props} />
+                </InMenu.Provider>
+            </Menu.Positioner>
         </Menu.Portal>
     );
 }
@@ -103,7 +120,7 @@ export function DropdownButton({ title, children, align, noCaret, contentClassNa
 }
 
 // Menus a component positions itself (the search context menu, a typeahead): plain semantic markup, no
-// Radix menu — they also hold items other packages build — so the owner handles keys and dismissal.
+// Base UI menu — they also hold items other packages build — so the owner handles keys and dismissal.
 
 export function MenuPanel({ className, onKeyDown, ...props }: React.HTMLAttributes<HTMLDivElement> & { ref?: React.Ref<HTMLDivElement> }): React.ReactElement {
     return <div className={cn("sf-dropdown-menu", className)} onKeyDown={e => { moveFocus(e); onKeyDown?.(e); }} {...props} />;

@@ -3,7 +3,7 @@
    that chain (.sf-chart-tab-container and down) is in altea-chart's Chart.css; this is the last link,
    and it lives here beside the component that needs it, exactly as Signum has it. */
 .sf-chart-tab-container .tab-content .tab-pane.active .sf-fullscreen-component,
-.sf-chart-tab-container .sf-tab-pane[data-state=active] .sf-fullscreen-component {
+.sf-chart-tab-container .sf-tab-pane:not([hidden]) .sf-fullscreen-component {
     flex-grow: 1;
     display: flex;
 }

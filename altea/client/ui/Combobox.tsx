@@ -98,7 +98,7 @@ export function Combobox<T>(p: ComboboxProps<T>): React.ReactElement {
                     </span>
                 </button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-(--radix-popover-trigger-width) min-w-[12rem] max-w-none p-0">
+            <PopoverContent align="start" className="w-(--anchor-width) min-w-[12rem] max-w-none p-0">
                 <ComboboxList {...p} m={m} selectedKeys={p.value != null ? [p.getKey(p.value)] : []}
                     extra={p.allowClear && p.value != null
                         ? <CommandItem value="__clear" onSelect={() => { p.onChange(null, { keyboard: false }); setOpen(false); }} aria-label={EntityControlMessage.Remove.niceToString()} className="text-muted-foreground">
