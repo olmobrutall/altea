@@ -1431,6 +1431,20 @@ export class QueryBinder extends ExpressionVisitor {
             return b.updateBinary(left, right);
         }
 
+        // Signum's `string + enum` calls Enum.ToString(): the member NAME, not the number.
+        if (b.kind === "+") {
+            const left = this.visit(b.left);
+            const right = this.visit(b.right);
+            if ((left.type === LiteralType.string || right.type === LiteralType.string)
+                && (left.type instanceof EnumType || right.type instanceof EnumType)) {
+                const name = (e: Expression): Expression => e.type instanceof EnumType
+                    ? new CallExpression(new PropertyExpression(e, "toString", false), [], LiteralType.string)
+                    : e;
+                return b.updateBinary(name(left), name(right));
+            }
+            return b.updateBinary(left, right);
+        }
+
         return super.visitBinary(b);
     }
 

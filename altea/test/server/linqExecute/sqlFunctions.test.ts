@@ -383,6 +383,10 @@ describe.skipIf(!hasDb)("SqlFunctionsTest", () => {
         const list2 = await table(ArtistEntity).map(a => a.name + " is " + a.status).toArray();
         assert.ok(list2.length > 0);
         assert.ok(list2.every(s => s.includes(" is ")));
+        // C#'s string + enum is the member name, never the number.
+        const list3 = await table(ArtistEntity).map(a => a.name + " is " + a.sex).toArray();
+        assert.ok(list3.every(s => ["Male", "Female", "Undefined"].some(n => s.endsWith(" is " + n))));
+        assert.ok(list2.every(s => !/ is \d/.test(s)));
         // Non-null status renders as its member name inside the concatenation.
         assert.ok(list2.some(s => s.endsWith(" is Single") || s.endsWith(" is Married")));
     });
