@@ -45,11 +45,12 @@ export abstract class EntityButtonContainer<T extends BaseEntity> {
             const groupButton = this.container.locator(`#${groupId}`);
             if (await isPresent(groupButton)) {
                 await groupButton.click();
-                return this.container.locator(`a[data-operation='${key}']`);
+                // The group's menu is portaled to the body, outside this container.
+                return this.container.page().locator(`[role=menu] [data-operation='${key}']`);
             }
         }
 
-        return this.container.locator(`button[data-operation='${key}'], a[data-operation='${key}']`).first();
+        return this.container.locator(`button[data-operation='${key}'], a[data-operation='${key}'], [role=menuitem][data-operation='${key}']`).first();
     }
 
     async operationEnabled(operation: OperationOf<T>, groupId?: string): Promise<boolean> {
