@@ -9,7 +9,7 @@
 import * as React from "react";
 import { type PseudoType } from './Reflection';
 import { TypeReference } from '../data/reflection';
-import { Temporal } from '../data/basics';
+import { Temporal, Decimal } from '../data/basics';
 import { Entity, EmbeddedEntity, type Type } from '../data/entity';
 import { QueryTokenString } from './QueryTokenString';
 // The UNPARSED option DTOs moved to the data layer with QueryTokenString, whose builder methods
@@ -600,4 +600,25 @@ export function parseDateFilterValue(typeName: string | undefined, val: unknown)
   } catch {
     return val;
   }
+}
+
+/**
+ * A number exactly as its column holds it. A Decimal stays exact (decimal.js, not a float). A BigInt
+ * column keeps its digit STRING: a JS number rounds above 2^53, and the server builds the bigint from the
+ * string by the token's type. Anything else is a JS number — `Number`, not `parseInt`, since a float
+ * column also has the Integer filter type. A string that is not such a number is no value at all.
+ */
+export function parseNumberFilterValue(token: Pick<QueryToken, "filterType" | "type">, val: unknown): unknown {
+  if (typeof val !== "string")
+    return val;
+  const s = val.trim();
+  if (s === "")
+    return undefined;
+  if (token.filterType == "Decimal") {
+    try { return new Decimal(s); } catch { return undefined; }
+  }
+  if (token.type.typeName == "BigInt")
+    return /^[+-]?\d+$/.test(s) ? s : undefined;
+  const n = Number(s);
+  return isNaN(n) ? undefined : n;
 }

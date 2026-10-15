@@ -36,7 +36,7 @@ import type {
 } from '../data/dynamicQuery/queryRequest';
 import {
   isList, isPair, type ColumnOptionsModeKeys, toPinnedFilterParsed, isActive, canSplitValue,
-  getFilterOperations, isFilterGroup, isFilterCondition, isGroupList, toColumnOption, parseDateFilterValue,
+  getFilterOperations, isFilterGroup, isFilterCondition, isGroupList, toColumnOption, parseDateFilterValue, parseNumberFilterValue,
 } from './FindOptions';
 // DIVERGENCE: there is no QueryDescription DTO. altea builds the token tree in the BROWSER from registered
 // entity metadata (`getQueryRoot` / `getSubTokens`), so `QueryDescriptionDTO` / `QueryTokenWithoutParent`
@@ -1449,14 +1449,14 @@ export namespace Finder {
         // ALTEA: a token's value type is a FilterType (Signum tested type.name against C# type names).
         if (fop.token.filterType == "Integer" || fop.token.filterType == "Decimal") {
 
-          const numVal = parseInt(value);
+          // The exact number (parseInt truncated a decimal: 49.90 was sent as 49).
+          const numVal = parseNumberFilterValue(fop.token, value);
 
           // TODO(port): the per-type min/max overflow guard. The reason recorded here — "altea has a single
           // numeric type" — is wrong: the int/long/decimal split lives in `subTypeName`, and `numberLimits`
           // in `./numberFormat` is exactly that map, beside the `toNumberFormat` this file already takes
-          // from it. Only the check is missing; a NaN
-          // still removes the value.
-          if (isNaN(numVal)) {
+          // from it. Only the check is missing; a value that is not a number still removes the value.
+          if (numVal === undefined) {
             if (overridenValue)
               return undefined;
 
@@ -1834,7 +1834,7 @@ export namespace Finder {
           const firstCond = fo.filters.first(f => isFilterCondition(f) && f.token != null) as FilterConditionOptionParsed;
           if (!Array.isArray(fo.value))
             fo.value = [fo.value].notNull();
-          fo.value = (fo.value as unknown[]).map(v => parseValue(firstCond.token!, v));
+          fo.value = (fo.value as unknown[]).map(v => parseTokenValue(firstCond.token!, v));
         }
         return;
       }
@@ -1845,17 +1845,17 @@ export namespace Finder {
       if (fo.operation && isList(fo.operation)) {
         if (!Array.isArray(fo.value))
           fo.value = [fo.value].notNull();
-        fo.value = (fo.value as unknown[]).map(v => parseValue(fo.token!, v));
+        fo.value = (fo.value as unknown[]).map(v => parseTokenValue(fo.token!, v));
       }
       else if (fo.operation && isPair(fo.operation)) {
         if (!Array.isArray(fo.value))
           fo.value = [fo.value ?? null, null];
-        fo.value = (fo.value as [unknown, unknown]).map(v => v == null ? null : parseValue(fo.token!, v));
+        fo.value = (fo.value as [unknown, unknown]).map(v => v == null ? null : parseTokenValue(fo.token!, v));
       }
       else {
         if (Array.isArray(fo.value))
           throw new Error("Unexpected array for operation " + fo.operation);
-        fo.value = parseValue(fo.token, fo.value);
+        fo.value = parseTokenValue(fo.token, fo.value);
       }
     }
 
@@ -1880,16 +1880,20 @@ export namespace Finder {
     }
   }
 
-  // One scalar filter value against its token's FilterType (Signum's `parseValue`). Only the types whose
-  // string form differs from the typed one are converted; String / Guid / Enum / DateTime / Time pass
-  // through (an enum member rides as its NAME, which is what the server's deserializeFilterValue reads).
-  function parseValue(token: QueryToken, val: unknown): unknown {
+  /**
+   * One scalar value as a filter on `token` holds it (Signum's `parseValue`): what a URL filter, a
+   * result cell (which carries dates and numbers as their wire STRINGS) or a typed text turns into before it
+   * goes into a parsed filter. Only the types whose string form differs from the typed one are converted;
+   * String / Guid / Enum / Time pass through (an enum member rides as its NAME, which is what the server's
+   * deserializeFilterValue reads).
+   */
+  export function parseTokenValue(token: QueryToken, val: unknown): unknown {
     switch (token.filterType) {
       // Signum's parseBoolean: only the two spellings the encoder writes; anything else (an empty
       // value, an already-typed boolean) is left alone.
       case "Boolean": return val === "true" || val === "True" ? true : val === "false" || val === "False" ? false : val;
-      case "Integer": return typeof val === "string" ? nanToNull(parseInt(val, 10)) : val;
-      case "Decimal": return typeof val === "string" ? nanToNull(parseFloat(val)) : val;
+      case "Integer":
+      case "Decimal": return parseNumberFilterValue(token, val);
       case "Lite": return convertToLite(val as string | Lite<Entity> | Entity | null | undefined);
       case "Model": return typeof val === "string" ? (Decoder.decodeModel[token.type.getTypeName()!]?.(val) ?? val) : val;
       case "DateTime": return parseDateFilterValue(token.type.typeName, val);

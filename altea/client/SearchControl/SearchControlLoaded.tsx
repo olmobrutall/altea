@@ -16,7 +16,7 @@ import type {
   FindOptionsParsed, FilterOption, FilterOptionParsed, ColumnOption, ColumnOptionParsed,
   OrderOption, OrderOptionParsed, FindOptions
 } from '../FindOptions'
-import { filterOperations, isActive, isFilterCondition, parseDateFilterValue, withoutPinned } from '../FindOptions'
+import { filterOperations, isActive, isFilterCondition, withoutPinned } from '../FindOptions'
 import type { ResultTable, ResultRow, Pagination, QueryRequest } from '../../data/dynamicQuery/queryRequest'
 import { QueryToken, SubTokensOptions, rowEntityToken } from '../QueryToken'
 import { getKey } from '../../data/dynamicQuery/queryUtils'
@@ -1103,9 +1103,8 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     const token = fo.columnOptions[cm.columnIndex!].token!;
     const rt = this.state.resultTable;
     let value = cm.rowIndex == undefined || rt == null ? undefined : rt.rows[cm.rowIndex].columns[rt.columns.indexOf(token.fullKey())];
-    // A result cell holds a date as its ISO string; a filter value is the Temporal the date field edits.
-    if (token.filterType == "DateTime")
-      value = parseDateFilterValue(token.type.typeName, value);
+    // A result cell holds dates and decimals as their wire strings; a filter holds the typed value.
+    value = Finder.parseTokenValue(token, value);
 
     var rule = Finder.quickFilterRules().filter(a => a.applicable(token, value, this)).last("Finder.QuickFilterRule");
 
