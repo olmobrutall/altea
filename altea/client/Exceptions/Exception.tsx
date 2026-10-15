@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Tab, Tabs } from 'react-bootstrap'
+import { Tab, Tabs } from '../ui/Tabs';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import type { Quoted } from 'quote-transformer/quoted'
 import { classes } from '../../data/globals'

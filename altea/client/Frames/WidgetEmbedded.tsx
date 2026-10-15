@@ -9,7 +9,7 @@ import "./Widgets.css"
 import { ErrorBoundary } from '../Components';
 import { onEmbeddedWidgets } from './Widgets'
 import type { WidgetContext, EmbeddedWidget } from './Widgets'
-import { Tabs, Tab } from 'react-bootstrap';
+import { Tab, Tabs } from '../ui/Tabs';
 import { Navigator } from "../Navigator"
 import { getTypeName } from '../Reflection'
 

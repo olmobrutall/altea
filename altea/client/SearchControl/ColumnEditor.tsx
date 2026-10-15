@@ -139,7 +139,7 @@ export default function ColumnEditor(p: ColumnEditorProps): React.ReactElement {
 
         <div className="col-sm-1">
           <button type="button" className="btn-close float-end" aria-label={EntityControlMessage.Close.niceToString()} onClick={p.close} />
-          <VisualTipIcon visualTip={SearchVisualTip.ColumnHelp} content={props => <ColumnHelp queryToken={p.queryToken} injected={props} />} />
+          <VisualTipIcon visualTip={SearchVisualTip.ColumnHelp} content={() => <ColumnHelp queryToken={p.queryToken} />} />
         </div>
       </div>
     </div >

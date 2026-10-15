@@ -15,7 +15,7 @@ import { TypeContext } from '../TypeContext'
 import { PropertyRoute } from '../../data/propertyRoute'
 import { getTypeName } from '../Reflection'
 import type { Pagination } from '../../data/dynamicQuery/queryRequest'
-import { Tab, Tabs } from 'react-bootstrap'
+import { Tabs } from '../ui/Tabs'
 import type { LineBaseProps } from '../Lines/LineBase'
 import type { Quoted } from 'quote-transformer/quoted'
 
@@ -242,7 +242,7 @@ export class ViewReplacer<T extends BaseEntity> {
 
   removeTab(eventKey: string): this {
     this.result = new ReplaceVisitor(
-      e => e.type == Tab && (e.props as any).eventKey == eventKey,
+      e => isTab(e) && (e.props as any).eventKey == eventKey,
       e => [])
       .visit(this.result);
 
@@ -251,7 +251,7 @@ export class ViewReplacer<T extends BaseEntity> {
 
   addTab(tabsId: string, ...newTabs: (React.ReactElement | undefined | false | null)[]): this {
     this.result = new ReplaceVisitor(
-      e => e.type == Tabs && (e.props as any).id == tabsId,
+      e => isTabs(e) && (e.props as any).id == tabsId,
       e => [React.cloneElement(e, { children: [...React.Children.toArray((e.props as any).children), ...newTabs] } as any)])
       .visit(this.result);
 
@@ -260,7 +260,7 @@ export class ViewReplacer<T extends BaseEntity> {
 
   insertTabAfter(eventKey: string | number, ...newTabs: (React.ReactElement | undefined | false | null)[]): this {
     this.result = new ReplaceVisitor(
-      e => e.type == Tab && (e.props as any).eventKey == eventKey,
+      e => isTab(e) && (e.props as any).eventKey == eventKey,
       e => [e, ...newTabs])
       .visit(this.result);
 
@@ -269,12 +269,21 @@ export class ViewReplacer<T extends BaseEntity> {
 
   insertTabBefore(eventKey: string | number, ...newTabs: (React.ReactElement | undefined | false | null)[]): this {
     this.result = new ReplaceVisitor(
-      e => e.type == Tab && (e.props as any).eventKey == eventKey,
+      e => isTab(e) && (e.props as any).eventKey == eventKey,
       e => [...newTabs, e])
       .visit(this.result);
 
     return this;
   }
+}
+
+// By shape and name: a view may still hold react-bootstrap's Tabs / Tab rather than the ui ones.
+function isTabs(e: React.ReactElement): boolean {
+  return e.type === Tabs || (typeof e.type == "function" && e.type.name == "Tabs");
+}
+
+function isTab(e: React.ReactElement): boolean {
+  return (e.props as any)?.eventKey !== undefined && (e.props as any)?.title !== undefined && !isTabs(e);
 }
 
 export function cloneFindOptions(fo: FindOptions): FindOptions {

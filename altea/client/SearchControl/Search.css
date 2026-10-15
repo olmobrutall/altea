@@ -367,7 +367,8 @@ span.guid {
     white-space: nowrap;
 }
 
-.dropdown-item.active span.guid {
+.dropdown-item.active span.guid,
+.sf-dropdown-item.active span.guid {
     color: var(--bs-primary);
 }
 

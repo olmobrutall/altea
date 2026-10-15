@@ -48,7 +48,7 @@ import { Clock } from "../data/utils/clock";
 import { toNumberFormat } from "./numberFormat";
 import { SearchMessage, JavascriptMessage } from "../data/uiMessages";
 import { TextAreaLine } from "./Lines/TextAreaLine";
-import { OverlayTrigger, Popover, Tooltip } from "react-bootstrap";
+import { Popover, PopoverContent, PopoverTrigger, WithTooltip } from "./ui/Tooltip";
 import { getKey } from "../data/dynamicQuery/queryUtils";
 
 // Render any result-cell value as text: a Lite/entity/Temporal/Decimal shows its toString() (a wire lite
@@ -478,23 +478,19 @@ export function ComplexConditionSyntax(p: { filterOperation: FilterOperationKeys
   if (help == null)
     return null;
 
-  const popover = (
-    <Popover id="popover-full-text-syntax">
-      <Popover.Header as="h3">{help.title}</Popover.Header>
-      <Popover.Body>
-        {p.filterOperation === "SmartSearch"
-          ? <div>{SearchMessage.SmartSearchDescription.niceToString()}</div>
-          : <ul className="ps-4">
-            {help.examples.map((a, i) => <li key={i} style={{ whiteSpace: "nowrap" }}><code>{a}</code></li>)}
-          </ul>}
-      </Popover.Body>
-    </Popover>
-  );
-
   return (
-    <OverlayTrigger trigger="click" placement="right" overlay={popover} rootClose>
-      <button type="button" className="sf-line-button sf-view btn sf-input-group-text">{help.icon}</button>
-    </OverlayTrigger>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="sf-line-button sf-view btn sf-input-group-text">{help.icon}</button>
+      </PopoverTrigger>
+      <PopoverContent side="right" title={help.title} arrow>
+      {p.filterOperation === "SmartSearch"
+        ? <div>{SearchMessage.SmartSearchDescription.niceToString()}</div>
+        : <ul className="ps-4">
+          {help.examples.map((a, i) => <li key={i} style={{ whiteSpace: "nowrap" }}><code>{a}</code></li>)}
+        </ul>}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -752,9 +748,9 @@ export function initFilterValueFormatRules(): Finder.FilterValueFormatter[] {
         // No editor can serve a group that mixes list and non-list operations over one value.
         if (hasMixedListOperations(fg))
           return (
-            <OverlayTrigger overlay={<Tooltip id="tooltip-mixed-operations">{SearchMessage.FilterGroupInvalidMixedOperations.niceToString()}</Tooltip>}>
+            <WithTooltip tooltip={SearchMessage.FilterGroupInvalidMixedOperations.niceToString()}>
               <span className="text-destructive">{SearchMessage.Error.niceToString()} <FontAwesomeIcon aria-hidden={true} icon="circle-info" /></span>
-            </OverlayTrigger>
+            </WithTooltip>
           );
 
         const stringTr = new TypeReference({ typeName: "String", isNullable: true });

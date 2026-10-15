@@ -19,7 +19,6 @@ import { isEntityPack } from '../../data/entityPack';
 import { FrameMessage, SearchMessage } from '../../data/uiMessages';
 import { ModalFooterButtons, ModalHeaderButtons } from '../Components/ModalHeaderButtons';
 import { Modal } from '../ui/Modal';
-import { Dropdown } from 'react-bootstrap';
 import { useForceUpdate } from '../Hooks';
 import SearchControlLoaded from './SearchControlLoaded';
 import MessageModal from '../Modals/MessageModal';

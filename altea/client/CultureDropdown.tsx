@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { NavDropdown } from 'react-bootstrap';
+import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from './ui/Dropdown';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useAPI } from './Hooks';
 import { CultureClient } from './CultureClient';
@@ -36,14 +36,20 @@ export default function CultureDropdown(p: { fullName?: boolean; isMobile?: bool
     : label(current);
 
   return (
-    <NavDropdown data-culture={current} title={title} className="sf-culture-dropdown"
-      aria-label={currentLabel}>
-      {catalogue.cultures.map(c =>
-        <NavDropdown.Item key={c} data-culture={c} {...dropdownActive(c === current)}
-          onClick={() => CultureClient.changeCurrentCulture(c)}>
-          {CultureClient.nativeName(c)}
-        </NavDropdown.Item>
-      )}
-    </NavDropdown>
+    <div data-culture={current} className="nav-item dropdown sf-culture-dropdown">
+      <Dropdown>
+        <DropdownTrigger asChild>
+          <button type="button" className="nav-link dropdown-toggle" aria-label={currentLabel}>{title}</button>
+        </DropdownTrigger>
+        <DropdownContent align="end">
+          {catalogue.cultures.map(c =>
+            <DropdownItem key={c} data-culture={c} {...dropdownActive(c === current)}
+              onClick={() => CultureClient.changeCurrentCulture(c)}>
+              {CultureClient.nativeName(c)}
+            </DropdownItem>
+          )}
+        </DropdownContent>
+      </Dropdown>
+    </div>
   );
 }

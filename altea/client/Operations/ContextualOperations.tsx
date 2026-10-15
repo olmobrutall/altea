@@ -13,7 +13,8 @@ import type { ContextualItemsContext, MenuItemBlock } from '../SearchControl/Con
 import { Operations, ContextualOperationContext } from '../Operations'
 import type { ContextualOperationSettings, EntityOperationSettings } from '../Operations'
 import type { IconProp } from "@fortawesome/fontawesome-svg-core";
-import { Dropdown, OverlayTrigger, Tooltip } from "react-bootstrap";
+import { MenuItem } from "../ui/Dropdown";
+import { WithTooltip } from "../ui/Tooltip";
 import { MultiPropertySetterModal } from "./MultiPropertySetter";
 import type { PropertySetter } from "../../data/operations";
 import type { BsColor } from "../Components";
@@ -227,28 +228,26 @@ export namespace ContextualOperations {
         }
 
         const item = (
-            <Dropdown.Item
+            <MenuItem
                 onClick={disabled ? undefined : handleOnClick}
                 aria-disabled={disabled}
-                disabled={disabled}
                 style={{ pointerEvents: "initial" }}
                 data-operation={coc.operationInfo.key}
-                className={color && !disabled ? "text-" + color : undefined}>
+                className={classes(disabled && "disabled", color && !disabled ? "text-" + color : undefined)}>
                 {icon ? (React.isValidElement(icon) ? icon : <FontAwesomeIcon aria-hidden={true} icon={icon} className="fa-fw icon" color={iconColor} />) :
                     color ? <span className={classes("icon", "empty-icon")}></span> : undefined}
                 {text}
                 {extraButtons}
-            </Dropdown.Item>
+            </MenuItem>
         );
 
         if (!coc.canExecute)
             return item;
 
         return (
-            <OverlayTrigger placement="right"
-                overlay={<Tooltip id={coc.operationInfo.key + "_tooltip"}>{coc.canExecute}</Tooltip>} >
+            <WithTooltip side="right" tooltip={coc.canExecute}>
                 {item}
-            </OverlayTrigger >
+            </WithTooltip>
         );
     }
 

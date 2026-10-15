@@ -1,6 +1,4 @@
 import * as React from "react";
-import { Popover } from "react-bootstrap";
-import type { OverlayInjectedProps } from "react-bootstrap/esm/Overlay";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Finder } from "../Finder";
 import { getQueryNiceName } from "../Reflection";
@@ -49,24 +47,22 @@ function getSearchMode(sc: SearchControlLoaded): SearchMode {
 
 /** The popover shell all four tips share — Signum repeats these three attributes in each. */
 function TipPopover(p: {
-    injected: OverlayInjectedProps;
     title: React.ReactNode;
     minWidth: number;
     maxWidth: string;
     children: React.ReactNode;
 }): React.JSX.Element {
     return (
-        <Popover id="popover-basic" {...p.injected}
-            style={{ ...p.injected.style, minWidth: p.minWidth, maxWidth: p.maxWidth }}>
-            <Popover.Header as="h3"><strong>{p.title}</strong></Popover.Header>
-            <Popover.Body style={{ maxHeight: "calc(100vh - 300px)", overflowY: "auto" }}>
+        <div className="sf-tip-popover" style={{ minWidth: p.minWidth, maxWidth: p.maxWidth }}>
+            <h3 className="sf-popover-header m-0 rounded-t-md border-b bg-muted px-4 py-2 text-base"><strong>{p.title}</strong></h3>
+            <div className="sf-popover-body px-4 py-3" style={{ maxHeight: "calc(100vh - 300px)", overflowY: "auto" }}>
                 {p.children}
-            </Popover.Body>
-        </Popover>
+            </div>
+        </div>
     );
 }
 
-export function SearchHelp(p: { sc: SearchControlLoaded; injected: OverlayInjectedProps }): React.JSX.Element {
+export function SearchHelp(p: { sc: SearchControlLoaded }): React.JSX.Element {
     const sc = p.sc;
     const fo = sc.props.findOptions;
     const query = getQueryNiceName(fo.queryKey);
@@ -88,7 +84,7 @@ export function SearchHelp(p: { sc: SearchControlLoaded; injected: OverlayInject
     const rightClick = <strong><samp style={{ whiteSpace: "nowrap" }}>{SearchHelpMessage.RightClick.niceToString()}</samp></strong>;
 
     return (
-        <TipPopover injected={p.injected} minWidth={600} maxWidth="min(900px, 90vw)"
+        <TipPopover minWidth={600} maxWidth="min(900px, 90vw)"
             title={SearchHelpMessage.SearchHelp.niceToString()}>
 
             <div className="my-2">
@@ -187,9 +183,9 @@ export function SearchHelp(p: { sc: SearchControlLoaded; injected: OverlayInject
     );
 }
 
-export function GroupHelp(p: { injected: OverlayInjectedProps }): React.JSX.Element {
+export function GroupHelp(): React.JSX.Element {
     return (
-        <TipPopover injected={p.injected} minWidth={600} maxWidth="min(900px, 90vw)"
+        <TipPopover minWidth={600} maxWidth="min(900px, 90vw)"
             title={SearchHelpMessage.GroupHelp.niceToString()}>
 
             <p className="my-2">
@@ -212,7 +208,7 @@ export function GroupHelp(p: { injected: OverlayInjectedProps }): React.JSX.Elem
     );
 }
 
-export function FilterHelp(p: { queryToken: QueryToken; injected: OverlayInjectedProps }): React.JSX.Element {
+export function FilterHelp(p: { queryToken: QueryToken }): React.JSX.Element {
     const [expanded, setExpanded] = React.useState(false);
     const root = rootOf(p.queryToken);
     const type = root.niceTypeName();
@@ -223,7 +219,7 @@ export function FilterHelp(p: { queryToken: QueryToken; injected: OverlayInjecte
     const sampleColumns = Finder.getDefaultColumns(root).slice(0, 3);
 
     return (
-        <TipPopover injected={p.injected} minWidth={400}
+        <TipPopover minWidth={400}
             maxWidth={expanded ? "min(900px, 90vw)" : "min(600px, 90vw)"}
             title={FilterFieldMessage.FiltersHelp.niceToString()}>
 
@@ -300,7 +296,7 @@ export function FilterHelp(p: { queryToken: QueryToken; injected: OverlayInjecte
     );
 }
 
-export function ColumnHelp(p: { queryToken: QueryToken; injected: OverlayInjectedProps }): React.JSX.Element {
+export function ColumnHelp(p: { queryToken: QueryToken }): React.JSX.Element {
     const [expanded, setExpanded] = React.useState(false);
     const root = rootOf(p.queryToken);
     const type = root.niceTypeName();
@@ -308,7 +304,7 @@ export function ColumnHelp(p: { queryToken: QueryToken; injected: OverlayInjecte
     const isDefaultQuery = queryName === type;
 
     return (
-        <TipPopover injected={p.injected} minWidth={600} maxWidth="min(800px, 90vw)"
+        <TipPopover minWidth={600} maxWidth="min(800px, 90vw)"
             title={ColumnFieldMessage.ColumnsHelp.niceToString()}>
 
             <div className="my-2">

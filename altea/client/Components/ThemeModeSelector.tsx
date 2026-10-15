@@ -1,5 +1,5 @@
 import * as React from "react";
-import { NavDropdown } from "react-bootstrap";
+import { Dropdown, DropdownContent, DropdownItem, DropdownSeparator, DropdownTrigger } from "../ui/Dropdown";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { IconName } from "@fortawesome/fontawesome-svg-core";
 import "@altea/altea/data/globals/stringExtensions";
@@ -111,21 +111,27 @@ export function ThemeModeSelector(p: { onSetMode?: (theme: "dark" | "light") => 
         // `title` keeps the tooltip without the name being read a second time as the graphic's. `aria-label`
         // on the NavDropdown is no use: react-bootstrap puts unknown props on the wrapping <div>, not on the
         // toggle.
-        <NavDropdown id="changeTheme" className="sf-theme-mode-dropdown" data-theme-mode={mode}
-            title={
+        <div className="nav-item dropdown sf-theme-mode-dropdown" data-theme-mode={mode}>
+          <Dropdown>
+            <DropdownTrigger asChild>
+              <button type="button" id="changeTheme" className="nav-link dropdown-toggle">
                 <span title={ThemeModeMessage.Theme.niceToString() + ": " + LABELS[mode].niceToString()}>
                     <FontAwesomeIcon aria-hidden={true} icon={ICONS[mode]} />
                     <span className="sr-only">{ThemeModeMessage.Theme.niceToString() + ": " + LABELS[mode].niceToString()}</span>
                 </span>
-            }>
+              </button>
+            </DropdownTrigger>
+            <DropdownContent align="end">
             {THEME_MODES.map(m =>
-                <NavDropdown.Item key={m} data-theme-mode={m} {...dropdownActive(mode === m)} onClick={() => setMode(m)}>
+                <DropdownItem key={m} data-theme-mode={m} {...dropdownActive(mode === m)} onClick={() => setMode(m)}>
                     <FontAwesomeIcon aria-hidden={true} icon={ICONS[m]} className="me-2" />
                     {LABELS[m].niceToString()}
-                </NavDropdown.Item>
+                </DropdownItem>
             )}
-            {p.extraItems && <NavDropdown.Divider />}
+            {p.extraItems && <DropdownSeparator />}
             {p.extraItems}
-        </NavDropdown>
+            </DropdownContent>
+          </Dropdown>
+        </div>
     );
 }

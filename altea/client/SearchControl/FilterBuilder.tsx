@@ -32,7 +32,7 @@ import { type DashboardBehaviourKeys, type FilterGroupOperationKeys, type Pinned
 import { Enum } from '../../data/enum';
 import "./FilterBuilder.css"
 import { useForceUpdate, useForceUpdatePromise } from '../Hooks'
-import { Dropdown } from 'react-bootstrap'
+import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from '../ui/Dropdown'
 import PinnedFilterBuilder from './PinnedFilterBuilder'
 import { Finder } from '../Finder'
 import { trimDateToFormat } from '../Lines/ReactWidgetsLocalizer'
@@ -329,7 +329,7 @@ export default function FilterBuilder(p: FilterBuilderProps): React.ReactElement
               {!p.readOnly &&
                 <tr className="sf-filter-create">
                   <td colSpan={4}>
-                    {p.queryToken && <VisualTipIcon visualTip={SearchVisualTip.FilterHelp} content={props => <FilterHelp queryToken={p.queryToken} injected={props} />} />}
+                    {p.queryToken && <VisualTipIcon visualTip={SearchVisualTip.FilterHelp} content={() => <FilterHelp queryToken={p.queryToken} />} />}
                     <LinkButton title={StyleContext.default.titleLabels ? SearchMessage.AddFilter.niceToString() : undefined}
                       className="sf-line-button sf-create sf-create-condition"
                       tabIndex={0}
@@ -994,18 +994,20 @@ export function PinnedFilterEditor(p: PinnedFilterEditorProps): React.ReactEleme
     var value = binding.getValue() ?? "Always";
     return (
       <Dropdown>
-        <Dropdown.Toggle variant="tertiary" id="dropdown-basic" disabled={p.readonly} size={"xs" as any} className="px-1"
-          title={StyleContext.default.titleLabels ? title : undefined}>
-          {Enum.niceName(PinnedFilterActive, value)}
-        </Dropdown.Toggle>
+        <DropdownTrigger asChild disabled={p.readonly}>
+          <button type="button" className="btn btn-tertiary btn-xs dropdown-toggle px-1"
+            title={StyleContext.default.titleLabels ? title : undefined}>
+            {Enum.niceName(PinnedFilterActive, value)}
+          </button>
+        </DropdownTrigger>
 
-        <Dropdown.Menu>
+        <DropdownContent>
           {Enum.values(PinnedFilterActive).map(v =>
-            <Dropdown.Item key={v} {...dropdownActive(v == value)} onClick={() => { binding.setValue(v == "Always" ? undefined : v); p.onChange(); }}>
+            <DropdownItem key={v} {...dropdownActive(v == value)} onClick={() => { binding.setValue(v == "Always" ? undefined : v); p.onChange(); }}>
               {Enum.niceName(PinnedFilterActive, v)}
-            </Dropdown.Item>)
+            </DropdownItem>)
           }
-        </Dropdown.Menu>
+        </DropdownContent>
       </Dropdown>
     );
   }
@@ -1014,14 +1016,16 @@ export function PinnedFilterEditor(p: PinnedFilterEditorProps): React.ReactEleme
 function DashboardBehaviourComponent(p: { filter: FilterOptionParsed, readonly: boolean, onChange: () => void }) {
   return (
     <Dropdown>
-      <Dropdown.Toggle variant={p.filter.dashboardBehaviour ? "info" : "tertiary"} id="dropdown-basic" disabled={p.readonly} size={"xs" as any} className={classes("px-1", p.filter.dashboardBehaviour ? "text-light" : "text-info")}
+      <DropdownTrigger asChild disabled={p.readonly}>
+      <button type="button" className={classes("btn btn-xs dropdown-toggle px-1", p.filter.dashboardBehaviour ? "btn-info text-light" : "btn-tertiary text-info")}
         title={StyleContext.default.titleLabels ? "Behaviour of the filter when used inside of a Dashboard" : undefined}>
         {<FontAwesomeIcon aria-hidden={true} icon="gauge" className={classes("icon", p.filter.dashboardBehaviour ? "text-light" : "text-info")} />}{p.filter.dashboardBehaviour ? " " + Enum.niceName(DashboardBehaviour, p.filter.dashboardBehaviour) : ""}
-      </Dropdown.Toggle>
+      </button>
+      </DropdownTrigger>
 
-      <Dropdown.Menu>
+      <DropdownContent>
         {[undefined, ...Enum.values(DashboardBehaviour)].map(v =>
-          <Dropdown.Item key={v ?? "-"} {...dropdownActive(v == p.filter.dashboardBehaviour)} onClick={() => {
+          <DropdownItem key={v ?? "-"} {...dropdownActive(v == p.filter.dashboardBehaviour)} onClick={() => {
 
             p.filter.dashboardBehaviour = v;
             if (v == "PromoteToDasboardPinnedFilter" && p.filter.pinned == null)
@@ -1032,9 +1036,9 @@ function DashboardBehaviourComponent(p: { filter: FilterOptionParsed, readonly: 
             p.onChange();
           }}>
             {v == null ? " - " : Enum.niceName(DashboardBehaviour, v)}
-          </Dropdown.Item>)
+          </DropdownItem>)
         }
-      </Dropdown.Menu>
+      </DropdownContent>
     </Dropdown>
   );
 }

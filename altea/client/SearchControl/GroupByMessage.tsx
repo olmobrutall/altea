@@ -31,7 +31,7 @@ export default function GroupByMessage(p: { findOptions: FindOptionsParsed, main
   return (
     <div className="sf-search-message alert alert-info">
       {"Ʃ"}&nbsp;{message}
-      <VisualTipIcon visualTip={SearchVisualTip.GroupHelp} content={props => <GroupHelp injected={props} />} />
+      <VisualTipIcon visualTip={SearchVisualTip.GroupHelp} content={() => <GroupHelp />} />
     </div>
   );
 }

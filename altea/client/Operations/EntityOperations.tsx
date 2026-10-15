@@ -4,7 +4,7 @@
 import * as React from "react"
 import { Entity } from '../../data/entity';
 import type { EntityPack } from '../../data/entityPack';
-import { JavascriptMessage, OperationMessage, NormalControlMessage } from '../../data/uiMessages';
+import { JavascriptMessage, OperationMessage, NormalControlMessage, SearchMessage } from '../../data/uiMessages';
 import { getTypeInfo, GraphExplorer, tryGetTypeInfo, getTypeName } from '../Reflection';
 import type { OperationType } from '../Reflection';
 import { classes, ifError } from '../../data/globals';
@@ -17,8 +17,8 @@ import type { EntityOperationSettings, EntityOperationGroup, AlternativeOperatio
 import { ServiceError } from '../Services'
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { IconProp } from "@fortawesome/fontawesome-svg-core";
-import { Dropdown, DropdownButton, Button, OverlayTrigger, Tooltip, ButtonGroup } from "react-bootstrap";
-import type { ButtonProps } from "react-bootstrap";
+import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from "../ui/Dropdown";
+import { WithTooltip } from "../ui/Tooltip";
 import type { BsColor } from "../Components";
 
 export namespace EntityOperations {
@@ -70,9 +70,9 @@ export namespace EntityOperations {
           order: group.order != undefined ? group.order : 100,
           shortcut: e => groupButtons.some(bbe => bbe.shortcut != null && bbe.shortcut(e)),
           button: React.cloneElement(
-            <DropdownButton title={group.text()} data-key={group.key} key={i} id={group.key} variant={group.outline != false ? ("outline-" + (group.color ?? "secondary")) : group.color ?? "light"}>
+            <ButtonGroupMenu title={group.text()} data-key={group.key} key={i} id={group.key} variant={group.outline != false ? ("outline-" + (group.color ?? "secondary")) : group.color ?? "light"}>
               {undefined}
-            </DropdownButton>,
+            </ButtonGroupMenu>,
             undefined,
             ...groupButtons.map(bbe => bbe.button)
           )
@@ -330,7 +330,29 @@ export type OutlineBsColor =
   | 'outline-dark'
   | 'outline-light';
 
-interface OperationButtonProps extends ButtonProps {
+/** What react-bootstrap's Button took, rendered as the same `btn btn-<variant>` markup. */
+export interface BootstrapButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: string;
+  size?: "sm" | "lg";
+}
+
+export function BootstrapButton({ variant = "primary", size, className, type = "button", ...props }: BootstrapButtonProps & { ref?: React.Ref<HTMLButtonElement> }): React.ReactElement {
+  return <button type={type} className={classes("btn", variant && "btn-" + variant, size && "btn-" + size, className)} {...props} />;
+}
+
+/** react-bootstrap's DropdownButton: a `btn` that opens a menu of DropdownItems. */
+function ButtonGroupMenu(p: { title: React.ReactNode, variant: string, id?: string, children?: React.ReactNode, "data-key"?: string }): React.ReactElement {
+  return (
+    <Dropdown>
+      <DropdownTrigger asChild>
+        <BootstrapButton variant={p.variant} id={p.id} data-key={p["data-key"]} className="dropdown-toggle">{p.title}</BootstrapButton>
+      </DropdownTrigger>
+      <DropdownContent>{p.children}</DropdownContent>
+    </Dropdown>
+  );
+}
+
+interface OperationButtonProps extends BootstrapButtonProps {
   eoc: EntityOperationContext<any /*Entity*/> | undefined;
   group?: EntityOperationGroup;
   variant?: BsColor;
@@ -394,21 +416,21 @@ export function OperationButton({ group, onOperationClick, canExecute, eoc: eocO
   if (group) {
 
     const item =
-      <Dropdown.Item
+      <DropdownItem
         {...props as any}
-        disabled={disabled}
+        aria-disabled={disabled || undefined}
         title={props.title ?? (main?.keyboardShortcut && Operations.getShortcutToString(main.keyboardShortcut))}
         className={classes(disabled ? "disabled sf-pointer-events" : undefined, main?.classes, (main.color ? "text-" + main.color : undefined))}
         onClick={disabled ? undefined : e => { eoc.event = e; main.onClick(eoc); }}
         data-operation={eoc.operationInfo.key}>
         {props.children ?? EntityOperations.withIcon(main.text, main.icon, main.iconColor, main.iconAlign)}
-      </Dropdown.Item>;
+      </DropdownItem>;
 
     if (canExecute)
       return (
-        <OverlayTrigger overlay={<Tooltip id={eoc.operationInfo.key + "_tooltip"} placement={"right"}>{canExecute}</Tooltip>}>
+        <WithTooltip side="right" tooltip={canExecute}>
           {item}
-        </OverlayTrigger>
+        </WithTooltip>
       );
 
     return (
@@ -422,7 +444,7 @@ export function OperationButton({ group, onOperationClick, canExecute, eoc: eocO
   if (outline == null)
     outline = eoc.outline;
 
-  var button = <Button variant={(outline ? ("outline-" + main.color) as OutlineBsColor : main.color)}
+  var button = <BootstrapButton variant={(outline ? ("outline-" + main.color) as OutlineBsColor : main.color)}
     {...props}
     key="button"
     title={[(textInTitle ? main.text : undefined), main.keyboardShortcut && Operations.getShortcutToString(main.keyboardShortcut)].notNull().join(" ")}
@@ -433,13 +455,13 @@ export function OperationButton({ group, onOperationClick, canExecute, eoc: eocO
     onClick={disabled ? undefined : e => { eoc.event = e; main.onClick(eoc); }}
     data-operation={eoc.operationInfo.key}>
     {props.children ?? EntityOperations.withIcon(main.text, main.icon, main.iconColor, main.iconAlign)}
-  </Button>;
+  </BootstrapButton>;
 
   if (canExecute) {
     return (
-      <OverlayTrigger overlay={<Tooltip id={eoc.operationInfo.key + "_tooltip"} placement={"bottom"}>{canExecute}</Tooltip>}>
+      <WithTooltip side="bottom" tooltip={canExecute}>
         {button}
-      </OverlayTrigger>
+      </WithTooltip>
     );
   }
 
@@ -455,14 +477,14 @@ export function OperationButton({ group, onOperationClick, canExecute, eoc: eocO
           key="buttonGroup">
           {button}
           {buttonAlternatives.map((aos, i) =>
-            <Button key={i}
+            <BootstrapButton key={i}
               variant={(outline ? ("outline-" + (color ?? main.color)) as OutlineBsColor : (color ?? main.color))}
               className={classes("dropdown-toggle-split px-1", disabled ? "disabled" : undefined, aos.classes)}
               aria-disabled={disabled ? true : undefined}
               onClick={() => aos.onClick(eoc)}
               title={aos.text + (aos.keyboardShortcut ? (" (" + Operations.getShortcutToString(aos.keyboardShortcut) + ")") : "")}>
               <small>{React.isValidElement(aos.icon) ? aos.icon : <FontAwesomeIcon aria-hidden={true} icon={aos.icon!} color={aos.iconColor} className="fa-fw" />}</small>
-            </Button>
+            </BootstrapButton>
           )}
         </div>
       );
@@ -473,28 +495,32 @@ export function OperationButton({ group, onOperationClick, canExecute, eoc: eocO
     return button;
 
   return (
-    <Dropdown as={ButtonGroup}>
+    <div className="btn-group" role="group">
       {button}
-      <Dropdown.Toggle split color={eoc.color} id={eoc.operationInfo.key + "_split"} />
-      <Dropdown.Menu align="start">
-        {dropdownAlternatives.map(a => renderAlternative(a))}
-      </Dropdown.Menu>
-    </Dropdown>
+      <Dropdown>
+        <DropdownTrigger asChild>
+          <BootstrapButton id={eoc.operationInfo.key + "_split"} className="dropdown-toggle dropdown-toggle-split"
+            aria-label={SearchMessage.Operations.niceToString()} />
+        </DropdownTrigger>
+        <DropdownContent align="start">
+          {dropdownAlternatives.map(a => renderAlternative(a))}
+        </DropdownContent>
+      </Dropdown>
+    </div>
   );
 
 
   function renderAlternative(aos: AlternativeOperationSetting<Entity>) {
 
     return (
-      <Dropdown.Item
-        color={aos.color}
-        className={aos.classes}
+      <DropdownItem
+        className={classes(aos.classes, aos.color && "text-" + aos.color)}
         key={aos.name}
         title={aos.keyboardShortcut && Operations.getShortcutToString(aos.keyboardShortcut)}
         onClick={() => aos.onClick(eoc!)}
         data-alternative={aos.name}>
         {EntityOperations.withIcon(aos.text, aos.icon, aos.iconColor, aos.iconAlign)}
-      </Dropdown.Item>
+      </DropdownItem>
     );
   }
 }

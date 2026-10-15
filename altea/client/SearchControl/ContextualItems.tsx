@@ -12,7 +12,7 @@ import { Navigator } from '../Navigator'
 import type { Lite } from '../../data/lite'
 import type { Entity } from '../../data/entity'
 import type { StyleContext } from '../TypeContext';
-import { Dropdown } from 'react-bootstrap';
+import { MenuDivider, MenuHeader, MenuItem } from '../ui/Dropdown';
 import * as AppContext from '../AppContext';
 
 export interface SearchableMenuItem {
@@ -81,9 +81,9 @@ export function renderContextualItems(ctx: ContextualItemsContext<Entity>): Prom
 
       if ("error" in block) {
         items.push(
-          <Dropdown className="text-destructive" onClick={() => console.error(block.error)}>
+          <MenuItem className="text-destructive" onClick={() => console.error(block.error)}>
             Error in {block.func.name}
-          </Dropdown >
+          </MenuItem>
         );
         return;
       }
@@ -92,10 +92,10 @@ export function renderContextualItems(ctx: ContextualItemsContext<Entity>): Prom
         return;
 
       if (items.length)
-        items.push(<Dropdown.Divider />);
+        items.push(<MenuDivider />);
 
       if (block.header)
-        items.push(<Dropdown.Header>{block.header}</Dropdown.Header>);
+        items.push(<MenuHeader>{block.header}</MenuHeader>);
 
       // NOT guarded by `block.header` (an earlier port typo): a block without a header still contributes
       // its items, as it does in Signum.

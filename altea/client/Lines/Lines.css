@@ -301,7 +301,8 @@ ul.sf-strip-vertical>li>.sf-form-control {
 }
 
 /*Tabs*/
-ul.nav-tabs {
+ul.nav-tabs,
+.sf-tab-list {
     margin-bottom: 10px;
 }
 

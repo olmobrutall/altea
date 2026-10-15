@@ -796,3 +796,160 @@ textarea.sf-form-control.is-invalid {
   border-color: var(--destructive);
   box-shadow: 0 0 0 .25rem color-mix(in srgb, var(--destructive) 25%, transparent);
 }
+
+/* Tabs (Bootstrap 5.3's nav-tabs / nav-pills). */
+.sf-tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  padding-left: 0;
+  margin-bottom: 0;
+  list-style: none;
+}
+
+.sf-tab {
+  display: block;
+  padding: .5rem 1rem;
+  color: var(--link);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out;
+}
+
+.sf-tab:hover,
+.sf-tab:focus {
+  color: var(--link-hover);
+}
+
+.sf-tab:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 .25rem var(--ring);
+}
+
+.sf-tab:disabled {
+  color: var(--muted-foreground);
+  pointer-events: none;
+  cursor: default;
+}
+
+.sf-tabs-tabs {
+  border-bottom: 1px solid var(--border);
+}
+
+.sf-tabs-tabs .sf-tab {
+  margin-bottom: -1px;
+  border: 1px solid transparent;
+  border-top-left-radius: .375rem;
+  border-top-right-radius: .375rem;
+}
+
+.sf-tabs-tabs .sf-tab:hover,
+.sf-tabs-tabs .sf-tab:focus {
+  isolation: isolate;
+  border-color: var(--muted) var(--muted) var(--border);
+}
+
+.sf-tabs-tabs .sf-tab[data-state=active] {
+  color: var(--foreground);
+  background-color: var(--background);
+  border-color: var(--border) var(--border) var(--background);
+}
+
+.sf-tabs-pills .sf-tab {
+  border-radius: .375rem;
+}
+
+.sf-tabs-pills .sf-tab[data-state=active] {
+  color: var(--primary-foreground);
+  background-color: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-tab {
+    transition: none;
+  }
+}
+
+/* Menus (Bootstrap 5.3's dropdown metrics). A react-bootstrap `Dropdown.Item` a package still hands to a
+   core menu (`.dropdown-item` / `-divider` / `-header` inside `.sf-dropdown-menu`) looks the same. */
+.sf-dropdown-menu {
+  position: absolute;
+  z-index: 1000;
+  min-width: 10rem;
+  padding: .5rem 0;
+  margin: 0;
+  font-size: 1rem;
+  color: var(--popover-foreground);
+  text-align: left;
+  list-style: none;
+  background-color: var(--popover);
+  background-clip: padding-box;
+  border: 1px solid color-mix(in srgb, var(--foreground) 17.5%, transparent);
+  border-radius: .375rem;
+}
+
+.sf-dropdown-item,
+.sf-dropdown-menu .dropdown-item {
+  display: block;
+  width: 100%;
+  padding: .25rem 1rem;
+  clear: both;
+  font-weight: 400;
+  color: var(--popover-foreground);
+  text-align: inherit;
+  white-space: nowrap;
+  background-color: transparent;
+  border: 0;
+  border-radius: 0;
+  text-decoration: none;
+  cursor: pointer;
+  outline: none;
+}
+
+.sf-dropdown-item:hover,
+.sf-dropdown-item:focus,
+.sf-dropdown-item[data-highlighted],
+.sf-dropdown-menu .dropdown-item:hover,
+.sf-dropdown-menu .dropdown-item:focus {
+  color: var(--popover-foreground);
+  background-color: var(--tertiary);
+}
+
+.sf-dropdown-item.active,
+.sf-dropdown-item:active,
+.sf-dropdown-menu .dropdown-item.active,
+.sf-dropdown-menu .dropdown-item:active {
+  color: var(--primary-foreground);
+  text-decoration: none;
+  background-color: var(--primary);
+}
+
+.sf-dropdown-item.disabled,
+.sf-dropdown-item:disabled,
+.sf-dropdown-item[data-disabled],
+.sf-dropdown-menu .dropdown-item.disabled,
+.sf-dropdown-menu .dropdown-item:disabled {
+  color: color-mix(in srgb, var(--foreground) 50%, transparent);
+  pointer-events: none;
+  background-color: transparent;
+}
+
+.sf-dropdown-divider,
+.sf-dropdown-menu .dropdown-divider {
+  height: 0;
+  margin: .5rem 0;
+  overflow: hidden;
+  border-top: 1px solid color-mix(in srgb, var(--foreground) 17.5%, transparent);
+  opacity: 1;
+}
+
+.sf-dropdown-header,
+.sf-dropdown-menu .dropdown-header {
+  display: block;
+  padding: .5rem 1rem;
+  margin-bottom: 0;
+  font-size: .875rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}

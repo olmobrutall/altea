@@ -2,7 +2,7 @@
 // altea fixes: FrameMessage import (../Signum.Entities → ../../data/uiMessages); LinkButton path
 // (../Basics/LinkButton unchanged). Otherwise identical (react-bootstrap Overlay/Tooltip + clipboard).
 import * as React from 'react';
-import { Overlay, Tooltip } from 'react-bootstrap';
+import { Popover, PopoverAnchor, PopoverContent } from '../ui/Tooltip';
 import { FrameMessage } from '../../data/uiMessages';
 import { LinkButton } from '../Basics/LinkButton';
 
@@ -41,14 +41,17 @@ export default function CopyButton(p: CopyButtonProps): React.ReactElement | nul
 
   return (
     <span className={p.className}>
-      <LinkButton ref={link} className="btn btn-sm btn-tertiary sf-pointer mx-1" onClick={handleCopy} title={p.title}>
-        {p.children}
-      </LinkButton>
-      <Overlay target={link.current} show={showTooltip} placement="auto">
-        <Tooltip>
+      <Popover open={showTooltip}>
+        <PopoverAnchor asChild>
+          <LinkButton ref={link} className="btn btn-sm btn-tertiary sf-pointer mx-1" onClick={handleCopy} title={p.title}>
+            {p.children}
+          </LinkButton>
+        </PopoverAnchor>
+        <PopoverContent side="top" sideOffset={4} role="status" onOpenAutoFocus={e => e.preventDefault()}
+          className="w-auto rounded-md border-0 bg-dark px-2 py-1 text-sm text-dark-foreground shadow-none">
           {FrameMessage.Copied.niceToString()}
-        </Tooltip>
-      </Overlay>
+        </PopoverContent>
+      </Popover>
     </span>
   );
 }

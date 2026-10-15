@@ -57,7 +57,9 @@ import PinnedFilterBuilder from './PinnedFilterBuilder';
 import { AutoFocus } from '../Components/AutoFocus';
 import { dropdownActive } from '../Components/DropdownActive';
 import { type ButtonBarElement, StyleContext } from '../TypeContext';
-import { Button, ButtonGroup, Dropdown, DropdownButton, OverlayTrigger, Tooltip } from 'react-bootstrap'
+import { Dropdown, DropdownContent, DropdownItem, DropdownSeparator, DropdownTrigger, MenuDivider, MenuHeader, MenuItem, MenuPanel } from '../ui/Dropdown'
+import { Popover, PopoverContent, PopoverTrigger, WithTooltip } from '../ui/Tooltip'
+import { BootstrapButton } from '../Operations/EntityOperations'
 import { getBreakpoint, Breakpoints, useForceUpdate, useAPI } from '../Hooks'
 import type { IconProp } from '@fortawesome/fontawesome-svg-core'
 import { SearchHelp } from './SearchControlVisualTips'
@@ -784,7 +786,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
       {
         order: -1,
-        button: <VisualTipIcon visualTip={SearchVisualTip.SearchHelp} className="mx-2" content={props => <SearchHelp sc={this} injected={props} />} />
+        button: <VisualTipIcon visualTip={SearchVisualTip.SearchHelp} className="mx-2" content={() => <SearchHelp sc={this} />} />
       },
       ...leftButtonBarElements
     ] as (ButtonBarElement | null | false | undefined)[])
@@ -1018,18 +1020,23 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     return {
       order: -1,
       button:
-        <Dropdown
-          show={this.state.isSelectOpen}
-          onToggle={this.handleSelectedToggle}>
-          <Dropdown.Toggle id={this.getUniqueId("selectedButton")} title={SearchMessage.OperationsForSelectedElements.niceToString()} variant="light" className="sf-query-button sf-tm-selected ms-2" disabled={this.state.selectedRows!.length == 0}>
-            {title}
-          </Dropdown.Toggle>
-          <Dropdown.Menu>
-            {this.state.currentMenuPack == undefined ? <Dropdown.Item className="sf-tm-selected-loading">{JavascriptMessage.loading.niceToString()}</Dropdown.Item> :
-              this.state.currentMenuPack.items.length == 0 ? <Dropdown.Item className="sf-search-ctxitem-no-results">{JavascriptMessage.noActionsFound.niceToString()}</Dropdown.Item> :
-                this.state.currentMenuPack.items.map((e, i) => React.cloneElement((e as SearchableMenuItem).menu ?? e, { key: i }))}
-          </Dropdown.Menu>
-        </Dropdown>
+        <Popover open={this.state.isSelectOpen} onOpenChange={this.handleSelectedToggle}>
+          <PopoverTrigger asChild disabled={this.state.selectedRows!.length == 0}>
+            <BootstrapButton id={this.getUniqueId("selectedButton")} title={SearchMessage.OperationsForSelectedElements.niceToString()} variant="light" className="sf-query-button sf-tm-selected ms-2 dropdown-toggle">
+              {title}
+            </BootstrapButton>
+          </PopoverTrigger>
+          <PopoverContent align="start" sideOffset={2} className="w-auto max-w-none border-0 bg-transparent p-0 shadow-none">
+            {/* The items come from the contextual-item providers (some built by other packages), so this is a
+                plain menu, not a Radix one; picking an item closes it. */}
+            <MenuPanel role="menu" className="static block"
+              onClick={e => { if ((e.target as HTMLElement).closest(".sf-dropdown-item:not(.disabled), .dropdown-item:not(.disabled)")) this.handleSelectedToggle(false); }}>
+              {this.state.currentMenuPack == undefined ? <MenuItem className="sf-tm-selected-loading">{JavascriptMessage.loading.niceToString()}</MenuItem> :
+                this.state.currentMenuPack.items.length == 0 ? <MenuItem className="sf-search-ctxitem-no-results">{JavascriptMessage.noActionsFound.niceToString()}</MenuItem> :
+                  this.state.currentMenuPack.items.map((e, i) => React.cloneElement((e as SearchableMenuItem).menu ?? e, { key: i }))}
+            </MenuPanel>
+          </PopoverContent>
+        </Popover>
     };
   }
 
@@ -1341,83 +1348,83 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
     const menuItems: React.ReactElement[] = [];
     if (this.canFilter() && cm.columnIndex != null && isColumnFilterable(cm.columnIndex)) {
-      menuItems.push(<Dropdown.Header>{SearchMessage.Filters.niceToString()}</Dropdown.Header>);
-      menuItems.push(<Dropdown.Item className="sf-quickfilter-header" onClick={this.handleQuickFilter}>
+      menuItems.push(<MenuHeader>{SearchMessage.Filters.niceToString()}</MenuHeader>);
+      menuItems.push(<MenuItem className="sf-quickfilter-header" onClick={this.handleQuickFilter}>
         {getAddFilterIcon()}&nbsp;{JavascriptMessage.addFilter.niceToString()}
-      </Dropdown.Item>);
+      </MenuItem>);
     }
 
     if (cm.rowIndex == undefined && p.allowChangeColumns) {
 
       if (menuItems.length)
-        menuItems.push(<Dropdown.Divider />);
+        menuItems.push(<MenuDivider />);
 
-      menuItems.push(<Dropdown.Header>{SearchMessage.Columns.niceToString()}</Dropdown.Header>);
+      menuItems.push(<MenuHeader>{SearchMessage.Columns.niceToString()}</MenuHeader>);
 
       // Insert is offered on the headers that have no column of their own too — the filler one that
       // appears when every column is small, and the selection and entity ones — where it appends at the
       // end instead, so the only route to a new column is not a right click that happens to land on a
       // real header.
-      menuItems.push(<Dropdown.Item className="sf-insert-column" onClick={this.handleInsertColumn}>
+      menuItems.push(<MenuItem className="sf-insert-column" onClick={this.handleInsertColumn}>
         {getInsertColumnIcon()}&nbsp;{JavascriptMessage.insertColumn.niceToString()}
         {cm.columnIndex == null ? "" :
           cm.columnOffset === 0 ? ` (${SearchMessage.Before.niceToString()})` : cm.columnOffset === 1 ? ` (${SearchMessage.After.niceToString()})` : ""}
-      </Dropdown.Item>);
+      </MenuItem>);
 
       if (cm.columnIndex != null) {
-        menuItems.push(<Dropdown.Item className="sf-edit-column" onClick={this.handleEditColumn}>
+        menuItems.push(<MenuItem className="sf-edit-column" onClick={this.handleEditColumn}>
           {getEditColumnIcon()}&nbsp;{JavascriptMessage.editColumn.niceToString()}
-        </Dropdown.Item>);
+        </MenuItem>);
 
-        menuItems.push(<Dropdown.Item className="sf-remove-column" onClick={this.handleRemoveColumn}>
+        menuItems.push(<MenuItem className="sf-remove-column" onClick={this.handleRemoveColumn}>
           {getRemoveColumnIcon()}&nbsp;{JavascriptMessage.removeColumn.niceToString()}
-        </Dropdown.Item>);
+        </MenuItem>);
 
         // The pointer-free way to reorder columns; dragging the header remains available.
-        menuItems.push(<Dropdown.Item className="sf-move-column-left" disabled={cm.columnIndex === 0}
+        menuItems.push(<MenuItem className="sf-move-column-left" disabled={cm.columnIndex === 0}
           onClick={() => this.handleMoveColumn(-1)}>
           {getMoveColumnLeftIcon()}&nbsp;{EntityControlMessage.MoveLeft.niceToString()}
-        </Dropdown.Item>);
+        </MenuItem>);
 
-        menuItems.push(<Dropdown.Item className="sf-move-column-right" disabled={cm.columnIndex === this.props.findOptions.columnOptions.length - 1}
+        menuItems.push(<MenuItem className="sf-move-column-right" disabled={cm.columnIndex === this.props.findOptions.columnOptions.length - 1}
           onClick={() => this.handleMoveColumn(1)}>
           {getMoveColumnRightIcon()}&nbsp;{EntityControlMessage.MoveRight.niceToString()}
-        </Dropdown.Item>);
+        </MenuItem>);
 
 
-        menuItems.push(<Dropdown.Divider />);
+        menuItems.push(<MenuDivider />);
 
         if (p.showGroupButton && isColumnGroupable(cm.columnIndex))
-          menuItems.push(<Dropdown.Item className="sf-group-by-column" onClick={this.handleGroupByThisColumn}>
+          menuItems.push(<MenuItem className="sf-group-by-column" onClick={this.handleGroupByThisColumn}>
             {getGroupByThisColumnIcon()}&nbsp;{JavascriptMessage.groupByThisColumn.niceToString()}
-          </Dropdown.Item>);
+          </MenuItem>);
 
-        menuItems.push(<Dropdown.Item className="sf-remove-other-columns" onClick={this.handleRemoveOtherColumns}>
+        menuItems.push(<MenuItem className="sf-remove-other-columns" onClick={this.handleRemoveOtherColumns}>
           {getRemoveOtherColumns()}&nbsp;{JavascriptMessage.removeOtherColumns.niceToString()}
-        </Dropdown.Item>);
+        </MenuItem>);
       }
 
-      menuItems.push(<Dropdown.Item className="sf-restore-default-columns" onClick={this.handleRestoreDefaultColumn}>
+      menuItems.push(<MenuItem className="sf-restore-default-columns" onClick={this.handleRestoreDefaultColumn}>
         {getResotreDefaultColumnsIcon()}&nbsp;{JavascriptMessage.restoreDefaultColumns.niceToString()}
-      </Dropdown.Item>);
+      </MenuItem>);
 
-      menuItems.push(<Dropdown.Divider />);
-      menuItems.push(<Dropdown.Item className="sf-edit-all-columns" onClick={this.handleEditAllColumns}>
+      menuItems.push(<MenuDivider />);
+      menuItems.push(<MenuItem className="sf-edit-all-columns" onClick={this.handleEditAllColumns}>
         {getEditAllColumnsIcon()}&nbsp;{SearchMessage.EditAllColumns.niceToString()}
-      </Dropdown.Item>);
+      </MenuItem>);
 
 
       if (fo.columnOptions.some(a => a.hiddenColumn == true)) {
-        menuItems.push(<Dropdown.Divider />);
+        menuItems.push(<MenuDivider />);
 
         if (this.state.showHiddenColumns) {
-          menuItems.push(<Dropdown.Item className="sf-hide-hidden-columns" onClick={() => this.setState({ showHiddenColumns: undefined })}>
+          menuItems.push(<MenuItem className="sf-hide-hidden-columns" onClick={() => this.setState({ showHiddenColumns: undefined })}>
             <FontAwesomeIcon aria-hidden={true} icon="eye-slash" color="#21618C" />&nbsp;{SearchMessage.HideHiddenColumns.niceToString()}
-          </Dropdown.Item>);
+          </MenuItem>);
         } else {
-          menuItems.push(<Dropdown.Item className="sf-show-hidden-columns" onClick={() => this.setState({ showHiddenColumns: true })}>
+          menuItems.push(<MenuItem className="sf-show-hidden-columns" onClick={() => this.setState({ showHiddenColumns: true })}>
             <FontAwesomeIcon aria-hidden={true} icon="eye" color="#21618C" />&nbsp;{SearchMessage.ShowHiddenColumns.niceToString()}
-          </Dropdown.Item>);
+          </MenuItem>);
         }
       }
     }
@@ -1426,15 +1433,15 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
 
     if (renderEntityMenuItems) {
 
-      menuItems.push(<Dropdown.Item className="sf-paste-menu-item" onClick={() => this.handleCopyClick()}>
+      menuItems.push(<MenuItem className="sf-paste-menu-item" onClick={() => this.handleCopyClick()}>
         <FontAwesomeIcon aria-hidden={true} icon="copy" className="icon" color="#21618C" />&nbsp;{SearchMessage.Copy.niceToString()}
-      </Dropdown.Item>);
+      </MenuItem>);
 
       if (menuPack == undefined) {
-        menuItems.push(<Dropdown.Header>{JavascriptMessage.loading.niceToString()}</Dropdown.Header>);
+        menuItems.push(<MenuHeader>{JavascriptMessage.loading.niceToString()}</MenuHeader>);
       } else {
         if (menuItems.length && menuPack.items.length)
-          menuItems.push(<Dropdown.Divider />);
+          menuItems.push(<MenuDivider />);
 
         const filter = this.state.contextualMenu?.filter;
         const filtered = filter ? menuPack.items.filter(mi => !(mi as SearchableMenuItem).fullText || (mi as SearchableMenuItem).fullText.toLowerCase().includes(filter.toLowerCase())) : menuPack.items;
@@ -2284,15 +2291,9 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
         return tr;
 
       return (
-        <OverlayTrigger
-          overlay={
-            <Tooltip role="tooltip" placement="bottom" id={"result_row_" + i + "_tooltip"} style={{ "--bs-tooltip-max-width": "100%" } as any}>
-              {message.split("\n").map((s, i) => <p key={i}>{s}</p>)}
-            </Tooltip>
-          }
-        >
+        <WithTooltip side="bottom" className="max-w-none text-start" tooltip={message.split("\n").map((s, i) => <p key={i} className="m-0">{s}</p>)}>
           {tr}
-        </OverlayTrigger>
+        </WithTooltip>
       );
     });
   }
@@ -2322,11 +2323,12 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
         {mark.message ?
           // The tooltip id is deliberately distinct from the ROW tooltip's: both describe the same row,
           // so a shared id produced a duplicate in the document whenever both were open.
-          <OverlayTrigger
-            trigger="click"
-            overlay={<Tooltip placement="bottom" id={"result_row_" + rowIndex + "_mark_tooltip"}>{mark.message.split("\n").map((s, i) => <p key={i}>{s}</p>)}</Tooltip>}>
-            {icon}
-          </OverlayTrigger> : icon}
+          <Popover>
+            <PopoverTrigger asChild>{icon}</PopoverTrigger>
+            <PopoverContent side="bottom" role="tooltip" className="w-auto rounded-md border-0 bg-dark px-2 py-1 text-sm text-dark-foreground shadow-none">
+              {mark.message.split("\n").map((s, i) => <p key={i} className="m-0">{s}</p>)}
+            </PopoverContent>
+          </Popover> : icon}
       </span>
     );
   }
@@ -2641,21 +2643,25 @@ function SearchControlEllipsisMenu(p: { sc: SearchControlLoaded, isHidden: boole
   }
 
   return (
-    <Dropdown as={ButtonGroup} title={SearchMessage.Filters.niceToString()}>
-      <Button type="button" variant="tertiary" className="sf-filter-button" aria-label={SearchMessage.Filters.niceToString()} active={active} onClick={e => p.sc.handleChangeFiltermode(active ? 'Simple' : 'Advanced')}>
+    <div className="btn-group" role="group" title={SearchMessage.Filters.niceToString()}>
+      <BootstrapButton variant="tertiary" className={classes("sf-filter-button", active && "active")} aria-pressed={active} aria-label={SearchMessage.Filters.niceToString()} onClick={e => p.sc.handleChangeFiltermode(active ? 'Simple' : 'Advanced')}>
         <FontAwesomeIcon aria-hidden={true} icon="filter" /> {activeFilters == 0 ? null : activeFilters}
-      </Button>
-      <Dropdown.Toggle variant="tertiary" split className="px-2" aria-label={SearchMessage.FilterTypeSelection.niceToString()}></Dropdown.Toggle>
-      <Dropdown.Menu aria-label={SearchMessage.FilterMenu.niceToString()}>
-        <Dropdown.Item data-key={("Simple" satisfies SearchControlFilterMode)} {...dropdownActive(filterMode == 'Simple')} onClick={e => p.sc.handleChangeFiltermode('Simple')} ><span className="me-2" style={{ visibility: filterMode != 'Simple' ? 'hidden' : undefined }} > <FontAwesomeIcon aria-hidden={true} icon="check" color="navy" /></span>{SearchMessage.SimpleFilters.niceToString()}</Dropdown.Item>
-        <Dropdown.Item data-key={("Advanced" satisfies SearchControlFilterMode)} {...dropdownActive(filterMode == 'Advanced')} onClick={e => p.sc.handleChangeFiltermode('Advanced')} ><span className="me-2" style={{ visibility: filterMode != 'Advanced' ? 'hidden' : undefined }} > <FontAwesomeIcon aria-hidden={true} icon="check" color="navy" /></span>{SearchMessage.AdvancedFilters.niceToString()}</Dropdown.Item>
-        <Dropdown.Item data-key={("Pinned" satisfies SearchControlFilterMode)} {...dropdownActive(filterMode == 'Pinned')} onClick={e => p.sc.handleChangeFiltermode('Pinned')} ><span className="me-2" style={{ visibility: filterMode != 'Pinned' ? 'hidden' : undefined }} > <FontAwesomeIcon aria-hidden={true} icon="check" color="navy" /></span>{SearchMessage.FilterDesigner.niceToString()}</Dropdown.Item>
-        {props.showSystemTimeButton && <Dropdown.Divider />}
-        {props.showSystemTimeButton && <Dropdown.Item onClick={p.sc.handleSystemTimeClick} ><span className="me-2" style={{ visibility: p.sc.props.findOptions.systemTime == null ? 'hidden' : undefined }} > <FontAwesomeIcon aria-hidden={true} icon="check" color="navy" /></span>{SearchMessage.TimeMachine.niceToString()}</Dropdown.Item>}
-        <Dropdown.Divider />
-        <Dropdown.Item onClick={handleEditColumns}>{getEditAllColumnsIcon()}&nbsp;{SearchMessage.EditAllColumns.niceToString()}</Dropdown.Item>
-      </Dropdown.Menu>
-    </Dropdown>
+      </BootstrapButton>
+      <Dropdown>
+        <DropdownTrigger asChild>
+          <BootstrapButton variant="tertiary" className="dropdown-toggle dropdown-toggle-split px-2" aria-label={SearchMessage.FilterTypeSelection.niceToString()} />
+        </DropdownTrigger>
+        <DropdownContent aria-label={SearchMessage.FilterMenu.niceToString()}>
+        <DropdownItem data-key={("Simple" satisfies SearchControlFilterMode)} {...dropdownActive(filterMode == 'Simple')} onClick={e => p.sc.handleChangeFiltermode('Simple')} ><span className="me-2" style={{ visibility: filterMode != 'Simple' ? 'hidden' : undefined }} > <FontAwesomeIcon aria-hidden={true} icon="check" color="navy" /></span>{SearchMessage.SimpleFilters.niceToString()}</DropdownItem>
+        <DropdownItem data-key={("Advanced" satisfies SearchControlFilterMode)} {...dropdownActive(filterMode == 'Advanced')} onClick={e => p.sc.handleChangeFiltermode('Advanced')} ><span className="me-2" style={{ visibility: filterMode != 'Advanced' ? 'hidden' : undefined }} > <FontAwesomeIcon aria-hidden={true} icon="check" color="navy" /></span>{SearchMessage.AdvancedFilters.niceToString()}</DropdownItem>
+        <DropdownItem data-key={("Pinned" satisfies SearchControlFilterMode)} {...dropdownActive(filterMode == 'Pinned')} onClick={e => p.sc.handleChangeFiltermode('Pinned')} ><span className="me-2" style={{ visibility: filterMode != 'Pinned' ? 'hidden' : undefined }} > <FontAwesomeIcon aria-hidden={true} icon="check" color="navy" /></span>{SearchMessage.FilterDesigner.niceToString()}</DropdownItem>
+        {props.showSystemTimeButton && <DropdownSeparator />}
+        {props.showSystemTimeButton && <DropdownItem onClick={p.sc.handleSystemTimeClick} ><span className="me-2" style={{ visibility: p.sc.props.findOptions.systemTime == null ? 'hidden' : undefined }} > <FontAwesomeIcon aria-hidden={true} icon="check" color="navy" /></span>{SearchMessage.TimeMachine.niceToString()}</DropdownItem>}
+        <DropdownSeparator />
+        <DropdownItem onClick={handleEditColumns}>{getEditAllColumnsIcon()}&nbsp;{SearchMessage.EditAllColumns.niceToString()}</DropdownItem>
+        </DropdownContent>
+      </Dropdown>
+    </div>
   );
 }
 

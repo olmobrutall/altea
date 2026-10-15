@@ -11,14 +11,14 @@ import { Navigator } from '../Navigator';
 import MessageModal from '../Modals/MessageModal'
 import { Operations, CellOperationContext, EntityOperationSettings } from '../Operations'
 import type { IconProp } from "@fortawesome/fontawesome-svg-core";
-import { Button, Dropdown, OverlayTrigger, Tooltip } from "react-bootstrap";
-import type { ButtonProps } from "react-bootstrap";
+import { BootstrapButton, type BootstrapButtonProps } from "./EntityOperations";
+import { WithTooltip } from "../ui/Tooltip";
 import type { BsColor } from "../Components";
 import { EntityOperations } from "./EntityOperations";
 import { useDoubleClick } from "../Hooks";
 
 
-export interface CellOperationProps extends ButtonProps {
+export interface CellOperationProps extends BootstrapButtonProps {
   coc: CellOperationContext<Entity>;
   onOperationClick?: (coc: CellOperationContext<Entity>) => Promise<void>;
   variant?: BsColor;
@@ -70,7 +70,7 @@ export function CellOperationButton({ coc: cocOrNull, onOperationClick, outline,
 
   const onlySingleClick = useDoubleClick((e) => { }, handleOnClick);
 
-  var button = <Button variant={(outline ? ("outline-" + color) : color)}
+  var button = <BootstrapButton variant={(outline ? ("outline-" + color) : color)}
     {...props}
     key="button"
     size="sm"
@@ -80,13 +80,13 @@ export function CellOperationButton({ coc: cocOrNull, onOperationClick, outline,
     onClick={disabled ? undefined : onlySingleClick}
     data-operation={coc.operationInfo.key}>
     {renderChildren()}
-  </Button>;
+  </BootstrapButton>;
 
   if (canExecute) {
     return (
-      <OverlayTrigger overlay={<Tooltip id={coc.operationInfo.key + "_tooltip"} placement={"bottom"}>{canExecute}</Tooltip>}>
+      <WithTooltip side="bottom" tooltip={canExecute}>
         {button}
-      </OverlayTrigger>
+      </WithTooltip>
     );
   }
 

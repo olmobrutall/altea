@@ -2,7 +2,7 @@
 // dropped unused ReactDOM/softCast/DropdownMenu imports; react-bootstrap Dropdown + Hooks unchanged).
 import * as React from 'react'
 import { classes, Dic } from '../../data/globals'
-import { Dropdown } from 'react-bootstrap';
+import { MenuPanel } from '../ui/Dropdown';
 import { useStateWithPromise } from '../Hooks';
 
 export interface TypeaheadProps {
@@ -261,9 +261,10 @@ export function Typeahead(p: TypeaheadProps): React.JSX.Element {
   return (
     <>
       {p.renderInput ? p.renderInput(input) : input}
-      <Dropdown show={controller.shown} onToggle={(isOpen: boolean) => controller.setShown(isOpen)}>
-        {(p.renderList ? p.renderList(controller) : renderDefaultList())}
-      </Dropdown>
+      {controller.shown &&
+        <div className="sf-typeahead-anchor relative">
+          {p.renderList ? p.renderList(controller) : renderDefaultList()}
+        </div>}
     </>
   );
 
@@ -272,17 +273,17 @@ export function Typeahead(p: TypeaheadProps): React.JSX.Element {
 
     var highlighter = TextHighlighter.fromString(controller.query);
     return (
-      <Dropdown.Menu align={controller.rtl ? "end" : undefined} className="typeahead">
+      <MenuPanel role="listbox" className={classes("typeahead top-0", controller.rtl ? "end-0" : "start-0")}>
         {
           !items ? null :
-            items.length == 0 ? <div className="no-results dropdown-item disabled"><small style={{ pointerEvents: "stroke" }} title={typeof p.noResultsMessage == "string" ? p.noResultsMessage : undefined}>{p.noResultsMessage}</small></div> :
+            items.length == 0 ? <div className="no-results sf-dropdown-item disabled"><small style={{ pointerEvents: "stroke" }} title={typeof p.noResultsMessage == "string" ? p.noResultsMessage : undefined}>{p.noResultsMessage}</small></div> :
               items!.map((item, i) => {
                 var title = p.itemTitle?.(item, highlighter);
 
-                return p.isHeader?.(item) ? <div key={i} className="dropdown-header" title={title} {...p.itemAttrs && p.itemAttrs(item)}>{p.renderItem!(item, highlighter)}</div> :
-                  p.isDisabled?.(item) ? <div key={i} className="dropdown-item disabled" title={title} {...p.itemAttrs && p.itemAttrs(item)}>{p.renderItem!(item, highlighter)}</div> :
+                return p.isHeader?.(item) ? <div key={i} className="sf-dropdown-header" title={title} {...p.itemAttrs && p.itemAttrs(item)}>{p.renderItem!(item, highlighter)}</div> :
+                  p.isDisabled?.(item) ? <div key={i} className="sf-dropdown-item disabled" title={title} {...p.itemAttrs && p.itemAttrs(item)}>{p.renderItem!(item, highlighter)}</div> :
                     <button key={i}
-                      className={classes("dropdown-item", i == controller.selectedIndex ? "active" : undefined)}
+                      className={classes("sf-dropdown-item", i == controller.selectedIndex ? "active" : undefined)}
                       onMouseEnter={e => controller.handleElementMouseEnter(e, i)}
                       onMouseLeave={e => controller.handleElementMouseLeave(e, i)}
                       onMouseUp={e => controller.handleMenuMouseUp(e, i)}
@@ -292,7 +293,7 @@ export function Typeahead(p: TypeaheadProps): React.JSX.Element {
                     </button>
               })
         }
-      </Dropdown.Menu>
+      </MenuPanel>
     );
   }
 }

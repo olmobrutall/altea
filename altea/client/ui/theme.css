@@ -119,6 +119,8 @@
     --color-border: var(--border);
     --color-input: var(--input);
     --color-ring: var(--ring);
+    --color-link: var(--link);
+    --color-link-hover: var(--link-hover);
 }
 
 /* The default palette: Bootstrap 5.3's own colours, so nothing changes until a palette is picked.
@@ -156,6 +158,8 @@
     --border: #dee2e6;
     --input: #dee2e6;
     --ring: rgb(13 110 253 / .25);
+    --link: #0d6efd;
+    --link-hover: #0a58ca;
 }
 
 [data-theme=dark] {
@@ -176,6 +180,8 @@
     --accent-foreground: #dee2e6;
     --border: #495057;
     --input: #495057;
+    --link: #6ea8fe;
+    --link-hover: #8bb9fe;
 }
 
 @layer legacy {

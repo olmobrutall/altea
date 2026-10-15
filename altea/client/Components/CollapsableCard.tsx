@@ -1,5 +1,4 @@
 import * as React from 'react'
-import { Collapse } from 'react-bootstrap'
 import { classes } from '../../data/globals'
 import type { BsColor } from '../Components'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -79,13 +78,11 @@ export default function CollapsableCard(p: CollapsableCardProps): React.ReactEle
 
         {p.header}
       </div>
-      <Collapse in={isOpen}>
-        <div>
-          <div className={classes("card-body", cardStyleClasses(p.bodyStyle))}>
-            {p.children}
-          </div>
+      <div hidden={!isOpen}>
+        <div className={classes("card-body", cardStyleClasses(p.bodyStyle))}>
+          {p.children}
         </div>
-      </Collapse>
+      </div>
     </div>
   );
 }

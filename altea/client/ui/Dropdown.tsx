@@ -5,21 +5,24 @@ import { Button, type ButtonProps } from "./Button";
 import { cn } from "./utils";
 
 export const Dropdown: typeof Menu.Root = Menu.Root;
+
+/** True inside a Radix menu: an item built for one also works in a MenuPanel (the context menu), as a plain item. */
+const InRadixMenu = React.createContext(false);
 export const DropdownTrigger: typeof Menu.Trigger = Menu.Trigger;
 export const DropdownGroup: typeof Menu.Group = Menu.Group;
 export const DropdownSub: typeof Menu.Sub = Menu.Sub;
 
-const item = "relative flex w-full cursor-pointer select-none items-center gap-2 whitespace-nowrap rounded-sm px-4 py-1 outline-none " +
-    "text-popover-foreground no-underline data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground " +
-    "data-[disabled]:pointer-events-none data-[disabled]:opacity-50 aria-[current=true]:bg-primary aria-[current=true]:text-primary-foreground";
+/** Laid out as a row so an icon and its text sit together; the look is the semantic .sf-dropdown-item. */
+const item = "relative flex items-center gap-2 select-none";
 
 export function DropdownContent({ className, sideOffset = 2, align = "start", ...props }: React.ComponentProps<typeof Menu.Content>): React.ReactElement {
     return (
         <Menu.Portal>
-            <Menu.Content sideOffset={sideOffset} align={align}
-                className={cn("sf-dropdown-menu z-[1070] min-w-[10rem] overflow-y-auto rounded-md border-1 bg-popover py-2 text-base text-popover-foreground shadow-md",
-                    "max-h-(--radix-dropdown-menu-content-available-height)", className)}
-                {...props} />
+            <InRadixMenu.Provider value={true}>
+                <Menu.Content sideOffset={sideOffset} align={align}
+                    className={cn("sf-dropdown-menu static z-[1070] overflow-y-auto max-h-(--radix-dropdown-menu-content-available-height)", className)}
+                    {...props} />
+            </InRadixMenu.Provider>
         </Menu.Portal>
     );
 }
@@ -30,7 +33,9 @@ export interface DropdownItemProps extends React.ComponentProps<typeof Menu.Item
 }
 
 export function DropdownItem({ className, active, ...props }: DropdownItemProps): React.ReactElement {
-    return <Menu.Item aria-current={active || undefined} className={cn("sf-dropdown-item", item, className)} {...props} />;
+    if (!React.useContext(InRadixMenu))
+        return <MenuItem className={className} active={active} {...props as React.ButtonHTMLAttributes<HTMLButtonElement>} />;
+    return <Menu.Item aria-current={active || undefined} className={cn("sf-dropdown-item", item, active && "active", className)} {...props} />;
 }
 
 export function DropdownCheckboxItem({ className, children, ...props }: React.ComponentProps<typeof Menu.CheckboxItem>): React.ReactElement {
@@ -43,11 +48,15 @@ export function DropdownCheckboxItem({ className, children, ...props }: React.Co
 }
 
 export function DropdownLabel({ className, ...props }: React.ComponentProps<typeof Menu.Label>): React.ReactElement {
-    return <Menu.Label className={cn("sf-dropdown-header px-4 py-1 text-sm text-muted-foreground", className)} {...props} />;
+    if (!React.useContext(InRadixMenu))
+        return <MenuHeader className={className} {...props as React.HTMLAttributes<HTMLHeadingElement>} />;
+    return <Menu.Label className={cn("sf-dropdown-header", className)} {...props} />;
 }
 
 export function DropdownSeparator({ className, ...props }: React.ComponentProps<typeof Menu.Separator>): React.ReactElement {
-    return <Menu.Separator className={cn("sf-dropdown-divider my-2 h-px bg-border", className)} {...props} />;
+    if (!React.useContext(InRadixMenu))
+        return <MenuDivider className={className} />;
+    return <Menu.Separator className={cn("sf-dropdown-divider", className)} {...props} />;
 }
 
 export function DropdownSubTrigger({ className, children, ...props }: React.ComponentProps<typeof Menu.SubTrigger>): React.ReactElement {
@@ -62,7 +71,7 @@ export function DropdownSubTrigger({ className, children, ...props }: React.Comp
 export function DropdownSubContent({ className, ...props }: React.ComponentProps<typeof Menu.SubContent>): React.ReactElement {
     return (
         <Menu.Portal>
-            <Menu.SubContent className={cn("sf-dropdown-menu z-[1070] min-w-[10rem] rounded-md border-1 bg-popover py-2 text-popover-foreground shadow-md", className)} {...props} />
+            <Menu.SubContent className={cn("sf-dropdown-menu static z-[1070]", className)} {...props} />
         </Menu.Portal>
     );
 }
@@ -91,4 +100,42 @@ export function DropdownButton({ title, children, align, noCaret, contentClassNa
             <DropdownContent align={align} className={contentClassName}>{children}</DropdownContent>
         </Dropdown>
     );
+}
+
+// Menus a component positions itself (the search context menu, a typeahead): plain semantic markup, no
+// Radix menu — they also hold items other packages build — so the owner handles keys and dismissal.
+
+export function MenuPanel({ className, onKeyDown, ...props }: React.HTMLAttributes<HTMLDivElement> & { ref?: React.Ref<HTMLDivElement> }): React.ReactElement {
+    return <div className={cn("sf-dropdown-menu", className)} onKeyDown={e => { moveFocus(e); onKeyDown?.(e); }} {...props} />;
+}
+
+/** Arrow keys walk the items, as react-bootstrap's menus did. */
+function moveFocus(e: React.KeyboardEvent<HTMLElement>): void {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End")
+        return;
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>(".sf-dropdown-item, .dropdown-item"))
+        .filter(i => !i.classList.contains("disabled") && !(i as HTMLButtonElement).disabled);
+    if (items.length === 0)
+        return;
+    e.preventDefault();
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    const next = e.key === "Home" ? 0 : e.key === "End" ? items.length - 1
+        : e.key === "ArrowDown" ? (index + 1) % items.length : (index <= 0 ? items.length - 1 : index - 1);
+    items[next].focus();
+}
+
+export interface MenuItemProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+    active?: boolean;
+}
+
+export function MenuItem({ className, active, type = "button", ...props }: MenuItemProps): React.ReactElement {
+    return <button type={type} aria-current={active || undefined} className={cn("sf-dropdown-item", item, active && "active", props.disabled && "disabled", className)} {...props} />;
+}
+
+export function MenuDivider({ className, ...props }: React.HTMLAttributes<HTMLHRElement>): React.ReactElement {
+    return <hr className={cn("sf-dropdown-divider", className)} {...props} />;
+}
+
+export function MenuHeader({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>): React.ReactElement {
+    return <h6 className={cn("sf-dropdown-header", className)} {...props} />;
 }

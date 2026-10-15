@@ -12,7 +12,8 @@
 
 /* A guid id is shown head…tail (see EntityOmniboxProvider) — monospace keeps the two halves aligned. */
 .sf-omnibox .guid,
-.dropdown-menu .guid {
+.dropdown-menu .guid,
+.sf-dropdown-menu .guid {
     font-family: monospace;
 }
 
@@ -21,6 +22,7 @@
    the DOM, so it won the tie and the omnibox list was drawn UNDERNEATH it. 1035 clears the sidebar and
    anything `.fixed-top` (1030) while staying below the offcanvas backdrop (1040) and modals (1055), so a
    dropdown left open behind a modal still behaves. */
-.sf-omnibox .dropdown-menu {
+.sf-omnibox .dropdown-menu,
+.sf-omnibox .sf-dropdown-menu {
     z-index: 1035;
 }

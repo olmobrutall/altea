@@ -12,7 +12,7 @@
 //  - `mountOnEnter`/`unmountOnExit` are kept: a tab's editor is built only when it is first shown, which is
 //    the point of tabs for a heavy per-row editor.
 import * as React from 'react'
-import { Tabs, Tab } from 'react-bootstrap'
+import { Tab, Tabs } from '../ui/Tabs';
 import { classes } from '../../data/globals'
 import type { TypeContext } from '../TypeContext'
 import { BaseEntity } from '../../data/entity'
@@ -144,7 +144,7 @@ export function EntityTabRepeater<R extends BaseEntity>(props: EntityTabRepeater
 
     return (
       <Tabs activeKey={c.selectedIndex || 0} onSelect={handleSelectTab} id={ctx.prefix + "_tab"}
-        transition={false} mountOnEnter unmountOnExit>
+        mountOnEnter unmountOnExit>
         {c.getMListItemContext(ctx).map((mlec, i) => {
           const drag = c.canMove(mlec.value) && p.moveMode == "DragIcon" && !readOnly ? c.getDragConfig(mlec.index!, "h") : undefined;
           const move = c.canMove(mlec.value) && p.moveMode == "MoveIcons" && !readOnly ? c.getMoveConfig(false, mlec.index!, "h") : undefined;
@@ -180,7 +180,7 @@ export function EntityTabRepeater<R extends BaseEntity>(props: EntityTabRepeater
                   {move?.renderMoveUp()}
                   {move?.renderMoveDown()}
                 </div>
-              ) /* react-bootstrap types `title` as a string; Signum passes a node too */}>
+              )}>
               {/* getComponent/getViewPromise are R-typed; RenderEntity types them over AsEntity<R>, which
                   equals R for an entity row but TS won't reduce the deferred conditional for a generic R. */}
               <RenderEntity ctx={mlec} getComponent={p.getComponent as any} getViewPromise={p.getViewPromise as any}

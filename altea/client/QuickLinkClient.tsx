@@ -19,7 +19,7 @@ import { onContextualItems } from './SearchControl/ContextualItems'
 import type { ContextualItemsContext, MenuItemBlock, ContextualMenuItem } from './SearchControl/ContextualItems'
 import { useAPI } from './Hooks'
 import { StyleContext } from './TypeContext'
-import { Dropdown } from 'react-bootstrap'
+import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from './ui/Dropdown'
 import type { BsColor } from './Components'
 import { registerManualSubTokens } from './SearchControl/QueryTokenBuilder'
 import { LinkButton } from './Basics/LinkButton'
@@ -248,8 +248,6 @@ export function QuickLinkWidget(p: QuickLinkWidgetProps): React.ReactElement | n
   if (links.length == 0)
     return null;
 
-  const DDToggle = Dropdown.Toggle as any;
-
   return (
     <>
       {!links ? [] : links
@@ -276,19 +274,22 @@ export function QuickLinkWidget(p: QuickLinkWidgetProps): React.ReactElement | n
             var dd = first.group;
 
             return (
-              <Dropdown id={p.qlc.widgetContext!.frame.prefix + "_" + dd.name} key={i}>
-                <DDToggle as={QuickLinkToggle}
-                  title={QuickLinkMessage.Quicklinks.niceToString()}
-                  badgeText={dd.text(gr.elements)}
-                  badgeColor={dd.color}
-                  content={<>
-                    {dd.icon && <FontAwesomeIcon aria-hidden={true} icon={dd.icon} />}
-                    {dd.icon && " "}
-                    {dd.text(gr.elements)}
-                  </>} />
-                <Dropdown.Menu align="end">
+              <Dropdown key={i}>
+                <DropdownTrigger asChild>
+                  <QuickLinkToggle
+                    id={p.qlc.widgetContext!.frame.prefix + "_" + dd.name}
+                    title={QuickLinkMessage.Quicklinks.niceToString()}
+                    badgeText={dd.text(gr.elements)}
+                    badgeColor={dd.color}
+                    content={<>
+                      {dd.icon && <FontAwesomeIcon aria-hidden={true} icon={dd.icon} />}
+                      {dd.icon && " "}
+                      {dd.text(gr.elements)}
+                    </>} />
+                </DropdownTrigger>
+                <DropdownContent align="end">
                   {gr.elements.orderBy(a => a.order).map((a, i) => React.cloneElement(a.toDropDownItem(p.qlc), { key: i }))}
-                </Dropdown.Menu>
+                </DropdownContent>
               </Dropdown>
             );
           }
@@ -307,23 +308,22 @@ export interface QuickLinkContext<T extends Entity> {
 
 
 
-function QuickLinkToggle(p: { onClick?: React.MouseEventHandler, title: string, content: React.ReactNode, badgeText?: string, badgeColor: BsColor, ref?: React.Ref<HTMLAnchorElement> }) {
+function QuickLinkToggle({ title, content, badgeText, badgeColor, ref, ...rest }: Omit<React.HTMLAttributes<HTMLAnchorElement>, "title" | "content"> & { title: string, content: React.ReactNode, badgeText?: string, badgeColor: BsColor, ref?: React.Ref<HTMLAnchorElement> }) {
 
   // The badge shows a count and nothing else, but was named "Quick links" alone, so its name did not
   // contain what is written on it: speech input could not reach it by what the user sees, and a screen
   // reader never heard the number. aria-label separately from title, because the tooltip stays tied to
   // the titleLabels setting while the name has to be there either way.
-  const label = p.badgeText ? `${p.title} (${p.badgeText})` : p.title;
+  const label = badgeText ? `${title} (${badgeText})` : title;
 
   return (
     <LinkButton
-      ref={p.ref}
-      className={classes("badge badge-pill sf-quicklinks", "text-bg-" + p.badgeColor)}
+      {...rest}
+      ref={ref}
+      className={classes("badge badge-pill sf-quicklinks", "text-bg-" + badgeColor)}
       aria-label={label}
-      title={StyleContext.default.titleLabels ? label : undefined}
-      data-toggle="dropdown"
-      onClick={e => { p.onClick!(e); }}>
-      {p.content}
+      title={StyleContext.default.titleLabels ? label : undefined}>
+      {content}
     </LinkButton>
   );
 }
@@ -383,9 +383,9 @@ export abstract class QuickLink<T extends Entity> {
 
   toDropDownItem(ctx: QuickLinkContext<T>): React.ReactElement {
     return (
-      <Dropdown.Item data-key={this.key} className="sf-quick-link" onClick={e => this.handleClick(ctx, e)}>
+      <DropdownItem data-key={this.key} className="sf-quick-link" onClick={e => this.handleClick(ctx, e)}>
         {this.renderIcon()}&nbsp;{this.text()}
-      </Dropdown.Item>
+      </DropdownItem>
     );
   }
 

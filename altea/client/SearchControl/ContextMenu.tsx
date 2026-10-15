@@ -2,7 +2,7 @@
 // unused ReactDOM + `classes` imports; DomUtils from ../domGlobals. Otherwise verbatim.
 import * as React from 'react';
 import { DomUtils } from '../domGlobals'
-import { Dropdown } from 'react-bootstrap';
+import { MenuPanel } from '../ui/Dropdown';
 import { useForceUpdate } from '../Hooks';
 
 
@@ -38,7 +38,7 @@ export default function ContextMenu({ position, onHide, children, alignRight, it
   React.useEffect(() => {
 
     if (menuRef.current) {
-      const menuElement = menuRef.current.querySelector('.dropdown-menu') as HTMLElement;
+      const menuElement = menuRef.current.querySelector('.sf-dropdown-menu') as HTMLElement;
       if (!menuElement) return;
 
       const menuWidth = menuElement.scrollWidth;
@@ -66,7 +66,7 @@ export default function ContextMenu({ position, onHide, children, alignRight, it
       return;
 
     // The search box of a ROW menu focuses itself through AutoFocus; this covers the menus that have none.
-    const first = menuRef.current?.querySelector<HTMLElement>(".dropdown-menu .dropdown-item:not(.disabled):not([disabled])");
+    const first = menuRef.current?.querySelector<HTMLElement>(".sf-dropdown-menu :is(.sf-dropdown-item, .dropdown-item):not(.disabled):not([disabled])");
     first?.focus();
   }, [autoFocus]);
 
@@ -136,7 +136,7 @@ export default function ContextMenu({ position, onHide, children, alignRight, it
   // The items can arrive asynchronously, so focusing the first one is retried as they show up — but never
   // once the user has already moved the focus inside the menu.
   React.useEffect(() => {
-    const menu = menuRef.current?.querySelector<HTMLElement>('.dropdown-menu');
+    const menu = menuRef.current?.querySelector<HTMLElement>('.sf-dropdown-menu');
     if (menu == null)
       return;
 
@@ -155,7 +155,7 @@ export default function ContextMenu({ position, onHide, children, alignRight, it
     // menu stayed open (e.g. clicking the "Add filter" icon added the filter but left the menu up). Resolve
     // the clicked node to its enclosing item with `closest` first; still exclude the search `input` and
     // disabled items (their class list includes `dropdown-item`, so match on the resolved element).
-    const item = (e.target as HTMLElement).closest<HTMLElement>(".dropdown-item");
+    const item = (e.target as HTMLElement).closest<HTMLElement>(".sf-dropdown-item, .dropdown-item");
     if (item && !item.matches("input, .disabled"))
       onHide();
   }
@@ -166,7 +166,7 @@ export default function ContextMenu({ position, onHide, children, alignRight, it
     if (event.key !== 'Tab')
       return;
 
-    const menu = menuRef.current?.querySelector<HTMLElement>('.dropdown-menu');
+    const menu = menuRef.current?.querySelector<HTMLElement>('.sf-dropdown-menu');
     if (menu == null)
       return;
 
@@ -185,22 +185,22 @@ export default function ContextMenu({ position, onHide, children, alignRight, it
   }
 
   return (
-    <Dropdown className="sf-context-menu" show={true}
+    <div className="sf-context-menu"
       ref={menuRef}
       style={{
         position: 'absolute',
         top: `${adjustedPosition.top}px`,
-        left: alignRight ? `${adjustedPosition.left - (menuRef.current?.querySelector('.dropdown-menu')?.scrollWidth ?? 100)}px` : `${adjustedPosition.left}px`,
+        left: alignRight ? `${adjustedPosition.left - (menuRef.current?.querySelector('.sf-dropdown-menu')?.scrollWidth ?? 100)}px` : `${adjustedPosition.left}px`,
         zIndex: 999999,
       }}
       {...rest as any}
     >
       {/* tabIndex: the menu itself is the fallback focus target while its items are still loading, so
           Escape and the Tab cycle work from the moment the menu opens. */}
-      <Dropdown.Menu onClick={handleMenuClick} onKeyDown={handleKeyDown} className="sf-context-menu" tabIndex={-1}>
+      <MenuPanel role="menu" onClick={handleMenuClick} onKeyDown={handleKeyDown} className="sf-context-menu static block" tabIndex={-1}>
         {children}
-      </Dropdown.Menu>
-    </Dropdown>
+      </MenuPanel>
+    </div>
   );
 };
 
