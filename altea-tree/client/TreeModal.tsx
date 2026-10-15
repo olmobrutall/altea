@@ -66,7 +66,7 @@ function TreeModal(p: TreeModalProps): React.JSX.Element {
                 </LinkButton>
             </ModalHeaderButtons>
 
-            <div className="modal-body">
+            <div className="sf-modal-body">
                 <TreeViewer ref={treeViewRef}
                     treeOptions={p.treeOptions}
                     avoidChangeUrl={true}

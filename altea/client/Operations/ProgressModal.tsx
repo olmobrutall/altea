@@ -6,7 +6,8 @@ import * as React from 'react'
 import { openModal } from '../Modals';
 import type { IModalProps } from '../Modals';
 import type { Operations } from '../Operations';
-import { Modal, ProgressBar } from 'react-bootstrap';
+import { Modal } from '../ui/Modal';
+import { Progress } from '../ui/Progress';
 import { EntityControlMessage, JavascriptMessage, OperationMessage } from '../../data/uiMessages';
 import { useForceUpdate, useThrottle } from '../Hooks';
 import { ServiceError } from '../Services';
@@ -78,15 +79,15 @@ export function ProgressModal<T>(p: ProgressModalProps<T>): React.ReactElement {
   const titleId = React.useId();
   return (
     <Modal show={show} className="message-modal" backdrop="static" onExited={handleOnExited} aria-labelledby={titleId}>
-      <div className="modal-header">
-        <h1 id={titleId} className="modal-title text-h5 font-medium">{p.options.title}</h1>
+      <div className="sf-modal-header">
+        <h1 id={titleId} className="sf-modal-title text-h5 font-medium">{p.options.title}</h1>
         <button type="button" className="btn-close" data-dismiss="modal" aria-label={EntityControlMessage.Close.niceToString()} onClick={handleCancelClicked} />
       </div>
-      <div className="modal-body">
+      <div className="sf-modal-body">
         <p>{p.options.message}</p>
         {step == undefined || step.position == null || step.position == -1 || step.max == null || step.min == null ?
-          <ProgressBar now={100} variant="info" animated={oldRequestStarted} striped={oldRequestStarted} key={1} /> :
-          <ProgressBar min={step.min ?? 0} max={step.max ?? 100} now={step.position ?? 0}
+          <Progress value={100} variant="info" animated={oldRequestStarted} key={1} /> :
+          <Progress min={step.min ?? 0} max={step.max ?? 100} value={step.position ?? 0}
             label={step.min != 0 ?
               `[${step.position}/${step.min}...${step.min}]` :
               `[${step.position}/${step.max}]`}
@@ -95,7 +96,7 @@ export function ProgressModal<T>(p: ProgressModalProps<T>): React.ReactElement {
         {step?.currentTask && <p className="text-success">{step.currentTask}</p>}
       </div>
       {p.options.showCloseWarningMessage &&
-        <div className="modal-footer">
+        <div className="sf-modal-footer">
           <small className="text-muted-foreground">{OperationMessage.ClosingThisModalOrBrowserTabWillCancelTheOperation.niceToString()}</small>
           <button type="button" className="btn btn-tertiary sf-entity-button sf-close-button" onClick={handleCancelClicked}>
             {JavascriptMessage.cancel.niceToString()}

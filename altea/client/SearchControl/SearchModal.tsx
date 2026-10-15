@@ -18,7 +18,8 @@ import type { EntityPack } from '../../data/entityPack';
 import { isEntityPack } from '../../data/entityPack';
 import { FrameMessage, SearchMessage } from '../../data/uiMessages';
 import { ModalFooterButtons, ModalHeaderButtons } from '../Components/ModalHeaderButtons';
-import { Modal, Dropdown } from 'react-bootstrap';
+import { Modal } from '../ui/Modal';
+import { Dropdown } from 'react-bootstrap';
 import { useForceUpdate } from '../Hooks';
 import SearchControlLoaded from './SearchControlLoaded';
 import MessageModal from '../Modals/MessageModal';
@@ -161,7 +162,7 @@ function SearchModal(p: SearchModalProps): React.ReactElement {
     var containerDiv = scl?.containerDiv;
     if (containerDiv) {
       var rect = containerDiv.getBoundingClientRect();
-      var modalContent = DomUtils.closest(containerDiv.offsetParent as HTMLElement, ".modal-content")!;
+      var modalContent = DomUtils.closest(containerDiv.offsetParent as HTMLElement, ".sf-modal-content")!;
       const marginModal = 28; 
       const marginTop = rect.top + marginModal;
       const marginButton = (modalContent!.offsetHeight - rect.bottom) + marginModal;
@@ -179,7 +180,7 @@ function SearchModal(p: SearchModalProps): React.ReactElement {
   const titleId = React.useId();
 
   return (
-    <Modal size={(p.size ?? qs?.modalSize ?? "lg") as any} show={show} onExited={handleOnExited} onHide={handleCancelClicked} className="sf-search-modal"
+    <Modal size={p.size ?? qs?.modalSize ?? "lg"} show={show} onExited={handleOnExited} onHide={handleCancelClicked} className="sf-search-modal"
       aria-labelledby={titleId}>
       {/* The heading holds the TITLE only: with the whole header in it, the fullscreen button's label was
           part of the heading and of the dialog's name (as in FrameModalTitle). */}
@@ -197,7 +198,7 @@ function SearchModal(p: SearchModalProps): React.ReactElement {
         </>
         }
       </ModalHeaderButtons>
-      <div className="modal-body" onKeyUp={handleInputsKeyUp} >
+      <div className="sf-modal-body" onKeyUp={handleInputsKeyUp} >
         <SearchControl 
           ref={searchControl}
           hideFullScreenButton={true}

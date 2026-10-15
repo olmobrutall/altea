@@ -4,8 +4,12 @@ import { JavascriptMessage } from "../../data/uiMessages";
 import { cn } from "./utils";
 
 export interface ProgressProps {
-    /** 0–100; null for an indeterminate bar. */
+    /** Between `min` and `max` (0–100 by default); null for an indeterminate bar. */
     value: number | null;
+    min?: number;
+    max?: number;
+    /** Moving stripes. */
+    animated?: boolean;
     label?: React.ReactNode;
     variant?: "primary" | "success" | "destructive" | "warning" | "info";
     striped?: boolean;
@@ -20,14 +24,15 @@ const variants = {
     info: "bg-info text-info-foreground",
 };
 
-export function Progress({ value, label, variant = "primary", striped, className }: ProgressProps): React.ReactElement {
+export function Progress({ value, min = 0, max = 100, label, variant = "primary", striped, animated, className }: ProgressProps): React.ReactElement {
+    const percent = value == null ? null : max === min ? 100 : (value - min) / (max - min) * 100;
     return (
-        <ProgressPrimitive.Root value={value} className={cn("sf-progress relative flex h-4 overflow-hidden rounded-md bg-muted text-xs", className)}>
+        <ProgressPrimitive.Root value={percent} className={cn("sf-progress relative flex h-4 overflow-hidden rounded-md bg-muted text-xs", className)}>
             <ProgressPrimitive.Indicator
                 className={cn("flex items-center justify-center overflow-hidden whitespace-nowrap transition-[width]", variants[variant],
-                    (striped || value == null) && "bg-[linear-gradient(45deg,rgb(255_255_255/.15)_25%,transparent_25%,transparent_50%,rgb(255_255_255/.15)_50%,rgb(255_255_255/.15)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem]",
-                    value == null && "animate-pulse")}
-                style={{ width: value == null ? "100%" : `${Math.max(0, Math.min(100, value))}%` }}>
+                    (striped || animated || percent == null) && "bg-[linear-gradient(45deg,rgb(255_255_255/.15)_25%,transparent_25%,transparent_50%,rgb(255_255_255/.15)_50%,rgb(255_255_255/.15)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem]",
+                    (animated || percent == null) && "animate-pulse")}
+                style={{ width: percent == null ? "100%" : `${Math.max(0, Math.min(100, percent))}%` }}>
                 {label}
             </ProgressPrimitive.Indicator>
         </ProgressPrimitive.Root>

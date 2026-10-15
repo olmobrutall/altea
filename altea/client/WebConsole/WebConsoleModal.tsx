@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Modal } from "react-bootstrap";
+import { Modal } from "../ui/Modal";
 import { openModal, type IModalProps } from "../Modals";
 import { JavascriptMessage } from "../../data/uiMessages";
 import { WebConsoleView } from "./WebConsoleView";
@@ -27,14 +27,14 @@ function WebConsoleModal(p: WebConsoleModalProps): React.ReactElement {
     return (
         <Modal show={show} size="xl" onHide={() => close(undefined)} onExited={() => p.onExited!(answer.current)}
             aria-labelledby={titleId} backdrop="static">
-            <div className="modal-header">
-                <h1 id={titleId} className="modal-title text-h5 font-medium">{p.title}</h1>
+            <div className="sf-modal-header">
+                <h1 id={titleId} className="sf-modal-title text-h5 font-medium">{p.title}</h1>
                 <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={() => close(undefined)} />
             </div>
-            <div className="modal-body">
+            <div className="sf-modal-body">
                 <WebConsoleView command={p.command} args={p.args} onFinished={result => setFinished({ result })} />
             </div>
-            <div className="modal-footer">
+            <div className="sf-modal-footer">
                 <button type="button" className="btn btn-primary" disabled={finished == null} onClick={() => close(finished)}>
                     {JavascriptMessage.ok.niceToString()}
                 </button>

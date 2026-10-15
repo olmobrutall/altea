@@ -39,14 +39,14 @@ function CaseActivityStatsModal(p: CaseActivityStatsModalProps): React.JSX.Eleme
 
     return (
         <Modal size="lg" onHide={() => setShow(false)} show={show} onExited={() => p.onExited!(undefined)}>
-            <div className="modal-header">
-                <h5 className="modal-title">
+            <div className="sf-modal-header">
+                <h5 className="sf-modal-title">
                     {stats.first().workflowActivity.toString()} ({stats.length}{" "}
                     {stats.length === 1 ? CaseActivityEntity.niceName() : CaseActivityEntity.nicePluralName()})
                 </h5>
                 <button type="button" className="btn-close" aria-label="Close" onClick={() => setShow(false)} />
             </div>
-            <div className="modal-body">
+            <div className="sf-modal-body">
                 {stats.length === 1
                     ? <CaseActivityStatsComponent stats={stats.first()} caseEntity={p.case} />
                     : <Tabs id="statsTabs">
@@ -60,7 +60,7 @@ function CaseActivityStatsModal(p: CaseActivityStatsModalProps): React.JSX.Eleme
                             </Tab>)}
                     </Tabs>}
             </div>
-            <div className="modal-footer">
+            <div className="sf-modal-footer">
                 <button className="btn btn-primary sf-entity-button sf-ok-button" onClick={() => setShow(false)}>
                     {JavascriptMessage.ok.niceToString()}
                 </button>

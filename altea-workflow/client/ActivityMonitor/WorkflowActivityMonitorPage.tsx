@@ -70,7 +70,7 @@ export default function WorkflowActivityMonitorPage(): React.JSX.Element {
 
     return (
         <div>
-            <h3 className="modal-title">
+            <h3 className="sf-modal-title">
                 {!config ? JavascriptMessage.loading.niceToString() : config.workflow.toString()}
                 {config && Navigator.isViewable(WorkflowEntity) &&
                     <small>&nbsp;<a href={Navigator.navigateRoute(config.workflow)} target="blank">

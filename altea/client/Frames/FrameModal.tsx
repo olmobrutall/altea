@@ -38,7 +38,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import "./Frames.css"
 import { AutoFocus } from '../Components/AutoFocus';
 import { useStateWithPromise, useForceUpdate } from '../Hooks'
-import { Modal } from 'react-bootstrap'
+import { Modal } from '../ui/Modal';
 import { ModalFooterButtons, ModalHeaderButtons } from '../Components/ModalHeaderButtons'
 import WidgetEmbedded from './WidgetEmbedded'
 import SaveChangesModal from '../Modals/SaveChangesModal';
@@ -312,14 +312,13 @@ export function FrameModal<T extends BaseEntity>(p: FrameModalProps<T>): React.J
 
   return (
     <Modal
-      size={p.modalSize ?? settings?.modalSize ?? "lg" as any}
+      size={settings?.modalFullScreen ? "fullscreen" : p.modalSize ?? settings?.modalSize ?? "lg"}
       show={show}
       onExited={handleOnExited}
       onHide={handleCancelClicked}
       className="sf-frame-modal"
       dialogClassName={classes(settings?.modalDialogClass, settings?.modalMaxWidth ? "modal-max-width" : undefined)}
       enforceFocus={settings?.enforceFocusInModal ?? true}
-      fullscreen={settings?.modalFullScreen ? true : undefined}
       // A screen reader names a dialog ONCE, when the focus enters it — before the pack has loaded, while the
       // title still reads "Loading...". Until then it is named from what is already known (a lite's toStr,
       // else the type); once loaded, from the title as before.
@@ -343,7 +342,7 @@ export function FrameModal<T extends BaseEntity>(p: FrameModalProps<T>): React.J
     frameRef.current = frame;
 
     return (
-      <div className="modal-body" style={pc.executing == true ? { opacity: ".6" } : undefined}>
+      <div className="sf-modal-body" style={pc.executing == true ? { opacity: ".6" } : undefined}>
         {wc && <WidgetEmbedded widgetContext={wc} >
           <div className="sf-button-widget-container">
             {entityComponent.current && <ButtonBar ref={buttonBar} frame={frame as unknown as EntityFrame<BaseEntity>} pack={pc.pack} isOperationVisible={p.isOperationVisible as any} />}

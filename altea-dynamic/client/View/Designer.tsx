@@ -365,7 +365,7 @@ export function DesignerModal(p: DesignerModalProps): React.JSX.Element {
             <ModalHeaderButtons>
                 {p.title}
             </ModalHeaderButtons>
-            <div className="modal-body">
+            <div className="sf-modal-body">
                 {p.mainComponent()}
             </div>
             <ModalFooterButtons onOk={handleOkClicked} onCancel={handleCancelClicked} />

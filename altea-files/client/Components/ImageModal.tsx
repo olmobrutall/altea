@@ -35,14 +35,14 @@ export function ImageModal(p: ImageModalProps): React.JSX.Element {
     return (
         <Modal onHide={() => setShow(false)} show={show} className="message-modal" size="xl"
             onExited={() => p.onExited!(undefined)} aria-labelledby={titleId}>
-            <div className="modal-header">
-                <h1 id={titleId} className="modal-title text-h4 font-medium">
+            <div className="sf-modal-header">
+                <h1 id={titleId} className="sf-modal-title text-h4 font-medium">
                     {p.title ?? p.file.fileName}
                 </h1>
                 <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()}
                     onClick={() => setShow(false)} />
             </div>
-            <div className="modal-body">
+            <div className="sf-modal-body">
                 <FileImage file={p.file}
                     containerEntity={p.containerEntity}
                     propertyRoute={p.propertyRoute}

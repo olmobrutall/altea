@@ -23,11 +23,11 @@ function ShowCodeModal(p: ShowCodeModalProps): React.JSX.Element {
     return (
         <Modal size="lg" onHide={() => setShow(false)} show={show} onExited={() => p.onExited!(undefined)}
             className="sf-selector-modal">
-            <div className="modal-header">
-                <h5 className="modal-title">{p.typeName + "Component code"}</h5>
+            <div className="sf-modal-header">
+                <h5 className="sf-modal-title">{p.typeName + "Component code"}</h5>
                 <button type="button" className="btn-close" aria-label="Close" onClick={() => setShow(false)} />
             </div>
-            <div className="modal-body">
+            <div className="sf-modal-body">
                 <pre>
                     {renderFile(p.typeName, p.node)}
                 </pre>

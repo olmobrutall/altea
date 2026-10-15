@@ -12,7 +12,7 @@ import { TypeInfo } from '../data/reflection'
 import { getTypeInfo } from './Reflection'
 import { Enum } from '../data/enum'
 import type { BsSize } from './Components';
-import { Modal } from 'react-bootstrap';
+import { Modal } from './ui/Modal';
 
 interface SelectorModalProps extends IModalProps<any> {
   options: { value: unknown; displayName: React.ReactNode; name: string; htmlAttributes?: React.HTMLAttributes<HTMLButtonElement>, groupKey?: string }[];
@@ -84,14 +84,14 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
   return (
     // aria-labelledby names the dialog from its own visible title; only when there IS a title, since a
     // reference to a heading that was never rendered would be a dangling one.
-    <Modal size={p.size || "sm" as any} show={show} onExited={handleOnExited}
+    <Modal size={p.size || "sm"} show={show} onExited={handleOnExited}
       className="sf-selector-modal" dialogClassName={p.dialogClassName} onHide={handleCancelClicked}
       aria-labelledby={p.title ? titleId : undefined}
       // The question the buttons answer, read with the dialog's name when it opens.
       aria-describedby={p.message ? messageId : undefined}>
-      <div className="modal-header">
+      <div className="sf-modal-header">
         {p.title &&
-          <h1 className="modal-title text-h4 font-medium" id={titleId}>
+          <h1 className="sf-modal-title text-h4 font-medium" id={titleId}>
             {p.title}
           </h1>
         }
@@ -99,7 +99,7 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
           aria-label={JavascriptMessage.Close.niceToString()} onClick={handleCancelClicked} />
       </div>
 
-      <div className="modal-body">
+      <div className="sf-modal-body">
         <div>
           {p.message && (typeof p.message == "string" ? <p id={messageId}>{p.message}</p> : <div id={messageId}>{p.message}</div>)}
 
@@ -127,7 +127,7 @@ function SelectorModal(p: SelectorModalProps): React.ReactElement {
         </div>
       </div>
 
-      {p.multiSelect && <div className="modal-footer">
+      {p.multiSelect && <div className="sf-modal-footer">
         <button type="button" onClick={() => handleOkClicked()}
           className="btn btn-primary mt-2 sf-ok-button" disabled={
             p.multiSelect.minElements != null && selectedItems.length < p.multiSelect.minElements ||

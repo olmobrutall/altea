@@ -69,7 +69,7 @@ function NodeSelectorModal(p: IModalProps<NodeUtils.NodeOptions<BaseNode> | unde
             <ModalHeaderButtons onClose={handleCancelClicked}>
                 {DynamicViewMessage.SelectATypeOfComponent.niceToString()}
             </ModalHeaderButtons>
-            <div className="modal-body">
+            <div className="sf-modal-body">
                 <div className="row">
                     {columns.map((c, i) =>
                         <div key={i} className={"col-sm-" + Math.floor(12 / columns.length)}>

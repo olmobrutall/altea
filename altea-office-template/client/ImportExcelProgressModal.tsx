@@ -75,13 +75,13 @@ export function ImportExcelProgressModal(p: ImportExcelProgressModalProps): Reac
     const titleId = React.useId();
     return (
         <Modal show={show} className="message-modal" backdrop="static" onExited={handleOnExited} aria-labelledby={titleId}>
-            <div className="modal-header">
-                <h1 id={titleId} className="modal-title text-h5 font-medium">
+            <div className="sf-modal-header">
+                <h1 id={titleId} className="sf-modal-title text-h5 font-medium">
                     {ImportFromExcelMessage.Importing0.niceToString(p.typeInfo.getNicePluralName())}
                 </h1>
                 <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={handleCancelClicked} />
             </div>
-            <div className="modal-body">
+            <div className="sf-modal-body">
                 <p><strong>{totalRows}</strong> {totalRows === 1 ? p.typeInfo.getNiceName() : p.typeInfo.getNicePluralName()}</p>
                 {importResultsRef.current.length === 0 && oldRequestStarted
                     ? <ProgressBar now={100} variant="info" animated striped key={1} />
@@ -92,7 +92,7 @@ export function ImportExcelProgressModal(p: ImportExcelProgressModalProps): Reac
                         {ImportFromExcelMessage._0Errors.niceToString().forGenderAndNumber(errors.length).formatHtml(<strong>{errors.length}</strong>)}
                     </p>}
             </div>
-            <div className="modal-footer">
+            <div className="sf-modal-footer">
                 <button type="button" className="btn btn-tertiary sf-entity-button sf-close-button" onClick={handleCancelClicked}>
                     {JavascriptMessage.cancel.niceToString()}
                 </button>

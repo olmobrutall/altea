@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Modal } from 'react-bootstrap'
+import { Modal } from './ui/Modal';
 import { openModal, type IModalProps } from './Modals'
 import { SelectorMessage, JavascriptMessage } from '../data/uiMessages'
 import { PropertyRoute } from '../data/propertyRoute'
@@ -94,14 +94,14 @@ function AutoLineModal(p: AutoLineModalProps): React.ReactElement {
     // casts identically).
     <Modal size={(options.modalSize ?? "lg") as any} show={show} aria-labelledby={titleId}
       onExited={() => p.onExited!(selectedValue.current)} onHide={handleCancelClicked}>
-      <div className="modal-header">
-        <h1 id={titleId} className="modal-title text-h5 font-medium">
+      <div className="sf-modal-header">
+        <h1 id={titleId} className="sf-modal-title text-h5 font-medium">
           {title ?? fieldInfo?.niceToString() ?? SelectorMessage.ChooseAValue.niceToString()}
         </h1>
         <button type="button" className="btn-close" data-dismiss="modal"
           aria-label={JavascriptMessage.Close.niceToString()} onClick={handleCancelClicked} />
       </div>
-      <div className="modal-body"
+      <div className="sf-modal-body"
         onKeyUp={fieldInfo?.isMultiline || options.doNotCloseByEnter ? undefined : handleKeyUp}>
         <p>{message === undefined ? SelectorMessage.PleaseChooseAValueToContinue.niceToString() : message}</p>
         <AutoFocus>
@@ -112,7 +112,7 @@ function AutoLineModal(p: AutoLineModalProps): React.ReactElement {
         </AutoFocus>
         {error != null && <p className="text-destructive">{error}</p>}
       </div>
-      <div className="modal-footer">
+      <div className="sf-modal-footer">
         <button type="button" ref={btnOkRef} className="btn btn-primary sf-entity-button sf-ok-button"
           disabled={empty || error != null} aria-disabled={empty || error != null} onClick={handleOkClick}>
           {JavascriptMessage.ok.niceToString()}

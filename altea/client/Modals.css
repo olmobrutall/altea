@@ -1,13 +1,16 @@
-﻿.modal {
+﻿.modal,
+.sf-modal {
     backdrop-filter: blur(3px);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .modal-backdrop {
+    .modal,
+    .sf-modal {
         backdrop-filter: none;
     }
 }
 
+/* react-bootstrap modals still being migrated: their backdrop on the modals' own level, so a stacked one dims the one below. */
 .modal-backdrop {
-    --bs-backdrop-zindex: 1055; /*Same as modals*/
+    --bs-backdrop-zindex: 1055;
 }

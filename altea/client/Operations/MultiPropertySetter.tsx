@@ -36,7 +36,7 @@
 //   2. MList is gone, so a collection's element is a `@part` row ENTITY, never an embedded — Signum's
 //      `isCollection && (isEmbedded || isPart(name))` collapses to "the element is a part entity".
 import * as React from 'react'
-import { Modal } from 'react-bootstrap'
+import { Modal } from '../ui/Modal';
 import { DropdownList } from 'react-widgets-up'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { Dic, classes } from '../../data/globals'
@@ -105,16 +105,16 @@ export function MultiPropertySetterModal(p: MultiPropertySetterModalProps): Reac
   const titleId = React.useId();
   return (
     <Modal onHide={handleCancelClicked} show={show} className="message-modal" size="xl" onExited={handleOnExited} aria-labelledby={titleId}>
-      <div className="modal-header">
-        <h1 id={titleId} className="modal-title text-h5 font-medium">{OperationMessage.BulkModifications.niceToString()}</h1>
+      <div className="sf-modal-header">
+        <h1 id={titleId} className="sf-modal-title text-h5 font-medium">{OperationMessage.BulkModifications.niceToString()}</h1>
         <button type="button" className="btn-close" data-dismiss="modal" aria-label={EntityControlMessage.Close.niceToString()} onClick={handleCancelClicked} />
       </div>
-      <div className="modal-body">
+      <div className="sf-modal-body">
         <ErrorBoundary>
           <MultiPropertySetter setters={p.setters} root={PropertyRoute.root(p.typeInfo.ctor!)} isPredicate={false} onChange={forceUpdate} />
         </ErrorBoundary>
       </div>
-      <div className="modal-footer">
+      <div className="sf-modal-footer">
         <p>
           {OperationMessage.PleaseConfirmThatYouWouldLikeToApplyTheAboveChangesAndExecute0Over12.niceToString().formatHtml(
             <strong>{p.operationInfo.niceName}</strong>,

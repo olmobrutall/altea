@@ -3,12 +3,14 @@ import { Dialog } from "radix-ui";
 import { CloseButton } from "./Alert";
 import { cn } from "./utils";
 
-export type ModalSize = "sm" | "md" | "lg" | "xl" | "fullscreen";
+/** `xs` is altea's BsSize; a modal treats it as `sm`. */
+export type ModalSize = "xs" | "sm" | "md" | "lg" | "xl" | "fullscreen";
 
 /** Long enough for the close animation; `onExited` waits for it. */
 const EXIT_DURATION = 160;
 
 const dialogSizes: Record<ModalSize, string> = {
+    xs: "sm:max-w-[300px]",
     sm: "sm:max-w-[300px]",
     md: "sm:max-w-[500px]",
     lg: "sm:max-w-[500px] lg:max-w-[800px]",
@@ -42,6 +44,7 @@ const ModalContext = React.createContext<{ onHide?: () => void }>({});
 function ModalRoot(p: ModalProps): React.ReactElement | null {
     const [open, setOpen] = React.useState(p.show);
     const returnFocus = React.useRef<HTMLElement | null>(null);
+    const contentRef = React.useRef<HTMLDivElement>(null);
     const wasShown = React.useRef(false);
     // Read during render: by the time an effect runs, Radix has already moved the focus into the dialog.
     if (p.show && !wasShown.current)
@@ -70,11 +73,19 @@ function ModalRoot(p: ModalProps): React.ReactElement | null {
             <Dialog.Root open={open} modal={p.enforceFocus !== false} onOpenChange={o => { if (!o) p.onHide?.(); }}>
                 <Dialog.Portal>
                     {p.backdrop !== false &&
-                        <Dialog.Overlay className="sf-modal-backdrop fixed inset-0 z-[1050] bg-black/50 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out motion-reduce:animate-none" />}
+                        <Dialog.Overlay className="sf-modal-backdrop fixed inset-0 z-[1055] bg-black/50 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out motion-reduce:animate-none" />}
                     <Dialog.Content
                         {...(p["aria-labelledby"] ? { "aria-labelledby": p["aria-labelledby"] } : {})}
                         aria-describedby={p["aria-describedby"]}
                         onEscapeKeyDown={e => { if (p.keyboard === false) e.preventDefault(); }}
+                        ref={contentRef}
+                        onOpenAutoFocus={e => {
+                            // react-bootstrap's behaviour: the dialog itself takes the focus, unless a control in it
+                            // already did (an autoFocus input).
+                            e.preventDefault();
+                            if (!contentRef.current?.contains(document.activeElement))
+                                contentRef.current?.focus();
+                        }}
                         onCloseAutoFocus={e => {
                             // Opened from code, not from a Radix Trigger: give the focus back to whatever had it.
                             e.preventDefault();
@@ -86,9 +97,8 @@ function ModalRoot(p: ModalProps): React.ReactElement | null {
                         onMouseDown={e => { if (e.target === e.currentTarget && !isStatic) p.onHide?.(); }}
                         className={cn("sf-modal fixed inset-0 z-[1055] overflow-x-hidden overflow-y-auto outline-none",
                             "data-[state=open]:animate-modal-in data-[state=closed]:animate-modal-out motion-reduce:animate-none", p.className)}>
-                        <div className={cn("sf-modal-dialog pointer-events-none relative mx-2 my-2 w-auto sm:mx-auto sm:my-7", dialogSizes[size], p.dialogClassName)}>
-                            <div className={cn("sf-modal-content pointer-events-auto relative flex w-full flex-col rounded-lg border-1 bg-background bg-clip-padding text-foreground shadow-md",
-                                size === "fullscreen" && "h-full rounded-none border-0", p.contentClassName)}>
+                        <div className={cn("sf-modal-dialog pointer-events-none relative mx-2 my-2 w-auto sm:mx-auto sm:my-7", "sf-modal-" + size, dialogSizes[size], p.dialogClassName)}>
+                            <div className={cn("sf-modal-content", size === "fullscreen" && "h-full rounded-none border-0", p.contentClassName)}>
                                 {p.children}
                             </div>
                         </div>
@@ -107,23 +117,23 @@ export interface ModalHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
 function ModalHeader({ className, closeButton, children, ...props }: ModalHeaderProps): React.ReactElement {
     const { onHide } = React.useContext(ModalContext);
     return (
-        <div className={cn("sf-modal-header flex shrink-0 items-center gap-2 rounded-t-[inherit] border-b px-4 py-4", className)} {...props}>
+        <div className={cn("sf-modal-header gap-2", className)} {...props}>
             {children}
-            {closeButton && <CloseButton className="ms-auto -me-2" onClick={onHide} />}
+            {closeButton && <CloseButton onClick={onHide} />}
         </div>
     );
 }
 
 function ModalTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>): React.ReactElement {
-    return <Dialog.Title className={cn("sf-modal-title m-0 text-h5 font-medium leading-normal", className)} {...props} />;
+    return <Dialog.Title className={cn("sf-modal-title text-h5 font-medium leading-normal", className)} {...props} />;
 }
 
 function ModalBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>): React.ReactElement {
-    return <div className={cn("sf-modal-body relative flex-auto p-4", className)} {...props} />;
+    return <div className={cn("sf-modal-body", className)} {...props} />;
 }
 
 function ModalFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>): React.ReactElement {
-    return <div className={cn("sf-modal-footer flex shrink-0 flex-wrap items-center justify-end gap-2 rounded-b-[inherit] border-t p-3", className)} {...props} />;
+    return <div className={cn("sf-modal-footer", className)} {...props} />;
 }
 
 export interface ModalComponent {

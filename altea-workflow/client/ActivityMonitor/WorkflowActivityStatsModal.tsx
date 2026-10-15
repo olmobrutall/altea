@@ -78,7 +78,7 @@ function WorkflowActivityStatsModal(p: WorkflowActivityStatsModalProps): React.J
             <ModalHeaderButtons onClose={() => setShow(false)}>
                 {stats.workflowActivity.toString()}
             </ModalHeaderButtons>
-            <div className="modal-body">
+            <div className="sf-modal-body">
                 <div>
                     <FormGroup ctx={ctx} label={CaseActivityEntity.nicePluralName()}>
                         {inputId => <FormControlReadonly id={inputId} ctx={ctx}>{stats.caseActivityCount}</FormControlReadonly>}
@@ -95,7 +95,7 @@ function WorkflowActivityStatsModal(p: WorkflowActivityStatsModalProps): React.J
                         : renderTaskExtra()}
                 </div>
             </div>
-            <div className="modal-footer">
+            <div className="sf-modal-footer">
                 <button className="btn btn-primary sf-entity-button sf-ok-button" onClick={() => setShow(false)}>
                     {JavascriptMessage.ok.niceToString()}
                 </button>

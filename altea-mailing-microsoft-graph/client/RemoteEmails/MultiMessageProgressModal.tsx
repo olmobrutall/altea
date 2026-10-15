@@ -62,12 +62,12 @@ export function MultiMessageProgressModal(p: MultiMessageProgressModalProps): Re
 
     return (
         <Modal show={show} className="message-modal" backdrop="static" onExited={handleOnExited}>
-            <div className="modal-header">
-                <h5 className="modal-title">{p.title}</h5>
+            <div className="sf-modal-header">
+                <h5 className="sf-modal-title">{p.title}</h5>
                 <button type="button" className="btn-close" data-dismiss="modal"
                     aria-label={EntityControlMessage.Close.niceToString()} onClick={handleCancelClicked} />
             </div>
-            <div className="modal-body">
+            <div className="sf-modal-body">
                 <p><strong>{p.messages.length}</strong> {RemoteEmailMessageMessage.Messages.niceToString()}</p>
                 {messageResultRef.current.length === 0 && oldRequestStarted
                     ? <ProgressBar now={100} variant="info" animated striped key={1} />
@@ -79,7 +79,7 @@ export function MultiMessageProgressModal(p: MultiMessageProgressModalProps): Re
                             .formatHtml(<strong>{errors.length}</strong>)}
                     </p>}
             </div>
-            <div className="modal-footer">
+            <div className="sf-modal-footer">
                 <button type="button" className="btn btn-tertiary sf-entity-button sf-close-button" onClick={handleCancelClicked}>
                     {JavascriptMessage.cancel.niceToString()}
                 </button>

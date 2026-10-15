@@ -6,7 +6,8 @@ import * as React from 'react'
 import { openModal } from '../Modals';
 import type { IModalProps } from '../Modals';
 import type { Operations } from '../Operations';
-import { Modal, ProgressBar } from 'react-bootstrap';
+import { Modal } from '../ui/Modal';
+import { Progress } from '../ui/Progress';
 import type { Entity } from '../../data/entity';
 import type { Lite } from '../../data/lite';
 import { EntityControlMessage, JavascriptMessage, OperationMessage } from '../../data/uiMessages';
@@ -75,24 +76,24 @@ export function MultiOperationProgressModal(p: MultiOperationProgressModalProps)
   const titleId = React.useId();
   return (
     <Modal show={show} className="message-modal" backdrop="static" onExited={handleOnExited} aria-labelledby={titleId}>
-      <div className="modal-header">
-        <h5 id={titleId} className="modal-title">{
+      <div className="sf-modal-header">
+        <h5 id={titleId} className="sf-modal-title">{
           p.operation.operationType == "Delete" ? OperationMessage.Deleting.niceToString() :
             p.operation.operationType == "ConstructorFrom" ? p.operation.niceName :
               OperationMessage.Executing0.niceToString(p.operation.niceName)}</h5>
         <button type="button" className="btn-close" data-dismiss="modal" aria-label={EntityControlMessage.Close.niceToString()} onClick={handleCancelClicked} />
       </div>
-      <div className="modal-body">
+      <div className="sf-modal-body">
         <p><strong>{p.lites.length}</strong> {typeNiceName}</p>
         {operationResultsRef.current.length == 0 && oldReuestStarted ?
-          <ProgressBar now={100} variant="info" animated striped key={1} /> :
-          <ProgressBar min={0} max={p.lites.length} now={operationResultsRef.current.length}
+          <Progress value={100} variant="info" animated key={1} /> :
+          <Progress min={0} max={p.lites.length} value={operationResultsRef.current.length}
             label={`[${operationResultsRef.current.length}/${p.lites.length}]`} key={2} />
         }
         {errors.length > 0 && <p className="text-destructive">{OperationMessage._0Errors.niceToString().forGenderAndNumber(errors.length).formatHtml(<strong>{errors.length}</strong>)}</p>}
 
       </div>
-      <div className="modal-footer">
+      <div className="sf-modal-footer">
         <button type="button" className="btn btn-tertiary sf-entity-button sf-close-button" onClick={handleCancelClicked}>
           {JavascriptMessage.cancel.niceToString()}
         </button>

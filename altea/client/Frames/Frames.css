@@ -20,33 +20,33 @@
 /* Modal chrome tint (Signum's Frames.css): the SearchModal / FrameModal get a gray header and a tinted
    body+footer so the white content cards inside them read the same way they do on a page. Without these
    the whole modal is white-on-white. */
-.modal-body,
-.modal-footer {
+.sf-modal-body,
+.sf-modal-footer {
     background: var(--bs-tertiary-bg);
 }
 
-.modal-header {
+.sf-modal-header {
     background: var(--bs-secondary-bg);
 }
 
 @media (min-width: 768px) {
-    .modal-md,
-    .modal-lg,
-    .modal-xl {
+    .modal-md, .sf-modal-md,
+    .modal-lg, .sf-modal-lg,
+    .modal-xl, .sf-modal-xl {
         min-width: 730px;
     }
 }
 
 @media (min-width: 992px) {
-    .modal-lg,
-    .modal-xl {
+    .modal-lg, .sf-modal-lg,
+    .modal-xl, .sf-modal-xl {
         min-width: 960px;
     }
 }
 
 @media (min-width: 1200px) {
-    .modal-lg,
-    .modal-xl {
+    .modal-lg, .sf-modal-lg,
+    .modal-xl, .sf-modal-xl {
         min-width: 1160px;
     }
 }
@@ -120,12 +120,12 @@
 
 /* Stretch the modal title to the full header width (Signum's Frames.css) so the sub-title flex row
    fills it and `.sf-widgets { margin-left:auto }` right-aligns the QuickLinks. */
-.modal-title {
+.sf-modal-title {
     overflow: hidden;
     width: 100%;
 }
 
-.sf-frame-modal .modal-title {
+.sf-frame-modal .sf-modal-title {
     margin-right: -25px;
     overflow: inherit;
 }
@@ -156,7 +156,7 @@
     }
 }
 
-/* The frame modal's heading is only the entity title (FrameModalTitle), inside the .modal-title block that
+/* The frame modal's heading is only the entity title (FrameModalTitle), inside the .sf-modal-title block that
    still sets the size. Inherit that size, inline, so the <h1> looks like the span it replaced. */
 h1.sf-modal-heading {
     font: inherit;

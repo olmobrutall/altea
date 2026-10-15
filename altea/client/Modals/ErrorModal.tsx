@@ -11,7 +11,7 @@ import { JavascriptMessage, FrameMessage, ConnectionMessage, EntityControlMessag
 import { ClientErrorModel } from '../../data/clientError'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import "./DialogModals.css"
-import { Modal } from 'react-bootstrap';
+import { Modal } from '../ui/Modal';
 import MessageModal from './MessageModal';
 import { LinkButton } from '../Basics/LinkButton';
 import { useAPI } from '../Hooks';
@@ -57,8 +57,8 @@ const ErrorModal: {
       aria-describedby={messageId}>
       {/* The header carried role="dialog" of its own, so a single dialog reported the role twice and the
           inner one wrapped only the heading. The <Modal> above is the dialog; this is just its header. */}
-      <div className="modal-header dialog-header-error">
-        <h1 className="modal-title text-h5 font-medium" id={titleId}>
+      <div className="sf-modal-header dialog-header-error">
+        <h1 className="sf-modal-title text-h5 font-medium" id={titleId}>
           {
             se ? renderServiceTitle(se) :
               ve ? renderValidationTitle(ve) :
@@ -69,14 +69,14 @@ const ErrorModal: {
         <button type="button" className="btn-close" data-dismiss="modal" aria-label={JavascriptMessage.Close.niceToString()} onClick={handleCloseClicked} />
       </div>
 
-      <div className="modal-body" id={messageId}>
+      <div className="sf-modal-body" id={messageId}>
         {se ? ErrorModalOptions.renderServiceMessage(se) :
           ve ? ErrorModalOptions.renderValidationMessage(ve) :
             ese ? ErrorModalOptions.renderExternalServiceMessage(ese) :
               ErrorModalOptions.renderMessage(e)}
       </div>
 
-      <div className="modal-footer">
+      <div className="sf-modal-footer">
         <button className="btn btn-primary sf-close-button sf-ok-button" onClick={handleCloseClicked}>
           {JavascriptMessage.ok.niceToString()}</button>
       </div>

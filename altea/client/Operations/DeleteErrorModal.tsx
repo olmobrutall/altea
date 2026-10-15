@@ -11,7 +11,8 @@ import { ajaxPost, ServiceError } from '../Services'
 import { Navigator } from '../Navigator'
 import { Finder } from '../Finder'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { Modal, Spinner } from 'react-bootstrap'
+import { Modal } from '../ui/Modal';
+import { Spinner } from '../ui/Progress';
 import { getTypeInfo } from '../Reflection'
 import { PropertyRoute, PropertyRouteType } from '../../data/propertyRoute'
 import { useAPI, useVersion } from '../Hooks'
@@ -80,7 +81,7 @@ export function DeleteErrorModal(p: DeleteErrorModalProps): React.ReactElement {
       <Modal.Body>
         {loading ? (
           <div className="flex items-center gap-2">
-            <Spinner animation="border" size="sm" />
+            <Spinner size="sm" />
             <span>{JavascriptMessage.loading.niceToString()}</span>
           </div>
         ) : hasReferences ? (
@@ -143,7 +144,7 @@ export function DeleteErrorModal(p: DeleteErrorModalProps): React.ReactElement {
           disabled={hasReferences || loading || deleting}
         >
           {deleting
-            ? <><Spinner animation="border" size="sm" className="me-1" />{JavascriptMessage.loading.niceToString()}</>
+            ? <><Spinner size="sm" className="me-1" />{JavascriptMessage.loading.niceToString()}</>
             : <><FontAwesomeIcon icon="trash" className="me-1" />{CascadeDeleteMessage.Delete.niceToString()}</>
           }
         </button>

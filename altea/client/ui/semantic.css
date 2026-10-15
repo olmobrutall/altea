@@ -726,3 +726,61 @@ textarea.sf-form-control.is-invalid {
   grid-column: span 12 / span 12;
   min-width: 0;
 }
+
+/* Modals (Bootstrap 5.3's metrics). Also styles the parts inside a react-bootstrap modal still being migrated. */
+.sf-modal-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  color: var(--foreground);
+  pointer-events: auto;
+  background-color: var(--background);
+  background-clip: padding-box;
+  border: 1px solid color-mix(in srgb, var(--foreground) 17.5%, transparent);
+  border-radius: .5rem;
+  outline: 0;
+}
+
+.sf-modal-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  border-top-left-radius: calc(.5rem - 1px);
+  border-top-right-radius: calc(.5rem - 1px);
+}
+
+.sf-modal-header .btn-close,
+.sf-modal-header .sf-close-button {
+  padding: .5rem;
+  margin: -.5rem -.5rem -.5rem auto;
+}
+
+.sf-modal-title {
+  margin-bottom: 0;
+  line-height: 1.5;
+}
+
+.sf-modal-body {
+  position: relative;
+  flex: 1 1 auto;
+  padding: 1rem;
+}
+
+.sf-modal-footer {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  padding: .75rem;
+  border-top: 1px solid var(--border);
+  border-bottom-right-radius: calc(.5rem - 1px);
+  border-bottom-left-radius: calc(.5rem - 1px);
+}
+
+.sf-modal-footer > * {
+  margin: .25rem;
+}

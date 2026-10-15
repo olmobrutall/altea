@@ -276,7 +276,7 @@ export function CaseFrameModal(p: CaseFrameModalProps): React.JSX.Element {
                     <CaseFlowButton caseActivity={pack.activity} />}
             </div>
             <CaseFromSenderInfo current={pack.activity} />
-            <div className="modal-body">
+            <div className="sf-modal-body">
                 <div className="sf-main-control" data-refresh-count={state.refreshCount}
                     data-activity-entity={entityInfo(pack.activity)}>
                     <div className="sf-main-entity case-main-entity"

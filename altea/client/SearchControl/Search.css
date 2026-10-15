@@ -331,11 +331,11 @@ table.sf-search-results th.sf-current-column {
 
 /*  Search Popup */
 
-.sf-search-popup .modal-footer {
+.sf-search-popup .sf-modal-footer {
     padding: 10px;
 }
 
-.sf-search-popup .modal-body {
+.sf-search-popup .sf-modal-body {
     padding: 10px;
     padding-bottom: 0px;
 }

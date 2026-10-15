@@ -267,7 +267,7 @@ export function TimeMachineModal(p: TimeMachineModalProps): React.JSX.Element {
 
     return (
         <Modal onHide={() => setShow(false)} show={show} className="message-modal" onExited={() => p.onExited!(undefined)} size="xl">
-            <div className="modal-header">
+            <div className="sf-modal-header">
                 <h1 className="text-h4 font-medium">
                     <span className="text-display-5 font-light">{TimeMachineMessage.TimeMachine.niceToString()}</span>
                     <br />
@@ -277,7 +277,7 @@ export function TimeMachineModal(p: TimeMachineModalProps): React.JSX.Element {
                 </h1>
                 <button type="button" className="btn-close" aria-label="Close" onClick={() => setShow(false)} />
             </div>
-            <div className="modal-body">
+            <div className="sf-modal-body">
                 <TimeMachine lite={p.lite} isModal={true} />
             </div>
         </Modal>
@@ -300,11 +300,11 @@ export function TimeMachineCompareModal(p: TimeMachineCompareModalProps): React.
 
     return (
         <Modal onHide={() => setShow(false)} show={show} className="message-modal" onExited={() => p.onExited!(undefined)} size="xl">
-            <div className="modal-header">
-                <h1 className="modal-title text-h5 font-medium">{TimeMachineMessage.CompareVersions.niceToString()}</h1>
+            <div className="sf-modal-header">
+                <h1 className="sf-modal-title text-h5 font-medium">{TimeMachineMessage.CompareVersions.niceToString()}</h1>
                 <button type="button" className="btn-close" aria-label="Close" onClick={() => setShow(false)} />
             </div>
-            <div className="modal-body">
+            <div className="sf-modal-body">
                 <TimeMachineTabs lite={p.lite} versionDatesUTC={p.versionDatesUTC} />
             </div>
         </Modal>

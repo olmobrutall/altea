@@ -90,11 +90,11 @@ function AuthClosureModal(p: AuthClosureModalProps): React.JSX.Element {
 
     return (
         <Modal size="lg" show={show} onExited={() => p.onExited!(undefined)} onHide={() => setShow(false)} className="sf-frame-modal">
-            <div className="modal-header">
-                <h1 className="modal-title text-h5 font-medium">{KIND_LABEL[p.kind]} — {typeHeading(packs[0])} / {p.roleStr}</h1>
+            <div className="sf-modal-header">
+                <h1 className="sf-modal-title text-h5 font-medium">{KIND_LABEL[p.kind]} — {typeHeading(packs[0])} / {p.roleStr}</h1>
                 <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={() => setShow(false)} />
             </div>
-            <div className="modal-body">
+            <div className="sf-modal-body">
                 {ownerSets.length > 0 &&
                     <div className="mb-4 flex items-center gap-2">
                         <span className="text-muted-foreground text-[.875em]">Type conditions</span>
@@ -107,7 +107,7 @@ function AuthClosureModal(p: AuthClosureModalProps): React.JSX.Element {
                     </div>
                 ))}
             </div>
-            <div className="modal-footer">
+            <div className="sf-modal-footer">
                 <Button variant="primary" disabled={!dirty.current || p.readOnly || saving.current} onClick={handleSave}>
                     {AuthAdminMessage.Save.niceToString()}
                 </Button>

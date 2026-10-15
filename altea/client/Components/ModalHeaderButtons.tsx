@@ -28,7 +28,7 @@ interface ModalHeaderButtonsProps {
    */
   titleId?: string;
   /** The children render their own <h1> (with titleId) around the title only, so buttons and sub-titles next
-   * to it are not part of the heading and of the dialog's name. The wrapper keeps the modal-title look. */
+   * to it are not part of the heading and of the dialog's name. The wrapper keeps the sf-modal-title look. */
   headingInChildren?: boolean;
 }
 
@@ -39,11 +39,11 @@ export function ModalHeaderButtons(p: ModalHeaderButtonsProps): React.ReactEleme
     <button type="button" className="btn-close" aria-label={JavascriptMessage.Close.niceToString()} onClick={p.onClose} />
 
   return (
-    <div className={classes("modal-header items-start", p.stickyHeader && "sf-sticky-header")} {...p.htmlAttributes} >
+    <div className={classes("sf-modal-header items-start", p.stickyHeader && "sf-sticky-header")} {...p.htmlAttributes} >
       {p.closeBeforeTitle && close}
       {p.headingInChildren ?
-        <div className="modal-title text-h4 font-medium">{p.children}</div> :
-        <h1 className="modal-title text-h4 font-medium" id={p.titleId}>
+        <div className="sf-modal-title text-h4 font-medium">{p.children}</div> :
+        <h1 className="sf-modal-title text-h4 font-medium" id={p.titleId}>
           {p.children}
         </h1>}
       {!p.closeBeforeTitle && close}
@@ -66,11 +66,11 @@ interface ModalFooterButtonsProps {
 export function ModalFooterButtons(p: ModalFooterButtonsProps): React.ReactElement {
 
   return (
-    <div className="modal-footer" {...p.htmlAttributes}>
+    <div className="sf-modal-footer" {...p.htmlAttributes}>
       {/* Only when there is something to put in it. Most footers pass no children, which left an empty
           <h1> in every such dialog — a blank entry in the heading list, and one at level 1. */}
       {p.children &&
-        <h1 className="modal-title text-h4 font-medium" >
+        <h1 className="sf-modal-title text-h4 font-medium" >
           {p.children}
         </h1>}
       {(p.onCancel || p.onOk) &&

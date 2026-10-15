@@ -11,7 +11,7 @@ import type { IconProp } from '@fortawesome/fontawesome-svg-core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import "./DialogModals.css"
 import type { BsSize } from '../Components';
-import { Modal } from 'react-bootstrap';
+import { Modal } from '../ui/Modal';
 
 export type MessageModalStyle = "success" | "info" | "warning" | "error";
 
@@ -170,7 +170,7 @@ function MessageModal(p: MessageModalProps): React.ReactElement {
     }, [p.autoFocusonTitle]);
 
     return (
-      <h1 ref={titleRef} id={titleId} tabIndex={0} className="modal-title text-h5 font-medium">
+      <h1 ref={titleRef} id={titleId} tabIndex={0} className="sf-modal-title text-h5 font-medium">
         {iconSpan}{iconSpan && <span>&nbsp;&nbsp;</span>}{p.title}
       </h1>
     );
@@ -183,23 +183,23 @@ function MessageModal(p: MessageModalProps): React.ReactElement {
   const messageId = React.useId();
   return (
     <Modal show={show} onExited={handleOnExited} backdrop={p.shouldSelect ? 'static' : undefined}
-      dialogClassName={classes("message-modal", p.size && "modal-" + p.size, p.additionalDialogClassName)}
+      size={p.size} dialogClassName={classes("message-modal", p.additionalDialogClassName)}
       aria-labelledby={titleId}
       // A TEXT message is the dialog's description, read with its name when it opens. Not a message built
       // from components, which can hold controls to fill in.
       aria-describedby={typeof p.message == "string" ? messageId : undefined}
-      onHide={handleCancelClicked} autoFocus={true}>
-      <div className={classes("modal-header", dialogHeaderClass(p.style))}>
+      onHide={handleCancelClicked}>
+      <div className={classes("sf-modal-header", dialogHeaderClass(p.style))}>
         {renderTitle()}
       </div>
-      <div className="modal-body" id={messageId}>
+      <div className="sf-modal-body" id={messageId}>
         {
           typeof p.message == "string" ? p.message.split("\n").map((line, i) => <p key={i}>{line}</p>) :
             typeof p.message == "function" ? p.message({ handleButtonClicked }) :
               p.message
         }
       </div>
-      <div className="modal-footer">
+      <div className="sf-modal-footer">
         {renderButtons(p.buttons)}
       </div>
     </Modal>

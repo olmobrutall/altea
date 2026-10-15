@@ -8,7 +8,7 @@ import { classes } from '../../data/globals';
 import { JavascriptMessage, SaveChangesMessage } from '../../data/uiMessages'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import "./DialogModals.css"
-import { Modal } from 'react-bootstrap';
+import { Modal } from '../ui/Modal';
 import type { EntityOperationContext } from '../Operations';
 import { OperationButton } from '../Operations/EntityOperations';
 
@@ -43,7 +43,7 @@ function SaveChangesModal(p: SaveChangesModalProps): React.ReactElement {
   const titleId = React.useId();
   const messageId = React.useId();
   // The header text was a bare <span>, which is also why the dialog had no heading to name it with; it is
-  // now the same modal-title h1 MessageModal uses inside this same message-modal layout.
+  // now the same sf-modal-title h1 MessageModal uses inside this same message-modal layout.
   return (
     <Modal show={show} onExited={handleOnExited}
       dialogClassName={classes("message-modal")}
@@ -51,16 +51,16 @@ function SaveChangesModal(p: SaveChangesModalProps): React.ReactElement {
       // The message says what Save and Lose changes are about; as the dialog's description it is read with
       // the name when the prompt opens, rather than only the title.
       aria-describedby={messageId}
-      onHide={handleCancelClicked} autoFocus={true}>
-      <div className={classes("modal-header", "dialog-header-wait")}>
-        <h1 id={titleId} className="modal-title text-h5 font-medium">
+      onHide={handleCancelClicked}>
+      <div className={classes("sf-modal-header", "dialog-header-wait")}>
+        <h1 id={titleId} className="sf-modal-title text-h5 font-medium">
           {SaveChangesMessage.ThereAreChanges.niceToString()}
         </h1>
       </div>
-      <div className="modal-body" id={messageId}>
+      <div className="sf-modal-body" id={messageId}>
         {SaveChangesMessage.YoureTryingToCloseAnEntityWithChanges.niceToString()}
       </div>
-      <div className="modal-footer">
+      <div className="sf-modal-footer">
         <div className="btn-toolbar">
           {p.eocs.map(eoc => <OperationButton key={eoc.operationInfo.key} eoc={eoc} avoidAlternatives onOperationClick={async () => handleButtonClicked(eoc)} />)}
           <button
