@@ -296,7 +296,7 @@ function ParameterValueLine({ ctx, scriptParameter, chart, onRedraw }: { ctx: Ty
             {oi.label}
           </div>}
           helpText={<label>
-            <input type="checkbox" className="form-check me-2"
+            <input type="checkbox" className="sf-form-check me-2"
               checked={ctx.value.value?.startsWith("-")}
               onChange={e => {
                 if (ctx.value.value)
@@ -383,7 +383,7 @@ export function Scala(p: { ctx: TypeContext<ChartParameterEmbedded>, scriptParam
           p.onRedraw?.();
         }}
       />
-      {token?.unit && <span className={p.ctx.readonlyAsPlainText ? undefined : "input-group-text"}>{token?.unit}</span>}
+      {token?.unit && <span className={p.ctx.readonlyAsPlainText ? undefined : "sf-input-group-text"}>{token?.unit}</span>}
     </div>
     }</FormGroup>;
   }

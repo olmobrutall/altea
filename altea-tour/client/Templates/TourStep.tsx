@@ -165,7 +165,7 @@ function OptionSelect(p: {
     onChange: (value: string | null) => void;
 }): React.JSX.Element {
     return (
-        <select className="form-select form-select-sm" value={p.value ?? ""} disabled={p.readOnly}
+        <select className="sf-form-select sf-form-select-sm" value={p.value ?? ""} disabled={p.readOnly}
             onChange={e => p.onChange(e.currentTarget.value === "" ? null : e.currentTarget.value)}>
             <option value="">-</option>
             {p.options.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}

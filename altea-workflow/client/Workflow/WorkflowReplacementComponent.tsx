@@ -63,7 +63,7 @@ export function WorkflowReplacementItemCombo(
     }
 
     return (
-        <select value={ctx.value.newNode ?? ""} className="form-select form-select-sm" onChange={handleChange}>
+        <select value={ctx.value.newNode ?? ""} className="sf-form-select sf-form-select-sm" onChange={handleChange}>
             <option value=""> - {WorkflowOperation.Delete.niceToString().toUpperCase()} - </option>
             {p.previewTasks
                 .filter(pt => pt.subWorkflow == null

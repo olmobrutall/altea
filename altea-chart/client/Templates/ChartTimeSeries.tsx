@@ -91,7 +91,7 @@ export default function ChartTimeSeries(p: { chartTimeSeries: ChartTimeSeriesEmb
     }
 
     return (
-      <select value={Enum.toName(TimeSeriesUnit, ts.timeSeriesUnit!)} className="form-select form-select-xs ms-1" style={{ width: "auto" }} onChange={handleTimeSeriesUnit}>
+      <select value={Enum.toName(TimeSeriesUnit, ts.timeSeriesUnit!)} className="sf-form-select sf-form-select-xs ms-1" style={{ width: "auto" }} onChange={handleTimeSeriesUnit}>
         {Enum.values(TimeSeriesUnit).map((stm, i) => <option key={i} value={stm}>{Enum.niceName(TimeSeriesUnit, stm)}</option>)}
       </select>
     );
@@ -108,7 +108,7 @@ export default function ChartTimeSeries(p: { chartTimeSeries: ChartTimeSeriesEmb
 
     return (
       <NumberBox value={ts.timeSeriesStep} validateKey={isNumberKey} format={numberFormat}
-        htmlAttributes={{ className: "form-control form-control-xs ms-1", style: { width: "40px" } }}
+        htmlAttributes={{ className: "sf-form-control sf-form-control-xs ms-1", style: { width: "40px" } }}
         onChange={e => handleTimeSerieStep(e == null ? null : Number(e))} />
     );
   }
@@ -194,7 +194,7 @@ function TotalNumStepsAndRows(p: { chartTimeSeries: ChartTimeSeriesEmbedded, cha
         <strong className={steps > 1000 ? "text-destructive" : undefined}>{formatter.format(steps)}</strong>,
         <NumberBox validateKey={isNumberKey} value={st.timeSeriesMaxRowsPerStep} format={formatter} onChange={e => { st.timeSeriesMaxRowsPerStep = e == null ? toInt(10) : toInt(Number(e)); p.onChange(); }}
           htmlAttributes={{
-            className: classes("form-control form-control-xs ms-1", st.timeSeriesMaxRowsPerStep == null && "sf-mandatory"),
+            className: classes("sf-form-control sf-form-control-xs ms-1", st.timeSeriesMaxRowsPerStep == null && "sf-mandatory"),
             style: { width: "40px", display: "inline-block" }
           }}
         />,

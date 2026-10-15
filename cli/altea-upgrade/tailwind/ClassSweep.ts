@@ -6,6 +6,8 @@ export interface SweepOptions {
     apply: Kind[];
     /** Sections of the map left alone entirely (not rewritten, not reported). */
     skipSections?: string[];
+    /** When set, only these sections of the map are looked at. */
+    onlySections?: string[];
 }
 
 export interface SweepReport {
@@ -48,7 +50,7 @@ export function sweepSource(fileName: string, content: string, map: ClassMap, op
 
     const lookup = (cls: string) => {
         const t = map.translate(cls);
-        return t && options.skipSections?.includes(t.section) ? undefined : t;
+        return t == null || options.skipSections?.includes(t.section) || (options.onlySections && !options.onlySections.includes(t.section)) ? undefined : t;
     };
 
     /** Rewrites the whole words of a literal; a word touching a `${}` or `+` boundary is reported, not guessed. */

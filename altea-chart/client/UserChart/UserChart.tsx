@@ -57,7 +57,7 @@ export default function UserChart(p: { ctx: TypeContext<UserChartEntity> }): Rea
             <EntityLine ctx={ctx.subCtx(e => e.owner)} />
             <AutoLine ctx={ctx.subCtx(e => e.displayName)} />
             <FormGroup ctx={ctx.subCtx(e => e.query)}>
-                {() => uc.query && <span className="form-control-static">{getQueryNiceName(queryKey!)}</span>}
+                {() => uc.query && <span className="sf-form-control-plaintext">{getQueryNiceName(queryKey!)}</span>}
             </FormGroup>
 
             <EntityLine ctx={ctx.subCtx(e => e.entityType)} onChange={() => forceUpdate()}

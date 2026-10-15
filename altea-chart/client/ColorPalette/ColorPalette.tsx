@@ -220,7 +220,7 @@ function ColorSelector(p: { ctx: TypeContext<string>, colors: string[] | null })
 
     function switchButton(): React.ReactElement {
         return (
-            <LinkButton className={classes("sf-line-button", "sf-find", "btn input-group-text")}
+            <LinkButton className={classes("sf-line-button", "sf-find", "btn sf-input-group-text")}
                 title={custom ? ColorPaletteMessage.ShowPalette.niceToString() : ColorPaletteMessage.ShowList.niceToString()}
                 onClick={() => setCustom(!custom)}>
                 <FontAwesomeIcon aria-hidden={true} icon={custom ? "palette" : "list"} />

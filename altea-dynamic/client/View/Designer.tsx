@@ -115,7 +115,7 @@ export function ExpressionOrValueComponent(p: ExpressionOrValueProps): React.JSX
             return p.onRenderValue(value, { updateValue });
 
         if (p.type == null)
-            return <p className="form-control-static form-control-xs">{DynamicViewMessage.UseExpression.niceToString()}</p>;
+            return <p className="sf-form-control-plaintext sf-form-control-xs">{DynamicViewMessage.UseExpression.niceToString()}</p>;
 
         const val = value === undefined ? p.defaultValue : value;
 
@@ -125,13 +125,13 @@ export function ExpressionOrValueComponent(p: ExpressionOrValueProps): React.JSX
             if (typeof p.options === "function")
                 return (
                     <Typeahead
-                        inputAttrs={{ className: "form-control form-control-xs sf-entity-autocomplete" }}
+                        inputAttrs={{ className: "sf-form-control sf-form-control-xs sf-entity-autocomplete" }}
                         getItems={handleGetItems}
                         onSelect={handleTypeaheadSelect} />
                 );
 
             return (
-                <select className="form-select form-select-xs" style={style}
+                <select className="sf-form-select sf-form-select-xs" style={style}
                     value={val == null ? "" : String(val)} onChange={handleChangeSelectOrInput}>
                     {p.defaultValue == null && <option value="">{" - "}</option>}
                     {p.options.map((o, i) => <option key={i} value={String(o)}>{String(o)}</option>)}
@@ -140,12 +140,12 @@ export function ExpressionOrValueComponent(p: ExpressionOrValueProps): React.JSX
 
         if (p.type === "textArea")
             return (
-                <textarea className="form-control form-select-xs" style={style}
+                <textarea className="sf-form-control sf-form-select-xs" style={style}
                     value={val == null ? "" : String(val)}
                     onChange={handleChangeSelectOrInput} />);
 
         return (
-            <input className="form-control form-control-xs" style={style}
+            <input className="sf-form-control sf-form-control-xs" style={style}
                 type="text"
                 value={val == null ? "" : String(val)}
                 onChange={handleChangeSelectOrInput} />);
@@ -191,7 +191,7 @@ export function ExpressionOrValueComponent(p: ExpressionOrValueProps): React.JSX
         if (p.defaultValue == null)
             return (
                 <div>
-                    <label className="label-xs">
+                    <label className="sf-form-label-xs">
                         {expressionIcon}
                         <NullableCheckBox value={value as boolean | undefined}
                             onChange={newValue => updateValue(newValue)}
@@ -202,7 +202,7 @@ export function ExpressionOrValueComponent(p: ExpressionOrValueProps): React.JSX
 
         return (
             <div>
-                <label className="label-xs">
+                <label className="sf-form-label-xs">
                     {expressionIcon}
                     <input className="design-check-box form-check-input"
                         type="checkbox"
@@ -225,8 +225,8 @@ export function ExpressionOrValueComponent(p: ExpressionOrValueProps): React.JSX
         );
 
     return (
-        <div className="form-group form-group-xs">
-            <label className="control-label label-xs">
+        <div className="sf-form-group sf-form-group-xs">
+            <label className="control-label sf-form-label-xs">
                 {expressionIcon}
                 {renderMember(value as string | undefined)}
             </label>
@@ -299,7 +299,7 @@ export function FieldComponent(p: FieldComponentProps): React.JSX.Element {
         const subMembers = route ? route.subMembers() : {};
 
         return (
-            <select className="form-select form-select-xs" value={strValue} onChange={handleChange}>
+            <select className="sf-form-select sf-form-select-xs" value={strValue} onChange={handleChange}>
                 <option value=""> - </option>
                 {Dic.getKeys(subMembers).filter(k => k !== "id").map((name, i) =>
                     <option key={i} value={name}>{name}</option>)}
@@ -307,8 +307,8 @@ export function FieldComponent(p: FieldComponentProps): React.JSX.Element {
     }
 
     return (
-        <div className="form-group form-group-xs">
-            <label className="control-label label-xs">
+        <div className="sf-form-group sf-form-group-xs">
+            <label className="control-label sf-form-label-xs">
                 {p.binding.member}
             </label>
             <div>
@@ -327,7 +327,7 @@ export function DynamicViewInspector(p: { selectedNode?: DesignerNode<BaseNode> 
     const error = NodeUtils.validate(sn, undefined);
 
     return (
-        <div className="form-sm">
+        <div className="sf-form-sm">
             <h4>
                 {sn.node.kind}
                 {sn.route && <small> ({Finder.getTypeNiceName(sn.route.type)})</small>}

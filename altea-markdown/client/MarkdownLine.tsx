@@ -80,7 +80,7 @@ export function MarkdownLine({ ctx, markdownOption, readOnly, label, valueHtmlAt
     return (
         <ErrorBoundary>
             <FormGroup ctx={ctx} label={<>{markdownHelp}{label ?? ctx.niceName()}</>} labelIcon={toggle} helpTextOnTop={helpTextOnTopResolved}>
-                {() => preview ? <div className="form-control form-control-sm"><Markdown {...markdownOption}>{ctx.value}</Markdown></div> :
+                {() => preview ? <div className="sf-form-control sf-form-control-sm"><Markdown {...markdownOption}>{ctx.value}</Markdown></div> :
                     <TextAreaLine
                         ctx={ctx.subCtx({ formGroupStyle: "None" })}
                         readOnly={readOnly}

@@ -61,7 +61,7 @@ export default function ValueComponent(p: ValueComponentProps): React.JSX.Elemen
 
         if (p.options != null) {
             return (
-                <select className="form-control form-control-sm" style={style} onBlur={p.onBlur}
+                <select className="sf-form-control sf-form-control-sm" style={style} onBlur={p.onBlur}
                     value={val == null ? "" : val.toString()} onChange={handleChangeSelectOrInput}>
                     {val == null && <option value="">{" - "}</option>}
                     {p.options.map((o, i) => <option key={i} value={o.toString()}>{o.toString()}</option>)}
@@ -79,13 +79,13 @@ export default function ValueComponent(p: ValueComponentProps): React.JSX.Elemen
 
         if (p.type === "textArea") {
             return (
-                <textarea className="form-control form-control-sm" style={style} onBlur={p.onBlur}
+                <textarea className="sf-form-control sf-form-control-sm" style={style} onBlur={p.onBlur}
                     value={val == null ? "" : val.toString()} onChange={handleChangeSelectOrInput} />
             );
         }
 
         return (
-            <input className="form-control form-control-sm" style={style} onBlur={p.onBlur} type="text"
+            <input className="sf-form-control sf-form-control-sm" style={style} onBlur={p.onBlur} type="text"
                 value={val == null ? "" : val.toString()} onChange={handleChangeSelectOrInput} />
         );
     }
@@ -106,8 +106,8 @@ export default function ValueComponent(p: ValueComponentProps): React.JSX.Elemen
     const lc = p.labelColumns;
 
     return (
-        <div className="form-group form-group-sm row" style={opacity}>
-            <label className={classes("col-form-label col-form-label-sm", p.labelClass, "col-sm-" + (lc == null ? 2 : lc))}>
+        <div className="sf-form-group sf-form-group-sm row" style={opacity}>
+            <label className={classes("sf-col-form-label sf-col-form-label-sm", p.labelClass, "col-sm-" + (lc == null ? 2 : lc))}>
                 {p.binding.member}
             </label>
             <div className={"col-sm-" + (lc == null ? 10 : 12 - lc)}>

@@ -83,9 +83,9 @@ export function ButtonBar(p: ButtonBarProps): React.JSX.Element {
     return (
       <div className="btn-toolbar-search mb-2 w-full">
         <AutoFocus>
-          <label className="label-xs inline-flex items-center gap-2">
+          <label className="sf-form-label-xs inline-flex items-center gap-2">
             <span>{SearchMessage.Search.niceToString()}</span>
-            <input type="text" className="form-control form-control-xs" value={text} onChange={e => {
+            <input type="text" className="sf-form-control sf-form-control-xs" value={text} onChange={e => {
               setText(e.currentTarget.value);
 
               // Below the threshold the filter is DROPPED rather than narrowed to nothing: a half-typed

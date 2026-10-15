@@ -1453,7 +1453,7 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
           <AutoFocus>
             <input
               type="search"
-              className="form-control form-control-sm dropdown-item"
+              className="sf-form-control sf-form-control-sm dropdown-item"
               value={this.state?.contextualMenu?.filter}
               placeholder={SearchMessage.Search.niceToString()}
               onKeyDown={this.handleMenuFilterKeyDown}

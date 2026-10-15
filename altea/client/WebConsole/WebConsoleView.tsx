@@ -149,9 +149,9 @@ function QuestionForm(p: { question: WebConsoleQuestion; onAnswer: (value: WebCo
     const no = JavascriptMessage.no.niceToString();
 
     const alwaysCheck = (
-        <label className="form-check form-check-inline ms-2 mb-0">
+        <label className="sf-form-check sf-form-check sf-form-check-inline ms-2 mb-0">
             <input type="checkbox" className="form-check-input" checked={always} onChange={e => setAlways(e.currentTarget.checked)} />
-            <span className="form-check-label">{WebConsoleMessage.Always.niceToString()}</span>
+            <span className="sf-form-check-label">{WebConsoleMessage.Always.niceToString()}</span>
         </label>
     );
 
@@ -191,7 +191,7 @@ function QuestionForm(p: { question: WebConsoleQuestion; onAnswer: (value: WebCo
                     case "text":
                         return (
                             <form className="flex gap-2" onSubmit={e => { e.preventDefault(); p.onAnswer(text, text); }}>
-                                <input type="text" className="form-control form-control-sm" autoFocus value={text} onChange={e => setText(e.currentTarget.value)} />
+                                <input type="text" className="sf-form-control sf-form-control-sm" autoFocus value={text} onChange={e => setText(e.currentTarget.value)} />
                                 <button type="submit" className="btn btn-sm btn-primary">{WebConsoleMessage.Answer.niceToString()}</button>
                             </form>
                         );

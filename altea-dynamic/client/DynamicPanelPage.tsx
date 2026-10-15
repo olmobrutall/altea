@@ -305,9 +305,9 @@ function SearchStep(): React.JSX.Element {
     return (
         <div className="row mt-4">
             <div className="col-sm-6">
-                <div className="input-group mb-4">
-                    <span className="input-group-text"><FontAwesomeIcon aria-hidden={true} icon="magnifying-glass" /></span>
-                    <input type="text" className="form-control" value={search} onChange={e => setSearch(e.currentTarget.value)} />
+                <div className="sf-input-group mb-4">
+                    <span className="sf-input-group-text"><FontAwesomeIcon aria-hidden={true} icon="magnifying-glass" /></span>
+                    <input type="text" className="sf-form-control" value={search} onChange={e => setSearch(e.currentTarget.value)} />
                 </div>
                 {Object.entries(DynamicClient.registeredPanelSearches).map(([typeName, columns]) =>
                     <SearchValueLine key={typeName + "|" + search} ctx={ctx} findOptions={{

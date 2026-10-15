@@ -9,7 +9,7 @@ div.hidden > label {
     opacity: .5;
 }
 
-select.form-control.sf-group-selector {
+select.sf-form-control.sf-group-selector {
     display: inline;
     font-weight: bold;
     text-transform: uppercase;

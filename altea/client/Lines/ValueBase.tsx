@@ -59,7 +59,7 @@ export class ValueBaseController<T extends ValueBaseProps<V>, V> extends LineBas
           {getTimeMachineIcon({ ctx: this.props.ctx })}
           {this.props.extraButtonsBefore && <div className={this.props.ctx.inputGroupVerticalClass("before")}>{this.props.extraButtonsBefore(this)}</div>}
           {input}
-          {this.props.unit && <span className={this.props.ctx.readonlyAsPlainText ? undefined : "input-group-text"}>{this.props.unit}</span>}
+          {this.props.unit && <span className={this.props.ctx.readonlyAsPlainText ? undefined : "sf-input-group-text"}>{this.props.unit}</span>}
           {preExtraButton}
           {this.props.extraButtons && <div className={this.props.ctx.inputGroupVerticalClass("after")}>{this.props.extraButtons(this)}</div>}
         </div>
@@ -70,7 +70,7 @@ export class ValueBaseController<T extends ValueBaseProps<V>, V> extends LineBas
           {getTimeMachineIcon({ ctx: this.props.ctx })}
           {this.props.extraButtonsBefore && this.props.extraButtonsBefore(this)}
           {input}
-          {this.props.unit && <span className={this.props.ctx.readonlyAsPlainText ? undefined : "input-group-text"}>{this.props.unit}</span>}
+          {this.props.unit && <span className={this.props.ctx.readonlyAsPlainText ? undefined : "sf-input-group-text"}>{this.props.unit}</span>}
           {preExtraButton}
           {this.props.extraButtons && this.props.extraButtons(this)}
         </div>

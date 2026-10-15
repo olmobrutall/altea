@@ -427,7 +427,7 @@ export default function ChatbotModal(p: { onClose: () => void }): React.ReactEle
                 </div>
             ) : (
                 <div className="p-2 border-t flex items-center">
-                    <textarea className="form-control me-2" rows={2}
+                    <textarea className="sf-form-control me-2" rows={2}
                         placeholder={waitingForWidget
                             ? ChatbotMessage.AnswerAbovePlease.niceToString()
                             : ChatbotMessage.TypeAMessage.niceToString()}

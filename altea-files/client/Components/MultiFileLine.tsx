@@ -156,7 +156,7 @@ export class MultiFileLineController<R extends BaseEntity> extends EntityListBas
             return undefined;
 
         return (
-            <LinkButton className={classes("sf-line-button", "sf-view", btn ? "input-group-text" : undefined)}
+            <LinkButton className={classes("sf-line-button", "sf-view", btn ? "sf-input-group-text" : undefined)}
                 onClick={e => void this.handleViewElement(e, index)}
                 title={this.props.ctx.titleLabels ? EntityControlMessage.View.niceToString() : undefined}>
                 {EntityBaseController.getViewIcon()}

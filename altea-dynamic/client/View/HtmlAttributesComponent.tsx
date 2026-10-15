@@ -86,8 +86,8 @@ export function HtmlAttributesLine(p: HtmlAttributesLineProps): React.JSX.Elemen
     const val = p.binding.getValue();
 
     return (
-        <div className="form-group form-group-xs">
-            <label className="control-label label-xs">
+        <div className="sf-form-group sf-form-group-xs">
+            <label className="control-label sf-form-label-xs">
                 {renderMember(val)}
                 {val && " "}
                 {val && <button type="button" className={classes("btn btn-link p-0", "sf-line-button", "sf-remove")}
@@ -152,7 +152,7 @@ const cssPropertyList = ["color", "opacity", "background", "background-attachmen
 
 export function HtmlExpressionComponent(p: HtmlExpressionComponentProps): React.JSX.Element {
     return (
-        <div className="form-sm code-container">
+        <div className="sf-form-sm code-container">
             <fieldset>
                 <legend>HTML Attributes</legend>
                 <ExpressionOrValueStrip object={p.htmlAttributes as Record<string, ExpressionOrValue<unknown>>}
@@ -213,7 +213,7 @@ export function ExpressionOrValueStrip(p: ExpressionOrValueStripProps): React.JS
                     </li>)}
             </ul>
             <Typeahead
-                inputAttrs={{ className: "form-control form-control-xs sf-entity-autocomplete" }}
+                inputAttrs={{ className: "sf-form-control sf-form-control-xs sf-entity-autocomplete" }}
                 getItems={handleGetItems}
                 onSelect={handleSelect} />
         </div>

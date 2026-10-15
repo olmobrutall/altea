@@ -44,7 +44,7 @@ export default function AssetSyncPanel(): React.JSX.Element {
             <h2 className="text-display-6 font-light">{CodeSyncMessage.AssetSync.niceToString()}</h2>
 
             <div className="flex flex-wrap items-center gap-2 mb-4">
-                <select className="form-select" style={{ maxWidth: "15rem" }} value={folder} onChange={e => setFolder(e.currentTarget.value)}>
+                <select className="sf-form-select" style={{ maxWidth: "15rem" }} value={folder} onChange={e => setFolder(e.currentTarget.value)}>
                     <option value="">*</option>
                     {info?.folders.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
@@ -59,7 +59,7 @@ export default function AssetSyncPanel(): React.JSX.Element {
                     </button>}
                 <a className="btn btn-tertiary" href="/userAssets/import">{UserAssetMessage.ImportUserAssets.niceToString()}</a>
                 {info != undefined && !info.writeFiles &&
-                    <span className="form-text">{CodeSyncMessage.ChangesHereAreNotWrittenToFiles.niceToString()}</span>}
+                    <span className="sf-form-text">{CodeSyncMessage.ChangesHereAreNotWrittenToFiles.niceToString()}</span>}
             </div>
 
             {report != null && <ReportView report={report} onClose={() => setReport(null)} />}

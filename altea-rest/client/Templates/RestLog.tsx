@@ -55,7 +55,7 @@ export default function RestLog(p: { ctx: TypeContext<RestLogEntity> }): React.J
             {ctx.value.allowReplay &&
                 <div className="row mt-2">
                     <div className="col-sm-10">
-                        <input type="text" className="form-control" value={replayUrl}
+                        <input type="text" className="sf-form-control" value={replayUrl}
                             onChange={e => setReplayUrl(e.currentTarget.value)} />
                     </div>
                     <div className="col-sm-2">

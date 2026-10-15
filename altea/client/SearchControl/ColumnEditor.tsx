@@ -78,7 +78,7 @@ export default function ColumnEditor(p: ColumnEditorProps): React.ReactElement {
         <div className={showMore ? "col-sm-7" : "col-sm-11"}>
 
           <div className="flex" title={!StyleContext.default.titleLabels ? undefined : tokenError}>
-            <label className="col-form-label col-form-label-xs me-2 font-bold">{SearchMessage.ColumnField.niceToString()}</label>
+            <label className="sf-col-form-label sf-col-form-label-xs me-2 font-bold">{SearchMessage.ColumnField.niceToString()}</label>
             <div className="grow">
               <div className="rw-widget-xs">
                 <QueryTokenBuilder
@@ -96,7 +96,7 @@ export default function ColumnEditor(p: ColumnEditorProps): React.ReactElement {
 
           {showMore && <div className={classes("flex", summaryError ? "error" : undefined)}
             title={StyleContext.default.titleLabels ? summaryError : undefined}>
-            <label className="col-form-label col-form-label-xs me-2">
+            <label className="sf-col-form-label sf-col-form-label-xs me-2">
               <input type="checkbox" disabled={co.token == null} className="form-check-input me-2" checked={co.summaryToken != null} onChange={handleSummaryCheck} />
               {SearchMessage.SummaryHeader.niceToString()} (Ʃ)
             </label>
@@ -115,18 +115,18 @@ export default function ColumnEditor(p: ColumnEditorProps): React.ReactElement {
         {showMore && <div className="col-sm-4">
 
           <div className="flex">
-            <label className="col-form-label col-form-label-xs me-2">{SearchMessage.DisplayName.niceToString()}</label>
+            <label className="sf-col-form-label sf-col-form-label-xs me-2">{SearchMessage.DisplayName.niceToString()}</label>
             <div className="grow">
-              <input className="form-control form-control-xs "
+              <input className="sf-form-control sf-form-control-xs "
                 value={co.displayName || ""} disabled={co.hiddenColumn}
                 onChange={handleOnChange} />
             </div>
           </div>
 
           <div className="flex">
-            <label htmlFor="combineRows" className="col-form-label col-form-label-xs me-2" style={{ minWidth: "140px" }}>  {SearchMessage.CombineRowsWith.niceToString()}</label>
+            <label htmlFor="combineRows" className="sf-col-form-label sf-col-form-label-xs me-2" style={{ minWidth: "140px" }}>  {SearchMessage.CombineRowsWith.niceToString()}</label>
             <div className="grow">
-              <select className="form-select form-select-xs" id="combineRows" value={co.combineRows ?? ""} onChange={handleCombineEqualsVertically}>
+              <select className="sf-form-select sf-form-select-xs" id="combineRows" value={co.combineRows ?? ""} onChange={handleCombineEqualsVertically}>
                 <option value={""}>{" - "}</option>
                 <option value={"EqualEntity"}>{SearchMessage.Equal0.niceToString(Finder.getTypeNiceName(p.queryToken.type))}</option>
                 <option value={"EqualValue"}>{Enum.niceName(CombineRows, "EqualValue")}</option>

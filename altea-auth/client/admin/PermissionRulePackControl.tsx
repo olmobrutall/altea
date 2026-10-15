@@ -59,7 +59,7 @@ export default function PermissionRulePackControl({ ctx, ref }: { ctx: TypeConte
 
     return (
         <div>
-            <div className="form-compact mb-2">
+            <div className="sf-form-compact mb-2">
                 <EntityLine ctx={ctx.subCtx(f => f.role)} readOnly={true} />
                 <AutoLine ctx={ctx.subCtx(f => f.strategy)} readOnly={true} />
             </div>

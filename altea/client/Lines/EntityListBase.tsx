@@ -437,7 +437,7 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
       return undefined;
 
     return (
-      <LinkButton className={classes("sf-line-button", "sf-create", btn ? "input-group-text" : undefined)}
+      <LinkButton className={classes("sf-line-button", "sf-create", btn ? "sf-input-group-text" : undefined)}
         onClick={this.handleCreateClick}
         title={this.props.ctx.titleLabels ? createMessage ?? EntityControlMessage.Create.niceToString() : undefined}>
         {EntityBaseController.getCreateIcon()}
@@ -450,7 +450,7 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
       return undefined;
 
     return (
-      <LinkButton className={classes("sf-line-button", "sf-find", btn ? "input-group-text" : undefined)}
+      <LinkButton className={classes("sf-line-button", "sf-find", btn ? "sf-input-group-text" : undefined)}
         onClick={this.handleFindClick}
         title={this.props.ctx.titleLabels ? findMessage ?? EntityControlMessage.Find.niceToString() : undefined}>
         {EntityBaseController.getFindIcon()}
@@ -463,7 +463,7 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
       return undefined;
 
     return (
-      <LinkButton className={classes("sf-line-button", "sf-paste", btn ? "input-group-text" : undefined)}
+      <LinkButton className={classes("sf-line-button", "sf-paste", btn ? "sf-input-group-text" : undefined)}
         onClick={this.handlePasteClick}
         title={EntityControlMessage.Paste.niceToString()}>
         {EntityBaseController.getPasteIcon()}
@@ -508,7 +508,7 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
 
     return (
       <LinkButton
-        className={classes("sf-line-button", "sf-move", "sf-move-step", btn ? "input-group-text" : undefined)}
+        className={classes("sf-line-button", "sf-move", "sf-move-step", btn ? "sf-input-group-text" : undefined)}
         onClick={e => { this.moveUp(index); }}
         tabIndex={0}
         title={this.props.ctx.titleLabels ? (orientation == "v" ? EntityControlMessage.MoveUp : (isRtl() ? EntityControlMessage.MoveRight : EntityControlMessage.MoveLeft)).niceToString() : undefined}>
@@ -529,7 +529,7 @@ export abstract class EntityListBaseController<P extends EntityListBaseProps<R>,
 
     return (
       <LinkButton
-        className={classes("sf-line-button", "sf-move", "sf-move-step", btn ? "input-group-text" : undefined)}
+        className={classes("sf-line-button", "sf-move", "sf-move-step", btn ? "sf-input-group-text" : undefined)}
         onClick={e => { this.moveDown(index); }}
         tabIndex={0}
         title={this.props.ctx.titleLabels ? (orientation == "v" ? EntityControlMessage.MoveDown : (isRtl() ? EntityControlMessage.MoveLeft : EntityControlMessage.MoveRight)).niceToString() : undefined}>

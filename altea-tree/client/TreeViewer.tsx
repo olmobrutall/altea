@@ -448,7 +448,7 @@ export class TreeViewer extends React.Component<TreeViewerProps, TreeViewerState
             <ContextMenu id="table-context-menu" position={cm.position} onHide={this.handleContextOnHide} itemsCount={menuItems.length}>
                 {cm.showSearchBox &&
                     <input type="search"
-                        className="form-control form-control-sm dropdown-item"
+                        className="sf-form-control sf-form-control-sm dropdown-item"
                         value={cm.filter ?? ""}
                         placeholder={SearchMessage.Search.niceToString()}
                         onChange={e => this.setState({ contextualMenu: { ...cm, filter: e.currentTarget.value } })} />}

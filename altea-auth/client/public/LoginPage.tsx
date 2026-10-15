@@ -127,11 +127,11 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
             </div>
             <div className="row">
                 <div className="col-md-6 offset-md-3">
-                    <div className={classes("form-group mb-4", error("userName") && "has-error")}>
+                    <div className={classes("sf-form-group mb-4", error("userName") && "has-error")}>
                         <label className="sr-only" htmlFor="userName">{LoginOptions.usernameLabel()}</label>
-                        <div className="input-group mb-2 mr-sm-2 sm:mb-0">
-                            <div className="input-group-text"><FontAwesomeIcon aria-hidden={true} icon="user" style={{ width: "16px" }} /></div>
-                            <input type="text" className="form-control" id="userName" autoComplete="username" ref={userName} placeholder={LoginOptions.usernameLabel()} disabled={p.ctx.loading != null} />
+                        <div className="sf-input-group mb-2 mr-sm-2 sm:mb-0">
+                            <div className="sf-input-group-text"><FontAwesomeIcon aria-hidden={true} icon="user" style={{ width: "16px" }} /></div>
+                            <input type="text" className="sf-form-control" id="userName" autoComplete="username" ref={userName} placeholder={LoginOptions.usernameLabel()} disabled={p.ctx.loading != null} />
                         </div>
                         {error("userName") && <span className="help-block text-destructive">{error("userName")}</span>}
                     </div>
@@ -139,11 +139,11 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
             </div>
             {!passwordIsUsername && <div className="row">
                 <div className="col-md-6 offset-md-3">
-                    <div className={classes("form-group mb-4", error("password") && "has-error")}>
+                    <div className={classes("sf-form-group mb-4", error("password") && "has-error")}>
                         <label className="sr-only" htmlFor="password">{LoginAuthMessage.Password.niceToString()}</label>
-                        <div className="input-group mb-2 mr-sm-2 sm:mb-0">
-                            <div className="input-group-text"><FontAwesomeIcon aria-hidden={true} icon="key" style={{ width: "16px" }} /></div>
-                            <input ref={password} type="password" name="password" className="form-control" id="password" autoComplete="current-password" placeholder={LoginAuthMessage.Password.niceToString()} disabled={p.ctx.loading != null} />
+                        <div className="sf-input-group mb-2 mr-sm-2 sm:mb-0">
+                            <div className="sf-input-group-text"><FontAwesomeIcon aria-hidden={true} icon="key" style={{ width: "16px" }} /></div>
+                            <input ref={password} type="password" name="password" className="sf-form-control" id="password" autoComplete="current-password" placeholder={LoginAuthMessage.Password.niceToString()} disabled={p.ctx.loading != null} />
                         </div>
                         {error("password") && <span className="help-block text-destructive">{error("password")}</span>}
                     </div>
@@ -155,9 +155,9 @@ export function LoginForm(p: { ctx: LoginContext }): React.JSX.Element {
                 nothing: the server ignores rememberMe when UserTicketLogic was never started. */}
             {AuthClient.Options.userTicket && <div className="row">
                 <div className="col-md-6 offset-md-3">
-                    <div className="form-check mb-2 mr-sm-2 sm:mb-0">
+                    <div className="sf-form-check mb-2 mr-sm-2 sm:mb-0">
                         <input ref={rememberMe} name="remember" id="rememberMe" className="form-check-input" type="checkbox" disabled={p.ctx.loading != null} />
-                        <label className="sf-remember-me form-check-label" htmlFor="rememberMe">{LoginAuthMessage.RememberMe.niceToString()}</label>
+                        <label className="sf-remember-me sf-form-check-label" htmlFor="rememberMe">{LoginAuthMessage.RememberMe.niceToString()}</label>
                     </div>
                 </div>
             </div>}

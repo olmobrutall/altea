@@ -94,7 +94,7 @@ export default function OperationMapPage(): React.JSX.Element | null {
                         <label htmlFor="color"> {MapMessage.Color.niceToString()}</label>
                     </div>
                     <div className="col-auto">
-                        <select className="form-select form-select-sm" id="color" value={color} onChange={e => setColor(e.currentTarget.value)}>
+                        <select className="sf-form-select sf-form-select-sm" id="color" value={color} onChange={e => setColor(e.currentTarget.value)}>
                             <option value="state">{MapMessage.StateColor.niceToString()}</option>
                             <option value="rows">{MapMessage.Rows.niceToString()}</option>
                         </select>

@@ -47,7 +47,7 @@ export default function HelpSearchPage(): React.JSX.Element {
                     <label className="sr-only" htmlFor="helpSearchText">{HelpMessage.SearchText.niceToString()}</label>
                     <input id="helpSearchText"
                         type="search"
-                        className="form-control"
+                        className="sf-form-control"
                         placeholder={HelpMessage.SearchText.niceToString()}
                         value={text}
                         onChange={e => setText(e.currentTarget.value)} />

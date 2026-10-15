@@ -220,7 +220,7 @@ function MainEntityStrategyCheckboxList(p: { ctx: TypeContext<WorkflowEntity> })
 
     return (
         <div className="sf-checkbox-list" style={{ marginTop: "-15px" }}>
-            <label className="form-label">
+            <label className="sf-form-label">
                 {WorkflowEntity.nicePropertyName(a => a.mainEntityStrategies)}
             </label>
             <div className="sf-checkbox-elements">

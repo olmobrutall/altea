@@ -336,14 +336,14 @@ export function PropertySetterComponent(p: PropertySetterComponentProps): React.
         <td>
           {
             operations &&
-            <select className="form-select form-select-xs" value={p.setter.operation} disabled={operations.length == 1} onChange={handleChangeOperation}>
+            <select className="sf-form-select sf-form-select-xs" value={p.setter.operation} disabled={operations.length == 1} onChange={handleChangeOperation}>
               {operations.map((op, i) => <option key={i} value={op}>{Enum.niceName(PropertyOperation, op)}</option>)}
             </select>
           }
 
           {
             fOperations &&
-            <select className="form-select form-select-xs" value={p.setter.filterOperation} disabled={fOperations.length == 1} onChange={handleChangeFilterOperation}>
+            <select className="sf-form-select sf-form-select-xs" value={p.setter.filterOperation} disabled={fOperations.length == 1} onChange={handleChangeFilterOperation}>
               {fOperations.map((op, i) => <option key={i} value={op}>{Enum.niceName(FilterOperation, op)}</option>)}
             </select>
           }

@@ -493,7 +493,7 @@ export function ComplexConditionSyntax(p: { filterOperation: FilterOperationKeys
 
   return (
     <OverlayTrigger trigger="click" placement="right" overlay={popover} rootClose>
-      <button type="button" className="sf-line-button sf-view btn input-group-text">{help.icon}</button>
+      <button type="button" className="sf-line-button sf-view btn sf-input-group-text">{help.icon}</button>
     </OverlayTrigger>
   );
 }

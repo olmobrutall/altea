@@ -23,7 +23,7 @@ export function alteaLegacyCssLayer() {
             if (!file.endsWith(".css") || /(^|&)(raw|url)\b/.test(query ?? ""))
                 return null;
 
-            if (TAILWIND_DIRECTIVE.test(code))
+            if (TAILWIND_DIRECTIVE.test(code.replace(/\/\*[\s\S]*?\*\//g, "")))
                 return null;
 
             // A BOM inside the layer block would become part of the first selector.

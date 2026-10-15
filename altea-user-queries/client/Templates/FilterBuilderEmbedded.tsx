@@ -138,7 +138,7 @@ function ValueOrExpression(props: { rvc: RenderValueContext; ffc: Finder.FilterF
 
     const toggleButton = (
         <LinkButton
-            className="sf-line-button btn input-group-text"
+            className="sf-line-button btn sf-input-group-text"
             title={expression ? UserAssetQueryMessage.SwitchToValue.niceToString() : UserAssetQueryMessage.SwitchToExpression.niceToString()}
             onClick={() => { if (!rvc.readonly) toggle(); }}>
             <FontAwesomeIcon aria-hidden={true} icon="pen-to-square" />
@@ -149,13 +149,13 @@ function ValueOrExpression(props: { rvc: RenderValueContext; ffc: Finder.FilterF
         <div className="flex items-center gap-1">
             <div className="grow">
                 {expression
-                    ? <input type="text" className={"form-control form-control-xs" + (error != null ? " is-invalid" : "")}
+                    ? <input type="text" className={"sf-form-control form-control-xs" + (error != null ? " is-invalid" : "")}
                         readOnly={rvc.readonly}
                         title={token?.filterType === "DateTime" ? smartDateTimeFormat : undefined}
                         value={(f.value as string | null) ?? ""}
                         onChange={e => { f.value = e.currentTarget.value; forceUpdate(); rvc.handleValueChange(); }} />
                     : Finder.renderFilterValue(f, ffc)}
-                {error != null && <div className="invalid-feedback block">{error}</div>}
+                {error != null && <div className="sf-invalid-feedback block">{error}</div>}
             </div>
             {toggleButton}
         </div>

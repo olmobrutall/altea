@@ -65,8 +65,8 @@ export function StyleOptionsLine(p: StyleOptionsLineProps): React.JSX.Element {
     const val = p.binding.getValue();
 
     return (
-        <div className="form-group form-group-xs">
-            <label className="control-label label-xs">
+        <div className="sf-form-group sf-form-group-xs">
+            <label className="control-label sf-form-label-xs">
                 {renderMember(val)}
                 {val && " "}
                 {val && <button type="button" className={classes("btn btn-link p-0", "sf-line-button", "sf-remove")}
@@ -101,7 +101,7 @@ export function StyleOptionsComponent(p: StyleOptionsComponentProps): React.JSX.
     const dn = p.dn;
 
     return (
-        <div className="form-sm code-container">
+        <div className="sf-form-sm code-container">
             <ExpressionOrValueComponent dn={dn} refreshView={forceUpdate} binding={Binding.create(so, s => s.formGroupStyle)} type="string" options={formGroupStyle} defaultValue={null} />
             <ExpressionOrValueComponent dn={dn} refreshView={forceUpdate} binding={Binding.create(so, s => s.formSize)} type="string" options={formSize} defaultValue={null} />
             <ExpressionOrValueComponent dn={dn} refreshView={forceUpdate} binding={Binding.create(so, s => s.placeholderLabels)} type="boolean" defaultValue={null} />

@@ -1,0 +1,728 @@
+/* altea's semantic classes: the framework surfaces an application restyles with plain CSS (`.sf-form-control`,
+   `.sf-input-group`, …). The form rules are Bootstrap 5.3's own (MIT, https://getbootstrap.com), renamed
+   and pointed at the theme tokens, so a migrated form looks exactly like an unmigrated one.
+
+   An app imports this right after Bootstrap: it has no Tailwind directive, so the build puts it in the
+   `legacy` layer, ahead of the stylesheets (Lines.css, …) that still adjust these classes. When Bootstrap is
+   removed it moves to `@layer components`. */
+
+.sf-form-label {
+  margin-bottom: 0.5rem;
+}
+
+.sf-col-form-label {
+  padding-top: calc(0.375rem + 1px);
+  padding-bottom: calc(0.375rem + 1px);
+  margin-bottom: 0;
+  font-size: inherit;
+  line-height: 1.5;
+}
+
+.sf-col-form-label-lg {
+  padding-top: calc(0.5rem + 1px);
+  padding-bottom: calc(0.5rem + 1px);
+  font-size: 1.25rem;
+}
+
+.sf-col-form-label-sm {
+  padding-top: calc(0.25rem + 1px);
+  padding-bottom: calc(0.25rem + 1px);
+  font-size: 0.875rem;
+}
+
+.sf-form-text {
+  margin-top: 0.25rem;
+  font-size: 0.875em;
+  color: var(--muted-foreground);
+}
+
+.sf-form-control {
+  display: block;
+  width: 100%;
+  padding: 0.375rem 0.75rem;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--foreground);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: var(--background);
+  background-clip: padding-box;
+  border: 1px solid var(--input);
+  border-radius: .375rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.sf-form-control[type=file] {
+  overflow: hidden;
+}
+
+.sf-form-control[type=file]:not(:disabled):not([readonly]) {
+  cursor: pointer;
+}
+
+.sf-form-control:focus {
+  color: var(--foreground);
+  background-color: var(--background);
+  border-color: color-mix(in srgb, var(--primary) 50%, white);
+  outline: 0;
+  box-shadow: 0 0 0 0.25rem var(--ring);
+}
+
+.sf-form-control::-webkit-date-and-time-value {
+  min-width: 85px;
+  height: 1.5em;
+  margin: 0;
+}
+
+.sf-form-control::-webkit-datetime-edit {
+  display: block;
+  padding: 0;
+}
+
+.sf-form-control::placeholder {
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+
+.sf-form-control:disabled {
+  background-color: var(--muted);
+  opacity: 1;
+}
+
+.sf-form-control::-webkit-file-upload-button {
+  padding: 0.375rem 0.75rem;
+  margin: -0.375rem -0.75rem;
+  -webkit-margin-end: 0.75rem;
+  margin-inline-end: 0.75rem;
+  color: var(--foreground);
+  background-color: var(--tertiary);
+  pointer-events: none;
+  border-color: inherit;
+  border-style: solid;
+  border-width: 0;
+  border-inline-end-width: 1px;
+  border-radius: 0;
+  -webkit-transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.sf-form-control::file-selector-button {
+  padding: 0.375rem 0.75rem;
+  margin: -0.375rem -0.75rem;
+  -webkit-margin-end: 0.75rem;
+  margin-inline-end: 0.75rem;
+  color: var(--foreground);
+  background-color: var(--tertiary);
+  pointer-events: none;
+  border-color: inherit;
+  border-style: solid;
+  border-width: 0;
+  border-inline-end-width: 1px;
+  border-radius: 0;
+  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.sf-form-control:hover:not(:disabled):not([readonly])::-webkit-file-upload-button {
+  background-color: var(--muted);
+}
+
+.sf-form-control:hover:not(:disabled):not([readonly])::file-selector-button {
+  background-color: var(--muted);
+}
+
+.sf-form-control-plaintext {
+  display: block;
+  width: 100%;
+  padding: 0.375rem 0;
+  margin-bottom: 0;
+  line-height: 1.5;
+  color: var(--foreground);
+  background-color: transparent;
+  border: solid transparent;
+  border-width: 1px 0;
+}
+
+.sf-form-control-plaintext:focus {
+  outline: 0;
+}
+
+.sf-form-control-plaintext.sf-form-control-sm,
+.sf-form-control-plaintext.sf-form-control-lg {
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.sf-form-control-sm {
+  min-height: calc(1.5em + 0.5rem + calc(1px * 2));
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  border-radius: .25rem;
+}
+
+.sf-form-control-sm::-webkit-file-upload-button {
+  padding: 0.25rem 0.5rem;
+  margin: -0.25rem -0.5rem;
+  -webkit-margin-end: 0.5rem;
+  margin-inline-end: 0.5rem;
+}
+
+.sf-form-control-sm::file-selector-button {
+  padding: 0.25rem 0.5rem;
+  margin: -0.25rem -0.5rem;
+  -webkit-margin-end: 0.5rem;
+  margin-inline-end: 0.5rem;
+}
+
+.sf-form-control-lg {
+  min-height: calc(1.5em + 1rem + calc(1px * 2));
+  padding: 0.5rem 1rem;
+  font-size: 1.25rem;
+  border-radius: .5rem;
+}
+
+.sf-form-control-lg::-webkit-file-upload-button {
+  padding: 0.5rem 1rem;
+  margin: -0.5rem -1rem;
+  -webkit-margin-end: 1rem;
+  margin-inline-end: 1rem;
+}
+
+.sf-form-control-lg::file-selector-button {
+  padding: 0.5rem 1rem;
+  margin: -0.5rem -1rem;
+  -webkit-margin-end: 1rem;
+  margin-inline-end: 1rem;
+}
+
+textarea.sf-form-control {
+  min-height: calc(1.5em + 0.75rem + calc(1px * 2));
+}
+
+textarea.sf-form-control-sm {
+  min-height: calc(1.5em + 0.5rem + calc(1px * 2));
+}
+
+textarea.sf-form-control-lg {
+  min-height: calc(1.5em + 1rem + calc(1px * 2));
+}
+
+.sf-form-control-color {
+  width: 3rem;
+  height: calc(1.5em + 0.75rem + calc(1px * 2));
+  padding: 0.375rem;
+}
+
+.sf-form-control-color:not(:disabled):not([readonly]) {
+  cursor: pointer;
+}
+
+.sf-form-control-color::-moz-color-swatch {
+  border: 0 !important;
+  border-radius: .375rem;
+}
+
+.sf-form-control-color::-webkit-color-swatch {
+  border: 0 !important;
+  border-radius: .375rem;
+}
+
+.sf-form-control-color.sf-form-control-sm {
+  height: calc(1.5em + 0.5rem + calc(1px * 2));
+}
+
+.sf-form-control-color.sf-form-control-lg {
+  height: calc(1.5em + 1rem + calc(1px * 2));
+}
+
+.sf-form-select {
+  --sf-form-select-bg-img: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+  display: block;
+  width: 100%;
+  padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--foreground);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: var(--background);
+  background-image: var(--sf-form-select-bg-img), var(--sf-form-select-bg-icon, none);
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 16px 12px;
+  border: 1px solid var(--input);
+  border-radius: .375rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.sf-form-select:focus {
+  border-color: color-mix(in srgb, var(--primary) 50%, white);
+  outline: 0;
+  box-shadow: 0 0 0 0.25rem var(--ring);
+}
+
+.sf-form-select[multiple],
+.sf-form-select[size]:not([size="1"]) {
+  padding-right: 0.75rem;
+  background-image: none;
+}
+
+.sf-form-select:disabled {
+  background-color: var(--muted);
+}
+
+.sf-form-select:-moz-focusring {
+  color: transparent;
+  text-shadow: 0 0 0 var(--foreground);
+}
+
+.sf-form-select-sm {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  padding-left: 0.5rem;
+  font-size: 0.875rem;
+  border-radius: .25rem;
+}
+
+.sf-form-select-lg {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  padding-left: 1rem;
+  font-size: 1.25rem;
+  border-radius: .5rem;
+}
+
+[data-theme=dark] .sf-form-select {
+  --sf-form-select-bg-img: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23dee2e6' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+}
+
+.sf-form-check {
+  display: block;
+  min-height: 1.5rem;
+  padding-left: 1.5em;
+  margin-bottom: 0.125rem;
+}
+
+.sf-form-check .form-check-input {
+  float: left;
+  margin-left: -1.5em;
+}
+
+.sf-form-check-reverse {
+  padding-right: 1.5em;
+  padding-left: 0;
+  text-align: right;
+}
+
+.sf-form-check-reverse .form-check-input {
+  float: right;
+  margin-right: -1.5em;
+  margin-left: 0;
+}
+
+.form-check-input[disabled] ~ .sf-form-check-label,
+.form-check-input:disabled ~ .sf-form-check-label {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.form-switch.sf-form-check-reverse {
+  padding-right: 2.5em;
+  padding-left: 0;
+}
+
+.form-switch.sf-form-check-reverse .form-check-input {
+  margin-right: -2.5em;
+  margin-left: 0;
+}
+
+.sf-form-check-inline {
+  display: inline-block;
+  margin-right: 1rem;
+}
+
+.sf-form-range {
+  width: 100%;
+  height: 1.5rem;
+  padding: 0;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: transparent;
+}
+
+.sf-form-range:focus {
+  outline: 0;
+}
+
+.sf-form-range:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 1px #fff, 0 0 0 0.25rem var(--ring);
+}
+
+.sf-form-range:focus::-moz-range-thumb {
+  box-shadow: 0 0 0 1px #fff, 0 0 0 0.25rem var(--ring);
+}
+
+.sf-form-range::-moz-focus-outer {
+  border: 0;
+}
+
+.sf-form-range::-webkit-slider-thumb {
+  width: 1rem;
+  height: 1rem;
+  margin-top: -0.25rem;
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: #0d6efd;
+  border: 0;
+  border-radius: 1rem;
+  -webkit-transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.sf-form-range::-webkit-slider-thumb:active {
+  background-color: #b6d4fe;
+}
+
+.sf-form-range::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 0.5rem;
+  color: transparent;
+  cursor: pointer;
+  background-color: var(--muted);
+  border-color: transparent;
+  border-radius: 1rem;
+}
+
+.sf-form-range::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: #0d6efd;
+  border: 0;
+  border-radius: 1rem;
+  -moz-transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.sf-form-range::-moz-range-thumb:active {
+  background-color: #b6d4fe;
+}
+
+.sf-form-range::-moz-range-track {
+  width: 100%;
+  height: 0.5rem;
+  color: transparent;
+  cursor: pointer;
+  background-color: var(--muted);
+  border-color: transparent;
+  border-radius: 1rem;
+}
+
+.sf-form-range:disabled {
+  pointer-events: none;
+}
+
+.sf-form-range:disabled::-webkit-slider-thumb {
+  background-color: var(--muted-foreground);
+}
+
+.sf-form-range:disabled::-moz-range-thumb {
+  background-color: var(--muted-foreground);
+}
+
+.sf-form-floating {
+  position: relative;
+}
+
+.sf-form-floating > .sf-form-control,
+.sf-form-floating > .sf-form-control-plaintext,
+.sf-form-floating > .sf-form-select {
+  height: calc(3.5rem + calc(1px * 2));
+  min-height: calc(3.5rem + calc(1px * 2));
+  line-height: 1.25;
+}
+
+.sf-form-floating > label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  max-width: 100%;
+  height: 100%;
+  padding: 1rem 0.75rem;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--foreground) 65%, transparent);
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  border: 1px solid transparent;
+  transform-origin: 0 0;
+  transition: opacity 0.1s ease-in-out, transform 0.1s ease-in-out;
+}
+
+.sf-form-floating > .sf-form-control,
+.sf-form-floating > .sf-form-control-plaintext {
+  padding: 1rem 0.75rem;
+}
+
+.sf-form-floating > .sf-form-control::placeholder,
+.sf-form-floating > .sf-form-control-plaintext::placeholder {
+  color: transparent;
+}
+
+.sf-form-floating > .sf-form-control:focus,
+.sf-form-floating > .sf-form-control:not(:placeholder-shown),
+.sf-form-floating > .sf-form-control-plaintext:focus,
+.sf-form-floating > .sf-form-control-plaintext:not(:placeholder-shown) {
+  padding-top: 1.625rem;
+  padding-bottom: 0.625rem;
+}
+
+.sf-form-floating > .sf-form-control:-webkit-autofill,
+.sf-form-floating > .sf-form-control-plaintext:-webkit-autofill {
+  padding-top: 1.625rem;
+  padding-bottom: 0.625rem;
+}
+
+.sf-form-floating > .sf-form-select {
+  padding-top: 1.625rem;
+  padding-bottom: 0.625rem;
+  padding-left: 0.75rem;
+}
+
+.sf-form-floating > .sf-form-control:focus ~ label,
+.sf-form-floating > .sf-form-control:not(:placeholder-shown) ~ label,
+.sf-form-floating > .sf-form-control-plaintext ~ label,
+.sf-form-floating > .sf-form-select ~ label {
+  transform: scale(0.85) translateY(-0.5rem) translateX(0.15rem);
+}
+
+.sf-form-floating > .sf-form-control:-webkit-autofill ~ label {
+  transform: scale(0.85) translateY(-0.5rem) translateX(0.15rem);
+}
+
+.sf-form-floating > textarea:focus ~ label::after,
+.sf-form-floating > textarea:not(:placeholder-shown) ~ label::after {
+  position: absolute;
+  inset: 1rem 0.375rem;
+  z-index: -1;
+  height: 1.5em;
+  content: "";
+  background-color: var(--background);
+  border-radius: .375rem;
+}
+
+.sf-form-floating > textarea:disabled ~ label::after {
+  background-color: var(--muted);
+}
+
+.sf-form-floating > .sf-form-control-plaintext ~ label {
+  border-width: 1px 0;
+}
+
+.sf-form-floating > :disabled ~ label,
+.sf-form-floating > .sf-form-control:disabled ~ label {
+  color: #6c757d;
+}
+
+.sf-input-group {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  width: 100%;
+}
+
+.sf-input-group > .sf-form-control,
+.sf-input-group > .sf-form-select,
+.sf-input-group > .sf-form-floating {
+  position: relative;
+  flex: 1 1 auto;
+  width: 1%;
+  min-width: 0;
+}
+
+.sf-input-group > .sf-form-control:focus,
+.sf-input-group > .sf-form-select:focus,
+.sf-input-group > .sf-form-floating:focus-within {
+  z-index: 5;
+}
+
+.sf-input-group .btn {
+  position: relative;
+  z-index: 2;
+}
+
+.sf-input-group .btn:focus {
+  z-index: 5;
+}
+
+.sf-input-group-text {
+  display: flex;
+  align-items: center;
+  padding: 0.375rem 0.75rem;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--foreground);
+  text-align: center;
+  white-space: nowrap;
+  background-color: var(--tertiary);
+  border: 1px solid var(--input);
+  border-radius: .375rem;
+}
+
+.sf-input-group-lg > .sf-form-control,
+.sf-input-group-lg > .sf-form-select,
+.sf-input-group-lg > .sf-input-group-text,
+.sf-input-group-lg > .btn {
+  padding: 0.5rem 1rem;
+  font-size: 1.25rem;
+  border-radius: .5rem;
+}
+
+.sf-input-group-sm > .sf-form-control,
+.sf-input-group-sm > .sf-form-select,
+.sf-input-group-sm > .sf-input-group-text,
+.sf-input-group-sm > .btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  border-radius: .25rem;
+}
+
+.sf-input-group-lg > .sf-form-select,
+.sf-input-group-sm > .sf-form-select {
+  padding-right: 3rem;
+}
+
+.sf-input-group:not(.has-validation) > :not(:last-child):not(.dropdown-toggle):not(.dropdown-menu):not(.sf-form-floating),
+.sf-input-group:not(.has-validation) > .dropdown-toggle:nth-last-child(n+3),
+.sf-input-group:not(.has-validation) > .sf-form-floating:not(:last-child) > .sf-form-control,
+.sf-input-group:not(.has-validation) > .sf-form-floating:not(:last-child) > .sf-form-select {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.sf-input-group.has-validation > :nth-last-child(n+3):not(.dropdown-toggle):not(.dropdown-menu):not(.sf-form-floating),
+.sf-input-group.has-validation > .dropdown-toggle:nth-last-child(n+4),
+.sf-input-group.has-validation > .sf-form-floating:nth-last-child(n+3) > .sf-form-control,
+.sf-input-group.has-validation > .sf-form-floating:nth-last-child(n+3) > .sf-form-select {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.sf-input-group > .sf-form-floating:not(:first-child) > .sf-form-control,
+.sf-input-group > .sf-form-floating:not(:first-child) > .sf-form-select {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.sf-form-control.is-invalid {
+  border-color: var(--destructive);
+  padding-right: calc(1.5em + 0.75rem);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right calc(0.375em + 0.1875rem) center;
+  background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+.sf-form-control.is-invalid:focus {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--destructive) 25%, transparent);
+}
+
+textarea.sf-form-control.is-invalid {
+  padding-right: calc(1.5em + 0.75rem);
+  background-position: top calc(0.375em + 0.1875rem) right calc(0.375em + 0.1875rem);
+}
+
+.sf-form-select.is-invalid {
+  border-color: var(--destructive);
+}
+
+.sf-form-select.is-invalid:not([multiple]):not([size]),
+.sf-form-select.is-invalid:not([multiple])[size="1"] {
+  --sf-form-select-bg-icon: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+  padding-right: 4.125rem;
+  background-position: right 0.75rem center, center right 2.25rem;
+  background-size: 16px 12px, calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+.sf-form-select.is-invalid:focus {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--destructive) 25%, transparent);
+}
+
+.sf-form-control-color.is-invalid {
+  width: calc(3rem + calc(1.5em + 0.75rem));
+}
+
+.form-check-input.is-invalid ~ .sf-form-check-label {
+  color: var(--destructive);
+}
+
+.sf-input-group > .sf-form-control:not(:focus).is-invalid,
+.sf-input-group > .sf-form-select:not(:focus).is-invalid,
+.sf-input-group > .sf-form-floating:not(:focus-within).is-invalid {
+  z-index: 4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-form-control {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-form-control::-webkit-file-upload-button {
+    -webkit-transition: none;
+    transition: none;
+  }
+  .sf-form-control::file-selector-button {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-form-select {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-form-range::-webkit-slider-thumb {
+    -webkit-transition: none;
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-form-range::-moz-range-thumb {
+    -moz-transition: none;
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-form-floating > label {
+    transition: none;
+  }
+}
+
+/* A LabelColumns form group: label and value on one 12-column grid, Bootstrap's gutter between them. */
+.sf-form-group-columns {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: 1.5rem;
+}
+
+.sf-form-group-columns > * {
+  grid-column: span 12 / span 12;
+  min-width: 0;
+}

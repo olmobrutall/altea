@@ -316,12 +316,12 @@ export default function TypeRulePackControl({ ctx, ref }: { ctx: TypeContext<Typ
 
     return (
         <div>
-            <div className="form-compact mb-2">
+            <div className="sf-form-compact mb-2">
                 <EntityLine ctx={ctx.subCtx(f => f.role)} readOnly={true} />
                 <AutoLine ctx={ctx.subCtx(f => f.strategy)} readOnly={true} />
             </div>
             <div className="mb-2" style={{ maxWidth: "44rem" }}>
-                <input type="text" className="form-control form-control-sm" placeholder="Auth-!overriden+!conditions"
+                <input type="text" className="sf-form-control sf-form-control-sm" placeholder="Auth-!overriden+!conditions"
                     title="+term / -term (the last matching term decides), * = all, !overriden, !conditions"
                     value={filter} onChange={e => setFilter(e.currentTarget.value)} />
             </div>

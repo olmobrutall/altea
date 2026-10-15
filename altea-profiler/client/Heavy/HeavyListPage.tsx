@@ -82,7 +82,7 @@ export default function HeavyList(): React.JSX.Element {
             <h1 className="text-display-6 font-light">{HeavyProfilerMessage.HeavyProfiler.niceToString()}</h1>
             <br />
             <div className="btn-toolbar" style={{ float: "right" }}>
-                <input key={fileVer} type="file" className="form-control" onChange={handleInputChange} style={{ display: "inline", float: "left", width: "inherit" }} />
+                <input key={fileVer} type="file" className="sf-form-control" onChange={handleInputChange} style={{ display: "inline", float: "left", width: "inherit" }} />
                 <button type="button" onClick={handleUpload} className="btn btn-info" aria-disabled={!fileToUpload} disabled={!fileToUpload}><FontAwesomeIcon aria-hidden={true} icon="cloud-arrow-up" /> {HeavyProfilerMessage.Upload.niceToString()}</button>
             </div>
             <div className="btn-toolbar">

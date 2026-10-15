@@ -47,7 +47,7 @@ export class StyleContext {
     this.styleOptions = styleOptions || {};
 
     if (this.styleOptions.labelColumns && !this.styleOptions.valueColumns)
-      this.styleOptions.valueColumns = StyleContext.bsColumnsInvert(toBsColumn(this.styleOptions.labelColumns));
+      this.styleOptions.valueColumns = StyleContext.bsColumnsInvert(toLabelLayout(this.styleOptions.labelColumns));
   }
 
   static default: StyleContext = new StyleContext(undefined,
@@ -72,28 +72,28 @@ export class StyleContext {
 
   get formGroupClass(): string | undefined {
     switch (this.formSize) {
-      case "xs": return "form-group form-group-xs";
-      case "sm": return "form-group form-group-sm";
-      case "md": return "form-group";
-      case "lg": return "form-group form-group-lg";
+      case "xs": return "sf-form-group sf-form-group-xs";
+      case "sm": return "sf-form-group sf-form-group-sm";
+      case "md": return "sf-form-group";
+      case "lg": return "sf-form-group sf-form-group-lg";
       default: throw new Error("Unexpected formSize " + this.formSize);
     }
   }
 
   get colFormLabelClass(): string | undefined {
     switch (this.formSize) {
-      case "xs": return "col-form-label col-form-label-xs";
-      case "sm": return "col-form-label col-form-label-sm";
-      case "md": return "col-form-label";
-      case "lg": return "col-form-label col-form-label-lg";
+      case "xs": return "sf-col-form-label sf-col-form-label-xs";
+      case "sm": return "sf-col-form-label sf-col-form-label-sm";
+      case "md": return "sf-col-form-label";
+      case "lg": return "sf-col-form-label sf-col-form-label-lg";
       default: throw new Error("Unexpected formSize " + this.formSize);
     }
   }
 
   get labelClass(): string | undefined {
     switch (this.formSize) {
-      case "xs": return "label-xs";
-      case "sm": return "label-sm";
+      case "xs": return "sf-form-label-xs";
+      case "sm": return "sf-form-label-sm";
       case "md": return undefined;
       case "lg": return undefined;
       default: throw new Error("Unexpected formSize " + this.formSize);
@@ -112,50 +112,50 @@ export class StyleContext {
 
   get inputGroupClass(): string | undefined {
     switch (this.formSize) {
-      case "xs": return "input-group input-group-xs";
-      case "sm": return "input-group input-group-sm";
-      case "md": return "input-group";
-      case "lg": return "input-group input-group-lg";
+      case "xs": return "sf-input-group sf-input-group-xs";
+      case "sm": return "sf-input-group sf-input-group-sm";
+      case "md": return "sf-input-group";
+      case "lg": return "sf-input-group sf-input-group-lg";
       default: throw new Error("Unexpected formSize " + this.formSize);
     }
   }
 
   inputGroupVerticalClass(mode: "before" | "after"): string | undefined {
     switch (this.formSize) {
-      case "xs": return "input-group-vertical " + mode + " input-group-xs";
-      case "sm": return "input-group-vertical " + mode + " input-group-sm";
-      case "md": return "input-group-vertical " + mode;
-      case "lg": return "input-group-vertical " + mode + " input-group-lg";
+      case "xs": return "sf-input-group-vertical " + mode + " sf-input-group-xs";
+      case "sm": return "sf-input-group-vertical " + mode + " sf-input-group-sm";
+      case "md": return "sf-input-group-vertical " + mode;
+      case "lg": return "sf-input-group-vertical " + mode + " sf-input-group-lg";
       default: throw new Error("Unexpected formSize " + this.formSize);
     }
   }
 
   get formControlClass(): string | undefined {
     switch (this.formSize) {
-      case "xs": return "form-control form-control-xs";
-      case "sm": return "form-control form-control-sm";
-      case "md": return "form-control form-control-md";
-      case "lg": return "form-control form-control-lg";
+      case "xs": return "sf-form-control sf-form-control-xs";
+      case "sm": return "sf-form-control sf-form-control-sm";
+      case "md": return "sf-form-control sf-form-control-md";
+      case "lg": return "sf-form-control sf-form-control-lg";
       default: throw new Error("Unexpected formSize " + this.formSize);
     }
   }
 
   get formSelectClass(): string | undefined {
     switch (this.formSize) {
-      case "xs": return "form-select form-select-xs";
-      case "sm": return "form-select form-select-sm";
-      case "md": return "form-select";
-      case "lg": return "form-select form-select-lg";
+      case "xs": return "sf-form-select sf-form-select-xs";
+      case "sm": return "sf-form-select sf-form-select-sm";
+      case "md": return "sf-form-select";
+      case "lg": return "sf-form-select sf-form-select-lg";
       default: throw new Error("Unexpected formSize " + this.formSize);
     }
   }
 
   get formControlPlainTextClass(): string | undefined {
     switch (this.formSize) {
-      case "xs": return "form-control-plaintext form-control-xs";
-      case "sm": return "form-control-plaintext form-control-sm";
-      case "md": return "form-control-plaintext form-control-md";
-      case "lg": return "form-control-plaintext form-control-lg";
+      case "xs": return "sf-form-control-plaintext sf-form-control-xs";
+      case "sm": return "sf-form-control-plaintext sf-form-control-sm";
+      case "md": return "sf-form-control-plaintext sf-form-control-md";
+      case "lg": return "sf-form-control-plaintext sf-form-control-lg";
       default: throw new Error("Unexpected formSize " + this.formSize);
     }
   }
@@ -182,20 +182,20 @@ export class StyleContext {
     return this.styleOptions.readonlyAsPlainText != undefined ? this.styleOptions.readonlyAsPlainText : this.parent.readonlyAsPlainText;
   }
 
-  get labelColumns(): BsColumns {
-    return this.styleOptions.labelColumns != undefined ? toBsColumn(this.styleOptions.labelColumns) : this.parent.labelColumns;
+  get labelColumns(): LabelLayout {
+    return this.styleOptions.labelColumns != undefined ? toLabelLayout(this.styleOptions.labelColumns) : this.parent.labelColumns;
   }
 
   get labelColumnsCss(): string {
-    return StyleContext.bsColumnsCss(this.labelColumns);
+    return StyleContext.labelLayoutCss(this.labelColumns);
   }
 
-  get valueColumns(): BsColumns {
-    return this.styleOptions.valueColumns != undefined ? toBsColumn(this.styleOptions.valueColumns) : this.parent.valueColumns;
+  get valueColumns(): LabelLayout {
+    return this.styleOptions.valueColumns != undefined ? toLabelLayout(this.styleOptions.valueColumns) : this.parent.valueColumns;
   }
 
   get valueColumnsCss(): string {
-    return StyleContext.bsColumnsCss(this.valueColumns);
+    return StyleContext.labelLayoutCss(this.valueColumns);
   }
 
   get readOnly(): boolean {
@@ -218,16 +218,22 @@ export class StyleContext {
   }
 
 
-  static bsColumnsCss(bsColumns: BsColumns): string {
+  /** The grid spans of one side of a LabelColumns form group (inside `sf-form-group-columns`). */
+  static labelLayoutCss(layout: LabelLayout): string {
     return [
-      (bsColumns.xs ? "col-xs-" + bsColumns.xs : ""),
-      (bsColumns.sm ? "col-sm-" + bsColumns.sm : ""),
-      (bsColumns.md ? "col-md-" + bsColumns.md : ""),
-      (bsColumns.lg ? "col-lg-" + bsColumns.lg : ""),
+      (layout.xs ? "col-span-" + layout.xs : ""),
+      (layout.sm ? "sm:col-span-" + layout.sm : ""),
+      (layout.md ? "md:col-span-" + layout.md : ""),
+      (layout.lg ? "lg:col-span-" + layout.lg : ""),
     ].filter(a => a != "").join(" ");
   }
 
-  static bsColumnsInvert(bs: BsColumns): BsColumns {
+  /** @deprecated Use {@link labelLayoutCss}. */
+  static bsColumnsCss(layout: LabelLayout): string {
+    return StyleContext.labelLayoutCss(layout);
+  }
+
+  static bsColumnsInvert(bs: LabelLayout): LabelLayout {
     return {
       xs: bs.xs ? (12 - bs.xs) : undefined,
       sm: (12 - bs.sm),
@@ -237,8 +243,8 @@ export class StyleContext {
   }
 }
 
-function toBsColumn(bsColumnOrNumber: BsColumns | number): BsColumns {
-  return typeof (bsColumnOrNumber) == "number" ? { sm: bsColumnOrNumber } : bsColumnOrNumber;
+function toLabelLayout(layoutOrNumber: LabelLayout | number): LabelLayout {
+  return typeof (layoutOrNumber) == "number" ? { sm: layoutOrNumber } : layoutOrNumber;
 }
 
 export interface StyleOptions {
@@ -247,19 +253,23 @@ export interface StyleOptions {
   placeholderLabels?: boolean;
   titleLabels?: boolean;
   readonlyAsPlainText?: boolean;
-  labelColumns?: BsColumns | number;
-  valueColumns?: BsColumns | number;
+  labelColumns?: LabelLayout | number;
+  valueColumns?: LabelLayout | number;
   readOnly?: boolean;
   frame?: EntityFrame;
 }
 
 
-export interface BsColumns {
+/** How many of the 12 columns the label (or the value) of a LabelColumns form group takes, per breakpoint. */
+export interface LabelLayout {
   xs?: number;
   sm: number;
   md?: number;
   lg?: number;
 }
+
+/** @deprecated Use {@link LabelLayout}. */
+export type BsColumns = LabelLayout;
 
 
 // ALTEA sweep helpers: altea's PropertyRoute is string/route-based (add(name)), not lambda-based

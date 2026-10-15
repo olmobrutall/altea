@@ -244,8 +244,8 @@ table.sf-search-results th.sf-current-column {
 }
 
     /*Avoid EntityLines to get on top of sticky headers*/
-    .sf-scroll-table-container .form-control,
-    .sf-scroll-table-container .input-group,
+    .sf-scroll-table-container .sf-form-control,
+    .sf-scroll-table-container .sf-input-group,
     .sf-scroll-table-container .btn,
     .sf-scroll-table-container .btn {
         position: static !important;

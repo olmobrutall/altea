@@ -535,7 +535,7 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
             </LinkButton>
 
             <div className="items-center flex">
-              <select className="form-select form-select-xs sf-group-selector font-bold me-2 w-auto" value={fg.groupOperation as any} disabled={readOnly} onChange={handleChangeOperation}>
+              <select className="sf-form-select sf-form-select-xs sf-group-selector font-bold me-2 w-auto" value={fg.groupOperation as any} disabled={readOnly} onChange={handleChangeOperation}>
                 {Enum.values(FilterGroupOperation).map((ft, i) => <option key={i} value={ft as any}>{ft == "Or" ? SearchMessage.OrGroup.niceToString() : SearchMessage.AndGroup.niceToString()}</option>)}
               </select>
               <small style={{ whiteSpace: "nowrap" }}>
@@ -853,7 +853,7 @@ export function FilterConditionComponent(p: FilterConditionComponentProps): Reac
         </td>
         <td className="sf-filter-operation">
           {f.token && f.token.filterType && f.operation &&
-            <select className="form-select form-select-xs" aria-label={FilterFieldMessage.Operator.niceToString()}
+            <select className="sf-form-select sf-form-select-xs" aria-label={FilterFieldMessage.Operator.niceToString()}
               value={f.operation} disabled={readOnly} onChange={handleChangeOperation}>
               {f.token.filterType && getFilterOperations(f.token)
                 .map((ft, i) => <option key={i} value={ft as any} title={Enum.niceName(FilterOperation, ft)}>{niceNameOrSymbol(ft)}</option>)}
@@ -939,7 +939,7 @@ export function PinnedFilterEditor(p: PinnedFilterEditorProps): React.ReactEleme
     <>
       <td className="sf-pinned-filter-cell">
         <div>
-          <input type="text" className="form-control form-control-xs" placeholder={SearchMessage.Label.niceToString()} readOnly={p.readonly}
+          <input type="text" className="sf-form-control sf-form-control-xs" placeholder={SearchMessage.Label.niceToString()} readOnly={p.readonly}
             value={pinned.label ?? ""}
             onChange={e => { pinned.label = e.currentTarget.value; p.onChange(); }} />
         </div>
@@ -986,7 +986,7 @@ export function PinnedFilterEditor(p: PinnedFilterEditorProps): React.ReactEleme
         format={numberFormat}
 
         onChange={n => { binding.setValue(n == null ? undefined : n as number); p.onChange(); }}
-        validateKey={isNumberKey} formControlClass="form-control form-control-xs" htmlAttributes={{ placeholder: placeholder.toString(), title: title, style: { width: "60px" } }} />
+        validateKey={isNumberKey} formControlClass="sf-form-control sf-form-control-xs" htmlAttributes={{ placeholder: placeholder.toString(), title: title, style: { width: "60px" } }} />
     );
   }
 

@@ -132,7 +132,7 @@ export function FindOptionsLine(p: FindOptionsLineProps): React.JSX.Element {
     const fo = p.binding.getValue();
 
     return (
-        <div className="form-group">
+        <div className="sf-form-group">
             <label className="control-label">
                 {renderMember(fo)}
             </label>
@@ -191,7 +191,7 @@ export function QueryTokenLine(p: QueryTokenLineProps): React.JSX.Element {
     const token = p.binding.getValue();
 
     return (
-        <div className="form-group">
+        <div className="sf-form-group">
             <label className="control-label">
                 {renderMember(token)} {p.queryKey && <small>({getQueryNiceName(p.queryKey)})</small>}
             </label>
@@ -281,7 +281,7 @@ export function FindOptionsComponent(p: FindOptionsComponentProps): React.JSX.El
     const fo = p.findOptions;
 
     return (
-        <div className="form-sm filter-options code-container">
+        <div className="sf-form-sm filter-options code-container">
             <QueryKeyLine queryKey={fo.queryName} label="queryKey" onChange={handleChangeQueryKey} />
 
             {fo.queryName &&
@@ -307,14 +307,14 @@ export function QueryKeyLine(p: { queryKey: string | undefined; label: string; o
     }
 
     return (
-        <div className="form-group">
+        <div className="sf-form-group">
             <label className="control-label">
                 {p.label}
             </label>
             <div style={{ position: "relative" }}>
                 {p.queryKey
-                    ? <div className="input-group">
-                        <span className="form-control btn-light sf-entity-line-entity">
+                    ? <div className="sf-input-group">
+                        <span className="sf-form-control btn-light sf-entity-line-entity">
                             {p.queryKey}
                         </span>
                         <button type="button" className={classes("btn btn-light", "sf-line-button", "sf-remove")}
@@ -324,7 +324,7 @@ export function QueryKeyLine(p: { queryKey: string | undefined; label: string; o
                         </button>
                     </div>
                     : <Typeahead
-                        inputAttrs={{ className: "form-control sf-entity-autocomplete" }}
+                        inputAttrs={{ className: "sf-form-control sf-entity-autocomplete" }}
                         getItems={handleGetItems}
                         onSelect={item => { p.onChange(item as string); return ""; }} />}
             </div>
@@ -366,7 +366,7 @@ function QueryTokenBuilderString(p: QueryTokenBuilderStringProps): React.JSX.Ele
         return qt;
 
     return (
-        <div className="form-group">
+        <div className="sf-form-group">
             <label className="control-label">
                 {p.label}
             </label>

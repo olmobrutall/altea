@@ -41,7 +41,7 @@ export function CodeSyncWidget(p: CodeSyncWidgetProps): React.JSX.Element {
             <EntityCombo ctx={folderCtx} onChange={forceUpdate}
                 extraButtons={() => m.syncFolder != null && described != undefined &&
                     <Link to={"/assetSync?folder=" + encodeURIComponent(status!.folder)} title={title}
-                        className={`sf-line-button input-group-text text-${described.color}`}>
+                        className={`sf-line-button sf-input-group-text text-${described.color}`}>
                         <FontAwesomeIcon aria-hidden={true} icon={described.icon} />
                     </Link>} />
         </div>

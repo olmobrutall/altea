@@ -86,7 +86,7 @@
   text-overflow: ellipsis;
 }
 
-.sidebar-inner .sf-entity-line .input-group .form-control {
+.sidebar-inner .sf-entity-line .sf-input-group .sf-form-control {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

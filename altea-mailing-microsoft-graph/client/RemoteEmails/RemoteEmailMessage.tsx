@@ -86,9 +86,9 @@ function CategoriesLine(p: { ctx: TypeContext<RemoteEmailMessageModel> }): React
 
     return (
         <div className={ctx.formGroupClass}>
-            <label className="col-form-label col-sm-3">{ctx.niceName(a => a.categories)}</label>
+            <label className="sf-col-form-label col-sm-3">{ctx.niceName(a => a.categories)}</label>
             <div className="col-sm-9">
-                <span className="form-control-plaintext">{ctx.value.categories.join(", ")}</span>
+                <span className="sf-form-control-plaintext">{ctx.value.categories.join(", ")}</span>
             </div>
         </div>
     );

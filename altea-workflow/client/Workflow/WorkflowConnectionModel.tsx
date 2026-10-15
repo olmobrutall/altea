@@ -42,7 +42,7 @@ export default function WorkflowConnectionModelComponent(
             {ctx.value.type === ConnectionType.Decision &&
                 <FormGroup ctx={ctx.subCtx(e => e.decisionOptionName)} label={ctx.niceName(e => e.decisionOptionName)}>
                     {inputId =>
-                        <select id={inputId} value={ctx.value.decisionOptionName ?? ""} className="form-select"
+                        <select id={inputId} value={ctx.value.decisionOptionName ?? ""} className="sf-form-select"
                             onChange={handleDecisionNameChange}>
                             <option value="" />
                             {(ctx.value.decisionOptions ?? []).map((d, i) =>

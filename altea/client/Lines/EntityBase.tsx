@@ -260,7 +260,7 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
     if (!this.props.view)
       return undefined;
     return (
-      <LinkButton className={classes("sf-line-button", "sf-view", btn ?  "input-group-text" : undefined)}
+      <LinkButton className={classes("sf-line-button", "sf-view", btn ?  "sf-input-group-text" : undefined)}
         onClick={this.handleViewClick}
         title={this.props.ctx.titleLabels ? EntityBaseController.buttonTitle(EntityControlMessage.View.niceToString(), this.props.label) : undefined}>
         {EntityBaseController.getViewIcon()}
@@ -379,7 +379,7 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
       return undefined;
 
     return (
-      <LinkButton className={classes("sf-line-button", "sf-create", btn ? "input-group-text" : undefined)}
+      <LinkButton className={classes("sf-line-button", "sf-create", btn ? "sf-input-group-text" : undefined)}
         onClick={this.handleCreateClick}
         title={this.props.ctx.titleLabels ? (createMessage ?? EntityBaseController.buttonTitle(EntityControlMessage.Create.niceToString(), this.props.label)) : undefined}>
         {EntityBaseController.getCreateIcon()}
@@ -392,7 +392,7 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
       return undefined;
 
     return (
-      <LinkButton className={classes("sf-line-button", "sf-paste", btn ? "input-group-text" : undefined)}
+      <LinkButton className={classes("sf-line-button", "sf-paste", btn ? "sf-input-group-text" : undefined)}
         onClick={this.handlePasteClick}
         title={EntityControlMessage.Paste.niceToString()}>
         {EntityBaseController.getPasteIcon()}
@@ -452,7 +452,7 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
       return undefined;
 
     return (
-      <LinkButton className={classes("sf-line-button", "sf-find", btn ? "input-group-text" : undefined)}
+      <LinkButton className={classes("sf-line-button", "sf-find", btn ? "sf-input-group-text" : undefined)}
         onClick={this.handleFindClick}
         title={this.props.ctx.titleLabels ? EntityBaseController.buttonTitle(EntityControlMessage.Find.niceToString(), this.props.label) : undefined}>
         {EntityBaseController.getFindIcon()}
@@ -478,7 +478,7 @@ export class EntityBaseController<P extends EntityBaseProps<V>, V extends BaseEn
       return undefined;
 
     return (
-      <LinkButton className={classes("sf-line-button", "sf-remove", btn ? "input-group-text" : undefined)}
+      <LinkButton className={classes("sf-line-button", "sf-remove", btn ? "sf-input-group-text" : undefined)}
         onClick={this.handleRemoveClick}
         title={this.props.ctx.titleLabels ? EntityBaseController.buttonTitle(EntityControlMessage.Remove.niceToString(), this.props.label) : undefined}>
         {EntityBaseController.getRemoveIcon()}

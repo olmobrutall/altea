@@ -92,8 +92,8 @@ export function FormGroup(p: FormGroupProps): React.ReactElement {
   );
 
   const formGroupClasses = classes(ctx.formGroupClass,
-    ctx.formGroupStyle == "LabelColumns" ? "row" : undefined,
-    ctx.formGroupStyle == "FloatingLabel" ? "form-floating" : undefined,
+    ctx.formGroupStyle == "LabelColumns" ? "sf-form-group-columns" : undefined,
+    ctx.formGroupStyle == "FloatingLabel" ? "sf-form-floating" : undefined,
     errorClass);
   return (
     <div
@@ -103,20 +103,20 @@ export function FormGroup(p: FormGroupProps): React.ReactElement {
       className={classes(p.htmlAttributes?.className, formGroupClasses)}
       {...errorAtts}>
       {(ctx.formGroupStyle == "Basic" || ctx.formGroupStyle == "LabelColumns" || ctx.formGroupStyle == "SrOnly") && label}
-      {p.helpTextOnTop && ctx.formGroupStyle != "LabelColumns" && <small className="form-text block">{p.helpTextOnTop}</small>}
+      {p.helpTextOnTop && ctx.formGroupStyle != "LabelColumns" && <small className="sf-form-text block">{p.helpTextOnTop}</small>}
       {
         ctx.formGroupStyle != "LabelColumns" ? p.children?.(controlId) :
           (
             <div className={ctx.valueColumnsCss} >
-              {p.helpTextOnTop && ctx.formGroupStyle == "LabelColumns" && <small className="form-text block">{p.helpTextOnTop}</small>}
+              {p.helpTextOnTop && ctx.formGroupStyle == "LabelColumns" && <small className="sf-form-text block">{p.helpTextOnTop}</small>}
               {p.children?.(controlId)}
               {/* The other half of the same reference: the help text carries the id aria-describedby names. */}
-              {p.helpText && ctx.formGroupStyle == "LabelColumns" && <small id={tCtx.getUniqueId("help")} className="form-text block">{p.helpText}</small>}
+              {p.helpText && ctx.formGroupStyle == "LabelColumns" && <small id={tCtx.getUniqueId("help")} className="sf-form-text block">{p.helpText}</small>}
             </div>
           )
       }
       {(ctx.formGroupStyle == "BasicDown" || ctx.formGroupStyle == "FloatingLabel") && label}
-      {p.helpText && ctx.formGroupStyle != "LabelColumns" && <small id={tCtx.getUniqueId("help")} className="form-text block">{p.helpText}</small>}
+      {p.helpText && ctx.formGroupStyle != "LabelColumns" && <small id={tCtx.getUniqueId("help")} className="sf-form-text block">{p.helpText}</small>}
       {errorMessage}
     </div>
   );

@@ -65,8 +65,8 @@ export function TranslateSearchBox(p: { filter: string; setFilter: (newFilter: s
     const [tmpFilter, setTmpFilter] = React.useState(p.filter);
 
     return (
-        <form onSubmit={e => { e.preventDefault(); p.setFilter(tmpFilter); }} className="input-group">
-            <input type="text" className="form-control"
+        <form onSubmit={e => { e.preventDefault(); p.setFilter(tmpFilter); }} className="sf-input-group">
+            <input type="text" className="sf-form-control"
                 placeholder={TranslationMessage.Search.niceToString()}
                 aria-label={TranslationMessage.Search.niceToString()}
                 value={tmpFilter} onChange={e => setTmpFilter(e.currentTarget.value)} />

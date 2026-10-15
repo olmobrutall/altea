@@ -1639,10 +1639,10 @@ NodeUtils.register<ButtonNode>({
             <ExpressionOrValueComponent dn={dn} binding={Binding.create(dn.node, n => n.size)} type="string" defaultValue={null}
                 options={["lg", "md", "sm", "xs"] as BsSize[]} />
             <ExpressionOrValueComponent dn={dn} binding={Binding.create(dn.node, n => n.icon)} type="string" defaultValue={null}
-                onRenderValue={(val, e) => <IconTypeahead icon={val as string | null | undefined} formControlClass="form-control form-control-xs" onChange={newIcon => e.updateValue(newIcon)} />} />
+                onRenderValue={(val, e) => <IconTypeahead icon={val as string | null | undefined} formControlClass="sf-form-control sf-form-control-xs" onChange={newIcon => e.updateValue(newIcon)} />} />
             <ExpressionOrValueComponent dn={dn} binding={Binding.create(dn.node, n => n.iconColor)} type="string" defaultValue={null}
                 onRenderValue={(val, e) => <input type="color" value={val as string | undefined}
-                    className="form-control form-control-xs" onChange={ev => e.updateValue(ev.currentTarget.value)} />} />
+                    className="sf-form-control sf-form-control-xs" onChange={ev => e.updateValue(ev.currentTarget.value)} />} />
             <ExpressionOrValueComponent dn={dn} binding={Binding.create(dn.node, n => n.active)} type="boolean" defaultValue={null} />
             <ExpressionOrValueComponent dn={dn} binding={Binding.create(dn.node, n => n.disabled)} type="boolean" defaultValue={null} />
             <ExpressionOrValueComponent dn={dn} binding={Binding.create(dn.node, n => n.onClick)} type={null} defaultValue={false} exampleExpression={"/* you must declare 'forceUpdate' in locals */ \n(e) => locals.forceUpdate()"} />

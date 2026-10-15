@@ -383,7 +383,7 @@ function FieldRecipe(p: {
                             <div>
                                 <Check label={M.Lite.niceToString()} checked={shape.lite}
                                     onChange={v => setType({ ...shape, lite: v })} />
-                                <div className="form-text mt-0">{M.LiteHelp.niceToString()}</div>
+                                <div className="sf-form-text mt-0">{M.LiteHelp.niceToString()}</div>
                             </div>
                         </Row>}
                     {!shape.array && !isCollectionRow &&
@@ -432,7 +432,7 @@ function FieldRecipe(p: {
                     </button>
                 </div>)}
             {available.length > 0 &&
-                <select className="form-select form-select-sm" value=""
+                <select className="sf-form-select sf-form-select-sm" value=""
                     onChange={e => {
                         const recipe = validatorRecipes.find(v => v.name === e.currentTarget.value);
                         if (recipe != null)
@@ -526,7 +526,7 @@ function AddMemberForm(p: {
         <div className="mb-2">
             <div className="font-semibold mb-1">{p.title}</div>
             <Row label={M.Name.niceToString()}>
-                <input ref={nameInput} className="form-control form-control-sm" value={name} onChange={e => setName(e.currentTarget.value)} />
+                <input ref={nameInput} className="sf-form-control sf-form-control-sm" value={name} onChange={e => setName(e.currentTarget.value)} />
             </Row>
             <Row label={p.typeLabel}>
                 <TypeInput value={type} knownTypes={p.knownTypes} onChange={setType} />
@@ -656,12 +656,12 @@ function OperationsRecipe(p: {
 
             <div className="font-semibold mt-2 mb-1">{M.AddOperation.niceToString()}</div>
             <Row label={M.Kind.niceToString()}>
-                <select className="form-select form-select-sm" value={kind} onChange={e => setKind(e.currentTarget.value as OperationKind)}>
+                <select className="sf-form-select sf-form-select-sm" value={kind} onChange={e => setKind(e.currentTarget.value as OperationKind)}>
                     {operationKinds.map(k => <option key={k} value={k}>{k}</option>)}
                 </select>
             </Row>
             <Row label={M.Name.niceToString()}>
-                <input className="form-control form-control-sm" value={name} placeholder={kind === "Save" ? "Save" : "Bake"}
+                <input className="sf-form-control sf-form-control-sm" value={name} placeholder={kind === "Save" ? "Save" : "Bake"}
                     onChange={e => setName(e.currentTarget.value)} onKeyDown={e => { if (e.key === "Enter") add(); }} />
             </Row>
             <Row label="">
@@ -781,7 +781,7 @@ function TypeInput(p: { value: string; knownTypes: KnownType[]; onChange?: (text
 
     return (
         <Typeahead value={text} minLength={0} itemsDelay={0}
-            inputAttrs={{ className: "form-control form-control-sm" }}
+            inputAttrs={{ className: "sf-form-control sf-form-control-sm" }}
             getItems={query => {
                 const q = query.toLowerCase();
                 const matches = p.knownTypes.filter(t => t.name.toLowerCase().includes(q));
@@ -824,7 +824,7 @@ function stringArg(d: DecoratorInfo | undefined): string {
 function Row(p: { label: string; children: React.ReactNode }): React.JSX.Element {
     return (
         <div className="row g-1 items-center mb-1">
-            <label className="col-4 col-form-label col-form-label-sm">{p.label}</label>
+            <label className="col-4 sf-col-form-label sf-col-form-label-sm">{p.label}</label>
             <div className="col-8 flex gap-2 items-center flex-wrap">{p.children}</div>
         </div>
     );
@@ -832,7 +832,7 @@ function Row(p: { label: string; children: React.ReactNode }): React.JSX.Element
 
 function Check(p: { label: string; checked: boolean; onChange: (value: boolean) => void }): React.JSX.Element {
     return (
-        <label className="form-check-label flex items-center gap-1">
+        <label className="sf-form-check-label flex items-center gap-1">
             <input type="checkbox" className="form-check-input m-0" checked={p.checked} onChange={e => p.onChange(e.currentTarget.checked)} />
             {p.label}
         </label>
@@ -850,7 +850,7 @@ function CommitInput(p: { value: string; onCommit: (value: string) => void; list
     };
 
     return (
-        <input className="form-control form-control-sm" value={text} list={p.list}
+        <input className="sf-form-control sf-form-control-sm" value={text} list={p.list}
             onChange={e => setText(e.currentTarget.value)} onBlur={commit}
             onKeyDown={e => { if (e.key === "Enter") commit(); }} />
     );

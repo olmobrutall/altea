@@ -70,12 +70,12 @@ export default function ForgotPasswordEmailPage(): React.JSX.Element {
                         <h1 className="sf-entity-title text-h2 font-medium">{LoginAuthMessage.IForgotMyPassword.niceToString()}</h1>
                         <p>{LoginAuthMessage.GiveUsYourUserEmailToResetYourPassword.niceToString()}</p>
 
-                        <div className={classes("form-group mb-4", error("email") && "has-error")}>
-                            <input type="email" className="form-control" id="email" ref={email} autoFocus
+                        <div className={classes("sf-form-group mb-4", error("email") && "has-error")}>
+                            <input type="email" className="sf-form-control" id="email" ref={email} autoFocus
                                 autoComplete="email" onBlur={validateEmail}
                                 placeholder={LoginAuthMessage.EnterYourUserEmail.niceToString()} />
                             {error("email") && <span className="help-block text-destructive">{error("email")}</span>}
-                            {message && <div className="form-text text-destructive">{message}</div>}
+                            {message && <div className="sf-form-text text-destructive">{message}</div>}
                         </div>
 
                         <button type="submit" className="btn btn-primary" id="changePasswordRequest">

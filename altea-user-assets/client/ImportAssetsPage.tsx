@@ -56,7 +56,7 @@ export default function ImportAssetsPage(): React.JSX.Element {
         <div>
             <h2 className="text-display-6 font-light">{UserAssetMessage.ImportUserAssets.niceToString()}</h2>
             <p className="text-muted-foreground">{UserAssetMessage.SelectTheXmlFileWithTheUserAssetsThatYouWantToImport.niceToString()}</p>
-            <input type="file" accept=".xml,.zip" className="form-control mb-4" style={{ maxWidth: "30rem" }} onChange={handleFile} />
+            <input type="file" accept=".xml,.zip" className="sf-form-control mb-4" style={{ maxWidth: "30rem" }} onChange={handleFile} />
 
             {model != null &&
                 <table className="table table-sm">
@@ -79,9 +79,9 @@ export default function ImportAssetsPage(): React.JSX.Element {
                 </table>}
 
             {model != null && zip != null && !done &&
-                <div className="form-check mb-2">
+                <div className="sf-form-check mb-2">
                     <input id="keepOnSync" type="checkbox" className="form-check-input" checked={keepOnSync} onChange={e => setKeepOnSync(e.currentTarget.checked)} />
-                    <label htmlFor="keepOnSync" className="form-check-label">{CodeSyncMessage.KeepThroughTheNextSync.niceToString()}</label>
+                    <label htmlFor="keepOnSync" className="sf-form-check-label">{CodeSyncMessage.KeepThroughTheNextSync.niceToString()}</label>
                 </div>}
 
             {model != null && !done &&

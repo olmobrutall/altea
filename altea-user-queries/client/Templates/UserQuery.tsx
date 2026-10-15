@@ -75,7 +75,7 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
             <AutoLine ctx={ctx.subCtx(e => e.displayName)} />
             <EntityLine ctx={ctx.subCtx(e => e.owner)} />
             <FormGroup ctx={ctx.subCtx(e => e.query)}>
-                {() => query && <span className="form-control-static">{getQueryNiceName(query.key)}</span>}
+                {() => query && <span className="sf-form-control-plaintext">{getQueryNiceName(query.key)}</span>}
             </FormGroup>
 
             <EntityLine ctx={ctx.subCtx(e => e.entityType)} readOnly={ctx.value.appendFilters || undefined} onChange={() => forceUpdate()}
@@ -150,7 +150,7 @@ export default function UserQuery(p: { ctx: TypeContext<UserQueryEntity> }): Rea
                                         onTokenChanged={() => { cctx.value.summaryToken = null; row.forceUpdate(); }}
                                         subTokenOptions={columnSubTokens} />
                                     <div className="flex">
-                                        <label className="col-form-label col-form-label-xs me-2" style={{ minWidth: "140px" }}>
+                                        <label className="sf-col-form-label sf-col-form-label-xs me-2" style={{ minWidth: "140px" }}>
                                             <input type="checkbox" className="form-check-input" disabled={cctx.value.token == null || cctx.readOnly}
                                                 checked={cctx.value.summaryToken != null}
                                                 onChange={() => { cctx.value.summaryToken = cctx.value.summaryToken == null ? seedSummaryToken(cctx.value.token) : null; row.forceUpdate(); }} />

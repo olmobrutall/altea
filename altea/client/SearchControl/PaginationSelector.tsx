@@ -135,7 +135,7 @@ export function PaginationSelector(p: PaginationSelectorProps): React.ReactEleme
             <select
               value={p.pagination.mode}
               onChange={handleMode}
-              className="form-select form-select-xs w-auto sf-pagination-mode mx-1"
+              className="sf-form-select sf-form-select-xs w-auto sf-pagination-mode mx-1"
               aria-label={SearchMessage.PaginationMode.niceToString()}
               aria-required="false"
               aria-readonly="false"
@@ -148,7 +148,7 @@ export function PaginationSelector(p: PaginationSelectorProps): React.ReactEleme
             <select
               value={p.pagination.elementsPerPage!.toString()}
               onChange={handleElementsPerPage}
-              className="form-select form-select-xs w-auto sf-elements-per-page mx-1"
+              className="sf-form-select sf-form-select-xs w-auto sf-elements-per-page mx-1"
               aria-label={SearchMessage.NumberOfElementsForPagination.niceToString()}
               aria-required="false"
               aria-readonly="false"

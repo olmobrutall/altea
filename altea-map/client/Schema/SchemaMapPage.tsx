@@ -134,13 +134,13 @@ export default function SchemaMapPage(): React.JSX.Element | null {
                         <label htmlFor="filter"> {MapMessage.Filter.niceToString()}</label>&nbsp;
                     </div>
                     <div className="col-auto">
-                        <input type="text" className="form-control form-control-sm" id="filter" placeholder="type or package" value={filter} onChange={e => setFilter(e.currentTarget.value)} />
+                        <input type="text" className="sf-form-control sf-form-control-sm" id="filter" placeholder="type or package" value={filter} onChange={e => setFilter(e.currentTarget.value)} />
                     </div>
                     <div className="col-auto">
                         <label htmlFor="color"> {MapMessage.Color.niceToString()}</label>&nbsp;
                     </div>
                     <div className="col-auto">
-                        <select className="form-select form-select-sm" id="color" value={color} onChange={e => setColor(e.currentTarget.value)}>
+                        <select className="sf-form-select sf-form-select-sm" id="color" value={color} onChange={e => setColor(e.currentTarget.value)}>
                             {schemaInfo?.providers.map((a, i) =>
                                 <option key={i} value={a.name}>{a.niceName}</option>)}
                         </select>
@@ -149,7 +149,7 @@ export default function SchemaMapPage(): React.JSX.Element | null {
                         <label htmlFor="showItems"> {MapMessage.Show.niceToString()}</label>&nbsp;
                     </div>
                     <div className="col-auto">
-                        <select className="form-select form-select-sm" id="showItems" value={showRelations} onChange={e => setShowRelations(e.currentTarget.value as RelationFilterMode)}>
+                        <select className="sf-form-select sf-form-select-sm" id="showItems" value={showRelations} onChange={e => setShowRelations(e.currentTarget.value as RelationFilterMode)}>
                             <option value="All">{MapMessage.All.niceToString()}</option>
                             <option value="Selected">{MapMessage.Selected.niceToString()}</option>
                             <option value="SelectedAndNeighbors">{MapMessage.SelectedAndNeighbors.niceToString()}</option>

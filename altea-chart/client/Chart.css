@@ -125,7 +125,7 @@ body.rtl .sf-chart-token .sf-query-token {
     border: 2px solid var(--bs-border-color);
 }
 
-.sf-chart-color-input.form-control {
+.sf-chart-color-input.sf-form-control {
     width: auto !important;
 }
 

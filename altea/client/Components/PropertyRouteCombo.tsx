@@ -42,7 +42,7 @@ export default function PropertyRouteCombo(p: PropertyRouteComboProps): React.JS
     return (
         <FormGroup ctx={p.ctx}>
             {id => (
-                <select id={id} className="form-select form-select-sm" value={p.ctx.value?.path ?? ""}
+                <select id={id} className="sf-form-select sf-form-select-sm" value={p.ctx.value?.path ?? ""}
                     disabled={p.ctx.readOnly}
                     onChange={e => {
                         const path = e.currentTarget.value;

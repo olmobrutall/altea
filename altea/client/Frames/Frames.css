@@ -78,7 +78,7 @@
    uses `gap` for its spacing, so exclude it here to avoid doubling the margins. */
 .btn-toolbar:not(.sf-button-bar) > .btn,
 .btn-toolbar:not(.sf-button-bar) > .btn-group,
-.btn-toolbar:not(.sf-button-bar) > .input-group,
+.btn-toolbar:not(.sf-button-bar) > .sf-input-group,
 .btn-toolbar:not(.sf-button-bar) > .dropdown {
     margin-bottom: 3px;
     margin-right: 5px;

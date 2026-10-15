@@ -16,7 +16,7 @@ export default function EditLinkField(p: AutoLineProps): React.ReactNode {
         <TextBoxLine {...p}
             valueHtmlAttributes={{ placeholder: HtmlEditorMessage.EnterYourUrlHere.niceToString() }}
             extraButtons={() =>
-                <LinkButton className={classes("sf-line-button", "sf-remove", "input-group-text")}
+                <LinkButton className={classes("sf-line-button", "sf-remove", "sf-input-group-text")}
                     onClick={() => { p.ctx.value = null; forceUpdate(); }}
                     title={EntityControlMessage.Remove.niceToString()}>
                     {EntityBaseController.getRemoveIcon()}

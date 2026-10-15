@@ -16,7 +16,7 @@ export function SliceSelector({ available, slice, onChange, className }: {
         return null;
     const label = (tcs: Lite<TypeConditionSymbol>[]): string => tcs.map(shortCondition).join(" & ");
     return (
-        <select className={"form-select form-select-sm " + (className ?? "")} style={{ maxWidth: "22rem" }}
+        <select className={"sf-form-select sf-form-select-sm " + (className ?? "")} style={{ maxWidth: "22rem" }}
             value={sliceKey(slice)}
             onChange={e => {
                 const v = e.currentTarget.value;

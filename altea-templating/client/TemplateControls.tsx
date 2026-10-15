@@ -86,7 +86,7 @@ export default function TemplateControls(p: TemplateControlsProps): React.JSX.El
 
     return (
         <div className="flex">
-            <select className="form-select form-select-sm w-auto" value={ct.type}
+            <select className="sf-form-select sf-form-select-sm w-auto" value={ct.type}
                 onChange={e => setCurrentToken({ type: e.currentTarget.value as "Query" | "Global" })}>
                 {p.queryKey && <option value="Query">Query</option>}
                 <option value="Global">Global</option>
@@ -123,7 +123,7 @@ function GlobalVariables(p: { onTokenChange: (newToken: GlobalVariableInfo | und
     const variableList = useAPI(() => TemplatingClient.API.getGlobalVariables(), []);
 
     return (
-        <select id="variables" className="form-select form-select-sm w-auto" value={p.selected?.key ?? ""}
+        <select id="variables" className="sf-form-select sf-form-select-sm w-auto" value={p.selected?.key ?? ""}
             onChange={e => p.onTokenChange(variableList?.find(a => a.key === e.currentTarget.value))}>
             {p.selected == null && <option value=""> - </option>}
             {variableList?.map((v, i) => <option key={i} value={v.key}>{v.key}</option>)}

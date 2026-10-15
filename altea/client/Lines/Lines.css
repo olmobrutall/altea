@@ -15,7 +15,7 @@ label>input[type=radio] {
     margin-bottom: 3px;
 }
 
-input[type=checkbox].form-control {
+input[type=checkbox].sf-form-control {
     margin-top: 9px;
 }
 
@@ -23,35 +23,35 @@ input[type=checkbox].form-control {
     user-select: none;
 }
 
-.input-group {
+.sf-input-group {
     flex-wrap: nowrap;
 }
 
-.form-control.readonly,
-.form-control:disabled,
-.form-control[readonly] {
+.sf-form-control.readonly,
+.sf-form-control:disabled,
+.sf-form-control[readonly] {
     overflow: auto;
     scrollbar-width: none;
     background-color: var(--bs-secondary-bg);
     opacity: 1;
 }
 
-.form-control.readonly::-webkit-scrollbar,
-.form-control:disabled::-webkit-scrollbar,
-.form-control[readonly]::-webkit-scrollbar {
+.sf-form-control.readonly::-webkit-scrollbar,
+.sf-form-control:disabled::-webkit-scrollbar,
+.sf-form-control[readonly]::-webkit-scrollbar {
     display: none;
 }
 
-.form-control.readonly {
+.sf-form-control.readonly {
     background-color: var(--bs-secondary-bg);
 }
 
-.form-control.readonly.readonly-textarea {
+.sf-form-control.readonly.readonly-textarea {
     height: initial !important;
     white-space: pre-wrap;
 }
 
-.form-control.sf-multi-line {
+.sf-form-control.sf-multi-line {
     height: auto;
     white-space: pre-line;
 }
@@ -118,7 +118,7 @@ span.sf-range-start.sf-range-end {
     overflow: hidden;
 }
 
-.sf-entity-line .input-group .form-control {
+.sf-entity-line .sf-input-group .sf-form-control {
     overflow: hidden;
 }
 
@@ -158,7 +158,7 @@ li.sf-strip-element {
     text-decoration: none;
 }
 
-.sf-line-button.input-group-text {
+.sf-line-button.sf-input-group-text {
     color: var(--bs-secondary-color);
 }
 
@@ -166,48 +166,48 @@ li.sf-strip-element {
     color: var(--bs-secondary-color);
 }
 
-.sf-line-button:not(.input-group-text) {
+.sf-line-button:not(.sf-input-group-text) {
     margin: 0 2px;
 }
 
 
 
 /* EntityLine buttons  */
-.input-group-vertical {
+.sf-input-group-vertical {
     display: flex;
     flex-grow: 0;
     flex-direction: column;
     align-items: stretch;
 }
 
-.input-group-vertical.before {
+.sf-input-group-vertical.before {
     margin-right: -1px;
 }
 
-.input-group-vertical.after {
+.sf-input-group-vertical.after {
     margin-left: -1px;
 }
 
 
 /*Connections between buttons*/
-.input-group-vertical>.btn:not(:last-child) {
+.sf-input-group-vertical>.btn:not(:last-child) {
     border-bottom-right-radius: 0;
     border-bottom-left-radius: 0;
 }
 
-.input-group-vertical>.btn:not(:first-child) {
+.sf-input-group-vertical>.btn:not(:first-child) {
     border-top-right-radius: 0;
     border-top-left-radius: 0;
 }
 
 /*Connections to text area*/
 
-.input-group-vertical.after>.btn {
+.sf-input-group-vertical.after>.btn {
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
 }
 
-.input-group-vertical.before>.btn {
+.sf-input-group-vertical.before>.btn {
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
 }
@@ -215,19 +215,19 @@ li.sf-strip-element {
 /*Connections first and last button*/
 
 
-.input-group-vertical.after>.btn:first-child:not(:last-child) {
+.sf-input-group-vertical.after>.btn:first-child:not(:last-child) {
     border-bottom-right-radius: 0;
 }
 
-.input-group-vertical.after>.btn:last-child:not(:first-child) {
+.sf-input-group-vertical.after>.btn:last-child:not(:first-child) {
     border-top-right-radius: 0;
 }
 
-.input-group-vertical.before>.btn:first-child:not(:last-child) {
+.sf-input-group-vertical.before>.btn:first-child:not(:last-child) {
     border-bottom-left-radius: 0;
 }
 
-.input-group-vertical.before>.btn:last-child:not(:first-child) {
+.sf-input-group-vertical.before>.btn:last-child:not(:first-child) {
     border-top-left-radius: 0;
 }
 
@@ -294,7 +294,7 @@ ul.sf-strip-vertical>li {
     width: 100%
 }
 
-ul.sf-strip-vertical>li>.form-control {
+ul.sf-strip-vertical>li>.sf-form-control {
     background-color: transparent;
     box-shadow: none;
 }
@@ -310,7 +310,7 @@ ul.sf-strip-vertical>li>.form-control {
     margin-left: 2px;
 }
 
-.sf-strip-input.input-group .sf-line-button {
+.sf-strip-input.sf-input-group .sf-line-button {
     margin-left: 4px;
 }
 
@@ -395,7 +395,7 @@ a.sf-move:focus {
     color: var(--bs-warning);
 }
 
-body.rtl .form-group.row>label {
+body.rtl .sf-form-group.row>label {
     text-align: end;
 }
 
@@ -414,19 +414,19 @@ body.rtl .form-group.row>label {
 .has-error input,
 .has-error textarea,
 .has-error select,
-.has-error .form-control {
+.has-error .sf-form-control {
     border-color: var(--bs-danger);
 }
 
-.form-group {
+.sf-form-group {
     margin-bottom: 1rem;
 }
 
-.form-group .form-group {
+.sf-form-group .sf-form-group {
     margin-bottom: 0px;
 }
 
-.form-group .form-group label {
+.sf-form-group .sf-form-group label {
     color: var(--bs-secondary);
     font-size: 12px;
     margin-bottom: 0px;
@@ -434,26 +434,26 @@ body.rtl .form-group.row>label {
 
 /*form xs*/
 
-.form-select.form-select-xs {
+.sf-form-select.sf-form-select-xs {
     background-position: right 0.2rem center;
     padding: 0.5px 20px 0.5px 5px;
     font-size: 0.875em;
 }
 
-input[type=checkbox].form-control-xs {
+input[type=checkbox].sf-form-control-xs {
     margin-top: 4px;
 }
 
-.form-control-xs,
-.input-group-xs>.form-control,
-.input-group-xs>.input-group-text,
-.input-group-xs>.btn {
+.sf-form-control-xs,
+.sf-input-group-xs>.sf-form-control,
+.sf-input-group-xs>.sf-input-group-text,
+.sf-input-group-xs>.btn {
     padding: 0.5px 5px;
     font-size: 0.875em;
     line-height: 1.5;
 }
 
-.col-form-label-xs {
+.sf-col-form-label-xs {
     padding-top: 2px;
     padding-bottom: 2px;
     font-size: 0.875em;
@@ -462,7 +462,7 @@ input[type=checkbox].form-control-xs {
 
 
 
-.label-xs {
+.sf-form-label-xs {
     font-size: 0.875em;
     margin-bottom: 0px;
 }
@@ -471,7 +471,7 @@ input[type=checkbox].form-control-xs {
     background-color: var(--bs-body-bg);
     color: var(--bs-body-color);
 }*/
-.form-control-xs .rw-widget-input,
+.sf-form-control-xs .rw-widget-input,
 .rw-widget-xs .rw-widget-input {
     min-height: 24px;
     font-size: 0.875em;
@@ -495,22 +495,22 @@ input[type=checkbox].form-control-xs {
     padding: 0 0 0 0.4em;
 }
 
-.input-group>.form-control.rw-dropdown-list {
+.sf-input-group>.sf-form-control.rw-dropdown-list {
     display: flex;
     padding: 0;
 }
 
-.input-group>.form-control.rw-dropdown-list>.rw-widget-input {
+.sf-input-group>.sf-form-control.rw-dropdown-list>.rw-widget-input {
     flex: 1;
 }
 
-.form-control-xs .rw-dropdown-list-input,
+.sf-form-control-xs .rw-dropdown-list-input,
 .rw-widget-xs .rw-dropdown-list-input,
 .rw-widget-xs .rw-combobox-input {
     padding: 0 0 0 0.3em;
 }
 
-.form-control.form-control-sm.rw-combobox.rw-widget {
+.sf-form-control.sf-form-control-sm.rw-combobox.rw-widget {
     padding: 0px;
 }
 
@@ -518,20 +518,20 @@ input[type=checkbox].form-control-xs {
     padding: 0 0.4em;
 }
 
-.form-control-xs .rw-widget-picker,
+.sf-form-control-xs .rw-widget-picker,
 .rw-widget-xs .rw-widget-picker {
     min-height: 24px;
 }
 
-.form-group :not(label):not(.form-check) > .form-check-input {
+.sf-form-group :not(label):not(.sf-form-check) > .form-check-input {
     margin-top: 0.5em;
 }
 
-.form-group.form-group-xs :not(label):not(.form-check) > .form-check-input {
+.sf-form-group.sf-form-group-xs :not(label):not(.sf-form-check) > .form-check-input {
     margin-top: 0.25em;
 }
 
-.form-group.form-group-xs {
+.sf-form-group.sf-form-group-xs {
     margin-bottom: 5px;
 }
 
@@ -548,7 +548,7 @@ input[type=checkbox].form-control-xs {
     background: var(--bs-body-bg);
 }
 
-.label-sm {
+.sf-form-label-sm {
     font-size: 0.875em;
     margin-bottom: 0px;
 }
@@ -600,21 +600,21 @@ input[type=checkbox].form-control-xs {
 }
 */
 
-.form-control-sm.rw-dropdown-list.rw-widget,
-.form-control-sm.rw-combobox.rw-widget {
+.sf-form-control-sm.rw-dropdown-list.rw-widget,
+.sf-form-control-sm.rw-combobox.rw-widget {
     padding: 0px;
     min-height: initial;
 }
 
-.form-control-md { /*required for read-only ones*/
+.sf-form-control-md { /*required for read-only ones*/
     min-height: calc(1.5em + 0.75rem + calc(var(--bs-border-width) * 2));
 }
 
-.form-control-xs { /*required for read-only ones*/
+.sf-form-control-xs { /*required for read-only ones*/
     min-height: calc(1.5em + 1px + calc(var(--bs-border-width) * 2));
 }
 
-.form-control-sm .rw-widget-picker {
+.sf-form-control-sm .rw-widget-picker {
     min-height: 31px;
 }
 
@@ -622,25 +622,25 @@ input[type=checkbox].form-control-xs {
     min-height: 31px;
 }
 
-.input-group>.form-control-plaintext {
+.sf-input-group>.sf-form-control-plaintext {
     padding-right: 5px;
 }
-.form-control-plaintext {
+.sf-form-control-plaintext {
     display: flex;
     align-items: center;
 }
 
-.form-group.form-group-sm {
+.sf-form-group.sf-form-group-sm {
     margin-bottom: 6px;
 }
 
-table .form-group.form-group-sm {
+table .sf-form-group.sf-form-group-sm {
     margin-top: 3px;
     margin-bottom: 3px;
 }
 
-.form-floating.form-group-sm>.form-control,
-.form-floating.form-group-sm>.form-select {
+.sf-form-floating.sf-form-group-sm>.sf-form-control,
+.sf-form-floating.sf-form-group-sm>.sf-form-select {
     height: calc(2.7rem + 2px);
 }
 /* .form-select{
@@ -649,7 +649,7 @@ table .form-group.form-group-sm {
     border-color: 1px solid var(--bs-border-color) !important;
 }    */
 
-.form-floating.form-group-sm>label {
+.sf-form-floating.sf-form-group-sm>label {
     padding: 0.7rem 0.75rem;
 }
 
@@ -778,7 +778,7 @@ body:not(.rtl) .sf-mandatory-warning-widget .rw-widget-input {
 }
 
 
-.sf-color.form-control {
+.sf-color.sf-form-control {
     flex-grow: 0;
     padding: 2px;
     width: 32px;
@@ -787,19 +787,19 @@ body:not(.rtl) .sf-mandatory-warning-widget .rw-widget-input {
     padding: 6px;
 }
 
-.sf-color.form-control.form-control-xs {
+.sf-color.sf-form-control.sf-form-control-xs {
     width: 26px;
     height: 26px;
     padding: 4px;
 }
 
-.sf-color.form-control.form-control-sm {
+.sf-color.sf-form-control.sf-form-control-sm {
     width: 32px;
     height: 32px;
     padding: 4px;
 }
 
-.sf-color.form-control.form-control-lg {
+.sf-color.sf-form-control.sf-form-control-lg {
     width: 48px;
     height: 48px;
     padding: 8px;
@@ -816,7 +816,7 @@ body:not(.rtl) .sf-mandatory-warning-widget .rw-widget-input {
         flex-grow: 1;
     }
 
-    .btn.input-group-text {
+    .btn.sf-input-group-text {
         background: var(--bs-tertiary-bg);
         border: var(--bs-border-width) solid var(--bs-border-color);
     }

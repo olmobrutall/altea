@@ -75,7 +75,7 @@ export default function PropertyRulePackControl({ ctx, initialTypeConditions, re
 
     return (
         <div>
-            <div className="form-compact mb-2">
+            <div className="sf-form-compact mb-2">
                 <EntityLine ctx={ctx.subCtx(f => f.role)} readOnly={true} />
                 <EntityLine ctx={ctx.subCtx(f => f.type)} readOnly={true} />
                 <AutoLine ctx={ctx.subCtx(f => f.strategy)} readOnly={true} />
