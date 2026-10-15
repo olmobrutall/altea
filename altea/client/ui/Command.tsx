@@ -17,7 +17,7 @@ export function CommandInput({ className, ...props }: React.ComponentProps<typeo
 }
 
 export function CommandList({ className, ...props }: React.ComponentProps<typeof CommandPrimitive.List>): React.ReactElement {
-    return <CommandPrimitive.List className={cn("sf-command-list max-h-[300px] overflow-y-auto overflow-x-hidden p-1", className)} {...props} />;
+    return <CommandPrimitive.List className={cn("sf-command-list max-h-[300px] overflow-y-auto overflow-x-hidden p-1 [scrollbar-gutter:stable]", className)} {...props} />;
 }
 
 export function CommandEmpty({ className, ...props }: React.ComponentProps<typeof CommandPrimitive.Empty>): React.ReactElement {

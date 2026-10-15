@@ -25,10 +25,12 @@
     min-width: fit-content;
 }
 
+/* No height of its own: it stretches to the field beside it, whatever that field's size. */
 .sf-query-token-plus {
     border: 1px solid var(--bs-border-color);
     padding: 0px 5px;
     font-size: 0.875em;
+    line-height: 1;
 }
 
 .sf-query-token-plus:hover {
@@ -44,6 +46,7 @@
 .sf-prefix-btn {
     border: 1px solid var(--bs-border-color);
     padding: 0px 5px;
+    line-height: 1;
 }
 
 .sf-prefix-btn:hover {

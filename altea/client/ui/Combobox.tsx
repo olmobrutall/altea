@@ -98,7 +98,8 @@ export function Combobox<T>(p: ComboboxProps<T>): React.ReactElement {
                     </span>
                 </button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-(--anchor-width) min-w-[12rem] max-w-none p-0">
+            {/* As wide as the longest item (never narrower than the field), up to the viewport. */}
+            <PopoverContent align="start" className="w-max min-w-(--anchor-width) max-w-[min(40rem,calc(100vw-1rem))] p-0">
                 <ComboboxList {...p} m={m} selectedKeys={p.value != null ? [p.getKey(p.value)] : []}
                     extra={p.allowClear && p.value != null
                         ? <CommandItem value="__clear" onSelect={() => { p.onChange(null, { keyboard: false }); setOpen(false); }} aria-label={EntityControlMessage.Remove.niceToString()} className="text-muted-foreground">
@@ -190,9 +191,10 @@ function ComboboxList<T>(p: ComboboxListProps<T>): React.ReactElement {
                 {p.m.items.map(item => {
                     const key = p.getKey(item);
                     const selected = p.selectedKeys.includes(key);
+                    // The chosen item is bold on a tint (no check mark in a reserved margin); the keyboard highlight wins over the tint.
                     return (
-                        <CommandItem key={key} value={key} onSelect={() => { p.onPick(item, enterPressed.current); enterPressed.current = false; }} data-checked={selected}>
-                            <FontAwesomeIcon icon="check" className={cn("text-[.75em]", !selected && "invisible")} aria-hidden={true} />
+                        <CommandItem key={key} value={key} onSelect={() => { p.onPick(item, enterPressed.current); enterPressed.current = false; }} data-checked={selected}
+                            className="data-[checked=true]:font-semibold data-[checked=true]:not-data-[selected=true]:bg-primary/10">
                             <span className="truncate">{p.renderItem ? p.renderItem(item, p.m.query) : p.getLabel(item)}</span>
                         </CommandItem>
                     );

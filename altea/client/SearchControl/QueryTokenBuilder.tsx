@@ -17,6 +17,7 @@ import type { ManualToken as ManualTokenDescriptor } from '../QueryToken';
 import { ManualToken as ManualTokenClass, ManualContainerToken } from '../../data/dynamicQuery/tokens';
 import "./QueryTokenBuilder.css"
 import { Combobox } from '../ui/Combobox'
+import type { FormSize } from '../ui/Input'
 import { StyleContext } from '../TypeContext';
 import * as AppContext from '../AppContext';
 import { useAPI } from '../Hooks';
@@ -32,6 +33,8 @@ interface QueryTokenBuilderProps {
   subTokenOptions: SubTokensOptions;
   readOnly: boolean;
   className?: string;
+  /** The field size of the controls beside it (default "xs", as in the filter and column editors). */
+  size?: FormSize;
 }
 
 
@@ -83,6 +86,7 @@ export default function QueryTokenBuilder(p: QueryTokenBuilderProps): React.Reac
             queryToken={qt}
             queryKey={p.queryKey}
             readOnly={p.readOnly}
+            size={p.size ?? "xs"}
             setLastTokenChange={(fullKey) => { setLastTokenChanged(fullKey); }}
             onTokenSelected={async (qt, keyboard) => {
               var nqt = withValueField((await tryApplyToken(p.queryToken, qt)) ?? qt);
@@ -184,6 +188,7 @@ interface QueryTokenPartProps {
   queryKey: string;
   subTokenOptions: SubTokensOptions;
   readOnly: boolean;
+  size: FormSize;
   defaultOpen: boolean;
   setLastTokenChange: (fullKey: string | undefined) => void;
 }
@@ -222,7 +227,7 @@ export function QueryTokenPart(p: QueryTokenPartProps): React.ReactElement | nul
     <div className="sf-query-token-part" onKeyUp={handleKeyUp} onKeyDown={handleKeyUp}>
       {p.selectedToken || p.parentToken == null || p.defaultOpen ?
         <Combobox<QueryToken | null>
-          size="sm"
+          size={p.size}
           className="w-auto min-w-[6rem]"
           aria-label={FilterFieldMessage.Field.niceToString()}
           disabled={p.readOnly}
