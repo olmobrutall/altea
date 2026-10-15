@@ -6,7 +6,7 @@ import { TypeEntity } from "../data/typeEntity";
 import { quotedFunction } from "./query";
 import { ClassType } from "./runtimeTypes";
 import { ResetLazy } from "./resetLazy";
-import type { StablePromise } from "./stablePromise";
+import { PromiseNotLoaded, type StablePromise } from "./stablePromise";
 import { insertSqlSyncGenerated, updateSqlSync, deleteSqlSync, copyRowFields } from "./save";
 import { table as table_ } from "./table";
 import { existsTable } from "./sync/syncTableRead";
@@ -120,14 +120,17 @@ export class TypeCaches {
     }
 }
 
-// The type↔id resolvers used by the LINQ pipeline read an EXPLICITLY-THREADED `TypeCaches` (resolved
-// once at the LINQ-provider boundary — `isLoading ? undefined : await ready()`), not the ambient static.
-// `undefined` means the caches weren't available (a query bound while they were loading): a discriminator
-// (@implementedByAll) can't be resolved there, so `requireTypeId` throws — but the re-entrant
-// `table(TypeEntity)` load has no such discriminator, so it never calls this.
+// The type↔id resolvers used by the LINQ pipeline read an EXPLICITLY-THREADED `TypeCaches` — whatever was
+// loaded when the bind attempt started — not the ambient static. `undefined` means not loaded: the bind
+// throws PromiseNotLoaded and its `withPromisesLoaded` region loads them and binds again, so only a query
+// that actually has a discriminator loads them (synchronization must run against a TypeEntity table that
+// does not match the model yet). Inside their own load there is nothing to wait for, hence the plain error.
 export function requireTypeId(caches: TypeCaches | undefined, ctor: Type<Entity>): PrimaryKey {
-    if (caches == null)
-        throw new Error(`@implementedByAll for '${ctor.name}' can't be resolved: type caches unavailable (a query bound while they were loading).`);
+    if (caches == null) {
+        if (TypeLogic.isLoading)
+            throw new Error(`@implementedByAll for '${ctor.name}' can't be resolved: type caches unavailable (a query bound while they were loading).`);
+        throw new PromiseNotLoaded(TypeLogic.caches());
+    }
     return caches.typeToId(ctor);
 }
 

@@ -43,13 +43,19 @@ export class Retriever {
     // The type↔id snapshot the execution boundary resolved, for the @implementedByAll columns this
     // projector materialises. Held rather than read from an ambient static: every row of one query resolves
     // its discriminators against ONE generation of ids, and a projector cannot silently depend on somebody
-    // having warmed a cache. `undefined` only inside the caches' own load (the `table(TypeEntity)` query),
-    // which has no @implementedByAll column to resolve — `types()` says so if that ever changes.
+    // having warmed a cache. `undefined` until a query that projects a discriminator supplies it
+    // (useTypeCaches), and inside the caches' own load — `types()` says so if one is ever read there.
     //
     // `signal` is the cancellation token of the read that opened this retriever (server/cancellation). It
     // rides on the retriever because the completion passes are reached THROUGH it — `retrieveListImpl` is
     // handed nothing else — so one field threads every follow-up round trip a projected row provokes.
-    constructor(private readonly typeCaches: TypeCaches | undefined, readonly signal?: AbortSignal) { }
+    constructor(private typeCaches: TypeCaches | undefined, readonly signal?: AbortSignal) { }
+
+    /** Supplies the snapshot when the first query that needs one runs; the first one stays for the
+     *  retriever's lifetime, so its completion queries resolve against the same generation of ids. */
+    useTypeCaches(caches: TypeCaches): void {
+        this.typeCaches ??= caches;
+    }
 
     private types(): TypeCaches {
         if (this.typeCaches == null)
