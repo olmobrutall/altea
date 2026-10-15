@@ -214,6 +214,51 @@ export const Administrator = {
         },
     },
 
+    /**
+     * Signum's `Administrator.ExecuteGenerationScript` — run the schema's generation script. With
+     * `Schema.executeAs` set it runs in one transaction, as that role (see {@link withExecuteAs}).
+     */
+    async executeGenerationScript(): Promise<void> {
+        const connector = Connector.current();
+        const script = connector.schema.generationScript();
+        if (script == null)
+            return;
+
+        if (connector.schema.executeAs == null) {
+            await script.executeNonQuery();
+            return;
+        }
+
+        await Transaction.create(() => Administrator.withExecuteAs(() => script.executeNonQuery()));
+    },
+
+    /**
+     * Signum's `Schema.ExecuteExecuteAs` — run `fn` as `Schema.executeAs`, if set. Must be called inside a
+     * transaction. Signum's `SET ROLE` / `EXECUTE AS` outlive the script on a pooled connection; here they
+     * end with it: `SET LOCAL ROLE` dies with the transaction, and SQL Server `REVERT`s.
+     */
+    async withExecuteAs<T>(fn: () => Promise<T>): Promise<T> {
+        const connector = Connector.current();
+        const role = connector.schema.executeAs;
+        if (role == null)
+            return fn();
+
+        if (!Transaction.hasTransaction(connector))
+            throw new Error("withExecuteAs must run inside a transaction");
+
+        if (connector.isPostgres) {
+            await connector.executeNonQuery(`SET LOCAL ROLE ${connector.sqlBuilder.sqlEscape(role)};`);
+            return fn();
+        }
+
+        await connector.executeNonQuery(`EXECUTE AS LOGIN = '${role.replace(/'/g, "''")}';`);
+        try {
+            return await fn();
+        } finally {
+            await connector.executeNonQuery("REVERT;");
+        }
+    },
+
     async createTemporaryTable<V extends View>(viewType: ViewType<V>): Promise<void> {
         const connector = Connector.current();
         const table = connector.schema.view(viewType);

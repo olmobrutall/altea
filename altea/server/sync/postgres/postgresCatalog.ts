@@ -28,7 +28,17 @@ export class PgNamespace extends View {
     isInternal(): boolean { return this.nspname == "information_schema" || this.nspname.startsWith("pg_"); }
 
     @quoted
+    owner(): Promise<PgRoles | null> { return view(PgRoles).singleOrNull(t => t.oid == this.nspowner); }
+
+    @quoted
     tables(): Query<PgClass> { return view(PgClass).filter(t => t.relnamespace == this.oid && t.relkind == "r"); }
+}
+
+@reflect
+@tableName("pg_catalog.pg_roles")
+export class PgRoles extends View {
+    @viewPrimaryKey oid!: int;
+    rolname!: string;
 }
 
 @reflect
@@ -43,6 +53,9 @@ export class PgClass extends View {
     // the "Rows" colour scale). A `real`, and -1 on a never-analysed table — the caller treats a negative
     // value as "unknown", exactly as Signum's map renders a missing stat.
     reltuples!: number;
+
+    @quoted
+    owner(): Promise<PgRoles | null> { return view(PgRoles).singleOrNull(t => t.oid == this.relowner); }
 
     @quoted
     attributes(): Query<PgAttribute> { return view(PgAttribute).filter(t => t.attrelid == this.oid); }

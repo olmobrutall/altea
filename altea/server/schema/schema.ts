@@ -75,6 +75,9 @@ export class Schema {
     // selects that embedded and nothing else — and the position must survive that.
     readonly embeddedRoutePositions = new Map<Type<BaseEntity>, (embedded: any, position: RoutePosition) => void>();
 
+    /** The role (Postgres) / login (SQL Server) the generation and migration scripts run as, and that owns the schemas and tables a sync keeps (Signum's `Schema.ExecuteAs`). */
+    executeAs?: string;
+
     // Generation event chain (mirrors Signum's Schema.Generating). Seeded with
     // the default schema/table/FK steps; apps may push more (e.g. seed data).
     readonly generating: GeneratingHandler[] = [];

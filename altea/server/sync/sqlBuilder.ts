@@ -705,6 +705,14 @@ VALUES ${rows};`);
         return new SqlPreCommandSimple(`ALTER SCHEMA ${target} TRANSFER ${this.objectName(oldName)};`);
     }
 
+    alterTableChangeOwner(name: ObjectName, executeAs: string): SqlPreCommandSimple {
+        return new SqlPreCommandSimple(`ALTER TABLE ${this.objectName(name)} OWNER TO ${this.sqlEscape(executeAs)};`);
+    }
+
+    alterSchemaChangeOwner(name: SchemaName, executeAs: string): SqlPreCommandSimple {
+        return new SqlPreCommandSimple(`ALTER SCHEMA ${this.sqlEscape(this.schemaOrDefault(name))} OWNER TO ${this.sqlEscape(executeAs)};`);
+    }
+
     // Plain ObjectName form, plus a Table + `withHistory` form (Signum's overload) that forks the
     // rename to the history table too when withHistory.
     renameColumn(tableName: ObjectName, oldName: string, newName: string): SqlPreCommand;

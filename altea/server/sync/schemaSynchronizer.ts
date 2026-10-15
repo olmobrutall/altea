@@ -7,13 +7,13 @@ import type { TableIndex } from "../schema/tableIndex";
 import { FullTextTableIndex, VectorTableIndex } from "../schema/tableIndex";
 import { AbstractDbType } from "../schema/dbType";
 import { guidKeyDefault } from "../schema/schemaBuilder";
-import { DiffColumn, DiffTable, DiffIndex, DiffIndexColumn, SysTableTemporalType } from "./diffModels";
+import { DiffColumn, DiffSchema, DiffTable, DiffIndex, DiffIndexColumn, SysTableTemporalType } from "./diffModels";
 import { SqlBuilder, DefaultConstraint } from "./sqlBuilder";
 import { SqlPreCommand, SqlPreCommandSimple, SqlPreCommandWithHistory, Spacing } from "./sqlPreCommand";
 import { Synchronizer, Replacements } from "./synchronizer";
 import { PrimaryKeyUpdater, type PreRenameMap } from "./primaryKeyUpdater";
 import { getDatabaseDescription as getSqlServerDescription } from "./sqlServer/sysTablesSchema";
-import { getDatabaseDescription as getPostgresDescription } from "./postgres/postgresCatalogSchema";
+import { getDatabaseDescription as getPostgresDescription, getSchemaNames as getPostgresSchemaNames } from "./postgres/postgresCatalogSchema";
 import "../../data/globals"; // Array.prototype.toMap
 import type { EnumEntity } from "../../data/enumEntity";
 import { getBoundEnum, enumEntityMembers } from "../../data/enumEntity";
@@ -307,6 +307,9 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
             const rename = moveSchema != null || bareRename != null
                 ? SqlPreCommand.combine(Spacing.Simple, moveSchema, bareRename) : undefined;
 
+            const changeOwner = isPostgres && schema.executeAs != null && dif.owner != null && schema.executeAs !== dif.owner
+                ? sqlBuilder.alterTableChangeOwner(tab.name, schema.executeAs) : undefined;
+
             // ---- SQL Server versioning transitions (Signum's disable/enable/period machinery) ----
             // A "strong" change (making a column NOT NULL, or an incompatible type) can't be applied
             // while SYSTEM_VERSIONING is ON, so it must be bracketed by disable → change both tables
@@ -431,7 +434,7 @@ export async function synchronizeTablesScript(replacements: Replacements): Promi
             const createPK = pkMigrated ? sqlBuilder.alterTableAddPrimaryKey(tab) : undefined;
 
             return SqlPreCommand.combine(Spacing.Simple,
-                rename, disableSystemVersioning, dropPeriod, dropPK, combinedAddPeriod, columns, createPK, addSystemVersioning);
+                rename, changeOwner, disableSystemVersioning, dropPeriod, dropPK, combinedAddPeriod, columns, createPK, addSystemVersioning);
         },
     );
 
@@ -743,34 +746,42 @@ function applyColumnReplacements(columns: { [name: string]: DiffColumn }, replac
 // ---- schema (CREATE / DROP SCHEMA) sync -------------------------------------
 
 // Port of the schema half of Signum's SynchronizeTablesScript (createSchemas). Creates any
-// named (non-default) schema the model needs that the database lacks. The music model uses
-// only the default schema, so this is a no-op there. (DROP SCHEMA of a removed named schema
-// is deferred — it needs the late-ordering Signum gives it within the one combined script.)
+// named (non-default) schema the model needs that the database lacks, and on Postgres hands an
+// existing one to Schema.executeAs. Signum's Postgres model keeps the default schema (only SQL
+// Server's dbo is a system schema), so with executeAs set `public` is handed over too. (DROP
+// SCHEMA of a removed named schema is deferred — it needs the late-ordering Signum gives it within
+// the one combined script.)
 export async function synchronizeSchemasScript(_replacements: Replacements): Promise<SqlPreCommand | undefined> {
     const connector = Connector.current();
     const sqlBuilder = connector.sqlBuilder;
+    const executeAs = connector.isPostgres ? connector.schema.executeAs : undefined;
 
     const modelSchemas = new Set<string>();
     for (const t of connector.schema.tables.values())
-        if (t.name.schema.name !== "")
+        if (t.name.schema.name !== "" || executeAs != null)
             modelSchemas.add(t.name.schema.name);
 
     if (modelSchemas.size === 0)
         return undefined; // only the default schema — nothing to create
 
-    const existing = await readSchemaNames(connector);
-    const creates = [...modelSchemas]
-        .filter(s => !existing.has(s))
-        .map(s => sqlBuilder.createSchema(new SchemaName(s, new DatabaseName(""))));
-    return SqlPreCommand.combine(Spacing.Double, ...creates);
+    const existing = await readSchemas(connector);
+    const commands = [...modelSchemas].map(s => {
+        const diff = existing.get(s);
+        if (diff == null)
+            return s === "" ? undefined : sqlBuilder.createSchema(new SchemaName(s, new DatabaseName("")));
+
+        return executeAs != null && diff.owner != null && executeAs !== diff.owner
+            ? sqlBuilder.alterSchemaChangeOwner(diff.name, executeAs) : undefined;
+    });
+    return SqlPreCommand.combine(Spacing.Double, ...commands);
 }
 
-async function readSchemaNames(connector: Connector): Promise<Set<string>> {
-    const sql = connector.isPostgres
-        ? "SELECT nspname AS name FROM pg_catalog.pg_namespace"
-        : "SELECT name FROM sys.schemas";
-    const rows = await connector.executeQuery(sql) as { name: string }[];
-    return new Set(rows.map(r => r.name));
+async function readSchemas(connector: Connector): Promise<Map<string, DiffSchema>> {
+    if (connector.isPostgres)
+        return getPostgresSchemaNames();
+
+    const rows = await connector.executeQuery("SELECT name FROM sys.schemas") as { name: string }[];
+    return rows.map(r => DiffSchema.create({ schemaName: r.name })).toMap(s => s.name.toString());
 }
 
 // ---- enum-row sync (SynchronizeEnumsScript) ---------------------------------
