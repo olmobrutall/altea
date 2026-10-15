@@ -65,8 +65,10 @@ review as any generated code.
      modals. Many exist already (they are also the Playwright hooks); the class map adds the ones that
      replace Bootstrap's component classes (`form-group`, `form-control`, `input-group`, `table`, `btn-toolbar`, …).
    - They are defined in CSS with `@apply` (or plain declarations where `@apply` would be longer),
-     **inside `@layer components`**. An application's own stylesheet is UNLAYERED, so any app rule beats
-     any framework rule regardless of specificity — no `!important`, no selector wars.
+     **inside `@layer components`**. An application's own stylesheets go into the `app` layer, declared after
+     `components` and before `utilities`: any app rule beats any framework rule regardless of specificity — no
+     `!important`, no selector wars — and a utility written on an element still beats both. (Decided in Phase 3
+     instead of "unlayered": unlayered CSS would also beat the utilities in the app's own markup.)
    - Region-level knobs are CSS variables (`--sf-sidebar-bg`, `--sf-sidebar-width`, `--sf-frame-bg`,
      `--sf-navbar-bg`, `--sf-gutter`, …) on top of the shadcn token set, so a palette or an app can retune a
      region without touching selectors.
@@ -240,7 +242,7 @@ before any module depends on it. The wrappers kept their props, so no caller cha
   master merge), the UI kit's form controls, page screenshots (chrome unchanged). The browser e2e was not
   re-run: it restores the database under the running API.
 
-### Phase 3 — modules (78 files, mechanical) — components ✅, palette ✅, layers / knobs pending
+### Phase 3 — modules (78 files, mechanical) ✅
 Dependency order, one commit per package: auth → user-assets / user-queries → chart → dashboard →
 toolbar → templating / email / office-template → workflow → dynamic → the rest (1–3 files each).
 `altea-alert` `Toast` → `Card`. `altea-chart`'s `ChartTimeSeries` → the shared `Calendar`. Package CSS
@@ -277,8 +279,19 @@ help-tip pulse; modal / menu / Lines scenarios; the migrated module UIs (login d
 Excel menus, alert bell, what's-new, dashboard); browser e2e. Not exercised in a browser: per-property help
 popovers (no help text in the data), the dynamic view designer, BPMN designer, profiler, map, isolation.
 
-Left for this phase: package CSS into `@layer components`, the `--sf-sidebar-*` knobs, `RightCaretDropdown`'s
-mobile "flow inline" mode (the kit menu is portalled, so it floats below the toggle on mobile now).
+Then the layers and the knobs:
+- **Layers by origin** (`alteaLegacyCssLayer`): libraries → `legacy`; altea packages' own CSS → `components`;
+  the application's CSS → `app` (`@layer legacy, theme, base, components, app, utilities`). `semantic.css` stays
+  in `legacy` beside Bootstrap until Phase 5.
+- Moving a stylesheet up revives every rule of it that a MORE SPECIFIC Bootstrap rule used to beat. A
+  computed-style diff (every element, ~30 module pages, old vs new build) found exactly two: eastwind's brand
+  margin (site.css lost to Sidebar.css once the app CSS sat below `components` — what the `app` layer fixes) and
+  the sidebar toggle's padding (Sidebar.css's value had never applied; it now states what rendered).
+- **Sidebar knobs** on `:root` in Sidebar.css: `--sf-sidebar-width` (was `--sidebar-width`; the drag handle writes
+  it), `-bg`, `-fg`, `-border`, `-link`, `-link-active`, `-active-bg`, `-active-bar`, `-hover-bg`, `-highlight`, `-header`.
+  Signum's `--sidebar-principal` / `-accent` / `-highlight` became `-link` / `-link-active` / `-highlight`.
+- Still open: `RightCaretDropdown`'s mobile "flow inline" mode (the kit menu is portalled, so it floats below the
+  toggle on mobile).
 
 ### Phase 4 — eastwind
 - `Layout.tsx` navbar (`NavDropdown`, navbar classes) → `sf-navbar` + `Dropdown`.

@@ -1,10 +1,11 @@
 /* altea's Tailwind theme. An application's ONE Tailwind entry imports this and adds an `@source` for its
    own code — two entries would each emit every utility. See Tailwind-Plan.md. */
 
-/* `legacy` holds Bootstrap and every stylesheet not yet written for Tailwind (the build wraps them; see
-   vite.mjs), so anything Tailwind- or `sf-`-styled wins over it whatever the specificity. An APPLICATION's
-   own unlayered CSS beats every layer: that is how an app restyles the framework. */
-@layer legacy, theme, base, components, utilities;
+/* `legacy` holds Bootstrap and the other libraries' stylesheets (the build wraps them; see vite.mjs), so anything
+   Tailwind- or `sf-`-styled wins over it whatever the specificity. `components` holds altea's packages' own CSS.
+   `app` holds the APPLICATION's own CSS: above every framework rule, which is how an app restyles the framework,
+   and still below the utilities, so a utility written on an element keeps winning (unlayered CSS would beat it). */
+@layer legacy, theme, base, components, app, utilities;
 
 /* No preflight while Bootstrap's reboot is loaded — two resets fight. */
 @import "tailwindcss/theme.css" layer(theme);

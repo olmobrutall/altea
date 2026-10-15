@@ -1,13 +1,20 @@
 // Vite plugins an altea application's client config uses.
 
-const LAYER_ORDER = "@layer legacy, theme, base, components, utilities;";
+const LAYER_ORDER = "@layer legacy, theme, base, components, app, utilities;";
 const TAILWIND_DIRECTIVE = /@(?:import\s+["']tailwindcss|reference|apply|theme|source|utility|custom-variant|layer)\b/;
 const LEADING_STATEMENT = /^\s*(?:@charset[^;]*;|@import[^;]*;|\/\*[\s\S]*?\*\/)/;
+// An altea package's own stylesheet, in the workspace or installed (`@altea/altea-x/client/…`).
+const ALTEA_PACKAGE_CSS = /[\\/]@?altea[\\/]altea(?:-[\w-]+)?[\\/](?:dist[\\/])?client[\\/]/;
+// Rules written against Bootstrap's own classes, kept beside Bootstrap until it is removed (Phase 5).
+const STAYS_LEGACY = /[\\/]ui[\\/]semantic\.css$/;
 
 /**
- * Puts every stylesheet that is not written for Tailwind into the `legacy` cascade layer — Bootstrap,
- * react-widgets, and altea's own CSS until it is migrated — so a Tailwind utility or an `sf-*` component
- * rule always beats it. Inside the one layer they keep the order and specificity they had unlayered.
+ * Layers every stylesheet that is not written for Tailwind (theme.css declares the order):
+ *  - `legacy`: Bootstrap and the other libraries. A Tailwind utility or an `sf-*` rule always beats them; inside
+ *    the one layer they keep the order and specificity they had unlayered.
+ *  - `components`: an altea package's own stylesheet. It beats Bootstrap whatever the specificity.
+ *  - `app`: the application's own stylesheets. They beat every framework rule — that is how an app restyles
+ *    altea — and still lose to a utility written on the element.
  *
  * Bootstrap's utilities lose their `!important`: an important declaration in an EARLIER layer beats every
  * later one, so `.mb-4 { margin-bottom: 1.5rem !important }` would override Tailwind's `mb-4` on every
@@ -31,17 +38,21 @@ export function alteaLegacyCssLayer() {
             if (/[\\/]bootstrap[\\/]dist[\\/]css[\\/]/.test(file))
                 body = body.replace(/\s*!important/g, "");
 
+            const layer = STAYS_LEGACY.test(file) ? "legacy"
+                : ALTEA_PACKAGE_CSS.test(file) ? "components"
+                : /[\\/]node_modules[\\/]/.test(file) ? "legacy"
+                : "app";
             const leading = [];
             for (let m = LEADING_STATEMENT.exec(body); m; m = LEADING_STATEMENT.exec(body)) {
                 const statement = m[0].trim();
                 if (statement.startsWith("@import") && !/\blayer\b/.test(statement))
-                    leading.push(statement.replace(/;$/, " layer(legacy);"));
+                    leading.push(statement.replace(/;$/, ` layer(${layer});`));
                 else
                     leading.push(statement);
                 body = body.slice(m[0].length);
             }
 
-            return { code: `${LAYER_ORDER}\n${leading.join("\n")}\n@layer legacy {\n${body}\n}\n`, map: null };
+            return { code: `${LAYER_ORDER}\n${leading.join("\n")}\n@layer ${layer} {\n${body}\n}\n`, map: null };
         },
     };
 }

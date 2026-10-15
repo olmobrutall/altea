@@ -30,7 +30,7 @@ export function SidebarContainer(p: SidebarContainerProps): React.JSX.Element {
     React.useEffect(() => {
         // Whenever sidebar mode becomes Wide on desktop, reset width to 250px
         if (p.mode === "Wide" && !p.isMobile) {
-            document.documentElement.style.setProperty("--sidebar-width", `250px`);
+            document.documentElement.style.setProperty("--sf-sidebar-width", `250px`);
         }
     }, [p.mode, p.isMobile]);
 
@@ -41,7 +41,7 @@ export function SidebarContainer(p: SidebarContainerProps): React.JSX.Element {
             const MAX_WIDTH = 600;
             const newWidth = Math.min(Math.max(e.clientX, MIN_WIDTH), MAX_WIDTH);
             document.documentElement.style.setProperty(
-                "--sidebar-width",
+                "--sf-sidebar-width",
                 `${newWidth}px`,
             );
         }
