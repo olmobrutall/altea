@@ -1413,7 +1413,7 @@ export namespace Finder {
       }
       else if (isFilterGroup(fop)) {
 
-        if (fop.pinned.active == "WhenHasValue" && (fop.value == null || fop.value == "" || Array.isArray(fop.value) && fop.value.length == 0)) {
+        if (fop.pinned.active == "WhenHasValue" && (fop.value == null || fop.value === "" || Array.isArray(fop.value) && fop.value.length == 0)) {
           return undefined;
         }
 

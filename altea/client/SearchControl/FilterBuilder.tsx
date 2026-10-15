@@ -687,7 +687,7 @@ function isFilterActive(fo: FilterOptionParsed) {
   if (fo.pinned == null)
     return true;
 
-  if (fo.pinned.splitValue && (fo.value == null || fo.value == ""))
+  if (fo.pinned.splitValue && (fo.value == null || fo.value === ""))
     return false;
 
   return fo.pinned.active == null /*Always*/ ||
