@@ -64,6 +64,23 @@ interface FilterBuilderProps {
   avoidPreview?: boolean;
 }
 
+/**
+ * After "Add filter" the keyboard carries on in the new row, at its field picker (ArrowDown opens it, typing searches).
+ * The new condition is the last token builder of its table; its picker appears once the query root has loaded, so
+ * this waits (briefly) for one more builder than the table had when the link was clicked.
+ */
+function focusNewFilter(table: Element | null, buildersBefore: number, tries = 40): void {
+  const builders = table?.querySelectorAll(".sf-query-token-builder");
+  const builder = builders && builders.length > buildersBefore ? builders[builders.length - 1] : undefined;
+  // The deepest picker (a pre-filled field can be changed or extended from there), else the "+" of an empty one.
+  const pickers = builder?.querySelectorAll<HTMLElement>("[role=combobox]");
+  const target = pickers?.length ? pickers[pickers.length - 1] : builder?.querySelector<HTMLElement>(".sf-query-token-plus");
+  if (target)
+    target.focus();
+  else if (tries > 0)
+    window.setTimeout(() => focusNewFilter(table, buildersBefore, tries - 1), 25);
+}
+
 export default function FilterBuilder(p: FilterBuilderProps): React.ReactElement {
 
   const [showPinnedFiltersOptionsState, setShowPinnedFiltersOptions] = React.useState<boolean>(p.showPinnedFiltersOptions ?? false)
@@ -78,6 +95,8 @@ export default function FilterBuilder(p: FilterBuilderProps): React.ReactElement
 
   function handlerNewFilter(e: React.MouseEvent<any>, isGroup: boolean) {
     e.preventDefault();
+    const table = (e.currentTarget as HTMLElement).closest("table");
+    const buildersBefore = table?.querySelectorAll(".sf-query-token-builder").length ?? 0;
     var lastToken = p.lastToken;
 
     p.filterOptions.push(isGroup ?
@@ -98,7 +117,7 @@ export default function FilterBuilder(p: FilterBuilderProps): React.ReactElement
     if (p.onFiltersChanged)
       p.onFiltersChanged(p.filterOptions);
 
-    forceUpdate().then(handleHeightChanged);
+    forceUpdate().then(() => { handleHeightChanged(); if (!isGroup) focusNewFilter(table, buildersBefore); });
   };
 
   function handlerDeleteFilter(filter: FilterOptionParsed) {
@@ -452,6 +471,8 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
   function handlerNewFilter(e: React.MouseEvent<any>, isGroup: boolean) {
 
     e.preventDefault();
+    const table = (e.currentTarget as HTMLElement).closest("table");
+    const buildersBefore = table?.querySelectorAll(".sf-query-token-builder").length ?? 0;
 
     let lastToken = p.lastToken;
     if (!lastToken || p.filterGroup.token && !p.filterGroup.token.isPrefixOf(lastToken))
@@ -475,7 +496,7 @@ export function FilterGroupComponent(p: FilterGroupComponentsProps): React.React
 
     p.onFilterChanged();
 
-    forceUpdatePromise().then(() => p.onHeightChanged());
+    forceUpdatePromise().then(() => { p.onHeightChanged(); if (!isGroup) focusNewFilter(table, buildersBefore); });
   };
 
   function handleExpandCollapse(e: React.MouseEvent<any>) {

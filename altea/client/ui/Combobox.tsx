@@ -56,6 +56,26 @@ function useMatches<T>(src: ComboboxSource<T>, open: boolean): { query: string, 
     return { query, setQuery, items, loading };
 }
 
+/**
+ * A closed combobox opens from the keyboard as a native select does: ArrowDown / ArrowUp (Alt with them too), and a
+ * printable character opens it already searching for that character.
+ */
+function openOnKey(e: React.KeyboardEvent, open: boolean, setOpen: (o: boolean) => void, setQuery: (q: string) => void): void {
+    if (open || e.ctrlKey || e.metaKey)
+        return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setOpen(true);
+    } else if (e.key.length === 1 && e.key !== " " && !e.altKey) {
+        e.preventDefault();
+        setQuery(e.key);
+        setOpen(true);
+    }
+}
+
+/** cmdk treats an empty value as "nothing selected", and a key may be "" (the query root token): every value is prefixed. */
+const itemValue = (key: string): string => "v:" + key;
+
 export interface ComboboxProps<T> extends ComboboxSource<T> {
     value: T | null | undefined;
     /** `keyboard`: picked with Enter rather than the pointer. */
@@ -92,6 +112,7 @@ export function Combobox<T>(p: ComboboxProps<T>): React.ReactElement {
             <PopoverTrigger asChild disabled={p.disabled}>
                 <button type="button" role="combobox" aria-expanded={open} id={p.id} title={p.title}
                     aria-label={p["aria-label"]} aria-labelledby={p["aria-labelledby"]} aria-invalid={p["aria-invalid"]} aria-required={p["aria-required"]}
+                    onKeyDown={e => openOnKey(e, open, setOpen, m.setQuery)}
                     className={cn("sf-combobox", formSelectClass(size), "text-start cursor-pointer", p.className)}>
                     <span className={cn("block truncate", p.value == null && "text-muted-foreground")}>
                         {p.value != null ? (p.renderValue ? p.renderValue(p.value) : p.renderItem ? p.renderItem(p.value, "") : p.getLabel(p.value)) : p.placeholder ?? " "}
@@ -150,6 +171,7 @@ export function MultiCombobox<T>(p: MultiComboboxProps<T>): React.ReactElement {
                 <PopoverTrigger asChild disabled={p.disabled}>
                     <button type="button" role="combobox" aria-expanded={open} id={p.id}
                         aria-label={p["aria-label"]} aria-labelledby={p["aria-labelledby"]} aria-invalid={p["aria-invalid"]}
+                        onKeyDown={e => openOnKey(e, open, setOpen, m.setQuery)}
                         className="ms-auto flex min-w-8 flex-1 cursor-pointer items-center justify-end gap-2 border-0 bg-transparent p-0 text-start text-muted-foreground">
                         {p.value.length === 0 && <span className="me-auto truncate">{p.placeholder ?? ""}</span>}
                         <FontAwesomeIcon icon="chevron-down" className="text-[.75em] opacity-60" aria-hidden={true} />
@@ -182,6 +204,7 @@ function ComboboxList<T>(p: ComboboxListProps<T>): React.ReactElement {
     React.useEffect(() => { if (p.search === false) rootRef.current?.focus(); }, []);
     return (
         <Command shouldFilter={false} ref={rootRef} tabIndex={p.search === false ? -1 : undefined} className="outline-none"
+            defaultValue={p.selectedKeys.length === 1 && !p.m.query ? itemValue(p.selectedKeys[0]) : undefined}
             onKeyDownCapture={e => { enterPressed.current = e.key === "Enter"; }}>
             {p.search !== false && <CommandInput value={p.m.query} onValueChange={p.m.setQuery} />}
             <CommandList>
@@ -193,7 +216,7 @@ function ComboboxList<T>(p: ComboboxListProps<T>): React.ReactElement {
                     const selected = p.selectedKeys.includes(key);
                     // The chosen item is bold on a tint (no check mark in a reserved margin); the keyboard highlight wins over the tint.
                     return (
-                        <CommandItem key={key} value={key} onSelect={() => { p.onPick(item, enterPressed.current); enterPressed.current = false; }} data-checked={selected}
+                        <CommandItem key={key} value={itemValue(key)} onSelect={() => { p.onPick(item, enterPressed.current); enterPressed.current = false; }} data-checked={selected}
                             className="data-[checked=true]:font-semibold data-[checked=true]:not-data-[selected=true]:bg-primary/10">
                             <span className="truncate">{p.renderItem ? p.renderItem(item, p.m.query) : p.getLabel(item)}</span>
                         </CommandItem>
