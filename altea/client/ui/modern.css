@@ -1,0 +1,491 @@
+/* The `modern` design (`data-design="modern"` on the root; ui/design.ts). Everything here is scoped to it, so
+   `classic` — Bootstrap 5.3's look, exactly — is untouched. It sits in its own `design` cascade layer, above the
+   packages' own stylesheets and below the application's: it can restyle any framework surface, and an app can
+   still restyle it. A palette (the app's `[data-palette]` blocks) still sets the accent on top of it. */
+
+@import "@fontsource-variable/inter";
+
+/* ---- Tokens: zinc neutrals, a calmer blue, softer borders --------------------------------------------------- */
+
+:root[data-design=modern],
+:root[data-design=modern][data-theme=light] {
+    --background: #fff;
+    --foreground: #18181b;
+    --card: #fff;
+    --card-foreground: #18181b;
+    --popover: #fff;
+    --popover-foreground: #18181b;
+    --primary: #2563eb;
+    --primary-foreground: #fff;
+    --secondary: #f4f4f5;
+    --secondary-foreground: #18181b;
+    --tertiary: #fafafa;                /* the page behind the cards */
+    --tertiary-foreground: #18181b;
+    --muted: #f4f4f5;
+    --muted-foreground: #71717a;
+    --accent: #f4f4f5;
+    --accent-foreground: #18181b;
+    --destructive: #dc2626;
+    --success: #16a34a;
+    --warning: #f59e0b;
+    --info: #0284c7;
+    --info-foreground: #fff;
+    --light: #f4f4f5;
+    --light-foreground: #18181b;
+    --dark: #18181b;
+    --border: #e4e4e7;
+    --input: #e4e4e7;
+    --ring: rgb(37 99 235 / .35);
+    --link: #2563eb;
+    --link-hover: #1d4ed8;
+    --emphasis: #09090b;
+    --faint-foreground: #a1a1aa;
+    --border-translucent: rgb(0 0 0 / .08);
+    --primary-subtle: #eff6ff;
+    --primary-subtle-foreground: #1d4ed8;
+    --primary-subtle-border: #bfdbfe;
+    --secondary-subtle: #f4f4f5;
+    --secondary-subtle-foreground: #3f3f46;
+    --secondary-subtle-border: #e4e4e7;
+    --success-subtle: #f0fdf4;
+    --success-subtle-foreground: #15803d;
+    --success-subtle-border: #bbf7d0;
+    --destructive-subtle: #fef2f2;
+    --destructive-subtle-foreground: #b91c1c;
+    --destructive-subtle-border: #fecaca;
+    --warning-subtle: #fffbeb;
+    --warning-subtle-foreground: #b45309;
+    --warning-subtle-border: #fde68a;
+    --info-subtle: #f0f9ff;
+    --info-subtle-foreground: #0369a1;
+    --info-subtle-border: #bae6fd;
+
+    --sf-radius: .5rem;
+    --sf-radius-sm: .375rem;
+    --sf-radius-lg: .75rem;
+    --sf-shadow-xs: 0 1px 2px rgb(0 0 0 / .05);
+    --sf-shadow-md: 0 4px 6px -1px rgb(0 0 0 / .08), 0 2px 4px -2px rgb(0 0 0 / .06);
+    --sf-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / .1), 0 4px 6px -4px rgb(0 0 0 / .08);
+}
+
+:root[data-design=modern][data-theme=dark] {
+    --background: #121214;
+    --foreground: #fafafa;
+    --card: #18181b;
+    --card-foreground: #fafafa;
+    --popover: #18181b;
+    --popover-foreground: #fafafa;
+    --primary: #3b82f6;
+    --secondary: #27272a;
+    --secondary-foreground: #fafafa;
+    --tertiary: #09090b;
+    --tertiary-foreground: #fafafa;
+    --muted: #27272a;
+    --muted-foreground: #a1a1aa;
+    --accent: #27272a;
+    --accent-foreground: #fafafa;
+    --light: #27272a;
+    --light-foreground: #fafafa;
+    --border: #2e2e33;
+    --input: #3f3f46;
+    --ring: rgb(59 130 246 / .45);
+    --link: #60a5fa;
+    --link-hover: #93c5fd;
+    --emphasis: #fff;
+    --faint-foreground: #71717a;
+    --border-translucent: rgb(255 255 255 / .08);
+    --primary-subtle: #172554;
+    --primary-subtle-foreground: #93c5fd;
+    --primary-subtle-border: #1e3a8a;
+    --secondary-subtle: #27272a;
+    --secondary-subtle-foreground: #d4d4d8;
+    --secondary-subtle-border: #3f3f46;
+    --success-subtle: #052e16;
+    --success-subtle-foreground: #86efac;
+    --success-subtle-border: #14532d;
+    --destructive-subtle: #450a0a;
+    --destructive-subtle-foreground: #fca5a5;
+    --destructive-subtle-border: #7f1d1d;
+    --warning-subtle: #451a03;
+    --warning-subtle-foreground: #fcd34d;
+    --warning-subtle-border: #78350f;
+    --info-subtle: #082f49;
+    --info-subtle-foreground: #7dd3fc;
+    --info-subtle-border: #0c4a6e;
+    --sf-shadow-xs: 0 1px 2px rgb(0 0 0 / .3);
+    --sf-shadow-md: 0 4px 6px -1px rgb(0 0 0 / .4);
+    --sf-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / .5);
+}
+
+/* ---- Type and density: Inter, and a 14px root so every rem — text, spacing, controls — is compact ---------- */
+
+:root[data-design=modern] {
+    font-size: 14px;
+}
+
+[data-design=modern] body {
+    font-family: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.006em;
+}
+
+[data-design=modern] :is(h1, h2, h3, .text-h1, .text-h2, .text-h3, .text-display-1, .text-display-2, .text-display-3,
+    .text-display-4, .text-display-5, .text-display-6) {
+    letter-spacing: -0.02em;
+}
+
+[data-design=modern] :is(table, .sf-table, input, .sf-form-control) {
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---- Fields --------------------------------------------------------------------------------------------- */
+
+[data-design=modern] :is(.sf-form-control, .sf-form-select) {
+    border-color: var(--input);
+    border-radius: var(--sf-radius);
+    box-shadow: var(--sf-shadow-xs);
+    background-color: var(--background);
+}
+
+[data-design=modern] :is(.sf-form-control, .sf-form-select):focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--ring);
+}
+
+/* A read-only value reads as text, not as a disabled box. */
+[data-design=modern] :is(.sf-form-control, .sf-form-select):is([readonly], :disabled, .sf-readonly) {
+    background-color: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+[data-design=modern] .sf-input-group-text {
+    background-color: var(--muted);
+    border-color: var(--input);
+    color: var(--muted-foreground);
+}
+
+[data-design=modern] .sf-input-group > :not(:first-child) {
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+}
+
+[data-design=modern] .sf-input-group > :not(:last-child) {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+}
+
+[data-design=modern] .sf-input-group > :first-child {
+    border-start-start-radius: var(--sf-radius);
+    border-end-start-radius: var(--sf-radius);
+}
+
+[data-design=modern] .sf-input-group > :last-child {
+    border-start-end-radius: var(--sf-radius);
+    border-end-end-radius: var(--sf-radius);
+}
+
+[data-design=modern] :is(.sf-form-label, .sf-col-form-label, label.sf-form-label) {
+    color: var(--muted-foreground);
+    font-weight: 500;
+}
+
+[data-design=modern] .sf-form-check-input {
+    border-radius: .3rem;
+    border-color: var(--input);
+}
+
+[data-design=modern] .sf-form-check-input:focus {
+    box-shadow: 0 0 0 3px var(--ring);
+}
+
+/* ---- Buttons: fixed weight, a muted secondary, ghost toolbars, outlines with coloured text ------------------ */
+
+[data-design=modern] .sf-btn {
+    --sf-btn-font-weight: 500;
+    --sf-btn-font-size: .9286rem;   /* 13px on the 14px root */
+    --sf-btn-border-radius: var(--sf-radius);
+    --sf-btn-padding-y: .4rem;
+    --sf-btn-focus-box-shadow: 0 0 0 3px var(--ring);
+}
+
+[data-design=modern] :is(.sf-btn-sm, .sf-btn-group-sm > .sf-btn) {
+    --sf-btn-border-radius: var(--sf-radius-sm);
+}
+
+[data-design=modern] .sf-btn-primary {
+    --sf-btn-hover-bg: color-mix(in srgb, var(--primary) 90%, #000);
+    --sf-btn-hover-border-color: transparent;
+    --sf-btn-active-bg: color-mix(in srgb, var(--primary) 85%, #000);
+    --sf-btn-border-color: transparent;
+    box-shadow: var(--sf-shadow-xs);
+}
+
+/* Secondary, light and the toolbar's tertiary: a muted surface, not a grey slab. */
+[data-design=modern] :is(.sf-btn-secondary, .sf-btn-light) {
+    --sf-btn-color: var(--secondary-foreground);
+    --sf-btn-bg: var(--secondary);
+    --sf-btn-border-color: transparent;
+    --sf-btn-hover-color: var(--secondary-foreground);
+    --sf-btn-hover-bg: color-mix(in srgb, var(--secondary) 88%, var(--foreground));
+    --sf-btn-hover-border-color: transparent;
+    --sf-btn-active-color: var(--secondary-foreground);
+    --sf-btn-active-bg: color-mix(in srgb, var(--secondary) 82%, var(--foreground));
+    --sf-btn-active-border-color: transparent;
+    --sf-btn-disabled-color: var(--muted-foreground);
+    --sf-btn-disabled-bg: var(--secondary);
+    --sf-btn-disabled-border-color: transparent;
+}
+
+[data-design=modern] .sf-btn.sf-btn-tertiary {
+    --sf-btn-color: var(--foreground);
+    --sf-btn-bg: transparent;
+    --sf-btn-border-color: transparent;
+    --sf-btn-hover-color: var(--foreground);
+    --sf-btn-hover-bg: var(--accent);
+    --sf-btn-hover-border-color: transparent;
+    --sf-btn-active-color: var(--foreground);
+    --sf-btn-active-bg: color-mix(in srgb, var(--accent) 85%, var(--foreground));
+    --sf-btn-active-border-color: transparent;
+    --sf-btn-disabled-bg: transparent;
+    --sf-btn-disabled-border-color: transparent;
+}
+
+/* Outline: a neutral border on the background, the colour on the text; hover tints it. */
+[data-design=modern] :is(.sf-btn-outline-primary, .sf-btn-outline-secondary, .sf-btn-outline-success, .sf-btn-outline-danger,
+    .sf-btn-outline-warning, .sf-btn-outline-info, .sf-btn-outline-dark, .sf-btn-outline-light) {
+    --sf-btn-bg: var(--background);
+    --sf-btn-border-color: var(--border);
+    --sf-btn-hover-border-color: var(--border);
+    --sf-btn-active-border-color: var(--border);
+    --sf-btn-disabled-border-color: var(--border);
+    --sf-btn-disabled-bg: var(--background);
+    box-shadow: var(--sf-shadow-xs);
+}
+
+[data-design=modern] .sf-btn-outline-primary { --sf-btn-hover-bg: var(--primary-subtle); --sf-btn-hover-color: var(--primary-subtle-foreground); --sf-btn-active-bg: var(--primary-subtle); --sf-btn-active-color: var(--primary-subtle-foreground); }
+[data-design=modern] .sf-btn-outline-secondary { --sf-btn-color: var(--foreground); --sf-btn-hover-bg: var(--accent); --sf-btn-hover-color: var(--foreground); --sf-btn-active-bg: var(--accent); --sf-btn-active-color: var(--foreground); --sf-btn-disabled-color: var(--muted-foreground); }
+[data-design=modern] .sf-btn-outline-dark { --sf-btn-color: var(--foreground); --sf-btn-hover-bg: var(--accent); --sf-btn-hover-color: var(--foreground); --sf-btn-active-bg: var(--accent); --sf-btn-active-color: var(--foreground); }
+[data-design=modern] .sf-btn-outline-success { --sf-btn-hover-bg: var(--success-subtle); --sf-btn-hover-color: var(--success-subtle-foreground); --sf-btn-active-bg: var(--success-subtle); --sf-btn-active-color: var(--success-subtle-foreground); }
+[data-design=modern] .sf-btn-outline-danger { --sf-btn-hover-bg: var(--destructive-subtle); --sf-btn-hover-color: var(--destructive-subtle-foreground); --sf-btn-active-bg: var(--destructive-subtle); --sf-btn-active-color: var(--destructive-subtle-foreground); }
+[data-design=modern] .sf-btn-outline-warning { --sf-btn-color: var(--warning-subtle-foreground); --sf-btn-hover-bg: var(--warning-subtle); --sf-btn-hover-color: var(--warning-subtle-foreground); --sf-btn-active-bg: var(--warning-subtle); --sf-btn-active-color: var(--warning-subtle-foreground); }
+[data-design=modern] .sf-btn-outline-info { --sf-btn-color: var(--info); --sf-btn-hover-bg: var(--info-subtle); --sf-btn-hover-color: var(--info-subtle-foreground); --sf-btn-active-bg: var(--info-subtle); --sf-btn-active-color: var(--info-subtle-foreground); }
+
+[data-design=modern] .sf-btn-group > .sf-btn:not(:last-child) {
+    box-shadow: none;
+}
+
+/* ---- Tables: hairlines only, a quiet header, a soft hover ----------------------------------------------- */
+
+[data-design=modern] .sf-table {
+    --sf-table-color: var(--foreground);
+    --sf-table-hover-bg: color-mix(in srgb, var(--muted) 70%, transparent);
+    --sf-table-striped-bg: color-mix(in srgb, var(--muted) 50%, transparent);
+    --sf-table-active-bg: var(--muted);
+}
+
+[data-design=modern] .sf-table > thead > tr > th {
+    font-size: .8571rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+}
+
+[data-design=modern] .sf-search-results > thead > tr > th {
+    background-color: var(--background);
+    box-shadow: inset 0 -1px 0 var(--border);
+}
+
+[data-design=modern] .sf-search-results > tbody > tr:hover > td {
+    --sf-table-bg-state: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+
+/* ---- Tabs: an underline, not folder tabs ---------------------------------------------------------------- */
+
+[data-design=modern] .sf-tab-list.sf-tabs-tabs {
+    border-bottom: 1px solid var(--border);
+    gap: 1.25rem;
+}
+
+[data-design=modern] .sf-tabs-tabs .sf-tab {
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    margin-bottom: -1px;
+    padding: .5rem 0;
+    background: none;
+    color: var(--muted-foreground);
+    font-weight: 500;
+}
+
+[data-design=modern] .sf-tabs-tabs .sf-tab:hover {
+    color: var(--foreground);
+    border-bottom-color: var(--border);
+}
+
+[data-design=modern] .sf-tabs-tabs .sf-tab[data-active] {
+    color: var(--foreground);
+    border-bottom-color: var(--primary);
+    background: none;
+}
+
+/* ---- Menus ---------------------------------------------------------------------------------------------- */
+
+[data-design=modern] .sf-dropdown-menu {
+    border-color: var(--border);
+    border-radius: var(--sf-radius);
+    box-shadow: var(--sf-shadow-md);
+    padding: .25rem;
+}
+
+[data-design=modern] .sf-dropdown-item {
+    border-radius: var(--sf-radius-sm);
+    padding: .375rem .625rem;
+}
+
+[data-design=modern] :is(.sf-dropdown-item:hover, .sf-dropdown-item:focus, .sf-dropdown-item[data-highlighted]) {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+}
+
+[data-design=modern] :is(.sf-dropdown-item.active, .sf-dropdown-item:active) {
+    background-color: var(--primary-subtle);
+    color: var(--primary-subtle-foreground);
+}
+
+/* ---- Surfaces: cards, fieldsets, modals, badges, alerts --------------------------------------------------- */
+
+[data-design=modern] .sf-card {
+    border-color: var(--border);
+    border-radius: var(--sf-radius-lg);
+    box-shadow: var(--sf-shadow-xs);
+}
+
+/* A fieldset is a titled section: a light frame with the title above it, not a legend cut into the border. */
+[data-design=modern] fieldset {
+    border-color: var(--border);
+    border-radius: var(--sf-radius-lg);
+    padding: .75rem 1rem 1rem;
+    background-color: var(--background);
+}
+
+[data-design=modern] fieldset > legend {
+    font-size: .9286rem;
+    font-weight: 600;
+    padding: 0 .375rem;
+}
+
+[data-design=modern] .sf-modal-content {
+    border: 1px solid var(--border);
+    border-radius: var(--sf-radius-lg);
+    box-shadow: var(--sf-shadow-lg);
+}
+
+[data-design=modern] :is(.sf-modal-header, .sf-modal-footer) {
+    border-color: transparent;
+}
+
+[data-design=modern] .sf-modal-backdrop {
+    background-color: rgb(0 0 0 / .4);
+    backdrop-filter: blur(2px);
+}
+
+/* Soft badges: a tint, the colour on the text, a hairline in the colour. Count badges built from a colour prop
+   (quick links, the navbar) stay solid: they are signals, not labels. */
+[data-design=modern] .sf-badge {
+    border: 1px solid transparent;
+    border-radius: var(--sf-radius-sm);
+    font-weight: 500;
+    padding: .25em .55em;
+}
+
+[data-design=modern] .sf-badge-primary { background-color: var(--primary-subtle); color: var(--primary-subtle-foreground); border-color: var(--primary-subtle-border); }
+[data-design=modern] .sf-badge-secondary { background-color: var(--secondary-subtle); color: var(--secondary-subtle-foreground); border-color: var(--secondary-subtle-border); }
+[data-design=modern] .sf-badge-success { background-color: var(--success-subtle); color: var(--success-subtle-foreground); border-color: var(--success-subtle-border); }
+[data-design=modern] .sf-badge-destructive { background-color: var(--destructive-subtle); color: var(--destructive-subtle-foreground); border-color: var(--destructive-subtle-border); }
+[data-design=modern] .sf-badge-warning { background-color: var(--warning-subtle); color: var(--warning-subtle-foreground); border-color: var(--warning-subtle-border); }
+[data-design=modern] .sf-badge-info { background-color: var(--info-subtle); color: var(--info-subtle-foreground); border-color: var(--info-subtle-border); }
+[data-design=modern] :is(.sf-badge-tertiary, .sf-badge-light) { background-color: var(--muted); color: var(--muted-foreground); border-color: var(--border); }
+[data-design=modern] .sf-badge-pill { border-radius: 999px; }
+
+[data-design=modern] .sf-alert {
+    border-radius: var(--sf-radius);
+}
+
+[data-design=modern] .sf-popover {
+    border-radius: var(--sf-radius);
+    box-shadow: var(--sf-shadow-md);
+}
+
+/* ---- The shell: a translucent navbar, a quiet sidebar with a rounded current item ------------------------ */
+
+:root[data-design=modern] {
+    --sf-navbar-bg: color-mix(in srgb, var(--background) 85%, transparent);
+    --sf-navbar-link: var(--muted-foreground);
+    --sf-navbar-link-hover: var(--foreground);
+    --sf-navbar-link-active: var(--foreground);
+    --sf-navbar-brand: var(--foreground);
+    --sf-sidebar-bg: var(--tertiary);
+    --sf-sidebar-link: color-mix(in srgb, var(--foreground) 75%, transparent);
+    --sf-sidebar-link-active: var(--foreground);
+    --sf-sidebar-active-bg: var(--accent);
+    --sf-sidebar-active-bar: transparent;
+    --sf-sidebar-hover-bg: color-mix(in srgb, var(--accent) 70%, transparent);
+    --sf-sidebar-highlight: transparent;
+    --sf-sidebar-header: var(--muted-foreground);
+}
+
+[data-design=modern] .sf-navbar {
+    backdrop-filter: saturate(1.4) blur(8px);
+}
+
+[data-design=modern] .sidebar-inner .sf-nav-item .sf-nav-link {
+    border-left-width: 0;
+    border-radius: var(--sf-radius-sm);
+    margin: 1px .5rem;
+    width: auto;
+}
+
+[data-design=modern] .sidebar-nav .nav-item-header span {
+    font-size: .7857rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-weight: 600;
+}
+
+/* ---- Pagination: separate rounded buttons -------------------------------------------------------------- */
+
+[data-design=modern] .sf-pagination {
+    gap: .25rem;
+}
+
+[data-design=modern] .sf-page-link {
+    border-color: transparent;
+    border-radius: var(--sf-radius-sm);
+    margin-left: 0;
+    color: var(--foreground);
+}
+
+[data-design=modern] .sf-page-link:hover {
+    background-color: var(--accent);
+    border-color: transparent;
+}
+
+[data-design=modern] :is(.sf-page-item.active > .sf-page-link, .sf-page-link.active) {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-foreground);
+}
+
+[data-design=modern] :is(.sf-page-item.disabled > .sf-page-link, .sf-page-link.disabled) {
+    background-color: transparent;
+    color: var(--faint-foreground);
+}
+
+/* An addon (`€`, `Kg`) beside a read-only value fades with it. */
+[data-design=modern] .sf-input-group:has(> .sf-form-control[readonly]) > .sf-input-group-text {
+    background-color: transparent;
+    border-color: transparent;
+    padding-inline: .25rem;
+}

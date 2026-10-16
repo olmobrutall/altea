@@ -397,3 +397,28 @@ section covers its stylesheets, the `app` layer and how to add a palette.
 
 Phases 0–1 are the design work; 2 is the hardest (Lines + modal stack + react-widgets + calendar); 3 and
 5 are large but mechanical. ~450 files in total, almost all in the `altea` submodule.
+
+## After the migration — the `modern` design (prototype)
+
+Phases 0–5 kept Bootstrap's LOOK on purpose, pixel for pixel. The modern design is the visual flip, and it is
+switchable: `data-design="classic|modern"` on the root (`ui/design.ts`, remembered as `sf-design`, stamped by the
+app's boot script; eastwind offers it in the theme menu via `DesignMenuItems`, the UI kit page has a toggle).
+`classic` stays exactly today's look; every rule of `ui/modern.css` is scoped to `[data-design=modern]`.
+
+- **Its own cascade layer, `design`**, between `components` and `app`: it can restyle the packages' stylesheets
+  (Lines.css, Search.css, Sidebar.css) whatever their specificity, and an app — palettes included — still
+  restyles it.
+- **Tokens**: zinc neutrals, a calmer blue (`#2563eb`), Tailwind-scale subtle trios, larger radii (`--sf-radius`
+  .5rem, cards .75rem), soft shadows, a 3px focus ring.
+- **Type and density**: Inter (variable, `@fontsource-variable/inter`, SIL OFL 1.1) on a 14px root, so every rem —
+  text, spacing, controls — is compact together; tabular figures in tables and inputs.
+- **Fields**: read-only values read as text (no box, and an addon beside one fades with it); labels muted.
+- **Buttons**: a muted secondary, the search toolbar's tertiary as ghost buttons, outlines with a neutral border
+  and the colour on the text.
+- **Tables** keep hairlines only with a quiet header; **tabs** are an underline; **menus**, **modals**, **cards**,
+  **fieldsets** rounder and flatter; **badges** soft (the kit Badge now renders `sf-badge-<variant>`);
+  **pagination** separate rounded buttons; the **navbar** translucent, the **sidebar** a rounded current item
+  with uppercase section labels.
+
+Not decided yet: whether `modern` becomes the default, a density switch beside it (the 14px root is the lever),
+and the icon set (Font Awesome Solid still reads heavy next to Inter).

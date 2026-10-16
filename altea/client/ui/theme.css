@@ -3,10 +3,11 @@
 
 /* The cascade layers, lowest first (the build puts each non-Tailwind stylesheet in one; see vite.mjs):
    `legacy` the libraries' CSS (Font Awesome) and the reboot below; `semantic` altea's `sf-*` classes (semantic.css,
-   components.css); `components` altea's packages' own CSS, which adjusts those classes; `app` the APPLICATION's own CSS,
+   components.css); `components` altea's packages' own CSS, which adjusts those classes; `design` the modern design's
+   restyling of all of that (modern.css, scoped to `data-design="modern"`); `app` the APPLICATION's own CSS,
    above every framework rule — that is how an app restyles the framework — and still below the utilities, so a
    utility written on an element keeps winning (unlayered CSS would beat it). */
-@layer legacy, theme, base, semantic, components, app, utilities;
+@layer legacy, theme, base, semantic, components, design, app, utilities;
 
 /* No Tailwind preflight: the element defaults are Bootstrap's reboot (reboot.css), which every view is written against.
    It goes in `legacy` with the library stylesheets, where it sat beside Bootstrap: a library's class rule (Font Awesome's

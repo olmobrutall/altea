@@ -17,6 +17,7 @@ import { Progress, Skeleton, Spinner } from "./Progress";
 import { Select } from "./Select";
 import { Tab, Tabs } from "./Tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger, Popover, PopoverContent, PopoverTrigger, WithTooltip } from "./Tooltip";
+import { setDesign, useDesign } from "./design";
 
 // A development page: the labels are sample text, not messages.
 
@@ -45,6 +46,7 @@ export default function UiKitPage(): React.ReactElement {
         window.dispatchEvent(new CustomEvent("change-theme-mode", { detail: mode }));
         setThemeState(mode);
     }
+    const design = useDesign();
 
     const [modal, setModal] = React.useState<false | "md" | "lg" | "static">(false);
     const [nested, setNested] = React.useState(false);
@@ -71,6 +73,10 @@ export default function UiKitPage(): React.ReactElement {
                 <ButtonGroup>
                     <Button variant={theme === "light" ? "primary" : "outline"} size="sm" onClick={() => setTheme("light")}><FontAwesomeIcon icon="sun" /> Light</Button>
                     <Button variant={theme === "dark" ? "primary" : "outline"} size="sm" onClick={() => setTheme("dark")}><FontAwesomeIcon icon="moon" /> Dark</Button>
+                </ButtonGroup>
+                <ButtonGroup>
+                    <Button variant={design === "classic" ? "primary" : "outline"} size="sm" onClick={() => setDesign("classic")}>Classic</Button>
+                    <Button variant={design === "modern" ? "primary" : "outline"} size="sm" onClick={() => setDesign("modern")}>Modern</Button>
                 </ButtonGroup>
             </div>
 

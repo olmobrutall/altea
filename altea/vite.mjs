@@ -1,6 +1,6 @@
 // Vite plugins an altea application's client config uses.
 
-const LAYER_ORDER = "@layer legacy, theme, base, semantic, components, app, utilities;";
+const LAYER_ORDER = "@layer legacy, theme, base, semantic, components, design, app, utilities;";
 const TAILWIND_DIRECTIVE = /@(?:import\s+["']tailwindcss|reference|apply|theme|source|utility|custom-variant|layer)\b/;
 const LEADING_STATEMENT = /^\s*(?:@charset[^;]*;|@import[^;]*;|\/\*[\s\S]*?\*\/)/;
 // An altea package's own stylesheet, in the workspace or installed (`@altea/altea-x/client/…`).
@@ -15,6 +15,7 @@ const SEMANTIC_CSS = /[\\/]ui[\\/]semantic\.css$/;
  *  - `semantic`: `ui/semantic.css` and the `components.css` it imports — the `sf-*` classes. Above the libraries,
  *    below the packages' own stylesheets, which adjust these classes and must keep winning.
  *  - `components`: an altea package's own stylesheet. It beats a library's rule whatever the specificity.
+ *  - `design`: `ui/modern.css`, imported by semantic.css with an explicit `layer(design)` — it restyles the packages' CSS.
  *  - `app`: the application's own stylesheets. They beat every framework rule — that is how an app restyles
  *    altea — and still lose to a utility written on the element.
  */
