@@ -66,6 +66,7 @@ import { TypeEntity } from "../../../data/typeEntity";
 import { toInt, toLong, inSql, Temporal } from "../../../data/basics";
 import { Enum } from "../../../data/enum";
 import { EnumEntity } from "../../../data/enumEntity";
+import { enumNameOf } from "../../../data/registration";
 import { Lite, getCustomLiteConstructor, getCustomLiteConstructorFor } from "../../../data/lite";
 import type { CustomLiteClass } from "../../../data/lite";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, TsVectorType, VectorType, RuntimeType } from "../../runtimeTypes";
@@ -958,6 +959,9 @@ export class QueryBinder extends ExpressionVisitor {
     // arrayGet(arr, i) marker lowered here too; now real element access flows through
     // IndexExpression.
     override visitIndex(node: IndexExpression): Expression {
+        // `E[value]` over an enum (its reverse mapping): the member name, as Enum.toName(E, value).
+        if (node.object instanceof ConstantExpression && node.object.value != null && typeof node.object.value === "object" && enumNameOf(node.object.value) != null)
+            return this.bindEnumName(node.object.value, node.index);
         return new SqlArrayIndexExpression(node.type, this.visit(node.object), this.visit(node.index));
     }
 
@@ -2943,8 +2947,13 @@ export class QueryBinder extends ExpressionVisitor {
         const enumArg = call.args[0];
         if (!(enumArg instanceof ConstantExpression))
             throw new Error("Enum.toName(E, value) in a query needs the enum E itself as its first argument");
-        const enumCtor = EnumEntity.typeFor(enumArg.value as object);
-        const value = this.visit(call.args[1]);
+        return this.bindEnumName(enumArg.value as object, call.args[1]);
+    }
+
+    // The NAME of an enum value — Enum.toName(E, value) and E[value] alike.
+    private bindEnumName(enumObject: object, valueExpr: Expression): Expression {
+        const enumCtor = EnumEntity.typeFor(enumObject);
+        const value = this.visit(valueExpr);
         const enumRow = new EntityExpression(new ClassType(enumCtor), this.schema.table(enumCtor), new PrimaryKeyExpression(value), undefined, undefined, undefined, false);
         return this.bindMember(enumRow, "name", false);
     }

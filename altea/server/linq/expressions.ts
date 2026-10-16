@@ -754,6 +754,9 @@ export abstract class Expression {
                     // object falls back to number so the offline binder stays happy.
                     const obj = fromQuoted(q[1]);
                     const index = fromQuoted(q[2]);
+                    // `E[value]` over a registered enum: TypeScript's reverse mapping, the member name.
+                    if (obj instanceof ConstantExpression && obj.value != null && typeof obj.value === "object" && enumNameOf(obj.value) != null)
+                        return new IndexExpression(obj, index, LiteralType.string);
                     const elementType = obj.type instanceof ArrayType && obj.type.elementType != null
                         ? obj.type.elementType : LiteralType.number;
                     return new IndexExpression(obj, index, elementType);

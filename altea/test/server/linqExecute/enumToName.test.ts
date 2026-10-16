@@ -36,4 +36,21 @@ describe.skipIf(!hasDb)("Enum.toName", () => {
         for (const r of rows)
             assert.equal(r.text, `${Enum.toName(Sex, r.sex)} ${r.name}`);
     });
+
+    // E[value], TypeScript's reverse mapping, is the same name.
+    test("E[value] projects the member name", async () => {
+        const rows = await table(ArtistEntity).map(a => ({ sex: a.sex, name: Sex[a.sex] })).toArray();
+        assert.ok(rows.length > 0);
+        for (const r of rows)
+            assert.equal(r.name, Sex[r.sex]);
+    });
+
+    test("E[value] filters and concatenates", async () => {
+        const byName = await table(ArtistEntity).filter(a => Sex[a.sex] == "Female").map(a => a.id).toArray();
+        const byValue = await table(ArtistEntity).filter(a => a.sex == Sex.Female).map(a => a.id).toArray();
+        assert.deepEqual([...byName].sort(), [...byValue].sort());
+        const texts = await table(ArtistEntity).map(a => ({ text: Sex[a.sex] + " " + a.name, sex: a.sex, name: a.name })).toArray();
+        for (const r of texts)
+            assert.equal(r.text, Sex[r.sex] + " " + r.name);
+    });
 });
