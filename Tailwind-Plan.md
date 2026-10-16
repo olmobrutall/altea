@@ -373,9 +373,14 @@ Tailwind class (1338 such words in the code base), so a second pass turns Tailwi
 ran only the S / X rows plus the grid's U rows, and the upgrade step does the same. The `BsSize` / `BsColumns`
 aliases stay one more cycle, for applications that have not run the upgrade.
 
-### Phase 6 — docs
+### Phase 6 — docs ✅
 `altea/AGENTS.md` (UI line + a "Styling" section: `ui` kit, tokens, semantic classes vs utilities, how
 an app restyles a region), `port/` ledger entry, `eastwind/AGENTS.md` palette notes.
+
+Done: `altea/AGENTS.md` has the *Styling* conventions (the three tools, tokens and `colorClass`, the grid, the layer
+order, how an app restyles); `port/Styling.md` is the Signum → altea mapping (with a pointer bullet in `port/port.md`);
+eastwind's instructions are the repo-root `AGENTS.md` (there is no `eastwind/AGENTS.md`), whose *Look and feel*
+section covers its stylesheets, the `app` layer and how to add a palette.
 
 ## Risks
 

@@ -24,6 +24,10 @@ Port faithfully: **mirror Signum's class / method names and member order**, copy
 
 Known structural divergences from Signum (this is what "fix" means — don't port these 1:1):
 
+- **No Bootstrap, react-bootstrap or react-widgets.** Tailwind v4, altea's `ui` kit (on Base UI) and semantic
+  `sf-*` classes that are Bootstrap's own component rules renamed and on altea's tokens (`btn btn-primary` →
+  `sf-btn sf-btn-primary`, `row` + `col-sm-6` → `sf-row` + `sm:col-span-6`, `data-bs-theme` → `data-theme`). The
+  mapping a reader of Signum's React source needs is [Styling.md](Styling.md).
 - **`@part` is a DECORATOR, and a part is a CONTINUATION of its owner, never a root.** "Part" is by far
   the most-declared kind (120 of the 124 classes that name one) and the whole codebase already talks about
   "a `@part` row", so it is `@part` — bare, and with NO EntityData, where every other kind must be given

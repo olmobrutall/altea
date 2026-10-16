@@ -2,7 +2,7 @@
 
 **Type:** altea application framework — a TypeScript ORM + LINQ provider + dynamic-query engine with a
 React UI kit, modelled on Signum Framework.
-**UI:** React (TypeScript SPA), Bootstrap + react-bootstrap + Font Awesome.
+**UI:** React (TypeScript SPA), Tailwind CSS v4 + altea's `ui` kit (on Base UI) + semantic `sf-*` classes + Font Awesome.
 
 ## General guidance
 
@@ -158,6 +158,35 @@ string there.
   and an app's public surface must not pay for it. A module an app shell imports STATICALLY may not reach
   it — load it with `React.lazy` / a dynamic `import()` behind a `currentUser != null` render, as
   `LoginDropdown` does for its profile handler.
+
+## Styling
+
+- **Three tools, one per job.** A *component* from `@altea/altea/client/ui/<Component>` (Modal, Tabs, Dropdown,
+  Combobox, DateTimePicker, Popover, …) for anything with behaviour. A *semantic class* (`sf-btn sf-btn-primary`,
+  `sf-form-control`, `sf-card`, `sf-table`, `sf-row`) for a framework surface an application may restyle. A
+  *Tailwind utility* (`flex gap-2 me-2`) for layout local to one view — never a theming surface.
+- **Packages never import Base UI, cmdk or shadcn files** — only `client/ui`. One place for a primitive to change.
+- **Colours are tokens, never literals**: `var(--primary)`, `bg-destructive`, `text-muted-foreground`,
+  `--primary-subtle` / `-subtle-foreground` / `-subtle-border`. A colour from a prop (`BsColor`: `"danger"`, …)
+  goes through `colorClass(kind, color)` (Components.tsx): `danger` is the `destructive` token, and a built class
+  name is invisible to Tailwind's scanner unless theme.css safelists it.
+- **Spacing is logical** (`ms-*` / `me-*` / `ps-*` / `pe-*`, `text-start`), so RTL keeps working.
+- **The grid**: `sf-row` with `col-span-*` / `sm:col-span-*` children (a child without one spans the row);
+  columns that size to their content (`col-auto`) are a flex row instead (`flex flex-wrap gap-x-6` + `flex-none`).
+- **Cascade layers decide, not specificity** (vite.mjs puts each stylesheet in one):
+  `legacy` (library CSS, the reboot) < `theme` < `base` < `semantic` (`ui/semantic.css`, `ui/components.css`) <
+  `components` (a package's own CSS) < `app` (the application's CSS) < `utilities`. So a package stylesheet
+  adjusting an `sf-*` class always wins, an app restyles anything with a plain rule, and a utility written on an
+  element beats them all. Never reach for `!important`.
+- **Restyling, for an application**: set a token (`--primary`) or a component knob (`--sf-btn-padding-x`,
+  `--sf-table-hover-bg`, `--sf-sidebar-bg`, `--sf-navbar-link`) in its own CSS, or write a rule against the
+  `sf-*` class. A palette is a `[data-palette=<name>]` block of token values per mode (`PaletteSelector`).
+- **Dark mode** keys on `data-theme` on `<html>` (`[data-theme=dark] .x`, or Tailwind's `dark:`).
+- A package CSS file that uses `@apply` starts with `@reference "@altea/altea/client/ui/theme.css";`.
+- Selectors in Playwright proxies and tests use ROLE or `sf-*` / `data-*` hooks, never a library's own class.
+- `ui/components.css` and `ui/reboot.css` were generated from Bootstrap 5.3.8 (MIT) — edit them directly now.
+  The translation table for code still written against Bootstrap is [`Tailwind-ClassMap.md`](Tailwind-ClassMap.md);
+  `altea-upgrade` applies it to an application.
 
 ## Localization
 
