@@ -111,6 +111,13 @@ the prefix stays singular even where the namespace is plural.
 | `Guid` | `Guid` |
 | `byte[]` | `Blob` |
 
+**An enum's text is `Enum.toName(E, value)`.** On the server an enum field holds its NUMBER; only the
+wire carries the member name. C#'s `"…" + Version` / `$"{Version}"` (an implicit `Enum.ToString()`, the
+member name) therefore becomes `Enum.toName(BausteinVersion, this.version) + "…"`: it translates to the
+name in a query and returns the name in memory, so one `@quoted` body serves both. A plain
+`this.version + "…"` reads the name in a query but the number in memory — a `toString()` the server
+evaluates (an entity's title, a server-built lite, an error message) then shows `3` instead of `v2023`.
+
 **Datetimes follow `Clock.mode`, as in Signum.** A `DateTime` field stays a `Temporal.PlainDateTime` in the
 clock's frame, and `Clock.mode` (Signum's `Clock.Mode` / `Schema.TimeZoneMode`) decides the rest. `Local` is
 the default, as in Signum (Southwind never sets it): Postgres stores `timestamp` and the value is shown as
