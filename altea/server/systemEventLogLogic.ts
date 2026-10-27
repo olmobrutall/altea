@@ -1,7 +1,6 @@
 import './index'; // installs Entity.save()/delete()
 import './dynamicQuery/fluentIncludeQuery'; // FluentInclude.withQuery
-import { hostname } from 'node:os';
-import type { SchemaBuilder } from './schema';
+import { Schema, type SchemaBuilder } from './schema';
 import { Transaction } from './connection/transaction';
 import { ExecutionMode } from './executionMode';
 import { UserHolder } from './userHolder';
@@ -23,8 +22,6 @@ import { SystemEventLogEntity } from '../data/systemEventLog';
 //     failing a boot because the boot could not be logged would be worse than not logging it.
 //
 // altea divergences, documented inline:
-//  - `Schema.Current.MachineName` → `node:os`'s `hostname()`, which is what ExceptionLogic already uses
-//    for the same column on ExceptionEntity.
 //  - `e.LogException(ex => ex.ControllerName = "SystemEventLog.Log")` → `ExceptionLogic.logException(e,
 //    e => { e.controllerName = … })`, and the inner `catch {}` is kept: if logging the failure to log also
 //    fails, there is nowhere left to report it.
@@ -97,7 +94,7 @@ export namespace SystemEventLogLogic {
     /** Signum's `Schema.Current.MachineName`, and the column has a min length of 3, so never empty. */
     function machineName(): string {
         try {
-            const name = hostname();
+            const name = Schema.current.machineName;
             return name != null && name.length >= 3 ? name : "unknown";
         } catch {
             return "unknown";

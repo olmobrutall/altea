@@ -1,3 +1,4 @@
+import { hostname } from 'node:os';
 import type { Entity, PrimaryKey, Type, View, ViewType, BaseEntity } from '../../data/entity';
 import type { ResetLazy } from '../../server/resetLazy';
 import type { TypeCaches } from '../typeLogic';
@@ -21,6 +22,10 @@ import { SafeConsole, Color } from '../safeConsole';
 // constructor), and where a step is built per argument it names itself (SymbolLogic, EmailModelLogic).
 function stepName(step: Function, index: number): string {
     return step.name !== '' ? step.name : `synchronizing[${index}]`;
+}
+
+function safeHostname(): string {
+    try { return hostname(); } catch { return "unknown"; }
 }
 
 // A step in the generation pipeline: given the schema, contributes a piece of the
@@ -57,6 +62,21 @@ export class Schema {
 
     /** Signum's Schema.Version: the application's version, set by its starter and stamped on every logged exception. */
     version: string | undefined;
+
+    private machineNameValue: string | undefined;
+
+    /**
+     * Signum's Schema.MachineName: the name this server goes by in the process and scheduler tables (which
+     * runner owns a row), the system event log and the email sender panels. The host name unless the starter
+     * sets one — a container's host name changes with every deploy, so an app names its slot instead.
+     * Exceptions and the REST log keep the real host name, as in Signum.
+     */
+    get machineName(): string {
+        return this.machineNameValue ??= safeHostname();
+    }
+    set machineName(value: string) {
+        this.machineNameValue = value;
+    }
 
     readonly tables = new Map<Type<Entity>, Table>();
     readonly nameToType = new Map<string, Type<Entity>>();

@@ -1,5 +1,5 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import { hostname } from "node:os";
+import { Schema } from "@altea/altea/server/schema/schema";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { UserHolder } from "@altea/altea/server/userHolder";
@@ -61,8 +61,9 @@ export namespace ScheduleTaskRunner {
         return started;
     }
 
+    /** Signum's `Schema.Current.MachineName`. */
     export function machineName(): string {
-        try { return hostname(); } catch { return "unknown"; }
+        return Schema.current.machineName;
     }
 
     export function applicationName(): string {
