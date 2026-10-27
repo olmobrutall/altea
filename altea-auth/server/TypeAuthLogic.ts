@@ -6,7 +6,7 @@ import { ResetLazy } from "@altea/altea/server/resetLazy";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { CallExpression, type Expression, LambdaExpression, PropertyExpression, UnaryExpression } from "@altea/altea/server/linq/expressions";
-import { ClassType, LiteralType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
+import { ClassType, LiteralType } from "@altea/altea/server/runtimeTypes";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
 import { markStable, stableValue, type StablePromise } from "@altea/altea/server/stablePromise";
@@ -37,6 +37,7 @@ import { WithConditions, ConditionRule, maxBound, minBound, maxDB, maxUI } from 
 import { mergeTypeConditions } from "./TypeConditionMerger";
 import { buildAuthFilter, authFilterLambda, rebasePartFilter, conditionValueLambda } from "./TypeConditionAlgebra";
 import { FilterQueryArgs, findQuerySources, querySourceCtor } from "@altea/altea/server/schema/filterQueryArgs";
+import type { QueryFilterOptions } from "@altea/altea/server/schema/entityEvents";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { section, groupByRole, attrs, conditionsXml, parseEnum, sectionRows, syncRulesScript, conditionedRules, isLegacyPartRule, conditionSymbols, typeReplacementKey, typeConditionReplacementKey, type AuthImportCtx } from "./AuthRulesXml";
 import { SafeConsole } from "@altea/altea/server/safeConsole";
@@ -322,7 +323,7 @@ export namespace TypeAuthLogic {
     // when it meets THAT table source. Synchronous, like every queryFilter hook — and self-sufficient: it
     // demands the caches it folds the role's allowance from, and the auditor verdicts for this source, so a
     // query pays for the types it actually reads. Nothing is resolved in advance for it any more.
-    function authQueryFilterHook(ctx: { ctor: Type<Entity>; elementType: RuntimeType; args: FilterQueryArgs | undefined }): LambdaExpression | undefined {
+    function authQueryFilterHook(ctx: QueryFilterOptions): LambdaExpression | undefined {
         const rk = AuthLogic.currentRoleKey();
         if (rk == null || !AuthLogic.isEnabled())
             return undefined;
@@ -342,7 +343,7 @@ export namespace TypeAuthLogic {
     // reads the same async-resolved ConditionsByType for the ROOT's id. No root entry (auth off / no role)
     // or the root reduces to "all" → no filter.
     function partAuthQueryFilterHook(rootCtor: Type<Entity>, chain: readonly string[]) {
-        return (ctx: { ctor: Type<Entity>; elementType: RuntimeType; args: FilterQueryArgs | undefined }): LambdaExpression | undefined => {
+        return (ctx: QueryFilterOptions): LambdaExpression | undefined => {
             const rk = AuthLogic.currentRoleKey();
             if (rk == null || !AuthLogic.isEnabled())
                 return undefined;

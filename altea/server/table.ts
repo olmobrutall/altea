@@ -220,7 +220,11 @@ export async function bindOptimizeSecured(expression: Expression, schema: Schema
 // Retriever's batch stub-completion and Database.retrieveList. The predicate is hand-built
 // (no quoted lambda needed at runtime); the captured id array is a ConstantExpression the
 // binder lowers to an `IN (…)`.
-function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[], typeCaches?: TypeCaches): ProjectionExpression {
+//
+// Built ONCE, then bound through bindOptimizeSecured — never built inside the region. A row filter keys
+// per-query work on the table-source node (the auditor verdicts), so a tree rebuilt per attempt mints a
+// new node, hence a new promise, every time and never converges.
+async function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[]): Promise<ProjectionExpression> {
     const connector = Connector.current();
     const q = table(ctor);
     const param = new ParameterExpression("e", q.elementType);
@@ -230,7 +234,7 @@ function retrieveByIdsProjection(ctor: Type<Entity>, ids: PrimaryKey[], typeCach
     const filterExpr = new CallExpression(new PropertyExpression(q.expression, "filter"), [predicate], q.type);
     // Run the full simplifier (as the normal query path does): the OverloadingSimplifier is what
     // establishes the default entity projection — skipping it yielded an empty SELECT column list.
-    return bindAndOptimize(filterExpr, connector.schema, connector.isPostgres, false, typeCaches);
+    return await bindOptimizeSecured(filterExpr, connector.schema, connector.isPostgres);
 }
 
 // Signum's Database.RetrieveList, injected into the Retriever (which can't import the
@@ -240,7 +244,7 @@ Retriever.retrieveListImpl = async (ctor: Type<Entity>, ids: PrimaryKey[], retri
     const connector = Connector.current();
     // The row filters this bind applies are the same ones a query carries, so the same on-demand cache
     // loading applies — only the (pure) bind is inside the region, never the retriever it feeds.
-    const projection = await withPromisesLoaded(() => retrieveByIdsProjection(ctor, ids, loadedTypeCaches(connector.schema)));
+    const projection = await retrieveByIdsProjection(ctor, ids);
     await buildTranslateResult(projection, connector.isPostgres).executeInto(retriever);
 };
 
@@ -292,7 +296,7 @@ export async function retrieveEntitiesByIds<T extends Entity>(ctor: Type<T>, ids
     if (ids.length === 0)
         return [];
     const connector = Connector.current();
-    const projection = await withPromisesLoaded(() => retrieveByIdsProjection(ctor, ids, loadedTypeCaches(connector.schema)));
+    const projection = await retrieveByIdsProjection(ctor, ids);
     return await buildTranslateResult(projection, connector.isPostgres).execute() as T[];
 }
 

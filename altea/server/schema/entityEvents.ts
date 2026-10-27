@@ -8,12 +8,14 @@ import type { FilterQueryArgs } from './filterQueryArgs';
 // Signum's EntityEvents<T>, reached via `schema.entityEvents(ctor)`. Register by pushing onto an array.
 // "Pre*" handlers run in reverse registration order, the rest in order. Every handler may be async.
 
-// Signum's FilterQuery: a WHERE the binder adds to every query of T. Synchronous; undefined = no filter.
-export type QueryFilterHandler = (ctx: {
+// What the binder hands a queryFilter handler. `elementType` is always `new ClassType(ctor)` — redundant,
+// but every handler needs it to type its lambda parameter, and the binder makes it once for all of them.
+// `ctor` is what a handler shared across types (TypeAuthLogic's) uses to tell which type it is filtering.
+export interface QueryFilterOptions {
     ctor: Type<Entity>;
     elementType: RuntimeType;
     args: FilterQueryArgs | undefined;
-}) => LambdaExpression | undefined;
+}
 
 // Signum's RegisterBinding: a value folded into the retrieval SELECT of T and set on each instance.
 export interface AdditionalBindingSpec<T extends Entity> {
@@ -40,7 +42,8 @@ export class EntityEvents<T extends Entity> {
     // counts as an insert). For whoever only needs to know THAT T changed (a cache), not what or how;
     // runs after the matching specific event.
     readonly changed: ((method: EntityChangeMethod) => void | Promise<void>)[] = [];
-    readonly queryFilter: QueryFilterHandler[] = [];
+    // Signum's FilterQuery: a WHERE the binder adds to every query of T. Synchronous; undefined = no filter.
+    readonly queryFilter: ((options: QueryFilterOptions) => LambdaExpression | undefined)[] = [];
     readonly additionalBindings: AdditionalBindingSpec<T>[] = [];
 
     async onPreDeleteSqlSync(entity: T): Promise<SqlPreCommand | undefined> {
