@@ -27,6 +27,8 @@ function ownThunks(ctor: any): MixinThunk[] {
 // overrides) is a no-op instead of a duplicate mixin.
 const registered = new WeakMap<Type<BaseEntity>, Set<Type<BaseEntity>>>();
 
+const excluded = new WeakMap<Type<BaseEntity>, Set<Type<BaseEntity>>>();
+
 export namespace MixinDeclarations {
     /** Signum's `MixinDeclarations.Register<T, M>()`. Idempotent; must run on BOTH tiers before anything is
      *  (de)serialized or the schema is built. */
@@ -43,9 +45,23 @@ export namespace MixinDeclarations {
         ownThunks(target).push(() => [mixin]);
     }
 
+    /** Drops a mixin a module declared on `target` (with `@mixin` or `register`), for an application whose
+     *  database never had its columns — a legacy one. Idempotent; same timing as {@link register}. */
+    export function exclude<T extends BaseEntity, M extends BaseEntity>(
+        target: Type<T>,
+        mixin: Type<M>,
+    ): void {
+        let mixins = excluded.get(target);
+        if (mixins == null)
+            excluded.set(target, mixins = new Set());
+        mixins.add(mixin);
+    }
+
     export function getMixins(target: Type<BaseEntity>): Type<BaseEntity>[] {
         const thunks = (target as any)?.[mixinDeclarationsKey] as MixinThunk[] | undefined;
-        return thunks?.flatMap(t => t()) ?? [];
+        const mixins = thunks?.flatMap(t => t()) ?? [];
+        const without = excluded.get(target);
+        return without == null ? mixins : mixins.filter(m => !without.has(m));
     }
 
     /** Whether `mixin` is declared on `target` — what a module's `start` asserts before relying on it. */
