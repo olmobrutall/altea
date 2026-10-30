@@ -797,8 +797,9 @@ class TreeNodeControl extends React.Component<TreeNodeControlProps> {
 
         const value = node.values[c.resultIndex as number];
 
-        if (c.hasToArray != undefined)
-            return (value as unknown[] ?? [])
+        // The server already joins a ToArray cell (STRING_AGG → a string, or null): only an array is split.
+        if (c.hasToArray != undefined && Array.isArray(value))
+            return value
                 .slice(0, TreeViewer.maxToArrayElements)
                 .map((v, i) => <React.Fragment key={i}>{i > 0 && <br />}{c.cellFormatter!.formatter(v, fctx, c)}</React.Fragment>);
 

@@ -42,13 +42,13 @@ import {
 // entity metadata (`getQueryRoot` / `getSubTokens`), so `QueryDescriptionDTO` / `QueryTokenWithoutParent`
 // have no counterpart and never will — see the CLAUDE.md bullet.
 import { completeToken, QueryToken, SubTokensOptions, type Writable } from './QueryToken';
-import { getSubTokens as generateSubTokens, SubTokensOptionsAll, setImplementedByAllTypesProvider, stripLegacyRootPrefix, appendLegacyValueField } from '../data/dynamicQuery/tokens/queryToken';
+import { getSubTokens as generateSubTokens, SubTokensOptionsAll, setImplementedByAllTypesProvider, stripLegacyRootPrefix, appendLegacyValueField, valueFieldSubToken } from '../data/dynamicQuery/tokens/queryToken';
 import { getRegisteredTypes, isEntityType } from '../data/registration';
 import { Metadata } from '../data/metadata';
 import { getKey } from '../data/dynamicQuery/queryUtils';
 import { reflectionDefaultColumns } from '../data/dynamicQuery/defaultColumns';
 import { RootToken } from '../data/dynamicQuery/tokens/rootToken';
-import { parentTokenKey } from '../data/dynamicQuery/tokens/tokenKey';
+import { parentTokenKey, splitTokenKey } from '../data/dynamicQuery/tokens/tokenKey';
 import { JavascriptMessage, SearchMessage } from '../data/uiMessages';
 import Notify, { type NotifyOptions } from './Frames/Notify';
 import { QueryTokenString } from './QueryTokenString';
@@ -76,7 +76,7 @@ import { isNumberType, toNumberFormat } from './numberFormat';
 import { Enum } from '../data/enum';
 import { Temporal } from '../data/basics';
 import { TypeInfo, TypeReference } from '../data/reflection';
-import { PropertyRoute } from '../data/propertyRoute';
+import { PropertyRoute, usingLegacyPropertyPaths } from '../data/propertyRoute';
 import type { FieldInfo } from '../data/reflection';
 // TODO(port): of the formatter layer this once listed whole, four are still missing — `getEnumInfo`,
 // `onReloadTypesActions`, `toFormatWithFixes`, and the luxon format helpers (see the Temporal note above).
@@ -1683,7 +1683,24 @@ export namespace Finder {
 
       const subs = await generateSubTokens(parent, SubTokensOptionsAll);
       subs.forEach(t => this.cache.set(t.fullKey().toLowerCase(), t));
-      return this.cache.get(fullKey.toLowerCase());
+      const found = this.cache.get(fullKey.toLowerCase());
+      if (found != null)
+        return found;
+
+      // LEGACY MODE: Signum navigates on from a `@valueField` row's element without naming the field
+      // (`X.SeparatedByComma.Begriff` is altea's `X.SeparatedByComma.TargetObjectCategory.Begriff`) — the
+      // mid-path hop `legacySubToken` makes on the server. Cached under the stored key as well, so `get`
+      // and deeper keys built on it find it.
+      const vf = usingLegacyPropertyPaths() ? valueFieldSubToken(parent, SubTokensOptionsAll) : undefined;
+      if (vf == null)
+        return undefined;
+      const vfSubs = await generateSubTokens(vf, SubTokensOptionsAll);
+      vfSubs.forEach(t => this.cache.set(t.fullKey().toLowerCase(), t));
+      const lastKey = splitTokenKey(fullKey).at(-1)!.toLowerCase();
+      const hopped = vfSubs.find(t => t.key.toLowerCase() == lastKey);
+      if (hopped != null)
+        this.cache.set(fullKey.toLowerCase(), hopped);
+      return hopped;
     }
 
     get(rawKey: string, options: SubTokensOptions): QueryToken {
