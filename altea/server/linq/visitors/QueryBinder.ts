@@ -517,6 +517,7 @@ export class QueryBinder extends ExpressionVisitor {
     // Table-source calls whose EntityEvents.queryFilter WHERE has already been spliced (row-level
     // security), so the synthesized `.filter(...)` re-visiting the same source doesn't re-wrap forever.
     private readonly queryFilterApplied = new Set<CallExpression>();
+    private insideQueryFilter = 0;
 
     // Re-entrancy guard for withAdditionalBindings: while binding an additional-binding value lambda
     // we must not attach further additional bindings to entities materialised in the process
@@ -992,11 +993,19 @@ export class QueryBinder extends ExpressionVisitor {
             // Row-level query security (Signum's FilterQuery): splice the entity's queryFilter WHERE(s)
             // around this table source and bind THAT. The guard stops the synthesized `.filter(...)` from
             // re-wrapping the same source when it re-visits it.
-            if (!this.queryFilterApplied.has(call)) {
+            // The tables the spliced predicate itself queries are NOT filtered again, as in Signum (its
+            // QueryFilterer does not re-filter the filter): a condition reading its own type's rows, such as
+            // SeminarRequest's Approver over its actions, would otherwise expand forever.
+            if (!this.queryFilterApplied.has(call) && this.insideQueryFilter === 0) {
                 const wrapped = this.applyQueryFilters(call, ctor);
                 if (wrapped != null) {
                     this.queryFilterApplied.add(call);
-                    return this.visit(wrapped);
+                    this.insideQueryFilter++;
+                    try {
+                        return this.visit(wrapped);
+                    } finally {
+                        this.insideQueryFilter--;
+                    }
                 }
             }
             return this.getTableProjection(ctor);
@@ -3121,7 +3130,9 @@ export class QueryBinder extends ExpressionVisitor {
         const lambdas = hooks.map(h => h({ ctor: ctor as Type<Entity>, elementType, args })).filter((l): l is LambdaExpression => l != null);
         if (lambdas.length === 0)
             return undefined;
-        return new CallExpression(new PropertyExpression(source, "filter"), [combineFilterLambdas(lambdas, elementType)], source.type);
+        // Unsimplified, like an additional binding's lambda: run its @methodExpander calls (`inCondition`).
+        const filter = OverloadingSimplifier.simplify(combineFilterLambdas(lambdas, elementType)) as LambdaExpression;
+        return new CallExpression(new PropertyExpression(source, "filter"), [filter], source.type);
     }
 
     // A query-only SQL function (Signum's [SqlMethod]). The result type tells scalar from

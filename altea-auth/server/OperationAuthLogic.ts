@@ -211,6 +211,10 @@ export namespace OperationAuthLogic {
         // condition-aware — the allowance is evaluated against the operated entity (fallback when absent).
         OperationLogic.onAllowOperation(async (symbol, entityType, inUserInterface, entity) => {
             const wc = (await rulesLazy.value()).getAllowed(symbol.id, (await TypeLogic.caches()).typeToId(entityType));
+            // An entity that came from the client (an operation's argument) was not read through the ORM, so
+            // its DB-only conditions are not cached yet; a no-op for one that was.
+            if (entity != null && !entity.isNew && wc.conditionRules.length > 0)
+                await TypeConditionLogic.fillTypeConditions([entity]);
             const oa = entity != null
                 ? evaluateConditions(wc, tc => TypeConditionLogic.inTypeCondition(entity, tc))
                 : wc.fallback;

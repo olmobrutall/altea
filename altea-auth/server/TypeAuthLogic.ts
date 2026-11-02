@@ -4,6 +4,7 @@ import { SchemaBuilder } from "@altea/altea/server/schema";
 import { isPartType } from "@altea/altea/data/propertyRoute";
 import { ResetLazy } from "@altea/altea/server/resetLazy";
 import { table } from "@altea/altea/server/table";
+import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { CallExpression, type Expression, LambdaExpression, PropertyExpression, UnaryExpression } from "@altea/altea/server/linq/expressions";
 import { ClassType, LiteralType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
@@ -373,6 +374,15 @@ export namespace TypeAuthLogic {
         // per type — so the per-instance isAllowedFor below
         // reads cached values. (A brand-new row isn't in the DB yet, so its DB-only conditions resolve
         // false — the same limitation as any pre-write gate; in-memory conditions evaluate live regardless.)
+        //
+        // A NEW row with DB-only conditions is checked after its INSERT instead, just before the commit, as
+        // Signum's Transaction.PreRealCommit does for created entities: before it, it has no row to match.
+        const created = entities.filter(e => e.isNew && TypeConditionLogic.hasDbOnlyConditions(e.getType()));
+        if (created.length > 0) {
+            Transaction.preRealCommit(() => authSaveGateCreated(created, rk));
+            entities = entities.filter(e => !created.includes(e));
+        }
+
         const byCtor = new Map<Type<Entity>, Entity[]>();
         for (const e of entities) {
             const ctor = e.getType();
@@ -384,6 +394,19 @@ export namespace TypeAuthLogic {
         for (const group of byCtor.values())
             await TypeConditionLogic.fillTypeConditions(group);
 
+        await assertWritable(entities, rk);
+    }
+
+    async function authSaveGateCreated(created: Entity[], rk: NonNullable<ReturnType<typeof AuthLogic.currentRoleKey>>): Promise<void> {
+        const byCtor = new Map<Type<Entity>, Entity[]>();
+        for (const e of created)
+            byCtor.set(e.getType(), [...(byCtor.get(e.getType()) ?? []), e]);
+        for (const group of byCtor.values())
+            await TypeConditionLogic.fillTypeConditions(group);
+        await assertWritable(created, rk);
+    }
+
+    async function assertWritable(entities: Entity[], rk: NonNullable<ReturnType<typeof AuthLogic.currentRoleKey>>): Promise<void> {
         const caches = await TypeLogic.caches();
         const rules = await rulesLazy.value();
         for (const e of entities) {

@@ -89,7 +89,7 @@ export class LineContainer<T extends BaseEntity> {
 
         let locator = this.element;
         for (const step of routeChain(this.route, route))
-            locator = locator.locator(`[data-property-path='${step.member}']`).first();
+            locator = locator.locator(`[data-property-path='${domPath(step)}']`).first();
 
         return { locator, route };
     }
@@ -98,7 +98,7 @@ export class LineContainer<T extends BaseEntity> {
     untypedLineLocator(route: PropertyRoute): Locator {
         let locator = this.element;
         for (const step of routeChain(this.route, route))
-            locator = locator.locator(`[data-property-path='${step.member}']`).first();
+            locator = locator.locator(`[data-property-path='${domPath(step)}']`).first();
         return locator;
     }
 
@@ -239,6 +239,18 @@ export class LineContainer<T extends BaseEntity> {
         await waitVisible(this.element.locator(".nav-tabs .nav-link.active"));
         return this;
     }
+}
+
+/**
+ * What the line of this step renders as `data-property-path`: the last member of its property string, as
+ * TypeContext.propertyPath does — so it is PascalCase when the app uses legacy (Signum) property paths.
+ */
+function domPath(step: PropertyRoute): string {
+    if (step.propertyRouteType !== PropertyRouteType.FieldOrProperty)
+        return step.member;
+    const path = step.propertyString();
+    const cut = Math.max(path.lastIndexOf("."), path.lastIndexOf("/"));
+    return cut < 0 ? path : path.substring(cut + 1);
 }
 
 /**
