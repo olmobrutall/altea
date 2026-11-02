@@ -321,6 +321,24 @@ class ContainsAggregateVisitor extends DbExpressionVisitor {
         this.found = true;
         return aggregate;
     }
+
+    // A plain subquery is refused just the same (error 144 says "an aggregate OR a subquery"): a registered
+    // expression such as the last action's state is a scalar subquery with no aggregate in it.
+    override visitScalar(scalar: ScalarExpression): Expression {
+        this.found = true;
+        return scalar;
+    }
+
+    override visitExists(exists: ExistsExpression): Expression {
+        this.found = true;
+        return exists;
+    }
+
+    override visitIn(inExp: InExpression): Expression {
+        if (inExp.select != null)
+            this.found = true;
+        return super.visitIn(inExp);
+    }
 }
 
 // Signum's ColumnReplacerVisitor: rewrite every ColumnExpression that matches one of the
