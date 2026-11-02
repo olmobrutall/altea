@@ -34,6 +34,8 @@ export interface IQuery<T> {
     top(count: number): IQuery<T>;
     skip(count: number): IQuery<T>;
     withHint(hint: string): IQuery<T>;
+    // Without the row-level queryFilter (Signum's DisableQueryFilter).
+    disableQueryFilter(): IQuery<T>;
     // overrideSystemTime is added by interface expansion in logic/query.ts (it's a
     // server-only feature whose SystemTime type lives in the logic layer).
 

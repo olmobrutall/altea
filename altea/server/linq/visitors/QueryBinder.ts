@@ -517,7 +517,9 @@ export class QueryBinder extends ExpressionVisitor {
     // Table-source calls whose EntityEvents.queryFilter WHERE has already been spliced (row-level
     // security), so the synthesized `.filter(...)` re-visiting the same source doesn't re-wrap forever.
     private readonly queryFilterApplied = new Set<CallExpression>();
-    private insideQueryFilter = 0;
+    // > 0 while binding a source whose table sources must NOT get their queryFilter spliced: inside a
+    // spliced filter itself, or under `.disableQueryFilter()` (Signum's QueryFilterer `filter: false`).
+    private queryFilterDisabled = 0;
 
     // Re-entrancy guard for withAdditionalBindings: while binding an additional-binding value lambda
     // we must not attach further additional bindings to entities materialised in the process
@@ -996,15 +998,15 @@ export class QueryBinder extends ExpressionVisitor {
             // The tables the spliced predicate itself queries are NOT filtered again, as in Signum (its
             // QueryFilterer does not re-filter the filter): a condition reading its own type's rows, such as
             // SeminarRequest's Approver over its actions, would otherwise expand forever.
-            if (!this.queryFilterApplied.has(call) && this.insideQueryFilter === 0) {
+            if (!this.queryFilterApplied.has(call) && this.queryFilterDisabled === 0) {
                 const wrapped = this.applyQueryFilters(call, ctor);
                 if (wrapped != null) {
                     this.queryFilterApplied.add(call);
-                    this.insideQueryFilter++;
+                    this.queryFilterDisabled++;
                     try {
                         return this.visit(wrapped);
                     } finally {
-                        this.insideQueryFilter--;
+                        this.queryFilterDisabled--;
                     }
                 }
             }
@@ -1121,6 +1123,18 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.visit(property.object);
                 } finally {
                     this.systemTime = old;
+                }
+            }
+
+            // disableQueryFilter binds its source with the row-level queryFilter switched off for every
+            // table source under it (Signum's DisableQueryFilter): an expression column such as a count over
+            // everybody's rows, inside a query that stays filtered for the current user.
+            if (op === "disableQueryFilter") {
+                this.queryFilterDisabled++;
+                try {
+                    return this.visit(property.object);
+                } finally {
+                    this.queryFilterDisabled--;
                 }
             }
 
