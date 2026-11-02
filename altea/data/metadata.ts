@@ -233,34 +233,57 @@ export namespace Metadata {
         if (byType == null) { byType = new Map(); store.set(culture, byType); }
         for (const [name, tm] of Object.entries(types)) {
             const existing = byType.get(name);
-            if (existing == null) {
+            if (existing == null)
                 byType.set(name, cloneType(tm));
-                continue;
-            }
-            if (tm.niceName != null) existing.niceName = tm.niceName;
-            if (tm.nicePluralName != null) existing.nicePluralName = tm.nicePluralName;
-            if (tm.gender != null) existing.gender = tm.gender;
-            if (tm.hasQuery != null) existing.hasQuery = tm.hasQuery;
-            for (const [member, fm] of Object.entries(tm.fields))
-                existing.fields[member] = { ...existing.fields[member], ...fm };
-            if (tm.routes != null)
-                for (const [path, rm] of Object.entries(tm.routes))
-                    (existing.routes ??= {})[path] = { ...existing.routes?.[path], ...rm };
-            if (tm.operations != null)
-                Object.assign(existing.operations ??= {}, tm.operations);
+            else
+                mergeType(existing, tm);
         }
         for (const h of onChanged)
             h(culture);
     }
 
-    // Every TypeMetadata loaded for a culture, deep-copied (the server folds this into the wire blob).
+    // Later keys override earlier ones, per key not per type.
+    function mergeType(existing: TypeMetadata, tm: TypeMetadata): void {
+        if (tm.niceName != null) existing.niceName = tm.niceName;
+        if (tm.nicePluralName != null) existing.nicePluralName = tm.nicePluralName;
+        if (tm.gender != null) existing.gender = tm.gender;
+        if (tm.hasQuery != null) existing.hasQuery = tm.hasQuery;
+        for (const [member, fm] of Object.entries(tm.fields))
+            existing.fields[member] = { ...existing.fields[member], ...fm };
+        if (tm.routes != null)
+            for (const [path, rm] of Object.entries(tm.routes))
+                (existing.routes ??= {})[path] = { ...existing.routes?.[path], ...rm };
+        if (tm.operations != null)
+            Object.assign(existing.operations ??= {}, tm.operations);
+    }
+
+    /**
+     * The cultures whose translations apply to `culture`, most general first: a specific culture
+     * (`de-DE`) inherits its NEUTRAL one (`de`), as a .NET CultureInfo falls back to its parent. Translation
+     * files are usually neutral (`App.de.xml`) while the culture a request runs in is often specific — the
+     * user's saved preference or a CultureInfo row — and without the fallback it would render untranslated.
+     */
+    function cultureChain(culture: string): string[] {
+        const dash = culture.indexOf("-");
+        return dash > 0 ? [culture.substring(0, dash), culture] : [culture];
+    }
+
+    // Every TypeMetadata loaded for a culture and its neutral culture (see cultureChain), deep-copied (the
+    // server folds this into the wire blob).
     // Empty when nothing is loaded — callers then fall back to humanizing the identifier.
     export function forCulture(culture: string): Record<string, TypeMetadata> {
         const result: Record<string, TypeMetadata> = {};
-        const byType = store.get(culture);
-        if (byType != null)
-            for (const [name, tm] of byType)
-                result[name] = cloneType(tm);
+        for (const c of cultureChain(culture)) {
+            const byType = store.get(c);
+            if (byType != null)
+                for (const [name, tm] of byType) {
+                    const existing = result[name];
+                    if (existing == null)
+                        result[name] = cloneType(tm);
+                    else
+                        mergeType(existing, tm);
+                }
+        }
         return result;
     }
 
@@ -332,7 +355,13 @@ export namespace Metadata {
 
     /** The TypeMetadata registered for a type NAME in the current UI culture, or undefined. */
     export function tryType(typeName: string): TypeMetadata | undefined {
-        return store.get(CultureInfo.currentUICulture())?.get(typeName);
+        const chain = cultureChain(CultureInfo.currentUICulture());
+        for (let i = chain.length - 1; i >= 0; i--) {
+            const tm = store.get(chain[i]!)?.get(typeName);
+            if (tm != null)
+                return tm;
+        }
+        return undefined;
     }
 
     /**

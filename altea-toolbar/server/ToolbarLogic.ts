@@ -24,11 +24,13 @@ import { TypeAuthLogic } from "@altea/altea-auth/server/TypeAuthLogic";
 import { UserAssetLogic } from "@altea/altea-user-assets/server/UserAssetLogic";
 import { UserAssetOwnerAuth } from "@altea/altea-user-assets/server/UserAssetOwnerAuth";
 import {
-    ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarEntity_Element, ToolbarOperation, ToolbarMenuOperation,
+    ToolbarEntity, ToolbarMenuEntity, ToolbarSwitcherEntity, ToolbarEntity_Element, ToolbarMenuEntity_Element, ToolbarOperation, ToolbarMenuOperation,
     ToolbarSwitcherOperation, ToolbarElementType, ToolbarLocation, ShowCount, ToolbarMessage,
     type ToolbarLocationKeys, type ToolbarElementTypeKeys, type ShowCountKeys, type IToolbarEntity,
     type ToolbarElementBaseEntity,
 } from "../data/Toolbar";
+import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { PropertyRouteTranslationLogic } from "@altea/altea/server/propertyRouteTranslation";
 import type { ToolbarResponse } from "../data/ToolbarResponse";
 import { registerToolbarXml } from "./ToolbarXml";
 import { ToolbarServer } from "./ToolbarServer";
@@ -161,7 +163,7 @@ export namespace ToolbarLogic {
         // ---- The content configs of the toolbar module's OWN five content types ------------------------
 
         registerContentConfig(ToolbarMenuEntity, {
-            defaultLabel: async lite => (await getToolbarMenu(lite)).name,
+            defaultLabel: async lite => translatedName(await getToolbarMenu(lite)),
             isAuthorized: async lite => {
                 const entity = await getToolbarMenu(lite);
                 // An entity-scoped menu is pointless when the role may not even read the type it scopes to.
@@ -174,12 +176,12 @@ export namespace ToolbarLogic {
         });
 
         registerContentConfig(ToolbarSwitcherEntity, {
-            defaultLabel: async lite => (await getToolbarSwitcher(lite)).name,
+            defaultLabel: async lite => translatedName(await getToolbarSwitcher(lite)),
             isAuthorized: async lite => await UserAssetOwnerAuth.isVisible(await getToolbarSwitcher(lite)),
         });
 
         registerContentConfig(ToolbarEntity, {
-            defaultLabel: async lite => (await getToolbar(lite)).name,
+            defaultLabel: async lite => translatedName(await getToolbar(lite)),
             isAuthorized: async lite => await UserAssetOwnerAuth.isVisible(await getToolbar(lite)),
         });
 
@@ -259,7 +261,7 @@ export namespace ToolbarLogic {
         return {
             type: "Header",
             content: curr.toLite() as Lite<Entity>,
-            label: curr.name,
+            label: translatedName(curr),
             elements: responses,
         };
     }
@@ -279,9 +281,34 @@ export namespace ToolbarLogic {
         return {
             type: "Header",
             content: menu.toLite() as Lite<Entity>,
-            label: menu.name,
+            label: translatedName(menu),
             elements: responses,
         };
+    }
+
+    // ---- Translated names and labels ---------------------------------------------------------------------
+
+    /** Signum's `PropertyRouteTranslationLogic.TranslatedField(e, a => a.Name)`: the current culture's name. */
+    function translatedName(e: ToolbarEntity | ToolbarMenuEntity | ToolbarSwitcherEntity): string {
+        return PropertyRouteTranslationLogic.translatedField(e.toLite(), PropertyRoute.root(e.getType()).add("name"), e.name) ?? e.name;
+    }
+
+    /**
+     * Signum's `TranslatedMList(owner, t => t.Elements)`: an element's label in the current culture. The
+     * translation belongs to the OWNING toolbar or menu, at `Elements/Label`, for this element's row. As in
+     * Signum, a row's translation applies even when the element has no label of its own (nothing to be
+     * stale against).
+     */
+    function translatedLabel(element: ToolbarElementBaseEntity): string | null {
+        if (element.id == null)
+            return element.label;
+        const owner = element instanceof ToolbarEntity_Element ? element.toolbar
+            : element instanceof ToolbarMenuEntity_Element ? element.toolbarMenu
+            : undefined;
+        if (owner == null)
+            return element.label;
+        const route = PropertyRoute.root(owner.entityType).add("elements").add("Item").add("label");
+        return PropertyRouteTranslationLogic.translatedField(owner as Lite<Entity>, route, element.label, String(element.id));
     }
 
     // ---- The response builder --------------------------------------------------------------------------
@@ -366,7 +393,7 @@ export namespace ToolbarLogic {
             type: typeOf(element),
             content: element.content ?? undefined,
             url: element.url ?? undefined,
-            label: element.label || (config == null ? undefined : await config.defaultLabel(element.content!)),
+            label: translatedLabel(element) || (config == null ? undefined : await config.defaultLabel(element.content!)),
             iconName: element.iconName || (await config?.defaultIconName?.(element.content!)) || undefined,
             iconColor: element.iconColor || (await config?.defaultIconColor?.(element.content!)) || undefined,
             queryKey: (await config?.getRelatedQuery?.(element.content!))?.key ?? undefined,
@@ -407,7 +434,7 @@ export namespace ToolbarLogic {
                     elements: subElements,
                     iconColor: o.iconColor ?? undefined,
                     iconName: o.iconName ?? undefined,
-                    label: menu.name,
+                    label: translatedName(menu),
                 } satisfies ToolbarResponse;
             }));
 
@@ -440,7 +467,7 @@ export namespace ToolbarLogic {
                 type: typeOf(extra),
                 content: extra.content ?? undefined,
                 url: extra.url ?? undefined,
-                label: extra.label || (config == null ? undefined : await config.defaultLabel(extra.content!)),
+                label: translatedLabel(extra) || (config == null ? undefined : await config.defaultLabel(extra.content!)),
                 iconName: extra.iconName || (await config?.defaultIconName?.(extra.content!)) || undefined,
                 iconColor: extra.iconColor || (await config?.defaultIconColor?.(extra.content!)) || undefined,
                 queryKey: (await config?.getRelatedQuery?.(extra.content!))?.key ?? undefined,
@@ -600,8 +627,14 @@ export namespace ToolbarLogic {
         return await QueryAuthLogic.isQueryAllowed(queryName, true);
     }
 
-    /** Kept for the modules that call it from their own content config. */
+    /**
+     * Signum's `InMemoryFilter`: the role may READ this row — its type rules, type conditions included (an
+     * app's condition on dashboards hides one from the roles it does not apply to) — and the asset is
+     * visible to its owner scope.
+     */
     export async function inMemoryFilter<T extends Entity>(entity: T): Promise<boolean> {
+        if (!(await TypeAuthLogic.isAllowedFor(entity, TypeAllowedBasic.Read, false)))
+            return false;
         return await UserAssetOwnerAuth.isVisible(entity);
     }
 }

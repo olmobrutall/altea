@@ -24,6 +24,8 @@ import { DashboardServer } from "./DashboardServer";
 import { ToolbarLogic } from "@altea/altea-toolbar/server/ToolbarLogic";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { DashboardPermission } from "../data/Dashboard";
+import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { PropertyRouteTranslationLogic } from "@altea/altea/server/propertyRouteTranslation";
 
 // Port of Signum's DashboardLogic.Start (Signum.Dashboard/DashboardLogic.cs). Registers the Dashboard
 // entity + its Save/Delete/Clone operations + query, the in-memory cache (Signum's ResetLazy GlobalLazy),
@@ -148,7 +150,11 @@ export namespace DashboardLogic {
         // The TOOLBAR content config for a Dashboard element (Signum's ToolbarContentConfig inside
         // `WhenIncluded<ToolbarEntity>`). Inert when the toolbar module is not started.
         ToolbarLogic.registerContentConfig(DashboardEntity, {
-            defaultLabel: async lite => (await cachedDashboard(lite)).displayName,
+            defaultLabel: async lite => {
+                const e = await cachedDashboard(lite);
+                // Signum's TranslatedField(e, a => a.DisplayName): the current culture's name.
+                return PropertyRouteTranslationLogic.translatedField(e.toLite(), PropertyRoute.root(DashboardEntity).add("displayName"), e.displayName) ?? e.displayName;
+            },
             isAuthorized: async lite => await ToolbarLogic.inMemoryFilter(await cachedDashboard(lite)),
         });
 

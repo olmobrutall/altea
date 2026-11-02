@@ -5,7 +5,7 @@ import { tryGetParentEntity } from "@altea/altea/data/parentEntity";
 import {
     column, entity, part, primaryKey, backReference, rowOrder, implementedBy, format, unit, quoted, legacyTableName, bindParent,
     legacyClassName,
-    legacyColumnName,
+    legacyColumnName, translatable,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType, numberIsValidator, ValidationMessage } from "@altea/altea/data/validators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
@@ -264,6 +264,7 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
     @numberIsValidator(ComparisonType.GreaterThanOrEqualTo, 10)
     autoRefreshPeriod: int | null;
 
+    @translatable
     @stringLengthValidator({ min: 2, max: 200 })
     displayName: string;
 
