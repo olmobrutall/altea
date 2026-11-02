@@ -3877,6 +3877,7 @@ export class QueryBinder extends ExpressionVisitor {
             case "Boolean": return LiteralType.boolean;
             case "PlainDateTime": return new TemporalType("dateTime");
             case "PlainDate": return new TemporalType("date");
+            case "PlainTime": return new TemporalType("time");
             case "Duration": return new TemporalType("duration");
             default: return LiteralType.null; // enum/etc. — refined later
         }

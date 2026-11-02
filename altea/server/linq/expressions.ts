@@ -338,6 +338,7 @@ export function baseTypeOfFieldInfo(fi: FieldInfo): RuntimeType {
         case "Boolean": return LiteralType.boolean;
         case "PlainDateTime": return new TemporalType("dateTime");
         case "PlainDate": return new TemporalType("date");
+        case "PlainTime": return new TemporalType("time");
         case "Duration": return new TemporalType("duration");
     }
     const ctor = fi.getFunction();
@@ -557,8 +558,9 @@ const tsFullTextProto: object = Object.create(null);
 // The Temporal prototype to look date/time method metadata up on, by kind.
 function temporalPrototype(t: TemporalType): object {
     return t.kind === "date" ? Temporal.PlainDate.prototype
-        : t.kind === "duration" ? Temporal.Duration.prototype
-            : Temporal.PlainDateTime.prototype;
+        : t.kind === "time" ? Temporal.PlainTime.prototype
+            : t.kind === "duration" ? Temporal.Duration.prototype
+                : Temporal.PlainDateTime.prototype;
 }
 
 // Result type of a built-in `obj.<propertyName>(…)` call, from the registry above.

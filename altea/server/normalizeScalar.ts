@@ -43,7 +43,7 @@ export function normalizeScalar(value: unknown): unknown {
 // Date. Postgres hands back ISO-ish strings (the pool's type parsers keep temporal OIDs as
 // raw text to avoid node-postgres building local-time Dates); the mssql driver hands back
 // UTC Date objects. Both are accepted. Idempotent: an already-Temporal value passes through.
-export function denormalizeTemporal(value: unknown, kind: 'dateTime' | 'date' | 'duration'): unknown {
+export function denormalizeTemporal(value: unknown, kind: 'dateTime' | 'date' | 'time' | 'duration'): unknown {
     if (value == null) return null;
     if (value instanceof Temporal.PlainDate || value instanceof Temporal.PlainDateTime
         || value instanceof Temporal.PlainTime || value instanceof Temporal.Duration
@@ -53,8 +53,17 @@ export function denormalizeTemporal(value: unknown, kind: 'dateTime' | 'date' | 
     switch (kind) {
         case 'date': return toPlainDate(value);
         case 'dateTime': return toPlainDateTime(value);
+        case 'time': return toPlainTime(value);
         case 'duration': return toDuration(value);
     }
+}
+
+// A `time` column read into a PlainTime: the mssql driver hands it back as a UTC Date on 1970-01-01,
+// Postgres as "HH:MM:SS[.ffffff]" text.
+function toPlainTime(value: unknown): Temporal.PlainTime {
+    if (value instanceof Date)
+        return new Temporal.PlainTime(value.getUTCHours(), value.getUTCMinutes(), value.getUTCSeconds(), value.getUTCMilliseconds());
+    return Temporal.PlainTime.from(String(value).trim());
 }
 
 // Materialise a `numeric`/`decimal` column read into a decimal.js `Decimal` (the read-side inverse of
