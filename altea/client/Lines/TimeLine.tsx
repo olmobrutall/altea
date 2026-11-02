@@ -15,11 +15,15 @@ import { ValueBaseController, type ValueBaseProps } from './ValueBase';
 import { isNumberKey } from './NumberLine';
 import { ariaLabelOf } from "./ariaLabel";
 
-export interface TimeLineProps extends ValueBaseProps<string | null> {
+// An entity's PlainTime / Duration field holds the Temporal value (what the serializer materialises); a
+// filter value may still be its ISO string. The line reads both and writes back the form it was given.
+type TimeValue = Temporal.PlainTime | Temporal.Duration | string;
+
+export interface TimeLineProps extends ValueBaseProps<TimeValue | null> {
   ref?: React.Ref<TimeLineController>
 }
 
-export class TimeLineController extends ValueBaseController<TimeLineProps, string | null> {
+export class TimeLineController extends ValueBaseController<TimeLineProps, TimeValue | null> {
   override init(p: TimeLineProps): void {
     super.init(p);
     this.assertType("TimeLine", ["PlainTime", "Duration"]);
@@ -30,28 +34,30 @@ type TimeKind = "PlainTime" | "Duration";
 
 function pad(n: number): string { return n.toString().padStart(2, "0"); }
 
-// Stored ISO string → "HH:MM:SS" display.
-function timeToHHMMSS(iso: string | null, kind: TimeKind): string {
-  if (iso == null || iso == "") return "";
+// Stored value → "HH:MM:SS" display. Never `value == ""` on a Temporal: a loose comparison calls valueOf,
+// which Temporal throws on.
+function timeToHHMMSS(value: TimeValue | null, kind: TimeKind): string {
+  if (value == null || (typeof value == "string" && value == "")) return "";
   try {
     if (kind == "PlainTime") {
-      const t = Temporal.PlainTime.from(iso);
+      const t = Temporal.PlainTime.from(value as Temporal.PlainTime | string);
       return `${pad(t.hour)}:${pad(t.minute)}:${pad(t.second)}`;
     }
-    const d = Temporal.Duration.from(iso);
+    const d = Temporal.Duration.from(value as Temporal.Duration | string);
     return `${pad(d.hours)}:${pad(d.minutes)}:${pad(d.seconds)}`;
   } catch { return ""; }
 }
 
-// "HH:MM:SS" (already casual-fixed) → stored ISO string (PlainTime "HH:MM:SS" / Duration "PT..").
-function hhmmssToStored(str: string, kind: TimeKind): string | null {
+// "HH:MM:SS" (already casual-fixed) → the Temporal value, or its ISO string when the line was given one.
+function hhmmssToStored(str: string, kind: TimeKind, asString: boolean): TimeValue | null {
   const parts = str.split(":").map(s => parseInt(s, 10));
   if (parts.some(isNaN)) return null;
   const [h = 0, m = 0, s = 0] = parts;
   try {
-    return kind == "PlainTime"
-      ? Temporal.PlainTime.from({ hour: h, minute: m, second: s }).toString()
-      : Temporal.Duration.from({ hours: h, minutes: m, seconds: s }).toString();
+    const value = kind == "PlainTime"
+      ? Temporal.PlainTime.from({ hour: h, minute: m, second: s })
+      : Temporal.Duration.from({ hours: h, minutes: m, seconds: s });
+    return asString ? value.toString() : value;
   } catch { return null; }
 }
 
@@ -91,7 +97,7 @@ export const TimeLine: (props: TimeLineProps) => React.ReactNode | null =
       );
     }
 
-    const handleOnChange = (newValue: string | null) => {
+    const handleOnChange = (newValue: TimeValue | null) => {
       c.setValue(newValue);
     };
 
@@ -125,8 +131,8 @@ export const TimeLine: (props: TimeLineProps) => React.ReactNode | null =
 
 
 export interface TimeTextBoxProps {
-  value: string | null;
-  onChange: (newValue: string | null) => void;
+  value: TimeValue | null;
+  onChange: (newValue: TimeValue | null) => void;
   validateKey: (e: React.KeyboardEvent<any>) => boolean;
   formControlClass?: string;
   kind: TimeKind;
@@ -171,9 +177,10 @@ export function TimeTextBox(p: TimeTextBoxProps): React.ReactElement {
 
     const input = e.currentTarget as HTMLInputElement;
 
-    const result = input.value == undefined || input.value.length == 0 ? null : hhmmssToStored(fixCasual(input.value), p.kind);
+    const result = input.value == undefined || input.value.length == 0 ? null
+      : hhmmssToStored(fixCasual(input.value), p.kind, typeof p.value == "string");
     setText(undefined);
-    if (p.value != result)
+    if (timeToHHMMSS(p.value, p.kind) != timeToHHMMSS(result, p.kind))
       p.onChange(result);
     if (p.htmlAttributes && p.htmlAttributes.onBlur)
       p.htmlAttributes.onBlur(e);
