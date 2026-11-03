@@ -1,0 +1,16 @@
+{
+  // TEST layer — this package's suites, built by the same `tspc -b` into dist/test/** (as altea-auth's).
+  "extends": "../altea/presets/server.json",
+  "compilerOptions": {
+    "customConditions": [],
+    "tsBuildInfoFile": "${configDir}/dist/.tsbuildinfo.test",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/test/**/*"],
+  "exclude": [],
+  "references": [
+    { "path": "./tsconfig.data.json" },
+    { "path": "./tsconfig.server.json" },
+    { "path": "../altea/tsconfig.server.json" }
+  ]
+}
