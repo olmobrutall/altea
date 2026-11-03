@@ -507,6 +507,20 @@ export function uniqueIndex(arg1: unknown, arg2?: unknown, arg3?: unknown): unkn
     return indexDecorator(true, arg1, arg2, arg3);
 }
 
+// @attachToUniqueIndexes — Signum's [AttachToUniqueIndexes]: the field's columns are appended to EVERY
+// unique index of the table (field-level, class-level and fluent alike), each keeping its own filter.
+// `@uniqueIndex code` beside `@attachToUniqueIndexes version` and `@attachToUniqueIndexes customer` is a
+// code unique per version and customer, with no filter on the nullable customer.
+export function attachToUniqueIndexes(target: object, propertyKey: string | symbol): void {
+    getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).attachToUniqueIndexes = true;
+}
+
+// Signum's `[UniqueIndex(AvoidAttachToUniqueIndexes = true)]`, written beside the field-level
+// `@uniqueIndex`: that index stays as declared.
+export function avoidAttachToUniqueIndexes(target: object, propertyKey: string | symbol): void {
+    getOrCreateFieldInfo(getOrCreateTypeInfo(target), String(propertyKey)).avoidAttachToUniqueIndexes = true;
+}
+
 function indexDecorator(unique: boolean, arg1: unknown, arg2: unknown, arg3: unknown): unknown {
     // Field form: (target, propertyKey).
     if (typeof arg2 === 'string' || typeof arg2 === 'symbol') {

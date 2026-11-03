@@ -2,7 +2,7 @@ import { test, beforeAll, describe } from "vitest";
 import assert from "node:assert/strict";
 import { table } from "@altea/altea/server/table";
 import { hasDb, start } from "../setup";
-import { AwardNominationEntity, GrammyAwardEntity, AmericanMusicAwardEntity } from "../../data/music";
+import { AwardNominationEntity, GrammyAwardEntity, AmericanMusicAwardEntity, ArtistEntity } from "../../data/music";
 
 // Port of Signum.Test/LinqProvider/SelectLiteModel.cs. C# → altea idiom:
 //   Database.Query<T>()  → table(T)            .Where(...) → .filter(...)
@@ -38,5 +38,12 @@ describe.skipIf(!hasDb)("SelectLiteModel", () => {
             else
                 assert.equal(typeof a!.toString(), "string");
         }
+    });
+
+    // Database.Query<ArtistEntity>().Select(a => a.ToLite("X " + a.Name)) — the model is the given string.
+    test("SelectLiteWithModel", async () => {
+        const lites = await table(ArtistEntity).map(a => a.toLite("X " + a.name)).toArray();
+        assert.ok(lites.length > 0);
+        assert.ok(lites.every(l => l.toString().startsWith("X ")));
     });
 });

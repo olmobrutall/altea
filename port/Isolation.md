@@ -36,11 +36,11 @@ declares the mixin itself.
   data layer is isomorphic and ships no node types; `IsolationMixin`'s `IsRetrieving ? null : Current`
   initializer goes with it, losing nothing — Signum also stamps in its global PreSaving, which is what the
   port does for every new row.
-- **`[AttachToUniqueIndexes]` / `[ForceNotNullable]` are applied from `start`**, not as decorators: two
-  general Signum field attributes with exactly one user between them. The unique indexes of every isolated
-  table are rewritten on `schemaCompleted` — where Signum applies the first too (`GenerateAllIndexes`) —
-  and the required rule is a `NotNullValidator` pushed onto the route's FieldInfo. That route needs the
-  MIXIN STEP even though the column is flat, the accommodation altea-diff-log documents.
+- **`[AttachToUniqueIndexes]` is the `@attachToUniqueIndexes` decorator** on `IsolationMixin.isolation`,
+  applied by `SchemaBuilder.complete()` to every unique index of an isolated table, as Signum's
+  `GeneratAllIndexes` does. `[ForceNotNullable]` is applied from `start`: the required rule is a
+  `NotNullValidator` pushed onto the route's FieldInfo. That route needs the MIXIN STEP even though the
+  column is flat, the accommodation altea-diff-log documents.
 - **the operation scope is `OperationLogic.aroundOperation`**, the SCOPING half of Signum's one
   `SurroundOperation`: altea's observing half must not break what it observes, which is the wrong contract
   for a security scope, and its "after" runs at a precise point.

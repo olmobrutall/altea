@@ -2139,9 +2139,8 @@ Known structural divergences from Signum (this is what "fix" means — don't por
     be entered without a callback, and the data layer ships no node types. `IsolationMixin`'s
     `IsRetrieving ? null : Current` initializer goes with it, losing nothing — Signum also stamps in its
     global PreSaving, which is what the port does for every new row.
-  - **`[AttachToUniqueIndexes]` / `[ForceNotNullable]` are applied from `start`**, not as decorators (two
-    general Signum attributes with one user between them): the unique indexes of every isolated table are
-    rewritten on `schemaCompleted` — where Signum applies the first too — and the required rule is a
+  - **`[AttachToUniqueIndexes]` is `@attachToUniqueIndexes`** on `IsolationMixin.isolation`, applied by
+    `SchemaBuilder.complete()`; **`[ForceNotNullable]` is applied from `start`**: the required rule is a
     `NotNullValidator` pushed onto the route's FieldInfo. That route needs the MIXIN STEP even though the
     column is flat, the accommodation altea-diff-log documents.
   - `EntityEventsGlobal.PreSaving` → a per-type handler on the isolated types only; `IsolationStrategy` →

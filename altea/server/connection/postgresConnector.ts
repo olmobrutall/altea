@@ -378,14 +378,16 @@ export class PostgresConnector extends Connector {
     }
 
     // Drops every view, table, sequence, extension and function in all
-    // non-system schemas, plus owned non-default schemas. Ported from Signum's
-    // PostgreSqlConnectorScripts.RemoveAllScript (the ExecuteAs role handling is
-    // dropped — altea has no per-schema execute-as role).
+    // non-system schemas, plus the non-default schemas owned by the current user or
+    // Schema.executeAs.
     async cleanDatabase(): Promise<void> {
-        await this.executeNonQuery(PostgresConnector.removeAllScript);
+        await this.executeNonQuery(PostgresConnector.removeAllScript(this.schema.executeAs));
     }
 
-    private static readonly removeAllScript = `
+    /** Signum's `PostgreSqlConnectorScripts.RemoveAllScript`. */
+    static removeAllScript(executeAs?: string): string {
+        const executeAsCondition = executeAs != null ? ` OR pr.rolname='${executeAs.replace(/'/g, "''")}'` : "";
+        return `
 DO $$
 DECLARE
         r RECORD;
@@ -435,11 +437,12 @@ BEGIN
                 FROM pg_namespace pns, pg_roles pr
                 WHERE pr.oid=pns.nspowner
                     AND pns.nspname NOT IN ('information_schema', 'pg_catalog', 'pg_toast', 'public')
-                    AND pr.rolname=current_user
+                    AND (pr.rolname=current_user${executeAsCondition})
             ) LOOP
                 EXECUTE format('DROP SCHEMA %I;', r.nspname);
         END LOOP;
 END; $$;`;
+}
 }
 
 /** The database a libpq connection string names — the URI's path, or its `dbname=` keyword. */

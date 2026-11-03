@@ -4,9 +4,10 @@ import { SchemaBuilder } from "@altea/altea/server/schema";
 import { isPartType } from "@altea/altea/data/propertyRoute";
 import { ResetLazy } from "@altea/altea/server/resetLazy";
 import { table } from "@altea/altea/server/table";
+import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { CallExpression, type Expression, LambdaExpression, PropertyExpression, UnaryExpression } from "@altea/altea/server/linq/expressions";
-import { ClassType, LiteralType, type RuntimeType } from "@altea/altea/server/runtimeTypes";
+import { ClassType, LiteralType } from "@altea/altea/server/runtimeTypes";
 import { SymbolLogic } from "@altea/altea/server/symbolLogic";
 import { TypeLogic, type TypeCaches } from "@altea/altea/server/typeLogic";
 import { markStable, stableValue, type StablePromise } from "@altea/altea/server/stablePromise";
@@ -38,6 +39,7 @@ import { WithConditions, ConditionRule, maxBound, minBound, maxDB, maxUI } from 
 import { mergeTypeConditions } from "./TypeConditionMerger";
 import { buildAuthFilter, authFilterLambda, rebasePartFilter, conditionValueLambda } from "./TypeConditionAlgebra";
 import { FilterQueryArgs, findQuerySources, querySourceCtor } from "@altea/altea/server/schema/filterQueryArgs";
+import type { QueryFilterOptions } from "@altea/altea/server/schema/entityEvents";
 import { computeAllowed, type ComputedCache } from "./AuthCache";
 import { section, groupByRole, attrs, conditionsXml, parseEnum, sectionRows, syncRulesScript, conditionedRules, isLegacyPartRule, conditionSymbols, typeReplacementKey, typeConditionReplacementKey, type AuthImportCtx } from "./AuthRulesXml";
 import { SafeConsole } from "@altea/altea/server/safeConsole";
@@ -328,7 +330,7 @@ export namespace TypeAuthLogic {
     // when it meets THAT table source. Synchronous, like every queryFilter hook — and self-sufficient: it
     // demands the caches it folds the role's allowance from, and the auditor verdicts for this source, so a
     // query pays for the types it actually reads. Nothing is resolved in advance for it any more.
-    function authQueryFilterHook(ctx: { ctor: Type<Entity>; elementType: RuntimeType; args: FilterQueryArgs | undefined }): LambdaExpression | undefined {
+    function authQueryFilterHook(ctx: QueryFilterOptions): LambdaExpression | undefined {
         const rk = AuthLogic.currentRoleKey();
         if (rk == null || !AuthLogic.isEnabled())
             return undefined;
@@ -382,7 +384,7 @@ export namespace TypeAuthLogic {
                 return isAllowedFor(current as Entity, TypeAllowedBasic.Read, true, rk);
             };
         };
-        return Object.assign((ctx: { ctor: Type<Entity>; elementType: RuntimeType; args: FilterQueryArgs | undefined }): LambdaExpression | undefined => {
+        return Object.assign((ctx: QueryFilterOptions): LambdaExpression | undefined => {
             const rk = AuthLogic.currentRoleKey();
             if (rk == null || !AuthLogic.isEnabled())
                 return undefined;
@@ -413,6 +415,15 @@ export namespace TypeAuthLogic {
         // per type — so the per-instance isAllowedFor below
         // reads cached values. (A brand-new row isn't in the DB yet, so its DB-only conditions resolve
         // false — the same limitation as any pre-write gate; in-memory conditions evaluate live regardless.)
+        //
+        // A NEW row with DB-only conditions is checked after its INSERT instead, just before the commit, as
+        // Signum's Transaction.PreRealCommit does for created entities: before it, it has no row to match.
+        const created = entities.filter(e => e.isNew && TypeConditionLogic.hasDbOnlyConditions(e.getType()));
+        if (created.length > 0) {
+            Transaction.preRealCommit(() => authSaveGateCreated(created, rk));
+            entities = entities.filter(e => !created.includes(e));
+        }
+
         const byCtor = new Map<Type<Entity>, Entity[]>();
         for (const e of entities) {
             const ctor = e.getType();
@@ -424,6 +435,19 @@ export namespace TypeAuthLogic {
         for (const group of byCtor.values())
             await TypeConditionLogic.fillTypeConditions(group);
 
+        await assertWritable(entities, rk);
+    }
+
+    async function authSaveGateCreated(created: Entity[], rk: NonNullable<ReturnType<typeof AuthLogic.currentRoleKey>>): Promise<void> {
+        const byCtor = new Map<Type<Entity>, Entity[]>();
+        for (const e of created)
+            byCtor.set(e.getType(), [...(byCtor.get(e.getType()) ?? []), e]);
+        for (const group of byCtor.values())
+            await TypeConditionLogic.fillTypeConditions(group);
+        await assertWritable(created, rk);
+    }
+
+    async function assertWritable(entities: Entity[], rk: NonNullable<ReturnType<typeof AuthLogic.currentRoleKey>>): Promise<void> {
         const caches = await TypeLogic.caches();
         const rules = await rulesLazy.value();
         for (const e of entities) {

@@ -13,7 +13,7 @@ import { LoginAuthMessage } from "@altea/altea-auth/data/AuthMessages";
 import { WindowsADMessage } from "../data/WindowsAD";
 import { DirectoryServiceContext, WindowsADAuthorizer } from "./WindowsADAuthorizer";
 import { WindowsADLogic } from "./WindowsADLogic";
-import { WindowsDirectory, localNameOf } from "./WindowsDirectory";
+import { localNameOf } from "./WindowsDirectory";
 
 // The two routes: integrated Windows sign-in, and the AD thumbnail photo.
 //
@@ -47,6 +47,16 @@ export interface NegotiatedIdentity {
     userName: string;
     /** The canonical SID string, or null to have it looked up in the directory. */
     sid: string | null;
+    /** The server's final SPNEGO token, sent back for mutual authentication (`WWW-Authenticate: Negotiate …`). */
+    responseToken?: string | null;
+}
+
+/** The base64 SPNEGO token of an `Authorization: Negotiate …` header, or null when the browser sent none. */
+export function negotiateToken(req: unknown): string | null {
+    const header = (req as { headers?: Record<string, string | string[] | undefined> }).headers?.["authorization"];
+    const value = Array.isArray(header) ? header[0] : header;
+    const match = value == null ? null : /^Negotiate\s+(\S+)/i.exec(value);
+    return match?.[1] ?? null;
 }
 
 
@@ -73,7 +83,18 @@ export namespace WindowsADServer {
                 const query = req.query;
                 const throwErrors = (query["throwError"] ?? "false") === "true";
 
-                const user = await loginWindowsAuthentication(req, throwErrors);
+                // A browser sends its Windows ticket only when asked (IIS asks for an ASP.NET host): answer the
+                // first, ticketless request with the Negotiate challenge, and the browser retries with one.
+                if (negotiateProvider != null && negotiateToken(req) == null) {
+                    res.setHeader("WWW-Authenticate", "Negotiate");
+                    res.status(401).end();
+                    return;
+                }
+
+                const user = await loginWindowsAuthentication(req, throwErrors, identity => {
+                    if (identity.responseToken)
+                        res.setHeader("WWW-Authenticate", `Negotiate ${identity.responseToken}`);
+                });
                 if (user == null) {
                     res.jsonTyped(null);
                     return;
@@ -106,7 +127,8 @@ export namespace WindowsADServer {
     }
 
     /** Integrated sign-in: resolve the caller's Windows identity, then find or create the local user. */
-    export async function loginWindowsAuthentication(req: unknown, throwErrors: boolean): Promise<UserEntity | null> {
+    export async function loginWindowsAuthentication(req: unknown, throwErrors: boolean,
+        onNegotiated?: (identity: NegotiatedIdentity) => void): Promise<UserEntity | null> {
         return await AuthLogic.withDisabled(async () => {
             try {
                 const authorizer = AuthLogic.authorizer;
@@ -127,19 +149,31 @@ export namespace WindowsADServer {
                 if (identity == null)
                     return fail(throwErrors, "The Negotiate provider did not resolve a Windows identity");
 
+                onNegotiated?.(identity);
+
                 const userName = identity.userName;
                 const localName = localNameOf(userName);
 
-                // The SID is the stable identity. When the provider does not know it, ask the directory.
-                const directoryUser = await WindowsDirectory.findByIdentity(config, userName);
-                const sid = identity.sid ?? directoryUser?.sid ?? null;
+                const ctx = new DirectoryServiceContext(config, localName, userName);
 
-                const ctx = new DirectoryServiceContext(config, localName, userName, directoryUser);
+                // As Signum: the local user first — by the SID the handshake gave, then by name — and the
+                // directory only when a user has to be created or updated. A sign-in of a known user then
+                // needs no LDAP round trip (and works when the directory is slow or out of reach).
+                const findUser = (sid: string | null): Promise<UserEntity | null> =>
+                    authorizer.tryFindUser(sid, userName, config.allowMatchUsersBySimpleUserName)
+                        // The LOCAL name is matched too, which the UPN
+                        // match above does not cover when the two differ.
+                        .then(u => u ?? authorizer.tryFindUser(null, localName, config.allowMatchUsersBySimpleUserName));
 
-                let user = await authorizer.tryFindUser(sid, userName, config.allowMatchUsersBySimpleUserName)
-                    // The LOCAL name is matched too, which the UPN
-                    // match above does not cover when the two differ.
-                    ?? await authorizer.tryFindUser(null, localName, config.allowMatchUsersBySimpleUserName);
+                let user = await findUser(identity.sid);
+
+                if (user == null) {
+                    // A Kerberos ticket names the account but carries no SID: the directory's SID still finds
+                    // a user whose account was renamed.
+                    const directoryUser = await ctx.getDirectoryUser();
+                    if (identity.sid == null && directoryUser.sid != null)
+                        user = await findUser(directoryUser.sid);
+                }
 
                 if (user == null) {
                     if (!config.autoCreateUsers)
@@ -150,8 +184,10 @@ export namespace WindowsADServer {
                     if (user.state === UserState.Deactivated)
                         return fail(throwErrors, LoginAuthMessage.User0IsDeactivated.niceToString(user.userName));
 
-                    if (config.autoUpdateUsers)
+                    if (config.autoUpdateUsers) {
+                        await ctx.getDirectoryUser();
                         await authorizer.updateUser(user, ctx);
+                    }
                 }
 
                 if (user.state === UserState.Deactivated)

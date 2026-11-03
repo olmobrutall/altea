@@ -17,6 +17,7 @@ import { DashboardEntity, DashboardMessage } from "../../data/Dashboard";
 import { DashboardClient } from "../DashboardClient";
 import DashboardView from "./DashboardView";
 import "../Dashboard.css";
+import { translated } from "@altea/altea/client/Translated";
 
 // Port of Signum's Signum.Dashboard/View/DashboardPage.tsx — the /dashboard/:dashboardId page: fetches the
 // dashboard, optionally the `?entity=` it is scoped to, applies the auto-refresh period and renders the
@@ -92,7 +93,7 @@ export default function DashboardPage(): React.JSX.Element {
                             // — the page would then have no level-1 heading to navigate to at all — so the
                             // name it is configured to hide is kept for assistive technology only.
                             dashboard.hideDisplayName ?
-                                <h1 className="visually-hidden">{dashboard.displayName}</h1> :
+                                <h1 className="visually-hidden">{translated(dashboard, "displayName")}</h1> :
                                 <h1 className="display-6 h3">{DashboardClient.Options.customTitle(dashboard)}</h1>
                         }
                     </div>

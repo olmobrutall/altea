@@ -108,7 +108,7 @@ describe("ForeignKeyExceptionTest", () => {
         assert.ok(ex instanceof ForeignKeyException, "23503 becomes a ForeignKeyException");
         assert.equal(ex.isInsert, false);
         assert.equal(ex.table, f.albumTable);
-        assert.equal(ex.message, "There are 'Cx Albums' that refer to this entity by property 'Label'");
+        assert.equal(ex.message, "There are 'Cx albums' that refer to this entity by property 'Label'");
     });
 
     // An INSERT that wrote a reference to a row that does not exist. Signum leaves this sentence an
@@ -129,7 +129,7 @@ describe("ForeignKeyExceptionTest", () => {
         assert.ok(ex instanceof ForeignKeyException);
         assert.equal(ex.isInsert, true);
         assert.equal(ex.referedTable, f.labelTable);
-        assert.equal(ex.message, `The column ${f.fkColumn} of the Cx Album does not refer to a valid Cx Label`);
+        assert.equal(ex.message, `The column ${f.fkColumn} of the Cx album does not refer to a valid Cx label`);
     });
 
     // SQL Server names nothing structurally: the constraint has to come out of the message, and the
@@ -145,7 +145,7 @@ describe("ForeignKeyExceptionTest", () => {
         assert.ok(ex instanceof ForeignKeyException);
         assert.equal(ex.isInsert, false);
         assert.equal(ex.table, f.albumTable);
-        assert.equal(ex.message, "There are 'Cx Albums' that refer to this entity by property 'Label'");
+        assert.equal(ex.message, "There are 'Cx albums' that refer to this entity by property 'Label'");
     });
 
     // `FOREIGN KEY constraint` (not `REFERENCE`), and now the conflicting table is the REFERENCED one.
@@ -160,7 +160,7 @@ describe("ForeignKeyExceptionTest", () => {
         assert.ok(ex instanceof ForeignKeyException);
         assert.equal(ex.isInsert, true);
         assert.equal(ex.referedTable, f.labelTable);
-        assert.equal(ex.message, `The column ${f.fkColumn} of the Cx Album does not refer to a valid Cx Label`);
+        assert.equal(ex.message, `The column ${f.fkColumn} of the Cx album does not refer to a valid Cx label`);
     });
 
     // A table the schema knows nothing about still has names to print, so it degrades to the
@@ -217,7 +217,7 @@ describe("UniqueKeyExceptionTest", () => {
         assert.ok(ex instanceof UniqueKeyException, "23505 becomes a UniqueKeyException");
         assert.equal(ex.table, f.labelTable);
         assert.deepEqual(ex.properties, ["Name"]);
-        assert.equal(ex.message, "There is already a Cx Label with [Name] equals to Sony");
+        assert.equal(ex.message, "There is already a Cx label with [Name] equals to Sony");
     });
 
     test("sqlServer duplicate names the type, the property and the value", () => {
@@ -231,7 +231,7 @@ describe("UniqueKeyExceptionTest", () => {
         assert.ok(ex instanceof UniqueKeyException);
         assert.equal(ex.table, f.labelTable);
         assert.deepEqual(ex.properties, ["Name"]);
-        assert.equal(ex.message, "There is already a Cx Label with [Name] equals to Sony");
+        assert.equal(ex.message, "There is already a Cx label with [Name] equals to Sony");
     });
 
     // The German wording of error 2601 — the second of Signum's two regexes, kept because a localized
@@ -261,6 +261,6 @@ describe("UniqueKeyExceptionTest", () => {
 
         assert.ok(ex instanceof UniqueKeyException);
         assert.equal(ex.index, undefined);
-        assert.equal(ex.message, `There is already a Cx Label with ${pk} equals to 1`);
+        assert.equal(ex.message, `There is already a Cx label with ${pk} equals to 1`);
     });
 });

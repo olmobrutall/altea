@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
-import { Administrator } from "@altea/altea/server/administrator";
+import { Administrator } from "@altea/altea/server/Administrator";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { SafeConsole } from "@altea/altea/server/safeConsole";

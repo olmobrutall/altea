@@ -476,16 +476,26 @@ export function setDefaultDatabaseSchema(schema: string, fileInfo?: FileInfo): v
 //
 //   setDatabaseSchema("basics", PermissionSymbol);
 //
-// Takes an entity/symbol CONSTRUCTOR or a registered ENUM object (which cannot carry a decorator), and
-// must come AFTER that type's `@reflect` / `registerEnum` so the name is resolvable.
+// Takes an entity/symbol CONSTRUCTOR or a registered ENUM object (which cannot carry a decorator); an enum
+// must come AFTER its `registerEnum` so the name is resolvable.
+//
+// A constructor is keyed by ITSELF, not by `ctor.name`: in the server bundle Rollup renames a decorated
+// class (`let OperationSymbol = class OperationSymbol2 …`), and the transformer's `registerType` — which
+// restores the name — runs only after this call. Keyed by name, the override went to "OperationSymbol2"
+// and the table fell back to the folder's `basics` schema.
 const typeSchemas = new Map<string, string>();
+const ctorSchemas = new Map<Function, string>();
 
 export function setDatabaseSchema(schema: string, ...types: (Function | object)[]): void {
     for (const type of types) {
-        const name = typeof type === "function" ? type.name : enumNameOf(type);
+        if (typeof type === "function") {
+            ctorSchemas.set(type, schema);
+            continue;
+        }
+        const name = enumNameOf(type);
         if (name == null || name === "")
-            throw new Error(`setDatabaseSchema("${schema}"): the type is not registered yet — `
-                + `place the call after its @reflect / registerEnum.`);
+            throw new Error(`setDatabaseSchema("${schema}"): the enum is not registered yet — `
+                + `place the call after its registerEnum.`);
         typeSchemas.set(name, schema);
     }
 }
@@ -497,7 +507,8 @@ export function setDatabaseSchema(schema: string, ...types: (Function | object)[
 // resolves to the schema of the package it is DEFINED in — not to EnumEntity's own file
 // (@altea/altea/data). See SchemaSettings.schemaForType.
 export function schemaForName(name: string): string | undefined {
-    const own = typeSchemas.get(name);
+    const ctor = typeRegistry.get(name);
+    const own = typeSchemas.get(name) ?? (ctor != null ? ctorSchemas.get(ctor) : undefined);
     if (own != null) return own;
     const loc = locationRegistry.get(name);
     if (loc == null) return undefined;

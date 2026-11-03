@@ -11,12 +11,13 @@ import { Entity } from "@altea/altea/data/entity";
 import type { TypeContext, StyleContext } from "@altea/altea/client/TypeContext";
 import { tasks, type LineBaseController, type LineBaseProps } from "@altea/altea/client/Lines/LineBase";
 import type { Lite } from "@altea/altea/data/lite";
-import { UserEntity } from "../../data/User";
+import { UserEntity, UserLite, UserOperation } from "../../data/User";
+import { SmallProfilePhoto } from "../public/ProfilePhoto";
 import { UserTicketEntity } from "../../data/UserTicket";
 import { SessionLogEntity } from "../../data/SessionLog";
 import { RoleEntity } from "../../data/Role";
 import { TypeRulePack, PermissionRulePack, OperationRulePack, QueryRulePack, PropertyRulePack, TypeAllowedBasic, PropertyAllowed } from "../../data/Rules";
-import { AuthAdminMessage } from "../../data/AuthMessages";
+import { AuthAdminMessage, AuthMessage } from "../../data/AuthMessages";
 import { BasicPermission } from "@altea/altea/data/permissionSymbol";
 import { AuthClient } from "../AuthClient";
 import { registerSpecialAction } from "@altea/altea/client/OmniboxSpecialAction";
@@ -57,7 +58,18 @@ export namespace AuthAdminClient {
         Options.permissions = options?.permissions ?? false;
 
         cb.configure(UserEntity)
-            .withView(() => import("./User"))
+            .withView(() => import("./User"), {
+                // Signum's: a user reads with their photo (or initials) wherever a lite is shown, tables
+                // included. The name follows as text, so the photo is decorative.
+                renderLite: (lite, hl) => lite instanceof UserLite
+                    ? <span className="d-inline-flex align-items-center"><SmallProfilePhoto user={lite} className="me-1" decorative /><span>{hl.highlight(lite.toString())}</span></span>
+                    : hl.highlight(lite.toString()),
+            })
+            // Signum's: AutoDeactivate is the directory sync's, never a button; Deactivate / Reactivate show
+            // only when they can run.
+            .withEntityOperation(UserOperation.AutoDeactivate, { hideOnCanExecute: true, isVisible: () => false })
+            .withEntityOperation(UserOperation.Deactivate, { hideOnCanExecute: true })
+            .withEntityOperation(UserOperation.Reactivate, { hideOnCanExecute: true })
             .withQuerySettings(token => ({
                 defaultColumns: [
                     token(a => a.id),
@@ -65,6 +77,7 @@ export namespace AuthAdminClient {
                     token(a => a.email),
                     token(a => a.role),
                     token(a => a.state),
+                    token(a => a.cultureInfo),
                 ],
             }));
 
@@ -104,6 +117,22 @@ export namespace AuthAdminClient {
                     token(a => a.id),
                     token(a => a.name),
                     token(a => a.description),
+                ],
+                // Signum's: a search box, and the merged roles the AD sync creates hidden unless asked for.
+                defaultFilters: [
+                    {
+                        groupOperation: "Or",
+                        pinned: { label: SearchMessage.Search.niceToString(), splitValue: true, active: "WhenHasValue" },
+                        filters: [
+                            { token: token(a => a.id), operation: "EqualTo" },
+                            { token: token("ToString"), operation: "Contains" },
+                        ],
+                    },
+                    {
+                        token: token(a => a.isTrivialMerge),
+                        value: false,
+                        pinned: { active: "NotCheckbox_Unchecked", label: () => AuthMessage.IncludeTrivialMerges.niceToString(), column: 1 },
+                    },
                 ],
                 // A "Download AuthRules" button on the Role
                 // search control (exports every dimension's rules to AuthRules.xml), gated on the AdminRules

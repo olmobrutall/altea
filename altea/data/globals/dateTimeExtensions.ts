@@ -1,5 +1,6 @@
 import { Temporal } from "../basics";
 import { registerEnum } from "../registration";
+import { CultureInfo } from "../utils/cultureInfo";
 
 // Date/time helpers, ported from Signum's DateTimeExtensions. Inside a quoted query
 // lambda they are translated to SQL by the LINQ provider (date-part extraction,
@@ -30,6 +31,8 @@ declare module "temporal-polyfill" {
             daysTo(other: Temporal.PlainDateTime): number;
             monthsTo(other: Temporal.PlainDateTime): number;
             yearsTo(other: Temporal.PlainDateTime): number;
+            /** The date in the current culture's short pattern (Signum's ToShortDateString / `{date}` in a string). */
+            toShortDateString(): string;
         }
         interface PlainDate {
             quarter(): number;
@@ -44,6 +47,8 @@ declare module "temporal-polyfill" {
             daysTo(other: Temporal.PlainDate): number;
             monthsTo(other: Temporal.PlainDate): number;
             yearsTo(other: Temporal.PlainDate): number;
+            /** The date in the current culture's short pattern: `18.01.2027` in German, `18/01/2027` in en-GB. */
+            toShortDateString(): string;
         }
     }
 }
@@ -212,6 +217,14 @@ PlainDateTime.yearsTo = function (other) {
 
 Object.defineProperty(PlainDateTime, "date", { get(this: Temporal.PlainDateTime) { return this.toPlainDate(); }, configurable: true });
 Object.defineProperty(PlainDateTime, "timeOfDay", { get(this: Temporal.PlainDateTime) { return this.toPlainTime(); }, configurable: true });
+
+// Signum's DateOnly.ToShortDateString(), the "d" format of the CURRENT culture (what `$"{date}"` prints in
+// .NET). Two-digit day and month, as .NET's short patterns have them; in SQL it is FORMAT / to_char.
+export function shortDateFormat(culture: string): Intl.DateTimeFormat {
+    return new Intl.DateTimeFormat(culture, { year: "numeric", month: "2-digit", day: "2-digit" });
+}
+PlainDate.toShortDateString = function () { return shortDateFormat(CultureInfo.currentCulture()).format(new Date(this.year, this.month - 1, this.day)); };
+PlainDateTime.toShortDateString = function () { return this.toPlainDate().toShortDateString(); };
 
 PlainDate.quarter = function () { return quarterOf(this.month); };
 PlainDate.weekNumber = function () { return isoWeekNumber(this.year, this.month, this.day, this.dayOfWeek); };

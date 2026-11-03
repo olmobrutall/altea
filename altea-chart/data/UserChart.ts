@@ -3,8 +3,7 @@ import { Entity, type PrimaryKey } from "@altea/altea/data/entity";
 import { Lite, LiteImp, registerCustomLite } from "@altea/altea/data/lite";
 import {
     backReference, entity, part, implementedBy, primaryKey, quoted, rowOrder, valueField,
-    legacyColumnName, unit,
-    translatable,
+    legacyColumnName, unit, translatable,
 } from "@altea/altea/data/decorators";
 import { ComparisonType, noRepeatValidator, numberIsValidator, stringLengthValidator } from "@altea/altea/data/validators";
 import { type int, toInt } from "@altea/altea/data/basics";
@@ -139,6 +138,7 @@ export class UserChartEntity extends Entity implements IUserAssetEntity, IHasEnt
     @implementedBy(() => [UserEntity, RoleEntity])
     owner: Lite<Entity> | null;
 
+    @translatable
     @stringLengthValidator({ min: 3, max: 200 })
     @translatable
     displayName: string;

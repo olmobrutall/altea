@@ -40,7 +40,7 @@ import { Schema } from './schema';
 import { Table } from './table';
 import { FluentInclude } from './fluentInclude';
 import { SystemVersionedInfo } from './systemVersioned';
-import { TableIndex, FullTextTableIndex, VectorTableIndex, generateUniqueIndexes, multiUniqueIndexes } from './tableIndex';
+import { TableIndex, FullTextTableIndex, VectorTableIndex, attachToUniqueIndexes, generateUniqueIndexes, multiUniqueIndexes } from './tableIndex';
 import { FieldRoute, accessedRoutes } from '../../data/fieldRoute';
 import { StringLengthValidator } from '../../data/validators';
 import { getIndexWhere } from './indexWhere';
@@ -806,6 +806,16 @@ export class SchemaBuilder {
                     + ` Rename one: only an ABSTRACT entity may share a clean name with a row model.`);
         }
 
+        // After every include, because a fluent `withUniqueIndex` is attached to as well (Signum computes
+        // the whole list lazily, in Table.GeneratAllIndexes).
+        for (const table of this.schema.tables.values()) {
+            const attached = [table.fields, ...Object.values(table.mixins).map(m => m.fields)]
+                .flatMap(fields => Object.values(fields))
+                .filter(ef => ef.fieldInfo.attachToUniqueIndexes)
+                .flatMap(ef => ef.field.columns());
+            table.indexes = attachToUniqueIndexes(table.indexes, attached);
+        }
+
         // Signum's `Schema.SchemaCompleted` — every table is now included, so a module that needs the WHOLE
         // schema (altea-cache: which tables a cached one depends on) can finish wiring. Still NO database
         // access here; that belongs in `initializing`.
@@ -1002,7 +1012,7 @@ export class SchemaBuilder {
             if (fi.uniqueIndex)
                 // Filtered to the rows that actually fill the field, so an OPTIONAL @unique field
                 // may be left empty by many rows — Signum's Field.GenerateUniqueIndex.
-                table.indexes.push(...generateUniqueIndexes(table, field, columns));
+                table.indexes.push(...generateUniqueIndexes(table, field, columns, fi.avoidAttachToUniqueIndexes));
             else if (fi.index)
                 table.indexes.push(new TableIndex(table, columns));
             else if (!(field instanceof FieldImplementedByAll) && !(field instanceof FieldImplementedBy))

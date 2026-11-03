@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { Transaction } from "@altea/altea/server/connection/transaction";
+import { Administrator } from "@altea/altea/server/Administrator";
 import { Schema } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
@@ -300,9 +301,9 @@ export namespace SqlMigrationRunner {
         };
 
         if (mi.comment.startsWith("NT_"))
-            await run(); // no transaction: the statements manage their own (CREATE INDEX CONCURRENTLY, …)
+            await run(); // no transaction: the statements manage their own (CREATE INDEX CONCURRENTLY, …); nor Schema.executeAs, which is transaction-scoped
         else
-            await Transaction.forceNew(run);
+            await Transaction.forceNew(() => Administrator.withExecuteAs(run));
     }
 
     /** After DDL, re-read the metadata caches (types, symbols, global lazies). */

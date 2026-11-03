@@ -1008,12 +1008,12 @@ export async function getSubTokens(token: QueryToken, options: SubTokensOptions)
  * the same value is `Telephones.Any.Telephone`, one hop further. This is that hop, and it is the one
  * thing that makes those two spellings meet.
  *
- * Only off Any / All / NotAny / NotAll / Element — a row reached any other way is a row, not a value.
- * `undefined` when the element is not such a row, which is every collection of embeddeds or of a
- * richer part (an EmailMessage attachment, a QueryColumn) and every non-collection token.
+ * Only off Any / All / NotAny / NotAll / Element / SeparatedBy… — a row reached any other way is a
+ * row, not a value. `undefined` when the element is not such a row, which is every collection of
+ * embeddeds or of a richer part (an EmailMessage attachment, a QueryColumn) and every non-collection token.
  */
 export function valueFieldSubToken(token: QueryToken, options: SubTokensOptions): QueryToken | undefined {
-    if (!token.isAnyOrAll() && !token.isElement())
+    if (!token.isAnyOrAll() && !token.isElement() && !token.isToArray())
         return undefined;
     const ctor = entityCtorOf(token.type);
     const vf = ctor == undefined ? undefined : tryGetTypeInfo(ctor)?.valueField;
@@ -1035,6 +1035,21 @@ export function valueFieldSubToken(token: QueryToken, options: SubTokensOptions)
  */
 export function appendLegacyValueField(token: QueryToken, options: SubTokensOptions): QueryToken {
     return usingLegacyPropertyPaths() ? (valueFieldSubToken(token, options) ?? token) : token;
+}
+
+/**
+ * LEGACY MODE: the sub-token `key` of `token`, making the `@valueField` hop in the MIDDLE of a path too.
+ *
+ * Signum navigates straight on from the element — `TargetObjectCategories.SeparatedByComma.Begriff` —
+ * where altea's row puts its `@valueField` in between (`…SeparatedByComma.TargetObjectCategory.Begriff`).
+ * Only tried when `key` is not a sub-token of the row itself, so a row field always wins. Applied in
+ * the same places as {@link appendLegacyValueField}, reading only.
+ */
+export function legacySubToken(token: QueryToken, key: string, options: SubTokensOptions): QueryToken | undefined {
+    const sub = token.subToken(key, options);
+    if (sub != undefined || !usingLegacyPropertyPaths())
+        return sub;
+    return valueFieldSubToken(token, options)?.subToken(key, options);
 }
 
 export function stripLegacyRootPrefix(root: QueryToken, tokenString: string, options: SubTokensOptions): string {

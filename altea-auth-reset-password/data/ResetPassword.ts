@@ -1,6 +1,6 @@
 import { init, setDefaultDatabaseSchema } from "@altea/altea/data/reflection";
 import { Entity } from "@altea/altea/data/entity";
-import { entity, uniqueIndex, quoted, legacyPropertyRoute } from "@altea/altea/data/decorators";
+import { entity, uniqueIndex, avoidAttachToUniqueIndexes, quoted, legacyPropertyRoute } from "@altea/altea/data/decorators";
 import { Temporal } from "@altea/altea/data/basics";
 import { Clock } from "@altea/altea/data/utils/clock";
 import { msg } from "@altea/altea/data/utils/localization";
@@ -21,8 +21,7 @@ export const RESET_PASSWORD_VALID_HOURS = 2;
 
 @entity("System", "Transactional")
 export class ResetPasswordRequestEntity extends Entity {
-    // A plain unique index: there is no per-index opt-out from the isolation rewrite to express.
-    @uniqueIndex
+    @uniqueIndex @avoidAttachToUniqueIndexes
     code: string;
 
     user: UserEntity;

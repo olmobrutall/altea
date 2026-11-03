@@ -107,8 +107,9 @@ export function EntityMultiSelect<R extends BaseEntity>(props: EntityMultiSelect
           .then(data => setData(data));
       }
       else
-        // ALTEA: options come from the @valueField's type (Signum used p.ctx.memberType directly).
-        Finder.API.fetchAllLites({ types: c.getValueField()!.getTypeName() ?? "" })
+        // ALTEA: options come from the @valueField's type (Signum used p.ctx.memberType directly), or from
+        // the member itself for a direct-value array (a model's Lite<T>[]), which has no wrapping row.
+        Finder.API.fetchAllLites({ types: (c.isDirectValueArray() ? p.ctx.memberType : c.getValueField())!.getTypeName() ?? "" })
           .then(data => setData(data.orderBy(a => a.toString())));
     }
   }, [normalizeEmptyArray(p.data), p.ctx.memberType!.getTypeName(), p.deps, loadData, p.findOptions && Finder.findOptionsPath(p.findOptions)]);

@@ -52,7 +52,8 @@ export class EntityEvents<T extends Entity> {
     // counts as an insert). For whoever only needs to know THAT T changed (a cache), not what or how;
     // runs after the matching specific event.
     readonly changed: ((method: EntityChangeMethod) => void | Promise<void>)[] = [];
-    readonly queryFilter: QueryFilterHandler[] = [];
+    // Signum's FilterQuery: a WHERE the binder adds to every query of T. Synchronous; undefined = no filter.
+    readonly queryFilter: ((options: QueryFilterOptions) => LambdaExpression | undefined)[] = [];
     readonly additionalBindings: AdditionalBindingSpec<T>[] = [];
 
     async onPreDeleteSqlSync(entity: T): Promise<SqlPreCommand | undefined> {

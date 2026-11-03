@@ -59,4 +59,21 @@ describe("@valueField query tokens", () => {
         assert.equal(valueFieldSubToken(
             QueryLogic.getToken(ArtistEntity, "Name", SubTokensOptionsAll), SubTokensOptionsAll), undefined);
     });
+
+    test("LEGACY MODE reads SeparatedBy… as the value too", () => {
+        setLegacyPropertyPaths(true);
+        assert.equal(QueryLogic.getToken(ArtistEntity, "Friends.SeparatedByComma", SubTokensOptionsAll).fullKey(),
+            "Friends.SeparatedByComma.Friend");
+    });
+
+    test("LEGACY MODE makes the hop in the middle of a path", () => {
+        setLegacyPropertyPaths(true);
+        assert.equal(QueryLogic.getToken(ArtistEntity, "Entity.Friends.SeparatedByComma.Name", SubTokensOptionsAll).fullKey(),
+            "Friends.SeparatedByComma.Friend.Name");
+        assert.equal(QueryLogic.getToken(ArtistEntity, "Friends.Any.Name", SubTokensOptionsAll).fullKey(),
+            "Friends.Any.Friend.Name");
+        // NORMAL mode does not: the row has no `Name`.
+        setLegacyPropertyPaths(false);
+        assert.throws(() => QueryLogic.getToken(ArtistEntity, "Friends.Any.Name", SubTokensOptionsAll));
+    });
 });

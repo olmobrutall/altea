@@ -21,6 +21,8 @@ import { UserQueryTokenSync } from "./UserQueryTokenSync";
 import { TokenMigrationLogic } from "@altea/altea-user-assets/server/TokenMigrationLogic";
 import { PermissionLogic } from "@altea/altea/server/permissionLogic";
 import { UserQueryPermission } from "../data/UserQuery";
+import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { PropertyRouteTranslationLogic } from "@altea/altea/server/propertyRouteTranslation";
 
 // Port of Signum's UserQueryLogic.Start (Signum.UserQueries/UserQueryLogic.cs). Registers the UserQuery
 // entity + its Save/Delete operations + query, the in-memory caches (Signum's ResetLazy GlobalLazys), the
@@ -88,7 +90,11 @@ export namespace UserQueriesLogic {
         // counterpart here because ToolbarLogic derives its delete cascades from the content field's
         // @implementedBy list (see ToolbarLogic.start).
         ToolbarLogic.registerContentConfig(UserQueryEntity, {
-            defaultLabel: async lite => (await getUserQuery(lite)).displayName,
+            defaultLabel: async lite => {
+                const e = await getUserQuery(lite);
+                // Signum's TranslatedField(e, a => a.DisplayName): the current culture's name.
+                return PropertyRouteTranslationLogic.translatedField(e.toLite(), PropertyRoute.root(UserQueryEntity).add("displayName"), e.displayName) ?? e.displayName;
+            },
             isAuthorized: async lite => {
                 const uq = await getUserQuery(lite);
                 return await ToolbarLogic.inMemoryFilter(uq)

@@ -61,7 +61,7 @@ export function setSerializationAuth(auth: SerializationAuth | undefined): void 
  * each field's PropertyRoute at that point. Read-only: the reader ignores `_translated` keys, since they
  * are not in any serializer PLAN — the translation is edited on its own pages, never through the entity.
  */
-export type TranslatedFieldProvider = (entity: Entity, route: PropertyRoute) => string | null | undefined;
+export type TranslatedFieldProvider = (entity: Entity, route: PropertyRoute, rowId?: string) => string | null | undefined;
 let _translatedField: TranslatedFieldProvider | undefined;
 export function setTranslatedFieldProvider(fn: TranslatedFieldProvider | undefined): void { _translatedField = fn; }
 
@@ -293,7 +293,7 @@ abstract class ModifiableSerializer implements JsonSerializer {
             // route is needed, so this can only fire where one was computed — which is the case whenever
             // the field belongs to an entity or one of its embeddeds.
             if (_translatedField != null && !sc.avoidTranslations && sc.translationOwner != null && fieldRoute != null) {
-                const translated = _translatedField(sc.translationOwner, fieldRoute);
+                const translated = _translatedField(sc.translationOwner, fieldRoute, sc.translationRowId);
                 if (translated != null)
                     o[entry.name + "_translated"] = translated;
             }
@@ -416,10 +416,19 @@ class EntitySerializer extends ModifiableSerializer {
                 : isPart ? continueRoute(sc.route, entity.getType())
                     : PropertyRoute.root(entity.getType());
             if (_serAuth != null && !isPart) sc.authMeta = _serAuth.getMetadata(entity);
+            // A part's translations belong to its OWNER, keyed by the part's row (Signum's TranslatedMList:
+            // `Parts/Title` of the dashboard, RowId = the part's id), so a part keeps the owner and adds its id.
             const prevOwner = sc.translationOwner;
-            sc.translationOwner = entity;
+            const prevRowId = sc.translationRowId;
+            if (isPart && prevOwner != null)
+                sc.translationRowId = entity.id == null ? undefined : String(entity.id);
+            else {
+                sc.translationOwner = entity;
+                sc.translationRowId = undefined;
+            }
             this.serializeFields(entity, sc, o, parented, ownerRoute);
             sc.translationOwner = prevOwner;
+            sc.translationRowId = prevRowId;
             sc.authMeta = prevMeta;
             return o;
         } finally {

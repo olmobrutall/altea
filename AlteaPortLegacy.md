@@ -102,6 +102,7 @@ the prefix stays singular even where the namespace is plural.
 | `[DefaultFileType(nameof(XFileType.Y))]` | `@defaultFileType(() => XFileType.Y)` (altea-files): the store's limits come from its registered algorithm |
 | `static StateValidator<E, S> v = new(e => e.State, e => e.A, e => e.B) { { S.X, true, null } }` + `PropertyValidation` | `const v = new StateValidator(E, e => e.state, "a", "b").add(S.X, true, null)` after the class, called from `@validate<E>((e, fi) => v.validate(e, fi))` on it |
 | `[UniqueIndex]`, `[TableName]`, `[ColumnName]` | `@uniqueIndex`, `@column({...})` |
+| `[AttachToUniqueIndexes]` / `[UniqueIndex(AvoidAttachToUniqueIndexes = true)]` | `@attachToUniqueIndexes` / `@uniqueIndex @avoidAttachToUniqueIndexes` |
 | `Lite<T>` | `Lite<T>` |
 | `[LiteModel(typeof(XLiteModel))]` | a **custom lite** — see below. There is no `LiteModel` entity |
 | `enum OrderState { … }` | `export const OrderState = { New: 0, … }` + `type OrderStateKeys = keyof typeof OrderState`; the wire value is the **member NAME**, so compare with `"Shipped"` |
@@ -109,6 +110,14 @@ the prefix stays singular even where the namespace is plural.
 | `decimal` | `Decimal`, with `Decimal.mul` / `.sub` / `.add` — the operators are not translatable |
 | `Guid` | `Guid` |
 | `byte[]` | `Blob` |
+
+**An enum's text is `Enum.toName(E, value)` or `E[value]`.** On the server an enum field holds its NUMBER;
+only the wire carries the member name. C#'s `"…" + Version` / `$"{Version}"` (an implicit
+`Enum.ToString()`, the member name) therefore becomes `Enum.toName(BausteinVersion, this.version) + "…"`,
+or TypeScript's reverse mapping `BausteinVersion[this.version] + "…"`: both translate to the name in a
+query and return the name in memory, so one `@quoted` body serves both. A plain
+`this.version + "…"` reads the name in a query but the number in memory — a `toString()` the server
+evaluates (an entity's title, a server-built lite, an error message) then shows `3` instead of `v2023`.
 
 **Datetimes follow `Clock.mode`, as in Signum.** A `DateTime` field stays a `Temporal.PlainDateTime` in the
 clock's frame, and `Clock.mode` (Signum's `Clock.Mode` / `Schema.TimeZoneMode`) decides the rest. `Local` is

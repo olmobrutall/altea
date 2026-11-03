@@ -4,7 +4,7 @@ import "@altea/altea/data/globals";
 import { field } from "@altea/altea/data/reflection"; // anchor for the transformer's @field injection
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
-import { entity, index, uniqueIndex } from "@altea/altea/data/decorators";
+import { attachToUniqueIndexes, avoidAttachToUniqueIndexes, entity, index, uniqueIndex } from "@altea/altea/data/decorators";
 import { type int, toInt } from "@altea/altea/data/basics";
 import { SchemaBuilder } from "@altea/altea/server/schema";
 import type { Table } from "@altea/altea/server/schema/table";
@@ -253,5 +253,47 @@ describe("Boolean literal in a filtered index's name hash (legacyMode)", () => {
             assert.equal(ix.where, "is_default = TRUE");
             assert.match(fake.sqlBuilder.indexName(ix), /__q0f7g6y$/);
         });
+    });
+});
+
+// Signum's [AttachToUniqueIndexes]: every unique index of the table takes the attached columns, keeping
+// its own filter; a nullable attached column adds no filter of its own.
+@entity("Main", "Master")
+class IdxAttached extends Entity {
+    @uniqueIndex code: string = "";
+    @uniqueIndex @avoidAttachToUniqueIndexes alias: string = "";
+    @uniqueIndex rank: int | null = null;
+    @index age: int = toInt(0);
+    @attachToUniqueIndexes version: int = toInt(0);
+    @attachToUniqueIndexes target: Lite<IdxTarget> | null = null;
+}
+
+describe("@attachToUniqueIndexes (Signum's Table.GeneratAllIndexes)", () => {
+    function buildAttached(): Table {
+        const sb = new SchemaBuilder();
+        sb.include(IdxTarget);
+        const table = sb.include(IdxAttached).table;
+        sb.complete();
+        return table;
+    }
+
+    test("the attached columns are appended, unfiltered", () => {
+        const t = buildAttached();
+        const ix = t.indexes.find(i => i.unique && i.columns[0]!.name === col(t, "code"))!;
+        assert.deepEqual(ix.columns.map(c => c.name), [col(t, "code"), col(t, "version"), col(t, "target")]);
+        assert.equal(ix.where, undefined);
+    });
+
+    test("an index keeps its own filter", () => {
+        const t = buildAttached();
+        const ix = t.indexes.find(i => i.unique && i.columns[0]!.name === col(t, "rank"))!;
+        assert.deepEqual(ix.columns.map(c => c.name), [col(t, "rank"), col(t, "version"), col(t, "target")]);
+        assert.ok(ix.where != null);
+    });
+
+    test("@avoidAttachToUniqueIndexes and non-unique indexes are left alone", () => {
+        const t = buildAttached();
+        assert.ok(hasIndex(t, [col(t, "alias")], true));
+        assert.ok(hasIndex(t, [col(t, "age")], false));
     });
 });

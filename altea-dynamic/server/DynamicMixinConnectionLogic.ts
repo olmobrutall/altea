@@ -2,7 +2,7 @@ import "@altea/altea/server/dynamicQuery/fluentIncludeQuery";
 import "@altea/altea/server/fluentOperations";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { table } from "@altea/altea/server/table";
-import { Administrator } from "@altea/altea/server/administrator";
+import { Administrator } from "@altea/altea/server/Administrator";
 import { Connector } from "@altea/altea/server/connection/connector";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
 import { StartParameters } from "@altea/altea/data/utils/startParameters";

@@ -32,6 +32,13 @@ function objectNameOf(schema: string, name: string): ObjectName {
 export class DiffSchema {
     name!: SchemaName;
     owner?: string;
+
+    static create(values: { schemaName: string; owner?: string | null }): DiffSchema {
+        const s = new DiffSchema();
+        s.name = new SchemaName(normalizeSchema(values.schemaName), new DatabaseName(''));
+        s.owner = values.owner ?? undefined;
+        return s;
+    }
 }
 
 // SQL Server's PERIOD FOR SYSTEM_TIME as read from the catalog (Signum's DiffPeriod): the start /

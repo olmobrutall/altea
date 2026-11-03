@@ -66,6 +66,7 @@ import { TypeEntity } from "../../../data/typeEntity";
 import { toInt, toLong, inSql, Temporal } from "../../../data/basics";
 import { Enum } from "../../../data/enum";
 import { EnumEntity } from "../../../data/enumEntity";
+import { enumNameOf } from "../../../data/registration";
 import { Lite, getCustomLiteConstructor, getCustomLiteConstructorFor } from "../../../data/lite";
 import type { CustomLiteClass } from "../../../data/lite";
 import { ArrayType, ClassType, EnumType, LiteType, LiteralType, ObjectType, TemporalType, TsVectorType, VectorType, RuntimeType } from "../../runtimeTypes";
@@ -321,6 +322,24 @@ class ContainsAggregateVisitor extends DbExpressionVisitor {
         this.found = true;
         return aggregate;
     }
+
+    // A plain subquery is refused just the same (error 144 says "an aggregate OR a subquery"): a registered
+    // expression such as the last action's state is a scalar subquery with no aggregate in it.
+    override visitScalar(scalar: ScalarExpression): Expression {
+        this.found = true;
+        return scalar;
+    }
+
+    override visitExists(exists: ExistsExpression): Expression {
+        this.found = true;
+        return exists;
+    }
+
+    override visitIn(inExp: InExpression): Expression {
+        if (inExp.select != null)
+            this.found = true;
+        return super.visitIn(inExp);
+    }
 }
 
 // Signum's ColumnReplacerVisitor: rewrite every ColumnExpression that matches one of the
@@ -499,6 +518,9 @@ export class QueryBinder extends ExpressionVisitor {
     // Table-source calls whose EntityEvents.queryFilter WHERE has already been spliced (row-level
     // security), so the synthesized `.filter(...)` re-visiting the same source doesn't re-wrap forever.
     private readonly queryFilterApplied = new Set<CallExpression>();
+    // > 0 while binding a source whose table sources must NOT get their queryFilter spliced: inside a
+    // spliced filter itself, or under `.disableQueryFilter()` (Signum's QueryFilterer `filter: false`).
+    private queryFilterDisabled = 0;
 
     // Re-entrancy guard for withAdditionalBindings: while binding an additional-binding value lambda
     // we must not attach further additional bindings to entities materialised in the process
@@ -958,6 +980,9 @@ export class QueryBinder extends ExpressionVisitor {
     // arrayGet(arr, i) marker lowered here too; now real element access flows through
     // IndexExpression.
     override visitIndex(node: IndexExpression): Expression {
+        // `E[value]` over an enum (its reverse mapping): the member name, as Enum.toName(E, value).
+        if (node.object instanceof ConstantExpression && node.object.value != null && typeof node.object.value === "object" && enumNameOf(node.object.value) != null)
+            return this.bindEnumName(node.object.value, node.index);
         return new SqlArrayIndexExpression(node.type, this.visit(node.object), this.visit(node.index));
     }
 
@@ -974,11 +999,19 @@ export class QueryBinder extends ExpressionVisitor {
             // Row-level query security (Signum's FilterQuery): splice the entity's queryFilter WHERE(s)
             // around this table source and bind THAT. The guard stops the synthesized `.filter(...)` from
             // re-wrapping the same source when it re-visits it.
-            if (!this.queryFilterApplied.has(call)) {
+            // The tables the spliced predicate itself queries are NOT filtered again, as in Signum (its
+            // QueryFilterer does not re-filter the filter): a condition reading its own type's rows, such as
+            // SeminarRequest's Approver over its actions, would otherwise expand forever.
+            if (!this.queryFilterApplied.has(call) && this.queryFilterDisabled === 0) {
                 const wrapped = this.applyQueryFilters(call, ctor);
                 if (wrapped != null) {
                     this.queryFilterApplied.add(call);
-                    return this.visit(wrapped);
+                    this.queryFilterDisabled++;
+                    try {
+                        return this.visit(wrapped);
+                    } finally {
+                        this.queryFilterDisabled--;
+                    }
                 }
             }
             return this.getTableProjection(ctor);
@@ -1094,6 +1127,18 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.visit(property.object);
                 } finally {
                     this.systemTime = old;
+                }
+            }
+
+            // disableQueryFilter binds its source with the row-level queryFilter switched off for every
+            // table source under it (Signum's DisableQueryFilter): an expression column such as a count over
+            // everybody's rows, inside a query that stays filtered for the current user.
+            if (op === "disableQueryFilter") {
+                this.queryFilterDisabled++;
+                try {
+                    return this.visit(property.object);
+                } finally {
+                    this.queryFilterDisabled--;
                 }
             }
 
@@ -1290,9 +1335,9 @@ export class QueryBinder extends ExpressionVisitor {
         }
 
         // entity.toLite() → a Lite over that reference (Signum's BindToLite). Works
-        // over a typed reference or a polymorphic IB/IBA one.
+        // over a typed reference or a polymorphic IB/IBA one. `toLite(model)` carries its own toStr.
         if (methodName === "toLite" && (source instanceof EntityExpression || source instanceof ImplementedByExpression || source instanceof ImplementedByAllExpression))
-            return new LiteReferenceExpression(new LiteType(source.type), source, undefined);
+            return new LiteReferenceExpression(new LiteType(source.type), source, args.length === 1 && args[0]!.type === LiteralType.string ? this.visit(args[0]!) : undefined);
         if (methodName === "toLite" && source instanceof LiteReferenceExpression)
             return source;
         // toLite() on a captured constant entity → a constant Lite (Signum's Clean
@@ -1427,6 +1472,20 @@ export class QueryBinder extends ExpressionVisitor {
                 || left instanceof EmbeddedEntityExpression || right instanceof EmbeddedEntityExpression) {
                 const eq = this.smart.polymorphicEqual(left, right);
                 return negate ? this.smart.not(eq) : eq;
+            }
+            return b.updateBinary(left, right);
+        }
+
+        // Signum's `string + enum` calls Enum.ToString(): the member NAME, not the number.
+        if (b.kind === "+") {
+            const left = this.visit(b.left);
+            const right = this.visit(b.right);
+            if ((left.type === LiteralType.string || right.type === LiteralType.string)
+                && (left.type instanceof EnumType || right.type instanceof EnumType)) {
+                const name = (e: Expression): Expression => e.type instanceof EnumType
+                    ? new CallExpression(new PropertyExpression(e, "toString", false), [], LiteralType.string)
+                    : e;
+                return b.updateBinary(name(left), name(right));
             }
             return b.updateBinary(left, right);
         }
@@ -2929,8 +2988,13 @@ export class QueryBinder extends ExpressionVisitor {
         const enumArg = call.args[0];
         if (!(enumArg instanceof ConstantExpression))
             throw new Error("Enum.toName(E, value) in a query needs the enum E itself as its first argument");
-        const enumCtor = EnumEntity.typeFor(enumArg.value as object);
-        const value = this.visit(call.args[1]);
+        return this.bindEnumName(enumArg.value as object, call.args[1]);
+    }
+
+    // The NAME of an enum value — Enum.toName(E, value) and E[value] alike.
+    private bindEnumName(enumObject: object, valueExpr: Expression): Expression {
+        const enumCtor = EnumEntity.typeFor(enumObject);
+        const value = this.visit(valueExpr);
         const enumRow = new EntityExpression(new ClassType(enumCtor), this.schema.table(enumCtor), new PrimaryKeyExpression(value), undefined, undefined, undefined, false);
         return this.bindMember(enumRow, "name", false);
     }
@@ -3103,7 +3167,9 @@ export class QueryBinder extends ExpressionVisitor {
         const lambdas = hooks.map(h => h({ ctor: ctor as Type<Entity>, elementType, args })).filter((l): l is LambdaExpression => l != null);
         if (lambdas.length === 0)
             return undefined;
-        return new CallExpression(new PropertyExpression(source, "filter"), [combineFilterLambdas(lambdas, elementType)], source.type);
+        // Unsimplified, like an additional binding's lambda: run its @methodExpander calls (`inCondition`).
+        const filter = OverloadingSimplifier.simplify(combineFilterLambdas(lambdas, elementType)) as LambdaExpression;
+        return new CallExpression(new PropertyExpression(source, "filter"), [filter], source.type);
     }
 
     // A query-only SQL function (Signum's [SqlMethod]). The result type tells scalar from
@@ -3877,6 +3943,7 @@ export class QueryBinder extends ExpressionVisitor {
             case "Boolean": return LiteralType.boolean;
             case "PlainDateTime": return new TemporalType("dateTime");
             case "PlainDate": return new TemporalType("date");
+            case "PlainTime": return new TemporalType("time");
             case "Duration": return new TemporalType("duration");
             default: return LiteralType.null; // enum/etc. — refined later
         }

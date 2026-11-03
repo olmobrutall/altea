@@ -1,3 +1,4 @@
+import { cleanTypeName } from "@altea/altea/data/registration";
 import "@altea/altea/server"; // installs Entity.save()/delete()
 import type { StablePromise } from "@altea/altea/server/stablePromise";
 import { type FluentStateMachine } from "@altea/altea/server/fluentOperations";
@@ -367,7 +368,7 @@ export namespace EmailLogic {
         const names = new Set<string>();
         for (const lite of rows)
             if (lite != null)
-                names.add((lite as Lite<Entity>).entityType.name);
+                names.add(cleanTypeName((lite as Lite<Entity>).entityType)); // Signum's CleanName, which the quick link compares
         return [...names];
     }
 

@@ -1,7 +1,7 @@
 import "../../data/globals"; // Array.prototype.toMap
 import { Connector } from "../connection/connector";
 import { tryGetTypeInfo } from "../../data/reflection";
-import { setImplementedByAllTypesProvider, setExtensionTokensProvider, RootToken, SubTokensOptions, stripLegacyRootPrefix, appendLegacyValueField, setIndexerKeysProvider, splitTokenKey, type QueryToken } from "../../data/dynamicQuery/tokens";
+import { setImplementedByAllTypesProvider, setExtensionTokensProvider, RootToken, SubTokensOptions, stripLegacyRootPrefix, appendLegacyValueField, legacySubToken, setIndexerKeysProvider, splitTokenKey, type QueryToken } from "../../data/dynamicQuery/tokens";
 import { setBuildExtensionExpr, setBuildExtensionWithParameterExpr } from "./tokenExpressions";
 import { getKey, type QueryName } from "../../data/dynamicQuery/queryUtils";
 import { DynamicQueryContainer } from "./dynamicQueryContainer";
@@ -55,7 +55,8 @@ export namespace QueryLogic {
         let token: QueryToken = tryGetRootToken(queryName) ?? new RootToken(queryName);
         // LEGACY MODE: a token stored by Signum starts at its `Entity` column; altea's root is rootless.
         for (const part of splitTokenKey(stripLegacyRootPrefix(token, tokenString, options))) {
-            const sub: QueryToken | undefined = token.subToken(part, options);
+            // LEGACY MODE: Signum navigates on from a `@valueField` row's element without naming the field.
+            const sub: QueryToken | undefined = legacySubToken(token, part, options);
             if (sub == undefined)
                 throw new Error(`Token '${part}' not found on '${token.fullKey()}' (query '${getKey(queryName)}')`);
             token = sub;

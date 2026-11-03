@@ -2114,10 +2114,15 @@ export class SearchControlLoaded extends React.Component<SearchControlLoadedProp
     children?: React.ReactNode | undefined
   }> | null | undefined {
 
-    return c.resultIndex == -1 || c.cellFormatter == undefined ? undefined :
-      c.hasToArray != null ? SearchControlLoaded.joinNodes((getRowValue(fctx.row, c.resultIndex) as unknown[]).map(v => c.cellFormatter!.formatter(v, fctx, c)),
-        c.hasToArray.key == "SeparatedByComma" || c.hasToArray.key == "SeparatedByCommaDistinct" ? <span className="text-muted">, </span> : <br />, SearchControlLoaded.maxToArrayElements) :
-        c.cellFormatter.formatter(getRowValue(fctx.row, c.resultIndex), fctx, c);
+    if (c.resultIndex == -1 || c.cellFormatter == undefined)
+      return undefined;
+    const value = getRowValue(fctx.row, c.resultIndex);
+    // Signum sent a ToArray cell as the element array and joined it here. altea's server already joined
+    // it (`DQueryable.buildToArray` → STRING_AGG): one string, or null over an empty collection — so an
+    // array is joined per element and anything else is formatted as the single value it is.
+    return c.hasToArray != null && Array.isArray(value) ? SearchControlLoaded.joinNodes(value.map(v => c.cellFormatter!.formatter(v, fctx, c)),
+      c.hasToArray.key == "SeparatedByComma" || c.hasToArray.key == "SeparatedByCommaDistinct" ? <span className="text-muted">, </span> : <br />, SearchControlLoaded.maxToArrayElements) :
+      c.cellFormatter.formatter(value, fctx, c);
   }
 
   rowRefs: React.RefObject<HTMLTableRowElement | null>[] = [];

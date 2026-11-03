@@ -26,7 +26,9 @@ import "./ChangeLog.css";
 //    relational operators).
 //  - `MessageModal.show` takes no `autoFocusonTitle` in altea; focus returns to the trigger afterwards,
 //    which is the part that mattered.
-export default function ChangeLogViewer(): React.ReactElement | null {
+//  - `extraInformation` (the app passes its server name) goes under the button's `title`, one line per
+//    `\n`, where Signum put it under the build time in `VersionInfoTooltip`.
+export default function ChangeLogViewer(p: { extraInformation?: string | null }): React.ReactElement | null {
     const hasUser = AppContext.currentUser != null;
 
     const [lastDateString, reloadLastDate] = useAPIWithReload(
@@ -66,7 +68,7 @@ export default function ChangeLogViewer(): React.ReactElement | null {
     }
 
     return (
-        <LinkButton title={ConnectionMessage.VersionInfo.niceToString()}
+        <LinkButton title={[ConnectionMessage.VersionInfo.niceToString(), p.extraInformation].filter(s => !!s).join("\n")}
             ref={triggerRef}
             className="sf-pointer nav-link sf-change-log-container"
             aria-haspopup="dialog"

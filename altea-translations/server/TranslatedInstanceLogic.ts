@@ -48,8 +48,13 @@ export namespace TranslatedInstanceLogic {
     /** Signum's `LocalizedInstanceKey` minus the rowId: "<lite key>|<route>". */
     export type InstanceKey = string;
 
-    export function instanceKey(lite: Lite<Entity>, route: string): InstanceKey {
-        return `${lite.key()}|${route}`;
+    /**
+     * `rowId` is the collection row a route through a collection names (Signum's `RowId`); absent otherwise.
+     * Lower-cased: Signum stored a Guid row id in lower case, while SQL Server hands a uniqueidentifier back
+     * in upper case, and Signum compared them as Guids.
+     */
+    export function instanceKey(lite: Lite<Entity>, route: string, rowId?: string | null): InstanceKey {
+        return rowId == null ? `${lite.key()}|${route}` : `${lite.key()}|${route}|${rowId.toLowerCase()}`;
     }
 
     /** Signum's `DefaultCulture` — the language the stored (untranslated) values are written in. */
@@ -102,7 +107,7 @@ export namespace TranslatedInstanceLogic {
             for (const ti of all) {
                 const culture = ti.culture.name;
                 const map = byCulture.get(culture) ?? byCulture.set(culture, new Map()).get(culture)!;
-                map.set(instanceKey(ti.instance, ti.propertyRoute.path), ti);
+                map.set(instanceKey(ti.instance, ti.propertyRoute.path, ti.rowId), ti);
             }
             snapshot = byCulture;
             return byCulture;
@@ -111,8 +116,8 @@ export namespace TranslatedInstanceLogic {
         // Signum's `PropertyRouteTranslationLogic.TranslatedFieldFunc`: the resolver every read goes
         // through. A translation whose ORIGINAL no longer matches the row's current value is stale and is
         // NOT used — the fallback wins, and the Sync page lists it.
-        PropertyRouteTranslationLogic.translatedFieldFunc = (lite, route, fallback) => {
-            const ti = getTranslatedInstance(lite, route.propertyString(), CultureInfo.currentUICulture());
+        PropertyRouteTranslationLogic.translatedFieldFunc = (lite, route, fallback, rowId) => {
+            const ti = getTranslatedInstance(lite, route.propertyString(), CultureInfo.currentUICulture(), rowId);
             if (ti != undefined && (fallback == null || normalize(ti.originalText) === normalize(fallback)))
                 return ti.translatedText;
             return fallback;
@@ -200,8 +205,8 @@ export namespace TranslatedInstanceLogic {
      * Signum's `GetTranslatedInstance` — with the same culture fallback: the exact culture, then its
      * neutral language ("es-AR" → "es").
      */
-    export function getTranslatedInstance(lite: Lite<Entity>, route: string, culture: string): TranslatedInstanceEntity | undefined {
-        const key = instanceKey(lite, route);
+    export function getTranslatedInstance(lite: Lite<Entity>, route: string, culture: string, rowId?: string | null): TranslatedInstanceEntity | undefined {
+        const key = instanceKey(lite, route, rowId);
         const exact = snapshot.get(culture)?.get(key);
         if (exact != undefined)
             return exact;

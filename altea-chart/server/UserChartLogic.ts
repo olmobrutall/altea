@@ -17,6 +17,8 @@ import { registerUserChartDashboardParts } from "./ChartDashboardXml";
 import { ToolbarLogic } from "@altea/altea-toolbar/server/ToolbarLogic";
 import { QueryAuthLogic } from "@altea/altea-auth/server/QueryAuthLogic";
 import { QueryLogic } from "@altea/altea/server/dynamicQuery/queryLogic";
+import { PropertyRoute } from "@altea/altea/data/propertyRoute";
+import { PropertyRouteTranslationLogic } from "@altea/altea/server/propertyRouteTranslation";
 
 // Port of Signum's UserChartLogic.Start (Signum.Chart/UserChart/UserChartLogic.cs). Registers the UserChart
 // entity + its Save/Delete operations + query, the in-memory caches (Signum's ResetLazy GlobalLazys), the
@@ -70,7 +72,11 @@ export namespace UserChartLogic {
         // The TOOLBAR content config for a UserChart element (Signum's ToolbarContentConfig inside
         // `WhenIncluded<ToolbarEntity>`). Inert when the toolbar module is not started.
         ToolbarLogic.registerContentConfig(UserChartEntity, {
-            defaultLabel: async lite => (await getUserChart(lite)).displayName,
+            defaultLabel: async lite => {
+                const e = await getUserChart(lite);
+                // Signum's TranslatedField(e, a => a.DisplayName): the current culture's name.
+                return PropertyRouteTranslationLogic.translatedField(e.toLite(), PropertyRoute.root(UserChartEntity).add("displayName"), e.displayName) ?? e.displayName;
+            },
             isAuthorized: async lite => {
                 const uc = await getUserChart(lite);
                 return await ToolbarLogic.inMemoryFilter(uc)

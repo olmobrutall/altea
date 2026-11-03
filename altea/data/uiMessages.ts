@@ -143,10 +143,10 @@ export const SearchMessage = {
     SplitsTheValuesAndSearchesEachOneIndependentlyInAnANDGroup: msg("Splits the values and searches each one independently in an AND group"),
     SplitsTheStringValueBySpaceAndSearchesEachPartIndependentlyInAnANDGroup: msg("Splits the string value by space and searches each part independently in an AND group"),
     // Pagination
-    _0Results_N: msg("{0} results"),
-    First0Results_N: msg("First {0} results"),
+    _0Results_N: msg("{0} result[s]."),
+    First0Results_N: msg("first {0} result[s]."),
     NoResultsInThisPage: msg("No results in this page"),
-    _01of2Results_N: msg("{0} - {1} of {2} results"),
+    _01of2Results_N: msg("{0} - {1} of {2} result[s]."),
     PaginationAll_0Elements: msg("Show {0} elements"),
     PaginationFirst_01Elements: msg("Show first {0} of {1} elements"),
     PaginationPages_0Of01lements: msg("{0} of {1} elements"),

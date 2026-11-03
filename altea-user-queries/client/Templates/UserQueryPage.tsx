@@ -58,7 +58,8 @@ export default function UserQueryPage(): React.JSX.Element | null {
                 showSystemTimeButton={true}
                 showFooter={true}
                 extraOptions={{
-                    userQuery: newLite(UserQueryEntity, userQueryId),
+                    // The loaded query's lite, which carries its display name: the menu button shows it.
+                    userQuery: currentUserQuery.toLite(),
                     entity: currentEntity ?? undefined,
                 }}
                 defaultRefreshMode={Enum.toName(RefreshMode, currentUserQuery.refreshMode)}

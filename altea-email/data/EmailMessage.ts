@@ -135,7 +135,8 @@ export class EmailMessageEntity extends Entity {
     /** Which async-sender pass claimed this message (see AsyncEmailSender.recruitQueuedItems). */
     processIdentifier: uuid | null;
 
-    sendRetries: int;
+    // Signum's `int SendRetries` starts at 0; without it a message built from a template fails "is not set".
+    sendRetries: int = toInt(0);
 
     attachments: EmailMessageEntity_Attachment[];
 

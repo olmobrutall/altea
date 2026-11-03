@@ -3,8 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
     entity, part, primaryKey, backReference, rowOrder, implementedBy, uniqueIndex, format, unit, quoted,
-    legacyColumnName,
-    translatable,
+    legacyColumnName, translatable,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, noRepeatValidator, StateValidator } from "@altea/altea/data/validators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";

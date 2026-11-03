@@ -49,7 +49,8 @@ export function FormGroup(p: FormGroupProps): React.ReactElement {
     );
   }
 
-  const requiredIndicator = (tCtx.propertyRoute?.fieldInfo && !tCtx.propertyRoute.fieldInfo.isNullable) && !p.ariaAttributes?.['aria-readonly'];
+  // Signum's `member.required`: a list only when it must have a row, a nullable field with a NotNullValidator.
+  const requiredIndicator = tCtx.propertyRoute?.fieldInfo?.isRequired && !p.ariaAttributes?.['aria-readonly'];
 
   const labelClasses = classes(
     ctx.formGroupStyle == "SrOnly" && "visually-hidden",

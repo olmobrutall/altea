@@ -56,9 +56,11 @@ export interface SerializationContext {
     authMeta?: unknown;
     authContext?: unknown;   // the captured rule snapshot (SerializeOptions.authContext), read by access
     // The ENTITY whose routes are currently being written — the owner a `<field>_translated` value is
-    // looked up against (see setTranslatedFieldProvider). Re-rooted at each entity, so a `@part` child
-    // row resolves its own translations; an embedded keeps its owner's, matching its route.
+    // looked up against (see setTranslatedFieldProvider). Re-rooted at each entity; a `@part` row and an
+    // embedded keep their owner's, as their routes continue it (a part adds its row id below).
     translationOwner?: Entity;
+    /** The `@part` row being written under `translationOwner` (Signum's MList RowId), when inside one. */
+    translationRowId?: string;
     avoidTranslations?: boolean;
 }
 

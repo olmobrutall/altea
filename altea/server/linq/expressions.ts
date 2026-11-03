@@ -325,8 +325,12 @@ function resolveMemberType(ownerType: RuntimeType, propertyName: string): Runtim
 // Exported so altea-cache can derive the SAME per-column value conversion the projector applies
 // (see translatorBuilder.visitColumn) when it reads raw rows into its in-memory row store.
 export function baseTypeOfFieldInfo(fi: FieldInfo): RuntimeType {
-    if (fi.isEnum)
-        return LiteralType.null; // enums are not modelled as a Type yet
+    // An enum field is the EnumType the binder gives its column (QueryBinder.bindField), so an expression
+    // ending in one — a registered `previousState()` — has a real result type instead of null.
+    if (fi.isEnum) {
+        const enumObj = fi.getEnum();
+        return enumObj != null ? new EnumType(enumObj, fi.getTypeName() ?? '') : LiteralType.null;
+    }
     switch (fi.typeName) {
         case "Number": return LiteralType.number;
         // A `Decimal` (decimal.js) field is a scalar decimal column (Signum's decimal). Name-only in
@@ -338,6 +342,7 @@ export function baseTypeOfFieldInfo(fi: FieldInfo): RuntimeType {
         case "Boolean": return LiteralType.boolean;
         case "PlainDateTime": return new TemporalType("dateTime");
         case "PlainDate": return new TemporalType("date");
+        case "PlainTime": return new TemporalType("time");
         case "Duration": return new TemporalType("duration");
     }
     const ctor = fi.getFunction();
@@ -399,6 +404,7 @@ const wellKnownResultTypes: Readonly<Record<string, RuntimeType>> = {
     "string.end": LiteralType.string,
     "string.reverse": LiteralType.string,
     "string.replicate": LiteralType.string,
+    "string.replaceAll": LiteralType.string,
     "string.etc": LiteralType.string,
     // StringExtensions.Before/After/BeforeLast/AfterLast + the Try* variants — the
     // substring before/after the first/last occurrence of a separator (NULL if absent).
@@ -433,6 +439,9 @@ const wellKnownResultTypes: Readonly<Record<string, RuntimeType>> = {
     "date.quarter": LiteralType.number,
     "dateTime.weekNumber": LiteralType.number,
     "date.weekNumber": LiteralType.number,
+    // The culture's short date (Signum's ToShortDateString) → FORMAT / to_char.
+    "dateTime.toShortDateString": LiteralType.string,
+    "date.toShortDateString": LiteralType.string,
     // Truncation / "start of" → keeps the receiver's temporal kind.
     "dateTime.yearStart": new TemporalType("dateTime"),
     "dateTime.quarterStart": new TemporalType("dateTime"),
@@ -557,8 +566,9 @@ const tsFullTextProto: object = Object.create(null);
 // The Temporal prototype to look date/time method metadata up on, by kind.
 function temporalPrototype(t: TemporalType): object {
     return t.kind === "date" ? Temporal.PlainDate.prototype
-        : t.kind === "duration" ? Temporal.Duration.prototype
-            : Temporal.PlainDateTime.prototype;
+        : t.kind === "time" ? Temporal.PlainTime.prototype
+            : t.kind === "duration" ? Temporal.Duration.prototype
+                : Temporal.PlainDateTime.prototype;
 }
 
 // Result type of a built-in `obj.<propertyName>(…)` call, from the registry above.
@@ -753,6 +763,9 @@ export abstract class Expression {
                     // object falls back to number so the offline binder stays happy.
                     const obj = fromQuoted(q[1]);
                     const index = fromQuoted(q[2]);
+                    // `E[value]` over a registered enum: TypeScript's reverse mapping, the member name.
+                    if (obj instanceof ConstantExpression && obj.value != null && typeof obj.value === "object" && enumNameOf(obj.value) != null)
+                        return new IndexExpression(obj, index, LiteralType.string);
                     const elementType = obj.type instanceof ArrayType && obj.type.elementType != null
                         ? obj.type.elementType : LiteralType.number;
                     return new IndexExpression(obj, index, elementType);

@@ -1,5 +1,5 @@
 import "@altea/altea/server"; // installs Entity.save()/delete()
-import { hostname } from "node:os";
+import { Schema } from "@altea/altea/server/schema/schema";
 import { randomUUID } from "node:crypto";
 import { Transaction } from "@altea/altea/server/connection/transaction";
 import { ExecutionMode } from "@altea/altea/server/executionMode";
@@ -55,7 +55,7 @@ export namespace AsyncEmailSender {
         return {
             running,
             initialDelayMilliseconds: initialDelayMilliseconds ?? null,
-            machineName: hostname(),
+            machineName: Schema.current.machineName,
             asyncSenderPeriod: (await EmailLogic.configuration()).asyncSenderPeriod,
             isCancelationRequested: cancellationRequested,
             nextPlannedExecution: nextPlannedExecution?.toString() ?? null,

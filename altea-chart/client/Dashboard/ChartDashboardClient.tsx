@@ -8,6 +8,7 @@ import { ChartClient } from "../ChartClient";
 import { UserChartClient } from "../UserChart/UserChartClient";
 import { CombinedUserChartPartEntity, UserChartPartEntity } from "../../data/DashboardParts";
 import type { UserChartPartHandler } from "./View/UserChartPart";
+import { translated } from "@altea/altea/client/Translated";
 
 // altea's counterpart of the dashboard registrations Signum performs inside UserChartClient.start (its
 // `Navigator.addSettings` + `DashboardClient.registerRenderer` for the chart parts). Kept in its own module so
@@ -24,7 +25,7 @@ export namespace ChartDashboardClient {
         DashboardClient.registerRenderer(UserChartPartEntity, {
             component: () => import("./View/UserChartPart").then(a => a.default),
             icon: () => ({ icon: "chart-bar", iconColor: "darkviolet" }),
-            defaultTitle: e => e.userChart?.displayName ?? "",
+            defaultTitle: e => (e.userChart && translated(e.userChart, "displayName")) ?? "",
             getQueryNames: e => e.userChart == null ? [] : [e.userChart.query.key],
             waitForInvalidation: true,
             // Clicking the panel title opens the chart full screen in the chart page. It encodes the

@@ -1,5 +1,5 @@
 import "../../../data/globals"; // Array.prototype.toMap
-import { DiffTable, DiffColumn, DiffForeignKey, DiffForeignKeyColumn, DiffIndex, DiffIndexColumn } from "../diffModels";
+import { DiffSchema, DiffTable, DiffColumn, DiffForeignKey, DiffForeignKeyColumn, DiffIndex, DiffIndexColumn } from "../diffModels";
 import { view } from "../../table";
 import { PgNamespace } from "./postgresCatalog";
 import { generateSubscripts, PostgresFunctions } from "./postgresFunctions";
@@ -27,6 +27,7 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
         .map(x => DiffTable.create({
             schemaName: x.ns.nspname,
             tableName: x.t.relname,
+            owner: x.t.owner().$v!.rolname,
 
             // The system-versioning trigger, if any (Signum's DiffTable.VersionningTrigger): the
             // trigger on this table whose function is the generic `versioning`. Its presence marks
@@ -110,6 +111,16 @@ export async function getDatabaseDescription(): Promise<Map<string, DiffTable>> 
             t.versioningTrigger.args = decodeTgargs(t.versioningTrigger.tgargsRaw);
 
     return tables.toMap(t => t.name.toString());
+}
+
+// Signum's PostgresCatalogSchema.GetSchemaNames.
+export async function getSchemaNames(): Promise<Map<string, DiffSchema>> {
+    const schemas = await view(PgNamespace)
+        .filter(ns => !ns.isInternal())
+        .map(ns => ({ schemaName: ns.nspname, owner: ns.owner().$v!.rolname }))
+        .toArray();
+
+    return schemas.map(s => DiffSchema.create(s)).toMap(s => s.name.toString());
 }
 
 // pg_trigger.tgargs: NUL-separated, NUL-terminated string literals. node-pg returns bytea as a

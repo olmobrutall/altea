@@ -5,6 +5,7 @@ import { Finder } from "@altea/altea/client/Finder";
 import { DashboardClient } from "@altea/altea-dashboard/client/DashboardClient";
 import { BigValuePartEntity, UserQueryPartEntity, ValueUserQueryListPartEntity } from "../../data/DashboardParts";
 import type { UserQueryPartHandler } from "./View/UserQueryPart";
+import { translated } from "@altea/altea/client/Translated";
 
 // altea's counterpart of the dashboard registrations Signum performs inside UserQueryClient.start (its
 // `Navigator.addSettings` + `DashboardClient.registerRenderer` calls for the three UserQuery parts). Kept in
@@ -25,7 +26,7 @@ export namespace UserQueriesDashboardClient {
         DashboardClient.registerRenderer(UserQueryPartEntity, {
             component: () => import("./View/UserQueryPart").then(a => a.default),
             icon: () => ({ icon: "list", iconColor: "#4C5052" }),
-            defaultTitle: e => e.userQuery?.displayName ?? "",
+            defaultTitle: e => (e.userQuery && translated(e.userQuery, "displayName")) ?? "",
             getQueryNames: e => e.userQuery == null ? [] : [e.userQuery.query.key],
             waitForInvalidation: true,
             // Clicking the panel title opens the part's query full screen in the search page. It navigates
@@ -49,7 +50,7 @@ export namespace UserQueriesDashboardClient {
             component: () => import("./View/BigValuePart").then(a => a.default),
             icon: () => ({ icon: "cube", iconColor: "#21618C" }),
             withPanel: () => false,
-            defaultTitle: e => e.userQuery?.displayName ?? "",
+            defaultTitle: e => (e.userQuery && translated(e.userQuery, "displayName")) ?? "",
             getQueryNames: e => e.userQuery == null ? [] : [e.userQuery.query.key],
         });
     }
