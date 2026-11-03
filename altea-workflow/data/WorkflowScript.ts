@@ -9,6 +9,8 @@ import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { type IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
 import type { IWorkflowScriptExecutor } from "./WorkflowEval";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
+import { CodeSyncMixin } from "@altea/altea-user-assets/data/AssetSync";
 
 // Port of Signum.Workflow's WorkflowScript.cs + WorkflowScriptRetryStrategy.cs — the body of a SCRIPT
 // activity (an unattended step the script runner executes) and the back-off rule used when it throws.
@@ -23,6 +25,7 @@ import type { IWorkflowScriptExecutor } from "./WorkflowEval";
 
 @primaryKey("uuid")
 @entity("Shared", "Master")
+@mixin(() => [CodeSyncMixin])
 export class WorkflowScriptEntity extends Entity implements IUserAssetEntity {
 
     @uniqueIndex
@@ -79,6 +82,7 @@ const retryPartRegex = /\d+[smhd]/gi;
 
 @primaryKey("uuid")
 @entity("Shared", "Master")
+@mixin(() => [CodeSyncMixin])
 export class WorkflowScriptRetryStrategyEntity extends Entity implements IUserAssetEntity {
 
     @uniqueIndex

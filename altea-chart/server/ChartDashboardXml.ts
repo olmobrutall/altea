@@ -4,14 +4,13 @@ import { toQueryRequest, toChartRequest } from "./ChartRequestLogic";
 import { type int } from "@altea/altea/data/basics";
 import { CombinedUserChartPartEntity_UserChart, CombinedUserChartPartEntity, UserChartPartEntity } from "../data/DashboardParts";
 import { UserChartEntity } from "../data/UserChart";
+import { bool, list, A } from "@altea/altea-user-assets/server/XmlUtils";
 
 // Port of the ToXml / FromXml / Clone members Signum declares ON UserChartPartEntity (Signum.Chart/UserChart/
 // UserChart.cs) plus the `PartNames` entry its UserChartLogic registered inside
 // `sb.Schema.WhenIncluded<DashboardEntity>`. altea keeps XML off the isomorphic entities, so the part
 // registers here with @altea/altea-dashboard's part registry (element name preserved for round-trip
 // compatibility with Signum-exported dashboards).
-
-const A = "@_";
 
 export function registerUserChartDashboardParts(): void {
 
@@ -119,12 +118,4 @@ export function registerUserChartDashboardParts(): void {
             });
         },
     });
-}
-
-function list(v: unknown): Record<string, unknown>[] {
-    return (Array.isArray(v) ? v : v != null ? [v] : []) as Record<string, unknown>[];
-}
-
-function bool(v: unknown): boolean {
-    return v === true || v === "true" || v === "True";
 }

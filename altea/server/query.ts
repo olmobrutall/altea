@@ -744,6 +744,15 @@ export class Query<T> implements IQuery<T> {
         return new Query<T>(call, this.translator);
     }
 
+    // disableQueryFilter — read this source without the row-level queryFilter (Signum's
+    // DisableQueryFilter), e.g. a count over everybody's rows in an expression column of a filtered search.
+    // The binder lowers it by not splicing the filter into any table source under it.
+    @resultType(ot => ot)
+    disableQueryFilter(): Query<T> {
+        var call = new CallExpression(new PropertyExpression(this.expression, "disableQueryFilter"), [], this.type);
+        return new Query<T>(call, this.translator);
+    }
+
     // ofType / cast — narrow a polymorphic-reference query to one implementation
     // (Signum's OfType/Cast). The binder rewrites cast(T) to `map(x => x as T)` and
     // ofType(T) to `filter(x => x instanceof T).map(x => x as T)`.

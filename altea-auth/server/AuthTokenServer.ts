@@ -72,7 +72,16 @@ export namespace AuthTokenServer {
      * would go stale at the first invalidation. The host supplies it in `start`.
      */
     export let configuration: () => StablePromise<AuthTokenConfigurationEmbedded> = () => defaultConfiguration;
-    export const authHeader = "Authorization";
+    export let authHeader = "Authorization";
+
+    /**
+     * Signum's `PrepareForWindowsAuthentication`: with integrated Windows sign-in the browser's Negotiate
+     * exchange owns `Authorization`, so the bearer token moves to a header of its own — the one the
+     * client's `WindowsADAuthenticator.Options.authHeader` sends it on.
+     */
+    export function prepareForWindowsAuthentication(): void {
+        authHeader = "Altea_Authorization";
+    }
 
     // The authenticator chain. TokenAuthenticator is the only built-in for
     // now; anonymous / allow-anonymous handling lives in the AuthServer middleware (permissive).

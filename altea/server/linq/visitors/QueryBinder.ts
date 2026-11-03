@@ -322,6 +322,24 @@ class ContainsAggregateVisitor extends DbExpressionVisitor {
         this.found = true;
         return aggregate;
     }
+
+    // A plain subquery is refused just the same (error 144 says "an aggregate OR a subquery"): a registered
+    // expression such as the last action's state is a scalar subquery with no aggregate in it.
+    override visitScalar(scalar: ScalarExpression): Expression {
+        this.found = true;
+        return scalar;
+    }
+
+    override visitExists(exists: ExistsExpression): Expression {
+        this.found = true;
+        return exists;
+    }
+
+    override visitIn(inExp: InExpression): Expression {
+        if (inExp.select != null)
+            this.found = true;
+        return super.visitIn(inExp);
+    }
 }
 
 // Signum's ColumnReplacerVisitor: rewrite every ColumnExpression that matches one of the
@@ -500,6 +518,9 @@ export class QueryBinder extends ExpressionVisitor {
     // Table-source calls whose EntityEvents.queryFilter WHERE has already been spliced (row-level
     // security), so the synthesized `.filter(...)` re-visiting the same source doesn't re-wrap forever.
     private readonly queryFilterApplied = new Set<CallExpression>();
+    // > 0 while binding a source whose table sources must NOT get their queryFilter spliced: inside a
+    // spliced filter itself, or under `.disableQueryFilter()` (Signum's QueryFilterer `filter: false`).
+    private queryFilterDisabled = 0;
 
     // Re-entrancy guard for withAdditionalBindings: while binding an additional-binding value lambda
     // we must not attach further additional bindings to entities materialised in the process
@@ -978,11 +999,19 @@ export class QueryBinder extends ExpressionVisitor {
             // Row-level query security (Signum's FilterQuery): splice the entity's queryFilter WHERE(s)
             // around this table source and bind THAT. The guard stops the synthesized `.filter(...)` from
             // re-wrapping the same source when it re-visits it.
-            if (!this.queryFilterApplied.has(call)) {
+            // The tables the spliced predicate itself queries are NOT filtered again, as in Signum (its
+            // QueryFilterer does not re-filter the filter): a condition reading its own type's rows, such as
+            // SeminarRequest's Approver over its actions, would otherwise expand forever.
+            if (!this.queryFilterApplied.has(call) && this.queryFilterDisabled === 0) {
                 const wrapped = this.applyQueryFilters(call, ctor);
                 if (wrapped != null) {
                     this.queryFilterApplied.add(call);
-                    return this.visit(wrapped);
+                    this.queryFilterDisabled++;
+                    try {
+                        return this.visit(wrapped);
+                    } finally {
+                        this.queryFilterDisabled--;
+                    }
                 }
             }
             return this.getTableProjection(ctor);
@@ -1098,6 +1127,18 @@ export class QueryBinder extends ExpressionVisitor {
                     return this.visit(property.object);
                 } finally {
                     this.systemTime = old;
+                }
+            }
+
+            // disableQueryFilter binds its source with the row-level queryFilter switched off for every
+            // table source under it (Signum's DisableQueryFilter): an expression column such as a count over
+            // everybody's rows, inside a query that stays filtered for the current user.
+            if (op === "disableQueryFilter") {
+                this.queryFilterDisabled++;
+                try {
+                    return this.visit(property.object);
+                } finally {
+                    this.queryFilterDisabled--;
                 }
             }
 
@@ -3126,7 +3167,9 @@ export class QueryBinder extends ExpressionVisitor {
         const lambdas = hooks.map(h => h({ ctor: ctor as Type<Entity>, elementType, args })).filter((l): l is LambdaExpression => l != null);
         if (lambdas.length === 0)
             return undefined;
-        return new CallExpression(new PropertyExpression(source, "filter"), [combineFilterLambdas(lambdas, elementType)], source.type);
+        // Unsimplified, like an additional binding's lambda: run its @methodExpander calls (`inCondition`).
+        const filter = OverloadingSimplifier.simplify(combineFilterLambdas(lambdas, elementType)) as LambdaExpression;
+        return new CallExpression(new PropertyExpression(source, "filter"), [filter], source.type);
     }
 
     // A query-only SQL function (Signum's [SqlMethod]). The result type tells scalar from
@@ -3900,6 +3943,7 @@ export class QueryBinder extends ExpressionVisitor {
             case "Boolean": return LiteralType.boolean;
             case "PlainDateTime": return new TemporalType("dateTime");
             case "PlainDate": return new TemporalType("date");
+            case "PlainTime": return new TemporalType("time");
             case "Duration": return new TemporalType("duration");
             default: return LiteralType.null; // enum/etc. — refined later
         }

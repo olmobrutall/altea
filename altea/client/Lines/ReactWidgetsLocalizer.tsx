@@ -12,13 +12,19 @@ import * as React from 'react';
 import { ReactWidgetsMessage } from '../../data/uiMessages';
 import { Temporal } from '../../data/basics';
 import { Clock } from '../../data/utils/clock';
+import { CultureInfo } from '../../data/utils/cultureInfo';
+
+/** The locale dates are shown in: the UI culture (Signum sets luxon's locale to it), not the browser's. */
+export function dateLocale(): string {
+  return CultureInfo.currentUICulture();
+}
 
 // react-widgets firstOfWeek is 0=Sunday..6=Saturday; the modern Intl weekInfo.firstDay is
 // 1=Monday..7=Sunday, so `% 7` maps Sunday(7)→0 and leaves Mon..Sat as 1..6. Undefined ⇒ let the
 // Intl localizer pick its default.
 function computeFirstOfWeek(): number | undefined {
   try {
-    const loc = new Intl.Locale(new Intl.DateTimeFormat().resolvedOptions().locale) as any;
+    const loc = new Intl.Locale(new Intl.DateTimeFormat(dateLocale()).resolvedOptions().locale) as any;
     const info = loc.getWeekInfo?.() ?? loc.weekInfo;
     if (info?.firstDay != null)
       return info.firstDay % 7;
@@ -27,7 +33,7 @@ function computeFirstOfWeek(): number | undefined {
 }
 
 export function getDateLocalizer(): DateLocalizer<Intl.DateTimeFormatOptions> {
-  return new IntlDateLocalizer({ firstOfWeek: computeFirstOfWeek() }) as DateLocalizer<Intl.DateTimeFormatOptions>;
+  return new IntlDateLocalizer({ culture: dateLocale(), firstOfWeek: computeFirstOfWeek() }) as DateLocalizer<Intl.DateTimeFormatOptions>;
 }
 
 export function getNumberLocalizer(): NumberLocalizer<Intl.NumberFormatOptions> {
@@ -78,10 +84,11 @@ export function getMessages(): UserProvidedMessages {
 //
 // The component lives HERE rather than being assembled in the app, so an application wires the widgets'
 // localization with one element and never has to know which three props it takes.
-const dateLocalizer = getDateLocalizer();
-const numberLocalizer = getNumberLocalizer();
-
+// Built per UI culture, not at import: this module loads before the first metadata blob decides the culture.
 export function ReactWidgetsLocalization({ children }: { children?: React.ReactNode }): React.JSX.Element {
+  const culture = dateLocale();
+  const dateLocalizer = React.useMemo(() => getDateLocalizer(), [culture]);
+  const numberLocalizer = React.useMemo(() => getNumberLocalizer(), [culture]);
   return (
     <Localization date={dateLocalizer} number={numberLocalizer} messages={messages}>
       {children}
@@ -96,12 +103,14 @@ export function ReactWidgetsLocalization({ children }: { children?: React.ReactN
 export function toDateFormatOptions(format: string | undefined, type: "PlainDate" | "PlainDateTime"): Intl.DateTimeFormatOptions {
   const dateOnly = type == "PlainDate";
   switch (format) {
-    case "d": return { dateStyle: "short" };
+    // .NET's short patterns keep a four-digit year and two-digit day and month (18.01.2027, 18/01/2027);
+    // Intl's dateStyle "short" would print 18.01.27.
+    case "d": return { year: "numeric", month: "2-digit", day: "2-digit" };
     case "D": return { dateStyle: "long" };
     case "f": return { dateStyle: "long", timeStyle: "short" };
     case "F": return { dateStyle: "long", timeStyle: "medium" };
-    case "g": return { dateStyle: "short", timeStyle: "short" };
-    case "G": return { dateStyle: "short", timeStyle: "medium" };
+    case "g": return { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" };
+    case "G": return { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" };
     case "t": return { timeStyle: "short" };
     case "T": return { timeStyle: "medium" };
     case "M": case "m": return { month: "long", day: "numeric" };
@@ -113,8 +122,9 @@ export function toDateFormatOptions(format: string | undefined, type: "PlainDate
     // `fractionalSecondDigits` is exactly what has to be said.
     case "dH": return { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit" };
     case "Gf": return { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 };
+    // No format: .NET's default for the type, "d" for a date and "g" for a date and time.
     default:
-      return dateOnly ? { dateStyle: "medium" } : { dateStyle: "medium", timeStyle: "short" };
+      return toDateFormatOptions(dateOnly ? "d" : "g", type);
   }
 }
 
@@ -123,7 +133,7 @@ export function toDateFormatOptions(format: string | undefined, type: "PlainDate
 export function dateTimePlaceholder(options: Intl.DateTimeFormatOptions): string {
   const sample = new Date(2000, 11, 31, 23, 59, 59); // 31 Dec 2000 23:59:59
   const map: { [k: string]: string } = { year: "yyyy", month: "mm", day: "dd", hour: "hh", minute: "mm", second: "ss", fractionalSecond: "fff" };
-  return new Intl.DateTimeFormat(undefined, options).formatToParts(sample)
+  return new Intl.DateTimeFormat(dateLocale(), options).formatToParts(sample)
     .map(p => p.type == "literal" ? p.value : (map[p.type] ?? ""))
     .join("");
 }
@@ -133,7 +143,7 @@ export type DateValue = Temporal.PlainDate | Temporal.PlainDateTime;
 
 // Format a date value for read-only display (Signum's toFormatWithFixes).
 export function formatDateValue(value: DateValue, options: Intl.DateTimeFormatOptions): string {
-  return new Intl.DateTimeFormat(undefined, options).format(dateValueToDate(value));
+  return new Intl.DateTimeFormat(dateLocale(), options).format(dateValueToDate(value));
 }
 
 // A stored value → the JS Date react-widgets and Intl work with, at the wall time the user should SEE in the

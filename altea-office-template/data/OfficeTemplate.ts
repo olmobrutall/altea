@@ -1,4 +1,5 @@
 import { init, setDefaultDatabaseSchema, renameSymbolContainer } from "@altea/altea/data/reflection";
+import { setDefaultTypeDescription } from "@altea/altea/data/registration";
 import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
@@ -19,6 +20,8 @@ import { QueryTokenEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-ass
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { ModelConverterSymbol, TemplateApplicableEval, type IContainsQuery } from "@altea/altea-templating/data/Templating";
 import type { IAttachmentGeneratorEntity } from "@altea/altea-email/data/EmailTemplate";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
+import { CodeSyncMixin } from "@altea/altea-user-assets/data/AssetSync";
 
 // Port of Signum.Word's WordTemplate.cs + SystemWordTemplate.cs + WordAttachmentEntity.cs — see
 // port/OfficeTemplate.md.
@@ -123,6 +126,7 @@ export class OfficeTemplateEntity_Order extends Entity {
 @primaryKey("uuid")
 @entity("Main", "Master")
 @legacyClassName("WordTemplateEntity")
+@mixin(() => [CodeSyncMixin])
 export class OfficeTemplateEntity extends Entity implements IUserAssetEntity, IContainsQuery {
     @uniqueIndex
     @stringLengthValidator({ min: 3, max: 200 })
@@ -266,6 +270,10 @@ export function useLegacyWordNames(): void {
         CreateOfficeTemplateFromOfficeModel: "CreateWordTemplateFromWordModel",
     });
     renameSymbolContainer(OfficeTemplatePermission, "WordTemplatePermission");
+
+    // The DISPLAY names Signum's users know (searches, "Create new …"); a loaded translation still wins.
+    setDefaultTypeDescription(OfficeTemplateEntity.name, { description: "Word template", pluralDescription: "Word templates" });
+    setDefaultTypeDescription(OfficeModelEntity.name, { description: "Word model", pluralDescription: "Word models" });
 }
 
 export const OfficeTemplateMessage = {

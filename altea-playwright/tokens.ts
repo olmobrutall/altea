@@ -87,6 +87,10 @@ export function editorText(value: unknown, route?: PropertyRoute): string {
     if (enumObject != null)
         return String(Enum.toValue(enumObject as never, enumName(enumObject, value) as never));
 
+    // The nullable-boolean dropdown's option values (EnumLine's toStr).
+    if (typeof value === "boolean")
+        return value ? "True" : "False";
+
     return String(value);
 }
 
@@ -94,7 +98,7 @@ export function editorText(value: unknown, route?: PropertyRoute): string {
 export function editorValue(text: string, route?: PropertyRoute): unknown {
     const enumObject = route?.type?.getEnum();
     if (enumObject == null)
-        return text;
+        return route?.type?.typeName === "Boolean" && (text === "True" || text === "False") ? text === "True" : text;
 
     const numeric = Number(text);
     return Number.isNaN(numeric) ? Enum.toValue(enumObject as never, text as never) : numeric;

@@ -77,7 +77,7 @@ export default function ProcessPanelPage(): React.JSX.Element {
             </div>
 
             <ExecutingProcesses executing={s.executing} total={s.maxDegreeOfParallelism}
-                machineName={s.machineName} onReload={reloadState} />
+                machineName={s.machineName} applicationName={s.applicationName} onReload={reloadState} />
 
             {s.log != null &&
                 <div className="mt-4">
@@ -99,12 +99,13 @@ function ExecutingProcesses(p: {
     executing: ExecutionState[];
     total: number;
     machineName: string;
+    applicationName: string;
     onReload: () => void;
 }): React.JSX.Element {
     return (
         <div className="mt-4">
             <h2 className="h4">
-                {ProcessMessage._0ProcessesExcecutingIn1_2.niceToString(p.executing.length, p.machineName, p.total)}
+                {ProcessMessage._0ProcessesExcecutingIn1_2.niceToString(p.executing.length, p.machineName, p.applicationName)}
             </h2>
             {p.executing.length === 0
                 ? <p> -- {ProcessMessage.ExecutingProcesses.niceToString()}: 0 -- </p>

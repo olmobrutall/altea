@@ -5,10 +5,12 @@ import {
     FilterOperation, FilterGroupOperation, OrderType, DashboardBehaviour,
 } from "@altea/altea/data/dynamicQueries";
 import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
-import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
-import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
-import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
-import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
+import type { IToXmlContext, IFromXmlContext, BinaryStore } from "@altea/altea-user-assets/server/UserAssetsImportExport";
+import { A, str, bool, num, enumOr, first, list, arr, token } from "@altea/altea-user-assets/server/XmlUtils";
+import { CultureInfoLogic, type CultureLookup } from "@altea/altea/server/cultureInfoLogic";
+import { cultureNameOf, type CultureInfoEntity } from "@altea/altea/data/cultureInfoEntity";
+import type { Entity } from "@altea/altea/data/entity";
+import type { Lite } from "@altea/altea/data/lite";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import {
     EmailAddressSource, EmailAttachmentType, EmailMasterTemplateEntity, EmailMasterTemplateEntity_Attachment,
@@ -19,6 +21,7 @@ import {
     TemplateApplicableEval, type IAttachmentGeneratorEntity,
 } from "../data/EmailTemplate";
 import { EmailRecipientKind } from "../data/Email";
+import { FileEmbedded } from "@altea/altea-files/data/Files";
 import { EmailModelLogic } from "./EmailModelLogic";
 
 // Port of Signum.Mailing's `EmailTemplateEntity.ToXml/FromXml` + `EmailMasterTemplateEntity.ToXml/FromXml`.
@@ -35,8 +38,6 @@ import { EmailModelLogic } from "./EmailModelLogic";
 //    predicate left unset — the template then applies to everything, which is the safe reading.
 //  - An enum attribute keeps Signum's member NAME (`Enum.toName`), while the in-memory value is the ordinal.
 //  - `MessageFormat`'s legacy `IsBodyHtml` fallback is preserved.
-
-const A = "@_"; // fast-xml-parser attribute prefix
 
 export function registerEmailTemplateXml(): void {
     UserAssetsImporter.register<EmailTemplateEntity>({
@@ -89,7 +90,7 @@ async function templateToXml(et: EmailTemplateEntity, ctx: IToXmlContext): Promi
         })),
     };
 
-    if (et.attachments.length) o["Attachments"] = attachmentsXml(et.attachments.map(r => r.attachment));
+    if (et.attachments.length) o["Attachments"] = attachmentsXml(et.attachments.map(r => r.attachment), ctx.binary);
 
     o["Messages"] = {
         Message: et.messages.map(m => ({
@@ -106,11 +107,11 @@ async function templateToXml(et: EmailTemplateEntity, ctx: IToXmlContext): Promi
 
 async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): Promise<void> {
     et.name = str(xml[A + "Name"])!;
-    et.disableAuthorization = bool(xml[A + "DisableAuthorization"]) ?? false;
+    et.disableAuthorization = bool(xml[A + "DisableAuthorization"]);
     et.query = xml[A + "Query"] != undefined ? ctx.getQuery(str(xml[A + "Query"])!) : null;
-    et.editableMessage = bool(xml[A + "EditableMessage"]) ?? true;
+    et.editableMessage = bool(xml[A + "EditableMessage"], true);
     et.model = null; // filled below when the model is registered
-    et.groupResults = bool(xml[A + "GroupResults"]) ?? false;
+    et.groupResults = bool(xml[A + "GroupResults"]);
 
     et.messageFormat = xml[A + "MessageFormat"] != undefined
         ? Enum.toValue(EmailMessageFormat, str(xml[A + "MessageFormat"]) as never)
@@ -119,7 +120,7 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
     if (xml[A + "MasterTemplate"] != undefined)
         et.masterTemplate = (ctx.getEntity(str(xml[A + "MasterTemplate"])!) as EmailMasterTemplateEntity).toLite();
 
-    et.filters = syncRows(et.filters ?? [], list(asRecord(xml["Filters"])?.["Filter"]),
+    et.filters = syncRows(et.filters ?? [], arr(xml["Filters"], "Filter"),
         () => new EmailTemplateEntity_Filter(), (f, x) => {
             f.indentation = toInt(num(x[A + "Indentation"]) ?? 0);
             if (x[A + "GroupOperation"] != undefined) {
@@ -134,15 +135,15 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
             // that shared one filter type with its user queries may still carry it.
         });
 
-    et.orders = list(asRecord(xml["Orders"])?.["Orden"]).map(x => {
-        const o = EmailTemplateEntity_Order.create({
-            token: token(str(x[A + "Token"])!),
-            orderType: Enum.toValue(OrderType, str(x[A + "OrderType"]) as never),
+    // No Guid per order / recipient (int-PK rows): syncRows matches them by position, so an unchanged row
+    // is REUSED and keeps its snapshot — a fresh row would read as a change in every preview.
+    et.orders = syncRows(et.orders ?? [], arr(xml["Orders"], "Orden"),
+        () => new EmailTemplateEntity_Order(), (o, x) => {
+            o.token = token(str(x[A + "Token"])!);
+            o.orderType = Enum.toValue(OrderType, str(x[A + "OrderType"]) as never);
         });
-        return o;
-    });
 
-    const fromXmlEl = asRecord(xml["From"]);
+    const fromXmlEl = first(xml["From"]);
     if (fromXmlEl == undefined) {
         et.from = null;
     } else {
@@ -153,27 +154,23 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
         et.from = f;
     }
 
-    et.recipients = list(asRecord(xml["Recipients"])?.["Recipient"]).map((x, i) => {
-        const r = new EmailTemplateEntity_Recipient();
-        readAddress(r, x);
-        r.kind = enumOr(EmailRecipientKind, str(x[A + "Kind"]), EmailRecipientKind.To);
-        r.whenMany = enumOr(WhenManyRecipientsBehaviour, str(x[A + "WhenMany"]), WhenManyRecipientsBehaviour.KeepOneMessageWithManyRecipients);
-        r.whenNone = enumOr(WhenNoneRecipientsBehaviour, str(x[A + "WhenNone"]), WhenNoneRecipientsBehaviour.ThrowException);
-        return r;
-    });
+    et.recipients = syncRows(et.recipients ?? [], arr(xml["Recipients"], "Recipient"),
+        () => new EmailTemplateEntity_Recipient(), (r, x) => {
+            readAddress(r, x);
+            r.kind = enumOr(EmailRecipientKind, str(x[A + "Kind"]), EmailRecipientKind.To);
+            r.whenMany = enumOr(WhenManyRecipientsBehaviour, str(x[A + "WhenMany"]), WhenManyRecipientsBehaviour.KeepOneMessageWithManyRecipients);
+            r.whenNone = enumOr(WhenNoneRecipientsBehaviour, str(x[A + "WhenNone"]), WhenNoneRecipientsBehaviour.ThrowException);
+        });
 
     const cultures = await CultureInfoLogic.lookup();
-    et.messages = list(asRecord(xml["Messages"])?.["Message"]).map((x, i) => {
-        const m = EmailTemplateEntity_Message.create({
-            cultureInfo: cultures.get(str(x[A + "CultureInfo"])!).toLite(),
-            subject: str(x[A + "Subject"]) ?? "",
-            text: str(x["#text"]) ?? "",
+    et.messages = syncByCulture(et.messages ?? [], arr(xml["Messages"], "Message"), cultures,
+        c => EmailTemplateEntity_Message.create({ cultureInfo: c, subject: "", text: "" }), (m, x) => {
+            m.subject = str(x[A + "Subject"]) ?? "";
+            m.text = str(x["#text"]) ?? "";
         });
-        return m;
-    });
 
-    et.attachments = readAttachments(xml["Attachments"]).map(a =>
-        EmailTemplateEntity_Attachment.create({ attachment: a }));
+    et.attachments = syncAttachments(et.attachments ?? [], xml["Attachments"], ctx.binary,
+        a => EmailTemplateEntity_Attachment.create({ attachment: a }));
 
     // Signum's `Applicable = element.Element("Applicable")?.Let(app => new TemplateApplicableEval { Script =
     // app.Value })`. Round-trips verbatim now that the script IS the stored value.
@@ -197,28 +194,25 @@ async function templateFromXml(et: EmailTemplateEntity, xml: Record<string, unkn
 
 // ---- EmailMasterTemplate -------------------------------------------------------------------------------
 
-function masterToXml(emt: EmailMasterTemplateEntity, _ctx: IToXmlContext): Record<string, unknown> {
+function masterToXml(emt: EmailMasterTemplateEntity, ctx: IToXmlContext): Record<string, unknown> {
     const o: Record<string, unknown> = {};
     o[A + "Name"] = emt.name ?? "";
     o["Messages"] = {
         Message: emt.messages.map(m => ({ [A + "CultureInfo"]: cultureNameOf(m.cultureInfo), "#text": m.text })),
     };
-    if (emt.attachments.length) o["Attachments"] = attachmentsXml(emt.attachments.map(r => r.attachment));
+    if (emt.attachments.length) o["Attachments"] = attachmentsXml(emt.attachments.map(r => r.attachment), ctx.binary);
     return o;
 }
 
-async function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string, unknown>, _ctx: IFromXmlContext): Promise<void> {
+async function masterFromXml(emt: EmailMasterTemplateEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): Promise<void> {
     emt.name = str(xml[A + "Name"])!;
     const cultures = await CultureInfoLogic.lookup();
-    emt.messages = list(asRecord(xml["Messages"])?.["Message"]).map(x => {
-        const m = EmailMasterTemplateEntity_Message.create({
-            cultureInfo: cultures.get(str(x[A + "CultureInfo"])!).toLite(),
-            text: str(x["#text"]) ?? "",
+    emt.messages = syncByCulture(emt.messages ?? [], arr(xml["Messages"], "Message"), cultures,
+        c => EmailMasterTemplateEntity_Message.create({ cultureInfo: c, text: "" }), (m, x) => {
+            m.text = str(x["#text"]) ?? "";
         });
-        return m;
-    });
-    emt.attachments = readAttachments(xml["Attachments"]).map(a =>
-        EmailMasterTemplateEntity_Attachment.create({ attachment: a }));
+    emt.attachments = syncAttachments(emt.attachments ?? [], xml["Attachments"], ctx.binary,
+        a => EmailMasterTemplateEntity_Attachment.create({ attachment: a }));
 }
 
 // ---- shared pieces -------------------------------------------------------------------------------------
@@ -260,7 +254,7 @@ function orderXml(o: EmailTemplateEntity_Order): Record<string, unknown> {
 }
 
 /** Signum's AttachmentFromXmlExtensions: an attachment element is named after its TYPE. */
-function attachmentsXml(attachments: readonly IAttachmentGeneratorEntity[]): Record<string, unknown> {
+function attachmentsXml(attachments: readonly IAttachmentGeneratorEntity[], binary: BinaryStore): Record<string, unknown> {
     const result: Record<string, unknown[]> = {};
     for (const a of attachments) {
         if (a instanceof ImageAttachmentEntity) {
@@ -268,7 +262,7 @@ function attachmentsXml(attachments: readonly IAttachmentGeneratorEntity[]): Rec
                 ...(a.fileName != null ? { [A + "FileName"]: a.fileName } : {}),
                 [A + "ContentId"]: a.contentId,
                 [A + "Type"]: Enum.toName(EmailAttachmentType, a.type),
-                File: { [A + "FileName"]: a.file.fileName, "#text": Buffer.from(a.file.binaryFile).toString("base64") },
+                File: { [A + "FileName"]: a.file.fileName, ...binary.write(a.file.fileName, a.file.binaryFile) },
             });
         } else if (a instanceof FileTokenAttachmentEntity) {
             (result["FileTokenAttachment"] ??= []).push({
@@ -284,73 +278,88 @@ function attachmentsXml(attachments: readonly IAttachmentGeneratorEntity[]): Rec
     return result;
 }
 
-function readAttachments(xml: unknown): IAttachmentGeneratorEntity[] {
-    const container = asRecord(xml);
-    if (container == undefined)
-        return [];
+/**
+ * The message rows, matched by CULTURE — what identifies a message (a template has at most one per
+ * culture). A matched row is REUSED, so it keeps its id and snapshot and an unchanged one is no change; a
+ * culture the template lacks gets a new row, and a row whose culture the file no longer has is dropped.
+ */
+function syncByCulture<T extends Entity & { cultureInfo: Lite<CultureInfoEntity> }>(
+    current: T[],
+    elements: Record<string, unknown>[],
+    cultures: CultureLookup,
+    create: (culture: Lite<CultureInfoEntity>) => T,
+    sync: (row: T, xml: Record<string, unknown>) => void,
+): T[] {
+    const unused = [...current];
+    return elements.map(x => {
+        const culture = cultures.get(str(x[A + "CultureInfo"])!).toLite();
+        const index = unused.findIndex(m => m.cultureInfo != null && m.cultureInfo.id == culture.id);
+        const row = index === -1 ? create(culture) : unused.splice(index, 1)[0];
+        sync(row, x);
+        return row;
+    });
+}
 
-    const result: IAttachmentGeneratorEntity[] = [];
+/**
+ * The attachment rows, REUSING a current row — and the attachment entity behind it — whose attachment is of
+ * the same type, updated in place (an image's bytes included: a blob compares by content in the snapshot,
+ * so equal bytes are no change). A fresh attachment would read as a change in every preview.
+ *
+ * The XML groups the elements by type (Signum's AttachmentFromXmlExtensions names each after it), so it
+ * cannot say how images and file tokens interleave. Positions are therefore counted PER TYPE — the k-th
+ * `ImageAttachment` element is the k-th image row — and the reused rows keep their current order, new ones
+ * appended; taking the file's order instead would report every interleaved template as changed.
+ */
+function syncAttachments<R extends Entity & { attachment: IAttachmentGeneratorEntity }>(
+    current: R[],
+    xml: unknown,
+    binary: BinaryStore,
+    createRow: (attachment: IAttachmentGeneratorEntity) => R,
+): R[] {
+    const container = first(xml);
+    const reused = new Set<R>();
+    const created: R[] = [];
 
-    for (const x of list(container["ImageAttachment"])) {
-        const a = ImageAttachmentEntity.create({
-            fileName: str(x[A + "FileName"]) ?? null,
-            contentId: str(x[A + "ContentId"])!,
-            type: enumOr(EmailAttachmentType, str(x[A + "Type"]), EmailAttachmentType.Attachment),
+    function sync<T extends IAttachmentGeneratorEntity>(elements: Record<string, unknown>[], type: new () => T,
+        create: () => T, fill: (a: T, x: Record<string, unknown>) => void): void {
+        const sameType = current.filter(r => r.attachment instanceof type);
+        elements.forEach((x, i) => {
+            const row = sameType[i];
+            if (row != undefined) {
+                fill(row.attachment as T, x);
+                reused.add(row);
+            } else {
+                const a = create();
+                fill(a, x);
+                created.push(createRow(a));
+            }
         });
-        const file = asRecord(x["File"]);
+    }
+
+    sync(list(container?.["ImageAttachment"]), ImageAttachmentEntity,
+        // `file` is created here: the embedded has no initializer, so a bare create() left it undefined and
+        // reading an image into a NEW row threw.
+        () => ImageAttachmentEntity.create({
+            fileName: null, contentId: "", type: EmailAttachmentType.Attachment,
+            file: FileEmbedded.create({ fileName: "", binaryFile: new Uint8Array(0) }),
+        }), (a, x) => {
+        a.fileName = str(x[A + "FileName"]) ?? null;
+        a.contentId = str(x[A + "ContentId"])!;
+        a.type = enumOr(EmailAttachmentType, str(x[A + "Type"]), EmailAttachmentType.Attachment);
+        const file = first(x["File"]);
         if (file != undefined) {
             a.file.fileName = str(file[A + "FileName"]) ?? "";
-            a.file.binaryFile = new Uint8Array(Buffer.from(str(file["#text"]) ?? "", "base64"));
+            a.file.binaryFile = binary.read(file);
         }
-        result.push(a);
-    }
+    });
 
-    for (const x of list(container["FileTokenAttachment"])) {
-        const a = FileTokenAttachmentEntity.create({
-            fileName: str(x[A + "FileName"]) ?? null,
-            contentId: str(x[A + "ContentId"]) ?? null,
-            type: enumOr(EmailAttachmentType, str(x[A + "Type"]), EmailAttachmentType.Attachment),
-            fileToken: token(str(x[A + "FileToken"])!),
-        });
-        result.push(a);
-    }
+    sync(list(container?.["FileTokenAttachment"]), FileTokenAttachmentEntity,
+        () => FileTokenAttachmentEntity.create({ fileName: null, contentId: null, type: EmailAttachmentType.Attachment, fileToken: token("") }), (a, x) => {
+        a.fileName = str(x[A + "FileName"]) ?? null;
+        a.contentId = str(x[A + "ContentId"]) ?? null;
+        a.type = enumOr(EmailAttachmentType, str(x[A + "Type"]), EmailAttachmentType.Attachment);
+        a.fileToken = token(str(x[A + "FileToken"])!);
+    });
 
-    return result;
-}
-
-function token(tokenString: string): QueryTokenEmbedded {
-    const qte = QueryTokenEmbedded.create({ tokenString });
-    return qte;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-    return value != null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
-}
-
-function list(value: unknown): Record<string, unknown>[] {
-    if (value == null) return [];
-    const array = Array.isArray(value) ? value : [value];
-    return array.map(v => typeof v === "object" && v != null ? v as Record<string, unknown> : { "#text": v });
-}
-
-function str(value: unknown): string | undefined {
-    return value == null ? undefined : String(value);
-}
-
-function num(value: unknown): number | undefined {
-    return value == null ? undefined : Number(value);
-}
-
-function bool(value: unknown): boolean | undefined {
-    return value == null ? undefined : value === true || value === "true" || value === "True";
-}
-
-function enumOr<E extends object>(e: E, name: string | undefined, fallback: number): number {
-    if (name == undefined)
-        return fallback;
-    try {
-        return Enum.toValue(e as never, name as never);
-    } catch {
-        return fallback;
-    }
+    return [...current.filter(r => reused.has(r)), ...created];
 }

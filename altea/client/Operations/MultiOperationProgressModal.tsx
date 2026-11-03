@@ -108,12 +108,14 @@ export namespace MultiOperationProgressModal {
       var oi = getOperationInfo(operationKey, lites[0].entityType);
       return openModal<Operations.API.ErrorReport>(<MultiOperationProgressModal operation={oi} lites={lites} makeRequest={makeRequest} abortController={abortController} />);
     } else {
-      // `r.text()` + Serializer.parse, not `r.json()`: the line carries a Lite, which has to come back as a
-      // real Lite (see jsonObjectStream) for `entity.key()` below.
+      // The endpoint streams one result per LINE (see jsonObjectStream), so several lites without the modal —
+      // the alert dropdown's "close all" — answer several lines; reading the body as ONE object broke there.
+      // Serializer.parse, not JSON.parse: a line carries a Lite, which has to come back as a real Lite for
+      // `entity.key()` below.
       return makeRequest().then(r => r.text()).then(text => {
-        var obj = Serializer.parse(text);
-        var a = obj as Operations.API.OperationResult;
-        return softCast<Operations.API.ErrorReport>({ errors: { [a.entity.key()]: a.error ?? null } });
+        const results = text.split("\n").map(l => l.trim()).filter(l => l.length > 0)
+          .map(l => Serializer.parse(l) as Operations.API.OperationResult);
+        return softCast<Operations.API.ErrorReport>({ errors: Object.fromEntries(results.map(a => [a.entity.key(), a.error ?? null])) });
       });
     }
   };

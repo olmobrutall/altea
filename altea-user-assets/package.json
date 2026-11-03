@@ -29,6 +29,7 @@
   "dependencies": {
     "@altea/altea": "workspace:*",
     "@altea/altea-auth": "workspace:*",
-    "quote-transformer": "workspace:*"
+    "quote-transformer": "workspace:*",
+    "fflate": "^0.8.2"
   }
 }

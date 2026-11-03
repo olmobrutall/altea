@@ -1,6 +1,5 @@
 import { Enum } from "@altea/altea/data/enum";
 import { type int } from "@altea/altea/data/basics";
-import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { DashboardLogic } from "@altea/altea-dashboard/server/DashboardLogic";
 import { getDashboardPinnedFilterTokens } from "@altea/altea-dashboard/server/CachedQueryDefinitions";
 import { toQueryRequest, toQueryRequestValue } from "./UserQueryRequest";
@@ -9,14 +8,13 @@ import {
     ValueUserQueryListPartEntity,
 } from "../data/DashboardParts";
 import { UserQueryEntity } from "../data/UserQuery";
+import { str, bool, toEnum, list, token, A } from "@altea/altea-user-assets/server/XmlUtils";
 
 // Port of the ToXml / FromXml / Clone members Signum declares ON the UserQuery dashboard part entities
 // (Signum.UserQueries/UserQueryEntity.cs), plus the `PartNames` entries its UserQueryLogic.Start registered
 // inside `sb.Schema.WhenIncluded<DashboardEntity>`. altea keeps XML off the isomorphic entities, so each part
 // registers here with @altea/altea-dashboard's part registry (element names preserved for round-trip
 // compatibility with Signum-exported dashboards).
-
-const A = "@_";
 
 export function registerUserQueryDashboardParts(): void {
 
@@ -149,22 +147,3 @@ export function registerUserQueryDashboardParts(): void {
 }
 
 // ---- small helpers (mirrors UserQueriesXml.server.ts) ---------------------------------------------------
-
-function token(tokenString: string): QueryTokenEmbedded {
-    const t = QueryTokenEmbedded.create({ tokenString });
-    return t;
-}
-
-function toEnum<E extends Record<string, string | number>>(e: E, name: string): number {
-    return Enum.toValue(e, name as Extract<keyof E, string>);
-}
-
-function str(v: unknown): string | undefined {
-    return v == null ? undefined : String(v);
-}
-function bool(v: unknown): boolean {
-    return v === true || v === "true" || v === "True";
-}
-function list(v: unknown): Record<string, unknown>[] {
-    return (Array.isArray(v) ? v : v != null ? [v] : []) as Record<string, unknown>[];
-}

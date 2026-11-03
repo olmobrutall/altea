@@ -51,7 +51,12 @@ export namespace UserQueriesClient {
 
         // The UserQuery editor (Never creable directly — created from a SearchControl via the menu).
         cb.configure(UserQueryEntity)
-            .withView(() => import("./Templates/UserQuery"));
+            // Created from a search's menu, never with a "Create" button (Signum's isCreable: "Never").
+            .withView(() => import("./Templates/UserQuery"), { isCreable: "Never" })
+            // Signum's UserQueryLogic WithQuery projection.
+            .withQuerySettings(token => ({
+                defaultColumns: [token(a => a.id), token(a => a.displayName), token(a => a.query), token(a => a.entityType), token(a => a.owner)],
+            }));
 
         // Global quick-link: on any entity, offer the user queries scoped to that entity type — each opens
         // the saved query filtered by the current entity (Signum's registerGlobalQuickLink). Server-gated by

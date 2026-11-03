@@ -1,4 +1,4 @@
-// The query HTTP API (Signum's QueriesController.cs), on altea's typed `ws` wrapper (./webApi).
+﻿// The query HTTP API (Signum's QueriesController.cs), on altea's typed `ws` wrapper (./webApi).
 // Register on a SchemaBuilder's webBuilder alongside EntitiesServer:
 //   if (sb.webBuilder) QueryServer.start(sb.webBuilder);
 //
@@ -19,7 +19,7 @@ import type { QueryName } from "../data/dynamicQuery/queryUtils";
 import type { QueryToken } from "../data/dynamicQuery/tokens";
 import type {
     QueryRequest as WireQueryRequest, ResultTable as WireResultTable,
-    QueryValueRequest as WireQueryValueRequest,
+    QueryValueRequest as WireQueryValueRequest, QueryEntitiesRequest as WireQueryEntitiesRequest,
     FilterRequest, Pagination as WirePagination, SystemTime as WireSystemTime,
 } from "../data/dynamicQuery/queryRequest";
 import { QueryLogic } from "./dynamicQuery/queryLogic";
@@ -31,6 +31,9 @@ import {
 import type { ResultTable } from "./dynamicQuery/resultTable";
 import { SystemTime, SystemTimeJoinModeKeys } from "./systemTime";
 import { WebBuilder, CustomType } from "./webApi";
+import type { Lite } from "../data/lite";
+import { resolveType, resolveCleanType } from "../data/registration";
+import { retrieveFromListOfLite } from "./Database";
 
 export namespace QueryServer {
 
@@ -91,6 +94,44 @@ export namespace QueryServer {
                 res.jsonTyped(container.subTokens(SubTokensOptionsAll).map(serializeServerToken));
             });
 
+        // POST /api/query/lites/:queryKey and /api/query/entities/:queryKey — the rows of a query as lites, or
+        // retrieved, for its filters and orders and an optional top (Signum's QueryController.Lites /
+        // Entities, behind Finder.fetchLites / fetchEntities). Authorized as executeQuery is.
+        ws.post("/api/query/lites/:queryKey",
+            { params: CustomType<{ queryKey: string }>(), req: CustomType<WireQueryEntitiesRequest>(), res: CustomType<Lite<Entity>[]>() },
+            async (req, res) => {
+                res.jsonTyped(await queryLites(await req.jsonTyped() as WireQueryEntitiesRequest, req.cancellation));
+            });
+
+        ws.post("/api/query/entities/:queryKey",
+            { params: CustomType<{ queryKey: string }>(), req: CustomType<WireQueryEntitiesRequest>(), res: CustomType<Entity[]>() },
+            async (req, res) => {
+                const lites = await queryLites(await req.jsonTyped() as WireQueryEntitiesRequest, req.cancellation);
+                const byKey = new Map((await retrieveFromListOfLite(lites)).map(e => [e.toLite().key(), e]));
+                res.jsonTyped(lites.map(l => byKey.get(l.key())).filter(e => e != undefined));
+            });
+
+        // GET /api/query/allLites?types=A,B — every lite of those types (Signum's QueryController.AllLites,
+        // behind Finder.API.fetchAllLites: an EntityMultiSelect / EntityCombo with no findOptions). Each type
+        // goes through its own query, so query authorization and type conditions apply.
+        ws.get("/api/query/allLites",
+            { res: CustomType<Lite<Entity>[]>() },
+            async (req, res) => {
+                const types = String(req.query["types"] ?? "").split(",").map(t => t.trim()).filter(t => t !== "");
+                const result: Lite<Entity>[] = [];
+                for (const name of types) {
+                    const type = resolveType(name) ?? resolveCleanType(name);
+                    if (type == undefined)
+                        throw new Error(`Type '${name}' not found`);
+                    const queryName = resolveQueryName(getKey(type as QueryName));
+                    await QueryLogic.assertQueryAllowedHook?.(queryName, false);
+                    const rt = await QueryLogic.queries.executeQueryAsync(
+                        new QueryRequest(queryName, [], [], [], new Pagination.All(), false), req.cancellation);
+                    result.push(...rt.rows.map(r => r.entity as Lite<Entity>));
+                }
+                res.jsonTyped(result);
+            });
+
         // POST /api/query/queryValue/:queryKey — a value for a query (Signum's QueryController.QueryValue /
         // AutoDynamicQueryCore.ExecuteQueryValue): with no `valueToken` the row COUNT (what SearchValue /
         // SearchValueLine request by default); with a plain token its value — the single row's, or every
@@ -106,11 +147,11 @@ export namespace QueryServer {
                 const filters = (wire.filters ?? []).map(f => parseFilter(token, f));
 
                 if (wire.valueToken == undefined || wire.valueToken === "Count") {
-                    // Count = execute with the filters and no display columns, then size the result. (A true
-                    // SQL COUNT(*) would avoid materialising rows; fine for the small reference-count queries.)
-                    const request = new QueryRequest(queryName, filters, [], [], new Pagination.All(), false);
-                    const rt = await QueryLogic.queries.executeQueryAsync(request, req.cancellation);
-                    res.jsonTyped(rt.rows.length);
+                // Count = execute with the filters and no display columns, then size the result. (A true
+                // SQL COUNT(*) would avoid materialising rows; fine for the small reference-count queries.)
+                const request = new QueryRequest(queryName, filters, [], [], new Pagination.All(), false);
+                const rt = await QueryLogic.queries.executeQueryAsync(request, req.cancellation);
+                res.jsonTyped(rt.rows.length);
                     return;
                 }
 
@@ -141,6 +182,22 @@ export namespace QueryServer {
 // nothing registered is refused here rather than a few frames later: `resolveCleanType` used to be the
 // fallback, and it answers ANY reflected type — so `/find/AddressEmbedded` resolved happily and then
 // died inside getCore with a message about withQuery.
+async function queryLites(wire: WireQueryEntitiesRequest, cancellation: AbortSignal | undefined): Promise<Lite<Entity>[]> {
+    const queryName = resolveQueryName(wire.queryKey);
+    await QueryLogic.assertQueryAllowedHook?.(queryName, false);
+    const token = (s: string): QueryToken => QueryLogic.getToken(queryName, s, SubTokensOptionsAll);
+    const request = new QueryRequest(queryName,
+        (wire.filters ?? []).map(f => parseFilter(token, f)),
+        (wire.orders ?? []).map(o => new Order(token(o.token), o.orderType as OrderTypeKeys)),
+        [],
+        wire.count != null ? new Pagination.Firsts(wire.count) : new Pagination.All(),
+        false);
+    const rt = await QueryLogic.queries.executeQueryAsync(request, cancellation);
+    if (!rt.hasEntities)
+        throw new Error(`Query '${wire.queryKey}' has no Entity column`);
+    return rt.rows.map(r => r.entity as Lite<Entity>);
+}
+
 function resolveQueryName(queryKey: string): QueryName {
     const qn = QueryLogic.tryToQueryName(queryKey);
     if (qn == undefined)

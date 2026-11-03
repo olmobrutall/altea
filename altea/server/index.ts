@@ -14,6 +14,7 @@ import type { Quoted } from 'quote-transformer/quoted';
 import type { ExecuteSymbol, DeleteSymbol, ConstructSymbol, From } from '../data/operations';
 import { Operations } from './operationLogic';
 import { Saver } from './saver';
+import { Transaction } from './connection/transaction';
 import { retrieve } from './Database';
 import { table } from './table';
 import { quotedFunction, Query } from './query';
@@ -214,10 +215,13 @@ liteInDBSf.__methodExpander = expandInDB;
 // Delete a single row (Signum's Entity.Delete / Lite.Delete): re-query it as a one-row
 // query (inDB) and run a set-based delete over that query. Exactly one row must be
 // affected — anything else means the row was already gone / concurrently changed.
+// In its own transaction, as a save is: a delete hook may defer work to the commit.
 async function deleteOne(query: IQuery<Entity>, target: unknown): Promise<void> {
-    const affected = await (query as Query<Entity>).executeDelete();
-    if (affected !== 1)
-        throw new Error(`Delete of '${target}' affected ${affected} rows, expected 1.`);
+    await Transaction.create(async () => {
+        const affected = await (query as Query<Entity>).executeDelete();
+        if (affected !== 1)
+            throw new Error(`Delete of '${target}' affected ${affected} rows, expected 1.`);
+    });
 }
 // One name, two jobs, told apart by whether an OPERATION was named — which is how Signum tells
 // `entity.Delete()` (the row) from `entity.Delete(symbol)` (the operation) too. Without a symbol this

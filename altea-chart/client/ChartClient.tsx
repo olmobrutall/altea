@@ -30,6 +30,8 @@ import type { CachedQueryJS } from '@altea/altea-dashboard/data/CachedQuery';
 import { Finder } from '@altea/altea/client/Finder';
 import { QueryString } from '@altea/altea/client/QueryString';
 import { toNumberFormat } from '@altea/altea/client/numberFormat';
+import { Temporal } from '@altea/altea/data/basics';
+import { formatDateValue, toDateFormatOptions } from '@altea/altea/client/Lines/ReactWidgetsLocalizer';
 import * as DataChartUtils from '../data/ChartUtils';
 import { ChartColumnType } from '../data/ChartScriptColumn';
 import type { ChartScriptInfo, ChartScriptParameterInfo, EnumValueListInfo, NumberIntervalInfo, ScalaInfo, SpecialParameterInfo, StringValueInfo } from '../data/ChartDtos';
@@ -813,10 +815,26 @@ export namespace ChartClient {
         };
       }
 
+      // Signum's chain: the column's format, "K1" for a Sum, the token's, else "0" — plain digits, no
+      // thousands separator (an axis reads 1000, not 1.000).
       if (token.filterType == "Decimal" || token.filterType == "Integer")
         return v => {
           var number = v as number | null;
-          return number == null ? nullString() : toNumberFormat(chartColumn.format ?? undefined).format(number);
+          var format = chartColumn.format || (token.key == "Sum" ? "K1" : undefined) || token.format || "0";
+          return number == null ? nullString() : toNumberFormat(format).format(number);
+        };
+
+      // Signum's DateTime branch: the column's (or token's) .NET format in the UI culture, not ISO.
+      if (token.filterType == "DateTime")
+        return v => {
+          if (v == null)
+            return nullString();
+          const s = String(v);
+          const type = token.type.typeName == "PlainDate" ? "PlainDate" : "PlainDateTime";
+          try {
+            const value = type == "PlainDate" ? Temporal.PlainDate.from(s) : Temporal.PlainDateTime.from(s);
+            return formatDateValue(value, toDateFormatOptions(chartColumn.format || token.format, type));
+          } catch { return s; }
         };
 
       return v => v == null ? nullString() : String(v);

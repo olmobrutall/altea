@@ -7,7 +7,8 @@ import {
 } from "@altea/altea/data/dynamicQueries";
 import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
-import { QueryTokenEmbedded, PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
+import { str, bool, toEnum, first, arr, token, A } from "@altea/altea-user-assets/server/XmlUtils";
+import { PinnedQueryFilterEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 import {
     UserChartEntity, UserChartEntity_Filter, UserChartEntity_Column, UserChartEntity_Parameter,
@@ -22,8 +23,6 @@ import { ChartScriptSymbol, D3ChartScript, HtmlChartScript, SvgMapsChartScript, 
 // UserAssetsImporter. The XML shape (element/attribute names) is preserved for round-trip compatibility.
 // Mirrors UserQueriesXml.server.ts. (Signum's UserChart XML does NOT include ChartTimeSeries — omitted here
 // too.)
-
-const A = "@_"; // fast-xml-parser attribute prefix
 
 export function registerUserChartXml(): void {
     UserAssetsImporter.register<UserChartEntity>({
@@ -151,7 +150,7 @@ function fillFilter(f: UserChartEntity_Filter, x: Record<string, unknown>): void
     const dashboardBehaviour = str(x[A + "DashboardBehaviour"]);
     f.dashboardBehaviour = dashboardBehaviour == null ? null : toEnum(DashboardBehaviour, dashboardBehaviour);
     const p = x["Pinned"];
-    f.pinned = p != null ? pinnedFromXml(firstElem(p)) : null;
+    f.pinned = p != null ? pinnedFromXml(first(p)!) : null;
 }
 
 function pinnedFromXml(x: Record<string, unknown>): PinnedQueryFilterEmbedded {
@@ -185,11 +184,6 @@ function parameterFromXml(x: Record<string, unknown>): ChartParameterEmbedded {
 
 // ---- small helpers -------------------------------------------------------------------------------------
 
-function token(tokenString: string): QueryTokenEmbedded {
-    const t = QueryTokenEmbedded.create({ tokenString });
-    return t;
-}
-
 // Signum's SymbolLogic<ChartScriptSymbol>.ToSymbol(key). altea resolves the declared symbol instance (which
 // SymbolLogic stamped with its id at startup) by scanning the AutoInit containers.
 const chartScriptsByKey: Record<string, ChartScriptSymbol> = [D3ChartScript, HtmlChartScript, SvgMapsChartScript, GoogleMapsChartScript]
@@ -201,25 +195,4 @@ function resolveChartScript(key: string): ChartScriptSymbol {
     if (s == null)
         throw new Error(`UserChart import: chart script '${key}' is not registered`);
     return s;
-}
-
-// Enum.toValue wants the narrow member-name union; XML gives us a plain string, so widen the arg here.
-function toEnum<E extends Record<string, string | number>>(e: E, name: string): number {
-    return Enum.toValue(e, name as Extract<keyof E, string>);
-}
-
-function str(v: unknown): string | undefined {
-    return v == null ? undefined : String(v);
-}
-function bool(v: unknown): boolean {
-    return v === true || v === "true" || v === "True";
-}
-function firstElem(v: unknown): Record<string, unknown> {
-    return (Array.isArray(v) ? v[0] : v) as Record<string, unknown>;
-}
-function arr(wrapper: unknown, childName: string): Record<string, unknown>[] {
-    if (wrapper == null) return [];
-    const w = firstElem(wrapper);
-    const list = w?.[childName];
-    return (Array.isArray(list) ? list : list != null ? [list] : []) as Record<string, unknown>[];
 }

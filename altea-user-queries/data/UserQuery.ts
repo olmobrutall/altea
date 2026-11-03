@@ -20,6 +20,8 @@ import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { QueryTokenEmbedded, PinnedQueryFilterEmbedded, QueryFilterPinnedBaseEntity } from "@altea/altea-user-assets/data/Queries";
 import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
+import { CodeSyncMixin } from "@altea/altea-user-assets/data/AssetSync";
 
 // Port of Signum's Signum.UserQueries/UserQueryEntity.cs. A UserQuery is a user-authored, saved query
 // definition (filters + columns + orders + pagination + optional system-time) over a registered query,
@@ -215,6 +217,7 @@ export class HealthCheckEmbedded extends EmbeddedEntity {
 // unique index. (Import sets `entity.id` to the incoming uuid before saving.)
 @primaryKey("uuid")
 @entity("Main", "Master")
+@mixin(() => [CodeSyncMixin])
 export class UserQueryEntity extends Entity implements IUserAssetEntity, IHasEntityType {
     query: QueryEntity;
 

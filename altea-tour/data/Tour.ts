@@ -16,6 +16,8 @@ import { TourTriggerSymbol } from "@altea/altea/data/tourTrigger";
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { DashboardEntity } from "@altea/altea-dashboard/data/Dashboard";
 import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
+import { CodeSyncMixin } from "@altea/altea-user-assets/data/AssetSync";
 
 // A guided walkthrough of a page: an ordered list of STEPS, each one a popover anchored to a CSS selector,
 // played by driver.js in the client.
@@ -33,6 +35,7 @@ import { UserQueryEntity } from "@altea/altea-user-queries/data/UserQuery";
 
 @primaryKey("uuid")
 @entity("Main", "Master")
+@mixin(() => [CodeSyncMixin])
 export class TourEntity extends Entity implements IUserAssetEntity {
 
     /** What this tour explains — a type's view, a dashboard, a user query, or a declared trigger. */

@@ -49,6 +49,8 @@ export namespace ToolbarClient {
         registerConfig(new QueryToolbarConfig());
 
         cb.configure(ToolbarEntity).withQuerySettings(token => ({
+            // Signum's ToolbarLogic WithQuery projection.
+            defaultColumns: [token(a => a.id), token(a => a.name), token(a => a.owner), token(a => a.priority)],
             defaultOrders: [{ token: token(a => a.priority), orderType: "Descending" }],
         }));
     }

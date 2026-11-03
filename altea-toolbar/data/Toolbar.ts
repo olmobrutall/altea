@@ -3,7 +3,7 @@ import { Entity } from "@altea/altea/data/entity";
 import { Lite } from "@altea/altea/data/lite";
 import {
     entity, part, primaryKey, backReference, rowOrder, implementedBy, uniqueIndex, format, unit, quoted,
-    legacyColumnName,
+    legacyColumnName, translatable,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, noRepeatValidator, StateValidator } from "@altea/altea/data/validators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
@@ -16,6 +16,8 @@ import { PermissionSymbol } from "@altea/altea/data/permissionSymbol";
 import { UserEntity } from "@altea/altea-auth/data/User";
 import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
+import { CodeSyncMixin } from "@altea/altea-user-assets/data/AssetSync";
 
 // Port of Signum.Toolbar's Toolbar.cs + ToolbarSwitcher.cs — see port/Toolbar.md.
 //
@@ -92,6 +94,7 @@ export abstract class ToolbarElementBaseEntity extends Entity {
                 ToolbarMessage.Label.niceToString(), ToolbarMessage.Content.niceToString())
             : null)
     @stringLengthValidator({ min: 1, max: 100 })
+    @translatable
     label: string | null;
 
     @stringLengthValidator({ min: 3, max: 100 })
@@ -173,6 +176,7 @@ export class ToolbarMenuEntity_Element extends ToolbarElementBaseEntity {
 
 @primaryKey("uuid")
 @entity("Main", "Master")
+@mixin(() => [CodeSyncMixin])
 export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarEntity {
 
     // AssertImplementedBy(User, Role) in logic. Whose toolbar this is
@@ -181,6 +185,7 @@ export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarE
     owner: Lite<Entity> | null;
 
     @stringLengthValidator({ max: 100 })
+    @translatable
     name: string;
 
     location: ToolbarLocation = ToolbarLocation.Side;
@@ -206,12 +211,14 @@ export class ToolbarEntity extends Entity implements IUserAssetEntity, IToolbarE
 // an entity type (then the menu shows an entity picker and its elements split into with-/without-entity).
 @primaryKey("uuid")
 @entity("Shared", "Master")
+@mixin(() => [CodeSyncMixin])
 export class ToolbarMenuEntity extends Entity implements IUserAssetEntity, IHasEntityType, IToolbarEntity {
 
     @implementedBy(() => [UserEntity, RoleEntity])
     owner: Lite<Entity> | null;
 
     @stringLengthValidator({ max: 100 })
+    @translatable
     name: string;
 
     @validate<ToolbarMenuEntity>(t => validateElements(t.elements))
@@ -234,11 +241,13 @@ export class ToolbarMenuEntity extends Entity implements IUserAssetEntity, IHasE
 // ToolbarMenus (a dropdown; the picked menu's elements render below it).
 @primaryKey("uuid")
 @entity("Shared", "Master")
+@mixin(() => [CodeSyncMixin])
 export class ToolbarSwitcherEntity extends Entity implements IUserAssetEntity, IToolbarEntity {
 
     // UNIQUE here only — Toolbar and ToolbarMenu names are not, in either framework.
     @uniqueIndex
     @stringLengthValidator({ max: 100 })
+    @translatable
     name: string;
 
     @implementedBy(() => [UserEntity, RoleEntity])

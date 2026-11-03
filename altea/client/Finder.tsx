@@ -2106,7 +2106,8 @@ export namespace Finder {
 
       var token = value.toString();
 
-      if (token == "Entity" && row.entity)
+      // The row's own entity: `token()` (rootless, "") or Signum's spelling "Entity".
+      if ((token == "Entity" || token == "") && row.entity)
         return row.entity;
 
       const index = columns.indexOf(token);

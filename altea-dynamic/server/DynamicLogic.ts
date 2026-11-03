@@ -2,7 +2,7 @@ import "@altea/altea/server";
 import type { SchemaBuilder } from "@altea/altea/server/schema";
 import { Schema } from "@altea/altea/server/schema/schema";
 import { Connector } from "@altea/altea/server/connection/connector";
-import { Administrator } from "@altea/altea/server/administrator";
+import { Administrator } from "@altea/altea/server/Administrator";
 import { ExceptionLogic } from "@altea/altea/server/exceptionLogic";
 import { ExceptionEntity } from "@altea/altea/data/exception";
 import { SafeConsole } from "@altea/altea/server/safeConsole";

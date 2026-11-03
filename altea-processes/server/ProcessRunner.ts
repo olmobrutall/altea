@@ -69,8 +69,12 @@ export namespace ProcessRunner {
         return Schema.current.machineName;
     }
 
+    // Signum's Schema.ApplicationName: set by the host (Seminarverwaltung passes its ServerName), else the
+    // ALTEA_APP_NAME environment variable.
+    let _applicationName: string | undefined;
+    export function setApplicationName(name: string | undefined): void { _applicationName = name; }
     export function applicationName(): string {
-        return process.env["ALTEA_APP_NAME"] ?? "eastwind";
+        return _applicationName ?? process.env["ALTEA_APP_NAME"] ?? "eastwind";
     }
 
     export function enableLog(enabled: boolean): void {

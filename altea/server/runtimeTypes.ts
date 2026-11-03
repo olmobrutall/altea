@@ -59,7 +59,7 @@ export class LiteType extends RuntimeType {
 // so the query layer can translate date-part access (`.year`, `.quarter()`, `.dayOfWeek`)
 // to SQL and dispatch date methods to the right prototype.
 export class TemporalType extends RuntimeType {
-    constructor(public readonly kind: "dateTime" | "date" | "duration") {
+    constructor(public readonly kind: "dateTime" | "date" | "time" | "duration") {
         super()
     }
 }

@@ -671,6 +671,18 @@ export class FieldInfo extends TypeReference {
         return this.#implicitNotNull ??= implicitNotNullValidatorFactory?.();
     }
 
+    /**
+     * Signum's `MemberInfo.Required` — what puts the `*` on a label and makes a line mandatory: a
+     * collection when it must have a row (`CountIsValidator.IsGreaterThanZero`), anything else when it
+     * cannot be null or carries a NotNullValidator (a `Date | null` field with @notNullValidator is
+     * required, as Signum's `[NotNullValidator] DateOnly?` is).
+     */
+    get isRequired(): boolean {
+        if (this.array)
+            return this.validators.some(v => v.isGreaterThanZero);
+        return !this.isNullable || this.validators.some(v => v.isNotNull);
+    }
+
     private computeNeedsImplicitNotNull(): boolean {
         if (this.isNullable) return false;
         // @backReference (owner FK) and @rowOrder (MList row index) are wired by the save cascade

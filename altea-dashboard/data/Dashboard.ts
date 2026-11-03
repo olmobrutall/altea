@@ -5,7 +5,7 @@ import { tryGetParentEntity } from "@altea/altea/data/parentEntity";
 import {
     column, entity, part, primaryKey, backReference, rowOrder, implementedBy, format, unit, quoted, legacyTableName, bindParent,
     legacyClassName,
-    legacyColumnName,
+    legacyColumnName, translatable,
 } from "@altea/altea/data/decorators";
 import { stringLengthValidator, validate, noRepeatValidator, countIsValidator, ComparisonType, numberIsValidator, ValidationMessage } from "@altea/altea/data/validators";
 import { type int, type uuid, toInt } from "@altea/altea/data/basics";
@@ -19,6 +19,8 @@ import { RoleEntity } from "@altea/altea-auth/data/Role";
 import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
 import { type IUserAssetEntity, type IHasEntityType } from "@altea/altea-user-assets/data/UserAssets";
 import { TextPartEntity, ImagePartEntity, SeparatorPartEntity, HealthCheckPartEntity, CustomPartEntity, ToolbarMenuPartEntity } from "./Parts";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
+import { CodeSyncMixin } from "@altea/altea-user-assets/data/AssetSync";
 
 // Port of Signum's Signum.Dashboard/DashboardEntity.cs + PanelPart.cs. A Dashboard is a user-authored,
 // XML-portable grid of PARTS (a saved query in a SearchControl, a chart, a big value, free text, …) laid out
@@ -96,6 +98,7 @@ export class DashboardEntity_Part extends Entity implements IGridEntity {
     @validate<DashboardEntity_Part>(p => !p.title && p.content?.requiresTitle()
         ? DashboardMessage.DashboardDN_TitleMustBeSpecifiedFor0.niceToString(p.content.toString()) : null)
     @stringLengthValidator({ min: 3, max: 100 })
+    @translatable
     title: string | null;
 
     hideTitle: boolean = false;
@@ -105,6 +108,7 @@ export class DashboardEntity_Part extends Entity implements IGridEntity {
     // multi-line text box; the stored value is still rendered as HTML by DashboardTooltipIcon.
     @column({ size: MAX_SIZE })
     @stringLengthValidator({ multiLine: true })
+    @translatable
     tooltip: string | null;
 
     @stringLengthValidator({ min: 3, max: 100 })
@@ -237,6 +241,7 @@ export class CacheQueryConfigurationEmbedded extends EmbeddedEntity {
 
 @primaryKey("uuid")
 @entity("Main", "Master")
+@mixin(() => [CodeSyncMixin])
 export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEntityType {
 
     // Signum's `Lite<TypeEntity>? EntityType` — the entity type this dashboard is a quick-link / embedded
@@ -261,6 +266,7 @@ export class DashboardEntity extends Entity implements IUserAssetEntity, IHasEnt
     @numberIsValidator(ComparisonType.GreaterThanOrEqualTo, 10)
     autoRefreshPeriod: int | null;
 
+    @translatable
     @stringLengthValidator({ min: 2, max: 200 })
     displayName: string;
 

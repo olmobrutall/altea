@@ -6,12 +6,14 @@ import {
 } from "@altea/altea/data/dynamicQueries";
 import { UserAssetsImporter, syncRows, rowGuid } from "@altea/altea-user-assets/server/UserAssetsImportExport";
 import type { IToXmlContext, IFromXmlContext } from "@altea/altea-user-assets/server/UserAssetsImportExport";
-import { QueryTokenEmbedded } from "@altea/altea-user-assets/data/Queries";
+import { str, bool, num, first, list, token, sameBytes, A, arr } from "@altea/altea-user-assets/server/XmlUtils";
 import { CultureInfoLogic } from "@altea/altea/server/cultureInfoLogic";
 import { cultureNameOf } from "@altea/altea/data/cultureInfoEntity";
 import { CultureInfo } from "@altea/altea/data/utils/cultureInfo";
 import { TemplateApplicableEval } from "@altea/altea-templating/data/Templating";
 import { FileEntity } from "@altea/altea-files/data/Files";
+import type { Symbol } from "@altea/altea/data/symbol";
+import type { Type } from "@altea/altea/data/entity";
 import {
     OfficeConverterSymbol, OfficeTemplateEntity, OfficeTemplateEntity_Filter, OfficeTemplateEntity_Order,
     OfficeTransformerSymbol,
@@ -34,12 +36,10 @@ import { OfficeModelLogic } from "./OfficeModelLogic";
 //  - `Applicable` was a C# SCRIPT element in Signum; the TemplateApplicableSymbol's KEY is exported
 //    instead. A file carrying a script imports with the predicate left unset — the template then applies
 //    to everything, which is the safe reading (the same call EmailTemplateXml made).
-//  - `Template` is a `Lite<FileEntity>` Signum resolves through the export SET; the bytes are written
-//    base64 INSIDE the element instead — which is what Signum's FileEntity element holds anyway, so a
-//    file round-trips.
+//  - `Template` is a `Lite<FileEntity>` Signum resolves through the export SET; the bytes go through
+//    `ctx.binary` instead — base64 inside the element in a one-file export (what Signum's FileEntity
+//    element holds anyway, so a file round-trips), a sidecar file in a sync folder.
 //  - An enum attribute keeps the member NAME (`Enum.toName`); the in-memory value is the ORDINAL.
-
-const A = "@_"; // fast-xml-parser attribute prefix
 
 export function registerOfficeTemplateXml(): void {
     UserAssetsImporter.register<OfficeTemplateEntity>({
@@ -52,7 +52,7 @@ export function registerOfficeTemplateXml(): void {
     });
 }
 
-function templateToXml(ot: OfficeTemplateEntity, _ctx: IToXmlContext): Record<string, unknown> {
+function templateToXml(ot: OfficeTemplateEntity, ctx: IToXmlContext): Record<string, unknown> {
     const o: Record<string, unknown> = {};
     o[A + "Name"] = ot.name;
     o[A + "DisableAuthorization"] = ot.disableAuthorization;
@@ -72,7 +72,7 @@ function templateToXml(ot: OfficeTemplateEntity, _ctx: IToXmlContext): Record<st
     // The template document itself.
     if (ot.template != null) o["Template"] = {
         [A + "FileName"]: ot.template.fileName,
-        "#text": base64Of(ot.template.binaryFile),
+        ...ctx.binary.write(ot.template.fileName, ot.template.binaryFile ?? new Uint8Array()),
     };
 
     return o;
@@ -80,11 +80,11 @@ function templateToXml(ot: OfficeTemplateEntity, _ctx: IToXmlContext): Record<st
 
 async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unknown>, ctx: IFromXmlContext): Promise<void> {
     ot.name = str(xml[A + "Name"])!;
-    ot.disableAuthorization = bool(xml[A + "DisableAuthorization"]) ?? false;
+    ot.disableAuthorization = bool(xml[A + "DisableAuthorization"]);
     ot.query = xml[A + "Query"] != undefined ? ctx.getQuery(str(xml[A + "Query"])!) : null;
     ot.culture = (await CultureInfoLogic.getCulture(str(xml[A + "Culture"]) ?? CultureInfo.defaultUICulture())).toLite();
     ot.fileName = str(xml[A + "FileName"])!;
-    ot.groupResults = bool(xml[A + "GroupResults"]) ?? false;
+    ot.groupResults = bool(xml[A + "GroupResults"]);
 
     // A model is only resolvable when the importing database registered it; an unknown one leaves the
     // template query-driven rather than failing the whole import (Signum throws — see the note below).
@@ -98,10 +98,10 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
         }
     }
 
-    ot.officeTransformer = symbolOr(OfficeTransformerSymbol, str(xml[A + "OfficeTransformer"]));
-    ot.officeConverter = symbolOr(OfficeConverterSymbol, str(xml[A + "OfficeConverter"]));
+    ot.officeTransformer = symbolOr(ctx, OfficeTransformerSymbol, str(xml[A + "OfficeTransformer"]));
+    ot.officeConverter = symbolOr(ctx, OfficeConverterSymbol, str(xml[A + "OfficeConverter"]));
 
-    ot.filters = syncRows(ot.filters ?? [], list(asRecord(xml["Filters"])?.["Filter"]),
+    ot.filters = syncRows(ot.filters ?? [], arr(xml["Filters"], "Filter"),
         () => new OfficeTemplateEntity_Filter(), (f, x) => {
             f.indentation = toInt(num(x[A + "Indentation"]) ?? 0);
             if (x[A + "GroupOperation"] != undefined) {
@@ -116,13 +116,13 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
             // that shared one filter type with its user queries may still carry it.
         });
 
-    ot.orders = list(asRecord(xml["Orders"])?.["Orden"]).map(x => {
-        const o = OfficeTemplateEntity_Order.create({
-            token: token(str(x[A + "Token"])!),
-            orderType: Enum.toValue(OrderType, str(x[A + "OrderType"]) as never),
+    // No Guid per order (an int-PK row): syncRows matches by position, so an unchanged row is REUSED and
+    // keeps its snapshot — a fresh row would read as a change in every preview.
+    ot.orders = syncRows(ot.orders ?? [], arr(xml["Orders"], "Orden"),
+        () => new OfficeTemplateEntity_Order(), (o, x) => {
+            o.token = token(str(x[A + "Token"])!);
+            o.orderType = Enum.toValue(OrderType, str(x[A + "OrderType"]) as never);
         });
-        return o;
-    });
 
     // `<Applicable><![CDATA[script]]></Applicable>`, round-tripped VERBATIM. A file written by
     // SIGNUM carries C#, which will not compile here — but it imports, and the error lands on the script
@@ -131,12 +131,14 @@ async function templateFromXml(ot: OfficeTemplateEntity, xml: Record<string, unk
     ot.applicable = applicableScript == undefined ? null
         : TemplateApplicableEval.create({ script: applicableScript });
 
-    const template = asRecord(xml["Template"]);
+    // A FileEntity is IMMUTABLE, so a changed document is a NEW file — but an unchanged one keeps the row it
+    // has: a new FileEntity would read as a change in every preview, and an import would orphan the old one.
+    const template = first(xml["Template"]);
     if (template != undefined) {
-        ot.template = FileEntity.create({
-            fileName: str(template[A + "FileName"]) ?? "template.docx",
-            binaryFile: bytesOf(str(template["#text"]) ?? ""),
-        });
+        const fileName = str(template[A + "FileName"]) ?? "template.docx";
+        const binaryFile = ctx.binary.read(template);
+        if (ot.template == null || ot.template.fileName !== fileName || !sameBytes(ot.template.binaryFile, binaryFile))
+            ot.template = FileEntity.create({ fileName, binaryFile });
     }
 }
 
@@ -160,51 +162,12 @@ function orderXml(o: OfficeTemplateEntity_Order): Record<string, unknown> {
     return { [A + "Token"]: o.token.tokenString, [A + "OrderType"]: Enum.toName(OrderType, o.orderType) };
 }
 
-function token(tokenString: string): QueryTokenEmbedded {
-    return QueryTokenEmbedded.create({ tokenString });
-}
-
 /**
- * A symbol referenced by KEY. An unknown key leaves the field unset rather than failing the import: a
- * transformer / converter / applicable predicate is CODE-registered, so a file may legitimately name one
- * this database does not have, and the template is still usable without it.
+ * A symbol referenced by KEY, resolved to its persisted row (an id-less stand-in reads as a change in every
+ * preview, and cannot be saved). An unknown key leaves the field unset rather than failing the import: a
+ * transformer / converter is CODE-registered, so a file may legitimately name one this database does not
+ * have, and the template is still usable without it.
  */
-function symbolOr<T extends { key: string }>(ctor: new () => T, key: string | undefined): T | null {
-    if (key == undefined)
-        return null;
-    const symbol = new ctor();
-    (symbol as { key: string }).key = key;
-    return symbol;
-}
-
-function base64Of(bytes: Uint8Array | null | undefined): string {
-    return bytes == null ? "" : Buffer.from(bytes).toString("base64");
-}
-
-function bytesOf(base64: string): Uint8Array {
-    return new Uint8Array(Buffer.from(base64, "base64"));
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-    return typeof value === "object" && value != null && !Array.isArray(value)
-        ? value as Record<string, unknown>
-        : undefined;
-}
-
-function list(value: unknown): Record<string, unknown>[] {
-    if (value == null) return [];
-    const array = Array.isArray(value) ? value : [value];
-    return array.map(v => typeof v === "object" && v != null ? v as Record<string, unknown> : { "#text": v });
-}
-
-function str(value: unknown): string | undefined {
-    return value == null ? undefined : String(value);
-}
-
-function num(value: unknown): number | undefined {
-    return value == null ? undefined : Number(value);
-}
-
-function bool(value: unknown): boolean | undefined {
-    return value == null ? undefined : value === true || value === "true" || value === "True";
+function symbolOr<T extends Symbol>(ctx: IFromXmlContext, ctor: Type<T>, key: string | undefined): T | null {
+    return key == undefined ? null : ctx.symbols.tryToSymbol(ctor, key) ?? null;
 }

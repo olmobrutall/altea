@@ -442,7 +442,7 @@ BEGIN
                 EXECUTE format('DROP SCHEMA %I;', r.nspname);
         END LOOP;
 END; $$;`;
-    }
+}
 }
 
 /** The database a libpq connection string names — the URI's path, or its `dbname=` keyword. */

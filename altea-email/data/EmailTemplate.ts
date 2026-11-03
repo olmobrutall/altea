@@ -22,6 +22,8 @@ import { QueryTokenEmbedded, QueryFilterBaseEntity } from "@altea/altea-user-ass
 import type { IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { ModelConverterSymbol, TemplateApplicableEval, type IContainsQuery } from "@altea/altea-templating/data/Templating";
 import { EmailModelEntity, EmailRecipientKind } from "./Email";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
+import { CodeSyncMixin } from "@altea/altea-user-assets/data/AssetSync";
 
 // Port of Signum.Mailing's Templates/EmailTemplate.cs + EmailMasterTemplate.cs + ImageAttachmentEntity.cs +
 // FileTokenAttachmenEntity.cs: the AUTHORED side of the module — what a message will look like, whom it
@@ -210,6 +212,7 @@ export class EmailMasterTemplateEntity_Attachment extends Entity {
 // spliced into at `@[content]`.
 @primaryKey("uuid")
 @entity("Main", "Master")
+@mixin(() => [CodeSyncMixin])
 export class EmailMasterTemplateEntity extends Entity implements IUserAssetEntity {
     @uniqueIndex
     @stringLengthValidator({ min: 3, max: 100 })
@@ -417,6 +420,7 @@ export class EmailTemplateEntity_Message extends Entity {
 // Signum's EmailTemplateEntity.
 @primaryKey("uuid")
 @entity("Main", "Master")
+@mixin(() => [CodeSyncMixin])
 export class EmailTemplateEntity extends Entity implements IUserAssetEntity, IContainsQuery {
     @uniqueIndex
     @stringLengthValidator({ min: 3, max: 100 })

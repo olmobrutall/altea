@@ -21,6 +21,8 @@ import {
     WorkflowActivityEntity, WorkflowActivityModel, WorkflowConnectionModel, WorkflowEventEntity,
     WorkflowEventModel, WorkflowGatewayModel, WorkflowLaneModel, WorkflowPoolModel, type WorkflowLaneEntity,
 } from "./WorkflowNodes";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
+import { CodeSyncMixin } from "@altea/altea-user-assets/data/AssetSync";
 
 // Port of Signum.Workflow's Workflow.cs (+ WorkflowConfiguration.cs) — the ROOT of the module's model. A
 // WORKFLOW is a BPMN diagram, stored twice over: once as ENTITIES (the pools / lanes / activities / events /
@@ -101,6 +103,7 @@ export class WorkflowEntity_MainEntityStrategy extends Entity {
 
 @primaryKey("uuid")
 @entity("Main", "Master")
+@mixin(() => [CodeSyncMixin])
 export class WorkflowEntity extends Entity implements IUserAssetEntity {
 
     @uniqueIndex

@@ -59,9 +59,9 @@ export namespace OfficeClient {
                     token(t => t.id),
                     token(t => t.name),
                     token(t => t.query),
-                    token(t => t.model),
                     token(t => t.culture),
-                    token(t => t.fileName),
+                    // Signum's `e.Template!.Entity.FileName`: the template document, not the output name.
+                    token(t => t.template.fileName),
                 ],
             }));
 

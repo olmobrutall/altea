@@ -117,12 +117,15 @@ export namespace PropertyRouteTranslationLogic {
      * one that reads its cache for the current UI culture; the default returns the fallback, which is
      * what makes every call site safe with the module absent.
      */
-    export let translatedFieldFunc: (lite: Lite<Entity>, route: PropertyRoute, fallback: string | null) => string | null =
+    export let translatedFieldFunc: (lite: Lite<Entity>, route: PropertyRoute, fallback: string | null, rowId?: string | null) => string | null =
         (_lite, _route, fallback) => fallback;
 
-    /** Signum's `TranslatedField(lite, route, fallbackString)`. */
-    export function translatedField(lite: Lite<Entity>, route: PropertyRoute, fallback: string | null): string | null {
-        return translatedFieldFunc(lite, route, fallback);
+    /**
+     * Signum's `TranslatedField(lite, route, fallbackString)`. `rowId` is Signum's `TranslatedMList` /
+     * `TranslatedElement` half: for a route through a collection (`Elements/Label`), which row's text.
+     */
+    export function translatedField(lite: Lite<Entity>, route: PropertyRoute, fallback: string | null, rowId?: string | null): string | null {
+        return translatedFieldFunc(lite, route, fallback, rowId);
     }
 
     /**
@@ -132,12 +135,12 @@ export namespace PropertyRouteTranslationLogic {
      * as help text without a round-trip. @altea/altea-translations calls it from its start.
      */
     export function installSerializerHook(): void {
-        setTranslatedFieldProvider((entity, route) => {
+        setTranslatedFieldProvider((entity, route, rowId) => {
             if (!isActivated || entity.isNew)
                 return undefined;
             if (translateableRoutes.get(route.rootType)?.has(route.propertyString()) !== true)
                 return undefined;
-            return translatedFieldFunc(entity.toLite(), route, null);
+            return translatedFieldFunc(entity.toLite(), route, null, rowId);
         });
     }
 }

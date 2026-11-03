@@ -6,7 +6,7 @@ import { TypeReference } from "../../data/reflection";
 import { Expression, ParameterExpression } from "../linq/expressions";
 import { ExpressionVisitor } from "../linq/visitors/ExpressionVisitor";
 import { QueryToken, entityCtorOf, expressionSourceKeyOf } from "../../data/dynamicQuery/tokens";
-import { extractEntity } from "./tokenExpressions";
+import { extractEntity, buildLite } from "./tokenExpressions";
 import { ExtensionToken, IndexerContainerToken, type ExtensionInfo, type IndexerInfo, type IndexerKey } from "../../data/dynamicQuery/tokens";
 import { ConstantExpression } from "../linq/expressions";
 import { Meta, CleanMeta } from "./meta";
@@ -272,7 +272,10 @@ export class ExpressionContainer {
         const param = bound.parameters[0];
         // Adapt the parent to the lambda's entity parameter (a lite parent → its entity).
         const pe = parentExpression.type instanceof LiteType ? extractEntity(parentExpression, false) : parentExpression;
-        return new ParameterReplacer(param, pe).visit(bound.body);
+        // An expression returning an ENTITY projects as its lite, as Signum's BuildExtension does
+        // (BuildLiteNullifyUnwrapPrimaryKey): a column is a reference, not the whole graph, and a sub-token
+        // unwraps it again through extractEntity.
+        return buildLite(new ParameterReplacer(param, pe).visit(bound.body));
     }
 }
 

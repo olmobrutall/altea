@@ -12,6 +12,8 @@ import {
 } from "./expressions.sql";
 import { EnumType, LiteralType, TemporalType, TsVectorType, TsQueryType, RuntimeType } from "../runtimeTypes";
 import { enumEntityMembers } from "../../data/enumEntity";
+import { CultureInfo } from "../../data/utils/cultureInfo";
+import { shortDateFormat } from "../../data/globals/dateTimeExtensions";
 import { DbExpressionVisitor } from "./visitors/DbExpressionVisitor";
 
 // A since() difference marker — a SqlFunctionExpression carrying (start, end) until
@@ -702,6 +704,7 @@ class DbExpressionNominator extends DbExpressionVisitor {
     // / a cast.
     private translateDateMethod(name: string, source: Expression, args: readonly Expression[]): Expression | undefined {
         switch (name) {
+            case "toShortDateString": return args.length === 0 ? this.shortDateString(source) : undefined;
             case "quarter": return this.datePartFn("quarter", "quarter", source);
             // ISO-8601 week, so the two dialects and the in-memory body all answer the same number:
             // Postgres `week` already is ISO, SQL Server's plain `week` is not (week 1 holds Jan 1 and
@@ -956,6 +959,20 @@ class DbExpressionNominator extends DbExpressionVisitor {
     }
 
     // DATEPART(<kw>, x) on SQL Server; EXTRACT(<kw> from x) on Postgres → number.
+    // Signum's GetFormatToString(m, "d"): SQL Server's FORMAT takes the .NET format and culture as they are;
+    // Postgres' to_char needs the culture's pattern spelled out (DD.MM.YYYY), read off Intl. The culture is
+    // the one the query is translated in, as in Signum (CultureInfo.CurrentCulture).
+    private shortDateString(source: Expression): SqlFunctionExpression {
+        const culture = CultureInfo.currentCulture();
+        if (!this.isPostgres)
+            return this.sqlFunction(LiteralType.string, "FORMAT", source,
+                new SqlConstantExpression("d", LiteralType.string), new SqlConstantExpression(culture, LiteralType.string));
+        const pattern = shortDateFormat(culture).formatToParts(new Date(2000, 0, 2))
+            .map(p => p.type === "day" ? "DD" : p.type === "month" ? "MM" : p.type === "year" ? "YYYY" : p.value)
+            .join("");
+        return this.sqlFunction(LiteralType.string, "to_char", source, new SqlConstantExpression(pattern, LiteralType.string));
+    }
+
     private datePartFn(ss: string, pg: string, source: Expression): SqlFunctionExpression {
         return this.isPostgres
             ? this.sqlFunction(LiteralType.number, "EXTRACT", new SqlLiteralExpression(pg), source)

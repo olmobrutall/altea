@@ -7,12 +7,15 @@ import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { type IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
 import type { IWorkflowTimerConditionEvaluator } from "./WorkflowEval";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
+import { CodeSyncMixin } from "@altea/altea-user-assets/data/AssetSync";
 
 // Port of Signum.Workflow's WorkflowTimerCondition.cs — a NAMED "has this timer fired?" predicate, an
 // alternative to a fixed duration on a timer event. Same two divergences as WorkflowCondition.ts.
 
 @primaryKey("uuid")
 @entity("Shared", "Master")
+@mixin(() => [CodeSyncMixin])
 export class WorkflowTimerConditionEntity extends Entity implements IUserAssetEntity {
 
     @uniqueIndex

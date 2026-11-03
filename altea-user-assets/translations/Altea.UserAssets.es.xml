@@ -1,5 +1,26 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Translations>
+  <Type Name="CodeSyncMessage">
+    <Member Name="_0References1WhichHasNoSyncFolder" Description="{0} hace referencia a {1}, que no tiene carpeta de sincronización" />
+    <Member Name="APersonalAssetInASyncFolderWillBeOwnedByTheSameUserInEveryEnvironment" Description="Un recurso personal en una carpeta de sincronización pertenecerá al mismo usuario en todos los entornos, donde puede que ese usuario no exista." />
+    <Member Name="ControlledByCode" Description="Controlado por código" />
+    <Member Name="DownloadZip" Description="Descargar zip" />
+    <Member Name="InSyncWithCode" Description="Sincronizado con el código" />
+    <Member Name="ModifiedInTheDatabase" Description="Modificado en la base de datos" />
+    <Member Name="NoFileForThisAssetIn0" Description="No hay ningún fichero para este recurso en {0}" />
+    <Member Name="TheAssetHasNoSyncFolder" Description="El recurso no tiene carpeta de sincronización" />
+  </Type>
+  <Type Name="CodeSyncMixin">
+    <Member Name="CodeSyncState" Description="Estado de sincronización" />
+    <Member Name="SyncFolder" Description="Carpeta de sincronización" />
+  </Type>
+  <Type Name="CodeSyncOperation">
+    <Member Name="DiscardDbChanges" Description="Descartar los cambios de la base de datos" />
+  </Type>
+  <Type Name="CodeSyncState" Description="Estado de sincronización">
+    <Member Name="InSync" Description="Sincronizado" />
+    <Member Name="ModifiedInDb" Description="Modificado en la base de datos" />
+  </Type>
   <Type Name="EntityAction" Description="Acción de la entidad">
     <Member Name="Different" Description="Diferentes" />
     <Member Name="Identical" Description="Idénticas" />
@@ -27,6 +48,13 @@
   </Type>
   <Type Name="QueryTokenEmbedded" Description="Token de consulta">
     <Member Name="TokenString" Description="Cadena del token" />
+  </Type>
+  <Type Name="SyncFolderEntity" Description="Carpeta de sincronización" PluralDescription="Carpetas de sincronización" Gender="f">
+    <Member Name="Name" Description="Nombre" />
+  </Type>
+  <Type Name="SyncFolderOperation">
+    <Member Name="Save" Description="Guardar" />
+    <Member Name="SyncFromCode" Description="Sincronizar desde el código" />
   </Type>
   <Type Name="TokenMigrationEntity" Description="Migración de tokens">
     <Member Name="Comment" Description="Comentario" />

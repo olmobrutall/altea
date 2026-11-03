@@ -7,6 +7,8 @@ import { TypeEntity } from "@altea/altea/data/typeEntity";
 import { type IUserAssetEntity } from "@altea/altea-user-assets/data/UserAssets";
 import { EvalEmbedded, type CompilationResult } from "@altea/altea-eval/data/Eval";
 import type { IWorkflowConditionEvaluator } from "./WorkflowEval";
+import { mixin } from "@altea/altea/data/mixinDeclarations";
+import { CodeSyncMixin } from "@altea/altea-user-assets/data/AssetSync";
 
 // Port of Signum.Workflow's WorkflowCondition.cs — a NAMED predicate a connection can be guarded by.
 //
@@ -18,6 +20,7 @@ import type { IWorkflowConditionEvaluator } from "./WorkflowEval";
 
 @primaryKey("uuid")
 @entity("Shared", "Master")
+@mixin(() => [CodeSyncMixin])
 export class WorkflowConditionEntity extends Entity implements IUserAssetEntity {
 
     @uniqueIndex

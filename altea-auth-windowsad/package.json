@@ -20,7 +20,8 @@
     }
   },
   "scripts": {
-    "build": "tspc -b"
+    "build": "tspc -b",
+    "test": "tspc -b && vitest run"
   },
   "keywords": [],
   "author": "Olmo del Corral",
@@ -31,5 +32,8 @@
     "@altea/altea-scheduler": "workspace:*",
     "ldapts": "^7.4.0",
     "quote-transformer": "workspace:*"
+  },
+  "optionalDependencies": {
+    "kerberos": "^7.0.0"
   }
 }
